@@ -15,8 +15,10 @@ class HST_PlayerState
 	string m_sIdentityId;
 	bool m_bMember;
 	bool m_bAdmin;
+	bool m_bGuest = true;
 	int m_iMoney;
 	int m_iRank;
+	int m_iLastSeenPlayerId = -1;
 }
 
 [BaseContainerProps()]
@@ -24,7 +26,10 @@ class HST_ZoneState
 {
 	string m_sZoneId;
 	string m_sOwnerFactionKey;
+	HST_EZoneType m_eType;
 	int m_iSupport;
+	int m_iIncomeValue;
+	int m_iGarrisonSlots;
 	bool m_bActive;
 }
 
@@ -95,6 +100,8 @@ class HST_CampaignState
 	int m_iWarLevel = 1;
 	int m_iFactionMoney = 1000;
 	int m_iHR = 20;
+	int m_iTrainingLevel = 1;
+	int m_iIncomeAccumulatorSeconds;
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
@@ -163,6 +170,17 @@ class HST_CampaignState
 		{
 			if (vehicle.m_sVehicleId == vehicleId)
 				return vehicle;
+		}
+
+		return null;
+	}
+
+	HST_GarrisonState FindGarrison(string zoneId, string factionKey)
+	{
+		foreach (HST_GarrisonState garrison : m_aGarrisons)
+		{
+			if (garrison.m_sZoneId == zoneId && garrison.m_sFactionKey == factionKey)
+				return garrison;
 		}
 
 		return null;

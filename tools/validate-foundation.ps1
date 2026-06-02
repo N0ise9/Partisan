@@ -74,15 +74,15 @@ $requiredRuntimeScaffold = @(
 	'Prefabs/MP/Managers/Factions/FactionManager_USxUSSR.et',
 	'SCR_FactionAliasComponent',
 	'm_sAlias "PLAYERS"',
-	'm_sFactionKey "FIA"',
+	'm_sFactionKey "RHS_USAF"',
 	'm_sAlias "OPFOR"',
 	'm_sFactionKey "RHS_AFRF"',
 	'Configs/Factions/FIA_Campaign.conf',
 	'Configs/Factions/CIV.conf',
 	'Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et',
 	'm_aPlayerLoadouts',
-	'SCR_PlayerArsenalLoadout',
-	'm_sAffiliatedFaction "FIA"',
+	'SCR_FactionPlayerLoadout',
+	'm_sAffiliatedFaction "RHS_USAF"',
 	'Prefabs/Systems/Radio/RadioManager.et',
 	'Prefabs/MP/ScriptedChatEntity.et'
 )
@@ -106,6 +106,10 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Runtime layer must not depend on authored reference-world navmesh overrides: $runtimeLayer"
 	}
 
+	if ($text -match "\bSCR_PlayerArsenalLoadout\b" -or $text -match 'm_sAffiliatedFaction "FIA"') {
+		throw "Runtime layer must use RHS_USAF role-selection loadouts for the temporary deploy harness: $runtimeLayer"
+	}
+
 	foreach ($requiredLoadout in $requiredBootstrapLoadouts) {
 		if ($text -notmatch [regex]::Escape($requiredLoadout)) {
 			throw "Missing bootstrap player loadout in ${runtimeLayer}: $requiredLoadout"
@@ -115,6 +119,11 @@ foreach ($runtimeLayer in $runtimeLayers) {
 	$bootstrapLoadoutCount = ([regex]::Matches($text, "Loadout_USAF_[A-Za-z0-9_]+\.conf")).Count
 	if ($bootstrapLoadoutCount -lt $requiredBootstrapLoadouts.Count) {
 		throw "Bootstrap loadout list is empty or incomplete in ${runtimeLayer}"
+	}
+
+	$bootstrapAffiliationCount = ([regex]::Matches($text, 'm_sAffiliatedFaction "RHS_USAF"')).Count
+	if ($bootstrapAffiliationCount -lt $requiredBootstrapLoadouts.Count) {
+		throw "Bootstrap player loadouts must be explicitly affiliated with RHS_USAF in ${runtimeLayer}"
 	}
 }
 Write-Host "World runtime scaffold OK"
@@ -129,15 +138,38 @@ foreach ($startingPointLayer in $startingPointLayers) {
 	}
 
 	$text = Get-Content -Raw $startingPointLayer
+	if ($text -match '"faction affiliation" "FIA"') {
+		throw "Starting point layer must keep FIA out of the temporary deploy harness: $startingPointLayer"
+	}
+
 	foreach ($requiredEntry in @(
 		"Prefabs/Systems/MilitaryBase/ConflictMilitaryBase.et",
 		"SCR_CampaignMilitaryBaseComponent",
 		"SCR_CampaignSpawnPointGroup",
-		'"faction affiliation" "FIA"'
+		'"faction affiliation" "RHS_USAF"',
+		"Prefabs/Systems/ScenarioFramework/Components/Area.et",
+		"Prefabs/Systems/ScenarioFramework/Components/Layer.et",
+		"Prefabs/Systems/ScenarioFramework/Components/Slot.et",
+		"SCR_ScenarioFrameworkPluginSpawnPoint",
+		'PrefabsEditable/SpawnPoints/E_SpawnPoint_US_USMC.et',
+		'm_sFactionKey "PLAYERS"',
+		'm_sFactionKey "RHS_USAF"',
+		'm_sFaction "RHS_USAF"',
+		"m_bExcludeFromDynamicDespawn 1"
 	)) {
 		if ($text -notmatch [regex]::Escape($requiredEntry)) {
 			throw "Missing HQ spawn entry in ${startingPointLayer}: $requiredEntry"
 		}
+	}
+
+	$expectedSpawnpoints = 1
+	if ($startingPointLayer -match "HST_Everon") {
+		$expectedSpawnpoints = 3
+	}
+
+	$spawnpointCount = ([regex]::Matches($text, "SCR_ScenarioFrameworkPluginSpawnPoint")).Count
+	if ($spawnpointCount -lt $expectedSpawnpoints) {
+		throw "Expected at least $expectedSpawnpoints Scenario Framework deploy spawnpoints in ${startingPointLayer}, found $spawnpointCount"
 	}
 }
 Write-Host "Playable HQ starting points OK"
@@ -145,6 +177,11 @@ Write-Host "Playable HQ starting points OK"
 $defaultCatalog = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c"
 $missionConfig = Get-Content -Raw "Configs/HST/Missions/HST_CE311_Missions.conf"
 $mapConfig = Get-Content -Raw "Configs/HST/Maps/HST_Everon.conf"
+
+if ($defaultCatalog -notmatch 'preset\.m_sResistanceFactionKey = "FIA"' -or $defaultCatalog -notmatch 'preset\.m_sOccupierFactionKey = "RHS_USAF"') {
+	throw "Campaign catalog must keep FIA as the resistance while RHS_USAF remains the occupier"
+}
+Write-Host "Campaign faction identity OK"
 
 $runtimeMissions = @([regex]::Matches($defaultCatalog, 'NewMission\("([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 $configMissions = @([regex]::Matches($missionConfig, 'm_sMissionId "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
@@ -178,6 +215,37 @@ if ($missingSymbols.Count -gt 0) {
 	throw "Potential undefined script symbols:`n$($missingSymbols -join "`n")"
 }
 Write-Host "Script symbol references OK: $($definedSymbols.Count)"
+
+foreach ($requiredService in @(
+	"HST_PlayerLifecycleService",
+	"HST_TownService",
+	"HST_GarrisonService",
+	"HST_RecruitmentService",
+	"HST_ZoneCaptureService"
+)) {
+	if ($requiredService -notin $definedSymbols) {
+		throw "Missing Antistasi framework service: $requiredService"
+	}
+}
+
+foreach ($requiredCoordinatorEntry in @(
+	"RegisterConnectedPlayer",
+	"CaptureZoneForResistance",
+	"CompleteMission",
+	"FailMission",
+	"ApplyIncomeNow",
+	"AddAbstractGarrison",
+	"FoldGarrisonSurvivors",
+	"TrainTroops",
+	"RecruitResistanceGarrison",
+	"AwardFactionResources",
+	"AwardPlayerResources"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCoordinatorEntry)) {
+		throw "Missing coordinator dev/framework entry point: $requiredCoordinatorEntry"
+	}
+}
+Write-Host "Antistasi framework service spine OK"
 
 $codeWithoutEnumDeclarations = [regex]::Replace($codeOnly, "(?s)enum\s+HST_[A-Za-z0-9_]+\s*\{.*?\}", "")
 $unscopedEnumReferences = @([regex]::Matches($codeWithoutEnumDeclarations, "(?<!\.)\bHST_(?:CAMPAIGN|ZONE|MISSION)_[A-Z_]+\b") |

@@ -72,7 +72,7 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
     }
     SCR_ScenarioFrameworkFactionAliasConfig "{665883DF53587B40}" {
      m_sAlias "PLAYERS"
-     m_sFactionKey "FIA"
+     m_sFactionKey "RHS_USAF"
     }
    }
   }
@@ -102,21 +102,22 @@ SCR_LoadoutManager HST_LoadoutManager : "{AA4E7419A1FF65B0}Prefabs/MP/Managers/L
  coords 6200 0 6200
  m_aPlayerLoadouts {
   SCR_FactionPlayerLoadout "{6985327711302201}" : "{0C9BA30F15BD9776}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Rifleman.conf" {
+   m_sAffiliatedFaction "RHS_USAF"
   }
   SCR_FactionPlayerLoadout "{6985327711302202}" : "{A732EB4447EE71C5}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_AR.conf" {
+   m_sAffiliatedFaction "RHS_USAF"
   }
   SCR_FactionPlayerLoadout "{6985327711302203}" : "{7D089092FB6C978B}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_GL.conf" {
+   m_sAffiliatedFaction "RHS_USAF"
   }
   SCR_FactionPlayerLoadout "{6985327711302204}" : "{80A0104504C3F333}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Medic.conf" {
+   m_sAffiliatedFaction "RHS_USAF"
   }
   SCR_FactionPlayerLoadout "{6985327711302205}" : "{605644D781CD83D5}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_LAT.conf" {
+   m_sAffiliatedFaction "RHS_USAF"
   }
   SCR_FactionPlayerLoadout "{6985327711302206}" : "{22568FFAEBA478BB}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Sniper.conf" {
-  }
-  SCR_PlayerArsenalLoadout "{6985327711302210}" {
-   m_sLoadoutName "h-istasi FIA bootstrap"
-   m_sLoadoutResource "{C8A52273222448C0}Prefabs/Characters/Campaign/RHS/Coop/Campaign_USMC_Base.et"
-   m_sAffiliatedFaction "FIA"
+   m_sAffiliatedFaction "RHS_USAF"
   }
  }
 }

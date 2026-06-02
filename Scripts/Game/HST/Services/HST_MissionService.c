@@ -79,16 +79,44 @@ class HST_MissionService
 		return false;
 	}
 
-	void Tick(HST_CampaignState state, HST_CampaignPreset preset, int elapsedSeconds)
+	bool Fail(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, string instanceId)
 	{
+		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
+		{
+			if (activeMission.m_sInstanceId != instanceId || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+
+			HST_MissionDefinition definition = FindDefinition(activeMission.m_sMissionId);
+			if (!definition)
+				return false;
+
+			activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;
+			economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
+			return true;
+		}
+
+		return false;
+	}
+
+	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, int elapsedSeconds)
+	{
+		bool changed;
 		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
 		{
 			if (activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
 
 			activeMission.m_iRemainingSeconds = Math.Max(0, activeMission.m_iRemainingSeconds - elapsedSeconds);
-			if (activeMission.m_iRemainingSeconds == 0)
-				activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
+			if (activeMission.m_iRemainingSeconds > 0)
+				continue;
+
+			HST_MissionDefinition definition = FindDefinition(activeMission.m_sMissionId);
+			activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
+			changed = true;
+			if (definition)
+				economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
 		}
+
+		return changed;
 	}
 }

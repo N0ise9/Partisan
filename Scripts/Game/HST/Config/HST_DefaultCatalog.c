@@ -52,22 +52,22 @@ class HST_DefaultCatalog
 
 	static void AddDefaultZones(HST_CampaignState state, HST_CampaignPreset preset)
 	{
-		state.m_aZones.Insert(NewZoneState("town_saint_pierre", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("town_provins", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("town_entre_deux", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("town_chotain", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("town_montignac", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("town_laruns", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("town_levie", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("outpost_north", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("outpost_south", preset.m_sInvaderFactionKey));
-		state.m_aZones.Insert(NewZoneState("airfield_main", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("seaport_main", preset.m_sInvaderFactionKey));
-		state.m_aZones.Insert(NewZoneState("factory_central", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("resource_north", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("resource_south", preset.m_sInvaderFactionKey));
-		state.m_aZones.Insert(NewZoneState("radio_north", preset.m_sOccupierFactionKey));
-		state.m_aZones.Insert(NewZoneState("radio_south", preset.m_sInvaderFactionKey));
+		state.m_aZones.Insert(NewZoneState("town_saint_pierre", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 80, 12));
+		state.m_aZones.Insert(NewZoneState("town_provins", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 35, 6));
+		state.m_aZones.Insert(NewZoneState("town_entre_deux", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 30, 6));
+		state.m_aZones.Insert(NewZoneState("town_chotain", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 35, 6));
+		state.m_aZones.Insert(NewZoneState("town_montignac", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 65, 10));
+		state.m_aZones.Insert(NewZoneState("town_laruns", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 30, 6));
+		state.m_aZones.Insert(NewZoneState("town_levie", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 30, 6));
+		state.m_aZones.Insert(NewZoneState("outpost_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, 25, 16));
+		state.m_aZones.Insert(NewZoneState("outpost_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, 25, 16));
+		state.m_aZones.Insert(NewZoneState("airfield_main", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_AIRFIELD, 150, 24));
+		state.m_aZones.Insert(NewZoneState("seaport_main", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_SEAPORT, 90, 18));
+		state.m_aZones.Insert(NewZoneState("factory_central", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_FACTORY, 120, 10));
+		state.m_aZones.Insert(NewZoneState("resource_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, 75, 8));
+		state.m_aZones.Insert(NewZoneState("resource_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, 75, 8));
+		state.m_aZones.Insert(NewZoneState("radio_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, 20, 8));
+		state.m_aZones.Insert(NewZoneState("radio_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, 20, 8));
 	}
 
 	static bool IsKnownHideout(string hideoutId)
@@ -138,11 +138,15 @@ class HST_DefaultCatalog
 		return hideout;
 	}
 
-	private static HST_ZoneState NewZoneState(string zoneId, string ownerFactionKey)
+	private static HST_ZoneState NewZoneState(string zoneId, string ownerFactionKey, HST_EZoneType zoneType, int incomeValue, int garrisonSlots)
 	{
 		HST_ZoneState zone = new HST_ZoneState();
 		zone.m_sZoneId = zoneId;
 		zone.m_sOwnerFactionKey = ownerFactionKey;
+		zone.m_eType = zoneType;
+		zone.m_iSupport = 0;
+		zone.m_iIncomeValue = incomeValue;
+		zone.m_iGarrisonSlots = garrisonSlots;
 		return zone;
 	}
 

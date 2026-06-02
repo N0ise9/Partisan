@@ -5,9 +5,27 @@ class HST_EconomyService
 		state.m_iFactionMoney = Math.Max(0, state.m_iFactionMoney + amount);
 	}
 
+	bool SpendFactionMoney(HST_CampaignState state, int amount)
+	{
+		if (!state || amount < 0 || state.m_iFactionMoney < amount)
+			return false;
+
+		state.m_iFactionMoney -= amount;
+		return true;
+	}
+
 	void AddHR(HST_CampaignState state, int amount)
 	{
 		state.m_iHR = Math.Max(0, state.m_iHR + amount);
+	}
+
+	bool SpendHR(HST_CampaignState state, int amount)
+	{
+		if (!state || amount < 0 || state.m_iHR < amount)
+			return false;
+
+		state.m_iHR -= amount;
+		return true;
 	}
 
 	void AddAggression(HST_CampaignState state, string factionKey, int amount)

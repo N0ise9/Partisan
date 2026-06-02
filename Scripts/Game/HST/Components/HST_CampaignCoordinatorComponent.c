@@ -16,6 +16,11 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 	protected ref HST_ArsenalService m_Arsenal;
 	protected ref HST_EnemyDirectorService m_EnemyDirector;
 	protected ref HST_HQService m_HQ;
+	protected ref HST_PlayerLifecycleService m_PlayerLifecycle;
+	protected ref HST_TownService m_Towns;
+	protected ref HST_GarrisonService m_Garrisons;
+	protected ref HST_RecruitmentService m_Recruitment;
+	protected ref HST_ZoneCaptureService m_ZoneCapture;
 	protected float m_fSecondAccumulator;
 
 	override void OnPostInit(IEntity owner)
@@ -36,6 +41,11 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		m_Arsenal = new HST_ArsenalService();
 		m_EnemyDirector = new HST_EnemyDirectorService();
 		m_HQ = new HST_HQService();
+		m_PlayerLifecycle = new HST_PlayerLifecycleService();
+		m_Towns = new HST_TownService();
+		m_Garrisons = new HST_GarrisonService();
+		m_Recruitment = new HST_RecruitmentService();
+		m_ZoneCapture = new HST_ZoneCaptureService();
 
 		m_State.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
 		m_State.m_iHR = m_Balance.m_iStartingHR;
@@ -60,7 +70,10 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		int elapsedSeconds = m_fSecondAccumulator;
 		m_fSecondAccumulator -= elapsedSeconds;
 		m_State.m_iElapsedSeconds += elapsedSeconds;
-		m_Missions.Tick(m_State, m_Preset, elapsedSeconds);
+		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
+		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
+		if (missionChanged || income > 0)
+			m_Persistence.MarkMajorChange();
 	}
 
 	HST_CampaignState GetState()
@@ -74,6 +87,17 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 			return null;
 
 		return m_Authorization.RegisterPlayer(m_State, identityId, isAdmin);
+	}
+
+	HST_PlayerState RegisterConnectedPlayer(int playerId, string identityId, bool isAdmin = false)
+	{
+		if (!Replication.IsServer())
+			return null;
+
+		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, isAdmin);
+		if (player)
+			m_Persistence.MarkMajorChange();
+		return player;
 	}
 
 	bool SetMembership(string actorIdentityId, string targetIdentityId, bool isMember)
@@ -93,6 +117,17 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 			return false;
 
 		bool changed = m_Strategic.SetZoneOwner(m_State, m_Economy, m_Balance, zoneId, factionKey);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	bool CaptureZoneForResistance(string zoneId, int supportReward = 10)
+	{
+		if (!Replication.IsServer())
+			return false;
+
+		bool changed = m_ZoneCapture.CaptureForResistance(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, supportReward);
 		if (changed)
 			m_Persistence.MarkMajorChange();
 		return changed;
@@ -133,6 +168,28 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		return StartMission_S(missionId, targetZoneId);
 	}
 
+	bool CompleteMission(string instanceId)
+	{
+		if (!Replication.IsServer())
+			return false;
+
+		bool changed = m_Missions.Complete(m_State, m_Economy, instanceId);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	bool FailMission(string instanceId)
+	{
+		if (!Replication.IsServer())
+			return false;
+
+		bool changed = m_Missions.Fail(m_State, m_Preset, m_Economy, instanceId);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
 	bool MoveHQ(string hideoutId)
 	{
 		if (!Replication.IsServer())
@@ -151,6 +208,94 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 
 		m_HQ.OnPetrosKilled(m_State, m_Economy, 250, 5);
 		m_Persistence.MarkMajorChange();
+	}
+
+	bool AddTownSupport(string zoneId, int amount)
+	{
+		if (!Replication.IsServer())
+			return false;
+
+		bool changed = m_Towns.AddSupport(m_State, zoneId, amount);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	int ApplyIncomeNow()
+	{
+		if (!Replication.IsServer())
+			return 0;
+
+		int income = m_Towns.ApplyIncomeNow(m_State, m_Economy, m_Preset);
+		if (income > 0)
+			m_Persistence.MarkMajorChange();
+		return income;
+	}
+
+	bool AddAbstractGarrison(string zoneId, string factionKey, int infantryCount, int vehicleCount = 0)
+	{
+		if (!Replication.IsServer())
+			return false;
+
+		bool changed = m_Garrisons.AddAbstractForces(m_State, zoneId, factionKey, infantryCount, vehicleCount);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	bool FoldGarrisonSurvivors(string zoneId, string factionKey, int infantryCount, int vehicleCount = 0)
+	{
+		if (!Replication.IsServer())
+			return false;
+
+		bool changed = m_Garrisons.FoldSurvivors(m_State, zoneId, factionKey, infantryCount, vehicleCount);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	bool TrainTroops(int moneyCost = 250)
+	{
+		if (!Replication.IsServer())
+			return false;
+
+		bool changed = m_Recruitment.TrainTroops(m_State, m_Economy, moneyCost);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	bool RecruitResistanceGarrison(string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
+	{
+		if (!Replication.IsServer())
+			return false;
+
+		bool changed = m_Recruitment.RecruitGarrison(m_State, m_Economy, m_Garrisons, zoneId, m_Preset.m_sResistanceFactionKey, infantryCount, vehicleCount, moneyCost, hrCost);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	void AwardFactionResources(int money, int hr)
+	{
+		if (!Replication.IsServer())
+			return;
+
+		m_Economy.AddFactionMoney(m_State, money);
+		m_Economy.AddHR(m_State, hr);
+		m_Persistence.MarkMajorChange();
+	}
+
+	bool AwardPlayerResources(string identityId, int money, int rank)
+	{
+		if (!Replication.IsServer())
+			return false;
+
+		bool changedMoney = m_PlayerLifecycle.AddPersonalMoney(m_State, identityId, money);
+		bool changedRank = m_PlayerLifecycle.AddRank(m_State, identityId, rank);
+		if (changedMoney || changedRank)
+			m_Persistence.MarkMajorChange();
+		return changedMoney || changedRank;
 	}
 
 	protected bool SelectInitialHideout_S(string hideoutId)

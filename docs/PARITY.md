@@ -6,14 +6,18 @@
 - Fixed FIA versus RHS_USAF versus RHS_AFRF preset
 - CE-style resource pools, HR, money, support, aggression, and war-level
   service surface
-- Persistent member, guest, admin, commander-vacancy, town-support, arsenal,
-  garage-record, and enemy-pool service surfaces
+- Persistent member, guest, admin, commander-vacancy, player lifecycle,
+  town-support, income, arsenal, garage-record, abstract-garrison,
+  recruitment, and enemy-pool service surfaces
 - Common mission lifecycle and CE 3.11.1 mission-registry baseline
 - Native Reforger manual and periodic checkpoint requests
 - Original Everon world shell and stable strategic-zone IDs
-- FIA-owned Workbench Play-mode spawn anchors for authored hideout candidates
+- RHS-backed Workbench Play-mode spawn harness with Scenario Framework
+  spawnpoints for authored hideout candidates
 - HQ lifecycle service for initial hideout, HQ movement, Petros state, and
   Petros-loss penalties
+- Coordinator dev actions for zone capture, income ticks, mission
+  success/failure, training, recruitment, and garrison fold-back
 
 ## Next Playable Increment
 
@@ -21,8 +25,8 @@
 - Add a native `HST_CampaignState` serializer and restart test
 - Replace central-hideout auto-selection with first-start hideout selection UI
 - Add physical Petros, FIA tent, cache, and map markers at the selected HQ
-- Add persistent members, guest restrictions, commander election, and admin
-  override
+- Replace temporary RHS deployment with custom FIA HQ spawning
+- Add player-facing member, guest, commander election, and admin UI
 - Add arsenal quantities, garage records, recruitment, garrisons, and map UI
 
 ## Later Alpha Increments

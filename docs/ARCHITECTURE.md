@@ -18,6 +18,13 @@ single `HST_CampaignState` and delegates to small services:
   records.
 - `HST_EnemyDirectorService`: validated spending against separate attack and
   support pools.
+- `HST_PlayerLifecycleService`: connected-player registration, deterministic
+  Workbench identity fallback, personal money, and rank.
+- `HST_TownService`: resistance income, HR income, and town support changes.
+- `HST_GarrisonService`: abstract garrison creation and survivor fold-back.
+- `HST_RecruitmentService`: troop training and abstract garrison recruitment.
+- `HST_ZoneCaptureService`: capture helpers around strategic ownership
+  changes.
 
 The coordinator currently exposes server-only mutation methods that check
 campaign phase, known IDs, and mission eligibility before changing state.
@@ -59,18 +66,34 @@ soldier and vehicle navmesh configs, a perception manager, faction, loadout,
 radio, and chat managers so Workbench can initialize and play-test the plain
 game mode without relying on Conflict's strategic brain.
 
-Direct `.ent` Play mode currently uses a temporary HQ spawn harness: automatic
-player respawn is enabled, the spawn menu forces `PLAYERS`, and `PLAYERS`
-resolves to the FIA campaign faction. `StartingPoints.layer` contains
-resistance-owned hideout spawn anchors that match the authored campaign
-hideout IDs. A clearly named FIA bootstrap loadout remains backed by an
-allowed RHS USMC character resource until original FIA player loadouts are
-authored. Workbench offline play may still log blank identity ID errors from
-stock reconnect/editable-entity systems. Treat those as non-blocking Workbench
-noise if a character is spawned and possessed.
+Direct `.ent` Play mode currently uses a temporary RHS-backed spawn harness:
+automatic player respawn is enabled, the spawn menu forces `PLAYERS`, and
+`PLAYERS` resolves to `RHS_USAF` so stock Plain deployment can create and
+possess a test character. `StartingPoints.layer` contains bootstrap deploy
+anchors affiliated with that same faction. This is not the campaign identity:
+the h-istasi preset, state, HQ service, and strategic ownership still treat FIA
+as the resistance. The deploy anchors use Scenario Framework spawnpoint slots
+that instantiate the stock editable USMC spawnpoint prefab; the older Conflict
+military-base spawn groups remain campaign/HQ metadata only. Game Master-spawned
+characters do not satisfy the respawn system and are not expected to close the
+deployment menu. The HQ spawn increment will replace this harness with a custom
+FIA hideout deployment flow. Workbench offline play may still log blank identity
+ID errors from stock reconnect/editable-entity systems. Treat those as
+non-blocking Workbench noise if a character is spawned and possessed.
 
 `HST_HQService` owns the server-side HQ lifecycle: initial hideout selection,
 HQ movement between authored hideouts, Petros position, and Petros-loss
 penalties. The current development bootstrap auto-selects the central hills
 hideout so the campaign enters a playable active phase immediately; the setup
 UI increment will replace that auto-selection with a player-facing choice.
+
+## Antistasi Framework Spine
+
+The first campaign loop is intentionally abstract. Zones carry type, income,
+support, and garrison-slot data in `HST_CampaignState`; garrisons are stored as
+infantry and vehicle counts until the hybrid AI activation increment turns them
+into physical units near players. Mission success, failure, and timeout paths
+mutate economy and aggression state. Coordinator dev actions expose deterministic
+server-only hooks for Workbench tests: register a player, move HQ, capture a
+zone, complete or fail a mission, tick income, train troops, recruit a garrison,
+and fold survivors back into abstract state.

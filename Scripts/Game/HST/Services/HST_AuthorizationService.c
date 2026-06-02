@@ -17,6 +17,7 @@ class HST_AuthorizationService
 		if (firstPlayer)
 			player.m_bMember = true;
 
+		player.m_bGuest = !player.m_bMember;
 		player.m_bAdmin = player.m_bAdmin || isAdmin;
 		AssignCommanderOnVacancy(state);
 		return player;
@@ -30,6 +31,7 @@ class HST_AuthorizationService
 			return false;
 
 		target.m_bMember = isMember;
+		target.m_bGuest = !isMember;
 		if (!isMember && state.m_sCommanderIdentityId == targetIdentityId)
 			state.m_sCommanderIdentityId = "";
 
