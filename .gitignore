@@ -1,0 +1,12 @@
+# Workbench-generated metadata and local diagnostics
+*.log
+*.bak
+*.tmp
+.backend/
+UserMaps.desc
+resourceDatabase.rdb
+
+# Packed Workshop output
+*.pak
+ServerData.json
+meta

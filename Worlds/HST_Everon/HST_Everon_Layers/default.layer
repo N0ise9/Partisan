@@ -1,0 +1,20 @@
+SCR_BaseGameMode HST_GameMode : "{1B76F75A3175E85C}Prefabs/MP/Modes/Plain/GameMode_Plain.et" {
+ components {
+  HST_CampaignCoordinatorComponent "{6985327711301201}" {
+  }
+ }
+ coords 6200 0 6200
+ m_bAutoPlayerRespawn 0
+}
+SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/Factions/FactionManager_USxUSSR.et" {
+ coords 6200 0 6200
+}
+SCR_LoadoutManager HST_LoadoutManager : "{AA4E7419A1FF65B0}Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et" {
+ coords 6200 0 6200
+}
+RadioManagerEntity HST_RadioManager : "{B8E09FAB91C4ECCD}Prefabs/Systems/Radio/RadioManager.et" {
+ coords 6200 0 6200
+}
+ScriptedChatEntity HST_ChatEntity : "{F69BC912AC8236F9}Prefabs/MP/ScriptedChatEntity.et" {
+ coords 6200 0 6200
+}

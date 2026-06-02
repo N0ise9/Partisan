@@ -1,0 +1,8 @@
+GameProject {
+ ID "histasi"
+ GUID "698532771130111D"
+ TITLE "h-istasi"
+ Dependencies {
+  "58D0FB3206B6F859" "595F2BF2F44836FB"
+ }
+}
