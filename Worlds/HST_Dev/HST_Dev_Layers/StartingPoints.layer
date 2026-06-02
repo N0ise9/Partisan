@@ -1,0 +1,37 @@
+$grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMilitaryBase.et" {
+ HST_Dev_CentralHideout {
+  components {
+   SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
+    m_bCanBeHQ 1
+    m_sBaseName "h-istasi Dev Hideout"
+    m_sBaseNameUpper "H-ISTASI DEV HIDEOUT"
+   }
+   SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
+    Enabled 0
+   }
+   SCR_CampaignSuppliesComponent "{5C6696724F524DA2}" {
+    m_iSupplies 750
+    m_iSuppliesMax 750
+    m_fOperationalRadius 50
+   }
+   SCR_CoverageRadioComponent "{5C669673C2A82A2B}" {
+    m_bIsSource 1
+   }
+   SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
+    "faction affiliation" "FIA"
+   }
+  }
+  coords 6200 0 6200
+  angleY 0
+  {
+   GenericEntity {
+    ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   SCR_CampaignSpawnPointGroup {
+    ID "5C6696731466AF36"
+    coords 0 0 0
+   }
+  }
+ }
+}

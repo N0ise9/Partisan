@@ -20,10 +20,13 @@ The repository contains the first engine-facing increment:
 - Server-authoritative campaign, economy, mission, and native-checkpoint
   services
 - A Community Edition 3.11.1 mission registry baseline
+- FIA-owned development spawn anchors for authored hideout candidates
+- HQ and Petros state hooks for the first playable resistance-campaign slice
 
-This is a foundation build, not a public alpha. Physical HQ entities, UI,
-spawned AI, persistence serializers, authored Everon coordinates, and
-mission-specific world logic still need to be connected incrementally.
+This is a foundation build, not a public alpha. Physical Petros/cache/tent
+entities, setup UI, spawned AI, persistence serializers, surveyed Everon
+coordinates, and mission-specific world logic still need to be connected
+incrementally.
 
 ## Requirements
 
@@ -46,4 +49,3 @@ mission-specific world logic still need to be connected incrementally.
 - `Missions/HST_Dev.conf`: compact systems-development shell
 
 See `docs/ARCHITECTURE.md` and `docs/PARITY.md` for the implementation map.
-

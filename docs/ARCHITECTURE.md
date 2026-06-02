@@ -59,10 +59,18 @@ soldier and vehicle navmesh configs, a perception manager, faction, loadout,
 radio, and chat managers so Workbench can initialize and play-test the plain
 game mode without relying on Conflict's strategic brain.
 
-Direct `.ent` Play mode currently uses a temporary RHS-backed spawn harness:
-automatic player respawn is enabled, the spawn menu forces `PLAYERS`, and
-`PLAYERS` resolves to `RHS_USAF` with a small RHS USMC player loadout set. This
-is bootstrap-only; the HQ increment will replace it with FIA hideout/HQ spawn
-routing after a safe hideout is selected. Workbench offline play may still log
-blank identity ID errors from stock reconnect/editable-entity systems. Treat
-those as non-blocking Workbench noise if a character is spawned and possessed.
+Direct `.ent` Play mode currently uses a temporary HQ spawn harness: automatic
+player respawn is enabled, the spawn menu forces `PLAYERS`, and `PLAYERS`
+resolves to the FIA campaign faction. `StartingPoints.layer` contains
+resistance-owned hideout spawn anchors that match the authored campaign
+hideout IDs. A clearly named FIA bootstrap loadout remains backed by an
+allowed RHS USMC character resource until original FIA player loadouts are
+authored. Workbench offline play may still log blank identity ID errors from
+stock reconnect/editable-entity systems. Treat those as non-blocking Workbench
+noise if a character is spawned and possessed.
+
+`HST_HQService` owns the server-side HQ lifecycle: initial hideout selection,
+HQ movement between authored hideouts, Petros position, and Petros-loss
+penalties. The current development bootstrap auto-selects the central hills
+hideout so the campaign enters a playable active phase immediately; the setup
+UI increment will replace that auto-selection with a player-facing choice.

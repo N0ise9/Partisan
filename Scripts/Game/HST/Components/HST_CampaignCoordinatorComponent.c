@@ -15,6 +15,7 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 	protected ref HST_StrategicService m_Strategic;
 	protected ref HST_ArsenalService m_Arsenal;
 	protected ref HST_EnemyDirectorService m_EnemyDirector;
+	protected ref HST_HQService m_HQ;
 	protected float m_fSecondAccumulator;
 
 	override void OnPostInit(IEntity owner)
@@ -34,11 +35,13 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		m_Strategic = new HST_StrategicService();
 		m_Arsenal = new HST_ArsenalService();
 		m_EnemyDirector = new HST_EnemyDirectorService();
+		m_HQ = new HST_HQService();
 
 		m_State.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
 		m_State.m_iHR = m_Balance.m_iStartingHR;
 		HST_DefaultCatalog.AddDefaultFactionPools(m_State, m_Balance, m_Preset);
 		HST_DefaultCatalog.AddDefaultZones(m_State, m_Preset);
+		m_HQ.SelectInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
 
 		SetEventMask(owner, EntityEvent.FRAME);
 		Print("h-istasi | campaign coordinator initialized");
@@ -130,16 +133,32 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		return StartMission_S(missionId, targetZoneId);
 	}
 
-	protected bool SelectInitialHideout_S(string hideoutId)
+	bool MoveHQ(string hideoutId)
 	{
-		if (!m_State || m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP || !HST_DefaultCatalog.IsKnownHideout(hideoutId))
+		if (!Replication.IsServer())
 			return false;
 
-		m_State.m_sHQHideoutId = hideoutId;
-		m_State.m_vHQPosition = HST_DefaultCatalog.GetHideoutPosition(hideoutId);
-		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		bool changed = m_HQ.MoveHQ(m_State, hideoutId);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	void OnPetrosKilled()
+	{
+		if (!Replication.IsServer())
+			return;
+
+		m_HQ.OnPetrosKilled(m_State, m_Economy, 250, 5);
 		m_Persistence.MarkMajorChange();
-		return true;
+	}
+
+	protected bool SelectInitialHideout_S(string hideoutId)
+	{
+		bool changed = m_HQ.SelectInitialHideout(m_State, hideoutId);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
 	}
 
 	protected bool StartMission_S(string missionId, string targetZoneId)

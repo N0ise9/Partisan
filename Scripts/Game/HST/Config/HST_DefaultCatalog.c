@@ -81,6 +81,11 @@ class HST_DefaultCatalog
 		return false;
 	}
 
+	static string GetDefaultHideoutId()
+	{
+		return "hideout_central_hills";
+	}
+
 	static vector GetHideoutPosition(string hideoutId)
 	{
 		foreach (HST_HideoutDefinition hideout : CreateHideouts())

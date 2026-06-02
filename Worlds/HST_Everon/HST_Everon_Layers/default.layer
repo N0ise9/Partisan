@@ -29,12 +29,30 @@ SCR_BaseGameMode HST_GameMode : "{1B76F75A3175E85C}Prefabs/MP/Modes/Plain/GameMo
  components {
   HST_CampaignCoordinatorComponent "{6985327711301201}" {
   }
+  SCR_GroupsManagerComponent "{5706EC99934496F5}" {
+   m_sDefaultGroupPrefab "{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et"
+   m_iPlayableGroupFrequencyOffset 500
+  }
+  SCR_MapConfigComponent "{5C669498E250A34B}" {
+   m_sSpawnMapConfigPath "{901F9ED2088BBCA4}Configs/Map/MapSpawnConflict.conf"
+  }
+  SCR_PlayerSpawnPointManagerComponent "{5CDABA98894199D0}" {
+   m_bEnablePlayerSpawnPoints 1
+   m_eDeployableSpawnPointBudgetType NONE
+  }
   SCR_RespawnSystemComponent "{56B2B4793051E7C9}" {
    m_SpawnLogic SCR_MenuSpawnLogic "{5D28B7AD9BB3CF81}" {
     m_sForcedFaction "PLAYERS"
    }
   }
   SCR_RespawnTimerComponent "{5A234AD9646DDEF9}" {
+   m_fRespawnTime 0
+  }
+  SCR_SpawnProtectionComponent "{5D167A246026C95B}" {
+   m_fProtectionTime 10
+   m_bAllowPlayerSpawnpoints 1
+  }
+  SCR_TimedSpawnPointComponent "{5D0A73EB7076C758}" {
    m_fRespawnTime 0
   }
  }
@@ -54,7 +72,7 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
     }
     SCR_ScenarioFrameworkFactionAliasConfig "{665883DF53587B40}" {
      m_sAlias "PLAYERS"
-     m_sFactionKey "RHS_USAF"
+     m_sFactionKey "FIA"
     }
    }
   }
@@ -68,6 +86,8 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
    FactionKey "USSR"
    m_bIsPlayable 0
    m_FactionLabel FACTION_USSR
+  }
+  SCR_CampaignFaction "{56F0C3A6336375DC}" : "{CF9447B87AB774DB}Configs/Factions/FIA_Campaign.conf" {
   }
   SCR_Faction "{66C6FB7CA8DC1B7C}" : "{F33C7BF22CBF3A8A}Configs/Factions/RHS_US_USMC.conf" {
   }
@@ -92,6 +112,11 @@ SCR_LoadoutManager HST_LoadoutManager : "{AA4E7419A1FF65B0}Prefabs/MP/Managers/L
   SCR_FactionPlayerLoadout "{6985327711302205}" : "{605644D781CD83D5}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_LAT.conf" {
   }
   SCR_FactionPlayerLoadout "{6985327711302206}" : "{22568FFAEBA478BB}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Sniper.conf" {
+  }
+  SCR_PlayerArsenalLoadout "{6985327711302210}" {
+   m_sLoadoutName "h-istasi FIA bootstrap"
+   m_sLoadoutResource "{C8A52273222448C0}Prefabs/Characters/Campaign/RHS/Coop/Campaign_USMC_Base.et"
+   m_sAffiliatedFaction "FIA"
   }
  }
 }

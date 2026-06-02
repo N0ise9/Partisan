@@ -5,6 +5,7 @@ class HST_AuthorizationService
 		if (identityId.IsEmpty())
 			return null;
 
+		bool firstPlayer = state.m_aPlayers.Count() == 0;
 		HST_PlayerState player = state.FindPlayer(identityId);
 		if (!player)
 		{
@@ -12,6 +13,9 @@ class HST_AuthorizationService
 			player.m_sIdentityId = identityId;
 			state.m_aPlayers.Insert(player);
 		}
+
+		if (firstPlayer)
+			player.m_bMember = true;
 
 		player.m_bAdmin = player.m_bAdmin || isAdmin;
 		AssignCommanderOnVacancy(state);
@@ -64,4 +68,3 @@ class HST_AuthorizationService
 		}
 	}
 }
-

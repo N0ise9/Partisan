@@ -98,7 +98,10 @@ class HST_CampaignState
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
+	vector m_vPetrosPosition;
+	bool m_bHQDeployed;
 	bool m_bPetrosAlive = true;
+	int m_iPetrosDeaths;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};

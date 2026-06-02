@@ -66,15 +66,23 @@ $requiredRuntimeScaffold = @(
 	'SCR_MenuSpawnLogic',
 	'm_sForcedFaction "PLAYERS"',
 	'Prefabs/Characters/Core/DefaultPlayerControllerMP_ScenarioFramework.et',
+	'SCR_MapConfigComponent',
+	'Configs/Map/MapSpawnConflict.conf',
+	'SCR_PlayerSpawnPointManagerComponent',
+	'SCR_SpawnProtectionComponent',
+	'SCR_TimedSpawnPointComponent',
 	'Prefabs/MP/Managers/Factions/FactionManager_USxUSSR.et',
 	'SCR_FactionAliasComponent',
 	'm_sAlias "PLAYERS"',
-	'm_sFactionKey "RHS_USAF"',
+	'm_sFactionKey "FIA"',
 	'm_sAlias "OPFOR"',
 	'm_sFactionKey "RHS_AFRF"',
+	'Configs/Factions/FIA_Campaign.conf',
 	'Configs/Factions/CIV.conf',
 	'Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et',
 	'm_aPlayerLoadouts',
+	'SCR_PlayerArsenalLoadout',
+	'm_sAffiliatedFaction "FIA"',
 	'Prefabs/Systems/Radio/RadioManager.et',
 	'Prefabs/MP/ScriptedChatEntity.et'
 )
@@ -110,6 +118,29 @@ foreach ($runtimeLayer in $runtimeLayers) {
 	}
 }
 Write-Host "World runtime scaffold OK"
+
+$startingPointLayers = @(
+	"Worlds/HST_Dev/HST_Dev_Layers/StartingPoints.layer",
+	"Worlds/HST_Everon/HST_Everon_Layers/StartingPoints.layer"
+)
+foreach ($startingPointLayer in $startingPointLayers) {
+	if (!(Test-Path $startingPointLayer)) {
+		throw "Missing playable HQ starting point layer: $startingPointLayer"
+	}
+
+	$text = Get-Content -Raw $startingPointLayer
+	foreach ($requiredEntry in @(
+		"Prefabs/Systems/MilitaryBase/ConflictMilitaryBase.et",
+		"SCR_CampaignMilitaryBaseComponent",
+		"SCR_CampaignSpawnPointGroup",
+		'"faction affiliation" "FIA"'
+	)) {
+		if ($text -notmatch [regex]::Escape($requiredEntry)) {
+			throw "Missing HQ spawn entry in ${startingPointLayer}: $requiredEntry"
+		}
+	}
+}
+Write-Host "Playable HQ starting points OK"
 
 $defaultCatalog = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c"
 $missionConfig = Get-Content -Raw "Configs/HST/Missions/HST_CE311_Missions.conf"
@@ -157,11 +188,17 @@ if ($unscopedEnumReferences.Count -gt 0) {
 }
 Write-Host "Enum references scoped OK"
 
-$resourceText = (Get-ChildItem -Recurse -File "Configs","Worlds" -Include *.conf,*.layer |
+$configResourceText = (Get-ChildItem -Recurse -File "Configs" -Include *.conf |
 	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
-$instantiatedClasses = @([regex]::Matches($resourceText, "(?m)^\s*(HST_[A-Za-z0-9_]+)\s*(?:\{|""\{)") |
+$worldResourceText = (Get-ChildItem -Recurse -File "Worlds" -Include *.layer |
+	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
+$configInstantiatedClasses = @([regex]::Matches($configResourceText, "(?m)^\s*(HST_[A-Za-z0-9_]+)\s*(?:\{|""\{)") |
 	ForEach-Object { $_.Groups[1].Value } |
 	Sort-Object -Unique)
+$worldInstantiatedClasses = @([regex]::Matches($worldResourceText, "(?m)^\s*(HST_[A-Za-z0-9_]+)\s*(?:""\{|:)") |
+	ForEach-Object { $_.Groups[1].Value } |
+	Sort-Object -Unique)
+$instantiatedClasses = @($configInstantiatedClasses + $worldInstantiatedClasses | Sort-Object -Unique)
 $missingClasses = @($instantiatedClasses | Where-Object { $_ -notin $definedSymbols })
 if ($missingClasses.Count -gt 0) {
 	throw "Missing resource class definitions:`n$($missingClasses -join "`n")"
