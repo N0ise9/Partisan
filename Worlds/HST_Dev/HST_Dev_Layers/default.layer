@@ -146,3 +146,44 @@ SCR_MapLocator {
  m_WorldDirections SCR_MapLocationQuadHint "{5AAA8B37D1168EEB}" : "{ABA21F381437DFE8}Configs/Map/MapLocatorHints/LocationHintsEveron.conf" {
  }
 }
+$grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ HST_DevMapMarkerArea {
+  components {
+   SCR_ScenarioFrameworkArea "{59E8CDC50969206E}" {
+    m_sFactionKey "PLAYERS"
+    m_bShowDebugShapesInWorkbench 0
+    m_bDynamicDespawn 0
+    m_fAreaRadius 14000
+   }
+  }
+  coords 0 0 0
+  {
+   GenericEntity HST_DevMapMarkerLayer : "{5F9FFF4BF027B3A3}Prefabs/Systems/ScenarioFramework/Components/Layer.et" {
+    components {
+     SCR_ScenarioFrameworkLayerBase "{5A2283EA2A0B4B14}" {
+      m_sFactionKey "PLAYERS"
+      m_eActivationType SAME_AS_PARENT
+     }
+    }
+    coords 0 0 0
+    {
+     GenericEntity HST_DevHQMarker_central_hills : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "FIA HQ"
+         m_eMapMarkerIcon PICK_UP2
+         m_eMapMarkerColor BLUFOR
+        }
+       }
+      }
+      coords 3400 0 4500
+     }
+    }
+   }
+  }
+ }
+}

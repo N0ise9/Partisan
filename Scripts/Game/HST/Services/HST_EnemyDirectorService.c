@@ -1,5 +1,36 @@
 class HST_EnemyDirectorService
 {
+	static const int RESOURCE_TICK_SECONDS = 300;
+
+	bool TickResources(HST_CampaignState state, HST_CampaignPreset preset, int elapsedSeconds)
+	{
+		if (!state || !preset || elapsedSeconds <= 0)
+			return false;
+
+		state.m_iEnemyResourceAccumulatorSeconds += elapsedSeconds;
+		if (state.m_iEnemyResourceAccumulatorSeconds < RESOURCE_TICK_SECONDS)
+			return false;
+
+		state.m_iEnemyResourceAccumulatorSeconds -= RESOURCE_TICK_SECONDS;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+				continue;
+
+			int attackIncome = Math.Max(1, zone.m_iIncomeValue / 50);
+			int supportIncome = 1;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT || zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+				attackIncome += 2;
+
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+				supportIncome += Math.Max(0, 1 - zone.m_iSupport / 50);
+
+			AddResources(state, zone.m_sOwnerFactionKey, attackIncome, supportIncome);
+		}
+
+		return true;
+	}
+
 	bool CanAfford(HST_CampaignState state, string factionKey, int attackCost, int supportCost)
 	{
 		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
@@ -27,4 +58,3 @@ class HST_EnemyDirectorService
 		pool.m_iSupportResources = Math.Max(0, pool.m_iSupportResources + supportResources);
 	}
 }
-

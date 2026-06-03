@@ -11,6 +11,7 @@ class HST_CampaignSaveData
 	int m_iHR;
 	int m_iTrainingLevel;
 	int m_iIncomeAccumulatorSeconds;
+	int m_iEnemyResourceAccumulatorSeconds;
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
@@ -52,6 +53,7 @@ class HST_CampaignSaveData
 		m_iHR = state.m_iHR;
 		m_iTrainingLevel = state.m_iTrainingLevel;
 		m_iIncomeAccumulatorSeconds = state.m_iIncomeAccumulatorSeconds;
+		m_iEnemyResourceAccumulatorSeconds = state.m_iEnemyResourceAccumulatorSeconds;
 		m_sCommanderIdentityId = state.m_sCommanderIdentityId;
 		m_sHQHideoutId = state.m_sHQHideoutId;
 		m_vHQPosition = state.m_vHQPosition;
@@ -133,6 +135,7 @@ class HST_CampaignSaveData
 		state.m_iHR = m_iHR;
 		state.m_iTrainingLevel = m_iTrainingLevel;
 		state.m_iIncomeAccumulatorSeconds = m_iIncomeAccumulatorSeconds;
+		state.m_iEnemyResourceAccumulatorSeconds = m_iEnemyResourceAccumulatorSeconds;
 		state.m_sCommanderIdentityId = m_sCommanderIdentityId;
 		state.m_sHQHideoutId = m_sHQHideoutId;
 		state.m_vHQPosition = m_vHQPosition;
@@ -230,6 +233,7 @@ class HST_CampaignSaveData
 		target.m_eType = source.m_eType;
 		target.m_vPosition = source.m_vPosition;
 		target.m_iSupport = source.m_iSupport;
+		target.m_iResistanceCaptureProgress = source.m_iResistanceCaptureProgress;
 		target.m_iIncomeValue = source.m_iIncomeValue;
 		target.m_iGarrisonSlots = source.m_iGarrisonSlots;
 		target.m_iActivationRadiusMeters = source.m_iActivationRadiusMeters;

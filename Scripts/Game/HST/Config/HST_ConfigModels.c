@@ -53,6 +53,10 @@ class HST_ZoneDefinition
 	string m_sPatrolRouteId;
 	string m_sQRFRouteId;
 	string m_sMissionSiteId;
+	bool m_bShowMapMarker = true;
+	string m_sMarkerLabel;
+	string m_sMarkerIcon;
+	string m_sMarkerColor;
 	ref array<string> m_aNearbyTownIds = {};
 	ref array<string> m_aCapabilities = {};
 }

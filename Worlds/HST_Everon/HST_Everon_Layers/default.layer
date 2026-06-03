@@ -146,3 +146,449 @@ SCR_MapLocator {
  m_WorldDirections SCR_MapLocationQuadHint "{5AAA8B37D1168EEB}" : "{ABA21F381437DFE8}Configs/Map/MapLocatorHints/LocationHintsEveron.conf" {
  }
 }
+$grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ HST_AlphaMapMarkerArea {
+  components {
+   SCR_ScenarioFrameworkArea "{59E8CDC50969206E}" {
+    m_sFactionKey "PLAYERS"
+    m_bShowDebugShapesInWorkbench 0
+    m_bDynamicDespawn 0
+    m_fAreaRadius 14000
+   }
+  }
+  coords 0 0 0
+  {
+   GenericEntity HST_AlphaMapMarkerLayer : "{5F9FFF4BF027B3A3}Prefabs/Systems/ScenarioFramework/Components/Layer.et" {
+    components {
+     SCR_ScenarioFrameworkLayerBase "{5A2283EA2A0B4B14}" {
+      m_sFactionKey "PLAYERS"
+      m_eActivationType SAME_AS_PARENT
+     }
+    }
+    coords 0 0 0
+    {
+     GenericEntity HST_HQMarker_central_hills : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "FIA HQ"
+         m_eMapMarkerIcon PICK_UP2
+         m_eMapMarkerColor BLUFOR
+        }
+       }
+      }
+      coords 3400 0 4500
+     }
+     GenericEntity HST_TownMarker_saint_pierre : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Saint-Pierre"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 9716.864 11.392 1526.447
+     }
+     GenericEntity HST_TownMarker_provins : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Provins"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 5596.906 96.146 6027.447
+     }
+     GenericEntity HST_TownMarker_entre_deux : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Entre-Deux"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 5754.045 217.12 7053.081
+     }
+     GenericEntity HST_TownMarker_chotain : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Chotain"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 7084.424 118.776 6017.588
+     }
+     GenericEntity HST_TownMarker_montignac : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Montignac"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 4731.929 162.779 6970.114
+     }
+     GenericEntity HST_TownMarker_laruns : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Laruns"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 7573.111 82.461 5525.154
+     }
+     GenericEntity HST_TownMarker_levie : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Levie"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 7463.167 137.26 4736.242
+     }
+     GenericEntity HST_TownMarker_morton : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Morton"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 5035.522 15.382 4000.177
+     }
+     GenericEntity HST_TownMarker_meaux : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Meaux"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 4464.711 13.481 9468.255
+     }
+     GenericEntity HST_TownMarker_tyrone : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Tyrone"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 4933.47 37.785 9053.985
+     }
+     GenericEntity HST_TownMarker_gravette : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Gravette"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 4106.324 34.435 7794.186
+     }
+     GenericEntity HST_TownMarker_villeneuve : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Villeneuve"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 2885.242 85.58 6402.408
+     }
+     GenericEntity HST_TownMarker_le_moule : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Le Moule"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 2570.692 94.634 5423.876
+     }
+     GenericEntity HST_TownMarker_lamentin : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Lamentin"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 1204.166 35.034 5984.738
+     }
+     GenericEntity HST_TownMarker_regina : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Regina"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 7241.147 136.629 2312.1
+     }
+     GenericEntity HST_TownMarker_figari : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Figari"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 5281.364 62.97 5361.538
+     }
+     GenericEntity HST_TownMarker_durras : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Durras"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 8827.942 95.124 2769.363
+     }
+     GenericEntity HST_TownMarker_saint_philippe : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Saint-Philippe"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 4542.439 15.996 10477.004
+     }
+     GenericEntity HST_StrategicMarker_outpost_north : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "North Outpost"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 4700 0 3500
+     }
+     GenericEntity HST_StrategicMarker_outpost_south : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "South Outpost"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 4200 0 8900
+     }
+     GenericEntity HST_StrategicMarker_airfield_main : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Everon Airfield"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 7500 0 7600
+     }
+     GenericEntity HST_StrategicMarker_seaport_main : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Everon Seaport"
+         m_eMapMarkerIcon OBJECTIVE_MARKER
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 8650 0 11150
+     }
+     GenericEntity HST_StrategicMarker_factory_central : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "Central Factory"
+         m_eMapMarkerIcon MINE_SINGLE
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 6200 0 6200
+     }
+     GenericEntity HST_StrategicMarker_resource_north : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "North Resource"
+         m_eMapMarkerIcon MINE_SINGLE
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 5200 0 4200
+     }
+     GenericEntity HST_StrategicMarker_resource_south : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "South Resource"
+         m_eMapMarkerIcon MINE_SINGLE
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 5100 0 9300
+     }
+     GenericEntity HST_StrategicMarker_radio_north : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "North Radio Tower"
+         m_eMapMarkerIcon MARK_QUESTION
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 1932 0 5139
+     }
+     GenericEntity HST_StrategicMarker_radio_south : "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" {
+      components {
+       SCR_ScenarioFrameworkSlotMarker "{5EA2BD9901E5E82E}" {
+        m_sFactionKey "PLAYERS"
+        m_eActivationType SAME_AS_PARENT
+        m_bExcludeFromDynamicDespawn 1
+        m_MapMarkerType SCR_ScenarioFrameworkMarkerCustom "{66328281D000D087}" {
+         m_sMapMarkerText "South Radio Tower"
+         m_eMapMarkerIcon MARK_QUESTION
+         m_eMapMarkerColor RED
+        }
+       }
+      }
+      coords 10009 0 1550
+     }
+    }
+   }
+  }
+ }
+}

@@ -114,9 +114,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iElapsedSeconds += elapsedSeconds;
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
+		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, elapsedSeconds);
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
 		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_EnemyDirector);
-		if (missionChanged || income > 0 || hqRuntimeChanged || physicalWarChanged)
+		if (missionChanged || income > 0 || enemyResourcesChanged || hqRuntimeChanged || physicalWarChanged)
 			m_Persistence.MarkMajorChange();
 	}
 
@@ -284,7 +285,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return false;
 
+		HST_ActiveMissionState activeMission = m_State.FindActiveMission(instanceId);
+		HST_MissionDefinition definition;
+		if (activeMission)
+			definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
+
 		bool changed = m_Missions.Complete(m_State, m_Economy, instanceId);
+		if (changed && ApplyCompletedMissionOutcome(definition, activeMission))
+			changed = true;
+
 		if (changed)
 			m_Persistence.MarkMajorChange();
 		return changed;
@@ -433,12 +442,82 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return RecruitResistanceGarrison(zoneId, infantryCount, vehicleCount, moneyCost, hrCost);
 	}
 
+	bool RequestCommanderTrainTroops(int playerId, int moneyCost = 250)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return TrainTroops(moneyCost);
+	}
+
+	bool RequestCommanderApplyIncomeNow(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return ApplyIncomeNow() > 0;
+	}
+
+	bool RequestCommanderStartZoneMission(int playerId, string zoneId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return false;
+
+		return StartMission(SelectDefaultMissionForZone(zone), zoneId);
+	}
+
+	bool RequestCommanderCompleteMission(int playerId, string instanceId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return CompleteMission(instanceId);
+	}
+
+	bool RequestCommanderDepositArsenalItem(int playerId, string prefab, int amount)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return DepositArsenalItem(prefab, amount) != null;
+	}
+
+	bool RequestCommanderStoreGarageVehicle(int playerId, string vehicleId, string prefab, vector position, vector angles, float fuel = 1, bool armed = false)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId) || vehicleId.IsEmpty() || prefab.IsEmpty())
+			return false;
+
+		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
+		vehicle.m_sVehicleId = vehicleId;
+		vehicle.m_sPrefab = prefab;
+		vehicle.m_vPosition = position;
+		vehicle.m_vAngles = angles;
+		vehicle.m_fFuel = Math.Max(0, Math.Min(1, fuel));
+		vehicle.m_bArmed = armed;
+		bool changed = m_Arsenal.StoreVehicle(m_State, vehicle);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
 	bool RequestMemberManualCheckpoint(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return false;
 
 		return RequestManualCheckpoint();
+	}
+
+	string RequestMemberInspectCampaign(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "";
+
+		return BuildCampaignReport();
 	}
 
 	bool RequestAdminSetZoneActive(int playerId, string zoneId, bool active)
@@ -458,6 +537,80 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return SetZoneOwner(zoneId, factionKey);
+	}
+
+	bool RequestAdminCaptureZoneForResistance(int playerId, string zoneId, int supportReward = 10)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		return CaptureZoneForResistance(zoneId, supportReward);
+	}
+
+	bool RequestAdminAddCaptureProgress(int playerId, string zoneId, int progress = 50)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		bool changed = m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, progress, 10);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	bool RequestAdminStartDebugMission(int playerId, string zoneId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return StartMission("dynamic_minor_city_task", "");
+
+		return StartMission(SelectDefaultMissionForZone(zone), zoneId);
+	}
+
+	bool RequestAdminCompleteMission(int playerId, string instanceId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		return CompleteMission(instanceId);
+	}
+
+	bool RequestAdminFailMission(int playerId, string instanceId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		return FailMission(instanceId);
+	}
+
+	bool RequestAdminAwardResources(int playerId, int money, int hr)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		AwardFactionResources(money, hr);
+		return true;
+	}
+
+	bool RequestAdminAddEnemyResources(int playerId, string factionKey, int attackResources, int supportResources)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		m_EnemyDirector.AddResources(m_State, factionKey, attackResources, supportResources);
+		m_Persistence.MarkMajorChange();
+		return true;
+	}
+
+	string RequestAdminInspectZone(int playerId, string zoneId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "";
+
+		return BuildZoneReport(zoneId);
 	}
 
 	protected bool SelectInitialHideout_S(string hideoutId)
@@ -506,6 +659,138 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return m_Authorization.CanUseAdminActions(m_State, ResolveTrustedIdentityId(playerId));
+	}
+
+	protected bool ApplyCompletedMissionOutcome(HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
+	{
+		if (!definition || !activeMission || activeMission.m_sTargetZoneId.IsEmpty())
+			return false;
+
+		HST_ZoneState zone = m_State.FindZone(activeMission.m_sTargetZoneId);
+		if (!zone)
+			return false;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 60, 15);
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			return m_Towns.AddSupport(m_State, zone.m_sZoneId, 25);
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+		{
+			m_EnemyDirector.AddResources(m_State, zone.m_sOwnerFactionKey, -12, -6);
+			if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+				m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 35, 10);
+			return true;
+		}
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+		{
+			AwardFactionResources(150, 1);
+			m_EnemyDirector.AddResources(m_State, zone.m_sOwnerFactionKey, -8, -4);
+			return true;
+		}
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC)
+		{
+			if (definition.m_sMissionId == "dynamic_city_flip_battle")
+				return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 50, 10);
+
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+				return m_Towns.AddSupport(m_State, zone.m_sZoneId, 10);
+
+			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 20, 5);
+		}
+
+		return false;
+	}
+
+	protected string SelectDefaultMissionForZone(HST_ZoneState zone)
+	{
+		if (!zone)
+			return "dynamic_minor_city_task";
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
+			return "conquest_resource";
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST)
+			return "conquest_outpost";
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+			return "destroy_radio_tower";
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT || zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+			return "destroy_or_steal_armor";
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+			return "support_city_supplies";
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+			return "dynamic_city_flip_battle";
+
+		return "dynamic_minor_city_task";
+	}
+
+	protected string BuildCampaignReport()
+	{
+		int resistanceZones;
+		int enemyZones;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+				resistanceZones++;
+			else
+				enemyZones++;
+		}
+
+		return string.Format("h-istasi campaign | money %1 | HR %2 | war level %3 | resistance zones %4 | enemy zones %5 | active missions %6 | active groups %7 | QRFs %8", m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel, resistanceZones, enemyZones, m_State.m_aActiveMissions.Count(), m_State.m_aActiveGroups.Count(), m_State.m_aQRFs.Count());
+	}
+
+	protected string BuildZoneReport(string zoneId)
+	{
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return "h-istasi zone report | zone not found";
+
+		HST_GarrisonState ownerGarrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+		int infantry;
+		int vehicles;
+		if (ownerGarrison)
+		{
+			infantry = ownerGarrison.m_iInfantryCount;
+			vehicles = ownerGarrison.m_iVehicleCount;
+		}
+
+		return string.Format("h-istasi zone %1 | owner %2 | type %3 | support %4 | capture %5/%6 | income %7 | garrison %8 infantry/%9 vehicles | active %10/%11 | QRF cooldown %12", zone.m_sZoneId, zone.m_sOwnerFactionKey, ZoneTypeToLabel(zone.m_eType), zone.m_iSupport, zone.m_iResistanceCaptureProgress, HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED, zone.m_iIncomeValue, infantry, vehicles, zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount, zone.m_iQrfCooldownUntilSecond);
+	}
+
+	protected string ZoneTypeToLabel(HST_EZoneType zoneType)
+	{
+		if (zoneType == HST_EZoneType.HST_ZONE_TOWN)
+			return "town";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_OUTPOST)
+			return "outpost";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_RESOURCE)
+			return "resource";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_FACTORY)
+			return "factory";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+			return "radio";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_AIRFIELD)
+			return "airfield";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_SEAPORT)
+			return "seaport";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_HIDEOUT)
+			return "hideout";
+
+		return "zone";
 	}
 
 	protected int ProcessPlayerSpawnSweep(string reason = "", bool forceDiagnostics = false)

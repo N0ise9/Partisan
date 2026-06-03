@@ -34,6 +34,7 @@ class HST_ZoneState
 	HST_EZoneType m_eType;
 	vector m_vPosition;
 	int m_iSupport;
+	int m_iResistanceCaptureProgress;
 	int m_iIncomeValue;
 	int m_iGarrisonSlots;
 	int m_iActivationRadiusMeters;
@@ -132,7 +133,7 @@ class HST_ActiveMissionState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 2;
+	static const int SCHEMA_VERSION = 3;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	string m_sPresetId = "rhs_everon";
@@ -144,6 +145,7 @@ class HST_CampaignState
 	int m_iHR = 20;
 	int m_iTrainingLevel = 1;
 	int m_iIncomeAccumulatorSeconds;
+	int m_iEnemyResourceAccumulatorSeconds;
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
@@ -253,6 +255,17 @@ class HST_CampaignState
 		{
 			if (!qrf.m_bResolved && qrf.m_sTargetZoneId == targetZoneId && qrf.m_sFactionKey == factionKey)
 				return qrf;
+		}
+
+		return null;
+	}
+
+	HST_ActiveMissionState FindActiveMission(string instanceId)
+	{
+		foreach (HST_ActiveMissionState mission : m_aActiveMissions)
+		{
+			if (mission.m_sInstanceId == instanceId)
+				return mission;
 		}
 
 		return null;

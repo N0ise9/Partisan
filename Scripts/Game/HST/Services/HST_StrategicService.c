@@ -7,6 +7,9 @@ class HST_StrategicService
 			return false;
 
 		zone.m_sOwnerFactionKey = factionKey;
+		zone.m_iResistanceCaptureProgress = 0;
+		zone.m_iActiveInfantryCount = 0;
+		zone.m_iActiveVehicleCount = 0;
 		economy.RecalculateWarLevel(state, balance);
 		EvaluateCampaignOutcome(state);
 		return true;

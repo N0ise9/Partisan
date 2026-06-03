@@ -189,6 +189,10 @@ foreach ($runtimeLayer in $runtimeLayers) {
 	if ($fiaAffiliationCount -lt $requiredFiaLoadouts.Count) {
 		throw "Primary FIA player loadouts must be explicitly affiliated with FIA in ${runtimeLayer}"
 	}
+
+	if ($text -notmatch "MapMarkerArea" -or $text -notmatch "Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" -or $text -notmatch "m_sMapMarkerText `"FIA HQ`"") {
+		throw "Runtime layer must expose an always-on FIA HQ map marker scaffold: $runtimeLayer"
+	}
 }
 Write-Host "World runtime scaffold OK"
 
@@ -314,10 +318,31 @@ foreach ($townId in $expectedEveronTownIds) {
 	}
 }
 
+$worldResourceText = (Get-ChildItem -Recurse -File "Worlds" -Include *.layer |
+	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
+$runtimeMarkerLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/default.layer"
 $townLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/Towns.layer"
 $strategicZonesLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/StrategicZones.layer"
-if ($townLayer -notmatch "Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" -or $townLayer -notmatch "SCR_ScenarioFrameworkMarkerCustom") {
-	throw "Everon towns layer must include Scenario Framework custom map markers"
+if ($runtimeMarkerLayer -notmatch "HST_AlphaMapMarkerArea" -or $runtimeMarkerLayer -notmatch "HST_AlphaMapMarkerLayer") {
+	throw "Runtime layer must include an always-active h-istasi map marker Scenario Framework area/layer"
+}
+
+foreach ($requiredMarkerScaffold in @(
+	"Prefabs/Systems/ScenarioFramework/Components/Area.et",
+	"Prefabs/Systems/ScenarioFramework/Components/Layer.et",
+	"Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et",
+	"SCR_ScenarioFrameworkMarkerCustom",
+	"m_bDynamicDespawn 0",
+	"m_eActivationType SAME_AS_PARENT",
+	"m_bExcludeFromDynamicDespawn 1"
+)) {
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredMarkerScaffold)) {
+		throw "Missing active map marker scaffold entry: $requiredMarkerScaffold"
+	}
+}
+
+if ($worldResourceText -match "SCR_ScenarioFrameworkSlotMarker" -and $worldResourceText -match "m_eActivationType ON_TRIGGER_ACTIVATION") {
+	throw "Map markers must not use trigger activation without an active Scenario Framework parent"
 }
 
 foreach ($townId in $expectedEveronTownIds) {
@@ -326,11 +351,11 @@ foreach ($townId in $expectedEveronTownIds) {
 		throw "Missing town anchor for $townId"
 	}
 
-	if ($townLayer -notmatch [regex]::Escape("HST_TownMarker_$suffix")) {
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_TownMarker_$suffix")) {
 		throw "Missing town map marker for $townId"
 	}
 
-	if ($townLayer -notmatch [regex]::Escape("m_sMapMarkerText `"$($townDisplayNames[$townId])`"")) {
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("m_sMapMarkerText `"$($townDisplayNames[$townId])`"")) {
 		throw "Missing town map marker text for $townId"
 	}
 
@@ -344,9 +369,20 @@ foreach ($group in @($townAnchorIds | Group-Object | Where-Object Count -gt 1)) 
 	throw "Duplicate town layer anchor ID: $($group.Name)"
 }
 
-$townMarkerIds = @([regex]::Matches($townLayer, "HST_TownMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
+$townMarkerIds = @([regex]::Matches($runtimeMarkerLayer, "HST_TownMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
 foreach ($group in @($townMarkerIds | Group-Object | Where-Object Count -gt 1)) {
 	throw "Duplicate town layer marker ID: $($group.Name)"
+}
+
+foreach ($zoneId in $configZones) {
+	$suffix = $zoneId -replace "^town_", ""
+	if ($zoneId -like "town_*") {
+		if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_TownMarker_$suffix")) {
+			throw "Configured town zone lacks runtime marker: $zoneId"
+		}
+	} elseif ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_StrategicMarker_$zoneId")) {
+		throw "Configured strategic zone lacks runtime marker: $zoneId"
+	}
 }
 Write-Host "Everon town coverage OK: $($expectedEveronTownIds.Count)"
 
@@ -447,7 +483,9 @@ foreach ($requiredSaveEntry in @(
 	"m_aActiveMissions",
 	"m_aActiveGroups",
 	"m_aQRFs",
-	"m_iQrfCooldownUntilSecond"
+	"m_iQrfCooldownUntilSecond",
+	"m_iEnemyResourceAccumulatorSeconds",
+	"m_iResistanceCaptureProgress"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSaveEntry)) {
 		throw "Missing campaign save scaffold entry: $requiredSaveEntry"
@@ -474,10 +512,25 @@ foreach ($requiredCoordinatorEntry in @(
 	"AwardPlayerResources",
 	"RequestCommanderMoveHQ",
 	"RequestCommanderStartMission",
+	"RequestCommanderStartZoneMission",
 	"RequestCommanderRecruitGarrison",
+	"RequestCommanderTrainTroops",
+	"RequestCommanderApplyIncomeNow",
+	"RequestCommanderCompleteMission",
+	"RequestCommanderDepositArsenalItem",
+	"RequestCommanderStoreGarageVehicle",
 	"RequestMemberManualCheckpoint",
+	"RequestMemberInspectCampaign",
 	"RequestAdminSetZoneActive",
-	"RequestAdminCaptureZone"
+	"RequestAdminCaptureZone",
+	"RequestAdminCaptureZoneForResistance",
+	"RequestAdminAddCaptureProgress",
+	"RequestAdminStartDebugMission",
+	"RequestAdminCompleteMission",
+	"RequestAdminFailMission",
+	"RequestAdminAwardResources",
+	"RequestAdminAddEnemyResources",
+	"RequestAdminInspectZone"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCoordinatorEntry)) {
 		throw "Missing coordinator dev/framework entry point: $requiredCoordinatorEntry"
@@ -547,6 +600,9 @@ foreach ($requiredPhysicalWarEntry in @(
 	"TrySpawnActiveGroup",
 	"FoldActiveGroup",
 	"UpdateQRF",
+	"TickResources",
+	"AddResistanceCaptureProgress",
+	"CAPTURE_PROGRESS_REQUIRED",
 	"HQ_SAFE_RADIUS_METERS",
 	"IsZoneInsideHQSafeArea",
 	"IsAnyLivingPlayerNearZone",
