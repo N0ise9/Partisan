@@ -191,6 +191,10 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
  }
 }
 SCR_MapMarkerDotCircle HST_NativeMapMarker_hq {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
  coords 3400 0 4500
  Flags 0
  m_fRadius 140

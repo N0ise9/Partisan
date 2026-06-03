@@ -77,7 +77,7 @@ if ($project -notmatch '"58D0FB3206B6F859"' -or $project -notmatch '"595F2BF2F44
 }
 Write-Host "Project dependencies OK"
 
-$files = Get-ChildItem -Recurse -File -Include *.c,*.conf,*.ent,*.layer,*.gproj,*.md,.gitignore |
+$files = Get-ChildItem -Recurse -File -Include *.c,*.conf,*.ent,*.et,*.layer,*.gproj,*.md,.gitignore |
 	Where-Object { $_.FullName -notlike "*\.git\*" }
 
 foreach ($file in $files) {
@@ -197,6 +197,12 @@ foreach ($runtimeLayer in $runtimeLayers) {
 	if ($text -notmatch "SCR_MapMarkerManagerComponent" -or $text -notmatch "SCR_MapMarkerDotCircle" -or $text -notmatch "HST_NativeMapMarker_hq") {
 		throw "Runtime layer must expose native map marker manager plus FIA HQ native marker: $runtimeLayer"
 	}
+
+	$runtimeNativeMarkerCount = ([regex]::Matches($text, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_")).Count
+	$runtimeNativeMarkerRplCount = ([regex]::Matches($text, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_[A-Za-z0-9_]+\s*\{\s*components\s*\{\s*RplComponent")).Count
+	if ($runtimeNativeMarkerRplCount -lt $runtimeNativeMarkerCount) {
+		throw "Runtime native map marker lacks RplComponent in ${runtimeLayer}"
+	}
 }
 Write-Host "World runtime scaffold OK"
 
@@ -245,6 +251,41 @@ foreach ($startingPointLayer in $startingPointLayers) {
 	}
 }
 Write-Host "Playable HQ starting points OK"
+
+$petrosPrefabPath = "Prefabs/Characters/HST/Character_HST_Petros.et"
+if (!(Test-Path $petrosPrefabPath)) {
+	throw "Missing dedicated Petros prefab: $petrosPrefabPath"
+}
+
+$petrosPrefabText = Get-Content -Raw $petrosPrefabPath
+$hqServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_HQService.c"
+foreach ($requiredPetrosPrefabEntry in @(
+	"SCR_ChimeraCharacter Character_HST_Petros",
+	"Character_FIA_Rifleman.et"
+)) {
+	if ($petrosPrefabText -notmatch [regex]::Escape($requiredPetrosPrefabEntry)) {
+		throw "Dedicated Petros prefab is missing editable inheritance entry: $requiredPetrosPrefabEntry"
+	}
+}
+
+foreach ($requiredPetrosServiceEntry in @(
+	"PETROS_BASE_PREFAB",
+	'PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros.et"',
+	"ResolvePetrosPrefab",
+	"IsGuidResourceName",
+	"state.m_sPetrosPrefab = PETROS_PREFAB",
+	"spawning base FIA placeholder",
+	"DoSpawn(petrosPrefab"
+)) {
+	if ($hqServiceText -notmatch [regex]::Escape($requiredPetrosServiceEntry)) {
+		throw "HQ service is missing dedicated Petros prefab entry: $requiredPetrosServiceEntry"
+	}
+}
+
+if ($hqServiceText -match "DoSpawn\(PETROS_BASE_PREFAB" -or $hqServiceText -match "DoSpawn\(PETROS_PREFAB") {
+	throw "HQ runtime spawn must resolve Petros through state-aware dedicated prefab normalization"
+}
+Write-Host "Dedicated Petros prefab OK"
 
 $defaultCatalog = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c"
 $missionConfig = Get-Content -Raw "Configs/HST/Missions/HST_CE311_Missions.conf"
@@ -393,6 +434,16 @@ foreach ($zoneId in $configZones) {
 	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$zoneId")) {
 		throw "Configured zone lacks native runtime marker: $zoneId"
 	}
+}
+
+$nativeMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_")).Count
+if ($nativeMarkerCount -lt $configZones.Count) {
+	throw "Native runtime marker block count is unexpectedly low: $nativeMarkerCount"
+}
+
+$nativeMarkerRplCount = ([regex]::Matches($runtimeMarkerLayer, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_[A-Za-z0-9_]+\s*\{\s*components\s*\{\s*RplComponent")).Count
+if ($nativeMarkerRplCount -lt $nativeMarkerCount) {
+	throw "Native map marker is missing RplComponent for SCR_MapMarkerEntity init"
 }
 Write-Host "Everon town coverage OK: $($expectedEveronTownIds.Count)"
 

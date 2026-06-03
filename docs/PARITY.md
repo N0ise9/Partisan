@@ -26,6 +26,9 @@
   abstract garrison counts into runtime active counts
 - Coordinator dev actions for zone capture, income ticks, mission
   success/failure, training, recruitment, and garrison fold-back
+- Dedicated Petros character prefab that inherits from FIA rifleman but can be
+  edited independently from player spawn characters; runtime spawning falls
+  back to the base FIA prefab until the custom asset has a GUID resource name
 
 ## Next Playable Increment
 
@@ -34,7 +37,10 @@
   and add restart/migration tests
 - Replace central-hideout auto-selection with first-start hideout selection UI
 - Add proper Antistasi HQ spawn/loadout UI over the custom FIA spawn backend
-- Replace Petros/tent/cache placeholders with authored h-istasi HQ entities
+- Index the dedicated Petros prefab in Workbench, update the Petros prefab
+  resource string to its GUID-qualified name, customize Petros
+  appearance/loadout, and replace tent/cache placeholders with authored
+  h-istasi HQ entities
 - Add player-facing member, guest, commander election, and admin UI
 - Add arsenal quantities, garage records, recruitment, garrisons, and map UI
 - Spawn/deactivate physical garrisons from active zone counts and fold

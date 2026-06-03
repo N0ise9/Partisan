@@ -28,12 +28,17 @@ The repository contains the first engine-facing increment:
 - Native respawn-request bootstrap with pending spawn tracking to avoid
   Workbench duplicate-spawn loops
 - Everon alpha anchors and zone activation scaffolding for the physical AI war
+- Dedicated Petros character prefab at
+  `Prefabs/Characters/HST/Character_HST_Petros.et` for later appearance and
+  loadout customization, with a safe base-FIA spawn fallback until Workbench
+  indexes the new prefab resource
 - Versioned campaign save-data container ready for native persistence binding
 
-This is a foundation build, not a public alpha. Physical Petros/cache/tent
-entities, setup UI, spawned AI, native save/load binding, final surveyed Everon
-coordinates, and mission-specific world logic still need to be connected
-incrementally.
+This is a foundation build, not a public alpha. Petros now has a dedicated
+editable prefab asset; once Workbench assigns it a GUID resource name, the HQ
+service can spawn that custom asset directly. Cache/tent polish, setup UI,
+spawned AI, native save/load binding, final surveyed Everon coordinates, and
+mission-specific world logic still need to be connected incrementally.
 
 ## Requirements
 

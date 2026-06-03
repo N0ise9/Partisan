@@ -1,6 +1,7 @@
 class HST_HQService
 {
-	static const string PETROS_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
+	static const string PETROS_BASE_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
+	static const string PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros.et";
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
 
@@ -55,7 +56,8 @@ class HST_HQService
 			return false;
 
 		EnsureRuntimeGroundPlacement(state);
-		GenericEntity petros = respawnSystem.DoSpawn(PETROS_PREFAB, state.m_vPetrosPosition, "0 0 0");
+		string petrosPrefab = ResolvePetrosPrefab(state);
+		GenericEntity petros = respawnSystem.DoSpawn(petrosPrefab, state.m_vPetrosPosition, "0 0 0");
 		GenericEntity cache = respawnSystem.DoSpawn(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
 		GenericEntity tent = respawnSystem.DoSpawn(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
 		state.m_bHQRuntimeObjectsSpawned = true;
@@ -67,6 +69,11 @@ class HST_HQService
 
 		ApplyFaction(petros);
 		return true;
+	}
+
+	string GetPetrosPrefab()
+	{
+		return PETROS_PREFAB;
 	}
 
 	protected bool ResolveHideoutPlacement(string requestedHideoutId, out string resolvedHideoutId, out vector resolvedPosition)
@@ -144,6 +151,31 @@ class HST_HQService
 		state.m_vPetrosPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vPetrosPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 		state.m_vHQCachePosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQCachePosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
 		state.m_vHQTentPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQTentPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+	}
+
+	protected string ResolvePetrosPrefab(HST_CampaignState state)
+	{
+		if (!state)
+			return PETROS_BASE_PREFAB;
+
+		if (state.m_sPetrosPrefab.IsEmpty() || state.m_sPetrosPrefab == PETROS_BASE_PREFAB)
+			state.m_sPetrosPrefab = PETROS_PREFAB;
+
+		if (!IsGuidResourceName(state.m_sPetrosPrefab))
+		{
+			Print(string.Format("h-istasi | dedicated Petros prefab %1 is not indexed yet; spawning base FIA placeholder", state.m_sPetrosPrefab), LogLevel.WARNING);
+			return PETROS_BASE_PREFAB;
+		}
+
+		return state.m_sPetrosPrefab;
+	}
+
+	protected bool IsGuidResourceName(string resourceName)
+	{
+		if (resourceName.Length() <= 18 || !resourceName.Contains("}"))
+			return false;
+
+		return resourceName.IndexOf("{") == 0;
 	}
 
 	protected vector ResolveHQObjectPosition(vector hqPosition, vector offset, float verticalOffset)
