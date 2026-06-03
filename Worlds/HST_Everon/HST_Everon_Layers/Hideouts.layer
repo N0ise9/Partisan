@@ -1,2 +1,18 @@
-// FIA hideout candidates, HQ spawn infrastructure, and Petros sites are authored here.
-
+GenericEntity HST_HideoutAnchor_north_forest : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4700 0 3500
+}
+GenericEntity HST_HideoutAnchor_central_hills : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6200 0 6200
+}
+GenericEntity HST_HideoutAnchor_south_woods : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4200 0 8900
+}
+GenericEntity HST_PetrosAnchor_north_forest : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4702 0 3502
+}
+GenericEntity HST_PetrosAnchor_central_hills : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6202 0 6202
+}
+GenericEntity HST_PetrosAnchor_south_woods : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4202 0 8902
+}

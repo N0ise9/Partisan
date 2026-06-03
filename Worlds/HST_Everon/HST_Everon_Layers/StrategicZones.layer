@@ -1,2 +1,48 @@
-// Physical strategic-zone anchors are authored here after the coordinate survey.
-
+GenericEntity HST_ZoneAnchor_town_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9575 0 1556
+}
+GenericEntity HST_ZoneAnchor_town_provins : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5805 0 9792
+}
+GenericEntity HST_ZoneAnchor_town_entre_deux : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4426 0 11031
+}
+GenericEntity HST_ZoneAnchor_town_chotain : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1082 0 6018
+}
+GenericEntity HST_ZoneAnchor_town_montignac : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4700 0 6900
+}
+GenericEntity HST_ZoneAnchor_town_laruns : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1932 0 5139
+}
+GenericEntity HST_ZoneAnchor_town_levie : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 10009 0 1550
+}
+GenericEntity HST_ZoneAnchor_outpost_north : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4700 0 3500
+}
+GenericEntity HST_ZoneAnchor_outpost_south : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4200 0 8900
+}
+GenericEntity HST_ZoneAnchor_airfield_main : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7500 0 7600
+}
+GenericEntity HST_ZoneAnchor_seaport_main : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 8650 0 11150
+}
+GenericEntity HST_ZoneAnchor_factory_central : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6200 0 6200
+}
+GenericEntity HST_ZoneAnchor_resource_north : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5200 0 4200
+}
+GenericEntity HST_ZoneAnchor_resource_south : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5100 0 9300
+}
+GenericEntity HST_ZoneAnchor_radio_north : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1932 0 5139
+}
+GenericEntity HST_ZoneAnchor_radio_south : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 10009 0 1550
+}

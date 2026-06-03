@@ -26,7 +26,9 @@ single `HST_CampaignState` and delegates to small services:
 - `HST_ZoneCaptureService`: capture helpers around strategic ownership
   changes.
 - `HST_PlayerSpawnService`: custom FIA HQ spawn, Workbench identity fallback,
-  native respawn possession handoff, and spawned-player records.
+  native respawn requests, pending spawn tracking, and spawned-player records.
+- `HST_PhysicalWarService`: player-proximity zone activation over the
+  abstract garrison model.
 
 The coordinator currently exposes server-only mutation methods that check
 campaign phase, known IDs, and mission eligibility before changing state.
@@ -52,9 +54,10 @@ prefabs are connected in Workbench.
 
 The persistence service uses `SaveGameManager.RequestSavePoint` so local hosts
 and dedicated servers follow Reforger's native session-save path. The state
-model is versioned from day one. A later increment must add a native scripted
-serializer for `HST_CampaignState` and migration tests before save
-compatibility is promised.
+model is versioned from day one. `HST_CampaignSaveData` is the deep-copy save
+container for current campaign fields and nested runtime arrays. A later
+Workbench pass must bind that container into Reforger's persistent component
+loading path and add migration tests before save compatibility is promised.
 
 ## World Layout
 
@@ -75,11 +78,11 @@ for connected players without controlled pawns, which covers Workbench timing
 where player `1` exists before its respawn component is ready. The respawn
 system remains as possession plumbing, but its spawn logic is
 `HST_PlayerSpawnLogic`, which delegates to `HST_PlayerSpawnService`. The
-service registers the connected player as FIA, spawns the default FIA rifleman
-at the selected HQ hideout, calls the player's native respawn component to
-take over the pawn, and closes any lingering respawn menu. Spawn preloading is
-disabled for this custom path so the stock role-selection loading screen does
-not hold the session hostage. This is the primary h-istasi bootstrap.
+service registers the connected player as FIA, submits an `SCR_FreeSpawnData`
+request for the default FIA rifleman at the selected HQ hideout, tracks the
+request as pending, and records player state only when the native spawn
+callback reports success. This prevents the Workbench frame sweep from
+creating duplicate bodies while Reforger is still finalizing ownership.
 
 `StartingPoints.layer` still contains FIA-affiliated Scenario Framework
 spawnpoint slots and FIA role-selection loadouts, but those are now authoring
@@ -99,11 +102,14 @@ player-facing choice.
 
 ## Antistasi Framework Spine
 
-The first campaign loop is intentionally abstract. Zones carry type, income,
-support, and garrison-slot data in `HST_CampaignState`; garrisons are stored as
-infantry and vehicle counts until the hybrid AI activation increment turns them
-into physical units near players. Mission success, failure, and timeout paths
-mutate economy and aggression state. Coordinator dev actions expose deterministic
-server-only hooks for Workbench tests: register a player, move HQ, capture a
-zone, complete or fail a mission, tick income, train troops, recruit a garrison,
-and fold survivors back into abstract state.
+The first campaign loop is intentionally abstract. Zones carry type, position,
+income, support, activation radius, route IDs, mission site IDs, and
+garrison-slot data in `HST_CampaignState`; garrisons are stored as infantry and
+vehicle counts. The physical-war service marks zones active when players enter
+their activation radius and mirrors abstract garrison counts into runtime active
+counts. Follow-on AI work should consume those active counts to spawn groups,
+then fold survivors back before deactivation. Mission success, failure, and
+timeout paths mutate economy and aggression state. Coordinator dev actions
+expose deterministic server-only hooks for Workbench tests: register a player,
+move HQ, capture a zone, complete or fail a mission, tick income, train troops,
+recruit a garrison, and fold survivors back into abstract state.

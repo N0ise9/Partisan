@@ -24,6 +24,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_RecruitmentService m_Recruitment;
 	protected ref HST_ZoneCaptureService m_ZoneCapture;
 	protected ref HST_PlayerSpawnService m_PlayerSpawn;
+	protected ref HST_PhysicalWarService m_PhysicalWar;
 	protected float m_fSecondAccumulator;
 	protected float m_fSpawnSweepAccumulator;
 	protected int m_iSpawnDiagnosticsRemaining;
@@ -53,11 +54,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Recruitment = new HST_RecruitmentService();
 		m_ZoneCapture = new HST_ZoneCaptureService();
 		m_PlayerSpawn = new HST_PlayerSpawnService();
+		m_PhysicalWar = new HST_PhysicalWarService();
 
 		m_State.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
 		m_State.m_iHR = m_Balance.m_iStartingHR;
 		HST_DefaultCatalog.AddDefaultFactionPools(m_State, m_Balance, m_Preset);
 		HST_DefaultCatalog.AddDefaultZones(m_State, m_Preset);
+		HST_DefaultCatalog.AddDefaultGarrisons(m_State, m_Preset);
 		m_HQ.SelectInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
 
 		m_iSpawnDiagnosticsRemaining = 12;
@@ -90,6 +93,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_State)
 			return;
 
+		m_PlayerSpawn.Tick(timeSlice);
 		m_fSpawnSweepAccumulator += timeSlice;
 		if (m_fSpawnSweepAccumulator >= 0.25)
 		{
@@ -97,7 +101,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			ProcessPlayerSpawnSweep("frame");
 		}
 
-		m_Persistence.Tick(timeSlice, m_Balance.m_iAutosaveIntervalSeconds, m_Balance.m_iMajorChangeDebounceSeconds);
+		m_Persistence.Tick(m_State, timeSlice, m_Balance.m_iAutosaveIntervalSeconds, m_Balance.m_iMajorChangeDebounceSeconds);
 		m_fSecondAccumulator += timeSlice;
 		if (m_fSecondAccumulator < 1)
 			return;
@@ -108,6 +112,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
+		m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance);
 		if (missionChanged || income > 0 || hqRuntimeChanged)
 			m_Persistence.MarkMajorChange();
 	}
@@ -178,10 +183,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_PlayerSpawn)
 			return false;
 
-		bool spawned = m_PlayerSpawn.SpawnOrRespawnPlayer(m_State, m_Authorization, m_PlayerLifecycle, playerId);
-		if (spawned)
+		return m_PlayerSpawn.SpawnOrRespawnPlayer(m_State, m_Authorization, m_PlayerLifecycle, playerId);
+	}
+
+	void OnPlayerSpawned(int playerId, IEntity entity)
+	{
+		if (!Replication.IsServer() || !m_PlayerSpawn)
+			return;
+
+		if (m_PlayerSpawn.OnPlayerSpawned(m_State, m_Authorization, m_PlayerLifecycle, playerId, entity))
 			m_Persistence.MarkMajorChange();
-		return spawned;
+	}
+
+	void OnPlayerSpawnFailed(int playerId)
+	{
+		if (!Replication.IsServer() || !m_PlayerSpawn)
+			return;
+
+		m_PlayerSpawn.OnPlayerSpawnFailed(playerId);
 	}
 
 	bool SetMembership(string actorIdentityId, string targetIdentityId, bool isMember)
@@ -233,7 +252,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return false;
 
-		return m_Persistence.RequestCheckpoint("h-istasi manual checkpoint");
+		return m_Persistence.RequestCheckpoint("h-istasi manual checkpoint", m_State);
 	}
 
 	bool SelectInitialHideout(string hideoutId)
@@ -408,13 +427,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (diagnostics && !reason.IsEmpty())
 			Print("h-istasi | FIA spawn sweep triggered by " + reason);
 
-		int spawnedPlayers = m_PlayerSpawn.SpawnMissingConnectedPlayers(m_State, m_Authorization, m_PlayerLifecycle, diagnostics);
+		int spawnRequests = m_PlayerSpawn.SpawnMissingConnectedPlayers(m_State, m_Authorization, m_PlayerLifecycle, diagnostics);
 		if (diagnostics && m_iSpawnDiagnosticsRemaining > 0)
 			m_iSpawnDiagnosticsRemaining--;
 
-		if (spawnedPlayers > 0)
-			m_Persistence.MarkMajorChange();
-
-		return spawnedPlayers;
+		return spawnRequests;
 	}
 }

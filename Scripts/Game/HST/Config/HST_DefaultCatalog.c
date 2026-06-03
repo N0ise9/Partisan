@@ -52,22 +52,38 @@ class HST_DefaultCatalog
 
 	static void AddDefaultZones(HST_CampaignState state, HST_CampaignPreset preset)
 	{
-		state.m_aZones.Insert(NewZoneState("town_saint_pierre", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 80, 12));
-		state.m_aZones.Insert(NewZoneState("town_provins", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 35, 6));
-		state.m_aZones.Insert(NewZoneState("town_entre_deux", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 30, 6));
-		state.m_aZones.Insert(NewZoneState("town_chotain", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 35, 6));
-		state.m_aZones.Insert(NewZoneState("town_montignac", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 65, 10));
-		state.m_aZones.Insert(NewZoneState("town_laruns", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 30, 6));
-		state.m_aZones.Insert(NewZoneState("town_levie", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, 30, 6));
-		state.m_aZones.Insert(NewZoneState("outpost_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, 25, 16));
-		state.m_aZones.Insert(NewZoneState("outpost_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, 25, 16));
-		state.m_aZones.Insert(NewZoneState("airfield_main", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_AIRFIELD, 150, 24));
-		state.m_aZones.Insert(NewZoneState("seaport_main", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_SEAPORT, 90, 18));
-		state.m_aZones.Insert(NewZoneState("factory_central", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_FACTORY, 120, 10));
-		state.m_aZones.Insert(NewZoneState("resource_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, 75, 8));
-		state.m_aZones.Insert(NewZoneState("resource_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, 75, 8));
-		state.m_aZones.Insert(NewZoneState("radio_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, 20, 8));
-		state.m_aZones.Insert(NewZoneState("radio_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, 20, 8));
+		state.m_aZones.Insert(NewZoneState("town_saint_pierre", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "9575 0 1556", 80, 12, "route_saint_pierre", "qrf_saint_pierre", "site_saint_pierre"));
+		state.m_aZones.Insert(NewZoneState("town_provins", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "5805 0 9792", 35, 10, "route_provins", "qrf_provins", "site_provins"));
+		state.m_aZones.Insert(NewZoneState("town_entre_deux", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4426 0 11031", 30, 10, "route_entre_deux", "qrf_entre_deux", "site_entre_deux"));
+		state.m_aZones.Insert(NewZoneState("town_chotain", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "1082 0 6018", 35, 12, "route_chotain", "qrf_chotain", "site_chotain"));
+		state.m_aZones.Insert(NewZoneState("town_montignac", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4700 0 6900", 65, 16, "route_montignac", "qrf_montignac", "site_montignac"));
+		state.m_aZones.Insert(NewZoneState("town_laruns", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "1932 0 5139", 30, 10, "route_laruns", "qrf_laruns", "site_laruns"));
+		state.m_aZones.Insert(NewZoneState("town_levie", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "10009 0 1550", 30, 10, "route_levie", "qrf_levie", "site_levie"));
+		state.m_aZones.Insert(NewZoneState("outpost_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "4700 0 3500", 25, 16, "route_outpost_north", "qrf_outpost_north", "site_outpost_north"));
+		state.m_aZones.Insert(NewZoneState("outpost_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "4200 0 8900", 25, 16, "route_outpost_south", "qrf_outpost_south", "site_outpost_south"));
+		state.m_aZones.Insert(NewZoneState("airfield_main", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_AIRFIELD, "7500 0 7600", 150, 24, "route_airfield_main", "qrf_airfield_main", "site_airfield_main"));
+		state.m_aZones.Insert(NewZoneState("seaport_main", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_SEAPORT, "8650 0 11150", 90, 20, "route_seaport_main", "qrf_seaport_main", "site_seaport_main"));
+		state.m_aZones.Insert(NewZoneState("factory_central", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_FACTORY, "6200 0 6200", 120, 12, "route_factory_central", "qrf_factory_central", "site_factory_central"));
+		state.m_aZones.Insert(NewZoneState("resource_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "5200 0 4200", 75, 10, "route_resource_north", "qrf_resource_north", "site_resource_north"));
+		state.m_aZones.Insert(NewZoneState("resource_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "5100 0 9300", 75, 10, "route_resource_south", "qrf_resource_south", "site_resource_south"));
+		state.m_aZones.Insert(NewZoneState("radio_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "1932 0 5139", 20, 8, "route_radio_north", "qrf_radio_north", "site_radio_north"));
+		state.m_aZones.Insert(NewZoneState("radio_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "10009 0 1550", 20, 8, "route_radio_south", "qrf_radio_south", "site_radio_south"));
+	}
+
+	static void AddDefaultGarrisons(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+				continue;
+
+			int infantryCount = Math.Max(2, zone.m_iGarrisonSlots / 2);
+			int vehicleCount;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST || zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+				vehicleCount = 1;
+
+			state.m_aGarrisons.Insert(NewGarrisonState(zone.m_sZoneId, zone.m_sOwnerFactionKey, infantryCount, vehicleCount));
+		}
 	}
 
 	static bool IsKnownHideout(string hideoutId)
@@ -138,16 +154,31 @@ class HST_DefaultCatalog
 		return hideout;
 	}
 
-	private static HST_ZoneState NewZoneState(string zoneId, string ownerFactionKey, HST_EZoneType zoneType, int incomeValue, int garrisonSlots)
+	private static HST_ZoneState NewZoneState(string zoneId, string ownerFactionKey, HST_EZoneType zoneType, vector position, int incomeValue, int garrisonSlots, string patrolRouteId, string qrfRouteId, string missionSiteId)
 	{
 		HST_ZoneState zone = new HST_ZoneState();
 		zone.m_sZoneId = zoneId;
 		zone.m_sOwnerFactionKey = ownerFactionKey;
 		zone.m_eType = zoneType;
+		zone.m_vPosition = position;
 		zone.m_iSupport = 0;
 		zone.m_iIncomeValue = incomeValue;
 		zone.m_iGarrisonSlots = garrisonSlots;
+		zone.m_iActivationRadiusMeters = 1200;
+		zone.m_sPatrolRouteId = patrolRouteId;
+		zone.m_sQRFRouteId = qrfRouteId;
+		zone.m_sMissionSiteId = missionSiteId;
 		return zone;
+	}
+
+	private static HST_GarrisonState NewGarrisonState(string zoneId, string factionKey, int infantryCount, int vehicleCount)
+	{
+		HST_GarrisonState garrison = new HST_GarrisonState();
+		garrison.m_sZoneId = zoneId;
+		garrison.m_sFactionKey = factionKey;
+		garrison.m_iInfantryCount = infantryCount;
+		garrison.m_iVehicleCount = vehicleCount;
+		return garrison;
 	}
 
 	private static HST_MissionDefinition NewMission(string missionId, string displayName, HST_EMissionCategory category, int duration, int rewardMoney, int failureAggression)

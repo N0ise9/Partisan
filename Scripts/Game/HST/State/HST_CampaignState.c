@@ -32,10 +32,17 @@ class HST_ZoneState
 	string m_sZoneId;
 	string m_sOwnerFactionKey;
 	HST_EZoneType m_eType;
+	vector m_vPosition;
 	int m_iSupport;
 	int m_iIncomeValue;
 	int m_iGarrisonSlots;
+	int m_iActivationRadiusMeters;
 	bool m_bActive;
+	int m_iActiveInfantryCount;
+	int m_iActiveVehicleCount;
+	string m_sPatrolRouteId;
+	string m_sQRFRouteId;
+	string m_sMissionSiteId;
 }
 
 [BaseContainerProps()]

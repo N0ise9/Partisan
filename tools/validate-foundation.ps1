@@ -232,12 +232,26 @@ foreach ($requiredService in @(
 	"HST_TownService",
 	"HST_GarrisonService",
 	"HST_RecruitmentService",
-	"HST_ZoneCaptureService"
+	"HST_ZoneCaptureService",
+	"HST_PhysicalWarService"
 )) {
 	if ($requiredService -notin $definedSymbols) {
 		throw "Missing Antistasi framework service: $requiredService"
 	}
 }
+
+foreach ($requiredSaveEntry in @(
+	"HST_CampaignSaveData",
+	"CaptureState",
+	"GetLastCapturedSave",
+	"m_iSchemaVersion",
+	"m_aActiveMissions"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredSaveEntry)) {
+		throw "Missing campaign save scaffold entry: $requiredSaveEntry"
+	}
+}
+Write-Host "Campaign save scaffold OK"
 
 foreach ($requiredCoordinatorEntry in @(
 	"RegisterConnectedPlayer",
@@ -268,7 +282,13 @@ foreach ($requiredFiaSpawnContract in @(
 	'PRIMARY_PLAYER_FACTION = "FIA"',
 	'Character_FIA_Rifleman.et',
 	'E_SpawnPoint_FIA.et',
-	'NotifySpawn',
+	'SCR_FreeSpawnData',
+	'RequestSpawn',
+	'RequestPlayerSpawn',
+	'OnPlayerSpawned',
+	'OnPlayerSpawnFailed',
+	'HasPendingSpawn',
+	'SCR_PossessingManagerComponent',
 	'GetPlayerRespawnComponent',
 	'CloseRespawnMenu',
 	'SpawnMissingConnectedPlayers',
@@ -285,6 +305,28 @@ foreach ($requiredFiaSpawnContract in @(
 	}
 }
 Write-Host "FIA player spawn contract OK"
+
+if ($scriptText -match "\bNotifySpawn\b") {
+	throw "FIA player spawn must use native spawn requests instead of manual NotifySpawn possession handoff"
+}
+Write-Host "Native spawn request contract OK"
+
+foreach ($requiredPhysicalWarEntry in @(
+	"UpdateZoneActivation",
+	"m_vPosition",
+	"m_iActivationRadiusMeters",
+	"m_sPatrolRouteId",
+	"m_sQRFRouteId",
+	"m_sMissionSiteId",
+	"m_aGroupPrefabs",
+	"m_aPatrolGroupPrefabs",
+	"m_aQRFGroupPrefabs"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredPhysicalWarEntry) -and $configResourceText -notmatch [regex]::Escape($requiredPhysicalWarEntry)) {
+		throw "Missing physical AI war scaffold entry: $requiredPhysicalWarEntry"
+	}
+}
+Write-Host "Physical AI war scaffold OK"
 
 $codeWithoutEnumDeclarations = [regex]::Replace($codeOnly, "(?s)enum\s+HST_[A-Za-z0-9_]+\s*\{.*?\}", "")
 $unscopedEnumReferences = @([regex]::Matches($codeWithoutEnumDeclarations, "(?<!\.)\bHST_(?:CAMPAIGN|ZONE|MISSION)_[A-Z_]+\b") |

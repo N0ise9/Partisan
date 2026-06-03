@@ -25,11 +25,15 @@ The repository contains the first engine-facing increment:
 - HQ and Petros state hooks for the first playable resistance-campaign slice
 - Abstract Antistasi systems for player lifecycle, town income/support, zone
   capture, garrisons, recruitment/training, and mission rewards/penalties
+- Native respawn-request bootstrap with pending spawn tracking to avoid
+  Workbench duplicate-spawn loops
+- Everon alpha anchors and zone activation scaffolding for the physical AI war
+- Versioned campaign save-data container ready for native persistence binding
 
 This is a foundation build, not a public alpha. Physical Petros/cache/tent
-entities, setup UI, spawned AI, persistence serializers,
-surveyed Everon coordinates, and mission-specific world logic still need to be
-connected incrementally.
+entities, setup UI, spawned AI, native save/load binding, final surveyed Everon
+coordinates, and mission-specific world logic still need to be connected
+incrementally.
 
 ## Requirements
 

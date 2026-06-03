@@ -1,2 +1,27 @@
-// Town anchors, police stations, banks, and civilian sites are authored here.
-
+GenericEntity HST_TownAnchor_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9575 0 1556
+}
+GenericEntity HST_TownAnchor_provins : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5805 0 9792
+}
+GenericEntity HST_TownAnchor_entre_deux : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4426 0 11031
+}
+GenericEntity HST_TownAnchor_chotain : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1082 0 6018
+}
+GenericEntity HST_TownAnchor_montignac : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4700 0 6900
+}
+GenericEntity HST_TownAnchor_laruns : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1932 0 5139
+}
+GenericEntity HST_TownAnchor_levie : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 10009 0 1550
+}
+GenericEntity HST_BankAnchor_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9588 0 1568
+}
+GenericEntity HST_PoliceAnchor_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9562 0 1544
+}

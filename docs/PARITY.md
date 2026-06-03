@@ -13,24 +13,32 @@
 - Native Reforger manual and periodic checkpoint requests
 - Original Everon world shell and stable strategic-zone IDs
 - Custom FIA HQ player spawn path that bypasses stock Deployment Setup and
-  uses game-mode player callbacks, a short spawn sweep, and native respawn
-  possession plumbing
+  uses game-mode player callbacks, a short spawn sweep, native respawn
+  requests, pending spawn tracking, and spawn-success callbacks
 - FIA Scenario Framework spawnpoints and role-selection loadouts retained as
   authoring metadata and fallback scaffolding
 - HQ lifecycle service for initial hideout, HQ movement, Petros state, and
   Petros/cache/tent runtime object positions, and Petros-loss penalties
+- Versioned campaign save container for current state fields and nested arrays
+- Everon alpha anchors for strategic zones, towns, hideouts, routes, and
+  mission sites
+- Physical-war activation scaffold that marks nearby zones active and mirrors
+  abstract garrison counts into runtime active counts
 - Coordinator dev actions for zone capture, income ticks, mission
   success/failure, training, recruitment, and garrison fold-back
 
 ## Next Playable Increment
 
 - Index the new resources in Workbench and verify script compile
-- Add a native `HST_CampaignState` serializer and restart test
+- Bind `HST_CampaignSaveData` into Reforger's persistent component load path
+  and add restart/migration tests
 - Replace central-hideout auto-selection with first-start hideout selection UI
 - Add proper Antistasi HQ spawn/loadout UI over the custom FIA spawn backend
 - Replace Petros/tent/cache placeholders with authored h-istasi HQ entities
 - Add player-facing member, guest, commander election, and admin UI
 - Add arsenal quantities, garage records, recruitment, garrisons, and map UI
+- Spawn/deactivate physical garrisons from active zone counts and fold
+  survivors back into abstract garrisons
 
 ## Later Alpha Increments
 

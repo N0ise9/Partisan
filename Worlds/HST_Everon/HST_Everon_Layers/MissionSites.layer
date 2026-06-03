@@ -1,2 +1,36 @@
-// Mission-specific world anchors are authored here.
-
+GenericEntity HST_MissionSite_assassinate_officer : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7500 0 7600
+}
+GenericEntity HST_MissionSite_conquest_resource_north : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5200 0 4200
+}
+GenericEntity HST_MissionSite_conquest_resource_south : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5100 0 9300
+}
+GenericEntity HST_MissionSite_conquest_outpost_north : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4700 0 3500
+}
+GenericEntity HST_MissionSite_conquest_outpost_south : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4200 0 8900
+}
+GenericEntity HST_MissionSite_convoy_start_west : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1932 0 5139
+}
+GenericEntity HST_MissionSite_convoy_end_east : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9575 0 1556
+}
+GenericEntity HST_MissionSite_destroy_radio_north : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1932 0 5139
+}
+GenericEntity HST_MissionSite_destroy_radio_south : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 10009 0 1550
+}
+GenericEntity HST_MissionSite_logistics_bank : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9588 0 1568
+}
+GenericEntity HST_MissionSite_rescue_pows : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 8650 0 11150
+}
+GenericEntity HST_MissionSite_defend_petros : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6202 0 6202
+}

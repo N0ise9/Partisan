@@ -1,2 +1,27 @@
-// Convoy, QRF, reinforcement, and patrol spawn routes are authored here.
-
+GenericEntity HST_RouteAnchor_qrf_north_start : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4700 0 3500
+}
+GenericEntity HST_RouteAnchor_qrf_north_end : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5805 0 9792
+}
+GenericEntity HST_RouteAnchor_qrf_central_start : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6200 0 6200
+}
+GenericEntity HST_RouteAnchor_qrf_central_end : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7500 0 7600
+}
+GenericEntity HST_RouteAnchor_qrf_south_start : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4200 0 8900
+}
+GenericEntity HST_RouteAnchor_qrf_south_end : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 8650 0 11150
+}
+GenericEntity HST_RouteAnchor_convoy_west : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1932 0 5139
+}
+GenericEntity HST_RouteAnchor_convoy_central : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6200 0 6200
+}
+GenericEntity HST_RouteAnchor_convoy_east : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9575 0 1556
+}

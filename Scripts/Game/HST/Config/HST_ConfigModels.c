@@ -27,6 +27,9 @@ class HST_FactionTemplate
 	ref array<string> m_aCapabilities = {};
 	ref array<string> m_aInfantryPrefabs = {};
 	ref array<string> m_aVehiclePrefabs = {};
+	ref array<string> m_aGroupPrefabs = {};
+	ref array<string> m_aPatrolGroupPrefabs = {};
+	ref array<string> m_aQRFGroupPrefabs = {};
 	ref array<string> m_aSupportIds = {};
 
 	bool HasCapability(string capabilityId)
@@ -44,6 +47,10 @@ class HST_ZoneDefinition
 	vector m_vPosition;
 	string m_sInitialOwnerFactionKey;
 	int m_iGarrisonSlots;
+	int m_iActivationRadiusMeters;
+	string m_sPatrolRouteId;
+	string m_sQRFRouteId;
+	string m_sMissionSiteId;
 	ref array<string> m_aNearbyTownIds = {};
 	ref array<string> m_aCapabilities = {};
 }
@@ -102,4 +109,3 @@ class HST_CampaignPreset
 		return !m_aUnavailableCapabilities.Contains(capabilityId);
 	}
 }
-

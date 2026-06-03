@@ -91,9 +91,16 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
   SCR_CampaignFaction "{56F0C3A6336375DC}" : "{CF9447B87AB774DB}Configs/Factions/FIA_Campaign.conf" {
   }
   SCR_Faction "{66C6FB7CA8DC1B7C}" : "{F33C7BF22CBF3A8A}Configs/Factions/RHS_US_USMC.conf" {
+   m_bIsPlayable 0
+   m_aFriendlyFactionsIds {
+    "US"
+   }
   }
   SCR_Faction "{66C6FB7CAC79D53E}" : "{627A8CDE681D223D}Configs/Factions/RHS_RF_MSV.conf" {
    m_bIsPlayable 0
+   m_aFriendlyFactionsIds {
+    "USSR"
+   }
   }
   SCR_Faction "{60DCF47AEF40BD72}" : "{3FA20B01D950D31F}Configs/Factions/CIV.conf" {
   }
