@@ -29,6 +29,8 @@ class HST_CampaignSaveData
 	ref array<ref HST_PlayerState> m_aPlayers = {};
 	ref array<ref HST_ZoneState> m_aZones = {};
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
+	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
+	ref array<ref HST_QRFState> m_aQRFs = {};
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
@@ -79,6 +81,14 @@ class HST_CampaignSaveData
 		m_aGarrisons.Clear();
 		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
 			m_aGarrisons.Insert(CopyGarrison(garrison));
+
+		m_aActiveGroups.Clear();
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+			m_aActiveGroups.Insert(CopyActiveGroup(activeGroup));
+
+		m_aQRFs.Clear();
+		foreach (HST_QRFState qrf : state.m_aQRFs)
+			m_aQRFs.Insert(CopyQRF(qrf));
 
 		m_aArsenalItems.Clear();
 		foreach (HST_ArsenalItemState arsenalItem : state.m_aArsenalItems)
@@ -153,6 +163,14 @@ class HST_CampaignSaveData
 		foreach (HST_GarrisonState garrison : m_aGarrisons)
 			state.m_aGarrisons.Insert(CopyGarrison(garrison));
 
+		state.m_aActiveGroups.Clear();
+		foreach (HST_ActiveGroupState activeGroup : m_aActiveGroups)
+			state.m_aActiveGroups.Insert(CopyActiveGroup(activeGroup));
+
+		state.m_aQRFs.Clear();
+		foreach (HST_QRFState qrf : m_aQRFs)
+			state.m_aQRFs.Insert(CopyQRF(qrf));
+
 		state.m_aArsenalItems.Clear();
 		foreach (HST_ArsenalItemState arsenalItem : m_aArsenalItems)
 			state.m_aArsenalItems.Insert(CopyArsenalItem(arsenalItem));
@@ -221,6 +239,7 @@ class HST_CampaignSaveData
 		target.m_sPatrolRouteId = source.m_sPatrolRouteId;
 		target.m_sQRFRouteId = source.m_sQRFRouteId;
 		target.m_sMissionSiteId = source.m_sMissionSiteId;
+		target.m_iQrfCooldownUntilSecond = source.m_iQrfCooldownUntilSecond;
 		return target;
 	}
 
@@ -231,6 +250,37 @@ class HST_CampaignSaveData
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_iInfantryCount = source.m_iInfantryCount;
 		target.m_iVehicleCount = source.m_iVehicleCount;
+		return target;
+	}
+
+	protected HST_ActiveGroupState CopyActiveGroup(HST_ActiveGroupState source)
+	{
+		HST_ActiveGroupState target = new HST_ActiveGroupState();
+		target.m_sGroupId = source.m_sGroupId;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_vPosition = source.m_vPosition;
+		target.m_iInfantryCount = source.m_iInfantryCount;
+		target.m_iVehicleCount = source.m_iVehicleCount;
+		target.m_bQRF = source.m_bQRF;
+		target.m_bSpawnAttempted = source.m_bSpawnAttempted;
+		target.m_bSpawnedEntity = source.m_bSpawnedEntity;
+		return target;
+	}
+
+	protected HST_QRFState CopyQRF(HST_QRFState source)
+	{
+		HST_QRFState target = new HST_QRFState();
+		target.m_sInstanceId = source.m_sInstanceId;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sSourceZoneId = source.m_sSourceZoneId;
+		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sGroupId = source.m_sGroupId;
+		target.m_iStartedAtSecond = source.m_iStartedAtSecond;
+		target.m_iETASeconds = source.m_iETASeconds;
+		target.m_bResolved = source.m_bResolved;
+		target.m_bSucceeded = source.m_bSucceeded;
 		return target;
 	}
 

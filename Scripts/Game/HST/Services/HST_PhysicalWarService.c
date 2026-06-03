@@ -1,9 +1,21 @@
 class HST_PhysicalWarService
 {
-	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance)
+	static const int MAX_ACTIVE_INFANTRY_PER_ZONE = 6;
+	static const int MAX_ACTIVE_VEHICLES_PER_ZONE = 1;
+	static const int QRF_ATTACK_RESOURCE_COST = 15;
+	static const int QRF_SUPPORT_RESOURCE_COST = 5;
+	static const int QRF_ETA_SECONDS = 180;
+	static const int QRF_COOLDOWN_SECONDS = 900;
+
+	protected ref array<string> m_aRuntimeGroupIds = {};
+	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
+
+	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_EnemyDirectorService enemyDirector = null)
 	{
 		if (!state || !balance)
 			return false;
+
+		EnsureRuntimeGroupEntities(state);
 
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
@@ -21,13 +33,16 @@ class HST_PhysicalWarService
 
 			zone.m_bActive = shouldBeActive;
 			if (shouldBeActive)
-				ActivateZone(state, zone);
+				changed = ActivateZone(state, zone) || changed;
 			else
-				DeactivateZone(zone);
+				changed = DeactivateZone(state, zone) || changed;
 
 			changed = true;
 			Print(string.Format("h-istasi | zone %1 physical activation = %2", zone.m_sZoneId, shouldBeActive));
 		}
+
+		if (UpdateQRF(state, enemyDirector))
+			changed = true;
 
 		return changed;
 	}
@@ -55,24 +70,261 @@ class HST_PhysicalWarService
 		return false;
 	}
 
-	protected void ActivateZone(HST_CampaignState state, HST_ZoneState zone)
+	protected bool ActivateZone(HST_CampaignState state, HST_ZoneState zone)
 	{
+		if (HasActiveGarrisonGroup(state, zone))
+		{
+			ApplyActiveZoneCounts(state, zone);
+			return false;
+		}
+
 		HST_GarrisonState garrison = state.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
 		if (!garrison)
 		{
 			zone.m_iActiveInfantryCount = 0;
 			zone.m_iActiveVehicleCount = 0;
-			return;
+			return false;
 		}
 
-		zone.m_iActiveInfantryCount = garrison.m_iInfantryCount;
-		zone.m_iActiveVehicleCount = garrison.m_iVehicleCount;
+		int infantryCount = Math.Min(garrison.m_iInfantryCount, MAX_ACTIVE_INFANTRY_PER_ZONE);
+		int vehicleCount = Math.Min(garrison.m_iVehicleCount, MAX_ACTIVE_VEHICLES_PER_ZONE);
+		if (infantryCount <= 0 && vehicleCount <= 0)
+		{
+			zone.m_iActiveInfantryCount = 0;
+			zone.m_iActiveVehicleCount = 0;
+			return false;
+		}
+
+		garrison.m_iInfantryCount = Math.Max(0, garrison.m_iInfantryCount - infantryCount);
+		garrison.m_iVehicleCount = Math.Max(0, garrison.m_iVehicleCount - vehicleCount);
+
+		HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, zone.m_sOwnerFactionKey, infantryCount, vehicleCount, false);
+		state.m_aActiveGroups.Insert(activeGroup);
+		TrySpawnActiveGroup(activeGroup);
+		ApplyActiveZoneCounts(state, zone);
+		Print(string.Format("h-istasi | activated garrison group %1 for zone %2", activeGroup.m_sGroupId, zone.m_sZoneId));
+		return true;
 	}
 
-	protected void DeactivateZone(HST_ZoneState zone)
+	protected bool DeactivateZone(HST_CampaignState state, HST_ZoneState zone)
 	{
+		bool changed;
+		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
+			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF)
+				continue;
+
+			FoldActiveGroup(state, activeGroup);
+			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+			state.m_aActiveGroups.Remove(i);
+			changed = true;
+		}
+
 		zone.m_iActiveInfantryCount = 0;
 		zone.m_iActiveVehicleCount = 0;
+		return changed;
+	}
+
+	protected bool UpdateQRF(HST_CampaignState state, HST_EnemyDirectorService enemyDirector)
+	{
+		bool changed = ResolveArrivedQRFs(state);
+		if (!enemyDirector)
+			return changed;
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone.m_bActive || zone.m_sOwnerFactionKey == "FIA" || zone.m_sQRFRouteId.IsEmpty())
+				continue;
+
+			if (state.m_iElapsedSeconds < zone.m_iQrfCooldownUntilSecond)
+				continue;
+
+			if (state.FindActiveQRF(zone.m_sZoneId, zone.m_sOwnerFactionKey))
+				continue;
+
+			if (!enemyDirector.TrySpend(state, zone.m_sOwnerFactionKey, QRF_ATTACK_RESOURCE_COST, QRF_SUPPORT_RESOURCE_COST))
+				continue;
+
+			HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, zone.m_sOwnerFactionKey, Math.Min(MAX_ACTIVE_INFANTRY_PER_ZONE, Math.Max(2, zone.m_iGarrisonSlots / 3)), MAX_ACTIVE_VEHICLES_PER_ZONE, true);
+			state.m_aActiveGroups.Insert(activeGroup);
+			TrySpawnActiveGroup(activeGroup);
+
+			HST_QRFState qrf = new HST_QRFState();
+			qrf.m_sInstanceId = string.Format("qrf_%1_%2_%3", zone.m_sZoneId, zone.m_sOwnerFactionKey, state.m_iElapsedSeconds);
+			qrf.m_sFactionKey = zone.m_sOwnerFactionKey;
+			qrf.m_sSourceZoneId = zone.m_sZoneId;
+			qrf.m_sTargetZoneId = zone.m_sZoneId;
+			qrf.m_sGroupId = activeGroup.m_sGroupId;
+			qrf.m_iStartedAtSecond = state.m_iElapsedSeconds;
+			qrf.m_iETASeconds = QRF_ETA_SECONDS;
+			state.m_aQRFs.Insert(qrf);
+			zone.m_iQrfCooldownUntilSecond = state.m_iElapsedSeconds + QRF_COOLDOWN_SECONDS;
+			Print(string.Format("h-istasi | dispatched QRF %1 to active zone %2", qrf.m_sInstanceId, zone.m_sZoneId));
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	protected bool ResolveArrivedQRFs(HST_CampaignState state)
+	{
+		bool changed;
+		foreach (HST_QRFState qrf : state.m_aQRFs)
+		{
+			if (!qrf || qrf.m_bResolved)
+				continue;
+
+			if (state.m_iElapsedSeconds < qrf.m_iStartedAtSecond + qrf.m_iETASeconds)
+				continue;
+
+			qrf.m_bResolved = true;
+			qrf.m_bSucceeded = true;
+			changed = true;
+			Print(string.Format("h-istasi | QRF %1 reached zone %2", qrf.m_sInstanceId, qrf.m_sTargetZoneId));
+		}
+
+		return changed;
+	}
+
+	protected HST_ActiveGroupState CreateActiveGroup(HST_CampaignState state, HST_ZoneState zone, string factionKey, int infantryCount, int vehicleCount, bool qrf)
+	{
+		HST_ActiveGroupState activeGroup = new HST_ActiveGroupState();
+		activeGroup.m_sGroupId = BuildGroupId(state, zone, factionKey, qrf);
+		activeGroup.m_sZoneId = zone.m_sZoneId;
+		activeGroup.m_sFactionKey = factionKey;
+		activeGroup.m_sPrefab = SelectGroupPrefab(factionKey, qrf);
+		activeGroup.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(zone.m_vPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+		activeGroup.m_iInfantryCount = infantryCount;
+		activeGroup.m_iVehicleCount = vehicleCount;
+		activeGroup.m_bQRF = qrf;
+		return activeGroup;
+	}
+
+	protected string BuildGroupId(HST_CampaignState state, HST_ZoneState zone, string factionKey, bool qrf)
+	{
+		string prefix = "grp";
+		if (qrf)
+			prefix = "qrf";
+
+		return string.Format("%1_%2_%3_%4_%5", prefix, zone.m_sZoneId, factionKey, state.m_iElapsedSeconds, state.m_aActiveGroups.Count());
+	}
+
+	protected string SelectGroupPrefab(string factionKey, bool qrf)
+	{
+		HST_FactionTemplate faction = HST_DefaultCatalog.CreateFactionTemplate(factionKey);
+		if (!faction)
+			return "";
+
+		if (qrf && faction.m_aQRFGroupPrefabs.Count() > 0)
+			return faction.m_aQRFGroupPrefabs[0];
+
+		if (!qrf && faction.m_aPatrolGroupPrefabs.Count() > 0)
+			return faction.m_aPatrolGroupPrefabs[0];
+
+		if (faction.m_aGroupPrefabs.Count() > 0)
+			return faction.m_aGroupPrefabs[0];
+
+		return "";
+	}
+
+	protected bool TrySpawnActiveGroup(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup || activeGroup.m_sPrefab.IsEmpty() || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
+			return false;
+
+		if (activeGroup.m_bSpawnAttempted && !activeGroup.m_bSpawnedEntity)
+			return false;
+
+		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
+		if (!respawnSystem)
+			return false;
+
+		activeGroup.m_bSpawnAttempted = true;
+		GenericEntity entity = respawnSystem.DoSpawn(activeGroup.m_sPrefab, activeGroup.m_vPosition, "0 0 0");
+		if (!entity)
+		{
+			Print(string.Format("h-istasi | active group prefab spawn failed for %1 (%2)", activeGroup.m_sGroupId, activeGroup.m_sPrefab), LogLevel.WARNING);
+			return false;
+		}
+
+		activeGroup.m_bSpawnedEntity = true;
+		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
+		m_aRuntimeGroupEntities.Insert(entity);
+		return true;
+	}
+
+	protected void EnsureRuntimeGroupEntities(HST_CampaignState state)
+	{
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
+				continue;
+
+			TrySpawnActiveGroup(activeGroup);
+		}
+	}
+
+	protected bool HasActiveGarrisonGroup(HST_CampaignState state, HST_ZoneState zone)
+	{
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (activeGroup && !activeGroup.m_bQRF && activeGroup.m_sZoneId == zone.m_sZoneId && activeGroup.m_sFactionKey == zone.m_sOwnerFactionKey)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected void ApplyActiveZoneCounts(HST_CampaignState state, HST_ZoneState zone)
+	{
+		int infantryCount;
+		int vehicleCount;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_bQRF || activeGroup.m_sZoneId != zone.m_sZoneId)
+				continue;
+
+			infantryCount += activeGroup.m_iInfantryCount;
+			vehicleCount += activeGroup.m_iVehicleCount;
+		}
+
+		zone.m_iActiveInfantryCount = infantryCount;
+		zone.m_iActiveVehicleCount = vehicleCount;
+	}
+
+	protected void FoldActiveGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		HST_GarrisonState garrison = state.FindGarrison(activeGroup.m_sZoneId, activeGroup.m_sFactionKey);
+		if (!garrison)
+		{
+			garrison = new HST_GarrisonState();
+			garrison.m_sZoneId = activeGroup.m_sZoneId;
+			garrison.m_sFactionKey = activeGroup.m_sFactionKey;
+			state.m_aGarrisons.Insert(garrison);
+		}
+
+		garrison.m_iInfantryCount += Math.Max(0, activeGroup.m_iInfantryCount);
+		garrison.m_iVehicleCount += Math.Max(0, activeGroup.m_iVehicleCount);
+	}
+
+	protected bool HasRuntimeGroupEntity(string groupId)
+	{
+		return m_aRuntimeGroupIds.Find(groupId) >= 0;
+	}
+
+	protected void DeleteRuntimeGroupEntity(string groupId)
+	{
+		int index = m_aRuntimeGroupIds.Find(groupId);
+		if (index < 0)
+			return;
+
+		IEntity entity = m_aRuntimeGroupEntities[index];
+		if (entity)
+			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+
+		m_aRuntimeGroupIds.Remove(index);
+		m_aRuntimeGroupEntities.Remove(index);
 	}
 
 	protected float DistanceSq2D(vector a, vector b)

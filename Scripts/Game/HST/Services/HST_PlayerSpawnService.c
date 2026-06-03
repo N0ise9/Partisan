@@ -107,12 +107,7 @@ class HST_PlayerSpawnService
 		{
 			RegisterPlayerOnly(state, authorization, lifecycle, playerId);
 			if (HasPlayerEntity(playerManager, playerId))
-			{
-				if (diagnostics)
-					Print(string.Format("h-istasi | FIA spawn sweep: player %1 already has a controlled entity", playerId));
-
 				continue;
-			}
 
 			if (HasPendingSpawn(playerId))
 			{
@@ -187,8 +182,7 @@ class HST_PlayerSpawnService
 		}
 
 		vector spawnPosition = GetPlayerSpawnPosition(state, playerId);
-		if (diagnostics)
-			Print(string.Format("h-istasi | requesting FIA spawn for player %1 at HQ hideout", playerId));
+		Print(string.Format("h-istasi | requesting FIA spawn for player %1 at HQ hideout %2", playerId, spawnPosition));
 
 		SCR_FreeSpawnData spawnData = new SCR_FreeSpawnData(DEFAULT_PLAYER_PREFAB, spawnPosition, "0 0 0");
 		SetPendingSpawn(playerId, DEFAULT_PLAYER_PREFAB, spawnPosition);
@@ -245,6 +239,36 @@ class HST_PlayerSpawnService
 	bool HasPendingSpawn(int playerId)
 	{
 		return FindPendingSpawnIndex(playerId) >= 0;
+	}
+
+	bool HasAnyPendingSpawn()
+	{
+		return m_aPendingSpawnPlayerIds.Count() > 0;
+	}
+
+	bool AreConnectedPlayersSpawnStable(HST_CampaignState state)
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			if (HasPendingSpawn(playerId))
+				return false;
+
+			if (!HasPlayerEntity(playerManager, playerId))
+				return false;
+		}
+
+		return true;
+	}
+
+	bool NeedsSpawnSweep(HST_CampaignState state)
+	{
+		return !AreConnectedPlayersSpawnStable(state);
 	}
 
 	protected HST_PlayerState RegisterPlayerOnly(HST_CampaignState state, HST_AuthorizationService authorization, HST_PlayerLifecycleService lifecycle, int playerId)
@@ -316,7 +340,7 @@ class HST_PlayerSpawnService
 		vector offset = "0 0 0";
 		offset[0] = (PositiveModulo(slot, 3) - 1) * 2;
 		offset[2] = ((slot / 3) - 1) * 2;
-		return spawnPosition + offset;
+		return HST_WorldPositionService.ResolveGroundPosition(spawnPosition + offset, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 	}
 
 	protected int PositiveModulo(int value, int divisor)

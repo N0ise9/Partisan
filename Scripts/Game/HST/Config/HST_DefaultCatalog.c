@@ -50,6 +50,20 @@ class HST_DefaultCatalog
 		return hideouts;
 	}
 
+	static HST_FactionTemplate CreateFactionTemplate(string factionKey)
+	{
+		if (factionKey == "FIA")
+			return CreateFiaTemplate();
+
+		if (factionKey == "RHS_USAF")
+			return CreateRhsUsmcTemplate();
+
+		if (factionKey == "RHS_AFRF")
+			return CreateRhsAfrfTemplate();
+
+		return null;
+	}
+
 	static void AddDefaultZones(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		state.m_aZones.Insert(NewZoneState("town_saint_pierre", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "9575 0 1556", 80, 12, "route_saint_pierre", "qrf_saint_pierre", "site_saint_pierre"));
@@ -179,6 +193,49 @@ class HST_DefaultCatalog
 		garrison.m_iInfantryCount = infantryCount;
 		garrison.m_iVehicleCount = vehicleCount;
 		return garrison;
+	}
+
+	private static HST_FactionTemplate CreateFiaTemplate()
+	{
+		HST_FactionTemplate faction = new HST_FactionTemplate();
+		faction.m_sTemplateId = "fia_resistance";
+		faction.m_sFactionKey = "FIA";
+		faction.m_sDisplayName = "FIA Resistance";
+		faction.m_bPlayable = true;
+		faction.m_aGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
+		faction.m_aPatrolGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
+		faction.m_aQRFGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
+		return faction;
+	}
+
+	private static HST_FactionTemplate CreateRhsUsmcTemplate()
+	{
+		HST_FactionTemplate faction = new HST_FactionTemplate();
+		faction.m_sTemplateId = "rhs_usmc_occupier";
+		faction.m_sFactionKey = "RHS_USAF";
+		faction.m_sDisplayName = "RHS USMC Occupiers";
+		faction.m_aGroupPrefabs.Insert("{19843E954790DF28}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_FireTeam.et");
+		faction.m_aGroupPrefabs.Insert("{F831DFB4A9B46152}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_RifleSquad.et");
+		faction.m_aGroupPrefabs.Insert("{0E3DC6A52A5F959E}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_PlatoonHQ.et");
+		faction.m_aPatrolGroupPrefabs.Insert("{19843E954790DF28}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_FireTeam.et");
+		faction.m_aPatrolGroupPrefabs.Insert("{7A43006F3F254FB2}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_MARSOC/Group_USAF_USMC_MARSOC_SentryTeam.et");
+		faction.m_aQRFGroupPrefabs.Insert("{F831DFB4A9B46152}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_RifleSquad.et");
+		faction.m_aQRFGroupPrefabs.Insert("{D31888A77B1C4310}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_FORECON/Group_USAF_USMC_FORECON_Squad.et");
+		return faction;
+	}
+
+	private static HST_FactionTemplate CreateRhsAfrfTemplate()
+	{
+		HST_FactionTemplate faction = new HST_FactionTemplate();
+		faction.m_sTemplateId = "rhs_afrf_invader";
+		faction.m_sFactionKey = "RHS_AFRF";
+		faction.m_sDisplayName = "RHS AFRF Invaders";
+		faction.m_aGroupPrefabs.Insert("{A6A3EDA237E3D336}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_FireGroup_NotSpawned.et");
+		faction.m_aGroupPrefabs.Insert("{D9523F26504A8D59}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/VVRG/Group_RHS_hSPEC_VVRG_TEAM.et");
+		faction.m_aPatrolGroupPrefabs.Insert("{A6A3EDA237E3D336}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_FireGroup_NotSpawned.et");
+		faction.m_aQRFGroupPrefabs.Insert("{D9523F26504A8D59}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/VVRG/Group_RHS_hSPEC_VVRG_TEAM.et");
+		faction.m_aQRFGroupPrefabs.Insert("{622DDA327B669B67}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_ATTeam.et");
+		return faction;
 	}
 
 	private static HST_MissionDefinition NewMission(string missionId, string displayName, HST_EMissionCategory category, int duration, int rewardMoney, int failureAggression)

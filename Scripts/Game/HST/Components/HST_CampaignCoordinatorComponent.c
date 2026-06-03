@@ -28,6 +28,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected float m_fSecondAccumulator;
 	protected float m_fSpawnSweepAccumulator;
 	protected int m_iSpawnDiagnosticsRemaining;
+	protected bool m_bSpawnSweepArmed;
+	protected int m_iStableSpawnSweepCount;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -63,7 +65,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_DefaultCatalog.AddDefaultGarrisons(m_State, m_Preset);
 		m_HQ.SelectInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
 
-		m_iSpawnDiagnosticsRemaining = 12;
+		ArmPlayerSpawnSweep(6);
 		SetEventMask(owner, EntityEvent.FRAME);
 		Print("h-istasi | campaign coordinator initialized");
 	}
@@ -71,20 +73,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnGameModeStart()
 	{
 		super.OnGameModeStart();
+		ArmPlayerSpawnSweep(4);
 		ProcessPlayerSpawnSweep("game-mode-start", true);
 	}
 
 	override void OnGameStateChanged(SCR_EGameModeState state)
 	{
 		super.OnGameStateChanged(state);
-		m_iSpawnDiagnosticsRemaining = Math.Max(m_iSpawnDiagnosticsRemaining, 8);
+		ArmPlayerSpawnSweep(4);
 		ProcessPlayerSpawnSweep("game-state-changed", true);
 	}
 
 	override void OnPlayerConnected(int playerId)
 	{
 		super.OnPlayerConnected(playerId);
-		m_iSpawnDiagnosticsRemaining = Math.Max(m_iSpawnDiagnosticsRemaining, 8);
+		ArmPlayerSpawnSweep(4);
 		ProcessPlayerSpawnSweep(string.Format("player-connected-%1", playerId), true);
 	}
 
@@ -95,7 +98,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_PlayerSpawn.Tick(timeSlice);
 		m_fSpawnSweepAccumulator += timeSlice;
-		if (m_fSpawnSweepAccumulator >= 0.25)
+		if (m_fSpawnSweepAccumulator >= 0.25 && ShouldProcessFrameSpawnSweep())
 		{
 			m_fSpawnSweepAccumulator = 0;
 			ProcessPlayerSpawnSweep("frame");
@@ -112,8 +115,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
-		m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance);
-		if (missionChanged || income > 0 || hqRuntimeChanged)
+		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_EnemyDirector);
+		if (missionChanged || income > 0 || hqRuntimeChanged || physicalWarChanged)
 			m_Persistence.MarkMajorChange();
 	}
 
@@ -183,7 +186,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_PlayerSpawn)
 			return false;
 
-		return m_PlayerSpawn.SpawnOrRespawnPlayer(m_State, m_Authorization, m_PlayerLifecycle, playerId);
+		bool requested = m_PlayerSpawn.SpawnOrRespawnPlayer(m_State, m_Authorization, m_PlayerLifecycle, playerId);
+		if (requested)
+			ArmPlayerSpawnSweep(2);
+
+		return requested;
 	}
 
 	void OnPlayerSpawned(int playerId, IEntity entity)
@@ -201,6 +208,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		m_PlayerSpawn.OnPlayerSpawnFailed(playerId);
+		ArmPlayerSpawnSweep(4);
 	}
 
 	bool SetMembership(string actorIdentityId, string targetIdentityId, bool isMember)
@@ -401,6 +409,57 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changedMoney || changedRank;
 	}
 
+	bool RequestCommanderMoveHQ(int playerId, string hideoutId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return MoveHQ(hideoutId);
+	}
+
+	bool RequestCommanderStartMission(int playerId, string missionId, string targetZoneId = "")
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return StartMission(missionId, targetZoneId);
+	}
+
+	bool RequestCommanderRecruitGarrison(int playerId, string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return RecruitResistanceGarrison(zoneId, infantryCount, vehicleCount, moneyCost, hrCost);
+	}
+
+	bool RequestMemberManualCheckpoint(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return false;
+
+		return RequestManualCheckpoint();
+	}
+
+	bool RequestAdminSetZoneActive(int playerId, string zoneId, bool active)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		bool changed = m_Strategic.SetZoneActive(m_State, zoneId, active);
+		if (changed)
+			m_Persistence.MarkMajorChange();
+		return changed;
+	}
+
+	bool RequestAdminCaptureZone(int playerId, string zoneId, string factionKey)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		return SetZoneOwner(zoneId, factionKey);
+	}
+
 	protected bool SelectInitialHideout_S(string hideoutId)
 	{
 		bool changed = m_HQ.SelectInitialHideout(m_State, hideoutId);
@@ -418,12 +477,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
+	protected string ResolveTrustedIdentityId(int playerId)
+	{
+		if (!m_PlayerLifecycle || playerId <= 0)
+			return "";
+
+		return m_PlayerLifecycle.ResolveIdentityId(playerId, "");
+	}
+
+	protected bool CanPlayerUseCommanderActions(int playerId)
+	{
+		if (!m_Authorization)
+			return false;
+
+		return m_Authorization.CanUseCommanderActions(m_State, ResolveTrustedIdentityId(playerId));
+	}
+
+	protected bool CanPlayerUseMemberActions(int playerId)
+	{
+		string identityId = ResolveTrustedIdentityId(playerId);
+		HST_PlayerState player = m_State.FindPlayer(identityId);
+		return player && player.m_bMember;
+	}
+
+	protected bool CanPlayerUseAdminActions(int playerId)
+	{
+		if (!m_Authorization)
+			return false;
+
+		return m_Authorization.CanUseAdminActions(m_State, ResolveTrustedIdentityId(playerId));
+	}
+
 	protected int ProcessPlayerSpawnSweep(string reason = "", bool forceDiagnostics = false)
 	{
 		if (!Replication.IsServer() || !m_State || !m_PlayerSpawn)
 			return 0;
 
-		bool diagnostics = forceDiagnostics || m_iSpawnDiagnosticsRemaining > 0;
+		bool isFrameSweep = reason == "frame";
+		bool diagnostics = forceDiagnostics || (!isFrameSweep && m_iSpawnDiagnosticsRemaining > 0);
 		if (diagnostics && !reason.IsEmpty())
 			Print("h-istasi | FIA spawn sweep triggered by " + reason);
 
@@ -431,6 +522,40 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (diagnostics && m_iSpawnDiagnosticsRemaining > 0)
 			m_iSpawnDiagnosticsRemaining--;
 
+		UpdateSpawnSweepArmedState();
 		return spawnRequests;
+	}
+
+	protected void ArmPlayerSpawnSweep(int diagnosticsBudget = 0)
+	{
+		m_bSpawnSweepArmed = true;
+		m_iStableSpawnSweepCount = 0;
+		if (diagnosticsBudget > 0)
+			m_iSpawnDiagnosticsRemaining = Math.Max(m_iSpawnDiagnosticsRemaining, diagnosticsBudget);
+	}
+
+	protected bool ShouldProcessFrameSpawnSweep()
+	{
+		if (!m_PlayerSpawn)
+			return false;
+
+		return m_bSpawnSweepArmed || m_PlayerSpawn.NeedsSpawnSweep(m_State);
+	}
+
+	protected void UpdateSpawnSweepArmedState()
+	{
+		if (!m_PlayerSpawn)
+			return;
+
+		if (!m_PlayerSpawn.AreConnectedPlayersSpawnStable(m_State))
+		{
+			m_bSpawnSweepArmed = true;
+			m_iStableSpawnSweepCount = 0;
+			return;
+		}
+
+		m_iStableSpawnSweepCount++;
+		if (m_iStableSpawnSweepCount >= 2)
+			m_bSpawnSweepArmed = false;
 	}
 }

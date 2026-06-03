@@ -245,7 +245,10 @@ foreach ($requiredSaveEntry in @(
 	"CaptureState",
 	"GetLastCapturedSave",
 	"m_iSchemaVersion",
-	"m_aActiveMissions"
+	"m_aActiveMissions",
+	"m_aActiveGroups",
+	"m_aQRFs",
+	"m_iQrfCooldownUntilSecond"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSaveEntry)) {
 		throw "Missing campaign save scaffold entry: $requiredSaveEntry"
@@ -269,7 +272,13 @@ foreach ($requiredCoordinatorEntry in @(
 	"TrainTroops",
 	"RecruitResistanceGarrison",
 	"AwardFactionResources",
-	"AwardPlayerResources"
+	"AwardPlayerResources",
+	"RequestCommanderMoveHQ",
+	"RequestCommanderStartMission",
+	"RequestCommanderRecruitGarrison",
+	"RequestMemberManualCheckpoint",
+	"RequestAdminSetZoneActive",
+	"RequestAdminCaptureZone"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCoordinatorEntry)) {
 		throw "Missing coordinator dev/framework entry point: $requiredCoordinatorEntry"
@@ -292,10 +301,16 @@ foreach ($requiredFiaSpawnContract in @(
 	'GetPlayerRespawnComponent',
 	'CloseRespawnMenu',
 	'SpawnMissingConnectedPlayers',
+	'AreConnectedPlayersSpawnStable',
+	'NeedsSpawnSweep',
+	'ArmPlayerSpawnSweep',
+	'ShouldProcessFrameSpawnSweep',
 	'SCR_BaseGameModeComponent',
 	'OnPlayerConnected',
 	'OnGameStateChanged',
 	'ProcessPlayerSpawnSweep',
+	'HST_WorldPositionService',
+	'GetSurfaceY',
 	'EnsureRuntimeObjects',
 	'SupplyCache_S_FIA_01.et',
 	'TentSmallUS_01.et'
@@ -309,10 +324,20 @@ Write-Host "FIA player spawn contract OK"
 if ($scriptText -match "\bNotifySpawn\b") {
 	throw "FIA player spawn must use native spawn requests instead of manual NotifySpawn possession handoff"
 }
+if ($scriptText -match "already has a controlled entity") {
+	throw "FIA player spawn sweeps must not spam controlled-entity diagnostics after successful spawn"
+}
 Write-Host "Native spawn request contract OK"
 
 foreach ($requiredPhysicalWarEntry in @(
 	"UpdateZoneActivation",
+	"HST_ActiveGroupState",
+	"HST_QRFState",
+	"CreateFactionTemplate",
+	"TrySpawnActiveGroup",
+	"FoldActiveGroup",
+	"UpdateQRF",
+	"DeleteEntityAndChildren",
 	"m_vPosition",
 	"m_iActivationRadiusMeters",
 	"m_sPatrolRouteId",

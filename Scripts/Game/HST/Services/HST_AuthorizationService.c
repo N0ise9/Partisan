@@ -58,6 +58,12 @@ class HST_AuthorizationService
 		return !identityId.IsEmpty() && state.m_sCommanderIdentityId == identityId;
 	}
 
+	bool CanUseAdminActions(HST_CampaignState state, string identityId)
+	{
+		HST_PlayerState player = state.FindPlayer(identityId);
+		return player && player.m_bAdmin;
+	}
+
 	void AssignCommanderOnVacancy(HST_CampaignState state)
 	{
 		if (!state.m_sCommanderIdentityId.IsEmpty())

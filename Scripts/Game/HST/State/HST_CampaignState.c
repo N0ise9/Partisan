@@ -43,6 +43,7 @@ class HST_ZoneState
 	string m_sPatrolRouteId;
 	string m_sQRFRouteId;
 	string m_sMissionSiteId;
+	int m_iQrfCooldownUntilSecond;
 }
 
 [BaseContainerProps()]
@@ -52,6 +53,35 @@ class HST_GarrisonState
 	string m_sFactionKey;
 	int m_iInfantryCount;
 	int m_iVehicleCount;
+}
+
+[BaseContainerProps()]
+class HST_ActiveGroupState
+{
+	string m_sGroupId;
+	string m_sZoneId;
+	string m_sFactionKey;
+	string m_sPrefab;
+	vector m_vPosition;
+	int m_iInfantryCount;
+	int m_iVehicleCount;
+	bool m_bQRF;
+	bool m_bSpawnAttempted;
+	bool m_bSpawnedEntity;
+}
+
+[BaseContainerProps()]
+class HST_QRFState
+{
+	string m_sInstanceId;
+	string m_sFactionKey;
+	string m_sSourceZoneId;
+	string m_sTargetZoneId;
+	string m_sGroupId;
+	int m_iStartedAtSecond;
+	int m_iETASeconds;
+	bool m_bResolved;
+	bool m_bSucceeded;
 }
 
 [BaseContainerProps()]
@@ -102,7 +132,7 @@ class HST_ActiveMissionState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 1;
+	static const int SCHEMA_VERSION = 2;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	string m_sPresetId = "rhs_everon";
@@ -132,6 +162,8 @@ class HST_CampaignState
 	ref array<ref HST_PlayerState> m_aPlayers = {};
 	ref array<ref HST_ZoneState> m_aZones = {};
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
+	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
+	ref array<ref HST_QRFState> m_aQRFs = {};
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
@@ -199,6 +231,28 @@ class HST_CampaignState
 		{
 			if (garrison.m_sZoneId == zoneId && garrison.m_sFactionKey == factionKey)
 				return garrison;
+		}
+
+		return null;
+	}
+
+	HST_ActiveGroupState FindActiveGroup(string groupId)
+	{
+		foreach (HST_ActiveGroupState group : m_aActiveGroups)
+		{
+			if (group.m_sGroupId == groupId)
+				return group;
+		}
+
+		return null;
+	}
+
+	HST_QRFState FindActiveQRF(string targetZoneId, string factionKey)
+	{
+		foreach (HST_QRFState qrf : m_aQRFs)
+		{
+			if (!qrf.m_bResolved && qrf.m_sTargetZoneId == targetZoneId && qrf.m_sFactionKey == factionKey)
+				return qrf;
 		}
 
 		return null;
