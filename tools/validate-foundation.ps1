@@ -77,7 +77,7 @@ if ($project -notmatch '"58D0FB3206B6F859"' -or $project -notmatch '"595F2BF2F44
 }
 Write-Host "Project dependencies OK"
 
-$files = Get-ChildItem -Recurse -File -Include *.c,*.conf,*.ent,*.et,*.layer,*.gproj,*.md,.gitignore |
+$files = Get-ChildItem -Recurse -File -Include *.c,*.conf,*.ent,*.et,*.layer,*.layout,*.gproj,*.md,.gitignore |
 	Where-Object { $_.FullName -notlike "*\.git\*" }
 
 foreach ($file in $files) {
@@ -119,7 +119,7 @@ $requiredRuntimeScaffold = @(
 	'HST_PlayerSpawnLogic',
 	'm_bEnableRespawn 1',
 	'm_bEnablePauseMenuRespawn 0',
-	'Prefabs/Characters/Core/DefaultPlayerControllerMP_ScenarioFramework.et',
+	'Prefabs/Characters/HST/HST_PlayerController.et',
 	'm_bUseSpawnPreload 0',
 	'SCR_MapConfigComponent',
 	'Configs/Map/MapSpawnConflict.conf',
@@ -287,6 +287,23 @@ if ($hqServiceText -match "DoSpawn\(PETROS_BASE_PREFAB" -or $hqServiceText -matc
 	throw "HQ runtime spawn must resolve Petros through state-aware dedicated prefab normalization"
 }
 Write-Host "Dedicated Petros prefab OK"
+
+$playerControllerPrefabPath = "Prefabs/Characters/HST/HST_PlayerController.et"
+if (!(Test-Path $playerControllerPrefabPath)) {
+	throw "Missing HST player controller prefab: $playerControllerPrefabPath"
+}
+
+$playerControllerPrefabText = Get-Content -Raw $playerControllerPrefabPath
+foreach ($requiredPlayerControllerEntry in @(
+	"SCR_PlayerController HST_PlayerController",
+	"DefaultPlayerControllerMP_ScenarioFramework.et",
+	"HST_CommandMenuRequestComponent"
+)) {
+	if ($playerControllerPrefabText -notmatch [regex]::Escape($requiredPlayerControllerEntry)) {
+		throw "HST player controller prefab is missing request/RPC bridge entry: $requiredPlayerControllerEntry"
+	}
+}
+Write-Host "HST player controller request bridge OK"
 
 $defaultCatalog = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c"
 $missionConfig = Get-Content -Raw "Configs/HST/Missions/HST_CE311_Missions.conf"
@@ -533,7 +550,11 @@ foreach ($requiredService in @(
 	"HST_PhysicalWarService",
 	"HST_MapMarkerService",
 	"HST_CommandUIService",
-	"HST_CommandMenuComponent"
+	"HST_RuntimeSettings",
+	"HST_RuntimeSettingsService",
+	"HST_LootService",
+	"HST_CommandMenuComponent",
+	"HST_CommandMenuRequestComponent"
 )) {
 	if ($requiredService -notin $definedSymbols) {
 		throw "Missing Antistasi framework service: $requiredService"
@@ -553,7 +574,9 @@ foreach ($requiredSaveEntry in @(
 	"m_bRuntimeNative",
 	"m_iQrfCooldownUntilSecond",
 	"m_iEnemyResourceAccumulatorSeconds",
-	"m_iResistanceCaptureProgress"
+	"m_iResistanceCaptureProgress",
+	"m_sDisplayName",
+	"m_sCategory"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSaveEntry)) {
 		throw "Missing campaign save scaffold entry: $requiredSaveEntry"
@@ -597,6 +620,11 @@ foreach ($requiredCoordinatorEntry in @(
 	"GetAlphaCommanderMenu",
 	"GetAlphaAdminMenu",
 	"RequestAlphaUICommand",
+	"BuildVisibleMenuPayload",
+	"RequestVisibleMenuCommand",
+	"ResolveAuthoritativePlayerId",
+	"RequestMemberInspectArsenal",
+	"RequestMemberLootNearby",
 	"RequestAdminSetZoneActive",
 	"RequestAdminCaptureZone",
 	"RequestAdminCaptureZoneForResistance",
@@ -617,16 +645,27 @@ Write-Host "Antistasi framework service spine OK"
 foreach ($requiredCommandMenuEntry in @(
 	'COMMAND_MENU_ACTION = "Inventory"',
 	'COMMAND_MENU_CUSTOM_ACTION = "HST_CommandMenu"',
+	'MENU_INPUT_CONTEXT = "InGameMenuContext"',
+	'MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout"',
 	'AddActionListener',
 	'RemoveActionListener',
-	'BuildActionList',
+	'CreateWidgetInWorkspace',
+	'WidgetFlags.VISIBLE',
+	'ParseActionsFromPayload',
+	'OnServerSnapshot',
+	'HST_CommandMenuRequestComponent.GetLocalOwner',
+	'RequestSnapshot',
+	'RequestAction',
 	'ExecuteSelectedAction',
-	'RequestAlphaUICommand',
+	'BuildVisibleMenuPayload',
+	'RequestVisibleMenuCommand',
 	'inspect_campaign',
 	'inspect_markers',
 	'inspect_economy',
 	'inspect_zones',
 	'inspect_missions',
+	'inspect_arsenal',
+	'loot_nearby',
 	'move_hq',
 	'recruit_zone',
 	'mission_zone',
@@ -638,6 +677,59 @@ foreach ($requiredCommandMenuEntry in @(
 	}
 }
 Write-Host "I-key alpha command menu OK"
+
+if (!(Test-Path "UI/layouts/HST_CommandMenu.layout")) {
+	throw "Missing command menu layout placeholder"
+}
+
+foreach ($requiredSettingsEntry in @(
+	"HST_RuntimeSettings",
+	"HST_RuntimeSettingsService",
+	"HST_Settings.json",
+	"LoadOrCreate",
+	"WriteDefault",
+	"schemaVersion",
+	"startingFactionMoney",
+	"startingHR",
+	"autosaveIntervalSeconds",
+	"activationRadiusMeters",
+	"deactivationRadiusMeters",
+	"arsenalUnlockThreshold",
+	"magazineUnlockMultiplier",
+	"lootRadiusMeters",
+	"lootOnlyLockedItems",
+	"removeLootedItems",
+	"ApplyTo"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredSettingsEntry)) {
+		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
+	}
+}
+Write-Host "Runtime settings generated-config contract OK"
+
+foreach ($requiredLootEntry in @(
+	"HST_LootService",
+	"HST_LootResult",
+	"LootNearbyToArsenal",
+	"SCR_InventoryStorageManagerComponent",
+	"QueryEntitiesBySphere",
+	"BaseMagazineComponent",
+	"BaseWeaponComponent",
+	"GrenadeMoveComponent",
+	"TryDeleteItem",
+	"TryRemoveItemFromStorage",
+	"IsGuidedLauncher",
+	"m_bLootOnlyLockedItems",
+	"m_bRemoveLootedItems",
+	"m_bAllowExplosiveUnlocks",
+	"m_bAllowGuidedLauncherUnlocks",
+	"m_iMagazineUnlockMultiplier"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredLootEntry)) {
+		throw "Missing loot-to-arsenal contract entry: $requiredLootEntry"
+	}
+}
+Write-Host "Loot-to-arsenal contract OK"
 
 foreach ($requiredFiaSpawnContract in @(
 	'string m_sFactionKey = "FIA"',

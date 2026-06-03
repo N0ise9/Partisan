@@ -10,6 +10,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
 	protected ref HST_BalanceConfig m_Balance;
+	protected ref HST_RuntimeSettingsService m_SettingsService;
+	protected ref HST_RuntimeSettings m_Settings;
 	protected ref HST_EconomyService m_Economy;
 	protected ref HST_MissionService m_Missions;
 	protected ref HST_PersistenceService m_Persistence;
@@ -27,6 +29,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_PhysicalWarService m_PhysicalWar;
 	protected ref HST_MapMarkerService m_MapMarkers;
 	protected ref HST_CommandUIService m_CommandUI;
+	protected ref HST_LootService m_Loot;
 	protected float m_fSecondAccumulator;
 	protected float m_fSpawnSweepAccumulator;
 	protected int m_iSpawnDiagnosticsRemaining;
@@ -44,6 +47,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State = new HST_CampaignState();
 		m_Preset = HST_DefaultCatalog.CreateRhsEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
+		m_SettingsService = new HST_RuntimeSettingsService();
+		m_Settings = m_SettingsService.LoadOrCreate();
+		if (m_Settings)
+			m_Settings.ApplyTo(m_Preset, m_Balance);
+
 		m_Economy = new HST_EconomyService();
 		m_Missions = new HST_MissionService();
 		m_Persistence = new HST_PersistenceService();
@@ -61,13 +69,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_PhysicalWar = new HST_PhysicalWarService();
 		m_MapMarkers = new HST_MapMarkerService();
 		m_CommandUI = new HST_CommandUIService();
+		m_Loot = new HST_LootService();
 
+		m_State.m_sPresetId = m_Preset.m_sPresetId;
+		if (m_Settings)
+			m_State.m_iCampaignSeed = m_Settings.m_Campaign.m_iCampaignSeed;
 		m_State.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
 		m_State.m_iHR = m_Balance.m_iStartingHR;
 		HST_DefaultCatalog.AddDefaultFactionPools(m_State, m_Balance, m_Preset);
 		HST_DefaultCatalog.AddDefaultZones(m_State, m_Preset);
 		HST_DefaultCatalog.AddDefaultGarrisons(m_State, m_Preset);
-		m_HQ.SelectInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
+		if (m_Settings && HST_DefaultCatalog.IsKnownHideout(m_Settings.m_Campaign.m_sDefaultHideoutId))
+			m_HQ.SelectInitialHideout(m_State, m_Settings.m_Campaign.m_sDefaultHideoutId);
+		else
+			m_HQ.SelectInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
 		RefreshCampaignMarkers();
 
 		ArmPlayerSpawnSweep(6);
@@ -163,6 +178,46 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_CommandUI.ExecuteQuickCommand(this, playerId, commandId, argument);
 	}
 
+	string BuildVisibleMenuPayload(int playerId, string selectedTabId, string lastResult = "")
+	{
+		if (!Replication.IsServer() || !m_CommandUI)
+			return "HST_MENU|offline|0\nSTATUS|h-istasi menu | server coordinator not ready\nEND";
+
+		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Settings, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId));
+	}
+
+	string RequestVisibleMenuCommand(int playerId, string selectedTabId, string commandId, string argument = "")
+	{
+		if (!Replication.IsServer() || !m_CommandUI)
+			return "h-istasi command | server coordinator not ready";
+
+		return m_CommandUI.ExecuteVisibleCommand(this, playerId, commandId, argument);
+	}
+
+	int ResolveAuthoritativePlayerId(IEntity requestOwner)
+	{
+		if (!Replication.IsServer() || !requestOwner)
+			return 0;
+
+		PlayerController controller = PlayerController.Cast(requestOwner);
+		if (controller && controller.GetPlayerId() > 0)
+			return controller.GetPlayerId();
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		int controlledPlayerId = playerManager.GetPlayerIdFromControlledEntity(requestOwner);
+		if (controlledPlayerId > 0)
+			return controlledPlayerId;
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(requestOwner.FindComponent(BaseRplComponent));
+		if (rpl)
+			return playerManager.GetPlayerIdFromEntityRplId(rpl.Id());
+
+		return 0;
+	}
+
 	static HST_CampaignCoordinatorComponent GetInstance()
 	{
 		return s_Instance;
@@ -173,7 +228,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return null;
 
-		return m_Authorization.RegisterPlayer(m_State, identityId, isAdmin);
+		HST_PlayerState player = m_Authorization.RegisterPlayer(m_State, identityId, isAdmin || IsSettingsAdminIdentity(identityId));
+		ApplyRuntimeMembershipDefaults(player);
+		return player;
 	}
 
 	string GetPlayerSpawnFactionKey()
@@ -213,7 +270,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return null;
 
-		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, isAdmin);
+		string resolvedIdentityId = m_PlayerLifecycle.ResolveIdentityId(playerId, identityId);
+		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, isAdmin || IsSettingsAdminIdentity(resolvedIdentityId));
+		ApplyRuntimeMembershipDefaults(player);
 		if (player)
 			MarkMajorCampaignChange();
 		return player;
@@ -282,12 +341,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
-	HST_ArsenalItemState DepositArsenalItem(string prefab, int amount)
+	HST_ArsenalItemState DepositArsenalItem(string prefab, int amount, string category = "equipment", string displayName = "")
 	{
 		if (!Replication.IsServer())
 			return null;
 
-		HST_ArsenalItemState item = m_Arsenal.DepositItem(m_State, m_Balance, prefab, amount);
+		HST_ArsenalItemState item = m_Arsenal.DepositItem(m_State, m_Balance, prefab, amount, category, displayName);
 		if (item)
 			MarkMajorCampaignChange();
 		return item;
@@ -589,6 +648,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_CommandUI.BuildMissionReport(m_State);
 	}
 
+	string RequestMemberInspectArsenal(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Arsenal)
+			return "";
+
+		return m_Arsenal.BuildArsenalReport(m_State);
+	}
+
+	string RequestMemberLootNearby(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi loot | membership required";
+
+		if (!m_Settings || !m_Settings.m_Features.m_bAreaLootEnabled)
+			return "h-istasi loot | area loot disabled by config";
+
+		if (!m_Loot || !m_Arsenal)
+			return "h-istasi loot | service not ready";
+
+		HST_LootResult result = m_Loot.LootNearbyToArsenal(m_State, m_Preset, m_Balance, m_Arsenal, playerId);
+		if (result && result.m_iItemsDeposited > 0)
+			MarkMajorCampaignChange();
+
+		if (!result)
+			return "h-istasi loot | no result";
+
+		return result.BuildSummary();
+	}
+
 	bool RequestAdminSetZoneActive(int playerId, string zoneId, bool active)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
@@ -732,6 +820,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool CanPlayerUseMemberActions(int playerId)
 	{
+		if (m_Settings && !m_Settings.m_Membership.m_bMembershipEnabled)
+			return true;
+
 		string identityId = ResolveTrustedIdentityId(playerId);
 		HST_PlayerState player = m_State.FindPlayer(identityId);
 		return player && player.m_bMember;
@@ -743,6 +834,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return m_Authorization.CanUseAdminActions(m_State, ResolveTrustedIdentityId(playerId));
+	}
+
+	protected bool IsSettingsAdminIdentity(string identityId)
+	{
+		if (!m_Settings || !m_Settings.m_Membership || identityId.IsEmpty())
+			return false;
+
+		return m_Settings.m_Membership.m_aAdminIdentityIds.Contains(identityId);
+	}
+
+	protected void ApplyRuntimeMembershipDefaults(HST_PlayerState player)
+	{
+		if (!player || !m_Settings)
+			return;
+
+		if (!m_Settings.m_Membership.m_bMembershipEnabled)
+		{
+			player.m_bMember = true;
+			player.m_bGuest = false;
+		}
+
+		if (IsSettingsAdminIdentity(player.m_sIdentityId))
+			player.m_bAdmin = true;
 	}
 
 	protected bool ApplyCompletedMissionOutcome(HST_MissionDefinition definition, HST_ActiveMissionState activeMission)

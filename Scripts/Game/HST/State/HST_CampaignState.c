@@ -104,6 +104,8 @@ class HST_MapMarkerState
 class HST_ArsenalItemState
 {
 	string m_sPrefab;
+	string m_sDisplayName;
+	string m_sCategory;
 	int m_iCount;
 	bool m_bUnlocked;
 }
@@ -148,7 +150,7 @@ class HST_ActiveMissionState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 3;
+	static const int SCHEMA_VERSION = 4;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	string m_sPresetId = "rhs_everon";

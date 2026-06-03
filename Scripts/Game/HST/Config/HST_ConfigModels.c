@@ -14,6 +14,12 @@ class HST_BalanceConfig
 	int m_iActivationRadiusMeters = 1200;
 	int m_iDeactivationRadiusMeters = 1600;
 	int m_iArsenalUnlockThreshold = 15;
+	int m_iMagazineUnlockMultiplier = 3;
+	int m_iLootRadiusMeters = 15;
+	bool m_bLootOnlyLockedItems = true;
+	bool m_bRemoveLootedItems = true;
+	bool m_bAllowExplosiveUnlocks;
+	bool m_bAllowGuidedLauncherUnlocks;
 	int m_iWarLevelMaximum = 10;
 }
 

@@ -63,7 +63,7 @@ SCR_BaseGameMode HST_DevGameMode : "{1B76F75A3175E85C}Prefabs/MP/Modes/Plain/Gam
   }
  }
  coords 6200 0 6200
- PlayerControllerPrefab "{CD2B8EF361478648}Prefabs/Characters/Core/DefaultPlayerControllerMP_ScenarioFramework.et"
+ PlayerControllerPrefab "Prefabs/Characters/HST/HST_PlayerController.et"
  m_bAutoPlayerRespawn 1
  m_bAllowFactionChange 0
  m_bUseSpawnPreload 0

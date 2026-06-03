@@ -16,7 +16,7 @@ The repository contains the first engine-facing increment:
 - APL-ND licensing and third-party attribution
 - Original Everon and compact development scenario shells
 - Data contracts for presets, factions, maps, zones, balance, and missions
-- A versioned campaign-state model
+- A versioned campaign-state model with arsenal metadata persistence
 - Server-authoritative campaign, economy, mission, and native-checkpoint
   services
 - A Community Edition 3.11.1 mission registry baseline
@@ -32,21 +32,27 @@ The repository contains the first engine-facing increment:
   `Prefabs/Characters/HST/Character_HST_Petros.et` for later appearance and
   loadout customization, with a safe base-FIA spawn fallback until Workbench
   indexes the new prefab resource
-- Alpha `I` key command menu mounted on both development worlds for Petros,
-  HQ, economy, mission, recruitment, marker, and admin/debug actions
+- Widget-backed `I` key command menu mounted on both development worlds with
+  Setup, General, Petros/HQ, Commander, Arsenal/Loot, and Admin tabs
+- First-load server settings generation at `$profile:h-istasi/HST_Settings.json`
+  with config-backed defaults for campaign, factions, economy, membership,
+  world activation, arsenal/loot, persistence, logging, and feature toggles
+- Server-side area loot action that deposits eligible nearby gear into the
+  campaign arsenal and removes transferred source items when configured
 - Versioned campaign save-data container ready for native persistence binding
 
 This is a foundation build, not a public alpha. Petros now has a dedicated
 editable prefab asset; once Workbench assigns it a GUID resource name, the HQ
-service can spawn that custom asset directly. Cache/tent polish, spawned AI,
-native save/load binding, final surveyed Everon coordinates, and
+service can spawn that custom asset directly. Cache/tent polish, broader
+spawned AI, native save/load binding, final surveyed Everon coordinates, and
 mission-specific world logic still need to be connected incrementally.
 
 ## Alpha Command Menu
 
 Press `I` in `HST_Dev` or `HST_Everon` to open the h-istasi alpha command
-menu. The current implementation prints the menu and command results to the
-Workbench/game log while the dedicated widget layout is still being built.
+menu. The menu is a client widget driven by server-built snapshots. The Setup
+tab displays the effective server config, but `$profile:h-istasi/HST_Settings.json`
+remains the source of truth and applies to newly created campaigns only.
 
 - `MenuUp` / `MenuDown`: change selection
 - `MenuSelect`: run the selected command
@@ -55,7 +61,10 @@ Workbench/game log while the dedicated widget layout is still being built.
 The menu routes through server-authoritative coordinator requests and covers
 campaign overview, markers, economy, zones, missions, manual checkpoint,
 income tick, training, HQ movement, FIA recruitment, mission start, zone
-capture/activation, and small debug resource awards.
+capture/activation, arsenal reporting, nearby loot collection, and small debug
+resource awards. Multiplayer clients use a player-owned request/RPC component;
+the server resolves the caller from ownership instead of trusting a client
+provided player ID.
 
 ## Requirements
 

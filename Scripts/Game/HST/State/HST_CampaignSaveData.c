@@ -317,6 +317,8 @@ class HST_CampaignSaveData
 	{
 		HST_ArsenalItemState target = new HST_ArsenalItemState();
 		target.m_sPrefab = source.m_sPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sCategory = source.m_sCategory;
 		target.m_iCount = source.m_iCount;
 		target.m_bUnlocked = source.m_bUnlocked;
 		return target;
