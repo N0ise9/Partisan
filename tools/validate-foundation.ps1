@@ -498,6 +498,7 @@ foreach ($requiredFiaSpawnContract in @(
 	'HasPendingSpawn',
 	'HasLivingPlayerEntity',
 	'SCR_DamageManagerComponent',
+	'FindComponent(SCR_DamageManagerComponent)',
 	'EDamageState.DESTROYED',
 	'DEAD_RESPAWN_DELAY_SECONDS',
 	'SCR_PossessingManagerComponent',
@@ -532,6 +533,9 @@ if ($scriptText -match "already has a controlled entity") {
 }
 if ($scriptText -match "\bHasPlayerEntity\b") {
 	throw "FIA player spawn stability must be based on living entities, not merely any controlled entity"
+}
+if ($scriptText -match "GetDamageManagerComponent") {
+	throw "FIA death checks must use component lookup; SCR_ChimeraCharacter.GetDamageManagerComponent is not available in Reforger 1.7"
 }
 Write-Host "Native spawn request contract OK"
 

@@ -356,11 +356,7 @@ class HST_PhysicalWarService
 		if (!entity)
 			return false;
 
-		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(entity);
-		if (!character)
-			return true;
-
-		SCR_DamageManagerComponent damageManager = character.GetDamageManagerComponent();
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
 		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
 	}
 
