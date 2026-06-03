@@ -1,23 +1,56 @@
 GenericEntity HST_ZoneAnchor_town_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 9575 0 1556
+ coords 9716.864 11.392 1526.447
 }
 GenericEntity HST_ZoneAnchor_town_provins : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 5805 0 9792
+ coords 5596.906 96.146 6027.447
 }
 GenericEntity HST_ZoneAnchor_town_entre_deux : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 4426 0 11031
+ coords 5754.045 217.12 7053.081
 }
 GenericEntity HST_ZoneAnchor_town_chotain : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 1082 0 6018
+ coords 7084.424 118.776 6017.588
 }
 GenericEntity HST_ZoneAnchor_town_montignac : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 4700 0 6900
+ coords 4731.929 162.779 6970.114
 }
 GenericEntity HST_ZoneAnchor_town_laruns : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 1932 0 5139
+ coords 7573.111 82.461 5525.154
 }
 GenericEntity HST_ZoneAnchor_town_levie : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 10009 0 1550
+ coords 7463.167 137.26 4736.242
+}
+GenericEntity HST_ZoneAnchor_town_morton : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5035.522 15.382 4000.177
+}
+GenericEntity HST_ZoneAnchor_town_meaux : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4464.711 13.481 9468.255
+}
+GenericEntity HST_ZoneAnchor_town_tyrone : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4933.47 37.785 9053.985
+}
+GenericEntity HST_ZoneAnchor_town_gravette : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4106.324 34.435 7794.186
+}
+GenericEntity HST_ZoneAnchor_town_villeneuve : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 2885.242 85.58 6402.408
+}
+GenericEntity HST_ZoneAnchor_town_le_moule : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 2570.692 94.634 5423.876
+}
+GenericEntity HST_ZoneAnchor_town_lamentin : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1204.166 35.034 5984.738
+}
+GenericEntity HST_ZoneAnchor_town_regina : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7241.147 136.629 2312.1
+}
+GenericEntity HST_ZoneAnchor_town_figari : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5281.364 62.97 5361.538
+}
+GenericEntity HST_ZoneAnchor_town_durras : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 8827.942 95.124 2769.363
+}
+GenericEntity HST_ZoneAnchor_town_saint_philippe : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4542.439 15.996 10477.004
 }
 GenericEntity HST_ZoneAnchor_outpost_north : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 4700 0 3500

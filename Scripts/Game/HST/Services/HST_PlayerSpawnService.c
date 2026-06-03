@@ -41,11 +41,15 @@ class HST_PlayerSpawnService
 	static const string DEFAULT_PLAYER_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const string DEFAULT_SPAWNPOINT_PREFAB = "{72713ED566A531F3}PrefabsEditable/SpawnPoints/E_SpawnPoint_FIA.et";
 	static const float PENDING_SPAWN_TIMEOUT_SECONDS = 12;
+	static const float DEAD_RESPAWN_DELAY_SECONDS = 3;
 
 	protected ref array<int> m_aPendingSpawnPlayerIds = {};
 	protected ref array<float> m_aPendingSpawnAges = {};
 	protected ref array<string> m_aPendingSpawnPrefabs = {};
 	protected ref array<vector> m_aPendingSpawnPositions = {};
+	protected ref array<int> m_aDeadRespawnPlayerIds = {};
+	protected ref array<float> m_aDeadRespawnAges = {};
+	protected ref array<int> m_aDeadRespawnReadyLogged = {};
 
 	string GetPrimaryPlayerFaction(HST_CampaignPreset preset)
 	{
@@ -84,6 +88,11 @@ class HST_PlayerSpawnService
 			Print(string.Format("h-istasi | FIA spawn request for player %1 timed out; allowing retry", m_aPendingSpawnPlayerIds[i]), LogLevel.WARNING);
 			RemovePendingSpawnAt(i);
 		}
+
+		for (int j = m_aDeadRespawnPlayerIds.Count() - 1; j >= 0; j--)
+		{
+			m_aDeadRespawnAges[j] = m_aDeadRespawnAges[j] + timeSlice;
+		}
 	}
 
 	int SpawnMissingConnectedPlayers(HST_CampaignState state, HST_AuthorizationService authorization, HST_PlayerLifecycleService lifecycle, bool diagnostics = false)
@@ -106,8 +115,12 @@ class HST_PlayerSpawnService
 		foreach (int playerId : playerIds)
 		{
 			RegisterPlayerOnly(state, authorization, lifecycle, playerId);
-			if (HasPlayerEntity(playerManager, playerId))
+			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+			if (IsLivingPlayerEntity(playerEntity))
+			{
+				ClearDeadRespawn(playerId);
 				continue;
+			}
 
 			if (HasPendingSpawn(playerId))
 			{
@@ -116,6 +129,9 @@ class HST_PlayerSpawnService
 
 				continue;
 			}
+
+			if (playerEntity && !IsDeadRespawnReady(playerId))
+				continue;
 
 			if (RequestPlayerSpawn(state, authorization, lifecycle, playerId, diagnostics))
 				spawned++;
@@ -160,11 +176,16 @@ class HST_PlayerSpawnService
 			return false;
 		}
 
-		if (HasPlayerEntity(playerManager, playerId))
+		IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+		if (IsLivingPlayerEntity(playerEntity))
 		{
+			ClearDeadRespawn(playerId);
 			SCR_RespawnSystemComponent.CloseRespawnMenu();
 			return true;
 		}
+
+		if (playerEntity && !IsDeadRespawnReady(playerId))
+			return false;
 
 		if (HasPendingSpawn(playerId))
 		{
@@ -193,6 +214,7 @@ class HST_PlayerSpawnService
 			return false;
 		}
 
+		ClearDeadRespawn(playerId);
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		return true;
 	}
@@ -222,6 +244,7 @@ class HST_PlayerSpawnService
 		player.m_vLastSpawnPosition = spawnPosition;
 		ApplyFaction(entity, PRIMARY_PLAYER_FACTION);
 		ClearPendingSpawn(playerId);
+		ClearDeadRespawn(playerId);
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		Print(string.Format("h-istasi | FIA player %1 spawned through native respawn pipeline", playerId));
 		return true;
@@ -233,6 +256,7 @@ class HST_PlayerSpawnService
 			return;
 
 		ClearPendingSpawn(playerId);
+		ClearDeadRespawn(playerId);
 		Print(string.Format("h-istasi | FIA spawn failed for player %1; pending request cleared", playerId), LogLevel.WARNING);
 	}
 
@@ -259,7 +283,7 @@ class HST_PlayerSpawnService
 			if (HasPendingSpawn(playerId))
 				return false;
 
-			if (!HasPlayerEntity(playerManager, playerId))
+			if (!HasLivingPlayerEntity(playerManager, playerId))
 				return false;
 		}
 
@@ -279,18 +303,58 @@ class HST_PlayerSpawnService
 		return lifecycle.RegisterConnectedPlayer(state, authorization, playerId, "", false);
 	}
 
-	protected bool HasPlayerEntity(PlayerManager playerManager, int playerId)
+	protected IEntity GetBestPlayerEntity(PlayerManager playerManager, int playerId)
 	{
 		if (!playerManager || playerId <= 0)
+			return null;
+
+		IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
+		if (controlledEntity)
+			return controlledEntity;
+
+		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+	}
+
+	protected bool HasLivingPlayerEntity(PlayerManager playerManager, int playerId)
+	{
+		return IsLivingPlayerEntity(GetBestPlayerEntity(playerManager, playerId));
+	}
+
+	protected bool IsLivingPlayerEntity(IEntity entity)
+	{
+		if (!entity)
 			return false;
 
-		if (playerManager.GetPlayerControlledEntity(playerId))
+		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(entity);
+		if (!character)
 			return true;
 
-		if (SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId))
-			return true;
+		SCR_DamageManagerComponent damageManager = character.GetDamageManagerComponent();
+		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
+	}
 
-		return false;
+	protected bool IsDeadRespawnReady(int playerId)
+	{
+		int index = FindDeadRespawnIndex(playerId);
+		if (index < 0)
+		{
+			m_aDeadRespawnPlayerIds.Insert(playerId);
+			m_aDeadRespawnAges.Insert(0);
+			m_aDeadRespawnReadyLogged.Insert(0);
+			Print(string.Format("h-istasi | player %1 detected dead; scheduling FIA respawn in %2s", playerId, DEAD_RESPAWN_DELAY_SECONDS), LogLevel.WARNING);
+			return false;
+		}
+
+		if (m_aDeadRespawnAges[index] < DEAD_RESPAWN_DELAY_SECONDS)
+			return false;
+
+		if (m_aDeadRespawnReadyLogged[index] == 0)
+		{
+			m_aDeadRespawnReadyLogged[index] = 1;
+			Print(string.Format("h-istasi | respawn delay elapsed for player %1; requesting native FIA respawn", playerId), LogLevel.WARNING);
+		}
+
+		return true;
 	}
 
 	protected int FindPendingSpawnIndex(int playerId)
@@ -322,6 +386,22 @@ class HST_PlayerSpawnService
 			RemovePendingSpawnAt(index);
 	}
 
+	protected int FindDeadRespawnIndex(int playerId)
+	{
+		return m_aDeadRespawnPlayerIds.Find(playerId);
+	}
+
+	protected void ClearDeadRespawn(int playerId)
+	{
+		int index = FindDeadRespawnIndex(playerId);
+		if (index < 0)
+			return;
+
+		m_aDeadRespawnPlayerIds.Remove(index);
+		m_aDeadRespawnAges.Remove(index);
+		m_aDeadRespawnReadyLogged.Remove(index);
+	}
+
 	protected void RemovePendingSpawnAt(int index)
 	{
 		m_aPendingSpawnPlayerIds.Remove(index);
@@ -336,11 +416,58 @@ class HST_PlayerSpawnService
 		if (!state || !state.m_bHQDeployed)
 			spawnPosition = HST_DefaultCatalog.GetHideoutPosition(HST_DefaultCatalog.GetDefaultHideoutId());
 
-		int slot = PositiveModulo(playerId, 9);
-		vector offset = "0 0 0";
-		offset[0] = (PositiveModulo(slot, 3) - 1) * 2;
-		offset[2] = ((slot / 3) - 1) * 2;
+		vector offset = GetSpawnRingOffset(PositiveModulo(playerId - 1, 16));
 		return HST_WorldPositionService.ResolveGroundPosition(spawnPosition + offset, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+	}
+
+	protected vector GetSpawnRingOffset(int slot)
+	{
+		if (slot == 0)
+			return "12 0 0";
+
+		if (slot == 1)
+			return "11 0 11";
+
+		if (slot == 2)
+			return "0 0 15";
+
+		if (slot == 3)
+			return "-11 0 11";
+
+		if (slot == 4)
+			return "-18 0 0";
+
+		if (slot == 5)
+			return "-11 0 -11";
+
+		if (slot == 6)
+			return "0 0 -15";
+
+		if (slot == 7)
+			return "11 0 -11";
+
+		if (slot == 8)
+			return "16 0 6";
+
+		if (slot == 9)
+			return "6 0 16";
+
+		if (slot == 10)
+			return "-6 0 16";
+
+		if (slot == 11)
+			return "-16 0 6";
+
+		if (slot == 12)
+			return "-16 0 -6";
+
+		if (slot == 13)
+			return "-6 0 -16";
+
+		if (slot == 14)
+			return "6 0 -16";
+
+		return "16 0 -6";
 	}
 
 	protected int PositiveModulo(int value, int divisor)

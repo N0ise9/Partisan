@@ -44,9 +44,9 @@ class HST_DefaultCatalog
 	static array<ref HST_HideoutDefinition> CreateHideouts()
 	{
 		array<ref HST_HideoutDefinition> hideouts = {};
-		hideouts.Insert(NewHideout("hideout_north_forest", "North Forest", "4700 0 3500"));
-		hideouts.Insert(NewHideout("hideout_central_hills", "Central Hills", "6200 0 6200"));
-		hideouts.Insert(NewHideout("hideout_south_woods", "South Woods", "4200 0 8900"));
+		hideouts.Insert(NewHideout("hideout_north_forest", "North Forest", "3200 0 4100"));
+		hideouts.Insert(NewHideout("hideout_central_hills", "Central Hills", "3400 0 4500"));
+		hideouts.Insert(NewHideout("hideout_south_woods", "South Woods", "2300 0 8500"));
 		return hideouts;
 	}
 
@@ -66,13 +66,24 @@ class HST_DefaultCatalog
 
 	static void AddDefaultZones(HST_CampaignState state, HST_CampaignPreset preset)
 	{
-		state.m_aZones.Insert(NewZoneState("town_saint_pierre", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "9575 0 1556", 80, 12, "route_saint_pierre", "qrf_saint_pierre", "site_saint_pierre"));
-		state.m_aZones.Insert(NewZoneState("town_provins", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "5805 0 9792", 35, 10, "route_provins", "qrf_provins", "site_provins"));
-		state.m_aZones.Insert(NewZoneState("town_entre_deux", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4426 0 11031", 30, 10, "route_entre_deux", "qrf_entre_deux", "site_entre_deux"));
-		state.m_aZones.Insert(NewZoneState("town_chotain", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "1082 0 6018", 35, 12, "route_chotain", "qrf_chotain", "site_chotain"));
-		state.m_aZones.Insert(NewZoneState("town_montignac", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4700 0 6900", 65, 16, "route_montignac", "qrf_montignac", "site_montignac"));
-		state.m_aZones.Insert(NewZoneState("town_laruns", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "1932 0 5139", 30, 10, "route_laruns", "qrf_laruns", "site_laruns"));
-		state.m_aZones.Insert(NewZoneState("town_levie", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "10009 0 1550", 30, 10, "route_levie", "qrf_levie", "site_levie"));
+		state.m_aZones.Insert(NewZoneState("town_saint_pierre", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "9716 0 1526", 80, 12, "route_saint_pierre", "qrf_saint_pierre", "site_saint_pierre"));
+		state.m_aZones.Insert(NewZoneState("town_provins", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "5596 0 6027", 35, 10, "route_provins", "qrf_provins", "site_provins"));
+		state.m_aZones.Insert(NewZoneState("town_entre_deux", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "5754 0 7053", 30, 10, "route_entre_deux", "qrf_entre_deux", "site_entre_deux"));
+		state.m_aZones.Insert(NewZoneState("town_chotain", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "7084 0 6017", 35, 12, "route_chotain", "qrf_chotain", "site_chotain"));
+		state.m_aZones.Insert(NewZoneState("town_montignac", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4731 0 6970", 65, 16, "route_montignac", "qrf_montignac", "site_montignac"));
+		state.m_aZones.Insert(NewZoneState("town_laruns", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "7573 0 5525", 30, 10, "route_laruns", "qrf_laruns", "site_laruns"));
+		state.m_aZones.Insert(NewZoneState("town_levie", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "7463 0 4736", 30, 10, "route_levie", "qrf_levie", "site_levie"));
+		state.m_aZones.Insert(NewZoneState("town_morton", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "5035 0 4000", 45, 12, "route_morton", "qrf_morton", "site_morton"));
+		state.m_aZones.Insert(NewZoneState("town_meaux", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4464 0 9468", 40, 12, "route_meaux", "qrf_meaux", "site_meaux"));
+		state.m_aZones.Insert(NewZoneState("town_tyrone", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4933 0 9053", 35, 10, "route_tyrone", "qrf_tyrone", "site_tyrone"));
+		state.m_aZones.Insert(NewZoneState("town_gravette", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4106 0 7794", 35, 10, "route_gravette", "qrf_gravette", "site_gravette"));
+		state.m_aZones.Insert(NewZoneState("town_villeneuve", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "2885 0 6402", 45, 12, "route_villeneuve", "qrf_villeneuve", "site_villeneuve"));
+		state.m_aZones.Insert(NewZoneState("town_le_moule", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "2570 0 5423", 40, 12, "route_le_moule", "qrf_le_moule", "site_le_moule"));
+		state.m_aZones.Insert(NewZoneState("town_lamentin", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "1204 0 5984", 45, 12, "route_lamentin", "qrf_lamentin", "site_lamentin"));
+		state.m_aZones.Insert(NewZoneState("town_regina", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "7241 0 2312", 45, 12, "route_regina", "qrf_regina", "site_regina"));
+		state.m_aZones.Insert(NewZoneState("town_figari", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "5281 0 5361", 30, 8, "route_figari", "qrf_figari", "site_figari"));
+		state.m_aZones.Insert(NewZoneState("town_durras", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "8827 0 2769", 30, 8, "route_durras", "qrf_durras", "site_durras"));
+		state.m_aZones.Insert(NewZoneState("town_saint_philippe", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4542 0 10477", 35, 10, "route_saint_philippe", "qrf_saint_philippe", "site_saint_philippe"));
 		state.m_aZones.Insert(NewZoneState("outpost_north", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "4700 0 3500", 25, 16, "route_outpost_north", "qrf_outpost_north", "site_outpost_north"));
 		state.m_aZones.Insert(NewZoneState("outpost_south", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "4200 0 8900", 25, 16, "route_outpost_south", "qrf_outpost_south", "site_outpost_south"));
 		state.m_aZones.Insert(NewZoneState("airfield_main", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_AIRFIELD, "7500 0 7600", 150, 24, "route_airfield_main", "qrf_airfield_main", "site_airfield_main"));

@@ -6,6 +6,7 @@ class HST_PhysicalWarService
 	static const int QRF_SUPPORT_RESOURCE_COST = 5;
 	static const int QRF_ETA_SECONDS = 180;
 	static const int QRF_COOLDOWN_SECONDS = 900;
+	static const float HQ_SAFE_RADIUS_METERS = 900;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
@@ -27,7 +28,7 @@ class HST_PhysicalWarService
 		bool changed;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			bool shouldBeActive = IsAnyPlayerNearZone(playerManager, playerIds, zone, balance);
+			bool shouldBeActive = !IsZoneInsideHQSafeArea(state, zone) && IsAnyLivingPlayerNearZone(playerManager, playerIds, zone, balance);
 			if (zone.m_bActive == shouldBeActive)
 				continue;
 
@@ -47,7 +48,7 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
-	protected bool IsAnyPlayerNearZone(PlayerManager playerManager, array<int> playerIds, HST_ZoneState zone, HST_BalanceConfig balance)
+	protected bool IsAnyLivingPlayerNearZone(PlayerManager playerManager, array<int> playerIds, HST_ZoneState zone, HST_BalanceConfig balance)
 	{
 		if (!zone)
 			return false;
@@ -59,8 +60,8 @@ class HST_PhysicalWarService
 		float radiusSq = radius * radius;
 		foreach (int playerId : playerIds)
 		{
-			IEntity playerEntity = playerManager.GetPlayerControlledEntity(playerId);
-			if (!playerEntity)
+			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+			if (!IsLivingPlayerEntity(playerEntity))
 				continue;
 
 			if (DistanceSq2D(playerEntity.GetOrigin(), zone.m_vPosition) <= radiusSq)
@@ -135,6 +136,9 @@ class HST_PhysicalWarService
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
 			if (!zone.m_bActive || zone.m_sOwnerFactionKey == "FIA" || zone.m_sQRFRouteId.IsEmpty())
+				continue;
+
+			if (IsZoneInsideHQSafeArea(state, zone))
 				continue;
 
 			if (state.m_iElapsedSeconds < zone.m_iQrfCooldownUntilSecond)
@@ -325,6 +329,39 @@ class HST_PhysicalWarService
 
 		m_aRuntimeGroupIds.Remove(index);
 		m_aRuntimeGroupEntities.Remove(index);
+	}
+
+	protected bool IsZoneInsideHQSafeArea(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone || !state.m_bHQDeployed)
+			return false;
+
+		return DistanceSq2D(state.m_vHQPosition, zone.m_vPosition) <= HQ_SAFE_RADIUS_METERS * HQ_SAFE_RADIUS_METERS;
+	}
+
+	protected IEntity GetBestPlayerEntity(PlayerManager playerManager, int playerId)
+	{
+		if (!playerManager || playerId <= 0)
+			return null;
+
+		IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
+		if (controlledEntity)
+			return controlledEntity;
+
+		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+	}
+
+	protected bool IsLivingPlayerEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(entity);
+		if (!character)
+			return true;
+
+		SCR_DamageManagerComponent damageManager = character.GetDamageManagerComponent();
+		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
 	}
 
 	protected float DistanceSq2D(vector a, vector b)

@@ -18,6 +18,59 @@ function Assert-EqualSet {
 	Write-Host "$Label match: $($Expected.Count)"
 }
 
+function Get-ConfigBlocks {
+	param(
+		[string] $Text,
+		[string] $ClassName
+	)
+
+	$blocks = @()
+	$pattern = [regex]::Escape($ClassName) + "\s*\{"
+	$matches = [regex]::Matches($Text, $pattern)
+	foreach ($match in $matches) {
+		$start = $match.Index
+		$depth = 0
+		for ($i = $start; $i -lt $Text.Length; $i++) {
+			if ($Text[$i] -eq "{") {
+				$depth++
+			} elseif ($Text[$i] -eq "}") {
+				$depth--
+				if ($depth -eq 0) {
+					$blocks += $Text.Substring($start, $i - $start + 1)
+					break
+				}
+			}
+		}
+	}
+
+	return $blocks
+}
+
+function Get-VectorXZKey {
+	param([string] $Block)
+
+	if ($Block -notmatch "m_vPosition\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)") {
+		return ""
+	}
+
+	$x = [double] $Matches[1]
+	$z = [double] $Matches[3]
+	return "$([math]::Round($x, 3)),$([math]::Round($z, 3))"
+}
+
+function Get-VectorXZObject {
+	param([string] $Block)
+
+	if ($Block -notmatch "m_vPosition\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)") {
+		return $null
+	}
+
+	return [pscustomobject]@{
+		X = [double] $Matches[1]
+		Z = [double] $Matches[3]
+	}
+}
+
 $project = Get-Content -Raw "addon.gproj"
 if ($project -notmatch '"58D0FB3206B6F859"' -or $project -notmatch '"595F2BF2F44836FB"') {
 	throw "addon.gproj must depend on base Reforger and RHS Status Quo"
@@ -87,7 +140,9 @@ $requiredRuntimeScaffold = @(
 	'Configs/Loadouts/FIA/Loadout_FIA_Base.conf',
 	'm_sAffiliatedFaction "FIA"',
 	'Prefabs/Systems/Radio/RadioManager.et',
-	'Prefabs/MP/ScriptedChatEntity.et'
+	'Prefabs/MP/ScriptedChatEntity.et',
+	'SCR_MapLocator',
+	'Configs/Map/MapLocatorHints/LocationHintsEveron.conf'
 )
 $requiredFiaLoadouts = @(
 	'Character_FIA_Rifleman.et',
@@ -209,6 +264,150 @@ foreach ($group in @($configZones | Group-Object | Where-Object Count -gt 1)) {
 }
 Write-Host "Unique IDs OK"
 
+$expectedEveronTownIds = @(
+	"town_saint_pierre",
+	"town_provins",
+	"town_entre_deux",
+	"town_chotain",
+	"town_montignac",
+	"town_laruns",
+	"town_levie",
+	"town_morton",
+	"town_meaux",
+	"town_tyrone",
+	"town_gravette",
+	"town_villeneuve",
+	"town_le_moule",
+	"town_lamentin",
+	"town_regina",
+	"town_figari",
+	"town_durras",
+	"town_saint_philippe"
+)
+$townDisplayNames = @{
+	"town_saint_pierre" = "Saint-Pierre"
+	"town_provins" = "Provins"
+	"town_entre_deux" = "Entre-Deux"
+	"town_chotain" = "Chotain"
+	"town_montignac" = "Montignac"
+	"town_laruns" = "Laruns"
+	"town_levie" = "Levie"
+	"town_morton" = "Morton"
+	"town_meaux" = "Meaux"
+	"town_tyrone" = "Tyrone"
+	"town_gravette" = "Gravette"
+	"town_villeneuve" = "Villeneuve"
+	"town_le_moule" = "Le Moule"
+	"town_lamentin" = "Lamentin"
+	"town_regina" = "Regina"
+	"town_figari" = "Figari"
+	"town_durras" = "Durras"
+	"town_saint_philippe" = "Saint-Philippe"
+}
+foreach ($townId in $expectedEveronTownIds) {
+	if ($townId -notin $runtimeZones) {
+		throw "Missing Everon town in runtime catalog: $townId"
+	}
+
+	if ($townId -notin $configZones) {
+		throw "Missing Everon town in map config: $townId"
+	}
+}
+
+$townLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/Towns.layer"
+$strategicZonesLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/StrategicZones.layer"
+if ($townLayer -notmatch "Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" -or $townLayer -notmatch "SCR_ScenarioFrameworkMarkerCustom") {
+	throw "Everon towns layer must include Scenario Framework custom map markers"
+}
+
+foreach ($townId in $expectedEveronTownIds) {
+	$suffix = $townId -replace "^town_", ""
+	if ($townLayer -notmatch [regex]::Escape("HST_TownAnchor_$suffix")) {
+		throw "Missing town anchor for $townId"
+	}
+
+	if ($townLayer -notmatch [regex]::Escape("HST_TownMarker_$suffix")) {
+		throw "Missing town map marker for $townId"
+	}
+
+	if ($townLayer -notmatch [regex]::Escape("m_sMapMarkerText `"$($townDisplayNames[$townId])`"")) {
+		throw "Missing town map marker text for $townId"
+	}
+
+	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$townId")) {
+		throw "Missing strategic zone anchor for $townId"
+	}
+}
+
+$townAnchorIds = @([regex]::Matches($townLayer, "HST_TownAnchor_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
+foreach ($group in @($townAnchorIds | Group-Object | Where-Object Count -gt 1)) {
+	throw "Duplicate town layer anchor ID: $($group.Name)"
+}
+
+$townMarkerIds = @([regex]::Matches($townLayer, "HST_TownMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
+foreach ($group in @($townMarkerIds | Group-Object | Where-Object Count -gt 1)) {
+	throw "Duplicate town layer marker ID: $($group.Name)"
+}
+Write-Host "Everon town coverage OK: $($expectedEveronTownIds.Count)"
+
+$hideoutBlocks = @(Get-ConfigBlocks $mapConfig "HST_HideoutDefinition")
+$zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
+$hideoutPositions = @{}
+$hideoutVectors = @{}
+foreach ($block in $hideoutBlocks) {
+	if ($block -notmatch 'm_sHideoutId "([^"]+)"') {
+		continue
+	}
+
+	$hideoutId = $Matches[1]
+	$hideoutPositions[$hideoutId] = Get-VectorXZKey $block
+	$hideoutVectors[$hideoutId] = Get-VectorXZObject $block
+}
+
+$zonePositions = @{}
+$zoneVectors = @{}
+foreach ($block in $zoneBlocks) {
+	if ($block -notmatch 'm_sZoneId "([^"]+)"') {
+		continue
+	}
+
+	$zoneId = $Matches[1]
+	$zonePositions[$zoneId] = Get-VectorXZKey $block
+	$zoneVectors[$zoneId] = Get-VectorXZObject $block
+	foreach ($requiredZoneField in @("m_iIncomeValue", "m_iSupport", "m_iGarrisonSlots", "m_sPatrolRouteId", "m_sQRFRouteId", "m_sMissionSiteId")) {
+		if ($block -notmatch [regex]::Escape($requiredZoneField)) {
+			throw "Configured zone $zoneId is missing $requiredZoneField"
+		}
+	}
+}
+
+foreach ($hideoutId in $hideoutPositions.Keys) {
+	foreach ($zoneId in $zonePositions.Keys) {
+		if ($hideoutPositions[$hideoutId] -eq $zonePositions[$zoneId]) {
+			throw "Hideout $hideoutId shares x/z with strategic zone $zoneId"
+		}
+	}
+}
+Write-Host "Hideout placement separation OK"
+
+$defaultHideout = $hideoutVectors["hideout_central_hills"]
+if (!$defaultHideout) {
+	throw "Default central hideout is missing from map config"
+}
+
+foreach ($zoneId in $zoneVectors.Keys) {
+	$zoneVector = $zoneVectors[$zoneId]
+	if (!$zoneVector) {
+		continue
+	}
+
+	$distance = [math]::Sqrt([math]::Pow($defaultHideout.X - $zoneVector.X, 2) + [math]::Pow($defaultHideout.Z - $zoneVector.Z, 2))
+	if ($distance -lt 900) {
+		throw "Default HQ hideout is inside HQ safe radius of zone ${zoneId}: $([math]::Round($distance, 1))m"
+	}
+}
+Write-Host "Default HQ safe radius separation OK"
+
 $scriptFiles = Get-ChildItem -Recurse -File "Scripts" -Filter *.c
 $scriptText = ($scriptFiles | ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 $definedSymbols = @([regex]::Matches($scriptText, "(?:class|enum)\s+(HST_[A-Za-z0-9_]+)") |
@@ -297,6 +496,10 @@ foreach ($requiredFiaSpawnContract in @(
 	'OnPlayerSpawned',
 	'OnPlayerSpawnFailed',
 	'HasPendingSpawn',
+	'HasLivingPlayerEntity',
+	'SCR_DamageManagerComponent',
+	'EDamageState.DESTROYED',
+	'DEAD_RESPAWN_DELAY_SECONDS',
 	'SCR_PossessingManagerComponent',
 	'GetPlayerRespawnComponent',
 	'CloseRespawnMenu',
@@ -327,6 +530,9 @@ if ($scriptText -match "\bNotifySpawn\b") {
 if ($scriptText -match "already has a controlled entity") {
 	throw "FIA player spawn sweeps must not spam controlled-entity diagnostics after successful spawn"
 }
+if ($scriptText -match "\bHasPlayerEntity\b") {
+	throw "FIA player spawn stability must be based on living entities, not merely any controlled entity"
+}
 Write-Host "Native spawn request contract OK"
 
 foreach ($requiredPhysicalWarEntry in @(
@@ -337,6 +543,9 @@ foreach ($requiredPhysicalWarEntry in @(
 	"TrySpawnActiveGroup",
 	"FoldActiveGroup",
 	"UpdateQRF",
+	"HQ_SAFE_RADIUS_METERS",
+	"IsZoneInsideHQSafeArea",
+	"IsAnyLivingPlayerNearZone",
 	"DeleteEntityAndChildren",
 	"m_vPosition",
 	"m_iActivationRadiusMeters",

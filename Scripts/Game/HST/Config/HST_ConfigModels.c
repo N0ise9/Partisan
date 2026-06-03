@@ -46,6 +46,8 @@ class HST_ZoneDefinition
 	HST_EZoneType m_eType;
 	vector m_vPosition;
 	string m_sInitialOwnerFactionKey;
+	int m_iIncomeValue;
+	int m_iSupport;
 	int m_iGarrisonSlots;
 	int m_iActivationRadiusMeters;
 	string m_sPatrolRouteId;
