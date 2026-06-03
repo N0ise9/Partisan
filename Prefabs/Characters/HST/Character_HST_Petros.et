@@ -1,2 +1,32 @@
 SCR_ChimeraCharacter Character_HST_Petros : "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et" {
+ components {
+  ActionsManagerComponent "{6985327711303301}" {
+   additionalActions {
+    HST_PetrosCommandMenuAction "{6985327711303302}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303303}" {
+      Name "h-istasi HQ Menu"
+     }
+    }
+    HST_PetrosMoveBaseHereAction "{6985327711303304}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303305}" {
+      Name "Move h-istasi base here"
+     }
+    }
+    HST_PetrosArsenalMenuAction "{6985327711303306}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303307}" {
+      Name "h-istasi Arsenal"
+     }
+    }
+   }
+  }
+ }
 }

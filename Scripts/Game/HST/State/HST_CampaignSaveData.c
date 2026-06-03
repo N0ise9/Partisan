@@ -17,6 +17,7 @@ class HST_CampaignSaveData
 	vector m_vHQPosition;
 	vector m_vPetrosPosition;
 	vector m_vHQCachePosition;
+	vector m_vArsenalPosition;
 	vector m_vHQTentPosition;
 	bool m_bHQDeployed;
 	bool m_bHQRuntimeObjectsSpawned;
@@ -24,6 +25,7 @@ class HST_CampaignSaveData
 	int m_iPetrosDeaths;
 	string m_sPetrosPrefab;
 	string m_sHQCachePrefab;
+	string m_sArsenalPrefab;
 	string m_sHQTentPrefab;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
@@ -60,6 +62,7 @@ class HST_CampaignSaveData
 		m_vHQPosition = state.m_vHQPosition;
 		m_vPetrosPosition = state.m_vPetrosPosition;
 		m_vHQCachePosition = state.m_vHQCachePosition;
+		m_vArsenalPosition = state.m_vArsenalPosition;
 		m_vHQTentPosition = state.m_vHQTentPosition;
 		m_bHQDeployed = state.m_bHQDeployed;
 		m_bHQRuntimeObjectsSpawned = state.m_bHQRuntimeObjectsSpawned;
@@ -67,6 +70,7 @@ class HST_CampaignSaveData
 		m_iPetrosDeaths = state.m_iPetrosDeaths;
 		m_sPetrosPrefab = state.m_sPetrosPrefab;
 		m_sHQCachePrefab = state.m_sHQCachePrefab;
+		m_sArsenalPrefab = state.m_sArsenalPrefab;
 		m_sHQTentPrefab = state.m_sHQTentPrefab;
 
 		m_aFactionPools.Clear();
@@ -146,6 +150,7 @@ class HST_CampaignSaveData
 		state.m_vHQPosition = m_vHQPosition;
 		state.m_vPetrosPosition = m_vPetrosPosition;
 		state.m_vHQCachePosition = m_vHQCachePosition;
+		state.m_vArsenalPosition = m_vArsenalPosition;
 		state.m_vHQTentPosition = m_vHQTentPosition;
 		state.m_bHQDeployed = m_bHQDeployed;
 		state.m_bHQRuntimeObjectsSpawned = m_bHQRuntimeObjectsSpawned;
@@ -153,6 +158,7 @@ class HST_CampaignSaveData
 		state.m_iPetrosDeaths = m_iPetrosDeaths;
 		state.m_sPetrosPrefab = m_sPetrosPrefab;
 		state.m_sHQCachePrefab = m_sHQCachePrefab;
+		state.m_sArsenalPrefab = m_sArsenalPrefab;
 		state.m_sHQTentPrefab = m_sHQTentPrefab;
 
 		state.m_aFactionPools.Clear();

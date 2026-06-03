@@ -3,7 +3,13 @@ class HST_HQService
 	static const string PETROS_BASE_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const string PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros.et";
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
+	static const string ARSENAL_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
+
+	protected IEntity m_PetrosEntity;
+	protected IEntity m_CacheEntity;
+	protected IEntity m_ArsenalEntity;
+	protected IEntity m_TentEntity;
 
 	bool SelectInitialHideout(HST_CampaignState state, string hideoutId)
 	{
@@ -34,6 +40,22 @@ class HST_HQService
 		return true;
 	}
 
+	bool MoveHQToPosition(HST_CampaignState state, vector hqPosition, string hideoutId = "field_hq")
+	{
+		if (!state || state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || !state.m_bPetrosAlive)
+			return false;
+
+		vector resolvedPosition = HST_WorldPositionService.ResolveGroundPosition(hqPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, true);
+		if (!HST_WorldPositionService.IsDryGroundPosition(resolvedPosition))
+		{
+			Print(string.Format("h-istasi | requested HQ move rejected: no dry ground at %1", hqPosition), LogLevel.WARNING);
+			return false;
+		}
+
+		SetHQPosition(state, hideoutId, resolvedPosition);
+		return true;
+	}
+
 	void OnPetrosKilled(HST_CampaignState state, HST_EconomyService economy, int moneyPenalty, int hrPenalty)
 	{
 		if (!state || !state.m_bPetrosAlive)
@@ -41,15 +63,21 @@ class HST_HQService
 
 		state.m_bPetrosAlive = false;
 		state.m_iPetrosDeaths++;
-		state.m_bHQRuntimeObjectsSpawned = false;
+		ClearRuntimeObjects(state);
 		economy.AddFactionMoney(state, -moneyPenalty);
 		economy.AddHR(state, -hrPenalty);
 	}
 
 	bool EnsureRuntimeObjects(HST_CampaignState state)
 	{
-		if (!state || !state.m_bHQDeployed || state.m_bHQRuntimeObjectsSpawned || !state.m_bPetrosAlive)
+		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
 			return false;
+
+		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked())
+			return false;
+
+		if (state.m_bHQRuntimeObjectsSpawned && !AreRuntimeObjectsTracked())
+			state.m_bHQRuntimeObjectsSpawned = false;
 
 		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
 		if (!respawnSystem)
@@ -59,14 +87,24 @@ class HST_HQService
 		string petrosPrefab = ResolvePetrosPrefab(state);
 		GenericEntity petros = respawnSystem.DoSpawn(petrosPrefab, state.m_vPetrosPosition, "0 0 0");
 		GenericEntity cache = respawnSystem.DoSpawn(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
+		GenericEntity arsenal = respawnSystem.DoSpawn(ARSENAL_PREFAB, state.m_vArsenalPosition, "0 0 0");
 		GenericEntity tent = respawnSystem.DoSpawn(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
-		state.m_bHQRuntimeObjectsSpawned = true;
-		if (!petros || !cache || !tent)
+		if (!petros || !cache || !arsenal || !tent)
 		{
+			DeleteRuntimeEntity(petros);
+			DeleteRuntimeEntity(cache);
+			DeleteRuntimeEntity(arsenal);
+			DeleteRuntimeEntity(tent);
+			state.m_bHQRuntimeObjectsSpawned = false;
 			Print("h-istasi | HQ runtime object spawn incomplete; inspect placeholder prefab resources", LogLevel.WARNING);
-			return true;
+			return false;
 		}
 
+		m_PetrosEntity = petros;
+		m_CacheEntity = cache;
+		m_ArsenalEntity = arsenal;
+		m_TentEntity = tent;
+		state.m_bHQRuntimeObjectsSpawned = true;
 		ApplyFaction(petros);
 		return true;
 	}
@@ -128,21 +166,25 @@ class HST_HQService
 
 	protected void SetHQPosition(HST_CampaignState state, string hideoutId, vector hqPosition)
 	{
+		ClearRuntimeObjects(state);
 		vector petrosOffset = "2 0 2";
 		vector cacheOffset = "4 0 -2";
+		vector arsenalOffset = "-2 0 -4";
 		vector tentOffset = "-4 0 2";
 		state.m_sHQHideoutId = hideoutId;
 		state.m_vHQPosition = hqPosition;
 		state.m_vPetrosPosition = ResolveHQObjectPosition(hqPosition, petrosOffset, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
 		state.m_vHQCachePosition = ResolveHQObjectPosition(hqPosition, cacheOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
+		state.m_vArsenalPosition = ResolveHQObjectPosition(hqPosition, arsenalOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
 		state.m_vHQTentPosition = ResolveHQObjectPosition(hqPosition, tentOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
 		state.m_bHQDeployed = true;
 		state.m_bHQRuntimeObjectsSpawned = false;
 		state.m_bPetrosAlive = true;
 		state.m_sPetrosPrefab = PETROS_PREFAB;
 		state.m_sHQCachePrefab = HQ_CACHE_PREFAB;
+		state.m_sArsenalPrefab = ARSENAL_PREFAB;
 		state.m_sHQTentPrefab = HQ_TENT_PREFAB;
-		Print(string.Format("h-istasi | HQ %1 placed at %2; Petros %3 cache %4 tent %5", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vHQTentPosition));
+		Print(string.Format("h-istasi | HQ %1 placed at %2; Petros %3 cache %4 arsenal %5 tent %6", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition));
 	}
 
 	protected void EnsureRuntimeGroundPlacement(HST_CampaignState state)
@@ -150,6 +192,7 @@ class HST_HQService
 		state.m_vHQPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, false);
 		state.m_vPetrosPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vPetrosPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 		state.m_vHQCachePosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQCachePosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		state.m_vArsenalPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vArsenalPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
 		state.m_vHQTentPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQTentPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
 	}
 
@@ -197,5 +240,32 @@ class HST_HQService
 		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
 		if (factionComponent)
 			factionComponent.SetAffiliatedFactionByKey("FIA");
+	}
+
+	protected bool AreRuntimeObjectsTracked()
+	{
+		return m_PetrosEntity && m_CacheEntity && m_ArsenalEntity && m_TentEntity;
+	}
+
+	protected void ClearRuntimeObjects(HST_CampaignState state)
+	{
+		DeleteRuntimeEntity(m_PetrosEntity);
+		DeleteRuntimeEntity(m_CacheEntity);
+		DeleteRuntimeEntity(m_ArsenalEntity);
+		DeleteRuntimeEntity(m_TentEntity);
+
+		m_PetrosEntity = null;
+		m_CacheEntity = null;
+		m_ArsenalEntity = null;
+		m_TentEntity = null;
+
+		if (state)
+			state.m_bHQRuntimeObjectsSpawned = false;
+	}
+
+	protected void DeleteRuntimeEntity(IEntity entity)
+	{
+		if (entity)
+			SCR_EntityHelper.DeleteEntityAndChildren(entity);
 	}
 }

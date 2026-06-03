@@ -150,7 +150,7 @@ class HST_ActiveMissionState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 4;
+	static const int SCHEMA_VERSION = 5;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	string m_sPresetId = "rhs_everon";
@@ -168,6 +168,7 @@ class HST_CampaignState
 	vector m_vHQPosition;
 	vector m_vPetrosPosition;
 	vector m_vHQCachePosition;
+	vector m_vArsenalPosition;
 	vector m_vHQTentPosition;
 	bool m_bHQDeployed;
 	bool m_bHQRuntimeObjectsSpawned;
@@ -175,6 +176,7 @@ class HST_CampaignState
 	int m_iPetrosDeaths;
 	string m_sPetrosPrefab;
 	string m_sHQCachePrefab;
+	string m_sArsenalPrefab;
 	string m_sHQTentPrefab;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};

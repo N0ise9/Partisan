@@ -96,6 +96,38 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		return s_LocalInstance;
 	}
 
+	void OpenPetrosMenu()
+	{
+		OpenMenuToTab("petros");
+	}
+
+	void OpenArsenalMenu()
+	{
+		OpenMenuToTab("arsenal");
+	}
+
+	void OpenMenuToTab(string tabId)
+	{
+		if (!tabId.IsEmpty())
+			m_sSelectedTab = tabId;
+
+		if (!m_bMenuOpen)
+		{
+			OpenMenu();
+			return;
+		}
+
+		int tabIndex = m_aTabIds.Find(m_sSelectedTab);
+		if (tabIndex >= 0)
+		{
+			SwitchToTab(tabIndex);
+			return;
+		}
+
+		RequestSnapshot();
+		RenderMenu();
+	}
+
 	void OnServerSnapshot(string payload, string lastResult = "")
 	{
 		m_sLastPayload = payload;
@@ -229,6 +261,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		RequestSnapshot();
 		RenderMenu();
 		Print("h-istasi menu | opened");
+		ShowMenuHint("Command menu opened", "h-istasi", 2.0);
 	}
 
 	protected void CloseMenu()
@@ -297,6 +330,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 
 		RequestAction(m_aActionCommands[actionIndex], m_aActionArguments[actionIndex]);
 		m_sLastResult = "h-istasi command | requested " + m_aActionLabels[actionIndex];
+		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
 		RenderMenu();
 	}
 
@@ -383,6 +417,13 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		CreateTextWidget(workspace, m_sStatusText, 116, 190, 640, 560, 18, 0xFFE0E0E0, 0, false);
 		CreateTextWidget(workspace, BuildResultText(), 790, 190, 420, 180, 18, 0xFFD2E7B8, 0, false);
 		CreateTextWidget(workspace, "UI/layouts/HST_CommandMenu.layout", 790, 746, 420, 24, 14, 0xFF777777, 0, false);
+	}
+
+	protected void ShowMenuHint(string text, string title, float durationSeconds)
+	{
+		SCR_HintManagerComponent hintManager = SCR_HintManagerComponent.GetInstance();
+		if (hintManager)
+			hintManager.ShowCustomHint(text, title, durationSeconds);
 	}
 
 	protected void RenderTabs(WorkspaceWidget workspace)

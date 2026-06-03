@@ -417,6 +417,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
+	bool MoveHQToPlayer(int playerId)
+	{
+		if (!Replication.IsServer() || !m_HQ || playerId <= 0)
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+			return false;
+
+		vector hqPosition = HST_WorldPositionService.ResolveGroundPosition(playerEntity.GetOrigin(), HST_WorldPositionService.HQ_GROUND_OFFSET, true);
+		bool changed = m_HQ.MoveHQToPosition(m_State, hqPosition, "field_hq");
+		if (changed)
+			MarkMajorCampaignChange();
+		return changed;
+	}
+
 	void OnPetrosKilled()
 	{
 		if (!Replication.IsServer())
@@ -520,6 +536,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return MoveHQ(hideoutId);
+	}
+
+	bool RequestCommanderMoveHQToPlayer(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return MoveHQToPlayer(playerId);
 	}
 
 	bool RequestCommanderStartMission(int playerId, string missionId, string targetZoneId = "")
@@ -857,6 +881,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (IsSettingsAdminIdentity(player.m_sIdentityId))
 			player.m_bAdmin = true;
+	}
+
+	protected IEntity ResolveControlledPlayerEntity(int playerId)
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager || playerId <= 0)
+			return null;
+
+		IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
+		if (controlledEntity)
+			return controlledEntity;
+
+		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
 	}
 
 	protected bool ApplyCompletedMissionOutcome(HST_MissionDefinition definition, HST_ActiveMissionState activeMission)

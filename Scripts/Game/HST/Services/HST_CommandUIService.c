@@ -39,7 +39,7 @@ class HST_CommandUIService
 	string BuildCommanderMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		string menu = BuildMemberMenu(state, preset, markers);
-		return menu + "\nCommander actions: move_hq <hideout>, income_now, train_troops, recruit_zone <zone>, mission_zone <zone>, complete_mission <id>";
+		return menu + "\nCommander actions: move_hq_here, move_hq <hideout>, income_now, train_troops, recruit_zone <zone>, mission_zone <zone>, complete_mission <id>";
 	}
 
 	string BuildAdminMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
@@ -107,6 +107,9 @@ class HST_CommandUIService
 
 		if (commandId == "move_hq")
 			return BuildBoolResult("move HQ to " + argument, coordinator.RequestCommanderMoveHQ(playerId, argument));
+
+		if (commandId == "move_hq_here")
+			return BuildBoolResult("move HQ to your position", coordinator.RequestCommanderMoveHQToPlayer(playerId));
 
 		if (commandId == "income_now")
 			return BuildBoolResult("apply income tick", coordinator.RequestCommanderApplyIncomeNow(playerId));
@@ -230,6 +233,9 @@ class HST_CommandUIService
 		if (commandId == "move_hq")
 			return coordinator.RequestCommanderMoveHQ(playerId, argument);
 
+		if (commandId == "move_hq_here")
+			return coordinator.RequestCommanderMoveHQToPlayer(playerId);
+
 		if (commandId == "income_now")
 			return coordinator.RequestCommanderApplyIncomeNow(playerId);
 
@@ -335,7 +341,7 @@ class HST_CommandUIService
 		if (canUseCommander)
 			role = "commander controls available";
 
-		return string.Format("h-istasi Petros/HQ | hideout %1 | HQ %2 | Petros alive %3 | %4", state.m_sHQHideoutId, state.m_vHQPosition, state.m_bPetrosAlive, role);
+		return string.Format("h-istasi Petros/HQ | hideout %1 | HQ %2 | Petros alive %3 | arsenal %4 | %5", state.m_sHQHideoutId, state.m_vHQPosition, state.m_bPetrosAlive, state.m_vArsenalPosition, role);
 	}
 
 	protected void BuildTabActions(string selectedTabId, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, bool canUseCommander, bool canUseAdmin)
@@ -360,6 +366,7 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_PETROS)
 		{
+			AddMenuAction(actions, TAB_PETROS, "Move base to my position", "move_hq_here", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: north forest", "move_hq", "hideout_north_forest", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: central hills", "move_hq", "hideout_central_hills", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: south woods", "move_hq", "hideout_south_woods", canUseCommander, "commander required");

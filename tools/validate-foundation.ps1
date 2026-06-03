@@ -119,7 +119,7 @@ $requiredRuntimeScaffold = @(
 	'HST_PlayerSpawnLogic',
 	'm_bEnableRespawn 1',
 	'm_bEnablePauseMenuRespawn 0',
-	'Prefabs/Characters/HST/HST_PlayerController.et',
+	'DefaultPlayerControllerMP_ScenarioFramework.et',
 	'm_bUseSpawnPreload 0',
 	'SCR_MapConfigComponent',
 	'Configs/Map/MapSpawnConflict.conf',
@@ -177,6 +177,10 @@ foreach ($runtimeLayer in $runtimeLayers) {
 
 	if ($text -match "Loadout_USAF_") {
 		throw "Runtime layer must not expose RHS_USAF role-selection loadouts in the primary FIA deploy path: $runtimeLayer"
+	}
+
+	if ($text -match 'PlayerControllerPrefab "Prefabs/Characters/HST/HST_PlayerController.et"') {
+		throw "Runtime layer must not reference the unindexed HST player-controller prefab directly: $runtimeLayer"
 	}
 
 	foreach ($requiredLoadout in $requiredFiaLoadouts) {
@@ -262,7 +266,13 @@ $petrosPrefabText = Get-Content -Raw $petrosPrefabPath
 $hqServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_HQService.c"
 foreach ($requiredPetrosPrefabEntry in @(
 	"SCR_ChimeraCharacter Character_HST_Petros",
-	"Character_FIA_Rifleman.et"
+	"Character_FIA_Rifleman.et",
+	"ActionsManagerComponent",
+	"HST_PetrosCommandMenuAction",
+	"HST_PetrosMoveBaseHereAction",
+	"HST_PetrosArsenalMenuAction",
+	"ParentContextList",
+	"UIInfo"
 )) {
 	if ($petrosPrefabText -notmatch [regex]::Escape($requiredPetrosPrefabEntry)) {
 		throw "Dedicated Petros prefab is missing editable inheritance entry: $requiredPetrosPrefabEntry"
@@ -272,9 +282,14 @@ foreach ($requiredPetrosPrefabEntry in @(
 foreach ($requiredPetrosServiceEntry in @(
 	"PETROS_BASE_PREFAB",
 	'PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros.et"',
+	"ARSENAL_PREFAB",
 	"ResolvePetrosPrefab",
 	"IsGuidResourceName",
 	"state.m_sPetrosPrefab = PETROS_PREFAB",
+	"state.m_sArsenalPrefab = ARSENAL_PREFAB",
+	"MoveHQToPosition",
+	"ClearRuntimeObjects",
+	"SCR_EntityHelper.DeleteEntityAndChildren",
 	"spawning base FIA placeholder",
 	"DoSpawn(petrosPrefab"
 )) {
@@ -554,7 +569,10 @@ foreach ($requiredService in @(
 	"HST_RuntimeSettingsService",
 	"HST_LootService",
 	"HST_CommandMenuComponent",
-	"HST_CommandMenuRequestComponent"
+	"HST_CommandMenuRequestComponent",
+	"HST_PetrosCommandMenuAction",
+	"HST_PetrosMoveBaseHereAction",
+	"HST_PetrosArsenalMenuAction"
 )) {
 	if ($requiredService -notin $definedSymbols) {
 		throw "Missing Antistasi framework service: $requiredService"
@@ -576,7 +594,9 @@ foreach ($requiredSaveEntry in @(
 	"m_iEnemyResourceAccumulatorSeconds",
 	"m_iResistanceCaptureProgress",
 	"m_sDisplayName",
-	"m_sCategory"
+	"m_sCategory",
+	"m_vArsenalPosition",
+	"m_sArsenalPrefab"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSaveEntry)) {
 		throw "Missing campaign save scaffold entry: $requiredSaveEntry"
@@ -602,6 +622,8 @@ foreach ($requiredCoordinatorEntry in @(
 	"AwardFactionResources",
 	"AwardPlayerResources",
 	"RequestCommanderMoveHQ",
+	"MoveHQToPlayer",
+	"RequestCommanderMoveHQToPlayer",
 	"RequestCommanderStartMission",
 	"RequestCommanderStartZoneMission",
 	"RequestCommanderRecruitGarrison",
@@ -651,6 +673,9 @@ foreach ($requiredCommandMenuEntry in @(
 	'RemoveActionListener',
 	'CreateWidgetInWorkspace',
 	'WidgetFlags.VISIBLE',
+	'SCR_HintManagerComponent',
+	'OpenPetrosMenu',
+	'OpenMenuToTab',
 	'ParseActionsFromPayload',
 	'OnServerSnapshot',
 	'HST_CommandMenuRequestComponent.GetLocalOwner',
@@ -667,6 +692,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'inspect_arsenal',
 	'loot_nearby',
 	'move_hq',
+	'move_hq_here',
 	'recruit_zone',
 	'mission_zone',
 	'capture_zone',
@@ -763,6 +789,12 @@ foreach ($requiredFiaSpawnContract in @(
 	'GetSurfaceY',
 	'EnsureRuntimeObjects',
 	'SupplyCache_S_FIA_01.et',
+	'ARSENAL_PREFAB',
+	'm_vArsenalPosition',
+	'HST_PetrosUserActionBase',
+	'ScriptedUserAction',
+	'PerformAction',
+	'HasLocalEffectOnlyScript',
 	'TentSmallUS_01.et'
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredFiaSpawnContract)) {
