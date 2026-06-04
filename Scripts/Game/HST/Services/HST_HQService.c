@@ -4,6 +4,7 @@ class HST_HQService
 	static const string PETROS_PREFAB = "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et";
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
+	static const string ARSENAL_FALLBACK_PREFAB = "{6985327711303410}Prefabs/Objects/HST/HST_HQArsenalFallback.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
 	static const float ARSENAL_VISIBLE_LIFT_METERS = 0.65;
 
@@ -403,9 +404,28 @@ class HST_HQService
 			DeleteRuntimeEntity(arsenal);
 		}
 
+		if (arsenalPrefab != ARSENAL_FALLBACK_PREFAB)
+		{
+			GenericEntity fallbackArsenal = respawnSystem.DoSpawn(ARSENAL_FALLBACK_PREFAB, arsenalPosition, "0 0 0");
+			if (IsUsableArsenalEntity(fallbackArsenal))
+			{
+				if (state)
+					state.m_sArsenalPrefab = ARSENAL_FALLBACK_PREFAB;
+
+				Print(string.Format("h-istasi | HQ arsenal primary %1 failed; using h-istasi fallback %2", arsenalPrefab, ARSENAL_FALLBACK_PREFAB), LogLevel.WARNING);
+				return fallbackArsenal;
+			}
+
+			if (fallbackArsenal)
+			{
+				Print(string.Format("h-istasi | HQ fallback arsenal prefab %1 spawned at %2 but had no usable replicated h-istasi action root", ARSENAL_FALLBACK_PREFAB, arsenalPosition), LogLevel.WARNING);
+				DeleteRuntimeEntity(fallbackArsenal);
+			}
+		}
+
 		if (!m_bWarnedArsenalResourceFailure)
 		{
-			Print(string.Format("h-istasi | HQ arsenal prefab %1 failed to spawn at %2; no supply-cache fallback will be used", arsenalPrefab, arsenalPosition), LogLevel.WARNING);
+			Print(string.Format("h-istasi | HQ arsenal prefab %1 and fallback %2 failed to spawn at %3; no supply-cache fallback will be used", arsenalPrefab, ARSENAL_FALLBACK_PREFAB, arsenalPosition), LogLevel.WARNING);
 			m_bWarnedArsenalResourceFailure = true;
 		}
 

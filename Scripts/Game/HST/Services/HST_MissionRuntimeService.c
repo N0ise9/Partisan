@@ -9,9 +9,18 @@ class HST_MissionRuntimeService
 	static const string PRIMITIVE_DELIVER_SUPPLIES = "deliver_supplies";
 	static const string PRIMITIVE_CONVOY_INTERCEPT = "convoy_intercept";
 	static const string PRIMITIVE_ABSTRACT_FALLBACK = "abstract_fallback";
+	static const string PROP_HVT = "{6985327711303700}Prefabs/Objects/HST/HST_MissionProp_HVT.et";
+	static const string PROP_DESTROY_TARGET = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
+	static const string PROP_CARGO = "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et";
+	static const string PROP_CAPTIVES = "{6985327711303730}Prefabs/Objects/HST/HST_MissionProp_Captives.et";
+	static const string PROP_HOLD_MARKER = "{6985327711303740}Prefabs/Objects/HST/HST_MissionProp_HoldMarker.et";
+	static const string PROP_CONVOY_VEHICLE = "Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const float PLAYER_OBJECTIVE_RADIUS_METERS = 35.0;
 	static const float HOSTILE_OBJECTIVE_RADIUS_METERS = 90.0;
 	static const int DEFAULT_HOLD_SECONDS = 45;
+
+	protected ref array<string> m_aRuntimeEntityIds = {};
+	protected ref array<IEntity> m_aRuntimeEntities = {};
 
 	bool InitializeMissionRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState mission, HST_GeneratedContentService content)
 	{
@@ -24,7 +33,6 @@ class HST_MissionRuntimeService
 		mission.m_sRuntimeEntityId = string.Format("runtime_%1_%2", mission.m_sInstanceId, primitive);
 		mission.m_iRuntimeStartedAtSecond = state.m_iElapsedSeconds;
 		mission.m_iRuntimeHoldSeconds = ResolveHoldSeconds(primitive, definition);
-		mission.m_bRuntimeSpawned = true;
 		mission.m_bRuntimeFallback = primitive == PRIMITIVE_ABSTRACT_FALLBACK;
 		mission.m_bRuntimeCleanupComplete = false;
 
@@ -40,6 +48,10 @@ class HST_MissionRuntimeService
 				objective.m_iRequiredHoldSeconds = ResolveObjectiveHoldSeconds(objective, primitive, definition);
 			objective.m_bAbstractFallback = mission.m_bRuntimeFallback;
 		}
+
+		mission.m_bRuntimeSpawned = TrySpawnMissionRuntimeProp(state, mission);
+		if (!mission.m_bRuntimeSpawned)
+			mission.m_bRuntimeFallback = true;
 
 		return true;
 	}
@@ -62,6 +74,7 @@ class HST_MissionRuntimeService
 			}
 
 			changed = EnsureRestoredMissionRuntime(state, mission) || changed;
+			changed = EnsureMissionRuntimeProp(state, mission) || changed;
 			foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 			{
 				if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bComplete || objective.m_bFailed)
@@ -73,6 +86,88 @@ class HST_MissionRuntimeService
 		}
 
 		return changed;
+	}
+
+	protected bool EnsureMissionRuntimeProp(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sRuntimeEntityId.IsEmpty() || HasRuntimeEntity(mission.m_sRuntimeEntityId))
+			return false;
+
+		bool spawned = TrySpawnMissionRuntimeProp(state, mission);
+		if (mission.m_bRuntimeSpawned == spawned)
+			return spawned;
+
+		mission.m_bRuntimeSpawned = spawned;
+		if (!spawned)
+			mission.m_bRuntimeFallback = true;
+
+		return true;
+	}
+
+	protected bool TrySpawnMissionRuntimeProp(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sRuntimeEntityId.IsEmpty() || mission.m_sRuntimePrimitive == PRIMITIVE_ABSTRACT_FALLBACK)
+			return false;
+
+		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
+		if (!respawnSystem)
+			return false;
+
+		vector position = ResolveRuntimePropPosition(state, mission);
+		string prefab = SelectRuntimePropPrefab(mission.m_sRuntimePrimitive);
+		if (prefab.IsEmpty())
+			return false;
+
+		GenericEntity entity = respawnSystem.DoSpawn(prefab, position, "0 0 0");
+		if (!entity && prefab != PROP_HOLD_MARKER)
+			entity = respawnSystem.DoSpawn(PROP_HOLD_MARKER, position, "0 0 0");
+
+		if (!entity)
+		{
+			Print(string.Format("h-istasi mission runtime | prop spawn failed for %1 using %2", mission.m_sInstanceId, prefab), LogLevel.WARNING);
+			return false;
+		}
+
+		m_aRuntimeEntityIds.Insert(mission.m_sRuntimeEntityId);
+		m_aRuntimeEntities.Insert(entity);
+		Print(string.Format("h-istasi mission runtime | spawned prop %1 for %2 at %3", prefab, mission.m_sInstanceId, position));
+		return true;
+	}
+
+	protected vector ResolveRuntimePropPosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (objective && objective.m_sMissionInstanceId == mission.m_sInstanceId)
+				return HST_WorldPositionService.ResolveGroundPosition(objective.m_vPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		}
+
+		if (!mission.m_sTargetZoneId.IsEmpty())
+		{
+			HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
+			if (zone)
+				return HST_WorldPositionService.ResolveGroundPosition(zone.m_vPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		}
+
+		return HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+	}
+
+	protected string SelectRuntimePropPrefab(string primitive)
+	{
+		if (primitive == PRIMITIVE_KILL_HVT)
+			return PROP_HVT;
+		if (primitive == PRIMITIVE_DESTROY_TARGET)
+			return PROP_DESTROY_TARGET;
+		if (primitive == PRIMITIVE_RECOVER_CARGO || primitive == PRIMITIVE_DELIVER_SUPPLIES)
+			return PROP_CARGO;
+		if (primitive == PRIMITIVE_RESCUE_EXTRACT)
+			return PROP_CAPTIVES;
+		if (primitive == PRIMITIVE_CONVOY_INTERCEPT)
+			return PROP_CONVOY_VEHICLE;
+		if (primitive == PRIMITIVE_HOLD_AREA || primitive == PRIMITIVE_CLEAR_AREA)
+			return PROP_HOLD_MARKER;
+
+		return "";
 	}
 
 	string FindCompletedActiveMissionId(HST_CampaignState state, HST_MissionObjectiveService objectives)
@@ -250,6 +345,7 @@ class HST_MissionRuntimeService
 		if (!state || !mission || mission.m_bRuntimeCleanupComplete)
 			return false;
 
+		DeleteRuntimeEntity(mission.m_sRuntimeEntityId);
 		mission.m_bRuntimeCleanupComplete = true;
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
@@ -258,6 +354,25 @@ class HST_MissionRuntimeService
 		}
 
 		return true;
+	}
+
+	protected bool HasRuntimeEntity(string runtimeEntityId)
+	{
+		return !runtimeEntityId.IsEmpty() && m_aRuntimeEntityIds.Find(runtimeEntityId) >= 0;
+	}
+
+	protected void DeleteRuntimeEntity(string runtimeEntityId)
+	{
+		int index = m_aRuntimeEntityIds.Find(runtimeEntityId);
+		if (index < 0)
+			return;
+
+		IEntity entity = m_aRuntimeEntities[index];
+		if (entity)
+			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+
+		m_aRuntimeEntityIds.Remove(index);
+		m_aRuntimeEntities.Remove(index);
 	}
 
 	protected int ResolveHoldSeconds(string primitive, HST_MissionDefinition definition)

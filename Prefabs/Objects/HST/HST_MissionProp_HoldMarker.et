@@ -1,0 +1,6 @@
+GenericEntity HST_MissionProp_HoldMarker : "Prefabs/Props/Military/CISS/SupplyDrop/Parts/US/EquipmentBox_US.et" {
+ components {
+  RplComponent "{6985327711303741}" {
+  }
+ }
+}

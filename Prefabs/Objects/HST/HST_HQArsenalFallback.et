@@ -1,0 +1,26 @@
+GenericEntity HST_HQArsenalFallback : "Prefabs/Props/Military/CISS/SupplyDrop/Parts/US/EquipmentBox_US.et" {
+ components {
+  RplComponent "{6985327711303416}" {
+  }
+  ActionsManagerComponent "{6985327711303411}" {
+   additionalActions {
+    HST_HQArsenalOpenAction "{6985327711303412}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303413}" {
+      Name "Open h-istasi Arsenal"
+     }
+    }
+    HST_HQArsenalLootNearbyAction "{6985327711303414}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303415}" {
+      Name "Loot nearby to h-istasi Arsenal"
+     }
+    }
+   }
+  }
+ }
+}

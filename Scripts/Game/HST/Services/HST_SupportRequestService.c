@@ -171,7 +171,7 @@ class HST_SupportRequestService
 		group.m_sGroupId = string.Format("support_%1", request.m_sRequestId);
 		group.m_sZoneId = request.m_sTargetZoneId;
 		group.m_sFactionKey = request.m_sFactionKey;
-		group.m_sPrefab = SelectGroupPrefab(request.m_sFactionKey, request.m_eType);
+		group.m_sPrefab = SelectGroupPrefab(state, request);
 		group.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(request.m_vTargetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 		group.m_sRouteId = request.m_sSourceZoneId + "_to_" + request.m_sTargetZoneId;
 		group.m_vSourcePosition = request.m_vSourcePosition;
@@ -516,21 +516,60 @@ class HST_SupportRequestService
 		return null;
 	}
 
-	protected string SelectGroupPrefab(string factionKey, HST_ESupportRequestType supportType)
+	protected string SelectGroupPrefab(HST_CampaignState state, HST_SupportRequestState request)
 	{
+		if (!request)
+			return "";
+
+		string factionKey = request.m_sFactionKey;
+		HST_ESupportRequestType supportType = request.m_eType;
 		HST_FactionTemplate faction = HST_DefaultCatalog.CreateFactionTemplate(factionKey);
 		if (!faction)
 			return "";
 
+		int seed = BuildSupportGroupSeed(state, request);
+		bool qrfStyle = supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+		if (factionKey == "RHS_AFRF" && faction.m_aRareGroupPool.Count() > 0)
+		{
+			int rareChance = 10;
+			if (qrfStyle)
+				rareChance = 15;
+
+			if (HST_DefaultCatalog.PositiveMod(seed, 100) < rareChance)
+				return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aRareGroupPool, seed + 1201);
+		}
+
+		if (qrfStyle && faction.m_aQRFGroupPool.Count() > 0)
+			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aQRFGroupPool, seed + 701);
+
+		if (faction.m_aPatrolGroupPool.Count() > 0)
+			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aPatrolGroupPool, seed + 503);
+
+		if (faction.m_aGroupPool.Count() > 0)
+			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aGroupPool, seed + 307);
+
 		if ((supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY) && faction.m_aQRFGroupPrefabs.Count() > 0)
-			return faction.m_aQRFGroupPrefabs[0];
+			return faction.m_aQRFGroupPrefabs[HST_DefaultCatalog.PositiveMod(seed, faction.m_aQRFGroupPrefabs.Count())];
 
 		if (faction.m_aPatrolGroupPrefabs.Count() > 0)
-			return faction.m_aPatrolGroupPrefabs[0];
+			return faction.m_aPatrolGroupPrefabs[HST_DefaultCatalog.PositiveMod(seed, faction.m_aPatrolGroupPrefabs.Count())];
 
 		if (faction.m_aGroupPrefabs.Count() > 0)
-			return faction.m_aGroupPrefabs[0];
+			return faction.m_aGroupPrefabs[HST_DefaultCatalog.PositiveMod(seed, faction.m_aGroupPrefabs.Count())];
 
 		return "";
+	}
+
+	protected int BuildSupportGroupSeed(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		int seed = 613;
+		if (state)
+			seed += state.m_iCampaignSeed * 17 + state.m_iElapsedSeconds * 5 + state.m_aSupportRequests.Count() * 29;
+		if (request)
+			seed += request.m_sRequestId.Length() * 47 + request.m_sTargetZoneId.Length() * 89 + request.m_iRequestedAtSecond;
+		if (seed < 0)
+			seed = -seed;
+
+		return seed;
 	}
 }

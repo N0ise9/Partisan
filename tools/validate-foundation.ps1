@@ -375,6 +375,7 @@ foreach ($requiredPetrosServiceEntry in @(
 	"ResolveArsenalPrefab",
 	"SpawnArsenal",
 	"IsUsableArsenalEntity",
+	"ARSENAL_FALLBACK_PREFAB",
 	"ARSENAL_VISIBLE_LIFT_METERS",
 	"state.m_sPetrosPrefab = PETROS_PREFAB",
 	"state.m_sArsenalPrefab = ARSENAL_PREFAB",
@@ -404,7 +405,10 @@ if ($hqServiceText -notmatch "SpawnArsenal\(respawnSystem, state\)") {
 if ($hqServiceText -match 'PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros\.et"' -or $hqServiceText -match 'ARSENAL_PREFAB = "Prefabs/Objects/HST/HST_HQArsenal\.et"') {
 	throw "HQ service must not keep path-only HST prefab constants"
 }
-if ($hqServiceText -match "\bARSENAL_FALLBACK_PREFAB\b" -or $hqServiceText -match "using FIA supply-cache fallback") {
+if ($hqServiceText -notmatch '\{6985327711303410\}Prefabs/Objects/HST/HST_HQArsenalFallback\.et') {
+	throw "HQ service must keep a GUID-qualified h-istasi fallback arsenal prefab"
+}
+if ($hqServiceText -match "using FIA supply-cache fallback") {
 	throw "HQ service must not use a supply-cache fallback for the HQ arsenal"
 }
 if ($coordinatorText -notmatch "BootstrapInitialHideout\(m_State, HST_DefaultCatalog\.GetDefaultHideoutId\(\)\)") {
@@ -456,6 +460,46 @@ foreach ($forbiddenArsenalPrefabEntry in @(
 	}
 }
 Write-Host "HST HQ arsenal prefab h-istasi-only contract OK"
+
+$hqArsenalFallbackPrefabPath = "Prefabs/Objects/HST/HST_HQArsenalFallback.et"
+if (!(Test-Path $hqArsenalFallbackPrefabPath)) {
+	throw "Missing HST HQ fallback arsenal prefab: $hqArsenalFallbackPrefabPath"
+}
+
+$hqArsenalFallbackPrefabMetaPath = "$hqArsenalFallbackPrefabPath.meta"
+if (!(Test-Path $hqArsenalFallbackPrefabMetaPath)) {
+	throw "Missing HST HQ fallback arsenal prefab metadata: $hqArsenalFallbackPrefabMetaPath"
+}
+
+if ((Get-Content -Raw $hqArsenalFallbackPrefabMetaPath) -notmatch '\{6985327711303410\}Prefabs/Objects/HST/HST_HQArsenalFallback\.et') {
+	throw "HST HQ fallback arsenal prefab metadata must expose the GUID-qualified resource name"
+}
+
+$hqArsenalFallbackPrefabText = Get-Content -Raw $hqArsenalFallbackPrefabPath
+foreach ($requiredArsenalFallbackPrefabEntry in @(
+	"GenericEntity HST_HQArsenalFallback",
+	"EquipmentBox_US.et",
+	"RplComponent",
+	"ActionsManagerComponent",
+	"HST_HQArsenalOpenAction",
+	"HST_HQArsenalLootNearbyAction"
+)) {
+	if ($hqArsenalFallbackPrefabText -notmatch [regex]::Escape($requiredArsenalFallbackPrefabEntry)) {
+		throw "HST HQ fallback arsenal prefab is missing h-istasi-only arsenal entry: $requiredArsenalFallbackPrefabEntry"
+	}
+}
+foreach ($forbiddenArsenalFallbackPrefabEntry in @(
+	"ArsenalBox_FIA",
+	"SCR_Arsenal",
+	"MSAR",
+	"SupplyCache_S_FIA_01.et",
+	"Ural4320_arsenal_box_tan.et"
+)) {
+	if ($hqArsenalFallbackPrefabText -match [regex]::Escape($forbiddenArsenalFallbackPrefabEntry)) {
+		throw "HST HQ fallback arsenal prefab must not use stock arsenal/MSAR/fake supply-cache entry: $forbiddenArsenalFallbackPrefabEntry"
+	}
+}
+Write-Host "HST HQ fallback arsenal prefab contract OK"
 
 $civilianGroupPrefabPath = "Prefabs/Groups/CIV/HST_CivilianTownGroup.et"
 if (!(Test-Path $civilianGroupPrefabPath)) {
@@ -542,10 +586,31 @@ foreach ($requiredMissionPrimitive in @(
 	"PrimitiveForMission",
 	"PrimitiveForMissionId",
 	"FindCompletedActiveMissionId",
-	"BuildRuntimeReport"
+	"BuildRuntimeReport",
+	"TrySpawnMissionRuntimeProp",
+	"EnsureMissionRuntimeProp",
+	"HST_MissionProp_HVT.et",
+	"HST_MissionProp_DestroyTarget.et",
+	"HST_MissionProp_Cargo.et",
+	"HST_MissionProp_Captives.et",
+	"HST_MissionProp_HoldMarker.et"
 )) {
 	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredMissionPrimitive)) {
 		throw "Mission runtime service is missing physical primitive contract: $requiredMissionPrimitive"
+	}
+}
+foreach ($requiredMissionPropPath in @(
+	"Prefabs/Objects/HST/HST_MissionProp_HVT.et",
+	"Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et",
+	"Prefabs/Objects/HST/HST_MissionProp_Cargo.et",
+	"Prefabs/Objects/HST/HST_MissionProp_Captives.et",
+	"Prefabs/Objects/HST/HST_MissionProp_HoldMarker.et"
+)) {
+	if (!(Test-Path $requiredMissionPropPath)) {
+		throw "Missing mission runtime prop prefab: $requiredMissionPropPath"
+	}
+	if (!(Test-Path "$requiredMissionPropPath.meta")) {
+		throw "Missing mission runtime prop prefab metadata: $requiredMissionPropPath.meta"
 	}
 }
 Write-Host "Mission runtime primitive coverage OK"
@@ -1471,6 +1536,7 @@ foreach ($requiredSettingsEntry in @(
 	"vehicleLootOnlyLockedItems",
 	"vehicleLootRemoveSourceItems",
 	"vehicleLootMaxItemsPerAction",
+	"hqInteractionRadiusMeters",
 	"airSupportEnabled",
 	"airSupportCooldownSeconds",
 	"civilianPopulationEnabled",
@@ -1486,11 +1552,17 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 5") {
-	throw "Runtime settings schema must be bumped to 5 for the town vehicle range settings migration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 6") {
+	throw "Runtime settings schema must be bumped to 6 for the HQ interaction radius migration"
 }
 if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 25") {
 	throw "Runtime/balance defaults must set arsenal unlock threshold to 25"
+}
+if ($scriptText -notmatch "m_iHQInteractionRadiusMeters = 50") {
+	throw "Runtime/balance defaults must set HQ interaction radius to 50 meters"
+}
+if ($configResourceText -notmatch "m_iHQInteractionRadiusMeters 50") {
+	throw "Balance config must set HQ interaction radius to 50 meters"
 }
 if ($configResourceText -notmatch "m_iArsenalUnlockThreshold 25") {
 	throw "Balance config must set arsenal unlock threshold to 25"
@@ -1543,6 +1615,7 @@ foreach ($requiredLootEntry in @(
 	"BuildVehicleCargoReport",
 	"DepositVehicleCargo",
 	"CaptureNearbyVehicleToGarage",
+	"ResolveVehicleRoot",
 	"IsEligibleVehicleRoot",
 	"IsLikelyVehicleRootPrefab",
 	"IsRejectedVehicleRootPrefab",
@@ -1583,6 +1656,28 @@ foreach ($requiredLootEntry in @(
 	}
 }
 Write-Host "Loot-to-arsenal contract OK"
+
+foreach ($requiredHQGateEntry in @(
+	"IsPlayerWithinHQInteractionRadius",
+	"BuildHQInteractionDenied",
+	"m_iHQInteractionRadiusMeters",
+	"RequestMemberLootNearby",
+	"RequestMemberUnloadVehicleCargo",
+	"RequestMemberCaptureNearbyVehicle",
+	"RequestMemberRedeployGarageVehicle",
+	"RequestMemberWithdrawBestArsenalItem"
+)) {
+	if ($coordinatorText -notmatch [regex]::Escape($requiredHQGateEntry) -and $scriptText -notmatch [regex]::Escape($requiredHQGateEntry)) {
+		throw "Missing HQ-radius interaction gate contract entry: $requiredHQGateEntry"
+	}
+}
+if ($coordinatorText -notmatch 'RequestMemberCollectVehicleLoot[\s\S]*?CollectNearbyLootToVehicle') {
+	throw "Field vehicle loot loading must remain usable without the HQ-radius arsenal gate"
+}
+if (([regex]::Matches($coordinatorText, "IsPlayerWithinHQInteractionRadius\(playerId\)").Count) -lt 5) {
+	throw "HQ-only arsenal and garage actions must all call the HQ-radius gate"
+}
+Write-Host "HQ interaction radius gates OK"
 
 $lootServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c"
 foreach ($requiredVehicleRejectionEntry in @(
@@ -1698,7 +1793,15 @@ foreach ($requiredPhysicalWarEntry in @(
 	"m_sMissionSiteId",
 	"m_aGroupPrefabs",
 	"m_aPatrolGroupPrefabs",
-	"m_aQRFGroupPrefabs"
+	"m_aQRFGroupPrefabs",
+	"m_aGroupPool",
+	"m_aPatrolGroupPool",
+	"m_aQRFGroupPool",
+	"m_aRareGroupPool",
+	"HST_PrefabPoolEntry",
+	"SelectWeightedPrefab",
+	"AFRF_RARE_PATROL_CHANCE_PERCENT = 10",
+	"AFRF_RARE_QRF_CHANCE_PERCENT = 15"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredPhysicalWarEntry) -and $configResourceText -notmatch [regex]::Escape($requiredPhysicalWarEntry)) {
 		throw "Missing physical AI war scaffold entry: $requiredPhysicalWarEntry"
@@ -1708,13 +1811,15 @@ Write-Host "Physical AI war scaffold OK"
 
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",
-	"SpawnTownPopulation",
+	"SpawnActiveZoneRuntime",
 	"CIVILIAN_GROUP_SIZE",
 	"CIVILIAN_GROUP_PREFAB",
 	"HST_CivilianTownGroup.et",
-	"ENTERABLE_AMBIENT_VEHICLE_PREFAB",
+	"HST_CivilianTownGroup_Workers.et",
+	"HST_CivilianTownGroup_Mixed.et",
+	"SelectCivilianVehiclePrefab",
 	"ResolveTownVehicleSpawnPosition",
-	"BuildTownSpawnSeed",
+	"BuildZoneSeed",
 	"ModInt",
 	"IsTownGroundVehicleResource",
 	"IsAircraftVehicleResource",
@@ -1723,7 +1828,6 @@ foreach ($requiredCivilianRuntimeEntry in @(
 	"ShouldDetachFromTownCleanup",
 	"m_aRuntimeEntityKinds",
 	"m_aRuntimeEntitySpawnPositions",
-	"IsGuidQualifiedResource",
 	'SetAffiliatedFactionByKey("CIV")',
 	"m_bCivilianPopulationEnabled",
 	"m_iCivilianMaxActivePerTown",
@@ -1732,6 +1836,9 @@ foreach ($requiredCivilianRuntimeEntry in @(
 	"m_iOccupierVehicleMinPerTown",
 	"m_iOccupierVehicleMaxPerTown",
 	"m_aVehiclePrefabs",
+	"m_aCivilianVehiclePrefabs",
+	"m_aCivilianGroupPrefabs",
+	"MILITARY_VEHICLE",
 	"civilianRuntimeChanged"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCivilianRuntimeEntry) -and $configResourceText -notmatch [regex]::Escape($requiredCivilianRuntimeEntry)) {
@@ -1750,20 +1857,31 @@ foreach ($requiredTownVehicleEntry in @(
 	'ResolveTownVehicleSpawnPosition(zone, civilianVehicleCount + k, true)',
 	'IsAircraftVehicleResource',
 	'!IsAircraftVehicleResource(prefab)',
-	'no GUID-qualified non-aircraft faction vehicle available'
+	'no non-aircraft faction vehicle available'
 )) {
 	if ($civilianRuntimeServiceText -notmatch [regex]::Escape($requiredTownVehicleEntry)) {
 		throw "Civilian runtime must keep scattered/non-heli vehicle contract entry: $requiredTownVehicleEntry"
 	}
 }
-foreach ($forbiddenCivilianSpawnResource in @(
+$balanceConfigText = Get-Content -Raw "Configs/HST/Balance/HST_CE311_Balance.conf"
+$civilianPoolDefaultText = [regex]::Match($defaultCatalog, "EnsureCivilianPools[\s\S]*?static HST_PrefabPoolEntry").Value
+foreach ($requiredCivilianVehiclePoolResource in @(
 	"Prefabs/Vehicles/Wheeled/S105/S105_base.et",
-	"Prefabs/Vehicles/Wheeled/S1203/S1203_base.et",
+	"Prefabs/Vehicles/Wheeled/S1203/S1203_base.et"
+)) {
+	if ($configResourceText -notmatch [regex]::Escape($requiredCivilianVehiclePoolResource) -and $scriptText -notmatch [regex]::Escape($requiredCivilianVehiclePoolResource)) {
+		throw "Civilian vehicle pool must include stock civilian ground vehicle resource: $requiredCivilianVehiclePoolResource"
+	}
+}
+foreach ($forbiddenCivilianSpawnResource in @(
 	"Prefabs/Vehicles/Wheeled/M151A2/M151A2.et"
 )) {
 	if ($civilianRuntimeServiceText -match [regex]::Escape($forbiddenCivilianSpawnResource)) {
-		throw "Civilian runtime must not directly DoSpawn path-only vehicle resource: $forbiddenCivilianSpawnResource"
+		throw "Civilian runtime must not use military vehicle fallback as a civilian spawn resource: $forbiddenCivilianSpawnResource"
 	}
+}
+if ($civilianPoolDefaultText -match "M1025" -or $civilianPoolDefaultText -match "Humvee" -or $civilianPoolDefaultText -match "M151A2" -or $balanceConfigText -match "M1025" -or $balanceConfigText -match "Humvee" -or $balanceConfigText -match "M151A2") {
+	throw "Civilian vehicle pools must not retain Humvee/M1025/M151 military fallback resources"
 }
 Write-Host "Physical civilian town runtime OK"
 

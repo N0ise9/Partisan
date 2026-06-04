@@ -891,6 +891,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_Loot || !m_Arsenal)
 			return "h-istasi loot | service not ready";
 
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi loot");
+
 		HST_LootResult result = m_Loot.LootNearbyToArsenal(m_State, m_Preset, m_Balance, m_Arsenal, playerId);
 		if (result && result.m_iItemsDeposited > 0)
 			MarkMajorCampaignChange();
@@ -909,6 +912,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_Arsenal)
 			return "h-istasi arsenal | service not ready";
 
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi arsenal");
+
 		string result = m_Arsenal.WithdrawBestAvailableItem(m_State);
 		if (!result.IsEmpty())
 			MarkMajorCampaignChange();
@@ -922,6 +928,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (!m_Loot || !m_Arsenal)
 			return "h-istasi garage | failed: service not ready";
+
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi garage | failed");
 
 		string result = m_Loot.CaptureNearbyVehicleToGarage(m_State, m_Preset, m_Arsenal, playerId);
 		if (result.Contains("complete"))
@@ -958,6 +967,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_Loot || !m_Arsenal)
 			return "h-istasi vehicle loot | service not ready";
 
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi vehicle loot");
+
 		string result = m_Loot.UnloadNearestVehicleCargoToArsenal(m_State, m_Preset, m_Balance, m_Arsenal, playerId, vehicleRuntimeId);
 		if (!result.Contains("no stored cargo") && !result.Contains("no eligible vehicle") && !result.Contains("no living player"))
 			MarkMajorCampaignChange();
@@ -972,6 +984,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (!m_Arsenal)
 			return "h-istasi garage | failed: service not ready";
+
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi garage | failed");
 
 		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
 		if (!playerEntity)
@@ -1312,6 +1327,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return controlledEntity;
 
 		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+	}
+
+	protected bool IsPlayerWithinHQInteractionRadius(int playerId)
+	{
+		if (!m_State || !m_State.m_bHQDeployed || !m_Balance || playerId <= 0)
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+			return false;
+
+		int radius = Math.Max(1, m_Balance.m_iHQInteractionRadiusMeters);
+		return DistanceSq2D(playerEntity.GetOrigin(), m_State.m_vHQPosition) <= radius * radius;
+	}
+
+	protected string BuildHQInteractionDenied(string prefix)
+	{
+		int radius;
+		if (m_Balance)
+			radius = Math.Max(1, m_Balance.m_iHQInteractionRadiusMeters);
+		else
+			radius = 50;
+
+		return string.Format("%1: must be within %2m of FIA HQ", prefix, radius);
 	}
 
 	protected bool ApplyCompletedMissionOutcome(HST_MissionDefinition definition, HST_ActiveMissionState activeMission)

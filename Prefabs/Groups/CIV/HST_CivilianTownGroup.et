@@ -2,6 +2,6 @@ SCR_AIGroup HST_CivilianTownGroup {
  ID "6985327711303601"
  m_faction "CIV"
  m_aUnitPrefabSlots + {
-  "Prefabs/Characters/Factions/CIV/Character_CIV_baseLoadout.et" "Prefabs/Characters/Factions/CIV/Character_CIV_baseLoadout.et" "Prefabs/Characters/Factions/CIV/Character_CIV_baseLoadout.et" "Prefabs/Characters/Factions/CIV/Character_CIV.et"
+  "Prefabs/Characters/Factions/CIV/Character_CIV.et" "Prefabs/Characters/Factions/CIV/Character_CIV.et" "Prefabs/Characters/Factions/CIV/Character_CIV_baseLoadout.et" "Prefabs/Characters/Factions/CIV/Character_CIV.et"
  }
 }

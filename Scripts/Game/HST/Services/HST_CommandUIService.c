@@ -634,7 +634,7 @@ class HST_CommandUIService
 			return AppendArsenalSections(payload, state, settings);
 
 		if (selectedTabId == TAB_GARAGE)
-			return AppendGarageSections(payload, state);
+			return AppendGarageSections(payload, state, settings);
 
 		if (selectedTabId == TAB_MEMBERS)
 			return AppendMembersSections(payload, state, canUseCommander);
@@ -851,6 +851,7 @@ class HST_CommandUIService
 		if (settings)
 		{
 			payload = AppendRow(payload, "arsenal", "Loot radius", string.Format("%1m", settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
+			payload = AppendRow(payload, "arsenal", "HQ action radius", string.Format("%1m", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters), "good");
 			payload = AppendRow(payload, "arsenal", "Vehicle loot", string.Format("%1 / rear %2m / max %3", settings.m_VehicleLoot.m_bEnabled, settings.m_VehicleLoot.m_iRadiusMeters, settings.m_VehicleLoot.m_iMaxItemsPerAction), "neutral");
 			payload = AppendRow(payload, "arsenal", "Unlock threshold", string.Format("%1 / magazines x%2", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold, settings.m_ArsenalLoot.m_iMagazineUnlockMultiplier), "neutral");
 			payload = AppendRow(payload, "arsenal", "Loot rule", string.Format("locked only %1 / remove source %2", settings.m_ArsenalLoot.m_bLootOnlyLockedItems, settings.m_ArsenalLoot.m_bRemoveLootedItems), "warn");
@@ -896,7 +897,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendGarageSections(string payload, HST_CampaignState state)
+	protected string AppendGarageSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings)
 	{
 		if (!state)
 			return payload;
@@ -906,6 +907,9 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "garage", "Cargo entries", string.Format("%1 entries / %2 item(s)", CountVehicleCargoEntries(state), CountVehicleCargoItems(state)), "warn");
 		payload = AppendRow(payload, "garage", "Captured emplacements", string.Format("%1", state.m_aCapturedEmplacements.Count()), "neutral");
 		payload = AppendRow(payload, "garage", "Ammo points", string.Format("%1", state.m_aAmmoPoints.Count()), "neutral");
+		payload = AppendRow(payload, "garage", "Active zone vehicles", string.Format("%1 physical / %2 abstract", CountActiveZoneVehicles(state), CountGarrisonVehicles(state)), "neutral");
+		if (settings)
+			payload = AppendRow(payload, "garage", "HQ action radius", string.Format("%1m", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters), "good");
 
 		payload = AppendSection(payload, "stored_vehicles", "Stored Vehicles");
 		if (state.m_aGarageVehicles.Count() == 0)
@@ -926,6 +930,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "garage_actions", "Capture And Redeploy");
 		payload = AppendRow(payload, "garage_actions", "Capture nearest", "Stores a safe root vehicle and despawns only that vehicle.", "good");
 		payload = AppendRow(payload, "garage_actions", "Redeploy", "Each stored vehicle gets its own selected redeploy action.", GarageTone(state));
+		payload = AppendRow(payload, "garage_actions", "Vehicle target", "Nearest top-level vehicle root within action range.", "neutral");
 		payload = AppendRow(payload, "garage_actions", "Cargo unload", "Nearest vehicle cargo can be moved into the h-istasi arsenal at HQ.", "warn");
 
 		return payload;
@@ -1843,6 +1848,21 @@ class HST_CommandUIService
 		{
 			if (garrison)
 				count += garrison.m_iVehicleCount;
+		}
+
+		return count;
+	}
+
+	protected int CountActiveZoneVehicles(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone)
+				count += zone.m_iActiveVehicleCount;
 		}
 
 		return count;

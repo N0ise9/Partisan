@@ -82,6 +82,7 @@ class HST_RuntimeSettingsService
 			ApplyStringArray(line, "adminIdentityIds", settings.m_Membership.m_aAdminIdentityIds);
 			ApplyInt(line, "arsenalUnlockThreshold", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold);
 			ApplyInt(line, "magazineUnlockMultiplier", settings.m_ArsenalLoot.m_iMagazineUnlockMultiplier);
+			ApplyInt(line, "hqInteractionRadiusMeters", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters);
 			ApplyInt(line, "lootRadiusMeters", settings.m_ArsenalLoot.m_iLootRadiusMeters);
 			ApplyBool(line, "lootOnlyLockedItems", settings.m_ArsenalLoot.m_bLootOnlyLockedItems);
 			ApplyBool(line, "removeLootedItems", settings.m_ArsenalLoot.m_bRemoveLootedItems);
@@ -150,6 +151,12 @@ class HST_RuntimeSettingsService
 				settings.m_Civilians.m_iOccupierVehicleMinPerTown = 0;
 				changed = true;
 			}
+		}
+
+		if (settings.m_iSchemaVersion < 6)
+		{
+			settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters = 50;
+			changed = true;
 		}
 
 		if (settings.m_iSchemaVersion < HST_RuntimeSettings.SCHEMA_VERSION)
@@ -269,6 +276,7 @@ class HST_RuntimeSettingsService
 		lines.Insert("  \"arsenalLoot\": {");
 		lines.Insert(string.Format("    \"arsenalUnlockThreshold\": %1,", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold));
 		lines.Insert(string.Format("    \"magazineUnlockMultiplier\": %1,", settings.m_ArsenalLoot.m_iMagazineUnlockMultiplier));
+		lines.Insert(string.Format("    \"hqInteractionRadiusMeters\": %1,", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters));
 		lines.Insert(string.Format("    \"lootRadiusMeters\": %1,", settings.m_ArsenalLoot.m_iLootRadiusMeters));
 		lines.Insert(string.Format("    \"lootOnlyLockedItems\": %1,", JsonBool(settings.m_ArsenalLoot.m_bLootOnlyLockedItems)));
 		lines.Insert(string.Format("    \"removeLootedItems\": %1,", JsonBool(settings.m_ArsenalLoot.m_bRemoveLootedItems)));

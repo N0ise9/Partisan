@@ -42,6 +42,7 @@ class HST_RuntimeSettingsArsenalLoot
 {
 	int m_iArsenalUnlockThreshold = 25;
 	int m_iMagazineUnlockMultiplier = 3;
+	int m_iHQInteractionRadiusMeters = 50;
 	int m_iLootRadiusMeters = 15;
 	bool m_bLootOnlyLockedItems = true;
 	bool m_bRemoveLootedItems = true;
@@ -95,7 +96,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 5;
+	static const int SCHEMA_VERSION = 6;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -125,6 +126,7 @@ class HST_RuntimeSettings
 		m_World.m_iMissionDefaultDurationSeconds = Math.Max(300, m_World.m_iMissionDefaultDurationSeconds);
 		m_ArsenalLoot.m_iArsenalUnlockThreshold = Math.Max(0, m_ArsenalLoot.m_iArsenalUnlockThreshold);
 		m_ArsenalLoot.m_iMagazineUnlockMultiplier = Math.Max(1, m_ArsenalLoot.m_iMagazineUnlockMultiplier);
+		m_ArsenalLoot.m_iHQInteractionRadiusMeters = Math.Max(1, m_ArsenalLoot.m_iHQInteractionRadiusMeters);
 		m_ArsenalLoot.m_iLootRadiusMeters = Math.Max(1, m_ArsenalLoot.m_iLootRadiusMeters);
 		m_VehicleLoot.m_iRadiusMeters = Math.Max(1, m_VehicleLoot.m_iRadiusMeters);
 		m_VehicleLoot.m_iMaxItemsPerAction = Math.Max(1, m_VehicleLoot.m_iMaxItemsPerAction);
@@ -161,6 +163,7 @@ class HST_RuntimeSettings
 		balance.m_iDeactivationRadiusMeters = m_World.m_iDeactivationRadiusMeters;
 		balance.m_iArsenalUnlockThreshold = m_ArsenalLoot.m_iArsenalUnlockThreshold;
 		balance.m_iMagazineUnlockMultiplier = m_ArsenalLoot.m_iMagazineUnlockMultiplier;
+		balance.m_iHQInteractionRadiusMeters = m_ArsenalLoot.m_iHQInteractionRadiusMeters;
 		balance.m_iLootRadiusMeters = m_ArsenalLoot.m_iLootRadiusMeters;
 		balance.m_bLootOnlyLockedItems = m_ArsenalLoot.m_bLootOnlyLockedItems;
 		balance.m_bRemoveLootedItems = m_ArsenalLoot.m_bRemoveLootedItems;
@@ -188,7 +191,7 @@ class HST_RuntimeSettings
 		string factions = string.Format("\nfactions | resistance %1 | occupier %2 | invader %3", m_Factions.m_sResistanceFactionKey, m_Factions.m_sOccupierFactionKey, m_Factions.m_sInvaderFactionKey);
 		string economy = string.Format("\neconomy | money %1 | HR %2 | income %3s | war max %4", m_Economy.m_iStartingFactionMoney, m_Economy.m_iStartingHR, m_Economy.m_iZoneIncomeIntervalSeconds, m_Economy.m_iWarLevelMaximum);
 		string world = string.Format("\nworld | activation %1m | deactivation %2m | mission duration %3s", m_World.m_iActivationRadiusMeters, m_World.m_iDeactivationRadiusMeters, m_World.m_iMissionDefaultDurationSeconds);
-		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | radius %3m | locked only %4 | remove source %5", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootOnlyLockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
+		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | HQ radius %3m | loot radius %4m | locked only %5 | remove source %6", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iHQInteractionRadiusMeters, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootOnlyLockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
 		string vehicleLoot = string.Format("\nvehicle loot | enabled %1 | radius %2m | locked only %3 | remove source %4 | max %5", m_VehicleLoot.m_bEnabled, m_VehicleLoot.m_iRadiusMeters, m_VehicleLoot.m_bOnlyLockedItems, m_VehicleLoot.m_bRemoveSourceItems, m_VehicleLoot.m_iMaxItemsPerAction);
 		string airSupport = string.Format("\nair support | enabled %1 | cooldown %2s", m_AirSupport.m_bEnabled, m_AirSupport.m_iCooldownSeconds);
 		string civilians = string.Format("\ncivilians | enabled %1 | max %2 per town | civ vehicles %3-%4 | occupier vehicles %5-%6", m_Civilians.m_bEnabled, m_Civilians.m_iMaxActivePerTown, m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown, m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);

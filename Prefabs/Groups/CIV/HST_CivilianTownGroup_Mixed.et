@@ -1,0 +1,7 @@
+SCR_AIGroup HST_CivilianTownGroup_Mixed {
+ ID "6985327711303621"
+ m_faction "CIV"
+ m_aUnitPrefabSlots + {
+  "Prefabs/Characters/Factions/CIV/Character_CIV.et" "Prefabs/Characters/Factions/CIV/Character_CIV_baseLoadout.et" "Prefabs/Characters/Factions/CIV/Character_CIV.et" "Prefabs/Characters/Factions/CIV/Character_CIV.et"
+ }
+}

@@ -15,6 +15,7 @@ class HST_BalanceConfig
 	int m_iDeactivationRadiusMeters = 1600;
 	int m_iArsenalUnlockThreshold = 25;
 	int m_iMagazineUnlockMultiplier = 3;
+	int m_iHQInteractionRadiusMeters = 50;
 	int m_iLootRadiusMeters = 15;
 	bool m_bLootOnlyLockedItems = true;
 	bool m_bRemoveLootedItems = true;
@@ -34,6 +35,21 @@ class HST_BalanceConfig
 	int m_iOccupierVehicleMinPerTown;
 	int m_iOccupierVehicleMaxPerTown = 2;
 	int m_iWarLevelMaximum = 10;
+	ref array<string> m_aCivilianGroupPrefabs = {};
+	ref array<string> m_aCivilianVehiclePrefabs = {};
+}
+
+[BaseContainerProps()]
+class HST_PrefabPoolEntry
+{
+	string m_sPrefab;
+	int m_iWeight = 1;
+	ref array<string> m_aTags = {};
+
+	bool HasTag(string tag)
+	{
+		return !tag.IsEmpty() && m_aTags.Contains(tag);
+	}
 }
 
 [BaseContainerProps()]
@@ -50,6 +66,10 @@ class HST_FactionTemplate
 	ref array<string> m_aPatrolGroupPrefabs = {};
 	ref array<string> m_aQRFGroupPrefabs = {};
 	ref array<string> m_aSupportIds = {};
+	ref array<ref HST_PrefabPoolEntry> m_aGroupPool = {};
+	ref array<ref HST_PrefabPoolEntry> m_aPatrolGroupPool = {};
+	ref array<ref HST_PrefabPoolEntry> m_aQRFGroupPool = {};
+	ref array<ref HST_PrefabPoolEntry> m_aRareGroupPool = {};
 
 	bool HasCapability(string capabilityId)
 	{

@@ -5,7 +5,6 @@ class HST_CivilianService
 	static const int CIVILIAN_GROUP_SIZE = 4;
 	static const float PLAYER_USED_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
 	static const string CIVILIAN_GROUP_PREFAB = "{6985327711303600}Prefabs/Groups/CIV/HST_CivilianTownGroup.et";
-	static const string ENTERABLE_AMBIENT_VEHICLE_PREFAB = "{4A71F755A4513227}Prefabs/Vehicles/Wheeled/M998/M1025.et";
 
 	protected ref array<string> m_aRuntimeZoneIds = {};
 	protected ref array<string> m_aRuntimeEntityZoneIds = {};
@@ -82,25 +81,22 @@ class HST_CivilianService
 		if (!state || !balance)
 			return false;
 
+		HST_DefaultCatalog.EnsureCivilianPools(balance);
 		PruneDeletedRuntimeEntities();
 
 		if (!balance.m_bCivilianPopulationEnabled)
 			return CleanupAllRuntimeEntities();
 
 		bool changed;
-		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
+		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			if (!civilianZone)
-				continue;
-
-			HST_ZoneState zone = state.FindZone(civilianZone.m_sZoneId);
-			if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			if (!zone)
 				continue;
 
 			if (zone.m_bActive)
 			{
 				if (!HasRuntimeZone(zone.m_sZoneId))
-					changed = SpawnTownPopulation(state, preset, balance, zone, civilianZone) || changed;
+					changed = SpawnActiveZoneRuntime(state, preset, balance, zone) || changed;
 
 				continue;
 			}
@@ -244,51 +240,52 @@ class HST_CivilianService
 		return string.Format("h-istasi undercover | tracked %1 | suspicious %2 | compromised/wanted %3", state.m_aUndercoverPlayers.Count(), suspicious, compromised);
 	}
 
-	protected bool SpawnTownPopulation(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneState zone, HST_CivilianZoneState civilianZone)
+	protected bool SpawnActiveZoneRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneState zone)
 	{
-		if (!state || !balance || !zone || !civilianZone)
+		if (!state || !balance || !zone)
 			return false;
 
 		m_aRuntimeZoneIds.Insert(zone.m_sZoneId);
 
 		int spawned;
-		int civilianCount = Math.Min(civilianZone.m_iCivilianPresence, balance.m_iCivilianMaxActivePerTown);
-		int civilianGroupCount = ResolveCivilianGroupCount(civilianCount);
-		for (int i = 0; i < civilianGroupCount; i++)
+		int civilianVehicleCount;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
 		{
-			vector position = ResolveTownSpawnPosition(zone, i, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
-			if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianGroupPrefab(i), position, "CIV", "CIV_GROUP"))
-				spawned++;
-		}
-
-		int civilianVehicleCount = ResolveDeterministicCount(balance.m_iCivilianVehicleMinPerTown, balance.m_iCivilianVehicleMaxPerTown, state.m_iElapsedSeconds + zone.m_iPriority + zone.m_sZoneId.Length());
-		for (int j = 0; j < civilianVehicleCount; j++)
-		{
-			vector vehiclePosition = ResolveTownVehicleSpawnPosition(zone, j, false);
-			if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianVehiclePrefab(j), vehiclePosition, "CIV", "CIV_VEHICLE"))
-				spawned++;
-		}
-
-		string resistanceFactionKey = "FIA";
-		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
-			resistanceFactionKey = preset.m_sResistanceFactionKey;
-
-		if (zone.m_sOwnerFactionKey != resistanceFactionKey)
-		{
-			int occupierVehicleCount = ResolveDeterministicCount(balance.m_iOccupierVehicleMinPerTown, balance.m_iOccupierVehicleMaxPerTown, state.m_iElapsedSeconds + zone.m_iPriority + 17);
-			for (int k = 0; k < occupierVehicleCount; k++)
+			HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
+			if (civilianZone)
 			{
-				string occupierPrefab = SelectFactionVehiclePrefab(zone.m_sOwnerFactionKey, k);
-				if (occupierPrefab.IsEmpty())
-					continue;
+				int civilianCount = Math.Min(civilianZone.m_iCivilianPresence, balance.m_iCivilianMaxActivePerTown);
+				int civilianGroupCount = ResolveCivilianGroupCount(civilianCount);
+				for (int i = 0; i < civilianGroupCount; i++)
+				{
+					vector position = ResolveTownSpawnPosition(zone, i, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
+					if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianGroupPrefab(balance, i, BuildZoneSeed(state, zone, i)), position, "CIV", "CIV_GROUP"))
+						spawned++;
+				}
+			}
 
-				vector occupierPosition = ResolveTownVehicleSpawnPosition(zone, civilianVehicleCount + k, true);
-				if (SpawnRuntimeEntity(zone.m_sZoneId, occupierPrefab, occupierPosition, zone.m_sOwnerFactionKey, "OCCUPIER_VEHICLE"))
+			civilianVehicleCount = ResolveDeterministicCount(balance.m_iCivilianVehicleMinPerTown, balance.m_iCivilianVehicleMaxPerTown, BuildZoneSeed(state, zone, 101));
+			for (int j = 0; j < civilianVehicleCount; j++)
+			{
+				vector vehiclePosition = ResolveTownVehicleSpawnPosition(zone, j, false);
+				if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianVehiclePrefab(balance, j, BuildZoneSeed(state, zone, 200 + j)), vehiclePosition, "CIV", "CIV_VEHICLE"))
 					spawned++;
 			}
 		}
 
-		Print(string.Format("h-istasi civilians | town %1 active | spawned %2 runtime civilian group/vehicle entity(s)", zone.m_sZoneId, spawned));
+		int militaryVehicleCount = ResolveDeterministicCount(balance.m_iOccupierVehicleMinPerTown, balance.m_iOccupierVehicleMaxPerTown, BuildZoneSeed(state, zone, 401));
+		for (int k = 0; k < militaryVehicleCount; k++)
+		{
+			string ownerPrefab = SelectFactionVehiclePrefab(zone.m_sOwnerFactionKey, k + BuildZoneSeed(state, zone, 503));
+			if (ownerPrefab.IsEmpty())
+				continue;
+
+			vector ownerPosition = ResolveTownVehicleSpawnPosition(zone, civilianVehicleCount + k, true);
+			if (SpawnRuntimeEntity(zone.m_sZoneId, ownerPrefab, ownerPosition, zone.m_sOwnerFactionKey, "MILITARY_VEHICLE"))
+				spawned++;
+		}
+
+		Print(string.Format("h-istasi civilians | zone %1 active | spawned %2 runtime civilian/military ambience entity(s)", zone.m_sZoneId, spawned));
 		return true;
 	}
 
@@ -296,12 +293,6 @@ class HST_CivilianService
 	{
 		if (zoneId.IsEmpty() || prefab.IsEmpty())
 			return false;
-
-		if (!IsGuidQualifiedResource(prefab))
-		{
-			Print(string.Format("h-istasi civilians | skipped non-GUID runtime spawn resource %1 in %2", prefab, zoneId), LogLevel.WARNING);
-			return false;
-		}
 
 		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
 		if (!respawnSystem)
@@ -452,6 +443,25 @@ class HST_CivilianService
 		return seed;
 	}
 
+	protected int BuildZoneSeed(HST_CampaignState state, HST_ZoneState zone, int salt)
+	{
+		int seed = salt * 31;
+		if (state)
+			seed += state.m_iCampaignSeed * 17;
+		if (zone)
+		{
+			seed += zone.m_iPriority * 37;
+			seed += zone.m_iIncomeValue * 13;
+			seed += zone.m_sZoneId.Length() * 101;
+			seed += Math.Round(zone.m_vPosition[0]) + Math.Round(zone.m_vPosition[2]);
+		}
+
+		if (seed < 0)
+			seed = -seed;
+
+		return seed;
+	}
+
 	protected int ResolveDeterministicCount(int minCount, int maxCount, int seed)
 	{
 		if (maxCount <= 0)
@@ -486,14 +496,20 @@ class HST_CivilianService
 		return (civilianCount + CIVILIAN_GROUP_SIZE - 1) / CIVILIAN_GROUP_SIZE;
 	}
 
-	protected string SelectCivilianGroupPrefab(int index)
+	protected string SelectCivilianGroupPrefab(HST_BalanceConfig balance, int index, int seed)
 	{
+		if (balance && balance.m_aCivilianGroupPrefabs.Count() > 0)
+			return balance.m_aCivilianGroupPrefabs[ModInt(seed + index, balance.m_aCivilianGroupPrefabs.Count())];
+
 		return CIVILIAN_GROUP_PREFAB;
 	}
 
-	protected string SelectCivilianVehiclePrefab(int index)
+	protected string SelectCivilianVehiclePrefab(HST_BalanceConfig balance, int index, int seed)
 	{
-		return ENTERABLE_AMBIENT_VEHICLE_PREFAB;
+		if (balance && balance.m_aCivilianVehiclePrefabs.Count() > 0)
+			return balance.m_aCivilianVehiclePrefabs[ModInt(seed + index, balance.m_aCivilianVehiclePrefabs.Count())];
+
+		return "Prefabs/Vehicles/Wheeled/S105/S105_base.et";
 	}
 
 	protected string SelectFactionVehiclePrefab(string factionKey, int index)
@@ -504,18 +520,13 @@ class HST_CivilianService
 			for (int i = 0; i < faction.m_aVehiclePrefabs.Count(); i++)
 			{
 				string factionVehicle = faction.m_aVehiclePrefabs[ModInt(index + i, faction.m_aVehiclePrefabs.Count())];
-				if (IsGuidQualifiedResource(factionVehicle) && IsTownGroundVehicleResource(factionVehicle))
+				if (IsTownGroundVehicleResource(factionVehicle))
 					return factionVehicle;
 			}
 		}
 
-		Print(string.Format("h-istasi civilians | no GUID-qualified non-aircraft faction vehicle available for %1; skipping occupier vehicle", factionKey), LogLevel.WARNING);
+		Print(string.Format("h-istasi civilians | no non-aircraft faction vehicle available for %1; skipping owner vehicle", factionKey), LogLevel.WARNING);
 		return "";
-	}
-
-	protected bool IsGuidQualifiedResource(string prefab)
-	{
-		return prefab.Contains("{") && prefab.Contains("}") && prefab.Contains(".et");
 	}
 
 	protected bool IsTownGroundVehicleResource(string prefab)
@@ -543,7 +554,7 @@ class HST_CivilianService
 		if (!factionComponent)
 			return;
 
-		if (IsRuntimeVehicle(runtimeKind))
+		if (runtimeKind == "CIV_VEHICLE")
 		{
 			factionComponent.SetAffiliatedFactionByKey("CIV");
 			return;
