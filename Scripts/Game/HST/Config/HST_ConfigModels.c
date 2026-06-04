@@ -53,6 +53,11 @@ class HST_ZoneDefinition
 	vector m_vPosition;
 	string m_sInitialOwnerFactionKey;
 	int m_iIncomeValue;
+	string m_sResourceKind;
+	int m_iCaptureRadiusMeters;
+	int m_iPriority;
+	string m_sCompositionId;
+	string m_sSpawnProfileId;
 	int m_iSupport;
 	int m_iGarrisonSlots;
 	int m_iActivationRadiusMeters;
@@ -64,6 +69,7 @@ class HST_ZoneDefinition
 	string m_sMarkerIcon;
 	string m_sMarkerColor;
 	ref array<string> m_aNearbyTownIds = {};
+	ref array<string> m_aLinkedZoneIds = {};
 	ref array<string> m_aCapabilities = {};
 }
 

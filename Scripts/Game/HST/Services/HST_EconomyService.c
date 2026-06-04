@@ -39,14 +39,22 @@ class HST_EconomyService
 
 	void RecalculateWarLevel(HST_CampaignState state, HST_BalanceConfig balance)
 	{
-		int ownedZones;
+		int ownedWeight;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			if (zone.m_sOwnerFactionKey == "FIA")
-				ownedZones++;
+			if (!zone || zone.m_sOwnerFactionKey != "FIA")
+				continue;
+
+			ownedWeight += Math.Max(1, zone.m_iPriority);
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+				ownedWeight += 8;
+			else if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+				ownedWeight += 5;
+			else if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
+				ownedWeight += 3;
 		}
 
-		int nextWarLevel = 1 + ownedZones / 4;
+		int nextWarLevel = 1 + ownedWeight / 28;
 		nextWarLevel = Math.Max(1, nextWarLevel);
 		state.m_iWarLevel = Math.Min(balance.m_iWarLevelMaximum, nextWarLevel);
 	}

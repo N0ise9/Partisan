@@ -1,8 +1,11 @@
 class HST_SupportRequestService
 {
 	static const int PLAYER_SUPPLY_COST = 150;
+	static const int PLAYER_QRF_COST = 250;
+	static const int PLAYER_FIRE_COST = 350;
 	static const int DEFAULT_ETA_SECONDS = 120;
 	static const int HELICOPTER_STYLE_ETA_SECONDS = 180;
+	static const int PLAYER_SUPPORT_COOLDOWN_SECONDS = 600;
 
 	HST_SupportRequestState RequestSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false)
 	{
@@ -21,7 +24,11 @@ class HST_SupportRequestService
 		ResolveCosts(supportType, attackCost, supportCost);
 		if (factionKey == preset.m_sResistanceFactionKey)
 		{
-			if (!economy || !economy.SpendFactionMoney(state, PLAYER_SUPPLY_COST))
+			int moneyCost = ResolvePlayerMoneyCost(supportType);
+			if (HasActivePlayerRequest(state, supportType))
+				return null;
+
+			if (!economy || !economy.SpendFactionMoney(state, moneyCost))
 				return null;
 		}
 		else if (!enemyDirector || !enemyDirector.TrySpend(state, factionKey, attackCost, supportCost))
@@ -32,6 +39,8 @@ class HST_SupportRequestService
 		HST_SupportRequestState request = new HST_SupportRequestState();
 		request.m_sRequestId = BuildRequestId(state, factionKey, supportType);
 		request.m_sFactionKey = factionKey;
+		request.m_sCapabilityId = CapabilityForSupport(supportType);
+		request.m_sAssetProfileId = AssetProfileForSupport(factionKey, supportType, factionKey == preset.m_sResistanceFactionKey);
 		request.m_eType = supportType;
 		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
 		request.m_sTargetZoneId = targetZone.m_sZoneId;
@@ -42,6 +51,9 @@ class HST_SupportRequestService
 		request.m_iETASeconds = ResolveETA(supportType);
 		request.m_iAttackCost = attackCost;
 		request.m_iSupportCost = supportCost;
+		request.m_iMoneyCost = ResolvePlayerMoneyCost(supportType);
+		if (factionKey == preset.m_sResistanceFactionKey)
+			request.m_iCooldownUntilSecond = state.m_iElapsedSeconds + PLAYER_SUPPORT_COOLDOWN_SECONDS;
 		request.m_bHelicopterStyle = IsHelicopterStyle(supportType);
 		request.m_bPlayerRequested = playerRequested;
 		state.m_aSupportRequests.Insert(request);
@@ -102,7 +114,16 @@ class HST_SupportRequestService
 				helicopterStyle++;
 		}
 
-		return string.Format("h-istasi support | queued %1 | active %2 | resolved %3 | helo-style abstract %4", queued, active, resolved, helicopterStyle);
+		string report = string.Format("h-istasi support | queued %1 | active %2 | resolved %3 | helo-style abstract %4", queued, active, resolved, helicopterStyle);
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!request)
+				continue;
+
+			report = report + string.Format("\n%1 | %2 | %3 | target %4 | eta %5 | asset %6", request.m_sRequestId, request.m_eType, request.m_eStatus, request.m_sTargetZoneId, request.m_iETASeconds, request.m_sAssetProfileId);
+		}
+
+		return report;
 	}
 
 	protected void ApplyActiveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
@@ -136,6 +157,16 @@ class HST_SupportRequestService
 		{
 			state.m_iFactionMoney += 75;
 			state.m_iHR += 1;
+		}
+
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF && request.m_sFactionKey == preset.m_sResistanceFactionKey && garrisons)
+			garrisons.AddAbstractForces(state, request.m_sTargetZoneId, preset.m_sResistanceFactionKey, 3 + state.m_iTrainingLevel, 0);
+
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE && request.m_sFactionKey == preset.m_sResistanceFactionKey)
+		{
+			HST_ZoneState targetZone = state.FindZone(request.m_sTargetZoneId);
+			if (targetZone && targetZone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+				targetZone.m_iResistanceCaptureProgress = Math.Min(HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED - 1, targetZone.m_iResistanceCaptureProgress + 15);
 		}
 
 		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING && garrisons)
@@ -174,6 +205,66 @@ class HST_SupportRequestService
 			return HELICOPTER_STYLE_ETA_SECONDS;
 
 		return DEFAULT_ETA_SECONDS;
+	}
+
+	protected int ResolvePlayerMoneyCost(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return PLAYER_QRF_COST;
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return PLAYER_FIRE_COST;
+
+		return PLAYER_SUPPLY_COST;
+	}
+
+	protected bool HasActivePlayerRequest(HST_CampaignState state, HST_ESupportRequestType supportType)
+	{
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!request || !request.m_bPlayerRequested || request.m_eType != supportType)
+				continue;
+
+			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				return true;
+
+			if (state.m_iElapsedSeconds < request.m_iCooldownUntilSecond)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected string CapabilityForSupport(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
+			return "supply_drop";
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return "qrf";
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_TRANSPORT || supportType == HST_ESupportRequestType.HST_SUPPORT_EVACUATION || supportType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING)
+			return "rotary_wing";
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
+			return "suppressive_fire";
+
+		return "ground_support";
+	}
+
+	protected string AssetProfileForSupport(string factionKey, HST_ESupportRequestType supportType, bool playerRequested)
+	{
+		if (playerRequested)
+		{
+			if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
+				return "fia_supply_crate_alpha";
+			if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+				return "fia_qrf_reserve_alpha";
+			if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
+				return "rhs_capability_suppressive_fire_alpha";
+		}
+
+		return factionKey + "_" + CapabilityForSupport(supportType);
 	}
 
 	protected bool IsHelicopterStyle(HST_ESupportRequestType supportType)

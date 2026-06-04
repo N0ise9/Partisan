@@ -458,6 +458,35 @@ $expectedEveronTownIds = @(
 	"town_durras",
 	"town_saint_philippe"
 )
+$expectedEveronAlphaNodeIds = @(
+	"outpost_lamentin",
+	"outpost_morton",
+	"outpost_regina",
+	"outpost_airfield_west",
+	"outpost_montignac_hills",
+	"outpost_seaport_guard",
+	"factory_west",
+	"factory_saint_pierre",
+	"resource_lumber_lamentin",
+	"resource_lumber_villeneuve",
+	"resource_quarry_levie",
+	"resource_fuel_airfield",
+	"resource_farm_laruns",
+	"resource_farm_provins",
+	"resource_mine_montignac",
+	"resource_port_saint_pierre",
+	"resource_depot_central",
+	"resource_depot_south",
+	"resource_depot_east",
+	"seaport_saint_pierre",
+	"radio_central",
+	"radio_west",
+	"bank_saint_pierre",
+	"bank_montignac",
+	"police_saint_pierre",
+	"police_morton",
+	"police_lamentin"
+)
 $townDisplayNames = @{
 	"town_saint_pierre" = "Saint-Pierre"
 	"town_provins" = "Provins"
@@ -485,6 +514,16 @@ foreach ($townId in $expectedEveronTownIds) {
 
 	if ($townId -notin $configZones) {
 		throw "Missing Everon town in map config: $townId"
+	}
+}
+
+foreach ($alphaNodeId in $expectedEveronAlphaNodeIds) {
+	if ($alphaNodeId -notin $runtimeZones) {
+		throw "Missing 4x-style alpha node in runtime catalog: $alphaNodeId"
+	}
+
+	if ($alphaNodeId -notin $configZones) {
+		throw "Missing 4x-style alpha node in map config: $alphaNodeId"
 	}
 }
 
@@ -530,6 +569,16 @@ if ($worldResourceText -match "SCR_ScenarioFrameworkSlotMarker" -and ($worldReso
 	throw "Scenario Framework markers may only remain as fallback when native marker manager and runtime service are present"
 }
 
+foreach ($alphaNodeId in $expectedEveronAlphaNodeIds) {
+	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$alphaNodeId")) {
+		throw "Missing strategic zone anchor for 4x-style alpha node: $alphaNodeId"
+	}
+
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$alphaNodeId")) {
+		throw "Missing native marker for 4x-style alpha node: $alphaNodeId"
+	}
+}
+
 foreach ($townId in $expectedEveronTownIds) {
 	$suffix = $townId -replace "^town_", ""
 	if ($townLayer -notmatch [regex]::Escape("HST_TownAnchor_$suffix")) {
@@ -559,6 +608,10 @@ foreach ($zoneId in $configZones) {
 	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$zoneId")) {
 		throw "Configured zone lacks native runtime marker: $zoneId"
 	}
+
+	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$zoneId")) {
+		throw "Configured zone lacks strategic anchor: $zoneId"
+	}
 }
 
 $nativeMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_")).Count
@@ -571,6 +624,7 @@ if ($nativeMarkerRplCount -lt $nativeMarkerCount) {
 	throw "Native map marker is missing RplComponent for SCR_MapMarkerEntity init"
 }
 Write-Host "Everon town coverage OK: $($expectedEveronTownIds.Count)"
+Write-Host "Everon 4x-style alpha node coverage OK: $($expectedEveronAlphaNodeIds.Count)"
 
 $hideoutBlocks = @(Get-ConfigBlocks $mapConfig "HST_HideoutDefinition")
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
@@ -599,6 +653,14 @@ foreach ($block in $zoneBlocks) {
 	foreach ($requiredZoneField in @("m_iIncomeValue", "m_iSupport", "m_iGarrisonSlots", "m_sPatrolRouteId", "m_sQRFRouteId", "m_sMissionSiteId")) {
 		if ($block -notmatch [regex]::Escape($requiredZoneField)) {
 			throw "Configured zone $zoneId is missing $requiredZoneField"
+		}
+	}
+
+	if ($zoneId -in $expectedEveronAlphaNodeIds) {
+		foreach ($requiredAlphaField in @("m_sDisplayName", "m_sResourceKind", "m_iCaptureRadiusMeters", "m_iPriority", "m_sCompositionId", "m_sSpawnProfileId")) {
+			if ($block -notmatch [regex]::Escape($requiredAlphaField)) {
+				throw "4x-style alpha node $zoneId is missing $requiredAlphaField"
+			}
 		}
 	}
 }
@@ -694,9 +756,24 @@ foreach ($requiredSaveEntry in @(
 	"m_iEnemyResourceAccumulatorSeconds",
 	"m_iResistanceCaptureProgress",
 	"m_sDisplayName",
+	"m_sResourceKind",
+	"m_iCaptureRadiusMeters",
+	"m_iPriority",
+	"m_sCompositionId",
+	"m_sSpawnProfileId",
+	"m_aLinkedZoneIds",
 	"m_sCategory",
 	"m_vArsenalPosition",
-	"m_sArsenalPrefab"
+	"m_sArsenalPrefab",
+	"m_iRedeployCost",
+	"m_sSourceZoneId",
+	"m_sCapabilityId",
+	"m_sAssetProfileId",
+	"m_iMoneyCost",
+	"m_iCooldownUntilSecond",
+	"m_sTargetZoneId",
+	"m_sPhysicalEntityId",
+	"m_bCleanupComplete",
 	"m_aGeneratedSites",
 	"m_aGeneratedRoutes",
 	"m_aMissionObjectives",
@@ -763,9 +840,13 @@ foreach ($requiredCoordinatorEntry in @(
 	"RequestMemberInspectUndercover",
 	"RequestMemberInspectGeneratedContent",
 	"RequestMemberLootNearby",
+	"RequestMemberWithdrawBestArsenalItem",
+	"RequestMemberCaptureNearbyVehicle",
+	"RequestMemberRedeployGarageVehicle",
 	"RequestCommanderStartRandomMission",
 	"RequestCommanderProgressMission",
 	"RequestCommanderCallSupplyDrop",
+	"RequestCommanderCallPlayerSupport",
 	"RequestCommanderAidNearestTown",
 	"RequestAdminSetZoneActive",
 	"RequestAdminCaptureZone",
@@ -868,10 +949,15 @@ foreach ($requiredCommandMenuEntry in @(
 	'inspect_missions',
 	'inspect_arsenal',
 	'loot_nearby',
+	'withdraw_arsenal',
+	'garage_capture_nearby',
+	'garage_redeploy',
 	'move_hq',
 	'move_hq_here',
 	'recruit_zone',
 	'mission_zone',
+	'support_qrf',
+	'support_fire',
 	'capture_zone',
 	'award_small'
 )) {

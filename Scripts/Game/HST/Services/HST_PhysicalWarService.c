@@ -87,8 +87,8 @@ class HST_PhysicalWarService
 			return false;
 		}
 
-		int infantryCount = Math.Min(garrison.m_iInfantryCount, MAX_ACTIVE_INFANTRY_PER_ZONE);
-		int vehicleCount = Math.Min(garrison.m_iVehicleCount, MAX_ACTIVE_VEHICLES_PER_ZONE);
+		int infantryCount = Math.Min(garrison.m_iInfantryCount, ResolveActiveInfantryCap(zone));
+		int vehicleCount = Math.Min(garrison.m_iVehicleCount, ResolveActiveVehicleCap(zone));
 		if (infantryCount <= 0 && vehicleCount <= 0)
 		{
 			zone.m_iActiveInfantryCount = 0;
@@ -150,7 +150,7 @@ class HST_PhysicalWarService
 			if (!enemyDirector.TrySpend(state, zone.m_sOwnerFactionKey, QRF_ATTACK_RESOURCE_COST, QRF_SUPPORT_RESOURCE_COST))
 				continue;
 
-			HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, zone.m_sOwnerFactionKey, Math.Min(MAX_ACTIVE_INFANTRY_PER_ZONE, Math.Max(2, zone.m_iGarrisonSlots / 3)), MAX_ACTIVE_VEHICLES_PER_ZONE, true);
+			HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, zone.m_sOwnerFactionKey, Math.Min(ResolveActiveInfantryCap(zone), Math.Max(2, zone.m_iGarrisonSlots / 3 + state.m_iWarLevel / 2)), ResolveActiveVehicleCap(zone), true);
 			state.m_aActiveGroups.Insert(activeGroup);
 			TrySpawnActiveGroup(activeGroup);
 
@@ -256,6 +256,28 @@ class HST_PhysicalWarService
 		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeGroupEntities.Insert(entity);
 		return true;
+	}
+
+	protected int ResolveActiveInfantryCap(HST_ZoneState zone)
+	{
+		if (!zone)
+			return MAX_ACTIVE_INFANTRY_PER_ZONE;
+
+		int cap = MAX_ACTIVE_INFANTRY_PER_ZONE + Math.Max(0, zone.m_iPriority / 12);
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+			cap += 2;
+		return Math.Min(12, cap);
+	}
+
+	protected int ResolveActiveVehicleCap(HST_ZoneState zone)
+	{
+		if (!zone)
+			return MAX_ACTIVE_VEHICLES_PER_ZONE;
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+			return 2;
+
+		return MAX_ACTIVE_VEHICLES_PER_ZONE;
 	}
 
 	protected void EnsureRuntimeGroupEntities(HST_CampaignState state)

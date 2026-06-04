@@ -657,6 +657,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return request != null;
 	}
 
+	bool RequestCommanderCallPlayerSupport(int playerId, HST_ESupportRequestType supportType)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId) || !m_SupportRequests)
+			return false;
+
+		string targetZoneId = SelectHQSupportZoneId();
+		HST_SupportRequestState request = m_SupportRequests.RequestSupport(m_State, m_Preset, m_Economy, m_EnemyDirector, m_Preset.m_sResistanceFactionKey, supportType, targetZoneId, true);
+		if (request)
+			MarkMajorCampaignChange();
+		return request != null;
+	}
+
 	bool RequestCommanderAidNearestTown(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId) || !m_Civilians)
@@ -832,6 +844,48 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi loot | no result";
 
 		return result.BuildSummary();
+	}
+
+	string RequestMemberWithdrawBestArsenalItem(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi arsenal | membership required";
+
+		if (!m_Arsenal)
+			return "h-istasi arsenal | service not ready";
+
+		string result = m_Arsenal.WithdrawBestAvailableItem(m_State);
+		if (!result.IsEmpty())
+			MarkMajorCampaignChange();
+		return result;
+	}
+
+	bool RequestMemberCaptureNearbyVehicle(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Loot || !m_Arsenal)
+			return false;
+
+		bool changed = m_Loot.CaptureNearbyVehicleToGarage(m_State, m_Preset, m_Arsenal, playerId);
+		if (changed)
+			MarkMajorCampaignChange();
+		return changed;
+	}
+
+	bool RequestMemberRedeployGarageVehicle(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Arsenal)
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+			return false;
+
+		vector deployOffset = "4 0 4";
+		vector deployPosition = HST_WorldPositionService.ResolveGroundPosition(playerEntity.GetOrigin() + deployOffset, HST_WorldPositionService.PROP_GROUND_OFFSET, true);
+		bool changed = m_Arsenal.RedeployFirstGarageVehicle(m_State, m_Economy, deployPosition);
+		if (changed)
+			MarkMajorCampaignChange();
+		return changed;
 	}
 
 	bool RequestAdminSetZoneActive(int playerId, string zoneId, bool active)

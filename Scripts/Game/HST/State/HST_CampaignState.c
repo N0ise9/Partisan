@@ -30,14 +30,20 @@ class HST_PlayerState
 class HST_ZoneState
 {
 	string m_sZoneId;
+	string m_sDisplayName;
 	string m_sOwnerFactionKey;
 	HST_EZoneType m_eType;
 	vector m_vPosition;
+	string m_sResourceKind;
 	int m_iSupport;
 	int m_iResistanceCaptureProgress;
 	int m_iIncomeValue;
+	int m_iCaptureRadiusMeters;
+	int m_iPriority;
 	int m_iGarrisonSlots;
 	int m_iActivationRadiusMeters;
+	string m_sCompositionId;
+	string m_sSpawnProfileId;
 	bool m_bActive;
 	int m_iActiveInfantryCount;
 	int m_iActiveVehicleCount;
@@ -45,6 +51,7 @@ class HST_ZoneState
 	string m_sQRFRouteId;
 	string m_sMissionSiteId;
 	int m_iQrfCooldownUntilSecond;
+	ref array<string> m_aLinkedZoneIds = {};
 }
 
 [BaseContainerProps()]
@@ -115,10 +122,16 @@ class HST_GarageVehicleState
 {
 	string m_sVehicleId;
 	string m_sPrefab;
+	string m_sDisplayName;
+	string m_sSourceZoneId;
+	string m_sSourceFactionKey;
+	int m_iStoredAtSecond;
+	int m_iRedeployCost;
 	vector m_vPosition;
 	vector m_vAngles;
 	float m_fFuel;
 	bool m_bArmed;
+	bool m_bUnlocked;
 }
 
 [BaseContainerProps()]
@@ -189,11 +202,14 @@ class HST_MissionObjectiveState
 	string m_sMissionInstanceId;
 	HST_EMissionObjectiveType m_eType;
 	string m_sTargetId;
+	string m_sTargetZoneId;
+	string m_sPhysicalEntityId;
 	vector m_vPosition;
 	int m_iRequiredProgress = 1;
 	int m_iCurrentProgress;
 	bool m_bComplete;
 	bool m_bFailed;
+	bool m_bCleanupComplete;
 }
 
 [BaseContainerProps()]
@@ -201,6 +217,8 @@ class HST_SupportRequestState
 {
 	string m_sRequestId;
 	string m_sFactionKey;
+	string m_sCapabilityId;
+	string m_sAssetProfileId;
 	HST_ESupportRequestType m_eType;
 	HST_ESupportRequestStatus m_eStatus;
 	string m_sSourceZoneId;
@@ -212,8 +230,11 @@ class HST_SupportRequestState
 	int m_iETASeconds;
 	int m_iAttackCost;
 	int m_iSupportCost;
+	int m_iMoneyCost;
+	int m_iCooldownUntilSecond;
 	bool m_bHelicopterStyle;
 	bool m_bPlayerRequested;
+	string m_sFailureReason;
 }
 
 [BaseContainerProps()]
@@ -272,7 +293,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 6;
+	static const int SCHEMA_VERSION = 7;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	string m_sPresetId = "rhs_everon";

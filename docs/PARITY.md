@@ -38,6 +38,11 @@
 - Broad-alpha persistent state for generated sites/routes, mission objectives,
   campaign tasks, support requests, enemy orders, civilian town state, and
   player undercover state
+- Schema 7 zone metadata for display names, resource kinds, capture radii,
+  priority, composition IDs, spawn profiles, and linked-zone hints
+- Everon 4x-style alpha campaign graph expansion with additional outposts,
+  factories, resource depots, seaports, radio towers, banks, and police nodes,
+  authored as h-istasi-owned config/anchors/marker stubs
 - Generated Everon content service that creates alpha mission sites,
   roadblock/support/stash/crashsite points, and simple route records from the
   existing strategic zone anchors
@@ -50,12 +55,18 @@
   abstract/native-safe
 - Civilian/undercover service with town reputation, wanted heat, police and
   roadblock presence, aid effects, and per-player undercover records
+- Command menu actions for dynamic mission targets, FIA support requests,
+  arsenal withdrawal, nearby vehicle garage capture, and garage redeploy
+- Economy and enemy resource income now account for resource kind, priority,
+  factories, ports, airfields, depots, radio towers, and police nodes
 
 ## Next Playable Increment
 
 - Bind `HST_CampaignSaveData` into Reforger's persistent component load path
   and add restart/migration tests
 - Replace central-hideout auto-selection with first-start hideout selection UI
+- Replace the 4x-style alpha survey with exact unpacked Conflict Remixed
+  marker-coordinate audit once a Workbench/PAC extraction path is available
 - Add proper Antistasi HQ spawn/loadout UI over the custom FIA spawn backend
 - Customize Petros appearance/loadout and replace tent/cache placeholders with
   authored h-istasi HQ entities
@@ -73,7 +84,7 @@
 - Hybrid AI activation, QRF travel, attacks, reinforcements, counterattacks,
   Petros attacks, and enemy rebuild behavior
 - Mission-specific world logic and unique content for every registry entry
-- Victory, loss, full-Everon coordinate survey, and 16-player soak tests
+- Victory, loss, exact full-Everon coordinate survey, and 16-player soak tests
 
 ## Deferred Capabilities
 

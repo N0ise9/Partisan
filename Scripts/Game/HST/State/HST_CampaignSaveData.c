@@ -316,14 +316,20 @@ class HST_CampaignSaveData
 	{
 		HST_ZoneState target = new HST_ZoneState();
 		target.m_sZoneId = source.m_sZoneId;
+		target.m_sDisplayName = source.m_sDisplayName;
 		target.m_sOwnerFactionKey = source.m_sOwnerFactionKey;
 		target.m_eType = source.m_eType;
 		target.m_vPosition = source.m_vPosition;
+		target.m_sResourceKind = source.m_sResourceKind;
 		target.m_iSupport = source.m_iSupport;
 		target.m_iResistanceCaptureProgress = source.m_iResistanceCaptureProgress;
 		target.m_iIncomeValue = source.m_iIncomeValue;
+		target.m_iCaptureRadiusMeters = source.m_iCaptureRadiusMeters;
+		target.m_iPriority = source.m_iPriority;
 		target.m_iGarrisonSlots = source.m_iGarrisonSlots;
 		target.m_iActivationRadiusMeters = source.m_iActivationRadiusMeters;
+		target.m_sCompositionId = source.m_sCompositionId;
+		target.m_sSpawnProfileId = source.m_sSpawnProfileId;
 		target.m_bActive = source.m_bActive;
 		target.m_iActiveInfantryCount = source.m_iActiveInfantryCount;
 		target.m_iActiveVehicleCount = source.m_iActiveVehicleCount;
@@ -331,6 +337,8 @@ class HST_CampaignSaveData
 		target.m_sQRFRouteId = source.m_sQRFRouteId;
 		target.m_sMissionSiteId = source.m_sMissionSiteId;
 		target.m_iQrfCooldownUntilSecond = source.m_iQrfCooldownUntilSecond;
+		foreach (string linkedZoneId : source.m_aLinkedZoneIds)
+			target.m_aLinkedZoneIds.Insert(linkedZoneId);
 		return target;
 	}
 
@@ -407,10 +415,16 @@ class HST_CampaignSaveData
 		HST_GarageVehicleState target = new HST_GarageVehicleState();
 		target.m_sVehicleId = source.m_sVehicleId;
 		target.m_sPrefab = source.m_sPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sSourceZoneId = source.m_sSourceZoneId;
+		target.m_sSourceFactionKey = source.m_sSourceFactionKey;
+		target.m_iStoredAtSecond = source.m_iStoredAtSecond;
+		target.m_iRedeployCost = source.m_iRedeployCost;
 		target.m_vPosition = source.m_vPosition;
 		target.m_vAngles = source.m_vAngles;
 		target.m_fFuel = source.m_fFuel;
 		target.m_bArmed = source.m_bArmed;
+		target.m_bUnlocked = source.m_bUnlocked;
 		return target;
 	}
 
@@ -487,11 +501,14 @@ class HST_CampaignSaveData
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
 		target.m_eType = source.m_eType;
 		target.m_sTargetId = source.m_sTargetId;
+		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sPhysicalEntityId = source.m_sPhysicalEntityId;
 		target.m_vPosition = source.m_vPosition;
 		target.m_iRequiredProgress = source.m_iRequiredProgress;
 		target.m_iCurrentProgress = source.m_iCurrentProgress;
 		target.m_bComplete = source.m_bComplete;
 		target.m_bFailed = source.m_bFailed;
+		target.m_bCleanupComplete = source.m_bCleanupComplete;
 		return target;
 	}
 
@@ -500,6 +517,8 @@ class HST_CampaignSaveData
 		HST_SupportRequestState target = new HST_SupportRequestState();
 		target.m_sRequestId = source.m_sRequestId;
 		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sCapabilityId = source.m_sCapabilityId;
+		target.m_sAssetProfileId = source.m_sAssetProfileId;
 		target.m_eType = source.m_eType;
 		target.m_eStatus = source.m_eStatus;
 		target.m_sSourceZoneId = source.m_sSourceZoneId;
@@ -511,8 +530,11 @@ class HST_CampaignSaveData
 		target.m_iETASeconds = source.m_iETASeconds;
 		target.m_iAttackCost = source.m_iAttackCost;
 		target.m_iSupportCost = source.m_iSupportCost;
+		target.m_iMoneyCost = source.m_iMoneyCost;
+		target.m_iCooldownUntilSecond = source.m_iCooldownUntilSecond;
 		target.m_bHelicopterStyle = source.m_bHelicopterStyle;
 		target.m_bPlayerRequested = source.m_bPlayerRequested;
+		target.m_sFailureReason = source.m_sFailureReason;
 		return target;
 	}
 

@@ -912,3 +912,273 @@ SCR_MapMarkerDotCircle HST_NativeMapMarker_radio_south {
  m_fRadius 105
  m_fDotDensity 0.05
 }
+SCR_MapMarkerDotCircle HST_NativeMapMarker_outpost_lamentin {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 1810 0 6120
+ Flags 0
+ m_fRadius 120
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_outpost_morton {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 5330 0 3780
+ Flags 0
+ m_fRadius 120
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_outpost_regina {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 7625 0 2575
+ Flags 0
+ m_fRadius 120
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_outpost_airfield_west {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 6900 0 7400
+ Flags 0
+ m_fRadius 130
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_outpost_montignac_hills {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 5220 0 7350
+ Flags 0
+ m_fRadius 120
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_outpost_seaport_guard {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 8250 0 10650
+ Flags 0
+ m_fRadius 130
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_factory_west {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 2500 0 6100
+ Flags 0
+ m_fRadius 130
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_factory_saint_pierre {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 9360 0 1880
+ Flags 0
+ m_fRadius 130
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_lumber_lamentin {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 1540 0 5550
+ Flags 0
+ m_fRadius 110
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_lumber_villeneuve {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 3200 0 6750
+ Flags 0
+ m_fRadius 110
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_quarry_levie {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 7120 0 4300
+ Flags 0
+ m_fRadius 110
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_fuel_airfield {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 7160 0 8040
+ Flags 0
+ m_fRadius 120
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_farm_laruns {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 7900 0 6020
+ Flags 0
+ m_fRadius 110
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_farm_provins {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 6000 0 5850
+ Flags 0
+ m_fRadius 110
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_mine_montignac {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 5600 0 6550
+ Flags 0
+ m_fRadius 110
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_port_saint_pierre {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 9900 0 1830
+ Flags 0
+ m_fRadius 110
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_depot_central {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 6060 0 6680
+ Flags 0
+ m_fRadius 120
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_depot_south {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 4550 0 9720
+ Flags 0
+ m_fRadius 120
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_resource_depot_east {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 8720 0 3560
+ Flags 0
+ m_fRadius 120
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_seaport_saint_pierre {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 10040 0 1710
+ Flags 0
+ m_fRadius 150
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_radio_central {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 6060 0 6460
+ Flags 0
+ m_fRadius 105
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_radio_west {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 2280 0 5850
+ Flags 0
+ m_fRadius 105
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_bank_saint_pierre {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 9729 0 1538
+ Flags 0
+ m_fRadius 100
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_bank_montignac {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 4755 0 7005
+ Flags 0
+ m_fRadius 100
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_police_saint_pierre {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 9703 0 1514
+ Flags 0
+ m_fRadius 100
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_police_morton {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 5005 0 3975
+ Flags 0
+ m_fRadius 100
+ m_fDotDensity 0.05
+}
+SCR_MapMarkerDotCircle HST_NativeMapMarker_police_lamentin {
+ components {
+  RplComponent "{6985327711500001}" {
+  }
+ }
+ coords 1225 0 6020
+ Flags 0
+ m_fRadius 100
+ m_fDotDensity 0.05
+}

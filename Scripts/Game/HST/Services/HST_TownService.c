@@ -45,7 +45,7 @@ class HST_TownService
 			if (zone.m_sOwnerFactionKey != resistanceFactionKey)
 				continue;
 
-			income += zone.m_iIncomeValue;
+			income += CalculateZoneMoneyIncome(zone);
 			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_iSupport > 0)
 				income += zone.m_iSupport / 10;
 		}
@@ -60,7 +60,28 @@ class HST_TownService
 		{
 			if (zone.m_sOwnerFactionKey == resistanceFactionKey && zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_iSupport >= 25)
 				income++;
+
+			if (zone.m_sOwnerFactionKey == resistanceFactionKey && zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE && zone.m_sResourceKind == "food")
+				income++;
 		}
+
+		return income;
+	}
+
+	protected int CalculateZoneMoneyIncome(HST_ZoneState zone)
+	{
+		if (!zone)
+			return 0;
+
+		int income = zone.m_iIncomeValue;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+			income += 25 + zone.m_iPriority;
+		else if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
+			income += 10 + zone.m_iPriority / 2;
+		else if (zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT || zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD)
+			income += 30;
+		else if (zone.m_eType == HST_EZoneType.HST_ZONE_BANK)
+			income += 40;
 
 		return income;
 	}

@@ -76,7 +76,7 @@ class HST_CommandUIService
 			payload = payload + "\nRESULT|" + lastResult;
 
 		array<ref HST_CommandMenuAction> actions = {};
-		BuildTabActions(selectedTabId, actions, canUseMember, canUseCommander, canUseAdmin);
+		BuildTabActions(state, preset, selectedTabId, actions, canUseMember, canUseCommander, canUseAdmin);
 		foreach (HST_CommandMenuAction action : actions)
 			payload = payload + "\n" + action.ToPayloadLine();
 
@@ -134,6 +134,15 @@ class HST_CommandUIService
 		if (commandId == "loot_nearby")
 			return coordinator.RequestMemberLootNearby(playerId);
 
+		if (commandId == "withdraw_arsenal")
+			return coordinator.RequestMemberWithdrawBestArsenalItem(playerId);
+
+		if (commandId == "garage_capture_nearby")
+			return BuildBoolResult("capture nearby vehicle to garage", coordinator.RequestMemberCaptureNearbyVehicle(playerId));
+
+		if (commandId == "garage_redeploy")
+			return BuildBoolResult("redeploy first garage vehicle", coordinator.RequestMemberRedeployGarageVehicle(playerId));
+
 		if (commandId == "move_hq")
 			return BuildBoolResult("move HQ to " + argument, coordinator.RequestCommanderMoveHQ(playerId, argument));
 
@@ -163,6 +172,12 @@ class HST_CommandUIService
 
 		if (commandId == "call_supply")
 			return BuildBoolResult("request FIA supply drop", coordinator.RequestCommanderCallSupplyDrop(playerId));
+
+		if (commandId == "support_qrf")
+			return BuildBoolResult("request FIA QRF reserve", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_QRF));
+
+		if (commandId == "support_fire")
+			return BuildBoolResult("request suppressive fire", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE));
 
 		if (commandId == "civilian_aid")
 			return BuildBoolResult("deliver civilian aid", coordinator.RequestCommanderAidNearestTown(playerId));
@@ -295,6 +310,15 @@ class HST_CommandUIService
 		if (commandId == "loot_nearby")
 			return !coordinator.RequestMemberLootNearby(playerId).IsEmpty();
 
+		if (commandId == "withdraw_arsenal")
+			return !coordinator.RequestMemberWithdrawBestArsenalItem(playerId).IsEmpty();
+
+		if (commandId == "garage_capture_nearby")
+			return coordinator.RequestMemberCaptureNearbyVehicle(playerId);
+
+		if (commandId == "garage_redeploy")
+			return coordinator.RequestMemberRedeployGarageVehicle(playerId);
+
 		if (commandId == "move_hq")
 			return coordinator.RequestCommanderMoveHQ(playerId, argument);
 
@@ -324,6 +348,12 @@ class HST_CommandUIService
 
 		if (commandId == "call_supply")
 			return coordinator.RequestCommanderCallSupplyDrop(playerId);
+
+		if (commandId == "support_qrf")
+			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_QRF);
+
+		if (commandId == "support_fire")
+			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
 
 		if (commandId == "civilian_aid")
 			return coordinator.RequestCommanderAidNearestTown(playerId);
@@ -804,13 +834,20 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected void BuildTabActions(string selectedTabId, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, bool canUseCommander, bool canUseAdmin)
+	protected void BuildTabActions(HST_CampaignState state, HST_CampaignPreset preset, string selectedTabId, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, bool canUseCommander, bool canUseAdmin)
 	{
 		actions.Clear();
 		selectedTabId = NormalizeTabId(selectedTabId);
+		string primaryTargetId = SelectPriorityMissionZoneId(state, preset);
+		string hostileTownId = SelectFirstZoneIdByType(state, preset, HST_EZoneType.HST_ZONE_TOWN, true);
+		string resourceTargetId = SelectFirstZoneIdByType(state, preset, HST_EZoneType.HST_ZONE_RESOURCE, true);
+		string outpostTargetId = SelectFirstZoneIdByType(state, preset, HST_EZoneType.HST_ZONE_OUTPOST, true);
+		string recruitTargetId = SelectRecruitZoneId(state, preset);
+		string adminTargetId = SelectAdminTargetZoneId(state);
 		if (selectedTabId == TAB_SETUP)
 		{
 			AddMenuAction(actions, TAB_SETUP, "Config path / source of truth", "noop", "", true, "");
+			AddMenuAction(actions, TAB_SETUP, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -835,8 +872,11 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_MISSIONS)
 		{
-			AddMenuAction(actions, TAB_MISSIONS, "Start random mission", "mission_random", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_MISSIONS, "Start mission at Morton", "mission_zone", "town_morton", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Start priority mission", "mission_random", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start mission", state, primaryTargetId), "mission_zone", primaryTargetId, canUseCommander && !primaryTargetId.IsEmpty(), "no valid target");
+			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start town mission", state, hostileTownId), "mission_zone", hostileTownId, canUseCommander && !hostileTownId.IsEmpty(), "no hostile town");
+			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start resource mission", state, resourceTargetId), "mission_zone", resourceTargetId, canUseCommander && !resourceTargetId.IsEmpty(), "no hostile resource");
+			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start outpost mission", state, outpostTargetId), "mission_zone", outpostTargetId, canUseCommander && !outpostTargetId.IsEmpty(), "no hostile outpost");
 			AddMenuAction(actions, TAB_MISSIONS, "Progress active mission", "progress_mission", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_MISSIONS, "Mission report", "inspect_missions", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Objective report", "inspect_objectives", "", canUseMember, "membership required");
@@ -858,8 +898,10 @@ class HST_CommandUIService
 		{
 			AddMenuAction(actions, TAB_FORCES, "Apply income tick", "income_now", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_FORCES, "Recruit FIA at Morton", "recruit_zone", "town_morton", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Recruit FIA", state, recruitTargetId), "recruit_zone", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no recruit target");
 			AddMenuAction(actions, TAB_FORCES, "Request supply drop", "call_supply", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Request QRF reserve", "support_qrf", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Request suppressive fire", "support_fire", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Deliver civilian aid", "civilian_aid", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Economy report", "inspect_economy", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
@@ -869,6 +911,9 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_ARSENAL)
 		{
 			AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal", "loot_nearby", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Withdraw first available item", "withdraw_arsenal", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Capture nearby vehicle", "garage_capture_nearby", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Redeploy garage vehicle", "garage_redeploy", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Arsenal report", "inspect_arsenal", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Garage report", "inspect_garage", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
@@ -885,10 +930,10 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
-			AddMenuAction(actions, TAB_ADMIN, "Debug capture Morton", "capture_zone", "town_morton", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Debug activate Morton", "activate_zone", "town_morton", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Debug deactivate Morton", "deactivate_zone", "town_morton", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Debug mission at Morton", "debug_mission", "town_morton", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug capture", state, adminTargetId), "capture_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
+			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug activate", state, adminTargetId), "activate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
+			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug deactivate", state, adminTargetId), "deactivate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
+			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug mission", state, adminTargetId), "debug_mission", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
 			AddMenuAction(actions, TAB_ADMIN, "Debug award resources", "award_small", "", canUseAdmin, "admin required");
 		}
 	}
@@ -923,6 +968,104 @@ class HST_CommandUIService
 		action.m_bEnabled = enabled;
 		action.m_sDisabledReason = disabledReason;
 		actions.Insert(action);
+	}
+
+	protected string SelectPriorityMissionZoneId(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return "";
+
+		HST_ZoneState bestZone;
+		int bestScore = -99999;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || (preset && zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey))
+				continue;
+
+			int score = zone.m_iPriority + zone.m_iIncomeValue / 5 + zone.m_iResistanceCaptureProgress;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE || zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+				score += 20;
+			if (zone.m_bActive)
+				score += 15;
+
+			if (score > bestScore)
+			{
+				bestZone = zone;
+				bestScore = score;
+			}
+		}
+
+		if (bestZone)
+			return bestZone.m_sZoneId;
+
+		return "";
+	}
+
+	protected string SelectFirstZoneIdByType(HST_CampaignState state, HST_CampaignPreset preset, HST_EZoneType zoneType, bool hostileOnly)
+	{
+		if (!state)
+			return "";
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_eType != zoneType)
+				continue;
+
+			if (hostileOnly && preset && zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+				continue;
+
+			return zone.m_sZoneId;
+		}
+
+		return "";
+	}
+
+	protected string SelectRecruitZoneId(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return "";
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone && preset && zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+				return zone.m_sZoneId;
+		}
+
+		return SelectPriorityMissionZoneId(state, preset);
+	}
+
+	protected string SelectAdminTargetZoneId(HST_CampaignState state)
+	{
+		if (!state || state.m_aZones.Count() == 0)
+			return "";
+
+		return state.m_aZones[0].m_sZoneId;
+	}
+
+	protected string BuildZoneActionLabel(string prefix, HST_CampaignState state, string zoneId)
+	{
+		if (zoneId.IsEmpty())
+			return prefix + ": no target";
+
+		if (!state)
+			return prefix + ": " + zoneId;
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (zone)
+			return prefix + ": " + DisplayZoneName(zone);
+
+		return prefix + ": " + zoneId;
+	}
+
+	protected string DisplayZoneName(HST_ZoneState zone)
+	{
+		if (!zone)
+			return "unknown";
+
+		if (!zone.m_sDisplayName.IsEmpty())
+			return zone.m_sDisplayName;
+
+		return HST_DefaultCatalog.GetZoneDisplayName(zone.m_sZoneId);
 	}
 
 	protected string BuildBoolResult(string label, bool success)
@@ -1088,7 +1231,7 @@ class HST_CommandUIService
 		if (zoneId.IsEmpty())
 			return "unknown";
 
-		return zoneId;
+		return HST_DefaultCatalog.GetZoneDisplayName(zoneId);
 	}
 
 	protected string ZoneTone(HST_ZoneState zone, HST_CampaignPreset preset)

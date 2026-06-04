@@ -79,3 +79,84 @@ GenericEntity HST_ZoneAnchor_radio_north : "{C72F956E4AC6A6E7}Prefabs/Systems/Sc
 GenericEntity HST_ZoneAnchor_radio_south : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 10009 0 1550
 }
+GenericEntity HST_ZoneAnchor_outpost_lamentin : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1810 0 6120
+}
+GenericEntity HST_ZoneAnchor_outpost_morton : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5330 0 3780
+}
+GenericEntity HST_ZoneAnchor_outpost_regina : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7625 0 2575
+}
+GenericEntity HST_ZoneAnchor_outpost_airfield_west : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6900 0 7400
+}
+GenericEntity HST_ZoneAnchor_outpost_montignac_hills : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5220 0 7350
+}
+GenericEntity HST_ZoneAnchor_outpost_seaport_guard : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 8250 0 10650
+}
+GenericEntity HST_ZoneAnchor_factory_west : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 2500 0 6100
+}
+GenericEntity HST_ZoneAnchor_factory_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9360 0 1880
+}
+GenericEntity HST_ZoneAnchor_resource_lumber_lamentin : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1540 0 5550
+}
+GenericEntity HST_ZoneAnchor_resource_lumber_villeneuve : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 3200 0 6750
+}
+GenericEntity HST_ZoneAnchor_resource_quarry_levie : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7120 0 4300
+}
+GenericEntity HST_ZoneAnchor_resource_fuel_airfield : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7160 0 8040
+}
+GenericEntity HST_ZoneAnchor_resource_farm_laruns : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7900 0 6020
+}
+GenericEntity HST_ZoneAnchor_resource_farm_provins : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6000 0 5850
+}
+GenericEntity HST_ZoneAnchor_resource_mine_montignac : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5600 0 6550
+}
+GenericEntity HST_ZoneAnchor_resource_port_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9900 0 1830
+}
+GenericEntity HST_ZoneAnchor_resource_depot_central : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6060 0 6680
+}
+GenericEntity HST_ZoneAnchor_resource_depot_south : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4550 0 9720
+}
+GenericEntity HST_ZoneAnchor_resource_depot_east : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 8720 0 3560
+}
+GenericEntity HST_ZoneAnchor_seaport_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 10040 0 1710
+}
+GenericEntity HST_ZoneAnchor_radio_central : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6060 0 6460
+}
+GenericEntity HST_ZoneAnchor_radio_west : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 2280 0 5850
+}
+GenericEntity HST_ZoneAnchor_bank_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9729 0 1538
+}
+GenericEntity HST_ZoneAnchor_bank_montignac : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4755 0 7005
+}
+GenericEntity HST_ZoneAnchor_police_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9703 0 1514
+}
+GenericEntity HST_ZoneAnchor_police_morton : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5005 0 3975
+}
+GenericEntity HST_ZoneAnchor_police_lamentin : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1225 0 6020
+}

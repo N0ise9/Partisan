@@ -22,6 +22,7 @@ class HST_LootResult
 
 class HST_LootService
 {
+	static const int GARAGE_CAPTURE_RADIUS_METERS = 24;
 	protected ref array<IEntity> m_aScanEntities = {};
 
 	HST_LootResult LootNearbyToArsenal(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId)
@@ -63,6 +64,59 @@ class HST_LootService
 			result.m_aDepositedLines.Insert("no eligible loot found nearby");
 
 		return result;
+	}
+
+	bool CaptureNearbyVehicleToGarage(HST_CampaignState state, HST_CampaignPreset preset, HST_ArsenalService arsenal, int playerId)
+	{
+		if (!state || !preset || !arsenal || playerId <= 0)
+			return false;
+
+		IEntity playerEntity = ResolveLivingPlayerEntity(playerId);
+		if (!playerEntity)
+			return false;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return false;
+
+		m_aScanEntities.Clear();
+		world.QueryEntitiesBySphere(playerEntity.GetOrigin(), GARAGE_CAPTURE_RADIUS_METERS, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
+
+		IEntity selectedVehicle;
+		float bestDistanceSq = 999999.0;
+		foreach (IEntity candidate : m_aScanEntities)
+		{
+			if (!IsEligibleGarageVehicle(candidate, playerEntity, preset))
+				continue;
+
+			float distanceSq = DistanceSq2D(playerEntity.GetOrigin(), candidate.GetOrigin());
+			if (distanceSq < bestDistanceSq)
+			{
+				selectedVehicle = candidate;
+				bestDistanceSq = distanceSq;
+			}
+		}
+
+		if (!selectedVehicle)
+			return false;
+
+		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
+		vehicle.m_sVehicleId = string.Format("garage_%1_%2", state.m_iElapsedSeconds, state.m_aGarageVehicles.Count());
+		vehicle.m_sPrefab = ResolvePrefabName(selectedVehicle);
+		vehicle.m_sDisplayName = BuildVehicleDisplayName(selectedVehicle, vehicle.m_sPrefab);
+		vehicle.m_sSourceZoneId = FindNearestZoneId(state, selectedVehicle.GetOrigin());
+		vehicle.m_sSourceFactionKey = ResolveFactionKey(selectedVehicle);
+		vehicle.m_iStoredAtSecond = state.m_iElapsedSeconds;
+		vehicle.m_iRedeployCost = ResolveGarageRedeployCost(vehicle.m_sPrefab);
+		vehicle.m_vPosition = selectedVehicle.GetOrigin();
+		vehicle.m_vAngles = "0 0 0";
+		vehicle.m_fFuel = 1.0;
+		vehicle.m_bArmed = IsLikelyArmedVehicle(vehicle.m_sPrefab);
+		if (!arsenal.StoreVehicle(state, vehicle))
+			return false;
+
+		SCR_EntityHelper.DeleteEntityAndChildren(selectedVehicle);
+		return true;
 	}
 
 	protected bool AddLootCandidate(IEntity entity)
@@ -167,6 +221,87 @@ class HST_LootService
 			return "";
 
 		return item.GetPrefabData().GetPrefabName();
+	}
+
+	protected bool IsEligibleGarageVehicle(IEntity entity, IEntity playerEntity, HST_CampaignPreset preset)
+	{
+		if (!entity || entity == playerEntity)
+			return false;
+
+		string prefab = ResolvePrefabName(entity);
+		if (prefab.IsEmpty())
+			return false;
+
+		if (prefab.Contains("Character") || prefab.Contains("Inventory") || prefab.Contains("Weapon") || prefab.Contains("Magazine"))
+			return false;
+
+		if (!prefab.Contains("Vehicles") && !prefab.Contains("Vehicle"))
+			return false;
+
+		string factionKey = ResolveFactionKey(entity);
+		if (preset && factionKey == preset.m_sResistanceFactionKey)
+			return false;
+
+		return true;
+	}
+
+	protected string ResolveFactionKey(IEntity entity)
+	{
+		if (!entity)
+			return "";
+
+		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+		if (!factionComponent)
+			return "";
+
+		return factionComponent.GetAffiliatedFactionKey();
+	}
+
+	protected string BuildVehicleDisplayName(IEntity entity, string prefab)
+	{
+		if (!prefab.IsEmpty())
+			return prefab;
+
+		if (entity)
+			return entity.GetName();
+
+		return "captured vehicle";
+	}
+
+	protected string FindNearestZoneId(HST_CampaignState state, vector position)
+	{
+		HST_ZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			float distanceSq = DistanceSq2D(position, zone.m_vPosition);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestZone = zone;
+				bestDistanceSq = distanceSq;
+			}
+		}
+
+		if (bestZone)
+			return bestZone.m_sZoneId;
+
+		return "";
+	}
+
+	protected int ResolveGarageRedeployCost(string prefab)
+	{
+		if (IsLikelyArmedVehicle(prefab))
+			return 250;
+
+		return 100;
+	}
+
+	protected bool IsLikelyArmedVehicle(string prefab)
+	{
+		return prefab.Contains("APC") || prefab.Contains("BTR") || prefab.Contains("BMP") || prefab.Contains("M2") || prefab.Contains("DShK") || prefab.Contains("PKM") || prefab.Contains("Armed") || prefab.Contains("armed");
 	}
 
 	protected string BuildDisplayName(IEntity item, string prefab)

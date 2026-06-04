@@ -40,10 +40,16 @@ class HST_MissionObjectiveService
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			{
+				changed = MarkMissionObjectiveCleanupComplete(state, mission) || changed;
 				continue;
+			}
 
 			if (AreMissionObjectivesComplete(state, mission.m_sInstanceId))
+			{
 				CompleteTaskForMission(state, mission.m_sInstanceId, false);
+				changed = true;
+			}
 		}
 
 		return changed;
@@ -154,6 +160,8 @@ class HST_MissionObjectiveService
 		objective.m_sMissionInstanceId = mission.m_sInstanceId;
 		objective.m_eType = objectiveType;
 		objective.m_sTargetId = targetId;
+		objective.m_sTargetZoneId = mission.m_sTargetZoneId;
+		objective.m_sPhysicalEntityId = string.Format("phys_%1_%2", mission.m_sInstanceId, targetId);
 		objective.m_vPosition = position;
 		objective.m_iRequiredProgress = Math.Max(1, requiredProgress);
 		state.m_aMissionObjectives.Insert(objective);
@@ -259,5 +267,23 @@ class HST_MissionObjectiveService
 		task.m_bActive = false;
 		task.m_bFailed = failed;
 		task.m_bSucceeded = !failed;
+	}
+
+	protected bool MarkMissionObjectiveCleanupComplete(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+
+		bool changed;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bCleanupComplete)
+				continue;
+
+			objective.m_bCleanupComplete = true;
+			changed = true;
+		}
+
+		return changed;
 	}
 }

@@ -102,7 +102,7 @@ class HST_MapMarkerService
 				continue;
 
 			string category = ZoneTypeToMarkerCategory(zone.m_eType);
-			string label = GetZoneDisplayLabel(zone.m_sZoneId) + " " + ZoneTypeToLabel(zone.m_eType);
+			string label = ResolveZoneDisplayName(zone) + " " + ZoneTypeToLabel(zone.m_eType);
 			string color = FactionToMarkerColor(zone.m_sOwnerFactionKey, preset);
 			string icon = ZoneTypeToMarkerIcon(zone.m_eType);
 			AddMarker(state, "hst_zone_" + zone.m_sZoneId, zone.m_sZoneId, label, category, zone.m_sOwnerFactionKey, icon, color, zone.m_vPosition, true);
@@ -139,7 +139,7 @@ class HST_MapMarkerService
 			if (!targetZone)
 				continue;
 
-			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, "Enemy QRF " + GetZoneDisplayLabel(qrf.m_sTargetZoneId), "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), targetZone.m_vPosition, true);
+			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, "Enemy QRF " + ResolveZoneDisplayName(targetZone), "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), targetZone.m_vPosition, true);
 		}
 	}
 
@@ -227,89 +227,14 @@ class HST_MapMarkerService
 		return "Zone";
 	}
 
-	protected string GetZoneDisplayLabel(string zoneId)
+	protected string ResolveZoneDisplayName(HST_ZoneState zone)
 	{
-		if (zoneId == "town_saint_pierre")
-			return "Saint-Pierre";
+		if (!zone)
+			return "unknown";
 
-		if (zoneId == "town_provins")
-			return "Provins";
+		if (!zone.m_sDisplayName.IsEmpty())
+			return zone.m_sDisplayName;
 
-		if (zoneId == "town_entre_deux")
-			return "Entre-Deux";
-
-		if (zoneId == "town_chotain")
-			return "Chotain";
-
-		if (zoneId == "town_montignac")
-			return "Montignac";
-
-		if (zoneId == "town_laruns")
-			return "Laruns";
-
-		if (zoneId == "town_levie")
-			return "Levie";
-
-		if (zoneId == "town_morton")
-			return "Morton";
-
-		if (zoneId == "town_meaux")
-			return "Meaux";
-
-		if (zoneId == "town_tyrone")
-			return "Tyrone";
-
-		if (zoneId == "town_gravette")
-			return "Gravette";
-
-		if (zoneId == "town_villeneuve")
-			return "Villeneuve";
-
-		if (zoneId == "town_le_moule")
-			return "Le Moule";
-
-		if (zoneId == "town_lamentin")
-			return "Lamentin";
-
-		if (zoneId == "town_regina")
-			return "Regina";
-
-		if (zoneId == "town_figari")
-			return "Figari";
-
-		if (zoneId == "town_durras")
-			return "Durras";
-
-		if (zoneId == "town_saint_philippe")
-			return "Saint-Philippe";
-
-		if (zoneId == "outpost_north")
-			return "North";
-
-		if (zoneId == "outpost_south")
-			return "South";
-
-		if (zoneId == "airfield_main")
-			return "Everon";
-
-		if (zoneId == "seaport_main")
-			return "Everon";
-
-		if (zoneId == "factory_central")
-			return "Central";
-
-		if (zoneId == "resource_north")
-			return "North";
-
-		if (zoneId == "resource_south")
-			return "South";
-
-		if (zoneId == "radio_north")
-			return "North";
-
-		if (zoneId == "radio_south")
-			return "South";
-
-		return zoneId;
+		return HST_DefaultCatalog.GetZoneDisplayName(zone.m_sZoneId);
 	}
 }
