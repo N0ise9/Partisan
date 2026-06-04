@@ -804,10 +804,14 @@ foreach ($requiredCommandMenuEntry in @(
 	'input registered',
 	'snapshot received',
 	'CreateWidgetInWorkspace',
+	'FrameWidgetTypeID',
 	'CanvasWidgetTypeID',
 	'PolygonDrawCommand',
 	'm_aCanvasCommandSets',
 	'SetDrawCommands',
+	'ActivateAction(COMMAND_MENU_ACTION)',
+	'ActivateAction(COMMAND_MENU_CUSTOM_ACTION)',
+	'm_fCommandMenuDebounceRemaining',
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'SCR_HintManagerComponent',
@@ -850,8 +854,25 @@ foreach ($requiredCommandMenuEntry in @(
 if ($scriptText -match "\bCreateWidgets\b") {
 	throw "Command menu must remain procedural until HST_CommandMenu.layout is indexed with verified resource metadata"
 }
-if ($scriptText -match "\bPanelWidgetTypeID\b" -or $scriptText -match "\bFrameWidgetTypeID\b") {
-	throw "Command menu visible fills must use canvas draw commands, not frame/panel widget fills"
+if ($scriptText -match "CreateWidgetInWorkspace\(WidgetType\.CanvasWidgetTypeID") {
+	throw "Command menu root must be a child-capable frame/layout container, not a canvas widget"
+}
+if ($scriptText -match "\bPanelWidgetTypeID\b") {
+	throw "Command menu visible fills must use canvas draw commands, not panel widget fills"
+}
+$rectFactoryMatch = [regex]::Match($scriptText, "protected Widget CreateRectWidget[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool SetupCanvasRect")
+if (!$rectFactoryMatch.Success -or $rectFactoryMatch.Value -notmatch "WidgetType\.CanvasWidgetTypeID") {
+	throw "Command menu rectangle factory must use CanvasWidgetTypeID"
+}
+if ($rectFactoryMatch.Value -match "FrameWidgetTypeID|PanelWidgetTypeID") {
+	throw "Command menu rectangle factory must not use frame/panel widgets for visible fills"
+}
+$contextCommandMatch = [regex]::Match($scriptText, "void RunCommandFromContext[\s\S]*?\r?\n\t}\r?\n\r?\n\tvoid OnServerSnapshot")
+if (!$contextCommandMatch.Success) {
+	throw "Missing command menu context command path"
+}
+if ($contextCommandMatch.Value -match "\bOpenMenu\(") {
+	throw "Context command path must execute quick actions without opening the command menu"
 }
 Write-Host "I-key alpha command menu OK"
 

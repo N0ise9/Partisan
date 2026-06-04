@@ -89,6 +89,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bCustomBindingAttempted;
 	protected bool m_bCustomBindingReady;
 	protected float m_fInputRetryAccumulator;
+	protected float m_fCommandMenuDebounceRemaining;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -127,6 +128,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
+		if (m_fCommandMenuDebounceRemaining > 0)
+			m_fCommandMenuDebounceRemaining = Math.Max(0, m_fCommandMenuDebounceRemaining - timeSlice);
+
 		if (!m_bIsLocalOwner)
 		{
 			m_fInputRetryAccumulator += timeSlice;
@@ -152,9 +156,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		InputManager inputManager = GetGame().GetInputManager();
 		if (inputManager)
 		{
+			inputManager.ActivateAction(COMMAND_MENU_ACTION);
 			inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
-			foreach (string iKeyActionName : m_aIKeyActionNames)
-				inputManager.ActivateAction(iKeyActionName);
 
 			if (m_bMenuOpen)
 				inputManager.ActivateContext(MENU_CURSOR_CONTEXT);
@@ -205,32 +208,27 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!tabId.IsEmpty())
 			m_sSelectedTab = tabId;
 
-		if (!m_bMenuOpen)
-			OpenMenu();
-		else
-		{
-			int tabIndex = m_aTabIds.Find(m_sSelectedTab);
-			if (tabIndex >= 0)
-				m_iSelectedControl = tabIndex;
-
-			BuildActionList();
-			m_sStatusText = "h-istasi menu | requesting " + m_sSelectedTab;
-			RequestSnapshot();
-			RenderMenu();
-		}
-
 		if (commandId.IsEmpty())
 			return;
 
 		m_sLastResult = "h-istasi command | requested " + commandId;
 		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
 		RequestAction(commandId, argument);
-		RenderMenu();
+		if (m_bMenuOpen)
+		{
+			int tabIndex = m_aTabIds.Find(m_sSelectedTab);
+			if (tabIndex >= 0)
+				m_iSelectedControl = tabIndex;
+
+			BuildActionList();
+			RenderMenu();
+		}
 	}
 
 	void OnServerSnapshot(string payload, string lastResult = "")
 	{
 		Print("h-istasi menu | snapshot received");
+		bool showClosedResult = !m_bMenuOpen && !lastResult.IsEmpty() && lastResult != m_sLastResult;
 		m_sLastPayload = payload;
 		m_sLastResult = lastResult;
 		ApplyHeaderFromPayload(payload);
@@ -254,6 +252,8 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (m_bMenuOpen)
 			RenderMenu();
+		else if (showClosedResult)
+			ShowMenuHint(lastResult, "h-istasi", 3.0);
 	}
 
 	bool OnWidgetClicked(int widgetId)
@@ -319,8 +319,6 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		inputManager.RemoveActionListener(COMMAND_MENU_ACTION, EActionTrigger.DOWN, OnCommandMenuInput);
 		inputManager.RemoveActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, OnCommandMenuInput);
-		foreach (string iKeyActionName : m_aIKeyActionNames)
-			inputManager.RemoveActionListener(iKeyActionName, EActionTrigger.DOWN, OnCommandMenuInput);
 
 		m_aIKeyActionNames.Clear();
 		inputManager.RemoveActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, OnSelectPreviousInput);
@@ -335,6 +333,10 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (reason != EActionTrigger.DOWN)
 			return;
 
+		if (m_fCommandMenuDebounceRemaining > 0)
+			return;
+
+		m_fCommandMenuDebounceRemaining = 0.15;
 		ToggleMenu();
 	}
 
@@ -467,10 +469,9 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!ActionUsesIKey(inputManager, actionName))
 				continue;
 
-			inputManager.AddActionListener(actionName, EActionTrigger.DOWN, OnCommandMenuInput);
 			m_aIKeyActionNames.Insert(actionName);
 			foundAlias = true;
-			Print("h-istasi menu | registered I-key action alias " + actionName);
+			Print("h-istasi menu | found I-key action alias " + actionName);
 		}
 
 		if (!foundAlias)
@@ -718,14 +719,13 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
 	{
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.CanvasWidgetTypeID, 32, 36, 1340, 838, WidgetFlags.VISIBLE, null, 2500);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 32, 36, 1340, 838, WidgetFlags.VISIBLE, null, 2500);
 		if (!root)
 			return null;
 
-		SetupCanvasRect(root, 1340, 838, 0xF005080C);
-		root.SetOpacity(0.98);
 		root.SetZOrder(2500);
 		m_aWidgets.Insert(root);
+		CreateRectWidget(workspace, root, 0, 0, 1340, 838, 0xF005080C, 1.0, 0);
 		return root;
 	}
 
