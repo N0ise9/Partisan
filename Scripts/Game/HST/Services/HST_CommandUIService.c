@@ -16,10 +16,15 @@ class HST_CommandMenuAction
 class HST_CommandUIService
 {
 	static const string TAB_SETUP = "setup";
+	static const string TAB_OVERVIEW = "overview";
 	static const string TAB_GENERAL = "general";
 	static const string TAB_PETROS = "petros";
+	static const string TAB_MISSIONS = "missions";
+	static const string TAB_MAP = "map";
+	static const string TAB_FORCES = "forces";
 	static const string TAB_COMMANDER = "commander";
 	static const string TAB_ARSENAL = "arsenal";
+	static const string TAB_MEMBERS = "members";
 	static const string TAB_ADMIN = "admin";
 
 	string BuildMemberMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
@@ -33,7 +38,7 @@ class HST_CommandUIService
 		if (markers)
 			markerSummary = "\n" + markers.BuildMarkerReport(state);
 
-		return header + hq + markerSummary + "\nMember actions: inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, checkpoint";
+		return header + hq + markerSummary + "\nMember actions: inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_arsenal, loot_nearby, checkpoint";
 	}
 
 	string BuildCommanderMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
@@ -50,17 +55,23 @@ class HST_CommandUIService
 
 	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin)
 	{
-		if (selectedTabId.IsEmpty())
-			selectedTabId = TAB_GENERAL;
+		selectedTabId = NormalizeTabId(selectedTabId);
 
 		string payload = string.Format("HST_MENU|%1|%2", selectedTabId, playerId);
 		payload = payload + "\nTAB|setup|Setup|1";
-		payload = payload + "\nTAB|general|General|1";
-		payload = payload + "\nTAB|petros|Petros/HQ|1";
-		payload = payload + "\nTAB|commander|Commander|1";
+		payload = payload + "\nTAB|overview|Overview|1";
+		payload = payload + "\nTAB|petros|HQ/Petros|1";
+		payload = payload + "\nTAB|missions|Missions|1";
+		payload = payload + "\nTAB|map|Map/War|1";
+		payload = payload + "\nTAB|forces|Forces|1";
 		payload = payload + "\nTAB|arsenal|Arsenal/Loot|1";
+		payload = payload + "\nTAB|members|Members|1";
 		payload = payload + "\nTAB|admin|Admin|1";
 		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
+		payload = AppendTopStats(payload, state, preset);
+		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
+		payload = AppendActivityFeed(payload, state, preset, selectedTabId);
+
 		if (!lastResult.IsEmpty())
 			payload = payload + "\nRESULT|" + lastResult;
 
@@ -230,6 +241,12 @@ class HST_CommandUIService
 		if (commandId == "inspect_missions")
 			return !coordinator.RequestMemberInspectMissions(playerId).IsEmpty();
 
+		if (commandId == "inspect_arsenal")
+			return !coordinator.RequestMemberInspectArsenal(playerId).IsEmpty();
+
+		if (commandId == "loot_nearby")
+			return !coordinator.RequestMemberLootNearby(playerId).IsEmpty();
+
 		if (commandId == "move_hq")
 			return coordinator.RequestCommanderMoveHQ(playerId, argument);
 
@@ -272,40 +289,56 @@ class HST_CommandUIService
 		return false;
 	}
 
+	protected string NormalizeTabId(string selectedTabId)
+	{
+		if (selectedTabId.IsEmpty())
+			return TAB_OVERVIEW;
+
+		if (selectedTabId == TAB_GENERAL)
+			return TAB_OVERVIEW;
+
+		if (selectedTabId == TAB_COMMANDER)
+			return TAB_FORCES;
+
+		if (selectedTabId == "hq")
+			return TAB_PETROS;
+
+		return selectedTabId;
+	}
+
 	protected string BuildTabStatusText(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, string selectedTabId, bool canUseMember, bool canUseCommander, bool canUseAdmin)
 	{
 		if (selectedTabId == TAB_SETUP)
 			return BuildSetupStatus(state, settings);
 
-		if (selectedTabId == TAB_GENERAL)
-		{
-			if (!canUseMember)
-				return "h-istasi general | membership required for campaign actions";
+		if (!canUseMember && selectedTabId != TAB_SETUP)
+			return "h-istasi command | membership required for campaign actions";
 
+		if (selectedTabId == TAB_OVERVIEW)
 			return BuildMemberMenu(state, preset, markers);
-		}
 
 		if (selectedTabId == TAB_PETROS)
 			return BuildPetrosStatus(state, canUseCommander);
 
-		if (selectedTabId == TAB_COMMANDER)
-		{
-			if (!canUseCommander)
-				return "h-istasi commander | commander role required";
+		if (selectedTabId == TAB_MISSIONS)
+			return BuildMissionReport(state);
 
+		if (selectedTabId == TAB_MAP)
+			return BuildZoneListReport(state, preset);
+
+		if (selectedTabId == TAB_FORCES)
 			return BuildEconomyReport(state);
-		}
 
 		if (selectedTabId == TAB_ARSENAL)
 		{
-			if (!canUseMember)
-				return "h-istasi arsenal | membership required for looting";
-
 			if (arsenal)
 				return arsenal.BuildArsenalReport(state);
 
 			return "h-istasi arsenal | service not ready";
 		}
+
+		if (selectedTabId == TAB_MEMBERS)
+			return BuildMembersStatus(state, canUseCommander);
 
 		if (selectedTabId == TAB_ADMIN)
 		{
@@ -344,23 +377,378 @@ class HST_CommandUIService
 		return string.Format("h-istasi Petros/HQ | hideout %1 | HQ %2 | Petros alive %3 | arsenal %4 | %5", state.m_sHQHideoutId, state.m_vHQPosition, state.m_bPetrosAlive, state.m_vArsenalPosition, role);
 	}
 
+	protected string BuildMembersStatus(HST_CampaignState state, bool canUseCommander)
+	{
+		if (!state)
+			return "h-istasi members | campaign state not ready";
+
+		string role = "member roster";
+		if (canUseCommander)
+			role = "commander can issue HQ orders";
+
+		return string.Format("h-istasi members | known players %1 | commander %2 | %3", state.m_aPlayers.Count(), BuildCommanderName(state), role);
+	}
+
+	protected string AppendTopStats(string payload, HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+		{
+			payload = AppendStat(payload, "Campaign", "state offline", "bad");
+			return payload;
+		}
+
+		payload = AppendStat(payload, "FIA Money", string.Format("$%1", state.m_iFactionMoney), "good");
+		payload = AppendStat(payload, "HR", string.Format("%1", state.m_iHR), "good");
+		payload = AppendStat(payload, "War Level", string.Format("%1", state.m_iWarLevel), "warn");
+		payload = AppendStat(payload, "Training", string.Format("%1", state.m_iTrainingLevel), "good");
+		payload = AppendStat(payload, "Commander", BuildCommanderName(state), "neutral");
+		payload = AppendStat(payload, "Petros", BuildPetrosLabel(state), BuildPetrosTone(state));
+		payload = AppendStat(payload, "Zones", string.Format("%1 FIA / %2 hostile", CountResistanceZones(state, preset), CountEnemyZones(state, preset)), "neutral");
+		payload = AppendStat(payload, "Arsenal", string.Format("%1 unlocked / %2 tracked", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
+		return payload;
+	}
+
+	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, string selectedTabId, bool canUseMember, bool canUseCommander, bool canUseAdmin)
+	{
+		if (selectedTabId == TAB_SETUP)
+			return AppendSetupSections(payload, state, settings);
+
+		if (!canUseMember)
+		{
+			payload = AppendSection(payload, "access", "Access");
+			payload = AppendRow(payload, "access", "Membership", "Join the FIA roster before using campaign actions.", "bad");
+			payload = AppendRow(payload, "access", "Available", "Setup tab remains readable.", "neutral");
+			return payload;
+		}
+
+		if (selectedTabId == TAB_OVERVIEW)
+			return AppendOverviewSections(payload, state, preset);
+
+		if (selectedTabId == TAB_PETROS)
+			return AppendHQSections(payload, state, canUseCommander);
+
+		if (selectedTabId == TAB_MISSIONS)
+			return AppendMissionSections(payload, state);
+
+		if (selectedTabId == TAB_MAP)
+			return AppendMapSections(payload, state, preset);
+
+		if (selectedTabId == TAB_FORCES)
+			return AppendForcesSections(payload, state, preset, canUseCommander);
+
+		if (selectedTabId == TAB_ARSENAL)
+			return AppendArsenalSections(payload, state, settings);
+
+		if (selectedTabId == TAB_MEMBERS)
+			return AppendMembersSections(payload, state, canUseCommander);
+
+		if (selectedTabId == TAB_ADMIN)
+			return AppendAdminSections(payload, state, preset, canUseAdmin);
+
+		return AppendOverviewSections(payload, state, preset);
+	}
+
+	protected string AppendSetupSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings)
+	{
+		payload = AppendSection(payload, "setup", "Campaign Setup");
+		if (state)
+		{
+			payload = AppendRow(payload, "setup", "Schema", string.Format("%1", state.m_iSchemaVersion), "neutral");
+			payload = AppendRow(payload, "setup", "Preset", state.m_sPresetId, "neutral");
+			payload = AppendRow(payload, "setup", "Phase", CampaignPhaseLabel(state.m_ePhase), "neutral");
+			payload = AppendRow(payload, "setup", "Seed", string.Format("%1", state.m_iCampaignSeed), "neutral");
+		}
+
+		payload = AppendSection(payload, "source", "Source Of Truth");
+		payload = AppendRow(payload, "source", "Config file", "$profile:h-istasi/HST_Settings.json", "good");
+		if (settings)
+		{
+			payload = AppendRow(payload, "source", "Default hideout", settings.m_Campaign.m_sDefaultHideoutId, "neutral");
+			payload = AppendRow(payload, "source", "Membership", string.Format("enabled %1 / guests menu %2", settings.m_Membership.m_bMembershipEnabled, settings.m_Membership.m_bGuestsCanOpenMenu), "neutral");
+			payload = AppendRow(payload, "source", "Area loot", string.Format("enabled %1 / radius %2m", settings.m_Features.m_bAreaLootEnabled, settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
+		}
+
+		return payload;
+	}
+
+	protected string AppendOverviewSections(string payload, HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return payload;
+
+		payload = AppendSection(payload, "brief", "War Room");
+		payload = AppendRow(payload, "brief", "Campaign", BuildPresetName(preset, state), "neutral");
+		payload = AppendRow(payload, "brief", "HQ hideout", BuildHQLabel(state), "good");
+		payload = AppendRow(payload, "brief", "Petros", string.Format("%1 / deaths %2", BuildPetrosLabel(state), state.m_iPetrosDeaths), BuildPetrosTone(state));
+		payload = AppendRow(payload, "brief", "Current order", BuildStrategicOrder(state, preset), "warn");
+
+		payload = AppendSection(payload, "resources", "Resistance Logistics");
+		payload = AppendRow(payload, "resources", "FIA money", string.Format("$%1", state.m_iFactionMoney), "good");
+		payload = AppendRow(payload, "resources", "HR pool", string.Format("%1 recruits", state.m_iHR), "good");
+		payload = AppendRow(payload, "resources", "Training", string.Format("level %1", state.m_iTrainingLevel), "good");
+		payload = AppendRow(payload, "resources", "Income timer", string.Format("%1s accumulated", state.m_iIncomeAccumulatorSeconds), "neutral");
+
+		payload = AppendSection(payload, "pressure", "Enemy Pressure");
+		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
+		{
+			if (!pool || (preset && pool.m_sFactionKey == preset.m_sResistanceFactionKey))
+				continue;
+
+			payload = AppendRow(payload, "pressure", pool.m_sFactionKey, string.Format("attack %1 / support %2 / aggression %3", pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression), "bad");
+		}
+
+		payload = AppendSection(payload, "active", "Active Front");
+		payload = AppendRow(payload, "active", "Zones", string.Format("%1 FIA footholds / %2 hostile", CountResistanceZones(state, preset), CountEnemyZones(state, preset)), "neutral");
+		payload = AppendRow(payload, "active", "Missions", string.Format("%1 active", CountActiveMissions(state)), "warn");
+		payload = AppendRow(payload, "active", "QRFs", string.Format("%1 unresolved", CountActiveQRFs(state)), "bad");
+		payload = AppendRow(payload, "active", "Arsenal unlocks", string.Format("%1 of %2", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
+		return payload;
+	}
+
+	protected string AppendHQSections(string payload, HST_CampaignState state, bool canUseCommander)
+	{
+		if (!state)
+			return payload;
+
+		payload = AppendSection(payload, "petros", "Petros");
+		payload = AppendRow(payload, "petros", "Status", BuildPetrosLabel(state), BuildPetrosTone(state));
+		payload = AppendRow(payload, "petros", "Deaths", string.Format("%1", state.m_iPetrosDeaths), "warn");
+		payload = AppendRow(payload, "petros", "Prefab", state.m_sPetrosPrefab, "neutral");
+		payload = AppendRow(payload, "petros", "Authority", CommanderGateLabel(canUseCommander), CommanderGateTone(canUseCommander));
+
+		payload = AppendSection(payload, "hq", "HQ Assets");
+		payload = AppendRow(payload, "hq", "Hideout", BuildHQLabel(state), "good");
+		payload = AppendRow(payload, "hq", "HQ position", string.Format("%1", state.m_vHQPosition), "neutral");
+		payload = AppendRow(payload, "hq", "Petros position", string.Format("%1", state.m_vPetrosPosition), "neutral");
+		payload = AppendRow(payload, "hq", "Arsenal position", string.Format("%1", state.m_vArsenalPosition), "neutral");
+		payload = AppendRow(payload, "hq", "Runtime objects", BuildRuntimeObjectLabel(state), BuildRuntimeObjectTone(state));
+
+		payload = AppendSection(payload, "moves", "Move Base");
+		payload = AppendRow(payload, "moves", "Move here", "Uses your current position as the new HQ.", CommanderGateTone(canUseCommander));
+		payload = AppendRow(payload, "moves", "North Forest", "Low-profile woodland staging area.", "neutral");
+		payload = AppendRow(payload, "moves", "Central Hills", "Default hideout near central roads.", "neutral");
+		payload = AppendRow(payload, "moves", "South Woods", "Fallback hideout for southern operations.", "neutral");
+		return payload;
+	}
+
+	protected string AppendMissionSections(string payload, HST_CampaignState state)
+	{
+		if (!state)
+			return payload;
+
+		payload = AppendSection(payload, "active_missions", "Active Missions");
+		if (state.m_aActiveMissions.Count() == 0)
+			payload = AppendRow(payload, "active_missions", "No active mission", "Use Start mission at Morton to create the first alpha task.", "neutral");
+
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!mission)
+				continue;
+
+			payload = AppendRow(payload, "active_missions", mission.m_sInstanceId, string.Format("%1 / target %2 / %3s", mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_iRemainingSeconds), MissionTone(mission));
+		}
+
+		payload = AppendSection(payload, "families", "Mission Board");
+		payload = AppendRow(payload, "families", "Convoys", "Ammo, money, prisoners, reinforcements, supplies.", "warn");
+		payload = AppendRow(payload, "families", "Logistics", "Recover trucks, rob banks, salvage equipment.", "good");
+		payload = AppendRow(payload, "families", "Conquest", "Capture resources, outposts, factories, ports.", "bad");
+		payload = AppendRow(payload, "families", "Dynamic", "Defend Petros, city flip battles, tower rebuilds.", "warn");
+		payload = AppendRow(payload, "families", "Support", "Build town support before taking the fight wider.", "good");
+		return payload;
+	}
+
+	protected string AppendMapSections(string payload, HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return payload;
+
+		payload = AppendSection(payload, "war_map", "Map Control");
+		payload = AppendRow(payload, "war_map", "Resistance zones", string.Format("%1", CountResistanceZones(state, preset)), "good");
+		payload = AppendRow(payload, "war_map", "Hostile zones", string.Format("%1", CountEnemyZones(state, preset)), "bad");
+		payload = AppendRow(payload, "war_map", "Active zones", string.Format("%1", CountActiveZones(state)), "warn");
+		payload = AppendRow(payload, "war_map", "Projected income", string.Format("$%1 per tick", CountResistanceIncome(state, preset)), "good");
+
+		payload = AppendSection(payload, "zones", "Zone Pressure");
+		int emitted;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			string label = string.Format("%1 / %2", DisplayZoneName(zone.m_sZoneId), ZoneTypeLabel(zone.m_eType));
+			string value = string.Format("owner %1 / support %2 / capture %3 / active %4", zone.m_sOwnerFactionKey, zone.m_iSupport, zone.m_iResistanceCaptureProgress, zone.m_bActive);
+			payload = AppendRow(payload, "zones", label, value, ZoneTone(zone, preset));
+			emitted++;
+			if (emitted >= 10)
+				break;
+		}
+
+		return payload;
+	}
+
+	protected string AppendForcesSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, bool canUseCommander)
+	{
+		if (!state)
+			return payload;
+
+		payload = AppendSection(payload, "fia", "FIA Forces");
+		payload = AppendRow(payload, "fia", "Training level", string.Format("%1", state.m_iTrainingLevel), "good");
+		payload = AppendRow(payload, "fia", "Available HR", string.Format("%1", state.m_iHR), "good");
+		payload = AppendRow(payload, "fia", "Commander actions", CommanderGateLabel(canUseCommander), CommanderGateTone(canUseCommander));
+		payload = AppendRow(payload, "fia", "Recruit focus", "Town support turns HR into abstract garrisons.", "neutral");
+
+		payload = AppendSection(payload, "garrisons", "Garrisons And Patrols");
+		payload = AppendRow(payload, "garrisons", "Abstract infantry", string.Format("%1", CountGarrisonInfantry(state)), "neutral");
+		payload = AppendRow(payload, "garrisons", "Abstract vehicles", string.Format("%1", CountGarrisonVehicles(state)), "neutral");
+		payload = AppendRow(payload, "garrisons", "Active groups", string.Format("%1", state.m_aActiveGroups.Count()), "warn");
+		payload = AppendRow(payload, "garrisons", "QRFs", string.Format("%1 unresolved", CountActiveQRFs(state)), "bad");
+
+		payload = AppendSection(payload, "enemy", "Enemy Resources");
+		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
+		{
+			if (!pool || (preset && pool.m_sFactionKey == preset.m_sResistanceFactionKey))
+				continue;
+
+			payload = AppendRow(payload, "enemy", pool.m_sFactionKey, string.Format("attack %1 / support %2 / aggression %3", pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression), "bad");
+		}
+
+		return payload;
+	}
+
+	protected string AppendArsenalSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings)
+	{
+		if (!state)
+			return payload;
+
+		payload = AppendSection(payload, "arsenal", "Alpha Arsenal");
+		payload = AppendRow(payload, "arsenal", "Tracked items", string.Format("%1", CountTrackedArsenalItems(state)), "neutral");
+		payload = AppendRow(payload, "arsenal", "Unlocked items", string.Format("%1", CountUnlockedArsenalItems(state)), "good");
+		payload = AppendRow(payload, "arsenal", "Garage vehicles", string.Format("%1", state.m_aGarageVehicles.Count()), "neutral");
+		payload = AppendRow(payload, "arsenal", "Captured emplacements", string.Format("%1", state.m_aCapturedEmplacements.Count()), "neutral");
+		if (settings)
+		{
+			payload = AppendRow(payload, "arsenal", "Loot radius", string.Format("%1m", settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
+			payload = AppendRow(payload, "arsenal", "Unlock threshold", string.Format("%1 / magazines x%2", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold, settings.m_ArsenalLoot.m_iMagazineUnlockMultiplier), "neutral");
+			payload = AppendRow(payload, "arsenal", "Loot rule", string.Format("locked only %1 / remove source %2", settings.m_ArsenalLoot.m_bLootOnlyLockedItems, settings.m_ArsenalLoot.m_bRemoveLootedItems), "warn");
+		}
+
+		payload = AppendSection(payload, "items", "Recovered Equipment");
+		if (state.m_aArsenalItems.Count() == 0)
+			payload = AppendRow(payload, "items", "Empty", "Loot nearby bodies, crates, and enemy inventories into the HQ arsenal.", "neutral");
+
+		int emitted;
+		foreach (HST_ArsenalItemState item : state.m_aArsenalItems)
+		{
+			if (!item)
+				continue;
+
+			string label = item.m_sDisplayName;
+			if (label.IsEmpty())
+				label = item.m_sPrefab;
+
+			payload = AppendRow(payload, "items", label, string.Format("%1 / count %2 / unlocked %3", item.m_sCategory, item.m_iCount, item.m_bUnlocked), ArsenalTone(item));
+			emitted++;
+			if (emitted >= 10)
+				break;
+		}
+
+		return payload;
+	}
+
+	protected string AppendMembersSections(string payload, HST_CampaignState state, bool canUseCommander)
+	{
+		if (!state)
+			return payload;
+
+		payload = AppendSection(payload, "roster", "Resistance Roster");
+		payload = AppendRow(payload, "roster", "Known players", string.Format("%1", state.m_aPlayers.Count()), "neutral");
+		payload = AppendRow(payload, "roster", "Commander", BuildCommanderName(state), "good");
+		payload = AppendRow(payload, "roster", "Your authority", CommanderGateLabel(canUseCommander), CommanderGateTone(canUseCommander));
+
+		payload = AppendSection(payload, "members", "Members");
+		if (state.m_aPlayers.Count() == 0)
+			payload = AppendRow(payload, "members", "No players registered", "The first connected player becomes the initial commander.", "neutral");
+
+		foreach (HST_PlayerState player : state.m_aPlayers)
+		{
+			if (!player)
+				continue;
+
+			string role = "guest";
+			string tone = "bad";
+			if (player.m_bAdmin)
+			{
+				role = "admin";
+				tone = "warn";
+			}
+			else if (player.m_bMember)
+			{
+				role = "member";
+				tone = "good";
+			}
+
+			string suffix = "";
+			if (state.m_sCommanderIdentityId == player.m_sIdentityId)
+				suffix = " / commander";
+
+			payload = AppendRow(payload, "members", player.m_sIdentityId, string.Format("%1 / money %2 / spawns %3%4", role, player.m_iMoney, player.m_iSpawnCount, suffix), tone);
+		}
+
+		return payload;
+	}
+
+	protected string AppendAdminSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, bool canUseAdmin)
+	{
+		payload = AppendSection(payload, "admin", "Admin Console");
+		payload = AppendRow(payload, "admin", "Access", CommanderGateLabel(canUseAdmin), CommanderGateTone(canUseAdmin));
+		if (!state)
+			return payload;
+
+		payload = AppendRow(payload, "admin", "Phase", CampaignPhaseLabel(state.m_ePhase), "neutral");
+		payload = AppendRow(payload, "admin", "Schema", string.Format("%1", state.m_iSchemaVersion), "neutral");
+		payload = AppendRow(payload, "admin", "Seed", string.Format("%1", state.m_iCampaignSeed), "neutral");
+		payload = AppendRow(payload, "admin", "Enemy accumulator", string.Format("%1s", state.m_iEnemyResourceAccumulatorSeconds), "bad");
+		payload = AppendRow(payload, "admin", "Native markers", string.Format("%1 tracked", state.m_aMapMarkers.Count()), "neutral");
+
+		payload = AppendSection(payload, "debug_zone", "Debug Targets");
+		HST_ZoneState morton = state.FindZone("town_morton");
+		if (morton)
+			payload = AppendRow(payload, "debug_zone", "Morton", string.Format("owner %1 / support %2 / capture %3", morton.m_sOwnerFactionKey, morton.m_iSupport, morton.m_iResistanceCaptureProgress), ZoneTone(morton, preset));
+
+		return payload;
+	}
+
+	protected string AppendActivityFeed(string payload, HST_CampaignState state, HST_CampaignPreset preset, string selectedTabId)
+	{
+		if (!state)
+		{
+			payload = AppendFeed(payload, "Campaign state is not ready yet.", "bad");
+			return payload;
+		}
+
+		payload = AppendFeed(payload, string.Format("Briefing: %1", BuildStrategicOrder(state, preset)), "warn");
+		payload = AppendFeed(payload, string.Format("HQ: %1, Petros %2.", BuildHQLabel(state), BuildPetrosLabel(state)), BuildPetrosTone(state));
+		payload = AppendFeed(payload, string.Format("Arsenal: %1 unlocked items from %2 tracked entries.", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
+		payload = AppendFeed(payload, string.Format("Operations: %1 active missions, %2 QRFs, %3 active zones.", CountActiveMissions(state), CountActiveQRFs(state), CountActiveZones(state)), "neutral");
+		return payload;
+	}
+
 	protected void BuildTabActions(string selectedTabId, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, bool canUseCommander, bool canUseAdmin)
 	{
 		actions.Clear();
+		selectedTabId = NormalizeTabId(selectedTabId);
 		if (selectedTabId == TAB_SETUP)
 		{
 			AddMenuAction(actions, TAB_SETUP, "Config path / source of truth", "noop", "", true, "");
 			return;
 		}
 
-		if (selectedTabId == TAB_GENERAL)
+		if (selectedTabId == TAB_OVERVIEW)
 		{
-			AddMenuAction(actions, TAB_GENERAL, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_GENERAL, "Marker status", "inspect_markers", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_GENERAL, "Economy report", "inspect_economy", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_GENERAL, "Zone report", "inspect_zones", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_GENERAL, "Mission report", "inspect_missions", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_GENERAL, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_OVERVIEW, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_OVERVIEW, "Marker status", "inspect_markers", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_OVERVIEW, "Economy report", "inspect_economy", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_OVERVIEW, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -370,15 +758,32 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: north forest", "move_hq", "hideout_north_forest", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: central hills", "move_hq", "hideout_central_hills", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: south woods", "move_hq", "hideout_south_woods", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_PETROS, "Open Arsenal/Loot", "inspect_arsenal", "", canUseMember, "membership required");
 			return;
 		}
 
-		if (selectedTabId == TAB_COMMANDER)
+		if (selectedTabId == TAB_MISSIONS)
 		{
-			AddMenuAction(actions, TAB_COMMANDER, "Apply income tick", "income_now", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_COMMANDER, "Train FIA troops", "train_troops", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_COMMANDER, "Recruit FIA at Morton", "recruit_zone", "town_morton", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_COMMANDER, "Start mission at Morton", "mission_zone", "town_morton", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Start mission at Morton", "mission_zone", "town_morton", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Mission report", "inspect_missions", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MISSIONS, "Zone report", "inspect_zones", "", canUseMember, "membership required");
+			return;
+		}
+
+		if (selectedTabId == TAB_MAP)
+		{
+			AddMenuAction(actions, TAB_MAP, "Zone report", "inspect_zones", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MAP, "Marker status", "inspect_markers", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MAP, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
+			return;
+		}
+
+		if (selectedTabId == TAB_FORCES)
+		{
+			AddMenuAction(actions, TAB_FORCES, "Apply income tick", "income_now", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Recruit FIA at Morton", "recruit_zone", "town_morton", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Economy report", "inspect_economy", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -386,6 +791,14 @@ class HST_CommandUIService
 		{
 			AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal", "loot_nearby", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Arsenal report", "inspect_arsenal", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
+			return;
+		}
+
+		if (selectedTabId == TAB_MEMBERS)
+		{
+			AddMenuAction(actions, TAB_MEMBERS, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MEMBERS, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -397,6 +810,26 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Debug mission at Morton", "debug_mission", "town_morton", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Debug award resources", "award_small", "", canUseAdmin, "admin required");
 		}
+	}
+
+	protected string AppendStat(string payload, string label, string value, string tone)
+	{
+		return payload + string.Format("\nSTAT|%1|%2|%3", label, value, tone);
+	}
+
+	protected string AppendSection(string payload, string sectionId, string title)
+	{
+		return payload + string.Format("\nSECTION|%1|%2", sectionId, title);
+	}
+
+	protected string AppendRow(string payload, string sectionId, string label, string value, string tone)
+	{
+		return payload + string.Format("\nROW|%1|%2|%3|%4", sectionId, label, value, tone);
+	}
+
+	protected string AppendFeed(string payload, string text, string tone)
+	{
+		return payload + string.Format("\nFEED|%1|%2", text, tone);
 	}
 
 	protected void AddMenuAction(notnull array<ref HST_CommandMenuAction> actions, string tabId, string label, string commandId, string argument, bool enabled, string disabledReason)
@@ -417,5 +850,351 @@ class HST_CommandUIService
 			return "h-istasi command | " + label + " | complete";
 
 		return "h-istasi command | " + label + " | denied or failed";
+	}
+
+	protected string BuildPresetName(HST_CampaignPreset preset, HST_CampaignState state)
+	{
+		if (preset && !preset.m_sDisplayName.IsEmpty())
+			return preset.m_sDisplayName;
+
+		if (state)
+			return state.m_sPresetId;
+
+		return "unknown";
+	}
+
+	protected string BuildCommanderName(HST_CampaignState state)
+	{
+		if (!state || state.m_sCommanderIdentityId.IsEmpty())
+			return "unassigned";
+
+		return state.m_sCommanderIdentityId;
+	}
+
+	protected string BuildHQLabel(HST_CampaignState state)
+	{
+		if (!state || !state.m_bHQDeployed)
+			return "not deployed";
+
+		if (state.m_sHQHideoutId.IsEmpty())
+			return "field HQ";
+
+		return DisplayZoneName(state.m_sHQHideoutId);
+	}
+
+	protected string BuildPetrosLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+
+		if (state.m_bPetrosAlive)
+			return "alive";
+
+		return "killed";
+	}
+
+	protected string BuildPetrosTone(HST_CampaignState state)
+	{
+		if (state && state.m_bPetrosAlive)
+			return "good";
+
+		return "bad";
+	}
+
+	protected string BuildRuntimeObjectLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+
+		if (state.m_bHQRuntimeObjectsSpawned)
+			return "spawned";
+
+		return "pending";
+	}
+
+	protected string BuildRuntimeObjectTone(HST_CampaignState state)
+	{
+		if (state && state.m_bHQRuntimeObjectsSpawned)
+			return "good";
+
+		return "warn";
+	}
+
+	protected string BuildStrategicOrder(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return "waiting for campaign state";
+
+		if (!state.m_bPetrosAlive)
+			return "Recover Petros before ordering new operations.";
+
+		if (CountActiveMissions(state) == 0)
+			return "Build support, loot enemy gear, and choose the first mission.";
+
+		if (CountActiveQRFs(state) > 0)
+			return "Enemy QRF active. Keep the resistance mobile.";
+
+		if (CountResistanceZones(state, preset) <= 0)
+			return "Establish a foothold near a town before escalating.";
+
+		return "Expand support, raid logistics, and pressure weak zones.";
+	}
+
+	protected string CommanderGateLabel(bool allowed)
+	{
+		if (allowed)
+			return "authorized";
+
+		return "locked";
+	}
+
+	protected string CommanderGateTone(bool allowed)
+	{
+		if (allowed)
+			return "good";
+
+		return "bad";
+	}
+
+	protected string CampaignPhaseLabel(HST_ECampaignPhase phase)
+	{
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+			return "setup";
+
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+			return "active";
+
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_WON)
+			return "won";
+
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+			return "lost";
+
+		return "unknown";
+	}
+
+	protected string ZoneTypeLabel(HST_EZoneType zoneType)
+	{
+		if (zoneType == HST_EZoneType.HST_ZONE_TOWN)
+			return "town";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_OUTPOST)
+			return "outpost";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_RESOURCE)
+			return "resource";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_FACTORY)
+			return "factory";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+			return "radio";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_AIRFIELD)
+			return "airfield";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_SEAPORT)
+			return "seaport";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_HIDEOUT)
+			return "hideout";
+
+		return "zone";
+	}
+
+	protected string DisplayZoneName(string zoneId)
+	{
+		if (zoneId.IsEmpty())
+			return "unknown";
+
+		return zoneId;
+	}
+
+	protected string ZoneTone(HST_ZoneState zone, HST_CampaignPreset preset)
+	{
+		if (!zone)
+			return "neutral";
+
+		if (preset && zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+			return "good";
+
+		if (zone.m_bActive || zone.m_iResistanceCaptureProgress > 0)
+			return "warn";
+
+		return "bad";
+	}
+
+	protected string MissionTone(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "neutral";
+
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return "warn";
+
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+			return "good";
+
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED || mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return "bad";
+
+		return "neutral";
+	}
+
+	protected string ArsenalTone(HST_ArsenalItemState item)
+	{
+		if (!item)
+			return "neutral";
+
+		if (item.m_bUnlocked)
+			return "good";
+
+		return "warn";
+	}
+
+	protected int CountResistanceZones(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return 0;
+
+		int count;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone && zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountEnemyZones(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			if (!preset || zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountActiveZones(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone && zone.m_bActive)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountResistanceIncome(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return 0;
+
+		int income;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone && zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+				income += zone.m_iIncomeValue;
+		}
+
+		return income;
+	}
+
+	protected int CountActiveMissions(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountActiveQRFs(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_QRFState qrf : state.m_aQRFs)
+		{
+			if (qrf && !qrf.m_bResolved)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountTrackedArsenalItems(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		return state.m_aArsenalItems.Count();
+	}
+
+	protected int CountUnlockedArsenalItems(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_ArsenalItemState item : state.m_aArsenalItems)
+		{
+			if (item && item.m_bUnlocked)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountGarrisonInfantry(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
+		{
+			if (garrison)
+				count += garrison.m_iInfantryCount;
+		}
+
+		return count;
+	}
+
+	protected int CountGarrisonVehicles(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
+		{
+			if (garrison)
+				count += garrison.m_iVehicleCount;
+		}
+
+		return count;
 	}
 }

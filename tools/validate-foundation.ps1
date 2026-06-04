@@ -77,7 +77,7 @@ if ($project -notmatch '"58D0FB3206B6F859"' -or $project -notmatch '"595F2BF2F44
 }
 Write-Host "Project dependencies OK"
 
-$files = Get-ChildItem -Recurse -File -Include *.c,*.conf,*.ent,*.et,*.layer,*.layout,*.gproj,*.md,.gitignore |
+$files = Get-ChildItem -Recurse -File -Include *.c,*.conf,*.ent,*.et,*.meta,*.layer,*.layout,*.gproj,*.md,.gitignore |
 	Where-Object { $_.FullName -notlike "*\.git\*" }
 
 foreach ($file in $files) {
@@ -119,7 +119,7 @@ $requiredRuntimeScaffold = @(
 	'HST_PlayerSpawnLogic',
 	'm_bEnableRespawn 1',
 	'm_bEnablePauseMenuRespawn 0',
-	'Prefabs/Characters/HST/HST_PlayerController.et',
+	'{6985327711303200}Prefabs/Characters/HST/HST_PlayerController.et',
 	'm_bUseSpawnPreload 0',
 	'SCR_MapConfigComponent',
 	'Configs/Map/MapSpawnConflict.conf',
@@ -137,6 +137,7 @@ $requiredRuntimeScaffold = @(
 	'm_sFactionKey "FIA"',
 	'm_sAlias "OPFOR"',
 	'm_sFactionKey "RHS_AFRF"',
+	'FactionKey "RHS_ION"',
 	'Configs/Factions/FIA_Campaign.conf',
 	'Configs/Factions/CIV.conf',
 	'Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et',
@@ -179,8 +180,12 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Runtime layer must not expose RHS_USAF role-selection loadouts in the primary FIA deploy path: $runtimeLayer"
 	}
 
-	if ($text -notmatch 'PlayerControllerPrefab "Prefabs/Characters/HST/HST_PlayerController.et"') {
+	if ($text -notmatch 'PlayerControllerPrefab "\{6985327711303200\}Prefabs/Characters/HST/HST_PlayerController\.et"') {
 		throw "Runtime layer must use the HST player-controller request bridge: $runtimeLayer"
+	}
+
+	if ($text -match 'PlayerControllerPrefab "Prefabs/Characters/HST/HST_PlayerController\.et"') {
+		throw "Runtime layer must not use path-only HST player-controller resources: $runtimeLayer"
 	}
 
 	foreach ($requiredLoadout in $requiredFiaLoadouts) {
@@ -262,6 +267,15 @@ if (!(Test-Path $petrosPrefabPath)) {
 	throw "Missing dedicated Petros prefab: $petrosPrefabPath"
 }
 
+$petrosPrefabMetaPath = "$petrosPrefabPath.meta"
+if (!(Test-Path $petrosPrefabMetaPath)) {
+	throw "Missing dedicated Petros prefab metadata: $petrosPrefabMetaPath"
+}
+
+if ((Get-Content -Raw $petrosPrefabMetaPath) -notmatch '\{6985327711303300\}Prefabs/Characters/HST/Character_HST_Petros\.et') {
+	throw "Dedicated Petros prefab metadata must expose the GUID-qualified resource name"
+}
+
 $petrosPrefabText = Get-Content -Raw $petrosPrefabPath
 $hqServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_HQService.c"
 foreach ($requiredPetrosPrefabEntry in @(
@@ -281,16 +295,20 @@ foreach ($requiredPetrosPrefabEntry in @(
 
 foreach ($requiredPetrosServiceEntry in @(
 	"PETROS_BASE_PREFAB",
-	'PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros.et"',
-	'ARSENAL_PREFAB = "Prefabs/Objects/HST/HST_HQArsenal.et"',
+	'PETROS_PREFAB = "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et"',
+	'ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et"',
+	"ARSENAL_FALLBACK_PREFAB",
 	"ResolvePetrosPrefab",
 	"SpawnPetros",
+	"ResolveArsenalPrefab",
+	"SpawnArsenal",
 	"state.m_sPetrosPrefab = PETROS_PREFAB",
 	"state.m_sArsenalPrefab = ARSENAL_PREFAB",
 	"MoveHQToPosition",
 	"ClearRuntimeObjects",
 	"SCR_EntityHelper.DeleteEntityAndChildren",
 	"failed to spawn; using base FIA fallback",
+	"failed to spawn; using FIA supply-cache fallback",
 	"GetArsenalPrefab"
 )) {
 	if ($hqServiceText -notmatch [regex]::Escape($requiredPetrosServiceEntry)) {
@@ -301,11 +319,26 @@ foreach ($requiredPetrosServiceEntry in @(
 if ($hqServiceText -notmatch "SpawnPetros\(respawnSystem, state\)") {
 	throw "HQ runtime spawn must route Petros through the custom-prefab fallback helper"
 }
+if ($hqServiceText -notmatch "SpawnArsenal\(respawnSystem, state\)") {
+	throw "HQ runtime spawn must route the HQ arsenal through the custom-prefab fallback helper"
+}
+if ($hqServiceText -match 'PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros\.et"' -or $hqServiceText -match 'ARSENAL_PREFAB = "Prefabs/Objects/HST/HST_HQArsenal\.et"') {
+	throw "HQ service must not keep path-only HST prefab constants"
+}
 Write-Host "Dedicated Petros prefab OK"
 
 $hqArsenalPrefabPath = "Prefabs/Objects/HST/HST_HQArsenal.et"
 if (!(Test-Path $hqArsenalPrefabPath)) {
 	throw "Missing HST HQ arsenal prefab: $hqArsenalPrefabPath"
+}
+
+$hqArsenalPrefabMetaPath = "$hqArsenalPrefabPath.meta"
+if (!(Test-Path $hqArsenalPrefabMetaPath)) {
+	throw "Missing HST HQ arsenal prefab metadata: $hqArsenalPrefabMetaPath"
+}
+
+if ((Get-Content -Raw $hqArsenalPrefabMetaPath) -notmatch '\{6985327711303400\}Prefabs/Objects/HST/HST_HQArsenal\.et') {
+	throw "HST HQ arsenal prefab metadata must expose the GUID-qualified resource name"
 }
 
 $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
@@ -327,6 +360,15 @@ Write-Host "HST HQ arsenal prefab OK"
 $playerControllerPrefabPath = "Prefabs/Characters/HST/HST_PlayerController.et"
 if (!(Test-Path $playerControllerPrefabPath)) {
 	throw "Missing HST player controller prefab: $playerControllerPrefabPath"
+}
+
+$playerControllerPrefabMetaPath = "$playerControllerPrefabPath.meta"
+if (!(Test-Path $playerControllerPrefabMetaPath)) {
+	throw "Missing HST player controller prefab metadata: $playerControllerPrefabMetaPath"
+}
+
+if ((Get-Content -Raw $playerControllerPrefabMetaPath) -notmatch '\{6985327711303200\}Prefabs/Characters/HST/HST_PlayerController\.et') {
+	throw "HST player controller prefab metadata must expose the GUID-qualified resource name"
 }
 
 $playerControllerPrefabText = Get-Content -Raw $playerControllerPrefabPath
@@ -695,11 +737,17 @@ foreach ($requiredCommandMenuEntry in @(
 	'MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout"',
 	'AddActionListener',
 	'RemoveActionListener',
-	'CreateWidgets',
 	'CreateWidgetInWorkspace',
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'SCR_HintManagerComponent',
+	'STAT|',
+	'SECTION|',
+	'ROW|',
+	'FEED|',
+	'RenderStats',
+	'RenderMainSections',
+	'RenderActivityPanel',
 	'OpenPetrosMenu',
 	'OpenMenuToTab',
 	'RunCommandFromContext',
@@ -728,6 +776,9 @@ foreach ($requiredCommandMenuEntry in @(
 	if ($scriptText -notmatch [regex]::Escape($requiredCommandMenuEntry)) {
 		throw "Missing I-key alpha command menu contract entry: $requiredCommandMenuEntry"
 	}
+}
+if ($scriptText -match "\bCreateWidgets\b") {
+	throw "Command menu must remain procedural until HST_CommandMenu.layout is indexed with verified resource metadata"
 }
 Write-Host "I-key alpha command menu OK"
 

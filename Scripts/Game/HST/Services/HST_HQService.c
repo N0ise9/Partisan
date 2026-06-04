@@ -1,15 +1,19 @@
 class HST_HQService
 {
 	static const string PETROS_BASE_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
-	static const string PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros.et";
+	static const string PETROS_PREFAB = "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et";
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
-	static const string ARSENAL_PREFAB = "Prefabs/Objects/HST/HST_HQArsenal.et";
+	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
+	static const string ARSENAL_FALLBACK_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
 
 	protected IEntity m_PetrosEntity;
 	protected IEntity m_CacheEntity;
 	protected IEntity m_ArsenalEntity;
 	protected IEntity m_TentEntity;
+	protected bool m_bWarnedPetrosResourceFailure;
+	protected bool m_bWarnedArsenalResourceFailure;
+	protected bool m_bWarnedRuntimeSpawnIncomplete;
 
 	bool SelectInitialHideout(HST_CampaignState state, string hideoutId)
 	{
@@ -86,7 +90,7 @@ class HST_HQService
 		EnsureRuntimeGroundPlacement(state);
 		GenericEntity petros = SpawnPetros(respawnSystem, state);
 		GenericEntity cache = respawnSystem.DoSpawn(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
-		GenericEntity arsenal = respawnSystem.DoSpawn(ARSENAL_PREFAB, state.m_vArsenalPosition, "0 0 0");
+		GenericEntity arsenal = SpawnArsenal(respawnSystem, state);
 		GenericEntity tent = respawnSystem.DoSpawn(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
 		if (!petros || !cache || !arsenal || !tent)
 		{
@@ -95,7 +99,12 @@ class HST_HQService
 			DeleteRuntimeEntity(arsenal);
 			DeleteRuntimeEntity(tent);
 			state.m_bHQRuntimeObjectsSpawned = false;
-			Print("h-istasi | HQ runtime object spawn incomplete; inspect placeholder prefab resources", LogLevel.WARNING);
+			if (!m_bWarnedRuntimeSpawnIncomplete)
+			{
+				Print("h-istasi | HQ runtime object spawn incomplete; inspect prefab resources", LogLevel.WARNING);
+				m_bWarnedRuntimeSpawnIncomplete = true;
+			}
+
 			return false;
 		}
 
@@ -104,6 +113,7 @@ class HST_HQService
 		m_ArsenalEntity = arsenal;
 		m_TentEntity = tent;
 		state.m_bHQRuntimeObjectsSpawned = true;
+		m_bWarnedRuntimeSpawnIncomplete = false;
 		ApplyFaction(petros);
 		return true;
 	}
@@ -147,7 +157,7 @@ class HST_HQService
 		vector emergencyPosition = HST_DefaultCatalog.GetHideoutPosition(requestedHideoutId);
 		resolvedPosition = HST_WorldPositionService.ResolveGroundPosition(emergencyPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, false);
 		resolvedHideoutId = requestedHideoutId;
-		Print(string.Format("h-istasi | no dry HQ hideout surface found; using emergency snapped position %1", resolvedPosition), LogLevel.ERROR);
+		Print(string.Format("h-istasi | no dry HQ hideout surface found; using emergency snapped position %1", resolvedPosition), LogLevel.WARNING);
 		return true;
 	}
 
@@ -227,8 +237,52 @@ class HST_HQService
 
 		if (petrosPrefab != PETROS_BASE_PREFAB)
 		{
-			Print(string.Format("h-istasi | dedicated Petros prefab %1 failed to spawn; using base FIA fallback", petrosPrefab), LogLevel.WARNING);
+			if (!m_bWarnedPetrosResourceFailure)
+			{
+				Print(string.Format("h-istasi | dedicated Petros prefab %1 failed to spawn; using base FIA fallback", petrosPrefab), LogLevel.WARNING);
+				m_bWarnedPetrosResourceFailure = true;
+			}
+
 			return respawnSystem.DoSpawn(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
+		}
+
+		return null;
+	}
+
+	protected string ResolveArsenalPrefab(HST_CampaignState state)
+	{
+		if (!state)
+			return ARSENAL_PREFAB;
+
+		if (state.m_sArsenalPrefab.IsEmpty() || state.m_sArsenalPrefab == ARSENAL_FALLBACK_PREFAB)
+			state.m_sArsenalPrefab = ARSENAL_PREFAB;
+
+		return state.m_sArsenalPrefab;
+	}
+
+	protected GenericEntity SpawnArsenal(SCR_RespawnSystemComponent respawnSystem, HST_CampaignState state)
+	{
+		if (!respawnSystem)
+			return null;
+
+		string arsenalPrefab = ResolveArsenalPrefab(state);
+		vector arsenalPosition = "0 0 0";
+		if (state)
+			arsenalPosition = state.m_vArsenalPosition;
+
+		GenericEntity arsenal = respawnSystem.DoSpawn(arsenalPrefab, arsenalPosition, "0 0 0");
+		if (arsenal)
+			return arsenal;
+
+		if (arsenalPrefab != ARSENAL_FALLBACK_PREFAB)
+		{
+			if (!m_bWarnedArsenalResourceFailure)
+			{
+				Print(string.Format("h-istasi | HQ arsenal prefab %1 failed to spawn; using FIA supply-cache fallback", arsenalPrefab), LogLevel.WARNING);
+				m_bWarnedArsenalResourceFailure = true;
+			}
+
+			return respawnSystem.DoSpawn(ARSENAL_FALLBACK_PREFAB, arsenalPosition, "0 0 0");
 		}
 
 		return null;

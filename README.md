@@ -30,11 +30,14 @@ The repository contains the first engine-facing increment:
 - Everon alpha anchors and zone activation scaffolding for the physical AI war
 - Dedicated Petros character prefab at
   `Prefabs/Characters/HST/Character_HST_Petros.et` for HQ contextual actions,
-  with a base-FIA spawn fallback only if the custom resource fails to spawn
+  with GUID metadata and a base-FIA spawn fallback only if the custom resource
+  fails to spawn
 - Physical HQ arsenal prefab at `Prefabs/Objects/HST/HST_HQArsenal.et` that
-  opens the h-istasi Arsenal/Loot tab and can run area loot from context
-- Widget-backed `I` key command menu mounted on both development worlds with
-  Setup, General, Petros/HQ, Commander, Arsenal/Loot, and Admin tabs
+  opens the h-istasi Arsenal/Loot tab, can run area loot from context, and is
+  indexed by checked-in GUID metadata
+- Procedural Antistasi-style `I` key HQ menu mounted on both development
+  worlds with Setup, Overview, HQ/Petros, Missions, Map/War, Forces,
+  Arsenal/Loot, Members, and Admin tabs
 - First-load server settings generation at `$profile:h-istasi/HST_Settings.json`
   with config-backed defaults for campaign, factions, economy, membership,
   world activation, arsenal/loot, persistence, logging, and feature toggles
@@ -51,9 +54,11 @@ incrementally.
 ## Alpha Command Menu
 
 Press `I` in `HST_Dev` or `HST_Everon` to open the h-istasi alpha command
-menu. The menu is a client widget driven by server-built snapshots. The Setup
-tab displays the effective server config, but `$profile:h-istasi/HST_Settings.json`
-remains the source of truth and applies to newly created campaigns only.
+menu. The menu is a client widget driven by server-built snapshots and renders
+an Antistasi-style HQ interface with a resource bar, navigation, campaign
+cards, action list, and activity/result feed. The Setup tab displays the
+effective server config, but `$profile:h-istasi/HST_Settings.json` remains the
+source of truth and applies to newly created campaigns only.
 
 - `MenuUp` / `MenuDown`: change selection
 - `MenuSelect`: run the selected command

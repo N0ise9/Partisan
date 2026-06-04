@@ -27,14 +27,17 @@
 - Coordinator dev actions for zone capture, income ticks, mission
   success/failure, training, recruitment, and garrison fold-back
 - Dedicated Petros character prefab that inherits from FIA rifleman but can be
-  edited independently from player spawn characters; runtime spawning tries the
-  custom prefab first and falls back to the base FIA prefab only if needed
+  edited independently from player spawn characters; runtime spawning uses the
+  GUID-indexed custom prefab first and falls back to the base FIA prefab only
+  if needed
 - HQ arsenal supply-cache prefab with contextual actions for opening the
   Arsenal/Loot tab and depositing nearby loot into campaign arsenal state
+- Procedural Antistasi-style HQ menu with resource stats, overview, HQ/Petros,
+  mission board, map/war, forces, arsenal/loot, member, admin, action, and
+  activity/result panels
 
 ## Next Playable Increment
 
-- Index the new resources in Workbench and verify script compile
 - Bind `HST_CampaignSaveData` into Reforger's persistent component load path
   and add restart/migration tests
 - Replace central-hideout auto-selection with first-start hideout selection UI
@@ -42,7 +45,6 @@
 - Customize Petros appearance/loadout and replace tent/cache placeholders with
   authored h-istasi HQ entities
 - Add player-facing member, guest, commander election, and admin UI
-- Add arsenal quantities, garage records, recruitment, garrisons, and map UI
 - Spawn/deactivate physical garrisons from active zone counts and fold
   survivors back into abstract garrisons
 

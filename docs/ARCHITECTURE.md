@@ -96,12 +96,22 @@ and possessed.
 `HST_HQService` owns the server-side HQ lifecycle: initial hideout selection,
 HQ movement between authored hideouts, Petros/cache/arsenal/tent runtime
 positions, and Petros-loss penalties. Runtime Petros spawning tries the custom
-h-istasi prefab first and falls back to the base FIA character only if that
-resource cannot spawn. The HQ arsenal uses an HST supply-cache prefab whose
-contextual actions open the same Arsenal/Loot menu path used by the I-key menu.
+h-istasi prefab first through its GUID-qualified metadata resource and falls
+back to the base FIA character only if that resource cannot spawn. The HQ
+arsenal uses a GUID-indexed HST supply-cache prefab whose contextual actions
+open the same Arsenal/Loot menu path used by the I-key menu, with a stock FIA
+cache fallback if the custom object cannot spawn.
 The current development bootstrap auto-selects the central hills hideout so the
 campaign enters a playable active phase immediately; the setup UI increment
 will replace that auto-selection with a player-facing choice.
+
+The alpha HQ menu is procedural rather than layout-resource loaded. The server
+keeps the existing `HST_MENU`, `TAB`, `STATUS`, `RESULT`, and `ACTION` payload
+lines while adding optional `STAT`, `SECTION`, `ROW`, and `FEED` lines for the
+Antistasi-style overview, HQ/Petros, missions, map/war, forces, arsenal/loot,
+members, and admin panels. Contextual Petros and HQ arsenal actions call the
+same request bridge as menu clicks so local hosts and MP clients follow one
+server-authoritative command path.
 
 ## Antistasi Framework Spine
 

@@ -45,7 +45,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 	protected static HST_CommandMenuComponent s_LocalInstance;
 
 	protected bool m_bMenuOpen;
-	protected string m_sSelectedTab = "general";
+	protected string m_sSelectedTab = "overview";
 	protected string m_sLastPayload;
 	protected string m_sLastResult;
 	protected string m_sStatusText = "h-istasi menu | waiting for server snapshot";
@@ -58,6 +58,17 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 	protected ref array<string> m_aActionArguments = {};
 	protected ref array<bool> m_aActionEnabled = {};
 	protected ref array<string> m_aActionDisabledReasons = {};
+	protected ref array<string> m_aStatLabels = {};
+	protected ref array<string> m_aStatValues = {};
+	protected ref array<string> m_aStatTones = {};
+	protected ref array<string> m_aSectionIds = {};
+	protected ref array<string> m_aSectionTitles = {};
+	protected ref array<string> m_aRowSectionIds = {};
+	protected ref array<string> m_aRowLabels = {};
+	protected ref array<string> m_aRowValues = {};
+	protected ref array<string> m_aRowTones = {};
+	protected ref array<string> m_aFeedLines = {};
+	protected ref array<string> m_aFeedTones = {};
 	protected ref array<Widget> m_aWidgets = {};
 	protected ref HST_CommandMenuWidgetHandler m_WidgetHandler;
 
@@ -68,6 +79,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		RegisterInputListeners();
 		BuildTabList();
 		BuildActionList();
+		ClearRichPayload();
 		SetEventMask(owner, EntityEvent.FRAME);
 	}
 
@@ -108,6 +120,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 
 	void OpenMenuToTab(string tabId)
 	{
+		tabId = NormalizeTabId(tabId);
 		if (!tabId.IsEmpty())
 			m_sSelectedTab = tabId;
 
@@ -130,6 +143,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 
 	void RunCommandFromContext(string tabId, string commandId, string argument = "")
 	{
+		tabId = NormalizeTabId(tabId);
 		if (!tabId.IsEmpty())
 			m_sSelectedTab = tabId;
 
@@ -160,6 +174,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 	{
 		m_sLastPayload = payload;
 		m_sLastResult = lastResult;
+		ApplyHeaderFromPayload(payload);
 		m_sStatusText = ExtractSection(payload, "STATUS");
 		if (m_sStatusText.IsEmpty())
 			m_sStatusText = payload;
@@ -169,7 +184,12 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 			m_sLastResult = result;
 
 		ParseTabsFromPayload(payload);
+		ParseRichPayload(payload);
 		ParseActionsFromPayload(payload);
+		int selectedTabIndex = m_aTabIds.Find(m_sSelectedTab);
+		if (selectedTabIndex >= 0 && m_iSelectedControl < m_aTabIds.Count())
+			m_iSelectedControl = selectedTabIndex;
+
 		if (m_iSelectedControl >= GetControlCount())
 			m_iSelectedControl = Math.Max(0, GetControlCount() - 1);
 
@@ -233,10 +253,13 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		m_aTabEnabled.Clear();
 
 		AddTab("setup", "Setup", true);
-		AddTab("general", "General", true);
-		AddTab("petros", "Petros/HQ", true);
-		AddTab("commander", "Commander", true);
+		AddTab("overview", "Overview", true);
+		AddTab("petros", "HQ/Petros", true);
+		AddTab("missions", "Missions", true);
+		AddTab("map", "Map/War", true);
+		AddTab("forces", "Forces", true);
 		AddTab("arsenal", "Arsenal/Loot", true);
+		AddTab("members", "Members", true);
 		AddTab("admin", "Admin", true);
 	}
 
@@ -280,8 +303,9 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 	{
 		m_bMenuOpen = true;
 		if (m_sSelectedTab.IsEmpty())
-			m_sSelectedTab = "general";
+			m_sSelectedTab = "overview";
 
+		m_sSelectedTab = NormalizeTabId(m_sSelectedTab);
 		BuildTabList();
 		BuildActionList();
 		m_iSelectedControl = Math.Max(0, m_aTabIds.Find(m_sSelectedTab));
@@ -370,7 +394,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		if (!m_aTabEnabled[tabIndex])
 			return;
 
-		m_sSelectedTab = m_aTabIds[tabIndex];
+		m_sSelectedTab = NormalizeTabId(m_aTabIds[tabIndex]);
 		m_iSelectedControl = tabIndex;
 		m_sStatusText = "h-istasi menu | requesting " + m_aTabLabels[tabIndex];
 		BuildActionList();
@@ -437,52 +461,25 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		if (!root)
 			return;
 
-		Widget canvas = GetMenuCanvas(root);
-		CreateTextWidget(workspace, canvas, "h-istasi", 36, 28, 260, 36, 28, 0xFFEDE6DA, 0, true);
-		CreateTextWidget(workspace, canvas, "I close/open    MenuUp/MenuDown select    MenuSelect run    MenuBack close", 300, 35, 760, 24, 18, 0xFFC7C7C7, 0, false);
-		RenderTabs(workspace, canvas);
-		RenderActions(workspace, canvas);
-		CreateTextWidget(workspace, canvas, m_sStatusText, 36, 126, 640, 560, 18, 0xFFE0E0E0, 0, false);
-		CreateTextWidget(workspace, canvas, BuildResultText(), 710, 126, 420, 180, 18, 0xFFD2E7B8, 0, false);
-		CreateTextWidget(workspace, canvas, MENU_LAYOUT, 710, 682, 420, 24, 14, 0xFF777777, 0, false);
+		RenderHeader(workspace, root);
+		RenderNavigation(workspace, root);
+		RenderStats(workspace, root);
+		RenderMainSections(workspace, root);
+		RenderActivityPanel(workspace, root);
+		RenderActions(workspace, root);
 	}
 
 	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
 	{
-		Widget root = workspace.CreateWidgets(MENU_LAYOUT);
-		if (root)
-		{
-			FrameSlot.SetPos(root, 80, 64);
-			FrameSlot.SetSize(root, 1180, 760);
-		}
-		else
-		{
-			root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 80, 64, 1180, 760, WidgetFlags.VISIBLE, null, 2500);
-		}
-
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 56, 42, 1210, 780, WidgetFlags.VISIBLE, null, 2500);
 		if (!root)
 			return null;
 
-		root.SetColorInt(0xE615171A);
-		root.SetOpacity(0.96);
+		root.SetColorInt(0xF0121519);
+		root.SetOpacity(0.97);
 		root.SetZOrder(2500);
 		m_aWidgets.Insert(root);
 		return root;
-	}
-
-	protected Widget GetMenuCanvas(Widget root)
-	{
-		if (!root)
-			return null;
-
-		Widget canvas = root.FindAnyWidget("HST_CommandMenuDynamicCanvas");
-		if (!canvas)
-			return root;
-
-		FrameSlot.SetPos(canvas, 0, 0);
-		FrameSlot.SetSize(canvas, 1180, 760);
-		canvas.SetVisible(true);
-		return canvas;
 	}
 
 	protected void ShowMenuHint(string text, string title, float durationSeconds)
@@ -492,36 +489,147 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 			hintManager.ShowCustomHint(text, title, durationSeconds);
 	}
 
-	protected void RenderTabs(WorkspaceWidget workspace, Widget root)
+	protected void RenderHeader(WorkspaceWidget workspace, Widget root)
 	{
-		int left = 36;
+		CreateFrameWidget(workspace, root, 0, 0, 1210, 72, 0xFF1F2A32, 0.96, 0);
+		CreateTextWidget(workspace, root, "h-istasi HQ", 28, 16, 245, 34, 30, 0xFFF2D18B, 0, true);
+		CreateTextWidget(workspace, root, "FIA Resistance Command", 275, 23, 280, 24, 17, 0xFFB7C7D7, 0, false);
+		CreateTextWidget(workspace, root, BuildSelectedTabTitle(), 900, 18, 270, 30, 22, 0xFFECE6D2, 0, true);
+	}
+
+	protected void RenderStats(WorkspaceWidget workspace, Widget root)
+	{
+		int left = 205;
+		int top = 88;
+		int width = 116;
+		for (int i = 0; i < m_aStatLabels.Count(); i++)
+		{
+			if (i >= 8)
+				break;
+
+			int x = left + i * 122;
+			CreateFrameWidget(workspace, root, x, top, width, 58, ToneBackgroundColor(m_aStatTones[i]), 0.82, 0);
+			CreateTextWidget(workspace, root, m_aStatLabels[i], x + 8, top + 7, width - 16, 18, 13, 0xFFB8C1C9, 0, false);
+			CreateTextWidget(workspace, root, m_aStatValues[i], x + 8, top + 27, width - 16, 22, 16, ToneTextColor(m_aStatTones[i]), 0, true);
+		}
+	}
+
+	protected void RenderNavigation(WorkspaceWidget workspace, Widget root)
+	{
+		CreateFrameWidget(workspace, root, 24, 88, 160, 654, 0xFF182027, 0.94, 0);
+		CreateTextWidget(workspace, root, "Navigation", 42, 104, 120, 24, 17, 0xFFE6DECB, 0, true);
 		for (int i = 0; i < m_aTabLabels.Count(); i++)
 		{
-			int color = 0xFFCFCFCF;
-			string label = m_aTabLabels[i];
-			if (m_aTabIds[i] == m_sSelectedTab)
-			{
-				color = 0xFFE9C46A;
-				label = "[" + label + "]";
-			}
+			int top = 140 + i * 45;
+			bool selected = m_aTabIds[i] == m_sSelectedTab;
+			bool focused = m_iSelectedControl == i;
+			int background = 0x00222222;
+			if (selected)
+				background = 0xFF604A24;
+			else if (focused)
+				background = 0xFF263341;
 
-			if (m_iSelectedControl == i)
+			if (selected || focused)
+				CreateFrameWidget(workspace, root, 36, top - 4, 136, 34, background, 0.92, TAB_WIDGET_ID_BASE + i);
+
+			string label = m_aTabLabels[i];
+			if (focused)
 				label = "> " + label;
 
-			if (!m_aTabEnabled[i])
-				color = 0xFF777777;
+			int color = 0xFFCBD2D6;
+			if (selected)
+				color = 0xFFFFD98B;
 
-			CreateTextWidget(workspace, root, label, left, 78, 170, 30, 18, color, TAB_WIDGET_ID_BASE + i, false);
-			left += 176;
+			if (!m_aTabEnabled[i])
+				color = 0xFF687179;
+
+			CreateTextWidget(workspace, root, label, 44, top, 118, 26, 16, color, TAB_WIDGET_ID_BASE + i, selected);
+		}
+	}
+
+	protected void RenderMainSections(WorkspaceWidget workspace, Widget root)
+	{
+		int sectionCount = m_aSectionIds.Count();
+		if (sectionCount == 0)
+		{
+			CreateFrameWidget(workspace, root, 204, 166, 628, 560, 0xFF1B232A, 0.92, 0);
+			CreateTextWidget(workspace, root, m_sStatusText, 230, 190, 580, 500, 17, 0xFFE0E0E0, 0, false);
+			return;
+		}
+
+		int maxSections = Math.Min(sectionCount, 6);
+		for (int i = 0; i < maxSections; i++)
+		{
+			int col = i % 2;
+			int row = i / 2;
+			int left = 204 + col * 318;
+			int top = 166 + row * 178;
+			RenderSectionCard(workspace, root, i, left, top, 302, 160);
+		}
+	}
+
+	protected void RenderSectionCard(WorkspaceWidget workspace, Widget root, int sectionIndex, int left, int top, int width, int height)
+	{
+		if (sectionIndex < 0 || sectionIndex >= m_aSectionIds.Count())
+			return;
+
+		string sectionId = m_aSectionIds[sectionIndex];
+		CreateFrameWidget(workspace, root, left, top, width, height, 0xFF1B232A, 0.94, 0);
+		CreateFrameWidget(workspace, root, left, top, width, 4, 0xFFC4953B, 1.0, 0);
+		CreateTextWidget(workspace, root, m_aSectionTitles[sectionIndex], left + 14, top + 12, width - 28, 24, 18, 0xFFEFE2C4, 0, true);
+
+		int rendered;
+		for (int i = 0; i < m_aRowLabels.Count(); i++)
+		{
+			if (m_aRowSectionIds[i] != sectionId)
+				continue;
+
+			if (rendered >= 4)
+				break;
+
+			int rowTop = top + 44 + rendered * 27;
+			CreateTextWidget(workspace, root, m_aRowLabels[i], left + 14, rowTop, 112, 22, 14, 0xFFABB4BA, 0, false);
+			CreateTextWidget(workspace, root, m_aRowValues[i], left + 130, rowTop, width - 144, 22, 14, ToneTextColor(m_aRowTones[i]), 0, false);
+			rendered++;
+		}
+
+		if (rendered == 0)
+			CreateTextWidget(workspace, root, "No entries", left + 14, top + 48, width - 28, 24, 14, 0xFF78828A, 0, false);
+	}
+
+	protected void RenderActivityPanel(WorkspaceWidget workspace, Widget root)
+	{
+		CreateFrameWidget(workspace, root, 850, 166, 328, 350, 0xFF1B232A, 0.94, 0);
+		CreateFrameWidget(workspace, root, 850, 166, 328, 4, 0xFF50704A, 1.0, 0);
+		CreateTextWidget(workspace, root, "Activity", 868, 184, 170, 26, 19, 0xFFEFE2C4, 0, true);
+		CreateTextWidget(workspace, root, BuildResultText(), 868, 218, 292, 95, 15, 0xFFD2E7B8, 0, false);
+		CreateTextWidget(workspace, root, "Campaign Notes", 868, 326, 190, 24, 17, 0xFFEFE2C4, 0, true);
+
+		if (m_aFeedLines.Count() == 0)
+		{
+			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", 868, 358, 292, 24, 15, 0xFF9AA5AD, 0, false);
+			return;
+		}
+
+		for (int i = 0; i < m_aFeedLines.Count(); i++)
+		{
+			if (i >= 5)
+				break;
+
+			CreateTextWidget(workspace, root, m_aFeedLines[i], 868, 356 + i * 30, 292, 26, 14, ToneTextColor(m_aFeedTones[i]), 0, false);
 		}
 	}
 
 	protected void RenderActions(WorkspaceWidget workspace, Widget root)
 	{
-		int top = 334;
-		CreateTextWidget(workspace, root, "Actions", 710, top - 36, 180, 28, 20, 0xFFEDE6DA, 0, true);
+		CreateFrameWidget(workspace, root, 850, 532, 328, 194, 0xFF1B232A, 0.94, 0);
+		CreateFrameWidget(workspace, root, 850, 532, 328, 4, 0xFF8C4E43, 1.0, 0);
+		CreateTextWidget(workspace, root, "Actions", 868, 550, 160, 26, 19, 0xFFEFE2C4, 0, true);
 		for (int i = 0; i < m_aActionLabels.Count(); i++)
 		{
+			if (i >= 5)
+				break;
+
 			string prefix = "  ";
 			if (m_iSelectedControl == m_aTabIds.Count() + i)
 				prefix = "> ";
@@ -530,12 +638,34 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 			int color = 0xFFE5E5E5;
 			if (!m_aActionEnabled[i])
 			{
-				suffix = " | " + m_aActionDisabledReasons[i];
-				color = 0xFF888888;
+				suffix = " / " + m_aActionDisabledReasons[i];
+				color = 0xFF8B9298;
 			}
 
-			CreateTextWidget(workspace, root, prefix + m_aActionLabels[i] + suffix, 710, top + i * 34, 420, 30, 18, color, ACTION_WIDGET_ID_BASE + i, false);
+			CreateTextWidget(workspace, root, prefix + m_aActionLabels[i] + suffix, 868, 584 + i * 28, 292, 24, 14, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
 		}
+
+		if (m_aActionLabels.Count() == 0)
+			CreateTextWidget(workspace, root, "No commands available.", 868, 584, 292, 24, 14, 0xFF8B9298, 0, false);
+	}
+
+	protected Widget CreateFrameWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
+	{
+		Widget widget = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE, null, 2550, parent);
+		if (!widget)
+			return null;
+
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, width, height);
+		widget.SetColorInt(color);
+		widget.SetOpacity(opacity);
+		if (userId > 0)
+		{
+			widget.SetUserID(userId);
+			widget.AddHandler(m_WidgetHandler);
+		}
+
+		return widget;
 	}
 
 	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
@@ -577,12 +707,36 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		m_aWidgets.Clear();
 	}
 
+	protected void ClearRichPayload()
+	{
+		m_aStatLabels.Clear();
+		m_aStatValues.Clear();
+		m_aStatTones.Clear();
+		m_aSectionIds.Clear();
+		m_aSectionTitles.Clear();
+		m_aRowSectionIds.Clear();
+		m_aRowLabels.Clear();
+		m_aRowValues.Clear();
+		m_aRowTones.Clear();
+		m_aFeedLines.Clear();
+		m_aFeedTones.Clear();
+	}
+
 	protected string BuildResultText()
 	{
 		if (m_sLastResult.IsEmpty())
 			return "Last action\n-";
 
 		return "Last action\n" + m_sLastResult;
+	}
+
+	protected string BuildSelectedTabTitle()
+	{
+		int tabIndex = m_aTabIds.Find(m_sSelectedTab);
+		if (tabIndex >= 0)
+			return m_aTabLabels[tabIndex];
+
+		return "Overview";
 	}
 
 	protected string BuildConsoleMenuText()
@@ -597,6 +751,21 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 	protected int GetControlCount()
 	{
 		return m_aTabIds.Count() + m_aActionLabels.Count();
+	}
+
+	protected void ApplyHeaderFromPayload(string payload)
+	{
+		if (payload.IsEmpty() || !payload.Contains("HST_MENU|"))
+			return;
+
+		int lineEnd = payload.IndexOf("\n");
+		if (lineEnd < 0)
+			lineEnd = payload.Length();
+
+		string line = payload.Substring(0, lineEnd);
+		string tabId = NormalizeTabId(ExtractPipeField(line, 1));
+		if (!tabId.IsEmpty() && tabId != "offline")
+			m_sSelectedTab = tabId;
 	}
 
 	protected void ParseTabsFromPayload(string payload)
@@ -620,7 +789,99 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 				lineEnd = payload.Length();
 
 			string line = payload.Substring(lineStart, lineEnd - lineStart);
-			AddTab(ExtractPipeField(line, 1), ExtractPipeField(line, 2), ParseBool(ExtractPipeField(line, 3)));
+			AddTab(NormalizeTabId(ExtractPipeField(line, 1)), ExtractPipeField(line, 2), ParseBool(ExtractPipeField(line, 3)));
+			cursor = lineEnd + 1;
+		}
+	}
+
+	protected void ParseRichPayload(string payload)
+	{
+		ClearRichPayload();
+		ParseStatsFromPayload(payload);
+		ParseSectionsFromPayload(payload);
+		ParseRowsFromPayload(payload);
+		ParseFeedFromPayload(payload);
+	}
+
+	protected void ParseStatsFromPayload(string payload)
+	{
+		int cursor;
+		while (true)
+		{
+			int lineStart = payload.IndexOfFrom(cursor, "STAT|");
+			if (lineStart < 0)
+				break;
+
+			int lineEnd = payload.IndexOfFrom(lineStart, "\n");
+			if (lineEnd < 0)
+				lineEnd = payload.Length();
+
+			string line = payload.Substring(lineStart, lineEnd - lineStart);
+			m_aStatLabels.Insert(ExtractPipeField(line, 1));
+			m_aStatValues.Insert(ExtractPipeField(line, 2));
+			m_aStatTones.Insert(ExtractPipeField(line, 3));
+			cursor = lineEnd + 1;
+		}
+	}
+
+	protected void ParseSectionsFromPayload(string payload)
+	{
+		int cursor;
+		while (true)
+		{
+			int lineStart = payload.IndexOfFrom(cursor, "SECTION|");
+			if (lineStart < 0)
+				break;
+
+			int lineEnd = payload.IndexOfFrom(lineStart, "\n");
+			if (lineEnd < 0)
+				lineEnd = payload.Length();
+
+			string line = payload.Substring(lineStart, lineEnd - lineStart);
+			m_aSectionIds.Insert(ExtractPipeField(line, 1));
+			m_aSectionTitles.Insert(ExtractPipeField(line, 2));
+			cursor = lineEnd + 1;
+		}
+	}
+
+	protected void ParseRowsFromPayload(string payload)
+	{
+		int cursor;
+		while (true)
+		{
+			int lineStart = payload.IndexOfFrom(cursor, "ROW|");
+			if (lineStart < 0)
+				break;
+
+			int lineEnd = payload.IndexOfFrom(lineStart, "\n");
+			if (lineEnd < 0)
+				lineEnd = payload.Length();
+
+			string line = payload.Substring(lineStart, lineEnd - lineStart);
+			m_aRowSectionIds.Insert(ExtractPipeField(line, 1));
+			m_aRowLabels.Insert(ExtractPipeField(line, 2));
+			m_aRowValues.Insert(ExtractPipeField(line, 3));
+			m_aRowTones.Insert(ExtractPipeField(line, 4));
+			cursor = lineEnd + 1;
+		}
+	}
+
+	protected void ParseFeedFromPayload(string payload)
+	{
+		int cursor;
+		while (true)
+		{
+			int lineStart = payload.IndexOfFrom(cursor, "FEED|");
+			if (lineStart < 0)
+				break;
+
+			int lineEnd = payload.IndexOfFrom(lineStart, "\n");
+			if (lineEnd < 0)
+				lineEnd = payload.Length();
+
+			string line = payload.Substring(lineStart, lineEnd - lineStart);
+			m_aFeedLines.Insert(ExtractPipeField(line, 1));
+			m_aFeedTones.Insert(ExtractPipeField(line, 2));
 			cursor = lineEnd + 1;
 		}
 	}
@@ -643,7 +904,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 				lineEnd = payload.Length();
 
 			string line = payload.Substring(lineStart, lineEnd - lineStart);
-			string tabId = ExtractPipeField(line, 1);
+			string tabId = NormalizeTabId(ExtractPipeField(line, 1));
 			if (tabId == m_sSelectedTab)
 				AddAction(ExtractPipeField(line, 2), ExtractPipeField(line, 3), ExtractPipeField(line, 4), ParseBool(ExtractPipeField(line, 5)), ExtractPipeField(line, 6));
 
@@ -671,6 +932,10 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		int best = -1;
 		best = MinPositiveIndex(best, payload.IndexOfFrom(start, "\nTAB|"));
 		best = MinPositiveIndex(best, payload.IndexOfFrom(start, "\nSTATUS|"));
+		best = MinPositiveIndex(best, payload.IndexOfFrom(start, "\nSTAT|"));
+		best = MinPositiveIndex(best, payload.IndexOfFrom(start, "\nSECTION|"));
+		best = MinPositiveIndex(best, payload.IndexOfFrom(start, "\nROW|"));
+		best = MinPositiveIndex(best, payload.IndexOfFrom(start, "\nFEED|"));
 		best = MinPositiveIndex(best, payload.IndexOfFrom(start, "\nRESULT|"));
 		best = MinPositiveIndex(best, payload.IndexOfFrom(start, "\nACTION|"));
 		best = MinPositiveIndex(best, payload.IndexOfFrom(start, "\nEND"));
@@ -710,6 +975,48 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 	protected bool ParseBool(string value)
 	{
 		return value == "true" || value == "1";
+	}
+
+	protected string NormalizeTabId(string tabId)
+	{
+		if (tabId == "general")
+			return "overview";
+
+		if (tabId == "commander")
+			return "forces";
+
+		if (tabId == "hq")
+			return "petros";
+
+		return tabId;
+	}
+
+	protected int ToneTextColor(string tone)
+	{
+		if (tone == "good")
+			return 0xFFB7E48F;
+
+		if (tone == "warn")
+			return 0xFFFFD166;
+
+		if (tone == "bad")
+			return 0xFFFF8E72;
+
+		return 0xFFE2E6E8;
+	}
+
+	protected int ToneBackgroundColor(string tone)
+	{
+		if (tone == "good")
+			return 0xFF263B2D;
+
+		if (tone == "warn")
+			return 0xFF423719;
+
+		if (tone == "bad")
+			return 0xFF43231F;
+
+		return 0xFF222C34;
 	}
 
 	protected int ResolveLocalPlayerId()
