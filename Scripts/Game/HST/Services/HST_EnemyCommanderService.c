@@ -78,7 +78,7 @@ class HST_EnemyCommanderService
 		order.m_iAttackCost = attackCost;
 		order.m_iSupportCost = supportCost;
 
-		HST_ESupportRequestType supportType = SupportTypeForOrder(orderType);
+		HST_ESupportRequestType supportType = SupportTypeForOrder(state, targetZone, orderType);
 		if (support && supportType != HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
 		{
 			HST_SupportRequestState request = support.RequestSupport(state, preset, null, enemyDirector, factionKey, supportType, targetZone.m_sZoneId, false);
@@ -182,13 +182,21 @@ class HST_EnemyCommanderService
 		return HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL;
 	}
 
-	protected HST_ESupportRequestType SupportTypeForOrder(HST_EEnemyOrderType orderType)
+	protected HST_ESupportRequestType SupportTypeForOrder(HST_CampaignState state, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
 	{
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF || orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
 			return HST_ESupportRequestType.HST_SUPPORT_QRF;
 
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL || orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+		{
+			if (state && state.m_iWarLevel >= 6 && targetZone && (targetZone.m_sOwnerFactionKey == "FIA" || targetZone.m_bActive))
+				return HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55;
+
+			if (state && state.m_iWarLevel >= 3)
+				return HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK;
+
 			return HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+		}
 
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK)
 			return HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP;

@@ -7,11 +7,17 @@ class HST_LootResult
 	int m_iItemsSkippedUnlocked;
 	int m_iItemsSkippedBlocked;
 	int m_iItemsSkippedFriendly;
+	string m_sVehicleRuntimeId;
+	string m_sVehicleDisplayName;
 	ref array<string> m_aDepositedLines = {};
 
 	string BuildSummary()
 	{
-		string summary = string.Format("h-istasi loot | scanned %1 source(s) | seen %2 item(s) | deposited %3 | removed %4", m_iSourcesScanned, m_iItemsSeen, m_iItemsDeposited, m_iItemsRemoved);
+		string target = "arsenal";
+		if (!m_sVehicleRuntimeId.IsEmpty())
+			target = "vehicle " + m_sVehicleDisplayName;
+
+		string summary = string.Format("h-istasi loot | target %1 | scanned %2 source(s) | seen %3 item(s) | deposited %4 | removed %5", target, m_iSourcesScanned, m_iItemsSeen, m_iItemsDeposited, m_iItemsRemoved);
 		summary = summary + string.Format(" | skipped unlocked %1 | blocked %2 | friendly/player %3", m_iItemsSkippedUnlocked, m_iItemsSkippedBlocked, m_iItemsSkippedFriendly);
 		foreach (string line : m_aDepositedLines)
 			summary = summary + "\n" + line;
@@ -119,6 +125,123 @@ class HST_LootService
 		return true;
 	}
 
+	HST_LootResult CollectNearbyLootToVehicle(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId)
+	{
+		HST_LootResult result = new HST_LootResult();
+		if (!state || !preset || !balance || !arsenal || playerId <= 0)
+			return result;
+
+		if (!balance.m_bVehicleLootEnabled)
+		{
+			result.m_aDepositedLines.Insert("vehicle loot disabled by config");
+			return result;
+		}
+
+		IEntity playerEntity = ResolveLivingPlayerEntity(playerId);
+		if (!playerEntity)
+		{
+			result.m_aDepositedLines.Insert("no living player entity found for vehicle loot");
+			return result;
+		}
+
+		IEntity vehicle = FindNearestLootVehicle(playerEntity, balance.m_iVehicleLootRadiusMeters);
+		if (!vehicle)
+		{
+			result.m_aDepositedLines.Insert("no eligible vehicle nearby");
+			return result;
+		}
+
+		string vehicleId = ResolveVehicleRuntimeId(vehicle);
+		string vehiclePrefab = ResolvePrefabName(vehicle);
+		string vehicleName = BuildVehicleDisplayName(vehicle, vehiclePrefab);
+		result.m_sVehicleRuntimeId = vehicleId;
+		result.m_sVehicleDisplayName = vehicleName;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return result;
+
+		m_aScanEntities.Clear();
+		world.QueryEntitiesBySphere(vehicle.GetOrigin(), balance.m_iVehicleLootRadiusMeters, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
+		foreach (IEntity source : m_aScanEntities)
+		{
+			if (!source || source == playerEntity || source == vehicle)
+				continue;
+
+			if (balance.m_iVehicleLootMaxItemsPerAction > 0 && result.m_iItemsDeposited >= balance.m_iVehicleLootMaxItemsPerAction)
+				break;
+
+			SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(source.FindComponent(SCR_InventoryStorageManagerComponent));
+			if (!inventory)
+				continue;
+
+			if (!IsEligibleLootSource(source, preset, result))
+				continue;
+
+			result.m_iSourcesScanned++;
+			CollectInventoryItemsToVehicle(source, inventory, vehicle, vehicleId, vehiclePrefab, vehicleName, state, balance, arsenal, result);
+		}
+
+		if (result.m_iItemsDeposited == 0 && result.m_aDepositedLines.Count() == 0)
+			result.m_aDepositedLines.Insert("no eligible loot found near vehicle");
+
+		return result;
+	}
+
+	string UnloadNearestVehicleCargoToArsenal(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId)
+	{
+		if (!state || !preset || !balance || !arsenal || playerId <= 0)
+			return "h-istasi vehicle loot | service not ready";
+
+		IEntity playerEntity = ResolveLivingPlayerEntity(playerId);
+		if (!playerEntity)
+			return "h-istasi vehicle loot | no living player entity found";
+
+		IEntity vehicle = FindNearestLootVehicle(playerEntity, balance.m_iVehicleLootRadiusMeters);
+		if (!vehicle)
+			return "h-istasi vehicle loot | no eligible vehicle nearby";
+
+		string vehicleId = ResolveVehicleRuntimeId(vehicle);
+		int deposited;
+		int entries;
+		for (int i = state.m_aVehicleCargoItems.Count() - 1; i >= 0; i--)
+		{
+			HST_VehicleCargoItemState cargoItem = state.m_aVehicleCargoItems[i];
+			if (!cargoItem || cargoItem.m_sVehicleRuntimeId != vehicleId)
+				continue;
+
+			HST_ArsenalItemState depositedItem = arsenal.DepositItem(state, balance, cargoItem.m_sItemPrefab, cargoItem.m_iCount, cargoItem.m_sCategory, cargoItem.m_sDisplayName);
+			if (depositedItem)
+			{
+				deposited += cargoItem.m_iCount;
+				entries++;
+				state.m_aVehicleCargoItems.Remove(i);
+			}
+		}
+
+		if (deposited <= 0)
+			return "h-istasi vehicle loot | no stored cargo found in nearest vehicle";
+
+		return string.Format("h-istasi vehicle loot | unloaded %1 item(s) from %2 cargo entries to arsenal", deposited, entries);
+	}
+
+	string BuildVehicleCargoReport(HST_CampaignState state)
+	{
+		if (!state)
+			return "h-istasi vehicle cargo | campaign state not ready";
+
+		string report = string.Format("h-istasi vehicle cargo | entries %1", state.m_aVehicleCargoItems.Count());
+		foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
+		{
+			if (!cargoItem)
+				continue;
+
+			report = report + string.Format("\n%1 | %2 | %3 | count %4", cargoItem.m_sVehicleDisplayName, cargoItem.m_sDisplayName, cargoItem.m_sCategory, cargoItem.m_iCount);
+		}
+
+		return report;
+	}
+
 	protected bool AddLootCandidate(IEntity entity)
 	{
 		if (entity)
@@ -215,6 +338,76 @@ class HST_LootService
 		}
 	}
 
+	protected void CollectInventoryItemsToVehicle(IEntity source, SCR_InventoryStorageManagerComponent inventory, IEntity vehicle, string vehicleId, string vehiclePrefab, string vehicleName, HST_CampaignState state, HST_BalanceConfig balance, HST_ArsenalService arsenal, HST_LootResult result)
+	{
+		array<IEntity> items = {};
+		inventory.GetItems(items, EStoragePurpose.PURPOSE_ANY);
+		foreach (IEntity item : items)
+		{
+			if (!item)
+				continue;
+
+			if (balance.m_iVehicleLootMaxItemsPerAction > 0 && result.m_iItemsDeposited >= balance.m_iVehicleLootMaxItemsPerAction)
+				return;
+
+			result.m_iItemsSeen++;
+			string prefab = ResolvePrefabName(item);
+			if (prefab.IsEmpty())
+			{
+				result.m_iItemsSkippedBlocked++;
+				continue;
+			}
+
+			string category = ClassifyItem(item, prefab);
+			if (!IsAllowedByLootRules(prefab, category, balance))
+			{
+				result.m_iItemsSkippedBlocked++;
+				continue;
+			}
+
+			if (balance.m_bVehicleLootOnlyLockedItems && arsenal.IsItemUnlocked(state, prefab))
+			{
+				result.m_iItemsSkippedUnlocked++;
+				continue;
+			}
+
+			HST_VehicleCargoItemState cargoItem = DepositVehicleCargo(state, vehicle, vehicleId, vehiclePrefab, vehicleName, prefab, category, BuildDisplayName(item, prefab));
+			if (!cargoItem)
+				continue;
+
+			result.m_iItemsDeposited++;
+			result.m_aDepositedLines.Insert(string.Format("+ %1 | %2 | vehicle count %3", cargoItem.m_sDisplayName, cargoItem.m_sCategory, cargoItem.m_iCount));
+			if (balance.m_bVehicleLootRemoveSource && RemoveLootedItem(inventory, item))
+				result.m_iItemsRemoved++;
+		}
+	}
+
+	protected HST_VehicleCargoItemState DepositVehicleCargo(HST_CampaignState state, IEntity vehicle, string vehicleId, string vehiclePrefab, string vehicleName, string itemPrefab, string category, string displayName)
+	{
+		if (!state || vehicleId.IsEmpty() || itemPrefab.IsEmpty())
+			return null;
+
+		HST_VehicleCargoItemState cargoItem = state.FindVehicleCargoItem(vehicleId, itemPrefab);
+		if (!cargoItem)
+		{
+			cargoItem = new HST_VehicleCargoItemState();
+			cargoItem.m_sVehicleRuntimeId = vehicleId;
+			cargoItem.m_sItemPrefab = itemPrefab;
+			state.m_aVehicleCargoItems.Insert(cargoItem);
+		}
+
+		cargoItem.m_sVehiclePrefab = vehiclePrefab;
+		cargoItem.m_sVehicleDisplayName = vehicleName;
+		cargoItem.m_sCategory = category;
+		cargoItem.m_sDisplayName = displayName;
+		cargoItem.m_iCount++;
+		cargoItem.m_iLastStoredAtSecond = state.m_iElapsedSeconds;
+		if (vehicle)
+			cargoItem.m_vLastVehiclePosition = vehicle.GetOrigin();
+
+		return cargoItem;
+	}
+
 	protected string ResolvePrefabName(IEntity item)
 	{
 		if (!item || !item.GetPrefabData())
@@ -243,6 +436,63 @@ class HST_LootService
 			return false;
 
 		return true;
+	}
+
+	protected IEntity FindNearestLootVehicle(IEntity playerEntity, int radiusMeters)
+	{
+		if (!playerEntity)
+			return null;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return null;
+
+		m_aScanEntities.Clear();
+		world.QueryEntitiesBySphere(playerEntity.GetOrigin(), radiusMeters, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
+
+		IEntity selectedVehicle;
+		float bestDistanceSq = 999999999.0;
+		foreach (IEntity candidate : m_aScanEntities)
+		{
+			if (!IsEligibleLootVehicle(candidate, playerEntity))
+				continue;
+
+			float distanceSq = DistanceSq2D(playerEntity.GetOrigin(), candidate.GetOrigin());
+			if (distanceSq < bestDistanceSq)
+			{
+				selectedVehicle = candidate;
+				bestDistanceSq = distanceSq;
+			}
+		}
+
+		return selectedVehicle;
+	}
+
+	protected bool IsEligibleLootVehicle(IEntity entity, IEntity playerEntity)
+	{
+		if (!entity || entity == playerEntity)
+			return false;
+
+		string prefab = ResolvePrefabName(entity);
+		if (prefab.IsEmpty())
+			return false;
+
+		if (prefab.Contains("Character") || prefab.Contains("Inventory") || prefab.Contains("Weapon") || prefab.Contains("Magazine"))
+			return false;
+
+		return prefab.Contains("Vehicles") || prefab.Contains("Vehicle");
+	}
+
+	protected string ResolveVehicleRuntimeId(IEntity vehicle)
+	{
+		if (!vehicle)
+			return "";
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(vehicle.FindComponent(BaseRplComponent));
+		if (rpl)
+			return string.Format("rpl_%1", rpl.Id());
+
+		return string.Format("local_%1_%2", ResolvePrefabName(vehicle), vehicle.GetOrigin());
 	}
 
 	protected string ResolveFactionKey(IEntity entity)

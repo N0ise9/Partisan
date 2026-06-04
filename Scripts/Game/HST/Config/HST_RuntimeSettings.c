@@ -49,6 +49,21 @@ class HST_RuntimeSettingsArsenalLoot
 	bool m_bAllowGuidedLauncherUnlocks;
 }
 
+class HST_RuntimeSettingsVehicleLoot
+{
+	bool m_bEnabled = true;
+	int m_iRadiusMeters = 20;
+	bool m_bOnlyLockedItems = true;
+	bool m_bRemoveSourceItems = true;
+	int m_iMaxItemsPerAction = 48;
+}
+
+class HST_RuntimeSettingsAirSupport
+{
+	bool m_bEnabled = true;
+	int m_iCooldownSeconds = 900;
+}
+
 class HST_RuntimeSettingsPersistence
 {
 	int m_iAutosaveIntervalSeconds = 900;
@@ -70,7 +85,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 1;
+	static const int SCHEMA_VERSION = 2;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -79,6 +94,8 @@ class HST_RuntimeSettings
 	ref HST_RuntimeSettingsWorld m_World = new HST_RuntimeSettingsWorld();
 	ref HST_RuntimeSettingsMembership m_Membership = new HST_RuntimeSettingsMembership();
 	ref HST_RuntimeSettingsArsenalLoot m_ArsenalLoot = new HST_RuntimeSettingsArsenalLoot();
+	ref HST_RuntimeSettingsVehicleLoot m_VehicleLoot = new HST_RuntimeSettingsVehicleLoot();
+	ref HST_RuntimeSettingsAirSupport m_AirSupport = new HST_RuntimeSettingsAirSupport();
 	ref HST_RuntimeSettingsPersistence m_Persistence = new HST_RuntimeSettingsPersistence();
 	ref HST_RuntimeSettingsDebug m_Debug = new HST_RuntimeSettingsDebug();
 	ref HST_RuntimeSettingsFeatures m_Features = new HST_RuntimeSettingsFeatures();
@@ -98,6 +115,9 @@ class HST_RuntimeSettings
 		m_ArsenalLoot.m_iArsenalUnlockThreshold = Math.Max(0, m_ArsenalLoot.m_iArsenalUnlockThreshold);
 		m_ArsenalLoot.m_iMagazineUnlockMultiplier = Math.Max(1, m_ArsenalLoot.m_iMagazineUnlockMultiplier);
 		m_ArsenalLoot.m_iLootRadiusMeters = Math.Max(1, m_ArsenalLoot.m_iLootRadiusMeters);
+		m_VehicleLoot.m_iRadiusMeters = Math.Max(1, m_VehicleLoot.m_iRadiusMeters);
+		m_VehicleLoot.m_iMaxItemsPerAction = Math.Max(1, m_VehicleLoot.m_iMaxItemsPerAction);
+		m_AirSupport.m_iCooldownSeconds = Math.Max(60, m_AirSupport.m_iCooldownSeconds);
 		m_Persistence.m_iAutosaveIntervalSeconds = Math.Max(60, m_Persistence.m_iAutosaveIntervalSeconds);
 		m_Persistence.m_iMajorChangeDebounceSeconds = Math.Max(1, m_Persistence.m_iMajorChangeDebounceSeconds);
 	}
@@ -130,6 +150,13 @@ class HST_RuntimeSettings
 		balance.m_bRemoveLootedItems = m_ArsenalLoot.m_bRemoveLootedItems;
 		balance.m_bAllowExplosiveUnlocks = m_ArsenalLoot.m_bAllowExplosiveUnlocks;
 		balance.m_bAllowGuidedLauncherUnlocks = m_ArsenalLoot.m_bAllowGuidedLauncherUnlocks;
+		balance.m_bVehicleLootEnabled = m_VehicleLoot.m_bEnabled;
+		balance.m_iVehicleLootRadiusMeters = m_VehicleLoot.m_iRadiusMeters;
+		balance.m_bVehicleLootOnlyLockedItems = m_VehicleLoot.m_bOnlyLockedItems;
+		balance.m_bVehicleLootRemoveSource = m_VehicleLoot.m_bRemoveSourceItems;
+		balance.m_iVehicleLootMaxItemsPerAction = m_VehicleLoot.m_iMaxItemsPerAction;
+		balance.m_bAirSupportEnabled = m_AirSupport.m_bEnabled;
+		balance.m_iAirSupportCooldownSeconds = m_AirSupport.m_iCooldownSeconds;
 		balance.m_iWarLevelMaximum = m_Economy.m_iWarLevelMaximum;
 	}
 
@@ -140,7 +167,9 @@ class HST_RuntimeSettings
 		string economy = string.Format("\neconomy | money %1 | HR %2 | income %3s | war max %4", m_Economy.m_iStartingFactionMoney, m_Economy.m_iStartingHR, m_Economy.m_iZoneIncomeIntervalSeconds, m_Economy.m_iWarLevelMaximum);
 		string world = string.Format("\nworld | activation %1m | deactivation %2m | mission duration %3s", m_World.m_iActivationRadiusMeters, m_World.m_iDeactivationRadiusMeters, m_World.m_iMissionDefaultDurationSeconds);
 		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | radius %3m | locked only %4 | remove source %5", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootOnlyLockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
+		string vehicleLoot = string.Format("\nvehicle loot | enabled %1 | radius %2m | locked only %3 | remove source %4 | max %5", m_VehicleLoot.m_bEnabled, m_VehicleLoot.m_iRadiusMeters, m_VehicleLoot.m_bOnlyLockedItems, m_VehicleLoot.m_bRemoveSourceItems, m_VehicleLoot.m_iMaxItemsPerAction);
+		string airSupport = string.Format("\nair support | enabled %1 | cooldown %2s", m_AirSupport.m_bEnabled, m_AirSupport.m_iCooldownSeconds);
 		string persistence = string.Format("\npersistence | autosave %1s | debounce %2s", m_Persistence.m_iAutosaveIntervalSeconds, m_Persistence.m_iMajorChangeDebounceSeconds);
-		return campaign + factions + economy + world + loot + persistence + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
+		return campaign + factions + economy + world + loot + vehicleLoot + airSupport + persistence + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
 	}
 }

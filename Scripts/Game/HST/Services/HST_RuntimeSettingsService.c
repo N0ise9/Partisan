@@ -81,6 +81,13 @@ class HST_RuntimeSettingsService
 			ApplyBool(line, "removeLootedItems", settings.m_ArsenalLoot.m_bRemoveLootedItems);
 			ApplyBool(line, "allowExplosiveUnlocks", settings.m_ArsenalLoot.m_bAllowExplosiveUnlocks);
 			ApplyBool(line, "allowGuidedLauncherUnlocks", settings.m_ArsenalLoot.m_bAllowGuidedLauncherUnlocks);
+			ApplyBool(line, "vehicleLootEnabled", settings.m_VehicleLoot.m_bEnabled);
+			ApplyInt(line, "vehicleLootRadiusMeters", settings.m_VehicleLoot.m_iRadiusMeters);
+			ApplyBool(line, "vehicleLootOnlyLockedItems", settings.m_VehicleLoot.m_bOnlyLockedItems);
+			ApplyBool(line, "vehicleLootRemoveSourceItems", settings.m_VehicleLoot.m_bRemoveSourceItems);
+			ApplyInt(line, "vehicleLootMaxItemsPerAction", settings.m_VehicleLoot.m_iMaxItemsPerAction);
+			ApplyBool(line, "airSupportEnabled", settings.m_AirSupport.m_bEnabled);
+			ApplyInt(line, "airSupportCooldownSeconds", settings.m_AirSupport.m_iCooldownSeconds);
 			ApplyInt(line, "autosaveIntervalSeconds", settings.m_Persistence.m_iAutosaveIntervalSeconds);
 			ApplyInt(line, "majorChangeDebounceSeconds", settings.m_Persistence.m_iMajorChangeDebounceSeconds);
 			ApplyBool(line, "debugMenuEnabled", settings.m_Debug.m_bDebugMenuEnabled);
@@ -163,7 +170,7 @@ class HST_RuntimeSettingsService
 	{
 		array<string> lines = {};
 		lines.Insert("{");
-		lines.Insert("  \"schemaVersion\": 1,");
+		lines.Insert("  \"schemaVersion\": 2,");
 		lines.Insert("  \"campaign\": {");
 		lines.Insert("    \"presetId\": \"rhs_everon\",");
 		lines.Insert("    \"campaignSeed\": 1985,");
@@ -202,6 +209,17 @@ class HST_RuntimeSettingsService
 		lines.Insert("    \"removeLootedItems\": true,");
 		lines.Insert("    \"allowExplosiveUnlocks\": false,");
 		lines.Insert("    \"allowGuidedLauncherUnlocks\": false");
+		lines.Insert("  },");
+		lines.Insert("  \"vehicleLoot\": {");
+		lines.Insert("    \"vehicleLootEnabled\": true,");
+		lines.Insert("    \"vehicleLootRadiusMeters\": 20,");
+		lines.Insert("    \"vehicleLootOnlyLockedItems\": true,");
+		lines.Insert("    \"vehicleLootRemoveSourceItems\": true,");
+		lines.Insert("    \"vehicleLootMaxItemsPerAction\": 48");
+		lines.Insert("  },");
+		lines.Insert("  \"airSupport\": {");
+		lines.Insert("    \"airSupportEnabled\": true,");
+		lines.Insert("    \"airSupportCooldownSeconds\": 900");
 		lines.Insert("  },");
 		lines.Insert("  \"persistence\": {");
 		lines.Insert("    \"autosaveIntervalSeconds\": 900,");

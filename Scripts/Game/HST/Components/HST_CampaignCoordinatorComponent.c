@@ -668,8 +668,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId) || !m_SupportRequests)
 			return false;
 
+		if (IsAirSupportType(supportType))
+		{
+			if (!m_Balance.m_bAirSupportEnabled || !HasResistanceAirSupportCapability())
+				return false;
+		}
+
 		string targetZoneId = SelectHQSupportZoneId();
-		HST_SupportRequestState request = m_SupportRequests.RequestSupport(m_State, m_Preset, m_Economy, m_EnemyDirector, m_Preset.m_sResistanceFactionKey, supportType, targetZoneId, true);
+		int cooldownSeconds = HST_SupportRequestService.PLAYER_SUPPORT_COOLDOWN_SECONDS;
+		if (IsAirSupportType(supportType))
+			cooldownSeconds = m_Balance.m_iAirSupportCooldownSeconds;
+
+		HST_SupportRequestState request = m_SupportRequests.RequestSupport(m_State, m_Preset, m_Economy, m_EnemyDirector, m_Preset.m_sResistanceFactionKey, supportType, targetZoneId, true, cooldownSeconds);
 		if (request)
 			MarkMajorCampaignChange();
 		return request != null;
@@ -807,7 +817,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Arsenal)
 			return "";
 
-		return m_Arsenal.BuildGarageReport(m_State);
+		string report = m_Arsenal.BuildGarageReport(m_State);
+		if (m_Loot)
+			report = report + "\n" + m_Loot.BuildVehicleCargoReport(m_State);
+		return report;
+	}
+
+	string RequestMemberInspectVehicleCargo(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Loot)
+			return "";
+
+		return m_Loot.BuildVehicleCargoReport(m_State);
 	}
 
 	string RequestMemberInspectSupport(int playerId)
@@ -902,6 +923,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (changed)
 			MarkMajorCampaignChange();
 		return changed;
+	}
+
+	string RequestMemberCollectVehicleLoot(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi vehicle loot | membership required";
+
+		if (!m_Settings || !m_Settings.m_Features.m_bAreaLootEnabled)
+			return "h-istasi vehicle loot | area loot disabled by config";
+
+		if (!m_Loot || !m_Arsenal)
+			return "h-istasi vehicle loot | service not ready";
+
+		HST_LootResult result = m_Loot.CollectNearbyLootToVehicle(m_State, m_Preset, m_Balance, m_Arsenal, playerId);
+		if (result && result.m_iItemsDeposited > 0)
+			MarkMajorCampaignChange();
+
+		if (!result)
+			return "h-istasi vehicle loot | no result";
+
+		return result.BuildSummary();
+	}
+
+	string RequestMemberUnloadVehicleCargo(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi vehicle loot | membership required";
+
+		if (!m_Loot || !m_Arsenal)
+			return "h-istasi vehicle loot | service not ready";
+
+		string result = m_Loot.UnloadNearestVehicleCargoToArsenal(m_State, m_Preset, m_Balance, m_Arsenal, playerId);
+		if (!result.Contains("no stored cargo") && !result.Contains("no eligible vehicle") && !result.Contains("no living player"))
+			MarkMajorCampaignChange();
+
+		return result;
 	}
 
 	bool RequestMemberRedeployGarageVehicle(int playerId)
@@ -1185,6 +1242,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return m_Authorization.CanUseAdminActions(m_State, ResolveTrustedIdentityId(playerId));
+	}
+
+	bool HasResistanceAirSupportCapability()
+	{
+		if (!Replication.IsServer() || !m_State)
+			return false;
+
+		foreach (HST_GarageVehicleState vehicle : m_State.m_aGarageVehicles)
+		{
+			if (!vehicle || vehicle.m_sPrefab.IsEmpty())
+				continue;
+
+			if (IsAircraftPrefab(vehicle.m_sPrefab))
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool IsAirSupportType(HST_ESupportRequestType supportType)
+	{
+		return supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU || supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK || supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55;
+	}
+
+	protected bool IsAircraftPrefab(string prefab)
+	{
+		return prefab.Contains("Aircraft") || prefab.Contains("Airplane") || prefab.Contains("Plane") || prefab.Contains("Helicopter") || prefab.Contains("Helicopters") || prefab.Contains("UH") || prefab.Contains("AH") || prefab.Contains("Mi-") || prefab.Contains("KA-") || prefab.Contains("Ka-");
 	}
 
 	protected bool IsSettingsAdminIdentity(string identityId)

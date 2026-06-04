@@ -65,6 +65,30 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return m_sLastResult;
 	}
 
+	int ResolveLocalPlayerId()
+	{
+		if (!m_OwnerEntity)
+			return 0;
+
+		PlayerController controller = PlayerController.Cast(m_OwnerEntity);
+		if (controller && controller.GetPlayerId() > 0)
+			return controller.GetPlayerId();
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		int controlledPlayerId = playerManager.GetPlayerIdFromControlledEntity(m_OwnerEntity);
+		if (controlledPlayerId > 0)
+			return controlledPlayerId;
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
+		if (rpl)
+			return playerManager.GetPlayerIdFromEntityRplId(rpl.Id());
+
+		return 0;
+	}
+
 	void RequestSnapshot(string selectedTabId, string lastResult = "")
 	{
 		if (Replication.IsServer())

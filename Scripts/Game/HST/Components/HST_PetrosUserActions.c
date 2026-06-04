@@ -142,3 +142,31 @@ class HST_HQArsenalLootNearbyAction : HST_ContextualUserActionBase
 		return true;
 	}
 }
+
+class HST_VehicleCollectLootAction : HST_ContextualUserActionBase
+{
+	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
+	{
+		RunMenuCommand("arsenal", "vehicle_collect_loot", "", pUserEntity);
+	}
+
+	override bool GetActionNameScript(out string outName)
+	{
+		outName = "Collect nearby loot";
+		return true;
+	}
+}
+
+class HST_VehicleUnloadLootAction : HST_ContextualUserActionBase
+{
+	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
+	{
+		RunMenuCommand("arsenal", "vehicle_unload_loot", "", pUserEntity);
+	}
+
+	override bool GetActionNameScript(out string outName)
+	{
+		outName = "Unload h-istasi cargo";
+		return true;
+	}
+}

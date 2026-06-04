@@ -152,6 +152,20 @@ class HST_GarageVehicleState
 }
 
 [BaseContainerProps()]
+class HST_VehicleCargoItemState
+{
+	string m_sVehicleRuntimeId;
+	string m_sVehiclePrefab;
+	string m_sVehicleDisplayName;
+	string m_sItemPrefab;
+	string m_sDisplayName;
+	string m_sCategory;
+	int m_iCount;
+	int m_iLastStoredAtSecond;
+	vector m_vLastVehiclePosition;
+}
+
+[BaseContainerProps()]
 class HST_EmplacementState
 {
 	string m_sEmplacementId;
@@ -255,11 +269,14 @@ class HST_SupportRequestState
 	string m_sFactionKey;
 	string m_sCapabilityId;
 	string m_sAssetProfileId;
+	string m_sStrikeKind;
+	string m_sStrikeConfigResource;
 	HST_ESupportRequestType m_eType;
 	HST_ESupportRequestStatus m_eStatus;
 	string m_sSourceZoneId;
 	string m_sTargetZoneId;
 	string m_sGroupId;
+	string m_sRuntimeEntityId;
 	vector m_vSourcePosition;
 	vector m_vTargetPosition;
 	int m_iRequestedAtSecond;
@@ -270,6 +287,8 @@ class HST_SupportRequestState
 	int m_iCooldownUntilSecond;
 	bool m_bHelicopterStyle;
 	bool m_bPlayerRequested;
+	bool m_bPhysicalStrikeSpawned;
+	bool m_bAbstractResolved;
 	string m_sFailureReason;
 }
 
@@ -329,7 +348,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 9;
+	static const int SCHEMA_VERSION = 10;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -372,6 +391,7 @@ class HST_CampaignState
 	ref array<ref HST_MapMarkerState> m_aMapMarkers = {};
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
+	ref array<ref HST_VehicleCargoItemState> m_aVehicleCargoItems = {};
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
 	ref array<ref HST_AmmoPointState> m_aAmmoPoints = {};
 	ref array<ref HST_ActiveMissionState> m_aActiveMissions = {};
@@ -434,6 +454,17 @@ class HST_CampaignState
 		{
 			if (vehicle.m_sVehicleId == vehicleId)
 				return vehicle;
+		}
+
+		return null;
+	}
+
+	HST_VehicleCargoItemState FindVehicleCargoItem(string vehicleRuntimeId, string itemPrefab)
+	{
+		foreach (HST_VehicleCargoItemState cargoItem : m_aVehicleCargoItems)
+		{
+			if (cargoItem.m_sVehicleRuntimeId == vehicleRuntimeId && cargoItem.m_sItemPrefab == itemPrefab)
+				return cargoItem;
 		}
 
 		return null;

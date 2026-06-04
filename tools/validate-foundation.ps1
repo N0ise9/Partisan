@@ -84,8 +84,16 @@ function Get-CoordinateXZKey {
 }
 
 $project = Get-Content -Raw "addon.gproj"
-if ($project -notmatch '"58D0FB3206B6F859"' -or $project -notmatch '"595F2BF2F44836FB"') {
-	throw "addon.gproj must depend on base Reforger and RHS Status Quo"
+foreach ($requiredProjectDependency in @(
+	'"58D0FB3206B6F859"',
+	'"595F2BF2F44836FB"',
+	'"1337C0DE5DABBEEF"',
+	'"BADC0DEDABBEDA5E"',
+	'"66913B3B2EF7EBEC"'
+)) {
+	if ($project -notmatch [regex]::Escape($requiredProjectDependency)) {
+		throw "addon.gproj is missing required dependency: $requiredProjectDependency"
+	}
 }
 Write-Host "Project dependencies OK"
 
@@ -405,7 +413,7 @@ if ((Get-Content -Raw $hqArsenalPrefabMetaPath) -notmatch '\{6985327711303400\}P
 $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
-	"Ural4320_arsenal_box_tan.et",
+	"ArsenalBox_FIA_Weapons.et",
 	"ActionsManagerComponent",
 	'ActionsManagerComponent "{5D66ED1096104FD8}"',
 	"HST_HQArsenalOpenAction",
@@ -422,6 +430,9 @@ if ($hqArsenalPrefabText -match 'ActionsManagerComponent "\{6985327711303401\}"'
 }
 if ($hqArsenalPrefabText -match "SupplyCache_S_FIA_01.et") {
 	throw "HST HQ arsenal prefab must use a distinct non-tent arsenal parent, not the FIA supply-cache composition"
+}
+if ($hqArsenalPrefabText -match "Ural4320_arsenal_box_tan.et") {
+	throw "HST HQ arsenal prefab must use the FIA arsenal visual, not the Ural vehicle arsenal box"
 }
 Write-Host "HST HQ arsenal prefab OK"
 
@@ -922,7 +933,9 @@ foreach ($requiredService in @(
 	"HST_PetrosMoveBaseHereAction",
 	"HST_PetrosArsenalMenuAction",
 	"HST_HQArsenalOpenAction",
-	"HST_HQArsenalLootNearbyAction"
+	"HST_HQArsenalLootNearbyAction",
+	"HST_VehicleCollectLootAction",
+	"HST_VehicleUnloadLootAction"
 )) {
 	if ($requiredService -notin $definedSymbols) {
 		throw "Missing Antistasi framework service: $requiredService"
@@ -993,10 +1006,19 @@ foreach ($requiredSaveEntry in @(
 	"m_sCategory",
 	"m_vArsenalPosition",
 	"m_sArsenalPrefab",
+	"HST_VehicleCargoItemState",
+	"m_aVehicleCargoItems",
+	"m_sVehicleRuntimeId",
+	"m_sVehiclePrefab",
+	"m_sVehicleDisplayName",
 	"m_iRedeployCost",
 	"m_sSourceZoneId",
 	"m_sCapabilityId",
 	"m_sAssetProfileId",
+	"m_sStrikeKind",
+	"m_sStrikeConfigResource",
+	"m_bPhysicalStrikeSpawned",
+	"m_bAbstractResolved",
 	"m_iMoneyCost",
 	"m_iCooldownUntilSecond",
 	"m_sTargetZoneId",
@@ -1020,6 +1042,27 @@ foreach ($requiredSaveEntry in @(
 	}
 }
 Write-Host "Campaign save scaffold OK"
+
+foreach ($requiredSupportStrikeEntry in @(
+	"HST_SUPPORT_AIRSTRIKE_GBU",
+	"HST_SUPPORT_AIRSTRIKE_UMPK",
+	"HST_SUPPORT_CRUISE_MISSILE_KH55",
+	"RHS_CallIn_Blue_CAS_GBU.conf",
+	"RHS_CallIn_Opfor_CAS_FAB500UMPK.conf",
+	"RHS_CallIn_Opfor_Missle_KH55.conf",
+	"StrikeKindForSupport",
+	"StrikeConfigForSupport",
+	"ResolveStrikeSupport",
+	"HasResistanceAirSupportCapability",
+	"air_support_unlockable",
+	"support_umpk",
+	"support_kh55"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredSupportStrikeEntry)) {
+		throw "Missing RHS/Tonka support strike contract entry: $requiredSupportStrikeEntry"
+	}
+}
+Write-Host "RHS/Tonka support strike contract OK"
 
 foreach ($requiredCoordinatorEntry in @(
 	"RegisterConnectedPlayer",
@@ -1130,6 +1173,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'PolygonDrawCommand',
 	'm_aCanvasCommandSets',
 	'SetDrawCommands',
+	'ActivateContext(MENU_INPUT_CONTEXT)',
 	'ActivateAction(COMMAND_MENU_ACTION)',
 	'ActivateAction(COMMAND_MENU_CUSTOM_ACTION)',
 	'GetActionTriggered(COMMAND_MENU_CUSTOM_ACTION)',
@@ -1173,6 +1217,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'ParseActionsFromPayload',
 	'OnServerSnapshot',
 	'HST_CommandMenuRequestComponent.GetLocalOwner',
+	'ResolveLocalPlayerId',
 	'RequestSnapshot',
 	'RequestAction',
 	'ExecuteSelectedAction',
@@ -1188,6 +1233,9 @@ foreach ($requiredCommandMenuEntry in @(
 	'inspect_arsenal',
 	'setup_hideout',
 	'loot_nearby',
+	'vehicle_collect_loot',
+	'vehicle_unload_loot',
+	'inspect_vehicle_cargo',
 	'withdraw_arsenal',
 	'garage_capture_nearby',
 	'garage_redeploy',
@@ -1197,6 +1245,8 @@ foreach ($requiredCommandMenuEntry in @(
 	'mission_zone',
 	'support_qrf',
 	'support_fire',
+	'support_gbu',
+	'support_umpk',
 	'cancel_support',
 	'capture_zone',
 	'award_small',
@@ -1330,6 +1380,13 @@ foreach ($requiredSettingsEntry in @(
 	"lootRadiusMeters",
 	"lootOnlyLockedItems",
 	"removeLootedItems",
+	"vehicleLootEnabled",
+	"vehicleLootRadiusMeters",
+	"vehicleLootOnlyLockedItems",
+	"vehicleLootRemoveSourceItems",
+	"vehicleLootMaxItemsPerAction",
+	"airSupportEnabled",
+	"airSupportCooldownSeconds",
 	"ApplyTo"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSettingsEntry)) {
@@ -1342,6 +1399,10 @@ foreach ($requiredLootEntry in @(
 	"HST_LootService",
 	"HST_LootResult",
 	"LootNearbyToArsenal",
+	"CollectNearbyLootToVehicle",
+	"UnloadNearestVehicleCargoToArsenal",
+	"BuildVehicleCargoReport",
+	"DepositVehicleCargo",
 	"CaptureNearbyVehicleToGarage",
 	"DistanceSq2D",
 	"SCR_InventoryStorageManagerComponent",
@@ -1357,8 +1418,15 @@ foreach ($requiredLootEntry in @(
 	"m_bAllowExplosiveUnlocks",
 	"m_bAllowGuidedLauncherUnlocks",
 	"m_iMagazineUnlockMultiplier",
+	"m_bVehicleLootEnabled",
+	"m_iVehicleLootRadiusMeters",
+	"m_bVehicleLootOnlyLockedItems",
+	"m_bVehicleLootRemoveSource",
+	"m_iVehicleLootMaxItemsPerAction",
 	"HST_HQArsenalOpenAction",
-	"HST_HQArsenalLootNearbyAction"
+	"HST_HQArsenalLootNearbyAction",
+	"HST_VehicleCollectLootAction",
+	"HST_VehicleUnloadLootAction"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredLootEntry)) {
 		throw "Missing loot-to-arsenal contract entry: $requiredLootEntry"

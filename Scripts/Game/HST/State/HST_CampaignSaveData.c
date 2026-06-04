@@ -42,6 +42,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_MapMarkerState> m_aMapMarkers = {};
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
+	ref array<ref HST_VehicleCargoItemState> m_aVehicleCargoItems = {};
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
 	ref array<ref HST_AmmoPointState> m_aAmmoPoints = {};
 	ref array<ref HST_ActiveMissionState> m_aActiveMissions = {};
@@ -126,6 +127,10 @@ class HST_CampaignSaveData
 		m_aGarageVehicles.Clear();
 		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
 			m_aGarageVehicles.Insert(CopyGarageVehicle(vehicle));
+
+		m_aVehicleCargoItems.Clear();
+		foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
+			m_aVehicleCargoItems.Insert(CopyVehicleCargoItem(cargoItem));
 
 		m_aCapturedEmplacements.Clear();
 		foreach (HST_EmplacementState emplacement : state.m_aCapturedEmplacements)
@@ -253,6 +258,10 @@ class HST_CampaignSaveData
 		state.m_aGarageVehicles.Clear();
 		foreach (HST_GarageVehicleState vehicle : m_aGarageVehicles)
 			state.m_aGarageVehicles.Insert(CopyGarageVehicle(vehicle));
+
+		state.m_aVehicleCargoItems.Clear();
+		foreach (HST_VehicleCargoItemState cargoItem : m_aVehicleCargoItems)
+			state.m_aVehicleCargoItems.Insert(CopyVehicleCargoItem(cargoItem));
 
 		state.m_aCapturedEmplacements.Clear();
 		foreach (HST_EmplacementState emplacement : m_aCapturedEmplacements)
@@ -462,6 +471,21 @@ class HST_CampaignSaveData
 		return target;
 	}
 
+	protected HST_VehicleCargoItemState CopyVehicleCargoItem(HST_VehicleCargoItemState source)
+	{
+		HST_VehicleCargoItemState target = new HST_VehicleCargoItemState();
+		target.m_sVehicleRuntimeId = source.m_sVehicleRuntimeId;
+		target.m_sVehiclePrefab = source.m_sVehiclePrefab;
+		target.m_sVehicleDisplayName = source.m_sVehicleDisplayName;
+		target.m_sItemPrefab = source.m_sItemPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sCategory = source.m_sCategory;
+		target.m_iCount = source.m_iCount;
+		target.m_iLastStoredAtSecond = source.m_iLastStoredAtSecond;
+		target.m_vLastVehiclePosition = source.m_vLastVehiclePosition;
+		return target;
+	}
+
 	protected HST_EmplacementState CopyEmplacement(HST_EmplacementState source)
 	{
 		HST_EmplacementState target = new HST_EmplacementState();
@@ -572,11 +596,14 @@ class HST_CampaignSaveData
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sCapabilityId = source.m_sCapabilityId;
 		target.m_sAssetProfileId = source.m_sAssetProfileId;
+		target.m_sStrikeKind = source.m_sStrikeKind;
+		target.m_sStrikeConfigResource = source.m_sStrikeConfigResource;
 		target.m_eType = source.m_eType;
 		target.m_eStatus = source.m_eStatus;
 		target.m_sSourceZoneId = source.m_sSourceZoneId;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
 		target.m_sGroupId = source.m_sGroupId;
+		target.m_sRuntimeEntityId = source.m_sRuntimeEntityId;
 		target.m_vSourcePosition = source.m_vSourcePosition;
 		target.m_vTargetPosition = source.m_vTargetPosition;
 		target.m_iRequestedAtSecond = source.m_iRequestedAtSecond;
@@ -587,6 +614,8 @@ class HST_CampaignSaveData
 		target.m_iCooldownUntilSecond = source.m_iCooldownUntilSecond;
 		target.m_bHelicopterStyle = source.m_bHelicopterStyle;
 		target.m_bPlayerRequested = source.m_bPlayerRequested;
+		target.m_bPhysicalStrikeSpawned = source.m_bPhysicalStrikeSpawned;
+		target.m_bAbstractResolved = source.m_bAbstractResolved;
 		target.m_sFailureReason = source.m_sFailureReason;
 		return target;
 	}
@@ -703,10 +732,60 @@ class HST_CampaignSaveData
 			if (group.m_iSurvivorVehicleCount <= 0)
 				group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
 		}
+
+		foreach (HST_VehicleCargoItemState cargoItem : m_aVehicleCargoItems)
+		{
+			if (!cargoItem)
+				continue;
+
+			if (cargoItem.m_sVehicleRuntimeId.IsEmpty())
+				cargoItem.m_sVehicleRuntimeId = cargoItem.m_sVehiclePrefab;
+			if (cargoItem.m_sDisplayName.IsEmpty())
+				cargoItem.m_sDisplayName = cargoItem.m_sItemPrefab;
+			if (cargoItem.m_sCategory.IsEmpty())
+				cargoItem.m_sCategory = "equipment";
+		}
+
+		foreach (HST_SupportRequestState request : m_aSupportRequests)
+		{
+			if (!request)
+				continue;
+
+			if (request.m_sStrikeKind.IsEmpty())
+				request.m_sStrikeKind = StrikeKindFromType(request.m_eType);
+			if (request.m_sStrikeConfigResource.IsEmpty())
+				request.m_sStrikeConfigResource = StrikeConfigFromType(request.m_eType);
+			if (request.m_sRuntimeEntityId.IsEmpty() && !request.m_sStrikeConfigResource.IsEmpty())
+				request.m_sRuntimeEntityId = "rhs_callin_config";
+		}
 	}
 
 	protected bool IsZeroVector(vector value)
 	{
 		return value[0] == 0 && value[1] == 0 && value[2] == 0;
+	}
+
+	protected string StrikeKindFromType(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
+			return "GBU";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return "FAB500_UMPK";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return "KH55";
+
+		return "";
+	}
+
+	protected string StrikeConfigFromType(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
+			return "{94C612087EB33D34}Configs/Systems/RHS_CallIn/RHS_CallIn_Blue_CAS_GBU.conf";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return "{8905C0BA950B1E7C}Configs/Systems/RHS_CallIn/RHS_CallIn_Opfor_CAS_FAB500UMPK.conf";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return "{C0D42687D927011B}Configs/Systems/RHS_CallIn/RHS_CallIn_Opfor_Missle_KH55.conf";
+
+		return "";
 	}
 }

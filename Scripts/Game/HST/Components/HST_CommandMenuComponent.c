@@ -179,6 +179,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		InputManager inputManager = GetGame().GetInputManager();
 		if (inputManager)
 		{
+			inputManager.ActivateContext(MENU_INPUT_CONTEXT);
 			inputManager.ActivateAction(COMMAND_MENU_ACTION);
 			inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
 			PollCommandMenuInput(inputManager);
@@ -300,7 +301,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (widgetId >= ACTION_WIDGET_ID_BASE)
 		{
-			m_iSelectedControl = m_aTabIds.Count() + widgetId - ACTION_WIDGET_ID_BASE;
+			int actionIndex = widgetId - ACTION_WIDGET_ID_BASE;
+			if (actionIndex < 0 || actionIndex >= m_aActionCommands.Count())
+				return false;
+
+			m_iSelectedControl = m_aTabIds.Count() + actionIndex;
 			ExecuteSelectedAction();
 			return true;
 		}
@@ -759,6 +764,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_aActionEnabled[actionIndex])
 		{
 			m_sLastResult = "h-istasi command | " + m_aActionLabels[actionIndex] + " | " + m_aActionDisabledReasons[actionIndex];
+			ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
 			RenderMenu();
 			return;
 		}
@@ -913,8 +919,10 @@ class HST_CommandMenuComponent : ScriptComponent
 			else if (focused)
 				background = 0xFF263341;
 
+			float opacity = 0.01;
 			if (selected || focused)
-				CreateRectWidget(workspace, root, 36, top - 8, 166, 46, background, 0.96, TAB_WIDGET_ID_BASE + i);
+				opacity = 0.96;
+			CreateRectWidget(workspace, root, 36, top - 8, 166, 46, background, opacity, TAB_WIDGET_ID_BASE + i);
 
 			string label = m_aTabLabels[i];
 			if (focused)
@@ -1008,15 +1016,19 @@ class HST_CommandMenuComponent : ScriptComponent
 		CreateTextWidget(workspace, root, "Actions", 988, 444, 180, 32, 21, 0xFFEFE2C4, 0, true);
 		for (int i = 0; i < m_aActionLabels.Count(); i++)
 		{
-			if (i >= 8)
+			if (i >= 10)
 				break;
 
 			string prefix = "  ";
+			int rowColor = 0x00222222;
+			float rowOpacity = 0.01;
 			if (m_iSelectedControl == m_aTabIds.Count() + i)
 			{
 				prefix = "> ";
-				CreateRectWidget(workspace, root, 980, 484 + i * 38, 312, 34, 0xFF604A24, 0.88, ACTION_WIDGET_ID_BASE + i);
+				rowColor = 0xFF604A24;
+				rowOpacity = 0.88;
 			}
+			CreateRectWidget(workspace, root, 980, 484 + i * 34, 312, 30, rowColor, rowOpacity, ACTION_WIDGET_ID_BASE + i);
 
 			string suffix = "";
 			int color = 0xFFE5E5E5;
@@ -1026,7 +1038,7 @@ class HST_CommandMenuComponent : ScriptComponent
 				color = 0xFF8B9298;
 			}
 
-			CreateTextWidget(workspace, root, ShortenText(prefix + m_aActionLabels[i] + suffix, 32), 988, 488 + i * 38, 304, 32, 18, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
+			CreateTextWidget(workspace, root, ShortenText(prefix + m_aActionLabels[i] + suffix, 32), 988, 488 + i * 34, 304, 30, 17, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
 		}
 
 		if (m_aActionLabels.Count() == 0)
@@ -1469,6 +1481,10 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected int ResolveLocalPlayerId()
 	{
+		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.GetLocalOwner();
+		if (request && request.ResolveLocalPlayerId() > 0)
+			return request.ResolveLocalPlayerId();
+
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
 			return 1;

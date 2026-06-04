@@ -100,7 +100,7 @@ class HST_ArsenalService
 			if (label.IsEmpty())
 				label = item.m_sPrefab;
 
-			report = report + string.Format("\n%1 | %2 | count %3 | unlocked %4", label, item.m_sCategory, item.m_iCount, item.m_bUnlocked);
+			report = report + string.Format("\n%1 | %2 | count %3", label, item.m_sCategory, CountLabel(item));
 		}
 
 		return report;
@@ -209,6 +209,17 @@ class HST_ArsenalService
 		else if (item.m_sCategory == "magazine")
 			score += 30;
 		return score;
+	}
+
+	protected string CountLabel(HST_ArsenalItemState item)
+	{
+		if (!item)
+			return "0";
+
+		if (item.m_bUnlocked)
+			return "INF";
+
+		return string.Format("%1", item.m_iCount);
 	}
 
 	protected int ResolveRedeployCost(HST_GarageVehicleState vehicle)

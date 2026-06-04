@@ -20,6 +20,13 @@ class HST_BalanceConfig
 	bool m_bRemoveLootedItems = true;
 	bool m_bAllowExplosiveUnlocks;
 	bool m_bAllowGuidedLauncherUnlocks;
+	bool m_bVehicleLootEnabled = true;
+	int m_iVehicleLootRadiusMeters = 20;
+	bool m_bVehicleLootOnlyLockedItems = true;
+	bool m_bVehicleLootRemoveSource = true;
+	int m_iVehicleLootMaxItemsPerAction = 48;
+	bool m_bAirSupportEnabled = true;
+	int m_iAirSupportCooldownSeconds = 900;
 	int m_iWarLevelMaximum = 10;
 }
 

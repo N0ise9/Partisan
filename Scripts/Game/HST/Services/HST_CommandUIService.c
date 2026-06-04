@@ -122,6 +122,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_garage")
 			return coordinator.RequestMemberInspectGarage(playerId);
 
+		if (commandId == "inspect_vehicle_cargo")
+			return coordinator.RequestMemberInspectVehicleCargo(playerId);
+
 		if (commandId == "inspect_support")
 			return coordinator.RequestMemberInspectSupport(playerId);
 
@@ -145,6 +148,12 @@ class HST_CommandUIService
 
 		if (commandId == "withdraw_arsenal")
 			return coordinator.RequestMemberWithdrawBestArsenalItem(playerId);
+
+		if (commandId == "vehicle_collect_loot")
+			return coordinator.RequestMemberCollectVehicleLoot(playerId);
+
+		if (commandId == "vehicle_unload_loot")
+			return coordinator.RequestMemberUnloadVehicleCargo(playerId);
 
 		if (commandId == "garage_capture_nearby")
 			return BuildBoolResult("capture nearby vehicle to garage", coordinator.RequestMemberCaptureNearbyVehicle(playerId));
@@ -187,6 +196,15 @@ class HST_CommandUIService
 
 		if (commandId == "support_fire")
 			return BuildBoolResult("request suppressive fire", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE));
+
+		if (commandId == "support_gbu")
+			return BuildBoolResult("request GBU air strike", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU));
+
+		if (commandId == "support_umpk")
+			return BuildBoolResult("request UMPK air strike", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK));
+
+		if (commandId == "support_kh55")
+			return BuildBoolResult("request Kh55 strike", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55));
 
 		if (commandId == "cancel_support")
 			return BuildBoolResult("cancel active player support", coordinator.RequestCommanderCancelSupport(playerId, argument));
@@ -322,6 +340,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_garage")
 			return !coordinator.RequestMemberInspectGarage(playerId).IsEmpty();
 
+		if (commandId == "inspect_vehicle_cargo")
+			return !coordinator.RequestMemberInspectVehicleCargo(playerId).IsEmpty();
+
 		if (commandId == "inspect_support")
 			return !coordinator.RequestMemberInspectSupport(playerId).IsEmpty();
 
@@ -345,6 +366,12 @@ class HST_CommandUIService
 
 		if (commandId == "withdraw_arsenal")
 			return !coordinator.RequestMemberWithdrawBestArsenalItem(playerId).IsEmpty();
+
+		if (commandId == "vehicle_collect_loot")
+			return !coordinator.RequestMemberCollectVehicleLoot(playerId).IsEmpty();
+
+		if (commandId == "vehicle_unload_loot")
+			return !coordinator.RequestMemberUnloadVehicleCargo(playerId).IsEmpty();
 
 		if (commandId == "garage_capture_nearby")
 			return coordinator.RequestMemberCaptureNearbyVehicle(playerId);
@@ -387,6 +414,15 @@ class HST_CommandUIService
 
 		if (commandId == "support_fire")
 			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
+
+		if (commandId == "support_gbu")
+			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU);
+
+		if (commandId == "support_umpk")
+			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK);
+
+		if (commandId == "support_kh55")
+			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55);
 
 		if (commandId == "cancel_support")
 			return coordinator.RequestCommanderCancelSupport(playerId, argument);
@@ -768,6 +804,7 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "support", "Support requests", string.Format("%1 tracked", state.m_aSupportRequests.Count()), "warn");
 		payload = AppendRow(payload, "support", "Enemy orders", string.Format("%1 tracked", state.m_aEnemyOrders.Count()), "bad");
 		payload = AppendRow(payload, "support", "Cooldown/cancel", "Player support requests can be cancelled while queued or active.", "neutral");
+		payload = AppendRow(payload, "support", "Air capability", AirSupportCapabilityLabel(state), AirSupportCapabilityTone(state));
 
 		return payload;
 	}
@@ -781,11 +818,13 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "arsenal", "Tracked items", string.Format("%1", CountTrackedArsenalItems(state)), "neutral");
 		payload = AppendRow(payload, "arsenal", "Unlocked items", string.Format("%1", CountUnlockedArsenalItems(state)), "good");
 		payload = AppendRow(payload, "arsenal", "Garage vehicles", string.Format("%1", state.m_aGarageVehicles.Count()), "neutral");
+		payload = AppendRow(payload, "arsenal", "Vehicle cargo", string.Format("%1 entries / %2 item(s)", CountVehicleCargoEntries(state), CountVehicleCargoItems(state)), "warn");
 		payload = AppendRow(payload, "arsenal", "Captured emplacements", string.Format("%1", state.m_aCapturedEmplacements.Count()), "neutral");
 		payload = AppendRow(payload, "arsenal", "Ammo points", string.Format("%1", state.m_aAmmoPoints.Count()), "neutral");
 		if (settings)
 		{
 			payload = AppendRow(payload, "arsenal", "Loot radius", string.Format("%1m", settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
+			payload = AppendRow(payload, "arsenal", "Vehicle loot", string.Format("%1 / %2m / max %3", settings.m_VehicleLoot.m_bEnabled, settings.m_VehicleLoot.m_iRadiusMeters, settings.m_VehicleLoot.m_iMaxItemsPerAction), "neutral");
 			payload = AppendRow(payload, "arsenal", "Unlock threshold", string.Format("%1 / magazines x%2", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold, settings.m_ArsenalLoot.m_iMagazineUnlockMultiplier), "neutral");
 			payload = AppendRow(payload, "arsenal", "Loot rule", string.Format("locked only %1 / remove source %2", settings.m_ArsenalLoot.m_bLootOnlyLockedItems, settings.m_ArsenalLoot.m_bRemoveLootedItems), "warn");
 		}
@@ -804,9 +843,25 @@ class HST_CommandUIService
 			if (label.IsEmpty())
 				label = item.m_sPrefab;
 
-			payload = AppendRow(payload, "items", label, string.Format("%1 / count %2 / unlocked %3", item.m_sCategory, item.m_iCount, item.m_bUnlocked), ArsenalTone(item));
+			payload = AppendRow(payload, "items", label, string.Format("%1 / count %2", item.m_sCategory, ArsenalCountLabel(item)), ArsenalTone(item));
 			emitted++;
 			if (emitted >= 10)
+				break;
+		}
+
+		payload = AppendSection(payload, "vehicle_cargo", "Vehicle Cargo");
+		if (state.m_aVehicleCargoItems.Count() == 0)
+			payload = AppendRow(payload, "vehicle_cargo", "Empty", "Collect nearby loot into a vehicle, then unload at HQ.", "neutral");
+
+		int cargoEmitted;
+		foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
+		{
+			if (!cargoItem)
+				continue;
+
+			payload = AppendRow(payload, "vehicle_cargo", cargoItem.m_sDisplayName, string.Format("%1 / %2 / count %3", cargoItem.m_sVehicleDisplayName, cargoItem.m_sCategory, cargoItem.m_iCount), "warn");
+			cargoEmitted++;
+			if (cargoEmitted >= 6)
 				break;
 		}
 
@@ -904,6 +959,7 @@ class HST_CommandUIService
 		string adminTargetId = SelectAdminTargetZoneId(state);
 		string guestIdentityId = SelectFirstGuestIdentity(state);
 		string memberIdentityId = SelectFirstMemberIdentity(state);
+		bool airSupportReady = HasResistanceAirSupportCapability(state);
 		if (selectedTabId == TAB_SETUP)
 		{
 			AddMenuAction(actions, TAB_SETUP, "Config path / source of truth", "noop", "", true, "");
@@ -968,6 +1024,8 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_FORCES, "Request supply drop", "call_supply", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Request QRF reserve", "support_qrf", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Request suppressive fire", "support_fire", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Request GBU air strike", "support_gbu", "", canUseCommander && airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady));
+			AddMenuAction(actions, TAB_FORCES, "Request UMPK air strike", "support_umpk", "", canUseCommander && airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady));
 			AddMenuAction(actions, TAB_FORCES, "Cancel player support", "cancel_support", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Deliver civilian aid", "civilian_aid", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Economy report", "inspect_economy", "", canUseMember, "membership required");
@@ -978,11 +1036,14 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_ARSENAL)
 		{
 			AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal", "loot_nearby", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Collect loot into vehicle", "vehicle_collect_loot", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle cargo", "vehicle_unload_loot", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Withdraw first available item", "withdraw_arsenal", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Capture nearby vehicle", "garage_capture_nearby", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Redeploy garage vehicle", "garage_redeploy", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Arsenal report", "inspect_arsenal", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Garage report", "inspect_garage", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
@@ -1382,6 +1443,66 @@ class HST_CommandUIService
 		return "warn";
 	}
 
+	protected string ArsenalCountLabel(HST_ArsenalItemState item)
+	{
+		if (!item)
+			return "0";
+
+		if (item.m_bUnlocked)
+			return "INF";
+
+		return string.Format("%1", item.m_iCount);
+	}
+
+	protected string AirSupportCapabilityLabel(HST_CampaignState state)
+	{
+		if (HasResistanceAirSupportCapability(state))
+			return "aircraft stored";
+
+		return "requires captured aircraft";
+	}
+
+	protected string AirSupportCapabilityTone(HST_CampaignState state)
+	{
+		if (HasResistanceAirSupportCapability(state))
+			return "good";
+
+		return "warn";
+	}
+
+	protected string AirSupportDisabledReason(bool canUseCommander, bool airSupportReady)
+	{
+		if (!canUseCommander)
+			return "commander required";
+
+		if (!airSupportReady)
+			return "captured aircraft required";
+
+		return "";
+	}
+
+	protected bool HasResistanceAirSupportCapability(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
+		{
+			if (!vehicle || vehicle.m_sPrefab.IsEmpty())
+				continue;
+
+			if (IsAircraftPrefab(vehicle.m_sPrefab))
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool IsAircraftPrefab(string prefab)
+	{
+		return prefab.Contains("Aircraft") || prefab.Contains("Airplane") || prefab.Contains("Plane") || prefab.Contains("Helicopter") || prefab.Contains("Helicopters") || prefab.Contains("UH") || prefab.Contains("AH") || prefab.Contains("Mi-") || prefab.Contains("KA-") || prefab.Contains("Ka-");
+	}
+
 	protected int CountResistanceZones(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state || !preset)
@@ -1481,6 +1602,29 @@ class HST_CommandUIService
 			return 0;
 
 		return state.m_aArsenalItems.Count();
+	}
+
+	protected int CountVehicleCargoEntries(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		return state.m_aVehicleCargoItems.Count();
+	}
+
+	protected int CountVehicleCargoItems(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
+		{
+			if (cargoItem)
+				count += cargoItem.m_iCount;
+		}
+
+		return count;
 	}
 
 	protected int CountUnlockedArsenalItems(HST_CampaignState state)

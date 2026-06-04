@@ -3,11 +3,16 @@ class HST_SupportRequestService
 	static const int PLAYER_SUPPLY_COST = 150;
 	static const int PLAYER_QRF_COST = 250;
 	static const int PLAYER_FIRE_COST = 350;
+	static const int PLAYER_AIRSTRIKE_COST = 750;
+	static const int PLAYER_CRUISE_MISSILE_COST = 1200;
 	static const int DEFAULT_ETA_SECONDS = 120;
 	static const int HELICOPTER_STYLE_ETA_SECONDS = 180;
 	static const int PLAYER_SUPPORT_COOLDOWN_SECONDS = 600;
+	static const string RHS_GBU_CALLIN_CONFIG = "{94C612087EB33D34}Configs/Systems/RHS_CallIn/RHS_CallIn_Blue_CAS_GBU.conf";
+	static const string RHS_UMPK_CALLIN_CONFIG = "{8905C0BA950B1E7C}Configs/Systems/RHS_CallIn/RHS_CallIn_Opfor_CAS_FAB500UMPK.conf";
+	static const string RHS_KH55_CALLIN_CONFIG = "{C0D42687D927011B}Configs/Systems/RHS_CallIn/RHS_CallIn_Opfor_Missle_KH55.conf";
 
-	HST_SupportRequestState RequestSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false)
+	HST_SupportRequestState RequestSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
 	{
 		if (!state || !preset || factionKey.IsEmpty())
 			return null;
@@ -41,6 +46,8 @@ class HST_SupportRequestService
 		request.m_sFactionKey = factionKey;
 		request.m_sCapabilityId = CapabilityForSupport(supportType);
 		request.m_sAssetProfileId = AssetProfileForSupport(factionKey, supportType, factionKey == preset.m_sResistanceFactionKey);
+		request.m_sStrikeKind = StrikeKindForSupport(supportType);
+		request.m_sStrikeConfigResource = StrikeConfigForSupport(supportType);
 		request.m_eType = supportType;
 		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
 		request.m_sTargetZoneId = targetZone.m_sZoneId;
@@ -53,9 +60,11 @@ class HST_SupportRequestService
 		request.m_iSupportCost = supportCost;
 		request.m_iMoneyCost = ResolvePlayerMoneyCost(supportType);
 		if (factionKey == preset.m_sResistanceFactionKey)
-			request.m_iCooldownUntilSecond = state.m_iElapsedSeconds + PLAYER_SUPPORT_COOLDOWN_SECONDS;
+			request.m_iCooldownUntilSecond = state.m_iElapsedSeconds + Math.Max(60, playerCooldownSeconds);
 		request.m_bHelicopterStyle = IsHelicopterStyle(supportType);
 		request.m_bPlayerRequested = playerRequested;
+		if (IsStrikeSupport(supportType))
+			request.m_sRuntimeEntityId = "rhs_callin_config";
 		state.m_aSupportRequests.Insert(request);
 		Print(string.Format("h-istasi | support request %1 queued for %2 at %3", request.m_sRequestId, factionKey, targetZone.m_sZoneId));
 		return request;
@@ -120,7 +129,11 @@ class HST_SupportRequestService
 			if (!request)
 				continue;
 
-			report = report + string.Format("\n%1 | %2 | %3 | target %4 | eta %5 | asset %6", request.m_sRequestId, request.m_eType, request.m_eStatus, request.m_sTargetZoneId, request.m_iETASeconds, request.m_sAssetProfileId);
+			string strike = "";
+			if (!request.m_sStrikeConfigResource.IsEmpty())
+				strike = " | strike " + request.m_sStrikeKind + " | " + request.m_sStrikeConfigResource;
+
+			report = report + string.Format("\n%1 | %2 | %3 | target %4 | eta %5 | asset %6%7", request.m_sRequestId, request.m_eType, request.m_eStatus, request.m_sTargetZoneId, request.m_iETASeconds, request.m_sAssetProfileId, strike);
 		}
 
 		return report;
@@ -144,6 +157,12 @@ class HST_SupportRequestService
 	{
 		if (!request || request.m_bHelicopterStyle)
 			return;
+
+		if (IsStrikeSupport(request.m_eType))
+		{
+			ActivateStrikeSupport(request);
+			return;
+		}
 
 		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_EVACUATION)
 			return;
@@ -192,6 +211,9 @@ class HST_SupportRequestService
 
 		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING && garrisons)
 			garrisons.AddAbstractForces(state, request.m_sTargetZoneId, request.m_sFactionKey, 3 + state.m_iWarLevel, 0);
+
+		if (IsStrikeSupport(request.m_eType))
+			ResolveStrikeSupport(state, preset, request);
 	}
 
 	protected void ResolveCosts(HST_ESupportRequestType supportType, out int attackCost, out int supportCost)
@@ -217,11 +239,31 @@ class HST_SupportRequestService
 		{
 			attackCost = 0;
 			supportCost = 10;
+			return;
+		}
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU || supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+		{
+			attackCost = 24;
+			supportCost = 16;
+			return;
+		}
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+		{
+			attackCost = 36;
+			supportCost = 28;
 		}
 	}
 
 	protected int ResolveETA(HST_ESupportRequestType supportType)
 	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU || supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return 90;
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return 150;
+
 		if (IsHelicopterStyle(supportType))
 			return HELICOPTER_STYLE_ETA_SECONDS;
 
@@ -235,6 +277,12 @@ class HST_SupportRequestService
 
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
 			return PLAYER_FIRE_COST;
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU || supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return PLAYER_AIRSTRIKE_COST;
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return PLAYER_CRUISE_MISSILE_COST;
 
 		return PLAYER_SUPPLY_COST;
 	}
@@ -294,6 +342,12 @@ class HST_SupportRequestService
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
 			return "suppressive_fire";
 
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU || supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return "airstrike";
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return "cruise_missile";
+
 		return "ground_support";
 	}
 
@@ -307,7 +361,20 @@ class HST_SupportRequestService
 				return "fia_qrf_reserve_alpha";
 			if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
 				return "rhs_capability_suppressive_fire_alpha";
+			if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
+				return RHS_GBU_CALLIN_CONFIG;
+			if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+				return RHS_UMPK_CALLIN_CONFIG;
+			if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+				return RHS_KH55_CALLIN_CONFIG;
 		}
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
+			return RHS_GBU_CALLIN_CONFIG;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return RHS_UMPK_CALLIN_CONFIG;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return RHS_KH55_CALLIN_CONFIG;
 
 		return factionKey + "_" + CapabilityForSupport(supportType);
 	}
@@ -315,6 +382,96 @@ class HST_SupportRequestService
 	protected bool IsHelicopterStyle(HST_ESupportRequestType supportType)
 	{
 		return supportType == HST_ESupportRequestType.HST_SUPPORT_TRANSPORT || supportType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING || supportType == HST_ESupportRequestType.HST_SUPPORT_EVACUATION;
+	}
+
+	protected bool IsStrikeSupport(HST_ESupportRequestType supportType)
+	{
+		return supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU || supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK || supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55;
+	}
+
+	protected void ActivateStrikeSupport(HST_SupportRequestState request)
+	{
+		if (!request)
+			return;
+
+		if (request.m_sStrikeConfigResource.IsEmpty())
+		{
+			request.m_sFailureReason = "missing RHS strike config";
+			return;
+		}
+
+		request.m_sRuntimeEntityId = "rhs_callin_config";
+		request.m_bPhysicalStrikeSpawned = false;
+		Print(string.Format("h-istasi | RHS strike support %1 active via %2", request.m_sRequestId, request.m_sStrikeConfigResource));
+	}
+
+	protected void ResolveStrikeSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
+	{
+		if (!state || !preset || !request)
+			return;
+
+		HST_ZoneState targetZone = state.FindZone(request.m_sTargetZoneId);
+		if (!targetZone)
+			return;
+
+		request.m_bAbstractResolved = true;
+		if (request.m_sFactionKey == preset.m_sResistanceFactionKey)
+		{
+			if (targetZone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+				targetZone.m_iResistanceCaptureProgress = Math.Min(HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED - 1, targetZone.m_iResistanceCaptureProgress + StrikeCaptureProgress(request.m_eType));
+
+			return;
+		}
+
+		if (targetZone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+		{
+			targetZone.m_iSupport = Math.Max(0, targetZone.m_iSupport - StrikeSupportDamage(request.m_eType));
+			targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - StrikeCaptureProgress(request.m_eType));
+		}
+		else
+		{
+			targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - StrikeSupportDamage(request.m_eType));
+		}
+	}
+
+	protected int StrikeCaptureProgress(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return 35;
+
+		return 20;
+	}
+
+	protected int StrikeSupportDamage(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return 25;
+
+		return 12;
+	}
+
+	protected string StrikeKindForSupport(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
+			return "GBU";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return "FAB500_UMPK";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return "KH55";
+
+		return "";
+	}
+
+	protected string StrikeConfigForSupport(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
+			return RHS_GBU_CALLIN_CONFIG;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return RHS_UMPK_CALLIN_CONFIG;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return RHS_KH55_CALLIN_CONFIG;
+
+		return "";
 	}
 
 	protected string BuildRequestId(HST_CampaignState state, string factionKey, HST_ESupportRequestType supportType)
