@@ -10,14 +10,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected IEntity m_OwnerEntity;
 	protected string m_sLastSnapshot;
 	protected string m_sLastResult;
+	protected bool m_bIsLocalOwner;
+	protected float m_fOwnerRetryAccumulator;
 
 	override void OnPostInit(IEntity owner)
 	{
 		super.OnPostInit(owner);
 		m_OwnerEntity = owner;
+		m_bIsLocalOwner = IsLocalOwner(owner);
+		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
 
-		BaseRplComponent rpl = BaseRplComponent.Cast(owner.FindComponent(BaseRplComponent));
-		if (!rpl || rpl.IsOwner())
+		if (m_bIsLocalOwner)
 			s_LocalOwner = this;
 	}
 
@@ -27,6 +30,24 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			s_LocalOwner = null;
 
 		super.OnDelete(owner);
+	}
+
+	override void EOnInit(IEntity owner)
+	{
+		RefreshLocalOwner(owner);
+	}
+
+	override void EOnFrame(IEntity owner, float timeSlice)
+	{
+		if (m_bIsLocalOwner)
+			return;
+
+		m_fOwnerRetryAccumulator += timeSlice;
+		if (m_fOwnerRetryAccumulator < 0.25)
+			return;
+
+		m_fOwnerRetryAccumulator = 0;
+		RefreshLocalOwner(owner);
 	}
 
 	static HST_CommandMenuRequestComponent GetLocalOwner()
@@ -128,5 +149,26 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		Rpc(RpcDo_ReceiveSnapshot, payload, lastResult);
+	}
+
+	protected void RefreshLocalOwner(IEntity owner)
+	{
+		if (m_bIsLocalOwner)
+			return;
+
+		if (!IsLocalOwner(owner))
+			return;
+
+		m_bIsLocalOwner = true;
+		s_LocalOwner = this;
+	}
+
+	protected bool IsLocalOwner(IEntity owner)
+	{
+		if (!owner)
+			return false;
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(owner.FindComponent(BaseRplComponent));
+		return !rpl || rpl.IsOwner();
 	}
 }

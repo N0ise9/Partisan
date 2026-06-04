@@ -38,9 +38,12 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_SELECT_ACTION = "MenuSelect";
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
+	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
+	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
 	static const string MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout";
 	static const int TAB_WIDGET_ID_BASE = 1000;
 	static const int ACTION_WIDGET_ID_BASE = 2000;
+	static const int CLOSE_WIDGET_ID = 9000;
 
 	protected static HST_CommandMenuComponent s_LocalInstance;
 
@@ -74,6 +77,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected IEntity m_OwnerEntity;
 	protected bool m_bIsLocalOwner;
 	protected bool m_bInputRegistered;
+	protected bool m_bCustomBindingAttempted;
+	protected bool m_bCustomBindingReady;
 	protected float m_fInputRetryAccumulator;
 
 	override void OnPostInit(IEntity owner)
@@ -84,14 +89,10 @@ class HST_CommandMenuComponent : ScriptComponent
 		BuildTabList();
 		BuildActionList();
 		ClearRichPayload();
-
-		if (!m_bIsLocalOwner)
-			return;
-
-		s_LocalInstance = this;
 		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
-		Print("h-istasi menu | local player menu component ready");
-		RegisterInputListeners();
+
+		if (m_bIsLocalOwner)
+			BecomeLocalOwner();
 	}
 
 	override void OnDelete(IEntity owner)
@@ -109,6 +110,8 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	override void EOnInit(IEntity owner)
 	{
+		RefreshLocalOwnership(owner);
+
 		if (m_bIsLocalOwner && !m_bInputRegistered)
 			RegisterInputListeners();
 	}
@@ -116,7 +119,16 @@ class HST_CommandMenuComponent : ScriptComponent
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
 		if (!m_bIsLocalOwner)
+		{
+			m_fInputRetryAccumulator += timeSlice;
+			if (m_fInputRetryAccumulator >= 0.25)
+			{
+				m_fInputRetryAccumulator = 0;
+				RefreshLocalOwnership(owner);
+			}
+
 			return;
+		}
 
 		if (!m_bInputRegistered)
 		{
@@ -128,12 +140,14 @@ class HST_CommandMenuComponent : ScriptComponent
 			}
 		}
 
-		if (!m_bMenuOpen)
-			return;
-
 		InputManager inputManager = GetGame().GetInputManager();
 		if (inputManager)
-			inputManager.ActivateContext(MENU_INPUT_CONTEXT);
+		{
+			inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
+
+			if (m_bMenuOpen)
+				inputManager.ActivateContext(MENU_CURSOR_CONTEXT);
+		}
 	}
 
 	static HST_CommandMenuComponent GetLocalInstance()
@@ -236,6 +250,12 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_bMenuOpen)
 			return false;
 
+		if (widgetId == CLOSE_WIDGET_ID)
+		{
+			CloseMenu();
+			return true;
+		}
+
 		if (widgetId >= TAB_WIDGET_ID_BASE && widgetId < ACTION_WIDGET_ID_BASE)
 		{
 			SwitchToTab(widgetId - TAB_WIDGET_ID_BASE);
@@ -261,6 +281,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!inputManager)
 			return false;
 
+		EnsureIKeyBinding(inputManager);
 		inputManager.AddActionListener(COMMAND_MENU_ACTION, EActionTrigger.DOWN, ToggleMenu);
 		inputManager.AddActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, ToggleMenu);
 		inputManager.AddActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, SelectPreviousAction);
@@ -288,6 +309,69 @@ class HST_CommandMenuComponent : ScriptComponent
 		inputManager.RemoveActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, ExecuteSelectedAction);
 		inputManager.RemoveActionListener(COMMAND_MENU_BACK_ACTION, EActionTrigger.DOWN, CloseMenu);
 		m_bInputRegistered = false;
+	}
+
+	protected void BecomeLocalOwner()
+	{
+		if (s_LocalInstance == this)
+			return;
+
+		s_LocalInstance = this;
+		m_fInputRetryAccumulator = 0;
+		Print("h-istasi menu | local player menu component ready");
+		RegisterInputListeners();
+	}
+
+	protected void RefreshLocalOwnership(IEntity owner)
+	{
+		if (m_bIsLocalOwner)
+			return;
+
+		if (!IsLocalOwner(owner))
+			return;
+
+		m_bIsLocalOwner = true;
+		BecomeLocalOwner();
+	}
+
+	protected bool EnsureIKeyBinding(InputManager inputManager)
+	{
+		if (m_bCustomBindingAttempted)
+			return m_bCustomBindingReady;
+
+		m_bCustomBindingAttempted = true;
+		InputBinding binding = inputManager.CreateUserBinding();
+		if (!binding)
+			return false;
+
+		BaseContainer customAction = binding.FindAction(COMMAND_MENU_CUSTOM_ACTION);
+		bool actionReady = customAction != null;
+		if (!actionReady)
+			actionReady = binding.CreateUserBinding(COMMAND_MENU_CUSTOM_ACTION, EInputDeviceType.KEYBOARD, "");
+
+		if (!actionReady)
+		{
+			Print("h-istasi menu | could not create I-key custom input action", LogLevel.WARNING);
+			return false;
+		}
+
+		array<string> bindings = {};
+		if (binding.GetBindings(COMMAND_MENU_CUSTOM_ACTION, bindings, EInputDeviceType.KEYBOARD, "", false))
+		{
+			foreach (string keyBinding : bindings)
+			{
+				if (keyBinding == COMMAND_MENU_KEYBOARD_BINDING)
+				{
+					m_bCustomBindingReady = true;
+					return true;
+				}
+			}
+		}
+
+		binding.AddBinding(COMMAND_MENU_CUSTOM_ACTION, "", COMMAND_MENU_KEYBOARD_BINDING, "click");
+		m_bCustomBindingReady = true;
+		Print("h-istasi menu | bound I key to command menu");
+		return true;
 	}
 
 	protected void BuildTabList()
@@ -515,12 +599,12 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
 	{
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 56, 42, 1210, 780, WidgetFlags.VISIBLE, null, 2500);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 32, 36, 1340, 838, WidgetFlags.VISIBLE, null, 2500);
 		if (!root)
 			return null;
 
-		root.SetColorInt(0xF0121519);
-		root.SetOpacity(0.97);
+		root.SetColorInt(0xFF0A0E12);
+		root.SetOpacity(0.98);
 		root.SetZOrder(2500);
 		m_aWidgets.Insert(root);
 		return root;
@@ -535,46 +619,51 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void RenderHeader(WorkspaceWidget workspace, Widget root)
 	{
-		CreateFrameWidget(workspace, root, 0, 0, 1210, 72, 0xFF1F2A32, 0.96, 0);
-		CreateTextWidget(workspace, root, "h-istasi HQ", 28, 16, 245, 34, 30, 0xFFF2D18B, 0, true);
-		CreateTextWidget(workspace, root, "FIA Resistance Command", 275, 23, 280, 24, 17, 0xFFB7C7D7, 0, false);
-		CreateTextWidget(workspace, root, BuildSelectedTabTitle(), 900, 18, 270, 30, 22, 0xFFECE6D2, 0, true);
+		CreateFrameWidget(workspace, root, 0, 0, 1340, 82, 0xFF18222B, 0.98, 0);
+		CreateTextWidget(workspace, root, "h-istasi HQ", 28, 18, 270, 38, 34, 0xFFF2D18B, 0, true);
+		CreateTextWidget(workspace, root, "FIA Resistance Command", 312, 28, 300, 26, 18, 0xFFB7C7D7, 0, false);
+		CreateTextWidget(workspace, root, BuildSelectedTabTitle(), 952, 22, 250, 34, 24, 0xFFECE6D2, 0, true);
+		CreateFrameWidget(workspace, root, 1232, 18, 78, 44, 0xFF3A4650, 0.96, CLOSE_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Close", 1247, 28, 48, 24, 16, 0xFFF4EBD6, CLOSE_WIDGET_ID, true);
 	}
 
 	protected void RenderStats(WorkspaceWidget workspace, Widget root)
 	{
-		int left = 205;
-		int top = 88;
-		int width = 116;
+		int left = 228;
+		int top = 104;
+		int width = 164;
 		for (int i = 0; i < m_aStatLabels.Count(); i++)
 		{
 			if (i >= 8)
 				break;
 
-			int x = left + i * 122;
-			CreateFrameWidget(workspace, root, x, top, width, 58, ToneBackgroundColor(m_aStatTones[i]), 0.82, 0);
-			CreateTextWidget(workspace, root, m_aStatLabels[i], x + 8, top + 7, width - 16, 18, 13, 0xFFB8C1C9, 0, false);
-			CreateTextWidget(workspace, root, m_aStatValues[i], x + 8, top + 27, width - 16, 22, 16, ToneTextColor(m_aStatTones[i]), 0, true);
+			int col = i % 4;
+			int row = i / 4;
+			int x = left + col * 176;
+			int y = top + row * 70;
+			CreateFrameWidget(workspace, root, x, y, width, 60, ToneBackgroundColor(m_aStatTones[i]), 0.95, 0);
+			CreateTextWidget(workspace, root, ShortenText(m_aStatLabels[i], 18), x + 10, y + 8, width - 20, 20, 14, 0xFFB8C1C9, 0, false);
+			CreateTextWidget(workspace, root, ShortenText(m_aStatValues[i], 20), x + 10, y + 31, width - 20, 24, 18, ToneTextColor(m_aStatTones[i]), 0, true);
 		}
 	}
 
 	protected void RenderNavigation(WorkspaceWidget workspace, Widget root)
 	{
-		CreateFrameWidget(workspace, root, 24, 88, 160, 654, 0xFF182027, 0.94, 0);
-		CreateTextWidget(workspace, root, "Navigation", 42, 104, 120, 24, 17, 0xFFE6DECB, 0, true);
+		CreateFrameWidget(workspace, root, 24, 104, 180, 698, 0xFF151D24, 0.97, 0);
+		CreateTextWidget(workspace, root, "Navigation", 44, 126, 138, 26, 18, 0xFFE6DECB, 0, true);
 		for (int i = 0; i < m_aTabLabels.Count(); i++)
 		{
-			int top = 140 + i * 45;
+			int top = 168 + i * 52;
 			bool selected = m_aTabIds[i] == m_sSelectedTab;
 			bool focused = m_iSelectedControl == i;
 			int background = 0x00222222;
 			if (selected)
-				background = 0xFF604A24;
+				background = 0xFF664F25;
 			else if (focused)
 				background = 0xFF263341;
 
 			if (selected || focused)
-				CreateFrameWidget(workspace, root, 36, top - 4, 136, 34, background, 0.92, TAB_WIDGET_ID_BASE + i);
+				CreateFrameWidget(workspace, root, 36, top - 7, 154, 42, background, 0.96, TAB_WIDGET_ID_BASE + i);
 
 			string label = m_aTabLabels[i];
 			if (focused)
@@ -587,7 +676,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!m_aTabEnabled[i])
 				color = 0xFF687179;
 
-			CreateTextWidget(workspace, root, label, 44, top, 118, 26, 16, color, TAB_WIDGET_ID_BASE + i, selected);
+			CreateTextWidget(workspace, root, label, 46, top, 130, 30, 17, color, TAB_WIDGET_ID_BASE + i, selected);
 		}
 	}
 
@@ -596,8 +685,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		int sectionCount = m_aSectionIds.Count();
 		if (sectionCount == 0)
 		{
-			CreateFrameWidget(workspace, root, 204, 166, 628, 560, 0xFF1B232A, 0.92, 0);
-			CreateTextWidget(workspace, root, m_sStatusText, 230, 190, 580, 500, 17, 0xFFE0E0E0, 0, false);
+			CreateFrameWidget(workspace, root, 228, 246, 700, 532, 0xFF182129, 0.96, 0);
+			CreateTextWidget(workspace, root, m_sStatusText, 254, 274, 648, 480, 18, 0xFFE0E0E0, 0, false);
 			return;
 		}
 
@@ -606,9 +695,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			int col = i % 2;
 			int row = i / 2;
-			int left = 204 + col * 318;
-			int top = 166 + row * 178;
-			RenderSectionCard(workspace, root, i, left, top, 302, 160);
+			int left = 228 + col * 356;
+			int top = 246 + row * 184;
+			RenderSectionCard(workspace, root, i, left, top, 340, 168);
 		}
 	}
 
@@ -618,9 +707,9 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		string sectionId = m_aSectionIds[sectionIndex];
-		CreateFrameWidget(workspace, root, left, top, width, height, 0xFF1B232A, 0.94, 0);
+		CreateFrameWidget(workspace, root, left, top, width, height, 0xFF182129, 0.96, 0);
 		CreateFrameWidget(workspace, root, left, top, width, 4, 0xFFC4953B, 1.0, 0);
-		CreateTextWidget(workspace, root, m_aSectionTitles[sectionIndex], left + 14, top + 12, width - 28, 24, 18, 0xFFEFE2C4, 0, true);
+		CreateTextWidget(workspace, root, m_aSectionTitles[sectionIndex], left + 16, top + 13, width - 32, 26, 19, 0xFFEFE2C4, 0, true);
 
 		int rendered;
 		for (int i = 0; i < m_aRowLabels.Count(); i++)
@@ -631,27 +720,27 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (rendered >= 4)
 				break;
 
-			int rowTop = top + 44 + rendered * 27;
-			CreateTextWidget(workspace, root, m_aRowLabels[i], left + 14, rowTop, 112, 22, 14, 0xFFABB4BA, 0, false);
-			CreateTextWidget(workspace, root, m_aRowValues[i], left + 130, rowTop, width - 144, 22, 14, ToneTextColor(m_aRowTones[i]), 0, false);
+			int rowTop = top + 50 + rendered * 29;
+			CreateTextWidget(workspace, root, ShortenText(m_aRowLabels[i], 17), left + 16, rowTop, 118, 24, 15, 0xFFABB4BA, 0, false);
+			CreateTextWidget(workspace, root, ShortenText(m_aRowValues[i], 34), left + 142, rowTop, width - 158, 24, 15, ToneTextColor(m_aRowTones[i]), 0, false);
 			rendered++;
 		}
 
 		if (rendered == 0)
-			CreateTextWidget(workspace, root, "No entries", left + 14, top + 48, width - 28, 24, 14, 0xFF78828A, 0, false);
+			CreateTextWidget(workspace, root, "No entries", left + 16, top + 54, width - 32, 24, 15, 0xFF78828A, 0, false);
 	}
 
 	protected void RenderActivityPanel(WorkspaceWidget workspace, Widget root)
 	{
-		CreateFrameWidget(workspace, root, 850, 166, 328, 350, 0xFF1B232A, 0.94, 0);
-		CreateFrameWidget(workspace, root, 850, 166, 328, 4, 0xFF50704A, 1.0, 0);
-		CreateTextWidget(workspace, root, "Activity", 868, 184, 170, 26, 19, 0xFFEFE2C4, 0, true);
-		CreateTextWidget(workspace, root, BuildResultText(), 868, 218, 292, 95, 15, 0xFFD2E7B8, 0, false);
-		CreateTextWidget(workspace, root, "Campaign Notes", 868, 326, 190, 24, 17, 0xFFEFE2C4, 0, true);
+		CreateFrameWidget(workspace, root, 952, 104, 360, 430, 0xFF182129, 0.96, 0);
+		CreateFrameWidget(workspace, root, 952, 104, 360, 4, 0xFF50704A, 1.0, 0);
+		CreateTextWidget(workspace, root, "Activity", 972, 124, 180, 28, 20, 0xFFEFE2C4, 0, true);
+		CreateTextWidget(workspace, root, ShortenText(BuildResultText(), 170), 972, 162, 320, 118, 16, 0xFFD2E7B8, 0, false);
+		CreateTextWidget(workspace, root, "Campaign Notes", 972, 302, 210, 26, 18, 0xFFEFE2C4, 0, true);
 
 		if (m_aFeedLines.Count() == 0)
 		{
-			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", 868, 358, 292, 24, 15, 0xFF9AA5AD, 0, false);
+			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", 972, 338, 320, 26, 16, 0xFF9AA5AD, 0, false);
 			return;
 		}
 
@@ -660,18 +749,18 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (i >= 5)
 				break;
 
-			CreateTextWidget(workspace, root, m_aFeedLines[i], 868, 356 + i * 30, 292, 26, 14, ToneTextColor(m_aFeedTones[i]), 0, false);
+			CreateTextWidget(workspace, root, ShortenText(m_aFeedLines[i], 64), 972, 338 + i * 34, 320, 30, 15, ToneTextColor(m_aFeedTones[i]), 0, false);
 		}
 	}
 
 	protected void RenderActions(WorkspaceWidget workspace, Widget root)
 	{
-		CreateFrameWidget(workspace, root, 850, 532, 328, 194, 0xFF1B232A, 0.94, 0);
-		CreateFrameWidget(workspace, root, 850, 532, 328, 4, 0xFF8C4E43, 1.0, 0);
-		CreateTextWidget(workspace, root, "Actions", 868, 550, 160, 26, 19, 0xFFEFE2C4, 0, true);
+		CreateFrameWidget(workspace, root, 952, 552, 360, 250, 0xFF182129, 0.96, 0);
+		CreateFrameWidget(workspace, root, 952, 552, 360, 4, 0xFF8C4E43, 1.0, 0);
+		CreateTextWidget(workspace, root, "Actions", 972, 572, 170, 28, 20, 0xFFEFE2C4, 0, true);
 		for (int i = 0; i < m_aActionLabels.Count(); i++)
 		{
-			if (i >= 5)
+			if (i >= 6)
 				break;
 
 			string prefix = "  ";
@@ -686,11 +775,11 @@ class HST_CommandMenuComponent : ScriptComponent
 				color = 0xFF8B9298;
 			}
 
-			CreateTextWidget(workspace, root, prefix + m_aActionLabels[i] + suffix, 868, 584 + i * 28, 292, 24, 14, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
+			CreateTextWidget(workspace, root, ShortenText(prefix + m_aActionLabels[i] + suffix, 46), 972, 612 + i * 31, 320, 28, 15, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
 		}
 
 		if (m_aActionLabels.Count() == 0)
-			CreateTextWidget(workspace, root, "No commands available.", 868, 584, 292, 24, 14, 0xFF8B9298, 0, false);
+			CreateTextWidget(workspace, root, "No commands available.", 972, 612, 320, 28, 15, 0xFF8B9298, 0, false);
 	}
 
 	protected Widget CreateFrameWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
@@ -772,6 +861,20 @@ class HST_CommandMenuComponent : ScriptComponent
 			return "Last action\n-";
 
 		return "Last action\n" + m_sLastResult;
+	}
+
+	protected string ShortenText(string text, int maxCharacters)
+	{
+		if (text.IsEmpty() || maxCharacters <= 0)
+			return "";
+
+		if (text.Length() <= maxCharacters)
+			return text;
+
+		if (maxCharacters <= 3)
+			return text.Substring(0, maxCharacters);
+
+		return text.Substring(0, maxCharacters - 3) + "...";
 	}
 
 	protected string BuildSelectedTabTitle()
