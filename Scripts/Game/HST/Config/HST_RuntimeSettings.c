@@ -67,11 +67,11 @@ class HST_RuntimeSettingsAirSupport
 class HST_RuntimeSettingsCivilians
 {
 	bool m_bEnabled = true;
-	int m_iMaxActivePerTown = 8;
-	int m_iCivilianVehicleMinPerTown = 1;
-	int m_iCivilianVehicleMaxPerTown = 3;
+	int m_iMaxActivePerTown = 12;
+	int m_iCivilianVehicleMinPerTown = 2;
+	int m_iCivilianVehicleMaxPerTown = 4;
 	int m_iOccupierVehicleMinPerTown = 1;
-	int m_iOccupierVehicleMaxPerTown = 2;
+	int m_iOccupierVehicleMaxPerTown = 3;
 }
 
 class HST_RuntimeSettingsPersistence
@@ -95,7 +95,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 3;
+	static const int SCHEMA_VERSION = 4;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();

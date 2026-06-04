@@ -28,11 +28,11 @@ class HST_BalanceConfig
 	bool m_bAirSupportEnabled = true;
 	int m_iAirSupportCooldownSeconds = 900;
 	bool m_bCivilianPopulationEnabled = true;
-	int m_iCivilianMaxActivePerTown = 8;
-	int m_iCivilianVehicleMinPerTown = 1;
-	int m_iCivilianVehicleMaxPerTown = 3;
+	int m_iCivilianMaxActivePerTown = 12;
+	int m_iCivilianVehicleMinPerTown = 2;
+	int m_iCivilianVehicleMaxPerTown = 4;
 	int m_iOccupierVehicleMinPerTown = 1;
-	int m_iOccupierVehicleMaxPerTown = 2;
+	int m_iOccupierVehicleMaxPerTown = 3;
 	int m_iWarLevelMaximum = 10;
 }
 

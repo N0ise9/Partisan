@@ -867,8 +867,7 @@ class HST_CommandUIService
 				continue;
 
 			string label = item.m_sDisplayName;
-			if (label.IsEmpty())
-				label = item.m_sPrefab;
+			label = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, label);
 
 			payload = AppendRow(payload, "items", label, string.Format("%1 / count %2", item.m_sCategory, ArsenalCountLabel(item)), ArsenalTone(item));
 			emitted++;
@@ -886,7 +885,9 @@ class HST_CommandUIService
 			if (!cargoItem)
 				continue;
 
-			payload = AppendRow(payload, "vehicle_cargo", cargoItem.m_sDisplayName, string.Format("%1 / %2 / count %3", cargoItem.m_sVehicleDisplayName, cargoItem.m_sCategory, cargoItem.m_iCount), "warn");
+			string cargoItemLabel = HST_DisplayNameService.ResolveItemDisplayName(null, cargoItem.m_sItemPrefab, cargoItem.m_sDisplayName);
+			string cargoVehicleLabel = HST_DisplayNameService.ResolveVehicleDisplayName(cargoItem.m_sVehiclePrefab, cargoItem.m_sVehicleDisplayName);
+			payload = AppendRow(payload, "vehicle_cargo", cargoItemLabel, string.Format("%1 / %2 / count %3", cargoVehicleLabel, cargoItem.m_sCategory, cargoItem.m_iCount), "warn");
 			cargoEmitted++;
 			if (cargoEmitted >= 6)
 				break;
@@ -1325,11 +1326,9 @@ class HST_CommandUIService
 		if (!vehicle)
 			return "unknown";
 
-		if (!vehicle.m_sDisplayName.IsEmpty())
-			return ShortGarageText(vehicle.m_sDisplayName, 28);
-
-		if (!vehicle.m_sPrefab.IsEmpty())
-			return ShortGarageText(vehicle.m_sPrefab, 28);
+		string label = HST_DisplayNameService.ResolveVehicleDisplayName(vehicle.m_sPrefab, vehicle.m_sDisplayName);
+		if (!label.IsEmpty() && label != "vehicle")
+			return ShortGarageText(label, 28);
 
 		return vehicle.m_sVehicleId;
 	}
@@ -1367,8 +1366,7 @@ class HST_CommandUIService
 			return "vehicle";
 
 		string label = vehicle.m_sDisplayName;
-		if (label.IsEmpty())
-			label = vehicle.m_sPrefab;
+		label = HST_DisplayNameService.ResolveVehicleDisplayName(vehicle.m_sPrefab, label);
 
 		if (label.IsEmpty())
 			label = vehicle.m_sVehicleId;

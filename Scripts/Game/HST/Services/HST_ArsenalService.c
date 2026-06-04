@@ -16,10 +16,10 @@ class HST_ArsenalService
 		if (!category.IsEmpty())
 			item.m_sCategory = category;
 
-		if (!displayName.IsEmpty())
-			item.m_sDisplayName = displayName;
-		else if (item.m_sDisplayName.IsEmpty())
-			item.m_sDisplayName = prefab;
+		string resolvedDisplayName = displayName;
+		if (resolvedDisplayName.IsEmpty())
+			resolvedDisplayName = item.m_sDisplayName;
+		item.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, prefab, resolvedDisplayName);
 
 		item.m_iCount += amount;
 		item.m_bUnlocked = ShouldUnlock(item, balance);
@@ -76,8 +76,7 @@ class HST_ArsenalService
 			return "h-istasi arsenal | selected item could not be withdrawn";
 
 		string label = selectedItem.m_sDisplayName;
-		if (label.IsEmpty())
-			label = selectedItem.m_sPrefab;
+		label = HST_DisplayNameService.ResolveItemDisplayName(null, selectedItem.m_sPrefab, label);
 
 		if (selectedItem.m_bUnlocked)
 			return string.Format("h-istasi arsenal | issued unlocked item %1", label);
@@ -97,8 +96,7 @@ class HST_ArsenalService
 				continue;
 
 			string label = item.m_sDisplayName;
-			if (label.IsEmpty())
-				label = item.m_sPrefab;
+			label = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, label);
 
 			report = report + string.Format("\n%1 | %2 | count %3", label, item.m_sCategory, CountLabel(item));
 		}
@@ -212,10 +210,10 @@ class HST_ArsenalService
 			return "vehicle";
 
 		if (!vehicle.m_sDisplayName.IsEmpty())
-			return vehicle.m_sDisplayName;
+			return HST_DisplayNameService.ResolveVehicleDisplayName(vehicle.m_sPrefab, vehicle.m_sDisplayName);
 
 		if (!vehicle.m_sPrefab.IsEmpty())
-			return vehicle.m_sPrefab;
+			return HST_DisplayNameService.ResolveVehicleDisplayName(vehicle.m_sPrefab);
 
 		return vehicle.m_sVehicleId;
 	}

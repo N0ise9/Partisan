@@ -118,6 +118,19 @@ class HST_RuntimeSettingsService
 			changed = true;
 		}
 
+		if (settings.m_iSchemaVersion < 4)
+		{
+			if (settings.m_Civilians.m_iMaxActivePerTown == 8)
+				settings.m_Civilians.m_iMaxActivePerTown = 12;
+			if (settings.m_Civilians.m_iCivilianVehicleMinPerTown == 1)
+				settings.m_Civilians.m_iCivilianVehicleMinPerTown = 2;
+			if (settings.m_Civilians.m_iCivilianVehicleMaxPerTown == 3)
+				settings.m_Civilians.m_iCivilianVehicleMaxPerTown = 4;
+			if (settings.m_Civilians.m_iOccupierVehicleMaxPerTown == 2)
+				settings.m_Civilians.m_iOccupierVehicleMaxPerTown = 3;
+			changed = true;
+		}
+
 		if (settings.m_iSchemaVersion < HST_RuntimeSettings.SCHEMA_VERSION)
 		{
 			settings.m_iSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;

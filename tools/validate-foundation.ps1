@@ -431,6 +431,7 @@ $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
 	"EquipmentBox_US.et",
+	"RplComponent",
 	"ActionsManagerComponent",
 	"HST_HQArsenalOpenAction",
 	"HST_HQArsenalLootNearbyAction",
@@ -453,6 +454,31 @@ foreach ($forbiddenArsenalPrefabEntry in @(
 	}
 }
 Write-Host "HST HQ arsenal prefab h-istasi-only contract OK"
+
+$civilianGroupPrefabPath = "Prefabs/Groups/CIV/HST_CivilianTownGroup.et"
+if (!(Test-Path $civilianGroupPrefabPath)) {
+	throw "Missing HST civilian town group prefab: $civilianGroupPrefabPath"
+}
+$civilianGroupPrefabMetaPath = "$civilianGroupPrefabPath.meta"
+if (!(Test-Path $civilianGroupPrefabMetaPath)) {
+	throw "Missing HST civilian town group prefab metadata: $civilianGroupPrefabMetaPath"
+}
+if ((Get-Content -Raw $civilianGroupPrefabMetaPath) -notmatch '\{6985327711303600\}Prefabs/Groups/CIV/HST_CivilianTownGroup\.et') {
+	throw "HST civilian town group prefab metadata must expose the GUID-qualified resource name"
+}
+$civilianGroupPrefabText = Get-Content -Raw $civilianGroupPrefabPath
+foreach ($requiredCivilianGroupEntry in @(
+	"SCR_AIGroup HST_CivilianTownGroup",
+	'm_faction "CIV"',
+	"m_aUnitPrefabSlots",
+	"Character_CIV_baseLoadout.et",
+	"Character_CIV.et"
+)) {
+	if ($civilianGroupPrefabText -notmatch [regex]::Escape($requiredCivilianGroupEntry)) {
+		throw "HST civilian town group prefab is missing entry: $requiredCivilianGroupEntry"
+	}
+}
+Write-Host "HST civilian town group prefab OK"
 
 $playerControllerPrefabPath = "Prefabs/Characters/HST/HST_PlayerController.et"
 if (!(Test-Path $playerControllerPrefabPath)) {
@@ -1458,8 +1484,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 3") {
-	throw "Runtime settings schema must be bumped to 3 for the arsenal threshold/civilian settings migration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 4") {
+	throw "Runtime settings schema must be bumped to 4 for the arsenal threshold/civilian population settings migration"
 }
 if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 25") {
 	throw "Runtime/balance defaults must set arsenal unlock threshold to 25"
@@ -1470,13 +1496,40 @@ if ($configResourceText -notmatch "m_iArsenalUnlockThreshold 25") {
 if ($scriptText -match '"arsenalUnlockThreshold": 15' -or $configResourceText -match "m_iArsenalUnlockThreshold 15") {
 	throw "Generated/default balance settings must not keep the old 15-item infinite unlock threshold"
 }
+foreach ($requiredCivilianDefault in @(
+	"m_iCivilianMaxActivePerTown = 12",
+	"m_iCivilianVehicleMinPerTown = 2",
+	"m_iCivilianVehicleMaxPerTown = 4",
+	"m_iOccupierVehicleMaxPerTown = 3"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCivilianDefault)) {
+		throw "Runtime settings must keep the updated civilian default: $requiredCivilianDefault"
+	}
+}
+foreach ($requiredCivilianBalanceDefault in @(
+	"m_iCivilianMaxActivePerTown 12",
+	"m_iCivilianVehicleMinPerTown 2",
+	"m_iCivilianVehicleMaxPerTown 4",
+	"m_iOccupierVehicleMaxPerTown 3"
+)) {
+	if ($configResourceText -notmatch [regex]::Escape($requiredCivilianBalanceDefault)) {
+		throw "Balance config must keep the updated civilian default: $requiredCivilianBalanceDefault"
+	}
+}
 Write-Host "Runtime settings generated-config contract OK"
 
 foreach ($requiredLootEntry in @(
 	"HST_LootService",
 	"HST_LootResult",
+	"HST_DisplayNameService",
 	"LootNearbyToArsenal",
 	"CollectNearbyLootToVehicle",
+	"CollectLooseItemToArsenal",
+	"CollectLooseItemToVehicle",
+	"IsEligibleLooseLootEntity",
+	"RemoveLooseLootItem",
+	"ResolveItemDisplayName",
+	"ResolveVehicleDisplayName",
 	"UnloadNearestVehicleCargoToArsenal",
 	"vehicleRuntimeId",
 	"FindLootVehicleByRuntimeId",
@@ -1630,23 +1683,41 @@ Write-Host "Physical AI war scaffold OK"
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",
 	"SpawnTownPopulation",
+	"CIVILIAN_GROUP_SIZE",
+	"CIVILIAN_GROUP_PREFAB",
+	"HST_CivilianTownGroup.et",
+	"ENTERABLE_AMBIENT_VEHICLE_PREFAB",
 	"CleanupZoneRuntimeEntities",
 	"CleanupAllRuntimeEntities",
+	"ShouldDetachFromTownCleanup",
+	"m_aRuntimeEntityKinds",
+	"m_aRuntimeEntitySpawnPositions",
+	"IsGuidQualifiedResource",
+	'SetAffiliatedFactionByKey("CIV")',
 	"m_bCivilianPopulationEnabled",
 	"m_iCivilianMaxActivePerTown",
 	"m_iCivilianVehicleMinPerTown",
 	"m_iCivilianVehicleMaxPerTown",
 	"m_iOccupierVehicleMinPerTown",
 	"m_iOccupierVehicleMaxPerTown",
-	"Character_CIV_baseLoadout.et",
-	"Character_CIV.et",
-	"S105_base.et",
-	"S1203_base.et",
 	"m_aVehiclePrefabs",
 	"civilianRuntimeChanged"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCivilianRuntimeEntry) -and $configResourceText -notmatch [regex]::Escape($requiredCivilianRuntimeEntry)) {
 		throw "Missing physical civilian town runtime entry: $requiredCivilianRuntimeEntry"
+	}
+}
+$civilianRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
+if ($civilianRuntimeServiceText -match 'DoSpawn\(SelectCivilianCharacterPrefab' -or $civilianRuntimeServiceText -match 'CIVILIAN_PREFAB = "Prefabs/Characters/Factions/CIV') {
+	throw "Civilian runtime must spawn h-istasi civilian AI groups, not direct path-only civilian characters"
+}
+foreach ($forbiddenCivilianSpawnResource in @(
+	"Prefabs/Vehicles/Wheeled/S105/S105_base.et",
+	"Prefabs/Vehicles/Wheeled/S1203/S1203_base.et",
+	"Prefabs/Vehicles/Wheeled/M151A2/M151A2.et"
+)) {
+	if ($civilianRuntimeServiceText -match [regex]::Escape($forbiddenCivilianSpawnResource)) {
+		throw "Civilian runtime must not directly DoSpawn path-only vehicle resource: $forbiddenCivilianSpawnResource"
 	}
 }
 Write-Host "Physical civilian town runtime OK"
