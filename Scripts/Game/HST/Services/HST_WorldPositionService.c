@@ -15,15 +15,7 @@ class HST_WorldPositionService
 
 		float surfaceY = world.GetSurfaceY(source[0], source[2]);
 		if (rejectWater && surfaceY < MIN_DRY_SURFACE_Y)
-		{
-			if (source[1] <= MIN_DRY_SURFACE_Y)
-			{
-				resolved[1] = source[1] + verticalOffset;
-				return true;
-			}
-
 			return false;
-		}
 
 		resolved[1] = surfaceY + verticalOffset;
 		return true;

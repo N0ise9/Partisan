@@ -1,18 +1,18 @@
 GenericEntity HST_HideoutAnchor_north_forest : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 3200 0 4100
+ coords 2500 0 9700
 }
 GenericEntity HST_HideoutAnchor_central_hills : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 3400 0 4500
+ coords 4000 0 3000
 }
 GenericEntity HST_HideoutAnchor_south_woods : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 2300 0 8500
+ coords 5400 0 1600
 }
 GenericEntity HST_PetrosAnchor_north_forest : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 3202 0 4102
+ coords 2502 0 9702
 }
 GenericEntity HST_PetrosAnchor_central_hills : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 3402 0 4502
+ coords 4002 0 3002
 }
 GenericEntity HST_PetrosAnchor_south_woods : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 2302 0 8502
+ coords 5402 0 1602
 }

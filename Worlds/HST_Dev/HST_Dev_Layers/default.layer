@@ -162,7 +162,7 @@ ScriptedChatEntity HST_ChatEntity : "{F69BC912AC8236F9}Prefabs/MP/ScriptedChatEn
  coords 6200 0 6200
 }
 SCR_MapLocator {
- coords 3400 0 4500
+ coords 4000 0 3000
  m_WorldDirections SCR_MapLocationQuadHint "{5AAA8B37D1168EEB}" : "{ABA21F381437DFE8}Configs/Map/MapLocatorHints/LocationHintsEveron.conf" {
  }
 }
@@ -200,7 +200,7 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
         }
        }
       }
-      coords 3400 0 4500
+      coords 4000 0 3000
      }
     }
    }
@@ -212,7 +212,7 @@ SCR_MapMarkerDotCircle HST_NativeMapMarker_hq {
   RplComponent "{6985327711500001}" {
   }
  }
- coords 3400 0 4500
+ coords 4000 0 3000
  Flags 0
  m_fRadius 140
  m_fDotDensity 0.05

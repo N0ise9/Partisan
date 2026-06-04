@@ -21,7 +21,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     "faction affiliation" "FIA"
    }
   }
-  coords 3400 0 4500
+  coords 4000 0 3000
   angleY 0
   {
    GenericEntity {
@@ -46,7 +46,7 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
     m_fAreaRadius 25
    }
   }
-  coords 3400 0 4500
+  coords 4000 0 3000
   {
    GenericEntity HST_Dev_CentralHideoutDeployLayer : "{5F9FFF4BF027B3A3}Prefabs/Systems/ScenarioFramework/Components/Layer.et" {
     components {

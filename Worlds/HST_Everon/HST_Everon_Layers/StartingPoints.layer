@@ -21,7 +21,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     "faction affiliation" "FIA"
    }
   }
-  coords 2300 0 10300
+  coords 2500 0 9700
   angleY 35
   {
    GenericEntity {
@@ -56,7 +56,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     "faction affiliation" "FIA"
    }
   }
-  coords 1800 0 3500
+  coords 4000 0 3000
   angleY 0
   {
    GenericEntity {
@@ -91,7 +91,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     "faction affiliation" "FIA"
    }
   }
-  coords 900 0 7200
+  coords 5400 0 1600
   angleY -25
   {
    GenericEntity {
@@ -116,7 +116,7 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
     m_fAreaRadius 25
    }
   }
-  coords 2300 0 10300
+  coords 2500 0 9700
   angleY 35
   {
    GenericEntity HST_NorthForestDeployLayer : "{5F9FFF4BF027B3A3}Prefabs/Systems/ScenarioFramework/Components/Layer.et" {
@@ -160,7 +160,7 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
     m_fAreaRadius 25
    }
   }
-  coords 1800 0 3500
+  coords 4000 0 3000
   {
    GenericEntity HST_CentralHillsDeployLayer : "{5F9FFF4BF027B3A3}Prefabs/Systems/ScenarioFramework/Components/Layer.et" {
     components {
@@ -203,7 +203,7 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
     m_fAreaRadius 25
    }
   }
-  coords 900 0 7200
+  coords 5400 0 1600
   angleY -25
   {
    GenericEntity HST_SouthWoodsDeployLayer : "{5F9FFF4BF027B3A3}Prefabs/Systems/ScenarioFramework/Components/Layer.et" {

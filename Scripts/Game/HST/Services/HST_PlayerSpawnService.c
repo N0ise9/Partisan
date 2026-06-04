@@ -408,12 +408,28 @@ class HST_PlayerSpawnService
 
 	protected vector GetPlayerSpawnPosition(HST_CampaignState state, int playerId)
 	{
+		vector fallbackPosition = HST_DefaultCatalog.GetHideoutPosition(HST_DefaultCatalog.GetDefaultHideoutId());
 		vector spawnPosition = GetHQSpawnPosition(state);
 		if (!state || !state.m_bHQDeployed)
-			spawnPosition = HST_DefaultCatalog.GetHideoutPosition(HST_DefaultCatalog.GetDefaultHideoutId());
+			spawnPosition = fallbackPosition;
 
 		vector offset = GetSpawnRingOffset(PositiveModulo(playerId - 1, 16));
-		return HST_WorldPositionService.ResolveGroundPosition(spawnPosition + offset, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+		return ResolveDryPlayerSpawnPosition(spawnPosition + offset, spawnPosition, fallbackPosition);
+	}
+
+	protected vector ResolveDryPlayerSpawnPosition(vector preferredPosition, vector hqPosition, vector fallbackPosition)
+	{
+		vector resolvedPosition;
+		if (HST_WorldPositionService.TryResolveGroundPosition(preferredPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, resolvedPosition, true))
+			return resolvedPosition;
+
+		if (HST_WorldPositionService.TryResolveGroundPosition(hqPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, resolvedPosition, true))
+			return resolvedPosition;
+
+		if (HST_WorldPositionService.TryResolveGroundPosition(fallbackPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, resolvedPosition, true))
+			return resolvedPosition;
+
+		return HST_WorldPositionService.ResolveGroundPosition(fallbackPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 	}
 
 	protected vector GetSpawnRingOffset(int slot)

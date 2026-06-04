@@ -49,8 +49,8 @@ class HST_HQService
 		if (!state || state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || !state.m_bPetrosAlive)
 			return false;
 
-		vector resolvedPosition = HST_WorldPositionService.ResolveGroundPosition(hqPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, true);
-		if (!HST_WorldPositionService.IsDryGroundPosition(resolvedPosition))
+		vector resolvedPosition;
+		if (!HST_WorldPositionService.TryResolveGroundPosition(hqPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true))
 		{
 			Print(string.Format("h-istasi | requested HQ move rejected: no dry ground at %1", hqPosition), LogLevel.WARNING);
 			return false;
@@ -154,11 +154,8 @@ class HST_HQService
 			}
 		}
 
-		vector emergencyPosition = HST_DefaultCatalog.GetHideoutPosition(requestedHideoutId);
-		resolvedPosition = HST_WorldPositionService.ResolveGroundPosition(emergencyPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, false);
-		resolvedHideoutId = requestedHideoutId;
-		Print(string.Format("h-istasi | no dry HQ hideout surface found; using emergency snapped position %1", resolvedPosition), LogLevel.WARNING);
-		return true;
+		Print(string.Format("h-istasi | no dry HQ hideout surface found for requested hideout %1; setup remains pending", requestedHideoutId), LogLevel.WARNING);
+		return false;
 	}
 
 	protected bool TryResolveHideout(HST_HideoutDefinition hideout, out string resolvedHideoutId, out vector resolvedPosition)
@@ -203,11 +200,41 @@ class HST_HQService
 
 	protected void EnsureRuntimeGroundPlacement(HST_CampaignState state)
 	{
-		state.m_vHQPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, false);
-		state.m_vPetrosPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vPetrosPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
-		state.m_vHQCachePosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQCachePosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
-		state.m_vArsenalPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vArsenalPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
-		state.m_vHQTentPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQTentPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		vector resolvedHQ;
+		if (HST_WorldPositionService.TryResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true))
+		{
+			state.m_vHQPosition = resolvedHQ;
+		}
+		else
+		{
+			vector fallbackHQ = HST_DefaultCatalog.GetHideoutPosition(HST_DefaultCatalog.GetDefaultHideoutId());
+			if (HST_WorldPositionService.TryResolveGroundPosition(fallbackHQ, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true))
+			{
+				Print(string.Format("h-istasi | restored HQ position %1 was not dry; re-seating HQ at default hideout %2", state.m_vHQPosition, resolvedHQ), LogLevel.WARNING);
+				state.m_vHQPosition = resolvedHQ;
+			}
+			else
+			{
+				state.m_vHQPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, false);
+			}
+		}
+
+		state.m_vPetrosPosition = ResolveRuntimeObjectGroundPosition(state.m_vPetrosPosition, state.m_vHQPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
+		state.m_vHQCachePosition = ResolveRuntimeObjectGroundPosition(state.m_vHQCachePosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
+		state.m_vArsenalPosition = ResolveRuntimeObjectGroundPosition(state.m_vArsenalPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
+		state.m_vHQTentPosition = ResolveRuntimeObjectGroundPosition(state.m_vHQTentPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
+	}
+
+	protected vector ResolveRuntimeObjectGroundPosition(vector source, vector fallback, float verticalOffset)
+	{
+		vector resolved;
+		if (HST_WorldPositionService.TryResolveGroundPosition(source, verticalOffset, resolved, true))
+			return resolved;
+
+		if (HST_WorldPositionService.TryResolveGroundPosition(fallback, verticalOffset, resolved, true))
+			return resolved;
+
+		return HST_WorldPositionService.ResolveGroundPosition(source, verticalOffset, false);
 	}
 
 	protected string ResolvePetrosPrefab(HST_CampaignState state)
@@ -292,7 +319,10 @@ class HST_HQService
 	{
 		vector source = hqPosition + offset;
 		vector resolved;
-		if (HST_WorldPositionService.TryResolveGroundPosition(source, verticalOffset, resolved, false))
+		if (HST_WorldPositionService.TryResolveGroundPosition(source, verticalOffset, resolved, true))
+			return resolved;
+
+		if (HST_WorldPositionService.TryResolveGroundPosition(hqPosition, verticalOffset, resolved, true))
 			return resolved;
 
 		source[1] = hqPosition[1] + verticalOffset;

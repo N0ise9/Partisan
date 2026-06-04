@@ -337,6 +337,8 @@ foreach ($requiredPetrosServiceEntry in @(
 	"state.m_sArsenalPrefab = ARSENAL_PREFAB",
 	"MoveHQToPosition",
 	"ClearRuntimeObjects",
+	"ResolveRuntimeObjectGroundPosition",
+	"TryResolveGroundPosition",
 	"SCR_EntityHelper.DeleteEntityAndChildren",
 	"failed to spawn; using base FIA fallback",
 	"failed to spawn; using FIA supply-cache fallback",
@@ -643,6 +645,11 @@ $hideoutBlocks = @(Get-ConfigBlocks $mapConfig "HST_HideoutDefinition")
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
 $hideoutPositions = @{}
 $hideoutVectors = @{}
+$expectedHideoutCoordinates = @{
+	"hideout_north_forest" = "2500 0 9700"
+	"hideout_central_hills" = "4000 0 3000"
+	"hideout_south_woods" = "5400 0 1600"
+}
 foreach ($block in $hideoutBlocks) {
 	if ($block -notmatch 'm_sHideoutId "([^"]+)"') {
 		continue
@@ -652,6 +659,49 @@ foreach ($block in $hideoutBlocks) {
 	$hideoutPositions[$hideoutId] = Get-VectorXZKey $block
 	$hideoutVectors[$hideoutId] = Get-VectorXZObject $block
 }
+
+foreach ($expectedHideoutId in $expectedHideoutCoordinates.Keys) {
+	if (!$hideoutPositions.ContainsKey($expectedHideoutId)) {
+		throw "Expected hideout is missing from map config: $expectedHideoutId"
+	}
+
+	$expectedCoord = $expectedHideoutCoordinates[$expectedHideoutId]
+	$expectedKey = ($expectedCoord -replace " 0 ", ",")
+	if ($hideoutPositions[$expectedHideoutId] -ne $expectedKey) {
+		throw "Hideout $expectedHideoutId must use inland coordinate $expectedCoord, found $($hideoutPositions[$expectedHideoutId])"
+	}
+}
+
+$everonStartingPointsLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/StartingPoints.layer"
+$everonHideoutsLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/Hideouts.layer"
+foreach ($expectedHideoutId in $expectedHideoutCoordinates.Keys) {
+	$expectedCoord = $expectedHideoutCoordinates[$expectedHideoutId]
+	if ($defaultCatalog -notmatch [regex]::Escape($expectedCoord)) {
+		throw "Default catalog is missing inland hideout coordinate ${expectedHideoutId}: $expectedCoord"
+	}
+
+	if ($everonStartingPointsLayer -notmatch [regex]::Escape("coords $expectedCoord")) {
+		throw "Everon starting points layer is missing inland hideout coordinate ${expectedHideoutId}: $expectedCoord"
+	}
+
+	if ($everonHideoutsLayer -notmatch [regex]::Escape("coords $expectedCoord")) {
+		throw "Everon hideouts layer is missing inland hideout anchor ${expectedHideoutId}: $expectedCoord"
+	}
+}
+
+foreach ($oldHideoutCoordinate in @("2300 0 10300", "1800 0 3500", "900 0 7200", "3200 0 4100", "3400 0 4500", "2300 0 8500")) {
+	foreach ($hideoutSource in @(
+		@{ Label = "Default catalog"; Text = $defaultCatalog },
+		@{ Label = "Everon map config"; Text = $mapConfig },
+		@{ Label = "Everon starting points"; Text = $everonStartingPointsLayer },
+		@{ Label = "Everon marker layer"; Text = $runtimeMarkerLayer }
+	)) {
+		if ($hideoutSource.Text -match [regex]::Escape($oldHideoutCoordinate)) {
+			throw "$($hideoutSource.Label) still contains ocean-risk hideout coordinate: $oldHideoutCoordinate"
+		}
+	}
+}
+Write-Host "Inland hideout coordinates OK"
 
 $zonePositions = @{}
 $zoneVectors = @{}
@@ -705,6 +755,15 @@ Write-Host "Default HQ safe radius separation OK"
 
 $scriptFiles = Get-ChildItem -Recurse -File "Scripts" -Filter *.c
 $scriptText = ($scriptFiles | ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
+$worldPositionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_WorldPositionService.c"
+if ($worldPositionServiceText -match "source\[1\]\s*<=\s*MIN_DRY_SURFACE_Y") {
+	throw "World position dry-ground rejection must not accept water-level catalog coordinates"
+}
+if ($worldPositionServiceText -notmatch "if \(rejectWater && surfaceY < MIN_DRY_SURFACE_Y\)\s*\r?\n\s*return false;") {
+	throw "World position service must reject water surfaces when dry ground is requested"
+}
+Write-Host "Dry-ground rejection contract OK"
+
 $definedSymbols = @([regex]::Matches($scriptText, "(?:class|enum)\s+(HST_[A-Za-z0-9_]+)") |
 	ForEach-Object { $_.Groups[1].Value } |
 	Sort-Object -Unique)
@@ -1176,6 +1235,8 @@ foreach ($requiredFiaSpawnContract in @(
 	'ProcessPlayerSpawnSweep',
 	'HST_WorldPositionService',
 	'GetSurfaceY',
+	'ResolveDryPlayerSpawnPosition',
+	'TryResolveGroundPosition',
 	'EnsureRuntimeObjects',
 	'SupplyCache_S_FIA_01.et',
 	'ARSENAL_PREFAB',

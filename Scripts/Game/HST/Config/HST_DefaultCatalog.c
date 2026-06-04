@@ -44,9 +44,9 @@ class HST_DefaultCatalog
 	static array<ref HST_HideoutDefinition> CreateHideouts()
 	{
 		array<ref HST_HideoutDefinition> hideouts = {};
-		hideouts.Insert(NewHideout("hideout_north_forest", "North Forest", "2300 0 10300"));
-		hideouts.Insert(NewHideout("hideout_central_hills", "Central Hills", "1800 0 3500"));
-		hideouts.Insert(NewHideout("hideout_south_woods", "South Woods", "900 0 7200"));
+		hideouts.Insert(NewHideout("hideout_north_forest", "North Forest", "2500 0 9700"));
+		hideouts.Insert(NewHideout("hideout_central_hills", "Central Hills", "4000 0 3000"));
+		hideouts.Insert(NewHideout("hideout_south_woods", "South Woods", "5400 0 1600"));
 		return hideouts;
 	}
 
