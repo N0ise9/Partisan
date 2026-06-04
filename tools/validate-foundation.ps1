@@ -1715,6 +1715,7 @@ foreach ($requiredCivilianRuntimeEntry in @(
 	"ENTERABLE_AMBIENT_VEHICLE_PREFAB",
 	"ResolveTownVehicleSpawnPosition",
 	"BuildTownSpawnSeed",
+	"ModInt",
 	"IsTownGroundVehicleResource",
 	"IsAircraftVehicleResource",
 	"CleanupZoneRuntimeEntities",

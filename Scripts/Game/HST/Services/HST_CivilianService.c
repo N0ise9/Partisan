@@ -410,7 +410,7 @@ class HST_CivilianService
 	protected vector ResolveTownSpawnPosition(HST_ZoneState zone, int index, float verticalOffset)
 	{
 		vector offset = "0 0 0";
-		int column = index % 5;
+		int column = ModInt(index, 5);
 		int row = index / 5;
 		offset[0] = (column - 2) * 9;
 		offset[2] = (row - 1) * 11;
@@ -423,11 +423,11 @@ class HST_CivilianService
 			return "0 0 0";
 
 		int seed = BuildTownSpawnSeed(zone, index, militaryVehicle);
-		float radius = 18.0 + (seed % 29);
+		float radius = 18.0 + ModInt(seed, 29);
 		if (militaryVehicle)
-			radius = 28.0 + (seed % 34);
+			radius = 28.0 + ModInt(seed, 34);
 
-		float angle = ((seed * 37) % 360) * 0.0174533;
+		float angle = ModInt(seed * 37, 360) * 0.0174533;
 		vector offset = "0 0 0";
 		offset[0] = Math.Sin(angle) * radius;
 		offset[2] = Math.Cos(angle) * radius;
@@ -461,11 +461,21 @@ class HST_CivilianService
 			return Math.Max(0, minCount);
 
 		int span = maxCount - minCount + 1;
-		int value = seed % span;
-		if (value < 0)
-			value = -value;
+		int value = ModInt(seed, span);
 
 		return minCount + value;
+	}
+
+	protected int ModInt(int value, int divisor)
+	{
+		if (divisor <= 0)
+			return 0;
+
+		int result = value - (value / divisor) * divisor;
+		if (result < 0)
+			result = result + divisor;
+
+		return result;
 	}
 
 	protected int ResolveCivilianGroupCount(int civilianCount)
@@ -493,7 +503,7 @@ class HST_CivilianService
 		{
 			for (int i = 0; i < faction.m_aVehiclePrefabs.Count(); i++)
 			{
-				string factionVehicle = faction.m_aVehiclePrefabs[(index + i) % faction.m_aVehiclePrefabs.Count()];
+				string factionVehicle = faction.m_aVehiclePrefabs[ModInt(index + i, faction.m_aVehiclePrefabs.Count())];
 				if (IsGuidQualifiedResource(factionVehicle) && IsTownGroundVehicleResource(factionVehicle))
 					return factionVehicle;
 			}
