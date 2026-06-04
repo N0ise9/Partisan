@@ -116,7 +116,7 @@ class HST_LootService
 		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
 		vehicle.m_sVehicleId = string.Format("garage_%1_%2", state.m_iElapsedSeconds, state.m_aGarageVehicles.Count());
 		vehicle.m_sPrefab = ResolvePrefabName(selectedVehicle);
-		if (vehicle.m_sPrefab.IsEmpty() || !IsLikelyVehicleRootPrefab(vehicle.m_sPrefab) || IsVehiclePartEntity(selectedVehicle, vehicle.m_sPrefab))
+		if (vehicle.m_sPrefab.IsEmpty() || !IsEligibleVehicleRoot(selectedVehicle, vehicle.m_sPrefab))
 			return "h-istasi garage | failed: nearest candidate was not a top-level vehicle";
 
 		vehicle.m_sDisplayName = BuildVehicleDisplayName(selectedVehicle, vehicle.m_sPrefab);
@@ -545,10 +545,7 @@ class HST_LootService
 		if (prefab.Contains("Character") || prefab.Contains("Inventory") || prefab.Contains("Magazine"))
 			return false;
 
-		if (!IsLikelyVehicleRootPrefab(prefab))
-			return false;
-
-		if (IsVehiclePartEntity(entity, prefab))
+		if (!IsEligibleVehicleRoot(entity, prefab))
 			return false;
 
 		string factionKey = ResolveFactionKey(entity);
@@ -657,6 +654,17 @@ class HST_LootService
 		if (prefab.Contains("Character") || prefab.Contains("Inventory") || prefab.Contains("Magazine"))
 			return false;
 
+		return IsEligibleVehicleRoot(entity, prefab);
+	}
+
+	protected bool IsEligibleVehicleRoot(IEntity entity, string prefab)
+	{
+		if (!entity || prefab.IsEmpty())
+			return false;
+
+		if (entity.GetParent())
+			return false;
+
 		if (!IsLikelyVehicleRootPrefab(prefab))
 			return false;
 
@@ -668,7 +676,10 @@ class HST_LootService
 		if (prefab.IsEmpty())
 			return false;
 
-		if (!prefab.Contains("Vehicles") && !prefab.Contains("Vehicle"))
+		if (!prefab.Contains("Prefabs/Vehicles/"))
+			return false;
+
+		if (IsRejectedVehicleRootPrefab(prefab))
 			return false;
 
 		if (prefab.Contains("Wheel") || prefab.Contains("Tire") || prefab.Contains("Tyre") || prefab.Contains("Suspension") || prefab.Contains("Axle"))
@@ -681,6 +692,23 @@ class HST_LootService
 			return false;
 
 		return true;
+	}
+
+	protected bool IsRejectedVehicleRootPrefab(string prefab)
+	{
+		if (prefab.Contains("Supply") || prefab.Contains("supply"))
+			return true;
+
+		if (prefab.Contains("Crate") || prefab.Contains("crate") || prefab.Contains("Cache") || prefab.Contains("cache"))
+			return true;
+
+		if (prefab.Contains("Box") || prefab.Contains("box") || prefab.Contains("Cargo") || prefab.Contains("cargo") || prefab.Contains("Container") || prefab.Contains("container"))
+			return true;
+
+		if (prefab.Contains("Arsenal") || prefab.Contains("arsenal") || prefab.Contains("Composition") || prefab.Contains("composition") || prefab.Contains("Props/") || prefab.Contains("/Props"))
+			return true;
+
+		return false;
 	}
 
 	protected bool IsVehiclePartEntity(IEntity entity, string prefab)

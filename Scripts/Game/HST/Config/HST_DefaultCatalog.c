@@ -738,6 +738,7 @@ private static HST_FactionTemplate CreateFiaTemplate()
 		faction.m_sTemplateId = "rhs_usmc_occupier";
 		faction.m_sFactionKey = "RHS_USAF";
 		faction.m_sDisplayName = "RHS USMC Occupiers";
+		faction.m_aVehiclePrefabs.Insert("{4A71F755A4513227}Prefabs/Vehicles/Wheeled/M998/M1025.et");
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M11xx/Car_M1151.et");
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M998/M1025_USAF.et");
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M998/M1025_armed_M2HB_USAF.et");

@@ -5,6 +5,7 @@ class HST_HQService
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
+	static const float ARSENAL_VISIBLE_LIFT_METERS = 0.65;
 
 	protected IEntity m_PetrosEntity;
 	protected IEntity m_CacheEntity;
@@ -147,6 +148,13 @@ class HST_HQService
 			else if (logDetails)
 				LogRuntimeObjectSpawnFailure("arsenal", ResolveArsenalPrefab(state), state.m_vArsenalPosition);
 		}
+		else if (!IsUsableArsenalEntity(m_ArsenalEntity))
+		{
+			Print("h-istasi | HQ arsenal runtime entity is missing replication or h-istasi actions; deleting only arsenal for retry", LogLevel.WARNING);
+			DeleteRuntimeEntity(m_ArsenalEntity);
+			m_ArsenalEntity = null;
+			changed = true;
+		}
 
 		if (!m_TentEntity)
 		{
@@ -252,13 +260,13 @@ class HST_HQService
 		ClearRuntimeObjects(state);
 		vector petrosOffset = "2 0 2";
 		vector cacheOffset = "4 0 -2";
-		vector arsenalOffset = "-2 0 -4";
+		vector arsenalOffset = "-2 0 -5";
 		vector tentOffset = "-4 0 2";
 		state.m_sHQHideoutId = hideoutId;
 		state.m_vHQPosition = hqPosition;
 		state.m_vPetrosPosition = ResolveHQObjectPosition(hqPosition, petrosOffset, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
 		state.m_vHQCachePosition = ResolveHQObjectPosition(hqPosition, cacheOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
-		state.m_vArsenalPosition = ResolveHQObjectPosition(hqPosition, arsenalOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
+		state.m_vArsenalPosition = ResolveHQObjectPosition(hqPosition, arsenalOffset, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS);
 		state.m_vHQTentPosition = ResolveHQObjectPosition(hqPosition, tentOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
 		state.m_bHQDeployed = true;
 		state.m_bHQRuntimeObjectsSpawned = false;
@@ -304,7 +312,7 @@ class HST_HQService
 
 		state.m_vPetrosPosition = ResolveRuntimeObjectGroundPosition(state.m_vPetrosPosition, state.m_vHQPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
 		state.m_vHQCachePosition = ResolveRuntimeObjectGroundPosition(state.m_vHQCachePosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
-		state.m_vArsenalPosition = ResolveRuntimeObjectGroundPosition(state.m_vArsenalPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
+		state.m_vArsenalPosition = ResolveRuntimeObjectGroundPosition(state.m_vArsenalPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS);
 		state.m_vHQTentPosition = ResolveRuntimeObjectGroundPosition(state.m_vHQTentPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
 	}
 
@@ -386,8 +394,14 @@ class HST_HQService
 			arsenalPosition = state.m_vArsenalPosition;
 
 		GenericEntity arsenal = respawnSystem.DoSpawn(arsenalPrefab, arsenalPosition, "0 0 0");
-		if (arsenal)
+		if (IsUsableArsenalEntity(arsenal))
 			return arsenal;
+
+		if (arsenal)
+		{
+			Print(string.Format("h-istasi | HQ arsenal prefab %1 spawned at %2 but had no usable replicated h-istasi action root", arsenalPrefab, arsenalPosition), LogLevel.WARNING);
+			DeleteRuntimeEntity(arsenal);
+		}
 
 		if (!m_bWarnedArsenalResourceFailure)
 		{
@@ -396,6 +410,19 @@ class HST_HQService
 		}
 
 		return null;
+	}
+
+	protected bool IsUsableArsenalEntity(IEntity arsenal)
+	{
+		if (!arsenal)
+			return false;
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(arsenal.FindComponent(BaseRplComponent));
+		if (!rpl)
+			return false;
+
+		ActionsManagerComponent actions = ActionsManagerComponent.Cast(arsenal.FindComponent(ActionsManagerComponent));
+		return actions != null;
 	}
 
 	protected vector ResolveHQObjectPosition(vector hqPosition, vector offset, float verticalOffset)

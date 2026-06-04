@@ -264,7 +264,7 @@ class HST_CivilianService
 		int civilianVehicleCount = ResolveDeterministicCount(balance.m_iCivilianVehicleMinPerTown, balance.m_iCivilianVehicleMaxPerTown, state.m_iElapsedSeconds + zone.m_iPriority + zone.m_sZoneId.Length());
 		for (int j = 0; j < civilianVehicleCount; j++)
 		{
-			vector vehiclePosition = ResolveTownSpawnPosition(zone, civilianCount + j, HST_WorldPositionService.PROP_GROUND_OFFSET);
+			vector vehiclePosition = ResolveTownVehicleSpawnPosition(zone, j, false);
 			if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianVehiclePrefab(j), vehiclePosition, "CIV", "CIV_VEHICLE"))
 				spawned++;
 		}
@@ -278,8 +278,12 @@ class HST_CivilianService
 			int occupierVehicleCount = ResolveDeterministicCount(balance.m_iOccupierVehicleMinPerTown, balance.m_iOccupierVehicleMaxPerTown, state.m_iElapsedSeconds + zone.m_iPriority + 17);
 			for (int k = 0; k < occupierVehicleCount; k++)
 			{
-				vector occupierPosition = ResolveTownSpawnPosition(zone, civilianCount + civilianVehicleCount + k, HST_WorldPositionService.PROP_GROUND_OFFSET);
-				if (SpawnRuntimeEntity(zone.m_sZoneId, SelectFactionVehiclePrefab(zone.m_sOwnerFactionKey, k), occupierPosition, zone.m_sOwnerFactionKey, "OCCUPIER_VEHICLE"))
+				string occupierPrefab = SelectFactionVehiclePrefab(zone.m_sOwnerFactionKey, k);
+				if (occupierPrefab.IsEmpty())
+					continue;
+
+				vector occupierPosition = ResolveTownVehicleSpawnPosition(zone, civilianVehicleCount + k, true);
+				if (SpawnRuntimeEntity(zone.m_sZoneId, occupierPrefab, occupierPosition, zone.m_sOwnerFactionKey, "OCCUPIER_VEHICLE"))
 					spawned++;
 			}
 		}
@@ -413,6 +417,41 @@ class HST_CivilianService
 		return HST_WorldPositionService.ResolveGroundPosition(zone.m_vPosition + offset, verticalOffset, true);
 	}
 
+	protected vector ResolveTownVehicleSpawnPosition(HST_ZoneState zone, int index, bool militaryVehicle)
+	{
+		if (!zone)
+			return "0 0 0";
+
+		int seed = BuildTownSpawnSeed(zone, index, militaryVehicle);
+		float radius = 18.0 + (seed % 29);
+		if (militaryVehicle)
+			radius = 28.0 + (seed % 34);
+
+		float angle = ((seed * 37) % 360) * 0.0174533;
+		vector offset = "0 0 0";
+		offset[0] = Math.Sin(angle) * radius;
+		offset[2] = Math.Cos(angle) * radius;
+		return HST_WorldPositionService.ResolveGroundPosition(zone.m_vPosition + offset, HST_WorldPositionService.PROP_GROUND_OFFSET, true);
+	}
+
+	protected int BuildTownSpawnSeed(HST_ZoneState zone, int index, bool militaryVehicle)
+	{
+		int seed = 17 + index * 53;
+		if (zone)
+		{
+			seed = seed + zone.m_iPriority * 31 + zone.m_sZoneId.Length() * 19;
+			seed = seed + Math.Round(zone.m_vPosition[0]) + Math.Round(zone.m_vPosition[2]);
+		}
+
+		if (militaryVehicle)
+			seed = seed + 997;
+
+		if (seed < 0)
+			seed = -seed;
+
+		return seed;
+	}
+
 	protected int ResolveDeterministicCount(int minCount, int maxCount, int seed)
 	{
 		if (maxCount <= 0)
@@ -452,17 +491,37 @@ class HST_CivilianService
 		HST_FactionTemplate faction = HST_DefaultCatalog.CreateFactionTemplate(factionKey);
 		if (faction && faction.m_aVehiclePrefabs.Count() > 0)
 		{
-			string factionVehicle = faction.m_aVehiclePrefabs[index % faction.m_aVehiclePrefabs.Count()];
-			if (IsGuidQualifiedResource(factionVehicle))
-				return factionVehicle;
+			for (int i = 0; i < faction.m_aVehiclePrefabs.Count(); i++)
+			{
+				string factionVehicle = faction.m_aVehiclePrefabs[(index + i) % faction.m_aVehiclePrefabs.Count()];
+				if (IsGuidQualifiedResource(factionVehicle) && IsTownGroundVehicleResource(factionVehicle))
+					return factionVehicle;
+			}
 		}
 
-		return ENTERABLE_AMBIENT_VEHICLE_PREFAB;
+		Print(string.Format("h-istasi civilians | no GUID-qualified non-aircraft faction vehicle available for %1; skipping occupier vehicle", factionKey), LogLevel.WARNING);
+		return "";
 	}
 
 	protected bool IsGuidQualifiedResource(string prefab)
 	{
 		return prefab.Contains("{") && prefab.Contains("}") && prefab.Contains(".et");
+	}
+
+	protected bool IsTownGroundVehicleResource(string prefab)
+	{
+		if (prefab.IsEmpty())
+			return false;
+
+		if (!prefab.Contains("Prefabs/Vehicles/"))
+			return false;
+
+		return !IsAircraftVehicleResource(prefab);
+	}
+
+	protected bool IsAircraftVehicleResource(string prefab)
+	{
+		return prefab.Contains("Aircraft") || prefab.Contains("Airplane") || prefab.Contains("Plane") || prefab.Contains("Helicopter") || prefab.Contains("Helicopters") || prefab.Contains("/UH") || prefab.Contains("/AH") || prefab.Contains("/Mi") || prefab.Contains("/KA") || prefab.Contains("/Ka");
 	}
 
 	protected void ApplyFaction(IEntity entity, string factionKey, string runtimeKind)

@@ -122,13 +122,34 @@ class HST_RuntimeSettingsService
 		{
 			if (settings.m_Civilians.m_iMaxActivePerTown == 8)
 				settings.m_Civilians.m_iMaxActivePerTown = 12;
-			if (settings.m_Civilians.m_iCivilianVehicleMinPerTown == 1)
-				settings.m_Civilians.m_iCivilianVehicleMinPerTown = 2;
-			if (settings.m_Civilians.m_iCivilianVehicleMaxPerTown == 3)
-				settings.m_Civilians.m_iCivilianVehicleMaxPerTown = 4;
-			if (settings.m_Civilians.m_iOccupierVehicleMaxPerTown == 2)
-				settings.m_Civilians.m_iOccupierVehicleMaxPerTown = 3;
 			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 5)
+		{
+			if (settings.m_Civilians.m_iCivilianVehicleMinPerTown == 2 && settings.m_Civilians.m_iCivilianVehicleMaxPerTown == 4)
+			{
+				settings.m_Civilians.m_iCivilianVehicleMinPerTown = 1;
+				settings.m_Civilians.m_iCivilianVehicleMaxPerTown = 5;
+				changed = true;
+			}
+			else if (settings.m_Civilians.m_iCivilianVehicleMinPerTown == 1 && settings.m_Civilians.m_iCivilianVehicleMaxPerTown == 3)
+			{
+				settings.m_Civilians.m_iCivilianVehicleMaxPerTown = 5;
+				changed = true;
+			}
+
+			if (settings.m_Civilians.m_iOccupierVehicleMinPerTown == 1 && settings.m_Civilians.m_iOccupierVehicleMaxPerTown == 3)
+			{
+				settings.m_Civilians.m_iOccupierVehicleMinPerTown = 0;
+				settings.m_Civilians.m_iOccupierVehicleMaxPerTown = 2;
+				changed = true;
+			}
+			else if (settings.m_Civilians.m_iOccupierVehicleMinPerTown == 1 && settings.m_Civilians.m_iOccupierVehicleMaxPerTown == 2)
+			{
+				settings.m_Civilians.m_iOccupierVehicleMinPerTown = 0;
+				changed = true;
+			}
 		}
 
 		if (settings.m_iSchemaVersion < HST_RuntimeSettings.SCHEMA_VERSION)

@@ -374,6 +374,8 @@ foreach ($requiredPetrosServiceEntry in @(
 	"SpawnPetros",
 	"ResolveArsenalPrefab",
 	"SpawnArsenal",
+	"IsUsableArsenalEntity",
+	"ARSENAL_VISIBLE_LIFT_METERS",
 	"state.m_sPetrosPrefab = PETROS_PREFAB",
 	"state.m_sArsenalPrefab = ARSENAL_PREFAB",
 	"MoveHQToPosition",
@@ -1484,8 +1486,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 4") {
-	throw "Runtime settings schema must be bumped to 4 for the arsenal threshold/civilian population settings migration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 5") {
+	throw "Runtime settings schema must be bumped to 5 for the town vehicle range settings migration"
 }
 if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 25") {
 	throw "Runtime/balance defaults must set arsenal unlock threshold to 25"
@@ -1498,9 +1500,10 @@ if ($scriptText -match '"arsenalUnlockThreshold": 15' -or $configResourceText -m
 }
 foreach ($requiredCivilianDefault in @(
 	"m_iCivilianMaxActivePerTown = 12",
-	"m_iCivilianVehicleMinPerTown = 2",
-	"m_iCivilianVehicleMaxPerTown = 4",
-	"m_iOccupierVehicleMaxPerTown = 3"
+	"m_iCivilianVehicleMinPerTown = 1",
+	"m_iCivilianVehicleMaxPerTown = 5",
+	"m_iOccupierVehicleMinPerTown",
+	"m_iOccupierVehicleMaxPerTown = 2"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCivilianDefault)) {
 		throw "Runtime settings must keep the updated civilian default: $requiredCivilianDefault"
@@ -1508,9 +1511,10 @@ foreach ($requiredCivilianDefault in @(
 }
 foreach ($requiredCivilianBalanceDefault in @(
 	"m_iCivilianMaxActivePerTown 12",
-	"m_iCivilianVehicleMinPerTown 2",
-	"m_iCivilianVehicleMaxPerTown 4",
-	"m_iOccupierVehicleMaxPerTown 3"
+	"m_iCivilianVehicleMinPerTown 1",
+	"m_iCivilianVehicleMaxPerTown 5",
+	"m_iOccupierVehicleMinPerTown 0",
+	"m_iOccupierVehicleMaxPerTown 2"
 )) {
 	if ($configResourceText -notmatch [regex]::Escape($requiredCivilianBalanceDefault)) {
 		throw "Balance config must keep the updated civilian default: $requiredCivilianBalanceDefault"
@@ -1539,7 +1543,9 @@ foreach ($requiredLootEntry in @(
 	"BuildVehicleCargoReport",
 	"DepositVehicleCargo",
 	"CaptureNearbyVehicleToGarage",
+	"IsEligibleVehicleRoot",
 	"IsLikelyVehicleRootPrefab",
+	"IsRejectedVehicleRootPrefab",
 	"IsVehiclePartEntity",
 	"IsVehiclePartName",
 	"no safe root vehicle nearby",
@@ -1577,6 +1583,26 @@ foreach ($requiredLootEntry in @(
 	}
 }
 Write-Host "Loot-to-arsenal contract OK"
+
+$lootServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c"
+foreach ($requiredVehicleRejectionEntry in @(
+	'prefab.Contains("Prefabs/Vehicles/")',
+	'prefab.Contains("Supply")',
+	'prefab.Contains("Crate")',
+	'prefab.Contains("Cache")',
+	'prefab.Contains("Box")',
+	'prefab.Contains("Cargo")',
+	'prefab.Contains("Container")',
+	'prefab.Contains("Arsenal")'
+)) {
+	if ($lootServiceText -notmatch [regex]::Escape($requiredVehicleRejectionEntry)) {
+		throw "Loot service must keep strict vehicle-root rejection entry: $requiredVehicleRejectionEntry"
+	}
+}
+if ($lootServiceText -match 'if \(!prefab\.Contains\("Vehicles"\) && !prefab\.Contains\("Vehicle"\)\)') {
+	throw "Loot service must not use loose Vehicle/Vehicles substring matching for vehicle roots"
+}
+Write-Host "Strict vehicle-root eligibility OK"
 
 foreach ($requiredFiaSpawnContract in @(
 	'string m_sFactionKey = "FIA"',
@@ -1687,6 +1713,10 @@ foreach ($requiredCivilianRuntimeEntry in @(
 	"CIVILIAN_GROUP_PREFAB",
 	"HST_CivilianTownGroup.et",
 	"ENTERABLE_AMBIENT_VEHICLE_PREFAB",
+	"ResolveTownVehicleSpawnPosition",
+	"BuildTownSpawnSeed",
+	"IsTownGroundVehicleResource",
+	"IsAircraftVehicleResource",
 	"CleanupZoneRuntimeEntities",
 	"CleanupAllRuntimeEntities",
 	"ShouldDetachFromTownCleanup",
@@ -1710,6 +1740,20 @@ foreach ($requiredCivilianRuntimeEntry in @(
 $civilianRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
 if ($civilianRuntimeServiceText -match 'DoSpawn\(SelectCivilianCharacterPrefab' -or $civilianRuntimeServiceText -match 'CIVILIAN_PREFAB = "Prefabs/Characters/Factions/CIV') {
 	throw "Civilian runtime must spawn h-istasi civilian AI groups, not direct path-only civilian characters"
+}
+if ($civilianRuntimeServiceText -match 'ResolveTownSpawnPosition\(zone, civilianCount \+ j' -or $civilianRuntimeServiceText -match 'ResolveTownSpawnPosition\(zone, civilianCount \+ civilianVehicleCount \+ k') {
+	throw "Civilian runtime vehicles must use scattered town vehicle placement, not the old grid helper"
+}
+foreach ($requiredTownVehicleEntry in @(
+	'ResolveTownVehicleSpawnPosition(zone, j, false)',
+	'ResolveTownVehicleSpawnPosition(zone, civilianVehicleCount + k, true)',
+	'IsAircraftVehicleResource',
+	'!IsAircraftVehicleResource(prefab)',
+	'no GUID-qualified non-aircraft faction vehicle available'
+)) {
+	if ($civilianRuntimeServiceText -notmatch [regex]::Escape($requiredTownVehicleEntry)) {
+		throw "Civilian runtime must keep scattered/non-heli vehicle contract entry: $requiredTownVehicleEntry"
+	}
 }
 foreach ($forbiddenCivilianSpawnResource in @(
 	"Prefabs/Vehicles/Wheeled/S105/S105_base.et",
