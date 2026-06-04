@@ -260,7 +260,7 @@ class HST_MapMarkerService
 		if (markerManager)
 			return markerManager;
 
-		SCR_BaseGameMode gameMode = GetGame().GetGameMode();
+		BaseGameMode gameMode = GetGame().GetGameMode();
 		if (!gameMode)
 			return null;
 

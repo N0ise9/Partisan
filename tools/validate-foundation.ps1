@@ -829,6 +829,9 @@ if ($hqServiceText -match "ResolveGroundPosition\(state\.m_vHQPosition,\s*HST_Wo
 Write-Host "Dry HQ/player emergency fallback contract OK"
 
 $mapMarkerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+if ($mapMarkerServiceText -match "SCR_BaseGameMode\s+gameMode\s*=\s*GetGame\(\)\.GetGameMode\(\)") {
+	throw "Map marker manager resolver must not unsafe-assign BaseGameMode to SCR_BaseGameMode"
+}
 foreach ($requiredMarkerColorContract in @(
 	'return "GREEN";',
 	'return "BLUFOR";',
