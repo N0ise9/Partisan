@@ -461,12 +461,6 @@ class HST_CommandUIService
 		payload = AppendStat(payload, "HR", string.Format("%1", state.m_iHR), "good");
 		payload = AppendStat(payload, "War Level", string.Format("%1", state.m_iWarLevel), "warn");
 		payload = AppendStat(payload, "Training", string.Format("%1", state.m_iTrainingLevel), "good");
-		payload = AppendStat(payload, "Commander", BuildCommanderName(state), "neutral");
-		payload = AppendStat(payload, "Petros", BuildPetrosLabel(state), BuildPetrosTone(state));
-		payload = AppendStat(payload, "Zones", string.Format("%1 FIA / %2 hostile", CountResistanceZones(state, preset), CountEnemyZones(state, preset)), "neutral");
-		payload = AppendStat(payload, "Arsenal", string.Format("%1 unlocked / %2 tracked", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
-		payload = AppendStat(payload, "Support", string.Format("%1 calls / %2 orders", state.m_aSupportRequests.Count(), state.m_aEnemyOrders.Count()), "warn");
-		payload = AppendStat(payload, "Civilians", string.Format("%1 towns", state.m_aCivilianZones.Count()), "neutral");
 		return payload;
 	}
 
@@ -540,6 +534,7 @@ class HST_CommandUIService
 
 		payload = AppendSection(payload, "brief", "War Room");
 		payload = AppendRow(payload, "brief", "Campaign", BuildPresetName(preset, state), "neutral");
+		payload = AppendRow(payload, "brief", "Commander", BuildCommanderName(state), "neutral");
 		payload = AppendRow(payload, "brief", "HQ hideout", BuildHQLabel(state), "good");
 		payload = AppendRow(payload, "brief", "Petros", string.Format("%1 / deaths %2", BuildPetrosLabel(state), state.m_iPetrosDeaths), BuildPetrosTone(state));
 		payload = AppendRow(payload, "brief", "Current order", BuildStrategicOrder(state, preset), "warn");

@@ -797,7 +797,11 @@ foreach ($requiredCommandMenuEntry in @(
 	'EnsureInputConfig',
 	'RegisterExistingIKeyActionListeners',
 	'GetActionKeybinding',
-	'OnCommandMenuInput(float value, EActionTrigger reason)',
+	'OnCustomCommandMenuInput(float value, EActionTrigger reason)',
+	'OnInventoryCommandMenuInput(float value, EActionTrigger reason)',
+	'OnIKeyAliasInput(float value, EActionTrigger reason)',
+	'AddActionListener(actionName, EActionTrigger.DOWN, OnIKeyAliasInput)',
+	'RemoveActionListener(iKeyActionName, EActionTrigger.DOWN, OnIKeyAliasInput)',
 	'keyboard:KC_I',
 	'IsLocalOwner',
 	'local player menu component ready',
@@ -816,6 +820,11 @@ foreach ($requiredCommandMenuEntry in @(
 	'Debug.KeyState(KeyCode.KC_I)',
 	'Debug.ClearKey(KeyCode.KC_I)',
 	'KEY_PRESSED_MASK',
+	'custom action listener fired',
+	'inventory fallback listener fired',
+	'I-key alias listener fired',
+	'raw KC_I edge seen',
+	'ignored duplicate toggle',
 	'm_fCommandMenuDebounceRemaining',
 	'm_bCommandMenuKeyDownLastFrame',
 	'm_bRawIKeyDownLastFrame',
@@ -831,6 +840,8 @@ foreach ($requiredCommandMenuEntry in @(
 	'SetTextWrapping(false)',
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
+	'if (i >= 4)',
+	'ShortenText(m_aRowValues[i], 38)',
 	'SCR_HintManagerComponent',
 	'STAT|',
 	'SECTION|',
@@ -900,6 +911,42 @@ if (!$registerInputMatch.Success) {
 }
 if ($registerInputMatch.Value -match "if\s*\(!EnsureIKeyBinding\(inputManager\)\)") {
 	throw "Input registration must not block on the custom command menu binding"
+}
+$customListenerIndex = $registerInputMatch.Value.IndexOf("OnCustomCommandMenuInput")
+$aliasListenerIndex = $registerInputMatch.Value.IndexOf("RegisterExistingIKeyActionListeners")
+$inventoryListenerIndex = $registerInputMatch.Value.IndexOf("OnInventoryCommandMenuInput")
+if ($inventoryListenerIndex -ge 0 -and (($customListenerIndex -ge 0 -and $inventoryListenerIndex -lt $customListenerIndex) -or ($aliasListenerIndex -ge 0 -and $inventoryListenerIndex -lt $aliasListenerIndex))) {
+	throw "Inventory input listener must be registered after custom and alias paths so it remains a fallback"
+}
+$aliasInputMatch = [regex]::Match($scriptText, "protected void RegisterExistingIKeyActionListeners[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool ActionUsesIKey")
+if (!$aliasInputMatch.Success -or $aliasInputMatch.Value -notmatch "AddActionListener\(actionName, EActionTrigger\.DOWN, OnIKeyAliasInput\)") {
+	throw "Discovered I-key aliases must attach through the debounced alias callback"
+}
+$appendTopStatsMatch = [regex]::Match($scriptText, "protected string AppendTopStats[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected string AppendTabSections")
+if (!$appendTopStatsMatch.Success) {
+	throw "Missing command menu top stat payload builder"
+}
+foreach ($requiredTopStat in @(
+	'AppendStat(payload, "FIA Money"',
+	'AppendStat(payload, "HR"',
+	'AppendStat(payload, "War Level"',
+	'AppendStat(payload, "Training"'
+)) {
+	if ($appendTopStatsMatch.Value -notmatch [regex]::Escape($requiredTopStat)) {
+		throw "Command menu top stat strip is missing reduced numeric badge: $requiredTopStat"
+	}
+}
+foreach ($removedTopStat in @(
+	'AppendStat(payload, "Commander"',
+	'AppendStat(payload, "Petros"',
+	'AppendStat(payload, "Zones"',
+	'AppendStat(payload, "Arsenal"',
+	'AppendStat(payload, "Support"',
+	'AppendStat(payload, "Civilians"'
+)) {
+	if ($appendTopStatsMatch.Value -match [regex]::Escape($removedTopStat)) {
+		throw "Command menu top stat strip must not include long string stat cards: $removedTopStat"
+	}
 }
 Write-Host "I-key alpha command menu OK"
 
