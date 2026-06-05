@@ -15,6 +15,11 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 		return true;
 	}
 
+	override bool CanBroadcastScript()
+	{
+		return false;
+	}
+
 	protected void OpenMenuTab(string tabId, IEntity userEntity)
 	{
 		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();

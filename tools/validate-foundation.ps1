@@ -515,12 +515,16 @@ foreach ($requiredArsenalPrefabEntry in @(
 	'{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/ArsenalBoxes/FIA/ArsenalBox_FIA.et',
 	"RplComponent",
 	"ActionsManagerComponent",
+	'ActionsManagerComponent "{56F2C6D1431ADB12}"',
 	"HST_HQArsenalLoadoutEditorAction",
 	"Open Loadout Editor"
 )) {
 	if ($hqArsenalPrefabText -notmatch [regex]::Escape($requiredArsenalPrefabEntry)) {
 		throw "HST HQ arsenal prefab is missing h-istasi-only arsenal entry: $requiredArsenalPrefabEntry"
 	}
+}
+if ($hqArsenalPrefabText -match 'ActionsManagerComponent "\{6985327711303401\}"') {
+	throw "HST HQ arsenal prefab must override the inherited ArsenalBox action manager, not add a duplicate HST action manager"
 }
 foreach ($forbiddenArsenalPrefabEntry in @(
 	'{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et',
@@ -1690,6 +1694,11 @@ foreach ($requiredLootEntry in @(
 	"FindNearestVehicleRoot",
 	"PublishVehicleTargetDiagnostics",
 	"ResolveVehicleRoot",
+	"ResolveVehicleRootWithRuntimeFallback",
+	"ResolveRegisteredRuntimeVehicleRootFromCandidate",
+	"DoesCandidateChainHaveVehicleSignal",
+	"ResolveVehicleRuntimeIdFromScan",
+	"ResolveVehiclePrefabFromScan",
 	"IsEligibleVehicleRoot",
 	"HST_VehicleRootPolicy",
 	"IsEligibleVehicleRootPrefab",
@@ -1943,6 +1952,8 @@ foreach ($requiredRuntimeVehicleEntry in @(
 	"m_aRuntimeVehicles",
 	"RegisterRuntimeVehicle",
 	"ResolveRuntimeVehicleRecord",
+	"SCR_EditableEntityComponent",
+	"EEditableEntityType.VEHICLE",
 	"selected registered h-istasi runtime vehicle",
 	"MarkRuntimeVehicleDeleted"
 )) {
