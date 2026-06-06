@@ -106,6 +106,68 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 	}
 }
 
+[ComponentEditorProps(category: "h-istasi", description: "Disables inherited stock arsenal actions on the h-istasi HQ arsenal")]
+class HST_HQArsenalActionFilterComponentClass : ScriptComponentClass
+{
+}
+
+class HST_HQArsenalActionFilterComponent : ScriptComponent
+{
+	protected bool m_bActionsFiltered;
+	protected int m_iFilterFrames;
+
+	override void OnPostInit(IEntity owner)
+	{
+		super.OnPostInit(owner);
+		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
+	}
+
+	override void EOnInit(IEntity owner)
+	{
+		FilterActions(owner);
+	}
+
+	override void EOnFrame(IEntity owner, float timeSlice)
+	{
+		if (m_bActionsFiltered && m_iFilterFrames > 90)
+			return;
+
+		FilterActions(owner);
+	}
+
+	protected void FilterActions(IEntity owner)
+	{
+		if (!owner)
+			return;
+
+		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(owner.FindComponent(ActionsManagerComponent));
+		if (!actionsManager)
+			return;
+
+		array<BaseUserAction> actions = {};
+		actionsManager.GetActionsList(actions);
+		int actionCount = actions.Count();
+		if (actionCount <= 0)
+			return;
+
+		foreach (BaseUserAction action : actions)
+		{
+			if (!action)
+				continue;
+
+			if (HST_HQArsenalLoadoutEditorAction.Cast(action))
+				continue;
+
+			action.SetActionEnabled_S(false);
+		}
+
+		m_bActionsFiltered = true;
+		m_iFilterFrames++;
+		if (m_iFilterFrames == 1 || m_iFilterFrames == 90)
+			Print(string.Format("h-istasi arsenal | filtered %1 inherited action(s); custom loadout editor action remains authoritative", Math.Max(0, actionCount - 1)));
+	}
+}
+
 class HST_PetrosUserActionBase : HST_ContextualUserActionBase
 {
 }

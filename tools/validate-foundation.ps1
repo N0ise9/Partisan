@@ -504,11 +504,24 @@ foreach ($requiredArsenalPrefabEntry in @(
 	'{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/ArsenalBoxes/FIA/ArsenalBox_FIA.et',
 	"ActionsManagerComponent",
 	'ActionsManagerComponent "{56F2C6D1431ADB12}"',
+	"HST_HQArsenalActionFilterComponent",
 	"HST_HQArsenalLoadoutEditorAction",
 	"Open Loadout Editor"
 )) {
 	if ($hqArsenalPrefabText -notmatch [regex]::Escape($requiredArsenalPrefabEntry)) {
 		throw "HST HQ arsenal prefab is missing h-istasi-only arsenal entry: $requiredArsenalPrefabEntry"
+	}
+}
+$petrosActionText = Get-Content -Raw "Scripts/Game/HST/Components/HST_PetrosUserActions.c"
+foreach ($requiredArsenalActionFilterEntry in @(
+	"HST_HQArsenalActionFilterComponent",
+	"GetActionsList",
+	"SetActionEnabled_S(false)",
+	"HST_HQArsenalLoadoutEditorAction.Cast(action)",
+	"filtered %1 inherited action"
+)) {
+	if ($petrosActionText -notmatch [regex]::Escape($requiredArsenalActionFilterEntry)) {
+		throw "HST HQ arsenal action filter is missing inherited action cleanup entry: $requiredArsenalActionFilterEntry"
 	}
 }
 if ($hqArsenalPrefabText -match 'ActionsManagerComponent "\{6985327711303401\}"') {
@@ -1670,8 +1683,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 6") {
-	throw "Runtime settings schema must be bumped to 6 for the HQ interaction radius migration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 7") {
+	throw "Runtime settings schema must be bumped to 7 for deposit-all loot migration"
 }
 if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 25") {
 	throw "Runtime/balance defaults must set arsenal unlock threshold to 25"
@@ -1684,6 +1697,12 @@ if ($configResourceText -notmatch "m_iHQInteractionRadiusMeters 50") {
 }
 if ($configResourceText -notmatch "m_iArsenalUnlockThreshold 25") {
 	throw "Balance config must set arsenal unlock threshold to 25"
+}
+if ($configResourceText -notmatch "m_bLootOnlyLockedItems 0" -or $configResourceText -notmatch "m_bVehicleLootOnlyLockedItems 0") {
+	throw "Loot defaults must deposit all recovered gear instead of leaving repeated unlocked items on sources"
+}
+if ($scriptText -notmatch "settings.m_ArsenalLoot.m_bLootOnlyLockedItems = false" -or $scriptText -notmatch "settings.m_VehicleLoot.m_bOnlyLockedItems = false") {
+	throw "Runtime settings migration must switch old profiles to deposit-all loot defaults"
 }
 if ($scriptText -match '"arsenalUnlockThreshold": 15' -or $configResourceText -match "m_iArsenalUnlockThreshold 15") {
 	throw "Generated/default balance settings must not keep the old 15-item infinite unlock threshold"
@@ -1910,6 +1929,7 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"HST_LoadoutEditorComponent",
 	'$profile:h-istasi/loadouts',
 	"HST_LoadoutSlotState",
+	"HST_LoadoutNodeState",
 	"HST_SavedLoadoutState",
 	"HST_IssuedLoadoutItemState",
 	"HST_LoadoutEditorSessionState",
@@ -1924,11 +1944,18 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"CATEGORY|%1|%2|%3",
 	"ITEM|%1|%2|%3|%4|%5|%6|%7|%8|%9",
 	"SLOT|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+	"NODE|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+	"CANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+	"STORAGE|%1|%2|%3|%4|%5",
+	"ATTACH|%1|%2|%3|%4|%5",
 	"TEMPLATE|%1|%2|%3",
 	"SaveCurrentDraft",
 	"ApplySavedLoadout",
 	"AddDraftItem",
 	"ReplaceDraftSlotItem",
+	"SetNodeItem",
+	"RemoveNodeItem",
+	"RefreshDraftNodes",
 	"RemoveDraftSlot",
 	"SetDraftSlotQuantity",
 	"ClearDraft",
@@ -1962,6 +1989,8 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"RequestMemberRemoveLoadoutDraftSlot",
 	"RequestMemberSetLoadoutDraftSlotQuantity",
 	"RequestMemberReplaceLoadoutDraftSlotItem",
+	"RequestMemberSetLoadoutNodeItem",
+	"RequestMemberRemoveLoadoutNodeItem",
 	"RequestMemberClearLoadoutDraft",
 	"RequestMemberSelectSavedLoadout",
 	"RequestMemberDeleteSavedLoadout",
@@ -1970,6 +1999,11 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"RequestLoadoutEditorAction",
 	"RpcDo_ReceiveLoadoutEditorPayload",
 	"loadout_replace_slot",
+	"set_node_item",
+	"set_attachment",
+	"remove_node_item",
+	"remove_attachment",
+	"add_storage_item",
 	"loadout_clear_draft",
 	"HST_HQArsenalLoadoutEditorAction"
 )) {
@@ -2039,6 +2073,8 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"EnsurePreviewWorld",
 	"RefreshPreviewWorldLoadout",
 	"UpdatePreviewCamera",
+	"AnimatePreviewCamera",
+	"ApplyPreviewCameraImmediate",
 	"GetPreviewCharacterBounds",
 	"GetBounds",
 	"vector.Distance",
@@ -2049,6 +2085,13 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"BuildDraftHeaderSummary",
 	"BuildSwapHeaderText",
 	"BuildSwapActionLabel",
+	"BuildNodeActionLabel",
+	"RenderNodeRow",
+	"RenderCandidateRow",
+	"RenderSelectedNodeHeader",
+	"EnsureSelectedSlotForCategory",
+	"m_iEditorWidth",
+	"workspace.GetWidth()",
 	"ResolvePayloadDisplayText",
 	"m_aItemShortDisplays",
 	"m_aItemSlotLabels",
@@ -2056,6 +2099,10 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"m_aSlotShortDisplays",
 	"m_aSlotLabels",
 	"m_aSlotPreviewEligible",
+	"m_aNodeIds",
+	"m_aCandidateNodeIds",
+	"m_aVisibleNodeIndexes",
+	"m_aVisibleCandidateIndexes",
 	"ClampPages",
 	"ParseEditorPayload",
 	"RequestServerAction",
@@ -2064,9 +2111,12 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"loadout_add_item",
 	"loadout_remove_slot",
 	"loadout_set_quantity",
+	"set_node_item",
+	"set_attachment",
 	"loadout_clear_draft",
 	"loadout_select",
 	"loadout_delete",
+	"IsRemovedExternalPrefab",
 	"ITEM_PAGE_NEXT_WIDGET_ID",
 	"SLOT_PAGE_NEXT_WIDGET_ID",
 	"TEMPLATE_PAGE_NEXT_WIDGET_ID"
@@ -2115,6 +2165,17 @@ foreach ($forbiddenArsenalRuntimeEntry in @(
 )) {
 	if ($loadoutEditorText -match [regex]::Escape($forbiddenArsenalRuntimeEntry)) {
 		throw "Custom loadout editor must not issue gear through stock/MSAR arsenal runtime: $forbiddenArsenalRuntimeEntry"
+	}
+}
+foreach ($requiredLoadoutEditorServiceCleanupEntry in @(
+	"PurgeRemovedExternalLoadoutState",
+	"PurgeRemovedExternalDraftSlots",
+	"IsAllowedLoadoutSlot",
+	"IsRemovedExternalPrefab",
+	"purged external"
+)) {
+	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutEditorServiceCleanupEntry)) {
+		throw "Loadout editor service must purge removed external/RHS state from base-game-only sessions: $requiredLoadoutEditorServiceCleanupEntry"
 	}
 }
 Write-Host "Custom HST loadout editor contract OK"
@@ -2189,6 +2250,7 @@ foreach ($requiredProtectedLootEntry in @(
 	"IsProtectedHQLootSource",
 	"IsProtectedHQEntity",
 	"IsHQProtectedPrefab",
+	"protectedByProximity",
 	"state.m_vArsenalPosition",
 	"skipped protected HQ source",
 	"ArsenalBox_FIA",
@@ -2197,6 +2259,20 @@ foreach ($requiredProtectedLootEntry in @(
 )) {
 	if ($lootServiceText -notmatch [regex]::Escape($requiredProtectedLootEntry)) {
 		throw "Loot service must protect HQ arsenal/cache/tent/Petros from vehicle cargo and area loot: $requiredProtectedLootEntry"
+	}
+}
+foreach ($requiredRecursiveLootEntry in @(
+	"GatherInventoryItemsRecursive",
+	"GatherStorageItemsRecursive",
+	"GatherInventoryItemRecursive",
+	"GetOwnedItems",
+	"GetParentSlot",
+	"GetAttachedEntity",
+	"GetSlotsCount",
+	"SCR_EntityHelper.DeleteEntityAndChildren(item)"
+)) {
+	if ($lootServiceText -notmatch [regex]::Escape($requiredRecursiveLootEntry)) {
+		throw "Loot service must recursively gather nested corpse/crate/gear inventory: $requiredRecursiveLootEntry"
 	}
 }
 if ($lootServiceText -notmatch 'RekeyLegacyVehiclePartCargo[\s\S]*?m_sVehicleRuntimeId = vehicleId') {

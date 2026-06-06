@@ -17,13 +17,13 @@ class HST_BalanceConfig
 	int m_iMagazineUnlockMultiplier = 3;
 	int m_iHQInteractionRadiusMeters = 50;
 	int m_iLootRadiusMeters = 15;
-	bool m_bLootOnlyLockedItems = true;
+	bool m_bLootOnlyLockedItems;
 	bool m_bRemoveLootedItems = true;
 	bool m_bAllowExplosiveUnlocks;
 	bool m_bAllowGuidedLauncherUnlocks;
 	bool m_bVehicleLootEnabled = true;
 	int m_iVehicleLootRadiusMeters = 20;
-	bool m_bVehicleLootOnlyLockedItems = true;
+	bool m_bVehicleLootOnlyLockedItems;
 	bool m_bVehicleLootRemoveSource = true;
 	int m_iVehicleLootMaxItemsPerAction = 48;
 	bool m_bAirSupportEnabled = true;

@@ -550,6 +550,10 @@ class HST_LootService
 		}
 
 		vector origin = entity.GetOrigin();
+		bool protectedByProximity = IsLikelyBuildOrSupplyObject(prefab) || IsHQProtectedPrefab(name);
+		if (!protectedByProximity)
+			return false;
+
 		if (IsNearHQObject(origin, state.m_vPetrosPosition, 4.0))
 		{
 			reason = BuildProtectedHQReason(entity, prefab, "near Petros");
@@ -636,7 +640,8 @@ class HST_LootService
 	protected void CollectInventoryItems(IEntity source, SCR_InventoryStorageManagerComponent inventory, HST_CampaignState state, HST_BalanceConfig balance, HST_ArsenalService arsenal, HST_LootResult result)
 	{
 		array<IEntity> items = {};
-		inventory.GetItems(items, EStoragePurpose.PURPOSE_ANY);
+		array<IEntity> visited = {};
+		GatherInventoryItemsRecursive(inventory, items, visited, 0);
 		foreach (IEntity item : items)
 		{
 			if (!item)
@@ -677,7 +682,8 @@ class HST_LootService
 	protected void CollectInventoryItemsToVehicle(IEntity source, SCR_InventoryStorageManagerComponent inventory, IEntity vehicle, string vehicleId, string vehiclePrefab, string vehicleName, HST_CampaignState state, HST_BalanceConfig balance, HST_ArsenalService arsenal, HST_LootResult result)
 	{
 		array<IEntity> items = {};
-		inventory.GetItems(items, EStoragePurpose.PURPOSE_ANY);
+		array<IEntity> visited = {};
+		GatherInventoryItemsRecursive(inventory, items, visited, 0);
 		foreach (IEntity item : items)
 		{
 			if (!item)
@@ -785,6 +791,64 @@ class HST_LootService
 		result.m_aDepositedLines.Insert(string.Format("+ %1 | %2 | vehicle count %3", cargoItem.m_sDisplayName, cargoItem.m_sCategory, cargoItem.m_iCount));
 		if (balance.m_bVehicleLootRemoveSource && RemoveLooseLootItem(item))
 			result.m_iItemsRemoved++;
+	}
+
+	protected void GatherInventoryItemsRecursive(SCR_InventoryStorageManagerComponent inventory, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
+	{
+		if (!inventory || depth > 8)
+			return;
+
+		array<IEntity> directItems = {};
+		inventory.GetItems(directItems, EStoragePurpose.PURPOSE_ANY);
+		foreach (IEntity item : directItems)
+			GatherInventoryItemRecursive(item, outItems, visited, depth);
+	}
+
+	protected void GatherStorageItemsRecursive(BaseInventoryStorageComponent storage, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
+	{
+		if (!storage || depth > 8)
+			return;
+
+		array<InventoryItemComponent> itemComponents = {};
+		storage.GetOwnedItems(itemComponents);
+		foreach (InventoryItemComponent itemComponent : itemComponents)
+		{
+			if (!itemComponent)
+				continue;
+
+			InventoryStorageSlot parentSlot = itemComponent.GetParentSlot();
+			if (parentSlot)
+				GatherInventoryItemRecursive(parentSlot.GetAttachedEntity(), outItems, visited, depth);
+		}
+
+		int slotCount = storage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+			if (!slot)
+				continue;
+
+			GatherInventoryItemRecursive(slot.GetAttachedEntity(), outItems, visited, depth);
+		}
+	}
+
+	protected void GatherInventoryItemRecursive(IEntity item, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
+	{
+		if (!item || depth > 8 || visited.Find(item) >= 0)
+			return;
+
+		visited.Insert(item);
+
+		SCR_InventoryStorageManagerComponent childInventory = SCR_InventoryStorageManagerComponent.Cast(item.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (childInventory)
+			GatherInventoryItemsRecursive(childInventory, outItems, visited, depth + 1);
+
+		InventoryItemComponent itemComponent = InventoryItemComponent.Cast(item.FindComponent(InventoryItemComponent));
+		BaseInventoryStorageComponent itemStorage = BaseInventoryStorageComponent.Cast(itemComponent);
+		if (itemStorage)
+			GatherStorageItemsRecursive(itemStorage, outItems, visited, depth + 1);
+
+		outItems.Insert(item);
 	}
 
 	protected HST_VehicleCargoItemState DepositVehicleCargo(HST_CampaignState state, IEntity vehicle, string vehicleId, string vehiclePrefab, string vehicleName, string itemPrefab, string category, string displayName)
@@ -905,7 +969,8 @@ class HST_LootService
 			return 0;
 
 		array<IEntity> items = {};
-		inventory.GetItems(items, EStoragePurpose.PURPOSE_ANY);
+		array<IEntity> visited = {};
+		GatherInventoryItemsRecursive(inventory, items, visited, 0);
 		int captured;
 		foreach (IEntity item : items)
 		{
@@ -1921,7 +1986,23 @@ class HST_LootService
 			return true;
 
 		BaseInventoryStorageComponent storage = inventory.FindStorageForItem(item, EStoragePurpose.PURPOSE_ANY);
-		return storage && inventory.TryRemoveItemFromStorage(item, storage);
+		if (storage && inventory.TryRemoveItemFromStorage(item, storage))
+			return true;
+
+		InventoryItemComponent itemComponent = InventoryItemComponent.Cast(item.FindComponent(InventoryItemComponent));
+		if (itemComponent && itemComponent.GetParentSlot())
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(item);
+			return true;
+		}
+
+		if (!item.GetParent())
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(item);
+			return true;
+		}
+
+		return false;
 	}
 
 	protected bool RemoveLooseLootItem(IEntity item)

@@ -166,28 +166,34 @@ class HST_CommandUIService
 		if (commandId == "loadout_editor_close")
 			return coordinator.RequestMemberCloseLoadoutEditor(playerId);
 
-		if (commandId == "loadout_save")
+		if (commandId == "loadout_save" || commandId == "save_loadout")
 			return coordinator.RequestMemberSaveLoadoutDraft(playerId, argument);
 
-		if (commandId == "loadout_apply")
+		if (commandId == "loadout_apply" || commandId == "apply")
 			return coordinator.RequestMemberApplySavedLoadout(playerId, argument);
 
 		if (commandId == "loadout_add_item")
 			return coordinator.RequestMemberAddLoadoutDraftItem(playerId, argument);
 
-		if (commandId == "loadout_remove_slot")
+		if (commandId == "loadout_remove_slot" || commandId == "remove_storage_item")
 			return coordinator.RequestMemberRemoveLoadoutDraftSlot(playerId, argument);
 
 		if (commandId == "loadout_set_quantity")
 			return coordinator.RequestMemberSetLoadoutDraftSlotQuantity(playerId, argument);
 
+		if (commandId == "set_node_item" || commandId == "set_attachment" || commandId == "add_storage_item")
+			return coordinator.RequestMemberSetLoadoutNodeItem(playerId, argument);
+
+		if (commandId == "remove_node_item" || commandId == "remove_attachment")
+			return coordinator.RequestMemberRemoveLoadoutNodeItem(playerId, argument);
+
 		if (commandId == "loadout_clear_draft")
 			return coordinator.RequestMemberClearLoadoutDraft(playerId);
 
-		if (commandId == "loadout_select")
+		if (commandId == "loadout_select" || commandId == "load_loadout")
 			return coordinator.RequestMemberSelectSavedLoadout(playerId, argument);
 
-		if (commandId == "loadout_delete")
+		if (commandId == "loadout_delete" || commandId == "delete_loadout")
 			return coordinator.RequestMemberDeleteSavedLoadout(playerId, argument);
 
 		if (commandId == "garage_capture_nearby")
@@ -420,28 +426,34 @@ class HST_CommandUIService
 		if (commandId == "loadout_editor_close")
 			return !coordinator.RequestMemberCloseLoadoutEditor(playerId).IsEmpty();
 
-		if (commandId == "loadout_save")
+		if (commandId == "loadout_save" || commandId == "save_loadout")
 			return !coordinator.RequestMemberSaveLoadoutDraft(playerId, argument).IsEmpty();
 
-		if (commandId == "loadout_apply")
+		if (commandId == "loadout_apply" || commandId == "apply")
 			return !coordinator.RequestMemberApplySavedLoadout(playerId, argument).IsEmpty();
 
 		if (commandId == "loadout_add_item")
 			return !coordinator.RequestMemberAddLoadoutDraftItem(playerId, argument).IsEmpty();
 
-		if (commandId == "loadout_remove_slot")
+		if (commandId == "loadout_remove_slot" || commandId == "remove_storage_item")
 			return !coordinator.RequestMemberRemoveLoadoutDraftSlot(playerId, argument).IsEmpty();
 
 		if (commandId == "loadout_set_quantity")
 			return !coordinator.RequestMemberSetLoadoutDraftSlotQuantity(playerId, argument).IsEmpty();
 
+		if (commandId == "set_node_item" || commandId == "set_attachment" || commandId == "add_storage_item")
+			return !coordinator.RequestMemberSetLoadoutNodeItem(playerId, argument).IsEmpty();
+
+		if (commandId == "remove_node_item" || commandId == "remove_attachment")
+			return !coordinator.RequestMemberRemoveLoadoutNodeItem(playerId, argument).IsEmpty();
+
 		if (commandId == "loadout_clear_draft")
 			return !coordinator.RequestMemberClearLoadoutDraft(playerId).IsEmpty();
 
-		if (commandId == "loadout_select")
+		if (commandId == "loadout_select" || commandId == "load_loadout")
 			return !coordinator.RequestMemberSelectSavedLoadout(playerId, argument).IsEmpty();
 
-		if (commandId == "loadout_delete")
+		if (commandId == "loadout_delete" || commandId == "delete_loadout")
 			return !coordinator.RequestMemberDeleteSavedLoadout(playerId, argument).IsEmpty();
 
 		if (commandId == "garage_capture_nearby")

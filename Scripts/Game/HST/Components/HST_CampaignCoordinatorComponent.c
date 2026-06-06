@@ -291,16 +291,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (commandId == "loadout_editor_close")
 			return RequestMemberCloseLoadoutEditor(playerId);
 
-		if (commandId == "loadout_save")
+		if (commandId == "loadout_save" || commandId == "save_loadout")
 			return RequestMemberSaveLoadoutDraft(playerId, argument);
 
-		if (commandId == "loadout_apply")
+		if (commandId == "loadout_apply" || commandId == "apply")
 			return RequestMemberApplySavedLoadout(playerId, argument);
 
 		if (commandId == "loadout_add_item")
 			return RequestMemberAddLoadoutDraftItem(playerId, argument);
 
-		if (commandId == "loadout_remove_slot")
+		if (commandId == "loadout_remove_slot" || commandId == "remove_storage_item")
 			return RequestMemberRemoveLoadoutDraftSlot(playerId, argument);
 
 		if (commandId == "loadout_set_quantity")
@@ -309,13 +309,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (commandId == "loadout_replace_slot")
 			return RequestMemberReplaceLoadoutDraftSlotItem(playerId, argument);
 
+		if (commandId == "set_node_item" || commandId == "set_attachment" || commandId == "add_storage_item")
+			return RequestMemberSetLoadoutNodeItem(playerId, argument);
+
+		if (commandId == "remove_node_item" || commandId == "remove_attachment")
+			return RequestMemberRemoveLoadoutNodeItem(playerId, argument);
+
 		if (commandId == "loadout_clear_draft")
 			return RequestMemberClearLoadoutDraft(playerId);
 
-		if (commandId == "loadout_select")
+		if (commandId == "loadout_select" || commandId == "load_loadout")
 			return RequestMemberSelectSavedLoadout(playerId, argument);
 
-		if (commandId == "loadout_delete")
+		if (commandId == "loadout_delete" || commandId == "delete_loadout")
 			return RequestMemberDeleteSavedLoadout(playerId, argument);
 
 		return "h-istasi loadout editor | unknown command: " + commandId;
@@ -1134,6 +1140,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return BuildHQInteractionDenied("h-istasi loadout editor");
 
 		return m_LoadoutEditor.ReplaceDraftSlotItem(m_State, ResolveTrustedIdentityId(playerId), argument);
+	}
+
+	string RequestMemberSetLoadoutNodeItem(int playerId, string argument)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi loadout editor | membership required";
+
+		if (!m_LoadoutEditor)
+			return "h-istasi loadout editor | service not ready";
+
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi loadout editor");
+
+		return m_LoadoutEditor.SetNodeItem(m_State, ResolveTrustedIdentityId(playerId), argument);
+	}
+
+	string RequestMemberRemoveLoadoutNodeItem(int playerId, string nodeId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi loadout editor | membership required";
+
+		if (!m_LoadoutEditor)
+			return "h-istasi loadout editor | service not ready";
+
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi loadout editor");
+
+		return m_LoadoutEditor.RemoveNodeItem(m_State, ResolveTrustedIdentityId(playerId), nodeId);
 	}
 
 	string RequestMemberClearLoadoutDraft(int playerId)

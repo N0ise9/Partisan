@@ -159,6 +159,13 @@ class HST_RuntimeSettingsService
 			changed = true;
 		}
 
+		if (settings.m_iSchemaVersion < 7)
+		{
+			settings.m_ArsenalLoot.m_bLootOnlyLockedItems = false;
+			settings.m_VehicleLoot.m_bOnlyLockedItems = false;
+			changed = true;
+		}
+
 		if (settings.m_iSchemaVersion < HST_RuntimeSettings.SCHEMA_VERSION)
 		{
 			settings.m_iSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;

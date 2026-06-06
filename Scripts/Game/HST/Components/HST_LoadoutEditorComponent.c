@@ -65,8 +65,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int SLOT_PLUS_WIDGET_ID_BASE = 9700;
 	static const int TEMPLATE_WIDGET_ID_BASE = 9800;
 	static const int SLOT_SELECT_WIDGET_ID_BASE = 9900;
-	static const int ITEMS_PER_PAGE = 6;
-	static const int SLOTS_PER_PAGE = 5;
+	static const int NODE_WIDGET_ID_BASE = 11000;
+	static const int CANDIDATE_WIDGET_ID_BASE = 12000;
+	static const int REMOVE_SELECTED_NODE_WIDGET_ID = 13000;
+	static const int ITEMS_PER_PAGE = 11;
+	static const int SLOTS_PER_PAGE = 9;
 	static const int TEMPLATES_PER_PAGE = 6;
 	static const int PREVIEW_CAMERA = 0;
 
@@ -78,6 +81,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected string m_sEditorMode = "clothing";
 	protected string m_sSelectedCategory = "clothing";
 	protected string m_sSelectedSlotId;
+	protected string m_sSelectedNodeId;
 	protected string m_sSelectedTemplateId;
 	protected string m_sPreviewPrefab = DEFAULT_PREVIEW_PREFAB;
 	protected string m_sStatusText = "Choose a saved template or build a draft from recovered arsenal gear.";
@@ -86,6 +90,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected string m_sLastResult;
 	protected bool m_bPreviewSpawned;
 	protected bool m_bSpotlightEnabled = true;
+	protected bool m_bCandidateMode;
 	protected int m_iPreviewItemCount;
 	protected int m_iDraftSlotCount;
 	protected int m_iDraftItemCount;
@@ -95,6 +100,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected int m_iSlotPage;
 	protected int m_iTemplatePage;
 	protected int m_iCameraMode;
+	protected int m_iEditorWidth = 1280;
+	protected int m_iEditorHeight = 850;
 	protected ref array<string> m_aCategoryIds = {};
 	protected ref array<string> m_aCategoryLabels = {};
 	protected ref array<int> m_aCategoryCounts = {};
@@ -115,6 +122,30 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ref array<string> m_aSlotLabels = {};
 	protected ref array<int> m_aSlotQuantities = {};
 	protected ref array<bool> m_aSlotPreviewEligible = {};
+	protected ref array<string> m_aNodeIds = {};
+	protected ref array<string> m_aNodeParents = {};
+	protected ref array<string> m_aNodeKinds = {};
+	protected ref array<string> m_aNodeSlotKeys = {};
+	protected ref array<string> m_aNodeLabels = {};
+	protected ref array<string> m_aNodePrefabs = {};
+	protected ref array<string> m_aNodeDisplays = {};
+	protected ref array<string> m_aNodeCounts = {};
+	protected ref array<bool> m_aNodeInfinite = {};
+	protected ref array<bool> m_aNodeCanOpen = {};
+	protected ref array<bool> m_aNodeCanRemove = {};
+	protected ref array<bool> m_aNodeCanDeposit = {};
+	protected ref array<string> m_aNodeFocus = {};
+	protected ref array<int> m_aVisibleNodeIndexes = {};
+	protected ref array<string> m_aCandidateNodeIds = {};
+	protected ref array<string> m_aCandidatePrefabs = {};
+	protected ref array<string> m_aCandidateDisplays = {};
+	protected ref array<string> m_aCandidateShortDisplays = {};
+	protected ref array<string> m_aCandidateCounts = {};
+	protected ref array<bool> m_aCandidateInfinite = {};
+	protected ref array<string> m_aCandidateKinds = {};
+	protected ref array<bool> m_aCandidateCompatible = {};
+	protected ref array<string> m_aCandidateIconHints = {};
+	protected ref array<int> m_aVisibleCandidateIndexes = {};
 	protected ref array<string> m_aTemplateIds = {};
 	protected ref array<string> m_aTemplateDisplays = {};
 	protected ref array<int> m_aTemplateSlotCounts = {};
@@ -126,6 +157,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected BaseWorld m_PreviewWorld;
 	protected IEntity m_PreviewCharacter;
 	protected string m_sPreviewRenderKey;
+	protected vector m_vCameraTargetPosition = "4 1.4 4";
+	protected vector m_vCameraTargetLook = "0 1.2 0";
+	protected vector m_vCameraCurrentPosition = "4 1.4 4";
+	protected vector m_vCameraCurrentLook = "0 1.2 0";
+	protected bool m_bCameraInitialized;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -163,6 +199,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		inputManager.ActivateContext(EDITOR_INPUT_CONTEXT);
 		inputManager.ActivateContext(EDITOR_CURSOR_CONTEXT);
+		AnimatePreviewCamera(timeSlice);
 	}
 
 	static HST_LoadoutEditorComponent GetLocalInstance()
@@ -183,6 +220,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sEditorMode = "clothing";
 		m_sSelectedCategory = "clothing";
 		m_sSelectedSlotId = "";
+		m_sSelectedNodeId = "";
+		m_bCandidateMode = false;
 		m_sStatusText = "Opening h-istasi arsenal editor. Counts, INF unlocks, and apply validation stay server-authoritative.";
 		m_sLastResult = "requested editor session";
 		RequestServerAction("loadout_editor_open", "");
@@ -203,9 +242,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (widgetId == BACK_WIDGET_ID)
 		{
-			m_sEditorMode = "clothing";
-			m_sSelectedCategory = ResolveDefaultCategoryForMode(m_sEditorMode);
-			m_sSelectedSlotId = "";
+			if (m_bCandidateMode)
+			{
+				m_bCandidateMode = false;
+				m_iItemPage = 0;
+			}
+			else
+			{
+				m_sEditorMode = "clothing";
+				m_sSelectedCategory = ResolveDefaultCategoryForMode(m_sEditorMode);
+				m_sSelectedSlotId = "";
+				m_sSelectedNodeId = "";
+			}
 			m_iItemPage = 0;
 			RenderEditor();
 			return true;
@@ -323,6 +371,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_sEditorMode = GetEditorModeId(modeIndex);
 			m_sSelectedCategory = ResolveDefaultCategoryForMode(m_sEditorMode);
 			m_sSelectedSlotId = "";
+			m_sSelectedNodeId = "";
+			m_bCandidateMode = false;
 			m_iItemPage = 0;
 			m_iSlotPage = 0;
 			m_iTemplatePage = 0;
@@ -367,10 +417,60 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 		}
 
+		int candidateVisibleIndex = widgetId - CANDIDATE_WIDGET_ID_BASE;
+		if (candidateVisibleIndex >= 0 && candidateVisibleIndex < m_aVisibleCandidateIndexes.Count())
+		{
+			int candidateIndex = m_aVisibleCandidateIndexes[candidateVisibleIndex];
+			if (candidateIndex >= 0 && candidateIndex < m_aCandidatePrefabs.Count())
+			{
+				string nodeId = m_sSelectedNodeId;
+				if (nodeId.IsEmpty() && candidateIndex < m_aCandidateNodeIds.Count())
+					nodeId = m_aCandidateNodeIds[candidateIndex];
+
+				if (nodeId.IsEmpty())
+					return true;
+
+				m_sLastResult = "requested " + BuildNodeActionLabel();
+				RequestServerAction(ResolveNodeSetCommand(nodeId), nodeId + ":" + m_aCandidatePrefabs[candidateIndex]);
+				RenderEditor();
+				return true;
+			}
+		}
+
+		if (widgetId == REMOVE_SELECTED_NODE_WIDGET_ID)
+		{
+			if (m_sSelectedNodeId.IsEmpty())
+				return true;
+
+			m_sLastResult = "requested remove item";
+			RequestServerAction(ResolveNodeRemoveCommand(m_sSelectedNodeId), m_sSelectedNodeId);
+			RenderEditor();
+			return true;
+		}
+
+		int nodeVisibleIndex = widgetId - NODE_WIDGET_ID_BASE;
+		if (nodeVisibleIndex >= 0 && nodeVisibleIndex < m_aVisibleNodeIndexes.Count())
+		{
+			int nodeIndex = m_aVisibleNodeIndexes[nodeVisibleIndex];
+			if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
+			{
+				m_sSelectedNodeId = m_aNodeIds[nodeIndex];
+				m_sSelectedCategory = ResolveNodeCategory(nodeIndex);
+				m_sSelectedSlotId = ResolveSlotIdFromNodeId(m_sSelectedNodeId);
+				m_bCandidateMode = true;
+				m_iItemPage = 0;
+				UpdatePreviewCamera(true);
+				RenderEditor();
+				return true;
+			}
+		}
+
 		int slotSelectIndex = widgetId - SLOT_SELECT_WIDGET_ID_BASE;
 		if (slotSelectIndex >= 0 && slotSelectIndex < m_aSlotIds.Count())
 		{
 			m_sSelectedSlotId = m_aSlotIds[slotSelectIndex];
+			m_sSelectedNodeId = "node_" + m_sSelectedSlotId;
+			m_bCandidateMode = true;
 			m_sSelectedCategory = m_aSlotCategories[slotSelectIndex];
 			m_sEditorMode = ResolveModeForCategory(m_sSelectedCategory);
 			m_iItemPage = 0;
@@ -484,19 +584,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_WidgetHandler.Bind(this);
 		}
 
+		m_iEditorWidth = Math.Max(1280, Math.Round(workspace.GetWidth()));
+		m_iEditorHeight = Math.Max(850, Math.Round(workspace.GetHeight()));
+
 		Widget root = workspace.CreateWidgets(EDITOR_LAYOUT);
 		bool layoutRoot = root != null;
 		if (!root)
-			root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, 1280, 850, WidgetFlags.VISIBLE, null, 3600);
+			root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, m_iEditorWidth, m_iEditorHeight, WidgetFlags.VISIBLE, null, 3600);
 
 		if (!root)
 			return;
 
-		if (!layoutRoot)
-		{
-			FrameSlot.SetPos(root, 0, 0);
-			FrameSlot.SetSize(root, 1280, 850);
-		}
+		FrameSlot.SetPos(root, 0, 0);
+		FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
 
 		root.SetZOrder(3600);
 		m_aWidgets.Insert(root);
@@ -506,12 +606,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		EnsurePreviewWorld();
 		RefreshPreviewWorldLoadout();
 
-		CreateRectWidget(workspace, root, 0, 0, 1280, 850, 0x66060A0D, 1.0, 0);
-		CreateRectWidget(workspace, root, 0, 0, 1280, 48, 0xE911171B, 1.0, 0);
-		CreateRectWidget(workspace, root, 0, 48, 1280, 2, 0xFFC4953B, 1.0, 0);
-		CreateTextWidget(workspace, root, "h-istasi Arsenal", 58, 11, 250, 30, 23, 0xFFF2D18B, 0, true);
-		CreateTextWidget(workspace, root, BuildDraftHeaderSummary(), 842, 15, 360, 22, 14, 0xFFCED6DA, 0, false);
-		CreateButton(workspace, root, "ESC", 18, 334, 48, 36, CLOSE_WIDGET_ID);
+		CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x33000508, 1.0, 0);
+		CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x22000000, 1.0, 0);
+		CreateButton(workspace, root, "ESC", 32, Math.Max(320, (m_iEditorHeight / 2) + 30), 58, 32, CLOSE_WIDGET_ID);
+		CreateTextWidget(workspace, root, "<", 44, Math.Max(286, (m_iEditorHeight / 2) - 22), 34, 44, 36, 0xFFC4953B, BACK_WIDGET_ID, true);
 
 		RenderModeTabs(workspace, root);
 		RenderSlotRail(workspace, root);
@@ -522,7 +620,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void RenderModeTabs(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 58, 58, 330, 44, 0xF3212528, 1.0, 0);
+		CreateButton(workspace, root, "Q", 66, 100, 22, 22, MODE_WIDGET_ID_BASE + Math.Max(0, GetEditorModeIndex(m_sEditorMode) - 1));
+		CreateButton(workspace, root, "E", 488, 100, 22, 22, MODE_WIDGET_ID_BASE + Math.Min(GetEditorModeCount() - 1, GetEditorModeIndex(m_sEditorMode) + 1));
+		CreateRectWidget(workspace, root, 92, 80, 390, 62, 0xF3212528, 1.0, 0);
 		for (int i = 0; i < GetEditorModeCount(); i++)
 		{
 			string modeId = GetEditorModeId(i);
@@ -530,148 +630,141 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (modeId == m_sEditorMode)
 				color = 0xFFC4953B;
 
-			int left = 62 + i * 64;
-			CreateRectWidget(workspace, root, left, 62, 60, 34, color, 0.98, MODE_WIDGET_ID_BASE + i);
-			CreateTextWidget(workspace, root, GetEditorModeLabel(modeId), left + 5, 70, 50, 18, 10, 0xFFF5E8CE, MODE_WIDGET_ID_BASE + i, modeId == m_sEditorMode);
+			int left = 92 + i * 65;
+			CreateRectWidget(workspace, root, left, 80, 65, 58, color, 0.98, MODE_WIDGET_ID_BASE + i);
+			CreateTextWidget(workspace, root, GetEditorModeIcon(modeId), left + 10, 91, 22, 20, 18, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
+			if (modeId == m_sEditorMode)
+				CreateTextWidget(workspace, root, GetEditorModeLabel(modeId), left + 32, 96, 54, 20, 12, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
 		}
+		CreateRectWidget(workspace, root, 92, 140, 390, 3, 0xFFC4953B, 1.0, 0);
 	}
 
 	protected void RenderSlotRail(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 58, 104, 330, 260, 0xF3212528, 1.0, 0);
-		CreateRectWidget(workspace, root, 58, 104, 330, 2, 0xFFC4953B, 1.0, 0);
-		CreateTextWidget(workspace, root, BuildModeTitle(), 76, 116, 210, 24, 18, 0xFFEFE2C4, 0, true);
-		CreateTextWidget(workspace, root, BuildPreviewStatusLabel(), 236, 120, 134, 18, 11, 0xFFD7B66F, 0, false);
+		if (m_bCandidateMode || m_sEditorMode == "templates" || m_sEditorMode == "settings" || m_sEditorMode == "save")
+			return;
 
-		int maxSlotPage = GetMaxPage(CountVisibleSlotsForCurrentMode(), SLOTS_PER_PAGE);
-		m_iSlotPage = Math.Min(Math.Max(0, m_iSlotPage), maxSlotPage);
-		int firstVisible = m_iSlotPage * SLOTS_PER_PAGE;
-		int rendered;
-		int visibleCursor;
-		for (int slotIndex = 0; slotIndex < m_aSlotIds.Count(); slotIndex++)
+		CreateRectWidget(workspace, root, 92, 144, 390, Math.Max(420, m_iEditorHeight - 238), 0xF3212528, 1.0, 0);
+		m_aVisibleNodeIndexes.Clear();
+		int visibleCount = CountVisibleNodesForCurrentMode();
+		int maxPage = GetMaxPage(visibleCount, SLOTS_PER_PAGE);
+		m_iSlotPage = Math.Min(Math.Max(0, m_iSlotPage), maxPage);
+		int startIndex = m_iSlotPage * SLOTS_PER_PAGE;
+		int nodeOrdinal;
+		int row;
+		for (int nodeIndex = 0; nodeIndex < m_aNodeIds.Count(); nodeIndex++)
 		{
-			if (!IsSlotVisibleInCurrentMode(slotIndex))
+			if (!IsNodeVisibleInCurrentMode(nodeIndex))
 				continue;
 
-			if (visibleCursor < firstVisible)
+			if (nodeOrdinal < startIndex)
 			{
-				visibleCursor++;
+				nodeOrdinal++;
 				continue;
 			}
 
-			if (rendered >= SLOTS_PER_PAGE)
+			if (row >= SLOTS_PER_PAGE)
 				break;
 
-			int top = 146 + rendered * 38;
-			int rowColor = 0xFF24282A;
-			if (m_aSlotIds[slotIndex] == m_sSelectedSlotId)
-				rowColor = 0xFF6B4C24;
-
-			CreateRectWidget(workspace, root, 70, top, 250, 35, rowColor, 0.98, SLOT_SELECT_WIDGET_ID_BASE + slotIndex);
-			CreateTextWidget(workspace, root, ShortenText(GetSlotLabel(slotIndex), 18), 82, top + 4, 150, 14, 10, 0xFFFFD166, SLOT_SELECT_WIDGET_ID_BASE + slotIndex, true);
-			CreateTextWidget(workspace, root, ShortenText(GetSlotShortDisplay(slotIndex), 27), 82, top + 18, 196, 15, 11, 0xFFECEEEF, SLOT_SELECT_WIDGET_ID_BASE + slotIndex, false);
-			CreateTextWidget(workspace, root, string.Format("x%1", m_aSlotQuantities[slotIndex]), 284, top + 5, 28, 14, 10, 0xFFFFD166, SLOT_SELECT_WIDGET_ID_BASE + slotIndex, true);
-			CreateButton(workspace, root, "-", 324, top + 7, 18, 21, SLOT_MINUS_WIDGET_ID_BASE + slotIndex);
-			CreateButton(workspace, root, "+", 346, top + 7, 18, 21, SLOT_PLUS_WIDGET_ID_BASE + slotIndex);
-			CreateButton(workspace, root, "X", 368, top + 7, 18, 21, SLOT_REMOVE_WIDGET_ID_BASE + slotIndex);
-			rendered++;
-			visibleCursor++;
+			m_aVisibleNodeIndexes.Insert(nodeIndex);
+			RenderNodeRow(workspace, root, nodeIndex, row, NODE_WIDGET_ID_BASE + row);
+			nodeOrdinal++;
+			row++;
 		}
 
-		if (rendered == 0)
-			CreateTextWidget(workspace, root, "No draft slots in this tab.", 76, 156, 240, 22, 13, 0xFFADB7BE, 0, false);
+		if (row == 0)
+			CreateTextWidget(workspace, root, "Empty Slot", 146, 176, 220, 22, 13, 0xFFC8D0D4, 0, false);
 
-		CreateButton(workspace, root, "<", 70, 332, 32, 24, SLOT_PAGE_PREV_WIDGET_ID);
-		CreateTextWidget(workspace, root, string.Format("%1 / %2", m_iSlotPage + 1, maxSlotPage + 1), 112, 336, 56, 16, 11, 0xFFE2E6E8, 0, true);
-		CreateButton(workspace, root, ">", 174, 332, 32, 24, SLOT_PAGE_NEXT_WIDGET_ID);
+		int pagerTop = Math.Min(m_iEditorHeight - 116, 166 + SLOTS_PER_PAGE * 60);
+		CreateButton(workspace, root, "<", 118, pagerTop, 32, 24, SLOT_PAGE_PREV_WIDGET_ID);
+		CreateTextWidget(workspace, root, string.Format("%1 / %2", m_iSlotPage + 1, maxPage + 1), 160, pagerTop + 4, 56, 16, 11, 0xFFE2E6E8, 0, true);
+		CreateButton(workspace, root, ">", 226, pagerTop, 32, 24, SLOT_PAGE_NEXT_WIDGET_ID);
 	}
 
 	protected void RenderPreviewStage(WorkspaceWidget workspace, Widget root)
 	{
 		if (!m_bSpotlightEnabled)
-			CreateRectWidget(workspace, root, 398, 54, 852, 708, 0xDD020507, 0.68, 0);
+			CreateRectWidget(workspace, root, 500, 0, Math.Max(780, m_iEditorWidth - 500), m_iEditorHeight, 0xCC020507, 0.38, 0);
 
-		CreateRectWidget(workspace, root, 416, 58, 804, 2, 0x54C4953B, 1.0, 0);
-		CreateTextWidget(workspace, root, ShortenText(BuildSelectedPreviewTitle(), 58), 416, 68, 520, 28, 18, 0xFFEFE2C4, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(BuildPreviewMetaLine(), 70), 416, 94, 560, 20, 13, 0xFFB7C7D7, 0, false);
+		if (!m_sLastResult.IsEmpty())
+			CreateTextWidget(workspace, root, ShortenText(m_sLastResult, 70), Math.Max(560, (m_iEditorWidth / 2) - 140), 60, 560, 24, 17, 0xFFEFC16D, 0, true);
 		if (!m_PreviewWidget || !m_PreviewWorld)
-			CreateTextWidget(workspace, root, "Preview target unavailable", 612, 348, 260, 24, 16, 0xFFFFD166, 0, true);
+			CreateTextWidget(workspace, root, "Preview target unavailable", Math.Max(560, (m_iEditorWidth / 2) - 120), 348, 280, 24, 16, 0xFFFFD166, 0, true);
 	}
 
 	protected void RenderCandidatePanel(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 58, 374, 330, 368, 0xF3212528, 1.0, 0);
-		CreateRectWidget(workspace, root, 58, 374, 330, 2, 0xFFC4953B, 1.0, 0);
-
 		if (m_sEditorMode == "templates")
 		{
 			RenderTemplatePanel(workspace, root);
 			return;
 		}
 
-		if (m_sEditorMode == "settings")
+		if (m_sEditorMode == "settings" || m_sEditorMode == "save")
 		{
 			RenderSettingsPanel(workspace, root);
 			return;
 		}
 
-		RenderCategoryChips(workspace, root);
-		CreateRectWidget(workspace, root, 70, 422, 306, 44, 0xFF151A1E, 0.96, SWAP_WIDGET_ID);
-		CreateTextWidget(workspace, root, BuildSwapHeaderText(), 82, 428, 196, 16, 11, 0xFFFFD166, SWAP_WIDGET_ID, true);
-		CreateTextWidget(workspace, root, ShortenText(BuildSwapTargetText(), 34), 82, 444, 224, 16, 11, 0xFFECEEEF, SWAP_WIDGET_ID, false);
-		CreateTextWidget(workspace, root, BuildSwapActionLabel(), 314, 434, 48, 17, 11, 0xFFF5E8CE, SWAP_WIDGET_ID, true);
-		CreateTextWidget(workspace, root, ResolveSelectedCategoryLabel(), 76, 474, 190, 22, 17, 0xFFEFE2C4, 0, true);
-		CreateTextWidget(workspace, root, string.Format("%1", CountItemsForSelectedCategory()), 326, 478, 42, 18, 12, 0xFFFFD166, 0, true);
+		if (!m_bCandidateMode)
+			return;
 
-		m_aVisibleItemIndexes.Clear();
-		int itemCount = CountItemsForSelectedCategory();
+		int panelTop = 144;
+		int panelHeight = Math.Max(420, m_iEditorHeight - 238);
+		CreateRectWidget(workspace, root, 92, panelTop, 390, panelHeight, 0xF3212528, 1.0, 0);
+		CreateRectWidget(workspace, root, 92, panelTop + 64, 390, 3, 0xFFC4953B, 1.0, 0);
+		RenderSelectedNodeHeader(workspace, root);
+		int selectedNodeIndex = FindSelectedNodeIndex();
+		if (selectedNodeIndex >= 0 && selectedNodeIndex < m_aNodeCanRemove.Count() && m_aNodeCanRemove[selectedNodeIndex])
+		{
+			CreateRectWidget(workspace, root, 112, panelTop + 86, 350, 56, 0xFF252525, 0.98, REMOVE_SELECTED_NODE_WIDGET_ID);
+			CreateTextWidget(workspace, root, "X", 132, panelTop + 93, 44, 38, 34, 0xFFFFFFFF, REMOVE_SELECTED_NODE_WIDGET_ID, true);
+			CreateTextWidget(workspace, root, "Remove", 194, panelTop + 103, 160, 22, 16, 0xFFE2E6E8, REMOVE_SELECTED_NODE_WIDGET_ID, true);
+		}
+
+		m_aVisibleCandidateIndexes.Clear();
+		int itemCount = CountCandidatesForSelectedNode();
 		int maxPage = GetMaxPage(itemCount, ITEMS_PER_PAGE);
 		m_iItemPage = Math.Min(Math.Max(0, m_iItemPage), maxPage);
 		int startIndex = m_iItemPage * ITEMS_PER_PAGE;
 		int visibleIndex = 0;
-		int categoryIndex = 0;
-		for (int itemIndex = 0; itemIndex < m_aItemPrefabs.Count(); itemIndex++)
+		int candidateOrdinal = 0;
+		int firstRowTop = panelTop + 154;
+		for (int candidateIndex = 0; candidateIndex < m_aCandidatePrefabs.Count(); candidateIndex++)
 		{
-			if (m_aItemCategories[itemIndex] != m_sSelectedCategory)
+			if (!IsCandidateVisibleForSelectedNode(candidateIndex))
 				continue;
 
-			if (categoryIndex < startIndex)
+			if (candidateOrdinal < startIndex)
 			{
-				categoryIndex++;
+				candidateOrdinal++;
 				continue;
 			}
 
 			if (visibleIndex >= ITEMS_PER_PAGE)
 				break;
 
-			int top = 502 + visibleIndex * 31;
-			m_aVisibleItemIndexes.Insert(itemIndex);
-			int itemRowColor = 0xFF282B2D;
-			if (IsItemSelectedForSlot(itemIndex))
-				itemRowColor = 0xFF604A24;
-			int itemLabelColor = 0xFFFFD166;
-			if (itemIndex < m_aItemPreviewEligible.Count() && !m_aItemPreviewEligible[itemIndex])
-				itemLabelColor = 0xFFB7C7D7;
-
-			CreateRectWidget(workspace, root, 70, top, 306, 29, itemRowColor, 0.98, ITEM_WIDGET_ID_BASE + visibleIndex);
-			CreateTextWidget(workspace, root, ShortenText(GetItemSlotLabel(itemIndex), 20), 82, top + 4, 152, 13, 10, itemLabelColor, ITEM_WIDGET_ID_BASE + visibleIndex, true);
-			CreateTextWidget(workspace, root, ShortenText(GetItemShortDisplay(itemIndex), 29), 82, top + 17, 204, 13, 10, 0xFFE2E6E8, ITEM_WIDGET_ID_BASE + visibleIndex, false);
-			CreateTextWidget(workspace, root, BuildCountLabel(itemIndex), 322, top + 8, 44, 14, 10, 0xFFFFD166, ITEM_WIDGET_ID_BASE + visibleIndex, true);
+			int top = firstRowTop + visibleIndex * 54;
+			m_aVisibleCandidateIndexes.Insert(candidateIndex);
+			RenderCandidateRow(workspace, root, candidateIndex, top, CANDIDATE_WIDGET_ID_BASE + visibleIndex);
 			visibleIndex++;
-			categoryIndex++;
+			candidateOrdinal++;
 		}
 
 		if (visibleIndex == 0)
-			CreateTextWidget(workspace, root, "No recovered items.", 76, 482, 230, 22, 13, 0xFFB7C7D7, 0, false);
+			CreateTextWidget(workspace, root, "No compatible recovered items.", 126, firstRowTop + 8, 260, 22, 13, 0xFFB7C7D7, 0, false);
 
-		CreateButton(workspace, root, "<", 70, 706, 32, 24, ITEM_PAGE_PREV_WIDGET_ID);
-		CreateTextWidget(workspace, root, string.Format("%1 / %2", m_iItemPage + 1, maxPage + 1), 112, 710, 56, 16, 11, 0xFFE2E6E8, 0, true);
-		CreateButton(workspace, root, ">", 174, 706, 32, 24, ITEM_PAGE_NEXT_WIDGET_ID);
+		int pagerTop = Math.Min(m_iEditorHeight - 116, firstRowTop + ITEMS_PER_PAGE * 54 + 8);
+		CreateButton(workspace, root, "<", 118, pagerTop, 32, 24, ITEM_PAGE_PREV_WIDGET_ID);
+		CreateTextWidget(workspace, root, string.Format("%1 / %2", m_iItemPage + 1, maxPage + 1), 160, pagerTop + 4, 56, 16, 11, 0xFFE2E6E8, 0, true);
+		CreateButton(workspace, root, ">", 226, pagerTop, 32, 24, ITEM_PAGE_NEXT_WIDGET_ID);
 	}
 
 	protected void RenderTemplatePanel(WorkspaceWidget workspace, Widget root)
 	{
-		CreateTextWidget(workspace, root, "Saved Templates", 76, 392, 190, 24, 18, 0xFFEFE2C4, 0, true);
+		CreateRectWidget(workspace, root, 92, 144, 390, Math.Max(420, m_iEditorHeight - 238), 0xF3212528, 1.0, 0);
+		CreateRectWidget(workspace, root, 92, 144, 390, 3, 0xFFC4953B, 1.0, 0);
+		CreateTextWidget(workspace, root, "Loadouts", 126, 166, 190, 24, 18, 0xFFEFE2C4, 0, true);
 		int maxTemplatePage = GetMaxPage(m_aTemplateIds.Count(), TEMPLATES_PER_PAGE);
 		m_iTemplatePage = Math.Min(Math.Max(0, m_iTemplatePage), maxTemplatePage);
 		int firstTemplate = m_iTemplatePage * TEMPLATES_PER_PAGE;
@@ -679,46 +772,66 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		for (int templateIndex = firstTemplate; templateIndex < templateLimit; templateIndex++)
 		{
 			int visibleTemplate = templateIndex - firstTemplate;
-			int topTemplate = 558 + visibleTemplate * 30;
+			int topTemplate = 222 + visibleTemplate * 54;
 			int color = 0xFF1B252E;
 			if (m_aTemplateIds[templateIndex] == m_sSelectedTemplateId)
 				color = 0xFF604A24;
 
-			CreateRectWidget(workspace, root, 70, topTemplate, 276, 28, color, 0.96, TEMPLATE_WIDGET_ID_BASE + templateIndex);
-			CreateTextWidget(workspace, root, ShortenText(m_aTemplateDisplays[templateIndex], 25), 82, topTemplate + 6, 188, 17, 12, 0xFFE2E6E8, TEMPLATE_WIDGET_ID_BASE + templateIndex, m_aTemplateIds[templateIndex] == m_sSelectedTemplateId);
-			CreateTextWidget(workspace, root, string.Format("%1 slots", m_aTemplateSlotCounts[templateIndex]), 276, topTemplate + 6, 60, 17, 10, 0xFFB7C7D7, TEMPLATE_WIDGET_ID_BASE + templateIndex, false);
+			CreateRectWidget(workspace, root, 112, topTemplate, 350, 48, color, 0.96, TEMPLATE_WIDGET_ID_BASE + templateIndex);
+			CreateTextWidget(workspace, root, ShortenText(m_aTemplateDisplays[templateIndex], 28), 172, topTemplate + 8, 198, 17, 13, 0xFFE2E6E8, TEMPLATE_WIDGET_ID_BASE + templateIndex, m_aTemplateIds[templateIndex] == m_sSelectedTemplateId);
+			CreateTextWidget(workspace, root, string.Format("%1 slots", m_aTemplateSlotCounts[templateIndex]), 172, topTemplate + 26, 100, 15, 10, 0xFFB7C7D7, TEMPLATE_WIDGET_ID_BASE + templateIndex, false);
+			CreateTextWidget(workspace, root, "O", 132, topTemplate + 12, 30, 25, 18, 0xFFFFFFFF, TEMPLATE_WIDGET_ID_BASE + templateIndex, true);
 		}
 
 		if (m_aTemplateIds.Count() == 0)
-			CreateTextWidget(workspace, root, "No saved templates.", 76, 452, 230, 22, 13, 0xFFB7C7D7, 0, false);
+			CreateTextWidget(workspace, root, "Empty Slot", 126, 222, 230, 22, 13, 0xFFB7C7D7, 0, false);
 
-		CreateButton(workspace, root, "Del", 276, 392, 70, 26, DELETE_TEMPLATE_WIDGET_ID);
-		CreateButton(workspace, root, "<", 70, 706, 32, 24, TEMPLATE_PAGE_PREV_WIDGET_ID);
-		CreateTextWidget(workspace, root, string.Format("%1 / %2", m_iTemplatePage + 1, maxTemplatePage + 1), 112, 710, 56, 16, 11, 0xFFE2E6E8, 0, true);
-		CreateButton(workspace, root, ">", 174, 706, 32, 24, TEMPLATE_PAGE_NEXT_WIDGET_ID);
+		CreateButton(workspace, root, "DEL", 392, 166, 58, 26, DELETE_TEMPLATE_WIDGET_ID);
+		int pagerTop = Math.Min(m_iEditorHeight - 116, 222 + TEMPLATES_PER_PAGE * 54 + 8);
+		CreateButton(workspace, root, "<", 118, pagerTop, 32, 24, TEMPLATE_PAGE_PREV_WIDGET_ID);
+		CreateTextWidget(workspace, root, string.Format("%1 / %2", m_iTemplatePage + 1, maxTemplatePage + 1), 160, pagerTop + 4, 56, 16, 11, 0xFFE2E6E8, 0, true);
+		CreateButton(workspace, root, ">", 226, pagerTop, 32, 24, TEMPLATE_PAGE_NEXT_WIDGET_ID);
 	}
 
 	protected void RenderSettingsPanel(WorkspaceWidget workspace, Widget root)
 	{
-		CreateTextWidget(workspace, root, "Editor Settings", 76, 392, 190, 24, 18, 0xFFEFE2C4, 0, true);
-		CreateTextWidget(workspace, root, "Camera", 76, 440, 88, 20, 13, 0xFFFFD166, 0, true);
-		CreateTextWidget(workspace, root, BuildCameraModeLabel(), 158, 440, 160, 20, 13, 0xFFE2E6E8, 0, false);
-		CreateTextWidget(workspace, root, "Spotlight", 76, 468, 88, 20, 13, 0xFFFFD166, 0, true);
-		CreateTextWidget(workspace, root, BuildSpotlightLabel(), 158, 468, 160, 20, 13, 0xFFE2E6E8, 0, false);
-		CreateTextWidget(workspace, root, ShortenText(m_sLastResult, 48), 76, 520, 250, 54, 13, 0xFFD7B66F, 0, false);
-		CreateButton(workspace, root, "Clear", 76, 638, 82, 32, CLEAR_DRAFT_WIDGET_ID);
+		CreateRectWidget(workspace, root, 92, 144, 390, Math.Max(420, m_iEditorHeight - 238), 0xF3212528, 1.0, 0);
+		CreateRectWidget(workspace, root, 92, 144, 390, 3, 0xFFC4953B, 1.0, 0);
+		string panelTitle = "Settings";
+		if (m_sEditorMode == "save")
+			panelTitle = "Save Loadout";
+		CreateTextWidget(workspace, root, panelTitle, 126, 166, 190, 24, 18, 0xFFEFE2C4, 0, true);
+		if (m_sEditorMode == "save")
+		{
+			CreateTextWidget(workspace, root, "Save current draft or apply it from the footer.", 126, 214, 300, 34, 13, 0xFFE2E6E8, 0, false);
+			CreateTextWidget(workspace, root, BuildDraftHeaderSummary(), 126, 268, 300, 20, 13, 0xFFFFD166, 0, true);
+			CreateButton(workspace, root, "Save", 126, 340, 88, 32, SAVE_WIDGET_ID);
+			CreateButton(workspace, root, "Apply", 230, 340, 92, 32, APPLY_WIDGET_ID);
+			return;
+		}
+		CreateTextWidget(workspace, root, "Camera", 126, 232, 88, 20, 13, 0xFFFFD166, 0, true);
+		CreateTextWidget(workspace, root, BuildCameraModeLabel(), 220, 232, 160, 20, 13, 0xFFE2E6E8, 0, false);
+		CreateTextWidget(workspace, root, "Spotlight", 126, 268, 88, 20, 13, 0xFFFFD166, 0, true);
+		CreateTextWidget(workspace, root, BuildSpotlightLabel(), 220, 268, 160, 20, 13, 0xFFE2E6E8, 0, false);
+		CreateTextWidget(workspace, root, ShortenText(m_sLastResult, 48), 126, 326, 280, 54, 13, 0xFFD7B66F, 0, false);
+		CreateButton(workspace, root, "Clear", 126, 436, 82, 32, CLEAR_DRAFT_WIDGET_ID);
 	}
 
 	protected void RenderFooter(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 0, 768, 1280, 82, 0xE911171B, 1.0, 0);
-		CreateTextWidget(workspace, root, ShortenText(m_sLastResult, 82), 78, 790, 560, 22, 14, 0xFFFFD166, 0, false);
-		CreateButton(workspace, root, "< Back", 650, 790, 88, 38, BACK_WIDGET_ID);
-		CreateButton(workspace, root, BuildSwapActionLabel(), 754, 790, 86, 38, SWAP_WIDGET_ID);
-		CreateButton(workspace, root, "Save", 856, 790, 84, 38, SAVE_WIDGET_ID);
-		CreateButton(workspace, root, "Apply", 956, 790, 88, 38, APPLY_WIDGET_ID);
-		CreateButton(workspace, root, BuildSpotlightLabel(), 1060, 790, 104, 38, SPOTLIGHT_WIDGET_ID);
-		CreateButton(workspace, root, BuildCameraModeLabel(), 1180, 790, 92, 38, CAMERA_WIDGET_ID);
+		int footerTop = m_iEditorHeight - 96;
+		int buttonLeft = Math.Max(930, m_iEditorWidth - 520);
+		CreateButton(workspace, root, "<", buttonLeft, footerTop + 28, 58, 32, BACK_WIDGET_ID);
+		CreateTextWidget(workspace, root, BuildNodeActionLabel(), buttonLeft + 74, footerTop + 30, 82, 26, 18, 0xFFFFFFFF, SWAP_WIDGET_ID, true);
+		if (m_sEditorMode == "templates")
+			CreateTextWidget(workspace, root, "Load", buttonLeft + 74, footerTop + 30, 82, 26, 18, 0xFFFFFFFF, TEMPLATE_WIDGET_ID_BASE, true);
+		CreateButton(workspace, root, BuildSpotlightLabel(), buttonLeft + 164, footerTop + 23, 112, 42, SPOTLIGHT_WIDGET_ID);
+		CreateButton(workspace, root, BuildCameraModeLabel(), buttonLeft + 292, footerTop + 23, 100, 42, CAMERA_WIDGET_ID);
+		if (m_sEditorMode == "save" || m_sEditorMode == "templates")
+		{
+			CreateButton(workspace, root, "Save", buttonLeft - 220, footerTop + 28, 80, 32, SAVE_WIDGET_ID);
+			CreateButton(workspace, root, "Apply", buttonLeft - 128, footerTop + 28, 88, 32, APPLY_WIDGET_ID);
+		}
 	}
 
 	protected void ParseEditorPayload(string payload)
@@ -780,6 +893,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			if (fields[0] == "ITEM" && fields.Count() >= 6)
 			{
+				if (IsRemovedExternalPrefab(fields[2]))
+					continue;
+
 				m_aItemCategories.Insert(fields[1]);
 				m_aItemPrefabs.Insert(fields[2]);
 				string itemDisplay = ResolvePayloadDisplayText(fields[3]);
@@ -810,6 +926,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			if (fields[0] == "SLOT" && fields.Count() >= 6)
 			{
+				if (IsRemovedExternalPrefab(fields[3]))
+					continue;
+
 				m_aSlotIds.Insert(fields[1]);
 				m_aSlotCategories.Insert(fields[2]);
 				m_aSlotPrefabs.Insert(fields[3]);
@@ -838,6 +957,61 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				continue;
 			}
 
+			if (fields[0] == "NODE" && fields.Count() >= 13)
+			{
+				if (IsRemovedExternalPrefab(fields[6]))
+					continue;
+
+				m_aNodeIds.Insert(fields[1]);
+				m_aNodeParents.Insert(fields[2]);
+				m_aNodeKinds.Insert(fields[3]);
+				m_aNodeSlotKeys.Insert(fields[4]);
+				m_aNodeLabels.Insert(fields[5]);
+				m_aNodePrefabs.Insert(fields[6]);
+				string nodeDisplay = ResolvePayloadDisplayText(fields[7]);
+				if (!fields[6].IsEmpty())
+					nodeDisplay = HST_DisplayNameService.ResolveItemDisplayName(null, fields[6], nodeDisplay);
+				if (nodeDisplay.IsEmpty())
+					nodeDisplay = "Empty Slot";
+				m_aNodeDisplays.Insert(nodeDisplay);
+				m_aNodeCounts.Insert(fields[8]);
+				m_aNodeInfinite.Insert(ParsePayloadBool(fields[9], false));
+				m_aNodeCanOpen.Insert(ParsePayloadBool(fields[10], false));
+				m_aNodeCanRemove.Insert(ParsePayloadBool(fields[11], false));
+				m_aNodeCanDeposit.Insert(ParsePayloadBool(fields[12], false));
+				if (fields.Count() > 13)
+					m_aNodeFocus.Insert(fields[13]);
+				else
+					m_aNodeFocus.Insert(fields[4]);
+				continue;
+			}
+
+			if (fields[0] == "CANDIDATE" && fields.Count() >= 9)
+			{
+				if (IsRemovedExternalPrefab(fields[2]))
+					continue;
+
+				m_aCandidateNodeIds.Insert(fields[1]);
+				m_aCandidatePrefabs.Insert(fields[2]);
+				string candidateDisplay = ResolvePayloadDisplayText(fields[3]);
+				candidateDisplay = HST_DisplayNameService.ResolveItemDisplayName(null, fields[2], candidateDisplay);
+				m_aCandidateDisplays.Insert(candidateDisplay);
+				string candidateShort = ResolvePayloadDisplayText(fields[4]);
+				candidateShort = HST_DisplayNameService.ResolveShortItemDisplayName(candidateShort, fields[2]);
+				if (candidateShort.IsEmpty())
+					candidateShort = candidateDisplay;
+				m_aCandidateShortDisplays.Insert(candidateShort);
+				m_aCandidateCounts.Insert(fields[5]);
+				m_aCandidateInfinite.Insert(fields[6] == "INF");
+				m_aCandidateKinds.Insert(fields[7]);
+				m_aCandidateCompatible.Insert(ParsePayloadBool(fields[8], true));
+				if (fields.Count() > 9)
+					m_aCandidateIconHints.Insert(fields[9]);
+				else
+					m_aCandidateIconHints.Insert(fields[7]);
+				continue;
+			}
+
 			if (fields[0] == "TEMPLATE" && fields.Count() >= 4)
 			{
 				m_aTemplateIds.Insert(fields[1]);
@@ -858,6 +1032,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_sSelectedSlotId.IsEmpty() && FindSelectedSlotIndex() < 0)
 			m_sSelectedSlotId = "";
 
+		if (!m_sSelectedNodeId.IsEmpty() && FindSelectedNodeIndex() < 0)
+		{
+			m_sSelectedNodeId = "";
+			m_bCandidateMode = false;
+		}
+
+		if (m_aNodeIds.Count() == 0)
+			BuildFallbackNodesFromSlots();
+
+		EnsureSelectedSlotForCategory();
 		ClampPages();
 	}
 
@@ -883,6 +1067,30 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_aSlotLabels.Clear();
 		m_aSlotQuantities.Clear();
 		m_aSlotPreviewEligible.Clear();
+		m_aNodeIds.Clear();
+		m_aNodeParents.Clear();
+		m_aNodeKinds.Clear();
+		m_aNodeSlotKeys.Clear();
+		m_aNodeLabels.Clear();
+		m_aNodePrefabs.Clear();
+		m_aNodeDisplays.Clear();
+		m_aNodeCounts.Clear();
+		m_aNodeInfinite.Clear();
+		m_aNodeCanOpen.Clear();
+		m_aNodeCanRemove.Clear();
+		m_aNodeCanDeposit.Clear();
+		m_aNodeFocus.Clear();
+		m_aVisibleNodeIndexes.Clear();
+		m_aCandidateNodeIds.Clear();
+		m_aCandidatePrefabs.Clear();
+		m_aCandidateDisplays.Clear();
+		m_aCandidateShortDisplays.Clear();
+		m_aCandidateCounts.Clear();
+		m_aCandidateInfinite.Clear();
+		m_aCandidateKinds.Clear();
+		m_aCandidateCompatible.Clear();
+		m_aCandidateIconHints.Clear();
+		m_aVisibleCandidateIndexes.Clear();
 		m_aTemplateIds.Clear();
 		m_aTemplateDisplays.Clear();
 		m_aTemplateSlotCounts.Clear();
@@ -919,6 +1127,239 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_aCategoryIds.Insert(categoryId);
 		m_aCategoryLabels.Insert(label);
 		m_aCategoryCounts.Insert(count);
+	}
+
+	protected void BuildFallbackNodesFromSlots()
+	{
+		for (int slotIndex = 0; slotIndex < m_aSlotIds.Count(); slotIndex++)
+		{
+			m_aNodeIds.Insert("node_" + m_aSlotIds[slotIndex]);
+			m_aNodeParents.Insert("");
+			m_aNodeKinds.Insert("slot");
+			if (slotIndex < m_aSlotCategories.Count())
+				m_aNodeSlotKeys.Insert(m_aSlotCategories[slotIndex]);
+			else
+				m_aNodeSlotKeys.Insert("utility");
+			m_aNodeLabels.Insert(GetSlotLabel(slotIndex));
+			if (slotIndex < m_aSlotPrefabs.Count())
+				m_aNodePrefabs.Insert(m_aSlotPrefabs[slotIndex]);
+			else
+				m_aNodePrefabs.Insert("");
+			m_aNodeDisplays.Insert(GetSlotShortDisplay(slotIndex));
+			if (slotIndex < m_aSlotQuantities.Count())
+				m_aNodeCounts.Insert(string.Format("%1", m_aSlotQuantities[slotIndex]));
+			else
+				m_aNodeCounts.Insert("0");
+			m_aNodeInfinite.Insert(false);
+			m_aNodeCanOpen.Insert(false);
+			m_aNodeCanRemove.Insert(true);
+			m_aNodeCanDeposit.Insert(false);
+			if (slotIndex < m_aSlotCategories.Count())
+				m_aNodeFocus.Insert(m_aSlotCategories[slotIndex]);
+			else
+				m_aNodeFocus.Insert("torso");
+		}
+	}
+
+	protected void RenderNodeRow(WorkspaceWidget workspace, Widget root, int nodeIndex, int row, int userId)
+	{
+		int top = 166 + row * 60;
+		int color = 0xFF252525;
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedNodeId)
+			color = 0xFF604A24;
+
+		CreateRectWidget(workspace, root, 112, top, 370, 56, color, 0.98, userId);
+		CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), 126, top + 10, 48, 34, 26, 0xFFE6E6E6, userId, true);
+		CreateTextWidget(workspace, root, ShortenText(GetNodeLabel(nodeIndex), 20), 184, top + 10, 180, 18, 14, 0xFFE2E6E8, userId, true);
+		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), 184, top + 28, 224, 18, 14, 0xFFD5D8D9, userId, false);
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanOpen.Count() && m_aNodeCanOpen[nodeIndex])
+			CreateTextWidget(workspace, root, "w", 434, top + 12, 18, 18, 16, 0xFFFFFFFF, userId, true);
+	}
+
+	protected void RenderSelectedNodeHeader(WorkspaceWidget workspace, Widget root)
+	{
+		int nodeIndex = FindSelectedNodeIndex();
+		CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), 122, 162, 48, 42, 28, 0xFFE6E6E6, 0, true);
+		CreateTextWidget(workspace, root, GetNodeLabel(nodeIndex), 184, 166, 220, 20, 15, 0xFFE2E6E8, 0, true);
+		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), 184, 186, 250, 20, 15, 0xFFD5D8D9, 0, false);
+		CreateTextWidget(workspace, root, "w", 438, 166, 18, 18, 16, 0xFFFFFFFF, 0, true);
+	}
+
+	protected void RenderCandidateRow(WorkspaceWidget workspace, Widget root, int candidateIndex, int top, int userId)
+	{
+		int color = 0xFF252525;
+		if (IsCandidateCurrentNodeItem(candidateIndex))
+			color = 0xFF604A24;
+		CreateRectWidget(workspace, root, 112, top, 370, 50, color, 0.98, userId);
+		CreateTextWidget(workspace, root, ResolveCandidateIcon(candidateIndex), 126, top + 8, 46, 34, 24, 0xFFE6E6E6, userId, true);
+		CreateTextWidget(workspace, root, ShortenText(GetCandidateShortDisplay(candidateIndex), 32), 184, top + 11, 232, 20, 14, 0xFFE2E6E8, userId, false);
+		CreateTextWidget(workspace, root, BuildCandidateCountLabel(candidateIndex), 424, top + 14, 42, 16, 10, 0xFFFFD166, userId, true);
+	}
+
+	protected int FindSelectedNodeIndex()
+	{
+		if (m_sSelectedNodeId.IsEmpty())
+			return -1;
+
+		for (int i = 0; i < m_aNodeIds.Count(); i++)
+		{
+			if (m_aNodeIds[i] == m_sSelectedNodeId)
+				return i;
+		}
+
+		return -1;
+	}
+
+	protected int CountVisibleNodesForCurrentMode()
+	{
+		int count;
+		for (int i = 0; i < m_aNodeIds.Count(); i++)
+		{
+			if (IsNodeVisibleInCurrentMode(i))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool IsNodeVisibleInCurrentMode(int nodeIndex)
+	{
+		if (nodeIndex < 0 || nodeIndex >= m_aNodeKinds.Count())
+			return false;
+
+		string kind = m_aNodeKinds[nodeIndex];
+		string category = ResolveNodeCategory(nodeIndex);
+		if (m_sEditorMode == "clothing")
+			return kind == "slot" && (category == "headgear" || category == "clothing" || category == "vest" || category == "backpack");
+		if (m_sEditorMode == "weapons")
+			return category == "weapon" || category == "launcher" || kind == "attachment";
+		if (m_sEditorMode == "inventory")
+			return kind == "storage" || kind == "storage_item";
+		if (m_sEditorMode == "gear")
+			return kind == "storage" || kind == "storage_item";
+
+		return false;
+	}
+
+	protected string ResolveNodeCategory(int nodeIndex)
+	{
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeSlotKeys.Count() && !m_aNodeSlotKeys[nodeIndex].IsEmpty())
+			return m_aNodeSlotKeys[nodeIndex];
+
+		return "utility";
+	}
+
+	protected string GetNodeLabel(int nodeIndex)
+	{
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeLabels.Count() && !m_aNodeLabels[nodeIndex].IsEmpty())
+			return m_aNodeLabels[nodeIndex];
+
+		return "Empty Slot";
+	}
+
+	protected string GetNodeDisplay(int nodeIndex)
+	{
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeDisplays.Count() && !m_aNodeDisplays[nodeIndex].IsEmpty())
+			return m_aNodeDisplays[nodeIndex];
+
+		return "Empty Slot";
+	}
+
+	protected string ResolveNodeIcon(int nodeIndex)
+	{
+		string category = ResolveNodeCategory(nodeIndex);
+		if (category == "headgear")
+			return "^";
+		if (category == "clothing")
+			return "J";
+		if (category == "vest")
+			return "V";
+		if (category == "backpack")
+			return "B";
+		if (category == "weapon" || category == "launcher")
+			return ">";
+		if (category == "attachment")
+			return "w";
+		if (category == "magazine")
+			return "|||";
+		if (category == "explosive")
+			return "*";
+		if (category == "medical")
+			return "+";
+
+		return "O";
+	}
+
+	protected int CountCandidatesForSelectedNode()
+	{
+		int count;
+		for (int i = 0; i < m_aCandidateNodeIds.Count(); i++)
+		{
+			if (IsCandidateVisibleForSelectedNode(i))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool IsCandidateVisibleForSelectedNode(int candidateIndex)
+	{
+		if (candidateIndex < 0 || candidateIndex >= m_aCandidateNodeIds.Count())
+			return false;
+
+		if (m_sSelectedNodeId.IsEmpty())
+			return false;
+
+		return m_aCandidateNodeIds[candidateIndex] == m_sSelectedNodeId;
+	}
+
+	protected string GetCandidateShortDisplay(int candidateIndex)
+	{
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateShortDisplays.Count() && !m_aCandidateShortDisplays[candidateIndex].IsEmpty())
+			return m_aCandidateShortDisplays[candidateIndex];
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateDisplays.Count())
+			return m_aCandidateDisplays[candidateIndex];
+
+		return "Item";
+	}
+
+	protected string BuildCandidateCountLabel(int candidateIndex)
+	{
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateInfinite.Count() && m_aCandidateInfinite[candidateIndex])
+			return "INF";
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateCounts.Count())
+			return "x" + m_aCandidateCounts[candidateIndex];
+
+		return "";
+	}
+
+	protected string ResolveCandidateIcon(int candidateIndex)
+	{
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateIconHints.Count())
+		{
+			string hint = m_aCandidateIconHints[candidateIndex];
+			if (hint == "weapon")
+				return ">";
+			if (hint == "ammo")
+				return "|||";
+			if (hint == "wrench")
+				return "w";
+			if (hint == "grenade")
+				return "*";
+			if (hint == "clothing")
+				return "J";
+		}
+
+		return "O";
+	}
+
+	protected bool IsCandidateCurrentNodeItem(int candidateIndex)
+	{
+		int nodeIndex = FindSelectedNodeIndex();
+		if (nodeIndex < 0 || candidateIndex < 0 || nodeIndex >= m_aNodePrefabs.Count() || candidateIndex >= m_aCandidatePrefabs.Count())
+			return false;
+
+		return !m_aNodePrefabs[nodeIndex].IsEmpty() && m_aNodePrefabs[nodeIndex] == m_aCandidatePrefabs[candidateIndex];
 	}
 
 	protected int FindCategoryIndex(string categoryId)
@@ -1136,7 +1577,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected int GetEditorModeCount()
 	{
-		return 5;
+		return 6;
 	}
 
 	protected string GetEditorModeId(int index)
@@ -1146,9 +1587,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (index == 1)
 			return "weapons";
 		if (index == 2)
-			return "gear";
+			return "inventory";
 		if (index == 3)
 			return "templates";
+		if (index == 4)
+			return "save";
 
 		return "settings";
 	}
@@ -1156,15 +1599,44 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected string GetEditorModeLabel(string modeId)
 	{
 		if (modeId == "clothing")
-			return "Cloth";
+			return "Clothing";
 		if (modeId == "weapons")
 			return "Weapon";
-		if (modeId == "gear")
-			return "Gear";
+		if (modeId == "inventory")
+			return "Inventory";
 		if (modeId == "templates")
+			return "Loadouts";
+		if (modeId == "save")
 			return "Save";
 
-		return "Cfg";
+		return "Settings";
+	}
+
+	protected string GetEditorModeIcon(string modeId)
+	{
+		if (modeId == "clothing")
+			return "I";
+		if (modeId == "weapons")
+			return ">";
+		if (modeId == "inventory")
+			return "::";
+		if (modeId == "templates")
+			return "[]";
+		if (modeId == "save")
+			return "S";
+
+		return "*";
+	}
+
+	protected int GetEditorModeIndex(string modeId)
+	{
+		for (int i = 0; i < GetEditorModeCount(); i++)
+		{
+			if (GetEditorModeId(i) == modeId)
+				return i;
+		}
+
+		return 0;
 	}
 
 	protected string ResolveDefaultCategoryForMode(string modeId)
@@ -1173,7 +1645,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "clothing";
 		if (modeId == "weapons")
 			return "weapon";
-		if (modeId == "gear")
+		if (modeId == "inventory" || modeId == "gear")
 			return "magazine";
 
 		return m_sSelectedCategory;
@@ -1186,7 +1658,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (category == "weapon" || category == "launcher" || category == "attachment")
 			return "weapons";
 		if (category == "magazine" || category == "explosive" || category == "medical" || category == "utility")
-			return "gear";
+			return "inventory";
 
 		return m_sEditorMode;
 	}
@@ -1197,9 +1669,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return category == "clothing" || category == "headgear" || category == "vest" || category == "backpack";
 		if (modeId == "weapons")
 			return category == "weapon" || category == "launcher" || category == "attachment";
-		if (modeId == "gear")
+		if (modeId == "gear" || modeId == "inventory")
 			return category == "magazine" || category == "explosive" || category == "medical" || category == "utility";
-		if (modeId == "templates" || modeId == "settings")
+		if (modeId == "templates" || modeId == "settings" || modeId == "save")
 			return true;
 
 		return false;
@@ -1254,8 +1726,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (m_aCategoryIds[i] == m_sSelectedCategory)
 				color = 0xFF6B4C24;
 
-			CreateRectWidget(workspace, root, left, 390, 62, 24, color, 0.98, CATEGORY_WIDGET_ID_BASE + i);
-			CreateTextWidget(workspace, root, ShortenText(BuildSlotCategoryTag(m_aCategoryIds[i]), 6), left + 7, 396, 48, 13, 10, 0xFFF5E8CE, CATEGORY_WIDGET_ID_BASE + i, m_aCategoryIds[i] == m_sSelectedCategory);
+			CreateRectWidget(workspace, root, left, 210, 62, 24, color, 0.98, CATEGORY_WIDGET_ID_BASE + i);
+			CreateTextWidget(workspace, root, ShortenText(BuildSlotCategoryTag(m_aCategoryIds[i]), 6), left + 7, 216, 48, 13, 10, 0xFFF5E8CE, CATEGORY_WIDGET_ID_BASE + i, m_aCategoryIds[i] == m_sSelectedCategory);
 			visible++;
 		}
 	}
@@ -1308,6 +1780,30 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		return -1;
+	}
+
+	protected void EnsureSelectedSlotForCategory()
+	{
+		if (m_sEditorMode == "templates" || m_sEditorMode == "settings")
+			return;
+
+		int selectedSlotIndex = FindSelectedSlotIndex();
+		if (selectedSlotIndex >= 0 && selectedSlotIndex < m_aSlotCategories.Count() && m_aSlotCategories[selectedSlotIndex] == m_sSelectedCategory)
+			return;
+
+		for (int slotIndex = 0; slotIndex < m_aSlotIds.Count(); slotIndex++)
+		{
+			if (slotIndex >= m_aSlotCategories.Count())
+				continue;
+
+			if (m_aSlotCategories[slotIndex] != m_sSelectedCategory)
+				continue;
+
+			m_sSelectedSlotId = m_aSlotIds[slotIndex];
+			return;
+		}
+
+		m_sSelectedSlotId = "";
 	}
 
 	protected string GetSlotLabel(int slotIndex)
@@ -1367,6 +1863,60 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return "Add";
 	}
 
+	protected string BuildNodeActionLabel()
+	{
+		if (!m_bCandidateMode)
+		{
+			if (m_sEditorMode == "inventory" || m_sEditorMode == "gear")
+				return "Open";
+			return "Swap";
+		}
+
+		int nodeIndex = FindSelectedNodeIndex();
+		if (nodeIndex < 0)
+			return "Add";
+
+		if (nodeIndex < m_aNodePrefabs.Count() && m_aNodePrefabs[nodeIndex].IsEmpty())
+			return "Add";
+
+		return "Swap";
+	}
+
+	protected string ResolveNodeSetCommand(string nodeId)
+	{
+		if (nodeId.Contains("attach"))
+			return "set_attachment";
+
+		int nodeIndex = FindSelectedNodeIndex();
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeKinds.Count() && (m_aNodeKinds[nodeIndex] == "storage" || m_aNodeKinds[nodeIndex] == "storage_item"))
+			return "add_storage_item";
+
+		return "set_node_item";
+	}
+
+	protected string ResolveNodeRemoveCommand(string nodeId)
+	{
+		if (nodeId.Contains("attach"))
+			return "remove_attachment";
+
+		int nodeIndex = FindSelectedNodeIndex();
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeKinds.Count() && m_aNodeKinds[nodeIndex] == "storage_item")
+			return "remove_node_item";
+
+		return "remove_node_item";
+	}
+
+	protected string ResolveSlotIdFromNodeId(string nodeId)
+	{
+		if (nodeId.IsEmpty())
+			return "";
+
+		if (nodeId.IndexOf("node_") != 0)
+			return "";
+
+		return nodeId.Substring(5, nodeId.Length() - 5);
+	}
+
 	protected string BuildSwapHeaderText()
 	{
 		int slotIndex = FindSelectedSlotIndex();
@@ -1399,8 +1949,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_PreviewWidget)
 			return;
 
-		FrameSlot.SetPos(m_PreviewWidget, 398, 50);
-		FrameSlot.SetSize(m_PreviewWidget, 882, 718);
+		FrameSlot.SetPos(m_PreviewWidget, 0, 0);
+		FrameSlot.SetSize(m_PreviewWidget, m_iEditorWidth, m_iEditorHeight);
 		m_PreviewWidget.SetVisible(true);
 	}
 
@@ -1487,6 +2037,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 
 			string slotPrefab = m_aSlotPrefabs[slotIndex];
+			if (IsRemovedExternalPrefab(slotPrefab))
+			{
+				if (firstFailure.IsEmpty())
+					firstFailure = "removed external item";
+				continue;
+			}
+
 			string failure;
 			if (TryInsertLocalPreviewItem(inventory, slotPrefab, failure))
 				inserted++;
@@ -1567,6 +2124,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		string key = m_sPreviewPrefab;
 		for (int i = 0; i < m_aSlotPrefabs.Count(); i++)
 			key = key + "|" + m_aSlotPrefabs[i] + ":" + m_aSlotQuantities[i];
+		for (int nodeIndex = 0; nodeIndex < m_aNodePrefabs.Count(); nodeIndex++)
+		{
+			if (nodeIndex < m_aNodeIds.Count() && !m_aNodePrefabs[nodeIndex].IsEmpty())
+				key = key + "|node:" + m_aNodeIds[nodeIndex] + ":" + m_aNodePrefabs[nodeIndex];
+		}
 
 		return key;
 	}
@@ -1612,22 +2174,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		cameraOffset[1] = distance * 0.18;
 		cameraOffset[2] = distance;
 
-		bool focusSelectedSlot = false;
+		string focusKey = m_sSelectedCategory;
 		int selectedSlotIndex = FindSelectedSlotIndex();
-		if (allowSelectedFocus && selectedSlotIndex >= 0)
-		{
-			focusSelectedSlot = true;
-			if (selectedSlotIndex < m_aSlotPreviewEligible.Count() && !m_aSlotPreviewEligible[selectedSlotIndex])
-				focusSelectedSlot = false;
-		}
+		int selectedNodeIndex = FindSelectedNodeIndex();
+		if (selectedNodeIndex >= 0 && selectedNodeIndex < m_aNodeFocus.Count() && !m_aNodeFocus[selectedNodeIndex].IsEmpty())
+			focusKey = m_aNodeFocus[selectedNodeIndex];
+		else if (selectedSlotIndex >= 0 && selectedSlotIndex < m_aSlotCategories.Count())
+			focusKey = m_aSlotCategories[selectedSlotIndex];
 
-		if (m_iCameraMode == 1 || focusSelectedSlot)
+		if (m_iCameraMode == 1 || (allowSelectedFocus && selectedNodeIndex >= 0) || (allowSelectedFocus && selectedSlotIndex >= 0))
 		{
-			string category = m_sSelectedCategory;
-			if (selectedSlotIndex >= 0)
-				category = m_aSlotCategories[selectedSlotIndex];
-
-			if (category == "headgear")
+			if (focusKey == "head" || focusKey == "headgear")
 			{
 				look[1] = Math.Max(1.52, look[1] + 0.45);
 				distance = Math.Clamp(boundsSize * 0.95, 3.4, 4.8);
@@ -1635,7 +2192,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				cameraOffset[1] = distance * 0.08;
 				cameraOffset[2] = distance * 0.86;
 			}
-			else if (category == "vest" || category == "clothing")
+			else if (focusKey == "torso" || focusKey == "vest" || focusKey == "clothing")
 			{
 				look[1] = Math.Max(1.15, look[1] + 0.1);
 				distance = Math.Clamp(boundsSize * 1.02, 3.6, 5.1);
@@ -1643,7 +2200,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				cameraOffset[1] = distance * 0.12;
 				cameraOffset[2] = distance * 0.92;
 			}
-			else if (category == "backpack")
+			else if (focusKey == "back" || focusKey == "backpack")
 			{
 				look[1] = Math.Max(1.15, look[1] + 0.08);
 				distance = Math.Clamp(boundsSize * 1.05, 3.8, 5.2);
@@ -1651,9 +2208,25 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				cameraOffset[1] = distance * 0.14;
 				cameraOffset[2] = distance * 0.96;
 			}
+			else if (focusKey == "ammo" || focusKey == "hands")
+			{
+				look[1] = Math.Max(0.95, boundsCenter[1] + 0.02);
+				distance = Math.Clamp(boundsSize * 0.95, 3.2, 4.4);
+				cameraOffset[0] = distance * 0.62;
+				cameraOffset[1] = distance * 0.08;
+				cameraOffset[2] = distance * 0.8;
+			}
+			else if (focusKey == "feet" || focusKey == "boots")
+			{
+				look[1] = 0.28;
+				distance = Math.Clamp(boundsSize * 0.72, 2.4, 3.4);
+				cameraOffset[0] = distance * 0.62;
+				cameraOffset[1] = distance * 0.03;
+				cameraOffset[2] = distance * 0.7;
+			}
 		}
 
-		if (m_iCameraMode == 2 || m_sSelectedCategory == "weapon" || m_sSelectedCategory == "launcher")
+		if (m_iCameraMode == 2 || focusKey == "weapon" || m_sSelectedCategory == "weapon" || m_sSelectedCategory == "launcher")
 		{
 			look[1] = Math.Max(1.18, boundsCenter[1] + 0.08);
 			distance = Math.Clamp(boundsSize * 1.0, 3.8, 5.3);
@@ -1663,6 +2236,32 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		vector camera = look + cameraOffset;
+		m_vCameraTargetPosition = camera;
+		m_vCameraTargetLook = look;
+		if (!m_bCameraInitialized)
+			ApplyPreviewCameraImmediate(camera, look);
+	}
+
+	protected void AnimatePreviewCamera(float timeSlice)
+	{
+		if (!m_PreviewWorld || !m_bCameraInitialized)
+			return;
+
+		float positionStep = Math.Clamp(timeSlice * 5.5, 0.05, 0.9);
+		float lookStep = Math.Clamp(timeSlice * 7.0, 0.05, 0.9);
+		m_vCameraCurrentPosition = vector.Lerp(m_vCameraCurrentPosition, m_vCameraTargetPosition, positionStep);
+		m_vCameraCurrentLook = vector.Lerp(m_vCameraCurrentLook, m_vCameraTargetLook, lookStep);
+		ApplyPreviewCameraImmediate(m_vCameraCurrentPosition, m_vCameraCurrentLook);
+	}
+
+	protected void ApplyPreviewCameraImmediate(vector camera, vector look)
+	{
+		if (!m_PreviewWorld)
+			return;
+
+		m_vCameraCurrentPosition = camera;
+		m_vCameraCurrentLook = look;
+		m_bCameraInitialized = true;
 		vector mat[4];
 		SCR_Math3D.LookAt(camera, look, vector.Up, mat);
 		m_PreviewWorld.SetCameraEx(PREVIEW_CAMERA, mat);
@@ -1678,6 +2277,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_PreviewWorld = null;
 		m_PreviewWorldRef = null;
 		m_sPreviewRenderKey = "";
+		m_bCameraInitialized = false;
 	}
 
 	protected void CreateButton(WorkspaceWidget workspace, Widget root, string label, int left, int top, int width, int height, int userId)
@@ -1810,6 +2410,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return text.Substring(0, maxCharacters);
 
 		return text.Substring(0, maxCharacters - 3) + "...";
+	}
+
+	protected bool IsRemovedExternalPrefab(string prefab)
+	{
+		if (prefab.IsEmpty())
+			return false;
+
+		return prefab.Contains("RHS") || prefab.Contains("rhs") || prefab.Contains("#RHS") || prefab.Contains("USMC") || prefab.Contains("AFRF") || prefab.Contains("MARSOC") || prefab.Contains("FORECON") || prefab.Contains("VKPO") || prefab.Contains("VVRG") || prefab.Contains("SSO") || prefab.Contains("FROG_Combat_Shirt") || prefab.Contains("Vest_PCGen") || prefab.Contains("595F2BF") || prefab.Contains("1337C0DE") || prefab.Contains("BADC0DED") || prefab.Contains("StatusQuo") || prefab.Contains("ContentPack");
 	}
 
 	protected int ResolveLocalPlayerId()

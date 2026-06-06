@@ -207,6 +207,27 @@ class HST_LoadoutSlotState
 }
 
 [BaseContainerProps()]
+class HST_LoadoutNodeState
+{
+	string m_sNodeId;
+	string m_sParentNodeId;
+	string m_sKind;
+	string m_sSlotKey;
+	string m_sLabel;
+	string m_sItemPrefab;
+	string m_sDisplayName;
+	string m_sCategory;
+	string m_sFocus;
+	int m_iQuantity = 1;
+	int m_iUsedCapacity;
+	int m_iTotalCapacity;
+	bool m_bInfinite;
+	bool m_bCanOpen;
+	bool m_bCanRemove;
+	bool m_bCanDeposit;
+}
+
+[BaseContainerProps()]
 class HST_SavedLoadoutState
 {
 	string m_sOwnerIdentityId;
@@ -244,6 +265,7 @@ class HST_LoadoutEditorSessionState
 	int m_iIssuedFiniteCount;
 	int m_iIssuedInfiniteCount;
 	ref array<ref HST_LoadoutSlotState> m_aDraftSlots = {};
+	ref array<ref HST_LoadoutNodeState> m_aDraftNodes = {};
 }
 
 [BaseContainerProps()]

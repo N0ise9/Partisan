@@ -44,7 +44,7 @@ class HST_RuntimeSettingsArsenalLoot
 	int m_iMagazineUnlockMultiplier = 3;
 	int m_iHQInteractionRadiusMeters = 50;
 	int m_iLootRadiusMeters = 15;
-	bool m_bLootOnlyLockedItems = true;
+	bool m_bLootOnlyLockedItems;
 	bool m_bRemoveLootedItems = true;
 	bool m_bAllowExplosiveUnlocks;
 	bool m_bAllowGuidedLauncherUnlocks;
@@ -54,7 +54,7 @@ class HST_RuntimeSettingsVehicleLoot
 {
 	bool m_bEnabled = true;
 	int m_iRadiusMeters = 20;
-	bool m_bOnlyLockedItems = true;
+	bool m_bOnlyLockedItems;
 	bool m_bRemoveSourceItems = true;
 	int m_iMaxItemsPerAction = 48;
 }
@@ -96,7 +96,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 6;
+	static const int SCHEMA_VERSION = 7;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
