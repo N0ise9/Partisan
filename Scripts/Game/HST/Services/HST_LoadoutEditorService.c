@@ -1868,7 +1868,7 @@ class HST_LoadoutEditorService
 		if (prefab.IsEmpty())
 			return false;
 
-		return prefab.Contains("RHS") || prefab.Contains("rhs") || prefab.Contains("#RHS") || prefab.Contains("USMC") || prefab.Contains("AFRF") || prefab.Contains("MARSOC") || prefab.Contains("FORECON") || prefab.Contains("VKPO") || prefab.Contains("VVRG") || prefab.Contains("SSO") || prefab.Contains("FROG_Combat_Shirt") || prefab.Contains("Vest_PCGen") || prefab.Contains("595F2BF") || prefab.Contains("1337C0DE") || prefab.Contains("BADC0DED") || prefab.Contains("StatusQuo") || prefab.Contains("ContentPack");
+		return prefab.Contains("595F2BF") || prefab.Contains("1337C0DE") || prefab.Contains("BADC0DED") || prefab.Contains("StatusQuo") || prefab.Contains("ContentPack");
 	}
 
 	protected string BuildSlotId(string category, int index)

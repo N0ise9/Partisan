@@ -1750,7 +1750,7 @@ foreach ($requiredLootEntry in @(
 	"FindLootVehicleByRuntimeId",
 	"IsPlayerAtVehicleRear",
 	"target vehicle not nearby or invalid",
-	"stand near the rear/load area",
+	"stand near the vehicle load area",
 	"BuildVehicleCargoReport",
 	"DepositVehicleCargo",
 	"CaptureNearbyVehicleToGarage",
@@ -2031,7 +2031,7 @@ if ($loadoutEditorLayoutMetaText -notmatch [regex]::Escape('Name "{5AF2D86E07D44
 foreach ($requiredLayoutEntry in @(
 	"RenderTargetWidgetClass",
 	"HST_LoadoutPreview",
-	"Anchor 0 0 0 0"
+	"Anchor 0 0 1 1"
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLayoutEntry)) {
 		throw "Loadout editor layout is missing stable render-target entry: $requiredLayoutEntry"
@@ -2072,11 +2072,14 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"ConfigurePreviewWidget",
 	"EnsurePreviewWorld",
 	"RefreshPreviewWorldLoadout",
+	"CreatePreviewEntity",
+	"SetPreviewEntityQualityRecursive",
+	"BuildStageToast",
 	"UpdatePreviewCamera",
 	"AnimatePreviewCamera",
 	"ApplyPreviewCameraImmediate",
 	"GetPreviewCharacterBounds",
-	"GetBounds",
+	"GetWorldBounds",
 	"vector.Distance",
 	"Math.Clamp",
 	"DeletePreviewWorld",
@@ -2124,6 +2127,12 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorComponentEntry)) {
 		throw "Fullscreen loadout editor component is missing: $requiredLoadoutEditorComponentEntry"
 	}
+}
+if ($loadoutEditorComponentText -match "InventoryPreviewWorld10") {
+	throw "Loadout editor preview must not rely on the old visible/cropped InventoryPreviewWorld10 stage"
+}
+if ($loadoutEditorComponentText -match "CreateTextWidget\([^\r\n]*m_sLastResult") {
+	throw "Loadout editor must not render raw server result/debug text across the preview stage"
 }
 if ($coordinatorText -match [regex]::Escape("AppendLoadoutEditorPayload")) {
 	throw "Normal command menu snapshots must not append loadout-editor payloads"
@@ -2175,7 +2184,20 @@ foreach ($requiredLoadoutEditorServiceCleanupEntry in @(
 	"purged external"
 )) {
 	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutEditorServiceCleanupEntry)) {
-		throw "Loadout editor service must purge removed external/RHS state from base-game-only sessions: $requiredLoadoutEditorServiceCleanupEntry"
+		throw "Loadout editor service must purge removed external state from base-game-only sessions: $requiredLoadoutEditorServiceCleanupEntry"
+	}
+}
+foreach ($forbiddenBaseGameOnlyEntry in @(
+	"RHS",
+	"#RHS",
+	"AFRF",
+	"MARSOC",
+	"FORECON",
+	"VKPO",
+	"VVRG"
+)) {
+	if ($loadoutEditorText -match [regex]::Escape($forbiddenBaseGameOnlyEntry) -or $loadoutEditorComponentText -match [regex]::Escape($forbiddenBaseGameOnlyEntry) -or $configResourceText -match [regex]::Escape($forbiddenBaseGameOnlyEntry) -or $defaultCatalog -match [regex]::Escape($forbiddenBaseGameOnlyEntry)) {
+		throw "Base-game-only runtime/config files must not contain removed external arsenal content references: $forbiddenBaseGameOnlyEntry"
 	}
 }
 Write-Host "Custom HST loadout editor contract OK"
@@ -2227,6 +2249,10 @@ foreach ($requiredRuntimeVehicleEntry in @(
 	"ResolveRuntimeVehicleRecord",
 	"SCR_EditableEntityComponent",
 	"EEditableEntityType.VEHICLE",
+	"IsDirectVehicleRootCandidate",
+	"resolved direct editor/base-game vehicle root",
+	"resolved known base-game vehicle basename root",
+	"ResolveVehicleIdentityName",
 	"selected registered h-istasi runtime vehicle",
 	"MarkRuntimeVehicleDeleted"
 )) {
@@ -2506,8 +2532,8 @@ foreach ($requiredCivilianVehiclePoolResource in @(
 foreach ($forbiddenCivilianSpawnResource in @(
 	"Prefabs/Vehicles/Wheeled/M151A2/M151A2.et"
 )) {
-	if ($civilianRuntimeServiceText -match [regex]::Escape($forbiddenCivilianSpawnResource)) {
-		throw "Civilian runtime must not use military vehicle fallback as a civilian spawn resource: $forbiddenCivilianSpawnResource"
+	if ($civilianRuntimeServiceText -match [regex]::Escape($forbiddenCivilianSpawnResource) -or $configResourceText -match [regex]::Escape($forbiddenCivilianSpawnResource) -or $defaultCatalog -match [regex]::Escape($forbiddenCivilianSpawnResource)) {
+		throw "Configured vehicle pools must not use invalid plain M151 resources: $forbiddenCivilianSpawnResource"
 	}
 }
 if ($civilianPoolDefaultText -match "M1025" -or $civilianPoolDefaultText -match "Humvee" -or $civilianPoolDefaultText -match "M151A2" -or $balanceConfigText -match "M1025" -or $balanceConfigText -match "Humvee" -or $balanceConfigText -match "M151A2") {

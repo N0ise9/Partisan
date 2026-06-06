@@ -38,7 +38,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 {
 	static const ResourceName EDITOR_LAYOUT = "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout";
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
-	static const ResourceName PREVIEW_WORLD_RESOURCE = "{4391FE7994EE6FE2}worlds/Sandbox/InventoryPreviewWorld10.et";
 	static const string EDITOR_INPUT_CONTEXT = "InGameMenuContext";
 	static const string EDITOR_CURSOR_CONTEXT = "InventoryContext";
 	static const int CLOSE_WIDGET_ID = 9200;
@@ -155,7 +154,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected RenderTargetWidget m_PreviewWidget;
 	protected ref SharedItemRef m_PreviewWorldRef;
 	protected BaseWorld m_PreviewWorld;
-	protected IEntity m_PreviewCharacter;
+	protected IEntity m_PreviewSourceCharacter;
+	protected IEntity m_PreviewEntity;
 	protected string m_sPreviewRenderKey;
 	protected vector m_vCameraTargetPosition = "4 1.4 4";
 	protected vector m_vCameraTargetLook = "0 1.2 0";
@@ -606,7 +606,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		EnsurePreviewWorld();
 		RefreshPreviewWorldLoadout();
 
-		CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x33000508, 1.0, 0);
+		CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x44000406, 1.0, 0);
 		CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x22000000, 1.0, 0);
 		CreateButton(workspace, root, "ESC", 32, Math.Max(320, (m_iEditorHeight / 2) + 30), 58, 32, CLOSE_WIDGET_ID);
 		CreateTextWidget(workspace, root, "<", 44, Math.Max(286, (m_iEditorHeight / 2) - 22), 34, 44, 36, 0xFFC4953B, BACK_WIDGET_ID, true);
@@ -684,12 +684,33 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void RenderPreviewStage(WorkspaceWidget workspace, Widget root)
 	{
 		if (!m_bSpotlightEnabled)
-			CreateRectWidget(workspace, root, 500, 0, Math.Max(780, m_iEditorWidth - 500), m_iEditorHeight, 0xCC020507, 0.38, 0);
+			CreateRectWidget(workspace, root, 500, 0, Math.Max(780, m_iEditorWidth - 500), m_iEditorHeight, 0xDD020507, 0.45, 0);
 
-		if (!m_sLastResult.IsEmpty())
-			CreateTextWidget(workspace, root, ShortenText(m_sLastResult, 70), Math.Max(560, (m_iEditorWidth / 2) - 140), 60, 560, 24, 17, 0xFFEFC16D, 0, true);
+		string toast = BuildStageToast();
+		if (!toast.IsEmpty())
+			CreateTextWidget(workspace, root, ShortenText(toast, 64), Math.Max(560, (m_iEditorWidth / 2) - 220), 58, 620, 26, 18, 0xFFEFC16D, 0, true);
+
 		if (!m_PreviewWidget || !m_PreviewWorld)
 			CreateTextWidget(workspace, root, "Preview target unavailable", Math.Max(560, (m_iEditorWidth / 2) - 120), 348, 280, 24, 16, 0xFFFFD166, 0, true);
+	}
+
+	protected string BuildStageToast()
+	{
+		if (!m_sLastResult.IsEmpty())
+		{
+			if (m_sLastResult.Contains("opened custom arsenal editor"))
+				return "";
+
+			string result = m_sLastResult;
+			result.Replace("h-istasi loadout editor | ", "");
+			result.Replace("h-istasi arsenal | ", "");
+			return result;
+		}
+
+		if (!m_sPreviewStatus.IsEmpty() && m_sPreviewStatus.Contains("skipped"))
+			return m_sPreviewStatus;
+
+		return "";
 	}
 
 	protected void RenderCandidatePanel(WorkspaceWidget workspace, Widget root)
@@ -813,7 +834,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		CreateTextWidget(workspace, root, BuildCameraModeLabel(), 220, 232, 160, 20, 13, 0xFFE2E6E8, 0, false);
 		CreateTextWidget(workspace, root, "Spotlight", 126, 268, 88, 20, 13, 0xFFFFD166, 0, true);
 		CreateTextWidget(workspace, root, BuildSpotlightLabel(), 220, 268, 160, 20, 13, 0xFFE2E6E8, 0, false);
-		CreateTextWidget(workspace, root, ShortenText(m_sLastResult, 48), 126, 326, 280, 54, 13, 0xFFD7B66F, 0, false);
+		CreateTextWidget(workspace, root, ShortenText(BuildStageToast(), 48), 126, 326, 280, 54, 13, 0xFFD7B66F, 0, false);
 		CreateButton(workspace, root, "Clear", 126, 436, 82, 32, CLEAR_DRAFT_WIDGET_ID);
 	}
 
@@ -1971,10 +1992,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				m_PreviewWorld.SetCameraNearPlane(PREVIEW_CAMERA, 0.001);
 				m_PreviewWorld.SetCameraFarPlane(PREVIEW_CAMERA, 150);
 				m_PreviewWorld.SetCameraVerticalFOV(PREVIEW_CAMERA, 38);
-
-				Resource worldResource = Resource.Load(PREVIEW_WORLD_RESOURCE);
-				if (worldResource && worldResource.IsValid())
-					GetGame().SpawnEntityPrefab(worldResource, m_PreviewWorld);
 			}
 		}
 
@@ -1991,14 +2008,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		string renderKey = BuildPreviewRenderKey();
-		if (renderKey == m_sPreviewRenderKey && m_PreviewCharacter)
+		if (renderKey == m_sPreviewRenderKey && m_PreviewEntity)
 			return;
 
 		m_sPreviewRenderKey = renderKey;
-		if (m_PreviewCharacter)
-			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewCharacter);
+		if (m_PreviewEntity)
+			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewEntity);
 
-		m_PreviewCharacter = null;
+		if (m_PreviewSourceCharacter)
+			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewSourceCharacter);
+
+		m_PreviewEntity = null;
+		m_PreviewSourceCharacter = null;
 		ResourceName previewPrefab = m_sPreviewPrefab;
 		if (previewPrefab.IsEmpty())
 			previewPrefab = DEFAULT_PREVIEW_PREFAB;
@@ -2013,17 +2034,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		EntitySpawnParams params = new EntitySpawnParams;
 		params.TransformMode = ETransformMode.WORLD;
-		params.Transform[3] = vector.Zero;
-		m_PreviewCharacter = GetGame().SpawnEntityPrefabLocal(loaded, m_PreviewWorld, params);
-		if (!m_PreviewCharacter)
+		params.Transform[3] = "0 -1000 0";
+		m_PreviewSourceCharacter = GetGame().SpawnEntityPrefabLocal(loaded, m_PreviewWorld, params);
+		if (!m_PreviewSourceCharacter)
 		{
 			m_sPreviewStatus = "preview character spawn failed";
 			m_bPreviewSpawned = false;
 			return;
 		}
 
-		m_PreviewCharacter.SetFixedLOD(0);
-		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(m_PreviewCharacter.FindComponent(SCR_InventoryStorageManagerComponent));
+		m_PreviewSourceCharacter.SetFixedLOD(0);
+		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(m_PreviewSourceCharacter.FindComponent(SCR_InventoryStorageManagerComponent));
 		int inserted;
 		int removed = ClearLocalPreviewInventory(inventory);
 		string firstFailure;
@@ -2051,14 +2072,45 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				firstFailure = failure;
 		}
 
+		InventoryItemComponent previewItem = InventoryItemComponent.Cast(m_PreviewSourceCharacter.FindComponent(InventoryItemComponent));
+		if (!previewItem)
+		{
+			m_sPreviewStatus = "preview character has no item component";
+			m_bPreviewSpawned = false;
+			return;
+		}
+
+		m_PreviewEntity = previewItem.CreatePreviewEntity(m_PreviewWorld, PREVIEW_CAMERA);
+		if (!m_PreviewEntity)
+		{
+			m_sPreviewStatus = "preview mannequin creation failed";
+			m_bPreviewSpawned = false;
+			return;
+		}
+
+		SetPreviewEntityQualityRecursive(m_PreviewEntity);
 		m_bPreviewSpawned = true;
 		m_iPreviewItemCount = inserted;
 		if (firstFailure.IsEmpty())
-			m_sPreviewStatus = string.Format("preview %1 item(s), cleared %2", inserted, removed);
+			m_sPreviewStatus = string.Format("preview mannequin dressed with %1 item(s), cleared %2", inserted, removed);
 		else
-			m_sPreviewStatus = string.Format("preview %1 item(s), skipped %2", inserted, ShortenText(firstFailure, 28));
+			m_sPreviewStatus = string.Format("preview skipped %1", ShortenText(firstFailure, 34));
 
 		UpdatePreviewCamera(true);
+	}
+
+	protected void SetPreviewEntityQualityRecursive(IEntity entity)
+	{
+		if (!entity)
+			return;
+
+		entity.SetFixedLOD(0);
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			SetPreviewEntityQualityRecursive(child);
+			child = child.GetSibling();
+		}
 	}
 
 	protected int ClearLocalPreviewInventory(SCR_InventoryStorageManagerComponent inventory)
@@ -2139,10 +2191,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		maxs = vector.Zero;
 		center = "0 1 0";
 		size = 3.0;
-		if (!m_PreviewCharacter)
+		IEntity boundsEntity = m_PreviewEntity;
+		if (!boundsEntity)
+			boundsEntity = m_PreviewSourceCharacter;
+
+		if (!boundsEntity)
 			return false;
 
-		m_PreviewCharacter.GetBounds(mins, maxs);
+		boundsEntity.GetWorldBounds(mins, maxs);
 		center = vector.Lerp(mins, maxs, 0.5);
 		size = vector.Distance(mins, maxs);
 		return size > 0.1;
@@ -2269,10 +2325,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void DeletePreviewWorld()
 	{
-		if (m_PreviewCharacter)
-			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewCharacter);
+		if (m_PreviewEntity)
+			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewEntity);
 
-		m_PreviewCharacter = null;
+		if (m_PreviewSourceCharacter)
+			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewSourceCharacter);
+
+		m_PreviewEntity = null;
+		m_PreviewSourceCharacter = null;
 		m_PreviewWidget = null;
 		m_PreviewWorld = null;
 		m_PreviewWorldRef = null;
@@ -2417,7 +2477,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (prefab.IsEmpty())
 			return false;
 
-		return prefab.Contains("RHS") || prefab.Contains("rhs") || prefab.Contains("#RHS") || prefab.Contains("USMC") || prefab.Contains("AFRF") || prefab.Contains("MARSOC") || prefab.Contains("FORECON") || prefab.Contains("VKPO") || prefab.Contains("VVRG") || prefab.Contains("SSO") || prefab.Contains("FROG_Combat_Shirt") || prefab.Contains("Vest_PCGen") || prefab.Contains("595F2BF") || prefab.Contains("1337C0DE") || prefab.Contains("BADC0DED") || prefab.Contains("StatusQuo") || prefab.Contains("ContentPack");
+		return prefab.Contains("595F2BF") || prefab.Contains("1337C0DE") || prefab.Contains("BADC0DED") || prefab.Contains("StatusQuo") || prefab.Contains("ContentPack");
 	}
 
 	protected int ResolveLocalPlayerId()

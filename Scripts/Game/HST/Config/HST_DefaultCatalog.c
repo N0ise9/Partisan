@@ -818,7 +818,6 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		faction.m_sDisplayName = "FIA Resistance";
 		faction.m_bPlayable = true;
 		faction.m_aCapabilities.Insert("air_support_unlockable");
-		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M151A2/M151A2.et");
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_FIA_transport.et");
 		faction.m_aGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
 		faction.m_aPatrolGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
@@ -837,7 +836,6 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		faction.m_sFactionKey = "US";
 		faction.m_sDisplayName = "US Occupiers";
 		faction.m_aVehiclePrefabs.Insert("{4A71F755A4513227}Prefabs/Vehicles/Wheeled/M998/M1025.et");
-		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M151A2/M151A2.et");
 		faction.m_aGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
 		faction.m_aPatrolGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
 		faction.m_aQRFGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");

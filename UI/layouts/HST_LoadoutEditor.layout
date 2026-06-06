@@ -4,15 +4,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
   RenderTargetWidgetClass "{7B2FD986A4D34111}" {
    Name "HST_LoadoutPreview"
    Slot FrameWidgetSlot "{7B2FD986A4D34112}" {
-    Anchor 0 0 0 0
-    PositionX 398
-    OffsetLeft 398
-    PositionY 50
-    OffsetTop 50
-    SizeX 882
-    OffsetRight -1280
-    SizeY 718
-    OffsetBottom -768
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
    }
    Format "HDR High"
   }
