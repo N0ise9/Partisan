@@ -595,8 +595,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!root)
 			return;
 
-		FrameSlot.SetPos(root, 0, 0);
-		FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
+		if (!layoutRoot)
+		{
+			FrameSlot.SetPos(root, 0, 0);
+			FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
+		}
 
 		root.SetZOrder(3600);
 		m_aWidgets.Insert(root);
@@ -1136,6 +1139,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		InsertCategory("vest", "Vest", 0);
 		InsertCategory("backpack", "Backpack", 0);
 		InsertCategory("weapon", "Weapons", 0);
+		InsertCategory("launcher", "Launchers", 0);
 		InsertCategory("magazine", "Magazines", 0);
 		InsertCategory("explosive", "Explosives", 0);
 		InsertCategory("attachment", "Attachments", 0);
@@ -1970,8 +1974,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_PreviewWidget)
 			return;
 
-		FrameSlot.SetPos(m_PreviewWidget, 0, 0);
-		FrameSlot.SetSize(m_PreviewWidget, m_iEditorWidth, m_iEditorHeight);
 		m_PreviewWidget.SetVisible(true);
 	}
 
@@ -2034,7 +2036,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		EntitySpawnParams params = new EntitySpawnParams;
 		params.TransformMode = ETransformMode.WORLD;
-		params.Transform[3] = "0 -1000 0";
+		params.Transform[3] = vector.Up;
 		m_PreviewSourceCharacter = GetGame().SpawnEntityPrefabLocal(loaded, m_PreviewWorld, params);
 		if (!m_PreviewSourceCharacter)
 		{
@@ -2083,11 +2085,28 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_PreviewEntity = previewItem.CreatePreviewEntity(m_PreviewWorld, PREVIEW_CAMERA);
 		if (!m_PreviewEntity)
 		{
-			m_sPreviewStatus = "preview mannequin creation failed";
-			m_bPreviewSpawned = false;
+			m_PreviewEntity = m_PreviewSourceCharacter;
+			m_PreviewSourceCharacter = null;
+			m_PreviewEntity.SetOrigin(vector.Up);
+			m_PreviewEntity.Update();
+			SetPreviewEntityQualityRecursive(m_PreviewEntity);
+			m_bPreviewSpawned = true;
+			m_iPreviewItemCount = inserted;
+			if (firstFailure.IsEmpty())
+				m_sPreviewStatus = string.Format("preview direct mannequin fallback with %1 item(s), cleared %2", inserted, removed);
+			else
+				m_sPreviewStatus = string.Format("preview fallback skipped %1", ShortenText(firstFailure, 34));
+			UpdatePreviewCamera(true);
 			return;
 		}
 
+		m_PreviewEntity.SetOrigin(vector.Up);
+		m_PreviewEntity.Update();
+		if (m_PreviewSourceCharacter)
+		{
+			m_PreviewSourceCharacter.SetOrigin("0 -1000 0");
+			m_PreviewSourceCharacter.Update();
+		}
 		SetPreviewEntityQualityRecursive(m_PreviewEntity);
 		m_bPreviewSpawned = true;
 		m_iPreviewItemCount = inserted;
@@ -2477,7 +2496,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (prefab.IsEmpty())
 			return false;
 
-		return prefab.Contains("595F2BF") || prefab.Contains("1337C0DE") || prefab.Contains("BADC0DED") || prefab.Contains("StatusQuo") || prefab.Contains("ContentPack");
+		if (prefab.Contains("595F2BF") || prefab.Contains("1337C0DE") || prefab.Contains("BADC0DED") || prefab.Contains("StatusQuo") || prefab.Contains("ContentPack"))
+			return true;
+
+		Resource loaded = Resource.Load(prefab);
+		return !loaded || !loaded.IsValid();
 	}
 
 	protected int ResolveLocalPlayerId()

@@ -2073,6 +2073,8 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"EnsurePreviewWorld",
 	"RefreshPreviewWorldLoadout",
 	"CreatePreviewEntity",
+	"m_PreviewEntity.SetOrigin(vector.Up)",
+	"preview direct mannequin fallback",
 	"SetPreviewEntityQualityRecursive",
 	"BuildStageToast",
 	"UpdatePreviewCamera",
@@ -2120,6 +2122,7 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"loadout_select",
 	"loadout_delete",
 	"IsRemovedExternalPrefab",
+	"Resource.Load(prefab)",
 	"ITEM_PAGE_NEXT_WIDGET_ID",
 	"SLOT_PAGE_NEXT_WIDGET_ID",
 	"TEMPLATE_PAGE_NEXT_WIDGET_ID"
@@ -2130,6 +2133,9 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 }
 if ($loadoutEditorComponentText -match "InventoryPreviewWorld10") {
 	throw "Loadout editor preview must not rely on the old visible/cropped InventoryPreviewWorld10 stage"
+}
+if ($loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetPos(m_PreviewWidget") -or $loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetSize(m_PreviewWidget")) {
+	throw "Loadout editor must not set position/size on the full-anchor render-target layout widget"
 }
 if ($loadoutEditorComponentText -match "CreateTextWidget\([^\r\n]*m_sLastResult") {
 	throw "Loadout editor must not render raw server result/debug text across the preview stage"
@@ -2181,6 +2187,10 @@ foreach ($requiredLoadoutEditorServiceCleanupEntry in @(
 	"PurgeRemovedExternalDraftSlots",
 	"IsAllowedLoadoutSlot",
 	"IsRemovedExternalPrefab",
+	"IsRemovedExternalItem",
+	"IsLoadablePrefabResource",
+	"HasUnresolvedDisplayKey",
+	"SavePersonalLoadoutsToFile(state, identityId)",
 	"purged external"
 )) {
 	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutEditorServiceCleanupEntry)) {
@@ -2199,6 +2209,25 @@ foreach ($forbiddenBaseGameOnlyEntry in @(
 	if ($loadoutEditorText -match [regex]::Escape($forbiddenBaseGameOnlyEntry) -or $loadoutEditorComponentText -match [regex]::Escape($forbiddenBaseGameOnlyEntry) -or $configResourceText -match [regex]::Escape($forbiddenBaseGameOnlyEntry) -or $defaultCatalog -match [regex]::Escape($forbiddenBaseGameOnlyEntry)) {
 		throw "Base-game-only runtime/config files must not contain removed external arsenal content references: $forbiddenBaseGameOnlyEntry"
 	}
+}
+foreach ($requiredWeaponFilterEntry in @(
+	"IsPrimaryWeaponCandidate",
+	"IsLauncherWeaponCandidate",
+	"IsAttachmentCandidateForSlot",
+	"IsReplacementCategoryAllowed",
+	"ResolveAttachmentSlotKey",
+	'node.m_sSlotKey == "weapon"',
+	'node.m_sSlotKey == "launcher"',
+	'node.m_sKind == "attachment"',
+	"attach_bayonet",
+	"attach_handguard"
+)) {
+	if ($loadoutEditorText -notmatch [regex]::Escape($requiredWeaponFilterEntry)) {
+		throw "Loadout editor service must enforce weapon-owned attachment and category filtering: $requiredWeaponFilterEntry"
+	}
+}
+if ($loadoutEditorText -match 'sourceCategory == "launcher"\s*\r?\n\s*return "weapon"') {
+	throw "Launcher items must remain launcher category, not be collapsed into primary weapons"
 }
 Write-Host "Custom HST loadout editor contract OK"
 
@@ -2258,6 +2287,23 @@ foreach ($requiredRuntimeVehicleEntry in @(
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredRuntimeVehicleEntry)) {
 		throw "Vehicle targeting must support registered h-istasi runtime vehicles: $requiredRuntimeVehicleEntry"
+	}
+}
+foreach ($requiredVehicleDiagnosticEntry in @(
+	"m_iDirectRootHits",
+	"m_iParentChainRootHits",
+	"m_iBoundsRootHits",
+	"m_iRuntimeFallbackHits",
+	"m_sNearestCandidateDebug",
+	"ResolveVehicleRootByNearbyBounds",
+	"resolved by nearby vehicle bounds root",
+	"TrackNearestVehicleReject",
+	"BuildVehicleCandidateDebug",
+	"passSummary",
+	"direct %1 | parent %2 | bounds %3 | runtime %4"
+)) {
+	if ($lootServiceText -notmatch [regex]::Escape($requiredVehicleDiagnosticEntry)) {
+		throw "Vehicle resolver must emit multi-pass root diagnostics: $requiredVehicleDiagnosticEntry"
 	}
 }
 if ($scriptText -notmatch [regex]::Escape("CleanupInvalidGarageRecords")) {

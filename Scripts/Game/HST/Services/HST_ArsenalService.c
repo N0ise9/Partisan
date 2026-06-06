@@ -5,6 +5,13 @@ class HST_ArsenalService
 		if (prefab.IsEmpty() || amount <= 0)
 			return null;
 
+		Resource loaded = Resource.Load(prefab);
+		if (!loaded || !loaded.IsValid())
+		{
+			Print("h-istasi arsenal | skipped invalid item resource deposit " + prefab);
+			return null;
+		}
+
 		HST_ArsenalItemState item = state.FindArsenalItem(prefab);
 		if (!item)
 		{

@@ -32,10 +32,17 @@ class HST_VehicleRootScanResult
 	HST_RuntimeVehicleState m_RuntimeVehicle;
 	int m_iCandidates;
 	int m_iResolvedRoots;
+	int m_iDirectRootHits;
+	int m_iParentChainRootHits;
+	int m_iBoundsRootHits;
+	int m_iRuntimeFallbackHits;
 	string m_sSelectedPrefab;
 	string m_sSelectedRuntimeId;
 	string m_sSelectedDisplayName;
 	string m_sRejectReason = "not scanned";
+	string m_sNearestCandidateDebug;
+	string m_sNearestRejectReason;
+	float m_fNearestRejectDistanceSq = 999999999.0;
 	float m_fSelectedDistanceMeters;
 	int m_iCargoEntries;
 
@@ -122,6 +129,8 @@ class HST_LootService
 		vehicle.m_sPrefab = ResolveVehiclePrefabFromScan(selectedVehicle, scan);
 		if (vehicle.m_sPrefab.IsEmpty() || !IsEligibleSelectedVehicleRoot(selectedVehicle, vehicle.m_sPrefab, scan))
 			return "h-istasi garage | failed: nearest candidate was not a top-level vehicle";
+		if (!IsLoadableVehiclePrefab(vehicle.m_sPrefab))
+			return "h-istasi garage | failed: selected vehicle root has no loadable redeploy prefab | " + vehicle.m_sPrefab;
 
 		string occupiedReason;
 		if (IsVehicleOccupied(selectedVehicle, playerEntity, occupiedReason))
@@ -1193,8 +1202,19 @@ class HST_LootService
 			IEntity rootVehicle = ResolveVehicleRoot(candidate, rejectReason);
 			if (!rootVehicle)
 			{
-				lastReject = rejectReason;
-				continue;
+				rootVehicle = ResolveVehicleRootByNearbyBounds(candidate, rejectReason);
+				if (rootVehicle)
+					result.m_iBoundsRootHits++;
+				else
+				{
+					TrackNearestVehicleReject(playerEntity, candidate, rejectReason, result);
+					lastReject = rejectReason;
+					continue;
+				}
+			}
+			else
+			{
+				RegisterVehicleRootPass(result, rejectReason);
 			}
 
 			if (checkedRoots.Find(rootVehicle) >= 0)
@@ -1207,12 +1227,14 @@ class HST_LootService
 			string rootPrefab = ResolveVehiclePrefabFromRecord(rootVehicle, runtimeCandidate);
 			if (IsProtectedHQEntity(state, rootVehicle, rootPrefab, protectedReason))
 			{
+				TrackNearestVehicleReject(playerEntity, rootVehicle, protectedReason, result);
 				lastReject = protectedReason;
 				continue;
 			}
 
 			if (!IsEligibleLootVehicle(rootVehicle, playerEntity, runtimeCandidate))
 			{
+				TrackNearestVehicleReject(playerEntity, rootVehicle, "resolved root failed loot vehicle eligibility", result);
 				lastReject = "resolved root failed loot vehicle eligibility";
 				continue;
 			}
@@ -1238,7 +1260,9 @@ class HST_LootService
 			return result;
 		}
 
-		if (result.m_sRejectReason.IsEmpty() || result.m_sRejectReason == "not scanned")
+		if (!result.m_sNearestRejectReason.IsEmpty())
+			result.m_sRejectReason = result.m_sNearestRejectReason;
+		else if (result.m_sRejectReason.IsEmpty() || result.m_sRejectReason == "not scanned")
 			result.m_sRejectReason = lastReject;
 
 		if (state)
@@ -1284,9 +1308,20 @@ class HST_LootService
 			IEntity rootVehicle = ResolveVehicleRoot(candidate, rejectReason);
 			if (!rootVehicle)
 			{
-				if (!result.m_SelectedRoot)
-					result.m_sRejectReason = rejectReason;
-				continue;
+				rootVehicle = ResolveVehicleRootByNearbyBounds(candidate, rejectReason);
+				if (rootVehicle)
+					result.m_iBoundsRootHits++;
+				else
+				{
+					TrackNearestVehicleReject(playerEntity, candidate, rejectReason, result);
+					if (!result.m_SelectedRoot)
+						result.m_sRejectReason = rejectReason;
+					continue;
+				}
+			}
+			else
+			{
+				RegisterVehicleRootPass(result, rejectReason);
 			}
 
 			if (checkedRoots.Find(rootVehicle) >= 0)
@@ -1299,6 +1334,7 @@ class HST_LootService
 			string rootPrefab = ResolveVehiclePrefabFromRecord(rootVehicle, runtimeCandidate);
 			if (IsProtectedHQEntity(state, rootVehicle, rootPrefab, protectedReason))
 			{
+				TrackNearestVehicleReject(playerEntity, rootVehicle, protectedReason, result);
 				if (!result.m_SelectedRoot)
 					result.m_sRejectReason = protectedReason;
 				continue;
@@ -1306,6 +1342,7 @@ class HST_LootService
 
 			if (!IsEligibleLootVehicle(rootVehicle, playerEntity, runtimeCandidate))
 			{
+				TrackNearestVehicleReject(playerEntity, rootVehicle, "resolved root failed loot vehicle eligibility", result);
 				if (!result.m_SelectedRoot)
 					result.m_sRejectReason = "resolved root failed loot vehicle eligibility";
 				continue;
@@ -1331,7 +1368,9 @@ class HST_LootService
 			return result;
 		}
 
-		if (!result.m_SelectedRoot && (result.m_sRejectReason.IsEmpty() || result.m_sRejectReason == "not scanned"))
+		if (!result.m_SelectedRoot && !result.m_sNearestRejectReason.IsEmpty())
+			result.m_sRejectReason = result.m_sNearestRejectReason;
+		else if (!result.m_SelectedRoot && (result.m_sRejectReason.IsEmpty() || result.m_sRejectReason == "not scanned"))
 			result.m_sRejectReason = "no vehicle prefab roots found";
 
 		PublishVehicleTargetDiagnostics(state, purpose, result, bestDistanceSq);
@@ -1453,6 +1492,8 @@ class HST_LootService
 		result.m_sSelectedDisplayName = BuildVehicleDisplayNameFromRecord(rootVehicle, prefab, runtimeVehicle);
 		result.m_sRejectReason = reason;
 		result.m_fSelectedDistanceMeters = Math.Sqrt(distanceSq);
+		if (reason.Contains("runtime") || reason.Contains("registered"))
+			result.m_iRuntimeFallbackHits++;
 	}
 
 	protected IEntity ResolveRuntimeVehicleRootFromRecord(BaseWorld world, HST_RuntimeVehicleState record, out int scannedCandidates, out int resolvedRoots, out string rejectReason)
@@ -1558,13 +1599,23 @@ class HST_LootService
 		IEntity vehicle;
 		int candidates;
 		int resolvedRoots;
+		int directRoots;
+		int parentRoots;
+		int boundsRoots;
+		int runtimeRoots;
 		string reason = "not scanned";
+		string nearestDebug;
 		if (scan)
 		{
 			vehicle = scan.m_SelectedRoot;
 			candidates = scan.m_iCandidates;
 			resolvedRoots = scan.m_iResolvedRoots;
+			directRoots = scan.m_iDirectRootHits;
+			parentRoots = scan.m_iParentChainRootHits;
+			boundsRoots = scan.m_iBoundsRootHits;
+			runtimeRoots = scan.m_iRuntimeFallbackHits;
 			reason = scan.m_sRejectReason;
+			nearestDebug = scan.m_sNearestCandidateDebug;
 		}
 
 		state.m_sLastVehicleTargetStatus = status;
@@ -1581,11 +1632,15 @@ class HST_LootService
 			state.m_sLastVehicleTargetPrefab = prefab;
 			state.m_fLastVehicleTargetDistanceMeters = Math.Sqrt(distanceSq);
 			state.m_iLastVehicleTargetCargoEntries = CountVehicleCargoEntries(state, vehicleId) + CountLegacyVehiclePartCargoNear(state, vehicle, vehicleId);
-			Print(string.Format("h-istasi vehicle target | %1 | selected %2 | prefab %3 | id %4 | candidates %5 | roots %6 | distance %7m | reason %8", status, BuildVehicleDisplayNameFromScan(vehicle, prefab, scan), prefab, vehicleId, candidates, resolvedRoots, state.m_fLastVehicleTargetDistanceMeters, reason));
+			string passSummary = string.Format("direct %1 | parent %2 | bounds %3 | runtime %4", directRoots, parentRoots, boundsRoots, runtimeRoots);
+			string selectedLog = string.Format("h-istasi vehicle target | %1 | selected %2 | prefab %3 | id %4 | candidates %5 | roots %6 | %7 | distance %8m", status, BuildVehicleDisplayNameFromScan(vehicle, prefab, scan), prefab, vehicleId, candidates, resolvedRoots, passSummary, state.m_fLastVehicleTargetDistanceMeters);
+			Print(selectedLog + " | reason " + reason);
 			return;
 		}
 
-		Print(string.Format("h-istasi vehicle target | %1 | no target | candidates %2 | roots %3 | reason %4", status, candidates, resolvedRoots, reason), LogLevel.WARNING);
+		string noTargetPassSummary = string.Format("direct %1 | parent %2 | bounds %3 | runtime %4", directRoots, parentRoots, boundsRoots, runtimeRoots);
+		string noTargetLog = string.Format("h-istasi vehicle target | %1 | no target | candidates %2 | roots %3 | %4", status, candidates, resolvedRoots, noTargetPassSummary);
+		Print(noTargetLog + " | reason " + reason + " | " + nearestDebug, LogLevel.WARNING);
 	}
 
 	protected bool IsPlayerAtVehicleRear(IEntity playerEntity, IEntity vehicle, int radiusMeters)
@@ -1685,6 +1740,110 @@ class HST_LootService
 		return null;
 	}
 
+	protected IEntity ResolveVehicleRootByNearbyBounds(IEntity entity, out string rejectReason)
+	{
+		if (!entity)
+		{
+			rejectReason = "candidate missing";
+			return null;
+		}
+
+		vector origin = entity.GetOrigin();
+		IEntity bestRoot;
+		string bestReason;
+		float bestDistanceSq = 999999999.0;
+		foreach (IEntity candidate : m_aScanEntities)
+		{
+			if (!candidate || candidate == entity)
+				continue;
+
+			string candidatePrefab = ResolveVehicleIdentityName(candidate);
+			if (!IsEligibleVehicleRoot(candidate, candidatePrefab))
+				continue;
+
+			if (IsVehiclePartEntity(candidate, candidatePrefab))
+				continue;
+
+			if (!IsPointNearEntityBounds(origin, candidate, 6.0))
+				continue;
+
+			float distanceSq = DistanceSq2D(origin, candidate.GetOrigin());
+			if (distanceSq >= bestDistanceSq)
+				continue;
+
+			bestRoot = candidate;
+			bestReason = BuildVehicleRootRejectReason(candidate, candidatePrefab);
+			bestDistanceSq = distanceSq;
+		}
+
+		if (bestRoot)
+		{
+			rejectReason = "resolved by nearby vehicle bounds root | " + bestReason;
+			return bestRoot;
+		}
+
+		if (rejectReason.IsEmpty())
+			rejectReason = "candidate had no nearby eligible vehicle bounds root";
+
+		return null;
+	}
+
+	protected bool IsPointNearEntityBounds(vector point, IEntity entity, float marginMeters)
+	{
+		if (!entity)
+			return false;
+
+		vector mins;
+		vector maxs;
+		entity.GetWorldBounds(mins, maxs);
+		float clampedX = Math.Clamp(point[0], mins[0] - marginMeters, maxs[0] + marginMeters);
+		float clampedZ = Math.Clamp(point[2], mins[2] - marginMeters, maxs[2] + marginMeters);
+		float dx = point[0] - clampedX;
+		float dz = point[2] - clampedZ;
+		return (dx * dx + dz * dz) <= marginMeters * marginMeters;
+	}
+
+	protected void RegisterVehicleRootPass(HST_VehicleRootScanResult result, string reason)
+	{
+		if (!result)
+			return;
+
+		if (reason.Contains("direct"))
+		{
+			result.m_iDirectRootHits++;
+			return;
+		}
+
+		result.m_iParentChainRootHits++;
+	}
+
+	protected void TrackNearestVehicleReject(IEntity playerEntity, IEntity candidate, string reason, HST_VehicleRootScanResult result)
+	{
+		if (!playerEntity || !candidate || !result)
+			return;
+
+		float distanceSq = DistanceSq2D(playerEntity.GetOrigin(), candidate.GetOrigin());
+		if (distanceSq >= result.m_fNearestRejectDistanceSq)
+			return;
+
+		result.m_fNearestRejectDistanceSq = distanceSq;
+		result.m_sNearestRejectReason = reason;
+		result.m_sNearestCandidateDebug = BuildVehicleCandidateDebug(candidate, reason);
+	}
+
+	protected string BuildVehicleCandidateDebug(IEntity entity, string reason)
+	{
+		if (!entity)
+			return "nearest candidate missing";
+
+		string prefab = ResolveVehicleIdentityName(entity);
+		string name = entity.GetName();
+		if (name.IsEmpty())
+			name = "<unnamed>";
+
+		return string.Format("nearest %1 | prefab/name %2 | origin %3 | reject %4", name, prefab, entity.GetOrigin(), reason);
+	}
+
 	protected bool IsDirectVehicleRootCandidate(IEntity entity, string prefabOrName)
 	{
 		if (!entity)
@@ -1770,6 +1929,18 @@ class HST_LootService
 			return HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(scan.m_RuntimeVehicle.m_sPrefab);
 
 		return IsEligibleVehicleRoot(entity, prefab);
+	}
+
+	protected bool IsLoadableVehiclePrefab(string prefab)
+	{
+		if (prefab.IsEmpty())
+			return false;
+
+		Resource loaded = Resource.Load(prefab);
+		if (!loaded)
+			return false;
+
+		return loaded.IsValid();
 	}
 
 	protected string BuildVehicleRootRejectReason(IEntity entity, string prefab)

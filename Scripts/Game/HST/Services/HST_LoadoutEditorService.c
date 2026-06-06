@@ -26,6 +26,8 @@ class HST_LoadoutEditorService
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		int loadedTemplates = LoadPersonalLoadoutsFromFile(state, identityId);
 		int purgedExternal = PurgeRemovedExternalLoadoutState(state, identityId);
+		if (purgedExternal > 0)
+			SavePersonalLoadoutsToFile(state, identityId);
 		session.m_sStatus = "open";
 		session.m_sLastFailure = "";
 		session.m_sPreviewPrefab = PREVIEW_MANNEQUIN_PREFAB;
@@ -64,7 +66,8 @@ class HST_LoadoutEditorService
 			return "";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		PurgeRemovedExternalLoadoutState(state, identityId);
+		if (PurgeRemovedExternalLoadoutState(state, identityId) > 0)
+			SavePersonalLoadoutsToFile(state, identityId);
 		EnsureDraftSlots(state, identityId, session);
 		RefreshDraftNodes(state, session);
 
@@ -284,8 +287,14 @@ class HST_LoadoutEditorService
 		if (!IsArsenalItemAvailable(item))
 			return "h-istasi loadout editor | failed: item not available in arsenal";
 
+		RefreshDraftNodes(state, session);
+		HST_LoadoutNodeState targetNode = FindDraftNodeById(session, nodeId);
+		string itemCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+		if (targetNode && !IsCandidateCategoryForNode(targetNode, itemCategory, item.m_sPrefab))
+			return "h-istasi loadout editor | failed: " + HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName) + " is not compatible with " + targetNode.m_sLabel;
+
 		HST_LoadoutSlotState slot = new HST_LoadoutSlotState();
-		string category = ResolveNodeCategoryFromId(nodeId, ResolveEditorCategory(item.m_sPrefab, item.m_sCategory));
+		string category = ResolveNodeCategoryFromId(nodeId, itemCategory);
 		slot.m_sSlotId = BuildUniqueDraftSlotId(session, category);
 		slot.m_sItemPrefab = item.m_sPrefab;
 		slot.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
@@ -405,9 +414,14 @@ class HST_LoadoutEditorService
 			if (!slot || slot.m_sSlotId != slotId)
 				continue;
 
+			string targetCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+			string replacementCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+			if (!IsReplacementCategoryAllowed(slot, targetCategory, replacementCategory, item.m_sPrefab))
+				return "h-istasi loadout editor | failed: " + HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName) + " is not compatible with " + targetCategory;
+
 			slot.m_sItemPrefab = item.m_sPrefab;
 			slot.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
-			slot.m_sCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+			slot.m_sCategory = replacementCategory;
 			slot.m_iQuantity = 1;
 			session.m_sStatus = "draft edited";
 			RefreshDraftNodes(state, session);
@@ -637,7 +651,7 @@ class HST_LoadoutEditorService
 
 	protected bool IsArsenalItemAvailable(HST_ArsenalItemState item)
 	{
-		return item && !item.m_sPrefab.IsEmpty() && !IsRemovedExternalPrefab(item.m_sPrefab) && (item.m_bUnlocked || item.m_iCount > 0);
+		return item && !item.m_sPrefab.IsEmpty() && !IsRemovedExternalItem(item.m_sPrefab, item.m_sDisplayName) && (item.m_bUnlocked || item.m_iCount > 0);
 	}
 
 	protected int CountAvailableItemsInCategory(HST_CampaignState state, string categoryId)
@@ -660,7 +674,7 @@ class HST_LoadoutEditorService
 
 	protected int GetEditorCategoryCount()
 	{
-		return 10;
+		return 11;
 	}
 
 	protected string GetEditorCategoryId(int index)
@@ -676,12 +690,14 @@ class HST_LoadoutEditorService
 		if (index == 4)
 			return "weapon";
 		if (index == 5)
-			return "magazine";
+			return "launcher";
 		if (index == 6)
-			return "explosive";
+			return "magazine";
 		if (index == 7)
-			return "attachment";
+			return "explosive";
 		if (index == 8)
+			return "attachment";
+		if (index == 9)
 			return "medical";
 
 		return "utility";
@@ -873,12 +889,14 @@ class HST_LoadoutEditorService
 		if (weaponNode)
 			parentId = weaponNode.m_sNodeId;
 
-		AddAttachmentNode(session, parentId, "attach_optic", "Optics", "optic");
-		AddAttachmentNode(session, parentId, "attach_muzzle", "Muzzle", "muzzle");
-		AddAttachmentNode(session, parentId, "attach_underbarrel", "Underbarrel", "weapon");
+		AddAttachmentNode(session, parentId, "attach_optic", "optic", "Optics", "optic");
+		AddAttachmentNode(session, parentId, "attach_muzzle", "muzzle", "Muzzle", "muzzle");
+		AddAttachmentNode(session, parentId, "attach_underbarrel", "underbarrel", "Underbarrel", "weapon");
+		AddAttachmentNode(session, parentId, "attach_bayonet", "bayonet", "Bayonet", "weapon");
+		AddAttachmentNode(session, parentId, "attach_handguard", "handguard", "Handguard", "weapon");
 	}
 
-	protected void AddAttachmentNode(HST_LoadoutEditorSessionState session, string parentId, string nodeId, string label, string focus)
+	protected void AddAttachmentNode(HST_LoadoutEditorSessionState session, string parentId, string nodeId, string slotKey, string label, string focus)
 	{
 		HST_LoadoutSlotState slot = FindAttachmentSlot(session, nodeId);
 		HST_LoadoutNodeState node = new HST_LoadoutNodeState();
@@ -888,7 +906,7 @@ class HST_LoadoutEditorService
 			node.m_sNodeId = nodeId;
 		node.m_sParentNodeId = parentId;
 		node.m_sKind = "attachment";
-		node.m_sSlotKey = "attachment";
+		node.m_sSlotKey = slotKey;
 		node.m_sLabel = label;
 		node.m_sCategory = "attachment";
 		node.m_sFocus = focus;
@@ -963,13 +981,15 @@ class HST_LoadoutEditorService
 			return false;
 
 		if (node.m_sKind == "attachment")
-			return category == "attachment";
+			return category == "attachment" && IsAttachmentCandidateForSlot(node.m_sSlotKey, prefab);
 
 		if (node.m_sKind == "storage" || node.m_sKind == "storage_item")
 			return category == node.m_sCategory || category == "magazine" || category == "explosive" || category == "medical" || category == "utility";
 
-		if (node.m_sSlotKey == "weapon" || node.m_sSlotKey == "launcher")
-			return category == "weapon";
+		if (node.m_sSlotKey == "weapon")
+			return category == "weapon" && IsPrimaryWeaponCandidate(prefab);
+		if (node.m_sSlotKey == "launcher")
+			return category == "launcher" && IsLauncherWeaponCandidate(prefab);
 
 		return category == node.m_sCategory;
 	}
@@ -1103,6 +1123,20 @@ class HST_LoadoutEditorService
 			return "";
 
 		return nodeId.Substring(5, nodeId.Length() - 5);
+	}
+
+	protected HST_LoadoutNodeState FindDraftNodeById(HST_LoadoutEditorSessionState session, string nodeId)
+	{
+		if (!session || nodeId.IsEmpty())
+			return null;
+
+		foreach (HST_LoadoutNodeState node : session.m_aDraftNodes)
+		{
+			if (node && node.m_sNodeId == nodeId)
+				return node;
+		}
+
+		return null;
 	}
 
 	protected string ResolveNodeCategoryFromId(string nodeId, string fallback)
@@ -1446,6 +1480,13 @@ class HST_LoadoutEditorService
 				failure = "attachment slot has no weapon slot relationship: " + slot.m_sDisplayName;
 				return false;
 			}
+
+			string attachmentCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+			if (attachmentCategory != "attachment" || !IsAttachmentCandidateForSlot(ResolveAttachmentSlotKey(slot.m_sAttachmentSlotId), slot.m_sItemPrefab))
+			{
+				failure = "attachment is not compatible with weapon slot: " + slot.m_sDisplayName;
+				return false;
+			}
 		}
 
 		return true;
@@ -1740,14 +1781,26 @@ class HST_LoadoutEditorService
 
 	protected string ResolveEditorCategory(string prefab, string sourceCategory)
 	{
+		string derivedCategory = ResolveCategoryFromPrefab(prefab);
 		if (!sourceCategory.IsEmpty() && sourceCategory != "equipment")
 		{
 			if (sourceCategory == "launcher")
-				return "weapon";
+				return "launcher";
+
+			if (sourceCategory == "weapon" && (derivedCategory == "explosive" || derivedCategory == "magazine" || derivedCategory == "attachment" || derivedCategory == "medical" || derivedCategory == "utility"))
+				return derivedCategory;
+
+			if (sourceCategory == "attachment" && derivedCategory != "weapon" && derivedCategory != "launcher")
+				return "attachment";
 
 			return sourceCategory;
 		}
 
+		return derivedCategory;
+	}
+
+	protected string ResolveCategoryFromPrefab(string prefab)
+	{
 		if (prefab.Contains("Uniform") || prefab.Contains("Jacket") || prefab.Contains("Pants") || prefab.Contains("Shirt") || prefab.Contains("Clothes"))
 			return "clothing";
 		if (prefab.Contains("Helmet") || prefab.Contains("Hat") || prefab.Contains("Headgear") || prefab.Contains("Cap"))
@@ -1756,20 +1809,111 @@ class HST_LoadoutEditorService
 			return "vest";
 		if (prefab.Contains("Backpack") || prefab.Contains("Bag") || prefab.Contains("Pack_"))
 			return "backpack";
-		if (prefab.Contains("Optic") || prefab.Contains("Sight") || prefab.Contains("Muzzle") || prefab.Contains("Suppressor") || prefab.Contains("Bipod") || prefab.Contains("Attachment"))
+		if (IsAttachmentPrefab(prefab))
 			return "attachment";
-		if (prefab.Contains("Magazine") || prefab.Contains("magazine"))
+		if (IsMagazinePrefab(prefab))
 			return "magazine";
-		if (prefab.Contains("Grenade") || prefab.Contains("Mine") || prefab.Contains("Explosive"))
+		if (IsExplosiveOrThrowablePrefab(prefab))
 			return "explosive";
 		if (prefab.Contains("Bandage") || prefab.Contains("Morphine") || prefab.Contains("Tourniquet") || prefab.Contains("Medical") || prefab.Contains("Medkit"))
 			return "medical";
-		if (prefab.Contains("Launcher") || prefab.Contains("RPG") || prefab.Contains("M72") || prefab.Contains("AT4"))
-			return "weapon";
-		if (prefab.Contains("Weapon") || prefab.Contains("Rifle") || prefab.Contains("Pistol") || prefab.Contains("MG_") || prefab.Contains("SMG"))
+		if (IsLauncherWeaponCandidate(prefab))
+			return "launcher";
+		if (IsPrimaryWeaponCandidate(prefab))
 			return "weapon";
 
 		return "utility";
+	}
+
+	protected bool IsPrimaryWeaponCandidate(string prefab)
+	{
+		if (prefab.IsEmpty() || IsExplosiveOrThrowablePrefab(prefab) || IsAttachmentPrefab(prefab) || IsMagazinePrefab(prefab))
+			return false;
+
+		if (prefab.Contains("Launcher") || prefab.Contains("RPG") || prefab.Contains("M72") || prefab.Contains("LAW") || prefab.Contains("AT4"))
+			return false;
+
+		return prefab.Contains("/Weapons/") || prefab.Contains("Weapon") || prefab.Contains("Rifle") || prefab.Contains("Carbine") || prefab.Contains("Pistol") || prefab.Contains("MG_") || prefab.Contains("SMG") || prefab.Contains("M16") || prefab.Contains("M9");
+	}
+
+	protected bool IsLauncherWeaponCandidate(string prefab)
+	{
+		if (prefab.IsEmpty() || IsAttachmentPrefab(prefab) || IsMagazinePrefab(prefab))
+			return false;
+
+		if (prefab.Contains("Grenade") || prefab.Contains("Smoke") || prefab.Contains("Mine") || prefab.Contains("Explosive") || prefab.Contains("RDG") || prefab.Contains("AN-M8"))
+			return false;
+
+		return prefab.Contains("Launcher") || prefab.Contains("RPG") || prefab.Contains("M72") || prefab.Contains("LAW") || prefab.Contains("AT4");
+	}
+
+	protected bool IsMagazinePrefab(string prefab)
+	{
+		return prefab.Contains("Magazine") || prefab.Contains("Mag_") || prefab.Contains("_Mag") || prefab.Contains("STANAG") || prefab.Contains("PMAG") || prefab.Contains("Belt") || prefab.Contains("AmmoBox");
+	}
+
+	protected bool IsExplosiveOrThrowablePrefab(string prefab)
+	{
+		if (prefab.Contains("Launcher"))
+			return false;
+
+		return prefab.Contains("Grenade") || prefab.Contains("Smoke") || prefab.Contains("Mine") || prefab.Contains("Explosive") || prefab.Contains("Flare") || prefab.Contains("M18") || prefab.Contains("M67") || prefab.Contains("RDG") || prefab.Contains("AN-M8");
+	}
+
+	protected bool IsAttachmentPrefab(string prefab)
+	{
+		return prefab.Contains("Optic") || prefab.Contains("Sight") || prefab.Contains("Scope") || prefab.Contains("Muzzle") || prefab.Contains("Suppressor") || prefab.Contains("Flash_Hider") || prefab.Contains("FlashHider") || prefab.Contains("Compensator") || prefab.Contains("Bipod") || prefab.Contains("Grip") || prefab.Contains("Underbarrel") || prefab.Contains("Bayonet") || prefab.Contains("Handguard") || prefab.Contains("Attachment");
+	}
+
+	protected bool IsAttachmentCandidateForSlot(string slotKey, string prefab)
+	{
+		if (!IsAttachmentPrefab(prefab))
+			return false;
+
+		if (slotKey == "optic")
+			return prefab.Contains("Optic") || prefab.Contains("Sight") || prefab.Contains("Scope");
+		if (slotKey == "muzzle")
+			return prefab.Contains("Muzzle") || prefab.Contains("Suppressor") || prefab.Contains("Flash_Hider") || prefab.Contains("FlashHider") || prefab.Contains("Compensator");
+		if (slotKey == "underbarrel")
+			return prefab.Contains("Underbarrel") || prefab.Contains("Bipod") || prefab.Contains("Grip");
+		if (slotKey == "bayonet")
+			return prefab.Contains("Bayonet");
+		if (slotKey == "handguard")
+			return prefab.Contains("Handguard");
+
+		return false;
+	}
+
+	protected bool IsReplacementCategoryAllowed(HST_LoadoutSlotState slot, string targetCategory, string replacementCategory, string prefab)
+	{
+		if (!slot)
+			return false;
+
+		if (!slot.m_sAttachmentSlotId.IsEmpty())
+			return replacementCategory == "attachment" && IsAttachmentCandidateForSlot(ResolveAttachmentSlotKey(slot.m_sAttachmentSlotId), prefab);
+
+		if (targetCategory == "weapon")
+			return replacementCategory == "weapon" && IsPrimaryWeaponCandidate(prefab);
+		if (targetCategory == "launcher")
+			return replacementCategory == "launcher" && IsLauncherWeaponCandidate(prefab);
+
+		return targetCategory == replacementCategory;
+	}
+
+	protected string ResolveAttachmentSlotKey(string attachmentSlotId)
+	{
+		if (attachmentSlotId.Contains("optic"))
+			return "optic";
+		if (attachmentSlotId.Contains("muzzle"))
+			return "muzzle";
+		if (attachmentSlotId.Contains("underbarrel"))
+			return "underbarrel";
+		if (attachmentSlotId.Contains("bayonet"))
+			return "bayonet";
+		if (attachmentSlotId.Contains("handguard"))
+			return "handguard";
+
+		return "attachment";
 	}
 
 	protected string SanitizePayloadField(string value)
@@ -1785,7 +1929,7 @@ class HST_LoadoutEditorService
 
 	protected bool IsAllowedLoadoutSlot(HST_LoadoutSlotState slot)
 	{
-		return slot && !slot.m_sSlotId.IsEmpty() && !slot.m_sItemPrefab.IsEmpty() && !IsRemovedExternalPrefab(slot.m_sItemPrefab);
+		return slot && !slot.m_sSlotId.IsEmpty() && !slot.m_sItemPrefab.IsEmpty() && !IsRemovedExternalItem(slot.m_sItemPrefab, slot.m_sDisplayName);
 	}
 
 	protected int PurgeRemovedExternalLoadoutState(HST_CampaignState state, string identityId)
@@ -1797,7 +1941,7 @@ class HST_LoadoutEditorService
 		for (int arsenalIndex = state.m_aArsenalItems.Count() - 1; arsenalIndex >= 0; arsenalIndex--)
 		{
 			HST_ArsenalItemState item = state.m_aArsenalItems[arsenalIndex];
-			if (!item || !IsRemovedExternalPrefab(item.m_sPrefab))
+			if (!item || !IsRemovedExternalItem(item.m_sPrefab, item.m_sDisplayName))
 				continue;
 
 			state.m_aArsenalItems.Remove(arsenalIndex);
@@ -1807,7 +1951,7 @@ class HST_LoadoutEditorService
 		for (int issuedIndex = state.m_aIssuedLoadoutItems.Count() - 1; issuedIndex >= 0; issuedIndex--)
 		{
 			HST_IssuedLoadoutItemState issuedItem = state.m_aIssuedLoadoutItems[issuedIndex];
-			if (!issuedItem || issuedItem.m_sOwnerIdentityId != identityId || !IsRemovedExternalPrefab(issuedItem.m_sItemPrefab))
+			if (!issuedItem || issuedItem.m_sOwnerIdentityId != identityId || !IsRemovedExternalItem(issuedItem.m_sItemPrefab, issuedItem.m_sDisplayName))
 				continue;
 
 			state.m_aIssuedLoadoutItems.Remove(issuedIndex);
@@ -1822,7 +1966,7 @@ class HST_LoadoutEditorService
 			for (int slotIndex = loadout.m_aSlots.Count() - 1; slotIndex >= 0; slotIndex--)
 			{
 				HST_LoadoutSlotState slot = loadout.m_aSlots[slotIndex];
-				if (!slot || !IsRemovedExternalPrefab(slot.m_sItemPrefab))
+				if (!slot || !IsRemovedExternalItem(slot.m_sItemPrefab, slot.m_sDisplayName))
 					continue;
 
 				loadout.m_aSlots.Remove(slotIndex);
@@ -1853,7 +1997,7 @@ class HST_LoadoutEditorService
 		for (int slotIndex = session.m_aDraftSlots.Count() - 1; slotIndex >= 0; slotIndex--)
 		{
 			HST_LoadoutSlotState slot = session.m_aDraftSlots[slotIndex];
-			if (!slot || !IsRemovedExternalPrefab(slot.m_sItemPrefab))
+			if (!slot || !IsRemovedExternalItem(slot.m_sItemPrefab, slot.m_sDisplayName))
 				continue;
 
 			session.m_aDraftSlots.Remove(slotIndex);
@@ -1868,7 +2012,39 @@ class HST_LoadoutEditorService
 		if (prefab.IsEmpty())
 			return false;
 
-		return prefab.Contains("595F2BF") || prefab.Contains("1337C0DE") || prefab.Contains("BADC0DED") || prefab.Contains("StatusQuo") || prefab.Contains("ContentPack");
+		if (prefab.Contains("595F2BF") || prefab.Contains("1337C0DE") || prefab.Contains("BADC0DED") || prefab.Contains("StatusQuo") || prefab.Contains("ContentPack"))
+			return true;
+
+		return !IsLoadablePrefabResource(prefab);
+	}
+
+	protected bool IsRemovedExternalItem(string prefab, string displayName)
+	{
+		if (IsRemovedExternalPrefab(prefab))
+			return true;
+
+		return HasUnresolvedDisplayKey(prefab, displayName);
+	}
+
+	protected bool IsLoadablePrefabResource(string prefab)
+	{
+		if (prefab.IsEmpty())
+			return false;
+
+		Resource loaded = Resource.Load(prefab);
+		if (!loaded)
+			return false;
+
+		return loaded.IsValid();
+	}
+
+	protected bool HasUnresolvedDisplayKey(string prefab, string displayName)
+	{
+		string resolved = HST_DisplayNameService.ResolveItemDisplayName(null, prefab, displayName);
+		if (resolved.IsEmpty() || resolved.Length() < 1)
+			return false;
+
+		return resolved.Substring(0, 1) == "#";
 	}
 
 	protected string BuildSlotId(string category, int index)
