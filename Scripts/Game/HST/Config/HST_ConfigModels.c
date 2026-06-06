@@ -138,7 +138,23 @@ class HST_MissionDefinition
 	int m_iRewardMoney;
 	int m_iRewardHR;
 	int m_iFailureAggression;
+	string m_sBriefingText;
+	string m_sRequirementText;
+	string m_sFailureText;
+	string m_sRuntimeType;
+	string m_sTargetSitePreference;
+	string m_sRewardText;
+	string m_sFailurePenaltyText;
+	int m_iRewardSupport;
+	int m_iRewardCaptureProgress;
+	int m_iCargoCount = 1;
+	int m_iCaptiveCount = 1;
+	int m_iVehicleCount = 1;
+	int m_iRequiredWarLevel = 1;
+	bool m_bAllowEnemyTarget = true;
+	bool m_bAllowFriendlyTarget;
 	ref array<string> m_aRequiredCapabilities = {};
+	ref array<string> m_aTargetZoneTypes = {};
 }
 
 [BaseContainerProps(configRoot: true)]

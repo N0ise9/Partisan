@@ -285,8 +285,12 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		missions.Insert(NewMission("assassinate_officer", "Assassinate Officer", HST_EMissionCategory.HST_MISSION_ASSASSINATION, 2700, 400, 2));
 		missions.Insert(NewMission("assassinate_traitor", "Assassinate Traitor", HST_EMissionCategory.HST_MISSION_ASSASSINATION, 2700, 350, 2));
 		missions.Insert(NewMission("assassinate_specops", "Assassinate Spec Ops", HST_EMissionCategory.HST_MISSION_ASSASSINATION, 3600, 650, 3));
+		missions.Insert(NewMission("conquest_town", "Liberate Town", HST_EMissionCategory.HST_MISSION_CONQUEST, 5400, 650, 4));
 		missions.Insert(NewMission("conquest_resource", "Capture Resource", HST_EMissionCategory.HST_MISSION_CONQUEST, 5400, 700, 5));
+		missions.Insert(NewMission("conquest_factory", "Capture Factory", HST_EMissionCategory.HST_MISSION_CONQUEST, 5400, 850, 5));
 		missions.Insert(NewMission("conquest_outpost", "Capture Outpost", HST_EMissionCategory.HST_MISSION_CONQUEST, 5400, 900, 6));
+		missions.Insert(NewMission("conquest_airfield", "Capture Airfield", HST_EMissionCategory.HST_MISSION_CONQUEST, 6600, 1200, 7));
+		missions.Insert(NewMission("conquest_seaport", "Capture Seaport", HST_EMissionCategory.HST_MISSION_CONQUEST, 6000, 1050, 6));
 		missions.Insert(NewMission("convoy_ammo", "Intercept Ammo Convoy", HST_EMissionCategory.HST_MISSION_CONVOY, 3600, 500, 3));
 		missions.Insert(NewMission("convoy_armored", "Intercept Armored Convoy", HST_EMissionCategory.HST_MISSION_CONVOY, 4200, 800, 4));
 		missions.Insert(NewMission("convoy_money", "Intercept Money Convoy", HST_EMissionCategory.HST_MISSION_CONVOY, 3600, 700, 3));
@@ -295,8 +299,17 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		missions.Insert(NewMission("convoy_supplies", "Intercept Supply Convoy", HST_EMissionCategory.HST_MISSION_CONVOY, 3600, 500, 3));
 		missions.Insert(NewMission("destroy_radio_tower", "Destroy Radio Tower", HST_EMissionCategory.HST_MISSION_DESTROY, 3600, 450, 3));
 		missions.Insert(NewMission("destroy_downed_helicopter", "Destroy Downed Helicopter", HST_EMissionCategory.HST_MISSION_DESTROY, 3000, 500, 3));
+		missions.Insert(NewMission("destroy_outpost_cache", "Destroy Outpost Cache", HST_EMissionCategory.HST_MISSION_DESTROY, 3600, 550, 3));
+		missions.Insert(NewMission("destroy_factory_asset", "Sabotage Factory Asset", HST_EMissionCategory.HST_MISSION_DESTROY, 3600, 600, 3));
+		missions.Insert(NewMission("destroy_airfield_asset", "Sabotage Airfield Asset", HST_EMissionCategory.HST_MISSION_DESTROY, 4200, 750, 4));
+		missions.Insert(NewMission("destroy_seaport_asset", "Sabotage Seaport Asset", HST_EMissionCategory.HST_MISSION_DESTROY, 4200, 700, 4));
 		missions.Insert(NewMission("destroy_or_steal_armor", "Steal or Destroy Armor", HST_EMissionCategory.HST_MISSION_DESTROY, 4200, 700, 4));
 		missions.Insert(NewMission("logistics_bank", "Rob Bank", HST_EMissionCategory.HST_MISSION_LOGISTICS, 2400, 550, 2));
+		missions.Insert(NewMission("logistics_resource_cache", "Recover Resource Cache", HST_EMissionCategory.HST_MISSION_LOGISTICS, 3000, 500, 2));
+		missions.Insert(NewMission("logistics_factory_supplies", "Recover Factory Supplies", HST_EMissionCategory.HST_MISSION_LOGISTICS, 3300, 550, 2));
+		missions.Insert(NewMission("logistics_airfield_intel", "Steal Airfield Intel", HST_EMissionCategory.HST_MISSION_LOGISTICS, 3000, 700, 3));
+		missions.Insert(NewMission("logistics_seaport_supplies", "Recover Seaport Supplies", HST_EMissionCategory.HST_MISSION_LOGISTICS, 3300, 650, 3));
+		missions.Insert(NewMission("logistics_support_cache", "Recover Support Cache", HST_EMissionCategory.HST_MISSION_LOGISTICS, 2700, 400, 1));
 		missions.Insert(NewMission("logistics_salvage_supplies", "Salvage Supplies", HST_EMissionCategory.HST_MISSION_LOGISTICS, 3000, 450, 2));
 		missions.Insert(NewMission("logistics_ammo_truck", "Recover Ammo Truck", HST_EMissionCategory.HST_MISSION_LOGISTICS, 3600, 600, 3));
 		missions.Insert(NewMission("logistics_weapons_truck", "Recover Weapons Truck", HST_EMissionCategory.HST_MISSION_LOGISTICS, 3600, 650, 3));
@@ -903,6 +916,245 @@ private static HST_FactionTemplate CreateFiaTemplate()
 		mission.m_iDurationSeconds = duration;
 		mission.m_iRewardMoney = rewardMoney;
 		mission.m_iFailureAggression = failureAggression;
+		ApplyMissionContract(mission);
 		return mission;
+	}
+
+	private static void ApplyMissionContract(HST_MissionDefinition mission)
+	{
+		if (!mission)
+			return;
+
+		mission.m_sRuntimeType = RuntimeTypeForMission(mission);
+		mission.m_sTargetSitePreference = TargetSitePreferenceForMission(mission);
+		mission.m_sBriefingText = BriefingForMission(mission);
+		mission.m_sRequirementText = RequirementForMission(mission);
+		mission.m_sFailureText = FailureTextForMission(mission);
+		mission.m_iCargoCount = CargoCountForMission(mission);
+		mission.m_iCaptiveCount = CaptiveCountForMission(mission);
+		mission.m_iVehicleCount = VehicleCountForMission(mission);
+		mission.m_iRewardHR = RewardHRForMission(mission);
+		mission.m_iRewardSupport = RewardSupportForMission(mission);
+		mission.m_iRewardCaptureProgress = RewardCaptureProgressForMission(mission);
+		mission.m_sRewardText = RewardTextForMission(mission);
+		mission.m_sFailurePenaltyText = string.Format("Failure increases enemy aggression by %1 and may improve hostile support near the objective.", mission.m_iFailureAggression);
+		mission.m_iRequiredWarLevel = RequiredWarLevelForMission(mission);
+		ConfigureMissionTargetRules(mission);
+	}
+
+	private static void ConfigureMissionTargetRules(HST_MissionDefinition mission)
+	{
+		if (!mission)
+			return;
+
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+		{
+			mission.m_bAllowFriendlyTarget = true;
+			mission.m_bAllowEnemyTarget = false;
+		}
+
+		if (mission.m_sMissionId == "conquest_town" || mission.m_sMissionId == "dynamic_city_flip_battle" || mission.m_sMissionId == "dynamic_minor_city_task" || mission.m_sMissionId == "support_city_supplies")
+			mission.m_aTargetZoneTypes.Insert("town");
+		else if (mission.m_sMissionId == "conquest_resource" || mission.m_sMissionId == "logistics_resource_cache")
+			mission.m_aTargetZoneTypes.Insert("resource");
+		else if (mission.m_sMissionId == "conquest_factory" || mission.m_sMissionId == "destroy_factory_asset" || mission.m_sMissionId == "logistics_factory_supplies")
+			mission.m_aTargetZoneTypes.Insert("factory");
+		else if (mission.m_sMissionId == "conquest_airfield" || mission.m_sMissionId == "destroy_airfield_asset" || mission.m_sMissionId == "logistics_airfield_intel")
+			mission.m_aTargetZoneTypes.Insert("airfield");
+		else if (mission.m_sMissionId == "conquest_seaport" || mission.m_sMissionId == "destroy_seaport_asset" || mission.m_sMissionId == "logistics_seaport_supplies")
+			mission.m_aTargetZoneTypes.Insert("seaport");
+		else if (mission.m_sMissionId == "conquest_outpost" || mission.m_sMissionId == "destroy_outpost_cache" || mission.m_sMissionId == "destroy_or_steal_armor")
+			mission.m_aTargetZoneTypes.Insert("outpost");
+		else if (mission.m_sMissionId == "destroy_radio_tower" || mission.m_sMissionId == "dynamic_stop_tower_rebuild")
+			mission.m_aTargetZoneTypes.Insert("radio");
+		else if (mission.m_sMissionId == "logistics_bank")
+			mission.m_aTargetZoneTypes.Insert("town");
+		else if (mission.m_sMissionId == "destroy_downed_helicopter" || mission.m_sMissionId == "logistics_salvage_supplies")
+			mission.m_aTargetZoneTypes.Insert("crashsite");
+		else if (mission.m_sMissionId == "logistics_support_cache")
+			mission.m_aTargetZoneTypes.Insert("support");
+
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY || mission.m_eCategory == HST_EMissionCategory.HST_MISSION_ASSASSINATION || mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE || mission.m_sMissionId == "dynamic_gun_shop")
+			mission.m_aTargetZoneTypes.Insert("any");
+	}
+
+	private static string RuntimeTypeForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_ASSASSINATION)
+			return "assassination_hvt";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return "conquest_clear_hold";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return "convoy_route_intercept";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return "destroy_asset";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+			return "logistics_extract";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return "rescue_extract";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			return "support_delivery";
+
+		if (mission.m_sMissionId == "dynamic_defend_petros")
+			return "dynamic_defend_petros";
+		if (mission.m_sMissionId == "dynamic_stop_tower_rebuild")
+			return "dynamic_tower_rebuild";
+		if (mission.m_sMissionId == "dynamic_city_flip_battle")
+			return "dynamic_city_battle";
+		if (mission.m_sMissionId == "dynamic_gun_shop")
+			return "dynamic_gun_shop";
+
+		return "dynamic_minor_task";
+	}
+
+	private static string TargetSitePreferenceForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return "roadblock";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS || mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT || mission.m_sMissionId == "dynamic_gun_shop")
+			return "support";
+		if (mission.m_sMissionId == "destroy_downed_helicopter" || mission.m_sMissionId == "logistics_salvage_supplies")
+			return "crashsite";
+
+		return "primary";
+	}
+
+	private static string BriefingForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_ASSASSINATION)
+			return "Locate the marked target, eliminate them, and leave the area before enemy forces reorganize.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return "Attack the objective, clear hostile defenders, and hold the ground long enough for FIA control to stick.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return "Intercept the moving enemy convoy before it reaches destination and recover or neutralize the payload.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return "Reach the objective asset and destroy, disable, or capture it depending on the mission variant.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+			return "Recover the marked cargo or vehicle and extract it to HQ or a friendly delivery point.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return "Find the captives, make contact, and escort them alive to HQ or a friendly zone.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			return "Move FIA supplies from the staging point to the target town to improve local support.";
+
+		return "A dynamic opportunity has appeared. Resolve the objective before the timer expires.";
+	}
+
+	private static string RequirementForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_ASSASSINATION)
+			return "Kill the HVT before the timer expires.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return "Clear defenders, stay inside the objective area, and complete the hold timer.";
+		if (mission.m_sMissionId == "convoy_prisoners")
+			return "Stop the convoy and extract the prisoners alive.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return "Stop the convoy before arrival and complete the variant objective.";
+		if (mission.m_sMissionId == "destroy_or_steal_armor")
+			return "Destroy the armor or capture and garage it at HQ.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return "Destroy the marked target asset.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+			return "Recover cargo and deliver it to HQ.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return "Extract all captives alive.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			return "Deliver supplies to the target town.";
+
+		return "Complete all displayed objectives.";
+	}
+
+	private static string FailureTextForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_sMissionId == "assassinate_traitor")
+			return "The traitor escapes and can trigger a Defend Petros response.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return "The convoy reaches its destination or the required payload is lost.";
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return "Captives are lost or the extraction timer expires.";
+
+		return "Timer expires or the required mission asset is lost.";
+	}
+
+	private static string RewardTextForMission(HST_MissionDefinition mission)
+	{
+		string reward = string.Format("$%1 FIA funds", mission.m_iRewardMoney);
+		if (mission.m_iRewardHR > 0)
+			reward = reward + string.Format(", %1 HR", mission.m_iRewardHR);
+		if (mission.m_iRewardSupport > 0)
+			reward = reward + string.Format(", %1 town support", mission.m_iRewardSupport);
+		if (mission.m_iRewardCaptureProgress > 0)
+			reward = reward + string.Format(", %1 capture progress", mission.m_iRewardCaptureProgress);
+		return reward;
+	}
+
+	private static int RewardHRForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return Math.Max(1, mission.m_iCaptiveCount);
+		if (mission.m_sMissionId == "convoy_prisoners")
+			return 2;
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+			return 1;
+		return 0;
+	}
+
+	private static int RewardSupportForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			return 25;
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return 15;
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return 10;
+		if (mission.m_sMissionId == "assassinate_specops")
+			return 10;
+		return 0;
+	}
+
+	private static int RewardCaptureProgressForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return 60;
+		if (mission.m_sMissionId == "dynamic_city_flip_battle")
+			return 50;
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return 25;
+		return 0;
+	}
+
+	private static int CargoCountForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_sMissionId == "convoy_money")
+			return 2;
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS || mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			return 2;
+		return 1;
+	}
+
+	private static int CaptiveCountForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_sMissionId == "rescue_refugees")
+			return 4;
+		if (mission.m_sMissionId == "rescue_pows" || mission.m_sMissionId == "convoy_prisoners")
+			return 3;
+		return 1;
+	}
+
+	private static int VehicleCountForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_sMissionId == "convoy_armored" || mission.m_sMissionId == "destroy_or_steal_armor")
+			return 2;
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return 3;
+		return 1;
+	}
+
+	private static int RequiredWarLevelForMission(HST_MissionDefinition mission)
+	{
+		if (mission.m_sMissionId == "conquest_airfield" || mission.m_sMissionId == "conquest_seaport")
+			return 3;
+		if (mission.m_sMissionId == "convoy_armored" || mission.m_sMissionId == "assassinate_specops")
+			return 2;
+		return 1;
 	}
 }

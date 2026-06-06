@@ -54,13 +54,13 @@ class HST_GeneratedContentService
 		if (category == HST_EMissionCategory.HST_MISSION_CONVOY)
 			return FindSiteForZone(state, zoneId, "roadblock");
 
+		if (missionId == "destroy_downed_helicopter" || missionId == "logistics_salvage_supplies")
+			return FindSiteForZone(state, zoneId, "crashsite");
+
 		if (category == HST_EMissionCategory.HST_MISSION_LOGISTICS || category == HST_EMissionCategory.HST_MISSION_SUPPORT || missionId == "dynamic_gun_shop")
 			return FindSiteForZone(state, zoneId, "support");
 
-		if (missionId == "destroy_downed_helicopter")
-			return FindSiteForZone(state, zoneId, "crashsite");
-
-		if (missionId == "logistics_salvage_supplies")
+		if (missionId == "logistics_resource_cache")
 			return FindSiteForZone(state, zoneId, "stash");
 
 		return FindPrimarySiteForZone(state, zoneId);

@@ -6,6 +6,7 @@ class HST_CommandMenuRequestComponentClass : ScriptComponentClass
 class HST_CommandMenuRequestComponent : ScriptComponent
 {
 	protected static HST_CommandMenuRequestComponent s_LocalOwner;
+	protected static HST_CommandMenuRequestComponent s_ServerBroadcaster;
 
 	protected IEntity m_OwnerEntity;
 	protected string m_sLastSnapshot;
@@ -22,12 +23,16 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		if (m_bIsLocalOwner)
 			s_LocalOwner = this;
+		if (Replication.IsServer() && !s_ServerBroadcaster)
+			s_ServerBroadcaster = this;
 	}
 
 	override void OnDelete(IEntity owner)
 	{
 		if (s_LocalOwner == this)
 			s_LocalOwner = null;
+		if (s_ServerBroadcaster == this)
+			s_ServerBroadcaster = null;
 
 		super.OnDelete(owner);
 	}
@@ -53,6 +58,25 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	static HST_CommandMenuRequestComponent GetLocalOwner()
 	{
 		return s_LocalOwner;
+	}
+
+	static void BroadcastMissionEvent(string payload, string summary)
+	{
+		if (!s_ServerBroadcaster)
+		{
+			Print("h-istasi mission event | no server broadcaster ready", LogLevel.WARNING);
+			return;
+		}
+
+		s_ServerBroadcaster.BroadcastMissionEvent_I(payload, summary);
+	}
+
+	static void BroadcastMissionIntel(string payload)
+	{
+		if (!s_ServerBroadcaster)
+			return;
+
+		s_ServerBroadcaster.BroadcastMissionIntel_I(payload);
 	}
 
 	string GetLastSnapshot()
@@ -122,6 +146,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_RequestLoadoutEditorAction, commandId, argument);
 	}
 
+	void RequestMissionIntel()
+	{
+		if (Replication.IsServer())
+		{
+			SendMissionIntelToOwner();
+			return;
+		}
+
+		Rpc(RpcAsk_RequestMissionIntel);
+	}
+
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_RequestSnapshot(string selectedTabId, string lastResult)
 	{
@@ -138,6 +173,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void RpcAsk_RequestLoadoutEditorAction(string commandId, string argument)
 	{
 		SendLoadoutEditorActionResultToOwner(commandId, argument);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_RequestMissionIntel()
+	{
+		SendMissionIntelToOwner();
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -159,6 +200,32 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			loadoutEditor.OnServerActionResult(payload, lastResult);
 	}
 
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RpcDo_ReceiveMissionEvent(string payload, string summary)
+	{
+		HST_MissionClientComponent missionClient = HST_MissionClientComponent.GetLocalInstance();
+		if (missionClient)
+			missionClient.OnServerMissionEvent(payload, summary);
+		else
+			ShowMissionHint(summary, "h-istasi mission", 5.0);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ReceiveMissionIntelOwner(string payload)
+	{
+		HST_MissionClientComponent missionClient = HST_MissionClientComponent.GetLocalInstance();
+		if (missionClient)
+			missionClient.OnServerMissionIntel(payload);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RpcDo_ReceiveMissionIntel(string payload)
+	{
+		HST_MissionClientComponent missionClient = HST_MissionClientComponent.GetLocalInstance();
+		if (missionClient)
+			missionClient.OnServerMissionIntel(payload);
+	}
+
 	protected void SendSnapshotToOwner(string selectedTabId, string lastResult)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
@@ -171,6 +238,16 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
 		string payload = coordinator.BuildVisibleMenuPayload(playerId, selectedTabId, lastResult);
 		DeliverSnapshot(payload, lastResult);
+	}
+
+	protected void BroadcastMissionEvent_I(string payload, string summary)
+	{
+		Rpc(RpcDo_ReceiveMissionEvent, payload, summary);
+	}
+
+	protected void BroadcastMissionIntel_I(string payload)
+	{
+		Rpc(RpcDo_ReceiveMissionIntel, payload);
 	}
 
 	protected void SendActionResultToOwner(string selectedTabId, string commandId, string argument)
@@ -203,6 +280,19 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		DeliverLoadoutEditorPayload(payload, result);
 	}
 
+	protected void SendMissionIntelToOwner()
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+		{
+			DeliverMissionIntel("HST_MISSION_INTEL|offline|0\nEND");
+			return;
+		}
+
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		DeliverMissionIntel(coordinator.BuildMissionIntelPayload(playerId));
+	}
+
 	protected void DeliverSnapshot(string payload, string lastResult)
 	{
 		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
@@ -225,6 +315,25 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		Rpc(RpcDo_ReceiveLoadoutEditorPayload, payload, lastResult);
+	}
+
+	protected void DeliverMissionIntel(string payload)
+	{
+		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
+		if (Replication.IsServer() && (!rpl || rpl.IsOwner()))
+		{
+			RpcDo_ReceiveMissionIntelOwner(payload);
+			return;
+		}
+
+		Rpc(RpcDo_ReceiveMissionIntelOwner, payload);
+	}
+
+	protected void ShowMissionHint(string text, string title, float durationSeconds)
+	{
+		SCR_HintManagerComponent hintManager = SCR_HintManagerComponent.GetInstance();
+		if (hintManager)
+			hintManager.ShowCustomHint(text, title, durationSeconds);
 	}
 
 	protected void RefreshLocalOwner(IEntity owner)

@@ -692,6 +692,94 @@ foreach ($missionPropContract in @(
 }
 Write-Host "Mission runtime primitive coverage OK"
 
+$missionConfigResourceText = (Get-ChildItem -Recurse -File "Configs" -Include *.conf |
+	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
+foreach ($requiredMissionExpansionEntry in @(
+	"m_sBriefingText",
+	"m_sRequirementText",
+	"m_sFailureText",
+	"m_sRuntimeType",
+	"m_sTargetSitePreference",
+	"m_sRewardText",
+	"m_sFailurePenaltyText",
+	"m_iCargoCount",
+	"m_iCaptiveCount",
+	"m_iVehicleCount",
+	"m_iRequiredWarLevel",
+	"m_aTargetZoneTypes",
+	"ApplyMissionContract",
+	"BriefingForMission",
+	"RequirementForMission",
+	"RewardTextForMission"
+)) {
+	if ($defaultCatalog -notmatch [regex]::Escape($requiredMissionExpansionEntry) -and $missionConfigResourceText -notmatch [regex]::Escape($requiredMissionExpansionEntry)) {
+		throw "Mission definitions are missing expanded Antistasi metadata contract: $requiredMissionExpansionEntry"
+	}
+}
+foreach ($requiredExpandedMissionId in @(
+	"conquest_town",
+	"conquest_factory",
+	"conquest_airfield",
+	"conquest_seaport",
+	"destroy_outpost_cache",
+	"destroy_factory_asset",
+	"destroy_airfield_asset",
+	"destroy_seaport_asset",
+	"logistics_resource_cache",
+	"logistics_factory_supplies",
+	"logistics_airfield_intel",
+	"logistics_seaport_supplies",
+	"logistics_support_cache"
+)) {
+	if ($runtimeMissions -notcontains $requiredExpandedMissionId -or $configMissions -notcontains $requiredExpandedMissionId) {
+		throw "Expanded mission registry is missing target-aware mission: $requiredExpandedMissionId"
+	}
+}
+$missionExpansionScriptText = (Get-ChildItem -Recurse -File "Scripts/Game/HST" -Include *.c |
+	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
+foreach ($requiredMissionStateMachineEntry in @(
+	"HST_MISSION_RUNTIME_STATE_MACHINE",
+	"HST_MissionRuntimeEntityState",
+	"m_aMissionRuntimeEntities",
+	"FindFailedActiveMissionId",
+	"AdvanceMissionStateMachine",
+	"MarkRuntimeMissionFailed",
+	"ResolveConvoyArrivalSeconds",
+	"EnsureMissionHostileGroup",
+	"RegisterRuntimeEntityState",
+	"mission_guard"
+)) {
+	if ($missionExpansionScriptText -notmatch [regex]::Escape($requiredMissionStateMachineEntry)) {
+		throw "Mission runtime is missing full Antistasi state-machine entry: $requiredMissionStateMachineEntry"
+	}
+}
+$missionRequestBridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
+$missionClientText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c"
+$coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$mapMarkerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+foreach ($requiredMissionUiEntry in @(
+	"HST_MISSION_INTEL|%1|%2",
+	"MISSION|",
+	"OBJECTIVE|%1|%2|%3|%4|%5|%6|%7",
+	"RpcDo_ReceiveMissionEvent",
+	"RpcDo_ReceiveMissionIntel",
+	"BroadcastMissionEvent",
+	"BroadcastMissionIntel",
+	"HST_MissionClientComponent",
+	"HandleDirectMissionMarkerClick",
+	"OpenMissionDetailsForMarker",
+	"mission_clickable"
+)) {
+	if ($missionRequestBridgeText -notmatch [regex]::Escape($requiredMissionUiEntry) -and $missionClientText -notmatch [regex]::Escape($requiredMissionUiEntry) -and $coordinatorText -notmatch [regex]::Escape($requiredMissionUiEntry) -and $mapMarkerServiceText -notmatch [regex]::Escape($requiredMissionUiEntry)) {
+		throw "Mission UI/intel contract is missing entry: $requiredMissionUiEntry"
+	}
+}
+$playerControllerPrefabText = Get-Content -Raw "Prefabs/Characters/HST/HST_PlayerController.et"
+if ($playerControllerPrefabText -notmatch "HST_MissionClientComponent") {
+	throw "HST player controller prefab is missing mission client notification/detail component"
+}
+Write-Host "Full Antistasi mission expansion contracts OK"
+
 $runtimeZones = @([regex]::Matches($defaultCatalog, 'NewZoneState\("([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 $configZones = @([regex]::Matches($mapConfig, 'm_sZoneId "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 Assert-EqualSet "Zone registries" $runtimeZones $configZones

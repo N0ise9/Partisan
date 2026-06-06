@@ -337,7 +337,7 @@ class HST_CommandUIService
 			if (!mission)
 				continue;
 
-			report = report + string.Format("\n%1 | %2 | target %3 | site %4 | status %5 | remaining %6s | primitive %7", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_eStatus, mission.m_iRemainingSeconds, mission.m_sRuntimePrimitive);
+			report = report + string.Format("\n%1 | %2 | target %3 | site %4 | status %5 | remaining %6s | phase %7 | progress %8", mission.m_sInstanceId, BuildMissionDisplayTitle(mission), mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_eStatus, mission.m_iRemainingSeconds, mission.m_sRuntimePhase, BuildMissionProgressText(state, mission));
 		}
 
 		return report;
@@ -832,9 +832,10 @@ class HST_CommandUIService
 			if (!mission)
 				continue;
 
-			payload = AppendRow(payload, "active_missions", mission.m_sInstanceId, string.Format("%1 / target %2 / site %3 / %4s", mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_iRemainingSeconds), MissionTone(mission));
+			payload = AppendRow(payload, "active_missions", mission.m_sInstanceId, string.Format("%1 / target %2 / site %3 / %4s", BuildMissionDisplayTitle(mission), mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_iRemainingSeconds), MissionTone(mission));
 			if (!mission.m_sRuntimePrimitive.IsEmpty())
-				payload = AppendRow(payload, "active_missions", "Runtime", string.Format("%1 / spawned %2 / fallback %3", mission.m_sRuntimePrimitive, mission.m_bRuntimeSpawned, mission.m_bRuntimeFallback), MissionTone(mission));
+				payload = AppendRow(payload, "active_missions", "Runtime", string.Format("%1 / %2 / spawned %3 / fallback %4", mission.m_sRuntimeType, mission.m_sRuntimePhase, mission.m_bRuntimeSpawned, mission.m_bRuntimeFallback), MissionTone(mission));
+			payload = AppendRow(payload, "active_missions", "Progress", BuildMissionProgressText(state, mission), MissionTone(mission));
 		}
 
 		payload = AppendSection(payload, "objectives", "Objective State");
@@ -842,11 +843,11 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "objectives", "Tasks", string.Format("%1 campaign tasks", state.m_aCampaignTasks.Count()), "neutral");
 
 		payload = AppendSection(payload, "families", "Mission Board");
-		payload = AppendRow(payload, "families", "Convoys", "Ammo, money, prisoners, reinforcements, supplies.", "warn");
-		payload = AppendRow(payload, "families", "Logistics", "Recover trucks, rob banks, salvage equipment.", "good");
-		payload = AppendRow(payload, "families", "Conquest", "Capture resources, outposts, factories, ports.", "bad");
-		payload = AppendRow(payload, "families", "Dynamic", "Defend Petros, city flip battles, tower rebuilds.", "warn");
-		payload = AppendRow(payload, "families", "Support", "Build town support before taking the fight wider.", "good");
+		payload = AppendRow(payload, "families", "Assassination", "Officers, traitors, and spec-ops HVTs.", "warn");
+		payload = AppendRow(payload, "families", "Conquest", "Towns, resources, factories, outposts, airfields, seaports.", "bad");
+		payload = AppendRow(payload, "families", "Convoys", "Ammo, armor, money, prisoners, reinforcements, supplies.", "warn");
+		payload = AppendRow(payload, "families", "Destroy/Logistics", "Radio, crash, armor, bank, salvage, ammo, weapons, support caches.", "good");
+		payload = AppendRow(payload, "families", "Rescue/Dynamic/Support", "POWs, refugees, Petros defense, city fights, supplies.", "good");
 		return payload;
 	}
 
@@ -1925,6 +1926,38 @@ class HST_CommandUIService
 			return "warn";
 
 		return "bad";
+	}
+
+	protected string BuildMissionDisplayTitle(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "Mission";
+		if (!mission.m_sDisplayName.IsEmpty())
+			return mission.m_sDisplayName;
+		return mission.m_sMissionId;
+	}
+
+	protected string BuildMissionProgressText(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "unknown";
+
+		int complete;
+		int total;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			total++;
+			if (objective.m_bComplete)
+				complete++;
+		}
+
+		string phase = mission.m_sRuntimePhase;
+		if (phase.IsEmpty())
+			phase = "active";
+		return string.Format("%1 / objectives %2/%3 / cargo %4/%5 / captives %6/%7", phase, complete, total, mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount);
 	}
 
 	protected string MissionTone(HST_ActiveMissionState mission)

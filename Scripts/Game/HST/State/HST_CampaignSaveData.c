@@ -51,6 +51,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_GeneratedSiteState> m_aGeneratedSites = {};
 	ref array<ref HST_GeneratedRouteState> m_aGeneratedRoutes = {};
 	ref array<ref HST_MissionObjectiveState> m_aMissionObjectives = {};
+	ref array<ref HST_MissionRuntimeEntityState> m_aMissionRuntimeEntities = {};
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
@@ -165,6 +166,10 @@ class HST_CampaignSaveData
 		m_aMissionObjectives.Clear();
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 			m_aMissionObjectives.Insert(CopyMissionObjective(objective));
+
+		m_aMissionRuntimeEntities.Clear();
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
+			m_aMissionRuntimeEntities.Insert(CopyMissionRuntimeEntity(runtimeEntity));
 
 		m_aSupportRequests.Clear();
 		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
@@ -304,6 +309,10 @@ class HST_CampaignSaveData
 		state.m_aMissionObjectives.Clear();
 		foreach (HST_MissionObjectiveState objective : m_aMissionObjectives)
 			state.m_aMissionObjectives.Insert(CopyMissionObjective(objective));
+
+		state.m_aMissionRuntimeEntities.Clear();
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : m_aMissionRuntimeEntities)
+			state.m_aMissionRuntimeEntities.Insert(CopyMissionRuntimeEntity(runtimeEntity));
 
 		state.m_aSupportRequests.Clear();
 		foreach (HST_SupportRequestState request : m_aSupportRequests)
@@ -591,23 +600,42 @@ class HST_CampaignSaveData
 		HST_ActiveMissionState target = new HST_ActiveMissionState();
 		target.m_sInstanceId = source.m_sInstanceId;
 		target.m_sMissionId = source.m_sMissionId;
+		target.m_sDisplayName = source.m_sDisplayName;
 		target.m_eStatus = source.m_eStatus;
 		target.m_eRuntimeMode = source.m_eRuntimeMode;
 		target.m_iRemainingSeconds = source.m_iRemainingSeconds;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
 		target.m_sSiteId = source.m_sSiteId;
+		target.m_vTargetPosition = source.m_vTargetPosition;
+		target.m_sMarkerId = source.m_sMarkerId;
 		target.m_sRuntimePrimitive = source.m_sRuntimePrimitive;
+		target.m_sRuntimeType = source.m_sRuntimeType;
+		target.m_sRuntimePhase = source.m_sRuntimePhase;
+		target.m_sRuntimeFailureReason = source.m_sRuntimeFailureReason;
 		target.m_sRuntimeEntityId = source.m_sRuntimeEntityId;
 		target.m_iStartedAtSecond = source.m_iStartedAtSecond;
 		target.m_iActiveUntilSecond = source.m_iActiveUntilSecond;
 		target.m_iRuntimeStartedAtSecond = source.m_iRuntimeStartedAtSecond;
 		target.m_iRuntimeHoldSeconds = source.m_iRuntimeHoldSeconds;
+		target.m_iRuntimeCounterA = source.m_iRuntimeCounterA;
+		target.m_iRuntimeCounterB = source.m_iRuntimeCounterB;
+		target.m_iRuntimeCounterC = source.m_iRuntimeCounterC;
+		target.m_iRequiredCargoCount = source.m_iRequiredCargoCount;
+		target.m_iRecoveredCargoCount = source.m_iRecoveredCargoCount;
+		target.m_iRequiredCaptiveCount = source.m_iRequiredCaptiveCount;
+		target.m_iExtractedCaptiveCount = source.m_iExtractedCaptiveCount;
+		target.m_iRequiredVehicleCount = source.m_iRequiredVehicleCount;
+		target.m_iCapturedVehicleCount = source.m_iCapturedVehicleCount;
 		target.m_bDynamic = source.m_bDynamic;
 		target.m_bRequested = source.m_bRequested;
 		target.m_bStatic = source.m_bStatic;
 		target.m_bRuntimeSpawned = source.m_bRuntimeSpawned;
 		target.m_bRuntimeFallback = source.m_bRuntimeFallback;
 		target.m_bRuntimeCleanupComplete = source.m_bRuntimeCleanupComplete;
+		target.m_bCreatedNotificationSent = source.m_bCreatedNotificationSent;
+		target.m_bCompletedNotificationSent = source.m_bCompletedNotificationSent;
+		target.m_bFailedNotificationSent = source.m_bFailedNotificationSent;
+		target.m_bExpiredNotificationSent = source.m_bExpiredNotificationSent;
 		return target;
 	}
 
@@ -654,20 +682,42 @@ class HST_CampaignSaveData
 		target.m_sObjectiveId = source.m_sObjectiveId;
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
 		target.m_eType = source.m_eType;
+		target.m_sLabel = source.m_sLabel;
+		target.m_sRequirementText = source.m_sRequirementText;
 		target.m_sTargetId = source.m_sTargetId;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
 		target.m_sPhysicalEntityId = source.m_sPhysicalEntityId;
+		target.m_sLinkedRuntimeEntityId = source.m_sLinkedRuntimeEntityId;
 		target.m_sRuntimePrimitive = source.m_sRuntimePrimitive;
 		target.m_vPosition = source.m_vPosition;
 		target.m_iRequiredProgress = source.m_iRequiredProgress;
 		target.m_iCurrentProgress = source.m_iCurrentProgress;
 		target.m_iHoldSeconds = source.m_iHoldSeconds;
 		target.m_iRequiredHoldSeconds = source.m_iRequiredHoldSeconds;
+		target.m_iCurrentCount = source.m_iCurrentCount;
+		target.m_iRequiredCount = source.m_iRequiredCount;
+		target.m_bExtractionStarted = source.m_bExtractionStarted;
+		target.m_bDeliveryStarted = source.m_bDeliveryStarted;
 		target.m_bComplete = source.m_bComplete;
 		target.m_bFailed = source.m_bFailed;
 		target.m_bCleanupComplete = source.m_bCleanupComplete;
 		target.m_bWorldDetected = source.m_bWorldDetected;
 		target.m_bAbstractFallback = source.m_bAbstractFallback;
+		return target;
+	}
+
+	protected HST_MissionRuntimeEntityState CopyMissionRuntimeEntity(HST_MissionRuntimeEntityState source)
+	{
+		HST_MissionRuntimeEntityState target = new HST_MissionRuntimeEntityState();
+		target.m_sRuntimeEntityId = source.m_sRuntimeEntityId;
+		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
+		target.m_sKind = source.m_sKind;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_vPosition = source.m_vPosition;
+		target.m_vAngles = source.m_vAngles;
+		target.m_bSpawned = source.m_bSpawned;
+		target.m_bDestroyed = source.m_bDestroyed;
+		target.m_bRecovered = source.m_bRecovered;
 		return target;
 	}
 

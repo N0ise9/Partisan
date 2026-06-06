@@ -267,23 +267,42 @@ class HST_ActiveMissionState
 {
 	string m_sInstanceId;
 	string m_sMissionId;
+	string m_sDisplayName;
 	HST_EMissionStatus m_eStatus;
 	HST_EMissionRuntimeMode m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_ABSTRACT;
 	int m_iRemainingSeconds;
 	string m_sTargetZoneId;
 	string m_sSiteId;
+	vector m_vTargetPosition;
+	string m_sMarkerId;
 	string m_sRuntimePrimitive;
+	string m_sRuntimeType;
+	string m_sRuntimePhase;
+	string m_sRuntimeFailureReason;
 	string m_sRuntimeEntityId;
 	int m_iStartedAtSecond;
 	int m_iActiveUntilSecond;
 	int m_iRuntimeStartedAtSecond;
 	int m_iRuntimeHoldSeconds;
+	int m_iRuntimeCounterA;
+	int m_iRuntimeCounterB;
+	int m_iRuntimeCounterC;
+	int m_iRequiredCargoCount = 1;
+	int m_iRecoveredCargoCount;
+	int m_iRequiredCaptiveCount = 1;
+	int m_iExtractedCaptiveCount;
+	int m_iRequiredVehicleCount = 1;
+	int m_iCapturedVehicleCount;
 	bool m_bDynamic;
 	bool m_bRequested;
 	bool m_bStatic;
 	bool m_bRuntimeSpawned;
 	bool m_bRuntimeFallback;
 	bool m_bRuntimeCleanupComplete;
+	bool m_bCreatedNotificationSent;
+	bool m_bCompletedNotificationSent;
+	bool m_bFailedNotificationSent;
+	bool m_bExpiredNotificationSent;
 }
 
 [BaseContainerProps()]
@@ -327,20 +346,41 @@ class HST_MissionObjectiveState
 	string m_sObjectiveId;
 	string m_sMissionInstanceId;
 	HST_EMissionObjectiveType m_eType;
+	string m_sLabel;
+	string m_sRequirementText;
 	string m_sTargetId;
 	string m_sTargetZoneId;
 	string m_sPhysicalEntityId;
+	string m_sLinkedRuntimeEntityId;
 	string m_sRuntimePrimitive;
 	vector m_vPosition;
 	int m_iRequiredProgress = 1;
 	int m_iCurrentProgress;
 	int m_iHoldSeconds;
 	int m_iRequiredHoldSeconds;
+	int m_iCurrentCount;
+	int m_iRequiredCount = 1;
+	bool m_bExtractionStarted;
+	bool m_bDeliveryStarted;
 	bool m_bComplete;
 	bool m_bFailed;
 	bool m_bCleanupComplete;
 	bool m_bWorldDetected;
 	bool m_bAbstractFallback;
+}
+
+[BaseContainerProps()]
+class HST_MissionRuntimeEntityState
+{
+	string m_sRuntimeEntityId;
+	string m_sMissionInstanceId;
+	string m_sKind;
+	string m_sPrefab;
+	vector m_vPosition;
+	vector m_vAngles;
+	bool m_bSpawned;
+	bool m_bDestroyed;
+	bool m_bRecovered;
 }
 
 [BaseContainerProps()]
@@ -429,7 +469,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 11;
+	static const int SCHEMA_VERSION = 12;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -503,6 +543,7 @@ class HST_CampaignState
 	ref array<ref HST_GeneratedSiteState> m_aGeneratedSites = {};
 	ref array<ref HST_GeneratedRouteState> m_aGeneratedRoutes = {};
 	ref array<ref HST_MissionObjectiveState> m_aMissionObjectives = {};
+	ref array<ref HST_MissionRuntimeEntityState> m_aMissionRuntimeEntities = {};
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
@@ -764,6 +805,17 @@ class HST_CampaignState
 		{
 			if (task.m_sTaskId == taskId)
 				return task;
+		}
+
+		return null;
+	}
+
+	HST_MissionRuntimeEntityState FindMissionRuntimeEntity(string runtimeEntityId)
+	{
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : m_aMissionRuntimeEntities)
+		{
+			if (runtimeEntity && runtimeEntity.m_sRuntimeEntityId == runtimeEntityId)
+				return runtimeEntity;
 		}
 
 		return null;

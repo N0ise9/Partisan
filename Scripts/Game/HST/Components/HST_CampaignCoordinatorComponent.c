@@ -143,11 +143,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_fSecondAccumulator -= elapsedSeconds;
 		m_State.m_iElapsedSeconds += elapsedSeconds;
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
+		if (missionChanged)
+			BroadcastPendingMissionOutcomeEvents();
 		bool objectiveChanged = m_Objectives.Tick(m_State);
 		bool missionRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, elapsedSeconds);
 		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
 		if (!completedRuntimeMissionId.IsEmpty())
 			missionRuntimeChanged = CompleteMission(completedRuntimeMissionId) || missionRuntimeChanged;
+		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
+		if (!failedRuntimeMissionId.IsEmpty())
+			missionRuntimeChanged = FailMission(failedRuntimeMissionId) || missionRuntimeChanged;
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, elapsedSeconds);
 		bool civilianChanged = m_Civilians.Tick(m_State, elapsedSeconds);
@@ -221,6 +226,56 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string payload = m_LoadoutEditor.BuildEditorPayload(m_State, ResolveTrustedIdentityId(playerId));
 		if (payload.IsEmpty())
 			return "HST_LOADOUT_EDITOR|offline||false|0|0|0|0\nPREVIEW|false|0 0 0|0|editor payload unavailable\nEND";
+
+		return payload + "\nEND";
+	}
+
+	string BuildMissionIntelPayload(int playerId = 0)
+	{
+		if (!Replication.IsServer() || !m_State)
+			return "HST_MISSION_INTEL|offline|0\nEND";
+
+		string payload = string.Format("HST_MISSION_INTEL|%1|%2", m_State.m_iElapsedSeconds, playerId);
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (!mission)
+				continue;
+
+			HST_MissionDefinition definition = m_Missions.FindDefinition(mission.m_sMissionId);
+			vector position = ResolveMissionIntelPosition(mission);
+			string title = ResolveMissionTitle(mission, definition);
+			string requirements = "";
+			string reward = "";
+			string failure = "";
+			if (definition)
+			{
+				requirements = definition.m_sRequirementText;
+				reward = definition.m_sRewardText;
+				failure = ResolveMissionFailureText(mission, definition);
+			}
+
+			payload = payload + "\nMISSION|" + mission.m_sInstanceId;
+			payload = payload + "|" + PayloadText(title);
+			payload = payload + "|" + MissionStatusLabel(mission.m_eStatus);
+			payload = payload + "|" + MissionCategoryLabel(definition);
+			payload = payload + "|" + PayloadText(mission.m_sTargetZoneId);
+			payload = payload + "|" + PayloadText(mission.m_sSiteId);
+			payload = payload + "|" + string.Format("%1", position);
+			payload = payload + "|" + string.Format("%1", mission.m_iRemainingSeconds);
+			payload = payload + "|" + PayloadText(requirements);
+			payload = payload + "|" + PayloadText(BuildMissionProgressText(mission));
+			payload = payload + "|" + PayloadText(reward);
+			payload = payload + "|" + PayloadText(failure);
+			payload = payload + "|" + ResolveMissionMarkerId(mission);
+
+			foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
+			{
+				if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+					continue;
+
+				payload = payload + string.Format("\nOBJECTIVE|%1|%2|%3|%4|%5|%6|%7", mission.m_sInstanceId, objective.m_sObjectiveId, PayloadText(objective.m_sLabel), objective.m_iCurrentProgress, objective.m_iRequiredProgress, objective.m_bComplete, objective.m_bFailed);
+			}
+		}
 
 		return payload + "\nEND";
 	}
@@ -391,7 +446,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Authorization.SetMembership(m_State, actorIdentityId, targetIdentityId, isMember);
 		if (changed)
+		{
 			MarkMajorCampaignChange();
+			BroadcastMissionEvent("completed", activeMission, definition);
+		}
 		return changed;
 	}
 
@@ -402,7 +460,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Strategic.SetZoneOwner(m_State, m_Economy, m_Balance, zoneId, factionKey);
 		if (changed)
+		{
 			MarkMajorCampaignChange();
+			HST_ActiveMissionState activeMission = m_State.FindActiveMission(instanceId);
+			HST_MissionDefinition definition;
+			if (activeMission)
+				definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
+			BroadcastMissionEvent("failed", activeMission, definition);
+		}
 		return changed;
 	}
 
@@ -703,7 +768,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!zone)
 			return false;
 
-		return StartMission(SelectDefaultMissionForZone(zone), zoneId);
+		return StartMission(SelectMissionForZone(zone), zoneId);
 	}
 
 	bool RequestCommanderStartRandomMission(int playerId)
@@ -715,7 +780,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!zone)
 			return false;
 
-		return StartMission(SelectDefaultMissionForZone(zone), zone.m_sZoneId);
+		return StartMission(SelectMissionForZone(zone), zone.m_sZoneId);
 	}
 
 	bool RequestCommanderProgressMission(int playerId, string instanceId = "")
@@ -1493,6 +1558,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_MissionRuntime.InitializeMissionRuntime(m_State, m_Preset, definition, mission, m_Content);
 
 		MarkMajorCampaignChange();
+		BroadcastMissionEvent("created", mission, definition);
 		return true;
 	}
 
@@ -1503,12 +1569,184 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (m_Persistence)
 			m_Persistence.MarkMajorChange();
+
+		PublishMissionIntelToPlayers();
 	}
 
 	protected void RefreshCampaignMarkers()
 	{
 		if (m_MapMarkers)
 			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
+	}
+
+	protected void BroadcastMissionEvent(string eventType, HST_ActiveMissionState mission, HST_MissionDefinition definition)
+	{
+		if (!mission)
+			return;
+
+		string title = ResolveMissionTitle(mission, definition);
+		string summary = string.Format("%1: %2", MissionEventLabel(eventType), title);
+		string payload = string.Format("HST_MISSION_EVENT|%1|%2|%3|%4|%5|%6|%7|%8", eventType, mission.m_sInstanceId, PayloadText(title), MissionStatusLabel(mission.m_eStatus), mission.m_iRemainingSeconds, PayloadText(BuildMissionProgressText(mission)), PayloadText(ResolveMissionFailureText(mission, definition)), ResolveMissionMarkerId(mission));
+		if (eventType == "created")
+			mission.m_bCreatedNotificationSent = true;
+		else if (eventType == "completed")
+			mission.m_bCompletedNotificationSent = true;
+		else if (eventType == "failed")
+			mission.m_bFailedNotificationSent = true;
+		else if (eventType == "expired")
+			mission.m_bExpiredNotificationSent = true;
+		HST_CommandMenuRequestComponent.BroadcastMissionEvent(payload, summary);
+		PublishMissionIntelToPlayers();
+	}
+
+	protected void BroadcastPendingMissionOutcomeEvents()
+	{
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (!mission)
+				continue;
+
+			HST_MissionDefinition definition = m_Missions.FindDefinition(mission.m_sMissionId);
+			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && !mission.m_bExpiredNotificationSent)
+				BroadcastMissionEvent("expired", mission, definition);
+			else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED && !mission.m_bCompletedNotificationSent)
+				BroadcastMissionEvent("completed", mission, definition);
+			else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED && !mission.m_bFailedNotificationSent)
+				BroadcastMissionEvent("failed", mission, definition);
+		}
+	}
+
+	protected void PublishMissionIntelToPlayers()
+	{
+		HST_CommandMenuRequestComponent.BroadcastMissionIntel(BuildMissionIntelPayload());
+	}
+
+	protected vector ResolveMissionIntelPosition(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "0 0 0";
+
+		if (mission.m_vTargetPosition[0] != 0 || mission.m_vTargetPosition[1] != 0 || mission.m_vTargetPosition[2] != 0)
+			return mission.m_vTargetPosition;
+
+		HST_GeneratedSiteState site = m_State.FindGeneratedSite(mission.m_sSiteId);
+		if (site)
+			return site.m_vPosition;
+
+		HST_ZoneState zone = m_State.FindZone(mission.m_sTargetZoneId);
+		if (zone)
+			return zone.m_vPosition;
+
+		return m_State.m_vHQPosition;
+	}
+
+	protected string ResolveMissionTitle(HST_ActiveMissionState mission, HST_MissionDefinition definition)
+	{
+		if (mission && !mission.m_sDisplayName.IsEmpty())
+			return mission.m_sDisplayName;
+		if (definition)
+			return definition.m_sDisplayName;
+		if (mission)
+			return mission.m_sMissionId;
+		return "Mission";
+	}
+
+	protected string ResolveMissionMarkerId(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "";
+		if (!mission.m_sMarkerId.IsEmpty())
+			return mission.m_sMarkerId;
+		return "hst_mission_" + mission.m_sInstanceId;
+	}
+
+	protected string BuildMissionProgressText(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "unknown";
+
+		int complete;
+		int total;
+		foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			total++;
+			if (objective.m_bComplete)
+				complete++;
+		}
+
+		string phase = mission.m_sRuntimePhase;
+		if (phase.IsEmpty())
+			phase = "active";
+		return string.Format("%1 / objectives %2/%3 / cargo %4/%5 / captives %6/%7", phase, complete, total, mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount);
+	}
+
+	protected string ResolveMissionFailureText(HST_ActiveMissionState mission, HST_MissionDefinition definition)
+	{
+		if (mission && !mission.m_sRuntimeFailureReason.IsEmpty())
+			return mission.m_sRuntimeFailureReason;
+		if (definition)
+			return definition.m_sFailureText;
+		return "";
+	}
+
+	protected string MissionEventLabel(string eventType)
+	{
+		if (eventType == "created")
+			return "Mission created";
+		if (eventType == "completed")
+			return "Mission completed";
+		if (eventType == "failed")
+			return "Mission failed";
+		if (eventType == "expired")
+			return "Mission expired";
+		return "Mission updated";
+	}
+
+	protected string MissionStatusLabel(HST_EMissionStatus status)
+	{
+		if (status == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return "active";
+		if (status == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+			return "completed";
+		if (status == HST_EMissionStatus.HST_MISSION_FAILED)
+			return "failed";
+		if (status == HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return "expired";
+		return "available";
+	}
+
+	protected string MissionCategoryLabel(HST_MissionDefinition definition)
+	{
+		if (!definition)
+			return "unknown";
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_ASSASSINATION)
+			return "Assassination";
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return "Conquest";
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return "Convoy";
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return "Destroy";
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+			return "Logistics";
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return "Rescue";
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC)
+			return "Dynamic";
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			return "Support";
+		return "Mission";
+	}
+
+	protected string PayloadText(string value)
+	{
+		value.Replace("|", "/");
+		value.Replace("\n", " ");
+		value.Replace("\r", " ");
+		return value;
 	}
 
 	protected string ResolveTrustedIdentityId(int playerId)
@@ -1681,14 +1919,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!zone)
 			return "dynamic_minor_city_task";
 
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+			return "conquest_town";
+
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
 			return "conquest_resource";
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+			return "conquest_factory";
 
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST)
 			return "conquest_outpost";
 
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
 			return "destroy_radio_tower";
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD)
+			return "conquest_airfield";
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+			return "conquest_seaport";
 
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT || zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
 			return "destroy_or_steal_armor";
@@ -1700,6 +1950,78 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "dynamic_city_flip_battle";
 
 		return "dynamic_minor_city_task";
+	}
+
+	protected string SelectMissionForZone(HST_ZoneState zone)
+	{
+		if (!zone || !m_Missions)
+			return SelectDefaultMissionForZone(zone);
+
+		array<ref HST_MissionDefinition> definitions = m_Missions.GetDefinitions();
+		HST_MissionDefinition selectedDefinition;
+		int bestScore = -99999;
+		foreach (HST_MissionDefinition definition : definitions)
+		{
+			if (!definition)
+				continue;
+
+			if (!m_Missions.CanStart(m_State, m_Preset, definition.m_sMissionId, zone.m_sZoneId))
+				continue;
+
+			int score = MissionCandidateScore(definition, zone);
+			score += m_State.m_iCampaignSeed - (m_State.m_iCampaignSeed / 7) * 7;
+			score -= CountActiveMissionsAtZone(zone.m_sZoneId) * 100;
+			if (score > bestScore)
+			{
+				bestScore = score;
+				selectedDefinition = definition;
+			}
+		}
+
+		if (selectedDefinition)
+			return selectedDefinition.m_sMissionId;
+
+		return SelectDefaultMissionForZone(zone);
+	}
+
+	protected int MissionCandidateScore(HST_MissionDefinition definition, HST_ZoneState zone)
+	{
+		int score = 10 + definition.m_iRewardMoney / 100;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			score += 40;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			score += 25;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+			score += 20;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			score += 35;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			score += 12;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_ASSASSINATION)
+			score += 8;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			score += 10;
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && definition.m_sMissionId.Contains("town"))
+			score += 35;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE && definition.m_sMissionId.Contains("resource"))
+			score += 35;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY && definition.m_sMissionId.Contains("factory"))
+			score += 35;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER && definition.m_sMissionId.Contains("radio"))
+			score += 45;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD && definition.m_sMissionId.Contains("airfield"))
+			score += 40;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT && definition.m_sMissionId.Contains("seaport"))
+			score += 40;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST && definition.m_sMissionId.Contains("outpost"))
+			score += 35;
+		if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && definition.m_eCategory != HST_EMissionCategory.HST_MISSION_SUPPORT)
+			score -= 80;
+		if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey && definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			score -= 80;
+
+		return score;
 	}
 
 	protected HST_ZoneState SelectRandomMissionZone()

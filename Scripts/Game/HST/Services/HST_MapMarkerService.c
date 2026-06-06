@@ -147,15 +147,12 @@ class HST_MapMarkerService
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
 
-			vector markerPosition = state.m_vHQPosition;
-			if (!mission.m_sTargetZoneId.IsEmpty())
-			{
-				HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
-				if (zone)
-					markerPosition = zone.m_vPosition;
-			}
+			vector markerPosition = ResolveMissionMarkerPosition(state, mission);
+			string markerId = mission.m_sMarkerId;
+			if (markerId.IsEmpty())
+				markerId = "hst_mission_" + mission.m_sInstanceId;
 
-			AddMarker(state, "hst_mission_" + mission.m_sInstanceId, mission.m_sInstanceId, "Mission " + mission.m_sMissionId, "", "mission", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", "REFORGER_ORANGE", markerPosition, true, "white", "mission");
+			AddMarker(state, markerId, mission.m_sInstanceId, BuildMissionMarkerLabel(state, mission), "", "mission", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", "REFORGER_ORANGE", markerPosition, true, "white", "mission_clickable");
 		}
 	}
 
@@ -538,5 +535,48 @@ class HST_MapMarkerService
 			return zone.m_sDisplayName;
 
 		return HST_DefaultCatalog.GetZoneDisplayName(zone.m_sZoneId);
+	}
+
+	protected vector ResolveMissionMarkerPosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "0 0 0";
+
+		if (mission.m_vTargetPosition[0] != 0 || mission.m_vTargetPosition[1] != 0 || mission.m_vTargetPosition[2] != 0)
+			return mission.m_vTargetPosition;
+
+		HST_GeneratedSiteState site = state.FindGeneratedSite(mission.m_sSiteId);
+		if (site)
+			return site.m_vPosition;
+
+		HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
+		if (zone)
+			return zone.m_vPosition;
+
+		return state.m_vHQPosition;
+	}
+
+	protected string BuildMissionMarkerLabel(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "Mission";
+
+		string title = mission.m_sDisplayName;
+		if (title.IsEmpty())
+			title = mission.m_sMissionId;
+
+		int complete;
+		int total;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			total++;
+			if (objective.m_bComplete)
+				complete++;
+		}
+
+		return string.Format("%1 | %2s | %3/%4", title, mission.m_iRemainingSeconds, complete, total);
 	}
 }
