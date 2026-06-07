@@ -619,10 +619,28 @@ class HST_LoadoutEditorService
 				weaponType.ToLower();
 				string category = "weapon";
 				string label = "Primary Weapon";
+				string focus = "weapon";
 				if (weaponType == "secondary")
 				{
 					category = "sidearm";
 					label = "Sidearm";
+				}
+				else if (weaponType == "grenade")
+				{
+					category = "explosive";
+					label = "Grenade";
+					focus = "hands";
+				}
+				else if (weaponType == "throwable")
+				{
+					category = "explosive";
+					label = "Throwable";
+					focus = "hands";
+				}
+				else if (weaponType == "launcher")
+				{
+					category = "launcher";
+					label = "Launcher";
 				}
 				else
 				{
@@ -634,7 +652,7 @@ class HST_LoadoutEditorService
 				}
 
 				string nodeId = NODE_WEAPON_PREFIX + string.Format("%1_%2", storageIndex, slotIndex);
-				AddLiveNodeFromSlot(session, nodeId, "", "weapon_slot", category, label, "weapon", slot.GetAttachedEntity(), true, true, false);
+				AddLiveNodeFromSlot(session, nodeId, "", "weapon_slot", category, label, focus, slot.GetAttachedEntity(), true, true, false);
 				ScanWeaponAttachmentSlots(playerEntity, session, slot.GetAttachedEntity(), nodeId, storageIndex, slotIndex);
 			}
 		}
@@ -1730,6 +1748,14 @@ class HST_LoadoutEditorService
 
 		string weaponType = weapon.GetWeaponSlotType();
 		weaponType.ToLower();
+		if (node.m_sCategory == "explosive")
+		{
+			if (weaponType != "grenade" && weaponType != "throwable" && !IsExplosiveOrThrowablePrefab(prefab))
+				return false;
+
+			return IsCandidateCompatibleWithExactSlot(playerEntity, node.m_sNodeId, temp);
+		}
+
 		if (node.m_sCategory == "sidearm")
 		{
 			if (weaponType != "secondary" && !IsSidearmPrefab(prefab))

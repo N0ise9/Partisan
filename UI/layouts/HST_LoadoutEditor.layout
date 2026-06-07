@@ -12,5 +12,44 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
    }
    Format "HDR High"
   }
+  FrameWidgetClass "{7B2FD986A4D34113}" {
+   Name "HST_LoadoutUILayer"
+   Slot FrameWidgetSlot "{7B2FD986A4D34114}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   {
+    FrameWidgetClass "{7B2FD986A4D34115}" {
+     Name "TopTabs"
+    }
+    FrameWidgetClass "{7B2FD986A4D34116}" {
+     Name "LeftRail"
+    }
+    FrameWidgetClass "{7B2FD986A4D34117}" {
+     Name "EditedSlotHeader"
+    }
+    FrameWidgetClass "{7B2FD986A4D34118}" {
+     Name "SlotList"
+    }
+    FrameWidgetClass "{7B2FD986A4D34119}" {
+     Name "CandidateList"
+    }
+    FrameWidgetClass "{7B2FD986A4D3411A}" {
+     Name "StorageBrowser"
+    }
+    FrameWidgetClass "{7B2FD986A4D3411B}" {
+     Name "SavePanel"
+    }
+    FrameWidgetClass "{7B2FD986A4D3411C}" {
+     Name "Footer"
+    }
+    FrameWidgetClass "{7B2FD986A4D3411D}" {
+     Name "Toast"
+    }
+   }
+  }
  }
 }

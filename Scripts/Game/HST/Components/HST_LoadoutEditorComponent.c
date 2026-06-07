@@ -39,7 +39,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName EDITOR_LAYOUT = "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout";
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const ResourceName PREVIEW_WORLD_PREFAB = "{71D2E9B5588949D8}Prefabs/HST/HST_LoadoutPreviewWorld.et";
-	static const ResourceName ICON_IMAGESET = "{E8D9306763D6458D}Assets/512/hst_loadout_icons.imageset";
 	static const string EDITOR_INPUT_CONTEXT = "InGameMenuContext";
 	static const string EDITOR_CURSOR_CONTEXT = "InventoryContext";
 	static const int CLOSE_WIDGET_ID = 9200;
@@ -172,9 +171,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ref array<ref HST_LoadoutEditorDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref HST_LoadoutEditorWidgetHandler m_WidgetHandler;
 	protected Widget m_RootWidget;
+	protected Widget m_UILayerWidget;
 	protected bool m_bRootFromLayout;
-	protected bool m_bIconImageSetChecked;
-	protected bool m_bIconImageSetAvailable;
 	protected RenderTargetWidget m_PreviewWidget;
 	protected ref SharedItemRef m_PreviewWorldRef;
 	protected BaseWorld m_PreviewWorld;
@@ -750,24 +748,25 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		EnsurePreviewWorld();
 		RefreshPreviewWorldLoadout();
 
-		CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x33000406, 1.0, 0);
-		CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x18000000, 1.0, 0);
-		CreateButton(workspace, root, "ESC", 32, Math.Max(320, (m_iEditorHeight / 2) + 30), 58, 32, CLOSE_WIDGET_ID);
-		CreateTextWidget(workspace, root, "<", 44, Math.Max(286, (m_iEditorHeight / 2) - 22), 34, 44, 36, 0xFFC4953B, BACK_WIDGET_ID, true);
+		Widget uiRoot = ResolveUILayer(root);
+		CreateRectWidget(workspace, uiRoot, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x22000406, 1.0, 0);
+		CreateRectWidget(workspace, uiRoot, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x12000000, 1.0, 0);
+		CreateButton(workspace, uiRoot, "ESC", 32, Math.Max(320, (m_iEditorHeight / 2) + 30), 58, 32, CLOSE_WIDGET_ID);
+		CreateTextWidget(workspace, uiRoot, "<", 44, Math.Max(286, (m_iEditorHeight / 2) - 22), 34, 44, 36, 0xFFC4953B, BACK_WIDGET_ID, true);
 
-		RenderModeTabs(workspace, root);
+		RenderModeTabs(workspace, uiRoot);
 		if (m_sEditorMode == "storage")
 		{
-			RenderStorageRail(workspace, root);
-			RenderStorageCandidatePanel(workspace, root);
+			RenderStorageRail(workspace, uiRoot);
+			RenderStorageCandidatePanel(workspace, uiRoot);
 		}
 		else
 		{
-			RenderSlotRail(workspace, root);
-			RenderCandidatePanel(workspace, root);
+			RenderSlotRail(workspace, uiRoot);
+			RenderCandidatePanel(workspace, uiRoot);
 		}
-		RenderPreviewStage(workspace, root);
-		RenderFooter(workspace, root);
+		RenderPreviewStage(workspace, uiRoot);
+		RenderFooter(workspace, uiRoot);
 	}
 
 	protected Widget EnsureEditorRoot(WorkspaceWidget workspace)
@@ -780,7 +779,22 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_RootWidget)
 			m_RootWidget = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, m_iEditorWidth, m_iEditorHeight, WidgetFlags.VISIBLE, null, 3600);
 
+		m_UILayerWidget = null;
 		return m_RootWidget;
+	}
+
+	protected Widget ResolveUILayer(Widget root)
+	{
+		if (!root)
+			return null;
+
+		if (!m_UILayerWidget)
+			m_UILayerWidget = root.FindAnyWidget("HST_LoadoutUILayer");
+
+		if (m_UILayerWidget)
+			return m_UILayerWidget;
+
+		return root;
 	}
 
 	protected void DeleteEditorRoot()
@@ -789,6 +803,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_RootWidget.RemoveFromHierarchy();
 
 		m_RootWidget = null;
+		m_UILayerWidget = null;
 		m_bRootFromLayout = false;
 		m_PreviewWidget = null;
 	}
@@ -809,24 +824,32 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void RenderModeTabs(WorkspaceWidget workspace, Widget root)
 	{
+		int tabStart = 92;
+		int tabTop = 80;
+		int tabLeft = tabStart;
 		CreateButton(workspace, root, "Q", 66, 100, 22, 22, MODE_WIDGET_ID_BASE + Math.Max(0, GetEditorModeIndex(m_sEditorMode) - 1));
-		CreateButton(workspace, root, "E", 488, 100, 22, 22, MODE_WIDGET_ID_BASE + Math.Min(GetEditorModeCount() - 1, GetEditorModeIndex(m_sEditorMode) + 1));
-		CreateRectWidget(workspace, root, 92, 80, 390, 62, 0xF20D1114, 1.0, 0);
+		CreateRectWidget(workspace, root, tabStart, tabTop, 430, 62, 0xF20D1114, 1.0, 0);
 		for (int i = 0; i < GetEditorModeCount(); i++)
 		{
 			string modeId = GetEditorModeId(i);
 			int color = 0xFF12171B;
+			int tabWidth = 54;
 			if (modeId == m_sEditorMode)
+			{
 				color = 0xFFC4953B;
+				tabWidth = 112;
+			}
 
-			int left = 92 + i * 65;
-			CreateRectWidget(workspace, root, left, 80, 65, 58, color, 0.98, MODE_WIDGET_ID_BASE + i);
-			if (!CreateIconWidget(workspace, root, ResolveIconTexture(modeId), left + 10, 91, 22, 22, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
-				CreateTextWidget(workspace, root, GetEditorModeIcon(modeId), left + 10, 91, 22, 20, 18, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
+			CreateRectWidget(workspace, root, tabLeft, tabTop, tabWidth, 58, color, 0.98, MODE_WIDGET_ID_BASE + i);
+			if (!CreateIconWidget(workspace, root, ResolveIconTexture(modeId), tabLeft + 14, tabTop + 17, 24, 24, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
+				CreateTextWidget(workspace, root, GetEditorModeIcon(modeId), tabLeft + 14, tabTop + 17, 24, 22, 18, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
 			if (modeId == m_sEditorMode)
-				CreateTextWidget(workspace, root, GetEditorModeLabel(modeId), left + 32, 96, 54, 20, 12, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
+				CreateTextWidget(workspace, root, GetEditorModeLabel(modeId), tabLeft + 46, tabTop + 18, 62, 20, 12, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
+
+			tabLeft += tabWidth;
 		}
-		CreateRectWidget(workspace, root, 92, 140, 390, 3, 0xFFC4953B, 1.0, 0);
+		CreateButton(workspace, root, "E", tabLeft + 6, 100, 22, 22, MODE_WIDGET_ID_BASE + Math.Min(GetEditorModeCount() - 1, GetEditorModeIndex(m_sEditorMode) + 1));
+		CreateRectWidget(workspace, root, tabStart, 140, tabLeft - tabStart, 3, 0xFFC4953B, 1.0, 0);
 	}
 
 	protected void RenderSlotRail(WorkspaceWidget workspace, Widget root)
@@ -923,9 +946,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		EnsureSelectedStorageNode();
 		int panelLeft = 520;
 		int panelTop = 112;
-		int panelWidth = Math.Max(640, m_iEditorWidth - panelLeft - 56);
-		int panelHeight = Math.Max(468, m_iEditorHeight - 218);
-		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xB80D1114, 1.0, 0);
+		int panelWidth = Math.Min(900, Math.Max(640, m_iEditorWidth - panelLeft - 260));
+		int panelHeight = Math.Min(560, Math.Max(468, m_iEditorHeight - 280));
+		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0x940D1114, 1.0, 0);
 		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, 3, 0xFFC4953B, 1.0, 0);
 		CreateTextWidget(workspace, root, "Add Items", panelLeft + 20, panelTop + 18, 130, 22, 17, 0xFFEFE2C4, 0, true);
 		CreateTextWidget(workspace, root, ShortenText(BuildStorageTargetLabel(), 54), panelLeft + 150, panelTop + 20, 430, 18, 12, 0xFFB7C7D7, 0, false);
@@ -1162,11 +1185,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int footerTop = m_iEditorHeight - 96;
 		int buttonLeft = Math.Max(930, m_iEditorWidth - 520);
 		CreateButton(workspace, root, "<", buttonLeft, footerTop + 28, 58, 32, BACK_WIDGET_ID);
-		CreateTextWidget(workspace, root, BuildNodeActionLabel(), buttonLeft + 74, footerTop + 30, 82, 26, 18, 0xFFFFFFFF, SWAP_WIDGET_ID, true);
+		string actionLabel = BuildNodeActionLabel();
+		int actionWidgetId = SWAP_WIDGET_ID;
 		if (m_sEditorMode == "save")
-			CreateTextWidget(workspace, root, "Load", buttonLeft + 74, footerTop + 30, 82, 26, 18, 0xFFFFFFFF, APPLY_WIDGET_ID, true);
-		CreateButton(workspace, root, BuildSpotlightLabel(), buttonLeft + 164, footerTop + 23, 112, 42, SPOTLIGHT_WIDGET_ID);
-		CreateButton(workspace, root, BuildCameraModeLabel(), buttonLeft + 292, footerTop + 23, 100, 42, CAMERA_WIDGET_ID);
+		{
+			actionLabel = "Load";
+			actionWidgetId = APPLY_WIDGET_ID;
+		}
+		CreateButton(workspace, root, actionLabel, buttonLeft + 74, footerTop + 28, 96, 32, actionWidgetId);
+		CreateButton(workspace, root, BuildSpotlightLabel(), buttonLeft + 184, footerTop + 23, 112, 42, SPOTLIGHT_WIDGET_ID);
+		CreateButton(workspace, root, BuildCameraModeLabel(), buttonLeft + 312, footerTop + 23, 100, 42, CAMERA_WIDGET_ID);
 		if (m_sEditorMode == "save")
 		{
 			CreateButton(workspace, root, "Save", buttonLeft - 220, footerTop + 28, 80, 32, SAVE_WIDGET_ID);
@@ -1758,12 +1786,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (!m_sSelectedNodeId.IsEmpty())
 				return m_aNodeIds[nodeIndex] == m_sSelectedNodeId || (kind == "attachment" && nodeIndex < m_aNodeParents.Count() && m_aNodeParents[nodeIndex] == m_sSelectedNodeId);
 
-			return kind == "weapon_slot" && nodeIndex < m_aNodePrefabs.Count() && !m_aNodePrefabs[nodeIndex].IsEmpty();
+			return kind == "weapon_slot" && IsAttachableWeaponCategory(category) && nodeIndex < m_aNodePrefabs.Count() && !m_aNodePrefabs[nodeIndex].IsEmpty();
 		}
 		if (m_sEditorMode == "storage")
 			return kind == "storage" || kind == "storage_item";
 
 		return false;
+	}
+
+	protected bool IsAttachableWeaponCategory(string category)
+	{
+		return category == "weapon" || category == "launcher" || category == "sidearm";
 	}
 
 	protected string ResolveNodeCategory(int nodeIndex)
@@ -3085,53 +3118,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, width, height);
-		if (IsIconImageSetAvailable())
-			imageWidget.LoadImageFromSet(0, ICON_IMAGESET, ResolveIconImageName(texture));
-		else
-			imageWidget.LoadImageTexture(0, texture);
+		imageWidget.LoadImageTexture(0, texture);
 		widget.SetColorInt(color);
 		if (userId != 0)
+		{
 			widget.SetUserID(userId);
+			widget.AddHandler(m_WidgetHandler);
+		}
 
 		m_aWidgets.Insert(widget);
 		return true;
-	}
-
-	protected string ResolveIconImageName(ResourceName texture)
-	{
-		if (texture == ICON_CLOTHING)
-			return "CLOTHING";
-		if (texture == ICON_WEAPONS)
-			return "WEAPONS";
-		if (texture == ICON_ATTACHMENTS)
-			return "ATTACHMENTS";
-		if (texture == ICON_STORAGE)
-			return "INVENTORY";
-		if (texture == ICON_SAVE)
-			return "SAVE";
-		if (texture == ICON_SETTINGS)
-			return "SETTINGS";
-		if (texture == ICON_AMMO)
-			return "AMMUNITION";
-		if (texture == ICON_THROWABLES)
-			return "THROWABLES";
-		if (texture == ICON_MEDICAL)
-			return "MEDICAL";
-
-		return "EQUIPMENT";
-	}
-
-	protected bool IsIconImageSetAvailable()
-	{
-		if (m_bIconImageSetChecked)
-			return m_bIconImageSetAvailable;
-
-		m_bIconImageSetChecked = true;
-		Resource iconSet = Resource.Load(ICON_IMAGESET);
-		m_bIconImageSetAvailable = false;
-		if (iconSet)
-			m_bIconImageSetAvailable = iconSet.IsValid();
-		return m_bIconImageSetAvailable;
 	}
 
 	protected void DeletePreviewWorld()
@@ -3189,6 +3185,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			widget.AddHandler(m_WidgetHandler);
 		}
 
+		m_aWidgets.Insert(widget);
 		return widget;
 	}
 
@@ -3251,6 +3248,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			widget.AddHandler(m_WidgetHandler);
 		}
 
+		m_aWidgets.Insert(widget);
 		return textWidget;
 	}
 
