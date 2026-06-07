@@ -1,0 +1,32 @@
+GenericWorldEntity {
+ ID "7A9A1B7F76424A9B"
+ coords 0 0 0
+ boundMins -10 -2 -10
+ boundMaxs 10 10 10
+ blockSize 200 1500 200
+ {
+  GenericWorldLightEntity {
+   ID "7A9A1B7F76424A9C"
+   coords 4.5 5.0 2.0
+   angles -20 -140 0
+   SunAngularSize 1
+   DirectLightLV 1.2
+   DirectLightColor 0.78 0.86 0.9 0
+   IndirectLightLV 0.55
+   IndirectLightColor 0.28 0.34 0.36 0
+   ProbeReflectionEV 1
+   ProbeDiffuseEV 1
+   TargetEV 0
+   ManualHDRBrightness always
+   ManualHDRBrightnessLV 0.95
+  }
+  GameEnvironmentProbeEntity : "{B6B6A21399C5571B}Prefabs/World/DefaultWorld/EnvProbe_Default.et" {
+   ID "7A9A1B7F76424A9D"
+   coords 0 1 0
+   Type Local
+   Refresh "Each frame"
+   Rendering 0x21 0x1e
+   CaptureLights 1
+  }
+ }
+}

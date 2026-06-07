@@ -276,7 +276,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
 		string result = coordinator.RequestLoadoutEditorCommand(playerId, commandId, argument);
-		string payload = coordinator.BuildLoadoutEditorPayload(playerId);
+		string payload;
+		if (commandId == "loadout_editor_candidates")
+			payload = coordinator.BuildLoadoutEditorCandidatePayload(playerId, argument);
+		else
+			payload = coordinator.BuildLoadoutEditorPayload(playerId);
 		DeliverLoadoutEditorPayload(payload, result);
 	}
 

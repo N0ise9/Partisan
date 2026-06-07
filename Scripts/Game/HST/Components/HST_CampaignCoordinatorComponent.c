@@ -230,6 +230,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return payload + "\nEND";
 	}
 
+	string BuildLoadoutEditorCandidatePayload(int playerId, string nodeId)
+	{
+		if (!Replication.IsServer() || !m_LoadoutEditor)
+			return "HST_LOADOUT_CANDIDATES||server coordinator not ready\nEND";
+
+		string payload = m_LoadoutEditor.BuildEditorCandidatePayload(m_State, ResolveTrustedIdentityId(playerId), playerId, nodeId);
+		if (payload.IsEmpty())
+			return "HST_LOADOUT_CANDIDATES||candidate payload unavailable\nEND";
+
+		return payload + "\nEND";
+	}
+
 	string BuildMissionIntelPayload(int playerId = 0)
 	{
 		if (!Replication.IsServer() || !m_State)
@@ -290,6 +302,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (commandId == "loadout_editor_close")
 			return RequestMemberCloseLoadoutEditor(playerId);
+
+		if (commandId == "loadout_editor_candidates")
+			return "";
 
 		if (commandId == "loadout_save" || commandId == "save_loadout")
 			return RequestMemberSaveLoadoutDraft(playerId, argument);

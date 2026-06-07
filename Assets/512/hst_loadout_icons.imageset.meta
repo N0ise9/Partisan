@@ -1,0 +1,17 @@
+MetaFileClass {
+ Name "{E8D9306763D6458D}Assets/512/hst_loadout_icons.imageset"
+ Configurations {
+  ImageSetResourceClass PC {
+  }
+  ImageSetResourceClass XBOX_ONE : PC {
+  }
+  ImageSetResourceClass XBOX_SERIES : PC {
+  }
+  ImageSetResourceClass PS4 : PC {
+  }
+  ImageSetResourceClass PS5 : PC {
+  }
+  ImageSetResourceClass HEADLESS : PC {
+  }
+ }
+}

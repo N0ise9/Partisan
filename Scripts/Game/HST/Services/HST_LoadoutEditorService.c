@@ -61,6 +61,8 @@ class HST_LoadoutEditorService
 
 	protected ref array<string> m_aPreviewIdentityIds = {};
 	protected ref array<IEntity> m_aPreviewEntities = {};
+	protected ref array<string> m_aLoadablePrefabCache = {};
+	protected ref array<bool> m_aLoadablePrefabResults = {};
 
 	string OpenEditor(HST_CampaignState state, string identityId, int playerId)
 	{
@@ -169,14 +171,6 @@ class HST_LoadoutEditorService
 				payload = payload + string.Format("\nATTACH|%1|%2|%3|%4|%5", node.m_sNodeId, node.m_sParentNodeId, SanitizePayloadField(node.m_sSlotKey), node.m_sItemPrefab, SanitizePayloadField(node.m_sDisplayName));
 		}
 
-		foreach (HST_LoadoutNodeState candidateNode : session.m_aDraftNodes)
-		{
-			if (!candidateNode)
-				continue;
-
-			payload = payload + BuildCandidatePayloadsForNode(state, identityId, session, candidateNode);
-		}
-
 		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
 		{
 			if (!loadout || loadout.m_sOwnerIdentityId != identityId)
@@ -188,6 +182,24 @@ class HST_LoadoutEditorService
 		}
 
 		return payload;
+	}
+
+	string BuildEditorCandidatePayload(HST_CampaignState state, string identityId, int playerId, string nodeId)
+	{
+		if (!state || identityId.IsEmpty() || nodeId.IsEmpty())
+			return "HST_LOADOUT_CANDIDATES||unavailable";
+
+		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
+		if (playerId > 0)
+			session.m_iPlayerId = playerId;
+
+		RefreshLiveDraftFromPlayer(state, identityId, session.m_iPlayerId, session);
+		RefreshDraftNodes(state, session);
+		HST_LoadoutNodeState node = FindDraftNodeById(session, nodeId);
+		if (!node)
+			return string.Format("HST_LOADOUT_CANDIDATES|%1|missing", nodeId);
+
+		return string.Format("HST_LOADOUT_CANDIDATES|%1|ready", nodeId) + BuildCandidatePayloadsForNode(state, identityId, session, node);
 	}
 
 	string BuildEditorReport(HST_CampaignState state, string identityId)
@@ -1737,6 +1749,9 @@ class HST_LoadoutEditorService
 
 	protected bool IsCandidateCompatibleWithExactSlot(IEntity playerEntity, string nodeId, IEntity temp)
 	{
+		if (!InventoryItemComponent.Cast(temp.FindComponent(InventoryItemComponent)))
+			return false;
+
 		BaseInventoryStorageComponent storage;
 		InventoryStorageSlot slot;
 		IEntity attached;
@@ -1768,6 +1783,9 @@ class HST_LoadoutEditorService
 
 	protected bool IsCandidateCompatibleWithStorage(IEntity playerEntity, string nodeId, IEntity temp)
 	{
+		if (!InventoryItemComponent.Cast(temp.FindComponent(InventoryItemComponent)))
+			return false;
+
 		string failure;
 		BaseInventoryStorageComponent storage = ResolveLiveStorageTarget(playerEntity, nodeId, failure);
 		if (!storage)
@@ -2323,6 +2341,9 @@ class HST_LoadoutEditorService
 				continue;
 
 			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+			if (!IsCandidateCategoryForNode(node, category, item.m_sPrefab))
+				continue;
+
 			bool ammoMatch;
 			if (!IsLiveCandidateCompatible(state, session.m_iPlayerId, node, item.m_sPrefab, category, ammoMatch))
 				continue;
@@ -3628,11 +3649,20 @@ class HST_LoadoutEditorService
 		if (prefab.IsEmpty())
 			return false;
 
-		Resource loaded = Resource.Load(prefab);
-		if (!loaded)
-			return false;
+		for (int i = 0; i < m_aLoadablePrefabCache.Count(); i++)
+		{
+			if (m_aLoadablePrefabCache[i] == prefab)
+				return m_aLoadablePrefabResults[i];
+		}
 
-		return loaded.IsValid();
+		Resource loaded = Resource.Load(prefab);
+		bool loadable = false;
+		if (loaded)
+			loadable = loaded.IsValid();
+		m_aLoadablePrefabCache.Insert(prefab);
+		m_aLoadablePrefabResults.Insert(loadable);
+
+		return loadable;
 	}
 
 	protected bool HasUnresolvedDisplayKey(string prefab, string displayName)
