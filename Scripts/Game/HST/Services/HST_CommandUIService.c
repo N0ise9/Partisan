@@ -160,9 +160,6 @@ class HST_CommandUIService
 		if (commandId == "vehicle_unload_loot")
 			return coordinator.RequestMemberUnloadVehicleCargo(playerId, argument);
 
-		if (commandId == "loadout_editor_open")
-			return coordinator.RequestMemberOpenLoadoutEditor(playerId);
-
 		if (commandId == "loadout_editor_close")
 			return coordinator.RequestMemberCloseLoadoutEditor(playerId);
 
@@ -419,9 +416,6 @@ class HST_CommandUIService
 
 		if (commandId == "vehicle_unload_loot")
 			return !coordinator.RequestMemberUnloadVehicleCargo(playerId, argument).IsEmpty();
-
-		if (commandId == "loadout_editor_open")
-			return !coordinator.RequestMemberOpenLoadoutEditor(playerId).IsEmpty();
 
 		if (commandId == "loadout_editor_close")
 			return !coordinator.RequestMemberCloseLoadoutEditor(playerId).IsEmpty();

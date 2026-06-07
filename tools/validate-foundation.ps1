@@ -2175,11 +2175,22 @@ foreach ($forbiddenLoadoutDependencyEntry in @(
 }
 foreach ($forbiddenArsenalRuntimeEntry in @(
 	"SCR_Arsenal",
-	"SCR_PlayerArsenalLoadout",
 	"MSAR"
 )) {
 	if ($loadoutEditorText -match [regex]::Escape($forbiddenArsenalRuntimeEntry)) {
 		throw "Custom loadout editor must not issue gear through stock/MSAR arsenal runtime: $forbiddenArsenalRuntimeEntry"
+	}
+}
+if ($loadoutEditorText -match "\bSCR_PlayerArsenalLoadout\b") {
+	foreach ($requiredSerializedLoadoutEntry in @(
+		"SCR_PlayerArsenalLoadout.ReadLoadoutString",
+		"SCR_PlayerArsenalLoadout.ApplyLoadoutString",
+		"SCR_JsonSaveContext",
+		"SCR_JsonLoadContext"
+	)) {
+		if ($loadoutEditorText -notmatch [regex]::Escape($requiredSerializedLoadoutEntry)) {
+			throw "SCR_PlayerArsenalLoadout may only be used by the custom editor for serialized personal preset save/load; missing: $requiredSerializedLoadoutEntry"
+		}
 	}
 }
 foreach ($requiredLoadoutEditorServiceCleanupEntry in @(
