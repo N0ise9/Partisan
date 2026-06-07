@@ -1,19 +1,63 @@
 class HST_LoadoutEditorInsertCallback : ScriptedInventoryOperationCallback
 {
+	HST_LoadoutEditorService m_Service;
 	IEntity m_TemporaryEntity;
+	SCR_InventoryStorageManagerComponent m_Inventory;
+	IEntity m_PlayerEntity;
+	BaseInventoryStorageComponent m_RestoreStorage;
+	int m_iRestoreSlotId = -1;
+	HST_CampaignState m_State;
+	HST_ArsenalService m_Arsenal;
+	string m_sIdentityId;
+	string m_sReservedPrefab;
+	string m_sRestorePrefab;
+	bool m_bRefundReservedOnFailure;
+	bool m_bAccountRemovedOnComplete;
+	bool m_bAccountRemovedOnFailure;
+	bool m_bRestoreRemovedOnFailure;
+	ref array<string> m_aRemovedPrefabs = {};
+	ref array<string> m_aRemovedCategories = {};
+	ref array<string> m_aRemovedDisplayNames = {};
+
+	override void OnComplete()
+	{
+		if (m_Service)
+			m_Service.CompleteInsertTransaction(this, true);
+	}
 
 	override void OnFailed()
 	{
+		if (m_Service)
+		{
+			m_Service.CompleteInsertTransaction(this, false);
+			return;
+		}
+
 		if (m_TemporaryEntity)
 			SCR_EntityHelper.DeleteEntityAndChildren(m_TemporaryEntity);
 	}
+}
+
+[BaseContainerProps()]
+class HST_PersonalLoadoutFileState
+{
+	int m_iSchemaVersion = 2;
+	string m_sOwnerIdentityId;
+	ref array<ref HST_SavedLoadoutState> m_aLoadouts = {};
 }
 
 class HST_LoadoutEditorService
 {
 	static const string PREVIEW_MANNEQUIN_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const string LOADOUT_DIRECTORY = "$profile:h-istasi/loadouts";
+	static const string LOADOUT_DIRECTORY_V2 = "$profile:h-istasi/loadouts/v2";
 	static const int MAX_AUTO_DRAFT_SLOTS = 12;
+	static const int PERSONAL_LOADOUT_SLOT_COUNT = 5;
+	static const string NODE_LOADOUT_PREFIX = "live_loadout_";
+	static const string NODE_WEAPON_PREFIX = "live_weapon_";
+	static const string NODE_ATTACHMENT_PREFIX = "live_attach_";
+	static const string NODE_STORAGE_PREFIX = "live_storage_";
+	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
 
 	protected ref array<string> m_aPreviewIdentityIds = {};
 	protected ref array<IEntity> m_aPreviewEntities = {};
@@ -32,9 +76,11 @@ class HST_LoadoutEditorService
 		session.m_sLastFailure = "";
 		session.m_sPreviewPrefab = PREVIEW_MANNEQUIN_PREFAB;
 		session.m_iOpenedAtSecond = state.m_iElapsedSeconds;
+		session.m_iPlayerId = playerId;
 		session.m_iSavedLoadoutCount = CountSavedLoadouts(state, identityId);
 		RefreshIssuedCounts(state, identityId, session);
-		EnsureDraftSlots(state, identityId, session);
+		EnsureFixedPersonalLoadoutSlots(state, identityId);
+		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		DeletePreviewMannequin(identityId);
 		session.m_bPreviewSpawned = false;
 		session.m_iPreviewItemCount = CountDraftItems(session);
@@ -57,18 +103,21 @@ class HST_LoadoutEditorService
 		session.m_sLastFailure = "";
 		state.m_sLoadoutEditorStatus = "closed";
 		state.m_sLastLoadoutEditorFailure = "";
-		return "h-istasi loadout editor | closed without arsenal count changes";
+		return "h-istasi loadout editor | closed | live changes kept";
 	}
 
-	string BuildEditorPayload(HST_CampaignState state, string identityId)
+	string BuildEditorPayload(HST_CampaignState state, string identityId, int playerId = 0)
 	{
 		if (!state || identityId.IsEmpty())
 			return "";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
+		if (playerId > 0)
+			session.m_iPlayerId = playerId;
 		if (PurgeRemovedExternalLoadoutState(state, identityId) > 0)
 			SavePersonalLoadoutsToFile(state, identityId);
-		EnsureDraftSlots(state, identityId, session);
+		EnsureFixedPersonalLoadoutSlots(state, identityId);
+		RefreshLiveDraftFromPlayer(state, identityId, session.m_iPlayerId, session);
 		RefreshDraftNodes(state, session);
 
 		int draftItemCount = CountDraftItems(session);
@@ -125,12 +174,14 @@ class HST_LoadoutEditorService
 			if (!candidateNode)
 				continue;
 
-			payload = payload + BuildCandidatePayloadsForNode(state, candidateNode);
+			payload = payload + BuildCandidatePayloadsForNode(state, identityId, session, candidateNode);
 		}
 
 		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
 		{
 			if (!loadout || loadout.m_sOwnerIdentityId != identityId)
+				continue;
+			if (ResolveFixedLoadoutIndex(loadout.m_sLoadoutId) < 0)
 				continue;
 
 			payload = payload + string.Format("\nTEMPLATE|%1|%2|%3", loadout.m_sLoadoutId, SanitizePayloadField(loadout.m_sDisplayName), loadout.m_aSlots.Count());
@@ -162,39 +213,48 @@ class HST_LoadoutEditorService
 		return report;
 	}
 
-	string SaveCurrentDraft(HST_CampaignState state, string identityId, string loadoutName = "")
+	string SaveCurrentDraft(HST_CampaignState state, string identityId, string loadoutName = "", int playerId = 0)
 	{
 		if (!state || identityId.IsEmpty())
 			return "h-istasi loadout editor | failed: campaign/player state not ready";
 
-		if (loadoutName.IsEmpty())
-			loadoutName = "Field Loadout " + string.Format("%1", CountSavedLoadouts(state, identityId) + 1);
-
-		HST_SavedLoadoutState loadout = new HST_SavedLoadoutState();
-		loadout.m_sOwnerIdentityId = identityId;
-		loadout.m_sLoadoutId = BuildLoadoutId(identityId, state.m_iElapsedSeconds, state.m_aSavedLoadouts.Count());
-		loadout.m_sDisplayName = loadoutName;
-		loadout.m_iUpdatedAtSecond = state.m_iElapsedSeconds;
-
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		EnsureDraftSlots(state, identityId, session);
-		foreach (HST_LoadoutSlotState draftSlot : session.m_aDraftSlots)
-			loadout.m_aSlots.Insert(CopySlot(draftSlot));
+		if (playerId > 0)
+			session.m_iPlayerId = playerId;
+		EnsureFixedPersonalLoadoutSlots(state, identityId);
+		IEntity playerEntity = ResolveControlledPlayerEntity(session.m_iPlayerId);
+		if (!playerEntity)
+			return "h-istasi loadout editor | failed: no live player entity to save";
 
-		if (loadout.m_aSlots.Count() == 0)
+		string serialized;
+		if (!SerializeCharacterLoadout(playerEntity, serialized))
 		{
-			state.m_sLastLoadoutEditorFailure = "no arsenal items available to save into a draft";
-			return "h-istasi loadout editor | failed: no issued or arsenal items available for a draft";
+			state.m_sLastLoadoutEditorFailure = "failed to serialize current character loadout";
+			return "h-istasi loadout editor | failed: could not serialize current loadout";
 		}
 
-		state.m_aSavedLoadouts.Insert(loadout);
+		int slotIndex = ResolveSaveSlotIndex(state, identityId, session.m_sCurrentLoadoutId);
+		HST_SavedLoadoutState loadout = FindOrCreateFixedLoadoutSlot(state, identityId, slotIndex);
+		loadout.m_sSerializedLoadout = serialized;
+		loadout.m_sCharacterPrefab = ResolveEntityPrefab(playerEntity);
+		loadout.m_iUpdatedAtSecond = state.m_iElapsedSeconds;
+		if (loadoutName.IsEmpty())
+			loadout.m_sDisplayName = string.Format("Field Loadout %1", slotIndex + 1);
+		else
+			loadout.m_sDisplayName = loadoutName;
+		loadout.m_aSlots.Clear();
+		RefreshLiveDraftFromPlayer(state, identityId, session.m_iPlayerId, session);
+		foreach (HST_LoadoutSlotState draftSlot : session.m_aDraftSlots)
+			loadout.m_aSlots.Insert(CopySlot(draftSlot));
+		BuildSavedLoadoutMetadata(loadout);
+
 		SavePersonalLoadoutsToFile(state, identityId);
 		session.m_sCurrentLoadoutId = loadout.m_sLoadoutId;
 		session.m_iSavedLoadoutCount = CountSavedLoadouts(state, identityId);
-		session.m_sStatus = "draft saved";
+		session.m_sStatus = "saved";
 		state.m_sLoadoutEditorStatus = string.Format("saved %1", loadout.m_sDisplayName);
 		state.m_sLastLoadoutEditorFailure = "";
-		return string.Format("h-istasi loadout editor | saved %1 | slots %2", loadout.m_sDisplayName, loadout.m_aSlots.Count());
+		return string.Format("h-istasi loadout editor | saved slot %1 | %2", slotIndex + 1, loadout.m_sDisplayName);
 	}
 
 	string ApplySavedLoadout(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string loadoutId = "")
@@ -205,6 +265,8 @@ class HST_LoadoutEditorService
 		HST_SavedLoadoutState loadout = SelectLoadoutForApply(state, identityId, loadoutId);
 		if (!loadout)
 			return "h-istasi loadout editor | failed: no current or saved personal loadout";
+		if (IsFixedLoadoutSlotEmpty(loadout))
+			return "h-istasi loadout editor | failed: selected loadout slot is empty";
 
 		string validationFailure;
 		if (!ValidateLoadoutTransaction(state, loadout, identityId, validationFailure))
@@ -213,7 +275,12 @@ class HST_LoadoutEditorService
 			return "h-istasi loadout editor | failed: " + validationFailure;
 		}
 
-		if (!ApplyLoadoutToPlayerEntity(loadout, playerId, validationFailure))
+		bool applied;
+		if (!loadout.m_sSerializedLoadout.IsEmpty())
+			applied = ApplySerializedLoadoutToPlayerEntity(loadout, playerId, validationFailure);
+		else
+			applied = ApplyLoadoutToPlayerEntity(loadout, playerId, validationFailure);
+		if (!applied)
 		{
 			state.m_sLastLoadoutEditorFailure = validationFailure;
 			return "h-istasi loadout editor | failed: " + validationFailure;
@@ -223,13 +290,15 @@ class HST_LoadoutEditorService
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_sStatus = "applied";
 		session.m_sCurrentLoadoutId = loadout.m_sLoadoutId;
+		session.m_iPlayerId = playerId;
+		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshIssuedCounts(state, identityId, session);
 		state.m_sLoadoutEditorStatus = string.Format("applied %1", loadout.m_sDisplayName);
 		state.m_sLastLoadoutEditorFailure = "";
 		return string.Format("h-istasi loadout editor | applied %1 | finite %2 | INF %3", loadout.m_sDisplayName, session.m_iIssuedFiniteCount, session.m_iIssuedInfiniteCount);
 	}
 
-	string AddDraftItem(HST_CampaignState state, string identityId, string itemPrefab)
+	string AddDraftItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string itemPrefab)
 	{
 		if (!state || identityId.IsEmpty() || itemPrefab.IsEmpty())
 			return "h-istasi loadout editor | failed: missing item";
@@ -239,35 +308,29 @@ class HST_LoadoutEditorService
 			return "h-istasi loadout editor | failed: item not available in arsenal";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		EnsureDraftSlots(state, identityId, session);
-		HST_LoadoutSlotState existing = FindDraftSlotByPrefab(session, itemPrefab);
-		if (existing)
-		{
-			int maxQuantity = ResolveDraftMaxQuantity(state, identityId, itemPrefab);
-			if (maxQuantity > 0 && existing.m_iQuantity >= maxQuantity)
-				return string.Format("h-istasi loadout editor | failed: only %1 available for %2", maxQuantity, existing.m_sDisplayName);
+		session.m_iPlayerId = playerId;
 
-			existing.m_iQuantity++;
-			session.m_sStatus = "draft edited";
-			RefreshDraftNodes(state, session);
-			RefreshPreviewMannequinLoadout(state, identityId, session);
-			return string.Format("h-istasi loadout editor | increased %1 to %2", existing.m_sDisplayName, existing.m_iQuantity);
+		string failure;
+		if (!ReserveArsenalItemForEditor(state, arsenal, identityId, itemPrefab, 1, failure))
+			return "h-istasi loadout editor | failed: " + failure;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		SCR_InventoryStorageManagerComponent inventory = ResolveInventoryManager(playerEntity, failure);
+		if (!inventory || !TryInsertItemIntoInventory(inventory, playerEntity, itemPrefab, failure, state, arsenal, identityId))
+		{
+			RefundReservedItem(state, arsenal, identityId, itemPrefab, 1);
+			state.m_sLastLoadoutEditorFailure = failure;
+			return "h-istasi loadout editor | failed: " + failure;
 		}
 
-		HST_LoadoutSlotState slot = new HST_LoadoutSlotState();
-		slot.m_sSlotId = BuildUniqueDraftSlotId(session, ResolveEditorCategory(item.m_sPrefab, item.m_sCategory));
-		slot.m_sItemPrefab = item.m_sPrefab;
-		slot.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
-		slot.m_sCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
-		slot.m_iQuantity = 1;
-		session.m_aDraftSlots.Insert(slot);
-		session.m_sStatus = "draft edited";
+		session.m_sStatus = "live edited";
+		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
-		RefreshPreviewMannequinLoadout(state, identityId, session);
-		return "h-istasi loadout editor | added " + slot.m_sDisplayName;
+		RefreshIssuedCounts(state, identityId, session);
+		return "h-istasi loadout editor | added " + HST_DisplayNameService.ResolveItemDisplayName(null, itemPrefab, item.m_sDisplayName);
 	}
 
-	string SetNodeItem(HST_CampaignState state, string identityId, string argument)
+	string SetNodeItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string argument)
 	{
 		if (!state || identityId.IsEmpty() || argument.IsEmpty())
 			return "h-istasi loadout editor | failed: missing node replacement";
@@ -278,94 +341,69 @@ class HST_LoadoutEditorService
 			return "h-istasi loadout editor | failed: malformed node replacement";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		EnsureDraftSlots(state, identityId, session);
-		string slotId = ResolveDraftSlotIdFromNodeId(nodeId);
-		if (!slotId.IsEmpty())
-			return ReplaceDraftSlotItem(state, identityId, slotId + ":" + itemPrefab);
+		session.m_iPlayerId = playerId;
 
 		HST_ArsenalItemState item = state.FindArsenalItem(itemPrefab);
 		if (!IsArsenalItemAvailable(item))
 			return "h-istasi loadout editor | failed: item not available in arsenal";
 
+		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
 		HST_LoadoutNodeState targetNode = FindDraftNodeById(session, nodeId);
 		string itemCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
-		if (targetNode && !IsCandidateCategoryForNode(targetNode, itemCategory, item.m_sPrefab))
+		bool ammoMatch;
+		if (targetNode && !IsLiveCandidateCompatible(state, playerId, targetNode, item.m_sPrefab, itemCategory, ammoMatch))
 			return "h-istasi loadout editor | failed: " + HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName) + " is not compatible with " + targetNode.m_sLabel;
 
-		HST_LoadoutSlotState slot = new HST_LoadoutSlotState();
-		string category = ResolveNodeCategoryFromId(nodeId, itemCategory);
-		slot.m_sSlotId = BuildUniqueDraftSlotId(session, category);
-		slot.m_sItemPrefab = item.m_sPrefab;
-		slot.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
-		slot.m_sCategory = category;
-		slot.m_iQuantity = 1;
-		if (nodeId.Contains("attach_"))
+		string failure;
+		if (!ReserveArsenalItemForEditor(state, arsenal, identityId, itemPrefab, 1, failure))
+			return "h-istasi loadout editor | failed: " + failure;
+
+		if (!ApplyLiveNodeItem(state, arsenal, identityId, playerId, nodeId, itemPrefab, failure))
 		{
-			slot.m_sAttachmentSlotId = nodeId;
-			slot.m_sWeaponSlotId = FindFirstWeaponNodeId(session);
+			RefundReservedItem(state, arsenal, identityId, itemPrefab, 1);
+			state.m_sLastLoadoutEditorFailure = failure;
+			return "h-istasi loadout editor | failed: " + failure;
 		}
-		session.m_aDraftSlots.Insert(slot);
-		session.m_sStatus = "draft edited";
+
+		session.m_sStatus = "live edited";
+		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
-		RefreshPreviewMannequinLoadout(state, identityId, session);
-		return "h-istasi loadout editor | set " + ResolveNodeLabelFromId(nodeId) + " to " + slot.m_sDisplayName;
+		RefreshIssuedCounts(state, identityId, session);
+		return "h-istasi loadout editor | set " + ResolveNodeLabelFromId(nodeId) + " to " + HST_DisplayNameService.ResolveItemDisplayName(null, itemPrefab, item.m_sDisplayName);
 	}
 
-	string RemoveNodeItem(HST_CampaignState state, string identityId, string nodeId)
+	string RemoveNodeItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string nodeId)
 	{
 		if (!state || identityId.IsEmpty() || nodeId.IsEmpty())
 			return "h-istasi loadout editor | failed: missing node";
 
-		string slotId = ResolveDraftSlotIdFromNodeId(nodeId);
-		if (!slotId.IsEmpty())
-			return RemoveDraftSlot(state, identityId, slotId);
-
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		for (int slotIndex = session.m_aDraftSlots.Count() - 1; slotIndex >= 0; slotIndex--)
+		session.m_iPlayerId = playerId;
+		string removedDisplay;
+		string failure;
+		if (!RemoveLiveNodeItem(state, arsenal, identityId, playerId, nodeId, removedDisplay, failure))
 		{
-			HST_LoadoutSlotState slot = session.m_aDraftSlots[slotIndex];
-			if (!slot)
-				continue;
-
-			if (slot.m_sAttachmentSlotId != nodeId && slot.m_sWeaponSlotId != nodeId)
-				continue;
-
-			string label = slot.m_sDisplayName;
-			session.m_aDraftSlots.Remove(slotIndex);
-			session.m_sStatus = "draft edited";
-			RefreshDraftNodes(state, session);
-			RefreshPreviewMannequinLoadout(state, identityId, session);
-			return "h-istasi loadout editor | removed " + label;
+			state.m_sLastLoadoutEditorFailure = failure;
+			return "h-istasi loadout editor | failed: " + failure;
 		}
 
-		return "h-istasi loadout editor | node was already empty";
+		session.m_sStatus = "live edited";
+		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
+		RefreshDraftNodes(state, session);
+		RefreshIssuedCounts(state, identityId, session);
+		return "h-istasi loadout editor | removed " + removedDisplay;
 	}
 
-	string RemoveDraftSlot(HST_CampaignState state, string identityId, string slotId)
+	string RemoveDraftSlot(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string slotId)
 	{
 		if (!state || identityId.IsEmpty() || slotId.IsEmpty())
 			return "h-istasi loadout editor | failed: missing slot";
 
-		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		for (int i = session.m_aDraftSlots.Count() - 1; i >= 0; i--)
-		{
-			HST_LoadoutSlotState slot = session.m_aDraftSlots[i];
-			if (!slot || slot.m_sSlotId != slotId)
-				continue;
-
-			string label = slot.m_sDisplayName;
-			session.m_aDraftSlots.Remove(i);
-			session.m_sStatus = "draft edited";
-			RefreshDraftNodes(state, session);
-			RefreshPreviewMannequinLoadout(state, identityId, session);
-			return "h-istasi loadout editor | removed " + label;
-		}
-
-		return "h-istasi loadout editor | failed: slot not found";
+		return RemoveNodeItem(state, arsenal, identityId, playerId, slotId);
 	}
 
-	string SetDraftSlotQuantity(HST_CampaignState state, string identityId, string argument)
+	string SetDraftSlotQuantity(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string argument)
 	{
 		if (!state || identityId.IsEmpty() || argument.IsEmpty())
 			return "h-istasi loadout editor | failed: missing quantity";
@@ -376,25 +414,17 @@ class HST_LoadoutEditorService
 			return "h-istasi loadout editor | failed: malformed quantity";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
+		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		foreach (HST_LoadoutSlotState slot : session.m_aDraftSlots)
 		{
-			if (!slot || slot.m_sSlotId != slotId)
-				continue;
-
-			int maxQuantity = ResolveDraftMaxQuantity(state, identityId, slot.m_sItemPrefab);
-			slot.m_iQuantity = Math.Max(1, quantity);
-			if (maxQuantity > 0)
-				slot.m_iQuantity = Math.Min(slot.m_iQuantity, maxQuantity);
-			session.m_sStatus = "draft edited";
-			RefreshDraftNodes(state, session);
-			RefreshPreviewMannequinLoadout(state, identityId, session);
-			return string.Format("h-istasi loadout editor | set %1 x%2", slot.m_sDisplayName, slot.m_iQuantity);
+			if (slot && slot.m_sSlotId == slotId && !slot.m_sItemPrefab.IsEmpty())
+				return SetNodeItem(state, arsenal, identityId, playerId, slotId + ":" + slot.m_sItemPrefab);
 		}
 
 		return "h-istasi loadout editor | failed: slot not found";
 	}
 
-	string ReplaceDraftSlotItem(HST_CampaignState state, string identityId, string argument)
+	string ReplaceDraftSlotItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string argument)
 	{
 		if (!state || identityId.IsEmpty() || argument.IsEmpty())
 			return "h-istasi loadout editor | failed: missing replacement";
@@ -404,32 +434,7 @@ class HST_LoadoutEditorService
 		if (!ParseSlotPrefabArgument(argument, slotId, itemPrefab))
 			return "h-istasi loadout editor | failed: malformed replacement";
 
-		HST_ArsenalItemState item = state.FindArsenalItem(itemPrefab);
-		if (!IsArsenalItemAvailable(item))
-			return "h-istasi loadout editor | failed: replacement item not available in arsenal";
-
-		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		foreach (HST_LoadoutSlotState slot : session.m_aDraftSlots)
-		{
-			if (!slot || slot.m_sSlotId != slotId)
-				continue;
-
-			string targetCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
-			string replacementCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
-			if (!IsReplacementCategoryAllowed(slot, targetCategory, replacementCategory, item.m_sPrefab))
-				return "h-istasi loadout editor | failed: " + HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName) + " is not compatible with " + targetCategory;
-
-			slot.m_sItemPrefab = item.m_sPrefab;
-			slot.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
-			slot.m_sCategory = replacementCategory;
-			slot.m_iQuantity = 1;
-			session.m_sStatus = "draft edited";
-			RefreshDraftNodes(state, session);
-			RefreshPreviewMannequinLoadout(state, identityId, session);
-			return "h-istasi loadout editor | swapped slot to " + slot.m_sDisplayName;
-		}
-
-		return "h-istasi loadout editor | failed: slot not found";
+		return SetNodeItem(state, arsenal, identityId, playerId, slotId + ":" + itemPrefab);
 	}
 
 	string SelectSavedLoadout(HST_CampaignState state, string identityId, string loadoutId)
@@ -442,28 +447,27 @@ class HST_LoadoutEditorService
 			return "h-istasi loadout editor | failed: template not found";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		session.m_aDraftSlots.Clear();
-		foreach (HST_LoadoutSlotState slot : loadout.m_aSlots)
-			session.m_aDraftSlots.Insert(CopySlot(slot));
 		session.m_sCurrentLoadoutId = loadout.m_sLoadoutId;
-		session.m_sStatus = "template selected";
+		session.m_sStatus = "saved slot selected";
 		RefreshDraftNodes(state, session);
-		RefreshPreviewMannequinLoadout(state, identityId, session);
 		return "h-istasi loadout editor | selected " + loadout.m_sDisplayName;
 	}
 
-	string ClearDraft(HST_CampaignState state, string identityId)
+	string ClearDraft(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId)
 	{
 		if (!state || identityId.IsEmpty())
 			return "h-istasi loadout editor | failed: campaign/player state not ready";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		session.m_aDraftSlots.Clear();
-		session.m_sCurrentLoadoutId = "";
-		session.m_sStatus = "draft cleared";
+		string failure;
+		int removed = ClearLiveIssuedItems(state, arsenal, identityId, playerId, failure);
+		if (!failure.IsEmpty())
+			return "h-istasi loadout editor | failed: " + failure;
+		session.m_sStatus = "live cleared";
+		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
-		RefreshPreviewMannequinLoadout(state, identityId, session);
-		return "h-istasi loadout editor | cleared current draft";
+		RefreshIssuedCounts(state, identityId, session);
+		return string.Format("h-istasi loadout editor | cleared %1 issued item(s)", removed);
 	}
 
 	string DeleteSavedLoadout(HST_CampaignState state, string identityId, string loadoutId)
@@ -478,7 +482,7 @@ class HST_LoadoutEditorService
 				continue;
 
 			string label = loadout.m_sDisplayName;
-			state.m_aSavedLoadouts.Remove(i);
+			ClearFixedLoadoutSlot(loadout);
 			SavePersonalLoadoutsToFile(state, identityId);
 			HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 			if (session.m_sCurrentLoadoutId == loadoutId)
@@ -486,7 +490,6 @@ class HST_LoadoutEditorService
 			session.m_iSavedLoadoutCount = CountSavedLoadouts(state, identityId);
 			session.m_sStatus = "template deleted";
 			RefreshDraftNodes(state, session);
-			RefreshPreviewMannequinLoadout(state, identityId, session);
 			return "h-istasi loadout editor | deleted " + label;
 		}
 
@@ -526,6 +529,1355 @@ class HST_LoadoutEditorService
 		session.m_sOwnerIdentityId = identityId;
 		state.m_aLoadoutEditorSessions.Insert(session);
 		return session;
+	}
+
+	protected bool RefreshLiveDraftFromPlayer(HST_CampaignState state, string identityId, int playerId, HST_LoadoutEditorSessionState session)
+	{
+		if (!session)
+			return false;
+
+		session.m_aDraftSlots.Clear();
+		session.m_aDraftNodes.Clear();
+		session.m_bLiveCharacterAvailable = false;
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+		{
+			session.m_sPreviewStatus = "live character unavailable";
+			return false;
+		}
+
+		session.m_bLiveCharacterAvailable = true;
+		session.m_sPreviewPrefab = ResolveEntityPrefab(playerEntity);
+		if (session.m_sPreviewPrefab.IsEmpty())
+			session.m_sPreviewPrefab = PREVIEW_MANNEQUIN_PREFAB;
+
+		ScanCharacterLoadoutSlots(playerEntity, session);
+		ScanCharacterWeaponSlots(playerEntity, session);
+		ScanEquippedStorageContainers(playerEntity, session);
+		session.m_iPreviewItemCount = CountDraftItems(session);
+		session.m_sPreviewStatus = "live character mirrored";
+		return true;
+	}
+
+	protected void ScanCharacterLoadoutSlots(IEntity playerEntity, HST_LoadoutEditorSessionState session)
+	{
+		SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(playerEntity.FindComponent(SCR_CharacterInventoryStorageComponent));
+		if (!characterStorage)
+			return;
+
+		int slotCount = characterStorage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = characterStorage.GetSlot(slotIndex);
+			LoadoutSlotInfo loadoutSlot = LoadoutSlotInfo.Cast(slot);
+			if (!slot || !loadoutSlot)
+				continue;
+
+			string category = ResolveLoadoutSlotCategory(loadoutSlot);
+			string label = ResolveLoadoutSlotLabel(loadoutSlot, category);
+			string focus = ResolveFocusForCategory(category);
+			string nodeId = NODE_LOADOUT_PREFIX + string.Format("%1", slotIndex);
+			AddLiveNodeFromSlot(session, nodeId, "", "slot", category, label, focus, slot.GetAttachedEntity(), true, true, true);
+		}
+	}
+
+	protected void ScanCharacterWeaponSlots(IEntity playerEntity, HST_LoadoutEditorSessionState session)
+	{
+		array<BaseInventoryStorageComponent> storages = {};
+		FindInventoryStoragesWithSlots(playerEntity, storages);
+		int longGunOrdinal;
+		for (int storageIndex = 0; storageIndex < storages.Count(); storageIndex++)
+		{
+			BaseInventoryStorageComponent storage = storages[storageIndex];
+			if (!EquipedWeaponStorageComponent.Cast(storage))
+				continue;
+
+			int slotCount = storage.GetSlotsCount();
+			for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+			{
+				InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+				if (!slot)
+					continue;
+
+				BaseWeaponComponent weaponSlot = BaseWeaponComponent.Cast(slot.GetParentContainer());
+				if (!weaponSlot)
+					continue;
+
+				string weaponType = weaponSlot.GetWeaponSlotType();
+				weaponType.ToLower();
+				string category = "weapon";
+				string label = "Primary Weapon";
+				if (weaponType == "secondary")
+				{
+					category = "sidearm";
+					label = "Sidearm";
+				}
+				else
+				{
+					if (longGunOrdinal == 0)
+						label = "Primary Weapon";
+					else
+						label = "Secondary Weapon";
+					longGunOrdinal++;
+				}
+
+				string nodeId = NODE_WEAPON_PREFIX + string.Format("%1_%2", storageIndex, slotIndex);
+				AddLiveNodeFromSlot(session, nodeId, "", "weapon_slot", category, label, "weapon", slot.GetAttachedEntity(), true, true, false);
+				ScanWeaponAttachmentSlots(playerEntity, session, slot.GetAttachedEntity(), nodeId, storageIndex, slotIndex);
+			}
+		}
+	}
+
+	protected void ScanWeaponAttachmentSlots(IEntity playerEntity, HST_LoadoutEditorSessionState session, IEntity weaponEntity, string parentNodeId, int weaponStorageIndex, int weaponSlotIndex)
+	{
+		if (!weaponEntity)
+			return;
+
+		SCR_WeaponAttachmentsStorageComponent attachmentStorage = SCR_WeaponAttachmentsStorageComponent.Cast(weaponEntity.FindComponent(SCR_WeaponAttachmentsStorageComponent));
+		if (!attachmentStorage)
+			return;
+
+		int slotCount = attachmentStorage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = attachmentStorage.GetSlot(slotIndex);
+			if (!slot)
+				continue;
+
+			AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
+			if (!attachmentSlot || !attachmentSlot.GetAttachmentSlotType())
+				continue;
+
+			string slotKey = ResolveAttachmentSlotKeyFromSlot(slot, attachmentSlot);
+			string label = ResolveAttachmentSlotLabel(slotKey, slot.GetSourceName());
+			string nodeId = NODE_ATTACHMENT_PREFIX + string.Format("%1_%2_%3", weaponStorageIndex, weaponSlotIndex, slotIndex);
+			AddLiveNodeFromSlot(session, nodeId, parentNodeId, "attachment", "attachment", label, "weapon", slot.GetAttachedEntity(), true, false, false);
+			HST_LoadoutNodeState added = FindDraftNodeById(session, nodeId);
+			if (added)
+				added.m_sSlotKey = slotKey;
+		}
+	}
+
+	protected void ScanEquippedStorageContainers(IEntity playerEntity, HST_LoadoutEditorSessionState session)
+	{
+		SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(playerEntity.FindComponent(SCR_CharacterInventoryStorageComponent));
+		if (!characterStorage)
+			return;
+
+		int slotCount = characterStorage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = characterStorage.GetSlot(slotIndex);
+			if (!slot || !slot.GetAttachedEntity())
+				continue;
+
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(slot.GetAttachedEntity().FindComponent(BaseInventoryStorageComponent));
+			if (!IsUsableDepositStorage(storage))
+				continue;
+
+			string containerNodeId = NODE_STORAGE_PREFIX + string.Format("%1", slotIndex);
+			string label = ResolveEntityDisplayName(slot.GetAttachedEntity(), ResolveEntityPrefab(slot.GetAttachedEntity()));
+			if (label.IsEmpty())
+				label = "Storage";
+
+			HST_LoadoutNodeState node = new HST_LoadoutNodeState();
+			node.m_sNodeId = containerNodeId;
+			node.m_sKind = "storage";
+			node.m_sSlotKey = "storage";
+			node.m_sLabel = label;
+			node.m_sDisplayName = label;
+			node.m_sItemPrefab = ResolveEntityPrefab(slot.GetAttachedEntity());
+			node.m_sCategory = "storage";
+			node.m_sFocus = ResolveFocusForCategory(ResolveLoadoutSlotCategory(LoadoutSlotInfo.Cast(slot)));
+			node.m_bCanOpen = true;
+			node.m_bCanDeposit = true;
+			node.m_bCanRemove = false;
+			node.m_iParentSlotIndex = slotIndex;
+			node.m_iUsedCapacity = CountStorageItems(storage);
+			node.m_iTotalCapacity = Math.Max(storage.GetSlotsCount(), node.m_iUsedCapacity);
+			session.m_aDraftNodes.Insert(node);
+
+			AddStorageContentNodes(session, storage, containerNodeId, slotIndex);
+		}
+	}
+
+	protected void AddStorageContentNodes(HST_LoadoutEditorSessionState session, BaseInventoryStorageComponent storage, string parentNodeId, int containerSlotIndex)
+	{
+		if (!storage)
+			return;
+
+		array<IEntity> contents = {};
+		array<IEntity> visited = {};
+		GatherStorageContentEntities(storage, contents, visited);
+		for (int itemIndex = 0; itemIndex < contents.Count(); itemIndex++)
+		{
+			IEntity item = contents[itemIndex];
+			if (!item)
+				continue;
+
+			string prefab = ResolveEntityPrefab(item);
+			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab));
+			string nodeId = NODE_STORAGE_ITEM_PREFIX + string.Format("%1_%2", containerSlotIndex, itemIndex);
+			HST_LoadoutNodeState node = new HST_LoadoutNodeState();
+			node.m_sNodeId = nodeId;
+			node.m_sParentNodeId = parentNodeId;
+			node.m_sKind = "storage_item";
+			node.m_sSlotKey = category;
+			node.m_sLabel = GetEditorCategoryLabel(category);
+			node.m_sItemPrefab = prefab;
+			node.m_sDisplayName = ResolveEntityDisplayName(item, prefab);
+			node.m_sCategory = category;
+			node.m_sFocus = ResolveFocusForCategory(category);
+			node.m_bCanRemove = true;
+			node.m_bCanDeposit = true;
+			node.m_iParentSlotIndex = containerSlotIndex;
+			node.m_iSlotIndex = itemIndex;
+			session.m_aDraftNodes.Insert(node);
+
+			HST_LoadoutSlotState slotState = BuildSlotSummaryFromEntity(nodeId, item, category, "storage_item");
+			slotState.m_sParentSlotId = parentNodeId;
+			session.m_aDraftSlots.Insert(slotState);
+		}
+	}
+
+	protected void AddLiveNodeFromSlot(HST_LoadoutEditorSessionState session, string nodeId, string parentNodeId, string kind, string category, string label, string focus, IEntity attached, bool canRemove, bool canOpen, bool canDeposit)
+	{
+		HST_LoadoutNodeState node = new HST_LoadoutNodeState();
+		node.m_sNodeId = nodeId;
+		node.m_sParentNodeId = parentNodeId;
+		node.m_sKind = kind;
+		node.m_sSlotKey = category;
+		node.m_sLabel = label;
+		node.m_sCategory = category;
+		node.m_sFocus = focus;
+		node.m_bCanRemove = canRemove && attached != null;
+		node.m_bCanOpen = canOpen && attached != null;
+		node.m_bCanDeposit = canDeposit && attached != null;
+		if (attached)
+		{
+			string prefab = ResolveEntityPrefab(attached);
+			node.m_sItemPrefab = prefab;
+			node.m_sDisplayName = ResolveEntityDisplayName(attached, prefab);
+			session.m_aDraftSlots.Insert(BuildSlotSummaryFromEntity(nodeId, attached, category, kind));
+		}
+		else
+		{
+			node.m_sDisplayName = "Empty Slot";
+		}
+
+		session.m_aDraftNodes.Insert(node);
+	}
+
+	protected HST_LoadoutSlotState BuildSlotSummaryFromEntity(string slotId, IEntity entity, string category, string kind)
+	{
+		HST_LoadoutSlotState slot = new HST_LoadoutSlotState();
+		slot.m_sSlotId = slotId;
+		slot.m_sItemPrefab = ResolveEntityPrefab(entity);
+		slot.m_sDisplayName = ResolveEntityDisplayName(entity, slot.m_sItemPrefab);
+		slot.m_sCategory = category;
+		slot.m_sSlotKind = kind;
+		slot.m_iQuantity = 1;
+		return slot;
+	}
+
+	protected int FindInventoryStoragesWithSlots(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		if (!entity)
+			return 0;
+
+		array<Managed> components = {};
+		int count = entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!storage || storage.GetSlotsCount() <= 0)
+				continue;
+
+			outStorages.Insert(storage);
+		}
+
+		return outStorages.Count();
+	}
+
+	protected bool IsUsableDepositStorage(BaseInventoryStorageComponent storage)
+	{
+		if (!storage || storage.GetSlotsCount() <= 0)
+			return false;
+
+		if (SCR_SalineStorageComponent.Cast(storage) || SCR_TourniquetStorageComponent.Cast(storage))
+			return false;
+
+		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_DEPOSIT))
+			return true;
+
+		if (SCR_UniversalInventoryStorageComponent.Cast(storage))
+			return true;
+
+		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_EQUIPMENT_ATTACHMENT))
+			return true;
+
+		return false;
+	}
+
+	protected void GatherStorageContentEntities(BaseInventoryStorageComponent storage, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		if (!storage)
+			return;
+
+		array<InventoryItemComponent> ownedItems = {};
+		storage.GetOwnedItems(ownedItems);
+		foreach (InventoryItemComponent itemComponent : ownedItems)
+		{
+			if (!itemComponent)
+				continue;
+
+			InventoryStorageSlot parentSlot = itemComponent.GetParentSlot();
+			if (parentSlot)
+				AddStorageContentEntity(parentSlot.GetAttachedEntity(), outItems, visited);
+		}
+
+		int slotCount = storage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+			if (slot)
+				AddStorageContentEntity(slot.GetAttachedEntity(), outItems, visited);
+		}
+	}
+
+	protected void AddStorageContentEntity(IEntity item, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		if (!item || visited.Find(item) >= 0)
+			return;
+
+		visited.Insert(item);
+		outItems.Insert(item);
+	}
+
+	protected int CountStorageItems(BaseInventoryStorageComponent storage)
+	{
+		array<IEntity> contents = {};
+		array<IEntity> visited = {};
+		GatherStorageContentEntities(storage, contents, visited);
+		return contents.Count();
+	}
+
+	protected string ResolveEntityPrefab(IEntity entity)
+	{
+		if (!entity || !entity.GetPrefabData())
+			return "";
+
+		return entity.GetPrefabData().GetPrefabName();
+	}
+
+	protected string ResolveEntityDisplayName(IEntity entity, string prefab = "")
+	{
+		string displayName;
+		InventoryItemComponent itemComponent = InventoryItemComponent.Cast(entity.FindComponent(InventoryItemComponent));
+		if (itemComponent && itemComponent.GetUIInfo())
+			displayName = itemComponent.GetUIInfo().GetName();
+
+		return HST_DisplayNameService.ResolveItemDisplayName(null, prefab, displayName);
+	}
+
+	protected string ResolveCategoryFromEntity(IEntity entity, string prefab)
+	{
+		if (!entity)
+			return ResolveCategoryFromPrefab(prefab);
+
+		if (BaseLoadoutClothComponent.Cast(entity.FindComponent(BaseLoadoutClothComponent)))
+			return "clothing";
+		if (BaseWeaponComponent.Cast(entity.FindComponent(BaseWeaponComponent)))
+			return "weapon";
+		if (MagazineComponent.Cast(entity.FindComponent(MagazineComponent)) || BaseMagazineComponent.Cast(entity.FindComponent(BaseMagazineComponent)))
+			return "magazine";
+		if (AttachmentSlotComponent.Cast(entity.FindComponent(AttachmentSlotComponent)))
+			return "attachment";
+
+		return ResolveCategoryFromPrefab(prefab);
+	}
+
+	protected string ResolveLoadoutSlotCategory(LoadoutSlotInfo loadoutSlot)
+	{
+		if (!loadoutSlot)
+			return "clothing";
+
+		string source = loadoutSlot.GetSourceName();
+		string loweredSource = source;
+		loweredSource.ToLower();
+
+		LoadoutAreaType area = loadoutSlot.GetAreaType();
+		string areaName;
+		if (area)
+			areaName = area.Type().ToString();
+		areaName.ToLower();
+
+		if (areaName.Contains("head") || loweredSource.Contains("hat") || loweredSource.Contains("head"))
+			return "headgear";
+		if (areaName.Contains("jacket") || areaName.Contains("body") || loweredSource.Contains("jacket") || loweredSource.Contains("blouse") || loweredSource.Contains("uniform"))
+			return "clothing";
+		if (areaName.Contains("vest") || loweredSource.Contains("vest") || loweredSource.Contains("webbing"))
+			return "vest";
+		if (areaName.Contains("pants") || areaName.Contains("trouser") || loweredSource.Contains("pants") || loweredSource.Contains("trouser"))
+			return "pants";
+		if (areaName.Contains("boot") || areaName.Contains("feet") || loweredSource.Contains("boot"))
+			return "boots";
+		if (areaName.Contains("back") || loweredSource.Contains("back") || loweredSource.Contains("pack"))
+			return "backpack";
+		if (areaName.Contains("hand") || loweredSource.Contains("hand"))
+			return "handwear";
+
+		return "clothing";
+	}
+
+	protected string ResolveLoadoutSlotLabel(LoadoutSlotInfo loadoutSlot, string category)
+	{
+		if (category == "headgear")
+			return "Hat";
+		if (category == "clothing")
+			return "Jacket";
+		if (category == "vest")
+		{
+			if (IsLoadoutSlotWebbing(loadoutSlot))
+				return "Vest Webbing";
+
+			return "Armored Vest";
+		}
+		if (category == "pants")
+			return "Pants";
+		if (category == "boots")
+			return "Boots";
+		if (category == "backpack")
+			return "Backpack";
+		if (category == "handwear")
+			return "Handwear";
+
+		if (loadoutSlot && !loadoutSlot.GetSourceName().IsEmpty())
+			return loadoutSlot.GetSourceName();
+
+		return "Clothing";
+	}
+
+	protected bool IsLoadoutSlotWebbing(LoadoutSlotInfo loadoutSlot)
+	{
+		if (!loadoutSlot)
+			return false;
+
+		string source = loadoutSlot.GetSourceName();
+		source.ToLower();
+		if (source.Contains("webbing") || source.Contains("belt"))
+			return true;
+
+		LoadoutAreaType area = loadoutSlot.GetAreaType();
+		if (!area)
+			return false;
+
+		string areaName = area.Type().ToString();
+		areaName.ToLower();
+		return areaName.Contains("webbing") || areaName.Contains("belt");
+	}
+
+	protected string ResolveFocusForCategory(string category)
+	{
+		if (category == "headgear")
+			return "head";
+		if (category == "backpack")
+			return "back";
+		if (category == "boots")
+			return "feet";
+		if (category == "weapon" || category == "sidearm" || category == "attachment")
+			return "weapon";
+		if (category == "magazine")
+			return "ammo";
+
+		return "torso";
+	}
+
+	protected string ResolveAttachmentSlotKeyFromSlot(InventoryStorageSlot slot, AttachmentSlotComponent attachmentSlot)
+	{
+		string key;
+		if (slot)
+			key = slot.GetSourceName();
+		if (key.IsEmpty() && attachmentSlot && attachmentSlot.GetAttachmentSlotType())
+			key = string.Format("%1", attachmentSlot.GetAttachmentSlotType());
+		key.ToLower();
+
+		if (key.Contains("optic") || key.Contains("scope") || key.Contains("sight"))
+			return "optic";
+		if (key.Contains("muzzle") || key.Contains("suppressor") || key.Contains("flash"))
+			return "muzzle";
+		if (key.Contains("under") || key.Contains("grip") || key.Contains("bipod"))
+			return "underbarrel";
+		if (key.Contains("bayonet"))
+			return "bayonet";
+		if (key.Contains("handguard"))
+			return "handguard";
+		if (key.Contains("ammo") || key.Contains("magazine"))
+			return "magazine";
+
+		return "attachment";
+	}
+
+	protected string ResolveAttachmentSlotLabel(string slotKey, string fallback)
+	{
+		if (slotKey == "optic")
+			return "Optics";
+		if (slotKey == "muzzle")
+			return "Muzzle";
+		if (slotKey == "underbarrel")
+			return "Handguard";
+		if (slotKey == "bayonet")
+			return "Bayonet";
+		if (slotKey == "magazine")
+			return "Ammo";
+		if (!fallback.IsEmpty())
+			return fallback;
+
+		return "Attachment";
+	}
+
+	protected bool ReserveArsenalItemForEditor(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, string prefab, int count, out string failure)
+	{
+		failure = "";
+		if (!state || !arsenal || prefab.IsEmpty() || count <= 0)
+		{
+			failure = "arsenal reserve context missing";
+			return false;
+		}
+
+		HST_ArsenalItemState item = state.FindArsenalItem(prefab);
+		if (!IsArsenalItemAvailable(item))
+		{
+			failure = "item is not available in the HST arsenal";
+			return false;
+		}
+
+		string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+		string displayName = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
+		if (!item.m_bUnlocked && !arsenal.WithdrawItem(state, prefab, count))
+		{
+			failure = string.Format("%1 unavailable; only %2 remain", displayName, item.m_iCount);
+			return false;
+		}
+
+		SetIssuedItem(state, identityId, prefab, displayName, category, CountIssuedItem(state, identityId, prefab) + count, item.m_bUnlocked);
+		return true;
+	}
+
+	protected void RefundReservedItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, string prefab, int count)
+	{
+		if (!state || !arsenal || identityId.IsEmpty() || prefab.IsEmpty() || count <= 0)
+			return;
+
+		HST_IssuedLoadoutItemState issuedItem = state.FindIssuedLoadoutItem(identityId, prefab);
+		if (!issuedItem)
+			return;
+
+		int refundCount = Math.Min(count, issuedItem.m_iCount);
+		issuedItem.m_iCount -= refundCount;
+		if (!issuedItem.m_bInfinite && refundCount > 0)
+			arsenal.DepositItem(state, null, issuedItem.m_sItemPrefab, refundCount, issuedItem.m_sCategory, issuedItem.m_sDisplayName);
+
+		if (issuedItem.m_iCount <= 0)
+			RemoveIssuedItemState(state, issuedItem);
+	}
+
+	void CompleteInsertTransaction(HST_LoadoutEditorInsertCallback callback, bool success)
+	{
+		if (!callback)
+			return;
+
+		if (success)
+		{
+			if (callback.m_bAccountRemovedOnComplete)
+				ApplyRemovedEntityLedger(callback.m_State, callback.m_Arsenal, callback.m_sIdentityId, callback.m_aRemovedPrefabs, callback.m_aRemovedCategories, callback.m_aRemovedDisplayNames);
+			return;
+		}
+
+		if (callback.m_TemporaryEntity)
+			SCR_EntityHelper.DeleteEntityAndChildren(callback.m_TemporaryEntity);
+
+		if (callback.m_bRefundReservedOnFailure)
+			RefundReservedItem(callback.m_State, callback.m_Arsenal, callback.m_sIdentityId, callback.m_sReservedPrefab, 1);
+
+		if (callback.m_bAccountRemovedOnFailure)
+		{
+			ApplyRemovedEntityLedger(callback.m_State, callback.m_Arsenal, callback.m_sIdentityId, callback.m_aRemovedPrefabs, callback.m_aRemovedCategories, callback.m_aRemovedDisplayNames);
+			return;
+		}
+
+		if (callback.m_bRestoreRemovedOnFailure && !TryRestoreRemovedPrefab(callback))
+			ApplyRemovedEntityLedger(callback.m_State, callback.m_Arsenal, callback.m_sIdentityId, callback.m_aRemovedPrefabs, callback.m_aRemovedCategories, callback.m_aRemovedDisplayNames);
+	}
+
+	protected void ConfigureInsertCallback(HST_LoadoutEditorInsertCallback callback, HST_CampaignState state, HST_ArsenalService arsenal, string identityId, string reservedPrefab)
+	{
+		if (!callback)
+			return;
+
+		callback.m_Service = this;
+		callback.m_State = state;
+		callback.m_Arsenal = arsenal;
+		callback.m_sIdentityId = identityId;
+		callback.m_sReservedPrefab = reservedPrefab;
+		callback.m_bRefundReservedOnFailure = state != null && arsenal != null && !identityId.IsEmpty() && !reservedPrefab.IsEmpty();
+	}
+
+	protected bool TryRestoreRemovedPrefab(HST_LoadoutEditorInsertCallback callback)
+	{
+		if (!callback || !callback.m_Inventory || !callback.m_PlayerEntity || !callback.m_RestoreStorage || callback.m_sRestorePrefab.IsEmpty())
+			return false;
+
+		ResourceName resourceName = callback.m_sRestorePrefab;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded)
+			return false;
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = callback.m_PlayerEntity.GetOrigin();
+		IEntity itemEntity = GetGame().SpawnEntityPrefabEx(resourceName, false, GetGame().GetWorld(), params);
+		if (!itemEntity)
+			return false;
+
+		HST_LoadoutEditorInsertCallback restoreCallback = new HST_LoadoutEditorInsertCallback();
+		restoreCallback.m_Service = this;
+		restoreCallback.m_State = callback.m_State;
+		restoreCallback.m_Arsenal = callback.m_Arsenal;
+		restoreCallback.m_sIdentityId = callback.m_sIdentityId;
+		restoreCallback.m_bAccountRemovedOnFailure = true;
+		CopyStringArray(callback.m_aRemovedPrefabs, restoreCallback.m_aRemovedPrefabs);
+		CopyStringArray(callback.m_aRemovedCategories, restoreCallback.m_aRemovedCategories);
+		CopyStringArray(callback.m_aRemovedDisplayNames, restoreCallback.m_aRemovedDisplayNames);
+		restoreCallback.m_TemporaryEntity = itemEntity;
+		callback.m_Inventory.TryInsertItemInStorage(itemEntity, callback.m_RestoreStorage, callback.m_iRestoreSlotId, restoreCallback);
+		return true;
+	}
+
+	protected void CopyStringArray(array<string> source, notnull array<string> target)
+	{
+		if (!source)
+			return;
+
+		foreach (string value : source)
+			target.Insert(value);
+	}
+
+	protected void AccountRemovedLiveEntity(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, IEntity entity)
+	{
+		if (!state || !arsenal || !entity)
+			return;
+
+		array<string> prefabs = {};
+		array<string> categories = {};
+		array<string> displayNames = {};
+		BuildRemovedEntityLedger(entity, prefabs, categories, displayNames);
+		ApplyRemovedEntityLedger(state, arsenal, identityId, prefabs, categories, displayNames);
+	}
+
+	protected void BuildRemovedEntityLedger(IEntity entity, notnull array<string> prefabs, notnull array<string> categories, notnull array<string> displayNames)
+	{
+		array<IEntity> visited = {};
+		BuildRemovedEntityLedgerRecursive(entity, prefabs, categories, displayNames, visited, 0);
+	}
+
+	protected void BuildRemovedEntityLedgerRecursive(IEntity entity, notnull array<string> prefabs, notnull array<string> categories, notnull array<string> displayNames, notnull array<IEntity> visited, int depth)
+	{
+		if (!entity || depth > 8 || visited.Find(entity) >= 0)
+			return;
+
+		visited.Insert(entity);
+		BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(entity.FindComponent(BaseInventoryStorageComponent));
+		if (storage)
+		{
+			array<IEntity> contents = {};
+			array<IEntity> contentVisited = {};
+			GatherStorageContentEntities(storage, contents, contentVisited);
+			foreach (IEntity content : contents)
+				BuildRemovedEntityLedgerRecursive(content, prefabs, categories, displayNames, visited, depth + 1);
+		}
+
+		string prefab = ResolveEntityPrefab(entity);
+		if (prefab.IsEmpty())
+			return;
+
+		prefabs.Insert(prefab);
+		categories.Insert(ResolveEditorCategory(prefab, ResolveCategoryFromEntity(entity, prefab)));
+		displayNames.Insert(ResolveEntityDisplayName(entity, prefab));
+	}
+
+	protected void ApplyRemovedEntityLedger(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, array<string> prefabs, array<string> categories, array<string> displayNames)
+	{
+		if (!state || !arsenal || !prefabs)
+			return;
+
+		for (int i = 0; i < prefabs.Count(); i++)
+		{
+			string prefab = prefabs[i];
+			if (prefab.IsEmpty())
+				continue;
+
+			string category = "";
+			if (categories && i < categories.Count())
+				category = categories[i];
+
+			string displayName = "";
+			if (displayNames && i < displayNames.Count())
+				displayName = displayNames[i];
+
+			ApplyRemovedEntityLedgerItem(state, arsenal, identityId, prefab, category, displayName);
+		}
+	}
+
+	protected void ApplyRemovedEntityLedgerItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, string prefab, string category, string displayName)
+	{
+		if (!state || !arsenal || prefab.IsEmpty())
+			return;
+
+		HST_IssuedLoadoutItemState issuedItem = state.FindIssuedLoadoutItem(identityId, prefab);
+		if (issuedItem && issuedItem.m_iCount > 0)
+		{
+			RefundReservedItem(state, arsenal, identityId, prefab, 1);
+			return;
+		}
+
+		if (category.IsEmpty())
+			category = ResolveEditorCategory(prefab, "");
+		if (displayName.IsEmpty())
+			displayName = HST_DisplayNameService.ResolveItemDisplayName(null, prefab);
+		arsenal.DepositItem(state, null, prefab, 1, category, displayName);
+	}
+
+	protected bool ApplyLiveNodeItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string nodeId, string itemPrefab, out string failure)
+	{
+		failure = "";
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		SCR_InventoryStorageManagerComponent inventory = ResolveInventoryManager(playerEntity, failure);
+		if (!inventory)
+			return false;
+
+		if (nodeId.IndexOf(NODE_STORAGE_PREFIX) == 0 || nodeId.IndexOf(NODE_STORAGE_ITEM_PREFIX) == 0)
+			return AddItemToLiveStorage(inventory, playerEntity, nodeId, itemPrefab, failure, state, arsenal, identityId);
+
+		BaseInventoryStorageComponent targetStorage;
+		InventoryStorageSlot targetSlot;
+		IEntity attachedEntity;
+		if (!ResolveLiveSlotTarget(playerEntity, nodeId, targetStorage, targetSlot, attachedEntity, failure))
+			return false;
+
+		array<string> removedPrefabs = {};
+		array<string> removedCategories = {};
+		array<string> removedDisplayNames = {};
+		string restorePrefab;
+		if (attachedEntity)
+		{
+			restorePrefab = ResolveEntityPrefab(attachedEntity);
+			BuildRemovedEntityLedger(attachedEntity, removedPrefabs, removedCategories, removedDisplayNames);
+			if (!inventory.TryDeleteItem(attachedEntity))
+			{
+				failure = "failed to remove previous item";
+				return false;
+			}
+		}
+
+		return InsertPrefabIntoExactSlot(inventory, playerEntity, targetStorage, targetSlot, itemPrefab, failure, state, arsenal, identityId, removedPrefabs, removedCategories, removedDisplayNames, restorePrefab);
+	}
+
+	protected bool RemoveLiveNodeItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string nodeId, out string removedDisplay, out string failure)
+	{
+		removedDisplay = "";
+		failure = "";
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		SCR_InventoryStorageManagerComponent inventory = ResolveInventoryManager(playerEntity, failure);
+		if (!inventory)
+			return false;
+
+		IEntity targetEntity;
+		if (nodeId.IndexOf(NODE_STORAGE_ITEM_PREFIX) == 0)
+		{
+			if (!ResolveLiveStorageItemTarget(playerEntity, nodeId, targetEntity, failure))
+				return false;
+		}
+		else
+		{
+			BaseInventoryStorageComponent targetStorage;
+			InventoryStorageSlot targetSlot;
+			if (!ResolveLiveSlotTarget(playerEntity, nodeId, targetStorage, targetSlot, targetEntity, failure))
+				return false;
+		}
+
+		if (!targetEntity)
+		{
+			failure = "selected slot is already empty";
+			return false;
+		}
+
+		string prefab = ResolveEntityPrefab(targetEntity);
+		removedDisplay = ResolveEntityDisplayName(targetEntity, prefab);
+		array<string> removedPrefabs = {};
+		array<string> removedCategories = {};
+		array<string> removedDisplayNames = {};
+		BuildRemovedEntityLedger(targetEntity, removedPrefabs, removedCategories, removedDisplayNames);
+		if (!inventory.TryDeleteItem(targetEntity))
+		{
+			failure = "failed to delete selected item";
+			return false;
+		}
+		ApplyRemovedEntityLedger(state, arsenal, identityId, removedPrefabs, removedCategories, removedDisplayNames);
+
+		return true;
+	}
+
+	protected int ClearLiveIssuedItems(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, out string failure)
+	{
+		failure = "";
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		SCR_InventoryStorageManagerComponent inventory = ResolveInventoryManager(playerEntity, failure);
+		if (!inventory)
+			return 0;
+
+		array<IEntity> items = {};
+		inventory.GetItems(items, EStoragePurpose.PURPOSE_ANY);
+		int removed;
+		foreach (IEntity item : items)
+		{
+			string prefab = ResolveEntityPrefab(item);
+			if (prefab.IsEmpty() || CountIssuedItem(state, identityId, prefab) <= 0)
+				continue;
+
+			array<string> removedPrefabs = {};
+			array<string> removedCategories = {};
+			array<string> removedDisplayNames = {};
+			BuildRemovedEntityLedger(item, removedPrefabs, removedCategories, removedDisplayNames);
+			if (inventory.TryDeleteItem(item))
+			{
+				ApplyRemovedEntityLedger(state, arsenal, identityId, removedPrefabs, removedCategories, removedDisplayNames);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected bool AddItemToLiveStorage(SCR_InventoryStorageManagerComponent inventory, IEntity playerEntity, string nodeId, string itemPrefab, out string failure, HST_CampaignState state = null, HST_ArsenalService arsenal = null, string identityId = "")
+	{
+		failure = "";
+		BaseInventoryStorageComponent storage = ResolveLiveStorageTarget(playerEntity, nodeId, failure);
+		if (!storage)
+			return false;
+
+		ResourceName resourceName = itemPrefab;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded)
+		{
+			failure = "item resource failed to load";
+			return false;
+		}
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = playerEntity.GetOrigin();
+		IEntity itemEntity = GetGame().SpawnEntityPrefabEx(resourceName, false, GetGame().GetWorld(), params);
+		if (!itemEntity)
+		{
+			failure = "item entity failed to spawn";
+			return false;
+		}
+
+		BaseInventoryStorageComponent targetStorage = inventory.FindStorageForInsert(itemEntity, storage, EStoragePurpose.PURPOSE_ANY);
+		if (!targetStorage)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(itemEntity);
+			failure = "Failed to find suitable storage";
+			return false;
+		}
+
+		HST_LoadoutEditorInsertCallback callback = new HST_LoadoutEditorInsertCallback();
+		ConfigureInsertCallback(callback, state, arsenal, identityId, itemPrefab);
+		callback.m_TemporaryEntity = itemEntity;
+		inventory.TryInsertItemInStorage(itemEntity, targetStorage, -1, callback);
+		return true;
+	}
+
+	protected bool InsertPrefabIntoExactSlot(SCR_InventoryStorageManagerComponent inventory, IEntity playerEntity, BaseInventoryStorageComponent storage, InventoryStorageSlot slot, string itemPrefab, out string failure, HST_CampaignState state = null, HST_ArsenalService arsenal = null, string identityId = "", array<string> removedPrefabs = null, array<string> removedCategories = null, array<string> removedDisplayNames = null, string restorePrefab = "")
+	{
+		failure = "";
+		if (!inventory || !playerEntity || !storage || !slot)
+		{
+			failure = "target slot unavailable";
+			return false;
+		}
+
+		ResourceName resourceName = itemPrefab;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded)
+		{
+			failure = "item resource failed to load";
+			return false;
+		}
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = playerEntity.GetOrigin();
+		IEntity itemEntity = GetGame().SpawnEntityPrefabEx(resourceName, false, GetGame().GetWorld(), params);
+		if (!itemEntity)
+		{
+			failure = "item entity failed to spawn";
+			return false;
+		}
+
+		HST_LoadoutEditorInsertCallback callback = new HST_LoadoutEditorInsertCallback();
+		ConfigureInsertCallback(callback, state, arsenal, identityId, itemPrefab);
+		callback.m_Inventory = inventory;
+		callback.m_PlayerEntity = playerEntity;
+		callback.m_RestoreStorage = storage;
+		callback.m_iRestoreSlotId = slot.GetID();
+		callback.m_sRestorePrefab = restorePrefab;
+		callback.m_bAccountRemovedOnComplete = removedPrefabs != null && removedPrefabs.Count() > 0;
+		callback.m_bRestoreRemovedOnFailure = !restorePrefab.IsEmpty();
+		if (removedPrefabs)
+			CopyStringArray(removedPrefabs, callback.m_aRemovedPrefabs);
+		if (removedCategories)
+			CopyStringArray(removedCategories, callback.m_aRemovedCategories);
+		if (removedDisplayNames)
+			CopyStringArray(removedDisplayNames, callback.m_aRemovedDisplayNames);
+		callback.m_TemporaryEntity = itemEntity;
+		inventory.TryInsertItemInStorage(itemEntity, storage, slot.GetID(), callback);
+		return true;
+	}
+
+	protected SCR_InventoryStorageManagerComponent ResolveInventoryManager(IEntity playerEntity, out string failure)
+	{
+		failure = "";
+		if (!playerEntity)
+		{
+			failure = "no live player entity";
+			return null;
+		}
+
+		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(playerEntity.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (!inventory)
+			failure = "player inventory manager not available";
+
+		return inventory;
+	}
+
+	protected void RemoveIssuedItemState(HST_CampaignState state, HST_IssuedLoadoutItemState target)
+	{
+		if (!state || !target)
+			return;
+
+		for (int i = state.m_aIssuedLoadoutItems.Count() - 1; i >= 0; i--)
+		{
+			if (state.m_aIssuedLoadoutItems[i] == target)
+			{
+				state.m_aIssuedLoadoutItems.Remove(i);
+				return;
+			}
+		}
+	}
+
+	protected bool ResolveLiveSlotTarget(IEntity playerEntity, string nodeId, out BaseInventoryStorageComponent storage, out InventoryStorageSlot slot, out IEntity attachedEntity, out string failure)
+	{
+		storage = null;
+		slot = null;
+		attachedEntity = null;
+		failure = "";
+		if (!playerEntity || nodeId.IsEmpty())
+		{
+			failure = "missing live slot target";
+			return false;
+		}
+
+		if (nodeId.IndexOf(NODE_LOADOUT_PREFIX) == 0)
+		{
+			int slotIndex = ParseSingleNodeIndex(nodeId, NODE_LOADOUT_PREFIX);
+			SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(playerEntity.FindComponent(SCR_CharacterInventoryStorageComponent));
+			if (!characterStorage || slotIndex < 0 || slotIndex >= characterStorage.GetSlotsCount())
+			{
+				failure = "clothing slot not found";
+				return false;
+			}
+
+			storage = characterStorage;
+			slot = characterStorage.GetSlot(slotIndex);
+			attachedEntity = slot.GetAttachedEntity();
+			return true;
+		}
+
+		if (nodeId.IndexOf(NODE_WEAPON_PREFIX) == 0)
+		{
+			int storageIndex;
+			int slotIndex;
+			if (!ParseTwoNodeIndexes(nodeId, NODE_WEAPON_PREFIX, storageIndex, slotIndex))
+			{
+				failure = "weapon slot id malformed";
+				return false;
+			}
+
+			array<BaseInventoryStorageComponent> storages = {};
+			FindInventoryStoragesWithSlots(playerEntity, storages);
+			if (storageIndex < 0 || storageIndex >= storages.Count())
+			{
+				failure = "weapon storage not found";
+				return false;
+			}
+
+			storage = storages[storageIndex];
+			if (!storage || slotIndex < 0 || slotIndex >= storage.GetSlotsCount())
+			{
+				failure = "weapon slot not found";
+				return false;
+			}
+
+			slot = storage.GetSlot(slotIndex);
+			attachedEntity = slot.GetAttachedEntity();
+			return true;
+		}
+
+		if (nodeId.IndexOf(NODE_ATTACHMENT_PREFIX) == 0)
+		{
+			int weaponStorageIndex;
+			int weaponSlotIndex;
+			int attachmentSlotIndex;
+			if (!ParseThreeNodeIndexes(nodeId, NODE_ATTACHMENT_PREFIX, weaponStorageIndex, weaponSlotIndex, attachmentSlotIndex))
+			{
+				failure = "attachment slot id malformed";
+				return false;
+			}
+
+			array<BaseInventoryStorageComponent> storages = {};
+			FindInventoryStoragesWithSlots(playerEntity, storages);
+			if (weaponStorageIndex < 0 || weaponStorageIndex >= storages.Count())
+			{
+				failure = "weapon storage not found";
+				return false;
+			}
+
+			BaseInventoryStorageComponent weaponStorage = storages[weaponStorageIndex];
+			if (!weaponStorage || weaponSlotIndex < 0 || weaponSlotIndex >= weaponStorage.GetSlotsCount())
+			{
+				failure = "weapon slot not found";
+				return false;
+			}
+
+			IEntity weaponEntity = weaponStorage.GetSlot(weaponSlotIndex).GetAttachedEntity();
+			if (!weaponEntity)
+			{
+				failure = "weapon slot is empty";
+				return false;
+			}
+
+			SCR_WeaponAttachmentsStorageComponent attachmentStorage = SCR_WeaponAttachmentsStorageComponent.Cast(weaponEntity.FindComponent(SCR_WeaponAttachmentsStorageComponent));
+			if (!attachmentStorage || attachmentSlotIndex < 0 || attachmentSlotIndex >= attachmentStorage.GetSlotsCount())
+			{
+				failure = "attachment storage not found";
+				return false;
+			}
+
+			storage = attachmentStorage;
+			slot = attachmentStorage.GetSlot(attachmentSlotIndex);
+			attachedEntity = slot.GetAttachedEntity();
+			return true;
+		}
+
+		failure = "unknown node target";
+		return false;
+	}
+
+	protected BaseInventoryStorageComponent ResolveLiveStorageTarget(IEntity playerEntity, string nodeId, out string failure)
+	{
+		failure = "";
+		if (!playerEntity || nodeId.IsEmpty())
+		{
+			failure = "missing storage target";
+			return null;
+		}
+
+		int containerSlotIndex = -1;
+		if (nodeId.IndexOf(NODE_STORAGE_ITEM_PREFIX) == 0)
+			containerSlotIndex = ParseSingleNodeIndex(nodeId, NODE_STORAGE_ITEM_PREFIX);
+		else if (nodeId.IndexOf(NODE_STORAGE_PREFIX) == 0)
+			containerSlotIndex = ParseSingleNodeIndex(nodeId, NODE_STORAGE_PREFIX);
+
+		if (containerSlotIndex < 0)
+		{
+			failure = "storage target id malformed";
+			return null;
+		}
+
+		SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(playerEntity.FindComponent(SCR_CharacterInventoryStorageComponent));
+		if (!characterStorage || containerSlotIndex >= characterStorage.GetSlotsCount())
+		{
+			failure = "storage container slot not found";
+			return null;
+		}
+
+		IEntity containerEntity = characterStorage.GetSlot(containerSlotIndex).GetAttachedEntity();
+		if (!containerEntity)
+		{
+			failure = "selected storage container is empty";
+			return null;
+		}
+
+		BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(containerEntity.FindComponent(BaseInventoryStorageComponent));
+		if (!IsUsableDepositStorage(storage))
+		{
+			failure = "selected item has no usable storage";
+			return null;
+		}
+
+		return storage;
+	}
+
+	protected bool ResolveLiveStorageItemTarget(IEntity playerEntity, string nodeId, out IEntity targetEntity, out string failure)
+	{
+		targetEntity = null;
+		failure = "";
+		int containerSlotIndex;
+		int itemIndex;
+		if (!ParseTwoNodeIndexes(nodeId, NODE_STORAGE_ITEM_PREFIX, containerSlotIndex, itemIndex))
+		{
+			failure = "storage item id malformed";
+			return false;
+		}
+
+		BaseInventoryStorageComponent storage = ResolveLiveStorageTarget(playerEntity, NODE_STORAGE_PREFIX + string.Format("%1", containerSlotIndex), failure);
+		if (!storage)
+			return false;
+
+		array<IEntity> contents = {};
+		array<IEntity> visited = {};
+		GatherStorageContentEntities(storage, contents, visited);
+		if (itemIndex < 0 || itemIndex >= contents.Count())
+		{
+			failure = "stored item not found";
+			return false;
+		}
+
+		targetEntity = contents[itemIndex];
+		return targetEntity != null;
+	}
+
+	protected bool IsLiveCandidateCompatible(HST_CampaignState state, int playerId, HST_LoadoutNodeState node, string prefab, string category, out bool ammoMatch)
+	{
+		ammoMatch = false;
+		if (!node || prefab.IsEmpty())
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+			return false;
+
+		IEntity temp = SpawnTemporaryItem(prefab, playerEntity.GetOrigin());
+		if (!temp)
+			return false;
+
+		bool compatible = false;
+		if (node.m_sKind == "slot")
+			compatible = IsCandidateCompatibleWithLoadoutSlot(playerEntity, node.m_sNodeId, temp);
+		else if (node.m_sKind == "weapon_slot")
+			compatible = IsCandidateCompatibleWithWeaponSlot(playerEntity, node, temp, prefab);
+		else if (node.m_sKind == "attachment")
+			compatible = IsCandidateCompatibleWithAttachmentSlot(playerEntity, node.m_sNodeId, temp);
+		else if (node.m_sKind == "storage" || node.m_sKind == "storage_item")
+			compatible = IsCandidateCompatibleWithStorage(playerEntity, node.m_sNodeId, temp);
+
+		if (compatible && category == "magazine")
+			ammoMatch = IsMagazineCompatibleWithEquippedWeapons(playerEntity, temp);
+
+		SCR_EntityHelper.DeleteEntityAndChildren(temp);
+		return compatible;
+	}
+
+	protected bool IsCandidateCompatibleWithLoadoutSlot(IEntity playerEntity, string nodeId, IEntity temp)
+	{
+		BaseLoadoutClothComponent cloth = BaseLoadoutClothComponent.Cast(temp.FindComponent(BaseLoadoutClothComponent));
+		if (!cloth || !cloth.GetAreaType())
+			return false;
+
+		BaseInventoryStorageComponent storage;
+		InventoryStorageSlot slot;
+		IEntity attached;
+		string failure;
+		if (!ResolveLiveSlotTarget(playerEntity, nodeId, storage, slot, attached, failure))
+			return false;
+
+		LoadoutSlotInfo loadoutSlot = LoadoutSlotInfo.Cast(slot);
+		if (!loadoutSlot || !loadoutSlot.GetAreaType())
+			return false;
+
+		return loadoutSlot.GetAreaType().Type().ToString() == cloth.GetAreaType().Type().ToString();
+	}
+
+	protected bool IsCandidateCompatibleWithWeaponSlot(IEntity playerEntity, HST_LoadoutNodeState node, IEntity temp, string prefab)
+	{
+		BaseWeaponComponent weapon = BaseWeaponComponent.Cast(temp.FindComponent(BaseWeaponComponent));
+		if (!weapon)
+			return false;
+
+		string weaponType = weapon.GetWeaponSlotType();
+		weaponType.ToLower();
+		if (node.m_sCategory == "sidearm")
+		{
+			if (weaponType != "secondary" && !IsSidearmPrefab(prefab))
+				return false;
+
+			return IsCandidateCompatibleWithExactSlot(playerEntity, node.m_sNodeId, temp);
+		}
+
+		if (weaponType == "secondary" || IsSidearmPrefab(prefab))
+			return false;
+
+		if (weaponType != "primary" && weaponType != "launcher" && !weaponType.IsEmpty())
+			return false;
+
+		return IsCandidateCompatibleWithExactSlot(playerEntity, node.m_sNodeId, temp);
+	}
+
+	protected bool IsCandidateCompatibleWithExactSlot(IEntity playerEntity, string nodeId, IEntity temp)
+	{
+		BaseInventoryStorageComponent storage;
+		InventoryStorageSlot slot;
+		IEntity attached;
+		string failure;
+		if (!ResolveLiveSlotTarget(playerEntity, nodeId, storage, slot, attached, failure))
+			return false;
+
+		if (!storage || !slot)
+			return false;
+
+		if (attached)
+			return storage.CanReplaceItem(temp, slot.GetID());
+
+		return storage.CanStoreItem(temp, slot.GetID());
+	}
+
+	protected bool IsCandidateCompatibleWithAttachmentSlot(IEntity playerEntity, string nodeId, IEntity temp)
+	{
+		BaseInventoryStorageComponent storage;
+		InventoryStorageSlot slot;
+		IEntity attached;
+		string failure;
+		if (!ResolveLiveSlotTarget(playerEntity, nodeId, storage, slot, attached, failure))
+			return false;
+
+		AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
+		return attachmentSlot && attachmentSlot.CanSetAttachment(temp);
+	}
+
+	protected bool IsCandidateCompatibleWithStorage(IEntity playerEntity, string nodeId, IEntity temp)
+	{
+		string failure;
+		BaseInventoryStorageComponent storage = ResolveLiveStorageTarget(playerEntity, nodeId, failure);
+		if (!storage)
+			return false;
+
+		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(playerEntity.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (!inventory)
+			return false;
+
+		BaseInventoryStorageComponent targetStorage = inventory.FindStorageForInsert(temp, storage, EStoragePurpose.PURPOSE_ANY);
+		return targetStorage != null;
+	}
+
+	protected bool IsMagazineCompatibleWithEquippedWeapons(IEntity playerEntity, IEntity candidate)
+	{
+		MagazineComponent magazine = MagazineComponent.Cast(candidate.FindComponent(MagazineComponent));
+		if (!magazine || !magazine.GetMagazineWell())
+			return false;
+
+		string candidateWell = magazine.GetMagazineWell().Type().ToString();
+		ChimeraCharacter character = ChimeraCharacter.Cast(playerEntity);
+		if (!character)
+			return false;
+
+		CharacterControllerComponent controller = character.GetCharacterController();
+		if (!controller)
+			return false;
+
+		BaseWeaponManagerComponent weaponManager = controller.GetWeaponManagerComponent();
+		if (!weaponManager)
+			return false;
+
+		array<IEntity> weapons = {};
+		weaponManager.GetWeaponsList(weapons);
+		foreach (IEntity weaponEntity : weapons)
+		{
+			BaseMuzzleComponent muzzle = BaseMuzzleComponent.Cast(weaponEntity.FindComponent(BaseMuzzleComponent));
+			if (!muzzle || !muzzle.GetMagazineWell())
+				continue;
+
+			if (muzzle.GetMagazineWell().Type().ToString() == candidateWell)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected IEntity SpawnTemporaryItem(string prefab, vector origin)
+	{
+		ResourceName resourceName = prefab;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded)
+			return null;
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = origin;
+		return GetGame().SpawnEntityPrefabEx(resourceName, false, GetGame().GetWorld(), params);
+	}
+
+	protected bool ParseTwoNodeIndexes(string nodeId, string prefix, out int first, out int second)
+	{
+		first = -1;
+		second = -1;
+		if (nodeId.IndexOf(prefix) != 0)
+			return false;
+
+		string rest = nodeId.Substring(prefix.Length(), nodeId.Length() - prefix.Length());
+		array<string> parts = {};
+		rest.Split("_", parts, false);
+		if (parts.Count() < 2)
+			return false;
+
+		first = parts[0].ToInt();
+		second = parts[1].ToInt();
+		return true;
+	}
+
+	protected bool ParseThreeNodeIndexes(string nodeId, string prefix, out int first, out int second, out int third)
+	{
+		first = -1;
+		second = -1;
+		third = -1;
+		if (nodeId.IndexOf(prefix) != 0)
+			return false;
+
+		string rest = nodeId.Substring(prefix.Length(), nodeId.Length() - prefix.Length());
+		array<string> parts = {};
+		rest.Split("_", parts, false);
+		if (parts.Count() < 3)
+			return false;
+
+		first = parts[0].ToInt();
+		second = parts[1].ToInt();
+		third = parts[2].ToInt();
+		return true;
+	}
+
+	protected int ParseSingleNodeIndex(string nodeId, string prefix)
+	{
+		if (nodeId.IndexOf(prefix) != 0)
+			return -1;
+
+		string rest = nodeId.Substring(prefix.Length(), nodeId.Length() - prefix.Length());
+		array<string> parts = {};
+		rest.Split("_", parts, false);
+		if (parts.Count() == 0)
+			return -1;
+
+		return parts[0].ToInt();
 	}
 
 	protected void EnsureDraftSlots(HST_CampaignState state, string identityId, HST_LoadoutEditorSessionState session)
@@ -573,6 +1925,9 @@ class HST_LoadoutEditorService
 		target.m_iQuantity = Math.Max(1, source.m_iQuantity);
 		target.m_sWeaponSlotId = source.m_sWeaponSlotId;
 		target.m_sAttachmentSlotId = source.m_sAttachmentSlotId;
+		target.m_sParentSlotId = source.m_sParentSlotId;
+		target.m_sStorageId = source.m_sStorageId;
+		target.m_sSlotKind = source.m_sSlotKind;
 		return target;
 	}
 
@@ -630,21 +1985,206 @@ class HST_LoadoutEditorService
 		return BuildSlotId(category, session.m_aDraftSlots.Count());
 	}
 
+	protected void EnsureFixedPersonalLoadoutSlots(HST_CampaignState state, string identityId)
+	{
+		if (!state || identityId.IsEmpty())
+			return;
+
+		for (int slotIndex = 0; slotIndex < PERSONAL_LOADOUT_SLOT_COUNT; slotIndex++)
+			FindOrCreateFixedLoadoutSlot(state, identityId, slotIndex);
+	}
+
+	protected HST_SavedLoadoutState FindOrCreateFixedLoadoutSlot(HST_CampaignState state, string identityId, int slotIndex)
+	{
+		string loadoutId = BuildFixedLoadoutId(slotIndex);
+		HST_SavedLoadoutState existing = state.FindSavedLoadout(identityId, loadoutId);
+		if (existing)
+		{
+			existing.m_iSlotIndex = slotIndex;
+			return existing;
+		}
+
+		HST_SavedLoadoutState loadout = new HST_SavedLoadoutState();
+		loadout.m_sOwnerIdentityId = identityId;
+		loadout.m_sLoadoutId = loadoutId;
+		loadout.m_iSlotIndex = slotIndex;
+		loadout.m_sDisplayName = string.Format("Slot %1 - Empty", slotIndex + 1);
+		state.m_aSavedLoadouts.Insert(loadout);
+		return loadout;
+	}
+
+	protected string BuildFixedLoadoutId(int slotIndex)
+	{
+		int resolvedIndex = slotIndex;
+		if (resolvedIndex < 0)
+			resolvedIndex = 0;
+		if (resolvedIndex >= PERSONAL_LOADOUT_SLOT_COUNT)
+			resolvedIndex = PERSONAL_LOADOUT_SLOT_COUNT - 1;
+
+		return "slot_" + string.Format("%1", resolvedIndex);
+	}
+
+	protected bool IsFixedLoadoutSlotEmpty(HST_SavedLoadoutState loadout)
+	{
+		if (!loadout)
+			return true;
+
+		return loadout.m_sSerializedLoadout.IsEmpty() && loadout.m_aSlots.Count() == 0;
+	}
+
+	protected void ClearFixedLoadoutSlot(HST_SavedLoadoutState loadout)
+	{
+		if (!loadout)
+			return;
+
+		int slotIndex = loadout.m_iSlotIndex;
+		if (slotIndex < 0)
+			slotIndex = ResolveFixedLoadoutIndex(loadout.m_sLoadoutId);
+
+		loadout.m_sSerializedLoadout = "";
+		loadout.m_sCharacterPrefab = "";
+		loadout.m_sClothingSummary = "";
+		loadout.m_sWeaponSummary = "";
+		loadout.m_sRequiredItemsSummary = "";
+		loadout.m_iUpdatedAtSecond = 0;
+		loadout.m_aSlots.Clear();
+		loadout.m_iSlotIndex = slotIndex;
+		loadout.m_sDisplayName = string.Format("Slot %1 - Empty", slotIndex + 1);
+	}
+
+	protected int ResolveFixedLoadoutIndex(string loadoutId)
+	{
+		if (loadoutId.IndexOf("slot_") != 0)
+			return -1;
+
+		string slotText = loadoutId.Substring(5, loadoutId.Length() - 5);
+		int slotIndex = slotText.ToInt();
+		if (slotIndex < 0)
+			return -1;
+		if (slotIndex >= PERSONAL_LOADOUT_SLOT_COUNT)
+			return -1;
+
+		return slotIndex;
+	}
+
+	protected int ResolveSaveSlotIndex(HST_CampaignState state, string identityId, string selectedLoadoutId)
+	{
+		int selectedIndex = ResolveFixedLoadoutIndex(selectedLoadoutId);
+		if (selectedIndex >= 0)
+			return selectedIndex;
+
+		for (int slotIndex = 0; slotIndex < PERSONAL_LOADOUT_SLOT_COUNT; slotIndex++)
+		{
+			HST_SavedLoadoutState loadout = state.FindSavedLoadout(identityId, BuildFixedLoadoutId(slotIndex));
+			if (IsFixedLoadoutSlotEmpty(loadout))
+				return slotIndex;
+		}
+
+		return 0;
+	}
+
+	protected int MigrateLegacyLoadoutsToFixedSlots(HST_CampaignState state, string identityId)
+	{
+		if (!state || identityId.IsEmpty())
+			return 0;
+
+		int migrated;
+		for (int existingIndex = 0; existingIndex < state.m_aSavedLoadouts.Count(); existingIndex++)
+		{
+			HST_SavedLoadoutState legacy = state.m_aSavedLoadouts[existingIndex];
+			if (!legacy || legacy.m_sOwnerIdentityId != identityId || ResolveFixedLoadoutIndex(legacy.m_sLoadoutId) >= 0)
+				continue;
+
+			int targetIndex = ResolveSaveSlotIndex(state, identityId, "");
+			HST_SavedLoadoutState target = FindOrCreateFixedLoadoutSlot(state, identityId, targetIndex);
+			target.m_sDisplayName = legacy.m_sDisplayName;
+			target.m_iUpdatedAtSecond = legacy.m_iUpdatedAtSecond;
+			target.m_aSlots.Clear();
+			foreach (HST_LoadoutSlotState legacySlot : legacy.m_aSlots)
+				target.m_aSlots.Insert(CopySlot(legacySlot));
+			BuildSavedLoadoutMetadata(target);
+			migrated++;
+		}
+
+		for (int removeIndex = state.m_aSavedLoadouts.Count() - 1; removeIndex >= 0; removeIndex--)
+		{
+			HST_SavedLoadoutState loadout = state.m_aSavedLoadouts[removeIndex];
+			if (loadout && loadout.m_sOwnerIdentityId == identityId && ResolveFixedLoadoutIndex(loadout.m_sLoadoutId) < 0)
+				state.m_aSavedLoadouts.Remove(removeIndex);
+		}
+
+		return migrated;
+	}
+
+	protected bool SerializeCharacterLoadout(IEntity characterEntity, out string serialized)
+	{
+		serialized = "";
+		if (!characterEntity)
+			return false;
+
+		SCR_JsonSaveContext saveContext = new SCR_JsonSaveContext();
+		if (!SCR_PlayerArsenalLoadout.ReadLoadoutString(characterEntity, saveContext))
+			return false;
+
+		serialized = saveContext.ExportToString();
+		return !serialized.IsEmpty();
+	}
+
+	protected bool ApplySerializedLoadoutToPlayerEntity(HST_SavedLoadoutState loadout, int playerId, out string failure)
+	{
+		failure = "";
+		if (!loadout || loadout.m_sSerializedLoadout.IsEmpty())
+		{
+			failure = "saved slot has no serialized loadout";
+			return false;
+		}
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		GameEntity gameEntity = GameEntity.Cast(playerEntity);
+		if (!gameEntity)
+		{
+			failure = "live player entity is not a game entity";
+			return false;
+		}
+
+		SCR_JsonLoadContext loadContext = new SCR_JsonLoadContext();
+		loadContext.ImportFromString(loadout.m_sSerializedLoadout);
+		SCR_PlayerArsenalLoadout.ApplyLoadoutString(gameEntity, loadContext);
+		return true;
+	}
+
+	protected void BuildSavedLoadoutMetadata(HST_SavedLoadoutState loadout)
+	{
+		if (!loadout)
+			return;
+
+		array<string> clothes = {};
+		array<string> weapons = {};
+		foreach (HST_LoadoutSlotState slot : loadout.m_aSlots)
+		{
+			if (!slot)
+				continue;
+
+			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+			if (category == "headgear" || category == "clothing" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear")
+				clothes.Insert(slot.m_sDisplayName);
+			else if (category == "weapon" || category == "sidearm" || category == "launcher")
+				weapons.Insert(slot.m_sDisplayName);
+		}
+
+		loadout.m_sClothingSummary = SCR_StringHelper.Join(" / ", clothes, false);
+		loadout.m_sWeaponSummary = SCR_StringHelper.Join(" / ", weapons, false);
+		loadout.m_sRequiredItemsSummary = string.Format("%1 item(s)", loadout.m_aSlots.Count());
+	}
+
 	protected HST_SavedLoadoutState SelectLoadoutForApply(HST_CampaignState state, string identityId, string loadoutId)
 	{
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
-		EnsureDraftSlots(state, identityId, session);
-		if (session.m_aDraftSlots.Count() > 0)
-		{
-			HST_SavedLoadoutState draft = new HST_SavedLoadoutState();
-			draft.m_sOwnerIdentityId = identityId;
-			draft.m_sLoadoutId = "current_draft";
-			draft.m_sDisplayName = "Current Draft";
-			draft.m_iUpdatedAtSecond = state.m_iElapsedSeconds;
-			foreach (HST_LoadoutSlotState slot : session.m_aDraftSlots)
-				draft.m_aSlots.Insert(CopySlot(slot));
-			return draft;
-		}
+		EnsureFixedPersonalLoadoutSlots(state, identityId);
+		if (!loadoutId.IsEmpty())
+			return SelectLoadout(state, identityId, loadoutId);
+		if (!session.m_sCurrentLoadoutId.IsEmpty())
+			return SelectLoadout(state, identityId, session.m_sCurrentLoadoutId);
 
 		return SelectLoadout(state, identityId, loadoutId);
 	}
@@ -674,30 +2214,36 @@ class HST_LoadoutEditorService
 
 	protected int GetEditorCategoryCount()
 	{
-		return 11;
+		return 14;
 	}
 
 	protected string GetEditorCategoryId(int index)
 	{
 		if (index == 0)
-			return "clothing";
-		if (index == 1)
 			return "headgear";
+		if (index == 1)
+			return "clothing";
 		if (index == 2)
 			return "vest";
 		if (index == 3)
-			return "backpack";
+			return "pants";
 		if (index == 4)
-			return "weapon";
+			return "boots";
 		if (index == 5)
-			return "launcher";
+			return "backpack";
 		if (index == 6)
-			return "magazine";
+			return "handwear";
 		if (index == 7)
-			return "explosive";
+			return "weapon";
 		if (index == 8)
-			return "attachment";
+			return "sidearm";
 		if (index == 9)
+			return "magazine";
+		if (index == 10)
+			return "explosive";
+		if (index == 11)
+			return "attachment";
+		if (index == 12)
 			return "medical";
 
 		return "utility";
@@ -710,13 +2256,19 @@ class HST_LoadoutEditorService
 		if (categoryId == "headgear")
 			return "Headgear";
 		if (categoryId == "vest")
-			return "Vest";
+			return "Vest Webbing";
+		if (categoryId == "pants")
+			return "Pants";
+		if (categoryId == "boots")
+			return "Boots";
 		if (categoryId == "backpack")
 			return "Backpack";
+		if (categoryId == "handwear")
+			return "Handwear";
 		if (categoryId == "weapon")
 			return "Weapons";
-		if (categoryId == "launcher")
-			return "Launchers";
+		if (categoryId == "sidearm")
+			return "Sidearms";
 		if (categoryId == "magazine")
 			return "Magazines";
 		if (categoryId == "explosive")
@@ -759,7 +2311,7 @@ class HST_LoadoutEditorService
 		return payload;
 	}
 
-	protected string BuildCandidatePayloadsForNode(HST_CampaignState state, HST_LoadoutNodeState node)
+	protected string BuildCandidatePayloadsForNode(HST_CampaignState state, string identityId, HST_LoadoutEditorSessionState session, HST_LoadoutNodeState node)
 	{
 		if (!state || !node)
 			return "";
@@ -771,7 +2323,8 @@ class HST_LoadoutEditorService
 				continue;
 
 			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
-			if (!IsCandidateCategoryForNode(node, category, item.m_sPrefab))
+			bool ammoMatch;
+			if (!IsLiveCandidateCompatible(state, session.m_iPlayerId, node, item.m_sPrefab, category, ammoMatch))
 				continue;
 
 			string display = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
@@ -781,6 +2334,7 @@ class HST_LoadoutEditorService
 				infinite = "INF";
 
 			payload = payload + string.Format("\nCANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9", node.m_sNodeId, item.m_sPrefab, SanitizePayloadField(display), SanitizePayloadField(shortDisplay), item.m_iCount, infinite, category, true, SanitizePayloadField(BuildCandidateIconHint(category, item.m_sPrefab)));
+			payload = payload + string.Format("|%1", ammoMatch);
 		}
 
 		return payload;
@@ -789,6 +2343,9 @@ class HST_LoadoutEditorService
 	protected void RefreshDraftNodes(HST_CampaignState state, HST_LoadoutEditorSessionState session)
 	{
 		if (!session)
+			return;
+
+		if (session.m_bLiveCharacterAvailable && session.m_aDraftNodes.Count() > 0)
 			return;
 
 		session.m_aDraftNodes.Clear();
@@ -1011,13 +2568,13 @@ class HST_LoadoutEditorService
 
 	protected string BuildCandidateIconHint(string category, string prefab)
 	{
-		if (category == "weapon")
+		if (category == "weapon" || category == "sidearm" || category == "launcher")
 			return "weapon";
 		if (category == "magazine")
 			return "ammo";
 		if (category == "attachment")
 			return "wrench";
-		if (category == "vest" || category == "backpack" || category == "clothing" || category == "headgear")
+		if (category == "vest" || category == "backpack" || category == "clothing" || category == "headgear" || category == "pants" || category == "boots" || category == "handwear")
 			return "clothing";
 		if (category == "explosive")
 			return "grenade";
@@ -1064,10 +2621,18 @@ class HST_LoadoutEditorService
 			return "Head";
 		if (categoryId == "vest")
 			return "Vest";
+		if (categoryId == "pants")
+			return "Pants";
+		if (categoryId == "boots")
+			return "Boots";
 		if (categoryId == "backpack")
 			return "Back";
+		if (categoryId == "handwear")
+			return "Handwear";
 		if (categoryId == "weapon")
 			return "Weapon";
+		if (categoryId == "sidearm")
+			return "Sidearm";
 		if (categoryId == "launcher")
 			return "Launcher";
 		if (categoryId == "magazine")
@@ -1084,7 +2649,7 @@ class HST_LoadoutEditorService
 
 	protected bool IsPreviewEligibleCategory(string categoryId)
 	{
-		return categoryId == "clothing" || categoryId == "headgear" || categoryId == "vest" || categoryId == "backpack" || categoryId == "weapon" || categoryId == "launcher" || categoryId == "attachment";
+		return categoryId == "clothing" || categoryId == "headgear" || categoryId == "vest" || categoryId == "pants" || categoryId == "boots" || categoryId == "backpack" || categoryId == "handwear" || categoryId == "weapon" || categoryId == "sidearm" || categoryId == "launcher" || categoryId == "attachment";
 	}
 
 	protected bool ParseSlotQuantityArgument(string argument, out string slotId, out int quantity)
@@ -1534,7 +3099,7 @@ class HST_LoadoutEditorService
 		return TryInsertItemIntoInventory(inventory, playerEntity, prefab, failure);
 	}
 
-	protected bool TryInsertItemIntoInventory(SCR_InventoryStorageManagerComponent inventory, IEntity ownerEntity, string prefab, out string failure)
+	protected bool TryInsertItemIntoInventory(SCR_InventoryStorageManagerComponent inventory, IEntity ownerEntity, string prefab, out string failure, HST_CampaignState state = null, HST_ArsenalService arsenal = null, string identityId = "")
 	{
 		failure = "";
 		if (!inventory || !ownerEntity || prefab.IsEmpty())
@@ -1570,6 +3135,7 @@ class HST_LoadoutEditorService
 		}
 
 		HST_LoadoutEditorInsertCallback callback = new HST_LoadoutEditorInsertCallback();
+		ConfigureInsertCallback(callback, state, arsenal, identityId, prefab);
 		callback.m_TemporaryEntity = itemEntity;
 		inventory.TryInsertItemInStorage(itemEntity, storage, -1, callback);
 		return true;
@@ -1739,8 +3305,12 @@ class HST_LoadoutEditorService
 		int clothing;
 		int headgear;
 		int vest;
+		int pants;
+		int boots;
 		int backpack;
+		int handwear;
 		int weapon;
+		int sidearm;
 		int magazine;
 		int explosive;
 		int attachment;
@@ -1758,10 +3328,18 @@ class HST_LoadoutEditorService
 				headgear++;
 			else if (category == "vest")
 				vest++;
+			else if (category == "pants")
+				pants++;
+			else if (category == "boots")
+				boots++;
 			else if (category == "backpack")
 				backpack++;
+			else if (category == "handwear")
+				handwear++;
 			else if (category == "weapon" || category == "launcher")
 				weapon++;
+			else if (category == "sidearm")
+				sidearm++;
 			else if (category == "magazine")
 				magazine++;
 			else if (category == "explosive")
@@ -1774,7 +3352,7 @@ class HST_LoadoutEditorService
 				utility++;
 		}
 
-		string firstHalf = string.Format("clothing %1 / head %2 / vest %3 / pack %4 / weapons %5", clothing, headgear, vest, backpack, weapon);
+		string firstHalf = string.Format("clothing %1 / head %2 / vest %3 / pants %4 / boots %5 / pack %6 / hands %7 / weapons %8 / sidearms %9", clothing, headgear, vest, pants, boots, backpack, handwear, weapon, sidearm);
 		string secondHalf = string.Format("mags %1 / explosives %2 / attachments %3 / medical %4 / utility %5", magazine, explosive, attachment, medical, utility);
 		return firstHalf + " / " + secondHalf;
 	}
@@ -1786,6 +3364,9 @@ class HST_LoadoutEditorService
 		{
 			if (sourceCategory == "launcher")
 				return "launcher";
+
+			if (sourceCategory == "weapon" && derivedCategory == "sidearm")
+				return "sidearm";
 
 			if (sourceCategory == "weapon" && (derivedCategory == "explosive" || derivedCategory == "magazine" || derivedCategory == "attachment" || derivedCategory == "medical" || derivedCategory == "utility"))
 				return derivedCategory;
@@ -1801,10 +3382,16 @@ class HST_LoadoutEditorService
 
 	protected string ResolveCategoryFromPrefab(string prefab)
 	{
-		if (prefab.Contains("Uniform") || prefab.Contains("Jacket") || prefab.Contains("Pants") || prefab.Contains("Shirt") || prefab.Contains("Clothes"))
-			return "clothing";
 		if (prefab.Contains("Helmet") || prefab.Contains("Hat") || prefab.Contains("Headgear") || prefab.Contains("Cap"))
 			return "headgear";
+		if (prefab.Contains("Pants") || prefab.Contains("Trouser"))
+			return "pants";
+		if (prefab.Contains("Boot"))
+			return "boots";
+		if (prefab.Contains("Glove") || prefab.Contains("Handwear"))
+			return "handwear";
+		if (prefab.Contains("Uniform") || prefab.Contains("Jacket") || prefab.Contains("Shirt") || prefab.Contains("Clothes") || prefab.Contains("Blouse"))
+			return "clothing";
 		if (prefab.Contains("Vest") || prefab.Contains("Carrier") || prefab.Contains("Webbing"))
 			return "vest";
 		if (prefab.Contains("Backpack") || prefab.Contains("Bag") || prefab.Contains("Pack_"))
@@ -1817,6 +3404,8 @@ class HST_LoadoutEditorService
 			return "explosive";
 		if (prefab.Contains("Bandage") || prefab.Contains("Morphine") || prefab.Contains("Tourniquet") || prefab.Contains("Medical") || prefab.Contains("Medkit"))
 			return "medical";
+		if (IsSidearmPrefab(prefab))
+			return "sidearm";
 		if (IsLauncherWeaponCandidate(prefab))
 			return "launcher";
 		if (IsPrimaryWeaponCandidate(prefab))
@@ -1833,7 +3422,15 @@ class HST_LoadoutEditorService
 		if (prefab.Contains("Launcher") || prefab.Contains("RPG") || prefab.Contains("M72") || prefab.Contains("LAW") || prefab.Contains("AT4"))
 			return false;
 
-		return prefab.Contains("/Weapons/") || prefab.Contains("Weapon") || prefab.Contains("Rifle") || prefab.Contains("Carbine") || prefab.Contains("Pistol") || prefab.Contains("MG_") || prefab.Contains("SMG") || prefab.Contains("M16") || prefab.Contains("M9");
+		return prefab.Contains("/Weapons/") || prefab.Contains("Weapon") || prefab.Contains("Rifle") || prefab.Contains("Carbine") || prefab.Contains("MG_") || prefab.Contains("SMG") || prefab.Contains("M16");
+	}
+
+	protected bool IsSidearmPrefab(string prefab)
+	{
+		if (prefab.IsEmpty() || IsAttachmentPrefab(prefab) || IsMagazinePrefab(prefab))
+			return false;
+
+		return prefab.Contains("Pistol") || prefab.Contains("Handgun") || prefab.Contains("M9") || prefab.Contains("PM_") || prefab.Contains("_PM");
 	}
 
 	protected bool IsLauncherWeaponCandidate(string prefab)
@@ -2067,6 +3664,13 @@ class HST_LoadoutEditorService
 		if (!state || identityId.IsEmpty())
 			return 0;
 
+		int loadedV2 = LoadPersonalLoadoutsFromJsonContext(state, identityId);
+		if (loadedV2 > 0)
+		{
+			EnsureFixedPersonalLoadoutSlots(state, identityId);
+			return loadedV2;
+		}
+
 		array<string> lines = ReadLines(BuildPersonalLoadoutPath(identityId));
 		if (lines.Count() == 0)
 			return 0;
@@ -2112,6 +3716,8 @@ class HST_LoadoutEditorService
 				currentLoadout.m_aSlots.Insert(slot);
 		}
 
+		MigrateLegacyLoadoutsToFixedSlots(state, identityId);
+		EnsureFixedPersonalLoadoutSlots(state, identityId);
 		return loaded;
 	}
 
@@ -2122,6 +3728,20 @@ class HST_LoadoutEditorService
 
 		FileIO.MakeDirectory("$profile:h-istasi");
 		FileIO.MakeDirectory(LOADOUT_DIRECTORY);
+		FileIO.MakeDirectory(LOADOUT_DIRECTORY_V2);
+
+		HST_PersonalLoadoutFileState fileState = new HST_PersonalLoadoutFileState();
+		fileState.m_sOwnerIdentityId = identityId;
+		for (int slotIndex = 0; slotIndex < PERSONAL_LOADOUT_SLOT_COUNT; slotIndex++)
+		{
+			HST_SavedLoadoutState loadout = state.FindSavedLoadout(identityId, BuildFixedLoadoutId(slotIndex));
+			if (loadout)
+				fileState.m_aLoadouts.Insert(loadout);
+		}
+
+		SCR_JsonSaveContext context = new SCR_JsonSaveContext();
+		if (context.WriteValue("", fileState) && context.SaveToFile(BuildPersonalLoadoutPathV2(identityId)))
+			return true;
 
 		array<string> lines = {};
 		lines.Insert("{");
@@ -2161,9 +3781,55 @@ class HST_LoadoutEditorService
 		return WriteLines(BuildPersonalLoadoutPath(identityId), lines);
 	}
 
+	protected int LoadPersonalLoadoutsFromJsonContext(HST_CampaignState state, string identityId)
+	{
+		string path = BuildPersonalLoadoutPathV2(identityId);
+		if (!FileIO.FileExists(path))
+			return 0;
+
+		SCR_JsonLoadContext context = new SCR_JsonLoadContext();
+		if (!context.LoadFromFile(path))
+			return 0;
+
+		HST_PersonalLoadoutFileState fileState = new HST_PersonalLoadoutFileState();
+		if (!context.ReadValue("", fileState))
+			return 0;
+
+		for (int existingIndex = state.m_aSavedLoadouts.Count() - 1; existingIndex >= 0; existingIndex--)
+		{
+			HST_SavedLoadoutState existingLoadout = state.m_aSavedLoadouts[existingIndex];
+			if (existingLoadout && existingLoadout.m_sOwnerIdentityId == identityId)
+				state.m_aSavedLoadouts.Remove(existingIndex);
+		}
+
+		int loaded;
+		foreach (HST_SavedLoadoutState loadout : fileState.m_aLoadouts)
+		{
+			if (!loadout)
+				continue;
+
+			loadout.m_sOwnerIdentityId = identityId;
+			if (loadout.m_iSlotIndex < 0)
+				loadout.m_iSlotIndex = ResolveFixedLoadoutIndex(loadout.m_sLoadoutId);
+			if (loadout.m_sLoadoutId.IsEmpty())
+				loadout.m_sLoadoutId = BuildFixedLoadoutId(loadout.m_iSlotIndex);
+			if (loadout.m_sDisplayName.IsEmpty())
+				loadout.m_sDisplayName = string.Format("Field Loadout %1", loadout.m_iSlotIndex + 1);
+			state.m_aSavedLoadouts.Insert(loadout);
+			loaded++;
+		}
+
+		return loaded;
+	}
+
 	protected string BuildPersonalLoadoutPath(string identityId)
 	{
 		return LOADOUT_DIRECTORY + "/" + SafeIdentityId(identityId) + ".json";
+	}
+
+	protected string BuildPersonalLoadoutPathV2(string identityId)
+	{
+		return LOADOUT_DIRECTORY_V2 + "/" + SafeIdentityId(identityId) + ".json";
 	}
 
 	protected string SafeIdentityId(string identityId)

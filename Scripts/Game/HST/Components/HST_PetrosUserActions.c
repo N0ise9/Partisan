@@ -66,7 +66,7 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 			return;
 		}
 
-		RunMenuCommand("arsenal", "loadout_editor_open", "", userEntity);
+		Print("h-istasi loadout editor | local editor component not ready", LogLevel.WARNING);
 	}
 
 	protected int ResolvePlayerId(IEntity userEntity)

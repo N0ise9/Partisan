@@ -223,7 +223,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_LoadoutEditor)
 			return "HST_LOADOUT_EDITOR|offline||false|0|0|0|0\nPREVIEW|false|0 0 0|0|server coordinator not ready\nEND";
 
-		string payload = m_LoadoutEditor.BuildEditorPayload(m_State, ResolveTrustedIdentityId(playerId));
+		string payload = m_LoadoutEditor.BuildEditorPayload(m_State, ResolveTrustedIdentityId(playerId), playerId);
 		if (payload.IsEmpty())
 			return "HST_LOADOUT_EDITOR|offline||false|0|0|0|0\nPREVIEW|false|0 0 0|0|editor payload unavailable\nEND";
 
@@ -285,7 +285,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return "h-istasi loadout editor | server required";
 
-		if (commandId == "loadout_editor_open")
+		if (commandId == "loadout_editor_open_hq_arsenal")
 			return RequestMemberOpenLoadoutEditor(playerId);
 
 		if (commandId == "loadout_editor_close")
@@ -432,8 +432,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_PlayerSpawn)
 			return;
 
+		string identityId = ResolveTrustedIdentityId(playerId);
+		HST_PlayerState playerBefore = m_State.FindPlayer(identityId);
+		int previousSpawnCount;
+		if (playerBefore)
+			previousSpawnCount = playerBefore.m_iSpawnCount;
+
 		if (m_PlayerSpawn.OnPlayerSpawned(m_State, m_Authorization, m_PlayerLifecycle, playerId, entity))
+		{
+			if (m_LoadoutEditor && previousSpawnCount > 0 && !identityId.IsEmpty())
+				m_LoadoutEditor.MarkIssuedLoadoutLostOnDeath(m_State, identityId);
 			MarkMajorCampaignChange();
+		}
 	}
 
 	void OnPlayerSpawnFailed(int playerId)
@@ -1030,7 +1040,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi loadout editor | membership required";
 
-		if (!m_LoadoutEditor)
+		if (!m_LoadoutEditor || !m_Arsenal)
 			return "h-istasi loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
@@ -1063,7 +1073,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
 			return BuildHQInteractionDenied("h-istasi loadout editor");
 
-		string result = m_LoadoutEditor.SaveCurrentDraft(m_State, ResolveTrustedIdentityId(playerId), loadoutName);
+		string result = m_LoadoutEditor.SaveCurrentDraft(m_State, ResolveTrustedIdentityId(playerId), loadoutName, playerId);
 		if (!result.Contains("failed"))
 			MarkMajorCampaignChange();
 		return result;
@@ -1097,7 +1107,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
 			return BuildHQInteractionDenied("h-istasi loadout editor");
 
-		return m_LoadoutEditor.AddDraftItem(m_State, ResolveTrustedIdentityId(playerId), itemPrefab);
+		string result = m_LoadoutEditor.AddDraftItem(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, itemPrefab);
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+		return result;
 	}
 
 	string RequestMemberRemoveLoadoutDraftSlot(int playerId, string slotId)
@@ -1105,13 +1118,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi loadout editor | membership required";
 
-		if (!m_LoadoutEditor)
+		if (!m_LoadoutEditor || !m_Arsenal)
 			return "h-istasi loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
 			return BuildHQInteractionDenied("h-istasi loadout editor");
 
-		return m_LoadoutEditor.RemoveDraftSlot(m_State, ResolveTrustedIdentityId(playerId), slotId);
+		string result = m_LoadoutEditor.RemoveDraftSlot(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, slotId);
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+		return result;
 	}
 
 	string RequestMemberSetLoadoutDraftSlotQuantity(int playerId, string argument)
@@ -1119,13 +1135,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi loadout editor | membership required";
 
-		if (!m_LoadoutEditor)
+		if (!m_LoadoutEditor || !m_Arsenal)
 			return "h-istasi loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
 			return BuildHQInteractionDenied("h-istasi loadout editor");
 
-		return m_LoadoutEditor.SetDraftSlotQuantity(m_State, ResolveTrustedIdentityId(playerId), argument);
+		string result = m_LoadoutEditor.SetDraftSlotQuantity(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, argument);
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+		return result;
 	}
 
 	string RequestMemberReplaceLoadoutDraftSlotItem(int playerId, string argument)
@@ -1133,13 +1152,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi loadout editor | membership required";
 
-		if (!m_LoadoutEditor)
+		if (!m_LoadoutEditor || !m_Arsenal)
 			return "h-istasi loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
 			return BuildHQInteractionDenied("h-istasi loadout editor");
 
-		return m_LoadoutEditor.ReplaceDraftSlotItem(m_State, ResolveTrustedIdentityId(playerId), argument);
+		string result = m_LoadoutEditor.ReplaceDraftSlotItem(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, argument);
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+		return result;
 	}
 
 	string RequestMemberSetLoadoutNodeItem(int playerId, string argument)
@@ -1147,13 +1169,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi loadout editor | membership required";
 
-		if (!m_LoadoutEditor)
+		if (!m_LoadoutEditor || !m_Arsenal)
 			return "h-istasi loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
 			return BuildHQInteractionDenied("h-istasi loadout editor");
 
-		return m_LoadoutEditor.SetNodeItem(m_State, ResolveTrustedIdentityId(playerId), argument);
+		string result = m_LoadoutEditor.SetNodeItem(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, argument);
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+		return result;
 	}
 
 	string RequestMemberRemoveLoadoutNodeItem(int playerId, string nodeId)
@@ -1161,13 +1186,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi loadout editor | membership required";
 
-		if (!m_LoadoutEditor)
+		if (!m_LoadoutEditor || !m_Arsenal)
 			return "h-istasi loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
 			return BuildHQInteractionDenied("h-istasi loadout editor");
 
-		return m_LoadoutEditor.RemoveNodeItem(m_State, ResolveTrustedIdentityId(playerId), nodeId);
+		string result = m_LoadoutEditor.RemoveNodeItem(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, nodeId);
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+		return result;
 	}
 
 	string RequestMemberClearLoadoutDraft(int playerId)
@@ -1175,13 +1203,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi loadout editor | membership required";
 
-		if (!m_LoadoutEditor)
+		if (!m_LoadoutEditor || !m_Arsenal)
 			return "h-istasi loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
 			return BuildHQInteractionDenied("h-istasi loadout editor");
 
-		return m_LoadoutEditor.ClearDraft(m_State, ResolveTrustedIdentityId(playerId));
+		string result = m_LoadoutEditor.ClearDraft(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId);
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+		return result;
 	}
 
 	string RequestMemberSelectSavedLoadout(int playerId, string loadoutId)

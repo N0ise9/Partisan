@@ -204,6 +204,9 @@ class HST_LoadoutSlotState
 	int m_iQuantity = 1;
 	string m_sWeaponSlotId;
 	string m_sAttachmentSlotId;
+	string m_sParentSlotId;
+	string m_sStorageId;
+	string m_sSlotKind;
 }
 
 [BaseContainerProps()]
@@ -218,13 +221,19 @@ class HST_LoadoutNodeState
 	string m_sDisplayName;
 	string m_sCategory;
 	string m_sFocus;
+	string m_sCompatibilityKey;
+	string m_sCountLabel;
 	int m_iQuantity = 1;
 	int m_iUsedCapacity;
 	int m_iTotalCapacity;
+	int m_iStorageIndex = -1;
+	int m_iSlotIndex = -1;
+	int m_iParentSlotIndex = -1;
 	bool m_bInfinite;
 	bool m_bCanOpen;
 	bool m_bCanRemove;
 	bool m_bCanDeposit;
+	bool m_bAmmoMatch;
 }
 
 [BaseContainerProps()]
@@ -233,7 +242,13 @@ class HST_SavedLoadoutState
 	string m_sOwnerIdentityId;
 	string m_sLoadoutId;
 	string m_sDisplayName;
+	string m_sCharacterPrefab;
+	string m_sSerializedLoadout;
+	string m_sClothingSummary;
+	string m_sWeaponSummary;
+	string m_sRequiredItemsSummary;
 	int m_iUpdatedAtSecond;
+	int m_iSlotIndex = -1;
 	ref array<ref HST_LoadoutSlotState> m_aSlots = {};
 }
 
@@ -264,6 +279,8 @@ class HST_LoadoutEditorSessionState
 	int m_iSavedLoadoutCount;
 	int m_iIssuedFiniteCount;
 	int m_iIssuedInfiniteCount;
+	int m_iPlayerId;
+	bool m_bLiveCharacterAvailable;
 	ref array<ref HST_LoadoutSlotState> m_aDraftSlots = {};
 	ref array<ref HST_LoadoutNodeState> m_aDraftNodes = {};
 }
