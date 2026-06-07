@@ -40,9 +40,13 @@ class HST_PlayerSpawnService
 	static const string PRIMARY_PLAYER_FACTION = "FIA";
 	static const string DEFAULT_PLAYER_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const string DEFAULT_SPAWNPOINT_PREFAB = "{72713ED566A531F3}PrefabsEditable/SpawnPoints/E_SpawnPoint_FIA.et";
+	static const float CONNECTED_PLAYER_SPAWN_GRACE_SECONDS = 1.5;
 	static const float PENDING_SPAWN_TIMEOUT_SECONDS = 12;
 	static const float DEAD_RESPAWN_DELAY_SECONDS = 3;
 
+	protected ref array<int> m_aConnectedPlayerIds = {};
+	protected ref array<float> m_aConnectedPlayerAges = {};
+	protected ref array<int> m_aConnectedPlayerGraceLogged = {};
 	protected ref array<int> m_aPendingSpawnPlayerIds = {};
 	protected ref array<float> m_aPendingSpawnAges = {};
 	protected ref array<string> m_aPendingSpawnPrefabs = {};
@@ -79,6 +83,8 @@ class HST_PlayerSpawnService
 
 	void Tick(float timeSlice)
 	{
+		UpdateConnectedPlayerAges(timeSlice);
+
 		for (int i = m_aPendingSpawnPlayerIds.Count() - 1; i >= 0; i--)
 		{
 			m_aPendingSpawnAges[i] = m_aPendingSpawnAges[i] + timeSlice;
@@ -133,6 +139,9 @@ class HST_PlayerSpawnService
 			if (playerEntity && !IsDeadRespawnReady(playerId))
 				continue;
 
+			if (!IsConnectedPlayerSpawnGraceElapsed(playerId, diagnostics))
+				continue;
+
 			if (RequestPlayerSpawn(state, authorization, lifecycle, playerId, diagnostics))
 				spawned++;
 		}
@@ -166,6 +175,9 @@ class HST_PlayerSpawnService
 
 			return false;
 		}
+
+		if (!IsConnectedPlayerSpawnGraceElapsed(playerId, diagnostics))
+			return false;
 
 		HST_PlayerState player = RegisterPlayerOnly(state, authorization, lifecycle, playerId);
 		if (!player)
@@ -245,6 +257,7 @@ class HST_PlayerSpawnService
 		ApplyFaction(entity, PRIMARY_PLAYER_FACTION);
 		ClearPendingSpawn(playerId);
 		ClearDeadRespawn(playerId);
+		ResetConnectedPlayerGraceLog(playerId);
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		Print(string.Format("h-istasi | FIA player %1 spawned through native respawn pipeline", playerId));
 		return true;
@@ -356,6 +369,75 @@ class HST_PlayerSpawnService
 	protected int FindPendingSpawnIndex(int playerId)
 	{
 		return m_aPendingSpawnPlayerIds.Find(playerId);
+	}
+
+	protected void UpdateConnectedPlayerAges(float timeSlice)
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			int index = EnsureConnectedPlayerTracked(playerId);
+			if (index >= 0)
+				m_aConnectedPlayerAges[index] = m_aConnectedPlayerAges[index] + timeSlice;
+		}
+
+		for (int i = m_aConnectedPlayerIds.Count() - 1; i >= 0; i--)
+		{
+			if (playerIds.Contains(m_aConnectedPlayerIds[i]))
+				continue;
+
+			int disconnectedPlayerId = m_aConnectedPlayerIds[i];
+			m_aConnectedPlayerIds.Remove(i);
+			m_aConnectedPlayerAges.Remove(i);
+			m_aConnectedPlayerGraceLogged.Remove(i);
+			ClearPendingSpawn(disconnectedPlayerId);
+			ClearDeadRespawn(disconnectedPlayerId);
+		}
+	}
+
+	protected int EnsureConnectedPlayerTracked(int playerId)
+	{
+		if (playerId <= 0)
+			return -1;
+
+		int index = m_aConnectedPlayerIds.Find(playerId);
+		if (index >= 0)
+			return index;
+
+		m_aConnectedPlayerIds.Insert(playerId);
+		m_aConnectedPlayerAges.Insert(0);
+		m_aConnectedPlayerGraceLogged.Insert(0);
+		return m_aConnectedPlayerIds.Count() - 1;
+	}
+
+	protected bool IsConnectedPlayerSpawnGraceElapsed(int playerId, bool diagnostics = false)
+	{
+		int index = EnsureConnectedPlayerTracked(playerId);
+		if (index < 0)
+			return false;
+
+		if (m_aConnectedPlayerAges[index] >= CONNECTED_PLAYER_SPAWN_GRACE_SECONDS)
+			return true;
+
+		if (diagnostics && m_aConnectedPlayerGraceLogged[index] == 0)
+		{
+			m_aConnectedPlayerGraceLogged[index] = 1;
+			Print(string.Format("h-istasi | delaying FIA spawn for player %1 until native player state settles", playerId));
+		}
+
+		return false;
+	}
+
+	protected void ResetConnectedPlayerGraceLog(int playerId)
+	{
+		int index = m_aConnectedPlayerIds.Find(playerId);
+		if (index >= 0)
+			m_aConnectedPlayerGraceLogged[index] = 0;
 	}
 
 	protected void SetPendingSpawn(int playerId, string prefab, vector position)
