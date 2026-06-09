@@ -39,8 +39,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName EDITOR_LAYOUT = "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout";
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const ResourceName PREVIEW_WORLD_PREFAB = "{71D2E9B5588949D8}Prefabs/HST/HST_LoadoutPreviewWorld.et";
+	static const string PREVIEW_MODE_CHARACTER = "character";
+	static const string PREVIEW_MODE_ENTITY = "entity";
 	static const string EDITOR_INPUT_CONTEXT = "InGameMenuContext";
 	static const string EDITOR_CURSOR_CONTEXT = "InventoryContext";
+	static const string NODE_LOADOUT_PREFIX = "live_loadout_";
+	static const string NODE_WEAPON_PREFIX = "live_weapon_";
+	static const string NODE_ATTACHMENT_PREFIX = "live_attach_";
+	static const string NODE_STORAGE_PREFIX = "live_storage_";
+	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
 	static const int CLOSE_WIDGET_ID = 9200;
 	static const int CANCEL_WIDGET_ID = 9201;
 	static const int APPLY_WIDGET_ID = 9202;
@@ -76,16 +83,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int SLOTS_PER_PAGE = 9;
 	static const int TEMPLATES_PER_PAGE = 6;
 	static const int PREVIEW_CAMERA = 0;
-	static const ResourceName ICON_CLOTHING = "{A9AFA05DD269660A}Assets/512/clothing_icon.edds";
-	static const ResourceName ICON_WEAPONS = "{4F051820B3912C59}Assets/512/weapons_icon.edds";
-	static const ResourceName ICON_ATTACHMENTS = "{E77BB529AFB78928}Assets/512/attachments_icon.edds";
-	static const ResourceName ICON_STORAGE = "{ED043AF0A83EC500}Assets/512/inventory_icon.edds";
-	static const ResourceName ICON_SAVE = "{FDD6657E1E611D2D}Assets/512/save_icon.edds";
-	static const ResourceName ICON_SETTINGS = "{B09A78C4D3DA8929}Assets/512/settings_icon.edds";
-	static const ResourceName ICON_AMMO = "{705E39A54B927E94}Assets/512/ammunition_icon.edds";
-	static const ResourceName ICON_EQUIPMENT = "{82311870FB87265B}Assets/512/equipment_icon.edds";
-	static const ResourceName ICON_THROWABLES = "{15364AA4BD9F047E}Assets/512/throwables_icon.edds";
-	static const ResourceName ICON_MEDICAL = "{5E7C2CD59EAB96ED}Assets/512/medical_icon.edds";
+	static const ResourceName HST_LOADOUT_ICON_IMAGESET = "{E8D9306763D6458D}Assets/512/hst_loadout_icons.imageset";
 
 	protected static HST_LoadoutEditorComponent s_LocalInstance;
 
@@ -178,7 +176,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected BaseWorld m_PreviewWorld;
 	protected IEntity m_PreviewStageEntity;
 	protected IEntity m_PreviewSourceCharacter;
+	protected IEntity m_PreviewEditedCharacter;
+	protected IEntity m_PreviewSourceEntity;
 	protected IEntity m_PreviewEntity;
+	protected string m_sPreviewSourceMode = PREVIEW_MODE_CHARACTER;
 	protected string m_sPreviewRenderKey;
 	protected vector m_vCameraTargetPosition = "4 1.4 4";
 	protected vector m_vCameraTargetLook = "0 1.2 0";
@@ -243,6 +244,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		HST_CommandMenuComponent commandMenu = HST_CommandMenuComponent.GetLocalInstance();
 		if (commandMenu)
 			commandMenu.CloseMenuFromExternal();
+
+		m_PreviewEditedCharacter = userEntity;
+		m_PreviewSourceEntity = userEntity;
+		m_sPreviewSourceMode = PREVIEW_MODE_CHARACTER;
+		m_sPreviewRenderKey = "";
+		m_bCameraInitialized = false;
+		TryUnequipHeldItem(userEntity);
 
 		m_bEditorOpen = true;
 		m_sEditorMode = "clothing";
@@ -595,7 +603,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (slotSelectIndex >= 0 && slotSelectIndex < m_aSlotIds.Count())
 		{
 			m_sSelectedSlotId = m_aSlotIds[slotSelectIndex];
-			m_sSelectedNodeId = "node_" + m_sSelectedSlotId;
+			if (FindStringIndex(m_aNodeIds, m_sSelectedSlotId) >= 0)
+				m_sSelectedNodeId = m_sSelectedSlotId;
+			else
+				m_sSelectedNodeId = "node_" + m_sSelectedSlotId;
 			m_bCandidateMode = true;
 			m_sSelectedCategory = m_aSlotCategories[slotSelectIndex];
 			m_sEditorMode = ResolveModeForCategory(m_sSelectedCategory);
@@ -841,7 +852,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 
 			CreateRectWidget(workspace, root, tabLeft, tabTop, tabWidth, 58, color, 0.98, MODE_WIDGET_ID_BASE + i);
-			if (!CreateIconWidget(workspace, root, ResolveIconTexture(modeId), tabLeft + 14, tabTop + 17, 24, 24, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
+			if (!CreateIconWidget(workspace, root, ResolveIconName(modeId), tabLeft + 14, tabTop + 17, 24, 24, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
 				CreateTextWidget(workspace, root, GetEditorModeIcon(modeId), tabLeft + 14, tabTop + 17, 24, 22, 18, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
 			if (modeId == m_sEditorMode)
 				CreateTextWidget(workspace, root, GetEditorModeLabel(modeId), tabLeft + 46, tabTop + 18, 62, 20, 12, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
@@ -1682,7 +1693,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			color = 0xFF6F5124;
 
 		CreateRectWidget(workspace, root, 112, top, 370, 56, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveNodeIconKey(nodeIndex)), 126, top + 11, 32, 32, userId, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveNodeIconKey(nodeIndex)), 126, top + 11, 32, 32, userId, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), 126, top + 10, 48, 34, 26, 0xFFE6E6E6, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeLabel(nodeIndex), 20), 184, top + 10, 180, 18, 14, 0xFFE2E6E8, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), 184, top + 28, 224, 18, 14, 0xFFD5D8D9, userId, false);
@@ -1700,7 +1711,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		int rowHeight = 46;
 		CreateRectWidget(workspace, root, left, top, width, rowHeight, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveNodeIconKey(nodeIndex)), left + 10, top + 8, 28, 28, userId, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveNodeIconKey(nodeIndex)), left + 10, top + 8, 28, 28, userId, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), left + 10, top + 6, 34, 30, 22, 0xFFE6E6E6, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeLabel(nodeIndex), 20), left + 54, top + 7, 170, 16, 12, 0xFFE2E6E8, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), left + 54, top + 24, 218, 16, 12, 0xFFD5D8D9, userId, false);
@@ -1711,7 +1722,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void RenderSelectedNodeHeader(WorkspaceWidget workspace, Widget root)
 	{
 		int nodeIndex = FindSelectedNodeIndex();
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveNodeIconKey(nodeIndex)), 122, 166, 34, 34, 0, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveNodeIconKey(nodeIndex)), 122, 166, 34, 34, 0, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), 122, 162, 48, 42, 28, 0xFFE6E6E6, 0, true);
 		CreateTextWidget(workspace, root, GetNodeLabel(nodeIndex), 184, 166, 220, 20, 15, 0xFFE2E6E8, 0, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), 184, 186, 250, 20, 15, 0xFFD5D8D9, 0, false);
@@ -1726,7 +1737,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		else if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = 0xFF3D3520;
 		CreateRectWidget(workspace, root, 112, top, 370, 50, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveCandidateIconKey(candidateIndex)), 126, top + 9, 30, 30, userId, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveCandidateIconKey(candidateIndex)), 126, top + 9, 30, 30, userId, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveCandidateIcon(candidateIndex), 126, top + 8, 46, 34, 24, 0xFFE6E6E6, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetCandidateShortDisplay(candidateIndex), 32), 184, top + 11, 232, 20, 14, 0xFFE2E6E8, userId, false);
 		CreateTextWidget(workspace, root, BuildCandidateCountLabel(candidateIndex), 424, top + 14, 42, 16, 10, 0xFFFFD166, userId, true);
@@ -1738,7 +1749,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = 0xFF3D3520;
 		CreateRectWidget(workspace, root, left, top, width, 48, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveCandidateIconKey(candidateIndex)), left + 10, top + 8, 30, 30, userId, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveCandidateIconKey(candidateIndex)), left + 10, top + 8, 30, 30, userId, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveCandidateIcon(candidateIndex), left + 10, top + 8, 36, 30, 22, 0xFFE6E6E6, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetCandidateShortDisplay(candidateIndex), 28), left + 52, top + 9, width - 104, 18, 12, 0xFFE2E6E8, userId, false);
 		CreateTextWidget(workspace, root, BuildCandidateCountLabel(candidateIndex), left + width - 44, top + 16, 34, 14, 10, 0xFFFFD166, userId, true);
@@ -2437,7 +2448,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				color = 0xFF6F5124;
 
 			CreateRectWidget(workspace, root, tabLeft, top, tabWidth, 32, color, 0.98, STORAGE_CATEGORY_WIDGET_ID_BASE + i);
-			CreateIconWidget(workspace, root, ResolveIconTexture(category), tabLeft + 8, top + 6, 20, 20, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
+			CreateIconWidget(workspace, root, ResolveIconName(category), tabLeft + 8, top + 6, 20, 20, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
 			CreateTextWidget(workspace, root, ShortenText(GetStorageBrowserCategoryLabel(category), 13), tabLeft + 34, top + 9, tabWidth - 38, 14, 10, 0xFFF5E8CE, STORAGE_CATEGORY_WIDGET_ID_BASE + i, category == m_sSelectedCategory);
 		}
 	}
@@ -2734,6 +2745,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		m_sPreviewRenderKey = renderKey;
+		DeletePreviewEntities();
+
+		IEntity previewSource;
+		string previewMode;
+		string previewLabel;
+		if (ResolvePreviewSource(previewSource, previewMode, previewLabel) && TryCreateLivePreviewEntity(previewSource, previewMode, previewLabel))
+			return;
+
+		RefreshFallbackPreviewMannequin();
+	}
+
+	protected void DeletePreviewEntities()
+	{
 		if (m_PreviewEntity)
 			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewEntity);
 
@@ -2742,6 +2766,57 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_PreviewEntity = null;
 		m_PreviewSourceCharacter = null;
+		m_PreviewSourceEntity = null;
+		m_bPreviewSpawned = false;
+		m_iPreviewItemCount = 0;
+	}
+
+	protected bool TryCreateLivePreviewEntity(IEntity previewSource, string previewMode, string previewLabel)
+	{
+		if (!previewSource)
+			return false;
+
+		InventoryItemComponent previewItem = InventoryItemComponent.Cast(previewSource.FindComponent(InventoryItemComponent));
+		if (!previewItem)
+		{
+			m_sPreviewStatus = "live preview source has no item component";
+			m_bPreviewSpawned = false;
+			return false;
+		}
+
+		m_PreviewEntity = previewItem.CreatePreviewEntity(m_PreviewWorld, PREVIEW_CAMERA);
+		if (!m_PreviewEntity)
+		{
+			m_sPreviewStatus = "live preview clone failed";
+			m_bPreviewSpawned = false;
+			return false;
+		}
+
+		m_PreviewSourceEntity = previewSource;
+		m_sPreviewSourceMode = previewMode;
+		m_PreviewEntity.SetOrigin(vector.Up);
+		ApplyPreviewEntityRotation();
+		m_PreviewEntity.Update();
+		SetPreviewEntityQualityRecursive(m_PreviewEntity);
+		m_bPreviewSpawned = true;
+		m_iPreviewItemCount = Math.Max(m_iDraftItemCount, m_aSlotPrefabs.Count());
+		if (previewLabel.IsEmpty())
+			previewLabel = ResolvePreviewEntityDisplayName(previewSource);
+		if (previewMode == PREVIEW_MODE_ENTITY)
+			m_sPreviewStatus = "preview " + ShortenText(previewLabel, 36);
+		else
+			m_sPreviewStatus = "preview live character";
+
+		UpdatePreviewCamera(true);
+		return true;
+	}
+
+	protected void RefreshFallbackPreviewMannequin()
+	{
+		if (!m_PreviewWorld)
+			return;
+
+		m_sPreviewSourceMode = PREVIEW_MODE_CHARACTER;
 		ResourceName previewPrefab = m_sPreviewPrefab;
 		if (previewPrefab.IsEmpty())
 			previewPrefab = DEFAULT_PREVIEW_PREFAB;
@@ -2856,6 +2931,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!entity)
 			return;
 
+		entity.SetVComponentFlags(VCFlags.NOFILTER & VCFlags.NOLIGHT);
 		entity.SetFixedLOD(0);
 		IEntity child = entity.GetChildren();
 		while (child)
@@ -2930,9 +3006,377 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return true;
 	}
 
+	protected bool ResolvePreviewSource(out IEntity previewSource, out string previewMode, out string previewLabel)
+	{
+		previewSource = null;
+		previewMode = PREVIEW_MODE_CHARACTER;
+		previewLabel = "character";
+
+		IEntity character = ResolvePreviewEditedCharacter();
+		if (!character)
+			return false;
+
+		string nodeId = m_sSelectedNodeId;
+		if ((nodeId.IsEmpty() || FindStringIndex(m_aNodeIds, nodeId) < 0) && !m_sSelectedSlotId.IsEmpty())
+			nodeId = m_sSelectedSlotId;
+
+		if (!nodeId.IsEmpty() && ResolvePreviewEntityForNode(character, nodeId, previewSource, previewMode))
+		{
+			previewLabel = ResolvePreviewLabel(nodeId, previewSource);
+			return true;
+		}
+
+		previewSource = character;
+		previewMode = PREVIEW_MODE_CHARACTER;
+		previewLabel = "character";
+		return true;
+	}
+
+	protected IEntity ResolvePreviewEditedCharacter()
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (playerManager)
+		{
+			IEntity controlledEntity = playerManager.GetPlayerControlledEntity(ResolveLocalPlayerId());
+			if (controlledEntity)
+			{
+				m_PreviewEditedCharacter = controlledEntity;
+				return controlledEntity;
+			}
+		}
+
+		return m_PreviewEditedCharacter;
+	}
+
+	protected bool ResolvePreviewEntityForNode(IEntity character, string nodeId, out IEntity previewSource, out string previewMode)
+	{
+		previewSource = null;
+		previewMode = PREVIEW_MODE_CHARACTER;
+		if (!character || nodeId.IsEmpty())
+			return false;
+
+		if (nodeId.IndexOf(NODE_LOADOUT_PREFIX) == 0)
+		{
+			previewSource = character;
+			previewMode = PREVIEW_MODE_CHARACTER;
+			return true;
+		}
+
+		if (nodeId.IndexOf(NODE_STORAGE_ITEM_PREFIX) == 0)
+		{
+			int containerSlotIndex;
+			int itemIndex;
+			if (!ParseTwoPreviewNodeIndexes(nodeId, NODE_STORAGE_ITEM_PREFIX, containerSlotIndex, itemIndex))
+				return false;
+
+			BaseInventoryStorageComponent storage = ResolvePreviewStorageTarget(character, containerSlotIndex);
+			if (!storage)
+				return false;
+
+			array<IEntity> contents = {};
+			array<IEntity> visited = {};
+			GatherPreviewStorageContentEntities(storage, contents, visited);
+			if (itemIndex < 0 || itemIndex >= contents.Count())
+				return false;
+
+			previewSource = contents[itemIndex];
+			previewMode = PREVIEW_MODE_ENTITY;
+			return previewSource != null;
+		}
+
+		if (nodeId.IndexOf(NODE_STORAGE_PREFIX) == 0)
+		{
+			int containerSlotIndex = ParseSinglePreviewNodeIndex(nodeId, NODE_STORAGE_PREFIX);
+			previewSource = ResolvePreviewStorageContainer(character, containerSlotIndex);
+			previewMode = PREVIEW_MODE_ENTITY;
+			return previewSource != null;
+		}
+
+		if (nodeId.IndexOf(NODE_WEAPON_PREFIX) == 0)
+		{
+			BaseInventoryStorageComponent weaponStorage;
+			InventoryStorageSlot weaponSlot;
+			if (!ResolvePreviewIndexedStorageSlot(character, nodeId, NODE_WEAPON_PREFIX, weaponStorage, weaponSlot))
+				return false;
+
+			previewSource = weaponSlot.GetAttachedEntity();
+			previewMode = PREVIEW_MODE_ENTITY;
+			return previewSource != null;
+		}
+
+		if (nodeId.IndexOf(NODE_ATTACHMENT_PREFIX) == 0)
+		{
+			int weaponStorageIndex;
+			int weaponSlotIndex;
+			int attachmentSlotIndex;
+			if (!ParseThreePreviewNodeIndexes(nodeId, NODE_ATTACHMENT_PREFIX, weaponStorageIndex, weaponSlotIndex, attachmentSlotIndex))
+				return false;
+
+			array<BaseInventoryStorageComponent> storages = {};
+			FindPreviewInventoryStoragesWithSlots(character, storages);
+			if (weaponStorageIndex < 0 || weaponStorageIndex >= storages.Count())
+				return false;
+
+			BaseInventoryStorageComponent weaponStorage = storages[weaponStorageIndex];
+			if (!weaponStorage || weaponSlotIndex < 0 || weaponSlotIndex >= weaponStorage.GetSlotsCount())
+				return false;
+
+			IEntity weaponEntity = weaponStorage.GetSlot(weaponSlotIndex).GetAttachedEntity();
+			if (!weaponEntity)
+				return false;
+
+			SCR_WeaponAttachmentsStorageComponent attachmentStorage = SCR_WeaponAttachmentsStorageComponent.Cast(weaponEntity.FindComponent(SCR_WeaponAttachmentsStorageComponent));
+			if (!attachmentStorage || attachmentSlotIndex < 0 || attachmentSlotIndex >= attachmentStorage.GetSlotsCount())
+				return false;
+
+			previewSource = weaponEntity;
+			previewMode = PREVIEW_MODE_ENTITY;
+			return previewSource != null;
+		}
+
+		return false;
+	}
+
+	protected bool ResolvePreviewIndexedStorageSlot(IEntity character, string nodeId, string prefix, out BaseInventoryStorageComponent storage, out InventoryStorageSlot slot)
+	{
+		storage = null;
+		slot = null;
+		int storageIndex;
+		int slotIndex;
+		if (!ParseTwoPreviewNodeIndexes(nodeId, prefix, storageIndex, slotIndex))
+			return false;
+
+		array<BaseInventoryStorageComponent> storages = {};
+		FindPreviewInventoryStoragesWithSlots(character, storages);
+		if (storageIndex < 0 || storageIndex >= storages.Count())
+			return false;
+
+		storage = storages[storageIndex];
+		if (!storage || slotIndex < 0 || slotIndex >= storage.GetSlotsCount())
+			return false;
+
+		slot = storage.GetSlot(slotIndex);
+		return slot != null;
+	}
+
+	protected IEntity ResolvePreviewStorageContainer(IEntity character, int containerSlotIndex)
+	{
+		if (!character || containerSlotIndex < 0)
+			return null;
+
+		SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(character.FindComponent(SCR_CharacterInventoryStorageComponent));
+		if (!characterStorage || containerSlotIndex >= characterStorage.GetSlotsCount())
+			return null;
+
+		InventoryStorageSlot slot = characterStorage.GetSlot(containerSlotIndex);
+		if (!slot)
+			return null;
+
+		return slot.GetAttachedEntity();
+	}
+
+	protected BaseInventoryStorageComponent ResolvePreviewStorageTarget(IEntity character, int containerSlotIndex)
+	{
+		IEntity container = ResolvePreviewStorageContainer(character, containerSlotIndex);
+		if (!container)
+			return null;
+
+		BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(container.FindComponent(BaseInventoryStorageComponent));
+		if (!IsUsablePreviewDepositStorage(storage))
+			return null;
+
+		return storage;
+	}
+
+	protected int FindPreviewInventoryStoragesWithSlots(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		if (!entity)
+			return 0;
+
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!storage || storage.GetSlotsCount() <= 0)
+				continue;
+
+			outStorages.Insert(storage);
+		}
+
+		return outStorages.Count();
+	}
+
+	protected bool IsUsablePreviewDepositStorage(BaseInventoryStorageComponent storage)
+	{
+		if (!storage || storage.GetSlotsCount() <= 0)
+			return false;
+
+		if (SCR_SalineStorageComponent.Cast(storage) || SCR_TourniquetStorageComponent.Cast(storage))
+			return false;
+
+		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_DEPOSIT))
+			return true;
+
+		if (SCR_UniversalInventoryStorageComponent.Cast(storage))
+			return true;
+
+		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_EQUIPMENT_ATTACHMENT))
+			return true;
+
+		return false;
+	}
+
+	protected void GatherPreviewStorageContentEntities(BaseInventoryStorageComponent storage, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		if (!storage)
+			return;
+
+		array<InventoryItemComponent> ownedItems = {};
+		storage.GetOwnedItems(ownedItems);
+		foreach (InventoryItemComponent itemComponent : ownedItems)
+		{
+			if (!itemComponent)
+				continue;
+
+			InventoryStorageSlot parentSlot = itemComponent.GetParentSlot();
+			if (parentSlot)
+				AddPreviewStorageContentEntity(parentSlot.GetAttachedEntity(), outItems, visited);
+		}
+
+		int slotCount = storage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+			if (slot)
+				AddPreviewStorageContentEntity(slot.GetAttachedEntity(), outItems, visited);
+		}
+	}
+
+	protected void AddPreviewStorageContentEntity(IEntity item, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		if (!item || visited.Find(item) >= 0)
+			return;
+
+		visited.Insert(item);
+		outItems.Insert(item);
+	}
+
+	protected string ResolvePreviewLabel(string nodeId, IEntity previewSource)
+	{
+		int nodeIndex = FindStringIndex(m_aNodeIds, nodeId);
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeDisplays.Count() && !m_aNodeDisplays[nodeIndex].IsEmpty())
+			return m_aNodeDisplays[nodeIndex];
+
+		int slotIndex = FindStringIndex(m_aSlotIds, nodeId);
+		if (slotIndex >= 0 && slotIndex < m_aSlotDisplays.Count() && !m_aSlotDisplays[slotIndex].IsEmpty())
+			return m_aSlotDisplays[slotIndex];
+
+		return ResolvePreviewEntityDisplayName(previewSource);
+	}
+
+	protected string ResolvePreviewEntityDisplayName(IEntity entity)
+	{
+		if (!entity)
+			return "entity";
+
+		string prefab = ResolvePreviewEntityPrefab(entity);
+		string displayName;
+		InventoryItemComponent itemComponent = InventoryItemComponent.Cast(entity.FindComponent(InventoryItemComponent));
+		if (itemComponent && itemComponent.GetUIInfo())
+			displayName = itemComponent.GetUIInfo().GetName();
+
+		displayName = HST_DisplayNameService.ResolveItemDisplayName(null, prefab, displayName);
+		if (displayName.IsEmpty())
+			return "entity";
+
+		return displayName;
+	}
+
+	protected string ResolvePreviewEntityPrefab(IEntity entity)
+	{
+		if (!entity || !entity.GetPrefabData())
+			return "";
+
+		return entity.GetPrefabData().GetPrefabName();
+	}
+
+	protected string BuildPreviewEntityKey(IEntity entity)
+	{
+		if (!entity)
+			return "none";
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(entity.FindComponent(BaseRplComponent));
+		if (rpl)
+			return string.Format("%1:%2", ResolvePreviewEntityPrefab(entity), rpl.Id());
+
+		return string.Format("%1:%2", ResolvePreviewEntityPrefab(entity), entity);
+	}
+
+	protected bool ParseTwoPreviewNodeIndexes(string nodeId, string prefix, out int first, out int second)
+	{
+		first = -1;
+		second = -1;
+		if (nodeId.IndexOf(prefix) != 0)
+			return false;
+
+		string rest = nodeId.Substring(prefix.Length(), nodeId.Length() - prefix.Length());
+		array<string> parts = {};
+		rest.Split("_", parts, false);
+		if (parts.Count() < 2)
+			return false;
+
+		first = parts[0].ToInt();
+		second = parts[1].ToInt();
+		return true;
+	}
+
+	protected bool ParseThreePreviewNodeIndexes(string nodeId, string prefix, out int first, out int second, out int third)
+	{
+		first = -1;
+		second = -1;
+		third = -1;
+		if (nodeId.IndexOf(prefix) != 0)
+			return false;
+
+		string rest = nodeId.Substring(prefix.Length(), nodeId.Length() - prefix.Length());
+		array<string> parts = {};
+		rest.Split("_", parts, false);
+		if (parts.Count() < 3)
+			return false;
+
+		first = parts[0].ToInt();
+		second = parts[1].ToInt();
+		third = parts[2].ToInt();
+		return true;
+	}
+
+	protected int ParseSinglePreviewNodeIndex(string nodeId, string prefix)
+	{
+		if (nodeId.IndexOf(prefix) != 0)
+			return -1;
+
+		string rest = nodeId.Substring(prefix.Length(), nodeId.Length() - prefix.Length());
+		array<string> parts = {};
+		rest.Split("_", parts, false);
+		if (parts.Count() == 0)
+			return -1;
+
+		return parts[0].ToInt();
+	}
+
 	protected string BuildPreviewRenderKey()
 	{
+		IEntity previewSource;
+		string previewMode;
+		string previewLabel;
+		ResolvePreviewSource(previewSource, previewMode, previewLabel);
+
 		string key = m_sPreviewPrefab;
+		key = key + "|source:" + BuildPreviewEntityKey(previewSource);
+		key = key + "|mode:" + previewMode;
+		key = key + "|node:" + m_sSelectedNodeId;
+		key = key + "|slot:" + m_sSelectedSlotId;
 		for (int i = 0; i < m_aSlotPrefabs.Count(); i++)
 			key = key + "|" + m_aSlotPrefabs[i] + ":" + m_aSlotQuantities[i];
 		for (int nodeIndex = 0; nodeIndex < m_aNodePrefabs.Count(); nodeIndex++)
@@ -3050,6 +3494,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			cameraOffset[2] = distance * 0.86;
 		}
 
+		if (m_sPreviewSourceMode == PREVIEW_MODE_ENTITY)
+		{
+			look = boundsCenter;
+			if (look[1] < 0.45)
+				look[1] = 0.45;
+
+			distance = Math.Clamp(boundsSize * 1.35, 0.85, 2.6);
+			cameraOffset[0] = distance * 0.7;
+			cameraOffset[1] = distance * 0.12;
+			cameraOffset[2] = distance * 0.88;
+		}
+
 		vector camera = look + cameraOffset;
 		m_vCameraTargetPosition = camera;
 		m_vCameraTargetLook = look;
@@ -3082,33 +3538,33 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_PreviewWorld.SetCameraEx(PREVIEW_CAMERA, mat);
 	}
 
-	protected ResourceName ResolveIconTexture(string key)
+	protected string ResolveIconName(string key)
 	{
 		if (key == "clothing" || key == "headgear" || key == "vest" || key == "pants" || key == "boots" || key == "backpack" || key == "handwear")
-			return ICON_CLOTHING;
+			return "CLOTHING";
 		if (key == "weapons" || key == "weapon" || key == "launcher" || key == "sidearm")
-			return ICON_WEAPONS;
+			return "WEAPONS";
 		if (key == "attachments" || key == "attachment" || key == "wrench")
-			return ICON_ATTACHMENTS;
+			return "ATTACHMENTS";
 		if (key == "storage" || key == "inventory")
-			return ICON_STORAGE;
+			return "INVENTORY";
 		if (key == "save")
-			return ICON_SAVE;
+			return "SAVE";
 		if (key == "settings")
-			return ICON_SETTINGS;
+			return "SETTINGS";
 		if (key == "magazine" || key == "ammo")
-			return ICON_AMMO;
-		if (key == "explosive" || key == "grenade")
-			return ICON_THROWABLES;
+			return "AMMUNITION";
+		if (key == "explosive" || key == "grenade" || key == "throwable")
+			return "THROWABLES";
 		if (key == "medical")
-			return ICON_MEDICAL;
+			return "MEDICAL";
 
-		return ICON_EQUIPMENT;
+		return "EQUIPMENT";
 	}
 
-	protected bool CreateIconWidget(WorkspaceWidget workspace, Widget parent, ResourceName texture, int left, int top, int width, int height, int userId, int color)
+	protected bool CreateIconWidget(WorkspaceWidget workspace, Widget parent, string iconName, int left, int top, int width, int height, int userId, int color)
 	{
-		if (!workspace || !parent || texture.IsEmpty())
+		if (!workspace || !parent || iconName.IsEmpty())
 			return false;
 
 		Widget widget = workspace.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE, null, 3710, parent);
@@ -3118,7 +3574,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, width, height);
-		imageWidget.LoadImageTexture(0, texture);
+		imageWidget.LoadImageFromSet(0, HST_LOADOUT_ICON_IMAGESET, iconName);
 		widget.SetColorInt(color);
 		if (userId != 0)
 		{
@@ -3132,21 +3588,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void DeletePreviewWorld()
 	{
-		if (m_PreviewEntity)
-			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewEntity);
-
-		if (m_PreviewSourceCharacter)
-			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewSourceCharacter);
+		DeletePreviewEntities();
 
 		if (m_PreviewStageEntity)
 			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewStageEntity);
 
-		m_PreviewEntity = null;
-		m_PreviewSourceCharacter = null;
+		m_PreviewEditedCharacter = null;
+		m_PreviewSourceEntity = null;
 		m_PreviewStageEntity = null;
 		m_PreviewWidget = null;
 		m_PreviewWorld = null;
 		m_PreviewWorldRef = null;
+		m_sPreviewSourceMode = PREVIEW_MODE_CHARACTER;
 		m_sPreviewRenderKey = "";
 		m_bCameraInitialized = false;
 	}
@@ -3295,6 +3748,20 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Resource loaded = Resource.Load(prefab);
 		return !loaded || !loaded.IsValid();
+	}
+
+	protected void TryUnequipHeldItem(IEntity character)
+	{
+		if (!character)
+			return;
+
+		SCR_InventoryStorageManagerComponent storageManager = SCR_InventoryStorageManagerComponent.Cast(character.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (!storageManager)
+			return;
+
+		SCR_CharacterInventoryStorageComponent storage = storageManager.GetCharacterStorage();
+		if (storage)
+			storage.UnequipCurrentItem();
 	}
 
 	protected int ResolveLocalPlayerId()
