@@ -169,13 +169,14 @@ class HST_SupportRequestService
 		group.m_sZoneId = request.m_sTargetZoneId;
 		group.m_sFactionKey = request.m_sFactionKey;
 		group.m_sPrefab = SelectGroupPrefab(state, request);
-		group.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(request.m_vTargetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 		group.m_sRouteId = request.m_sSourceZoneId + "_to_" + request.m_sTargetZoneId;
 		group.m_vSourcePosition = request.m_vSourcePosition;
 		group.m_vTargetPosition = request.m_vTargetPosition;
+		group.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(group.m_vSourcePosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 		group.m_sRuntimeStatus = "support_active";
 		group.m_iInfantryCount = 4 + state.m_iWarLevel;
 		group.m_iVehicleCount = 0;
+		group.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		group.m_iLastSeenAliveCount = group.m_iInfantryCount;
 		group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
 		group.m_iSurvivorVehicleCount = group.m_iVehicleCount;

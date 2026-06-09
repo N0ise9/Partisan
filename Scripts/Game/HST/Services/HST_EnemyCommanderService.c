@@ -140,20 +140,7 @@ class HST_EnemyCommanderService
 			if (!zone)
 				continue;
 
-			int score;
-			if (zone.m_sOwnerFactionKey == factionKey)
-				score += 10;
-			else if (zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
-				score += 6;
-			else
-				score += 2;
-
-			score += zone.m_iResistanceCaptureProgress / 10;
-			if (zone.m_bActive)
-				score += 8;
-
-			if (zone.m_iSupport > 25)
-				score += 4;
+			int score = ScoreTargetZone(state, preset, zone, factionKey);
 
 			if (score > bestScore)
 			{
@@ -167,11 +154,18 @@ class HST_EnemyCommanderService
 
 	protected HST_EEnemyOrderType SelectOrderType(HST_CampaignState state, HST_ZoneState targetZone, HST_FactionPoolState pool)
 	{
+		if (IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 25 && pool.m_iSupportResources >= 8 && state.m_iWarLevel >= 4)
+			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
+
 		if (targetZone.m_sOwnerFactionKey == "FIA")
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK;
 
 		if (targetZone.m_iResistanceCaptureProgress > 0)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF;
+
+		HST_GarrisonState garrison = state.FindGarrison(targetZone.m_sZoneId, pool.m_sFactionKey);
+		if ((!garrison || garrison.m_iInfantryCount < Math.Max(2, state.m_iWarLevel)) && pool.m_iSupportResources >= 10)
+			return HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON;
 
 		if (targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && pool.m_iSupportResources >= 12)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK;
@@ -180,6 +174,73 @@ class HST_EnemyCommanderService
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL;
 
 		return HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL;
+	}
+
+	protected int ScoreTargetZone(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState zone, string factionKey)
+	{
+		int score;
+		if (zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+			score += 22;
+		else if (zone.m_sOwnerFactionKey == factionKey)
+			score += 10;
+		else
+			score += 4;
+
+		score += zone.m_iPriority;
+		score += zone.m_iResistanceCaptureProgress / 5;
+		if (zone.m_bActive)
+			score += 12;
+		if (zone.m_iSupport > 25)
+			score += 4 + zone.m_iSupport / 20;
+		if (HasActiveMissionNearZone(state, zone))
+			score += 10;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+			score += 8;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST || zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+			score += 6;
+		if (IsHQThreatZone(state, zone))
+			score += 9 + state.m_iWarLevel;
+
+		HST_GarrisonState garrison = state.FindGarrison(zone.m_sZoneId, factionKey);
+		if (!garrison)
+			score += 5;
+		else if (garrison.m_iInfantryCount < Math.Max(2, state.m_iWarLevel))
+			score += 4;
+
+		return score;
+	}
+
+	protected bool HasActiveMissionNearZone(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return false;
+
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+			if (mission.m_sTargetZoneId == zone.m_sZoneId)
+				return true;
+			if (DistanceSq2D(mission.m_vTargetPosition, zone.m_vPosition) < 450000)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool IsHQThreatZone(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone || !state.m_bHQDeployed)
+			return false;
+
+		return DistanceSq2D(state.m_vHQPosition, zone.m_vPosition) <= 1440000;
+	}
+
+	protected float DistanceSq2D(vector a, vector b)
+	{
+		float x = a[0] - b[0];
+		float z = a[2] - b[2];
+		return x * x + z * z;
 	}
 
 	protected HST_ESupportRequestType SupportTypeForOrder(HST_CampaignState state, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)

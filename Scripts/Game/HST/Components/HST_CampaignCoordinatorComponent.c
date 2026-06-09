@@ -287,6 +287,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 				payload = payload + string.Format("\nOBJECTIVE|%1|%2|%3|%4|%5|%6|%7", mission.m_sInstanceId, objective.m_sObjectiveId, PayloadText(objective.m_sLabel), objective.m_iCurrentProgress, objective.m_iRequiredProgress, objective.m_bComplete, objective.m_bFailed);
 			}
+
+			foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+			{
+				if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+					continue;
+
+				payload = payload + string.Format("\nOBJECTIVE|%1|%2|%3|%4|%5|%6|%7", mission.m_sInstanceId, asset.m_sAssetId, PayloadText(BuildMissionAssetIntelLabel(asset)), MissionAssetProgressValue(asset), 1, MissionAssetCompleteValue(asset), MissionAssetFailedValue(asset));
+			}
 		}
 
 		return payload + "\nEND";
@@ -1830,6 +1838,60 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (phase.IsEmpty())
 			phase = "active";
 		return string.Format("%1 / objectives %2/%3 / cargo %4/%5 / captives %6/%7", phase, complete, total, mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount);
+	}
+
+	protected string BuildMissionAssetIntelLabel(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return "Mission asset";
+
+		string role = asset.m_sRole;
+		if (role.IsEmpty())
+			role = asset.m_sKind;
+		role.Replace("_", " ");
+
+		string state = "at objective";
+		if (asset.m_bDestroyed)
+			state = "destroyed";
+		else if (asset.m_bDelivered)
+			state = "delivered";
+		else if (asset.m_bPickedUp)
+			state = "in transport";
+
+		return "Asset: " + role + " (" + state + ")";
+	}
+
+	protected int MissionAssetProgressValue(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return 0;
+		if (asset.m_bDestroyed || asset.m_bDelivered || asset.m_bPickedUp)
+			return 1;
+		return 0;
+	}
+
+	protected bool MissionAssetCompleteValue(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return false;
+		if (asset.m_sKind == "target" || asset.m_sKind == "character")
+			return asset.m_bDestroyed;
+		if (asset.m_sRole == "convoy_payload")
+			return asset.m_bPickedUp;
+		if (asset.m_sRole == "convoy_captive")
+			return asset.m_bDelivered;
+		if (asset.m_sKind == "cargo" || asset.m_sKind == "captive")
+			return asset.m_bDelivered;
+		return asset.m_bSpawned;
+	}
+
+	protected bool MissionAssetFailedValue(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return false;
+		if (asset.m_sKind == "target" || asset.m_sKind == "character")
+			return false;
+		return asset.m_bDestroyed;
 	}
 
 	protected string ResolveMissionFailureText(HST_ActiveMissionState mission, HST_MissionDefinition definition)

@@ -2,5 +2,7 @@ GenericEntity HST_MissionProp_Cargo : "{2C303FA30DF3D73F}Prefabs/Props/Military/
  components {
   RplComponent "{6985327711303721}" {
   }
+  HST_MissionAssetComponent "{6985327711303722}" {
+  }
  }
 }

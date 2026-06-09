@@ -423,6 +423,27 @@ class HST_MissionRuntimeEntityState
 }
 
 [BaseContainerProps()]
+class HST_MissionAssetState
+{
+	string m_sAssetId;
+	string m_sMissionInstanceId;
+	string m_sKind;
+	string m_sRole;
+	string m_sPrefab;
+	string m_sEntityId;
+	string m_sCarriedByVehicleId;
+	bool m_bSpawned;
+	bool m_bPickedUp;
+	bool m_bDelivered;
+	bool m_bDestroyed;
+	bool m_bAlive = true;
+	vector m_vSourcePosition;
+	vector m_vTargetPosition;
+	vector m_vCurrentPosition;
+	int m_iDeadlineSecond;
+}
+
+[BaseContainerProps()]
 class HST_SupportRequestState
 {
 	string m_sRequestId;
@@ -508,7 +529,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 12;
+	static const int SCHEMA_VERSION = 13;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -583,6 +604,7 @@ class HST_CampaignState
 	ref array<ref HST_GeneratedRouteState> m_aGeneratedRoutes = {};
 	ref array<ref HST_MissionObjectiveState> m_aMissionObjectives = {};
 	ref array<ref HST_MissionRuntimeEntityState> m_aMissionRuntimeEntities = {};
+	ref array<ref HST_MissionAssetState> m_aMissionAssets = {};
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
@@ -858,5 +880,32 @@ class HST_CampaignState
 		}
 
 		return null;
+	}
+
+	HST_MissionAssetState FindMissionAsset(string assetId)
+	{
+		foreach (HST_MissionAssetState asset : m_aMissionAssets)
+		{
+			if (asset && asset.m_sAssetId == assetId)
+				return asset;
+		}
+
+		return null;
+	}
+
+	int CountMissionAssets(string instanceId, string role = "")
+	{
+		int count;
+		foreach (HST_MissionAssetState asset : m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != instanceId)
+				continue;
+			if (!role.IsEmpty() && asset.m_sRole != role)
+				continue;
+
+			count++;
+		}
+
+		return count;
 	}
 }

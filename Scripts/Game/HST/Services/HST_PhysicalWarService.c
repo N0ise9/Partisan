@@ -6,6 +6,7 @@ class HST_PhysicalWarService
 	static const int QRF_SUPPORT_RESOURCE_COST = 5;
 	static const int QRF_ETA_SECONDS = 180;
 	static const int QRF_COOLDOWN_SECONDS = 900;
+	static const int ROUTE_STATE_UPDATE_SECONDS = 30;
 	static const float HQ_SAFE_RADIUS_METERS = 900;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
@@ -43,6 +44,8 @@ class HST_PhysicalWarService
 		}
 
 		if (UpdateQRF(state, enemyDirector))
+			changed = true;
+		if (UpdateActiveGroupRoutes(state))
 			changed = true;
 
 		return changed;
@@ -192,6 +195,72 @@ class HST_PhysicalWarService
 		}
 
 		return changed;
+	}
+
+	protected bool UpdateActiveGroupRoutes(HST_CampaignState state)
+	{
+		if (!state || state.m_iElapsedSeconds % ROUTE_STATE_UPDATE_SECONDS != 0)
+			return false;
+
+		bool changed;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || !activeGroup.m_bSpawnedEntity)
+				continue;
+			if (activeGroup.m_sRuntimeStatus != "routing" && activeGroup.m_sRuntimeStatus != "support_active")
+				continue;
+
+			int duration = ResolveRouteDurationSeconds(activeGroup);
+			int elapsed = state.m_iElapsedSeconds - activeGroup.m_iSpawnedAtSecond;
+			if (elapsed < 0)
+				elapsed = 0;
+
+			float progress = Math.Min(1.0, elapsed * 1.0 / duration);
+			vector position = LerpPosition(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition, progress);
+			position = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+			if (DistanceSq2D(activeGroup.m_vPosition, position) < 25)
+			{
+				if (progress >= 1.0 && activeGroup.m_sRuntimeStatus != "arrived")
+				{
+					activeGroup.m_sRuntimeStatus = "arrived";
+					changed = true;
+				}
+				continue;
+			}
+
+			activeGroup.m_vPosition = position;
+			IEntity entity = GetRuntimeGroupEntity(activeGroup.m_sGroupId);
+			if (entity)
+				entity.SetOrigin(position);
+
+			if (progress >= 1.0)
+				activeGroup.m_sRuntimeStatus = "arrived";
+
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	protected int ResolveRouteDurationSeconds(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return QRF_ETA_SECONDS;
+
+		if (activeGroup.m_bQRF)
+			return QRF_ETA_SECONDS;
+
+		float distance = Math.Sqrt(DistanceSq2D(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition));
+		return Math.Max(120, Math.Round(distance / 6.0));
+	}
+
+	protected vector LerpPosition(vector sourcePosition, vector targetPosition, float progress)
+	{
+		vector result;
+		result[0] = sourcePosition[0] + (targetPosition[0] - sourcePosition[0]) * progress;
+		result[1] = sourcePosition[1] + (targetPosition[1] - sourcePosition[1]) * progress;
+		result[2] = sourcePosition[2] + (targetPosition[2] - sourcePosition[2]) * progress;
+		return result;
 	}
 
 	protected HST_ActiveGroupState CreateActiveGroup(HST_CampaignState state, HST_ZoneState zone, string factionKey, int infantryCount, int vehicleCount, bool qrf)
@@ -461,6 +530,15 @@ class HST_PhysicalWarService
 	protected bool HasRuntimeGroupEntity(string groupId)
 	{
 		return m_aRuntimeGroupIds.Find(groupId) >= 0;
+	}
+
+	protected IEntity GetRuntimeGroupEntity(string groupId)
+	{
+		int index = m_aRuntimeGroupIds.Find(groupId);
+		if (index < 0 || index >= m_aRuntimeGroupEntities.Count())
+			return null;
+
+		return m_aRuntimeGroupEntities[index];
 	}
 
 	protected void DeleteRuntimeGroupEntity(string groupId)

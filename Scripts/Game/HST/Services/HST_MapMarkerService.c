@@ -86,7 +86,7 @@ class HST_MapMarkerService
 				hqCount++;
 			else if (marker.m_sCategory == "town")
 				townCount++;
-			else if (marker.m_sCategory == "mission")
+			else if (marker.m_sCategory == "mission" || marker.m_sCategory == "mission_objective" || marker.m_sCategory == "mission_asset")
 				missionCount++;
 			else if (marker.m_sCategory == "qrf")
 				qrfCount++;
@@ -153,6 +153,61 @@ class HST_MapMarkerService
 				markerId = "hst_mission_" + mission.m_sInstanceId;
 
 			AddMarker(state, markerId, mission.m_sInstanceId, BuildMissionMarkerLabel(state, mission), "", "mission", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", "REFORGER_ORANGE", markerPosition, true, "white", "mission_clickable");
+			AddMissionObjectiveMarkers(state, preset, mission);
+			AddMissionAssetMarkers(state, preset, mission);
+		}
+	}
+
+	protected void AddMissionObjectiveMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
+	{
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bComplete || objective.m_bFailed)
+				continue;
+
+			HST_MissionAssetState linkedAsset = state.FindMissionAsset(objective.m_sLinkedRuntimeEntityId);
+			if (linkedAsset && linkedAsset.m_sKind != "area")
+				continue;
+
+			string markerId = string.Format("hst_mission_obj_%1_%2", mission.m_sInstanceId, objective.m_sObjectiveId);
+			AddMarker(state, markerId, mission.m_sInstanceId, ShortObjectiveLabel(objective), "", "mission_objective", preset.m_sResistanceFactionKey, "POINT_OF_INTEREST", "REFORGER_ORANGE", objective.m_vPosition, true, "white", "mission_objective");
+		}
+	}
+
+	protected void AddMissionAssetMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
+	{
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bDestroyed || asset.m_bDelivered)
+				continue;
+			if (asset.m_sKind == "area")
+				continue;
+
+			vector position = asset.m_vCurrentPosition;
+			string icon = "POINT_OF_INTEREST";
+			string style = "mission_asset";
+			string label = BuildMissionAssetMarkerLabel(asset);
+			string color = "REFORGER_ORANGE";
+
+			if (!asset.m_bPickedUp && (asset.m_sRole == "city_supplies" || asset.m_sRole == "logistics_cargo" || asset.m_sRole == "convoy_payload"))
+			{
+				position = asset.m_vSourcePosition;
+				icon = "PICK_UP2";
+				style = "mission_pickup";
+			}
+			else if (asset.m_bPickedUp && !asset.m_bDelivered)
+			{
+				position = asset.m_vTargetPosition;
+				icon = "OBJECTIVE_MARKER";
+				style = "mission_delivery";
+			}
+			else if (asset.m_sKind == "target")
+			{
+				icon = "MINE_SINGLE";
+				color = "RED";
+			}
+
+			AddMarker(state, "hst_mission_asset_" + asset.m_sAssetId, mission.m_sInstanceId, label, "", "mission_asset", preset.m_sResistanceFactionKey, icon, color, position, true, "white", style);
 		}
 	}
 
@@ -578,5 +633,43 @@ class HST_MapMarkerService
 		}
 
 		return string.Format("%1 | %2s | %3/%4", title, mission.m_iRemainingSeconds, complete, total);
+	}
+
+	protected string ShortObjectiveLabel(HST_MissionObjectiveState objective)
+	{
+		if (!objective)
+			return "Objective";
+
+		string label = objective.m_sLabel;
+		if (label.IsEmpty())
+			label = objective.m_sTargetId;
+		if (label.IsEmpty())
+			label = "Objective";
+
+		return label;
+	}
+
+	protected string BuildMissionAssetMarkerLabel(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return "Mission asset";
+
+		string verb = "Locate";
+		if (!asset.m_bPickedUp && (asset.m_sKind == "cargo" || asset.m_sKind == "captive"))
+			verb = "Pickup";
+		else if (asset.m_bPickedUp && !asset.m_bDelivered)
+			verb = "Deliver";
+		else if (asset.m_sKind == "target")
+			verb = "Destroy";
+		else if (asset.m_sKind == "character")
+			verb = "Target";
+		else if (asset.m_sKind == "vehicle")
+			verb = "Intercept";
+
+		string role = asset.m_sRole;
+		if (role.IsEmpty())
+			role = asset.m_sKind;
+		role.Replace("_", " ");
+		return verb + " " + role;
 	}
 }

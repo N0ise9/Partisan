@@ -52,6 +52,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_GeneratedRouteState> m_aGeneratedRoutes = {};
 	ref array<ref HST_MissionObjectiveState> m_aMissionObjectives = {};
 	ref array<ref HST_MissionRuntimeEntityState> m_aMissionRuntimeEntities = {};
+	ref array<ref HST_MissionAssetState> m_aMissionAssets = {};
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
@@ -170,6 +171,10 @@ class HST_CampaignSaveData
 		m_aMissionRuntimeEntities.Clear();
 		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
 			m_aMissionRuntimeEntities.Insert(CopyMissionRuntimeEntity(runtimeEntity));
+
+		m_aMissionAssets.Clear();
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+			m_aMissionAssets.Insert(CopyMissionAsset(asset));
 
 		m_aSupportRequests.Clear();
 		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
@@ -313,6 +318,10 @@ class HST_CampaignSaveData
 		state.m_aMissionRuntimeEntities.Clear();
 		foreach (HST_MissionRuntimeEntityState runtimeEntity : m_aMissionRuntimeEntities)
 			state.m_aMissionRuntimeEntities.Insert(CopyMissionRuntimeEntity(runtimeEntity));
+
+		state.m_aMissionAssets.Clear();
+		foreach (HST_MissionAssetState asset : m_aMissionAssets)
+			state.m_aMissionAssets.Insert(CopyMissionAsset(asset));
 
 		state.m_aSupportRequests.Clear();
 		foreach (HST_SupportRequestState request : m_aSupportRequests)
@@ -709,6 +718,9 @@ class HST_CampaignSaveData
 	protected HST_MissionRuntimeEntityState CopyMissionRuntimeEntity(HST_MissionRuntimeEntityState source)
 	{
 		HST_MissionRuntimeEntityState target = new HST_MissionRuntimeEntityState();
+		if (!source)
+			return target;
+
 		target.m_sRuntimeEntityId = source.m_sRuntimeEntityId;
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
 		target.m_sKind = source.m_sKind;
@@ -718,6 +730,31 @@ class HST_CampaignSaveData
 		target.m_bSpawned = source.m_bSpawned;
 		target.m_bDestroyed = source.m_bDestroyed;
 		target.m_bRecovered = source.m_bRecovered;
+		return target;
+	}
+
+	protected HST_MissionAssetState CopyMissionAsset(HST_MissionAssetState source)
+	{
+		HST_MissionAssetState target = new HST_MissionAssetState();
+		if (!source)
+			return target;
+
+		target.m_sAssetId = source.m_sAssetId;
+		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
+		target.m_sKind = source.m_sKind;
+		target.m_sRole = source.m_sRole;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_sEntityId = source.m_sEntityId;
+		target.m_sCarriedByVehicleId = source.m_sCarriedByVehicleId;
+		target.m_bSpawned = source.m_bSpawned;
+		target.m_bPickedUp = source.m_bPickedUp;
+		target.m_bDelivered = source.m_bDelivered;
+		target.m_bDestroyed = source.m_bDestroyed;
+		target.m_bAlive = source.m_bAlive;
+		target.m_vSourcePosition = source.m_vSourcePosition;
+		target.m_vTargetPosition = source.m_vTargetPosition;
+		target.m_vCurrentPosition = source.m_vCurrentPosition;
+		target.m_iDeadlineSecond = source.m_iDeadlineSecond;
 		return target;
 	}
 
@@ -846,6 +883,28 @@ class HST_CampaignSaveData
 				objective.m_bAbstractFallback = true;
 		}
 
+		foreach (HST_MissionAssetState asset : m_aMissionAssets)
+		{
+			if (!asset)
+				continue;
+
+			if (asset.m_sAssetId.IsEmpty())
+				asset.m_sAssetId = asset.m_sEntityId;
+			if (asset.m_sEntityId.IsEmpty())
+				asset.m_sEntityId = asset.m_sAssetId;
+			if (asset.m_sKind.IsEmpty())
+				asset.m_sKind = "mission_asset";
+			if (asset.m_sRole.IsEmpty())
+				asset.m_sRole = asset.m_sKind;
+			if (!asset.m_bAlive && !asset.m_bDestroyed)
+				asset.m_bAlive = true;
+			if (IsZeroVector(asset.m_vCurrentPosition))
+				asset.m_vCurrentPosition = asset.m_vSourcePosition;
+		}
+
+		if (m_aMissionAssets.Count() == 0 && m_aMissionRuntimeEntities.Count() > 0)
+			MigrateRuntimeEntitiesToMissionAssets();
+
 		foreach (HST_ActiveGroupState group : m_aActiveGroups)
 		{
 			if (!group)
@@ -888,6 +947,32 @@ class HST_CampaignSaveData
 			request.m_sStrikeConfigResource = "";
 			if (request.m_sRuntimeEntityId.IsEmpty() && !request.m_sStrikeKind.IsEmpty())
 				request.m_sRuntimeEntityId = "abstract_strike";
+		}
+	}
+
+	protected void MigrateRuntimeEntitiesToMissionAssets()
+	{
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : m_aMissionRuntimeEntities)
+		{
+			if (!runtimeEntity || runtimeEntity.m_sRuntimeEntityId.IsEmpty())
+				continue;
+
+			HST_MissionAssetState asset = new HST_MissionAssetState();
+			asset.m_sAssetId = runtimeEntity.m_sRuntimeEntityId;
+			asset.m_sEntityId = runtimeEntity.m_sRuntimeEntityId;
+			asset.m_sMissionInstanceId = runtimeEntity.m_sMissionInstanceId;
+			asset.m_sKind = runtimeEntity.m_sKind;
+			asset.m_sRole = runtimeEntity.m_sKind;
+			asset.m_sPrefab = runtimeEntity.m_sPrefab;
+			asset.m_vSourcePosition = runtimeEntity.m_vPosition;
+			asset.m_vCurrentPosition = runtimeEntity.m_vPosition;
+			asset.m_vTargetPosition = runtimeEntity.m_vPosition;
+			asset.m_bSpawned = runtimeEntity.m_bSpawned;
+			asset.m_bDestroyed = runtimeEntity.m_bDestroyed;
+			asset.m_bPickedUp = runtimeEntity.m_bRecovered;
+			asset.m_bDelivered = runtimeEntity.m_bRecovered;
+			asset.m_bAlive = !runtimeEntity.m_bDestroyed;
+			m_aMissionAssets.Insert(asset);
 		}
 	}
 

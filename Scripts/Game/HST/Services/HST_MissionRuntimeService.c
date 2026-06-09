@@ -22,7 +22,24 @@ class HST_MissionRuntimeService
 	static const string PROP_CAPTIVES = "{6985327711303730}Prefabs/Objects/HST/HST_MissionProp_Captives.et";
 	static const string PROP_HOLD_MARKER = "{6985327711303740}Prefabs/Objects/HST/HST_MissionProp_HoldMarker.et";
 	static const string PROP_CONVOY_VEHICLE = "Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
+	static const string ASSET_KIND_CHARACTER = "character";
+	static const string ASSET_KIND_CARGO = "cargo";
+	static const string ASSET_KIND_CAPTIVE = "captive";
+	static const string ASSET_KIND_TARGET = "target";
+	static const string ASSET_KIND_VEHICLE = "vehicle";
+	static const string ASSET_KIND_AREA = "area";
+	static const string ROLE_HVT = "hvt";
+	static const string ROLE_DESTROY_TARGET = "destroy_target";
+	static const string ROLE_HOLD_MARKER = "hold_marker";
+	static const string ROLE_LOGISTICS_CARGO = "logistics_cargo";
+	static const string ROLE_CITY_SUPPLIES = "city_supplies";
+	static const string ROLE_CAPTIVE = "captive";
+	static const string ROLE_CONVOY_VEHICLE = "convoy_vehicle";
+	static const string ROLE_CONVOY_PAYLOAD = "convoy_payload";
+	static const string ROLE_CONVOY_CAPTIVE = "convoy_captive";
 	static const float PLAYER_OBJECTIVE_RADIUS_METERS = 35.0;
+	static const float PLAYER_ASSET_RADIUS_METERS = 18.0;
+	static const float PLAYER_DELIVERY_RADIUS_METERS = 45.0;
 	static const float HOSTILE_OBJECTIVE_RADIUS_METERS = 90.0;
 	static const int DEFAULT_HOLD_SECONDS = 45;
 
@@ -55,15 +72,25 @@ class HST_MissionRuntimeService
 			objective.m_sRuntimePrimitive = primitive;
 			if (objective.m_sPhysicalEntityId.IsEmpty())
 				objective.m_sPhysicalEntityId = string.Format("%1_%2", mission.m_sRuntimeEntityId, objective.m_sTargetId);
-			objective.m_sLinkedRuntimeEntityId = mission.m_sRuntimeEntityId;
+			if (objective.m_sLinkedRuntimeEntityId.IsEmpty())
+				objective.m_sLinkedRuntimeEntityId = mission.m_sRuntimeEntityId;
 			if (objective.m_iRequiredHoldSeconds <= 0)
 				objective.m_iRequiredHoldSeconds = ResolveObjectiveHoldSeconds(objective, primitive, definition);
 			objective.m_bAbstractFallback = mission.m_bRuntimeFallback;
 		}
 
-		mission.m_bRuntimeSpawned = TrySpawnMissionRuntimeProp(state, mission);
+		EnsureMissionAssetsInitialized(state, definition, mission);
+		LinkObjectivesToMissionAssets(state, mission);
+		mission.m_bRuntimeSpawned = TrySpawnMissionRuntimeAssets(state, mission);
 		if (!mission.m_bRuntimeSpawned)
+		{
+			mission.m_bRuntimeSpawned = TrySpawnMissionRuntimeProp(state, mission);
 			mission.m_bRuntimeFallback = true;
+		}
+		else
+		{
+			mission.m_bRuntimeFallback = false;
+		}
 
 		EnsureMissionHostileGroup(state, preset, definition, mission);
 		return true;
@@ -140,18 +167,214 @@ class HST_MissionRuntimeService
 
 	protected bool EnsureMissionRuntimeProp(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
-		if (!state || !mission || mission.m_sRuntimeEntityId.IsEmpty() || HasRuntimeEntity(mission.m_sRuntimeEntityId))
+		if (!state || !mission || mission.m_sRuntimeEntityId.IsEmpty())
 			return false;
 
-		bool spawned = TrySpawnMissionRuntimeProp(state, mission);
+		bool spawned = TrySpawnMissionRuntimeAssets(state, mission);
+		if (!spawned && !HasRuntimeEntity(mission.m_sRuntimeEntityId))
+			spawned = TrySpawnMissionRuntimeProp(state, mission);
+
 		if (mission.m_bRuntimeSpawned == spawned)
 			return spawned;
 
 		mission.m_bRuntimeSpawned = spawned;
-		if (!spawned)
+		if (spawned)
+			mission.m_bRuntimeFallback = false;
+		else
 			mission.m_bRuntimeFallback = true;
 
 		return true;
+	}
+
+	protected bool EnsureMissionAssetsInitialized(HST_CampaignState state, HST_MissionDefinition definition, HST_ActiveMissionState mission)
+	{
+		if (!state || !definition || !mission || mission.m_sRuntimePrimitive == PRIMITIVE_ABSTRACT_FALLBACK)
+			return false;
+
+		if (state.CountMissionAssets(mission.m_sInstanceId) > 0)
+			return false;
+
+		vector targetPosition = ResolveRuntimePropPosition(state, mission);
+		vector hqPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		int cargoCount = Math.Max(1, definition.m_iCargoCount);
+		int captiveCount = Math.Max(1, definition.m_iCaptiveCount);
+		int vehicleCount = Math.Max(1, definition.m_iVehicleCount);
+		bool changed;
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_KILL_HVT)
+		{
+			AddMissionAsset(state, mission, ASSET_KIND_CHARACTER, ROLE_HVT, PROP_HVT, targetPosition, targetPosition, 0);
+			return true;
+		}
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_DESTROY_TARGET)
+		{
+			AddMissionAsset(state, mission, ASSET_KIND_TARGET, ROLE_DESTROY_TARGET, PROP_DESTROY_TARGET, targetPosition, targetPosition, 0);
+			return true;
+		}
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_HOLD_AREA || mission.m_sRuntimePrimitive == PRIMITIVE_CLEAR_AREA)
+		{
+			AddMissionAsset(state, mission, ASSET_KIND_AREA, ROLE_HOLD_MARKER, PROP_HOLD_MARKER, targetPosition, targetPosition, 0);
+			return true;
+		}
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_DELIVER_SUPPLIES)
+		{
+			for (int i = 0; i < cargoCount; i++)
+				AddMissionAsset(state, mission, ASSET_KIND_CARGO, ROLE_CITY_SUPPLIES, PROP_CARGO, hqPosition, targetPosition, i);
+			return true;
+		}
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_RECOVER_CARGO)
+		{
+			for (int i = 0; i < cargoCount; i++)
+				AddMissionAsset(state, mission, ASSET_KIND_CARGO, ROLE_LOGISTICS_CARGO, PROP_CARGO, targetPosition, hqPosition, i);
+			return true;
+		}
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_RESCUE_EXTRACT)
+		{
+			for (int i = 0; i < captiveCount; i++)
+				AddMissionAsset(state, mission, ASSET_KIND_CAPTIVE, ROLE_CAPTIVE, PROP_CAPTIVES, targetPosition, hqPosition, i);
+			return true;
+		}
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
+		{
+			vector convoyStart = ResolveConvoyStartPosition(state, mission);
+			vector convoyEnd = ResolveConvoyEndPosition(state, mission);
+			for (int i = 0; i < vehicleCount; i++)
+				AddMissionAsset(state, mission, ASSET_KIND_VEHICLE, ROLE_CONVOY_VEHICLE, PROP_CONVOY_VEHICLE, convoyStart, convoyEnd, i);
+
+			if (mission.m_sMissionId == "convoy_prisoners")
+			{
+				for (int i = 0; i < captiveCount; i++)
+					AddMissionAsset(state, mission, ASSET_KIND_CAPTIVE, ROLE_CONVOY_CAPTIVE, PROP_CAPTIVES, convoyStart, hqPosition, i);
+			}
+			else if (mission.m_sMissionId != "convoy_reinforcements")
+			{
+				for (int i = 0; i < cargoCount; i++)
+					AddMissionAsset(state, mission, ASSET_KIND_CARGO, ROLE_CONVOY_PAYLOAD, PROP_CARGO, convoyStart, hqPosition, i);
+			}
+
+			return true;
+		}
+
+		changed = AddMissionAsset(state, mission, ASSET_KIND_AREA, ROLE_HOLD_MARKER, PROP_HOLD_MARKER, targetPosition, targetPosition, 0);
+		return changed;
+	}
+
+	protected bool AddMissionAsset(HST_CampaignState state, HST_ActiveMissionState mission, string kind, string role, string prefab, vector sourcePosition, vector targetPosition, int index)
+	{
+		if (!state || !mission || role.IsEmpty())
+			return false;
+
+		string assetId = string.Format("asset_%1_%2_%3", mission.m_sInstanceId, role, index);
+		if (state.FindMissionAsset(assetId))
+			return false;
+
+		HST_MissionAssetState asset = new HST_MissionAssetState();
+		asset.m_sAssetId = assetId;
+		asset.m_sEntityId = assetId;
+		asset.m_sMissionInstanceId = mission.m_sInstanceId;
+		asset.m_sKind = kind;
+		asset.m_sRole = role;
+		asset.m_sPrefab = prefab;
+		asset.m_vSourcePosition = OffsetMissionAssetPosition(sourcePosition, index);
+		asset.m_vTargetPosition = targetPosition;
+		asset.m_vCurrentPosition = asset.m_vSourcePosition;
+		asset.m_iDeadlineSecond = mission.m_iActiveUntilSecond;
+		asset.m_bAlive = true;
+		state.m_aMissionAssets.Insert(asset);
+		return true;
+	}
+
+	protected void LinkObjectivesToMissionAssets(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return;
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			HST_MissionAssetState asset = FindRepresentativeAssetForObjective(state, mission, objective);
+			if (!asset)
+				continue;
+
+			objective.m_sLinkedRuntimeEntityId = asset.m_sEntityId;
+			objective.m_sPhysicalEntityId = asset.m_sEntityId;
+			if (objective.m_vPosition[0] == 0 && objective.m_vPosition[1] == 0 && objective.m_vPosition[2] == 0)
+				objective.m_vPosition = asset.m_vSourcePosition;
+		}
+	}
+
+	protected bool TrySpawnMissionRuntimeAssets(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+
+		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
+		if (!respawnSystem)
+			return false;
+
+		bool foundAsset;
+		bool hasUsableAsset;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			foundAsset = true;
+			if (asset.m_bDelivered || asset.m_bDestroyed)
+			{
+				hasUsableAsset = true;
+				continue;
+			}
+
+			if (asset.m_bPickedUp && !asset.m_bDelivered)
+			{
+				hasUsableAsset = true;
+				continue;
+			}
+
+			if (asset.m_sPrefab.IsEmpty())
+				continue;
+
+			if (HasRuntimeEntity(asset.m_sEntityId))
+			{
+				hasUsableAsset = true;
+				continue;
+			}
+
+			vector position = HST_WorldPositionService.ResolveGroundPosition(asset.m_vCurrentPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+			vector angles = BuildRuntimePropAngles(state, mission);
+			GenericEntity entity = respawnSystem.DoSpawn(asset.m_sPrefab, position, angles);
+			if (!entity && asset.m_sPrefab != PROP_HOLD_MARKER)
+				entity = respawnSystem.DoSpawn(PROP_HOLD_MARKER, position, angles);
+
+			if (!entity)
+			{
+				Print(string.Format("h-istasi mission runtime | asset spawn failed for %1 using %2", asset.m_sAssetId, asset.m_sPrefab), LogLevel.WARNING);
+				continue;
+			}
+
+			HST_MissionAssetComponent assetComponent = HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent));
+			if (assetComponent)
+				assetComponent.ConfigureMissionAsset(asset.m_sAssetId, mission.m_sInstanceId, asset.m_sRole);
+
+			asset.m_bSpawned = true;
+			asset.m_vCurrentPosition = position;
+			m_aRuntimeEntityIds.Insert(asset.m_sEntityId);
+			m_aRuntimeEntities.Insert(entity);
+			RegisterAssetRuntimeEntityState(state, asset, position, angles);
+			hasUsableAsset = true;
+			Print(string.Format("h-istasi mission runtime | spawned asset %1 role %2 for %3 at %4", asset.m_sPrefab, asset.m_sRole, mission.m_sInstanceId, position));
+		}
+
+		return foundAsset && hasUsableAsset;
 	}
 
 	protected bool TrySpawnMissionRuntimeProp(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -205,6 +428,129 @@ class HST_MissionRuntimeService
 		runtimeEntity.m_vPosition = position;
 		runtimeEntity.m_vAngles = angles;
 		runtimeEntity.m_bSpawned = true;
+	}
+
+	protected void RegisterAssetRuntimeEntityState(HST_CampaignState state, HST_MissionAssetState asset, vector position, vector angles)
+	{
+		if (!state || !asset)
+			return;
+
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
+		if (!runtimeEntity)
+		{
+			runtimeEntity = new HST_MissionRuntimeEntityState();
+			runtimeEntity.m_sRuntimeEntityId = asset.m_sEntityId;
+			runtimeEntity.m_sMissionInstanceId = asset.m_sMissionInstanceId;
+			state.m_aMissionRuntimeEntities.Insert(runtimeEntity);
+		}
+
+		runtimeEntity.m_sKind = asset.m_sRole;
+		runtimeEntity.m_sPrefab = asset.m_sPrefab;
+		runtimeEntity.m_vPosition = position;
+		runtimeEntity.m_vAngles = angles;
+		runtimeEntity.m_bSpawned = true;
+		runtimeEntity.m_bDestroyed = asset.m_bDestroyed;
+		runtimeEntity.m_bRecovered = asset.m_bPickedUp || asset.m_bDelivered;
+	}
+
+	protected HST_MissionAssetState FindRepresentativeAssetForObjective(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionObjectiveState objective)
+	{
+		if (!state || !mission || !objective)
+			return null;
+
+		string role = ResolveObjectiveAssetRole(mission, objective);
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (!role.IsEmpty() && asset.m_sRole != role)
+				continue;
+
+			return asset;
+		}
+
+		return null;
+	}
+
+	protected string ResolveObjectiveAssetRole(HST_ActiveMissionState mission, HST_MissionObjectiveState objective)
+	{
+		if (!mission || !objective)
+			return "";
+
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET)
+			return ROLE_HVT;
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET)
+			return ROLE_DESTROY_TARGET;
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA)
+			return ROLE_HOLD_MARKER;
+
+		if (objective.m_sTargetId == "convoy")
+			return ROLE_CONVOY_VEHICLE;
+		if (objective.m_sTargetId == "convoy_prisoners")
+			return ROLE_CONVOY_CAPTIVE;
+		if (objective.m_sTargetId == "convoy_cargo")
+			return ROLE_CONVOY_PAYLOAD;
+		if (objective.m_sTargetId == "supply_pickup")
+			return ROLE_CITY_SUPPLIES;
+		if (objective.m_sTargetId == "extract_captives")
+			return ROLE_CAPTIVE;
+		if (objective.m_sTargetId == "hq_delivery")
+			return ROLE_LOGISTICS_CARGO;
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_DELIVER_SUPPLIES)
+			return ROLE_CITY_SUPPLIES;
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_RESCUE_EXTRACT)
+			return ROLE_CAPTIVE;
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_RECOVER_CARGO)
+			return ROLE_LOGISTICS_CARGO;
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
+			return ROLE_CONVOY_VEHICLE;
+
+		return "";
+	}
+
+	protected vector ResolveConvoyStartPosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		HST_GeneratedRouteState route = ResolveMissionRoute(state, mission);
+		if (route)
+			return HST_WorldPositionService.ResolveGroundPosition(route.m_vStartPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+
+		return OffsetMissionAssetPosition(ResolveRuntimePropPosition(state, mission), -2);
+	}
+
+	protected vector ResolveConvoyEndPosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		HST_GeneratedRouteState route = ResolveMissionRoute(state, mission);
+		if (route)
+			return HST_WorldPositionService.ResolveGroundPosition(route.m_vEndPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+
+		return ResolveRuntimePropPosition(state, mission);
+	}
+
+	protected HST_GeneratedRouteState ResolveMissionRoute(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sSiteId.IsEmpty())
+			return null;
+
+		HST_GeneratedSiteState site = state.FindGeneratedSite(mission.m_sSiteId);
+		if (!site || site.m_sRouteId.IsEmpty())
+			return null;
+
+		return state.FindGeneratedRoute(site.m_sRouteId);
+	}
+
+	protected vector OffsetMissionAssetPosition(vector position, int index)
+	{
+		vector offsetPosition = position;
+		int safeIndex = index;
+		if (safeIndex < 0)
+			safeIndex = -safeIndex;
+
+		int column = safeIndex - (safeIndex / 3) * 3;
+		int row = safeIndex / 3;
+		offsetPosition[0] = offsetPosition[0] + (column - 1) * 4.0;
+		offsetPosition[2] = offsetPosition[2] + row * 5.0;
+		return HST_WorldPositionService.ResolveGroundPosition(offsetPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
 	}
 
 	protected vector ResolveRuntimePropPosition(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -316,7 +662,7 @@ class HST_MissionRuntimeService
 			details = details + string.Format("\n%1 | %2 | primitive %3 | runtime %4 | phase %5 | spawned %6 | fallback %7 | cleanup %8", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sRuntimePrimitive, mission.m_sRuntimeType, mission.m_sRuntimePhase, mission.m_bRuntimeSpawned, mission.m_bRuntimeFallback, mission.m_bRuntimeCleanupComplete);
 		}
 
-		return string.Format("h-istasi mission runtime | physical %1 | spawned %2 | fallback %3 | objectives %4", physical, spawned, fallback, state.m_aMissionObjectives.Count()) + details;
+		return string.Format("h-istasi mission runtime | physical %1 | spawned %2 | fallback %3 | objectives %4 | assets %5", physical, spawned, fallback, state.m_aMissionObjectives.Count(), state.m_aMissionAssets.Count()) + details;
 	}
 
 	string PrimitiveForMission(HST_MissionDefinition definition)
@@ -373,6 +719,11 @@ class HST_MissionRuntimeService
 
 	protected bool PollObjective(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionObjectiveState objective, int elapsedSeconds)
 	{
+		bool handledByAssets;
+		bool assetChanged = PollMissionAssetObjective(state, preset, mission, objective, handledByAssets);
+		if (handledByAssets)
+			return assetChanged;
+
 		bool playerNear = IsAnyLivingPlayerNearObjective(objective.m_vPosition, PLAYER_OBJECTIVE_RADIUS_METERS);
 		if ((objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET) && IsRuntimeEntityDestroyed(objective.m_sLinkedRuntimeEntityId))
 			return CompleteWorldObjective(objective);
@@ -416,6 +767,176 @@ class HST_MissionRuntimeService
 
 		objective.m_bAbstractFallback = true;
 		return CompleteWorldObjective(objective);
+	}
+
+	protected bool PollMissionAssetObjective(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionObjectiveState objective, out bool handled)
+	{
+		handled = false;
+		if (!state || !mission || !objective)
+			return false;
+		if (mission.m_bRuntimeFallback && HasRuntimeEntity(mission.m_sRuntimeEntityId))
+			return false;
+
+		string role = ResolveObjectiveAssetRole(mission, objective);
+		if (role.IsEmpty())
+			return false;
+		if ((objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA) && objective.m_sTargetId != "convoy")
+			return false;
+
+		bool changed;
+		int satisfiedCount;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role)
+				continue;
+
+			handled = true;
+			if (SyncMissionAssetDestructionState(state, asset))
+				changed = true;
+
+			if (asset.m_bDestroyed)
+			{
+				if (asset.m_sKind == ASSET_KIND_CAPTIVE)
+				{
+					MarkRuntimeMissionFailed(state, mission, "Required captives were killed.");
+					return true;
+				}
+
+				if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET)
+					satisfiedCount++;
+
+				continue;
+			}
+
+			if (objective.m_sTargetId == "convoy")
+			{
+				if (IsAnyLivingPlayerNearObjective(asset.m_vCurrentPosition, PLAYER_OBJECTIVE_RADIUS_METERS) && !HasHostileActiveGroupNear(state, preset, asset.m_vCurrentPosition, HOSTILE_OBJECTIVE_RADIUS_METERS))
+					return CompleteWorldObjective(objective) || changed;
+
+				continue;
+			}
+
+			if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET)
+				continue;
+
+			if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RECOVER_LOOT || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RESCUE_CAPTIVES)
+			{
+				if (!asset.m_bPickedUp && IsAnyLivingPlayerNearObjective(asset.m_vSourcePosition, PLAYER_ASSET_RADIUS_METERS))
+				{
+					MarkMissionAssetPickedUp(state, asset);
+					changed = true;
+					if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RESCUE_CAPTIVES)
+					{
+						objective.m_bExtractionStarted = true;
+						mission.m_sRuntimePhase = PHASE_EXTRACTING;
+					}
+					else
+					{
+						mission.m_sRuntimePhase = PHASE_DELIVERING;
+					}
+				}
+
+				if (asset.m_sRole == ROLE_CONVOY_CAPTIVE)
+				{
+					if (asset.m_bPickedUp && !asset.m_bDelivered && IsAnyLivingPlayerNearObjective(asset.m_vTargetPosition, PLAYER_DELIVERY_RADIUS_METERS))
+					{
+						MarkMissionAssetDelivered(state, asset, asset.m_vTargetPosition);
+						changed = true;
+					}
+
+					if (asset.m_bDelivered)
+						satisfiedCount++;
+
+					continue;
+				}
+
+				if (asset.m_bPickedUp)
+					satisfiedCount++;
+
+				continue;
+			}
+
+			if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES)
+			{
+				if (!asset.m_bPickedUp && asset.m_sRole == ROLE_CITY_SUPPLIES && IsAnyLivingPlayerNearObjective(asset.m_vSourcePosition, PLAYER_ASSET_RADIUS_METERS))
+				{
+					MarkMissionAssetPickedUp(state, asset);
+					changed = true;
+					mission.m_sRuntimePhase = PHASE_DELIVERING;
+				}
+
+				vector deliveryPosition = asset.m_vTargetPosition;
+				if (deliveryPosition[0] == 0 && deliveryPosition[1] == 0 && deliveryPosition[2] == 0)
+					deliveryPosition = objective.m_vPosition;
+
+				if (asset.m_bPickedUp && !asset.m_bDelivered && IsAnyLivingPlayerNearObjective(deliveryPosition, PLAYER_DELIVERY_RADIUS_METERS))
+				{
+					MarkMissionAssetDelivered(state, asset, deliveryPosition);
+					changed = true;
+					objective.m_bDeliveryStarted = true;
+					mission.m_sRuntimePhase = PHASE_DELIVERING;
+				}
+
+				if (asset.m_bDelivered)
+					satisfiedCount++;
+			}
+		}
+
+		if (!handled)
+			return false;
+
+		objective.m_iCurrentCount = Math.Min(Math.Max(1, objective.m_iRequiredCount), satisfiedCount);
+		objective.m_iCurrentProgress = Math.Min(objective.m_iRequiredProgress, satisfiedCount);
+		if (satisfiedCount >= Math.Max(1, objective.m_iRequiredCount))
+			return CompleteWorldObjective(objective) || changed;
+
+		return changed;
+	}
+
+	protected bool SyncMissionAssetDestructionState(HST_CampaignState state, HST_MissionAssetState asset)
+	{
+		if (!state || !asset || asset.m_bDestroyed)
+			return false;
+
+		if (!IsRuntimeEntityDestroyed(asset.m_sEntityId))
+			return false;
+
+		asset.m_bDestroyed = true;
+		asset.m_bAlive = false;
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
+		if (runtimeEntity)
+			runtimeEntity.m_bDestroyed = true;
+
+		return true;
+	}
+
+	protected void MarkMissionAssetPickedUp(HST_CampaignState state, HST_MissionAssetState asset)
+	{
+		if (!asset || asset.m_bPickedUp)
+			return;
+
+		asset.m_bPickedUp = true;
+		asset.m_vCurrentPosition = asset.m_vTargetPosition;
+		DeleteRuntimeEntity(asset.m_sEntityId);
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
+		if (runtimeEntity)
+			runtimeEntity.m_bRecovered = true;
+	}
+
+	protected void MarkMissionAssetDelivered(HST_CampaignState state, HST_MissionAssetState asset, vector deliveryPosition)
+	{
+		if (!asset || asset.m_bDelivered)
+			return;
+
+		asset.m_bPickedUp = true;
+		asset.m_bDelivered = true;
+		asset.m_vCurrentPosition = deliveryPosition;
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
+		if (runtimeEntity)
+		{
+			runtimeEntity.m_bRecovered = true;
+			runtimeEntity.m_vPosition = deliveryPosition;
+		}
 	}
 
 	protected bool ProgressHoldObjective(HST_MissionObjectiveState objective, int elapsedSeconds)
@@ -466,8 +987,10 @@ class HST_MissionRuntimeService
 		if (!state || !mission || mission.m_bRuntimeCleanupComplete)
 			return false;
 
+		DeleteMissionRuntimeEntities(state, mission.m_sInstanceId);
 		DeleteRuntimeEntity(mission.m_sRuntimeEntityId);
 		CleanupMissionRuntimeRecords(state, mission.m_sInstanceId);
+		CleanupMissionAssetRecords(state, mission.m_sInstanceId);
 		mission.m_bRuntimeCleanupComplete = true;
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
@@ -476,6 +999,28 @@ class HST_MissionRuntimeService
 		}
 
 		return true;
+	}
+
+	protected void DeleteMissionRuntimeEntities(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return;
+
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
+		{
+			if (!runtimeEntity || runtimeEntity.m_sMissionInstanceId != instanceId)
+				continue;
+
+			DeleteRuntimeEntity(runtimeEntity.m_sRuntimeEntityId);
+		}
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != instanceId)
+				continue;
+
+			DeleteRuntimeEntity(asset.m_sEntityId);
+		}
 	}
 
 	protected bool HasRuntimeEntity(string runtimeEntityId)
@@ -510,6 +1055,22 @@ class HST_MissionRuntimeService
 
 			runtimeEntity.m_bDestroyed = true;
 			state.m_aMissionRuntimeEntities.Remove(i);
+		}
+	}
+
+	protected void CleanupMissionAssetRecords(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return;
+
+		for (int i = state.m_aMissionAssets.Count() - 1; i >= 0; i--)
+		{
+			HST_MissionAssetState asset = state.m_aMissionAssets[i];
+			if (!asset || asset.m_sMissionInstanceId != instanceId)
+				continue;
+
+			asset.m_bDestroyed = asset.m_bDestroyed || !asset.m_bDelivered;
+			state.m_aMissionAssets.Remove(i);
 		}
 	}
 

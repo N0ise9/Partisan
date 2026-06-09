@@ -1,2 +1,6 @@
 SCR_ChimeraCharacter HST_MissionProp_Captives : "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et" {
+ components {
+  HST_MissionAssetComponent "{6985327711303731}" {
+  }
+ }
 }
