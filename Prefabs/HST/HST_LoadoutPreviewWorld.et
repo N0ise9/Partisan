@@ -28,5 +28,18 @@ GenericWorldEntity {
    Rendering 0x21 0x1e
    CaptureLights 1
   }
+  LightEntity {
+   ID "7A9A1B7F76424A9E"
+   coords 1.9 1.8 -2.2
+   angles -13 -19 0
+   Color 0.657 0.893 1 0
+   LV 8
+   Type Point
+   Radius 45
+   SpotAngle 47
+   Dynamic 1
+   Visualization Disabled
+   SourceSize 1.6
+  }
  }
 }
