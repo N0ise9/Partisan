@@ -83,16 +83,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int SLOTS_PER_PAGE = 9;
 	static const int TEMPLATES_PER_PAGE = 6;
 	static const int PREVIEW_CAMERA = 0;
-	static const ResourceName ICON_CLOTHING = "{A9AFA05DD269660A}Assets/512/clothing_icon.edds";
-	static const ResourceName ICON_WEAPONS = "{4F051820B3912C59}Assets/512/weapons_icon.edds";
-	static const ResourceName ICON_ATTACHMENTS = "{E77BB529AFB78928}Assets/512/attachments_icon.edds";
-	static const ResourceName ICON_STORAGE = "{ED043AF0A83EC500}Assets/512/inventory_icon.edds";
-	static const ResourceName ICON_SAVE = "{FDD6657E1E611D2D}Assets/512/save_icon.edds";
-	static const ResourceName ICON_SETTINGS = "{B09A78C4D3DA8929}Assets/512/settings_icon.edds";
-	static const ResourceName ICON_AMMO = "{705E39A54B927E94}Assets/512/ammunition_icon.edds";
-	static const ResourceName ICON_EQUIPMENT = "{82311870FB87265B}Assets/512/equipment_icon.edds";
-	static const ResourceName ICON_THROWABLES = "{15364AA4BD9F047E}Assets/512/throwables_icon.edds";
-	static const ResourceName ICON_MEDICAL = "{5E7C2CD59EAB96ED}Assets/512/medical_icon.edds";
+	static const ResourceName HST_LOADOUT_ICON_IMAGESET = "{E8D9306763D6458D}Assets/512/hst_loadout_icons.imageset";
 
 	protected static HST_LoadoutEditorComponent s_LocalInstance;
 
@@ -864,7 +855,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 
 			CreateRectWidget(workspace, root, tabLeft, tabTop, tabWidth, 58, color, 0.98, MODE_WIDGET_ID_BASE + i);
-			if (!CreateIconWidget(workspace, root, ResolveIconTexture(modeId), tabLeft + 14, tabTop + 17, 24, 24, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
+			if (!CreateIconWidget(workspace, root, ResolveIconName(modeId), tabLeft + 14, tabTop + 17, 24, 24, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
 				CreateTextWidget(workspace, root, GetEditorModeIcon(modeId), tabLeft + 14, tabTop + 17, 24, 22, 18, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
 			if (modeId == m_sEditorMode)
 				CreateTextWidget(workspace, root, GetEditorModeLabel(modeId), tabLeft + 46, tabTop + 18, 62, 20, 12, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
@@ -1708,7 +1699,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			color = 0xFF6F5124;
 
 		CreateRectWidget(workspace, root, 112, top, 370, 56, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveNodeIconKey(nodeIndex)), 126, top + 11, 32, 32, userId, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveNodeIconKey(nodeIndex)), 126, top + 11, 32, 32, userId, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), 126, top + 10, 48, 34, 26, 0xFFE6E6E6, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeLabel(nodeIndex), 20), 184, top + 10, 180, 18, 14, 0xFFE2E6E8, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), 184, top + 28, 224, 18, 14, 0xFFD5D8D9, userId, false);
@@ -1726,7 +1717,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		int rowHeight = 46;
 		CreateRectWidget(workspace, root, left, top, width, rowHeight, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveNodeIconKey(nodeIndex)), left + 10, top + 8, 28, 28, userId, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveNodeIconKey(nodeIndex)), left + 10, top + 8, 28, 28, userId, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), left + 10, top + 6, 34, 30, 22, 0xFFE6E6E6, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeLabel(nodeIndex), 20), left + 54, top + 7, 170, 16, 12, 0xFFE2E6E8, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), left + 54, top + 24, 218, 16, 12, 0xFFD5D8D9, userId, false);
@@ -1737,7 +1728,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void RenderSelectedNodeHeader(WorkspaceWidget workspace, Widget root)
 	{
 		int nodeIndex = FindSelectedNodeIndex();
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveNodeIconKey(nodeIndex)), 122, 166, 34, 34, 0, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveNodeIconKey(nodeIndex)), 122, 166, 34, 34, 0, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), 122, 162, 48, 42, 28, 0xFFE6E6E6, 0, true);
 		CreateTextWidget(workspace, root, GetNodeLabel(nodeIndex), 184, 166, 220, 20, 15, 0xFFE2E6E8, 0, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), 184, 186, 250, 20, 15, 0xFFD5D8D9, 0, false);
@@ -1752,7 +1743,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		else if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = 0xFF3D3520;
 		CreateRectWidget(workspace, root, 112, top, 370, 50, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveCandidateIconKey(candidateIndex)), 126, top + 9, 30, 30, userId, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveCandidateIconKey(candidateIndex)), 126, top + 9, 30, 30, userId, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveCandidateIcon(candidateIndex), 126, top + 8, 46, 34, 24, 0xFFE6E6E6, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetCandidateShortDisplay(candidateIndex), 32), 184, top + 11, 232, 20, 14, 0xFFE2E6E8, userId, false);
 		CreateTextWidget(workspace, root, BuildCandidateCountLabel(candidateIndex), 424, top + 14, 42, 16, 10, 0xFFFFD166, userId, true);
@@ -1764,7 +1755,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = 0xFF3D3520;
 		CreateRectWidget(workspace, root, left, top, width, 48, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveCandidateIconKey(candidateIndex)), left + 10, top + 8, 30, 30, userId, 0xFFE6E6E6))
+		if (!CreateIconWidget(workspace, root, ResolveIconName(ResolveCandidateIconKey(candidateIndex)), left + 10, top + 8, 30, 30, userId, 0xFFE6E6E6))
 			CreateTextWidget(workspace, root, ResolveCandidateIcon(candidateIndex), left + 10, top + 8, 36, 30, 22, 0xFFE6E6E6, userId, true);
 		CreateTextWidget(workspace, root, ShortenText(GetCandidateShortDisplay(candidateIndex), 28), left + 52, top + 9, width - 104, 18, 12, 0xFFE2E6E8, userId, false);
 		CreateTextWidget(workspace, root, BuildCandidateCountLabel(candidateIndex), left + width - 44, top + 16, 34, 14, 10, 0xFFFFD166, userId, true);
@@ -2463,7 +2454,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				color = 0xFF6F5124;
 
 			CreateRectWidget(workspace, root, tabLeft, top, tabWidth, 32, color, 0.98, STORAGE_CATEGORY_WIDGET_ID_BASE + i);
-			CreateIconWidget(workspace, root, ResolveIconTexture(category), tabLeft + 8, top + 6, 20, 20, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
+			CreateIconWidget(workspace, root, ResolveIconName(category), tabLeft + 8, top + 6, 20, 20, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
 			CreateTextWidget(workspace, root, ShortenText(GetStorageBrowserCategoryLabel(category), 13), tabLeft + 34, top + 9, tabWidth - 38, 14, 10, 0xFFF5E8CE, STORAGE_CATEGORY_WIDGET_ID_BASE + i, category == m_sSelectedCategory);
 		}
 	}
@@ -3559,33 +3550,33 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_PreviewWorld.SetCameraEx(PREVIEW_CAMERA, mat);
 	}
 
-	protected ResourceName ResolveIconTexture(string key)
+	protected string ResolveIconName(string key)
 	{
 		if (key == "clothing" || key == "headgear" || key == "vest" || key == "pants" || key == "boots" || key == "backpack" || key == "handwear")
-			return ICON_CLOTHING;
+			return "CLOTHING";
 		if (key == "weapons" || key == "weapon" || key == "launcher" || key == "sidearm")
-			return ICON_WEAPONS;
+			return "WEAPONS";
 		if (key == "attachments" || key == "attachment" || key == "wrench")
-			return ICON_ATTACHMENTS;
+			return "ATTACHMENTS";
 		if (key == "storage" || key == "inventory")
-			return ICON_STORAGE;
+			return "INVENTORY";
 		if (key == "save")
-			return ICON_SAVE;
+			return "SAVE";
 		if (key == "settings")
-			return ICON_SETTINGS;
+			return "SETTINGS";
 		if (key == "magazine" || key == "ammo")
-			return ICON_AMMO;
+			return "AMMUNITION";
 		if (key == "explosive" || key == "grenade" || key == "throwable")
-			return ICON_THROWABLES;
+			return "THROWABLES";
 		if (key == "medical")
-			return ICON_MEDICAL;
+			return "MEDICAL";
 
-		return ICON_EQUIPMENT;
+		return "EQUIPMENT";
 	}
 
-	protected bool CreateIconWidget(WorkspaceWidget workspace, Widget parent, ResourceName texture, int left, int top, int width, int height, int userId, int color)
+	protected bool CreateIconWidget(WorkspaceWidget workspace, Widget parent, string iconName, int left, int top, int width, int height, int userId, int color)
 	{
-		if (!workspace || !parent || texture.IsEmpty())
+		if (!workspace || !parent || iconName.IsEmpty())
 			return false;
 
 		Widget widget = workspace.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE, null, 3710, parent);
@@ -3595,7 +3586,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, width, height);
-		imageWidget.LoadImageTexture(0, texture);
+		imageWidget.LoadImageFromSet(0, HST_LOADOUT_ICON_IMAGESET, iconName);
+		imageWidget.SetSize(width, height);
 		widget.SetColorInt(color);
 		if (userId != 0)
 		{
