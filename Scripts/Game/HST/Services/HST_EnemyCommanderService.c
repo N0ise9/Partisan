@@ -59,6 +59,45 @@ class HST_EnemyCommanderService
 		return string.Format("h-istasi enemy commander | queued %1 | active %2 | resolved %3", queued, active, resolved);
 	}
 
+	bool TryQueueImmediateCounterattack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState capturedZone, int chancePercent)
+	{
+		if (!state || !preset || !enemyDirector || !capturedZone || factionKey.IsEmpty())
+			return false;
+
+		if (HasActiveOrderForZone(state, factionKey, capturedZone.m_sZoneId))
+		{
+			Print(string.Format("h-istasi capture | counterattack skipped for %1 at %2 | active order already exists", factionKey, capturedZone.m_sZoneId));
+			return false;
+		}
+
+		int attackCost;
+		int supportCost;
+		ResolveOrderCosts(HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK, attackCost, supportCost);
+		if (!enemyDirector.CanAfford(state, factionKey, attackCost, supportCost))
+		{
+			Print(string.Format("h-istasi capture | counterattack skipped for %1 at %2 | cannot afford attack %3 support %4", factionKey, capturedZone.m_sZoneId, attackCost, supportCost));
+			return false;
+		}
+
+		int chance = Math.Max(0, Math.Min(100, chancePercent));
+		int rollSeed = state.m_iCampaignSeed + state.m_iElapsedSeconds * 17 + capturedZone.m_sZoneId.Length() * 101 + capturedZone.m_sDisplayName.Length() * 29 + factionKey.Length() * 31 + state.m_aEnemyOrders.Count() * 13 + state.m_iWarLevel * 19 + capturedZone.m_iPriority * 23;
+		rollSeed += Math.Round(capturedZone.m_vPosition[0]) + Math.Round(capturedZone.m_vPosition[2]);
+		int roll = HST_DefaultCatalog.PositiveMod(rollSeed, 100);
+		if (roll >= chance)
+		{
+			Print(string.Format("h-istasi capture | counterattack skipped for %1 at %2 | roll %3 chance %4", factionKey, capturedZone.m_sZoneId, roll, chance));
+			return false;
+		}
+
+		bool queued = QueueOrder(state, preset, enemyDirector, support, factionKey, capturedZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK);
+		if (queued)
+			Print(string.Format("h-istasi capture | counterattack queued for %1 at %2 | roll %3 chance %4", factionKey, capturedZone.m_sZoneId, roll, chance));
+		else
+			Print(string.Format("h-istasi capture | counterattack failed for %1 at %2 after chance pass", factionKey, capturedZone.m_sZoneId));
+
+		return queued;
+	}
+
 	protected bool QueueOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
 	{
 		int attackCost;

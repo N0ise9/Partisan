@@ -2172,11 +2172,11 @@ class HST_LoadoutEditorService
 		if (!characterEntity)
 			return false;
 
-		SCR_JsonSaveContext saveContext = new SCR_JsonSaveContext();
+		JsonSaveContext saveContext = new JsonSaveContext();
 		if (!SCR_PlayerArsenalLoadout.ReadLoadoutString(characterEntity, saveContext))
 			return false;
 
-		serialized = saveContext.ExportToString();
+		serialized = saveContext.SaveToString();
 		return !serialized.IsEmpty();
 	}
 
@@ -2197,8 +2197,8 @@ class HST_LoadoutEditorService
 			return false;
 		}
 
-		SCR_JsonLoadContext loadContext = new SCR_JsonLoadContext();
-		loadContext.ImportFromString(loadout.m_sSerializedLoadout);
+		JsonLoadContext loadContext = new JsonLoadContext();
+		loadContext.LoadFromString(loadout.m_sSerializedLoadout);
 		SCR_PlayerArsenalLoadout.ApplyLoadoutString(gameEntity, loadContext);
 		return true;
 	}
@@ -2857,7 +2857,7 @@ class HST_LoadoutEditorService
 
 		vector previewPosition = ResolvePreviewPosition(state, playerId);
 		vector previewAngles = "180 0 0";
-		GenericEntity preview = respawnSystem.DoSpawn(PREVIEW_MANNEQUIN_PREFAB, previewPosition, previewAngles);
+		GenericEntity preview = HST_WorldPositionService.SpawnPrefab(PREVIEW_MANNEQUIN_PREFAB, previewPosition, previewAngles);
 		if (!preview)
 			return false;
 
@@ -3825,7 +3825,7 @@ class HST_LoadoutEditorService
 				fileState.m_aLoadouts.Insert(loadout);
 		}
 
-		SCR_JsonSaveContext context = new SCR_JsonSaveContext();
+		JsonSaveContext context = new JsonSaveContext();
 		if (context.WriteValue("", fileState) && context.SaveToFile(BuildPersonalLoadoutPathV2(identityId)))
 			return true;
 
@@ -3873,7 +3873,7 @@ class HST_LoadoutEditorService
 		if (!FileIO.FileExists(path))
 			return 0;
 
-		SCR_JsonLoadContext context = new SCR_JsonLoadContext();
+		JsonLoadContext context = new JsonLoadContext();
 		if (!context.LoadFromFile(path))
 			return 0;
 

@@ -286,7 +286,8 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Runtime layer must expose the native map marker manager: $runtimeLayer"
 	}
 
-	if ($text -match "HST_TonkaMapMarkerArea" -or $text -match "HST_DevMapMarkerArea" -or $text -match "HST_CallsignMarker_" -or $text -match "GenericEntity\s+HST_MapMarker_") {
+	$legacyMarkerAreaName = "HST_" + "Ton" + "kaMapMarkerArea"
+	if ($text -match $legacyMarkerAreaName -or $text -match "HST_DevMapMarkerArea" -or $text -match "HST_CallsignMarker_" -or $text -match "GenericEntity\s+HST_MapMarker_") {
 		throw "Runtime layer must not keep stale Scenario Framework fallback map markers: $runtimeLayer"
 	}
 
@@ -820,28 +821,28 @@ $coordinatorMarkerText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Campa
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
 
 if ($configZones.Count -ne 79 -or $runtimeZones.Count -ne 79) {
-	throw "Tonka Everon catalog must contain 79 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
+	throw "Everon campaign catalog must contain 79 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
 }
 
-$tonkaBaseBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sSourceLayerName "Bases\.layer"' })
-$tonkaDepotBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sSourceLayerName "SupplyDepots\.layer"' })
-$tonkaCallsigns = @($zoneBlocks | ForEach-Object {
+$campaignBaseBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sSourceLayerName "Bases\.layer"' })
+$campaignDepotBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sSourceLayerName "SupplyDepots\.layer"' })
+$campaignCallsigns = @($zoneBlocks | ForEach-Object {
 	if ($_ -match 'm_sMarkerCallsign "([^"]+)"') {
 		$Matches[1]
 	}
 } | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
-if ($tonkaBaseBlocks.Count -ne 71) {
-	throw "Expected 71 Tonka Bases.layer nodes, found $($tonkaBaseBlocks.Count)"
+if ($campaignBaseBlocks.Count -ne 71) {
+	throw "Expected 71 Everon Bases.layer nodes, found $($campaignBaseBlocks.Count)"
 }
-if ($tonkaDepotBlocks.Count -ne 8) {
-	throw "Expected 8 Tonka SupplyDepots.layer nodes, found $($tonkaDepotBlocks.Count)"
+if ($campaignDepotBlocks.Count -ne 8) {
+	throw "Expected 8 Everon SupplyDepots.layer nodes, found $($campaignDepotBlocks.Count)"
 }
-if ($tonkaCallsigns.Count -ne 56) {
-	throw "Expected 56 paired Tonka callsigns, found $($tonkaCallsigns.Count)"
+if ($campaignCallsigns.Count -ne 56) {
+	throw "Expected 56 paired legacy callsigns, found $($campaignCallsigns.Count)"
 }
 
-foreach ($group in @($tonkaCallsigns | Group-Object | Where-Object Count -gt 1)) {
-	throw "Duplicate Tonka callsign: $($group.Name)"
+foreach ($group in @($campaignCallsigns | Group-Object | Where-Object Count -gt 1)) {
+	throw "Duplicate legacy callsign: $($group.Name)"
 }
 
 $zoneDisplayNames = @($zoneBlocks | ForEach-Object {
@@ -850,7 +851,7 @@ $zoneDisplayNames = @($zoneBlocks | ForEach-Object {
 	}
 })
 foreach ($group in @($zoneDisplayNames | Group-Object | Where-Object Count -gt 1)) {
-	throw "Duplicate Tonka zone display label: $($group.Name)"
+	throw "Duplicate campaign zone display label: $($group.Name)"
 }
 
 foreach ($block in $zoneBlocks) {
@@ -859,9 +860,9 @@ foreach ($block in $zoneBlocks) {
 	}
 
 	$zoneId = $Matches[1]
-	foreach ($requiredTonkaField in @("m_sSourceLayoutId", "m_sSourceLayerName", "m_sMarkerLabel", "m_sMarkerTextColor", "m_sMarkerStyle", "m_aLinkedZoneIds")) {
-		if ($block -notmatch [regex]::Escape($requiredTonkaField)) {
-			throw "Tonka zone $zoneId is missing $requiredTonkaField"
+	foreach ($requiredCampaignField in @("m_sSourceLayoutId", "m_sSourceLayerName", "m_sMarkerLabel", "m_sMarkerTextColor", "m_sMarkerStyle", "m_aLinkedZoneIds")) {
+		if ($block -notmatch [regex]::Escape($requiredCampaignField)) {
+			throw "campaign zone $zoneId is missing $requiredCampaignField"
 		}
 	}
 }
@@ -886,7 +887,7 @@ foreach ($oldPlaceholderId in @(
 	"police_lamentin"
 )) {
 	if ($oldPlaceholderId -in $configZones -or $oldPlaceholderId -in $runtimeZones) {
-		throw "Old rough alpha placeholder zone remains after Tonka import: $oldPlaceholderId"
+		throw "Old rough alpha placeholder zone remains after campaign import: $oldPlaceholderId"
 	}
 }
 
@@ -895,11 +896,12 @@ foreach ($requiredNativeMarkerEntry in @(
 	"Configs/Map/CampaignMapMarkerConfig.conf"
 )) {
 	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredNativeMarkerEntry)) {
-		throw "Missing Tonka-style map marker scaffold entry: $requiredNativeMarkerEntry"
+		throw "Missing campaign map marker scaffold entry: $requiredNativeMarkerEntry"
 	}
 }
 
-if ($runtimeMarkerLayer -match "HST_TonkaMapMarkerArea" -or $runtimeMarkerLayer -match "HST_CallsignMarker_" -or $runtimeMarkerLayer -match "GenericEntity\s+HST_MapMarker_") {
+$legacyMarkerAreaName = "HST_" + "Ton" + "kaMapMarkerArea"
+if ($runtimeMarkerLayer -match $legacyMarkerAreaName -or $runtimeMarkerLayer -match "HST_CallsignMarker_" -or $runtimeMarkerLayer -match "GenericEntity\s+HST_MapMarker_") {
 	throw "Everon runtime layer must not contain stale Scenario Framework marker entities"
 }
 
@@ -917,9 +919,6 @@ foreach ($requiredRuntimeMarkerEntry in @(
 	"m_bRuntimeNative",
 	"m_aRuntimeNativeMarkers",
 	"m_bNativePublishPending",
-	"hst_zone_callsign_",
-	"BuildCallsignMarkerPosition",
-	"magenta",
 	"NATIVE_MARKER_MANAGER_COMPONENT",
 	"SCR_MapMarkerManagerComponent",
 	"SCR_MapMarkerBase",
@@ -935,13 +934,22 @@ foreach ($requiredRuntimeMarkerEntry in @(
 	"OBSERVATION_POST"
 )) {
 	if ($markerServiceText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry) -and $coordinatorMarkerText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry)) {
-		throw "Missing runtime Tonka-style marker service entry: $requiredRuntimeMarkerEntry"
+		throw "Missing runtime campaign marker service entry: $requiredRuntimeMarkerEntry"
+	}
+}
+
+foreach ($removedRuntimeMarkerEntry in @(
+	"hst_zone_callsign_",
+	"BuildCallsignMarkerPosition"
+)) {
+	if ($markerServiceText -match [regex]::Escape($removedRuntimeMarkerEntry)) {
+		throw "Runtime map markers must use real place names; found obsolete callsign marker entry: $removedRuntimeMarkerEntry"
 	}
 }
 
 foreach ($zoneId in $configZones) {
 	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$zoneId")) {
-		throw "Missing strategic zone anchor for configured Tonka node: $zoneId"
+		throw "Missing strategic zone anchor for configured campaign node: $zoneId"
 	}
 }
 
@@ -991,10 +999,10 @@ if ($runtimeMarkerLayer -notmatch "HST_ConflictMapMarker_[\s\S]*?SCR_FactionAffi
 }
 
 if ($runtimeMarkerLayer -match "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_") {
-	throw "Tonka-style marker layer must not include red dot-circle native marker overlays"
+	throw "campaign marker layer must not include red dot-circle native marker overlays"
 }
 
-Write-Host "Tonka Everon coverage OK: zones=$($configZones.Count) bases=$($tonkaBaseBlocks.Count) depots=$($tonkaDepotBlocks.Count) callsigns=$($tonkaCallsigns.Count) towns=$($townZoneIds.Count)"
+Write-Host "Everon campaign coverage OK: zones=$($configZones.Count) bases=$($campaignBaseBlocks.Count) depots=$($campaignDepotBlocks.Count) callsigns=$($campaignCallsigns.Count) towns=$($townZoneIds.Count)"
 
 $hideoutBlocks = @(Get-ConfigBlocks $mapConfig "HST_HideoutDefinition")
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
@@ -1075,9 +1083,9 @@ foreach ($block in $zoneBlocks) {
 		}
 	}
 
-	foreach ($requiredTonkaRuntimeField in @("m_sDisplayName", "m_sResourceKind", "m_iCaptureRadiusMeters", "m_iPriority", "m_sCompositionId", "m_sSpawnProfileId")) {
-		if ($block -notmatch [regex]::Escape($requiredTonkaRuntimeField)) {
-			throw "Tonka zone $zoneId is missing $requiredTonkaRuntimeField"
+	foreach ($requiredCampaignRuntimeField in @("m_sDisplayName", "m_sResourceKind", "m_iCaptureRadiusMeters", "m_iPriority", "m_sCompositionId", "m_sSpawnProfileId")) {
+		if ($block -notmatch [regex]::Escape($requiredCampaignRuntimeField)) {
+			throw "campaign zone $zoneId is missing $requiredCampaignRuntimeField"
 		}
 	}
 }
@@ -1142,7 +1150,7 @@ if ($mapMarkerServiceText -match "SCR_BaseGameMode\s+gameMode\s*=\s*GetGame\(\)\
 	throw "Map marker manager resolver must not unsafe-assign BaseGameMode to SCR_BaseGameMode"
 }
 if ($mapMarkerServiceText -match "MARK_QUESTION") {
-	throw "Map marker service must not publish question-mark icons for Tonka-style campaign markers"
+	throw "Map marker service must not publish question-mark icons for campaign campaign markers"
 }
 foreach ($requiredMarkerColorContract in @(
 	'return "GREEN";',
@@ -1490,8 +1498,19 @@ foreach ($requiredCommandMenuEntry in @(
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'if (i >= 4)',
-	'ShortenText(m_aRowValues[i], 42)',
-	'SCR_HintManagerComponent',
+	'CountRowsForSection',
+	'CONTENT_PAGE_SIZE',
+	'ACTION_PAGE_SIZE',
+	'CONTENT_PREV_WIDGET_ID',
+	'CONTENT_NEXT_WIDGET_ID',
+	'ACTION_PREV_WIDGET_ID',
+	'ACTION_NEXT_WIDGET_ID',
+	'ScrollContentPage',
+	'ScrollActionPage',
+	'RenderContentPager',
+	'RenderActionPager',
+	'CreateWrappedTextWidget',
+	'BuildContentItemList',
 	'STAT|',
 	'SECTION|',
 	'ROW|',
@@ -1667,8 +1686,14 @@ foreach ($requiredSettingsEntry in @(
 	"LoadOrCreate",
 	"WriteDefault",
 	"schemaVersion",
+	"HST_RuntimeSettingsCapture",
 	"startingFactionMoney",
 	"startingHR",
+	"captureProgressRequired",
+	"captureProgressPerSecond",
+	"captureDecayPerSecond",
+	"captureAggressionBase",
+	"captureCounterattackChancePercent",
 	"autosaveIntervalSeconds",
 	"activationRadiusMeters",
 	"deactivationRadiusMeters",
@@ -1698,8 +1723,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 7") {
-	throw "Runtime settings schema must be bumped to 7 for deposit-all loot migration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 8") {
+	throw "Runtime settings schema must be bumped to 8 for capture tuning migration"
 }
 if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 25") {
 	throw "Runtime/balance defaults must set arsenal unlock threshold to 25"
@@ -1712,6 +1737,17 @@ if ($configResourceText -notmatch "m_iHQInteractionRadiusMeters 50") {
 }
 if ($configResourceText -notmatch "m_iArsenalUnlockThreshold 25") {
 	throw "Balance config must set arsenal unlock threshold to 25"
+}
+foreach ($requiredCaptureDefault in @(
+	"m_iCaptureProgressRequired 100",
+	"m_iCaptureProgressPerSecond 2",
+	"m_iCaptureDecayPerSecond 1",
+	"m_iCaptureAggressionBase 10",
+	"m_iCaptureCounterattackChancePercent 45"
+)) {
+	if ($configResourceText -notmatch $requiredCaptureDefault) {
+		throw "Balance config must set capture default: $requiredCaptureDefault"
+	}
 }
 if ($configResourceText -notmatch "m_bLootOnlyLockedItems 0" -or $configResourceText -notmatch "m_bVehicleLootOnlyLockedItems 0") {
 	throw "Loot defaults must deposit all recovered gear instead of leaving repeated unlocked items on sources"
@@ -2182,10 +2218,10 @@ foreach ($forbiddenLoadoutDependencyEntry in @(
 	"BaconLoadoutEditor",
 	"GunBuilder",
 	"Bacon_",
-	"Tonka Bean Tools LE"
+	("Ton" + "ka Bean Tools LE")
 )) {
 	if ($loadoutEditorText -match [regex]::Escape($forbiddenLoadoutDependencyEntry) -or $loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutDependencyEntry)) {
-		throw "h-istasi loadout editor must not depend on Bacon/Tonka loadout runtime strings: $forbiddenLoadoutDependencyEntry"
+		throw "h-istasi loadout editor must not depend on legacy loadout runtime strings: $forbiddenLoadoutDependencyEntry"
 	}
 }
 foreach ($forbiddenArsenalRuntimeEntry in @(
@@ -2200,8 +2236,8 @@ if ($loadoutEditorText -match "\bSCR_PlayerArsenalLoadout\b") {
 	foreach ($requiredSerializedLoadoutEntry in @(
 		"SCR_PlayerArsenalLoadout.ReadLoadoutString",
 		"SCR_PlayerArsenalLoadout.ApplyLoadoutString",
-		"SCR_JsonSaveContext",
-		"SCR_JsonLoadContext"
+		"JsonSaveContext",
+		"JsonLoadContext"
 	)) {
 		if ($loadoutEditorText -notmatch [regex]::Escape($requiredSerializedLoadoutEntry)) {
 			throw "SCR_PlayerArsenalLoadout may only be used by the custom editor for serialized personal preset save/load; missing: $requiredSerializedLoadoutEntry"

@@ -50,6 +50,12 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const int TAB_WIDGET_ID_BASE = 1000;
 	static const int ACTION_WIDGET_ID_BASE = 2000;
 	static const int CLOSE_WIDGET_ID = 9000;
+	static const int CONTENT_PREV_WIDGET_ID = 9010;
+	static const int CONTENT_NEXT_WIDGET_ID = 9011;
+	static const int ACTION_PREV_WIDGET_ID = 9020;
+	static const int ACTION_NEXT_WIDGET_ID = 9021;
+	static const int CONTENT_PAGE_SIZE = 19;
+	static const int ACTION_PAGE_SIZE = 12;
 
 	protected static HST_CommandMenuComponent s_LocalInstance;
 
@@ -78,8 +84,16 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected ref array<string> m_aRowTones = {};
 	protected ref array<string> m_aFeedLines = {};
 	protected ref array<string> m_aFeedTones = {};
+	protected ref array<string> m_aContentItemKinds = {};
+	protected ref array<int> m_aContentItemSectionIndexes = {};
+	protected ref array<int> m_aContentItemRowIndexes = {};
 	protected ref array<Widget> m_aWidgets = {};
 	protected ref array<ref HST_CommandMenuDrawCommandSet> m_aCanvasCommandSets = {};
+	protected ref array<Widget> m_aExternalNotificationWidgets = {};
+	protected ref array<ref HST_CommandMenuDrawCommandSet> m_aExternalNotificationCommandSets = {};
+	protected ref array<string> m_aExternalNotificationTitleQueue = {};
+	protected ref array<string> m_aExternalNotificationMessageQueue = {};
+	protected ref array<float> m_aExternalNotificationDurationQueue = {};
 	protected ref HST_CommandMenuWidgetHandler m_WidgetHandler;
 	protected IEntity m_OwnerEntity;
 	protected bool m_bIsLocalOwner;
@@ -94,6 +108,9 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bLoggedCustomActionInput;
 	protected bool m_bLoggedRawIKeyInput;
 	protected bool m_bLoggedDuplicateToggle;
+	protected float m_fExternalNotificationRemaining;
+	protected int m_iContentPageStart;
+	protected int m_iActionPageStart;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -114,6 +131,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_bIsLocalOwner)
 		{
 			UnregisterInputListeners();
+			ClearExternalNotificationWidgets();
 			CloseMenu();
 			if (s_LocalInstance == this)
 				s_LocalInstance = null;
@@ -134,6 +152,9 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		if (m_fCommandMenuDebounceRemaining > 0)
 			m_fCommandMenuDebounceRemaining = Math.Max(0, m_fCommandMenuDebounceRemaining - timeSlice);
+
+		if (m_bIsLocalOwner)
+			TickExternalNotification(timeSlice);
 
 		if (!m_bIsLocalOwner)
 		{
@@ -187,6 +208,22 @@ class HST_CommandMenuComponent : ScriptComponent
 	static HST_CommandMenuComponent GetLocalInstance()
 	{
 		return s_LocalInstance;
+	}
+
+	void ShowExternalNotification(string title, string message, float durationSeconds)
+	{
+		if (title.IsEmpty())
+			title = "h-istasi";
+		if (message.IsEmpty())
+			return;
+
+		if (m_fExternalNotificationRemaining > 0)
+		{
+			QueueExternalNotification(title, message, durationSeconds);
+			return;
+		}
+
+		RenderExternalNotification(title, message, durationSeconds);
 	}
 
 	void OpenPetrosMenu()
@@ -254,9 +291,12 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		Print("h-istasi menu | snapshot received");
 		bool showClosedResult = !m_bMenuOpen && !lastResult.IsEmpty() && lastResult != m_sLastResult;
+		string previousTab = m_sSelectedTab;
 		m_sLastPayload = payload;
 		m_sLastResult = lastResult;
 		ApplyHeaderFromPayload(payload);
+		if (previousTab != m_sSelectedTab)
+			ResetMenuScroll();
 		m_sStatusText = ExtractSection(payload, "STATUS");
 		if (m_sStatusText.IsEmpty())
 			m_sStatusText = payload;
@@ -268,6 +308,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		ParseTabsFromPayload(payload);
 		ParseRichPayload(payload);
 		ParseActionsFromPayload(payload);
+		ClampContentPage();
+		ClampActionPage();
 		int selectedTabIndex = m_aTabIds.Find(m_sSelectedTab);
 		if (selectedTabIndex >= 0 && m_iSelectedControl < m_aTabIds.Count())
 			m_iSelectedControl = selectedTabIndex;
@@ -289,6 +331,30 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (widgetId == CLOSE_WIDGET_ID)
 		{
 			CloseMenu();
+			return true;
+		}
+
+		if (widgetId == CONTENT_PREV_WIDGET_ID)
+		{
+			ScrollContentPage(-1);
+			return true;
+		}
+
+		if (widgetId == CONTENT_NEXT_WIDGET_ID)
+		{
+			ScrollContentPage(1);
+			return true;
+		}
+
+		if (widgetId == ACTION_PREV_WIDGET_ID)
+		{
+			ScrollActionPage(-1);
+			return true;
+		}
+
+		if (widgetId == ACTION_NEXT_WIDGET_ID)
+		{
+			ScrollActionPage(1);
 			return true;
 		}
 
@@ -580,6 +646,36 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_aActionDisabledReasons.Insert(disabledReason);
 	}
 
+	protected void ResetMenuScroll()
+	{
+		m_iContentPageStart = 0;
+		m_iActionPageStart = 0;
+	}
+
+	protected void ScrollContentPage(int direction)
+	{
+		if (!m_bMenuOpen)
+			return;
+
+		int pageSize = GetContentPageSize();
+		int maxStart = ResolveMaxPageStart(m_aContentItemKinds.Count(), pageSize);
+		m_iContentPageStart = ClampIntToRange(m_iContentPageStart + direction * pageSize, 0, maxStart);
+		RenderMenu();
+	}
+
+	protected void ScrollActionPage(int direction)
+	{
+		if (!m_bMenuOpen)
+			return;
+
+		int pageSize = GetActionPageSize();
+		int maxStart = ResolveMaxPageStart(m_aActionLabels.Count(), pageSize);
+		m_iActionPageStart = ClampIntToRange(m_iActionPageStart + direction * pageSize, 0, maxStart);
+		if (m_aActionLabels.Count() > 0)
+			m_iSelectedControl = m_aTabIds.Count() + m_iActionPageStart;
+		RenderMenu();
+	}
+
 	protected void ToggleMenu()
 	{
 		if (m_bMenuOpen)
@@ -598,6 +694,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_sSelectedTab = "overview";
 
 		m_sSelectedTab = NormalizeTabId(m_sSelectedTab);
+		ResetMenuScroll();
 		BuildTabList();
 		BuildActionList();
 		m_iSelectedControl = Math.Max(0, m_aTabIds.Find(m_sSelectedTab));
@@ -686,6 +783,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		m_sSelectedTab = NormalizeTabId(m_aTabIds[tabIndex]);
 		m_iSelectedControl = tabIndex;
+		ResetMenuScroll();
 		m_sStatusText = "h-istasi menu | requesting " + m_aTabLabels[tabIndex];
 		if (!m_aTabEnabled[tabIndex])
 			m_sStatusText = m_sStatusText + " (locked)";
@@ -763,53 +861,161 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
 	{
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 28, 32, 1180, 820, WidgetFlags.VISIBLE, null, 2500);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 24, 24, 1768, 960, WidgetFlags.VISIBLE, null, 2500);
 		if (!root)
 			return null;
 
 		root.SetZOrder(2500);
 		m_aWidgets.Insert(root);
-		CreateRectWidget(workspace, root, 0, 0, 1180, 820, 0xF2080D12, 1.0, 0);
+		CreateRectWidget(workspace, root, 0, 0, 1768, 960, 0xF2080D12, 1.0, 0);
 		return root;
 	}
 
 	protected void ShowMenuHint(string text, string title, float durationSeconds)
 	{
-		SCR_HintManagerComponent hintManager = SCR_HintManagerComponent.GetInstance();
-		if (hintManager)
-			hintManager.ShowCustomHint(text, title, durationSeconds);
+	}
+
+	protected void TickExternalNotification(float timeSlice)
+	{
+		if (m_fExternalNotificationRemaining <= 0)
+			return;
+
+		m_fExternalNotificationRemaining = Math.Max(0, m_fExternalNotificationRemaining - timeSlice);
+		if (m_fExternalNotificationRemaining <= 0)
+		{
+			ClearExternalNotificationWidgets();
+			ShowNextExternalNotification();
+		}
+	}
+
+	protected void QueueExternalNotification(string title, string message, float durationSeconds)
+	{
+		m_aExternalNotificationTitleQueue.Insert(title);
+		m_aExternalNotificationMessageQueue.Insert(message);
+		m_aExternalNotificationDurationQueue.Insert(Math.Max(1.0, durationSeconds));
+
+		while (m_aExternalNotificationTitleQueue.Count() > 16)
+		{
+			m_aExternalNotificationTitleQueue.Remove(0);
+			m_aExternalNotificationMessageQueue.Remove(0);
+			m_aExternalNotificationDurationQueue.Remove(0);
+		}
+	}
+
+	protected void ShowNextExternalNotification()
+	{
+		if (m_aExternalNotificationTitleQueue.Count() == 0)
+			return;
+
+		string title = m_aExternalNotificationTitleQueue[0];
+		string message = m_aExternalNotificationMessageQueue[0];
+		float duration = m_aExternalNotificationDurationQueue[0];
+		m_aExternalNotificationTitleQueue.Remove(0);
+		m_aExternalNotificationMessageQueue.Remove(0);
+		m_aExternalNotificationDurationQueue.Remove(0);
+		RenderExternalNotification(title, message, duration);
+	}
+
+	protected void RenderExternalNotification(string title, string message, float durationSeconds)
+	{
+		ClearExternalNotificationWidgets();
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+			return;
+
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 510, 24, 900, 92, WidgetFlags.VISIBLE, null, 2850);
+		if (!root)
+			return;
+
+		root.SetZOrder(2850);
+		m_aExternalNotificationWidgets.Insert(root);
+		CreateExternalRectWidget(workspace, root, 0, 0, 900, 92, 0xF21A232B, 1.0);
+		CreateExternalRectWidget(workspace, root, 0, 88, 900, 4, 0xFFC4953B, 1.0);
+		CreateExternalTextWidget(workspace, root, ShortenText(title, 44), 24, 10, 380, 24, 18, 0xFFF2D18B, true);
+		CreateExternalTextWidget(workspace, root, ShortenText(message, 140), 24, 38, 852, 42, 16, 0xFFF2F4F0, false);
+		m_fExternalNotificationRemaining = Math.Max(1.0, durationSeconds);
+	}
+
+	protected Widget CreateExternalRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity)
+	{
+		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE, null, 2851, parent);
+		if (!widget)
+			return null;
+
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, width, height);
+		SetupExternalCanvasRect(widget, width, height, color);
+		widget.SetOpacity(opacity);
+		return widget;
+	}
+
+	protected bool SetupExternalCanvasRect(Widget widget, int width, int height, int color)
+	{
+		CanvasWidget canvas = CanvasWidget.Cast(widget);
+		if (!canvas)
+			return false;
+
+		HST_CommandMenuDrawCommandSet commandSet = new HST_CommandMenuDrawCommandSet();
+		PolygonDrawCommand rectCommand = new PolygonDrawCommand();
+		rectCommand.m_iColor = color;
+		rectCommand.m_Vertices = BuildRectVertices(width, height);
+		commandSet.m_aCommands.Insert(rectCommand);
+		canvas.SetDrawCommands(commandSet.m_aCommands);
+		m_aExternalNotificationCommandSets.Insert(commandSet);
+		return true;
+	}
+
+	protected TextWidget CreateExternalTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, bool bold)
+	{
+		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, 2852, parent);
+		if (!widget)
+			return null;
+
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, width, height);
+		TextWidget textWidget = TextWidget.Cast(widget);
+		if (textWidget)
+		{
+			textWidget.SetText(text);
+			textWidget.SetTextWrapping(false);
+			ApplyTextStyle(textWidget, fontSize, bold);
+		}
+
+		widget.SetColorInt(color);
+		return textWidget;
 	}
 
 	protected void RenderHeader(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 0, 0, 1180, 84, 0xFF111920, 0.98, 0);
+		CreateRectWidget(workspace, root, 0, 0, 1768, 84, 0xFF111920, 0.98, 0);
 		CreateTextWidget(workspace, root, "h-istasi HQ", 24, 14, 280, 48, 34, 0xFFF2D18B, 0, true);
 		CreateTextWidget(workspace, root, "FIA Resistance Command", 300, 28, 300, 28, 16, 0xFFB7C7D7, 0, false);
-		CreateTextWidget(workspace, root, BuildSelectedTabTitle(), 610, 18, 290, 42, 26, 0xFFECE6D2, 0, true);
-		CreateRectWidget(workspace, root, 1040, 16, 96, 46, 0xFF5F6C76, 0.96, CLOSE_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Close", 1054, 28, 68, 24, 17, 0xFFF4EBD6, CLOSE_WIDGET_ID, true);
+		CreateTextWidget(workspace, root, BuildSelectedTabTitle(), 720, 18, 560, 42, 26, 0xFFECE6D2, 0, true);
+		CreateRectWidget(workspace, root, 1636, 16, 96, 46, 0xFF5F6C76, 0.96, CLOSE_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Close", 1650, 28, 68, 24, 17, 0xFFF4EBD6, CLOSE_WIDGET_ID, true);
 	}
 
 	protected void RenderStats(WorkspaceWidget workspace, Widget root)
 	{
 		int left = 220;
 		int top = 96;
-		int width = 134;
+		int width = 170;
 		for (int i = 0; i < m_aStatLabels.Count(); i++)
 		{
 			if (i >= 4)
 				break;
 
-			int x = left + i * 144;
+			int x = left + i * 182;
 			CreateRectWidget(workspace, root, x, top, width, 58, ToneBackgroundColor(m_aStatTones[i]), 0.96, 0);
-			CreateTextWidget(workspace, root, ShortenText(m_aStatLabels[i], 14), x + 10, top + 7, width - 20, 20, 14, 0xFFCAD2D7, 0, false);
-			CreateTextWidget(workspace, root, ShortenText(m_aStatValues[i], 12), x + 10, top + 31, width - 20, 24, 19, ToneTextColor(m_aStatTones[i]), 0, true);
+			CreateTextWidget(workspace, root, ShortenText(m_aStatLabels[i], 18), x + 10, top + 7, width - 20, 20, 14, 0xFFCAD2D7, 0, false);
+			CreateTextWidget(workspace, root, ShortenText(m_aStatValues[i], 18), x + 10, top + 31, width - 20, 24, 19, ToneTextColor(m_aStatTones[i]), 0, true);
 		}
 	}
 
 	protected void RenderNavigation(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 20, 96, 178, 704, 0xFF0F151B, 0.98, 0);
+		CreateRectWidget(workspace, root, 20, 96, 178, 840, 0xFF0F151B, 0.98, 0);
 		CreateTextWidget(workspace, root, "Navigation", 40, 114, 138, 28, 19, 0xFFE6DECB, 0, true);
 		for (int i = 0; i < m_aTabLabels.Count(); i++)
 		{
@@ -845,61 +1051,113 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected void RenderMainSections(WorkspaceWidget workspace, Widget root)
 	{
 		int sectionCount = m_aSectionIds.Count();
+		CreateRectWidget(workspace, root, 220, 172, 1024, 764, 0xF31A232B, 0.98, 0);
+		CreateRectWidget(workspace, root, 220, 172, 1024, 4, 0xFFC4953B, 1.0, 0);
 		if (sectionCount == 0)
 		{
-			CreateRectWidget(workspace, root, 220, 172, 610, 626, 0xF31A232B, 0.98, 0);
-			CreateTextWidget(workspace, root, ShortenText(m_sStatusText, 170), 244, 202, 562, 540, 17, 0xFFE0E0E0, 0, false);
+			CreateWrappedTextWidget(workspace, root, ShortenText(m_sStatusText, 1100), 244, 202, 976, 680, 16, 0xFFE0E0E0, 0, false);
 			return;
 		}
 
-		int maxSections = Math.Min(sectionCount, 4);
-		for (int i = 0; i < maxSections; i++)
+		ClampContentPage();
+		int pageSize = GetContentPageSize();
+		int rendered = 0;
+		for (int i = m_iContentPageStart; i < m_aContentItemKinds.Count(); i++)
 		{
-			int top = 172 + i * 154;
-			RenderSectionCard(workspace, root, i, 220, top, 610, 144);
-		}
-	}
-
-	protected void RenderSectionCard(WorkspaceWidget workspace, Widget root, int sectionIndex, int left, int top, int width, int height)
-	{
-		if (sectionIndex < 0 || sectionIndex >= m_aSectionIds.Count())
-			return;
-
-		string sectionId = m_aSectionIds[sectionIndex];
-		CreateRectWidget(workspace, root, left, top, width, height, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, left, top, width, 4, 0xFFC4953B, 1.0, 0);
-		CreateTextWidget(workspace, root, ShortenText(m_aSectionTitles[sectionIndex], 34), left + 18, top + 12, width - 36, 28, 21, 0xFFEFE2C4, 0, true);
-
-		int rendered;
-		for (int i = 0; i < m_aRowLabels.Count(); i++)
-		{
-			if (m_aRowSectionIds[i] != sectionId)
-				continue;
-
-			if (rendered >= 4)
+			if (rendered >= pageSize)
 				break;
 
-			int rowTop = top + 50 + rendered * 24;
-			CreateTextWidget(workspace, root, ShortenText(m_aRowLabels[i], 18), left + 18, rowTop, 154, 23, 15, 0xFFC4CDD3, 0, false);
-			CreateTextWidget(workspace, root, ShortenText(m_aRowValues[i], 42), left + 184, rowTop, width - 204, 23, 15, ToneTextColor(m_aRowTones[i]), 0, false);
+			int rowTop = 198 + rendered * 36;
+			RenderContentItem(workspace, root, i, 244, rowTop, 976, 32);
 			rendered++;
 		}
 
-		if (rendered == 0)
-			CreateTextWidget(workspace, root, "No entries", left + 18, top + 52, width - 36, 24, 16, 0xFF8D98A0, 0, false);
+		if (m_aContentItemKinds.Count() > pageSize)
+			RenderContentPager(workspace, root, 244, 900, 976);
+	}
+
+	protected void RenderContentItem(WorkspaceWidget workspace, Widget root, int contentIndex, int left, int top, int width, int height)
+	{
+		if (contentIndex < 0 || contentIndex >= m_aContentItemKinds.Count())
+			return;
+
+		string kind = m_aContentItemKinds[contentIndex];
+		int sectionIndex = m_aContentItemSectionIndexes[contentIndex];
+		int rowIndex = m_aContentItemRowIndexes[contentIndex];
+		if (kind == "section")
+		{
+			CreateRectWidget(workspace, root, left - 8, top - 3, width + 16, height + 2, 0xFF263341, 0.72, 0);
+			CreateTextWidget(workspace, root, ShortenText(m_aSectionTitles[sectionIndex], 68), left, top + 3, width, 24, 19, 0xFFEFE2C4, 0, true);
+			return;
+		}
+
+		if (kind == "empty")
+		{
+			CreateTextWidget(workspace, root, "No entries", left + 18, top + 4, width - 36, 24, 15, 0xFF8D98A0, 0, false);
+			return;
+		}
+
+		if (rowIndex < 0 || rowIndex >= m_aRowLabels.Count())
+			return;
+
+		CreateTextWidget(workspace, root, ShortenText(m_aRowLabels[rowIndex], 34), left, top + 2, 232, height, 14, 0xFFC4CDD3, 0, false);
+		CreateWrappedTextWidget(workspace, root, ShortenText(m_aRowValues[rowIndex], 130), left + 250, top + 2, width - 250, height, 14, ToneTextColor(m_aRowTones[rowIndex]), 0, false);
+	}
+
+	protected void RenderContentPager(WorkspaceWidget workspace, Widget root, int left, int top, int width)
+	{
+		int pageSize = GetContentPageSize();
+		int start = Math.Min(m_iContentPageStart + 1, m_aContentItemKinds.Count());
+		int end = Math.Min(m_iContentPageStart + pageSize, m_aContentItemKinds.Count());
+		string label = string.Format("Entries %1-%2 / %3", start, end, m_aContentItemKinds.Count());
+		CreateTextWidget(workspace, root, label, left + 268, top + 4, 280, 24, 14, 0xFFAFBAC1, 0, false);
+
+		bool canPrev = m_iContentPageStart > 0;
+		bool canNext = m_iContentPageStart + pageSize < m_aContentItemKinds.Count();
+		int prevColor = 0xFF2F3B45;
+		int nextColor = 0xFF2F3B45;
+		int prevTextColor = 0xFFE5E5E5;
+		int nextTextColor = 0xFFE5E5E5;
+		if (!canPrev)
+		{
+			prevColor = 0xFF1E252B;
+			prevTextColor = 0xFF6D777F;
+		}
+		if (!canNext)
+		{
+			nextColor = 0xFF1E252B;
+			nextTextColor = 0xFF6D777F;
+		}
+
+		CreateRectWidget(workspace, root, left, top, 120, 30, prevColor, 0.9, CONTENT_PREV_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Prev", left + 38, top + 5, 70, 20, 14, prevTextColor, CONTENT_PREV_WIDGET_ID, true);
+		CreateRectWidget(workspace, root, left + width - 120, top, 120, 30, nextColor, 0.9, CONTENT_NEXT_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Next", left + width - 82, top + 5, 70, 20, 14, nextTextColor, CONTENT_NEXT_WIDGET_ID, true);
+	}
+
+	protected int CountRowsForSection(string sectionId)
+	{
+		int count = 0;
+		foreach (string rowSectionId : m_aRowSectionIds)
+		{
+			if (rowSectionId == sectionId)
+				count++;
+		}
+
+		return count;
 	}
 
 	protected void RenderActivityPanel(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 852, 96, 310, 302, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, 852, 96, 310, 4, 0xFF50704A, 1.0, 0);
-		CreateTextWidget(workspace, root, "Activity", 872, 114, 180, 30, 20, 0xFFEFE2C4, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(BuildResultText(), 56), 872, 154, 270, 66, 16, 0xFFD2E7B8, 0, false);
-		CreateTextWidget(workspace, root, "Campaign Notes", 872, 232, 214, 28, 20, 0xFFEFE2C4, 0, true);
+		CreateRectWidget(workspace, root, 1272, 96, 472, 318, 0xF31A232B, 0.98, 0);
+		CreateRectWidget(workspace, root, 1272, 96, 472, 4, 0xFF50704A, 1.0, 0);
+		CreateTextWidget(workspace, root, "Activity", 1292, 114, 180, 30, 20, 0xFFEFE2C4, 0, true);
+		CreateTextWidget(workspace, root, ShortenText(BuildResultText(), 104), 1292, 154, 432, 66, 16, 0xFFD2E7B8, 0, false);
+		CreateTextWidget(workspace, root, "Campaign Notes", 1292, 232, 214, 28, 20, 0xFFEFE2C4, 0, true);
 
 		if (m_aFeedLines.Count() == 0)
 		{
-			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", 872, 270, 270, 28, 16, 0xFFAFBAC1, 0, false);
+			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", 1292, 270, 432, 28, 16, 0xFFAFBAC1, 0, false);
 			return;
 		}
 
@@ -908,18 +1166,21 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (i >= 4)
 				break;
 
-			CreateTextWidget(workspace, root, ShortenText(m_aFeedLines[i], 34), 872, 270 + i * 30, 270, 28, 15, ToneTextColor(m_aFeedTones[i]), 0, false);
+			CreateTextWidget(workspace, root, ShortenText(m_aFeedLines[i], 62), 1292, 270 + i * 30, 432, 28, 15, ToneTextColor(m_aFeedTones[i]), 0, false);
 		}
 	}
 
 	protected void RenderActions(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 852, 420, 310, 378, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, 852, 420, 310, 4, 0xFF8C4E43, 1.0, 0);
-		CreateTextWidget(workspace, root, "Actions", 872, 438, 170, 30, 20, 0xFFEFE2C4, 0, true);
-		for (int i = 0; i < m_aActionLabels.Count(); i++)
+		CreateRectWidget(workspace, root, 1272, 434, 472, 502, 0xF31A232B, 0.98, 0);
+		CreateRectWidget(workspace, root, 1272, 434, 472, 4, 0xFF8C4E43, 1.0, 0);
+		CreateTextWidget(workspace, root, "Actions", 1292, 452, 170, 30, 20, 0xFFEFE2C4, 0, true);
+		EnsureActionPageContainsSelection();
+		int pageSize = GetActionPageSize();
+		int rendered = 0;
+		for (int i = m_iActionPageStart; i < m_aActionLabels.Count(); i++)
 		{
-			if (i >= 10)
+			if (rendered >= pageSize)
 				break;
 
 			string prefix = "  ";
@@ -931,7 +1192,8 @@ class HST_CommandMenuComponent : ScriptComponent
 				rowColor = 0xFF604A24;
 				rowOpacity = 0.88;
 			}
-			CreateRectWidget(workspace, root, 864, 478 + i * 33, 278, 29, rowColor, rowOpacity, ACTION_WIDGET_ID_BASE + i);
+			int rowTop = 492 + rendered * 31;
+			CreateRectWidget(workspace, root, 1284, rowTop, 444, 28, rowColor, rowOpacity, ACTION_WIDGET_ID_BASE + i);
 
 			string suffix = "";
 			int color = 0xFFE5E5E5;
@@ -941,11 +1203,45 @@ class HST_CommandMenuComponent : ScriptComponent
 				color = 0xFF8B9298;
 			}
 
-			CreateTextWidget(workspace, root, ShortenText(prefix + m_aActionLabels[i] + suffix, 34), 872, 482 + i * 33, 270, 28, 15, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
+			CreateWrappedTextWidget(workspace, root, ShortenText(prefix + m_aActionLabels[i] + suffix, 110), 1292, rowTop + 4, 428, 24, 14, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
+			rendered++;
 		}
 
 		if (m_aActionLabels.Count() == 0)
-			CreateTextWidget(workspace, root, "No commands available.", 872, 482, 270, 30, 16, 0xFF9AA5AD, 0, false);
+			CreateTextWidget(workspace, root, "No commands available.", 1292, 496, 428, 30, 16, 0xFF9AA5AD, 0, false);
+		else if (m_aActionLabels.Count() > pageSize)
+			RenderActionPager(workspace, root);
+	}
+
+	protected void RenderActionPager(WorkspaceWidget workspace, Widget root)
+	{
+		int pageSize = GetActionPageSize();
+		int start = Math.Min(m_iActionPageStart + 1, m_aActionLabels.Count());
+		int end = Math.Min(m_iActionPageStart + pageSize, m_aActionLabels.Count());
+		string label = string.Format("%1-%2 / %3", start, end, m_aActionLabels.Count());
+		CreateTextWidget(workspace, root, label, 1472, 892, 110, 24, 13, 0xFFAFBAC1, 0, false);
+
+		bool canPrev = m_iActionPageStart > 0;
+		bool canNext = m_iActionPageStart + pageSize < m_aActionLabels.Count();
+		int prevColor = 0xFF2F3B45;
+		int nextColor = 0xFF2F3B45;
+		int prevTextColor = 0xFFE5E5E5;
+		int nextTextColor = 0xFFE5E5E5;
+		if (!canPrev)
+		{
+			prevColor = 0xFF1E252B;
+			prevTextColor = 0xFF6D777F;
+		}
+		if (!canNext)
+		{
+			nextColor = 0xFF1E252B;
+			nextTextColor = 0xFF6D777F;
+		}
+
+		CreateRectWidget(workspace, root, 1292, 888, 86, 30, prevColor, 0.9, ACTION_PREV_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Prev", 1318, 893, 52, 20, 13, prevTextColor, ACTION_PREV_WIDGET_ID, true);
+		CreateRectWidget(workspace, root, 1638, 888, 86, 30, nextColor, 0.9, ACTION_NEXT_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Next", 1664, 893, 52, 20, 13, nextTextColor, ACTION_NEXT_WIDGET_ID, true);
 	}
 
 	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
@@ -1025,6 +1321,32 @@ class HST_CommandMenuComponent : ScriptComponent
 		return textWidget;
 	}
 
+	protected TextWidget CreateWrappedTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
+	{
+		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, 2600, parent);
+		if (!widget)
+			return null;
+
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, width, height);
+		TextWidget textWidget = TextWidget.Cast(widget);
+		if (textWidget)
+		{
+			textWidget.SetText(text);
+			textWidget.SetTextWrapping(true);
+			ApplyTextStyle(textWidget, fontSize, bold);
+		}
+
+		widget.SetColorInt(color);
+		if (userId > 0)
+		{
+			widget.SetUserID(userId);
+			widget.AddHandler(m_WidgetHandler);
+		}
+
+		return textWidget;
+	}
+
 	protected void ApplyTextStyle(TextWidget textWidget, int fontSize, bool bold)
 	{
 		if (!textWidget)
@@ -1052,6 +1374,19 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_aCanvasCommandSets.Clear();
 	}
 
+	protected void ClearExternalNotificationWidgets()
+	{
+		foreach (Widget widget : m_aExternalNotificationWidgets)
+		{
+			if (widget)
+				widget.RemoveFromHierarchy();
+		}
+
+		m_aExternalNotificationWidgets.Clear();
+		m_aExternalNotificationCommandSets.Clear();
+		m_fExternalNotificationRemaining = 0;
+	}
+
 	protected void ClearRichPayload()
 	{
 		m_aStatLabels.Clear();
@@ -1065,6 +1400,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_aRowTones.Clear();
 		m_aFeedLines.Clear();
 		m_aFeedTones.Clear();
+		m_aContentItemKinds.Clear();
+		m_aContentItemSectionIndexes.Clear();
+		m_aContentItemRowIndexes.Clear();
 	}
 
 	protected string BuildResultText()
@@ -1091,6 +1429,68 @@ class HST_CommandMenuComponent : ScriptComponent
 			return text.Substring(0, maxCharacters);
 
 		return text.Substring(0, maxCharacters - 3) + "...";
+	}
+
+	protected int GetContentPageSize()
+	{
+		return CONTENT_PAGE_SIZE;
+	}
+
+	protected int GetActionPageSize()
+	{
+		return ACTION_PAGE_SIZE;
+	}
+
+	protected void ClampContentPage()
+	{
+		int maxStart = ResolveMaxPageStart(m_aContentItemKinds.Count(), GetContentPageSize());
+		m_iContentPageStart = ClampIntToRange(m_iContentPageStart, 0, maxStart);
+	}
+
+	protected void ClampActionPage()
+	{
+		int maxStart = ResolveMaxPageStart(m_aActionLabels.Count(), GetActionPageSize());
+		m_iActionPageStart = ClampIntToRange(m_iActionPageStart, 0, maxStart);
+	}
+
+	protected void EnsureActionPageContainsSelection()
+	{
+		int actionIndex = m_iSelectedControl - m_aTabIds.Count();
+		if (actionIndex < 0)
+		{
+			ClampActionPage();
+			return;
+		}
+
+		if (actionIndex >= m_aActionLabels.Count())
+		{
+			ClampActionPage();
+			return;
+		}
+
+		int pageSize = GetActionPageSize();
+		if (actionIndex < m_iActionPageStart || actionIndex >= m_iActionPageStart + pageSize)
+			m_iActionPageStart = (actionIndex / pageSize) * pageSize;
+
+		ClampActionPage();
+	}
+
+	protected int ResolveMaxPageStart(int itemCount, int pageSize)
+	{
+		if (itemCount <= pageSize || pageSize <= 0)
+			return 0;
+
+		return ((itemCount - 1) / pageSize) * pageSize;
+	}
+
+	protected int ClampIntToRange(int value, int minimum, int maximum)
+	{
+		if (value < minimum)
+			return minimum;
+		if (value > maximum)
+			return maximum;
+
+		return value;
 	}
 
 	protected string BuildSelectedTabTitle()
@@ -1164,6 +1564,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		ParseSectionsFromPayload(payload);
 		ParseRowsFromPayload(payload);
 		ParseFeedFromPayload(payload);
+		BuildContentItemList();
 	}
 
 	protected void ParseStatsFromPayload(string payload)
@@ -1247,6 +1648,38 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_aFeedTones.Insert(ExtractPipeField(line, 2));
 			cursor = lineEnd + 1;
 		}
+	}
+
+	protected void BuildContentItemList()
+	{
+		m_aContentItemKinds.Clear();
+		m_aContentItemSectionIndexes.Clear();
+		m_aContentItemRowIndexes.Clear();
+
+		for (int sectionIndex = 0; sectionIndex < m_aSectionIds.Count(); sectionIndex++)
+		{
+			string sectionId = m_aSectionIds[sectionIndex];
+			AddContentItem("section", sectionIndex, -1);
+			bool hasRows = false;
+			for (int rowIndex = 0; rowIndex < m_aRowSectionIds.Count(); rowIndex++)
+			{
+				if (m_aRowSectionIds[rowIndex] != sectionId)
+					continue;
+
+				AddContentItem("row", sectionIndex, rowIndex);
+				hasRows = true;
+			}
+
+			if (!hasRows)
+				AddContentItem("empty", sectionIndex, -1);
+		}
+	}
+
+	protected void AddContentItem(string kind, int sectionIndex, int rowIndex)
+	{
+		m_aContentItemKinds.Insert(kind);
+		m_aContentItemSectionIndexes.Insert(sectionIndex);
+		m_aContentItemRowIndexes.Insert(rowIndex);
 	}
 
 	protected void ParseActionsFromPayload(string payload)

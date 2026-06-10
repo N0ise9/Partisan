@@ -35,6 +35,11 @@ class HST_BalanceConfig
 	int m_iOccupierVehicleMinPerTown;
 	int m_iOccupierVehicleMaxPerTown = 2;
 	int m_iWarLevelMaximum = 10;
+	int m_iCaptureProgressRequired = 100;
+	int m_iCaptureProgressPerSecond = 2;
+	int m_iCaptureDecayPerSecond = 1;
+	int m_iCaptureAggressionBase = 10;
+	int m_iCaptureCounterattackChancePercent = 45;
 	ref array<string> m_aCivilianCharacterPrefabs = {};
 	ref array<string> m_aCivilianVehiclePrefabs = {};
 }

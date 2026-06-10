@@ -54,7 +54,7 @@ class HST_CommandUIService
 		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report";
 	}
 
-	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null)
+	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
 	{
 		selectedTabId = NormalizeTabId(selectedTabId);
 
@@ -71,7 +71,7 @@ class HST_CommandUIService
 		payload = payload + string.Format("\nTAB|admin|Admin|%1", canUseAdmin);
 		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
 		payload = AppendTopStats(payload, state, preset);
-		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin, compositions);
+		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, balance, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin, compositions, capture);
 		payload = AppendActivityFeed(payload, state, preset, selectedTabId);
 
 		if (!lastResult.IsEmpty())
@@ -215,7 +215,7 @@ class HST_CommandUIService
 			return BuildBoolResult("train FIA troops", coordinator.RequestCommanderTrainTroops(playerId));
 
 		if (commandId == "recruit_zone")
-			return BuildBoolResult("recruit FIA garrison at " + argument, coordinator.RequestCommanderRecruitGarrison(playerId, argument, 2, 0, 100, 1));
+			return coordinator.RequestCommanderRecruitGarrisonReport(playerId, argument, 2, 0, 100, 1);
 
 		if (commandId == "mission_zone")
 			return BuildBoolResult("start zone mission at " + argument, coordinator.RequestCommanderStartZoneMission(playerId, argument));
@@ -707,7 +707,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, string selectedTabId, int playerId, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null)
+	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, HST_BalanceConfig balance, string selectedTabId, int playerId, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
 	{
 		if (selectedTabId == TAB_SETUP)
 			return AppendSetupSections(payload, state, settings);
@@ -730,7 +730,7 @@ class HST_CommandUIService
 			return AppendMissionSections(payload, state);
 
 		if (selectedTabId == TAB_MAP)
-			return AppendMapSections(payload, state, preset);
+			return AppendMapSections(payload, state, preset, balance, capture);
 
 		if (selectedTabId == TAB_FORCES)
 			return AppendForcesSections(payload, state, preset, canUseCommander);
@@ -885,18 +885,33 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendMapSections(string payload, HST_CampaignState state, HST_CampaignPreset preset)
+	protected string AppendMapSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneCaptureService capture)
 	{
 		if (!state)
 			return payload;
 
 		payload = AppendSection(payload, "war_map", "Map Control");
-		payload = AppendRow(payload, "war_map", "Resistance zones", string.Format("%1", CountResistanceZones(state, preset)), "good");
-		payload = AppendRow(payload, "war_map", "Hostile zones", string.Format("%1", CountEnemyZones(state, preset)), "bad");
-		payload = AppendRow(payload, "war_map", "Active zones", string.Format("%1", CountActiveZones(state)), "warn");
-		payload = AppendRow(payload, "war_map", "Projected income", string.Format("$%1 per tick", CountResistanceIncome(state, preset)), "good");
-		payload = AppendRow(payload, "war_map", "Generated sites", string.Format("%1", state.m_aGeneratedSites.Count()), "neutral");
-		payload = AppendRow(payload, "war_map", "Generated routes", string.Format("%1", state.m_aGeneratedRoutes.Count()), "neutral");
+		payload = AppendRow(payload, "war_map", "Resistance", string.Format("%1 controlled zones", CountResistanceZones(state, preset)), "good");
+		payload = AppendRow(payload, "war_map", "Enemy", string.Format("%1 hostile zones", CountEnemyZones(state, preset)), "bad");
+		payload = AppendRow(payload, "war_map", "Active combat", string.Format("%1 zones physically active", CountActiveZones(state)), "warn");
+		payload = AppendRow(payload, "war_map", "Income", string.Format("$%1 per tick from FIA zones", CountResistanceIncome(state, preset)), "good");
+		payload = AppendRow(payload, "war_map", "Generated world", string.Format("%1 sites / %2 routes", state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count()), "neutral");
+
+		payload = AppendSection(payload, "capture_status", "Capture Status");
+		if (!capture)
+		{
+			payload = AppendRow(payload, "capture_status", "Diagnostics", "Capture service unavailable.", "bad");
+		}
+		else
+		{
+			int captureRows;
+			payload = AppendCaptureStatusRows(payload, state, preset, balance, capture, false, captureRows, 5);
+			if (captureRows == 0)
+				payload = AppendCaptureStatusRows(payload, state, preset, balance, capture, true, captureRows, 5);
+
+			if (captureRows == 0)
+				payload = AppendRow(payload, "capture_status", "No active capture", "Approach a hostile military zone to begin contesting it.", "neutral");
+		}
 
 		payload = AppendSection(payload, "zones", "Zone Pressure");
 		int emitted;
@@ -905,15 +920,80 @@ class HST_CommandUIService
 			if (!zone)
 				continue;
 
-			string label = string.Format("%1 / %2", DisplayZoneName(zone.m_sZoneId), ZoneTypeLabel(zone.m_eType));
-			string value = string.Format("owner %1 / support %2 / capture %3 / active %4", zone.m_sOwnerFactionKey, zone.m_iSupport, zone.m_iResistanceCaptureProgress, zone.m_bActive);
+			string label = ShortText(DisplayZoneName(zone.m_sZoneId), 22);
+			string value = string.Format("%1 | %2 | support %3 | capture %4 | %5", zone.m_sOwnerFactionKey, ZoneTypeLabel(zone.m_eType), zone.m_iSupport, zone.m_iResistanceCaptureProgress, ActiveZoneLabel(zone.m_bActive));
 			payload = AppendRow(payload, "zones", label, value, ZoneTone(zone, preset));
 			emitted++;
-			if (emitted >= 10)
+			if (emitted >= 6)
 				break;
 		}
 
 		return payload;
+	}
+
+	protected string AppendCaptureStatusRows(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneCaptureService capture, bool fallbackHighPriority, out int captureRows, int maxRows)
+	{
+		captureRows = 0;
+		if (!state || !capture)
+			return payload;
+
+		foreach (HST_ZoneState captureZone : state.m_aZones)
+		{
+			if (!captureZone || captureRows >= maxRows)
+				continue;
+
+			HST_ZoneCaptureStatus status = capture.BuildCaptureStatus(state, preset, balance, captureZone);
+			if (!status.m_bCapturable)
+				continue;
+
+			bool isActiveCapture = captureZone.m_bActive || captureZone.m_iResistanceCaptureProgress > 0 || status.m_iFIACountNearby > 0;
+			if (!fallbackHighPriority && !isActiveCapture)
+				continue;
+			if (fallbackHighPriority && isActiveCapture)
+				continue;
+			if (fallbackHighPriority && captureZone.m_iPriority < 5)
+				continue;
+
+			payload = AppendRow(payload, "capture_status", ShortText(status.m_sZoneName, 18), BuildCompactCaptureStatusValue(status), CaptureStatusTone(status, preset));
+			captureRows++;
+		}
+
+		return payload;
+	}
+
+	protected string BuildCompactCaptureStatusValue(HST_ZoneCaptureStatus status)
+	{
+		if (!status)
+			return "status unavailable";
+
+		string contested = "quiet";
+		if (status.m_bContested)
+			contested = "hot";
+
+		string blockedReason = status.m_sBlockedReason;
+		if (blockedReason.IsEmpty())
+			blockedReason = "holding";
+		blockedReason = CompactCaptureReason(blockedReason);
+
+		return string.Format("%1 | %2 | radius %3m | FIA %4 | enemy %5 + %6 vehicles | progress %7 percent | %8", status.m_sOwnerFactionKey, contested, status.m_iCaptureRadiusMeters, status.m_iFIACountNearby, status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby, status.m_iProgressPercent, blockedReason);
+	}
+
+	protected string CompactCaptureReason(string reason)
+	{
+		if (reason == "no FIA in radius")
+			return "noFIA";
+		if (reason == "hostile vehicles remain")
+			return "vehicles";
+		if (reason == "enemies remain")
+			return "enemies";
+		if (reason == "conquest objective incomplete")
+			return "objective";
+		if (reason == "already FIA")
+			return "FIA";
+		if (reason == "not a military capture target")
+			return "notTarget";
+
+		return ShortText(reason, 12);
 	}
 
 	protected string AppendForcesSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, bool canUseCommander)
@@ -1233,7 +1313,7 @@ class HST_CommandUIService
 		string hostileTownId = SelectFirstZoneIdByType(state, preset, HST_EZoneType.HST_ZONE_TOWN, true);
 		string resourceTargetId = SelectFirstZoneIdByType(state, preset, HST_EZoneType.HST_ZONE_RESOURCE, true);
 		string outpostTargetId = SelectFirstZoneIdByType(state, preset, HST_EZoneType.HST_ZONE_OUTPOST, true);
-		string recruitTargetId = SelectRecruitZoneId(state, preset);
+		string recruitTargetId = SelectRecruitZoneId(state, preset, playerId);
 		string adminTargetId = SelectAdminTargetZoneId(state);
 		string guestIdentityId = SelectFirstGuestIdentity(state);
 		string memberIdentityId = SelectFirstMemberIdentity(state);
@@ -1450,18 +1530,63 @@ class HST_CommandUIService
 		return "";
 	}
 
-	protected string SelectRecruitZoneId(HST_CampaignState state, HST_CampaignPreset preset)
+	protected string SelectRecruitZoneId(HST_CampaignState state, HST_CampaignPreset preset, int playerId)
 	{
-		if (!state)
+		if (!state || !preset)
 			return "";
 
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		vector referencePosition = state.m_vHQPosition;
+		if (playerEntity)
+			referencePosition = playerEntity.GetOrigin();
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			if (zone && preset && zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
-				return zone.m_sZoneId;
+			if (!IsRecruitableResistanceZone(state, preset, zone))
+				continue;
+
+			float distanceSq = DistanceSq2D(referencePosition, zone.m_vPosition);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestDistanceSq = distanceSq;
+				bestZone = zone;
+			}
 		}
 
-		return SelectPriorityMissionZoneId(state, preset);
+		if (bestZone)
+			return bestZone.m_sZoneId;
+
+		foreach (HST_ZoneState fallbackZone : state.m_aZones)
+		{
+			if (fallbackZone && fallbackZone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+				return fallbackZone.m_sZoneId;
+		}
+
+		return "";
+	}
+
+	protected bool IsRecruitableResistanceZone(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState zone)
+	{
+		if (!state || !preset || !zone)
+			return false;
+
+		if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+			return false;
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT)
+			return false;
+
+		if (zone.m_iGarrisonSlots <= 0)
+			return true;
+
+		int currentInfantry;
+		HST_GarrisonState garrison = state.FindGarrison(zone.m_sZoneId, preset.m_sResistanceFactionKey);
+		if (garrison)
+			currentInfantry = garrison.m_iInfantryCount;
+		currentInfantry += Math.Max(0, zone.m_iActiveInfantryCount);
+		return currentInfantry < zone.m_iGarrisonSlots;
 	}
 
 	protected string SelectAdminTargetZoneId(HST_CampaignState state)
@@ -2037,12 +2162,32 @@ class HST_CommandUIService
 		return "zone";
 	}
 
+	protected string ActiveZoneLabel(bool active)
+	{
+		if (active)
+			return "active";
+
+		return "inactive";
+	}
+
 	protected string DisplayZoneName(string zoneId)
 	{
 		if (zoneId.IsEmpty())
 			return "unknown";
 
 		return HST_DefaultCatalog.GetZoneDisplayName(zoneId);
+	}
+
+	protected string ShortText(string value, int maxLength)
+	{
+		if (value.IsEmpty() || maxLength <= 0)
+			return "";
+		if (value.Length() <= maxLength)
+			return value;
+		if (maxLength <= 1)
+			return value.Substring(0, maxLength);
+
+		return value.Substring(0, maxLength - 1) + ".";
 	}
 
 	protected string ZoneTone(HST_ZoneState zone, HST_CampaignPreset preset)
@@ -2057,6 +2202,23 @@ class HST_CommandUIService
 			return "warn";
 
 		return "bad";
+	}
+
+	protected string CaptureStatusTone(HST_ZoneCaptureStatus status, HST_CampaignPreset preset)
+	{
+		if (!status)
+			return "neutral";
+
+		if (preset && status.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+			return "good";
+
+		if (status.m_iEnemyCountNearby > 0 || status.m_iEnemyVehicleCountNearby > 0)
+			return "bad";
+
+		if (status.m_bContested || status.m_iProgressPercent > 0)
+			return "warn";
+
+		return "neutral";
 	}
 
 	protected string BuildMissionDisplayTitle(HST_ActiveMissionState mission)

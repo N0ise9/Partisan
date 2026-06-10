@@ -2,30 +2,40 @@ class HST_MapMarkerService
 {
 	static const string NATIVE_MARKER_MANAGER_COMPONENT = "SCR_MapMarkerManagerComponent";
 	static const string NATIVE_MARKER_CONFIG = "{3583D42139D9A10B}Configs/Map/CampaignMapMarkerConfig.conf";
+	static const float MARKER_DECONFLICT_RADIUS_METERS = 14.0;
+	static const float MARKER_DECONFLICT_STEP_METERS = 22.0;
+	static const int MARKER_DECONFLICT_ATTEMPTS = 12;
+	static const int MAX_NATIVE_MARKERS = 96;
+	static const int MAX_NATIVE_TACTICAL_MARKERS = 16;
+	static const int NATIVE_OWNERSHIP_SYNC_INTERVAL_SECONDS = 30;
 
 	protected ref array<IEntity> m_aNativeMarkerCandidates = {};
 	protected ref array<ref SCR_MapMarkerBase> m_aRuntimeNativeMarkers = {};
 	protected string m_sNativeMarkerEntityName;
 	protected bool m_bNativePublishPending;
 	protected float m_fNativePublishRetrySeconds;
+	protected string m_sLastNativeMarkerSignature;
+	protected int m_iLastNativeEligibleCount;
+	protected int m_iLastNativePublishedCount;
+	protected int m_iLastNativeSkippedCount;
+	protected int m_iLastNativeOwnershipSyncSecond = -999999;
 
 	bool RebuildAllMarkers(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state || !preset)
 			return false;
 
-		ClearRuntimeNativeMarkers();
 		state.m_aMapMarkers.Clear();
 		AddHQMarker(state, preset);
-		AddHideoutMarkers(state, preset);
 		AddZoneMarkers(state, preset);
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
 		AddSupportRequestMarkers(state, preset);
-		SyncVisibleNativeMarkerOwnership(state);
+		bool ownershipSynced = SyncVisibleNativeMarkerOwnershipIfDue(state);
 		bool published = PublishRuntimeNativeMarkers(state, preset);
-		Print(string.Format("h-istasi | rebuilt %1 Tonka-style map marker record(s), published %2 native marker(s)", state.m_aMapMarkers.Count(), m_aRuntimeNativeMarkers.Count()));
-		return published;
+		if (published || ownershipSynced)
+			Print(string.Format("h-istasi | rebuilt %1 campaign map marker record(s), native %2/%3 published, %4 skipped", state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount));
+		return published || ownershipSynced;
 	}
 
 	bool RefreshHQMarker(HST_CampaignState state, HST_CampaignPreset preset)
@@ -46,6 +56,11 @@ class HST_MapMarkerService
 	void CleanupMarkers(HST_CampaignState state)
 	{
 		ClearRuntimeNativeMarkers();
+		m_sLastNativeMarkerSignature = "";
+		m_iLastNativeEligibleCount = 0;
+		m_iLastNativePublishedCount = 0;
+		m_iLastNativeSkippedCount = 0;
+		m_iLastNativeOwnershipSyncSecond = -999999;
 		m_bNativePublishPending = false;
 		if (!state)
 			return;
@@ -63,7 +78,6 @@ class HST_MapMarkerService
 			return false;
 
 		m_fNativePublishRetrySeconds = 1.0;
-		ClearRuntimeNativeMarkers();
 		return PublishRuntimeNativeMarkers(state, preset);
 	}
 
@@ -77,13 +91,12 @@ class HST_MapMarkerService
 		int strategicCount;
 		int missionCount;
 		int qrfCount;
-		int callsignCount;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
 			if (!marker || !marker.m_bVisible)
 				continue;
 
-			if (marker.m_sCategory == "hq" || marker.m_sCategory == "hideout")
+			if (marker.m_sCategory == "hq")
 				hqCount++;
 			else if (marker.m_sCategory == "town")
 				townCount++;
@@ -91,14 +104,15 @@ class HST_MapMarkerService
 				missionCount++;
 			else if (marker.m_sCategory == "qrf" || marker.m_sCategory == "support")
 				qrfCount++;
-			else if (marker.m_sCategory == "callsign")
-				callsignCount++;
 			else
 				strategicCount++;
 		}
 
-		string summary = string.Format("h-istasi map markers | total %1 | HQ/hideouts %2 | towns %3", state.m_aMapMarkers.Count(), hqCount, townCount);
-		string tactical = string.Format(" | strategic %1 | callsigns %2 | missions %3 | QRFs %4 | native manager %5 | native visible %6", strategicCount, callsignCount, missionCount, qrfCount, NATIVE_MARKER_MANAGER_COMPONENT, m_aRuntimeNativeMarkers.Count());
+		string summary = string.Format("h-istasi map markers | total %1 | HQ %2 | towns %3", state.m_aMapMarkers.Count(), hqCount, townCount);
+		string pending = "ready";
+		if (m_bNativePublishPending)
+			pending = "pending";
+		string tactical = string.Format(" | strategic %1 | missions %2 | QRFs/support %3 | native manager %4 | native %5/%6 visible | skipped %7 | %8", strategicCount, missionCount, qrfCount, NATIVE_MARKER_MANAGER_COMPONENT, m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount, pending);
 		return summary + tactical;
 	}
 
@@ -108,17 +122,6 @@ class HST_MapMarkerService
 			return;
 
 		AddMarker(state, "hst_hq", state.m_sHQHideoutId, "FIA HQ", "", "hq", preset.m_sResistanceFactionKey, "PICK_UP2", FactionToMarkerColor(preset.m_sResistanceFactionKey, preset), state.m_vHQPosition, true, "green", "support");
-	}
-
-	protected void AddHideoutMarkers(HST_CampaignState state, HST_CampaignPreset preset)
-	{
-		foreach (HST_HideoutDefinition hideout : HST_DefaultCatalog.CreateHideouts())
-		{
-			if (!hideout || hideout.m_sHideoutId == state.m_sHQHideoutId)
-				continue;
-
-			AddMarker(state, "hst_hideout_" + hideout.m_sHideoutId, hideout.m_sHideoutId, hideout.m_sDisplayName + " Hideout", "", "hideout", preset.m_sResistanceFactionKey, "PICK_UP2", FactionToMarkerColor(preset.m_sResistanceFactionKey, preset), hideout.m_vPosition, true, "green", "support");
-		}
 	}
 
 	protected void AddZoneMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -134,10 +137,7 @@ class HST_MapMarkerService
 			string icon = ZoneToMarkerIcon(zone);
 			string textColor = ZoneToMarkerTextColor(zone);
 			string style = ZoneToMarkerStyle(zone);
-			AddMarker(state, "hst_zone_" + zone.m_sZoneId, zone.m_sZoneId, label, zone.m_sMarkerCallsign, category, zone.m_sOwnerFactionKey, icon, color, zone.m_vPosition, true, textColor, style);
-
-			if (!zone.m_sMarkerCallsign.IsEmpty())
-				AddMarker(state, "hst_zone_callsign_" + zone.m_sZoneId, zone.m_sZoneId, zone.m_sMarkerCallsign, zone.m_sMarkerCallsign, "callsign", zone.m_sOwnerFactionKey, "POINT_SPECIAL", "MAGENTA", BuildCallsignMarkerPosition(zone), true, "magenta", "callsign");
+			AddMarker(state, "hst_zone_" + zone.m_sZoneId, zone.m_sZoneId, label, "", category, zone.m_sOwnerFactionKey, icon, color, zone.m_vPosition, true, textColor, style);
 		}
 	}
 
@@ -148,12 +148,13 @@ class HST_MapMarkerService
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
 
-			vector markerPosition = ResolveMissionMarkerPosition(state, mission);
+			bool exactMissionPosition;
+			vector markerPosition = ResolveMissionMarkerPosition(state, mission, exactMissionPosition);
 			string markerId = mission.m_sMarkerId;
 			if (markerId.IsEmpty())
 				markerId = "hst_mission_" + mission.m_sInstanceId;
 
-			AddMarker(state, markerId, mission.m_sInstanceId, BuildMissionMarkerLabel(state, mission), "", "mission", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", "REFORGER_ORANGE", markerPosition, true, "white", "mission_clickable");
+			AddMarker(state, markerId, mission.m_sInstanceId, BuildMissionMarkerLabel(state, mission), "", "mission", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", "REFORGER_ORANGE", markerPosition, true, "white", "mission_clickable", !exactMissionPosition);
 			AddMissionRouteMarkers(state, preset, mission);
 			AddMissionObjectiveMarkers(state, preset, mission);
 			AddMissionAssetMarkers(state, preset, mission);
@@ -170,8 +171,8 @@ class HST_MapMarkerService
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "convoy_vehicle")
 				continue;
 
-			AddMarker(state, "hst_mission_route_start_" + mission.m_sInstanceId, mission.m_sInstanceId, "Convoy start", "", "mission_route", asset.m_sRole, "POINT_SPECIAL", "RED", asset.m_vSourcePosition, true, "red", "convoy_route_start");
-			AddMarker(state, "hst_mission_route_end_" + mission.m_sInstanceId, mission.m_sInstanceId, "Convoy destination", "", "mission_route", asset.m_sRole, "OBJECTIVE_MARKER", "RED", asset.m_vTargetPosition, true, "red", "convoy_route_end");
+			AddMarker(state, "hst_mission_route_start_" + mission.m_sInstanceId, mission.m_sInstanceId, "Convoy start", "", "mission_route", asset.m_sRole, "POINT_SPECIAL", "RED", asset.m_vSourcePosition, true, "red", "convoy_route_start", true, false);
+			AddMarker(state, "hst_mission_route_end_" + mission.m_sInstanceId, mission.m_sInstanceId, "Convoy destination", "", "mission_route", asset.m_sRole, "OBJECTIVE_MARKER", "RED", asset.m_vTargetPosition, true, "red", "convoy_route_end", true, false);
 			return;
 		}
 	}
@@ -188,7 +189,9 @@ class HST_MapMarkerService
 				continue;
 
 			string markerId = string.Format("hst_mission_obj_%1_%2", mission.m_sInstanceId, objective.m_sObjectiveId);
-			AddMarker(state, markerId, mission.m_sInstanceId, ShortObjectiveLabel(objective), "", "mission_objective", preset.m_sResistanceFactionKey, "POINT_OF_INTEREST", "REFORGER_ORANGE", objective.m_vPosition, true, "white", "mission_objective");
+			vector objectivePosition = ResolveMissionObjectiveMarkerPosition(objective, linkedAsset);
+			bool deconflictObjective = IsBroadZoneFallbackPosition(state, objective.m_sTargetZoneId, objectivePosition);
+			AddMarker(state, markerId, mission.m_sInstanceId, ShortObjectiveLabel(objective), "", "mission_objective", preset.m_sResistanceFactionKey, "POINT_OF_INTEREST", "REFORGER_ORANGE", objectivePosition, true, "white", "mission_objective", deconflictObjective);
 		}
 	}
 
@@ -233,15 +236,36 @@ class HST_MapMarkerService
 	{
 		foreach (HST_QRFState qrf : state.m_aQRFs)
 		{
-			if (!qrf || qrf.m_bResolved)
+			if (!ShouldShowQRFMarker(state, qrf))
 				continue;
 
 			HST_ZoneState targetZone = state.FindZone(qrf.m_sTargetZoneId);
 			if (!targetZone)
 				continue;
 
-			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, "Enemy QRF " + ResolveZoneDisplayName(targetZone), "", "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), targetZone.m_vPosition, true, FactionToMarkerTextColor(qrf.m_sFactionKey, preset), "enemy_response");
+			vector position = ResolveQRFMarkerPosition(state, qrf, targetZone);
+			string label = BuildQRFMarkerLabel(state, qrf, targetZone);
+			bool runtimeNative = ShouldPublishNativeTacticalMarkerInPlayerBubble(state, targetZone.m_sZoneId, position);
+			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, label, "", "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), position, true, FactionToMarkerTextColor(qrf.m_sFactionKey, preset), "enemy_response", true, runtimeNative);
 		}
+	}
+
+	protected bool ShouldShowQRFMarker(HST_CampaignState state, HST_QRFState qrf)
+	{
+		if (!state || !qrf)
+			return false;
+
+		if (!qrf.m_bResolved)
+			return true;
+
+		if (qrf.m_sGroupId.IsEmpty())
+			return false;
+
+		HST_ActiveGroupState group = state.FindActiveGroup(qrf.m_sGroupId);
+		if (!group)
+			return false;
+
+		return group.m_sRuntimeStatus != "eliminated" && group.m_sRuntimeStatus != "folded" && group.m_sRuntimeStatus != "spawn_failed";
 	}
 
 	protected void AddSupportRequestMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -251,21 +275,15 @@ class HST_MapMarkerService
 			if (!request || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
 				continue;
 
-			vector position = request.m_vTargetPosition;
-			if (position[0] == 0 && position[1] == 0 && position[2] == 0)
-			{
-				HST_ZoneState zone = state.FindZone(request.m_sTargetZoneId);
-				if (zone)
-					position = zone.m_vPosition;
-			}
-
+			vector position = ResolveSupportMarkerPosition(state, request);
 			string color = FactionToMarkerColor(request.m_sFactionKey, preset);
-			string label = BuildSupportMarkerLabel(request);
-			AddMarker(state, "hst_support_" + request.m_sRequestId, request.m_sRequestId, label, "", "support", request.m_sFactionKey, "POINT_OF_INTEREST", color, position, true, FactionToMarkerTextColor(request.m_sFactionKey, preset), "support_incoming");
+			string label = BuildSupportMarkerLabel(state, request);
+			bool runtimeNative = ShouldPublishNativeSupportMarker(request) && ShouldPublishNativeTacticalMarkerInPlayerBubble(state, request.m_sTargetZoneId, position);
+			AddMarker(state, "hst_support_" + request.m_sRequestId, request.m_sRequestId, label, "", "support", request.m_sFactionKey, "POINT_OF_INTEREST", color, position, true, FactionToMarkerTextColor(request.m_sFactionKey, preset), "support_incoming", true, runtimeNative);
 		}
 	}
 
-	protected void AddMarker(HST_CampaignState state, string markerId, string linkedId, string label, string callsign, string category, string ownerFactionKey, string iconHint, string colorHint, vector position, bool visible, string textColorHint, string styleHint)
+	protected void AddMarker(HST_CampaignState state, string markerId, string linkedId, string label, string callsign, string category, string ownerFactionKey, string iconHint, string colorHint, vector position, bool visible, string textColorHint, string styleHint, bool deconflict = false, bool runtimeNative = true)
 	{
 		HST_MapMarkerState marker = new HST_MapMarkerState();
 		marker.m_sMarkerId = markerId;
@@ -278,10 +296,33 @@ class HST_MapMarkerService
 		marker.m_sColorHint = colorHint;
 		marker.m_sTextColorHint = textColorHint;
 		marker.m_sStyleHint = styleHint;
-		marker.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		marker.m_vPosition = ResolveMarkerPresentationPosition(state, markerId, position, deconflict);
 		marker.m_bVisible = visible;
-		marker.m_bRuntimeNative = true;
+		marker.m_bRuntimeNative = runtimeNative;
 		state.m_aMapMarkers.Insert(marker);
+	}
+
+	protected bool ShouldPublishNativeSupportMarker(HST_SupportRequestState request)
+	{
+		if (!request)
+			return false;
+
+		return request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+	}
+
+	protected bool ShouldPublishNativeTacticalMarkerInPlayerBubble(HST_CampaignState state, string zoneId, vector position)
+	{
+		if (!state)
+			return false;
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (zone && zone.m_bActive)
+			return true;
+
+		if (IsZeroVector(position) && zone)
+			position = zone.m_vPosition;
+
+		return HST_WorldPositionService.IsPositionInsidePlayerEventBubble(position);
 	}
 
 	protected bool PublishRuntimeNativeMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -298,18 +339,54 @@ class HST_MapMarkerService
 			return false;
 		}
 
-		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
-			CreateRuntimeNativeMarker(markerManager, marker, preset);
+		string nativeSignature = BuildNativeMarkerSignature(state);
+		if (nativeSignature == m_sLastNativeMarkerSignature && HasRuntimeNativeMarkers(markerManager))
+		{
+			m_bNativePublishPending = false;
+			m_fNativePublishRetrySeconds = 0;
+			return false;
+		}
 
+		ClearRuntimeNativeMarkers();
+		m_iLastNativeEligibleCount = 0;
+		m_iLastNativePublishedCount = 0;
+		m_iLastNativeSkippedCount = 0;
+
+		int tacticalCount;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (!IsNativeMarkerCandidate(marker))
+				continue;
+
+			m_iLastNativeEligibleCount++;
+			if (!CanPublishNativeMarker(marker, tacticalCount, m_iLastNativePublishedCount))
+			{
+				m_iLastNativeSkippedCount++;
+				continue;
+			}
+
+			if (CreateRuntimeNativeMarker(markerManager, marker, preset))
+			{
+				m_iLastNativePublishedCount++;
+				if (IsTacticalNativeMarker(marker))
+					tacticalCount++;
+			}
+			else
+			{
+				m_iLastNativeSkippedCount++;
+			}
+		}
+
+		m_sLastNativeMarkerSignature = nativeSignature;
 		m_bNativePublishPending = false;
 		m_fNativePublishRetrySeconds = 0;
 		return true;
 	}
 
-	protected void CreateRuntimeNativeMarker(SCR_MapMarkerManagerComponent markerManager, HST_MapMarkerState marker, HST_CampaignPreset preset)
+	protected bool CreateRuntimeNativeMarker(SCR_MapMarkerManagerComponent markerManager, HST_MapMarkerState marker, HST_CampaignPreset preset)
 	{
 		if (!markerManager || !marker || !marker.m_bVisible || !marker.m_bRuntimeNative)
-			return;
+			return false;
 
 		SCR_MapMarkerBase nativeMarker = new SCR_MapMarkerBase();
 		nativeMarker.SetType(SCR_EMapMarkerType.PLACED_CUSTOM);
@@ -317,11 +394,12 @@ class HST_MapMarkerService
 		nativeMarker.SetColorEntry(ResolveNativeColor(marker, preset));
 		nativeMarker.SetRotation(0);
 		nativeMarker.SetWorldPos(marker.m_vPosition[0], marker.m_vPosition[2]);
-		nativeMarker.SetCustomText(marker.m_sLabel);
+		nativeMarker.SetCustomText(ResolveNativeMarkerText(marker));
 		nativeMarker.SetCanBeRemovedByOwner(false);
 		nativeMarker.SetTimestampVisibility(false);
 		markerManager.InsertStaticMarker(nativeMarker, false, true);
 		m_aRuntimeNativeMarkers.Insert(nativeMarker);
+		return true;
 	}
 
 	protected void ClearRuntimeNativeMarkers()
@@ -337,10 +415,111 @@ class HST_MapMarkerService
 				SCR_MapMarkerBase activeMarker = markerManager.GetStaticMarkerByID(nativeMarker.GetMarkerID());
 				if (activeMarker)
 					markerManager.RemoveStaticMarker(activeMarker);
+				else
+					markerManager.RemoveStaticMarker(nativeMarker);
 			}
 		}
 
 		m_aRuntimeNativeMarkers.Clear();
+	}
+
+	protected string BuildNativeMarkerSignature(HST_CampaignState state)
+	{
+		if (!state)
+			return "";
+
+		string signature = "";
+		int tacticalCount;
+		int publishedCount;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (!CanPublishNativeMarker(marker, tacticalCount, publishedCount))
+				continue;
+
+			signature = signature + "|" + BuildNativeMarkerSignatureEntry(marker);
+			publishedCount++;
+			if (IsTacticalNativeMarker(marker))
+				tacticalCount++;
+		}
+
+		return signature;
+	}
+
+	protected string BuildNativeMarkerSignatureEntry(HST_MapMarkerState marker)
+	{
+		if (!marker)
+			return "";
+
+		int x = Math.Round(marker.m_vPosition[0]);
+		int z = Math.Round(marker.m_vPosition[2]);
+		if (IsTacticalNativeMarker(marker))
+		{
+			x = Math.Round(marker.m_vPosition[0] / 25.0) * 25;
+			z = Math.Round(marker.m_vPosition[2] / 25.0) * 25;
+		}
+		return string.Format("%1:%2:%3:%4:%5:%6:%7:%8", marker.m_sMarkerId, ResolveNativeMarkerText(marker), marker.m_sCategory, marker.m_sOwnerFactionKey, marker.m_sIconHint, marker.m_sColorHint, x, z);
+	}
+
+	protected string ResolveNativeMarkerText(HST_MapMarkerState marker)
+	{
+		if (!marker)
+			return "";
+
+		if (marker.m_sCategory != "mission")
+			return marker.m_sLabel;
+
+		int separator = marker.m_sLabel.IndexOf(" |");
+		if (separator <= 0)
+			return marker.m_sLabel;
+
+		return marker.m_sLabel.Substring(0, separator);
+	}
+
+	protected bool HasRuntimeNativeMarkers(SCR_MapMarkerManagerComponent markerManager)
+	{
+		if (!markerManager || m_aRuntimeNativeMarkers.Count() == 0)
+			return false;
+
+		foreach (SCR_MapMarkerBase nativeMarker : m_aRuntimeNativeMarkers)
+		{
+			if (!nativeMarker)
+				return false;
+
+			if (!markerManager.GetStaticMarkerByID(nativeMarker.GetMarkerID()))
+				return false;
+		}
+
+		return true;
+	}
+
+	protected bool IsNativeMarkerCandidate(HST_MapMarkerState marker)
+	{
+		return marker && marker.m_bVisible && marker.m_bRuntimeNative;
+	}
+
+	protected bool CanPublishNativeMarker(HST_MapMarkerState marker, int tacticalCount, int publishedCount)
+	{
+		if (!IsNativeMarkerCandidate(marker))
+			return false;
+
+		if (marker.m_sCategory == "mission_route")
+			return false;
+
+		if (publishedCount >= MAX_NATIVE_MARKERS)
+			return false;
+
+		if (IsTacticalNativeMarker(marker) && tacticalCount >= MAX_NATIVE_TACTICAL_MARKERS)
+			return false;
+
+		return true;
+	}
+
+	protected bool IsTacticalNativeMarker(HST_MapMarkerState marker)
+	{
+		if (!marker)
+			return false;
+
+		return marker.m_sCategory == "mission" || marker.m_sCategory == "mission_objective" || marker.m_sCategory == "mission_asset" || marker.m_sCategory == "qrf" || marker.m_sCategory == "support";
 	}
 
 	protected SCR_MapMarkerManagerComponent ResolveNativeMarkerManager()
@@ -376,9 +555,6 @@ class HST_MapMarkerService
 		if (iconHint == "OBJECTIVE_MARKER")
 			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER;
 
-		if (category == "callsign")
-			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
-
 		if (styleHint == "resource" || styleHint == "depot")
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
 
@@ -392,9 +568,6 @@ class HST_MapMarkerService
 	{
 		if (!marker)
 			return SCR_EScenarioFrameworkMarkerCustomColor.WHITE;
-
-		if (marker.m_sCategory == "callsign")
-			return SCR_EScenarioFrameworkMarkerCustomColor.MAGENTA;
 
 		string colorHint = marker.m_sColorHint;
 		if (colorHint == "GREEN")
@@ -431,6 +604,19 @@ class HST_MapMarkerService
 			return SCR_EScenarioFrameworkMarkerCustomColor.RED;
 
 		return SCR_EScenarioFrameworkMarkerCustomColor.WHITE;
+	}
+
+	protected bool SyncVisibleNativeMarkerOwnershipIfDue(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		if (state.m_iElapsedSeconds - m_iLastNativeOwnershipSyncSecond < NATIVE_OWNERSHIP_SYNC_INTERVAL_SECONDS)
+			return false;
+
+		m_iLastNativeOwnershipSyncSecond = state.m_iElapsedSeconds;
+		SyncVisibleNativeMarkerOwnership(state);
+		return true;
 	}
 
 	protected void SyncVisibleNativeMarkerOwnership(HST_CampaignState state)
@@ -471,13 +657,6 @@ class HST_MapMarkerService
 			m_aNativeMarkerCandidates.Insert(entity);
 
 		return true;
-	}
-
-	protected vector BuildCallsignMarkerPosition(HST_ZoneState zone)
-	{
-		vector position = zone.m_vPosition;
-		position[2] = position[2] + 18;
-		return position;
 	}
 
 	protected string FactionToMarkerColor(string factionKey, HST_CampaignPreset preset)
@@ -631,23 +810,217 @@ class HST_MapMarkerService
 		return HST_DefaultCatalog.GetZoneDisplayName(zone.m_sZoneId);
 	}
 
-	protected vector ResolveMissionMarkerPosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	protected vector ResolveMissionMarkerPosition(HST_CampaignState state, HST_ActiveMissionState mission, out bool exactMissionPosition)
 	{
+		exactMissionPosition = false;
 		if (!state || !mission)
 			return "0 0 0";
 
-		if (mission.m_vTargetPosition[0] != 0 || mission.m_vTargetPosition[1] != 0 || mission.m_vTargetPosition[2] != 0)
+		vector representativeAssetPosition = ResolveRepresentativeMissionAssetPosition(state, mission);
+		if (!IsZeroVector(representativeAssetPosition))
+		{
+			exactMissionPosition = true;
+			return representativeAssetPosition;
+		}
+
+		vector activeObjectivePosition = ResolveRepresentativeObjectivePosition(state, mission);
+		if (!IsZeroVector(activeObjectivePosition))
+		{
+			exactMissionPosition = !IsBroadZoneFallbackPosition(state, mission.m_sTargetZoneId, activeObjectivePosition);
+			return activeObjectivePosition;
+		}
+
+		if (!IsZeroVector(mission.m_vTargetPosition))
+		{
+			exactMissionPosition = !IsBroadZoneFallbackPosition(state, mission.m_sTargetZoneId, mission.m_vTargetPosition);
 			return mission.m_vTargetPosition;
+		}
 
 		HST_GeneratedSiteState site = state.FindGeneratedSite(mission.m_sSiteId);
 		if (site)
+		{
+			exactMissionPosition = true;
 			return site.m_vPosition;
+		}
 
 		HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
 		if (zone)
 			return zone.m_vPosition;
 
 		return state.m_vHQPosition;
+	}
+
+	protected vector ResolveRepresentativeMissionAssetPosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "0 0 0";
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bDestroyed || asset.m_bDelivered)
+				continue;
+			if (asset.m_sKind == "area")
+				continue;
+
+			return ResolveMissionAssetMarkerPosition(asset);
+		}
+
+		return "0 0 0";
+	}
+
+	protected vector ResolveRepresentativeObjectivePosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "0 0 0";
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bComplete || objective.m_bFailed)
+				continue;
+
+			HST_MissionAssetState linkedAsset = state.FindMissionAsset(objective.m_sLinkedRuntimeEntityId);
+			return ResolveMissionObjectiveMarkerPosition(objective, linkedAsset);
+		}
+
+		return "0 0 0";
+	}
+
+	protected vector ResolveMissionObjectiveMarkerPosition(HST_MissionObjectiveState objective, HST_MissionAssetState linkedAsset)
+	{
+		if (linkedAsset)
+			return ResolveMissionAssetMarkerPosition(linkedAsset);
+
+		if (objective && !IsZeroVector(objective.m_vPosition))
+			return objective.m_vPosition;
+
+		return "0 0 0";
+	}
+
+	protected vector ResolveMissionAssetMarkerPosition(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return "0 0 0";
+
+		if (asset.m_bPickedUp && !asset.m_bDelivered && !IsZeroVector(asset.m_vTargetPosition))
+			return asset.m_vTargetPosition;
+		if (!IsZeroVector(asset.m_vCurrentPosition))
+			return asset.m_vCurrentPosition;
+		if (!IsZeroVector(asset.m_vSourcePosition))
+			return asset.m_vSourcePosition;
+		if (!IsZeroVector(asset.m_vTargetPosition))
+			return asset.m_vTargetPosition;
+
+		return "0 0 0";
+	}
+
+	protected vector ResolveMarkerPresentationPosition(HST_CampaignState state, string markerId, vector position, bool deconflict)
+	{
+		vector resolved = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		if (!deconflict || !state || !HasMarkerCollision(state, resolved))
+			return resolved;
+
+		for (int attempt = 0; attempt < MARKER_DECONFLICT_ATTEMPTS; attempt++)
+		{
+			vector candidate = BuildMarkerOffsetPosition(resolved, markerId, attempt);
+			candidate = HST_WorldPositionService.ResolveGroundPosition(candidate, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+			if (!HasMarkerCollision(state, candidate))
+				return candidate;
+		}
+
+		return resolved;
+	}
+
+	protected bool HasMarkerCollision(HST_CampaignState state, vector position)
+	{
+		if (!state)
+			return false;
+
+		float radiusSq = MARKER_DECONFLICT_RADIUS_METERS * MARKER_DECONFLICT_RADIUS_METERS;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (!marker || !marker.m_bVisible)
+				continue;
+
+			if (DistanceSq2D(marker.m_vPosition, position) <= radiusSq)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected vector BuildMarkerOffsetPosition(vector position, string markerId, int attempt)
+	{
+		vector candidate = position;
+		int baseSlot = markerId.Length() + attempt;
+		int ring = baseSlot / 8;
+		int slot = baseSlot - ring * 8;
+		float distance = MARKER_DECONFLICT_STEP_METERS + ring * 10.0;
+		float x = 1.0;
+		float z = 0.0;
+
+		if (slot == 1)
+		{
+			x = 0.707;
+			z = 0.707;
+		}
+		else if (slot == 2)
+		{
+			x = 0.0;
+			z = 1.0;
+		}
+		else if (slot == 3)
+		{
+			x = -0.707;
+			z = 0.707;
+		}
+		else if (slot == 4)
+		{
+			x = -1.0;
+			z = 0.0;
+		}
+		else if (slot == 5)
+		{
+			x = -0.707;
+			z = -0.707;
+		}
+		else if (slot == 6)
+		{
+			x = 0.0;
+			z = -1.0;
+		}
+		else if (slot == 7)
+		{
+			x = 0.707;
+			z = -0.707;
+		}
+
+		candidate[0] = candidate[0] + x * distance;
+		candidate[2] = candidate[2] + z * distance;
+		return candidate;
+	}
+
+	protected bool IsZeroVector(vector value)
+	{
+		return value[0] == 0 && value[1] == 0 && value[2] == 0;
+	}
+
+	protected bool IsBroadZoneFallbackPosition(HST_CampaignState state, string zoneId, vector position)
+	{
+		if (!state || zoneId.IsEmpty() || IsZeroVector(position))
+			return false;
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
+			return false;
+
+		return DistanceSq2D(zone.m_vPosition, position) <= 9.0;
+	}
+
+	protected float DistanceSq2D(vector a, vector b)
+	{
+		float x = a[0] - b[0];
+		float z = a[2] - b[2];
+		return x * x + z * z;
 	}
 
 	protected string BuildMissionMarkerLabel(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -712,19 +1085,159 @@ class HST_MapMarkerService
 		return verb + " " + role;
 	}
 
-	protected string BuildSupportMarkerLabel(HST_SupportRequestState request)
+	protected vector ResolveQRFMarkerPosition(HST_CampaignState state, HST_QRFState qrf, HST_ZoneState targetZone)
+	{
+		if (!state || !qrf)
+			return "0 0 0";
+
+		if (targetZone)
+			return targetZone.m_vPosition;
+
+		return state.m_vHQPosition;
+	}
+
+	protected string BuildQRFMarkerLabel(HST_CampaignState state, HST_QRFState qrf, HST_ZoneState targetZone)
+	{
+		if (!qrf)
+			return "Enemy QRF";
+
+		string targetName = ResolveZoneDisplayName(targetZone);
+		string status = "mobilizing";
+		if (!qrf.m_sGroupId.IsEmpty() && state)
+		{
+			HST_ActiveGroupState group = state.FindActiveGroup(qrf.m_sGroupId);
+			if (qrf.m_bResolved && group)
+				status = "active";
+			else if (group && (group.m_sRuntimeStatus == "arrived" || group.m_sRuntimeStatus == "support_arrived"))
+				status = "active";
+			else
+				status = "nearby";
+		}
+
+		int remaining = ResolveQRFRemainingSeconds(state, qrf);
+		if (remaining > 0)
+			return string.Format("%1 QRF near %2 | %3 | ETA %4s", qrf.m_sFactionKey, targetName, status, remaining);
+
+		return string.Format("%1 QRF near %2 | %3", qrf.m_sFactionKey, targetName, status);
+	}
+
+	protected int ResolveQRFRemainingSeconds(HST_CampaignState state, HST_QRFState qrf)
+	{
+		if (!state || !qrf)
+			return 0;
+
+		return Math.Max(0, qrf.m_iStartedAtSecond + qrf.m_iETASeconds - state.m_iElapsedSeconds);
+	}
+
+	protected vector ResolveSupportMarkerPosition(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return "0 0 0";
+
+		if (!IsZeroVector(request.m_vTargetPosition))
+			return request.m_vTargetPosition;
+
+		HST_ZoneState zone = state.FindZone(request.m_sTargetZoneId);
+		if (zone)
+			return zone.m_vPosition;
+
+		return state.m_vHQPosition;
+	}
+
+	protected string BuildSupportMarkerLabel(HST_CampaignState state, HST_SupportRequestState request)
 	{
 		if (!request)
 			return "Support";
 
-		string status = "queued";
-		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
-			status = "active";
-		else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
-			status = "cancelled";
-		else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
-			status = "resolved";
+		string faction = request.m_sFactionKey;
+		if (faction.IsEmpty())
+			faction = "Enemy";
 
-		return string.Format("Support %1 | %2 | ETA %3s", request.m_sAssetProfileId, status, request.m_iETASeconds);
+		string typeLabel = SupportRequestTypeLabel(request.m_eType);
+		string targetName = ResolveZoneDisplayNameById(state, request.m_sTargetZoneId);
+		string status = SupportStatusLabel(request.m_eStatus);
+		int remaining = ResolveSupportRemainingSeconds(state, request);
+		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+		{
+			if (request.m_sGroupId.IsEmpty())
+				return string.Format("%1 %2 to %3 | en route | ETA %4s", faction, typeLabel, targetName, remaining);
+
+			HST_ActiveGroupState group;
+			if (state)
+				group = state.FindActiveGroup(request.m_sGroupId);
+			if (group && group.m_sRuntimeStatus == "support_active")
+				return string.Format("%1 %2 near %3 | ETA %4s", faction, typeLabel, targetName, remaining);
+
+			return string.Format("%1 %2 at %3 | deployed", faction, typeLabel, targetName);
+		}
+
+		return string.Format("%1 %2 to %3 | %4 | ETA %5s", faction, typeLabel, targetName, status, remaining);
+	}
+
+	protected int ResolveSupportRemainingSeconds(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		if (!request)
+			return 0;
+
+		if (!state)
+			return request.m_iETASeconds;
+
+		return Math.Max(0, request.m_iRequestedAtSecond + request.m_iETASeconds - state.m_iElapsedSeconds);
+	}
+
+	protected string SupportStatusLabel(HST_ESupportRequestStatus status)
+	{
+		if (status == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+			return "active";
+		if (status == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+			return "cancelled";
+		if (status == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
+			return "resolved";
+
+		return "queued";
+	}
+
+	protected string SupportRequestTypeLabel(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return "QRF";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return "search team";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
+			return "fire support";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING)
+			return "troop landing";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU || supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return "airstrike";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return "missile strike";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP)
+			return "patrol sweep";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_TRANSPORT)
+			return "transport";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
+			return "supply drop";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_EVACUATION)
+			return "evacuation";
+
+		return "support";
+	}
+
+	protected string ResolveZoneDisplayNameById(HST_CampaignState state, string zoneId)
+	{
+		if (!state || zoneId.IsEmpty())
+			return "unknown location";
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (zone)
+			return ResolveZoneDisplayName(zone);
+
+		string text = HST_DefaultCatalog.GetZoneDisplayName(zoneId);
+		if (!text.IsEmpty() && text != zoneId)
+			return text;
+
+		text = zoneId;
+		text.Replace("_", " ");
+		return text;
 	}
 }

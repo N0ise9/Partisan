@@ -127,7 +127,7 @@ class HST_HQService
 
 		if (!m_CacheEntity)
 		{
-			m_CacheEntity = respawnSystem.DoSpawn(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
+			m_CacheEntity = HST_WorldPositionService.SpawnPrefab(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
 			if (m_CacheEntity)
 			{
 				m_bLoggedCacheSpawned = LogRuntimeObjectSpawnSuccess("cache", HQ_CACHE_PREFAB, state.m_vHQCachePosition, m_bLoggedCacheSpawned);
@@ -162,7 +162,7 @@ class HST_HQService
 
 		if (!m_TentEntity)
 		{
-			m_TentEntity = respawnSystem.DoSpawn(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
+			m_TentEntity = HST_WorldPositionService.SpawnPrefab(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
 			if (m_TentEntity)
 			{
 				m_bLoggedTentSpawned = LogRuntimeObjectSpawnSuccess("tent", HQ_TENT_PREFAB, state.m_vHQTentPosition, m_bLoggedTentSpawned);
@@ -375,7 +375,7 @@ class HST_HQService
 		if (state)
 			petrosPosition = state.m_vPetrosPosition;
 
-		GenericEntity petros = respawnSystem.DoSpawn(petrosPrefab, petrosPosition, "0 0 0");
+		GenericEntity petros = HST_WorldPositionService.SpawnPrefab(petrosPrefab, petrosPosition, "0 0 0");
 		if (petros)
 			return petros;
 
@@ -387,7 +387,7 @@ class HST_HQService
 				m_bWarnedPetrosResourceFailure = true;
 			}
 
-			return respawnSystem.DoSpawn(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
+			return HST_WorldPositionService.SpawnPrefab(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
 		}
 
 		return null;
@@ -412,7 +412,7 @@ class HST_HQService
 		string arsenalPrefab = ResolveArsenalPrefab(state);
 		vector arsenalPosition = ResolvePrimaryArsenalPosition(state);
 
-		GenericEntity arsenal = respawnSystem.DoSpawn(arsenalPrefab, arsenalPosition, "0 0 0");
+		GenericEntity arsenal = HST_WorldPositionService.SpawnPrefab(arsenalPrefab, arsenalPosition, "0 0 0");
 		string failure = ResolveArsenalReadinessFailure(arsenal, arsenalPosition, true);
 		if (failure.IsEmpty())
 		{

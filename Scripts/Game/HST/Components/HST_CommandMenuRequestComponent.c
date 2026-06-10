@@ -13,6 +13,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected string m_sLastResult;
 	protected bool m_bIsLocalOwner;
 	protected float m_fOwnerRetryAccumulator;
+	protected ref array<string> m_aRecentLocalNotificationKeys = {};
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -224,11 +225,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RpcDo_ReceiveNotification(string payload, string summary)
 	{
-		HST_MissionClientComponent missionClient = HST_MissionClientComponent.GetLocalInstance();
-		if (missionClient)
-			missionClient.OnServerNotification(payload, summary);
-		else
-			Print("h-istasi notification | " + summary);
+		DeliverNotificationLocal(payload, summary);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -268,12 +265,51 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	protected void BroadcastNotification_I(string payload, string summary)
 	{
+		DeliverNotificationLocal(payload, summary);
 		Rpc(RpcDo_ReceiveNotification, payload, summary);
 	}
 
 	protected void BroadcastMissionIntel_I(string payload)
 	{
 		Rpc(RpcDo_ReceiveMissionIntel, payload);
+	}
+
+	protected void DeliverNotificationLocal(string payload, string summary)
+	{
+		HST_MissionClientComponent missionClient = HST_MissionClientComponent.GetLocalInstance();
+		HST_CommandMenuComponent commandMenu = HST_CommandMenuComponent.GetLocalInstance();
+		if (!missionClient && !commandMenu)
+			return;
+
+		string key = payload;
+		if (key.IsEmpty())
+			key = summary;
+		if (IsDuplicateLocalNotification(key))
+			return;
+
+		if (missionClient)
+		{
+			missionClient.OnServerNotification(payload, summary);
+			return;
+		}
+
+		Print("h-istasi notification | local fallback | " + summary);
+		commandMenu.ShowExternalNotification("h-istasi", summary, 5.0);
+	}
+
+	protected bool IsDuplicateLocalNotification(string key)
+	{
+		if (key.IsEmpty())
+			return false;
+
+		if (m_aRecentLocalNotificationKeys.Contains(key))
+			return true;
+
+		m_aRecentLocalNotificationKeys.Insert(key);
+		while (m_aRecentLocalNotificationKeys.Count() > 32)
+			m_aRecentLocalNotificationKeys.Remove(0);
+
+		return false;
 	}
 
 	protected void SendActionResultToOwner(string selectedTabId, string commandId, string argument)

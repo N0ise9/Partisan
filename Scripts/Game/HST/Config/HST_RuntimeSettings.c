@@ -24,6 +24,15 @@ class HST_RuntimeSettingsEconomy
 	int m_iWarLevelMaximum = 10;
 }
 
+class HST_RuntimeSettingsCapture
+{
+	int m_iProgressRequired = 100;
+	int m_iProgressPerSecond = 2;
+	int m_iDecayPerSecond = 1;
+	int m_iAggressionBase = 10;
+	int m_iCounterattackChancePercent = 45;
+}
+
 class HST_RuntimeSettingsWorld
 {
 	int m_iActivationRadiusMeters = 1200;
@@ -96,12 +105,13 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 7;
+	static const int SCHEMA_VERSION = 8;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
 	ref HST_RuntimeSettingsFactions m_Factions = new HST_RuntimeSettingsFactions();
 	ref HST_RuntimeSettingsEconomy m_Economy = new HST_RuntimeSettingsEconomy();
+	ref HST_RuntimeSettingsCapture m_Capture = new HST_RuntimeSettingsCapture();
 	ref HST_RuntimeSettingsWorld m_World = new HST_RuntimeSettingsWorld();
 	ref HST_RuntimeSettingsMembership m_Membership = new HST_RuntimeSettingsMembership();
 	ref HST_RuntimeSettingsArsenalLoot m_ArsenalLoot = new HST_RuntimeSettingsArsenalLoot();
@@ -125,6 +135,11 @@ class HST_RuntimeSettings
 		m_Economy.m_iStartingHR = Math.Max(0, m_Economy.m_iStartingHR);
 		m_Economy.m_iZoneIncomeIntervalSeconds = Math.Max(30, m_Economy.m_iZoneIncomeIntervalSeconds);
 		m_Economy.m_iWarLevelMaximum = Math.Max(1, m_Economy.m_iWarLevelMaximum);
+		m_Capture.m_iProgressRequired = Math.Max(1, m_Capture.m_iProgressRequired);
+		m_Capture.m_iProgressPerSecond = Math.Max(1, m_Capture.m_iProgressPerSecond);
+		m_Capture.m_iDecayPerSecond = Math.Max(0, m_Capture.m_iDecayPerSecond);
+		m_Capture.m_iAggressionBase = Math.Max(0, m_Capture.m_iAggressionBase);
+		m_Capture.m_iCounterattackChancePercent = Math.Max(0, Math.Min(100, m_Capture.m_iCounterattackChancePercent));
 		m_World.m_iActivationRadiusMeters = Math.Max(100, m_World.m_iActivationRadiusMeters);
 		m_World.m_iDeactivationRadiusMeters = Math.Max(m_World.m_iActivationRadiusMeters, m_World.m_iDeactivationRadiusMeters);
 		m_World.m_iMissionDefaultDurationSeconds = Math.Max(300, m_World.m_iMissionDefaultDurationSeconds);
@@ -162,6 +177,11 @@ class HST_RuntimeSettings
 		balance.m_iStartingInvaderAttackPool = m_Economy.m_iStartingInvaderAttackPool;
 		balance.m_iStartingInvaderSupportPool = m_Economy.m_iStartingInvaderSupportPool;
 		balance.m_iZoneIncomeIntervalSeconds = m_Economy.m_iZoneIncomeIntervalSeconds;
+		balance.m_iCaptureProgressRequired = m_Capture.m_iProgressRequired;
+		balance.m_iCaptureProgressPerSecond = m_Capture.m_iProgressPerSecond;
+		balance.m_iCaptureDecayPerSecond = m_Capture.m_iDecayPerSecond;
+		balance.m_iCaptureAggressionBase = m_Capture.m_iAggressionBase;
+		balance.m_iCaptureCounterattackChancePercent = m_Capture.m_iCounterattackChancePercent;
 		balance.m_iMissionDefaultDurationSeconds = m_World.m_iMissionDefaultDurationSeconds;
 		balance.m_iActivationRadiusMeters = m_World.m_iActivationRadiusMeters;
 		balance.m_iDeactivationRadiusMeters = m_World.m_iDeactivationRadiusMeters;
@@ -194,12 +214,13 @@ class HST_RuntimeSettings
 		string campaign = string.Format("setup config | schema %1 | preset %2 | hideout %3", m_iSchemaVersion, m_Campaign.m_sPresetId, m_Campaign.m_sDefaultHideoutId);
 		string factions = string.Format("\nfactions | resistance %1 | occupier %2 | invader %3", m_Factions.m_sResistanceFactionKey, m_Factions.m_sOccupierFactionKey, m_Factions.m_sInvaderFactionKey);
 		string economy = string.Format("\neconomy | money %1 | HR %2 | income %3s | war max %4", m_Economy.m_iStartingFactionMoney, m_Economy.m_iStartingHR, m_Economy.m_iZoneIncomeIntervalSeconds, m_Economy.m_iWarLevelMaximum);
+		string capture = string.Format("\ncapture | required %1 | progress %2/s | decay %3/s | aggression %4 | counterattack %5 pct", m_Capture.m_iProgressRequired, m_Capture.m_iProgressPerSecond, m_Capture.m_iDecayPerSecond, m_Capture.m_iAggressionBase, m_Capture.m_iCounterattackChancePercent);
 		string world = string.Format("\nworld | activation %1m | deactivation %2m | mission duration %3s", m_World.m_iActivationRadiusMeters, m_World.m_iDeactivationRadiusMeters, m_World.m_iMissionDefaultDurationSeconds);
 		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | HQ radius %3m | loot radius %4m | locked only %5 | remove source %6", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iHQInteractionRadiusMeters, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootOnlyLockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
 		string vehicleLoot = string.Format("\nvehicle loot | enabled %1 | radius %2m | locked only %3 | remove source %4 | max %5", m_VehicleLoot.m_bEnabled, m_VehicleLoot.m_iRadiusMeters, m_VehicleLoot.m_bOnlyLockedItems, m_VehicleLoot.m_bRemoveSourceItems, m_VehicleLoot.m_iMaxItemsPerAction);
 		string airSupport = string.Format("\nair support | enabled %1 | cooldown %2s", m_AirSupport.m_bEnabled, m_AirSupport.m_iCooldownSeconds);
 		string civilians = string.Format("\ncivilians | enabled %1 | max %2 per town | civ vehicles %3-%4 | occupier vehicles %5-%6", m_Civilians.m_bEnabled, m_Civilians.m_iMaxActivePerTown, m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown, m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
 		string persistence = string.Format("\npersistence | autosave %1s | debounce %2s", m_Persistence.m_iAutosaveIntervalSeconds, m_Persistence.m_iMajorChangeDebounceSeconds);
-		return campaign + factions + economy + world + loot + vehicleLoot + airSupport + civilians + persistence + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
+		return campaign + factions + economy + capture + world + loot + vehicleLoot + airSupport + civilians + persistence + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
 	}
 }

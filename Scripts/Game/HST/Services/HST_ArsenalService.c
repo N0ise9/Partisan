@@ -234,12 +234,13 @@ class HST_ArsenalService
 			return string.Format("h-istasi garage | failed: no dry redeploy ground near %1", deployPosition);
 
 		vector deployAngles = ResolveRedeployAngles(vehicle, resolvedDeployPosition);
-		GenericEntity entity = respawnSystem.DoSpawn(vehicle.m_sPrefab, resolvedDeployPosition, deployAngles);
+		GenericEntity entity = HST_WorldPositionService.SpawnPrefab(vehicle.m_sPrefab, resolvedDeployPosition, deployAngles);
 		if (!entity)
 		{
 			Print(string.Format("h-istasi garage | failed to spawn garage vehicle %1 | prefab %2 | position %3 | yaw %4", GarageVehicleDisplayLabel(vehicle), vehicle.m_sPrefab, resolvedDeployPosition, deployAngles[0]), LogLevel.WARNING);
 			return string.Format("h-istasi garage | failed: could not spawn %1", GarageVehicleDisplayLabel(vehicle));
 		}
+		HST_WorldPositionService.ApplyUprightEntityTransform(entity, resolvedDeployPosition, deployAngles);
 
 		RegisterRedeployedRuntimeVehicle(state, entity, vehicle, resolvedDeployPosition, deployAngles);
 		string restoredRuntimeId;

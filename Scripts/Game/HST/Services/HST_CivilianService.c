@@ -329,12 +329,14 @@ class HST_CivilianService
 			position = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 2.0);
 		}
 
-		GenericEntity entity = respawnSystem.DoSpawn(prefab, position, angles);
+		GenericEntity entity = HST_WorldPositionService.SpawnPrefab(prefab, position, angles);
 		if (!entity)
 		{
 			RecordSpawnFailure(zoneId, prefab, runtimeKind, position, angles);
 			return false;
 		}
+		if (IsRuntimeVehicle(runtimeKind))
+			HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
 
 		ApplyFaction(entity, factionKey, runtimeKind);
 		m_aRuntimeEntityZoneIds.Insert(zoneId);
@@ -613,7 +615,7 @@ class HST_CivilianService
 
 	protected bool IsKnownInvalidVehicleResource(string prefab)
 	{
-		return prefab.Contains("Car_M1151.et");
+		return HST_VehicleRootPolicy.IsKnownBrokenVehiclePrefab(prefab);
 	}
 
 	protected bool IsAircraftVehicleResource(string prefab)

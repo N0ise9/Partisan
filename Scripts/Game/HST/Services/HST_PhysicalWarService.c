@@ -5,14 +5,19 @@ class HST_PhysicalWarService
 	static const int QRF_ATTACK_RESOURCE_COST = 15;
 	static const int QRF_SUPPORT_RESOURCE_COST = 5;
 	static const int QRF_ETA_SECONDS = 180;
+	static const int QRF_INBOUND_SPAWN_SECONDS = 30;
 	static const int QRF_COOLDOWN_SECONDS = 900;
-	static const int ROUTE_STATE_UPDATE_SECONDS = 30;
+	static const int ROUTE_STATE_UPDATE_SECONDS = 5;
 	static const float HQ_SAFE_RADIUS_METERS = 900;
+	static const float QRF_MIN_STANDOFF_METERS = 220.0;
+	static const float QRF_EXTRA_STANDOFF_METERS = 140.0;
+	static const float QRF_MAX_STANDOFF_METERS = 650.0;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
 	protected ref array<string> m_aRuntimeVehicleGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeVehicleEntities = {};
+	protected bool m_bMarkerRefreshNeeded;
 
 	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset = null, HST_EnemyDirectorService enemyDirector = null, HST_ZoneCompositionService compositions = null)
 	{
@@ -34,7 +39,12 @@ class HST_PhysicalWarService
 		{
 			bool shouldBeActive = !IsZoneInsideHQSafeArea(state, zone) && IsAnyLivingPlayerNearZone(playerManager, playerIds, zone, balance);
 			if (zone.m_bActive == shouldBeActive)
+			{
+				if (shouldBeActive && !HasActiveGarrisonGroup(state, zone))
+					changed = ActivateZone(state, zone, compositions) || changed;
+
 				continue;
+			}
 
 			zone.m_bActive = shouldBeActive;
 			if (shouldBeActive)
@@ -43,15 +53,21 @@ class HST_PhysicalWarService
 				changed = DeactivateZone(state, zone, compositions) || changed;
 
 			changed = true;
+			m_bMarkerRefreshNeeded = true;
 			Print(string.Format("h-istasi | zone %1 physical activation = %2", zone.m_sZoneId, shouldBeActive));
 		}
 
 		if (UpdateQRF(state, preset, enemyDirector))
 			changed = true;
-		if (UpdateActiveGroupRoutes(state))
-			changed = true;
 
 		return changed || survivorChanged;
+	}
+
+	bool ConsumeMarkerRefreshNeeded()
+	{
+		bool result = m_bMarkerRefreshNeeded;
+		m_bMarkerRefreshNeeded = false;
+		return result;
 	}
 
 	protected bool IsAnyLivingPlayerNearZone(PlayerManager playerManager, array<int> playerIds, HST_ZoneState zone, HST_BalanceConfig balance)
@@ -281,7 +297,7 @@ class HST_PhysicalWarService
 			FoldActiveGroup(state, activeGroup);
 			state.m_aActiveGroups.Remove(state.m_aActiveGroups.Count() - 1);
 			ApplyActiveZoneCounts(state, zone);
-			NotifyRuntimeEvent("ai_spawn_failed_" + activeGroup.m_sGroupId, "Enemy Spawn Failed", string.Format("%1 could not spawn at %2. %3", zone.m_sDisplayName, zone.m_sZoneId, activeGroup.m_sSpawnFailureReason), zone.m_sZoneId, activeGroup.m_vPosition, 6.0);
+			NotifyRuntimeEvent(state, "ai_spawn_failed_" + activeGroup.m_sGroupId, "Enemy Spawn Failed", string.Format("%1 could not spawn at %2. %3", zone.m_sDisplayName, zone.m_sZoneId, activeGroup.m_sSpawnFailureReason), zone.m_sZoneId, activeGroup.m_vPosition, 6.0);
 			return false;
 		}
 
@@ -337,7 +353,8 @@ class HST_PhysicalWarService
 
 	protected bool UpdateQRF(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector)
 	{
-		bool changed = ResolveArrivedQRFs(state);
+		bool changed = SpawnPendingQRFs(state);
+		changed = ResolveArrivedQRFs(state) || changed;
 		if (!enemyDirector)
 			return changed;
 
@@ -362,29 +379,79 @@ class HST_PhysicalWarService
 			if (!enemyDirector.TrySpend(state, zone.m_sOwnerFactionKey, QRF_ATTACK_RESOURCE_COST, QRF_SUPPORT_RESOURCE_COST))
 				continue;
 
-			HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, zone.m_sOwnerFactionKey, Math.Min(ResolveActiveInfantryCap(zone), Math.Max(2, zone.m_iGarrisonSlots / 3 + state.m_iWarLevel / 2)), ResolveActiveVehicleCap(zone), true);
-			state.m_aActiveGroups.Insert(activeGroup);
-			if (!TrySpawnActiveGroup(activeGroup, state))
-			{
-				state.m_aActiveGroups.Remove(state.m_aActiveGroups.Count() - 1);
-				zone.m_iQrfCooldownUntilSecond = state.m_iElapsedSeconds + QRF_COOLDOWN_SECONDS;
-				NotifyRuntimeEvent("qrf_spawn_failed", "QRF Spawn Failed", string.Format("%1 QRF could not spawn for %2. %3", zone.m_sOwnerFactionKey, zone.m_sDisplayName, activeGroup.m_sSpawnFailureReason), zone.m_sZoneId, activeGroup.m_vPosition, 6.0);
-				changed = true;
-				continue;
-			}
-
 			HST_QRFState qrf = new HST_QRFState();
 			qrf.m_sInstanceId = string.Format("qrf_%1_%2_%3", zone.m_sZoneId, zone.m_sOwnerFactionKey, state.m_iElapsedSeconds);
 			qrf.m_sFactionKey = zone.m_sOwnerFactionKey;
-			qrf.m_sSourceZoneId = zone.m_sZoneId;
+			qrf.m_sSourceZoneId = ResolveQRFSourceZoneId(state, zone, zone.m_sOwnerFactionKey);
 			qrf.m_sTargetZoneId = zone.m_sZoneId;
-			qrf.m_sGroupId = activeGroup.m_sGroupId;
 			qrf.m_iStartedAtSecond = state.m_iElapsedSeconds;
 			qrf.m_iETASeconds = QRF_ETA_SECONDS;
 			state.m_aQRFs.Insert(qrf);
 			zone.m_iQrfCooldownUntilSecond = state.m_iElapsedSeconds + QRF_COOLDOWN_SECONDS;
-			Print(string.Format("h-istasi | dispatched QRF %1 to active zone %2", qrf.m_sInstanceId, zone.m_sZoneId));
-			NotifyRuntimeEvent("qrf_dispatched_" + qrf.m_sInstanceId, "QRF Dispatched", string.Format("%1 is sending a quick reaction force toward %2.", zone.m_sOwnerFactionKey, zone.m_sDisplayName), zone.m_sZoneId, activeGroup.m_vPosition, 6.0);
+			m_bMarkerRefreshNeeded = true;
+			Print(string.Format("h-istasi | dispatched QRF %1 from %2 to active zone %3 | physical spawn at T-%4s", qrf.m_sInstanceId, qrf.m_sSourceZoneId, zone.m_sZoneId, QRF_INBOUND_SPAWN_SECONDS));
+			NotifyRuntimeEvent(state, "qrf_dispatched_" + qrf.m_sInstanceId, "QRF Dispatched", string.Format("%1 is sending a quick reaction force toward %2.", zone.m_sOwnerFactionKey, ResolveZoneDisplayName(state, zone.m_sZoneId)), zone.m_sZoneId, zone.m_vPosition, 6.0);
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	protected bool SpawnPendingQRFs(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		bool changed;
+		foreach (HST_QRFState qrf : state.m_aQRFs)
+		{
+			if (!qrf || qrf.m_bResolved || !qrf.m_sGroupId.IsEmpty())
+				continue;
+
+			int spawnAtSecond = qrf.m_iStartedAtSecond + Math.Max(0, qrf.m_iETASeconds - QRF_INBOUND_SPAWN_SECONDS);
+			if (state.m_iElapsedSeconds < spawnAtSecond)
+				continue;
+
+			HST_ZoneState targetZone = state.FindZone(qrf.m_sTargetZoneId);
+			if (!targetZone)
+			{
+				qrf.m_bResolved = true;
+				qrf.m_bSucceeded = false;
+				m_bMarkerRefreshNeeded = true;
+				Print(string.Format("h-istasi | QRF %1 failed to stage near objective: missing target zone %2", qrf.m_sInstanceId, qrf.m_sTargetZoneId), LogLevel.WARNING);
+				changed = true;
+				continue;
+			}
+
+			if (qrf.m_sSourceZoneId.IsEmpty())
+				qrf.m_sSourceZoneId = ResolveQRFSourceZoneId(state, targetZone, qrf.m_sFactionKey);
+
+			int infantryCount = Math.Min(ResolveActiveInfantryCap(targetZone), Math.Max(2, targetZone.m_iGarrisonSlots / 3 + state.m_iWarLevel / 2));
+			int vehicleCount = ResolveActiveVehicleCap(targetZone);
+			HST_ActiveGroupState activeGroup = CreateActiveGroup(state, targetZone, qrf.m_sFactionKey, infantryCount, vehicleCount, true);
+			vector targetPosition = HST_WorldPositionService.ResolveGroundPosition(targetZone.m_vPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+			vector sourcePosition = ResolveQRFStagingPosition(state, qrf, targetZone, targetPosition);
+			activeGroup.m_sRouteId = qrf.m_sSourceZoneId + "_to_" + qrf.m_sTargetZoneId;
+			activeGroup.m_vSourcePosition = sourcePosition;
+			activeGroup.m_vTargetPosition = targetPosition;
+			activeGroup.m_vPosition = sourcePosition;
+			activeGroup.m_sRuntimeStatus = "routing";
+			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+			state.m_aActiveGroups.Insert(activeGroup);
+			if (!TrySpawnActiveGroup(activeGroup, state))
+			{
+				state.m_aActiveGroups.Remove(state.m_aActiveGroups.Count() - 1);
+				qrf.m_bResolved = true;
+				qrf.m_bSucceeded = false;
+				m_bMarkerRefreshNeeded = true;
+				NotifyRuntimeEvent(state, "qrf_spawn_failed_" + qrf.m_sInstanceId, "QRF Spawn Failed", string.Format("%1 QRF could not spawn for %2. %3", qrf.m_sFactionKey, ResolveZoneDisplayName(state, targetZone.m_sZoneId), activeGroup.m_sSpawnFailureReason), targetZone.m_sZoneId, activeGroup.m_vPosition, 6.0);
+				Print(string.Format("h-istasi | QRF %1 failed to materialize near %2 | prefab %3 | reason %4", qrf.m_sInstanceId, targetZone.m_sZoneId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
+				changed = true;
+				continue;
+			}
+
+			qrf.m_sGroupId = activeGroup.m_sGroupId;
+			Print(string.Format("h-istasi | QRF %1 spawned near %2 | source %3 | spawn %4 | objective %5 | group %6", qrf.m_sInstanceId, targetZone.m_sZoneId, qrf.m_sSourceZoneId, activeGroup.m_vPosition, targetPosition, activeGroup.m_sGroupId));
 			changed = true;
 		}
 
@@ -402,20 +469,240 @@ class HST_PhysicalWarService
 			if (state.m_iElapsedSeconds < qrf.m_iStartedAtSecond + qrf.m_iETASeconds)
 				continue;
 
-			qrf.m_bResolved = true;
-			qrf.m_bSucceeded = true;
+			if (qrf.m_sGroupId.IsEmpty())
+			{
+				qrf.m_bResolved = true;
+				qrf.m_bSucceeded = false;
+				m_bMarkerRefreshNeeded = true;
+				changed = true;
+				Print(string.Format("h-istasi | QRF %1 failed to reach zone %2 | no physical group materialized", qrf.m_sInstanceId, qrf.m_sTargetZoneId), LogLevel.WARNING);
+				continue;
+			}
+
 			HST_ActiveGroupState activeGroup = state.FindActiveGroup(qrf.m_sGroupId);
+			if (activeGroup && state.m_iElapsedSeconds < activeGroup.m_iSpawnedAtSecond + ROUTE_STATE_UPDATE_SECONDS)
+				continue;
+
+			qrf.m_bResolved = true;
+			if (!IsActiveGroupCombatEffective(activeGroup))
+			{
+				qrf.m_bSucceeded = false;
+				m_bMarkerRefreshNeeded = true;
+				changed = true;
+				Print(string.Format("h-istasi | QRF %1 failed to reach zone %2 | group %3 status %4 spawned agents %5 alive %6", qrf.m_sInstanceId, qrf.m_sTargetZoneId, qrf.m_sGroupId, ResolveActiveGroupStatus(activeGroup), ResolveSpawnedAgentTotal(activeGroup), ResolveAliveAgentTotal(activeGroup)), LogLevel.WARNING);
+				continue;
+			}
+
+			qrf.m_bSucceeded = true;
 			if (activeGroup)
 				activeGroup.m_sRuntimeStatus = "arrived";
 			changed = true;
-			Print(string.Format("h-istasi | QRF %1 reached zone %2", qrf.m_sInstanceId, qrf.m_sTargetZoneId));
-			vector qrfPosition;
-			if (activeGroup)
-				qrfPosition = activeGroup.m_vPosition;
-			NotifyRuntimeEvent("qrf_arrived_" + qrf.m_sInstanceId, "QRF Arrived", string.Format("%1 QRF reached %2.", qrf.m_sFactionKey, qrf.m_sTargetZoneId), qrf.m_sTargetZoneId, qrfPosition, 6.0);
+			Print(string.Format("h-istasi | QRF %1 active near zone %2", qrf.m_sInstanceId, qrf.m_sTargetZoneId));
 		}
 
 		return changed;
+	}
+
+	protected string ResolveQRFSourceZoneId(HST_CampaignState state, HST_ZoneState targetZone, string factionKey)
+	{
+		if (!state || !targetZone || factionKey.IsEmpty())
+			return "";
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_sZoneId == targetZone.m_sZoneId || zone.m_sOwnerFactionKey != factionKey)
+				continue;
+
+			float distanceSq = DistanceSq2D(zone.m_vPosition, targetZone.m_vPosition);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestDistanceSq = distanceSq;
+				bestZone = zone;
+			}
+		}
+
+		if (bestZone)
+			return bestZone.m_sZoneId;
+
+		return targetZone.m_sZoneId;
+	}
+
+	protected vector ResolveQRFSourcePosition(HST_CampaignState state, HST_QRFState qrf, HST_ZoneState targetZone)
+	{
+		if (state && qrf && !qrf.m_sSourceZoneId.IsEmpty())
+		{
+			HST_ZoneState sourceZone = state.FindZone(qrf.m_sSourceZoneId);
+			if (sourceZone)
+				return sourceZone.m_vPosition;
+		}
+
+		if (targetZone)
+			return targetZone.m_vPosition;
+
+		return "0 0 0";
+	}
+
+	protected vector ResolveQRFStagingPosition(HST_CampaignState state, HST_QRFState qrf, HST_ZoneState targetZone, vector targetPosition)
+	{
+		vector sourcePosition = ResolveQRFSourcePosition(state, qrf, targetZone);
+		float standoff = ResolveQRFStagingDistanceMeters(targetZone);
+		int seed = BuildQRFInboundSeed(state, qrf, targetZone);
+		for (int attempt = 0; attempt < 32; attempt++)
+		{
+			vector candidate = BuildQRFApproachCandidate(targetPosition, sourcePosition, seed, attempt, standoff);
+			vector resolved;
+			if (!HST_WorldPositionService.TryResolveDryStagingPosition(candidate, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, resolved, 3.0))
+				continue;
+			if (IsInsideHQSafeRadius(state, resolved))
+				continue;
+
+			return resolved;
+		}
+
+		vector fallback;
+		if (HST_WorldPositionService.TryResolveDryStagingPosition(sourcePosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, fallback, 3.0) && !IsInsideHQSafeRadius(state, fallback))
+			return fallback;
+
+		if (HST_WorldPositionService.TryResolveDryStagingPosition(targetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, fallback, 3.0) && !IsInsideHQSafeRadius(state, fallback))
+			return fallback;
+
+		Print(string.Format("h-istasi | QRF %1 could not find dry staging near %2, using objective fallback %3", qrf.m_sInstanceId, targetZone.m_sZoneId, targetPosition), LogLevel.WARNING);
+		return HST_WorldPositionService.ResolveSafeGroundPosition(targetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
+	}
+
+	protected float ResolveQRFStagingDistanceMeters(HST_ZoneState targetZone)
+	{
+		return Math.Max(QRF_MIN_STANDOFF_METERS, ResolveQRFStandoffMeters(targetZone) * 0.5);
+	}
+
+	protected float ResolveQRFStandoffMeters(HST_ZoneState targetZone)
+	{
+		float radius;
+		if (targetZone)
+			radius = targetZone.m_iCaptureRadiusMeters;
+		if (radius <= 0 && targetZone)
+			radius = targetZone.m_iActivationRadiusMeters * 0.35;
+		if (radius <= 0)
+			radius = QRF_MIN_STANDOFF_METERS;
+
+		return Math.Min(QRF_MAX_STANDOFF_METERS, Math.Max(QRF_MIN_STANDOFF_METERS, radius + QRF_EXTRA_STANDOFF_METERS));
+	}
+
+	protected int BuildQRFInboundSeed(HST_CampaignState state, HST_QRFState qrf, HST_ZoneState targetZone)
+	{
+		int seed = 3371;
+		if (state)
+			seed += state.m_iCampaignSeed * 17 + state.m_iElapsedSeconds * 5 + state.m_aActiveGroups.Count() * 61;
+		if (qrf)
+			seed += qrf.m_sInstanceId.Length() * 43 + qrf.m_sFactionKey.Length() * 19 + qrf.m_sSourceZoneId.Length() * 29;
+		if (targetZone)
+			seed += targetZone.m_iPriority * 37 + targetZone.m_sZoneId.Length() * 83 + Math.Round(targetZone.m_vPosition[0]) + Math.Round(targetZone.m_vPosition[2]);
+		if (seed < 0)
+			seed = -seed;
+
+		return seed;
+	}
+
+	protected vector BuildQRFApproachCandidate(vector target, vector source, int seed, int attempt, float standoffMeters)
+	{
+		vector candidate = target;
+		float dx = target[0] - source[0];
+		float dz = target[2] - source[2];
+		float length = Math.Sqrt(dx * dx + dz * dz);
+		if (length > 1.0 && attempt < 2)
+		{
+			float distance = standoffMeters + attempt * 45.0;
+			candidate[0] = target[0] - dx / length * distance;
+			candidate[2] = target[2] - dz / length * distance;
+			return candidate;
+		}
+
+		int slot = HST_DefaultCatalog.PositiveMod(seed + attempt, 8);
+		float distanceBySlot = standoffMeters + (attempt / 8) * 55.0;
+		float x = 1.0;
+		float z = 0.0;
+		if (slot == 1)
+		{
+			x = 0.707;
+			z = 0.707;
+		}
+		else if (slot == 2)
+		{
+			x = 0.0;
+			z = 1.0;
+		}
+		else if (slot == 3)
+		{
+			x = -0.707;
+			z = 0.707;
+		}
+		else if (slot == 4)
+		{
+			x = -1.0;
+			z = 0.0;
+		}
+		else if (slot == 5)
+		{
+			x = -0.707;
+			z = -0.707;
+		}
+		else if (slot == 6)
+		{
+			x = 0.0;
+			z = -1.0;
+		}
+		else if (slot == 7)
+		{
+			x = 0.707;
+			z = -0.707;
+		}
+
+		candidate[0] = target[0] + x * distanceBySlot;
+		candidate[2] = target[2] + z * distanceBySlot;
+		return candidate;
+	}
+
+	protected bool IsActiveGroupCombatEffective(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed")
+			return false;
+
+		if (activeGroup.m_iSpawnedAgentCount <= 0)
+			return false;
+
+		if (activeGroup.m_iLastSeenAliveCount > 0)
+			return true;
+
+		return activeGroup.m_iSurvivorInfantryCount > 0 || activeGroup.m_iSurvivorVehicleCount > 0;
+	}
+
+	protected string ResolveActiveGroupStatus(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return "missing";
+
+		return activeGroup.m_sRuntimeStatus;
+	}
+
+	protected int ResolveSpawnedAgentTotal(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return 0;
+
+		return activeGroup.m_iSpawnedAgentCount;
+	}
+
+	protected int ResolveAliveAgentTotal(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return 0;
+
+		return activeGroup.m_iLastSeenAliveCount;
 	}
 
 	protected bool UpdateActiveGroupRoutes(HST_CampaignState state)
@@ -428,12 +715,10 @@ class HST_PhysicalWarService
 		{
 			if (!activeGroup || !activeGroup.m_bSpawnedEntity)
 				continue;
-			if (!activeGroup.m_bQRF && activeGroup.m_sRuntimeStatus != "support_active")
-				continue;
 			if (activeGroup.m_sRuntimeStatus != "routing" && activeGroup.m_sRuntimeStatus != "support_active")
 				continue;
 
-			int duration = ResolveRouteDurationSeconds(activeGroup);
+			int duration = ResolveRouteDurationSeconds(state, activeGroup);
 			int elapsed = state.m_iElapsedSeconds - activeGroup.m_iSpawnedAtSecond;
 			if (elapsed < 0)
 				elapsed = 0;
@@ -441,11 +726,12 @@ class HST_PhysicalWarService
 			float progress = Math.Min(1.0, elapsed * 1.0 / duration);
 			vector position = LerpPosition(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition, progress);
 			position = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
+			string arrivedStatus = ResolveArrivedRouteStatus(activeGroup);
 			if (DistanceSq2D(activeGroup.m_vPosition, position) < 25)
 			{
-				if (progress >= 1.0 && activeGroup.m_sRuntimeStatus != "arrived")
+				if (progress >= 1.0 && activeGroup.m_sRuntimeStatus != arrivedStatus)
 				{
-					activeGroup.m_sRuntimeStatus = "arrived";
+					activeGroup.m_sRuntimeStatus = arrivedStatus;
 					changed = true;
 				}
 				continue;
@@ -455,7 +741,7 @@ class HST_PhysicalWarService
 			SetRuntimeGroupEntitiesOrigin(activeGroup.m_sGroupId, position);
 
 			if (progress >= 1.0)
-				activeGroup.m_sRuntimeStatus = "arrived";
+				activeGroup.m_sRuntimeStatus = arrivedStatus;
 
 			changed = true;
 		}
@@ -463,16 +749,65 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
-	protected int ResolveRouteDurationSeconds(HST_ActiveGroupState activeGroup)
+	protected int ResolveRouteDurationSeconds(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
 		if (!activeGroup)
 			return QRF_ETA_SECONDS;
 
+		if (state && activeGroup.m_sRuntimeStatus == "support_active")
+		{
+			HST_SupportRequestState request = FindSupportRequestByGroupId(state, activeGroup.m_sGroupId);
+			if (request)
+				return Math.Max(5, request.m_iRequestedAtSecond + request.m_iETASeconds - activeGroup.m_iSpawnedAtSecond);
+		}
+
 		if (activeGroup.m_bQRF)
+		{
+			HST_QRFState qrf = FindQRFByGroupId(state, activeGroup.m_sGroupId);
+			if (qrf)
+				return Math.Max(5, qrf.m_iStartedAtSecond + qrf.m_iETASeconds - activeGroup.m_iSpawnedAtSecond);
+
 			return QRF_ETA_SECONDS;
+		}
 
 		float distance = Math.Sqrt(DistanceSq2D(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition));
 		return Math.Max(120, Math.Round(distance / 6.0));
+	}
+
+	protected string ResolveArrivedRouteStatus(HST_ActiveGroupState activeGroup)
+	{
+		if (activeGroup && activeGroup.m_sRuntimeStatus == "support_active")
+			return "support_arrived";
+
+		return "arrived";
+	}
+
+	protected HST_QRFState FindQRFByGroupId(HST_CampaignState state, string groupId)
+	{
+		if (!state || groupId.IsEmpty())
+			return null;
+
+		foreach (HST_QRFState qrf : state.m_aQRFs)
+		{
+			if (qrf && qrf.m_sGroupId == groupId)
+				return qrf;
+		}
+
+		return null;
+	}
+
+	protected HST_SupportRequestState FindSupportRequestByGroupId(HST_CampaignState state, string groupId)
+	{
+		if (!state || groupId.IsEmpty())
+			return null;
+
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (request && request.m_sGroupId == groupId)
+				return request;
+		}
+
+		return null;
 	}
 
 	protected vector LerpPosition(vector sourcePosition, vector targetPosition, float progress)
@@ -617,7 +952,7 @@ class HST_PhysicalWarService
 		}
 		else if (IsValidGroupPrefabResource(activeGroup.m_sPrefab, activeGroup.m_sFactionKey))
 		{
-			entity = respawnSystem.DoSpawn(activeGroup.m_sPrefab, spawnPosition, "0 0 0");
+			entity = HST_WorldPositionService.SpawnPrefab(activeGroup.m_sPrefab, spawnPosition, "0 0 0");
 			if (!entity)
 				failureReason = string.Format("Group prefab did not spawn: %1.", activeGroup.m_sPrefab);
 			else
@@ -643,7 +978,7 @@ class HST_PhysicalWarService
 		activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
 		activeGroup.m_sSpawnFailureReason = "";
 		activeGroup.m_iSpawnedAgentCount = agentCount;
-		activeGroup.m_iLastSeenAliveCount = Math.Max(agentCount, activeGroup.m_iInfantryCount + activeGroup.m_iVehicleCount);
+		activeGroup.m_iLastSeenAliveCount = Math.Max(0, agentCount);
 		activeGroup.m_iSurvivorInfantryCount = activeGroup.m_iInfantryCount;
 		if (state)
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
@@ -692,9 +1027,12 @@ class HST_PhysicalWarService
 		}
 		else if (IsValidVehiclePrefabResource(activeGroup.m_sPrefab, activeGroup.m_sFactionKey))
 		{
-			entity = respawnSystem.DoSpawn(activeGroup.m_sPrefab, spawnPosition, HST_WorldPositionService.BuildUprightAngles(0));
+			vector spawnAngles = HST_WorldPositionService.BuildUprightAngles(0);
+			entity = HST_WorldPositionService.SpawnPrefab(activeGroup.m_sPrefab, spawnPosition, spawnAngles);
 			if (!entity)
 				failureReason = string.Format("Vehicle prefab did not spawn: %1.", activeGroup.m_sPrefab);
+			else
+				HST_WorldPositionService.ApplyUprightEntityTransform(entity, spawnPosition, spawnAngles);
 		}
 		else
 		{
@@ -733,7 +1071,7 @@ class HST_PhysicalWarService
 			return requestedStatus;
 
 		if (activeGroup && activeGroup.m_bQRF)
-			return "routing";
+			return "staged";
 
 		return "guard_center";
 	}
@@ -828,10 +1166,50 @@ class HST_PhysicalWarService
 		return agentCount;
 	}
 
-	protected void NotifyRuntimeEvent(string eventId, string title, string message, string zoneId, vector position, float durationSeconds)
+	protected void NotifyRuntimeEvent(HST_CampaignState state, string eventId, string title, string message, string zoneId, vector position, float durationSeconds)
 	{
+		if (!ShouldBroadcastRuntimeEvent(state, zoneId, position))
+			return;
+
 		string payload = string.Format("HST_NOTIFICATION|%1|enemy|warning|%2|%3|%4||%5|%6", eventId, PayloadText(title), PayloadText(message), zoneId, position, durationSeconds);
 		HST_CommandMenuRequestComponent.BroadcastNotification(payload, title + ": " + message);
+	}
+
+	protected bool ShouldBroadcastRuntimeEvent(HST_CampaignState state, string zoneId, vector position)
+	{
+		if (!state)
+			return false;
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (zone && zone.m_bActive)
+			return true;
+
+		if (IsZeroVector(position) && zone)
+			position = zone.m_vPosition;
+
+		return HST_WorldPositionService.IsPositionInsidePlayerEventBubble(position);
+	}
+
+	protected string ResolveZoneDisplayName(HST_CampaignState state, string zoneId)
+	{
+		if (!state || zoneId.IsEmpty())
+			return "unknown location";
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (zone)
+		{
+			if (!zone.m_sDisplayName.IsEmpty())
+				return zone.m_sDisplayName;
+			return HST_DefaultCatalog.GetZoneDisplayName(zone.m_sZoneId);
+		}
+
+		string label = HST_DefaultCatalog.GetZoneDisplayName(zoneId);
+		if (!label.IsEmpty() && label != zoneId)
+			return label;
+
+		label = zoneId;
+		label.Replace("_", " ");
+		return label;
 	}
 
 	protected string PayloadText(string value)
@@ -917,7 +1295,11 @@ class HST_PhysicalWarService
 				activeGroup.m_iSurvivorVehicleCount = 0;
 			}
 			if (aliveCount <= 0)
+			{
 				activeGroup.m_sRuntimeStatus = "eliminated";
+				if (activeGroup.m_bQRF)
+					m_bMarkerRefreshNeeded = true;
+			}
 			Print(string.Format("h-istasi | active group survivors %1 | zone %2 | alive %3 from %4 | survivors infantry %5/%6 vehicles %7/%8 | status %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, previousAliveCount, activeGroup.m_iSurvivorInfantryCount, activeGroup.m_iInfantryCount, activeGroup.m_iSurvivorVehicleCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
 			changed = true;
 		}
@@ -1026,6 +1408,8 @@ class HST_PhysicalWarService
 
 		string previousStatus = activeGroup.m_sRuntimeStatus;
 		activeGroup.m_sRuntimeStatus = "folded";
+		if (activeGroup.m_bQRF)
+			m_bMarkerRefreshNeeded = true;
 		garrison.m_iInfantryCount += Math.Max(0, survivorInfantry);
 		garrison.m_iVehicleCount += Math.Max(0, survivorVehicles);
 		Print(string.Format("h-istasi | folded active group %1 | zone %2 | status %3 | returned infantry %4/%5 vehicles %6/%7 | last alive %8 | spawned agents %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, previousStatus, survivorInfantry, activeGroup.m_iInfantryCount, survivorVehicles, activeGroup.m_iVehicleCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount));
@@ -1147,6 +1531,14 @@ class HST_PhysicalWarService
 		return DistanceSq2D(state.m_vHQPosition, zone.m_vPosition) <= HQ_SAFE_RADIUS_METERS * HQ_SAFE_RADIUS_METERS;
 	}
 
+	protected bool IsInsideHQSafeRadius(HST_CampaignState state, vector position)
+	{
+		if (!state || !state.m_bHQDeployed)
+			return false;
+
+		return DistanceSq2D(state.m_vHQPosition, position) <= HQ_SAFE_RADIUS_METERS * HQ_SAFE_RADIUS_METERS;
+	}
+
 	protected IEntity GetBestPlayerEntity(PlayerManager playerManager, int playerId)
 	{
 		if (!playerManager || playerId <= 0)
@@ -1175,6 +1567,11 @@ class HST_PhysicalWarService
 
 		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
 		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
+	}
+
+	protected bool IsZeroVector(vector value)
+	{
+		return value[0] == 0 && value[1] == 0 && value[2] == 0;
 	}
 
 	protected float DistanceSq2D(vector a, vector b)

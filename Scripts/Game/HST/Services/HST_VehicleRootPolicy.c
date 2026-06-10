@@ -22,6 +22,9 @@ class HST_VehicleRootPolicy
 		if (prefab.IsEmpty())
 			return true;
 
+		if (IsKnownBrokenVehiclePrefab(prefab))
+			return true;
+
 		if (IsRejectedWorldPrefab(prefab))
 			return true;
 
@@ -42,6 +45,23 @@ class HST_VehicleRootPolicy
 		}
 
 		if (prefab.Contains("Arsenal") || prefab.Contains("arsenal") || prefab.Contains("Composition") || prefab.Contains("composition"))
+			return true;
+
+		return false;
+	}
+
+	static bool IsKnownBrokenVehiclePrefab(string prefab)
+	{
+		if (prefab.IsEmpty())
+			return false;
+
+		if (prefab.Contains("Prefabs/Vehicles/Wheeled/UAZ469/UAZ469.et"))
+			return true;
+
+		if (prefab.Contains("Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_FIA_transport.et"))
+			return true;
+
+		if (prefab.Contains("Car_M1151.et"))
 			return true;
 
 		return false;

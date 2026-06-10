@@ -74,6 +74,11 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "startingInvaderSupportPool", settings.m_Economy.m_iStartingInvaderSupportPool);
 			ApplyInt(line, "zoneIncomeIntervalSeconds", settings.m_Economy.m_iZoneIncomeIntervalSeconds);
 			ApplyInt(line, "warLevelMaximum", settings.m_Economy.m_iWarLevelMaximum);
+			ApplyInt(line, "captureProgressRequired", settings.m_Capture.m_iProgressRequired);
+			ApplyInt(line, "captureProgressPerSecond", settings.m_Capture.m_iProgressPerSecond);
+			ApplyInt(line, "captureDecayPerSecond", settings.m_Capture.m_iDecayPerSecond);
+			ApplyInt(line, "captureAggressionBase", settings.m_Capture.m_iAggressionBase);
+			ApplyInt(line, "captureCounterattackChancePercent", settings.m_Capture.m_iCounterattackChancePercent);
 			ApplyInt(line, "activationRadiusMeters", settings.m_World.m_iActivationRadiusMeters);
 			ApplyInt(line, "deactivationRadiusMeters", settings.m_World.m_iDeactivationRadiusMeters);
 			ApplyInt(line, "missionDefaultDurationSeconds", settings.m_World.m_iMissionDefaultDurationSeconds);
@@ -163,6 +168,16 @@ class HST_RuntimeSettingsService
 		{
 			settings.m_ArsenalLoot.m_bLootOnlyLockedItems = false;
 			settings.m_VehicleLoot.m_bOnlyLockedItems = false;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 8)
+		{
+			settings.m_Capture.m_iProgressRequired = 100;
+			settings.m_Capture.m_iProgressPerSecond = 2;
+			settings.m_Capture.m_iDecayPerSecond = 1;
+			settings.m_Capture.m_iAggressionBase = 10;
+			settings.m_Capture.m_iCounterattackChancePercent = 45;
 			changed = true;
 		}
 
@@ -269,6 +284,13 @@ class HST_RuntimeSettingsService
 		lines.Insert(string.Format("    \"startingInvaderSupportPool\": %1,", settings.m_Economy.m_iStartingInvaderSupportPool));
 		lines.Insert(string.Format("    \"zoneIncomeIntervalSeconds\": %1,", settings.m_Economy.m_iZoneIncomeIntervalSeconds));
 		lines.Insert(string.Format("    \"warLevelMaximum\": %1", settings.m_Economy.m_iWarLevelMaximum));
+		lines.Insert("  },");
+		lines.Insert("  \"capture\": {");
+		lines.Insert(string.Format("    \"captureProgressRequired\": %1,", settings.m_Capture.m_iProgressRequired));
+		lines.Insert(string.Format("    \"captureProgressPerSecond\": %1,", settings.m_Capture.m_iProgressPerSecond));
+		lines.Insert(string.Format("    \"captureDecayPerSecond\": %1,", settings.m_Capture.m_iDecayPerSecond));
+		lines.Insert(string.Format("    \"captureAggressionBase\": %1,", settings.m_Capture.m_iAggressionBase));
+		lines.Insert(string.Format("    \"captureCounterattackChancePercent\": %1", settings.m_Capture.m_iCounterattackChancePercent));
 		lines.Insert("  },");
 		lines.Insert("  \"world\": {");
 		lines.Insert(string.Format("    \"activationRadiusMeters\": %1,", settings.m_World.m_iActivationRadiusMeters));

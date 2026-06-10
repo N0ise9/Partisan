@@ -165,14 +165,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
 		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
-		bool captureChanged = m_ZoneCapture.TickContestedCapture(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, elapsedSeconds);
+		bool captureChanged = m_ZoneCapture.TickContestedCapture(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, elapsedSeconds);
 		bool civilianRuntimeChanged = m_Civilians.UpdatePhysicalTownPopulation(m_State, m_Preset, m_Balance);
 		if (supportChanged)
 			BroadcastSupportChangeNotifications();
 		if (enemyOrdersChanged)
 			BroadcastEnemyOrderChangeNotifications();
-		if (missionChanged || objectiveChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || civilianRuntimeChanged)
-			MarkMajorCampaignChange();
+		bool captureMarkerChanged = BroadcastCaptureChangeNotifications();
+		bool supportMarkerChanged = false;
+		if (supportChanged && m_SupportRequests)
+			supportMarkerChanged = m_SupportRequests.ConsumeMarkerRefreshNeeded();
+		bool physicalWarMarkerChanged = false;
+		if (physicalWarChanged && m_PhysicalWar)
+			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
+		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || civilianRuntimeChanged;
+		bool markerStateChanged = missionChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged || hqRuntimeChanged || captureMarkerChanged || physicalWarMarkerChanged;
+		if (anyStateChanged)
+		{
+			MarkMajorCampaignChange(markerStateChanged);
+			if (markerStateChanged && m_SupportRequests)
+				m_SupportRequests.ConsumeMarkerRefreshNeeded();
+		}
 	}
 
 	HST_CampaignState GetState()
@@ -217,7 +230,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "HST_MENU|offline|0\nSTATUS|h-istasi menu | server coordinator not ready\nEND";
 
-		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Settings, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId), m_ZoneCompositions);
+		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Settings, m_Balance, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId), m_ZoneCompositions, m_ZoneCapture);
 	}
 
 	string RequestVisibleMenuCommand(int playerId, string selectedTabId, string commandId, string argument = "")
@@ -517,9 +530,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return false;
 
-		bool changed = m_ZoneCapture.CaptureForResistance(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, supportReward);
+		bool changed = m_ZoneCapture.CaptureForResistance(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, supportReward, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
 		if (changed)
+		{
+			BroadcastCaptureChangeNotifications();
 			MarkMajorCampaignChange();
+		}
 		return changed;
 	}
 
@@ -584,7 +600,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			changed = true;
 
 		if (changed)
+		{
+			BroadcastCaptureChangeNotifications();
 			MarkMajorCampaignChange();
+		}
 		return changed;
 	}
 
@@ -792,6 +811,55 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return RecruitResistanceGarrison(zoneId, infantryCount, vehicleCount, moneyCost, hrCost);
 	}
 
+	string RequestCommanderRecruitGarrisonReport(int playerId, string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi command | recruit FIA garrison | failed: server authority unavailable";
+
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi command | recruit FIA garrison | failed: commander permission required";
+
+		if (!m_State || !m_Preset)
+			return "h-istasi command | recruit FIA garrison | failed: campaign state unavailable";
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return "h-istasi command | recruit FIA garrison | failed: zone not found";
+
+		if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: zone is owned by %2", ResolveZoneLabel(zone), zone.m_sOwnerFactionKey);
+
+		if (m_State.m_iFactionMoney < moneyCost)
+			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: need $%2, have $%3", ResolveZoneLabel(zone), moneyCost, m_State.m_iFactionMoney);
+
+		if (m_State.m_iHR < hrCost)
+			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: need %2 HR, have %3", ResolveZoneLabel(zone), hrCost, m_State.m_iHR);
+
+		HST_GarrisonState beforeGarrison = m_State.FindGarrison(zoneId, m_Preset.m_sResistanceFactionKey);
+		int beforeInfantry;
+		if (beforeGarrison)
+			beforeInfantry = beforeGarrison.m_iInfantryCount;
+
+		int currentInfantry = beforeInfantry + Math.Max(0, zone.m_iActiveInfantryCount);
+		if (zone.m_iGarrisonSlots > 0 && currentInfantry >= zone.m_iGarrisonSlots)
+			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: garrison full %2/%3", ResolveZoneLabel(zone), currentInfantry, zone.m_iGarrisonSlots);
+
+		bool changed = RecruitResistanceGarrison(zoneId, infantryCount, vehicleCount, moneyCost, hrCost);
+		HST_GarrisonState afterGarrison = m_State.FindGarrison(zoneId, m_Preset.m_sResistanceFactionKey);
+		int afterInfantry;
+		if (afterGarrison)
+			afterInfantry = afterGarrison.m_iInfantryCount;
+
+		if (!changed || afterInfantry <= beforeInfantry)
+			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: no garrison change", ResolveZoneLabel(zone));
+
+		string capacity = "uncapped";
+		if (zone.m_iGarrisonSlots > 0)
+			capacity = string.Format("%1/%2", afterInfantry + Math.Max(0, zone.m_iActiveInfantryCount), zone.m_iGarrisonSlots);
+
+		return string.Format("h-istasi command | recruit FIA garrison at %1 | complete: +%2 infantry, garrison %3, money $%4, HR %5", ResolveZoneLabel(zone), afterInfantry - beforeInfantry, capacity, m_State.m_iFactionMoney, m_State.m_iHR);
+	}
+
 	bool RequestCommanderTrainTroops(int playerId, int moneyCost = 250)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
@@ -858,7 +926,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string targetZoneId = SelectHQSupportZoneId();
 		HST_SupportRequestState request = m_SupportRequests.RequestSupport(m_State, m_Preset, m_Economy, m_EnemyDirector, m_Preset.m_sResistanceFactionKey, HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP, targetZoneId, true);
 		if (request)
+		{
 			MarkMajorCampaignChange();
+			m_SupportRequests.ConsumeMarkerRefreshNeeded();
+		}
 		return request != null;
 	}
 
@@ -873,14 +944,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return false;
 		}
 
-		string targetZoneId = SelectHQSupportZoneId();
+		string targetZoneId = SelectPlayerSupportZoneId(playerId);
 		int cooldownSeconds = HST_SupportRequestService.PLAYER_SUPPORT_COOLDOWN_SECONDS;
 		if (IsAirSupportType(supportType))
 			cooldownSeconds = m_Balance.m_iAirSupportCooldownSeconds;
 
 		HST_SupportRequestState request = m_SupportRequests.RequestSupport(m_State, m_Preset, m_Economy, m_EnemyDirector, m_Preset.m_sResistanceFactionKey, supportType, targetZoneId, true, cooldownSeconds);
 		if (request)
+		{
 			MarkMajorCampaignChange();
+			m_SupportRequests.ConsumeMarkerRefreshNeeded();
+		}
 		return request != null;
 	}
 
@@ -891,7 +965,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_SupportRequests.CancelSupportRequest(m_State, requestId, true);
 		if (changed)
+		{
 			MarkMajorCampaignChange();
+			m_SupportRequests.ConsumeMarkerRefreshNeeded();
+		}
 		return changed;
 	}
 
@@ -1512,9 +1589,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return false;
 
-		bool changed = m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, progress, 10);
+		bool changed = m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, progress, 10, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
 		if (changed)
-			MarkMajorCampaignChange();
+		{
+			bool captureMarkerChanged = BroadcastCaptureChangeNotifications();
+			MarkMajorCampaignChange(captureMarkerChanged);
+		}
 		return changed;
 	}
 
@@ -1935,11 +2015,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!request)
 				continue;
 
+			if (!ShouldBroadcastSupportNotification(request))
+				continue;
+
 			if (request.m_iRequestedAtSecond > 0 && m_State.m_iElapsedSeconds - request.m_iRequestedAtSecond > 3)
 				continue;
 
 			string title = "Enemy Support";
-			string message = string.Format("%1 support %2 is moving from %3 toward %4.", request.m_sFactionKey, request.m_sRequestId, request.m_sSourceZoneId, request.m_sTargetZoneId);
+			string sourceName = ResolveZoneDisplayName(request.m_sSourceZoneId);
+			string targetName = ResolveZoneDisplayName(request.m_sTargetZoneId);
+			string supportLabel = SupportRequestTypeLabel(request.m_eType);
+			string message = string.Format("%1 %2 moving from %3 to %4.", request.m_sFactionKey, supportLabel, sourceName, targetName);
+			if (!ShouldBroadcastNotificationInPlayerBubble("support_" + request.m_sRequestId, "enemy", request.m_sTargetZoneId, request.m_vTargetPosition))
+				continue;
+
 			BroadcastNotification("support_" + request.m_sRequestId + "_" + string.Format("%1", request.m_eStatus), "enemy", "warning", title, message, request.m_sTargetZoneId, "", request.m_vTargetPosition, 6.0);
 		}
 	}
@@ -1954,19 +2043,121 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!order)
 				continue;
 
+			if (!ShouldBroadcastEnemyOrderNotification(order))
+				continue;
+
 			if (order.m_iCreatedAtSecond > 0 && m_State.m_iElapsedSeconds - order.m_iCreatedAtSecond > 3)
 				continue;
 
 			string title = "Enemy Operation";
-			string message = string.Format("%1 order %2 is targeting %3.", order.m_sFactionKey, order.m_sOrderId, order.m_sTargetZoneId);
+			string targetName = ResolveZoneDisplayName(order.m_sTargetZoneId);
+			string orderLabel = EnemyOrderTypeLabel(order.m_eType);
+			string message = string.Format("%1 %2 targeting %3.", order.m_sFactionKey, orderLabel, targetName);
+			if (!ShouldBroadcastNotificationInPlayerBubble("enemy_order_" + order.m_sOrderId, "enemy", order.m_sTargetZoneId, ResolveZonePosition(order.m_sTargetZoneId)))
+				continue;
+
 			BroadcastNotification("enemy_order_" + order.m_sOrderId + "_" + string.Format("%1", order.m_eStatus), "enemy", "warning", title, message, order.m_sTargetZoneId, "", ResolveZonePosition(order.m_sTargetZoneId), 6.0);
 		}
+	}
+
+	protected bool ShouldBroadcastSupportNotification(HST_SupportRequestState request)
+	{
+		if (!request)
+			return false;
+
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_TRANSPORT || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
+			return false;
+
+		if (IsSupportRequestLinkedToEnemyOrder(request.m_sRequestId))
+			return false;
+
+		return request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55;
+	}
+
+	protected bool ShouldBroadcastEnemyOrderNotification(HST_EnemyOrderState order)
+	{
+		if (!order)
+			return false;
+
+		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL || order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON || order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK)
+			return false;
+
+		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK && !order.m_sSupportRequestId.IsEmpty())
+			return false;
+
+		return true;
+	}
+
+	protected bool IsSupportRequestLinkedToEnemyOrder(string requestId)
+	{
+		if (!m_State || requestId.IsEmpty())
+			return false;
+
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (order && order.m_sSupportRequestId == requestId)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool BroadcastCaptureChangeNotifications()
+	{
+		if (!m_ZoneCapture)
+			return false;
+
+		bool markerRefreshNeeded = false;
+		array<ref HST_ZoneCaptureNotification> notifications = {};
+		m_ZoneCapture.DrainPendingNotifications(notifications);
+		foreach (HST_ZoneCaptureNotification notification : notifications)
+		{
+			if (!notification)
+				continue;
+
+			bool ownershipFlip = IsOwnershipFlipNotification(notification.m_sEventId, "capture");
+			if (ownershipFlip)
+				markerRefreshNeeded = true;
+			else if (!ShouldBroadcastNotificationInPlayerBubble(notification.m_sEventId, "capture", notification.m_sZoneId, notification.m_vPosition))
+				continue;
+
+			BroadcastNotification(notification.m_sEventId, "capture", notification.m_sSeverity, notification.m_sTitle, notification.m_sMessage, notification.m_sZoneId, "", notification.m_vPosition, 6.0);
+		}
+
+		return markerRefreshNeeded;
+	}
+
+	protected bool ShouldBroadcastNotificationInPlayerBubble(string eventId, string category, string zoneId, vector position)
+	{
+		if (IsOwnershipFlipNotification(eventId, category))
+			return true;
+
+		if (!m_State)
+			return false;
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (zone && zone.m_bActive)
+			return true;
+
+		if (IsZeroVector(position) && zone)
+			position = zone.m_vPosition;
+
+		return HST_WorldPositionService.IsPositionInsidePlayerEventBubble(position);
+	}
+
+	protected bool IsOwnershipFlipNotification(string eventId, string category)
+	{
+		if (category == "capture" && eventId.Contains("_secured"))
+			return true;
+
+		return false;
 	}
 
 	protected void BroadcastNotification(string eventId, string category, string severity, string title, string message, string zoneId, string missionId, vector position, float durationSeconds)
 	{
 		string payload = string.Format("HST_NOTIFICATION|%1|%2|%3|%4|%5|%6|%7|%8|%9", eventId, category, severity, PayloadText(title), PayloadText(message), zoneId, missionId, position, durationSeconds);
 		HST_CommandMenuRequestComponent.BroadcastNotification(payload, title + ": " + message);
+		Print(string.Format("h-istasi notification | %1 | %2", title, message));
 	}
 
 	protected string ResolveResultSeverity(string result)
@@ -1991,6 +2182,83 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "0 0 0";
 
 		return zone.m_vPosition;
+	}
+
+	protected bool IsZeroVector(vector value)
+	{
+		return value[0] == 0 && value[1] == 0 && value[2] == 0;
+	}
+
+	protected string ResolveZoneDisplayName(string zoneId)
+	{
+		if (!m_State || zoneId.IsEmpty())
+			return "unknown location";
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return HumanizeId(zoneId);
+		if (!zone.m_sDisplayName.IsEmpty())
+			return zone.m_sDisplayName;
+
+		return HumanizeId(zone.m_sZoneId);
+	}
+
+	protected string HumanizeId(string value)
+	{
+		if (value.IsEmpty())
+			return "unknown";
+
+		string text = value;
+		text.Replace("_", " ");
+		return text;
+	}
+
+	protected string SupportRequestTypeLabel(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return "QRF";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP)
+			return "patrol sweep";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_TRANSPORT)
+			return "transport";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
+			return "supply drop";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return "search-and-destroy team";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
+			return "suppressive fire";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING)
+			return "troop landing";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_EVACUATION)
+			return "evacuation";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
+			return "GBU strike";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return "UMPK strike";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return "cruise missile strike";
+
+		return "support";
+	}
+
+	protected string EnemyOrderTypeLabel(HST_EEnemyOrderType orderType)
+	{
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL)
+			return "patrol";
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK)
+			return "roadblock";
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF)
+			return "QRF";
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON)
+			return "garrison rebuild";
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+			return "counterattack";
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+			return "Petros attack";
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL)
+			return "support call";
+
+		return "operation";
 	}
 
 	protected vector ResolveMissionIntelPosition(HST_ActiveMissionState mission)
@@ -2336,6 +2604,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
 	}
 
+	protected bool IsLivingEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
+		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
+	}
+
 	protected bool IsPlayerWithinHQInteractionRadius(int playerId)
 	{
 		if (!m_State || !m_State.m_bHQDeployed || !m_Balance || playerId <= 0)
@@ -2373,7 +2650,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Economy.AddAggression(m_State, zone.m_sOwnerFactionKey, ResolveMissionSuccessAggression(definition));
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
-			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 60, 15);
+			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 60, 15, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
 			return m_Towns.AddSupport(m_State, zone.m_sZoneId, 25);
@@ -2384,7 +2661,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (definition.m_sMissionId == "destroy_radio_tower" || definition.m_sMissionId == "dynamic_stop_tower_rebuild")
 				m_State.m_iHQKnowledge = Math.Max(0, m_State.m_iHQKnowledge - 20);
 			if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
-				m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 35, 10);
+				m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 35, 10, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
 			return true;
 		}
 
@@ -2398,12 +2675,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC)
 		{
 			if (definition.m_sMissionId == "dynamic_city_flip_battle")
-				return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 50, 10);
+			{
+				if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+					return m_Towns.AddSupport(m_State, zone.m_sZoneId, 25);
+
+				return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 50, 10, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
+			}
 
 			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
 				return m_Towns.AddSupport(m_State, zone.m_sZoneId, 10);
 
-			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 20, 5);
+			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 20, 5, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
 		}
 
 		return false;
@@ -2664,6 +2946,73 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return "";
 	}
 
+	protected string SelectPlayerSupportZoneId(int playerId)
+	{
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!IsLivingEntity(playerEntity))
+			return SelectHQSupportZoneId();
+
+		string zoneId = SelectSupportZoneNearPosition(playerEntity.GetOrigin());
+		if (!zoneId.IsEmpty())
+			return zoneId;
+
+		return SelectHQSupportZoneId();
+	}
+
+	protected string SelectSupportZoneNearPosition(vector position)
+	{
+		if (!m_State)
+			return "";
+
+		HST_ZoneState bestRelevantZone;
+		HST_ZoneState bestAnyZone;
+		float bestRelevantDistanceSq = 999999999.0;
+		float bestAnyDistanceSq = 999999999.0;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT)
+				continue;
+
+			float distanceSq = DistanceSq2D(position, zone.m_vPosition);
+			if (distanceSq < bestAnyDistanceSq)
+			{
+				bestAnyZone = zone;
+				bestAnyDistanceSq = distanceSq;
+			}
+
+			if (!IsRelevantSupportTarget(zone))
+				continue;
+
+			if (distanceSq < bestRelevantDistanceSq)
+			{
+				bestRelevantZone = zone;
+				bestRelevantDistanceSq = distanceSq;
+			}
+		}
+
+		if (bestRelevantZone)
+			return bestRelevantZone.m_sZoneId;
+		if (bestAnyZone)
+			return bestAnyZone.m_sZoneId;
+
+		return "";
+	}
+
+	protected bool IsRelevantSupportTarget(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+
+		if (zone.m_bActive || zone.m_iResistanceCaptureProgress > 0)
+			return true;
+		if (HasActiveMissionForZone(zone.m_sZoneId))
+			return true;
+		if (m_Preset && zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+			return true;
+
+		return false;
+	}
+
 	protected float DistanceSq2D(vector a, vector b)
 	{
 		float x = a[0] - b[0];
@@ -2706,7 +3055,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		string zoneSummary = string.Format("h-istasi zone %1 | owner %2 | type %3 | support %4", zone.m_sZoneId, zone.m_sOwnerFactionKey, ZoneTypeToLabel(zone.m_eType), zone.m_iSupport);
-		string captureSummary = string.Format(" | capture %1/%2 | income %3", zone.m_iResistanceCaptureProgress, HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED, zone.m_iIncomeValue);
+		int captureRequired = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
+		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
+			captureRequired = m_Balance.m_iCaptureProgressRequired;
+		string captureSummary = string.Format(" | capture %1/%2 | income %3", zone.m_iResistanceCaptureProgress, captureRequired, zone.m_iIncomeValue);
+		if (m_ZoneCapture)
+		{
+			HST_ZoneCaptureStatus status = m_ZoneCapture.BuildCaptureStatus(m_State, m_Preset, m_Balance, zone);
+			string blockedReason = status.m_sBlockedReason;
+			if (blockedReason.IsEmpty())
+				blockedReason = "clear";
+			captureSummary = captureSummary + string.Format(" | radius %1m | FIA %2 | enemies %3+%4v | %5", status.m_iCaptureRadiusMeters, status.m_iFIACountNearby, status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby, blockedReason);
+		}
 		string forceSummary = string.Format(" | garrison %1 infantry/%2 vehicles | active %3/%4", infantry, vehicles, zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount);
 		string qrfSummary = string.Format(" | QRF cooldown %1", zone.m_iQrfCooldownUntilSecond);
 		return zoneSummary + captureSummary + forceSummary + qrfSummary;
@@ -2739,6 +3099,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "hideout";
 
 		return "zone";
+	}
+
+	protected string ResolveZoneLabel(HST_ZoneState zone)
+	{
+		if (!zone)
+			return "unknown zone";
+
+		if (!zone.m_sDisplayName.IsEmpty())
+			return zone.m_sDisplayName;
+
+		return HST_DefaultCatalog.GetZoneDisplayName(zone.m_sZoneId);
 	}
 
 	protected int ProcessPlayerSpawnSweep(string reason = "", bool forceDiagnostics = false)

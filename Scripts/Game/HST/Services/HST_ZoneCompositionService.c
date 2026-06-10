@@ -83,7 +83,7 @@ class HST_ZoneCompositionService
 				continue;
 			}
 
-			GenericEntity entity = respawnSystem.DoSpawn(prefab, slot.m_vPosition, slot.m_vAngles);
+			GenericEntity entity = HST_WorldPositionService.SpawnPrefab(prefab, slot.m_vPosition, slot.m_vAngles);
 			if (!entity)
 			{
 				RecordFailure(zone.m_sZoneId, slot.m_sSlotId, prefab, slot.m_vPosition, "prefab spawn returned null");

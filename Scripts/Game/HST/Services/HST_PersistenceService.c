@@ -217,7 +217,7 @@ class HST_PersistenceService
 		}
 
 		FileIO.MakeDirectory(PROFILE_SAVE_DIRECTORY);
-		SCR_JsonSaveContext context = new SCR_JsonSaveContext();
+		JsonSaveContext context = new JsonSaveContext();
 		if (context.WriteValue("", saveData) && context.SaveToFile(PROFILE_SAVE_FILE))
 		{
 			m_bProfileFallbackSaved = true;
@@ -239,7 +239,7 @@ class HST_PersistenceService
 			return null;
 		}
 
-		SCR_JsonLoadContext context = new SCR_JsonLoadContext();
+		JsonLoadContext context = new JsonLoadContext();
 		if (!context.LoadFromFile(PROFILE_SAVE_FILE))
 		{
 			m_sProfileFallbackStatus = string.Format("profile fallback load failed at %1", PROFILE_SAVE_FILE);

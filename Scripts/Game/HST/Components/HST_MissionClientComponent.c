@@ -25,6 +25,12 @@ class HST_MissionClientComponent : ScriptComponent
 	protected float m_fNotificationRemaining;
 	protected ref array<string> m_aRecentNotificationIds = {};
 	protected ref array<float> m_aRecentNotificationRemaining = {};
+	protected ref array<string> m_aQueuedNotificationIds = {};
+	protected ref array<string> m_aQueuedNotificationCategories = {};
+	protected ref array<string> m_aQueuedNotificationSeverities = {};
+	protected ref array<string> m_aQueuedNotificationTitles = {};
+	protected ref array<string> m_aQueuedNotificationMessages = {};
+	protected ref array<float> m_aQueuedNotificationDurations = {};
 	protected ref array<Widget> m_aWidgets = {};
 	protected ref array<ref HST_MissionClientDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref HST_MissionClientWidgetHandler m_WidgetHandler;
@@ -82,7 +88,14 @@ class HST_MissionClientComponent : ScriptComponent
 		{
 			m_fNotificationRemaining = Math.Max(0, m_fNotificationRemaining - timeSlice);
 			if (m_fNotificationRemaining == 0 && !m_bDetailOpen)
+			{
 				ClearWidgets();
+				ShowNextQueuedNotification();
+			}
+		}
+		else if (!m_bDetailOpen && m_aQueuedNotificationIds.Count() > 0)
+		{
+			ShowNextQueuedNotification();
 		}
 
 		for (int i = m_aRecentNotificationIds.Count() - 1; i >= 0; i--)
@@ -204,23 +217,82 @@ class HST_MissionClientComponent : ScriptComponent
 		if (!eventId.IsEmpty() && FindRecentNotification(eventId) >= 0)
 			return;
 
+		durationSeconds = Math.Max(1.0, durationSeconds);
+		TrackRecentNotification(eventId, Math.Max(durationSeconds, 5.0));
+		if (m_fNotificationRemaining > 0 || m_bDetailOpen)
+		{
+			QueueTopMissionNotification(eventId, category, severity, title, message, durationSeconds);
+			return;
+		}
+
+		RenderTopMissionNotification(eventId, category, severity, title, message, durationSeconds);
+	}
+
+	protected void QueueTopMissionNotification(string eventId, string category, string severity, string title, string message, float durationSeconds)
+	{
+		if (!eventId.IsEmpty() && m_aQueuedNotificationIds.Find(eventId) >= 0)
+			return;
+
+		m_aQueuedNotificationIds.Insert(eventId);
+		m_aQueuedNotificationCategories.Insert(category);
+		m_aQueuedNotificationSeverities.Insert(severity);
+		m_aQueuedNotificationTitles.Insert(title);
+		m_aQueuedNotificationMessages.Insert(message);
+		m_aQueuedNotificationDurations.Insert(durationSeconds);
+
+		while (m_aQueuedNotificationIds.Count() > 16)
+		{
+			m_aQueuedNotificationIds.Remove(0);
+			m_aQueuedNotificationCategories.Remove(0);
+			m_aQueuedNotificationSeverities.Remove(0);
+			m_aQueuedNotificationTitles.Remove(0);
+			m_aQueuedNotificationMessages.Remove(0);
+			m_aQueuedNotificationDurations.Remove(0);
+		}
+	}
+
+	protected void ShowNextQueuedNotification()
+	{
+		if (m_aQueuedNotificationIds.Count() == 0 || m_bDetailOpen)
+			return;
+
+		string eventId = m_aQueuedNotificationIds[0];
+		string category = m_aQueuedNotificationCategories[0];
+		string severity = m_aQueuedNotificationSeverities[0];
+		string title = m_aQueuedNotificationTitles[0];
+		string message = m_aQueuedNotificationMessages[0];
+		float duration = m_aQueuedNotificationDurations[0];
+
+		m_aQueuedNotificationIds.Remove(0);
+		m_aQueuedNotificationCategories.Remove(0);
+		m_aQueuedNotificationSeverities.Remove(0);
+		m_aQueuedNotificationTitles.Remove(0);
+		m_aQueuedNotificationMessages.Remove(0);
+		m_aQueuedNotificationDurations.Remove(0);
+
+		RenderTopMissionNotification(eventId, category, severity, title, message, duration);
+	}
+
+	protected void RenderTopMissionNotification(string eventId, string category, string severity, string title, string message, float durationSeconds)
+	{
+		durationSeconds = Math.Max(1.0, durationSeconds);
+
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		if (!workspace)
 			return;
 
 		ClearWidgets();
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 380, 20, 760, 74, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 510, 24, 900, 92, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
 		if (!root)
 			return;
 
 		m_aWidgets.Insert(root);
 		int accent = NotificationAccentColor(severity, category);
-		CreateRectWidget(workspace, root, 0, 0, 760, 74, 0xF21A232B, 1.0, 0);
-		CreateRectWidget(workspace, root, 0, 70, 760, 4, accent, 1.0, 0);
-		CreateTextWidget(workspace, root, ShortenText(title, 36), 24, 10, 300, 24, 18, accent, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(message, 92), 24, 34, 710, 28, 18, 0xFFF2F4F0, 0, false);
+		CreateRectWidget(workspace, root, 0, 0, 900, 92, 0xF21A232B, 1.0, 0);
+		CreateRectWidget(workspace, root, 0, 88, 900, 4, accent, 1.0, 0);
+		CreateTextWidget(workspace, root, ShortenText(title, 44), 24, 10, 380, 24, 18, accent, 0, true);
+		CreateTextWidget(workspace, root, ShortenText(message, 140), 24, 38, 852, 42, 16, 0xFFF2F4F0, 0, false);
 		m_fNotificationRemaining = durationSeconds;
-		TrackRecentNotification(eventId, Math.Max(durationSeconds, 5.0));
 	}
 
 	protected string MissionEventTitle(string eventType)

@@ -386,15 +386,17 @@ class HST_MissionRuntimeService
 				position = HST_WorldPositionService.ResolveSafeGroundPosition(asset.m_vCurrentPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false, 2.0);
 			}
 			vector angles = BuildRuntimePropAngles(state, mission);
-			GenericEntity entity = respawnSystem.DoSpawn(asset.m_sPrefab, position, angles);
+			GenericEntity entity = HST_WorldPositionService.SpawnPrefab(asset.m_sPrefab, position, angles);
 			if (!entity && asset.m_sPrefab != PROP_HOLD_MARKER)
-				entity = respawnSystem.DoSpawn(PROP_HOLD_MARKER, position, angles);
+				entity = HST_WorldPositionService.SpawnPrefab(PROP_HOLD_MARKER, position, angles);
 
 			if (!entity)
 			{
 				Print(string.Format("h-istasi mission runtime | asset spawn failed for %1 using %2", asset.m_sAssetId, asset.m_sPrefab), LogLevel.WARNING);
 				continue;
 			}
+			if (asset.m_sKind == ASSET_KIND_VEHICLE)
+				HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
 
 			HST_MissionAssetComponent assetComponent = HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent));
 			if (assetComponent)
@@ -428,9 +430,9 @@ class HST_MissionRuntimeService
 			return false;
 
 		vector angles = BuildRuntimePropAngles(state, mission);
-		GenericEntity entity = respawnSystem.DoSpawn(prefab, position, angles);
+		GenericEntity entity = HST_WorldPositionService.SpawnPrefab(prefab, position, angles);
 		if (!entity && prefab != PROP_HOLD_MARKER)
-			entity = respawnSystem.DoSpawn(PROP_HOLD_MARKER, position, angles);
+			entity = HST_WorldPositionService.SpawnPrefab(PROP_HOLD_MARKER, position, angles);
 
 		if (!entity)
 		{
@@ -1933,7 +1935,8 @@ class HST_MissionRuntimeService
 		{
 			if (!group || group.m_sFactionKey == resistanceFactionKey)
 				continue;
-			if (group.m_iLastSeenAliveCount <= 0 && group.m_iSurvivorInfantryCount <= 0 && group.m_iSurvivorVehicleCount <= 0)
+			int hostilePersonnel = Math.Max(group.m_iLastSeenAliveCount, group.m_iSurvivorInfantryCount);
+			if (hostilePersonnel <= 0)
 				continue;
 			if (group.m_bSpawnAttempted && !group.m_bSpawnedEntity)
 				continue;
