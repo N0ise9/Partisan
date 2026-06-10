@@ -29,6 +29,7 @@ class HST_PersistenceSmokeTestService
 		EnsureSmokeCivilianZone(state, targetZone);
 		EnsureSmokeUndercoverRecord(state, adminIdentityId);
 
+		StoreExpectedSummary(state, "pending");
 		string after = BuildSummary(state);
 		StoreExpectedSummary(state, after);
 		return string.Format("h-istasi persistence smoke | seeded %1 record(s)\nbefore %2\nafter  %3\n%4", m_iSeedChangedCount, before, after, BuildReport(state));

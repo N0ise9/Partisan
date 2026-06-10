@@ -684,12 +684,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (tabIndex < 0 || tabIndex >= m_aTabIds.Count())
 			return;
 
-		if (!m_aTabEnabled[tabIndex])
-			return;
-
 		m_sSelectedTab = NormalizeTabId(m_aTabIds[tabIndex]);
 		m_iSelectedControl = tabIndex;
 		m_sStatusText = "h-istasi menu | requesting " + m_aTabLabels[tabIndex];
+		if (!m_aTabEnabled[tabIndex])
+			m_sStatusText = m_sStatusText + " (locked)";
 		BuildActionList();
 		RequestSnapshot();
 		RenderMenu();

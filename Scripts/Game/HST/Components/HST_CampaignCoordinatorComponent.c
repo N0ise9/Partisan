@@ -225,7 +225,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "h-istasi command | server coordinator not ready";
 
-		return m_CommandUI.ExecuteVisibleCommand(this, playerId, commandId, argument);
+		string result = m_CommandUI.ExecuteVisibleCommand(this, playerId, commandId, argument);
+		LogVisibleMenuCommandResult(playerId, selectedTabId, commandId, argument, result);
+		return result;
 	}
 
 	string BuildLoadoutEditorPayload(int playerId)
@@ -394,7 +396,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return null;
 
-		HST_PlayerState player = m_Authorization.RegisterPlayer(m_State, identityId, isAdmin || IsSettingsAdminIdentity(identityId));
+		HST_PlayerState player = m_Authorization.RegisterPlayer(m_State, identityId, isAdmin || IsSettingsAdminIdentity(identityId) || IsDeveloperFallbackAdminIdentity(identityId));
 		ApplyRuntimeMembershipDefaults(player);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
@@ -439,7 +441,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return null;
 
 		string resolvedIdentityId = m_PlayerLifecycle.ResolveIdentityId(playerId, identityId);
-		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, isAdmin || IsSettingsAdminIdentity(resolvedIdentityId));
+		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, isAdmin || IsSettingsAdminIdentity(resolvedIdentityId) || IsDeveloperFallbackAdminIdentity(resolvedIdentityId));
 		ApplyRuntimeMembershipDefaults(player);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
@@ -1600,6 +1602,40 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_ZoneCompositions.BuildCompositionReport(m_State);
 	}
 
+	protected void LogVisibleMenuCommandResult(int playerId, string selectedTabId, string commandId, string argument, string result)
+	{
+		string label = string.Format("h-istasi menu command | player %1 | tab %2 | command %3", playerId, selectedTabId, commandId);
+		if (!argument.IsEmpty())
+			label = label + string.Format(" | arg %1", argument);
+
+		Print(string.Format("%1", label));
+		if (result.IsEmpty())
+		{
+			Print("h-istasi menu command result | <empty>");
+			return;
+		}
+
+		int cursor;
+		while (cursor < result.Length())
+		{
+			int lineEnd = result.IndexOfFrom(cursor, "\n");
+			string line;
+			if (lineEnd < 0)
+			{
+				line = result.Substring(cursor, result.Length() - cursor);
+				cursor = result.Length();
+			}
+			else
+			{
+				line = result.Substring(cursor, lineEnd - cursor);
+				cursor = lineEnd + 1;
+			}
+
+			if (!line.IsEmpty())
+				Print("h-istasi menu command result | " + line);
+		}
+	}
+
 	bool RequestAdminAddEnemyResources(int playerId, string factionKey, int attackResources, int supportResources)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
@@ -2191,7 +2227,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_Authorization)
 			return false;
 
-		return m_Authorization.CanUseAdminActions(m_State, ResolveTrustedIdentityId(playerId));
+		string identityId = ResolveTrustedIdentityId(playerId);
+		EnsureDeveloperFallbackAdmin(identityId);
+		return m_Authorization.CanUseAdminActions(m_State, identityId);
 	}
 
 	bool HasResistanceAirSupportCapability()
@@ -2227,6 +2265,47 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return m_Settings.m_Membership.m_aAdminIdentityIds.Contains(identityId);
+	}
+
+	protected bool IsDeveloperFallbackAdminIdentity(string identityId)
+	{
+		if (!m_Settings || !m_Settings.m_Debug || !m_Settings.m_Debug.m_bDebugMenuEnabled || identityId.IsEmpty())
+			return false;
+
+		if (HasAnyAdminPlayer())
+			return false;
+
+		return identityId == "workbench_player_1";
+	}
+
+	protected void EnsureDeveloperFallbackAdmin(string identityId)
+	{
+		if (!IsDeveloperFallbackAdminIdentity(identityId))
+			return;
+
+		HST_PlayerState player = m_State.FindPlayer(identityId);
+		if (!player)
+			return;
+
+		player.m_bAdmin = true;
+		player.m_bMember = true;
+		player.m_bGuest = false;
+		Print(string.Format("h-istasi admin | granted Workbench fallback admin to %1", identityId));
+		MarkMajorCampaignChange();
+	}
+
+	protected bool HasAnyAdminPlayer()
+	{
+		if (!m_State)
+			return false;
+
+		foreach (HST_PlayerState player : m_State.m_aPlayers)
+		{
+			if (player && player.m_bAdmin)
+				return true;
+		}
+
+		return false;
 	}
 
 	protected void ApplyRuntimeMembershipDefaults(HST_PlayerState player)

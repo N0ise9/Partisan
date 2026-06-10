@@ -1,11 +1,17 @@
 class HST_PersistenceService
 {
+	static const string PROFILE_SAVE_DIRECTORY = "$profile:h-istasi";
+	static const string PROFILE_SAVE_FILE = "$profile:h-istasi/HST_CampaignSaveData.json";
+
 	protected float m_fAutosaveElapsed;
 	protected float m_fMajorChangeElapsed;
 	protected bool m_bMajorChangePending;
 	protected ref HST_CampaignSaveData m_LastCapturedSave;
 	protected ref HST_CampaignSaveData m_TrackedCampaignSave;
 	protected ref HST_CampaignSaveData m_RestoredCampaignSave;
+	protected bool m_bProfileFallbackSaved;
+	protected bool m_bProfileFallbackLoaded;
+	protected string m_sProfileFallbackStatus = "profile fallback idle";
 
 	void MarkMajorChange()
 	{
@@ -39,21 +45,29 @@ class HST_PersistenceService
 		if (state)
 			CaptureAndTrackState(state, "captured before checkpoint");
 
+		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
+		bool profileFallbackSaved;
+		if (!scriptedStateSaved)
+			profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);
 		SaveGameManager saveManager = SaveGameManager.Get();
-		if (!CanRequestSavePoint(saveManager))
+		bool savePointRequested;
+		if (CanRequestSavePoint(saveManager))
 		{
-			if (state)
-				state.m_sLastPersistenceStatus = "checkpoint denied by SaveGameManager";
-			return false;
+			saveManager.RequestSavePoint(ESaveGameType.MANUAL, displayName);
+			savePointRequested = true;
 		}
 
-		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
-		saveManager.RequestSavePoint(ESaveGameType.MANUAL, displayName);
+		if (!scriptedStateSaved && !profileFallbackSaved && !savePointRequested)
+		{
+			if (state)
+				state.m_sLastPersistenceStatus = "checkpoint failed: scripted save false | profile fallback false | savepoint false";
+			return false;
+		}
 
 		if (state)
 		{
 			state.m_iLastSaveSecond = state.m_iElapsedSeconds;
-			state.m_sLastPersistenceStatus = string.Format("checkpoint requested: %1 | scripted save %2", displayName, scriptedStateSaved);
+			state.m_sLastPersistenceStatus = string.Format("checkpoint requested: %1 | scripted save %2 | profile fallback %3 | savepoint %4", displayName, scriptedStateSaved, profileFallbackSaved, savePointRequested);
 		}
 
 		return true;
@@ -88,6 +102,8 @@ class HST_PersistenceService
 			return null;
 
 		HST_CampaignSaveData restoredSave = GetRestoredCampaignSaveData();
+		if (!restoredSave)
+			restoredSave = LoadProfileFallback();
 		if (restoredSave)
 		{
 			ApplyRestoredCampaignState(fallbackState, restoredSave);
@@ -132,6 +148,7 @@ class HST_PersistenceService
 		if (saveManager)
 			saveManagerStatus = string.Format("saving enabled %1 | saving allowed %2", saveManager.IsSavingEnabled(), saveManager.IsSavingAllowed());
 		string persistenceSystemStatus = BuildPersistenceSystemStatus();
+		string profileFallbackStatus = BuildProfileFallbackStatus();
 
 		string tracked = "not tracked";
 		if (m_TrackedCampaignSave)
@@ -141,7 +158,7 @@ class HST_PersistenceService
 		if (m_RestoredCampaignSave)
 			restored = string.Format("restored schema %1 | migrated to %2", m_RestoredCampaignSave.m_iLastLoadedSchemaVersion, m_RestoredCampaignSave.m_iSchemaVersion);
 
-		return string.Format("h-istasi persistence | %1 | last save %2 | last restore %3 | %4\n%5\n%6\n%7", state.m_sLastPersistenceStatus, state.m_iLastSaveSecond, state.m_iLastRestoreSecond, saveManagerStatus, persistenceSystemStatus, tracked, restored);
+		return string.Format("h-istasi persistence | %1 | last save %2 | last restore %3 | %4\n%5\n%6\n%7\n%8", state.m_sLastPersistenceStatus, state.m_iLastSaveSecond, state.m_iLastRestoreSecond, saveManagerStatus, persistenceSystemStatus, profileFallbackStatus, tracked, restored);
 	}
 
 	protected HST_CampaignSaveData GetRestoredCampaignSaveData()
@@ -191,6 +208,59 @@ class HST_PersistenceService
 		return persistence.Save(m_TrackedCampaignSave, saveType);
 	}
 
+	protected bool SaveProfileFallback(HST_CampaignSaveData saveData)
+	{
+		if (!saveData)
+		{
+			m_sProfileFallbackStatus = "profile fallback save skipped: no tracked save";
+			return false;
+		}
+
+		FileIO.MakeDirectory(PROFILE_SAVE_DIRECTORY);
+		SCR_JsonSaveContext context = new SCR_JsonSaveContext();
+		if (context.WriteValue("", saveData) && context.SaveToFile(PROFILE_SAVE_FILE))
+		{
+			m_bProfileFallbackSaved = true;
+			m_sProfileFallbackStatus = string.Format("profile fallback saved schema %1 to %2", saveData.m_iSchemaVersion, PROFILE_SAVE_FILE);
+			Print("h-istasi persistence | " + m_sProfileFallbackStatus);
+			return true;
+		}
+
+		m_sProfileFallbackStatus = string.Format("profile fallback save failed at %1", PROFILE_SAVE_FILE);
+		Print("h-istasi persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
+		return false;
+	}
+
+	protected HST_CampaignSaveData LoadProfileFallback()
+	{
+		if (!FileIO.FileExists(PROFILE_SAVE_FILE))
+		{
+			m_sProfileFallbackStatus = string.Format("profile fallback missing at %1", PROFILE_SAVE_FILE);
+			return null;
+		}
+
+		SCR_JsonLoadContext context = new SCR_JsonLoadContext();
+		if (!context.LoadFromFile(PROFILE_SAVE_FILE))
+		{
+			m_sProfileFallbackStatus = string.Format("profile fallback load failed at %1", PROFILE_SAVE_FILE);
+			Print("h-istasi persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
+			return null;
+		}
+
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		if (!context.ReadValue("", saveData))
+		{
+			m_sProfileFallbackStatus = string.Format("profile fallback read failed at %1", PROFILE_SAVE_FILE);
+			Print("h-istasi persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
+			return null;
+		}
+
+		m_bProfileFallbackLoaded = true;
+		m_sProfileFallbackStatus = string.Format("profile fallback loaded schema %1 from %2", saveData.m_iSchemaVersion, PROFILE_SAVE_FILE);
+		Print("h-istasi persistence | " + m_sProfileFallbackStatus);
+		return saveData;
+	}
+
 	protected string BuildPersistenceSystemStatus()
 	{
 		PersistenceSystem persistence = PersistenceSystem.GetInstance();
@@ -202,5 +272,11 @@ class HST_PersistenceService
 			tracked = persistence.IsTracked(m_TrackedCampaignSave);
 
 		return string.Format("PersistenceSystem | loaded %1 | state %2 | tracked %3", persistence.WasDataLoaded(), persistence.GetState(), tracked);
+	}
+
+	protected string BuildProfileFallbackStatus()
+	{
+		bool exists = FileIO.FileExists(PROFILE_SAVE_FILE);
+		return string.Format("profile fallback | exists %1 | saved %2 | loaded %3 | %4", exists, m_bProfileFallbackSaved, m_bProfileFallbackLoaded, m_sProfileFallbackStatus);
 	}
 }
