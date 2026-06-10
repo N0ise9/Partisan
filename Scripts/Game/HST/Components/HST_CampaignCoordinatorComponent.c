@@ -1885,7 +1885,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string eta = "";
 		if (mission.m_iRuntimeETASeconds > 0)
 			eta = string.Format(" / ETA %1s", mission.m_iRuntimeETASeconds);
-		return string.Format("%1%2 / objectives %3/%4 / cargo %5/%6 / captives %7/%8 / picked %9 delivered %10 destroyed %11", phase, eta, complete, total, mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount, mission.m_iRuntimePickupCount, mission.m_iRuntimeDeliveryCount, mission.m_iRuntimeDestroyedCount);
+
+		string progress = string.Format("%1%2 / objectives %3/%4", phase, eta, complete, total);
+		progress = progress + string.Format(" / cargo %1/%2 / captives %3/%4", mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount);
+		progress = progress + string.Format(" / picked %1 delivered %2 destroyed %3", mission.m_iRuntimePickupCount, mission.m_iRuntimeDeliveryCount, mission.m_iRuntimeDestroyedCount);
+		return progress;
 	}
 
 	protected string BuildMissionAssetIntelLabel(HST_MissionAssetState asset)

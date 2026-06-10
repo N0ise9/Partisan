@@ -125,7 +125,7 @@ class HST_LootService
 			return string.Format("h-istasi garage | failed: no safe root vehicle nearby | candidates %1 | reason %2", scan.m_iCandidates, scan.m_sRejectReason);
 
 		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
-		vehicle.m_sVehicleId = string.Format("garage_%1_%2", state.m_iElapsedSeconds, state.m_aGarageVehicles.Count());
+		vehicle.m_sVehicleId = BuildUniqueGarageVehicleId(state);
 		vehicle.m_sPrefab = ResolveVehiclePrefabFromScan(selectedVehicle, scan);
 		if (vehicle.m_sPrefab.IsEmpty() || !IsEligibleSelectedVehicleRoot(selectedVehicle, vehicle.m_sPrefab, scan))
 			return "h-istasi garage | failed: nearest candidate was not a top-level vehicle";
@@ -137,6 +137,10 @@ class HST_LootService
 			return "h-istasi garage | failed: vehicle is occupied | " + occupiedReason;
 
 		string selectedVehicleRuntimeId = ResolveVehicleRuntimeIdFromScan(selectedVehicle, scan);
+		HST_RuntimeVehicleState runtimeVehicle = EnsureRuntimeVehicleRecord(state, selectedVehicle, scan.m_RuntimeVehicle, vehicle.m_sPrefab);
+		if (runtimeVehicle)
+			selectedVehicleRuntimeId = runtimeVehicle.m_sVehicleRuntimeId;
+
 		vehicle.m_sDisplayName = BuildVehicleDisplayNameFromScan(selectedVehicle, vehicle.m_sPrefab, scan);
 		vehicle.m_sSourceZoneId = FindNearestZoneId(state, selectedVehicle.GetOrigin());
 		vehicle.m_sSourceFactionKey = ResolveFactionKeyFromScan(selectedVehicle, scan);
@@ -147,27 +151,33 @@ class HST_LootService
 		vehicle.m_fFuel = 1.0;
 		vehicle.m_sDamageState = ResolveDamageState(selectedVehicle);
 		vehicle.m_bArmed = IsLikelyArmedVehicle(vehicle.m_sPrefab);
+		int recoveredLegacyEntries = RekeyLegacyVehiclePartCargo(state, selectedVehicle, selectedVehicleRuntimeId, vehicle.m_sPrefab, vehicle.m_sDisplayName);
 		int physicalCargoCount = CaptureVehiclePhysicalCargo(selectedVehicle, vehicle);
 		int virtualCargoCount = CopyVirtualVehicleCargoToGarage(state, selectedVehicleRuntimeId, vehicle);
 		vehicle.m_bHadPhysicalCargo = physicalCargoCount > 0;
 
+		if (!arsenal.StoreVehicle(state, vehicle))
+		{
+			state.m_sLastVehicleTargetStatus = "garage capture failed";
+			state.m_sLastVehicleTargetReason = "garage record could not be stored before despawn";
+			return string.Format("h-istasi garage | failed: garage record could not be stored for %1", vehicle.m_sDisplayName);
+		}
+
 		SCR_EntityHelper.DeleteEntityAndChildren(selectedVehicle);
 		if (IsVehicleRootStillPresent(state, selectedVehicleRuntimeId, vehicle.m_vPosition))
 		{
+			arsenal.RemoveVehicle(state, vehicle.m_sVehicleId);
 			state.m_sLastVehicleTargetStatus = "garage capture failed";
 			state.m_sLastVehicleTargetReason = "selected root still present after delete";
-			Print(string.Format("h-istasi garage | failed to despawn %1; no garage record kept | prefab %2", vehicle.m_sDisplayName, vehicle.m_sPrefab), LogLevel.WARNING);
+			Print(string.Format("h-istasi garage | failed to despawn %1; rolled back garage record | prefab %2", vehicle.m_sDisplayName, vehicle.m_sPrefab), LogLevel.WARNING);
 			return string.Format("h-istasi garage | failed: %1 did not despawn, garage record was not kept", vehicle.m_sDisplayName);
 		}
-
-		if (!arsenal.StoreVehicle(state, vehicle))
-			return "h-istasi garage | failed: vehicle despawned but garage record could not be stored";
 
 		RemoveVirtualVehicleCargo(state, selectedVehicleRuntimeId);
 		MarkRuntimeVehicleDeleted(state, selectedVehicleRuntimeId, vehicle.m_vPosition);
 		state.m_sLastVehicleTargetStatus = string.Format("garage captured %1", vehicle.m_sDisplayName);
-		state.m_sLastVehicleTargetReason = string.Format("deleted verified root vehicle then stored garage record | physical cargo %1 | virtual cargo %2", physicalCargoCount, virtualCargoCount);
-		Print(string.Format("h-istasi garage | captured %1 into %2 and despawned verified root vehicle | prefab %3 | distance %4m | cargo %5 entries/%6 item(s)", vehicle.m_sDisplayName, vehicle.m_sVehicleId, vehicle.m_sPrefab, scan.m_fSelectedDistanceMeters, vehicle.m_aStoredCargoItems.Count(), CountStoredVehicleCargoItems(vehicle)));
+		state.m_sLastVehicleTargetReason = string.Format("stored garage record then deleted verified root vehicle | physical cargo %1 | virtual cargo %2 | rekeyed legacy %3", physicalCargoCount, virtualCargoCount, recoveredLegacyEntries);
+		Print(string.Format("h-istasi garage | captured %1 into %2 and despawned verified root vehicle | prefab %3 | distance %4m | cargo %5 entries/%6 item(s) | legacy %7", vehicle.m_sDisplayName, vehicle.m_sVehicleId, vehicle.m_sPrefab, scan.m_fSelectedDistanceMeters, vehicle.m_aStoredCargoItems.Count(), CountStoredVehicleCargoItems(vehicle), recoveredLegacyEntries));
 		return string.Format("h-istasi garage | captured %1 | cargo %2 | complete", vehicle.m_sDisplayName, CountStoredVehicleCargoItems(vehicle));
 	}
 
@@ -215,6 +225,15 @@ class HST_LootService
 		string vehicleId = ResolveVehicleRuntimeIdFromScan(vehicle, vehicleScan);
 		string vehiclePrefab = ResolveVehiclePrefabFromScan(vehicle, vehicleScan);
 		string vehicleName = BuildVehicleDisplayNameFromScan(vehicle, vehiclePrefab, vehicleScan);
+		HST_RuntimeVehicleState runtimeVehicle = EnsureRuntimeVehicleRecord(state, vehicle, vehicleScan.m_RuntimeVehicle, vehiclePrefab);
+		if (runtimeVehicle)
+		{
+			vehicleId = runtimeVehicle.m_sVehicleRuntimeId;
+			vehiclePrefab = runtimeVehicle.m_sPrefab;
+			vehicleName = HST_DisplayNameService.ResolveVehicleDisplayName(vehiclePrefab, runtimeVehicle.m_sDisplayName);
+		}
+
+		RekeyLegacyVehiclePartCargo(state, vehicle, vehicleId, vehiclePrefab, vehicleName);
 		result.m_sVehicleRuntimeId = vehicleId;
 		result.m_sVehicleDisplayName = vehicleName;
 		state.m_sLastVehicleTargetStatus = string.Format("vehicle loot target %1", vehicleName);
@@ -292,6 +311,14 @@ class HST_LootService
 		string vehicleId = ResolveVehicleRuntimeIdFromScan(vehicle, vehicleScan);
 		string vehiclePrefab = ResolveVehiclePrefabFromScan(vehicle, vehicleScan);
 		string vehicleName = BuildVehicleDisplayNameFromScan(vehicle, vehiclePrefab, vehicleScan);
+		HST_RuntimeVehicleState runtimeVehicle = EnsureRuntimeVehicleRecord(state, vehicle, vehicleScan.m_RuntimeVehicle, vehiclePrefab);
+		if (runtimeVehicle)
+		{
+			vehicleId = runtimeVehicle.m_sVehicleRuntimeId;
+			vehiclePrefab = runtimeVehicle.m_sPrefab;
+			vehicleName = HST_DisplayNameService.ResolveVehicleDisplayName(vehiclePrefab, runtimeVehicle.m_sDisplayName);
+		}
+
 		int recoveredLegacyEntries = RekeyLegacyVehiclePartCargo(state, vehicle, vehicleId, vehiclePrefab, vehicleName);
 		int deposited;
 		int entries;
@@ -424,6 +451,51 @@ class HST_LootService
 
 		if (recoveredEntries > 0)
 			Print(string.Format("h-istasi vehicle loot | rekeyed %1 legacy vehicle-part cargo entries to root %2 | prefab %3", recoveredEntries, vehicleId, vehiclePrefab));
+
+		return recoveredEntries;
+	}
+
+	protected int RekeyVehicleCargoRuntimeId(HST_CampaignState state, string oldVehicleId, string newVehicleId, string vehiclePrefab, string vehicleName, vector vehiclePosition)
+	{
+		if (!state || oldVehicleId.IsEmpty() || newVehicleId.IsEmpty() || oldVehicleId == newVehicleId)
+			return 0;
+
+		int recoveredEntries;
+		for (int i = state.m_aVehicleCargoItems.Count() - 1; i >= 0; i--)
+		{
+			HST_VehicleCargoItemState cargoItem = state.m_aVehicleCargoItems[i];
+			if (!cargoItem || cargoItem.m_sVehicleRuntimeId != oldVehicleId)
+				continue;
+
+			HST_VehicleCargoItemState existing = state.FindVehicleCargoItem(newVehicleId, cargoItem.m_sItemPrefab);
+			if (existing && existing != cargoItem)
+			{
+				existing.m_iCount += cargoItem.m_iCount;
+				existing.m_iLastStoredAtSecond = Math.Max(existing.m_iLastStoredAtSecond, cargoItem.m_iLastStoredAtSecond);
+				existing.m_vLastVehiclePosition = vehiclePosition;
+				if (existing.m_sVehiclePrefab.IsEmpty())
+					existing.m_sVehiclePrefab = vehiclePrefab;
+				if (existing.m_sVehicleDisplayName.IsEmpty())
+					existing.m_sVehicleDisplayName = HST_DisplayNameService.ResolveVehicleDisplayName(vehiclePrefab, vehicleName);
+				if (existing.m_sDisplayName.IsEmpty())
+					existing.m_sDisplayName = cargoItem.m_sDisplayName;
+				if (existing.m_sCategory.IsEmpty())
+					existing.m_sCategory = cargoItem.m_sCategory;
+				state.m_aVehicleCargoItems.Remove(i);
+			}
+			else
+			{
+				cargoItem.m_sVehicleRuntimeId = newVehicleId;
+				cargoItem.m_sVehiclePrefab = vehiclePrefab;
+				cargoItem.m_sVehicleDisplayName = HST_DisplayNameService.ResolveVehicleDisplayName(vehiclePrefab, vehicleName);
+				cargoItem.m_vLastVehiclePosition = vehiclePosition;
+			}
+
+			recoveredEntries++;
+		}
+
+		if (recoveredEntries > 0)
+			Print(string.Format("h-istasi vehicle loot | rekeyed %1 cargo entries from %2 to root %3 | prefab %4", recoveredEntries, oldVehicleId, newVehicleId, vehiclePrefab));
 
 		return recoveredEntries;
 	}
@@ -657,27 +729,13 @@ class HST_LootService
 				continue;
 
 			result.m_iItemsSeen++;
-			string prefab = ResolvePrefabName(item);
-			if (prefab.IsEmpty())
-			{
-				result.m_iItemsSkippedBlocked++;
+			string prefab;
+			string category;
+			string displayName;
+			if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, prefab, category, displayName))
 				continue;
-			}
 
-			string category = ClassifyItem(item, prefab);
-			if (!IsAllowedByLootRules(prefab, category, balance))
-			{
-				result.m_iItemsSkippedBlocked++;
-				continue;
-			}
-
-			if (balance.m_bLootOnlyLockedItems && arsenal.IsItemUnlocked(state, prefab))
-			{
-				result.m_iItemsSkippedUnlocked++;
-				continue;
-			}
-
-			HST_ArsenalItemState deposited = arsenal.DepositItem(state, balance, prefab, 1, category, BuildDisplayName(item, prefab));
+			HST_ArsenalItemState deposited = arsenal.DepositItem(state, balance, prefab, 1, category, displayName);
 			if (!deposited)
 				continue;
 
@@ -702,27 +760,13 @@ class HST_LootService
 				return;
 
 			result.m_iItemsSeen++;
-			string prefab = ResolvePrefabName(item);
-			if (prefab.IsEmpty())
-			{
-				result.m_iItemsSkippedBlocked++;
+			string prefab;
+			string category;
+			string displayName;
+			if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, prefab, category, displayName))
 				continue;
-			}
 
-			string category = ClassifyItem(item, prefab);
-			if (!IsAllowedByLootRules(prefab, category, balance))
-			{
-				result.m_iItemsSkippedBlocked++;
-				continue;
-			}
-
-			if (balance.m_bVehicleLootOnlyLockedItems && arsenal.IsItemUnlocked(state, prefab))
-			{
-				result.m_iItemsSkippedUnlocked++;
-				continue;
-			}
-
-			HST_VehicleCargoItemState cargoItem = DepositVehicleCargo(state, vehicle, vehicleId, vehiclePrefab, vehicleName, prefab, category, BuildDisplayName(item, prefab));
+			HST_VehicleCargoItemState cargoItem = DepositVehicleCargo(state, vehicle, vehicleId, vehiclePrefab, vehicleName, prefab, category, displayName);
 			if (!cargoItem)
 				continue;
 
@@ -736,27 +780,13 @@ class HST_LootService
 	protected void CollectLooseItemToArsenal(IEntity item, HST_CampaignState state, HST_BalanceConfig balance, HST_ArsenalService arsenal, HST_LootResult result)
 	{
 		result.m_iItemsSeen++;
-		string prefab = ResolvePrefabName(item);
-		if (prefab.IsEmpty())
-		{
-			result.m_iItemsSkippedBlocked++;
+		string prefab;
+		string category;
+		string displayName;
+		if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, prefab, category, displayName))
 			return;
-		}
 
-		string category = ClassifyItem(item, prefab);
-		if (!IsAllowedByLootRules(prefab, category, balance))
-		{
-			result.m_iItemsSkippedBlocked++;
-			return;
-		}
-
-		if (balance.m_bLootOnlyLockedItems && arsenal.IsItemUnlocked(state, prefab))
-		{
-			result.m_iItemsSkippedUnlocked++;
-			return;
-		}
-
-		HST_ArsenalItemState deposited = arsenal.DepositItem(state, balance, prefab, 1, category, BuildDisplayName(item, prefab));
+		HST_ArsenalItemState deposited = arsenal.DepositItem(state, balance, prefab, 1, category, displayName);
 		if (!deposited)
 			return;
 
@@ -772,27 +802,13 @@ class HST_LootService
 			return;
 
 		result.m_iItemsSeen++;
-		string prefab = ResolvePrefabName(item);
-		if (prefab.IsEmpty())
-		{
-			result.m_iItemsSkippedBlocked++;
+		string prefab;
+		string category;
+		string displayName;
+		if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, prefab, category, displayName))
 			return;
-		}
 
-		string category = ClassifyItem(item, prefab);
-		if (!IsAllowedByLootRules(prefab, category, balance))
-		{
-			result.m_iItemsSkippedBlocked++;
-			return;
-		}
-
-		if (balance.m_bVehicleLootOnlyLockedItems && arsenal.IsItemUnlocked(state, prefab))
-		{
-			result.m_iItemsSkippedUnlocked++;
-			return;
-		}
-
-		HST_VehicleCargoItemState cargoItem = DepositVehicleCargo(state, vehicle, vehicleId, vehiclePrefab, vehicleName, prefab, category, BuildDisplayName(item, prefab));
+		HST_VehicleCargoItemState cargoItem = DepositVehicleCargo(state, vehicle, vehicleId, vehiclePrefab, vehicleName, prefab, category, displayName);
 		if (!cargoItem)
 			return;
 
@@ -800,6 +816,50 @@ class HST_LootService
 		result.m_aDepositedLines.Insert(string.Format("+ %1 | %2 | vehicle count %3", cargoItem.m_sDisplayName, cargoItem.m_sCategory, cargoItem.m_iCount));
 		if (balance.m_bVehicleLootRemoveSource && RemoveLooseLootItem(item))
 			result.m_iItemsRemoved++;
+	}
+
+	protected bool TryResolveLootItemForDeposit(IEntity item, HST_CampaignState state, HST_BalanceConfig balance, HST_ArsenalService arsenal, HST_LootResult result, out string prefab, out string category, out string displayName)
+	{
+		prefab = "";
+		category = "";
+		displayName = "";
+		if (!item || !balance || !arsenal)
+			return false;
+
+		prefab = ResolvePrefabName(item);
+		if (prefab.IsEmpty())
+		{
+			if (result)
+				result.m_iItemsSkippedBlocked++;
+			return false;
+		}
+
+		Resource loaded = Resource.Load(prefab);
+		if (!loaded || !loaded.IsValid())
+		{
+			if (result)
+				result.m_iItemsSkippedBlocked++;
+			Print("h-istasi loot | skipped invalid item resource " + prefab);
+			return false;
+		}
+
+		category = ClassifyItem(item, prefab);
+		if (!IsAllowedByLootRules(prefab, category, balance))
+		{
+			if (result)
+				result.m_iItemsSkippedBlocked++;
+			return false;
+		}
+
+		if (balance.m_bLootOnlyLockedItems && state && arsenal.IsItemUnlocked(state, prefab))
+		{
+			if (result)
+				result.m_iItemsSkippedUnlocked++;
+			return false;
+		}
+
+		displayName = BuildDisplayName(item, prefab);
+		return true;
 	}
 
 	protected void GatherInventoryItemsRecursive(SCR_InventoryStorageManagerComponent inventory, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
@@ -1082,6 +1142,21 @@ class HST_LootService
 		return count;
 	}
 
+	protected string BuildUniqueGarageVehicleId(HST_CampaignState state)
+	{
+		if (!state)
+			return "garage_0";
+
+		for (int i = 0; i < 64; i++)
+		{
+			string candidate = string.Format("garage_%1_%2_%3", state.m_iElapsedSeconds, state.m_aGarageVehicles.Count(), i);
+			if (!state.FindGarageVehicle(candidate))
+				return candidate;
+		}
+
+		return string.Format("garage_%1_%2_fallback", state.m_iElapsedSeconds, state.m_aGarageVehicles.Count());
+	}
+
 	protected string ResolvePrefabName(IEntity item)
 	{
 		if (!item || !item.GetPrefabData())
@@ -1186,14 +1261,16 @@ class HST_LootService
 			return emptyWorldResult;
 		}
 
-		HST_VehicleRootScanResult scan = FindNearestVehicleRoot(playerEntity, radiusMeters, state, "vehicle loot id " + vehicleRuntimeId);
-		if (scan.m_SelectedRoot && ResolveVehicleRuntimeIdFromScan(scan.m_SelectedRoot, scan) == vehicleRuntimeId)
-			return scan;
+		HST_VehicleRootScanResult result = new HST_VehicleRootScanResult();
+		if (TrySelectRuntimeRecordVehicle(playerEntity, radiusMeters, state, result, vehicleRuntimeId))
+		{
+			PublishVehicleTargetDiagnostics(state, "vehicle loot id target selected", result, result.m_fSelectedDistanceMeters * result.m_fSelectedDistanceMeters);
+			return result;
+		}
 
 		m_aScanEntities.Clear();
 		world.QueryEntitiesBySphere(playerEntity.GetOrigin(), radiusMeters, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
 		array<IEntity> checkedRoots = {};
-		HST_VehicleRootScanResult result = new HST_VehicleRootScanResult();
 		result.m_iCandidates = m_aScanEntities.Count();
 		string lastReject = "target runtime id not found";
 		foreach (IEntity candidate : m_aScanEntities)
@@ -1202,20 +1279,12 @@ class HST_LootService
 			IEntity rootVehicle = ResolveVehicleRoot(candidate, rejectReason);
 			if (!rootVehicle)
 			{
-				rootVehicle = ResolveVehicleRootByNearbyBounds(candidate, rejectReason);
-				if (rootVehicle)
-					result.m_iBoundsRootHits++;
-				else
-				{
-					TrackNearestVehicleReject(playerEntity, candidate, rejectReason, result);
-					lastReject = rejectReason;
-					continue;
-				}
+				TrackNearestVehicleReject(playerEntity, candidate, rejectReason, result);
+				lastReject = rejectReason;
+				continue;
 			}
-			else
-			{
-				RegisterVehicleRootPass(result, rejectReason);
-			}
+
+			RegisterVehicleRootPass(result, rejectReason);
 
 			if (checkedRoots.Find(rootVehicle) >= 0)
 				continue;
@@ -1224,7 +1293,7 @@ class HST_LootService
 			result.m_iResolvedRoots = checkedRoots.Count();
 			string protectedReason;
 			HST_RuntimeVehicleState runtimeCandidate = ResolveRuntimeVehicleRecord(state, rootVehicle);
-			string rootPrefab = ResolveVehiclePrefabFromRecord(rootVehicle, runtimeCandidate);
+			string rootPrefab = ResolveVehiclePrefabFromCandidate(rootVehicle, runtimeCandidate, candidate);
 			if (IsProtectedHQEntity(state, rootVehicle, rootPrefab, protectedReason))
 			{
 				TrackNearestVehicleReject(playerEntity, rootVehicle, protectedReason, result);
@@ -1232,16 +1301,18 @@ class HST_LootService
 				continue;
 			}
 
-			if (!IsEligibleLootVehicle(rootVehicle, playerEntity, runtimeCandidate))
+			if (!IsEligibleLootVehicle(rootVehicle, playerEntity, runtimeCandidate, rootPrefab))
 			{
 				TrackNearestVehicleReject(playerEntity, rootVehicle, "resolved root failed loot vehicle eligibility", result);
 				lastReject = "resolved root failed loot vehicle eligibility";
 				continue;
 			}
 
-			string resolvedRuntimeId = ResolveVehicleRuntimeIdFromRecord(rootVehicle, runtimeCandidate);
-			if (resolvedRuntimeId == vehicleRuntimeId)
+			if (DoesRequestedVehicleIdMatch(rootVehicle, candidate, runtimeCandidate, vehicleRuntimeId))
 			{
+				runtimeCandidate = EnsureRuntimeVehicleRecord(state, rootVehicle, runtimeCandidate, rootPrefab);
+				string resolvedRuntimeId = ResolveVehicleRuntimeIdFromRecord(rootVehicle, runtimeCandidate);
+				rootPrefab = ResolveVehiclePrefabFromRecord(rootVehicle, runtimeCandidate);
 				result.m_SelectedRoot = rootVehicle;
 				result.m_RuntimeVehicle = runtimeCandidate;
 				result.m_sSelectedRuntimeId = resolvedRuntimeId;
@@ -1252,12 +1323,6 @@ class HST_LootService
 				PublishVehicleTargetDiagnostics(state, "vehicle loot id target selected", result, DistanceSq2D(playerEntity.GetOrigin(), rootVehicle.GetOrigin()));
 				return result;
 			}
-		}
-
-		if (TrySelectRuntimeRecordVehicle(playerEntity, radiusMeters, state, result, vehicleRuntimeId))
-		{
-			PublishVehicleTargetDiagnostics(state, "vehicle loot id target selected", result, result.m_fSelectedDistanceMeters * result.m_fSelectedDistanceMeters);
-			return result;
 		}
 
 		if (!result.m_sNearestRejectReason.IsEmpty())
@@ -1296,6 +1361,12 @@ class HST_LootService
 			return result;
 		}
 
+		if (TrySelectRuntimeRecordVehicle(playerEntity, radiusMeters, state, result, ""))
+		{
+			PublishVehicleTargetDiagnostics(state, purpose, result, result.m_fSelectedDistanceMeters * result.m_fSelectedDistanceMeters);
+			return result;
+		}
+
 		m_aScanEntities.Clear();
 		world.QueryEntitiesBySphere(playerEntity.GetOrigin(), radiusMeters, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
 
@@ -1308,21 +1379,13 @@ class HST_LootService
 			IEntity rootVehicle = ResolveVehicleRoot(candidate, rejectReason);
 			if (!rootVehicle)
 			{
-				rootVehicle = ResolveVehicleRootByNearbyBounds(candidate, rejectReason);
-				if (rootVehicle)
-					result.m_iBoundsRootHits++;
-				else
-				{
-					TrackNearestVehicleReject(playerEntity, candidate, rejectReason, result);
-					if (!result.m_SelectedRoot)
-						result.m_sRejectReason = rejectReason;
-					continue;
-				}
+				TrackNearestVehicleReject(playerEntity, candidate, rejectReason, result);
+				if (!result.m_SelectedRoot)
+					result.m_sRejectReason = rejectReason;
+				continue;
 			}
-			else
-			{
-				RegisterVehicleRootPass(result, rejectReason);
-			}
+
+			RegisterVehicleRootPass(result, rejectReason);
 
 			if (checkedRoots.Find(rootVehicle) >= 0)
 				continue;
@@ -1331,7 +1394,7 @@ class HST_LootService
 			result.m_iResolvedRoots++;
 			string protectedReason;
 			HST_RuntimeVehicleState runtimeCandidate = ResolveRuntimeVehicleRecord(state, rootVehicle);
-			string rootPrefab = ResolveVehiclePrefabFromRecord(rootVehicle, runtimeCandidate);
+			string rootPrefab = ResolveVehiclePrefabFromCandidate(rootVehicle, runtimeCandidate, candidate);
 			if (IsProtectedHQEntity(state, rootVehicle, rootPrefab, protectedReason))
 			{
 				TrackNearestVehicleReject(playerEntity, rootVehicle, protectedReason, result);
@@ -1340,7 +1403,7 @@ class HST_LootService
 				continue;
 			}
 
-			if (!IsEligibleLootVehicle(rootVehicle, playerEntity, runtimeCandidate))
+			if (!IsEligibleLootVehicle(rootVehicle, playerEntity, runtimeCandidate, rootPrefab))
 			{
 				TrackNearestVehicleReject(playerEntity, rootVehicle, "resolved root failed loot vehicle eligibility", result);
 				if (!result.m_SelectedRoot)
@@ -1351,6 +1414,8 @@ class HST_LootService
 			float distanceSq = DistanceSq2D(playerEntity.GetOrigin(), rootVehicle.GetOrigin());
 			if (distanceSq < bestDistanceSq)
 			{
+				runtimeCandidate = EnsureRuntimeVehicleRecord(state, rootVehicle, runtimeCandidate, rootPrefab);
+				rootPrefab = ResolveVehiclePrefabFromRecord(rootVehicle, runtimeCandidate);
 				result.m_SelectedRoot = rootVehicle;
 				result.m_RuntimeVehicle = runtimeCandidate;
 				result.m_sSelectedRuntimeId = ResolveVehicleRuntimeIdFromRecord(rootVehicle, runtimeCandidate);
@@ -1360,12 +1425,6 @@ class HST_LootService
 				result.m_fSelectedDistanceMeters = Math.Sqrt(distanceSq);
 				bestDistanceSq = distanceSq;
 			}
-		}
-
-		if (!result.m_SelectedRoot && TrySelectRuntimeRecordVehicle(playerEntity, radiusMeters, state, result, ""))
-		{
-			PublishVehicleTargetDiagnostics(state, purpose, result, result.m_fSelectedDistanceMeters * result.m_fSelectedDistanceMeters);
-			return result;
 		}
 
 		if (!result.m_SelectedRoot && !result.m_sNearestRejectReason.IsEmpty())
@@ -1494,6 +1553,76 @@ class HST_LootService
 		result.m_fSelectedDistanceMeters = Math.Sqrt(distanceSq);
 		if (reason.Contains("runtime") || reason.Contains("registered"))
 			result.m_iRuntimeFallbackHits++;
+	}
+
+	protected HST_RuntimeVehicleState EnsureRuntimeVehicleRecord(HST_CampaignState state, IEntity rootVehicle, HST_RuntimeVehicleState existingRecord, string prefabHint = "")
+	{
+		if (!state || !rootVehicle)
+			return existingRecord;
+
+		string runtimeId = ResolveVehicleRuntimeId(rootVehicle);
+		string prefab = prefabHint;
+		if (prefab.IsEmpty() || !HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
+			prefab = ResolveVehiclePrefabFromRecord(rootVehicle, existingRecord);
+		if (prefab.IsEmpty())
+			prefab = ResolveVehicleIdentityName(rootVehicle);
+		if (runtimeId.IsEmpty() || prefab.IsEmpty() || !HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
+			return existingRecord;
+
+		HST_RuntimeVehicleState record = existingRecord;
+		if (!record)
+			record = state.FindRuntimeVehicle(runtimeId);
+		if (!record)
+		{
+			record = new HST_RuntimeVehicleState();
+			record.m_sVehicleRuntimeId = runtimeId;
+			state.m_aRuntimeVehicles.Insert(record);
+		}
+
+		string previousRuntimeId = record.m_sVehicleRuntimeId;
+		record.m_sVehicleRuntimeId = runtimeId;
+		record.m_sPrefab = prefab;
+		record.m_sDisplayName = BuildVehicleDisplayName(rootVehicle, prefab);
+		record.m_sFactionKey = ResolveFactionKey(rootVehicle);
+		record.m_sZoneId = FindNearestZoneId(state, rootVehicle.GetOrigin());
+		record.m_sRuntimeKind = "loot_vehicle";
+		record.m_vPosition = rootVehicle.GetOrigin();
+		record.m_vAngles = rootVehicle.GetYawPitchRoll();
+		record.m_bDeleted = false;
+		if (!previousRuntimeId.IsEmpty() && previousRuntimeId != runtimeId)
+			RekeyVehicleCargoRuntimeId(state, previousRuntimeId, runtimeId, prefab, record.m_sDisplayName, rootVehicle.GetOrigin());
+		return record;
+	}
+
+	protected bool DoesRequestedVehicleIdMatch(IEntity rootVehicle, IEntity sourceCandidate, HST_RuntimeVehicleState runtimeVehicle, string requestedRuntimeId)
+	{
+		if (requestedRuntimeId.IsEmpty())
+			return false;
+
+		if (runtimeVehicle && runtimeVehicle.m_sVehicleRuntimeId == requestedRuntimeId)
+			return true;
+
+		if (rootVehicle && ResolveVehicleRuntimeId(rootVehicle) == requestedRuntimeId)
+			return true;
+
+		if (sourceCandidate && ResolveVehicleRuntimeId(sourceCandidate) == requestedRuntimeId)
+			return true;
+
+		IEntity cursor = sourceCandidate;
+		for (int i = 0; i < 16; i++)
+		{
+			if (!cursor)
+				break;
+
+			if (ResolveVehicleRuntimeId(cursor) == requestedRuntimeId)
+				return true;
+			if (cursor == rootVehicle)
+				break;
+
+			cursor = cursor.GetParent();
+		}
+
+		return false;
 	}
 
 	protected IEntity ResolveRuntimeVehicleRootFromRecord(BaseWorld world, HST_RuntimeVehicleState record, out int scannedCandidates, out int resolvedRoots, out string rejectReason)
@@ -1663,13 +1792,14 @@ class HST_LootService
 		return (dx * dx + dz * dz) <= gateMeters * gateMeters;
 	}
 
-	protected bool IsEligibleLootVehicle(IEntity entity, IEntity playerEntity, HST_RuntimeVehicleState runtimeVehicle)
+	protected bool IsEligibleLootVehicle(IEntity entity, IEntity playerEntity, HST_RuntimeVehicleState runtimeVehicle, string prefabHint = "")
 	{
 		if (!entity || entity == playerEntity)
 			return false;
 
-		string prefab = ResolveVehiclePrefabFromRecord(entity, runtimeVehicle);
-		string identity = prefab;
+		string identity = prefabHint;
+		if (identity.IsEmpty() || !HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(identity))
+			identity = ResolveVehiclePrefabFromRecord(entity, runtimeVehicle);
 		if (identity.IsEmpty())
 			identity = ResolveVehicleIdentityName(entity);
 
@@ -1682,7 +1812,7 @@ class HST_LootService
 		if (runtimeVehicle)
 			return HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(runtimeVehicle.m_sPrefab);
 
-		return IsEligibleVehicleRoot(entity, identity);
+		return IsEligibleVehicleRoot(entity, identity) || HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(identity);
 	}
 
 	protected IEntity ResolveVehicleRoot(IEntity entity, out string rejectReason)
@@ -1724,11 +1854,12 @@ class HST_LootService
 
 			if (IsEligibleVehicleRoot(candidate, candidatePrefab))
 			{
+				IEntity containerRoot = ResolveVehicleContainerRoot(chain, candidate);
 				if (candidatePrefab.Contains("Prefabs/Vehicles/") || candidatePrefab.Contains("/Vehicles/"))
 					rejectReason = "resolved canonical vehicle root";
 				else
 					rejectReason = "resolved known base-game vehicle basename root";
-				return candidate;
+				return containerRoot;
 			}
 
 			rejectReason = BuildVehicleRootRejectReason(candidate, candidatePrefab);
@@ -1740,52 +1871,28 @@ class HST_LootService
 		return null;
 	}
 
-	protected IEntity ResolveVehicleRootByNearbyBounds(IEntity entity, out string rejectReason)
+	protected IEntity ResolveVehicleContainerRoot(array<IEntity> chain, IEntity matchedEntity)
 	{
-		if (!entity)
-		{
-			rejectReason = "candidate missing";
+		if (!matchedEntity)
 			return null;
-		}
 
-		vector origin = entity.GetOrigin();
-		IEntity bestRoot;
-		string bestReason;
-		float bestDistanceSq = 999999999.0;
-		foreach (IEntity candidate : m_aScanEntities)
+		if (!chain || chain.Count() == 0)
+			return matchedEntity;
+
+		for (int i = chain.Count() - 1; i >= 0; i--)
 		{
-			if (!candidate || candidate == entity)
+			IEntity candidate = chain[i];
+			if (!candidate)
 				continue;
 
 			string candidatePrefab = ResolveVehicleIdentityName(candidate);
-			if (!IsEligibleVehicleRoot(candidate, candidatePrefab))
+			if (!candidatePrefab.IsEmpty() && HST_VehicleRootPolicy.IsRejectedWorldPrefab(candidatePrefab) && !HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(candidatePrefab))
 				continue;
 
-			if (IsVehiclePartEntity(candidate, candidatePrefab))
-				continue;
-
-			if (!IsPointNearEntityBounds(origin, candidate, 6.0))
-				continue;
-
-			float distanceSq = DistanceSq2D(origin, candidate.GetOrigin());
-			if (distanceSq >= bestDistanceSq)
-				continue;
-
-			bestRoot = candidate;
-			bestReason = BuildVehicleRootRejectReason(candidate, candidatePrefab);
-			bestDistanceSq = distanceSq;
+			return candidate;
 		}
 
-		if (bestRoot)
-		{
-			rejectReason = "resolved by nearby vehicle bounds root | " + bestReason;
-			return bestRoot;
-		}
-
-		if (rejectReason.IsEmpty())
-			rejectReason = "candidate had no nearby eligible vehicle bounds root";
-
-		return null;
+		return matchedEntity;
 	}
 
 	protected bool IsPointNearEntityBounds(vector point, IEntity entity, float marginMeters)
@@ -2068,12 +2175,86 @@ class HST_LootService
 		return ResolveVehicleIdentityName(vehicle);
 	}
 
+	protected string ResolveVehiclePrefabFromCandidate(IEntity vehicle, HST_RuntimeVehicleState runtimeVehicle, IEntity sourceCandidate)
+	{
+		string prefab = ResolveVehiclePrefabFromRecord(vehicle, runtimeVehicle);
+		if (!prefab.IsEmpty() && HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
+			return prefab;
+
+		prefab = FindVehiclePrefabInParentChain(sourceCandidate, vehicle);
+		if (!prefab.IsEmpty())
+			return prefab;
+
+		return FindVehiclePrefabNearEntity(vehicle);
+	}
+
 	protected string ResolveVehiclePrefabFromRecord(IEntity vehicle, HST_RuntimeVehicleState runtimeVehicle)
 	{
 		if (runtimeVehicle && !runtimeVehicle.m_sPrefab.IsEmpty())
 			return runtimeVehicle.m_sPrefab;
 
-		return ResolveVehicleIdentityName(vehicle);
+		string prefab = ResolveVehicleIdentityName(vehicle);
+		if (!prefab.IsEmpty() && HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
+			return prefab;
+
+		string nearbyPrefab = FindVehiclePrefabNearEntity(vehicle);
+		if (!nearbyPrefab.IsEmpty())
+			return nearbyPrefab;
+
+		return prefab;
+	}
+
+	protected string FindVehiclePrefabInParentChain(IEntity entity, IEntity stopAt)
+	{
+		IEntity cursor = entity;
+		for (int i = 0; i < 16; i++)
+		{
+			if (!cursor)
+				break;
+
+			string prefab = ResolveVehicleIdentityName(cursor);
+			if (!prefab.IsEmpty() && HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
+				return prefab;
+
+			if (cursor == stopAt)
+				break;
+
+			cursor = cursor.GetParent();
+		}
+
+		return "";
+	}
+
+	protected string FindVehiclePrefabNearEntity(IEntity vehicle)
+	{
+		if (!vehicle)
+			return "";
+
+		string chainPrefab = FindVehiclePrefabInParentChain(vehicle, null);
+		if (!chainPrefab.IsEmpty())
+			return chainPrefab;
+
+		vector origin = vehicle.GetOrigin();
+		foreach (IEntity candidate : m_aScanEntities)
+		{
+			if (!candidate || candidate == vehicle)
+				continue;
+
+			string candidatePrefab = ResolveVehicleIdentityName(candidate);
+			if (candidatePrefab.IsEmpty() || !HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(candidatePrefab))
+				continue;
+
+			if (IsEntityParentedToRoot(candidate, vehicle))
+				return candidatePrefab;
+
+			if (DistanceSq2D(origin, candidate.GetOrigin()) <= 10 * 10)
+				return candidatePrefab;
+
+			if (IsPointNearEntityBounds(candidate.GetOrigin(), vehicle, 8.0))
+				return candidatePrefab;
+		}
+
+		return "";
 	}
 
 	protected string ResolveFactionKey(IEntity entity)

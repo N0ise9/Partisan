@@ -171,6 +171,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ref array<int> m_aVisibleCandidateIndexes = {};
 	protected ref array<string> m_aLoadedCandidateNodeIds = {};
 	protected ref array<string> m_aRequestedCandidateNodeIds = {};
+	protected ref array<int> m_aRequestedCandidateFrames = {};
+	protected ref array<int> m_aRequestedCandidateAttempts = {};
 	protected ref array<string> m_aTemplateIds = {};
 	protected ref array<string> m_aTemplateDisplays = {};
 	protected ref array<int> m_aTemplateSlotCounts = {};
@@ -1516,7 +1518,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		int requestedIndex = FindStringIndex(m_aRequestedCandidateNodeIds, candidateNodeId);
 		if (requestedIndex >= 0)
+		{
 			m_aRequestedCandidateNodeIds.Remove(requestedIndex);
+			if (requestedIndex < m_aRequestedCandidateFrames.Count())
+				m_aRequestedCandidateFrames.Remove(requestedIndex);
+			if (requestedIndex < m_aRequestedCandidateAttempts.Count())
+				m_aRequestedCandidateAttempts.Remove(requestedIndex);
+		}
 
 		ClampPages();
 	}
@@ -1546,6 +1554,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int loadedIndex = FindStringIndex(m_aLoadedCandidateNodeIds, nodeId);
 		if (loadedIndex >= 0)
 			m_aLoadedCandidateNodeIds.Remove(loadedIndex);
+
+		int requestedIndex = FindStringIndex(m_aRequestedCandidateNodeIds, nodeId);
+		if (requestedIndex >= 0)
+		{
+			m_aRequestedCandidateNodeIds.Remove(requestedIndex);
+			if (requestedIndex < m_aRequestedCandidateFrames.Count())
+				m_aRequestedCandidateFrames.Remove(requestedIndex);
+			if (requestedIndex < m_aRequestedCandidateAttempts.Count())
+				m_aRequestedCandidateAttempts.Remove(requestedIndex);
+		}
 	}
 
 	protected void EnsureCandidatePayloadForSelectedNode()
@@ -1556,10 +1574,38 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (FindStringIndex(m_aLoadedCandidateNodeIds, m_sSelectedNodeId) >= 0)
 			return;
 
-		if (FindStringIndex(m_aRequestedCandidateNodeIds, m_sSelectedNodeId) >= 0)
-			return;
+		int requestedIndex = FindStringIndex(m_aRequestedCandidateNodeIds, m_sSelectedNodeId);
+		int requestAttempts = 0;
+		if (requestedIndex >= 0)
+		{
+			int requestedFrame;
+			if (requestedIndex < m_aRequestedCandidateFrames.Count())
+				requestedFrame = m_aRequestedCandidateFrames[requestedIndex];
+			if (requestedIndex < m_aRequestedCandidateAttempts.Count())
+				requestAttempts = m_aRequestedCandidateAttempts[requestedIndex];
+
+			if (m_iFrameSerial - requestedFrame < 120)
+				return;
+
+			m_aRequestedCandidateNodeIds.Remove(requestedIndex);
+			if (requestedIndex < m_aRequestedCandidateFrames.Count())
+				m_aRequestedCandidateFrames.Remove(requestedIndex);
+			if (requestedIndex < m_aRequestedCandidateAttempts.Count())
+				m_aRequestedCandidateAttempts.Remove(requestedIndex);
+
+			requestAttempts++;
+			if (requestAttempts >= 3)
+			{
+				if (FindStringIndex(m_aLoadedCandidateNodeIds, m_sSelectedNodeId) < 0)
+					m_aLoadedCandidateNodeIds.Insert(m_sSelectedNodeId);
+				m_sLastResult = "h-istasi loadout editor | compatible item request timed out";
+				return;
+			}
+		}
 
 		m_aRequestedCandidateNodeIds.Insert(m_sSelectedNodeId);
+		m_aRequestedCandidateFrames.Insert(m_iFrameSerial);
+		m_aRequestedCandidateAttempts.Insert(requestAttempts);
 		RequestServerAction("loadout_editor_candidates", m_sSelectedNodeId);
 	}
 
@@ -1626,6 +1672,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_aVisibleCandidateIndexes.Clear();
 		m_aLoadedCandidateNodeIds.Clear();
 		m_aRequestedCandidateNodeIds.Clear();
+		m_aRequestedCandidateFrames.Clear();
+		m_aRequestedCandidateAttempts.Clear();
 		m_aTemplateIds.Clear();
 		m_aTemplateDisplays.Clear();
 		m_aTemplateSlotCounts.Clear();
