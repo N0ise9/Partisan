@@ -1347,6 +1347,12 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
+			AddMenuAction(actions, TAB_ADMIN, "Seed persistence smoke", "admin_seed_persistence_test_state", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run persistence smoke", "admin_persistence_smoke_test", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Persistence smoke report", "admin_persistence_smoke_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug capture", state, adminTargetId), "capture_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug activate", state, adminTargetId), "activate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug deactivate", state, adminTargetId), "deactivate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
@@ -1358,12 +1364,6 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Mission runtime report", "inspect_mission_runtime", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Garage report", "inspect_garage", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Seed persistence smoke", "admin_seed_persistence_test_state", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Run persistence smoke", "admin_persistence_smoke_test", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Persistence smoke report", "admin_persistence_smoke_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Reset campaign", "new_campaign", "", canUseAdmin, "admin required");
 		}
 	}

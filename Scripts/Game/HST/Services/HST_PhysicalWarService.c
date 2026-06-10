@@ -101,6 +101,8 @@ class HST_PhysicalWarService
 			return changed;
 		}
 
+		int garrisonInfantryBefore = garrison.m_iInfantryCount;
+		int garrisonVehiclesBefore = garrison.m_iVehicleCount;
 		int infantryCount = Math.Min(garrison.m_iInfantryCount, ResolveActiveInfantryCap(zone));
 		int vehicleCount = Math.Min(garrison.m_iVehicleCount, ResolveActiveVehicleCap(zone));
 		if (infantryCount <= 0 && vehicleCount <= 0)
@@ -116,22 +118,44 @@ class HST_PhysicalWarService
 		int spawnedInfantryGroups = SpawnZoneInfantryGroups(state, zone, slots, infantryCount, compositions);
 		int spawnedVehicleGroups = SpawnZoneVehicleGroups(state, zone, slots, vehicleCount);
 		ApplyActiveZoneCounts(state, zone);
-		Print(string.Format("h-istasi | activated zone %1 with %2 infantry group(s) and %3 vehicle(s)", zone.m_sZoneId, spawnedInfantryGroups, spawnedVehicleGroups));
+		string activationReport = string.Format("h-istasi | activated zone %1 | requested infantry %2/%3 vehicles %4/%5 | spawned infantry groups %6 vehicle groups %7", zone.m_sZoneId, infantryCount, garrisonInfantryBefore, vehicleCount, garrisonVehiclesBefore, spawnedInfantryGroups, spawnedVehicleGroups);
+		activationReport = activationReport + string.Format(" | active now infantry %1 vehicles %2 | abstract garrison now infantry %3 vehicles %4", zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount, garrison.m_iInfantryCount, garrison.m_iVehicleCount);
+		Print(string.Format("%1", activationReport));
 		return true;
 	}
 
 	protected bool DeactivateZone(HST_CampaignState state, HST_ZoneState zone, HST_ZoneCompositionService compositions = null)
 	{
 		bool changed;
+		int foldedGroups;
+		int returnedInfantry;
+		int returnedVehicles;
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
 			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF)
 				continue;
 
+			int beforeInfantry;
+			int beforeVehicles;
+			HST_GarrisonState beforeGarrison = state.FindGarrison(activeGroup.m_sZoneId, activeGroup.m_sFactionKey);
+			if (beforeGarrison)
+			{
+				beforeInfantry = beforeGarrison.m_iInfantryCount;
+				beforeVehicles = beforeGarrison.m_iVehicleCount;
+			}
+
 			FoldActiveGroup(state, activeGroup);
+			HST_GarrisonState afterGarrison = state.FindGarrison(activeGroup.m_sZoneId, activeGroup.m_sFactionKey);
+			if (afterGarrison)
+			{
+				returnedInfantry += Math.Max(0, afterGarrison.m_iInfantryCount - beforeInfantry);
+				returnedVehicles += Math.Max(0, afterGarrison.m_iVehicleCount - beforeVehicles);
+			}
+
 			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
 			state.m_aActiveGroups.Remove(i);
+			foldedGroups++;
 			changed = true;
 		}
 
@@ -139,6 +163,19 @@ class HST_PhysicalWarService
 		zone.m_iActiveVehicleCount = 0;
 		if (compositions)
 			changed = compositions.CleanupZoneComposition(zone.m_sZoneId) || changed;
+		if (changed)
+		{
+			HST_GarrisonState garrison = state.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+			int garrisonInfantry;
+			int garrisonVehicles;
+			if (garrison)
+			{
+				garrisonInfantry = garrison.m_iInfantryCount;
+				garrisonVehicles = garrison.m_iVehicleCount;
+			}
+
+			Print(string.Format("h-istasi | deactivated zone %1 | folded groups %2 | returned infantry %3 vehicles %4 | abstract garrison now infantry %5 vehicles %6", zone.m_sZoneId, foldedGroups, returnedInfantry, returnedVehicles, garrisonInfantry, garrisonVehicles));
+		}
 		return changed;
 	}
 
@@ -859,10 +896,15 @@ class HST_PhysicalWarService
 			if (aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0)
 				continue;
 			if (aliveCount > 0 && activeGroup.m_iSpawnedAgentCount <= 0)
+			{
 				activeGroup.m_iSpawnedAgentCount = aliveCount;
+				changed = true;
+				Print(string.Format("h-istasi | active group populated %1 | zone %2 | live agents %3 | expected infantry %4 vehicles %5 | status %6", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, activeGroup.m_iInfantryCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
+			}
 			if (aliveCount == activeGroup.m_iLastSeenAliveCount)
 				continue;
 
+			int previousAliveCount = activeGroup.m_iLastSeenAliveCount;
 			activeGroup.m_iLastSeenAliveCount = aliveCount;
 			if (activeGroup.m_iVehicleCount > 0 && activeGroup.m_iInfantryCount <= 0)
 			{
@@ -876,6 +918,7 @@ class HST_PhysicalWarService
 			}
 			if (aliveCount <= 0)
 				activeGroup.m_sRuntimeStatus = "eliminated";
+			Print(string.Format("h-istasi | active group survivors %1 | zone %2 | alive %3 from %4 | survivors infantry %5/%6 vehicles %7/%8 | status %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, previousAliveCount, activeGroup.m_iSurvivorInfantryCount, activeGroup.m_iInfantryCount, activeGroup.m_iSurvivorVehicleCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
 			changed = true;
 		}
 
@@ -981,9 +1024,11 @@ class HST_PhysicalWarService
 		if (activeGroup.m_sRuntimeStatus != "eliminated" && !activeGroup.m_bSpawnedEntity && survivorVehicles <= 0 && activeGroup.m_iVehicleCount > 0)
 			survivorVehicles = activeGroup.m_iVehicleCount;
 
+		string previousStatus = activeGroup.m_sRuntimeStatus;
 		activeGroup.m_sRuntimeStatus = "folded";
 		garrison.m_iInfantryCount += Math.Max(0, survivorInfantry);
 		garrison.m_iVehicleCount += Math.Max(0, survivorVehicles);
+		Print(string.Format("h-istasi | folded active group %1 | zone %2 | status %3 | returned infantry %4/%5 vehicles %6/%7 | last alive %8 | spawned agents %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, previousStatus, survivorInfantry, activeGroup.m_iInfantryCount, survivorVehicles, activeGroup.m_iVehicleCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount));
 	}
 
 	protected string ResolveGroupRouteId(HST_ZoneState zone, bool qrf)

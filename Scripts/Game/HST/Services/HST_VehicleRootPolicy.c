@@ -99,6 +99,17 @@ class HST_VehicleRootPolicy
 		if (name.Contains("/VehParts/") || name.Contains("VehParts/") || name.Contains("VehicleParts"))
 			return true;
 
+		if (name.Contains("Prefabs/Vehicles/") || name.Contains("/Vehicles/"))
+			return IsVehiclePartBasename(GetResourceBasename(name));
+
+		return IsVehiclePartBasename(name);
+	}
+
+	static bool IsVehiclePartBasename(string name)
+	{
+		if (name.IsEmpty())
+			return false;
+
 		if (name.Contains("LicensePlate") || name.Contains("licenseplate") || name.Contains("License_Plate"))
 			return true;
 
