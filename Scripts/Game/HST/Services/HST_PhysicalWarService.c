@@ -12,16 +12,17 @@ class HST_PhysicalWarService
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
 
-	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_EnemyDirectorService enemyDirector = null)
+	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset = null, HST_EnemyDirectorService enemyDirector = null)
 	{
 		if (!state || !balance)
 			return false;
 
 		EnsureRuntimeGroupEntities(state);
+		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
 
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
-			return false;
+			return survivorChanged;
 
 		array<int> playerIds = {};
 		playerManager.GetPlayers(playerIds);
@@ -43,12 +44,12 @@ class HST_PhysicalWarService
 			Print(string.Format("h-istasi | zone %1 physical activation = %2", zone.m_sZoneId, shouldBeActive));
 		}
 
-		if (UpdateQRF(state, enemyDirector))
+		if (UpdateQRF(state, preset, enemyDirector))
 			changed = true;
 		if (UpdateActiveGroupRoutes(state))
 			changed = true;
 
-		return changed;
+		return changed || survivorChanged;
 	}
 
 	protected bool IsAnyLivingPlayerNearZone(PlayerManager playerManager, array<int> playerIds, HST_ZoneState zone, HST_BalanceConfig balance)
@@ -109,7 +110,7 @@ class HST_PhysicalWarService
 			FoldActiveGroup(state, activeGroup);
 			state.m_aActiveGroups.Remove(state.m_aActiveGroups.Count() - 1);
 			ApplyActiveZoneCounts(state, zone);
-			NotifyRuntimeEvent("ai_spawn_failed", "Enemy Spawn Failed", string.Format("%1 could not spawn at %2. Check group prefab %3.", zone.m_sDisplayName, zone.m_sZoneId, activeGroup.m_sPrefab), zone.m_sZoneId, activeGroup.m_vPosition, 6.0);
+			NotifyRuntimeEvent("ai_spawn_failed", "Enemy Spawn Failed", string.Format("%1 could not spawn at %2. %3", zone.m_sDisplayName, zone.m_sZoneId, activeGroup.m_sSpawnFailureReason), zone.m_sZoneId, activeGroup.m_vPosition, 6.0);
 			return true;
 		}
 		ApplyActiveZoneCounts(state, zone);
@@ -137,15 +138,19 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
-	protected bool UpdateQRF(HST_CampaignState state, HST_EnemyDirectorService enemyDirector)
+	protected bool UpdateQRF(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector)
 	{
 		bool changed = ResolveArrivedQRFs(state);
 		if (!enemyDirector)
 			return changed;
 
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			if (!zone.m_bActive || zone.m_sOwnerFactionKey == "FIA" || zone.m_sQRFRouteId.IsEmpty())
+			if (!zone.m_bActive || zone.m_sOwnerFactionKey == resistanceFactionKey || zone.m_sQRFRouteId.IsEmpty())
 				continue;
 
 			if (IsZoneInsideHQSafeArea(state, zone))
@@ -165,7 +170,8 @@ class HST_PhysicalWarService
 			if (!TrySpawnActiveGroup(activeGroup, state))
 			{
 				state.m_aActiveGroups.Remove(state.m_aActiveGroups.Count() - 1);
-				NotifyRuntimeEvent("qrf_spawn_failed", "QRF Spawn Failed", string.Format("%1 QRF could not spawn for %2. Check group prefab %3.", zone.m_sOwnerFactionKey, zone.m_sDisplayName, activeGroup.m_sPrefab), zone.m_sZoneId, activeGroup.m_vPosition, 6.0);
+				zone.m_iQrfCooldownUntilSecond = state.m_iElapsedSeconds + QRF_COOLDOWN_SECONDS;
+				NotifyRuntimeEvent("qrf_spawn_failed", "QRF Spawn Failed", string.Format("%1 QRF could not spawn for %2. %3", zone.m_sOwnerFactionKey, zone.m_sDisplayName, activeGroup.m_sSpawnFailureReason), zone.m_sZoneId, activeGroup.m_vPosition, 6.0);
 				changed = true;
 				continue;
 			}
@@ -247,9 +253,7 @@ class HST_PhysicalWarService
 			}
 
 			activeGroup.m_vPosition = position;
-			IEntity entity = GetRuntimeGroupEntity(activeGroup.m_sGroupId);
-			if (entity)
-				entity.SetOrigin(position);
+			SetRuntimeGroupEntitiesOrigin(activeGroup.m_sGroupId, position);
 
 			if (progress >= 1.0)
 				activeGroup.m_sRuntimeStatus = "arrived";
@@ -318,36 +322,31 @@ class HST_PhysicalWarService
 			return "";
 
 		int seed = BuildGroupSelectionSeed(state, zone, qrf);
-		string selected;
-		if (qrf && faction.m_aQRFGroupPool.Count() > 0)
-			selected = SelectValidWeightedGroupPrefab(faction.m_aQRFGroupPool, seed + 701, factionKey, "qrf");
-		if (!selected.IsEmpty())
-			return selected;
+		array<string> candidates = {};
+		if (qrf)
+		{
+			AppendUniqueGroupPrefabs(candidates, faction.m_aQRFGroupPrefabs);
+			AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
+			return SelectValidGroupPrefabFromList(candidates, seed, factionKey, "qrf");
+		}
 
-		if (!qrf && faction.m_aPatrolGroupPool.Count() > 0)
-			selected = SelectValidWeightedGroupPrefab(faction.m_aPatrolGroupPool, seed + 503, factionKey, "patrol");
-		if (!selected.IsEmpty())
-			return selected;
+		AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
+		AppendUniqueGroupPrefabs(candidates, faction.m_aPatrolGroupPrefabs);
+		return SelectValidGroupPrefabFromList(candidates, seed, factionKey, "garrison");
+	}
 
-		if (faction.m_aGroupPool.Count() > 0)
-			selected = SelectValidWeightedGroupPrefab(faction.m_aGroupPool, seed + 307, factionKey, "group");
-		if (!selected.IsEmpty())
-			return selected;
+	protected void AppendUniqueGroupPrefabs(array<string> candidates, array<string> source)
+	{
+		if (!candidates || !source)
+			return;
 
-		if (qrf && faction.m_aQRFGroupPrefabs.Count() > 0)
-			selected = SelectValidGroupPrefabFromList(faction.m_aQRFGroupPrefabs, seed, factionKey, "qrf");
-		if (!selected.IsEmpty())
-			return selected;
+		foreach (string prefab : source)
+		{
+			if (prefab.IsEmpty() || candidates.Contains(prefab))
+				continue;
 
-		if (!qrf && faction.m_aPatrolGroupPrefabs.Count() > 0)
-			selected = SelectValidGroupPrefabFromList(faction.m_aPatrolGroupPrefabs, seed, factionKey, "patrol");
-		if (!selected.IsEmpty())
-			return selected;
-
-		if (faction.m_aGroupPrefabs.Count() > 0)
-			return SelectValidGroupPrefabFromList(faction.m_aGroupPrefabs, seed, factionKey, "group");
-
-		return "";
+			candidates.Insert(prefab);
+		}
 	}
 
 	protected int BuildGroupSelectionSeed(HST_CampaignState state, HST_ZoneState zone, bool qrf)
@@ -367,7 +366,7 @@ class HST_PhysicalWarService
 
 	protected bool TrySpawnActiveGroup(HST_ActiveGroupState activeGroup, HST_CampaignState state = null)
 	{
-		if (!activeGroup || activeGroup.m_sPrefab.IsEmpty() || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
+		if (!activeGroup || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 			return false;
 
 		if (activeGroup.m_bSpawnAttempted && !activeGroup.m_bSpawnedEntity)
@@ -375,91 +374,63 @@ class HST_PhysicalWarService
 
 		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
 		if (!respawnSystem)
+		{
+			activeGroup.m_sSpawnFailureReason = "Respawn system is unavailable.";
 			return false;
+		}
 
 		activeGroup.m_bSpawnAttempted = true;
 		activeGroup.m_sRuntimeStatus = "spawning";
-		if (!IsValidGroupPrefabResource(activeGroup.m_sPrefab, activeGroup.m_sFactionKey, activeGroup.m_bQRF))
-		{
-			activeGroup.m_sRuntimeStatus = "spawn_failed";
-			Print(string.Format("h-istasi | active group rejected invalid prefab for %1 (%2)", activeGroup.m_sGroupId, activeGroup.m_sPrefab), LogLevel.WARNING);
-			return false;
-		}
+		activeGroup.m_sSpawnFallbackMode = "group";
+		activeGroup.m_sSpawnFailureReason = "";
+		activeGroup.m_iSpawnedAgentCount = 0;
 
 		vector spawnPosition = HST_WorldPositionService.ResolveSafeGroundPosition(activeGroup.m_vPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
 		activeGroup.m_vPosition = spawnPosition;
-		GenericEntity entity = respawnSystem.DoSpawn(activeGroup.m_sPrefab, spawnPosition, "0 0 0");
-		if (!entity)
+
+		GenericEntity entity;
+		int agentCount = 0;
+		string failureReason = "";
+		if (activeGroup.m_sPrefab.IsEmpty())
 		{
-			string fallbackPrefab = SelectFallbackGroupPrefab(activeGroup.m_sFactionKey, activeGroup.m_bQRF, activeGroup.m_sGroupId.Length());
-			if (!fallbackPrefab.IsEmpty() && fallbackPrefab != activeGroup.m_sPrefab)
-			{
-				Print(string.Format("h-istasi | active group stock prefab failed for %1; retrying fallback %2", activeGroup.m_sGroupId, fallbackPrefab), LogLevel.WARNING);
-				activeGroup.m_sPrefab = fallbackPrefab;
-				entity = respawnSystem.DoSpawn(activeGroup.m_sPrefab, spawnPosition, "0 0 0");
-			}
+			failureReason = string.Format("No group prefab configured for faction %1.", activeGroup.m_sFactionKey);
+		}
+		else if (IsValidGroupPrefabResource(activeGroup.m_sPrefab, activeGroup.m_sFactionKey))
+		{
+			entity = respawnSystem.DoSpawn(activeGroup.m_sPrefab, spawnPosition, "0 0 0");
+			if (!entity)
+				failureReason = string.Format("Group prefab did not spawn: %1.", activeGroup.m_sPrefab);
+			else
+				agentCount = ResolveSpawnedAgentCount(entity, activeGroup);
+		}
+		else
+		{
+			failureReason = string.Format("Invalid group prefab: %1.", activeGroup.m_sPrefab);
 		}
 
-		if (!entity || !ValidateSpawnedAIGroup(entity, activeGroup))
+		if (!entity)
 		{
+			activeGroup.m_sSpawnFailureReason = failureReason;
+			if (activeGroup.m_sSpawnFailureReason.IsEmpty())
+				activeGroup.m_sSpawnFailureReason = string.Format("Group prefab spawn failed for faction %1.", activeGroup.m_sFactionKey);
 			activeGroup.m_sRuntimeStatus = "spawn_failed";
-			Print(string.Format("h-istasi | active group prefab spawn failed for %1 (%2)", activeGroup.m_sGroupId, activeGroup.m_sPrefab), LogLevel.WARNING);
-			if (entity)
-				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			Print(string.Format("h-istasi | active group prefab spawn failed for %1 (%2): %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
 			return false;
 		}
 
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
 		activeGroup.m_sRuntimeStatus = "routing";
+		activeGroup.m_sSpawnFailureReason = "";
+		activeGroup.m_iSpawnedAgentCount = agentCount;
+		activeGroup.m_iLastSeenAliveCount = Math.Max(agentCount, activeGroup.m_iInfantryCount + activeGroup.m_iVehicleCount);
+		activeGroup.m_iSurvivorInfantryCount = activeGroup.m_iInfantryCount;
 		if (state)
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeGroupEntities.Insert(entity);
+		Print(string.Format("h-istasi | spawned active group %1 using %2 (%3 agents)", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, agentCount));
 		return true;
-	}
-
-	protected string SelectFallbackGroupPrefab(string factionKey, bool qrf, int seed)
-	{
-		HST_FactionTemplate faction = HST_DefaultCatalog.CreateFactionTemplate(factionKey);
-		if (!faction)
-			return "";
-
-		string selected;
-		if (qrf && faction.m_aQRFGroupPrefabs.Count() > 0)
-			selected = SelectValidGroupPrefabFromList(faction.m_aQRFGroupPrefabs, seed, factionKey, "qrf fallback");
-		if (!selected.IsEmpty())
-			return selected;
-
-		if (!qrf && faction.m_aPatrolGroupPrefabs.Count() > 0)
-			selected = SelectValidGroupPrefabFromList(faction.m_aPatrolGroupPrefabs, seed, factionKey, "patrol fallback");
-		if (!selected.IsEmpty())
-			return selected;
-
-		if (faction.m_aGroupPrefabs.Count() > 0)
-			return SelectValidGroupPrefabFromList(faction.m_aGroupPrefabs, seed, factionKey, "group fallback");
-
-		return "";
-	}
-
-	protected string SelectValidWeightedGroupPrefab(array<ref HST_PrefabPoolEntry> pool, int seed, string factionKey, string purpose)
-	{
-		if (!pool || pool.Count() == 0)
-			return "";
-
-		int startIndex = HST_DefaultCatalog.PositiveMod(seed, pool.Count());
-		for (int offset = 0; offset < pool.Count(); offset++)
-		{
-			int index = HST_DefaultCatalog.PositiveMod(startIndex + offset, pool.Count());
-			HST_PrefabPoolEntry entry = pool[index];
-			if (!entry || !IsValidGroupPrefabResource(entry.m_sPrefab, factionKey, purpose == "qrf"))
-				continue;
-
-			return entry.m_sPrefab;
-		}
-
-		Print(string.Format("h-istasi | no valid %1 group prefab found for faction %2", purpose, factionKey), LogLevel.WARNING);
-		return "";
 	}
 
 	protected string SelectValidGroupPrefabFromList(array<string> prefabs, int seed, string factionKey, string purpose)
@@ -472,7 +443,7 @@ class HST_PhysicalWarService
 		{
 			int index = HST_DefaultCatalog.PositiveMod(startIndex + offset, prefabs.Count());
 			string prefab = prefabs[index];
-			if (!IsValidGroupPrefabResource(prefab, factionKey, purpose.Contains("qrf")))
+			if (!IsValidGroupPrefabResource(prefab, factionKey))
 				continue;
 
 			return prefab;
@@ -482,7 +453,7 @@ class HST_PhysicalWarService
 		return "";
 	}
 
-	protected bool IsValidGroupPrefabResource(string prefab, string factionKey, bool qrf)
+	protected bool IsValidGroupPrefabResource(string prefab, string factionKey)
 	{
 		if (prefab.IsEmpty())
 			return false;
@@ -509,25 +480,26 @@ class HST_PhysicalWarService
 		return true;
 	}
 
-	protected bool ValidateSpawnedAIGroup(GenericEntity entity, HST_ActiveGroupState activeGroup)
+	protected int ResolveSpawnedAgentCount(GenericEntity entity, HST_ActiveGroupState activeGroup)
 	{
 		if (!entity || !activeGroup)
-			return false;
+			return 0;
 
 		AIGroup group = AIGroup.Cast(entity);
 		if (!group)
 		{
 			Print(string.Format("h-istasi | spawned prefab %1 for %2 did not create an AIGroup", activeGroup.m_sPrefab, activeGroup.m_sGroupId), LogLevel.WARNING);
-			return false;
+			return 0;
 		}
 
-		if (group.GetAgentsCount() <= 0)
+		int agentCount = group.GetAgentsCount();
+		if (agentCount <= 0)
 		{
-			Print(string.Format("h-istasi | spawned AIGroup %1 for %2 has no agents", activeGroup.m_sPrefab, activeGroup.m_sGroupId), LogLevel.WARNING);
-			return false;
+			Print(string.Format("h-istasi | spawned AIGroup %1 for %2 has no agents yet; keeping spawned group entity", activeGroup.m_sPrefab, activeGroup.m_sGroupId), LogLevel.WARNING);
+			return 0;
 		}
 
-		return true;
+		return agentCount;
 	}
 
 	protected void NotifyRuntimeEvent(string eventId, string title, string message, string zoneId, vector position, float durationSeconds)
@@ -580,11 +552,81 @@ class HST_PhysicalWarService
 		}
 	}
 
+	protected bool UpdateRuntimeGroupSurvivors(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		bool changed;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || !activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed")
+				continue;
+
+			int aliveCount = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
+			if (aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0)
+				continue;
+			if (aliveCount > 0 && activeGroup.m_iSpawnedAgentCount <= 0)
+				activeGroup.m_iSpawnedAgentCount = aliveCount;
+			if (aliveCount == activeGroup.m_iLastSeenAliveCount)
+				continue;
+
+			activeGroup.m_iLastSeenAliveCount = aliveCount;
+			activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, aliveCount);
+			activeGroup.m_iSurvivorVehicleCount = 0;
+			if (aliveCount <= 0)
+				activeGroup.m_sRuntimeStatus = "eliminated";
+			changed = true;
+		}
+
+		if (changed)
+		{
+			foreach (HST_ZoneState zone : state.m_aZones)
+			{
+				if (zone && zone.m_bActive)
+					ApplyActiveZoneCounts(state, zone);
+			}
+		}
+
+		return changed;
+	}
+
+	protected int CountAliveRuntimeGroupAgents(string groupId)
+	{
+		int aliveCount;
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId)
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (!entity)
+				continue;
+
+			AIGroup group = AIGroup.Cast(entity);
+			if (group)
+			{
+				aliveCount += Math.Max(0, group.GetAgentsCount());
+				continue;
+			}
+
+			if (IsLivingEntity(entity))
+				aliveCount++;
+		}
+
+		return aliveCount;
+	}
+
 	protected bool HasActiveGarrisonGroup(HST_CampaignState state, HST_ZoneState zone)
 	{
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (activeGroup && !activeGroup.m_bQRF && activeGroup.m_sZoneId == zone.m_sZoneId && activeGroup.m_sFactionKey == zone.m_sOwnerFactionKey)
+			if (!activeGroup || activeGroup.m_bQRF || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_sFactionKey != zone.m_sOwnerFactionKey)
+				continue;
+			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
+				continue;
+
+			if (activeGroup.m_iLastSeenAliveCount > 0 || activeGroup.m_iSurvivorInfantryCount > 0 || activeGroup.m_iSurvivorVehicleCount > 0)
 				return true;
 		}
 
@@ -600,8 +642,11 @@ class HST_PhysicalWarService
 			if (!activeGroup || activeGroup.m_bQRF || activeGroup.m_sZoneId != zone.m_sZoneId)
 				continue;
 
-			infantryCount += activeGroup.m_iInfantryCount;
-			vehicleCount += activeGroup.m_iVehicleCount;
+			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
+				continue;
+
+			infantryCount += Math.Max(0, activeGroup.m_iSurvivorInfantryCount);
+			vehicleCount += Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
 		}
 
 		zone.m_iActiveInfantryCount = infantryCount;
@@ -621,9 +666,9 @@ class HST_PhysicalWarService
 
 		int survivorInfantry = activeGroup.m_iSurvivorInfantryCount;
 		int survivorVehicles = activeGroup.m_iSurvivorVehicleCount;
-		if (survivorInfantry <= 0 && activeGroup.m_iInfantryCount > 0)
+		if (activeGroup.m_sRuntimeStatus != "eliminated" && !activeGroup.m_bSpawnedEntity && survivorInfantry <= 0 && activeGroup.m_iInfantryCount > 0)
 			survivorInfantry = activeGroup.m_iInfantryCount;
-		if (survivorVehicles <= 0 && activeGroup.m_iVehicleCount > 0)
+		if (activeGroup.m_sRuntimeStatus != "eliminated" && !activeGroup.m_bSpawnedEntity && survivorVehicles <= 0 && activeGroup.m_iVehicleCount > 0)
 			survivorVehicles = activeGroup.m_iVehicleCount;
 
 		activeGroup.m_sRuntimeStatus = "folded";
@@ -691,18 +736,33 @@ class HST_PhysicalWarService
 		return m_aRuntimeGroupEntities[index];
 	}
 
+	protected void SetRuntimeGroupEntitiesOrigin(string groupId, vector position)
+	{
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId)
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (entity)
+				entity.SetOrigin(position);
+		}
+	}
+
 	protected void DeleteRuntimeGroupEntity(string groupId)
 	{
-		int index = m_aRuntimeGroupIds.Find(groupId);
-		if (index < 0)
-			return;
+		for (int i = m_aRuntimeGroupIds.Count() - 1; i >= 0; i--)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId)
+				continue;
 
-		IEntity entity = m_aRuntimeGroupEntities[index];
-		if (entity)
-			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (entity)
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
 
-		m_aRuntimeGroupIds.Remove(index);
-		m_aRuntimeGroupEntities.Remove(index);
+			m_aRuntimeGroupIds.Remove(i);
+			m_aRuntimeGroupEntities.Remove(i);
+		}
 	}
 
 	protected bool IsZoneInsideHQSafeArea(HST_CampaignState state, HST_ZoneState zone)
@@ -726,6 +786,15 @@ class HST_PhysicalWarService
 	}
 
 	protected bool IsLivingPlayerEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
+		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
+	}
+
+	protected bool IsLivingEntity(IEntity entity)
 	{
 		if (!entity)
 			return false;

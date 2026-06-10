@@ -1827,14 +1827,32 @@ class HST_MissionRuntimeService
 			return "";
 
 		int seed = state.m_iCampaignSeed + state.m_iElapsedSeconds + zone.m_sZoneId.Length() * 17 + definition.m_sMissionId.Length() * 31;
-		if (definition.m_sMissionId == "assassinate_specops" && faction.m_aRareGroupPool.Count() > 0)
-			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aRareGroupPool, seed);
-		if (faction.m_aPatrolGroupPool.Count() > 0)
-			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aPatrolGroupPool, seed);
-		if (faction.m_aGroupPool.Count() > 0)
-			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aGroupPool, seed);
+		array<string> candidates = {};
+		AppendUniqueGroupPrefabs(candidates, faction.m_aPatrolGroupPrefabs);
+		AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
+		return SelectRandomGroupPrefab(candidates, seed);
+	}
 
-		return "";
+	protected void AppendUniqueGroupPrefabs(array<string> candidates, array<string> source)
+	{
+		if (!candidates || !source)
+			return;
+
+		foreach (string prefab : source)
+		{
+			if (prefab.IsEmpty() || candidates.Contains(prefab))
+				continue;
+
+			candidates.Insert(prefab);
+		}
+	}
+
+	protected string SelectRandomGroupPrefab(array<string> prefabs, int seed)
+	{
+		if (!prefabs || prefabs.Count() == 0)
+			return "";
+
+		return prefabs[HST_DefaultCatalog.PositiveMod(seed, prefabs.Count())];
 	}
 
 	protected int ResolveMissionGuardInfantryCount(HST_CampaignState state, HST_MissionDefinition definition)

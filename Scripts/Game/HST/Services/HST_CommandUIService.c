@@ -907,6 +907,8 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "garrisons", "Abstract infantry", string.Format("%1", CountGarrisonInfantry(state)), "neutral");
 		payload = AppendRow(payload, "garrisons", "Abstract vehicles", string.Format("%1", CountGarrisonVehicles(state)), "neutral");
 		payload = AppendRow(payload, "garrisons", "Active groups", string.Format("%1", state.m_aActiveGroups.Count()), "warn");
+		payload = AppendRow(payload, "garrisons", "Spawn diagnostics", BuildActiveGroupSpawnSummary(state), ActiveGroupSpawnTone(state));
+		payload = AppendRow(payload, "garrisons", "Last spawn failure", BuildLastActiveGroupFailure(state), LastActiveGroupFailureTone(state));
 		payload = AppendRow(payload, "garrisons", "QRFs", string.Format("%1 unresolved", CountActiveQRFs(state)), "bad");
 
 		payload = AppendSection(payload, "enemy", "Enemy Resources");
@@ -925,6 +927,64 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "support", "Air capability", AirSupportCapabilityLabel(state), AirSupportCapabilityTone(state));
 
 		return payload;
+	}
+
+	protected string BuildActiveGroupSpawnSummary(HST_CampaignState state)
+	{
+		HST_ActiveGroupState activeGroup = FindLatestActiveGroup(state);
+		if (!activeGroup)
+			return "no active groups";
+
+		return string.Format("%1 / %2 / agents %3 / status %4", activeGroup.m_sZoneId, activeGroup.m_sSpawnFallbackMode, activeGroup.m_iSpawnedAgentCount, activeGroup.m_sRuntimeStatus);
+	}
+
+	protected string ActiveGroupSpawnTone(HST_CampaignState state)
+	{
+		HST_ActiveGroupState activeGroup = FindLatestActiveGroup(state);
+		if (!activeGroup)
+			return "neutral";
+		if (activeGroup.m_sRuntimeStatus == "spawn_failed")
+			return "bad";
+
+		return "good";
+	}
+
+	protected string BuildLastActiveGroupFailure(HST_CampaignState state)
+	{
+		if (!state)
+			return "state not ready";
+
+		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
+			if (activeGroup && !activeGroup.m_sSpawnFailureReason.IsEmpty())
+				return string.Format("%1: %2", activeGroup.m_sZoneId, activeGroup.m_sSpawnFailureReason);
+		}
+
+		return "none";
+	}
+
+	protected string LastActiveGroupFailureTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "bad";
+
+		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
+			if (activeGroup && !activeGroup.m_sSpawnFailureReason.IsEmpty())
+				return "bad";
+		}
+
+		return "good";
+	}
+
+	protected HST_ActiveGroupState FindLatestActiveGroup(HST_CampaignState state)
+	{
+		if (!state || state.m_aActiveGroups.Count() == 0)
+			return null;
+
+		return state.m_aActiveGroups[state.m_aActiveGroups.Count() - 1];
 	}
 
 	protected string AppendArsenalSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings, int playerId)

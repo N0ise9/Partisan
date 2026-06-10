@@ -155,17 +155,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			missionRuntimeChanged = FailMission(failedRuntimeMissionId) || missionRuntimeChanged;
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, elapsedSeconds);
+		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, elapsedSeconds);
 		bool civilianChanged = m_Civilians.Tick(m_State, elapsedSeconds);
 		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
-		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_EnemyDirector);
+		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector);
+		bool captureChanged = m_ZoneCapture.TickContestedCapture(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, elapsedSeconds);
 		bool civilianRuntimeChanged = m_Civilians.UpdatePhysicalTownPopulation(m_State, m_Preset, m_Balance);
 		if (supportChanged)
 			BroadcastSupportChangeNotifications();
 		if (enemyOrdersChanged)
 			BroadcastEnemyOrderChangeNotifications();
-		if (missionChanged || objectiveChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || civilianRuntimeChanged)
+		if (missionChanged || objectiveChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || civilianRuntimeChanged)
 			MarkMajorCampaignChange();
 	}
 
@@ -498,7 +500,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return false;
 
-		bool changed = m_Strategic.SetZoneOwner(m_State, m_Economy, m_Balance, zoneId, factionKey);
+		bool changed = m_Strategic.SetZoneOwner(m_State, m_Economy, m_Balance, zoneId, factionKey, m_Preset.m_sResistanceFactionKey);
 		if (changed)
 			MarkMajorCampaignChange();
 		return changed;
@@ -1669,13 +1671,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string occupier = m_Preset.m_sOccupierFactionKey;
 		string invader = m_Preset.m_sInvaderFactionKey;
+		string resistance = m_Preset.m_sResistanceFactionKey;
+		if (resistance.IsEmpty())
+			resistance = "FIA";
 		bool assignedUnknownOccupier;
 		foreach (HST_FactionPoolState factionPool : state.m_aFactionPools)
 		{
 			if (!factionPool)
 				continue;
 
-			if (factionPool.m_sFactionKey != "FIA" && factionPool.m_sFactionKey != occupier && factionPool.m_sFactionKey != invader)
+			if (factionPool.m_sFactionKey != resistance && factionPool.m_sFactionKey != occupier && factionPool.m_sFactionKey != invader)
 			{
 				if (!assignedUnknownOccupier)
 				{
@@ -1699,7 +1704,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			invaderAttackResources = m_Balance.m_iStartingInvaderAttackPool;
 			invaderSupportResources = m_Balance.m_iStartingInvaderSupportPool;
 		}
-		EnsureFactionPool(state, "FIA", 0, 0);
+		EnsureFactionPool(state, resistance, 0, 0);
 		EnsureFactionPool(state, occupier, occupierAttackResources, occupierSupportResources);
 		EnsureFactionPool(state, invader, invaderAttackResources, invaderSupportResources);
 
@@ -1708,7 +1713,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!zone)
 				continue;
 
-			if (zone.m_sOwnerFactionKey != "FIA" && zone.m_sOwnerFactionKey != occupier && zone.m_sOwnerFactionKey != invader)
+			if (zone.m_sOwnerFactionKey != resistance && zone.m_sOwnerFactionKey != occupier && zone.m_sOwnerFactionKey != invader)
 				zone.m_sOwnerFactionKey = occupier;
 		}
 
@@ -1717,7 +1722,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!garrison)
 				continue;
 
-			if (garrison.m_sFactionKey != "FIA" && garrison.m_sFactionKey != occupier && garrison.m_sFactionKey != invader)
+			if (garrison.m_sFactionKey != resistance && garrison.m_sFactionKey != occupier && garrison.m_sFactionKey != invader)
 				garrison.m_sFactionKey = occupier;
 		}
 	}
@@ -2231,6 +2236,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!zone)
 			return false;
 
+		if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+			m_Economy.AddAggression(m_State, zone.m_sOwnerFactionKey, ResolveMissionSuccessAggression(definition));
+
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
 			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 60, 15);
 
@@ -2293,7 +2301,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return m_Towns.AddSupport(m_State, zone.m_sZoneId, -10);
 		}
 
+		if (!activeMission.m_sTargetZoneId.IsEmpty())
+		{
+			HST_ZoneState targetZone = m_State.FindZone(activeMission.m_sTargetZoneId);
+			if (targetZone && targetZone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+			{
+				m_Economy.AddAggression(m_State, targetZone.m_sOwnerFactionKey, Math.Max(1, definition.m_iFailureAggression / 2));
+				return true;
+			}
+		}
+
 		return false;
+	}
+
+	protected int ResolveMissionSuccessAggression(HST_MissionDefinition definition)
+	{
+		if (!definition)
+			return 1;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return 8;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return 6;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return 5;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC)
+			return 4;
+
+		return 2;
 	}
 
 	protected string SelectDefaultMissionForZone(HST_ZoneState zone)

@@ -27,7 +27,7 @@ class HST_EnemyCommanderService
 			if (HasActiveOrderForZone(state, pool.m_sFactionKey, targetZone.m_sZoneId))
 				continue;
 
-			HST_EEnemyOrderType orderType = SelectOrderType(state, targetZone, pool);
+			HST_EEnemyOrderType orderType = SelectOrderType(state, preset, targetZone, pool);
 			if (QueueOrder(state, preset, enemyDirector, support, pool.m_sFactionKey, targetZone, orderType))
 				changed = true;
 		}
@@ -78,12 +78,14 @@ class HST_EnemyCommanderService
 		order.m_iAttackCost = attackCost;
 		order.m_iSupportCost = supportCost;
 
-		HST_ESupportRequestType supportType = SupportTypeForOrder(state, targetZone, orderType);
+		HST_ESupportRequestType supportType = SupportTypeForOrder(state, preset, targetZone, orderType);
 		if (support && supportType != HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
 		{
 			HST_SupportRequestState request = support.RequestSupport(state, preset, null, enemyDirector, factionKey, supportType, targetZone.m_sZoneId, false);
 			if (request)
 				order.m_sSupportRequestId = request.m_sRequestId;
+			else
+				return false;
 		}
 		else if (!enemyDirector.TrySpend(state, factionKey, attackCost, supportCost))
 		{
@@ -137,12 +139,14 @@ class HST_EnemyCommanderService
 	{
 		HST_ZoneState bestZone;
 		int bestScore = -9999;
+		int totalWeight;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
 			if (!zone)
 				continue;
 
 			int score = ScoreTargetZone(state, preset, zone, factionKey);
+			totalWeight += Math.Max(1, score + 25);
 
 			if (score > bestScore)
 			{
@@ -151,18 +155,38 @@ class HST_EnemyCommanderService
 			}
 		}
 
+		if (totalWeight <= 0)
+			return bestZone;
+
+		int rollSeed = state.m_iCampaignSeed + state.m_iElapsedSeconds * 13 + factionKey.Length() * 97 + state.m_aEnemyOrders.Count() * 43;
+		int roll = HST_DefaultCatalog.PositiveMod(rollSeed, totalWeight);
+		int cumulative;
+		foreach (HST_ZoneState weightedZone : state.m_aZones)
+		{
+			if (!weightedZone)
+				continue;
+
+			cumulative += Math.Max(1, ScoreTargetZone(state, preset, weightedZone, factionKey) + 25);
+			if (roll < cumulative)
+				return weightedZone;
+		}
+
 		return bestZone;
 	}
 
-	protected HST_EEnemyOrderType SelectOrderType(HST_CampaignState state, HST_ZoneState targetZone, HST_FactionPoolState pool)
+	protected HST_EEnemyOrderType SelectOrderType(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone, HST_FactionPoolState pool)
 	{
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+
 		if (state.m_iHQKnowledge >= 100 && IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 20 && pool.m_iSupportResources >= 8 && state.m_iElapsedSeconds > state.m_iLastHQAttackSecond + 1800)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 
 		if (IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 25 && pool.m_iSupportResources >= 8 && state.m_iWarLevel >= 4)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 
-		if (targetZone.m_sOwnerFactionKey == "FIA")
+		if (targetZone.m_sOwnerFactionKey == resistanceFactionKey)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK;
 
 		if (targetZone.m_iResistanceCaptureProgress > 0)
@@ -250,14 +274,18 @@ class HST_EnemyCommanderService
 		return x * x + z * z;
 	}
 
-	protected HST_ESupportRequestType SupportTypeForOrder(HST_CampaignState state, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
+	protected HST_ESupportRequestType SupportTypeForOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
 	{
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF || orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
 			return HST_ESupportRequestType.HST_SUPPORT_QRF;
 
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL || orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
 		{
-			if (state && state.m_iWarLevel >= 6 && targetZone && (targetZone.m_sOwnerFactionKey == "FIA" || targetZone.m_bActive))
+			if (state && state.m_iWarLevel >= 6 && targetZone && (targetZone.m_sOwnerFactionKey == resistanceFactionKey || targetZone.m_bActive))
 				return HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55;
 
 			if (state && state.m_iWarLevel >= 3)
