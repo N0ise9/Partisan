@@ -15,6 +15,7 @@ class HST_CampaignSaveData
 	int m_iTrainingLevel;
 	int m_iIncomeAccumulatorSeconds;
 	int m_iEnemyResourceAccumulatorSeconds;
+	int m_iAggressionAccumulatorSeconds;
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
@@ -81,6 +82,7 @@ class HST_CampaignSaveData
 		m_iTrainingLevel = state.m_iTrainingLevel;
 		m_iIncomeAccumulatorSeconds = state.m_iIncomeAccumulatorSeconds;
 		m_iEnemyResourceAccumulatorSeconds = state.m_iEnemyResourceAccumulatorSeconds;
+		m_iAggressionAccumulatorSeconds = state.m_iAggressionAccumulatorSeconds;
 		m_sCommanderIdentityId = state.m_sCommanderIdentityId;
 		m_sHQHideoutId = state.m_sHQHideoutId;
 		m_vHQPosition = state.m_vHQPosition;
@@ -234,6 +236,7 @@ class HST_CampaignSaveData
 		state.m_iTrainingLevel = m_iTrainingLevel;
 		state.m_iIncomeAccumulatorSeconds = m_iIncomeAccumulatorSeconds;
 		state.m_iEnemyResourceAccumulatorSeconds = m_iEnemyResourceAccumulatorSeconds;
+		state.m_iAggressionAccumulatorSeconds = m_iAggressionAccumulatorSeconds;
 		state.m_sCommanderIdentityId = m_sCommanderIdentityId;
 		state.m_sHQHideoutId = m_sHQHideoutId;
 		state.m_vHQPosition = m_vHQPosition;
@@ -441,6 +444,8 @@ class HST_CampaignSaveData
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sPrefab = source.m_sPrefab;
+		target.m_sSpawnFallbackMode = source.m_sSpawnFallbackMode;
+		target.m_sSpawnFailureReason = source.m_sSpawnFailureReason;
 		target.m_vPosition = source.m_vPosition;
 		target.m_sRouteId = source.m_sRouteId;
 		target.m_vSourcePosition = source.m_vSourcePosition;
@@ -453,6 +458,7 @@ class HST_CampaignSaveData
 		target.m_iLastSeenAliveCount = source.m_iLastSeenAliveCount;
 		target.m_iSurvivorInfantryCount = source.m_iSurvivorInfantryCount;
 		target.m_iSurvivorVehicleCount = source.m_iSurvivorVehicleCount;
+		target.m_iSpawnedAgentCount = source.m_iSpawnedAgentCount;
 		target.m_bQRF = source.m_bQRF;
 		target.m_bSpawnAttempted = source.m_bSpawnAttempted;
 		target.m_bSpawnedEntity = source.m_bSpawnedEntity;

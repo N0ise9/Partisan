@@ -514,25 +514,39 @@ class HST_SupportRequestService
 
 		int seed = BuildSupportGroupSeed(state, request);
 		bool qrfStyle = supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
-		if (qrfStyle && faction.m_aQRFGroupPool.Count() > 0)
-			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aQRFGroupPool, seed + 701);
+		array<string> candidates = {};
+		if (qrfStyle)
+		{
+			AppendUniqueGroupPrefabs(candidates, faction.m_aQRFGroupPrefabs);
+			AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
+			return SelectRandomGroupPrefab(candidates, seed + 701);
+		}
 
-		if (faction.m_aPatrolGroupPool.Count() > 0)
-			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aPatrolGroupPool, seed + 503);
+		AppendUniqueGroupPrefabs(candidates, faction.m_aPatrolGroupPrefabs);
+		AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
+		return SelectRandomGroupPrefab(candidates, seed + 503);
+	}
 
-		if (faction.m_aGroupPool.Count() > 0)
-			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aGroupPool, seed + 307);
+	protected void AppendUniqueGroupPrefabs(array<string> candidates, array<string> source)
+	{
+		if (!candidates || !source)
+			return;
 
-		if ((supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY) && faction.m_aQRFGroupPrefabs.Count() > 0)
-			return faction.m_aQRFGroupPrefabs[HST_DefaultCatalog.PositiveMod(seed, faction.m_aQRFGroupPrefabs.Count())];
+		foreach (string prefab : source)
+		{
+			if (prefab.IsEmpty() || candidates.Contains(prefab))
+				continue;
 
-		if (faction.m_aPatrolGroupPrefabs.Count() > 0)
-			return faction.m_aPatrolGroupPrefabs[HST_DefaultCatalog.PositiveMod(seed, faction.m_aPatrolGroupPrefabs.Count())];
+			candidates.Insert(prefab);
+		}
+	}
 
-		if (faction.m_aGroupPrefabs.Count() > 0)
-			return faction.m_aGroupPrefabs[HST_DefaultCatalog.PositiveMod(seed, faction.m_aGroupPrefabs.Count())];
+	protected string SelectRandomGroupPrefab(array<string> prefabs, int seed)
+	{
+		if (!prefabs || prefabs.Count() == 0)
+			return "";
 
-		return "";
+		return prefabs[HST_DefaultCatalog.PositiveMod(seed, prefabs.Count())];
 	}
 
 	protected int BuildSupportGroupSeed(HST_CampaignState state, HST_SupportRequestState request)

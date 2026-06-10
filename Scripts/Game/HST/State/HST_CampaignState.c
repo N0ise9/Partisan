@@ -75,6 +75,8 @@ class HST_ActiveGroupState
 	string m_sZoneId;
 	string m_sFactionKey;
 	string m_sPrefab;
+	string m_sSpawnFallbackMode;
+	string m_sSpawnFailureReason;
 	vector m_vPosition;
 	string m_sRouteId;
 	vector m_vSourcePosition;
@@ -87,6 +89,7 @@ class HST_ActiveGroupState
 	int m_iLastSeenAliveCount;
 	int m_iSurvivorInfantryCount;
 	int m_iSurvivorVehicleCount;
+	int m_iSpawnedAgentCount;
 	bool m_bQRF;
 	bool m_bSpawnAttempted;
 	bool m_bSpawnedEntity;
@@ -539,7 +542,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 14;
+	static const int SCHEMA_VERSION = 15;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -555,6 +558,7 @@ class HST_CampaignState
 	int m_iTrainingLevel = 1;
 	int m_iIncomeAccumulatorSeconds;
 	int m_iEnemyResourceAccumulatorSeconds;
+	int m_iAggressionAccumulatorSeconds;
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
