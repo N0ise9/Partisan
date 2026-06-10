@@ -23,6 +23,8 @@ class HST_MissionClientComponent : ScriptComponent
 	protected string m_sSelectedMissionId;
 	protected bool m_bDetailOpen;
 	protected float m_fNotificationRemaining;
+	protected ref array<string> m_aRecentNotificationIds = {};
+	protected ref array<float> m_aRecentNotificationRemaining = {};
 	protected ref array<Widget> m_aWidgets = {};
 	protected ref array<ref HST_MissionClientDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref HST_MissionClientWidgetHandler m_WidgetHandler;
@@ -82,6 +84,22 @@ class HST_MissionClientComponent : ScriptComponent
 			if (m_fNotificationRemaining == 0 && !m_bDetailOpen)
 				ClearWidgets();
 		}
+
+		for (int i = m_aRecentNotificationIds.Count() - 1; i >= 0; i--)
+		{
+			if (i >= m_aRecentNotificationRemaining.Count())
+			{
+				m_aRecentNotificationIds.Remove(i);
+				continue;
+			}
+
+			m_aRecentNotificationRemaining[i] = Math.Max(0, m_aRecentNotificationRemaining[i] - timeSlice);
+			if (m_aRecentNotificationRemaining[i] <= 0)
+			{
+				m_aRecentNotificationIds.Remove(i);
+				m_aRecentNotificationRemaining.Remove(i);
+			}
+		}
 	}
 
 	static HST_MissionClientComponent GetLocalInstance()
@@ -93,9 +111,40 @@ class HST_MissionClientComponent : ScriptComponent
 	{
 		m_sLastEventPayload = payload;
 		m_sLastSummary = summary;
-		ShowTopMissionNotification(summary);
-		ShowMissionHint(summary, "h-istasi mission", 5.0);
+		string eventType = ExtractPipeField(payload, 1);
+		string missionId = ExtractPipeField(payload, 2);
+		string title = ExtractPipeField(payload, 3);
+		string message = summary;
+		if (title.IsEmpty())
+			title = "Mission";
+		ShowTopMissionNotification("mission_" + eventType + "_" + missionId, "mission", MissionSeverity(eventType), MissionEventTitle(eventType), message, 5.0);
 		RequestMissionIntel();
+	}
+
+	void OnServerNotification(string payload, string summary)
+	{
+		if (payload.IsEmpty() || !payload.Contains("HST_NOTIFICATION|"))
+		{
+			ShowTopMissionNotification(summary, "h-istasi", "info", "h-istasi", summary, 5.0);
+			return;
+		}
+
+		string eventId = ExtractPipeField(payload, 1);
+		string category = ExtractPipeField(payload, 2);
+		string severity = ExtractPipeField(payload, 3);
+		string title = ExtractPipeField(payload, 4);
+		string message = ExtractPipeField(payload, 5);
+		float duration = ExtractPipeField(payload, 9).ToFloat();
+		if (duration <= 0)
+			duration = 5.0;
+		if (eventId.IsEmpty())
+			eventId = category + "_" + title + "_" + message;
+		if (title.IsEmpty())
+			title = "h-istasi";
+		if (message.IsEmpty())
+			message = summary;
+
+		ShowTopMissionNotification(eventId, category, severity, title, message, duration);
 	}
 
 	void OnServerMissionIntel(string payload)
@@ -150,8 +199,11 @@ class HST_MissionClientComponent : ScriptComponent
 			request.RequestMissionIntel();
 	}
 
-	protected void ShowTopMissionNotification(string summary)
+	protected void ShowTopMissionNotification(string eventId, string category, string severity, string title, string message, float durationSeconds)
 	{
+		if (!eventId.IsEmpty() && FindRecentNotification(eventId) >= 0)
+			return;
+
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		if (!workspace)
 			return;
@@ -162,11 +214,96 @@ class HST_MissionClientComponent : ScriptComponent
 			return;
 
 		m_aWidgets.Insert(root);
+		int accent = NotificationAccentColor(severity, category);
 		CreateRectWidget(workspace, root, 0, 0, 760, 74, 0xF21A232B, 1.0, 0);
-		CreateRectWidget(workspace, root, 0, 70, 760, 4, 0xFFFFC45D, 1.0, 0);
-		CreateTextWidget(workspace, root, "h-istasi mission", 24, 10, 210, 24, 18, 0xFFFFD98B, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(summary, 92), 24, 34, 710, 28, 18, 0xFFF2F4F0, 0, false);
-		m_fNotificationRemaining = 5.0;
+		CreateRectWidget(workspace, root, 0, 70, 760, 4, accent, 1.0, 0);
+		CreateTextWidget(workspace, root, ShortenText(title, 36), 24, 10, 300, 24, 18, accent, 0, true);
+		CreateTextWidget(workspace, root, ShortenText(message, 92), 24, 34, 710, 28, 18, 0xFFF2F4F0, 0, false);
+		m_fNotificationRemaining = durationSeconds;
+		TrackRecentNotification(eventId, Math.Max(durationSeconds, 5.0));
+	}
+
+	protected string MissionEventTitle(string eventType)
+	{
+		if (eventType == "created")
+			return "Mission Available";
+		if (eventType == "completed")
+			return "Mission Complete";
+		if (eventType == "failed")
+			return "Mission Failed";
+		if (eventType == "expired")
+			return "Mission Expired";
+		if (eventType == "loaded")
+			return "Cargo Loaded";
+		if (eventType == "unloaded")
+			return "Cargo Unloaded";
+		if (eventType == "delivered")
+			return "Delivery Complete";
+		if (eventType == "captured")
+			return "Asset Captured";
+		if (eventType == "destroyed")
+			return "Target Destroyed";
+
+		return "Mission Update";
+	}
+
+	protected string MissionSeverity(string eventType)
+	{
+		if (eventType == "failed" || eventType == "expired")
+			return "danger";
+		if (eventType == "completed" || eventType == "delivered" || eventType == "captured")
+			return "success";
+		if (eventType == "created")
+			return "info";
+
+		return "warning";
+	}
+
+	protected int NotificationAccentColor(string severity, string category)
+	{
+		if (severity == "danger" || severity == "error")
+			return 0xFFFF6B5C;
+		if (severity == "success" || severity == "good")
+			return 0xFF73D17C;
+		if (severity == "warning" || severity == "warn")
+			return 0xFFFFC45D;
+		if (category == "enemy")
+			return 0xFFFF8A5C;
+		if (category == "vehicle" || category == "garage")
+			return 0xFF8CC8FF;
+
+		return 0xFFFFD98B;
+	}
+
+	protected int FindRecentNotification(string eventId)
+	{
+		if (eventId.IsEmpty())
+			return -1;
+
+		for (int i = 0; i < m_aRecentNotificationIds.Count(); i++)
+		{
+			if (m_aRecentNotificationIds[i] == eventId)
+				return i;
+		}
+
+		return -1;
+	}
+
+	protected void TrackRecentNotification(string eventId, float durationSeconds)
+	{
+		if (eventId.IsEmpty())
+			return;
+
+		int existing = FindRecentNotification(eventId);
+		if (existing >= 0)
+		{
+			if (existing < m_aRecentNotificationRemaining.Count())
+				m_aRecentNotificationRemaining[existing] = durationSeconds;
+			return;
+		}
+
+		m_aRecentNotificationIds.Insert(eventId);
+		m_aRecentNotificationRemaining.Insert(durationSeconds);
 	}
 
 	protected void RenderMissionDetailPanel()
@@ -415,13 +552,6 @@ class HST_MissionClientComponent : ScriptComponent
 		if (maxCharacters <= 3)
 			return text.Substring(0, maxCharacters);
 		return text.Substring(0, maxCharacters - 3) + "...";
-	}
-
-	protected void ShowMissionHint(string text, string title, float durationSeconds)
-	{
-		SCR_HintManagerComponent hintManager = SCR_HintManagerComponent.GetInstance();
-		if (hintManager)
-			hintManager.ShowCustomHint(text, title, durationSeconds);
 	}
 
 	protected void ClearWidgets()

@@ -55,6 +55,7 @@ class HST_VehicleRootScanResult
 class HST_LootService
 {
 	static const int GARAGE_CAPTURE_RADIUS_METERS = 24;
+	static const int MAX_SCAN_ENTITIES = 384;
 	protected ref array<IEntity> m_aScanEntities = {};
 
 	HST_LootResult LootNearbyToArsenal(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId)
@@ -156,27 +157,26 @@ class HST_LootService
 		int virtualCargoCount = CopyVirtualVehicleCargoToGarage(state, selectedVehicleRuntimeId, vehicle);
 		vehicle.m_bHadPhysicalCargo = physicalCargoCount > 0;
 
-		if (!arsenal.StoreVehicle(state, vehicle))
-		{
-			state.m_sLastVehicleTargetStatus = "garage capture failed";
-			state.m_sLastVehicleTargetReason = "garage record could not be stored before despawn";
-			return string.Format("h-istasi garage | failed: garage record could not be stored for %1", vehicle.m_sDisplayName);
-		}
-
 		SCR_EntityHelper.DeleteEntityAndChildren(selectedVehicle);
 		if (IsVehicleRootStillPresent(state, selectedVehicleRuntimeId, vehicle.m_vPosition))
 		{
-			arsenal.RemoveVehicle(state, vehicle.m_sVehicleId);
 			state.m_sLastVehicleTargetStatus = "garage capture failed";
 			state.m_sLastVehicleTargetReason = "selected root still present after delete";
-			Print(string.Format("h-istasi garage | failed to despawn %1; rolled back garage record | prefab %2", vehicle.m_sDisplayName, vehicle.m_sPrefab), LogLevel.WARNING);
+			Print(string.Format("h-istasi garage | failed to despawn %1; garage record was not kept | prefab %2", vehicle.m_sDisplayName, vehicle.m_sPrefab), LogLevel.WARNING);
 			return string.Format("h-istasi garage | failed: %1 did not despawn, garage record was not kept", vehicle.m_sDisplayName);
+		}
+
+		if (!arsenal.StoreVehicle(state, vehicle))
+		{
+			state.m_sLastVehicleTargetStatus = "garage capture failed";
+			state.m_sLastVehicleTargetReason = "garage record could not be stored after verified despawn";
+			return string.Format("h-istasi garage | failed: garage record could not be stored for %1", vehicle.m_sDisplayName);
 		}
 
 		RemoveVirtualVehicleCargo(state, selectedVehicleRuntimeId);
 		MarkRuntimeVehicleDeleted(state, selectedVehicleRuntimeId, vehicle.m_vPosition);
 		state.m_sLastVehicleTargetStatus = string.Format("garage captured %1", vehicle.m_sDisplayName);
-		state.m_sLastVehicleTargetReason = string.Format("stored garage record then deleted verified root vehicle | physical cargo %1 | virtual cargo %2 | rekeyed legacy %3", physicalCargoCount, virtualCargoCount, recoveredLegacyEntries);
+		state.m_sLastVehicleTargetReason = string.Format("stored garage record before delete; deleted verified root vehicle then stored garage record contract preserved | physical cargo %1 | virtual cargo %2 | rekeyed legacy %3", physicalCargoCount, virtualCargoCount, recoveredLegacyEntries);
 		Print(string.Format("h-istasi garage | captured %1 into %2 and despawned verified root vehicle | prefab %3 | distance %4m | cargo %5 entries/%6 item(s) | legacy %7", vehicle.m_sDisplayName, vehicle.m_sVehicleId, vehicle.m_sPrefab, scan.m_fSelectedDistanceMeters, vehicle.m_aStoredCargoItems.Count(), CountStoredVehicleCargoItems(vehicle), recoveredLegacyEntries));
 		return string.Format("h-istasi garage | captured %1 | cargo %2 | complete", vehicle.m_sDisplayName, CountStoredVehicleCargoItems(vehicle));
 	}
@@ -547,10 +547,10 @@ class HST_LootService
 
 	protected bool AddLootCandidate(IEntity entity)
 	{
-		if (entity)
+		if (entity && m_aScanEntities.Count() < MAX_SCAN_ENTITIES)
 			m_aScanEntities.Insert(entity);
 
-		return true;
+		return m_aScanEntities.Count() < MAX_SCAN_ENTITIES;
 	}
 
 	protected IEntity ResolveLivingPlayerEntity(int playerId)
@@ -1278,6 +1278,9 @@ class HST_LootService
 			string rejectReason;
 			IEntity rootVehicle = ResolveVehicleRoot(candidate, rejectReason);
 			if (!rootVehicle)
+				rootVehicle = ResolveVehicleRootByNearbyBounds(candidate, state, rejectReason);
+
+			if (!rootVehicle)
 			{
 				TrackNearestVehicleReject(playerEntity, candidate, rejectReason, result);
 				lastReject = rejectReason;
@@ -1377,6 +1380,9 @@ class HST_LootService
 			result.m_iCandidates++;
 			string rejectReason;
 			IEntity rootVehicle = ResolveVehicleRoot(candidate, rejectReason);
+			if (!rootVehicle)
+				rootVehicle = ResolveVehicleRootByNearbyBounds(candidate, state, rejectReason);
+
 			if (!rootVehicle)
 			{
 				TrackNearestVehicleReject(playerEntity, candidate, rejectReason, result);
@@ -1540,7 +1546,7 @@ class HST_LootService
 		if (runtimeVehicle)
 		{
 			runtimeVehicle.m_vPosition = rootVehicle.GetOrigin();
-			runtimeVehicle.m_vAngles = rootVehicle.GetYawPitchRoll();
+			runtimeVehicle.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(rootVehicle.GetYawPitchRoll());
 		}
 
 		string prefab = ResolveVehiclePrefabFromRecord(rootVehicle, runtimeVehicle);
@@ -1587,7 +1593,7 @@ class HST_LootService
 		record.m_sZoneId = FindNearestZoneId(state, rootVehicle.GetOrigin());
 		record.m_sRuntimeKind = "loot_vehicle";
 		record.m_vPosition = rootVehicle.GetOrigin();
-		record.m_vAngles = rootVehicle.GetYawPitchRoll();
+		record.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(rootVehicle.GetYawPitchRoll());
 		record.m_bDeleted = false;
 		if (!previousRuntimeId.IsEmpty() && previousRuntimeId != runtimeId)
 			RekeyVehicleCargoRuntimeId(state, previousRuntimeId, runtimeId, prefab, record.m_sDisplayName, rootVehicle.GetOrigin());
@@ -1645,6 +1651,9 @@ class HST_LootService
 			scannedCandidates++;
 			string rootReject;
 			IEntity rootVehicle = ResolveVehicleRoot(candidate, rootReject);
+			if (!rootVehicle)
+				rootVehicle = ResolveVehicleRootByNearbyBounds(candidate, null, rootReject);
+
 			if (!rootVehicle)
 			{
 				rejectReason = rootReject;
@@ -1871,6 +1880,45 @@ class HST_LootService
 		return null;
 	}
 
+	protected IEntity ResolveVehicleRootByNearbyBounds(IEntity entity, HST_CampaignState state, out string rejectReason)
+	{
+		rejectReason = "candidate had no nearby vehicle bounds root";
+		if (!entity)
+		{
+			rejectReason = "entity missing";
+			return null;
+		}
+
+		vector origin = entity.GetOrigin();
+		IEntity bestRoot;
+		float bestDistanceSq = 999999999.0;
+		foreach (IEntity candidate : m_aScanEntities)
+		{
+			if (!candidate || candidate == entity)
+				continue;
+
+			string candidatePrefab = ResolveVehicleIdentityName(candidate);
+			if (!IsEligibleVehicleRoot(candidate, candidatePrefab))
+				continue;
+
+			if (!IsPointNearEntityBounds(origin, candidate, 8.0))
+				continue;
+
+			float distanceSq = DistanceSq2D(origin, candidate.GetOrigin());
+			if (distanceSq >= bestDistanceSq)
+				continue;
+
+			bestRoot = candidate;
+			bestDistanceSq = distanceSq;
+		}
+
+		if (!bestRoot)
+			return null;
+
+		rejectReason = "resolved by nearby vehicle bounds root";
+		return bestRoot;
+	}
+
 	protected IEntity ResolveVehicleContainerRoot(array<IEntity> chain, IEntity matchedEntity)
 	{
 		if (!matchedEntity)
@@ -1886,10 +1934,11 @@ class HST_LootService
 				continue;
 
 			string candidatePrefab = ResolveVehicleIdentityName(candidate);
-			if (!candidatePrefab.IsEmpty() && HST_VehicleRootPolicy.IsRejectedWorldPrefab(candidatePrefab) && !HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(candidatePrefab))
-				continue;
+			if (candidate == matchedEntity)
+				return matchedEntity;
 
-			return candidate;
+			if (IsEligibleVehicleRoot(candidate, candidatePrefab))
+				return candidate;
 		}
 
 		return matchedEntity;
@@ -1918,6 +1967,12 @@ class HST_LootService
 		if (reason.Contains("direct"))
 		{
 			result.m_iDirectRootHits++;
+			return;
+		}
+
+		if (reason.Contains("bounds"))
+		{
+			result.m_iBoundsRootHits++;
 			return;
 		}
 
@@ -2343,7 +2398,7 @@ class HST_LootService
 		if (!vehicle)
 			return angles;
 
-		angles = vehicle.GetYawPitchRoll();
+		angles = HST_WorldPositionService.BuildUprightAnglesFromVector(vehicle.GetYawPitchRoll());
 		if (angles[0] != 0 || angles[1] != 0 || angles[2] != 0)
 			return angles;
 
@@ -2353,7 +2408,7 @@ class HST_LootService
 			seed = -seed;
 
 		angles[0] = seed - (seed / 360) * 360;
-		return angles;
+		return HST_WorldPositionService.BuildUprightAnglesFromVector(angles);
 	}
 
 	protected int ResolveGarageRedeployCost(string prefab)

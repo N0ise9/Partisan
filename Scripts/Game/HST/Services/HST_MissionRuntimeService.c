@@ -375,7 +375,16 @@ class HST_MissionRuntimeService
 				continue;
 			}
 
-			vector position = HST_WorldPositionService.ResolveGroundPosition(asset.m_vCurrentPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+			vector position;
+			if (asset.m_sKind == ASSET_KIND_VEHICLE)
+			{
+				if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(asset.m_vCurrentPosition, position, false))
+					position = HST_WorldPositionService.ResolveGroundPosition(asset.m_vCurrentPosition, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, false);
+			}
+			else
+			{
+				position = HST_WorldPositionService.ResolveSafeGroundPosition(asset.m_vCurrentPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false, 2.0);
+			}
 			vector angles = BuildRuntimePropAngles(state, mission);
 			GenericEntity entity = respawnSystem.DoSpawn(asset.m_sPrefab, position, angles);
 			if (!entity && asset.m_sPrefab != PROP_HOLD_MARKER)
@@ -1103,7 +1112,7 @@ class HST_MissionRuntimeService
 	{
 		HST_GeneratedRouteState route = ResolveMissionRoute(state, mission);
 		if (route)
-			return HST_WorldPositionService.ResolveGroundPosition(route.m_vStartPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+			return HST_WorldPositionService.ResolveSafeGroundPosition(route.m_vStartPosition, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, false, 5.0);
 
 		return OffsetMissionAssetPosition(ResolveRuntimePropPosition(state, mission), -2);
 	}
@@ -1112,7 +1121,7 @@ class HST_MissionRuntimeService
 	{
 		HST_GeneratedRouteState route = ResolveMissionRoute(state, mission);
 		if (route)
-			return HST_WorldPositionService.ResolveGroundPosition(route.m_vEndPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+			return HST_WorldPositionService.ResolveSafeGroundPosition(route.m_vEndPosition, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, false, 5.0);
 
 		return ResolveRuntimePropPosition(state, mission);
 	}
@@ -1140,7 +1149,7 @@ class HST_MissionRuntimeService
 		int row = safeIndex / 3;
 		offsetPosition[0] = offsetPosition[0] + (column - 1) * 4.0;
 		offsetPosition[2] = offsetPosition[2] + row * 5.0;
-		return HST_WorldPositionService.ResolveGroundPosition(offsetPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		return HST_WorldPositionService.ResolveSafeGroundPosition(offsetPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false, 2.0);
 	}
 
 	protected vector ResolveRuntimePropPosition(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -1148,17 +1157,17 @@ class HST_MissionRuntimeService
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
 			if (objective && objective.m_sMissionInstanceId == mission.m_sInstanceId)
-				return HST_WorldPositionService.ResolveGroundPosition(objective.m_vPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+				return HST_WorldPositionService.ResolveSafeGroundPosition(objective.m_vPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false, 2.0);
 		}
 
 		if (!mission.m_sTargetZoneId.IsEmpty())
 		{
 			HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
 			if (zone)
-				return HST_WorldPositionService.ResolveGroundPosition(zone.m_vPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+				return HST_WorldPositionService.ResolveSafeGroundPosition(zone.m_vPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false, 2.0);
 		}
 
-		return HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		return HST_WorldPositionService.ResolveSafeGroundPosition(state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false, 2.0);
 	}
 
 	protected string SelectRuntimePropPrefab(string primitive)
@@ -1205,7 +1214,7 @@ class HST_MissionRuntimeService
 			seed = -seed;
 
 		angles[0] = seed - (seed / 360) * 360;
-		return angles;
+		return HST_WorldPositionService.BuildUprightAnglesFromVector(angles);
 	}
 
 	string FindCompletedActiveMissionId(HST_CampaignState state, HST_MissionObjectiveService objectives)

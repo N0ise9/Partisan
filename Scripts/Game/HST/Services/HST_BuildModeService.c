@@ -29,7 +29,7 @@ class HST_BuildModeService
 
 		vector preferred = playerEntity.GetOrigin() + BuildPlayerForwardOffset(playerEntity, GARAGE_REDEPLOY_DISTANCE_METERS);
 		vector resolved;
-		if (!HST_WorldPositionService.TryResolveGroundPosition(preferred, HST_WorldPositionService.PROP_GROUND_OFFSET, resolved, true))
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(preferred, resolved, true))
 			return RejectPlacement(state, placement, "no dry ground for garage redeploy placement");
 
 		placement.m_bValid = true;
@@ -125,14 +125,14 @@ class HST_BuildModeService
 	protected vector ResolvePlacementAngles(IEntity playerEntity, string salt, vector position, vector storedAngles)
 	{
 		if (storedAngles[0] != 0 || storedAngles[1] != 0 || storedAngles[2] != 0)
-			return storedAngles;
+			return HST_WorldPositionService.BuildUprightAnglesFromVector(storedAngles);
 
 		vector angles;
 		if (playerEntity)
 		{
 			vector playerAngles = playerEntity.GetYawPitchRoll();
 			angles[0] = playerAngles[0];
-			return angles;
+			return HST_WorldPositionService.BuildUprightAnglesFromVector(angles);
 		}
 
 		int seed = salt.Length() * 37 + Math.Round(position[0]) * 13 + Math.Round(position[2]) * 19;
@@ -140,7 +140,7 @@ class HST_BuildModeService
 			seed = -seed;
 
 		angles[0] = seed - (seed / 360) * 360;
-		return angles;
+		return HST_WorldPositionService.BuildUprightAnglesFromVector(angles);
 	}
 
 	protected IEntity ResolveControlledPlayerEntity(int playerId)

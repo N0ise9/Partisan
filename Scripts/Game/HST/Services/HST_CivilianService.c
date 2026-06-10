@@ -315,6 +315,20 @@ class HST_CivilianService
 		if (!respawnSystem)
 			return false;
 
+		if (IsRuntimeVehicle(runtimeKind))
+		{
+			vector safeVehiclePosition;
+			if (HST_WorldPositionService.TryResolveVehicleSpawnPosition(position, safeVehiclePosition, true))
+				position = safeVehiclePosition;
+			else
+				position = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true);
+			angles = HST_WorldPositionService.BuildUprightAnglesFromVector(angles);
+		}
+		else
+		{
+			position = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 2.0);
+		}
+
 		GenericEntity entity = respawnSystem.DoSpawn(prefab, position, angles);
 		if (!entity)
 		{
@@ -523,7 +537,7 @@ class HST_CivilianService
 	{
 		vector angles;
 		angles[0] = ModInt(seed * 47 + 91, 360);
-		return angles;
+		return HST_WorldPositionService.BuildUprightAnglesFromVector(angles);
 	}
 
 	protected string SelectCivilianCharacterPrefab(HST_BalanceConfig balance, int index, int seed)
@@ -661,7 +675,7 @@ class HST_CivilianService
 
 		vehicle.m_bDetached = true;
 		vehicle.m_vPosition = entity.GetOrigin();
-		vehicle.m_vAngles = entity.GetYawPitchRoll();
+		vehicle.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(entity.GetYawPitchRoll());
 	}
 
 	protected void MarkRuntimeVehicleDeleted(HST_CampaignState state, IEntity entity)
@@ -672,7 +686,7 @@ class HST_CivilianService
 
 		vehicle.m_bDeleted = true;
 		vehicle.m_vPosition = entity.GetOrigin();
-		vehicle.m_vAngles = entity.GetYawPitchRoll();
+		vehicle.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(entity.GetYawPitchRoll());
 	}
 
 	protected void MarkRuntimeVehicleDeletedBySpawnRecord(HST_CampaignState state, vector spawnPosition, string runtimeKind)

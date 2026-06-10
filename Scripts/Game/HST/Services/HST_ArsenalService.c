@@ -230,7 +230,7 @@ class HST_ArsenalService
 			return "h-istasi garage | failed: respawn system not ready";
 
 		vector resolvedDeployPosition;
-		if (!HST_WorldPositionService.TryResolveGroundPosition(deployPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, resolvedDeployPosition, true))
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(deployPosition, resolvedDeployPosition, true))
 			return string.Format("h-istasi garage | failed: no dry redeploy ground near %1", deployPosition);
 
 		vector deployAngles = ResolveRedeployAngles(vehicle, resolvedDeployPosition);
@@ -241,6 +241,7 @@ class HST_ArsenalService
 			return string.Format("h-istasi garage | failed: could not spawn %1", GarageVehicleDisplayLabel(vehicle));
 		}
 
+		RegisterRedeployedRuntimeVehicle(state, entity, vehicle, resolvedDeployPosition, deployAngles);
 		string restoredRuntimeId;
 		string restoreFailure;
 		if (!RestoreStoredVehicleCargo(state, entity, vehicle, restoredRuntimeId, restoreFailure))
@@ -385,7 +386,7 @@ class HST_ArsenalService
 			return BuildFallbackRedeployAngles("", deployPosition);
 
 		if (!IsZeroAngles(vehicle.m_vAngles))
-			return vehicle.m_vAngles;
+			return HST_WorldPositionService.BuildUprightAnglesFromVector(vehicle.m_vAngles);
 
 		return BuildFallbackRedeployAngles(vehicle.m_sVehicleId + vehicle.m_sPrefab, deployPosition);
 	}
@@ -403,7 +404,35 @@ class HST_ArsenalService
 			seed = -seed;
 
 		angles[0] = seed - (seed / 360) * 360;
-		return angles;
+		return HST_WorldPositionService.BuildUprightAnglesFromVector(angles);
+	}
+
+	protected void RegisterRedeployedRuntimeVehicle(HST_CampaignState state, IEntity entity, HST_GarageVehicleState garageVehicle, vector position, vector angles)
+	{
+		if (!state || !entity || !garageVehicle)
+			return;
+
+		string runtimeId = ResolveSpawnedVehicleRuntimeId(entity);
+		if (runtimeId.IsEmpty())
+			return;
+
+		HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(runtimeId);
+		if (!runtimeVehicle)
+		{
+			runtimeVehicle = new HST_RuntimeVehicleState();
+			runtimeVehicle.m_sVehicleRuntimeId = runtimeId;
+			state.m_aRuntimeVehicles.Insert(runtimeVehicle);
+		}
+
+		runtimeVehicle.m_sPrefab = garageVehicle.m_sPrefab;
+		runtimeVehicle.m_sDisplayName = GarageVehicleDisplayLabel(garageVehicle);
+		runtimeVehicle.m_sFactionKey = garageVehicle.m_sSourceFactionKey;
+		runtimeVehicle.m_sZoneId = garageVehicle.m_sSourceZoneId;
+		runtimeVehicle.m_sRuntimeKind = "garage_redeploy";
+		runtimeVehicle.m_vPosition = position;
+		runtimeVehicle.m_vAngles = angles;
+		runtimeVehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+		runtimeVehicle.m_bDeleted = false;
 	}
 
 	protected string GarageVehicleDisplayLabel(HST_GarageVehicleState vehicle)

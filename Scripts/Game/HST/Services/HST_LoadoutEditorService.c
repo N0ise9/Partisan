@@ -187,7 +187,7 @@ class HST_LoadoutEditorService
 	string BuildEditorCandidatePayload(HST_CampaignState state, string identityId, int playerId, string nodeId)
 	{
 		if (!state || identityId.IsEmpty() || nodeId.IsEmpty())
-			return "HST_LOADOUT_CANDIDATES||unavailable";
+			return string.Format("HST_LOADOUT_CANDIDATES|%1|unavailable|0|%2", nodeId, SanitizePayloadField("Loadout editor session unavailable"));
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		if (playerId > 0)
@@ -197,9 +197,15 @@ class HST_LoadoutEditorService
 		RefreshDraftNodes(state, session);
 		HST_LoadoutNodeState node = FindDraftNodeById(session, nodeId);
 		if (!node)
-			return string.Format("HST_LOADOUT_CANDIDATES|%1|missing", nodeId);
+			return string.Format("HST_LOADOUT_CANDIDATES|%1|missing|0|%2", nodeId, SanitizePayloadField("Selected slot no longer exists"));
 
-		return string.Format("HST_LOADOUT_CANDIDATES|%1|ready", nodeId) + BuildCandidatePayloadsForNode(state, identityId, session, node);
+		int candidateCount;
+		string emptyReason;
+		string candidates = BuildCandidatePayloadsForNode(state, identityId, session, node, candidateCount, emptyReason);
+		if (emptyReason.IsEmpty())
+			emptyReason = "No compatible arsenal items";
+		Print(string.Format("h-istasi loadout editor | candidates node %1 | count %2 | arsenal %3 | reason %4", nodeId, candidateCount, state.m_aArsenalItems.Count(), emptyReason));
+		return string.Format("HST_LOADOUT_CANDIDATES|%1|ready|%2|%3", nodeId, candidateCount, SanitizePayloadField(emptyReason)) + candidates;
 	}
 
 	string BuildEditorReport(HST_CampaignState state, string identityId)
@@ -2355,25 +2361,36 @@ class HST_LoadoutEditorService
 		return payload;
 	}
 
-	protected string BuildCandidatePayloadsForNode(HST_CampaignState state, string identityId, HST_LoadoutEditorSessionState session, HST_LoadoutNodeState node)
+	protected string BuildCandidatePayloadsForNode(HST_CampaignState state, string identityId, HST_LoadoutEditorSessionState session, HST_LoadoutNodeState node, out int candidateCount, out string emptyReason)
 	{
+		candidateCount = 0;
+		emptyReason = "";
 		if (!state || !node)
+		{
+			emptyReason = "Selected slot unavailable";
 			return "";
+		}
 
 		string payload;
+		int availableItems;
+		int categoryMatches;
+		int compatibilityMatches;
 		foreach (HST_ArsenalItemState item : state.m_aArsenalItems)
 		{
 			if (!IsArsenalItemAvailable(item))
 				continue;
 
+			availableItems++;
 			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
 			if (!IsCandidateCategoryForNode(node, category, item.m_sPrefab))
 				continue;
 
+			categoryMatches++;
 			bool ammoMatch;
 			if (!IsLiveCandidateCompatible(state, session.m_iPlayerId, node, item.m_sPrefab, category, ammoMatch))
 				continue;
 
+			compatibilityMatches++;
 			string display = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
 			string shortDisplay = HST_DisplayNameService.ResolveShortItemDisplayName(display, item.m_sPrefab);
 			string infinite = "";
@@ -2382,6 +2399,19 @@ class HST_LoadoutEditorService
 
 			payload = payload + string.Format("\nCANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9", node.m_sNodeId, item.m_sPrefab, SanitizePayloadField(display), SanitizePayloadField(shortDisplay), item.m_iCount, infinite, category, true, SanitizePayloadField(BuildCandidateIconHint(category, item.m_sPrefab)));
 			payload = payload + string.Format("|%1", ammoMatch);
+			candidateCount++;
+		}
+
+		if (candidateCount <= 0)
+		{
+			if (availableItems <= 0)
+				emptyReason = "No recovered arsenal items";
+			else if (categoryMatches <= 0)
+				emptyReason = "No arsenal items match this slot";
+			else if (compatibilityMatches <= 0)
+				emptyReason = "No compatible items for this slot";
+			else
+				emptyReason = "No compatible arsenal items";
 		}
 
 		return payload;

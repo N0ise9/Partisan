@@ -69,7 +69,7 @@ class HST_HQService
 			return false;
 
 		vector resolvedPosition;
-		if (!HST_WorldPositionService.TryResolveGroundPosition(hqPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true))
+		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(hqPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true, 6.0))
 		{
 			Print(string.Format("h-istasi | requested HQ move rejected: no dry ground at %1", hqPosition), LogLevel.WARNING);
 			return false;
@@ -243,7 +243,7 @@ class HST_HQService
 		}
 
 		vector emergencyPosition = HST_DefaultCatalog.GetEmergencySpawnPosition();
-		if (HST_WorldPositionService.TryResolveGroundPosition(emergencyPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true))
+		if (HST_WorldPositionService.TryResolveSafeGroundPosition(emergencyPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true, 6.0))
 		{
 			resolvedHideoutId = "hideout_emergency";
 			Print(string.Format("h-istasi | no dry HQ hideout surface found for %1; using emergency dry HQ position %2", requestedHideoutId, resolvedPosition), LogLevel.WARNING);
@@ -264,7 +264,7 @@ class HST_HQService
 		if (!hideout)
 			return false;
 
-		if (!HST_WorldPositionService.TryResolveGroundPosition(hideout.m_vPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true))
+		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(hideout.m_vPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true, 6.0))
 		{
 			Print(string.Format("h-istasi | HQ hideout %1 rejected: no dry ground at %2", hideout.m_sHideoutId, hideout.m_vPosition), LogLevel.WARNING);
 			return false;
@@ -300,15 +300,16 @@ class HST_HQService
 
 	protected void EnsureRuntimeGroundPlacement(HST_CampaignState state)
 	{
+		// TryResolveGroundPosition remains the underlying dry-ground contract through TryResolveSafeGroundPosition.
 		vector resolvedHQ;
-		if (HST_WorldPositionService.TryResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true))
+		if (HST_WorldPositionService.TryResolveSafeGroundPosition(state.m_vHQPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true, 6.0))
 		{
 			state.m_vHQPosition = resolvedHQ;
 		}
 		else
 		{
 			vector fallbackHQ = HST_DefaultCatalog.GetHideoutPosition(HST_DefaultCatalog.GetDefaultHideoutId());
-			if (HST_WorldPositionService.TryResolveGroundPosition(fallbackHQ, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true))
+			if (HST_WorldPositionService.TryResolveSafeGroundPosition(fallbackHQ, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true, 6.0))
 			{
 				Print(string.Format("h-istasi | restored HQ position %1 was not dry; re-seating HQ at default hideout %2", state.m_vHQPosition, resolvedHQ), LogLevel.WARNING);
 				state.m_vHQPosition = resolvedHQ;
@@ -316,7 +317,7 @@ class HST_HQService
 			else
 			{
 				vector emergencyHQ = HST_DefaultCatalog.GetEmergencySpawnPosition();
-				if (HST_WorldPositionService.TryResolveGroundPosition(emergencyHQ, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true))
+				if (HST_WorldPositionService.TryResolveSafeGroundPosition(emergencyHQ, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true, 6.0))
 				{
 					Print(string.Format("h-istasi | restored HQ position %1 and default hideout were not dry; re-seating HQ at emergency position %2", state.m_vHQPosition, resolvedHQ), LogLevel.WARNING);
 					state.m_vHQPosition = resolvedHQ;
@@ -339,14 +340,14 @@ class HST_HQService
 	protected vector ResolveRuntimeObjectGroundPosition(vector source, vector fallback, float verticalOffset)
 	{
 		vector resolved;
-		if (HST_WorldPositionService.TryResolveGroundPosition(source, verticalOffset, resolved, true))
+		if (HST_WorldPositionService.TryResolveSafeGroundPosition(source, verticalOffset, resolved, true, 2.0))
 			return resolved;
 
-		if (HST_WorldPositionService.TryResolveGroundPosition(fallback, verticalOffset, resolved, true))
+		if (HST_WorldPositionService.TryResolveSafeGroundPosition(fallback, verticalOffset, resolved, true, 2.0))
 			return resolved;
 
 		vector emergencyPosition = HST_DefaultCatalog.GetEmergencySpawnPosition();
-		if (HST_WorldPositionService.TryResolveGroundPosition(emergencyPosition, verticalOffset, resolved, true))
+		if (HST_WorldPositionService.TryResolveSafeGroundPosition(emergencyPosition, verticalOffset, resolved, true, 2.0))
 			return resolved;
 
 		emergencyPosition[1] = emergencyPosition[1] + verticalOffset;
@@ -486,10 +487,10 @@ class HST_HQService
 	{
 		vector source = hqPosition + offset;
 		vector resolved;
-		if (HST_WorldPositionService.TryResolveGroundPosition(source, verticalOffset, resolved, true))
+		if (HST_WorldPositionService.TryResolveSafeGroundPosition(source, verticalOffset, resolved, true, 2.0))
 			return resolved;
 
-		if (HST_WorldPositionService.TryResolveGroundPosition(hqPosition, verticalOffset, resolved, true))
+		if (HST_WorldPositionService.TryResolveSafeGroundPosition(hqPosition, verticalOffset, resolved, true, 2.0))
 			return resolved;
 
 		source[1] = hqPosition[1] + verticalOffset;

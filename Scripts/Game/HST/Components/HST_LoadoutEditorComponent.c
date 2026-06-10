@@ -170,6 +170,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ref array<string> m_aCandidateIconHints = {};
 	protected ref array<int> m_aVisibleCandidateIndexes = {};
 	protected ref array<string> m_aLoadedCandidateNodeIds = {};
+	protected ref array<string> m_aCandidateEmptyNodeIds = {};
+	protected ref array<string> m_aCandidateEmptyReasons = {};
 	protected ref array<string> m_aRequestedCandidateNodeIds = {};
 	protected ref array<int> m_aRequestedCandidateFrames = {};
 	protected ref array<int> m_aRequestedCandidateAttempts = {};
@@ -1025,7 +1027,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (visibleIndex == 0)
 		{
-			string emptyText = "No compatible items in this category.";
+			string emptyText = ResolveCandidateEmptyText(m_sSelectedNodeId, "No compatible items in this category.");
 			if (FindStringIndex(m_aRequestedCandidateNodeIds, m_sSelectedNodeId) >= 0)
 				emptyText = "Loading compatible items...";
 			CreateTextWidget(workspace, root, emptyText, panelLeft + 24, firstTop + 8, 340, 24, 14, 0xFFB7C7D7, 0, false);
@@ -1133,7 +1135,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (visibleIndex == 0)
 		{
-			string emptyText = "No compatible recovered items.";
+			string emptyText = ResolveCandidateEmptyText(m_sSelectedNodeId, "No compatible recovered items.");
 			if (FindStringIndex(m_aRequestedCandidateNodeIds, m_sSelectedNodeId) >= 0)
 				emptyText = "Loading compatible items...";
 			CreateTextWidget(workspace, root, emptyText, 126, firstRowTop + 8, 260, 22, 13, 0xFFB7C7D7, 0, false);
@@ -1451,6 +1453,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		string candidateNodeId;
+		string candidateStatus;
+		string candidateEmptyReason;
 		array<string> lines = {};
 		payload.Split("\n", lines, false);
 		foreach (string line : lines)
@@ -1464,6 +1468,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			{
 				if (fields.Count() > 1)
 					candidateNodeId = fields[1];
+				if (fields.Count() > 2)
+					candidateStatus = fields[2];
+				if (fields.Count() > 4)
+					candidateEmptyReason = ResolvePayloadDisplayText(fields[4]);
 				continue;
 			}
 
@@ -1478,6 +1486,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		ClearCandidatePayloadForNode(candidateNodeId);
+		if (!candidateEmptyReason.IsEmpty())
+			SetCandidateEmptyReason(candidateNodeId, candidateEmptyReason);
+		else if (!candidateStatus.IsEmpty() && candidateStatus != "ready")
+			SetCandidateEmptyReason(candidateNodeId, candidateStatus);
 		foreach (string line : lines)
 		{
 			array<string> fields = {};
@@ -1555,6 +1567,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (loadedIndex >= 0)
 			m_aLoadedCandidateNodeIds.Remove(loadedIndex);
 
+		int emptyIndex = FindStringIndex(m_aCandidateEmptyNodeIds, nodeId);
+		if (emptyIndex >= 0)
+		{
+			m_aCandidateEmptyNodeIds.Remove(emptyIndex);
+			if (emptyIndex < m_aCandidateEmptyReasons.Count())
+				m_aCandidateEmptyReasons.Remove(emptyIndex);
+		}
+
 		int requestedIndex = FindStringIndex(m_aRequestedCandidateNodeIds, nodeId);
 		if (requestedIndex >= 0)
 		{
@@ -1599,6 +1619,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				if (FindStringIndex(m_aLoadedCandidateNodeIds, m_sSelectedNodeId) < 0)
 					m_aLoadedCandidateNodeIds.Insert(m_sSelectedNodeId);
 				m_sLastResult = "h-istasi loadout editor | compatible item request timed out";
+				SetCandidateEmptyReason(m_sSelectedNodeId, "Compatible item request timed out");
 				return;
 			}
 		}
@@ -1607,6 +1628,32 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_aRequestedCandidateFrames.Insert(m_iFrameSerial);
 		m_aRequestedCandidateAttempts.Insert(requestAttempts);
 		RequestServerAction("loadout_editor_candidates", m_sSelectedNodeId);
+	}
+
+	protected string ResolveCandidateEmptyText(string nodeId, string fallback)
+	{
+		int index = FindStringIndex(m_aCandidateEmptyNodeIds, nodeId);
+		if (index >= 0 && index < m_aCandidateEmptyReasons.Count() && !m_aCandidateEmptyReasons[index].IsEmpty())
+			return m_aCandidateEmptyReasons[index];
+
+		return fallback;
+	}
+
+	protected void SetCandidateEmptyReason(string nodeId, string reason)
+	{
+		if (nodeId.IsEmpty() || reason.IsEmpty())
+			return;
+
+		int index = FindStringIndex(m_aCandidateEmptyNodeIds, nodeId);
+		if (index >= 0)
+		{
+			if (index < m_aCandidateEmptyReasons.Count())
+				m_aCandidateEmptyReasons[index] = reason;
+			return;
+		}
+
+		m_aCandidateEmptyNodeIds.Insert(nodeId);
+		m_aCandidateEmptyReasons.Insert(reason);
 	}
 
 	protected int FindStringIndex(array<string> values, string value)
@@ -1671,6 +1718,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_aCandidateIconHints.Clear();
 		m_aVisibleCandidateIndexes.Clear();
 		m_aLoadedCandidateNodeIds.Clear();
+		m_aCandidateEmptyNodeIds.Clear();
+		m_aCandidateEmptyReasons.Clear();
 		m_aRequestedCandidateNodeIds.Clear();
 		m_aRequestedCandidateFrames.Clear();
 		m_aRequestedCandidateAttempts.Clear();
@@ -2816,6 +2865,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (ResolvePreviewSource(previewSource, previewMode, previewLabel) && TryCreateLivePreviewEntity(previewSource, previewMode, previewLabel))
 			return;
 
+		m_sPreviewStatus = "preview direct mannequin fallback";
 		RefreshFallbackPreviewMannequin();
 	}
 

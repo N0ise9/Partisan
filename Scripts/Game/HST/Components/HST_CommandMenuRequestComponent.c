@@ -71,6 +71,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		s_ServerBroadcaster.BroadcastMissionEvent_I(payload, summary);
 	}
 
+	static void BroadcastNotification(string payload, string summary = "")
+	{
+		if (!s_ServerBroadcaster)
+		{
+			Print("h-istasi notification | no server broadcaster ready", LogLevel.WARNING);
+			return;
+		}
+
+		s_ServerBroadcaster.BroadcastNotification_I(payload, summary);
+	}
+
 	static void BroadcastMissionIntel(string payload)
 	{
 		if (!s_ServerBroadcaster)
@@ -207,7 +218,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (missionClient)
 			missionClient.OnServerMissionEvent(payload, summary);
 		else
-			ShowMissionHint(summary, "h-istasi mission", 5.0);
+			Print("h-istasi mission event | " + summary);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RpcDo_ReceiveNotification(string payload, string summary)
+	{
+		HST_MissionClientComponent missionClient = HST_MissionClientComponent.GetLocalInstance();
+		if (missionClient)
+			missionClient.OnServerNotification(payload, summary);
+		else
+			Print("h-istasi notification | " + summary);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -243,6 +264,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void BroadcastMissionEvent_I(string payload, string summary)
 	{
 		Rpc(RpcDo_ReceiveMissionEvent, payload, summary);
+	}
+
+	protected void BroadcastNotification_I(string payload, string summary)
+	{
+		Rpc(RpcDo_ReceiveNotification, payload, summary);
 	}
 
 	protected void BroadcastMissionIntel_I(string payload)
@@ -331,13 +357,6 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		Rpc(RpcDo_ReceiveMissionIntelOwner, payload);
-	}
-
-	protected void ShowMissionHint(string text, string title, float durationSeconds)
-	{
-		SCR_HintManagerComponent hintManager = SCR_HintManagerComponent.GetInstance();
-		if (hintManager)
-			hintManager.ShowCustomHint(text, title, durationSeconds);
 	}
 
 	protected void RefreshLocalOwner(IEntity owner)

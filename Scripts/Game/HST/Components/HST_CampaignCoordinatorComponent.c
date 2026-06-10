@@ -161,6 +161,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
 		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_EnemyDirector);
 		bool civilianRuntimeChanged = m_Civilians.UpdatePhysicalTownPopulation(m_State, m_Preset, m_Balance);
+		if (supportChanged)
+			BroadcastSupportChangeNotifications();
+		if (enemyOrdersChanged)
+			BroadcastEnemyOrderChangeNotifications();
 		if (missionChanged || objectiveChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || civilianRuntimeChanged)
 			MarkMajorCampaignChange();
 	}
@@ -233,11 +237,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string BuildLoadoutEditorCandidatePayload(int playerId, string nodeId)
 	{
 		if (!Replication.IsServer() || !m_LoadoutEditor)
-			return "HST_LOADOUT_CANDIDATES||server coordinator not ready\nEND";
+			return string.Format("HST_LOADOUT_CANDIDATES|%1|unavailable|0|server coordinator not ready\nEND", nodeId);
 
 		string payload = m_LoadoutEditor.BuildEditorCandidatePayload(m_State, ResolveTrustedIdentityId(playerId), playerId, nodeId);
 		if (payload.IsEmpty())
-			return "HST_LOADOUT_CANDIDATES||candidate payload unavailable\nEND";
+			return string.Format("HST_LOADOUT_CANDIDATES|%1|unavailable|0|candidate payload unavailable\nEND", nodeId);
 
 		return payload + "\nEND";
 	}
@@ -312,7 +316,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return RequestMemberCloseLoadoutEditor(playerId);
 
 		if (commandId == "loadout_editor_candidates")
-			return "";
+			return "h-istasi loadout editor | candidate request acknowledged";
 
 		if (commandId == "loadout_save" || commandId == "save_loadout")
 			return RequestMemberSaveLoadoutDraft(playerId, argument);
@@ -1377,6 +1381,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string result = m_Loot.CaptureNearbyVehicleToGarage(m_State, m_Preset, m_Arsenal, playerId);
 		if (result.Contains("complete"))
 			MarkMajorCampaignChange();
+		BroadcastNotification("garage_capture_" + playerId + "_" + m_State.m_iElapsedSeconds, "garage", ResolveResultSeverity(result), "Garage", result, "", "", "0 0 0", 5.0);
 		return result;
 	}
 
@@ -1398,6 +1403,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!result)
 			return "h-istasi vehicle loot | no result";
 
+		BroadcastNotification("vehicle_loot_" + playerId + "_" + m_State.m_iElapsedSeconds, "vehicle", ResolveResultSeverity(result.BuildSummary()), "Vehicle Loot", result.BuildSummary(), "", "", "0 0 0", 5.0);
 		return result.BuildSummary();
 	}
 
@@ -1416,6 +1422,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!result.Contains("no stored cargo") && !result.Contains("no eligible vehicle") && !result.Contains("no living player"))
 			MarkMajorCampaignChange();
 
+		BroadcastNotification("vehicle_unload_" + playerId + "_" + m_State.m_iElapsedSeconds, "vehicle", ResolveResultSeverity(result), "Vehicle Cargo", result, "", "", "0 0 0", 5.0);
 		return result;
 	}
 
@@ -1821,6 +1828,74 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected void PublishMissionIntelToPlayers()
 	{
 		HST_CommandMenuRequestComponent.BroadcastMissionIntel(BuildMissionIntelPayload());
+	}
+
+	protected void BroadcastSupportChangeNotifications()
+	{
+		if (!m_State)
+			return;
+
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (!request)
+				continue;
+
+			if (request.m_iRequestedAtSecond > 0 && m_State.m_iElapsedSeconds - request.m_iRequestedAtSecond > 3)
+				continue;
+
+			string title = "Enemy Support";
+			string message = string.Format("%1 support %2 is moving from %3 toward %4.", request.m_sFactionKey, request.m_sRequestId, request.m_sSourceZoneId, request.m_sTargetZoneId);
+			BroadcastNotification("support_" + request.m_sRequestId + "_" + string.Format("%1", request.m_eStatus), "enemy", "warning", title, message, request.m_sTargetZoneId, "", request.m_vTargetPosition, 6.0);
+		}
+	}
+
+	protected void BroadcastEnemyOrderChangeNotifications()
+	{
+		if (!m_State)
+			return;
+
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (!order)
+				continue;
+
+			if (order.m_iCreatedAtSecond > 0 && m_State.m_iElapsedSeconds - order.m_iCreatedAtSecond > 3)
+				continue;
+
+			string title = "Enemy Operation";
+			string message = string.Format("%1 order %2 is targeting %3.", order.m_sFactionKey, order.m_sOrderId, order.m_sTargetZoneId);
+			BroadcastNotification("enemy_order_" + order.m_sOrderId + "_" + string.Format("%1", order.m_eStatus), "enemy", "warning", title, message, order.m_sTargetZoneId, "", ResolveZonePosition(order.m_sTargetZoneId), 6.0);
+		}
+	}
+
+	protected void BroadcastNotification(string eventId, string category, string severity, string title, string message, string zoneId, string missionId, vector position, float durationSeconds)
+	{
+		string payload = string.Format("HST_NOTIFICATION|%1|%2|%3|%4|%5|%6|%7|%8|%9", eventId, category, severity, PayloadText(title), PayloadText(message), zoneId, missionId, position, durationSeconds);
+		HST_CommandMenuRequestComponent.BroadcastNotification(payload, title + ": " + message);
+	}
+
+	protected string ResolveResultSeverity(string result)
+	{
+		if (result.Contains("failed") || result.Contains("denied") || result.Contains("not ready") || result.Contains("no living player"))
+			return "danger";
+		if (result.Contains("complete") || result.Contains("unloaded") || result.Contains("deposited") || result.Contains("captured"))
+			return "success";
+		if (result.Contains("no eligible") || result.Contains("no stored") || result.Contains("stand near"))
+			return "warning";
+
+		return "info";
+	}
+
+	protected vector ResolveZonePosition(string zoneId)
+	{
+		if (!m_State || zoneId.IsEmpty())
+			return "0 0 0";
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return "0 0 0";
+
+		return zone.m_vPosition;
 	}
 
 	protected vector ResolveMissionIntelPosition(HST_ActiveMissionState mission)
