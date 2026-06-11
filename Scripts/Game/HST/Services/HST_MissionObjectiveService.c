@@ -220,10 +220,7 @@ class HST_MissionObjectiveService
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
 		{
-			if (definition.m_sMissionId == "convoy_prisoners")
-				return 1;
-
-			return 2;
+			return 1;
 		}
 
 		if (definition.m_sMissionId == "dynamic_city_flip_battle")
@@ -321,9 +318,11 @@ class HST_MissionObjectiveService
 		if (!definition)
 			return 1;
 
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE || definition.m_sMissionId == "convoy_prisoners")
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return 1;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
 			return Math.Max(1, definition.m_iCaptiveCount);
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
 			return Math.Max(1, definition.m_iCargoCount);
 		if (definition.m_sMissionId == "destroy_or_steal_armor")
 			return Math.Max(1, definition.m_iVehicleCount);

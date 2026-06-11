@@ -1,6 +1,20 @@
-SCR_ChimeraCharacter HST_MissionProp_HVT : "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et" {
+SCR_ChimeraCharacter HST_MissionProp_HVT : "{26A9756790131354}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Rifleman.et" {
  components {
   HST_MissionAssetComponent "{6985327711303701}" {
+  }
+  HST_MissionHVTComponent "{6985327711303702}" {
+  }
+  ActionsManagerComponent "{6985327711303703}" {
+   additionalActions {
+    HST_MissionHVTConfirmAction "{6985327711303704}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303705}" {
+      Name "Confirm HVT neutralized"
+     }
+    }
+   }
   }
  }
 }

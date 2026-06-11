@@ -4,5 +4,25 @@ GenericEntity HST_MissionProp_BankMoney : "{2C303FA30DF3D73F}Prefabs/Props/Milit
   }
   HST_MissionAssetComponent "{6985327711303772}" {
   }
+  ActionsManagerComponent "{6985327711303773}" {
+   additionalActions {
+    HST_MissionCargoLoadAction "{6985327711303774}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303775}" {
+      Name "Load bank money"
+     }
+    }
+    HST_MissionCargoDeliverAction "{6985327711303776}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303777}" {
+      Name "Deliver bank money"
+     }
+    }
+   }
+  }
  }
 }

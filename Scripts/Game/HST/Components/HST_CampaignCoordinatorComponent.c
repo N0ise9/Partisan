@@ -1414,6 +1414,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result;
 	}
 
+	string RequestServerMissionAssetDestroyed(string assetId, vector position)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi mission | server required";
+
+		if (!m_MissionRuntime)
+			return "h-istasi mission | service not ready";
+
+		string result;
+		string eventType;
+		string missionInstanceId;
+		bool changed = m_MissionRuntime.MarkMissionAssetDestroyedByRuntimeEntity(m_State, assetId, position, result, eventType, missionInstanceId);
+		if (!changed)
+			return result;
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(missionInstanceId);
+		HST_MissionDefinition definition;
+		if (mission)
+			definition = m_Missions.FindDefinition(mission.m_sMissionId);
+
+		if (!eventType.IsEmpty())
+			BroadcastMissionEvent(eventType, mission, definition);
+
+		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
+		if (!completedRuntimeMissionId.IsEmpty())
+			CompleteMission(completedRuntimeMissionId);
+
+		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
+		if (!failedRuntimeMissionId.IsEmpty())
+			FailMission(failedRuntimeMissionId);
+
+		BroadcastPendingMissionOutcomeEvents();
+		MarkMajorCampaignChange();
+		return result;
+	}
+
 	string RequestMemberLootNearby(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
@@ -1608,6 +1644,56 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return StartMission("dynamic_minor_city_task", "");
 
 		return StartMission(SelectDefaultMissionForZone(zone), zoneId);
+	}
+
+	string RequestAdminStartMissionById(int playerId, string missionId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi admin | force mission | failed: admin required";
+
+		if (!m_Missions || missionId.IsEmpty())
+			return "h-istasi admin | force mission | failed: mission service not ready";
+
+		HST_MissionDefinition definition = m_Missions.FindDefinition(missionId);
+		if (!definition)
+			return "h-istasi admin | force mission | failed: mission definition not found";
+
+		bool repairedPhase = EnsureDebugMissionStartReady();
+		if (!repairedPhase)
+			return "h-istasi admin | force mission | failed: campaign is not active; select an HQ first";
+
+		string targetZoneId = SelectDebugMissionTargetZoneId(definition);
+		if (targetZoneId.IsEmpty() && !m_Missions.CanForceStart(m_State, m_Preset, missionId, ""))
+			return string.Format("h-istasi admin | force %1 | failed: no compatible target", definition.m_sDisplayName);
+
+		bool started = StartMission_S(missionId, targetZoneId, true);
+		if (!started)
+			return string.Format("h-istasi admin | force %1 | failed: duplicate active mission or invalid target", definition.m_sDisplayName);
+
+		HST_ZoneState targetZone = m_State.FindZone(targetZoneId);
+		string targetName = "open area";
+		if (targetZone)
+			targetName = ResolveZoneLabel(targetZone);
+
+		return string.Format("h-istasi admin | force %1 at %2 | complete", definition.m_sDisplayName, targetName);
+	}
+
+	protected bool EnsureDebugMissionStartReady()
+	{
+		if (!m_State)
+			return false;
+
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+			return true;
+
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP && m_State.m_bHQDeployed)
+		{
+			m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+			Print("h-istasi admin | repaired campaign phase for debug mission start: HQ was already deployed");
+			return true;
+		}
+
+		return false;
 	}
 
 	bool RequestAdminCompleteMission(int playerId, string instanceId)
@@ -1926,12 +2012,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
-	protected bool StartMission_S(string missionId, string targetZoneId)
+	protected bool StartMission_S(string missionId, string targetZoneId, bool forceDebug = false)
 	{
 		if (!m_State)
 			return false;
 
-		HST_ActiveMissionState mission = m_Missions.Start(m_State, m_Preset, missionId, targetZoneId);
+		HST_ActiveMissionState mission;
+		if (forceDebug)
+			mission = m_Missions.StartForced(m_State, m_Preset, missionId, targetZoneId);
+		else
+			mission = m_Missions.Start(m_State, m_Preset, missionId, targetZoneId);
+
 		if (!mission)
 			return false;
 
@@ -2324,9 +2415,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (mission.m_iRuntimeETASeconds > 0)
 			eta = string.Format(" / ETA %1s", mission.m_iRuntimeETASeconds);
 
-		string progress = string.Format("%1%2 / objectives %3/%4", phase, eta, complete, total);
-		progress = progress + string.Format(" / cargo %1/%2 / captives %3/%4", mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount);
-		progress = progress + string.Format(" / picked %1 delivered %2 destroyed %3", mission.m_iRuntimePickupCount, mission.m_iRuntimeDeliveryCount, mission.m_iRuntimeDestroyedCount);
+		if (phase == "convoy_static")
+			phase = "physical convoy staged";
+		else
+			phase.Replace("_", " ");
+
+		string progress = string.Format("%1%2 | objectives %3/%4", phase, eta, complete, total);
+		if (mission.m_iRequiredCargoCount > 0)
+			progress = progress + string.Format(" | cargo %1/%2", mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount);
+		if (mission.m_iRequiredCaptiveCount > 0)
+			progress = progress + string.Format(" | captives %1/%2", mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount);
+		if (mission.m_iRuntimeDestroyedCount > 0 || mission.m_iRuntimeDeliveryCount > 0)
+			progress = progress + string.Format(" | delivered %1 destroyed %2", mission.m_iRuntimeDeliveryCount, mission.m_iRuntimeDestroyedCount);
 		return progress;
 	}
 
@@ -2335,22 +2435,53 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!asset)
 			return "Mission asset";
 
-		string role = asset.m_sRole;
-		if (role.IsEmpty())
-			role = asset.m_sKind;
-		role.Replace("_", " ");
-
-		string state = "at objective";
+		string role = MissionAssetReadableRole(asset);
+		string state = "at pickup";
 		if (asset.m_bDestroyed)
 			state = "destroyed";
 		else if (asset.m_bDelivered)
 			state = "delivered";
-		else if (asset.m_bAttachedToCarrier)
-			state = "loaded";
+		else if (asset.m_bAttachedToCarrier && !asset.m_sCarriedByVehicleId.IsEmpty())
+			state = "loaded in carrier";
 		else if (asset.m_bPickedUp)
-			state = "in transport";
+			state = "being carried";
+		else if (asset.m_sKind == "character")
+			state = "alive";
+		else if (asset.m_sKind == "target")
+			state = "intact";
 
-		return "Asset: " + role + " (" + state + ")";
+		return role + ": " + state;
+	}
+
+	protected string MissionAssetReadableRole(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return "Mission asset";
+
+		if (asset.m_sRole == "hvt")
+			return "HVT";
+		if (asset.m_sRole == "destroy_target")
+			return "Target";
+		if (asset.m_sRole == "logistics_cargo")
+			return "Recovered cargo";
+		if (asset.m_sRole == "city_supplies")
+			return "City supplies";
+		if (asset.m_sRole == "captive")
+			return "Captive";
+		if (asset.m_sRole == "convoy_vehicle")
+			return "Convoy vehicle";
+		if (asset.m_sRole == "convoy_payload")
+			return "Convoy payload";
+		if (asset.m_sRole == "convoy_captive")
+			return "Convoy prisoner";
+
+		string role = asset.m_sRole;
+		if (role.IsEmpty())
+			role = asset.m_sKind;
+		if (role.IsEmpty())
+			return "Mission asset";
+		role.Replace("_", " ");
+		return role;
 	}
 
 	protected int MissionAssetProgressValue(HST_MissionAssetState asset)
@@ -2417,6 +2548,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Mission vehicle captured";
 		if (eventType == "sabotaged")
 			return "Mission target sabotaged";
+		if (eventType == "neutralized")
+			return "Mission target neutralized";
+		if (eventType == "freed")
+			return "Mission captive freed";
 		return "Mission updated";
 	}
 
@@ -2890,6 +3025,55 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return selectedZone;
+	}
+
+	protected string SelectDebugMissionTargetZoneId(HST_MissionDefinition definition)
+	{
+		if (!definition || !m_State || !m_Missions)
+			return "";
+
+		HST_ZoneState selectedZone;
+		int bestScore = -99999;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+
+			if (!m_Missions.CanForceStart(m_State, m_Preset, definition.m_sMissionId, zone.m_sZoneId))
+				continue;
+
+			int score = zone.m_iPriority + zone.m_iIncomeValue / 5;
+			if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			{
+				if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+					score += 100;
+				else
+					score -= 30;
+			}
+			else
+			{
+				if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+					score += 100;
+				else
+					score -= 30;
+			}
+
+			if (zone.m_bActive)
+				score += 10;
+
+			score -= CountActiveMissionsAtZone(zone.m_sZoneId) * 50;
+
+			if (score > bestScore)
+			{
+				selectedZone = zone;
+				bestScore = score;
+			}
+		}
+
+		if (selectedZone)
+			return selectedZone.m_sZoneId;
+
+		return "";
 	}
 
 	protected string ResolveMissionInstanceId(string instanceId)

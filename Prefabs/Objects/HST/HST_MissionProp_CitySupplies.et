@@ -1,8 +1,28 @@
-GenericEntity HST_MissionProp_CitySupplies : "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et" {
+GenericEntity HST_MissionProp_CitySupplies : "{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/ArsenalBoxes/FIA/ArsenalBox_FIA.et" {
  components {
   RplComponent "{6985327711303751}" {
   }
   HST_MissionAssetComponent "{6985327711303752}" {
+  }
+  ActionsManagerComponent "{6985327711303753}" {
+   additionalActions {
+    HST_MissionCargoLoadAction "{6985327711303754}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303755}" {
+      Name "Load city supplies"
+     }
+    }
+    HST_MissionCargoDeliverAction "{6985327711303756}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303757}" {
+      Name "Deliver city supplies"
+     }
+    }
+   }
   }
  }
 }

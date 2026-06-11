@@ -1,8 +1,22 @@
-GenericEntity HST_MissionProp_DestroyTarget : "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et" {
+GenericEntity HST_MissionProp_DestroyTarget : "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et" {
  components {
   RplComponent "{6985327711303711}" {
   }
   HST_MissionAssetComponent "{6985327711303712}" {
+  }
+  HST_MissionDestroyTargetComponent "{6985327711303713}" {
+  }
+  ActionsManagerComponent "{6985327711303714}" {
+   additionalActions {
+    HST_MissionDestroyTargetSabotageAction "{6985327711303715}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303716}" {
+      Name "Sabotage target"
+     }
+    }
+   }
   }
  }
 }

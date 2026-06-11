@@ -74,12 +74,61 @@ class HST_MissionService
 		return true;
 	}
 
+	bool CanForceStart(HST_CampaignState state, HST_CampaignPreset preset, string missionId, string targetZoneId = "")
+	{
+		if (!state || state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+			return false;
+
+		HST_MissionDefinition definition = FindDefinition(missionId);
+		if (!definition)
+			return false;
+
+		HST_ZoneState targetZone;
+		if (!targetZoneId.IsEmpty())
+		{
+			targetZone = state.FindZone(targetZoneId);
+			if (!targetZone || !MissionTargetTypeMatches(definition, targetZone))
+				return false;
+		}
+
+		foreach (string capabilityId : definition.m_aRequiredCapabilities)
+		{
+			if (!preset.HasCapability(capabilityId))
+				return false;
+		}
+
+		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
+		{
+			if (!activeMission || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+
+			if (activeMission.m_sMissionId == missionId && activeMission.m_sTargetZoneId == targetZoneId)
+				return false;
+		}
+
+		return true;
+	}
+
 	HST_ActiveMissionState Start(HST_CampaignState state, HST_CampaignPreset preset, string missionId, string targetZoneId = "")
 	{
 		if (!CanStart(state, preset, missionId, targetZoneId))
 			return null;
 
 		HST_MissionDefinition definition = FindDefinition(missionId);
+		return CreateActiveMission(state, definition, targetZoneId);
+	}
+
+	HST_ActiveMissionState StartForced(HST_CampaignState state, HST_CampaignPreset preset, string missionId, string targetZoneId = "")
+	{
+		if (!CanForceStart(state, preset, missionId, targetZoneId))
+			return null;
+
+		HST_MissionDefinition definition = FindDefinition(missionId);
+		return CreateActiveMission(state, definition, targetZoneId);
+	}
+
+	protected HST_ActiveMissionState CreateActiveMission(HST_CampaignState state, HST_MissionDefinition definition, string targetZoneId)
+	{
 		HST_ActiveMissionState activeMission = new HST_ActiveMissionState();
 		activeMission.m_sInstanceId = string.Format("mission_%1", m_iNextInstanceId++);
 		activeMission.m_sMissionId = definition.m_sMissionId;
@@ -92,9 +141,9 @@ class HST_MissionService
 		activeMission.m_sRuntimePhase = "created";
 		activeMission.m_iStartedAtSecond = state.m_iElapsedSeconds;
 		activeMission.m_iActiveUntilSecond = state.m_iElapsedSeconds + definition.m_iDurationSeconds;
-		activeMission.m_iRequiredCargoCount = Math.Max(1, definition.m_iCargoCount);
-		activeMission.m_iRequiredCaptiveCount = Math.Max(1, definition.m_iCaptiveCount);
-		activeMission.m_iRequiredVehicleCount = Math.Max(1, definition.m_iVehicleCount);
+		activeMission.m_iRequiredCargoCount = Math.Max(0, definition.m_iCargoCount);
+		activeMission.m_iRequiredCaptiveCount = Math.Max(0, definition.m_iCaptiveCount);
+		activeMission.m_iRequiredVehicleCount = Math.Max(0, definition.m_iVehicleCount);
 		activeMission.m_bRequested = true;
 		activeMission.m_bDynamic = definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS;
 		state.m_aActiveMissions.Insert(activeMission);
@@ -178,6 +227,14 @@ class HST_MissionService
 		if (friendlyTarget && !definition.m_bAllowFriendlyTarget)
 			return false;
 		if (!friendlyTarget && !definition.m_bAllowEnemyTarget)
+			return false;
+
+		return MissionTargetTypeMatches(definition, zone);
+	}
+
+	protected bool MissionTargetTypeMatches(HST_MissionDefinition definition, HST_ZoneState zone)
+	{
+		if (!definition || !zone)
 			return false;
 
 		if (definition.m_aTargetZoneTypes.Count() == 0 || definition.m_aTargetZoneTypes.Contains("any") || definition.m_aTargetZoneTypes.Contains("crashsite") || definition.m_aTargetZoneTypes.Contains("support"))

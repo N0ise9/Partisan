@@ -1,8 +1,28 @@
-GenericEntity HST_MissionProp_ConvoyPayload : "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et" {
+GenericEntity HST_MissionProp_ConvoyPayload : "{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/ArsenalBoxes/FIA/ArsenalBox_FIA.et" {
  components {
   RplComponent "{6985327711303761}" {
   }
   HST_MissionAssetComponent "{6985327711303762}" {
+  }
+  ActionsManagerComponent "{6985327711303763}" {
+   additionalActions {
+    HST_MissionConvoyRecoverPayloadAction "{6985327711303764}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303765}" {
+      Name "Recover convoy payload"
+     }
+    }
+    HST_MissionCargoDeliverAction "{6985327711303766}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303767}" {
+      Name "Deliver convoy payload"
+     }
+    }
+   }
   }
  }
 }

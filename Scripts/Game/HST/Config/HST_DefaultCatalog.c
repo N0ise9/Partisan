@@ -1113,9 +1113,11 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 	{
 		if (mission.m_sMissionId == "convoy_money")
 			return 2;
+		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY && mission.m_sMissionId != "convoy_prisoners" && mission.m_sMissionId != "convoy_reinforcements")
+			return 1;
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS || mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
 			return 2;
-		return 1;
+		return 0;
 	}
 
 	private static int CaptiveCountForMission(HST_MissionDefinition mission)
@@ -1124,7 +1126,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			return 4;
 		if (mission.m_sMissionId == "rescue_pows" || mission.m_sMissionId == "convoy_prisoners")
 			return 3;
-		return 1;
+		return 0;
 	}
 
 	private static int VehicleCountForMission(HST_MissionDefinition mission)
@@ -1132,8 +1134,8 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (mission.m_sMissionId == "convoy_armored" || mission.m_sMissionId == "destroy_or_steal_armor")
 			return 2;
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return 3;
-		return 1;
+			return 1;
+		return 0;
 	}
 
 	private static int RequiredWarLevelForMission(HST_MissionDefinition mission)

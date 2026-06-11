@@ -684,10 +684,10 @@ foreach ($requiredMissionPropPath in @(
 	}
 }
 foreach ($missionPropContract in @(
-	@("Prefabs/Objects/HST/HST_MissionProp_HVT.et", "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et"),
-	@("Prefabs/Objects/HST/HST_MissionProp_Captives.et", "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et"),
+	@("Prefabs/Objects/HST/HST_MissionProp_HVT.et", "{26A9756790131354}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Rifleman.et"),
+	@("Prefabs/Objects/HST/HST_MissionProp_Captives.et", "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et"),
 	@("Prefabs/Objects/HST/HST_MissionProp_Cargo.et", "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et"),
-	@("Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et", "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et"),
+	@("Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et", "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et"),
 	@("Prefabs/Objects/HST/HST_MissionProp_HoldMarker.et", "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et")
 )) {
 	$missionPropText = Get-Content -Raw $missionPropContract[0]

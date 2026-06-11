@@ -55,7 +55,21 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const int ACTION_PREV_WIDGET_ID = 9020;
 	static const int ACTION_NEXT_WIDGET_ID = 9021;
 	static const int CONTENT_PAGE_SIZE = 19;
-	static const int ACTION_PAGE_SIZE = 12;
+	static const int ACTION_PAGE_SIZE = 8;
+	static const int MAIN_PANEL_LEFT = 220;
+	static const int MAIN_PANEL_TOP = 172;
+	static const int MAIN_PANEL_WIDTH = 960;
+	static const int MAIN_PANEL_HEIGHT = 764;
+	static const int MAIN_CONTENT_LEFT = 244;
+	static const int MAIN_CONTENT_WIDTH = 912;
+	static const int RIGHT_PANEL_LEFT = 1260;
+	static const int RIGHT_PANEL_WIDTH = 488;
+	static const int RIGHT_TEXT_LEFT = 1280;
+	static const int RIGHT_TEXT_WIDTH = 448;
+	static const int ACTION_LIST_TOP = 492;
+	static const int ACTION_ROW_HEIGHT = 44;
+	static const int ACTION_ROW_STEP = 48;
+	static const int ACTION_PAGER_TOP = 890;
 
 	protected static HST_CommandMenuComponent s_LocalInstance;
 
@@ -1051,11 +1065,11 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected void RenderMainSections(WorkspaceWidget workspace, Widget root)
 	{
 		int sectionCount = m_aSectionIds.Count();
-		CreateRectWidget(workspace, root, 220, 172, 1024, 764, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, 220, 172, 1024, 4, 0xFFC4953B, 1.0, 0);
+		CreateRectWidget(workspace, root, MAIN_PANEL_LEFT, MAIN_PANEL_TOP, MAIN_PANEL_WIDTH, MAIN_PANEL_HEIGHT, 0xF31A232B, 0.98, 0);
+		CreateRectWidget(workspace, root, MAIN_PANEL_LEFT, MAIN_PANEL_TOP, MAIN_PANEL_WIDTH, 4, 0xFFC4953B, 1.0, 0);
 		if (sectionCount == 0)
 		{
-			CreateWrappedTextWidget(workspace, root, ShortenText(m_sStatusText, 1100), 244, 202, 976, 680, 16, 0xFFE0E0E0, 0, false);
+			CreateWrappedTextWidget(workspace, root, ShortenText(m_sStatusText, 900), MAIN_CONTENT_LEFT, 202, MAIN_CONTENT_WIDTH, 680, 16, 0xFFE0E0E0, 0, false);
 			return;
 		}
 
@@ -1068,12 +1082,12 @@ class HST_CommandMenuComponent : ScriptComponent
 				break;
 
 			int rowTop = 198 + rendered * 36;
-			RenderContentItem(workspace, root, i, 244, rowTop, 976, 32);
+			RenderContentItem(workspace, root, i, MAIN_CONTENT_LEFT, rowTop, MAIN_CONTENT_WIDTH, 32);
 			rendered++;
 		}
 
 		if (m_aContentItemKinds.Count() > pageSize)
-			RenderContentPager(workspace, root, 244, 900, 976);
+			RenderContentPager(workspace, root, MAIN_CONTENT_LEFT, 900, MAIN_CONTENT_WIDTH);
 	}
 
 	protected void RenderContentItem(WorkspaceWidget workspace, Widget root, int contentIndex, int left, int top, int width, int height)
@@ -1149,15 +1163,15 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void RenderActivityPanel(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 1272, 96, 472, 318, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, 1272, 96, 472, 4, 0xFF50704A, 1.0, 0);
-		CreateTextWidget(workspace, root, "Activity", 1292, 114, 180, 30, 20, 0xFFEFE2C4, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(BuildResultText(), 104), 1292, 154, 432, 66, 16, 0xFFD2E7B8, 0, false);
-		CreateTextWidget(workspace, root, "Campaign Notes", 1292, 232, 214, 28, 20, 0xFFEFE2C4, 0, true);
+		CreateRectWidget(workspace, root, RIGHT_PANEL_LEFT, 96, RIGHT_PANEL_WIDTH, 318, 0xF31A232B, 0.98, 0);
+		CreateRectWidget(workspace, root, RIGHT_PANEL_LEFT, 96, RIGHT_PANEL_WIDTH, 4, 0xFF50704A, 1.0, 0);
+		CreateTextWidget(workspace, root, "Activity", RIGHT_TEXT_LEFT, 114, 180, 30, 20, 0xFFEFE2C4, 0, true);
+		CreateWrappedTextWidget(workspace, root, ShortenText(BuildResultText(), 144), RIGHT_TEXT_LEFT, 154, RIGHT_TEXT_WIDTH, 76, 16, 0xFFD2E7B8, 0, false);
+		CreateTextWidget(workspace, root, "Campaign Notes", RIGHT_TEXT_LEFT, 244, 214, 28, 20, 0xFFEFE2C4, 0, true);
 
 		if (m_aFeedLines.Count() == 0)
 		{
-			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", 1292, 270, 432, 28, 16, 0xFFAFBAC1, 0, false);
+			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", RIGHT_TEXT_LEFT, 282, RIGHT_TEXT_WIDTH, 28, 16, 0xFFAFBAC1, 0, false);
 			return;
 		}
 
@@ -1166,15 +1180,15 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (i >= 4)
 				break;
 
-			CreateTextWidget(workspace, root, ShortenText(m_aFeedLines[i], 62), 1292, 270 + i * 30, 432, 28, 15, ToneTextColor(m_aFeedTones[i]), 0, false);
+			CreateWrappedTextWidget(workspace, root, ShortenText(m_aFeedLines[i], 86), RIGHT_TEXT_LEFT, 282 + i * 30, RIGHT_TEXT_WIDTH, 28, 15, ToneTextColor(m_aFeedTones[i]), 0, false);
 		}
 	}
 
 	protected void RenderActions(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 1272, 434, 472, 502, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, 1272, 434, 472, 4, 0xFF8C4E43, 1.0, 0);
-		CreateTextWidget(workspace, root, "Actions", 1292, 452, 170, 30, 20, 0xFFEFE2C4, 0, true);
+		CreateRectWidget(workspace, root, RIGHT_PANEL_LEFT, 434, RIGHT_PANEL_WIDTH, 502, 0xF31A232B, 0.98, 0);
+		CreateRectWidget(workspace, root, RIGHT_PANEL_LEFT, 434, RIGHT_PANEL_WIDTH, 4, 0xFF8C4E43, 1.0, 0);
+		CreateTextWidget(workspace, root, "Actions", RIGHT_TEXT_LEFT, 452, 170, 30, 20, 0xFFEFE2C4, 0, true);
 		EnsureActionPageContainsSelection();
 		int pageSize = GetActionPageSize();
 		int rendered = 0;
@@ -1192,23 +1206,28 @@ class HST_CommandMenuComponent : ScriptComponent
 				rowColor = 0xFF604A24;
 				rowOpacity = 0.88;
 			}
-			int rowTop = 492 + rendered * 31;
-			CreateRectWidget(workspace, root, 1284, rowTop, 444, 28, rowColor, rowOpacity, ACTION_WIDGET_ID_BASE + i);
+			int rowTop = ACTION_LIST_TOP + rendered * ACTION_ROW_STEP;
+			CreateRectWidget(workspace, root, RIGHT_TEXT_LEFT - 8, rowTop, RIGHT_TEXT_WIDTH + 16, ACTION_ROW_HEIGHT, rowColor, rowOpacity, ACTION_WIDGET_ID_BASE + i);
 
-			string suffix = "";
 			int color = 0xFFE5E5E5;
+			string rowText = prefix + ShortenText(m_aActionLabels[i], 56);
 			if (!m_aActionEnabled[i])
 			{
-				suffix = " / " + m_aActionDisabledReasons[i];
 				color = 0xFF8B9298;
+				string disabledReason = "";
+				if (i < m_aActionDisabledReasons.Count())
+					disabledReason = m_aActionDisabledReasons[i];
+
+				if (!disabledReason.IsEmpty())
+					rowText = rowText + "\n  " + ShortenText(disabledReason, 56);
 			}
 
-			CreateWrappedTextWidget(workspace, root, ShortenText(prefix + m_aActionLabels[i] + suffix, 110), 1292, rowTop + 4, 428, 24, 14, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
+			CreateWrappedTextWidget(workspace, root, rowText, RIGHT_TEXT_LEFT, rowTop + 5, RIGHT_TEXT_WIDTH, ACTION_ROW_HEIGHT - 8, 14, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
 			rendered++;
 		}
 
 		if (m_aActionLabels.Count() == 0)
-			CreateTextWidget(workspace, root, "No commands available.", 1292, 496, 428, 30, 16, 0xFF9AA5AD, 0, false);
+			CreateTextWidget(workspace, root, "No commands available.", RIGHT_TEXT_LEFT, 496, RIGHT_TEXT_WIDTH, 30, 16, 0xFF9AA5AD, 0, false);
 		else if (m_aActionLabels.Count() > pageSize)
 			RenderActionPager(workspace, root);
 	}
@@ -1219,7 +1238,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		int start = Math.Min(m_iActionPageStart + 1, m_aActionLabels.Count());
 		int end = Math.Min(m_iActionPageStart + pageSize, m_aActionLabels.Count());
 		string label = string.Format("%1-%2 / %3", start, end, m_aActionLabels.Count());
-		CreateTextWidget(workspace, root, label, 1472, 892, 110, 24, 13, 0xFFAFBAC1, 0, false);
+		CreateTextWidget(workspace, root, label, RIGHT_TEXT_LEFT + 170, ACTION_PAGER_TOP + 5, 110, 24, 13, 0xFFAFBAC1, 0, false);
 
 		bool canPrev = m_iActionPageStart > 0;
 		bool canNext = m_iActionPageStart + pageSize < m_aActionLabels.Count();
@@ -1238,10 +1257,10 @@ class HST_CommandMenuComponent : ScriptComponent
 			nextTextColor = 0xFF6D777F;
 		}
 
-		CreateRectWidget(workspace, root, 1292, 888, 86, 30, prevColor, 0.9, ACTION_PREV_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Prev", 1318, 893, 52, 20, 13, prevTextColor, ACTION_PREV_WIDGET_ID, true);
-		CreateRectWidget(workspace, root, 1638, 888, 86, 30, nextColor, 0.9, ACTION_NEXT_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Next", 1664, 893, 52, 20, 13, nextTextColor, ACTION_NEXT_WIDGET_ID, true);
+		CreateRectWidget(workspace, root, RIGHT_TEXT_LEFT, ACTION_PAGER_TOP, 86, 30, prevColor, 0.9, ACTION_PREV_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Prev", RIGHT_TEXT_LEFT + 26, ACTION_PAGER_TOP + 5, 52, 20, 13, prevTextColor, ACTION_PREV_WIDGET_ID, true);
+		CreateRectWidget(workspace, root, RIGHT_TEXT_LEFT + RIGHT_TEXT_WIDTH - 86, ACTION_PAGER_TOP, 86, 30, nextColor, 0.9, ACTION_NEXT_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Next", RIGHT_TEXT_LEFT + RIGHT_TEXT_WIDTH - 60, ACTION_PAGER_TOP + 5, 52, 20, 13, nextTextColor, ACTION_NEXT_WIDGET_ID, true);
 	}
 
 	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)

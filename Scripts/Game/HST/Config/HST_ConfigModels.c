@@ -152,9 +152,9 @@ class HST_MissionDefinition
 	string m_sFailurePenaltyText;
 	int m_iRewardSupport;
 	int m_iRewardCaptureProgress;
-	int m_iCargoCount = 1;
-	int m_iCaptiveCount = 1;
-	int m_iVehicleCount = 1;
+	int m_iCargoCount;
+	int m_iCaptiveCount;
+	int m_iVehicleCount;
 	int m_iRequiredWarLevel = 1;
 	bool m_bAllowEnemyTarget = true;
 	bool m_bAllowFriendlyTarget;
