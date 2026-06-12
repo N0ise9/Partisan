@@ -60,6 +60,9 @@ The repository contains the first engine-facing increment:
 - Phase 0/1 foundation and mission diagnostics are complete: the alpha command
   menu exposes foundation status, explicit checkpoint reporting, active mission
   inspection, selected mission inspection, and null-safe runtime mission fields
+- Phase 2 convoy runtime diagnostics are complete: the Missions tab exposes a
+  convoy runtime report with vehicle assets, active convoy groups, crew counts,
+  travel distance, fallback mode, and explicit movement/spawn failure reasons
 - Versioned campaign save-data container that is migrated, tracked through
   `PersistenceSystem`, and flushed before native `SaveGameManager`
   checkpoint requests when saving is possible
@@ -124,4 +127,5 @@ from the Arsenal/Loot tab.
 - `Missions/HST_Everon.conf`: full-island campaign shell
 - `Missions/HST_Dev.conf`: compact systems-development shell
 
-See `docs/ARCHITECTURE.md` and `docs/PARITY.md` for the implementation map.
+See `docs/ARCHITECTURE.md`, `docs/PARITY.md`, and `docs/PHASE_PLAN.md` for
+the implementation map and current phase roadmap.
