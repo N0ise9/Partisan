@@ -2594,7 +2594,7 @@ foreach ($requiredConvoyRuntimeReportEntry in @(
 	"SelectMissionConvoyVehiclePrefab",
 	"IsAircraftVehicleResource",
 	"convoy_vehicle_control_unavailable",
-	"Convoy vehicle crew embark/movement API unavailable"
+	"Convoy crew seating/movement is planned for later convoy phases"
 )) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredConvoyRuntimeReportEntry)) {
 		throw "Missing Phase 2 convoy runtime report contract entry: $requiredConvoyRuntimeReportEntry"
@@ -2625,6 +2625,110 @@ if ($commandUIServiceText -notmatch [regex]::Escape('AddMenuAction(actions, TAB_
 	throw "Missions tab must expose Convoy Runtime Report"
 }
 Write-Host "Phase 2 convoy runtime report contract OK"
+
+$campaignSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$generatedContentServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GeneratedContentService.c"
+$coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+foreach ($requiredPhase3RouteStateEntry in @(
+	"HST_RouteWaypointState",
+	"m_iRadiusMeters",
+	"m_sHint",
+	"m_iWaypointCount",
+	"m_bValidatedForVehicles",
+	"m_sValidationFailureReason",
+	"m_aWaypoints"
+)) {
+	if ($campaignStateText -notmatch [regex]::Escape($requiredPhase3RouteStateEntry)) {
+		throw "Missing Phase 3 route state entry: $requiredPhase3RouteStateEntry"
+	}
+}
+foreach ($requiredPhase3SaveEntry in @(
+	"CopyRouteWaypoint",
+	"BackfillGeneratedRouteWaypoints",
+	"CreateRouteWaypoint",
+	"CalculateRouteDistanceMeters",
+	"foreach (HST_GeneratedRouteState route : m_aGeneratedRoutes)"
+)) {
+	if ($campaignSaveDataText -notmatch [regex]::Escape($requiredPhase3SaveEntry)) {
+		throw "Missing Phase 3 route save/migration entry: $requiredPhase3SaveEntry"
+	}
+}
+foreach ($requiredPhase3GeneratedContentEntry in @(
+	"CreateRouteWaypoint",
+	"EnsureRouteWaypointMetadata",
+	"ValidateRouteForVehicles",
+	"BuildGeneratedRouteReport",
+	"vehicle-safe routes",
+	"min route waypoints",
+	"waypoint count",
+	"TryResolveLargeVehicleSpawnPosition",
+	"route has fewer than three waypoints"
+)) {
+	if ($generatedContentServiceText -notmatch [regex]::Escape($requiredPhase3GeneratedContentEntry)) {
+		throw "Missing Phase 3 generated route entry: $requiredPhase3GeneratedContentEntry"
+	}
+}
+foreach ($requiredPhase3MissionRuntimeEntry in @(
+	"BuildConvoyRouteWaypointReport",
+	"route waypoint",
+	"vehicle-safe",
+	"waypoint count",
+	"validation"
+)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredPhase3MissionRuntimeEntry)) {
+		throw "Missing Phase 3 mission route report entry: $requiredPhase3MissionRuntimeEntry"
+	}
+}
+foreach ($requiredPhase3PhysicalWarEntry in @(
+	"ResolveMissionConvoyRouteId",
+	"ResolveMissionConvoyRoute",
+	"activeGroup.m_sRouteId = ResolveMissionConvoyRouteId(state, mission)",
+	"BuildMissionConvoyRouteReport",
+	"active route waypoint",
+	"BuildGroundVehicleCandidateReport",
+	"BuildGroundVehicleCandidateFactionReport",
+	"BuildConvoyVehicleCandidates",
+	"AppendRuntimeFactionCatalogVehiclePrefabs",
+	"SCR_EntityCatalogManagerComponent.GetInstance()",
+	"GetAllFactionEntityCatalogs",
+	"SCR_EntityCatalogEntry",
+	"entry.GetPrefab()",
+	"BuildFactionCampaignCatalogSource",
+	"catalog source",
+	"{ADFDBDA163950168}Configs/Factions/US_Campaign.conf",
+	"{15B582F8FA0B0940}Configs/Factions/USSR_Campaign.conf",
+	"BuildUsableConvoyVehicleCandidates",
+	"IsGuidQualifiedVehicleResource",
+	"IsGroundVehicleResource",
+	"CountUnverifiedVehicleCandidates",
+	"convoy ground vehicle candidates",
+	"unverified path-only",
+	"rejected non-ground vehicle prefab",
+	"rejected unverified path-only vehicle prefab",
+	"IsValidVehiclePrefabResource(prefab, factionKey, false)",
+	"{B55C6990A6A9411B}Prefabs/Vehicles/Wheeled/M998/M998_covered.et",
+	"{F1FBD0972FA5FE09}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et",
+	"{81FDAD5EB644CC3D}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport_covered.et"
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase3PhysicalWarEntry)) {
+		throw "Missing Phase 3 convoy route/vehicle report entry: $requiredPhase3PhysicalWarEntry"
+	}
+}
+foreach ($forbiddenPhase3ConvoyVehicleEntry in @(
+	"Prefabs/Vehicles/Wheeled/M998/M998.et",
+	"Prefabs/Vehicles/Wheeled/M923A1/M923A1_covered.et"
+)) {
+	if ($physicalWarServiceText -match [regex]::Escape($forbiddenPhase3ConvoyVehicleEntry)) {
+		throw "Phase 3 convoy vehicle defaults must not retain invalid/path-only resource: $forbiddenPhase3ConvoyVehicleEntry"
+	}
+}
+if ($coordinatorText -notmatch [regex]::Escape("m_PhysicalWar.BuildGroundVehicleCandidateReport()")) {
+	throw "Generated content report must append convoy ground vehicle candidate report"
+}
+if ($commandUIServiceText -notmatch [regex]::Escape('AddMenuAction(actions, TAB_MAP, "Generated content report", "inspect_content"')) {
+	throw "Map tab must expose the generated content report action"
+}
+Write-Host "Phase 3 convoy route state contract OK"
 
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",

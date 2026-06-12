@@ -105,6 +105,10 @@ class HST_GeneratedContentService
 		int validSites;
 		int roadblocks;
 		int crashsites;
+		int vehicleSafeRoutes;
+		int invalidRoutes;
+		int minWaypointCount = 999999;
+		string routeDetails = "";
 		foreach (HST_GeneratedSiteState site : state.m_aGeneratedSites)
 		{
 			if (!site)
@@ -120,8 +124,29 @@ class HST_GeneratedContentService
 				crashsites++;
 		}
 
+		foreach (HST_GeneratedRouteState route : state.m_aGeneratedRoutes)
+		{
+			if (!route)
+				continue;
+
+			EnsureRouteWaypointMetadata(route);
+			ValidateRouteForVehicles(route);
+			if (route.m_bValidatedForVehicles)
+				vehicleSafeRoutes++;
+			else
+				invalidRoutes++;
+			if (route.m_iWaypointCount < minWaypointCount)
+				minWaypointCount = route.m_iWaypointCount;
+			routeDetails = routeDetails + BuildGeneratedRouteReport(route);
+		}
+
+		if (minWaypointCount == 999999)
+			minWaypointCount = 0;
+
 		string summary = string.Format("h-istasi generated content | sites %1/%2 valid | routes %3", validSites, state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count());
-		return summary + string.Format(" | roadblocks %1 | crashsites %2", roadblocks, crashsites);
+		summary = summary + string.Format(" | roadblocks %1 | crashsites %2", roadblocks, crashsites);
+		summary = summary + string.Format(" | vehicle-safe routes %1 | invalid routes %2 | min route waypoints %3", vehicleSafeRoutes, invalidRoutes, minWaypointCount);
+		return summary + routeDetails;
 	}
 
 	protected HST_GeneratedSiteState CreateSite(HST_CampaignState state, HST_ZoneState zone, string suffix, HST_EGeneratedSiteType siteType, vector position, int radiusMeters, int weight)
@@ -168,12 +193,144 @@ class HST_GeneratedContentService
 		route.m_sSourceLayerName = "VehiclePatrols.layer";
 		route.m_sSourceCategory = "patrol_route";
 		route.m_sSourceLayoutId = zone.m_sSourceLayoutId;
-		route.m_vStartPosition = HST_WorldPositionService.ResolveGroundPosition(OffsetPosition(zone.m_vPosition, -360, 0), HST_WorldPositionService.PROP_GROUND_OFFSET, false);
-		route.m_vMidPosition = site.m_vSecondaryPosition;
-		route.m_vEndPosition = site.m_vPosition;
-		route.m_iDistanceMeters = Math.Round(Math.Sqrt(DistanceSq2D(route.m_vStartPosition, route.m_vEndPosition)));
+		route.m_vStartPosition = ResolveRouteWaypointPosition(OffsetPosition(zone.m_vPosition, -360, 0), "start");
+		route.m_vMidPosition = ResolveRouteWaypointPosition(site.m_vSecondaryPosition, "midpoint");
+		route.m_vEndPosition = ResolveRouteWaypointPosition(site.m_vPosition, "destination");
 		route.m_bRoadRoute = true;
+		route.m_aWaypoints.Insert(CreateRouteWaypoint(route, 0, route.m_vStartPosition, "start"));
+		route.m_aWaypoints.Insert(CreateRouteWaypoint(route, 1, route.m_vMidPosition, "midpoint"));
+		route.m_aWaypoints.Insert(CreateRouteWaypoint(route, 2, route.m_vEndPosition, "destination"));
+		EnsureRouteWaypointMetadata(route);
+		ValidateRouteForVehicles(route);
 		return route;
+	}
+
+	protected HST_RouteWaypointState CreateRouteWaypoint(HST_GeneratedRouteState route, int index, vector position, string hint)
+	{
+		HST_RouteWaypointState waypoint = new HST_RouteWaypointState();
+		if (route)
+			waypoint.m_sRouteId = route.m_sRouteId;
+		waypoint.m_iIndex = index;
+		waypoint.m_vPosition = position;
+		waypoint.m_iRadiusMeters = 35;
+		waypoint.m_sHint = hint;
+		return waypoint;
+	}
+
+	protected vector ResolveRouteWaypointPosition(vector preferred, string hint)
+	{
+		vector resolved;
+		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(preferred, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved))
+			return resolved;
+
+		return HST_WorldPositionService.ResolveSafeGroundPosition(preferred, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 8.0);
+	}
+
+	protected void EnsureRouteWaypointMetadata(HST_GeneratedRouteState route)
+	{
+		if (!route)
+			return;
+
+		if (route.m_aWaypoints.Count() == 0)
+		{
+			route.m_aWaypoints.Insert(CreateRouteWaypoint(route, 0, route.m_vStartPosition, "start"));
+			route.m_aWaypoints.Insert(CreateRouteWaypoint(route, 1, route.m_vMidPosition, "midpoint"));
+			route.m_aWaypoints.Insert(CreateRouteWaypoint(route, 2, route.m_vEndPosition, "destination"));
+		}
+
+		for (int i = 0; i < route.m_aWaypoints.Count(); i++)
+		{
+			HST_RouteWaypointState waypoint = route.m_aWaypoints[i];
+			if (!waypoint)
+				continue;
+
+			waypoint.m_sRouteId = route.m_sRouteId;
+			waypoint.m_iIndex = i;
+			if (waypoint.m_iRadiusMeters <= 0)
+				waypoint.m_iRadiusMeters = 35;
+			if (waypoint.m_sHint.IsEmpty())
+				waypoint.m_sHint = "route";
+		}
+
+		route.m_iWaypointCount = route.m_aWaypoints.Count();
+		route.m_iDistanceMeters = CalculateRouteDistanceMeters(route);
+		if (route.m_aWaypoints.Count() >= 3)
+		{
+			route.m_vStartPosition = route.m_aWaypoints[0].m_vPosition;
+			route.m_vMidPosition = route.m_aWaypoints[1].m_vPosition;
+			route.m_vEndPosition = route.m_aWaypoints[route.m_aWaypoints.Count() - 1].m_vPosition;
+		}
+	}
+
+	protected void ValidateRouteForVehicles(HST_GeneratedRouteState route)
+	{
+		if (!route)
+			return;
+
+		route.m_bValidatedForVehicles = false;
+		route.m_sValidationFailureReason = "";
+		EnsureRouteWaypointMetadata(route);
+		if (route.m_iWaypointCount < 3)
+		{
+			route.m_sValidationFailureReason = "route has fewer than three waypoints";
+			return;
+		}
+
+		foreach (HST_RouteWaypointState waypoint : route.m_aWaypoints)
+		{
+			if (!waypoint)
+				continue;
+
+			vector resolved;
+			if (!HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(waypoint.m_vPosition, resolved, true) || HST_WorldPositionService.IsLikelyOpenWater(resolved))
+			{
+				route.m_sValidationFailureReason = "waypoint not dry vehicle-safe: " + waypoint.m_sHint;
+				return;
+			}
+		}
+
+		route.m_bValidatedForVehicles = true;
+	}
+
+	protected int CalculateRouteDistanceMeters(HST_GeneratedRouteState route)
+	{
+		if (!route || route.m_aWaypoints.Count() < 2)
+			return 0;
+
+		float distance;
+		for (int i = 1; i < route.m_aWaypoints.Count(); i++)
+		{
+			HST_RouteWaypointState previous = route.m_aWaypoints[i - 1];
+			HST_RouteWaypointState current = route.m_aWaypoints[i];
+			if (!previous || !current)
+				continue;
+
+			distance += Math.Sqrt(DistanceSq2D(previous.m_vPosition, current.m_vPosition));
+		}
+
+		return Math.Round(distance);
+	}
+
+	protected string BuildGeneratedRouteReport(HST_GeneratedRouteState route)
+	{
+		if (!route)
+			return "\n  generated route | missing";
+
+		string failure = route.m_sValidationFailureReason;
+		if (failure.IsEmpty())
+			failure = "none";
+		string report = string.Format("\n  generated route | route %1 | source zone %2 | target zone %3", route.m_sRouteId, route.m_sSourceZoneId, route.m_sTargetZoneId);
+		report = report + string.Format(" | road %1 | vehicle-safe %2 | waypoint count %3 | distance %4m", route.m_bRoadRoute, route.m_bValidatedForVehicles, route.m_iWaypointCount, route.m_iDistanceMeters);
+		report = report + " | validation " + failure;
+		foreach (HST_RouteWaypointState waypoint : route.m_aWaypoints)
+		{
+			if (!waypoint)
+				continue;
+
+			report = report + string.Format("\n    waypoint %1 | hint %2 | radius %3m | position %4", waypoint.m_iIndex, waypoint.m_sHint, waypoint.m_iRadiusMeters, waypoint.m_vPosition);
+		}
+
+		return report;
 	}
 
 	protected HST_EGeneratedSiteType SiteTypeForZone(HST_ZoneState zone)

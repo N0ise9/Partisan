@@ -35,7 +35,7 @@ class HST_MissionRuntimeService
 	static const string PROP_CONVOY_PAYLOAD = "{6985327711303760}Prefabs/Objects/HST/HST_MissionProp_ConvoyPayload.et";
 	static const string PROP_BANK_MONEY = "{6985327711303770}Prefabs/Objects/HST/HST_MissionProp_BankMoney.et";
 	static const string PROP_RESOURCE_CACHE = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
-	static const string PROP_CONVOY_VEHICLE = "Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
+	static const string PROP_CONVOY_VEHICLE = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string ASSET_KIND_CHARACTER = "character";
 	static const string ASSET_KIND_CARGO = "cargo";
 	static const string ASSET_KIND_CAPTIVE = "captive";
@@ -65,6 +65,8 @@ class HST_MissionRuntimeService
 	static const float MIN_CONVOY_START_DISTANCE_METERS = 1100.0;
 	static const float MAX_CONVOY_START_DISTANCE_METERS = 2400.0;
 	static const float MIN_CONVOY_ROUTE_DISTANCE_METERS = 1100.0;
+	static const float MIN_CONVOY_STAGING_ZONE_CLEARANCE_METERS = 260.0;
+	static const float MIN_CONVOY_STAGING_SITE_CLEARANCE_METERS = 140.0;
 	static const int CONVOY_ROUTE_SAMPLE_COUNT = 6;
 	static const int MIN_CONVOY_VEHICLES = 3;
 	static const int MAX_CONVOY_VEHICLES = 6;
@@ -1628,7 +1630,7 @@ class HST_MissionRuntimeService
 				return routeStart;
 
 			vector extendedRouteStart;
-			if (TryResolveExtendedRouteConvoyStartPosition(route, convoyEnd, extendedRouteStart))
+			if (TryResolveExtendedRouteConvoyStartPosition(state, mission, route, convoyEnd, extendedRouteStart))
 				return extendedRouteStart;
 
 			vector routeMid;
@@ -1636,13 +1638,13 @@ class HST_MissionRuntimeService
 				return routeMid;
 		}
 
-		vector zoneStart;
-		if (TryResolveZoneBasedConvoyStartPosition(state, mission, convoyEnd, zoneStart))
-			return zoneStart;
-
 		vector distantStart;
 		if (TryResolveDistantConvoyStartPosition(state, mission, convoyEnd, distantStart))
 			return distantStart;
+
+		vector zoneStart;
+		if (TryResolveZoneBasedConvoyStartPosition(state, mission, convoyEnd, zoneStart))
+			return zoneStart;
 
 		vector fallback = HST_WorldPositionService.ResolveSafeGroundPosition(OffsetMissionAssetPosition(ResolveRuntimePropPosition(state, mission), -2), HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 8.0);
 		if (IsUsableConvoyRouteSegment(fallback, convoyEnd, 120.0))
@@ -1666,21 +1668,32 @@ class HST_MissionRuntimeService
 			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT)
 				continue;
 
-			vector candidate;
-			if (!HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(zone.m_vPosition, candidate, true))
-				continue;
-			if (HST_WorldPositionService.IsLikelyOpenWater(candidate))
-				continue;
+			int seed = state.m_iCampaignSeed + zone.m_sZoneId.Length() * 23 + mission.m_sInstanceId.Length() * 31;
+			for (int ring = 0; ring < 3; ring++)
+			{
+				float stagingOffset = MIN_CONVOY_STAGING_ZONE_CLEARANCE_METERS + ring * 180.0;
+				for (int step = 0; step < 8; step++)
+				{
+					vector preferred = BuildConvoyStartCandidate(zone.m_vPosition, HST_DefaultCatalog.PositiveMod(seed + step, 8), stagingOffset);
+					vector candidate;
+					if (!HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(preferred, candidate, true))
+						continue;
+					if (HST_WorldPositionService.IsLikelyOpenWater(candidate))
+						continue;
+					if (!IsConvoyStagingPositionClear(state, mission, candidate))
+						continue;
 
-			float distanceSq = DistanceSq2D(candidate, targetPosition);
-			if (distanceSq < MIN_CONVOY_START_DISTANCE_METERS * MIN_CONVOY_START_DISTANCE_METERS || distanceSq > bestDistanceSq)
-				continue;
-			if (!IsUsableConvoyRouteSegment(candidate, targetPosition, MIN_CONVOY_START_DISTANCE_METERS))
-				continue;
+					float distanceSq = DistanceSq2D(candidate, targetPosition);
+					if (distanceSq < MIN_CONVOY_START_DISTANCE_METERS * MIN_CONVOY_START_DISTANCE_METERS || distanceSq > bestDistanceSq)
+						continue;
+					if (!IsUsableConvoyRouteSegment(candidate, targetPosition, MIN_CONVOY_START_DISTANCE_METERS))
+						continue;
 
-			bestDistanceSq = distanceSq;
-			resolved = candidate;
-			found = true;
+					bestDistanceSq = distanceSq;
+					resolved = candidate;
+					found = true;
+				}
+			}
 		}
 
 		return found;
@@ -1712,7 +1725,7 @@ class HST_MissionRuntimeService
 		return state.FindGeneratedRoute(site.m_sRouteId);
 	}
 
-	protected bool TryResolveExtendedRouteConvoyStartPosition(HST_GeneratedRouteState route, vector targetPosition, out vector resolved)
+	protected bool TryResolveExtendedRouteConvoyStartPosition(HST_CampaignState state, HST_ActiveMissionState mission, HST_GeneratedRouteState route, vector targetPosition, out vector resolved)
 	{
 		resolved = targetPosition;
 		if (!route || IsZeroVector(targetPosition))
@@ -1734,6 +1747,8 @@ class HST_MissionRuntimeService
 			candidate[0] = candidate[0] + dirX * distance;
 			candidate[2] = candidate[2] + dirZ * distance;
 			if (!HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(candidate, resolved, true))
+				continue;
+			if (!IsConvoyStagingPositionClear(state, mission, resolved))
 				continue;
 			if (IsUsableConvoyRouteSegment(resolved, targetPosition, MIN_CONVOY_ROUTE_DISTANCE_METERS))
 				return true;
@@ -1759,6 +1774,8 @@ class HST_MissionRuntimeService
 			if (!HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(candidate, resolved, true))
 				continue;
 			if (HST_WorldPositionService.IsLikelyOpenWater(resolved))
+				continue;
+			if (!IsConvoyStagingPositionClear(state, mission, resolved))
 				continue;
 			if (!IsUsableConvoyRouteSegment(resolved, targetPosition, MIN_CONVOY_START_DISTANCE_METERS))
 				continue;
@@ -1803,6 +1820,34 @@ class HST_MissionRuntimeService
 		}
 
 		return candidate;
+	}
+
+	protected bool IsConvoyStagingPositionClear(HST_CampaignState state, HST_ActiveMissionState mission, vector position)
+	{
+		if (!state)
+			return false;
+
+		float zoneClearanceSq = MIN_CONVOY_STAGING_ZONE_CLEARANCE_METERS * MIN_CONVOY_STAGING_ZONE_CLEARANCE_METERS;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || (mission && zone.m_sZoneId == mission.m_sTargetZoneId))
+				continue;
+
+			if (DistanceSq2D(position, zone.m_vPosition) < zoneClearanceSq)
+				return false;
+		}
+
+		float siteClearanceSq = MIN_CONVOY_STAGING_SITE_CLEARANCE_METERS * MIN_CONVOY_STAGING_SITE_CLEARANCE_METERS;
+		foreach (HST_GeneratedSiteState site : state.m_aGeneratedSites)
+		{
+			if (!site || (mission && site.m_sZoneId == mission.m_sTargetZoneId))
+				continue;
+
+			if (DistanceSq2D(position, site.m_vPosition) < siteClearanceSq)
+				return false;
+		}
+
+		return true;
 	}
 
 	protected bool IsUsableConvoyRouteSegment(vector startPosition, vector endPosition, float minDistanceMeters)
@@ -1868,10 +1913,19 @@ class HST_MissionRuntimeService
 		result[2] = result[2] - forwardZ * spacing * index + sideZ * sideOffset;
 
 		vector resolved;
-		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(result, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved))
+		for (int attempt = 0; attempt < 5; attempt++)
+		{
+			vector candidate = result;
+			candidate[0] = candidate[0] - forwardX * spacing * attempt + sideX * sideOffset * attempt;
+			candidate[2] = candidate[2] - forwardZ * spacing * attempt + sideZ * sideOffset * attempt;
+			if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(candidate, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved))
+				return resolved;
+		}
+
+		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(startPosition, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved))
 			return resolved;
 
-		return HST_WorldPositionService.ResolveSafeGroundPosition(result, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 8.0);
+		return startPosition;
 	}
 
 	protected vector OffsetMissionAssetPosition(vector position, int index)
@@ -2227,7 +2281,11 @@ class HST_MissionRuntimeService
 		vector mid;
 		vector end = mission.m_vTargetPosition;
 		int distanceMeters;
+		int waypointCount;
 		bool roadRoute;
+		bool vehicleSafe;
+		string validationReason = "none";
+		string waypointReport = "";
 		if (route)
 		{
 			routeId = route.m_sRouteId;
@@ -2235,17 +2293,40 @@ class HST_MissionRuntimeService
 			mid = route.m_vMidPosition;
 			end = route.m_vEndPosition;
 			distanceMeters = route.m_iDistanceMeters;
+			waypointCount = route.m_iWaypointCount;
 			roadRoute = route.m_bRoadRoute;
+			vehicleSafe = route.m_bValidatedForVehicles;
+			if (!route.m_sValidationFailureReason.IsEmpty())
+				validationReason = route.m_sValidationFailureReason;
+			waypointReport = BuildConvoyRouteWaypointReport(route);
 		}
 
 		vector convoySource = ResolveFirstConvoyAssetSourcePosition(state, mission);
 		vector convoyTarget = ResolveFirstConvoyAssetTargetPosition(state, mission);
 		int plannedDistanceMeters = Math.Round(Math.Sqrt(DistanceSq2D(convoySource, convoyTarget)));
-		string report = string.Format("\n  convoy route | route %1 | road %2 | distance %3m", routeId, roadRoute, distanceMeters);
+		string report = string.Format("\n  convoy route | route %1 | road %2 | vehicle-safe %3", routeId, roadRoute, vehicleSafe);
+		report = report + string.Format(" | waypoint count %1 | distance %2m | validation %3", waypointCount, distanceMeters, validationReason);
 		report = report + string.Format(" | start %1 | mid %2 | end %3", start, mid, end);
 		report = report + string.Format(" | planned source %1 | planned target %2 | planned distance %3m", convoySource, convoyTarget, plannedDistanceMeters);
 		report = report + string.Format(" | required vehicles %1 | captured %2 | eta %3s", mission.m_iRequiredVehicleCount, mission.m_iCapturedVehicleCount, mission.m_iRuntimeETASeconds);
 		report = report + string.Format(" | timers %1/%2/%3", mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB, mission.m_iRuntimeCounterC);
+		return report + waypointReport;
+	}
+
+	protected string BuildConvoyRouteWaypointReport(HST_GeneratedRouteState route)
+	{
+		if (!route)
+			return "";
+
+		string report = "";
+		foreach (HST_RouteWaypointState waypoint : route.m_aWaypoints)
+		{
+			if (!waypoint)
+				continue;
+
+			report = report + string.Format("\n    route waypoint %1 | hint %2 | radius %3m | position %4", waypoint.m_iIndex, waypoint.m_sHint, waypoint.m_iRadiusMeters, waypoint.m_vPosition);
+		}
+
 		return report;
 	}
 

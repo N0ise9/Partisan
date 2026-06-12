@@ -1,5 +1,18 @@
 # Campaign Save Migrations
 
+## Schema 16
+
+Phase 3 convoy route state.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `16`.
+- Generated routes now persist ordered `HST_RouteWaypointState` records.
+- Schema-15 routes are backfilled from their legacy start, midpoint, and end
+  positions during save-data migration/copy.
+- Existing route start/mid/end fields remain for compatibility and are kept in
+  sync with waypoint records.
+- Route vehicle-safety validation is diagnostic state and can be recomputed from
+  generated route waypoints.
+
 ## Schema 15
 
 Baseline for the Phase 0/1 stabilization work.

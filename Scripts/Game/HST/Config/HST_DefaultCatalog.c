@@ -30,8 +30,8 @@ class HST_DefaultCatalog
 
 		if (balance.m_aCivilianVehiclePrefabs.Count() == 0)
 		{
-			balance.m_aCivilianVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/S105/S105_base.et");
-			balance.m_aCivilianVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/S1203/S1203_base.et");
+			balance.m_aCivilianVehiclePrefabs.Insert("{DA79E34823120087}Prefabs/Vehicles/Wheeled/S105/S105_base.et");
+			balance.m_aCivilianVehiclePrefabs.Insert("{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et");
 		}
 	}
 
@@ -822,6 +822,8 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		faction.m_aInfantryPrefabs.Insert("{45A02CA25CBA9443}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Medic.et");
 		faction.m_aInfantryPrefabs.Insert("{58E47E5A4D599432}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_MG.et");
 		faction.m_aInfantryPrefabs.Insert("{C77DFB8546B3F2A2}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_LAT.et");
+		faction.m_aVehiclePrefabs.Insert("{16C1F16C9B053801}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et");
+		faction.m_aVehiclePrefabs.Insert("{0B4DEA8078B78A9B}Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et");
 		faction.m_aGroupPrefabs.Insert("{CE41AF625D05D0F0}Prefabs/Groups/INDFOR/Group_FIA_RifleSquad.et");
 		faction.m_aGroupPrefabs.Insert("{5BEA04939D148B1D}Prefabs/Groups/INDFOR/Group_FIA_FireTeam.et");
 		faction.m_aPatrolGroupPrefabs.Insert("{6E725D44CA973C24}Prefabs/Groups/INDFOR/Group_FIA_SentryTeam.et");
@@ -849,6 +851,10 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		faction.m_aInfantryPrefabs.Insert("{1623EA3AEFACA0E4}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_MG.et");
 		faction.m_aInfantryPrefabs.Insert("{27BF1FF235DD6036}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_LAT.et");
 		faction.m_aVehiclePrefabs.Insert("{4A71F755A4513227}Prefabs/Vehicles/Wheeled/M998/M1025.et");
+		faction.m_aVehiclePrefabs.Insert("{B55C6990A6A9411B}Prefabs/Vehicles/Wheeled/M998/M998_covered.et");
+		faction.m_aVehiclePrefabs.Insert("{5674FAEB9AB7BDD0}Prefabs/Vehicles/Wheeled/M998/M998_uncovered.et");
+		faction.m_aVehiclePrefabs.Insert("{F1FBD0972FA5FE09}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et");
+		faction.m_aVehiclePrefabs.Insert("{81FDAD5EB644CC3D}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport_covered.et");
 		faction.m_aGroupPrefabs.Insert("{DDF3799FA1387848}Prefabs/Groups/BLUFOR/Group_US_RifleSquad.et");
 		faction.m_aGroupPrefabs.Insert("{84E5BBAB25EA23E5}Prefabs/Groups/BLUFOR/Group_US_FireTeam.et");
 		faction.m_aPatrolGroupPrefabs.Insert("{3BF36BDEEB33AEC9}Prefabs/Groups/BLUFOR/Group_US_SentryTeam.et");
@@ -875,9 +881,10 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		faction.m_aInfantryPrefabs.Insert("{8E0FE664CE7D1CA9}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_GL.et");
 		faction.m_aInfantryPrefabs.Insert("{96C784C502AC37DA}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_MG.et");
 		faction.m_aInfantryPrefabs.Insert("{BF643BE4ADBDFDD3}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_LAT.et");
-		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et");
-		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/Ural4320/Ural4320.et");
-		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et");
+		faction.m_aVehiclePrefabs.Insert("{0B4DEA8078B78A9B}Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et");
+		faction.m_aVehiclePrefabs.Insert("{4597626AF36C0858}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320.et");
+		faction.m_aVehiclePrefabs.Insert("{16C1F16C9B053801}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et");
+		faction.m_aVehiclePrefabs.Insert("{C012BB3488BEA0C2}Prefabs/Vehicles/Wheeled/BTR70/BTR70.et");
 		faction.m_aGroupPrefabs.Insert("{E552DABF3636C2AD}Prefabs/Groups/OPFOR/Group_USSR_RifleSquad.et");
 		faction.m_aGroupPrefabs.Insert("{30ED11AA4F0D41E5}Prefabs/Groups/OPFOR/Group_USSR_FireGroup.et");
 		faction.m_aPatrolGroupPrefabs.Insert("{CB58D90EA14430AD}Prefabs/Groups/OPFOR/Group_USSR_SentryTeam.et");

@@ -562,7 +562,7 @@ class HST_CivilianService
 		if (balance && balance.m_aCivilianVehiclePrefabs.Count() > 0)
 			return balance.m_aCivilianVehiclePrefabs[ModInt(seed + index, balance.m_aCivilianVehiclePrefabs.Count())];
 
-		return "Prefabs/Vehicles/Wheeled/S105/S105_base.et";
+		return "{DA79E34823120087}Prefabs/Vehicles/Wheeled/S105/S105_base.et";
 	}
 
 	protected string SelectFactionVehiclePrefab(string factionKey, int index)

@@ -39,7 +39,7 @@ class HST_CommandUIService
 		if (markers)
 			markerSummary = "\n" + markers.BuildMarkerReport(state);
 
-		return header + hq + markerSummary + "\nMember actions: foundation_status, inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_active_missions, inspect_convoy_runtime, inspect_arsenal, loot_nearby, checkpoint";
+		return header + hq + markerSummary + "\nMember actions: foundation_status, inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_active_missions, inspect_convoy_runtime, inspect_content, inspect_arsenal, loot_nearby, checkpoint";
 	}
 
 	string BuildCommanderMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
@@ -1413,6 +1413,7 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_MAP)
 		{
 			AddMenuAction(actions, TAB_MAP, "Marker status", "inspect_markers", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MAP, "Generated content report", "inspect_content", "", canUseMember, "membership required");
 			return;
 		}
 
