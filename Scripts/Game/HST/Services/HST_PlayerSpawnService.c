@@ -12,8 +12,7 @@ class HST_PlayerSpawnLogic : SCR_AutoSpawnLogic
 			return;
 		}
 
-		if (!coordinator.SpawnOrRespawnPlayer(playerId))
-			Print(string.Format("h-istasi | custom FIA spawn failed for player %1", playerId), LogLevel.ERROR);
+		coordinator.SpawnOrRespawnPlayer(playerId);
 	}
 
 	override void OnPlayerSpawned_S(int playerId, IEntity entity)

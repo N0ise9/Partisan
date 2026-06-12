@@ -2730,6 +2730,45 @@ if ($commandUIServiceText -notmatch [regex]::Escape('AddMenuAction(actions, TAB_
 }
 Write-Host "Phase 3 convoy route state contract OK"
 
+foreach ($requiredPhase4ReadinessEntry in @(
+	"HST_ConvoyReadinessStatus",
+	"CONVOY_READINESS_GRACE_SECONDS",
+	"BuildMissionConvoyReadinessReport",
+	"BuildMissionConvoyReadinessStatus",
+	"TryAdvanceMissionConvoyFromStaging",
+	"SetMissionConvoyMoving",
+	"SetMissionConvoyStaticFallback",
+	"CanAttemptMissionConvoyWaypointAssignment",
+	"IsMissionConvoyReadinessGraceActive",
+	"convoy readiness | ready",
+	"pending grace",
+	"static fallback",
+	"convoy readiness vehicle assets",
+	"spawned vehicles",
+	"convoy readiness crew groups",
+	"alive crew count",
+	"driver availability",
+	"route assignment",
+	"waypoint assignment",
+	"No convoy vehicle assets exist; convoy cannot move.",
+	"No convoy vehicles spawned; convoy cannot move.",
+	"Convoy crew groups failed to spawn.",
+	"Convoy route assignment failed.",
+	"Convoy waypoint assignment failed.",
+	"Convoy driver availability is blocked until vehicle-control adapter and crew seating phases."
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase4ReadinessEntry)) {
+		throw "Missing Phase 4 convoy readiness gate entry: $requiredPhase4ReadinessEntry"
+	}
+}
+if ($physicalWarServiceText -notmatch [regex]::Escape("changed = TryAdvanceMissionConvoyFromStaging(state, mission) || changed;")) {
+	throw "Phase 4 convoy staging transition must route through readiness gate"
+}
+if ($campaignStateText -match [regex]::Escape("HST_ConvoyReadinessStatus")) {
+	throw "Phase 4 convoy readiness status must remain transient and out of persistent campaign state"
+}
+Write-Host "Phase 4 convoy readiness gate contract OK"
+
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",
 	"SpawnActiveZoneRuntime",

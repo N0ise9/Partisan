@@ -563,7 +563,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		BaseContainer customAction = binding.FindAction(COMMAND_MENU_CUSTOM_ACTION);
 		bool actionReady = customAction != null;
 		if (!actionReady)
-			actionReady = binding.CreateUserBinding(COMMAND_MENU_CUSTOM_ACTION, EInputDeviceType.KEYBOARD, "");
+			actionReady = binding.CreateUserBinding(COMMAND_MENU_CUSTOM_ACTION, EInputDeviceType.KEYBOARD, INPUT_CONFIG);
 
 		if (!actionReady)
 		{
@@ -577,7 +577,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_bCustomBindingAttempted = true;
 		Print("h-istasi menu | HST_CommandMenu input action ready");
 		array<string> bindings = {};
-		if (binding.GetBindings(COMMAND_MENU_CUSTOM_ACTION, bindings, EInputDeviceType.KEYBOARD, "", false))
+		if (binding.GetBindings(COMMAND_MENU_CUSTOM_ACTION, bindings, EInputDeviceType.KEYBOARD, INPUT_CONFIG, false))
 		{
 			foreach (string keyBinding : bindings)
 			{
@@ -589,7 +589,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			}
 		}
 
-		binding.AddBinding(COMMAND_MENU_CUSTOM_ACTION, "", COMMAND_MENU_KEYBOARD_BINDING, "down");
+		binding.AddBinding(COMMAND_MENU_CUSTOM_ACTION, INPUT_CONFIG, COMMAND_MENU_KEYBOARD_BINDING, "down");
 		m_bCustomBindingReady = true;
 		Print("h-istasi menu | bound I key to command menu");
 		return true;

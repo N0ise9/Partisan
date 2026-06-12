@@ -349,8 +349,8 @@ Acceptance pattern:
 | 1 | Mission runtime visibility and diagnostics | Complete |
 | 2 | Convoy runtime report | Complete |
 | 3 | Convoy route state | Complete |
-| 4 | Convoy readiness gating | Planned |
-| 5 | Convoy vehicle-control adapter | Planned |
+| 4 | Convoy readiness gating | Complete |
+| 5 | Convoy vehicle-control adapter | In progress |
 | 6 | Real convoy crew seating | Planned |
 | 7 | Convoy waypoint-chain movement | Planned |
 | 8 | Convoy progress, stuck detection, and destination arrival | Planned |
@@ -1181,7 +1181,9 @@ Acceptance criteria:
 
 ## Phase 4 - Convoy Readiness Gating
 
-Status: Planned
+Status: Complete
+
+Implementation/static validation and HST_Dev smoke testing complete.
 
 Goal: prevent convoys from entering `convoy_moving` unless they are actually
 ready to move.
@@ -1210,7 +1212,7 @@ Acceptance criteria:
 
 ## Phase 5 - Convoy Vehicle-Control Adapter
 
-Status: Planned
+Status: In progress
 
 Goal: isolate Reforger vehicle seating, driver, gunner, and route-control logic
 behind one adapter.
