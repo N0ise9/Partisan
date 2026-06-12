@@ -24,6 +24,9 @@ class HST_PhysicalWarService
 	static const string CONVOY_MOVE_EVENT_PENDING = "convoy_moving_pending";
 	static const string CONVOY_MOVE_EVENT_SENT = "convoy_moving_sent";
 	static const string CONVOY_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
+	static const string FIA_CAMPAIGN_FACTION_CONFIG = "Configs/Factions/FIA_Campaign.conf";
+	static const string US_CAMPAIGN_FACTION_CONFIG = "{ADFDBDA163950168}Configs/Factions/US_Campaign.conf";
+	static const string USSR_CAMPAIGN_FACTION_CONFIG = "{15B582F8FA0B0940}Configs/Factions/USSR_Campaign.conf";
 	static const float CONVOY_DESTINATION_RADIUS_METERS = 120.0;
 	static const int CONVOY_MARKER_REFRESH_SECONDS = 10;
 	static const int CONVOY_CREW_POPULATION_GRACE_SECONDS = 20;
@@ -112,6 +115,15 @@ class HST_PhysicalWarService
 			report = report + BuildConvoyRuntimeReport(state, mission);
 		}
 
+		return report;
+	}
+
+	string BuildGroundVehicleCandidateReport()
+	{
+		string report = "h-istasi convoy ground vehicle candidates";
+		report = report + BuildGroundVehicleCandidateFactionReport("FIA");
+		report = report + BuildGroundVehicleCandidateFactionReport("US");
+		report = report + BuildGroundVehicleCandidateFactionReport("USSR");
 		return report;
 	}
 
@@ -207,7 +219,7 @@ class HST_PhysicalWarService
 		activeGroup.m_sZoneId = targetZone.m_sZoneId;
 		activeGroup.m_sFactionKey = factionKey;
 		activeGroup.m_sPrefab = SelectConvoyCrewGroupPrefab(state, targetZone, factionKey, index);
-		activeGroup.m_sRouteId = mission.m_sSiteId;
+		activeGroup.m_sRouteId = ResolveMissionConvoyRouteId(state, mission);
 		activeGroup.m_vSourcePosition = asset.m_vSourcePosition;
 		activeGroup.m_vTargetPosition = asset.m_vTargetPosition;
 		activeGroup.m_vPosition = asset.m_vSourcePosition;
@@ -268,7 +280,7 @@ class HST_PhysicalWarService
 		m_aRuntimeVehicleEntities.Insert(vehicleEntity);
 		activeGroup.m_sRuntimeStatus = ResolveMissionConvoyRuntimeStatus(mission);
 		activeGroup.m_sSpawnFallbackMode = "convoy_crew_near_vehicle";
-		activeGroup.m_sSpawnFailureReason = "Convoy vehicle crew embark not yet available; crew spawned near vehicle.";
+		activeGroup.m_sSpawnFailureReason = "Convoy crew seating is planned for Phase 6; crew spawned near vehicle for static ambush.";
 		activeGroup.m_iLastSeenAliveCount = CountAliveRuntimeCrewAgents(activeGroup);
 		activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, activeGroup.m_iLastSeenAliveCount);
 		activeGroup.m_iSurvivorVehicleCount = 1;
@@ -435,9 +447,13 @@ class HST_PhysicalWarService
 		vector sourcePosition = ResolveMissionConvoySourcePosition(state, mission);
 		vector targetPosition = ResolveMissionConvoyTargetPosition(state, mission);
 		int travelDistanceMeters = Math.Round(Math.Sqrt(DistanceSq2D(sourcePosition, targetPosition)));
+		HST_GeneratedRouteState route = ResolveMissionConvoyRoute(state, mission);
+		string routeId = ResolveMissionConvoyRouteId(state, mission);
 		string report = string.Format("\nconvoy mission | instance %1 | mission %2 | status %3 | phase %4", ReportText(mission.m_sInstanceId), ReportText(mission.m_sMissionId), mission.m_eStatus, ReportText(mission.m_sRuntimePhase));
-		report = report + string.Format(" | ETA %1 | source position %2 | target position %3 | travel distance %4m | route/site ID %5", mission.m_iRuntimeETASeconds, sourcePosition, targetPosition, travelDistanceMeters, ReportRouteSite(state, mission.m_sSiteId));
+		report = report + string.Format(" | ETA %1 | source position %2 | target position %3 | travel distance %4m", mission.m_iRuntimeETASeconds, sourcePosition, targetPosition, travelDistanceMeters);
+		report = report + string.Format(" | route/site ID %1 | route ID %2", ReportRouteSite(state, mission.m_sSiteId), ReportRouteSite(state, routeId));
 		report = report + string.Format(" | vehicle asset count %1 | mission failure reason %2", vehicleAssetCount, ReportText(mission.m_sRuntimeFailureReason));
+		report = report + BuildMissionConvoyRouteReport(route);
 
 		int assetIndex;
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
@@ -484,8 +500,30 @@ class HST_PhysicalWarService
 		string report = string.Format("\n  convoy group | group %1 | faction %2 | prefab %3", ReportText(activeGroup.m_sGroupId), ReportText(activeGroup.m_sFactionKey), ReportText(activeGroup.m_sPrefab));
 		report = report + string.Format(" | spawned entity %1 | crew entity %2 | vehicle entity %3", ReportBool(activeGroup.m_bSpawnedEntity), ReportBool(crewEntity), ReportBool(vehicleEntity));
 		report = report + string.Format(" | runtime status %1 | crew count %2 | alive crew count %3", ReportText(activeGroup.m_sRuntimeStatus), activeGroup.m_iInfantryCount, aliveCrew);
-		report = report + string.Format(" | source position %1 | target position %2 | fallback mode %3", activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition, ReportText(activeGroup.m_sSpawnFallbackMode));
+		report = report + string.Format(" | route ID %1 | source position %2 | target position %3", ReportText(activeGroup.m_sRouteId), activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition);
+		report = report + " | fallback mode " + ReportText(activeGroup.m_sSpawnFallbackMode);
 		report = report + " | spawn failure reason " + ReportText(activeGroup.m_sSpawnFailureReason);
+		return report;
+	}
+
+	protected string BuildMissionConvoyRouteReport(HST_GeneratedRouteState route)
+	{
+		if (!route)
+			return "\n  convoy route | route none | road no | vehicle-safe no | waypoint count 0 | distance 0m | validation missing generated route";
+
+		string validation = route.m_sValidationFailureReason;
+		if (validation.IsEmpty())
+			validation = "none";
+		string report = string.Format("\n  convoy route | route %1 | road %2 | vehicle-safe %3", ReportText(route.m_sRouteId), ReportBool(route.m_bRoadRoute), ReportBool(route.m_bValidatedForVehicles));
+		report = report + string.Format(" | waypoint count %1 | distance %2m | validation %3", route.m_iWaypointCount, route.m_iDistanceMeters, validation);
+		foreach (HST_RouteWaypointState waypoint : route.m_aWaypoints)
+		{
+			if (!waypoint)
+				continue;
+
+			report = report + string.Format("\n    active route waypoint %1 | hint %2 | radius %3m | position %4", waypoint.m_iIndex, ReportText(waypoint.m_sHint), waypoint.m_iRadiusMeters, waypoint.m_vPosition);
+		}
+
 		return report;
 	}
 
@@ -530,6 +568,27 @@ class HST_PhysicalWarService
 		}
 
 		return mission.m_vTargetPosition;
+	}
+
+	protected string ResolveMissionConvoyRouteId(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		HST_GeneratedRouteState route = ResolveMissionConvoyRoute(state, mission);
+		if (route)
+			return route.m_sRouteId;
+
+		return "";
+	}
+
+	protected HST_GeneratedRouteState ResolveMissionConvoyRoute(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sSiteId.IsEmpty())
+			return null;
+
+		HST_GeneratedSiteState site = state.FindGeneratedSite(mission.m_sSiteId);
+		if (!site || site.m_sRouteId.IsEmpty())
+			return null;
+
+		return state.FindGeneratedRoute(site.m_sRouteId);
 	}
 
 	protected bool IsMissionConvoyGroupForMission(HST_ActiveGroupState activeGroup, HST_ActiveMissionState mission)
@@ -832,8 +891,8 @@ class HST_PhysicalWarService
 			{
 				if (activeGroup.m_sSpawnFallbackMode.IsEmpty() || activeGroup.m_sSpawnFallbackMode == "convoy_crew_near_vehicle")
 					activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
-				if (activeGroup.m_sSpawnFailureReason.IsEmpty() || activeGroup.m_sSpawnFailureReason == "Convoy vehicle crew embark not yet available; crew spawned near vehicle.")
-					activeGroup.m_sSpawnFailureReason = "Convoy vehicle crew embark/movement API unavailable; convoy remains a static ambush.";
+				if (activeGroup.m_sSpawnFailureReason.IsEmpty() || activeGroup.m_sSpawnFailureReason == "Convoy crew seating is planned for Phase 6; crew spawned near vehicle for static ambush.")
+					activeGroup.m_sSpawnFailureReason = "Convoy crew seating/movement is planned for later convoy phases; convoy remains a static ambush.";
 				if (mission.m_sRuntimeFailureReason.IsEmpty())
 					mission.m_sRuntimeFailureReason = activeGroup.m_sSpawnFailureReason;
 				Print(string.Format("h-istasi mission convoy | waypoint assignment unavailable for %1", activeGroup.m_sGroupId), LogLevel.WARNING);
@@ -857,7 +916,7 @@ class HST_PhysicalWarService
 		}
 
 		activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
-		activeGroup.m_sSpawnFailureReason = "Convoy vehicle crew embark/movement API unavailable; convoy remains a static ambush.";
+		activeGroup.m_sSpawnFailureReason = "Convoy crew seating/movement is planned for later convoy phases; convoy remains a static ambush.";
 		return false;
 	}
 
@@ -1913,19 +1972,134 @@ class HST_PhysicalWarService
 
 	protected string SelectMissionConvoyVehiclePrefab(HST_CampaignState state, HST_ZoneState zone, string factionKey, HST_ActiveMissionState mission, int index)
 	{
-		HST_FactionTemplate faction = HST_DefaultCatalog.CreateFactionTemplate(factionKey);
 		array<string> candidates = {};
-		if (faction)
-			AppendUniqueVehiclePrefabs(candidates, faction.m_aVehiclePrefabs);
-		AppendDefaultConvoyVehiclePrefabs(candidates, factionKey, mission);
-		if (candidates.Count() == 0)
+		BuildConvoyVehicleCandidates(candidates, factionKey, mission);
+		array<string> usableCandidates = {};
+		BuildUsableConvoyVehicleCandidates(usableCandidates, candidates, factionKey);
+		if (usableCandidates.Count() == 0)
 			return "";
 
 		int seed = BuildGroupSelectionSeed(state, zone, false) + index * 53 + ResolveMissionVehicleSelectionSalt(mission);
-		return SelectValidVehiclePrefabFromList(candidates, seed, factionKey, "mission convoy vehicle");
+		return usableCandidates[HST_DefaultCatalog.PositiveMod(seed, usableCandidates.Count())];
 	}
 
-	protected void AppendDefaultConvoyVehiclePrefabs(array<string> candidates, string factionKey, HST_ActiveMissionState mission)
+	protected void BuildConvoyVehicleCandidates(array<string> candidates, string factionKey, HST_ActiveMissionState mission)
+	{
+		if (!candidates)
+			return;
+
+		AppendRuntimeFactionCatalogVehiclePrefabs(candidates, factionKey);
+
+		HST_FactionTemplate faction = HST_DefaultCatalog.CreateFactionTemplate(factionKey);
+		if (faction)
+			AppendUniqueVehiclePrefabs(candidates, faction.m_aVehiclePrefabs);
+		AppendFallbackConvoyVehiclePrefabs(candidates, factionKey, mission);
+	}
+
+	protected string BuildGroundVehicleCandidateFactionReport(string factionKey)
+	{
+		array<string> candidates = {};
+		BuildConvoyVehicleCandidates(candidates, factionKey, null);
+
+		array<string> usableCandidates = {};
+		BuildUsableConvoyVehicleCandidates(usableCandidates, candidates, factionKey);
+		string usableList = "";
+		foreach (string prefab : usableCandidates)
+		{
+			if (usableList.IsEmpty())
+				usableList = prefab;
+			else
+				usableList = usableList + ", " + prefab;
+		}
+
+		if (usableList.IsEmpty())
+			usableList = "none";
+
+		int catalogCandidates = CountRuntimeFactionCatalogVehicleCandidates(factionKey);
+		string catalogSource = BuildFactionCampaignCatalogSource(factionKey);
+		if (catalogCandidates <= 0)
+			catalogSource = catalogSource + " unavailable; local GUID fallback active";
+		string report = string.Format("\n  faction %1 convoy ground vehicle candidates | usable %2/%3", factionKey, usableCandidates.Count(), candidates.Count());
+		report = report + string.Format(" | catalog source %1 | catalog candidates %2", catalogSource, catalogCandidates);
+		report = report + string.Format(" | unverified path-only %1", CountUnverifiedVehicleCandidates(candidates));
+		report = report + " | usable prefabs " + usableList;
+		return report;
+	}
+
+	protected void BuildUsableConvoyVehicleCandidates(array<string> usableCandidates, array<string> candidates, string factionKey)
+	{
+		if (!usableCandidates || !candidates)
+			return;
+
+		foreach (string prefab : candidates)
+		{
+			if (!IsValidVehiclePrefabResource(prefab, factionKey, false))
+				continue;
+			if (usableCandidates.Contains(prefab))
+				continue;
+
+			usableCandidates.Insert(prefab);
+		}
+	}
+
+	protected int AppendRuntimeFactionCatalogVehiclePrefabs(array<string> candidates, string factionKey)
+	{
+		if (!candidates || factionKey.IsEmpty())
+			return 0;
+
+		SCR_EntityCatalogManagerComponent catalogManager = SCR_EntityCatalogManagerComponent.GetInstance();
+		if (!catalogManager)
+			return 0;
+
+		array<SCR_EntityCatalog> catalogs = {};
+		FactionKey key = factionKey;
+		if (catalogManager.GetAllFactionEntityCatalogs(catalogs, key) <= 0)
+			return 0;
+
+		int before = candidates.Count();
+		foreach (SCR_EntityCatalog catalog : catalogs)
+		{
+			if (!catalog)
+				continue;
+
+			array<SCR_EntityCatalogEntry> entries = {};
+			catalog.GetEntityList(entries);
+			foreach (SCR_EntityCatalogEntry entry : entries)
+			{
+				if (!entry)
+					continue;
+
+				string prefab = entry.GetPrefab();
+				if (!IsGroundVehicleResource(prefab))
+					continue;
+
+				AppendUniqueVehiclePrefab(candidates, prefab);
+			}
+		}
+
+		return candidates.Count() - before;
+	}
+
+	protected int CountRuntimeFactionCatalogVehicleCandidates(string factionKey)
+	{
+		array<string> candidates = {};
+		return AppendRuntimeFactionCatalogVehiclePrefabs(candidates, factionKey);
+	}
+
+	protected string BuildFactionCampaignCatalogSource(string factionKey)
+	{
+		string source = "runtime SCR_EntityCatalog";
+		if (factionKey == "US")
+			source = source + " via " + US_CAMPAIGN_FACTION_CONFIG;
+		else if (factionKey == "USSR")
+			source = source + " via " + USSR_CAMPAIGN_FACTION_CONFIG;
+		else if (factionKey == "FIA")
+			source = source + " via " + FIA_CAMPAIGN_FACTION_CONFIG;
+
+		return source;
+	}
+
+	protected void AppendFallbackConvoyVehiclePrefabs(array<string> candidates, string factionKey, HST_ActiveMissionState mission)
 	{
 		if (!candidates)
 			return;
@@ -1933,26 +2107,27 @@ class HST_PhysicalWarService
 		if (factionKey == "US")
 		{
 			AppendUniqueVehiclePrefab(candidates, "{4A71F755A4513227}Prefabs/Vehicles/Wheeled/M998/M1025.et");
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/M998/M998.et");
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/M998/M998_covered.et");
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et");
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/M923A1/M923A1_covered.et");
+			AppendUniqueVehiclePrefab(candidates, "{B55C6990A6A9411B}Prefabs/Vehicles/Wheeled/M998/M998_covered.et");
+			AppendUniqueVehiclePrefab(candidates, "{5674FAEB9AB7BDD0}Prefabs/Vehicles/Wheeled/M998/M998_uncovered.et");
+			AppendUniqueVehiclePrefab(candidates, "{F1FBD0972FA5FE09}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et");
+			AppendUniqueVehiclePrefab(candidates, "{81FDAD5EB644CC3D}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport_covered.et");
 			return;
 		}
 
 		if (factionKey == "USSR")
 		{
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et");
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/Ural4320/Ural4320.et");
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et");
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/BTR70/BTR70.et");
+			AppendUniqueVehiclePrefab(candidates, "{0B4DEA8078B78A9B}Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et");
+			AppendUniqueVehiclePrefab(candidates, "{4597626AF36C0858}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320.et");
+			AppendUniqueVehiclePrefab(candidates, "{16C1F16C9B053801}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et");
+			AppendUniqueVehiclePrefab(candidates, "{C012BB3488BEA0C2}Prefabs/Vehicles/Wheeled/BTR70/BTR70.et");
 			return;
 		}
 
 		if (factionKey == "FIA")
 		{
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et");
-			AppendUniqueVehiclePrefab(candidates, "Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et");
+			AppendUniqueVehiclePrefab(candidates, "{16C1F16C9B053801}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et");
+			AppendUniqueVehiclePrefab(candidates, "{B47110AA1A806556}Prefabs/Vehicles/Wheeled/BTR70/BTR70_FIA.et");
+			AppendUniqueVehiclePrefab(candidates, "{0B4DEA8078B78A9B}Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et");
 		}
 	}
 
@@ -2020,8 +2195,25 @@ class HST_PhysicalWarService
 			return;
 		if (IsAircraftVehicleResource(prefab))
 			return;
+		if (!IsGroundVehicleResource(prefab))
+			return;
 
 		candidates.Insert(prefab);
+	}
+
+	protected int CountUnverifiedVehicleCandidates(array<string> candidates)
+	{
+		if (!candidates)
+			return 0;
+
+		int count;
+		foreach (string prefab : candidates)
+		{
+			if (!IsGuidQualifiedVehicleResource(prefab))
+				count++;
+		}
+
+		return count;
 	}
 
 	protected int BuildGroupSelectionSeed(HST_CampaignState state, HST_ZoneState zone, bool qrf)
@@ -2256,10 +2448,24 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+		if (!IsGroundVehicleResource(prefab))
+		{
+			if (logRejection)
+				Print(string.Format("h-istasi | rejected non-ground vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			return false;
+		}
+
 		if (!HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
 		{
 			if (logRejection)
 				Print(string.Format("h-istasi | rejected invalid vehicle root prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			return false;
+		}
+
+		if (!IsGuidQualifiedVehicleResource(prefab))
+		{
+			if (logRejection)
+				Print(string.Format("h-istasi | rejected unverified path-only vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
@@ -2272,6 +2478,16 @@ class HST_PhysicalWarService
 		}
 
 		return true;
+	}
+
+	protected bool IsGuidQualifiedVehicleResource(string prefab)
+	{
+		return !prefab.IsEmpty() && prefab.Contains("{") && prefab.Contains("}") && prefab.Contains("Prefabs/Vehicles/");
+	}
+
+	protected bool IsGroundVehicleResource(string prefab)
+	{
+		return prefab.Contains("Prefabs/Vehicles/Wheeled/") || prefab.Contains("Prefabs/Vehicles/Tracked/");
 	}
 
 	protected bool IsAircraftVehicleResource(string prefab)

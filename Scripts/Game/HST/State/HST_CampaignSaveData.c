@@ -717,6 +717,9 @@ class HST_CampaignSaveData
 	protected HST_GeneratedRouteState CopyGeneratedRoute(HST_GeneratedRouteState source)
 	{
 		HST_GeneratedRouteState target = new HST_GeneratedRouteState();
+		if (!source)
+			return target;
+
 		target.m_sRouteId = source.m_sRouteId;
 		target.m_sSourceZoneId = source.m_sSourceZoneId;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
@@ -727,8 +730,102 @@ class HST_CampaignSaveData
 		target.m_vMidPosition = source.m_vMidPosition;
 		target.m_vEndPosition = source.m_vEndPosition;
 		target.m_iDistanceMeters = source.m_iDistanceMeters;
+		target.m_iWaypointCount = source.m_iWaypointCount;
 		target.m_bRoadRoute = source.m_bRoadRoute;
+		target.m_bValidatedForVehicles = source.m_bValidatedForVehicles;
+		target.m_sValidationFailureReason = source.m_sValidationFailureReason;
+		foreach (HST_RouteWaypointState waypoint : source.m_aWaypoints)
+			target.m_aWaypoints.Insert(CopyRouteWaypoint(waypoint));
+		BackfillGeneratedRouteWaypoints(target);
 		return target;
+	}
+
+	protected HST_RouteWaypointState CopyRouteWaypoint(HST_RouteWaypointState source)
+	{
+		HST_RouteWaypointState target = new HST_RouteWaypointState();
+		if (!source)
+			return target;
+
+		target.m_sRouteId = source.m_sRouteId;
+		target.m_iIndex = source.m_iIndex;
+		target.m_vPosition = source.m_vPosition;
+		target.m_iRadiusMeters = source.m_iRadiusMeters;
+		target.m_sHint = source.m_sHint;
+		return target;
+	}
+
+	protected void BackfillGeneratedRouteWaypoints(HST_GeneratedRouteState route)
+	{
+		if (!route)
+			return;
+
+		if (route.m_aWaypoints.Count() == 0)
+		{
+			route.m_aWaypoints.Insert(CreateRouteWaypoint(route.m_sRouteId, 0, route.m_vStartPosition, "start"));
+			route.m_aWaypoints.Insert(CreateRouteWaypoint(route.m_sRouteId, 1, route.m_vMidPosition, "midpoint"));
+			route.m_aWaypoints.Insert(CreateRouteWaypoint(route.m_sRouteId, 2, route.m_vEndPosition, "destination"));
+		}
+
+		for (int i = 0; i < route.m_aWaypoints.Count(); i++)
+		{
+			HST_RouteWaypointState waypoint = route.m_aWaypoints[i];
+			if (!waypoint)
+				continue;
+
+			waypoint.m_sRouteId = route.m_sRouteId;
+			waypoint.m_iIndex = i;
+			if (waypoint.m_iRadiusMeters <= 0)
+				waypoint.m_iRadiusMeters = 35;
+			if (waypoint.m_sHint.IsEmpty())
+				waypoint.m_sHint = "route";
+		}
+
+		route.m_iWaypointCount = route.m_aWaypoints.Count();
+		if (route.m_iDistanceMeters <= 0)
+			route.m_iDistanceMeters = CalculateRouteDistanceMeters(route);
+		if (route.m_aWaypoints.Count() >= 3)
+		{
+			route.m_vStartPosition = route.m_aWaypoints[0].m_vPosition;
+			route.m_vMidPosition = route.m_aWaypoints[1].m_vPosition;
+			route.m_vEndPosition = route.m_aWaypoints[route.m_aWaypoints.Count() - 1].m_vPosition;
+		}
+	}
+
+	protected HST_RouteWaypointState CreateRouteWaypoint(string routeId, int index, vector position, string hint)
+	{
+		HST_RouteWaypointState waypoint = new HST_RouteWaypointState();
+		waypoint.m_sRouteId = routeId;
+		waypoint.m_iIndex = index;
+		waypoint.m_vPosition = position;
+		waypoint.m_iRadiusMeters = 35;
+		waypoint.m_sHint = hint;
+		return waypoint;
+	}
+
+	protected int CalculateRouteDistanceMeters(HST_GeneratedRouteState route)
+	{
+		if (!route || route.m_aWaypoints.Count() < 2)
+			return 0;
+
+		float distance;
+		for (int i = 1; i < route.m_aWaypoints.Count(); i++)
+		{
+			HST_RouteWaypointState previous = route.m_aWaypoints[i - 1];
+			HST_RouteWaypointState current = route.m_aWaypoints[i];
+			if (!previous || !current)
+				continue;
+
+			distance += Math.Sqrt(DistanceSq2D(previous.m_vPosition, current.m_vPosition));
+		}
+
+		return Math.Round(distance);
+	}
+
+	protected float DistanceSq2D(vector a, vector b)
+	{
+		float x = a[0] - b[0];
+		float z = a[2] - b[2];
+		return x * x + z * z;
 	}
 
 	protected HST_MissionObjectiveState CopyMissionObjective(HST_MissionObjectiveState source)
@@ -925,6 +1022,9 @@ class HST_CampaignSaveData
 			if (mission.m_sLastRuntimeEventKey.IsEmpty())
 				mission.m_sLastRuntimeEventKey = mission.m_sRuntimePhase;
 		}
+
+		foreach (HST_GeneratedRouteState route : m_aGeneratedRoutes)
+			BackfillGeneratedRouteWaypoints(route);
 
 		foreach (HST_MissionObjectiveState objective : m_aMissionObjectives)
 		{

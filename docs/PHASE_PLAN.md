@@ -348,7 +348,7 @@ Acceptance pattern:
 | 0 | Stabilize project rules and validation | Complete |
 | 1 | Mission runtime visibility and diagnostics | Complete |
 | 2 | Convoy runtime report | Complete |
-| 3 | Convoy route state | Planned |
+| 3 | Convoy route state | Complete |
 | 4 | Convoy readiness gating | Planned |
 | 5 | Convoy vehicle-control adapter | Planned |
 | 6 | Real convoy crew seating | Planned |
@@ -1123,13 +1123,18 @@ Acceptance criteria:
 
 Notes carried into Phase 3:
 
-- Verified ground vehicle variety still needs base-game resource validation.
+- Verified ground vehicle variety now uses live faction campaign entity
+  catalogs first, then GUID-qualified base-game fallback resources.
 - Real AI vehicle embark/movement is not implemented yet; convoy reports now
   expose this as a clear static-ambush fallback reason.
 
 ## Phase 3 - Convoy Route State
 
-Status: Planned
+Status: Complete
+
+Implementation/static validation complete. HST_Dev smoke test confirmed route
+waypoint reporting, generated-route diagnostics, faction-catalog vehicle
+variety, and clean convoy staging without resource-error spam.
 
 Goal: move from start/end-only convoy behavior toward explicit route data.
 
@@ -1141,8 +1146,9 @@ Implementation:
 - Add route validation fields: road route, vehicle-safe, distance meters, and
   waypoint count.
 - Add route reporting to generated content reports and convoy reports.
-- Validate base-game faction vehicle prefab candidates for wheeled/tracked
-  ground vehicles and exclude helicopters/aircraft.
+- Read base-game faction campaign entity catalogs for convoy vehicle
+  candidates, then validate wheeled/tracked ground vehicles and exclude
+  helicopters/aircraft.
 
 Suggested state:
 
@@ -1165,7 +1171,9 @@ Acceptance criteria:
 - Convoy mission references a route or produces a clear fallback reason.
 - Route report shows waypoint count and distance.
 - Invalid route does not crash mission start.
-- Convoy vehicle selection uses verified base-game ground vehicle prefabs only.
+- Convoy vehicle selection uses verified faction-catalog ground vehicle prefabs
+  first, with GUID-qualified fallback prefabs only when the catalog is
+  unavailable or sparse.
 - Invalid or guessed vehicle prefab candidates are removed or skipped without
   resource errors.
 - Ground-vehicle candidate report shows usable convoy vehicle counts per

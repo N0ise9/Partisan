@@ -1218,7 +1218,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Content)
 			return "";
 
-		return m_Content.BuildContentReport(m_State);
+		string report = m_Content.BuildContentReport(m_State);
+		if (m_PhysicalWar)
+			report = report + "\n" + m_PhysicalWar.BuildGroundVehicleCandidateReport();
+		return report;
 	}
 
 	string RequestMemberInspectPersistence(int playerId)

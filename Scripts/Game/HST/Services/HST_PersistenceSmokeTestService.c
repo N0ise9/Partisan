@@ -9,7 +9,7 @@ class HST_PersistenceSmokeTestService
 	static const string SMOKE_GARAGE_VEHICLE_ID = "hst_smoke_garage_vehicle";
 	static const string SMOKE_ORDER_ID = "hst_smoke_order";
 	static const string SMOKE_CARGO_PREFAB = "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et";
-	static const string SMOKE_VEHICLE_PREFAB = "Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
+	static const string SMOKE_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	protected int m_iSeedChangedCount;
 
 	string SeedTestState(HST_CampaignState state, HST_CampaignPreset preset, string adminIdentityId)

@@ -372,6 +372,16 @@ class HST_GeneratedSiteState
 }
 
 [BaseContainerProps()]
+class HST_RouteWaypointState
+{
+	string m_sRouteId;
+	int m_iIndex;
+	vector m_vPosition;
+	int m_iRadiusMeters;
+	string m_sHint;
+}
+
+[BaseContainerProps()]
 class HST_GeneratedRouteState
 {
 	string m_sRouteId;
@@ -384,7 +394,11 @@ class HST_GeneratedRouteState
 	vector m_vMidPosition;
 	vector m_vEndPosition;
 	int m_iDistanceMeters;
+	int m_iWaypointCount;
 	bool m_bRoadRoute = true;
+	bool m_bValidatedForVehicles;
+	string m_sValidationFailureReason;
+	ref array<ref HST_RouteWaypointState> m_aWaypoints = {};
 }
 
 [BaseContainerProps()]
@@ -542,7 +556,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 15;
+	static const int SCHEMA_VERSION = 16;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
