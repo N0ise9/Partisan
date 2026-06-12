@@ -6,6 +6,7 @@ class HST_CampaignCoordinatorComponentClass : SCR_BaseGameModeComponentClass
 class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 {
 	protected static HST_CampaignCoordinatorComponent s_Instance;
+	static const int MARKER_REFRESH_THROTTLE_SECONDS = 10;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -42,9 +43,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_EnemyCommanderService m_EnemyCommander;
 	protected float m_fSecondAccumulator;
 	protected float m_fSpawnSweepAccumulator;
+	protected int m_iLastMarkerRefreshSecond = -999999;
 	protected int m_iSpawnDiagnosticsRemaining;
 	protected bool m_bSpawnSweepArmed;
 	protected int m_iStableSpawnSweepCount;
+	protected bool m_bDeferredMarkerRefresh;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -183,6 +186,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
 		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged || convoyRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || civilianRuntimeChanged;
 		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged || hqRuntimeChanged || captureMarkerChanged || physicalWarMarkerChanged;
+		bool forceImmediateMarkerRefresh = missionChanged || hqRuntimeChanged;
+		markerStateChanged = ResolveThrottledMarkerRefresh(markerStateChanged, forceImmediateMarkerRefresh);
+		if (markerStateChanged)
+			anyStateChanged = true;
 		if (anyStateChanged)
 		{
 			MarkMajorCampaignChange(markerStateChanged);
@@ -1377,7 +1384,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_MissionRuntime)
 			return "";
 
-		return m_MissionRuntime.BuildRuntimeReport(m_State);
+		string report = m_MissionRuntime.BuildRuntimeReport(m_State);
+		if (m_PhysicalWar)
+			report = report + "\n" + m_PhysicalWar.BuildConvoyRuntimeReport(m_State);
+
+		return report;
 	}
 
 	string RequestMemberMissionInteraction(int playerId, string commandId, string argument = "")
@@ -2043,12 +2054,43 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected void MarkMajorCampaignChange(bool refreshMarkers = true)
 	{
 		if (refreshMarkers)
+		{
+			if (m_State)
+				m_iLastMarkerRefreshSecond = m_State.m_iElapsedSeconds;
+			m_bDeferredMarkerRefresh = false;
 			RefreshCampaignMarkers();
+		}
 
 		if (m_Persistence)
 			m_Persistence.MarkMajorChange();
 
 		PublishMissionIntelToPlayers();
+	}
+
+	protected bool ResolveThrottledMarkerRefresh(bool markerStateChanged, bool forceImmediate)
+	{
+		if (!markerStateChanged && !m_bDeferredMarkerRefresh)
+			return false;
+		if (!m_State)
+			return markerStateChanged;
+
+		if (markerStateChanged)
+			m_bDeferredMarkerRefresh = true;
+
+		int elapsedSeconds = m_State.m_iElapsedSeconds;
+		if (forceImmediate)
+		{
+			m_iLastMarkerRefreshSecond = elapsedSeconds;
+			m_bDeferredMarkerRefresh = false;
+			return true;
+		}
+
+		if (elapsedSeconds < m_iLastMarkerRefreshSecond + MARKER_REFRESH_THROTTLE_SECONDS)
+			return false;
+
+		m_iLastMarkerRefreshSecond = elapsedSeconds;
+		m_bDeferredMarkerRefresh = false;
+		return true;
 	}
 
 	protected void RefreshCampaignMarkers()
@@ -3303,9 +3345,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				enemyZones++;
 		}
 
-		string economySummary = string.Format("h-istasi campaign | money %1 | HR %2 | war level %3 | training %4", m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel, m_State.m_iTrainingLevel);
+		string economySummary = string.Format("h-istasi campaign | phase %1 | money %2 | HR %3 | war level %4", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel);
+		economySummary = economySummary + string.Format(" | training %1 | persistence %2", m_State.m_iTrainingLevel, m_State.m_sLastPersistenceStatus);
 		string zoneSummary = string.Format(" | resistance zones %1 | enemy zones %2 | active missions %3", resistanceZones, enemyZones, m_State.m_aActiveMissions.Count());
 		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", m_State.m_aActiveGroups.Count(), m_State.m_aQRFs.Count(), m_State.m_aMapMarkers.Count(), m_State.m_sHQHideoutId);
+		runtimeSummary = runtimeSummary + string.Format(" | deployed %1 | runtime objects %2", m_State.m_bHQDeployed, m_State.m_bHQRuntimeObjectsSpawned);
 		string alphaSummary = string.Format(" | sites %1 | support requests %2 | enemy orders %3 | civilian towns %4", m_State.m_aGeneratedSites.Count(), m_State.m_aSupportRequests.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aCivilianZones.Count());
 		return economySummary + zoneSummary + runtimeSummary + alphaSummary;
 	}

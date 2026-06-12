@@ -25,7 +25,8 @@ class HST_PhysicalWarService
 	static const string CONVOY_MOVE_EVENT_SENT = "convoy_moving_sent";
 	static const string CONVOY_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const float CONVOY_DESTINATION_RADIUS_METERS = 120.0;
-	static const int CONVOY_MARKER_REFRESH_SECONDS = 30;
+	static const int CONVOY_MARKER_REFRESH_SECONDS = 10;
+	static const int CONVOY_CREW_POPULATION_GRACE_SECONDS = 20;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
@@ -84,12 +85,43 @@ class HST_PhysicalWarService
 		return result;
 	}
 
+	string BuildConvoyRuntimeReport(HST_CampaignState state)
+	{
+		if (!state)
+			return "h-istasi convoy runtime | state not ready";
+
+		int convoyMissions;
+		int convoyGroups;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (mission && mission.m_sRuntimePrimitive == MISSION_CONVOY_PRIMITIVE)
+				convoyMissions++;
+		}
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (IsMissionConvoyGroup(activeGroup))
+				convoyGroups++;
+		}
+
+		string report = string.Format("h-istasi convoy runtime | missions %1 | groups %2 | crew entities %3 | vehicle entities %4", convoyMissions, convoyGroups, m_aRuntimeGroupIds.Count(), m_aRuntimeVehicleGroupIds.Count());
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!mission || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
+				continue;
+
+			report = report + BuildMissionConvoyRuntimeReport(state, mission);
+		}
+
+		return report;
+	}
+
 	bool UpdateMissionConvoys(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)
 	{
 		if (!state)
 			return false;
 
-		bool changed = UpdateRuntimeGroupSurvivors(state);
+		UpdateRuntimeGroupSurvivors(state);
+		bool changed;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
@@ -142,7 +174,7 @@ class HST_PhysicalWarService
 			SetMissionConvoyFailure(state, mission, "Convoy needs at least three valid vehicle assets.");
 			changed = true;
 		}
-		else if (vehicleAssets >= 3 && crewedVehicles < 3 && AllMissionConvoyGroupsAttempted(state, mission, vehicleAssets))
+		else if (vehicleAssets >= 3 && crewedVehicles < 3 && AllMissionConvoyGroupsAttempted(state, mission, vehicleAssets) && !HasPendingConvoyCrewPopulation(state, mission, vehicleAssets))
 		{
 			SetMissionConvoyFailure(state, mission, "Convoy could not spawn three crewed vehicles.");
 			changed = true;
@@ -335,7 +367,7 @@ class HST_PhysicalWarService
 			if (activeGroup)
 			{
 				int aliveCrew = CountAliveRuntimeCrewAgents(groupId);
-				if (activeGroup.m_bSpawnedEntity && aliveCrew <= 0)
+				if (activeGroup.m_bSpawnedEntity && aliveCrew <= 0 && !IsConvoyCrewPopulationPending(state, activeGroup))
 				{
 					if (activeGroup.m_sRuntimeStatus != MISSION_CONVOY_ELIMINATED)
 						activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED;
@@ -380,6 +412,85 @@ class HST_PhysicalWarService
 		}
 
 		return changed;
+	}
+
+	protected string BuildMissionConvoyRuntimeReport(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "";
+
+		string report = string.Format("\nconvoy | %1 | %2 | phase %3 | target %4", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sRuntimePhase, mission.m_sTargetZoneId);
+		report = report + string.Format(" | required %1 | captured %2 | failure %3", mission.m_iRequiredVehicleCount, mission.m_iCapturedVehicleCount, mission.m_sRuntimeFailureReason);
+		int index;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != MISSION_CONVOY_VEHICLE_ROLE)
+				continue;
+
+			string groupId = BuildMissionConvoyGroupId(mission, index);
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
+			report = report + BuildConvoyGroupBindingReport(state, mission, asset, activeGroup, groupId);
+			index++;
+		}
+
+		return report;
+	}
+
+	protected string BuildConvoyGroupBindingReport(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, HST_ActiveGroupState activeGroup, string groupId)
+	{
+		string status = "missing_group";
+		string fallback = "";
+		string failure = "";
+		bool spawned;
+		bool pending;
+		int expectedCrew;
+		int spawnedAgents;
+		int aliveCrew;
+		if (activeGroup)
+		{
+			status = activeGroup.m_sRuntimeStatus;
+			fallback = activeGroup.m_sSpawnFallbackMode;
+			failure = activeGroup.m_sSpawnFailureReason;
+			spawned = activeGroup.m_bSpawnedEntity;
+			pending = IsConvoyCrewPopulationPending(state, activeGroup);
+			expectedCrew = activeGroup.m_iInfantryCount;
+			spawnedAgents = activeGroup.m_iSpawnedAgentCount;
+			aliveCrew = CountAliveRuntimeCrewAgents(groupId);
+		}
+
+		bool crewEntity = GetRuntimeCrewGroupEntity(groupId) != null;
+		bool vehicleEntity = GetRuntimeVehicleEntity(groupId) != null;
+		vector vehiclePosition = ResolveMissionConvoyVehiclePosition(asset, groupId);
+		string report = string.Format("\n  convoy binding | %1 | status %2 | spawned %3 | pending %4", groupId, status, spawned, pending);
+		report = report + string.Format(" | crew entity %1 | vehicle entity %2 | alive %3/%4", crewEntity, vehicleEntity, aliveCrew, expectedCrew);
+		report = report + string.Format(" | agents %1 | fallback %2 | position %3", spawnedAgents, fallback, vehiclePosition);
+		if (!failure.IsEmpty())
+			report = report + " | failure " + failure;
+
+		return report;
+	}
+
+	protected bool HasPendingConvoyCrewPopulation(HST_CampaignState state, HST_ActiveMissionState mission, int vehicleAssets)
+	{
+		if (!state || !mission)
+			return false;
+
+		for (int index = 0; index < vehicleAssets; index++)
+		{
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(BuildMissionConvoyGroupId(mission, index));
+			if (IsConvoyCrewPopulationPending(state, activeGroup))
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool IsConvoyCrewPopulationPending(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup || !activeGroup.m_bSpawnedEntity || activeGroup.m_iSpawnedAgentCount > 0)
+			return false;
+
+		return state.m_iElapsedSeconds < activeGroup.m_iSpawnedAtSecond + CONVOY_CREW_POPULATION_GRACE_SECONDS;
 	}
 
 	protected string BuildMissionConvoyGroupId(HST_ActiveMissionState mission, int index)

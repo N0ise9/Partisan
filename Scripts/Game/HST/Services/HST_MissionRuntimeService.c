@@ -56,15 +56,16 @@ class HST_MissionRuntimeService
 	static const float PLAYER_DELIVERY_RADIUS_METERS = 45.0;
 	static const float HOSTILE_OBJECTIVE_RADIUS_METERS = 90.0;
 	static const float VEHICLE_CARRIER_RADIUS_METERS = 10.0;
-	static const float MAX_CONVOY_ZONE_START_DISTANCE_METERS = 6000.0;
+	static const float MAX_CONVOY_ZONE_START_DISTANCE_METERS = 1800.0;
 	static const int DEFAULT_HOLD_SECONDS = 45;
 	static const int DEFAULT_ASSET_INTERACTION_RADIUS_METERS = 18;
 	static const int DEFAULT_DELIVERY_RADIUS_METERS = 45;
 	static const int DEFAULT_MISSION_CARRIER_CAPACITY = 6;
 	static const int MAX_MISSION_VEHICLE_SCAN_ENTITIES = 96;
-	static const float MIN_CONVOY_START_DISTANCE_METERS = 2500.0;
-	static const float MAX_CONVOY_START_DISTANCE_METERS = 4200.0;
-	static const float MIN_CONVOY_ROUTE_DISTANCE_METERS = 2500.0;
+	static const float MIN_CONVOY_START_DISTANCE_METERS = 650.0;
+	static const float MAX_CONVOY_START_DISTANCE_METERS = 1400.0;
+	static const float MIN_CONVOY_ROUTE_DISTANCE_METERS = 650.0;
+	static const int CONVOY_ROUTE_SAMPLE_COUNT = 6;
 	static const int MIN_CONVOY_VEHICLES = 3;
 	static const int MAX_CONVOY_VEHICLES = 6;
 	static const int MIN_CONVOY_IDLE_SECONDS = 300;
@@ -1610,23 +1611,27 @@ class HST_MissionRuntimeService
 	protected vector ResolveConvoyStartPosition(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		vector convoyEnd = ResolveConvoyEndPosition(state, mission);
-		vector zoneStart;
-		if (TryResolveZoneBasedConvoyStartPosition(state, mission, convoyEnd, zoneStart))
-			return zoneStart;
-
 		HST_GeneratedRouteState route = ResolveMissionRoute(state, mission);
 		if (route)
 		{
 			vector routeStart;
-			if (HST_WorldPositionService.TryResolveVehicleSpawnPosition(route.m_vStartPosition, routeStart, true) && !HST_WorldPositionService.IsLikelyOpenWater(routeStart) && DistanceSq2D(routeStart, convoyEnd) >= MIN_CONVOY_START_DISTANCE_METERS * MIN_CONVOY_START_DISTANCE_METERS)
+			if (HST_WorldPositionService.TryResolveVehicleSpawnPosition(route.m_vStartPosition, routeStart, true) && IsUsableConvoyRouteSegment(routeStart, convoyEnd, MIN_CONVOY_ROUTE_DISTANCE_METERS))
 				return routeStart;
+
+			vector routeMid;
+			if (HST_WorldPositionService.TryResolveVehicleSpawnPosition(route.m_vMidPosition, routeMid, true) && IsUsableConvoyRouteSegment(routeMid, convoyEnd, MIN_CONVOY_ROUTE_DISTANCE_METERS * 0.6))
+				return routeMid;
 		}
 
 		vector distantStart;
 		if (TryResolveDistantConvoyStartPosition(state, mission, convoyEnd, distantStart))
 			return distantStart;
 
-		return HST_WorldPositionService.ResolveSafeGroundPosition(OffsetMissionAssetPosition(ResolveRuntimePropPosition(state, mission), -2), HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 8.0);
+		vector fallback = HST_WorldPositionService.ResolveSafeGroundPosition(OffsetMissionAssetPosition(ResolveRuntimePropPosition(state, mission), -2), HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 8.0);
+		if (IsUsableConvoyRouteSegment(fallback, convoyEnd, 120.0))
+			return fallback;
+
+		return convoyEnd;
 	}
 
 	protected bool TryResolveZoneBasedConvoyStartPosition(HST_CampaignState state, HST_ActiveMissionState mission, vector targetPosition, out vector resolved)
@@ -1652,6 +1657,8 @@ class HST_MissionRuntimeService
 
 			float distanceSq = DistanceSq2D(candidate, targetPosition);
 			if (distanceSq < MIN_CONVOY_START_DISTANCE_METERS * MIN_CONVOY_START_DISTANCE_METERS || distanceSq > bestDistanceSq)
+				continue;
+			if (!IsUsableConvoyRouteSegment(candidate, targetPosition, MIN_CONVOY_START_DISTANCE_METERS))
 				continue;
 
 			bestDistanceSq = distanceSq;
@@ -1701,7 +1708,7 @@ class HST_MissionRuntimeService
 				continue;
 			if (HST_WorldPositionService.IsLikelyOpenWater(resolved))
 				continue;
-			if (DistanceSq2D(resolved, targetPosition) < MIN_CONVOY_START_DISTANCE_METERS * MIN_CONVOY_START_DISTANCE_METERS)
+			if (!IsUsableConvoyRouteSegment(resolved, targetPosition, MIN_CONVOY_START_DISTANCE_METERS))
 				continue;
 
 			return true;
@@ -1744,6 +1751,44 @@ class HST_MissionRuntimeService
 		}
 
 		return candidate;
+	}
+
+	protected bool IsUsableConvoyRouteSegment(vector startPosition, vector endPosition, float minDistanceMeters)
+	{
+		if (IsZeroVector(startPosition) || IsZeroVector(endPosition))
+			return false;
+		if (DistanceSq2D(startPosition, endPosition) < minDistanceMeters * minDistanceMeters)
+			return false;
+		if (HST_WorldPositionService.IsLikelyOpenWater(startPosition) || HST_WorldPositionService.IsLikelyOpenWater(endPosition))
+			return false;
+
+		return IsDryConvoyRouteSegment(startPosition, endPosition);
+	}
+
+	protected bool IsDryConvoyRouteSegment(vector startPosition, vector endPosition)
+	{
+		for (int i = 1; i <= CONVOY_ROUTE_SAMPLE_COUNT; i++)
+		{
+			float t = i;
+			t = t / (CONVOY_ROUTE_SAMPLE_COUNT + 1);
+			vector sample = InterpolatePosition(startPosition, endPosition, t);
+			vector resolved;
+			if (!HST_WorldPositionService.TryResolveGroundPosition(sample, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, resolved, true))
+				return false;
+			if (HST_WorldPositionService.IsLikelyOpenWater(resolved))
+				return false;
+		}
+
+		return true;
+	}
+
+	protected vector InterpolatePosition(vector startPosition, vector endPosition, float t)
+	{
+		vector result = startPosition;
+		result[0] = startPosition[0] + (endPosition[0] - startPosition[0]) * t;
+		result[1] = startPosition[1] + (endPosition[1] - startPosition[1]) * t;
+		result[2] = startPosition[2] + (endPosition[2] - startPosition[2]) * t;
+		return result;
 	}
 
 	protected vector OffsetConvoyVehicleStartPosition(vector startPosition, vector endPosition, int index)
@@ -1961,10 +2006,170 @@ class HST_MissionRuntimeService
 			if (mission.m_bRuntimeSpawned)
 				spawned++;
 
-			details = details + string.Format("\n%1 | %2 | primitive %3 | runtime %4 | phase %5 | spawned %6 | fallback %7 | cleanup %8", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sRuntimePrimitive, mission.m_sRuntimeType, mission.m_sRuntimePhase, mission.m_bRuntimeSpawned, mission.m_bRuntimeFallback, mission.m_bRuntimeCleanupComplete);
+			details = details + BuildMissionRuntimeReport(state, mission);
 		}
 
 		return string.Format("h-istasi mission runtime | physical %1 | spawned %2 | fallback %3 | objectives %4 | assets %5", physical, spawned, fallback, state.m_aMissionObjectives.Count(), state.m_aMissionAssets.Count()) + details;
+	}
+
+	protected string BuildMissionRuntimeReport(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "";
+
+		int objectiveTotal;
+		int objectiveComplete;
+		int objectiveFailed;
+		CountMissionObjectives(state, mission.m_sInstanceId, objectiveTotal, objectiveComplete, objectiveFailed);
+
+		int assetTotal;
+		int assetSpawned;
+		int assetDestroyed;
+		int assetDelivered;
+		CountMissionAssets(state, mission.m_sInstanceId, assetTotal, assetSpawned, assetDestroyed, assetDelivered);
+
+		string line = string.Format("\n%1 | %2 | target %3 | site %4", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_sSiteId);
+		line = line + string.Format(" | primitive %1 | runtime %2 | phase %3 | entity %4", mission.m_sRuntimePrimitive, mission.m_sRuntimeType, mission.m_sRuntimePhase, mission.m_sRuntimeEntityId);
+		line = line + string.Format(" | objectives %1/%2 failed %3 | assets %4/%5", objectiveComplete, objectiveTotal, objectiveFailed, assetSpawned, assetTotal);
+		line = line + string.Format(" destroyed %1 delivered %2", assetDestroyed, assetDelivered);
+		line = line + string.Format(" | fallback %1 | cleanup %2", mission.m_bRuntimeFallback, mission.m_bRuntimeCleanupComplete);
+		if (!mission.m_sRuntimeFailureReason.IsEmpty())
+			line = line + " | problem " + mission.m_sRuntimeFailureReason;
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
+			line = line + BuildConvoyRouteReport(state, mission);
+
+		line = line + BuildMissionObjectiveRuntimeReport(state, mission);
+		line = line + BuildMissionAssetRuntimeReport(state, mission);
+		return line;
+	}
+
+	protected void CountMissionObjectives(HST_CampaignState state, string instanceId, out int total, out int complete, out int failed)
+	{
+		total = 0;
+		complete = 0;
+		failed = 0;
+		if (!state || instanceId.IsEmpty())
+			return;
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != instanceId)
+				continue;
+
+			total++;
+			if (objective.m_bComplete)
+				complete++;
+			if (objective.m_bFailed)
+				failed++;
+		}
+	}
+
+	protected void CountMissionAssets(HST_CampaignState state, string instanceId, out int total, out int spawned, out int destroyed, out int delivered)
+	{
+		total = 0;
+		spawned = 0;
+		destroyed = 0;
+		delivered = 0;
+		if (!state || instanceId.IsEmpty())
+			return;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != instanceId)
+				continue;
+
+			total++;
+			if (asset.m_bSpawned)
+				spawned++;
+			if (asset.m_bDestroyed)
+				destroyed++;
+			if (asset.m_bDelivered)
+				delivered++;
+		}
+	}
+
+	protected string BuildConvoyRouteReport(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		HST_GeneratedRouteState route = ResolveMissionRoute(state, mission);
+		string routeId = "none";
+		vector start;
+		vector mid;
+		vector end = mission.m_vTargetPosition;
+		int distanceMeters;
+		bool roadRoute;
+		if (route)
+		{
+			routeId = route.m_sRouteId;
+			start = route.m_vStartPosition;
+			mid = route.m_vMidPosition;
+			end = route.m_vEndPosition;
+			distanceMeters = route.m_iDistanceMeters;
+			roadRoute = route.m_bRoadRoute;
+		}
+
+		string report = string.Format("\n  convoy route | route %1 | road %2 | distance %3m", routeId, roadRoute, distanceMeters);
+		report = report + string.Format(" | start %1 | mid %2 | end %3", start, mid, end);
+		report = report + string.Format(" | required vehicles %1 | captured %2 | eta %3s", mission.m_iRequiredVehicleCount, mission.m_iCapturedVehicleCount, mission.m_iRuntimeETASeconds);
+		report = report + string.Format(" | timers %1/%2/%3", mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB, mission.m_iRuntimeCounterC);
+		return report;
+	}
+
+	protected string BuildMissionObjectiveRuntimeReport(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "";
+
+		string report = "";
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			string status = "active";
+			if (objective.m_bComplete)
+				status = "complete";
+			else if (objective.m_bFailed)
+				status = "failed";
+
+			report = report + string.Format("\n  objective | %1 | %2 | target %3 | status %4", objective.m_sObjectiveId, objective.m_sLabel, objective.m_sTargetId, status);
+			report = report + string.Format(" | progress %1/%2 | count %3/%4", objective.m_iCurrentProgress, objective.m_iRequiredProgress, objective.m_iCurrentCount, objective.m_iRequiredCount);
+			report = report + string.Format(" | hold %1/%2 | entity %3", objective.m_iHoldSeconds, objective.m_iRequiredHoldSeconds, objective.m_sLinkedRuntimeEntityId);
+		}
+
+		return report;
+	}
+
+	protected string BuildMissionAssetRuntimeReport(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "";
+
+		string report = "";
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			string status = "active";
+			if (asset.m_bDestroyed)
+				status = "destroyed";
+			else if (asset.m_bDelivered)
+				status = "delivered";
+			else if (asset.m_bPickedUp)
+				status = "picked_up";
+			else if (!asset.m_bSpawned)
+				status = "queued";
+
+			report = report + string.Format("\n  asset | %1 | %2/%3 | status %4", asset.m_sAssetId, asset.m_sKind, asset.m_sRole, status);
+			report = report + string.Format(" | source %1 | current %2 | target %3", asset.m_vSourcePosition, asset.m_vCurrentPosition, asset.m_vTargetPosition);
+			if (!asset.m_sCarriedByVehicleId.IsEmpty())
+				report = report + " | carrier " + asset.m_sCarriedByVehicleId;
+			if (!asset.m_sLastInteraction.IsEmpty())
+				report = report + " | last " + asset.m_sLastInteraction;
+		}
+
+		return report;
 	}
 
 	string PrimitiveForMission(HST_MissionDefinition definition)

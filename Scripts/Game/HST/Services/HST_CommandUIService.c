@@ -1451,9 +1451,11 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Force: Supply convoy", "debug_mission_id", "convoy_supplies", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force: POW rescue", "debug_mission_id", "rescue_pows", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force: Kill officer", "debug_mission_id", "assassinate_officer", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Force: Conquest outpost", "debug_mission_id", "conquest_outpost", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force: Radio tower", "debug_mission_id", "destroy_radio_tower", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force: City supplies", "debug_mission_id", "support_city_supplies", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force: Resource cache", "debug_mission_id", "logistics_resource_cache", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Force: Minor city task", "debug_mission_id", "dynamic_minor_city_task", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Seed persistence smoke", "admin_seed_persistence_test_state", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Run persistence smoke", "admin_persistence_smoke_test", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence smoke report", "admin_persistence_smoke_report", "", canUseAdmin, "admin required");

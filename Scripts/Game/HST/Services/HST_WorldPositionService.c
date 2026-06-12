@@ -3,7 +3,7 @@ class HST_WorldPositionService
 	static const float HQ_GROUND_OFFSET = 0.1;
 	static const float CHARACTER_GROUND_OFFSET = 0.25;
 	static const float PROP_GROUND_OFFSET = 0.05;
-	static const float VEHICLE_GROUND_OFFSET = 1.25;
+	static const float VEHICLE_GROUND_OFFSET = 0.35;
 	static const float MIN_DRY_SURFACE_Y = 1.0;
 	static const float MAX_SAFE_SLOPE_DELTA_METERS = 1.8;
 	static const float SAFE_SAMPLE_RADIUS_METERS = 2.5;
