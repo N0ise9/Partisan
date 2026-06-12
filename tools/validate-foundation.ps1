@@ -2594,7 +2594,9 @@ foreach ($requiredConvoyRuntimeReportEntry in @(
 	"SelectMissionConvoyVehiclePrefab",
 	"IsAircraftVehicleResource",
 	"convoy_vehicle_control_unavailable",
-	"Convoy crew seating/movement is planned for later convoy phases"
+	"convoy_seating_pending",
+	"BuildCrewSeatingReport",
+	"Convoy crew seating has not confirmed a seated AI driver yet."
 )) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredConvoyRuntimeReportEntry)) {
 		throw "Missing Phase 2 convoy runtime report contract entry: $requiredConvoyRuntimeReportEntry"
@@ -2613,12 +2615,19 @@ foreach ($requiredConvoySpawnSafetyEntry in @(
 $missionRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
 foreach ($requiredConvoyRouteEntry in @(
 	"TryResolveExtendedRouteConvoyStartPosition",
-	"MIN_CONVOY_START_DISTANCE_METERS = 1100.0",
-	"planned distance"
+	"MIN_CONVOY_START_DISTANCE_METERS = 1000.0",
+	"MAX_CONVOY_START_DISTANCE_METERS = 2500.0",
+	"IsConvoyDistanceInsideBand",
+	"planned distance",
+	"required band 1000-2500m",
+	"band valid"
 )) {
 	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredConvoyRouteEntry)) {
 		throw "Missing convoy route distance/staging entry: $requiredConvoyRouteEntry"
 	}
+}
+if ($missionRuntimeServiceText -match [regex]::Escape("IsUsableConvoyRouteSegment(fallback, convoyEnd, 120.0)")) {
+	throw "Phase 6 convoy route selection must not keep the close-range 120m fallback"
 }
 $commandUIServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
 if ($commandUIServiceText -notmatch [regex]::Escape('AddMenuAction(actions, TAB_MISSIONS, "Convoy Runtime Report", "inspect_convoy_runtime"')) {
@@ -2755,7 +2764,7 @@ foreach ($requiredPhase4ReadinessEntry in @(
 	"Convoy crew groups failed to spawn.",
 	"Convoy route assignment failed.",
 	"Convoy waypoint assignment failed.",
-	"Convoy driver availability is blocked until vehicle-control adapter and crew seating phases."
+	"Convoy has no seated living AI driver yet."
 )) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase4ReadinessEntry)) {
 		throw "Missing Phase 4 convoy readiness gate entry: $requiredPhase4ReadinessEntry"
@@ -2768,6 +2777,65 @@ if ($campaignStateText -match [regex]::Escape("HST_ConvoyReadinessStatus")) {
 	throw "Phase 4 convoy readiness status must remain transient and out of persistent campaign state"
 }
 Write-Host "Phase 4 convoy readiness gate contract OK"
+
+$convoyVehicleControlAdapterText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ConvoyVehicleControlAdapter.c"
+foreach ($requiredPhase6SeatingEntry in @(
+	"HST_ConvoyCrewSeatingResult",
+	"driver assigned",
+	"seated crew",
+	"turret seated",
+	"cargo seated",
+	"seating pending",
+	"last seating reason",
+	"AIGroup group",
+	"GetAgents(agents)",
+	"AIAgent",
+	"GetControlledEntity",
+	"SCR_BaseCompartmentManagerComponent",
+	"BaseCompartmentManagerComponent",
+	"BaseCompartmentSlot",
+	"IsPiloting",
+	"ECompartmentType.PILOT",
+	"ECompartmentType.TURRET",
+	"ECompartmentType.CARGO",
+	"SCR_CompartmentAccessComponent",
+	"MoveInVehicle(vehicleEntity, compartmentType, false, slot)",
+	"HasLivingDriver",
+	"CountLivingCrew",
+	"BuildCrewSeatingReport"
+)) {
+	if ($convoyVehicleControlAdapterText -notmatch [regex]::Escape($requiredPhase6SeatingEntry)) {
+		throw "Missing Phase 6 convoy seating contract entry: $requiredPhase6SeatingEntry"
+	}
+}
+foreach ($requiredPhase6RuntimeEntry in @(
+	"EnsureMissionConvoyCrewSeating",
+	"ShouldRetryMissionConvoyCrewSeating",
+	"changed = EnsureMissionConvoyCrewSeating(state, mission) || changed;",
+	"convoy_seating_pending",
+	"convoy_driver_available",
+	"preserveWaypointMode",
+	"MISSION_CONVOY_MOVING",
+	"readiness.m_iDriverAvailableCount >= required",
+	"Convoy has no seated living AI driver yet."
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase6RuntimeEntry)) {
+		throw "Missing Phase 6 convoy runtime seating entry: $requiredPhase6RuntimeEntry"
+	}
+}
+foreach ($forbiddenPhase6PlaceholderEntry in @(
+	"real seating is planned for Phase 6",
+	"Convoy crew seating/movement is planned for later convoy phases; convoy remains a static ambush.",
+	"Convoy crew seating is planned for Phase 6; crew remains near vehicle for static ambush."
+)) {
+	if ($physicalWarServiceText -match [regex]::Escape($forbiddenPhase6PlaceholderEntry) -or $convoyVehicleControlAdapterText -match [regex]::Escape($forbiddenPhase6PlaceholderEntry)) {
+		throw "Phase 6 convoy runtime must not report placeholder seating text: $forbiddenPhase6PlaceholderEntry"
+	}
+}
+if ($campaignStateText -match [regex]::Escape("HST_ConvoyCrewSeatingResult")) {
+	throw "Phase 6 convoy seating result must remain transient and out of persistent campaign state"
+}
+Write-Host "Phase 6 convoy seating and distance contract OK"
 
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",

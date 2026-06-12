@@ -351,8 +351,8 @@ Acceptance pattern:
 | 3 | Convoy route state | Complete |
 | 4 | Convoy readiness gating | Complete |
 | 5 | Convoy vehicle-control adapter | Complete |
-| 6 | Real convoy crew seating | In progress |
-| 7 | Convoy waypoint-chain movement | Planned |
+| 6 | Real convoy crew seating | Complete |
+| 7 | Convoy waypoint-chain movement | In progress |
 | 8 | Convoy progress, stuck detection, and destination arrival | Planned |
 | 9 | Convoy contact behavior | Planned |
 | 10 | Generic convoy completion | Planned |
@@ -1264,31 +1264,42 @@ Acceptance criteria:
 
 ## Phase 6 - Real Convoy Crew Seating
 
-Status: In progress
+Status: Complete
+
+Implementation/static validation and HST_Dev smoke testing complete.
 
 Goal: make convoy vehicles actually controllable by AI.
 
 Implementation:
 
-- In `HST_ConvoyVehicleControlAdapter`, discover group agents.
-- Discover vehicle seats/compartments.
-- Assign the first suitable AI to the driver seat.
-- Assign the next suitable AI to gunner/turret seat if available.
+- In `HST_ConvoyVehicleControlAdapter`, discover living group-controlled AI
+  agents and vehicle compartments.
+- Assign the first suitable AI to the driver seat using animated compartment
+  access.
+- Assign the next suitable AI to gunner/turret seats if available.
 - Assign remaining AI to cargo/passenger seats.
-- Verify driver is alive and assigned.
-- Add seating result to convoy report.
+- Verify the driver is a living group-controlled occupant in a pilot slot.
+- Add seating result fields to convoy reports: driver assigned, seated crew,
+  turret seated, cargo seated, seating pending, and last seating reason.
+- Retry seating during convoy staging before readiness checks.
+- Keep convoy waypoint assignment blocked until every active convoy vehicle has
+  a seated living AI driver.
+- Enforce convoy start-to-end straight-line horizontal distance between 1000m
+  and 2500m, and report planned distance, required band, and band validity.
 
 Acceptance criteria:
 
 - Spawned convoy vehicle has an AI driver.
 - Convoy report says driver assigned.
 - Convoy report says how many crew were seated.
+- Convoy report says planned distance is inside the 1000-2500m band.
 - Missing driver seats and missing crew agents produce clear reasons.
 - Vehicle is not considered ready unless driver assignment succeeds.
+- No persistent raw `IEntity` references or save-schema migrations are added.
 
 ## Phase 7 - Convoy Waypoint-Chain Movement
 
-Status: Planned
+Status: In progress
 
 Goal: replace single destination waypoint with an ordered route waypoint chain.
 

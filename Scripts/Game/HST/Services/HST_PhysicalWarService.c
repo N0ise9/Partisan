@@ -46,7 +46,9 @@ class HST_PhysicalWarService
 	static const float CONVOY_DESTINATION_RADIUS_METERS = 120.0;
 	static const int CONVOY_MARKER_REFRESH_SECONDS = 10;
 	static const int CONVOY_CREW_POPULATION_GRACE_SECONDS = 20;
-	static const int CONVOY_READINESS_GRACE_SECONDS = 30;
+	static const int CONVOY_READINESS_GRACE_SECONDS = 60;
+	static const float CONVOY_VEHICLE_SPAWN_LIFT_METERS = 0.85;
+	static const float CONVOY_VEHICLE_SPAWN_CLEARANCE_METERS = 28.0;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
@@ -170,6 +172,7 @@ class HST_PhysicalWarService
 				continue;
 
 			changed = EnsureMissionConvoyRuntime(state, preset, mission) || changed;
+			changed = EnsureMissionConvoyCrewSeating(state, mission) || changed;
 			changed = UpdateMissionConvoyPhase(state, mission, elapsedSeconds) || changed;
 			changed = UpdateMissionConvoyObjective(state, mission) || changed;
 		}
@@ -225,6 +228,62 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
+	protected bool EnsureMissionConvoyCrewSeating(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || !ShouldRetryMissionConvoyCrewSeating(mission))
+			return false;
+
+		bool changed;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!IsMissionConvoyGroupForMission(activeGroup, mission) || !activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED)
+				continue;
+
+			IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+			IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
+			if (!crewEntity || !vehicleEntity)
+				continue;
+
+			string previousFallbackMode = activeGroup.m_sSpawnFallbackMode;
+			string previousReason = activeGroup.m_sSpawnFailureReason;
+			string seatingReason;
+			bool preserveWaypointMode = activeGroup.m_sSpawnFallbackMode == "convoy_waypoints";
+			if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, seatingReason))
+			{
+				if (!preserveWaypointMode)
+					activeGroup.m_sSpawnFallbackMode = "convoy_driver_available";
+				activeGroup.m_sSpawnFailureReason = seatingReason;
+			}
+			else
+			{
+				if (!preserveWaypointMode)
+				{
+					if (seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for animated AI boarding"))
+						activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
+					else
+						activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
+				}
+
+				activeGroup.m_sSpawnFailureReason = seatingReason;
+				if (activeGroup.m_sSpawnFailureReason.IsEmpty())
+					activeGroup.m_sSpawnFailureReason = "Convoy crew seating has not confirmed a seated AI driver yet.";
+			}
+
+			if (activeGroup.m_sSpawnFallbackMode != previousFallbackMode || activeGroup.m_sSpawnFailureReason != previousReason)
+				changed = true;
+		}
+
+		return changed;
+	}
+
+	protected bool ShouldRetryMissionConvoyCrewSeating(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sRuntimePhase == MISSION_CONVOY_STAGING || mission.m_sRuntimePhase == MISSION_CONVOY_MOVING;
+	}
+
 	protected HST_ActiveGroupState CreateMissionConvoyGroup(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionAssetState asset, int index)
 	{
 		HST_ZoneState targetZone = ResolveMissionConvoyTargetZone(state, mission, asset);
@@ -260,7 +319,7 @@ class HST_PhysicalWarService
 			return false;
 
 		vector spawnPosition;
-		if (!HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(asset.m_vSourcePosition, spawnPosition, true) || HST_WorldPositionService.IsLikelyOpenWater(spawnPosition))
+		if (!TryResolveMissionConvoyVehicleSpawnPosition(mission, asset, spawnPosition) || HST_WorldPositionService.IsLikelyOpenWater(spawnPosition))
 		{
 			activeGroup.m_bSpawnAttempted = true;
 			activeGroup.m_sRuntimeStatus = "spawn_failed";
@@ -306,10 +365,13 @@ class HST_PhysicalWarService
 		}
 		else
 		{
-			activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
+			if (adapterBindReason.Contains("seating pending yes") || adapterBindReason.Contains("waiting for animated AI boarding"))
+				activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
+			else
+				activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
 			activeGroup.m_sSpawnFailureReason = adapterBindReason;
 			if (activeGroup.m_sSpawnFailureReason.IsEmpty())
-				activeGroup.m_sSpawnFailureReason = "Convoy crew seating/movement is planned for later convoy phases; convoy remains a static ambush.";
+				activeGroup.m_sSpawnFailureReason = "Convoy crew seating has not confirmed a seated AI driver yet.";
 		}
 		activeGroup.m_iLastSeenAliveCount = CountAliveRuntimeCrewAgents(activeGroup);
 		activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, activeGroup.m_iLastSeenAliveCount);
@@ -336,6 +398,7 @@ class HST_PhysicalWarService
 			return null;
 
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, angles);
+		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, angles);
 		asset.m_sPrefab = vehiclePrefab;
 		asset.m_bSpawned = true;
 		asset.m_bAlive = true;
@@ -357,6 +420,108 @@ class HST_PhysicalWarService
 		runtimeEntity.m_vAngles = angles;
 		runtimeEntity.m_bSpawned = true;
 		return vehicleEntity;
+	}
+
+	protected bool TryResolveMissionConvoyVehicleSpawnPosition(HST_ActiveMissionState mission, HST_MissionAssetState asset, out vector spawnPosition)
+	{
+		spawnPosition = "0 0 0";
+		if (!mission || !asset)
+			return false;
+
+		vector resolved;
+		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(asset.m_vSourcePosition, resolved, true) && IsMissionConvoyVehicleSpawnClear(mission, resolved))
+		{
+			spawnPosition = LiftMissionConvoyVehicleSpawnPosition(resolved);
+			return true;
+		}
+
+		for (int ring = 1; ring <= 5; ring++)
+		{
+			float radius = CONVOY_VEHICLE_SPAWN_CLEARANCE_METERS * ring;
+			for (int step = 0; step < 8; step++)
+			{
+				vector candidate = BuildConvoySpawnClearanceCandidate(asset.m_vSourcePosition, step, radius);
+				if (!HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(candidate, resolved, true))
+					continue;
+				if (!IsMissionConvoyVehicleSpawnClear(mission, resolved))
+					continue;
+
+				spawnPosition = LiftMissionConvoyVehicleSpawnPosition(resolved);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	protected vector LiftMissionConvoyVehicleSpawnPosition(vector position)
+	{
+		vector lifted;
+		if (HST_WorldPositionService.TryResolveGroundPosition(position, HST_WorldPositionService.VEHICLE_GROUND_OFFSET + CONVOY_VEHICLE_SPAWN_LIFT_METERS, lifted, true))
+			return lifted;
+
+		lifted = position;
+		lifted[1] = lifted[1] + CONVOY_VEHICLE_SPAWN_LIFT_METERS;
+		return lifted;
+	}
+
+	protected vector BuildConvoySpawnClearanceCandidate(vector origin, int step, float radius)
+	{
+		vector candidate = origin;
+		if (step == 0)
+			candidate[0] = candidate[0] + radius;
+		else if (step == 1)
+			candidate[0] = candidate[0] - radius;
+		else if (step == 2)
+			candidate[2] = candidate[2] + radius;
+		else if (step == 3)
+			candidate[2] = candidate[2] - radius;
+		else if (step == 4)
+		{
+			candidate[0] = candidate[0] + radius;
+			candidate[2] = candidate[2] + radius;
+		}
+		else if (step == 5)
+		{
+			candidate[0] = candidate[0] - radius;
+			candidate[2] = candidate[2] + radius;
+		}
+		else if (step == 6)
+		{
+			candidate[0] = candidate[0] + radius;
+			candidate[2] = candidate[2] - radius;
+		}
+		else
+		{
+			candidate[0] = candidate[0] - radius;
+			candidate[2] = candidate[2] - radius;
+		}
+
+		return candidate;
+	}
+
+	protected bool IsMissionConvoyVehicleSpawnClear(HST_ActiveMissionState mission, vector position)
+	{
+		if (!mission)
+			return false;
+		if (HST_WorldPositionService.IsLikelyOpenWater(position))
+			return false;
+
+		float minDistanceSq = CONVOY_VEHICLE_SPAWN_CLEARANCE_METERS * CONVOY_VEHICLE_SPAWN_CLEARANCE_METERS;
+		for (int i = 0; i < m_aRuntimeVehicleGroupIds.Count(); i++)
+		{
+			string groupId = m_aRuntimeVehicleGroupIds[i];
+			if (!groupId.Contains(mission.m_sInstanceId))
+				continue;
+
+			IEntity vehicle = m_aRuntimeVehicleEntities[i];
+			if (!vehicle)
+				continue;
+			if (DistanceSq2D(vehicle.GetOrigin(), position) < minDistanceSq)
+				return false;
+		}
+
+		return true;
 	}
 
 	protected bool UpdateMissionConvoyPhase(HST_CampaignState state, HST_ActiveMissionState mission, int elapsedSeconds)
@@ -587,6 +752,7 @@ class HST_PhysicalWarService
 		bool mobile = GetConvoyVehicleControlAdapter().IsVehicleMobile(vehicleEntity, mobileReason);
 		bool driver = GetConvoyVehicleControlAdapter().HasLivingDriver(crewEntity, vehicleEntity);
 		int adapterCrew = GetConvoyVehicleControlAdapter().CountLivingCrew(crewEntity);
+		string seatingReport = GetConvoyVehicleControlAdapter().BuildCrewSeatingReport(crewEntity, vehicleEntity);
 		string result = activeGroup.m_sSpawnFallbackMode;
 		if (result.IsEmpty())
 			result = "none";
@@ -594,7 +760,8 @@ class HST_PhysicalWarService
 		if (reason.IsEmpty())
 			reason = mobileReason;
 
-		string report = string.Format("\n    convoy adapter | living crew %1 | living driver %2 | vehicle mobile %3", adapterCrew, ReportBool(driver), ReportBool(mobile));
+		string report = string.Format("\n    convoy adapter | living crew %1 | driver assigned %2 | vehicle mobile %3", adapterCrew, ReportBool(driver), ReportBool(mobile));
+		report = report + " | " + seatingReport;
 		report = report + string.Format(" | mobile reason %1 | last result %2 | reason %3", ReportText(mobileReason), ReportText(result), ReportText(reason));
 		return report;
 	}
@@ -619,14 +786,14 @@ class HST_PhysicalWarService
 			return "Convoy adapter cannot bind crew: " + mobileReason;
 
 		if (!GetConvoyVehicleControlAdapter().HasLivingDriver(crewEntity, vehicleEntity))
-			return "Convoy adapter cannot bind crew: no living driver is bound to the vehicle; real seating is planned for Phase 6.";
+			return "Convoy adapter cannot bind crew: no seated living AI driver is assigned to the vehicle.";
 
-		return "Convoy adapter found living crew and mobile vehicle; route control remains blocked until real vehicle seating is implemented.";
+		return "Convoy adapter found seated driver and mobile vehicle.";
 	}
 
 	protected bool IsStaleConvoyCrewPopulationReason(string reason)
 	{
-		return reason == "Convoy adapter cannot bind crew: no living crew agents." || reason == "Convoy adapter cannot bind crew yet: crew group has not populated living agents.";
+		return reason == "Convoy adapter cannot bind crew: no living crew agents." || reason == "Convoy adapter cannot bind crew yet: crew group has not populated living agents." || reason.Contains("planned for Phase") || reason.Contains("planned for later convoy phases");
 	}
 
 	protected string BuildMissionConvoyRouteReport(HST_GeneratedRouteState route)
@@ -740,7 +907,7 @@ class HST_PhysicalWarService
 	{
 		if (!route || routeId.IsEmpty() || !activeGroup || activeGroup.m_sRouteId.IsEmpty())
 			return false;
-		if (!route.m_bValidatedForVehicles || route.m_iWaypointCount < 3)
+		if (route.m_iWaypointCount < 3)
 			return false;
 
 		return activeGroup.m_sRouteId == routeId;
@@ -778,7 +945,7 @@ class HST_PhysicalWarService
 			return false;
 
 		int required = readiness.m_iVehicleAssetCount;
-		return readiness.m_iSpawnedVehicleCount >= required && readiness.m_iCrewGroupCount >= required && readiness.m_iAliveCrewGroupCount >= required && readiness.m_iMobileVehicleCount >= required && readiness.m_iRouteAssignedCount >= required && readiness.m_iWaypointAssignedCount < required;
+		return readiness.m_iSpawnedVehicleCount >= required && readiness.m_iCrewGroupCount >= required && readiness.m_iAliveCrewGroupCount >= required && readiness.m_iMobileVehicleCount >= required && readiness.m_iDriverAvailableCount >= required && readiness.m_iRouteAssignedCount >= required && readiness.m_iWaypointAssignedCount < required;
 	}
 
 	protected bool IsMissionConvoyReadinessGraceActive(HST_ActiveMissionState mission)
@@ -812,10 +979,10 @@ class HST_PhysicalWarService
 			return "Not all convoy crew groups have living crew.";
 		if (readiness.m_iMobileVehicleCount < readiness.m_iVehicleAssetCount)
 			return "Not all convoy vehicles are mobile according to the vehicle-control adapter.";
+		if (readiness.m_iDriverAvailableCount < readiness.m_iVehicleAssetCount)
+			return "Convoy has no seated living AI driver yet.";
 		if (readiness.m_iRouteAssignedCount < readiness.m_iVehicleAssetCount)
 			return "Convoy route assignment failed.";
-		if (readiness.m_iDriverAvailableCount < readiness.m_iVehicleAssetCount)
-			return "Convoy driver availability is blocked until vehicle-control adapter and crew seating phases.";
 		if (readiness.m_iWaypointAssignedCount < readiness.m_iVehicleAssetCount)
 			return "Convoy waypoint assignment failed.";
 
@@ -1203,10 +1370,10 @@ class HST_PhysicalWarService
 			}
 			else
 			{
-				if (activeGroup.m_sSpawnFallbackMode.IsEmpty() || activeGroup.m_sSpawnFallbackMode == "convoy_crew_near_vehicle")
+				if (activeGroup.m_sSpawnFallbackMode.IsEmpty() || activeGroup.m_sSpawnFallbackMode == "convoy_crew_near_vehicle" || activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending")
 					activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
-				if (activeGroup.m_sSpawnFailureReason.IsEmpty() || activeGroup.m_sSpawnFailureReason == "Convoy crew seating is planned for Phase 6; crew spawned near vehicle for static ambush.")
-					activeGroup.m_sSpawnFailureReason = "Convoy crew seating/movement is planned for later convoy phases; convoy remains a static ambush.";
+				if (activeGroup.m_sSpawnFailureReason.IsEmpty())
+					activeGroup.m_sSpawnFailureReason = "Convoy has no seated living AI driver yet.";
 				if (mission.m_sRuntimeFailureReason.IsEmpty())
 					mission.m_sRuntimeFailureReason = activeGroup.m_sSpawnFailureReason;
 				if (activeGroup.m_sSpawnFailureReason != previousReason)
@@ -1237,7 +1404,7 @@ class HST_PhysicalWarService
 			activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
 		activeGroup.m_sSpawnFailureReason = adapterReason;
 		if (activeGroup.m_sSpawnFailureReason.IsEmpty())
-			activeGroup.m_sSpawnFailureReason = "Convoy crew seating/movement is planned for later convoy phases; convoy remains a static ambush.";
+			activeGroup.m_sSpawnFailureReason = "Convoy has no seated living AI driver yet.";
 		return false;
 	}
 
