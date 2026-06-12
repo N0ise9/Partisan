@@ -991,7 +991,7 @@ Persistence:
 - save after one vehicle destroyed
 - save after success before cleanup
 
-## Codex Task Template
+## Task Template
 
 Use this template for future implementation requests.
 
