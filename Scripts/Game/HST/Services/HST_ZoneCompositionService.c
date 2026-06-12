@@ -12,6 +12,9 @@ class HST_ZoneCompositionService
 	static const string PROP_DESTROY_TARGET = "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et";
 	static const string PROP_RESOURCE_CACHE = "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et";
 	static const string PROP_SANDBAG_CANDIDATE = "Prefabs/Structures/Military/Sandbags/SandbagWall_01.et";
+	static const string MISSION_DESTROY_RADIO_TOWER = "destroy_radio_tower";
+	static const string MISSION_STOP_TOWER_REBUILD = "dynamic_stop_tower_rebuild";
+	static const string ROLE_DESTROY_TARGET = "destroy_target";
 	static const float HQ_SAFE_RADIUS_METERS = 900.0;
 
 	protected ref array<string> m_aRuntimeZoneIds = {};
@@ -77,6 +80,12 @@ class HST_ZoneCompositionService
 			if (prefab.IsEmpty())
 				continue;
 
+			if (ShouldSkipRadioTowerStaticForMissionTarget(state, zone, slot, prefab))
+			{
+				RecordSkip(zone.m_sZoneId, slot.m_sSlotId, prefab, slot.m_vPosition, "active mission target owns radio tower");
+				continue;
+			}
+
 			if (!IsValidPrefab(prefab))
 			{
 				RecordFailure(zone.m_sZoneId, slot.m_sSlotId, prefab, slot.m_vPosition, "optional prefab missing or invalid");
@@ -90,6 +99,7 @@ class HST_ZoneCompositionService
 				continue;
 			}
 
+			HST_WorldPositionService.ApplyUprightEntityTransform(entity, slot.m_vPosition, slot.m_vAngles);
 			m_aRuntimeZoneIds.Insert(zone.m_sZoneId);
 			m_aRuntimeSlotIds.Insert(slot.m_sSlotId);
 			m_aRuntimePrefabs.Insert(prefab);
@@ -329,6 +339,42 @@ class HST_ZoneCompositionService
 		return PROP_HOLD_MARKER;
 	}
 
+	protected bool ShouldSkipRadioTowerStaticForMissionTarget(HST_CampaignState state, HST_ZoneState zone, HST_ZoneSpawnSlotState slot, string prefab)
+	{
+		if (!state || !zone || !slot || prefab != PROP_DESTROY_TARGET)
+			return false;
+		if (zone.m_eType != HST_EZoneType.HST_ZONE_RADIO_TOWER || slot.m_sKind != SLOT_STATIC)
+			return false;
+
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sTargetZoneId != zone.m_sZoneId)
+				continue;
+			if (mission.m_sMissionId != MISSION_DESTROY_RADIO_TOWER && mission.m_sMissionId != MISSION_STOP_TOWER_REBUILD)
+				continue;
+			if (HasLiveMissionDestroyTarget(state, mission.m_sInstanceId))
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasLiveMissionDestroyTarget(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return false;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != instanceId || asset.m_sRole != ROLE_DESTROY_TARGET)
+				continue;
+			if (!asset.m_bDestroyed && !asset.m_bDelivered)
+				return true;
+		}
+
+		return false;
+	}
+
 	protected vector ResolvePrimaryAnchor(HST_CampaignState state, HST_ZoneState zone)
 	{
 		HST_GeneratedSiteState site = ResolvePrimarySite(state, zone);
@@ -471,6 +517,16 @@ class HST_ZoneCompositionService
 		m_sLastFailedPrefab = prefab;
 		m_sLastFailedSlotReason = reason;
 		Print(string.Format("h-istasi zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason), LogLevel.WARNING);
+	}
+
+	protected void RecordSkip(string zoneId, string slotId, string prefab, vector position, string reason)
+	{
+		m_iLastSkippedPrefabCount++;
+		m_sLastFailedZoneId = zoneId;
+		m_sLastFailedSlotId = slotId;
+		m_sLastFailedPrefab = prefab;
+		m_sLastFailedSlotReason = reason;
+		Print(string.Format("h-istasi zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason));
 	}
 
 	protected bool HasRuntimeZone(string zoneId)

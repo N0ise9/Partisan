@@ -564,6 +564,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer())
 			return false;
+		if (!m_Persistence || !m_State)
+			return false;
 
 		return m_Persistence.RequestCheckpoint("h-istasi manual checkpoint", m_State);
 	}
@@ -1042,6 +1044,37 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return RequestManualCheckpoint();
 	}
 
+	string RequestMemberManualCheckpointReport(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi checkpoint | not available | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi checkpoint | not available | membership required";
+		if (!m_Persistence)
+			return "h-istasi checkpoint | not available | persistence service not ready";
+		if (!m_State)
+			return "h-istasi checkpoint | not available | campaign state not ready";
+
+		bool success = RequestManualCheckpoint();
+		if (success)
+			return "h-istasi checkpoint | success | " + m_State.m_sLastPersistenceStatus;
+
+		string reason = m_State.m_sLastPersistenceStatus;
+		if (reason.IsEmpty())
+			reason = "checkpoint request returned false";
+		return "h-istasi checkpoint | not available | " + reason;
+	}
+
+	string RequestMemberFoundationStatus(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi foundation | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi foundation | membership required";
+
+		return BuildFoundationStatusReport();
+	}
+
 	string RequestMemberInspectCampaign(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
@@ -1080,6 +1113,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "";
 
 		return m_CommandUI.BuildMissionReport(m_State);
+	}
+
+	string RequestMemberInspectActiveMissions(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi mission runtime | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi mission runtime | membership required";
+		if (!m_MissionRuntime)
+			return "h-istasi mission runtime | service not ready";
+
+		string report = m_MissionRuntime.BuildRuntimeReport(m_State);
+		if (m_PhysicalWar)
+			report = report + "\n" + m_PhysicalWar.BuildConvoyRuntimeReport(m_State);
+		return report;
+	}
+
+	string RequestMemberInspectMission(int playerId, string instanceId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi mission runtime | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi mission runtime | membership required";
+		if (!m_MissionRuntime)
+			return "h-istasi mission runtime | service not ready";
+
+		return m_MissionRuntime.BuildRuntimeReportForMission(m_State, instanceId);
 	}
 
 	string RequestMemberInspectObjectives(int playerId)
@@ -3352,6 +3412,41 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		runtimeSummary = runtimeSummary + string.Format(" | deployed %1 | runtime objects %2", m_State.m_bHQDeployed, m_State.m_bHQRuntimeObjectsSpawned);
 		string alphaSummary = string.Format(" | sites %1 | support requests %2 | enemy orders %3 | civilian towns %4", m_State.m_aGeneratedSites.Count(), m_State.m_aSupportRequests.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aCivilianZones.Count());
 		return economySummary + zoneSummary + runtimeSummary + alphaSummary;
+	}
+
+	protected string BuildFoundationStatusReport()
+	{
+		if (!m_State)
+			return "h-istasi foundation | campaign state not ready";
+
+		string hqHideout = m_State.m_sHQHideoutId;
+		if (hqHideout.IsEmpty())
+			hqHideout = "none";
+
+		string persistence = m_State.m_sLastPersistenceStatus;
+		if (persistence.IsEmpty())
+			persistence = "none";
+
+		string report = string.Format("h-istasi foundation | phase %1 | schema %2/%3", m_State.m_ePhase, m_State.m_iSchemaVersion, HST_CampaignState.SCHEMA_VERSION);
+		report = report + string.Format(" | HQ hideout %1 | deployed %2 | Petros alive %3 | runtime objects %4", hqHideout, m_State.m_bHQDeployed, m_State.m_bPetrosAlive, m_State.m_bHQRuntimeObjectsSpawned);
+		report = report + string.Format(" | active missions %1 | active groups %2", CountFoundationActiveMissions(), m_State.m_aActiveGroups.Count());
+		report = report + " | persistence " + persistence;
+		return report;
+	}
+
+	protected int CountFoundationActiveMissions()
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+				count++;
+		}
+
+		return count;
 	}
 
 	protected string BuildZoneReport(string zoneId)

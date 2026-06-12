@@ -761,6 +761,17 @@ foreach ($requiredMissionStateMachineEntry in @(
 	"FindFailedActiveMissionId",
 	"AdvanceMissionStateMachine",
 	"MarkRuntimeMissionFailed",
+	"BuildRuntimeReportForMission",
+	"CountMissionRuntimeEntities",
+	"objective count",
+	"complete objectives",
+	"failed objectives",
+	"mission asset count",
+	"runtime entity count",
+	"failure reason",
+	"ReportTargetZone",
+	"ReportSite",
+	"missing:",
 	"ResolveConvoyArrivalSeconds",
 	"EnsureMissionHostileGroup",
 	"RegisterRuntimeEntityState",
@@ -1400,11 +1411,20 @@ foreach ($requiredCoordinatorEntry in @(
 	"RequestCommanderDepositArsenalItem",
 	"RequestCommanderStoreGarageVehicle",
 	"RequestMemberManualCheckpoint",
+	"RequestMemberManualCheckpointReport",
+	"RequestMemberFoundationStatus",
+	"BuildFoundationStatusReport",
+	"h-istasi checkpoint | success",
+	"h-istasi checkpoint | not available",
+	"schema %2/%3",
+	"active missions %1 | active groups %2",
 	"RequestMemberInspectCampaign",
 	"RequestMemberInspectMarkers",
 	"RequestMemberInspectEconomy",
 	"RequestMemberInspectZones",
 	"RequestMemberInspectMissions",
+	"RequestMemberInspectActiveMissions",
+	"RequestMemberInspectMission",
 	"GetAlphaMemberMenu",
 	"GetAlphaCommanderMenu",
 	"GetAlphaAdminMenu",
@@ -1529,11 +1549,14 @@ foreach ($requiredCommandMenuEntry in @(
 	'ExecuteSelectedAction',
 	'BuildVisibleMenuPayload',
 	'RequestVisibleMenuCommand',
+	'foundation_status',
 	'inspect_campaign',
 	'inspect_markers',
 	'inspect_economy',
 	'inspect_zones',
 	'inspect_missions',
+	'inspect_active_missions',
+	'inspect_mission',
 	'inspect_persistence',
 	'inspect_mission_runtime',
 	'inspect_arsenal',
@@ -2604,6 +2627,26 @@ if ($civilianRuntimeServiceText -match 'DoSpawn\(prefab, position, "0 0 0"\)') {
 }
 if ($missionRuntimeServiceText -match 'DoSpawn\([^;\r\n]*"0 0 0"\)') {
 	throw "Mission runtime props must pass deterministic angles instead of hard-coded zero angles"
+}
+foreach ($requiredMissionUprightEntry in @(
+	"ShouldApplyUprightMissionAssetTransform",
+	"ApplyUprightEntityTransform(entity, position, angles)"
+)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredMissionUprightEntry)) {
+		throw "Mission runtime props must keep upright transform guard: $requiredMissionUprightEntry"
+	}
+}
+$zoneCompositionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCompositionService.c"
+foreach ($requiredZoneCompositionRadioEntry in @(
+	"ShouldSkipRadioTowerStaticForMissionTarget",
+	"HasLiveMissionDestroyTarget",
+	"active mission target owns radio tower",
+	"RecordSkip",
+	"ApplyUprightEntityTransform(entity, slot.m_vPosition, slot.m_vAngles)"
+)) {
+	if ($zoneCompositionServiceText -notmatch [regex]::Escape($requiredZoneCompositionRadioEntry)) {
+		throw "Zone composition must keep radio mission duplicate-tower guard: $requiredZoneCompositionRadioEntry"
+	}
 }
 $arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
 if ($lootServiceText -match 'm_vAngles = "0 0 0"') {

@@ -39,7 +39,7 @@ class HST_CommandUIService
 		if (markers)
 			markerSummary = "\n" + markers.BuildMarkerReport(state);
 
-		return header + hq + markerSummary + "\nMember actions: inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_arsenal, loot_nearby, checkpoint";
+		return header + hq + markerSummary + "\nMember actions: foundation_status, inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_active_missions, inspect_arsenal, loot_nearby, checkpoint";
 	}
 
 	string BuildCommanderMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
@@ -98,7 +98,10 @@ class HST_CommandUIService
 			return BuildBoolResult("select initial hideout " + argument, coordinator.RequestCommanderSelectInitialHideout(playerId, argument));
 
 		if (commandId == "checkpoint")
-			return BuildBoolResult("manual checkpoint", coordinator.RequestMemberManualCheckpoint(playerId));
+			return coordinator.RequestMemberManualCheckpointReport(playerId);
+
+		if (commandId == "foundation_status")
+			return coordinator.RequestMemberFoundationStatus(playerId);
 
 		if (commandId == "inspect_campaign")
 			return coordinator.RequestMemberInspectCampaign(playerId);
@@ -114,6 +117,12 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_missions")
 			return coordinator.RequestMemberInspectMissions(playerId);
+
+		if (commandId == "inspect_active_missions")
+			return coordinator.RequestMemberInspectActiveMissions(playerId);
+
+		if (commandId == "inspect_mission")
+			return coordinator.RequestMemberInspectMission(playerId, argument);
 
 		if (commandId == "inspect_objectives")
 			return coordinator.RequestMemberInspectObjectives(playerId);
@@ -378,6 +387,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_campaign")
 			return !coordinator.RequestMemberInspectCampaign(playerId).IsEmpty();
 
+		if (commandId == "foundation_status")
+			return !coordinator.RequestMemberFoundationStatus(playerId).IsEmpty();
+
 		if (commandId == "inspect_markers")
 			return !coordinator.RequestMemberInspectMarkers(playerId).IsEmpty();
 
@@ -389,6 +401,12 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_missions")
 			return !coordinator.RequestMemberInspectMissions(playerId).IsEmpty();
+
+		if (commandId == "inspect_active_missions")
+			return !coordinator.RequestMemberInspectActiveMissions(playerId).IsEmpty();
+
+		if (commandId == "inspect_mission")
+			return !coordinator.RequestMemberInspectMission(playerId, argument).IsEmpty();
 
 		if (commandId == "inspect_objectives")
 			return !coordinator.RequestMemberInspectObjectives(playerId).IsEmpty();
@@ -1349,6 +1367,7 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_OVERVIEW)
 		{
+			AddMenuAction(actions, TAB_OVERVIEW, "Foundation status", "foundation_status", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Marker status", "inspect_markers", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
@@ -1367,6 +1386,8 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_MISSIONS)
 		{
+			AddMenuAction(actions, TAB_MISSIONS, "Inspect Active Missions", "inspect_active_missions", "", canUseMember, "membership required");
+			AddMissionInspectActions(state, actions, canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Start priority mission", "mission_random", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start mission", state, primaryTargetId), "mission_zone", primaryTargetId, canUseCommander && !primaryTargetId.IsEmpty(), "no valid target");
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start town mission", state, hostileTownId), "mission_zone", hostileTownId, canUseCommander && !hostileTownId.IsEmpty(), "no hostile town");
@@ -2444,6 +2465,22 @@ class HST_CommandUIService
 				continue;
 
 			AddMenuAction(actions, TAB_MISSIONS, BuildMissionAssetActionLabel(mission, asset), commandId, asset.m_sAssetId, canUseMember, disabledReason);
+			emitted++;
+		}
+	}
+
+	protected void AddMissionInspectActions(HST_CampaignState state, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, string disabledReason)
+	{
+		if (!state)
+			return;
+
+		int emitted;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || emitted >= 6)
+				continue;
+
+			AddMenuAction(actions, TAB_MISSIONS, "Inspect: " + ShortText(BuildMissionDisplayTitle(mission), 24), "inspect_mission", mission.m_sInstanceId, canUseMember, disabledReason);
 			emitted++;
 		}
 	}

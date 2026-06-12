@@ -436,7 +436,7 @@ class HST_MissionRuntimeService
 				Print(string.Format("h-istasi mission runtime | asset spawn failed for %1 using %2", asset.m_sAssetId, asset.m_sPrefab), LogLevel.WARNING);
 				continue;
 			}
-			if (asset.m_sKind == ASSET_KIND_VEHICLE)
+			if (ShouldApplyUprightMissionAssetTransform(asset))
 				HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
 
 			HST_MissionAssetComponent assetComponent = HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent));
@@ -483,11 +483,20 @@ class HST_MissionRuntimeService
 			return false;
 		}
 
+		HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
 		m_aRuntimeEntityIds.Insert(mission.m_sRuntimeEntityId);
 		m_aRuntimeEntities.Insert(entity);
 		RegisterRuntimeEntityState(state, mission, prefab, position, angles);
 		Print(string.Format("h-istasi mission runtime | spawned prop %1 for %2 at %3", prefab, mission.m_sInstanceId, position));
 		return true;
+	}
+
+	protected bool ShouldApplyUprightMissionAssetTransform(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return false;
+
+		return asset.m_sKind == ASSET_KIND_VEHICLE || asset.m_sKind == ASSET_KIND_TARGET || asset.m_sKind == ASSET_KIND_AREA || asset.m_sKind == ASSET_KIND_CARGO;
 	}
 
 	protected void RegisterRuntimeEntityState(HST_CampaignState state, HST_ActiveMissionState mission, string prefab, vector position, vector angles)
@@ -2012,6 +2021,20 @@ class HST_MissionRuntimeService
 		return string.Format("h-istasi mission runtime | physical %1 | spawned %2 | fallback %3 | objectives %4 | assets %5", physical, spawned, fallback, state.m_aMissionObjectives.Count(), state.m_aMissionAssets.Count()) + details;
 	}
 
+	string BuildRuntimeReportForMission(HST_CampaignState state, string instanceId)
+	{
+		if (!state)
+			return "h-istasi mission runtime | state not ready";
+		if (instanceId.IsEmpty())
+			return "h-istasi mission runtime | mission instance ID required";
+
+		HST_ActiveMissionState mission = state.FindActiveMission(instanceId);
+		if (!mission)
+			return "h-istasi mission runtime | mission not found: " + instanceId;
+
+		return "h-istasi mission runtime | selected mission" + BuildMissionRuntimeReport(state, mission);
+	}
+
 	protected string BuildMissionRuntimeReport(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission)
@@ -2028,13 +2051,16 @@ class HST_MissionRuntimeService
 		int assetDelivered;
 		CountMissionAssets(state, mission.m_sInstanceId, assetTotal, assetSpawned, assetDestroyed, assetDelivered);
 
-		string line = string.Format("\n%1 | %2 | target %3 | site %4", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_sSiteId);
-		line = line + string.Format(" | primitive %1 | runtime %2 | phase %3 | entity %4", mission.m_sRuntimePrimitive, mission.m_sRuntimeType, mission.m_sRuntimePhase, mission.m_sRuntimeEntityId);
-		line = line + string.Format(" | objectives %1/%2 failed %3 | assets %4/%5", objectiveComplete, objectiveTotal, objectiveFailed, assetSpawned, assetTotal);
+		int runtimeEntityCount = CountMissionRuntimeEntities(state, mission.m_sInstanceId);
+		string failureReason = ReportText(mission.m_sRuntimeFailureReason);
+
+		string line = string.Format("\ninstance %1 | mission %2 | name %3 | target zone %4 | site %5", ReportText(mission.m_sInstanceId), ReportText(mission.m_sMissionId), ReportMissionDisplayName(mission), ReportTargetZone(state, mission.m_sTargetZoneId), ReportSite(state, mission.m_sSiteId));
+		line = line + string.Format(" | status %1 | primitive %2 | runtime %3 | phase %4 | remaining %5s", mission.m_eStatus, ReportText(mission.m_sRuntimePrimitive), ReportText(mission.m_sRuntimeType), ReportText(mission.m_sRuntimePhase), mission.m_iRemainingSeconds);
+		line = line + string.Format(" | objective count %1 | complete objectives %2 | failed objectives %3", objectiveTotal, objectiveComplete, objectiveFailed);
+		line = line + string.Format(" | mission asset count %1 | runtime entity count %2 | failure reason %3", assetTotal, runtimeEntityCount, failureReason);
+		line = line + string.Format(" | assets spawned %1/%2", assetSpawned, assetTotal);
 		line = line + string.Format(" destroyed %1 delivered %2", assetDestroyed, assetDelivered);
 		line = line + string.Format(" | fallback %1 | cleanup %2", mission.m_bRuntimeFallback, mission.m_bRuntimeCleanupComplete);
-		if (!mission.m_sRuntimeFailureReason.IsEmpty())
-			line = line + " | problem " + mission.m_sRuntimeFailureReason;
 
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
 			line = line + BuildConvoyRouteReport(state, mission);
@@ -2042,6 +2068,52 @@ class HST_MissionRuntimeService
 		line = line + BuildMissionObjectiveRuntimeReport(state, mission);
 		line = line + BuildMissionAssetRuntimeReport(state, mission);
 		return line;
+	}
+
+	protected string ReportText(string value)
+	{
+		if (value.IsEmpty())
+			return "none";
+
+		return value;
+	}
+
+	protected string ReportMissionDisplayName(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "none";
+		if (!mission.m_sDisplayName.IsEmpty())
+			return mission.m_sDisplayName;
+
+		return ReportText(mission.m_sMissionId);
+	}
+
+	protected string ReportTargetZone(HST_CampaignState state, string zoneId)
+	{
+		if (zoneId.IsEmpty())
+			return "none";
+		if (!state)
+			return "missing:" + zoneId;
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
+			return "missing:" + zoneId;
+
+		return zoneId;
+	}
+
+	protected string ReportSite(HST_CampaignState state, string siteId)
+	{
+		if (siteId.IsEmpty())
+			return "none";
+		if (!state)
+			return "missing:" + siteId;
+
+		HST_GeneratedSiteState site = state.FindGeneratedSite(siteId);
+		if (!site)
+			return "missing:" + siteId;
+
+		return siteId;
 	}
 
 	protected void CountMissionObjectives(HST_CampaignState state, string instanceId, out int total, out int complete, out int failed)
@@ -2087,6 +2159,21 @@ class HST_MissionRuntimeService
 			if (asset.m_bDelivered)
 				delivered++;
 		}
+	}
+
+	protected int CountMissionRuntimeEntities(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
+		{
+			if (runtimeEntity && runtimeEntity.m_sMissionInstanceId == instanceId)
+				count++;
+		}
+
+		return count;
 	}
 
 	protected string BuildConvoyRouteReport(HST_CampaignState state, HST_ActiveMissionState mission)

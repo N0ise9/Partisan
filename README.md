@@ -57,6 +57,9 @@ The repository contains the first engine-facing increment:
   start, objective/runtime inspection, FIA supply requests, support
   cancellation, civilian aid, support reports, garage reports, generated
   content reports, persistence status, and undercover status
+- Phase 0/1 foundation and mission diagnostics are complete: the alpha command
+  menu exposes foundation status, explicit checkpoint reporting, active mission
+  inspection, selected mission inspection, and null-safe runtime mission fields
 - Versioned campaign save-data container that is migrated, tracked through
   `PersistenceSystem`, and flushed before native `SaveGameManager`
   checkpoint requests when saving is possible
