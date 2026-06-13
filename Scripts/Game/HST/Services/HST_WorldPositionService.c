@@ -9,6 +9,8 @@ class HST_WorldPositionService
 	static const float SAFE_SAMPLE_RADIUS_METERS = 2.5;
 	static const float MAX_LARGE_VEHICLE_SLOPE_DELTA_METERS = 0.85;
 	static const float LARGE_VEHICLE_SAMPLE_RADIUS_METERS = 6.0;
+	static const float MAX_HEAVY_VEHICLE_SLOPE_DELTA_METERS = 0.65;
+	static const float HEAVY_VEHICLE_SAMPLE_RADIUS_METERS = 10.0;
 	static const float OPEN_WATER_SAMPLE_RADIUS_SMALL = 18.0;
 	static const float OPEN_WATER_SAMPLE_RADIUS_LARGE = 55.0;
 	static const float OPEN_WATER_MAX_DELTA_METERS = 0.08;
@@ -129,13 +131,23 @@ class HST_WorldPositionService
 
 	static bool TryResolveLargeVehicleSpawnPosition(vector preferred, out vector resolved, bool rejectWater = true)
 	{
+		return TryResolveSizedVehicleSpawnPosition(preferred, resolved, rejectWater, LARGE_VEHICLE_SAMPLE_RADIUS_METERS, MAX_LARGE_VEHICLE_SLOPE_DELTA_METERS);
+	}
+
+	static bool TryResolveHeavyVehicleSpawnPosition(vector preferred, out vector resolved, bool rejectWater = true)
+	{
+		return TryResolveSizedVehicleSpawnPosition(preferred, resolved, rejectWater, HEAVY_VEHICLE_SAMPLE_RADIUS_METERS, MAX_HEAVY_VEHICLE_SLOPE_DELTA_METERS);
+	}
+
+	protected static bool TryResolveSizedVehicleSpawnPosition(vector preferred, out vector resolved, bool rejectWater, float sampleRadius, float maxSlopeDelta)
+	{
 		resolved = preferred;
-		if (TryResolveLargeVehicleSpawnPositionAt(preferred, resolved, rejectWater))
+		if (TryResolveVehicleSpawnPositionAt(preferred, resolved, rejectWater, sampleRadius, maxSlopeDelta))
 			return true;
 
 		for (int ring = 1; ring <= 5; ring++)
 		{
-			float radius = LARGE_VEHICLE_SAMPLE_RADIUS_METERS * ring;
+			float radius = sampleRadius * ring;
 			for (int step = 0; step < 8; step++)
 			{
 				vector candidate = preferred;
@@ -168,7 +180,7 @@ class HST_WorldPositionService
 					candidate[2] = candidate[2] - radius;
 				}
 
-				if (TryResolveLargeVehicleSpawnPositionAt(candidate, resolved, rejectWater))
+				if (TryResolveVehicleSpawnPositionAt(candidate, resolved, rejectWater, sampleRadius, maxSlopeDelta))
 					return true;
 			}
 		}
@@ -198,7 +210,7 @@ class HST_WorldPositionService
 		if (genericEntity)
 		{
 			genericEntity.SetOrigin(position);
-			genericEntity.SetAngles(angles);
+			genericEntity.SetAngles(BuildEntitySetAnglesFromYawVector(angles));
 		}
 
 		return genericEntity;
@@ -225,7 +237,21 @@ class HST_WorldPositionService
 
 		vector uprightAngles = BuildUprightAnglesFromVector(angles);
 		entity.SetOrigin(position);
-		entity.SetAngles(uprightAngles);
+		entity.SetAngles(BuildEntitySetAnglesFromYawVector(uprightAngles));
+	}
+
+	static vector BuildEntitySetAnglesFromYawVector(vector sourceAngles)
+	{
+		return BuildEntitySetAnglesFromYaw(sourceAngles[0]);
+	}
+
+	static vector BuildEntitySetAnglesFromYaw(float yawDegrees)
+	{
+		vector angles;
+		angles[0] = 0;
+		angles[1] = NormalizeYaw(yawDegrees);
+		angles[2] = 0;
+		return angles;
 	}
 
 	static float NormalizeYaw(float yawDegrees)
@@ -282,7 +308,7 @@ class HST_WorldPositionService
 		return true;
 	}
 
-	protected static bool TryResolveLargeVehicleSpawnPositionAt(vector source, out vector resolved, bool rejectWater)
+	protected static bool TryResolveVehicleSpawnPositionAt(vector source, out vector resolved, bool rejectWater, float sampleRadius, float maxSlopeDelta)
 	{
 		if (!TryResolveGroundPosition(source, VEHICLE_GROUND_OFFSET, resolved, rejectWater))
 			return false;
@@ -294,8 +320,8 @@ class HST_WorldPositionService
 		if (!world)
 			return false;
 
-		float slopeDelta = ResolveSurfaceDelta(world, resolved, LARGE_VEHICLE_SAMPLE_RADIUS_METERS);
-		return slopeDelta <= MAX_LARGE_VEHICLE_SLOPE_DELTA_METERS;
+		float slopeDelta = ResolveSurfaceDelta(world, resolved, sampleRadius);
+		return slopeDelta <= maxSlopeDelta;
 	}
 
 	protected static IEntity GetBestPlayerEntity(PlayerManager playerManager, int playerId)

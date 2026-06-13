@@ -18,6 +18,7 @@ class HST_MapMarkerService
 	protected int m_iLastNativeEligibleCount;
 	protected int m_iLastNativePublishedCount;
 	protected int m_iLastNativeSkippedCount;
+	protected int m_iLastReportedMarkerRecordCount = -1;
 	protected int m_iLastNativeOwnershipSyncSecond = -999999;
 
 	bool RebuildAllMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -31,10 +32,17 @@ class HST_MapMarkerService
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
 		AddSupportRequestMarkers(state, preset);
+		int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
+		int previousPublishedCount = m_iLastNativePublishedCount;
+		int previousEligibleCount = m_iLastNativeEligibleCount;
+		int previousSkippedCount = m_iLastNativeSkippedCount;
 		bool ownershipSynced = SyncVisibleNativeMarkerOwnershipIfDue(state);
 		bool published = PublishRuntimeNativeMarkers(state, preset);
-		if (published || ownershipSynced)
+		if (ShouldReportMarkerRebuild(state.m_aMapMarkers.Count(), published, ownershipSynced, previousReportedMarkerCount, previousPublishedCount, previousEligibleCount, previousSkippedCount))
+		{
 			Print(string.Format("h-istasi | rebuilt %1 campaign map marker record(s), native %2/%3 published, %4 skipped", state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount));
+			m_iLastReportedMarkerRecordCount = state.m_aMapMarkers.Count();
+		}
 		return published || ownershipSynced;
 	}
 
@@ -60,6 +68,7 @@ class HST_MapMarkerService
 		m_iLastNativeEligibleCount = 0;
 		m_iLastNativePublishedCount = 0;
 		m_iLastNativeSkippedCount = 0;
+		m_iLastReportedMarkerRecordCount = -1;
 		m_iLastNativeOwnershipSyncSecond = -999999;
 		m_bNativePublishPending = false;
 		if (!state)
@@ -242,8 +251,30 @@ class HST_MapMarkerService
 		vector destinationPosition = ResolveMissionConvoyDestinationPosition(state, mission);
 		string title = MissionMarkerTitle(mission);
 		string destinationName = ResolveZoneDisplayNameById(state, mission.m_sTargetZoneId);
-		AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy - %1: neutralize crew", title), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+		if (mission.m_sRuntimePhase == "convoy_moving")
+			AddMissionConvoyVehicleMarkers(state, preset, mission, title);
+		else
+			AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy - %1: neutralize crew", title), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
 		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy destination - %1: %2", title, destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
+	}
+
+	protected void AddMissionConvoyVehicleMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, string title)
+	{
+		int vehicleIndex;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "convoy_vehicle" || asset.m_bDestroyed || asset.m_bDelivered)
+				continue;
+
+			vector position = asset.m_vCurrentPosition;
+			if (IsZeroVector(position))
+				position = asset.m_vSourcePosition;
+
+			string markerId = "hst_mission_convoy_vehicle_" + asset.m_sAssetId;
+			string label = string.Format("Convoy vehicle %1 - %2: neutralize crew", vehicleIndex + 1, title);
+			AddMarker(state, markerId, mission.m_sInstanceId, label, "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), position, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+			vehicleIndex++;
+		}
 	}
 
 	protected vector ResolveMissionConvoyAggregatePosition(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -439,6 +470,22 @@ class HST_MapMarkerService
 		m_bNativePublishPending = false;
 		m_fNativePublishRetrySeconds = 0;
 		return true;
+	}
+
+	protected bool ShouldReportMarkerRebuild(int markerCount, bool published, bool ownershipSynced, int previousMarkerCount, int previousPublishedCount, int previousEligibleCount, int previousSkippedCount)
+	{
+		if (!published && !ownershipSynced)
+			return false;
+		if (markerCount != previousMarkerCount)
+			return true;
+		if (m_iLastNativePublishedCount != previousPublishedCount)
+			return true;
+		if (m_iLastNativeEligibleCount != previousEligibleCount)
+			return true;
+		if (m_iLastNativeSkippedCount != previousSkippedCount)
+			return true;
+
+		return false;
 	}
 
 	protected bool CreateRuntimeNativeMarker(SCR_MapMarkerManagerComponent markerManager, HST_MapMarkerState marker, HST_CampaignPreset preset)

@@ -68,8 +68,8 @@ class HST_MissionRuntimeService
 	static const float MIN_CONVOY_STAGING_ZONE_CLEARANCE_METERS = 260.0;
 	static const float MIN_CONVOY_STAGING_SITE_CLEARANCE_METERS = 140.0;
 	static const int CONVOY_ROUTE_SAMPLE_COUNT = 6;
-	static const float CONVOY_VEHICLE_START_SPACING_METERS = 34.0;
-	static const float MIN_CONVOY_VEHICLE_START_SEPARATION_METERS = 28.0;
+	static const float CONVOY_VEHICLE_START_SPACING_METERS = 42.0;
+	static const float MIN_CONVOY_VEHICLE_START_SEPARATION_METERS = 36.0;
 	static const int MIN_CONVOY_VEHICLES = 3;
 	static const int MAX_CONVOY_VEHICLES = 6;
 	static const int MIN_CONVOY_IDLE_SECONDS = 300;
@@ -1587,19 +1587,34 @@ class HST_MissionRuntimeService
 
 	protected int ResolveConvoyVehicleCount(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionDefinition definition)
 	{
+		int seed = BuildConvoyVehicleCountSeed(state, mission, definition);
+		int resolved = MIN_CONVOY_VEHICLES + HST_DefaultCatalog.PositiveMod(seed, MAX_CONVOY_VEHICLES - MIN_CONVOY_VEHICLES + 1);
+		return Math.Max(MIN_CONVOY_VEHICLES, Math.Min(MAX_CONVOY_VEHICLES, resolved));
+	}
+
+	protected int BuildConvoyVehicleCountSeed(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionDefinition definition)
+	{
 		int seed = 7;
 		if (state)
-			seed += state.m_iCampaignSeed * 13 + state.m_iElapsedSeconds * 3;
+			seed += state.m_iCampaignSeed * 13 + state.m_iElapsedSeconds * 3 + state.m_aActiveMissions.Count() * 101 + state.m_aMissionAssets.Count() * 17;
 		if (mission)
-			seed += mission.m_sInstanceId.Length() * 41 + mission.m_sMissionId.Length() * 53;
+			seed += mission.m_sInstanceId.Length() * 41 + mission.m_sMissionId.Length() * 53 + ResolveMissionInstanceNumericSeed(mission.m_sInstanceId) * 127;
 		if (definition)
 			seed += definition.m_sMissionId.Length() * 17 + definition.m_iRewardMoney;
 
-		int resolved = MIN_CONVOY_VEHICLES + HST_DefaultCatalog.PositiveMod(seed, MAX_CONVOY_VEHICLES - MIN_CONVOY_VEHICLES + 1);
-		if (definition && definition.m_iVehicleCount > 0)
-			resolved = Math.Max(resolved, definition.m_iVehicleCount);
+		return seed;
+	}
 
-		return Math.Max(MIN_CONVOY_VEHICLES, Math.Min(MAX_CONVOY_VEHICLES, resolved));
+	protected int ResolveMissionInstanceNumericSeed(string instanceId)
+	{
+		string prefix = "mission_";
+		if (instanceId.Contains(prefix) && instanceId.Length() > prefix.Length())
+		{
+			string suffix = instanceId.Substring(prefix.Length(), instanceId.Length() - prefix.Length());
+			return suffix.ToInt();
+		}
+
+		return instanceId.Length();
 	}
 
 	protected int ResolveConvoyIdleDelaySeconds(HST_CampaignState state, HST_ActiveMissionState mission)

@@ -90,6 +90,7 @@ class HST_ActiveGroupState
 	int m_iSurvivorInfantryCount;
 	int m_iSurvivorVehicleCount;
 	int m_iSpawnedAgentCount;
+	int m_iAssignedWaypointCount;
 	bool m_bQRF;
 	bool m_bSpawnAttempted;
 	bool m_bSpawnedEntity;
@@ -556,7 +557,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 16;
+	static const int SCHEMA_VERSION = 17;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

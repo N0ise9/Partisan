@@ -10,6 +10,7 @@ class HST_ConvoyCrewSeatingResult
 	int m_iTurretSeatedCount;
 	int m_iCargoSeatedCount;
 	int m_iIssuedOrders;
+	int m_iRemovedOverflowCrew;
 	bool m_bDriverAssigned;
 	bool m_bSeatingPending;
 	string m_sReason;
@@ -17,7 +18,7 @@ class HST_ConvoyCrewSeatingResult
 	string ToReportString()
 	{
 		string report = string.Format("driver assigned %1 | seated crew %2/%3", BoolText(m_bDriverAssigned), m_iSeatedCrew, m_iLivingCrew);
-		report = report + string.Format(" | turret seated %1 | cargo seated %2 | seating pending %3", m_iTurretSeatedCount, m_iCargoSeatedCount, BoolText(m_bSeatingPending));
+		report = report + string.Format(" | turret seated %1 | cargo seated %2 | overflow removed %3 | seating pending %4", m_iTurretSeatedCount, m_iCargoSeatedCount, m_iRemovedOverflowCrew, BoolText(m_bSeatingPending));
 		report = report + string.Format(" | seating orders %1 | compartments %2 | driver slots %3", m_iIssuedOrders, m_iDiscoveredCompartments, m_iDriverSlots);
 		report = report + string.Format(" | turret slots %1 | cargo slots %2 | last seating reason %3", m_iTurretSlots, m_iCargoSlots, ReportText(m_sReason));
 		return report;
@@ -68,8 +69,9 @@ class HST_ConvoyVehicleControlAdapter
 		return seating.m_bDriverAssigned;
 	}
 
-	bool TryAssignVehicleRoute(HST_ActiveGroupState groupState, IEntity groupEntity, IEntity vehicleEntity, array<vector> waypoints, out string reason)
+	bool TryAssignVehicleRoute(HST_ActiveGroupState groupState, IEntity groupEntity, IEntity vehicleEntity, array<vector> waypoints, out int assignedWaypointCount, out string reason)
 	{
+		assignedWaypointCount = 0;
 		reason = "";
 		if (!groupState)
 		{
@@ -89,6 +91,11 @@ class HST_ConvoyVehicleControlAdapter
 		if (!waypoints || waypoints.Count() == 0)
 		{
 			reason = "Convoy adapter cannot assign route: no route waypoints.";
+			return false;
+		}
+		if (waypoints.Count() <= 1)
+		{
+			reason = "Convoy adapter cannot assign route: waypoint-chain route needs at least two waypoint positions.";
 			return false;
 		}
 		if (CountLivingCrew(groupEntity) <= 0)
@@ -116,16 +123,35 @@ class HST_ConvoyVehicleControlAdapter
 			return false;
 		}
 
+		array<IEntity> spawnedWaypoints = {};
 		foreach (vector waypointPosition : waypoints)
 		{
-			if (!SpawnAndAssignWaypoint(group, waypointPosition))
+			IEntity waypointEntity = SpawnRouteWaypoint(waypointPosition);
+			if (!waypointEntity)
 			{
-				reason = "Convoy adapter route assignment failed while creating AI waypoint.";
+				DeleteSpawnedWaypoints(spawnedWaypoints);
+				reason = string.Format("Convoy adapter route assignment failed while creating AI waypoint %1/%2.", spawnedWaypoints.Count() + 1, waypoints.Count());
 				return false;
 			}
+
+			spawnedWaypoints.Insert(waypointEntity);
 		}
 
-		reason = "Convoy adapter assigned route waypoints.";
+		foreach (IEntity waypointEntityToAssign : spawnedWaypoints)
+		{
+			AIWaypoint waypoint = AIWaypoint.Cast(waypointEntityToAssign);
+			if (!waypoint)
+			{
+				DeleteSpawnedWaypoints(spawnedWaypoints);
+				reason = "Convoy adapter route assignment failed while resolving spawned AI waypoint.";
+				return false;
+			}
+
+			group.AddWaypoint(waypoint);
+			assignedWaypointCount++;
+		}
+
+		reason = string.Format("Convoy adapter assigned route waypoint chain %1/%2.", assignedWaypointCount, waypoints.Count());
 		return true;
 	}
 
@@ -147,6 +173,35 @@ class HST_ConvoyVehicleControlAdapter
 
 		HST_ConvoyCrewSeatingResult seating = BuildCrewSeatingResult(groupEntity, vehicleEntity, false);
 		return seating.m_bDriverAssigned;
+	}
+
+	bool AreLivingCrewMounted(IEntity groupEntity, IEntity vehicleEntity, out string reason)
+	{
+		HST_ConvoyCrewSeatingResult seating = BuildCrewSeatingResult(groupEntity, vehicleEntity, false);
+		reason = seating.ToReportString();
+		return seating.m_iLivingCrew > 0 && seating.m_bDriverAssigned && seating.m_iSeatedCrew >= seating.m_iLivingCrew;
+	}
+
+	bool AreAllLivingCrewDismounted(IEntity groupEntity, IEntity vehicleEntity, out string reason)
+	{
+		array<IEntity> livingCrew = {};
+		string crewReason;
+		CollectLivingCrewEntities(groupEntity, livingCrew, crewReason);
+		if (livingCrew.Count() <= 0)
+		{
+			reason = crewReason;
+			return false;
+		}
+
+		if (!vehicleEntity)
+		{
+			reason = "vehicle entity missing while living crew remains";
+			return true;
+		}
+
+		HST_ConvoyCrewSeatingResult seating = BuildCrewSeatingResult(groupEntity, vehicleEntity, false);
+		reason = seating.ToReportString();
+		return seating.m_iLivingCrew > 0 && seating.m_iSeatedCrew <= 0;
 	}
 
 	string BuildCrewSeatingReport(IEntity groupEntity, IEntity vehicleEntity)
@@ -242,6 +297,13 @@ class HST_ConvoyVehicleControlAdapter
 			}
 		}
 
+		if (issueOrders && result.m_bDriverAssigned && !result.m_bSeatingPending && result.m_iIssuedOrders <= 0 && result.m_iSeatedCrew < result.m_iLivingCrew)
+		{
+			result.m_iRemovedOverflowCrew = RemoveUnseatedOverflowCrew(livingCrew, vehicleEntity);
+			if (result.m_iRemovedOverflowCrew > 0)
+				result.m_iLivingCrew = Math.Max(result.m_iSeatedCrew, result.m_iLivingCrew - result.m_iRemovedOverflowCrew);
+		}
+
 		if (result.m_iDriverSlots <= 0)
 			result.m_sReason = "vehicle has no accessible driver compartment";
 		else if (!result.m_bDriverAssigned && result.m_iIssuedOrders > 0)
@@ -252,6 +314,8 @@ class HST_ConvoyVehicleControlAdapter
 			result.m_sReason = orderReason;
 		else if (!result.m_bDriverAssigned)
 			result.m_sReason = "no seated living AI driver yet";
+		else if (result.m_iRemovedOverflowCrew > 0)
+			result.m_sReason = string.Format("driver seated; removed %1 surplus convoy crew without vehicle seats", result.m_iRemovedOverflowCrew);
 		else if (result.m_iSeatedCrew < result.m_iLivingCrew && (result.m_iTurretSlots + result.m_iCargoSlots) > 0)
 			result.m_sReason = "driver seated; remaining crew seating may still be in progress";
 		else
@@ -304,6 +368,28 @@ class HST_ConvoyVehicleControlAdapter
 			reason = "single living crew entity found";
 
 		return livingCrew.Count() > 0;
+	}
+
+	protected int RemoveUnseatedOverflowCrew(array<IEntity> livingCrew, IEntity vehicleEntity)
+	{
+		if (!livingCrew || !vehicleEntity)
+			return 0;
+
+		int removed;
+		foreach (IEntity crewEntity : livingCrew)
+		{
+			if (!crewEntity)
+				continue;
+			if (IsCrewSeatedInVehicle(crewEntity, vehicleEntity))
+				continue;
+			if (IsCrewGettingIntoVehicle(crewEntity, vehicleEntity))
+				continue;
+
+			SCR_EntityHelper.DeleteEntityAndChildren(crewEntity);
+			removed++;
+		}
+
+		return removed;
 	}
 
 	protected BaseCompartmentManagerComponent ResolveCompartmentManager(IEntity vehicleEntity)
@@ -552,24 +638,36 @@ class HST_ConvoyVehicleControlAdapter
 		return "vehicle compartment";
 	}
 
-	protected bool SpawnAndAssignWaypoint(AIGroup group, vector position)
+	protected IEntity SpawnRouteWaypoint(vector position)
 	{
-		if (!group)
-			return false;
-
 		ResourceName waypointResource = CONVOY_WAYPOINT_PREFAB;
 		Resource loaded = Resource.Load(waypointResource);
 		if (!loaded || !loaded.IsValid())
-			return false;
+			return null;
 
 		vector waypointPosition = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
 		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CONVOY_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
 		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (!waypoint)
-			return false;
+		{
+			if (waypointEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+			return null;
+		}
 
-		group.AddWaypoint(waypoint);
-		return true;
+		return waypointEntity;
+	}
+
+	protected void DeleteSpawnedWaypoints(array<IEntity> waypoints)
+	{
+		if (!waypoints)
+			return;
+
+		foreach (IEntity waypoint : waypoints)
+		{
+			if (waypoint)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypoint);
+		}
 	}
 
 	protected bool IsLivingEntity(IEntity entity)

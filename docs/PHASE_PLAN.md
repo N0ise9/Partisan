@@ -352,8 +352,8 @@ Acceptance pattern:
 | 4 | Convoy readiness gating | Complete |
 | 5 | Convoy vehicle-control adapter | Complete |
 | 6 | Real convoy crew seating | Complete |
-| 7 | Convoy waypoint-chain movement | In progress |
-| 8 | Convoy progress, stuck detection, and destination arrival | Planned |
+| 7 | Convoy waypoint-chain movement | Complete |
+| 8 | Convoy progress, stuck detection, and destination arrival | In progress |
 | 9 | Convoy contact behavior | Planned |
 | 10 | Generic convoy completion | Planned |
 | 11 | Mission-specific convoy outcomes | Planned |
@@ -1243,6 +1243,7 @@ class HST_ConvoyVehicleControlAdapter
 		IEntity groupEntity,
 		IEntity vehicleEntity,
 		array<vector> waypoints,
+		out int assignedWaypointCount,
 		out string reason
 	);
 
@@ -1299,7 +1300,10 @@ Acceptance criteria:
 
 ## Phase 7 - Convoy Waypoint-Chain Movement
 
-Status: In progress
+Status: Complete
+
+Implementation/static validation and HST_Dev smoke testing have met the phase
+criteria. Follow-up reliability work now belongs to Phase 8.
 
 Goal: replace single destination waypoint with an ordered route waypoint chain.
 
@@ -1309,7 +1313,8 @@ Implementation:
 - Spawn an AI waypoint for each route point.
 - Add waypoints to the convoy AI group in order.
 - Optionally stagger departure by vehicle index.
-- Store assigned waypoint count in active group state or report.
+- Store assigned waypoint count in `HST_ActiveGroupState.m_iAssignedWaypointCount`
+  and report.
 - Keep old single-waypoint path only as fallback.
 
 Acceptance criteria:
@@ -1323,7 +1328,7 @@ Acceptance criteria:
 
 ## Phase 8 - Convoy Progress, Stuck Detection, And Destination Arrival
 
-Status: Planned
+Status: In progress
 
 Goal: track whether convoy vehicles are actually moving and respond if they get
 stuck.

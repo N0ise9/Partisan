@@ -1,5 +1,17 @@
 # Campaign Save Migrations
 
+## Schema 17
+
+Phase 7 convoy waypoint-chain movement.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `17`.
+- Active convoy groups now persist `m_iAssignedWaypointCount` as diagnostic
+  route-assignment state.
+- Schema-16 convoy groups that already recorded `convoy_waypoints` are
+  backfilled from their matching generated route waypoint count during
+  save-data migration.
+- No raw waypoint entities or AI waypoint references are persisted.
+
 ## Schema 16
 
 Phase 3 convoy route state.

@@ -926,6 +926,10 @@ foreach ($requiredRuntimeMarkerEntry in @(
 	"PublishRuntimeNativeMarkers",
 	"CreateRuntimeNativeMarker",
 	"ClearRuntimeNativeMarkers",
+	"AddMissionConvoyVehicleMarkers",
+	"mission.m_sRuntimePhase == ""convoy_moving""",
+	"hst_mission_convoy_vehicle_",
+	"Convoy vehicle %1 - %2: neutralize crew",
 	"m_bRuntimeNative",
 	"m_aRuntimeNativeMarkers",
 	"m_bNativePublishPending",
@@ -2801,6 +2805,7 @@ foreach ($requiredPhase6SeatingEntry in @(
 	"SCR_CompartmentAccessComponent",
 	"MoveInVehicle(vehicleEntity, compartmentType, false, slot)",
 	"HasLivingDriver",
+	"AreLivingCrewMounted",
 	"CountLivingCrew",
 	"BuildCrewSeatingReport"
 )) {
@@ -2815,7 +2820,7 @@ foreach ($requiredPhase6RuntimeEntry in @(
 	"convoy_seating_pending",
 	"convoy_driver_available",
 	"preserveWaypointMode",
-	"MISSION_CONVOY_MOVING",
+	"return mission.m_sRuntimePhase == MISSION_CONVOY_STAGING;",
 	"readiness.m_iDriverAvailableCount >= required",
 	"Convoy has no seated living AI driver yet."
 )) {
@@ -2836,6 +2841,117 @@ if ($campaignStateText -match [regex]::Escape("HST_ConvoyCrewSeatingResult")) {
 	throw "Phase 6 convoy seating result must remain transient and out of persistent campaign state"
 }
 Write-Host "Phase 6 convoy seating and distance contract OK"
+
+if ($campaignSchemaVersion -ne 17) {
+	throw "Phase 7 convoy waypoint-chain movement requires campaign schema 17"
+}
+foreach ($requiredPhase7StateEntry in @(
+	"m_iAssignedWaypointCount",
+	"target.m_iAssignedWaypointCount = source.m_iAssignedWaypointCount",
+	"FindGeneratedRouteForMigration",
+	"ResolveGeneratedRouteWaypointCount",
+	"group.m_iAssignedWaypointCount <= 0 && group.m_sSpawnFallbackMode == ""convoy_waypoints"""
+)) {
+	if ($campaignStateText -notmatch [regex]::Escape($requiredPhase7StateEntry) -and $campaignSaveDataText -notmatch [regex]::Escape($requiredPhase7StateEntry)) {
+		throw "Missing Phase 7 convoy waypoint state/migration entry: $requiredPhase7StateEntry"
+	}
+}
+foreach ($requiredPhase7AdapterEntry in @(
+	"out int assignedWaypointCount",
+	"assignedWaypointCount = 0",
+	"waypoint-chain route needs at least two waypoint positions",
+	"array<IEntity> spawnedWaypoints",
+	"SpawnRouteWaypoint",
+	"DeleteSpawnedWaypoints",
+	"assignedWaypointCount++",
+	"Convoy adapter assigned route waypoint chain",
+	"m_iRemovedOverflowCrew",
+	"RemoveUnseatedOverflowCrew",
+	"overflow removed",
+	"surplus convoy crew without vehicle seats",
+	"AreAllLivingCrewDismounted"
+)) {
+	if ($convoyVehicleControlAdapterText -notmatch [regex]::Escape($requiredPhase7AdapterEntry)) {
+		throw "Missing Phase 7 convoy adapter waypoint-chain entry: $requiredPhase7AdapterEntry"
+	}
+}
+foreach ($requiredPhase7RuntimeEntry in @(
+	"assigned waypoint count",
+	"activeGroup.m_iAssignedWaypointCount > 1",
+	"BuildMissionConvoyWaypointPositions",
+	"lastIndex",
+	"selectedWaypoint",
+	"waypoints.Insert(route.m_vEndPosition)",
+	"BuildMissionConvoyGroupWaypointPositions",
+	"AppendConvoyLeadInWaypoints",
+	"activeGroup.m_vSourcePosition, routeWaypoints[0]",
+	"TryAssignVehicleRoute(activeGroup, crewEntity, vehicle, groupWaypoints, assignedWaypointCount, adapterReason)",
+	"activeGroup.m_iAssignedWaypointCount = assignedWaypointCount",
+	"activeGroup.m_iAssignedWaypointCount = 0",
+	"CONVOY_VEHICLE_SPAWN_LIFT_METERS = 5.0",
+	"CONVOY_VEHICLE_SPAWN_CLEARANCE_METERS = 36.0",
+	"TryResolveMissionConvoyVehicleSpawnPositionPass(mission, asset, spawnPosition, true)",
+	"TryResolveMissionConvoyVehicleSpawnPositionPass(mission, asset, spawnPosition, false)",
+	"TryResolveMissionConvoyVehicleSpawnCandidate",
+	"TryResolveHeavyVehicleSpawnPosition(position, resolved, true)",
+	"TryResolveLargeVehicleSpawnPosition(position, resolved, true)",
+	"if (IsMissionConvoyGroup(activeGroup))",
+	"aliveCount = CountAliveRuntimeCrewAgents(activeGroup)",
+	"IsMissionConvoyMovementInterrupted",
+	"IsMissionConvoyGroupFullyDismounted",
+	"AreAllLivingCrewDismounted(crewEntity, vehicleEntity, reason)",
+	"Convoy movement interrupted because every living crew member in a moving convoy group dismounted.",
+	"RefreshMissionConvoyCrewCount",
+	"return prefab.Contains(""SentryTeam"");"
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase7RuntimeEntry)) {
+		throw "Missing Phase 7 convoy runtime waypoint-chain entry: $requiredPhase7RuntimeEntry"
+	}
+}
+foreach ($requiredPhase7WorldPositionEntry in @(
+	"BuildEntitySetAnglesFromYawVector",
+	"BuildEntitySetAnglesFromYaw",
+	"genericEntity.SetAngles(BuildEntitySetAnglesFromYawVector(angles))",
+	"entity.SetAngles(BuildEntitySetAnglesFromYawVector(uprightAngles))",
+	"angles[1] = NormalizeYaw(yawDegrees)"
+)) {
+	if ($worldPositionServiceText -notmatch [regex]::Escape($requiredPhase7WorldPositionEntry)) {
+		throw "Missing Phase 7 convoy world-position angle entry: $requiredPhase7WorldPositionEntry"
+	}
+}
+foreach ($forbiddenPhase7VehicleBiasEntry in @(
+	"BuildPreferredMissionConvoyVehicleCandidates",
+	"IsPreferredMissionConvoyVehiclePrefab",
+	"IsMediumConvoyVehicleResource"
+)) {
+	if ($physicalWarServiceText -match [regex]::Escape($forbiddenPhase7VehicleBiasEntry)) {
+		throw "Phase 7 convoy vehicle selection must not include mission-specific vehicle prefab bias: $forbiddenPhase7VehicleBiasEntry"
+	}
+}
+foreach ($requiredPhase7MissionRuntimeEntry in @(
+	"BuildConvoyVehicleCountSeed",
+	"ResolveMissionInstanceNumericSeed",
+	"CONVOY_VEHICLE_START_SPACING_METERS = 42.0",
+	"MIN_CONVOY_VEHICLE_START_SEPARATION_METERS = 36.0",
+	"MIN_CONVOY_VEHICLES + HST_DefaultCatalog.PositiveMod(seed, MAX_CONVOY_VEHICLES - MIN_CONVOY_VEHICLES + 1)",
+	"ResolveMissionInstanceNumericSeed(mission.m_sInstanceId) * 127"
+)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredPhase7MissionRuntimeEntry)) {
+		throw "Missing Phase 7 convoy vehicle-count contract entry: $requiredPhase7MissionRuntimeEntry"
+	}
+}
+foreach ($forbiddenPhase7MissionRuntimeEntry in @(
+	"return Math.Max(MIN_CONVOY_VEHICLES, Math.Min(MAX_CONVOY_VEHICLES, definition.m_iVehicleCount));",
+	"resolved = Math.Max(resolved, definition.m_iVehicleCount);"
+)) {
+	if ($missionRuntimeServiceText -match [regex]::Escape($forbiddenPhase7MissionRuntimeEntry)) {
+		throw "Phase 7 convoy vehicle count must roll 3-6 regardless of convoy type: $forbiddenPhase7MissionRuntimeEntry"
+	}
+}
+if ($physicalWarServiceText -match [regex]::Escape("return activeGroup.m_sSpawnFallbackMode == ""convoy_waypoints"";")) {
+	throw "Phase 7 waypoint readiness must require assigned waypoint count, not only convoy_waypoints fallback mode"
+}
+Write-Host "Phase 7 convoy waypoint-chain contract OK"
 
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",

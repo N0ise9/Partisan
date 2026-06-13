@@ -459,6 +459,7 @@ class HST_CampaignSaveData
 		target.m_iSurvivorInfantryCount = source.m_iSurvivorInfantryCount;
 		target.m_iSurvivorVehicleCount = source.m_iSurvivorVehicleCount;
 		target.m_iSpawnedAgentCount = source.m_iSpawnedAgentCount;
+		target.m_iAssignedWaypointCount = source.m_iAssignedWaypointCount;
 		target.m_bQRF = source.m_bQRF;
 		target.m_bSpawnAttempted = source.m_bSpawnAttempted;
 		target.m_bSpawnedEntity = source.m_bSpawnedEntity;
@@ -1086,6 +1087,8 @@ class HST_CampaignSaveData
 				group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
 			if (group.m_iSurvivorVehicleCount <= 0)
 				group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
+			if (group.m_iAssignedWaypointCount <= 0 && group.m_sSpawnFallbackMode == "convoy_waypoints")
+				group.m_iAssignedWaypointCount = ResolveGeneratedRouteWaypointCount(FindGeneratedRouteForMigration(group.m_sRouteId));
 		}
 
 		foreach (HST_VehicleCargoItemState cargoItem : m_aVehicleCargoItems)
@@ -1154,6 +1157,32 @@ class HST_CampaignSaveData
 			asset.m_iInteractionRadiusMeters = 18;
 			m_aMissionAssets.Insert(asset);
 		}
+	}
+
+	protected HST_GeneratedRouteState FindGeneratedRouteForMigration(string routeId)
+	{
+		if (routeId.IsEmpty())
+			return null;
+
+		foreach (HST_GeneratedRouteState route : m_aGeneratedRoutes)
+		{
+			if (route && route.m_sRouteId == routeId)
+				return route;
+		}
+
+		return null;
+	}
+
+	protected int ResolveGeneratedRouteWaypointCount(HST_GeneratedRouteState route)
+	{
+		if (!route)
+			return 0;
+		if (route.m_iWaypointCount > 0)
+			return route.m_iWaypointCount;
+		if (route.m_aWaypoints)
+			return route.m_aWaypoints.Count();
+
+		return 0;
 	}
 
 	protected bool IsZeroVector(vector value)
