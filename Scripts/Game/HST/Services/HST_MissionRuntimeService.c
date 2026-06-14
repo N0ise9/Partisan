@@ -916,9 +916,22 @@ class HST_MissionRuntimeService
 			arsenal.StoreVehicle(state, vehicle);
 		}
 
-		mission.m_sRuntimePhase = PHASE_CAPTURED;
+		if (ShouldKeepConvoyContactPhase(mission, asset))
+			mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT;
+		else
+			mission.m_sRuntimePhase = PHASE_CAPTURED;
 		result = "h-istasi mission | captured " + BuildAssetShortLabel(asset);
 		eventType = "captured";
+		return true;
+	}
+
+	protected bool ShouldKeepConvoyContactPhase(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		if (!mission || !asset || mission.m_sRuntimePrimitive != PRIMITIVE_CONVOY_INTERCEPT || asset.m_sRole != ROLE_CONVOY_VEHICLE)
+			return false;
+		if (mission.m_sRuntimePhase == PHASE_FAILED || mission.m_sRuntimePhase == PHASE_CONVOY_ELIMINATED)
+			return false;
+
 		return true;
 	}
 
@@ -939,7 +952,7 @@ class HST_MissionRuntimeService
 		if (activeGroup.m_sRuntimeStatus == "convoy_eliminated" || activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed")
 			return false;
 
-		return activeGroup.m_iSurvivorInfantryCount > 0 || activeGroup.m_iLastSeenAliveCount > 0 || activeGroup.m_iSpawnedAgentCount > 0;
+		return activeGroup.m_iSurvivorInfantryCount > 0 || activeGroup.m_iLastSeenAliveCount > 0;
 	}
 
 	protected int ResolveMissionConvoyVehicleIndex(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState vehicleAsset)
@@ -964,7 +977,10 @@ class HST_MissionRuntimeService
 	protected bool ApplySabotageInteraction(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, vector playerPosition, out string result, out string eventType)
 	{
 		MarkMissionAssetDestroyed(state, mission, asset, playerPosition);
-		mission.m_sRuntimePhase = PHASE_DESTROYED;
+		if (ShouldKeepConvoyContactPhase(mission, asset))
+			mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT;
+		else
+			mission.m_sRuntimePhase = PHASE_DESTROYED;
 		result = "h-istasi mission | sabotaged " + BuildAssetShortLabel(asset);
 		eventType = "sabotaged";
 		return true;
@@ -1001,7 +1017,12 @@ class HST_MissionRuntimeService
 		}
 
 		if (mission)
-			mission.m_sRuntimePhase = PHASE_DESTROYED;
+		{
+			if (ShouldKeepConvoyContactPhase(mission, asset))
+				mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT;
+			else
+				mission.m_sRuntimePhase = PHASE_DESTROYED;
+		}
 	}
 
 	protected vector ResolveInteractionValidationPosition(HST_MissionAssetState asset, string commandId)

@@ -2563,6 +2563,8 @@ class HST_CommandUIService
 			return string.Format("Convoy is staging. Prepare an ambush before it moves. Crew groups neutralized %1/%2.", neutralized, total);
 		if (mission.m_sRuntimePhase == "convoy_moving")
 			return string.Format("Convoy is moving. Kill all convoy soldiers before it reaches destination. Crew groups neutralized %1/%2.", neutralized, total);
+		if (mission.m_sRuntimePhase == "convoy_contact")
+			return string.Format("Convoy contact started. Neutralize every convoy crew group. Crew groups neutralized %1/%2.", neutralized, total);
 		if (mission.m_sRuntimePhase == "convoy_eliminated")
 			return "Convoy crew neutralized. Mission completion will process on the next campaign tick; surviving vehicles are optional captures.";
 		if (mission.m_sRuntimePhase == "failed")
@@ -2713,7 +2715,7 @@ class HST_CommandUIService
 		if (phase == "convoy_moving")
 			return "convoy moving";
 		if (phase == "convoy_contact")
-			return "static ambush";
+			return "convoy contact";
 		if (phase == "convoy_eliminated")
 			return "convoy neutralized";
 		if (phase == "convoy_arrived")

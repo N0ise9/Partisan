@@ -3130,6 +3130,58 @@ foreach ($forbiddenPhase8RoadPersistentEntry in @(
 }
 Write-Host "Phase 8 convoy progress/stuck contract OK"
 
+if ($campaignSchemaVersion -ne 17) {
+	throw "Phase 9 convoy contact must keep campaign schema 17 because contact uses existing mission runtime phase state"
+}
+foreach ($requiredPhase9RuntimeEntry in @(
+	"CONVOY_CONTACT_RADIUS_METERS = 120.0",
+	"UpdateMissionConvoyContact",
+	"TryResolveMissionConvoyContactReason",
+	"SetMissionConvoyContact",
+	"BuildMissionConvoyContactReport",
+	"Convoy contact: living player within",
+	"Convoy contact: crew count decreased",
+	"asset.m_bDelivered",
+	"asset.m_bDestroyed",
+	"IsVehicleMobile(vehicleEntity, mobileReason)",
+	"MarkMissionConvoyVehicleDestroyed",
+	"mission.m_sRuntimePhase = MISSION_CONVOY_CONTACT",
+	"ApplyMissionConvoyStatusToGroups(state, mission, MISSION_CONVOY_CONTACT)",
+	"convoy contact | active",
+	"radius %2m"
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase9RuntimeEntry)) {
+		throw "Missing Phase 9 convoy contact runtime entry: $requiredPhase9RuntimeEntry"
+	}
+}
+$phase9ContactIndex = $physicalWarServiceText.IndexOf("changed = UpdateMissionConvoyContact(state, mission) || changed;")
+$phase9SurvivorIndex = $physicalWarServiceText.IndexOf("changed = UpdateRuntimeGroupSurvivors(state) || changed;")
+if ($phase9ContactIndex -lt 0 -or $phase9SurvivorIndex -lt 0 -or $phase9ContactIndex -gt $phase9SurvivorIndex) {
+	throw "Phase 9 convoy contact must run before survivor counts are refreshed"
+}
+foreach ($requiredPhase9MissionRuntimeEntry in @(
+	"ShouldKeepConvoyContactPhase",
+	"mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT",
+	"activeGroup.m_iSurvivorInfantryCount > 0 || activeGroup.m_iLastSeenAliveCount > 0"
+)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredPhase9MissionRuntimeEntry)) {
+		throw "Missing Phase 9 convoy contact mission-runtime entry: $requiredPhase9MissionRuntimeEntry"
+	}
+}
+if ($missionRuntimeServiceText -match [regex]::Escape("mission.m_sRuntimePhase = PHASE_CAPTURED;`r`n`t`tresult = `"h-istasi mission | captured `" + BuildAssetShortLabel(asset);")) {
+	throw "Phase 9 convoy vehicle capture must not unconditionally replace convoy_contact with generic captured phase"
+}
+if ($missionRuntimeServiceText -match [regex]::Escape("if (mission)`r`n`t`t`tmission.m_sRuntimePhase = PHASE_DESTROYED;")) {
+	throw "Phase 9 convoy vehicle destruction must not unconditionally replace convoy_contact with generic destroyed phase"
+}
+if ($commandUIServiceText -notmatch [regex]::Escape('return "convoy contact";')) {
+	throw "Missing Phase 9 command UI convoy contact label"
+}
+if ($physicalWarServiceText -match [regex]::Escape("HST_ConvoyContactStatus") -or $campaignStateText -match [regex]::Escape("HST_ConvoyContactStatus") -or $campaignSaveDataText -match [regex]::Escape("HST_ConvoyContactStatus")) {
+	throw "Phase 9 contact status must not add a persistent convoy contact state object"
+}
+Write-Host "Phase 9 convoy contact contract OK"
+
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",
 	"SpawnActiveZoneRuntime",

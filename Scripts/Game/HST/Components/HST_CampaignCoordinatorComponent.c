@@ -2574,7 +2574,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		else if (phase == "convoy_moving")
 			phase = "convoy moving";
 		else if (phase == "convoy_contact")
-			phase = "static ambush";
+			phase = "convoy contact";
 		else if (phase == "convoy_eliminated")
 			phase = "convoy neutralized";
 		else if (phase == "convoy_arrived")

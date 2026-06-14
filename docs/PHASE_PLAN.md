@@ -1451,19 +1451,28 @@ HST_Dev smoke steps:
 
 ## Phase 9 - Convoy Contact Behavior
 
-Status: In progress
+Status: Complete
+
+Implementation/static validation: Phase 9 adds a 120 meter convoy contact
+radius and transitions active convoy missions into `convoy_contact` when the
+ambush starts. Contact is stored through existing active mission phase state and
+does not add campaign schema fields. Static validation passed, and HST_Dev
+smoke testing confirmed proximity contact without contact-only completion.
 
 Goal: make ambushes transition convoys into a combat/contact state.
 
 Implementation:
 
-- Detect contact when a player is within contact radius, crew count decreases,
-  convoy vehicle is damaged/destroyed, vehicle is captured, or later when
+- Detect contact when a player is within 120 meters, crew count decreases,
+  convoy vehicle is destroyed, vehicle is captured, or later when
   shots/explosions are nearby.
 - Set mission phase to `convoy_contact`.
 - Apply `convoy_contact` status to active convoy groups.
 - Keep the objective active.
 - Do not instantly fail or complete just because contact started.
+- Preserve `convoy_contact` when generic mission vehicle destroy/capture
+  handlers update convoy vehicle assets.
+- Show contact radius and contact reason in the convoy runtime report.
 
 Acceptance criteria:
 
@@ -1473,9 +1482,37 @@ Acceptance criteria:
 - Convoy can still complete after contact.
 - Contact phase survives save/load.
 
+HST_Dev smoke steps:
+
+1. Launch `Missions/HST_Dev.conf` in Workbench Play mode.
+2. Press `I`, open Setup, and choose `Start HQ: central hills`.
+3. Open Admin and run `Force: Ammo convoy`.
+4. Open Missions and run `Convoy Runtime Report`; wait until the convoy has
+   spawned and preferably reaches `convoy_moving`.
+5. Approach within 120 meters of the convoy without killing anyone. Run
+   `Convoy Runtime Report` again and verify mission phase is `convoy_contact`,
+   convoy groups show `convoy_contact`, mission status is still active, and
+   objective progress has not completed or failed from contact alone.
+6. Kill one convoy crew group. Run the report and verify crew neutralized
+   progress updates, the mission remains active/contact, and it does not
+   instantly complete unless all required convoy crew groups are neutralized.
+7. Destroy one convoy vehicle. Run the report and verify the matching convoy
+   vehicle asset shows destroyed/runtime destroyed state while the mission
+   remains `convoy_contact`.
+8. Try capturing a convoy vehicle while its crew is alive; it should be blocked.
+   Neutralize that vehicle's crew, capture it again, and verify the asset shows
+   captured/delivered without generic phase `captured` replacing
+   `convoy_contact`.
+9. Neutralize all convoy crew groups after contact. Verify the convoy can
+   progress to `convoy_eliminated` and then complete through the normal mission
+   outcome path.
+10. While the mission is in `convoy_contact`, run `Manual checkpoint`, restart
+   or reload HST_Dev, and verify the active mission still reports
+   `convoy_contact`.
+
 ## Phase 10 - Generic Convoy Completion
 
-Status: Planned
+Status: In progress
 
 Goal: make generic convoy success/failure reliable before adding
 mission-specific rewards.
