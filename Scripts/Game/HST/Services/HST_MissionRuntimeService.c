@@ -71,6 +71,8 @@ class HST_MissionRuntimeService
 	static const float CONVOY_DESTINATION_ROAD_SEARCH_RADIUS_METERS = 300.0;
 	static const float CONVOY_START_ROAD_SEARCH_RADIUS_METERS = 250.0;
 	static const float CONVOY_SLOT_ROAD_SEARCH_RADIUS_METERS = 40.0;
+	static const float CONVOY_EXPANDED_START_ROAD_SEARCH_RADIUS_METERS = 700.0;
+	static const float CONVOY_EXPANDED_SLOT_ROAD_SEARCH_RADIUS_METERS = 90.0;
 	static const float CONVOY_VEHICLE_START_SPACING_METERS = 24.0;
 	static const float MIN_CONVOY_VEHICLE_START_SEPARATION_METERS = 18.0;
 	static const int MIN_CONVOY_VEHICLES = 3;
@@ -160,6 +162,8 @@ class HST_MissionRuntimeService
 			}
 
 			changed = EnsureRestoredMissionRuntime(state, mission) || changed;
+			if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0)
+				changed = EnsureConvoyMissionAssetsInitialized(state, mission, null) || changed;
 			changed = EnsureMissionRuntimeProp(state, mission) || changed;
 			changed = SyncMissionAssetRuntimePositions(state, mission) || changed;
 			changed = AdvanceMissionStateMachine(state, preset, mission, elapsedSeconds) || changed;
@@ -309,46 +313,64 @@ class HST_MissionRuntimeService
 
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
 		{
-			HST_GeneratedRouteState convoyRoute = ResolveMissionRoute(state, mission);
-			vector convoyEnd;
-			string convoyDestinationReason;
-			if (!TryResolveConvoyEndPosition(state, mission, convoyEnd, convoyDestinationReason))
-			{
-				mission.m_sRuntimeFailureReason = "No road-resolved convoy destination: " + convoyDestinationReason;
-				return false;
-			}
-			mission.m_vTargetPosition = convoyEnd;
-			string convoyVehiclePrefab = ResolveMissionVehiclePrefab(state, mission);
-			int convoyVehicleCount = ResolveConvoyVehicleCount(state, mission, definition);
-			vector convoyStart;
-			string convoySpawnPlanReason;
-			array<vector> convoyStartSlots = {};
-			if (!TryResolveConvoySpawnPlan(state, mission, convoyRoute, convoyEnd, convoyVehicleCount, convoyStart, convoyStartSlots, convoySpawnPlanReason))
-			{
-				mission.m_sRuntimeFailureReason = "No road-resolved convoy spawn plan found in required 1000-2500m band: " + convoySpawnPlanReason;
-				return false;
-			}
-			if (IsZeroVector(convoyStart) || convoyStartSlots.Count() != convoyVehicleCount)
-			{
-				mission.m_sRuntimeFailureReason = "No road-resolved convoy spawn plan found in required 1000-2500m band: full-column probe returned incomplete slots.";
-				return false;
-			}
-
-			for (int i = 0; i < convoyVehicleCount; i++)
-			{
-				vector startSlot = convoyStartSlots[i];
-				AddMissionAsset(state, mission, ASSET_KIND_VEHICLE, ROLE_CONVOY_VEHICLE, convoyVehiclePrefab, startSlot, convoyEnd, i);
-			}
-
-			mission.m_iRequiredVehicleCount = convoyVehicleCount;
-			mission.m_iRequiredCargoCount = 0;
-			mission.m_iRequiredCaptiveCount = 0;
-			ConfigureConvoyObjectiveRequirements(state, mission, convoyVehicleCount);
-			return true;
+			return EnsureConvoyMissionAssetsInitialized(state, mission, definition);
 		}
 
 		changed = AddMissionAsset(state, mission, ASSET_KIND_AREA, ROLE_HOLD_MARKER, PROP_HOLD_MARKER, targetPosition, targetPosition, 0);
 		return changed;
+	}
+
+	protected bool EnsureConvoyMissionAssetsInitialized(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionDefinition definition)
+	{
+		if (!state || !mission || mission.m_sRuntimePrimitive != PRIMITIVE_CONVOY_INTERCEPT)
+			return false;
+		if (state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) > 0)
+			return false;
+
+		HST_GeneratedRouteState convoyRoute = ResolveMissionRoute(state, mission);
+		vector convoyEnd;
+		string convoyDestinationReason;
+		if (!TryResolveConvoyEndPosition(state, mission, convoyEnd, convoyDestinationReason))
+		{
+			mission.m_sRuntimeFailureReason = "No road-resolved convoy destination: " + convoyDestinationReason;
+			return false;
+		}
+		mission.m_vTargetPosition = convoyEnd;
+		string convoyVehiclePrefab = ResolveMissionVehiclePrefab(state, mission);
+		int convoyVehicleCount = ResolveConvoyVehicleCount(state, mission, definition);
+		vector convoyStart;
+		string convoySpawnPlanReason;
+		array<vector> convoyStartSlots = {};
+		if (!TryResolveConvoySpawnPlan(state, mission, convoyRoute, convoyEnd, convoyVehicleCount, convoyStart, convoyStartSlots, convoySpawnPlanReason))
+		{
+			mission.m_sRuntimeFailureReason = "No road-resolved convoy spawn plan found in required 1000-2500m band: " + convoySpawnPlanReason;
+			return false;
+		}
+		if (IsZeroVector(convoyStart) || convoyStartSlots.Count() != convoyVehicleCount)
+		{
+			mission.m_sRuntimeFailureReason = "No road-resolved convoy spawn plan found in required 1000-2500m band: full-column probe returned incomplete slots.";
+			return false;
+		}
+
+		for (int i = 0; i < convoyVehicleCount; i++)
+		{
+			vector startSlot = convoyStartSlots[i];
+			AddMissionAsset(state, mission, ASSET_KIND_VEHICLE, ROLE_CONVOY_VEHICLE, convoyVehiclePrefab, startSlot, convoyEnd, i);
+		}
+
+		mission.m_iRequiredVehicleCount = convoyVehicleCount;
+		mission.m_iRequiredCargoCount = 0;
+		mission.m_iRequiredCaptiveCount = 0;
+		mission.m_sRuntimeFailureReason = "";
+		ConfigureConvoyObjectiveRequirements(state, mission, convoyVehicleCount);
+		DeleteRuntimeEntity(mission.m_sRuntimeEntityId);
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(mission.m_sRuntimeEntityId);
+		if (runtimeEntity)
+			runtimeEntity.m_bDestroyed = true;
+		mission.m_bRuntimeSpawned = true;
+		mission.m_bRuntimeFallback = false;
+		Print(string.Format("h-istasi mission runtime | convoy asset plan ready for %1 | vehicles %2 | start %3 | end %4", mission.m_sInstanceId, convoyVehicleCount, convoyStart, convoyEnd));
+		return true;
 	}
 
 	protected bool AddMissionAsset(HST_CampaignState state, HST_ActiveMissionState mission, string kind, string role, string prefab, vector sourcePosition, vector targetPosition, int index)
@@ -629,12 +651,13 @@ class HST_MissionRuntimeService
 		}
 
 		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
-		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+		bool allowPostCompletionVehicleCapture = IsPostCompletionConvoyVehicleCaptureAllowed(mission, asset, commandId);
+		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionVehicleCapture))
 		{
 			result = "h-istasi mission | failed: mission is no longer active";
 			return false;
 		}
-		if (AreMissionObjectivesComplete(state, mission))
+		if (AreMissionObjectivesComplete(state, mission) && !allowPostCompletionVehicleCapture)
 		{
 			result = "h-istasi mission | failed: mission objectives are already complete";
 			return false;
@@ -686,9 +709,12 @@ class HST_MissionRuntimeService
 			return false;
 
 		missionInstanceId = mission.m_sInstanceId;
-		mission.m_sLastRuntimeEventKey = eventType;
-		RefreshMissionObjectivesFromAssets(state, mission);
-		UpdateMissionCountersFromAssets(state, mission);
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+		{
+			mission.m_sLastRuntimeEventKey = eventType;
+			RefreshMissionObjectivesFromAssets(state, mission);
+			UpdateMissionCountersFromAssets(state, mission);
+		}
 		return true;
 	}
 
@@ -711,7 +737,8 @@ class HST_MissionRuntimeService
 		}
 
 		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
-		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+		bool allowPostCompletionConvoyVehicleDestruction = IsPreservedConvoyVehicleAfterCrewElimination(mission, asset);
+		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionConvoyVehicleDestruction))
 		{
 			result = "h-istasi mission | failed: mission is no longer active";
 			return false;
@@ -729,8 +756,11 @@ class HST_MissionRuntimeService
 		if (asset.m_sRole == ROLE_HVT)
 			eventType = "neutralized";
 		missionInstanceId = mission.m_sInstanceId;
-		RefreshMissionObjectivesFromAssets(state, mission);
-		UpdateMissionCountersFromAssets(state, mission);
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+		{
+			RefreshMissionObjectivesFromAssets(state, mission);
+			UpdateMissionCountersFromAssets(state, mission);
+		}
 		return true;
 	}
 
@@ -751,7 +781,7 @@ class HST_MissionRuntimeService
 				continue;
 
 			HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
-			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyVehicleCaptureAllowed(mission, asset, commandId)))
 				continue;
 
 			vector position = ResolveInteractionValidationPosition(asset, commandId);
@@ -918,11 +948,38 @@ class HST_MissionRuntimeService
 
 		if (ShouldKeepConvoyContactPhase(mission, asset))
 			mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT;
-		else
+		else if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
 			mission.m_sRuntimePhase = PHASE_CAPTURED;
 		result = "h-istasi mission | captured " + BuildAssetShortLabel(asset);
 		eventType = "captured";
 		return true;
+	}
+
+	protected bool IsPostCompletionConvoyVehicleCaptureAllowed(HST_ActiveMissionState mission, HST_MissionAssetState asset, string commandId)
+	{
+		if (commandId != "mission_vehicle_capture")
+			return false;
+
+		return IsPreservedConvoyVehicleAfterCrewElimination(mission, asset);
+	}
+
+	protected bool IsPreservedConvoyVehicleAfterCrewElimination(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		if (!mission || !asset)
+			return false;
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+			return false;
+		if (mission.m_sRuntimePrimitive != PRIMITIVE_CONVOY_INTERCEPT || !IsConvoyCrewEliminationCompletionEvent(mission.m_sLastRuntimeEventKey))
+			return false;
+		if (asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != ROLE_CONVOY_VEHICLE)
+			return false;
+
+		return !asset.m_bDestroyed && !asset.m_bDelivered;
+	}
+
+	protected bool IsConvoyCrewEliminationCompletionEvent(string eventKey)
+	{
+		return eventKey == PHASE_CONVOY_ELIMINATED || eventKey == "convoy_complete";
 	}
 
 	protected bool ShouldKeepConvoyContactPhase(HST_ActiveMissionState mission, HST_MissionAssetState asset)
@@ -1020,7 +1077,7 @@ class HST_MissionRuntimeService
 		{
 			if (ShouldKeepConvoyContactPhase(mission, asset))
 				mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT;
-			else
+			else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
 				mission.m_sRuntimePhase = PHASE_DESTROYED;
 		}
 	}
@@ -1795,7 +1852,7 @@ class HST_MissionRuntimeService
 		float roadWidth;
 		float roadDistance;
 		string roadReason;
-		if (!HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, CONVOY_START_ROAD_SEARCH_RADIUS_METERS, convoyEnd, resolved, roadForward, roadWidth, roadDistance, roadReason))
+		if (!TryResolveConvoyRoadVehiclePosition(preferred, CONVOY_START_ROAD_SEARCH_RADIUS_METERS, CONVOY_EXPANDED_START_ROAD_SEARCH_RADIUS_METERS, convoyEnd, resolved, roadForward, roadWidth, roadDistance, roadReason))
 		{
 			reason = "lead convoy start is not road-resolved: " + roadReason;
 			return false;
@@ -1817,6 +1874,30 @@ class HST_MissionRuntimeService
 		}
 
 		reason = roadReason;
+		return true;
+	}
+
+	protected bool TryResolveConvoyRoadVehiclePosition(vector preferred, float primarySearchRadius, float expandedSearchRadius, vector destination, out vector resolved, out vector roadForward, out float roadWidth, out float roadDistance, out string reason)
+	{
+		string primaryReason;
+		if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, primarySearchRadius, destination, resolved, roadForward, roadWidth, roadDistance, primaryReason))
+		{
+			reason = primaryReason;
+			return true;
+		}
+
+		reason = primaryReason;
+		if (expandedSearchRadius <= primarySearchRadius)
+			return false;
+
+		string expandedReason;
+		if (!HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, expandedSearchRadius, destination, resolved, roadForward, roadWidth, roadDistance, expandedReason))
+		{
+			reason = string.Format("%1; expanded %2m search also failed: %3", primaryReason, Math.Round(expandedSearchRadius), expandedReason);
+			return false;
+		}
+
+		reason = string.Format("%1 after expanded %2m road search; primary %3m search failed: %4", expandedReason, Math.Round(expandedSearchRadius), Math.Round(primarySearchRadius), primaryReason);
 		return true;
 	}
 
@@ -2071,7 +2152,7 @@ class HST_MissionRuntimeService
 		float roadWidth;
 		float roadDistance;
 		string roadReason;
-		if (!HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, CONVOY_SLOT_ROAD_SEARCH_RADIUS_METERS, convoyEnd, resolved, roadForward, roadWidth, roadDistance, roadReason))
+		if (!TryResolveConvoyRoadVehiclePosition(preferred, CONVOY_SLOT_ROAD_SEARCH_RADIUS_METERS, CONVOY_EXPANDED_SLOT_ROAD_SEARCH_RADIUS_METERS, convoyEnd, resolved, roadForward, roadWidth, roadDistance, roadReason))
 		{
 			reason = "convoy vehicle slot is not road-resolved: " + roadReason;
 			return false;
@@ -2648,6 +2729,10 @@ class HST_MissionRuntimeService
 				return asset.m_vSourcePosition;
 		}
 
+		HST_GeneratedRouteState route = ResolveMissionRoute(state, mission);
+		if (route && !IsZeroVector(route.m_vStartPosition))
+			return route.m_vStartPosition;
+
 		return mission.m_vTargetPosition;
 	}
 
@@ -2661,6 +2746,10 @@ class HST_MissionRuntimeService
 			if (asset && asset.m_sMissionInstanceId == mission.m_sInstanceId && asset.m_sRole == ROLE_CONVOY_VEHICLE)
 				return asset.m_vTargetPosition;
 		}
+
+		HST_GeneratedRouteState route = ResolveMissionRoute(state, mission);
+		if (route && !IsZeroVector(route.m_vEndPosition))
+			return route.m_vEndPosition;
 
 		return mission.m_vTargetPosition;
 	}
@@ -3022,10 +3111,10 @@ class HST_MissionRuntimeService
 		if (!state || !mission || mission.m_bRuntimeCleanupComplete)
 			return false;
 
-		DeleteMissionRuntimeEntities(state, mission.m_sInstanceId);
+		DeleteMissionRuntimeEntities(state, mission);
 		DeleteRuntimeEntity(mission.m_sRuntimeEntityId);
-		CleanupMissionRuntimeRecords(state, mission.m_sInstanceId);
-		CleanupMissionAssetRecords(state, mission.m_sInstanceId);
+		CleanupMissionRuntimeRecords(state, mission);
+		CleanupMissionAssetRecords(state, mission);
 		mission.m_bRuntimeCleanupComplete = true;
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
@@ -3036,14 +3125,18 @@ class HST_MissionRuntimeService
 		return true;
 	}
 
-	protected void DeleteMissionRuntimeEntities(HST_CampaignState state, string instanceId)
+	protected void DeleteMissionRuntimeEntities(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
-		if (!state || instanceId.IsEmpty())
+		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
 			return;
 
 		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
 		{
-			if (!runtimeEntity || runtimeEntity.m_sMissionInstanceId != instanceId)
+			if (!runtimeEntity || runtimeEntity.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			HST_MissionAssetState runtimeAsset = FindMissionAssetByEntityId(state, runtimeEntity.m_sRuntimeEntityId);
+			if (IsPreservedConvoyVehicleAfterCrewElimination(mission, runtimeAsset))
 				continue;
 
 			DeleteRuntimeEntity(runtimeEntity.m_sRuntimeEntityId);
@@ -3051,7 +3144,9 @@ class HST_MissionRuntimeService
 
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
-			if (!asset || asset.m_sMissionInstanceId != instanceId)
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (IsPreservedConvoyVehicleAfterCrewElimination(mission, asset))
 				continue;
 
 			DeleteRuntimeEntity(asset.m_sEntityId);
@@ -3077,15 +3172,19 @@ class HST_MissionRuntimeService
 		m_aRuntimeEntities.Remove(index);
 	}
 
-	protected void CleanupMissionRuntimeRecords(HST_CampaignState state, string instanceId)
+	protected void CleanupMissionRuntimeRecords(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
-		if (!state || instanceId.IsEmpty())
+		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
 			return;
 
 		for (int i = state.m_aMissionRuntimeEntities.Count() - 1; i >= 0; i--)
 		{
 			HST_MissionRuntimeEntityState runtimeEntity = state.m_aMissionRuntimeEntities[i];
-			if (!runtimeEntity || runtimeEntity.m_sMissionInstanceId != instanceId)
+			if (!runtimeEntity || runtimeEntity.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			HST_MissionAssetState runtimeAsset = FindMissionAssetByEntityId(state, runtimeEntity.m_sRuntimeEntityId);
+			if (IsPreservedConvoyVehicleAfterCrewElimination(mission, runtimeAsset))
 				continue;
 
 			runtimeEntity.m_bDestroyed = true;
@@ -3093,20 +3192,36 @@ class HST_MissionRuntimeService
 		}
 	}
 
-	protected void CleanupMissionAssetRecords(HST_CampaignState state, string instanceId)
+	protected void CleanupMissionAssetRecords(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
-		if (!state || instanceId.IsEmpty())
+		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
 			return;
 
 		for (int i = state.m_aMissionAssets.Count() - 1; i >= 0; i--)
 		{
 			HST_MissionAssetState asset = state.m_aMissionAssets[i];
-			if (!asset || asset.m_sMissionInstanceId != instanceId)
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (IsPreservedConvoyVehicleAfterCrewElimination(mission, asset))
 				continue;
 
 			asset.m_bDestroyed = asset.m_bDestroyed || !asset.m_bDelivered;
 			state.m_aMissionAssets.Remove(i);
 		}
+	}
+
+	protected HST_MissionAssetState FindMissionAssetByEntityId(HST_CampaignState state, string entityId)
+	{
+		if (!state || entityId.IsEmpty())
+			return null;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (asset && asset.m_sEntityId == entityId)
+				return asset;
+		}
+
+		return null;
 	}
 
 	protected bool IsRuntimeEntityDestroyed(string runtimeEntityId)

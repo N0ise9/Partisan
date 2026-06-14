@@ -2956,9 +2956,30 @@ class HST_CommandUIService
 			HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
 			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission))
 				return true;
+			if (IsPostCompletionConvoyVehicleCaptureCandidate(mission, asset))
+				return true;
 		}
 
 		return false;
+	}
+
+	protected bool IsPostCompletionConvoyVehicleCaptureCandidate(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		if (!mission || !asset)
+			return false;
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+			return false;
+		if (mission.m_sRuntimePrimitive != "convoy_intercept" || !IsConvoyCrewEliminationCompletionEvent(mission.m_sLastRuntimeEventKey))
+			return false;
+		if (asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "convoy_vehicle" || asset.m_sKind != "vehicle")
+			return false;
+
+		return !asset.m_bDestroyed && !asset.m_bDelivered;
+	}
+
+	protected bool IsConvoyCrewEliminationCompletionEvent(string eventKey)
+	{
+		return eventKey == "convoy_eliminated" || eventKey == "convoy_complete";
 	}
 
 	protected bool AreMissionObjectivesComplete(HST_CampaignState state, HST_ActiveMissionState mission)

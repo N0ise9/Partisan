@@ -354,9 +354,9 @@ Acceptance pattern:
 | 6 | Real convoy crew seating | Complete |
 | 7 | Convoy waypoint-chain movement | Complete |
 | 8 | Convoy progress, stuck detection, and destination arrival | Complete |
-| 9 | Convoy contact behavior | In progress |
-| 10 | Generic convoy completion | Planned |
-| 11 | Mission-specific convoy outcomes | Planned |
+| 9 | Convoy contact behavior | Complete |
+| 10 | Generic convoy completion | Complete |
+| 11 | Mission-specific convoy outcomes | In progress |
 | 12 | Active mission persistence | Planned |
 | 13 | Non-convoy mission primitive hardening | Planned |
 | 14 | Arsenal, loot, and finite/infinite unlock loop | Planned |
@@ -1512,7 +1512,16 @@ HST_Dev smoke steps:
 
 ## Phase 10 - Generic Convoy Completion
 
-Status: In progress
+Status: Complete
+
+Implementation/static validation: Phase 10 makes convoy completion
+server-authoritative through crew elimination and destination-arrival checks.
+The convoy runtime report now exposes completion eligibility, crew progress,
+living crew, and vehicle resolution counts. HST_Dev smoke testing confirmed
+crew-gated capture, destroyed/captured vehicle exclusion, generic success on
+all crews eliminated, failure on live-crewed arrival, preserved intact vehicles
+after crew-elimination success, and failed convoy cleanup. Static validation
+passed.
 
 Goal: make generic convoy success/failure reliable before adding
 mission-specific rewards.
@@ -1524,6 +1533,14 @@ Implementation:
 - Fail mission when convoy arrives with living crew.
 - Allow vehicle capture only after associated crew is neutralized.
 - Cleanly mark destroyed/captured convoy vehicles.
+- Preserve intact convoy vehicles after crew-elimination success so players can
+  optionally capture them; destroyed vehicles and failed/arrived convoys still
+  clean up.
+- Keep rewards and penalties centralized through the coordinator's normal
+  mission success/failure path.
+- Report `can complete`, `must fail`, reason, required/eliminated groups,
+  living crew, and active/destroyed/captured vehicle counts in Convoy Runtime
+  Report.
 
 Acceptance criteria:
 
@@ -1532,12 +1549,14 @@ Acceptance criteria:
 - Capturing a vehicle with living crew is blocked.
 - Capturing a vehicle after crew is eliminated succeeds.
 - Destroyed convoy vehicle is not respawned.
+- Intact convoy vehicles remain in-world after crew-elimination success.
+- Live-crewed arrival fails the mission and cleans up convoy assets.
 - Mission success applies generic reward once.
 - Mission failure applies failure penalty once.
 
 ## Phase 11 - Mission-Specific Convoy Outcomes
 
-Status: Planned
+Status: In progress
 
 Goal: make convoy mission types meaningfully different.
 

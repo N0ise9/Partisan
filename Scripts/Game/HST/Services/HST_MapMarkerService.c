@@ -186,6 +186,8 @@ class HST_MapMarkerService
 		{
 			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bComplete || objective.m_bFailed)
 				continue;
+			if (mission.m_sRuntimePrimitive == "convoy_intercept" && objective.m_sTargetId == "convoy")
+				continue;
 			if (hasPhysicalAssetMarker && objective.m_sTargetId != "area" && objective.m_sRuntimePrimitive != "hold_area" && objective.m_sRuntimePrimitive != "clear_area")
 				continue;
 
@@ -251,11 +253,37 @@ class HST_MapMarkerService
 		vector destinationPosition = ResolveMissionConvoyDestinationPosition(state, mission);
 		string title = MissionMarkerTitle(mission);
 		string destinationName = ResolveZoneDisplayNameById(state, mission.m_sTargetZoneId);
-		if (mission.m_sRuntimePhase == "convoy_moving")
-			AddMissionConvoyVehicleMarkers(state, preset, mission, title);
-		else
-			AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy - %1: neutralize crew", title), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+		bool hasConvoyVehicleAssets = HasUnresolvedMissionConvoyVehicleAsset(state, mission);
+		if (hasConvoyVehicleAssets)
+		{
+			if (ShouldShowIndividualConvoyVehicleMarkers(mission))
+				AddMissionConvoyVehicleMarkers(state, preset, mission, title);
+			else
+				AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy - %1: neutralize crew", title), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+		}
 		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy destination - %1: %2", title, destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
+	}
+
+	protected bool ShouldShowIndividualConvoyVehicleMarkers(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sRuntimePhase == "convoy_moving" || mission.m_sRuntimePhase == "convoy_contact";
+	}
+
+	protected bool HasUnresolvedMissionConvoyVehicleAsset(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (asset && asset.m_sMissionInstanceId == mission.m_sInstanceId && asset.m_sRole == "convoy_vehicle" && !asset.m_bDestroyed && !asset.m_bDelivered)
+				return true;
+		}
+
+		return false;
 	}
 
 	protected void AddMissionConvoyVehicleMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, string title)
