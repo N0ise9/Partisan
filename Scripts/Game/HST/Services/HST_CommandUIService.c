@@ -27,6 +27,13 @@ class HST_CommandUIService
 	static const string TAB_GARAGE = "garage";
 	static const string TAB_MEMBERS = "members";
 	static const string TAB_ADMIN = "admin";
+	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+	static const float MISSION_ASSET_ACTION_RADIUS_METERS = 18.0;
+	static const float MISSION_DELIVERY_RADIUS_METERS = 45.0;
+	static const float MISSION_VEHICLE_CARRIER_RADIUS_METERS = 10.0;
+	static const int MAX_MISSION_VEHICLE_SCAN_ENTITIES = 96;
+
+	protected ref array<IEntity> m_aMissionVehicleScanEntities = {};
 
 	string BuildMemberMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
@@ -241,7 +248,7 @@ class HST_CommandUIService
 		if (commandId == "complete_mission")
 			return BuildBoolResult("complete mission " + argument, coordinator.RequestCommanderCompleteMission(playerId, argument));
 
-		if (commandId == "mission_asset_load" || commandId == "mission_asset_unload" || commandId == "mission_asset_deliver" || commandId == "mission_captive_extract" || commandId == "mission_vehicle_capture" || commandId == "mission_asset_sabotage")
+		if (commandId == "mission_asset_load" || commandId == "mission_asset_unload" || commandId == "mission_asset_deliver" || commandId == "mission_captive_extract" || commandId == "mission_captive_follow" || commandId == "mission_vehicle_capture" || commandId == "mission_asset_sabotage")
 			return coordinator.RequestMemberMissionInteraction(playerId, commandId, argument);
 
 		if (commandId == "call_supply")
@@ -364,10 +371,12 @@ class HST_CommandUIService
 		if (!state)
 			return "h-istasi missions | campaign state not ready";
 
-		string report = string.Format("h-istasi missions | active records %1 | objectives %2 | tasks %3", state.m_aActiveMissions.Count(), state.m_aMissionObjectives.Count(), state.m_aCampaignTasks.Count());
+		string report = string.Format("h-istasi missions | active records %1 | objectives %2 | tasks %3", CountVisibleMissionRecords(state), CountVisibleMissionObjectives(state), CountVisibleCampaignTasks(state));
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission)
+				continue;
+			if (IsPersistenceSmokeMission(mission))
 				continue;
 
 			report = report + string.Format("\n%1 | %2 | target %3 | site %4 | status %5 | remaining %6s | phase %7 | progress %8", mission.m_sInstanceId, BuildMissionDisplayTitle(mission), mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_eStatus, mission.m_iRemainingSeconds, mission.m_sRuntimePhase, BuildMissionProgressText(state, mission));
@@ -891,7 +900,7 @@ class HST_CommandUIService
 		int activeMissionCount;
 		foreach (HST_ActiveMissionState countMission : state.m_aActiveMissions)
 		{
-			if (countMission && countMission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, countMission))
+			if (countMission && !IsPersistenceSmokeMission(countMission) && countMission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, countMission))
 				activeMissionCount++;
 		}
 
@@ -901,6 +910,8 @@ class HST_CommandUIService
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+			if (IsPersistenceSmokeMission(mission))
 				continue;
 			if (AreMissionObjectivesComplete(state, mission))
 				continue;
@@ -916,8 +927,8 @@ class HST_CommandUIService
 
 		payload = AppendSection(payload, "objectives", "Objective State");
 		payload = AppendRow(payload, "objectives", "Active missions", string.Format("%1 visible", activeMissionCount), "warn");
-		payload = AppendRow(payload, "objectives", "Objectives", string.Format("%1 active / %2 total", CountActiveMissionObjectives(state), state.m_aMissionObjectives.Count()), "warn");
-		payload = AppendRow(payload, "objectives", "Tasks", string.Format("%1 campaign tasks", state.m_aCampaignTasks.Count()), "neutral");
+		payload = AppendRow(payload, "objectives", "Objectives", string.Format("%1 active / %2 total", CountActiveMissionObjectives(state), CountVisibleMissionObjectives(state)), "warn");
+		payload = AppendRow(payload, "objectives", "Tasks", string.Format("%1 campaign tasks", CountVisibleCampaignTasks(state)), "neutral");
 
 		payload = AppendSection(payload, "families", "Mission Board");
 		payload = AppendRow(payload, "families", "Assassination", "Officers, traitors, and spec-ops HVTs.", "warn");
@@ -1053,7 +1064,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "garrisons", "Garrisons And Patrols");
 		payload = AppendRow(payload, "garrisons", "Abstract infantry", string.Format("%1", CountGarrisonInfantry(state)), "neutral");
 		payload = AppendRow(payload, "garrisons", "Abstract vehicles", string.Format("%1", CountGarrisonVehicles(state)), "neutral");
-		payload = AppendRow(payload, "garrisons", "Active groups", string.Format("%1", state.m_aActiveGroups.Count()), "warn");
+		payload = AppendRow(payload, "garrisons", "Active groups", string.Format("%1", CountVisibleActiveGroups(state)), "warn");
 		payload = AppendRow(payload, "garrisons", "Spawn diagnostics", BuildActiveGroupSpawnSummary(state), ActiveGroupSpawnTone(state));
 		payload = AppendRow(payload, "garrisons", "Last spawn failure", BuildLastActiveGroupFailure(state), LastActiveGroupFailureTone(state));
 		payload = AppendRow(payload, "garrisons", "QRFs", string.Format("%1 unresolved", CountActiveQRFs(state)), "bad");
@@ -1104,7 +1115,7 @@ class HST_CommandUIService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (activeGroup && !activeGroup.m_sSpawnFailureReason.IsEmpty())
+			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup) && !activeGroup.m_sSpawnFailureReason.IsEmpty())
 				return string.Format("%1: %2", activeGroup.m_sZoneId, activeGroup.m_sSpawnFailureReason);
 		}
 
@@ -1127,7 +1138,7 @@ class HST_CommandUIService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (activeGroup && !activeGroup.m_sSpawnFailureReason.IsEmpty())
+			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup) && !activeGroup.m_sSpawnFailureReason.IsEmpty())
 				return "bad";
 		}
 
@@ -1139,7 +1150,14 @@ class HST_CommandUIService
 		if (!state || state.m_aActiveGroups.Count() == 0)
 			return null;
 
-		return state.m_aActiveGroups[state.m_aActiveGroups.Count() - 1];
+		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
+			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup))
+				return activeGroup;
+		}
+
+		return null;
 	}
 
 	protected string AppendArsenalSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings, int playerId)
@@ -1400,13 +1418,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start town mission", state, hostileTownId), "mission_zone", hostileTownId, canUseCommander && !hostileTownId.IsEmpty(), "no hostile town");
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start resource mission", state, resourceTargetId), "mission_zone", resourceTargetId, canUseCommander && !resourceTargetId.IsEmpty(), "no hostile resource");
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start outpost mission", state, outpostTargetId), "mission_zone", outpostTargetId, canUseCommander && !outpostTargetId.IsEmpty(), "no hostile outpost");
-			AddMissionNextStepActions(state, actions, canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MISSIONS, "Load nearest mission cargo", "mission_asset_load", "", canUseMember && HasActiveMissionAssets(state), "no active mission asset");
-			AddMenuAction(actions, TAB_MISSIONS, "Unload carried mission cargo", "mission_asset_unload", "", canUseMember && HasActiveMissionAssets(state), "no carried mission cargo");
-			AddMenuAction(actions, TAB_MISSIONS, "Deliver mission cargo/captive", "mission_asset_deliver", "", canUseMember && HasActiveMissionAssets(state), "no deliverable mission asset");
-			AddMenuAction(actions, TAB_MISSIONS, "Extract nearest captive", "mission_captive_extract", "", canUseMember && HasActiveMissionAssets(state), "no active captive");
-			AddMenuAction(actions, TAB_MISSIONS, "Capture mission vehicle", "mission_vehicle_capture", "", canUseMember && HasActiveMissionAssets(state), "no mission vehicle");
-			AddMenuAction(actions, TAB_MISSIONS, "Sabotage mission target", "mission_asset_sabotage", "", canUseMember && HasActiveMissionAssets(state), "no mission target");
+			AddMissionNextStepActions(state, actions, playerId, canUseMember, "membership required");
 			return;
 		}
 
@@ -2142,6 +2154,21 @@ class HST_CommandUIService
 		return dx * dx + dz * dz;
 	}
 
+	protected bool IsZeroVector(vector value)
+	{
+		float x = value[0];
+		float y = value[1];
+		float z = value[2];
+		if (x < 0)
+			x = -x;
+		if (y < 0)
+			y = -y;
+		if (z < 0)
+			z = -z;
+
+		return x < 0.01 && y < 0.01 && z < 0.01;
+	}
+
 	protected string BuildStrategicOrder(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state)
@@ -2353,7 +2380,7 @@ class HST_CommandUIService
 		if (mission.m_sMissionId == "support_city_supplies")
 			return "Pick up FIA supplies at HQ and deliver them to the town.";
 		if (mission.m_sMissionId == "logistics_resource_cache")
-			return "Recover the resource cache and deliver it to HQ.";
+			return "Recover the marked resource cache and deliver it to HQ.";
 
 		if (mission.m_sRuntimePrimitive == "convoy_intercept")
 			return "Ambush the convoy. Kill all convoy soldiers before it reaches destination.";
@@ -2394,25 +2421,33 @@ class HST_CommandUIService
 				return string.Format("%1 secured. Clear convoy guards or stop the marked vehicle if it is still active.", role);
 
 			if (asset.m_sKind == "captive")
-				return string.Format("Escort %1 to the extraction marker, then use Extract captive or Deliver mission cargo/captive.", role);
+			{
+				if (!asset.m_bAttachedToCarrier)
+					return string.Format("Order %1 to follow, then escort them to the extraction marker.", role);
 
-			return string.Format("Bring %1 to the delivery marker or HQ cache, then use Deliver mission cargo/captive.", role);
+				return string.Format("Escort %1 to the extraction marker, dismount, then use the extraction action.", role);
+			}
+
+			return string.Format("Bring %1 to the delivery marker or HQ cache, then use the delivery action.", role);
 		}
 
 		if (asset.m_sKind == "captive")
-			return string.Format("At the POW marker, use Free captive. I-menu fallback: Extract nearest captive.");
+			return string.Format("At the POW marker, use Free captive.");
 
 		if (asset.m_sKind == "cargo")
-			return string.Format("At the %1 marker, use Load mission cargo. I-menu fallback: Load nearest mission cargo.", role);
+			return string.Format("Bring a vehicle to the %1 marker, then use Load mission cargo.", role);
 
 		if (asset.m_sKind == "target")
-			return string.Format("At the target marker, destroy it or use Sabotage target. I-menu fallback: Sabotage mission target.");
+			return string.Format("At the target marker, destroy it or use the sabotage action.");
 
 		if (asset.m_sKind == "character")
 			return string.Format("At the HVT marker, kill the officer. If needed, use Confirm HVT neutralized near the body.");
 
 		if (asset.m_sKind == "vehicle")
 			return string.Format("Neutralize the convoy crew. Capturing surviving vehicles is optional.");
+
+		if (asset.m_sKind == "area")
+			return string.Format("Stay inside the objective area until the hold or clear objective completes.");
 
 		return "Use the matching mission action near the marked asset.";
 	}
@@ -2460,18 +2495,46 @@ class HST_CommandUIService
 			progress = progress + string.Format(" | vehicles %1/%2", mission.m_iCapturedVehicleCount, mission.m_iRequiredVehicleCount);
 		if (mission.m_iRuntimePickupCount > 0 || mission.m_iRuntimeDeliveryCount > 0 || mission.m_iRuntimeDestroyedCount > 0)
 			progress = progress + string.Format(" | moved %1/%2 | destroyed %3", mission.m_iRuntimePickupCount, mission.m_iRuntimeDeliveryCount, mission.m_iRuntimeDestroyedCount);
+		string holdProgress = BuildMissionHoldProgressText(state, mission);
+		if (!holdProgress.IsEmpty())
+			progress = progress + " | " + holdProgress;
 		return progress;
 	}
 
-	protected void AddMissionNextStepActions(HST_CampaignState state, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, string disabledReason)
+	protected string BuildMissionHoldProgressText(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "";
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (objective.m_eType != HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA)
+				continue;
+
+			return string.Format("hold %1/%2s", objective.m_iHoldSeconds, objective.m_iRequiredHoldSeconds);
+		}
+
+		return "";
+	}
+
+	protected void AddMissionNextStepActions(HST_CampaignState state, notnull array<ref HST_CommandMenuAction> actions, int playerId, bool canUseMember, string disabledReason)
 	{
 		if (!state)
 			return;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		vector playerPosition;
+		if (playerEntity)
+			playerPosition = playerEntity.GetOrigin();
 
 		int emitted;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission || emitted >= 6)
+				continue;
+			if (IsPersistenceSmokeMission(mission))
 				continue;
 			bool postCompletionConvoy = IsPostCompletionConvoyOutcomeMission(mission);
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !postCompletionConvoy)
@@ -2486,10 +2549,156 @@ class HST_CommandUIService
 			string commandId = BuildMissionAssetCommandId(asset);
 			if (commandId.IsEmpty())
 				continue;
+			if (!IsMissionAssetActionVisibleNow(state, mission, asset, commandId, playerEntity, playerPosition))
+				continue;
 
 			AddMenuAction(actions, TAB_MISSIONS, BuildMissionAssetActionLabel(mission, asset), commandId, asset.m_sAssetId, canUseMember, disabledReason);
 			emitted++;
 		}
+	}
+
+	protected bool IsMissionAssetActionVisibleNow(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, string commandId, IEntity playerEntity, vector playerPosition)
+	{
+		if (!state || !mission || !asset || commandId.IsEmpty())
+			return false;
+		if (!playerEntity)
+			return false;
+
+		if (commandId == "mission_asset_load")
+		{
+			if (asset.m_sKind != "cargo" || asset.m_bPickedUp || asset.m_bDelivered || asset.m_bDestroyed)
+				return false;
+			if (!IsPlayerNearMissionAsset(asset, playerPosition))
+				return false;
+
+			return HasNearbyMissionVehicleCarrier(playerEntity);
+		}
+
+		if (commandId == "mission_asset_deliver")
+		{
+			if (asset.m_sKind != "cargo" || !asset.m_bPickedUp || asset.m_bDelivered || asset.m_bDestroyed)
+				return false;
+
+			vector deliveryPosition = asset.m_vTargetPosition;
+			if (IsZeroVector(deliveryPosition))
+				deliveryPosition = asset.m_vCurrentPosition;
+
+			return !IsZeroVector(deliveryPosition) && DistanceSq2D(playerPosition, deliveryPosition) <= MISSION_DELIVERY_RADIUS_METERS * MISSION_DELIVERY_RADIUS_METERS;
+		}
+
+		if (commandId == "mission_captive_extract" && asset.m_sKind == "captive")
+		{
+			if (!asset.m_bPickedUp)
+				return IsPlayerNearMissionAsset(asset, playerPosition);
+			if (!asset.m_bAttachedToCarrier)
+				return false;
+			if (IsEntityInVehicle(playerEntity))
+				return false;
+
+			vector captiveDeliveryPosition = asset.m_vTargetPosition;
+			if (IsZeroVector(captiveDeliveryPosition))
+				captiveDeliveryPosition = asset.m_vCurrentPosition;
+
+			return !IsZeroVector(captiveDeliveryPosition) && DistanceSq2D(playerPosition, captiveDeliveryPosition) <= MISSION_DELIVERY_RADIUS_METERS * MISSION_DELIVERY_RADIUS_METERS;
+		}
+
+		if (commandId == "mission_captive_follow" && asset.m_sKind == "captive")
+		{
+			if (!asset.m_bPickedUp || asset.m_bAttachedToCarrier || asset.m_bDelivered || asset.m_bDestroyed)
+				return false;
+
+			return IsPlayerNearMissionAsset(asset, playerPosition);
+		}
+
+		return true;
+	}
+
+	protected bool IsPlayerNearMissionAsset(HST_MissionAssetState asset, vector playerPosition)
+	{
+		if (!asset)
+			return false;
+
+		vector position = asset.m_vCurrentPosition;
+		if (IsZeroVector(position))
+			position = asset.m_vSourcePosition;
+		if (IsZeroVector(position))
+			return false;
+
+		float radius = asset.m_iInteractionRadiusMeters;
+		if (radius <= 0)
+			radius = MISSION_ASSET_ACTION_RADIUS_METERS;
+
+		return DistanceSq2D(playerPosition, position) <= radius * radius;
+	}
+
+	protected bool IsEntityInVehicle(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
+		return access && access.IsInCompartment() && access.GetVehicle() != null;
+	}
+
+	protected bool HasNearbyMissionVehicleCarrier(IEntity playerEntity)
+	{
+		if (!playerEntity)
+			return false;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return false;
+
+		m_aMissionVehicleScanEntities.Clear();
+		world.QueryEntitiesBySphere(playerEntity.GetOrigin(), MISSION_VEHICLE_CARRIER_RADIUS_METERS, AddMissionVehicleScanCandidate, null, EQueryEntitiesFlags.ALL);
+
+		foreach (IEntity candidate : m_aMissionVehicleScanEntities)
+		{
+			if (!candidate || candidate == playerEntity)
+				continue;
+
+			string prefab;
+			IEntity root = ResolveMissionVehicleRoot(candidate, prefab);
+			if (root && root != playerEntity)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool AddMissionVehicleScanCandidate(IEntity entity)
+	{
+		if (entity && m_aMissionVehicleScanEntities.Count() < MAX_MISSION_VEHICLE_SCAN_ENTITIES)
+			m_aMissionVehicleScanEntities.Insert(entity);
+
+		return m_aMissionVehicleScanEntities.Count() < MAX_MISSION_VEHICLE_SCAN_ENTITIES;
+	}
+
+	protected IEntity ResolveMissionVehicleRoot(IEntity entity, out string prefab)
+	{
+		prefab = "";
+		IEntity cursor = entity;
+		while (cursor)
+		{
+			prefab = ResolveEntityPrefabName(cursor);
+			if (!prefab.IsEmpty() && HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
+				return cursor;
+
+			if (HST_VehicleRootPolicy.IsKnownVehicleRootName(cursor.GetName()) && !HST_VehicleRootPolicy.IsVehiclePartName(cursor.GetName()))
+				return cursor;
+
+			cursor = cursor.GetParent();
+		}
+
+		return null;
+	}
+
+	protected string ResolveEntityPrefabName(IEntity entity)
+	{
+		if (!entity || !entity.GetPrefabData())
+			return "";
+
+		return entity.GetPrefabData().GetPrefabName();
 	}
 
 	protected void AddMissionInspectActions(HST_CampaignState state, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, string disabledReason)
@@ -2501,6 +2710,8 @@ class HST_CommandUIService
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission || emitted >= 6)
+				continue;
+			if (IsPersistenceSmokeMission(mission))
 				continue;
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyOutcomeMission(mission))
 				continue;
@@ -2703,7 +2914,12 @@ class HST_CommandUIService
 		}
 
 		if (asset.m_sKind == "captive")
+		{
+			if (asset.m_bPickedUp && !asset.m_bAttachedToCarrier)
+				return "mission_captive_follow";
+
 			return "mission_captive_extract";
+		}
 
 		if (asset.m_sKind == "target" || asset.m_sKind == "character")
 			return "mission_asset_sabotage";
@@ -2726,8 +2942,10 @@ class HST_CommandUIService
 		}
 		else if (asset.m_sKind == "captive")
 		{
-			if (asset.m_bPickedUp)
+			if (asset.m_bPickedUp && asset.m_bAttachedToCarrier)
 				verb = "Extract";
+			else if (asset.m_bPickedUp)
+				verb = "Follow";
 			else
 				verb = "Free";
 		}
@@ -2784,6 +3002,10 @@ class HST_CommandUIService
 			return "active";
 		if (phase == "contact")
 			return "contact";
+		if (phase == "freed")
+			return "freed";
+		if (phase == "following")
+			return "following";
 		if (phase == "convoy_static")
 			return "static intercept";
 		if (phase == "convoy_staging")
@@ -2993,7 +3215,22 @@ class HST_CommandUIService
 		int count;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission))
+			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountVisibleMissionRecords(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (mission && !IsPersistenceSmokeMission(mission))
 				count++;
 		}
 
@@ -3012,8 +3249,46 @@ class HST_CommandUIService
 				continue;
 
 			HST_ActiveMissionState mission = state.FindActiveMission(objective.m_sMissionInstanceId);
-			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission) && !objective.m_bComplete && !objective.m_bFailed)
+			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission) && !objective.m_bComplete && !objective.m_bFailed)
 				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountVisibleMissionObjectives(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective)
+				continue;
+
+			HST_ActiveMissionState mission = state.FindActiveMission(objective.m_sMissionInstanceId);
+			if (mission && !IsPersistenceSmokeMission(mission))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountVisibleCampaignTasks(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_CampaignTaskState task : state.m_aCampaignTasks)
+		{
+			if (!task)
+				continue;
+			if (task.m_sTaskId.Contains(PERSISTENCE_SMOKE_PREFIX) || task.m_sLinkedId.Contains("persistence_smoke"))
+				continue;
+
+			count++;
 		}
 
 		return count;
@@ -3030,6 +3305,8 @@ class HST_CommandUIService
 				continue;
 
 			HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
+			if (IsPersistenceSmokeMission(mission))
+				continue;
 			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !AreMissionObjectivesComplete(state, mission))
 				return true;
 			if (IsPostCompletionConvoyVehicleCaptureCandidate(mission, asset))
@@ -3037,6 +3314,37 @@ class HST_CommandUIService
 		}
 
 		return false;
+	}
+
+	protected int CountVisibleActiveGroups(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
+	}
+
+	protected bool IsPersistenceSmokeGroup(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		return activeGroup.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
 
 	protected bool IsPostCompletionConvoyVehicleCaptureCandidate(HST_ActiveMissionState mission, HST_MissionAssetState asset)
@@ -3085,8 +3393,10 @@ class HST_CommandUIService
 		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != "convoy_intercept")
 			return false;
 
-		if (mission.m_sMissionId == "convoy_money" || mission.m_sMissionId == "convoy_supplies")
+		if (mission.m_sMissionId == "convoy_money")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
+		if (mission.m_sMissionId == "convoy_supplies")
+			return !mission.m_bConvoyCrewEliminatedOutcomeApplied && HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
 		if (mission.m_sMissionId == "convoy_prisoners")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_captive");
 		if (mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored")

@@ -1024,7 +1024,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
 			return "Reach the objective asset and destroy, disable, or capture it depending on the mission variant.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
-			return "Recover the marked cargo or vehicle and extract it to HQ or a friendly delivery point.";
+			return "Recover the marked cargo or vehicle and get it under FIA control.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
 			return "Find the captives, make contact, and escort them alive to HQ or a friendly zone.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
@@ -1046,7 +1046,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
 			return "Destroy the marked target asset.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
-			return "Recover cargo and deliver it to HQ.";
+			return "Recover the marked cargo or vehicle.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
 			return "Extract all captives alive.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)

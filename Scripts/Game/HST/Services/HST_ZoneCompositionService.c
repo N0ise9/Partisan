@@ -21,6 +21,7 @@ class HST_ZoneCompositionService
 	protected ref array<string> m_aRuntimeSlotIds = {};
 	protected ref array<string> m_aRuntimePrefabs = {};
 	protected ref array<IEntity> m_aRuntimeEntities = {};
+	protected ref array<string> m_aReportedSkipKeys = {};
 	protected int m_iLastSpawnedCount;
 	protected int m_iLastSkippedPrefabCount;
 	protected string m_sLastFailedZoneId;
@@ -348,11 +349,13 @@ class HST_ZoneCompositionService
 
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sTargetZoneId != zone.m_sZoneId)
+			if (!mission || mission.m_sTargetZoneId != zone.m_sZoneId)
 				continue;
 			if (mission.m_sMissionId != MISSION_DESTROY_RADIO_TOWER && mission.m_sMissionId != MISSION_STOP_TOWER_REBUILD)
 				continue;
-			if (HasLiveMissionDestroyTarget(state, mission.m_sInstanceId))
+			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && HasLiveMissionDestroyTarget(state, mission.m_sInstanceId))
+				return true;
+			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED && HasCompletedMissionDestroyTargetObjective(state, mission.m_sInstanceId))
 				return true;
 		}
 
@@ -369,6 +372,22 @@ class HST_ZoneCompositionService
 			if (!asset || asset.m_sMissionInstanceId != instanceId || asset.m_sRole != ROLE_DESTROY_TARGET)
 				continue;
 			if (!asset.m_bDestroyed && !asset.m_bDelivered)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasCompletedMissionDestroyTargetObjective(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return false;
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != instanceId)
+				continue;
+			if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET && objective.m_bComplete && !objective.m_bFailed)
 				return true;
 		}
 
@@ -516,7 +535,8 @@ class HST_ZoneCompositionService
 		m_sLastFailedSlotId = slotId;
 		m_sLastFailedPrefab = prefab;
 		m_sLastFailedSlotReason = reason;
-		Print(string.Format("h-istasi zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason), LogLevel.WARNING);
+		if (ShouldPrintSkipLog(zoneId, slotId, prefab, reason))
+			Print(string.Format("h-istasi zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason), LogLevel.WARNING);
 	}
 
 	protected void RecordSkip(string zoneId, string slotId, string prefab, vector position, string reason)
@@ -526,7 +546,18 @@ class HST_ZoneCompositionService
 		m_sLastFailedSlotId = slotId;
 		m_sLastFailedPrefab = prefab;
 		m_sLastFailedSlotReason = reason;
-		Print(string.Format("h-istasi zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason));
+		if (ShouldPrintSkipLog(zoneId, slotId, prefab, reason))
+			Print(string.Format("h-istasi zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason));
+	}
+
+	protected bool ShouldPrintSkipLog(string zoneId, string slotId, string prefab, string reason)
+	{
+		string key = string.Format("%1|%2|%3|%4", zoneId, slotId, prefab, reason);
+		if (m_aReportedSkipKeys.Contains(key))
+			return false;
+
+		m_aReportedSkipKeys.Insert(key);
+		return true;
 	}
 
 	protected bool HasRuntimeZone(string zoneId)

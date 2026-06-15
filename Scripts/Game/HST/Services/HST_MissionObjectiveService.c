@@ -1,5 +1,7 @@
 class HST_MissionObjectiveService
 {
+	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+
 	bool InitializeMission(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState mission, HST_GeneratedContentService content)
 	{
 		if (!state || !definition || !mission)
@@ -23,9 +25,6 @@ class HST_MissionObjectiveService
 		CreateMissionTask(state, definition, mission, objectivePosition);
 		AddObjective(state, mission, PrimaryObjectiveForMission(definition), BuildObjectiveTarget(definition, mission), objectivePosition, RequiredProgressForMission(definition), LabelForMission(definition), definition.m_sRequirementText, RequiredCountForMission(definition));
 
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
-			AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES, "hq_delivery", state.m_vHQPosition, 1, "Deliver to HQ", "Bring the recovered cargo back to HQ.", definition.m_iCargoCount);
-
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
 			AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES, "extract_captives", state.m_vHQPosition, 1, "Extract captives", "Escort the captives back to HQ or a friendly zone.", definition.m_iCaptiveCount);
 
@@ -43,6 +42,8 @@ class HST_MissionObjectiveService
 		bool changed;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
+			if (IsPersistenceSmokeMission(mission))
+				continue;
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 			{
 				changed = MarkMissionObjectiveCleanupComplete(state, mission) || changed;
@@ -57,6 +58,14 @@ class HST_MissionObjectiveService
 		}
 
 		return changed;
+	}
+
+	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
 
 	bool ProgressMission(HST_CampaignState state, string instanceId, int amount = 1)
@@ -131,8 +140,10 @@ class HST_MissionObjectiveService
 		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != "convoy_intercept")
 			return false;
 
-		if (mission.m_sMissionId == "convoy_money" || mission.m_sMissionId == "convoy_supplies")
+		if (mission.m_sMissionId == "convoy_money")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
+		if (mission.m_sMissionId == "convoy_supplies")
+			return !mission.m_bConvoyCrewEliminatedOutcomeApplied && HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
 		if (mission.m_sMissionId == "convoy_prisoners")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_captive");
 		if (mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored")
@@ -183,6 +194,8 @@ class HST_MissionObjectiveService
 		{
 			if (!objective)
 				continue;
+			if (IsPersistenceSmokeMission(state.FindActiveMission(objective.m_sMissionInstanceId)))
+				continue;
 
 			if (objective.m_bFailed)
 				failed++;
@@ -192,7 +205,26 @@ class HST_MissionObjectiveService
 				active++;
 		}
 
-		return string.Format("h-istasi objectives | active %1 | complete %2 | failed %3 | tasks %4", active, complete, failed, state.m_aCampaignTasks.Count());
+		return string.Format("h-istasi objectives | active %1 | complete %2 | failed %3 | tasks %4", active, complete, failed, CountVisibleCampaignTasks(state));
+	}
+
+	protected int CountVisibleCampaignTasks(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_CampaignTaskState task : state.m_aCampaignTasks)
+		{
+			if (!task)
+				continue;
+			if (task.m_sTaskId.Contains(PERSISTENCE_SMOKE_PREFIX) || task.m_sLinkedId.Contains("persistence_smoke"))
+				continue;
+
+			count++;
+		}
+
+		return count;
 	}
 
 	protected bool HasObjectiveForMission(HST_CampaignState state, string instanceId)

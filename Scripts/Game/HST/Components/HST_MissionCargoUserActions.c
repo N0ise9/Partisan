@@ -1,5 +1,10 @@
 class HST_MissionUserActionBase : HST_ContextualUserActionBase
 {
+	bool CanShowForMissionAsset(IEntity owner)
+	{
+		return true;
+	}
+
 	protected string ResolveMissionAssetId(IEntity owner)
 	{
 		if (!owner)
@@ -10,6 +15,23 @@ class HST_MissionUserActionBase : HST_ContextualUserActionBase
 			return "";
 
 		return asset.GetAssetId();
+	}
+
+	protected HST_MissionAssetState ResolveMissionAssetState(IEntity owner)
+	{
+		string assetId = ResolveMissionAssetId(owner);
+		if (assetId.IsEmpty())
+			return null;
+
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return null;
+
+		HST_CampaignState state = coordinator.GetState();
+		if (!state)
+			return null;
+
+		return state.FindMissionAsset(assetId);
 	}
 
 	protected void RunMissionCommand(IEntity owner, IEntity user, string commandId)
@@ -48,9 +70,6 @@ class HST_MissionActionFilterComponent : ScriptComponent
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
-		if (m_bActionsFiltered && m_iFilterFrames > 90)
-			return;
-
 		FilterActions(owner);
 	}
 
@@ -74,8 +93,10 @@ class HST_MissionActionFilterComponent : ScriptComponent
 			if (!action)
 				continue;
 
-			if (HST_MissionUserActionBase.Cast(action))
+			HST_MissionUserActionBase missionAction = HST_MissionUserActionBase.Cast(action);
+			if (missionAction)
 			{
+				action.SetActionEnabled_S(missionAction.CanShowForMissionAsset(owner));
 				missionActions++;
 				continue;
 			}

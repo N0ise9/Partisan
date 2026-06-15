@@ -1,8 +1,36 @@
-SCR_ChimeraCharacter HST_MissionProp_Captives : "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et" {
+SCR_ChimeraCharacter HST_MissionProp_Captives : "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et" {
  components {
   HST_MissionAssetComponent "{6985327711303731}" {
   }
   HST_MissionActionFilterComponent "{6985327711303732}" {
+  }
+  ActionsManagerComponent "{6985327711303733}" {
+   additionalActions {
+    HST_MissionCaptiveFreeAction "{6985327711303734}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303735}" {
+      Name "Free captive"
+     }
+    }
+    HST_MissionCaptiveFollowAction "{6985327711303736}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303737}" {
+      Name "Order POW to follow"
+     }
+    }
+    HST_MissionCaptiveExtractAction "{6985327711303738}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303739}" {
+      Name "Extract captive"
+     }
+    }
+   }
   }
  }
 }

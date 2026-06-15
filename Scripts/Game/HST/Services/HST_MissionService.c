@@ -1,5 +1,7 @@
 class HST_MissionService
 {
+	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+
 	protected ref array<ref HST_MissionDefinition> m_aDefinitions;
 	protected int m_iNextInstanceId = 1;
 
@@ -62,6 +64,8 @@ class HST_MissionService
 		{
 			if (!activeMission || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+			if (IsPersistenceSmokeMission(activeMission))
+				continue;
 
 			HST_MissionDefinition activeDefinition = FindDefinition(activeMission.m_sMissionId);
 			bool sameFamily = activeDefinition && activeDefinition.m_eCategory == definition.m_eCategory;
@@ -100,6 +104,8 @@ class HST_MissionService
 		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
 		{
 			if (!activeMission || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+			if (IsPersistenceSmokeMission(activeMission))
 				continue;
 
 			if (activeMission.m_sMissionId == missionId && activeMission.m_sTargetZoneId == targetZoneId)
@@ -203,6 +209,8 @@ class HST_MissionService
 		{
 			if (activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+			if (IsPersistenceSmokeMission(activeMission))
+				continue;
 
 			activeMission.m_iRemainingSeconds = Math.Max(0, activeMission.m_iRemainingSeconds - elapsedSeconds);
 			if (activeMission.m_iRemainingSeconds > 0)
@@ -219,6 +227,14 @@ class HST_MissionService
 		}
 
 		return changed;
+	}
+
+	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
 
 	protected bool MissionCanTargetZone(HST_MissionDefinition definition, HST_ZoneState zone, HST_CampaignPreset preset)

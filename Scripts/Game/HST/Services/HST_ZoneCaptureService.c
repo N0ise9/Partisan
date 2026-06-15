@@ -85,7 +85,6 @@ class HST_ZoneCaptureService
 		if (HasIncompleteConquestMission(state, zone) && zone.m_iResistanceCaptureProgress >= Math.Min(CONQUEST_OBJECTIVE_PROGRESS_CAP, required - 1))
 		{
 			zone.m_iResistanceCaptureProgress = Math.Min(CONQUEST_OBJECTIVE_PROGRESS_CAP, required - 1);
-			QueueNotification("blocked_objective", zone, "warning", "Capture blocked", string.Format("%1 requires the conquest objective first.", ZoneLabel(zone)));
 			return true;
 		}
 
@@ -124,7 +123,7 @@ class HST_ZoneCaptureService
 			status.m_bContested = true;
 			QueueNotification("contested", zone, "warning", CaptureTitle(zone, "contested"), string.Format("%1 contested by FIA.", ZoneLabel(zone)));
 
-			if (status.m_sBlockedReason == "enemies remain")
+			if (status.m_sBlockedReason == "enemies remain" || status.m_sBlockedReason == "hostile vehicles remain")
 			{
 				QueueNotification("blocked_enemies", zone, "warning", "Capture blocked: enemies remain", string.Format("%1 cannot be secured while hostile forces remain.", ZoneLabel(zone)));
 				changed = DecayCaptureProgress(zone, balance, elapsedSeconds) || changed;
@@ -146,7 +145,6 @@ class HST_ZoneCaptureService
 					zone.m_iResistanceCaptureProgress = cappedProgress;
 					changed = true;
 				}
-				QueueNotification("blocked_objective", zone, "warning", "Capture blocked", string.Format("%1 requires the conquest objective first.", ZoneLabel(zone)));
 				continue;
 			}
 
@@ -192,6 +190,8 @@ class HST_ZoneCaptureService
 			status.m_sBlockedReason = "no FIA in radius";
 		else if (status.m_iEnemyCountNearby > 0)
 			status.m_sBlockedReason = "enemies remain";
+		else if (status.m_iEnemyVehicleCountNearby > 0)
+			status.m_sBlockedReason = "hostile vehicles remain";
 		else if (HasIncompleteConquestMission(state, zone) && zone.m_iResistanceCaptureProgress >= Math.Min(CONQUEST_OBJECTIVE_PROGRESS_CAP, ResolveCaptureProgressRequired(balance) - 1))
 			status.m_sBlockedReason = "conquest objective incomplete";
 		else

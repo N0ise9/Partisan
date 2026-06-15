@@ -8,6 +8,7 @@ class HST_MapMarkerService
 	static const int MAX_NATIVE_MARKERS = 96;
 	static const int MAX_NATIVE_TACTICAL_MARKERS = 16;
 	static const int NATIVE_OWNERSHIP_SYNC_INTERVAL_SECONDS = 30;
+	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 
 	protected ref array<IEntity> m_aNativeMarkerCandidates = {};
 	protected ref array<ref SCR_MapMarkerBase> m_aRuntimeNativeMarkers = {};
@@ -156,6 +157,8 @@ class HST_MapMarkerService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+			if (IsPersistenceSmokeMission(mission))
+				continue;
 			if (AreMissionObjectivesComplete(state, mission))
 				continue;
 
@@ -172,6 +175,14 @@ class HST_MapMarkerService
 			AddMissionObjectiveMarkers(state, preset, mission);
 			AddMissionAssetMarkers(state, preset, mission);
 		}
+	}
+
+	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
 
 	protected void AddMissionRouteMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
@@ -1426,8 +1437,10 @@ class HST_MapMarkerService
 		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != "convoy_intercept")
 			return false;
 
-		if (mission.m_sMissionId == "convoy_money" || mission.m_sMissionId == "convoy_supplies")
+		if (mission.m_sMissionId == "convoy_money")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
+		if (mission.m_sMissionId == "convoy_supplies")
+			return !mission.m_bConvoyCrewEliminatedOutcomeApplied && HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
 		if (mission.m_sMissionId == "convoy_prisoners")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_captive");
 		if (mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored")

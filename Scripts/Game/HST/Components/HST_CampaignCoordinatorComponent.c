@@ -7,6 +7,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 {
 	protected static HST_CampaignCoordinatorComponent s_Instance;
 	static const int MARKER_REFRESH_THROTTLE_SECONDS = 10;
+	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -289,6 +290,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
 			if (!mission)
+				continue;
+			if (IsPersistenceSmokeMission(mission))
 				continue;
 
 			HST_MissionDefinition definition = m_Missions.FindDefinition(mission.m_sMissionId);
@@ -2144,10 +2147,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Objectives.InitializeMission(m_State, m_Preset, definition, mission, m_Content);
 		if (m_MissionRuntime)
 			m_MissionRuntime.InitializeMissionRuntime(m_State, m_Preset, definition, mission, m_Content);
+		if (m_PhysicalWar && ShouldForceMissionTargetZoneActive(mission))
+			m_PhysicalWar.EnsureMissionTargetZoneActive(m_State, mission.m_sTargetZoneId, m_ZoneCompositions);
 
 		MarkMajorCampaignChange();
 		BroadcastMissionEvent("created", mission, definition);
 		return true;
+	}
+
+	protected bool ShouldForceMissionTargetZoneActive(HST_ActiveMissionState mission)
+	{
+		if (!mission || mission.m_sTargetZoneId.IsEmpty())
+			return false;
+
+		return mission.m_sRuntimePrimitive == "clear_area" || mission.m_sRuntimePrimitive == "hold_area";
 	}
 
 	protected void MarkMajorCampaignChange(bool refreshMarkers = true)
@@ -2240,6 +2253,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (!mission)
 				continue;
+			if (IsPersistenceSmokeMission(mission))
+				continue;
 
 			HST_MissionDefinition definition = m_Missions.FindDefinition(mission.m_sMissionId);
 			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && !mission.m_bExpiredNotificationSent)
@@ -2256,6 +2271,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+			if (IsPersistenceSmokeMission(mission))
 				continue;
 
 			HST_MissionDefinition definition = m_Missions.FindDefinition(mission.m_sMissionId);
@@ -3320,7 +3337,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
-			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
 				return mission.m_sInstanceId;
 		}
 
@@ -3337,7 +3354,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
-			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && mission.m_sTargetZoneId == zoneId)
+			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && mission.m_sTargetZoneId == zoneId)
 				count++;
 		}
 
@@ -3455,8 +3472,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string economySummary = string.Format("h-istasi campaign | phase %1 | money %2 | HR %3 | war level %4", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel);
 		economySummary = economySummary + string.Format(" | training %1 | persistence %2", m_State.m_iTrainingLevel, m_State.m_sLastPersistenceStatus);
-		string zoneSummary = string.Format(" | resistance zones %1 | enemy zones %2 | active missions %3", resistanceZones, enemyZones, m_State.m_aActiveMissions.Count());
-		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", m_State.m_aActiveGroups.Count(), m_State.m_aQRFs.Count(), m_State.m_aMapMarkers.Count(), m_State.m_sHQHideoutId);
+		string zoneSummary = string.Format(" | resistance zones %1 | enemy zones %2 | active missions %3", resistanceZones, enemyZones, CountFoundationActiveMissions());
+		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", CountVisibleActiveGroups(), m_State.m_aQRFs.Count(), m_State.m_aMapMarkers.Count(), m_State.m_sHQHideoutId);
 		runtimeSummary = runtimeSummary + string.Format(" | deployed %1 | runtime objects %2", m_State.m_bHQDeployed, m_State.m_bHQRuntimeObjectsSpawned);
 		string alphaSummary = string.Format(" | sites %1 | support requests %2 | enemy orders %3 | civilian towns %4", m_State.m_aGeneratedSites.Count(), m_State.m_aSupportRequests.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aCivilianZones.Count());
 		return economySummary + zoneSummary + runtimeSummary + alphaSummary;
@@ -3477,7 +3494,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string report = string.Format("h-istasi foundation | phase %1 | schema %2/%3", m_State.m_ePhase, m_State.m_iSchemaVersion, HST_CampaignState.SCHEMA_VERSION);
 		report = report + string.Format(" | HQ hideout %1 | deployed %2 | Petros alive %3 | runtime objects %4", hqHideout, m_State.m_bHQDeployed, m_State.m_bPetrosAlive, m_State.m_bHQRuntimeObjectsSpawned);
-		report = report + string.Format(" | active missions %1 | active groups %2", CountFoundationActiveMissions(), m_State.m_aActiveGroups.Count());
+		report = report + string.Format(" | active missions %1 | active groups %2", CountFoundationActiveMissions(), CountVisibleActiveGroups());
 		report = report + " | persistence " + persistence;
 		return report;
 	}
@@ -3490,11 +3507,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
-			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
 				count++;
 		}
 
 		return count;
+	}
+
+	protected int CountVisibleActiveGroups()
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : m_State.m_aActiveGroups)
+		{
+			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sInstanceId.Contains(PERSISTENCE_SMOKE_PREFIX) || mission.m_sMissionId.Contains(PERSISTENCE_SMOKE_PREFIX);
+	}
+
+	protected bool IsPersistenceSmokeGroup(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		return activeGroup.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX);
 	}
 
 	protected string BuildZoneReport(string zoneId)

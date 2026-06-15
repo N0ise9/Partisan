@@ -357,8 +357,8 @@ Acceptance pattern:
 | 9 | Convoy contact behavior | Complete |
 | 10 | Generic convoy completion | Complete |
 | 11 | Mission-specific convoy outcomes | Complete |
-| 12 | Active mission persistence | In progress |
-| 13 | Non-convoy mission primitive hardening | Planned |
+| 12 | Active mission persistence | Complete |
+| 13 | Non-convoy mission primitive hardening | In progress |
 | 14 | Arsenal, loot, and finite/infinite unlock loop | Planned |
 | 15 | Garage and vehicle persistence | Planned |
 | 16 | Recruitment, training, and garrisons | Planned |
@@ -1285,8 +1285,8 @@ Implementation:
 - Retry seating during convoy staging before readiness checks.
 - Keep convoy waypoint assignment blocked until every active convoy vehicle has
   a seated living AI driver.
-- Enforce convoy start-to-end straight-line horizontal distance between 1000m
-  and 2500m, and report planned distance, band validity, and whether generated
+- Enforce convoy start-to-end straight-line horizontal distance between 2000m
+  and 5000m, and report planned distance, band validity, and whether generated
   route staging is vehicle-safe.
 
 Acceptance criteria:
@@ -1596,7 +1596,7 @@ Completion notes:
 
 ## Phase 12 - Active Mission Persistence
 
-Status: In progress
+Status: Complete
 
 Goal: make active missions, especially convoys, survive save/load.
 
@@ -1621,9 +1621,33 @@ Acceptance criteria:
   final status through save/load.
 - Restore path does not duplicate mission runtime entities or active groups.
 
+Current notes:
+
+- Active mission restore now repairs runtime fields, objective-to-asset links,
+  mission asset runtime records, and restored spawned flags without adding a
+  new save schema.
+- Restored convoy runtime normalizes staging/moving/contact phases, rebuilds
+  missing live handles from saved convoy assets/groups, preserves destroyed or
+  captured vehicle state, and removes the short restore grace-window dependency.
+- Re-review hardening keeps preserved convoy crew counts alive through the
+  Workbench zero-agent population window so restored or freshly respawned
+  convoy groups do not fail before agents report live.
+- Persistence smoke coverage now seeds staging, moving, and contact convoy
+  records and reports duplicate mission assets, runtime entities, active
+  groups, and runtime vehicles.
+- Workbench follow-up: smoke fixtures are diagnostic-only and are skipped by
+  map markers, mission runtime ticking, convoy physicalization, mission intel,
+  and normal command UI surfaces so seeded smoke state does not appear as live
+  campaign content.
+- `tools/validate-foundation.ps1` passes with schema 18.
+- HST_Dev Workbench smoke passed for active convoy restore across moving/contact:
+  destroyed convoy slots remain terminal after restart, survivor groups do not
+  respawn in a loop, restored convoy completion applies the FIA reward, and the
+  completed convoy no longer falls through into failure.
+
 ## Phase 13 - Non-Convoy Mission Primitive Hardening
 
-Status: Planned
+Status: In progress
 
 Goal: bring other mission types up to the same reliability level as convoys.
 
@@ -1651,11 +1675,32 @@ Acceptance criteria:
 
 - Assassination can be completed by killing/sabotaging HVT.
 - Destroy mission completes when target is destroyed.
-- Logistics mission can load, unload, and deliver cargo.
+- Logistics recovery completes on pickup; supply delivery completes on delivery.
 - Rescue mission can free and deliver captives.
 - Hold/clear mission progresses only when conditions are met.
 - All mission types show useful runtime reports.
 - All mission types survive save/load.
+
+Current notes:
+
+- Non-convoy primitive polling is now explicit for HVT, hold, clear, destroy,
+  cargo recovery, rescue/extract, and supply delivery missions.
+- Mission asset initialization is idempotent by role/count, so partial restored
+  primitive state can self-repair without duplicating assets.
+- Asset-driven objectives continue to progress when matching mission assets
+  exist, even if a fallback prop is present.
+- Recover-cargo objectives now remain pickup-complete. Restored legacy
+  `hq_delivery` objectives for active recover-cargo missions are completed by
+  the restore repair pass instead of blocking completion.
+- Runtime reports now include asset interaction radius, cargo capacity,
+  attached/carrier state, outcome state, and delivery distance.
+- Persistence smoke coverage now seeds one active mission for each non-convoy
+  primitive. `tools/validate-foundation.ps1` passes with schema 18; Workbench
+  primitive smoke validation still needs to pass in `HST_Dev` before this phase
+  should be marked Complete.
+- Workbench follow-up: primitive smoke fixtures are excluded from ordinary
+  mission reports, objective ticking, mission start duplicate gates, and map
+  marker publication while remaining visible to the persistence smoke report.
 
 ## Phase 14 - Arsenal, Loot, And Finite/Infinite Unlock Loop
 
