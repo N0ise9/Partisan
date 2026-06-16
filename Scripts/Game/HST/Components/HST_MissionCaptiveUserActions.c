@@ -29,7 +29,7 @@ class HST_MissionCaptiveFollowAction : HST_MissionUserActionBase
 		if (!asset)
 			return true;
 
-		return asset.m_sKind == "captive" && asset.m_bPickedUp && !asset.m_bAttachedToCarrier && !asset.m_bDelivered && !asset.m_bDestroyed;
+		return asset.m_sKind == "captive" && asset.m_bPickedUp && !asset.m_bDelivered && !asset.m_bDestroyed;
 	}
 
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
@@ -39,7 +39,7 @@ class HST_MissionCaptiveFollowAction : HST_MissionUserActionBase
 
 	override bool GetActionNameScript(out string outName)
 	{
-		outName = "Order POW to follow";
+		outName = "Order POWs to follow";
 		return true;
 	}
 }

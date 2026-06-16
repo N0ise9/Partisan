@@ -2604,7 +2604,7 @@ class HST_CommandUIService
 
 		if (commandId == "mission_captive_follow" && asset.m_sKind == "captive")
 		{
-			if (!asset.m_bPickedUp || asset.m_bAttachedToCarrier || asset.m_bDelivered || asset.m_bDestroyed)
+			if (!asset.m_bPickedUp || asset.m_bDelivered || asset.m_bDestroyed)
 				return false;
 
 			return IsPlayerNearMissionAsset(asset, playerPosition);

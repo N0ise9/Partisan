@@ -95,9 +95,27 @@ class HST_MissionActionFilterComponent : ScriptComponent
 
 			HST_MissionUserActionBase missionAction = HST_MissionUserActionBase.Cast(action);
 			if (missionAction)
+				missionActions++;
+		}
+
+		if (missionActions <= 0)
+		{
+			m_bActionsFiltered = true;
+			m_iFilterFrames++;
+			if (m_iFilterFrames == 1)
+				Print("h-istasi mission action | retained inherited action surface; no mission actions attached");
+			return;
+		}
+
+		foreach (BaseUserAction action : actions)
+		{
+			if (!action)
+				continue;
+
+			HST_MissionUserActionBase missionAction = HST_MissionUserActionBase.Cast(action);
+			if (missionAction)
 			{
 				action.SetActionEnabled_S(missionAction.CanShowForMissionAsset(owner));
-				missionActions++;
 				continue;
 			}
 

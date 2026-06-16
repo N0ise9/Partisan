@@ -637,6 +637,11 @@ $configMissions = @([regex]::Matches($missionConfig, 'm_sMissionId "([^"]+)"') |
 Assert-EqualSet "Mission registries" $runtimeMissions $configMissions
 
 $missionRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
+$missionCaptiveFollowComponentPath = "Scripts/Game/HST/Components/HST_MissionCaptiveFollowComponent.c"
+$missionCaptiveFollowComponentText = ""
+if (Test-Path $missionCaptiveFollowComponentPath) {
+	$missionCaptiveFollowComponentText = Get-Content -Raw $missionCaptiveFollowComponentPath
+}
 foreach ($missionId in $configMissions) {
 	if ($missionRuntimeServiceText -notmatch [regex]::Escape("`"$missionId`"")) {
 		throw "Mission runtime primitive mapper does not cover mission ID: $missionId"
@@ -669,6 +674,66 @@ foreach ($requiredMissionPrimitive in @(
 		throw "Mission runtime service is missing physical primitive contract: $requiredMissionPrimitive"
 	}
 }
+foreach ($requiredCaptiveRuntimeContract in @(
+	'SetAffiliatedFactionByKey("CIV")',
+	"EnsureMissionCaptivesNeutralized",
+	"StripMissionCaptiveWeapons",
+	"RemoveMissionCaptiveWeaponItem",
+	"BaseWeaponComponent",
+	"BaseMagazineComponent",
+	"MagazineComponent",
+	"StartCaptiveFollowController",
+	"StopCaptiveFollowController",
+	"TryIssueCaptiveFollowWaypoint",
+	"ResolveCaptiveAIGroup",
+	"GetParentGroup",
+	"StopCaptiveFollowing",
+	"CAPTIVE_FOLLOW_BREAK_DISTANCE_METERS",
+	"CAPTIVE_DISEMBARK_RADIUS_METERS",
+	"LogMissionCaptiveProjection",
+	"captive projection live"
+)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredCaptiveRuntimeContract)) {
+		throw "Mission runtime service is missing captive neutralization contract: $requiredCaptiveRuntimeContract"
+	}
+}
+if ($missionRuntimeServiceText -match "StepCaptiveToward") {
+	throw "Mission runtime service must not use transform-stepped captive follow fallback"
+}
+foreach ($requiredCaptiveFollowComponentContract in @(
+	"HST_MissionCaptiveFollowComponent",
+	"CAPTIVE_AI_GROUP_PREFAB",
+	"{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et",
+	"CAPTIVE_FOLLOW_WAYPOINT_PREFAB",
+	"IssueFollowWaypoint",
+	"ClearFollowWaypoint",
+	"SetCompletionRadius",
+	"AddAgentFromControlledEntity",
+	"RequestFollowPathOfEntity",
+	"AIBaseMovementComponent",
+	"AIControlComponent",
+	"GetControlAIAgent",
+	"GetMovementComponent",
+	"SetGroupCharactersWantedMovementType",
+	"EMovementType.RUN",
+	"EMovementType.SPRINT",
+	"BuildResponsiveFollowPosition",
+	"TARGET_LEAD_MULTIPLIER",
+	"WAYPOINT_REFRESH_DISTANCE_METERS = 14.0",
+	"WAYPOINT_REACHED_REFRESH_DISTANCE_METERS",
+	"FOLLOW_UPDATE_MS = 500",
+	"m_bDirectFollowUnavailable"
+)) {
+	if ($missionCaptiveFollowComponentText -notmatch [regex]::Escape($requiredCaptiveFollowComponentContract)) {
+		throw "Captive follow component is missing AI movement contract: $requiredCaptiveFollowComponentContract"
+	}
+}
+if ($missionCaptiveFollowComponentText -match "EMovementType.WALK" -or $missionCaptiveFollowComponentText -match "TryForceWalkSpeed") {
+	throw "Captive follow component must not force freed POWs to walk while following"
+}
+if ($missionCaptiveFollowComponentText -match "AddWaypointAt" -or $missionCaptiveFollowComponentText -match "CompleteWaypoint") {
+	throw "Captive follow component must use the proven moving AddWaypoint fallback, not front-inserted/completed waypoint replacement"
+}
 foreach ($requiredMissionPropPath in @(
 	"Prefabs/Objects/HST/HST_MissionProp_HVT.et",
 	"Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et",
@@ -685,14 +750,34 @@ foreach ($requiredMissionPropPath in @(
 }
 foreach ($missionPropContract in @(
 	@("Prefabs/Objects/HST/HST_MissionProp_HVT.et", "{26A9756790131354}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Rifleman.et"),
-	@("Prefabs/Objects/HST/HST_MissionProp_Captives.et", "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et"),
+	@("Prefabs/Objects/HST/HST_MissionProp_Captives.et", "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et"),
 	@("Prefabs/Objects/HST/HST_MissionProp_Cargo.et", "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et"),
 	@("Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et", "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et"),
 	@("Prefabs/Objects/HST/HST_MissionProp_HoldMarker.et", "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et")
 )) {
 	$missionPropText = Get-Content -Raw $missionPropContract[0]
 	if ($missionPropText -notmatch [regex]::Escape($missionPropContract[1])) {
-		throw "Mission runtime prop must inherit a visible GUID-qualified parent: $($missionPropContract[0]) -> $($missionPropContract[1])"
+		throw "Mission runtime prop must inherit the expected visible parent: $($missionPropContract[0]) -> $($missionPropContract[1])"
+	}
+	if ($missionPropContract[0] -eq "Prefabs/Objects/HST/HST_MissionProp_Captives.et" -and $missionPropText -notmatch "ActionsManagerComponent") {
+		throw "Captive mission prop must expose a POW action surface for direct context interactions"
+	}
+	if ($missionPropContract[0] -eq "Prefabs/Objects/HST/HST_MissionProp_Captives.et" -and $missionPropText -notmatch "HST_MissionCaptiveFollowComponent") {
+		throw "Captive mission prop must include the POW AI follow component"
+	}
+	if ($missionPropContract[0] -eq "Prefabs/Objects/HST/HST_MissionProp_Captives.et" -and $missionPropText -notmatch 'ActionsManagerComponent "\{520EA1D2F659CE02\}"') {
+		throw "Captive mission prop must override the inherited FIA action manager, matching the Petros runtime-action pattern"
+	}
+	if ($missionPropContract[0] -eq "Prefabs/Objects/HST/HST_MissionProp_Captives.et" -and $missionPropText -match 'ActionsManagerComponent "\{6985327711303733\}"') {
+		throw "Captive mission prop must not add a duplicate HST-owned action manager"
+	}
+	foreach ($requiredCaptiveAction in @("HST_MissionCaptiveFreeAction", "HST_MissionCaptiveFollowAction", "HST_MissionCaptiveExtractAction", "Free captive", "Order POWs to follow", "Extract captive")) {
+		if ($missionPropContract[0] -eq "Prefabs/Objects/HST/HST_MissionProp_Captives.et" -and $missionPropText -notmatch [regex]::Escape($requiredCaptiveAction)) {
+			throw "Captive mission prop is missing POW context action: $requiredCaptiveAction"
+		}
+	}
+	if ($missionPropContract[0] -eq "Prefabs/Objects/HST/HST_MissionProp_Captives.et" -and $missionPropText -match "RplComponent") {
+		throw "Captive mission prop must inherit replication from the action-capable character base, not a hand-authored RplComponent block"
 	}
 
 	foreach ($blankMissionPropParent in @(
