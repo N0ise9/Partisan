@@ -29,6 +29,72 @@ class HST_CommandMenuDrawCommandSet
 	ref array<ref CanvasWidgetCommand> m_aCommands = {};
 }
 
+class HST_CommandMenuLayoutMetrics
+{
+	int m_iScreenW;
+	int m_iScreenH;
+
+	float m_fScale;
+	bool m_bCompact;
+	bool m_bVeryCompact;
+
+	int m_iRootLeft;
+	int m_iRootTop;
+	int m_iRootWidth;
+	int m_iRootHeight;
+
+	int m_iMargin;
+	int m_iGap;
+	int m_iHeaderHeight;
+
+	int m_iNavLeft;
+	int m_iNavTop;
+	int m_iNavWidth;
+	int m_iNavHeight;
+
+	int m_iStatsLeft;
+	int m_iStatsTop;
+	int m_iStatsWidth;
+	int m_iStatsHeight;
+	int m_iStatCardWidth;
+	int m_iStatCardGap;
+
+	int m_iMainLeft;
+	int m_iMainTop;
+	int m_iMainWidth;
+	int m_iMainHeight;
+	int m_iMainContentLeft;
+	int m_iMainContentTop;
+	int m_iMainContentWidth;
+	int m_iMainContentHeight;
+
+	int m_iRightLeft;
+	int m_iRightTop;
+	int m_iRightWidth;
+
+	int m_iActivityTop;
+	int m_iActivityHeight;
+	int m_iActivityTextLeft;
+	int m_iActivityTextWidth;
+
+	int m_iActionsTop;
+	int m_iActionsHeight;
+	int m_iActionsTextLeft;
+	int m_iActionsTextWidth;
+
+	int m_iTabRowHeight;
+	int m_iContentRowHeight;
+	int m_iSectionRowHeight;
+	int m_iActionRowHeight;
+	int m_iFeedRowHeight;
+
+	int m_iFontTiny;
+	int m_iFontSmall;
+	int m_iFontNormal;
+	int m_iFontTitle;
+	int m_iFontHeader;
+}
+
 [ComponentEditorProps(category: "h-istasi", description: "Client-side h-istasi command menu key listener and widget controller")]
 class HST_CommandMenuComponentClass : ScriptComponentClass
 {
@@ -47,29 +113,16 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const ResourceName MENU_FONT = "";
 	static const string MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout";
-	static const int TAB_WIDGET_ID_BASE = 1000;
-	static const int ACTION_WIDGET_ID_BASE = 2000;
-	static const int CLOSE_WIDGET_ID = 9000;
+	static const int TAB_WIDGET_ID_BASE = 10000;
+	static const int ACTION_WIDGET_ID_BASE = 30000;
+	static const int CLOSE_WIDGET_ID = 90000;
 	static const int CONTENT_PREV_WIDGET_ID = 9010;
 	static const int CONTENT_NEXT_WIDGET_ID = 9011;
 	static const int ACTION_PREV_WIDGET_ID = 9020;
 	static const int ACTION_NEXT_WIDGET_ID = 9021;
 	static const int CONTENT_PAGE_SIZE = 19;
 	static const int ACTION_PAGE_SIZE = 8;
-	static const int MAIN_PANEL_LEFT = 220;
-	static const int MAIN_PANEL_TOP = 172;
-	static const int MAIN_PANEL_WIDTH = 960;
-	static const int MAIN_PANEL_HEIGHT = 764;
-	static const int MAIN_CONTENT_LEFT = 244;
-	static const int MAIN_CONTENT_WIDTH = 912;
-	static const int RIGHT_PANEL_LEFT = 1260;
-	static const int RIGHT_PANEL_WIDTH = 488;
-	static const int RIGHT_TEXT_LEFT = 1280;
-	static const int RIGHT_TEXT_WIDTH = 448;
-	static const int ACTION_LIST_TOP = 492;
 	static const int ACTION_ROW_HEIGHT = 44;
-	static const int ACTION_ROW_STEP = 48;
-	static const int ACTION_PAGER_TOP = 890;
 
 	protected static HST_CommandMenuComponent s_LocalInstance;
 
@@ -103,6 +156,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected ref array<int> m_aContentItemRowIndexes = {};
 	protected ref array<Widget> m_aWidgets = {};
 	protected ref array<ref HST_CommandMenuDrawCommandSet> m_aCanvasCommandSets = {};
+	protected ref HST_CommandMenuLayoutMetrics m_Layout;
 	protected ref array<Widget> m_aExternalNotificationWidgets = {};
 	protected ref array<ref HST_CommandMenuDrawCommandSet> m_aExternalNotificationCommandSets = {};
 	protected ref array<string> m_aExternalNotificationTitleQueue = {};
@@ -673,7 +727,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		int pageSize = GetContentPageSize();
 		int maxStart = ResolveMaxPageStart(m_aContentItemKinds.Count(), pageSize);
-		m_iContentPageStart = ClampIntToRange(m_iContentPageStart + direction * pageSize, 0, maxStart);
+		int advance = pageSize;
+		if (direction > 0)
+			advance = ResolveVisibleContentPageAdvance(m_iContentPageStart);
+
+		m_iContentPageStart = ClampIntToRange(m_iContentPageStart + direction * advance, 0, maxStart);
 		RenderMenu();
 	}
 
@@ -684,7 +742,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		int pageSize = GetActionPageSize();
 		int maxStart = ResolveMaxPageStart(m_aActionLabels.Count(), pageSize);
-		m_iActionPageStart = ClampIntToRange(m_iActionPageStart + direction * pageSize, 0, maxStart);
+		int advance = pageSize;
+		if (direction > 0)
+			advance = ResolveVisibleActionPageAdvance(m_iActionPageStart);
+
+		m_iActionPageStart = ClampIntToRange(m_iActionPageStart + direction * advance, 0, maxStart);
 		if (m_aActionLabels.Count() > 0)
 			m_iSelectedControl = m_aTabIds.Count() + m_iActionPageStart;
 		RenderMenu();
@@ -861,6 +923,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_WidgetHandler.Bind(this);
 		}
 
+		BuildResponsiveLayout(workspace);
 		Widget root = CreateMenuRoot(workspace);
 		if (!root)
 			return;
@@ -875,14 +938,171 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
 	{
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 24, 24, 1768, 960, WidgetFlags.VISIBLE, null, 2500);
+		if (!m_Layout)
+			BuildResponsiveLayout(workspace);
+
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, m_Layout.m_iRootLeft, m_Layout.m_iRootTop, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight, WidgetFlags.VISIBLE, null, 2500);
 		if (!root)
 			return null;
 
 		root.SetZOrder(2500);
 		m_aWidgets.Insert(root);
-		CreateRectWidget(workspace, root, 0, 0, 1768, 960, 0xF2080D12, 1.0, 0);
+		CreateRectWidget(workspace, root, 0, 0, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight, 0xF2080D12, 1.0, 0);
 		return root;
+	}
+
+	protected int ScalePx(float value)
+	{
+		if (!m_Layout)
+			return Math.Round(value);
+
+		return Math.Round(value * m_Layout.m_fScale);
+	}
+
+	protected int ScaleFont(float value)
+	{
+		if (!m_Layout)
+			return Math.Round(value);
+
+		int scaled = Math.Round(value * m_Layout.m_fScale);
+		return ClampIntToRange(scaled, 9, Math.Round(value * 1.15));
+	}
+
+	protected int ClampLayoutInt(int value, int minValue, int maxValue)
+	{
+		if (maxValue < minValue)
+			return Math.Max(1, maxValue);
+		if (value < minValue)
+			return minValue;
+		if (value > maxValue)
+			return maxValue;
+
+		return value;
+	}
+
+	protected void BuildResponsiveLayout(WorkspaceWidget workspace)
+	{
+		if (!workspace)
+			return;
+
+		if (!m_Layout)
+			m_Layout = new HST_CommandMenuLayoutMetrics();
+
+		int screenW = Math.Max(1, Math.Round(workspace.GetWidth()));
+		int screenH = Math.Max(1, Math.Round(workspace.GetHeight()));
+
+		m_Layout.m_iScreenW = screenW;
+		m_Layout.m_iScreenH = screenH;
+
+		float sx = screenW / 1920.0;
+		float sy = screenH / 1080.0;
+		float scale = Math.Min(sx, sy);
+		scale = Math.Clamp(scale, 0.70, 1.12);
+
+		m_Layout.m_fScale = scale;
+		m_Layout.m_bCompact = screenW < 1500 || screenH < 850;
+		m_Layout.m_bVeryCompact = screenW < 1250 || screenH < 720;
+
+		m_Layout.m_iMargin = ScalePx(24);
+		if (m_Layout.m_bCompact)
+			m_Layout.m_iMargin = ScalePx(18);
+		if (m_Layout.m_bVeryCompact)
+			m_Layout.m_iMargin = ScalePx(12);
+
+		m_Layout.m_iGap = ScalePx(20);
+		if (m_Layout.m_bCompact)
+			m_Layout.m_iGap = ScalePx(14);
+
+		m_Layout.m_iRootLeft = m_Layout.m_iMargin;
+		m_Layout.m_iRootTop = m_Layout.m_iMargin;
+		m_Layout.m_iRootWidth = Math.Max(1, screenW - m_Layout.m_iMargin * 2);
+		m_Layout.m_iRootHeight = Math.Max(1, screenH - m_Layout.m_iMargin * 2);
+
+		m_Layout.m_iHeaderHeight = ScalePx(78);
+		if (m_Layout.m_bVeryCompact)
+			m_Layout.m_iHeaderHeight = ScalePx(68);
+
+		m_Layout.m_iNavLeft = ScalePx(20);
+		m_Layout.m_iNavTop = m_Layout.m_iHeaderHeight + ScalePx(14);
+		m_Layout.m_iNavWidth = ClampLayoutInt(Math.Round(m_Layout.m_iRootWidth * 0.115), ScalePx(160), ScalePx(210));
+		m_Layout.m_iNavHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iNavTop - ScalePx(20));
+
+		m_Layout.m_iStatsLeft = m_Layout.m_iNavLeft + m_Layout.m_iNavWidth + m_Layout.m_iGap;
+		m_Layout.m_iStatsTop = m_Layout.m_iHeaderHeight + ScalePx(12);
+		m_Layout.m_iStatsHeight = ScalePx(62);
+
+		int rightCandidateWidth = ClampLayoutInt(Math.Round(m_Layout.m_iRootWidth * 0.285), ScalePx(380), ScalePx(540));
+		int mainLeft = m_Layout.m_iStatsLeft;
+		int rightLeft = m_Layout.m_iRootWidth - rightCandidateWidth - ScalePx(20);
+		int mainWidth = rightLeft - mainLeft - m_Layout.m_iGap;
+
+		if (m_Layout.m_bVeryCompact || mainWidth < ScalePx(560))
+		{
+			m_Layout.m_bCompact = true;
+			m_Layout.m_iRightLeft = mainLeft;
+			m_Layout.m_iRightWidth = Math.Max(1, m_Layout.m_iRootWidth - mainLeft - ScalePx(20));
+
+			m_Layout.m_iMainLeft = mainLeft;
+			m_Layout.m_iMainTop = m_Layout.m_iStatsTop + m_Layout.m_iStatsHeight + ScalePx(14);
+			m_Layout.m_iMainWidth = m_Layout.m_iRightWidth;
+			int compactAvailableHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iMainTop - ScalePx(20));
+			int compactGap = ScalePx(14);
+			m_Layout.m_iMainHeight = Math.Round(compactAvailableHeight * 0.54);
+			m_Layout.m_iMainHeight = ClampLayoutInt(m_Layout.m_iMainHeight, Math.Min(ScalePx(140), compactAvailableHeight), Math.Max(1, compactAvailableHeight - compactGap * 2 - ScalePx(60)));
+
+			m_Layout.m_iActivityTop = m_Layout.m_iMainTop + m_Layout.m_iMainHeight + ScalePx(14);
+			int remainingAfterMain = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iActivityTop - ScalePx(20));
+			m_Layout.m_iActivityHeight = ClampLayoutInt(ScalePx(118), Math.Min(ScalePx(52), remainingAfterMain), Math.Max(1, remainingAfterMain - compactGap - ScalePx(44)));
+
+			m_Layout.m_iActionsTop = m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight + ScalePx(14);
+			m_Layout.m_iActionsHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iActionsTop - ScalePx(20));
+		}
+		else
+		{
+			m_Layout.m_iRightWidth = rightCandidateWidth;
+			m_Layout.m_iRightLeft = rightLeft;
+
+			m_Layout.m_iMainLeft = mainLeft;
+			m_Layout.m_iMainTop = m_Layout.m_iStatsTop + m_Layout.m_iStatsHeight + ScalePx(14);
+			m_Layout.m_iMainWidth = mainWidth;
+			m_Layout.m_iMainHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iMainTop - ScalePx(20));
+
+			m_Layout.m_iActivityTop = m_Layout.m_iStatsTop;
+			int rightAvailableHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iActivityTop - ScalePx(20));
+			int activityMaxHeight = Math.Max(1, rightAvailableHeight - ScalePx(120));
+			activityMaxHeight = Math.Min(activityMaxHeight, ScalePx(340));
+			m_Layout.m_iActivityHeight = ClampLayoutInt(Math.Round(m_Layout.m_iRootHeight * 0.34), Math.Min(ScalePx(250), activityMaxHeight), activityMaxHeight);
+
+			m_Layout.m_iActionsTop = m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight + ScalePx(20);
+			m_Layout.m_iActionsHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iActionsTop - ScalePx(20));
+		}
+
+		m_Layout.m_iStatsWidth = m_Layout.m_iMainWidth;
+		m_Layout.m_iStatCardGap = ScalePx(12);
+		m_Layout.m_iStatCardWidth = Math.Max(1, (m_Layout.m_iStatsWidth - m_Layout.m_iStatCardGap * 3) / 4);
+
+		m_Layout.m_iMainContentLeft = m_Layout.m_iMainLeft + ScalePx(24);
+		m_Layout.m_iMainContentTop = m_Layout.m_iMainTop + ScalePx(30);
+		m_Layout.m_iMainContentWidth = Math.Max(1, m_Layout.m_iMainWidth - ScalePx(48));
+		m_Layout.m_iMainContentHeight = Math.Max(1, m_Layout.m_iMainHeight - ScalePx(72));
+
+		m_Layout.m_iActivityTextLeft = m_Layout.m_iRightLeft + ScalePx(20);
+		m_Layout.m_iActivityTextWidth = Math.Max(1, m_Layout.m_iRightWidth - ScalePx(40));
+
+		m_Layout.m_iActionsTextLeft = m_Layout.m_iRightLeft + ScalePx(20);
+		m_Layout.m_iActionsTextWidth = Math.Max(1, m_Layout.m_iRightWidth - ScalePx(40));
+
+		m_Layout.m_iTabRowHeight = ScalePx(44);
+		m_Layout.m_iContentRowHeight = ScalePx(44);
+		m_Layout.m_iSectionRowHeight = ScalePx(38);
+		m_Layout.m_iActionRowHeight = ScalePx(58);
+		m_Layout.m_iFeedRowHeight = ScalePx(42);
+
+		m_Layout.m_iFontTiny = ScaleFont(10);
+		m_Layout.m_iFontSmall = ScaleFont(12);
+		m_Layout.m_iFontNormal = ScaleFont(14);
+		m_Layout.m_iFontTitle = ScaleFont(18);
+		m_Layout.m_iFontHeader = ScaleFont(30);
 	}
 
 	protected void ShowMenuHint(string text, string title, float durationSeconds)
@@ -938,16 +1158,22 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!workspace)
 			return;
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 510, 24, 900, 92, WidgetFlags.VISIBLE, null, 2850);
+		int screenW = Math.Max(1, Math.Round(workspace.GetWidth()));
+		int left = Math.Max(12, (screenW / 2) - 450);
+		int width = Math.Min(900, screenW - left * 2);
+		if (width < 360)
+			width = Math.Max(240, screenW - 24);
+
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, 24, width, 92, WidgetFlags.VISIBLE, null, 2850);
 		if (!root)
 			return;
 
 		root.SetZOrder(2850);
 		m_aExternalNotificationWidgets.Insert(root);
-		CreateExternalRectWidget(workspace, root, 0, 0, 900, 92, 0xF21A232B, 1.0);
-		CreateExternalRectWidget(workspace, root, 0, 88, 900, 4, 0xFFC4953B, 1.0);
-		CreateExternalTextWidget(workspace, root, ShortenText(title, 44), 24, 10, 380, 24, 18, 0xFFF2D18B, true);
-		CreateExternalTextWidget(workspace, root, ShortenText(message, 140), 24, 38, 852, 42, 16, 0xFFF2F4F0, false);
+		CreateExternalRectWidget(workspace, root, 0, 0, width, 92, 0xF21A232B, 1.0);
+		CreateExternalRectWidget(workspace, root, 0, 88, width, 4, 0xFFC4953B, 1.0);
+		CreateExternalTextWidget(workspace, root, ShortenText(title, 44), 24, 10, width - 48, 24, 18, 0xFFF2D18B, true);
+		CreateExternalTextWidget(workspace, root, ShortenText(message, 140), 24, 38, width - 48, 42, 16, 0xFFF2F4F0, false);
 		m_fExternalNotificationRemaining = Math.Max(1.0, durationSeconds);
 	}
 
@@ -1002,38 +1228,71 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void RenderHeader(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 0, 0, 1768, 84, 0xFF111920, 0.98, 0);
-		CreateTextWidget(workspace, root, "h-istasi HQ", 24, 14, 280, 48, 34, 0xFFF2D18B, 0, true);
-		CreateTextWidget(workspace, root, "FIA Resistance Command", 300, 28, 300, 28, 16, 0xFFB7C7D7, 0, false);
-		CreateTextWidget(workspace, root, BuildSelectedTabTitle(), 720, 18, 560, 42, 26, 0xFFECE6D2, 0, true);
-		CreateRectWidget(workspace, root, 1636, 16, 96, 46, 0xFF5F6C76, 0.96, CLOSE_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Close", 1650, 28, 68, 24, 17, 0xFFF4EBD6, CLOSE_WIDGET_ID, true);
+		if (!m_Layout)
+			return;
+
+		int w = m_Layout.m_iRootWidth;
+		int h = m_Layout.m_iHeaderHeight;
+		CreateRectWidget(workspace, root, 0, 0, w, h, 0xFF111920, 0.98, 0);
+		CreateTextWidget(workspace, root, "h-istasi HQ", ScalePx(24), ScalePx(12), ScalePx(260), h - ScalePx(16), m_Layout.m_iFontHeader, 0xFFF2D18B, 0, true);
+
+		if (!m_Layout.m_bVeryCompact)
+			CreateTextWidget(workspace, root, "FIA Resistance Command", ScalePx(300), ScalePx(28), ScalePx(300), ScalePx(28), m_Layout.m_iFontNormal, 0xFFB7C7D7, 0, false);
+
+		int closeW = ScalePx(96);
+		int closeH = ScalePx(44);
+		int closeLeft = w - closeW - ScalePx(24);
+		int titleLeft = ScalePx(640);
+		if (m_Layout.m_bCompact)
+			titleLeft = ScalePx(420);
+		if (m_Layout.m_bVeryCompact)
+			titleLeft = ScalePx(260);
+
+		CreateWrappedTextWidget(workspace, root, BuildSelectedTabTitle(), titleLeft, ScalePx(14), Math.Max(ScalePx(160), closeLeft - titleLeft - ScalePx(20)), ScalePx(46), m_Layout.m_iFontTitle, 0xFFECE6D2, 0, true);
+		CreateRectWidget(workspace, root, closeLeft, ScalePx(16), closeW, closeH, 0xFF5F6C76, 0.96, CLOSE_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Close", closeLeft + ScalePx(18), ScalePx(28), closeW - ScalePx(28), ScalePx(24), m_Layout.m_iFontNormal, 0xFFF4EBD6, CLOSE_WIDGET_ID, true);
 	}
 
 	protected void RenderStats(WorkspaceWidget workspace, Widget root)
 	{
-		int left = 220;
-		int top = 96;
-		int width = 170;
+		if (!m_Layout)
+			return;
+
+		int left = m_Layout.m_iStatsLeft;
+		int top = m_Layout.m_iStatsTop;
+		int width = m_Layout.m_iStatCardWidth;
+		int gap = m_Layout.m_iStatCardGap;
 		for (int i = 0; i < m_aStatLabels.Count(); i++)
 		{
 			if (i >= 4)
 				break;
 
-			int x = left + i * 182;
-			CreateRectWidget(workspace, root, x, top, width, 58, ToneBackgroundColor(m_aStatTones[i]), 0.96, 0);
-			CreateTextWidget(workspace, root, ShortenText(m_aStatLabels[i], 18), x + 10, top + 7, width - 20, 20, 14, 0xFFCAD2D7, 0, false);
-			CreateTextWidget(workspace, root, ShortenText(m_aStatValues[i], 18), x + 10, top + 31, width - 20, 24, 19, ToneTextColor(m_aStatTones[i]), 0, true);
+			int x = left + i * (width + gap);
+			CreateRectWidget(workspace, root, x, top, width, m_Layout.m_iStatsHeight, ToneBackgroundColor(m_aStatTones[i]), 0.96, 0);
+			CreateWrappedTextWidget(workspace, root, m_aStatLabels[i], x + ScalePx(10), top + ScalePx(7), width - ScalePx(20), ScalePx(20), m_Layout.m_iFontSmall, 0xFFCAD2D7, 0, false);
+			CreateWrappedTextWidget(workspace, root, m_aStatValues[i], x + ScalePx(10), top + ScalePx(29), width - ScalePx(20), ScalePx(28), m_Layout.m_iFontNormal, ToneTextColor(m_aStatTones[i]), 0, true);
 		}
 	}
 
 	protected void RenderNavigation(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, 20, 96, 178, 840, 0xFF0F151B, 0.98, 0);
-		CreateTextWidget(workspace, root, "Navigation", 40, 114, 138, 28, 19, 0xFFE6DECB, 0, true);
+		if (!m_Layout)
+			return;
+
+		int left = m_Layout.m_iNavLeft;
+		int top = m_Layout.m_iNavTop;
+		int width = m_Layout.m_iNavWidth;
+		int height = m_Layout.m_iNavHeight;
+
+		CreateRectWidget(workspace, root, left, top, width, height, 0xFF0F151B, 0.98, 0);
+		CreateTextWidget(workspace, root, "Navigation", left + ScalePx(18), top + ScalePx(16), width - ScalePx(36), ScalePx(28), m_Layout.m_iFontTitle, 0xFFE6DECB, 0, true);
+		int rowTop = top + ScalePx(58);
 		for (int i = 0; i < m_aTabLabels.Count(); i++)
 		{
-			int top = 154 + i * 50;
+			int rowY = rowTop + i * (m_Layout.m_iTabRowHeight + ScalePx(6));
+			if (rowY + m_Layout.m_iTabRowHeight > top + height - ScalePx(12))
+				break;
+
 			bool selected = m_aTabIds[i] == m_sSelectedTab;
 			bool focused = m_iSelectedControl == i;
 			int background = 0x00222222;
@@ -1045,7 +1304,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			float opacity = 0.01;
 			if (selected || focused)
 				opacity = 0.96;
-			CreateRectWidget(workspace, root, 32, top - 8, 154, 42, background, opacity, TAB_WIDGET_ID_BASE + i);
+			CreateRectWidget(workspace, root, left + ScalePx(12), rowY, width - ScalePx(24), m_Layout.m_iTabRowHeight, background, opacity, TAB_WIDGET_ID_BASE + i);
 
 			string label = m_aTabLabels[i];
 			if (focused)
@@ -1058,36 +1317,70 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!m_aTabEnabled[i])
 				color = 0xFF687179;
 
-			CreateTextWidget(workspace, root, ShortenText(label, 16), 44, top, 130, 28, 16, color, TAB_WIDGET_ID_BASE + i, selected);
+			CreateWrappedTextWidget(workspace, root, label, left + ScalePx(22), rowY + ScalePx(8), width - ScalePx(44), m_Layout.m_iTabRowHeight - ScalePx(8), m_Layout.m_iFontNormal, color, TAB_WIDGET_ID_BASE + i, selected);
 		}
 	}
 
 	protected void RenderMainSections(WorkspaceWidget workspace, Widget root)
 	{
+		if (!m_Layout)
+			return;
+
 		int sectionCount = m_aSectionIds.Count();
-		CreateRectWidget(workspace, root, MAIN_PANEL_LEFT, MAIN_PANEL_TOP, MAIN_PANEL_WIDTH, MAIN_PANEL_HEIGHT, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, MAIN_PANEL_LEFT, MAIN_PANEL_TOP, MAIN_PANEL_WIDTH, 4, 0xFFC4953B, 1.0, 0);
+		CreateRectWidget(workspace, root, m_Layout.m_iMainLeft, m_Layout.m_iMainTop, m_Layout.m_iMainWidth, m_Layout.m_iMainHeight, 0xF31A232B, 0.98, 0);
+		CreateRectWidget(workspace, root, m_Layout.m_iMainLeft, m_Layout.m_iMainTop, m_Layout.m_iMainWidth, ScalePx(4), 0xFFC4953B, 1.0, 0);
 		if (sectionCount == 0)
 		{
-			CreateWrappedTextWidget(workspace, root, ShortenText(m_sStatusText, 900), MAIN_CONTENT_LEFT, 202, MAIN_CONTENT_WIDTH, 680, 16, 0xFFE0E0E0, 0, false);
+			CreateWrappedTextWidget(workspace, root, m_sStatusText, m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight, m_Layout.m_iFontNormal, 0xFFE0E0E0, 0, false);
 			return;
 		}
 
 		ClampContentPage();
-		int pageSize = GetContentPageSize();
-		int rendered = 0;
+		int y = m_Layout.m_iMainContentTop;
+		int contentBottom = m_Layout.m_iMainContentTop + m_Layout.m_iMainContentHeight;
+		int rendered;
 		for (int i = m_iContentPageStart; i < m_aContentItemKinds.Count(); i++)
 		{
-			if (rendered >= pageSize)
+			int rowHeight = MeasureContentItemHeight(i, m_Layout.m_iMainContentWidth);
+			if (rendered > 0 && y + rowHeight > contentBottom)
 				break;
 
-			int rowTop = 198 + rendered * 36;
-			RenderContentItem(workspace, root, i, MAIN_CONTENT_LEFT, rowTop, MAIN_CONTENT_WIDTH, 32);
+			RenderContentItem(workspace, root, i, m_Layout.m_iMainContentLeft, y, m_Layout.m_iMainContentWidth, rowHeight);
+			y += rowHeight + ScalePx(6);
 			rendered++;
 		}
 
-		if (m_aContentItemKinds.Count() > pageSize)
-			RenderContentPager(workspace, root, MAIN_CONTENT_LEFT, 900, MAIN_CONTENT_WIDTH);
+		if (m_iContentPageStart > 0 || m_iContentPageStart + rendered < m_aContentItemKinds.Count())
+			RenderContentPager(workspace, root, m_Layout.m_iMainContentLeft, m_Layout.m_iMainTop + m_Layout.m_iMainHeight - ScalePx(38), m_Layout.m_iMainContentWidth, rendered);
+	}
+
+	protected int MeasureContentItemHeight(int contentIndex, int width)
+	{
+		if (!m_Layout)
+			return 32;
+
+		if (contentIndex < 0 || contentIndex >= m_aContentItemKinds.Count())
+			return m_Layout.m_iContentRowHeight;
+
+		string kind = m_aContentItemKinds[contentIndex];
+		if (kind == "section")
+			return m_Layout.m_iSectionRowHeight;
+		if (kind == "empty")
+			return ScalePx(34);
+
+		int rowIndex = m_aContentItemRowIndexes[contentIndex];
+		if (rowIndex < 0 || rowIndex >= m_aRowValues.Count())
+			return m_Layout.m_iContentRowHeight;
+
+		string value = m_aRowValues[rowIndex];
+		int approxCharsPerLine = Math.Max(24, (width - ScalePx(260)) / Math.Max(1, ScalePx(7)));
+		int lines = 1;
+		if (value.Length() > approxCharsPerLine)
+			lines = 2;
+		if (value.Length() > approxCharsPerLine * 2)
+			lines = 3;
+
+		return Math.Max(m_Layout.m_iContentRowHeight, ScalePx(24 + lines * 18));
 	}
 
 	protected void RenderContentItem(WorkspaceWidget workspace, Widget root, int contentIndex, int left, int top, int width, int height)
@@ -1100,34 +1393,40 @@ class HST_CommandMenuComponent : ScriptComponent
 		int rowIndex = m_aContentItemRowIndexes[contentIndex];
 		if (kind == "section")
 		{
-			CreateRectWidget(workspace, root, left - 8, top - 3, width + 16, height + 2, 0xFF263341, 0.72, 0);
-			CreateTextWidget(workspace, root, ShortenText(m_aSectionTitles[sectionIndex], 68), left, top + 3, width, 24, 19, 0xFFEFE2C4, 0, true);
+			CreateRectWidget(workspace, root, left - ScalePx(8), top - ScalePx(3), width + ScalePx(16), height + ScalePx(2), 0xFF263341, 0.72, 0);
+			CreateWrappedTextWidget(workspace, root, m_aSectionTitles[sectionIndex], left, top + ScalePx(6), width, height - ScalePx(6), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
 			return;
 		}
 
 		if (kind == "empty")
 		{
-			CreateTextWidget(workspace, root, "No entries", left + 18, top + 4, width - 36, 24, 15, 0xFF8D98A0, 0, false);
+			CreateTextWidget(workspace, root, "No entries", left + ScalePx(18), top + ScalePx(4), width - ScalePx(36), ScalePx(24), m_Layout.m_iFontNormal, 0xFF8D98A0, 0, false);
 			return;
 		}
 
 		if (rowIndex < 0 || rowIndex >= m_aRowLabels.Count())
 			return;
 
-		CreateTextWidget(workspace, root, ShortenText(m_aRowLabels[rowIndex], 34), left, top + 2, 232, height, 14, 0xFFC4CDD3, 0, false);
-		CreateWrappedTextWidget(workspace, root, ShortenText(m_aRowValues[rowIndex], 130), left + 250, top + 2, width - 250, height, 14, ToneTextColor(m_aRowTones[rowIndex]), 0, false);
+		int labelWidth = ClampLayoutInt(Math.Round(width * 0.34), ScalePx(180), ScalePx(300));
+		int valueLeft = left + labelWidth + ScalePx(18);
+		int valueWidth = width - labelWidth - ScalePx(18);
+
+		CreateWrappedTextWidget(workspace, root, m_aRowLabels[rowIndex], left, top + ScalePx(4), labelWidth, height - ScalePx(8), m_Layout.m_iFontNormal, 0xFFC4CDD3, 0, false);
+		CreateWrappedTextWidget(workspace, root, m_aRowValues[rowIndex], valueLeft, top + ScalePx(4), valueWidth, height - ScalePx(8), m_Layout.m_iFontNormal, ToneTextColor(m_aRowTones[rowIndex]), 0, false);
 	}
 
-	protected void RenderContentPager(WorkspaceWidget workspace, Widget root, int left, int top, int width)
+	protected void RenderContentPager(WorkspaceWidget workspace, Widget root, int left, int top, int width, int rendered)
 	{
 		int pageSize = GetContentPageSize();
 		int start = Math.Min(m_iContentPageStart + 1, m_aContentItemKinds.Count());
-		int end = Math.Min(m_iContentPageStart + pageSize, m_aContentItemKinds.Count());
+		int end = Math.Min(m_iContentPageStart + Math.Max(1, rendered), m_aContentItemKinds.Count());
 		string label = string.Format("Entries %1-%2 / %3", start, end, m_aContentItemKinds.Count());
-		CreateTextWidget(workspace, root, label, left + 268, top + 4, 280, 24, 14, 0xFFAFBAC1, 0, false);
+		int labelLeft = left + ScalePx(132);
+		int labelWidth = Math.Max(ScalePx(80), width - ScalePx(264));
+		CreateTextWidget(workspace, root, label, labelLeft, top + ScalePx(4), labelWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFAFBAC1, 0, false);
 
 		bool canPrev = m_iContentPageStart > 0;
-		bool canNext = m_iContentPageStart + pageSize < m_aContentItemKinds.Count();
+		bool canNext = m_iContentPageStart + Math.Max(1, rendered) < m_aContentItemKinds.Count();
 		int prevColor = 0xFF2F3B45;
 		int nextColor = 0xFF2F3B45;
 		int prevTextColor = 0xFFE5E5E5;
@@ -1143,10 +1442,10 @@ class HST_CommandMenuComponent : ScriptComponent
 			nextTextColor = 0xFF6D777F;
 		}
 
-		CreateRectWidget(workspace, root, left, top, 120, 30, prevColor, 0.9, CONTENT_PREV_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Prev", left + 38, top + 5, 70, 20, 14, prevTextColor, CONTENT_PREV_WIDGET_ID, true);
-		CreateRectWidget(workspace, root, left + width - 120, top, 120, 30, nextColor, 0.9, CONTENT_NEXT_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Next", left + width - 82, top + 5, 70, 20, 14, nextTextColor, CONTENT_NEXT_WIDGET_ID, true);
+		CreateRectWidget(workspace, root, left, top, ScalePx(120), ScalePx(30), prevColor, 0.9, CONTENT_PREV_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Prev", left + ScalePx(38), top + ScalePx(5), ScalePx(70), ScalePx(20), m_Layout.m_iFontSmall, prevTextColor, CONTENT_PREV_WIDGET_ID, true);
+		CreateRectWidget(workspace, root, left + width - ScalePx(120), top, ScalePx(120), ScalePx(30), nextColor, 0.9, CONTENT_NEXT_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Next", left + width - ScalePx(82), top + ScalePx(5), ScalePx(70), ScalePx(20), m_Layout.m_iFontSmall, nextTextColor, CONTENT_NEXT_WIDGET_ID, true);
 	}
 
 	protected int CountRowsForSection(string sectionId)
@@ -1163,85 +1462,145 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void RenderActivityPanel(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, RIGHT_PANEL_LEFT, 96, RIGHT_PANEL_WIDTH, 318, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, RIGHT_PANEL_LEFT, 96, RIGHT_PANEL_WIDTH, 4, 0xFF50704A, 1.0, 0);
-		CreateTextWidget(workspace, root, "Activity", RIGHT_TEXT_LEFT, 114, 180, 30, 20, 0xFFEFE2C4, 0, true);
-		CreateWrappedTextWidget(workspace, root, ShortenText(BuildResultText(), 144), RIGHT_TEXT_LEFT, 154, RIGHT_TEXT_WIDTH, 76, 16, 0xFFD2E7B8, 0, false);
-		CreateTextWidget(workspace, root, "Campaign Notes", RIGHT_TEXT_LEFT, 244, 214, 28, 20, 0xFFEFE2C4, 0, true);
+		if (!m_Layout)
+			return;
+
+		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActivityTop, m_Layout.m_iRightWidth, m_Layout.m_iActivityHeight, 0xF31A232B, 0.98, 0);
+		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActivityTop, m_Layout.m_iRightWidth, ScalePx(4), 0xFF50704A, 1.0, 0);
+		CreateTextWidget(workspace, root, "Activity", m_Layout.m_iActivityTextLeft, m_Layout.m_iActivityTop + ScalePx(18), ScalePx(180), ScalePx(30), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
+		int resultTop = m_Layout.m_iActivityTop + ScalePx(54);
+		int resultHeight = ScalePx(66);
+		if (m_Layout.m_bCompact)
+			resultHeight = ScalePx(46);
+		CreateWrappedTextWidget(workspace, root, BuildResultText(), m_Layout.m_iActivityTextLeft, resultTop, m_Layout.m_iActivityTextWidth, resultHeight, m_Layout.m_iFontNormal, 0xFFD2E7B8, 0, false);
+
+		int feedTop = resultTop + resultHeight + ScalePx(10);
+		if (feedTop + ScalePx(52) > m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight)
+			return;
+
+		CreateTextWidget(workspace, root, "Campaign Notes", m_Layout.m_iActivityTextLeft, feedTop, ScalePx(214), ScalePx(28), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
 
 		if (m_aFeedLines.Count() == 0)
 		{
-			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", RIGHT_TEXT_LEFT, 282, RIGHT_TEXT_WIDTH, 28, 16, 0xFFAFBAC1, 0, false);
+			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", m_Layout.m_iActivityTextLeft, feedTop + ScalePx(36), m_Layout.m_iActivityTextWidth, ScalePx(28), m_Layout.m_iFontNormal, 0xFFAFBAC1, 0, false);
 			return;
 		}
 
+		int listTop = feedTop + ScalePx(36);
+		int listBottom = m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight - ScalePx(10);
+		int visibleFeedRows = Math.Max(1, (listBottom - listTop) / Math.Max(1, m_Layout.m_iFeedRowHeight + ScalePx(6)));
 		for (int i = 0; i < m_aFeedLines.Count(); i++)
 		{
-			if (i >= 4)
+			if (i >= visibleFeedRows)
 				break;
 
-			CreateWrappedTextWidget(workspace, root, ShortenText(m_aFeedLines[i], 86), RIGHT_TEXT_LEFT, 282 + i * 30, RIGHT_TEXT_WIDTH, 28, 15, ToneTextColor(m_aFeedTones[i]), 0, false);
+			CreateWrappedTextWidget(workspace, root, m_aFeedLines[i], m_Layout.m_iActivityTextLeft, listTop + i * (m_Layout.m_iFeedRowHeight + ScalePx(6)), m_Layout.m_iActivityTextWidth, m_Layout.m_iFeedRowHeight, m_Layout.m_iFontSmall, ToneTextColor(m_aFeedTones[i]), 0, false);
 		}
 	}
 
 	protected void RenderActions(WorkspaceWidget workspace, Widget root)
 	{
-		CreateRectWidget(workspace, root, RIGHT_PANEL_LEFT, 434, RIGHT_PANEL_WIDTH, 502, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, RIGHT_PANEL_LEFT, 434, RIGHT_PANEL_WIDTH, 4, 0xFF8C4E43, 1.0, 0);
-		CreateTextWidget(workspace, root, "Actions", RIGHT_TEXT_LEFT, 452, 170, 30, 20, 0xFFEFE2C4, 0, true);
+		if (!m_Layout)
+			return;
+
+		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActionsTop, m_Layout.m_iRightWidth, m_Layout.m_iActionsHeight, 0xF31A232B, 0.98, 0);
+		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActionsTop, m_Layout.m_iRightWidth, ScalePx(4), 0xFF8C4E43, 1.0, 0);
+		CreateTextWidget(workspace, root, "Actions", m_Layout.m_iActionsTextLeft, m_Layout.m_iActionsTop + ScalePx(18), ScalePx(170), ScalePx(30), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
 		EnsureActionPageContainsSelection();
-		int pageSize = GetActionPageSize();
-		int rendered = 0;
+		int listTop = m_Layout.m_iActionsTop + ScalePx(58);
+		int listBottom = m_Layout.m_iActionsTop + m_Layout.m_iActionsHeight - ScalePx(42);
+		int y = listTop;
+		int rendered;
 		for (int i = m_iActionPageStart; i < m_aActionLabels.Count(); i++)
 		{
-			if (rendered >= pageSize)
+			int rowHeight = MeasureActionRowHeight(i, m_Layout.m_iActionsTextWidth);
+			if (rendered > 0 && y + rowHeight > listBottom)
 				break;
 
-			string prefix = "  ";
-			int rowColor = 0x00222222;
-			float rowOpacity = 0.01;
-			if (m_iSelectedControl == m_aTabIds.Count() + i)
-			{
-				prefix = "> ";
-				rowColor = 0xFF604A24;
-				rowOpacity = 0.88;
-			}
-			int rowTop = ACTION_LIST_TOP + rendered * ACTION_ROW_STEP;
-			CreateRectWidget(workspace, root, RIGHT_TEXT_LEFT - 8, rowTop, RIGHT_TEXT_WIDTH + 16, ACTION_ROW_HEIGHT, rowColor, rowOpacity, ACTION_WIDGET_ID_BASE + i);
-
-			int color = 0xFFE5E5E5;
-			string rowText = prefix + ShortenText(m_aActionLabels[i], 56);
-			if (!m_aActionEnabled[i])
-			{
-				color = 0xFF8B9298;
-				string disabledReason = "";
-				if (i < m_aActionDisabledReasons.Count())
-					disabledReason = m_aActionDisabledReasons[i];
-
-				if (!disabledReason.IsEmpty())
-					rowText = rowText + "\n  " + ShortenText(disabledReason, 56);
-			}
-
-			CreateWrappedTextWidget(workspace, root, rowText, RIGHT_TEXT_LEFT, rowTop + 5, RIGHT_TEXT_WIDTH, ACTION_ROW_HEIGHT - 8, 14, color, ACTION_WIDGET_ID_BASE + i, m_iSelectedControl == m_aTabIds.Count() + i);
+			RenderActionRow(workspace, root, i, m_Layout.m_iActionsTextLeft, y, m_Layout.m_iActionsTextWidth, rowHeight);
+			y += rowHeight + ScalePx(8);
 			rendered++;
 		}
 
 		if (m_aActionLabels.Count() == 0)
-			CreateTextWidget(workspace, root, "No commands available.", RIGHT_TEXT_LEFT, 496, RIGHT_TEXT_WIDTH, 30, 16, 0xFF9AA5AD, 0, false);
-		else if (m_aActionLabels.Count() > pageSize)
-			RenderActionPager(workspace, root);
+			CreateTextWidget(workspace, root, "No commands available.", m_Layout.m_iActionsTextLeft, listTop + ScalePx(8), m_Layout.m_iActionsTextWidth, ScalePx(30), m_Layout.m_iFontNormal, 0xFF9AA5AD, 0, false);
+		else if (m_iActionPageStart > 0 || m_iActionPageStart + rendered < m_aActionLabels.Count())
+			RenderActionPager(workspace, root, rendered);
 	}
 
-	protected void RenderActionPager(WorkspaceWidget workspace, Widget root)
+	protected int MeasureActionRowHeight(int actionIndex, int width)
+	{
+		if (!m_Layout)
+			return ACTION_ROW_HEIGHT;
+
+		if (actionIndex < 0 || actionIndex >= m_aActionLabels.Count())
+			return m_Layout.m_iActionRowHeight;
+
+		string label = m_aActionLabels[actionIndex];
+		string disabledReason = "";
+		if (actionIndex < m_aActionDisabledReasons.Count())
+			disabledReason = m_aActionDisabledReasons[actionIndex];
+
+		int charsPerLine = Math.Max(24, width / Math.Max(1, ScalePx(8)));
+		int lines = 1;
+		if (label.Length() > charsPerLine)
+			lines++;
+
+		if (actionIndex < m_aActionEnabled.Count() && !m_aActionEnabled[actionIndex] && !disabledReason.IsEmpty())
+		{
+			lines++;
+			if (disabledReason.Length() > charsPerLine)
+				lines++;
+		}
+
+		return Math.Max(m_Layout.m_iActionRowHeight, ScalePx(22 + lines * 18));
+	}
+
+	protected void RenderActionRow(WorkspaceWidget workspace, Widget root, int actionIndex, int left, int top, int width, int height)
+	{
+		bool focused = m_iSelectedControl == m_aTabIds.Count() + actionIndex;
+		int rowColor = 0x00222222;
+		float rowOpacity = 0.01;
+		if (focused)
+		{
+			rowColor = 0xFF604A24;
+			rowOpacity = 0.88;
+		}
+
+		CreateRectWidget(workspace, root, left - ScalePx(8), top, width + ScalePx(16), height, rowColor, rowOpacity, ACTION_WIDGET_ID_BASE + actionIndex);
+
+		int color = 0xFFE5E5E5;
+		string rowText = m_aActionLabels[actionIndex];
+		if (focused)
+			rowText = "> " + rowText;
+
+		if (actionIndex < m_aActionEnabled.Count() && !m_aActionEnabled[actionIndex])
+		{
+			color = 0xFF8B9298;
+			string disabledReason = "";
+			if (actionIndex < m_aActionDisabledReasons.Count())
+				disabledReason = m_aActionDisabledReasons[actionIndex];
+
+			if (!disabledReason.IsEmpty())
+				rowText = rowText + "\n" + disabledReason;
+		}
+
+		CreateWrappedTextWidget(workspace, root, rowText, left, top + ScalePx(7), width, height - ScalePx(10), m_Layout.m_iFontNormal, color, ACTION_WIDGET_ID_BASE + actionIndex, focused);
+	}
+
+	protected void RenderActionPager(WorkspaceWidget workspace, Widget root, int rendered)
 	{
 		int pageSize = GetActionPageSize();
 		int start = Math.Min(m_iActionPageStart + 1, m_aActionLabels.Count());
-		int end = Math.Min(m_iActionPageStart + pageSize, m_aActionLabels.Count());
+		int end = Math.Min(m_iActionPageStart + Math.Max(1, rendered), m_aActionLabels.Count());
 		string label = string.Format("%1-%2 / %3", start, end, m_aActionLabels.Count());
-		CreateTextWidget(workspace, root, label, RIGHT_TEXT_LEFT + 170, ACTION_PAGER_TOP + 5, 110, 24, 13, 0xFFAFBAC1, 0, false);
+		int pagerTop = m_Layout.m_iActionsTop + m_Layout.m_iActionsHeight - ScalePx(34);
+		int labelLeft = m_Layout.m_iActionsTextLeft + ScalePx(96);
+		int labelWidth = Math.Max(ScalePx(70), m_Layout.m_iActionsTextWidth - ScalePx(192));
+		CreateTextWidget(workspace, root, label, labelLeft, pagerTop + ScalePx(5), labelWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFAFBAC1, 0, false);
 
 		bool canPrev = m_iActionPageStart > 0;
-		bool canNext = m_iActionPageStart + pageSize < m_aActionLabels.Count();
+		bool canNext = m_iActionPageStart + Math.Max(1, rendered) < m_aActionLabels.Count();
 		int prevColor = 0xFF2F3B45;
 		int nextColor = 0xFF2F3B45;
 		int prevTextColor = 0xFFE5E5E5;
@@ -1257,10 +1616,10 @@ class HST_CommandMenuComponent : ScriptComponent
 			nextTextColor = 0xFF6D777F;
 		}
 
-		CreateRectWidget(workspace, root, RIGHT_TEXT_LEFT, ACTION_PAGER_TOP, 86, 30, prevColor, 0.9, ACTION_PREV_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Prev", RIGHT_TEXT_LEFT + 26, ACTION_PAGER_TOP + 5, 52, 20, 13, prevTextColor, ACTION_PREV_WIDGET_ID, true);
-		CreateRectWidget(workspace, root, RIGHT_TEXT_LEFT + RIGHT_TEXT_WIDTH - 86, ACTION_PAGER_TOP, 86, 30, nextColor, 0.9, ACTION_NEXT_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Next", RIGHT_TEXT_LEFT + RIGHT_TEXT_WIDTH - 60, ACTION_PAGER_TOP + 5, 52, 20, 13, nextTextColor, ACTION_NEXT_WIDGET_ID, true);
+		CreateRectWidget(workspace, root, m_Layout.m_iActionsTextLeft, pagerTop, ScalePx(86), ScalePx(30), prevColor, 0.9, ACTION_PREV_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Prev", m_Layout.m_iActionsTextLeft + ScalePx(26), pagerTop + ScalePx(5), ScalePx(52), ScalePx(20), m_Layout.m_iFontSmall, prevTextColor, ACTION_PREV_WIDGET_ID, true);
+		CreateRectWidget(workspace, root, m_Layout.m_iActionsTextLeft + m_Layout.m_iActionsTextWidth - ScalePx(86), pagerTop, ScalePx(86), ScalePx(30), nextColor, 0.9, ACTION_NEXT_WIDGET_ID);
+		CreateTextWidget(workspace, root, "Next", m_Layout.m_iActionsTextLeft + m_Layout.m_iActionsTextWidth - ScalePx(60), pagerTop + ScalePx(5), ScalePx(52), ScalePx(20), m_Layout.m_iFontSmall, nextTextColor, ACTION_NEXT_WIDGET_ID, true);
 	}
 
 	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
@@ -1452,12 +1811,60 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected int GetContentPageSize()
 	{
+		if (m_Layout)
+			return Math.Max(1, m_Layout.m_iMainContentHeight / Math.Max(1, m_Layout.m_iContentRowHeight + ScalePx(6)));
+
 		return CONTENT_PAGE_SIZE;
 	}
 
 	protected int GetActionPageSize()
 	{
+		if (m_Layout)
+			return Math.Max(1, (m_Layout.m_iActionsHeight - ScalePx(96)) / Math.Max(1, m_Layout.m_iActionRowHeight + ScalePx(8)));
+
 		return ACTION_PAGE_SIZE;
+	}
+
+	protected int ResolveVisibleContentPageAdvance(int startIndex)
+	{
+		if (!m_Layout)
+			return GetContentPageSize();
+
+		int y;
+		int bottom = m_Layout.m_iMainContentHeight;
+		int rendered;
+		for (int i = startIndex; i < m_aContentItemKinds.Count(); i++)
+		{
+			int rowHeight = MeasureContentItemHeight(i, m_Layout.m_iMainContentWidth);
+			if (rendered > 0 && y + rowHeight > bottom)
+				break;
+
+			y += rowHeight + ScalePx(6);
+			rendered++;
+		}
+
+		return Math.Max(1, rendered);
+	}
+
+	protected int ResolveVisibleActionPageAdvance(int startIndex)
+	{
+		if (!m_Layout)
+			return GetActionPageSize();
+
+		int y;
+		int bottom = Math.Max(ScalePx(60), m_Layout.m_iActionsHeight - ScalePx(100));
+		int rendered;
+		for (int i = startIndex; i < m_aActionLabels.Count(); i++)
+		{
+			int rowHeight = MeasureActionRowHeight(i, m_Layout.m_iActionsTextWidth);
+			if (rendered > 0 && y + rowHeight > bottom)
+				break;
+
+			y += rowHeight + ScalePx(8);
+			rendered++;
+		}
+
+		return Math.Max(1, rendered);
 	}
 
 	protected void ClampContentPage()
@@ -1487,9 +1894,9 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 		}
 
-		int pageSize = GetActionPageSize();
+		int pageSize = ResolveVisibleActionPageAdvance(m_iActionPageStart);
 		if (actionIndex < m_iActionPageStart || actionIndex >= m_iActionPageStart + pageSize)
-			m_iActionPageStart = (actionIndex / pageSize) * pageSize;
+			m_iActionPageStart = actionIndex;
 
 		ClampActionPage();
 	}

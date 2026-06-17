@@ -137,6 +137,9 @@ class HST_LoadoutEditorService
 		string payload = string.Format("HST_LOADOUT_EDITOR|%1|%2|%3|%4|%5|%6|%7", session.m_sStatus, session.m_sCurrentLoadoutId, session.m_bPreviewSpawned, session.m_aDraftSlots.Count(), draftItemCount, finiteRequired, infiniteRequired);
 		payload = payload + string.Format("\nPREVIEW|%1|%2|%3|%4", session.m_bPreviewSpawned, session.m_vPreviewPosition, session.m_iPreviewItemCount, SanitizePayloadField(session.m_sPreviewStatus));
 		payload = payload + string.Format("\nPREVIEW_PREFAB|%1", session.m_sPreviewPrefab);
+		if (!state.m_sLastLoadoutEditorFailure.IsEmpty())
+			payload = payload + "\nFAILURE|" + SanitizePayloadField(state.m_sLastLoadoutEditorFailure);
+
 		for (int categoryIndex = 0; categoryIndex < GetEditorCategoryCount(); categoryIndex++)
 		{
 			string categoryId = GetEditorCategoryId(categoryIndex);
@@ -358,6 +361,7 @@ class HST_LoadoutEditorService
 		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
 		RefreshIssuedCounts(state, identityId, session);
+		ClearLoadoutEditorFailure(state, identityId);
 		return "h-istasi loadout editor | added " + HST_DisplayNameService.ResolveItemDisplayName(null, itemPrefab, item.m_sDisplayName);
 	}
 
@@ -401,6 +405,7 @@ class HST_LoadoutEditorService
 		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
 		RefreshIssuedCounts(state, identityId, session);
+		ClearLoadoutEditorFailure(state, identityId);
 		return "h-istasi loadout editor | set " + ResolveNodeLabelFromId(nodeId) + " to " + HST_DisplayNameService.ResolveItemDisplayName(null, itemPrefab, item.m_sDisplayName);
 	}
 
@@ -423,6 +428,7 @@ class HST_LoadoutEditorService
 		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
 		RefreshIssuedCounts(state, identityId, session);
+		ClearLoadoutEditorFailure(state, identityId);
 		return "h-istasi loadout editor | removed " + removedDisplay;
 	}
 
@@ -481,6 +487,7 @@ class HST_LoadoutEditorService
 		session.m_sCurrentLoadoutId = loadout.m_sLoadoutId;
 		session.m_sStatus = "saved slot selected";
 		RefreshDraftNodes(state, session);
+		ClearLoadoutEditorFailure(state, identityId);
 		return "h-istasi loadout editor | selected " + loadout.m_sDisplayName;
 	}
 
@@ -498,6 +505,7 @@ class HST_LoadoutEditorService
 		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
 		RefreshIssuedCounts(state, identityId, session);
+		ClearLoadoutEditorFailure(state, identityId);
 		return string.Format("h-istasi loadout editor | cleared %1 issued item(s)", removed);
 	}
 
@@ -521,6 +529,7 @@ class HST_LoadoutEditorService
 			session.m_iSavedLoadoutCount = CountSavedLoadouts(state, identityId);
 			session.m_sStatus = "template deleted";
 			RefreshDraftNodes(state, session);
+			ClearLoadoutEditorFailure(state, identityId);
 			return "h-istasi loadout editor | deleted " + label;
 		}
 
@@ -1418,8 +1427,11 @@ class HST_LoadoutEditorService
 		{
 			if (callback.m_bAccountRemovedOnComplete)
 				ApplyRemovedEntityLedger(callback.m_State, callback.m_Arsenal, callback.m_sIdentityId, callback.m_aRemovedPrefabs, callback.m_aRemovedCategories, callback.m_aRemovedDisplayNames);
+			ClearLoadoutEditorFailure(callback.m_State, callback.m_sIdentityId);
 			return;
 		}
+
+		RecordLoadoutEditorFailure(callback.m_State, callback.m_sIdentityId, "Inventory Full");
 
 		if (callback.m_TemporaryEntity)
 			SCR_EntityHelper.DeleteEntityAndChildren(callback.m_TemporaryEntity);
@@ -1435,6 +1447,34 @@ class HST_LoadoutEditorService
 
 		if (callback.m_bRestoreRemovedOnFailure && !TryRestoreRemovedPrefab(callback))
 			ApplyRemovedEntityLedger(callback.m_State, callback.m_Arsenal, callback.m_sIdentityId, callback.m_aRemovedPrefabs, callback.m_aRemovedCategories, callback.m_aRemovedDisplayNames);
+	}
+
+	protected void RecordLoadoutEditorFailure(HST_CampaignState state, string identityId, string failure)
+	{
+		if (!state || failure.IsEmpty())
+			return;
+
+		state.m_sLastLoadoutEditorFailure = failure;
+		if (identityId.IsEmpty())
+			return;
+
+		HST_LoadoutEditorSessionState session = state.FindLoadoutEditorSession(identityId);
+		if (session)
+			session.m_sLastFailure = failure;
+	}
+
+	protected void ClearLoadoutEditorFailure(HST_CampaignState state, string identityId)
+	{
+		if (!state)
+			return;
+
+		state.m_sLastLoadoutEditorFailure = "";
+		if (identityId.IsEmpty())
+			return;
+
+		HST_LoadoutEditorSessionState session = state.FindLoadoutEditorSession(identityId);
+		if (session)
+			session.m_sLastFailure = "";
 	}
 
 	protected void ConfigureInsertCallback(HST_LoadoutEditorInsertCallback callback, HST_CampaignState state, HST_ArsenalService arsenal, string identityId, string reservedPrefab)
@@ -1728,7 +1768,7 @@ class HST_LoadoutEditorService
 		if (!targetStorage)
 		{
 			SCR_EntityHelper.DeleteEntityAndChildren(itemEntity);
-			failure = "Failed to find suitable storage";
+			failure = "Inventory Full";
 			return false;
 		}
 
@@ -3499,7 +3539,7 @@ class HST_LoadoutEditorService
 		if (!storage)
 		{
 			SCR_EntityHelper.DeleteEntityAndChildren(itemEntity);
-			failure = "no storage can accept " + HST_DisplayNameService.ResolveItemDisplayName(null, prefab);
+			failure = "Inventory Full";
 			return false;
 		}
 
