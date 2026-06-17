@@ -8,6 +8,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected static HST_CampaignCoordinatorComponent s_Instance;
 	static const int MARKER_REFRESH_THROTTLE_SECONDS = 10;
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+	static const string PHASE14_FINITE_PREFAB = "{6985327711303750}Prefabs/Objects/HST/HST_MissionProp_CitySupplies.et";
+	static const string PHASE14_THRESHOLD_PREFAB = "{6985327711303760}Prefabs/Objects/HST/HST_MissionProp_ConvoyPayload.et";
+	static const string PHASE14_BLOCKED_PREFAB = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
+	static const string PHASE14_RAW_ASSET_PREFAB = "{EAE920BF596EBC07}Assets/Objects/Plane.xob";
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -1191,7 +1195,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Arsenal)
 			return "";
 
-		return m_Arsenal.BuildArsenalReport(m_State);
+		return m_Arsenal.BuildArsenalReport(m_State, m_Balance);
 	}
 
 	string RequestMemberInspectGarage(int playerId)
@@ -1872,6 +1876,64 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi persistence smoke | service not ready";
 
 		return m_PersistenceSmokeTest.BuildReport(m_State);
+	}
+
+	string RequestAdminPhase14SeedFinite(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 14 smoke | admin required";
+
+		if (!m_Arsenal)
+			return "h-istasi phase 14 smoke | arsenal service not ready";
+
+		HST_ArsenalItemState item = m_Arsenal.DepositItem(m_State, m_Balance, PHASE14_FINITE_PREFAB, 1, "utility", "Phase 14 Finite Only");
+		if (item)
+			MarkMajorCampaignChange();
+
+		return string.Format("h-istasi phase 14 smoke | finite-only seed %1\n%2", item != null, m_Arsenal.BuildArsenalReport(m_State, m_Balance));
+	}
+
+	string RequestAdminPhase14SeedThreshold(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 14 smoke | admin required";
+
+		if (!m_Arsenal)
+			return "h-istasi phase 14 smoke | arsenal service not ready";
+
+		HST_ArsenalItemState item = m_Arsenal.DepositItem(m_State, m_Balance, PHASE14_THRESHOLD_PREFAB, 2, "utility", "Phase 14 Threshold Item");
+		if (item)
+			MarkMajorCampaignChange();
+
+		return string.Format("h-istasi phase 14 smoke | threshold seed %1\n%2", item != null, m_Arsenal.BuildArsenalReport(m_State, m_Balance));
+	}
+
+	string RequestAdminPhase14SeedBlocked(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 14 smoke | admin required";
+
+		if (!m_Arsenal)
+			return "h-istasi phase 14 smoke | arsenal service not ready";
+
+		HST_ArsenalItemState blockedItem = m_Arsenal.DepositItem(m_State, m_Balance, PHASE14_BLOCKED_PREFAB, 1, "utility", "Phase 14 Blocked Item");
+		HST_ArsenalItemState rawItem = m_Arsenal.DepositItem(m_State, m_Balance, PHASE14_RAW_ASSET_PREFAB, 1, "utility", "Phase 14 Raw Asset");
+		return string.Format("h-istasi phase 14 smoke | blocked prefab accepted %1 | raw asset accepted %2\n%3", blockedItem != null, rawItem != null, m_Arsenal.BuildArsenalReport(m_State, m_Balance));
+	}
+
+	string RequestAdminPhase14Report(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 14 smoke | admin required";
+
+		string report = "h-istasi phase 14 smoke report";
+		if (m_Arsenal)
+			report = report + "\n" + m_Arsenal.BuildArsenalReport(m_State, m_Balance);
+		if (m_Loot)
+			report = report + "\n" + m_Loot.BuildVehicleCargoReport(m_State);
+		if (m_State)
+			report = report + string.Format("\nloadout editor status %1 | last failure %2", m_State.m_sLoadoutEditorStatus, m_State.m_sLastLoadoutEditorFailure);
+		return report;
 	}
 
 	string RequestAdminInspectZoneComposition(int playerId)

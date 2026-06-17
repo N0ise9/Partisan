@@ -732,7 +732,7 @@ class HST_LootService
 			string prefab;
 			string category;
 			string displayName;
-			if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, prefab, category, displayName))
+			if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, false, prefab, category, displayName))
 				continue;
 
 			HST_ArsenalItemState deposited = arsenal.DepositItem(state, balance, prefab, 1, category, displayName);
@@ -763,7 +763,7 @@ class HST_LootService
 			string prefab;
 			string category;
 			string displayName;
-			if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, prefab, category, displayName))
+			if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, true, prefab, category, displayName))
 				continue;
 
 			HST_VehicleCargoItemState cargoItem = DepositVehicleCargo(state, vehicle, vehicleId, vehiclePrefab, vehicleName, prefab, category, displayName);
@@ -783,7 +783,7 @@ class HST_LootService
 		string prefab;
 		string category;
 		string displayName;
-		if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, prefab, category, displayName))
+		if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, false, prefab, category, displayName))
 			return;
 
 		HST_ArsenalItemState deposited = arsenal.DepositItem(state, balance, prefab, 1, category, displayName);
@@ -805,7 +805,7 @@ class HST_LootService
 		string prefab;
 		string category;
 		string displayName;
-		if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, prefab, category, displayName))
+		if (!TryResolveLootItemForDeposit(item, state, balance, arsenal, result, true, prefab, category, displayName))
 			return;
 
 		HST_VehicleCargoItemState cargoItem = DepositVehicleCargo(state, vehicle, vehicleId, vehiclePrefab, vehicleName, prefab, category, displayName);
@@ -818,7 +818,7 @@ class HST_LootService
 			result.m_iItemsRemoved++;
 	}
 
-	protected bool TryResolveLootItemForDeposit(IEntity item, HST_CampaignState state, HST_BalanceConfig balance, HST_ArsenalService arsenal, HST_LootResult result, out string prefab, out string category, out string displayName)
+	protected bool TryResolveLootItemForDeposit(IEntity item, HST_CampaignState state, HST_BalanceConfig balance, HST_ArsenalService arsenal, HST_LootResult result, bool vehicleLoot, out string prefab, out string category, out string displayName)
 	{
 		prefab = "";
 		category = "";
@@ -834,6 +834,17 @@ class HST_LootService
 			return false;
 		}
 
+		if (IsRawNonLootAsset(prefab))
+		{
+			if (result)
+			{
+				result.m_iItemsSkippedBlocked++;
+				result.m_aDepositedLines.Insert("blocked raw non-loot asset: " + prefab);
+			}
+
+			return false;
+		}
+
 		Resource loaded = Resource.Load(prefab);
 		if (!loaded || !loaded.IsValid())
 		{
@@ -844,22 +855,50 @@ class HST_LootService
 		}
 
 		category = ClassifyItem(item, prefab);
-		if (!IsAllowedByLootRules(prefab, category, balance))
+		displayName = BuildDisplayName(item, prefab);
+
+		string depositReason;
+		if (!arsenal.CanDepositItem(balance, prefab, category, vehicleLoot, depositReason))
 		{
 			if (result)
+			{
 				result.m_iItemsSkippedBlocked++;
+				result.m_aDepositedLines.Insert(string.Format("blocked %1 | %2", HST_DisplayNameService.ResolveItemDisplayName(item, prefab, displayName), depositReason));
+			}
 			return false;
 		}
 
-		if (balance.m_bLootOnlyLockedItems && state && arsenal.IsItemUnlocked(state, prefab))
+		bool onlyLockedItems;
+		if (vehicleLoot)
+			onlyLockedItems = balance.m_bVehicleLootOnlyLockedItems;
+		else
+			onlyLockedItems = balance.m_bLootOnlyLockedItems;
+
+		if (onlyLockedItems && state && arsenal.IsItemUnlocked(state, prefab))
 		{
 			if (result)
 				result.m_iItemsSkippedUnlocked++;
 			return false;
 		}
 
-		displayName = BuildDisplayName(item, prefab);
 		return true;
+	}
+
+	protected bool IsRawNonLootAsset(string prefab)
+	{
+		if (prefab.IsEmpty())
+			return true;
+
+		if (prefab.Contains("Assets/Images/"))
+			return true;
+
+		if (prefab.Contains("Assets/Objects/"))
+			return true;
+
+		if (prefab.Contains(".png") || prefab.Contains(".edds") || prefab.Contains(".xob") || prefab.Contains(".fbx") || prefab.Contains(".txo"))
+			return true;
+
+		return false;
 	}
 
 	protected void GatherInventoryItemsRecursive(SCR_InventoryStorageManagerComponent inventory, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)

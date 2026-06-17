@@ -20,6 +20,21 @@ GenericWorldEntity {
    ManualHDRBrightness always
    ManualHDRBrightnessLV 0.95
   }
+  GenericEntity {
+   ID "7A9A1B7F76424A9F"
+   coords 0 -0.02 0
+   components {
+    MeshObject "{7A9A1B7F76424AA0}" {
+     Object "{EAE920BF596EBC07}Assets/Objects/Plane.xob"
+     Materials {
+      MaterialAssignClass "{7A9A1B7F76424AA1}" {
+       SourceMaterial "DefaultGeneratedMaterial"
+       AssignedMaterial "{10E7F88E2206B982}Assets/Objects/Data/DefaultGeneratedMaterial.emat"
+      }
+     }
+    }
+   }
+  }
   GameEnvironmentProbeEntity : "{B6B6A21399C5571B}Prefabs/World/DefaultWorld/EnvProbe_Default.et" {
    ID "7A9A1B7F76424A9D"
    coords 0 1 0
@@ -27,6 +42,21 @@ GenericWorldEntity {
    Refresh "Each frame"
    Rendering 0x21 0x1e
    CaptureLights 1
+  }
+  GenericEntity {
+   ID "7A9A1B7F76424AA2"
+   coords 1.9 1.8 -2.2
+   components {
+    MeshObject "{7A9A1B7F76424AA3}" {
+     Object "{D711B025189858ED}Assets/Objects/sphere.xob"
+     Materials {
+      MaterialAssignClass "{7A9A1B7F76424AA4}" {
+       SourceMaterial "DefaultGeneratedMaterial"
+       AssignedMaterial "{10E7F88E2206B982}Assets/Objects/Data/DefaultGeneratedMaterial.emat"
+      }
+     }
+    }
+   }
   }
   LightEntity {
    ID "7A9A1B7F76424A9E"

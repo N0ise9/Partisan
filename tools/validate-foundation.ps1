@@ -1917,6 +1917,122 @@ foreach ($requiredCivilianBalanceDefault in @(
 }
 Write-Host "Runtime settings generated-config contract OK"
 
+$runtimeSettingsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_RuntimeSettings.c"
+$runtimeSettingsServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_RuntimeSettingsService.c"
+$configModelsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_ConfigModels.c"
+$arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
+$lootServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c"
+$loadoutEditorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LoadoutEditorService.c"
+$campaignSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$loadoutPreviewWorldText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewWorld.et"
+foreach ($requiredPhase14ConfigEntry in @(
+	"HST_ArsenalItemRule",
+	"m_sPrefabContains",
+	"m_sCategory",
+	"m_sPolicy",
+	"m_iUnlockThresholdOverride",
+	"m_bAppliesToAreaLoot",
+	"m_bAppliesToVehicleLoot",
+	"m_aArsenalItemRules",
+	"finite_only",
+	"blocked",
+	"MissionProp_CitySupplies",
+	"MissionProp_ConvoyPayload",
+	"MissionProp_DestroyTarget"
+)) {
+	if ($configModelsText -notmatch [regex]::Escape($requiredPhase14ConfigEntry) -and $configResourceText -notmatch [regex]::Escape($requiredPhase14ConfigEntry) -and $defaultCatalog -notmatch [regex]::Escape($requiredPhase14ConfigEntry)) {
+		throw "Phase 14 arsenal item policy config is missing: $requiredPhase14ConfigEntry"
+	}
+}
+if ($runtimeSettingsText -match "m_aArsenalItemRules" -or $runtimeSettingsServiceText -match "m_aArsenalItemRules") {
+	throw "Runtime settings JSON must remain scalar-only; arsenal item rules belong in typed balance config"
+}
+foreach ($requiredPhase14ArsenalEntry in @(
+	"CanDepositItem",
+	"RefundItem",
+	"FindItemRule",
+	"ResolveUnlockPolicy",
+	"ResolveUnlockThreshold",
+	"policy %4",
+	"threshold %5",
+	"raw visual/support asset is not loot",
+	"finite_only",
+	"blocked"
+)) {
+	if ($arsenalServiceText -notmatch [regex]::Escape($requiredPhase14ArsenalEntry)) {
+		throw "Phase 14 arsenal service is missing policy/accounting entry: $requiredPhase14ArsenalEntry"
+	}
+}
+foreach ($requiredPhase14LootEntry in @(
+	"IsRawNonLootAsset",
+	"Assets/Images/",
+	"Assets/Objects/",
+	".png",
+	".edds",
+	".xob",
+	".fbx",
+	".txo",
+	"vehicleLoot",
+	"m_bVehicleLootOnlyLockedItems",
+	"m_bLootOnlyLockedItems",
+	"arsenal.CanDepositItem"
+)) {
+	if ($lootServiceText -notmatch [regex]::Escape($requiredPhase14LootEntry)) {
+		throw "Phase 14 loot service is missing policy-aware/raw-asset entry: $requiredPhase14LootEntry"
+	}
+}
+foreach ($requiredPhase14LoadoutEntry in @(
+	"HST_LoadoutCostEntry",
+	"BuildLoadoutCostLedger",
+	"RollbackLoadoutWithdrawals",
+	"m_iAdditionalFiniteRequired",
+	"arsenal.RefundItem",
+	"CommitLoadoutTransaction(state, arsenal, loadout, identityId, costLedger",
+	"ValidateLoadoutTransaction(state, loadout, identityId, costLedger"
+)) {
+	if ($loadoutEditorText -notmatch [regex]::Escape($requiredPhase14LoadoutEntry) -and $scriptText -notmatch [regex]::Escape($requiredPhase14LoadoutEntry)) {
+		throw "Phase 14 loadout apply accounting is missing: $requiredPhase14LoadoutEntry"
+	}
+}
+foreach ($requiredPhase14SaveCopyEntry in @(
+	"target.m_sSerializedLoadout = source.m_sSerializedLoadout",
+	"target.m_sClothingSummary = source.m_sClothingSummary",
+	"target.m_sWeaponSummary = source.m_sWeaponSummary",
+	"target.m_sRequiredItemsSummary = source.m_sRequiredItemsSummary",
+	"target.m_iSlotIndex = source.m_iSlotIndex",
+	"target.m_sParentSlotId = source.m_sParentSlotId",
+	"target.m_sStorageId = source.m_sStorageId",
+	"target.m_sSlotKind = source.m_sSlotKind"
+)) {
+	if ($campaignSaveDataText -notmatch [regex]::Escape($requiredPhase14SaveCopyEntry)) {
+		throw "Campaign save copy must preserve Phase 14 loadout field: $requiredPhase14SaveCopyEntry"
+	}
+}
+foreach ($requiredPhase14CommandEntry in @(
+	"admin_phase14_seed_finite",
+	"admin_phase14_seed_threshold",
+	"admin_phase14_seed_blocked",
+	"admin_phase14_report",
+	"RequestAdminPhase14SeedFinite",
+	"RequestAdminPhase14SeedThreshold",
+	"RequestAdminPhase14SeedBlocked",
+	"RequestAdminPhase14Report"
+)) {
+	if ($commandUIServiceText -notmatch [regex]::Escape($requiredPhase14CommandEntry) -and $coordinatorText -notmatch [regex]::Escape($requiredPhase14CommandEntry)) {
+		throw "Phase 14 command surface is missing: $requiredPhase14CommandEntry"
+	}
+}
+foreach ($requiredPhase14PreviewEntry in @(
+	"{EAE920BF596EBC07}Assets/Objects/Plane.xob",
+	"{D711B025189858ED}Assets/Objects/sphere.xob",
+	"{10E7F88E2206B982}Assets/Objects/Data/DefaultGeneratedMaterial.emat"
+)) {
+	if ($loadoutPreviewWorldText -notmatch [regex]::Escape($requiredPhase14PreviewEntry)) {
+		throw "Loadout preview world is missing Phase 14 visual/support asset: $requiredPhase14PreviewEntry"
+	}
+}
+Write-Host "Phase 14 arsenal/loot/loadout contracts OK"
+
 foreach ($requiredLootEntry in @(
 	"HST_LootService",
 	"HST_LootResult",
@@ -2095,7 +2211,6 @@ foreach ($requiredMenuRecoveryEntry in @(
 foreach ($forbiddenNormalLoadoutMenuEntry in @(
 	'AddMenuAction\(actions, TAB_ARSENAL, "Open Loadout Editor"',
 	'AddMenuAction\(actions, TAB_ARSENAL, "Save current loadout draft"',
-	'AddMenuAction\(actions, TAB_ARSENAL, "Apply saved loadout"',
 	'AddMenuAction\(actions, TAB_ARSENAL, "Close Loadout Editor"',
 	'AddMenuAction\(actions, TAB_ARSENAL, "Loadout editor report"',
 	'AppendSection\(payload, "loadout_editor"'
@@ -2342,9 +2457,14 @@ if ($requestBridgeText -notmatch "RequestLoadoutEditorAction[\s\S]*?RpcAsk_Reque
 	throw "Loadout editor must use a dedicated request/RPC payload path"
 }
 foreach ($requiredArsenalLootMenuEntry in @(
+	'AddMenuAction(actions, TAB_ARSENAL, "Arsenal report"',
+	'AddMenuAction(actions, TAB_ARSENAL, "Vehicle cargo report"',
 	'AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal"',
 	'AddMenuAction(actions, TAB_ARSENAL, "Load loot to vehicle"',
-	'AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle loot to arsenal"'
+	'AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle loot to arsenal"',
+	'AddMenuAction(actions, TAB_ARSENAL, "Withdraw best item"',
+	'AddMenuAction(actions, TAB_ARSENAL, "Loadout editor status"',
+	'AddMenuAction(actions, TAB_ARSENAL, "Apply saved loadout"'
 )) {
 	if ($commandUiText -notmatch [regex]::Escape($requiredArsenalLootMenuEntry)) {
 		throw "Arsenal/Loot I-menu action must remain visible: $requiredArsenalLootMenuEntry"

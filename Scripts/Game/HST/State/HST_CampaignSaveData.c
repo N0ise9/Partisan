@@ -595,6 +595,9 @@ class HST_CampaignSaveData
 		target.m_iQuantity = source.m_iQuantity;
 		target.m_sWeaponSlotId = source.m_sWeaponSlotId;
 		target.m_sAttachmentSlotId = source.m_sAttachmentSlotId;
+		target.m_sParentSlotId = source.m_sParentSlotId;
+		target.m_sStorageId = source.m_sStorageId;
+		target.m_sSlotKind = source.m_sSlotKind;
 		return target;
 	}
 
@@ -607,7 +610,13 @@ class HST_CampaignSaveData
 		target.m_sOwnerIdentityId = source.m_sOwnerIdentityId;
 		target.m_sLoadoutId = source.m_sLoadoutId;
 		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sCharacterPrefab = source.m_sCharacterPrefab;
+		target.m_sSerializedLoadout = source.m_sSerializedLoadout;
+		target.m_sClothingSummary = source.m_sClothingSummary;
+		target.m_sWeaponSummary = source.m_sWeaponSummary;
+		target.m_sRequiredItemsSummary = source.m_sRequiredItemsSummary;
 		target.m_iUpdatedAtSecond = source.m_iUpdatedAtSecond;
+		target.m_iSlotIndex = source.m_iSlotIndex;
 		foreach (HST_LoadoutSlotState slot : source.m_aSlots)
 			target.m_aSlots.Insert(CopyLoadoutSlot(slot));
 		return target;

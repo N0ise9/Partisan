@@ -2,13 +2,20 @@ class HST_ArsenalService
 {
 	HST_ArsenalItemState DepositItem(HST_CampaignState state, HST_BalanceConfig balance, string prefab, int amount, string category = "equipment", string displayName = "")
 	{
-		if (prefab.IsEmpty() || amount <= 0)
+		if (!state || prefab.IsEmpty() || amount <= 0)
 			return null;
 
 		Resource loaded = Resource.Load(prefab);
 		if (!loaded || !loaded.IsValid())
 		{
 			Print("h-istasi arsenal | skipped invalid item resource deposit " + prefab);
+			return null;
+		}
+
+		string depositReason;
+		if (!CanDepositItem(balance, prefab, category, false, depositReason))
+		{
+			Print(string.Format("h-istasi arsenal | blocked item deposit %1 | %2", prefab, depositReason));
 			return null;
 		}
 
@@ -29,8 +36,73 @@ class HST_ArsenalService
 		item.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, prefab, resolvedDisplayName);
 
 		item.m_iCount += amount;
-		item.m_bUnlocked = ShouldUnlock(item, balance);
+		if (!item.m_bUnlocked && balance)
+			item.m_bUnlocked = ShouldUnlock(item, balance);
 		return item;
+	}
+
+	HST_ArsenalItemState RefundItem(HST_CampaignState state, string prefab, int amount, string category = "equipment", string displayName = "")
+	{
+		if (!state || prefab.IsEmpty() || amount <= 0)
+			return null;
+
+		HST_ArsenalItemState item = state.FindArsenalItem(prefab);
+		if (!item)
+		{
+			item = new HST_ArsenalItemState();
+			item.m_sPrefab = prefab;
+			state.m_aArsenalItems.Insert(item);
+		}
+
+		if (!category.IsEmpty())
+			item.m_sCategory = category;
+
+		string resolvedDisplayName = displayName;
+		if (resolvedDisplayName.IsEmpty())
+			resolvedDisplayName = item.m_sDisplayName;
+		item.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, prefab, resolvedDisplayName);
+		item.m_iCount += amount;
+		return item;
+	}
+
+	bool CanDepositItem(HST_BalanceConfig balance, string prefab, string category, bool vehicleLoot, out string reason)
+	{
+		reason = "";
+		if (prefab.IsEmpty())
+		{
+			reason = "empty item prefab";
+			return false;
+		}
+
+		if (IsRawNonLootAsset(prefab))
+		{
+			reason = "raw visual/support asset is not loot";
+			return false;
+		}
+
+		if (!balance)
+			return true;
+
+		HST_ArsenalItemRule rule = FindItemRule(balance, prefab, category, vehicleLoot);
+		if (rule && ResolveUnlockPolicy(rule) == "blocked")
+		{
+			reason = "blocked by arsenal item rule";
+			return false;
+		}
+
+		if (category == "explosive" && !balance.m_bAllowExplosiveUnlocks)
+		{
+			reason = "explosive deposits disabled by balance";
+			return false;
+		}
+
+		if (IsGuidedLauncher(prefab) && !balance.m_bAllowGuidedLauncherUnlocks)
+		{
+			reason = "guided launcher deposits disabled by balance";
+			return false;
+		}
+
+		return true;
 	}
 
 	bool IsItemUnlocked(HST_CampaignState state, string prefab)
@@ -91,7 +163,7 @@ class HST_ArsenalService
 		return string.Format("h-istasi arsenal | issued %1 | remaining %2", label, selectedItem.m_iCount);
 	}
 
-	string BuildArsenalReport(HST_CampaignState state)
+	string BuildArsenalReport(HST_CampaignState state, HST_BalanceConfig balance = null)
 	{
 		if (!state)
 			return "h-istasi arsenal | campaign state not ready";
@@ -104,8 +176,32 @@ class HST_ArsenalService
 
 			string label = item.m_sDisplayName;
 			label = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, label);
+			string policy = ResolveUnlockPolicy(FindItemRule(balance, item.m_sPrefab, item.m_sCategory, false));
+			int threshold = ResolveUnlockThreshold(item, balance);
+			string thresholdLabel = "n/a";
+			if (threshold >= 0)
+				thresholdLabel = string.Format("%1", threshold);
 
-			report = report + string.Format("\n%1 | %2 | count %3", label, item.m_sCategory, CountLabel(item));
+			report = report + string.Format("\n%1 | %2 | count %3 | policy %4 | threshold %5", label, item.m_sCategory, CountLabel(item), policy, thresholdLabel);
+		}
+
+		if (balance && balance.m_aArsenalItemRules.Count() > 0)
+		{
+			foreach (HST_ArsenalItemRule rule : balance.m_aArsenalItemRules)
+			{
+				if (!rule)
+					continue;
+
+				string policy = ResolveUnlockPolicy(rule);
+				if (policy != "blocked" && policy != "finite_only")
+					continue;
+
+				string thresholdLabel = "n/a";
+				if (rule.m_iUnlockThresholdOverride >= 0)
+					thresholdLabel = string.Format("%1", rule.m_iUnlockThresholdOverride);
+
+				report = report + string.Format("\npolicy hint | contains %1 | category %2 | policy %3 | threshold %4", rule.m_sPrefabContains, rule.m_sCategory, policy, thresholdLabel);
+			}
 		}
 
 		return report;
@@ -450,16 +546,97 @@ class HST_ArsenalService
 		return vehicle.m_sVehicleId;
 	}
 
-	protected bool ShouldUnlock(HST_ArsenalItemState item, HST_BalanceConfig balance)
+	HST_ArsenalItemRule FindItemRule(HST_BalanceConfig balance, string prefab, string category = "", bool vehicleLoot = false)
+	{
+		if (!balance || prefab.IsEmpty())
+			return null;
+
+		foreach (HST_ArsenalItemRule rule : balance.m_aArsenalItemRules)
+		{
+			if (!rule)
+				continue;
+
+			if (vehicleLoot && !rule.m_bAppliesToVehicleLoot)
+				continue;
+
+			if (!vehicleLoot && !rule.m_bAppliesToAreaLoot)
+				continue;
+
+			if (!rule.m_sPrefabContains.IsEmpty() && !prefab.Contains(rule.m_sPrefabContains))
+				continue;
+
+			if (!rule.m_sCategory.IsEmpty())
+			{
+				if (category.IsEmpty() || rule.m_sCategory != category)
+					continue;
+			}
+
+			return rule;
+		}
+
+		return null;
+	}
+
+	string ResolveUnlockPolicy(HST_ArsenalItemRule rule)
+	{
+		if (!rule || rule.m_sPolicy.IsEmpty())
+			return "unlock";
+
+		if (rule.m_sPolicy == "blocked" || rule.m_sPolicy == "finite_only" || rule.m_sPolicy == "unlock")
+			return rule.m_sPolicy;
+
+		return "unlock";
+	}
+
+	int ResolveUnlockThreshold(HST_ArsenalItemState item, HST_BalanceConfig balance)
 	{
 		if (!item || !balance)
-			return false;
+			return -1;
+
+		HST_ArsenalItemRule rule = FindItemRule(balance, item.m_sPrefab, item.m_sCategory, false);
+		if (rule && rule.m_iUnlockThresholdOverride >= 0)
+			return rule.m_iUnlockThresholdOverride;
 
 		int threshold = balance.m_iArsenalUnlockThreshold;
 		if (item.m_sCategory == "magazine")
 			threshold = threshold * Math.Max(1, balance.m_iMagazineUnlockMultiplier);
 
+		return threshold;
+	}
+
+	protected bool ShouldUnlock(HST_ArsenalItemState item, HST_BalanceConfig balance)
+	{
+		if (!item || !balance)
+			return false;
+
+		string policy = ResolveUnlockPolicy(FindItemRule(balance, item.m_sPrefab, item.m_sCategory, false));
+		if (policy == "blocked" || policy == "finite_only")
+			return false;
+
+		int threshold = ResolveUnlockThreshold(item, balance);
 		return threshold <= 0 || item.m_iCount >= threshold;
+	}
+
+	protected bool IsRawNonLootAsset(string prefab)
+	{
+		if (prefab.IsEmpty())
+			return true;
+
+		if (prefab.Contains("Assets/Images/"))
+			return true;
+
+		if (prefab.Contains("Assets/Objects/"))
+			return true;
+
+		if (prefab.Contains(".png") || prefab.Contains(".edds") || prefab.Contains(".xob") || prefab.Contains(".fbx") || prefab.Contains(".txo"))
+			return true;
+
+		return false;
+	}
+
+	protected bool IsGuidedLauncher(string prefab)
+	{
+		return prefab.Contains("ATGM") || prefab.Contains("Javelin") || prefab.Contains("Stinger") || prefab.Contains("Igla") || prefab.Contains("Metis") || prefab.Contains("guided") || prefab.Contains("Guided");
 	}
 
 	protected int ScoreItemForWithdrawal(HST_ArsenalItemState item)

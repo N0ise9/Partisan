@@ -3,8 +3,31 @@ class HST_DefaultCatalog
 	static HST_BalanceConfig CreateBalance()
 	{
 		HST_BalanceConfig balance = new HST_BalanceConfig();
+		EnsureArsenalItemRules(balance);
 		EnsureCivilianPools(balance);
 		return balance;
+	}
+
+	static void EnsureArsenalItemRules(HST_BalanceConfig balance)
+	{
+		if (!balance || balance.m_aArsenalItemRules.Count() > 0)
+			return;
+
+		balance.m_aArsenalItemRules.Insert(NewArsenalItemRule("MissionProp_CitySupplies", "utility", "finite_only", -1));
+		balance.m_aArsenalItemRules.Insert(NewArsenalItemRule("MissionProp_ConvoyPayload", "utility", "unlock", 2));
+		balance.m_aArsenalItemRules.Insert(NewArsenalItemRule("MissionProp_DestroyTarget", "utility", "blocked", -1));
+	}
+
+	static HST_ArsenalItemRule NewArsenalItemRule(string prefabContains, string category, string policy, int thresholdOverride = -1, bool areaLoot = true, bool vehicleLoot = true)
+	{
+		HST_ArsenalItemRule rule = new HST_ArsenalItemRule();
+		rule.m_sPrefabContains = prefabContains;
+		rule.m_sCategory = category;
+		rule.m_sPolicy = policy;
+		rule.m_iUnlockThresholdOverride = thresholdOverride;
+		rule.m_bAppliesToAreaLoot = areaLoot;
+		rule.m_bAppliesToVehicleLoot = vehicleLoot;
+		return rule;
 	}
 
 	static void EnsureCivilianPools(HST_BalanceConfig balance)

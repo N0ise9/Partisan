@@ -38,6 +38,17 @@ class HST_LoadoutEditorInsertCallback : ScriptedInventoryOperationCallback
 	}
 }
 
+class HST_LoadoutCostEntry
+{
+	string m_sPrefab;
+	string m_sDisplayName;
+	string m_sCategory;
+	int m_iRequired;
+	int m_iAlreadyIssuedFinite;
+	int m_iAdditionalFiniteRequired;
+	bool m_bInfinite;
+}
+
 [BaseContainerProps()]
 class HST_PersonalLoadoutFileState
 {
@@ -286,8 +297,9 @@ class HST_LoadoutEditorService
 		if (IsFixedLoadoutSlotEmpty(loadout))
 			return "h-istasi loadout editor | failed: selected loadout slot is empty";
 
+		array<ref HST_LoadoutCostEntry> costLedger = {};
 		string validationFailure;
-		if (!ValidateLoadoutTransaction(state, loadout, identityId, validationFailure))
+		if (!ValidateLoadoutTransaction(state, loadout, identityId, costLedger, validationFailure))
 		{
 			state.m_sLastLoadoutEditorFailure = validationFailure;
 			return "h-istasi loadout editor | failed: " + validationFailure;
@@ -304,7 +316,12 @@ class HST_LoadoutEditorService
 			return "h-istasi loadout editor | failed: " + validationFailure;
 		}
 
-		CommitLoadoutTransaction(state, arsenal, loadout, identityId);
+		if (!CommitLoadoutTransaction(state, arsenal, loadout, identityId, costLedger, validationFailure))
+		{
+			state.m_sLastLoadoutEditorFailure = validationFailure;
+			return "h-istasi loadout editor | failed: " + validationFailure;
+		}
+
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_sStatus = "applied";
 		session.m_sCurrentLoadoutId = loadout.m_sLoadoutId;
@@ -1112,7 +1129,7 @@ class HST_LoadoutEditorService
 		int refundCount = Math.Min(count, issuedItem.m_iCount);
 		issuedItem.m_iCount -= refundCount;
 		if (!issuedItem.m_bInfinite && refundCount > 0)
-			arsenal.DepositItem(state, null, issuedItem.m_sItemPrefab, refundCount, issuedItem.m_sCategory, issuedItem.m_sDisplayName);
+			arsenal.RefundItem(state, issuedItem.m_sItemPrefab, refundCount, issuedItem.m_sCategory, issuedItem.m_sDisplayName);
 
 		if (issuedItem.m_iCount <= 0)
 			RemoveIssuedItemState(state, issuedItem);
@@ -1281,7 +1298,7 @@ class HST_LoadoutEditorService
 			category = ResolveEditorCategory(prefab, "");
 		if (displayName.IsEmpty())
 			displayName = HST_DisplayNameService.ResolveItemDisplayName(null, prefab);
-		arsenal.DepositItem(state, null, prefab, 1, category, displayName);
+		arsenal.RefundItem(state, prefab, 1, category, displayName);
 	}
 
 	protected bool ApplyLiveNodeItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string nodeId, string itemPrefab, out string failure)
@@ -3069,9 +3086,28 @@ class HST_LoadoutEditorService
 		return state.FindFirstSavedLoadout(identityId);
 	}
 
-	protected bool ValidateLoadoutTransaction(HST_CampaignState state, HST_SavedLoadoutState loadout, string identityId, out string failure)
+	protected bool ValidateLoadoutTransaction(HST_CampaignState state, HST_SavedLoadoutState loadout, string identityId, notnull array<ref HST_LoadoutCostEntry> costLedger, out string failure)
 	{
 		failure = "";
+		if (!BuildLoadoutCostLedger(state, loadout, identityId, costLedger, failure))
+			return false;
+
+		if (!ValidateAttachmentCompatibility(loadout, failure))
+			return false;
+
+		return true;
+	}
+
+	protected bool BuildLoadoutCostLedger(HST_CampaignState state, HST_SavedLoadoutState loadout, string identityId, notnull array<ref HST_LoadoutCostEntry> costLedger, out string failure)
+	{
+		failure = "";
+		costLedger.Clear();
+		if (!state || !loadout || identityId.IsEmpty())
+		{
+			failure = "loadout transaction state is not ready";
+			return false;
+		}
+
 		foreach (HST_LoadoutSlotState slot : loadout.m_aSlots)
 		{
 			if (!slot || slot.m_sItemPrefab.IsEmpty())
@@ -3087,26 +3123,72 @@ class HST_LoadoutEditorService
 				return false;
 			}
 
+			int required = Math.Max(1, slot.m_iQuantity);
+			HST_LoadoutCostEntry entry = FindCostEntry(costLedger, slot.m_sItemPrefab);
+			if (!entry)
+			{
+				entry = new HST_LoadoutCostEntry();
+				entry.m_sPrefab = slot.m_sItemPrefab;
+				entry.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName);
+				entry.m_sCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+				entry.m_iAlreadyIssuedFinite = CountIssuedFiniteItem(state, identityId, slot.m_sItemPrefab);
+				entry.m_bInfinite = arsenalItem.m_bUnlocked;
+				costLedger.Insert(entry);
+			}
+
+			entry.m_iRequired += required;
 			if (arsenalItem.m_bUnlocked)
+				entry.m_bInfinite = true;
+			if (entry.m_sDisplayName.IsEmpty())
+				entry.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName);
+			if (entry.m_sCategory.IsEmpty())
+				entry.m_sCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+		}
+
+		foreach (HST_LoadoutCostEntry costEntry : costLedger)
+		{
+			if (!costEntry)
 				continue;
 
-			int required = Math.Max(1, slot.m_iQuantity);
-			int alreadyIssued = CountIssuedFiniteItem(state, identityId, slot.m_sItemPrefab);
-			int additionalRequired = required - alreadyIssued;
+			if (costEntry.m_bInfinite)
+			{
+				costEntry.m_iAdditionalFiniteRequired = 0;
+				continue;
+			}
+
+			int additionalRequired = costEntry.m_iRequired - costEntry.m_iAlreadyIssuedFinite;
+			if (additionalRequired < 0)
+				additionalRequired = 0;
+			costEntry.m_iAdditionalFiniteRequired = additionalRequired;
 			if (additionalRequired <= 0)
 				continue;
 
-			if (arsenalItem.m_iCount < additionalRequired)
+			HST_ArsenalItemState arsenalItem = state.FindArsenalItem(costEntry.m_sPrefab);
+			int available;
+			if (arsenalItem)
+				available = arsenalItem.m_iCount;
+			if (!arsenalItem || available < additionalRequired)
 			{
-				failure = string.Format("%1 requires %2 more but only %3 remain", HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName), additionalRequired, arsenalItem.m_iCount);
+				failure = string.Format("%1 requires %2 more but only %3 remain", costEntry.m_sDisplayName, additionalRequired, available);
 				return false;
 			}
 		}
 
-		if (!ValidateAttachmentCompatibility(loadout, failure))
-			return false;
-
 		return true;
+	}
+
+	protected HST_LoadoutCostEntry FindCostEntry(notnull array<ref HST_LoadoutCostEntry> costLedger, string prefab)
+	{
+		if (prefab.IsEmpty())
+			return null;
+
+		foreach (HST_LoadoutCostEntry entry : costLedger)
+		{
+			if (entry && entry.m_sPrefab == prefab)
+				return entry;
+		}
+
+		return null;
 	}
 
 	protected bool ValidateAttachmentCompatibility(HST_SavedLoadoutState loadout, out string failure)
@@ -3218,29 +3300,76 @@ class HST_LoadoutEditorService
 		return true;
 	}
 
-	protected void CommitLoadoutTransaction(HST_CampaignState state, HST_ArsenalService arsenal, HST_SavedLoadoutState loadout, string identityId)
+	protected bool CommitLoadoutTransaction(HST_CampaignState state, HST_ArsenalService arsenal, HST_SavedLoadoutState loadout, string identityId, notnull array<ref HST_LoadoutCostEntry> costLedger, out string failure)
 	{
-		ReturnUnneededIssuedItems(state, arsenal, loadout, identityId);
-		foreach (HST_LoadoutSlotState slot : loadout.m_aSlots)
+		failure = "";
+		if (!state || !arsenal || !loadout || identityId.IsEmpty())
 		{
-			if (!slot || slot.m_sItemPrefab.IsEmpty())
+			failure = "loadout transaction state is not ready";
+			return false;
+		}
+
+		array<ref HST_LoadoutCostEntry> withdrawnEntries = {};
+		array<int> withdrawnCounts = {};
+		foreach (HST_LoadoutCostEntry withdrawEntry : costLedger)
+		{
+			if (!withdrawEntry || withdrawEntry.m_bInfinite || withdrawEntry.m_iAdditionalFiniteRequired <= 0)
 				continue;
 
-			HST_ArsenalItemState arsenalItem = state.FindArsenalItem(slot.m_sItemPrefab);
-			if (!arsenalItem)
+			if (!arsenal.WithdrawItem(state, withdrawEntry.m_sPrefab, withdrawEntry.m_iAdditionalFiniteRequired))
+			{
+				RollbackLoadoutWithdrawals(state, arsenal, withdrawnEntries, withdrawnCounts);
+				failure = string.Format("%1 became unavailable during loadout apply", withdrawEntry.m_sDisplayName);
+				return false;
+			}
+
+			withdrawnEntries.Insert(withdrawEntry);
+			withdrawnCounts.Insert(withdrawEntry.m_iAdditionalFiniteRequired);
+		}
+
+		ReturnUnneededIssuedItems(state, arsenal, loadout, identityId);
+		foreach (HST_LoadoutCostEntry costEntry : costLedger)
+		{
+			if (!costEntry || costEntry.m_sPrefab.IsEmpty())
 				continue;
 
-			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
-			string displayName = HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName);
-			int required = Math.Max(1, slot.m_iQuantity);
-			int alreadyIssued = CountIssuedItem(state, identityId, slot.m_sItemPrefab);
+			if (costEntry.m_bInfinite)
+			{
+				if (costEntry.m_iAlreadyIssuedFinite > 0)
+					arsenal.RefundItem(state, costEntry.m_sPrefab, costEntry.m_iAlreadyIssuedFinite, costEntry.m_sCategory, costEntry.m_sDisplayName);
 
-			if (!arsenalItem.m_bUnlocked && required > alreadyIssued)
-				arsenal.WithdrawItem(state, slot.m_sItemPrefab, required - alreadyIssued);
-			else if (!arsenalItem.m_bUnlocked && alreadyIssued > required)
-				arsenal.DepositItem(state, null, slot.m_sItemPrefab, alreadyIssued - required, category, displayName);
+				SetIssuedItem(state, identityId, costEntry.m_sPrefab, costEntry.m_sDisplayName, costEntry.m_sCategory, costEntry.m_iRequired, true);
+				continue;
+			}
 
-			SetIssuedItem(state, identityId, slot.m_sItemPrefab, displayName, category, required, arsenalItem.m_bUnlocked);
+			int surplus = costEntry.m_iAlreadyIssuedFinite - costEntry.m_iRequired;
+			if (surplus > 0)
+				arsenal.RefundItem(state, costEntry.m_sPrefab, surplus, costEntry.m_sCategory, costEntry.m_sDisplayName);
+
+			SetIssuedItem(state, identityId, costEntry.m_sPrefab, costEntry.m_sDisplayName, costEntry.m_sCategory, costEntry.m_iRequired, false);
+		}
+
+		return true;
+	}
+
+	protected void RollbackLoadoutWithdrawals(HST_CampaignState state, HST_ArsenalService arsenal, notnull array<ref HST_LoadoutCostEntry> withdrawnEntries, notnull array<int> withdrawnCounts)
+	{
+		if (!state || !arsenal)
+			return;
+
+		for (int i = 0; i < withdrawnEntries.Count(); i++)
+		{
+			HST_LoadoutCostEntry entry = withdrawnEntries[i];
+			if (!entry)
+				continue;
+
+			int count;
+			if (i < withdrawnCounts.Count())
+				count = withdrawnCounts[i];
+			if (count <= 0)
+				continue;
+
+			arsenal.RefundItem(state, entry.m_sPrefab, count, entry.m_sCategory, entry.m_sDisplayName);
 		}
 	}
 
@@ -3257,7 +3386,7 @@ class HST_LoadoutEditorService
 				continue;
 
 			if (!issuedItem.m_bInfinite)
-				arsenal.DepositItem(state, null, issuedItem.m_sItemPrefab, issuedItem.m_iCount, issuedItem.m_sCategory, issuedItem.m_sDisplayName);
+				arsenal.RefundItem(state, issuedItem.m_sItemPrefab, issuedItem.m_iCount, issuedItem.m_sCategory, issuedItem.m_sDisplayName);
 
 			state.m_aIssuedLoadoutItems.Remove(i);
 		}

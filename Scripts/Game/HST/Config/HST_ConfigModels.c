@@ -1,3 +1,14 @@
+[BaseContainerProps()]
+class HST_ArsenalItemRule
+{
+	string m_sPrefabContains;
+	string m_sCategory;
+	string m_sPolicy = "unlock";
+	int m_iUnlockThresholdOverride = -1;
+	bool m_bAppliesToAreaLoot = true;
+	bool m_bAppliesToVehicleLoot = true;
+}
+
 [BaseContainerProps(configRoot: true)]
 class HST_BalanceConfig
 {
@@ -40,6 +51,7 @@ class HST_BalanceConfig
 	int m_iCaptureDecayPerSecond = 1;
 	int m_iCaptureAggressionBase = 10;
 	int m_iCaptureCounterattackChancePercent = 45;
+	ref array<ref HST_ArsenalItemRule> m_aArsenalItemRules = {};
 	ref array<string> m_aCivilianCharacterPrefabs = {};
 	ref array<string> m_aCivilianVehiclePrefabs = {};
 }

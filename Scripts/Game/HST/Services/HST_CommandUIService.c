@@ -58,7 +58,7 @@ class HST_CommandUIService
 	string BuildAdminMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		string menu = BuildCommanderMenu(state, preset, markers);
-		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report";
+		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report";
 	}
 
 	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
@@ -76,7 +76,7 @@ class HST_CommandUIService
 		payload = payload + "\nTAB|garage|Garage/Build|1";
 		payload = payload + "\nTAB|members|Members|1";
 		payload = payload + string.Format("\nTAB|admin|Admin|%1", canUseAdmin);
-		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
+		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, balance, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
 		payload = AppendTopStats(payload, state, preset);
 		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, balance, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin, compositions, capture);
 		payload = AppendActivityFeed(payload, state, preset, selectedTabId);
@@ -304,6 +304,18 @@ class HST_CommandUIService
 
 		if (commandId == "admin_persistence_smoke_report")
 			return coordinator.RequestAdminPersistenceSmokeReport(playerId);
+
+		if (commandId == "admin_phase14_seed_finite")
+			return coordinator.RequestAdminPhase14SeedFinite(playerId);
+
+		if (commandId == "admin_phase14_seed_threshold")
+			return coordinator.RequestAdminPhase14SeedThreshold(playerId);
+
+		if (commandId == "admin_phase14_seed_blocked")
+			return coordinator.RequestAdminPhase14SeedBlocked(playerId);
+
+		if (commandId == "admin_phase14_report")
+			return coordinator.RequestAdminPhase14Report(playerId);
 
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
@@ -591,6 +603,18 @@ class HST_CommandUIService
 		if (commandId == "admin_persistence_smoke_report")
 			return !coordinator.RequestAdminPersistenceSmokeReport(playerId).IsEmpty();
 
+		if (commandId == "admin_phase14_seed_finite")
+			return !coordinator.RequestAdminPhase14SeedFinite(playerId).IsEmpty();
+
+		if (commandId == "admin_phase14_seed_threshold")
+			return !coordinator.RequestAdminPhase14SeedThreshold(playerId).IsEmpty();
+
+		if (commandId == "admin_phase14_seed_blocked")
+			return !coordinator.RequestAdminPhase14SeedBlocked(playerId).IsEmpty();
+
+		if (commandId == "admin_phase14_report")
+			return !coordinator.RequestAdminPhase14Report(playerId).IsEmpty();
+
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
 
@@ -640,7 +664,7 @@ class HST_CommandUIService
 		return selectedTabId;
 	}
 
-	protected string BuildTabStatusText(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, string selectedTabId, bool canUseMember, bool canUseCommander, bool canUseAdmin)
+	protected string BuildTabStatusText(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, HST_BalanceConfig balance, string selectedTabId, bool canUseMember, bool canUseCommander, bool canUseAdmin)
 	{
 		if (selectedTabId == TAB_SETUP)
 			return BuildSetupStatus(state, settings);
@@ -666,7 +690,7 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_ARSENAL)
 		{
 			if (arsenal)
-				return arsenal.BuildArsenalReport(state);
+				return arsenal.BuildArsenalReport(state, balance);
 
 			return "h-istasi arsenal | service not ready";
 		}
@@ -1445,9 +1469,14 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ARSENAL)
 		{
+			AddMenuAction(actions, TAB_ARSENAL, "Arsenal report", "inspect_arsenal", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal", "loot_nearby", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Load loot to vehicle", "vehicle_collect_loot", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle loot to arsenal", "vehicle_unload_loot", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Withdraw best item", "withdraw_arsenal", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Loadout editor status", "inspect_loadout_editor", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Apply saved loadout", "loadout_apply", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -1504,6 +1533,10 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Seed persistence smoke", "admin_seed_persistence_test_state", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Run persistence smoke", "admin_persistence_smoke_test", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence smoke report", "admin_persistence_smoke_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 14 seed finite", "admin_phase14_seed_finite", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 14 seed threshold", "admin_phase14_seed_threshold", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 14 seed blocked", "admin_phase14_seed_blocked", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 14 report", "admin_phase14_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
