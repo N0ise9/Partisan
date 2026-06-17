@@ -54,6 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bSpawnSweepArmed;
 	protected int m_iStableSpawnSweepCount;
 	protected bool m_bDeferredMarkerRefresh;
+	protected bool m_bPersistentFieldVehicleRestoreChecked;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -140,6 +141,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_PlayerSpawn.Tick(timeSlice);
 		if (m_MapMarkers)
 			m_MapMarkers.TickNativePublish(m_State, m_Preset, timeSlice);
+		if (!m_bPersistentFieldVehicleRestoreChecked && GetGame().GetWorld())
+		{
+			m_bPersistentFieldVehicleRestoreChecked = true;
+			if (m_Loot && m_State.m_bRestoredFromPersistence)
+			{
+				int restoredFieldVehicles = m_Loot.RestorePersistentFieldVehicles(m_State);
+				if (restoredFieldVehicles > 0)
+				{
+					Print(string.Format("h-istasi vehicle persistence | restored %1 field vehicle(s) after campaign load", restoredFieldVehicles));
+					MarkMajorCampaignChange(false);
+				}
+			}
+		}
 
 		m_fSpawnSweepAccumulator += timeSlice;
 		if (m_fSpawnSweepAccumulator >= 0.25 && ShouldProcessFrameSpawnSweep())
@@ -576,6 +590,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (!m_Persistence || !m_State)
 			return false;
+
+		if (m_Loot)
+		{
+			int snapshottedFieldVehicles = m_Loot.SnapshotNearbyPersistentVehicles(m_State);
+			if (snapshottedFieldVehicles > 0)
+				m_State.m_sLastVehicleTargetStatus = string.Format("persistent field vehicle snapshot %1", snapshottedFieldVehicles);
+		}
 
 		return m_Persistence.RequestCheckpoint("h-istasi manual checkpoint", m_State);
 	}

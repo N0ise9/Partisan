@@ -55,6 +55,8 @@ class HST_VehicleRootScanResult
 class HST_LootService
 {
 	static const int GARAGE_CAPTURE_RADIUS_METERS = 24;
+	static const int PERSISTENT_FIELD_VEHICLE_SNAPSHOT_RADIUS_METERS = 40;
+	static const int PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS = 12;
 	static const int MAX_SCAN_ENTITIES = 384;
 	protected ref array<IEntity> m_aScanEntities = {};
 
@@ -104,6 +106,87 @@ class HST_LootService
 			result.m_aDepositedLines.Insert("no eligible loot found nearby");
 
 		return result;
+	}
+
+	int SnapshotNearbyPersistentVehicles(HST_CampaignState state, int radiusMeters = PERSISTENT_FIELD_VEHICLE_SNAPSHOT_RADIUS_METERS)
+	{
+		if (!state || radiusMeters <= 0)
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		array<string> snapshottedRuntimeIds = {};
+		int snapshottedVehicles;
+		foreach (int playerId : playerIds)
+		{
+			IEntity playerEntity = playerManager.GetPlayerControlledEntity(playerId);
+			if (!playerEntity)
+				playerEntity = SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+			if (!IsLivingEntity(playerEntity))
+				continue;
+
+			snapshottedVehicles += SnapshotPersistentVehiclesNear(state, playerEntity.GetOrigin(), radiusMeters, playerEntity, snapshottedRuntimeIds);
+		}
+
+		if (snapshottedVehicles > 0)
+			Print(string.Format("h-istasi vehicle persistence | snapshotted %1 nearby field vehicle(s)", snapshottedVehicles));
+		return snapshottedVehicles;
+	}
+
+	int RestorePersistentFieldVehicles(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return 0;
+
+		int restoredVehicles;
+		foreach (HST_RuntimeVehicleState record : state.m_aRuntimeVehicles)
+		{
+			if (!ShouldRestorePersistentFieldVehicle(record))
+				continue;
+
+			int scannedCandidates;
+			int resolvedRoots;
+			string rejectReason;
+			IEntity liveRoot = ResolveRuntimeVehicleRootFromRecord(world, record, scannedCandidates, resolvedRoots, rejectReason);
+			if (liveRoot)
+			{
+				HST_RuntimeVehicleState refreshedRecord = EnsureRuntimeVehicleRecord(state, liveRoot, record, record.m_sPrefab);
+				if (refreshedRecord)
+					refreshedRecord.m_sRuntimeKind = "loot_vehicle";
+				continue;
+			}
+
+			string previousRuntimeId = record.m_sVehicleRuntimeId;
+			GenericEntity spawnedVehicle = HST_WorldPositionService.SpawnPrefab(record.m_sPrefab, record.m_vPosition, record.m_vAngles);
+			if (!spawnedVehicle)
+			{
+				Print(string.Format("h-istasi vehicle persistence | restore failed for %1 | prefab %2 | position %3", record.m_sVehicleRuntimeId, record.m_sPrefab, record.m_vPosition), LogLevel.WARNING);
+				continue;
+			}
+
+			HST_WorldPositionService.ApplyUprightEntityTransform(spawnedVehicle, record.m_vPosition, record.m_vAngles);
+			HST_RuntimeVehicleState restoredRecord = EnsureRuntimeVehicleRecord(state, spawnedVehicle, record, record.m_sPrefab);
+			if (restoredRecord)
+			{
+				restoredRecord.m_sRuntimeKind = "loot_vehicle";
+				restoredRecord.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+				restoredRecord.m_bDetached = false;
+				restoredRecord.m_bDeleted = false;
+				Print(string.Format("h-istasi vehicle persistence | restored field vehicle %1 | prefab %2 | old id %3 | new id %4", restoredRecord.m_sDisplayName, restoredRecord.m_sPrefab, previousRuntimeId, restoredRecord.m_sVehicleRuntimeId));
+			}
+
+			restoredVehicles++;
+		}
+
+		return restoredVehicles;
 	}
 
 	string CaptureNearbyVehicleToGarage(HST_CampaignState state, HST_CampaignPreset preset, HST_ArsenalService arsenal, int playerId)
@@ -551,6 +634,86 @@ class HST_LootService
 			m_aScanEntities.Insert(entity);
 
 		return m_aScanEntities.Count() < MAX_SCAN_ENTITIES;
+	}
+
+	protected int SnapshotPersistentVehiclesNear(HST_CampaignState state, vector center, int radiusMeters, IEntity playerEntity, array<string> snapshottedRuntimeIds)
+	{
+		if (!state || !playerEntity || radiusMeters <= 0)
+			return 0;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return 0;
+
+		m_aScanEntities.Clear();
+		world.QueryEntitiesBySphere(center, radiusMeters, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
+		array<IEntity> checkedRoots = {};
+		int snapshottedVehicles;
+		foreach (IEntity candidate : m_aScanEntities)
+		{
+			if (!candidate || candidate == playerEntity)
+				continue;
+
+			string rejectReason;
+			IEntity rootVehicle = ResolveVehicleRoot(candidate, rejectReason);
+			if (!rootVehicle)
+				rootVehicle = ResolveVehicleRootByNearbyBounds(candidate, state, rejectReason);
+			if (!rootVehicle || checkedRoots.Find(rootVehicle) >= 0)
+				continue;
+
+			checkedRoots.Insert(rootVehicle);
+			HST_RuntimeVehicleState runtimeCandidate = ResolveRuntimeVehicleRecord(state, rootVehicle);
+			if (!CanAdoptPersistentFieldVehicle(runtimeCandidate))
+				continue;
+
+			string rootPrefab = ResolveVehiclePrefabFromCandidate(rootVehicle, runtimeCandidate, candidate);
+			string protectedReason;
+			if (IsProtectedHQEntity(state, rootVehicle, rootPrefab, protectedReason))
+				continue;
+			if (!IsEligibleLootVehicle(rootVehicle, playerEntity, runtimeCandidate, rootPrefab))
+				continue;
+
+			string runtimeId = ResolveVehicleRuntimeId(rootVehicle);
+			if (runtimeId.IsEmpty())
+				continue;
+			if (snapshottedRuntimeIds && snapshottedRuntimeIds.Find(runtimeId) >= 0)
+				continue;
+
+			HST_RuntimeVehicleState record = EnsureRuntimeVehicleRecord(state, rootVehicle, runtimeCandidate, rootPrefab);
+			if (!record)
+				continue;
+
+			record.m_sRuntimeKind = "loot_vehicle";
+			record.m_bDetached = false;
+			record.m_bDeleted = false;
+			if (record.m_iSpawnedAtSecond <= 0)
+				record.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+			if (snapshottedRuntimeIds && snapshottedRuntimeIds.Find(record.m_sVehicleRuntimeId) < 0)
+				snapshottedRuntimeIds.Insert(record.m_sVehicleRuntimeId);
+			snapshottedVehicles++;
+		}
+
+		return snapshottedVehicles;
+	}
+
+	protected bool CanAdoptPersistentFieldVehicle(HST_RuntimeVehicleState record)
+	{
+		if (!record)
+			return true;
+
+		return record.m_sRuntimeKind == "loot_vehicle" || record.m_sRuntimeKind == "field_vehicle";
+	}
+
+	protected bool ShouldRestorePersistentFieldVehicle(HST_RuntimeVehicleState record)
+	{
+		if (!record || record.m_bDeleted || record.m_bDetached)
+			return false;
+		if (!CanAdoptPersistentFieldVehicle(record))
+			return false;
+		if (record.m_sVehicleRuntimeId.IsEmpty() || IsZeroVector(record.m_vPosition))
+			return false;
+
+		return HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(record.m_sPrefab);
 	}
 
 	protected IEntity ResolveLivingPlayerEntity(int playerId)
@@ -1679,7 +1842,7 @@ class HST_LootService
 			return null;
 
 		m_aScanEntities.Clear();
-		world.QueryEntitiesBySphere(record.m_vPosition, 12, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
+		world.QueryEntitiesBySphere(record.m_vPosition, PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
 
 		array<IEntity> checkedRoots = {};
 		IEntity bestRoot;
@@ -1712,7 +1875,7 @@ class HST_LootService
 			}
 
 			float distanceSq = DistanceSq2D(record.m_vPosition, rootVehicle.GetOrigin());
-			if (distanceSq > 12 * 12)
+			if (distanceSq > PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS * PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS)
 			{
 				rejectReason = "resolved root was not near registered vehicle record";
 				continue;

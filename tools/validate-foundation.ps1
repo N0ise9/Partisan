@@ -1981,6 +1981,21 @@ foreach ($requiredPhase14LootEntry in @(
 		throw "Phase 14 loot service is missing policy-aware/raw-asset entry: $requiredPhase14LootEntry"
 	}
 }
+foreach ($requiredPhase14VehiclePersistenceEntry in @(
+	"SnapshotNearbyPersistentVehicles",
+	"RestorePersistentFieldVehicles",
+	"ShouldRestorePersistentFieldVehicle",
+	"PERSISTENT_FIELD_VEHICLE_SNAPSHOT_RADIUS_METERS",
+	"PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS",
+	'record.m_sRuntimeKind == "loot_vehicle"',
+	'record.m_sRuntimeKind == "field_vehicle"',
+	"m_Loot.SnapshotNearbyPersistentVehicles(m_State)",
+	"m_Loot.RestorePersistentFieldVehicles(m_State)"
+)) {
+	if ($lootServiceText -notmatch [regex]::Escape($requiredPhase14VehiclePersistenceEntry) -and $coordinatorText -notmatch [regex]::Escape($requiredPhase14VehiclePersistenceEntry)) {
+		throw "Phase 14 vehicle persistence contract is missing: $requiredPhase14VehiclePersistenceEntry"
+	}
+}
 foreach ($requiredPhase14LoadoutEntry in @(
 	"HST_LoadoutCostEntry",
 	"BuildLoadoutCostLedger",

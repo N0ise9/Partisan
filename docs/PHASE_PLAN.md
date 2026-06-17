@@ -359,7 +359,7 @@ Acceptance pattern:
 | 11 | Mission-specific convoy outcomes | Complete |
 | 12 | Active mission persistence | Complete |
 | 13 | Non-convoy mission primitive hardening | Complete |
-| 14 | Arsenal, loot, and finite/infinite unlock loop | In progress |
+| 14 | Arsenal, loot, and finite/infinite unlock loop | In progress - 1/2 complete checkpoint |
 | 15 | Garage and vehicle persistence | Planned |
 | 16 | Recruitment, training, and garrisons | Planned |
 | 17 | Zone capture and ownership | Planned |
@@ -1713,7 +1713,9 @@ Current notes:
 
 ## Phase 14 - Arsenal, Loot, And Finite/Infinite Unlock Loop
 
-Status: In progress
+Status: In progress - 1/2 complete checkpoint. Arsenal, loot, finite/INF
+policy, vehicle cargo, and field-vehicle save/load restore have passed HST_Dev
+smoke. The remaining half is the loadout editor end-to-end path.
 
 Goal: complete the Antistasi loot-to-unlock progression loop.
 
@@ -1738,6 +1740,17 @@ Acceptance criteria:
 - Blocked item does not unlock.
 - Loadout apply is atomic.
 - Save/load preserves arsenal counts and unlock state.
+
+Checkpoint notes:
+
+- Arsenal item rules are typed balance config, with blocked and finite-only
+  behavior visible in reports.
+- Raw visual/support assets are rejected from arsenal and vehicle cargo.
+- Area loot, vehicle cargo collection, vehicle unload, and reports have been
+  exercised in HST_Dev.
+- Nearby Workbench-spawned field vehicles are snapshotted before manual
+  checkpoint and restored after save/load as `loot_vehicle` runtime records.
+- Loadout editor smoke remains before Phase 14 can be marked complete.
 
 ## Phase 15 - Garage And Vehicle Persistence
 
