@@ -1,0 +1,17 @@
+MetaFileClass {
+ Name "{3D4A18DE2DD3561F}Prefabs/HST/HST_LoadoutPreviewSky.emat"
+ Configurations {
+  MaterialResourceClass PC {
+  }
+  MaterialResourceClass XBOX_ONE : PC {
+  }
+  MaterialResourceClass XBOX_SERIES : PC {
+  }
+  MaterialResourceClass PS4 : PC {
+  }
+  MaterialResourceClass PS5 : PC {
+  }
+  MaterialResourceClass HEADLESS : PC {
+  }
+ }
+}

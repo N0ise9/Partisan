@@ -1,0 +1,19 @@
+GenericEntity {
+ ID "604FFDF1DE53BD1C"
+ coords 0 0 0
+ {
+  LightEntity {
+   ID "604FFDF1DE53BD1B"
+   coords 1.889 1.791 -2.187
+   angles -13.132 -19.496 -0.229
+   Color 0.657 0.893 1 0
+   LV 8
+   Type Point
+   Radius 45
+   SpotAngle 47.354
+   Dynamic 1
+   Visualization Disabled
+   SourceSize 1.612
+  }
+ }
+}

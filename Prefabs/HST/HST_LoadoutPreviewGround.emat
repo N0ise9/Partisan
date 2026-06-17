@@ -1,0 +1,6 @@
+MatPBRBasic {
+ Color 0.11 0.12 0.12 1
+ RoughnessScale 0.92
+ AOScale 0.78
+ DielectricReflectance 0.031
+}

@@ -1925,6 +1925,7 @@ $lootServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c
 $loadoutEditorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LoadoutEditorService.c"
 $campaignSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
 $loadoutPreviewWorldText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewWorld.et"
+$loadoutPreviewLightsText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewLights.et"
 foreach ($requiredPhase14ConfigEntry in @(
 	"HST_ArsenalItemRule",
 	"m_sPrefabContains",
@@ -2038,12 +2039,24 @@ foreach ($requiredPhase14CommandEntry in @(
 	}
 }
 foreach ($requiredPhase14PreviewEntry in @(
+	"SkyPreset",
 	"{EAE920BF596EBC07}Assets/Objects/Plane.xob",
 	"{D711B025189858ED}Assets/Objects/sphere.xob",
-	"{10E7F88E2206B982}Assets/Objects/Data/DefaultGeneratedMaterial.emat"
+	"Prefabs/HST/HST_LoadoutPreviewGround.emat",
+	"Prefabs/HST/HST_LoadoutPreviewSkySphere.emat",
+	"GameEnvironmentProbeEntity"
 )) {
 	if ($loadoutPreviewWorldText -notmatch [regex]::Escape($requiredPhase14PreviewEntry)) {
 		throw "Loadout preview world is missing Phase 14 visual/support asset: $requiredPhase14PreviewEntry"
+	}
+}
+foreach ($requiredPhase14PreviewLightEntry in @(
+	"LightEntity",
+	"Dynamic 1",
+	"SourceSize"
+)) {
+	if ($loadoutPreviewLightsText -notmatch [regex]::Escape($requiredPhase14PreviewLightEntry)) {
+		throw "Loadout preview light rig is missing Phase 14 visual/support asset: $requiredPhase14PreviewLightEntry"
 	}
 }
 Write-Host "Phase 14 arsenal/loot/loadout contracts OK"
@@ -2278,12 +2291,8 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"ClearDraft",
 	"SelectSavedLoadout",
 	"DeleteSavedLoadout",
-	"SpawnPreviewMannequin",
-	"DeletePreviewMannequin",
-	"FindPreviewMannequin",
-	"RefreshPreviewMannequinLoadout",
-	"ClearInventoryItems",
-	"ResolvePreviewQuantityLimit",
+	"PREVIEW_FALLBACK_PREFAB",
+	"client render preview",
 	"ValidateLoadoutTransaction",
 	"ValidateAttachmentCompatibility",
 	"ApplyLoadoutToPlayerEntity",
@@ -2388,10 +2397,20 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"SetWorld",
 	"ConfigurePreviewWidget",
 	"EnsurePreviewWorld",
+	"PREVIEW_LIGHTS_PREFAB",
+	"QueuePreviewLightSpawn",
+	"SpawnPreviewLight",
+	"RefreshPreviewLightState",
+	"DeletePreviewLight",
+	"UpdatePreviewLightAngles",
 	"RefreshPreviewWorldLoadout",
 	"CreatePreviewEntity",
+	"PREVIEW_DRESS_DELAY_MS",
+	"CreatePreviewCloneFromDressedSource",
+	"FinalizeDressedPreviewEntity",
+	"ResolveExactPreviewInsertTarget",
 	"m_PreviewEntity.SetOrigin(vector.Up)",
-	"preview direct mannequin fallback",
+	"building mannequin preview",
 	"SetPreviewEntityQualityRecursive",
 	"BuildStageToast",
 	"UpdatePreviewCamera",

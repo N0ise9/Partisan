@@ -59,7 +59,7 @@ class HST_PersonalLoadoutFileState
 
 class HST_LoadoutEditorService
 {
-	static const string PREVIEW_MANNEQUIN_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
+	static const string PREVIEW_FALLBACK_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const string LOADOUT_DIRECTORY = "$profile:h-istasi/loadouts";
 	static const string LOADOUT_DIRECTORY_V2 = "$profile:h-istasi/loadouts/v2";
 	static const int MAX_AUTO_DRAFT_SLOTS = 12;
@@ -70,8 +70,6 @@ class HST_LoadoutEditorService
 	static const string NODE_STORAGE_PREFIX = "live_storage_";
 	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
 
-	protected ref array<string> m_aPreviewIdentityIds = {};
-	protected ref array<IEntity> m_aPreviewEntities = {};
 	protected ref array<string> m_aLoadablePrefabCache = {};
 	protected ref array<bool> m_aLoadablePrefabResults = {};
 
@@ -87,14 +85,13 @@ class HST_LoadoutEditorService
 			SavePersonalLoadoutsToFile(state, identityId);
 		session.m_sStatus = "open";
 		session.m_sLastFailure = "";
-		session.m_sPreviewPrefab = PREVIEW_MANNEQUIN_PREFAB;
+		session.m_sPreviewPrefab = PREVIEW_FALLBACK_PREFAB;
 		session.m_iOpenedAtSecond = state.m_iElapsedSeconds;
 		session.m_iPlayerId = playerId;
 		session.m_iSavedLoadoutCount = CountSavedLoadouts(state, identityId);
 		RefreshIssuedCounts(state, identityId, session);
 		EnsureFixedPersonalLoadoutSlots(state, identityId);
 		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
-		DeletePreviewMannequin(identityId);
 		session.m_bPreviewSpawned = false;
 		session.m_iPreviewItemCount = CountDraftItems(session);
 		session.m_sPreviewStatus = "client render preview";
@@ -109,7 +106,6 @@ class HST_LoadoutEditorService
 		if (!state || identityId.IsEmpty())
 			return "h-istasi loadout editor | failed: campaign/player state not ready";
 
-		DeletePreviewMannequin(identityId);
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_sStatus = "closed";
 		session.m_bPreviewSpawned = false;
@@ -584,13 +580,13 @@ class HST_LoadoutEditorService
 		session.m_bLiveCharacterAvailable = true;
 		session.m_sPreviewPrefab = ResolveEntityPrefab(playerEntity);
 		if (session.m_sPreviewPrefab.IsEmpty())
-			session.m_sPreviewPrefab = PREVIEW_MANNEQUIN_PREFAB;
+			session.m_sPreviewPrefab = PREVIEW_FALLBACK_PREFAB;
 
 		ScanCharacterLoadoutSlots(playerEntity, session);
 		ScanCharacterWeaponSlots(playerEntity, session);
 		ScanEquippedStorageContainers(playerEntity, session);
 		session.m_iPreviewItemCount = CountDraftItems(session);
-		session.m_sPreviewStatus = "live character mirrored";
+		session.m_sPreviewStatus = "client render preview";
 		return true;
 	}
 
@@ -2862,154 +2858,6 @@ class HST_LoadoutEditorService
 		}
 
 		return "";
-	}
-
-	protected bool SpawnPreviewMannequin(HST_CampaignState state, string identityId, int playerId, HST_LoadoutEditorSessionState session)
-	{
-		DeletePreviewMannequin(identityId);
-
-		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
-		if (!respawnSystem)
-			return false;
-
-		vector previewPosition = ResolvePreviewPosition(state, playerId);
-		vector previewAngles = "180 0 0";
-		GenericEntity preview = HST_WorldPositionService.SpawnPrefab(PREVIEW_MANNEQUIN_PREFAB, previewPosition, previewAngles);
-		if (!preview)
-			return false;
-
-		m_aPreviewIdentityIds.Insert(identityId);
-		m_aPreviewEntities.Insert(preview);
-		session.m_vPreviewPosition = previewPosition;
-		session.m_bPreviewSpawned = true;
-		session.m_iPreviewItemCount = 0;
-		session.m_sPreviewStatus = "preview spawned";
-		Print(string.Format("h-istasi loadout editor | preview mannequin spawned for %1 at %2 using %3", identityId, previewPosition, PREVIEW_MANNEQUIN_PREFAB));
-		return true;
-	}
-
-	protected void DeletePreviewMannequin(string identityId)
-	{
-		for (int i = m_aPreviewIdentityIds.Count() - 1; i >= 0; i--)
-		{
-			if (m_aPreviewIdentityIds[i] != identityId)
-				continue;
-
-			IEntity preview = m_aPreviewEntities[i];
-			if (preview)
-				SCR_EntityHelper.DeleteEntityAndChildren(preview);
-
-			m_aPreviewIdentityIds.Remove(i);
-			m_aPreviewEntities.Remove(i);
-		}
-	}
-
-	protected IEntity FindPreviewMannequin(string identityId)
-	{
-		for (int i = m_aPreviewIdentityIds.Count() - 1; i >= 0; i--)
-		{
-			if (m_aPreviewIdentityIds[i] == identityId)
-				return m_aPreviewEntities[i];
-		}
-
-		return null;
-	}
-
-	protected bool RefreshPreviewMannequinLoadout(HST_CampaignState state, string identityId, HST_LoadoutEditorSessionState session)
-	{
-		if (!session)
-			return false;
-
-		IEntity preview = FindPreviewMannequin(identityId);
-		if (!preview)
-		{
-			session.m_bPreviewSpawned = false;
-			session.m_iPreviewItemCount = CountDraftItems(session);
-			session.m_sPreviewStatus = "client render preview";
-			return true;
-		}
-
-		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(preview.FindComponent(SCR_InventoryStorageManagerComponent));
-		if (!inventory)
-		{
-			session.m_iPreviewItemCount = 0;
-			session.m_sPreviewStatus = "preview inventory unavailable";
-			return false;
-		}
-
-		int removed = ClearInventoryItems(inventory);
-		int inserted;
-		string lastFailure;
-		foreach (HST_LoadoutSlotState slot : session.m_aDraftSlots)
-		{
-			if (!slot || slot.m_sItemPrefab.IsEmpty())
-				continue;
-
-			int previewQuantity = Math.Min(Math.Max(1, slot.m_iQuantity), ResolvePreviewQuantityLimit(slot.m_sCategory));
-			for (int index = 0; index < previewQuantity; index++)
-			{
-				string failure;
-				if (TryInsertItemIntoInventory(inventory, preview, slot.m_sItemPrefab, failure))
-					inserted++;
-				else if (lastFailure.IsEmpty())
-					lastFailure = failure;
-			}
-		}
-
-		session.m_bPreviewSpawned = true;
-		session.m_iPreviewItemCount = inserted;
-		if (lastFailure.IsEmpty())
-			session.m_sPreviewStatus = string.Format("dressed %1 item(s), cleared %2", inserted, removed);
-		else
-			session.m_sPreviewStatus = string.Format("dressed %1 item(s), skipped %2", inserted, lastFailure);
-
-		Print(string.Format("h-istasi loadout editor | preview mannequin refreshed for %1 | inserted %2 | removed %3 | status %4", identityId, inserted, removed, session.m_sPreviewStatus));
-		return lastFailure.IsEmpty();
-	}
-
-	protected int ClearInventoryItems(SCR_InventoryStorageManagerComponent inventory)
-	{
-		if (!inventory)
-			return 0;
-
-		array<IEntity> items = {};
-		inventory.GetItems(items, EStoragePurpose.PURPOSE_ANY);
-		int removed;
-		foreach (IEntity item : items)
-		{
-			if (!item)
-				continue;
-
-			if (inventory.TryDeleteItem(item))
-				removed++;
-		}
-
-		return removed;
-	}
-
-	protected int ResolvePreviewQuantityLimit(string category)
-	{
-		if (category == "magazine" || category == "medical" || category == "explosive")
-			return 2;
-
-		return 1;
-	}
-
-	protected vector ResolvePreviewPosition(HST_CampaignState state, int playerId)
-	{
-		if (state && !IsZeroVector(state.m_vArsenalPosition))
-		{
-			vector hqPreview = state.m_vArsenalPosition;
-			hqPreview[0] = hqPreview[0] + 6.0;
-			hqPreview[2] = hqPreview[2] + 6.0;
-			vector resolvedArsenalPreview;
-			if (HST_WorldPositionService.TryResolveGroundPosition(hqPreview, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, resolvedArsenalPreview, true))
-				return resolvedArsenalPreview;
-
-			return hqPreview;
-		}
-
-		return "0 0 0";
 	}
 
 	protected IEntity ResolveControlledPlayerEntity(int playerId)
