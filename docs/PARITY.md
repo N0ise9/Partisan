@@ -7,8 +7,9 @@
 - CE-style resource pools, HR, money, support, aggression, and war-level
   service surface
 - Persistent member, guest, admin, commander-vacancy, player lifecycle,
-  town-support, income, arsenal, garage-record, abstract-garrison,
-  recruitment, and enemy-pool service surfaces
+  town-support, income, arsenal, vehicle-cargo, saved-loadout, issued-item,
+  garage-record, runtime-vehicle, abstract-garrison, recruitment, and
+  enemy-pool service surfaces
 - Common mission lifecycle and CE 3.11.1 mission-registry baseline
 - Native Reforger manual and periodic checkpoint requests with
   `PersistenceSystem` tracking for the scripted campaign save container
@@ -35,10 +36,12 @@
   GUID-indexed custom prefab first and falls back to the base FIA prefab only
   if needed
 - HQ arsenal supply-cache prefab with contextual actions for opening the
-  Arsenal/Loot tab and depositing nearby loot into campaign arsenal state
+  Arsenal/Loot tab, opening the custom loadout editor, and depositing nearby
+  loot into campaign arsenal state; inherited stock arsenal actions are
+  filtered from the h-istasi HQ arsenal surface
 - Procedural Antistasi-style HQ menu with resource stats, overview, HQ/Petros,
-  mission board, map/war, forces, arsenal/loot, member, admin, action, and
-  activity/result panels
+  mission board, map/war, forces, arsenal/loot, garage/build, member, admin,
+  action, and activity/result panels
 - Broad-alpha persistent state for generated sites/routes, mission objectives,
   campaign tasks, support requests, enemy orders, civilian town state, and
   player undercover state
@@ -64,10 +67,26 @@
   roadblock presence, aid effects, and per-player undercover records
 - Command menu actions for setup hideout selection, dynamic mission targets,
   mission runtime and persistence inspection, FIA support requests/cancel,
-  arsenal withdrawal, nearby vehicle garage capture, garage redeploy, simple
-  roster admin, and campaign reset
+  arsenal withdrawal, vehicle-cargo collection/unload, nearby vehicle garage
+  capture, build-mode garage redeploy, HQ runtime-asset rebuild, simple roster
+  admin, and campaign reset
 - Economy and enemy resource income now account for resource kind, priority,
   factories, ports, airfields, depots, radio towers, and police nodes
+- Area and vehicle loot services with eligible-item scanning, base-game
+  resource validation, blocked/finite-only/unlock policy checks, source item
+  removal, HQ-object protection, and vehicle cargo reports
+- Virtual garage scaffolding for safe root-vehicle capture, physical and
+  virtual cargo preservation, verified despawn before record storage, dry-ground
+  redeploy placement, runtime vehicle registration, and nearby field-vehicle
+  snapshot/restore during checkpoint/restore flow
+- Custom loadout editor path with server-authoritative HQ radius/member checks,
+  live equipment and storage nodes, compatible candidate lists, five fixed
+  personal save slots, `$profile:h-istasi/loadouts/v2` persistence, finite/INF
+  cost ledgers, atomic apply/rollback, issued-item tracking, death-loss
+  accounting, and removed external item purging
+- Mission-specific convoy outcome state for delivered cargo/captives, captured
+  vehicles, armored convoy garage handoff, ammo convoy ammo points, and outcome
+  de-dupe across reloads
 
 ## Next Playable Increment
 
@@ -75,12 +94,15 @@
   save/load
 - Replace the 4x-style alpha survey with exact unpacked Conflict Remixed
   marker-coordinate audit once a Workbench/PAC extraction path is available
-- Add proper Antistasi HQ spawn/loadout UI over the custom FIA spawn backend
+- Finish HST_Dev end-to-end smoke and UX polish for the custom loadout editor,
+  including live inventory edge cases and save/load confidence
+- Harden virtual garage/build scaffolding into a full vehicle progression loop
+  with ammo/repair/fuel source behavior and longer restart testing
 - Customize Petros appearance/loadout and replace tent/cache placeholders with
   authored h-istasi HQ entities
 - Add full player-facing member, guest, commander election, and admin UI
-- Replace physical MVP mission completion with mission-specific props, convoy
-  movement, captive interactions, and richer hold/clear checks
+- Replace remaining physical MVP mission completion shortcuts with
+  mission-specific props, richer hold/clear checks, and mission-family polish
 - Assign active groups real waypoints/routes and fold measured survivors back
   into abstract garrisons
 

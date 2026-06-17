@@ -6,6 +6,20 @@ h-istasi currently targets Arma Reforger base-game factions and resources only.
 Optional mod faction support can be added later, but no external faction,
 weapon, vehicle, or call-in addon is required by the current preset.
 
+`addon.gproj` declares only the Arma Reforger base-game project dependency
+GUID `58D0FB3206B6F859`. Base-game Scenario Framework, Conflict marker,
+faction, character, vehicle, UI, and resource prefabs referenced by h-istasi
+remain Bohemia Interactive content and are not redistributed as source assets
+by this addon.
+
+## h-istasi Project Assets
+
+Checked-in h-istasi scripts, configs, worlds, mission shells, prefabs, UI
+layouts, command/loadout editor code, object/image resources, and icon
+resources under `Assets/512` and `Assets/1254` are project-owned addon content.
+No third-party icon pack, UI framework, MSAR arsenal package, or external
+loadout-editor dependency is declared by the current project.
+
 ## Antistasi Community Edition
 
 h-istasi is an original Enfusion implementation inspired by Antistasi
@@ -31,8 +45,11 @@ h-istasi's custom loadout editor pays likeness to the Bacon Loadout Editor's
 presentation and interaction style: dark fullscreen editor, left-side slot and
 category navigation, character preview emphasis, amber selected rows, and
 footer controls. The h-istasi implementation is original and remains
-h-istasi-owned; no Bacon scripts, prefabs, UI layouts, packed assets, or
-dependency declarations are redistributed in this addon.
+h-istasi-owned: `HST_LoadoutEditorComponent`, `HST_LoadoutEditorService`, the
+HST loadout layout, profile save files, issued-item ledger, icon references,
+and HQ arsenal action filtering are authored for this addon. No Bacon scripts,
+prefabs, UI layouts, packed assets, or dependency declarations are
+redistributed in this addon.
 
 ## Overthrow
 
