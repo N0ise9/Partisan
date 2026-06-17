@@ -1,0 +1,22 @@
+GameEntity {
+ ID "4C9706C51A4F2D90"
+ components {
+  MeshObject "{4C9706C51A4F2D91}" {
+   Object "{D711B025189858ED}Assets/Objects/sphere.xob"
+   Materials {
+    MaterialAssignClass "{4C9706C51A4F2D92}" {
+     SourceMaterial "DefaultGeneratedMaterial"
+     AssignedMaterial "{E5D84E1C698E6462}Prefabs/HST/HST_LoadoutPreviewSkySphere.emat"
+    }
+   }
+   PixelSizeScale 10
+   CastShadow 0
+   CastFarShadow 0
+   RainOccluder 0
+   WetnessOccluder 0
+   ReceiveLight 0
+  }
+ }
+ coords 0 1 0
+ scale 8
+}

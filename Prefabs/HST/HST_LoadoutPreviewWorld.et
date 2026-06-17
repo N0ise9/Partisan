@@ -1,8 +1,8 @@
 GenericWorldEntity {
  ID "7A9A1B7F76424A9B"
  coords 0 0 0
- boundMins -20 -4 -20
- boundMaxs 20 20 20
+ boundMins 0 0 0
+ boundMaxs 0 0 0
  blockSize 200 1500 200
  SkyPreset "{3D4A18DE2DD3561F}Prefabs/HST/HST_LoadoutPreviewSky.emat"
  {
@@ -23,16 +23,14 @@ GenericWorldEntity {
    ManualHDRBrightnessLV 1
   }
   GenericEntity {
-   ID "7A9A1B7F76424A9F"
-   coords 0 -0.012 0
-   scale 5
+   ID "7A9A1B7F76424A9E"
    components {
-    MeshObject "{7A9A1B7F76424AA0}" {
+    MeshObject "{7A9A1B7F76424A9F}" {
      Object "{EAE920BF596EBC07}Assets/Objects/Plane.xob"
      Materials {
-      MaterialAssignClass "{7A9A1B7F76424AA1}" {
+      MaterialAssignClass "{7A9A1B7F76424AA0}" {
        SourceMaterial "DefaultGeneratedMaterial"
-       AssignedMaterial "{A5C1A952CE6B63A5}Prefabs/HST/HST_LoadoutPreviewGround.emat"
+       AssignedMaterial "{07C5EB16A92C4B40}Prefabs/HST/HST_LoadoutPreviewGround.emat"
       }
      }
      PixelSizeScale 10
@@ -42,30 +40,17 @@ GenericWorldEntity {
      WetnessOccluder 0
     }
    }
+   coords 0 -0.01 0
+   scale 5
   }
-  GenericEntity {
-   ID "7A9A1B7F76424AA2"
+  GameEntity : "{4C9706C51A4F2D93}Prefabs/HST/HST_LoadoutPreviewSkySphere.et" {
+   ID "7A9A1B7F76424AA1"
    coords 0 0 0
    scale 20
-   components {
-    MeshObject "{7A9A1B7F76424AA3}" {
-     Object "{D711B025189858ED}Assets/Objects/sphere.xob"
-     Materials {
-      MaterialAssignClass "{7A9A1B7F76424AA4}" {
-       SourceMaterial "DefaultGeneratedMaterial"
-       AssignedMaterial "{E5D84E1C698E6462}Prefabs/HST/HST_LoadoutPreviewSkySphere.emat"
-      }
-     }
-     CastShadow 0
-     CastFarShadow 0
-     RainOccluder 0
-     WetnessOccluder 0
-    }
-   }
   }
   GameEnvironmentProbeEntity : "{B6B6A21399C5571B}Prefabs/World/DefaultWorld/EnvProbe_Default.et" {
    ID "7A9A1B7F76424A9D"
-   coords 0 1 0
+   coords 0 0 0
    Type Local
    Refresh "Each frame"
    Rendering 0x21 0x1e

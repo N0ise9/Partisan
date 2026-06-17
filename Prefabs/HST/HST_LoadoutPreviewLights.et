@@ -1,13 +1,22 @@
 GenericEntity {
  ID "604FFDF1DE53BD1C"
  coords 0 0 0
+ components {
+  Hierarchy "{604FFDF1DE53BD1A}" {
+  }
+ }
  {
   LightEntity {
    ID "604FFDF1DE53BD1B"
+   components {
+    Hierarchy "{604FFDF1DE53BD19}" {
+    }
+   }
    coords 1.889 1.791 -2.187
    angles -13.132 -19.496 -0.229
    Color 0.657 0.893 1 0
    LV 8
+   CastShadow 0
    Type Point
    Radius 45
    SpotAngle 47.354

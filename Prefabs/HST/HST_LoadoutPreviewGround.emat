@@ -1,6 +1,20 @@
 MatPBRBasic {
- Color 0.11 0.12 0.12 1
+ Color 0.133 0.133 0.133 1
+ Sort translucent
+ AlphaTest 0.004
+ AlphaMul 0.999
+ BlendMode AlphaBlend
  RoughnessScale 0.92
- AOScale 0.78
+ AOScale 0.775
  DielectricReflectance 0.031
+ BCRMap "{93550F53CF86DDA6}Assets/_SharedData/Asphalt/ST_Asphalt_01_BCR.edds"
+ NMOMap "{AB8DB4C116F18F38}Assets/_SharedData/Asphalt/ST_Asphalt_01_NMO.edds"
+ DetailNormalPower 2
+ DetailNormalMap "{AB8DB4C116F18F38}Assets/_SharedData/Asphalt/ST_Asphalt_01_NMO.edds"
+ DetailNormalMapUVTransform MatUVTransform "{07C5EB16A92C4B41}" {
+  TilingU 2
+  TilingV 2
+ }
+ HeightMap "{93550F53CF86DDA6}Assets/_SharedData/Asphalt/ST_Asphalt_01_BCR.edds"
+ ParallaxScale 0.002
 }

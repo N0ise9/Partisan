@@ -1,8 +1,8 @@
 FrameWidgetClass "{7B2FD986A4D34110}" {
  Name "HST_LoadoutEditorRoot"
  {
-  RenderTargetWidgetClass "{7B2FD986A4D34111}" {
-   Name "HST_LoadoutPreview"
+  OverlayWidgetClass "{7B2FD986A4D34120}" {
+   Name "HST_LoadoutPreviewContainer"
    Slot FrameWidgetSlot "{7B2FD986A4D34112}" {
     Anchor 0 0 1 1
     OffsetLeft 0
@@ -10,7 +10,18 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     OffsetRight 0
     OffsetBottom 0
    }
-   Format "HDR High"
+   "Ignore Cursor" 1
+   {
+    RenderTargetWidgetClass "{7B2FD986A4D34111}" {
+     Name "HST_LoadoutPreview"
+     Slot OverlayWidgetSlot "{7B2FD986A4D34121}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+      Padding 0 0 -200 0
+     }
+     Format "HDR High"
+    }
+   }
   }
   FrameWidgetClass "{7B2FD986A4D34113}" {
    Name "HST_LoadoutUILayer"

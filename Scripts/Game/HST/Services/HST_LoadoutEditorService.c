@@ -605,7 +605,7 @@ class HST_LoadoutEditorService
 				continue;
 
 			string category = ResolveLoadoutSlotCategory(loadoutSlot);
-			string label = ResolveLoadoutSlotLabel(loadoutSlot, category);
+			string label = ResolveLoadoutSlotLabel(loadoutSlot, category, slot.GetAttachedEntity());
 			string focus = ResolveFocusForCategory(category);
 			string nodeId = NODE_LOADOUT_PREFIX + string.Format("%1", slotIndex);
 			AddLiveNodeFromSlot(session, nodeId, "", "slot", category, label, focus, slot.GetAttachedEntity(), true, true, true);
@@ -720,8 +720,8 @@ class HST_LoadoutEditorService
 			if (!slot || !slot.GetAttachedEntity())
 				continue;
 
-			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(slot.GetAttachedEntity().FindComponent(BaseInventoryStorageComponent));
-			if (!IsUsableDepositStorage(storage))
+			array<BaseInventoryStorageComponent> containerStorages = {};
+			if (FindCargoDepositStorages(slot.GetAttachedEntity(), containerStorages) <= 0)
 				continue;
 
 			string containerNodeId = NODE_STORAGE_PREFIX + string.Format("%1", slotIndex);
@@ -742,22 +742,22 @@ class HST_LoadoutEditorService
 			node.m_bCanDeposit = true;
 			node.m_bCanRemove = false;
 			node.m_iParentSlotIndex = slotIndex;
-			node.m_iUsedCapacity = CountStorageItems(storage);
-			node.m_iTotalCapacity = Math.Max(storage.GetSlotsCount(), node.m_iUsedCapacity);
+			node.m_iUsedCapacity = CountStorageItems(containerStorages);
+			node.m_iTotalCapacity = Math.Max(CountStorageSlots(containerStorages), node.m_iUsedCapacity);
 			session.m_aDraftNodes.Insert(node);
 
-			AddStorageContentNodes(session, storage, containerNodeId, slotIndex);
+			AddStorageContentNodes(session, containerStorages, containerNodeId, slotIndex);
 		}
 	}
 
-	protected void AddStorageContentNodes(HST_LoadoutEditorSessionState session, BaseInventoryStorageComponent storage, string parentNodeId, int containerSlotIndex)
+	protected void AddStorageContentNodes(HST_LoadoutEditorSessionState session, notnull array<BaseInventoryStorageComponent> storages, string parentNodeId, int containerSlotIndex)
 	{
-		if (!storage)
+		if (storages.Count() == 0)
 			return;
 
 		array<IEntity> contents = {};
 		array<IEntity> visited = {};
-		GatherStorageContentEntities(storage, contents, visited);
+		GatherStorageContentEntitiesFromStorages(storages, contents, visited);
 		for (int itemIndex = 0; itemIndex < contents.Count(); itemIndex++)
 		{
 			IEntity item = contents[itemIndex];
@@ -829,6 +829,34 @@ class HST_LoadoutEditorService
 		return slot;
 	}
 
+	protected BaseInventoryStorageComponent ResolveUsableDepositStorage(IEntity entity)
+	{
+		array<BaseInventoryStorageComponent> storages = {};
+		if (FindUsableDepositStorages(entity, storages) <= 0)
+			return null;
+
+		return storages[0];
+	}
+
+	protected int FindUsableDepositStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		if (!entity)
+			return 0;
+
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!IsUsableDepositStorage(storage) || outStorages.Find(storage) >= 0)
+				continue;
+
+			outStorages.Insert(storage);
+		}
+
+		return outStorages.Count();
+	}
+
 	protected int FindInventoryStoragesWithSlots(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
 	{
 		if (!entity)
@@ -862,10 +890,96 @@ class HST_LoadoutEditorService
 		if (SCR_UniversalInventoryStorageComponent.Cast(storage))
 			return true;
 
-		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_EQUIPMENT_ATTACHMENT))
+		return false;
+	}
+
+	protected bool IsCargoDepositStorage(BaseInventoryStorageComponent storage)
+	{
+		if (!storage || storage.GetSlotsCount() <= 0)
+			return false;
+
+		if (SCR_SalineStorageComponent.Cast(storage) || SCR_TourniquetStorageComponent.Cast(storage))
+			return false;
+
+		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_DEPOSIT))
+			return true;
+
+		if (SCR_UniversalInventoryStorageComponent.Cast(storage))
 			return true;
 
 		return false;
+	}
+
+	protected int FindCargoDepositStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		array<IEntity> visited = {};
+		FindCargoDepositStoragesRecursive(entity, outStorages, visited, 0);
+		return outStorages.Count();
+	}
+
+	protected void FindCargoDepositStoragesRecursive(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<IEntity> visited, int depth)
+	{
+		if (!entity || depth > 8 || visited.Find(entity) >= 0)
+			return;
+
+		visited.Insert(entity);
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!storage || storage.GetSlotsCount() <= 0)
+				continue;
+
+			if (IsCargoDepositStorage(storage) && outStorages.Find(storage) < 0)
+				outStorages.Insert(storage);
+
+			if (IsStructuralAttachmentStorage(storage))
+				FindCargoDepositStoragesInAttachedEntities(storage, outStorages, visited, depth + 1);
+		}
+	}
+
+	protected bool IsStructuralAttachmentStorage(BaseInventoryStorageComponent storage)
+	{
+		if (!storage || storage.GetSlotsCount() <= 0)
+			return false;
+
+		return SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_EQUIPMENT_ATTACHMENT);
+	}
+
+	protected void FindCargoDepositStoragesInAttachedEntities(BaseInventoryStorageComponent storage, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<IEntity> visited, int depth)
+	{
+		array<IEntity> attached = {};
+		array<IEntity> attachedVisited = {};
+		GatherStorageContentEntities(storage, attached, attachedVisited);
+		foreach (IEntity child : attached)
+			FindCargoDepositStoragesRecursive(child, outStorages, visited, depth);
+	}
+
+	protected int FindRefundableContentStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		FindCargoDepositStorages(entity, outStorages);
+		if (!entity || !BaseWeaponComponent.Cast(entity.FindComponent(BaseWeaponComponent)))
+			return outStorages.Count();
+
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!SCR_WeaponAttachmentsStorageComponent.Cast(storage) || outStorages.Find(storage) >= 0)
+				continue;
+
+			outStorages.Insert(storage);
+		}
+
+		return outStorages.Count();
+	}
+
+	protected void GatherStorageContentEntitiesFromStorages(notnull array<BaseInventoryStorageComponent> storages, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		foreach (BaseInventoryStorageComponent storage : storages)
+			GatherStorageContentEntities(storage, outItems, visited);
 	}
 
 	protected void GatherStorageContentEntities(BaseInventoryStorageComponent storage, notnull array<IEntity> outItems, notnull array<IEntity> visited)
@@ -903,12 +1017,24 @@ class HST_LoadoutEditorService
 		outItems.Insert(item);
 	}
 
-	protected int CountStorageItems(BaseInventoryStorageComponent storage)
+	protected int CountStorageItems(notnull array<BaseInventoryStorageComponent> storages)
 	{
 		array<IEntity> contents = {};
 		array<IEntity> visited = {};
-		GatherStorageContentEntities(storage, contents, visited);
+		GatherStorageContentEntitiesFromStorages(storages, contents, visited);
 		return contents.Count();
+	}
+
+	protected int CountStorageSlots(notnull array<BaseInventoryStorageComponent> storages)
+	{
+		int count;
+		foreach (BaseInventoryStorageComponent storage : storages)
+		{
+			if (storage)
+				count += Math.Max(0, storage.GetSlotsCount());
+		}
+
+		return count;
 	}
 
 	protected string ResolveEntityPrefab(IEntity entity)
@@ -922,6 +1048,9 @@ class HST_LoadoutEditorService
 	protected string ResolveEntityDisplayName(IEntity entity, string prefab = "")
 	{
 		string displayName;
+		if (!entity)
+			return HST_DisplayNameService.ResolveItemDisplayName(null, prefab, displayName);
+
 		InventoryItemComponent itemComponent = InventoryItemComponent.Cast(entity.FindComponent(InventoryItemComponent));
 		if (itemComponent && itemComponent.GetUIInfo())
 			displayName = itemComponent.GetUIInfo().GetName();
@@ -979,7 +1108,7 @@ class HST_LoadoutEditorService
 		return "clothing";
 	}
 
-	protected string ResolveLoadoutSlotLabel(LoadoutSlotInfo loadoutSlot, string category)
+	protected string ResolveLoadoutSlotLabel(LoadoutSlotInfo loadoutSlot, string category, IEntity attachedEntity = null)
 	{
 		if (category == "headgear")
 			return "Hat";
@@ -987,8 +1116,8 @@ class HST_LoadoutEditorService
 			return "Jacket";
 		if (category == "vest")
 		{
-			if (IsLoadoutSlotWebbing(loadoutSlot))
-				return "Vest Webbing";
+			if (IsLoadoutSlotWebbing(loadoutSlot, attachedEntity))
+				return "Webbing";
 
 			return "Armored Vest";
 		}
@@ -1007,23 +1136,31 @@ class HST_LoadoutEditorService
 		return "Clothing";
 	}
 
-	protected bool IsLoadoutSlotWebbing(LoadoutSlotInfo loadoutSlot)
+	protected bool IsLoadoutSlotWebbing(LoadoutSlotInfo loadoutSlot, IEntity attachedEntity = null)
 	{
+		if (IsWebbingText(ResolveEntityDisplayName(attachedEntity, ResolveEntityPrefab(attachedEntity))) || IsWebbingText(ResolveEntityPrefab(attachedEntity)))
+			return true;
+
 		if (!loadoutSlot)
 			return false;
 
-		string source = loadoutSlot.GetSourceName();
-		source.ToLower();
-		if (source.Contains("webbing") || source.Contains("belt"))
+		if (IsWebbingText(loadoutSlot.GetSourceName()))
 			return true;
 
 		LoadoutAreaType area = loadoutSlot.GetAreaType();
 		if (!area)
 			return false;
 
-		string areaName = area.Type().ToString();
-		areaName.ToLower();
-		return areaName.Contains("webbing") || areaName.Contains("belt");
+		return IsWebbingText(area.Type().ToString());
+	}
+
+	protected bool IsWebbingText(string value)
+	{
+		if (value.IsEmpty())
+			return false;
+
+		value.ToLower();
+		return value.Contains("webbing") || value.Contains("belt") || value.Contains("alice") || value.Contains("lbe") || value.Contains("harness") || value.Contains("chest_rig") || value.Contains("chest rig");
 	}
 
 	protected string ResolveFocusForCategory(string category)
@@ -1236,12 +1373,13 @@ class HST_LoadoutEditorService
 			return;
 
 		visited.Insert(entity);
-		BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(entity.FindComponent(BaseInventoryStorageComponent));
-		if (storage)
+		array<BaseInventoryStorageComponent> storages = {};
+		FindRefundableContentStorages(entity, storages);
+		if (storages.Count() > 0)
 		{
 			array<IEntity> contents = {};
 			array<IEntity> contentVisited = {};
-			GatherStorageContentEntities(storage, contents, contentVisited);
+			GatherStorageContentEntitiesFromStorages(storages, contents, contentVisited);
 			foreach (IEntity content : contents)
 				BuildRemovedEntityLedgerRecursive(content, prefabs, categories, displayNames, visited, depth + 1);
 		}
@@ -1411,10 +1549,6 @@ class HST_LoadoutEditorService
 	protected bool AddItemToLiveStorage(SCR_InventoryStorageManagerComponent inventory, IEntity playerEntity, string nodeId, string itemPrefab, out string failure, HST_CampaignState state = null, HST_ArsenalService arsenal = null, string identityId = "")
 	{
 		failure = "";
-		BaseInventoryStorageComponent storage = ResolveLiveStorageTarget(playerEntity, nodeId, failure);
-		if (!storage)
-			return false;
-
 		ResourceName resourceName = itemPrefab;
 		Resource loaded = Resource.Load(resourceName);
 		if (!loaded)
@@ -1433,7 +1567,23 @@ class HST_LoadoutEditorService
 			return false;
 		}
 
-		BaseInventoryStorageComponent targetStorage = inventory.FindStorageForInsert(itemEntity, storage, EStoragePurpose.PURPOSE_ANY);
+		ClearSpawnedCargoStorageContents(itemEntity);
+
+		array<BaseInventoryStorageComponent> storageTargets = {};
+		if (ResolveLiveStorageTargets(playerEntity, nodeId, storageTargets, failure) <= 0)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(itemEntity);
+			return false;
+		}
+
+		BaseInventoryStorageComponent targetStorage;
+		foreach (BaseInventoryStorageComponent candidateStorage : storageTargets)
+		{
+			targetStorage = inventory.FindStorageForInsert(itemEntity, candidateStorage, EStoragePurpose.PURPOSE_ANY);
+			if (targetStorage)
+				break;
+		}
+
 		if (!targetStorage)
 		{
 			SCR_EntityHelper.DeleteEntityAndChildren(itemEntity);
@@ -1475,6 +1625,8 @@ class HST_LoadoutEditorService
 			return false;
 		}
 
+		ClearSpawnedCargoStorageContents(itemEntity);
+
 		HST_LoadoutEditorInsertCallback callback = new HST_LoadoutEditorInsertCallback();
 		ConfigureInsertCallback(callback, state, arsenal, identityId, itemPrefab);
 		callback.m_Inventory = inventory;
@@ -1493,6 +1645,31 @@ class HST_LoadoutEditorService
 		callback.m_TemporaryEntity = itemEntity;
 		inventory.TryInsertItemInStorage(itemEntity, storage, slot.GetID(), callback);
 		return true;
+	}
+
+	protected int ClearSpawnedCargoStorageContents(IEntity itemEntity)
+	{
+		if (!itemEntity)
+			return 0;
+
+		array<BaseInventoryStorageComponent> storages = {};
+		if (FindCargoDepositStorages(itemEntity, storages) <= 0)
+			return 0;
+
+		array<IEntity> contents = {};
+		array<IEntity> visited = {};
+		GatherStorageContentEntitiesFromStorages(storages, contents, visited);
+		int removed;
+		foreach (IEntity content : contents)
+		{
+			if (!content || content == itemEntity)
+				continue;
+
+			SCR_EntityHelper.DeleteEntityAndChildren(content);
+			removed++;
+		}
+
+		return removed;
 	}
 
 	protected SCR_InventoryStorageManagerComponent ResolveInventoryManager(IEntity playerEntity, out string failure)
@@ -1636,11 +1813,20 @@ class HST_LoadoutEditorService
 
 	protected BaseInventoryStorageComponent ResolveLiveStorageTarget(IEntity playerEntity, string nodeId, out string failure)
 	{
+		array<BaseInventoryStorageComponent> storages = {};
+		if (ResolveLiveStorageTargets(playerEntity, nodeId, storages, failure) <= 0)
+			return null;
+
+		return storages[0];
+	}
+
+	protected int ResolveLiveStorageTargets(IEntity playerEntity, string nodeId, notnull array<BaseInventoryStorageComponent> outStorages, out string failure)
+	{
 		failure = "";
 		if (!playerEntity || nodeId.IsEmpty())
 		{
 			failure = "missing storage target";
-			return null;
+			return 0;
 		}
 
 		int containerSlotIndex = -1;
@@ -1652,31 +1838,30 @@ class HST_LoadoutEditorService
 		if (containerSlotIndex < 0)
 		{
 			failure = "storage target id malformed";
-			return null;
+			return 0;
 		}
 
 		SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(playerEntity.FindComponent(SCR_CharacterInventoryStorageComponent));
 		if (!characterStorage || containerSlotIndex >= characterStorage.GetSlotsCount())
 		{
 			failure = "storage container slot not found";
-			return null;
+			return 0;
 		}
 
 		IEntity containerEntity = characterStorage.GetSlot(containerSlotIndex).GetAttachedEntity();
 		if (!containerEntity)
 		{
 			failure = "selected storage container is empty";
-			return null;
+			return 0;
 		}
 
-		BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(containerEntity.FindComponent(BaseInventoryStorageComponent));
-		if (!IsUsableDepositStorage(storage))
+		if (FindCargoDepositStorages(containerEntity, outStorages) <= 0)
 		{
 			failure = "selected item has no usable storage";
-			return null;
+			return 0;
 		}
 
-		return storage;
+		return outStorages.Count();
 	}
 
 	protected bool ResolveLiveStorageItemTarget(IEntity playerEntity, string nodeId, out IEntity targetEntity, out string failure)
@@ -1691,13 +1876,13 @@ class HST_LoadoutEditorService
 			return false;
 		}
 
-		BaseInventoryStorageComponent storage = ResolveLiveStorageTarget(playerEntity, NODE_STORAGE_PREFIX + string.Format("%1", containerSlotIndex), failure);
-		if (!storage)
+		array<BaseInventoryStorageComponent> storages = {};
+		if (ResolveLiveStorageTargets(playerEntity, NODE_STORAGE_PREFIX + string.Format("%1", containerSlotIndex), storages, failure) <= 0)
 			return false;
 
 		array<IEntity> contents = {};
 		array<IEntity> visited = {};
-		GatherStorageContentEntities(storage, contents, visited);
+		GatherStorageContentEntitiesFromStorages(storages, contents, visited);
 		if (itemIndex < 0 || itemIndex >= contents.Count())
 		{
 			failure = "stored item not found";
@@ -1832,16 +2017,22 @@ class HST_LoadoutEditorService
 			return false;
 
 		string failure;
-		BaseInventoryStorageComponent storage = ResolveLiveStorageTarget(playerEntity, nodeId, failure);
-		if (!storage)
+		array<BaseInventoryStorageComponent> storages = {};
+		if (ResolveLiveStorageTargets(playerEntity, nodeId, storages, failure) <= 0)
 			return false;
 
 		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(playerEntity.FindComponent(SCR_InventoryStorageManagerComponent));
 		if (!inventory)
 			return false;
 
-		BaseInventoryStorageComponent targetStorage = inventory.FindStorageForInsert(temp, storage, EStoragePurpose.PURPOSE_ANY);
-		return targetStorage != null;
+		foreach (BaseInventoryStorageComponent storage : storages)
+		{
+			BaseInventoryStorageComponent targetStorage = inventory.FindStorageForInsert(temp, storage, EStoragePurpose.PURPOSE_ANY);
+			if (targetStorage)
+				return true;
+		}
+
+		return false;
 	}
 
 	protected bool IsMagazineCompatibleWithEquippedWeapons(IEntity playerEntity, IEntity candidate)

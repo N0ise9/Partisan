@@ -62,7 +62,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int TEMPLATE_PAGE_NEXT_WIDGET_ID = 9210;
 	static const int CLEAR_DRAFT_WIDGET_ID = 9211;
 	static const int CAMERA_WIDGET_ID = 9212;
-	static const int SPOTLIGHT_WIDGET_ID = 9213;
 	static const int BACK_WIDGET_ID = 9214;
 	static const int SWAP_WIDGET_ID = 9215;
 	static const int RESET_PREVIEW_WIDGET_ID = 9216;
@@ -84,10 +83,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int SLOTS_PER_PAGE = 9;
 	static const int TEMPLATES_PER_PAGE = 6;
 	static const int PREVIEW_CAMERA = 0;
-	static const int PREVIEW_LIGHT_DELAY_MS = 120;
-	static const int PREVIEW_DRESS_DELAY_MS = 250;
+	static const int PREVIEW_LIGHT_DELAY_MS = 500;
+	static const int PREVIEW_DRESS_DELAY_MS = 500;
 	static const int PREVIEW_BOUNDS_RETRY_DELAY_MS = 120;
 	static const int PREVIEW_BOUNDS_RETRY_COUNT = 4;
+	static const int POST_ACTION_REFRESH_DELAY_MS = 350;
 	static const ResourceName ICON_CLOTHING = "{A9AFA05DD269660A}Assets/512/clothing_icon.edds";
 	static const ResourceName ICON_WEAPONS = "{4F051820B3912C59}Assets/512/weapons_icon.edds";
 	static const ResourceName ICON_ATTACHMENTS = "{E77BB529AFB78928}Assets/512/attachments_icon.edds";
@@ -115,8 +115,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected string m_sPreviewPosition;
 	protected string m_sLastResult;
 	protected bool m_bPreviewSpawned;
-	protected bool m_bSpotlightEnabled = true;
 	protected bool m_bCandidateMode;
+	protected bool m_bPostActionRefreshQueued;
 	protected int m_iPreviewItemCount;
 	protected int m_iDraftSlotCount;
 	protected int m_iDraftItemCount;
@@ -203,10 +203,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected bool m_bPreviewLightSpawnQueued;
 	protected bool m_bPreviewLightAnglesInitialized;
 	protected vector m_vPreviewLightBaseAngles;
-	protected vector m_vCameraTargetPosition = "4 1.4 4";
-	protected vector m_vCameraTargetLook = "0 1.2 0";
-	protected vector m_vCameraCurrentPosition = "4 1.4 4";
-	protected vector m_vCameraCurrentLook = "0 1.2 0";
+	protected vector m_vCameraTargetPosition = "5 1 5";
+	protected vector m_vCameraTargetLook = "0 0.5 0";
+	protected vector m_vCameraCurrentPosition = "5 1 5";
+	protected vector m_vCameraCurrentLook = "0 0.5 0";
+	protected vector m_vPreviewedEntityCenterWorld = vector.Zero;
+	protected float m_fPreviewedEntitySize;
+	protected float m_fPreviewedEntityDefaultDistance = 1.0;
+	protected vector m_vCurrentCameraLookPosition = "0 0.5 0";
+	protected vector m_aCurrentCameraMatrix[4];
+	protected float m_fCameraDistanceToTarget;
+	protected float m_fCameraLookDistanceToTarget;
+	protected vector m_vCameraTargetDirection = "1 0 1";
+	protected float m_fCameraTargetDistance = 1.0;
 	protected bool m_bCameraInitialized;
 	protected int m_iFrameSerial;
 	protected int m_iLastActivatedWidgetId;
@@ -272,7 +281,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sPreviewSourceMode = PREVIEW_MODE_CHARACTER;
 		m_sPreviewRenderKey = "";
 		m_bCameraInitialized = false;
-		m_bSpotlightEnabled = true;
+		m_bPostActionRefreshQueued = false;
 		m_iCameraMode = 0;
 		m_fPreviewYawDegrees = 0;
 		TryUnequipHeldItem(userEntity);
@@ -322,7 +331,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 			else if (m_bCandidateMode)
 			{
-				m_bCandidateMode = false;
+				if (!ReturnFromAttachmentCandidateToWeapon())
+					m_bCandidateMode = false;
 				m_iItemPage = 0;
 			}
 			else if (m_sEditorMode == "attachments" && !m_sSelectedNodeId.IsEmpty())
@@ -339,6 +349,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				m_sSelectedNodeId = "";
 			}
 			m_iItemPage = 0;
+			UpdatePreviewCamera(true);
 			RenderEditor();
 			return true;
 		}
@@ -354,19 +365,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return true;
 		}
 
-		if (widgetId == SPOTLIGHT_WIDGET_ID)
-		{
-			m_bSpotlightEnabled = !m_bSpotlightEnabled;
-			RefreshPreviewLightState();
-			RenderEditor();
-			return true;
-		}
-
 		if (widgetId == RESET_PREVIEW_WIDGET_ID)
 		{
 			m_iCameraMode = 0;
 			m_fPreviewYawDegrees = 0;
-			m_bSpotlightEnabled = true;
 			m_sSelectedSlotId = "";
 			m_sSelectedNodeId = "";
 			m_bCandidateMode = false;
@@ -383,10 +385,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (m_fPreviewYawDegrees >= 360.0)
 				m_fPreviewYawDegrees = 0;
 
-			ApplyPreviewEntityRotation();
-			if (m_PreviewEntity)
-				PositionPreviewEntityAtStage(m_PreviewEntity, "0 1 0");
-			UpdatePreviewCamera(true);
+			UpdatePreviewCameraImmediate(true, "rotate");
 			RenderEditor();
 			return true;
 		}
@@ -712,7 +711,35 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ParseEditorPayload(payload);
 		if (m_bCandidateMode || m_sEditorMode == "storage")
 			EnsureCandidatePayloadForSelectedNode();
+		if (ShouldQueuePostActionRefresh(lastResult))
+			QueuePostActionRefresh();
 		RenderEditor();
+	}
+
+	protected bool ShouldQueuePostActionRefresh(string lastResult)
+	{
+		if (lastResult.IsEmpty())
+			return false;
+
+		return lastResult.Contains("| set ") || lastResult.Contains("| added ") || lastResult.Contains("| removed ") || lastResult.Contains("| cleared ") || lastResult.Contains("| applied ");
+	}
+
+	protected void QueuePostActionRefresh()
+	{
+		if (m_bPostActionRefreshQueued)
+			return;
+
+		m_bPostActionRefreshQueued = true;
+		GetGame().GetCallqueue().CallLater(RequestPostActionRefresh, POST_ACTION_REFRESH_DELAY_MS, false);
+	}
+
+	protected void RequestPostActionRefresh()
+	{
+		m_bPostActionRefreshQueued = false;
+		if (!m_bEditorOpen)
+			return;
+
+		RequestServerAction("loadout_editor_refresh", "");
 	}
 
 	void CloseEditor(bool requestServer)
@@ -724,6 +751,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			RequestServerAction("loadout_editor_close", "");
 
 		m_bEditorOpen = false;
+		m_bPostActionRefreshQueued = false;
 		ClearWidgets();
 		DeleteEditorRoot();
 		DeletePreviewWorld();
@@ -789,8 +817,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		RefreshPreviewWorldLoadout();
 
 		Widget uiRoot = ResolveUILayer(root);
-		CreateRectWidget(workspace, uiRoot, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x12000406, 1.0, 0);
-		CreateRectWidget(workspace, uiRoot, 0, 0, m_iEditorWidth, m_iEditorHeight, 0x06000000, 1.0, 0);
 		CreateButton(workspace, uiRoot, "ESC", 32, Math.Max(320, (m_iEditorHeight / 2) + 30), 58, 32, CLOSE_WIDGET_ID);
 		CreateTextWidget(workspace, uiRoot, "<", 44, Math.Max(286, (m_iEditorHeight / 2) - 22), 34, 44, 36, 0xFFC4953B, BACK_WIDGET_ID, true);
 
@@ -832,7 +858,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_UILayerWidget = root.FindAnyWidget("HST_LoadoutUILayer");
 
 		if (m_UILayerWidget)
+		{
+			m_UILayerWidget.SetZOrder(10);
 			return m_UILayerWidget;
+		}
 
 		return root;
 	}
@@ -1054,9 +1083,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void RenderPreviewStage(WorkspaceWidget workspace, Widget root)
 	{
-		if (!m_bSpotlightEnabled)
-			CreateRectWidget(workspace, root, 500, 0, Math.Max(780, m_iEditorWidth - 500), m_iEditorHeight, 0xAA020507, 0.36, 0);
-
 		string toast = BuildStageToast();
 		if (!toast.IsEmpty())
 			CreateTextWidget(workspace, root, ShortenText(toast, 58), Math.Max(560, (m_iEditorWidth / 2) - 190), 54, 460, 24, 15, 0xFFEFC16D, 0, true);
@@ -1214,9 +1240,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 		CreateTextWidget(workspace, root, "Camera", 126, 232, 88, 20, 13, 0xFFFFD166, 0, true);
 		CreateTextWidget(workspace, root, BuildCameraModeLabel(), 220, 232, 160, 20, 13, 0xFFE2E6E8, 0, false);
-		CreateTextWidget(workspace, root, "Spotlight", 126, 268, 88, 20, 13, 0xFFFFD166, 0, true);
-		CreateTextWidget(workspace, root, BuildSpotlightLabel(), 220, 268, 160, 20, 13, 0xFFE2E6E8, 0, false);
-		CreateTextWidget(workspace, root, ShortenText(BuildStageToast(), 48), 126, 326, 280, 54, 13, 0xFFD7B66F, 0, false);
+		CreateTextWidget(workspace, root, ShortenText(BuildStageToast(), 48), 126, 290, 280, 54, 13, 0xFFD7B66F, 0, false);
 		CreateTextWidget(workspace, root, "Preview focus", 126, 424, 112, 20, 13, 0xFFFFD166, 0, true);
 		CreateTextWidget(workspace, root, ShortenText(BuildSelectedPreviewTitle(), 32), 242, 424, 180, 20, 13, 0xFFE2E6E8, 0, false);
 		CreateTextWidget(workspace, root, "Rotation", 126, 460, 112, 20, 13, 0xFFFFD166, 0, true);
@@ -1238,8 +1262,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			actionWidgetId = APPLY_WIDGET_ID;
 		}
 		CreateButton(workspace, root, actionLabel, buttonLeft + 58, footerTop + 24, 92, 30, actionWidgetId);
-		CreateButton(workspace, root, BuildSpotlightLabel(), buttonLeft + 164, footerTop + 20, 104, 38, SPOTLIGHT_WIDGET_ID);
-		CreateButton(workspace, root, BuildCameraModeLabel(), buttonLeft + 282, footerTop + 20, 88, 38, CAMERA_WIDGET_ID);
+		CreateButton(workspace, root, BuildCameraModeLabel(), buttonLeft + 164, footerTop + 20, 88, 38, CAMERA_WIDGET_ID);
 		if (m_sEditorMode == "save")
 		{
 			CreateButton(workspace, root, "Save", buttonLeft - 182, footerTop + 24, 72, 30, SAVE_WIDGET_ID);
@@ -2553,6 +2576,28 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sSelectedNodeId = "";
 	}
 
+	protected bool ReturnFromAttachmentCandidateToWeapon()
+	{
+		if (m_sEditorMode != "attachments")
+			return false;
+
+		int selectedNodeIndex = FindSelectedNodeIndex();
+		if (selectedNodeIndex < 0 || selectedNodeIndex >= m_aNodeKinds.Count())
+			return false;
+
+		if (m_aNodeKinds[selectedNodeIndex] != "attachment")
+			return false;
+
+		if (selectedNodeIndex >= m_aNodeParents.Count() || m_aNodeParents[selectedNodeIndex].IsEmpty())
+			return false;
+
+		m_sSelectedNodeId = m_aNodeParents[selectedNodeIndex];
+		m_sSelectedSlotId = "";
+		m_sSelectedCategory = "attachment";
+		m_bCandidateMode = false;
+		return true;
+	}
+
 	protected string BuildStorageTargetLabel()
 	{
 		int nodeIndex = FindSelectedNodeIndex();
@@ -2613,11 +2658,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected string BuildPreviewMetaLine()
 	{
-		string light = "spotlight off";
-		if (m_bSpotlightEnabled)
-			light = "spotlight on";
-
-		return string.Format("%1 | %2 | %3", BuildCameraModeLabel(), light, ShortenText(m_sPreviewStatus, 44));
+		return string.Format("%1 | %2", BuildCameraModeLabel(), ShortenText(m_sPreviewStatus, 44));
 	}
 
 	protected string BuildCameraModeLabel()
@@ -2628,14 +2669,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "Weapon";
 
 		return "Camera";
-	}
-
-	protected string BuildSpotlightLabel()
-	{
-		if (m_bSpotlightEnabled)
-			return "Spotlight";
-
-		return "Light Off";
 	}
 
 	protected int FindSelectedSlotIndex()
@@ -2820,6 +2853,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		m_PreviewWidget.SetVisible(true);
+		m_PreviewWidget.SetOpacity(1.0);
+		m_PreviewWidget.SetZOrder(0);
 	}
 
 	protected void EnsurePreviewWorld()
@@ -2839,8 +2874,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				m_PreviewWorld.SetCameraNearPlane(PREVIEW_CAMERA, 0.001);
 				m_PreviewWorld.SetCameraFarPlane(PREVIEW_CAMERA, 150);
 				m_PreviewWorld.SetCameraVerticalFOV(PREVIEW_CAMERA, 40);
+				ResetPreviewCameraToReferenceDefault();
 				SpawnPreviewStage();
-				QueuePreviewLightSpawn();
 			}
 		}
 
@@ -2848,8 +2883,33 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			m_PreviewWidget.SetWorld(m_PreviewWorld, PREVIEW_CAMERA);
 			RefreshPreviewLightState();
-			UpdatePreviewCamera(false);
+			if (m_PreviewEntity)
+				UpdatePreviewCamera(false);
 		}
+	}
+
+	protected void ResetPreviewCameraToReferenceDefault()
+	{
+		if (!m_PreviewWorld)
+			return;
+
+		vector camera = "5 1 5";
+		vector look = "0 0.5 0";
+		m_vCameraTargetPosition = camera;
+		m_vCameraTargetLook = look;
+		m_vCameraCurrentPosition = camera;
+		m_vCameraCurrentLook = look;
+		m_vCurrentCameraLookPosition = look;
+		m_vCameraTargetDirection = vector.Direction(look, camera).Normalized();
+		m_fCameraTargetDistance = vector.Distance(look, camera);
+		m_bCameraInitialized = true;
+		vector mat[4];
+		mat[3] = camera;
+		SCR_Math3D.LookAt(camera, look, vector.Up, mat);
+		for (int i = 0; i < 4; i++)
+			m_aCurrentCameraMatrix[i] = mat[i];
+		m_PreviewWorld.SetCameraEx(PREVIEW_CAMERA, mat);
+		UpdatePreviewLightAngles();
 	}
 
 	protected void SpawnPreviewStage()
@@ -2871,7 +2931,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void QueuePreviewLightSpawn()
 	{
-		if (!m_PreviewWorld || !m_bSpotlightEnabled || m_PreviewLightEntity || m_bPreviewLightSpawnQueued)
+		if (!m_PreviewWorld || m_PreviewLightEntity || m_bPreviewLightSpawnQueued)
 			return;
 
 		m_bPreviewLightSpawnQueued = true;
@@ -2881,7 +2941,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void SpawnPreviewLight()
 	{
 		m_bPreviewLightSpawnQueued = false;
-		if (!m_PreviewWorld || !m_bSpotlightEnabled || m_PreviewLightEntity)
+		if (!m_PreviewWorld || m_PreviewLightEntity)
 			return;
 
 		Resource lightResource = Resource.Load(PREVIEW_LIGHTS_PREFAB);
@@ -2907,12 +2967,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void RefreshPreviewLightState()
 	{
-		if (!m_bSpotlightEnabled)
-		{
-			DeletePreviewLight();
-			return;
-		}
-
 		if (!m_PreviewLightEntity)
 			QueuePreviewLightSpawn();
 		else
@@ -2944,10 +2998,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		IEntity previewSource;
 		string previewMode;
 		string previewLabel;
-		if (ResolvePreviewSource(previewSource, previewMode, previewLabel) && previewMode == PREVIEW_MODE_ENTITY && TryCreateLivePreviewEntity(previewSource, previewMode, previewLabel))
+		if (ResolvePreviewSource(previewSource, previewMode, previewLabel) && TryCreateLivePreviewEntity(previewSource, previewMode, previewLabel))
 			return;
 
-		m_sPreviewStatus = "building mannequin preview";
+		m_sPreviewStatus = "building fallback mannequin";
 		RefreshFallbackPreviewMannequin();
 	}
 
@@ -2979,6 +3033,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return false;
 		}
 
+		ResetPreviewCameraToReferenceDefault();
 		m_PreviewEntity = previewItem.CreatePreviewEntity(m_PreviewWorld, PREVIEW_CAMERA);
 		if (!m_PreviewEntity)
 		{
@@ -2991,10 +3046,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sPreviewSourceMode = previewMode;
 		if (previewMode == PREVIEW_MODE_ENTITY)
 			m_PreviewEntity.SetOrigin(vector.Up);
-		ApplyPreviewEntityRotation();
 		m_PreviewEntity.Update();
 		SetPreviewEntityQualityRecursive(m_PreviewEntity);
-		if (!PositionPreviewEntityAtStage(m_PreviewEntity, "0 1 0"))
+		vector debugMins;
+		vector debugMaxs;
+		m_PreviewEntity.GetWorldBounds(debugMins, debugMaxs);
+		Print(string.Format("h-istasi preview | mode=%1 source=%2 preview=%3 mins=%4 maxs=%5 size=%6 world=%7 light=%8", previewMode, previewSource, m_PreviewEntity, debugMins, debugMaxs, vector.Distance(debugMins, debugMaxs), m_PreviewWorld, m_PreviewLightEntity));
+		if (!HasUsablePreviewBounds(m_PreviewEntity))
 		{
 			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewEntity);
 			m_PreviewEntity = null;
@@ -3012,7 +3070,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		else
 			m_sPreviewStatus = "preview live character";
 
-		UpdatePreviewCamera(true);
+		UpdatePreviewedEntityMetrics();
+		UpdatePreviewCameraImmediate(true, "live");
 		return true;
 	}
 
@@ -3117,10 +3176,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		m_PreviewEntity.SetOrigin(vector.Up);
-		ApplyPreviewEntityRotation();
 		m_PreviewEntity.Update();
 		SetPreviewEntityQualityRecursive(m_PreviewEntity);
-		if (!PositionPreviewEntityAtStage(m_PreviewEntity, "0 1 0"))
+		if (!HasUsablePreviewBounds(m_PreviewEntity))
 		{
 			if (retryCount < PREVIEW_BOUNDS_RETRY_COUNT)
 			{
@@ -3140,7 +3198,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		else
 			m_sPreviewStatus = string.Format("preview skipped %1", ShortenText(firstFailure, 34));
 
-		UpdatePreviewCamera(true);
+		UpdatePreviewedEntityMetrics();
+		UpdatePreviewCameraImmediate(true, "fallback");
 	}
 
 	protected IEntity CreatePreviewCloneFromDressedSource(IEntity sourceCharacter)
@@ -3152,18 +3211,35 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!previewItem)
 			return null;
 
+		ResetPreviewCameraToReferenceDefault();
 		return previewItem.CreatePreviewEntity(m_PreviewWorld, PREVIEW_CAMERA);
 	}
 
-	protected void ApplyPreviewEntityRotation()
+	protected bool HasUsablePreviewBounds(IEntity entity)
 	{
+		if (!entity)
+			return false;
+
+		vector mins;
+		vector maxs;
+		entity.GetWorldBounds(mins, maxs);
+		return vector.Distance(mins, maxs) > 0.1;
+	}
+
+	protected void UpdatePreviewedEntityMetrics()
+	{
+		m_vPreviewedEntityCenterWorld = vector.Zero;
+		m_fPreviewedEntitySize = 0;
+		m_fPreviewedEntityDefaultDistance = 1.0;
 		if (!m_PreviewEntity)
 			return;
 
-		vector angles = "0 0 0";
-		angles[0] = m_fPreviewYawDegrees;
-		m_PreviewEntity.SetAngles(angles);
-		m_PreviewEntity.Update();
+		vector mins;
+		vector maxs;
+		m_PreviewEntity.GetWorldBounds(mins, maxs);
+		m_vPreviewedEntityCenterWorld = vector.Lerp(mins, maxs, 0.5);
+		m_fPreviewedEntitySize = vector.Distance(mins, maxs);
+		m_fPreviewedEntityDefaultDistance = Math.Max(1.0, m_fPreviewedEntitySize * 1.5);
 	}
 
 	protected void SetPreviewEntityQualityRecursive(IEntity entity)
@@ -3408,13 +3484,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (!ParseTwoPreviewNodeIndexes(nodeId, NODE_STORAGE_ITEM_PREFIX, containerSlotIndex, itemIndex))
 				return false;
 
-			BaseInventoryStorageComponent storage = ResolvePreviewStorageTarget(character, containerSlotIndex);
-			if (!storage)
+			array<BaseInventoryStorageComponent> storages = {};
+			if (ResolvePreviewStorageTargets(character, NODE_STORAGE_PREFIX + string.Format("%1", containerSlotIndex), storages) <= 0)
 				return false;
 
 			array<IEntity> contents = {};
 			array<IEntity> visited = {};
-			GatherPreviewStorageContentEntities(storage, contents, visited);
+			GatherPreviewStorageContentEntitiesFromStorages(storages, contents, visited);
 			if (itemIndex < 0 || itemIndex >= contents.Count())
 				return false;
 
@@ -3516,15 +3592,52 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected BaseInventoryStorageComponent ResolvePreviewStorageTarget(IEntity character, int containerSlotIndex)
 	{
+		array<BaseInventoryStorageComponent> targets = {};
+		if (ResolvePreviewStorageTargets(character, NODE_STORAGE_PREFIX + string.Format("%1", containerSlotIndex), targets) <= 0)
+			return null;
+
+		return targets[0];
+	}
+
+	protected int ResolvePreviewStorageTargets(IEntity character, string nodeId, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		if (!character || nodeId.IsEmpty())
+			return 0;
+
+		int containerSlotIndex = -1;
+		if (nodeId.IndexOf(NODE_STORAGE_ITEM_PREFIX) == 0)
+			containerSlotIndex = ParseSinglePreviewNodeIndex(nodeId, NODE_STORAGE_ITEM_PREFIX);
+		else if (nodeId.IndexOf(NODE_STORAGE_PREFIX) == 0)
+			containerSlotIndex = ParseSinglePreviewNodeIndex(nodeId, NODE_STORAGE_PREFIX);
+
+		if (containerSlotIndex < 0)
+			return 0;
+
 		IEntity container = ResolvePreviewStorageContainer(character, containerSlotIndex);
 		if (!container)
-			return null;
+			return 0;
 
-		BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(container.FindComponent(BaseInventoryStorageComponent));
-		if (!IsUsablePreviewDepositStorage(storage))
-			return null;
+		FindPreviewCargoDepositStorages(container, outStorages);
+		return outStorages.Count();
+	}
 
-		return storage;
+	protected int FindUsablePreviewDepositStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		if (!entity)
+			return 0;
+
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!IsUsablePreviewDepositStorage(storage) || outStorages.Find(storage) >= 0)
+				continue;
+
+			outStorages.Insert(storage);
+		}
+
+		return outStorages.Count();
 	}
 
 	protected int FindPreviewInventoryStoragesWithSlots(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
@@ -3560,10 +3673,76 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (SCR_UniversalInventoryStorageComponent.Cast(storage))
 			return true;
 
-		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_EQUIPMENT_ATTACHMENT))
+		return false;
+	}
+
+	protected bool IsPreviewCargoDepositStorage(BaseInventoryStorageComponent storage)
+	{
+		if (!storage || storage.GetSlotsCount() <= 0)
+			return false;
+
+		if (SCR_SalineStorageComponent.Cast(storage) || SCR_TourniquetStorageComponent.Cast(storage))
+			return false;
+
+		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_DEPOSIT))
+			return true;
+
+		if (SCR_UniversalInventoryStorageComponent.Cast(storage))
 			return true;
 
 		return false;
+	}
+
+	protected int FindPreviewCargoDepositStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		array<IEntity> visited = {};
+		FindPreviewCargoDepositStoragesRecursive(entity, outStorages, visited, 0);
+		return outStorages.Count();
+	}
+
+	protected void FindPreviewCargoDepositStoragesRecursive(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<IEntity> visited, int depth)
+	{
+		if (!entity || depth > 8 || visited.Find(entity) >= 0)
+			return;
+
+		visited.Insert(entity);
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!storage || storage.GetSlotsCount() <= 0)
+				continue;
+
+			if (IsPreviewCargoDepositStorage(storage) && outStorages.Find(storage) < 0)
+				outStorages.Insert(storage);
+
+			if (IsPreviewStructuralAttachmentStorage(storage))
+				FindPreviewCargoDepositStoragesInAttachedEntities(storage, outStorages, visited, depth + 1);
+		}
+	}
+
+	protected bool IsPreviewStructuralAttachmentStorage(BaseInventoryStorageComponent storage)
+	{
+		if (!storage || storage.GetSlotsCount() <= 0)
+			return false;
+
+		return SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_EQUIPMENT_ATTACHMENT);
+	}
+
+	protected void FindPreviewCargoDepositStoragesInAttachedEntities(BaseInventoryStorageComponent storage, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<IEntity> visited, int depth)
+	{
+		array<IEntity> attached = {};
+		array<IEntity> attachedVisited = {};
+		GatherPreviewStorageContentEntities(storage, attached, attachedVisited);
+		foreach (IEntity child : attached)
+			FindPreviewCargoDepositStoragesRecursive(child, outStorages, visited, depth);
+	}
+
+	protected void GatherPreviewStorageContentEntitiesFromStorages(notnull array<BaseInventoryStorageComponent> storages, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		foreach (BaseInventoryStorageComponent storage : storages)
+			GatherPreviewStorageContentEntities(storage, outItems, visited);
 	}
 
 	protected void GatherPreviewStorageContentEntities(BaseInventoryStorageComponent storage, notnull array<IEntity> outItems, notnull array<IEntity> visited)
@@ -3733,14 +3912,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		maxs = vector.Zero;
 		center = "0 1 0";
 		size = 3.0;
-		IEntity boundsEntity = m_PreviewEntity;
-		if (!boundsEntity)
-			boundsEntity = m_PreviewSourceCharacter;
-
-		if (!boundsEntity)
+		if (!m_PreviewEntity)
 			return false;
 
-		boundsEntity.GetWorldBounds(mins, maxs);
+		m_PreviewEntity.GetWorldBounds(mins, maxs);
 		center = vector.Lerp(mins, maxs, 0.5);
 		size = vector.Distance(mins, maxs);
 		return size > 0.1;
@@ -3756,100 +3931,64 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		vector boundsCenter;
 		float boundsSize;
 		bool hasBounds = GetPreviewCharacterBounds(mins, maxs, boundsCenter, boundsSize);
-		vector look = boundsCenter;
 		if (!hasBounds)
 		{
-			look = "0 1.0 0";
-			boundsSize = 3.0;
+			ResetPreviewCameraToReferenceDefault();
+			return;
 		}
 
-		if (look[1] < 1.0)
-			look[1] = 1.0;
+		float boundsHeight = maxs[1] - mins[1];
+		if (boundsHeight < 1.6)
+			boundsHeight = 1.6;
 
-		float distance = Math.Clamp(boundsSize * 1.18, 3.8, 6.2);
-		vector cameraOffset = "0 0 0";
-		cameraOffset[0] = distance * 0.55;
-		cameraOffset[1] = distance * 0.18;
-		cameraOffset[2] = distance;
-
-		string focusKey = m_sSelectedCategory;
-		int selectedSlotIndex = FindSelectedSlotIndex();
-		int selectedNodeIndex = FindSelectedNodeIndex();
-		if (selectedNodeIndex >= 0 && selectedNodeIndex < m_aNodeFocus.Count() && !m_aNodeFocus[selectedNodeIndex].IsEmpty())
-			focusKey = m_aNodeFocus[selectedNodeIndex];
-		else if (selectedSlotIndex >= 0 && selectedSlotIndex < m_aSlotCategories.Count())
-			focusKey = m_aSlotCategories[selectedSlotIndex];
-
-		if (m_iCameraMode == 1 || (allowSelectedFocus && selectedNodeIndex >= 0) || (allowSelectedFocus && selectedSlotIndex >= 0))
-		{
-			if (focusKey == "head" || focusKey == "headgear")
-			{
-				look[1] = Math.Max(1.52, look[1] + 0.45);
-				distance = Math.Clamp(boundsSize * 0.95, 3.4, 4.8);
-				cameraOffset[0] = distance * 0.48;
-				cameraOffset[1] = distance * 0.08;
-				cameraOffset[2] = distance * 0.86;
-			}
-			else if (focusKey == "torso" || focusKey == "vest" || focusKey == "clothing")
-			{
-				look[1] = Math.Max(1.15, look[1] + 0.1);
-				distance = Math.Clamp(boundsSize * 1.02, 3.6, 5.1);
-				cameraOffset[0] = distance * 0.55;
-				cameraOffset[1] = distance * 0.12;
-				cameraOffset[2] = distance * 0.92;
-			}
-			else if (focusKey == "back" || focusKey == "backpack")
-			{
-				look[1] = Math.Max(1.15, look[1] + 0.08);
-				distance = Math.Clamp(boundsSize * 1.05, 3.8, 5.2);
-				cameraOffset[0] = -distance * 0.58;
-				cameraOffset[1] = distance * 0.14;
-				cameraOffset[2] = distance * 0.96;
-			}
-			else if (focusKey == "ammo" || focusKey == "hands")
-			{
-				look[1] = Math.Max(0.95, boundsCenter[1] + 0.02);
-				distance = Math.Clamp(boundsSize * 0.95, 3.2, 4.4);
-				cameraOffset[0] = distance * 0.62;
-				cameraOffset[1] = distance * 0.08;
-				cameraOffset[2] = distance * 0.8;
-			}
-			else if (focusKey == "feet" || focusKey == "boots")
-			{
-				look[1] = 0.28;
-				distance = Math.Clamp(boundsSize * 0.72, 2.4, 3.4);
-				cameraOffset[0] = distance * 0.62;
-				cameraOffset[1] = distance * 0.03;
-				cameraOffset[2] = distance * 0.7;
-			}
-		}
-
-		if (m_iCameraMode == 2 || focusKey == "weapon" || m_sSelectedCategory == "weapon" || m_sSelectedCategory == "launcher")
-		{
-			look[1] = Math.Max(1.18, boundsCenter[1] + 0.08);
-			distance = Math.Clamp(boundsSize * 1.0, 3.8, 5.3);
-			cameraOffset[0] = distance * 0.7;
-			cameraOffset[1] = distance * 0.1;
-			cameraOffset[2] = distance * 0.86;
-		}
-
+		UpdatePreviewedEntityMetrics();
+		vector targetCameraLookPosition = m_vPreviewedEntityCenterWorld;
+		vector targetCameraDirection = BuildPreviewCameraDirection(0);
+		float cameraTargetDistance = Math.Clamp(m_fPreviewedEntitySize * 1.5, 3.2, 7.0);
 		if (m_sPreviewSourceMode == PREVIEW_MODE_ENTITY)
 		{
-			look = boundsCenter;
-			if (look[1] < 0.45)
-				look[1] = 0.45;
-
-			distance = Math.Clamp(boundsSize * 1.35, 0.85, 2.6);
-			cameraOffset[0] = distance * 0.7;
-			cameraOffset[1] = distance * 0.12;
-			cameraOffset[2] = distance * 0.88;
+			cameraTargetDistance = Math.Clamp(m_fPreviewedEntitySize * 1.25, 0.85, 3.6);
+			targetCameraLookPosition = m_vPreviewedEntityCenterWorld;
+			targetCameraDirection = BuildPreviewCameraDirection(0);
+			if (m_aCurrentCameraMatrix[3][0] < -0.1)
+				targetCameraDirection = vector.Direction(targetCameraLookPosition, targetCameraLookPosition - vector.Right);
+		}
+		else if (m_iCameraMode == 1)
+		{
+			targetCameraLookPosition[1] = Math.Max(1.55, maxs[1] - (boundsHeight * 0.18));
+			cameraTargetDistance = Math.Clamp(m_fPreviewedEntitySize * 1.05, 2.8, 4.6);
+		}
+		else if (m_iCameraMode == 2)
+		{
+			targetCameraLookPosition[1] = Math.Max(1.1, mins[1] + (boundsHeight * 0.55));
+			cameraTargetDistance = Math.Clamp(m_fPreviewedEntitySize * 1.15, 3.2, 4.8);
 		}
 
-		vector camera = look + cameraOffset;
-		m_vCameraTargetPosition = camera;
-		m_vCameraTargetLook = look;
-		if (!m_bCameraInitialized)
-			ApplyPreviewCameraImmediate(camera, look);
+		m_vCameraTargetDirection = RotatePreviewCameraOffset(targetCameraDirection, m_fPreviewYawDegrees).Normalized();
+		m_vCameraTargetLook = targetCameraLookPosition;
+		m_fCameraTargetDistance = cameraTargetDistance;
+		m_vCameraTargetPosition = m_vCameraTargetLook + (m_vCameraTargetDirection * m_fCameraTargetDistance);
+	}
+
+	protected vector BuildPreviewCameraDirection(float yawDegrees)
+	{
+		vector direction = vector.Direction(vector.Zero, vector.Forward + vector.Right);
+		return RotatePreviewCameraOffset(direction, yawDegrees).Normalized();
+	}
+
+	protected vector RotatePreviewCameraOffset(vector offset, float yawDegrees)
+	{
+		float radians = yawDegrees * 0.01745329252;
+		vector rotated = offset;
+		rotated[0] = (offset[0] * Math.Cos(radians)) - (offset[2] * Math.Sin(radians));
+		rotated[2] = (offset[0] * Math.Sin(radians)) + (offset[2] * Math.Cos(radians));
+		return rotated;
+	}
+
+	protected void UpdatePreviewCameraImmediate(bool allowSelectedFocus, string reason)
+	{
+		UpdatePreviewCamera(allowSelectedFocus);
+		Print(string.Format("h-istasi preview camera | %1 entity=%2 target=%3 look=%4 direction=%5 distance=%6 yaw=%7 sourceMode=%8", reason, m_PreviewEntity, m_vCameraTargetPosition, m_vCameraTargetLook, m_vCameraTargetDirection, m_fCameraTargetDistance, m_fPreviewYawDegrees, m_sPreviewSourceMode));
 	}
 
 	protected void AnimatePreviewCamera(float timeSlice)
@@ -3857,11 +3996,21 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_PreviewWorld || !m_bCameraInitialized)
 			return;
 
-		float positionStep = Math.Clamp(timeSlice * 5.5, 0.05, 0.9);
-		float lookStep = Math.Clamp(timeSlice * 7.0, 0.05, 0.9);
-		m_vCameraCurrentPosition = vector.Lerp(m_vCameraCurrentPosition, m_vCameraTargetPosition, positionStep);
-		m_vCameraCurrentLook = vector.Lerp(m_vCameraCurrentLook, m_vCameraTargetLook, lookStep);
-		ApplyPreviewCameraImmediate(m_vCameraCurrentPosition, m_vCameraCurrentLook);
+		m_PreviewWorld.GetCamera(PREVIEW_CAMERA, m_aCurrentCameraMatrix);
+		vector targetCameraPositionByDistance = m_vCameraTargetLook + (m_vCameraTargetDirection * m_fCameraTargetDistance);
+		m_fCameraDistanceToTarget = vector.Distance(m_aCurrentCameraMatrix[3], targetCameraPositionByDistance);
+		if (m_fCameraDistanceToTarget > 0.025)
+			m_aCurrentCameraMatrix[3] = m_aCurrentCameraMatrix[3] + ((targetCameraPositionByDistance - m_aCurrentCameraMatrix[3]) * ((m_fCameraDistanceToTarget * 2.0) * timeSlice * 2.0));
+
+		m_fCameraLookDistanceToTarget = vector.Distance(m_vCurrentCameraLookPosition, m_vCameraTargetLook);
+		if (m_fCameraLookDistanceToTarget > 0.025)
+			m_vCurrentCameraLookPosition = m_vCurrentCameraLookPosition + ((m_vCameraTargetLook - m_vCurrentCameraLookPosition) * (m_fCameraLookDistanceToTarget * timeSlice * 5.0));
+
+		m_vCameraCurrentPosition = m_aCurrentCameraMatrix[3];
+		m_vCameraCurrentLook = m_vCurrentCameraLookPosition;
+		SCR_Math3D.LookAt(m_aCurrentCameraMatrix[3], m_vCurrentCameraLookPosition, vector.Up, m_aCurrentCameraMatrix);
+		m_PreviewWorld.SetCameraEx(PREVIEW_CAMERA, m_aCurrentCameraMatrix);
+		UpdatePreviewLightAngles();
 	}
 
 	protected void ApplyPreviewCameraImmediate(vector camera, vector look)
@@ -3871,9 +4020,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_vCameraCurrentPosition = camera;
 		m_vCameraCurrentLook = look;
+		m_vCurrentCameraLookPosition = look;
 		m_bCameraInitialized = true;
 		vector mat[4];
 		SCR_Math3D.LookAt(camera, look, vector.Up, mat);
+		for (int i = 0; i < 4; i++)
+			m_aCurrentCameraMatrix[i] = mat[i];
 		m_PreviewWorld.SetCameraEx(PREVIEW_CAMERA, mat);
 		UpdatePreviewLightAngles();
 	}
@@ -3959,6 +4111,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_bPreviewLightAnglesInitialized = false;
 		m_sPreviewSourceMode = PREVIEW_MODE_CHARACTER;
 		m_sPreviewRenderKey = "";
+		m_vCameraTargetPosition = "5 1 5";
+		m_vCameraTargetLook = "0 0.5 0";
+		m_vCameraCurrentPosition = "5 1 5";
+		m_vCameraCurrentLook = "0 0.5 0";
+		m_vPreviewedEntityCenterWorld = vector.Zero;
+		m_fPreviewedEntitySize = 0;
+		m_fPreviewedEntityDefaultDistance = 1.0;
+		m_vCurrentCameraLookPosition = "0 0.5 0";
+		m_vCameraTargetDirection = "1 0 1";
+		m_fCameraTargetDistance = 1.0;
+		m_fCameraDistanceToTarget = 0;
+		m_fCameraLookDistanceToTarget = 0;
 		m_bCameraInitialized = false;
 	}
 

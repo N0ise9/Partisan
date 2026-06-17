@@ -1926,6 +1926,8 @@ $loadoutEditorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LoadoutEdit
 $campaignSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
 $loadoutPreviewWorldText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewWorld.et"
 $loadoutPreviewLightsText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewLights.et"
+$loadoutPreviewSkySphereText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewSkySphere.et"
+$loadoutPreviewVisualText = $loadoutPreviewWorldText + "`n" + $loadoutPreviewSkySphereText
 foreach ($requiredPhase14ConfigEntry in @(
 	"HST_ArsenalItemRule",
 	"m_sPrefabContains",
@@ -2040,19 +2042,21 @@ foreach ($requiredPhase14CommandEntry in @(
 }
 foreach ($requiredPhase14PreviewEntry in @(
 	"SkyPreset",
-	"{EAE920BF596EBC07}Assets/Objects/Plane.xob",
-	"{D711B025189858ED}Assets/Objects/sphere.xob",
-	"Prefabs/HST/HST_LoadoutPreviewGround.emat",
-	"Prefabs/HST/HST_LoadoutPreviewSkySphere.emat",
+	"Assets/Objects/Plane.xob",
+	"HST_LoadoutPreviewGround.emat",
+	"HST_LoadoutPreviewSkySphere.et",
+	"Assets/Objects/sphere.xob",
 	"GameEnvironmentProbeEntity"
 )) {
-	if ($loadoutPreviewWorldText -notmatch [regex]::Escape($requiredPhase14PreviewEntry)) {
+	if ($loadoutPreviewVisualText -notmatch [regex]::Escape($requiredPhase14PreviewEntry)) {
 		throw "Loadout preview world is missing Phase 14 visual/support asset: $requiredPhase14PreviewEntry"
 	}
 }
 foreach ($requiredPhase14PreviewLightEntry in @(
 	"LightEntity",
+	"Hierarchy",
 	"Dynamic 1",
+	"CastShadow 0",
 	"SourceSize"
 )) {
 	if ($loadoutPreviewLightsText -notmatch [regex]::Escape($requiredPhase14PreviewLightEntry)) {
@@ -2325,16 +2329,35 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"RequestLoadoutEditorAction",
 	"RpcDo_ReceiveLoadoutEditorPayload",
 	"loadout_replace_slot",
+	"loadout_editor_refresh",
 	"set_node_item",
 	"set_attachment",
 	"remove_node_item",
 	"remove_attachment",
 	"add_storage_item",
 	"loadout_clear_draft",
+	"FindUsableDepositStorages",
+	"ResolveLiveStorageTargets",
+	"ClearSpawnedCargoStorageContents",
+	"FindCargoDepositStorages",
+	"FindCargoDepositStoragesRecursive",
+	"FindRefundableContentStorages",
+	"IsStructuralAttachmentStorage",
+	"Webbing",
+	"IsWebbingText",
+	"GatherStorageContentEntitiesFromStorages",
 	"HST_HQArsenalLoadoutEditorAction"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredLoadoutEditorEntry)) {
 		throw "Custom loadout editor contract is missing: $requiredLoadoutEditorEntry"
+	}
+}
+foreach ($forbiddenLoadoutStorageShortcut in @(
+	"slot.GetAttachedEntity().FindComponent(BaseInventoryStorageComponent)",
+	"containerEntity.FindComponent(BaseInventoryStorageComponent)"
+)) {
+	if ($loadoutEditorText -match [regex]::Escape($forbiddenLoadoutStorageShortcut)) {
+		throw "Loadout editor service must resolve all usable storage components instead of direct storage shortcuts: $forbiddenLoadoutStorageShortcut"
 	}
 }
 if (!(Test-Path "UI/layouts/HST_LoadoutEditor.layout")) {
@@ -2356,12 +2379,18 @@ if ($loadoutEditorLayoutMetaText -notmatch [regex]::Escape('Name "{5AF2D86E07D44
 }
 foreach ($requiredLayoutEntry in @(
 	"RenderTargetWidgetClass",
+	"HST_LoadoutPreviewContainer",
 	"HST_LoadoutPreview",
+	"OverlayWidgetSlot",
+	"Padding 0 0 -200 0",
 	"Anchor 0 0 1 1"
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLayoutEntry)) {
 		throw "Loadout editor layout is missing stable render-target entry: $requiredLayoutEntry"
 	}
+}
+if ($loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetPos(m_UILayerWidget") -or $loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetSize(m_UILayerWidget")) {
+	throw "Loadout editor must not manually size the stretched UI layer from script"
 }
 foreach ($requiredDisplayNameEntry in @(
 	"InventoryItemComponent",
@@ -2408,17 +2437,29 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"PREVIEW_DRESS_DELAY_MS",
 	"CreatePreviewCloneFromDressedSource",
 	"FinalizeDressedPreviewEntity",
+	"HasUsablePreviewBounds",
 	"ResolveExactPreviewInsertTarget",
 	"m_PreviewEntity.SetOrigin(vector.Up)",
-	"building mannequin preview",
+	"building fallback mannequin",
 	"SetPreviewEntityQualityRecursive",
 	"BuildStageToast",
 	"UpdatePreviewCamera",
+	"UpdatePreviewCameraImmediate",
+	"h-istasi preview camera",
 	"AnimatePreviewCamera",
 	"ApplyPreviewCameraImmediate",
+	"m_vCameraTargetDirection",
+	"m_fCameraTargetDistance",
+	"m_aCurrentCameraMatrix",
+	"m_vPreviewedEntityCenterWorld",
+	"UpdatePreviewedEntityMetrics",
+	"targetCameraPositionByDistance",
 	"GetPreviewCharacterBounds",
 	"GetWorldBounds",
 	"vector.Distance",
+	"boundsHeight",
+	"BuildPreviewCameraDirection",
+	"RotatePreviewCameraOffset",
 	"Math.Clamp",
 	"DeletePreviewWorld",
 	"HST_LoadoutPreview",
@@ -2430,6 +2471,17 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"RenderNodeRow",
 	"RenderCandidateRow",
 	"RenderSelectedNodeHeader",
+	"ReturnFromAttachmentCandidateToWeapon",
+	"POST_ACTION_REFRESH_DELAY_MS",
+	"QueuePostActionRefresh",
+	"RequestPostActionRefresh",
+	"ResolvePreviewStorageTargets",
+	"FindUsablePreviewDepositStorages",
+	"FindPreviewCargoDepositStorages",
+	"FindPreviewCargoDepositStoragesRecursive",
+	"IsPreviewStructuralAttachmentStorage",
+	"IsPreviewCargoDepositStorage",
+	"GatherPreviewStorageContentEntitiesFromStorages",
 	"EnsureSelectedSlotForCategory",
 	"m_iEditorWidth",
 	"workspace.GetWidth()",
@@ -2470,8 +2522,29 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 if ($loadoutEditorComponentText -match "InventoryPreviewWorld10") {
 	throw "Loadout editor preview must not rely on the old visible/cropped InventoryPreviewWorld10 stage"
 }
+if ($loadoutEditorComponentText -match [regex]::Escape("angles[0] = m_fPreviewYawDegrees") -or $loadoutEditorComponentText -match [regex]::Escape("angles[1] = m_fPreviewYawDegrees")) {
+	throw "Loadout editor preview rotation must orbit the camera instead of rotating the preview mannequin"
+}
+foreach ($forbiddenSpotlightToggleEntry in @(
+	"SPOTLIGHT_WIDGET_ID",
+	"m_bSpotlightEnabled",
+	"BuildSpotlightLabel",
+	'"Spotlight"'
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenSpotlightToggleEntry)) {
+		throw "Loadout editor must not expose a user-facing spotlight toggle: $forbiddenSpotlightToggleEntry"
+	}
+}
 if ($loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetPos(m_PreviewWidget") -or $loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetSize(m_PreviewWidget")) {
 	throw "Loadout editor must not set position/size on the full-anchor render-target layout widget"
+}
+$cargoStorageFilterMatch = [regex]::Match($loadoutEditorText, "protected bool IsCargoDepositStorage[\s\S]*?\r?\n\t}")
+if ($cargoStorageFilterMatch.Success -and $cargoStorageFilterMatch.Value -match "PURPOSE_EQUIPMENT_ATTACHMENT") {
+	throw "Loadout editor must not treat equipment-attachment webbing components as inventory cargo"
+}
+$previewCargoStorageFilterMatch = [regex]::Match($loadoutEditorComponentText, "protected bool IsPreviewCargoDepositStorage[\s\S]*?\r?\n\t}")
+if ($previewCargoStorageFilterMatch.Success -and $previewCargoStorageFilterMatch.Value -match "PURPOSE_EQUIPMENT_ATTACHMENT") {
+	throw "Loadout preview must not treat equipment-attachment webbing components as inventory cargo"
 }
 if ($loadoutEditorComponentText -match "CreateTextWidget\([^\r\n]*m_sLastResult") {
 	throw "Loadout editor must not render raw server result/debug text across the preview stage"

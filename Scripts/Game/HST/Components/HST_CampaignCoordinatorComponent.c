@@ -373,6 +373,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (commandId == "loadout_editor_candidates")
 			return "h-istasi loadout editor | candidate request acknowledged";
 
+		if (commandId == "loadout_editor_refresh")
+			return "h-istasi loadout editor | refreshed";
+
 		if (commandId == "loadout_save" || commandId == "save_loadout")
 			return RequestMemberSaveLoadoutDraft(playerId, argument);
 
