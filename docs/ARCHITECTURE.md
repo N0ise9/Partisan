@@ -9,13 +9,31 @@ single `HST_CampaignState` and delegates to small services:
 - `HST_MissionService`: mission eligibility, activation, deadlines, and
   completion rewards.
 - `HST_PersistenceService`: campaign save-data migration/tracking, native
-  Reforger checkpoint requests, and autosave debouncing.
+  Reforger checkpoint requests, autosave debouncing, and profile JSON fallback
+  saves.
+- `HST_PersistenceSmokeTestService`: deterministic persistence fixture seeding
+  and restore verification reports.
+- `HST_RuntimeSettingsService`: `$profile:h-istasi/HST_Settings.json`
+  load/create/migration and settings application to preset/balance data.
 - `HST_AuthorizationService`: persistent members, guests, admins, and the
   first commander-vacancy policy.
 - `HST_StrategicService`: ownership changes, town support, Petros penalties,
   activation flags, and victory evaluation.
-- `HST_ArsenalService`: item counts, unlock thresholds, and abstract garage
-  records.
+- `HST_HQService`: initial HQ selection, HQ movement, Petros/cache/arsenal/tent
+  runtime objects, rebuilds, and Petros-loss state.
+- `HST_ArsenalService`: item counts, unlock thresholds, finite/INF withdrawals,
+  garage records, and vehicle redeploy.
+- `HST_LootService`: area loot, vehicle cargo, garage vehicle capture, field
+  vehicle snapshot/restore, and safe vehicle-root scanning.
+- `HST_LoadoutEditorService`: saved loadouts, live loadout/storage nodes,
+  candidate replacement, finite/INF cost ledgers, atomic apply/rollback, and
+  issued-item accounting.
+- `HST_BuildModeService`: dry-ground placement resolution for garage redeploys
+  and HQ runtime-asset rebuilds.
+- `HST_ConvoyOutcomeService`: mission-specific convoy arrival, capture,
+  delivery, ammo-point, garage-handoff, and outcome de-dupe effects.
+- `HST_CommandUIService`: procedural command-menu payloads, visible action
+  routing, reports, and tab/action gating.
 - `HST_EnemyDirectorService`: validated spending against separate attack and
   support pools.
 - `HST_PlayerLifecycleService`: connected-player registration, deterministic
@@ -42,12 +60,23 @@ single `HST_CampaignState` and delegates to small services:
   presence, aid incidents, and per-player undercover records.
 - `HST_EnemyCommanderService`: enemy resource spending into patrol, roadblock,
   QRF, counterattack, rebuild, and support-call orders.
+- `HST_MapMarkerService`: native marker rebuild/publish behavior for strategic
+  zones, missions, objectives, support, QRFs, HQ, and convoy state.
+- `HST_ZoneCompositionService`: runtime alpha composition slots for zone and
+  mission physicalization diagnostics.
+
+Static helper services keep repeated low-level behavior out of the coordinator:
+`HST_WorldPositionService` resolves dry/safe positions and prefab spawning,
+`HST_DisplayNameService` normalizes item and vehicle labels,
+`HST_VehicleRootPolicy` centralizes safe vehicle-root eligibility, and
+`HST_ConvoyVehicleControlAdapter` wraps native vehicle movement/seating calls.
 
 The coordinator currently exposes server-only mutation methods that check
 campaign phase, known IDs, and mission eligibility before changing state.
-Client RPCs are intentionally withheld until player-owned request components
-can authenticate the caller identity and enforce member, commander, and admin
-permissions without trusting client-provided IDs.
+Client UI requests flow through player-owned request/RPC components and
+ownership-resolved coordinator methods, so the server resolves the trusted
+identity and enforces member, commander, and admin permissions instead of
+trusting client-provided player IDs.
 
 ## Authoring Contracts
 
@@ -70,12 +99,20 @@ The persistence service tracks `HST_CampaignSaveData` through
 `PersistenceSystem`, applies restored state through a schema migration path,
 and flushes the tracked scripted state before requesting
 `SaveGameManager.RequestSavePoint` when saving is possible and allowed. The
+service also writes `$profile:h-istasi/HST_CampaignSaveData.json` as a profile
+fallback when scripted persistence cannot be flushed, and will load that file
+if no restored `PersistenceSystem` state is available. The
 state model is versioned from day one. `HST_CampaignSaveData` is the deep-copy
-save container for current campaign fields and nested runtime arrays,
-including generated content, objectives, mission runtime, active groups,
-support, enemy order, civilian, and undercover records. Save compatibility
-still needs Workbench restart/load soak testing before it is promised to
-players.
+save container for current campaign fields and nested runtime arrays, including
+campaign metadata, resources, HQ/Petros/cache/arsenal/tent fields, faction
+pools, players, zones, garrisons, active groups, QRFs, map markers, generated
+content, objectives, mission runtime, mission assets, support, enemy order,
+civilian, undercover, arsenal, garage, vehicle cargo, runtime vehicle, saved
+loadout, issued-item, ammo point, and captured-emplacement records. Loadout
+editor sessions remain runtime/editor state, while durable saved loadouts and
+issued-item ledgers are copied into the save container. Save compatibility
+still needs broader Workbench restart/load soak testing before it is promised
+to players.
 
 ## World Layout
 
@@ -117,16 +154,19 @@ runtime positions, and Petros-loss penalties. Runtime Petros spawning tries the
 custom h-istasi prefab first through its GUID-qualified metadata resource and
 falls back to the base FIA character only if that resource cannot spawn. The HQ
 arsenal uses a GUID-indexed HST supply-cache prefab whose contextual actions
-open the same Arsenal/Loot menu path used by the I-key menu, with a stock FIA
-cache fallback if the custom object cannot spawn.
+open the same Arsenal/Loot menu path used by the I-key menu and the custom
+loadout editor path, with inherited stock arsenal actions filtered out. A stock
+FIA cache fallback is only used if the custom object cannot spawn.
 
 The alpha HQ menu is procedural rather than layout-resource loaded. The server
 keeps the existing `HST_MENU`, `TAB`, `STATUS`, `RESULT`, and `ACTION` payload
 lines while adding optional `STAT`, `SECTION`, `ROW`, and `FEED` lines for the
 Antistasi-style overview, HQ/Petros, missions, map/war, forces, arsenal/loot,
-members, and admin panels. Contextual Petros and HQ arsenal actions call the
-same request bridge as menu clicks so local hosts and MP clients follow one
-server-authoritative command path.
+garage/build, members, and admin panels. The custom loadout editor has its own
+`HST_LOADOUT_EDITOR` and `HST_LOADOUT_CANDIDATES` payloads but still routes
+mutations through the same server-authoritative request bridge. Contextual
+Petros, HQ arsenal, and vehicle cargo actions call the same bridge as menu
+clicks so local hosts and MP clients follow one command path.
 
 ## Antistasi Framework Spine
 
@@ -139,8 +179,11 @@ groups, and folds survivor counts back before deactivation. Broad-alpha
 services generate mission sites/routes, attach objectives/tasks to started
 missions, poll physical MVP mission primitives from world conditions, spend
 enemy pools into orders/support calls, and track civilian/undercover state.
-Mission success, failure, and timeout paths mutate economy, support, capture
-progress, and aggression state. Coordinator hooks expose deterministic
-server-only actions for Workbench tests and no-admin player actions for setup,
-random missions, support requests/cancel, civilian aid, looting, income,
-training, recruitment, and HQ moves.
+Loot, vehicle cargo, virtual garage, build placement, and loadout editor
+systems are owned by campaign state instead of stock arsenal behavior. Mission
+success, failure, timeout, convoy outcome, and vehicle/cargo paths mutate
+economy, support, capture progress, arsenal, garage, and aggression state.
+Coordinator hooks expose deterministic server-only actions for Workbench tests
+and no-admin player actions for setup, random missions, support
+requests/cancel, civilian aid, looting, vehicle cargo, garage capture/redeploy,
+loadout application, income, training, recruitment, and HQ moves.

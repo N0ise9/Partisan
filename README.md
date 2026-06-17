@@ -16,10 +16,11 @@ The repository contains the first engine-facing increment:
 - APL-ND licensing and third-party attribution
 - Original Everon and compact development scenario shells
 - Data contracts for presets, factions, maps, zones, balance, and missions
-- A versioned campaign-state model with arsenal, mission-runtime,
-  active-group, support, and persistence metadata
-- Server-authoritative campaign, economy, mission, persistence, and
-  native-checkpoint services
+- A versioned campaign-state model with arsenal, vehicle cargo, garage,
+  saved-loadout, issued-item, mission-runtime, active-group, support, build-mode,
+  and persistence metadata
+- Server-authoritative campaign, economy, mission, persistence, arsenal, loot,
+  loadout-editor, garage/build, and native-checkpoint services
 - A Community Edition 3.11.1 mission registry baseline
 - Custom FIA HQ player spawn path for direct Workbench Play mode
 - FIA spawnpoint/loadout authoring metadata for authored hideout candidates
@@ -37,26 +38,34 @@ The repository contains the first engine-facing increment:
   fails to spawn
 - HST-owned HQ arsenal action surface at
   `Prefabs/Objects/HST/HST_HQArsenal.et`; stock FIA arsenal/MSAR behavior is
-  not used for item authority, issuing, or loadout accounting
-- Custom h-istasi loadout-editor service scaffold with personal saved
-  loadouts, preview mannequin lifecycle, apply/cancel commands, finite/INF
-  accounting, and an issued-item ledger owned by campaign state
+  not used for item authority, issuing, or loadout accounting, and inherited
+  stock arsenal actions are filtered away from the h-istasi action surface
+- Custom h-istasi loadout editor with a client fullscreen widget, server-built
+  payloads, live equipment/storage nodes, compatible candidate replacement,
+  five fixed personal loadout slots under `$profile:h-istasi/loadouts/v2`,
+  finite/INF accounting, atomic apply/rollback, and an issued-item ledger owned
+  by campaign state
 - Procedural Antistasi-style `I` key HQ menu mounted on both development
   worlds with Setup, Overview, HQ/Petros, Missions, Map/War, Forces,
-  Arsenal/Loot, Members, and Admin tabs
+  Arsenal/Loot, Garage/Build, Members, and Admin tabs
 - First-load server settings generation at `$profile:h-istasi/HST_Settings.json`
   with config-backed defaults for campaign, factions, economy, membership,
   world activation, arsenal/loot, persistence, logging, and feature toggles
-- Server-side area loot action that deposits eligible nearby gear into the
-  campaign arsenal and removes transferred source items when configured
+- Server-side area and vehicle loot actions that deposit eligible nearby gear
+  into the campaign arsenal or vehicle cargo, remove transferred source items
+  when configured, and reject raw visual/support assets
+- Virtual garage and build-mode scaffolding for nearby vehicle capture,
+  safe-root validation, cargo preservation, dry-ground redeploy placement,
+  field-vehicle snapshot/restore, and HQ runtime-asset rebuilds
 - Broad-alpha campaign scaffolding for generated Everon sites/routes, mission
   objectives, campaign tasks, physical mission-runtime primitives, support
   requests, enemy commander orders, civilian town state, and player undercover
   state
 - Commander-facing no-admin actions for initial HQ selection, random mission
   start, objective/runtime inspection, FIA supply requests, support
-  cancellation, civilian aid, support reports, garage reports, generated
-  content reports, persistence status, and undercover status
+  cancellation, civilian aid, support reports, garage/build reports,
+  vehicle-cargo reports, loadout-editor status/application, generated content
+  reports, persistence status, and undercover status
 - Phase 0/1 foundation and mission diagnostics are complete: the alpha command
   menu exposes foundation status, explicit checkpoint reporting, active mission
   inspection, selected mission inspection, and null-safe runtime mission fields
@@ -65,18 +74,19 @@ The repository contains the first engine-facing increment:
   travel distance, fallback mode, and explicit movement/spawn failure reasons
 - Versioned campaign save-data container that is migrated, tracked through
   `PersistenceSystem`, and flushed before native `SaveGameManager`
-  checkpoint requests when saving is possible
+  checkpoint requests when saving is possible, with a profile JSON fallback at
+  `$profile:h-istasi/HST_CampaignSaveData.json`
 
 This is a foundation build, not a public alpha. Petros and the HQ arsenal have
-live contextual-action prefabs for the alpha menu path, while the arsenal and
-loadout editor remain custom h-istasi economy systems instead of stock/MSAR
-arsenal behavior. The broad-alpha systems are intentionally rough scaffolds:
-mission objectives can now complete from world proximity/active-group
-conditions, support calls are stateful with native-safe ground group
+live contextual-action prefabs for the alpha menu path, while the arsenal,
+garage, and loadout editor remain custom h-istasi economy systems instead of
+stock/MSAR arsenal behavior. The broad-alpha systems are intentionally rough
+scaffolds: mission objectives can now complete from world proximity and
+active-group conditions, support calls are stateful with native-safe ground group
 activation, and helicopter-style support remains abstract until an approved
 asset/dependency path exists. Cache/tent polish, save/restart soak testing,
-final surveyed Everon coordinates, richer AI waypoints, physical player
-inventory insertion from editor transactions, and mission-specific interactable
+final surveyed Everon coordinates, richer AI waypoints, full loadout-editor
+HST_Dev smoke, garage progression polish, and mission-specific interactable
 props still need to be connected incrementally.
 
 ## Alpha Command Menu
@@ -99,8 +109,10 @@ campaign overview, markers, economy, zones, missions, mission runtime, manual
 checkpoint, persistence status, income tick, training, first HQ selection, HQ
 movement, FIA recruitment, mission start, random mission selection, objective
 progress, support requests/cancellation, civilian aid, zone capture/activation,
-arsenal reporting, garage reporting, nearby loot collection, generated content
-reports, roster admin helpers, campaign reset, and small debug resource awards.
+arsenal reporting, vehicle cargo, garage capture/redeploy, nearby loot
+collection, loadout editor status/application, generated content reports, HQ
+asset rebuilds, roster admin helpers, campaign reset, and small debug resource
+awards.
 Multiplayer clients use a player-owned request/RPC component;
 the server resolves the caller from ownership instead of trusting a client
 provided player ID. Petros opens this same menu path through contextual

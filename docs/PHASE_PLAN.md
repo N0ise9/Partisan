@@ -32,18 +32,19 @@ explicitly says otherwise, completion means:
 
 h-istasi is already past the blank-project stage. The repository has a CE
 3.11.1 mission-registry baseline, server-side campaign/economy/mission/
-persistence/checkpoint services, player/HQ/Petros setup, custom arsenal and
-loadout scaffolding, loot collection, generated Everon sites/routes, mission
-objectives, physical mission primitives, support requests, enemy commander
-orders, civilian/undercover state, and an Antistasi-style command menu.
+persistence/checkpoint services, player/HQ/Petros setup, custom arsenal, loot,
+vehicle cargo, virtual garage/build scaffolding, loadout editor code, generated
+Everon sites/routes, mission objectives, physical mission primitives, support
+requests, enemy commander orders, civilian/undercover state, and an
+Antistasi-style command menu.
 
 The current server runtime is centered on
 `HST_CampaignCoordinatorComponent`. It instantiates services, restores or
-creates campaign state, tracks persistence, refreshes markers, and then ticks
-mission timers, objectives, mission runtime, convoy runtime, income, enemy
-resources, aggression decay, civilians, support requests, enemy orders, HQ
-runtime objects, physical zone activation, zone capture, and civilian
-population.
+creates campaign state, tracks persistence, refreshes markers, restores nearby
+field vehicles, and then ticks mission timers, objectives, mission runtime,
+convoy runtime/outcomes, income, enemy resources, aggression decay, civilians,
+support requests, enemy orders, HQ runtime objects, physical zone activation,
+zone capture, and civilian population.
 
 The state model already has the right Antistasi save-game spine:
 
@@ -59,6 +60,9 @@ The state model already has the right Antistasi save-game spine:
 - vehicle cargo
 - runtime vehicles
 - saved loadouts
+- issued loadout items
+- captured emplacements
+- ammo points
 - active missions
 - generated sites
 - generated routes
@@ -359,8 +363,8 @@ Acceptance pattern:
 | 11 | Mission-specific convoy outcomes | Complete |
 | 12 | Active mission persistence | Complete |
 | 13 | Non-convoy mission primitive hardening | Complete |
-| 14 | Arsenal, loot, and finite/infinite unlock loop | In progress - 1/2 complete checkpoint |
-| 15 | Garage and vehicle persistence | Planned |
+| 14 | Arsenal, loot, and finite/infinite unlock loop | In progress - loadout smoke pending |
+| 15 | Garage and vehicle persistence | Planned - early scaffold exists |
 | 16 | Recruitment, training, and garrisons | Planned |
 | 17 | Zone capture and ownership | Planned |
 | 18 | Enemy commander physical responses | Planned |
@@ -1713,9 +1717,10 @@ Current notes:
 
 ## Phase 14 - Arsenal, Loot, And Finite/Infinite Unlock Loop
 
-Status: In progress - 1/2 complete checkpoint. Arsenal, loot, finite/INF
-policy, vehicle cargo, and field-vehicle save/load restore have passed HST_Dev
-smoke. The remaining half is the loadout editor end-to-end path.
+Status: In progress - loadout smoke pending. Arsenal, loot, finite/INF policy,
+vehicle cargo, and field-vehicle save/load restore have passed HST_Dev smoke.
+The loadout editor implementation is present in code, but the phase remains
+open until the end-to-end Workbench path is exercised.
 
 Goal: complete the Antistasi loot-to-unlock progression loop.
 
@@ -1750,11 +1755,18 @@ Checkpoint notes:
   exercised in HST_Dev.
 - Nearby Workbench-spawned field vehicles are snapshotted before manual
   checkpoint and restored after save/load as `loot_vehicle` runtime records.
-- Loadout editor smoke remains before Phase 14 can be marked complete.
+- Loadout editor code now includes live equipment/storage nodes, compatible
+  candidates, fixed personal save slots, profile loadout files, finite/INF cost
+  validation, atomic apply/rollback, issued-item accounting, death-loss
+  handling, and removed external state purging.
+- Loadout editor HST_Dev smoke remains before Phase 14 can be marked complete.
 
 ## Phase 15 - Garage And Vehicle Persistence
 
-Status: Planned
+Status: Planned - early scaffold exists through Phase 14 garage/build work.
+Capture, cargo preservation, dry-ground redeploy placement, field-vehicle
+snapshot/restore, and reports exist; full progression rules and source-vehicle
+behavior remain planned.
 
 Goal: make captured vehicles a reliable campaign progression system.
 
