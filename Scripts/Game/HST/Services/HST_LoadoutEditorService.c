@@ -173,7 +173,7 @@ class HST_LoadoutEditorService
 
 			payload = payload + BuildEditorNodePayload(node, state);
 			if (node.m_bCanOpen)
-				payload = payload + string.Format("\nSTORAGE|%1|%2|%3|%4|%5", node.m_sNodeId, SanitizePayloadField(node.m_sLabel), node.m_iUsedCapacity, node.m_iTotalCapacity, node.m_bCanDeposit);
+				payload = payload + string.Format("\nSTORAGE|%1|%2|%3|%4|%5|%6|%7|%8", node.m_sNodeId, SanitizePayloadField(node.m_sLabel), node.m_iUsedCapacity, node.m_iTotalCapacity, node.m_bCanDeposit, node.m_fUsedVolume, node.m_fTotalVolume, node.m_fFreeVolume);
 			if (node.m_sKind == "attachment")
 				payload = payload + string.Format("\nATTACH|%1|%2|%3|%4|%5", node.m_sNodeId, node.m_sParentNodeId, SanitizePayloadField(node.m_sSlotKey), node.m_sItemPrefab, SanitizePayloadField(node.m_sDisplayName));
 		}
@@ -584,7 +584,7 @@ class HST_LoadoutEditorService
 
 		ScanCharacterLoadoutSlots(playerEntity, session);
 		ScanCharacterWeaponSlots(playerEntity, session);
-		ScanEquippedStorageContainers(playerEntity, session);
+		ScanEquippedStorageContainers(state, playerEntity, session);
 		session.m_iPreviewItemCount = CountDraftItems(session);
 		session.m_sPreviewStatus = "client render preview";
 		return true;
@@ -707,7 +707,7 @@ class HST_LoadoutEditorService
 		}
 	}
 
-	protected void ScanEquippedStorageContainers(IEntity playerEntity, HST_LoadoutEditorSessionState session)
+	protected void ScanEquippedStorageContainers(HST_CampaignState state, IEntity playerEntity, HST_LoadoutEditorSessionState session)
 	{
 		SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(playerEntity.FindComponent(SCR_CharacterInventoryStorageComponent));
 		if (!characterStorage)
@@ -720,12 +720,15 @@ class HST_LoadoutEditorService
 			if (!slot || !slot.GetAttachedEntity())
 				continue;
 
+			IEntity containerEntity = slot.GetAttachedEntity();
 			array<BaseInventoryStorageComponent> containerStorages = {};
-			if (FindCargoDepositStorages(slot.GetAttachedEntity(), containerStorages) <= 0)
+			FindCargoDepositStorages(containerEntity, containerStorages);
+			array<BaseInventoryStorageComponent> insertStorages = {};
+			if (FindStorageInsertTargetStorages(containerEntity, insertStorages) <= 0)
 				continue;
 
 			string containerNodeId = NODE_STORAGE_PREFIX + string.Format("%1", slotIndex);
-			string label = ResolveEntityDisplayName(slot.GetAttachedEntity(), ResolveEntityPrefab(slot.GetAttachedEntity()));
+			string label = ResolveEntityDisplayName(containerEntity, ResolveEntityPrefab(containerEntity));
 			if (label.IsEmpty())
 				label = "Storage";
 
@@ -735,15 +738,22 @@ class HST_LoadoutEditorService
 			node.m_sSlotKey = "storage";
 			node.m_sLabel = label;
 			node.m_sDisplayName = label;
-			node.m_sItemPrefab = ResolveEntityPrefab(slot.GetAttachedEntity());
+			node.m_sItemPrefab = ResolveEntityPrefab(containerEntity);
 			node.m_sCategory = "storage";
 			node.m_sFocus = ResolveFocusForCategory(ResolveLoadoutSlotCategory(LoadoutSlotInfo.Cast(slot)));
 			node.m_bCanOpen = true;
 			node.m_bCanDeposit = true;
 			node.m_bCanRemove = false;
 			node.m_iParentSlotIndex = slotIndex;
+			float usedVolume;
+			float totalVolume;
+			float freeVolume;
+			CalculateStorageVolume(containerStorages, usedVolume, totalVolume, freeVolume);
+			node.m_fUsedVolume = usedVolume;
+			node.m_fTotalVolume = totalVolume;
+			node.m_fFreeVolume = freeVolume;
 			node.m_iUsedCapacity = CountStorageItems(containerStorages);
-			node.m_iTotalCapacity = Math.Max(CountStorageSlots(containerStorages), node.m_iUsedCapacity);
+			node.m_iTotalCapacity = CountStorageAvailableFitOptions(state, playerEntity, insertStorages);
 			session.m_aDraftNodes.Insert(node);
 
 			AddStorageContentNodes(session, containerStorages, containerNodeId, slotIndex);
@@ -758,6 +768,10 @@ class HST_LoadoutEditorService
 		array<IEntity> contents = {};
 		array<IEntity> visited = {};
 		GatherStorageContentEntitiesFromStorages(storages, contents, visited);
+		array<string> groupKeys = {};
+		array<int> groupFirstIndexes = {};
+		array<int> groupQuantities = {};
+		array<IEntity> groupItems = {};
 		for (int itemIndex = 0; itemIndex < contents.Count(); itemIndex++)
 		{
 			IEntity item = contents[itemIndex];
@@ -766,13 +780,36 @@ class HST_LoadoutEditorService
 
 			string prefab = ResolveEntityPrefab(item);
 			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab));
-			string nodeId = NODE_STORAGE_ITEM_PREFIX + string.Format("%1_%2", containerSlotIndex, itemIndex);
+			string display = ResolveEntityDisplayName(item, prefab);
+			string groupKey = prefab + "|" + category + "|" + display;
+			int groupIndex = groupKeys.Find(groupKey);
+			if (groupIndex >= 0)
+			{
+				groupQuantities[groupIndex] = groupQuantities[groupIndex] + 1;
+				continue;
+			}
+
+			groupKeys.Insert(groupKey);
+			groupFirstIndexes.Insert(itemIndex);
+			groupQuantities.Insert(1);
+			groupItems.Insert(item);
+		}
+
+		for (int groupIndex = 0; groupIndex < groupItems.Count(); groupIndex++)
+		{
+			IEntity item = groupItems[groupIndex];
+			if (!item)
+				continue;
+
+			string prefab = ResolveEntityPrefab(item);
+			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab));
+			string nodeId = NODE_STORAGE_ITEM_PREFIX + string.Format("%1_%2", containerSlotIndex, groupFirstIndexes[groupIndex]);
 			HST_LoadoutNodeState node = new HST_LoadoutNodeState();
 			node.m_sNodeId = nodeId;
 			node.m_sParentNodeId = parentNodeId;
 			node.m_sKind = "storage_item";
 			node.m_sSlotKey = category;
-			node.m_sLabel = GetEditorCategoryLabel(category);
+			node.m_sLabel = "";
 			node.m_sItemPrefab = prefab;
 			node.m_sDisplayName = ResolveEntityDisplayName(item, prefab);
 			node.m_sCategory = category;
@@ -780,10 +817,12 @@ class HST_LoadoutEditorService
 			node.m_bCanRemove = true;
 			node.m_bCanDeposit = true;
 			node.m_iParentSlotIndex = containerSlotIndex;
-			node.m_iSlotIndex = itemIndex;
+			node.m_iSlotIndex = groupFirstIndexes[groupIndex];
+			node.m_iQuantity = Math.Max(1, groupQuantities[groupIndex]);
 			session.m_aDraftNodes.Insert(node);
 
 			HST_LoadoutSlotState slotState = BuildSlotSummaryFromEntity(nodeId, item, category, "storage_item");
+			slotState.m_iQuantity = node.m_iQuantity;
 			slotState.m_sParentSlotId = parentNodeId;
 			session.m_aDraftSlots.Insert(slotState);
 		}
@@ -901,6 +940,9 @@ class HST_LoadoutEditorService
 		if (SCR_SalineStorageComponent.Cast(storage) || SCR_TourniquetStorageComponent.Cast(storage))
 			return false;
 
+		if (IsStructuralAttachmentStorage(storage))
+			return false;
+
 		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_DEPOSIT))
 			return true;
 
@@ -976,6 +1018,53 @@ class HST_LoadoutEditorService
 		return outStorages.Count();
 	}
 
+	protected int FindStorageInsertTargetStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		FindCargoDepositStorages(entity, outStorages);
+
+		array<BaseInventoryStorageComponent> structuralStorages = {};
+		FindStructuralAttachmentStorages(entity, structuralStorages);
+		foreach (BaseInventoryStorageComponent structuralStorage : structuralStorages)
+		{
+			if (structuralStorage && outStorages.Find(structuralStorage) < 0)
+				outStorages.Insert(structuralStorage);
+		}
+
+		return outStorages.Count();
+	}
+
+	protected int FindStructuralAttachmentStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		array<IEntity> visited = {};
+		FindStructuralAttachmentStoragesRecursive(entity, outStorages, visited, 0);
+		return outStorages.Count();
+	}
+
+	protected void FindStructuralAttachmentStoragesRecursive(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<IEntity> visited, int depth)
+	{
+		if (!entity || depth > 8 || visited.Find(entity) >= 0)
+			return;
+
+		visited.Insert(entity);
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!storage || storage.GetSlotsCount() <= 0 || !IsStructuralAttachmentStorage(storage))
+				continue;
+
+			if (outStorages.Find(storage) < 0)
+				outStorages.Insert(storage);
+
+			array<IEntity> attached = {};
+			array<IEntity> attachedVisited = {};
+			GatherStorageContentEntities(storage, attached, attachedVisited);
+			foreach (IEntity child : attached)
+				FindStructuralAttachmentStoragesRecursive(child, outStorages, visited, depth + 1);
+		}
+	}
+
 	protected void GatherStorageContentEntitiesFromStorages(notnull array<BaseInventoryStorageComponent> storages, notnull array<IEntity> outItems, notnull array<IEntity> visited)
 	{
 		foreach (BaseInventoryStorageComponent storage : storages)
@@ -1025,16 +1114,68 @@ class HST_LoadoutEditorService
 		return contents.Count();
 	}
 
-	protected int CountStorageSlots(notnull array<BaseInventoryStorageComponent> storages)
+	protected void CalculateStorageVolume(notnull array<BaseInventoryStorageComponent> storages, out float usedVolume, out float totalVolume, out float freeVolume)
 	{
-		int count;
+		usedVolume = 0.0;
+		totalVolume = 0.0;
+		freeVolume = 0.0;
+
 		foreach (BaseInventoryStorageComponent storage : storages)
 		{
-			if (storage)
-				count += Math.Max(0, storage.GetSlotsCount());
+			if (!storage)
+				continue;
+
+			usedVolume += Math.Max(0.0, storage.GetOccupiedSpace());
+			totalVolume += Math.Max(0.0, storage.GetMaxVolumeCapacity());
 		}
 
-		return count;
+		freeVolume = Math.Max(0.0, totalVolume - usedVolume);
+	}
+
+	protected int CountStorageAvailableFitOptions(HST_CampaignState state, IEntity playerEntity, notnull array<BaseInventoryStorageComponent> storages)
+	{
+		if (!state || !playerEntity || storages.Count() == 0)
+			return 0;
+
+		string failure;
+		SCR_InventoryStorageManagerComponent inventory = ResolveInventoryManager(playerEntity, failure);
+		if (!inventory)
+			return 0;
+
+		int fitOptions;
+		int checkedItems;
+		foreach (HST_ArsenalItemState item : state.m_aArsenalItems)
+		{
+			if (!IsArsenalItemAvailable(item))
+				continue;
+
+			checkedItems++;
+			if (checkedItems > 96)
+				break;
+
+			bool fits;
+			ResourceName resourceName = item.m_sPrefab;
+			foreach (BaseInventoryStorageComponent storage : storages)
+			{
+				if (!storage)
+					continue;
+
+				if (inventory.FindStorageForResourceInsert(resourceName, storage, EStoragePurpose.PURPOSE_ANY))
+				{
+					fits = true;
+					break;
+				}
+			}
+
+			if (!fits)
+				continue;
+
+			fitOptions++;
+			if (fitOptions >= 24)
+				break;
+		}
+
+		return fitOptions;
 	}
 
 	protected string ResolveEntityPrefab(IEntity entity)
@@ -1822,11 +1963,41 @@ class HST_LoadoutEditorService
 
 	protected int ResolveLiveStorageTargets(IEntity playerEntity, string nodeId, notnull array<BaseInventoryStorageComponent> outStorages, out string failure)
 	{
+		IEntity containerEntity = ResolveLiveStorageContainerEntity(playerEntity, nodeId, failure);
+		if (!containerEntity)
+			return 0;
+
+		if (FindStorageInsertTargetStorages(containerEntity, outStorages) <= 0)
+		{
+			failure = "selected item has no usable storage";
+			return 0;
+		}
+
+		return outStorages.Count();
+	}
+
+	protected int ResolveLiveStorageContentTargets(IEntity playerEntity, string nodeId, notnull array<BaseInventoryStorageComponent> outStorages, out string failure)
+	{
+		IEntity containerEntity = ResolveLiveStorageContainerEntity(playerEntity, nodeId, failure);
+		if (!containerEntity)
+			return 0;
+
+		if (FindCargoDepositStorages(containerEntity, outStorages) <= 0)
+		{
+			failure = "selected item has no stored cargo";
+			return 0;
+		}
+
+		return outStorages.Count();
+	}
+
+	protected IEntity ResolveLiveStorageContainerEntity(IEntity playerEntity, string nodeId, out string failure)
+	{
 		failure = "";
 		if (!playerEntity || nodeId.IsEmpty())
 		{
 			failure = "missing storage target";
-			return 0;
+			return null;
 		}
 
 		int containerSlotIndex = -1;
@@ -1838,30 +2009,24 @@ class HST_LoadoutEditorService
 		if (containerSlotIndex < 0)
 		{
 			failure = "storage target id malformed";
-			return 0;
+			return null;
 		}
 
 		SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(playerEntity.FindComponent(SCR_CharacterInventoryStorageComponent));
 		if (!characterStorage || containerSlotIndex >= characterStorage.GetSlotsCount())
 		{
 			failure = "storage container slot not found";
-			return 0;
+			return null;
 		}
 
 		IEntity containerEntity = characterStorage.GetSlot(containerSlotIndex).GetAttachedEntity();
 		if (!containerEntity)
 		{
 			failure = "selected storage container is empty";
-			return 0;
+			return null;
 		}
 
-		if (FindCargoDepositStorages(containerEntity, outStorages) <= 0)
-		{
-			failure = "selected item has no usable storage";
-			return 0;
-		}
-
-		return outStorages.Count();
+		return containerEntity;
 	}
 
 	protected bool ResolveLiveStorageItemTarget(IEntity playerEntity, string nodeId, out IEntity targetEntity, out string failure)
@@ -1877,7 +2042,7 @@ class HST_LoadoutEditorService
 		}
 
 		array<BaseInventoryStorageComponent> storages = {};
-		if (ResolveLiveStorageTargets(playerEntity, NODE_STORAGE_PREFIX + string.Format("%1", containerSlotIndex), storages, failure) <= 0)
+		if (ResolveLiveStorageContentTargets(playerEntity, NODE_STORAGE_PREFIX + string.Format("%1", containerSlotIndex), storages, failure) <= 0)
 			return false;
 
 		array<IEntity> contents = {};
@@ -2560,8 +2725,14 @@ class HST_LoadoutEditorService
 		int count;
 		bool infinite;
 		ResolveArsenalCountForPrefab(state, node.m_sItemPrefab, count, infinite);
+		if (node.m_sKind == "storage_item")
+		{
+			count = Math.Max(1, node.m_iQuantity);
+			infinite = false;
+		}
 		string payload = string.Format("\nNODE|%1|%2|%3|%4|%5|%6|%7|%8|%9", node.m_sNodeId, node.m_sParentNodeId, node.m_sKind, SanitizePayloadField(node.m_sSlotKey), SanitizePayloadField(node.m_sLabel), node.m_sItemPrefab, SanitizePayloadField(display), count, infinite);
 		payload = payload + string.Format("|%1|%2|%3|%4", node.m_bCanOpen, node.m_bCanRemove, node.m_bCanDeposit, node.m_sFocus);
+		payload = payload + string.Format("|%1|%2", node.m_iUsedCapacity, node.m_iTotalCapacity);
 		return payload;
 	}
 

@@ -230,6 +230,9 @@ class HST_LoadoutNodeState
 	int m_iQuantity = 1;
 	int m_iUsedCapacity;
 	int m_iTotalCapacity;
+	float m_fUsedVolume;
+	float m_fTotalVolume;
+	float m_fFreeVolume;
 	int m_iStorageIndex = -1;
 	int m_iSlotIndex = -1;
 	int m_iParentSlotIndex = -1;

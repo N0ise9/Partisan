@@ -37,6 +37,7 @@ class HST_LoadoutEditorComponentClass : ScriptComponentClass
 class HST_LoadoutEditorComponent : ScriptComponent
 {
 	static const ResourceName EDITOR_LAYOUT = "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout";
+	static const ResourceName ITEM_PREVIEW_CELL_LAYOUT = "{6B43C4A98B4F47F2}UI/layouts/HST_LoadoutItemPreviewCell.layout";
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const ResourceName PREVIEW_WORLD_PREFAB = "{71D2E9B5588949D8}Prefabs/HST/HST_LoadoutPreviewWorld.et";
 	static const ResourceName PREVIEW_LIGHTS_PREFAB = "{604FFDF1DE53BD1D}Prefabs/HST/HST_LoadoutPreviewLights.et";
@@ -98,6 +99,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName ICON_EQUIPMENT = "{82311870FB87265B}Assets/512/equipment_icon.edds";
 	static const ResourceName ICON_THROWABLES = "{15364AA4BD9F047E}Assets/512/throwables_icon.edds";
 	static const ResourceName ICON_MEDICAL = "{5E7C2CD59EAB96ED}Assets/512/medical_icon.edds";
+	static const ResourceName FALLBACK_PREVIEW_ICON = "{82311870FB87265B}Assets/512/equipment_icon.edds";
 
 	protected static HST_LoadoutEditorComponent s_LocalInstance;
 
@@ -157,6 +159,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ref array<string> m_aNodePrefabs = {};
 	protected ref array<string> m_aNodeDisplays = {};
 	protected ref array<string> m_aNodeCounts = {};
+	protected ref array<int> m_aNodeUsedCapacities = {};
+	protected ref array<int> m_aNodeTotalCapacities = {};
+	protected ref array<float> m_aNodeUsedVolumes = {};
+	protected ref array<float> m_aNodeTotalVolumes = {};
+	protected ref array<float> m_aNodeFreeVolumes = {};
 	protected ref array<bool> m_aNodeInfinite = {};
 	protected ref array<bool> m_aNodeCanOpen = {};
 	protected ref array<bool> m_aNodeCanRemove = {};
@@ -189,6 +196,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected Widget m_RootWidget;
 	protected Widget m_UILayerWidget;
 	protected bool m_bRootFromLayout;
+	protected ItemPreviewManagerEntity m_ItemPreviewManager;
 	protected RenderTargetWidget m_PreviewWidget;
 	protected ref SharedItemRef m_PreviewWorldRef;
 	protected BaseWorld m_PreviewWorld;
@@ -981,11 +989,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				break;
 
 			m_aVisibleNodeIndexes.Insert(nodeIndex);
-			RenderStorageNodeRow(workspace, root, nodeIndex, 112, rowTop + visibleIndex * 54, 350, NODE_WIDGET_ID_BASE + visibleIndex, false);
+			RenderStorageNodeRow(workspace, root, nodeIndex, 112, rowTop + visibleIndex * 80, 350, NODE_WIDGET_ID_BASE + visibleIndex, false);
 			visibleIndex++;
 		}
 
-		int contentsTop = rowTop + Math.Max(1, visibleIndex) * 54 + 22;
+		int contentsTop = rowTop + Math.Max(1, visibleIndex) * 80 + 22;
 		CreateRectWidget(workspace, root, 112, contentsTop - 10, 350, 2, 0xFFC4953B, 1.0, 0);
 		CreateTextWidget(workspace, root, "Contents", 118, contentsTop, 160, 20, 13, 0xFFFFD166, 0, true);
 		int contentRows;
@@ -1411,6 +1419,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 					nodeDisplay = "Empty Slot";
 				m_aNodeDisplays.Insert(nodeDisplay);
 				m_aNodeCounts.Insert(fields[8]);
+				m_aNodeUsedVolumes.Insert(0.0);
+				m_aNodeTotalVolumes.Insert(0.0);
+				m_aNodeFreeVolumes.Insert(0.0);
 				m_aNodeInfinite.Insert(ParsePayloadBool(fields[9], false));
 				m_aNodeCanOpen.Insert(ParsePayloadBool(fields[10], false));
 				m_aNodeCanRemove.Insert(ParsePayloadBool(fields[11], false));
@@ -1419,6 +1430,40 @@ class HST_LoadoutEditorComponent : ScriptComponent
 					m_aNodeFocus.Insert(fields[13]);
 				else
 					m_aNodeFocus.Insert(fields[4]);
+				if (fields.Count() > 14)
+					m_aNodeUsedCapacities.Insert(Math.Max(0, fields[14].ToInt()));
+				else
+					m_aNodeUsedCapacities.Insert(0);
+				if (fields.Count() > 15)
+					m_aNodeTotalCapacities.Insert(Math.Max(0, fields[15].ToInt()));
+				else
+					m_aNodeTotalCapacities.Insert(0);
+				continue;
+			}
+
+			if (fields[0] == "STORAGE" && fields.Count() >= 6)
+			{
+				int nodeIndex = FindStringIndex(m_aNodeIds, fields[1]);
+				if (nodeIndex >= 0)
+				{
+					EnsureNodeCapacityArrays(nodeIndex);
+					EnsureNodeVolumeArrays(nodeIndex);
+					if (nodeIndex < m_aNodeLabels.Count())
+						m_aNodeLabels[nodeIndex] = ResolvePayloadDisplayText(fields[2]);
+					if (nodeIndex < m_aNodeCounts.Count())
+						m_aNodeCounts[nodeIndex] = fields[3];
+					m_aNodeUsedCapacities[nodeIndex] = Math.Max(0, fields[3].ToInt());
+					m_aNodeTotalCapacities[nodeIndex] = Math.Max(0, fields[4].ToInt());
+					if (fields.Count() > 6)
+						m_aNodeUsedVolumes[nodeIndex] = Math.Max(0.0, ParsePayloadFloat(fields[6], 0.0));
+					if (fields.Count() > 7)
+						m_aNodeTotalVolumes[nodeIndex] = Math.Max(0.0, ParsePayloadFloat(fields[7], 0.0));
+					if (fields.Count() > 8)
+						m_aNodeFreeVolumes[nodeIndex] = Math.Max(0.0, ParsePayloadFloat(fields[8], 0.0));
+					if (fields.Count() > 5 && nodeIndex < m_aNodeCanDeposit.Count())
+						m_aNodeCanDeposit[nodeIndex] = ParsePayloadBool(fields[5], m_aNodeCanDeposit[nodeIndex]);
+				}
+
 				continue;
 			}
 
@@ -1708,6 +1753,27 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return -1;
 	}
 
+	protected void EnsureNodeCapacityArrays(int requiredIndex)
+	{
+		while (m_aNodeUsedCapacities.Count() <= requiredIndex)
+			m_aNodeUsedCapacities.Insert(0);
+
+		while (m_aNodeTotalCapacities.Count() <= requiredIndex)
+			m_aNodeTotalCapacities.Insert(0);
+	}
+
+	protected void EnsureNodeVolumeArrays(int requiredIndex)
+	{
+		while (m_aNodeUsedVolumes.Count() <= requiredIndex)
+			m_aNodeUsedVolumes.Insert(0.0);
+
+		while (m_aNodeTotalVolumes.Count() <= requiredIndex)
+			m_aNodeTotalVolumes.Insert(0.0);
+
+		while (m_aNodeFreeVolumes.Count() <= requiredIndex)
+			m_aNodeFreeVolumes.Insert(0.0);
+	}
+
 	protected void ClearEditorPayload()
 	{
 		m_aCategoryIds.Clear();
@@ -1738,6 +1804,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_aNodePrefabs.Clear();
 		m_aNodeDisplays.Clear();
 		m_aNodeCounts.Clear();
+		m_aNodeUsedCapacities.Clear();
+		m_aNodeTotalCapacities.Clear();
+		m_aNodeUsedVolumes.Clear();
+		m_aNodeTotalVolumes.Clear();
+		m_aNodeFreeVolumes.Clear();
 		m_aNodeInfinite.Clear();
 		m_aNodeCanOpen.Clear();
 		m_aNodeCanRemove.Clear();
@@ -1824,6 +1895,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				m_aNodeCounts.Insert(string.Format("%1", m_aSlotQuantities[slotIndex]));
 			else
 				m_aNodeCounts.Insert("0");
+			m_aNodeUsedCapacities.Insert(0);
+			m_aNodeTotalCapacities.Insert(0);
+			m_aNodeUsedVolumes.Insert(0.0);
+			m_aNodeTotalVolumes.Insert(0.0);
+			m_aNodeFreeVolumes.Insert(0.0);
 			m_aNodeInfinite.Insert(false);
 			m_aNodeCanOpen.Insert(false);
 			m_aNodeCanRemove.Insert(true);
@@ -1843,10 +1919,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			color = 0xFF6F5124;
 
 		CreateRectWidget(workspace, root, 112, top, 370, 56, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveNodeIconKey(nodeIndex)), 126, top + 11, 32, 32, userId, 0xFFE6E6E6))
-			CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), 126, top + 10, 48, 34, 26, 0xFFE6E6E6, userId, true);
-		CreateTextWidget(workspace, root, ShortenText(GetNodeLabel(nodeIndex), 20), 184, top + 10, 180, 18, 14, 0xFFE2E6E8, userId, true);
-		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), 184, top + 28, 224, 18, 14, 0xFFD5D8D9, userId, false);
+		CreateNodePreviewCell(workspace, root, nodeIndex, 120, top + 6, 44, userId, 0xFFE6E6E6);
+		string primaryText = GetNodeLabel(nodeIndex);
+		string secondaryText = GetNodeDisplay(nodeIndex);
+		if (IsDuplicateDisplayText(primaryText, secondaryText))
+			secondaryText = "";
+		if (secondaryText.IsEmpty())
+			CreateTextWidget(workspace, root, ShortenText(primaryText, 30), 184, top + 19, 224, 18, 14, 0xFFE2E6E8, userId, true);
+		else
+		{
+			CreateTextWidget(workspace, root, ShortenText(primaryText, 20), 184, top + 10, 180, 18, 14, 0xFFE2E6E8, userId, true);
+			CreateTextWidget(workspace, root, ShortenText(secondaryText, 28), 184, top + 28, 224, 18, 14, 0xFFD5D8D9, userId, false);
+		}
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanOpen.Count() && m_aNodeCanOpen[nodeIndex])
 			CreateTextWidget(workspace, root, "w", 434, top + 12, 18, 18, 16, 0xFFFFFFFF, userId, true);
 	}
@@ -1859,21 +1943,159 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (contentItem)
 			color = 0xCC10161A;
 
+		bool storageContainer = !contentItem && nodeIndex >= 0 && nodeIndex < m_aNodeKinds.Count() && m_aNodeKinds[nodeIndex] == "storage";
 		int rowHeight = 46;
+		if (storageContainer)
+			rowHeight = 72;
 		CreateRectWidget(workspace, root, left, top, width, rowHeight, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveNodeIconKey(nodeIndex)), left + 10, top + 8, 28, 28, userId, 0xFFE6E6E6))
-			CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), left + 10, top + 6, 34, 30, 22, 0xFFE6E6E6, userId, true);
-		CreateTextWidget(workspace, root, ShortenText(GetNodeLabel(nodeIndex), 20), left + 54, top + 7, 170, 16, 12, 0xFFE2E6E8, userId, true);
-		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), left + 54, top + 24, 218, 16, 12, 0xFFD5D8D9, userId, false);
-		if (contentItem && nodeIndex >= 0 && nodeIndex < m_aNodeCounts.Count() && !m_aNodeCounts[nodeIndex].IsEmpty())
-			CreateTextWidget(workspace, root, "x" + m_aNodeCounts[nodeIndex], left + width - 48, top + 15, 34, 14, 10, 0xFFFFD166, userId, true);
+		CreateNodePreviewCell(workspace, root, nodeIndex, left + 6, top + 5, 38, userId, 0xFFE6E6E6);
+		int labelTextWidth = 170;
+		int displayTextWidth = 218;
+		if (storageContainer)
+		{
+			labelTextWidth = width - 68;
+			displayTextWidth = width - 68;
+		}
+		if (contentItem)
+		{
+			CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), left + 54, top + 15, width - 118, 18, 12, 0xFFE2E6E8, userId, false);
+		}
+		else
+		{
+			string primaryText = GetNodeLabel(nodeIndex);
+			string secondaryText = GetNodeDisplay(nodeIndex);
+			if (IsDuplicateDisplayText(primaryText, secondaryText))
+				secondaryText = "";
+			if (secondaryText.IsEmpty())
+				CreateTextWidget(workspace, root, ShortenText(primaryText, 30), left + 54, top + 15, displayTextWidth, 18, 12, 0xFFE2E6E8, userId, true);
+			else
+			{
+				CreateTextWidget(workspace, root, ShortenText(primaryText, 22), left + 54, top + 7, labelTextWidth, 16, 12, 0xFFE2E6E8, userId, true);
+				CreateTextWidget(workspace, root, ShortenText(secondaryText, 30), left + 54, top + 24, displayTextWidth, 16, 12, 0xFFD5D8D9, userId, false);
+			}
+		}
+		if (storageContainer)
+		{
+			string volumeLabel = BuildNodeVolumeLabel(nodeIndex);
+			if (!volumeLabel.IsEmpty())
+				CreateTextWidget(workspace, root, volumeLabel, left + 54, top + 45, width - 68, 12, 9, 0xFFFFD166, userId, false);
+			else
+				CreateTextWidget(workspace, root, BuildNodeStorageStatusLabel(nodeIndex), left + 54, top + 45, width - 68, 12, 9, 0xFFFFD166, userId, false);
+			CreateStorageVolumeBar(workspace, root, left + 54, top + 60, width - 68, 5, nodeIndex, userId);
+		}
+		else if (contentItem && nodeIndex >= 0 && nodeIndex < m_aNodeCounts.Count() && !m_aNodeCounts[nodeIndex].IsEmpty())
+			CreateTextWidget(workspace, root, "x" + m_aNodeCounts[nodeIndex], left + width - 58, top + 15, 48, 14, 10, 0xFFFFD166, userId, true);
+	}
+
+	protected int GetNodeUsedCapacity(int nodeIndex)
+	{
+		if (nodeIndex < 0 || nodeIndex >= m_aNodeUsedCapacities.Count())
+			return 0;
+
+		return Math.Max(0, m_aNodeUsedCapacities[nodeIndex]);
+	}
+
+	protected int GetNodeAvailableFitOptions(int nodeIndex)
+	{
+		if (nodeIndex < 0 || nodeIndex >= m_aNodeTotalCapacities.Count())
+			return 0;
+
+		return Math.Max(0, m_aNodeTotalCapacities[nodeIndex]);
+	}
+
+	protected string BuildNodeStorageStatusLabel(int nodeIndex)
+	{
+		if (GetNodeAvailableFitOptions(nodeIndex) > 0)
+			return "room";
+
+		return "full";
+	}
+
+	protected string BuildNodeStorageItemLabel(int nodeIndex)
+	{
+		int used = GetNodeUsedCapacity(nodeIndex);
+		if (used == 1)
+			return "1 item";
+
+		return string.Format("%1 items", used);
+	}
+
+	protected float GetNodeUsedVolume(int nodeIndex)
+	{
+		if (nodeIndex < 0 || nodeIndex >= m_aNodeUsedVolumes.Count())
+			return 0.0;
+
+		return Math.Max(0.0, m_aNodeUsedVolumes[nodeIndex]);
+	}
+
+	protected float GetNodeTotalVolume(int nodeIndex)
+	{
+		if (nodeIndex < 0 || nodeIndex >= m_aNodeTotalVolumes.Count())
+			return 0.0;
+
+		return Math.Max(0.0, m_aNodeTotalVolumes[nodeIndex]);
+	}
+
+	protected float GetNodeFreeVolume(int nodeIndex)
+	{
+		if (nodeIndex < 0 || nodeIndex >= m_aNodeFreeVolumes.Count())
+			return 0.0;
+
+		return Math.Max(0.0, m_aNodeFreeVolumes[nodeIndex]);
+	}
+
+	protected float GetNodeVolumeRatio(int nodeIndex)
+	{
+		float total = GetNodeTotalVolume(nodeIndex);
+		if (total <= 0.0)
+			return 0.0;
+
+		return Math.Clamp(GetNodeUsedVolume(nodeIndex) / total, 0.0, 1.0);
+	}
+
+	protected int ResolveStorageVolumeColor(int nodeIndex)
+	{
+		float ratio = GetNodeVolumeRatio(nodeIndex);
+		if (ratio >= 0.95)
+			return 0xFFB94A3C;
+		if (ratio >= 0.75)
+			return 0xFFE0A03A;
+
+		return 0xFFC4953B;
+	}
+
+	protected string BuildNodeVolumeLabel(int nodeIndex)
+	{
+		float total = GetNodeTotalVolume(nodeIndex);
+		if (total <= 0.0)
+			return "";
+
+		int usedRounded = Math.Round(GetNodeUsedVolume(nodeIndex));
+		int totalRounded = Math.Round(total);
+		int freeRounded = Math.Round(GetNodeFreeVolume(nodeIndex));
+		return string.Format("%1/%2 vol | %3 free", usedRounded, totalRounded, freeRounded);
+	}
+
+	protected void CreateStorageVolumeBar(WorkspaceWidget workspace, Widget root, int left, int top, int width, int height, int nodeIndex, int userId)
+	{
+		if (!workspace || !root || width <= 0 || height <= 0)
+			return;
+
+		CreateRectWidget(workspace, root, left, top, width, height, 0xAA05080A, 1.0, userId);
+		float ratio = GetNodeVolumeRatio(nodeIndex);
+		int fillWidth = Math.Round(width * ratio);
+		if (fillWidth <= 0)
+			return;
+		if (fillWidth > width)
+			fillWidth = width;
+
+		CreateRectWidget(workspace, root, left, top, fillWidth, height, ResolveStorageVolumeColor(nodeIndex), 0.96, userId);
 	}
 
 	protected void RenderSelectedNodeHeader(WorkspaceWidget workspace, Widget root)
 	{
 		int nodeIndex = FindSelectedNodeIndex();
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveNodeIconKey(nodeIndex)), 122, 166, 34, 34, 0, 0xFFE6E6E6))
-			CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), 122, 162, 48, 42, 28, 0xFFE6E6E6, 0, true);
+		CreateNodePreviewCell(workspace, root, nodeIndex, 120, 160, 46, 0, 0xFFE6E6E6);
 		CreateTextWidget(workspace, root, GetNodeLabel(nodeIndex), 184, 166, 220, 20, 15, 0xFFE2E6E8, 0, true);
 		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 28), 184, 186, 250, 20, 15, 0xFFD5D8D9, 0, false);
 		CreateTextWidget(workspace, root, "w", 438, 166, 18, 18, 16, 0xFFFFFFFF, 0, true);
@@ -1887,10 +2109,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		else if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = 0xFF3D3520;
 		CreateRectWidget(workspace, root, 112, top, 370, 50, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveCandidateIconKey(candidateIndex)), 126, top + 9, 30, 30, userId, 0xFFE6E6E6))
-			CreateTextWidget(workspace, root, ResolveCandidateIcon(candidateIndex), 126, top + 8, 46, 34, 24, 0xFFE6E6E6, userId, true);
-		CreateTextWidget(workspace, root, ShortenText(GetCandidateShortDisplay(candidateIndex), 32), 184, top + 11, 232, 20, 14, 0xFFE2E6E8, userId, false);
-		CreateTextWidget(workspace, root, BuildCandidateCountLabel(candidateIndex), 424, top + 14, 42, 16, 10, 0xFFFFD166, userId, true);
+		CreateCandidatePreviewCell(workspace, root, candidateIndex, 120, top + 4, 42, userId, 0xFFE6E6E6);
+		CreateTextWidget(workspace, root, ShortenText(GetCandidateShortDisplay(candidateIndex), 30), 184, top + 11, 194, 20, 14, 0xFFE2E6E8, userId, false);
+		CreateTextWidget(workspace, root, BuildCandidateCountLabel(candidateIndex), 390, top + 14, 76, 16, 10, 0xFFFFD166, userId, true);
 	}
 
 	protected void RenderStorageCandidateTile(WorkspaceWidget workspace, Widget root, int candidateIndex, int left, int top, int width, int userId)
@@ -1899,10 +2120,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = 0xFF3D3520;
 		CreateRectWidget(workspace, root, left, top, width, 48, color, 0.98, userId);
-		if (!CreateIconWidget(workspace, root, ResolveIconTexture(ResolveCandidateIconKey(candidateIndex)), left + 10, top + 8, 30, 30, userId, 0xFFE6E6E6))
-			CreateTextWidget(workspace, root, ResolveCandidateIcon(candidateIndex), left + 10, top + 8, 36, 30, 22, 0xFFE6E6E6, userId, true);
-		CreateTextWidget(workspace, root, ShortenText(GetCandidateShortDisplay(candidateIndex), 28), left + 52, top + 9, width - 104, 18, 12, 0xFFE2E6E8, userId, false);
-		CreateTextWidget(workspace, root, BuildCandidateCountLabel(candidateIndex), left + width - 44, top + 16, 34, 14, 10, 0xFFFFD166, userId, true);
+		CreateCandidatePreviewCell(workspace, root, candidateIndex, left + 6, top + 4, 40, userId, 0xFFE6E6E6);
+		CreateTextWidget(workspace, root, ShortenText(GetCandidateShortDisplay(candidateIndex), 28), left + 56, top + 9, width - 150, 18, 12, 0xFFE2E6E8, userId, false);
+		CreateTextWidget(workspace, root, BuildCandidateCountLabel(candidateIndex), left + width - 82, top + 16, 70, 14, 10, 0xFFFFD166, userId, true);
 	}
 
 	protected int FindSelectedNodeIndex()
@@ -2070,6 +2290,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return m_aCandidateDisplays[candidateIndex];
 
 		return "Item";
+	}
+
+	protected bool IsDuplicateDisplayText(string first, string second)
+	{
+		first = first.Trim();
+		second = second.Trim();
+		if (first.IsEmpty() || second.IsEmpty())
+			return false;
+
+		return first == second;
 	}
 
 	protected string BuildCandidateCountLabel(int candidateIndex)
@@ -2330,6 +2560,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return false;
 
 		return fallback;
+	}
+
+	protected float ParsePayloadFloat(string value, float fallback = 0.0)
+	{
+		if (value.IsEmpty())
+			return fallback;
+
+		return value.ToFloat();
 	}
 
 	protected string ResolvePayloadDisplayText(string value)
@@ -2604,7 +2842,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (nodeIndex < 0)
 			return "Select Storage";
 
-		return GetNodeDisplay(nodeIndex);
+		string volumeLabel = BuildNodeVolumeLabel(nodeIndex);
+		if (!volumeLabel.IsEmpty())
+			return string.Format("%1 | %2", GetNodeDisplay(nodeIndex), volumeLabel);
+
+		return string.Format("%1 | %2 | %3", GetNodeDisplay(nodeIndex), BuildNodeStorageItemLabel(nodeIndex), BuildNodeStorageStatusLabel(nodeIndex));
 	}
 
 	protected void RenderStorageCategoryTabs(WorkspaceWidget workspace, Widget root, int left, int top, int width)
@@ -3552,6 +3794,104 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return false;
 	}
 
+	protected IEntity ResolveItemIconPreviewEntityForNode(string nodeId)
+	{
+		if (nodeId.IsEmpty())
+			return null;
+
+		IEntity character = ResolvePreviewEditedCharacter();
+		if (!character)
+			return null;
+
+		if (nodeId.IndexOf(NODE_LOADOUT_PREFIX) == 0)
+		{
+			int slotIndex = ParseSinglePreviewNodeIndex(nodeId, NODE_LOADOUT_PREFIX);
+			SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(character.FindComponent(SCR_CharacterInventoryStorageComponent));
+			if (!characterStorage || slotIndex < 0 || slotIndex >= characterStorage.GetSlotsCount())
+				return null;
+
+			InventoryStorageSlot slot = characterStorage.GetSlot(slotIndex);
+			if (!slot)
+				return null;
+
+			return slot.GetAttachedEntity();
+		}
+
+		if (nodeId.IndexOf(NODE_STORAGE_ITEM_PREFIX) == 0)
+		{
+			int containerSlotIndex;
+			int itemIndex;
+			if (!ParseTwoPreviewNodeIndexes(nodeId, NODE_STORAGE_ITEM_PREFIX, containerSlotIndex, itemIndex))
+				return null;
+
+			array<BaseInventoryStorageComponent> storages = {};
+			if (ResolvePreviewStorageTargets(character, NODE_STORAGE_PREFIX + string.Format("%1", containerSlotIndex), storages) <= 0)
+				return null;
+
+			array<IEntity> contents = {};
+			array<IEntity> visited = {};
+			GatherPreviewStorageContentEntitiesFromStorages(storages, contents, visited);
+			if (itemIndex < 0 || itemIndex >= contents.Count())
+				return null;
+
+			return contents[itemIndex];
+		}
+
+		if (nodeId.IndexOf(NODE_STORAGE_PREFIX) == 0)
+		{
+			int containerSlotIndex = ParseSinglePreviewNodeIndex(nodeId, NODE_STORAGE_PREFIX);
+			return ResolvePreviewStorageContainer(character, containerSlotIndex);
+		}
+
+		if (nodeId.IndexOf(NODE_WEAPON_PREFIX) == 0)
+		{
+			BaseInventoryStorageComponent weaponStorage;
+			InventoryStorageSlot weaponSlot;
+			if (!ResolvePreviewIndexedStorageSlot(character, nodeId, NODE_WEAPON_PREFIX, weaponStorage, weaponSlot))
+				return null;
+
+			return weaponSlot.GetAttachedEntity();
+		}
+
+		if (nodeId.IndexOf(NODE_ATTACHMENT_PREFIX) == 0)
+		{
+			int weaponStorageIndex;
+			int weaponSlotIndex;
+			int attachmentSlotIndex;
+			if (!ParseThreePreviewNodeIndexes(nodeId, NODE_ATTACHMENT_PREFIX, weaponStorageIndex, weaponSlotIndex, attachmentSlotIndex))
+				return null;
+
+			array<BaseInventoryStorageComponent> storages = {};
+			FindPreviewInventoryStoragesWithSlots(character, storages);
+			if (weaponStorageIndex < 0 || weaponStorageIndex >= storages.Count())
+				return null;
+
+			BaseInventoryStorageComponent weaponStorage = storages[weaponStorageIndex];
+			if (!weaponStorage || weaponSlotIndex < 0 || weaponSlotIndex >= weaponStorage.GetSlotsCount())
+				return null;
+
+			InventoryStorageSlot weaponSlot = weaponStorage.GetSlot(weaponSlotIndex);
+			if (!weaponSlot)
+				return null;
+
+			IEntity weaponEntity = weaponSlot.GetAttachedEntity();
+			if (!weaponEntity)
+				return null;
+
+			SCR_WeaponAttachmentsStorageComponent attachmentStorage = SCR_WeaponAttachmentsStorageComponent.Cast(weaponEntity.FindComponent(SCR_WeaponAttachmentsStorageComponent));
+			if (!attachmentStorage || attachmentSlotIndex < 0 || attachmentSlotIndex >= attachmentStorage.GetSlotsCount())
+				return null;
+
+			InventoryStorageSlot attachmentSlot = attachmentStorage.GetSlot(attachmentSlotIndex);
+			if (!attachmentSlot)
+				return null;
+
+			return attachmentSlot.GetAttachedEntity();
+		}
+
+		return null;
+	}
+
 	protected bool ResolvePreviewIndexedStorageSlot(IEntity character, string nodeId, string prefix, out BaseInventoryStorageComponent storage, out InventoryStorageSlot slot)
 	{
 		storage = null;
@@ -3682,6 +4022,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return false;
 
 		if (SCR_SalineStorageComponent.Cast(storage) || SCR_TourniquetStorageComponent.Cast(storage))
+			return false;
+
+		if (IsPreviewStructuralAttachmentStorage(storage))
 			return false;
 
 		if (SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_DEPOSIT))
@@ -4042,6 +4385,180 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		lightAngles[1] = m_vPreviewLightBaseAngles[1] + cameraAngles[0];
 		m_PreviewLightEntity.SetAngles(lightAngles);
 		m_PreviewLightEntity.Update();
+	}
+
+	protected ItemPreviewManagerEntity GetItemPreviewManager()
+	{
+		if (m_ItemPreviewManager)
+			return m_ItemPreviewManager;
+
+		ChimeraWorld chimeraWorld = ChimeraWorld.CastFrom(GetGame().GetWorld());
+		if (!chimeraWorld)
+			return null;
+
+		m_ItemPreviewManager = chimeraWorld.GetItemPreviewManager();
+		return m_ItemPreviewManager;
+	}
+
+	protected Widget CreateItemPreviewCell(WorkspaceWidget workspace, Widget parent, int left, int top, int size, int userId)
+	{
+		if (!workspace || !parent)
+			return null;
+
+		Widget cell = workspace.CreateWidgets(ITEM_PREVIEW_CELL_LAYOUT, parent);
+		if (!cell)
+			return null;
+
+		FrameSlot.SetPos(cell, left, top);
+		FrameSlot.SetSize(cell, size, size);
+		if (userId != 0)
+		{
+			cell.SetUserID(userId);
+			cell.AddHandler(m_WidgetHandler);
+			BindItemPreviewCellChild(cell, "SlotPreview", userId);
+			BindItemPreviewCellChild(cell, "SlotImage", userId);
+		}
+
+		m_aWidgets.Insert(cell);
+		return cell;
+	}
+
+	protected void BindItemPreviewCellChild(Widget cell, string childName, int userId)
+	{
+		if (!cell || userId == 0)
+			return;
+
+		Widget child = cell.FindAnyWidget(childName);
+		if (!child)
+			return;
+
+		child.SetUserID(userId);
+		child.AddHandler(m_WidgetHandler);
+	}
+
+	protected void SetPreviewCellFallbackIcon(Widget cell, ResourceName iconTexture, int color)
+	{
+		if (!cell)
+			return;
+
+		ItemPreviewWidget previewWidget = ItemPreviewWidget.Cast(cell.FindAnyWidget("SlotPreview"));
+		if (previewWidget)
+			previewWidget.SetVisible(false);
+
+		ImageWidget imageWidget = ImageWidget.Cast(cell.FindAnyWidget("SlotImage"));
+		if (!imageWidget)
+			return;
+
+		ResourceName texture = iconTexture;
+		if (texture.IsEmpty())
+			texture = FALLBACK_PREVIEW_ICON;
+
+		imageWidget.LoadImageTexture(0, texture);
+		imageWidget.SetColorInt(color);
+		imageWidget.SetVisible(true);
+	}
+
+	protected bool SetPreviewCellFromPrefab(Widget cell, string prefab, ResourceName fallbackIcon, int color)
+	{
+		if (!cell || prefab.IsEmpty())
+		{
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+			return false;
+		}
+
+		ItemPreviewManagerEntity previewManager = GetItemPreviewManager();
+		ItemPreviewWidget previewWidget = ItemPreviewWidget.Cast(cell.FindAnyWidget("SlotPreview"));
+		if (!previewManager || !previewWidget)
+		{
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+			return false;
+		}
+
+		ImageWidget imageWidget = ImageWidget.Cast(cell.FindAnyWidget("SlotImage"));
+		if (imageWidget)
+			imageWidget.SetVisible(false);
+
+		ResourceName resourceName = prefab;
+		Resource resource = Resource.Load(resourceName);
+		if (!resource || !resource.IsValid())
+		{
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+			return false;
+		}
+
+		previewManager.SetPreviewItem(previewWidget, null, null, true);
+		previewManager.SetPreviewItemFromPrefab(previewWidget, resourceName);
+		previewWidget.SetVisible(true);
+		return true;
+	}
+
+	protected bool SetPreviewCellFromEntity(Widget cell, IEntity entity, ResourceName fallbackIcon, int color)
+	{
+		if (!cell || !entity)
+		{
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+			return false;
+		}
+
+		ItemPreviewManagerEntity previewManager = GetItemPreviewManager();
+		ItemPreviewWidget previewWidget = ItemPreviewWidget.Cast(cell.FindAnyWidget("SlotPreview"));
+		if (!previewManager || !previewWidget)
+		{
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+			return false;
+		}
+
+		ImageWidget imageWidget = ImageWidget.Cast(cell.FindAnyWidget("SlotImage"));
+		if (imageWidget)
+			imageWidget.SetVisible(false);
+
+		previewManager.SetPreviewItem(previewWidget, null, null, true);
+		previewManager.SetPreviewItem(previewWidget, entity);
+		previewWidget.SetVisible(true);
+		return true;
+	}
+
+	protected bool CreateNodePreviewCell(WorkspaceWidget workspace, Widget root, int nodeIndex, int left, int top, int size, int userId, int color)
+	{
+		ResourceName fallbackIcon = ResolveIconTexture(ResolveNodeIconKey(nodeIndex));
+		Widget cell = CreateItemPreviewCell(workspace, root, left, top, size, userId);
+		if (!cell)
+		{
+			if (!CreateIconWidget(workspace, root, fallbackIcon, left, top, size, size, userId, color))
+				CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), left, top, size, size, Math.Max(14, size - 10), color, userId, true);
+			return false;
+		}
+
+		IEntity itemEntity = null;
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
+			itemEntity = ResolveItemIconPreviewEntityForNode(m_aNodeIds[nodeIndex]);
+
+		if (itemEntity && SetPreviewCellFromEntity(cell, itemEntity, fallbackIcon, color))
+			return true;
+
+		string prefab = "";
+		if (nodeIndex >= 0 && nodeIndex < m_aNodePrefabs.Count())
+			prefab = m_aNodePrefabs[nodeIndex];
+
+		return SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color);
+	}
+
+	protected bool CreateCandidatePreviewCell(WorkspaceWidget workspace, Widget root, int candidateIndex, int left, int top, int size, int userId, int color)
+	{
+		ResourceName fallbackIcon = ResolveIconTexture(ResolveCandidateIconKey(candidateIndex));
+		Widget cell = CreateItemPreviewCell(workspace, root, left, top, size, userId);
+		if (!cell)
+		{
+			if (!CreateIconWidget(workspace, root, fallbackIcon, left, top, size, size, userId, color))
+				CreateTextWidget(workspace, root, ResolveCandidateIcon(candidateIndex), left, top, size, size, Math.Max(14, size - 10), color, userId, true);
+			return false;
+		}
+
+		string prefab = "";
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidatePrefabs.Count())
+			prefab = m_aCandidatePrefabs[candidateIndex];
+
+		return SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color);
 	}
 
 	protected ResourceName ResolveIconTexture(string key)

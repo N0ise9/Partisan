@@ -1,0 +1,31 @@
+FrameWidgetClass "{7B2FD986A4D34210}" {
+ Name "HST_LoadoutItemPreviewCell"
+ {
+  ImageWidgetClass "{7B2FD986A4D34211}" {
+   Name "SlotImage"
+   Slot FrameWidgetSlot "{7B2FD986A4D34212}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   "Is Visible" 1
+   Size 64 64
+  }
+  ItemPreviewWidgetClass "{7B2FD986A4D34213}" {
+   Name "SlotPreview"
+   Slot FrameWidgetSlot "{7B2FD986A4D34214}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   "Is Visible" 0
+   Format LDR_sRGB
+   "Use clear color" 1
+   "Blend mode" Blend
+  }
+ }
+}

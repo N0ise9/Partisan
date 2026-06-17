@@ -15,7 +15,7 @@ GenericEntity {
    coords 1.889 1.791 -2.187
    angles -13.132 -19.496 -0.229
    Color 0.657 0.893 1 0
-   LV 8
+   LV 7
    CastShadow 0
    Type Point
    Radius 45

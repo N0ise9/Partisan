@@ -108,16 +108,17 @@ class HST_DisplayNameService
 		{
 			string translated = WidgetManager.Translate(value);
 			if (!translated.IsEmpty() && translated != value && !LooksLikeLocalizationKey(translated) && !LooksLikePrefabPath(translated))
-				return translated;
+				return NormalizeDisplayGlyphs(translated);
 
 			return "";
 		}
 
-		return value;
+		return NormalizeDisplayGlyphs(value);
 	}
 
 	protected static string NormalizeKnownLabel(string name)
 	{
+		name = NormalizeDisplayGlyphs(name);
 		name.Replace("EQUIPMENT", "");
 		name.Replace("Equipment", "");
 		name.Replace("Addon", "");
@@ -136,5 +137,11 @@ class HST_DisplayNameService
 		name.Replace("  ", " ");
 		name.Replace("  ", " ");
 		return name.Trim();
+	}
+
+	protected static string NormalizeDisplayGlyphs(string name)
+	{
+		name.Replace("×", "x");
+		return name;
 	}
 }
