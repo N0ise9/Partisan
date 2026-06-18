@@ -1982,6 +1982,29 @@ foreach ($rowLayoutContract in $rowLayoutContracts) {
 	}
 }
 
+$loadoutRowFontContracts = @(
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; FontGuids = @("{C1A9E1A2092846E0}", "{C1A9E1A2092846E1}", "{C1A9E1A2092846E2}") },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; FontGuids = @("{C1A9E1A2092846E3}", "{C1A9E1A2092846E4}", "{C1A9E1A2092846E5}") },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; FontGuids = @("{C1A9E1A2092846E6}", "{C1A9E1A2092846E7}") },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; FontGuids = @("{C1A9E1A2092846E8}", "{C1A9E1A2092846E9}") }
+)
+foreach ($loadoutRowFontContract in $loadoutRowFontContracts) {
+	$loadoutRowFontText = Get-Content -Raw $loadoutRowFontContract.Path
+	foreach ($loadoutRowFontGuid in $loadoutRowFontContract.FontGuids) {
+		if ($loadoutRowFontText -notmatch [regex]::Escape("FontProperties FontProperties `"$loadoutRowFontGuid`"")) {
+			throw "$($loadoutRowFontContract.Path) is missing explicit text font properties: $loadoutRowFontGuid"
+		}
+	}
+	foreach ($requiredLoadoutRowFontEntry in @(
+		'Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"',
+		"DisabledColor 0.38 0.38 0.38 1"
+	)) {
+		if ($loadoutRowFontText -notmatch [regex]::Escape($requiredLoadoutRowFontEntry)) {
+			throw "$($loadoutRowFontContract.Path) is missing explicit Roboto text font entry: $requiredLoadoutRowFontEntry"
+		}
+	}
+}
+
 foreach ($requiredSettingsEntry in @(
 	"HST_RuntimeSettings",
 	"HST_RuntimeSettingsService",
@@ -2571,8 +2594,18 @@ if ($loadoutEditorComponentText -notmatch "CreateWidgetInWorkspace\(WidgetType\.
 if ($loadoutEditorComponentText -notmatch "CreateWidgets\(EDITOR_LAYOUT, m_RootWidget\)") {
 	throw "Loadout editor layout must be loaded as a child of the procedural root frame"
 }
-if ($loadoutEditorComponentText -notmatch "FrameSlot\.SetPos\(root, 0, 0\)[\s\S]{0,160}FrameSlot\.SetSize\(root, m_iEditorWidth, m_iEditorHeight\)") {
-	throw "Loadout editor must size its fixed-anchor root to the current workspace"
+foreach ($requiredLoadoutRootMaskEntry in @(
+	"int screenBleed = ScalePx(96)",
+	"FrameSlot.SetPos(root, -screenBleed, -screenBleed)",
+	"FrameSlot.SetSize(root, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2)",
+	"Widget hardMask = CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2, 0xFF5C8089, 1.0, 0)",
+	"hardMask.SetZOrder(0)",
+	"FrameSlot.SetPos(layoutRoot, screenBleed, screenBleed)",
+	"layoutRoot.SetZOrder(10)"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutRootMaskEntry)) {
+		throw "Loadout editor root hard-mask coverage is missing: $requiredLoadoutRootMaskEntry"
+	}
 }
 if ($loadoutEditorComponentText -notmatch 'FindAnyWidget\("HST_LoadoutEditorRoot"\)[\s\S]{0,180}FrameSlot\.SetSize\(layoutRoot, m_iEditorWidth, m_iEditorHeight\)') {
 	throw "Loadout editor must resize the layout child root to the current workspace"
@@ -2592,7 +2625,7 @@ foreach ($requiredLayoutEntry in @(
 	"HST_LoadoutPreviewContainer",
 	"HST_LoadoutPreview",
 	"OverlayWidgetSlot",
-	"Padding 0 0 -200 0",
+	"Padding 0 0 0 0",
 	"Anchor 0 0 1 1"
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLayoutEntry)) {

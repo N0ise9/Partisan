@@ -860,13 +860,24 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!root)
 			return;
 
-		FrameSlot.SetPos(root, 0, 0);
-		FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
+		int screenBleed = ScalePx(96);
+
+		// Make the root intentionally larger than the workspace. This hides
+		// Workbench/game viewport mismatch on the right/bottom edges.
+		FrameSlot.SetPos(root, -screenBleed, -screenBleed);
+		FrameSlot.SetSize(root, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2);
+
+		// Hard mask behind the actual editor layout.
+		Widget hardMask = CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2, 0xFF5C8089, 1.0, 0);
+		if (hardMask)
+			hardMask.SetZOrder(0);
+
 		Widget layoutRoot = root.FindAnyWidget("HST_LoadoutEditorRoot");
 		if (layoutRoot)
 		{
-			FrameSlot.SetPos(layoutRoot, 0, 0);
+			FrameSlot.SetPos(layoutRoot, screenBleed, screenBleed);
 			FrameSlot.SetSize(layoutRoot, m_iEditorWidth, m_iEditorHeight);
+			layoutRoot.SetZOrder(10);
 		}
 
 		root.SetZOrder(3600);

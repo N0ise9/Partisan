@@ -38,7 +38,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Slot OverlayWidgetSlot "{7B2FD986A4D34121}" {
       HorizontalAlign 3
       VerticalAlign 3
-      Padding 0 0 -200 0
+      Padding 0 0 0 0
      }
      Format "HDR High"
     }
