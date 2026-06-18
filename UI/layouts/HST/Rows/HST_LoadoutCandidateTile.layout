@@ -1,0 +1,88 @@
+ButtonWidgetClass "{A7B8C9D001234600}" {
+ Name "HST_LoadoutCandidateTile"
+ Slot AlignableSlot "{A7B8C9D001234609}" {
+  HorizontalAlign 0
+  VerticalAlign 0
+  Padding 0 0 8 8
+ }
+ Color 1 1 1 0
+ "Is Visible" 1
+ {
+  SizeLayoutWidgetClass "{A7B8C9D00123600A}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{A7B8C9D00123600B}" {
+   }
+   AllowWidthOverride 1
+   WidthOverride 306
+   AllowHeightOverride 1
+   HeightOverride 74
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 306
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 74
+   AllowMaxDesiredWidth 1
+   MaxDesiredWidth 306
+   AllowMaxDesiredHeight 1
+   MaxDesiredHeight 74
+   {
+    FrameWidgetClass "{A7B8C9D00123600C}" {
+     Name "Content"
+     Slot AlignableSlot "{A7B8C9D00123600D}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     "Ignore Cursor" 1
+     {
+      ImageWidgetClass "{A7B8C9D001234601}" {
+       Name "Background"
+       Slot FrameWidgetSlot "{A7B8C9D001234602}" {
+        Anchor 0 0 0 0
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 306
+        OffsetBottom 74
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+      FrameWidgetClass "{A7B8C9D001234603}" {
+       Name "PreviewAnchor"
+       Slot FrameWidgetSlot "{A7B8C9D001234604}" {
+        Anchor 0 0 0 0
+        OffsetLeft 10
+        OffsetTop 9
+        OffsetRight 66
+        OffsetBottom 65
+       }
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D001234605}" {
+       Name "Name"
+       Slot FrameWidgetSlot "{A7B8C9D001234606}" {
+        Anchor 0 0 1 0
+        OffsetLeft 76
+        OffsetTop 10
+        OffsetRight -90
+        OffsetBottom 64
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D001234607}" {
+       Name "Count"
+       Slot FrameWidgetSlot "{A7B8C9D001234608}" {
+        Anchor 1 0 1 0
+        OffsetLeft -82
+        OffsetTop 24
+        OffsetRight -10
+        OffsetBottom 48
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+     }
+    }
+   }
+  }
+ }
+}

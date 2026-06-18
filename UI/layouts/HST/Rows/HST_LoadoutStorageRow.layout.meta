@@ -1,5 +1,5 @@
 MetaFileClass {
- Name "{89F29300C63B4A10}UI/layouts/HST_ScrollList.layout"
+ Name "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"
  Configurations {
   LayoutResourceClass PC {
   }

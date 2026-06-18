@@ -1,0 +1,61 @@
+ButtonWidgetClass "{A7B8C9D0012345B0}" {
+ Name "HST_CommandActionRow"
+ Slot AlignableSlot "{A7B8C9D0012345B1}" {
+  HorizontalAlign 3
+  VerticalAlign 0
+  Padding 0 0 0 6
+ }
+ Color 1 1 1 0
+ "Is Visible" 1
+ {
+  SizeLayoutWidgetClass "{A7B8C9D0012345B6}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{A7B8C9D0012345B7}" {
+   }
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 520
+   AllowHeightOverride 1
+   HeightOverride 64
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 64
+   AllowMaxDesiredHeight 1
+   MaxDesiredHeight 64
+   {
+    FrameWidgetClass "{A7B8C9D0012345B8}" {
+     Name "Content"
+     Slot AlignableSlot "{A7B8C9D0012345B9}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     "Ignore Cursor" 1
+     {
+      ImageWidgetClass "{A7B8C9D0012345B2}" {
+       Name "Background"
+       Slot FrameWidgetSlot "{A7B8C9D0012345B3}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 64
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D0012345B4}" {
+       Name "Label"
+       Slot FrameWidgetSlot "{A7B8C9D0012345B5}" {
+        Anchor 0 0 1 0
+        OffsetLeft 12
+        OffsetTop 8
+        OffsetRight -12
+        OffsetBottom 56
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+     }
+    }
+   }
+  }
+ }
+}
