@@ -8,6 +8,20 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
   OffsetBottom 0
  }
  {
+  PanelWidgetClass "{C1A9E1A2092846D1}" {
+   Name "HST_LoadoutBackdrop"
+   Slot FrameWidgetSlot "{C1A9E1A2092846D2}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   Color 0.36 0.50 0.54 1
+   style full
+   "Is Visible" 1
+   "Ignore Cursor" 1
+  }
   OverlayWidgetClass "{7B2FD986A4D34120}" {
    Name "HST_LoadoutPreviewContainer"
    Slot FrameWidgetSlot "{7B2FD986A4D34112}" {
