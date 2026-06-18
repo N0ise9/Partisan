@@ -3731,7 +3731,10 @@ foreach ($requiredDestroyTargetEntry in @(
 	"text.Contains(""buckshot"")",
 	"looksLikeProjectileOrAmmo",
 	"IsProjectileOrAmmoWitnessText",
-	"IsGenericWarheadWitnessText"
+	"IsGenericWarheadWitnessText",
+	"ResolveExplosiveWitnessSourceCooldownSeconds",
+	"BuildRoundedWitnessPositionKey",
+	"witness:generic-warhead:"
 )) {
 	if ($missionDestroyTargetComponentText -notmatch [regex]::Escape($requiredDestroyTargetEntry)) {
 		throw "Destroy radio tower demolition debug/classifier contract is missing: $requiredDestroyTargetEntry"
@@ -3759,6 +3762,12 @@ $genericWarheadCheckIndex = $missionDestroyTargetComponentText.IndexOf("IsGeneri
 $rocketWitnessCheckIndex = $missionDestroyTargetComponentText.IndexOf("IsRocketWitnessDamageText(text)")
 if ($genericWarheadCheckIndex -lt 0 -or $rocketWitnessCheckIndex -lt 0 -or $genericWarheadCheckIndex -gt $rocketWitnessCheckIndex) {
 	throw "Destroy target witness scoring must reject generic warhead evidence before rocket witness scoring"
+}
+if ($missionDestroyTargetComponentText -notmatch [regex]::Escape("if (IsGenericWarheadWitnessText(text))`r`n`t`t`treturn m_fSmallExplosiveDamageScore") -and $missionDestroyTargetComponentText -notmatch [regex]::Escape("if (IsGenericWarheadWitnessText(text))`n`t`t`treturn m_fSmallExplosiveDamageScore")) {
+	throw "Destroy target witness scoring must count generic Warhead_Base evidence only as small explosive fallback"
+}
+if ($missionDestroyTargetComponentText -notmatch "sourceKey\.Contains\(""generic-warhead""\)[\s\S]*?12\.0") {
+	throw "Destroy target generic warhead fallback must use a longer cooldown to avoid lingering witness spam"
 }
 $arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
 if ($lootServiceText -match 'm_vAngles = "0 0 0"') {

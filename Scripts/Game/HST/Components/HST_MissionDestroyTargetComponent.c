@@ -324,15 +324,24 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (sourceKey.IsEmpty())
 			return;
 
+		float cooldownSeconds = ResolveExplosiveWitnessSourceCooldownSeconds(sourceKey);
 		int existingIndex = m_aRecentExplosiveWitnessSourceKeys.Find(sourceKey);
 		if (existingIndex >= 0)
 		{
-			m_aRecentExplosiveWitnessSourceSeconds[existingIndex] = m_fExplosiveWitnessSourceCooldownSeconds;
+			m_aRecentExplosiveWitnessSourceSeconds[existingIndex] = cooldownSeconds;
 			return;
 		}
 
 		m_aRecentExplosiveWitnessSourceKeys.Insert(sourceKey);
-		m_aRecentExplosiveWitnessSourceSeconds.Insert(m_fExplosiveWitnessSourceCooldownSeconds);
+		m_aRecentExplosiveWitnessSourceSeconds.Insert(cooldownSeconds);
+	}
+
+	protected float ResolveExplosiveWitnessSourceCooldownSeconds(string sourceKey)
+	{
+		if (sourceKey.Contains("generic-warhead"))
+			return Math.Max(m_fExplosiveWitnessSourceCooldownSeconds, 12.0);
+
+		return m_fExplosiveWitnessSourceCooldownSeconds;
 	}
 
 	protected bool IsEntityOwnedByTarget(IEntity candidate, IEntity owner)
@@ -375,7 +384,21 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (key.IsEmpty())
 			key = witnessText;
 
+		string lowered = witnessText;
+		lowered.ToLower();
+		if (IsGenericWarheadWitnessText(lowered))
+			return "witness:generic-warhead:" + key + "@" + BuildRoundedWitnessPositionKey(entity);
+
 		return "witness:" + key;
+	}
+
+	protected string BuildRoundedWitnessPositionKey(IEntity entity)
+	{
+		if (!entity)
+			return "unknown";
+
+		vector position = entity.GetOrigin();
+		return string.Format("%1:%2:%3", Math.Round(position[0]), Math.Round(position[1]), Math.Round(position[2]));
 	}
 
 	protected string BuildDamageSourceKey(IEntity sourceEntity, string sourcePrefab, string damageTypeText)
@@ -441,7 +464,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return 0.0;
 
 		if (IsGenericWarheadWitnessText(text))
-			return 0.0;
+			return m_fSmallExplosiveDamageScore;
 
 		if (IsRocketWitnessDamageText(text))
 			return m_fRocketDamageScore;
