@@ -1,0 +1,107 @@
+ButtonWidgetClass "{A7B8C9D0012345D0}" {
+ Name "HST_LoadoutNodeRow"
+ Slot AlignableSlot "{A7B8C9D0012345D1}" {
+  HorizontalAlign 3
+  VerticalAlign 0
+  Padding 0 0 0 8
+ }
+ Color 1 1 1 0
+ "Is Visible" 1
+ {
+  SizeLayoutWidgetClass "{A7B8C9D001235D0E}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{A7B8C9D001235D0F}" {
+   }
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 360
+   AllowHeightOverride 1
+   HeightOverride 68
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 68
+   AllowMaxDesiredHeight 1
+   MaxDesiredHeight 68
+   {
+    FrameWidgetClass "{A7B8C9D001235D10}" {
+     Name "Content"
+     Slot AlignableSlot "{A7B8C9D001235D11}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     "Ignore Cursor" 1
+     {
+      ImageWidgetClass "{A7B8C9D0012345D2}" {
+       Name "Background"
+       Slot FrameWidgetSlot "{A7B8C9D0012345D3}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 68
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+      FrameWidgetClass "{A7B8C9D0012345D4}" {
+       Name "PreviewBack"
+       Slot FrameWidgetSlot "{A7B8C9D0012345D5}" {
+        Anchor 0 0 0 0
+        OffsetLeft 6
+        OffsetTop 6
+        OffsetRight 66
+        OffsetBottom 66
+       }
+       "Ignore Cursor" 1
+      }
+      FrameWidgetClass "{A7B8C9D0012345D6}" {
+       Name "PreviewAnchor"
+       Slot FrameWidgetSlot "{A7B8C9D0012345D7}" {
+        Anchor 0 0 0 0
+        OffsetLeft 8
+        OffsetTop 8
+        OffsetRight 64
+        OffsetBottom 64
+       }
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D0012345D8}" {
+       Name "Primary"
+       Slot FrameWidgetSlot "{A7B8C9D0012345D9}" {
+        Anchor 0 0 1 0
+        OffsetLeft 78
+        OffsetTop 9
+        OffsetRight -36
+        OffsetBottom 30
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D0012345DA}" {
+       Name "Secondary"
+       Slot FrameWidgetSlot "{A7B8C9D0012345DB}" {
+        Anchor 0 0 1 0
+        OffsetLeft 78
+        OffsetTop 30
+        OffsetRight -36
+        OffsetBottom 60
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D0012345DC}" {
+       Name "OpenMarker"
+       Slot FrameWidgetSlot "{A7B8C9D0012345DD}" {
+        Anchor 1 0 1 0
+        OffsetLeft -28
+        OffsetTop 12
+        OffsetRight -8
+        OffsetBottom 34
+       }
+       "Is Visible" 0
+       "Ignore Cursor" 1
+      }
+     }
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,48 @@
+ButtonWidgetClass "{A7B8C9D0012345C0}" {
+ Name "HST_CommandFeedRow"
+ Slot AlignableSlot "{A7B8C9D0012345C1}" {
+  HorizontalAlign 3
+  VerticalAlign 0
+  Padding 0 0 0 6
+ }
+ Color 1 1 1 0
+ {
+  SizeLayoutWidgetClass "{A7B8C9D0012345C4}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{A7B8C9D0012345C5}" {
+   }
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 520
+   AllowHeightOverride 1
+   HeightOverride 42
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 42
+   AllowMaxDesiredHeight 1
+   MaxDesiredHeight 42
+   {
+    FrameWidgetClass "{A7B8C9D0012345C6}" {
+     Name "Content"
+     Slot AlignableSlot "{A7B8C9D0012345C7}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     "Ignore Cursor" 1
+     {
+      TextWidgetClass "{A7B8C9D0012345C2}" {
+       Name "Text"
+       Slot FrameWidgetSlot "{A7B8C9D0012345C3}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 4
+        OffsetRight 0
+        OffsetBottom 38
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+     }
+    }
+   }
+  }
+ }
+}

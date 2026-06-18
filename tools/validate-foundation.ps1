@@ -1604,12 +1604,24 @@ foreach ($requiredCommandMenuEntry in @(
 	'PolygonDrawCommand',
 	'm_aCanvasCommandSets',
 	'SetDrawCommands',
-	'SCROLL_LIST_LAYOUT',
-	'CreateScrollList',
+	'VERTICAL_SCROLL_LIST_LAYOUT',
+	'WRAP_SCROLL_GRID_LAYOUT',
+	'COMMAND_SECTION_ROW_LAYOUT',
+	'COMMAND_DATA_ROW_LAYOUT',
+	'COMMAND_DATA_ROW_COMPACT_LAYOUT',
+	'COMMAND_ACTION_ROW_LAYOUT',
+	'COMMAND_FEED_ROW_LAYOUT',
+	'COMMAND_ACTION_ROW_STRIDE',
+	'CreateScrollContainer',
+	'FindRowText',
+	'SetRowText',
+	'SetRowImageColor',
+	'BindRowClick',
 	'SaveCommandMenuScrollOffsets',
 	'RestoreScrollPixels',
 	'm_ContentScroll',
 	'm_ActionScroll',
+	'm_FeedScroll',
 	'ActivateContext(MENU_INPUT_CONTEXT)',
 	'ActivateAction(COMMAND_MENU_CUSTOM_ACTION)',
 	'GetActionTriggered(COMMAND_MENU_CUSTOM_ACTION)',
@@ -1636,16 +1648,10 @@ foreach ($requiredCommandMenuEntry in @(
 	'WidgetFlags.VISIBLE',
 	'if (i >= 4)',
 	'CountRowsForSection',
-	'CONTENT_PAGE_SIZE',
-	'ACTION_PAGE_SIZE',
-	'CONTENT_PREV_WIDGET_ID',
-	'CONTENT_NEXT_WIDGET_ID',
-	'ACTION_PREV_WIDGET_ID',
-	'ACTION_NEXT_WIDGET_ID',
-	'ScrollContentPage',
-	'ScrollActionPage',
-	'RenderContentPager',
-	'RenderActionPager',
+	'AddCommandContentRow',
+	'AddCommandActionRow',
+	'EnsureSelectedActionVisible',
+	'ScrollToView',
 	'CreateWrappedTextWidget',
 	'BuildContentItemList',
 	'STAT|',
@@ -1710,12 +1716,45 @@ foreach ($requiredCommandMenuEntry in @(
 		throw "Missing I-key alpha command menu contract entry: $requiredCommandMenuEntry"
 	}
 }
-$commandMenuCreateWidgetsCalls = @([regex]::Matches($commandMenuComponentText, "\bCreateWidgets\([^\r\n]+\)") |
-	ForEach-Object { $_.Value })
-foreach ($commandMenuCreateWidgetsCall in $commandMenuCreateWidgetsCalls) {
-	if ($commandMenuCreateWidgetsCall -notmatch "CreateWidgets\(SCROLL_LIST_LAYOUT,\s*parent\)") {
-		throw "Command menu may only load the shared transparent scroll layout through CreateWidgets: $commandMenuCreateWidgetsCall"
+$commandMenuScrollHelperMatch = [regex]::Match($commandMenuComponentText, "protected Widget CreateScrollContainer[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected TextWidget FindRowText")
+if (!$commandMenuScrollHelperMatch.Success) {
+	throw "Command menu must use the Path B CreateScrollContainer helper"
+}
+foreach ($requiredCommandMenuScrollHelperEntry in @(
+	"Widget root = workspace.CreateWidgets(layout, parent)",
+	"FrameSlot.SetPos(root, left, top)",
+	"FrameSlot.SetSize(root, width, height)",
+	'ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"))',
+	'root.FindAnyWidget("Items")'
+)) {
+	if ($commandMenuScrollHelperMatch.Value -notmatch [regex]::Escape($requiredCommandMenuScrollHelperEntry)) {
+		throw "Command menu Path B scroll helper is missing: $requiredCommandMenuScrollHelperEntry"
 	}
+}
+foreach ($forbiddenCommandMenuPathBRegression in @(
+	"CreateScrollList",
+	"CONTENT_PAGE_SIZE",
+	"ACTION_PAGE_SIZE",
+	"CONTENT_PREV_WIDGET_ID",
+	"CONTENT_NEXT_WIDGET_ID",
+	"ACTION_PREV_WIDGET_ID",
+	"ACTION_NEXT_WIDGET_ID",
+	"ScrollContentPage",
+	"ScrollActionPage",
+	"RenderContentPager",
+	"RenderActionPager",
+	'FindAnyWidget("Content")',
+	"missing Content"
+)) {
+	if ($commandMenuComponentText -match [regex]::Escape($forbiddenCommandMenuPathBRegression)) {
+		throw "Command menu must not keep old manual scroll/pager pattern: $forbiddenCommandMenuPathBRegression"
+	}
+}
+if ($commandMenuComponentText -match "(?<![A-Za-z0-9_])SCROLL_LIST_LAYOUT(?![A-Za-z0-9_])") {
+	throw "Command menu must not keep old manual scroll/pager pattern: SCROLL_LIST_LAYOUT"
+}
+if ($commandMenuComponentText -match "FrameSlot\.Set(Pos|Size)\((scroll|items|content|row|tile)\b") {
+	throw "Command menu Path B code must not position scroll/items/content/row/tile widgets with FrameSlot"
 }
 if ($commandMenuComponentText -match "CreateWidgetInWorkspace\(WidgetType\.CanvasWidgetTypeID") {
 	throw "Command menu root must be a child-capable frame/layout container, not a canvas widget"
@@ -1824,35 +1863,108 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	}
 }
 
-if (!(Test-Path "UI/layouts/HST_ScrollList.layout")) {
-	throw "Missing shared HST scroll list layout"
-}
-if (!(Test-Path "UI/layouts/HST_ScrollList.layout.meta")) {
-	throw "Missing GUID-backed shared HST scroll list layout meta resource"
-}
-$scrollListLayoutText = Get-Content -Raw "UI/layouts/HST_ScrollList.layout"
-$scrollListLayoutMetaText = Get-Content -Raw "UI/layouts/HST_ScrollList.layout.meta"
-foreach ($requiredScrollLayoutEntry in @(
-	"HST_ScrollList",
-	"ScrollLayoutWidgetClass",
-	'Name "Scroll"',
-	'Name "Content"',
-	'Slot FrameWidgetSlot "{89F29300C63B4A15}"',
-	"Anchor 0 0 0 0",
-	'"Scrollbar Always Visible" 1'
-)) {
-	if ($scrollListLayoutText -notmatch [regex]::Escape($requiredScrollLayoutEntry)) {
-		throw "Shared HST scroll layout is missing stable transparent entry: $requiredScrollLayoutEntry"
+$scrollLayoutContracts = @(
+	@{
+		Path = "UI/layouts/HST_VerticalScrollList.layout"
+		Guid = "{A7B8C9D001234560}"
+		Name = "HST_VerticalScrollList"
+		Flow = "VerticalLayoutWidgetClass"
+	},
+	@{
+		Path = "UI/layouts/HST_WrapScrollGrid.layout"
+		Guid = "{A7B8C9D001234570}"
+		Name = "HST_WrapScrollGrid"
+		Flow = "WrapLayoutWidgetClass"
+	}
+)
+foreach ($scrollLayoutContract in $scrollLayoutContracts) {
+	$scrollLayoutPath = $scrollLayoutContract.Path
+	$scrollLayoutMetaPath = "$scrollLayoutPath.meta"
+	if (!(Test-Path $scrollLayoutPath)) {
+		throw "Missing Path B scroll layout resource: $scrollLayoutPath"
+	}
+	if (!(Test-Path $scrollLayoutMetaPath)) {
+		throw "Missing GUID-backed Path B scroll layout meta resource: $scrollLayoutMetaPath"
+	}
+
+	$scrollLayoutText = Get-Content -Raw $scrollLayoutPath
+	$scrollLayoutMetaText = Get-Content -Raw $scrollLayoutMetaPath
+	foreach ($requiredPathBScrollLayoutEntry in @(
+		$scrollLayoutContract.Name,
+		"ScrollLayoutWidgetClass",
+		"SizeLayoutWidgetClass",
+		$scrollLayoutContract.Flow,
+		'Name "Scroll"',
+		'Name "ContentSize"',
+		'Name "Items"',
+		'"Scrollbar Always Visible" 1',
+		"Anchor 0 0 1 1"
+	)) {
+		if ($scrollLayoutText -notmatch [regex]::Escape($requiredPathBScrollLayoutEntry)) {
+			throw "$scrollLayoutPath is missing Path B scroll layout entry: $requiredPathBScrollLayoutEntry"
+		}
+	}
+	if ($scrollLayoutText -match "\bCanvasWidget(Class)?\b" -or $scrollLayoutText -match "\bPanelWidgetClass\b" -or $scrollLayoutText -match "\bImageWidgetClass\b") {
+		throw "$scrollLayoutPath must stay transparent and must not include visible panel/canvas/image backgrounds"
+	}
+	if ($scrollLayoutText -match 'Name "Content"') {
+		throw "$scrollLayoutPath must expose Items, not the old manual Content frame"
+	}
+	if ($scrollLayoutMetaText -notmatch [regex]::Escape("Name `"$($scrollLayoutContract.Guid)$scrollLayoutPath`"")) {
+		throw "$scrollLayoutMetaPath must carry the expected non-zero GUID-qualified resource name"
 	}
 }
-if ($scrollListLayoutText -match "\bCanvasWidget(Class)?\b" -or $scrollListLayoutText -match "\bPanelWidgetClass\b") {
-	throw "Shared HST scroll layout must stay transparent and must not include visible panel/canvas backgrounds"
-}
-if ($scrollListLayoutText -match "\bSize\b") {
-	throw "Shared HST scroll layout must not use Size keywords; script owns viewport/content sizing"
-}
-if ($scrollListLayoutMetaText -notmatch [regex]::Escape('Name "{89F29300C63B4A10}UI/layouts/HST_ScrollList.layout"')) {
-	throw "Shared HST scroll layout meta must carry the expected non-zero GUID"
+
+$rowLayoutContracts = @(
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandSectionRow.layout"; Guid = "{A7B8C9D001234580}"; Required = @('Name "HST_CommandSectionRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "Title"') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRow.layout"; Guid = "{A7B8C9D001234590}"; Required = @('Name "HST_CommandDataRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout"; Guid = "{A7B8C9D0012345A0}"; Required = @('Name "HST_CommandDataRowCompact"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandActionRow.layout"; Guid = "{A7B8C9D0012345B0}"; Required = @('FrameWidgetClass', 'Name "HST_CommandActionRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "Label"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandFeedRow.layout"; Guid = "{A7B8C9D0012345C0}"; Required = @('Name "HST_CommandFeedRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Text"') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; Guid = "{A7B8C9D0012345D0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutNodeRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "OpenMarker"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; Guid = "{A7B8C9D0012345E0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "VolumeBack"', 'Name "VolumeFill"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; Guid = "{A7B8C9D0012345F0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageItemRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; Guid = "{A7B8C9D001234600}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutCandidateTile"', 'Slot AlignableSlot', 'Padding 0 0 8 8', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') }
+)
+foreach ($rowLayoutContract in $rowLayoutContracts) {
+	$rowLayoutPath = $rowLayoutContract.Path
+	$rowLayoutMetaPath = "$rowLayoutPath.meta"
+	if (!(Test-Path $rowLayoutPath)) {
+		throw "Missing Path B row/tile layout resource: $rowLayoutPath"
+	}
+	if (!(Test-Path $rowLayoutMetaPath)) {
+		throw "Missing GUID-backed Path B row/tile layout meta resource: $rowLayoutMetaPath"
+	}
+
+	$rowLayoutText = Get-Content -Raw $rowLayoutPath
+	$rowLayoutMetaText = Get-Content -Raw $rowLayoutMetaPath
+	foreach ($requiredRowLayoutEntry in $rowLayoutContract.Required) {
+		if ($rowLayoutText -notmatch [regex]::Escape($requiredRowLayoutEntry)) {
+			throw "$rowLayoutPath is missing row/tile prefab entry: $requiredRowLayoutEntry"
+		}
+	}
+	if ($rowLayoutMetaText -notmatch [regex]::Escape("Name `"$($rowLayoutContract.Guid)$rowLayoutPath`"")) {
+		throw "$rowLayoutMetaPath must carry the expected non-zero GUID-qualified resource name"
+	}
+	foreach ($requiredBaconStyleRowEntry in @(
+		"ButtonWidgetClass",
+		"SizeLayoutWidgetClass",
+		"Slot ButtonWidgetSlot",
+		"AllowHeightOverride 1",
+		"HeightOverride",
+		"AllowMinDesiredHeight 1",
+		"MinDesiredHeight"
+	)) {
+		if ($rowLayoutText -notmatch [regex]::Escape($requiredBaconStyleRowEntry)) {
+			throw "$rowLayoutPath must use the Bacon-style Button -> SizeLayout row/tile prefab shape: $requiredBaconStyleRowEntry"
+		}
+	}
+	if ($rowLayoutText -match "(?m)^\s*Size\s+") {
+		throw "$rowLayoutPath must not use root Size keywords; Workbench rejects Size on these row/tile prefab roots"
+	}
+	if ($rowLayoutText -match '"Text Wrapping"') {
+		throw "$rowLayoutPath must not use layout Text Wrapping keywords; wrap behavior belongs in script SetRowText"
+	}
 }
 
 foreach ($requiredSettingsEntry in @(
@@ -2423,8 +2535,17 @@ if ($loadoutEditorComponentText -notmatch [regex]::Escape('EDITOR_LAYOUT = "{5AF
 if ($loadoutEditorComponentText -notmatch [regex]::Escape('ITEM_PREVIEW_CELL_LAYOUT = "{6B43C4A98B4F47F2}UI/layouts/HST_LoadoutItemPreviewCell.layout"')) {
 	throw "Loadout editor must reference the GUID-backed item preview cell layout resource"
 }
-if ($loadoutEditorComponentText -notmatch [regex]::Escape('SCROLL_LIST_LAYOUT = "{89F29300C63B4A10}UI/layouts/HST_ScrollList.layout"')) {
-	throw "Loadout editor must reference the GUID-backed shared scroll layout resource"
+foreach ($requiredLoadoutPathBResource in @(
+	'VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout"',
+	'WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout"',
+	'LOADOUT_NODE_ROW_LAYOUT = "{A7B8C9D0012345D0}UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"',
+	'LOADOUT_STORAGE_ROW_LAYOUT = "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"',
+	'LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"',
+	'LOADOUT_CANDIDATE_TILE_LAYOUT = "{A7B8C9D001234600}UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"'
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutPathBResource)) {
+		throw "Loadout editor must reference Path B layout resource: $requiredLoadoutPathBResource"
+	}
 }
 if ($loadoutEditorComponentText -match [regex]::Escape("{0000000000000000}UI/layouts/HST_LoadoutEditor.layout")) {
 	throw "Loadout editor must not reference the zero-GUID layout resource"
@@ -2553,8 +2674,12 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"BuildSwapHeaderText",
 	"BuildSwapActionLabel",
 	"BuildNodeActionLabel",
-	"RenderNodeRow",
-	"RenderNodeRowAt",
+	"AddLoadoutNodeRow",
+	"AddLoadoutStorageContainerRow",
+	"AddLoadoutStorageItemRow",
+	"AddLoadoutCandidateTile",
+	"AddNodePreviewToRow",
+	"AddCandidatePreviewToRow",
 	"RenderCandidateRow",
 	"RenderSelectedNodeHeader",
 	"ReturnFromAttachmentCandidateToWeapon",
@@ -2584,7 +2709,12 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"m_aVisibleCandidateIndexes",
 	"m_SlotScroll",
 	"m_StorageCandidateScroll",
-	"CreateScrollList",
+	"m_StorageContainerScroll",
+	"m_StorageContentScroll",
+	"CreateScrollContainer",
+	"FindRowText",
+	"SetRowText",
+	"BindRowClick",
 	"SaveLoadoutScrollOffsets",
 	"ResetLoadoutScroll",
 	"ClampPages",
@@ -2603,12 +2733,49 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"IsRemovedExternalPrefab",
 	"Resource.Load(prefab)",
 	"ITEM_PAGE_NEXT_WIDGET_ID",
-	"SLOT_PAGE_NEXT_WIDGET_ID",
 	"TEMPLATE_PAGE_NEXT_WIDGET_ID"
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorComponentEntry)) {
 		throw "Fullscreen loadout editor component is missing: $requiredLoadoutEditorComponentEntry"
 	}
+}
+$loadoutScrollHelperMatch = [regex]::Match($loadoutEditorComponentText, "protected Widget CreateScrollContainer[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected TextWidget FindRowText")
+if (!$loadoutScrollHelperMatch.Success) {
+	throw "Loadout editor must use the Path B CreateScrollContainer helper"
+}
+foreach ($requiredLoadoutScrollHelperEntry in @(
+	"Widget root = workspace.CreateWidgets(layout, parent)",
+	"FrameSlot.SetPos(root, left, top)",
+	"FrameSlot.SetSize(root, width, height)",
+	'ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"))',
+	'root.FindAnyWidget("Items")'
+)) {
+	if ($loadoutScrollHelperMatch.Value -notmatch [regex]::Escape($requiredLoadoutScrollHelperEntry)) {
+		throw "Loadout editor Path B scroll helper is missing: $requiredLoadoutScrollHelperEntry"
+	}
+}
+foreach ($forbiddenLoadoutPathBRegression in @(
+	"CreateScrollList",
+	"RenderNodeRowAt",
+	"RenderStorageNodeRow",
+	"RenderStorageCandidateTile",
+	"CalculateStorageCandidateGrid",
+	"m_iSlotPage",
+	"SLOTS_PER_PAGE",
+	"SLOT_PAGE_PREV_WIDGET_ID",
+	"SLOT_PAGE_NEXT_WIDGET_ID",
+	'FindAnyWidget("Content")',
+	"missing Content"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutPathBRegression)) {
+		throw "Loadout editor must not keep old manual scroll/pager pattern: $forbiddenLoadoutPathBRegression"
+	}
+}
+if ($loadoutEditorComponentText -match "(?<![A-Za-z0-9_])SCROLL_LIST_LAYOUT(?![A-Za-z0-9_])") {
+	throw "Loadout editor must not keep old manual scroll/pager pattern: SCROLL_LIST_LAYOUT"
+}
+if ($loadoutEditorComponentText -match "FrameSlot\.Set(Pos|Size)\((scroll|items|content|row|tile)\b") {
+	throw "Loadout editor Path B code must not position scroll/items/content/row/tile widgets with FrameSlot"
 }
 if ($loadoutEditorComponentText -match "InventoryPreviewWorld10") {
 	throw "Loadout editor preview must not rely on the old visible/cropped InventoryPreviewWorld10 stage"

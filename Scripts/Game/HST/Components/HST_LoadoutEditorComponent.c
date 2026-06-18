@@ -59,13 +59,6 @@ class HST_LoadoutEditorLayoutMetrics
 	int m_iListTop;
 	int m_iListHeight;
 	int m_iSlotRowHeight;
-	int m_iStorageRowHeight;
-	int m_iStorageContentRowHeight;
-	int m_iCandidateTileHeight;
-	int m_iCandidateTileWidth;
-	int m_iCandidateColumns;
-	int m_iCandidateColumnGap;
-	int m_iCandidateRowGap;
 	int m_iPreviewCellSmall;
 	int m_iPreviewCellMedium;
 	int m_iPreviewCellLarge;
@@ -85,7 +78,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 {
 	static const ResourceName EDITOR_LAYOUT = "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout";
 	static const ResourceName ITEM_PREVIEW_CELL_LAYOUT = "{6B43C4A98B4F47F2}UI/layouts/HST_LoadoutItemPreviewCell.layout";
-	static const ResourceName SCROLL_LIST_LAYOUT = "{89F29300C63B4A10}UI/layouts/HST_ScrollList.layout";
+	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
+	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
+	static const ResourceName LOADOUT_NODE_ROW_LAYOUT = "{A7B8C9D0012345D0}UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout";
+	static const ResourceName LOADOUT_STORAGE_ROW_LAYOUT = "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout";
+	static const ResourceName LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout";
+	static const ResourceName LOADOUT_CANDIDATE_TILE_LAYOUT = "{A7B8C9D001234600}UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout";
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const ResourceName PREVIEW_WORLD_PREFAB = "{71D2E9B5588949D8}Prefabs/HST/HST_LoadoutPreviewWorld.et";
 	static const ResourceName PREVIEW_LIGHTS_PREFAB = "{604FFDF1DE53BD1D}Prefabs/HST/HST_LoadoutPreviewLights.et";
@@ -105,8 +103,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int DELETE_TEMPLATE_WIDGET_ID = 9204;
 	static const int ITEM_PAGE_PREV_WIDGET_ID = 9205;
 	static const int ITEM_PAGE_NEXT_WIDGET_ID = 9206;
-	static const int SLOT_PAGE_PREV_WIDGET_ID = 9207;
-	static const int SLOT_PAGE_NEXT_WIDGET_ID = 9208;
 	static const int TEMPLATE_PAGE_PREV_WIDGET_ID = 9209;
 	static const int TEMPLATE_PAGE_NEXT_WIDGET_ID = 9210;
 	static const int CLEAR_DRAFT_WIDGET_ID = 9211;
@@ -128,8 +124,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int CANDIDATE_WIDGET_ID_BASE = 40000;
 	static const int REMOVE_SELECTED_NODE_WIDGET_ID = 70000;
 	static const int ITEMS_PER_PAGE = 11;
-	static const int STORAGE_ITEMS_PER_PAGE = 24;
-	static const int SLOTS_PER_PAGE = 9;
 	static const int TEMPLATES_PER_PAGE = 6;
 	static const int PREVIEW_CAMERA = 0;
 	static const int PREVIEW_LIGHT_DELAY_MS = 500;
@@ -174,7 +168,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected int m_iDraftFiniteCount;
 	protected int m_iDraftInfiniteCount;
 	protected int m_iItemPage;
-	protected int m_iSlotPage;
 	protected int m_iTemplatePage;
 	protected int m_iCameraMode;
 	protected float m_fPreviewYawDegrees;
@@ -514,20 +507,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (widgetId == ITEM_PAGE_NEXT_WIDGET_ID)
 		{
 			m_iItemPage++;
-			RenderEditor();
-			return true;
-		}
-
-		if (widgetId == SLOT_PAGE_PREV_WIDGET_ID)
-		{
-			m_iSlotPage = Math.Max(0, m_iSlotPage - 1);
-			RenderEditor();
-			return true;
-		}
-
-		if (widgetId == SLOT_PAGE_NEXT_WIDGET_ID)
-		{
-			m_iSlotPage++;
 			RenderEditor();
 			return true;
 		}
@@ -1093,12 +1072,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_iListHeight = Math.Max(ScalePx(1), m_Layout.m_iMainTop + m_Layout.m_iMainHeight - m_Layout.m_iListTop - ScalePx(42));
 
 		m_Layout.m_iSlotRowHeight = ScalePx(68);
-		m_Layout.m_iStorageRowHeight = ScalePx(78);
-		m_Layout.m_iStorageContentRowHeight = ScalePx(58);
-		m_Layout.m_iCandidateTileHeight = ScalePx(74);
-		m_Layout.m_iCandidateColumnGap = ScalePx(14);
-		m_Layout.m_iCandidateRowGap = ScalePx(12);
-
 		m_Layout.m_iPreviewCellSmall = ClampInt(ScalePx(42), 34, 50);
 		m_Layout.m_iPreviewCellMedium = ClampInt(ScalePx(56), 42, 64);
 		m_Layout.m_iPreviewCellLarge = ClampInt(ScalePx(64), 48, 76);
@@ -1109,34 +1082,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_iFontNormal = ScaleFont(13);
 		m_Layout.m_iFontTitle = ScaleFont(16);
 
-		CalculateStorageCandidateGrid();
-	}
-
-	protected void CalculateStorageCandidateGrid()
-	{
-		if (!m_Layout)
-			return;
-
-		int innerWidth = Math.Max(1, m_Layout.m_iMainWidth - ScalePx(40));
-		int minTileWidth = ScalePx(330);
-		if (m_Layout.m_bVeryCompact)
-			minTileWidth = ScalePx(280);
-		else if (m_Layout.m_bCompact)
-			minTileWidth = ScalePx(300);
-
-		int cols = Math.Max(1, innerWidth / Math.Max(1, minTileWidth));
-		if (!m_Layout.m_bCompact && cols > 3)
-			cols = 3;
-		else if (m_Layout.m_bCompact && cols > 2)
-			cols = 2;
-
-		if (m_Layout.m_bVeryCompact)
-			cols = 1;
-
-		int totalGap = (cols - 1) * m_Layout.m_iCandidateColumnGap;
-		int tileWidth = Math.Max(1, (innerWidth - totalGap) / cols);
-		m_Layout.m_iCandidateColumns = Math.Max(1, cols);
-		m_Layout.m_iCandidateTileWidth = Math.Max(Math.Min(ScalePx(250), innerWidth), tileWidth);
 	}
 
 	protected void RenderModeTabs(WorkspaceWidget workspace, Widget root)
@@ -1202,13 +1147,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int listHeight = Math.Max(1, railHeight - ScalePx(44));
 
 		ScrollLayoutWidget scroll;
-		Widget content;
-		CreateScrollList(workspace, root, listLeft, listTop, listWidth, listHeight, scroll, content, true);
+		Widget items;
+		CreateScrollContainer(workspace, root, VERTICAL_SCROLL_LIST_LAYOUT, listLeft, listTop, listWidth, listHeight, scroll, items, true);
 		m_SlotScroll = scroll;
 
-		if (!content)
+		if (!items)
 		{
-			CreateTextWidget(workspace, root, "Slot list unavailable: scroll layout missing Content.", listLeft, listTop, listWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			CreateTextWidget(workspace, root, "Slot list unavailable: scroll layout missing Items.", listLeft, listTop, listWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
 			return;
 		}
 
@@ -1218,17 +1163,22 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (!IsNodeVisibleInCurrentMode(nodeIndex))
 				continue;
 
-			int top = visibleIndex * (m_Layout.m_iSlotRowHeight + ScalePx(8));
 			m_aVisibleNodeIndexes.Insert(nodeIndex);
-			RenderNodeRowAt(workspace, content, nodeIndex, 0, top, listWidth, m_Layout.m_iSlotRowHeight, NODE_WIDGET_ID_BASE + visibleIndex);
+			AddLoadoutNodeRow(workspace, items, nodeIndex, NODE_WIDGET_ID_BASE + visibleIndex);
 			visibleIndex++;
 		}
 
-		int contentHeight = Math.Max(listHeight, visibleIndex * (m_Layout.m_iSlotRowHeight + ScalePx(8)) + ScalePx(12));
-		FrameSlot.SetSize(content, listWidth, contentHeight);
-
 		if (visibleIndex == 0)
-			CreateTextWidget(workspace, content, "Empty Slot", ScalePx(14), ScalePx(12), listWidth - ScalePx(28), ScalePx(22), m_Layout.m_iFontNormal, 0xFFC8D0D4, 0, false);
+		{
+			Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
+			if (row)
+			{
+				SetRowText(row, "Primary", "Empty Slot", 0xFFC8D0D4, m_Layout.m_iFontNormal, false, true);
+				SetRowText(row, "Secondary", "", 0xFFC8D0D4, m_Layout.m_iFontSmall, false, true);
+				SetRowText(row, "OpenMarker", "", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
+				SetRowImageColor(row, "Background", 0x00111111, 0.01);
+			}
+		}
 
 		RestoreScrollPixels(m_SlotScroll, m_fSlotScrollY);
 	}
@@ -1251,27 +1201,59 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		int listLeft = railLeft + ScalePx(16);
 		int listWidth = railWidth - ScalePx(32);
-		int visibleIndex;
-		int rowTop = railTop + ScalePx(56);
+		int containerTop = railTop + ScalePx(56);
+		int contentsHeaderTop = railTop + Math.Round(railHeight * 0.52);
+		int minContentsHeaderTop = containerTop + ScalePx(132);
+		int maxContentsHeaderTop = railTop + railHeight - ScalePx(126);
+		if (maxContentsHeaderTop < minContentsHeaderTop)
+			contentsHeaderTop = Math.Max(containerTop + ScalePx(72), maxContentsHeaderTop);
+		else
+			contentsHeaderTop = ClampInt(contentsHeaderTop, minContentsHeaderTop, maxContentsHeaderTop);
+		int containerHeight = Math.Max(ScalePx(72), contentsHeaderTop - containerTop - ScalePx(18));
+		int contentTop = contentsHeaderTop + ScalePx(30);
+		int contentHeight = Math.Max(ScalePx(60), railTop + railHeight - contentTop - ScalePx(28));
+
+		ScrollLayoutWidget containerScroll;
+		Widget containerItems;
+		CreateScrollContainer(workspace, root, VERTICAL_SCROLL_LIST_LAYOUT, listLeft, containerTop, listWidth, containerHeight, containerScroll, containerItems, true);
+		m_StorageContainerScroll = containerScroll;
+
+		int visibleIndex = 0;
 		for (int nodeIndex = 0; nodeIndex < m_aNodeKinds.Count(); nodeIndex++)
 		{
 			if (m_aNodeKinds[nodeIndex] != "storage")
 				continue;
 
-			int top = rowTop + visibleIndex * (m_Layout.m_iStorageRowHeight + ScalePx(8));
-			if (top + m_Layout.m_iStorageRowHeight > railTop + railHeight - ScalePx(170))
-				break;
-
 			m_aVisibleNodeIndexes.Insert(nodeIndex);
-			RenderStorageNodeRow(workspace, root, nodeIndex, listLeft, top, listWidth, NODE_WIDGET_ID_BASE + visibleIndex, false);
+			AddLoadoutStorageContainerRow(workspace, containerItems, nodeIndex, NODE_WIDGET_ID_BASE + visibleIndex);
 			visibleIndex++;
 		}
 
-		int contentsTop = rowTop + Math.Max(1, visibleIndex) * (m_Layout.m_iStorageRowHeight + ScalePx(8)) + ScalePx(18);
-		CreateRectWidget(workspace, root, listLeft, contentsTop - ScalePx(10), listWidth, ScalePx(2), 0xFFC4953B, 1.0, 0);
-		CreateTextWidget(workspace, root, "Contents", listLeft + ScalePx(6), contentsTop, listWidth - ScalePx(12), ScalePx(20), m_Layout.m_iFontSmall, 0xFFFFD166, 0, true);
-		int contentTop = contentsTop + ScalePx(30);
-		int contentRows;
+		if (!containerItems)
+			CreateTextWidget(workspace, root, "Storage list unavailable: scroll layout missing Items.", listLeft + ScalePx(6), containerTop, listWidth - ScalePx(12), ScalePx(22), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+		else if (visibleIndex == 0)
+		{
+			Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ROW_LAYOUT, containerItems);
+			if (row)
+			{
+				SetRowText(row, "Primary", "No equipped storage.", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
+				SetRowText(row, "Secondary", "", 0xFFB7C7D7, m_Layout.m_iFontSmall, false, true);
+				SetRowText(row, "Meta", "", 0xFFFFD166, m_Layout.m_iFontTiny, false, false);
+				SetRowImageColor(row, "Background", 0x00111111, 0.01);
+				SetRowImageColor(row, "VolumeBack", 0x00111111, 0.01);
+				SetRowImageColor(row, "VolumeFill", 0x00111111, 0.01);
+			}
+		}
+
+		CreateRectWidget(workspace, root, listLeft, contentsHeaderTop - ScalePx(10), listWidth, ScalePx(2), 0xFFC4953B, 1.0, 0);
+		CreateTextWidget(workspace, root, "Contents", listLeft + ScalePx(6), contentsHeaderTop, listWidth - ScalePx(12), ScalePx(20), m_Layout.m_iFontSmall, 0xFFFFD166, 0, true);
+
+		ScrollLayoutWidget contentScroll;
+		Widget contentItems;
+		CreateScrollContainer(workspace, root, VERTICAL_SCROLL_LIST_LAYOUT, listLeft, contentTop, listWidth, contentHeight, contentScroll, contentItems, true);
+		m_StorageContentScroll = contentScroll;
+
+		int contentRows = 0;
 		for (int nodeIndex = 0; nodeIndex < m_aNodeKinds.Count(); nodeIndex++)
 		{
 			if (m_aNodeKinds[nodeIndex] != "storage_item")
@@ -1279,19 +1261,26 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (nodeIndex >= m_aNodeParents.Count() || m_aNodeParents[nodeIndex] != m_sSelectedNodeId)
 				continue;
 
-			int top = contentTop + contentRows * (m_Layout.m_iStorageContentRowHeight + ScalePx(6));
-			if (top + m_Layout.m_iStorageContentRowHeight > railTop + railHeight - ScalePx(28))
-				break;
-
 			m_aVisibleNodeIndexes.Insert(nodeIndex);
-			RenderStorageNodeRow(workspace, root, nodeIndex, listLeft, top, listWidth, NODE_WIDGET_ID_BASE + m_aVisibleNodeIndexes.Count() - 1, true);
+			AddLoadoutStorageItemRow(workspace, contentItems, nodeIndex, NODE_WIDGET_ID_BASE + m_aVisibleNodeIndexes.Count() - 1);
 			contentRows++;
 		}
 
-		if (visibleIndex == 0)
-			CreateTextWidget(workspace, root, "No equipped storage.", listLeft + ScalePx(10), rowTop, listWidth - ScalePx(20), ScalePx(22), m_Layout.m_iFontNormal, 0xFFB7C7D7, 0, false);
+		if (!contentItems)
+			CreateTextWidget(workspace, root, "Contents unavailable: scroll layout missing Items.", listLeft + ScalePx(6), contentTop, listWidth - ScalePx(12), ScalePx(22), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
 		else if (contentRows == 0)
-			CreateTextWidget(workspace, root, "Empty", listLeft + ScalePx(10), contentTop, listWidth - ScalePx(20), ScalePx(20), m_Layout.m_iFontNormal, 0xFFB7C7D7, 0, false);
+		{
+			Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ITEM_ROW_LAYOUT, contentItems);
+			if (row)
+			{
+				SetRowText(row, "Name", "Empty", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
+				SetRowText(row, "Count", "", 0xFFB7C7D7, m_Layout.m_iFontTiny, false, false);
+				SetRowImageColor(row, "Background", 0x00111111, 0.01);
+			}
+		}
+
+		RestoreScrollPixels(m_StorageContainerScroll, m_fStorageContainerScrollY);
+		RestoreScrollPixels(m_StorageContentScroll, m_fStorageContentScrollY);
 	}
 
 	protected void RenderStorageCandidatePanel(WorkspaceWidget workspace, Widget root)
@@ -1333,19 +1322,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_aVisibleCandidateIndexes.Clear();
 
 		ScrollLayoutWidget scroll;
-		Widget content;
-		CreateScrollList(workspace, root, listLeft, listTop, listWidth, listHeight, scroll, content, true);
+		Widget items;
+		CreateScrollContainer(workspace, root, WRAP_SCROLL_GRID_LAYOUT, listLeft, listTop, listWidth, listHeight, scroll, items, true);
 		m_StorageCandidateScroll = scroll;
 
-		if (!content)
+		if (!items)
 		{
-			CreateTextWidget(workspace, root, "Candidate list unavailable: scroll layout missing Content.", listLeft, listTop, listWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			CreateTextWidget(workspace, root, "Candidate grid unavailable: scroll layout missing Items.", listLeft, listTop, listWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
 			return;
 		}
 
-		int tileWidth = m_Layout.m_iCandidateTileWidth;
-		int tileHeight = m_Layout.m_iCandidateTileHeight;
-		int cols = Math.Max(1, m_Layout.m_iCandidateColumns);
 		int visibleIndex = 0;
 
 		for (int candidateIndex = 0; candidateIndex < m_aCandidatePrefabs.Count(); candidateIndex++)
@@ -1353,32 +1339,181 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (!IsCandidateVisibleForStorageBrowser(candidateIndex))
 				continue;
 
-			int col = visibleIndex % cols;
-			int row = visibleIndex / cols;
-			int left = col * (tileWidth + m_Layout.m_iCandidateColumnGap);
-			int top = row * (tileHeight + m_Layout.m_iCandidateRowGap);
-
 			m_aVisibleCandidateIndexes.Insert(candidateIndex);
-			RenderStorageCandidateTile(workspace, content, candidateIndex, left, top, tileWidth, CANDIDATE_WIDGET_ID_BASE + visibleIndex);
+			AddLoadoutCandidateTile(workspace, items, candidateIndex, CANDIDATE_WIDGET_ID_BASE + visibleIndex);
 			visibleIndex++;
 		}
-
-		int rowCount = 0;
-		if (visibleIndex > 0)
-			rowCount = ((visibleIndex - 1) / cols) + 1;
-
-		int contentHeight = Math.Max(listHeight, rowCount * (tileHeight + m_Layout.m_iCandidateRowGap) + ScalePx(12));
-		FrameSlot.SetSize(content, listWidth, contentHeight);
 
 		if (visibleIndex == 0)
 		{
 			string emptyText = ResolveCandidateEmptyText(m_sSelectedNodeId, "No compatible items in this category.");
 			if (FindStringIndex(m_aRequestedCandidateNodeIds, m_sSelectedNodeId) >= 0)
 				emptyText = "Loading compatible items...";
-			CreateTextWidget(workspace, content, emptyText, ScalePx(4), ScalePx(8), listWidth - ScalePx(8), ScalePx(24), m_Layout.m_iFontNormal, 0xFFB7C7D7, 0, false);
+
+			Widget row = workspace.CreateWidgets(LOADOUT_CANDIDATE_TILE_LAYOUT, items);
+			if (row)
+			{
+				SetRowText(row, "Name", emptyText, 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
+				SetRowText(row, "Count", "", 0xFFB7C7D7, m_Layout.m_iFontTiny, false, false);
+				SetRowImageColor(row, "Background", 0x00111111, 0.01);
+			}
 		}
 
 		RestoreScrollPixels(m_StorageCandidateScroll, m_fStorageCandidateScrollY);
+	}
+
+	protected void AddLoadoutNodeRow(WorkspaceWidget workspace, Widget items, int nodeIndex, int userId)
+	{
+		if (!workspace || !items)
+			return;
+
+		Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
+		if (!row)
+			return;
+
+		BindRowClick(row, userId);
+
+		int color = 0xFF15191C;
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedNodeId)
+			color = 0xFF6F5124;
+
+		SetRowImageColor(row, "Background", color, 0.98);
+
+		string primaryText = GetNodeLabel(nodeIndex);
+		string secondaryText = GetNodeDisplay(nodeIndex);
+		if (IsDuplicateDisplayText(primaryText, secondaryText))
+			secondaryText = "";
+
+		SetRowText(row, "Primary", primaryText, 0xFFE2E6E8, m_Layout.m_iFontNormal, true, true);
+		SetRowText(row, "Secondary", secondaryText, 0xFFD5D8D9, m_Layout.m_iFontSmall, false, true);
+		SetRowText(row, "OpenMarker", "w", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
+
+		Widget openMarker = FindRowWidget(row, "OpenMarker");
+		if (openMarker)
+		{
+			bool canOpen = nodeIndex >= 0 && nodeIndex < m_aNodeCanOpen.Count() && m_aNodeCanOpen[nodeIndex];
+			openMarker.SetVisible(canOpen);
+		}
+
+		AddNodePreviewToRow(workspace, row, nodeIndex, userId, m_Layout.m_iPreviewCellMedium);
+	}
+
+	protected void AddLoadoutStorageContainerRow(WorkspaceWidget workspace, Widget items, int nodeIndex, int userId)
+	{
+		if (!workspace || !items)
+			return;
+
+		Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ROW_LAYOUT, items);
+		if (!row)
+			return;
+
+		BindRowClick(row, userId);
+
+		int color = 0xFF15191C;
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedNodeId)
+			color = 0xFF6F5124;
+
+		SetRowImageColor(row, "Background", color, 0.98);
+
+		string primaryText = GetNodeLabel(nodeIndex);
+		string secondaryText = GetNodeDisplay(nodeIndex);
+		if (IsDuplicateDisplayText(primaryText, secondaryText))
+			secondaryText = "";
+
+		string metaText = BuildNodeVolumeLabel(nodeIndex);
+		if (metaText.IsEmpty())
+			metaText = BuildNodeStorageStatusLabel(nodeIndex);
+
+		SetRowText(row, "Primary", ShortenText(primaryText, 36), 0xFFE2E6E8, m_Layout.m_iFontSmall, true, true);
+		SetRowText(row, "Secondary", secondaryText, 0xFFD5D8D9, m_Layout.m_iFontSmall, false, true);
+		SetRowText(row, "Meta", metaText, 0xFFFFD166, m_Layout.m_iFontTiny, false, false);
+		SetRowImageColor(row, "VolumeBack", 0xAA05080A, 1.0);
+		SetStorageVolumeFill(row, nodeIndex);
+
+		AddNodePreviewToRow(workspace, row, nodeIndex, userId, Math.Min(m_Layout.m_iPreviewCellLarge, ScalePx(56)));
+	}
+
+	protected void AddLoadoutStorageItemRow(WorkspaceWidget workspace, Widget items, int nodeIndex, int userId)
+	{
+		if (!workspace || !items)
+			return;
+
+		Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ITEM_ROW_LAYOUT, items);
+		if (!row)
+			return;
+
+		BindRowClick(row, userId);
+		SetRowImageColor(row, "Background", 0xCC10161A, 0.98);
+		SetRowText(row, "Name", GetNodeDisplay(nodeIndex), 0xFFE2E6E8, m_Layout.m_iFontSmall, false, true);
+
+		string countText = "";
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeCounts.Count() && !m_aNodeCounts[nodeIndex].IsEmpty())
+			countText = "x" + m_aNodeCounts[nodeIndex];
+		SetRowText(row, "Count", countText, 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
+
+		AddNodePreviewToRow(workspace, row, nodeIndex, userId, m_Layout.m_iPreviewCellSmall);
+	}
+
+	protected void AddLoadoutCandidateTile(WorkspaceWidget workspace, Widget items, int candidateIndex, int userId)
+	{
+		if (!workspace || !items)
+			return;
+
+		Widget tile = workspace.CreateWidgets(LOADOUT_CANDIDATE_TILE_LAYOUT, items);
+		if (!tile)
+			return;
+
+		BindRowClick(tile, userId);
+
+		int color = 0xF0151C20;
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
+			color = 0xFF3D3520;
+
+		SetRowImageColor(tile, "Background", color, 0.98);
+		SetRowText(tile, "Name", GetCandidateDisplayName(candidateIndex), 0xFFE2E6E8, m_Layout.m_iFontSmall, false, true);
+		SetRowText(tile, "Count", BuildCandidateCountLabel(candidateIndex), 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
+		AddCandidatePreviewToRow(workspace, tile, candidateIndex, userId);
+	}
+
+	protected void AddNodePreviewToRow(WorkspaceWidget workspace, Widget row, int nodeIndex, int userId, int size)
+	{
+		Widget anchor = FindRowWidget(row, "PreviewAnchor");
+		if (!anchor)
+			return;
+
+		int previewSize = Math.Max(1, size);
+		CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xDD090D10, 1.0, userId);
+		CreateNodePreviewCell(workspace, anchor, nodeIndex, 0, 0, previewSize, userId, 0xFFE6E6E6);
+	}
+
+	protected void AddCandidatePreviewToRow(WorkspaceWidget workspace, Widget row, int candidateIndex, int userId)
+	{
+		Widget anchor = FindRowWidget(row, "PreviewAnchor");
+		if (!anchor)
+			return;
+
+		int previewSize = m_Layout.m_iPreviewCellMedium;
+		CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xDD090D10, 1.0, userId);
+		CreateCandidatePreviewCell(workspace, anchor, candidateIndex, 0, 0, previewSize, userId, 0xFFE6E6E6);
+	}
+
+	protected void SetStorageVolumeFill(Widget row, int nodeIndex)
+	{
+		Widget fill = FindRowWidget(row, "VolumeFill");
+		if (!fill)
+			return;
+
+		int barWidth = Math.Max(1, m_Layout.m_iRailWidth - ScalePx(120));
+		int fillWidth = Math.Round(barWidth * GetNodeVolumeRatio(nodeIndex));
+		if (fillWidth <= 0)
+		{
+			fill.SetOpacity(0.01);
+			return;
+		}
+
+		fill.SetOpacity(0.96);
+		fill.SetColorInt(ResolveStorageVolumeColor(nodeIndex));
+		FrameSlot.SetSize(fill, Math.Min(barWidth, fillWidth), ScalePx(5));
 	}
 
 	protected void RenderPreviewStage(WorkspaceWidget workspace, Widget root)
@@ -2303,117 +2438,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 	}
 
-	protected void RenderNodeRow(WorkspaceWidget workspace, Widget root, int nodeIndex, int row, int userId)
-	{
-		if (!m_Layout)
-			return;
-
-		int left = m_Layout.m_iRailLeft + ScalePx(20);
-		int top = m_Layout.m_iRailTop + ScalePx(22) + row * (m_Layout.m_iSlotRowHeight + ScalePx(8));
-		int width = m_Layout.m_iRailWidth - ScalePx(40);
-		int height = m_Layout.m_iSlotRowHeight;
-		RenderNodeRowAt(workspace, root, nodeIndex, left, top, width, height, userId);
-	}
-
-	protected void RenderNodeRowAt(WorkspaceWidget workspace, Widget root, int nodeIndex, int left, int top, int width, int height, int userId)
-	{
-		if (!m_Layout)
-			return;
-
-		int previewSize = m_Layout.m_iPreviewCellMedium;
-		int color = 0xFF15191C;
-		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedNodeId)
-			color = 0xFF6F5124;
-
-		CreateRectWidget(workspace, root, left, top, width, height, color, 0.98, userId);
-
-		int previewLeft = left + ScalePx(8);
-		int previewTop = top + (height - previewSize) / 2;
-		CreateRectWidget(workspace, root, previewLeft - ScalePx(2), previewTop - ScalePx(2), previewSize + ScalePx(4), previewSize + ScalePx(4), 0xDD090D10, 1.0, userId);
-		CreateNodePreviewCell(workspace, root, nodeIndex, previewLeft, previewTop, previewSize, userId, 0xFFE6E6E6);
-
-		int textLeft = previewLeft + previewSize + ScalePx(12);
-		int textWidth = width - (textLeft - left) - ScalePx(42);
-		string primaryText = GetNodeLabel(nodeIndex);
-		string secondaryText = GetNodeDisplay(nodeIndex);
-		if (IsDuplicateDisplayText(primaryText, secondaryText))
-			secondaryText = "";
-		if (secondaryText.IsEmpty())
-			CreateWrappedTextWidget(workspace, root, primaryText, textLeft, top + ScalePx(16), textWidth, height - ScalePx(24), m_Layout.m_iFontNormal, 0xFFE2E6E8, userId, true);
-		else
-		{
-			CreateTextWidget(workspace, root, ShortenText(primaryText, 28), textLeft, top + ScalePx(10), textWidth, ScalePx(18), m_Layout.m_iFontNormal, 0xFFE2E6E8, userId, true);
-			CreateWrappedTextWidget(workspace, root, secondaryText, textLeft, top + ScalePx(30), textWidth, ScalePx(28), m_Layout.m_iFontSmall, 0xFFD5D8D9, userId, false);
-		}
-		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanOpen.Count() && m_aNodeCanOpen[nodeIndex])
-			CreateTextWidget(workspace, root, "w", left + width - ScalePx(28), top + ScalePx(12), ScalePx(18), ScalePx(18), m_Layout.m_iFontTitle, 0xFFFFFFFF, userId, true);
-	}
-
-	protected void RenderStorageNodeRow(WorkspaceWidget workspace, Widget root, int nodeIndex, int left, int top, int width, int userId, bool contentItem)
-	{
-		int color = 0xFF15191C;
-		if (!contentItem && nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedNodeId)
-			color = 0xFF6F5124;
-		if (contentItem)
-			color = 0xCC10161A;
-
-		bool storageContainer = !contentItem && nodeIndex >= 0 && nodeIndex < m_aNodeKinds.Count() && m_aNodeKinds[nodeIndex] == "storage";
-		int rowHeight = ScalePx(46);
-		if (storageContainer)
-			rowHeight = m_Layout.m_iStorageRowHeight;
-		else if (contentItem)
-			rowHeight = m_Layout.m_iStorageContentRowHeight;
-
-		int pad = ScalePx(8);
-		int previewSize = m_Layout.m_iPreviewCellSmall;
-		if (storageContainer)
-			previewSize = m_Layout.m_iPreviewCellLarge;
-
-		CreateRectWidget(workspace, root, left, top, width, rowHeight, color, 0.98, userId);
-		int previewLeft = left + pad;
-		int previewTop = top + Math.Max(ScalePx(5), (rowHeight - previewSize) / 2);
-		CreateRectWidget(workspace, root, previewLeft - ScalePx(2), previewTop - ScalePx(2), previewSize + ScalePx(4), previewSize + ScalePx(4), 0xDD090D10, 1.0, userId);
-		CreateNodePreviewCell(workspace, root, nodeIndex, previewLeft, previewTop, previewSize, userId, 0xFFE6E6E6);
-
-		int textLeft = previewLeft + previewSize + ScalePx(12);
-		int countW = m_Layout.m_iCountBadgeWidth;
-		int textRight = left + width - pad;
-		if (contentItem)
-			textRight = textRight - countW - ScalePx(8);
-
-		int textWidth = Math.Max(ScalePx(80), textRight - textLeft);
-		if (contentItem)
-		{
-			CreateWrappedTextWidget(workspace, root, GetNodeDisplay(nodeIndex), textLeft, top + ScalePx(10), textWidth, rowHeight - ScalePx(18), m_Layout.m_iFontSmall, 0xFFE2E6E8, userId, false);
-		}
-		else
-		{
-			string primaryText = GetNodeLabel(nodeIndex);
-			string secondaryText = GetNodeDisplay(nodeIndex);
-			if (IsDuplicateDisplayText(primaryText, secondaryText))
-				secondaryText = "";
-			if (secondaryText.IsEmpty())
-				CreateWrappedTextWidget(workspace, root, primaryText, textLeft, top + ScalePx(14), textWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFE2E6E8, userId, true);
-			else
-			{
-				CreateTextWidget(workspace, root, ShortenText(primaryText, 36), textLeft, top + ScalePx(7), textWidth, ScalePx(16), m_Layout.m_iFontSmall, 0xFFE2E6E8, userId, true);
-				CreateWrappedTextWidget(workspace, root, secondaryText, textLeft, top + ScalePx(24), textWidth, ScalePx(32), m_Layout.m_iFontSmall, 0xFFD5D8D9, userId, false);
-			}
-		}
-
-		if (storageContainer)
-		{
-			string volumeLabel = BuildNodeVolumeLabel(nodeIndex);
-			if (!volumeLabel.IsEmpty())
-				CreateTextWidget(workspace, root, volumeLabel, textLeft, top + ScalePx(48), textWidth, ScalePx(12), m_Layout.m_iFontTiny, 0xFFFFD166, userId, false);
-			else
-				CreateTextWidget(workspace, root, BuildNodeStorageStatusLabel(nodeIndex), textLeft, top + ScalePx(48), textWidth, ScalePx(12), m_Layout.m_iFontTiny, 0xFFFFD166, userId, false);
-			CreateStorageVolumeBar(workspace, root, textLeft, top + rowHeight - ScalePx(12), textWidth, ScalePx(5), nodeIndex, userId);
-		}
-		else if (contentItem && nodeIndex >= 0 && nodeIndex < m_aNodeCounts.Count() && !m_aNodeCounts[nodeIndex].IsEmpty())
-			CreateCountBadge(workspace, root, "x" + m_aNodeCounts[nodeIndex], left + width - countW - pad, top + (rowHeight - ScalePx(24)) / 2, countW, ScalePx(24), userId);
-	}
-
 	protected int GetNodeUsedCapacity(int nodeIndex)
 	{
 		if (nodeIndex < 0 || nodeIndex >= m_aNodeUsedCapacities.Count())
@@ -2567,34 +2591,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int textWidth = Math.Max(ScalePx(80), countLeft - textLeft - ScalePx(8));
 		CreateWrappedTextWidget(workspace, root, GetCandidateDisplayName(candidateIndex), textLeft, top + ScalePx(10), textWidth, rowHeight - ScalePx(18), m_Layout.m_iFontSmall, 0xFFE2E6E8, userId, false);
 		CreateCountBadge(workspace, root, BuildCandidateCountLabel(candidateIndex), countLeft, top + ScalePx(22), countW, ScalePx(24), userId);
-	}
-
-	protected void RenderStorageCandidateTile(WorkspaceWidget workspace, Widget root, int candidateIndex, int left, int top, int width, int userId)
-	{
-		if (!m_Layout)
-			return;
-
-		int height = m_Layout.m_iCandidateTileHeight;
-		int previewSize = m_Layout.m_iPreviewCellMedium;
-		int pad = ScalePx(10);
-		int countW = m_Layout.m_iCountBadgeWidth;
-		int color = 0xF0151C20;
-		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
-			color = 0xFF3D3520;
-
-		CreateRectWidget(workspace, root, left, top, width, height, color, 0.98, userId);
-		CreateRectWidget(workspace, root, left, top, width, ScalePx(2), 0x55313B42, 1.0, 0);
-
-		int previewLeft = left + pad;
-		int previewTop = top + Math.Max(ScalePx(6), (height - previewSize) / 2);
-		CreateRectWidget(workspace, root, previewLeft - ScalePx(2), previewTop - ScalePx(2), previewSize + ScalePx(4), previewSize + ScalePx(4), 0xDD090D10, 1.0, userId);
-		CreateCandidatePreviewCell(workspace, root, candidateIndex, previewLeft, previewTop, previewSize, userId, 0xFFE6E6E6);
-
-		int countLeft = left + width - countW - pad;
-		int textLeft = previewLeft + previewSize + ScalePx(12);
-		int textWidth = Math.Max(ScalePx(80), countLeft - textLeft - ScalePx(8));
-		CreateWrappedTextWidget(workspace, root, GetCandidateDisplayName(candidateIndex), textLeft, top + ScalePx(10), textWidth, height - ScalePx(18), m_Layout.m_iFontSmall, 0xFFE2E6E8, userId, false);
-		CreateCountBadge(workspace, root, BuildCandidateCountLabel(candidateIndex), countLeft, top + ScalePx(20), countW, ScalePx(24), userId);
 	}
 
 	protected int FindSelectedNodeIndex()
@@ -3076,7 +3072,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void ClampPages()
 	{
 		m_iItemPage = Math.Min(Math.Max(0, m_iItemPage), GetMaxPage(CountItemsForSelectedCategory(), ITEMS_PER_PAGE));
-		m_iSlotPage = Math.Min(Math.Max(0, m_iSlotPage), GetMaxPage(m_aSlotIds.Count(), SLOTS_PER_PAGE));
 		m_iTemplatePage = Math.Min(Math.Max(0, m_iTemplatePage), GetMaxPage(m_aTemplateIds.Count(), TEMPLATES_PER_PAGE));
 	}
 
@@ -4878,7 +4873,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void ResetLoadoutScroll()
 	{
 		m_iItemPage = 0;
-		m_iSlotPage = 0;
 		m_iTemplatePage = 0;
 		m_fSlotScrollY = 0.0;
 		m_fStorageCandidateScrollY = 0.0;
@@ -5153,21 +5147,21 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_bCameraInitialized = false;
 	}
 
-	protected Widget CreateScrollList(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, out ScrollLayoutWidget scroll, out Widget content, bool trackForCleanup)
+	protected Widget CreateScrollContainer(WorkspaceWidget workspace, Widget parent, ResourceName layout, int left, int top, int width, int height, out ScrollLayoutWidget scroll, out Widget items, bool trackForCleanup)
 	{
 		scroll = null;
-		content = null;
+		items = null;
 
-		if (!workspace || !parent || width <= 0 || height <= 0)
+		if (!workspace || !parent || layout.IsEmpty() || width <= 0 || height <= 0)
 		{
-			Print("h-istasi ui scroll | failed: invalid workspace/parent/size", LogLevel.WARNING);
+			Print("h-istasi ui scroll | failed: invalid workspace/parent/layout/size", LogLevel.WARNING);
 			return null;
 		}
 
-		Widget root = workspace.CreateWidgets(SCROLL_LIST_LAYOUT, parent);
+		Widget root = workspace.CreateWidgets(layout, parent);
 		if (!root)
 		{
-			Print("h-istasi ui scroll | failed: could not create HST_ScrollList.layout", LogLevel.WARNING);
+			Print("h-istasi ui scroll | failed: could not create scroll layout " + layout, LogLevel.WARNING);
 			return null;
 		}
 
@@ -5175,31 +5169,106 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		FrameSlot.SetSize(root, width, height);
 
 		scroll = ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"));
-		content = root.FindAnyWidget("Content");
+		items = root.FindAnyWidget("Items");
 
-		if (!scroll || !content)
+		if (!scroll || !items)
 		{
-			Print("h-istasi ui scroll | failed: layout must contain widgets named Scroll and Content", LogLevel.WARNING);
+			Print("h-istasi ui scroll | failed: layout must contain widgets named Scroll and Items", LogLevel.WARNING);
 			root.RemoveFromHierarchy();
 			scroll = null;
-			content = null;
+			items = null;
 			return null;
 		}
-
-		FrameSlot.SetPos(scroll, 0, 0);
-		FrameSlot.SetSize(scroll, width, height);
-		FrameSlot.SetPos(content, 0, 0);
-		FrameSlot.SetSize(content, width, height);
 
 		root.SetOpacity(1.0);
 		root.SetVisible(true);
 		scroll.SetVisible(true);
-		content.SetVisible(true);
+		items.SetVisible(true);
 
 		if (trackForCleanup)
 			m_aWidgets.Insert(root);
 
 		return root;
+	}
+
+	protected TextWidget FindRowText(Widget row, string name)
+	{
+		if (!row)
+			return null;
+
+		return TextWidget.Cast(row.FindAnyWidget(name));
+	}
+
+	protected ImageWidget FindRowImage(Widget row, string name)
+	{
+		if (!row)
+			return null;
+
+		return ImageWidget.Cast(row.FindAnyWidget(name));
+	}
+
+	protected Widget FindRowWidget(Widget row, string name)
+	{
+		if (!row)
+			return null;
+
+		return row.FindAnyWidget(name);
+	}
+
+	protected void SetRowText(Widget row, string widgetName, string text, int color, int fontSize, bool bold, bool wrap = true)
+	{
+		TextWidget textWidget = FindRowText(row, widgetName);
+		if (!textWidget)
+			return;
+
+		textWidget.SetText(text);
+		textWidget.SetTextWrapping(wrap);
+		textWidget.SetExactFontSize(fontSize);
+		textWidget.SetLineSpacing(0.95);
+		textWidget.SetBold(bold);
+		textWidget.SetOutline(1, 0xDD000000);
+		textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
+		textWidget.SetColorInt(color);
+	}
+
+	protected void SetRowImageColor(Widget row, string widgetName, int color, float opacity = 1.0)
+	{
+		Widget widget = FindRowWidget(row, widgetName);
+		if (!widget)
+			return;
+
+		widget.SetColorInt(color);
+		widget.SetOpacity(opacity);
+	}
+
+	protected void BindRowClick(Widget row, int userId)
+	{
+		if (!row || userId <= 0)
+			return;
+
+		row.SetUserID(userId);
+		row.AddHandler(m_WidgetHandler);
+
+		BindRowChildClick(row, "Background", userId);
+		BindRowChildClick(row, "Primary", userId);
+		BindRowChildClick(row, "Secondary", userId);
+		BindRowChildClick(row, "Name", userId);
+		BindRowChildClick(row, "Count", userId);
+		BindRowChildClick(row, "Meta", userId);
+		BindRowChildClick(row, "OpenMarker", userId);
+		BindRowChildClick(row, "PreviewAnchor", userId);
+		BindRowChildClick(row, "VolumeBack", userId);
+		BindRowChildClick(row, "VolumeFill", userId);
+	}
+
+	protected void BindRowChildClick(Widget row, string childName, int userId)
+	{
+		Widget child = row.FindAnyWidget(childName);
+		if (child)
+		{
+			child.SetUserID(userId);
+			child.AddHandler(m_WidgetHandler);
+		}
 	}
 
 	protected void SaveLoadoutScrollOffsets()

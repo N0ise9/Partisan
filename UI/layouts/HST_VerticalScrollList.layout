@@ -1,0 +1,42 @@
+FrameWidgetClass "{A7B8C9D001234560}" {
+ Name "HST_VerticalScrollList"
+ Slot FrameWidgetSlot "{A7B8C9D001234561}" {
+  Anchor 0 0 0 0
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ {
+  ScrollLayoutWidgetClass "{A7B8C9D001234562}" {
+   Name "Scroll"
+   Slot FrameWidgetSlot "{A7B8C9D001234563}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   "Scrollbar Always Visible" 1
+   {
+    SizeLayoutWidgetClass "{A7B8C9D001234564}" {
+     Name "ContentSize"
+     Slot AlignableSlot "{A7B8C9D001234565}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+      Padding 0 0 0 0
+     }
+     {
+      VerticalLayoutWidgetClass "{A7B8C9D001234566}" {
+       Name "Items"
+       Slot AlignableSlot "{A7B8C9D001234567}" {
+        HorizontalAlign 3
+        VerticalAlign 3
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

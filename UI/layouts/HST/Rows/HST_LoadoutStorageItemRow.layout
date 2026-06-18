@@ -1,0 +1,84 @@
+ButtonWidgetClass "{A7B8C9D0012345F0}" {
+ Name "HST_LoadoutStorageItemRow"
+ Slot AlignableSlot "{A7B8C9D0012345F1}" {
+  HorizontalAlign 3
+  VerticalAlign 0
+  Padding 0 0 0 6
+ }
+ Color 1 1 1 0
+ "Is Visible" 1
+ {
+  SizeLayoutWidgetClass "{A7B8C9D001235F0A}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{A7B8C9D001235F0B}" {
+   }
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 360
+   AllowHeightOverride 1
+   HeightOverride 58
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 58
+   AllowMaxDesiredHeight 1
+   MaxDesiredHeight 58
+   {
+    FrameWidgetClass "{A7B8C9D001235F0C}" {
+     Name "Content"
+     Slot AlignableSlot "{A7B8C9D001235F0D}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     "Ignore Cursor" 1
+     {
+      ImageWidgetClass "{A7B8C9D0012345F2}" {
+       Name "Background"
+       Slot FrameWidgetSlot "{A7B8C9D0012345F3}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 58
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+      FrameWidgetClass "{A7B8C9D0012345F4}" {
+       Name "PreviewAnchor"
+       Slot FrameWidgetSlot "{A7B8C9D0012345F5}" {
+        Anchor 0 0 0 0
+        OffsetLeft 8
+        OffsetTop 8
+        OffsetRight 50
+        OffsetBottom 50
+       }
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D0012345F6}" {
+       Name "Name"
+       Slot FrameWidgetSlot "{A7B8C9D0012345F7}" {
+        Anchor 0 0 1 0
+        OffsetLeft 62
+        OffsetTop 10
+        OffsetRight -92
+        OffsetBottom 50
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D0012345F8}" {
+       Name "Count"
+       Slot FrameWidgetSlot "{A7B8C9D0012345F9}" {
+        Anchor 1 0 1 0
+        OffsetLeft -82
+        OffsetTop 17
+        OffsetRight -8
+        OffsetBottom 41
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+      }
+     }
+    }
+   }
+  }
+ }
+}

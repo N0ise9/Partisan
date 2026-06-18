@@ -83,10 +83,6 @@ class HST_CommandMenuLayoutMetrics
 	int m_iActionsTextWidth;
 
 	int m_iTabRowHeight;
-	int m_iContentRowHeight;
-	int m_iSectionRowHeight;
-	int m_iActionRowHeight;
-	int m_iFeedRowHeight;
 
 	int m_iFontTiny;
 	int m_iFontSmall;
@@ -113,17 +109,17 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const ResourceName MENU_FONT = "";
 	static const string MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout";
-	static const ResourceName SCROLL_LIST_LAYOUT = "{89F29300C63B4A10}UI/layouts/HST_ScrollList.layout";
+	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
+	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
+	static const ResourceName COMMAND_SECTION_ROW_LAYOUT = "{A7B8C9D001234580}UI/layouts/HST/Rows/HST_CommandSectionRow.layout";
+	static const ResourceName COMMAND_DATA_ROW_LAYOUT = "{A7B8C9D001234590}UI/layouts/HST/Rows/HST_CommandDataRow.layout";
+	static const ResourceName COMMAND_DATA_ROW_COMPACT_LAYOUT = "{A7B8C9D0012345A0}UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout";
+	static const ResourceName COMMAND_ACTION_ROW_LAYOUT = "{A7B8C9D0012345B0}UI/layouts/HST/Rows/HST_CommandActionRow.layout";
+	static const ResourceName COMMAND_FEED_ROW_LAYOUT = "{A7B8C9D0012345C0}UI/layouts/HST/Rows/HST_CommandFeedRow.layout";
+	static const int COMMAND_ACTION_ROW_STRIDE = 70;
 	static const int TAB_WIDGET_ID_BASE = 10000;
 	static const int ACTION_WIDGET_ID_BASE = 30000;
 	static const int CLOSE_WIDGET_ID = 90000;
-	static const int CONTENT_PREV_WIDGET_ID = 9010;
-	static const int CONTENT_NEXT_WIDGET_ID = 9011;
-	static const int ACTION_PREV_WIDGET_ID = 9020;
-	static const int ACTION_NEXT_WIDGET_ID = 9021;
-	static const int CONTENT_PAGE_SIZE = 19;
-	static const int ACTION_PAGE_SIZE = 8;
-	static const int ACTION_ROW_HEIGHT = 44;
 
 	protected static HST_CommandMenuComponent s_LocalInstance;
 
@@ -178,8 +174,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bLoggedRawIKeyInput;
 	protected bool m_bLoggedDuplicateToggle;
 	protected float m_fExternalNotificationRemaining;
-	protected int m_iContentPageStart;
-	protected int m_iActionPageStart;
 	protected ScrollLayoutWidget m_ContentScroll;
 	protected ScrollLayoutWidget m_ActionScroll;
 	protected ScrollLayoutWidget m_FeedScroll;
@@ -383,8 +377,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		ParseTabsFromPayload(payload);
 		ParseRichPayload(payload);
 		ParseActionsFromPayload(payload);
-		ClampContentPage();
-		ClampActionPage();
 		int selectedTabIndex = m_aTabIds.Find(m_sSelectedTab);
 		if (selectedTabIndex >= 0 && m_iSelectedControl < m_aTabIds.Count())
 			m_iSelectedControl = selectedTabIndex;
@@ -406,30 +398,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (widgetId == CLOSE_WIDGET_ID)
 		{
 			CloseMenu();
-			return true;
-		}
-
-		if (widgetId == CONTENT_PREV_WIDGET_ID)
-		{
-			ScrollContentPage(-1);
-			return true;
-		}
-
-		if (widgetId == CONTENT_NEXT_WIDGET_ID)
-		{
-			ScrollContentPage(1);
-			return true;
-		}
-
-		if (widgetId == ACTION_PREV_WIDGET_ID)
-		{
-			ScrollActionPage(-1);
-			return true;
-		}
-
-		if (widgetId == ACTION_NEXT_WIDGET_ID)
-		{
-			ScrollActionPage(1);
 			return true;
 		}
 
@@ -723,43 +691,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void ResetMenuScroll()
 	{
-		m_iContentPageStart = 0;
-		m_iActionPageStart = 0;
 		m_fContentScrollY = 0.0;
 		m_fActionScrollY = 0.0;
 		m_fFeedScrollY = 0.0;
-	}
-
-	protected void ScrollContentPage(int direction)
-	{
-		if (!m_bMenuOpen)
-			return;
-
-		int pageSize = GetContentPageSize();
-		int maxStart = ResolveMaxPageStart(m_aContentItemKinds.Count(), pageSize);
-		int advance = pageSize;
-		if (direction > 0)
-			advance = ResolveVisibleContentPageAdvance(m_iContentPageStart);
-
-		m_iContentPageStart = ClampIntToRange(m_iContentPageStart + direction * advance, 0, maxStart);
-		RenderMenu();
-	}
-
-	protected void ScrollActionPage(int direction)
-	{
-		if (!m_bMenuOpen)
-			return;
-
-		int pageSize = GetActionPageSize();
-		int maxStart = ResolveMaxPageStart(m_aActionLabels.Count(), pageSize);
-		int advance = pageSize;
-		if (direction > 0)
-			advance = ResolveVisibleActionPageAdvance(m_iActionPageStart);
-
-		m_iActionPageStart = ClampIntToRange(m_iActionPageStart + direction * advance, 0, maxStart);
-		if (m_aActionLabels.Count() > 0)
-			m_iSelectedControl = m_aTabIds.Count() + m_iActionPageStart;
-		RenderMenu();
 	}
 
 	protected void ToggleMenu()
@@ -1107,10 +1041,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_Layout.m_iActionsTextWidth = Math.Max(1, m_Layout.m_iRightWidth - ScalePx(40));
 
 		m_Layout.m_iTabRowHeight = ScalePx(44);
-		m_Layout.m_iContentRowHeight = ScalePx(44);
-		m_Layout.m_iSectionRowHeight = ScalePx(38);
-		m_Layout.m_iActionRowHeight = ScalePx(58);
-		m_Layout.m_iFeedRowHeight = ScalePx(42);
 
 		m_Layout.m_iFontTiny = ScaleFont(10);
 		m_Layout.m_iFontSmall = ScaleFont(12);
@@ -1340,134 +1270,92 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		int sectionCount = m_aSectionIds.Count();
 		CreateRectWidget(workspace, root, m_Layout.m_iMainLeft, m_Layout.m_iMainTop, m_Layout.m_iMainWidth, m_Layout.m_iMainHeight, 0xF31A232B, 0.98, 0);
 		CreateRectWidget(workspace, root, m_Layout.m_iMainLeft, m_Layout.m_iMainTop, m_Layout.m_iMainWidth, ScalePx(4), 0xFFC4953B, 1.0, 0);
 
 		ScrollLayoutWidget scroll;
-		Widget content;
-		CreateScrollList(workspace, root, m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight, scroll, content, false);
+		Widget items;
+		CreateScrollContainer(workspace, root, VERTICAL_SCROLL_LIST_LAYOUT, m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight, scroll, items, false);
 		m_ContentScroll = scroll;
 
-		if (!content)
+		if (!items)
 		{
-			CreateWrappedTextWidget(workspace, root, "Main content unavailable: scroll layout missing Content.", m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, ScalePx(40), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			CreateWrappedTextWidget(workspace, root, "Main content unavailable: scroll layout missing Items.", m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, ScalePx(40), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
 			return;
 		}
 
-		if (sectionCount == 0)
+		if (m_aSectionIds.Count() == 0)
 		{
-			CreateWrappedTextWidget(workspace, content, m_sStatusText, 0, 0, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight, m_Layout.m_iFontNormal, 0xFFE0E0E0, 0, false);
-			FrameSlot.SetSize(content, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight);
+			Widget row = workspace.CreateWidgets(COMMAND_DATA_ROW_COMPACT_LAYOUT, items);
+			if (row)
+			{
+				SetRowText(row, "Label", "Status", 0xFFC4CDD3, m_Layout.m_iFontNormal, true, true);
+				SetRowText(row, "Value", m_sStatusText, 0xFFE0E0E0, m_Layout.m_iFontNormal, false, true);
+				SetRowImageColor(row, "Background", 0x00111111, 0.01);
+			}
+
 			RestoreScrollPixels(m_ContentScroll, m_fContentScrollY);
 			return;
 		}
 
-		int y = 0;
-		int contentWidth = m_Layout.m_iMainContentWidth;
 		for (int i = 0; i < m_aContentItemKinds.Count(); i++)
-		{
-			int rowHeight = MeasureContentItemHeight(i, contentWidth - ScalePx(16));
-			RenderContentItem(workspace, content, i, ScalePx(8), y, contentWidth - ScalePx(16), rowHeight);
-			y += rowHeight + ScalePx(6);
-		}
+			AddCommandContentRow(workspace, items, i);
 
-		FrameSlot.SetSize(content, contentWidth, Math.Max(m_Layout.m_iMainContentHeight, y + ScalePx(12)));
 		RestoreScrollPixels(m_ContentScroll, m_fContentScrollY);
 	}
 
-	protected int MeasureContentItemHeight(int contentIndex, int width)
+	protected void AddCommandContentRow(WorkspaceWidget workspace, Widget items, int contentIndex)
 	{
-		if (!m_Layout)
-			return 32;
+		if (!workspace || !items)
+			return;
 
-		if (contentIndex < 0 || contentIndex >= m_aContentItemKinds.Count())
-			return m_Layout.m_iContentRowHeight;
-
-		string kind = m_aContentItemKinds[contentIndex];
-		if (kind == "section")
-			return m_Layout.m_iSectionRowHeight;
-		if (kind == "empty")
-			return ScalePx(34);
-
-		int rowIndex = m_aContentItemRowIndexes[contentIndex];
-		if (rowIndex < 0 || rowIndex >= m_aRowValues.Count())
-			return m_Layout.m_iContentRowHeight;
-
-		string value = m_aRowValues[rowIndex];
-		int approxCharsPerLine = Math.Max(24, (width - ScalePx(260)) / Math.Max(1, ScalePx(7)));
-		int lines = 1;
-		if (value.Length() > approxCharsPerLine)
-			lines = 2;
-		if (value.Length() > approxCharsPerLine * 2)
-			lines = 3;
-
-		return Math.Max(m_Layout.m_iContentRowHeight, ScalePx(24 + lines * 18));
-	}
-
-	protected void RenderContentItem(WorkspaceWidget workspace, Widget root, int contentIndex, int left, int top, int width, int height)
-	{
 		if (contentIndex < 0 || contentIndex >= m_aContentItemKinds.Count())
 			return;
 
 		string kind = m_aContentItemKinds[contentIndex];
-		int sectionIndex = m_aContentItemSectionIndexes[contentIndex];
-		int rowIndex = m_aContentItemRowIndexes[contentIndex];
 		if (kind == "section")
 		{
-			CreateRectWidget(workspace, root, left - ScalePx(8), top - ScalePx(3), width + ScalePx(16), height + ScalePx(2), 0xFF263341, 0.72, 0);
-			CreateWrappedTextWidget(workspace, root, m_aSectionTitles[sectionIndex], left, top + ScalePx(6), width, height - ScalePx(6), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
+			int sectionIndex = m_aContentItemSectionIndexes[contentIndex];
+			Widget row = workspace.CreateWidgets(COMMAND_SECTION_ROW_LAYOUT, items);
+			if (!row)
+				return;
+
+			string title = "";
+			if (sectionIndex >= 0 && sectionIndex < m_aSectionTitles.Count())
+				title = m_aSectionTitles[sectionIndex];
+
+			SetRowText(row, "Title", title, 0xFFEFE2C4, m_Layout.m_iFontTitle, true, true);
+			SetRowImageColor(row, "Background", 0xFF263341, 0.72);
 			return;
 		}
 
 		if (kind == "empty")
 		{
-			CreateTextWidget(workspace, root, "No entries", left + ScalePx(18), top + ScalePx(4), width - ScalePx(36), ScalePx(24), m_Layout.m_iFontNormal, 0xFF8D98A0, 0, false);
+			Widget row = workspace.CreateWidgets(COMMAND_DATA_ROW_LAYOUT, items);
+			if (!row)
+				return;
+
+			SetRowText(row, "Label", "No entries", 0xFF8D98A0, m_Layout.m_iFontNormal, false, true);
+			SetRowText(row, "Value", "", 0xFF8D98A0, m_Layout.m_iFontNormal, false, true);
+			SetRowImageColor(row, "Background", 0x00111111, 0.01);
 			return;
 		}
 
+		int rowIndex = m_aContentItemRowIndexes[contentIndex];
 		if (rowIndex < 0 || rowIndex >= m_aRowLabels.Count())
 			return;
 
-		int labelWidth = ClampLayoutInt(Math.Round(width * 0.34), ScalePx(180), ScalePx(300));
-		int valueLeft = left + labelWidth + ScalePx(18);
-		int valueWidth = width - labelWidth - ScalePx(18);
+		ResourceName layout = COMMAND_DATA_ROW_LAYOUT;
+		if (m_Layout.m_bVeryCompact)
+			layout = COMMAND_DATA_ROW_COMPACT_LAYOUT;
 
-		CreateWrappedTextWidget(workspace, root, m_aRowLabels[rowIndex], left, top + ScalePx(4), labelWidth, height - ScalePx(8), m_Layout.m_iFontNormal, 0xFFC4CDD3, 0, false);
-		CreateWrappedTextWidget(workspace, root, m_aRowValues[rowIndex], valueLeft, top + ScalePx(4), valueWidth, height - ScalePx(8), m_Layout.m_iFontNormal, ToneTextColor(m_aRowTones[rowIndex]), 0, false);
-	}
+		Widget row = workspace.CreateWidgets(layout, items);
+		if (!row)
+			return;
 
-	protected void RenderContentPager(WorkspaceWidget workspace, Widget root, int left, int top, int width, int rendered)
-	{
-		int pageSize = GetContentPageSize();
-		int start = Math.Min(m_iContentPageStart + 1, m_aContentItemKinds.Count());
-		int end = Math.Min(m_iContentPageStart + Math.Max(1, rendered), m_aContentItemKinds.Count());
-		string label = string.Format("Entries %1-%2 / %3", start, end, m_aContentItemKinds.Count());
-		int labelLeft = left + ScalePx(132);
-		int labelWidth = Math.Max(ScalePx(80), width - ScalePx(264));
-		CreateTextWidget(workspace, root, label, labelLeft, top + ScalePx(4), labelWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFAFBAC1, 0, false);
-
-		bool canPrev = m_iContentPageStart > 0;
-		bool canNext = m_iContentPageStart + Math.Max(1, rendered) < m_aContentItemKinds.Count();
-		int prevColor = 0xFF2F3B45;
-		int nextColor = 0xFF2F3B45;
-		int prevTextColor = 0xFFE5E5E5;
-		int nextTextColor = 0xFFE5E5E5;
-		if (!canPrev)
-		{
-			prevColor = 0xFF1E252B;
-			prevTextColor = 0xFF6D777F;
-		}
-		if (!canNext)
-		{
-			nextColor = 0xFF1E252B;
-			nextTextColor = 0xFF6D777F;
-		}
-
-		CreateRectWidget(workspace, root, left, top, ScalePx(120), ScalePx(30), prevColor, 0.9, CONTENT_PREV_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Prev", left + ScalePx(38), top + ScalePx(5), ScalePx(70), ScalePx(20), m_Layout.m_iFontSmall, prevTextColor, CONTENT_PREV_WIDGET_ID, true);
-		CreateRectWidget(workspace, root, left + width - ScalePx(120), top, ScalePx(120), ScalePx(30), nextColor, 0.9, CONTENT_NEXT_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Next", left + width - ScalePx(82), top + ScalePx(5), ScalePx(70), ScalePx(20), m_Layout.m_iFontSmall, nextTextColor, CONTENT_NEXT_WIDGET_ID, true);
+		SetRowText(row, "Label", m_aRowLabels[rowIndex], 0xFFC4CDD3, m_Layout.m_iFontNormal, false, true);
+		SetRowText(row, "Value", m_aRowValues[rowIndex], ToneTextColor(m_aRowTones[rowIndex]), m_Layout.m_iFontNormal, false, true);
+		SetRowImageColor(row, "Background", 0x00111111, 0.01);
 	}
 
 	protected int CountRowsForSection(string sectionId)
@@ -1502,22 +1390,38 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		CreateTextWidget(workspace, root, "Campaign Notes", m_Layout.m_iActivityTextLeft, feedTop, ScalePx(214), ScalePx(28), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
 
-		if (m_aFeedLines.Count() == 0)
+		int listTop = feedTop + ScalePx(36);
+		int listBottom = m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight - ScalePx(10);
+		int listHeight = Math.Max(1, listBottom - listTop);
+
+		ScrollLayoutWidget scroll;
+		Widget items;
+		CreateScrollContainer(workspace, root, VERTICAL_SCROLL_LIST_LAYOUT, m_Layout.m_iActivityTextLeft, listTop, m_Layout.m_iActivityTextWidth, listHeight, scroll, items, false);
+		m_FeedScroll = scroll;
+
+		if (!items)
 		{
-			CreateTextWidget(workspace, root, "Waiting for HQ traffic.", m_Layout.m_iActivityTextLeft, feedTop + ScalePx(36), m_Layout.m_iActivityTextWidth, ScalePx(28), m_Layout.m_iFontNormal, 0xFFAFBAC1, 0, false);
+			CreateTextWidget(workspace, root, "Activity feed unavailable: scroll layout missing Items.", m_Layout.m_iActivityTextLeft, listTop, m_Layout.m_iActivityTextWidth, ScalePx(28), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
 			return;
 		}
 
-		int listTop = feedTop + ScalePx(36);
-		int listBottom = m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight - ScalePx(10);
-		int visibleFeedRows = Math.Max(1, (listBottom - listTop) / Math.Max(1, m_Layout.m_iFeedRowHeight + ScalePx(6)));
+		if (m_aFeedLines.Count() == 0)
+		{
+			Widget row = workspace.CreateWidgets(COMMAND_FEED_ROW_LAYOUT, items);
+			if (row)
+				SetRowText(row, "Text", "Waiting for HQ traffic.", 0xFFAFBAC1, m_Layout.m_iFontNormal, false, true);
+			RestoreScrollPixels(m_FeedScroll, m_fFeedScrollY);
+			return;
+		}
+
 		for (int i = 0; i < m_aFeedLines.Count(); i++)
 		{
-			if (i >= visibleFeedRows)
-				break;
-
-			CreateWrappedTextWidget(workspace, root, m_aFeedLines[i], m_Layout.m_iActivityTextLeft, listTop + i * (m_Layout.m_iFeedRowHeight + ScalePx(6)), m_Layout.m_iActivityTextWidth, m_Layout.m_iFeedRowHeight, m_Layout.m_iFontSmall, ToneTextColor(m_aFeedTones[i]), 0, false);
+			Widget row = workspace.CreateWidgets(COMMAND_FEED_ROW_LAYOUT, items);
+			if (row)
+				SetRowText(row, "Text", m_aFeedLines[i], ToneTextColor(m_aFeedTones[i]), m_Layout.m_iFontSmall, false, true);
 		}
+
+		RestoreScrollPixels(m_FeedScroll, m_fFeedScrollY);
 	}
 
 	protected void RenderActions(WorkspaceWidget workspace, Widget root)
@@ -1532,147 +1436,98 @@ class HST_CommandMenuComponent : ScriptComponent
 		int listHeight = Math.Max(1, m_Layout.m_iActionsTop + m_Layout.m_iActionsHeight - listTop - ScalePx(16));
 
 		ScrollLayoutWidget scroll;
-		Widget content;
-		CreateScrollList(workspace, root, m_Layout.m_iActionsTextLeft, listTop, m_Layout.m_iActionsTextWidth, listHeight, scroll, content, false);
+		Widget items;
+		CreateScrollContainer(workspace, root, VERTICAL_SCROLL_LIST_LAYOUT, m_Layout.m_iActionsTextLeft, listTop, m_Layout.m_iActionsTextWidth, listHeight, scroll, items, false);
 		m_ActionScroll = scroll;
 
-		if (!content)
+		if (!items)
 		{
-			CreateTextWidget(workspace, root, "Actions unavailable: scroll layout missing Content.", m_Layout.m_iActionsTextLeft, listTop, m_Layout.m_iActionsTextWidth, ScalePx(30), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			CreateTextWidget(workspace, root, "Actions unavailable: scroll layout missing Items.", m_Layout.m_iActionsTextLeft, listTop, m_Layout.m_iActionsTextWidth, ScalePx(30), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
 			return;
 		}
 
 		if (m_aActionLabels.Count() == 0)
 		{
-			CreateTextWidget(workspace, content, "No commands available.", 0, ScalePx(8), m_Layout.m_iActionsTextWidth, ScalePx(30), m_Layout.m_iFontNormal, 0xFF9AA5AD, 0, false);
-			FrameSlot.SetSize(content, m_Layout.m_iActionsTextWidth, listHeight);
+			Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
+			if (row)
+			{
+				SetRowText(row, "Label", "No commands available.", 0xFF9AA5AD, m_Layout.m_iFontNormal, false, true);
+				SetRowImageColor(row, "Background", 0x00111111, 0.01);
+			}
+
 			RestoreScrollPixels(m_ActionScroll, m_fActionScrollY);
 			return;
 		}
 
-		int y = 0;
-		int contentWidth = m_Layout.m_iActionsTextWidth;
 		for (int i = 0; i < m_aActionLabels.Count(); i++)
-		{
-			int rowHeight = MeasureActionRowHeight(i, contentWidth - ScalePx(16));
-			RenderActionRow(workspace, content, i, ScalePx(8), y, contentWidth - ScalePx(16), rowHeight);
-			y += rowHeight + ScalePx(8);
-		}
+			AddCommandActionRow(workspace, items, i);
 
-		FrameSlot.SetSize(content, contentWidth, Math.Max(listHeight, y + ScalePx(12)));
 		RestoreScrollPixels(m_ActionScroll, m_fActionScrollY);
 		EnsureSelectedActionVisible();
 	}
 
-	protected int MeasureActionRowHeight(int actionIndex, int width)
+	protected void AddCommandActionRow(WorkspaceWidget workspace, Widget items, int actionIndex)
 	{
-		if (!m_Layout)
-			return ACTION_ROW_HEIGHT;
+		if (!workspace || !items)
+			return;
 
 		if (actionIndex < 0 || actionIndex >= m_aActionLabels.Count())
-			return m_Layout.m_iActionRowHeight;
+			return;
 
-		string label = m_aActionLabels[actionIndex];
-		string disabledReason = "";
-		if (actionIndex < m_aActionDisabledReasons.Count())
-			disabledReason = m_aActionDisabledReasons[actionIndex];
+		Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
+		if (!row)
+			return;
 
-		int charsPerLine = Math.Max(24, width / Math.Max(1, ScalePx(8)));
-		int lines = 1;
-		if (label.Length() > charsPerLine)
-			lines++;
+		BindRowClick(row, ACTION_WIDGET_ID_BASE + actionIndex);
 
-		if (actionIndex < m_aActionEnabled.Count() && !m_aActionEnabled[actionIndex] && !disabledReason.IsEmpty())
-		{
-			lines++;
-			if (disabledReason.Length() > charsPerLine)
-				lines++;
-		}
-
-		return Math.Max(m_Layout.m_iActionRowHeight, ScalePx(22 + lines * 18));
-	}
-
-	protected void RenderActionRow(WorkspaceWidget workspace, Widget root, int actionIndex, int left, int top, int width, int height)
-	{
 		bool focused = m_iSelectedControl == m_aTabIds.Count() + actionIndex;
-		int rowColor = 0x00222222;
-		float rowOpacity = 0.01;
+		bool enabled = true;
+		if (actionIndex < m_aActionEnabled.Count())
+			enabled = m_aActionEnabled[actionIndex];
+
+		int bgColor = 0x00222222;
+		float bgOpacity = 0.01;
 		if (focused)
 		{
-			rowColor = 0xFF604A24;
-			rowOpacity = 0.88;
+			bgColor = 0xFF604A24;
+			bgOpacity = 0.88;
 		}
 
-		CreateRectWidget(workspace, root, left - ScalePx(8), top, width + ScalePx(16), height, rowColor, rowOpacity, ACTION_WIDGET_ID_BASE + actionIndex);
-
-		int color = 0xFFE5E5E5;
-		string rowText = m_aActionLabels[actionIndex];
+		int textColor = 0xFFE5E5E5;
+		string text = m_aActionLabels[actionIndex];
 		if (focused)
-			rowText = "> " + rowText;
+			text = "> " + text;
 
-		if (actionIndex < m_aActionEnabled.Count() && !m_aActionEnabled[actionIndex])
+		if (!enabled)
 		{
-			color = 0xFF8B9298;
+			textColor = 0xFF8B9298;
 			string disabledReason = "";
 			if (actionIndex < m_aActionDisabledReasons.Count())
 				disabledReason = m_aActionDisabledReasons[actionIndex];
 
 			if (!disabledReason.IsEmpty())
-				rowText = rowText + "\n" + disabledReason;
+				text = text + "\n" + disabledReason;
 		}
 
-		CreateWrappedTextWidget(workspace, root, rowText, left, top + ScalePx(7), width, height - ScalePx(10), m_Layout.m_iFontNormal, color, ACTION_WIDGET_ID_BASE + actionIndex, focused);
+		SetRowImageColor(row, "Background", bgColor, bgOpacity);
+		SetRowText(row, "Label", text, textColor, m_Layout.m_iFontNormal, focused, true);
 	}
 
-	protected void RenderActionPager(WorkspaceWidget workspace, Widget root, int rendered)
-	{
-		int pageSize = GetActionPageSize();
-		int start = Math.Min(m_iActionPageStart + 1, m_aActionLabels.Count());
-		int end = Math.Min(m_iActionPageStart + Math.Max(1, rendered), m_aActionLabels.Count());
-		string label = string.Format("%1-%2 / %3", start, end, m_aActionLabels.Count());
-		int pagerTop = m_Layout.m_iActionsTop + m_Layout.m_iActionsHeight - ScalePx(34);
-		int labelLeft = m_Layout.m_iActionsTextLeft + ScalePx(96);
-		int labelWidth = Math.Max(ScalePx(70), m_Layout.m_iActionsTextWidth - ScalePx(192));
-		CreateTextWidget(workspace, root, label, labelLeft, pagerTop + ScalePx(5), labelWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFAFBAC1, 0, false);
-
-		bool canPrev = m_iActionPageStart > 0;
-		bool canNext = m_iActionPageStart + Math.Max(1, rendered) < m_aActionLabels.Count();
-		int prevColor = 0xFF2F3B45;
-		int nextColor = 0xFF2F3B45;
-		int prevTextColor = 0xFFE5E5E5;
-		int nextTextColor = 0xFFE5E5E5;
-		if (!canPrev)
-		{
-			prevColor = 0xFF1E252B;
-			prevTextColor = 0xFF6D777F;
-		}
-		if (!canNext)
-		{
-			nextColor = 0xFF1E252B;
-			nextTextColor = 0xFF6D777F;
-		}
-
-		CreateRectWidget(workspace, root, m_Layout.m_iActionsTextLeft, pagerTop, ScalePx(86), ScalePx(30), prevColor, 0.9, ACTION_PREV_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Prev", m_Layout.m_iActionsTextLeft + ScalePx(26), pagerTop + ScalePx(5), ScalePx(52), ScalePx(20), m_Layout.m_iFontSmall, prevTextColor, ACTION_PREV_WIDGET_ID, true);
-		CreateRectWidget(workspace, root, m_Layout.m_iActionsTextLeft + m_Layout.m_iActionsTextWidth - ScalePx(86), pagerTop, ScalePx(86), ScalePx(30), nextColor, 0.9, ACTION_NEXT_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Next", m_Layout.m_iActionsTextLeft + m_Layout.m_iActionsTextWidth - ScalePx(60), pagerTop + ScalePx(5), ScalePx(52), ScalePx(20), m_Layout.m_iFontSmall, nextTextColor, ACTION_NEXT_WIDGET_ID, true);
-	}
-
-	protected Widget CreateScrollList(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, out ScrollLayoutWidget scroll, out Widget content, bool trackForCleanup)
+	protected Widget CreateScrollContainer(WorkspaceWidget workspace, Widget parent, ResourceName layout, int left, int top, int width, int height, out ScrollLayoutWidget scroll, out Widget items, bool trackForCleanup)
 	{
 		scroll = null;
-		content = null;
+		items = null;
 
-		if (!workspace || !parent || width <= 0 || height <= 0)
+		if (!workspace || !parent || layout.IsEmpty() || width <= 0 || height <= 0)
 		{
-			Print("h-istasi ui scroll | failed: invalid workspace/parent/size", LogLevel.WARNING);
+			Print("h-istasi ui scroll | failed: invalid workspace/parent/layout/size", LogLevel.WARNING);
 			return null;
 		}
 
-		Widget root = workspace.CreateWidgets(SCROLL_LIST_LAYOUT, parent);
+		Widget root = workspace.CreateWidgets(layout, parent);
 		if (!root)
 		{
-			Print("h-istasi ui scroll | failed: could not create HST_ScrollList.layout", LogLevel.WARNING);
+			Print("h-istasi ui scroll | failed: could not create scroll layout " + layout, LogLevel.WARNING);
 			return null;
 		}
 
@@ -1680,31 +1535,100 @@ class HST_CommandMenuComponent : ScriptComponent
 		FrameSlot.SetSize(root, width, height);
 
 		scroll = ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"));
-		content = root.FindAnyWidget("Content");
+		items = root.FindAnyWidget("Items");
 
-		if (!scroll || !content)
+		if (!scroll || !items)
 		{
-			Print("h-istasi ui scroll | failed: layout must contain widgets named Scroll and Content", LogLevel.WARNING);
+			Print("h-istasi ui scroll | failed: layout must contain widgets named Scroll and Items", LogLevel.WARNING);
 			root.RemoveFromHierarchy();
 			scroll = null;
-			content = null;
+			items = null;
 			return null;
 		}
-
-		FrameSlot.SetPos(scroll, 0, 0);
-		FrameSlot.SetSize(scroll, width, height);
-		FrameSlot.SetPos(content, 0, 0);
-		FrameSlot.SetSize(content, width, height);
 
 		root.SetOpacity(1.0);
 		root.SetVisible(true);
 		scroll.SetVisible(true);
-		content.SetVisible(true);
+		items.SetVisible(true);
 
 		if (trackForCleanup)
 			m_aWidgets.Insert(root);
 
 		return root;
+	}
+
+	protected TextWidget FindRowText(Widget row, string name)
+	{
+		if (!row)
+			return null;
+
+		return TextWidget.Cast(row.FindAnyWidget(name));
+	}
+
+	protected ImageWidget FindRowImage(Widget row, string name)
+	{
+		if (!row)
+			return null;
+
+		return ImageWidget.Cast(row.FindAnyWidget(name));
+	}
+
+	protected Widget FindRowWidget(Widget row, string name)
+	{
+		if (!row)
+			return null;
+
+		return row.FindAnyWidget(name);
+	}
+
+	protected void SetRowText(Widget row, string widgetName, string text, int color, int fontSize, bool bold, bool wrap = true)
+	{
+		TextWidget textWidget = FindRowText(row, widgetName);
+		if (!textWidget)
+			return;
+
+		textWidget.SetText(text);
+		textWidget.SetTextWrapping(wrap);
+		textWidget.SetExactFontSize(fontSize);
+		textWidget.SetLineSpacing(0.95);
+		textWidget.SetBold(bold);
+		textWidget.SetOutline(1, 0xDD000000);
+		textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
+		textWidget.SetColorInt(color);
+	}
+
+	protected void SetRowImageColor(Widget row, string widgetName, int color, float opacity = 1.0)
+	{
+		Widget widget = FindRowWidget(row, widgetName);
+		if (!widget)
+			return;
+
+		widget.SetColorInt(color);
+		widget.SetOpacity(opacity);
+	}
+
+	protected void BindRowClick(Widget row, int userId)
+	{
+		if (!row || userId <= 0)
+			return;
+
+		row.SetUserID(userId);
+		row.AddHandler(m_WidgetHandler);
+
+		BindRowChildClick(row, "Background", userId);
+		BindRowChildClick(row, "Label", userId);
+		BindRowChildClick(row, "Text", userId);
+		BindRowChildClick(row, "Title", userId);
+	}
+
+	protected void BindRowChildClick(Widget row, string childName, int userId)
+	{
+		Widget child = row.FindAnyWidget(childName);
+		if (child)
+		{
+			child.SetUserID(userId);
+			child.AddHandler(m_WidgetHandler);
+		}
 	}
 
 	protected void SaveCommandMenuScrollOffsets()
@@ -1748,12 +1672,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (actionIndex < 0 || actionIndex >= m_aActionLabels.Count())
 			return;
 
-		int y = 0;
-		for (int i = 0; i < actionIndex; i++)
-			y += MeasureActionRowHeight(i, m_Layout.m_iActionsTextWidth - ScalePx(16)) + ScalePx(8);
-
-		int selectedHeight = MeasureActionRowHeight(actionIndex, m_Layout.m_iActionsTextWidth - ScalePx(16));
-		m_ActionScroll.ScrollToView(0, y, m_Layout.m_iActionsTextWidth, selectedHeight);
+		int rowHeight = ScalePx(COMMAND_ACTION_ROW_STRIDE);
+		int y = actionIndex * rowHeight;
+		m_ActionScroll.ScrollToView(0, y, m_Layout.m_iActionsTextWidth, rowHeight);
 	}
 
 	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
@@ -1941,106 +1862,6 @@ class HST_CommandMenuComponent : ScriptComponent
 			return text.Substring(0, maxCharacters);
 
 		return text.Substring(0, maxCharacters - 3) + "...";
-	}
-
-	protected int GetContentPageSize()
-	{
-		if (m_Layout)
-			return Math.Max(1, m_Layout.m_iMainContentHeight / Math.Max(1, m_Layout.m_iContentRowHeight + ScalePx(6)));
-
-		return CONTENT_PAGE_SIZE;
-	}
-
-	protected int GetActionPageSize()
-	{
-		if (m_Layout)
-			return Math.Max(1, (m_Layout.m_iActionsHeight - ScalePx(96)) / Math.Max(1, m_Layout.m_iActionRowHeight + ScalePx(8)));
-
-		return ACTION_PAGE_SIZE;
-	}
-
-	protected int ResolveVisibleContentPageAdvance(int startIndex)
-	{
-		if (!m_Layout)
-			return GetContentPageSize();
-
-		int y;
-		int bottom = m_Layout.m_iMainContentHeight;
-		int rendered;
-		for (int i = startIndex; i < m_aContentItemKinds.Count(); i++)
-		{
-			int rowHeight = MeasureContentItemHeight(i, m_Layout.m_iMainContentWidth);
-			if (rendered > 0 && y + rowHeight > bottom)
-				break;
-
-			y += rowHeight + ScalePx(6);
-			rendered++;
-		}
-
-		return Math.Max(1, rendered);
-	}
-
-	protected int ResolveVisibleActionPageAdvance(int startIndex)
-	{
-		if (!m_Layout)
-			return GetActionPageSize();
-
-		int y;
-		int bottom = Math.Max(ScalePx(60), m_Layout.m_iActionsHeight - ScalePx(100));
-		int rendered;
-		for (int i = startIndex; i < m_aActionLabels.Count(); i++)
-		{
-			int rowHeight = MeasureActionRowHeight(i, m_Layout.m_iActionsTextWidth);
-			if (rendered > 0 && y + rowHeight > bottom)
-				break;
-
-			y += rowHeight + ScalePx(8);
-			rendered++;
-		}
-
-		return Math.Max(1, rendered);
-	}
-
-	protected void ClampContentPage()
-	{
-		int maxStart = ResolveMaxPageStart(m_aContentItemKinds.Count(), GetContentPageSize());
-		m_iContentPageStart = ClampIntToRange(m_iContentPageStart, 0, maxStart);
-	}
-
-	protected void ClampActionPage()
-	{
-		int maxStart = ResolveMaxPageStart(m_aActionLabels.Count(), GetActionPageSize());
-		m_iActionPageStart = ClampIntToRange(m_iActionPageStart, 0, maxStart);
-	}
-
-	protected void EnsureActionPageContainsSelection()
-	{
-		int actionIndex = m_iSelectedControl - m_aTabIds.Count();
-		if (actionIndex < 0)
-		{
-			ClampActionPage();
-			return;
-		}
-
-		if (actionIndex >= m_aActionLabels.Count())
-		{
-			ClampActionPage();
-			return;
-		}
-
-		int pageSize = ResolveVisibleActionPageAdvance(m_iActionPageStart);
-		if (actionIndex < m_iActionPageStart || actionIndex >= m_iActionPageStart + pageSize)
-			m_iActionPageStart = actionIndex;
-
-		ClampActionPage();
-	}
-
-	protected int ResolveMaxPageStart(int itemCount, int pageSize)
-	{
-		if (itemCount <= pageSize || pageSize <= 0)
-			return 0;
-
-		return ((itemCount - 1) / pageSize) * pageSize;
 	}
 
 	protected int ClampIntToRange(int value, int minimum, int maximum)
