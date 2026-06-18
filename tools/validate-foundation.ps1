@@ -2033,13 +2033,13 @@ foreach ($loadoutVerticalRowLayoutPath in $loadoutVerticalRowLayoutContracts) {
 	}
 }
 foreach ($requiredLoadoutStorageItemRowEntry in @(
-	"HeightOverride 72",
-	"MinDesiredHeight 72",
-	"MaxDesiredHeight 72",
-	"OffsetRight 70",
-	"OffsetBottom 68",
-	"OffsetLeft 82",
-	"OffsetTop 24"
+	"HeightOverride 76",
+	"MinDesiredHeight 76",
+	"MaxDesiredHeight 76",
+	"OffsetRight 72",
+	"OffsetBottom 72",
+	"OffsetLeft 84",
+	"OffsetTop 22"
 )) {
 	$loadoutStorageItemRowText = Get-Content -Raw "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"
 	if ($loadoutStorageItemRowText -notmatch [regex]::Escape($requiredLoadoutStorageItemRowEntry)) {
@@ -2048,11 +2048,11 @@ foreach ($requiredLoadoutStorageItemRowEntry in @(
 }
 foreach ($requiredLoadoutCandidateTileEntry in @(
 	"WidthOverride 354",
-	"HeightOverride 92",
+	"HeightOverride 96",
 	"MinDesiredWidth 354",
-	"MinDesiredHeight 92",
+	"MinDesiredHeight 96",
 	"MaxDesiredWidth 354",
-	"MaxDesiredHeight 92",
+	"MaxDesiredHeight 96",
 	"OffsetRight 82",
 	"OffsetBottom 82",
 	"OffsetLeft 92",
@@ -2676,16 +2676,27 @@ if ($loadoutEditorComponentText -notmatch "CreateWidgets\(EDITOR_LAYOUT, m_RootW
 	throw "Loadout editor layout must be loaded as a child of the procedural root frame"
 }
 foreach ($requiredLoadoutRootMaskEntry in @(
-	"int screenBleed = ScalePx(96)",
-	"FrameSlot.SetPos(root, -screenBleed, -screenBleed)",
-	"FrameSlot.SetSize(root, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2)",
-	"Widget hardMask = CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2, 0xFF1D292D, 1.0, 0)",
-	"hardMask.SetZOrder(0)",
-	"FrameSlot.SetPos(layoutRoot, screenBleed, screenBleed)",
-	"layoutRoot.SetZOrder(10)"
+	"CreateFullscreenShield(workspace)",
+	"FrameSlot.SetPos(root, 0, 0)",
+	"FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight)",
+	"FrameSlot.SetPos(layoutRoot, 0, 0)",
+	"layoutRoot.SetZOrder(10)",
+	"protected Widget CreateFullscreenShield(WorkspaceWidget workspace)",
+	"Widget shield = workspace.CreateWidgetInWorkspace(WidgetType.CanvasWidgetTypeID, shieldLeft, shieldTop, shieldWidth, shieldHeight, WidgetFlags.VISIBLE, null, 3500)",
+	"SetupCanvasRect(shield, shieldWidth, shieldHeight, 0xFF1D292D)",
+	"shield.SetZOrder(3500)"
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutRootMaskEntry)) {
-		throw "Loadout editor root hard-mask coverage is missing: $requiredLoadoutRootMaskEntry"
+		throw "Loadout editor fullscreen shield coverage is missing: $requiredLoadoutRootMaskEntry"
+	}
+}
+foreach ($forbiddenLoadoutRootMaskEntry in @(
+	"int screenBleed = ScalePx(96)",
+	"FrameSlot.SetPos(root, -screenBleed, -screenBleed)",
+	"hardMask = CreateRectWidget(workspace, root"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutRootMaskEntry)) {
+		throw "Loadout editor must not use the old root-child hard mask: $forbiddenLoadoutRootMaskEntry"
 	}
 }
 if ($loadoutEditorComponentText -notmatch 'FindAnyWidget\("HST_LoadoutEditorRoot"\)[\s\S]{0,180}FrameSlot\.SetSize\(layoutRoot, m_iEditorWidth, m_iEditorHeight\)') {
@@ -2817,16 +2828,30 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"BuildCandidateCountLabel",
 	"SetRowWidgetVisible",
 	"CountStorageCandidatesForTab",
-	"m_Layout.m_iHeaderHeight = ScalePx(68)",
-	"m_Layout.m_iCategoryHeight = ScalePx(68)",
+	"m_Layout.m_iTabsHeight = ScalePx(90)",
+	"m_Layout.m_iTabsWidth = ClampInt(ScalePx(620)",
+	"m_Layout.m_iRailWidth = ClampInt(preferredRailWidth, ScalePx(360), ScalePx(500))",
+	"centeredRailLeft = m_Layout.m_iTabsLeft + Math.Max(0, (m_Layout.m_iTabsWidth - m_Layout.m_iRailWidth) / 2)",
+	"m_Layout.m_iHeaderHeight = ScalePx(72)",
+	"m_Layout.m_iCategoryHeight = ScalePx(78)",
 	"int tabHeight = m_Layout.m_iCategoryHeight",
-	"int iconSize = ScalePx(50)",
-	"iconSize = ScalePx(54)",
-	"ShortenText(BuildStorageTargetLabel(), 96)",
+	"int iconSize = ScalePx(58)",
+	"iconSize = ScalePx(62)",
+	"ShortenText(BuildStorageTargetLabel(), 110)",
 	"m_Layout.m_iListTop + ScalePx(8)",
 	"BuildStorageCapacityLabel(nodeIndex)",
+	"SetRowText(tile, `"Count`", `"`", 0xFFFFD166",
+	"CreateCountBadge(workspace, tile, countText, ScalePx(254), ScalePx(34), ScalePx(78), ScalePx(26), userId)",
+	"CreateCountBadge(workspace, row, countText, ScalePx(270), ScalePx(22), ScalePx(76), ScalePx(24), userId)",
+	"cell.SetZOrder(20)",
+	"slotImage.SetZOrder(21)",
+	"slotPreview.SetZOrder(22)",
+	"imageWidget.SetImage(0)",
+	"previewWidget.SetZOrder(22)",
 	"0xEE05080A",
 	"0x664B5960",
+	"0xFA0D1114",
+	"0xF2151C20",
 	"Math.Min(m_Layout.m_iPreviewCellLarge, ScalePx(72))",
 	"RenderCandidateRow",
 	"RenderSelectedNodeHeader",
@@ -2900,7 +2925,8 @@ foreach ($requiredLoadoutStorageServiceEntry in @(
 	'category == "boots"',
 	'category == "backpack"',
 	'category == "handwear"',
-	"return IsStorageBrowserCandidateCategory(category)"
+	"return IsStorageBrowserCandidateCategory(category)",
+	"ResolveArsenalCountForPrefab(state, item.m_sPrefab, availableCount, infiniteAvailable)"
 )) {
 	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutStorageServiceEntry)) {
 		throw "Loadout editor service is missing storage browser candidate category support: $requiredLoadoutStorageServiceEntry"

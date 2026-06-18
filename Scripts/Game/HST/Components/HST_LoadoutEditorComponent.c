@@ -860,22 +860,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!root)
 			return;
 
-		int screenBleed = ScalePx(96);
+		CreateFullscreenShield(workspace);
 
-		// Make the root intentionally larger than the workspace. This hides
-		// Workbench/game viewport mismatch on the right/bottom edges.
-		FrameSlot.SetPos(root, -screenBleed, -screenBleed);
-		FrameSlot.SetSize(root, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2);
-
-		// Hard mask behind the actual editor layout.
-		Widget hardMask = CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2, 0xFF1D292D, 1.0, 0);
-		if (hardMask)
-			hardMask.SetZOrder(0);
+		FrameSlot.SetPos(root, 0, 0);
+		FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
 
 		Widget layoutRoot = root.FindAnyWidget("HST_LoadoutEditorRoot");
 		if (layoutRoot)
 		{
-			FrameSlot.SetPos(layoutRoot, screenBleed, screenBleed);
+			FrameSlot.SetPos(layoutRoot, 0, 0);
 			FrameSlot.SetSize(layoutRoot, m_iEditorWidth, m_iEditorHeight);
 			layoutRoot.SetZOrder(10);
 		}
@@ -891,7 +884,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int closeLeft = ScalePx(24);
 		int centerY = m_iEditorHeight / 2;
 		CreateButton(workspace, uiRoot, "ESC", closeLeft, centerY + ScalePx(30), ScalePx(58), ScalePx(32), CLOSE_WIDGET_ID);
-		CreateTextWidget(workspace, uiRoot, "<", closeLeft + ScalePx(12), centerY - ScalePx(22), ScalePx(34), ScalePx(44), ScaleFont(36), 0xFFC4953B, BACK_WIDGET_ID, true);
+		CreateButton(workspace, uiRoot, "<", closeLeft, centerY - ScalePx(24), ScalePx(58), ScalePx(44), BACK_WIDGET_ID);
 
 		RenderModeTabs(workspace, uiRoot);
 		if (m_sEditorMode == "storage")
@@ -1037,9 +1030,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_iTabsLeft = Math.Max(ScalePx(72), m_Layout.m_iMargin + ScalePx(30));
 		m_Layout.m_iTabsLeft = Math.Min(m_Layout.m_iTabsLeft, Math.Max(0, w - ScalePx(80)));
 		m_Layout.m_iTabsTop = ScalePx(78);
-		m_Layout.m_iTabsHeight = ScalePx(74);
+		m_Layout.m_iTabsHeight = ScalePx(90);
 		int tabsMaxWidth = Math.Max(1, w - m_Layout.m_iTabsLeft - m_Layout.m_iMargin);
-		m_Layout.m_iTabsWidth = ClampInt(ScalePx(540), Math.Min(ScalePx(280), tabsMaxWidth), tabsMaxWidth);
+		m_Layout.m_iTabsWidth = ClampInt(ScalePx(620), Math.Min(ScalePx(360), tabsMaxWidth), tabsMaxWidth);
 
 		m_Layout.m_iContentTop = m_Layout.m_iTabsTop + m_Layout.m_iTabsHeight + ScalePx(12);
 		m_Layout.m_iContentBottom = Math.Max(m_Layout.m_iContentTop + ScalePx(1), h - ScalePx(92));
@@ -1054,8 +1047,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (m_Layout.m_bVeryCompact)
 			preferredRailWidth = Math.Round(w * 0.34);
 
-		m_Layout.m_iRailWidth = ClampInt(preferredRailWidth, ScalePx(315), ScalePx(455));
+		m_Layout.m_iRailWidth = ClampInt(preferredRailWidth, ScalePx(360), ScalePx(500));
 		m_Layout.m_iRailHeight = m_Layout.m_iContentHeight;
+
+		int centeredRailLeft = m_Layout.m_iTabsLeft + Math.Max(0, (m_Layout.m_iTabsWidth - m_Layout.m_iRailWidth) / 2);
+		m_Layout.m_iRailLeft = Math.Max(m_Layout.m_iMargin, centeredRailLeft);
+		if (m_Layout.m_iRailLeft + m_Layout.m_iRailWidth > w - ScalePx(12))
+			m_Layout.m_iRailLeft = Math.Max(ScalePx(12), w - m_Layout.m_iRailWidth - ScalePx(12));
 
 		m_Layout.m_iMainLeft = m_Layout.m_iRailLeft + m_Layout.m_iRailWidth + m_Layout.m_iGap;
 		m_Layout.m_iMainTop = m_Layout.m_iContentTop;
@@ -1070,6 +1068,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (availableMainWidth < ScalePx(580))
 		{
 			m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.27), ScalePx(290), ScalePx(370));
+			centeredRailLeft = m_Layout.m_iTabsLeft + Math.Max(0, (m_Layout.m_iTabsWidth - m_Layout.m_iRailWidth) / 2);
+			m_Layout.m_iRailLeft = Math.Max(m_Layout.m_iMargin, centeredRailLeft);
+			if (m_Layout.m_iRailLeft + m_Layout.m_iRailWidth > w - ScalePx(12))
+				m_Layout.m_iRailLeft = Math.Max(ScalePx(12), w - m_Layout.m_iRailWidth - ScalePx(12));
 			m_Layout.m_iMainLeft = m_Layout.m_iRailLeft + m_Layout.m_iRailWidth + ScalePx(14);
 			availableMainWidth = w - m_Layout.m_iMainLeft - m_Layout.m_iMargin;
 		}
@@ -1077,13 +1079,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_iMainWidth = ClampInt(availableMainWidth, ScalePx(520), w - m_Layout.m_iMainLeft - ScalePx(12));
 		m_Layout.m_iMainHeight = m_Layout.m_iContentHeight;
 
-		m_Layout.m_iHeaderHeight = ScalePx(68);
+		m_Layout.m_iHeaderHeight = ScalePx(72);
 		m_Layout.m_iCategoryTop = m_Layout.m_iMainTop + m_Layout.m_iHeaderHeight;
-		m_Layout.m_iCategoryHeight = ScalePx(68);
+		m_Layout.m_iCategoryHeight = ScalePx(78);
 		m_Layout.m_iListTop = m_Layout.m_iCategoryTop + m_Layout.m_iCategoryHeight + ScalePx(14);
 		m_Layout.m_iListHeight = Math.Max(ScalePx(1), m_Layout.m_iMainTop + m_Layout.m_iMainHeight - m_Layout.m_iListTop - ScalePx(42));
 
-		m_Layout.m_iSlotRowHeight = ScalePx(76);
+		m_Layout.m_iSlotRowHeight = ScalePx(84);
 		m_Layout.m_iPreviewCellSmall = ClampInt(ScalePx(50), 42, 62);
 		m_Layout.m_iPreviewCellMedium = ClampInt(ScalePx(66), 56, 76);
 		m_Layout.m_iPreviewCellLarge = ClampInt(ScalePx(76), 64, 88);
@@ -1103,13 +1105,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		int tabStart = m_Layout.m_iTabsLeft;
 		int tabTop = m_Layout.m_iTabsTop;
-		int tabHeight = ScalePx(68);
-		int compactTabWidth = ScalePx(78);
+		int tabHeight = ScalePx(82);
+		int compactTabWidth = ScalePx(92);
 		int activeTabWidth = compactTabWidth;
-		int navButton = ScalePx(24);
+		int navButton = ScalePx(30);
 		int tabLeft = tabStart;
+		int navTop = tabTop + Math.Max(0, (tabHeight - navButton) / 2);
 
-		CreateButton(workspace, root, "Q", tabStart - ScalePx(28), tabTop + ScalePx(20), navButton, navButton, MODE_WIDGET_ID_BASE + Math.Max(0, GetEditorModeIndex(m_sEditorMode) - 1));
+		CreateButton(workspace, root, "Q", tabStart - ScalePx(34), navTop, navButton, navButton, MODE_WIDGET_ID_BASE + Math.Max(0, GetEditorModeIndex(m_sEditorMode) - 1));
 		CreateRectWidget(workspace, root, tabStart, tabTop, m_Layout.m_iTabsWidth, m_Layout.m_iTabsHeight, 0xF20D1114, 1.0, 0);
 		for (int i = 0; i < GetEditorModeCount(); i++)
 		{
@@ -1125,9 +1128,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			CreateRectWidget(workspace, root, tabLeft, tabTop, tabWidth, tabHeight, color, 0.98, MODE_WIDGET_ID_BASE + i);
 
-			int iconSize = ScalePx(56);
+			int iconSize = ScalePx(68);
 			if (active)
-				iconSize = ScalePx(60);
+				iconSize = ScalePx(72);
 			iconSize = Math.Min(iconSize, Math.Max(1, tabWidth - ScalePx(12)));
 			iconSize = Math.Min(iconSize, Math.Max(1, tabHeight - ScalePx(10)));
 			int iconLeft = tabLeft + Math.Max(0, (tabWidth - iconSize) / 2);
@@ -1138,7 +1141,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			tabLeft += tabWidth;
 		}
 
-		CreateButton(workspace, root, "E", tabLeft + ScalePx(6), tabTop + ScalePx(20), navButton, navButton, MODE_WIDGET_ID_BASE + Math.Min(GetEditorModeCount() - 1, GetEditorModeIndex(m_sEditorMode) + 1));
+		CreateButton(workspace, root, "E", tabLeft + ScalePx(6), navTop, navButton, navButton, MODE_WIDGET_ID_BASE + Math.Min(GetEditorModeCount() - 1, GetEditorModeIndex(m_sEditorMode) + 1));
 		CreateRectWidget(workspace, root, tabStart, tabTop + tabHeight, Math.Min(m_Layout.m_iTabsWidth, tabLeft - tabStart), ScalePx(3), 0xFFC4953B, 1.0, 0);
 	}
 
@@ -1153,7 +1156,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int railTop = m_Layout.m_iRailTop;
 		int railWidth = m_Layout.m_iRailWidth;
 		int railHeight = m_Layout.m_iRailHeight;
-		CreateRectWidget(workspace, root, railLeft, railTop, railWidth, railHeight, 0xEA0D1114, 1.0, 0);
+		Widget railBack = CreateRectWidget(workspace, root, railLeft, railTop, railWidth, railHeight, 0xFA0D1114, 1.0, 0);
+		if (railBack)
+			railBack.SetZOrder(0);
 
 		m_aVisibleNodeIndexes.Clear();
 		int listLeft = railLeft + ScalePx(20);
@@ -1212,7 +1217,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int railWidth = m_Layout.m_iRailWidth;
 		int railHeight = m_Layout.m_iRailHeight;
 
-		CreateRectWidget(workspace, root, railLeft, railTop, railWidth, railHeight, 0xF20D1114, 1.0, 0);
+		Widget railBack = CreateRectWidget(workspace, root, railLeft, railTop, railWidth, railHeight, 0xFA0D1114, 1.0, 0);
+		if (railBack)
+			railBack.SetZOrder(0);
 		CreateTextWidget(workspace, root, "Inventory Storage", railLeft + ScalePx(20), railTop + ScalePx(18), railWidth - ScalePx(40), ScalePx(22), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
 		m_aVisibleNodeIndexes.Clear();
 
@@ -1315,10 +1322,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int panelWidth = m_Layout.m_iMainWidth;
 		int panelHeight = m_Layout.m_iMainHeight;
 
-		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xEA0D1114, 1.0, 0);
+		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xFA0D1114, 1.0, 0);
+		if (panelBack)
+			panelBack.SetZOrder(0);
 		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, ScalePx(3), 0xFFC4953B, 1.0, 0);
 		CreateTextWidget(workspace, root, "Add Items", panelLeft + ScalePx(20), panelTop + ScalePx(14), ScalePx(140), ScalePx(24), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(BuildStorageTargetLabel(), 96), panelLeft + ScalePx(20), panelTop + ScalePx(40), panelWidth - ScalePx(40), ScalePx(20), m_Layout.m_iFontSmall, 0xFFB7C7D7, 0, false);
+		CreateTextWidget(workspace, root, ShortenText(BuildStorageTargetLabel(), 110), panelLeft + ScalePx(20), panelTop + ScalePx(42), panelWidth - ScalePx(40), ScalePx(20), m_Layout.m_iFontSmall, 0xFFE2E6E8, 0, false);
 		RenderStorageCategoryTabs(workspace, root, panelLeft + ScalePx(20), m_Layout.m_iCategoryTop, panelWidth - ScalePx(40));
 
 		m_aVisibleCandidateIndexes.Clear();
@@ -1398,7 +1407,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		PrepareRowRoot(row);
 		BindRowClick(row, userId);
 
-		int color = 0xFF15191C;
+		int color = 0xF2151C20;
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedNodeId)
 			color = 0xFF6F5124;
 
@@ -1438,7 +1447,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		PrepareRowRoot(row);
 		BindRowClick(row, userId);
 
-		int color = 0xFF15191C;
+		int color = 0xF2151C20;
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedNodeId)
 			color = 0xFF6F5124;
 
@@ -1473,10 +1482,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		PrepareRowRoot(row);
 		BindRowClick(row, userId);
 		string countText = BuildNodeCountBadge(nodeIndex, false);
-		SetRowImageColor(row, "Background", 0xCC10161A, 0.98);
+		SetRowImageColor(row, "Background", 0xF2151C20, 0.98);
 		SetRowText(row, "Name", ShortenText(GetNodeDisplay(nodeIndex), 48), 0xFFE2E6E8, m_Layout.m_iFontSmall, false, true);
-		SetRowText(row, "Count", countText, 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
-		SetRowWidgetVisible(row, "Count", !countText.IsEmpty());
+		SetRowText(row, "Count", "", 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
+		SetRowWidgetVisible(row, "Count", false);
+		if (!countText.IsEmpty())
+			CreateCountBadge(workspace, row, countText, ScalePx(270), ScalePx(22), ScalePx(76), ScalePx(24), userId);
 
 		AddNodePreviewToRow(workspace, row, nodeIndex, userId, Math.Min(m_Layout.m_iPreviewCellMedium, ScalePx(62)));
 	}
@@ -1494,15 +1505,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		PrepareRowRoot(tile);
 		BindRowClick(tile, userId);
 
-		int color = 0xF0151C20;
+		int color = 0xF2151C20;
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = 0xFF3D3520;
 
 		string countText = BuildCandidateCountLabel(candidateIndex, true);
 		SetRowImageColor(tile, "Background", color, 0.98);
 		SetRowText(tile, "Name", ShortenText(GetCandidateDisplayName(candidateIndex), 42), 0xFFE2E6E8, m_Layout.m_iFontSmall, false, true);
-		SetRowText(tile, "Count", countText, 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
-		SetRowWidgetVisible(tile, "Count", !countText.IsEmpty());
+		SetRowText(tile, "Count", "", 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
+		SetRowWidgetVisible(tile, "Count", false);
+		if (!countText.IsEmpty())
+			CreateCountBadge(workspace, tile, countText, ScalePx(254), ScalePx(34), ScalePx(78), ScalePx(26), userId);
 		AddCandidatePreviewToRow(workspace, tile, candidateIndex, userId);
 	}
 
@@ -1517,8 +1530,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		anchor.SetZOrder(20);
 
 		int previewSize = Math.Max(1, size);
-		CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xEE05080A, 1.0, userId);
-		CreateRectWidget(workspace, anchor, 0, 0, previewSize, ScalePx(2), 0x664B5960, 1.0, userId);
+		Widget previewBack = CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xEE05080A, 1.0, userId);
+		if (previewBack)
+			previewBack.SetZOrder(0);
+
+		Widget previewLine = CreateRectWidget(workspace, anchor, 0, 0, previewSize, ScalePx(2), 0x664B5960, 1.0, userId);
+		if (previewLine)
+			previewLine.SetZOrder(1);
+
 		CreateNodePreviewCell(workspace, anchor, nodeIndex, 0, 0, previewSize, userId, 0xFFE6E6E6);
 	}
 
@@ -1533,8 +1552,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		anchor.SetZOrder(20);
 
 		int previewSize = Math.Min(m_Layout.m_iPreviewCellLarge, ScalePx(72));
-		CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xEE05080A, 1.0, userId);
-		CreateRectWidget(workspace, anchor, 0, 0, previewSize, ScalePx(2), 0x664B5960, 1.0, userId);
+		Widget previewBack = CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xEE05080A, 1.0, userId);
+		if (previewBack)
+			previewBack.SetZOrder(0);
+
+		Widget previewLine = CreateRectWidget(workspace, anchor, 0, 0, previewSize, ScalePx(2), 0x664B5960, 1.0, userId);
+		if (previewLine)
+			previewLine.SetZOrder(1);
+
 		CreateCandidatePreviewCell(workspace, anchor, candidateIndex, 0, 0, previewSize, userId, 0xFFE6E6E6);
 	}
 
@@ -1682,13 +1707,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int panelTop = m_Layout.m_iRailTop;
 		int panelWidth = m_Layout.m_iRailWidth;
 		int panelHeight = m_Layout.m_iRailHeight;
-		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xEA0D1114, 1.0, 0);
+		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xFA0D1114, 1.0, 0);
+		if (panelBack)
+			panelBack.SetZOrder(0);
 		CreateRectWidget(workspace, root, panelLeft, panelTop + ScalePx(64), panelWidth, ScalePx(3), 0xFFC4953B, 1.0, 0);
 		RenderSelectedNodeHeader(workspace, root);
 		int selectedNodeIndex = FindSelectedNodeIndex();
 		if (selectedNodeIndex >= 0 && selectedNodeIndex < m_aNodeCanRemove.Count() && m_aNodeCanRemove[selectedNodeIndex])
 		{
-			CreateRectWidget(workspace, root, panelLeft + ScalePx(20), panelTop + ScalePx(86), panelWidth - ScalePx(40), ScalePx(56), 0xFF15191C, 0.98, REMOVE_SELECTED_NODE_WIDGET_ID);
+			CreateRectWidget(workspace, root, panelLeft + ScalePx(20), panelTop + ScalePx(86), panelWidth - ScalePx(40), ScalePx(56), 0xF2151C20, 0.98, REMOVE_SELECTED_NODE_WIDGET_ID);
 			CreateTextWidget(workspace, root, "X", panelLeft + ScalePx(40), panelTop + ScalePx(93), ScalePx(44), ScalePx(38), ScaleFont(34), 0xFFFFFFFF, REMOVE_SELECTED_NODE_WIDGET_ID, true);
 			CreateTextWidget(workspace, root, "Remove", panelLeft + ScalePx(102), panelTop + ScalePx(103), panelWidth - ScalePx(150), ScalePx(22), m_Layout.m_iFontTitle, 0xFFE2E6E8, REMOVE_SELECTED_NODE_WIDGET_ID, true);
 		}
@@ -1746,7 +1773,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int panelTop = m_Layout.m_iRailTop;
 		int panelWidth = m_Layout.m_iRailWidth;
 		int panelHeight = m_Layout.m_iRailHeight;
-		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xEA0D1114, 1.0, 0);
+		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xFA0D1114, 1.0, 0);
+		if (panelBack)
+			panelBack.SetZOrder(0);
 		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, ScalePx(3), 0xFFC4953B, 1.0, 0);
 		CreateTextWidget(workspace, root, "Save Loadout", panelLeft + ScalePx(34), panelTop + ScalePx(22), panelWidth - ScalePx(170), ScalePx(24), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
 
@@ -1762,7 +1791,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			int visibleTemplate = templateIndex - firstTemplate;
 			int topTemplate = rowTop + visibleTemplate * (rowHeight + rowGap);
-			int color = 0xFF15191C;
+			int color = 0xF2151C20;
 			if (m_aTemplateIds[templateIndex] == m_sSelectedTemplateId)
 				color = 0xFF6F5124;
 
@@ -1792,7 +1821,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int panelTop = m_Layout.m_iRailTop;
 		int panelWidth = m_Layout.m_iRailWidth;
 		int panelHeight = m_Layout.m_iRailHeight;
-		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xEA0D1114, 1.0, 0);
+		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xFA0D1114, 1.0, 0);
+		if (panelBack)
+			panelBack.SetZOrder(0);
 		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, ScalePx(3), 0xFFC4953B, 1.0, 0);
 		string panelTitle = "Settings";
 		if (m_sEditorMode == "save")
@@ -2618,8 +2649,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int left = m_Layout.m_iRailLeft + ScalePx(28);
 		int top = m_Layout.m_iRailTop + ScalePx(16);
 		int previewSize = m_Layout.m_iPreviewCellMedium;
-		CreateRectWidget(workspace, root, left - ScalePx(2), top - ScalePx(2), previewSize + ScalePx(4), previewSize + ScalePx(4), 0xEE05080A, 1.0, 0);
-		CreateRectWidget(workspace, root, left - ScalePx(2), top - ScalePx(2), previewSize + ScalePx(4), ScalePx(2), 0x664B5960, 1.0, 0);
+		Widget previewBack = CreateRectWidget(workspace, root, left - ScalePx(2), top - ScalePx(2), previewSize + ScalePx(4), previewSize + ScalePx(4), 0xEE05080A, 1.0, 0);
+		if (previewBack)
+			previewBack.SetZOrder(1);
+
+		Widget previewLine = CreateRectWidget(workspace, root, left - ScalePx(2), top - ScalePx(2), previewSize + ScalePx(4), ScalePx(2), 0x664B5960, 1.0, 0);
+		if (previewLine)
+			previewLine.SetZOrder(2);
+
 		CreateNodePreviewCell(workspace, root, nodeIndex, left, top, previewSize, 0, 0xFFE6E6E6);
 
 		int textLeft = left + previewSize + ScalePx(14);
@@ -2640,18 +2677,26 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int previewSize = m_Layout.m_iPreviewCellMedium;
 		int pad = ScalePx(8);
 		int countW = m_Layout.m_iCountBadgeWidth;
-		int color = 0xFF15191C;
+		int color = 0xF2151C20;
 		if (IsCandidateCurrentNodeItem(candidateIndex))
 			color = 0xFF6F5124;
 		else if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = 0xFF3D3520;
 
-		CreateRectWidget(workspace, root, rowLeft, top, rowWidth, rowHeight, color, 0.98, userId);
+		Widget rowBack = CreateRectWidget(workspace, root, rowLeft, top, rowWidth, rowHeight, color, 0.98, userId);
+		if (rowBack)
+			rowBack.SetZOrder(1);
 
 		int previewLeft = rowLeft + pad;
 		int previewTop = top + (rowHeight - previewSize) / 2;
-		CreateRectWidget(workspace, root, previewLeft - ScalePx(2), previewTop - ScalePx(2), previewSize + ScalePx(4), previewSize + ScalePx(4), 0xEE05080A, 1.0, userId);
-		CreateRectWidget(workspace, root, previewLeft - ScalePx(2), previewTop - ScalePx(2), previewSize + ScalePx(4), ScalePx(2), 0x664B5960, 1.0, userId);
+		Widget previewBack = CreateRectWidget(workspace, root, previewLeft - ScalePx(2), previewTop - ScalePx(2), previewSize + ScalePx(4), previewSize + ScalePx(4), 0xEE05080A, 1.0, userId);
+		if (previewBack)
+			previewBack.SetZOrder(2);
+
+		Widget previewLine = CreateRectWidget(workspace, root, previewLeft - ScalePx(2), previewTop - ScalePx(2), previewSize + ScalePx(4), ScalePx(2), 0x664B5960, 1.0, userId);
+		if (previewLine)
+			previewLine.SetZOrder(3);
+
 		CreateCandidatePreviewCell(workspace, root, candidateIndex, previewLeft, previewTop, previewSize, userId, 0xFFE6E6E6);
 
 		int countLeft = rowLeft + rowWidth - countW - pad;
@@ -3516,9 +3561,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			CreateRectWidget(workspace, root, tabLeft, top, tabWidth, tabHeight, color, 0.98, STORAGE_CATEGORY_WIDGET_ID_BASE + i);
 
-			int iconSize = ScalePx(50);
+			int iconSize = ScalePx(58);
 			if (category == m_sSelectedCategory)
-				iconSize = ScalePx(54);
+				iconSize = ScalePx(62);
 			iconSize = Math.Min(iconSize, Math.Max(1, tabHeight - ScalePx(10)));
 			iconSize = Math.Min(iconSize, Math.Max(1, tabWidth - ScalePx(12)));
 
@@ -5122,6 +5167,25 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		FrameSlot.SetPos(cell, left, top);
 		FrameSlot.SetSize(cell, size, size);
+		cell.SetVisible(true);
+		cell.SetOpacity(1.0);
+		cell.SetZOrder(20);
+
+		Widget slotImage = cell.FindAnyWidget("SlotImage");
+		if (slotImage)
+		{
+			slotImage.SetVisible(true);
+			slotImage.SetOpacity(1.0);
+			slotImage.SetZOrder(21);
+		}
+
+		Widget slotPreview = cell.FindAnyWidget("SlotPreview");
+		if (slotPreview)
+		{
+			slotPreview.SetOpacity(1.0);
+			slotPreview.SetZOrder(22);
+		}
+
 		if (userId != 0)
 		{
 			cell.SetUserID(userId);
@@ -5165,8 +5229,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			texture = FALLBACK_PREVIEW_ICON;
 
 		imageWidget.LoadImageTexture(0, texture);
+		imageWidget.SetImage(0);
 		imageWidget.SetColorInt(color);
 		imageWidget.SetVisible(true);
+		imageWidget.SetOpacity(1.0);
+		imageWidget.SetZOrder(22);
 	}
 
 	protected bool SetPreviewCellFromPrefab(Widget cell, string prefab, ResourceName fallbackIcon, int color)
@@ -5200,6 +5267,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		previewManager.SetPreviewItem(previewWidget, null, null, true);
 		previewManager.SetPreviewItemFromPrefab(previewWidget, resourceName);
 		previewWidget.SetVisible(true);
+		previewWidget.SetOpacity(1.0);
+		previewWidget.SetZOrder(22);
 		return true;
 	}
 
@@ -5226,6 +5295,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		previewManager.SetPreviewItem(previewWidget, null, null, true);
 		previewManager.SetPreviewItem(previewWidget, entity);
 		previewWidget.SetVisible(true);
+		previewWidget.SetOpacity(1.0);
+		previewWidget.SetZOrder(22);
 		return true;
 	}
 
@@ -5606,9 +5677,43 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void CreateCountBadge(WorkspaceWidget workspace, Widget root, string text, int left, int top, int width, int height, int userId)
 	{
-		CreateRectWidget(workspace, root, left, top, width, height, 0xBB11171B, 1.0, userId);
-		CreateRectWidget(workspace, root, left, top, width, ScalePx(2), 0xFFC4953B, 1.0, userId);
-		CreateTextWidget(workspace, root, text, left + ScalePx(5), top + ScalePx(6), width - ScalePx(10), height - ScalePx(8), m_Layout.m_iFontTiny, 0xFFFFD166, userId, true);
+		if (text.IsEmpty())
+			return;
+
+		Widget back = CreateRectWidget(workspace, root, left, top, width, height, 0xE80A0E10, 1.0, userId);
+		if (back)
+			back.SetZOrder(80);
+
+		Widget line = CreateRectWidget(workspace, root, left, top, width, ScalePx(2), 0xFFFFD166, 1.0, userId);
+		if (line)
+			line.SetZOrder(81);
+
+		TextWidget textWidget = CreateTextWidget(workspace, root, text, left + ScalePx(6), top + ScalePx(6), width - ScalePx(12), height - ScalePx(8), m_Layout.m_iFontTiny, 0xFFFFD166, userId, true);
+		if (textWidget)
+			textWidget.SetZOrder(82);
+	}
+
+	protected Widget CreateFullscreenShield(WorkspaceWidget workspace)
+	{
+		if (!workspace)
+			return null;
+
+		int bleed = Math.Max(ScalePx(256), 256);
+		int shieldLeft = -bleed;
+		int shieldTop = -bleed;
+		int shieldWidth = m_iEditorWidth + bleed * 2 + ScalePx(64);
+		int shieldHeight = m_iEditorHeight + bleed * 2 + ScalePx(64);
+
+		Widget shield = workspace.CreateWidgetInWorkspace(WidgetType.CanvasWidgetTypeID, shieldLeft, shieldTop, shieldWidth, shieldHeight, WidgetFlags.VISIBLE, null, 3500);
+		if (!shield)
+			return null;
+
+		SetupCanvasRect(shield, shieldWidth, shieldHeight, 0xFF1D292D);
+		shield.SetOpacity(1.0);
+		shield.SetZOrder(3500);
+
+		m_aWidgets.Insert(shield);
+		return shield;
 	}
 
 	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)

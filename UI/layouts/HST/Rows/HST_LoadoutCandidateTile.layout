@@ -15,15 +15,15 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
    AllowWidthOverride 1
    WidthOverride 354
    AllowHeightOverride 1
-   HeightOverride 92
+   HeightOverride 96
    AllowMinDesiredWidth 1
    MinDesiredWidth 354
    AllowMinDesiredHeight 1
-   MinDesiredHeight 92
+   MinDesiredHeight 96
    AllowMaxDesiredWidth 1
    MaxDesiredWidth 354
    AllowMaxDesiredHeight 1
-   MaxDesiredHeight 92
+   MaxDesiredHeight 96
    {
     OverlayWidgetClass "{A7B8C9D001236002}" {
      Name "Overlay"

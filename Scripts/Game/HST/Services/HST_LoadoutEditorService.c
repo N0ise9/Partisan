@@ -2808,11 +2808,15 @@ class HST_LoadoutEditorService
 			compatibilityMatches++;
 			string display = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
 			string shortDisplay = HST_DisplayNameService.ResolveShortItemDisplayName(display, item.m_sPrefab);
+			int availableCount;
+			bool infiniteAvailable;
+			ResolveArsenalCountForPrefab(state, item.m_sPrefab, availableCount, infiniteAvailable);
+
 			string infinite = "";
-			if (item.m_bUnlocked)
+			if (infiniteAvailable)
 				infinite = "INF";
 
-			payload = payload + string.Format("\nCANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9", node.m_sNodeId, item.m_sPrefab, SanitizePayloadField(display), SanitizePayloadField(shortDisplay), item.m_iCount, infinite, category, true, SanitizePayloadField(BuildCandidateIconHint(category, item.m_sPrefab)));
+			payload = payload + string.Format("\nCANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9", node.m_sNodeId, item.m_sPrefab, SanitizePayloadField(display), SanitizePayloadField(shortDisplay), availableCount, infinite, category, true, SanitizePayloadField(BuildCandidateIconHint(category, item.m_sPrefab)));
 			payload = payload + string.Format("|%1", ammoMatch);
 			candidateCount++;
 		}
