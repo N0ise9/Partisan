@@ -77,6 +77,10 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         FontProperties FontProperties "{C1A9E1A2092846E8}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+          DisabledColor 0.38 0.38 0.38 1
+         }
         }
         TextWidgetClass "{A7B8C9D001234607}" {
          Name "Count"
@@ -89,6 +93,10 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         FontProperties FontProperties "{C1A9E1A2092846E9}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+          DisabledColor 0.38 0.38 0.38 1
+         }
         }
        }
       }
