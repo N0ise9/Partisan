@@ -1292,8 +1292,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (row)
 			{
 				PrepareRowRoot(row);
-				SetRowText(row, "Label", "Status", 0xFFC4CDD3, m_Layout.m_iFontNormal, true, true);
-				SetRowText(row, "Value", m_sStatusText, 0xFFE0E0E0, m_Layout.m_iFontNormal, false, true);
+				SetRowText(row, "Label", "", 0xFFC4CDD3, m_Layout.m_iFontSmall, true, true);
+				SetRowText(row, "Value", BuildLabeledDisplayText("Status", m_sStatusText), 0xFFE0E0E0, m_Layout.m_iFontNormal, false, true);
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
 			}
 
@@ -1344,8 +1344,8 @@ class HST_CommandMenuComponent : ScriptComponent
 
 			PrepareRowRoot(row);
 
-			SetRowText(row, "Label", "No entries", 0xFF8D98A0, m_Layout.m_iFontNormal, false, true);
-			SetRowText(row, "Value", "", 0xFF8D98A0, m_Layout.m_iFontNormal, false, true);
+			SetRowText(row, "Label", "", 0xFF8D98A0, m_Layout.m_iFontSmall, false, true);
+			SetRowText(row, "Value", "No entries", 0xFF8D98A0, m_Layout.m_iFontNormal, false, true);
 			SetRowImageColor(row, "Background", 0x00111111, 0.01);
 			return;
 		}
@@ -1369,8 +1369,8 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		PrepareRowRoot(row);
 
-		SetRowText(row, "Label", m_aRowLabels[rowIndex], 0xFFC4CDD3, m_Layout.m_iFontNormal, false, true);
-		SetRowText(row, "Value", m_aRowValues[rowIndex], ToneTextColor(m_aRowTones[rowIndex]), m_Layout.m_iFontNormal, false, true);
+		SetRowText(row, "Label", "", 0xFFC4CDD3, m_Layout.m_iFontSmall, false, true);
+		SetRowText(row, "Value", BuildLabeledDisplayText(m_aRowLabels[rowIndex], m_aRowValues[rowIndex]), ToneTextColor(m_aRowTones[rowIndex]), m_Layout.m_iFontNormal, false, true);
 		SetRowImageColor(row, "Background", 0x00111111, 0.01);
 	}
 
@@ -1561,6 +1561,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		FrameSlot.SetPos(root, left, top);
 		FrameSlot.SetSize(root, width, height);
+		root.SetZOrder(2580);
 
 		scroll = ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"));
 		items = root.FindAnyWidget("Items");
@@ -1616,7 +1617,6 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		row.SetVisible(true);
 		row.SetOpacity(1.0);
-		row.SetColorInt(0xFFFFFFFF);
 	}
 
 	protected void DebugRowCreated(string label, Widget row)
@@ -1646,6 +1646,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		textWidget.SetOutline(1, 0xDD000000);
 		textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
 		textWidget.SetColorInt(color);
+		textWidget.SetZOrder(30);
 	}
 
 	protected void SetRowImageColor(Widget row, string widgetName, int color, float opacity = 1.0)
@@ -1664,6 +1665,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		widget.SetColorInt(color);
 		widget.SetOpacity(opacity);
 		widget.SetVisible(true);
+		widget.SetZOrder(0);
 	}
 
 	protected void BindRowClick(Widget row, int userId)
@@ -1930,6 +1932,19 @@ class HST_CommandMenuComponent : ScriptComponent
 			return text.Substring(0, maxCharacters);
 
 		return text.Substring(0, maxCharacters - 3) + "...";
+	}
+
+	protected string BuildLabeledDisplayText(string label, string value)
+	{
+		label = label.Trim();
+		value = value.Trim();
+
+		if (label.IsEmpty())
+			return value;
+		if (value.IsEmpty())
+			return label;
+
+		return label + ": " + value;
 	}
 
 	protected int ClampIntToRange(int value, int minimum, int maximum)
@@ -2214,7 +2229,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (end < 0)
 			end = line.Length();
 
-		return line.Substring(start, end - start);
+		return DecodePayloadField(line.Substring(start, end - start));
+	}
+
+	protected string DecodePayloadField(string value)
+	{
+		value.Replace("%7C", "|");
+		value.Replace("%25", "%");
+		return value;
 	}
 
 	protected bool ParseBool(string value)

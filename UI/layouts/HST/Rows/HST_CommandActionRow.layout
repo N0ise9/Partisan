@@ -1,58 +1,73 @@
-SizeLayoutWidgetClass "{A7B8C9D0012345B0}" {
+ButtonWidgetClass "{A7B8C9D0012345B0}" {
  Name "HST_CommandActionRow"
  Slot AlignableSlot "{A7B8C9D0012345B1}" {
   HorizontalAlign 3
   VerticalAlign 0
-  Padding 0 0 0 6
+  Padding 0 0 0 4
  }
- AllowMinDesiredWidth 1
- MinDesiredWidth 520
- AllowHeightOverride 1
- HeightOverride 64
- AllowMinDesiredHeight 1
- MinDesiredHeight 64
- AllowMaxDesiredHeight 1
- MaxDesiredHeight 64
+ Color 1 1 1 0
  "Is Visible" 1
  {
-  ButtonWidgetClass "{A7B8C9D0012345B6}" {
-   Name "ClickSurface"
-   Slot AlignableSlot "{A7B8C9D0012345B7}" {
-    HorizontalAlign 3
-    VerticalAlign 3
+  SizeLayoutWidgetClass "{A7B8C9D001235B00}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{A7B8C9D001235B01}" {
    }
-   Color 1 1 1 1
-   "Is Visible" 1
+   AllowWidthOverride 1
+   WidthOverride 520
+   AllowHeightOverride 1
+   HeightOverride 44
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 520
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 44
+   AllowMaxDesiredWidth 1
+   MaxDesiredWidth 520
+   AllowMaxDesiredHeight 1
+   MaxDesiredHeight 44
    {
-    FrameWidgetClass "{A7B8C9D0012345B8}" {
-     Name "Content"
-     Slot ButtonWidgetSlot "{A7B8C9D0012345B9}" {
+    OverlayWidgetClass "{A7B8C9D001235B02}" {
+     Name "Overlay"
+     Slot AlignableSlot "{A7B8C9D001235B03}" {
+      HorizontalAlign 3
+      VerticalAlign 3
      }
      "Ignore Cursor" 1
      {
-      ImageWidgetClass "{A7B8C9D0012345B2}" {
-       Name "Background"
-       Slot FrameWidgetSlot "{A7B8C9D0012345B3}" {
-        Anchor 0 0 1 0
-        OffsetLeft 0
-        OffsetTop 0
-        OffsetRight 0
-        OffsetBottom 64
+      FrameWidgetClass "{A7B8C9D001235B04}" {
+       Name "Body"
+       Slot OverlayWidgetSlot "{A7B8C9D001235B05}" {
+        HorizontalAlign 3
+        VerticalAlign 3
        }
-       "Is Visible" 1
        "Ignore Cursor" 1
-      }
-      TextWidgetClass "{A7B8C9D0012345B4}" {
-       Name "Label"
-       Slot FrameWidgetSlot "{A7B8C9D0012345B5}" {
-        Anchor 0 0 1 0
-        OffsetLeft 12
-        OffsetTop 8
-        OffsetRight -12
-        OffsetBottom 56
+       {
+        PanelWidgetClass "{A7B8C9D0012345B2}" {
+         Name "Background"
+         Slot FrameWidgetSlot "{A7B8C9D0012345B3}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         Color 1 1 1 1
+         style full
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
+        TextWidgetClass "{A7B8C9D0012345B4}" {
+         Name "Label"
+         Slot FrameWidgetSlot "{A7B8C9D0012345B5}" {
+          Anchor 0 0 1 1
+          OffsetLeft 12
+          OffsetTop 6
+          OffsetRight -12
+          OffsetBottom -6
+         }
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
        }
-       "Is Visible" 1
-       "Ignore Cursor" 1
       }
      }
     }

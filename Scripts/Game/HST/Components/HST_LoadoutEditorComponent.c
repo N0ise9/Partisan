@@ -1093,8 +1093,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int tabStart = m_Layout.m_iTabsLeft;
 		int tabTop = m_Layout.m_iTabsTop;
 		int tabHeight = ScalePx(58);
-		int compactTabWidth = ScalePx(54);
-		int activeTabWidth = ScalePx(112);
+		int compactTabWidth = ScalePx(68);
+		int activeTabWidth = compactTabWidth;
 		int navButton = ScalePx(24);
 		int tabLeft = tabStart;
 
@@ -1114,12 +1114,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			CreateRectWidget(workspace, root, tabLeft, tabTop, tabWidth, tabHeight, color, 0.98, MODE_WIDGET_ID_BASE + i);
 
-			int iconSize = ScalePx(24);
-			if (!CreateIconWidget(workspace, root, ResolveIconTexture(modeId), tabLeft + ScalePx(14), tabTop + ScalePx(17), iconSize, iconSize, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
-				CreateTextWidget(workspace, root, GetEditorModeIcon(modeId), tabLeft + ScalePx(14), tabTop + ScalePx(17), iconSize, ScalePx(22), ScaleFont(18), 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
-
-			if (active && !m_Layout.m_bVeryCompact)
-				CreateTextWidget(workspace, root, GetEditorModeLabel(modeId), tabLeft + ScalePx(46), tabTop + ScalePx(18), tabWidth - ScalePx(50), ScalePx(20), m_Layout.m_iFontSmall, 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
+			int iconSize = ScalePx(44);
+			if (active)
+				iconSize = ScalePx(48);
+			int iconLeft = tabLeft + Math.Max(0, (tabWidth - iconSize) / 2);
+			int iconTop = tabTop + Math.Max(0, (tabHeight - iconSize) / 2);
+			if (!CreateIconWidget(workspace, root, ResolveIconTexture(modeId), iconLeft, iconTop, iconSize, iconSize, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
+				CreateTextWidget(workspace, root, GetEditorModeIcon(modeId), iconLeft, iconTop + ScalePx(1), iconSize, iconSize, ScaleFont(30), 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
 
 			tabLeft += tabWidth;
 		}
@@ -1390,13 +1391,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		SetRowImageColor(row, "Background", color, 0.98);
 
-		string primaryText = GetNodeLabel(nodeIndex);
-		string secondaryText = GetNodeDisplay(nodeIndex);
-		if (IsDuplicateDisplayText(primaryText, secondaryText))
-			secondaryText = "";
-
-		SetRowText(row, "Primary", primaryText, 0xFFE2E6E8, m_Layout.m_iFontNormal, true, true);
-		SetRowText(row, "Secondary", secondaryText, 0xFFD5D8D9, m_Layout.m_iFontSmall, false, true);
+		string rowText = BuildTwoLineDisplayText(GetNodeLabel(nodeIndex), GetNodeDisplay(nodeIndex));
+		SetRowText(row, "Primary", "", 0xFFEFE2C4, m_Layout.m_iFontTiny, false, true);
+		SetRowText(row, "Secondary", rowText, 0xFFEFE2C4, m_Layout.m_iFontSmall, false, true);
 		SetRowText(row, "OpenMarker", "w", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
 
 		Widget openMarker = FindRowWidget(row, "OpenMarker");
@@ -1458,12 +1455,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		PrepareRowRoot(row);
 		BindRowClick(row, userId);
-		SetRowImageColor(row, "Background", 0xCC10161A, 0.98);
-		SetRowText(row, "Name", GetNodeDisplay(nodeIndex), 0xFFE2E6E8, m_Layout.m_iFontSmall, false, true);
-
 		string countText = "";
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeCounts.Count() && !m_aNodeCounts[nodeIndex].IsEmpty())
 			countText = "x" + m_aNodeCounts[nodeIndex];
+		SetRowImageColor(row, "Background", 0xCC10161A, 0.98);
+		SetRowText(row, "Name", BuildDisplayWithCount(GetNodeDisplay(nodeIndex), countText), 0xFFE2E6E8, m_Layout.m_iFontSmall, false, true);
 		SetRowText(row, "Count", countText, 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
 
 		AddNodePreviewToRow(workspace, row, nodeIndex, userId, m_Layout.m_iPreviewCellSmall);
@@ -1486,9 +1482,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = 0xFF3D3520;
 
+		string countText = BuildCandidateCountLabel(candidateIndex);
 		SetRowImageColor(tile, "Background", color, 0.98);
-		SetRowText(tile, "Name", GetCandidateDisplayName(candidateIndex), 0xFFE2E6E8, m_Layout.m_iFontSmall, false, true);
-		SetRowText(tile, "Count", BuildCandidateCountLabel(candidateIndex), 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
+		SetRowText(tile, "Name", BuildDisplayWithCount(GetCandidateDisplayName(candidateIndex), countText), 0xFFE2E6E8, m_Layout.m_iFontSmall, false, true);
+		SetRowText(tile, "Count", countText, 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
 		AddCandidatePreviewToRow(workspace, tile, candidateIndex, userId);
 	}
 
@@ -1497,6 +1494,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget anchor = FindRowWidget(row, "PreviewAnchor");
 		if (!anchor)
 			return;
+
+		anchor.SetVisible(true);
+		anchor.SetOpacity(1.0);
+		anchor.SetZOrder(20);
 
 		int previewSize = Math.Max(1, size);
 		CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xDD090D10, 1.0, userId);
@@ -1508,6 +1509,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget anchor = FindRowWidget(row, "PreviewAnchor");
 		if (!anchor)
 			return;
+
+		anchor.SetVisible(true);
+		anchor.SetOpacity(1.0);
+		anchor.SetZOrder(20);
 
 		int previewSize = m_Layout.m_iPreviewCellMedium;
 		CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xDD090D10, 1.0, userId);
@@ -2675,8 +2680,23 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected string GetNodeLabel(int nodeIndex)
 	{
-		if (nodeIndex >= 0 && nodeIndex < m_aNodeLabels.Count() && !m_aNodeLabels[nodeIndex].IsEmpty())
-			return m_aNodeLabels[nodeIndex];
+		string label;
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeLabels.Count())
+			label = m_aNodeLabels[nodeIndex].Trim();
+
+		string display;
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeDisplays.Count())
+			display = m_aNodeDisplays[nodeIndex].Trim();
+
+		if (!label.IsEmpty() && !IsDuplicateDisplayText(label, display))
+			return label;
+
+		string resolvedLabel = ResolveNodeSlotLabel(nodeIndex);
+		if (!resolvedLabel.IsEmpty())
+			return resolvedLabel;
+
+		if (!label.IsEmpty())
+			return label;
 
 		return "Empty Slot";
 	}
@@ -2687,6 +2707,51 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return m_aNodeDisplays[nodeIndex];
 
 		return "Empty Slot";
+	}
+
+	protected string ResolveNodeSlotLabel(int nodeIndex)
+	{
+		if (nodeIndex < 0)
+			return "";
+
+		string kind;
+		if (nodeIndex < m_aNodeKinds.Count())
+			kind = m_aNodeKinds[nodeIndex];
+
+		if (kind == "storage" || kind == "storage_item")
+			return "";
+
+		string category = ResolveNodeCategory(nodeIndex);
+		if (category == "weapon")
+			return "Primary Weapon";
+		if (category == "launcher")
+			return "Secondary Weapon";
+		if (category == "sidearm")
+			return "Sidearm";
+		if (category == "headgear")
+			return "Hat";
+		if (category == "clothing")
+			return "Jacket";
+		if (category == "vest")
+			return "Armored Vest";
+		if (category == "pants")
+			return "Pants";
+		if (category == "boots")
+			return "Boots";
+		if (category == "backpack")
+			return "Backpack";
+		if (category == "handwear")
+			return "Handwear";
+		if (category == "magazine")
+			return "Ammunition";
+		if (category == "explosive")
+			return "Explosive";
+		if (category == "medical")
+			return "Medical";
+		if (category == "attachment")
+			return "Attachment";
+
+		return BuildSlotCategoryLabel(category);
 	}
 
 	protected string ResolveNodeIcon(int nodeIndex)
@@ -2795,11 +2860,35 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return first == second;
 	}
 
+	protected string BuildTwoLineDisplayText(string label, string display)
+	{
+		label = label.Trim();
+		display = display.Trim();
+		if (label.IsEmpty())
+			return display;
+		if (display.IsEmpty() || IsDuplicateDisplayText(label, display))
+			return label;
+
+		return label + "\n" + display;
+	}
+
+	protected string BuildDisplayWithCount(string display, string countText)
+	{
+		display = display.Trim();
+		countText = countText.Trim();
+		if (countText.IsEmpty() || countText == "x")
+			return display;
+		if (display.IsEmpty())
+			return countText;
+
+		return display + "  " + countText;
+	}
+
 	protected string BuildCandidateCountLabel(int candidateIndex)
 	{
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidateInfinite.Count() && m_aCandidateInfinite[candidateIndex])
 			return "INF";
-		if (candidateIndex >= 0 && candidateIndex < m_aCandidateCounts.Count())
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateCounts.Count() && !m_aCandidateCounts[candidateIndex].IsEmpty())
 			return "x" + m_aCandidateCounts[candidateIndex];
 
 		return "";
@@ -5184,6 +5273,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		FrameSlot.SetPos(root, left, top);
 		FrameSlot.SetSize(root, width, height);
+		root.SetZOrder(3675);
 
 		scroll = ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"));
 		items = root.FindAnyWidget("Items");
@@ -5239,7 +5329,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		row.SetVisible(true);
 		row.SetOpacity(1.0);
-		row.SetColorInt(0xFFFFFFFF);
 	}
 
 	protected void DebugRowCreated(string label, Widget row)
@@ -5269,6 +5358,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		textWidget.SetOutline(1, 0xDD000000);
 		textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
 		textWidget.SetColorInt(color);
+		textWidget.SetZOrder(30);
 	}
 
 	protected void SetRowImageColor(Widget row, string widgetName, int color, float opacity = 1.0)
@@ -5287,6 +5377,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		widget.SetColorInt(color);
 		widget.SetOpacity(opacity);
 		widget.SetVisible(true);
+		if (widgetName == "VolumeFill")
+			widget.SetZOrder(6);
+		else if (widgetName == "VolumeBack" || widgetName == "PreviewBack")
+			widget.SetZOrder(4);
+		else
+			widget.SetZOrder(0);
 	}
 
 	protected void BindRowClick(Widget row, int userId)

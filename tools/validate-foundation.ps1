@@ -1724,6 +1724,7 @@ foreach ($requiredCommandMenuScrollHelperEntry in @(
 	"Widget root = workspace.CreateWidgets(layout, parent)",
 	"FrameSlot.SetPos(root, left, top)",
 	"FrameSlot.SetSize(root, width, height)",
+	"root.SetZOrder(2580)",
 	'ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"))',
 	'root.FindAnyWidget("Items")'
 )) {
@@ -1891,18 +1892,27 @@ foreach ($scrollLayoutContract in $scrollLayoutContracts) {
 	$scrollLayoutMetaText = Get-Content -Raw $scrollLayoutMetaPath
 	foreach ($requiredPathBScrollLayoutEntry in @(
 		$scrollLayoutContract.Name,
+		"OverlayWidgetClass",
+		'Name "ScrollHost"',
 		"ScrollLayoutWidgetClass",
-		"SizeLayoutWidgetClass",
 		$scrollLayoutContract.Flow,
 		'Name "Scroll"',
-		'Name "ContentSize"',
 		'Name "Items"',
 		'"Scrollbar Always Visible" 1',
-		"Anchor 0 0 1 1"
+		"Anchor 0 0 0 0",
+		"Anchor 0 0 1 1",
+		"Slot OverlayWidgetSlot",
+		"Slot AlignableSlot"
 	)) {
 		if ($scrollLayoutText -notmatch [regex]::Escape($requiredPathBScrollLayoutEntry)) {
 			throw "$scrollLayoutPath is missing Path B scroll layout entry: $requiredPathBScrollLayoutEntry"
 		}
+	}
+	if ($scrollLayoutText -match 'Name "ContentSize"' -or $scrollLayoutText -match "SizeLayoutWidgetClass") {
+		throw "$scrollLayoutPath must use direct Items under Scroll, not the old ContentSize wrapper"
+	}
+	if ($scrollLayoutText -notmatch '(?s)ScrollLayoutWidgetClass\s+"\{[0-9A-F]+\}"\s+\{\s+Name "Scroll"[\s\S]*?Slot OverlayWidgetSlot') {
+		throw "$scrollLayoutPath Scroll must use an OverlayWidgetSlot like the Bacon loadout editor scroll lists"
 	}
 	if ($scrollLayoutText -match "\bCanvasWidget(Class)?\b" -or $scrollLayoutText -match "\bPanelWidgetClass\b" -or $scrollLayoutText -match "\bImageWidgetClass\b") {
 		throw "$scrollLayoutPath must stay transparent and must not include visible panel/canvas/image backgrounds"
@@ -1916,11 +1926,11 @@ foreach ($scrollLayoutContract in $scrollLayoutContracts) {
 }
 
 $rowLayoutContracts = @(
-	@{ Path = "UI/layouts/HST/Rows/HST_CommandSectionRow.layout"; Guid = "{A7B8C9D001234580}"; Required = @('Name "HST_CommandSectionRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "Title"') },
-	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRow.layout"; Guid = "{A7B8C9D001234590}"; Required = @('Name "HST_CommandDataRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
-	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout"; Guid = "{A7B8C9D0012345A0}"; Required = @('Name "HST_CommandDataRowCompact"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
-	@{ Path = "UI/layouts/HST/Rows/HST_CommandActionRow.layout"; Guid = "{A7B8C9D0012345B0}"; Required = @('FrameWidgetClass', 'Name "HST_CommandActionRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "Label"', '"Ignore Cursor" 1') },
-	@{ Path = "UI/layouts/HST/Rows/HST_CommandFeedRow.layout"; Guid = "{A7B8C9D0012345C0}"; Required = @('Name "HST_CommandFeedRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Text"') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandSectionRow.layout"; Guid = "{A7B8C9D001234580}"; Required = @('Name "HST_CommandSectionRow"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Title"') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRow.layout"; Guid = "{A7B8C9D001234590}"; Required = @('Name "HST_CommandDataRow"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout"; Guid = "{A7B8C9D0012345A0}"; Required = @('Name "HST_CommandDataRowCompact"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandActionRow.layout"; Guid = "{A7B8C9D0012345B0}"; Required = @('FrameWidgetClass', 'Name "HST_CommandActionRow"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandFeedRow.layout"; Guid = "{A7B8C9D0012345C0}"; Required = @('Name "HST_CommandFeedRow"', 'Slot AlignableSlot', 'Name "Text"') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; Guid = "{A7B8C9D0012345D0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutNodeRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "OpenMarker"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; Guid = "{A7B8C9D0012345E0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "VolumeBack"', 'Name "VolumeFill"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; Guid = "{A7B8C9D0012345F0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageItemRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') },
@@ -1946,21 +1956,27 @@ foreach ($rowLayoutContract in $rowLayoutContracts) {
 	if ($rowLayoutMetaText -notmatch [regex]::Escape("Name `"$($rowLayoutContract.Guid)$rowLayoutPath`"")) {
 		throw "$rowLayoutMetaPath must carry the expected non-zero GUID-qualified resource name"
 	}
-	foreach ($requiredBaconStyleRowEntry in @(
+	foreach ($requiredFlatRowEntry in @(
 		"ButtonWidgetClass",
+		"Color 1 1 1 0",
 		"SizeLayoutWidgetClass",
+		'Name "SizeLayout"',
 		"Slot ButtonWidgetSlot",
+		"AllowWidthOverride 1",
 		"AllowHeightOverride 1",
-		"HeightOverride",
-		"AllowMinDesiredHeight 1",
-		"MinDesiredHeight"
+		"OverlayWidgetClass",
+		'Name "Overlay"',
+		'Name "Body"',
+		"Slot AlignableSlot",
+		"Slot OverlayWidgetSlot",
+		"FrameWidgetClass"
 	)) {
-		if ($rowLayoutText -notmatch [regex]::Escape($requiredBaconStyleRowEntry)) {
-			throw "$rowLayoutPath must use the Bacon-style Button -> SizeLayout row/tile prefab shape: $requiredBaconStyleRowEntry"
+		if ($rowLayoutText -notmatch [regex]::Escape($requiredFlatRowEntry)) {
+			throw "$rowLayoutPath must use the Bacon-style Button/SizeLayout/Overlay row prefab shape: $requiredFlatRowEntry"
 		}
 	}
-	if ($rowLayoutText -match "(?m)^\s*Size\s+") {
-		throw "$rowLayoutPath must not use root Size keywords; Workbench rejects Size on these row/tile prefab roots"
+	if ($rowLayoutText -match 'Name "Content"') {
+		throw "$rowLayoutPath must not use the old nested Content wrapper name"
 	}
 	if ($rowLayoutText -match '"Text Wrapping"') {
 		throw "$rowLayoutPath must not use layout Text Wrapping keywords; wrap behavior belongs in script SetRowText"
@@ -2556,7 +2572,7 @@ if ($loadoutEditorComponentText -notmatch "CreateWidgetInWorkspace\(WidgetType\.
 if ($loadoutEditorComponentText -notmatch "CreateWidgets\(EDITOR_LAYOUT, m_RootWidget\)") {
 	throw "Loadout editor layout must be loaded as a child of the procedural root frame"
 }
-if ($loadoutEditorComponentText -notmatch "FrameSlot\.SetPos\(root, 0, 0\)[\s\S]{0,120}FrameSlot\.SetSize\(root, m_iEditorWidth, m_iEditorHeight\)") {
+if ($loadoutEditorComponentText -notmatch "FrameSlot\.SetPos\(root, 0, 0\)[\s\S]{0,160}FrameSlot\.SetSize\(root, m_iEditorWidth, m_iEditorHeight\)") {
 	throw "Loadout editor must size its fixed-anchor root to the current workspace"
 }
 if ($loadoutEditorComponentText -notmatch 'FindAnyWidget\("HST_LoadoutEditorRoot"\)[\s\S]{0,180}FrameSlot\.SetSize\(layoutRoot, m_iEditorWidth, m_iEditorHeight\)') {
@@ -2747,6 +2763,7 @@ foreach ($requiredLoadoutScrollHelperEntry in @(
 	"Widget root = workspace.CreateWidgets(layout, parent)",
 	"FrameSlot.SetPos(root, left, top)",
 	"FrameSlot.SetSize(root, width, height)",
+	"root.SetZOrder(3675)",
 	'ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"))',
 	'root.FindAnyWidget("Items")'
 )) {
