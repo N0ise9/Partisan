@@ -1,0 +1,35 @@
+FrameWidgetClass "{89F29300C63B4A10}" {
+ Name "HST_ScrollList"
+ Slot FrameWidgetSlot "{89F29300C63B4A11}" {
+  Anchor 0 0 0 0
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ {
+  ScrollLayoutWidgetClass "{89F29300C63B4A12}" {
+   Name "Scroll"
+   Slot FrameWidgetSlot "{89F29300C63B4A13}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   "Scrollbar Always Visible" 1
+   {
+    FrameWidgetClass "{89F29300C63B4A14}" {
+     Name "Content"
+     Slot FrameWidgetSlot "{89F29300C63B4A15}" {
+      Anchor 0 0 0 0
+      OffsetLeft 0
+      OffsetTop 0
+      OffsetRight 0
+      OffsetBottom 0
+     }
+    }
+   }
+  }
+ }
+}

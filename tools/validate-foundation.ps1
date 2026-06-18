@@ -1604,6 +1604,12 @@ foreach ($requiredCommandMenuEntry in @(
 	'PolygonDrawCommand',
 	'm_aCanvasCommandSets',
 	'SetDrawCommands',
+	'SCROLL_LIST_LAYOUT',
+	'CreateScrollList',
+	'SaveCommandMenuScrollOffsets',
+	'RestoreScrollPixels',
+	'm_ContentScroll',
+	'm_ActionScroll',
 	'ActivateContext(MENU_INPUT_CONTEXT)',
 	'ActivateAction(COMMAND_MENU_CUSTOM_ACTION)',
 	'GetActionTriggered(COMMAND_MENU_CUSTOM_ACTION)',
@@ -1704,8 +1710,12 @@ foreach ($requiredCommandMenuEntry in @(
 		throw "Missing I-key alpha command menu contract entry: $requiredCommandMenuEntry"
 	}
 }
-if ($commandMenuComponentText -match "\bCreateWidgets\b") {
-	throw "Command menu must remain procedural until HST_CommandMenu.layout is indexed with verified resource metadata"
+$commandMenuCreateWidgetsCalls = @([regex]::Matches($commandMenuComponentText, "\bCreateWidgets\([^\r\n]+\)") |
+	ForEach-Object { $_.Value })
+foreach ($commandMenuCreateWidgetsCall in $commandMenuCreateWidgetsCalls) {
+	if ($commandMenuCreateWidgetsCall -notmatch "CreateWidgets\(SCROLL_LIST_LAYOUT,\s*parent\)") {
+		throw "Command menu may only load the shared transparent scroll layout through CreateWidgets: $commandMenuCreateWidgetsCall"
+	}
 }
 if ($commandMenuComponentText -match "CreateWidgetInWorkspace\(WidgetType\.CanvasWidgetTypeID") {
 	throw "Command menu root must be a child-capable frame/layout container, not a canvas widget"
@@ -1812,6 +1822,37 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	if ($commandMenuLayoutText -notmatch [regex]::Escape($requiredCommandMenuLayoutEntry)) {
 		throw "Command menu layout is missing widget entry: $requiredCommandMenuLayoutEntry"
 	}
+}
+
+if (!(Test-Path "UI/layouts/HST_ScrollList.layout")) {
+	throw "Missing shared HST scroll list layout"
+}
+if (!(Test-Path "UI/layouts/HST_ScrollList.layout.meta")) {
+	throw "Missing GUID-backed shared HST scroll list layout meta resource"
+}
+$scrollListLayoutText = Get-Content -Raw "UI/layouts/HST_ScrollList.layout"
+$scrollListLayoutMetaText = Get-Content -Raw "UI/layouts/HST_ScrollList.layout.meta"
+foreach ($requiredScrollLayoutEntry in @(
+	"HST_ScrollList",
+	"ScrollLayoutWidgetClass",
+	'Name "Scroll"',
+	'Name "Content"',
+	'Slot FrameWidgetSlot "{89F29300C63B4A15}"',
+	"Anchor 0 0 0 0",
+	'"Scrollbar Always Visible" 1'
+)) {
+	if ($scrollListLayoutText -notmatch [regex]::Escape($requiredScrollLayoutEntry)) {
+		throw "Shared HST scroll layout is missing stable transparent entry: $requiredScrollLayoutEntry"
+	}
+}
+if ($scrollListLayoutText -match "\bCanvasWidget(Class)?\b" -or $scrollListLayoutText -match "\bPanelWidgetClass\b") {
+	throw "Shared HST scroll layout must stay transparent and must not include visible panel/canvas backgrounds"
+}
+if ($scrollListLayoutText -match "\bSize\b") {
+	throw "Shared HST scroll layout must not use Size keywords; script owns viewport/content sizing"
+}
+if ($scrollListLayoutMetaText -notmatch [regex]::Escape('Name "{89F29300C63B4A10}UI/layouts/HST_ScrollList.layout"')) {
+	throw "Shared HST scroll layout meta must carry the expected non-zero GUID"
 }
 
 foreach ($requiredSettingsEntry in @(
@@ -2382,6 +2423,9 @@ if ($loadoutEditorComponentText -notmatch [regex]::Escape('EDITOR_LAYOUT = "{5AF
 if ($loadoutEditorComponentText -notmatch [regex]::Escape('ITEM_PREVIEW_CELL_LAYOUT = "{6B43C4A98B4F47F2}UI/layouts/HST_LoadoutItemPreviewCell.layout"')) {
 	throw "Loadout editor must reference the GUID-backed item preview cell layout resource"
 }
+if ($loadoutEditorComponentText -notmatch [regex]::Escape('SCROLL_LIST_LAYOUT = "{89F29300C63B4A10}UI/layouts/HST_ScrollList.layout"')) {
+	throw "Loadout editor must reference the GUID-backed shared scroll layout resource"
+}
 if ($loadoutEditorComponentText -match [regex]::Escape("{0000000000000000}UI/layouts/HST_LoadoutEditor.layout")) {
 	throw "Loadout editor must not reference the zero-GUID layout resource"
 }
@@ -2510,6 +2554,7 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"BuildSwapActionLabel",
 	"BuildNodeActionLabel",
 	"RenderNodeRow",
+	"RenderNodeRowAt",
 	"RenderCandidateRow",
 	"RenderSelectedNodeHeader",
 	"ReturnFromAttachmentCandidateToWeapon",
@@ -2537,6 +2582,11 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"m_aCandidateNodeIds",
 	"m_aVisibleNodeIndexes",
 	"m_aVisibleCandidateIndexes",
+	"m_SlotScroll",
+	"m_StorageCandidateScroll",
+	"CreateScrollList",
+	"SaveLoadoutScrollOffsets",
+	"ResetLoadoutScroll",
 	"ClampPages",
 	"ParseEditorPayload",
 	"RequestServerAction",
@@ -3717,6 +3767,9 @@ foreach ($requiredDestroyTargetEntry in @(
 	'"DEBUG: Apply demolition hit"',
 	"m_bDebugExplosiveWitnesses",
 	"witness candidate",
+	"witness scan summary",
+	"m_iLastWitnessQueryCount",
+	"m_iLastWitnessPotentialCount",
 	"damage callback",
 	"no SCR_DamageManagerComponent on demolition target/proxy",
 	"damage callback bridge still needs Workbench hit-zone invoker wiring",
@@ -3731,10 +3784,14 @@ foreach ($requiredDestroyTargetEntry in @(
 	"text.Contains(""buckshot"")",
 	"looksLikeProjectileOrAmmo",
 	"IsProjectileOrAmmoWitnessText",
+	"IsPotentialExplosiveWitnessText",
 	"IsGenericWarheadWitnessText",
 	"ResolveExplosiveWitnessSourceCooldownSeconds",
 	"BuildRoundedWitnessPositionKey",
-	"witness:generic-warhead:"
+	"witness:generic-warhead:",
+	"HST_MissionDestroyTargetProxyComponent",
+	"RelayDamage",
+	"demolition debug rocket score applied"
 )) {
 	if ($missionDestroyTargetComponentText -notmatch [regex]::Escape($requiredDestroyTargetEntry)) {
 		throw "Destroy radio tower demolition debug/classifier contract is missing: $requiredDestroyTargetEntry"
@@ -3749,6 +3806,13 @@ if ($missionDestroyTargetComponentText -match [regex]::Escape("m_fLocalExplosive
 $weaponWitnessMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool IsWeaponOrVehicleWitnessText[\s\S]*?\r?\n\t}")
 if (!$weaponWitnessMatch.Success -or $weaponWitnessMatch.Value -notmatch "looksLikeProjectileOrAmmo") {
 	throw "Destroy target witness filtering must allow rocket projectile/ammo identifiers before launcher/weapon rejection"
+}
+if ($weaponWitnessMatch.Success -and $weaponWitnessMatch.Value -notmatch "if \(looksLikeProjectileOrAmmo\)\s*\r?\n\s*return false;") {
+	throw "Destroy target witness filtering must let projectile/ammo identifiers override vehicle/weapon path terms"
+}
+$witnessCandidateMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool AddExplosiveWitnessCandidate[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void TickExplosiveWitnessDebugSummary")
+if (!$witnessCandidateMatch.Success -or $witnessCandidateMatch.Value -notmatch "IsPotentialExplosiveWitnessText" -or $witnessCandidateMatch.Value -notmatch "m_iLastWitnessQueryCount\+\+" -or $witnessCandidateMatch.Value -notmatch "m_iLastWitnessPotentialCount\+\+") {
+	throw "Destroy target witness scan must spend its candidate budget only on explosive-looking entities and track query health"
 }
 $projectileWitnessMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool IsProjectileOrAmmoWitnessText[\s\S]*?\r?\n\t}")
 if (!$projectileWitnessMatch.Success -or $projectileWitnessMatch.Value -notmatch "rpg" -or $projectileWitnessMatch.Value -notmatch "pg7") {
@@ -3768,6 +3832,9 @@ if ($missionDestroyTargetComponentText -notmatch [regex]::Escape("if (IsGenericW
 }
 if ($missionDestroyTargetComponentText -notmatch "sourceKey\.Contains\(""generic-warhead""\)[\s\S]*?12\.0") {
 	throw "Destroy target generic warhead fallback must use a longer cooldown to avoid lingering witness spam"
+}
+if ($missionDestroyTargetComponentText -match 'witness:generic-warhead:[^"\r\n]*@') {
+	throw "Destroy target generic warhead source keys must not include rounded position; moving warheads must not bypass cooldown"
 }
 $arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
 if ($lootServiceText -match 'm_vAngles = "0 0 0"') {

@@ -113,6 +113,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const ResourceName MENU_FONT = "";
 	static const string MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout";
+	static const ResourceName SCROLL_LIST_LAYOUT = "{89F29300C63B4A10}UI/layouts/HST_ScrollList.layout";
 	static const int TAB_WIDGET_ID_BASE = 10000;
 	static const int ACTION_WIDGET_ID_BASE = 30000;
 	static const int CLOSE_WIDGET_ID = 90000;
@@ -179,6 +180,12 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected float m_fExternalNotificationRemaining;
 	protected int m_iContentPageStart;
 	protected int m_iActionPageStart;
+	protected ScrollLayoutWidget m_ContentScroll;
+	protected ScrollLayoutWidget m_ActionScroll;
+	protected ScrollLayoutWidget m_FeedScroll;
+	protected float m_fContentScrollY;
+	protected float m_fActionScrollY;
+	protected float m_fFeedScrollY;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -718,6 +725,9 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		m_iContentPageStart = 0;
 		m_iActionPageStart = 0;
+		m_fContentScrollY = 0.0;
+		m_fActionScrollY = 0.0;
+		m_fFeedScrollY = 0.0;
 	}
 
 	protected void ScrollContentPage(int direction)
@@ -916,7 +926,11 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 		}
 
+		SaveCommandMenuScrollOffsets();
 		ClearWidgets();
+		m_ContentScroll = null;
+		m_ActionScroll = null;
+		m_FeedScroll = null;
 		if (!m_WidgetHandler)
 		{
 			m_WidgetHandler = new HST_CommandMenuWidgetHandler();
@@ -1329,29 +1343,37 @@ class HST_CommandMenuComponent : ScriptComponent
 		int sectionCount = m_aSectionIds.Count();
 		CreateRectWidget(workspace, root, m_Layout.m_iMainLeft, m_Layout.m_iMainTop, m_Layout.m_iMainWidth, m_Layout.m_iMainHeight, 0xF31A232B, 0.98, 0);
 		CreateRectWidget(workspace, root, m_Layout.m_iMainLeft, m_Layout.m_iMainTop, m_Layout.m_iMainWidth, ScalePx(4), 0xFFC4953B, 1.0, 0);
-		if (sectionCount == 0)
+
+		ScrollLayoutWidget scroll;
+		Widget content;
+		CreateScrollList(workspace, root, m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight, scroll, content, false);
+		m_ContentScroll = scroll;
+
+		if (!content)
 		{
-			CreateWrappedTextWidget(workspace, root, m_sStatusText, m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight, m_Layout.m_iFontNormal, 0xFFE0E0E0, 0, false);
+			CreateWrappedTextWidget(workspace, root, "Main content unavailable: scroll layout missing Content.", m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, ScalePx(40), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
 			return;
 		}
 
-		ClampContentPage();
-		int y = m_Layout.m_iMainContentTop;
-		int contentBottom = m_Layout.m_iMainContentTop + m_Layout.m_iMainContentHeight;
-		int rendered;
-		for (int i = m_iContentPageStart; i < m_aContentItemKinds.Count(); i++)
+		if (sectionCount == 0)
 		{
-			int rowHeight = MeasureContentItemHeight(i, m_Layout.m_iMainContentWidth);
-			if (rendered > 0 && y + rowHeight > contentBottom)
-				break;
-
-			RenderContentItem(workspace, root, i, m_Layout.m_iMainContentLeft, y, m_Layout.m_iMainContentWidth, rowHeight);
-			y += rowHeight + ScalePx(6);
-			rendered++;
+			CreateWrappedTextWidget(workspace, content, m_sStatusText, 0, 0, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight, m_Layout.m_iFontNormal, 0xFFE0E0E0, 0, false);
+			FrameSlot.SetSize(content, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight);
+			RestoreScrollPixels(m_ContentScroll, m_fContentScrollY);
+			return;
 		}
 
-		if (m_iContentPageStart > 0 || m_iContentPageStart + rendered < m_aContentItemKinds.Count())
-			RenderContentPager(workspace, root, m_Layout.m_iMainContentLeft, m_Layout.m_iMainTop + m_Layout.m_iMainHeight - ScalePx(38), m_Layout.m_iMainContentWidth, rendered);
+		int y = 0;
+		int contentWidth = m_Layout.m_iMainContentWidth;
+		for (int i = 0; i < m_aContentItemKinds.Count(); i++)
+		{
+			int rowHeight = MeasureContentItemHeight(i, contentWidth - ScalePx(16));
+			RenderContentItem(workspace, content, i, ScalePx(8), y, contentWidth - ScalePx(16), rowHeight);
+			y += rowHeight + ScalePx(6);
+		}
+
+		FrameSlot.SetSize(content, contentWidth, Math.Max(m_Layout.m_iMainContentHeight, y + ScalePx(12)));
+		RestoreScrollPixels(m_ContentScroll, m_fContentScrollY);
 	}
 
 	protected int MeasureContentItemHeight(int contentIndex, int width)
@@ -1506,26 +1528,40 @@ class HST_CommandMenuComponent : ScriptComponent
 		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActionsTop, m_Layout.m_iRightWidth, m_Layout.m_iActionsHeight, 0xF31A232B, 0.98, 0);
 		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActionsTop, m_Layout.m_iRightWidth, ScalePx(4), 0xFF8C4E43, 1.0, 0);
 		CreateTextWidget(workspace, root, "Actions", m_Layout.m_iActionsTextLeft, m_Layout.m_iActionsTop + ScalePx(18), ScalePx(170), ScalePx(30), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
-		EnsureActionPageContainsSelection();
 		int listTop = m_Layout.m_iActionsTop + ScalePx(58);
-		int listBottom = m_Layout.m_iActionsTop + m_Layout.m_iActionsHeight - ScalePx(42);
-		int y = listTop;
-		int rendered;
-		for (int i = m_iActionPageStart; i < m_aActionLabels.Count(); i++)
-		{
-			int rowHeight = MeasureActionRowHeight(i, m_Layout.m_iActionsTextWidth);
-			if (rendered > 0 && y + rowHeight > listBottom)
-				break;
+		int listHeight = Math.Max(1, m_Layout.m_iActionsTop + m_Layout.m_iActionsHeight - listTop - ScalePx(16));
 
-			RenderActionRow(workspace, root, i, m_Layout.m_iActionsTextLeft, y, m_Layout.m_iActionsTextWidth, rowHeight);
-			y += rowHeight + ScalePx(8);
-			rendered++;
+		ScrollLayoutWidget scroll;
+		Widget content;
+		CreateScrollList(workspace, root, m_Layout.m_iActionsTextLeft, listTop, m_Layout.m_iActionsTextWidth, listHeight, scroll, content, false);
+		m_ActionScroll = scroll;
+
+		if (!content)
+		{
+			CreateTextWidget(workspace, root, "Actions unavailable: scroll layout missing Content.", m_Layout.m_iActionsTextLeft, listTop, m_Layout.m_iActionsTextWidth, ScalePx(30), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			return;
 		}
 
 		if (m_aActionLabels.Count() == 0)
-			CreateTextWidget(workspace, root, "No commands available.", m_Layout.m_iActionsTextLeft, listTop + ScalePx(8), m_Layout.m_iActionsTextWidth, ScalePx(30), m_Layout.m_iFontNormal, 0xFF9AA5AD, 0, false);
-		else if (m_iActionPageStart > 0 || m_iActionPageStart + rendered < m_aActionLabels.Count())
-			RenderActionPager(workspace, root, rendered);
+		{
+			CreateTextWidget(workspace, content, "No commands available.", 0, ScalePx(8), m_Layout.m_iActionsTextWidth, ScalePx(30), m_Layout.m_iFontNormal, 0xFF9AA5AD, 0, false);
+			FrameSlot.SetSize(content, m_Layout.m_iActionsTextWidth, listHeight);
+			RestoreScrollPixels(m_ActionScroll, m_fActionScrollY);
+			return;
+		}
+
+		int y = 0;
+		int contentWidth = m_Layout.m_iActionsTextWidth;
+		for (int i = 0; i < m_aActionLabels.Count(); i++)
+		{
+			int rowHeight = MeasureActionRowHeight(i, contentWidth - ScalePx(16));
+			RenderActionRow(workspace, content, i, ScalePx(8), y, contentWidth - ScalePx(16), rowHeight);
+			y += rowHeight + ScalePx(8);
+		}
+
+		FrameSlot.SetSize(content, contentWidth, Math.Max(listHeight, y + ScalePx(12)));
+		RestoreScrollPixels(m_ActionScroll, m_fActionScrollY);
+		EnsureSelectedActionVisible();
 	}
 
 	protected int MeasureActionRowHeight(int actionIndex, int width)
@@ -1620,6 +1656,104 @@ class HST_CommandMenuComponent : ScriptComponent
 		CreateTextWidget(workspace, root, "Prev", m_Layout.m_iActionsTextLeft + ScalePx(26), pagerTop + ScalePx(5), ScalePx(52), ScalePx(20), m_Layout.m_iFontSmall, prevTextColor, ACTION_PREV_WIDGET_ID, true);
 		CreateRectWidget(workspace, root, m_Layout.m_iActionsTextLeft + m_Layout.m_iActionsTextWidth - ScalePx(86), pagerTop, ScalePx(86), ScalePx(30), nextColor, 0.9, ACTION_NEXT_WIDGET_ID);
 		CreateTextWidget(workspace, root, "Next", m_Layout.m_iActionsTextLeft + m_Layout.m_iActionsTextWidth - ScalePx(60), pagerTop + ScalePx(5), ScalePx(52), ScalePx(20), m_Layout.m_iFontSmall, nextTextColor, ACTION_NEXT_WIDGET_ID, true);
+	}
+
+	protected Widget CreateScrollList(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, out ScrollLayoutWidget scroll, out Widget content, bool trackForCleanup)
+	{
+		scroll = null;
+		content = null;
+
+		if (!workspace || !parent || width <= 0 || height <= 0)
+		{
+			Print("h-istasi ui scroll | failed: invalid workspace/parent/size", LogLevel.WARNING);
+			return null;
+		}
+
+		Widget root = workspace.CreateWidgets(SCROLL_LIST_LAYOUT, parent);
+		if (!root)
+		{
+			Print("h-istasi ui scroll | failed: could not create HST_ScrollList.layout", LogLevel.WARNING);
+			return null;
+		}
+
+		FrameSlot.SetPos(root, left, top);
+		FrameSlot.SetSize(root, width, height);
+
+		scroll = ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"));
+		content = root.FindAnyWidget("Content");
+
+		if (!scroll || !content)
+		{
+			Print("h-istasi ui scroll | failed: layout must contain widgets named Scroll and Content", LogLevel.WARNING);
+			root.RemoveFromHierarchy();
+			scroll = null;
+			content = null;
+			return null;
+		}
+
+		FrameSlot.SetPos(scroll, 0, 0);
+		FrameSlot.SetSize(scroll, width, height);
+		FrameSlot.SetPos(content, 0, 0);
+		FrameSlot.SetSize(content, width, height);
+
+		root.SetOpacity(1.0);
+		root.SetVisible(true);
+		scroll.SetVisible(true);
+		content.SetVisible(true);
+
+		if (trackForCleanup)
+			m_aWidgets.Insert(root);
+
+		return root;
+	}
+
+	protected void SaveCommandMenuScrollOffsets()
+	{
+		float x;
+		float y;
+
+		if (m_ContentScroll)
+		{
+			m_ContentScroll.GetSliderPosPixels(x, y);
+			m_fContentScrollY = y;
+		}
+
+		if (m_ActionScroll)
+		{
+			m_ActionScroll.GetSliderPosPixels(x, y);
+			m_fActionScrollY = y;
+		}
+
+		if (m_FeedScroll)
+		{
+			m_FeedScroll.GetSliderPosPixels(x, y);
+			m_fFeedScrollY = y;
+		}
+	}
+
+	protected void RestoreScrollPixels(ScrollLayoutWidget scroll, float y)
+	{
+		if (!scroll)
+			return;
+
+		scroll.SetSliderPosPixels(0, Math.Max(0.0, y));
+	}
+
+	protected void EnsureSelectedActionVisible()
+	{
+		if (!m_ActionScroll || !m_Layout)
+			return;
+
+		int actionIndex = m_iSelectedControl - m_aTabIds.Count();
+		if (actionIndex < 0 || actionIndex >= m_aActionLabels.Count())
+			return;
+
+		int y = 0;
+		for (int i = 0; i < actionIndex; i++)
+			y += MeasureActionRowHeight(i, m_Layout.m_iActionsTextWidth - ScalePx(16)) + ScalePx(8);
+
+		int selectedHeight = MeasureActionRowHeight(actionIndex, m_Layout.m_iActionsTextWidth - ScalePx(16));
+		m_ActionScroll.ScrollToView(0, y, m_Layout.m_iActionsTextWidth, selectedHeight);
 	}
 
 	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)

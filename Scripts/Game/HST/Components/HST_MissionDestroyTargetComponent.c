@@ -42,6 +42,9 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 	protected float m_fLocalExplosiveDamage;
 	protected float m_fDuplicateHitRemainingSeconds;
 	protected float m_fExplosiveWitnessPollRemainingSeconds;
+	protected float m_fWitnessDebugSummaryRemainingSeconds;
+	protected int m_iLastWitnessQueryCount;
+	protected int m_iLastWitnessPotentialCount;
 	protected string m_sLastAcceptedSource;
 	protected ref array<IEntity> m_aExplosiveWitnessCandidates = {};
 	protected ref array<string> m_aRecentExplosiveWitnessSourceKeys = {};
@@ -69,6 +72,9 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 		if (!m_bReportedDestroyed && Replication.IsServer() && owner)
 			TickExplosiveWitnessScan(owner, timeSlice);
+
+		if (m_bDebugExplosiveWitnesses && Replication.IsServer())
+			TickExplosiveWitnessDebugSummary(timeSlice);
 
 		if (!m_bAllowStockDamageDestroyedCompletion)
 			return;
@@ -124,6 +130,8 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (!world)
 			return;
 
+		m_iLastWitnessQueryCount = 0;
+		m_iLastWitnessPotentialCount = 0;
 		m_aExplosiveWitnessCandidates.Clear();
 		world.QueryEntitiesBySphere(owner.GetOrigin(), m_fExplosiveWitnessRadius, AddExplosiveWitnessCandidate, null, EQueryEntitiesFlags.ALL);
 
@@ -137,7 +145,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 			string witnessText = BuildEntityIdentityText(candidate);
 			float score = ResolveExplosiveWitnessDamageScore(witnessText);
-			if (m_bDebugExplosiveWitnesses && ShouldDebugExplosiveWitnessText(witnessText))
+			if (m_bDebugExplosiveWitnesses)
 				Print(string.Format("h-istasi mission target | witness candidate | text=%1 | score=%2", witnessText, score));
 
 			if (score <= 0.0)
@@ -154,10 +162,34 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 	protected bool AddExplosiveWitnessCandidate(IEntity entity)
 	{
-		if (entity && m_aExplosiveWitnessCandidates.Count() < m_iMaxExplosiveWitnessScanEntities)
+		m_iLastWitnessQueryCount++;
+
+		if (!entity)
+			return true;
+
+		string text = BuildEntityIdentityText(entity);
+		string lowered = text;
+		lowered.ToLower();
+
+		if (!IsPotentialExplosiveWitnessText(lowered))
+			return true;
+
+		m_iLastWitnessPotentialCount++;
+
+		if (m_aExplosiveWitnessCandidates.Count() < m_iMaxExplosiveWitnessScanEntities)
 			m_aExplosiveWitnessCandidates.Insert(entity);
 
 		return m_aExplosiveWitnessCandidates.Count() < m_iMaxExplosiveWitnessScanEntities;
+	}
+
+	protected void TickExplosiveWitnessDebugSummary(float timeSlice)
+	{
+		m_fWitnessDebugSummaryRemainingSeconds -= timeSlice;
+		if (m_fWitnessDebugSummaryRemainingSeconds > 0.0)
+			return;
+
+		m_fWitnessDebugSummaryRemainingSeconds = 1.0;
+		Print(string.Format("h-istasi mission target | witness scan summary | queried=%1 | potential=%2 | kept=%3", m_iLastWitnessQueryCount, m_iLastWitnessPotentialCount, m_aExplosiveWitnessCandidates.Count()));
 	}
 
 	protected bool TryApplyExplosiveDamageScore(IEntity owner, float score, string sourceKey, bool isWitness)
@@ -387,7 +419,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		string lowered = witnessText;
 		lowered.ToLower();
 		if (IsGenericWarheadWitnessText(lowered))
-			return "witness:generic-warhead:" + key + "@" + BuildRoundedWitnessPositionKey(entity);
+			return "witness:generic-warhead:" + key;
 
 		return "witness:" + key;
 	}
@@ -679,7 +711,64 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return true;
 		if (text.Contains("mine") || text.Contains("ied"))
 			return true;
-		if (text.Contains("explosion") || text.Contains("blast"))
+		if (text.Contains("explosion") || text.Contains("blast") || text.Contains("explosive"))
+			return true;
+
+		return false;
+	}
+
+	protected bool IsPotentialExplosiveWitnessText(string text)
+	{
+		if (text.IsEmpty())
+			return false;
+
+		if (text.Contains("projectile"))
+			return true;
+		if (text.Contains("munition"))
+			return true;
+		if (text.Contains("ammo"))
+			return true;
+		if (text.Contains("rocket"))
+			return true;
+		if (text.Contains("missile"))
+			return true;
+		if (text.Contains("warhead"))
+			return true;
+		if (text.Contains("rpg"))
+			return true;
+		if (text.Contains("pg7"))
+			return true;
+		if (text.Contains("maaws"))
+			return true;
+		if (text.Contains("m72"))
+			return true;
+		if (text.Contains("at4"))
+			return true;
+		if (text.Contains("m136"))
+			return true;
+		if (text.Contains("heat"))
+			return true;
+		if (text.Contains("grenade"))
+			return true;
+		if (text.Contains("shell"))
+			return true;
+		if (text.Contains("m433"))
+			return true;
+		if (text.Contains("40mm"))
+			return true;
+		if (text.Contains("25mm"))
+			return true;
+		if (text.Contains("m242"))
+			return true;
+		if (text.Contains("mine"))
+			return true;
+		if (text.Contains("ied"))
+			return true;
+		if (text.Contains("explosion"))
+			return true;
+		if (text.Contains("blast"))
+			return true;
+		if (text.Contains("explosive"))
 			return true;
 
 		return false;
@@ -687,6 +776,13 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 	protected bool IsWeaponOrVehicleWitnessText(string text)
 	{
+		if (text.IsEmpty())
+			return false;
+
+		bool looksLikeProjectileOrAmmo = IsProjectileOrAmmoWitnessText(text);
+		if (looksLikeProjectileOrAmmo)
+			return false;
+
 		if (text.Contains("vehicle"))
 			return true;
 		if (text.Contains("turret"))
@@ -694,12 +790,10 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (text.Contains("lav25") || text.Contains("lav_"))
 			return true;
 
-		bool looksLikeProjectileOrAmmo = IsProjectileOrAmmoWitnessText(text);
-
-		if (text.Contains("launcher") && !looksLikeProjectileOrAmmo)
+		if (text.Contains("launcher"))
 			return true;
 
-		if (text.Contains("weapon") && !looksLikeProjectileOrAmmo)
+		if (text.Contains("weapon"))
 			return true;
 
 		return false;
@@ -787,6 +881,89 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 }
 
+[ComponentEditorProps(category: "h-istasi", description: "Relays damage from a demolition hit proxy to the mission target root")]
+class HST_MissionDestroyTargetProxyComponentClass : ScriptComponentClass
+{
+}
+
+class HST_MissionDestroyTargetProxyComponent : ScriptComponent
+{
+	protected HST_MissionDestroyTargetComponent m_Target;
+
+	override void OnPostInit(IEntity owner)
+	{
+		super.OnPostInit(owner);
+		SetEventMask(owner, EntityEvent.INIT);
+	}
+
+	override void EOnInit(IEntity owner)
+	{
+		m_Target = ResolveTarget(owner);
+		RegisterProxyDamageCallbacks(owner);
+	}
+
+	protected HST_MissionDestroyTargetComponent ResolveTarget(IEntity owner)
+	{
+		IEntity cursor = owner;
+		while (cursor)
+		{
+			HST_MissionDestroyTargetComponent target = HST_MissionDestroyTargetComponent.Cast(cursor.FindComponent(HST_MissionDestroyTargetComponent));
+			if (target)
+				return target;
+
+			cursor = cursor.GetParent();
+		}
+
+		return null;
+	}
+
+	protected void RegisterProxyDamageCallbacks(IEntity owner)
+	{
+		if (!Replication.IsServer() || !owner)
+			return;
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(owner.FindComponent(SCR_DamageManagerComponent));
+		if (!damageManager)
+		{
+			Print("h-istasi mission target proxy | no damage manager on proxy", LogLevel.WARNING);
+			return;
+		}
+
+		Print("h-istasi mission target proxy | damage manager found; bind proxy hit-zone damage invoker to RelayDamage");
+	}
+
+	void RelayDamage(IEntity proxyOwner, float rawDamage, IEntity sourceEntity, string sourcePrefab, string damageTypeText)
+	{
+		if (!m_Target)
+			m_Target = ResolveTarget(proxyOwner);
+
+		if (!m_Target)
+			return;
+
+		IEntity root = ResolveMissionRoot(proxyOwner);
+		if (!root)
+			root = proxyOwner;
+
+		m_Target.OnDamageReceived(root, rawDamage, sourceEntity, sourcePrefab, damageTypeText);
+	}
+
+	protected IEntity ResolveMissionRoot(IEntity owner)
+	{
+		IEntity cursor = owner;
+		IEntity best = owner;
+		while (cursor)
+		{
+			if (HST_MissionAssetComponent.Cast(cursor.FindComponent(HST_MissionAssetComponent)))
+				return cursor;
+
+			best = cursor;
+			cursor = cursor.GetParent();
+		}
+
+		return best;
+	}
+}
+
 class HST_MissionDestroyTargetSabotageAction : HST_MissionUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
@@ -803,7 +980,8 @@ class HST_MissionDestroyTargetSabotageAction : HST_MissionUserActionBase
 			return;
 		}
 
-		demolition.DebugApplyRocketScore(pOwnerEntity);
+		bool applied = demolition.DebugApplyRocketScore(pOwnerEntity);
+		Print(string.Format("h-istasi mission | demolition debug rocket score applied %1", applied));
 	}
 
 	override bool GetActionNameScript(out string outName)
