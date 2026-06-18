@@ -3730,7 +3730,8 @@ foreach ($requiredDestroyTargetEntry in @(
 	"text.Contains(""7.62"")",
 	"text.Contains(""buckshot"")",
 	"looksLikeProjectileOrAmmo",
-	"IsProjectileOrAmmoWitnessText"
+	"IsProjectileOrAmmoWitnessText",
+	"IsGenericWarheadWitnessText"
 )) {
 	if ($missionDestroyTargetComponentText -notmatch [regex]::Escape($requiredDestroyTargetEntry)) {
 		throw "Destroy radio tower demolition debug/classifier contract is missing: $requiredDestroyTargetEntry"
@@ -3749,6 +3750,15 @@ if (!$weaponWitnessMatch.Success -or $weaponWitnessMatch.Value -notmatch "looksL
 $projectileWitnessMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool IsProjectileOrAmmoWitnessText[\s\S]*?\r?\n\t}")
 if (!$projectileWitnessMatch.Success -or $projectileWitnessMatch.Value -notmatch "rpg" -or $projectileWitnessMatch.Value -notmatch "pg7") {
 	throw "Destroy target projectile/ammo witness detection must include RPG/PG7 identifiers"
+}
+$rocketWitnessMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool IsRocketWitnessDamageText[\s\S]*?\r?\n\t}")
+if (!$rocketWitnessMatch.Success -or $rocketWitnessMatch.Value -match [regex]::Escape('text.Contains("warhead")')) {
+	throw "Destroy target witness scoring must not treat generic Warhead_Base evidence as a rocket-strength hit"
+}
+$genericWarheadCheckIndex = $missionDestroyTargetComponentText.IndexOf("IsGenericWarheadWitnessText(text)")
+$rocketWitnessCheckIndex = $missionDestroyTargetComponentText.IndexOf("IsRocketWitnessDamageText(text)")
+if ($genericWarheadCheckIndex -lt 0 -or $rocketWitnessCheckIndex -lt 0 -or $genericWarheadCheckIndex -gt $rocketWitnessCheckIndex) {
+	throw "Destroy target witness scoring must reject generic warhead evidence before rocket witness scoring"
 }
 $arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
 if ($lootServiceText -match 'm_vAngles = "0 0 0"') {

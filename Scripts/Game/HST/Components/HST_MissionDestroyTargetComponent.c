@@ -440,6 +440,9 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (!IsProjectileOrBlastWitnessText(text))
 			return 0.0;
 
+		if (IsGenericWarheadWitnessText(text))
+			return 0.0;
+
 		if (IsRocketWitnessDamageText(text))
 			return m_fRocketDamageScore;
 
@@ -525,8 +528,6 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return true;
 		if (text.Contains("missile"))
 			return true;
-		if (text.Contains("warhead"))
-			return true;
 		if (text.Contains("heat"))
 			return true;
 		if (text.Contains("rpg") || text.Contains("pg7"))
@@ -537,6 +538,32 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return true;
 
 		return false;
+	}
+
+	protected bool IsGenericWarheadWitnessText(string text)
+	{
+		if (!text.Contains("warhead"))
+			return false;
+		if (text.Contains("rocket"))
+			return false;
+		if (text.Contains("missile"))
+			return false;
+		if (text.Contains("heat"))
+			return false;
+		if (text.Contains("rpg"))
+			return false;
+		if (text.Contains("pg7"))
+			return false;
+		if (text.Contains("maaws"))
+			return false;
+		if (text.Contains("m72"))
+			return false;
+		if (text.Contains("at4"))
+			return false;
+		if (text.Contains("m136"))
+			return false;
+
+		return true;
 	}
 
 	protected bool IsDemoChargeDamageText(string text)
