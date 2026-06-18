@@ -2843,8 +2843,11 @@ class HST_LoadoutEditorService
 		session.m_aDraftNodes.Clear();
 		AddLoadoutNodeForCategory(session, "headgear", "Hat", "Headgear", "head");
 		AddLoadoutNodeForCategory(session, "clothing", "Jacket", "Uniform", "torso");
-		AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Vest", "torso");
+		AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Armored Vest", "torso");
+		AddLoadoutNodeForCategory(session, "pants", "Pants", "Pants", "legs");
+		AddLoadoutNodeForCategory(session, "boots", "Boots", "Boots", "feet");
 		AddLoadoutNodeForCategory(session, "backpack", "Back", "Backpack", "back");
+		AddLoadoutNodeForCategory(session, "handwear", "Handwear", "Handwear", "hands");
 		AddLoadoutNodeForCategory(session, "weapon", "Primary Weapon", "Primary Weapon", "weapon");
 		AddLoadoutNodeForCategory(session, "launcher", "Secondary Weapon", "Launcher", "weapon");
 		AddInventoryNodeRoot(session);

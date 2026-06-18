@@ -8,30 +8,32 @@ FrameWidgetClass "{A7B8C9D001234570}" {
   OffsetBottom 0
  }
  {
-  ScrollLayoutWidgetClass "{A7B8C9D001234572}" {
-   Name "Scroll"
-   Slot FrameWidgetSlot "{A7B8C9D001234573}" {
+  OverlayWidgetClass "{A7B8C9D001234574}" {
+   Name "ScrollHost"
+   Slot FrameWidgetSlot "{A7B8C9D001234575}" {
     Anchor 0 0 1 1
     OffsetLeft 0
     OffsetTop 0
     OffsetRight 0
     OffsetBottom 0
    }
-   "Scrollbar Always Visible" 1
+   "Ignore Cursor" 1
    {
-    SizeLayoutWidgetClass "{A7B8C9D001234574}" {
-     Name "ContentSize"
-     Slot AlignableSlot "{A7B8C9D001234575}" {
+    ScrollLayoutWidgetClass "{A7B8C9D001234572}" {
+     Name "Scroll"
+     Slot OverlayWidgetSlot "{A7B8C9D001234573}" {
       HorizontalAlign 3
       VerticalAlign 3
       Padding 0 0 0 0
      }
+     "Scrollbar Always Visible" 1
      {
       WrapLayoutWidgetClass "{A7B8C9D001234576}" {
        Name "Items"
        Slot AlignableSlot "{A7B8C9D001234577}" {
         HorizontalAlign 3
-        VerticalAlign 3
+        VerticalAlign 0
+        Padding 0 0 0 0
        }
       }
      }

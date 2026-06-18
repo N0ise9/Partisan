@@ -3,42 +3,57 @@ ButtonWidgetClass "{A7B8C9D0012345C0}" {
  Slot AlignableSlot "{A7B8C9D0012345C1}" {
   HorizontalAlign 3
   VerticalAlign 0
-  Padding 0 0 0 6
+  Padding 0 0 0 4
  }
- Color 1 1 1 1
+ Color 1 1 1 0
+ "Is Visible" 1
  {
-  SizeLayoutWidgetClass "{A7B8C9D0012345C4}" {
+  SizeLayoutWidgetClass "{A7B8C9D001235C00}" {
    Name "SizeLayout"
-   Slot ButtonWidgetSlot "{A7B8C9D0012345C5}" {
+   Slot ButtonWidgetSlot "{A7B8C9D001235C01}" {
    }
+   AllowWidthOverride 1
+   WidthOverride 520
+   AllowHeightOverride 1
+   HeightOverride 30
    AllowMinDesiredWidth 1
    MinDesiredWidth 520
-   AllowHeightOverride 1
-   HeightOverride 42
    AllowMinDesiredHeight 1
-   MinDesiredHeight 42
+   MinDesiredHeight 30
+   AllowMaxDesiredWidth 1
+   MaxDesiredWidth 520
    AllowMaxDesiredHeight 1
-   MaxDesiredHeight 42
+   MaxDesiredHeight 30
    {
-    FrameWidgetClass "{A7B8C9D0012345C6}" {
-     Name "Content"
-     Slot AlignableSlot "{A7B8C9D0012345C7}" {
+    OverlayWidgetClass "{A7B8C9D001235C02}" {
+     Name "Overlay"
+     Slot AlignableSlot "{A7B8C9D001235C03}" {
       HorizontalAlign 3
       VerticalAlign 3
      }
      "Ignore Cursor" 1
      {
-      TextWidgetClass "{A7B8C9D0012345C2}" {
-       Name "Text"
-       Slot FrameWidgetSlot "{A7B8C9D0012345C3}" {
-        Anchor 0 0 1 0
-        OffsetLeft 0
-        OffsetTop 4
-        OffsetRight 0
-        OffsetBottom 38
+      FrameWidgetClass "{A7B8C9D001235C04}" {
+       Name "Body"
+       Slot OverlayWidgetSlot "{A7B8C9D001235C05}" {
+        HorizontalAlign 3
+        VerticalAlign 3
        }
-       "Is Visible" 1
        "Ignore Cursor" 1
+       {
+        TextWidgetClass "{A7B8C9D0012345C2}" {
+         Name "Text"
+         Slot FrameWidgetSlot "{A7B8C9D0012345C3}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 2
+          OffsetRight 0
+          OffsetBottom -2
+         }
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
+       }
       }
      }
     }

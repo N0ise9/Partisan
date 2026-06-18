@@ -3,54 +3,71 @@ ButtonWidgetClass "{A7B8C9D001234580}" {
  Slot AlignableSlot "{A7B8C9D001234581}" {
   HorizontalAlign 3
   VerticalAlign 0
-  Padding 0 0 0 6
+  Padding 0 0 0 4
  }
- Color 1 1 1 1
+ Color 1 1 1 0
+ "Is Visible" 1
  {
-  SizeLayoutWidgetClass "{A7B8C9D001234586}" {
+  SizeLayoutWidgetClass "{A7B8C9D001235800}" {
    Name "SizeLayout"
-   Slot ButtonWidgetSlot "{A7B8C9D001234587}" {
+   Slot ButtonWidgetSlot "{A7B8C9D001235801}" {
    }
+   AllowWidthOverride 1
+   WidthOverride 920
+   AllowHeightOverride 1
+   HeightOverride 32
    AllowMinDesiredWidth 1
    MinDesiredWidth 920
-   AllowHeightOverride 1
-   HeightOverride 38
    AllowMinDesiredHeight 1
-   MinDesiredHeight 38
+   MinDesiredHeight 32
+   AllowMaxDesiredWidth 1
+   MaxDesiredWidth 920
    AllowMaxDesiredHeight 1
-   MaxDesiredHeight 38
+   MaxDesiredHeight 32
    {
-    FrameWidgetClass "{A7B8C9D001234588}" {
-     Name "Content"
-     Slot AlignableSlot "{A7B8C9D001234589}" {
+    OverlayWidgetClass "{A7B8C9D001235802}" {
+     Name "Overlay"
+     Slot AlignableSlot "{A7B8C9D001235803}" {
       HorizontalAlign 3
       VerticalAlign 3
      }
      "Ignore Cursor" 1
      {
-      ImageWidgetClass "{A7B8C9D001234582}" {
-       Name "Background"
-       Slot FrameWidgetSlot "{A7B8C9D001234583}" {
-        Anchor 0 0 1 0
-        OffsetLeft 0
-        OffsetTop 0
-        OffsetRight 0
-        OffsetBottom 38
+      FrameWidgetClass "{A7B8C9D001235804}" {
+       Name "Body"
+       Slot OverlayWidgetSlot "{A7B8C9D001235805}" {
+        HorizontalAlign 3
+        VerticalAlign 3
        }
-       "Is Visible" 1
        "Ignore Cursor" 1
-      }
-      TextWidgetClass "{A7B8C9D001234584}" {
-       Name "Title"
-       Slot FrameWidgetSlot "{A7B8C9D001234585}" {
-        Anchor 0 0 1 0
-        OffsetLeft 10
-        OffsetTop 6
-        OffsetRight -10
-        OffsetBottom 34
+       {
+        PanelWidgetClass "{A7B8C9D001234582}" {
+         Name "Background"
+         Slot FrameWidgetSlot "{A7B8C9D001234583}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         Color 1 1 1 1
+         style full
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
+        TextWidgetClass "{A7B8C9D001234584}" {
+         Name "Title"
+         Slot FrameWidgetSlot "{A7B8C9D001234585}" {
+          Anchor 0 0 1 1
+          OffsetLeft 10
+          OffsetTop 4
+          OffsetRight -10
+          OffsetBottom -4
+         }
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
        }
-       "Is Visible" 1
-       "Ignore Cursor" 1
       }
      }
     }

@@ -9,7 +9,16 @@ class HST_CommandMenuAction
 
 	string ToPayloadLine()
 	{
-		return string.Format("ACTION|%1|%2|%3|%4|%5|%6", m_sTabId, m_sLabel, m_sCommandId, m_sArgument, m_bEnabled, m_sDisabledReason);
+		return string.Format("ACTION|%1|%2|%3|%4|%5|%6", PayloadField(m_sTabId), PayloadField(m_sLabel), PayloadField(m_sCommandId), PayloadField(m_sArgument), m_bEnabled, PayloadField(m_sDisabledReason));
+	}
+
+	protected string PayloadField(string value)
+	{
+		value.Replace("%", "%25");
+		value.Replace("\r", " ");
+		value.Replace("\n", " ");
+		value.Replace("|", "%7C");
+		return value;
 	}
 }
 
@@ -1557,22 +1566,31 @@ class HST_CommandUIService
 
 	protected string AppendStat(string payload, string label, string value, string tone)
 	{
-		return payload + string.Format("\nSTAT|%1|%2|%3", label, value, tone);
+		return payload + string.Format("\nSTAT|%1|%2|%3", PayloadField(label), PayloadField(value), PayloadField(tone));
 	}
 
 	protected string AppendSection(string payload, string sectionId, string title)
 	{
-		return payload + string.Format("\nSECTION|%1|%2", sectionId, title);
+		return payload + string.Format("\nSECTION|%1|%2", PayloadField(sectionId), PayloadField(title));
 	}
 
 	protected string AppendRow(string payload, string sectionId, string label, string value, string tone)
 	{
-		return payload + string.Format("\nROW|%1|%2|%3|%4", sectionId, label, value, tone);
+		return payload + string.Format("\nROW|%1|%2|%3|%4", PayloadField(sectionId), PayloadField(label), PayloadField(value), PayloadField(tone));
 	}
 
 	protected string AppendFeed(string payload, string text, string tone)
 	{
-		return payload + string.Format("\nFEED|%1|%2", text, tone);
+		return payload + string.Format("\nFEED|%1|%2", PayloadField(text), PayloadField(tone));
+	}
+
+	protected string PayloadField(string value)
+	{
+		value.Replace("%", "%25");
+		value.Replace("\r", " ");
+		value.Replace("\n", " ");
+		value.Replace("|", "%7C");
+		return value;
 	}
 
 	protected void AddMenuAction(notnull array<ref HST_CommandMenuAction> actions, string tabId, string label, string commandId, string argument, bool enabled, string disabledReason)
