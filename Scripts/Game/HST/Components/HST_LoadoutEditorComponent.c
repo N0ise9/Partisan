@@ -81,6 +81,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
 	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
 	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
+	static const ResourceName TEXT_BASE_LAYOUT = "{C1A9E1A2092846D0}UI/layouts/HST/Text/HST_TextBase.layout";
 	static const ResourceName LOADOUT_NODE_ROW_LAYOUT = "{A7B8C9D0012345D0}UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout";
 	static const ResourceName LOADOUT_STORAGE_ROW_LAYOUT = "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout";
 	static const ResourceName LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout";
@@ -1025,13 +1026,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_iTabsLeft = Math.Max(ScalePx(72), m_Layout.m_iMargin + ScalePx(30));
 		m_Layout.m_iTabsLeft = Math.Min(m_Layout.m_iTabsLeft, Math.Max(0, w - ScalePx(80)));
 		m_Layout.m_iTabsTop = ScalePx(78);
-		m_Layout.m_iTabsHeight = ScalePx(62);
+		m_Layout.m_iTabsHeight = ScalePx(74);
 		int tabsMaxWidth = Math.Max(1, w - m_Layout.m_iTabsLeft - m_Layout.m_iMargin);
-		m_Layout.m_iTabsWidth = ClampInt(ScalePx(460), Math.Min(ScalePx(220), tabsMaxWidth), tabsMaxWidth);
+		m_Layout.m_iTabsWidth = ClampInt(ScalePx(540), Math.Min(ScalePx(280), tabsMaxWidth), tabsMaxWidth);
 
 		m_Layout.m_iContentTop = m_Layout.m_iTabsTop + m_Layout.m_iTabsHeight + ScalePx(12);
 		m_Layout.m_iContentBottom = Math.Max(m_Layout.m_iContentTop + ScalePx(1), h - ScalePx(92));
-		m_Layout.m_iContentBottom = Math.Min(m_Layout.m_iContentBottom, Math.Max(m_Layout.m_iContentTop + ScalePx(1), h - ScalePx(20)));
 		m_Layout.m_iContentHeight = Math.Max(ScalePx(1), m_Layout.m_iContentBottom - m_Layout.m_iContentTop);
 
 		m_Layout.m_iRailLeft = m_Layout.m_iTabsLeft;
@@ -1068,20 +1068,20 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_Layout.m_iHeaderHeight = ScalePx(48);
 		m_Layout.m_iCategoryTop = m_Layout.m_iMainTop + m_Layout.m_iHeaderHeight;
-		m_Layout.m_iCategoryHeight = ScalePx(38);
-		m_Layout.m_iListTop = m_Layout.m_iCategoryTop + m_Layout.m_iCategoryHeight + ScalePx(12);
+		m_Layout.m_iCategoryHeight = ScalePx(50);
+		m_Layout.m_iListTop = m_Layout.m_iCategoryTop + m_Layout.m_iCategoryHeight + ScalePx(14);
 		m_Layout.m_iListHeight = Math.Max(ScalePx(1), m_Layout.m_iMainTop + m_Layout.m_iMainHeight - m_Layout.m_iListTop - ScalePx(42));
 
-		m_Layout.m_iSlotRowHeight = ScalePx(68);
-		m_Layout.m_iPreviewCellSmall = ClampInt(ScalePx(42), 34, 50);
-		m_Layout.m_iPreviewCellMedium = ClampInt(ScalePx(56), 42, 64);
-		m_Layout.m_iPreviewCellLarge = ClampInt(ScalePx(64), 48, 76);
-		m_Layout.m_iCountBadgeWidth = ClampInt(ScalePx(82), 62, 94);
+		m_Layout.m_iSlotRowHeight = ScalePx(76);
+		m_Layout.m_iPreviewCellSmall = ClampInt(ScalePx(50), 42, 62);
+		m_Layout.m_iPreviewCellMedium = ClampInt(ScalePx(66), 56, 76);
+		m_Layout.m_iPreviewCellLarge = ClampInt(ScalePx(76), 64, 88);
+		m_Layout.m_iCountBadgeWidth = ClampInt(ScalePx(88), 70, 104);
 
-		m_Layout.m_iFontTiny = ScaleFont(9);
-		m_Layout.m_iFontSmall = ScaleFont(11);
-		m_Layout.m_iFontNormal = ScaleFont(13);
-		m_Layout.m_iFontTitle = ScaleFont(16);
+		m_Layout.m_iFontTiny = ScaleFont(10);
+		m_Layout.m_iFontSmall = ScaleFont(12);
+		m_Layout.m_iFontNormal = ScaleFont(14);
+		m_Layout.m_iFontTitle = ScaleFont(17);
 
 	}
 
@@ -1092,8 +1092,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		int tabStart = m_Layout.m_iTabsLeft;
 		int tabTop = m_Layout.m_iTabsTop;
-		int tabHeight = ScalePx(58);
-		int compactTabWidth = ScalePx(68);
+		int tabHeight = ScalePx(68);
+		int compactTabWidth = ScalePx(78);
 		int activeTabWidth = compactTabWidth;
 		int navButton = ScalePx(24);
 		int tabLeft = tabStart;
@@ -1114,9 +1114,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			CreateRectWidget(workspace, root, tabLeft, tabTop, tabWidth, tabHeight, color, 0.98, MODE_WIDGET_ID_BASE + i);
 
-			int iconSize = ScalePx(44);
+			int iconSize = ScalePx(56);
 			if (active)
-				iconSize = ScalePx(48);
+				iconSize = ScalePx(60);
+			iconSize = Math.Min(iconSize, Math.Max(1, tabWidth - ScalePx(12)));
+			iconSize = Math.Min(iconSize, Math.Max(1, tabHeight - ScalePx(10)));
 			int iconLeft = tabLeft + Math.Max(0, (tabWidth - iconSize) / 2);
 			int iconTop = tabTop + Math.Max(0, (tabHeight - iconSize) / 2);
 			if (!CreateIconWidget(workspace, root, ResolveIconTexture(modeId), iconLeft, iconTop, iconSize, iconSize, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
@@ -1391,9 +1393,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		SetRowImageColor(row, "Background", color, 0.98);
 
-		string rowText = BuildTwoLineDisplayText(GetNodeLabel(nodeIndex), GetNodeDisplay(nodeIndex));
-		SetRowText(row, "Primary", "", 0xFFEFE2C4, m_Layout.m_iFontTiny, false, true);
-		SetRowText(row, "Secondary", rowText, 0xFFEFE2C4, m_Layout.m_iFontSmall, false, true);
+		string primaryText = GetNodeLabel(nodeIndex);
+		string secondaryText = GetNodeDisplay(nodeIndex);
+		if (IsDuplicateDisplayText(primaryText, secondaryText))
+			secondaryText = "";
+		if (secondaryText.IsEmpty())
+			secondaryText = "Empty Slot";
+
+		SetRowText(row, "Primary", ShortenText(primaryText, 30), 0xFFEFE2C4, m_Layout.m_iFontNormal, true, false);
+		SetRowText(row, "Secondary", ShortenText(secondaryText, 46), 0xFFD5D8D9, m_Layout.m_iFontSmall, false, true);
 		SetRowText(row, "OpenMarker", "w", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
 
 		Widget openMarker = FindRowWidget(row, "OpenMarker");
@@ -1403,7 +1411,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			openMarker.SetVisible(canOpen);
 		}
 
-		AddNodePreviewToRow(workspace, row, nodeIndex, userId, m_Layout.m_iPreviewCellMedium);
+		AddNodePreviewToRow(workspace, row, nodeIndex, userId, Math.Min(m_Layout.m_iPreviewCellMedium, ScalePx(64)));
 	}
 
 	protected void AddLoadoutStorageContainerRow(WorkspaceWidget workspace, Widget items, int nodeIndex, int userId)
@@ -1440,7 +1448,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowImageColor(row, "VolumeBack", 0xAA05080A, 1.0);
 		SetStorageVolumeFill(row, nodeIndex);
 
-		AddNodePreviewToRow(workspace, row, nodeIndex, userId, Math.Min(m_Layout.m_iPreviewCellLarge, ScalePx(56)));
+		AddNodePreviewToRow(workspace, row, nodeIndex, userId, Math.Min(m_Layout.m_iPreviewCellLarge, ScalePx(64)));
 	}
 
 	protected void AddLoadoutStorageItemRow(WorkspaceWidget workspace, Widget items, int nodeIndex, int userId)
@@ -1514,7 +1522,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		anchor.SetOpacity(1.0);
 		anchor.SetZOrder(20);
 
-		int previewSize = m_Layout.m_iPreviewCellMedium;
+		int previewSize = Math.Min(m_Layout.m_iPreviewCellMedium, ScalePx(64));
 		CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xDD090D10, 1.0, userId);
 		CreateCandidatePreviewCell(workspace, anchor, candidateIndex, 0, 0, previewSize, userId, 0xFFE6E6E6);
 	}
@@ -1742,7 +1750,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			int visibleTemplate = templateIndex - firstTemplate;
 			int topTemplate = rowTop + visibleTemplate * (rowHeight + rowGap);
-			int color = 0xFF1B252E;
+			int color = 0xFF15191C;
 			if (m_aTemplateIds[templateIndex] == m_sSelectedTemplateId)
 				color = 0xFF6F5124;
 
@@ -2402,18 +2410,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		InsertCategory("headgear", "Headgear", 0);
 		InsertCategory("clothing", "Clothing", 0);
-		InsertCategory("vest", "Vest", 0);
+		InsertCategory("vest", "Armored Vest", 0);
 		InsertCategory("pants", "Pants", 0);
 		InsertCategory("boots", "Boots", 0);
 		InsertCategory("backpack", "Backpack", 0);
 		InsertCategory("handwear", "Handwear", 0);
 		InsertCategory("weapon", "Weapons", 0);
 		InsertCategory("sidearm", "Sidearms", 0);
-		InsertCategory("magazine", "Magazines", 0);
-		InsertCategory("explosive", "Explosives", 0);
+		InsertCategory("magazine", "Ammunition", 0);
+		InsertCategory("explosive", "Throwables", 0);
 		InsertCategory("attachment", "Attachments", 0);
 		InsertCategory("medical", "Medical", 0);
-		InsertCategory("utility", "Utility", 0);
+		InsertCategory("utility", "Equipment", 0);
 	}
 
 	protected void InsertCategory(string categoryId, string label, int count)
@@ -3440,7 +3448,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		int gap = ScalePx(8);
-		int tabHeight = ScalePx(32);
+		int tabHeight = ScalePx(46);
 		int tabWidth = Math.Max(1, (Math.Max(1, width) - (count - 1) * gap) / count);
 		for (int i = 0; i < count; i++)
 		{
@@ -3451,8 +3459,27 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				color = 0xFF6F5124;
 
 			CreateRectWidget(workspace, root, tabLeft, top, tabWidth, tabHeight, color, 0.98, STORAGE_CATEGORY_WIDGET_ID_BASE + i);
-			CreateIconWidget(workspace, root, ResolveIconTexture(category), tabLeft + ScalePx(8), top + ScalePx(6), Math.Min(ScalePx(20), Math.Max(1, tabWidth - ScalePx(10))), Math.Min(ScalePx(20), tabHeight - ScalePx(8)), STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
-			CreateTextWidget(workspace, root, ShortenText(GetStorageBrowserCategoryLabel(category), 13), tabLeft + ScalePx(34), top + ScalePx(9), Math.Max(1, tabWidth - ScalePx(38)), ScalePx(14), m_Layout.m_iFontTiny, 0xFFF5E8CE, STORAGE_CATEGORY_WIDGET_ID_BASE + i, category == m_sSelectedCategory);
+
+			int iconSize = ScalePx(32);
+			iconSize = Math.Min(iconSize, Math.Max(1, tabHeight - ScalePx(10)));
+			iconSize = Math.Min(iconSize, Math.Max(1, tabWidth - ScalePx(10)));
+			bool iconOnly = tabWidth < ScalePx(112);
+			int iconLeft;
+			int textLeft;
+			int textWidth;
+			if (iconOnly)
+			{
+				iconLeft = tabLeft + Math.Max(0, (tabWidth - iconSize) / 2);
+				CreateIconWidget(workspace, root, ResolveIconTexture(category), iconLeft, top + Math.Max(0, (tabHeight - iconSize) / 2), iconSize, iconSize, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
+			}
+			else
+			{
+				iconLeft = tabLeft + ScalePx(9);
+				textLeft = tabLeft + ScalePx(48);
+				textWidth = Math.Max(1, tabWidth - ScalePx(54));
+				CreateIconWidget(workspace, root, ResolveIconTexture(category), iconLeft, top + Math.Max(0, (tabHeight - iconSize) / 2), iconSize, iconSize, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
+				CreateTextWidget(workspace, root, ShortenText(GetStorageBrowserCategoryLabel(category), 14), textLeft, top + ScalePx(14), textWidth, ScalePx(18), m_Layout.m_iFontSmall, 0xFFF5E8CE, STORAGE_CATEGORY_WIDGET_ID_BASE + i, category == m_sSelectedCategory);
+			}
 		}
 	}
 
@@ -5353,7 +5380,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		textWidget.SetText(text);
 		textWidget.SetTextWrapping(wrap);
 		textWidget.SetExactFontSize(fontSize);
-		textWidget.SetLineSpacing(0.95);
+		textWidget.SetLineSpacing(4.0);
 		textWidget.SetBold(bold);
 		textWidget.SetOutline(1, 0xDD000000);
 		textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
@@ -5464,22 +5491,22 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (height >= 18 && width >= 18)
 			CreateRectWidget(workspace, root, left, top, width, 3, 0xFFC4953B, 1.0, userId);
 
-		int inset = 14;
-		int fontSize = 14;
-		int topInset = 7;
-		if (width < 64)
-			inset = 8;
-		if (width < 32)
+		int inset = ScalePx(14);
+		int fontSize = m_Layout.m_iFontSmall;
+		int topInset = ScalePx(7);
+		if (width < ScalePx(64))
+			inset = ScalePx(8);
+		if (width < ScalePx(32))
 		{
-			inset = 4;
-			fontSize = 11;
-			topInset = 4;
+			inset = ScalePx(4);
+			fontSize = m_Layout.m_iFontTiny;
+			topInset = ScalePx(4);
 		}
 
-		if (height <= 30)
+		if (height <= ScalePx(30))
 		{
-			fontSize = Math.Min(fontSize, 12);
-			topInset = 7;
+			fontSize = Math.Min(fontSize, m_Layout.m_iFontSmall);
+			topInset = ScalePx(7);
 		}
 
 		CreateTextWidget(workspace, root, label, left + inset, top + topInset, Math.Max(8, width - inset * 2), Math.Max(8, height - 8), fontSize, 0xFFF4EBD6, userId, true);
@@ -5546,22 +5573,31 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, 3700, parent);
+		if (!workspace || !parent || width <= 0 || height <= 0)
+			return null;
+
+		Widget widget = workspace.CreateWidgets(TEXT_BASE_LAYOUT, parent);
 		if (!widget)
 			return null;
 
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, width, height);
+		widget.SetZOrder(3700);
 		TextWidget textWidget = TextWidget.Cast(widget);
+		if (!textWidget)
+			textWidget = TextWidget.Cast(widget.FindAnyWidget("HST_TextBase"));
 		if (textWidget)
 		{
+			textWidget.SetVisible(true);
+			textWidget.SetOpacity(1.0);
 			textWidget.SetText(text);
 			textWidget.SetTextWrapping(false);
 			textWidget.SetExactFontSize(fontSize);
-			textWidget.SetLineSpacing(1.1);
+			textWidget.SetLineSpacing(4.0);
 			textWidget.SetBold(bold);
 			textWidget.SetOutline(1, 0xDD000000);
 			textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
+			textWidget.SetColorInt(color);
 		}
 
 		widget.SetColorInt(color);
@@ -5577,22 +5613,31 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected TextWidget CreateWrappedTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, 3700, parent);
+		if (!workspace || !parent || width <= 0 || height <= 0)
+			return null;
+
+		Widget widget = workspace.CreateWidgets(TEXT_BASE_LAYOUT, parent);
 		if (!widget)
 			return null;
 
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, width, height);
+		widget.SetZOrder(3700);
 		TextWidget textWidget = TextWidget.Cast(widget);
+		if (!textWidget)
+			textWidget = TextWidget.Cast(widget.FindAnyWidget("HST_TextBase"));
 		if (textWidget)
 		{
+			textWidget.SetVisible(true);
+			textWidget.SetOpacity(1.0);
 			textWidget.SetText(text);
 			textWidget.SetTextWrapping(true);
 			textWidget.SetExactFontSize(fontSize);
-			textWidget.SetLineSpacing(0.95);
+			textWidget.SetLineSpacing(4.0);
 			textWidget.SetBold(bold);
 			textWidget.SetOutline(1, 0xDD000000);
 			textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
+			textWidget.SetColorInt(color);
 		}
 
 		widget.SetColorInt(color);

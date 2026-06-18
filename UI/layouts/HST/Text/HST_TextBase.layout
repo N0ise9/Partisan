@@ -1,0 +1,22 @@
+TextWidgetClass "{C1A9E1A2092846D3}" {
+ Name "HST_TextBase"
+ Slot FrameWidgetSlot "{C1A9E1A2092846D4}" {
+  Anchor 0 0 0 0
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ "Is Visible" 1
+ "Ignore Cursor" 1
+ Color 0.86 0.88 0.88 1
+ "Font Size" 14
+ "Min Font Size" 10
+ "Vertical Alignment" Center
+ Wrap 0
+ "Line Spacing" 4
+ FontProperties FontProperties "{C1A9E1A2092846D5}" {
+  Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+  DisabledColor 0.38 0.38 0.38 1
+ }
+}

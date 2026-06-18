@@ -2715,7 +2715,7 @@ class HST_LoadoutEditorService
 		if (categoryId == "headgear")
 			return "Headgear";
 		if (categoryId == "vest")
-			return "Vest Webbing";
+			return "Armored Vest";
 		if (categoryId == "pants")
 			return "Pants";
 		if (categoryId == "boots")
@@ -2729,15 +2729,15 @@ class HST_LoadoutEditorService
 		if (categoryId == "sidearm")
 			return "Sidearms";
 		if (categoryId == "magazine")
-			return "Magazines";
+			return "Ammunition";
 		if (categoryId == "explosive")
-			return "Explosives";
+			return "Throwables";
 		if (categoryId == "attachment")
 			return "Attachments";
 		if (categoryId == "medical")
 			return "Medical";
 
-		return "Utility";
+		return "Equipment";
 	}
 
 	protected string BuildEditorItemPayload(string category, string prefab, string displayName, int count, string infiniteMarker)
@@ -2841,18 +2841,18 @@ class HST_LoadoutEditorService
 			return;
 
 		session.m_aDraftNodes.Clear();
-		AddLoadoutNodeForCategory(session, "headgear", "Hat", "Headgear", "head");
-		AddLoadoutNodeForCategory(session, "clothing", "Jacket", "Uniform", "torso");
+		AddLoadoutNodeForCategory(session, "headgear", "Hat", "Hat", "head");
+		AddLoadoutNodeForCategory(session, "clothing", "Jacket", "Jacket", "torso");
 		AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Armored Vest", "torso");
 		AddLoadoutNodeForCategory(session, "pants", "Pants", "Pants", "legs");
 		AddLoadoutNodeForCategory(session, "boots", "Boots", "Boots", "feet");
-		AddLoadoutNodeForCategory(session, "backpack", "Back", "Backpack", "back");
+		AddLoadoutNodeForCategory(session, "backpack", "Backpack", "Backpack", "back");
 		AddLoadoutNodeForCategory(session, "handwear", "Handwear", "Handwear", "hands");
-		AddLoadoutNodeForCategory(session, "weapon", "Primary Weapon", "Primary Weapon", "weapon");
-		AddLoadoutNodeForCategory(session, "launcher", "Secondary Weapon", "Launcher", "weapon");
+		AddLoadoutNodeForCategory(session, "weapon", "PrimaryWeapon", "Primary Weapon", "weapon");
+		AddLoadoutNodeForCategory(session, "launcher", "SecondaryWeapon", "Secondary Weapon", "weapon");
 		AddInventoryNodeRoot(session);
 		AddInventoryNodesForCategory(session, "magazine", "Ammunition", "ammo");
-		AddInventoryNodesForCategory(session, "explosive", "Grenades", "hands");
+		AddInventoryNodesForCategory(session, "explosive", "Throwables", "hands");
 		AddInventoryNodesForCategory(session, "medical", "Medical", "torso");
 		AddInventoryNodesForCategory(session, "utility", "Equipment", "torso");
 		AddAttachmentNodes(session);

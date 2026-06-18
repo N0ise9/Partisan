@@ -15,15 +15,15 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
    AllowWidthOverride 1
    WidthOverride 360
    AllowHeightOverride 1
-   HeightOverride 68
+   HeightOverride 76
    AllowMinDesiredWidth 1
    MinDesiredWidth 360
    AllowMinDesiredHeight 1
-   MinDesiredHeight 68
+   MinDesiredHeight 76
    AllowMaxDesiredWidth 1
    MaxDesiredWidth 360
    AllowMaxDesiredHeight 1
-   MaxDesiredHeight 68
+   MaxDesiredHeight 76
    {
     OverlayWidgetClass "{A7B8C9D001235D02}" {
      Name "Overlay"
@@ -61,8 +61,8 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
           Anchor 0 0 0 0
           OffsetLeft 6
           OffsetTop 6
-          OffsetRight 66
-          OffsetBottom 66
+          OffsetRight 74
+          OffsetBottom 74
          }
          Color 0.035 0.05 0.063 0.86
          style full
@@ -75,8 +75,8 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
           Anchor 0 0 0 0
           OffsetLeft 8
           OffsetTop 8
-          OffsetRight 64
-          OffsetBottom 64
+          OffsetRight 72
+          OffsetBottom 72
          }
          "Ignore Cursor" 1
         }
@@ -84,10 +84,10 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
          Name "Primary"
          Slot FrameWidgetSlot "{A7B8C9D0012345D9}" {
           Anchor 0 0 1 0
-          OffsetLeft 78
-          OffsetTop 9
-          OffsetRight -36
-          OffsetBottom 30
+          OffsetLeft 84
+          OffsetTop 10
+          OffsetRight -40
+          OffsetBottom 31
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -96,10 +96,10 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
          Name "Secondary"
          Slot FrameWidgetSlot "{A7B8C9D0012345DB}" {
           Anchor 0 0 1 1
-          OffsetLeft 78
-          OffsetTop 9
-          OffsetRight -36
-          OffsetBottom -8
+          OffsetLeft 84
+          OffsetTop 32
+          OffsetRight -40
+          OffsetBottom -10
          }
          "Is Visible" 1
          "Ignore Cursor" 1
