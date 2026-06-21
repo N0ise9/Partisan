@@ -7,6 +7,8 @@ FrameWidgetClass "{7B2FD986A4D34210}" {
   OffsetRight 0
   OffsetBottom 0
  }
+ "Is Visible" 1
+ "Ignore Cursor" 1
  {
   ImageWidgetClass "{7B2FD986A4D34211}" {
    Name "SlotImage"
@@ -18,6 +20,7 @@ FrameWidgetClass "{7B2FD986A4D34210}" {
     OffsetBottom 0
    }
    "Is Visible" 1
+   "Ignore Cursor" 1
    Size 64 64
   }
   ItemPreviewWidgetClass "{7B2FD986A4D34213}" {
@@ -29,9 +32,10 @@ FrameWidgetClass "{7B2FD986A4D34210}" {
     OffsetRight 0
     OffsetBottom 0
    }
-   "Is Visible" 1
+   "Is Visible" 0
+   "Ignore Cursor" 1
    Format LDR_sRGB
-   "Use clear color" 1
+   "Use clear color" 0
    "Blend mode" Blend
   }
  }
