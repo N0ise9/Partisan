@@ -2855,8 +2855,10 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"ShortenText(BuildStorageTargetLabel(), 110)",
 	"m_Layout.m_iListTop + ScalePx(8)",
 	"BuildStorageCapacityLabel(nodeIndex)",
-	"SetRowText(tile, `"Name`", `"`", 0x00FFFFFF",
-	"SetRowWidgetVisible(tile, `"Name`", false)",
+	"SetRowWidgetVisible(tile, `"Name`", true)",
+	"SetRowText(tile, `"Name`", ShortenText(itemName, 32)",
+	"FrameSlot.SetPos(nameWidget, ScalePx(108), ScalePx(12))",
+	"FrameSlot.SetSize(nameWidget, ScalePx(130), ScalePx(54))",
 	"SetRowText(tile, `"Count`", `"`", 0x00FFFFFF",
 	"CreateCountBadge(workspace, ResolveRowOverlayRoot(tile), countText, ScalePx(254), ScalePx(58), ScalePx(78), ScalePx(26), userId)",
 	"CreateCountBadge(workspace, body, countText, ScalePx(270), ScalePx(22), ScalePx(76), ScalePx(24), userId)",
@@ -2876,7 +2878,11 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"AddStorageItemOverlayText",
 	"slotPreview.SetVisible(false)",
 	"slotPreview.SetOpacity(0.0)",
-	"imageWidget.SetOpacity(0.22)",
+	"SetPreviewCellNeutralFallback",
+	"SetPreviewCellFromPrefab(Widget cell, string prefab, ResourceName fallbackIcon, int color, bool showFallbackIcon = true)",
+	"SetPreviewCellFromEntity(Widget cell, IEntity entity, ResourceName fallbackIcon, int color, bool showFallbackIcon = true)",
+	"imageWidget.SetOpacity(0.0)",
+	"SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, false)",
 	"SetPreviewCellFallbackIcon(cell, fallbackIcon, color)",
 	"RenderCandidateRow",
 	"RenderSelectedNodeHeader",
@@ -2888,6 +2894,8 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"SelectStoredItemNode",
 	"EnsureCandidatePayloadForStorageContainer",
 	"FindStorageBrowserCategoryIndex",
+	"protected int GetStorageBrowserCategoryCount()",
+	"return 6;",
 	'weapon_group',
 	'clothing_group',
 	"ConfigurePreviewDimmer",
@@ -2955,7 +2963,6 @@ foreach ($requiredLoadoutStorageServiceEntry in @(
 	'category == "weapon"',
 	'category == "launcher"',
 	'category == "sidearm"',
-	'category == "attachment"',
 	'category == "clothing"',
 	'category == "headgear"',
 	'category == "vest"',
@@ -2972,6 +2979,14 @@ foreach ($requiredLoadoutStorageServiceEntry in @(
 	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutStorageServiceEntry)) {
 		throw "Loadout editor service is missing storage browser candidate category support: $requiredLoadoutStorageServiceEntry"
 	}
+}
+$storageCategoryTabsMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderStorageCategoryTabs[\s\S]*?\r?\n\t}")
+if ($storageCategoryTabsMatch.Success -and $storageCategoryTabsMatch.Value -match [regex]::Escape("CreateTextWidget(workspace, root, ShortenText(label")) {
+	throw "Storage category tabs must be icon-only and must not render category label text"
+}
+$storageBrowserCandidateCategoryMatch = [regex]::Match($loadoutEditorText, "protected bool IsStorageBrowserCandidateCategory[\s\S]*?\r?\n\t}")
+if ($storageBrowserCandidateCategoryMatch.Success -and $storageBrowserCandidateCategoryMatch.Value -match [regex]::Escape('category == "attachment"')) {
+	throw "Storage browser candidate categories must not include attachment; attachments belong in the attachment editor mode"
 }
 $loadoutScrollHelperMatch = [regex]::Match($loadoutEditorComponentText, "protected Widget CreateScrollContainer[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected TextWidget FindRowText")
 if (!$loadoutScrollHelperMatch.Success) {

@@ -3068,7 +3068,6 @@ class HST_LoadoutEditorService
 			|| category == "weapon"
 			|| category == "launcher"
 			|| category == "sidearm"
-			|| category == "attachment"
 			|| category == "clothing"
 			|| category == "headgear"
 			|| category == "vest"

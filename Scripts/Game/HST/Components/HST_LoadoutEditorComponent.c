@@ -1617,15 +1617,25 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			color = 0xFF3D3520;
 
 		string countText = BuildCandidateCountLabel(candidateIndex, true);
-		SetRowImageColor(tile, "Background", color, 0.98);
+		string itemName = GetCandidateDisplayName(candidateIndex);
 
-		// Storage grid tiles are visual-first. Keep only the count badge over the preview.
-		SetRowText(tile, "Name", "", 0x00FFFFFF, m_Layout.m_iFontSmall, false, false);
-		SetRowWidgetVisible(tile, "Name", false);
+		SetRowImageColor(tile, "Background", color, 0.98);
+		AddCandidatePreviewToRow(workspace, tile, candidateIndex, userId);
+
+		SetRowWidgetVisible(tile, "Name", true);
+		SetRowText(tile, "Name", ShortenText(itemName, 32), 0xFFE2E6E8, m_Layout.m_iFontTiny, false, true);
+
+		Widget nameWidget = FindRowWidget(tile, "Name");
+		if (nameWidget)
+		{
+			FrameSlot.SetPos(nameWidget, ScalePx(108), ScalePx(12));
+			FrameSlot.SetSize(nameWidget, ScalePx(130), ScalePx(54));
+			nameWidget.SetZOrder(72);
+		}
+
 		SetRowText(tile, "Count", "", 0x00FFFFFF, m_Layout.m_iFontTiny, true, false);
 		SetRowWidgetVisible(tile, "Count", false);
 
-		AddCandidatePreviewToRow(workspace, tile, candidateIndex, userId);
 		if (!countText.IsEmpty())
 			CreateCountBadge(workspace, ResolveRowOverlayRoot(tile), countText, ScalePx(254), ScalePx(58), ScalePx(78), ScalePx(26), userId);
 	}
@@ -3534,7 +3544,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (modeId == "attachments")
 			return category == "attachment";
 		if (modeId == "storage")
-			return category == "magazine" || category == "explosive" || category == "medical" || category == "utility" || category == "weapon" || category == "launcher" || category == "sidearm" || category == "attachment" || category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear" || category == "weapon_group" || category == "clothing_group";
+			return category == "magazine" || category == "explosive" || category == "medical" || category == "utility" || category == "weapon" || category == "launcher" || category == "sidearm" || category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear" || category == "weapon_group" || category == "clothing_group";
 		if (modeId == "settings" || modeId == "save")
 			return true;
 
@@ -3543,7 +3553,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected int GetStorageBrowserCategoryCount()
 	{
-		return 7;
+		return 6;
 	}
 
 	protected string GetStorageBrowserCategoryId(int index)
@@ -3558,8 +3568,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "medical";
 		if (index == 4)
 			return "weapon_group";
-		if (index == 5)
-			return "attachment";
 
 		return "clothing_group";
 	}
@@ -3587,8 +3595,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "Medical";
 		if (category == "weapon_group")
 			return "Weapons";
-		if (category == "attachment")
-			return "Attachments";
 		if (category == "clothing_group")
 			return "Clothing";
 
@@ -3829,6 +3835,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int gap = ScalePx(8);
 		int tabHeight = m_Layout.m_iCategoryHeight;
 		int tabWidth = Math.Max(1, (Math.Max(1, width) - (count - 1) * gap) / count);
+
 		for (int i = 0; i < count; i++)
 		{
 			string category = GetStorageBrowserCategoryId(i);
@@ -3843,33 +3850,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			int iconSize = ScalePx(58);
 			if (category == m_sSelectedCategory)
 				iconSize = ScalePx(62);
+
 			iconSize = Math.Min(iconSize, Math.Max(1, tabHeight - ScalePx(10)));
 			iconSize = Math.Min(iconSize, Math.Max(1, tabWidth - ScalePx(12)));
 
-			bool iconOnly = tabWidth < ScalePx(132);
-			if (iconOnly)
-			{
-				int iconLeft = tabLeft + Math.Max(0, (tabWidth - iconSize) / 2);
-				int iconTop = top + Math.Max(0, (tabHeight - iconSize) / 2);
+			int iconLeft = tabLeft + Math.Max(0, (tabWidth - iconSize) / 2);
+			int iconTop = top + Math.Max(0, (tabHeight - iconSize) / 2);
 
-				CreateIconWidget(workspace, root, ResolveIconTexture(category), iconLeft, iconTop, iconSize, iconSize, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
-			}
-			else
-			{
-				int iconLeft = tabLeft + ScalePx(10);
-				int iconTop = top + Math.Max(0, (tabHeight - iconSize) / 2);
-				int textLeft = tabLeft + ScalePx(66);
-				int textWidth = Math.Max(1, tabWidth - ScalePx(72));
-
-				CreateIconWidget(workspace, root, ResolveIconTexture(category), iconLeft, iconTop, iconSize, iconSize, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
-
-				string label = GetStorageBrowserCategoryLabel(category);
-				int tabCount = CountStorageCandidatesForTab(category);
-				if (tabCount > 0)
-					label = string.Format("%1 %2", label, tabCount);
-
-				CreateTextWidget(workspace, root, ShortenText(label, 14), textLeft, top + ScalePx(23), textWidth, ScalePx(18), m_Layout.m_iFontSmall, 0xFFF5E8CE, STORAGE_CATEGORY_WIDGET_ID_BASE + i, category == m_sSelectedCategory);
-			}
+			CreateIconWidget(workspace, root, ResolveIconTexture(category), iconLeft, iconTop, iconSize, iconSize, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
 		}
 	}
 
@@ -5539,12 +5527,35 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		imageWidget.SetZOrder(21);
 	}
 
-	protected bool SetPreviewCellFromPrefab(Widget cell, string prefab, ResourceName fallbackIcon, int color)
+	protected void SetPreviewCellNeutralFallback(Widget cell)
+	{
+		if (!cell)
+			return;
+
+		ItemPreviewWidget previewWidget = ItemPreviewWidget.Cast(cell.FindAnyWidget("SlotPreview"));
+		if (previewWidget)
+		{
+			previewWidget.SetVisible(false);
+			previewWidget.SetOpacity(0.0);
+		}
+
+		ImageWidget imageWidget = ImageWidget.Cast(cell.FindAnyWidget("SlotImage"));
+		if (imageWidget)
+		{
+			imageWidget.SetVisible(false);
+			imageWidget.SetOpacity(0.0);
+		}
+	}
+	protected bool SetPreviewCellFromPrefab(Widget cell, string prefab, ResourceName fallbackIcon, int color, bool showFallbackIcon = true)
 	{
 		if (!cell)
 			return false;
 
-		SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+		if (showFallbackIcon)
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+		else
+			SetPreviewCellNeutralFallback(cell);
+
 		if (prefab.IsEmpty())
 			return false;
 
@@ -5561,9 +5572,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ImageWidget imageWidget = ImageWidget.Cast(cell.FindAnyWidget("SlotImage"));
 		if (imageWidget)
 		{
-			imageWidget.SetVisible(true);
-			imageWidget.SetOpacity(0.22);
-			imageWidget.SetZOrder(21);
+			imageWidget.SetVisible(false);
+			imageWidget.SetOpacity(0.0);
 		}
 
 		previewManager.SetPreviewItem(previewWidget, null, null, true);
@@ -5574,12 +5584,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return true;
 	}
 
-	protected bool SetPreviewCellFromEntity(Widget cell, IEntity entity, ResourceName fallbackIcon, int color)
+	protected bool SetPreviewCellFromEntity(Widget cell, IEntity entity, ResourceName fallbackIcon, int color, bool showFallbackIcon = true)
 	{
 		if (!cell)
 			return false;
 
-		SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+		if (showFallbackIcon)
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+		else
+			SetPreviewCellNeutralFallback(cell);
+
 		if (!entity)
 			return false;
 
@@ -5591,9 +5605,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ImageWidget imageWidget = ImageWidget.Cast(cell.FindAnyWidget("SlotImage"));
 		if (imageWidget)
 		{
-			imageWidget.SetVisible(true);
-			imageWidget.SetOpacity(0.22);
-			imageWidget.SetZOrder(21);
+			imageWidget.SetVisible(false);
+			imageWidget.SetOpacity(0.0);
 		}
 
 		previewManager.SetPreviewItem(previewWidget, null, null, true);
@@ -5644,7 +5657,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidatePrefabs.Count())
 			prefab = m_aCandidatePrefabs[candidateIndex];
 
-		return SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color);
+		// Candidate tiles should not show category fallback icons; compact item text identifies failed previews.
+		return SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, false);
 	}
 
 	protected ResourceName ResolveIconTexture(string key)
