@@ -44,6 +44,20 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     }
    }
   }
+  PanelWidgetClass "{7B2FD986A4D34122}" {
+   Name "HST_LoadoutDimmer"
+   Slot FrameWidgetSlot "{7B2FD986A4D34123}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   Color 0.02 0.025 0.03 0.35
+   style full
+   "Is Visible" 1
+   "Ignore Cursor" 1
+  }
   FrameWidgetClass "{7B2FD986A4D34113}" {
    Name "HST_LoadoutUILayer"
    Slot FrameWidgetSlot "{7B2FD986A4D34114}" {

@@ -212,9 +212,16 @@ class HST_LoadoutEditorService
 		int candidateCount;
 		string emptyReason;
 		string candidates = BuildCandidatePayloadsForNode(state, identityId, session, node, candidateCount, emptyReason);
-		if (emptyReason.IsEmpty())
+		if (candidateCount > 0)
+			emptyReason = "";
+		else if (emptyReason.IsEmpty())
 			emptyReason = "No compatible arsenal items";
-		Print(string.Format("h-istasi loadout editor | candidates node %1 | count %2 | arsenal %3 | reason %4", nodeId, candidateCount, state.m_aArsenalItems.Count(), emptyReason));
+
+		string logReason = emptyReason;
+		if (logReason.IsEmpty())
+			logReason = "ready";
+
+		Print(string.Format("h-istasi loadout editor | candidates node %1 | count %2 | arsenal %3 | reason %4", nodeId, candidateCount, state.m_aArsenalItems.Count(), logReason));
 		return string.Format("HST_LOADOUT_CANDIDATES|%1|ready|%2|%3", nodeId, candidateCount, SanitizePayloadField(emptyReason)) + candidates;
 	}
 
@@ -2111,6 +2118,8 @@ class HST_LoadoutEditorService
 		IEntity temp = SpawnTemporaryItem(prefab, playerEntity.GetOrigin());
 		if (!temp)
 			return false;
+
+		ClearSpawnedCargoStorageContents(temp);
 
 		bool compatible = false;
 		if (node.m_sKind == "slot")

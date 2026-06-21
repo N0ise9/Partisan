@@ -2830,13 +2830,23 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"ResolveRowOverlayRoot",
 	"SetRowChildLayer",
 	"CountStorageCandidatesForTab",
-	"m_Layout.m_iTabsHeight = ScalePx(90)",
-	"m_Layout.m_iTabsWidth = ClampInt(ScalePx(620)",
-	"m_Layout.m_iRailWidth = ClampInt(preferredRailWidth, ScalePx(360), ScalePx(500))",
-	"centeredRailLeft = m_Layout.m_iTabsLeft + Math.Max(0, (m_Layout.m_iTabsWidth - m_Layout.m_iRailWidth) / 2)",
+	"m_Layout.m_iTabsTop = ScalePx(92)",
+	"m_Layout.m_iTabHeight = ScalePx(72)",
+	"m_Layout.m_iTabWidth = ScalePx(72)",
+	"m_Layout.m_iTabGap = ScalePx(22)",
+	"m_Layout.m_iRailLeft = ScalePx(140)",
+	"m_Layout.m_iRailTop = m_Layout.m_iTabsTop + m_Layout.m_iTabHeight + ScalePx(18)",
+	"m_Layout.m_iRailWidth = ScalePx(470)",
+	"m_Layout.m_iRailBottom = h - ScalePx(110)",
+	"m_Layout.m_iMainLeft = m_Layout.m_iRailLeft + m_Layout.m_iRailWidth + ScalePx(22)",
+	"m_Layout.m_iMainWidth = w - m_Layout.m_iMainLeft - ScalePx(120)",
+	"m_Layout.m_iMainBottom = m_Layout.m_iRailBottom",
 	"m_Layout.m_iHeaderHeight = ScalePx(72)",
 	"m_Layout.m_iCategoryHeight = ScalePx(78)",
 	"int tabHeight = m_Layout.m_iCategoryHeight",
+	"int tabHeight = m_Layout.m_iTabHeight",
+	"int compactTabWidth = m_Layout.m_iTabWidth",
+	"tabLeft += tabWidth + m_Layout.m_iTabGap",
 	"int iconSize = ScalePx(58)",
 	"iconSize = ScalePx(62)",
 	"ShortenText(BuildStorageTargetLabel(), 110)",
@@ -2858,6 +2868,19 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"RenderCandidateRow",
 	"RenderSelectedNodeHeader",
 	"ReturnFromAttachmentCandidateToWeapon",
+	"m_sSelectedStorageContainerNodeId",
+	"m_sSelectedStoredItemNodeId",
+	"ResolveSelectedStorageContainerNodeId",
+	"SelectStorageContainerNode",
+	"SelectStoredItemNode",
+	"EnsureCandidatePayloadForStorageContainer",
+	"FindStorageBrowserCategoryIndex",
+	'weapon_group',
+	'clothing_group',
+	"ConfigurePreviewDimmer",
+	'HST_LoadoutDimmer',
+	'PositionPreviewEntityAtStage(m_PreviewEntity, "0 1.15 0")',
+	'PositionPreviewEntityAtStage(m_PreviewEntity, "0 0.95 0")',
 	"POST_ACTION_REFRESH_DELAY_MS",
 	"QueuePostActionRefresh",
 	"RequestPostActionRefresh",
@@ -2928,7 +2951,10 @@ foreach ($requiredLoadoutStorageServiceEntry in @(
 	'category == "backpack"',
 	'category == "handwear"',
 	"return IsStorageBrowserCandidateCategory(category)",
-	"ResolveArsenalCountForPrefab(state, item.m_sPrefab, availableCount, infiniteAvailable)"
+	"ResolveArsenalCountForPrefab(state, item.m_sPrefab, availableCount, infiniteAvailable)",
+	"candidateCount > 0",
+	'logReason = "ready"',
+	"ClearSpawnedCargoStorageContents(temp)"
 )) {
 	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutStorageServiceEntry)) {
 		throw "Loadout editor service is missing storage browser candidate category support: $requiredLoadoutStorageServiceEntry"
@@ -2994,6 +3020,9 @@ foreach ($forbiddenSpotlightToggleEntry in @(
 }
 if ($loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetPos(m_PreviewWidget") -or $loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetSize(m_PreviewWidget")) {
 	throw "Loadout editor must not set position/size on the full-anchor render-target layout widget"
+}
+if ($loadoutEditorComponentText -match [regex]::Escape("VCFlags.NOFILTER & VCFlags.NOLIGHT")) {
+	throw "Loadout editor preview must not collapse visual component flags with a bitwise AND"
 }
 $cargoStorageFilterMatch = [regex]::Match($loadoutEditorText, "protected bool IsCargoDepositStorage[\s\S]*?\r?\n\t}")
 if ($cargoStorageFilterMatch.Success -and $cargoStorageFilterMatch.Value -match "PURPOSE_EQUIPMENT_ATTACHMENT") {

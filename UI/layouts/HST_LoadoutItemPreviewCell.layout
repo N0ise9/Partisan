@@ -29,7 +29,7 @@ FrameWidgetClass "{7B2FD986A4D34210}" {
     OffsetRight 0
     OffsetBottom 0
    }
-   "Is Visible" 0
+   "Is Visible" 1
    Format LDR_sRGB
    "Use clear color" 1
    "Blend mode" Blend
