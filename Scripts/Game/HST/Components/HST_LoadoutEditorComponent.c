@@ -1487,7 +1487,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowText(row, "Count", "", 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
 		SetRowWidgetVisible(row, "Count", false);
 		if (!countText.IsEmpty())
-			CreateCountBadge(workspace, row, countText, ScalePx(270), ScalePx(22), ScalePx(76), ScalePx(24), userId);
+			CreateCountBadge(workspace, ResolveRowOverlayRoot(row), countText, ScalePx(270), ScalePx(22), ScalePx(76), ScalePx(24), userId);
 
 		AddNodePreviewToRow(workspace, row, nodeIndex, userId, Math.Min(m_Layout.m_iPreviewCellMedium, ScalePx(62)));
 	}
@@ -1515,7 +1515,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowText(tile, "Count", "", 0xFFFFD166, m_Layout.m_iFontTiny, true, false);
 		SetRowWidgetVisible(tile, "Count", false);
 		if (!countText.IsEmpty())
-			CreateCountBadge(workspace, tile, countText, ScalePx(254), ScalePx(34), ScalePx(78), ScalePx(26), userId);
+			CreateCountBadge(workspace, ResolveRowOverlayRoot(tile), countText, ScalePx(254), ScalePx(34), ScalePx(78), ScalePx(26), userId);
 		AddCandidatePreviewToRow(workspace, tile, candidateIndex, userId);
 	}
 
@@ -5505,6 +5505,29 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return row.FindAnyWidget(name);
 	}
 
+	protected Widget ResolveRowOverlayRoot(Widget row)
+	{
+		if (!row)
+			return null;
+
+		Widget body = FindRowWidget(row, "Body");
+		if (body)
+			return body;
+
+		Widget overlay = FindRowWidget(row, "Overlay");
+		if (overlay)
+			return overlay;
+
+		return row;
+	}
+
+	protected void SetRowChildLayer(Widget row, string widgetName, int zOrder)
+	{
+		Widget widget = FindRowWidget(row, widgetName);
+		if (widget)
+			widget.SetZOrder(zOrder);
+	}
+
 	protected void PrepareRowRoot(Widget row)
 	{
 		if (!row)
@@ -5512,6 +5535,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		row.SetVisible(true);
 		row.SetOpacity(1.0);
+		SetRowChildLayer(row, "Body", 0);
+		SetRowChildLayer(row, "Background", 0);
+		SetRowChildLayer(row, "PreviewBack", 4);
+		SetRowChildLayer(row, "VolumeBack", 4);
+		SetRowChildLayer(row, "VolumeFill", 6);
+		SetRowChildLayer(row, "PreviewAnchor", 20);
+		SetRowChildLayer(row, "Primary", 40);
+		SetRowChildLayer(row, "Secondary", 40);
+		SetRowChildLayer(row, "Meta", 40);
+		SetRowChildLayer(row, "Name", 40);
+		SetRowChildLayer(row, "Count", 50);
+		SetRowChildLayer(row, "OpenMarker", 50);
 	}
 
 	protected void DebugRowCreated(string label, Widget row)
@@ -5541,7 +5576,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		textWidget.SetOutline(1, 0xDD000000);
 		textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
 		textWidget.SetColorInt(color);
-		textWidget.SetZOrder(30);
+		textWidget.SetZOrder(40);
 	}
 
 	protected void SetRowWidgetVisible(Widget row, string widgetName, bool visible)
@@ -5677,7 +5712,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void CreateCountBadge(WorkspaceWidget workspace, Widget root, string text, int left, int top, int width, int height, int userId)
 	{
-		if (text.IsEmpty())
+		if (text.IsEmpty() || !workspace || !root)
 			return;
 
 		Widget back = CreateRectWidget(workspace, root, left, top, width, height, 0xE80A0E10, 1.0, userId);
