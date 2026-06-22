@@ -972,10 +972,21 @@ class HST_CampaignSaveData
 		target.m_eStatus = source.m_eStatus;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
 		target.m_sSupportRequestId = source.m_sSupportRequestId;
+		target.m_sGroupId = source.m_sGroupId;
+		target.m_sRuntimeStatus = source.m_sRuntimeStatus;
+		target.m_sResolutionKind = source.m_sResolutionKind;
+		target.m_sFailureReason = source.m_sFailureReason;
+		target.m_vSourcePosition = source.m_vSourcePosition;
+		target.m_vTargetPosition = source.m_vTargetPosition;
 		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
 		target.m_iResolveAtSecond = source.m_iResolveAtSecond;
+		target.m_iPhysicalizedAtSecond = source.m_iPhysicalizedAtSecond;
+		target.m_iResolvedAtSecond = source.m_iResolvedAtSecond;
 		target.m_iAttackCost = source.m_iAttackCost;
 		target.m_iSupportCost = source.m_iSupportCost;
+		target.m_bPhysicalized = source.m_bPhysicalized;
+		target.m_bAbstractResolved = source.m_bAbstractResolved;
+		target.m_bOutcomeApplied = source.m_bOutcomeApplied;
 		return target;
 	}
 
@@ -1161,6 +1172,28 @@ class HST_CampaignSaveData
 			request.m_sStrikeConfigResource = "";
 			if (request.m_sRuntimeEntityId.IsEmpty() && !request.m_sStrikeKind.IsEmpty())
 				request.m_sRuntimeEntityId = "abstract_strike";
+		}
+
+		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
+		{
+			if (!order)
+				continue;
+
+			if (order.m_sRuntimeStatus.IsEmpty())
+			{
+				if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED)
+					order.m_sRuntimeStatus = "resolved_legacy";
+				else if (!order.m_sSupportRequestId.IsEmpty())
+					order.m_sRuntimeStatus = "support_linked_legacy";
+				else
+					order.m_sRuntimeStatus = "active_legacy";
+			}
+
+			if (order.m_iResolvedAtSecond <= 0 && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED)
+				order.m_iResolvedAtSecond = order.m_iResolveAtSecond;
+
+			if (!order.m_sSupportRequestId.IsEmpty())
+				order.m_bPhysicalized = true;
 		}
 	}
 

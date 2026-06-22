@@ -1312,7 +1312,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_SupportRequests)
 			return "";
 
-		return m_SupportRequests.BuildSupportReport(m_State) + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
+		string report = m_SupportRequests.BuildSupportReport(m_State) + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
+		report = report + "\n" + m_EnemyCommander.BuildPhysicalResponseReport(m_State);
+		return report;
 	}
 
 	string RequestMemberInspectCivilians(int playerId)
@@ -2303,6 +2305,140 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report;
 	}
 
+	string RequestAdminPhase18SeedCounterattack(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 18 smoke | failed: admin required";
+
+		if (!m_EnemyCommander || !m_EnemyDirector || !m_Preset || !m_State)
+			return "h-istasi phase 18 smoke | failed: service not ready";
+
+		HST_ZoneState targetZone = SelectFirstResistanceCapturableZone();
+		if (!targetZone)
+			return "h-istasi phase 18 smoke | failed: no FIA strategic zone";
+
+		string factionKey = m_Preset.m_sOccupierFactionKey;
+		m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
+		bool queued = m_EnemyCommander.TryQueueImmediateCounterattack(
+			m_State,
+			m_Preset,
+			m_EnemyDirector,
+			m_SupportRequests,
+			factionKey,
+			targetZone,
+			100
+		);
+
+		if (queued)
+			MarkMajorCampaignChange(true);
+
+		return string.Format(
+			"h-istasi phase 18 smoke | counterattack seed target %1 | queued %2\n%3",
+			ResolveZoneLabel(targetZone),
+			queued,
+			m_EnemyCommander.BuildEnemyOrderReport(m_State)
+		);
+	}
+
+	string RequestAdminPhase18SeedRebuild(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 18 smoke | failed: admin required";
+
+		if (!m_EnemyCommander || !m_EnemyDirector || !m_Preset || !m_State)
+			return "h-istasi phase 18 smoke | failed: service not ready";
+
+		HST_ZoneState targetZone = SelectEnemyOrderTargetZone(false);
+		if (!targetZone)
+			return "h-istasi phase 18 smoke | failed: no enemy target zone";
+
+		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(
+			m_State,
+			m_Preset,
+			m_EnemyDirector,
+			targetZone.m_sOwnerFactionKey,
+			targetZone,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+		);
+
+		if (order)
+			MarkMajorCampaignChange(true);
+
+		return string.Format("h-istasi phase 18 smoke | rebuild seed %1\n%2", order != null, m_EnemyCommander.BuildEnemyOrderReport(m_State));
+	}
+
+	string RequestAdminPhase18SeedRoadblock(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 18 smoke | failed: admin required";
+
+		if (!m_EnemyCommander || !m_EnemyDirector || !m_Preset || !m_State)
+			return "h-istasi phase 18 smoke | failed: service not ready";
+
+		HST_ZoneState targetZone = SelectTownOrderTargetZone();
+		if (!targetZone)
+			return "h-istasi phase 18 smoke | failed: no town target";
+
+		string factionKey = m_Preset.m_sOccupierFactionKey;
+		m_EnemyDirector.AddResources(m_State, factionKey, 50, 50);
+
+		HST_CivilianZoneState civilianZone = m_State.FindCivilianZone(targetZone.m_sZoneId);
+		if (!civilianZone)
+		{
+			civilianZone = new HST_CivilianZoneState();
+			civilianZone.m_sZoneId = targetZone.m_sZoneId;
+			m_State.m_aCivilianZones.Insert(civilianZone);
+		}
+
+		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(
+			m_State,
+			m_Preset,
+			m_EnemyDirector,
+			factionKey,
+			targetZone,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK
+		);
+
+		if (order)
+			MarkMajorCampaignChange(true);
+
+		return string.Format("h-istasi phase 18 smoke | roadblock seed %1\n%2", order != null, m_EnemyCommander.BuildEnemyOrderReport(m_State));
+	}
+
+	string RequestAdminPhase18ResolveNow(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 18 smoke | failed: admin required";
+
+		if (!m_EnemyCommander)
+			return "h-istasi phase 18 smoke | failed: enemy commander not ready";
+
+		int resolved = m_EnemyCommander.DebugResolveDueOrdersNow(m_State, m_Preset, m_Garrisons);
+		if (resolved > 0)
+			MarkMajorCampaignChange(true);
+
+		return string.Format("h-istasi phase 18 smoke | resolved %1 order(s)\n%2", resolved, m_EnemyCommander.BuildEnemyOrderReport(m_State));
+	}
+
+	string RequestAdminPhase18Report(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 18 smoke | failed: admin required";
+
+		string report = "h-istasi phase 18 smoke report";
+		if (m_EnemyCommander)
+		{
+			report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
+			report = report + "\n" + m_EnemyCommander.BuildPhysicalResponseReport(m_State);
+		}
+		if (m_SupportRequests)
+			report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		if (m_CommandUI)
+			report = report + "\n" + m_CommandUI.BuildEconomyReport(m_State);
+
+		return report;
+	}
+
 	protected HST_ZoneState SelectPhase16FriendlyRecruitZone()
 	{
 		if (!m_State || !m_Preset)
@@ -2354,6 +2490,63 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return null;
 	}
 
+	protected HST_ZoneState SelectEnemyOrderTargetZone(bool includeResistanceOwned)
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		string resistanceFactionKey = m_Preset.m_sResistanceFactionKey;
+		if (resistanceFactionKey.IsEmpty())
+			resistanceFactionKey = "FIA";
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+			if (!includeResistanceOwned && zone.m_sOwnerFactionKey == resistanceFactionKey)
+				continue;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+			if (zone.m_sOwnerFactionKey == m_Preset.m_sOccupierFactionKey || zone.m_sOwnerFactionKey == m_Preset.m_sInvaderFactionKey)
+				return zone;
+		}
+
+		foreach (HST_ZoneState fallback : m_State.m_aZones)
+		{
+			if (!fallback)
+				continue;
+			if (!includeResistanceOwned && fallback.m_sOwnerFactionKey == resistanceFactionKey)
+				continue;
+			if (fallback.m_eType != HST_EZoneType.HST_ZONE_HIDEOUT && fallback.m_eType != HST_EZoneType.HST_ZONE_MISSION_SITE)
+				return fallback;
+		}
+
+		return null;
+	}
+
+	protected HST_ZoneState SelectTownOrderTargetZone()
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		string resistanceFactionKey = m_Preset.m_sResistanceFactionKey;
+		if (resistanceFactionKey.IsEmpty())
+			resistanceFactionKey = "FIA";
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (zone && zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_sOwnerFactionKey != resistanceFactionKey)
+				return zone;
+		}
+
+		foreach (HST_ZoneState fallback : m_State.m_aZones)
+		{
+			if (fallback && fallback.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+				return fallback;
+		}
+
+		return null;
+	}
 	protected HST_ZoneState SelectFirstResistanceCapturableZone()
 	{
 		if (!m_State || !m_Preset)

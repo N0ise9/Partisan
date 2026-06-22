@@ -99,6 +99,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|garage_cargo=%1|garage_sources=%2|runtime_sources=%3", CountSmokeGarageStoredCargo(state), CountGarageSourceVehicles(state), CountRuntimeSourceVehicles(state));
 		summary = summary + string.Format("|training=%1|fia_garrisons=%2|garrison_infantry=%3|garrison_vehicles=%4", state.m_iTrainingLevel, CountGarrisonsByFaction(state, "FIA"), CountGarrisonInfantry(state), CountGarrisonVehicles(state));
 		summary = summary + string.Format("|fia_zones=%1|capture_progress_sum=%2|capturable_enemy_zones=%3", CountZonesOwnedBy(state, "FIA"), SumCaptureProgress(state), CountCapturableEnemyZones(state, "FIA"));
+		summary = summary + string.Format("|enemy_orders_active=%1|enemy_orders_physical=%2|enemy_orders_abstract=%3|support_linked_orders=%4", CountEnemyOrdersByStatus(state, HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE), CountPhysicalizedEnemyOrders(state), CountAbstractResolvedEnemyOrders(state), CountSupportLinkedEnemyOrders(state));
 		return summary;
 	}
 
@@ -709,8 +710,16 @@ class HST_PersistenceSmokeTestService
 			order.m_sTargetZoneId = targetZone.m_sZoneId;
 		order.m_iCreatedAtSecond = state.m_iElapsedSeconds;
 		order.m_iResolveAtSecond = state.m_iElapsedSeconds;
+		order.m_iResolvedAtSecond = state.m_iElapsedSeconds;
 		order.m_iAttackCost = 0;
 		order.m_iSupportCost = 0;
+		order.m_sRuntimeStatus = "persistence_smoke";
+		order.m_sResolutionKind = "seeded";
+		if (targetZone)
+		{
+			order.m_vTargetPosition = targetZone.m_vPosition;
+			order.m_vSourcePosition = targetZone.m_vPosition;
+		}
 	}
 
 	protected void EnsureSmokeCivilianZone(HST_CampaignState state, HST_ZoneState targetZone)
@@ -872,6 +881,49 @@ class HST_PersistenceSmokeTestService
 		return count;
 	}
 
+	protected int CountEnemyOrdersByStatus(HST_CampaignState state, HST_EEnemyOrderStatus status)
+	{
+		int count;
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (order && order.m_eStatus == status)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountPhysicalizedEnemyOrders(HST_CampaignState state)
+	{
+		int count;
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (order && order.m_bPhysicalized)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountAbstractResolvedEnemyOrders(HST_CampaignState state)
+	{
+		int count;
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (order && order.m_bAbstractResolved)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountSupportLinkedEnemyOrders(HST_CampaignState state)
+	{
+		int count;
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (order && !order.m_sSupportRequestId.IsEmpty())
+				count++;
+		}
+		return count;
+	}
 	protected int BuildSummaryHash(HST_CampaignState state, int activeMissions)
 	{
 		int hash = 17;

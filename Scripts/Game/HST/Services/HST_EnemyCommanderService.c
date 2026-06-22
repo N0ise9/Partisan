@@ -2,6 +2,7 @@ class HST_EnemyCommanderService
 {
 	static const int ORDER_TICK_SECONDS = 180;
 	static const int ORDER_RESOLVE_SECONDS = 420;
+	static const int PHYSICAL_ORDER_TIMEOUT_SECONDS = 300;
 	protected int m_iOrderAccumulatorSeconds;
 
 	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, HST_GarrisonService garrisons, int elapsedSeconds)
@@ -10,7 +11,8 @@ class HST_EnemyCommanderService
 			return false;
 
 		m_iOrderAccumulatorSeconds += elapsedSeconds;
-		bool changed = ResolveOrders(state, garrisons);
+		bool changed = TickActiveOrderRuntime(state, preset, support, garrisons);
+		changed = ResolveOrders(state, preset, garrisons) || changed;
 		if (m_iOrderAccumulatorSeconds < ORDER_TICK_SECONDS)
 			return changed;
 
@@ -43,6 +45,9 @@ class HST_EnemyCommanderService
 		int queued;
 		int active;
 		int resolved;
+		int aborted;
+		int physicalized;
+		int abstractResolved;
 		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
 		{
 			if (!order)
@@ -54,36 +59,103 @@ class HST_EnemyCommanderService
 				active++;
 			else if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED)
 				resolved++;
+			else if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
+				aborted++;
+
+			if (order.m_bPhysicalized)
+				physicalized++;
+			if (order.m_bAbstractResolved)
+				abstractResolved++;
 		}
 
-		string report = string.Format("h-istasi enemy commander | queued %1 | active %2 | resolved %3", queued, active, resolved);
+		string report = string.Format(
+			"h-istasi enemy commander | queued %1 | active %2 | resolved %3 | aborted %4 | physicalized %5 | abstract %6",
+			queued,
+			active,
+			resolved,
+			aborted,
+			physicalized,
+			abstractResolved
+		);
+
 		int emitted;
 		for (int i = state.m_aEnemyOrders.Count() - 1; i >= 0; i--)
 		{
 			HST_EnemyOrderState orderDetail = state.m_aEnemyOrders[i];
 			if (!orderDetail)
 				continue;
-			if (orderDetail.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
-				continue;
 
-			report = report + string.Format(
-				"\n%1 | %2 | faction %3 | target %4 | support %5 | resolve %6 | cost %7/%8",
+			string detail = string.Format(
+				"\n%1 | %2 | %3 | faction %4 | target %5 | runtime %6 | support %7 | group %8 | resolve %9",
 				orderDetail.m_sOrderId,
+				orderDetail.m_eType,
 				orderDetail.m_eStatus,
 				orderDetail.m_sFactionKey,
 				orderDetail.m_sTargetZoneId,
+				orderDetail.m_sRuntimeStatus,
 				orderDetail.m_sSupportRequestId,
-				orderDetail.m_iResolveAtSecond,
+				orderDetail.m_sGroupId,
+				orderDetail.m_iResolveAtSecond
+			);
+			detail = detail + string.Format(
+				" | result %1 | fail %2 | cost %3/%4",
+				orderDetail.m_sResolutionKind,
+				orderDetail.m_sFailureReason,
 				orderDetail.m_iAttackCost,
 				orderDetail.m_iSupportCost
 			);
+			report = report + detail;
 
 			emitted++;
-			if (emitted >= 5)
+			if (emitted >= 12)
 				break;
 		}
 
 		return report;
+	}
+
+	string BuildPhysicalResponseReport(HST_CampaignState state)
+	{
+		if (!state)
+			return "h-istasi enemy physical response | state not ready";
+
+		int linkedSupport;
+		int linkedGroups;
+		int activePhysicalGroups;
+		int abstractPending;
+		int physicalPending;
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (!order)
+				continue;
+
+			if (!order.m_sSupportRequestId.IsEmpty())
+				linkedSupport++;
+			if (!order.m_sGroupId.IsEmpty())
+				linkedGroups++;
+			if (order.m_bPhysicalized && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+				physicalPending++;
+			if (!order.m_bPhysicalized && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+				abstractPending++;
+		}
+
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (!group)
+				continue;
+
+			if (group.m_sRuntimeStatus == "support_active" || group.m_sRuntimeStatus == "support_arrived")
+				activePhysicalGroups++;
+		}
+
+		return string.Format(
+			"h-istasi enemy physical response | support links %1 | group links %2 | support-active groups %3 | abstract pending %4 | physical pending %5",
+			linkedSupport,
+			linkedGroups,
+			activePhysicalGroups,
+			abstractPending,
+			physicalPending
+		);
 	}
 
 	bool TryQueueImmediateCounterattack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState capturedZone, int chancePercent)
@@ -125,12 +197,56 @@ class HST_EnemyCommanderService
 		return queued;
 	}
 
+	HST_EnemyOrderState QueueDebugOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
+	{
+		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
+			return null;
+
+		if (!state.FindFactionPool(factionKey))
+			return null;
+
+		enemyDirector.AddResources(state, factionKey, 100, 100);
+		int beforeCount = state.m_aEnemyOrders.Count();
+		if (!QueueOrder(state, preset, enemyDirector, null, factionKey, targetZone, orderType))
+			return null;
+
+		if (state.m_aEnemyOrders.Count() <= beforeCount)
+			return null;
+
+		return state.m_aEnemyOrders[state.m_aEnemyOrders.Count() - 1];
+	}
+
+	int DebugResolveDueOrdersNow(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons)
+	{
+		if (!state)
+			return 0;
+
+		int resolved;
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (!order || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+				continue;
+
+			order.m_iResolveAtSecond = state.m_iElapsedSeconds;
+			resolved++;
+		}
+
+		ResolveOrders(state, preset, garrisons);
+		return resolved;
+	}
+
 	protected bool QueueOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
 	{
+		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
+			return false;
+
 		int attackCost;
 		int supportCost;
 		ResolveOrderCosts(orderType, attackCost, supportCost);
 		if (!enemyDirector.CanAfford(state, factionKey, attackCost, supportCost))
+			return false;
+
+		if (!enemyDirector.TrySpend(state, factionKey, attackCost, supportCost))
 			return false;
 
 		HST_EnemyOrderState order = new HST_EnemyOrderState();
@@ -139,25 +255,13 @@ class HST_EnemyCommanderService
 		order.m_eType = orderType;
 		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
 		order.m_sTargetZoneId = targetZone.m_sZoneId;
+		order.m_sRuntimeStatus = "active_abstract_pending";
+		order.m_vTargetPosition = targetZone.m_vPosition;
+		order.m_vSourcePosition = ResolveOrderSourcePosition(state, preset, factionKey, targetZone);
 		order.m_iCreatedAtSecond = state.m_iElapsedSeconds;
 		order.m_iResolveAtSecond = state.m_iElapsedSeconds + ORDER_RESOLVE_SECONDS;
 		order.m_iAttackCost = attackCost;
 		order.m_iSupportCost = supportCost;
-
-		HST_ESupportRequestType supportType = SupportTypeForOrder(state, preset, targetZone, orderType);
-		if (support && supportType != HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
-		{
-			HST_SupportRequestState request = support.RequestSupport(state, preset, null, enemyDirector, factionKey, supportType, targetZone.m_sZoneId, false);
-			if (request)
-				order.m_sSupportRequestId = request.m_sRequestId;
-			else
-				return false;
-		}
-		else if (!enemyDirector.TrySpend(state, factionKey, attackCost, supportCost))
-		{
-			return false;
-		}
-
 		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
 		state.m_aEnemyOrders.Insert(order);
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
@@ -166,9 +270,176 @@ class HST_EnemyCommanderService
 		return true;
 	}
 
-	protected bool ResolveOrders(HST_CampaignState state, HST_GarrisonService garrisons)
+	protected bool TickActiveOrderRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestService support, HST_GarrisonService garrisons)
 	{
 		bool changed;
+		if (!state)
+			return false;
+
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (!order || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+				continue;
+
+			if (ShouldPhysicalizeOrder(state, preset, order))
+				changed = TryPhysicalizeOrder(state, preset, support, order) || changed;
+
+			changed = SyncPhysicalizedOrder(state, order) || changed;
+		}
+
+		return changed;
+	}
+
+	protected bool IsPhysicalizableOrderType(HST_EEnemyOrderType orderType)
+	{
+		return orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			|| orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			|| orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL
+			|| orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
+	}
+
+	protected bool ShouldPhysicalizeOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyOrderState order)
+	{
+		if (!state || !preset || !order || order.m_bPhysicalized || !IsPhysicalizableOrderType(order.m_eType))
+			return false;
+
+		if (order.m_sRuntimeStatus == "physicalize_failed")
+			return false;
+
+		HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+		if (!targetZone)
+			return false;
+
+		if (targetZone.m_bActive)
+			return true;
+
+		if (HasActiveMissionNearZone(state, targetZone))
+			return true;
+
+		if (HasActiveObjectiveNearZone(state, targetZone))
+			return true;
+
+		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK && IsPetrosAttackTargetInsidePlayerEventBubble(state))
+			return true;
+
+		vector targetPosition = order.m_vTargetPosition;
+		if (targetPosition[0] == 0 && targetPosition[1] == 0 && targetPosition[2] == 0)
+			targetPosition = targetZone.m_vPosition;
+
+		return HST_WorldPositionService.IsPositionInsidePlayerEventBubble(targetPosition);
+	}
+
+	protected bool TryPhysicalizeOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestService support, HST_EnemyOrderState order)
+	{
+		if (!state || !preset || !support || !order || order.m_bPhysicalized)
+			return false;
+
+		HST_ESupportRequestType supportType = SupportTypeForOrder(state, preset, state.FindZone(order.m_sTargetZoneId), order.m_eType);
+		HST_SupportRequestState request = support.RequestPrepaidEnemySupport(
+			state,
+			preset,
+			order.m_sFactionKey,
+			supportType,
+			order.m_sTargetZoneId,
+			order.m_vSourcePosition,
+			order.m_vTargetPosition
+		);
+
+		if (!request)
+		{
+			order.m_sFailureReason = "physical support request could not be created";
+			order.m_sRuntimeStatus = "physicalize_failed";
+			return true;
+		}
+
+		order.m_sSupportRequestId = request.m_sRequestId;
+		order.m_bPhysicalized = true;
+		order.m_iPhysicalizedAtSecond = state.m_iElapsedSeconds;
+		order.m_sRuntimeStatus = "physical_support_queued";
+		Print(string.Format("h-istasi enemy commander | order %1 physicalized via support %2", order.m_sOrderId, order.m_sSupportRequestId));
+		return true;
+	}
+
+	protected bool SyncPhysicalizedOrder(HST_CampaignState state, HST_EnemyOrderState order)
+	{
+		if (!state || !order || !order.m_bPhysicalized || order.m_sSupportRequestId.IsEmpty())
+			return false;
+
+		HST_SupportRequestState request = FindSupportRequest(state, order.m_sSupportRequestId);
+		if (!request)
+		{
+			if (order.m_sRuntimeStatus == "support_missing")
+				return false;
+
+			order.m_sFailureReason = "linked support request missing";
+			order.m_sRuntimeStatus = "support_missing";
+			return true;
+		}
+
+		bool changed;
+		if (order.m_sGroupId != request.m_sGroupId && !request.m_sGroupId.IsEmpty())
+		{
+			order.m_sGroupId = request.m_sGroupId;
+			order.m_sRuntimeStatus = "physical_group_linked";
+			changed = true;
+		}
+
+		if (!request.m_sFailureReason.IsEmpty() && order.m_sFailureReason != request.m_sFailureReason)
+		{
+			order.m_sFailureReason = request.m_sFailureReason;
+			changed = true;
+		}
+
+		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+		{
+			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
+			order.m_iResolvedAtSecond = state.m_iElapsedSeconds;
+			order.m_sRuntimeStatus = "aborted_support_cancelled";
+			order.m_sResolutionKind = "aborted";
+			changed = true;
+		}
+		else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
+		{
+			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
+			order.m_iResolvedAtSecond = state.m_iElapsedSeconds;
+			order.m_sRuntimeStatus = "resolved_physical_support";
+			order.m_sResolutionKind = "physical";
+			changed = true;
+		}
+
+		if (!order.m_sGroupId.IsEmpty())
+		{
+			HST_ActiveGroupState group = state.FindActiveGroup(order.m_sGroupId);
+			if (group && (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed"))
+			{
+				order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
+				order.m_iResolvedAtSecond = state.m_iElapsedSeconds;
+				order.m_sRuntimeStatus = "resolved_group_" + group.m_sRuntimeStatus;
+				order.m_sResolutionKind = "physical_group_terminal";
+				changed = true;
+			}
+		}
+
+		return changed;
+	}
+
+	protected HST_SupportRequestState FindSupportRequest(HST_CampaignState state, string requestId)
+	{
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (request && request.m_sRequestId == requestId)
+				return request;
+		}
+
+		return null;
+	}
+
+	protected bool ResolveOrders(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons)
+	{
+		bool changed;
+		if (!state)
+			return false;
+
 		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
 		{
 			if (!order || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
@@ -177,28 +448,162 @@ class HST_EnemyCommanderService
 			if (state.m_iElapsedSeconds < order.m_iResolveAtSecond)
 				continue;
 
+			if (order.m_bPhysicalized && !IsPhysicalizedOrderTimedOut(state, order))
+				continue;
+
 			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
-			ApplyResolvedOrder(state, garrisons, order);
+			order.m_iResolvedAtSecond = state.m_iElapsedSeconds;
+
+			if (order.m_bPhysicalized)
+			{
+				order.m_sResolutionKind = "physical_timeout";
+				order.m_sRuntimeStatus = "resolved_physical_timeout";
+			}
+			else
+			{
+				order.m_bAbstractResolved = true;
+				order.m_sResolutionKind = "abstract";
+				order.m_sRuntimeStatus = "resolved_abstract";
+				ApplyResolvedOrder(state, preset, garrisons, order);
+			}
+
 			changed = true;
 		}
 
 		return changed;
 	}
 
-	protected void ApplyResolvedOrder(HST_CampaignState state, HST_GarrisonService garrisons, HST_EnemyOrderState order)
+	protected bool IsPhysicalizedOrderTimedOut(HST_CampaignState state, HST_EnemyOrderState order)
 	{
-		if (!garrisons || !order)
+		if (!state || !order)
+			return true;
+
+		int timeoutSecond = order.m_iResolveAtSecond + PHYSICAL_ORDER_TIMEOUT_SECONDS;
+		return state.m_iElapsedSeconds >= timeoutSecond;
+	}
+
+	protected void ApplyResolvedOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_EnemyOrderState order)
+	{
+		if (!state || !order || order.m_bOutcomeApplied)
 			return;
 
 		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON)
-			garrisons.AddAbstractForces(state, order.m_sTargetZoneId, order.m_sFactionKey, 2 + state.m_iWarLevel, 0);
+		{
+			if (garrisons)
+				garrisons.AddAbstractForces(state, order.m_sTargetZoneId, order.m_sFactionKey, 2 + state.m_iWarLevel, 0);
+
+			order.m_sResolutionKind = "abstract_rebuild_garrison";
+			order.m_bOutcomeApplied = true;
+			return;
+		}
 
 		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK)
 		{
 			HST_CivilianZoneState civilianZone = state.FindCivilianZone(order.m_sTargetZoneId);
-			if (civilianZone)
-				civilianZone.m_iRoadblockPresence = Math.Min(3, civilianZone.m_iRoadblockPresence + 1);
+			if (!civilianZone)
+			{
+				civilianZone = new HST_CivilianZoneState();
+				civilianZone.m_sZoneId = order.m_sTargetZoneId;
+				state.m_aCivilianZones.Insert(civilianZone);
+			}
+
+			civilianZone.m_iRoadblockPresence = Math.Min(3, civilianZone.m_iRoadblockPresence + 1);
+			order.m_sResolutionKind = "abstract_roadblock";
+			order.m_bOutcomeApplied = true;
+			return;
 		}
+
+		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF)
+		{
+			HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+			if (targetZone)
+				targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - 20);
+
+			if (garrisons)
+				garrisons.AddAbstractForces(state, order.m_sTargetZoneId, order.m_sFactionKey, 1 + state.m_iWarLevel / 2, 0);
+
+			order.m_sResolutionKind = "abstract_qrf_pressure";
+			order.m_bOutcomeApplied = true;
+			return;
+		}
+
+		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+		{
+			ApplyAbstractCounterattack(state, preset, garrisons, order);
+			order.m_bOutcomeApplied = true;
+			return;
+		}
+
+		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL)
+		{
+			ApplyAbstractSupportPressure(state, preset, order);
+			order.m_bOutcomeApplied = true;
+			return;
+		}
+
+		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+		{
+			ApplyAbstractPetrosPressure(state, preset, order);
+			order.m_bOutcomeApplied = true;
+			return;
+		}
+
+		order.m_sResolutionKind = "abstract_patrol_completed";
+		order.m_bOutcomeApplied = true;
+	}
+
+	protected void ApplyAbstractCounterattack(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_EnemyOrderState order)
+	{
+		HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+		if (!targetZone)
+		{
+			order.m_sResolutionKind = "abstract_counterattack_missing_zone";
+			return;
+		}
+
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+
+		HST_GarrisonState fiaGarrison = state.FindGarrison(targetZone.m_sZoneId, resistanceFactionKey);
+		if (fiaGarrison && fiaGarrison.m_iInfantryCount > 0)
+		{
+			int casualties = Math.Max(1, state.m_iWarLevel / 2);
+			fiaGarrison.m_iInfantryCount = Math.Max(0, fiaGarrison.m_iInfantryCount - casualties);
+			order.m_sResolutionKind = string.Format("abstract_counterattack_fia_casualties_%1", casualties);
+			return;
+		}
+
+		targetZone.m_iSupport = Math.Max(-100, targetZone.m_iSupport - 8);
+		order.m_sResolutionKind = "abstract_counterattack_support_damage";
+	}
+
+	protected void ApplyAbstractSupportPressure(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyOrderState order)
+	{
+		HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+		if (!targetZone)
+		{
+			order.m_sResolutionKind = "abstract_support_missing_zone";
+			return;
+		}
+
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+
+		if (targetZone.m_sOwnerFactionKey == resistanceFactionKey)
+			targetZone.m_iSupport = Math.Max(-100, targetZone.m_iSupport - 6);
+		else
+			targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - 12);
+
+		order.m_sResolutionKind = "abstract_support_pressure";
+	}
+
+	protected void ApplyAbstractPetrosPressure(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyOrderState order)
+	{
+		state.m_iHQKnowledge = Math.Min(100, state.m_iHQKnowledge + 10);
+		state.m_iLastHQAttackSecond = state.m_iElapsedSeconds;
+		order.m_sResolutionKind = "abstract_petros_pressure";
 	}
 
 	protected HST_ZoneState SelectTargetZone(HST_CampaignState state, HST_CampaignPreset preset, string factionKey)
@@ -325,12 +730,83 @@ class HST_EnemyCommanderService
 		return false;
 	}
 
+	protected bool HasActiveObjectiveNearZone(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return false;
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_bComplete || objective.m_bFailed)
+				continue;
+
+			HST_ActiveMissionState mission = state.FindActiveMission(objective.m_sMissionInstanceId);
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+
+			if (objective.m_sTargetZoneId == zone.m_sZoneId)
+				return true;
+			if (DistanceSq2D(objective.m_vPosition, zone.m_vPosition) < 450000)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool IsPetrosAttackTargetInsidePlayerEventBubble(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		vector target = state.m_vPetrosPosition;
+		if (IsZeroVector(target))
+			target = state.m_vHQPosition;
+		if (IsZeroVector(target))
+			return false;
+
+		return HST_WorldPositionService.IsPositionInsidePlayerEventBubble(target);
+	}
+
+	protected bool IsZeroVector(vector value)
+	{
+		return value[0] == 0 && value[1] == 0 && value[2] == 0;
+	}
+
 	protected bool IsHQThreatZone(HST_CampaignState state, HST_ZoneState zone)
 	{
 		if (!state || !zone || !state.m_bHQDeployed)
 			return false;
 
 		return DistanceSq2D(state.m_vHQPosition, zone.m_vPosition) <= 1440000;
+	}
+
+	protected vector ResolveOrderSourcePosition(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone)
+	{
+		if (!state || !targetZone)
+			return "0 0 0";
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_sZoneId == targetZone.m_sZoneId)
+				continue;
+
+			if (zone.m_sOwnerFactionKey != factionKey)
+				continue;
+
+			float distanceSq = DistanceSq2D(zone.m_vPosition, targetZone.m_vPosition);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestZone = zone;
+				bestDistanceSq = distanceSq;
+			}
+		}
+
+		if (bestZone)
+			return bestZone.m_vPosition;
+
+		return targetZone.m_vPosition;
 	}
 
 	protected float DistanceSq2D(vector a, vector b)

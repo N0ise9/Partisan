@@ -75,6 +75,50 @@ class HST_SupportRequestService
 		return request;
 	}
 
+	HST_SupportRequestState RequestPrepaidEnemySupport(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, vector sourcePosition, vector targetPosition)
+	{
+		if (!state || !preset || factionKey.IsEmpty())
+			return null;
+
+		HST_ZoneState targetZone = state.FindZone(targetZoneId);
+		if (!targetZone)
+			return null;
+
+		HST_SupportRequestState request = new HST_SupportRequestState();
+		request.m_sRequestId = BuildRequestId(state, factionKey, supportType);
+		request.m_sFactionKey = factionKey;
+		request.m_sCapabilityId = CapabilityForSupport(supportType);
+		request.m_sAssetProfileId = AssetProfileForSupport(factionKey, supportType, false);
+		request.m_sStrikeKind = StrikeKindForSupport(supportType);
+		request.m_sStrikeConfigResource = StrikeConfigForSupport(supportType);
+		request.m_eType = supportType;
+		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+		request.m_sTargetZoneId = targetZone.m_sZoneId;
+		request.m_sSourceZoneId = FindSourceZoneId(state, preset, factionKey, targetZone.m_sZoneId);
+		request.m_vTargetPosition = targetPosition;
+		if (request.m_vTargetPosition[0] == 0 && request.m_vTargetPosition[1] == 0 && request.m_vTargetPosition[2] == 0)
+			request.m_vTargetPosition = targetZone.m_vPosition;
+		request.m_vSourcePosition = sourcePosition;
+		if (request.m_vSourcePosition[0] == 0 && request.m_vSourcePosition[1] == 0 && request.m_vSourcePosition[2] == 0)
+			request.m_vSourcePosition = ResolveSourcePosition(state, request.m_sSourceZoneId, request.m_vTargetPosition);
+		request.m_iRequestedAtSecond = state.m_iElapsedSeconds;
+		request.m_iETASeconds = ResolveETA(supportType);
+		int attackCost;
+		int supportCost;
+		ResolveCosts(supportType, attackCost, supportCost);
+		request.m_iAttackCost = attackCost;
+		request.m_iSupportCost = supportCost;
+		request.m_bHelicopterStyle = IsHelicopterStyle(supportType);
+		request.m_bPlayerRequested = false;
+		if (IsStrikeSupport(supportType))
+			request.m_sRuntimeEntityId = "abstract_strike";
+
+		state.m_aSupportRequests.Insert(request);
+		m_bMarkerRefreshNeeded = true;
+		Print(string.Format("h-istasi | prepaid enemy support %1 linked to order for %2 at %3", request.m_sRequestId, factionKey, targetZone.m_sZoneId));
+		return request;
+	}
+
 	bool ConsumeMarkerRefreshNeeded()
 	{
 		bool result = m_bMarkerRefreshNeeded;
@@ -128,6 +172,11 @@ class HST_SupportRequestService
 
 				if (request.m_bAbstractResolved && IsPhysicalSupportFinished(state, request))
 				{
+					HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
+					if (!group)
+						request.m_sFailureReason = "physical support group missing";
+					else
+						request.m_sFailureReason = "physical support group terminal: " + group.m_sRuntimeStatus;
 					request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
 					m_bMarkerRefreshNeeded = true;
 					changed = true;
@@ -174,11 +223,15 @@ class HST_SupportRequestService
 			if (!request)
 				continue;
 
-			string strike = "";
+			string detail = "";
 			if (!request.m_sStrikeConfigResource.IsEmpty())
-				strike = " | strike " + request.m_sStrikeKind + " | " + request.m_sStrikeConfigResource;
+				detail = " | strike " + request.m_sStrikeKind + " | " + request.m_sStrikeConfigResource;
+			if (!request.m_sFailureReason.IsEmpty())
+				detail = detail + " | fail " + request.m_sFailureReason;
 
-			report = report + string.Format("\n%1 | %2 | %3 | target %4 | eta %5 | asset %6%7", request.m_sRequestId, request.m_eType, request.m_eStatus, request.m_sTargetZoneId, request.m_iETASeconds, request.m_sAssetProfileId, strike);
+			string line = string.Format("\n%1 | %2 | %3 | target %4 | eta %5 | asset %6 | group %7", request.m_sRequestId, request.m_eType, request.m_eStatus, request.m_sTargetZoneId, request.m_iETASeconds, request.m_sAssetProfileId, request.m_sGroupId);
+			line = line + string.Format(" | abstract %1 | physicalStrike %2%3", request.m_bAbstractResolved, request.m_bPhysicalStrikeSpawned, detail);
+			report = report + line;
 		}
 
 		return report;

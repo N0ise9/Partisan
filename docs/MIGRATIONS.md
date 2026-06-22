@@ -2,10 +2,10 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `19`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `20`.
 
-- Phase 15 garage and vehicle persistence hardening adds source-vehicle
-  capability fields to the existing garage/runtime vehicle save records.
+- Phase 18 enemy commander physical responses add durable enemy-order
+  runtime fields while preserving runtime handles as non-persisted data.
 - The current save container captures campaign metadata, elapsed/save/restore
   counters, war resources, HQ/Petros/cache/arsenal/tent fields, faction pools,
   players, zones, garrisons, active groups, QRFs, map markers, arsenal items,
@@ -24,6 +24,15 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 20
+
+Phase 18 enemy commander physical responses.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `20`.
+- Enemy order records now persist support/group linkage, runtime status, source/target positions, physicalization time, resolution time, resolution kind, failure reason, and outcome flags.
+- Existing schema-19 enemy orders are backfilled from status and support-request linkage.
+- Raw `IEntity`, `AIGroup`, support component handles, and spawned entity references remain runtime-only and are not persisted.
 
 ## Schema 19
 
