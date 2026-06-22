@@ -1185,6 +1185,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_MapMarkers.BuildMarkerReport(m_State);
 	}
 
+	string RequestMemberInspectCapture(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi capture | server required";
+		if (!CanPlayerUseMemberActions(playerId) && !CanPlayerUseAdminActions(playerId))
+			return "h-istasi capture | membership required";
+		if (!m_ZoneCapture)
+			return "h-istasi capture | service not ready";
+
+		return m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance);
+	}
+
 	string RequestMemberInspectEconomy(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_CommandUI)
@@ -2133,6 +2145,164 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report;
 	}
 
+	string RequestAdminPhase17SeedCapture(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 17 smoke | failed: admin required";
+
+		if (!m_State || !m_Preset || !m_ZoneCapture)
+			return "h-istasi phase 17 smoke | failed: service not ready";
+
+		HST_ZoneState zone = SelectPhase17CaptureTarget();
+		if (!zone)
+			return "h-istasi phase 17 smoke | failed: no capturable target";
+
+		zone.m_sOwnerFactionKey = m_Preset.m_sOccupierFactionKey;
+		zone.m_iResistanceCaptureProgress = 0;
+		zone.m_bActive = false;
+		zone.m_iActiveInfantryCount = 0;
+		zone.m_iActiveVehicleCount = 0;
+
+		if (m_Garrisons)
+		{
+			HST_GarrisonState enemyGarrison = m_State.FindGarrison(zone.m_sZoneId, m_Preset.m_sOccupierFactionKey);
+			if (!enemyGarrison)
+				enemyGarrison = m_Garrisons.FindOrCreate(m_State, zone.m_sZoneId, m_Preset.m_sOccupierFactionKey);
+
+			if (enemyGarrison)
+			{
+				enemyGarrison.m_iInfantryCount = 0;
+				enemyGarrison.m_iVehicleCount = 0;
+			}
+		}
+
+		if (m_PhysicalWar)
+			m_PhysicalWar.CleanupCapturedZoneHostileRuntime(m_State, zone.m_sZoneId, m_Preset.m_sResistanceFactionKey);
+
+		MarkMajorCampaignChange(true);
+		return string.Format(
+			"h-istasi phase 17 smoke | seeded empty capturable zone %1 | owner %2 | progress %3",
+			ResolveZoneLabel(zone),
+			zone.m_sOwnerFactionKey,
+			zone.m_iResistanceCaptureProgress
+		);
+	}
+
+	string RequestAdminPhase17ForceProgress(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 17 smoke | failed: admin required";
+
+		if (!m_State || !m_Preset || !m_ZoneCapture)
+			return "h-istasi phase 17 smoke | failed: service not ready";
+
+		HST_ZoneState zone = SelectPhase17CaptureTarget();
+		if (!zone)
+			return "h-istasi phase 17 smoke | failed: no capturable target";
+
+		int progress = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
+		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
+			progress = m_Balance.m_iCaptureProgressRequired;
+
+		bool changed = m_ZoneCapture.AddResistanceCaptureProgress(
+			m_State,
+			m_Preset,
+			m_Strategic,
+			m_Economy,
+			m_Balance,
+			zone.m_sZoneId,
+			progress,
+			10,
+			m_Garrisons,
+			m_EnemyCommander,
+			m_EnemyDirector,
+			m_SupportRequests
+		);
+
+		bool markerChanged;
+		if (changed)
+			markerChanged = BroadcastCaptureChangeNotifications();
+		if (changed)
+			MarkMajorCampaignChange(markerChanged);
+
+		return string.Format(
+			"h-istasi phase 17 smoke | force progress %1 | changed %2 | marker %3\n%4",
+			zone.m_sZoneId,
+			changed,
+			markerChanged,
+			m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance)
+		);
+	}
+
+	string RequestAdminPhase17ForceCounterattack(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 17 smoke | failed: admin required";
+
+		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
+			return "h-istasi phase 17 smoke | failed: enemy services not ready";
+
+		HST_ZoneState zone = SelectFirstResistanceCapturableZone();
+		if (!zone)
+			return "h-istasi phase 17 smoke | failed: no captured FIA zone";
+
+		string factionKey = m_Preset.m_sOccupierFactionKey;
+		m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
+		bool queued = m_EnemyCommander.TryQueueImmediateCounterattack(
+			m_State,
+			m_Preset,
+			m_EnemyDirector,
+			m_SupportRequests,
+			factionKey,
+			zone,
+			100
+		);
+
+		MarkMajorCampaignChange(true);
+		return string.Format(
+			"h-istasi phase 17 smoke | force counterattack at %1 | queued %2\n%3",
+			ResolveZoneLabel(zone),
+			queued,
+			m_EnemyCommander.BuildEnemyOrderReport(m_State)
+		);
+	}
+
+	string RequestAdminPhase17Report(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 17 smoke | failed: admin required";
+
+		string report = "h-istasi phase 17 smoke report";
+		if (m_ZoneCapture)
+			report = report + "\n" + m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance);
+		if (m_MapMarkers)
+			report = report + "\n" + m_MapMarkers.BuildMarkerReport(m_State);
+		if (m_EnemyCommander)
+			report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
+
+		HST_ZoneState captured = SelectFirstResistanceCapturableZone();
+		if (captured && m_State)
+		{
+			HST_MapMarkerState marker = m_State.FindMapMarker("hst_zone_" + captured.m_sZoneId);
+			if (marker)
+			{
+				report = report + string.Format(
+					"\nphase17 marker check | %1 | owner %2 | color %3 | style %4",
+					marker.m_sMarkerId,
+					marker.m_sOwnerFactionKey,
+					marker.m_sColorHint,
+					marker.m_sStyleHint
+				);
+			}
+			else
+			{
+				report = report + string.Format("\nphase17 marker check | missing hst_zone_%1", captured.m_sZoneId);
+			}
+		}
+
+		return report;
+	}
+
 	protected HST_ZoneState SelectPhase16FriendlyRecruitZone()
 	{
 		if (!m_State || !m_Preset)
@@ -2154,6 +2324,73 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return null;
+	}
+
+	protected HST_ZoneState SelectPhase17CaptureTarget()
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+			if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+				continue;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST)
+				return zone;
+		}
+
+		foreach (HST_ZoneState fallback : m_State.m_aZones)
+		{
+			if (!fallback)
+				continue;
+			if (fallback.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+				continue;
+			if (IsPhase17CapturableZone(fallback))
+				return fallback;
+		}
+
+		return null;
+	}
+
+	protected HST_ZoneState SelectFirstResistanceCapturableZone()
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+			if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+				continue;
+			if (IsPhase17CapturableZone(zone))
+				return zone;
+		}
+
+		return null;
+	}
+
+	protected bool IsPhase17CapturableZone(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST)
+			return true;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
+			return true;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+			return true;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+			return true;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD)
+			return true;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+			return true;
+
+		return false;
 	}
 
 	string RequestAdminPhase15SeedGarage(int playerId)
@@ -2857,7 +3094,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 			bool ownershipFlip = IsOwnershipFlipNotification(notification.m_sEventId, "capture");
 			if (ownershipFlip)
+			{
 				markerRefreshNeeded = true;
+				if (m_PhysicalWar && m_Preset)
+				{
+					if (m_PhysicalWar.CleanupCapturedZoneHostileRuntime(m_State, notification.m_sZoneId, m_Preset.m_sResistanceFactionKey))
+						markerRefreshNeeded = true;
+				}
+			}
 			else if (!ShouldBroadcastNotificationInPlayerBubble(notification.m_sEventId, "capture", notification.m_sZoneId, notification.m_vPosition))
 				continue;
 
@@ -4025,7 +4269,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string blockedReason = status.m_sBlockedReason;
 			if (blockedReason.IsEmpty())
 				blockedReason = "clear";
-			captureSummary = captureSummary + string.Format(" | radius %1m | FIA %2 | enemies %3+%4v | %5", status.m_iCaptureRadiusMeters, status.m_iFIACountNearby, status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby, blockedReason);
+			captureSummary = captureSummary + string.Format(" | radius %1m | players %2 | FIA AI %3 | FIA veh %4", status.m_iCaptureRadiusMeters, status.m_iPlayerCountNearby, status.m_iFriendlyInfantryCountNearby, status.m_iFriendlyVehicleCountNearby);
+			captureSummary = captureSummary + string.Format(" | enemies %1+%2v | %3", status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby, blockedReason);
 		}
 		string forceSummary = string.Format(" | garrison %1 infantry/%2 vehicles | active %3/%4", infantry, vehicles, zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount);
 		string qrfSummary = string.Format(" | QRF cooldown %1", zone.m_iQrfCooldownUntilSecond);

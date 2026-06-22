@@ -7,9 +7,15 @@ class HST_ZoneCaptureStatus
 	bool m_bCapturable;
 	int m_iCaptureRadiusMeters;
 	int m_iFIACountNearby;
+	int m_iPlayerCountNearby;
+	int m_iFriendlyInfantryCountNearby;
+	int m_iFriendlyVehicleCountNearby;
 	int m_iEnemyCountNearby;
 	int m_iEnemyVehicleCountNearby;
+	int m_iRequiredProgress;
+	int m_iRawProgress;
 	int m_iProgressPercent;
+	bool m_bConquestGated;
 	string m_sBlockedReason;
 }
 
@@ -54,8 +60,7 @@ class HST_ZoneCaptureService
 		if (!CaptureZone(state, strategic, economy, balance, zoneId, preset.m_sResistanceFactionKey, preset.m_sResistanceFactionKey))
 			return false;
 
-		if (garrisons)
-			garrisons.FindOrCreate(state, zoneId, preset.m_sResistanceFactionKey);
+		EnsureCapturedZoneResistanceGarrison(state, preset, garrisons, zone);
 
 		if (!oldOwner.IsEmpty() && oldOwner != preset.m_sResistanceFactionKey)
 		{
@@ -165,6 +170,8 @@ class HST_ZoneCaptureService
 		status.m_sOwnerFactionKey = zone.m_sOwnerFactionKey;
 		status.m_bCapturable = IsDirectlyCapturableZone(zone);
 		status.m_iCaptureRadiusMeters = ResolveCaptureRadius(zone, balance);
+		status.m_iRequiredProgress = ResolveCaptureProgressRequired(balance);
+		status.m_iRawProgress = Math.Max(0, zone.m_iResistanceCaptureProgress);
 		status.m_iProgressPercent = ResolveProgressPercent(zone, balance);
 		if (!status.m_bCapturable)
 		{
@@ -176,28 +183,88 @@ class HST_ZoneCaptureService
 		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
 			resistanceFactionKey = preset.m_sResistanceFactionKey;
 
-		status.m_iFIACountNearby = CountLivingPlayersInCaptureRadius(zone, balance);
+		status.m_iPlayerCountNearby = CountLivingPlayersInCaptureRadius(zone, balance);
+		int friendlyInfantry;
+		int friendlyVehicles;
+		CountFriendlyForcesInCaptureRadius(state, zone, balance, resistanceFactionKey, friendlyInfantry, friendlyVehicles);
+		status.m_iFriendlyInfantryCountNearby = friendlyInfantry;
+		status.m_iFriendlyVehicleCountNearby = friendlyVehicles;
+		status.m_iFIACountNearby = status.m_iPlayerCountNearby + status.m_iFriendlyInfantryCountNearby;
 		int enemyInfantry;
 		int enemyVehicles;
 		CountHostilesInCaptureRadius(state, zone, balance, resistanceFactionKey, enemyInfantry, enemyVehicles);
 		status.m_iEnemyCountNearby = enemyInfantry;
 		status.m_iEnemyVehicleCountNearby = enemyVehicles;
 		status.m_bContested = status.m_iFIACountNearby > 0 && zone.m_sOwnerFactionKey != resistanceFactionKey;
+		status.m_bConquestGated = HasIncompleteConquestMission(state, zone) && zone.m_iResistanceCaptureProgress >= Math.Min(CONQUEST_OBJECTIVE_PROGRESS_CAP, ResolveCaptureProgressRequired(balance) - 1);
 
 		if (zone.m_sOwnerFactionKey == resistanceFactionKey)
 			status.m_sBlockedReason = "already FIA";
 		else if (status.m_iFIACountNearby <= 0)
 			status.m_sBlockedReason = "no FIA in radius";
-		else if (status.m_iEnemyCountNearby > 0)
-			status.m_sBlockedReason = "enemies remain";
 		else if (status.m_iEnemyVehicleCountNearby > 0)
 			status.m_sBlockedReason = "hostile vehicles remain";
-		else if (HasIncompleteConquestMission(state, zone) && zone.m_iResistanceCaptureProgress >= Math.Min(CONQUEST_OBJECTIVE_PROGRESS_CAP, ResolveCaptureProgressRequired(balance) - 1))
+		else if (status.m_iEnemyCountNearby > 0)
+			status.m_sBlockedReason = "enemies remain";
+		else if (status.m_bConquestGated)
 			status.m_sBlockedReason = "conquest objective incomplete";
 		else
 			status.m_sBlockedReason = "";
 
 		return status;
+	}
+
+	string BuildCaptureReport(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int maxRows = 20)
+	{
+		if (!state)
+			return "h-istasi capture | campaign state not ready";
+
+		string report = "h-istasi capture | strategic capture report";
+		int emitted;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || emitted >= maxRows)
+				continue;
+
+			HST_ZoneCaptureStatus status = BuildCaptureStatus(state, preset, balance, zone);
+			if (!status.m_bCapturable && zone.m_iResistanceCaptureProgress <= 0)
+				continue;
+
+			string blocked = status.m_sBlockedReason;
+			if (blocked.IsEmpty())
+				blocked = "capturing";
+
+			string row = string.Format(
+				"\n%1 | owner %2 | capturable %3 | radius %4m",
+				status.m_sZoneName,
+				status.m_sOwnerFactionKey,
+				status.m_bCapturable,
+				status.m_iCaptureRadiusMeters
+			);
+			row = row + string.Format(
+				" | players %1 | FIA AI %2 | FIA veh %3 | enemy %4 | enemy veh %5",
+				status.m_iPlayerCountNearby,
+				status.m_iFriendlyInfantryCountNearby,
+				status.m_iFriendlyVehicleCountNearby,
+				status.m_iEnemyCountNearby,
+				status.m_iEnemyVehicleCountNearby
+			);
+			row = row + string.Format(
+				" | progress %1/%2 (%3 percent) | %4",
+				status.m_iRawProgress,
+				status.m_iRequiredProgress,
+				status.m_iProgressPercent,
+				blocked
+			);
+			report = report + row;
+
+			emitted++;
+		}
+
+		if (emitted == 0)
+			report = report + "\nno capturable or progressing zones";
+
+		return report;
 	}
 
 	void DrainPendingNotifications(notnull array<ref HST_ZoneCaptureNotification> notifications)
@@ -345,6 +412,29 @@ class HST_ZoneCaptureService
 		return count;
 	}
 
+	protected void CountFriendlyForcesInCaptureRadius(HST_CampaignState state, HST_ZoneState zone, HST_BalanceConfig balance, string resistanceFactionKey, out int friendlyInfantry, out int friendlyVehicles)
+	{
+		friendlyInfantry = 0;
+		friendlyVehicles = 0;
+		if (!state || !zone || resistanceFactionKey.IsEmpty())
+			return;
+
+		float radius = ResolveCaptureRadius(zone, balance);
+		float radiusSq = radius * radius;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sFactionKey != resistanceFactionKey)
+				continue;
+			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
+				continue;
+			if (DistanceSq2D(activeGroup.m_vPosition, zone.m_vPosition) > radiusSq)
+				continue;
+
+			friendlyInfantry += Math.Max(0, activeGroup.m_iSurvivorInfantryCount);
+			friendlyVehicles += Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
+		}
+	}
+
 	protected void CountHostilesInCaptureRadius(HST_CampaignState state, HST_ZoneState zone, HST_BalanceConfig balance, string resistanceFactionKey, out int hostileInfantry, out int hostileVehicles)
 	{
 		hostileInfantry = 0;
@@ -465,6 +555,28 @@ class HST_ZoneCaptureService
 		bool queued = enemyCommander.TryQueueImmediateCounterattack(state, preset, enemyDirector, support, factionKey, capturedZone, chance);
 		if (queued)
 			QueueNotification("counterattack", capturedZone, "warning", "Enemy counterattack expected", string.Format("%1 is preparing a counterattack against %2.", factionKey, ZoneLabel(capturedZone)));
+	}
+
+	protected void EnsureCapturedZoneResistanceGarrison(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_ZoneState zone)
+	{
+		if (!state || !preset || !garrisons || !zone)
+			return;
+
+		HST_GarrisonState garrison = garrisons.FindOrCreate(state, zone.m_sZoneId, preset.m_sResistanceFactionKey);
+		if (!garrison)
+			return;
+
+		if (garrison.m_iInfantryCount > 0 || garrison.m_iVehicleCount > 0)
+			return;
+
+		int starterInfantry;
+		if (zone.m_iGarrisonSlots > 0)
+			starterInfantry = Math.Min(2, zone.m_iGarrisonSlots);
+
+		if (starterInfantry <= 0)
+			return;
+
+		garrison.m_iInfantryCount = starterInfantry;
 	}
 
 	protected void QueueNotification(string keySuffix, HST_ZoneState zone, string severity, string title, string message)

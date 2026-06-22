@@ -98,6 +98,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|sentinels=%1|hash=%2", BuildSentinelMask(state), hash);
 		summary = summary + string.Format("|garage_cargo=%1|garage_sources=%2|runtime_sources=%3", CountSmokeGarageStoredCargo(state), CountGarageSourceVehicles(state), CountRuntimeSourceVehicles(state));
 		summary = summary + string.Format("|training=%1|fia_garrisons=%2|garrison_infantry=%3|garrison_vehicles=%4", state.m_iTrainingLevel, CountGarrisonsByFaction(state, "FIA"), CountGarrisonInfantry(state), CountGarrisonVehicles(state));
+		summary = summary + string.Format("|fia_zones=%1|capture_progress_sum=%2|capturable_enemy_zones=%3", CountZonesOwnedBy(state, "FIA"), SumCaptureProgress(state), CountCapturableEnemyZones(state, "FIA"));
 		return summary;
 	}
 
@@ -810,6 +811,45 @@ class HST_PersistenceSmokeTestService
 		return count;
 	}
 
+	protected int CountZonesOwnedBy(HST_CampaignState state, string factionKey)
+	{
+		int count;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone && zone.m_sOwnerFactionKey == factionKey)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int SumCaptureProgress(HST_CampaignState state)
+	{
+		int total;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone)
+				total += Math.Max(0, zone.m_iResistanceCaptureProgress);
+		}
+
+		return total;
+	}
+
+	protected int CountCapturableEnemyZones(HST_CampaignState state, string resistanceFactionKey)
+	{
+		int count;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_sOwnerFactionKey == resistanceFactionKey)
+				continue;
+
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST || zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE || zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT || zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+				count++;
+		}
+
+		return count;
+	}
+
 	protected int CountGarrisonInfantry(HST_CampaignState state)
 	{
 		int count;
@@ -842,6 +882,9 @@ class HST_PersistenceSmokeTestService
 		hash = MixInt(hash, CountGarrisonsByFaction(state, "FIA"));
 		hash = MixInt(hash, CountGarrisonInfantry(state));
 		hash = MixInt(hash, CountGarrisonVehicles(state));
+		hash = MixInt(hash, CountZonesOwnedBy(state, "FIA"));
+		hash = MixInt(hash, SumCaptureProgress(state));
+		hash = MixInt(hash, CountCapturableEnemyZones(state, "FIA"));
 		hash = MixInt(hash, activeMissions);
 		hash = MixInt(hash, state.m_aMissionAssets.Count());
 		hash = MixInt(hash, state.m_aMissionRuntimeEntities.Count());

@@ -125,6 +125,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_markers")
 			return coordinator.RequestMemberInspectMarkers(playerId);
 
+		if (commandId == "inspect_capture")
+			return coordinator.RequestMemberInspectCapture(playerId);
+
 		if (commandId == "inspect_economy")
 			return coordinator.RequestMemberInspectEconomy(playerId);
 		if (commandId == "inspect_recruitment")
@@ -349,6 +352,18 @@ class HST_CommandUIService
 		if (commandId == "admin_phase16_report")
 			return coordinator.RequestAdminPhase16Report(playerId);
 
+		if (commandId == "admin_phase17_seed_capture")
+			return coordinator.RequestAdminPhase17SeedCapture(playerId);
+
+		if (commandId == "admin_phase17_force_progress")
+			return coordinator.RequestAdminPhase17ForceProgress(playerId);
+
+		if (commandId == "admin_phase17_force_counterattack")
+			return coordinator.RequestAdminPhase17ForceCounterattack(playerId);
+
+		if (commandId == "admin_phase17_report")
+			return coordinator.RequestAdminPhase17Report(playerId);
+
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
 
@@ -448,6 +463,9 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_markers")
 			return !coordinator.RequestMemberInspectMarkers(playerId).IsEmpty();
+
+		if (commandId == "inspect_capture")
+			return !coordinator.RequestMemberInspectCapture(playerId).IsEmpty();
 
 		if (commandId == "inspect_economy")
 			return !coordinator.RequestMemberInspectEconomy(playerId).IsEmpty();
@@ -669,6 +687,18 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase16_report")
 			return !coordinator.RequestAdminPhase16Report(playerId).IsEmpty();
+
+		if (commandId == "admin_phase17_seed_capture")
+			return !coordinator.RequestAdminPhase17SeedCapture(playerId).Contains("failed");
+
+		if (commandId == "admin_phase17_force_progress")
+			return !coordinator.RequestAdminPhase17ForceProgress(playerId).Contains("failed");
+
+		if (commandId == "admin_phase17_force_counterattack")
+			return !coordinator.RequestAdminPhase17ForceCounterattack(playerId).Contains("failed");
+
+		if (commandId == "admin_phase17_report")
+			return !coordinator.RequestAdminPhase17Report(playerId).IsEmpty();
 
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
@@ -1108,7 +1138,9 @@ class HST_CommandUIService
 			blockedReason = "holding";
 		blockedReason = CompactCaptureReason(blockedReason);
 
-		return string.Format("%1 | %2 | radius %3m | FIA %4 | enemy %5 + %6 vehicles | progress %7 percent | %8", status.m_sOwnerFactionKey, contested, status.m_iCaptureRadiusMeters, status.m_iFIACountNearby, status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby, status.m_iProgressPercent, blockedReason);
+		string value = string.Format("%1 | %2 | r%3m", status.m_sOwnerFactionKey, contested, status.m_iCaptureRadiusMeters);
+		value = value + string.Format(" | P%1 AI%2 V%3 | E%4 EV%5", status.m_iPlayerCountNearby, status.m_iFriendlyInfantryCountNearby, status.m_iFriendlyVehicleCountNearby, status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby);
+		return value + string.Format(" | %1 percent | %2", status.m_iProgressPercent, blockedReason);
 	}
 
 	protected string CompactCaptureReason(string reason)
@@ -1554,6 +1586,7 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_MAP)
 		{
 			AddMenuAction(actions, TAB_MAP, "Marker status", "inspect_markers", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MAP, "Capture report", "inspect_capture", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MAP, "Generated content report", "inspect_content", "", canUseMember, "membership required");
 			return;
 		}
@@ -1650,6 +1683,11 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Phase 16 seed garrison", "admin_phase16_seed", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 16 train", "admin_phase16_train", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 16 report", "admin_phase16_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Capture report", "inspect_capture", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 17 seed capture", "admin_phase17_seed_capture", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 17 force progress", "admin_phase17_force_progress", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 17 force counterattack", "admin_phase17_force_counterattack", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 17 report", "admin_phase17_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");

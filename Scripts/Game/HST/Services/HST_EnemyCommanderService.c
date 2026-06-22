@@ -56,7 +56,34 @@ class HST_EnemyCommanderService
 				resolved++;
 		}
 
-		return string.Format("h-istasi enemy commander | queued %1 | active %2 | resolved %3", queued, active, resolved);
+		string report = string.Format("h-istasi enemy commander | queued %1 | active %2 | resolved %3", queued, active, resolved);
+		int emitted;
+		for (int i = state.m_aEnemyOrders.Count() - 1; i >= 0; i--)
+		{
+			HST_EnemyOrderState orderDetail = state.m_aEnemyOrders[i];
+			if (!orderDetail)
+				continue;
+			if (orderDetail.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+				continue;
+
+			report = report + string.Format(
+				"\n%1 | %2 | faction %3 | target %4 | support %5 | resolve %6 | cost %7/%8",
+				orderDetail.m_sOrderId,
+				orderDetail.m_eStatus,
+				orderDetail.m_sFactionKey,
+				orderDetail.m_sTargetZoneId,
+				orderDetail.m_sSupportRequestId,
+				orderDetail.m_iResolveAtSecond,
+				orderDetail.m_iAttackCost,
+				orderDetail.m_iSupportCost
+			);
+
+			emitted++;
+			if (emitted >= 5)
+				break;
+		}
+
+		return report;
 	}
 
 	bool TryQueueImmediateCounterattack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState capturedZone, int chancePercent)

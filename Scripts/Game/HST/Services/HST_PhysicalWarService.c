@@ -3699,6 +3699,43 @@ class HST_PhysicalWarService
 		return true;
 	}
 
+	bool CleanupCapturedZoneHostileRuntime(HST_CampaignState state, string zoneId, string resistanceFactionKey)
+	{
+		if (!state || zoneId.IsEmpty() || resistanceFactionKey.IsEmpty())
+			return false;
+
+		bool changed;
+		int removedGroups;
+		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
+			if (!activeGroup || activeGroup.m_sZoneId != zoneId)
+				continue;
+			if (activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
+				continue;
+			if (activeGroup.m_sFactionKey == resistanceFactionKey)
+				continue;
+
+			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+			state.m_aActiveGroups.Remove(i);
+			removedGroups++;
+			changed = true;
+		}
+
+		if (changed)
+		{
+			HST_ZoneState zone = state.FindZone(zoneId);
+			if (zone)
+				ApplyActiveZoneCounts(state, zone);
+
+			ClearActiveVehicleSpawnBlocked(zoneId);
+			m_bMarkerRefreshNeeded = true;
+			Print(string.Format("h-istasi capture | cleaned %1 hostile active group(s) after ownership flip at %2", removedGroups, zoneId));
+		}
+
+		return changed;
+	}
+
 	protected bool DeactivateZone(HST_CampaignState state, HST_ZoneState zone, HST_ZoneCompositionService compositions = null)
 	{
 		bool changed;
