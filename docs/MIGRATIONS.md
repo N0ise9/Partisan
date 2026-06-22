@@ -2,8 +2,9 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `21`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `22`.
 
+- Phase 20 civilians, town support, and undercover reports add durable town support values and detailed undercover eligibility reasons.
 - Phase 19 support request lifecycle hardening adds durable support-request
   runtime fields while preserving runtime handles as non-persisted data.
 - Phase 18 enemy commander physical responses add durable enemy-order
@@ -26,6 +27,16 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 22
+
+Phase 20 civilians, town support, and undercover reports.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `22`.
+- Civilian town records now persist FIA support, occupier support, last incident reason, and last support-change time.
+- Undercover player records now persist request state and the last detailed eligibility report: clothing, weapon/equipment, vehicle, off-road, enemy proximity, and wanted-heat reasons.
+- Existing schema-21 civilian and undercover records are backfilled from reputation, support, police/roadblock presence, wanted heat, and last reason.
+- Raw player entities, inventory handles, vehicle handles, and runtime civilian entities remain runtime-only and are not persisted.
 
 ## Schema 21
 

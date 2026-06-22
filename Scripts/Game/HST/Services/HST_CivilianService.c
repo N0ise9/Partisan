@@ -1,3 +1,34 @@
+class HST_UndercoverEligibilityResult
+{
+	bool m_bEligible;
+	string m_sIdentityId;
+	string m_sZoneId;
+	string m_sSummary;
+	string m_sClothingReason;
+	string m_sWeaponReason;
+	string m_sVehicleReason;
+	string m_sOffroadReason;
+	string m_sEnemyProximityReason;
+	string m_sWantedHeatReason;
+
+	string BuildReport()
+	{
+		return string.Format(
+			"h-istasi undercover eligibility | %1 | eligible %2 | zone %3 | clothing %4 | weapon %5 | vehicle %6 | offroad %7 | enemy proximity %8 | wanted heat %9 | %10",
+			m_sIdentityId,
+			m_bEligible,
+			m_sZoneId,
+			m_sClothingReason,
+			m_sWeaponReason,
+			m_sVehicleReason,
+			m_sOffroadReason,
+			m_sEnemyProximityReason,
+			m_sWantedHeatReason,
+			m_sSummary
+		);
+	}
+}
+
 class HST_CivilianService
 {
 	static const int MIN_CIVILIAN_CHARACTER_PREFABS = 6;
@@ -42,6 +73,10 @@ class HST_CivilianService
 			civilianZone.m_iCivilianPresence = Math.Max(4, zone.m_iIncomeValue / 8);
 			civilianZone.m_iPolicePresence = Math.Max(1, zone.m_iGarrisonSlots / 6);
 			civilianZone.m_iRoadblockPresence = 1;
+			civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, 50 + zone.m_iSupport / 2));
+			civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, 50 - zone.m_iSupport / 2 + civilianZone.m_iPolicePresence * 2 + civilianZone.m_iRoadblockPresence * 3));
+			civilianZone.m_sLastIncidentReason = "initialized";
+			civilianZone.m_iLastSupportChangeSecond = state.m_iElapsedSeconds;
 			civilianZone.m_bUndercoverRestricted = zone.m_iSupport < 25;
 			state.m_aCivilianZones.Insert(civilianZone);
 		}
@@ -152,9 +187,16 @@ class HST_CivilianService
 		civilianZone.m_iReputation = Math.Max(0, Math.Min(100, civilianZone.m_iReputation + reputationDelta));
 		civilianZone.m_iWantedHeat = Math.Max(0, civilianZone.m_iWantedHeat + heatDelta);
 		civilianZone.m_iLastIncidentSecond = state.m_iElapsedSeconds;
+		civilianZone.m_sLastIncidentReason = reason;
+		civilianZone.m_iLastSupportChangeSecond = state.m_iElapsedSeconds;
+		civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, civilianZone.m_iFIASupport + reputationDelta));
+		civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, civilianZone.m_iOccupierSupport - reputationDelta / 2));
+		if (heatDelta > 0)
+			civilianZone.m_iOccupierSupport = Math.Min(100, civilianZone.m_iOccupierSupport + heatDelta);
+
 		HST_ZoneState zone = state.FindZone(zoneId);
 		if (zone)
-			zone.m_iSupport = Math.Max(-100, Math.Min(100, zone.m_iSupport + reputationDelta / 2));
+			zone.m_iSupport = Math.Max(-100, Math.Min(100, civilianZone.m_iFIASupport - civilianZone.m_iOccupierSupport));
 
 		return true;
 	}
@@ -209,11 +251,13 @@ class HST_CivilianService
 		int heatTotal;
 		int policeTotal;
 		int roadblocks;
+		int townCount;
 		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
 		{
 			if (!civilianZone)
 				continue;
 
+			townCount++;
 			reputationTotal += civilianZone.m_iReputation;
 			heatTotal += civilianZone.m_iWantedHeat;
 			policeTotal += civilianZone.m_iPolicePresence;
@@ -221,10 +265,112 @@ class HST_CivilianService
 		}
 
 		int averageReputation;
-		if (state.m_aCivilianZones.Count() > 0)
-			averageReputation = reputationTotal / state.m_aCivilianZones.Count();
+		if (townCount > 0)
+			averageReputation = reputationTotal / townCount;
 
-		return string.Format("h-istasi civilians | towns %1 | avg reputation %2 | heat %3 | police %4 | roadblocks %5", state.m_aCivilianZones.Count(), averageReputation, heatTotal, policeTotal, roadblocks);
+		string summary = string.Format("h-istasi civilians | towns %1 | avg reputation %2 | heat %3 | police %4 | roadblocks %5", townCount, averageReputation, heatTotal, policeTotal, roadblocks);
+		return summary + "\n" + BuildTownSupportReport(state);
+	}
+
+	string BuildTownSupportReport(HST_CampaignState state, int maxRows = 20)
+	{
+		if (!state)
+			return "h-istasi town support | state not ready";
+
+		int townCount;
+		int fiaSupportTotal;
+		int occupierSupportTotal;
+		int reputationTotal;
+		int heatTotal;
+		int policeTotal;
+		int roadblockTotal;
+
+		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
+		{
+			if (!civilianZone)
+				continue;
+
+			townCount++;
+			fiaSupportTotal += civilianZone.m_iFIASupport;
+			occupierSupportTotal += civilianZone.m_iOccupierSupport;
+			reputationTotal += civilianZone.m_iReputation;
+			heatTotal += civilianZone.m_iWantedHeat;
+			policeTotal += civilianZone.m_iPolicePresence;
+			roadblockTotal += civilianZone.m_iRoadblockPresence;
+		}
+
+		int avgFIA;
+		int avgOccupier;
+		int avgRep;
+		if (townCount > 0)
+		{
+			avgFIA = fiaSupportTotal / townCount;
+			avgOccupier = occupierSupportTotal / townCount;
+			avgRep = reputationTotal / townCount;
+		}
+
+		string report = string.Format(
+			"h-istasi town support | towns %1 | avg FIA %2 | avg occupier %3 | avg rep %4 | heat %5 | police %6 | roadblocks %7",
+			townCount,
+			avgFIA,
+			avgOccupier,
+			avgRep,
+			heatTotal,
+			policeTotal,
+			roadblockTotal
+		);
+
+		int emitted;
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (!town || emitted >= maxRows)
+				continue;
+
+			HST_ZoneState zone = state.FindZone(town.m_sZoneId);
+			string label = town.m_sZoneId;
+			string owner = "";
+			int strategicSupport;
+			bool active;
+
+			if (zone)
+			{
+				if (!zone.m_sDisplayName.IsEmpty())
+					label = zone.m_sDisplayName;
+
+				owner = zone.m_sOwnerFactionKey;
+				strategicSupport = zone.m_iSupport;
+				active = zone.m_bActive;
+			}
+
+			int age;
+			if (town.m_iLastIncidentSecond > 0)
+				age = Math.Max(0, state.m_iElapsedSeconds - town.m_iLastIncidentSecond);
+
+			report = report + string.Format(
+				"\n%1 | owner %2 | FIA %3 | occupier %4 | rep %5 | heat %6 | police %7 | roadblocks %8 | civs %9 | restricted %10 | support %11 | active %12 | last %13s %14",
+				label,
+				owner,
+				town.m_iFIASupport,
+				town.m_iOccupierSupport,
+				town.m_iReputation,
+				town.m_iWantedHeat,
+				town.m_iPolicePresence,
+				town.m_iRoadblockPresence,
+				town.m_iCivilianPresence,
+				town.m_bUndercoverRestricted,
+				strategicSupport,
+				active,
+				age,
+				town.m_sLastIncidentReason
+			);
+
+			emitted++;
+		}
+
+		if (emitted == 0)
+			report = report + "\nno civilian town records";
+
+		return report;
 	}
 
 	string BuildUndercoverReport(HST_CampaignState state, string identityId = "")
@@ -238,23 +384,342 @@ class HST_CivilianService
 			if (!undercover)
 				return "h-istasi undercover | no record";
 
-			return string.Format("h-istasi undercover | %1 | status %2 | heat %3 | reason %4", identityId, undercover.m_eStatus, undercover.m_iWantedHeat, undercover.m_sLastReason);
+			return string.Format(
+				"h-istasi undercover | %1 | requested %2 | eligible %3 | status %4 | heat %5 | zone %6 | reason %7\nclothing: %8\nweapon: %9\nvehicle: %10\noffroad: %11\nenemy proximity: %12\nwanted heat: %13\nchecked: %14",
+				identityId,
+				undercover.m_bUndercoverRequested,
+				undercover.m_bLastEligibilityResult,
+				undercover.m_eStatus,
+				undercover.m_iWantedHeat,
+				undercover.m_sLastZoneId,
+				undercover.m_sLastReason,
+				undercover.m_sClothingReason,
+				undercover.m_sWeaponReason,
+				undercover.m_sVehicleReason,
+				undercover.m_sOffroadReason,
+				undercover.m_sEnemyProximityReason,
+				undercover.m_sWantedHeatReason,
+				undercover.m_iLastEligibilityCheckSecond
+			);
 		}
 
+		int tracked;
+		int requested;
+		int eligible;
+		int clear;
 		int suspicious;
 		int compromised;
+		int wanted;
 		foreach (HST_PlayerUndercoverState undercoverPlayer : state.m_aUndercoverPlayers)
 		{
 			if (!undercoverPlayer)
 				continue;
 
-			if (undercoverPlayer.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_SUSPICIOUS)
+			tracked++;
+			if (undercoverPlayer.m_bUndercoverRequested)
+				requested++;
+			if (undercoverPlayer.m_bLastEligibilityResult)
+				eligible++;
+
+			if (undercoverPlayer.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR)
+				clear++;
+			else if (undercoverPlayer.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_SUSPICIOUS)
 				suspicious++;
-			else if (undercoverPlayer.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED || undercoverPlayer.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_WANTED)
+			else if (undercoverPlayer.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED)
 				compromised++;
+			else if (undercoverPlayer.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_WANTED)
+				wanted++;
 		}
 
-		return string.Format("h-istasi undercover | tracked %1 | suspicious %2 | compromised/wanted %3", state.m_aUndercoverPlayers.Count(), suspicious, compromised);
+		return string.Format(
+			"h-istasi undercover | tracked %1 | requested %2 | eligible %3 | clear %4 | suspicious %5 | compromised %6 | wanted %7",
+			tracked,
+			requested,
+			eligible,
+			clear,
+			suspicious,
+			compromised,
+			wanted
+		);
+	}
+
+	HST_UndercoverEligibilityResult BuildUndercoverEligibility(HST_CampaignState state, string identityId, IEntity playerEntity, bool checkCurrentEntity = true)
+	{
+		HST_UndercoverEligibilityResult result = new HST_UndercoverEligibilityResult();
+		result.m_sIdentityId = identityId;
+		result.m_bEligible = true;
+
+		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
+		if (!state || !undercover)
+		{
+			result.m_bEligible = false;
+			result.m_sClothingReason = "WARN player entity unavailable";
+			result.m_sWeaponReason = "WARN player entity unavailable";
+			result.m_sVehicleReason = "WARN player entity unavailable";
+			result.m_sOffroadReason = "WARN player entity unavailable";
+			result.m_sEnemyProximityReason = "WARN state/player missing";
+			result.m_sWantedHeatReason = "BLOCK state or undercover record missing";
+			result.m_sSummary = "state or undercover record not ready";
+			return result;
+		}
+
+		string zoneId = ResolveNearestCivilianZoneId(state, playerEntity);
+		result.m_sZoneId = zoneId;
+
+		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zoneId);
+		result.m_sClothingReason = ResolveClothingEligibilityReason(playerEntity);
+		result.m_sWeaponReason = ResolveWeaponEligibilityReason(playerEntity);
+		result.m_sVehicleReason = ResolveVehicleEligibilityReason(playerEntity);
+		result.m_sOffroadReason = ResolveOffroadEligibilityReason(playerEntity);
+		result.m_sEnemyProximityReason = ResolveEnemyProximityReason(state, playerEntity);
+		result.m_sWantedHeatReason = ResolveWantedHeatReason(state, undercover, civilianZone);
+
+		if (IsBlockingReason(result.m_sClothingReason)
+			|| IsBlockingReason(result.m_sWeaponReason)
+			|| IsBlockingReason(result.m_sVehicleReason)
+			|| IsBlockingReason(result.m_sOffroadReason)
+			|| IsBlockingReason(result.m_sEnemyProximityReason)
+			|| IsBlockingReason(result.m_sWantedHeatReason))
+		{
+			result.m_bEligible = false;
+		}
+
+		if (result.m_bEligible)
+			result.m_sSummary = "eligible for undercover request";
+		else
+			result.m_sSummary = "not eligible for undercover request";
+
+		StoreEligibilityResult(state, undercover, result);
+		return result;
+	}
+
+	string RequestUndercover(HST_CampaignState state, string identityId, IEntity playerEntity)
+	{
+		if (!state || identityId.IsEmpty())
+			return "h-istasi undercover | failed: state or identity missing";
+
+		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
+		if (!undercover)
+			return "h-istasi undercover | failed: could not create player record";
+
+		HST_UndercoverEligibilityResult eligibility = BuildUndercoverEligibility(state, identityId, playerEntity);
+		if (!eligibility || !eligibility.m_bEligible)
+		{
+			if (undercover.m_iWantedHeat >= 4)
+				undercover.m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_WANTED;
+			undercover.m_bUndercoverRequested = false;
+			if (eligibility)
+			{
+				undercover.m_sLastReason = "request denied: " + eligibility.m_sSummary;
+				return "h-istasi undercover | request denied\n" + eligibility.BuildReport();
+			}
+
+			undercover.m_sLastReason = "request denied: no eligibility result";
+			return "h-istasi undercover | request denied";
+		}
+
+		undercover.m_bUndercoverRequested = true;
+		undercover.m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR;
+		undercover.m_sLastReason = "undercover requested and eligible";
+		return "h-istasi undercover | request accepted\n" + eligibility.BuildReport();
+	}
+
+	string ClearUndercoverCompromise(HST_CampaignState state, string identityId)
+	{
+		if (!state || identityId.IsEmpty())
+			return "h-istasi undercover | failed: state or identity missing";
+
+		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
+		if (!undercover)
+			return "h-istasi undercover | failed: no player record";
+
+		if (undercover.m_iWantedHeat > 0)
+			return string.Format("h-istasi undercover | failed: wanted heat %1 must cool before clearing", undercover.m_iWantedHeat);
+
+		if (undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED && state.m_iElapsedSeconds < undercover.m_iCompromisedUntilSecond)
+			return string.Format("h-istasi undercover | failed: compromised for %1s", undercover.m_iCompromisedUntilSecond - state.m_iElapsedSeconds);
+
+		undercover.m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR;
+		undercover.m_bUndercoverRequested = false;
+		undercover.m_iCompromisedUntilSecond = 0;
+		undercover.m_sLastReason = "cleared by player";
+		return "h-istasi undercover | cleared";
+	}
+
+	protected bool IsBlockingReason(string reason)
+	{
+		if (reason.IsEmpty())
+			return false;
+
+		return reason.Contains("BLOCK");
+	}
+
+	protected string ResolveClothingEligibilityReason(IEntity playerEntity)
+	{
+		string identity = ResolveEntityIdentity(playerEntity);
+		if (identity.IsEmpty())
+			return "WARN unknown clothing/entity identity";
+
+		if (identity.Contains("CIV") || identity.Contains("Civilian") || identity.Contains("GenericCivilians"))
+			return "OK civilian clothing";
+
+		if (identity.Contains("US_Army") || identity.Contains("USSR") || identity.Contains("BLUFOR") || identity.Contains("OPFOR") || identity.Contains("Rifleman") || identity.Contains("MG") || identity.Contains("LAT"))
+			return "BLOCK military character/equipment identity";
+
+		if (identity.Contains("FIA"))
+			return "WARN FIA clothing is not civilian";
+
+		return "WARN clothing not recognized";
+	}
+
+	protected string ResolveWeaponEligibilityReason(IEntity playerEntity)
+	{
+		string identity = ResolveEntityIdentity(playerEntity);
+		if (identity.Contains("Rifleman") || identity.Contains("MG") || identity.Contains("LAT") || identity.Contains("GL") || identity.Contains("MachineGun"))
+			return "BLOCK military role implies visible/issued weapon";
+
+		return "OK no visible military weapon detected by Phase 20 heuristic";
+	}
+
+	protected string ResolveVehicleEligibilityReason(IEntity playerEntity)
+	{
+		IEntity vehicle = ResolveEntityVehicle(playerEntity);
+		if (!vehicle)
+			return "OK on foot";
+
+		string identity = ResolveEntityIdentity(vehicle);
+		if (identity.Contains("M998") || identity.Contains("M1025") || identity.Contains("UAZ") || identity.Contains("BTR") || identity.Contains("BMP") || identity.Contains("APC") || identity.Contains("PKM") || identity.Contains("Armed"))
+			return "BLOCK military vehicle";
+
+		if (identity.Contains("S105") || identity.Contains("S1203") || identity.Contains("CIV"))
+			return "OK civilian vehicle";
+
+		return "WARN vehicle not recognized";
+	}
+
+	protected string ResolveOffroadEligibilityReason(IEntity playerEntity)
+	{
+		if (!playerEntity)
+			return "WARN player entity missing";
+
+		return "OK off-road enforcement deferred to Phase 21";
+	}
+
+	protected string ResolveEnemyProximityReason(HST_CampaignState state, IEntity playerEntity)
+	{
+		if (!state || !playerEntity)
+			return "WARN state/player missing";
+
+		vector position = playerEntity.GetOrigin();
+		float dangerRadiusSq = 180 * 180;
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (!group)
+				continue;
+			if (group.m_sFactionKey == "FIA" || group.m_sFactionKey == "CIV")
+				continue;
+			if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed")
+				continue;
+			if (DistanceSq2D(group.m_vPosition, position) <= dangerRadiusSq)
+				return "WARN enemy active group nearby";
+		}
+
+		return "OK no nearby enemy active group";
+	}
+
+	protected string ResolveWantedHeatReason(HST_CampaignState state, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone)
+	{
+		if (!undercover)
+			return "BLOCK undercover record missing";
+
+		if (undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED && state.m_iElapsedSeconds < undercover.m_iCompromisedUntilSecond)
+			return string.Format("BLOCK compromised for %1s", undercover.m_iCompromisedUntilSecond - state.m_iElapsedSeconds);
+
+		if (undercover.m_iWantedHeat >= 4)
+			return string.Format("BLOCK player wanted heat %1", undercover.m_iWantedHeat);
+
+		if (civilianZone && civilianZone.m_iWantedHeat >= 4)
+			return string.Format("BLOCK town wanted heat %1", civilianZone.m_iWantedHeat);
+
+		if (civilianZone && civilianZone.m_bUndercoverRestricted)
+			return "WARN town restricts undercover";
+
+		return "OK wanted heat clear";
+	}
+
+	protected void StoreEligibilityResult(HST_CampaignState state, HST_PlayerUndercoverState undercover, HST_UndercoverEligibilityResult result)
+	{
+		if (!state || !undercover || !result)
+			return;
+
+		undercover.m_bLastEligibilityResult = result.m_bEligible;
+		undercover.m_sLastZoneId = result.m_sZoneId;
+		undercover.m_sLastEligibilitySummary = result.m_sSummary;
+		undercover.m_sClothingReason = result.m_sClothingReason;
+		undercover.m_sWeaponReason = result.m_sWeaponReason;
+		undercover.m_sVehicleReason = result.m_sVehicleReason;
+		undercover.m_sOffroadReason = result.m_sOffroadReason;
+		undercover.m_sEnemyProximityReason = result.m_sEnemyProximityReason;
+		undercover.m_sWantedHeatReason = result.m_sWantedHeatReason;
+		undercover.m_iLastEligibilityCheckSecond = state.m_iElapsedSeconds;
+	}
+
+	protected string ResolveNearestCivilianZoneId(HST_CampaignState state, IEntity playerEntity)
+	{
+		if (!state || !playerEntity)
+			return "";
+
+		vector position = playerEntity.GetOrigin();
+		HST_CivilianZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
+		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
+		{
+			if (!civilianZone)
+				continue;
+
+			HST_ZoneState zone = state.FindZone(civilianZone.m_sZoneId);
+			if (!zone)
+				continue;
+
+			float distanceSq = DistanceSq2D(zone.m_vPosition, position);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestZone = civilianZone;
+				bestDistanceSq = distanceSq;
+			}
+		}
+
+		if (bestZone)
+			return bestZone.m_sZoneId;
+
+		return "";
+	}
+
+	protected string ResolveEntityIdentity(IEntity entity)
+	{
+		if (!entity)
+			return "";
+
+		if (entity.GetPrefabData())
+		{
+			string prefab = entity.GetPrefabData().GetPrefabName();
+			if (!prefab.IsEmpty())
+				return prefab;
+		}
+
+		return entity.GetName();
+	}
+
+	protected IEntity ResolveEntityVehicle(IEntity entity)
+	{
+		if (!entity)
+			return null;
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access || !access.IsInCompartment())
+			return null;
+
+		return access.GetVehicle();
 	}
 
 	protected bool SpawnActiveZoneRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneState zone)

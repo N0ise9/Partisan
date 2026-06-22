@@ -50,7 +50,7 @@ class HST_PersistenceSmokeTestService
 		EnsureSmokeEnemyOrder(state, preset, targetZone);
 		EnsureSmokeSupportRequest(state, preset, targetZone);
 		EnsureSmokeCivilianZone(state, targetZone);
-		EnsureSmokeUndercoverRecord(state, adminIdentityId);
+		EnsureSmokeUndercoverRecord(state, adminIdentityId, targetZone);
 
 		StoreExpectedSummary(state, "pending");
 		string after = BuildSummary(state);
@@ -103,6 +103,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|fia_zones=%1|capture_progress_sum=%2|capturable_enemy_zones=%3", CountZonesOwnedBy(state, "FIA"), SumCaptureProgress(state), CountCapturableEnemyZones(state, "FIA"));
 		summary = summary + string.Format("|enemy_orders_active=%1|enemy_orders_physical=%2|enemy_orders_abstract=%3|support_linked_orders=%4", CountEnemyOrdersByStatus(state, HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE), CountPhysicalizedEnemyOrders(state), CountAbstractResolvedEnemyOrders(state), CountSupportLinkedEnemyOrders(state));
 		summary = summary + string.Format("|support_queued=%1|support_active=%2|support_resolved=%3|support_physicalized=%4|support_outcomes=%5", CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_QUEUED), CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE), CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED), CountPhysicalizedSupport(state), CountSupportOutcomesApplied(state));
+		summary = summary + string.Format("|civilian_fia_support=%1|civilian_occupier_support=%2|civilian_heat=%3|undercover_requested=%4|undercover_eligible=%5", SumCivilianFIASupport(state), SumCivilianOccupierSupport(state), SumCivilianWantedHeat(state), CountUndercoverRequested(state), CountUndercoverEligible(state));
 		return summary;
 	}
 
@@ -148,6 +149,66 @@ class HST_PersistenceSmokeTestService
 		missing = AppendMissing(missing, "civilian_zones", state.m_aCivilianZones.Count() <= 0);
 		missing = AppendMissing(missing, "undercover", state.m_aUndercoverPlayers.Count() <= 0);
 		return missing;
+	}
+
+	protected int SumCivilianFIASupport(HST_CampaignState state)
+	{
+		int total;
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (town)
+				total += Math.Max(0, town.m_iFIASupport);
+		}
+
+		return total;
+	}
+
+	protected int SumCivilianOccupierSupport(HST_CampaignState state)
+	{
+		int total;
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (town)
+				total += Math.Max(0, town.m_iOccupierSupport);
+		}
+
+		return total;
+	}
+
+	protected int SumCivilianWantedHeat(HST_CampaignState state)
+	{
+		int total;
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (town)
+				total += Math.Max(0, town.m_iWantedHeat);
+		}
+
+		return total;
+	}
+
+	protected int CountUndercoverRequested(HST_CampaignState state)
+	{
+		int count;
+		foreach (HST_PlayerUndercoverState player : state.m_aUndercoverPlayers)
+		{
+			if (player && player.m_bUndercoverRequested)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountUndercoverEligible(HST_CampaignState state)
+	{
+		int count;
+		foreach (HST_PlayerUndercoverState player : state.m_aUndercoverPlayers)
+		{
+			if (player && player.m_bLastEligibilityResult)
+				count++;
+		}
+
+		return count;
 	}
 
 	protected string AppendMissing(string missing, string label, bool shouldAppend)
@@ -790,9 +851,13 @@ class HST_PersistenceSmokeTestService
 
 		civilianZone.m_iCivilianPresence = Math.Max(1, civilianZone.m_iCivilianPresence);
 		civilianZone.m_iReputation = Math.Max(civilianZone.m_iReputation, 1);
+		civilianZone.m_iFIASupport = Math.Max(civilianZone.m_iFIASupport, 55);
+		civilianZone.m_iOccupierSupport = Math.Max(civilianZone.m_iOccupierSupport, 35);
+		civilianZone.m_sLastIncidentReason = "persistence smoke";
+		civilianZone.m_iLastSupportChangeSecond = state.m_iElapsedSeconds;
 	}
 
-	protected void EnsureSmokeUndercoverRecord(HST_CampaignState state, string adminIdentityId)
+	protected void EnsureSmokeUndercoverRecord(HST_CampaignState state, string adminIdentityId, HST_ZoneState targetZone)
 	{
 		string identityId = adminIdentityId;
 		if (identityId.IsEmpty())
@@ -811,6 +876,18 @@ class HST_PersistenceSmokeTestService
 		undercover.m_iWantedHeat = 0;
 		undercover.m_iLastCheckedSecond = state.m_iElapsedSeconds;
 		undercover.m_sLastReason = "persistence smoke";
+		undercover.m_bUndercoverRequested = true;
+		undercover.m_bLastEligibilityResult = true;
+		undercover.m_sLastEligibilitySummary = "persistence smoke eligible";
+		if (targetZone)
+			undercover.m_sLastZoneId = targetZone.m_sZoneId;
+		undercover.m_sClothingReason = "OK persistence smoke clothing";
+		undercover.m_sWeaponReason = "OK persistence smoke weapon";
+		undercover.m_sVehicleReason = "OK persistence smoke vehicle";
+		undercover.m_sOffroadReason = "OK persistence smoke offroad";
+		undercover.m_sEnemyProximityReason = "OK persistence smoke proximity";
+		undercover.m_sWantedHeatReason = "OK persistence smoke heat";
+		undercover.m_iLastEligibilityCheckSecond = state.m_iElapsedSeconds;
 	}
 
 	protected HST_EnemyOrderState FindEnemyOrder(HST_CampaignState state, string orderId)
