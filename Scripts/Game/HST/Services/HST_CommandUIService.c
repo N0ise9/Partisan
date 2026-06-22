@@ -55,7 +55,7 @@ class HST_CommandUIService
 		if (markers)
 			markerSummary = "\n" + markers.BuildMarkerReport(state);
 
-		return header + hq + markerSummary + "\nMember actions: foundation_status, inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_active_missions, inspect_convoy_runtime, inspect_content, inspect_arsenal, loot_nearby, checkpoint";
+		return header + hq + markerSummary + "\nMember actions: foundation_status, inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_active_missions, inspect_convoy_runtime, inspect_content, inspect_arsenal, inspect_civilians, inspect_town_support, inspect_undercover, undercover_eligibility, undercover_request, undercover_clear, loot_nearby, checkpoint";
 	}
 
 	string BuildCommanderMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
@@ -67,7 +67,7 @@ class HST_CommandUIService
 	string BuildAdminMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		string menu = BuildCommanderMenu(state, preset, markers);
-		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report, admin_phase15_seed_garage, admin_phase15_seed_source, admin_phase15_report, admin_phase16_seed, admin_phase16_train, admin_phase16_report, admin_phase17_seed_capture, admin_phase17_force_progress, admin_phase17_force_counterattack, admin_phase17_report, admin_phase18_seed_counterattack, admin_phase18_seed_rebuild, admin_phase18_seed_roadblock, admin_phase18_resolve_now, admin_phase18_report";
+		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report, admin_phase15_seed_garage, admin_phase15_seed_source, admin_phase15_report, admin_phase16_seed, admin_phase16_train, admin_phase16_report, admin_phase17_seed_capture, admin_phase17_force_progress, admin_phase17_force_counterattack, admin_phase17_report, admin_phase18_seed_counterattack, admin_phase18_seed_rebuild, admin_phase18_seed_roadblock, admin_phase18_resolve_now, admin_phase18_report, admin_phase19_report, admin_phase20_seed_town, admin_phase20_seed_heat, admin_phase20_seed_undercover, admin_phase20_clear_heat, admin_phase20_report";
 	}
 
 	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
@@ -166,8 +166,20 @@ class HST_CommandUIService
 		if (commandId == "inspect_civilians")
 			return coordinator.RequestMemberInspectCivilians(playerId);
 
+		if (commandId == "inspect_town_support")
+			return coordinator.RequestMemberInspectTownSupport(playerId);
+
 		if (commandId == "inspect_undercover")
 			return coordinator.RequestMemberInspectUndercover(playerId);
+
+		if (commandId == "undercover_eligibility")
+			return coordinator.RequestMemberInspectUndercoverEligibility(playerId);
+
+		if (commandId == "undercover_request")
+			return coordinator.RequestMemberRequestUndercover(playerId);
+
+		if (commandId == "undercover_clear")
+			return coordinator.RequestMemberClearUndercover(playerId);
 
 		if (commandId == "inspect_content")
 			return coordinator.RequestMemberInspectGeneratedContent(playerId);
@@ -391,6 +403,21 @@ class HST_CommandUIService
 		if (commandId == "admin_phase19_report")
 			return coordinator.RequestAdminPhase19Report(playerId);
 
+		if (commandId == "admin_phase20_seed_town")
+			return coordinator.RequestAdminPhase20SeedTownSupport(playerId);
+
+		if (commandId == "admin_phase20_seed_heat")
+			return coordinator.RequestAdminPhase20SeedWantedHeat(playerId);
+
+		if (commandId == "admin_phase20_seed_undercover")
+			return coordinator.RequestAdminPhase20SeedEligibleUndercover(playerId);
+
+		if (commandId == "admin_phase20_clear_heat")
+			return coordinator.RequestAdminPhase20ClearHeat(playerId);
+
+		if (commandId == "admin_phase20_report")
+			return coordinator.RequestAdminPhase20Report(playerId);
+
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
 
@@ -532,8 +559,20 @@ class HST_CommandUIService
 		if (commandId == "inspect_civilians")
 			return !coordinator.RequestMemberInspectCivilians(playerId).IsEmpty();
 
+		if (commandId == "inspect_town_support")
+			return !coordinator.RequestMemberInspectTownSupport(playerId).IsEmpty();
+
 		if (commandId == "inspect_undercover")
 			return !coordinator.RequestMemberInspectUndercover(playerId).IsEmpty();
+
+		if (commandId == "undercover_eligibility")
+			return !coordinator.RequestMemberInspectUndercoverEligibility(playerId).Contains("failed");
+
+		if (commandId == "undercover_request")
+			return !coordinator.RequestMemberRequestUndercover(playerId).Contains("failed");
+
+		if (commandId == "undercover_clear")
+			return !coordinator.RequestMemberClearUndercover(playerId).Contains("failed");
 
 		if (commandId == "inspect_content")
 			return !coordinator.RequestMemberInspectGeneratedContent(playerId).IsEmpty();
@@ -759,6 +798,21 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase19_report")
 			return !coordinator.RequestAdminPhase19Report(playerId).IsEmpty();
+
+		if (commandId == "admin_phase20_seed_town")
+			return !coordinator.RequestAdminPhase20SeedTownSupport(playerId).Contains("failed");
+
+		if (commandId == "admin_phase20_seed_heat")
+			return !coordinator.RequestAdminPhase20SeedWantedHeat(playerId).Contains("failed");
+
+		if (commandId == "admin_phase20_seed_undercover")
+			return !coordinator.RequestAdminPhase20SeedEligibleUndercover(playerId).Contains("failed");
+
+		if (commandId == "admin_phase20_clear_heat")
+			return !coordinator.RequestAdminPhase20ClearHeat(playerId).Contains("failed");
+
+		if (commandId == "admin_phase20_report")
+			return !coordinator.RequestAdminPhase20Report(playerId).IsEmpty();
 
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
@@ -1022,6 +1076,12 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "active", "Arsenal unlocks", string.Format("%1 of %2", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
 		payload = AppendRow(payload, "active", "Support calls", string.Format("%1 tracked", state.m_aSupportRequests.Count()), "warn");
 		payload = AppendRow(payload, "active", "Civilian network", string.Format("%1 towns", state.m_aCivilianZones.Count()), "neutral");
+
+		payload = AppendSection(payload, "civilian_summary", "Civilian Support");
+		payload = AppendRow(payload, "civilian_summary", "Town report", string.Format("%1 records", state.m_aCivilianZones.Count()), "neutral");
+		payload = AppendRow(payload, "civilian_summary", "Wanted heat", string.Format("%1 total", CountCivilianHeat(state)), CivilianHeatTone(state));
+		payload = AppendRow(payload, "civilian_summary", "Roadblocks", string.Format("%1 total", CountCivilianRoadblocks(state)), "warn");
+		payload = AppendRow(payload, "civilian_summary", "Undercover", BuildUndercoverCompactSummary(state), UndercoverTone(state));
 		return payload;
 	}
 
@@ -1304,6 +1364,12 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "support", "Enemy orders", string.Format("%1 tracked", state.m_aEnemyOrders.Count()), "bad");
 		payload = AppendRow(payload, "support", "Cooldown/cancel", "Player support requests can be cancelled while queued or active.", "neutral");
 		payload = AppendRow(payload, "support", "Air capability", AirSupportCapabilityLabel(state), AirSupportCapabilityTone(state));
+
+		payload = AppendSection(payload, "civilian_summary", "Civilian Support");
+		payload = AppendRow(payload, "civilian_summary", "Town report", string.Format("%1 records", state.m_aCivilianZones.Count()), "neutral");
+		payload = AppendRow(payload, "civilian_summary", "Wanted heat", string.Format("%1 total", CountCivilianHeat(state)), CivilianHeatTone(state));
+		payload = AppendRow(payload, "civilian_summary", "Roadblocks", string.Format("%1 total", CountCivilianRoadblocks(state)), "warn");
+		payload = AppendRow(payload, "civilian_summary", "Undercover", BuildUndercoverCompactSummary(state), UndercoverTone(state));
 
 		return payload;
 	}
@@ -1615,6 +1681,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_OVERVIEW, "Foundation status", "foundation_status", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Marker status", "inspect_markers", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_OVERVIEW, "Town support report", "inspect_town_support", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
@@ -1647,6 +1714,7 @@ class HST_CommandUIService
 		{
 			AddMenuAction(actions, TAB_MAP, "Marker status", "inspect_markers", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MAP, "Capture report", "inspect_capture", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MAP, "Town support report", "inspect_town_support", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MAP, "Generated content report", "inspect_content", "", canUseMember, "membership required");
 			return;
 		}
@@ -1714,7 +1782,11 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_MEMBERS, "Accept first guest", "member_accept", guestIdentityId, canUseAdmin && !guestIdentityId.IsEmpty(), "admin required or no guest");
 			AddMenuAction(actions, TAB_MEMBERS, "Remove first member", "member_remove", memberIdentityId, canUseAdmin && !memberIdentityId.IsEmpty(), "admin required or no member");
 			AddMenuAction(actions, TAB_MEMBERS, "Grant admin to member", "admin_grant", memberIdentityId, canUseAdmin && !memberIdentityId.IsEmpty(), "admin required or no member");
+			AddMenuAction(actions, TAB_MEMBERS, "Town support report", "inspect_town_support", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MEMBERS, "Undercover status", "inspect_undercover", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MEMBERS, "Undercover eligibility", "undercover_eligibility", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MEMBERS, "Request undercover", "undercover_request", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MEMBERS, "Clear undercover", "undercover_clear", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -1761,6 +1833,11 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Phase 19 seed enemy ground", "admin_phase19_seed_enemy_ground", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 19 force support ETA", "admin_phase19_force_eta", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 19 report", "admin_phase19_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 20 seed town support", "admin_phase20_seed_town", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 20 seed wanted heat", "admin_phase20_seed_heat", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 20 seed undercover", "admin_phase20_seed_undercover", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 20 clear heat", "admin_phase20_clear_heat", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 20 report", "admin_phase20_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
@@ -2149,6 +2226,85 @@ class HST_CommandUIService
 			return "good";
 
 		return "warn";
+	}
+
+	protected int CountCivilianHeat(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int heat;
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (town)
+				heat += Math.Max(0, town.m_iWantedHeat);
+		}
+
+		return heat;
+	}
+
+	protected int CountCivilianRoadblocks(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (town)
+				count += Math.Max(0, town.m_iRoadblockPresence);
+		}
+
+		return count;
+	}
+
+	protected string BuildUndercoverCompactSummary(HST_CampaignState state)
+	{
+		if (!state)
+			return "state not ready";
+
+		int requested;
+		int wantedOrCompromised;
+		foreach (HST_PlayerUndercoverState player : state.m_aUndercoverPlayers)
+		{
+			if (!player)
+				continue;
+			if (player.m_bUndercoverRequested)
+				requested++;
+			if (player.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED || player.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_WANTED)
+				wantedOrCompromised++;
+		}
+
+		return string.Format("%1 tracked / %2 requested / %3 hot", state.m_aUndercoverPlayers.Count(), requested, wantedOrCompromised);
+	}
+
+	protected string CivilianHeatTone(HST_CampaignState state)
+	{
+		int heat = CountCivilianHeat(state);
+		if (heat >= 8)
+			return "bad";
+		if (heat > 0)
+			return "warn";
+
+		return "good";
+	}
+
+	protected string UndercoverTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "warn";
+
+		foreach (HST_PlayerUndercoverState player : state.m_aUndercoverPlayers)
+		{
+			if (!player)
+				continue;
+			if (player.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED || player.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_WANTED)
+				return "bad";
+			if (player.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_SUSPICIOUS)
+				return "warn";
+		}
+
+		return "good";
 	}
 
 	protected string ShortGarageVehicleLabel(HST_GarageVehicleState vehicle, int maxCharacters)

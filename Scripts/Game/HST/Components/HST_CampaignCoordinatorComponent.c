@@ -1388,12 +1388,73 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_Civilians.BuildCivilianReport(m_State);
 	}
 
+	string RequestMemberInspectTownSupport(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi town support | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi town support | membership required";
+		if (!m_Civilians)
+			return "h-istasi town support | service not ready";
+
+		return m_Civilians.BuildTownSupportReport(m_State);
+	}
+
 	string RequestMemberInspectUndercover(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Civilians)
 			return "";
 
 		return m_Civilians.BuildUndercoverReport(m_State, ResolveTrustedIdentityId(playerId));
+	}
+
+	string RequestMemberInspectUndercoverEligibility(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi undercover eligibility | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi undercover eligibility | membership required";
+		if (!m_Civilians)
+			return "h-istasi undercover eligibility | service not ready";
+
+		HST_UndercoverEligibilityResult result = m_Civilians.BuildUndercoverEligibility(m_State, ResolveTrustedIdentityId(playerId), ResolveControlledPlayerEntity(playerId));
+		MarkMajorCampaignChange(false);
+		if (!result)
+			return "h-istasi undercover eligibility | failed: no result";
+
+		return result.BuildReport();
+	}
+
+	string RequestMemberRequestUndercover(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi undercover | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi undercover | membership required";
+		if (!m_Civilians)
+			return "h-istasi undercover | service not ready";
+
+		string result = m_Civilians.RequestUndercover(m_State, ResolveTrustedIdentityId(playerId), ResolveControlledPlayerEntity(playerId));
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+
+		return result;
+	}
+
+	string RequestMemberClearUndercover(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi undercover | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi undercover | membership required";
+		if (!m_Civilians)
+			return "h-istasi undercover | service not ready";
+
+		string result = m_Civilians.ClearUndercoverCompromise(m_State, ResolveTrustedIdentityId(playerId));
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+
+		return result;
 	}
 
 	string RequestMemberInspectGeneratedContent(int playerId)
@@ -2663,6 +2724,164 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			report = report + "\n" + m_CommandUI.BuildEconomyReport(m_State);
 
 		return report;
+	}
+
+	string RequestAdminPhase20SeedTownSupport(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 20 smoke | failed: admin required";
+		if (!m_Civilians)
+			return "h-istasi phase 20 smoke | failed: civilian service not ready";
+
+		HST_CivilianZoneState town = SelectPhase20SmokeTown();
+		if (!town)
+			return "h-istasi phase 20 smoke | failed: no civilian town record";
+
+		town.m_iFIASupport = 65;
+		town.m_iOccupierSupport = 35;
+		town.m_iReputation = 70;
+		town.m_iWantedHeat = 1;
+		town.m_iPolicePresence = Math.Max(1, town.m_iPolicePresence);
+		town.m_iRoadblockPresence = Math.Max(1, town.m_iRoadblockPresence);
+		town.m_sLastIncidentReason = "phase20 support smoke";
+		town.m_iLastIncidentSecond = m_State.m_iElapsedSeconds;
+		town.m_iLastSupportChangeSecond = m_State.m_iElapsedSeconds;
+
+		HST_ZoneState zone = m_State.FindZone(town.m_sZoneId);
+		if (zone)
+			zone.m_iSupport = Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
+
+		MarkMajorCampaignChange();
+		return "h-istasi phase 20 smoke | seeded town support\n" + m_Civilians.BuildTownSupportReport(m_State, 8);
+	}
+
+	string RequestAdminPhase20SeedWantedHeat(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 20 smoke | failed: admin required";
+		if (!m_Civilians)
+			return "h-istasi phase 20 smoke | failed: civilian service not ready";
+
+		HST_CivilianZoneState town = SelectPhase20SmokeTown();
+		if (!town)
+			return "h-istasi phase 20 smoke | failed: no civilian town record";
+
+		town.m_iWantedHeat = 5;
+		town.m_sLastIncidentReason = "phase20 wanted heat smoke";
+		town.m_iLastIncidentSecond = m_State.m_iElapsedSeconds;
+
+		HST_PlayerUndercoverState undercover = m_Civilians.EnsurePlayer(m_State, ResolveTrustedIdentityId(playerId));
+		if (undercover)
+		{
+			undercover.m_iWantedHeat = 4;
+			undercover.m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_WANTED;
+			undercover.m_sLastReason = "phase20 wanted heat smoke";
+			undercover.m_bLastEligibilityResult = false;
+			undercover.m_sWantedHeatReason = "BLOCK player wanted heat 4 smoke";
+		}
+
+		MarkMajorCampaignChange();
+		return "h-istasi phase 20 smoke | seeded wanted heat\n" + m_Civilians.BuildUndercoverReport(m_State, ResolveTrustedIdentityId(playerId));
+	}
+
+	string RequestAdminPhase20SeedEligibleUndercover(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 20 smoke | failed: admin required";
+		if (!m_Civilians)
+			return "h-istasi phase 20 smoke | failed: civilian service not ready";
+
+		HST_PlayerUndercoverState undercover = m_Civilians.EnsurePlayer(m_State, ResolveTrustedIdentityId(playerId));
+		if (!undercover)
+			return "h-istasi phase 20 smoke | failed: no undercover record";
+
+		undercover.m_bUndercoverRequested = true;
+		undercover.m_bLastEligibilityResult = true;
+		undercover.m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR;
+		undercover.m_iWantedHeat = 0;
+		undercover.m_sClothingReason = "OK civilian clothing smoke";
+		undercover.m_sWeaponReason = "OK no visible military weapon smoke";
+		undercover.m_sVehicleReason = "OK civilian vehicle/on foot smoke";
+		undercover.m_sOffroadReason = "OK off-road smoke";
+		undercover.m_sEnemyProximityReason = "OK no enemy nearby smoke";
+		undercover.m_sWantedHeatReason = "OK wanted heat clear smoke";
+		undercover.m_sLastEligibilitySummary = "phase20 eligible smoke";
+		undercover.m_sLastZoneId = SelectPhase20SmokeTownId();
+		undercover.m_sLastReason = "phase20 eligible smoke";
+		undercover.m_iLastEligibilityCheckSecond = m_State.m_iElapsedSeconds;
+
+		MarkMajorCampaignChange();
+		return "h-istasi phase 20 smoke | seeded eligible undercover\n" + m_Civilians.BuildUndercoverReport(m_State, ResolveTrustedIdentityId(playerId));
+	}
+
+	string RequestAdminPhase20ClearHeat(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 20 smoke | failed: admin required";
+		if (!m_Civilians)
+			return "h-istasi phase 20 smoke | failed: civilian service not ready";
+
+		foreach (HST_CivilianZoneState town : m_State.m_aCivilianZones)
+		{
+			if (!town)
+				continue;
+
+			town.m_iWantedHeat = 0;
+			town.m_sLastIncidentReason = "phase20 heat cleared";
+		}
+
+		HST_PlayerUndercoverState undercover = m_State.FindUndercoverPlayer(ResolveTrustedIdentityId(playerId));
+		if (undercover)
+		{
+			undercover.m_iWantedHeat = 0;
+			undercover.m_iCompromisedUntilSecond = 0;
+			undercover.m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR;
+			undercover.m_sLastReason = "phase20 heat cleared";
+		}
+
+		MarkMajorCampaignChange();
+		return "h-istasi phase 20 smoke | heat cleared\n" + m_Civilians.BuildCivilianReport(m_State);
+	}
+
+	string RequestAdminPhase20Report(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 20 smoke | failed: admin required";
+
+		string report = "h-istasi phase 20 smoke report";
+		if (m_Civilians)
+		{
+			report = report + "\n" + m_Civilians.BuildTownSupportReport(m_State, 12);
+			report = report + "\n" + m_Civilians.BuildUndercoverReport(m_State, ResolveTrustedIdentityId(playerId));
+			HST_UndercoverEligibilityResult eligibility = m_Civilians.BuildUndercoverEligibility(m_State, ResolveTrustedIdentityId(playerId), ResolveControlledPlayerEntity(playerId));
+			if (eligibility)
+				report = report + "\n" + eligibility.BuildReport();
+		}
+
+		return report;
+	}
+
+	protected HST_CivilianZoneState SelectPhase20SmokeTown()
+	{
+		if (!m_State)
+			return null;
+
+		foreach (HST_CivilianZoneState town : m_State.m_aCivilianZones)
+		{
+			if (town)
+				return town;
+		}
+
+		return null;
+	}
+
+	protected string SelectPhase20SmokeTownId()
+	{
+		HST_CivilianZoneState town = SelectPhase20SmokeTown();
+		if (town)
+			return town.m_sZoneId;
+
+		return "";
 	}
 
 	protected HST_ZoneState SelectPhase16FriendlyRecruitZone()

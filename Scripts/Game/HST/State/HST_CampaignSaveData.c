@@ -1003,11 +1003,15 @@ class HST_CampaignSaveData
 		HST_CivilianZoneState target = new HST_CivilianZoneState();
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_iReputation = source.m_iReputation;
+		target.m_iFIASupport = source.m_iFIASupport;
+		target.m_iOccupierSupport = source.m_iOccupierSupport;
 		target.m_iWantedHeat = source.m_iWantedHeat;
 		target.m_iCivilianPresence = source.m_iCivilianPresence;
 		target.m_iPolicePresence = source.m_iPolicePresence;
 		target.m_iRoadblockPresence = source.m_iRoadblockPresence;
 		target.m_iLastIncidentSecond = source.m_iLastIncidentSecond;
+		target.m_sLastIncidentReason = source.m_sLastIncidentReason;
+		target.m_iLastSupportChangeSecond = source.m_iLastSupportChangeSecond;
 		target.m_bUndercoverRestricted = source.m_bUndercoverRestricted;
 		return target;
 	}
@@ -1021,6 +1025,17 @@ class HST_CampaignSaveData
 		target.m_iCompromisedUntilSecond = source.m_iCompromisedUntilSecond;
 		target.m_iLastCheckedSecond = source.m_iLastCheckedSecond;
 		target.m_sLastReason = source.m_sLastReason;
+		target.m_bUndercoverRequested = source.m_bUndercoverRequested;
+		target.m_bLastEligibilityResult = source.m_bLastEligibilityResult;
+		target.m_sLastZoneId = source.m_sLastZoneId;
+		target.m_sLastEligibilitySummary = source.m_sLastEligibilitySummary;
+		target.m_sClothingReason = source.m_sClothingReason;
+		target.m_sWeaponReason = source.m_sWeaponReason;
+		target.m_sVehicleReason = source.m_sVehicleReason;
+		target.m_sOffroadReason = source.m_sOffroadReason;
+		target.m_sEnemyProximityReason = source.m_sEnemyProximityReason;
+		target.m_sWantedHeatReason = source.m_sWantedHeatReason;
+		target.m_iLastEligibilityCheckSecond = source.m_iLastEligibilityCheckSecond;
 		return target;
 	}
 
@@ -1231,6 +1246,34 @@ class HST_CampaignSaveData
 
 			if (!order.m_sSupportRequestId.IsEmpty())
 				order.m_bPhysicalized = true;
+		}
+		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
+		{
+			if (!civilianZone)
+				continue;
+
+			if (civilianZone.m_iFIASupport == 0 && civilianZone.m_iReputation > 0)
+				civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, civilianZone.m_iReputation));
+
+			if (civilianZone.m_iOccupierSupport == 0)
+				civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, 100 - civilianZone.m_iFIASupport / 2 + civilianZone.m_iPolicePresence * 2 + civilianZone.m_iRoadblockPresence * 3));
+
+			if (civilianZone.m_sLastIncidentReason.IsEmpty())
+				civilianZone.m_sLastIncidentReason = "legacy/backfilled";
+			if (civilianZone.m_iLastSupportChangeSecond <= 0)
+				civilianZone.m_iLastSupportChangeSecond = civilianZone.m_iLastIncidentSecond;
+		}
+
+		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)
+		{
+			if (!undercover)
+				continue;
+
+			if (undercover.m_sLastEligibilitySummary.IsEmpty())
+				undercover.m_sLastEligibilitySummary = undercover.m_sLastReason;
+
+			if (undercover.m_sWantedHeatReason.IsEmpty())
+				undercover.m_sWantedHeatReason = "legacy/backfilled";
 		}
 	}
 

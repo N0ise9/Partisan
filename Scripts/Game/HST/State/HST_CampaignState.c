@@ -564,11 +564,15 @@ class HST_CivilianZoneState
 {
 	string m_sZoneId;
 	int m_iReputation;
+	int m_iFIASupport;
+	int m_iOccupierSupport;
 	int m_iWantedHeat;
 	int m_iCivilianPresence;
 	int m_iPolicePresence;
 	int m_iRoadblockPresence;
 	int m_iLastIncidentSecond;
+	string m_sLastIncidentReason;
+	int m_iLastSupportChangeSecond;
 	bool m_bUndercoverRestricted;
 }
 
@@ -581,6 +585,17 @@ class HST_PlayerUndercoverState
 	int m_iCompromisedUntilSecond;
 	int m_iLastCheckedSecond;
 	string m_sLastReason;
+	bool m_bUndercoverRequested;
+	bool m_bLastEligibilityResult;
+	string m_sLastZoneId;
+	string m_sLastEligibilitySummary;
+	string m_sClothingReason;
+	string m_sWeaponReason;
+	string m_sVehicleReason;
+	string m_sOffroadReason;
+	string m_sEnemyProximityReason;
+	string m_sWantedHeatReason;
+	int m_iLastEligibilityCheckSecond;
 }
 
 [BaseContainerProps()]
@@ -600,7 +615,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 21;
+	static const int SCHEMA_VERSION = 22;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
