@@ -216,8 +216,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool physicalWarMarkerChanged = false;
 		if (physicalWarChanged && m_PhysicalWar)
 			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
-		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || campaignOutcomeChanged || civilianRuntimeChanged;
-		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged || captureMarkerChanged || campaignOutcomeChanged || physicalWarMarkerChanged;
+		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged;
+		anyStateChanged = anyStateChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0;
+		anyStateChanged = anyStateChanged || enemyResourcesChanged || aggressionChanged || civilianChanged;
+		anyStateChanged = anyStateChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged;
+		anyStateChanged = anyStateChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
+		anyStateChanged = anyStateChanged || physicalWarChanged || captureChanged || campaignOutcomeChanged;
+		anyStateChanged = anyStateChanged || civilianRuntimeChanged;
+
+		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged;
+		markerStateChanged = markerStateChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged;
+		markerStateChanged = markerStateChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged;
+		markerStateChanged = markerStateChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
+		markerStateChanged = markerStateChanged || captureMarkerChanged || campaignOutcomeChanged || physicalWarMarkerChanged;
 		bool forceImmediateMarkerRefresh = missionChanged || hqRuntimeChanged || petrosDefenseChanged;
 		markerStateChanged = ResolveThrottledMarkerRefresh(markerStateChanged, forceImmediateMarkerRefresh);
 		if (markerStateChanged)
