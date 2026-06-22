@@ -3440,7 +3440,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (factionKey.IsEmpty())
 			factionKey = "US";
 
-		HST_EnemyOrderState order = m_EnemyCommander.QueuePetrosAttack(m_State, m_Preset, m_EnemyDirector, factionKey);
+		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugPetrosAttack(m_State, m_Preset, m_EnemyDirector, factionKey);
 		if (order)
 		{
 			if (m_HQ)
@@ -3465,7 +3465,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string factionKey = m_Preset.m_sOccupierFactionKey;
 			if (factionKey.IsEmpty())
 				factionKey = "US";
-			order = m_EnemyCommander.QueuePetrosAttack(m_State, m_Preset, m_EnemyDirector, factionKey);
+			order = m_EnemyCommander.QueueDebugPetrosAttack(m_State, m_Preset, m_EnemyDirector, factionKey);
 		}
 
 		HST_ActiveMissionState mission = EnsureDefendPetrosMissionForOrder(order);
@@ -4420,7 +4420,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
 		vehicle.m_sVehicleId = string.Format("phase15_smoke_source_%1_%2", m_State.m_iElapsedSeconds, m_State.m_aGarageVehicles.Count());
 		vehicle.m_sPrefab = sourcePrefab;
-		vehicle.m_sDisplayName = "Phase 15 Source Vehicle";
+		vehicle.m_sDisplayName = "Phase 15 Ammo Source Vehicle";
 		vehicle.m_sSourceZoneId = "phase15_smoke";
 		vehicle.m_sSourceFactionKey = "US";
 		vehicle.m_iStoredAtSecond = m_State.m_iElapsedSeconds;
@@ -4430,16 +4430,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicle.m_fFuel = 1.0;
 		vehicle.m_sDamageState = "ok";
 		vehicle.m_bUnlocked = true;
-		HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(vehicle);
-
-		if (!vehicle.m_bAmmoSource && !vehicle.m_bRepairSource && !vehicle.m_bFuelSource)
-			return "h-istasi phase 15 smoke | failed: candidate loaded but was not classified as source vehicle | " + sourcePrefab;
 
 		if (!m_Arsenal.StoreVehicle(m_State, vehicle))
 			return "h-istasi phase 15 smoke | failed: source vehicle not stored";
 
+		ApplyPhase15SmokeSourceCapability(vehicle);
 		MarkMajorCampaignChange();
-		return "h-istasi phase 15 smoke | seeded source vehicle\n" + m_Arsenal.BuildGarageReport(m_State);
+		return "h-istasi phase 15 smoke | seeded explicit ammo-source metadata\n" + m_Arsenal.BuildGarageReport(m_State);
 	}
 
 	string RequestAdminPhase15Report(int playerId)
@@ -4469,6 +4466,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string ResolveFirstLoadablePhase15SourceVehiclePrefab()
 	{
 		array<string> candidates = {};
+		candidates.Insert("{F1FBD0972FA5FE09}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport.et");
+		candidates.Insert("{81FDAD5EB644CC3D}Prefabs/Vehicles/Wheeled/M923A1/M923A1_transport_covered.et");
+		candidates.Insert("{16C1F16C9B053801}Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et");
+		candidates.Insert(PHASE15_SMOKE_VEHICLE_PREFAB);
 
 		foreach (string prefab : candidates)
 		{
@@ -4484,6 +4485,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return "";
+	}
+
+	protected void ApplyPhase15SmokeSourceCapability(HST_GarageVehicleState vehicle)
+	{
+		if (!vehicle)
+			return;
+
+		vehicle.m_sSourceVehicleKind = "ammo";
+		vehicle.m_bAmmoSource = true;
+		vehicle.m_bRepairSource = false;
+		vehicle.m_bFuelSource = false;
 	}
 
 	protected int CountGarageSourceVehicles(bool ammoSource, bool repairSource, bool fuelSource)

@@ -84,16 +84,23 @@ class HST_CommandUIService
 		BuildRequiredCommandCoverageList(required);
 
 		int missing;
+		int missingDispatch;
 		foreach (string commandId : required)
 		{
-			if (IsKnownVisibleCommand(commandId))
-				continue;
+			if (!IsKnownVisibleCommand(commandId))
+			{
+				missing++;
+				report = report + "\nmissing visible command: " + commandId;
+			}
 
-			missing++;
-			report = report + "\nmissing: " + commandId;
+			if (!IsVisibleCommandDispatchHandled(commandId))
+			{
+				missingDispatch++;
+				report = report + "\nmissing dispatch: " + commandId;
+			}
 		}
 
-		report = report + string.Format("\ncoverage | required %1 | missing %2", required.Count(), missing);
+		report = report + string.Format("\ncoverage | required %1 | missing visible %2 | missing dispatch %3", required.Count(), missing, missingDispatch);
 		return report;
 	}
 
@@ -353,6 +360,65 @@ class HST_CommandUIService
 
 		return false;
 	}
+
+	protected bool IsVisibleCommandDispatchHandled(string commandId)
+	{
+		if (commandId == "foundation_status") return true;
+		if (commandId == "inspect_campaign") return true;
+		if (commandId == "inspect_markers") return true;
+		if (commandId == "inspect_hq_threat") return true;
+		if (commandId == "inspect_economy") return true;
+		if (commandId == "inspect_zones") return true;
+		if (commandId == "inspect_missions") return true;
+		if (commandId == "inspect_capture") return true;
+		if (commandId == "inspect_recruitment") return true;
+		if (commandId == "inspect_support") return true;
+		if (commandId == "inspect_arsenal") return true;
+		if (commandId == "inspect_garage") return true;
+		if (commandId == "inspect_vehicle_cargo") return true;
+		if (commandId == "inspect_civilians") return true;
+		if (commandId == "inspect_town_support") return true;
+		if (commandId == "inspect_content") return true;
+		if (commandId == "inspect_persistence") return true;
+		if (commandId == "inspect_loadout_editor") return true;
+		if (commandId == "inspect_undercover") return true;
+		if (commandId == "undercover_eligibility") return true;
+		if (commandId == "undercover_request") return true;
+		if (commandId == "undercover_check") return true;
+		if (commandId == "undercover_clear") return true;
+		if (commandId == "inspect_mission_summary") return true;
+		if (commandId == "inspect_active_missions") return true;
+		if (commandId == "inspect_mission_runtime") return true;
+		if (commandId == "inspect_convoy_runtime") return true;
+		if (commandId == "inspect_balance") return true;
+		if (commandId == "inspect_campaign_end") return true;
+		if (commandId == "admin_phase14_report") return true;
+		if (commandId == "admin_phase15_report") return true;
+		if (commandId == "admin_phase16_report") return true;
+		if (commandId == "admin_phase17_report") return true;
+		if (commandId == "admin_phase18_report") return true;
+		if (commandId == "admin_phase19_report") return true;
+		if (commandId == "admin_phase20_report") return true;
+		if (commandId == "admin_phase21_report") return true;
+		if (commandId == "admin_phase22_seed_hq_knowledge") return true;
+		if (commandId == "admin_phase22_queue_attack") return true;
+		if (commandId == "admin_phase22_start_defense") return true;
+		if (commandId == "admin_phase22_kill_petros") return true;
+		if (commandId == "admin_phase22_succeed_defense") return true;
+		if (commandId == "admin_phase22_report") return true;
+		if (commandId == "admin_phase23_ui_coverage") return true;
+		if (commandId == "admin_phase23_marker_audit") return true;
+		if (commandId == "admin_phase23_failed_action_sample") return true;
+		if (commandId == "admin_phase24_seed_early") return true;
+		if (commandId == "admin_phase24_seed_mid") return true;
+		if (commandId == "admin_phase24_seed_late") return true;
+		if (commandId == "admin_phase24_force_victory") return true;
+		if (commandId == "admin_phase24_force_loss") return true;
+		if (commandId == "admin_phase24_report") return true;
+
+		return false;
+	}
+
 	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
 	{
 		selectedTabId = NormalizeTabId(selectedTabId);
@@ -813,10 +879,29 @@ class HST_CommandUIService
 			return false;
 		if (commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
 			return false;
-		if (commandId.Contains("inspect") || commandId.Contains("admin_phase"))
+		if (commandId.Contains("inspect") || IsNonMutatingPhaseCommand(commandId))
 			return false;
 
 		return true;
+	}
+
+	protected bool IsNonMutatingPhaseCommand(string commandId)
+	{
+		if (commandId == "admin_phase14_report") return true;
+		if (commandId == "admin_phase15_report") return true;
+		if (commandId == "admin_phase16_report") return true;
+		if (commandId == "admin_phase17_report") return true;
+		if (commandId == "admin_phase18_report") return true;
+		if (commandId == "admin_phase19_report") return true;
+		if (commandId == "admin_phase20_report") return true;
+		if (commandId == "admin_phase21_report") return true;
+		if (commandId == "admin_phase22_report") return true;
+		if (commandId == "admin_phase23_ui_coverage") return true;
+		if (commandId == "admin_phase23_marker_audit") return true;
+		if (commandId == "admin_phase23_failed_action_sample") return true;
+		if (commandId == "admin_phase24_report") return true;
+
+		return false;
 	}
 	string BuildEconomyReport(HST_CampaignState state)
 	{

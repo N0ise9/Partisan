@@ -4354,4 +4354,109 @@ if ($missingClasses.Count -gt 0) {
 }
 Write-Host "Resource class references OK: $($instantiatedClasses.Count)"
 
+$commandUiForCoverageText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+$coordinatorForCoverageText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$missingCoordinatorCommandMethods = @()
+$coordinatorCommandMethods = @([regex]::Matches($commandUiForCoverageText, "coordinator\.([A-Za-z_][A-Za-z0-9_]*)\(") |
+	ForEach-Object { $_.Groups[1].Value } |
+	Sort-Object -Unique)
+foreach ($method in $coordinatorCommandMethods) {
+	if ($coordinatorForCoverageText -notmatch ("\b" + [regex]::Escape($method) + "\s*\(")) {
+		$missingCoordinatorCommandMethods += $method
+	}
+}
+if ($missingCoordinatorCommandMethods.Count -gt 0) {
+	throw "Command UI dispatch references missing coordinator method(s):`n$($missingCoordinatorCommandMethods -join "`n")"
+}
+foreach ($requiredCommandCoverageEntry in @(
+	"IsVisibleCommandDispatchHandled",
+	"missing dispatch",
+	"IsNonMutatingPhaseCommand"
+)) {
+	if ($commandUiForCoverageText -notmatch [regex]::Escape($requiredCommandCoverageEntry)) {
+		throw "Command coverage/mutation audit is missing entry: $requiredCommandCoverageEntry"
+	}
+}
+if ($commandUiForCoverageText -match 'commandId\.Contains\("admin_phase"\)') {
+	throw "Admin phase commands must be classified explicitly, not with a broad admin_phase substring exemption"
+}
+Write-Host "Command UI dispatch coverage OK: $($coordinatorCommandMethods.Count) coordinator method(s)"
+
+$visibleMenuCommandIds = New-Object 'System.Collections.Generic.HashSet[string]'
+foreach ($line in ($commandUiForCoverageText -split "`r?`n")) {
+	if ($line -notmatch "AddMenuAction\(") {
+		continue
+	}
+
+	$quotedStrings = @([regex]::Matches($line, '"([^"]*)"') | ForEach-Object { $_.Groups[1].Value })
+	if ($quotedStrings.Count -lt 2) {
+		continue
+	}
+
+	$commandIdCandidate = $quotedStrings[1]
+	if ($commandIdCandidate -match '^[A-Za-z0-9_]+$') {
+		[void]$visibleMenuCommandIds.Add($commandIdCandidate)
+	}
+}
+$missingVisibleMenuDispatch = @()
+foreach ($visibleMenuCommandId in ($visibleMenuCommandIds | Sort-Object)) {
+	if ($commandUiForCoverageText -notmatch ('commandId == "' + [regex]::Escape($visibleMenuCommandId) + '"')) {
+		$missingVisibleMenuDispatch += $visibleMenuCommandId
+	}
+}
+if ($missingVisibleMenuDispatch.Count -gt 0) {
+	throw "Visible menu command(s) missing ExecuteVisibleCommand dispatch:`n$($missingVisibleMenuDispatch -join "`n")"
+}
+Write-Host "Visible menu command dispatch OK: $($visibleMenuCommandIds.Count) literal command(s)"
+
+$phase15SourceResolver = [regex]::Match($coordinatorForCoverageText, "(?s)protected string ResolveFirstLoadablePhase15SourceVehiclePrefab\(.*?return """";\r?\n\t\}")
+if (!$phase15SourceResolver.Success) {
+	throw "Could not locate Phase 15 source vehicle resolver for smoke coverage audit"
+}
+if (@([regex]::Matches($phase15SourceResolver.Value, "candidates\.Insert")).Count -lt 3) {
+	throw "Phase 15 source vehicle smoke resolver must keep real candidate vehicle prefabs"
+}
+$phase15SourceSmokeMethod = [regex]::Match($coordinatorForCoverageText, "(?s)string RequestAdminPhase15SeedSourceVehicle\(.*?string RequestAdminPhase15Report")
+if (!$phase15SourceSmokeMethod.Success) {
+	throw "Could not locate Phase 15 source vehicle smoke command for coverage audit"
+}
+foreach ($requiredPhase15SourceEntry in @(
+	"ApplyPhase15SmokeSourceCapability",
+	"seeded explicit ammo-source metadata",
+	"PHASE15_SMOKE_VEHICLE_PREFAB"
+)) {
+	if ($coordinatorForCoverageText -notmatch [regex]::Escape($requiredPhase15SourceEntry)) {
+		throw "Phase 15 source vehicle smoke coverage is missing entry: $requiredPhase15SourceEntry"
+	}
+}
+foreach ($requiredPhase15SourceMethodEntry in @(
+	"m_sDisplayName = ""Phase 15 Ammo Source Vehicle""",
+	"m_sSourceVehicleKind = ""ammo""",
+	"m_bAmmoSource = true"
+)) {
+	if ($phase15SourceSmokeMethod.Value + "`n" + $coordinatorForCoverageText -notmatch [regex]::Escape($requiredPhase15SourceMethodEntry)) {
+		throw "Phase 15 source vehicle smoke metadata is missing entry: $requiredPhase15SourceMethodEntry"
+	}
+}
+Write-Host "Phase 15 source vehicle smoke coverage OK"
+
+$enemyCommanderForAuditText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
+$normalPetrosQueue = [regex]::Match($enemyCommanderForAuditText, "(?s)HST_EnemyOrderState QueuePetrosAttack\(.*?\r?\n\t\}\r?\n\r?\n\tint DebugResolveDueOrdersNow")
+if (!$normalPetrosQueue.Success) {
+	throw "Could not locate normal QueuePetrosAttack method for resource-authority audit"
+}
+if ($normalPetrosQueue.Value -match "AddResources") {
+	throw "Normal QueuePetrosAttack must not force-fund enemy resources; use QueueDebugPetrosAttack for smoke helpers"
+}
+foreach ($requiredPetrosQueueEntry in @(
+	"QueueDebugPetrosAttack",
+	"QueuePetrosAttack",
+	"m_EnemyCommander.QueueDebugPetrosAttack"
+)) {
+	if (($enemyCommanderForAuditText + "`n" + $coordinatorForCoverageText) -notmatch [regex]::Escape($requiredPetrosQueueEntry)) {
+		throw "Petros attack queue split is missing entry: $requiredPetrosQueueEntry"
+	}
+}
+Write-Host "Petros attack queue resource authority OK"
+
 Write-Host "h-istasi foundation validation passed"

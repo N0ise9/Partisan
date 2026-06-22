@@ -216,6 +216,15 @@ class HST_EnemyCommanderService
 		return state.m_aEnemyOrders[state.m_aEnemyOrders.Count() - 1];
 	}
 
+	HST_EnemyOrderState QueueDebugPetrosAttack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey)
+	{
+		if (!state || !preset || !enemyDirector || factionKey.IsEmpty())
+			return null;
+
+		enemyDirector.AddResources(state, factionKey, 100, 100);
+		return QueuePetrosAttack(state, preset, enemyDirector, factionKey);
+	}
+
 	HST_EnemyOrderState QueuePetrosAttack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey)
 	{
 		if (!state || !preset || !enemyDirector || factionKey.IsEmpty())
@@ -228,7 +237,6 @@ class HST_EnemyCommanderService
 		if (HasActiveOrderForZone(state, factionKey, targetZone.m_sZoneId))
 			return null;
 
-		enemyDirector.AddResources(state, factionKey, 100, 100);
 		int beforeCount = state.m_aEnemyOrders.Count();
 		if (!QueueOrder(state, preset, enemyDirector, null, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK))
 			return null;
