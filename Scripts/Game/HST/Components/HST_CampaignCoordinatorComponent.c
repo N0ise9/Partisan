@@ -1024,30 +1024,67 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
-	bool RequestCommanderCallSupplyDrop(int playerId)
+	string RequestCommanderCallSupplyDropReport(int playerId)
 	{
-		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId) || !m_SupportRequests)
-			return false;
+		if (!Replication.IsServer())
+			return "h-istasi support | failed: server required";
+
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi support | failed: commander permission required";
+
+		if (!m_SupportRequests)
+			return "h-istasi support | failed: service not ready";
+		if (!m_State || !m_Preset)
+			return "h-istasi support | failed: campaign state or preset not ready";
 
 		string targetZoneId = SelectHQSupportZoneId();
-		HST_SupportRequestState request = m_SupportRequests.RequestSupport(m_State, m_Preset, m_Economy, m_EnemyDirector, m_Preset.m_sResistanceFactionKey, HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP, targetZoneId, true);
-		if (request)
+		HST_SupportRequestResult result = m_SupportRequests.RequestSupportDetailed(
+			m_State,
+			m_Preset,
+			m_Economy,
+			m_EnemyDirector,
+			m_Preset.m_sResistanceFactionKey,
+			HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP,
+			targetZoneId,
+			true,
+			HST_SupportRequestService.PLAYER_SUPPORT_COOLDOWN_SECONDS
+		);
+
+		if (result && result.m_bSuccess)
 		{
-			MarkMajorCampaignChange();
+			MarkMajorCampaignChange(true);
 			m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
-		return request != null;
+
+		string report = result.BuildSummary();
+		report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		report = report + "\n" + m_SupportRequests.BuildSupportCooldownReport(m_State);
+		return report;
 	}
 
-	bool RequestCommanderCallPlayerSupport(int playerId, HST_ESupportRequestType supportType)
+	bool RequestCommanderCallSupplyDrop(int playerId)
 	{
-		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId) || !m_SupportRequests)
-			return false;
+		string result = RequestCommanderCallSupplyDropReport(playerId);
+		return !result.Contains("failed");
+	}
+
+	string RequestCommanderCallPlayerSupportReport(int playerId, HST_ESupportRequestType supportType)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi support | failed: server required";
+
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi support | failed: commander permission required";
+
+		if (!m_SupportRequests)
+			return "h-istasi support | failed: service not ready";
+		if (!m_State || !m_Preset)
+			return "h-istasi support | failed: campaign state or preset not ready";
 
 		if (IsAirSupportType(supportType))
 		{
 			if (!m_Balance.m_bAirSupportEnabled || !HasResistanceAirSupportCapability())
-				return false;
+				return "h-istasi support | failed: air support capability unavailable";
 		}
 
 		string targetZoneId = SelectPlayerSupportZoneId(playerId);
@@ -1055,13 +1092,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (IsAirSupportType(supportType))
 			cooldownSeconds = m_Balance.m_iAirSupportCooldownSeconds;
 
-		HST_SupportRequestState request = m_SupportRequests.RequestSupport(m_State, m_Preset, m_Economy, m_EnemyDirector, m_Preset.m_sResistanceFactionKey, supportType, targetZoneId, true, cooldownSeconds);
-		if (request)
+		HST_SupportRequestResult result = m_SupportRequests.RequestSupportDetailed(
+			m_State,
+			m_Preset,
+			m_Economy,
+			m_EnemyDirector,
+			m_Preset.m_sResistanceFactionKey,
+			supportType,
+			targetZoneId,
+			true,
+			cooldownSeconds
+		);
+
+		if (result && result.m_bSuccess)
 		{
-			MarkMajorCampaignChange();
+			MarkMajorCampaignChange(true);
 			m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
-		return request != null;
+
+		string report = result.BuildSummary();
+		report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		report = report + "\n" + m_SupportRequests.BuildSupportCooldownReport(m_State);
+		return report;
+	}
+
+	bool RequestCommanderCallPlayerSupport(int playerId, HST_ESupportRequestType supportType)
+	{
+		string result = RequestCommanderCallPlayerSupportReport(playerId, supportType);
+		return !result.Contains("failed");
 	}
 
 	bool RequestCommanderCancelSupport(int playerId, string requestId = "")
@@ -1312,8 +1370,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_SupportRequests)
 			return "";
 
-		string report = m_SupportRequests.BuildSupportReport(m_State) + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
-		report = report + "\n" + m_EnemyCommander.BuildPhysicalResponseReport(m_State);
+		string report = m_SupportRequests.BuildSupportReport(m_State);
+		report = report + "\n" + m_SupportRequests.BuildSupportCooldownReport(m_State);
+		if (m_EnemyCommander)
+		{
+			report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
+			report = report + "\n" + m_EnemyCommander.BuildPhysicalResponseReport(m_State);
+		}
 		return report;
 	}
 
@@ -2433,6 +2496,169 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (m_SupportRequests)
 			report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		if (m_CommandUI)
+			report = report + "\n" + m_CommandUI.BuildEconomyReport(m_State);
+
+		return report;
+	}
+
+	string RequestAdminPhase19SeedFIASupply(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 19 smoke | failed: admin required";
+
+		if (!m_SupportRequests)
+			return "h-istasi phase 19 smoke | failed: support service not ready";
+		if (!m_State || !m_Preset)
+			return "h-istasi phase 19 smoke | failed: campaign state or preset not ready";
+
+		string targetZoneId = SelectHQSupportZoneId();
+		HST_SupportRequestResult result = m_SupportRequests.RequestSupportDetailed(
+			m_State,
+			m_Preset,
+			m_Economy,
+			m_EnemyDirector,
+			m_Preset.m_sResistanceFactionKey,
+			HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP,
+			targetZoneId,
+			true,
+			60
+		);
+
+		if (result && result.m_bSuccess)
+			MarkMajorCampaignChange(true);
+
+		return "h-istasi phase 19 smoke | FIA supply\n" + result.BuildSummary() + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+	}
+
+	string RequestAdminPhase19SeedFIAGround(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 19 smoke | failed: admin required";
+
+		if (!m_SupportRequests)
+			return "h-istasi phase 19 smoke | failed: support service not ready";
+		if (!m_State || !m_Preset)
+			return "h-istasi phase 19 smoke | failed: campaign state or preset not ready";
+
+		string targetZoneId = SelectPlayerSupportZoneId(playerId);
+		HST_SupportRequestResult result = m_SupportRequests.RequestSupportDetailed(
+			m_State,
+			m_Preset,
+			m_Economy,
+			m_EnemyDirector,
+			m_Preset.m_sResistanceFactionKey,
+			HST_ESupportRequestType.HST_SUPPORT_QRF,
+			targetZoneId,
+			true,
+			60
+		);
+
+		if (result && result.m_bSuccess)
+			MarkMajorCampaignChange(true);
+
+		return "h-istasi phase 19 smoke | FIA ground\n" + result.BuildSummary() + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+	}
+
+	string RequestAdminPhase19SeedEnemyGround(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 19 smoke | failed: admin required";
+
+		if (!m_EnemyDirector || !m_SupportRequests)
+			return "h-istasi phase 19 smoke | failed: services not ready";
+		if (!m_State || !m_Preset)
+			return "h-istasi phase 19 smoke | failed: campaign state or preset not ready";
+
+		HST_ZoneState targetZone = SelectEnemyOrderTargetZone(false);
+		if (!targetZone)
+			return "h-istasi phase 19 smoke | failed: no target zone";
+
+		string factionKey = m_Preset.m_sOccupierFactionKey;
+		HST_FactionPoolState pool = m_State.FindFactionPool(factionKey);
+		if (!pool)
+			return "h-istasi phase 19 smoke | failed: enemy resource pool not ready";
+
+		int beforeAttack = pool.m_iAttackResources;
+		int beforeSupport = pool.m_iSupportResources;
+		int attackCost = 15;
+		int supportCost = 5;
+		int attackTopUp = Math.Max(0, attackCost - beforeAttack);
+		int supportTopUp = Math.Max(0, supportCost - beforeSupport);
+		if (attackTopUp > 0 || supportTopUp > 0)
+			m_EnemyDirector.AddResources(m_State, factionKey, attackTopUp, supportTopUp);
+
+		HST_SupportRequestResult result = m_SupportRequests.RequestSupportDetailed(
+			m_State,
+			m_Preset,
+			m_Economy,
+			m_EnemyDirector,
+			factionKey,
+			HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY,
+			targetZone.m_sZoneId,
+			false,
+			0
+		);
+
+		if (attackTopUp > 0 || supportTopUp > 0)
+			m_EnemyDirector.AddResources(m_State, factionKey, -attackTopUp, -supportTopUp);
+
+		pool = m_State.FindFactionPool(factionKey);
+		int afterAttack;
+		int afterSupport;
+		if (pool)
+		{
+			afterAttack = pool.m_iAttackResources;
+			afterSupport = pool.m_iSupportResources;
+		}
+
+		if (result && result.m_bSuccess)
+			MarkMajorCampaignChange(true);
+
+		string resources = string.Format("enemy resources %1 before %2/%3 after %4/%5", factionKey, beforeAttack, beforeSupport, afterAttack, afterSupport);
+		return "h-istasi phase 19 smoke | enemy ground\n" + result.BuildSummary() + "\n" + resources + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+	}
+
+	string RequestAdminPhase19ForceSupportETA(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 19 smoke | failed: admin required";
+
+		if (!m_State || !m_SupportRequests)
+			return "h-istasi phase 19 smoke | failed: support service not ready";
+
+		int changed;
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (!request)
+				continue;
+
+			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_QUEUED && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				continue;
+
+			request.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, request.m_iETASeconds);
+			changed++;
+		}
+
+		if (changed > 0)
+			MarkMajorCampaignChange(true);
+
+		return string.Format("h-istasi phase 19 smoke | forced ETA on %1 request(s)\n%2", changed, m_SupportRequests.BuildSupportReport(m_State));
+	}
+
+	string RequestAdminPhase19Report(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 19 smoke | failed: admin required";
+
+		string report = "h-istasi phase 19 smoke report";
+		if (m_SupportRequests)
+		{
+			report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+			report = report + "\n" + m_SupportRequests.BuildSupportCooldownReport(m_State);
+		}
+		if (m_EnemyCommander)
+			report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
 		if (m_CommandUI)
 			report = report + "\n" + m_CommandUI.BuildEconomyReport(m_State);
 

@@ -268,24 +268,21 @@ class HST_CommandUIService
 
 		if (commandId == "mission_asset_load" || commandId == "mission_asset_unload" || commandId == "mission_asset_deliver" || commandId == "mission_captive_extract" || commandId == "mission_captive_follow" || commandId == "mission_vehicle_capture" || commandId == "mission_asset_sabotage")
 			return coordinator.RequestMemberMissionInteraction(playerId, commandId, argument);
-
 		if (commandId == "call_supply")
-			return BuildBoolResult("request FIA supply drop", coordinator.RequestCommanderCallSupplyDrop(playerId));
-
+			return coordinator.RequestCommanderCallSupplyDropReport(playerId);
 		if (commandId == "support_qrf")
-			return BuildBoolResult("request FIA QRF reserve", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_QRF));
-
+			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_QRF);
 		if (commandId == "support_fire")
-			return BuildBoolResult("request suppressive fire", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE));
+			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
 
+		if (commandId == "support_search")
+			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
 		if (commandId == "support_gbu")
-			return BuildBoolResult("request GBU air strike", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU));
-
+			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU);
 		if (commandId == "support_umpk")
-			return BuildBoolResult("request UMPK air strike", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK));
-
+			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK);
 		if (commandId == "support_kh55")
-			return BuildBoolResult("request Kh55 strike", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55));
+			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55);
 
 		if (commandId == "cancel_support")
 			return BuildBoolResult("cancel active player support", coordinator.RequestCommanderCancelSupport(playerId, argument));
@@ -378,6 +375,21 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase18_report")
 			return coordinator.RequestAdminPhase18Report(playerId);
+
+		if (commandId == "admin_phase19_seed_fia_supply")
+			return coordinator.RequestAdminPhase19SeedFIASupply(playerId);
+
+		if (commandId == "admin_phase19_seed_fia_ground")
+			return coordinator.RequestAdminPhase19SeedFIAGround(playerId);
+
+		if (commandId == "admin_phase19_seed_enemy_ground")
+			return coordinator.RequestAdminPhase19SeedEnemyGround(playerId);
+
+		if (commandId == "admin_phase19_force_eta")
+			return coordinator.RequestAdminPhase19ForceSupportETA(playerId);
+
+		if (commandId == "admin_phase19_report")
+			return coordinator.RequestAdminPhase19Report(playerId);
 
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
@@ -629,6 +641,9 @@ class HST_CommandUIService
 		if (commandId == "support_fire")
 			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
 
+		if (commandId == "support_search")
+			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
+
 		if (commandId == "support_gbu")
 			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU);
 
@@ -729,6 +744,21 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase18_report")
 			return !coordinator.RequestAdminPhase18Report(playerId).IsEmpty();
+
+		if (commandId == "admin_phase19_seed_fia_supply")
+			return !coordinator.RequestAdminPhase19SeedFIASupply(playerId).Contains("failed");
+
+		if (commandId == "admin_phase19_seed_fia_ground")
+			return !coordinator.RequestAdminPhase19SeedFIAGround(playerId).Contains("failed");
+
+		if (commandId == "admin_phase19_seed_enemy_ground")
+			return !coordinator.RequestAdminPhase19SeedEnemyGround(playerId).Contains("failed");
+
+		if (commandId == "admin_phase19_force_eta")
+			return !coordinator.RequestAdminPhase19ForceSupportETA(playerId).Contains("failed");
+
+		if (commandId == "admin_phase19_report")
+			return !coordinator.RequestAdminPhase19Report(playerId).IsEmpty();
 
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
@@ -1627,11 +1657,14 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops_report", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Recruit FIA", state, recruitTargetId), "recruit_zone", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no recruit target");
 			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Remove FIA garrison", state, recruitTargetId), "remove_garrison", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no garrison target");
+			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_FORCES, "Request supply drop", "call_supply", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Request QRF reserve", "support_qrf", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Request suppressive fire", "support_fire", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Request search and destroy", "support_search", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Request GBU air strike", "support_gbu", "", canUseCommander && airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady));
 			AddMenuAction(actions, TAB_FORCES, "Request UMPK air strike", "support_umpk", "", canUseCommander && airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady));
+			AddMenuAction(actions, TAB_FORCES, "Request Kh55 strike", "support_kh55", "", canUseCommander && airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady));
 			AddMenuAction(actions, TAB_FORCES, "Cancel player support", "cancel_support", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Deliver civilian aid", "civilian_aid", "", canUseCommander, "commander required");
 			return;
@@ -1723,6 +1756,11 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Phase 18 seed roadblock", "admin_phase18_seed_roadblock", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 18 resolve now", "admin_phase18_resolve_now", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 18 report", "admin_phase18_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 19 seed FIA supply", "admin_phase19_seed_fia_supply", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 19 seed FIA ground", "admin_phase19_seed_fia_ground", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 19 seed enemy ground", "admin_phase19_seed_enemy_ground", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 19 force support ETA", "admin_phase19_force_eta", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 19 report", "admin_phase19_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");

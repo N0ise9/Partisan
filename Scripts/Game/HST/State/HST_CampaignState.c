@@ -1,4 +1,4 @@
-﻿[BaseContainerProps()]
+[BaseContainerProps()]
 class HST_FactionPoolState
 {
 	string m_sFactionKey;
@@ -510,6 +510,9 @@ class HST_SupportRequestState
 	string m_sTargetZoneId;
 	string m_sGroupId;
 	string m_sRuntimeEntityId;
+	string m_sRuntimeStatus = "queued";
+	string m_sResolutionKind;
+	string m_sPhysicalizationMode;
 	vector m_vSourcePosition;
 	vector m_vTargetPosition;
 	int m_iRequestedAtSecond;
@@ -518,10 +521,15 @@ class HST_SupportRequestState
 	int m_iSupportCost;
 	int m_iMoneyCost;
 	int m_iCooldownUntilSecond;
+	int m_iActivatedAtSecond;
+	int m_iPhysicalizedAtSecond;
+	int m_iResolvedAtSecond;
 	bool m_bHelicopterStyle;
 	bool m_bPlayerRequested;
 	bool m_bPhysicalStrikeSpawned;
 	bool m_bAbstractResolved;
+	bool m_bPhysicalized;
+	bool m_bOutcomeApplied;
 	string m_sFailureReason;
 }
 
@@ -592,7 +600,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 20;
+	static const int SCHEMA_VERSION = 21;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

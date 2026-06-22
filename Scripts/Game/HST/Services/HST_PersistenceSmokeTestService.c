@@ -18,6 +18,7 @@ class HST_PersistenceSmokeTestService
 	static const string SMOKE_ASSET_ID = "hst_smoke_asset";
 	static const string SMOKE_GARAGE_VEHICLE_ID = "hst_smoke_garage_vehicle";
 	static const string SMOKE_ORDER_ID = "hst_smoke_order";
+	static const string SMOKE_SUPPORT_ID = "hst_smoke_support";
 	static const string SMOKE_CARGO_PREFAB = "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et";
 	static const string SMOKE_HVT_PREFAB = "{6985327711303700}Prefabs/Objects/HST/HST_MissionProp_HVT.et";
 	static const string SMOKE_DESTROY_PREFAB = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
@@ -47,6 +48,7 @@ class HST_PersistenceSmokeTestService
 		EnsureSmokeGarageVehicle(state, targetZone);
 		EnsureSmokeArsenalItem(state);
 		EnsureSmokeEnemyOrder(state, preset, targetZone);
+		EnsureSmokeSupportRequest(state, preset, targetZone);
 		EnsureSmokeCivilianZone(state, targetZone);
 		EnsureSmokeUndercoverRecord(state, adminIdentityId);
 
@@ -100,6 +102,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|training=%1|fia_garrisons=%2|garrison_infantry=%3|garrison_vehicles=%4", state.m_iTrainingLevel, CountGarrisonsByFaction(state, "FIA"), CountGarrisonInfantry(state), CountGarrisonVehicles(state));
 		summary = summary + string.Format("|fia_zones=%1|capture_progress_sum=%2|capturable_enemy_zones=%3", CountZonesOwnedBy(state, "FIA"), SumCaptureProgress(state), CountCapturableEnemyZones(state, "FIA"));
 		summary = summary + string.Format("|enemy_orders_active=%1|enemy_orders_physical=%2|enemy_orders_abstract=%3|support_linked_orders=%4", CountEnemyOrdersByStatus(state, HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE), CountPhysicalizedEnemyOrders(state), CountAbstractResolvedEnemyOrders(state), CountSupportLinkedEnemyOrders(state));
+		summary = summary + string.Format("|support_queued=%1|support_active=%2|support_resolved=%3|support_physicalized=%4|support_outcomes=%5", CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_QUEUED), CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE), CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED), CountPhysicalizedSupport(state), CountSupportOutcomesApplied(state));
 		return summary;
 	}
 
@@ -141,6 +144,7 @@ class HST_PersistenceSmokeTestService
 		missing = AppendMissing(missing, "garage_cargo", CountSmokeGarageStoredCargo(state) <= 0);
 		missing = AppendMissing(missing, "arsenal", state.m_aArsenalItems.Count() <= 0);
 		missing = AppendMissing(missing, "enemy_orders", state.m_aEnemyOrders.Count() <= 0);
+		missing = AppendMissing(missing, "support_requests", state.m_aSupportRequests.Count() <= 0);
 		missing = AppendMissing(missing, "civilian_zones", state.m_aCivilianZones.Count() <= 0);
 		missing = AppendMissing(missing, "undercover", state.m_aUndercoverPlayers.Count() <= 0);
 		return missing;
@@ -722,6 +726,54 @@ class HST_PersistenceSmokeTestService
 		}
 	}
 
+	protected void EnsureSmokeSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone)
+	{
+		if (!state || !targetZone)
+			return;
+
+		HST_SupportRequestState request = state.FindSupportRequest(SMOKE_SUPPORT_ID);
+		if (!request)
+		{
+			request = new HST_SupportRequestState();
+			request.m_sRequestId = SMOKE_SUPPORT_ID;
+			state.m_aSupportRequests.Insert(request);
+			m_iSeedChangedCount++;
+		}
+
+		request.m_sFactionKey = ResolveResistanceFaction(preset);
+		request.m_sCapabilityId = "supply_drop";
+		request.m_sAssetProfileId = "persistence_smoke_supply";
+		request.m_sStrikeKind = "";
+		request.m_sStrikeConfigResource = "";
+		request.m_eType = HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP;
+		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
+		request.m_sSourceZoneId = targetZone.m_sZoneId;
+		request.m_sTargetZoneId = targetZone.m_sZoneId;
+		request.m_sGroupId = "";
+		request.m_sRuntimeEntityId = "";
+		request.m_vSourcePosition = targetZone.m_vPosition;
+		request.m_vTargetPosition = targetZone.m_vPosition;
+		request.m_iRequestedAtSecond = state.m_iElapsedSeconds;
+		request.m_iETASeconds = 60;
+		request.m_iAttackCost = 0;
+		request.m_iSupportCost = 0;
+		request.m_iMoneyCost = 0;
+		request.m_iCooldownUntilSecond = 0;
+		request.m_iActivatedAtSecond = state.m_iElapsedSeconds;
+		request.m_iPhysicalizedAtSecond = 0;
+		request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
+		request.m_bHelicopterStyle = false;
+		request.m_bPlayerRequested = false;
+		request.m_bPhysicalStrikeSpawned = false;
+		request.m_bAbstractResolved = true;
+		request.m_sRuntimeStatus = "persistence_smoke";
+		request.m_sPhysicalizationMode = "none";
+		request.m_sResolutionKind = "seeded";
+		request.m_bPhysicalized = false;
+		request.m_bOutcomeApplied = true;
+		request.m_sFailureReason = "";
+	}
+
 	protected void EnsureSmokeCivilianZone(HST_CampaignState state, HST_ZoneState targetZone)
 	{
 		if (!targetZone)
@@ -797,6 +849,7 @@ class HST_PersistenceSmokeTestService
 		mask = mask + BoolMask(state.FindGarageVehicle(SMOKE_GARAGE_VEHICLE_ID) != null);
 		mask = mask + BoolMask(state.FindArsenalItem(SMOKE_CARGO_PREFAB) != null);
 		mask = mask + BoolMask(FindEnemyOrder(state, SMOKE_ORDER_ID) != null);
+		mask = mask + BoolMask(state.FindSupportRequest(SMOKE_SUPPORT_ID) != null);
 		mask = mask + BoolMask(state.FindCampaignTask(EXPECTED_TASK_ID) != null);
 		return mask;
 	}
@@ -924,6 +977,39 @@ class HST_PersistenceSmokeTestService
 		}
 		return count;
 	}
+	protected int CountSupportByStatus(HST_CampaignState state, HST_ESupportRequestStatus status)
+	{
+		int count;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (request && request.m_eStatus == status)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountPhysicalizedSupport(HST_CampaignState state)
+	{
+		int count;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (request && request.m_bPhysicalized)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountSupportOutcomesApplied(HST_CampaignState state)
+	{
+		int count;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (request && request.m_bOutcomeApplied)
+				count++;
+		}
+		return count;
+	}
+
 	protected int BuildSummaryHash(HST_CampaignState state, int activeMissions)
 	{
 		int hash = 17;
@@ -948,6 +1034,10 @@ class HST_PersistenceSmokeTestService
 		hash = MixInt(hash, CountRuntimeSourceVehicles(state));
 		hash = MixInt(hash, state.m_aArsenalItems.Count());
 		hash = MixInt(hash, state.m_aEnemyOrders.Count());
+		hash = MixInt(hash, state.m_aSupportRequests.Count());
+		hash = MixInt(hash, CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED));
+		hash = MixInt(hash, CountPhysicalizedSupport(state));
+		hash = MixInt(hash, CountSupportOutcomesApplied(state));
 		hash = MixInt(hash, state.m_aCivilianZones.Count());
 		hash = MixInt(hash, state.m_aUndercoverPlayers.Count());
 		hash = MixInt(hash, CountSmokeConvoyMissions(state));
