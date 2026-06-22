@@ -67,7 +67,7 @@ class HST_CommandUIService
 	string BuildAdminMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		string menu = BuildCommanderMenu(state, preset, markers);
-		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report, admin_phase15_seed_garage, admin_phase15_seed_source, admin_phase15_report, admin_phase16_seed, admin_phase16_train, admin_phase16_report";
+		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report, admin_phase15_seed_garage, admin_phase15_seed_source, admin_phase15_report, admin_phase16_seed, admin_phase16_train, admin_phase16_report, admin_phase17_seed_capture, admin_phase17_force_progress, admin_phase17_force_counterattack, admin_phase17_report, admin_phase18_seed_counterattack, admin_phase18_seed_rebuild, admin_phase18_seed_roadblock, admin_phase18_resolve_now, admin_phase18_report";
 	}
 
 	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
@@ -363,6 +363,21 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase17_report")
 			return coordinator.RequestAdminPhase17Report(playerId);
+
+		if (commandId == "admin_phase18_seed_counterattack")
+			return coordinator.RequestAdminPhase18SeedCounterattack(playerId);
+
+		if (commandId == "admin_phase18_seed_rebuild")
+			return coordinator.RequestAdminPhase18SeedRebuild(playerId);
+
+		if (commandId == "admin_phase18_seed_roadblock")
+			return coordinator.RequestAdminPhase18SeedRoadblock(playerId);
+
+		if (commandId == "admin_phase18_resolve_now")
+			return coordinator.RequestAdminPhase18ResolveNow(playerId);
+
+		if (commandId == "admin_phase18_report")
+			return coordinator.RequestAdminPhase18Report(playerId);
 
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
@@ -699,6 +714,21 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase17_report")
 			return !coordinator.RequestAdminPhase17Report(playerId).IsEmpty();
+
+		if (commandId == "admin_phase18_seed_counterattack")
+			return !coordinator.RequestAdminPhase18SeedCounterattack(playerId).Contains("failed");
+
+		if (commandId == "admin_phase18_seed_rebuild")
+			return !coordinator.RequestAdminPhase18SeedRebuild(playerId).Contains("failed");
+
+		if (commandId == "admin_phase18_seed_roadblock")
+			return !coordinator.RequestAdminPhase18SeedRoadblock(playerId).Contains("failed");
+
+		if (commandId == "admin_phase18_resolve_now")
+			return !coordinator.RequestAdminPhase18ResolveNow(playerId).Contains("failed");
+
+		if (commandId == "admin_phase18_report")
+			return !coordinator.RequestAdminPhase18Report(playerId).IsEmpty();
 
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
@@ -1688,6 +1718,11 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Phase 17 force progress", "admin_phase17_force_progress", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 17 force counterattack", "admin_phase17_force_counterattack", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 17 report", "admin_phase17_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 18 seed counterattack", "admin_phase18_seed_counterattack", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 18 seed rebuild", "admin_phase18_seed_rebuild", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 18 seed roadblock", "admin_phase18_seed_roadblock", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 18 resolve now", "admin_phase18_resolve_now", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 18 report", "admin_phase18_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");

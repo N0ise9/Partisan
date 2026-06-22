@@ -1,4 +1,4 @@
-[BaseContainerProps()]
+﻿[BaseContainerProps()]
 class HST_FactionPoolState
 {
 	string m_sFactionKey;
@@ -534,10 +534,21 @@ class HST_EnemyOrderState
 	HST_EEnemyOrderStatus m_eStatus;
 	string m_sTargetZoneId;
 	string m_sSupportRequestId;
+	string m_sGroupId;
+	string m_sRuntimeStatus = "queued";
+	string m_sResolutionKind;
+	string m_sFailureReason;
+	vector m_vSourcePosition;
+	vector m_vTargetPosition;
 	int m_iCreatedAtSecond;
 	int m_iResolveAtSecond;
+	int m_iPhysicalizedAtSecond;
+	int m_iResolvedAtSecond;
 	int m_iAttackCost;
 	int m_iSupportCost;
+	bool m_bPhysicalized;
+	bool m_bAbstractResolved;
+	bool m_bOutcomeApplied;
 }
 
 [BaseContainerProps()]
@@ -581,7 +592,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 19;
+	static const int SCHEMA_VERSION = 20;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
