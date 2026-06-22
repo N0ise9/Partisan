@@ -29,6 +29,7 @@ class HST_MapMarkerService
 
 		state.m_aMapMarkers.Clear();
 		AddHQMarker(state, preset);
+		AddDefendPetrosMarkers(state, preset);
 		AddZoneMarkers(state, preset);
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
@@ -123,7 +124,170 @@ class HST_MapMarkerService
 		if (m_bNativePublishPending)
 			pending = "pending";
 		string tactical = string.Format(" | strategic %1 | missions %2 | QRFs/support %3 | native manager %4 | native %5/%6 visible | skipped %7 | %8", strategicCount, missionCount, qrfCount, NATIVE_MARKER_MANAGER_COMPONENT, m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount, pending);
-		return summary + tactical;
+		return summary + tactical + BuildMarkerRefreshDiagnostic(state) + BuildMarkerDetailReport(state, 20);
+	}
+
+	string BuildMarkerAuditReport(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return "h-istasi phase 23 marker audit | failed: campaign state not ready";
+
+		int activeMissions = CountActiveMissions(state);
+		int activeSupport = CountActiveSupportRequests(state);
+		int activeQRFs = CountActiveQRFs(state);
+		int missionMarkers = CountMarkersByCategory(state, "mission") + CountMarkersByCategory(state, "mission_objective") + CountMarkersByCategory(state, "mission_asset");
+		int supportMarkers = CountMarkersByCategory(state, "support");
+		int qrfMarkers = CountMarkersByCategory(state, "qrf");
+		bool hqMarker = HasMarker(state, "hst_hq");
+		bool petrosMarker = HasMarker(state, "hst_petros");
+		bool defendMarker = HasMarker(state, "hst_defend_petros");
+
+		string status = "PASS";
+		if (state.m_bHQDeployed && !hqMarker)
+			status = "WARN";
+		if (state.m_bDefendPetrosActive && (!petrosMarker || !defendMarker))
+			status = "WARN";
+		if (activeMissions > 0 && missionMarkers <= 0)
+			status = "WARN";
+		if (activeSupport > 0 && supportMarkers <= 0)
+			status = "WARN";
+		if (activeQRFs > 0 && qrfMarkers <= 0)
+			status = "WARN";
+
+		string report = string.Format("h-istasi phase 23 marker audit | %1 | total %2 | native %3/%4 skipped %5", status, state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount);
+		report = report + string.Format("\ncoverage | HQ %1 | Petros %2 | defend %3 | missions %4/%5 | support %6/%7 | qrf %8/%9", hqMarker, petrosMarker, defendMarker, missionMarkers, activeMissions, supportMarkers, activeSupport, qrfMarkers, activeQRFs);
+		report = report + string.Format("\ncategories | hq %1 | town %2 | strategic %3 | mission %4 | objective %5 | asset %6 | support %7 | qrf %8", CountMarkersByCategory(state, "hq"), CountMarkersByCategory(state, "town"), CountMarkersByCategory(state, "strategic"), CountMarkersByCategory(state, "mission"), CountMarkersByCategory(state, "mission_objective"), CountMarkersByCategory(state, "mission_asset"), supportMarkers, qrfMarkers);
+		report = report + BuildMarkerRefreshDiagnostic(state);
+		return report + BuildMarkerDetailReport(state, 30);
+	}
+
+	protected string BuildMarkerRefreshDiagnostic(HST_CampaignState state)
+	{
+		if (!state)
+			return "\nrefresh | state not ready";
+
+		string pending = "ready";
+		if (m_bNativePublishPending)
+			pending = "pending";
+
+		return string.Format("\nrefresh | state second %1 | records %2 | native %3/%4 | skipped %5 | ownership sync %6 | %7", state.m_iElapsedSeconds, state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount, m_iLastNativeOwnershipSyncSecond, pending);
+	}
+
+	protected string BuildMarkerDetailReport(HST_CampaignState state, int maxRows)
+	{
+		if (!state)
+			return "";
+
+		string report = "\nmarker detail";
+		int emitted;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (!marker || !marker.m_bVisible)
+				continue;
+
+			report = report + string.Format("\n%1 | %2 | category %3 | owner %4 | style %5 | native %6 | pos %7", marker.m_sMarkerId, ShortMarkerText(marker.m_sLabel, 70), marker.m_sCategory, marker.m_sOwnerFactionKey, marker.m_sStyleHint, marker.m_bRuntimeNative, marker.m_vPosition);
+			emitted++;
+			if (emitted >= maxRows)
+				break;
+		}
+
+		if (emitted == 0)
+			report = report + "\nnone";
+		else if (state.m_aMapMarkers.Count() > emitted)
+			report = report + string.Format("\n... %1 more marker(s)", state.m_aMapMarkers.Count() - emitted);
+
+		return report;
+	}
+
+	protected bool HasMarker(HST_CampaignState state, string markerId)
+	{
+		if (!state || markerId.IsEmpty())
+			return false;
+
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (marker && marker.m_sMarkerId == markerId && marker.m_bVisible)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected int CountMarkersByCategory(HST_CampaignState state, string category)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (marker && marker.m_bVisible && marker.m_sCategory == category)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountMarkersWithPrefix(HST_CampaignState state, string markerPrefix)
+	{
+		if (!state || markerPrefix.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (marker && marker.m_bVisible && marker.m_sMarkerId.IndexOf(markerPrefix) == 0)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountActiveMissions(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPersistenceSmokeMission(mission) && !AreMissionObjectivesComplete(state, mission))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountActiveSupportRequests(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!request)
+				continue;
+			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountActiveQRFs(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_QRFState qrf : state.m_aQRFs)
+		{
+			if (ShouldShowQRFMarker(state, qrf))
+				count++;
+		}
+
+		return count;
 	}
 
 	protected void AddHQMarker(HST_CampaignState state, HST_CampaignPreset preset)
@@ -131,7 +295,50 @@ class HST_MapMarkerService
 		if (!state.m_bHQDeployed)
 			return;
 
-		AddMarker(state, "hst_hq", state.m_sHQHideoutId, "FIA HQ", "", "hq", preset.m_sResistanceFactionKey, "PICK_UP2", FactionToMarkerColor(preset.m_sResistanceFactionKey, preset), state.m_vHQPosition, true, "green", "support");
+		string label = string.Format("FIA HQ | Petros %1 | knowledge %2 | threat %3", state.m_bPetrosAlive, state.m_iHQKnowledge, state.m_iHQThreatLevel);
+		AddMarker(state, "hst_hq", state.m_sHQHideoutId, label, "", "hq", preset.m_sResistanceFactionKey, "PICK_UP2", FactionToMarkerColor(preset.m_sResistanceFactionKey, preset), state.m_vHQPosition, true, "green", "support");
+	}
+
+	protected void AddDefendPetrosMarkers(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return;
+		if (!state.m_bHQDeployed)
+			return;
+
+		vector petrosPosition = state.m_vPetrosPosition;
+		if (IsZeroVector(petrosPosition))
+			petrosPosition = state.m_vHQPosition;
+
+		if (state.m_bDefendPetrosActive || !state.m_bPetrosAlive)
+		{
+			string petrosStatus = "alive";
+			if (!state.m_bPetrosAlive)
+				petrosStatus = "down";
+			AddMarker(state, "hst_petros", "petros", string.Format("Petros | %1 | defense %2", petrosStatus, state.m_sDefendPetrosStatus), "", "hq", preset.m_sResistanceFactionKey, "POINT_OF_INTEREST", FactionToMarkerColor(preset.m_sResistanceFactionKey, preset), petrosPosition, true, "green", "support", true);
+		}
+
+		if (!state.m_bDefendPetrosActive)
+			return;
+
+		string defenseLabel = string.Format("Defend Petros | attackers %1/%2 | killed %3 | %4", state.m_iDefendPetrosAliveAttackerCount, state.m_iDefendPetrosAttackerCount, state.m_iDefendPetrosKilledCount, state.m_sDefendPetrosStatus);
+		AddMarker(state, "hst_defend_petros", state.m_sDefendPetrosMissionId, defenseLabel, "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", "REFORGER_ORANGE", petrosPosition, true, "gold", "mission_defend_petros", true);
+
+		if (state.m_sDefendPetrosAttackerGroupId.IsEmpty())
+			return;
+
+		HST_ActiveGroupState group = state.FindActiveGroup(state.m_sDefendPetrosAttackerGroupId);
+		if (!group)
+			return;
+
+		vector attackerPosition = group.m_vPosition;
+		if (IsZeroVector(attackerPosition))
+			attackerPosition = group.m_vTargetPosition;
+		if (IsZeroVector(attackerPosition))
+			attackerPosition = petrosPosition;
+
+		string attackerLabel = string.Format("Petros attackers | %1 | alive %2 | group %3", group.m_sRuntimeStatus, group.m_iLastSeenAliveCount, group.m_sGroupId);
+		AddMarker(state, "hst_defend_petros_attackers", state.m_sDefendPetrosAttackerGroupId, attackerLabel, "", "qrf", group.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(group.m_sFactionKey, preset), attackerPosition, true, FactionToMarkerTextColor(group.m_sFactionKey, preset), "enemy_response", true);
 	}
 
 	protected void AddZoneMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -285,9 +492,9 @@ class HST_MapMarkerService
 			if (ShouldShowIndividualConvoyVehicleMarkers(mission))
 				AddMissionConvoyVehicleMarkers(state, preset, mission, title);
 			else
-				AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy - %1: neutralize crew", title), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+				AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy - %1 | %2: neutralize crew", title, MissionRuntimePhaseLabel(mission)), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
 		}
-		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy destination - %1: %2", title, destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
+		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy destination - %1 | %2: %3", title, MissionRuntimePhaseLabel(mission), destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
 	}
 
 	protected bool ShouldShowIndividualConvoyVehicleMarkers(HST_ActiveMissionState mission)
@@ -327,9 +534,9 @@ class HST_MapMarkerService
 			string markerId = "hst_mission_convoy_vehicle_" + asset.m_sAssetId;
 			string label;
 			if (mission.m_sRuntimePhase == "convoy_eliminated")
-				label = string.Format("Convoy vehicle %1 - %2: capture vehicle", vehicleIndex + 1, title);
+				label = string.Format("Convoy vehicle %1 - %2 | %3: capture vehicle", vehicleIndex + 1, title, MissionRuntimePhaseLabel(mission));
 			else
-				label = string.Format("Convoy vehicle %1 - %2: neutralize crew", vehicleIndex + 1, title);
+				label = string.Format("Convoy vehicle %1 - %2: neutralize crew | %3", vehicleIndex + 1, title, MissionRuntimePhaseLabel(mission));
 			AddMarker(state, markerId, mission.m_sInstanceId, label, "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), position, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
 			vehicleIndex++;
 		}
@@ -917,7 +1124,11 @@ class HST_MapMarkerService
 		if (!zone)
 			return "unknown";
 
-		return ResolveZoneDisplayName(zone);
+		string active = "inactive";
+		if (zone.m_bActive)
+			active = "active";
+
+		return string.Format("%1 | owner %2 | capture %3 | %4", ResolveZoneDisplayName(zone), zone.m_sOwnerFactionKey, zone.m_iResistanceCaptureProgress, active);
 	}
 
 	protected string ZoneToMarkerTextColor(HST_ZoneState zone)
@@ -930,10 +1141,18 @@ class HST_MapMarkerService
 
 	protected string ZoneToMarkerStyle(HST_ZoneState zone)
 	{
-		if (!zone || zone.m_sMarkerStyle.IsEmpty())
-			return ZoneToMarkerCategory(zone);
+		if (!zone)
+			return "strategic";
 
-		return zone.m_sMarkerStyle;
+		string style = zone.m_sMarkerStyle;
+		if (style.IsEmpty())
+			style = ZoneToMarkerCategory(zone);
+		if (zone.m_iResistanceCaptureProgress > 0)
+			style = style + "_capturing";
+		if (zone.m_bActive)
+			style = style + "_active";
+
+		return style;
 	}
 
 	protected string ZoneTypeToLabel(HST_EZoneType zoneType)
@@ -1204,6 +1423,8 @@ class HST_MapMarkerService
 			return "support";
 		if (primitive == "recover_cargo" || missionId.Contains("logistics") || missionId.Contains("resource") || missionId.Contains("cache"))
 			return "logistics";
+		if (missionId.Contains("defend_petros"))
+			return "support";
 		if (primitive == "hold_area" || primitive == "clear_area" || missionId.Contains("conquest"))
 			return "conquest";
 
@@ -1629,6 +1850,16 @@ class HST_MapMarkerService
 		return false;
 	}
 
+	protected string MissionRuntimePhaseLabel(HST_ActiveMissionState mission)
+	{
+		if (!mission || mission.m_sRuntimePhase.IsEmpty())
+			return "runtime ready";
+
+		string phase = mission.m_sRuntimePhase;
+		phase.Replace("_", " ");
+		return phase;
+	}
+
 	protected string MissionMarkerTitle(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -1650,6 +1881,8 @@ class HST_MapMarkerService
 			return "City Supplies";
 		if (mission.m_sMissionId == "logistics_resource_cache")
 			return "Resource Cache";
+		if (mission.m_sMissionId == "dynamic_defend_petros")
+			return "Defend Petros";
 
 		string title = mission.m_sDisplayName;
 		if (title.IsEmpty())
@@ -1719,9 +1952,15 @@ class HST_MapMarkerService
 
 		string targetName = ResolveZoneDisplayName(targetZone);
 		string status = "mobilizing";
+		string groupId = qrf.m_sGroupId;
+		if (groupId.IsEmpty())
+			groupId = "none";
+		string groupRuntime = "no group";
 		if (!qrf.m_sGroupId.IsEmpty() && state)
 		{
 			HST_ActiveGroupState group = state.FindActiveGroup(qrf.m_sGroupId);
+			if (group)
+				groupRuntime = group.m_sRuntimeStatus;
 			if (qrf.m_bResolved && group)
 				status = "active";
 			else if (group && (group.m_sRuntimeStatus == "arrived" || group.m_sRuntimeStatus == "support_arrived"))
@@ -1730,11 +1969,15 @@ class HST_MapMarkerService
 				status = "nearby";
 		}
 
+		string resolved = "open";
+		if (qrf.m_bResolved)
+			resolved = "resolved";
+
 		int remaining = ResolveQRFRemainingSeconds(state, qrf);
 		if (remaining > 0)
-			return string.Format("%1 QRF near %2 | %3 | ETA %4s", qrf.m_sFactionKey, targetName, status, remaining);
+			return string.Format("%1 QRF near %2 | %3 | target %4 | %5 | group %6/%7 | ETA %8s", qrf.m_sFactionKey, targetName, status, qrf.m_sTargetZoneId, resolved, groupId, groupRuntime, remaining);
 
-		return string.Format("%1 QRF near %2 | %3", qrf.m_sFactionKey, targetName, status);
+		return string.Format("%1 QRF near %2 | %3 | target %4 | %5 | group %6/%7", qrf.m_sFactionKey, targetName, status, qrf.m_sTargetZoneId, resolved, groupId, groupRuntime);
 	}
 
 	protected int ResolveQRFRemainingSeconds(HST_CampaignState state, HST_QRFState qrf)
@@ -1772,22 +2015,32 @@ class HST_MapMarkerService
 		string typeLabel = SupportRequestTypeLabel(request.m_eType);
 		string targetName = ResolveZoneDisplayNameById(state, request.m_sTargetZoneId);
 		string status = SupportStatusLabel(request.m_eStatus);
+		string runtimeStatus = request.m_sRuntimeStatus;
+		if (runtimeStatus.IsEmpty())
+			runtimeStatus = status;
+		string groupId = request.m_sGroupId;
+		if (groupId.IsEmpty())
+			groupId = "none";
+		string groupRuntime = "no group";
+		HST_ActiveGroupState group;
+		if (state && !request.m_sGroupId.IsEmpty())
+			group = state.FindActiveGroup(request.m_sGroupId);
+		if (group)
+			groupRuntime = group.m_sRuntimeStatus;
+
 		int remaining = ResolveSupportRemainingSeconds(state, request);
 		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
 		{
-			if (request.m_sGroupId.IsEmpty())
-				return string.Format("%1 %2 to %3 | en route | ETA %4s", faction, typeLabel, targetName, remaining);
-
-			HST_ActiveGroupState group;
-			if (state)
-				group = state.FindActiveGroup(request.m_sGroupId);
+			string deployment = "en route";
+			if (!request.m_sGroupId.IsEmpty())
+				deployment = "deployed";
 			if (group && group.m_sRuntimeStatus == "support_active")
-				return string.Format("%1 %2 near %3 | ETA %4s", faction, typeLabel, targetName, remaining);
+				deployment = "nearby";
 
-			return string.Format("%1 %2 at %3 | deployed", faction, typeLabel, targetName);
+			return string.Format("%1 %2 to %3 | %4/%5 | %6 | group %7/%8 | ETA %9s", faction, typeLabel, targetName, status, runtimeStatus, deployment, groupId, groupRuntime, remaining);
 		}
 
-		return string.Format("%1 %2 to %3 | %4 | ETA %5s", faction, typeLabel, targetName, status, remaining);
+		return string.Format("%1 %2 to %3 | %4/%5 | group %6/%7 | ETA %8s", faction, typeLabel, targetName, status, runtimeStatus, groupId, groupRuntime, remaining);
 	}
 
 	protected int ResolveSupportRemainingSeconds(HST_CampaignState state, HST_SupportRequestState request)

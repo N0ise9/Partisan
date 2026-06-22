@@ -107,7 +107,37 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|civilian_fia_support=%1|civilian_occupier_support=%2|civilian_heat=%3|undercover_requested=%4|undercover_eligible=%5", SumCivilianFIASupport(state), SumCivilianOccupierSupport(state), SumCivilianWantedHeat(state), CountUndercoverRequested(state), CountUndercoverEligible(state));
 		summary = summary + string.Format("|undercover_applied=%1|undercover_compromised=%2|undercover_detection=%3|roadblock_scans=%4|police_scans=%5", CountUndercoverApplied(state), CountUndercoverCompromised(state), SumUndercoverDetectionScore(state), SumRoadblockScans(state), SumPoliceScans(state));
 		summary = summary + string.Format("|hq_knowledge=%1|hq_threat=%2|defend_petros_active=%3|petros_alive=%4|petros_deaths=%5", state.m_iHQKnowledge, state.m_iHQThreatLevel, state.m_bDefendPetrosActive, state.m_bPetrosAlive, state.m_iPetrosDeaths);
+		summary = summary + string.Format("|markers=%1|mission_markers=%2|support_markers=%3|qrf_markers=%4|hq_marker=%5|ui_schema=%6", state.m_aMapMarkers.Count(), CountMarkersByCategory(state, "mission") + CountMarkersByCategory(state, "mission_objective") + CountMarkersByCategory(state, "mission_asset"), CountMarkersByCategory(state, "support"), CountMarkersByCategory(state, "qrf"), HasMarker(state, "hst_hq"), state.m_iSchemaVersion);
 		return summary;
+	}
+
+	protected bool HasMarker(HST_CampaignState state, string markerId)
+	{
+		if (!state || markerId.IsEmpty())
+			return false;
+
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (marker && marker.m_bVisible && marker.m_sMarkerId == markerId)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected int CountMarkersByCategory(HST_CampaignState state, string category)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (marker && marker.m_bVisible && marker.m_sCategory == category)
+				count++;
+		}
+
+		return count;
 	}
 
 	protected string ResolveStatus(HST_CampaignState state, string expected, string current)

@@ -830,6 +830,221 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changedMoney || changedRank;
 	}
 
+	string RequestCommanderSelectInitialHideoutReport(int playerId, string hideoutId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi setup | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi setup | failed: commander required";
+		if (hideoutId.IsEmpty())
+			return "h-istasi setup | failed: hideout id missing";
+		if (!HST_DefaultCatalog.IsKnownHideout(hideoutId))
+			return "h-istasi setup | failed: unknown hideout " + hideoutId;
+		if (!m_State || m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+			return string.Format("h-istasi setup | failed: campaign phase %1 is not setup", m_State.m_ePhase);
+
+		bool changed = SelectInitialHideout(hideoutId);
+		if (!changed)
+			return string.Format("h-istasi setup | failed: could not select %1", hideoutId);
+
+		return string.Format("h-istasi setup | HQ selected %1 | phase %2 | Petros %3", m_State.m_sHQHideoutId, m_State.m_ePhase, m_State.m_bPetrosAlive);
+	}
+
+	string RequestCommanderMoveHQReport(int playerId, string hideoutId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi HQ | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi HQ | failed: commander required";
+		if (hideoutId.IsEmpty())
+			return "h-istasi HQ | failed: hideout id missing";
+		if (!HST_DefaultCatalog.IsKnownHideout(hideoutId))
+			return "h-istasi HQ | failed: unknown hideout " + hideoutId;
+
+		bool changed = MoveHQ(hideoutId);
+		if (!changed)
+			return string.Format("h-istasi HQ | failed: could not move HQ to %1 | Petros alive %2 | phase %3", hideoutId, m_State.m_bPetrosAlive, m_State.m_ePhase);
+
+		return string.Format("h-istasi HQ | moved to %1 | knowledge %2 | Petros %3", m_State.m_sHQHideoutId, m_State.m_iHQKnowledge, m_State.m_bPetrosAlive);
+	}
+
+	string RequestCommanderMoveHQToPlayerReport(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi HQ | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi HQ | failed: commander required";
+		if (!ResolveControlledPlayerEntity(playerId))
+			return "h-istasi HQ | failed: player entity not found";
+
+		bool changed = MoveHQToPlayer(playerId);
+		if (!changed)
+			return string.Format("h-istasi HQ | failed: could not move HQ to player | Petros alive %1 | phase %2", m_State.m_bPetrosAlive, m_State.m_ePhase);
+
+		return string.Format("h-istasi HQ | moved to player position | HQ %1 | knowledge %2", m_State.m_vHQPosition, m_State.m_iHQKnowledge);
+	}
+
+	string RequestCommanderRebuildHQAssetsReport(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi HQ assets | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi HQ assets | failed: commander required";
+		if (!m_HQ || !m_BuildMode)
+			return "h-istasi HQ assets | failed: HQ/build service not ready";
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return "h-istasi HQ assets | failed: player outside HQ interaction radius";
+
+		HST_BuildModePlacement placement = m_BuildMode.ResolveHQRebuildPlacement(m_State, playerId);
+		if (!placement || !placement.m_bValid)
+			return "h-istasi HQ assets | failed: build placement denied | " + m_State.m_sLastBuildModeFailure;
+
+		bool changed = RequestCommanderRebuildHQAssets(playerId);
+		if (!changed)
+			return string.Format("h-istasi HQ assets | failed: rebuild returned false | runtime %1 | arsenal %2", m_State.m_bHQRuntimeObjectsSpawned, m_State.m_sHQArsenalRuntimeStatus);
+
+		return string.Format("h-istasi HQ assets | rebuilt | runtime %1 | arsenal %2 | failure %3", m_State.m_bHQRuntimeObjectsSpawned, m_State.m_sHQArsenalRuntimeStatus, m_State.m_sLastHQArsenalFailure);
+	}
+
+	string RequestCommanderApplyIncomeNowReport(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi income | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi income | failed: commander required";
+
+		int income = ApplyIncomeNow();
+		if (income <= 0)
+			return string.Format("h-istasi income | failed: no income applied | FIA zones %1 | timer %2", CountResistanceZones(), m_State.m_iIncomeAccumulatorSeconds);
+
+		return string.Format("h-istasi income | applied $%1 | money %2 | HR %3", income, m_State.m_iFactionMoney, m_State.m_iHR);
+	}
+
+	string RequestCommanderStartZoneMissionReport(int playerId, string zoneId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi mission | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi mission | failed: commander required";
+		if (zoneId.IsEmpty())
+			return "h-istasi mission | failed: zone id missing";
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return "h-istasi mission | failed: zone not found " + zoneId;
+
+		string missionId = SelectMissionForZone(zone);
+		if (!m_Missions || !m_Missions.CanStart(m_State, m_Preset, missionId, zoneId))
+			return string.Format("h-istasi mission | failed: %1 cannot start at %2 | phase %3 | active at zone %4", missionId, ResolveZoneLabel(zone), m_State.m_ePhase, CountActiveMissionsAtZone(zoneId));
+
+		bool changed = StartMission(missionId, zoneId);
+		if (!changed)
+			return string.Format("h-istasi mission | failed: start returned false for %1 at %2", missionId, ResolveZoneLabel(zone));
+
+		return string.Format("h-istasi mission | started %1 at %2 | active %3", missionId, ResolveZoneLabel(zone), CountFoundationActiveMissions());
+	}
+
+	string RequestCommanderStartRandomMissionReport(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi mission | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi mission | failed: commander required";
+
+		HST_ZoneState zone = SelectRandomMissionZone();
+		if (!zone)
+			return "h-istasi mission | failed: no compatible random target zone";
+
+		return RequestCommanderStartZoneMissionReport(playerId, zone.m_sZoneId);
+	}
+
+	string RequestCommanderProgressMissionReport(int playerId, string instanceId = "")
+	{
+		if (!Replication.IsServer())
+			return "h-istasi mission | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi mission | failed: commander required";
+		if (!m_Objectives)
+			return "h-istasi mission | failed: objective service not ready";
+
+		string resolvedInstanceId = ResolveMissionInstanceId(instanceId);
+		if (resolvedInstanceId.IsEmpty())
+			return "h-istasi mission | failed: no active mission to progress";
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(resolvedInstanceId);
+		if (!mission)
+			return "h-istasi mission | failed: mission not found " + resolvedInstanceId;
+
+		bool changed = RequestCommanderProgressMission(playerId, resolvedInstanceId);
+		if (!changed)
+			return string.Format("h-istasi mission | failed: progress blocked for %1 | status %2 | phase %3 | failure %4", resolvedInstanceId, mission.m_eStatus, mission.m_sRuntimePhase, mission.m_sRuntimeFailureReason);
+
+		return string.Format("h-istasi mission | progressed %1 | phase %2 | remaining %3s", resolvedInstanceId, mission.m_sRuntimePhase, mission.m_iRemainingSeconds);
+	}
+
+	string RequestCommanderCompleteMissionReport(int playerId, string instanceId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi mission | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi mission | failed: commander required";
+		if (instanceId.IsEmpty())
+			return "h-istasi mission | failed: mission id missing";
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		if (!mission)
+			return "h-istasi mission | failed: mission not found " + instanceId;
+
+		bool changed = CompleteMission(instanceId);
+		if (!changed)
+			return string.Format("h-istasi mission | failed: complete blocked for %1 | status %2 | phase %3 | failure %4", instanceId, mission.m_eStatus, mission.m_sRuntimePhase, mission.m_sRuntimeFailureReason);
+
+		return string.Format("h-istasi mission | completed %1 | status %2 | money %3 | HR %4", instanceId, mission.m_eStatus, m_State.m_iFactionMoney, m_State.m_iHR);
+	}
+
+	string RequestCommanderCancelSupportReport(int playerId, string requestId = "")
+	{
+		if (!Replication.IsServer())
+			return "h-istasi support | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi support | failed: commander required";
+		if (!m_SupportRequests)
+			return "h-istasi support | failed: support service not ready";
+
+		string target = requestId;
+		if (target.IsEmpty())
+			target = ResolveFirstCancelablePlayerSupportRequestId();
+		if (target.IsEmpty())
+			return "h-istasi support | failed: no queued or active player support request";
+
+		bool changed = RequestCommanderCancelSupport(playerId, target);
+		if (!changed)
+			return "h-istasi support | failed: could not cancel request " + target;
+
+		return "h-istasi support | cancelled " + target + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+	}
+
+	string RequestCommanderAidNearestTownReport(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi civilian aid | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi civilian aid | failed: commander required";
+		if (!m_Civilians)
+			return "h-istasi civilian aid | failed: civilian service not ready";
+
+		string targetZoneId = SelectHQSupportZoneId();
+		if (targetZoneId.IsEmpty())
+			return "h-istasi civilian aid | failed: no nearby town target";
+		if (m_State.m_iFactionMoney < 100)
+			return string.Format("h-istasi civilian aid | failed: need $100, have $%1", m_State.m_iFactionMoney);
+
+		bool changed = RequestCommanderAidNearestTown(playerId);
+		if (!changed)
+			return "h-istasi civilian aid | failed: incident registration returned false for " + targetZoneId;
+
+		return string.Format("h-istasi civilian aid | delivered to %1 | money %2", targetZoneId, m_State.m_iFactionMoney);
+	}
 	bool RequestCommanderMoveHQ(int playerId, string hideoutId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
@@ -1312,6 +1527,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report;
 	}
 
+	string RequestMemberInspectMissionSummary(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi missions | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi missions | membership required";
+		if (!m_CommandUI)
+			return "h-istasi missions | UI service not ready";
+
+		return m_CommandUI.BuildActiveMissionSummaryReport(m_State);
+	}
 	string RequestMemberInspectMission(int playerId, string instanceId)
 	{
 		if (!Replication.IsServer())
@@ -2010,6 +2236,104 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result;
 	}
 
+	string RequestAdminSetZoneActiveReport(int playerId, string zoneId, bool active)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi admin zone | failed: server required";
+		if (!CanPlayerUseAdminActions(playerId))
+			return "h-istasi admin zone | failed: admin required";
+		if (zoneId.IsEmpty())
+			return "h-istasi admin zone | failed: zone id missing";
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return "h-istasi admin zone | failed: zone not found " + zoneId;
+
+		bool changed = RequestAdminSetZoneActive(playerId, zoneId, active);
+		if (!changed)
+			return string.Format("h-istasi admin zone | failed: active already %1 at %2", zone.m_bActive, ResolveZoneLabel(zone));
+
+		return string.Format("h-istasi admin zone | %1 active %2 | owner %3", ResolveZoneLabel(zone), zone.m_bActive, zone.m_sOwnerFactionKey);
+	}
+
+	string RequestAdminCaptureZoneForResistanceReport(int playerId, string zoneId, int supportReward = 10)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi admin capture | failed: server required";
+		if (!CanPlayerUseAdminActions(playerId))
+			return "h-istasi admin capture | failed: admin required";
+		if (zoneId.IsEmpty())
+			return "h-istasi admin capture | failed: zone id missing";
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return "h-istasi admin capture | failed: zone not found " + zoneId;
+
+		bool changed = RequestAdminCaptureZoneForResistance(playerId, zoneId, supportReward);
+		if (!changed)
+			return string.Format("h-istasi admin capture | failed: could not capture %1 | owner %2 | support %3", ResolveZoneLabel(zone), zone.m_sOwnerFactionKey, zone.m_iSupport);
+
+		return string.Format("h-istasi admin capture | captured %1 | owner %2 | support %3", ResolveZoneLabel(zone), zone.m_sOwnerFactionKey, zone.m_iSupport);
+	}
+
+	string RequestAdminAddCaptureProgressReport(int playerId, string zoneId, int progress = 50)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi admin capture | failed: server required";
+		if (!CanPlayerUseAdminActions(playerId))
+			return "h-istasi admin capture | failed: admin required";
+		if (zoneId.IsEmpty())
+			return "h-istasi admin capture | failed: zone id missing";
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return "h-istasi admin capture | failed: zone not found " + zoneId;
+
+		int before = zone.m_iResistanceCaptureProgress;
+		bool changed = RequestAdminAddCaptureProgress(playerId, zoneId, progress);
+		if (!changed)
+			return string.Format("h-istasi admin capture | failed: progress blocked at %1 | owner %2 | progress %3", ResolveZoneLabel(zone), zone.m_sOwnerFactionKey, zone.m_iResistanceCaptureProgress);
+
+		return string.Format("h-istasi admin capture | progress %1 | %2 -> %3", ResolveZoneLabel(zone), before, zone.m_iResistanceCaptureProgress);
+	}
+
+	string RequestAdminStartDebugMissionReport(int playerId, string zoneId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi admin mission | failed: server required";
+		if (!CanPlayerUseAdminActions(playerId))
+			return "h-istasi admin mission | failed: admin required";
+
+		string target = zoneId;
+		if (target.IsEmpty())
+			target = SelectFirstAdminZoneId();
+		if (target.IsEmpty())
+			return "h-istasi admin mission | failed: no debug target zone";
+
+		HST_ZoneState zone = m_State.FindZone(target);
+		if (!zone)
+			return "h-istasi admin mission | failed: zone not found " + target;
+
+		bool changed = RequestAdminStartDebugMission(playerId, target);
+		if (!changed)
+			return string.Format("h-istasi admin mission | failed: could not start debug mission at %1 | phase %2", ResolveZoneLabel(zone), m_State.m_ePhase);
+
+		return string.Format("h-istasi admin mission | started debug mission at %1 | active %2", ResolveZoneLabel(zone), CountFoundationActiveMissions());
+	}
+
+	string RequestAdminAwardResourcesReport(int playerId, int money, int hr)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi admin resources | failed: server required";
+		if (!CanPlayerUseAdminActions(playerId))
+			return "h-istasi admin resources | failed: admin required";
+
+		bool changed = RequestAdminAwardResources(playerId, money, hr);
+		if (!changed)
+			return "h-istasi admin resources | failed: award returned false";
+
+		return string.Format("h-istasi admin resources | awarded $%1 HR %2 | money %3 | HR %4", money, hr, m_State.m_iFactionMoney, m_State.m_iHR);
+	}
 	bool RequestAdminSetZoneActive(int playerId, string zoneId, bool active)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
@@ -3144,6 +3468,37 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return BuildPhase22Report();
 	}
 
+	string RequestAdminPhase23UICoverageReport(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 23 | failed: admin required";
+		if (!m_CommandUI)
+			return "h-istasi phase 23 | failed: command UI not ready";
+
+		return m_CommandUI.BuildCommandCoverageReport(m_State);
+	}
+
+	string RequestAdminPhase23MarkerAudit(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 23 marker audit | failed: admin required";
+		if (!m_MapMarkers)
+			return "h-istasi phase 23 marker audit | failed: marker service not ready";
+
+		return m_MapMarkers.BuildMarkerAuditReport(m_State, m_Preset) + "\n" + m_MapMarkers.BuildMarkerReport(m_State);
+	}
+
+	string RequestAdminPhase23FailedActionSample(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 23 failed-action sample | failed: admin required";
+
+		string report = "h-istasi phase 23 failed-action sample";
+		report = report + "\n" + RequestCommanderMoveHQReport(playerId, "missing_hideout_id");
+		report = report + "\n" + RequestCommanderStartZoneMissionReport(playerId, "missing_zone_id");
+		report = report + "\n" + RequestCommanderCompleteMissionReport(playerId, "missing_mission_id");
+		return report;
+	}
 	protected string BuildPhase22Report()
 	{
 		string report = "h-istasi phase 22 smoke report";
@@ -5037,6 +5392,51 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return changed;
+	}
+	protected string SelectFirstAdminZoneId()
+	{
+		if (!m_State || m_State.m_aZones.Count() == 0)
+			return "";
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (zone)
+				return zone.m_sZoneId;
+		}
+
+		return "";
+	}
+	protected int CountResistanceZones()
+	{
+		if (!m_State || !m_Preset)
+			return 0;
+
+		int count;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (zone && zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected string ResolveFirstCancelablePlayerSupportRequestId()
+	{
+		if (!m_State)
+			return "";
+
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (!request || !request.m_bPlayerRequested)
+				continue;
+			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_QUEUED && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				continue;
+
+			return request.m_sRequestId;
+		}
+
+		return "";
 	}
 	protected string ResolveTrustedIdentityId(int playerId)
 	{

@@ -55,21 +55,280 @@ class HST_CommandUIService
 		if (markers)
 			markerSummary = "\n" + markers.BuildMarkerReport(state);
 
-		return header + hq + markerSummary + "\nMember actions: foundation_status, inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_active_missions, inspect_convoy_runtime, inspect_content, inspect_arsenal, inspect_civilians, inspect_town_support, inspect_undercover, undercover_eligibility, undercover_request, undercover_check, undercover_clear, loot_nearby, checkpoint";
+		array<string> actions = {};
+		BuildMemberCommandList(actions);
+		return header + hq + markerSummary + "\n" + BuildActionListSummary("Member actions", actions);
 	}
 
 	string BuildCommanderMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		string menu = BuildMemberMenu(state, preset, markers);
-		return menu + "\nCommander actions: move_hq_here, move_hq <hideout>, income_now, train_troops, recruit_zone <zone>, mission_zone <zone>, complete_mission <id>";
+		array<string> actions = {};
+		BuildCommanderCommandList(actions);
+		return menu + "\n" + BuildActionListSummary("Commander actions", actions);
 	}
 
 	string BuildAdminMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		string menu = BuildCommanderMenu(state, preset, markers);
-		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report, admin_phase15_seed_garage, admin_phase15_seed_source, admin_phase15_report, admin_phase16_seed, admin_phase16_train, admin_phase16_report, admin_phase17_seed_capture, admin_phase17_force_progress, admin_phase17_force_counterattack, admin_phase17_report, admin_phase18_seed_counterattack, admin_phase18_seed_rebuild, admin_phase18_seed_roadblock, admin_phase18_resolve_now, admin_phase18_report, admin_phase19_report, admin_phase20_seed_town, admin_phase20_seed_heat, admin_phase20_seed_undercover, admin_phase20_clear_heat, admin_phase20_report, admin_phase21_apply_undercover, admin_phase21_weapon_fire, admin_phase21_military_vehicle, admin_phase21_roadblock, admin_phase21_police, admin_phase21_clear_heat, admin_phase21_report";
+		array<string> actions = {};
+		BuildAdminCommandList(actions);
+		return menu + "\n" + BuildActionListSummary("Admin actions", actions);
 	}
 
+	string BuildCommandCoverageReport(HST_CampaignState state)
+	{
+		string report = "h-istasi UI coverage | command/report audit";
+
+		array<string> required = {};
+		BuildRequiredCommandCoverageList(required);
+
+		int missing;
+		foreach (string commandId : required)
+		{
+			if (IsKnownVisibleCommand(commandId))
+				continue;
+
+			missing++;
+			report = report + "\nmissing: " + commandId;
+		}
+
+		report = report + string.Format("\ncoverage | required %1 | missing %2", required.Count(), missing);
+		return report;
+	}
+
+	string BuildActiveMissionSummaryReport(HST_CampaignState state)
+	{
+		if (!state)
+			return "h-istasi missions | state not ready";
+
+		string report = "h-istasi active mission summary";
+		int emitted;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+			if (IsPersistenceSmokeMission(mission))
+				continue;
+
+			report = report + string.Format(
+				"\n%1 | %2 | active | target %3 | phase %4 | remaining %5s | progress %6 | marker %7 | next %8 | failure %9",
+				mission.m_sInstanceId,
+				BuildMissionDisplayTitle(mission),
+				BuildMissionLocationLabel(state, mission),
+				mission.m_sRuntimePhase,
+				mission.m_iRemainingSeconds,
+				BuildMissionProgressText(state, mission),
+				ResolveMissionMarkerId(mission),
+				BuildMissionNextStepText(state, mission),
+				EmptyLabel(mission.m_sRuntimeFailureReason)
+			);
+			emitted++;
+		}
+
+		if (emitted == 0)
+			report = report + "\nno active mission";
+
+		return report;
+	}
+
+	protected string BuildActionListSummary(string title, notnull array<string> actions)
+	{
+		string summary = title + ": ";
+		for (int i = 0; i < actions.Count(); i++)
+		{
+			if (i > 0)
+				summary = summary + ", ";
+
+			summary = summary + actions[i];
+		}
+
+		return summary;
+	}
+
+	protected void BuildMemberCommandList(notnull array<string> actions)
+	{
+		actions.Insert("foundation_status");
+		actions.Insert("inspect_campaign");
+		actions.Insert("inspect_markers");
+		actions.Insert("inspect_capture");
+		actions.Insert("inspect_hq_threat");
+		actions.Insert("inspect_economy");
+		actions.Insert("inspect_zones");
+		actions.Insert("inspect_missions");
+		actions.Insert("inspect_mission_summary");
+		actions.Insert("inspect_active_missions");
+		actions.Insert("inspect_mission_runtime");
+		actions.Insert("inspect_convoy_runtime");
+		actions.Insert("inspect_recruitment");
+		actions.Insert("inspect_support");
+		actions.Insert("inspect_arsenal");
+		actions.Insert("inspect_garage");
+		actions.Insert("inspect_vehicle_cargo");
+		actions.Insert("inspect_civilians");
+		actions.Insert("inspect_town_support");
+		actions.Insert("inspect_content");
+		actions.Insert("inspect_persistence");
+		actions.Insert("inspect_loadout_editor");
+		actions.Insert("inspect_undercover");
+		actions.Insert("undercover_eligibility");
+		actions.Insert("undercover_request");
+		actions.Insert("undercover_check");
+		actions.Insert("undercover_clear");
+		actions.Insert("loot_nearby");
+		actions.Insert("garage_capture_nearby");
+		actions.Insert("checkpoint");
+	}
+
+	protected void BuildCommanderCommandList(notnull array<string> actions)
+	{
+		BuildMemberCommandList(actions);
+		actions.Insert("move_hq_here");
+		actions.Insert("move_hq <hideout>");
+		actions.Insert("rebuild_hq_assets");
+		actions.Insert("income_now");
+		actions.Insert("train_troops_report");
+		actions.Insert("recruit_zone <zone>");
+		actions.Insert("remove_garrison <zone>");
+		actions.Insert("mission_zone <zone>");
+		actions.Insert("mission_random");
+		actions.Insert("progress_mission <id>");
+		actions.Insert("complete_mission <id>");
+		actions.Insert("call_supply");
+		actions.Insert("support_qrf");
+		actions.Insert("support_fire");
+		actions.Insert("support_search");
+		actions.Insert("support_gbu");
+		actions.Insert("support_umpk");
+		actions.Insert("support_kh55");
+		actions.Insert("cancel_support");
+		actions.Insert("civilian_aid");
+	}
+
+	protected void BuildAdminCommandList(notnull array<string> actions)
+	{
+		BuildCommanderCommandList(actions);
+		actions.Insert("inspect_zone_composition");
+		actions.Insert("debug_mission_id <id>");
+		actions.Insert("capture_zone <zone>");
+		actions.Insert("progress_zone <zone>");
+		actions.Insert("activate_zone <zone>");
+		actions.Insert("deactivate_zone <zone>");
+		actions.Insert("award_small");
+		actions.Insert("admin_persistence_smoke_report");
+		actions.Insert("admin_phase14_report");
+		actions.Insert("admin_phase15_report");
+		actions.Insert("admin_phase16_report");
+		actions.Insert("admin_phase17_report");
+		actions.Insert("admin_phase18_report");
+		actions.Insert("admin_phase19_report");
+		actions.Insert("admin_phase20_report");
+		actions.Insert("admin_phase21_report");
+		actions.Insert("admin_phase22_seed_hq_knowledge");
+		actions.Insert("admin_phase22_queue_attack");
+		actions.Insert("admin_phase22_start_defense");
+		actions.Insert("admin_phase22_kill_petros");
+		actions.Insert("admin_phase22_succeed_defense");
+		actions.Insert("admin_phase22_report");
+		actions.Insert("admin_phase23_ui_coverage");
+		actions.Insert("admin_phase23_marker_audit");
+		actions.Insert("admin_phase23_failed_action_sample");
+	}
+
+	protected void BuildRequiredCommandCoverageList(notnull array<string> required)
+	{
+		required.Insert("foundation_status");
+		required.Insert("inspect_campaign");
+		required.Insert("inspect_markers");
+		required.Insert("inspect_hq_threat");
+		required.Insert("inspect_capture");
+		required.Insert("inspect_recruitment");
+		required.Insert("inspect_support");
+		required.Insert("inspect_arsenal");
+		required.Insert("inspect_garage");
+		required.Insert("inspect_vehicle_cargo");
+		required.Insert("inspect_civilians");
+		required.Insert("inspect_town_support");
+		required.Insert("inspect_content");
+		required.Insert("inspect_persistence");
+		required.Insert("inspect_loadout_editor");
+		required.Insert("inspect_undercover");
+		required.Insert("undercover_eligibility");
+		required.Insert("undercover_request");
+		required.Insert("undercover_check");
+		required.Insert("undercover_clear");
+		required.Insert("inspect_mission_summary");
+		required.Insert("inspect_active_missions");
+		required.Insert("inspect_mission_runtime");
+		required.Insert("inspect_convoy_runtime");
+		required.Insert("admin_phase14_report");
+		required.Insert("admin_phase15_report");
+		required.Insert("admin_phase16_report");
+		required.Insert("admin_phase17_report");
+		required.Insert("admin_phase18_report");
+		required.Insert("admin_phase19_report");
+		required.Insert("admin_phase20_report");
+		required.Insert("admin_phase21_report");
+		required.Insert("admin_phase22_seed_hq_knowledge");
+		required.Insert("admin_phase22_queue_attack");
+		required.Insert("admin_phase22_start_defense");
+		required.Insert("admin_phase22_kill_petros");
+		required.Insert("admin_phase22_succeed_defense");
+		required.Insert("admin_phase22_report");
+		required.Insert("admin_phase23_ui_coverage");
+		required.Insert("admin_phase23_marker_audit");
+		required.Insert("admin_phase23_failed_action_sample");
+	}
+
+	protected bool IsKnownVisibleCommand(string commandId)
+	{
+		if (commandId == "foundation_status") return true;
+		if (commandId == "inspect_campaign") return true;
+		if (commandId == "inspect_markers") return true;
+		if (commandId == "inspect_hq_threat") return true;
+		if (commandId == "inspect_economy") return true;
+		if (commandId == "inspect_zones") return true;
+		if (commandId == "inspect_missions") return true;
+		if (commandId == "inspect_capture") return true;
+		if (commandId == "inspect_recruitment") return true;
+		if (commandId == "inspect_support") return true;
+		if (commandId == "inspect_arsenal") return true;
+		if (commandId == "inspect_garage") return true;
+		if (commandId == "inspect_vehicle_cargo") return true;
+		if (commandId == "inspect_civilians") return true;
+		if (commandId == "inspect_town_support") return true;
+		if (commandId == "inspect_content") return true;
+		if (commandId == "inspect_persistence") return true;
+		if (commandId == "inspect_loadout_editor") return true;
+		if (commandId == "inspect_undercover") return true;
+		if (commandId == "undercover_eligibility") return true;
+		if (commandId == "undercover_request") return true;
+		if (commandId == "undercover_check") return true;
+		if (commandId == "undercover_clear") return true;
+		if (commandId == "inspect_mission_summary") return true;
+		if (commandId == "inspect_active_missions") return true;
+		if (commandId == "inspect_mission_runtime") return true;
+		if (commandId == "inspect_convoy_runtime") return true;
+		if (commandId == "admin_phase14_report") return true;
+		if (commandId == "admin_phase15_report") return true;
+		if (commandId == "admin_phase16_report") return true;
+		if (commandId == "admin_phase17_report") return true;
+		if (commandId == "admin_phase18_report") return true;
+		if (commandId == "admin_phase19_report") return true;
+		if (commandId == "admin_phase20_report") return true;
+		if (commandId == "admin_phase21_report") return true;
+		if (commandId == "admin_phase22_seed_hq_knowledge") return true;
+		if (commandId == "admin_phase22_queue_attack") return true;
+		if (commandId == "admin_phase22_start_defense") return true;
+		if (commandId == "admin_phase22_kill_petros") return true;
+		if (commandId == "admin_phase22_succeed_defense") return true;
+		if (commandId == "admin_phase22_report") return true;
+		if (commandId == "admin_phase23_ui_coverage") return true;
+		if (commandId == "admin_phase23_marker_audit") return true;
+		if (commandId == "admin_phase23_failed_action_sample") return true;
+
+		return false;
+	}
 	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
 	{
 		selectedTabId = NormalizeTabId(selectedTabId);
@@ -111,7 +370,7 @@ class HST_CommandUIService
 			return "h-istasi command | setup values are read from $profile:h-istasi/HST_Settings.json";
 
 		if (commandId == "setup_hideout")
-			return BuildBoolResult("select initial hideout " + argument, coordinator.RequestCommanderSelectInitialHideout(playerId, argument));
+			return coordinator.RequestCommanderSelectInitialHideoutReport(playerId, argument);
 
 		if (commandId == "checkpoint")
 			return coordinator.RequestMemberManualCheckpointReport(playerId);
@@ -141,6 +400,9 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_active_missions")
 			return coordinator.RequestMemberInspectActiveMissions(playerId);
+
+		if (commandId == "inspect_mission_summary")
+			return coordinator.RequestMemberInspectMissionSummary(playerId);
 
 		if (commandId == "inspect_mission")
 			return coordinator.RequestMemberInspectMission(playerId, argument);
@@ -251,16 +513,16 @@ class HST_CommandUIService
 			return coordinator.RequestMemberRedeployGarageVehicle(playerId, argument);
 
 		if (commandId == "move_hq")
-			return BuildBoolResult("move HQ to " + argument, coordinator.RequestCommanderMoveHQ(playerId, argument));
+			return coordinator.RequestCommanderMoveHQReport(playerId, argument);
 
 		if (commandId == "move_hq_here")
-			return BuildBoolResult("move HQ to your position", coordinator.RequestCommanderMoveHQToPlayer(playerId));
+			return coordinator.RequestCommanderMoveHQToPlayerReport(playerId);
 
 		if (commandId == "rebuild_hq_assets")
-			return BuildBoolResult("rebuild HQ assets", coordinator.RequestCommanderRebuildHQAssets(playerId));
+			return coordinator.RequestCommanderRebuildHQAssetsReport(playerId);
 
 		if (commandId == "income_now")
-			return BuildBoolResult("apply income tick", coordinator.RequestCommanderApplyIncomeNow(playerId));
+			return coordinator.RequestCommanderApplyIncomeNowReport(playerId);
 
 		if (commandId == "train_troops")
 			return BuildBoolResult("train FIA troops", coordinator.RequestCommanderTrainTroops(playerId));
@@ -273,16 +535,16 @@ class HST_CommandUIService
 			return coordinator.RequestCommanderRemoveGarrisonReport(playerId, argument, 1, 0);
 
 		if (commandId == "mission_zone")
-			return BuildBoolResult("start zone mission at " + argument, coordinator.RequestCommanderStartZoneMission(playerId, argument));
+			return coordinator.RequestCommanderStartZoneMissionReport(playerId, argument);
 
 		if (commandId == "mission_random")
-			return BuildBoolResult("start random campaign mission", coordinator.RequestCommanderStartRandomMission(playerId));
+			return coordinator.RequestCommanderStartRandomMissionReport(playerId);
 
 		if (commandId == "progress_mission")
-			return BuildBoolResult("progress active mission", coordinator.RequestCommanderProgressMission(playerId, argument));
+			return coordinator.RequestCommanderProgressMissionReport(playerId, argument);
 
 		if (commandId == "complete_mission")
-			return BuildBoolResult("complete mission " + argument, coordinator.RequestCommanderCompleteMission(playerId, argument));
+			return coordinator.RequestCommanderCompleteMissionReport(playerId, argument);
 
 		if (commandId == "mission_asset_load" || commandId == "mission_asset_unload" || commandId == "mission_asset_deliver" || commandId == "mission_captive_extract" || commandId == "mission_captive_follow" || commandId == "mission_vehicle_capture" || commandId == "mission_asset_sabotage")
 			return coordinator.RequestMemberMissionInteraction(playerId, commandId, argument);
@@ -303,31 +565,31 @@ class HST_CommandUIService
 			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55);
 
 		if (commandId == "cancel_support")
-			return BuildBoolResult("cancel active player support", coordinator.RequestCommanderCancelSupport(playerId, argument));
+			return coordinator.RequestCommanderCancelSupportReport(playerId, argument);
 
 		if (commandId == "civilian_aid")
-			return BuildBoolResult("deliver civilian aid", coordinator.RequestCommanderAidNearestTown(playerId));
+			return coordinator.RequestCommanderAidNearestTownReport(playerId);
 
 		if (commandId == "activate_zone")
-			return BuildBoolResult("activate zone " + argument, coordinator.RequestAdminSetZoneActive(playerId, argument, true));
+			return coordinator.RequestAdminSetZoneActiveReport(playerId, argument, true);
 
 		if (commandId == "deactivate_zone")
-			return BuildBoolResult("deactivate zone " + argument, coordinator.RequestAdminSetZoneActive(playerId, argument, false));
+			return coordinator.RequestAdminSetZoneActiveReport(playerId, argument, false);
 
 		if (commandId == "capture_zone")
-			return BuildBoolResult("capture zone " + argument, coordinator.RequestAdminCaptureZoneForResistance(playerId, argument, 10));
+			return coordinator.RequestAdminCaptureZoneForResistanceReport(playerId, argument, 10);
 
 		if (commandId == "progress_zone")
-			return BuildBoolResult("add capture progress at " + argument, coordinator.RequestAdminAddCaptureProgress(playerId, argument, 50));
+			return coordinator.RequestAdminAddCaptureProgressReport(playerId, argument, 50);
 
 		if (commandId == "debug_mission")
-			return BuildBoolResult("start debug mission at " + argument, coordinator.RequestAdminStartDebugMission(playerId, argument));
+			return coordinator.RequestAdminStartDebugMissionReport(playerId, argument);
 
 		if (commandId == "debug_mission_id")
 			return coordinator.RequestAdminStartMissionById(playerId, argument);
 
 		if (commandId == "award_small")
-			return BuildBoolResult("award debug resources", coordinator.RequestAdminAwardResources(playerId, 500, 5));
+			return coordinator.RequestAdminAwardResourcesReport(playerId, 500, 5);
 
 		if (commandId == "admin_seed_persistence_test_state")
 			return coordinator.RequestAdminSeedPersistenceTestState(playerId);
@@ -463,20 +725,29 @@ class HST_CommandUIService
 		if (commandId == "admin_phase22_report")
 			return coordinator.RequestAdminPhase22Report(playerId);
 
+		if (commandId == "admin_phase23_ui_coverage")
+			return coordinator.RequestAdminPhase23UICoverageReport(playerId);
+
+		if (commandId == "admin_phase23_marker_audit")
+			return coordinator.RequestAdminPhase23MarkerAudit(playerId);
+
+		if (commandId == "admin_phase23_failed_action_sample")
+			return coordinator.RequestAdminPhase23FailedActionSample(playerId);
+
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
 
 		if (commandId == "new_campaign")
-			return BuildBoolResult("reset campaign", coordinator.RequestAdminNewCampaignReset(playerId));
+			return BuildBoolResult("reset campaign", coordinator.RequestAdminNewCampaignReset(playerId), "admin required or reset precondition failed");
 
 		if (commandId == "member_accept")
-			return BuildBoolResult("accept member " + argument, coordinator.RequestAdminSetMembership(playerId, argument, true));
+			return BuildBoolResult("accept member " + argument, coordinator.RequestAdminSetMembership(playerId, argument, true), "admin required or target identity missing");
 
 		if (commandId == "member_remove")
-			return BuildBoolResult("remove member " + argument, coordinator.RequestAdminSetMembership(playerId, argument, false));
+			return BuildBoolResult("remove member " + argument, coordinator.RequestAdminSetMembership(playerId, argument, false), "admin required or target identity missing");
 
 		if (commandId == "admin_grant")
-			return BuildBoolResult("grant admin " + argument, coordinator.RequestAdminSetAdminRole(playerId, argument, true));
+			return BuildBoolResult("grant admin " + argument, coordinator.RequestAdminSetAdminRole(playerId, argument, true), "admin required or target identity missing");
 
 		return "h-istasi command | unknown command: " + commandId;
 	}
@@ -579,6 +850,9 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_active_missions")
 			return !coordinator.RequestMemberInspectActiveMissions(playerId).IsEmpty();
+
+		if (commandId == "inspect_mission_summary")
+			return !coordinator.RequestMemberInspectMissionSummary(playerId).IsEmpty();
 
 		if (commandId == "inspect_mission")
 			return !coordinator.RequestMemberInspectMission(playerId, argument).IsEmpty();
@@ -904,6 +1178,15 @@ class HST_CommandUIService
 		if (commandId == "admin_phase22_report")
 			return !coordinator.RequestAdminPhase22Report(playerId).IsEmpty();
 
+		if (commandId == "admin_phase23_ui_coverage")
+			return !coordinator.RequestAdminPhase23UICoverageReport(playerId).IsEmpty();
+
+		if (commandId == "admin_phase23_marker_audit")
+			return !coordinator.RequestAdminPhase23MarkerAudit(playerId).IsEmpty();
+
+		if (commandId == "admin_phase23_failed_action_sample")
+			return !coordinator.RequestAdminPhase23FailedActionSample(playerId).Contains("failed");
+
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
 
@@ -961,51 +1244,55 @@ class HST_CommandUIService
 		if (!canUseMember && selectedTabId != TAB_SETUP)
 			return "h-istasi command | membership required for campaign actions";
 
+		if (!state)
+			return "h-istasi command | campaign state not ready";
+
 		if (selectedTabId == TAB_OVERVIEW)
-			return BuildMemberMenu(state, preset, markers);
+			return string.Format("Overview | %1 | warnings Petros %2 / HQ threat %3 | next %4", BuildStrategicOrder(state, preset), BuildPetrosLabel(state), state.m_iHQThreatLevel, BuildNextBestAction(state, preset));
 
 		if (selectedTabId == TAB_PETROS)
-			return BuildPetrosStatus(state, canUseCommander);
+		{
+			string defend = "";
+			if (state.m_bDefendPetrosActive)
+				defend = " | DEFEND PETROS ACTIVE";
+
+			return string.Format("HQ/Petros | Petros %1 | knowledge %2/100 | threat %3/100%4", BuildPetrosLabel(state), state.m_iHQKnowledge, state.m_iHQThreatLevel, defend);
+		}
 
 		if (selectedTabId == TAB_MISSIONS)
-			return BuildMissionReport(state);
+		{
+			HST_ActiveMissionState urgent = SelectMostUrgentActiveMission(state);
+			if (urgent)
+				return string.Format("Missions | %1 active | urgent %2 | next %3", CountActiveMissions(state), BuildMissionDisplayTitle(urgent), BuildMissionNextStepText(state, urgent));
+
+			return "Missions | no active mission | start a priority mission when ready";
+		}
 
 		if (selectedTabId == TAB_MAP)
-			return BuildZoneListReport(state, preset);
+			return string.Format("Map/War | FIA zones %1 | hostile zones %2 | active zones %3 | markers %4", CountResistanceZones(state, preset), CountEnemyZones(state, preset), CountActiveZones(state), state.m_aMapMarkers.Count());
 
 		if (selectedTabId == TAB_FORCES)
-			return BuildEconomyReport(state);
+			return string.Format("Forces | HR %1 | training %2 | garrisons %3/%4 | support %5 | QRF %6", state.m_iHR, state.m_iTrainingLevel, CountGarrisonInfantry(state), CountGarrisonVehicles(state), state.m_aSupportRequests.Count(), CountActiveQRFs(state));
 
 		if (selectedTabId == TAB_ARSENAL)
-		{
-			if (arsenal)
-				return arsenal.BuildArsenalReport(state, balance);
-
-			return "h-istasi arsenal | service not ready";
-		}
+			return string.Format("Arsenal/Loot | unlocked %1/%2 | vehicle cargo %3 item(s) | HQ arsenal %4", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state), CountVehicleCargoItems(state), BuildArsenalRuntimeStatus(state));
 
 		if (selectedTabId == TAB_GARAGE)
-		{
-			if (arsenal)
-				return arsenal.BuildGarageReport(state);
-
-			return "h-istasi garage | service not ready";
-		}
+			return string.Format("Garage/Build | stored %1 | cargo entries %2 | build mode %3 | last failure %4", state.m_aGarageVehicles.Count(), CountVehicleCargoEntries(state), BuildModeStatusLabel(state), EmptyLabel(state.m_sLastBuildModeFailure));
 
 		if (selectedTabId == TAB_MEMBERS)
-			return BuildMembersStatus(state, canUseCommander);
+			return string.Format("Members | known %1 | commander %2 | undercover %3", state.m_aPlayers.Count(), BuildCommanderName(state), BuildUndercoverCompactSummary(state));
 
 		if (selectedTabId == TAB_ADMIN)
 		{
 			if (!canUseAdmin)
-				return "h-istasi admin | admin role required";
+				return "Admin | debug only | admin role required";
 
-			return BuildZoneListReport(state, preset);
+			return string.Format("Admin | debug only | schema %1 | phase %2 | marker records %3", state.m_iSchemaVersion, CampaignPhaseLabel(state.m_ePhase), state.m_aMapMarkers.Count());
 		}
 
-		return BuildMemberMenu(state, preset, markers);
+		return string.Format("h-istasi command | %1", BuildNextBestAction(state, preset));
 	}
-
 	protected string BuildSetupStatus(HST_CampaignState state, HST_RuntimeSettings settings)
 	{
 		string status = "h-istasi setup | choose an initial HQ hideout to start the campaign";
@@ -1144,6 +1431,9 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "brief", "Petros", string.Format("%1 / deaths %2", BuildPetrosLabel(state), state.m_iPetrosDeaths), BuildPetrosTone(state));
 		payload = AppendRow(payload, "brief", "Current order", BuildStrategicOrder(state, preset), "warn");
 
+		payload = AppendSection(payload, "next", "Next Best Action");
+		payload = AppendRow(payload, "next", "Recommended", BuildNextBestAction(state, preset), "warn");
+		payload = AppendRow(payload, "next", "Why", BuildNextBestActionReason(state, preset), "neutral");
 		payload = AppendSection(payload, "resources", "Resistance Logistics");
 		payload = AppendRow(payload, "resources", "FIA money", string.Format("$%1", state.m_iFactionMoney), "good");
 		payload = AppendRow(payload, "resources", "HR pool", string.Format("%1 recruits", state.m_iHR), "good");
@@ -1175,6 +1465,86 @@ class HST_CommandUIService
 		return payload;
 	}
 
+	protected string BuildNextBestAction(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return "Wait for campaign state.";
+
+		if (!state.m_bHQDeployed)
+			return "Choose an initial HQ.";
+
+		if (!state.m_bPetrosAlive)
+			return "Petros is down; inspect HQ/Petros.";
+
+		if (state.m_bDefendPetrosActive)
+			return "Defend Petros at HQ.";
+
+		HST_ActiveMissionState urgent = SelectMostUrgentActiveMission(state);
+		if (urgent)
+			return "Complete active mission: " + BuildMissionDisplayTitle(urgent);
+
+		if (state.m_iHQKnowledge >= 80 || state.m_iHQThreatLevel >= 80)
+			return "Move HQ or prepare for Petros attack.";
+
+		if (CountUnlockedArsenalItems(state) < 3)
+			return "Loot enemy equipment into arsenal.";
+
+		if (state.m_iHR > 0)
+			return "Recruit FIA garrison in a friendly zone.";
+
+		return "Start a priority mission.";
+	}
+
+	protected string BuildNextBestActionReason(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return "Campaign state has not been published yet.";
+		if (!state.m_bHQDeployed)
+			return "The campaign cannot become readable until HQ exists on the map.";
+		if (!state.m_bPetrosAlive)
+			return "Petros state controls HQ safety and several commander actions.";
+		if (state.m_bDefendPetrosActive)
+			return string.Format("Defense active | attackers %1/%2 | status %3", state.m_iDefendPetrosAliveAttackerCount, state.m_iDefendPetrosAttackerCount, state.m_sDefendPetrosStatus);
+
+		HST_ActiveMissionState urgent = SelectMostUrgentActiveMission(state);
+		if (urgent)
+			return string.Format("%1 has %2s remaining and phase %3.", BuildMissionDisplayTitle(urgent), urgent.m_iRemainingSeconds, urgent.m_sRuntimePhase);
+
+		if (state.m_iHQKnowledge >= 80 || state.m_iHQThreatLevel >= 80)
+			return string.Format("HQ knowledge %1 and threat %2 are high.", state.m_iHQKnowledge, state.m_iHQThreatLevel);
+		if (CountUnlockedArsenalItems(state) < 3)
+			return string.Format("Only %1 arsenal item(s) are unlocked.", CountUnlockedArsenalItems(state));
+		if (state.m_iHR > 0)
+			return string.Format("%1 HR is available for FIA recruitment.", state.m_iHR);
+
+		return "No urgent blocker is active; spend commander tempo on the war map.";
+	}
+
+	protected HST_ActiveMissionState SelectMostUrgentActiveMission(HST_CampaignState state)
+	{
+		if (!state)
+			return null;
+
+		HST_ActiveMissionState selected;
+		int selectedRemaining = 2147483647;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+			if (IsPersistenceSmokeMission(mission))
+				continue;
+			if (AreMissionObjectivesComplete(state, mission))
+				continue;
+
+			if (mission.m_iRemainingSeconds < selectedRemaining)
+			{
+				selected = mission;
+				selectedRemaining = mission.m_iRemainingSeconds;
+			}
+		}
+
+		return selected;
+	}
 	protected string AppendHQSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings, int playerId, bool canUseCommander)
 	{
 		if (!state)
@@ -1246,13 +1616,15 @@ class HST_CommandUIService
 
 			string missionTitle = BuildMissionDisplayTitle(mission);
 			payload = AppendRow(payload, "active_missions", missionTitle, string.Format("%1 - %2", BuildMissionLocationLabel(state, mission), BuildMissionTimeLabel(mission)), MissionTone(mission));
+			payload = AppendRow(payload, "active_missions", "Where", BuildMissionLocationLabel(state, mission), "neutral");
+			payload = AppendRow(payload, "active_missions", "Timer", BuildMissionTimeLabel(mission), MissionTone(mission));
+			payload = AppendRow(payload, "active_missions", "Marker", ResolveMissionMarkerId(mission), "neutral");
+			payload = AppendRow(payload, "active_missions", "Runtime", string.Format("%1 / %2", mission.m_sRuntimePrimitive, mission.m_sRuntimePhase), "warn");
 			payload = AppendRow(payload, "active_missions", "Objective", BuildMissionInstruction(mission), "good");
 			payload = AppendRow(payload, "active_missions", "Status", BuildMissionProgressText(state, mission), MissionTone(mission));
 			payload = AppendRow(payload, "active_missions", "Next action", BuildMissionNextStepText(state, mission), "warn");
-			if (!mission.m_sRuntimeFailureReason.IsEmpty())
-				payload = AppendRow(payload, "active_missions", "Problem", mission.m_sRuntimeFailureReason, "bad");
+			payload = AppendRow(payload, "active_missions", "Failure", EmptyLabel(mission.m_sRuntimeFailureReason), MissionFailureTone(mission));
 		}
-
 		payload = AppendSection(payload, "objectives", "Objective State");
 		payload = AppendRow(payload, "objectives", "Active missions", string.Format("%1 visible", activeMissionCount), "warn");
 		payload = AppendRow(payload, "objectives", "Objectives", string.Format("%1 active / %2 total", CountActiveMissionObjectives(state), CountVisibleMissionObjectives(state)), "warn");
@@ -1727,7 +2099,18 @@ class HST_CommandUIService
 			payload = AppendRow(payload, "admin", "Last failed prefab", EmptyLabel(compositions.GetLastFailedPrefab()), "bad");
 			payload = AppendRow(payload, "admin", "Last slot reason", EmptyLabel(compositions.GetLastFailedSlotReason()), "warn");
 		}
+		payload = AppendSection(payload, "admin_reports", "Admin Reports");
+		payload = AppendRow(payload, "admin_reports", "Persistence", "Use Persistence status / smoke report before validating a phase.", "neutral");
+		payload = AppendRow(payload, "admin_reports", "Marker audit", "Phase 23 marker audit validates visible marker coverage.", "good");
 
+		payload = AppendSection(payload, "admin_missions", "Force Missions");
+		payload = AppendRow(payload, "admin_missions", "Force mission", "Debug mission creation only; not normal gameplay.", "warn");
+
+		payload = AppendSection(payload, "admin_phase_smoke", "Phase Smoke Tests");
+		payload = AppendRow(payload, "admin_phase_smoke", "Phase reports", "Use after feature-specific HST_Dev testing.", "warn");
+
+		payload = AppendSection(payload, "admin_danger", "Danger Zone");
+		payload = AppendRow(payload, "admin_danger", "Reset campaign", "Destructive debug action.", "bad");
 		payload = AppendSection(payload, "debug_zone", "Debug Targets");
 		HST_ZoneState morton = state.FindZone("town_morton");
 		if (morton)
@@ -1798,14 +2181,15 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_MISSIONS)
 		{
+			AddMenuAction(actions, TAB_MISSIONS, "Mission summary", "inspect_mission_summary", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Inspect Active Missions", "inspect_active_missions", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Convoy Runtime Report", "inspect_convoy_runtime", "", canUseMember, "membership required");
 			AddMissionInspectActions(state, actions, canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Start priority mission", "mission_random", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start mission", state, primaryTargetId), "mission_zone", primaryTargetId, canUseCommander && !primaryTargetId.IsEmpty(), "no valid target");
-			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start town mission", state, hostileTownId), "mission_zone", hostileTownId, canUseCommander && !hostileTownId.IsEmpty(), "no hostile town");
-			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start resource mission", state, resourceTargetId), "mission_zone", resourceTargetId, canUseCommander && !resourceTargetId.IsEmpty(), "no hostile resource");
-			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start outpost mission", state, outpostTargetId), "mission_zone", outpostTargetId, canUseCommander && !outpostTargetId.IsEmpty(), "no hostile outpost");
+			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start mission", state, primaryTargetId), "mission_zone", primaryTargetId, canUseCommander && !primaryTargetId.IsEmpty(), MissionStartDisabledReason(state, primaryTargetId, canUseCommander));
+			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start town mission", state, hostileTownId), "mission_zone", hostileTownId, canUseCommander && !hostileTownId.IsEmpty(), MissionStartDisabledReason(state, hostileTownId, canUseCommander));
+			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start resource mission", state, resourceTargetId), "mission_zone", resourceTargetId, canUseCommander && !resourceTargetId.IsEmpty(), MissionStartDisabledReason(state, resourceTargetId, canUseCommander));
+			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start outpost mission", state, outpostTargetId), "mission_zone", outpostTargetId, canUseCommander && !outpostTargetId.IsEmpty(), MissionStartDisabledReason(state, outpostTargetId, canUseCommander));
 			AddMissionNextStepActions(state, actions, playerId, canUseMember, "membership required");
 			return;
 		}
@@ -1864,7 +2248,7 @@ class HST_CommandUIService
 					if (!vehicle)
 						continue;
 
-					AddMenuAction(actions, TAB_GARAGE, BuildGarageRedeployActionLabel(vehicle), "garage_redeploy", vehicle.m_sVehicleId, canUseMember, "membership required");
+					AddMenuAction(actions, TAB_GARAGE, BuildGarageRedeployActionLabel(vehicle), "garage_redeploy", vehicle.m_sVehicleId, canUseMember && state.m_iFactionMoney >= vehicle.m_iRedeployCost, GarageRedeployDisabledReason(state, vehicle, canUseMember));
 					garageActionCount++;
 					if (garageActionCount >= 5)
 						break;
@@ -1872,7 +2256,7 @@ class HST_CommandUIService
 			}
 
 			if (garageActionCount == 0)
-				AddMenuAction(actions, TAB_GARAGE, "Redeploy stored vehicle", "garage_redeploy", firstGarageVehicleId, false, "no stored vehicle");
+				AddMenuAction(actions, TAB_GARAGE, "Redeploy stored vehicle", "garage_redeploy", firstGarageVehicleId, false, GarageRedeployDisabledReason(state, null, canUseMember));
 
 			return;
 		}
@@ -1893,80 +2277,83 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
-			AddMenuAction(actions, TAB_ADMIN, "Force: Ammo convoy", "debug_mission_id", "convoy_ammo", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Armored convoy", "debug_mission_id", "convoy_armored", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Money convoy", "debug_mission_id", "convoy_money", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Prisoner convoy", "debug_mission_id", "convoy_prisoners", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Reinforcement convoy", "debug_mission_id", "convoy_reinforcements", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Supply convoy", "debug_mission_id", "convoy_supplies", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: POW rescue", "debug_mission_id", "rescue_pows", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Kill officer", "debug_mission_id", "assassinate_officer", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Conquest outpost", "debug_mission_id", "conquest_outpost", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Radio tower", "debug_mission_id", "destroy_radio_tower", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: City supplies", "debug_mission_id", "support_city_supplies", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Resource cache", "debug_mission_id", "logistics_resource_cache", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force: Minor city task", "debug_mission_id", "dynamic_minor_city_task", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Seed persistence smoke", "admin_seed_persistence_test_state", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Run persistence smoke", "admin_persistence_smoke_test", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Persistence smoke report", "admin_persistence_smoke_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 14 seed finite", "admin_phase14_seed_finite", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 14 seed threshold", "admin_phase14_seed_threshold", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 14 seed blocked", "admin_phase14_seed_blocked", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 14 report", "admin_phase14_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 15 seed garage", "admin_phase15_seed_garage", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 15 seed source", "admin_phase15_seed_source", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 15 report", "admin_phase15_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 16 seed garrison", "admin_phase16_seed", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 16 train", "admin_phase16_train", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 16 report", "admin_phase16_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Ammo convoy", "debug_mission_id", "convoy_ammo", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Armored convoy", "debug_mission_id", "convoy_armored", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Money convoy", "debug_mission_id", "convoy_money", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Prisoner convoy", "debug_mission_id", "convoy_prisoners", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Reinforcement convoy", "debug_mission_id", "convoy_reinforcements", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Supply convoy", "debug_mission_id", "convoy_supplies", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] POW rescue", "debug_mission_id", "rescue_pows", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Kill officer", "debug_mission_id", "assassinate_officer", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Conquest outpost", "debug_mission_id", "conquest_outpost", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Radio tower", "debug_mission_id", "destroy_radio_tower", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] City supplies", "debug_mission_id", "support_city_supplies", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Resource cache", "debug_mission_id", "logistics_resource_cache", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Minor city task", "debug_mission_id", "dynamic_minor_city_task", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Seed persistence", "admin_seed_persistence_test_state", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Run persistence", "admin_persistence_smoke_test", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Persistence report", "admin_persistence_smoke_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 14 seed finite", "admin_phase14_seed_finite", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 14 seed threshold", "admin_phase14_seed_threshold", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 14 seed blocked", "admin_phase14_seed_blocked", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 14 report", "admin_phase14_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 15 seed garage", "admin_phase15_seed_garage", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 15 seed source", "admin_phase15_seed_source", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 15 report", "admin_phase15_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 16 seed garrison", "admin_phase16_seed", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 16 train", "admin_phase16_train", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 16 report", "admin_phase16_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Capture report", "inspect_capture", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 17 seed capture", "admin_phase17_seed_capture", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 17 force progress", "admin_phase17_force_progress", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 17 force counterattack", "admin_phase17_force_counterattack", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 17 report", "admin_phase17_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 18 seed counterattack", "admin_phase18_seed_counterattack", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 18 seed rebuild", "admin_phase18_seed_rebuild", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 18 seed roadblock", "admin_phase18_seed_roadblock", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 18 resolve now", "admin_phase18_resolve_now", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 18 report", "admin_phase18_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 19 seed FIA supply", "admin_phase19_seed_fia_supply", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 19 seed FIA ground", "admin_phase19_seed_fia_ground", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 19 seed enemy ground", "admin_phase19_seed_enemy_ground", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 19 force support ETA", "admin_phase19_force_eta", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 19 report", "admin_phase19_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 20 seed town support", "admin_phase20_seed_town", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 20 seed wanted heat", "admin_phase20_seed_heat", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 20 seed undercover", "admin_phase20_seed_undercover", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 20 clear heat", "admin_phase20_clear_heat", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 20 report", "admin_phase20_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 21 apply undercover", "admin_phase21_apply_undercover", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 21 simulate weapon fire", "admin_phase21_weapon_fire", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 21 simulate military vehicle", "admin_phase21_military_vehicle", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 21 simulate roadblock", "admin_phase21_roadblock", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 21 simulate police", "admin_phase21_police", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 21 clear heat", "admin_phase21_clear_heat", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 21 report", "admin_phase21_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 22 seed HQ knowledge", "admin_phase22_seed_hq_knowledge", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 22 queue Petros attack", "admin_phase22_queue_attack", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 22 start defense", "admin_phase22_start_defense", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 22 kill Petros", "admin_phase22_kill_petros", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 22 succeed defense", "admin_phase22_succeed_defense", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Phase 22 report", "admin_phase22_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 17 seed capture", "admin_phase17_seed_capture", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 17 force progress", "admin_phase17_force_progress", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 17 force counterattack", "admin_phase17_force_counterattack", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 17 report", "admin_phase17_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 18 seed counterattack", "admin_phase18_seed_counterattack", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 18 seed rebuild", "admin_phase18_seed_rebuild", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 18 seed roadblock", "admin_phase18_seed_roadblock", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 18 resolve now", "admin_phase18_resolve_now", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 18 report", "admin_phase18_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 19 seed FIA supply", "admin_phase19_seed_fia_supply", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 19 seed FIA ground", "admin_phase19_seed_fia_ground", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 19 seed enemy ground", "admin_phase19_seed_enemy_ground", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 19 force support ETA", "admin_phase19_force_eta", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 19 report", "admin_phase19_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 20 seed town support", "admin_phase20_seed_town", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 20 seed wanted heat", "admin_phase20_seed_heat", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 20 seed undercover", "admin_phase20_seed_undercover", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 20 clear heat", "admin_phase20_clear_heat", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 20 report", "admin_phase20_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 21 apply undercover", "admin_phase21_apply_undercover", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 21 simulate weapon fire", "admin_phase21_weapon_fire", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 21 simulate military vehicle", "admin_phase21_military_vehicle", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 21 simulate roadblock", "admin_phase21_roadblock", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 21 simulate police", "admin_phase21_police", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 21 clear heat", "admin_phase21_clear_heat", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 21 report", "admin_phase21_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 22 seed HQ knowledge", "admin_phase22_seed_hq_knowledge", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 22 queue Petros attack", "admin_phase22_queue_attack", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 22 start defense", "admin_phase22_start_defense", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 22 kill Petros", "admin_phase22_kill_petros", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 22 succeed defense", "admin_phase22_succeed_defense", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 22 report", "admin_phase22_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 UI coverage", "admin_phase23_ui_coverage", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 marker audit", "admin_phase23_marker_audit", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 failed action sample", "admin_phase23_failed_action_sample", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug capture", state, adminTargetId), "capture_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
-			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug activate", state, adminTargetId), "activate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
-			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug deactivate", state, adminTargetId), "deactivate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
-			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug mission", state, adminTargetId), "debug_mission", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
-			AddMenuAction(actions, TAB_ADMIN, "Debug award resources", "award_small", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force income tick", "income_now", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Force mission progress", "progress_mission", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Rebuild HQ assets", "rebuild_hq_assets", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("[Debug] Capture", state, adminTargetId), "capture_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
+			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("[Debug] Activate", state, adminTargetId), "activate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
+			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("[Debug] Deactivate", state, adminTargetId), "deactivate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
+			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("[Debug Mission] Zone mission", state, adminTargetId), "debug_mission", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug] Award resources", "award_small", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug] Force income tick", "income_now", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug] Force mission progress", "progress_mission", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Debug] Rebuild HQ assets", "rebuild_hq_assets", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Mission runtime report", "inspect_mission_runtime", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Garage report", "inspect_garage", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Reset campaign", "new_campaign", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Danger] Reset campaign", "new_campaign", "", canUseAdmin, "admin required");
 		}
 	}
 
@@ -2009,6 +2396,30 @@ class HST_CommandUIService
 		action.m_bEnabled = enabled;
 		action.m_sDisabledReason = disabledReason;
 		actions.Insert(action);
+	}
+
+	protected string MissionStartDisabledReason(HST_CampaignState state, string zoneId, bool canUseCommander)
+	{
+		if (!canUseCommander)
+			return "commander required";
+		if (zoneId.IsEmpty())
+			return "no compatible target zone";
+		if (state && CountActiveMissions(state) >= 3)
+			return "too many active missions";
+
+		return "";
+	}
+
+	protected string GarageRedeployDisabledReason(HST_CampaignState state, HST_GarageVehicleState vehicle, bool canUseMember)
+	{
+		if (!canUseMember)
+			return "membership required";
+		if (!vehicle)
+			return "no stored vehicle";
+		if (state && state.m_iFactionMoney < vehicle.m_iRedeployCost)
+			return string.Format("need $%1, have $%2", vehicle.m_iRedeployCost, state.m_iFactionMoney);
+
+		return "";
 	}
 
 	protected string SelectPriorityMissionZoneId(HST_CampaignState state, HST_CampaignPreset preset)
@@ -2472,14 +2883,16 @@ class HST_CommandUIService
 		return HST_DefaultCatalog.GetZoneDisplayName(zone.m_sZoneId);
 	}
 
-	protected string BuildBoolResult(string label, bool success)
+	protected string BuildBoolResult(string label, bool success, string failureReason = "")
 	{
 		if (success)
 			return "h-istasi command | " + label + " | complete";
 
-		return "h-istasi command | " + label + " | denied or failed";
-	}
+		if (!failureReason.IsEmpty())
+			return "h-istasi command | " + label + " | failed: " + failureReason;
 
+		return "h-istasi command | " + label + " | failed";
+	}
 	protected string BuildPresetName(HST_CampaignPreset preset, HST_CampaignState state)
 	{
 		if (preset && !preset.m_sDisplayName.IsEmpty())
@@ -2944,6 +3357,28 @@ class HST_CommandUIService
 		return string.Format("%1 sec left", remaining);
 	}
 
+	protected string ResolveMissionMarkerId(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "none";
+
+		if (!mission.m_sMarkerId.IsEmpty())
+			return mission.m_sMarkerId;
+
+		if (!mission.m_sInstanceId.IsEmpty())
+			return "hst_mission_" + mission.m_sInstanceId;
+
+		return "none";
+	}
+
+	protected string MissionFailureTone(HST_ActiveMissionState mission)
+	{
+		if (mission && !mission.m_sRuntimeFailureReason.IsEmpty())
+			return "bad";
+
+		return "neutral";
+	}
+
 	protected string BuildMissionInstruction(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -2971,6 +3406,8 @@ class HST_CommandUIService
 			return "Pick up FIA supplies at HQ and deliver them to the town.";
 		if (mission.m_sMissionId == "logistics_resource_cache")
 			return "Recover the marked resource cache and deliver it to HQ.";
+		if (mission.m_sMissionId == "dynamic_defend_petros")
+			return "Keep Petros alive and hold the HQ area until the attack breaks.";
 
 		if (mission.m_sRuntimePrimitive == "convoy_intercept")
 			return "Ambush the convoy. Kill all convoy soldiers before it reaches destination.";
@@ -3000,6 +3437,26 @@ class HST_CommandUIService
 		if (AreMissionObjectivesComplete(state, mission))
 			return "Mission objectives complete. Rewards and cleanup will process on the next campaign tick.";
 
+		if (mission && (mission.m_sRuntimePrimitive == "dynamic_defend_petros" || mission.m_sRuntimeType == "dynamic_defend_petros" || mission.m_sMissionId == "dynamic_defend_petros"))
+		{
+			if (state && !state.m_bPetrosAlive)
+				return "Petros is down; mission should fail.";
+			if (state && !state.m_sDefendPetrosAttackerGroupId.IsEmpty())
+				return "Defend HQ and eliminate attackers.";
+
+			return "Stay near HQ and defend Petros until the timer ends.";
+		}
+
+		if (mission && mission.m_sRuntimePrimitive == "rescue_extract")
+			return "Contact captives, make them follow, then extract them to HQ or friendly zone.";
+		if (mission && (mission.m_sRuntimePrimitive == "deliver_supplies" || mission.m_sRuntimePrimitive == "support_delivery"))
+			return "Pick up supplies, load if needed, and deliver to the target town.";
+		if (mission && mission.m_sRuntimePrimitive == "recover_cargo")
+			return "Recover marked cargo and return it to HQ or the required delivery point.";
+		if (mission && mission.m_sRuntimePrimitive == "destroy_target")
+			return "Destroy or sabotage the marked target asset.";
+		if (mission && (mission.m_sRuntimePrimitive == "hold_area" || mission.m_sRuntimePrimitive == "clear_area"))
+			return "Clear hostiles, then hold the objective area.";
 		HST_MissionAssetState asset = SelectMissionNextAsset(state, mission);
 		if (!asset)
 			return "Follow the orange mission marker. No unresolved physical asset is waiting for an action.";
