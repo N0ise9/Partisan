@@ -2,8 +2,10 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `20`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `21`.
 
+- Phase 19 support request lifecycle hardening adds durable support-request
+  runtime fields while preserving runtime handles as non-persisted data.
 - Phase 18 enemy commander physical responses add durable enemy-order
   runtime fields while preserving runtime handles as non-persisted data.
 - The current save container captures campaign metadata, elapsed/save/restore
@@ -24,6 +26,15 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 21
+
+Phase 19 support request lifecycle hardening.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `21`.
+- Support request records now persist runtime status, resolution kind, physicalization mode, activated time, physicalized time, resolved time, physicalized flag, and outcome-applied flag.
+- Existing schema-20 support requests are backfilled from status, group linkage, strike runtime ID, and ETA.
+- Raw `IEntity`, `AIGroup`, support component handles, spawned entities, and callback references remain runtime-only and are not persisted.
 
 ## Schema 20
 

@@ -959,6 +959,14 @@ class HST_CampaignSaveData
 		target.m_bPlayerRequested = source.m_bPlayerRequested;
 		target.m_bPhysicalStrikeSpawned = source.m_bPhysicalStrikeSpawned;
 		target.m_bAbstractResolved = source.m_bAbstractResolved;
+		target.m_sRuntimeStatus = source.m_sRuntimeStatus;
+		target.m_sResolutionKind = source.m_sResolutionKind;
+		target.m_sPhysicalizationMode = source.m_sPhysicalizationMode;
+		target.m_iActivatedAtSecond = source.m_iActivatedAtSecond;
+		target.m_iPhysicalizedAtSecond = source.m_iPhysicalizedAtSecond;
+		target.m_iResolvedAtSecond = source.m_iResolvedAtSecond;
+		target.m_bPhysicalized = source.m_bPhysicalized;
+		target.m_bOutcomeApplied = source.m_bOutcomeApplied;
 		target.m_sFailureReason = source.m_sFailureReason;
 		return target;
 	}
@@ -1172,6 +1180,35 @@ class HST_CampaignSaveData
 			request.m_sStrikeConfigResource = "";
 			if (request.m_sRuntimeEntityId.IsEmpty() && !request.m_sStrikeKind.IsEmpty())
 				request.m_sRuntimeEntityId = "abstract_strike";
+
+			if (request.m_sRuntimeStatus.IsEmpty())
+			{
+				if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED)
+					request.m_sRuntimeStatus = "queued_legacy";
+				else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+					request.m_sRuntimeStatus = "active_legacy";
+				else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
+					request.m_sRuntimeStatus = "resolved_legacy";
+				else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+					request.m_sRuntimeStatus = "cancelled_legacy";
+			}
+
+			if (!request.m_sGroupId.IsEmpty())
+			{
+				request.m_bPhysicalized = true;
+				if (request.m_sPhysicalizationMode.IsEmpty())
+					request.m_sPhysicalizationMode = "ground_group_legacy";
+			}
+
+			if (!request.m_sRuntimeEntityId.IsEmpty() && request.m_sRuntimeEntityId == "abstract_strike")
+			{
+				request.m_bPhysicalized = true;
+				if (request.m_sPhysicalizationMode.IsEmpty())
+					request.m_sPhysicalizationMode = "abstract_strike_legacy";
+			}
+
+			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && request.m_iResolvedAtSecond <= 0)
+				request.m_iResolvedAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
 		}
 
 		foreach (HST_EnemyOrderState order : m_aEnemyOrders)

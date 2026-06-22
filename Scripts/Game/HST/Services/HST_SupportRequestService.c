@@ -1,3 +1,30 @@
+class HST_SupportRequestResult
+{
+	bool m_bSuccess;
+	string m_sFailureReason;
+	ref HST_SupportRequestState m_Request;
+
+	string BuildSummary()
+	{
+		if (!m_bSuccess)
+			return "h-istasi support | failed: " + m_sFailureReason;
+
+		if (!m_Request)
+			return "h-istasi support | failed: request missing after success";
+
+		return string.Format(
+			"h-istasi support | requested %1 | %2 | target %3 | eta %4s | cost $%5 enemy %6/%7 | cooldown %8",
+			m_Request.m_sRequestId,
+			m_Request.m_eType,
+			m_Request.m_sTargetZoneId,
+			m_Request.m_iETASeconds,
+			m_Request.m_iMoneyCost,
+			m_Request.m_iAttackCost,
+			m_Request.m_iSupportCost,
+			m_Request.m_iCooldownUntilSecond
+		);
+	}
+}
 class HST_SupportRequestService
 {
 	static const int PLAYER_SUPPLY_COST = 150;
@@ -18,61 +45,115 @@ class HST_SupportRequestService
 
 	HST_SupportRequestState RequestSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
 	{
-		if (!state || !preset || factionKey.IsEmpty())
+		HST_SupportRequestResult result = RequestSupportDetailed(state, preset, economy, enemyDirector, factionKey, supportType, targetZoneId, playerRequested, playerCooldownSeconds);
+		if (!result || !result.m_bSuccess)
 			return null;
+
+		return result.m_Request;
+	}
+
+	HST_SupportRequestResult RequestSupportDetailed(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
+	{
+		HST_SupportRequestResult result = new HST_SupportRequestResult();
+
+		if (!state || !preset)
+		{
+			result.m_sFailureReason = "campaign state or preset not ready";
+			return result;
+		}
+
+		if (factionKey.IsEmpty())
+		{
+			result.m_sFailureReason = "faction key missing";
+			return result;
+		}
 
 		HST_ZoneState targetZone = state.FindZone(targetZoneId);
 		if (!targetZone && targetZoneId.IsEmpty())
 			targetZone = FindFallbackTargetZone(state, preset);
 
 		if (!targetZone)
-			return null;
+		{
+			result.m_sFailureReason = "target zone not found";
+			return result;
+		}
 
 		int attackCost;
 		int supportCost;
 		ResolveCosts(supportType, attackCost, supportCost);
+
+		int moneyCost = ResolvePlayerMoneyCost(supportType);
 		if (factionKey == preset.m_sResistanceFactionKey)
 		{
-			int moneyCost = ResolvePlayerMoneyCost(supportType);
-			if (HasActivePlayerRequest(state, supportType))
-				return null;
+			string cooldownReason;
+			if (HasActivePlayerRequestDetailed(state, supportType, cooldownReason))
+			{
+				result.m_sFailureReason = cooldownReason;
+				return result;
+			}
 
-			if (!economy || !economy.SpendFactionMoney(state, moneyCost))
-				return null;
+			if (!economy)
+			{
+				result.m_sFailureReason = "economy service not ready";
+				return result;
+			}
+
+			if (state.m_iFactionMoney < moneyCost)
+			{
+				result.m_sFailureReason = string.Format("need $%1, have $%2", moneyCost, state.m_iFactionMoney);
+				return result;
+			}
+
+			if (!economy.SpendFactionMoney(state, moneyCost))
+			{
+				result.m_sFailureReason = "money spend failed";
+				return result;
+			}
 		}
-		else if (!enemyDirector || !enemyDirector.TrySpend(state, factionKey, attackCost, supportCost))
+		else
 		{
-			return null;
+			if (!enemyDirector)
+			{
+				result.m_sFailureReason = "enemy director not ready";
+				return result;
+			}
+
+			if (!enemyDirector.CanAfford(state, factionKey, attackCost, supportCost))
+			{
+				result.m_sFailureReason = string.Format("enemy cannot afford attack %1 support %2", attackCost, supportCost);
+				return result;
+			}
+
+			if (!enemyDirector.TrySpend(state, factionKey, attackCost, supportCost))
+			{
+				result.m_sFailureReason = "enemy resource spend failed";
+				return result;
+			}
 		}
 
-		HST_SupportRequestState request = new HST_SupportRequestState();
-		request.m_sRequestId = BuildRequestId(state, factionKey, supportType);
-		request.m_sFactionKey = factionKey;
-		request.m_sCapabilityId = CapabilityForSupport(supportType);
-		request.m_sAssetProfileId = AssetProfileForSupport(factionKey, supportType, factionKey == preset.m_sResistanceFactionKey);
-		request.m_sStrikeKind = StrikeKindForSupport(supportType);
-		request.m_sStrikeConfigResource = StrikeConfigForSupport(supportType);
-		request.m_eType = supportType;
-		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
-		request.m_sTargetZoneId = targetZone.m_sZoneId;
-		request.m_sSourceZoneId = FindSourceZoneId(state, preset, factionKey, targetZone.m_sZoneId);
-		request.m_vTargetPosition = targetZone.m_vPosition;
-		request.m_vSourcePosition = ResolveSourcePosition(state, request.m_sSourceZoneId, targetZone.m_vPosition);
-		request.m_iRequestedAtSecond = state.m_iElapsedSeconds;
-		request.m_iETASeconds = ResolveETA(supportType);
-		request.m_iAttackCost = attackCost;
-		request.m_iSupportCost = supportCost;
-		request.m_iMoneyCost = ResolvePlayerMoneyCost(supportType);
-		if (factionKey == preset.m_sResistanceFactionKey)
-			request.m_iCooldownUntilSecond = state.m_iElapsedSeconds + Math.Max(60, playerCooldownSeconds);
-		request.m_bHelicopterStyle = IsHelicopterStyle(supportType);
-		request.m_bPlayerRequested = playerRequested;
-		if (IsStrikeSupport(supportType))
-			request.m_sRuntimeEntityId = "abstract_strike";
+		string sourceZoneId = FindSourceZoneId(state, preset, factionKey, targetZone.m_sZoneId);
+		HST_SupportRequestState request = BuildSupportRequestRecord(
+			state,
+			preset,
+			factionKey,
+			supportType,
+			targetZone,
+			targetZone.m_vPosition,
+			ResolveSourcePosition(state, sourceZoneId, targetZone.m_vPosition),
+			playerRequested,
+			moneyCost,
+			attackCost,
+			supportCost,
+			playerCooldownSeconds
+		);
+
 		state.m_aSupportRequests.Insert(request);
 		m_bMarkerRefreshNeeded = true;
+		result.m_Request = request;
+		result.m_bSuccess = true;
+
 		Print(string.Format("h-istasi | support request %1 queued for %2 at %3", request.m_sRequestId, factionKey, targetZone.m_sZoneId));
-		return request;
+		return result;
 	}
 
 	HST_SupportRequestState RequestPrepaidEnemySupport(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, vector sourcePosition, vector targetPosition)
@@ -84,38 +165,59 @@ class HST_SupportRequestService
 		if (!targetZone)
 			return null;
 
+		vector resolvedTargetPosition = targetPosition;
+		if (IsZeroVector(resolvedTargetPosition))
+			resolvedTargetPosition = targetZone.m_vPosition;
+
+		string sourceZoneId = FindSourceZoneId(state, preset, factionKey, targetZone.m_sZoneId);
+		vector resolvedSourcePosition = sourcePosition;
+		if (IsZeroVector(resolvedSourcePosition))
+			resolvedSourcePosition = ResolveSourcePosition(state, sourceZoneId, resolvedTargetPosition);
+
+		int attackCost;
+		int supportCost;
+		ResolveCosts(supportType, attackCost, supportCost);
+
+		HST_SupportRequestState request = BuildSupportRequestRecord(state, preset, factionKey, supportType, targetZone, resolvedTargetPosition, resolvedSourcePosition, false, 0, attackCost, supportCost, 0);
+		state.m_aSupportRequests.Insert(request);
+		m_bMarkerRefreshNeeded = true;
+		Print(string.Format("h-istasi | prepaid enemy support %1 linked to order for %2 at %3", request.m_sRequestId, factionKey, targetZone.m_sZoneId));
+		return request;
+	}
+
+	protected HST_SupportRequestState BuildSupportRequestRecord(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ESupportRequestType supportType, HST_ZoneState targetZone, vector targetPosition, vector sourcePosition, bool playerRequested, int moneyCost, int attackCost, int supportCost, int playerCooldownSeconds)
+	{
 		HST_SupportRequestState request = new HST_SupportRequestState();
 		request.m_sRequestId = BuildRequestId(state, factionKey, supportType);
 		request.m_sFactionKey = factionKey;
 		request.m_sCapabilityId = CapabilityForSupport(supportType);
-		request.m_sAssetProfileId = AssetProfileForSupport(factionKey, supportType, false);
+		request.m_sAssetProfileId = AssetProfileForSupport(factionKey, supportType, factionKey == preset.m_sResistanceFactionKey);
 		request.m_sStrikeKind = StrikeKindForSupport(supportType);
 		request.m_sStrikeConfigResource = StrikeConfigForSupport(supportType);
 		request.m_eType = supportType;
 		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+		request.m_sRuntimeStatus = "queued";
+		request.m_sPhysicalizationMode = "none";
 		request.m_sTargetZoneId = targetZone.m_sZoneId;
 		request.m_sSourceZoneId = FindSourceZoneId(state, preset, factionKey, targetZone.m_sZoneId);
 		request.m_vTargetPosition = targetPosition;
-		if (request.m_vTargetPosition[0] == 0 && request.m_vTargetPosition[1] == 0 && request.m_vTargetPosition[2] == 0)
-			request.m_vTargetPosition = targetZone.m_vPosition;
 		request.m_vSourcePosition = sourcePosition;
-		if (request.m_vSourcePosition[0] == 0 && request.m_vSourcePosition[1] == 0 && request.m_vSourcePosition[2] == 0)
-			request.m_vSourcePosition = ResolveSourcePosition(state, request.m_sSourceZoneId, request.m_vTargetPosition);
 		request.m_iRequestedAtSecond = state.m_iElapsedSeconds;
 		request.m_iETASeconds = ResolveETA(supportType);
-		int attackCost;
-		int supportCost;
-		ResolveCosts(supportType, attackCost, supportCost);
 		request.m_iAttackCost = attackCost;
 		request.m_iSupportCost = supportCost;
+		request.m_iMoneyCost = moneyCost;
+		if (factionKey == preset.m_sResistanceFactionKey)
+			request.m_iCooldownUntilSecond = state.m_iElapsedSeconds + Math.Max(60, playerCooldownSeconds);
 		request.m_bHelicopterStyle = IsHelicopterStyle(supportType);
-		request.m_bPlayerRequested = false;
-		if (IsStrikeSupport(supportType))
-			request.m_sRuntimeEntityId = "abstract_strike";
+		request.m_bPlayerRequested = playerRequested;
 
-		state.m_aSupportRequests.Insert(request);
-		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi | prepaid enemy support %1 linked to order for %2 at %3", request.m_sRequestId, factionKey, targetZone.m_sZoneId));
+		if (IsStrikeSupport(supportType))
+		{
+			request.m_sRuntimeEntityId = "abstract_strike";
+			request.m_sPhysicalizationMode = "abstract_strike";
+		}
+
 		return request;
 	}
 
@@ -138,58 +240,111 @@ class HST_SupportRequestService
 				continue;
 
 			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED)
-			{
-				request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE;
-				ActivateImmediateSupport(state, preset, request);
-				changed = true;
-			}
+				changed = ActivateSupportRequest(state, preset, request) || changed;
 
-			if (IsPhysicalGroundSupport(request))
-			{
-				int arrivalAtSecond = request.m_iRequestedAtSecond + request.m_iETASeconds;
-				int spawnAtSecond = arrivalAtSecond - ResolveInboundSpawnLeadSeconds(request);
-				if (request.m_sGroupId.IsEmpty())
-				{
-					if (state.m_iElapsedSeconds >= spawnAtSecond)
-					{
-						ApplyActiveSupport(state, preset, request, false);
-						m_bMarkerRefreshNeeded = true;
-						changed = true;
-					}
-				}
-
-				if (state.m_iElapsedSeconds < arrivalAtSecond)
-					continue;
-
-				if (!request.m_bAbstractResolved)
-				{
-					request.m_bAbstractResolved = true;
-					MarkPhysicalSupportArrived(state, request);
-					m_bMarkerRefreshNeeded = true;
-					Print(string.Format("h-istasi | physical support %1 active near objective %2", request.m_sRequestId, request.m_sTargetZoneId));
-					changed = true;
-				}
-
-				if (request.m_bAbstractResolved && IsPhysicalSupportFinished(state, request))
-				{
-					HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
-					if (!group)
-						request.m_sFailureReason = "physical support group missing";
-					else
-						request.m_sFailureReason = "physical support group terminal: " + group.m_sRuntimeStatus;
-					request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-					m_bMarkerRefreshNeeded = true;
-					changed = true;
-				}
-
+			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
 				continue;
-			}
 
-			ResolveSupport(state, preset, garrisons, request);
-			changed = true;
+			changed = TickActiveSupportRequest(state, preset, garrisons, request) || changed;
 		}
 
 		return changed;
+	}
+
+	protected bool ActivateSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return false;
+
+		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE;
+		request.m_iActivatedAtSecond = state.m_iElapsedSeconds;
+		request.m_sRuntimeStatus = "active_waiting_eta";
+
+		if (IsStrikeSupport(request.m_eType))
+		{
+			ActivateStrikeSupport(request);
+			request.m_bPhysicalized = true;
+			request.m_iPhysicalizedAtSecond = state.m_iElapsedSeconds;
+			request.m_sPhysicalizationMode = "abstract_strike";
+			request.m_sRuntimeStatus = "abstract_strike_active";
+		}
+
+		m_bMarkerRefreshNeeded = true;
+		return true;
+	}
+
+	protected bool TickActiveSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return false;
+
+		if (IsPhysicalGroundSupport(request))
+			return TickPhysicalGroundSupport(state, preset, garrisons, request);
+
+		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
+		if (state.m_iElapsedSeconds < arrivalAtSecond)
+			return false;
+
+		return ResolveSupport(state, preset, garrisons, request);
+	}
+
+	protected bool TickPhysicalGroundSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return false;
+
+		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
+		int spawnAtSecond = arrivalAtSecond - ResolveInboundSpawnLeadSeconds(request);
+
+		if (request.m_sGroupId.IsEmpty() && state.m_iElapsedSeconds >= spawnAtSecond)
+		{
+			if (ShouldPhysicalizeSupport(state, preset, request))
+			{
+				bool physicalized = ApplyActiveSupport(state, preset, request, false);
+				if (physicalized)
+					return true;
+			}
+			else
+			{
+				request.m_sRuntimeStatus = "active_waiting_abstract_eta";
+			}
+		}
+
+		if (state.m_iElapsedSeconds < arrivalAtSecond)
+			return false;
+
+		if (!request.m_sGroupId.IsEmpty())
+		{
+			if (!request.m_bAbstractResolved)
+			{
+				if (!ShouldPhysicalizeSupport(state, preset, request))
+				{
+					request.m_sRuntimeStatus = "active_waiting_abstract_eta";
+					return ResolveSupport(state, preset, garrisons, request);
+				}
+
+				request.m_bAbstractResolved = true;
+				MarkPhysicalSupportArrived(state, request);
+				request.m_sRuntimeStatus = "physical_arrived";
+				m_bMarkerRefreshNeeded = true;
+				return true;
+			}
+
+			if (IsPhysicalSupportFinished(state, request))
+			{
+				HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
+				if (!group)
+					request.m_sFailureReason = "physical support group missing";
+				else
+					request.m_sFailureReason = "physical support group terminal: " + group.m_sRuntimeStatus;
+
+				return ResolveSupportAsPhysicalComplete(state, request);
+			}
+
+			return false;
+		}
+
+		return ResolveSupport(state, preset, garrisons, request);
 	}
 
 	string BuildSupportReport(HST_CampaignState state)
@@ -200,6 +355,9 @@ class HST_SupportRequestService
 		int queued;
 		int active;
 		int resolved;
+		int cancelled;
+		int physicalized;
+		int abstractResolved;
 		int helicopterStyle;
 		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
 		{
@@ -212,12 +370,18 @@ class HST_SupportRequestService
 				active++;
 			else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
 				resolved++;
+			else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+				cancelled++;
 
+			if (request.m_bPhysicalized)
+				physicalized++;
+			if (request.m_bAbstractResolved)
+				abstractResolved++;
 			if (request.m_bHelicopterStyle)
 				helicopterStyle++;
 		}
 
-		string report = string.Format("h-istasi support | queued %1 | active %2 | resolved %3 | helo-style abstract %4", queued, active, resolved, helicopterStyle);
+		string report = string.Format("h-istasi support | queued %1 | active %2 | resolved %3 | cancelled %4 | physical %5 | abstract %6 | helo-style %7", queued, active, resolved, cancelled, physicalized, abstractResolved, helicopterStyle);
 		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
 		{
 			if (!request)
@@ -228,11 +392,56 @@ class HST_SupportRequestService
 				detail = " | strike " + request.m_sStrikeKind + " | " + request.m_sStrikeConfigResource;
 			if (!request.m_sFailureReason.IsEmpty())
 				detail = detail + " | fail " + request.m_sFailureReason;
+			if (request.m_bOutcomeApplied)
+				detail = detail + " | outcome applied";
 
-			string line = string.Format("\n%1 | %2 | %3 | target %4 | eta %5 | asset %6 | group %7", request.m_sRequestId, request.m_eType, request.m_eStatus, request.m_sTargetZoneId, request.m_iETASeconds, request.m_sAssetProfileId, request.m_sGroupId);
+			string line = string.Format(
+				"\n%1 | %2 | %3 | runtime %4 | target %5 | eta %6 | requested %7 | active %8 | physical %9 | resolved %10 | asset %11 | group %12 | mode %13 | result %14",
+				request.m_sRequestId,
+				request.m_eType,
+				request.m_eStatus,
+				request.m_sRuntimeStatus,
+				request.m_sTargetZoneId,
+				request.m_iETASeconds,
+				request.m_iRequestedAtSecond,
+				request.m_iActivatedAtSecond,
+				request.m_iPhysicalizedAtSecond,
+				request.m_iResolvedAtSecond,
+				request.m_sAssetProfileId,
+				request.m_sGroupId,
+				request.m_sPhysicalizationMode,
+				request.m_sResolutionKind
+			);
 			line = line + string.Format(" | abstract %1 | physicalStrike %2%3", request.m_bAbstractResolved, request.m_bPhysicalStrikeSpawned, detail);
 			report = report + line;
 		}
+
+		return report;
+	}
+
+	string BuildSupportCooldownReport(HST_CampaignState state)
+	{
+		if (!state)
+			return "h-istasi support cooldowns | state not ready";
+
+		string report = "h-istasi support cooldowns";
+		int emitted;
+
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!request || !request.m_bPlayerRequested)
+				continue;
+
+			int remaining = Math.Max(0, request.m_iCooldownUntilSecond - state.m_iElapsedSeconds);
+			if (remaining <= 0 && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_QUEUED && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				continue;
+
+			report = report + string.Format("\n%1 | %2 | status %3 | cooldown remaining %4s", request.m_sRequestId, request.m_eType, request.m_eStatus, remaining);
+			emitted++;
+		}
+
+		if (emitted == 0)
+			report = report + "\nnone";
 
 		return report;
 	}
@@ -248,35 +457,42 @@ class HST_SupportRequestService
 
 		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED;
 		request.m_sFailureReason = "cancelled by commander";
+		request.m_sRuntimeStatus = "cancelled";
+		request.m_sResolutionKind = "cancelled";
+		request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
 		m_bMarkerRefreshNeeded = true;
 		return true;
 	}
 
-	protected void ActivateImmediateSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
+	protected bool ApplyActiveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request, bool arrivedAtTarget = false)
 	{
-		if (!request)
-			return;
-
-		if (IsStrikeSupport(request.m_eType))
-			ActivateStrikeSupport(request);
-	}
-
-	protected void ApplyActiveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request, bool arrivedAtTarget = false)
-	{
-		if (!request || request.m_bHelicopterStyle)
-			return;
+		if (!state || !request || request.m_bHelicopterStyle)
+			return false;
 
 		if (IsStrikeSupport(request.m_eType))
 		{
 			ActivateStrikeSupport(request);
-			return;
+			request.m_bPhysicalized = true;
+			request.m_iPhysicalizedAtSecond = state.m_iElapsedSeconds;
+			request.m_sPhysicalizationMode = "abstract_strike";
+			request.m_sRuntimeStatus = "abstract_strike_active";
+			m_bMarkerRefreshNeeded = true;
+			return true;
 		}
 
 		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_EVACUATION)
-			return;
+			return false;
 
 		if (!request.m_sGroupId.IsEmpty())
-			return;
+			return false;
+
+		string prefab = SelectGroupPrefab(state, request);
+		if (prefab.IsEmpty())
+		{
+			request.m_sFailureReason = "no valid support group prefab";
+			request.m_sRuntimeStatus = "physicalize_failed_no_prefab";
+			return false;
+		}
 
 		vector objectivePosition = ResolvePhysicalSupportTargetPosition(state, request);
 		vector targetPosition = objectivePosition;
@@ -298,7 +514,8 @@ class HST_SupportRequestService
 		group.m_sGroupId = string.Format("support_%1", request.m_sRequestId);
 		group.m_sZoneId = request.m_sTargetZoneId;
 		group.m_sFactionKey = request.m_sFactionKey;
-		group.m_sPrefab = SelectGroupPrefab(state, request);
+		group.m_sPrefab = prefab;
+		group.m_sSpawnFallbackMode = "support";
 		group.m_sRouteId = request.m_sSourceZoneId + "_to_" + request.m_sTargetZoneId;
 		group.m_vSourcePosition = sourcePosition;
 		group.m_vTargetPosition = targetPosition;
@@ -314,8 +531,15 @@ class HST_SupportRequestService
 		group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
 		group.m_bQRF = request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF;
 		state.m_aActiveGroups.Insert(group);
+
 		request.m_sGroupId = group.m_sGroupId;
+		request.m_bPhysicalized = true;
+		request.m_iPhysicalizedAtSecond = state.m_iElapsedSeconds;
+		request.m_sPhysicalizationMode = "ground_group";
+		request.m_sRuntimeStatus = "physical_group_linked";
+		m_bMarkerRefreshNeeded = true;
 		Print(string.Format("h-istasi | physical support %1 %2 near %3 | spawn %4 | objective %5 | group %6 | prefab %7", request.m_sRequestId, phase, request.m_sTargetZoneId, group.m_vPosition, objectivePosition, group.m_sGroupId, group.m_sPrefab));
+		return true;
 	}
 
 	protected void MarkPhysicalSupportArrived(HST_CampaignState state, HST_SupportRequestState request)
@@ -328,34 +552,170 @@ class HST_SupportRequestService
 			group.m_sRuntimeStatus = "support_arrived";
 	}
 
-	protected void ResolveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
+	protected bool ResolveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
 	{
-		if (!request || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
-			return;
+		if (!state || !preset || !request || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
+			return false;
+
+		if (!request.m_bOutcomeApplied)
+			ApplySupportOutcome(state, preset, garrisons, request);
 
 		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
+		request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
+		request.m_bAbstractResolved = request.m_sGroupId.IsEmpty() || request.m_sResolutionKind.Contains("abstract");
+		if (request.m_sRuntimeStatus.IsEmpty() || request.m_sRuntimeStatus == "active_waiting_eta" || request.m_sRuntimeStatus == "active_waiting_abstract_eta" || request.m_sRuntimeStatus == "abstract_strike_active" || request.m_sRuntimeStatus.Contains("physicalize_failed"))
+			request.m_sRuntimeStatus = "resolved_" + request.m_sResolutionKind;
+
 		m_bMarkerRefreshNeeded = true;
-		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP && request.m_sFactionKey == preset.m_sResistanceFactionKey)
+		return true;
+	}
+
+	protected void ApplySupportOutcome(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
+	{
+		if (!state || !preset || !request || request.m_bOutcomeApplied)
+			return;
+
+		if (request.m_sPhysicalizationMode.IsEmpty() || request.m_sPhysicalizationMode == "none")
+			request.m_sPhysicalizationMode = ResolveAbstractPhysicalizationMode(request);
+
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
+		{
+			ApplySupplyOutcome(state, preset, request);
+			request.m_bOutcomeApplied = true;
+			return;
+		}
+
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+		{
+			ApplyQRFOutcome(state, preset, garrisons, request);
+			request.m_bOutcomeApplied = true;
+			return;
+		}
+
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
+		{
+			ApplySuppressiveFireOutcome(state, preset, request);
+			request.m_bOutcomeApplied = true;
+			return;
+		}
+
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING)
+		{
+			if (garrisons)
+				garrisons.AddAbstractForces(state, request.m_sTargetZoneId, request.m_sFactionKey, 3 + state.m_iWarLevel, 0);
+			request.m_sResolutionKind = "abstract_troop_landing";
+			request.m_bOutcomeApplied = true;
+			return;
+		}
+
+		if (IsStrikeSupport(request.m_eType))
+		{
+			ResolveStrikeSupport(state, preset, request);
+			request.m_sResolutionKind = "abstract_strike";
+			request.m_bOutcomeApplied = true;
+			return;
+		}
+
+		request.m_sResolutionKind = "abstract_no_effect";
+		request.m_bOutcomeApplied = true;
+	}
+
+	protected string ResolveAbstractPhysicalizationMode(HST_SupportRequestState request)
+	{
+		if (!request)
+			return "none";
+
+		if (IsStrikeSupport(request.m_eType))
+			return "abstract_strike";
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
+			return "supply_abstract";
+		if (request.m_bHelicopterStyle)
+			return "helicopter_abstract";
+		if (IsPhysicalGroundSupport(request))
+			return "ground_abstract";
+
+		return "none";
+	}
+
+	protected void ApplySupplyOutcome(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
+	{
+		if (request.m_sFactionKey == preset.m_sResistanceFactionKey)
 		{
 			state.m_iFactionMoney += 75;
 			state.m_iHR += 1;
+			request.m_sResolutionKind = "abstract_fia_supply";
+			return;
 		}
 
-		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF && request.m_sFactionKey == preset.m_sResistanceFactionKey && garrisons)
-			garrisons.AddAbstractForces(state, request.m_sTargetZoneId, preset.m_sResistanceFactionKey, 3 + state.m_iTrainingLevel, 0);
-
-		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE && request.m_sFactionKey == preset.m_sResistanceFactionKey)
+		HST_GarrisonState enemyGarrison = state.FindGarrison(request.m_sTargetZoneId, request.m_sFactionKey);
+		if (!enemyGarrison)
 		{
-			HST_ZoneState targetZone = state.FindZone(request.m_sTargetZoneId);
-			if (targetZone && targetZone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
-				targetZone.m_iResistanceCaptureProgress = Math.Min(HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED - 1, targetZone.m_iResistanceCaptureProgress + 15);
+			enemyGarrison = new HST_GarrisonState();
+			enemyGarrison.m_sZoneId = request.m_sTargetZoneId;
+			enemyGarrison.m_sFactionKey = request.m_sFactionKey;
+			state.m_aGarrisons.Insert(enemyGarrison);
 		}
 
-		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING && garrisons)
-			garrisons.AddAbstractForces(state, request.m_sTargetZoneId, request.m_sFactionKey, 3 + state.m_iWarLevel, 0);
+		enemyGarrison.m_iInfantryCount += 1;
+		request.m_sResolutionKind = "abstract_enemy_supply";
+	}
 
-		if (IsStrikeSupport(request.m_eType))
-			ResolveStrikeSupport(state, preset, request);
+	protected void ApplyQRFOutcome(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
+	{
+		if (!garrisons)
+		{
+			request.m_sResolutionKind = "abstract_qrf_no_garrison_service";
+			return;
+		}
+
+		if (request.m_sFactionKey == preset.m_sResistanceFactionKey)
+		{
+			garrisons.AddAbstractForces(state, request.m_sTargetZoneId, preset.m_sResistanceFactionKey, 3 + state.m_iTrainingLevel, 0);
+			request.m_sResolutionKind = "abstract_fia_qrf_garrison";
+			return;
+		}
+
+		garrisons.AddAbstractForces(state, request.m_sTargetZoneId, request.m_sFactionKey, 3 + state.m_iWarLevel, 0);
+		request.m_sResolutionKind = "abstract_enemy_qrf_garrison";
+	}
+
+	protected void ApplySuppressiveFireOutcome(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
+	{
+		HST_ZoneState targetZone = state.FindZone(request.m_sTargetZoneId);
+		if (!targetZone)
+		{
+			request.m_sResolutionKind = "abstract_suppressive_fire_missing_zone";
+			return;
+		}
+
+		if (request.m_sFactionKey == preset.m_sResistanceFactionKey)
+		{
+			if (targetZone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+				targetZone.m_iResistanceCaptureProgress = Math.Min(HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED - 1, targetZone.m_iResistanceCaptureProgress + 15);
+
+			request.m_sResolutionKind = "abstract_fia_suppressive_fire";
+			return;
+		}
+
+		if (targetZone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+			targetZone.m_iSupport = Math.Max(-100, targetZone.m_iSupport - 6);
+		else
+			targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - 12);
+
+		request.m_sResolutionKind = "abstract_enemy_suppressive_fire";
+	}
+
+	protected bool ResolveSupportAsPhysicalComplete(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return false;
+
+		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
+		request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
+		request.m_sResolutionKind = "physical_group_terminal";
+		request.m_sRuntimeStatus = "resolved_physical_group_terminal";
+		m_bMarkerRefreshNeeded = true;
+		return true;
 	}
 
 	protected void ResolveCosts(HST_ESupportRequestType supportType, out int attackCost, out int supportCost)
@@ -429,21 +789,40 @@ class HST_SupportRequestService
 		return PLAYER_SUPPLY_COST;
 	}
 
-	protected bool HasActivePlayerRequest(HST_CampaignState state, HST_ESupportRequestType supportType)
+	protected bool HasActivePlayerRequestDetailed(HST_CampaignState state, HST_ESupportRequestType supportType, out string reason)
 	{
+		reason = "";
+		if (!state)
+		{
+			reason = "campaign state not ready";
+			return true;
+		}
+
 		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
 		{
 			if (!request || !request.m_bPlayerRequested || request.m_eType != supportType)
 				continue;
 
 			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+			{
+				reason = string.Format("support type %1 already has active request %2", supportType, request.m_sRequestId);
 				return true;
+			}
 
 			if (state.m_iElapsedSeconds < request.m_iCooldownUntilSecond)
+			{
+				reason = string.Format("support type %1 cooldown active for %2s", supportType, request.m_iCooldownUntilSecond - state.m_iElapsedSeconds);
 				return true;
+			}
 		}
 
 		return false;
+	}
+
+	protected bool HasActivePlayerRequest(HST_CampaignState state, HST_ESupportRequestType supportType)
+	{
+		string reason;
+		return HasActivePlayerRequestDetailed(state, supportType, reason);
 	}
 
 	protected HST_SupportRequestState ResolveCancelableRequest(HST_CampaignState state, string requestId, bool playerRequestedOnly)
@@ -537,6 +916,77 @@ class HST_SupportRequestService
 			return false;
 
 		return request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+	}
+
+	protected bool ShouldPhysicalizeSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return false;
+
+		if (!IsPhysicalGroundSupport(request))
+			return false;
+
+		if (request.m_sRuntimeStatus == "physicalize_failed_no_prefab")
+			return false;
+
+		HST_ZoneState targetZone = state.FindZone(request.m_sTargetZoneId);
+		if (targetZone && targetZone.m_bActive)
+			return true;
+
+		if (HasActiveMissionNearSupportTarget(state, request))
+			return true;
+
+		if (HasActiveObjectiveNearSupportTarget(state, request))
+			return true;
+
+		vector targetPosition = ResolvePhysicalSupportTargetPosition(state, request);
+		return HST_WorldPositionService.IsPositionInsidePlayerEventBubble(targetPosition);
+	}
+
+	protected bool HasActiveMissionNearSupportTarget(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return false;
+
+		vector targetPosition = ResolvePhysicalSupportTargetPosition(state, request);
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+
+			if (!request.m_sTargetZoneId.IsEmpty() && mission.m_sTargetZoneId == request.m_sTargetZoneId)
+				return true;
+
+			if (DistanceSq2D(mission.m_vTargetPosition, targetPosition) <= 700 * 700)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasActiveObjectiveNearSupportTarget(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return false;
+
+		vector targetPosition = ResolvePhysicalSupportTargetPosition(state, request);
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_bComplete || objective.m_bFailed)
+				continue;
+
+			HST_ActiveMissionState mission = state.FindActiveMission(objective.m_sMissionInstanceId);
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+
+			if (!request.m_sTargetZoneId.IsEmpty() && objective.m_sTargetZoneId == request.m_sTargetZoneId)
+				return true;
+
+			if (DistanceSq2D(objective.m_vPosition, targetPosition) <= 700 * 700)
+				return true;
+		}
+
+		return false;
 	}
 
 	protected bool IsPhysicalSupportFinished(HST_CampaignState state, HST_SupportRequestState request)
@@ -721,6 +1171,11 @@ class HST_SupportRequestService
 			return false;
 
 		return DistanceSq2D(state.m_vHQPosition, position) <= HQ_SAFE_RADIUS_METERS * HQ_SAFE_RADIUS_METERS;
+	}
+
+	protected bool IsZeroVector(vector value)
+	{
+		return value[0] == 0 && value[1] == 0 && value[2] == 0;
 	}
 
 	protected float DistanceSq2D(vector a, vector b)
