@@ -84,6 +84,25 @@ class HST_HQService
 			return false;
 		}
 
+		vector requestedGroundPosition;
+		if (!HST_WorldPositionService.TryResolveGroundPosition(requestedPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, requestedGroundPosition, true))
+		{
+			if (HST_WorldPositionService.IsLikelyOpenWater(requestedPosition))
+				failure = "selected position is open water";
+			else
+				failure = "selected position is not dry land";
+
+			DebugLog(string.Format("setup HQ validate rejected: requested point not dry requested=%1 failure=%2", requestedPosition, failure));
+			return false;
+		}
+
+		if (HST_WorldPositionService.IsLikelyOpenWater(requestedGroundPosition))
+		{
+			failure = "selected position is open water";
+			DebugLog(string.Format("setup HQ validate rejected: requested point open water resolved=%1", requestedGroundPosition));
+			return false;
+		}
+
 		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(requestedPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true, 6.0))
 		{
 			failure = "selected position is not dry land";

@@ -1,0 +1,159 @@
+name: Feature request
+description: "Suggest a new h-istasi feature, system, mission behavior, UI flow, or gameplay improvement."
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping shape h-istasi. Strong feature requests explain the player problem, desired behavior, implementation constraints, and how we would know the feature is complete.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-request checklist
+      options:
+        - label: "I searched existing issues/discussions and did not find this request already covered."
+          required: true
+        - label: "This request is for h-istasi, not base Arma Reforger or another addon."
+          required: true
+
+  - type: dropdown
+    id: feature-area
+    attributes:
+      label: Feature area
+      multiple: true
+      options:
+        - Setup / HQ / Petros
+        - Alpha command menu / UI / input
+        - Persistence / save-load / checkpoints
+        - Campaign economy / balance / pacing
+        - Missions / objectives / rewards
+        - Enemy commander / support requests / physical AI
+        - Zones / markers / strategic war state
+        - Arsenal / loot / loadout editor
+        - Vehicles / garage / build mode
+        - Undercover / civilians / towns
+        - Multiplayer / dedicated server / RPC
+        - Mod configuration / settings
+        - Documentation / tooling
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or player need
+      description: "Describe the pain point, missing loop, confusing behavior, or gameplay gap this feature would solve."
+      value: |
+        As a:
+        I want:
+        So that:
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-feature
+    attributes:
+      label: Proposed feature
+      description: "Describe what should be added or changed from the player/admin perspective."
+      placeholder: "Example: Add a commander action that shows which towns are closest to flipping support and why."
+    validations:
+      required: true
+
+  - type: textarea
+    id: gameplay-flow
+    attributes:
+      label: Desired gameplay flow
+      description: "Walk through how a player, commander, admin, or server host would use this feature."
+      value: |
+        1. Player/admin opens:
+        2. Player/admin selects:
+        3. System checks:
+        4. Result shown:
+        5. Cooldown/cost/risk/outcome:
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: "List concrete checks that would make this feature complete and testable."
+      value: |
+        - [ ] The feature can be triggered from:
+        - [ ] The server validates:
+        - [ ] The UI/report text clearly shows:
+        - [ ] The result persists or intentionally does not persist:
+        - [ ] Failure cases show a useful reason:
+        - [ ] Works in HST_Dev:
+        - [ ] Works in HST_Everon:
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation notes / affected systems
+      description: "Optional, but very useful for myself. Mention likely files, services, RPCs, UI widgets, configs, data contracts, or migrations."
+      value: |
+        Likely affected systems/files:
+        - Server-authoritative logic:
+        - Client UI / input / RPC:
+        - Config/default settings:
+        - Persistence/save schema or migration:
+        - Mission/runtime diagnostics:
+        - Balance values:
+        - Debug/report output:
+    validations:
+      required: false
+
+  - type: dropdown
+    id: persistence-impact
+    attributes:
+      label: Save/config compatibility impact
+      description: "Does this request require new settings, saved fields, migration, or compatibility handling?"
+      options:
+        - No save/config impact expected
+        - Adds or changes HST_Settings.json defaults
+        - Adds saved campaign fields
+        - Requires save migration
+        - Might affect existing campaigns but I am not sure
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: balance
+    attributes:
+      label: Balance, pacing, and exploit considerations
+      description: "Costs, cooldowns, risks, player limits, admin-only behavior, failure states, anti-cheese rules, or why this should not trivialize the campaign."
+      placeholder: "Example: Should cost FIA funds, require nearby HQ, fail if HQ threat is high, and have a cooldown."
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: "Other designs, simpler versions, workarounds, or why existing systems do not solve this."
+    validations:
+      required: false
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References or examples
+      description: "Links, screenshots, Antistasi examples, Reforger examples, mockups, or notes from a play session."
+    validations:
+      required: false
+
+  - type: upload
+    id: attachments
+    attributes:
+      label: Optional attachments
+      description: "Attach screenshots, mockups, short clips, config snippets, save examples, or logs if they help explain the request."
+    validations:
+      required: false
+      accept: ".png,.jpg,.jpeg,.gif,.webp,.mp4,.mov,.webm,.json,.log,.txt,.zip"

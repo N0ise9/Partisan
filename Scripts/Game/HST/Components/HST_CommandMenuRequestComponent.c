@@ -5,6 +5,10 @@ class HST_CommandMenuRequestComponentClass : ScriptComponentClass
 
 class HST_CommandMenuRequestComponent : ScriptComponent
 {
+	static const int CLIENT_MAP_MARKER_REFRESH_MAX_RETRIES = 10;
+	static const int CLIENT_MAP_MARKER_REFRESH_RETRY_MS = 250;
+	static const int CLIENT_MAP_MARKER_MAINTENANCE_MS = 500;
+
 	protected static HST_CommandMenuRequestComponent s_LocalOwner;
 	protected static HST_CommandMenuRequestComponent s_ServerBroadcaster;
 
@@ -12,7 +16,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected string m_sLastSnapshot;
 	protected string m_sLastResult;
 	protected bool m_bIsLocalOwner;
+	protected bool m_bNativeMapMarkerRefreshBound;
+	protected bool m_bNativeMapMarkerRefreshQueued;
+	protected bool m_bNativeMapMarkerRefreshForceRecreate;
 	protected float m_fOwnerRetryAccumulator;
+	protected int m_iNativeMapMarkerRefreshRetries;
 	protected ref array<string> m_aRecentLocalNotificationKeys = {};
 
 	override void OnPostInit(IEntity owner)
@@ -23,13 +31,16 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
 
 		if (m_bIsLocalOwner)
-			s_LocalOwner = this;
+			BecomeLocalOwner();
 		if (Replication.IsServer() && !s_ServerBroadcaster)
 			s_ServerBroadcaster = this;
 	}
 
 	override void OnDelete(IEntity owner)
 	{
+		if (m_bIsLocalOwner)
+			UnbindNativeMapMarkerRefresh();
+
 		if (s_LocalOwner == this)
 			s_LocalOwner = null;
 		if (s_ServerBroadcaster == this)
@@ -59,6 +70,242 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	static HST_CommandMenuRequestComponent GetLocalOwner()
 	{
 		return s_LocalOwner;
+	}
+
+	protected void BecomeLocalOwner()
+	{
+		if (s_LocalOwner == this && m_bNativeMapMarkerRefreshBound)
+			return;
+
+		s_LocalOwner = this;
+		BindNativeMapMarkerRefresh();
+	}
+
+	protected void BindNativeMapMarkerRefresh()
+	{
+		if (m_bNativeMapMarkerRefreshBound)
+			return;
+
+		SCR_MapEntity.GetOnMapOpenComplete().Insert(OnNativeMapOpenComplete);
+		SCR_MapEntity.GetOnMapClose().Insert(OnNativeMapClose);
+		SCR_MapEntity.GetOnMapPan().Insert(OnNativeMapPan);
+		SCR_MapEntity.GetOnMapZoom().Insert(OnNativeMapZoom);
+		m_bNativeMapMarkerRefreshBound = true;
+	}
+
+	protected void UnbindNativeMapMarkerRefresh()
+	{
+		if (!m_bNativeMapMarkerRefreshBound)
+			return;
+
+		SCR_MapEntity.GetOnMapOpenComplete().Remove(OnNativeMapOpenComplete);
+		SCR_MapEntity.GetOnMapClose().Remove(OnNativeMapClose);
+		SCR_MapEntity.GetOnMapPan().Remove(OnNativeMapPan);
+		SCR_MapEntity.GetOnMapZoom().Remove(OnNativeMapZoom);
+		m_bNativeMapMarkerRefreshBound = false;
+		m_bNativeMapMarkerRefreshQueued = false;
+		m_bNativeMapMarkerRefreshForceRecreate = false;
+	}
+
+	protected void OnNativeMapOpenComplete(MapConfiguration config)
+	{
+		if (!m_bIsLocalOwner || HST_SetupMapComponent.IsSetupBlocking())
+			return;
+
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		if (!mapEntity || !mapEntity.IsOpen())
+			return;
+
+		m_bNativeMapMarkerRefreshForceRecreate = true;
+		m_iNativeMapMarkerRefreshRetries = 0;
+		QueueClientNativeMapMarkerRefresh(0);
+	}
+
+	protected void OnNativeMapClose(MapConfiguration config)
+	{
+		m_bNativeMapMarkerRefreshQueued = false;
+		m_bNativeMapMarkerRefreshForceRecreate = false;
+		m_iNativeMapMarkerRefreshRetries = 0;
+	}
+
+	protected void OnNativeMapPan(float panX, float panY, bool adjusted)
+	{
+		if (!m_bIsLocalOwner || HST_SetupMapComponent.IsSetupBlocking())
+			return;
+
+		m_iNativeMapMarkerRefreshRetries = 0;
+		QueueClientNativeMapMarkerRefresh(0);
+	}
+
+	protected void OnNativeMapZoom(float zoom)
+	{
+		if (!m_bIsLocalOwner || HST_SetupMapComponent.IsSetupBlocking())
+			return;
+
+		m_iNativeMapMarkerRefreshRetries = 0;
+		QueueClientNativeMapMarkerRefresh(0);
+	}
+
+	protected void QueueClientNativeMapMarkerRefresh(int delayMs)
+	{
+		if (!m_bIsLocalOwner || m_bNativeMapMarkerRefreshQueued)
+			return;
+
+		m_bNativeMapMarkerRefreshQueued = true;
+		GetGame().GetCallqueue().CallLater(RefreshClientNativeMapMarkerWidgets, delayMs, false);
+	}
+
+	protected void RefreshClientNativeMapMarkerWidgets()
+	{
+		m_bNativeMapMarkerRefreshQueued = false;
+		if (!m_bIsLocalOwner || HST_SetupMapComponent.IsSetupBlocking())
+			return;
+
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		if (!mapEntity || !mapEntity.IsOpen())
+			return;
+
+		string rootName = ResolveCurrentMapRootName(mapEntity);
+		bool hasMarkerUI = mapEntity.GetMapUIComponent(SCR_MapMarkersUI) != null;
+		int markerUIReady;
+		if (hasMarkerUI)
+			markerUIReady = 1;
+		bool forceRecreate = m_bNativeMapMarkerRefreshForceRecreate && !hasMarkerUI;
+		if (!HasOpenMapFrame(mapEntity))
+		{
+			if (RetryClientNativeMapMarkerRefresh())
+				return;
+
+			Print(string.Format("h-istasi map marker client refresh | widgets 0/0 created 0 ui %1 root %2 retry %3", markerUIReady, rootName, m_iNativeMapMarkerRefreshRetries));
+			return;
+		}
+
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+		{
+			if (RetryClientNativeMapMarkerRefresh())
+				return;
+
+			Print(string.Format("h-istasi map marker client refresh | widgets 0/0 created 0 ui %1 root %2 retry %3", markerUIReady, rootName, m_iNativeMapMarkerRefreshRetries));
+			return;
+		}
+
+		mapEntity.UpdateViewPort();
+		vector markerUpdateMin = "-1000000 0 -1000000";
+		vector markerUpdateMax = "1000000 0 1000000";
+
+		int eligible;
+		int widgets;
+		int visible;
+		int created;
+		array<SCR_MapMarkerBase> staticMarkers = markerManager.GetStaticMarkers();
+		RefreshClientNativeMarkerArray(markerManager, staticMarkers, markerUpdateMin, markerUpdateMax, forceRecreate, eligible, widgets, visible, created);
+		array<SCR_MapMarkerBase> disabledMarkers = markerManager.GetDisabledMarkers();
+		RefreshClientNativeMarkerArray(markerManager, disabledMarkers, markerUpdateMin, markerUpdateMax, forceRecreate, eligible, widgets, visible, created);
+		if (eligible > 0)
+			m_bNativeMapMarkerRefreshForceRecreate = false;
+
+		if ((eligible == 0 || widgets == 0 || widgets < eligible) && RetryClientNativeMapMarkerRefresh())
+			return;
+
+		if (forceRecreate || created > 0 || widgets < eligible || visible < eligible || m_iNativeMapMarkerRefreshRetries > 0)
+			Print(string.Format("h-istasi map marker client refresh | widgets %1/%2 visible %3/%2 created %4 ui %5 root %6 retry %7 force %8", widgets, eligible, visible, created, markerUIReady, rootName, m_iNativeMapMarkerRefreshRetries, forceRecreate));
+
+		QueueClientNativeMapMarkerMaintenance();
+	}
+
+	protected void QueueClientNativeMapMarkerMaintenance()
+	{
+		if (!m_bIsLocalOwner || m_bNativeMapMarkerRefreshQueued || HST_SetupMapComponent.IsSetupBlocking())
+			return;
+
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		if (!mapEntity || !mapEntity.IsOpen())
+			return;
+
+		m_bNativeMapMarkerRefreshQueued = true;
+		GetGame().GetCallqueue().CallLater(RefreshClientNativeMapMarkerWidgets, CLIENT_MAP_MARKER_MAINTENANCE_MS, false);
+	}
+
+	protected bool RetryClientNativeMapMarkerRefresh()
+	{
+		if (m_iNativeMapMarkerRefreshRetries >= CLIENT_MAP_MARKER_REFRESH_MAX_RETRIES)
+			return false;
+
+		m_iNativeMapMarkerRefreshRetries++;
+		QueueClientNativeMapMarkerRefresh(CLIENT_MAP_MARKER_REFRESH_RETRY_MS);
+		return true;
+	}
+
+	protected void RefreshClientNativeMarkerArray(SCR_MapMarkerManagerComponent markerManager, array<SCR_MapMarkerBase> markers, vector visibleMin, vector visibleMax, bool forceRecreate, inout int totalEligible, inout int totalWidgets, inout int totalVisible, inout int totalCreated)
+	{
+		if (!markerManager || !markers)
+			return;
+
+		foreach (SCR_MapMarkerBase marker : markers)
+		{
+			if (!IsHSTClientRuntimeMarker(marker))
+				continue;
+
+			totalEligible++;
+			bool hadWidget = marker.GetRootWidget() != null;
+			marker.SetBlocked(false);
+			markerManager.SetStaticMarkerDisabled(marker, false);
+			if (forceRecreate || !marker.GetRootWidget())
+				marker.OnCreateMarker(true);
+			if (!marker.GetRootWidget())
+				continue;
+
+			if (forceRecreate || !hadWidget)
+				totalCreated++;
+
+			marker.OnUpdate(visibleMin, visibleMax);
+			marker.SetUpdateDisabled(false);
+			marker.SetVisible(true);
+			Widget rootWidget = marker.GetRootWidget();
+			if (rootWidget)
+			{
+				totalWidgets++;
+				if (rootWidget.IsVisible())
+					totalVisible++;
+			}
+		}
+	}
+
+	protected bool IsHSTClientRuntimeMarker(SCR_MapMarkerBase marker)
+	{
+		if (!marker)
+			return false;
+
+		return marker.GetMarkerOwnerID() == -1 && marker.GetType() == SCR_EMapMarkerType.PLACED_CUSTOM;
+	}
+
+	protected bool HasOpenMapFrame(SCR_MapEntity mapEntity)
+	{
+		if (!mapEntity || !mapEntity.IsOpen())
+			return false;
+
+		Widget root = mapEntity.GetMapMenuRoot();
+		if (!root)
+			return false;
+
+		return root.FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME) != null;
+	}
+
+	protected string ResolveCurrentMapRootName(SCR_MapEntity mapEntity)
+	{
+		if (!mapEntity)
+			return "none";
+
+		Widget root = mapEntity.GetMapMenuRoot();
+		if (!root)
+			return "none";
+
+		string rootName = root.GetName();
+		if (rootName.IsEmpty())
+			return "open";
+
+		return rootName;
 	}
 
 	static void BroadcastMissionEvent(string payload, string summary)
@@ -559,7 +806,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 
 		m_bIsLocalOwner = true;
-		s_LocalOwner = this;
+		BecomeLocalOwner();
 	}
 
 	protected bool IsLocalOwner(IEntity owner)

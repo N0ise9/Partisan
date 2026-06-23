@@ -117,6 +117,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const ResourceName COMMAND_DATA_ROW_COMPACT_LAYOUT = "{A7B8C9D0012345A0}UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout";
 	static const ResourceName COMMAND_ACTION_ROW_LAYOUT = "{A7B8C9D0012345B0}UI/layouts/HST/Rows/HST_CommandActionRow.layout";
 	static const ResourceName COMMAND_FEED_ROW_LAYOUT = "{A7B8C9D0012345C0}UI/layouts/HST/Rows/HST_CommandFeedRow.layout";
+	static const float POST_SETUP_INPUT_RECOVERY_SECONDS = 3.0;
+	static const float POST_SETUP_INPUT_REBIND_INTERVAL_SECONDS = 0.25;
 	static const int COMMAND_ACTION_ROW_STRIDE = 70;
 	static const int TAB_WIDGET_ID_BASE = 10000;
 	static const int ACTION_WIDGET_ID_BASE = 30000;
@@ -171,10 +173,13 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected float m_fCommandMenuDebounceRemaining;
 	protected bool m_bCommandMenuKeyDownLastFrame;
 	protected bool m_bRawIKeyDownLastFrame;
+	protected bool m_bWasSetupBlocking;
 	protected bool m_bLoggedCustomActionInput;
 	protected bool m_bLoggedRawIKeyInput;
 	protected bool m_bLoggedDuplicateToggle;
 	protected float m_fExternalNotificationRemaining;
+	protected float m_fPostSetupInputRecoveryRemaining;
+	protected float m_fPostSetupInputRecoveryAccumulator;
 	protected ScrollLayoutWidget m_ContentScroll;
 	protected ScrollLayoutWidget m_ActionScroll;
 	protected ScrollLayoutWidget m_FeedScroll;
@@ -264,6 +269,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (HST_SetupMapComponent.IsSetupBlocking())
 		{
+			m_bWasSetupBlocking = true;
 			if (m_bMenuOpen)
 				CloseMenu();
 			Debug.ClearKey(KeyCode.KC_I);
@@ -271,6 +277,14 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_bRawIKeyDownLastFrame = false;
 			return;
 		}
+
+		if (m_bWasSetupBlocking)
+		{
+			m_bWasSetupBlocking = false;
+			ResetInputLatchAfterSetupMap();
+		}
+
+		TickPostSetupInputRecovery(timeSlice);
 
 		InputManager inputManager = GetGame().GetInputManager();
 		if (inputManager)
@@ -345,6 +359,68 @@ class HST_CommandMenuComponent : ScriptComponent
 	void CloseMenuFromExternal()
 	{
 		CloseMenu();
+	}
+
+	void ResetInputLatchAfterSetupMap()
+	{
+		StartPostSetupInputRecovery();
+		ResetCommandMenuInputLatchNow();
+		RebindCommandMenuInputAfterSetup();
+		GetGame().GetCallqueue().CallLater(RebindCommandMenuInputAfterSetup, 0, false);
+		GetGame().GetCallqueue().CallLater(RebindCommandMenuInputAfterSetup, 250, false);
+		GetGame().GetCallqueue().CallLater(RebindCommandMenuInputAfterSetup, 750, false);
+	}
+
+	protected void ResetCommandMenuInputLatchNow()
+	{
+		SCR_RespawnSystemComponent.CloseRespawnMenu();
+		m_fCommandMenuDebounceRemaining = 0;
+		m_bCommandMenuKeyDownLastFrame = false;
+		m_bRawIKeyDownLastFrame = false;
+		Debug.ClearKey(KeyCode.KC_I);
+
+		InputManager inputManager = GetGame().GetInputManager();
+		if (!inputManager)
+			return;
+
+		inputManager.ActivateContext(MENU_INPUT_CONTEXT);
+		inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
+	}
+
+	protected void StartPostSetupInputRecovery()
+	{
+		m_fPostSetupInputRecoveryRemaining = POST_SETUP_INPUT_RECOVERY_SECONDS;
+		m_fPostSetupInputRecoveryAccumulator = POST_SETUP_INPUT_REBIND_INTERVAL_SECONDS;
+	}
+
+	protected void TickPostSetupInputRecovery(float timeSlice)
+	{
+		if (m_fPostSetupInputRecoveryRemaining <= 0.0)
+			return;
+
+		m_fPostSetupInputRecoveryRemaining = Math.Max(0.0, m_fPostSetupInputRecoveryRemaining - timeSlice);
+		m_fPostSetupInputRecoveryAccumulator += timeSlice;
+		if (m_fPostSetupInputRecoveryAccumulator < POST_SETUP_INPUT_REBIND_INTERVAL_SECONDS)
+			return;
+
+		m_fPostSetupInputRecoveryAccumulator = 0;
+		RebindCommandMenuInputAfterSetup();
+	}
+
+	protected void RebindCommandMenuInputAfterSetup()
+	{
+		if (!m_bIsLocalOwner)
+			return;
+
+		UnregisterInputListeners();
+		RegisterInputListeners();
+
+		InputManager inputManager = GetGame().GetInputManager();
+		if (!inputManager)
+			return;
+
+		inputManager.ActivateContext(MENU_INPUT_CONTEXT);
+		inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
 	}
 
 	void RunCommandFromContext(string tabId, string commandId, string argument = "")
@@ -522,6 +598,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_fCommandMenuDebounceRemaining > 0)
 			return false;
 
+		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		m_fCommandMenuDebounceRemaining = 0.15;
 		ToggleMenu();
 		return true;

@@ -38,6 +38,9 @@ class HST_WorldPositionService
 			return false;
 
 		resolved[1] = surfaceY + verticalOffset;
+		if (rejectWater && IsWaterAtPositionInWorld(world, resolved))
+			return false;
+
 		return true;
 	}
 
@@ -115,6 +118,9 @@ class HST_WorldPositionService
 		BaseWorld world = GetGame().GetWorld();
 		if (!world)
 			return false;
+
+		if (IsWaterAtPositionInWorld(world, source))
+			return true;
 
 		float smallDelta = ResolveSurfaceDelta(world, source, OPEN_WATER_SAMPLE_RADIUS_SMALL);
 		if (smallDelta > OPEN_WATER_MAX_DELTA_METERS)
@@ -695,7 +701,19 @@ class HST_WorldPositionService
 			return false;
 
 		y = world.GetSurfaceY(x, z);
-		return y >= MIN_DRY_SURFACE_Y;
+		if (y < MIN_DRY_SURFACE_Y)
+			return false;
+
+		vector waterProbe = Vector(x, y + HQ_GROUND_OFFSET, z);
+		return !IsWaterAtPositionInWorld(world, waterProbe);
+	}
+
+	protected static bool IsWaterAtPositionInWorld(BaseWorld world, vector position)
+	{
+		if (!world)
+			return false;
+
+		return ChimeraWorldUtils.TryGetWaterSurfaceSimple(world, position);
 	}
 
 	protected static bool TryReadVehicleFootprintSample(BaseWorld world, vector source, float sideX, float sideZ, float forwardX, float forwardZ, float sideOffset, float forwardOffset, out float y)

@@ -1,0 +1,250 @@
+name: Bug report
+description: "Report a reproducible h-istasi bug, crash, save issue, desync, or broken gameplay flow."
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a h-istasi bug. Please include the diagnostic files requested below; they are usually the fastest way to identify save, config, persistence, mission-runtime, RPC, or server-authority issues.
+
+        Before uploading logs or JSON files, quickly review them for private information such as any PII, file paths, server IPs, passwords, tokens, or Discord/Steam identifiers.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-report checklist
+      options:
+        - label: "I searched existing issues and did not find a matching bug report."
+          required: true
+        - label: "I am using h-istasi on the latest version."
+          required: true
+        - label: "I reproduced this with the fewest other addons/mods possible, or listed all loaded addons below."
+          required: false
+
+  - type: input
+    id: reforger-version
+    attributes:
+      label: Arma Reforger version
+      placeholder: "Example: 1.7.0.49"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: launch-context
+    attributes:
+      label: Where did the bug happen?
+      multiple: false
+      options:
+        - Dedicated server
+        - Hosted multiplayer / listen server
+        - Singleplayer
+        - Workbench Play
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mission-world
+    attributes:
+      label: Mission / world
+      multiple: false
+      options:
+        - HST_Everon
+        - HST_Dev
+        - Custom mission/world
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: loaded-addons
+    attributes:
+      label: Loaded addons / mods
+      description: "List every loaded addon, especially anything that changes factions, weapons, vehicles, AI, persistence, UI, or input."
+      value: |
+        - h-istasi:
+        - Other addons:
+    validations:
+      required: false
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Bug summary
+      description: "Provide a summary describing the problem."
+      placeholder: "Example: After moving HQ, the command menu still reports the old HQ position and saving fails."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Exact steps to reproduce
+      description: "Write the exact actions you took, starting from a clean launch or save load. Include menu tabs/actions, mission names, player count, and timing."
+      value: |
+        1. Start from:
+        2. Load/open:
+        3. Press/use:
+        4. Select/do:
+        5. Wait/observe:
+        6. Bug appears when:
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      placeholder: "What should have happened instead?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior
+      placeholder: "What actually happened? Include exact error messages or in-game report text if visible."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Reproducibility
+      options:
+        - Happens every time
+        - Happens often, but not every time
+        - Happened once, cannot reproduce yet
+        - Only happens after save/load or server restart
+        - Only happens in multiplayer
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Impact / severity
+      options:
+        - Crash or server halt
+        - Save corruption / cannot continue campaign
+        - Major gameplay blocker
+        - Mission/system broken but campaign can continue
+        - Visual/UI/reporting issue
+        - Balance issue
+        - Minor issue
+    validations:
+      required: true
+
+  - type: dropdown
+    id: affected-system
+    attributes:
+      label: Affected h-istasi system
+      multiple: true
+      options:
+        - Setup / HQ selection / HQ movement
+        - Petros / HQ arsenal / contextual actions
+        - Alpha command menu / UI / input
+        - Persistence / checkpoint / save-load
+        - Campaign state / economy / balance
+        - Missions / objectives / runtime diagnostics
+        - Convoys / AI groups / support requests / enemy orders
+        - Zones / markers / war map
+        - Arsenal / loot / loadout editor
+        - Vehicle cargo / garage / build mode
+        - Undercover / civilians / roadblocks
+        - Multiplayer ownership / RPC / dedicated server
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: recent-context
+    attributes:
+      label: Context right before the bug
+      description: "Anything that may matter: recent saves/restarts, mission state, HQ threat, active support requests, active convoy, player deaths/respawns, items transferred, vehicles captured, admin/debug actions used."
+      placeholder: "Example: Server had been running for about 40 minutes; Defend Petros was queued; player had just captured a vehicle and requested manual checkpoint."
+    validations:
+      required: false
+
+  - type: upload
+    id: hst-settings
+    attributes:
+      label: Upload HST_Settings.json
+      description: "Upload `$profile:h-istasi/HST_Settings.json`. If the file is missing, upload a small `.txt` note explaining that."
+    validations:
+      required: true
+      accept: ".json,.txt,.zip"
+
+  - type: upload
+    id: campaign-save
+    attributes:
+      label: Upload HST_CampaignSaveData.json
+      description: "Upload `$profile:h-istasi/HST_CampaignSaveData.json`. If no campaign save exists yet, upload a small `.txt` note explaining when the bug occurred."
+    validations:
+      required: true
+      accept: ".json,.txt,.zip"
+
+  - type: upload
+    id: full-session-log
+    attributes:
+      label: Upload the full session console log
+      description: "Upload the entire console log for the session where the bug happened. Do not paste only the final error unless the full log is unavailable."
+    validations:
+      required: true
+      accept: ".log,.txt,.zip"
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Optional but very helpful: debug reproduction log
+
+        If you are willing and can safely reproduce the bug, make a backup of `HST_Settings.json`, enable the h-istasi debugging/logging settings by changing the relevant debug/logging values to `true`, reproduce the bug in a new session, then upload the new full console log below.
+
+  - type: dropdown
+    id: debug-repro-status
+    attributes:
+      label: Debug reproduction status
+      options:
+        - I reproduced it with debugging enabled and uploaded the debug log below
+        - I tried to reproduce it with debugging enabled but the bug did not happen again
+        - I cannot reproduce it again
+        - I am not comfortable changing debug settings
+        - Not attempted yet
+    validations:
+      required: true
+
+  - type: upload
+    id: debug-session-log
+    attributes:
+      label: Upload debug-enabled reproduction console log
+      description: "Upload the full console log from the reproduced bug after debugging/logging settings were enabled."
+    validations:
+      required: false
+      accept: ".log,.txt,.zip"
+
+  - type: upload
+    id: screenshots-video
+    attributes:
+      label: Screenshots or video
+      description: "Optional, but useful for UI/menu, marker, HQ placement, mission-objective, vehicle, or visual issues."
+    validations:
+      required: false
+      accept: ".png,.jpg,.jpeg,.gif,.webp,.mp4,.mov,.webm,.zip"
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: "Did anything temporarily fix it? Restarting the server, manual checkpoint, campaign reset, removing an addon, using HST_Dev, etc."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy-confirmation
+    attributes:
+      label: File review confirmation
+      options:
+        - label: "I understand uploaded JSON/log files may contain private system, profile, server, or session information and have reviewed/redacted anything I do not want public."
+          required: true

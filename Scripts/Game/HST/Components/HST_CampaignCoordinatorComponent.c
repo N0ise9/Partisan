@@ -101,6 +101,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_PhysicalWar = new HST_PhysicalWarService();
 		m_ZoneCompositions = new HST_ZoneCompositionService();
 		m_MapMarkers = new HST_MapMarkerService();
+		m_MapMarkers.BindNativeMapRefresh();
 		m_CommandUI = new HST_CommandUIService();
 		m_Loot = new HST_LootService();
 		m_BuildMode = new HST_BuildModeService();
@@ -125,6 +126,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ArmPlayerSpawnSweep(6);
 		SetEventMask(owner, EntityEvent.FRAME);
 		Print("h-istasi | campaign coordinator initialized");
+	}
+
+	override void OnDelete(IEntity owner)
+	{
+		if (m_MapMarkers)
+			m_MapMarkers.UnbindNativeMapRefresh();
+
+		if (s_Instance == this)
+			s_Instance = null;
+
+		super.OnDelete(owner);
 	}
 
 	override void OnGameModeStart()

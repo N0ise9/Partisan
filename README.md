@@ -137,11 +137,6 @@ provided player ID. Petros opens this same menu path through contextual
 interactions, and the visible HQ arsenal is backed by the same server commands
 from the Arsenal/Loot tab.
 
-## Requirements
-
-- Arma Reforger 1.7.0.41 or newer
-- No external faction, weapon, vehicle, or support-call addon is required.
-
 ## Design Rules
 
 - Prefix addon-owned scripts and resources with `HST_`.

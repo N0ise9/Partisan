@@ -12,7 +12,15 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 		if (!m_Component)
 			return true;
 
-		return m_Component.OnSetupOverlayClicked(w.GetUserID());
+		return m_Component.OnSetupOverlayClicked(w, w.GetUserID(), x, y);
+	}
+
+	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
+	{
+		if (!m_Component)
+			return true;
+
+		return m_Component.OnSetupOverlayPressed(w, w.GetUserID(), x, y);
 	}
 }
 
@@ -34,14 +42,26 @@ class HST_SetupMapComponent : ScriptComponent
 	static const int SETUP_Z_ORDER = 50000;
 	static const int SETUP_OVERLAY_Z_ORDER = 51000;
 	static const int SETUP_MODAL_Z_ORDER = 52000;
+	static const int SETUP_MAP_MARKER_Z_ORDER = SETUP_OVERLAY_Z_ORDER + 10;
+	static const int SETUP_CHROME_Z_ORDER = SETUP_OVERLAY_Z_ORDER + 40;
+	static const int SETUP_CURSOR_Z_ORDER = SETUP_MODAL_Z_ORDER + 40;
 	static const float SETUP_STATE_REQUEST_INTERVAL_SECONDS = 2.5;
 	static const float SETUP_SERVER_REQUEST_TIMEOUT_SECONDS = 5.0;
 	static const float SETUP_VALIDATION_RESULT_TOLERANCE_METERS = 8.0;
+	static const float SETUP_MODAL_CLICK_SUPPRESSION_SECONDS = 0.35;
+	static const int SETUP_MAP_READY_MAX_RETRIES = 8;
 	static const ResourceName SETUP_NATIVE_MAP_LAYOUT = "{6985327711306200}UI/layouts/HST_SetupHQMap.layout";
 	static const ResourceName SETUP_NATIVE_MAP_CONFIG = "{6985327711306210}Configs/Map/HST_SetupHQMap.conf";
+	static const ResourceName SETUP_CURSOR_IMAGESET = "{E75FB4134580A496}UI/Textures/Cursor/cursors.imageset";
+	static const string SETUP_CURSOR_IMAGE_QUAD = "default";
+	static const int SETUP_CURSOR_IMAGE_SIZE = 32;
+	static const int SETUP_CURSOR_IMAGE_PAD_LEFT = 0;
+	static const int SETUP_CURSOR_IMAGE_PAD_TOP = 0;
+	static const int SETUP_CURSOR_IMAGE_COLOR = 0xFFC26314;
 	static const ResourceName MENU_FONT = "";
 	static const string SETUP_INPUT_CONTEXT = "InGameMenuContext";
 	static const string SETUP_CURSOR_CONTEXT = "InventoryContext";
+	static const string SETUP_MAP_CONTEXT = "MapContext";
 
 	protected static HST_SetupMapComponent s_LocalInstance;
 
@@ -57,6 +77,10 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bResolvedLocalPlayerId;
 	protected bool m_bNativeMapOpen;
 	protected bool m_bNativeInvokersBound;
+	protected bool m_bSetupMapOpenComplete;
+	protected bool m_bSetupMapInitialViewApplied;
+	protected bool m_bSetupMapReadyQueued;
+	protected bool m_bSetupFinalized;
 	protected bool m_bOverlayDirty = true;
 	protected string m_sPhase = "setup";
 	protected string m_sStatusText = "Waiting for setup state...";
@@ -84,16 +108,25 @@ class HST_SetupMapComponent : ScriptComponent
 	protected Widget m_wSetupRoot;
 	protected Widget m_wOverlayRoot;
 	protected TextWidget m_wPromptText;
+	protected ImageWidget m_wSetupCursorImage;
 	protected float m_fOwnerRetryAccumulator;
 	protected float m_fRequestAccumulator;
 	protected float m_fAwaitingServerAccumulator;
 	protected float m_fDebugHeartbeatAccumulator;
+	protected float m_fModalClickSuppressionSeconds;
 	protected int m_iScreenW;
 	protected int m_iScreenH;
 	protected int m_iSetupStateRequestCount;
 	protected int m_iSetupPayloadCount;
 	protected int m_iSetupResultCount;
 	protected int m_iOverlayRenderCount;
+	protected int m_iSetupMapReadyRetries;
+	protected int m_iConfirmNoLeft;
+	protected int m_iConfirmNoTop;
+	protected int m_iConfirmYesLeft;
+	protected int m_iConfirmYesTop;
+	protected int m_iConfirmButtonW;
+	protected int m_iConfirmButtonH;
 	protected bool m_bLoggedLocalReady;
 	protected bool m_bLoggedBridgeMissing;
 	protected bool m_bLoggedBridgeRecovered;
@@ -150,11 +183,14 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 		}
 
-		m_fRequestAccumulator += timeSlice;
-		if (m_fRequestAccumulator >= SETUP_STATE_REQUEST_INTERVAL_SECONDS)
+		if (!m_bSetupFinalized)
 		{
-			m_fRequestAccumulator = 0;
-			RequestSetupStateNow();
+			m_fRequestAccumulator += timeSlice;
+			if (m_fRequestAccumulator >= SETUP_STATE_REQUEST_INTERVAL_SECONDS)
+			{
+				m_fRequestAccumulator = 0;
+				RequestSetupStateNow();
+			}
 		}
 
 		if (!m_bSetupActive)
@@ -166,10 +202,12 @@ class HST_SetupMapComponent : ScriptComponent
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		CloseCommandMenuIfOpen();
 		TickServerRequestTimeout(timeSlice);
+		TickModalClickSuppression(timeSlice);
 		RefreshScreenMetrics();
 		EnsureNativeSetupMapOpen();
 		UpdateSetupPrompt();
 		UpdateConfirmationVisibility();
+		UpdateSetupCursorOverlay();
 		if (m_bOverlayDirty)
 		{
 			m_bOverlayDirty = false;
@@ -191,7 +229,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 	void RequestSetupStateNow()
 	{
-		if (!m_bIsLocalOwner)
+		if (!m_bIsLocalOwner || m_bSetupFinalized)
 			return;
 
 		m_iSetupStateRequestCount++;
@@ -227,12 +265,49 @@ class HST_SetupMapComponent : ScriptComponent
 		DebugLog(string.Format("state payload #%1 phase=%2 active=%3 commander=%4 zones=%5 status=%6", m_iSetupPayloadCount, m_sPhase, m_bSetupActive, m_bIsCommander, m_aZoneIds.Count(), ShortenText(m_sStatusText, 96)));
 		if (!m_bSetupActive)
 		{
-			CloseNativeSetupMap();
-			DebugLog("setup inactive; native setup map closed");
+			if (IsAuthoritativeSetupComplete())
+				FinalizeSetupMap();
+			else
+				CloseNativeSetupMap();
+
 			return;
 		}
 
 		m_bOverlayDirty = true;
+	}
+
+	protected bool IsAuthoritativeSetupComplete()
+	{
+		return m_bHasAuthoritativeSetupState && !m_bSetupActive && m_sPhase == "active";
+	}
+
+	protected void FinalizeSetupMap()
+	{
+		if (m_bSetupFinalized)
+			return;
+
+		m_bSetupFinalized = true;
+		m_bSetupActive = false;
+		m_bConfirmOpen = false;
+		m_bCandidateValid = false;
+		m_bAwaitingServer = false;
+		m_fRequestAccumulator = 0;
+		m_fAwaitingServerAccumulator = 0;
+		m_fModalClickSuppressionSeconds = 0;
+		m_vCandidatePosition = "0 0 0";
+		m_vRequestedValidationPosition = "0 0 0";
+		ClearSetupCursorWidgets();
+		CloseNativeSetupMap();
+		GetGame().GetCallqueue().CallLater(ClearSetupCursorWidgets, 0, false);
+		GetGame().GetCallqueue().CallLater(ClearSetupCursorWidgets, 250, false);
+		GetGame().GetCallqueue().CallLater(ClearSetupCursorWidgets, 750, false);
+		CloseRespawnMenuAfterSetup();
+		GetGame().GetCallqueue().CallLater(CloseRespawnMenuAfterSetup, 0, false);
+		GetGame().GetCallqueue().CallLater(CloseRespawnMenuAfterSetup, 250, false);
+		GetGame().GetCallqueue().CallLater(CloseRespawnMenuAfterSetup, 750, false);
+		ResetCommandMenuInputLatch();
+		Debug.ClearKey(KeyCode.KC_I);
+		DebugLog("setup finalized; native setup map closed");
 	}
 
 	void OnServerSetupResult(string payload)
@@ -291,21 +366,30 @@ class HST_SetupMapComponent : ScriptComponent
 		UpdateConfirmationVisibility();
 	}
 
-	bool OnSetupOverlayClicked(int widgetId)
+	bool OnSetupOverlayPressed(Widget widget, int widgetId, int x, int y)
+	{
+		if (m_bSetupActive && m_bConfirmOpen && IsConfirmModalInput(widget, widgetId, x, y))
+			SuppressNativeMapSelection();
+
+		return true;
+	}
+
+	bool OnSetupOverlayClicked(Widget widget, int widgetId, int x = -1, int y = -1)
 	{
 		if (!m_bSetupActive)
 			return true;
 
-		if (widgetId == CONFIRM_NO_WIDGET_ID)
+		int resolvedWidgetId = ResolveConfirmWidgetId(widget, widgetId, x, y);
+		if (IsConfirmModalInput(widget, resolvedWidgetId, x, y))
+			SuppressNativeMapSelection();
+
+		if (resolvedWidgetId == CONFIRM_NO_WIDGET_ID)
 		{
-			m_bConfirmOpen = false;
-			m_sStatusText = "Select a location on the map to place the HQ";
-			m_bOverlayDirty = true;
-			UpdateConfirmationVisibility();
+			CancelConfirmSelection();
 			return true;
 		}
 
-		if (widgetId == CONFIRM_YES_WIDGET_ID)
+		if (resolvedWidgetId == CONFIRM_YES_WIDGET_ID)
 		{
 			if (m_bCandidateValid && !m_bAwaitingServer)
 				RequestConfirmPosition();
@@ -313,6 +397,89 @@ class HST_SetupMapComponent : ScriptComponent
 		}
 
 		return true;
+	}
+
+	protected int ResolveConfirmWidgetId(Widget widget, int widgetId, int x, int y)
+	{
+		if (!m_bConfirmOpen)
+			return widgetId;
+		if (widgetId == CONFIRM_YES_WIDGET_ID || widgetId == CONFIRM_NO_WIDGET_ID)
+			return widgetId;
+
+		if (IsWidgetPointInsideRect(widget, x, y, m_iConfirmYesLeft, m_iConfirmYesTop, m_iConfirmButtonW, m_iConfirmButtonH))
+			return CONFIRM_YES_WIDGET_ID;
+		if (IsWidgetPointInsideRect(widget, x, y, m_iConfirmNoLeft, m_iConfirmNoTop, m_iConfirmButtonW, m_iConfirmButtonH))
+			return CONFIRM_NO_WIDGET_ID;
+
+		return widgetId;
+	}
+
+	protected bool IsConfirmModalInput(Widget widget, int widgetId, int x, int y)
+	{
+		if (widgetId == CONFIRM_YES_WIDGET_ID || widgetId == CONFIRM_NO_WIDGET_ID || widgetId == CONFIRM_BLOCKER_WIDGET_ID)
+			return true;
+		if (!m_bConfirmOpen)
+			return false;
+
+		return IsWidgetPointInsideRect(widget, x, y, m_iConfirmYesLeft, m_iConfirmYesTop, m_iConfirmButtonW, m_iConfirmButtonH)
+			|| IsWidgetPointInsideRect(widget, x, y, m_iConfirmNoLeft, m_iConfirmNoTop, m_iConfirmButtonW, m_iConfirmButtonH);
+	}
+
+	protected bool HandleConfirmModalMapSelection(int screenX, int screenY)
+	{
+		int resolvedWidgetId = ResolveConfirmScreenPoint(screenX, screenY);
+		SuppressNativeMapSelection();
+
+		if (resolvedWidgetId == CONFIRM_NO_WIDGET_ID)
+		{
+			CancelConfirmSelection();
+			return true;
+		}
+
+		if (resolvedWidgetId == CONFIRM_YES_WIDGET_ID)
+		{
+			if (m_bCandidateValid && !m_bAwaitingServer)
+				RequestConfirmPosition();
+
+			return true;
+		}
+
+		DebugLog("ignored native map selection behind setup confirmation modal");
+		return true;
+	}
+
+	protected int ResolveConfirmScreenPoint(int screenX, int screenY)
+	{
+		if (!m_bConfirmOpen)
+			return 0;
+
+		int resolvedWidgetId = ResolveConfirmScreenPointUnscaled(screenX, screenY);
+		if (resolvedWidgetId != 0)
+			return resolvedWidgetId;
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+			return 0;
+
+		return ResolveConfirmScreenPointUnscaled(Math.Round(workspace.DPIUnscale(screenX)), Math.Round(workspace.DPIUnscale(screenY)));
+	}
+
+	protected int ResolveConfirmScreenPointUnscaled(int screenX, int screenY)
+	{
+		if (IsPointInsideRect(screenX, screenY, m_iConfirmYesLeft, m_iConfirmYesTop, m_iConfirmButtonW, m_iConfirmButtonH))
+			return CONFIRM_YES_WIDGET_ID;
+		if (IsPointInsideRect(screenX, screenY, m_iConfirmNoLeft, m_iConfirmNoTop, m_iConfirmButtonW, m_iConfirmButtonH))
+			return CONFIRM_NO_WIDGET_ID;
+
+		return 0;
+	}
+
+	protected void CancelConfirmSelection()
+	{
+		m_bConfirmOpen = false;
+		m_sStatusText = "Select a location on the map to place the HQ";
+		m_bOverlayDirty = true;
+		UpdateConfirmationVisibility();
 	}
 
 	protected void ParseSetupStatePayload(string payload)
@@ -414,6 +581,11 @@ class HST_SetupMapComponent : ScriptComponent
 			if (m_MapEntity.GetMapMenuRoot() == m_wSetupRoot)
 			{
 				m_bNativeMapOpen = true;
+				if (!m_bSetupMapOpenComplete && IsNativeSetupMapZoomInitialized())
+				{
+					m_bSetupMapOpenComplete = true;
+					QueueApplySetupMapReadyState();
+				}
 				return;
 			}
 
@@ -428,6 +600,7 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 		}
 
+		ResetSetupMapReadyState();
 		m_MapEntity.OpenMap(mapConfig);
 		m_bNativeMapOpen = true;
 		m_bOverlayDirty = true;
@@ -448,6 +621,10 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void CloseNativeSetupMap()
 	{
+		if (m_bNativeMapOpen && IsSetupMapRootActive())
+			SetSetupMapCursorVisible(false);
+		ClearSetupCursorWidgets();
+
 		if (m_bNativeInvokersBound)
 		{
 			SCR_MapEntity.GetOnSelection().Remove(OnNativeMapSelection);
@@ -457,12 +634,14 @@ class HST_SetupMapComponent : ScriptComponent
 			m_bNativeInvokersBound = false;
 		}
 
-		if (m_MapEntity && m_MapEntity.IsOpen() && (!m_wSetupRoot || m_MapEntity.GetMapMenuRoot() == m_wSetupRoot))
+		if (m_bNativeMapOpen && m_MapEntity && m_MapEntity.IsOpen() && m_wSetupRoot && m_MapEntity.GetMapMenuRoot() == m_wSetupRoot)
 			m_MapEntity.CloseMap();
 
 		m_bNativeMapOpen = false;
+		ResetSetupMapReadyState();
 		ClearModalWidgets();
 		ClearOverlayWidgets();
+		ClearSetupCursorWidgets();
 		ClearWidgets();
 		m_wSetupRoot = null;
 		m_wOverlayRoot = null;
@@ -471,15 +650,33 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void OnNativeMapSelection(vector screenPos)
 	{
-		if (!m_bSetupActive || !m_bIsCommander || m_bConfirmOpen || m_bAwaitingServer)
-			return;
-		if (!m_MapEntity || !m_MapEntity.IsOpen())
-			return;
-
 		float screenX = screenPos[0];
 		float screenY = screenPos[2];
 		if (screenY == 0.0 && screenPos[1] != 0.0)
 			screenY = screenPos[1];
+
+		if (m_bSetupActive && m_bConfirmOpen)
+		{
+			HandleConfirmModalMapSelection(Math.Round(screenX), Math.Round(screenY));
+			return;
+		}
+
+		if (m_fModalClickSuppressionSeconds > 0.0)
+		{
+			m_fModalClickSuppressionSeconds = 0;
+			DebugLog("ignored native map selection from setup modal click");
+			return;
+		}
+
+		if (!m_bSetupActive || !m_bIsCommander || m_bConfirmOpen || m_bAwaitingServer)
+			return;
+		if (!m_MapEntity || !m_MapEntity.IsOpen())
+			return;
+		if (!IsSetupMapViewReady())
+			return;
+
+		if (screenY <= ScalePx(76))
+			return;
 
 		float worldX;
 		float worldZ;
@@ -507,7 +704,165 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void OnNativeMapOpenComplete(MapConfiguration config)
 	{
+		if (m_bSetupActive && IsSetupMapRootActive())
+		{
+			m_bSetupMapOpenComplete = true;
+			QueueApplySetupMapReadyState();
+		}
+
 		m_bOverlayDirty = true;
+	}
+
+	protected bool IsSetupMapRootActive()
+	{
+		return m_MapEntity && m_MapEntity.IsOpen() && m_wSetupRoot && m_MapEntity.GetMapMenuRoot() == m_wSetupRoot;
+	}
+
+	protected void ResetSetupMapReadyState()
+	{
+		m_bSetupMapOpenComplete = false;
+		m_bSetupMapInitialViewApplied = false;
+		m_bSetupMapReadyQueued = false;
+		m_iSetupMapReadyRetries = 0;
+	}
+
+	protected void QueueApplySetupMapReadyState()
+	{
+		if (m_bSetupMapReadyQueued)
+			return;
+
+		m_bSetupMapReadyQueued = true;
+		GetGame().GetCallqueue().CallLater(ApplySetupMapReadyState, 0, false);
+	}
+
+	protected void ApplySetupMapReadyState()
+	{
+		m_bSetupMapReadyQueued = false;
+		if (!m_bSetupActive || !m_bSetupMapOpenComplete || !IsSetupMapRootActive())
+			return;
+
+		if (!IsSetupMapViewReady())
+		{
+			if (m_iSetupMapReadyRetries < SETUP_MAP_READY_MAX_RETRIES)
+			{
+				m_iSetupMapReadyRetries++;
+				QueueApplySetupMapReadyState();
+				return;
+			}
+
+			DebugLog("setup map ready state skipped: native zoom was not initialized");
+			return;
+		}
+
+		ApplySetupMapInitialView();
+		SetSetupMapCursorVisible(false);
+		m_bOverlayDirty = true;
+	}
+
+	protected void UpdateSetupCursorOverlay()
+	{
+		if (!m_bSetupActive || !IsSetupMapViewReady())
+		{
+			SetSetupCursorWidgetsVisible(false);
+			return;
+		}
+
+		EnsureSetupCursorWidgets();
+		if (!m_wSetupCursorImage)
+			return;
+
+		int mouseX;
+		int mouseY;
+		SCR_MapCursorModule cursorModule = SCR_MapCursorModule.Cast(m_MapEntity.GetMapModule(SCR_MapCursorModule));
+		if (cursorModule && cursorModule.GetCursorInfo())
+		{
+			mouseX = SCR_MapCursorInfo.x;
+			mouseY = SCR_MapCursorInfo.y;
+		}
+		else
+		{
+			WidgetManager.GetMousePos(mouseX, mouseY);
+		}
+
+		int size = ScalePx(SETUP_CURSOR_IMAGE_SIZE);
+		int left = mouseX - ScalePx(SETUP_CURSOR_IMAGE_PAD_LEFT);
+		int top = mouseY - ScalePx(SETUP_CURSOR_IMAGE_PAD_TOP);
+		FrameSlot.SetPos(m_wSetupCursorImage, left, top);
+		FrameSlot.SetSize(m_wSetupCursorImage, size, size);
+		SetSetupCursorWidgetsVisible(true);
+	}
+
+	protected void EnsureSetupCursorWidgets()
+	{
+		if (m_wSetupCursorImage)
+			return;
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace || !m_wSetupRoot)
+			return;
+
+		ClearSetupCursorWidgets();
+		m_wSetupCursorImage = ImageWidget.Cast(workspace.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.BLEND | WidgetFlags.STRETCH | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, SETUP_CURSOR_Z_ORDER, m_wSetupRoot));
+		if (!m_wSetupCursorImage)
+			return;
+
+		m_wSetupCursorImage.SetZOrder(SETUP_CURSOR_Z_ORDER);
+		m_wSetupCursorImage.SetFlags(WidgetFlags.VISIBLE | WidgetFlags.BLEND | WidgetFlags.STRETCH | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		m_wSetupCursorImage.SetColorInt(SETUP_CURSOR_IMAGE_COLOR);
+		m_wSetupCursorImage.LoadImageFromSet(0, SETUP_CURSOR_IMAGESET, SETUP_CURSOR_IMAGE_QUAD);
+		FrameSlot.SetSize(m_wSetupCursorImage, ScalePx(SETUP_CURSOR_IMAGE_SIZE), ScalePx(SETUP_CURSOR_IMAGE_SIZE));
+		SetSetupCursorWidgetsVisible(false);
+	}
+
+	protected void SetSetupCursorWidgetsVisible(bool visible)
+	{
+		if (m_wSetupCursorImage)
+			m_wSetupCursorImage.SetVisible(visible);
+	}
+
+	protected bool IsSetupMapViewReady()
+	{
+		if (!m_bSetupMapOpenComplete || !IsSetupMapRootActive())
+			return false;
+		if (!IsNativeSetupMapZoomInitialized())
+			return false;
+
+		return true;
+	}
+
+	protected bool IsNativeSetupMapZoomInitialized()
+	{
+		if (!m_MapEntity || !m_MapEntity.IsOpen())
+			return false;
+		if (m_MapEntity.GetCurrentZoom() <= 0.0)
+			return false;
+		if (m_MapEntity.GetMinZoom() <= 0.0)
+			return false;
+
+		return true;
+	}
+
+	protected void ApplySetupMapInitialView()
+	{
+		if (m_bSetupMapInitialViewApplied || !IsSetupMapViewReady())
+			return;
+
+		m_MapEntity.ZoomOut();
+		m_bSetupMapInitialViewApplied = true;
+		m_bOverlayDirty = true;
+	}
+
+	protected void SetSetupMapCursorVisible(bool visible)
+	{
+		if (!m_MapEntity || !m_MapEntity.IsOpen())
+			return;
+
+		SCR_MapCursorModule cursorModule = SCR_MapCursorModule.Cast(m_MapEntity.GetMapModule(SCR_MapCursorModule));
+		if (!cursorModule)
+			return;
+
+		if (!visible)
+			cursorModule.ToggleLocationSelection(false);
 	}
 
 	protected void RequestValidatePosition(vector worldPosition)
@@ -570,9 +925,9 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected TextWidget CreatePromptText(WorkspaceWidget workspace, Widget parent)
 	{
-		CreateRectWidgetAtZ(workspace, parent, 0, 0, Math.Max(1, m_iScreenW), ScalePx(76), 0xF20D1318, 1.0, 0, SETUP_OVERLAY_Z_ORDER, m_aChromeDrawCommandSets);
-		CreateRectWidgetAtZ(workspace, parent, 0, ScalePx(72), Math.Max(1, m_iScreenW), ScalePx(4), 0xFFC4953B, 1.0, 0, SETUP_OVERLAY_Z_ORDER + 1, m_aChromeDrawCommandSets);
-		return CreateWrappedTextWidgetAtZ(workspace, parent, "", ScalePx(36), ScalePx(18), Math.Max(1, m_iScreenW - ScalePx(72)), ScalePx(42), ScaleFont(22), 0xFFF2E6CA, 0, true, SETUP_OVERLAY_Z_ORDER + 2);
+		CreateRectWidgetAtZ(workspace, parent, 0, 0, Math.Max(1, m_iScreenW), ScalePx(76), 0xFF0D1318, 1.0, 0, SETUP_CHROME_Z_ORDER, m_aChromeDrawCommandSets);
+		CreateRectWidgetAtZ(workspace, parent, 0, ScalePx(72), Math.Max(1, m_iScreenW), ScalePx(4), 0xFFC4953B, 1.0, 0, SETUP_CHROME_Z_ORDER + 1, m_aChromeDrawCommandSets);
+		return CreateWrappedTextWidgetAtZ(workspace, parent, "", ScalePx(36), ScalePx(18), Math.Max(1, m_iScreenW - ScalePx(72)), ScalePx(42), ScaleFont(22), 0xFFF2E6CA, 0, true, SETUP_CHROME_Z_ORDER + 2);
 	}
 
 	protected void UpdateSetupPrompt()
@@ -620,16 +975,24 @@ class HST_SetupMapComponent : ScriptComponent
 		int buttonTop = top + modalH - ScalePx(74);
 		int noLeft = left + modalW / 2 - buttonW - ScalePx(12);
 		int yesLeft = left + modalW / 2 + ScalePx(12);
+		m_iConfirmNoLeft = noLeft;
+		m_iConfirmNoTop = buttonTop;
+		m_iConfirmYesLeft = yesLeft;
+		m_iConfirmYesTop = buttonTop;
+		m_iConfirmButtonW = buttonW;
+		m_iConfirmButtonH = buttonH;
 		CreateModalRect(workspace, noLeft, buttonTop, buttonW, buttonH, 0xFF46535D, 1.0, CONFIRM_NO_WIDGET_ID, SETUP_MODAL_Z_ORDER + 5);
 		CreateModalText(workspace, "No", noLeft + ScalePx(20), buttonTop + ScalePx(13), buttonW - ScalePx(40), ScalePx(26), ScaleFont(17), 0xFFF4EBD6, CONFIRM_NO_WIDGET_ID, true, SETUP_MODAL_Z_ORDER + 6);
 		CreateModalRect(workspace, yesLeft, buttonTop, buttonW, buttonH, 0xFFC4953B, 1.0, CONFIRM_YES_WIDGET_ID, SETUP_MODAL_Z_ORDER + 5);
 		CreateModalText(workspace, "Yes", yesLeft + ScalePx(20), buttonTop + ScalePx(13), buttonW - ScalePx(40), ScalePx(26), ScaleFont(17), 0xFF111820, CONFIRM_YES_WIDGET_ID, true, SETUP_MODAL_Z_ORDER + 6);
+		CreateModalHitTarget(workspace, noLeft, buttonTop, buttonW, buttonH, CONFIRM_NO_WIDGET_ID, SETUP_MODAL_Z_ORDER + 12);
+		CreateModalHitTarget(workspace, yesLeft, buttonTop, buttonW, buttonH, CONFIRM_YES_WIDGET_ID, SETUP_MODAL_Z_ORDER + 12);
 	}
 
 	protected void RedrawNativeMapOverlay()
 	{
 		ClearOverlayWidgets();
-		if (!m_bSetupActive || !m_wOverlayRoot || !m_MapEntity || !m_MapEntity.IsOpen())
+		if (!m_bSetupActive || !m_wOverlayRoot || !IsSetupMapViewReady())
 			return;
 
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
@@ -661,7 +1024,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!IsScreenRectVisible(sx - radiusPx, sy - radiusPx, radiusPx * 2, radiusPx * 2))
 			return;
 
-		CreateOverlayCircle(workspace, sx - radiusPx, sy - radiusPx, radiusPx * 2, ZoneFillColor(m_aZoneTones[index]), 0.44);
+		CreateOverlayCircle(workspace, sx - radiusPx, sy - radiusPx, radiusPx * 2, ZoneFillColor(m_aZoneTones[index]), 0.58);
 		CreateOverlayRect(workspace, sx - ScalePx(3), sy - ScalePx(3), ScalePx(6), ScalePx(6), ZonePointColor(m_aZoneTones[index]), 1.0);
 		if (radiusPx >= ScalePx(9))
 			CreateOverlayLabel(workspace, ShortenText(m_aZoneLabels[index], 24), sx + ScalePx(6), sy - ScalePx(8), 0xFFE5ECEE);
@@ -688,7 +1051,7 @@ class HST_SetupMapComponent : ScriptComponent
 	{
 		screenX = 0;
 		screenY = 0;
-		if (!m_MapEntity || !m_MapEntity.IsOpen())
+		if (!IsSetupMapViewReady())
 			return false;
 
 		m_MapEntity.WorldToScreen(worldPos[0], worldPos[2], screenX, screenY, true);
@@ -713,7 +1076,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected Widget CreateOverlayRect(WorkspaceWidget workspace, int left, int top, int width, int height, int color, float opacity)
 	{
-		Widget widget = CreateRectWidgetAtZ(workspace, m_wOverlayRoot, left, top, width, height, color, opacity, 0, SETUP_OVERLAY_Z_ORDER + 10, m_aOverlayDrawCommandSets);
+		Widget widget = CreateRectWidgetAtZ(workspace, m_wOverlayRoot, left, top, width, height, color, opacity, 0, SETUP_MAP_MARKER_Z_ORDER, m_aOverlayDrawCommandSets);
 		if (widget)
 			m_aOverlayWidgets.Insert(widget);
 
@@ -722,11 +1085,11 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected Widget CreateOverlayCircle(WorkspaceWidget workspace, int left, int top, int diameter, int color, float opacity)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, SETUP_OVERLAY_Z_ORDER + 10, m_wOverlayRoot);
+		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, SETUP_MAP_MARKER_Z_ORDER, m_wOverlayRoot);
 		if (!widget)
 			return null;
 
-		widget.SetZOrder(SETUP_OVERLAY_Z_ORDER + 10);
+		widget.SetZOrder(SETUP_MAP_MARKER_Z_ORDER);
 		widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, diameter, diameter);
@@ -738,9 +1101,12 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected TextWidget CreateOverlayLabel(WorkspaceWidget workspace, string text, int left, int top, int color)
 	{
-		TextWidget label = CreateWrappedTextWidgetAtZ(workspace, m_wOverlayRoot, text, left, top, ScalePx(160), ScalePx(32), ScaleFont(11), color, 0, false, SETUP_OVERLAY_Z_ORDER + 11);
+		TextWidget label = CreateWrappedTextWidgetAtZ(workspace, m_wOverlayRoot, text, left, top, ScalePx(160), ScalePx(32), ScaleFont(11), color, 0, false, SETUP_MAP_MARKER_Z_ORDER + 1);
 		if (label)
+		{
+			label.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 			m_aOverlayWidgets.Insert(label);
+		}
 
 		return label;
 	}
@@ -760,6 +1126,22 @@ class HST_SetupMapComponent : ScriptComponent
 		if (widget)
 			m_aModalWidgets.Insert(widget);
 
+		return widget;
+	}
+
+	protected Widget CreateModalHitTarget(WorkspaceWidget workspace, int left, int top, int width, int height, int userId, int zOrder)
+	{
+		Widget widget = workspace.CreateWidget(WidgetType.ButtonWidgetTypeID, WidgetFlags.VISIBLE, null, zOrder, m_wSetupRoot);
+		if (!widget)
+			return null;
+
+		widget.SetZOrder(zOrder);
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, width, height);
+		widget.SetOpacity(0.01);
+		widget.SetUserID(userId);
+		widget.AddHandler(m_WidgetHandler);
+		m_aModalWidgets.Insert(widget);
 		return widget;
 	}
 
@@ -881,13 +1263,13 @@ class HST_SetupMapComponent : ScriptComponent
 	protected int ZoneFillColor(string tone)
 	{
 		if (tone == "resistance")
-			return 0x553FAE63;
+			return 0x8A226B3C;
 		if (tone == "town")
-			return 0x557FB3D5;
+			return 0x8A3F7397;
 		if (tone == "major")
-			return 0x66C9553D;
+			return 0x9A8D3023;
 
-		return 0x55D39B45;
+		return 0x8A95601F;
 	}
 
 	protected int ZonePointColor(string tone)
@@ -949,6 +1331,31 @@ class HST_SetupMapComponent : ScriptComponent
 		return true;
 	}
 
+	protected bool IsPointInsideRect(int x, int y, int left, int top, int width, int height)
+	{
+		if (width <= 0 || height <= 0)
+			return false;
+		if (x < left || y < top)
+			return false;
+		if (x > left + width || y > top + height)
+			return false;
+
+		return true;
+	}
+
+	protected bool IsWidgetPointInsideRect(Widget widget, int x, int y, int left, int top, int width, int height)
+	{
+		if (IsPointInsideRect(x, y, left, top, width, height))
+			return true;
+		if (!widget)
+			return false;
+
+		float widgetX;
+		float widgetY;
+		widget.GetScreenPos(widgetX, widgetY);
+		return IsPointInsideRect(Math.Round(widgetX) + x, Math.Round(widgetY) + y, left, top, width, height);
+	}
+
 	protected bool IsLatestValidationResult(vector resolvedPosition)
 	{
 		float dx = AbsFloat(resolvedPosition[0] - m_vRequestedValidationPosition[0]);
@@ -980,6 +1387,21 @@ class HST_SetupMapComponent : ScriptComponent
 
 		m_bOverlayDirty = true;
 		DebugLog("setup server request timed out; allowing retry");
+	}
+
+	protected void SuppressNativeMapSelection()
+	{
+		m_fModalClickSuppressionSeconds = SETUP_MODAL_CLICK_SUPPRESSION_SECONDS;
+	}
+
+	protected void TickModalClickSuppression(float timeSlice)
+	{
+		if (m_fModalClickSuppressionSeconds <= 0.0)
+			return;
+
+		m_fModalClickSuppressionSeconds = m_fModalClickSuppressionSeconds - timeSlice;
+		if (m_fModalClickSuppressionSeconds < 0.0)
+			m_fModalClickSuppressionSeconds = 0;
 	}
 
 	protected bool IsCoordinatorSetupFailure(string message)
@@ -1076,6 +1498,30 @@ class HST_SetupMapComponent : ScriptComponent
 
 		m_aModalWidgets.Clear();
 		m_aModalDrawCommandSets.Clear();
+		ClearConfirmButtonRects();
+	}
+
+	protected void ClearConfirmButtonRects()
+	{
+		m_iConfirmNoLeft = 0;
+		m_iConfirmNoTop = 0;
+		m_iConfirmYesLeft = 0;
+		m_iConfirmYesTop = 0;
+		m_iConfirmButtonW = 0;
+		m_iConfirmButtonH = 0;
+	}
+
+	protected void ClearSetupCursorWidgets()
+	{
+		if (m_wSetupCursorImage)
+		{
+			m_wSetupCursorImage.SetVisible(false);
+			m_wSetupCursorImage.SetOpacity(0);
+			m_wSetupCursorImage.RemoveFromHierarchy();
+			delete m_wSetupCursorImage;
+		}
+
+		m_wSetupCursorImage = null;
 	}
 
 	protected void CloseCommandMenuIfOpen()
@@ -1083,6 +1529,18 @@ class HST_SetupMapComponent : ScriptComponent
 		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
 		if (menu)
 			menu.CloseMenuFromExternal();
+	}
+
+	protected void CloseRespawnMenuAfterSetup()
+	{
+		SCR_RespawnSystemComponent.CloseRespawnMenu();
+	}
+
+	protected void ResetCommandMenuInputLatch()
+	{
+		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
+		if (menu)
+			menu.ResetInputLatchAfterSetupMap();
 	}
 
 	protected void ActivateSetupInput()
@@ -1093,6 +1551,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 		inputManager.ActivateContext(SETUP_INPUT_CONTEXT);
 		inputManager.ActivateContext(SETUP_CURSOR_CONTEXT);
+		inputManager.ActivateContext(SETUP_MAP_CONTEXT);
 	}
 
 	protected void RefreshResolvedLocalPlayerId()
@@ -1137,6 +1596,9 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void ActivatePendingSetupOverlay(string status)
 	{
+		if (m_bSetupFinalized)
+			return;
+
 		if (!m_bSetupActive)
 		{
 			m_bSetupActive = true;
