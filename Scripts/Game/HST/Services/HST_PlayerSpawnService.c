@@ -219,6 +219,8 @@ class HST_PlayerSpawnService
 				spawnRequests++;
 		}
 
+		if (spawnRequests > 0)
+			SCR_RespawnSystemComponent.CloseRespawnMenu();
 		return registered;
 	}
 
@@ -293,7 +295,7 @@ class HST_PlayerSpawnService
 		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
 			if (diagnostics)
-				Print(string.Format("h-istasi | setup requesting temporary holding spawn for player %1", playerId));
+				Print(string.Format("h-istasi | setup requesting non-gameplay staging spawn for player %1", playerId));
 
 			return RequestSetupHoldingSpawn(state, authorization, lifecycle, playerId, diagnostics);
 		}
@@ -369,21 +371,24 @@ class HST_PlayerSpawnService
 			spawnPrefab = m_aPendingSpawnPrefabs[pendingIndex];
 		}
 
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			MarkSetupHoldingPlayer(playerId);
+			ClearPendingSpawn(playerId);
+			ClearDeadRespawn(playerId);
+			ResetConnectedPlayerGraceLog(playerId);
+			SCR_RespawnSystemComponent.CloseRespawnMenu();
+			Print(string.Format("h-istasi | setup staging entity spawned for player %1; gameplay spawn remains blocked until HQ is placed", playerId));
+			return true;
+		}
+
 		player.m_sFactionKey = PRIMARY_PLAYER_FACTION;
 		player.m_bHasSpawnRecord = true;
 		player.m_iSpawnCount++;
 		player.m_sLastSpawnPrefab = spawnPrefab;
 		player.m_vLastSpawnPosition = spawnPosition;
 		ApplyFaction(entity, PRIMARY_PLAYER_FACTION);
-		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
-		{
-			MarkSetupHoldingPlayer(playerId);
-			Print(string.Format("h-istasi | setup holding entity spawned for player %1", playerId));
-		}
-		else
-		{
-			ClearSetupHoldingPlayer(playerId);
-		}
+		ClearSetupHoldingPlayer(playerId);
 
 		ClearPendingSpawn(playerId);
 		ClearDeadRespawn(playerId);
@@ -470,10 +475,13 @@ class HST_PlayerSpawnService
 		if (!playerManager || !playerManager.IsPlayerConnected(playerId))
 			return false;
 
+		if (HasPendingSpawn(playerId))
+			return true;
+
 		SCR_RespawnComponent respawnComponent = SCR_RespawnComponent.Cast(playerManager.GetPlayerRespawnComponent(playerId));
 		if (!respawnComponent)
 		{
-			Print(string.Format("h-istasi | cannot create setup holding spawn for player %1: no SCR_RespawnComponent", playerId), LogLevel.ERROR);
+			Print(string.Format("h-istasi | cannot create setup staging spawn for player %1: no SCR_RespawnComponent", playerId), LogLevel.ERROR);
 			return false;
 		}
 
@@ -485,14 +493,14 @@ class HST_PlayerSpawnService
 		{
 			ClearPendingSpawn(playerId);
 			ClearSetupHoldingPlayer(playerId);
-			Print(string.Format("h-istasi | native setup holding spawn request rejected for player %1", playerId), LogLevel.ERROR);
+			Print(string.Format("h-istasi | native setup staging spawn request rejected for player %1", playerId), LogLevel.ERROR);
 			return false;
 		}
 
 		ClearDeadRespawn(playerId);
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		if (diagnostics)
-			Print(string.Format("h-istasi | setup holding spawn requested for player %1 at %2", playerId, spawnPosition));
+			Print(string.Format("h-istasi | setup staging spawn requested for player %1 at %2", playerId, spawnPosition));
 
 		return true;
 	}
@@ -552,8 +560,16 @@ class HST_PlayerSpawnService
 		if (!entity)
 			return;
 
+		if (!ChimeraCharacter.Cast(entity))
+		{
+			if (diagnostics)
+				Print(string.Format("h-istasi | setup cleanup skipped non-character entity for player %1", playerId));
+
+			return;
+		}
+
 		if (diagnostics)
-			Print(string.Format("h-istasi | deleting setup holding entity for player %1 before HQ spawn", playerId));
+			Print(string.Format("h-istasi | deleting setup player entity for player %1 before HQ spawn", playerId));
 
 		SCR_EntityHelper.DeleteEntityAndChildren(entity);
 	}

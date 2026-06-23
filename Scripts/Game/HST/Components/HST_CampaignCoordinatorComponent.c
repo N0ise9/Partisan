@@ -6724,13 +6724,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
-			DebugLog(string.Format("spawn sweep setup hold reason=%1 hqDeployed=%2 commander=%3 players=%4", reason, m_State.m_bHQDeployed, m_State.m_sCommanderIdentityId, m_State.m_aPlayers.Count()));
+			DebugLog(string.Format("spawn sweep setup staging reason=%1 hqDeployed=%2 commander=%3 players=%4", reason, m_State.m_bHQDeployed, m_State.m_sCommanderIdentityId, m_State.m_aPlayers.Count()));
 			int setupSpawnRequests;
 			int registrations = m_PlayerSpawn.PrepareSetupConnectedPlayers(m_State, m_Authorization, m_PlayerLifecycle, setupSpawnRequests, diagnostics);
 			if (registrations > 0)
 				MarkMajorCampaignChange(false);
 			if (setupSpawnRequests > 0)
-				DebugLog(string.Format("setup holding spawn requests=%1", setupSpawnRequests));
+				DebugLog(string.Format("setup staging spawn requests=%1", setupSpawnRequests));
 			if (diagnostics && m_iSpawnDiagnosticsRemaining > 0)
 				m_iSpawnDiagnosticsRemaining--;
 
