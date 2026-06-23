@@ -401,6 +401,12 @@ class HST_MapDefinition
 	[Attribute(defvalue: "", uiwidget: UIWidgets.EditBox, desc: "Display name.", category: "HST Map")]
 	string m_sDisplayName;
 
+	[Attribute(defvalue: "0 0 0", desc: "World-space map minimum bounds.", category: "HST Map")]
+	vector m_vWorldMin;
+
+	[Attribute(defvalue: "12800 0 12800", desc: "World-space map maximum bounds.", category: "HST Map")]
+	vector m_vWorldMax;
+
 	[Attribute(desc: "Strategic zone definitions.", category: "HST Map")]
 	ref array<ref HST_ZoneDefinition> m_aZones = {};
 

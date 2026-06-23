@@ -138,6 +138,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int PREVIEW_BOUNDS_RETRY_DELAY_MS = 120;
 	static const int PREVIEW_BOUNDS_RETRY_COUNT = 4;
 	static const int POST_ACTION_REFRESH_DELAY_MS = 350;
+	static const int PANEL_BACK_COLOR = 0xF20D1114;
 	static const ResourceName ICON_CLOTHING = "{A9AFA05DD269660A}Assets/512/clothing_icon.edds";
 	static const ResourceName ICON_WEAPONS = "{4F051820B3912C59}Assets/512/weapons_icon.edds";
 	static const ResourceName ICON_ATTACHMENTS = "{E77BB529AFB78928}Assets/512/attachments_icon.edds";
@@ -171,6 +172,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected bool m_bPreviewSpawned;
 	protected bool m_bCandidateMode;
 	protected bool m_bPostActionRefreshQueued;
+	protected bool m_bDebugLoggingEnabled;
 	protected int m_iPreviewItemCount;
 	protected int m_iDraftSlotCount;
 	protected int m_iDraftItemCount;
@@ -381,6 +383,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (IsDuplicateWidgetActivation(widgetId, button))
 			return true;
+
+		DebugLog(string.Format("click widget=%1 button=%2 mode=%3 category=%4 candidateMode=%5 selectedNode=%6 selectedSlot=%7", widgetId, button, m_sEditorMode, m_sSelectedCategory, m_bCandidateMode, m_sSelectedNodeId, m_sSelectedSlotId));
 
 		if (widgetId == CLOSE_WIDGET_ID || widgetId == CANCEL_WIDGET_ID)
 		{
@@ -773,6 +777,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_bEditorOpen)
 			return;
 
+		if (IsDebugLoggingEnabled())
+		{
+			string payloadKind = "ignored";
+			if (payload.Contains("HST_LOADOUT_CANDIDATES"))
+				payloadKind = "candidates";
+			else if (payload.Contains("HST_LOADOUT_EDITOR"))
+				payloadKind = "editor";
+
+			DebugLog(string.Format("server result kind=%1 result=%2", payloadKind, ShortenText(lastResult, 120)));
+		}
+
 		if (payload.Contains("HST_LOADOUT_CANDIDATES"))
 		{
 			if (!lastResult.IsEmpty())
@@ -843,6 +858,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void RequestServerAction(string commandId, string argument)
 	{
+		DebugLog(string.Format("request command=%1 arg=%2", commandId, ShortenText(argument, 120)));
+
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.GetLocalOwner();
 		if (request)
 		{
@@ -1213,7 +1230,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int railTop = m_Layout.m_iRailTop;
 		int railWidth = m_Layout.m_iRailWidth;
 		int railHeight = m_Layout.m_iRailHeight;
-		Widget railBack = CreateRectWidget(workspace, root, railLeft, railTop, railWidth, railHeight, 0xCC0D1114, 1.0, 0);
+		Widget railBack = CreateRectWidget(workspace, root, railLeft, railTop, railWidth, railHeight, PANEL_BACK_COLOR, 1.0, 0);
 		if (railBack)
 			railBack.SetZOrder(0);
 
@@ -1275,7 +1292,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int railWidth = m_Layout.m_iRailWidth;
 		int railHeight = m_Layout.m_iRailHeight;
 
-		Widget railBack = CreateRectWidget(workspace, root, railLeft, railTop, railWidth, railHeight, 0xCC0D1114, 1.0, 0);
+		Widget railBack = CreateRectWidget(workspace, root, railLeft, railTop, railWidth, railHeight, PANEL_BACK_COLOR, 1.0, 0);
 		if (railBack)
 			railBack.SetZOrder(0);
 		CreateTextWidget(workspace, root, "Inventory Storage", railLeft + ScalePx(20), railTop + ScalePx(18), railWidth - ScalePx(40), ScalePx(22), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
@@ -1381,7 +1398,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int panelWidth = m_Layout.m_iMainWidth;
 		int panelHeight = m_Layout.m_iMainHeight;
 
-		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xCC0D1114, 1.0, 0);
+		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, PANEL_BACK_COLOR, 1.0, 0);
 		if (panelBack)
 			panelBack.SetZOrder(0);
 		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, ScalePx(3), 0xFFC4953B, 1.0, 0);
@@ -1561,8 +1578,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowWidgetVisible(row, "Secondary", false);
 		SetRowWidgetVisible(row, "Meta", false);
 
+		int rowWidth = Math.Max(ScalePx(220), m_Layout.m_iRailWidth - ScalePx(32));
 		int textLeft = ScalePx(86);
-		int textWidth = Math.Max(ScalePx(120), m_Layout.m_iRailWidth - ScalePx(126));
+		int textWidth = Math.Max(ScalePx(120), rowWidth - textLeft - ScalePx(16));
 
 		TextWidget primaryText = CreateTextWidget(workspace, body, ShortenText(primary, 36), textLeft, ScalePx(8), textWidth, ScalePx(18), m_Layout.m_iFontSmall, 0xFFEFE2C4, userId, true);
 		if (primaryText)
@@ -1589,15 +1607,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowWidgetVisible(row, "Name", false);
 		SetRowWidgetVisible(row, "Count", false);
 
+		int rowWidth = Math.Max(ScalePx(220), m_Layout.m_iRailWidth - ScalePx(32));
 		int textLeft = ScalePx(84);
-		int textWidth = Math.Max(ScalePx(120), m_Layout.m_iRailWidth - ScalePx(190));
+		int badgeWidth = ScalePx(76);
+		int badgeLeft = Math.Max(textLeft + ScalePx(116), rowWidth - badgeWidth - ScalePx(14));
+		badgeLeft = Math.Min(badgeLeft, Math.Max(textLeft + ScalePx(96), rowWidth - badgeWidth - ScalePx(8)));
+		int textWidth = Math.Max(ScalePx(90), badgeLeft - textLeft - ScalePx(12));
 
 		TextWidget nameText = CreateTextWidget(workspace, body, ShortenText(name, 42), textLeft, ScalePx(22), textWidth, ScalePx(18), m_Layout.m_iFontSmall, 0xFFE2E6E8, userId, false);
 		if (nameText)
 			nameText.SetZOrder(90);
 
 		if (!countText.IsEmpty())
-			CreateCountBadge(workspace, body, countText, ScalePx(270), ScalePx(22), ScalePx(76), ScalePx(24), userId);
+			CreateCountBadge(workspace, body, countText, badgeLeft, ScalePx(22), badgeWidth, ScalePx(24), userId);
 	}
 	protected void AddLoadoutCandidateTile(WorkspaceWidget workspace, Widget items, int candidateIndex, int userId)
 	{
@@ -1628,8 +1650,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget nameWidget = FindRowWidget(tile, "Name");
 		if (nameWidget)
 		{
-			FrameSlot.SetPos(nameWidget, ScalePx(108), ScalePx(12));
-			FrameSlot.SetSize(nameWidget, ScalePx(130), ScalePx(54));
 			nameWidget.SetZOrder(72);
 		}
 
@@ -1831,7 +1851,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int panelTop = m_Layout.m_iRailTop;
 		int panelWidth = m_Layout.m_iRailWidth;
 		int panelHeight = m_Layout.m_iRailHeight;
-		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xCC0D1114, 1.0, 0);
+		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, PANEL_BACK_COLOR, 1.0, 0);
 		if (panelBack)
 			panelBack.SetZOrder(0);
 		CreateRectWidget(workspace, root, panelLeft, panelTop + ScalePx(64), panelWidth, ScalePx(3), 0xFFC4953B, 1.0, 0);
@@ -1897,7 +1917,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int panelTop = m_Layout.m_iRailTop;
 		int panelWidth = m_Layout.m_iRailWidth;
 		int panelHeight = m_Layout.m_iRailHeight;
-		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xCC0D1114, 1.0, 0);
+		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, PANEL_BACK_COLOR, 1.0, 0);
 		if (panelBack)
 			panelBack.SetZOrder(0);
 		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, ScalePx(3), 0xFFC4953B, 1.0, 0);
@@ -1945,7 +1965,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int panelTop = m_Layout.m_iRailTop;
 		int panelWidth = m_Layout.m_iRailWidth;
 		int panelHeight = m_Layout.m_iRailHeight;
-		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, 0xCC0D1114, 1.0, 0);
+		Widget panelBack = CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, panelHeight, PANEL_BACK_COLOR, 1.0, 0);
 		if (panelBack)
 			panelBack.SetZOrder(0);
 		CreateRectWidget(workspace, root, panelLeft, panelTop, panelWidth, ScalePx(3), 0xFFC4953B, 1.0, 0);
@@ -2047,6 +2067,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (fields[0] == "FAILURE" && fields.Count() >= 2)
 			{
 				m_sServerFailureText = ResolvePayloadDisplayText(fields[1]);
+				continue;
+			}
+
+			if (fields[0] == "DEBUG" && fields.Count() >= 2)
+			{
+				m_bDebugLoggingEnabled = ParsePayloadBool(fields[1], false);
 				continue;
 			}
 
@@ -2350,6 +2376,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				m_aRequestedCandidateFrames.Remove(requestedIndex);
 			if (requestedIndex < m_aRequestedCandidateAttempts.Count())
 				m_aRequestedCandidateAttempts.Remove(requestedIndex);
+		}
+
+		if (IsDebugLoggingEnabled())
+		{
+			int candidateCount;
+			for (int candidateIndex = 0; candidateIndex < m_aCandidateNodeIds.Count(); candidateIndex++)
+			{
+				if (m_aCandidateNodeIds[candidateIndex] == candidateNodeId)
+					candidateCount++;
+			}
+
+			DebugLog(string.Format("candidate payload node=%1 status=%2 count=%3 reason=%4", candidateNodeId, candidateStatus, candidateCount, ShortenText(candidateEmptyReason, 120)));
 		}
 
 		ClampPages();
@@ -2963,7 +3001,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (category == "sidearm")
 			return "Sidearm";
 		if (category == "headgear")
-			return "Hat";
+			return "Headgear";
 		if (category == "clothing")
 			return "Jacket";
 		if (category == "vest")
@@ -3357,7 +3395,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (category == "clothing")
 			return "Jacket";
 		if (category == "headgear")
-			return "Hat";
+			return "Headgear";
 		if (category == "vest")
 			return "Armored Vest";
 		if (category == "pants")
@@ -3399,6 +3437,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return false;
 
 		return fallback;
+	}
+
+	protected bool IsDebugLoggingEnabled()
+	{
+		return m_bDebugLoggingEnabled;
+	}
+
+	protected void DebugLog(string message)
+	{
+		if (!IsDebugLoggingEnabled())
+			return;
+
+		Print("h-istasi loadout editor debug | " + message);
 	}
 
 	protected float ParsePayloadFloat(string value, float fallback = 0.0)
@@ -4326,7 +4377,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		vector debugMins;
 		vector debugMaxs;
 		m_PreviewEntity.GetWorldBounds(debugMins, debugMaxs);
-		Print(string.Format("h-istasi preview | mode=%1 source=%2 preview=%3 mins=%4 maxs=%5 size=%6 world=%7 light=%8", previewMode, previewSource, m_PreviewEntity, debugMins, debugMaxs, vector.Distance(debugMins, debugMaxs), m_PreviewWorld, m_PreviewLightEntity));
+		DebugLog(string.Format("preview mode=%1 source=%2 preview=%3 mins=%4 maxs=%5 size=%6 world=%7 light=%8", previewMode, previewSource, m_PreviewEntity, debugMins, debugMaxs, vector.Distance(debugMins, debugMaxs), m_PreviewWorld, m_PreviewLightEntity));
 		if (!HasUsablePreviewBounds(m_PreviewEntity))
 		{
 			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewEntity);
@@ -5364,7 +5415,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void UpdatePreviewCameraImmediate(bool allowSelectedFocus, string reason)
 	{
 		UpdatePreviewCamera(allowSelectedFocus);
-		Print(string.Format("h-istasi preview camera | %1 entity=%2 target=%3 look=%4 direction=%5 distance=%6 yaw=%7 sourceMode=%8", reason, m_PreviewEntity, m_vCameraTargetPosition, m_vCameraTargetLook, m_vCameraTargetDirection, m_fCameraTargetDistance, m_fPreviewYawDegrees, m_sPreviewSourceMode));
+		DebugLog(string.Format("preview camera %1 entity=%2 target=%3 look=%4 direction=%5 distance=%6 yaw=%7 sourceMode=%8", reason, m_PreviewEntity, m_vCameraTargetPosition, m_vCameraTargetLook, m_vCameraTargetDirection, m_fCameraTargetDistance, m_fPreviewYawDegrees, m_sPreviewSourceMode));
 	}
 
 	protected void AnimatePreviewCamera(float timeSlice)
@@ -5657,8 +5708,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidatePrefabs.Count())
 			prefab = m_aCandidatePrefabs[candidateIndex];
 
-		// Candidate tiles should not show category fallback icons; compact item text identifies failed previews.
-		return SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, false);
+		return SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, true);
 	}
 
 	protected ResourceName ResolveIconTexture(string key)
@@ -5871,11 +5921,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		if (row)
 		{
-			Print("h-istasi ui row | created " + label);
+			DebugLog("ui row created " + label);
 			return;
 		}
 
-		Print("h-istasi ui row | failed to create " + label, LogLevel.WARNING);
+		DebugLog("ui row failed to create " + label);
 	}
 
 	protected void SetRowText(Widget row, string widgetName, string text, int color, int fontSize, bool bold, bool wrap = true)

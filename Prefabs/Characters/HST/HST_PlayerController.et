@@ -8,5 +8,7 @@ SCR_PlayerController HST_PlayerController : "{CD2B8EF361478648}Prefabs/Character
   }
   HST_MissionClientComponent "{6985327711303205}" {
   }
+  HST_SetupMapComponent "{6985327711303206}" {
+  }
  }
 }

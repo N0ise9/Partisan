@@ -131,7 +131,8 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "autosaveIntervalSeconds", settings.m_Persistence.m_iAutosaveIntervalSeconds);
 			ApplyInt(line, "majorChangeDebounceSeconds", settings.m_Persistence.m_iMajorChangeDebounceSeconds);
 			ApplyBool(line, "debugMenuEnabled", settings.m_Debug.m_bDebugMenuEnabled);
-			ApplyBool(line, "verboseLogging", settings.m_Debug.m_bVerboseLogging);
+			ApplyBool(line, "verboseLogging", settings.m_Debug.m_bDebugLoggingEnabled);
+			ApplyBool(line, "debugLoggingEnabled", settings.m_Debug.m_bDebugLoggingEnabled);
 			ApplyBool(line, "physicalWarEnabled", settings.m_Features.m_bPhysicalWarEnabled);
 			ApplyBool(line, "areaLootEnabled", settings.m_Features.m_bAreaLootEnabled);
 			ApplyBool(line, "setupUiReadOnly", settings.m_Features.m_bSetupUiReadOnly);
@@ -220,6 +221,11 @@ class HST_RuntimeSettingsService
 				settings.m_Economy.m_iStartingInvaderSupportPool = 45;
 			if (settings.m_ArsenalLoot.m_iArsenalUnlockThreshold == 25)
 				settings.m_ArsenalLoot.m_iArsenalUnlockThreshold = 18;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 10)
+		{
 			changed = true;
 		}
 
@@ -401,7 +407,7 @@ class HST_RuntimeSettingsService
 		lines.Insert("  },");
 		lines.Insert("  \"debug\": {");
 		lines.Insert(string.Format("    \"debugMenuEnabled\": %1,", JsonBool(settings.m_Debug.m_bDebugMenuEnabled)));
-		lines.Insert(string.Format("    \"verboseLogging\": %1", JsonBool(settings.m_Debug.m_bVerboseLogging)));
+		lines.Insert(string.Format("    \"debugLoggingEnabled\": %1", JsonBool(settings.m_Debug.m_bDebugLoggingEnabled)));
 		lines.Insert("  },");
 		lines.Insert("  \"features\": {");
 		lines.Insert(string.Format("    \"physicalWarEnabled\": %1,", JsonBool(settings.m_Features.m_bPhysicalWarEnabled)));

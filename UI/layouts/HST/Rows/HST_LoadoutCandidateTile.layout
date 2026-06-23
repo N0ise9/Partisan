@@ -70,10 +70,10 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          Name "Name"
          Slot FrameWidgetSlot "{A7B8C9D001234606}" {
           Anchor 0 0 1 1
-          OffsetLeft 92
-          OffsetTop 10
-          OffsetRight -108
-          OffsetBottom -14
+          OffsetLeft 112
+          OffsetTop 12
+          OffsetRight -116
+          OffsetBottom -12
          }
          "Is Visible" 1
          "Ignore Cursor" 1

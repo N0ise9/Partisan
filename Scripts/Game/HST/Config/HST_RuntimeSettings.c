@@ -115,7 +115,7 @@ class HST_RuntimeSettingsPersistence
 class HST_RuntimeSettingsDebug
 {
 	bool m_bDebugMenuEnabled = true;
-	bool m_bVerboseLogging;
+	bool m_bDebugLoggingEnabled;
 }
 
 class HST_RuntimeSettingsFeatures
@@ -127,7 +127,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 9;
+	static const int SCHEMA_VERSION = 10;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();

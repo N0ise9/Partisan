@@ -477,11 +477,11 @@ if ($hqServiceText -notmatch 'm_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTra
 if ($coordinatorText -notmatch "RequestCommanderRebuildHQAssets" -or $coordinatorText -notmatch "ResolveHQRebuildPlacement") {
 	throw "Coordinator must expose a Build Mode guarded HQ runtime rebuild action"
 }
-if ($coordinatorText -notmatch "BootstrapInitialHideout\(m_State, HST_DefaultCatalog\.GetDefaultHideoutId\(\)\)") {
-	throw "Coordinator must bootstrap a visible starter HQ for fresh setup campaigns"
+if ($coordinatorText -match "BootstrapInitialHideout\(m_State, HST_DefaultCatalog\.GetDefaultHideoutId\(\)\)") {
+	throw "Coordinator must not bootstrap a starter HQ during setup; commander map placement owns initial HQ selection"
 }
-if ($coordinatorText -match "m_State\.m_bHQDeployed = false") {
-	throw "Setup foundation must not clear an already bootstrapped HQ"
+if ($coordinatorText -notmatch "ResetInitialHQSelection\(m_State\)") {
+	throw "Coordinator must reset legacy setup saves with bootstrapped HQ state"
 }
 Write-Host "Dedicated Petros prefab OK"
 
@@ -600,7 +600,8 @@ foreach ($requiredPlayerControllerEntry in @(
 	"SCR_PlayerController HST_PlayerController",
 	"DefaultPlayerControllerMP_ScenarioFramework.et",
 	"HST_CommandMenuRequestComponent",
-	"HST_CommandMenuComponent"
+	"HST_CommandMenuComponent",
+	"HST_SetupMapComponent"
 )) {
 	if ($playerControllerPrefabText -notmatch [regex]::Escape($requiredPlayerControllerEntry)) {
 		throw "HST player controller prefab is missing request/RPC bridge entry: $requiredPlayerControllerEntry"
@@ -611,6 +612,38 @@ Write-Host "HST player controller request bridge OK"
 $defaultCatalog = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c"
 $missionConfig = Get-Content -Raw "Configs/HST/Missions/HST_CE311_Missions.conf"
 $mapConfig = Get-Content -Raw "Configs/HST/Maps/HST_Everon.conf"
+$setupMapComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_SetupMapComponent.c"
+$requestBridgeSetupText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
+$playerSpawnSetupText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerSpawnService.c"
+
+foreach ($requiredSetupEntry in @(
+	"HST_SetupMapComponent",
+	"RequestSetupValidatePosition",
+	"RequestSetupConfirmPosition",
+	"Are you sure you want to place the HQ here?",
+	"Select a location on the map to place the HQ",
+	"Please wait, the commander is selecting the HQ location..."
+)) {
+	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupEntry) -and $requestBridgeSetupText -notmatch [regex]::Escape($requiredSetupEntry)) {
+		throw "Initial setup HQ placement flow is missing entry: $requiredSetupEntry"
+	}
+}
+foreach ($requiredSetupServerEntry in @(
+	"BuildSetupMapPayload",
+	"RequestSetupValidateHQPosition",
+	"RequestSetupConfirmHQPosition",
+	"SelectInitialHQPosition",
+	"ValidateInitialHQPosition",
+	"RegisterConnectedPlayersOnly"
+)) {
+	if (($coordinatorText + "`n" + $hqServiceText + "`n" + $playerSpawnSetupText) -notmatch [regex]::Escape($requiredSetupServerEntry)) {
+		throw "Initial setup HQ server flow is missing entry: $requiredSetupServerEntry"
+	}
+}
+if ($mapConfig -notmatch "m_vWorldMin\s+0\s+0\s+0" -or $mapConfig -notmatch "m_vWorldMax\s+12800\s+0\s+12800") {
+	throw "Everon map definition must expose setup map world bounds"
+}
+Write-Host "Initial HQ setup placement flow OK"
 
 if ($defaultCatalog -notmatch 'preset\.m_sResistanceFactionKey = "FIA"' -or $defaultCatalog -notmatch 'preset\.m_sOccupierFactionKey = "US"' -or $defaultCatalog -notmatch 'preset\.m_sInvaderFactionKey = "USSR"') {
 	throw "Campaign catalog must keep FIA as resistance, US as occupier, and USSR as invader"
@@ -1596,8 +1629,6 @@ foreach ($requiredCommandMenuEntry in @(
 	'keyboard:KC_I',
 	'IsLocalOwner',
 	'local player menu component ready',
-	'input registered',
-	'snapshot received',
 	'CreateWidgetInWorkspace',
 	'FrameWidgetTypeID',
 	'CanvasWidgetTypeID',
@@ -1628,9 +1659,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'Debug.KeyState(KeyCode.KC_I)',
 	'Debug.ClearKey(KeyCode.KC_I)',
 	'keyState != 0',
-	'custom action listener fired',
-	'raw KC_I edge seen',
-	'ignored duplicate toggle',
+	'HST_SetupMapComponent.IsSetupBlocking()',
 	'm_fCommandMenuDebounceRemaining',
 	'm_bCommandMenuKeyDownLastFrame',
 	'm_bRawIKeyDownLastFrame',
@@ -2055,7 +2084,7 @@ foreach ($requiredLoadoutCandidateTileEntry in @(
 	"MaxDesiredHeight 96",
 	"OffsetRight 82",
 	"OffsetBottom 82",
-	"OffsetLeft 92",
+	"OffsetLeft 112",
 	"OffsetLeft -98",
 	"OffsetTop 34"
 )) {
@@ -2084,6 +2113,7 @@ foreach ($requiredSettingsEntry in @(
 	"autosaveIntervalSeconds",
 	"activationRadiusMeters",
 	"deactivationRadiusMeters",
+	"debugLoggingEnabled",
 	"arsenalUnlockThreshold",
 	"magazineUnlockMultiplier",
 	"lootRadiusMeters",
@@ -2131,8 +2161,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 9") {
-	throw "Runtime settings schema must be bumped to 9 for Phase 24 balance tuning migration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 10") {
+	throw "Runtime settings schema must be bumped to 10 for debug logging configuration"
 }
 if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 18") {
 	throw "Runtime/balance defaults must set arsenal unlock threshold to 18"
@@ -2818,7 +2848,9 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"BuildStageToast",
 	"UpdatePreviewCamera",
 	"UpdatePreviewCameraImmediate",
-	"h-istasi preview camera",
+	"DebugLog(string.Format(`"preview camera",
+	"m_bDebugLoggingEnabled",
+	'fields[0] == "DEBUG"',
 	"AnimatePreviewCamera",
 	"ApplyPreviewCameraImmediate",
 	"m_vCameraTargetDirection",
@@ -2879,11 +2911,9 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"BuildStorageCapacityLabel(nodeIndex)",
 	"SetRowWidgetVisible(tile, `"Name`", true)",
 	"SetRowText(tile, `"Name`", ShortenText(itemName, 32)",
-	"FrameSlot.SetPos(nameWidget, ScalePx(108), ScalePx(12))",
-	"FrameSlot.SetSize(nameWidget, ScalePx(130), ScalePx(54))",
 	"SetRowText(tile, `"Count`", `"`", 0x00FFFFFF",
 	"CreateCountBadge(workspace, ResolveRowOverlayRoot(tile), countText, ScalePx(254), ScalePx(58), ScalePx(78), ScalePx(26), userId)",
-	"CreateCountBadge(workspace, body, countText, ScalePx(270), ScalePx(22), ScalePx(76), ScalePx(24), userId)",
+	"CreateCountBadge(workspace, body, countText, badgeLeft, ScalePx(22), badgeWidth, ScalePx(24), userId)",
 	"cell.SetZOrder(20)",
 	"slotImage.SetZOrder(21)",
 	"slotPreview.SetZOrder(22)",
@@ -2891,7 +2921,7 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"previewWidget.SetZOrder(22)",
 	"0xEE05080A",
 	"0x664B5960",
-	"0xCC0D1114",
+	"PANEL_BACK_COLOR",
 	"0xF2151C20",
 	"Math.Min(ScalePx(82), Math.Max(m_Layout.m_iPreviewCellLarge, ScalePx(76)))",
 	"FrameSlot.SetPos(anchor, ScalePx(18), ScalePx(7))",
@@ -2904,7 +2934,7 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"SetPreviewCellFromPrefab(Widget cell, string prefab, ResourceName fallbackIcon, int color, bool showFallbackIcon = true)",
 	"SetPreviewCellFromEntity(Widget cell, IEntity entity, ResourceName fallbackIcon, int color, bool showFallbackIcon = true)",
 	"imageWidget.SetOpacity(0.0)",
-	"SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, false)",
+	"SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, true)",
 	"SetPreviewCellFallbackIcon(cell, fallbackIcon, color)",
 	"RenderCandidateRow",
 	"RenderSelectedNodeHeader",
