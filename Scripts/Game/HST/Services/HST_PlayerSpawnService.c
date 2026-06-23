@@ -295,7 +295,7 @@ class HST_PlayerSpawnService
 		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
 			if (diagnostics)
-				Print(string.Format("h-istasi | setup requesting non-gameplay staging spawn for player %1", playerId));
+				Print(string.Format("h-istasi | setup requesting non-gameplay bootstrap spawn for player %1", playerId));
 
 			return RequestSetupHoldingSpawn(state, authorization, lifecycle, playerId, diagnostics);
 		}
@@ -378,7 +378,7 @@ class HST_PlayerSpawnService
 			ClearDeadRespawn(playerId);
 			ResetConnectedPlayerGraceLog(playerId);
 			SCR_RespawnSystemComponent.CloseRespawnMenu();
-			Print(string.Format("h-istasi | setup staging entity spawned for player %1; gameplay spawn remains blocked until HQ is placed", playerId));
+			Print(string.Format("h-istasi | setup bootstrap entity spawned for player %1; gameplay spawn remains blocked until HQ is placed", playerId));
 			return true;
 		}
 
@@ -481,7 +481,7 @@ class HST_PlayerSpawnService
 		SCR_RespawnComponent respawnComponent = SCR_RespawnComponent.Cast(playerManager.GetPlayerRespawnComponent(playerId));
 		if (!respawnComponent)
 		{
-			Print(string.Format("h-istasi | cannot create setup staging spawn for player %1: no SCR_RespawnComponent", playerId), LogLevel.ERROR);
+			Print(string.Format("h-istasi | cannot create setup bootstrap spawn for player %1: no SCR_RespawnComponent", playerId), LogLevel.ERROR);
 			return false;
 		}
 
@@ -493,14 +493,14 @@ class HST_PlayerSpawnService
 		{
 			ClearPendingSpawn(playerId);
 			ClearSetupHoldingPlayer(playerId);
-			Print(string.Format("h-istasi | native setup staging spawn request rejected for player %1", playerId), LogLevel.ERROR);
+			Print(string.Format("h-istasi | native setup bootstrap spawn request rejected for player %1", playerId), LogLevel.ERROR);
 			return false;
 		}
 
 		ClearDeadRespawn(playerId);
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		if (diagnostics)
-			Print(string.Format("h-istasi | setup staging spawn requested for player %1 at %2", playerId, spawnPosition));
+			Print(string.Format("h-istasi | setup bootstrap spawn requested for player %1 at %2", playerId, spawnPosition));
 
 		return true;
 	}

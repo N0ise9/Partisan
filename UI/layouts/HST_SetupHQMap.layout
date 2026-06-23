@@ -1,0 +1,35 @@
+FrameWidgetClass "{6985327711306000}" {
+ Name "HST_SetupHQMap"
+ Slot FrameWidgetSlot "{6985327711306001}" {
+  Anchor 0 0 1 1
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ {
+  FrameWidgetClass "{6985327711306002}" : "{0651202E9F2646DE}UI/layouts/Map/Map.layout" {
+   Name "MapFrame"
+   Slot FrameWidgetSlot "{6985327711306003}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   "Is Visible" 1
+  }
+  FrameWidgetClass "{6985327711306004}" {
+   Name "HST_SetupOverlayRoot"
+   Slot FrameWidgetSlot "{6985327711306005}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   "Is Visible" 1
+   "Ignore Cursor" 1
+  }
+ }
+}
