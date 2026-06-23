@@ -3,7 +3,7 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
  Slot AlignableSlot "{A7B8C9D001234609}" {
   HorizontalAlign 0
   VerticalAlign 0
-  Padding 0 0 8 8
+  Padding 0 0 16 16
  }
  Color 1 1 1 0
  "Is Visible" 1
@@ -77,6 +77,8 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
          FontProperties FontProperties "{C1A9E1A2092846E8}" {
           Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
           DisabledColor 0.38 0.38 0.38 1
@@ -93,6 +95,8 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
          FontProperties FontProperties "{C1A9E1A2092846E9}" {
           Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
           DisabledColor 0.38 0.38 0.38 1
