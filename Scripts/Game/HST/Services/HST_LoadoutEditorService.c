@@ -1365,6 +1365,21 @@ class HST_LoadoutEditorService
 
 	protected string ResolveAttachmentSlotKeyFromSlot(InventoryStorageSlot slot, AttachmentSlotComponent attachmentSlot)
 	{
+		if (attachmentSlot && attachmentSlot.GetAttachmentSlotType())
+		{
+			typename attachmentType = attachmentSlot.GetAttachmentSlotType().Type();
+			if (attachmentType.IsInherited(AttachmentOptics))
+				return "optic";
+			if (attachmentType.IsInherited(AttachmentUnderBarrel))
+				return "underbarrel";
+			if (attachmentType.IsInherited(AttachmentBayonet))
+				return "bayonet";
+			if (attachmentType.IsInherited(AttachmentMuzzle))
+				return "muzzle";
+			if (attachmentType.IsInherited(AttachmentHandGuard))
+				return "handguard";
+		}
+
 		string key;
 		if (slot)
 			key = slot.GetSourceName();
@@ -1382,8 +1397,14 @@ class HST_LoadoutEditorService
 			return "bayonet";
 		if (key.Contains("handguard"))
 			return "handguard";
+		if (key.Contains("stock") || key.Contains("butt"))
+			return "stock";
+		if (key.Contains("rail") || key.Contains("accessory"))
+			return "rail";
 		if (key.Contains("ammo") || key.Contains("magazine"))
 			return "magazine";
+		if (key.Contains("equipment"))
+			return "equipment";
 
 		return "attachment";
 	}
@@ -1391,19 +1412,44 @@ class HST_LoadoutEditorService
 	protected string ResolveAttachmentSlotLabel(string slotKey, string fallback)
 	{
 		if (slotKey == "optic")
-			return "Optics";
+			return "Optic";
 		if (slotKey == "muzzle")
 			return "Muzzle";
 		if (slotKey == "underbarrel")
-			return "Handguard";
+			return "Underbarrel";
 		if (slotKey == "bayonet")
 			return "Bayonet";
+		if (slotKey == "handguard")
+			return "Handguard";
+		if (slotKey == "stock")
+			return "Stock";
 		if (slotKey == "magazine")
-			return "Ammo";
-		if (!fallback.IsEmpty())
+			return "Magazine";
+		if (slotKey == "rail")
+			return "Accessory Rail";
+		if (slotKey == "equipment")
+			return "Equipment Slot";
+		if (!fallback.IsEmpty() && !IsLikelyRawSlotIdentifier(fallback))
 			return fallback;
 
-		return "Attachment";
+		return "Attachment Slot";
+	}
+
+	protected bool IsLikelyRawSlotIdentifier(string value)
+	{
+		value = value.Trim();
+		if (value.Length() < 10)
+			return false;
+
+		int hexLike;
+		for (int i = 0; i < value.Length(); i++)
+		{
+			string c = value.Substring(i, 1);
+			if ("0123456789abcdefABCDEF".Contains(c))
+				hexLike++;
+		}
+
+		return hexLike >= value.Length() - 1;
 	}
 
 	protected bool ReserveArsenalItemForEditor(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, string prefab, int count, out string failure)
@@ -3977,7 +4023,7 @@ class HST_LoadoutEditorService
 
 	protected bool IsAttachmentPrefab(string prefab)
 	{
-		return prefab.Contains("Optic") || prefab.Contains("Sight") || prefab.Contains("Scope") || prefab.Contains("Muzzle") || prefab.Contains("Suppressor") || prefab.Contains("Flash_Hider") || prefab.Contains("FlashHider") || prefab.Contains("Compensator") || prefab.Contains("Bipod") || prefab.Contains("Grip") || prefab.Contains("Underbarrel") || prefab.Contains("Bayonet") || prefab.Contains("Handguard") || prefab.Contains("Attachment");
+		return prefab.Contains("Optic") || prefab.Contains("Sight") || prefab.Contains("Scope") || prefab.Contains("Muzzle") || prefab.Contains("Suppressor") || prefab.Contains("Flash_Hider") || prefab.Contains("FlashHider") || prefab.Contains("Compensator") || prefab.Contains("Bipod") || prefab.Contains("Grip") || prefab.Contains("Underbarrel") || prefab.Contains("Bayonet") || prefab.Contains("Handguard") || prefab.Contains("Stock") || prefab.Contains("Attachment");
 	}
 
 	protected bool IsAttachmentCandidateForSlot(string slotKey, string prefab)
@@ -3995,6 +4041,12 @@ class HST_LoadoutEditorService
 			return prefab.Contains("Bayonet");
 		if (slotKey == "handguard")
 			return prefab.Contains("Handguard");
+		if (slotKey == "stock")
+			return prefab.Contains("Stock");
+		if (slotKey == "rail")
+			return IsAttachmentPrefab(prefab);
+		if (slotKey == "equipment")
+			return IsAttachmentPrefab(prefab);
 
 		return false;
 	}
@@ -4027,6 +4079,14 @@ class HST_LoadoutEditorService
 			return "bayonet";
 		if (attachmentSlotId.Contains("handguard"))
 			return "handguard";
+		if (attachmentSlotId.Contains("stock"))
+			return "stock";
+		if (attachmentSlotId.Contains("rail"))
+			return "rail";
+		if (attachmentSlotId.Contains("magazine") || attachmentSlotId.Contains("ammo"))
+			return "magazine";
+		if (attachmentSlotId.Contains("equipment"))
+			return "equipment";
 
 		return "attachment";
 	}

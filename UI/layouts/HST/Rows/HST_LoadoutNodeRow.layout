@@ -89,6 +89,8 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
          FontProperties FontProperties "{C1A9E1A2092846E0}" {
           Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
           DisabledColor 0.38 0.38 0.38 1
@@ -105,6 +107,8 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
          FontProperties FontProperties "{C1A9E1A2092846E1}" {
           Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
           DisabledColor 0.38 0.38 0.38 1
@@ -121,6 +125,8 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
          }
          "Is Visible" 0
          "Ignore Cursor" 1
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
          FontProperties FontProperties "{C1A9E1A2092846E2}" {
           Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
           DisabledColor 0.38 0.38 0.38 1

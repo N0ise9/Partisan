@@ -12,6 +12,7 @@ TextWidgetClass "{C1A9E1A2092846D3}" {
  Color 0.86 0.88 0.88 1
  "Font Size" 14
  "Min Font Size" 10
+ "Horizontal Alignment" Left
  "Vertical Alignment" Center
  Wrap 0
  "Line Spacing" 4
