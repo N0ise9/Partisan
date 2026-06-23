@@ -6,6 +6,8 @@ class HST_HQService
 	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
 	static const float ARSENAL_POSITION_TOLERANCE_METERS = 4.0;
+	static const string CUSTOM_SETUP_HQ_ID = "custom_setup_hq";
+	static const float SETUP_ZONE_FALLBACK_RADIUS_METERS = 150.0;
 
 	protected IEntity m_PetrosEntity;
 	protected IEntity m_CacheEntity;
@@ -18,6 +20,12 @@ class HST_HQService
 	protected bool m_bLoggedCacheSpawned;
 	protected bool m_bLoggedArsenalSpawned;
 	protected bool m_bLoggedTentSpawned;
+	protected bool m_bDebugLoggingEnabled;
+
+	void SetDebugLoggingEnabled(bool enabled)
+	{
+		m_bDebugLoggingEnabled = enabled;
+	}
 
 	bool BootstrapInitialHideout(HST_CampaignState state, string hideoutId)
 	{
@@ -47,6 +55,89 @@ class HST_HQService
 		SetHQPosition(state, resolvedHideoutId, hqPosition);
 		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		return true;
+	}
+
+	bool ValidateInitialHQPosition(HST_CampaignState state, vector requestedPosition, out vector resolvedPosition, out string failure)
+	{
+		resolvedPosition = requestedPosition;
+		failure = "";
+		DebugLog(string.Format("setup HQ validate requested=%1", requestedPosition));
+		if (!state)
+		{
+			failure = "campaign state not ready";
+			DebugLog("setup HQ validate rejected: campaign state not ready");
+			return false;
+		}
+
+		if (state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			failure = "campaign setup is already complete";
+			DebugLog(string.Format("setup HQ validate rejected: phase=%1", state.m_ePhase));
+			return false;
+		}
+
+		string zoneFailure;
+		if (IsInsideSetupBlockedZone(state, requestedPosition, zoneFailure))
+		{
+			failure = zoneFailure;
+			DebugLog(string.Format("setup HQ validate rejected before ground resolve: %1", failure));
+			return false;
+		}
+
+		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(requestedPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true, 6.0))
+		{
+			failure = "selected position is not dry land";
+			DebugLog(string.Format("setup HQ validate rejected: no safe dry ground requested=%1", requestedPosition));
+			return false;
+		}
+
+		if (HST_WorldPositionService.IsLikelyOpenWater(resolvedPosition))
+		{
+			failure = "selected position is open water";
+			DebugLog(string.Format("setup HQ validate rejected: open water resolved=%1", resolvedPosition));
+			return false;
+		}
+
+		if (IsInsideSetupBlockedZone(state, resolvedPosition, zoneFailure))
+		{
+			failure = zoneFailure;
+			DebugLog(string.Format("setup HQ validate rejected after ground resolve: %1 resolved=%2", failure, resolvedPosition));
+			return false;
+		}
+
+		DebugLog(string.Format("setup HQ validate accepted requested=%1 resolved=%2", requestedPosition, resolvedPosition));
+		return true;
+	}
+
+	bool SelectInitialHQPosition(HST_CampaignState state, vector requestedPosition, out vector resolvedPosition, out string failure)
+	{
+		if (!ValidateInitialHQPosition(state, requestedPosition, resolvedPosition, failure))
+			return false;
+
+		SetHQPosition(state, CUSTOM_SETUP_HQ_ID, resolvedPosition);
+		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		DebugLog(string.Format("setup HQ selected custom position=%1", resolvedPosition));
+		return true;
+	}
+
+	void ResetInitialHQSelection(HST_CampaignState state)
+	{
+		if (!state || state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+			return;
+
+		ClearRuntimeObjects(state);
+		state.m_sHQHideoutId = "";
+		state.m_vHQPosition = "0 0 0";
+		state.m_vPetrosPosition = "0 0 0";
+		state.m_vHQCachePosition = "0 0 0";
+		state.m_vArsenalPosition = "0 0 0";
+		state.m_vHQTentPosition = "0 0 0";
+		state.m_bHQDeployed = false;
+		state.m_bHQRuntimeObjectsSpawned = false;
+		state.m_bPetrosAlive = true;
+		state.m_sHQArsenalRuntimeStatus = "setup pending";
+		state.m_sLastHQArsenalFailure = "";
+		DebugLog("setup HQ selection reset to pending");
 	}
 
 	bool MoveHQ(HST_CampaignState state, string hideoutId)
@@ -436,6 +527,40 @@ class HST_HQService
 		return true;
 	}
 
+	protected bool IsInsideSetupBlockedZone(HST_CampaignState state, vector position, out string failure)
+	{
+		failure = "";
+		if (!state)
+			return false;
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			float radius = ResolveSetupBlockedZoneRadius(zone);
+			if (DistanceSq2D(position, zone.m_vPosition) > radius * radius)
+				continue;
+
+			string label = zone.m_sDisplayName;
+			if (label.IsEmpty())
+				label = zone.m_sZoneId;
+			failure = "selected position is inside " + label;
+			DebugLog(string.Format("setup HQ zone block position=%1 zone=%2 center=%3 radius=%4", position, zone.m_sZoneId, zone.m_vPosition, radius));
+			return true;
+		}
+
+		return false;
+	}
+
+	protected float ResolveSetupBlockedZoneRadius(HST_ZoneState zone)
+	{
+		if (zone && zone.m_iCaptureRadiusMeters > 0)
+			return zone.m_iCaptureRadiusMeters;
+
+		return SETUP_ZONE_FALLBACK_RADIUS_METERS;
+	}
+
 	protected void SetHQPosition(HST_CampaignState state, string hideoutId, vector hqPosition)
 	{
 		ClearRuntimeObjects(state);
@@ -458,6 +583,15 @@ class HST_HQService
 		state.m_sHQArsenalRuntimeStatus = "pending spawn";
 		state.m_sLastHQArsenalFailure = "";
 		Print(string.Format("h-istasi | HQ %1 placed at %2; Petros %3 cache %4 arsenal %5 tent %6", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition));
+		DebugLog(string.Format("HQ position set hideout=%1 hq=%2 petros=%3 cache=%4 arsenal=%5 tent=%6", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition));
+	}
+
+	protected void DebugLog(string message)
+	{
+		if (!m_bDebugLoggingEnabled)
+			return;
+
+		Print("h-istasi HQ debug | " + message);
 	}
 
 	protected void EnsureRuntimeGroundPlacement(HST_CampaignState state)

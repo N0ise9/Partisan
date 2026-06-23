@@ -42,10 +42,12 @@ class HST_PlayerSpawnService
 	static const float CONNECTED_PLAYER_SPAWN_GRACE_SECONDS = 1.5;
 	static const float PENDING_SPAWN_TIMEOUT_SECONDS = 12;
 	static const float DEAD_RESPAWN_DELAY_SECONDS = 3;
+	static const float SETUP_HOLDING_SPAWN_OFFSET_METERS = 38.0;
 
 	protected ref array<int> m_aConnectedPlayerIds = {};
 	protected ref array<float> m_aConnectedPlayerAges = {};
 	protected ref array<int> m_aConnectedPlayerGraceLogged = {};
+	protected ref array<int> m_aSetupHoldingPlayerIds = {};
 	protected ref array<int> m_aPendingSpawnPlayerIds = {};
 	protected ref array<float> m_aPendingSpawnAges = {};
 	protected ref array<string> m_aPendingSpawnPrefabs = {};
@@ -90,7 +92,10 @@ class HST_PlayerSpawnService
 			if (m_aPendingSpawnAges[i] < PENDING_SPAWN_TIMEOUT_SECONDS)
 				continue;
 
-			Print(string.Format("h-istasi | FIA spawn request for player %1 timed out; allowing retry", m_aPendingSpawnPlayerIds[i]), LogLevel.WARNING);
+			int timedOutPlayerId = m_aPendingSpawnPlayerIds[i];
+			if (IsSetupHoldingPlayer(timedOutPlayerId))
+				ClearSetupHoldingPlayer(timedOutPlayerId);
+			Print(string.Format("h-istasi | FIA spawn request for player %1 timed out; allowing retry", timedOutPlayerId), LogLevel.WARNING);
 			RemovePendingSpawnAt(i);
 		}
 
@@ -116,11 +121,25 @@ class HST_PlayerSpawnService
 		if (diagnostics)
 			Print(string.Format("h-istasi | FIA spawn sweep: %1 connected player(s)", playerIds.Count()));
 
+		if (state && state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			int setupSpawnRequests;
+			PrepareSetupConnectedPlayers(state, authorization, lifecycle, setupSpawnRequests, diagnostics);
+			return setupSpawnRequests;
+		}
+
 		int spawned;
 		foreach (int playerId : playerIds)
 		{
 			RegisterPlayerOnly(state, authorization, lifecycle, playerId);
 			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+			if (IsSetupHoldingPlayer(playerId))
+			{
+				ClearPendingSpawn(playerId);
+				DeleteSetupHoldingEntity(playerId, playerEntity, diagnostics);
+				playerEntity = null;
+			}
+
 			if (IsLivingPlayerEntity(playerEntity))
 			{
 				ClearDeadRespawn(playerId);
@@ -151,6 +170,93 @@ class HST_PlayerSpawnService
 		return spawned;
 	}
 
+	int PrepareSetupConnectedPlayers(HST_CampaignState state, HST_AuthorizationService authorization, HST_PlayerLifecycleService lifecycle, out int spawnRequests, bool diagnostics = false)
+	{
+		spawnRequests = 0;
+		if (!state || !authorization || !lifecycle)
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+
+		int registered;
+		foreach (int playerId : playerIds)
+		{
+			string identityId = lifecycle.ResolveIdentityId(playerId, "");
+			bool known = state.FindPlayer(identityId) != null;
+			HST_PlayerState player = RegisterPlayerOnly(state, authorization, lifecycle, playerId);
+			if (!player)
+				continue;
+
+			EnsureConnectedPlayerTracked(playerId);
+			ClearDeadRespawn(playerId);
+			if (!known)
+			{
+				registered++;
+				if (diagnostics)
+					Print(string.Format("h-istasi | setup registered connected player %1 as %2", playerId, player.m_sIdentityId));
+			}
+
+			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+			if (IsLivingPlayerEntity(playerEntity))
+			{
+				MarkSetupHoldingPlayer(playerId);
+				SCR_RespawnSystemComponent.CloseRespawnMenu();
+				continue;
+			}
+
+			if (HasPendingSpawn(playerId))
+				continue;
+
+			if (!IsConnectedPlayerSpawnGraceElapsed(playerId, diagnostics))
+				continue;
+
+			if (RequestSetupHoldingSpawn(state, authorization, lifecycle, playerId, diagnostics))
+				spawnRequests++;
+		}
+
+		return registered;
+	}
+
+	int RegisterConnectedPlayersOnly(HST_CampaignState state, HST_AuthorizationService authorization, HST_PlayerLifecycleService lifecycle, bool diagnostics = false)
+	{
+		if (!state || !authorization || !lifecycle)
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+
+		int registered;
+		foreach (int playerId : playerIds)
+		{
+			string identityId = lifecycle.ResolveIdentityId(playerId, "");
+			bool known = state.FindPlayer(identityId) != null;
+			HST_PlayerState player = RegisterPlayerOnly(state, authorization, lifecycle, playerId);
+			if (!player)
+				continue;
+
+			EnsureConnectedPlayerTracked(playerId);
+			ClearPendingSpawn(playerId);
+			ClearDeadRespawn(playerId);
+			if (!known)
+			{
+				registered++;
+				if (diagnostics)
+					Print(string.Format("h-istasi | setup registered connected player %1 as %2", playerId, player.m_sIdentityId));
+			}
+		}
+
+		return registered;
+	}
+
 	bool SpawnOrRespawnPlayer(HST_CampaignState state, HST_AuthorizationService authorization, HST_PlayerLifecycleService lifecycle, int playerId, bool diagnostics = false)
 	{
 		return RequestPlayerSpawn(state, authorization, lifecycle, playerId, diagnostics);
@@ -175,9 +281,6 @@ class HST_PlayerSpawnService
 			return false;
 		}
 
-		if (!IsConnectedPlayerSpawnGraceElapsed(playerId, diagnostics))
-			return false;
-
 		HST_PlayerState player = RegisterPlayerOnly(state, authorization, lifecycle, playerId);
 		if (!player)
 		{
@@ -187,7 +290,25 @@ class HST_PlayerSpawnService
 			return false;
 		}
 
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			if (diagnostics)
+				Print(string.Format("h-istasi | setup requesting temporary holding spawn for player %1", playerId));
+
+			return RequestSetupHoldingSpawn(state, authorization, lifecycle, playerId, diagnostics);
+		}
+
+		if (!IsConnectedPlayerSpawnGraceElapsed(playerId, diagnostics))
+			return false;
+
 		IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+		if (IsSetupHoldingPlayer(playerId))
+		{
+			ClearPendingSpawn(playerId);
+			DeleteSetupHoldingEntity(playerId, playerEntity, diagnostics);
+			playerEntity = null;
+		}
+
 		if (IsLivingPlayerEntity(playerEntity))
 		{
 			ClearDeadRespawn(playerId);
@@ -254,6 +375,16 @@ class HST_PlayerSpawnService
 		player.m_sLastSpawnPrefab = spawnPrefab;
 		player.m_vLastSpawnPosition = spawnPosition;
 		ApplyFaction(entity, PRIMARY_PLAYER_FACTION);
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			MarkSetupHoldingPlayer(playerId);
+			Print(string.Format("h-istasi | setup holding entity spawned for player %1", playerId));
+		}
+		else
+		{
+			ClearSetupHoldingPlayer(playerId);
+		}
+
 		ClearPendingSpawn(playerId);
 		ClearDeadRespawn(playerId);
 		ResetConnectedPlayerGraceLog(playerId);
@@ -284,6 +415,9 @@ class HST_PlayerSpawnService
 
 	bool AreConnectedPlayersSpawnStable(HST_CampaignState state)
 	{
+		if (state && state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+			return AreSetupHoldingPlayersStable();
+
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
 			return false;
@@ -325,6 +459,103 @@ class HST_PlayerSpawnService
 			return controlledEntity;
 
 		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+	}
+
+	protected bool RequestSetupHoldingSpawn(HST_CampaignState state, HST_AuthorizationService authorization, HST_PlayerLifecycleService lifecycle, int playerId, bool diagnostics = false)
+	{
+		if (!Replication.IsServer() || !state || !authorization || !lifecycle || playerId <= 0)
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager || !playerManager.IsPlayerConnected(playerId))
+			return false;
+
+		SCR_RespawnComponent respawnComponent = SCR_RespawnComponent.Cast(playerManager.GetPlayerRespawnComponent(playerId));
+		if (!respawnComponent)
+		{
+			Print(string.Format("h-istasi | cannot create setup holding spawn for player %1: no SCR_RespawnComponent", playerId), LogLevel.ERROR);
+			return false;
+		}
+
+		vector spawnPosition = GetSetupHoldingSpawnPosition(playerId);
+		SCR_FreeSpawnData spawnData = new SCR_FreeSpawnData(DEFAULT_PLAYER_PREFAB, spawnPosition, "0 0 0");
+		SetPendingSpawn(playerId, DEFAULT_PLAYER_PREFAB, spawnPosition);
+		MarkSetupHoldingPlayer(playerId);
+		if (!respawnComponent.RequestSpawn(spawnData))
+		{
+			ClearPendingSpawn(playerId);
+			ClearSetupHoldingPlayer(playerId);
+			Print(string.Format("h-istasi | native setup holding spawn request rejected for player %1", playerId), LogLevel.ERROR);
+			return false;
+		}
+
+		ClearDeadRespawn(playerId);
+		SCR_RespawnSystemComponent.CloseRespawnMenu();
+		if (diagnostics)
+			Print(string.Format("h-istasi | setup holding spawn requested for player %1 at %2", playerId, spawnPosition));
+
+		return true;
+	}
+
+	protected vector GetSetupHoldingSpawnPosition(int playerId)
+	{
+		vector fallbackPosition = HST_DefaultCatalog.GetHideoutPosition(HST_DefaultCatalog.GetDefaultHideoutId());
+		vector holdingCenter = HST_DefaultCatalog.GetEmergencySpawnPosition();
+		vector offset = GetSpawnRingOffset(PositiveModulo(playerId - 1, 16));
+		offset = vector.Direction(vector.Zero, offset) * SETUP_HOLDING_SPAWN_OFFSET_METERS;
+		return ResolveDryPlayerSpawnPosition(holdingCenter + offset, holdingCenter, fallbackPosition);
+	}
+
+	protected bool AreSetupHoldingPlayersStable()
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			if (HasPendingSpawn(playerId))
+				continue;
+
+			if (!HasLivingPlayerEntity(playerManager, playerId))
+				return false;
+		}
+
+		return true;
+	}
+
+	protected bool IsSetupHoldingPlayer(int playerId)
+	{
+		return m_aSetupHoldingPlayerIds.Contains(playerId);
+	}
+
+	protected void MarkSetupHoldingPlayer(int playerId)
+	{
+		if (playerId <= 0 || IsSetupHoldingPlayer(playerId))
+			return;
+
+		m_aSetupHoldingPlayerIds.Insert(playerId);
+	}
+
+	protected void ClearSetupHoldingPlayer(int playerId)
+	{
+		int index = m_aSetupHoldingPlayerIds.Find(playerId);
+		if (index >= 0)
+			m_aSetupHoldingPlayerIds.Remove(index);
+	}
+
+	protected void DeleteSetupHoldingEntity(int playerId, IEntity entity, bool diagnostics = false)
+	{
+		ClearSetupHoldingPlayer(playerId);
+		if (!entity)
+			return;
+
+		if (diagnostics)
+			Print(string.Format("h-istasi | deleting setup holding entity for player %1 before HQ spawn", playerId));
+
+		SCR_EntityHelper.DeleteEntityAndChildren(entity);
 	}
 
 	protected bool HasLivingPlayerEntity(PlayerManager playerManager, int playerId)

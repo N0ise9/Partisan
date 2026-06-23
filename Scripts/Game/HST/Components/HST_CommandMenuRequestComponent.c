@@ -91,6 +91,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		s_ServerBroadcaster.BroadcastMissionIntel_I(payload);
 	}
 
+	static void BroadcastSetupRefresh()
+	{
+		if (!s_ServerBroadcaster)
+			return;
+
+		s_ServerBroadcaster.BroadcastSetupRefresh_I();
+	}
+
 	string GetLastSnapshot()
 	{
 		return m_sLastSnapshot;
@@ -169,6 +177,39 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_RequestMissionIntel);
 	}
 
+	void RequestSetupState(string lastResult = "")
+	{
+		if (Replication.IsServer())
+		{
+			SendSetupStateToOwner(lastResult);
+			return;
+		}
+
+		Rpc(RpcAsk_RequestSetupState, lastResult);
+	}
+
+	void RequestSetupValidatePosition(float worldX, float worldZ)
+	{
+		if (Replication.IsServer())
+		{
+			SendSetupValidateResultToOwner(worldX, worldZ);
+			return;
+		}
+
+		Rpc(RpcAsk_RequestSetupValidatePosition, worldX, worldZ);
+	}
+
+	void RequestSetupConfirmPosition(float worldX, float worldZ)
+	{
+		if (Replication.IsServer())
+		{
+			SendSetupConfirmResultToOwner(worldX, worldZ);
+			return;
+		}
+
+		Rpc(RpcAsk_RequestSetupConfirmPosition, worldX, worldZ);
+	}
+
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_RequestSnapshot(string selectedTabId, string lastResult)
 	{
@@ -191,6 +232,24 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void RpcAsk_RequestMissionIntel()
 	{
 		SendMissionIntelToOwner();
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_RequestSetupState(string lastResult)
+	{
+		SendSetupStateToOwner(lastResult);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_RequestSetupValidatePosition(float worldX, float worldZ)
+	{
+		SendSetupValidateResultToOwner(worldX, worldZ);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_RequestSetupConfirmPosition(float worldX, float worldZ)
+	{
+		SendSetupConfirmResultToOwner(worldX, worldZ);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -244,6 +303,30 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			missionClient.OnServerMissionIntel(payload);
 	}
 
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ReceiveSetupState(string payload, string lastResult)
+	{
+		HST_SetupMapComponent setupMap = HST_SetupMapComponent.GetLocalInstance();
+		if (setupMap)
+			setupMap.OnServerSetupState(payload, lastResult);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ReceiveSetupResult(string payload)
+	{
+		HST_SetupMapComponent setupMap = HST_SetupMapComponent.GetLocalInstance();
+		if (setupMap)
+			setupMap.OnServerSetupResult(payload);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
+	protected void RpcDo_RefreshSetupState()
+	{
+		HST_SetupMapComponent setupMap = HST_SetupMapComponent.GetLocalInstance();
+		if (setupMap)
+			setupMap.RequestSetupStateNow();
+	}
+
 	protected void SendSnapshotToOwner(string selectedTabId, string lastResult)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
@@ -272,6 +355,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void BroadcastMissionIntel_I(string payload)
 	{
 		Rpc(RpcDo_ReceiveMissionIntel, payload);
+	}
+
+	protected void BroadcastSetupRefresh_I()
+	{
+		RpcDo_RefreshSetupState();
+		Rpc(RpcDo_RefreshSetupState);
 	}
 
 	protected void DeliverNotificationLocal(string payload, string summary)
@@ -359,6 +448,48 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		DeliverMissionIntel(coordinator.BuildMissionIntelPayload(playerId));
 	}
 
+	protected void SendSetupStateToOwner(string lastResult = "")
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+		{
+			DeliverSetupState("HST_SETUP|offline|0|0|0|0|12800|12800|coordinator not ready|0\nEND", lastResult);
+			return;
+		}
+
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		DeliverSetupState(coordinator.BuildSetupMapPayload(playerId, lastResult), lastResult);
+	}
+
+	protected void SendSetupValidateResultToOwner(float worldX, float worldZ)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+		{
+			DeliverSetupResult("HST_SETUP_RESULT|validate|0|0|0|0|coordinator not ready");
+			return;
+		}
+
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		string result = coordinator.RequestSetupValidateHQPosition(playerId, worldX, worldZ);
+		DeliverSetupResult(result);
+	}
+
+	protected void SendSetupConfirmResultToOwner(float worldX, float worldZ)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+		{
+			DeliverSetupResult("HST_SETUP_RESULT|confirm|0|0|0|0|coordinator not ready");
+			return;
+		}
+
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		string result = coordinator.RequestSetupConfirmHQPosition(playerId, worldX, worldZ);
+		DeliverSetupResult(result);
+		DeliverSetupState(coordinator.BuildSetupMapPayload(playerId, result), result);
+	}
+
 	protected void DeliverSnapshot(string payload, string lastResult)
 	{
 		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
@@ -393,6 +524,30 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		Rpc(RpcDo_ReceiveMissionIntelOwner, payload);
+	}
+
+	protected void DeliverSetupState(string payload, string lastResult)
+	{
+		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
+		if (Replication.IsServer() && (!rpl || rpl.IsOwner()))
+		{
+			RpcDo_ReceiveSetupState(payload, lastResult);
+			return;
+		}
+
+		Rpc(RpcDo_ReceiveSetupState, payload, lastResult);
+	}
+
+	protected void DeliverSetupResult(string payload)
+	{
+		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
+		if (Replication.IsServer() && (!rpl || rpl.IsOwner()))
+		{
+			RpcDo_ReceiveSetupResult(payload);
+			return;
+		}
+
+		Rpc(RpcDo_ReceiveSetupResult, payload);
 	}
 
 	protected void RefreshLocalOwner(IEntity owner)

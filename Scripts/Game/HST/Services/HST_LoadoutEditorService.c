@@ -72,6 +72,19 @@ class HST_LoadoutEditorService
 
 	protected ref array<string> m_aLoadablePrefabCache = {};
 	protected ref array<bool> m_aLoadablePrefabResults = {};
+	protected bool m_bDebugLoggingEnabled;
+
+	void SetDebugSettings(HST_RuntimeSettingsDebug debugSettings)
+	{
+		m_bDebugLoggingEnabled = false;
+		if (debugSettings)
+			m_bDebugLoggingEnabled = debugSettings.m_bDebugLoggingEnabled;
+	}
+
+	protected bool IsDebugLoggingEnabled()
+	{
+		return m_bDebugLoggingEnabled;
+	}
 
 	string OpenEditor(HST_CampaignState state, string identityId, int playerId)
 	{
@@ -137,6 +150,7 @@ class HST_LoadoutEditorService
 		string payload = string.Format("HST_LOADOUT_EDITOR|%1|%2|%3|%4|%5|%6|%7", session.m_sStatus, session.m_sCurrentLoadoutId, session.m_bPreviewSpawned, session.m_aDraftSlots.Count(), draftItemCount, finiteRequired, infiniteRequired);
 		payload = payload + string.Format("\nPREVIEW|%1|%2|%3|%4", session.m_bPreviewSpawned, session.m_vPreviewPosition, session.m_iPreviewItemCount, SanitizePayloadField(session.m_sPreviewStatus));
 		payload = payload + string.Format("\nPREVIEW_PREFAB|%1", session.m_sPreviewPrefab);
+		payload = payload + string.Format("\nDEBUG|%1", m_bDebugLoggingEnabled);
 		if (!state.m_sLastLoadoutEditorFailure.IsEmpty())
 			payload = payload + "\nFAILURE|" + SanitizePayloadField(state.m_sLastLoadoutEditorFailure);
 
@@ -221,7 +235,8 @@ class HST_LoadoutEditorService
 		if (logReason.IsEmpty())
 			logReason = "ready";
 
-		Print(string.Format("h-istasi loadout editor | candidates node %1 | count %2 | arsenal %3 | reason %4", nodeId, candidateCount, state.m_aArsenalItems.Count(), logReason));
+		if (IsDebugLoggingEnabled())
+			Print(string.Format("h-istasi loadout editor debug | candidates node %1 | count %2 | arsenal %3 | reason %4", nodeId, candidateCount, state.m_aArsenalItems.Count(), logReason));
 		return string.Format("HST_LOADOUT_CANDIDATES|%1|ready|%2|%3", nodeId, candidateCount, SanitizePayloadField(emptyReason)) + candidates;
 	}
 
@@ -620,7 +635,7 @@ class HST_LoadoutEditorService
 			if (!slot || !loadoutSlot)
 				continue;
 
-			string category = ResolveLoadoutSlotCategory(loadoutSlot);
+			string category = ResolveLoadoutSlotCategory(loadoutSlot, slot.GetAttachedEntity());
 			string label = ResolveLoadoutSlotLabel(loadoutSlot, category, slot.GetAttachedEntity());
 			string focus = ResolveFocusForCategory(category);
 			string nodeId = NODE_LOADOUT_PREFIX + string.Format("%1", slotIndex);
@@ -756,7 +771,7 @@ class HST_LoadoutEditorService
 			node.m_sDisplayName = label;
 			node.m_sItemPrefab = ResolveEntityPrefab(containerEntity);
 			node.m_sCategory = "storage";
-			node.m_sFocus = ResolveFocusForCategory(ResolveLoadoutSlotCategory(LoadoutSlotInfo.Cast(slot)));
+			node.m_sFocus = ResolveFocusForCategory(ResolveLoadoutSlotCategory(LoadoutSlotInfo.Cast(slot), containerEntity));
 			node.m_bCanOpen = true;
 			node.m_bCanDeposit = true;
 			node.m_bCanRemove = false;
@@ -1217,23 +1232,35 @@ class HST_LoadoutEditorService
 
 	protected string ResolveCategoryFromEntity(IEntity entity, string prefab)
 	{
+		string prefabCategory = ResolveCategoryFromPrefab(prefab);
 		if (!entity)
-			return ResolveCategoryFromPrefab(prefab);
+			return prefabCategory;
 
-		if (BaseLoadoutClothComponent.Cast(entity.FindComponent(BaseLoadoutClothComponent)))
-			return "clothing";
+		if (IsLoadoutClothingCategory(prefabCategory))
+			return prefabCategory;
 		if (BaseWeaponComponent.Cast(entity.FindComponent(BaseWeaponComponent)))
 			return "weapon";
 		if (MagazineComponent.Cast(entity.FindComponent(MagazineComponent)) || BaseMagazineComponent.Cast(entity.FindComponent(BaseMagazineComponent)))
 			return "magazine";
 		if (AttachmentSlotComponent.Cast(entity.FindComponent(AttachmentSlotComponent)))
 			return "attachment";
+		if (BaseLoadoutClothComponent.Cast(entity.FindComponent(BaseLoadoutClothComponent)))
+			return "clothing";
 
-		return ResolveCategoryFromPrefab(prefab);
+		return prefabCategory;
 	}
 
-	protected string ResolveLoadoutSlotCategory(LoadoutSlotInfo loadoutSlot)
+	protected bool IsLoadoutClothingCategory(string category)
 	{
+		return category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear";
+	}
+
+	protected string ResolveLoadoutSlotCategory(LoadoutSlotInfo loadoutSlot, IEntity attachedEntity = null)
+	{
+		string itemCategory = ResolveCategoryFromEntity(attachedEntity, ResolveEntityPrefab(attachedEntity));
+		if (IsLoadoutClothingCategory(itemCategory))
+			return itemCategory;
+
 		if (!loadoutSlot)
 			return "clothing";
 
@@ -1268,7 +1295,7 @@ class HST_LoadoutEditorService
 	protected string ResolveLoadoutSlotLabel(LoadoutSlotInfo loadoutSlot, string category, IEntity attachedEntity = null)
 	{
 		if (category == "headgear")
-			return "Hat";
+			return "Headgear";
 		if (category == "clothing")
 			return "Jacket";
 		if (category == "vest")
@@ -2854,7 +2881,7 @@ class HST_LoadoutEditorService
 			return;
 
 		session.m_aDraftNodes.Clear();
-		AddLoadoutNodeForCategory(session, "headgear", "Hat", "Hat", "head");
+		AddLoadoutNodeForCategory(session, "headgear", "Headgear", "Headgear", "head");
 		AddLoadoutNodeForCategory(session, "clothing", "Jacket", "Jacket", "torso");
 		AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Armored Vest", "torso");
 		AddLoadoutNodeForCategory(session, "pants", "Pants", "Pants", "legs");
@@ -3142,17 +3169,17 @@ class HST_LoadoutEditorService
 	protected string GetEditorSlotLabel(string categoryId)
 	{
 		if (categoryId == "clothing")
-			return "Uniform";
+			return "Jacket";
 		if (categoryId == "headgear")
-			return "Head";
+			return "Headgear";
 		if (categoryId == "vest")
-			return "Vest";
+			return "Armored Vest";
 		if (categoryId == "pants")
 			return "Pants";
 		if (categoryId == "boots")
 			return "Boots";
 		if (categoryId == "backpack")
-			return "Back";
+			return "Backpack";
 		if (categoryId == "handwear")
 			return "Handwear";
 		if (categoryId == "weapon")
@@ -3267,11 +3294,11 @@ class HST_LoadoutEditorService
 		if (nodeId.Contains("underbarrel"))
 			return "Underbarrel";
 		if (nodeId.Contains("headgear"))
-			return "Hat";
+			return "Headgear";
 		if (nodeId.Contains("vest"))
-			return "Vest";
+			return "Armored Vest";
 		if (nodeId.Contains("backpack"))
-			return "Back";
+			return "Backpack";
 		if (nodeId.Contains("weapon"))
 			return "Weapon";
 
@@ -3533,7 +3560,8 @@ class HST_LoadoutEditorService
 			}
 		}
 
-		Print(string.Format("h-istasi loadout editor | requested physical insertion of %1 item(s) for %2 slot custom loadout", inserted, loadout.m_aSlots.Count()));
+		if (IsDebugLoggingEnabled())
+			Print(string.Format("h-istasi loadout editor debug | requested physical insertion of %1 item(s) for %2 slot custom loadout", inserted, loadout.m_aSlots.Count()));
 		return true;
 	}
 
@@ -3872,7 +3900,7 @@ class HST_LoadoutEditorService
 
 	protected string ResolveCategoryFromPrefab(string prefab)
 	{
-		if (prefab.Contains("Helmet") || prefab.Contains("Hat") || prefab.Contains("Headgear") || prefab.Contains("Cap"))
+		if (prefab.Contains("Helmet") || prefab.Contains("Hat") || prefab.Contains("Headgear") || prefab.Contains("Cap") || prefab.Contains("Beanie") || prefab.Contains("Boonie") || prefab.Contains("Beret"))
 			return "headgear";
 		if (prefab.Contains("Pants") || prefab.Contains("Trouser"))
 			return "pants";
@@ -3880,7 +3908,7 @@ class HST_LoadoutEditorService
 			return "boots";
 		if (prefab.Contains("Glove") || prefab.Contains("Handwear"))
 			return "handwear";
-		if (prefab.Contains("Uniform") || prefab.Contains("Jacket") || prefab.Contains("Shirt") || prefab.Contains("Clothes") || prefab.Contains("Blouse"))
+		if (prefab.Contains("Uniform") || prefab.Contains("Jacket") || prefab.Contains("Shirt") || prefab.Contains("Clothes") || prefab.Contains("Blouse") || prefab.Contains("Parka") || prefab.Contains("Coat"))
 			return "clothing";
 		if (prefab.Contains("Vest") || prefab.Contains("Carrier") || prefab.Contains("Webbing"))
 			return "vest";

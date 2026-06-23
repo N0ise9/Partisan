@@ -7,6 +7,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 {
 	protected static HST_CampaignCoordinatorComponent s_Instance;
 	static const int MARKER_REFRESH_THROTTLE_SECONDS = 10;
+	static const float SETUP_MAP_WORLD_MIN_X = 0.0;
+	static const float SETUP_MAP_WORLD_MIN_Z = 0.0;
+	static const float SETUP_MAP_WORLD_MAX_X = 12800.0;
+	static const float SETUP_MAP_WORLD_MAX_Z = 12800.0;
+	static const float SETUP_ZONE_FALLBACK_RADIUS_METERS = 150.0;
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 	static const string PHASE14_FINITE_PREFAB = "{6985327711303750}Prefabs/Objects/HST/HST_MissionProp_CitySupplies.et";
 	static const string PHASE14_THRESHOLD_PREFAB = "{6985327711303760}Prefabs/Objects/HST/HST_MissionProp_ConvoyPayload.et";
@@ -53,6 +58,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected float m_fSpawnSweepAccumulator;
 	protected int m_iLastMarkerRefreshSecond = -999999;
 	protected int m_iSpawnDiagnosticsRemaining;
+	protected int m_iSetupPayloadDebugCount;
+	protected int m_iSetupValidationDebugCount;
+	protected int m_iSetupConfirmDebugCount;
 	protected bool m_bSpawnSweepArmed;
 	protected int m_iStableSpawnSweepCount;
 	protected bool m_bDeferredMarkerRefresh;
@@ -82,6 +90,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Arsenal = new HST_ArsenalService();
 		m_EnemyDirector = new HST_EnemyDirectorService();
 		m_HQ = new HST_HQService();
+		if (m_HQ && m_Settings && m_Settings.m_Debug)
+			m_HQ.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_PlayerLifecycle = new HST_PlayerLifecycleService();
 		m_Towns = new HST_TownService();
 		m_Garrisons = new HST_GarrisonService();
@@ -95,6 +105,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Loot = new HST_LootService();
 		m_BuildMode = new HST_BuildModeService();
 		m_LoadoutEditor = new HST_LoadoutEditorService();
+		if (m_LoadoutEditor && m_Settings)
+			m_LoadoutEditor.SetDebugSettings(m_Settings.m_Debug);
 		m_Content = new HST_GeneratedContentService();
 		m_Objectives = new HST_MissionObjectiveService();
 		m_MissionRuntime = new HST_MissionRuntimeService();
@@ -294,6 +306,139 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string result = m_CommandUI.ExecuteVisibleCommand(this, playerId, commandId, argument);
 		LogVisibleMenuCommandResult(playerId, selectedTabId, commandId, argument, result);
 		return result;
+	}
+
+	string BuildSetupMapPayload(int playerId, string lastResult = "")
+	{
+		if (!Replication.IsServer() || !m_State)
+			return "HST_SETUP|offline|0|0|0|0|12800|12800|server coordinator not ready|0\nEND";
+
+		EnsureSetupRegisteredPlayer(playerId);
+		bool setupActive = m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
+		bool isCommander = setupActive && CanPlayerUseCommanderActions(playerId);
+		string phase = CampaignPhaseLabelForSetup(m_State.m_ePhase);
+		string status = lastResult;
+		if (status.IsEmpty())
+		{
+			if (setupActive && isCommander)
+				status = "Select a location on the map to place the HQ";
+			else if (setupActive)
+				status = "Please wait, the commander is selecting the HQ location...";
+			else
+				status = "Campaign active";
+		}
+
+		string payload = string.Format(
+			"HST_SETUP|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			phase,
+			BoolPayload(setupActive),
+			BoolPayload(isCommander),
+			SETUP_MAP_WORLD_MIN_X,
+			SETUP_MAP_WORLD_MIN_Z,
+			SETUP_MAP_WORLD_MAX_X,
+			SETUP_MAP_WORLD_MAX_Z,
+			PayloadText(status),
+			BoolPayload(IsDebugLoggingEnabled())
+		);
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			payload = payload + "\nZONE";
+			payload = payload + "|" + PayloadText(zone.m_sZoneId);
+			payload = payload + "|" + PayloadText(ResolveZoneLabel(zone));
+			payload = payload + "|" + PayloadText(ResolveZoneTypeLabel(zone.m_eType));
+			payload = payload + "|" + PayloadText(zone.m_sOwnerFactionKey);
+			payload = payload + "|" + string.Format("%1", zone.m_vPosition[0]);
+			payload = payload + "|" + string.Format("%1", zone.m_vPosition[2]);
+			payload = payload + "|" + string.Format("%1", ResolveSetupZoneRadius(zone));
+			payload = payload + "|" + PayloadText(ResolveSetupZoneTone(zone));
+		}
+
+		m_iSetupPayloadDebugCount++;
+		if (m_iSetupPayloadDebugCount <= 8 || (m_iSetupPayloadDebugCount % 20) == 0)
+			DebugLog(string.Format("setup payload #%1 player=%2 phase=%3 setup=%4 commander=%5 zones=%6 status=%7", m_iSetupPayloadDebugCount, playerId, phase, setupActive, isCommander, m_State.m_aZones.Count(), status));
+
+		return payload + "\nEND";
+	}
+
+	string RequestSetupValidateHQPosition(int playerId, float worldX, float worldZ)
+	{
+		if (!Replication.IsServer() || !m_State || !m_HQ)
+			return BuildSetupResultPayload("validate", false, "0 0 0", "server coordinator not ready");
+
+		EnsureSetupRegisteredPlayer(playerId);
+		if (m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			DebugLog(string.Format("setup validate rejected player=%1 pos=%2,%3 reason=campaign already complete phase=%4", playerId, worldX, worldZ, m_State.m_ePhase));
+			return BuildSetupResultPayload("validate", false, "0 0 0", "campaign setup is already complete");
+		}
+		if (!CanPlayerUseCommanderActions(playerId))
+		{
+			DebugLog(string.Format("setup validate rejected player=%1 pos=%2,%3 reason=not commander commander=%4", playerId, worldX, worldZ, m_State.m_sCommanderIdentityId));
+			return BuildSetupResultPayload("validate", false, "0 0 0", "commander authority required");
+		}
+
+		vector requestedPosition = "0 0 0";
+		requestedPosition[0] = worldX;
+		requestedPosition[2] = worldZ;
+
+		m_iSetupValidationDebugCount++;
+		DebugLog(string.Format("setup validate #%1 player=%2 requested=%3", m_iSetupValidationDebugCount, playerId, requestedPosition));
+		vector resolvedPosition;
+		string failure;
+		if (!m_HQ.ValidateInitialHQPosition(m_State, requestedPosition, resolvedPosition, failure))
+		{
+			DebugLog(string.Format("setup validate #%1 rejected resolved=%2 failure=%3", m_iSetupValidationDebugCount, resolvedPosition, failure));
+			return BuildSetupResultPayload("validate", false, resolvedPosition, failure);
+		}
+
+		DebugLog(string.Format("setup validate #%1 accepted resolved=%2", m_iSetupValidationDebugCount, resolvedPosition));
+		return BuildSetupResultPayload("validate", true, resolvedPosition, "HQ position is valid");
+	}
+
+	string RequestSetupConfirmHQPosition(int playerId, float worldX, float worldZ)
+	{
+		if (!Replication.IsServer() || !m_State || !m_HQ)
+			return BuildSetupResultPayload("confirm", false, "0 0 0", "server coordinator not ready");
+
+		EnsureSetupRegisteredPlayer(playerId);
+		if (m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			DebugLog(string.Format("setup confirm rejected player=%1 pos=%2,%3 reason=campaign already complete phase=%4", playerId, worldX, worldZ, m_State.m_ePhase));
+			return BuildSetupResultPayload("confirm", false, "0 0 0", "campaign setup is already complete");
+		}
+		if (!CanPlayerUseCommanderActions(playerId))
+		{
+			DebugLog(string.Format("setup confirm rejected player=%1 pos=%2,%3 reason=not commander commander=%4", playerId, worldX, worldZ, m_State.m_sCommanderIdentityId));
+			return BuildSetupResultPayload("confirm", false, "0 0 0", "commander authority required");
+		}
+
+		vector requestedPosition = "0 0 0";
+		requestedPosition[0] = worldX;
+		requestedPosition[2] = worldZ;
+
+		m_iSetupConfirmDebugCount++;
+		DebugLog(string.Format("setup confirm #%1 player=%2 requested=%3", m_iSetupConfirmDebugCount, playerId, requestedPosition));
+		vector resolvedPosition;
+		string failure;
+		if (!m_HQ.SelectInitialHQPosition(m_State, requestedPosition, resolvedPosition, failure))
+		{
+			DebugLog(string.Format("setup confirm #%1 rejected resolved=%2 failure=%3", m_iSetupConfirmDebugCount, resolvedPosition, failure));
+			return BuildSetupResultPayload("confirm", false, resolvedPosition, failure);
+		}
+
+		m_HQ.EnsureRuntimeObjects(m_State);
+		RefreshCampaignMarkers();
+		if (m_Persistence)
+			m_Persistence.RequestCheckpoint("h-istasi setup HQ placed", m_State);
+		ArmPlayerSpawnSweep(6);
+		MarkMajorCampaignChange(true);
+		HST_CommandMenuRequestComponent.BroadcastSetupRefresh();
+		DebugLog(string.Format("setup confirm #%1 accepted resolved=%2; campaign phase active and spawn sweep armed", m_iSetupConfirmDebugCount, resolvedPosition));
+		return BuildSetupResultPayload("confirm", true, resolvedPosition, "HQ placed");
 	}
 
 	string BuildLoadoutEditorPayload(int playerId)
@@ -4718,8 +4863,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_Arsenal && m_Arsenal.CleanupInvalidGarageRecords(m_State) > 0)
 			m_State.m_sLastVehicleTargetStatus = "removed invalid saved vehicle/cargo records";
 
-		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP && !m_State.m_bHQDeployed && m_HQ)
-			m_HQ.BootstrapInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP && m_State.m_bHQDeployed && m_HQ)
+		{
+			m_HQ.ResetInitialHQSelection(m_State);
+			m_State.m_sLastPersistenceStatus = "setup HQ selection pending";
+			Print("h-istasi | setup campaign had a preselected HQ; reset to commander placement flow");
+		}
 	}
 
 	protected void SanitizeFactionKeys(HST_CampaignState state)
@@ -5611,6 +5760,108 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return value;
 	}
 
+	protected string BoolPayload(bool value)
+	{
+		if (value)
+			return "1";
+
+		return "0";
+	}
+
+	protected string BuildSetupResultPayload(string action, bool accepted, vector resolvedPosition, string message)
+	{
+		return string.Format(
+			"HST_SETUP_RESULT|%1|%2|%3|%4|%5|%6",
+			PayloadText(action),
+			BoolPayload(accepted),
+			resolvedPosition[0],
+			resolvedPosition[1],
+			resolvedPosition[2],
+			PayloadText(message)
+		);
+	}
+
+	protected HST_PlayerState EnsureSetupRegisteredPlayer(int playerId)
+	{
+		if (!m_State || !m_PlayerLifecycle || !m_Authorization || playerId <= 0)
+			return null;
+
+		string resolvedIdentityId = m_PlayerLifecycle.ResolveIdentityId(playerId, "");
+		bool known = m_State.FindPlayer(resolvedIdentityId) != null;
+		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, "", IsSettingsAdminIdentity(resolvedIdentityId) || IsDeveloperFallbackAdminIdentity(resolvedIdentityId));
+		ApplyRuntimeMembershipDefaults(player);
+		if (player && m_Civilians)
+			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
+		if (player && !known)
+			MarkMajorCampaignChange(false);
+
+		return player;
+	}
+
+	protected string CampaignPhaseLabelForSetup(HST_ECampaignPhase phase)
+	{
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+			return "setup";
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+			return "active";
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_WON)
+			return "won";
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+			return "lost";
+
+		return "unknown";
+	}
+
+	protected string ResolveZoneTypeLabel(HST_EZoneType zoneType)
+	{
+		if (zoneType == HST_EZoneType.HST_ZONE_TOWN)
+			return "town";
+		if (zoneType == HST_EZoneType.HST_ZONE_OUTPOST)
+			return "outpost";
+		if (zoneType == HST_EZoneType.HST_ZONE_RESOURCE)
+			return "resource";
+		if (zoneType == HST_EZoneType.HST_ZONE_FACTORY)
+			return "factory";
+		if (zoneType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+			return "radio";
+		if (zoneType == HST_EZoneType.HST_ZONE_AIRFIELD)
+			return "airfield";
+		if (zoneType == HST_EZoneType.HST_ZONE_SEAPORT)
+			return "seaport";
+		if (zoneType == HST_EZoneType.HST_ZONE_POLICE_STATION)
+			return "police";
+		if (zoneType == HST_EZoneType.HST_ZONE_BANK)
+			return "bank";
+		if (zoneType == HST_EZoneType.HST_ZONE_HIDEOUT)
+			return "hideout";
+		if (zoneType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+			return "mission";
+
+		return "zone";
+	}
+
+	protected float ResolveSetupZoneRadius(HST_ZoneState zone)
+	{
+		if (zone && zone.m_iCaptureRadiusMeters > 0)
+			return zone.m_iCaptureRadiusMeters;
+
+		return SETUP_ZONE_FALLBACK_RADIUS_METERS;
+	}
+
+	protected string ResolveSetupZoneTone(HST_ZoneState zone)
+	{
+		if (!zone)
+			return "neutral";
+		if (m_Preset && zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+			return "resistance";
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+			return "town";
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+			return "major";
+
+		return "enemy";
+	}
+
 	protected bool TickUndercoverEnforcement()
 	{
 		if (!m_Civilians || !m_State)
@@ -6467,11 +6718,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return 0;
 
 		bool isFrameSweep = reason == "frame";
-		bool diagnostics = forceDiagnostics || (!isFrameSweep && m_iSpawnDiagnosticsRemaining > 0);
+		bool diagnostics = IsDebugLoggingEnabled() && (forceDiagnostics || (!isFrameSweep && m_iSpawnDiagnosticsRemaining > 0));
 		if (diagnostics && !reason.IsEmpty())
 			Print("h-istasi | FIA spawn sweep triggered by " + reason);
 
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			DebugLog(string.Format("spawn sweep setup hold reason=%1 hqDeployed=%2 commander=%3 players=%4", reason, m_State.m_bHQDeployed, m_State.m_sCommanderIdentityId, m_State.m_aPlayers.Count()));
+			int setupSpawnRequests;
+			int registrations = m_PlayerSpawn.PrepareSetupConnectedPlayers(m_State, m_Authorization, m_PlayerLifecycle, setupSpawnRequests, diagnostics);
+			if (registrations > 0)
+				MarkMajorCampaignChange(false);
+			if (setupSpawnRequests > 0)
+				DebugLog(string.Format("setup holding spawn requests=%1", setupSpawnRequests));
+			if (diagnostics && m_iSpawnDiagnosticsRemaining > 0)
+				m_iSpawnDiagnosticsRemaining--;
+
+			UpdateSpawnSweepArmedState();
+			return 0;
+		}
+
 		int spawnRequests = m_PlayerSpawn.SpawnMissingConnectedPlayers(m_State, m_Authorization, m_PlayerLifecycle, diagnostics);
+		DebugLog(string.Format("spawn sweep active reason=%1 requested=%2 hq=%3 deployed=%4", reason, spawnRequests, m_State.m_vHQPosition, m_State.m_bHQDeployed));
 		if (diagnostics && m_iSpawnDiagnosticsRemaining > 0)
 			m_iSpawnDiagnosticsRemaining--;
 
@@ -6510,5 +6778,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iStableSpawnSweepCount++;
 		if (m_iStableSpawnSweepCount >= 2)
 			m_bSpawnSweepArmed = false;
+	}
+
+	protected bool IsDebugLoggingEnabled()
+	{
+		return m_Settings && m_Settings.m_Debug && m_Settings.m_Debug.m_bDebugLoggingEnabled;
+	}
+
+	protected void DebugLog(string message)
+	{
+		if (!IsDebugLoggingEnabled())
+			return;
+
+		Print("h-istasi debug | " + message);
 	}
 }

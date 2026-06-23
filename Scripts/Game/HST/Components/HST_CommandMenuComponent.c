@@ -262,6 +262,16 @@ class HST_CommandMenuComponent : ScriptComponent
 			}
 		}
 
+		if (HST_SetupMapComponent.IsSetupBlocking())
+		{
+			if (m_bMenuOpen)
+				CloseMenu();
+			Debug.ClearKey(KeyCode.KC_I);
+			m_bCommandMenuKeyDownLastFrame = false;
+			m_bRawIKeyDownLastFrame = false;
+			return;
+		}
+
 		InputManager inputManager = GetGame().GetInputManager();
 		if (inputManager)
 		{
@@ -308,6 +318,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	void OpenMenuToTab(string tabId)
 	{
+		if (HST_SetupMapComponent.IsSetupBlocking())
+			return;
+
 		tabId = NormalizeTabId(tabId);
 		if (!tabId.IsEmpty())
 			m_sSelectedTab = tabId;
@@ -359,7 +372,6 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	void OnServerSnapshot(string payload, string lastResult = "")
 	{
-		Print("h-istasi menu | snapshot received");
 		bool showClosedResult = !m_bMenuOpen && !lastResult.IsEmpty() && lastResult != m_sLastResult;
 		string previousTab = m_sSelectedTab;
 		m_sLastPayload = payload;
@@ -440,7 +452,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		inputManager.AddActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, OnExecuteSelectedInput);
 		inputManager.AddActionListener(COMMAND_MENU_BACK_ACTION, EActionTrigger.DOWN, OnCloseMenuInput);
 		m_bInputRegistered = true;
-		Print("h-istasi menu | input registered; custom ready " + m_bCustomBindingReady);
 		return true;
 	}
 
@@ -465,12 +476,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		if (reason != EActionTrigger.DOWN)
 			return;
-
-		if (!m_bLoggedCustomActionInput)
-		{
-			m_bLoggedCustomActionInput = true;
-			Print("h-istasi menu | custom action listener fired");
-		}
 
 		TryToggleCommandMenu("custom action");
 	}
@@ -497,12 +502,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		bool keyDown = keyState != 0;
 		if (keyDown && !m_bRawIKeyDownLastFrame)
 		{
-			if (!m_bLoggedRawIKeyInput)
-			{
-				m_bLoggedRawIKeyInput = true;
-				Print("h-istasi menu | raw KC_I edge seen");
-			}
-
 			TryToggleCommandMenu("raw KC_I");
 			Debug.ClearKey(KeyCode.KC_I);
 		}
@@ -512,25 +511,19 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected bool TryToggleCommandMenu(string source)
 	{
-		if (m_fCommandMenuDebounceRemaining > 0)
+		if (HST_SetupMapComponent.IsSetupBlocking())
 		{
-			if (!m_bLoggedDuplicateToggle)
-			{
-				m_bLoggedDuplicateToggle = true;
-				Print("h-istasi menu | ignored duplicate toggle from " + source);
-			}
-
+			if (m_bMenuOpen)
+				CloseMenu();
+			Debug.ClearKey(KeyCode.KC_I);
 			return false;
 		}
 
-		bool wasOpen = m_bMenuOpen;
+		if (m_fCommandMenuDebounceRemaining > 0)
+			return false;
+
 		m_fCommandMenuDebounceRemaining = 0.15;
 		ToggleMenu();
-		if (wasOpen)
-			Print("h-istasi menu | closed by " + source);
-		else
-			Print("h-istasi menu | opened by " + source);
-
 		return true;
 	}
 
