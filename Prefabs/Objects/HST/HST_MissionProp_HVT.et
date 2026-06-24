@@ -1,4 +1,5 @@
 SCR_ChimeraCharacter HST_MissionProp_HVT : "{26A9756790131354}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Rifleman.et" {
+ ID "6985327711303703"
  components {
   HST_MissionAssetComponent "{6985327711303701}" {
   }

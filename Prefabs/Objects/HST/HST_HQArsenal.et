@@ -1,4 +1,5 @@
 GenericEntity HST_HQArsenal : "{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/ArsenalBoxes/FIA/ArsenalBox_FIA.et" {
+ ID "6985327711303401"
  components {
   HST_HQArsenalActionFilterComponent "{6985327711303409}" {
   }

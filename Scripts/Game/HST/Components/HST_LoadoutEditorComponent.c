@@ -1398,10 +1398,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_WidgetHandler.Bind(this);
 		}
 
-		m_iEditorWidth = Math.Max(1, Math.Round(workspace.GetWidth()));
-		m_iEditorHeight = Math.Max(1, Math.Round(workspace.GetHeight()));
+		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, m_iEditorWidth, m_iEditorHeight);
 		EnsureVisualSettings();
 		BuildResponsiveLayout();
+		CreateFullscreenShield(workspace);
 
 		Widget root = EnsureEditorRoot(workspace);
 
@@ -1494,6 +1494,25 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_UILayerWidget = null;
 		return m_RootWidget;
+	}
+
+	protected Widget CreateFullscreenShield(WorkspaceWidget workspace)
+	{
+		if (!workspace)
+			return null;
+
+		int shieldLeft = 0;
+		int shieldTop = 0;
+		int shieldWidth = m_iEditorWidth;
+		int shieldHeight = m_iEditorHeight;
+		Widget shield = workspace.CreateWidgetInWorkspace(WidgetType.CanvasWidgetTypeID, shieldLeft, shieldTop, shieldWidth, shieldHeight, WidgetFlags.VISIBLE, null, 3500);
+		if (!shield)
+			return null;
+
+		SetupCanvasRect(shield, shieldWidth, shieldHeight, 0xFF1D292D);
+		shield.SetZOrder(3500);
+		m_aWidgets.Insert(shield);
+		return shield;
 	}
 
 	protected Widget ResolveUILayer(Widget root)

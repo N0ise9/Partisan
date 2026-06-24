@@ -1,4 +1,5 @@
 SCR_ChimeraCharacter HST_MissionProp_Captives : "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et" {
+ ID "6985327711303733"
  components {
   HST_MissionAssetComponent "{6985327711303731}" {
   }

@@ -3,7 +3,7 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
  Slot AlignableSlot "{A7B8C9D001234609}" {
   HorizontalAlign 0
   VerticalAlign 0
-  Padding 0 0 0 0
+  Padding 0 0 8 8
  }
  Color 1 1 1 0
  "Is Visible" 1

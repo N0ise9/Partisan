@@ -1,4 +1,5 @@
 SCR_PlayerController HST_PlayerController : "{CD2B8EF361478648}Prefabs/Characters/Core/DefaultPlayerControllerMP_ScenarioFramework.et" {
+ ID "6985327711303201"
  components {
   HST_CommandMenuRequestComponent "{6985327711303202}" {
   }

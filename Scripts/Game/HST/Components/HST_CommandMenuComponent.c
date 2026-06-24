@@ -107,7 +107,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
-	static const ResourceName MENU_FONT = "";
 	static const string MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout";
 	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
 	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
@@ -177,6 +176,10 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bLoggedCustomActionInput;
 	protected bool m_bLoggedRawIKeyInput;
 	protected bool m_bLoggedDuplicateToggle;
+	protected int m_iLoggedLayoutW;
+	protected int m_iLoggedLayoutH;
+	protected int m_iRowCreateLogCount;
+	protected bool m_bRowCreateLogSuppressed;
 	protected float m_fExternalNotificationRemaining;
 	protected float m_fPostSetupInputRecoveryRemaining;
 	protected float m_fPostSetupInputRecoveryAccumulator;
@@ -207,7 +210,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			UnregisterInputListeners();
 			ClearExternalNotificationWidgets();
-			CloseMenu();
+			CloseMenu("component delete");
 			if (s_LocalInstance == this)
 				s_LocalInstance = null;
 		}
@@ -271,7 +274,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			m_bWasSetupBlocking = true;
 			if (m_bMenuOpen)
-				CloseMenu();
+				CloseMenu("setup blocking");
 			Debug.ClearKey(KeyCode.KC_I);
 			m_bCommandMenuKeyDownLastFrame = false;
 			m_bRawIKeyDownLastFrame = false;
@@ -291,8 +294,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			inputManager.ActivateContext(MENU_INPUT_CONTEXT);
 			inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
-			PollCommandMenuInput(inputManager);
 			PollRawCommandMenuKey();
+			PollCommandMenuInput(inputManager);
 
 			if (m_bMenuOpen)
 				inputManager.ActivateContext(MENU_CURSOR_CONTEXT);
@@ -322,15 +325,15 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	void OpenPetrosMenu()
 	{
-		OpenMenuToTab("petros");
+		OpenMenuToTab("petros", "contextual action");
 	}
 
 	void OpenArsenalMenu()
 	{
-		OpenMenuToTab("arsenal");
+		OpenMenuToTab("arsenal", "contextual action");
 	}
 
-	void OpenMenuToTab(string tabId)
+	void OpenMenuToTab(string tabId, string source = "external")
 	{
 		if (HST_SetupMapComponent.IsSetupBlocking())
 			return;
@@ -341,7 +344,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (!m_bMenuOpen)
 		{
-			OpenMenu();
+			OpenMenu(source);
 			return;
 		}
 
@@ -358,7 +361,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	void CloseMenuFromExternal()
 	{
-		CloseMenu();
+		CloseMenu("external");
 	}
 
 	void ResetInputLatchAfterSetupMap()
@@ -412,12 +415,17 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_bIsLocalOwner)
 			return;
 
-		UnregisterInputListeners();
-		RegisterInputListeners();
-
 		InputManager inputManager = GetGame().GetInputManager();
 		if (!inputManager)
 			return;
+
+		if (!m_bInputRegistered)
+			RegisterInputListeners();
+		else
+		{
+			EnsureInputConfig(inputManager);
+			EnsureIKeyBinding(inputManager);
+		}
 
 		inputManager.ActivateContext(MENU_INPUT_CONTEXT);
 		inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
@@ -486,7 +494,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (widgetId == CLOSE_WIDGET_ID)
 		{
-			CloseMenu();
+			CloseMenu("close button");
 			return true;
 		}
 
@@ -590,7 +598,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (HST_SetupMapComponent.IsSetupBlocking())
 		{
 			if (m_bMenuOpen)
-				CloseMenu();
+				CloseMenu("setup blocking");
 			Debug.ClearKey(KeyCode.KC_I);
 			return false;
 		}
@@ -600,7 +608,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		m_fCommandMenuDebounceRemaining = 0.15;
-		ToggleMenu();
+		ToggleMenu(source);
 		return true;
 	}
 
@@ -625,7 +633,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected void OnCloseMenuInput(float value, EActionTrigger reason)
 	{
 		if (reason == EActionTrigger.DOWN)
-			CloseMenu();
+			CloseMenu("menu back action");
 	}
 
 	protected void BecomeLocalOwner()
@@ -767,18 +775,18 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_fFeedScrollY = 0.0;
 	}
 
-	protected void ToggleMenu()
+	protected void ToggleMenu(string source = "unknown")
 	{
 		if (m_bMenuOpen)
 		{
-			CloseMenu();
+			CloseMenu(source);
 			return;
 		}
 
-		OpenMenu();
+		OpenMenu(source);
 	}
 
-	protected void OpenMenu()
+	protected void OpenMenu(string source = "unknown")
 	{
 		m_bMenuOpen = true;
 		if (m_sSelectedTab.IsEmpty())
@@ -792,18 +800,18 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sStatusText = "h-istasi menu | requesting server snapshot";
 		RequestSnapshot();
 		RenderMenu();
-		Print("h-istasi menu | opened");
+		Print("h-istasi menu | opened via " + source);
 		ShowMenuHint("Command menu opened", "h-istasi", 2.0);
 	}
 
-	protected void CloseMenu()
+	protected void CloseMenu(string source = "unknown")
 	{
 		if (!m_bMenuOpen)
 			return;
 
 		m_bMenuOpen = false;
 		ClearWidgets();
-		Print("h-istasi menu | closed");
+		Print("h-istasi menu | closed via " + source);
 	}
 
 	protected void SelectPreviousAction()
@@ -1007,16 +1015,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			m_Layout = new HST_CommandMenuLayoutMetrics();
 
-		int screenW = Math.Max(1, Math.Round(workspace.GetWidth()));
-		int screenH = Math.Max(1, Math.Round(workspace.GetHeight()));
+		int screenW;
+		int screenH;
+		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
 
 		m_Layout.m_iScreenW = screenW;
 		m_Layout.m_iScreenH = screenH;
 
-		float sx = screenW / 1920.0;
-		float sy = screenH / 1080.0;
-		float scale = Math.Min(sx, sy);
-		scale = Math.Clamp(scale, 0.70, 1.12);
+		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 
 		m_Layout.m_fScale = scale;
 		m_Layout.m_bCompact = screenW < 1500 || screenH < 850;
@@ -1118,6 +1124,13 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_Layout.m_iFontNormal = ScaleFont(14);
 		m_Layout.m_iFontTitle = ScaleFont(18);
 		m_Layout.m_iFontHeader = ScaleFont(30);
+
+		if (m_iLoggedLayoutW != screenW || m_iLoggedLayoutH != screenH)
+		{
+			m_iLoggedLayoutW = screenW;
+			m_iLoggedLayoutH = screenH;
+			Print(string.Format("h-istasi menu layout | workspace=%1x%2 scale=%3 root=%4,%5 %6x%7", screenW, screenH, scale, m_Layout.m_iRootLeft, m_Layout.m_iRootTop, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight));
+		}
 	}
 
 	protected void ShowMenuHint(string text, string title, float durationSeconds)
@@ -1173,22 +1186,29 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!workspace)
 			return;
 
-		int screenW = Math.Max(1, Math.Round(workspace.GetWidth()));
-		int left = Math.Max(12, (screenW / 2) - 450);
-		int width = Math.Min(900, screenW - left * 2);
-		if (width < 360)
-			width = Math.Max(240, screenW - 24);
+		int screenW;
+		int screenH;
+		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
+		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
+		int margin = HST_UIWorkspaceMetrics.ScalePx(24, scale);
+		int width = Math.Min(HST_UIWorkspaceMetrics.ScalePx(900, scale), Math.Max(1, screenW - margin * 2));
+		if (width < HST_UIWorkspaceMetrics.ScalePx(320, scale))
+			width = Math.Max(1, screenW - margin * 2);
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, 24, width, 92, WidgetFlags.VISIBLE, null, 2850);
+		int height = HST_UIWorkspaceMetrics.ScalePx(92, scale);
+		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, width), width, screenW, Math.Max(8, margin / 2));
+		int top = HST_UIWorkspaceMetrics.ClampTop(margin, height, screenH, Math.Max(4, margin / 2));
+
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, width, height, WidgetFlags.VISIBLE, null, 2850);
 		if (!root)
 			return;
 
 		root.SetZOrder(2850);
 		m_aExternalNotificationWidgets.Insert(root);
-		CreateExternalRectWidget(workspace, root, 0, 0, width, 92, 0xF21A232B, 1.0);
-		CreateExternalRectWidget(workspace, root, 0, 88, width, 4, 0xFFC4953B, 1.0);
-		CreateExternalTextWidget(workspace, root, ShortenText(title, 44), 24, 10, width - 48, 24, 18, 0xFFF2D18B, true);
-		CreateExternalTextWidget(workspace, root, ShortenText(message, 140), 24, 38, width - 48, 42, 16, 0xFFF2F4F0, false);
+		CreateExternalRectWidget(workspace, root, 0, 0, width, height, 0xF21A232B, 1.0);
+		CreateExternalRectWidget(workspace, root, 0, height - Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale)), width, Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale)), 0xFFC4953B, 1.0);
+		CreateExternalTextWidget(workspace, root, ShortenText(title, 44), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScalePx(10, scale), width - HST_UIWorkspaceMetrics.ScalePx(48, scale), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScaleFont(18, scale), 0xFFF2D18B, true);
+		CreateExternalTextWidget(workspace, root, ShortenText(message, 140), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScalePx(38, scale), width - HST_UIWorkspaceMetrics.ScalePx(48, scale), HST_UIWorkspaceMetrics.ScalePx(42, scale), HST_UIWorkspaceMetrics.ScaleFont(16, scale), 0xFFF2F4F0, false);
 		m_fExternalNotificationRemaining = Math.Max(1.0, durationSeconds);
 	}
 
@@ -1691,13 +1711,24 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void DebugRowCreated(string label, Widget row)
 	{
-		if (row)
+		if (!row)
 		{
-			Print("h-istasi ui row | created " + label);
+			Print("h-istasi ui row | failed to create " + label, LogLevel.WARNING);
 			return;
 		}
 
-		Print("h-istasi ui row | failed to create " + label, LogLevel.WARNING);
+		if (m_iRowCreateLogCount < 12)
+		{
+			Print("h-istasi ui row | created " + label);
+			m_iRowCreateLogCount++;
+			return;
+		}
+
+		if (!m_bRowCreateLogSuppressed)
+		{
+			m_bRowCreateLogSuppressed = true;
+			Print("h-istasi ui row | additional row creation logs suppressed");
+		}
 	}
 
 	protected void SetRowText(Widget row, string widgetName, string text, int color, int fontSize, bool bold, bool wrap = true)
@@ -1924,9 +1955,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		if (!textWidget)
 			return;
-
-		if (MENU_FONT != "")
-			textWidget.SetFont(MENU_FONT);
 
 		textWidget.SetExactFontSize(fontSize);
 		textWidget.SetLineSpacing(1.1);

@@ -52,7 +52,6 @@ class HST_SetupMapComponent : ScriptComponent
 	static const int SETUP_MAP_READY_MAX_RETRIES = 8;
 	static const ResourceName SETUP_NATIVE_MAP_LAYOUT = "{6985327711306200}UI/layouts/HST_SetupHQMap.layout";
 	static const ResourceName SETUP_NATIVE_MAP_CONFIG = "{6985327711306210}Configs/Map/HST_SetupHQMap.conf";
-	static const ResourceName MENU_FONT = "";
 	static const string SETUP_INPUT_CONTEXT = "InGameMenuContext";
 	static const string SETUP_MAP_CONTEXT = "MapContext";
 
@@ -94,6 +93,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected ref array<Widget> m_aWidgets = {};
 	protected ref array<Widget> m_aOverlayWidgets = {};
 	protected ref array<Widget> m_aModalWidgets = {};
+	protected ref array<Widget> m_aChromeWidgets = {};
 	protected ref array<ref HST_SetupMapDrawCommandSet> m_aChromeDrawCommandSets = {};
 	protected ref array<ref HST_SetupMapDrawCommandSet> m_aOverlayDrawCommandSets = {};
 	protected ref array<ref HST_SetupMapDrawCommandSet> m_aModalDrawCommandSets = {};
@@ -107,8 +107,8 @@ class HST_SetupMapComponent : ScriptComponent
 	protected float m_fAwaitingServerAccumulator;
 	protected float m_fDebugHeartbeatAccumulator;
 	protected float m_fModalClickSuppressionSeconds;
-	protected int m_iScreenW;
-	protected int m_iScreenH;
+	protected int m_iScreenW; // Layout width used for FrameSlot positions.
+	protected int m_iScreenH; // Layout height used for FrameSlot positions.
 	protected int m_iSetupStateRequestCount;
 	protected int m_iSetupPayloadCount;
 	protected int m_iSetupResultCount;
@@ -124,6 +124,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bLoggedBridgeMissing;
 	protected bool m_bLoggedBridgeRecovered;
 	protected float m_fScale = 1.0;
+	protected int m_iMapScreenCoordinateMode; // 0 unknown, 1 raw map screen, 2 DPI-unscaled map screen.
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -416,9 +417,12 @@ class HST_SetupMapComponent : ScriptComponent
 			|| IsWidgetPointInsideRect(widget, x, y, m_iConfirmNoLeft, m_iConfirmNoTop, m_iConfirmButtonW, m_iConfirmButtonH);
 	}
 
-	protected bool HandleConfirmModalMapSelection(int screenX, int screenY)
+	protected bool HandleConfirmModalMapSelection(int layoutX, int layoutY, int alternateLayoutX, int alternateLayoutY)
 	{
-		int resolvedWidgetId = ResolveConfirmScreenPoint(screenX, screenY);
+		int resolvedWidgetId = ResolveConfirmLayoutPoint(layoutX, layoutY);
+		if (resolvedWidgetId == 0)
+			resolvedWidgetId = ResolveConfirmLayoutPoint(alternateLayoutX, alternateLayoutY);
+
 		SuppressNativeMapSelection();
 
 		if (resolvedWidgetId == CONFIRM_NO_WIDGET_ID)
@@ -439,27 +443,19 @@ class HST_SetupMapComponent : ScriptComponent
 		return true;
 	}
 
-	protected int ResolveConfirmScreenPoint(int screenX, int screenY)
+	protected int ResolveConfirmLayoutPoint(int layoutX, int layoutY)
 	{
 		if (!m_bConfirmOpen)
 			return 0;
 
-		int resolvedWidgetId = ResolveConfirmScreenPointUnscaled(screenX, screenY);
-		if (resolvedWidgetId != 0)
-			return resolvedWidgetId;
-
-		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		if (!workspace)
-			return 0;
-
-		return ResolveConfirmScreenPointUnscaled(Math.Round(workspace.DPIUnscale(screenX)), Math.Round(workspace.DPIUnscale(screenY)));
+		return ResolveConfirmLayoutPointUnchecked(layoutX, layoutY);
 	}
 
-	protected int ResolveConfirmScreenPointUnscaled(int screenX, int screenY)
+	protected int ResolveConfirmLayoutPointUnchecked(int layoutX, int layoutY)
 	{
-		if (IsPointInsideRect(screenX, screenY, m_iConfirmYesLeft, m_iConfirmYesTop, m_iConfirmButtonW, m_iConfirmButtonH))
+		if (IsPointInsideRect(layoutX, layoutY, m_iConfirmYesLeft, m_iConfirmYesTop, m_iConfirmButtonW, m_iConfirmButtonH))
 			return CONFIRM_YES_WIDGET_ID;
-		if (IsPointInsideRect(screenX, screenY, m_iConfirmNoLeft, m_iConfirmNoTop, m_iConfirmButtonW, m_iConfirmButtonH))
+		if (IsPointInsideRect(layoutX, layoutY, m_iConfirmNoLeft, m_iConfirmNoTop, m_iConfirmButtonW, m_iConfirmButtonH))
 			return CONFIRM_NO_WIDGET_ID;
 
 		return 0;
@@ -633,6 +629,7 @@ class HST_SetupMapComponent : ScriptComponent
 		ResetSetupMapReadyState();
 		ClearModalWidgets();
 		ClearOverlayWidgets();
+		ClearChromeWidgets();
 		ClearWidgets();
 		m_wSetupRoot = null;
 		m_wOverlayRoot = null;
@@ -641,13 +638,17 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void OnNativeMapSelection(vector screenPos)
 	{
-		// SCR_MapCursorModule emits Vector(screenX, 0, screenY) in DPI-scaled screen coordinates.
-		float screenX = screenPos[0];
-		float screenY = screenPos[2];
+		float nativeScreenX = screenPos[0];
+		float nativeScreenY = screenPos[2];
+		int layoutX;
+		int layoutY;
+		int alternateLayoutX;
+		int alternateLayoutY;
+		NativeScreenToLayoutCandidates(nativeScreenX, nativeScreenY, layoutX, layoutY, alternateLayoutX, alternateLayoutY);
 
 		if (m_bSetupActive && m_bConfirmOpen)
 		{
-			HandleConfirmModalMapSelection(Math.Round(screenX), Math.Round(screenY));
+			HandleConfirmModalMapSelection(layoutX, layoutY, alternateLayoutX, alternateLayoutY);
 			return;
 		}
 
@@ -665,12 +666,12 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!IsSetupMapViewReady())
 			return;
 
-		if (screenY <= ScalePx(76))
+		if (IsSetupChromePoint(layoutX, layoutY, alternateLayoutX, alternateLayoutY))
 			return;
 
 		float worldX;
 		float worldZ;
-		m_MapEntity.ScreenToWorld(Math.Round(screenX), Math.Round(screenY), worldX, worldZ);
+		m_MapEntity.ScreenToWorld(Math.Round(nativeScreenX), Math.Round(nativeScreenY), worldX, worldZ);
 
 		vector worldPosition = "0 0 0";
 		worldPosition[0] = Math.Clamp(worldX, m_vWorldMin[0], m_vWorldMax[0]);
@@ -735,6 +736,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bSetupMapInitialViewApplied = false;
 		m_bSetupMapReadyQueued = false;
 		m_iSetupMapReadyRetries = 0;
+		m_iMapScreenCoordinateMode = 0;
 	}
 
 	protected void QueueApplySetupMapReadyState()
@@ -879,24 +881,47 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!workspace)
 			return;
 
-		int screenW = Math.Max(1, Math.Round(workspace.GetWidth()));
-		int screenH = Math.Max(1, Math.Round(workspace.GetHeight()));
+		int screenW;
+		int screenH;
+		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
 		if (screenW != m_iScreenW || screenH != m_iScreenH)
 		{
 			m_iScreenW = screenW;
 			m_iScreenH = screenH;
 			m_bOverlayDirty = true;
-			float sx = m_iScreenW / 1920.0;
-			float sy = m_iScreenH / 1080.0;
-			m_fScale = Math.Clamp(Math.Min(sx, sy), 0.70, 1.15);
+			m_iMapScreenCoordinateMode = 0;
+			m_fScale = HST_UIWorkspaceMetrics.GetScale(m_iScreenW, m_iScreenH, 0.70, 1.15);
+
+			if (m_wOverlayRoot)
+			{
+				ClearChromeWidgets();
+				m_wPromptText = CreatePromptText(workspace, m_wOverlayRoot);
+				UpdateSetupPrompt();
+			}
+
+			if (m_bConfirmOpen)
+			{
+				ClearModalWidgets();
+				UpdateConfirmationVisibility();
+			}
 		}
 	}
 
 	protected TextWidget CreatePromptText(WorkspaceWidget workspace, Widget parent)
 	{
-		CreateRectWidgetAtZ(workspace, parent, 0, 0, Math.Max(1, m_iScreenW), ScalePx(76), 0xFF0D1318, 1.0, 0, SETUP_CHROME_Z_ORDER, m_aChromeDrawCommandSets);
-		CreateRectWidgetAtZ(workspace, parent, 0, ScalePx(72), Math.Max(1, m_iScreenW), ScalePx(4), 0xFFC4953B, 1.0, 0, SETUP_CHROME_Z_ORDER + 1, m_aChromeDrawCommandSets);
-		return CreateWrappedTextWidgetAtZ(workspace, parent, "", ScalePx(36), ScalePx(18), Math.Max(1, m_iScreenW - ScalePx(72)), ScalePx(42), ScaleFont(22), 0xFFF2E6CA, 0, true, SETUP_CHROME_Z_ORDER + 2);
+		Widget panel = CreateRectWidgetAtZ(workspace, parent, 0, 0, Math.Max(1, m_iScreenW), ScalePx(76), 0xFF0D1318, 1.0, 0, SETUP_CHROME_Z_ORDER, m_aChromeDrawCommandSets);
+		if (panel)
+			m_aChromeWidgets.Insert(panel);
+
+		Widget rule = CreateRectWidgetAtZ(workspace, parent, 0, ScalePx(72), Math.Max(1, m_iScreenW), ScalePx(4), 0xFFC4953B, 1.0, 0, SETUP_CHROME_Z_ORDER + 1, m_aChromeDrawCommandSets);
+		if (rule)
+			m_aChromeWidgets.Insert(rule);
+
+		TextWidget prompt = CreateWrappedTextWidgetAtZ(workspace, parent, "", ScalePx(36), ScalePx(18), Math.Max(1, m_iScreenW - ScalePx(72)), ScalePx(42), ScaleFont(22), 0xFFF2E6CA, 0, true, SETUP_CHROME_Z_ORDER + 2);
+		if (prompt)
+			m_aChromeWidgets.Insert(prompt);
+
+		return prompt;
 	}
 
 	protected void UpdateSetupPrompt()
@@ -1030,10 +1055,63 @@ class HST_SetupMapComponent : ScriptComponent
 		int scaledX;
 		int scaledY;
 		m_MapEntity.WorldToScreen(worldPos[0], worldPos[2], scaledX, scaledY, true);
-		// WorldToScreen returns DPI-scaled coordinates; FrameSlot positions are unscaled.
-		screenX = Math.Round(workspace.DPIUnscale(scaledX));
-		screenY = Math.Round(workspace.DPIUnscale(scaledY));
+		ResolveNativeMapLayoutPoint(workspace, scaledX, scaledY, screenX, screenY);
 		return true;
+	}
+
+	protected void NativeScreenToLayoutCandidates(float nativeScreenX, float nativeScreenY, out int layoutX, out int layoutY, out int alternateLayoutX, out int alternateLayoutY)
+	{
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		HST_UIWorkspaceMetrics.GetNativePointCandidates(workspace, nativeScreenX, nativeScreenY, layoutX, layoutY, alternateLayoutX, alternateLayoutY);
+	}
+
+	protected void ResolveNativeMapLayoutPoint(WorkspaceWidget workspace, int rawX, int rawY, out int layoutX, out int layoutY)
+	{
+		layoutX = rawX;
+		layoutY = rawY;
+		if (!workspace)
+			return;
+
+		int unscaledX = Math.Round(workspace.DPIUnscale(rawX));
+		int unscaledY = Math.Round(workspace.DPIUnscale(rawY));
+		if (m_iMapScreenCoordinateMode == 0)
+			CalibrateNativeMapCoordinateMode(rawX, rawY, unscaledX, unscaledY);
+
+		if (m_iMapScreenCoordinateMode == 2)
+		{
+			layoutX = unscaledX;
+			layoutY = unscaledY;
+			return;
+		}
+
+		if (!IsScreenPointNearViewport(rawX, rawY, ScalePx(128)) && IsScreenPointNearViewport(unscaledX, unscaledY, ScalePx(128)))
+		{
+			layoutX = unscaledX;
+			layoutY = unscaledY;
+		}
+	}
+
+	protected void CalibrateNativeMapCoordinateMode(int rawX, int rawY, int unscaledX, int unscaledY)
+	{
+		m_iMapScreenCoordinateMode = 1;
+		if (!IsScreenPointNearViewport(rawX, rawY, ScalePx(128)) && IsScreenPointNearViewport(unscaledX, unscaledY, ScalePx(128)))
+			m_iMapScreenCoordinateMode = 2;
+	}
+
+	protected bool IsScreenPointNearViewport(int x, int y, int padding)
+	{
+		if (x < -padding || y < -padding)
+			return false;
+		if (x > m_iScreenW + padding || y > m_iScreenH + padding)
+			return false;
+
+		return true;
+	}
+
+	protected bool IsSetupChromePoint(int layoutX, int layoutY, int alternateLayoutX, int alternateLayoutY)
+	{
+		int chromeHeight = ScalePx(76);
+		return layoutY <= chromeHeight || alternateLayoutY <= chromeHeight;
 	}
 
 	protected int ResolveNativeRadiusPixels(vector center, float radiusMeters)
@@ -1228,9 +1306,6 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!textWidget)
 			return;
 
-		if (MENU_FONT != "")
-			textWidget.SetFont(MENU_FONT);
-
 		textWidget.SetExactFontSize(fontSize);
 		textWidget.SetLineSpacing(1.1);
 		textWidget.SetBold(bold);
@@ -1331,7 +1406,16 @@ class HST_SetupMapComponent : ScriptComponent
 		float widgetX;
 		float widgetY;
 		widget.GetScreenPos(widgetX, widgetY);
-		return IsPointInsideRect(Math.Round(widgetX) + x, Math.Round(widgetY) + y, left, top, width, height);
+		if (IsPointInsideRect(Math.Round(widgetX) + x, Math.Round(widgetY) + y, left, top, width, height))
+			return true;
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+			return false;
+
+		int layoutX = Math.Round(workspace.DPIUnscale(widgetX)) + x;
+		int layoutY = Math.Round(workspace.DPIUnscale(widgetY)) + y;
+		return IsPointInsideRect(layoutX, layoutY, left, top, width, height);
 	}
 
 	protected bool IsLatestValidationResult(vector resolvedPosition)
@@ -1453,6 +1537,19 @@ class HST_SetupMapComponent : ScriptComponent
 
 		m_aWidgets.Clear();
 		m_aChromeDrawCommandSets.Clear();
+	}
+
+	protected void ClearChromeWidgets()
+	{
+		foreach (Widget widget : m_aChromeWidgets)
+		{
+			if (widget)
+				widget.RemoveFromHierarchy();
+		}
+
+		m_aChromeWidgets.Clear();
+		m_aChromeDrawCommandSets.Clear();
+		m_wPromptText = null;
 	}
 
 	protected void ClearOverlayWidgets()
