@@ -739,8 +739,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	protected void DeliverSnapshot(string payload, string lastResult)
 	{
-		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
-		if (Replication.IsServer() && (!rpl || rpl.IsOwner()))
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
 		{
 			RpcDo_ReceiveSnapshot(payload, lastResult);
 			return;
@@ -751,8 +750,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	protected void DeliverLoadoutEditorPayload(string payload, string lastResult)
 	{
-		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
-		if (Replication.IsServer() && (!rpl || rpl.IsOwner()))
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
 		{
 			RpcDo_ReceiveLoadoutEditorPayload(payload, lastResult);
 			return;
@@ -763,8 +761,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	protected void DeliverMissionIntel(string payload)
 	{
-		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
-		if (Replication.IsServer() && (!rpl || rpl.IsOwner()))
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
 		{
 			RpcDo_ReceiveMissionIntelOwner(payload);
 			return;
@@ -775,8 +772,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	protected void DeliverSetupState(string payload, string lastResult)
 	{
-		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
-		if (Replication.IsServer() && (!rpl || rpl.IsOwner()))
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
 		{
 			RpcDo_ReceiveSetupState(payload, lastResult);
 			return;
@@ -787,8 +783,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	protected void DeliverSetupResult(string payload)
 	{
-		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
-		if (Replication.IsServer() && (!rpl || rpl.IsOwner()))
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
 		{
 			RpcDo_ReceiveSetupResult(payload);
 			return;
@@ -814,7 +809,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (!owner)
 			return false;
 
-		BaseRplComponent rpl = BaseRplComponent.Cast(owner.FindComponent(BaseRplComponent));
-		return !rpl || rpl.IsOwner();
+		int localPlayerId = SCR_PlayerController.GetLocalPlayerId();
+		if (localPlayerId <= 0)
+			return false;
+
+		PlayerController controller = PlayerController.Cast(owner);
+		return controller && controller.GetPlayerId() == localPlayerId;
 	}
 }

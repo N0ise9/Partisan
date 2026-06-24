@@ -234,7 +234,7 @@ class HST_SetupMapComponent : ScriptComponent
 			if (!m_bLoggedBridgeMissing)
 			{
 				m_bLoggedBridgeMissing = true;
-				Print("h-istasi setup ui | request bridge not ready; setup shield is visible");
+				Print("h-istasi setup ui | request bridge not ready; setup state request pending");
 			}
 
 			return;
@@ -1566,7 +1566,6 @@ class HST_SetupMapComponent : ScriptComponent
 
 		if (!m_bSetupActive)
 		{
-			m_bSetupActive = true;
 			m_bIsCommander = false;
 			m_bConfirmOpen = false;
 			m_bCandidateValid = false;
@@ -1622,7 +1621,11 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!owner)
 			return false;
 
-		BaseRplComponent rpl = BaseRplComponent.Cast(owner.FindComponent(BaseRplComponent));
-		return !rpl || rpl.IsOwner();
+		int localPlayerId = SCR_PlayerController.GetLocalPlayerId();
+		if (localPlayerId <= 0)
+			return false;
+
+		PlayerController controller = PlayerController.Cast(owner);
+		return controller && controller.GetPlayerId() == localPlayerId;
 	}
 }

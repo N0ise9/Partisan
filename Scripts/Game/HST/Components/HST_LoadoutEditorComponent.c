@@ -375,6 +375,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
+		if (!m_bIsLocalOwner)
+			RefreshLocalOwner(owner);
+
 		if (!m_bEditorOpen)
 			return;
 
@@ -7734,7 +7737,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!owner)
 			return false;
 
-		BaseRplComponent rpl = BaseRplComponent.Cast(owner.FindComponent(BaseRplComponent));
-		return !rpl || rpl.IsOwner();
+		int localPlayerId = SCR_PlayerController.GetLocalPlayerId();
+		if (localPlayerId <= 0)
+			return false;
+
+		PlayerController controller = PlayerController.Cast(owner);
+		return controller && controller.GetPlayerId() == localPlayerId;
 	}
 }
