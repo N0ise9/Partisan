@@ -2116,6 +2116,9 @@ foreach ($requiredSettingsEntry in @(
 	"activationRadiusMeters",
 	"deactivationRadiusMeters",
 	"debugLoggingEnabled",
+	"gameMasterBudgetsEnabled",
+	"HST_GameMasterBudgetService",
+	"SetHistasiGameMasterBudgetsEnabled",
 	"arsenalUnlockThreshold",
 	"magazineUnlockMultiplier",
 	"lootRadiusMeters",
@@ -2163,8 +2166,14 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 10") {
-	throw "Runtime settings schema must be bumped to 10 for debug logging configuration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 11") {
+	throw "Runtime settings schema must be bumped to 11 for game master budget configuration"
+}
+if ($scriptText -notmatch "m_bGameMasterBudgetsEnabled" -or $scriptText -notmatch '\\"gameMasterBudgetsEnabled\\": %1') {
+	throw "Runtime settings must expose gameMasterBudgetsEnabled"
+}
+if ($scriptText -notmatch "settings.m_Features.m_bGameMasterBudgetsEnabled = false") {
+	throw "Runtime settings migration must default Game Master budgets to disabled"
 }
 if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 18") {
 	throw "Runtime/balance defaults must set arsenal unlock threshold to 18"

@@ -113,7 +113,9 @@ cards, action list, and activity/result feed. The Setup tab displays the
 effective server config and lets the commander choose the first HQ hideout
 before the campaign enters the active phase. `$profile:h-istasi/HST_Settings.json`
 remains the source of truth for defaults that apply to newly created
-campaigns.
+campaigns. The same settings file also controls h-istasi's Game Master budget
+policy through `features.gameMasterBudgetsEnabled`, which defaults to `false`
+so GM placement budgets are disabled automatically on game start.
 
 - `MenuUp` / `MenuDown`: change selection
 - `MenuSelect`: run the selected command
