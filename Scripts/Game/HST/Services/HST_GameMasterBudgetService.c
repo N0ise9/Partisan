@@ -174,11 +174,11 @@ modded class SCR_PlacingEditorComponent
 		super.CheckBudgetOwner();
 	}
 
-	override void OnBudgetMaxReached(EEditableEntityBudget budgetType, bool maxReached)
+	override void OnBudgetMaxReached(EEditableEntityBudget entityBudget, bool maxReached)
 	{
-		if (!HST_GameMasterBudgetService.AreGameMasterBudgetsEnabled() && HST_GameMasterBudgetService.IsManagedBudgetType(budgetType))
+		if (!HST_GameMasterBudgetService.AreGameMasterBudgetsEnabled() && HST_GameMasterBudgetService.IsManagedBudgetType(entityBudget))
 			return;
 
-		super.OnBudgetMaxReached(budgetType, maxReached);
+		super.OnBudgetMaxReached(entityBudget, maxReached);
 	}
 }
