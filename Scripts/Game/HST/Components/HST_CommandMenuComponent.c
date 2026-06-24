@@ -989,7 +989,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			BuildResponsiveLayout(workspace);
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, m_Layout.m_iRootLeft, m_Layout.m_iRootTop, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight, WidgetFlags.VISIBLE, null, 2500);
+		int rawLeft = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, m_Layout.m_iRootLeft);
+		int rawTop = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, m_Layout.m_iRootTop);
+		int rawWidth = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, m_Layout.m_iRootWidth);
+		int rawHeight = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, m_Layout.m_iRootHeight);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, rawLeft, rawTop, rawWidth, rawHeight, WidgetFlags.VISIBLE, null, 2500);
 		if (!root)
 			return null;
 
@@ -1059,10 +1063,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_Layout.m_bCompact)
 			m_Layout.m_iGap = ScalePx(14);
 
-		m_Layout.m_iRootLeft = m_Layout.m_iMargin;
-		m_Layout.m_iRootTop = m_Layout.m_iMargin;
-		m_Layout.m_iRootWidth = Math.Max(1, screenW - m_Layout.m_iMargin * 2);
-		m_Layout.m_iRootHeight = Math.Max(1, screenH - m_Layout.m_iMargin * 2);
+		int availableW = Math.Max(1, screenW - m_Layout.m_iMargin * 2);
+		int availableH = Math.Max(1, screenH - m_Layout.m_iMargin * 2);
+		int maxRootW = ScalePx(1680);
+		int maxRootH = ScalePx(960);
+		m_Layout.m_iRootWidth = Math.Min(availableW, maxRootW);
+		m_Layout.m_iRootHeight = Math.Min(availableH, maxRootH);
+		m_Layout.m_iRootLeft = Math.Max(0, (screenW - m_Layout.m_iRootWidth) / 2);
+		m_Layout.m_iRootTop = Math.Max(0, (screenH - m_Layout.m_iRootHeight) / 2);
 
 		m_Layout.m_iHeaderHeight = ScalePx(78);
 		if (m_Layout.m_bVeryCompact)
@@ -1077,7 +1085,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_Layout.m_iStatsTop = m_Layout.m_iHeaderHeight + ScalePx(12);
 		m_Layout.m_iStatsHeight = ScalePx(62);
 
-		int rightCandidateWidth = ClampLayoutInt(Math.Round(m_Layout.m_iRootWidth * 0.285), ScalePx(380), ScalePx(540));
+		int rightCandidateWidth = ClampLayoutInt(Math.Round(m_Layout.m_iRootWidth * 0.28), ScalePx(360), ScalePx(460));
 		int mainLeft = m_Layout.m_iStatsLeft;
 		int rightLeft = m_Layout.m_iRootWidth - rightCandidateWidth - ScalePx(20);
 		int mainWidth = rightLeft - mainLeft - m_Layout.m_iGap;
@@ -1220,20 +1228,17 @@ class HST_CommandMenuComponent : ScriptComponent
 		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, width), width, screenW, Math.Max(8, margin / 2));
 		int top = HST_UIWorkspaceMetrics.ClampTop(margin, height, screenH, Math.Max(4, margin / 2));
 
-		Widget layer = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, screenW, screenH, WidgetFlags.VISIBLE, null, 2850);
-		if (!layer)
-			return;
-
-		layer.SetZOrder(2850);
-		m_aExternalNotificationWidgets.Insert(layer);
-
-		Widget root = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE, null, 2851, layer);
+		int rawLeft = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, left);
+		int rawTop = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, top);
+		int rawWidth = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, width);
+		int rawHeight = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, height);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, rawLeft, rawTop, rawWidth, rawHeight, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 2850);
 		if (!root)
 			return;
 
-		FrameSlot.SetPos(root, left, top);
-		FrameSlot.SetSize(root, width, height);
 		root.SetZOrder(2850);
+		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		m_aExternalNotificationWidgets.Insert(root);
 		CreateExternalRectWidget(workspace, root, 0, 0, width, height, 0xF21A232B, 1.0);
 		CreateExternalRectWidget(workspace, root, 0, height - Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale)), width, Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale)), 0xFFC4953B, 1.0);
 		CreateExternalTextWidget(workspace, root, ShortenText(title, 44), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScalePx(10, scale), width - HST_UIWorkspaceMetrics.ScalePx(48, scale), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScaleFont(18, scale), 0xFFF2D18B, true);
@@ -1243,10 +1248,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected Widget CreateExternalRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE, null, 2851, parent);
+		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 2851, parent);
 		if (!widget)
 			return null;
 
+		widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, width, height);
 		SetupExternalCanvasRect(widget, width, height, color);
@@ -1272,10 +1278,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected TextWidget CreateExternalTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, bool bold)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, 2852, parent);
+		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 2852, parent);
 		if (!widget)
 			return null;
 
+		widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, width, height);
 		TextWidget textWidget = TextWidget.Cast(widget);

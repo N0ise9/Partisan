@@ -228,8 +228,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected int m_iTemplatePage;
 	protected int m_iCameraMode;
 	protected float m_fPreviewYawDegrees;
+	protected int m_iRawWorkspaceWidth = 1280;
+	protected int m_iRawWorkspaceHeight = 850;
+	protected int m_iEditorLayoutWidth = 1280;
+	protected int m_iEditorLayoutHeight = 850;
 	protected int m_iEditorWidth = 1280;
 	protected int m_iEditorHeight = 850;
+	protected int m_iSafeLeft;
+	protected int m_iSafeTop;
+	protected int m_iSafeWidth = 1280;
+	protected int m_iSafeHeight = 850;
 	protected ref array<string> m_aCategoryIds = {};
 	protected ref array<string> m_aCategoryLabels = {};
 	protected ref array<int> m_aCategoryCounts = {};
@@ -1398,7 +1406,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_WidgetHandler.Bind(this);
 		}
 
-		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, m_iEditorWidth, m_iEditorHeight);
+		HST_UIWorkspaceMetrics.GetRawWorkspaceSize(workspace, m_iRawWorkspaceWidth, m_iRawWorkspaceHeight);
+		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, m_iEditorLayoutWidth, m_iEditorLayoutHeight);
+		m_iEditorWidth = m_iEditorLayoutWidth;
+		m_iEditorHeight = m_iEditorLayoutHeight;
+		BuildEditorSafeRect();
 		EnsureVisualSettings();
 		BuildResponsiveLayout();
 		CreateFullscreenShield(workspace);
@@ -1479,7 +1491,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return m_RootWidget;
 
 		if (!m_RootWidget)
-			m_RootWidget = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, m_iEditorWidth, m_iEditorHeight, WidgetFlags.VISIBLE, null, 3600);
+			m_RootWidget = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, m_iRawWorkspaceWidth, m_iRawWorkspaceHeight, WidgetFlags.VISIBLE, null, 3600);
 
 		if (!m_RootWidget)
 			return null;
@@ -1500,14 +1512,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		int shieldLeft = 0;
 		int shieldTop = 0;
-		int shieldWidth = m_iEditorWidth;
-		int shieldHeight = m_iEditorHeight;
-		Widget shield = workspace.CreateWidgetInWorkspace(WidgetType.CanvasWidgetTypeID, shieldLeft, shieldTop, shieldWidth, shieldHeight, WidgetFlags.VISIBLE, null, 3500);
+		int shieldWidth = m_iRawWorkspaceWidth;
+		int shieldHeight = m_iRawWorkspaceHeight;
+		Widget shield = workspace.CreateWidgetInWorkspace(WidgetType.CanvasWidgetTypeID, shieldLeft, shieldTop, shieldWidth, shieldHeight, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 3500);
 		if (!shield)
 			return null;
 
 		SetupCanvasRect(shield, shieldWidth, shieldHeight, 0xFF1D292D);
 		shield.SetZOrder(3500);
+		shield.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		m_aWidgets.Insert(shield);
 		return shield;
 	}
@@ -1585,13 +1598,21 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return value;
 	}
 
+	protected void BuildEditorSafeRect()
+	{
+		m_iSafeWidth = Math.Min(m_iEditorWidth, 1920);
+		m_iSafeHeight = Math.Min(m_iEditorHeight, 1080);
+		m_iSafeLeft = Math.Max(0, (m_iEditorWidth - m_iSafeWidth) / 2);
+		m_iSafeTop = Math.Max(0, (m_iEditorHeight - m_iSafeHeight) / 2);
+	}
+
 	protected void BuildResponsiveLayout()
 	{
 		if (!m_Layout)
 			m_Layout = new HST_LoadoutEditorLayoutMetrics();
 
-		int w = Math.Max(1, m_iEditorWidth);
-		int h = Math.Max(1, m_iEditorHeight);
+		int w = Math.Max(1, m_iSafeWidth);
+		int h = Math.Max(1, m_iSafeHeight);
 
 		m_Layout.m_iScreenW = w;
 		m_Layout.m_iScreenH = h;
@@ -1615,9 +1636,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (m_Layout.m_bCompact)
 			m_Layout.m_iGap = ScalePx(18);
 
-		m_Layout.m_iTabHeight = ScalePx(72);
-		m_Layout.m_iTabWidth = ScalePx(72);
-		m_Layout.m_iTabGap = ScalePx(22);
+		m_Layout.m_iTabHeight = ScalePx(58);
+		m_Layout.m_iTabWidth = ScalePx(58);
+		m_Layout.m_iTabGap = ScalePx(14);
 
 		int editorModeCount = GetEditorModeCount();
 		m_Layout.m_iTabsWidth = editorModeCount * m_Layout.m_iTabWidth;
@@ -1738,6 +1759,27 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_iFontNormal = ScaleFont(14);
 		m_Layout.m_iFontTitle = ScaleFont(17);
 
+		ApplyEditorSafeRectOffset();
+
+	}
+
+	protected void ApplyEditorSafeRectOffset()
+	{
+		if (!m_Layout)
+			return;
+
+		m_Layout.m_iTabsLeft += m_iSafeLeft;
+		m_Layout.m_iTabsTop += m_iSafeTop;
+		m_Layout.m_iRailLeft += m_iSafeLeft;
+		m_Layout.m_iRailTop += m_iSafeTop;
+		m_Layout.m_iRailBottom += m_iSafeTop;
+		m_Layout.m_iMainLeft += m_iSafeLeft;
+		m_Layout.m_iMainTop += m_iSafeTop;
+		m_Layout.m_iMainBottom += m_iSafeTop;
+		m_Layout.m_iContentTop += m_iSafeTop;
+		m_Layout.m_iContentBottom += m_iSafeTop;
+		m_Layout.m_iCategoryTop += m_iSafeTop;
+		m_Layout.m_iListTop += m_iSafeTop;
 	}
 
 	protected void RenderModeTabs(WorkspaceWidget workspace, Widget root)
@@ -1770,9 +1812,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			CreateRectWidget(workspace, root, tabLeft, tabTop, tabWidth, tabHeight, color, 0.98, MODE_WIDGET_ID_BASE + i);
 
-			int iconSize = ScalePx(68);
+			int iconSize = ScalePx(48);
 			if (active)
-				iconSize = ScalePx(72);
+				iconSize = ScalePx(52);
 			iconSize = Math.Min(iconSize, Math.Max(1, tabWidth - ScalePx(12)));
 			iconSize = Math.Min(iconSize, Math.Max(1, tabHeight - ScalePx(10)));
 			int iconLeft = tabLeft + Math.Max(0, (tabWidth - iconSize) / 2);

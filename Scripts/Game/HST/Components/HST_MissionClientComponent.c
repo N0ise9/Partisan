@@ -300,17 +300,16 @@ class HST_MissionClientComponent : ScriptComponent
 		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, rootW), rootW, screenW, Math.Max(8, margin / 2));
 		int top = HST_UIWorkspaceMetrics.ClampTop(margin, rootH, screenH, Math.Max(4, margin / 2));
 
-		Widget layer = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, screenW, screenH, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
-		if (!layer)
-			return;
-
-		m_aWidgets.Insert(layer);
-		Widget root = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z + 1, layer);
+		int rawLeft = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, left);
+		int rawTop = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, top);
+		int rawRootW = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, rootW);
+		int rawRootH = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, rootH);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, rawLeft, rawTop, rawRootW, rawRootH, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, DETAIL_ROOT_Z);
 		if (!root)
 			return;
 
-		FrameSlot.SetPos(root, left, top);
-		FrameSlot.SetSize(root, rootW, rootH);
+		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		m_aWidgets.Insert(root);
 		int accent = NotificationAccentColor(severity, category);
 		int ruleH = Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale));
 		int inset = HST_UIWorkspaceMetrics.ScalePx(24, scale);
@@ -426,7 +425,11 @@ class HST_MissionClientComponent : ScriptComponent
 		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, rootW), rootW, screenW, Math.Max(8, margin / 2));
 		int top = HST_UIWorkspaceMetrics.ClampTop(HST_UIWorkspaceMetrics.CenteredTop(screenH, rootH), rootH, screenH, Math.Max(8, margin / 2));
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, rootW, rootH, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
+		int rawLeft = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, left);
+		int rawTop = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, top);
+		int rawRootW = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, rootW);
+		int rawRootH = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, rootH);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, rawLeft, rawTop, rawRootW, rawRootH, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
 		if (!root)
 			return;
 
@@ -488,7 +491,11 @@ class HST_MissionClientComponent : ScriptComponent
 
 	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z + 5, parent);
+		WidgetFlags flags = WidgetFlags.VISIBLE;
+		if (userId <= 0)
+			flags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS;
+
+		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, flags, null, DETAIL_ROOT_Z + 5, parent);
 		if (!widget)
 			return null;
 
@@ -501,12 +508,20 @@ class HST_MissionClientComponent : ScriptComponent
 			widget.SetUserID(userId);
 			widget.AddHandler(m_WidgetHandler);
 		}
+		else
+		{
+			widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		}
 		return widget;
 	}
 
 	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, DETAIL_ROOT_Z + 10, parent);
+		WidgetFlags flags = WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION;
+		if (userId <= 0)
+			flags = WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS;
+
+		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, flags, null, DETAIL_ROOT_Z + 10, parent);
 		if (!widget)
 			return null;
 
@@ -528,6 +543,10 @@ class HST_MissionClientComponent : ScriptComponent
 		{
 			widget.SetUserID(userId);
 			widget.AddHandler(m_WidgetHandler);
+		}
+		else
+		{
+			widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		}
 
 		return textWidget;

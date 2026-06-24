@@ -3702,6 +3702,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_MapMarkers.BuildMarkerAuditReport(m_State, m_Preset) + "\n" + m_MapMarkers.BuildMarkerReport(m_State);
 	}
 
+	string RequestAdminNativeMarkerReport(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi native marker report | failed: admin required";
+		if (!m_MapMarkers)
+			return "h-istasi native marker report | failed: marker service not ready";
+
+		return m_MapMarkers.BuildNativeMarkerRuntimeReport(m_State);
+	}
+
+	string RequestAdminPurgeNativeHSTMarkers(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi admin | native marker purge failed: admin required";
+		if (!m_MapMarkers)
+			return "h-istasi admin | native marker purge failed: marker service not ready";
+
+		return m_MapMarkers.AdminPurgeNativeHSTMarkers();
+	}
+
 	string RequestAdminPhase23FailedActionSample(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))

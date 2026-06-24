@@ -16,6 +16,61 @@ class HST_NativeMapMarkerReconciler
 		return m_Result;
 	}
 
+	int GetTrackedStaticHandleCount()
+	{
+		return m_mStaticDomainIdToMarker.Count();
+	}
+
+	int GetTrackedDynamicHandleCount()
+	{
+		return m_mDynamicDomainIdToMarkerEntity.Count();
+	}
+
+	int CountTrackedStaticActive(SCR_MapMarkerManagerComponent manager)
+	{
+		if (!manager)
+			return 0;
+
+		int count;
+		foreach (string id, HST_NativeStaticMarkerHandle handle : m_mStaticDomainIdToMarker)
+		{
+			if (IsHandleInStaticArray(manager, handle))
+				count++;
+		}
+
+		return count;
+	}
+
+	int CountTrackedStaticDisabled(SCR_MapMarkerManagerComponent manager)
+	{
+		if (!manager)
+			return 0;
+
+		int count;
+		foreach (string id, HST_NativeStaticMarkerHandle handle : m_mStaticDomainIdToMarker)
+		{
+			if (!IsHandleInStaticArray(manager, handle) && IsHandleInDisabledArray(manager, handle))
+				count++;
+		}
+
+		return count;
+	}
+
+	int CountTrackedStaticMissing(SCR_MapMarkerManagerComponent manager)
+	{
+		if (!manager)
+			return 0;
+
+		int count;
+		foreach (string id, HST_NativeStaticMarkerHandle handle : m_mStaticDomainIdToMarker)
+		{
+			if (!IsHandleInStaticArray(manager, handle) && !IsHandleInDisabledArray(manager, handle))
+				count++;
+		}
+
+		return count;
+	}
+
 	bool Reconcile(notnull map<string, ref HST_MapMarkerRecord> desired)
 	{
 		return Reconcile(ResolveMarkerManager(), desired);
@@ -97,9 +152,43 @@ class HST_NativeMapMarkerReconciler
 
 	string BuildRuntimeReport()
 	{
-		return string.Format("static %1 | dynamic %2 | created %3 | updated %4 | removed %5 | unchanged %6 | failed %7",
-			m_Result.m_iPublishedStatic,
-			m_Result.m_iPublishedDynamic,
+		return BuildDetailedRuntimeReport(ResolveMarkerManager());
+	}
+
+	string BuildDetailedRuntimeReport(SCR_MapMarkerManagerComponent manager)
+	{
+		if (!manager)
+			return "h-istasi native markers | manager missing";
+
+		int nativeStatic = manager.GetStaticMarkers().Count();
+		int nativeDisabled = manager.GetDisabledMarkers().Count();
+		int trackedStatic;
+		int trackedActive;
+		int trackedDisabled;
+		int trackedMissing;
+
+		foreach (string id, HST_NativeStaticMarkerHandle handle : m_mStaticDomainIdToMarker)
+		{
+			trackedStatic++;
+			if (IsHandleInStaticArray(manager, handle))
+				trackedActive++;
+			else if (IsHandleInDisabledArray(manager, handle))
+				trackedDisabled++;
+			else
+				trackedMissing++;
+		}
+
+		string report = string.Format(
+			"h-istasi native markers | native static %1 | native disabled %2 | tracked static %3 active %4 disabled %5 missing %6 | dynamic %7",
+			nativeStatic,
+			nativeDisabled,
+			trackedStatic,
+			trackedActive,
+			trackedDisabled,
+			trackedMissing,
+			m_mDynamicDomainIdToMarkerEntity.Count());
+		return report + string.Format(
+			" | created %1 updated %2 removed %3 unchanged %4 failed %5",
 			m_Result.m_iCreated,
 			m_Result.m_iUpdated,
 			m_Result.m_iRemoved,
@@ -285,6 +374,8 @@ class HST_NativeMapMarkerReconciler
 			SCR_MapMarkerBase marker = ResolveLiveStaticMarker(manager, handle);
 			if (marker)
 				manager.RemoveStaticMarker(marker);
+			else
+				DebugLog(string.Format("remove static orphan handle id=%1 native=%2 not found in static or disabled arrays", id, handle.m_iNativeMarkerId));
 		}
 
 		m_mStaticDomainIdToMarker.Remove(id);
@@ -317,12 +408,42 @@ class HST_NativeMapMarkerReconciler
 			return null;
 
 		if (handle.m_iNativeMarkerId >= 0)
-			return manager.GetStaticMarkerByID(handle.m_iNativeMarkerId);
+		{
+			SCR_MapMarkerBase marker = manager.GetStaticMarkerByID(handle.m_iNativeMarkerId);
+			if (marker)
+				return marker;
+
+			marker = ResolveDisabledStaticMarkerById(manager, handle.m_iNativeMarkerId);
+			if (marker)
+				return marker;
+		}
 
 		array<SCR_MapMarkerBase> staticMarkers = manager.GetStaticMarkers();
 		foreach (SCR_MapMarkerBase marker : staticMarkers)
 		{
 			if (marker == handle.m_Marker)
+				return marker;
+		}
+
+		array<SCR_MapMarkerBase> disabledMarkers = manager.GetDisabledMarkers();
+		foreach (SCR_MapMarkerBase disabledMarker : disabledMarkers)
+		{
+			if (disabledMarker == handle.m_Marker)
+				return disabledMarker;
+		}
+
+		return null;
+	}
+
+	protected SCR_MapMarkerBase ResolveDisabledStaticMarkerById(SCR_MapMarkerManagerComponent manager, int markerId)
+	{
+		if (!manager || markerId < 0)
+			return null;
+
+		array<SCR_MapMarkerBase> disabledMarkers = manager.GetDisabledMarkers();
+		foreach (SCR_MapMarkerBase marker : disabledMarkers)
+		{
+			if (marker && marker.GetMarkerID() == markerId)
 				return marker;
 		}
 
@@ -342,6 +463,44 @@ class HST_NativeMapMarkerReconciler
 		}
 
 		return count;
+	}
+
+	protected bool IsHandleInStaticArray(SCR_MapMarkerManagerComponent manager, HST_NativeStaticMarkerHandle handle)
+	{
+		if (!manager || !handle)
+			return false;
+
+		array<SCR_MapMarkerBase> staticMarkers = manager.GetStaticMarkers();
+		foreach (SCR_MapMarkerBase marker : staticMarkers)
+		{
+			if (!marker)
+				continue;
+			if (marker == handle.m_Marker)
+				return true;
+			if (handle.m_iNativeMarkerId >= 0 && marker.GetMarkerID() == handle.m_iNativeMarkerId)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool IsHandleInDisabledArray(SCR_MapMarkerManagerComponent manager, HST_NativeStaticMarkerHandle handle)
+	{
+		if (!manager || !handle)
+			return false;
+
+		array<SCR_MapMarkerBase> disabledMarkers = manager.GetDisabledMarkers();
+		foreach (SCR_MapMarkerBase marker : disabledMarkers)
+		{
+			if (!marker)
+				continue;
+			if (marker == handle.m_Marker)
+				return true;
+			if (handle.m_iNativeMarkerId >= 0 && marker.GetMarkerID() == handle.m_iNativeMarkerId)
+				return true;
+		}
+
+		return false;
 	}
 
 	protected Faction ResolveFaction(string factionKey)

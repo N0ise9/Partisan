@@ -17,6 +17,10 @@ class HST_MapZoneOverlayDrawCommandSet
 class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 {
 	protected static ref array<ref HST_MapZoneOverlayRecord> s_aZones = {};
+	protected static bool s_bCandidateVisible;
+	protected static vector s_vCandidatePosition = "0 0 0";
+	protected static string s_sCandidateLabel;
+	protected static int s_iCandidateColor;
 	protected static bool s_bEnabled;
 	protected static int s_iRevision;
 
@@ -30,6 +34,7 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		s_aZones.Clear();
 		if (!ids || !labels || !xs || !zs || !radii || !tones)
 		{
+			s_bEnabled = HasVisibleContent();
 			s_iRevision++;
 			return;
 		}
@@ -53,14 +58,34 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 			s_aZones.Insert(record);
 		}
 
-		s_bEnabled = true;
+		s_bEnabled = HasVisibleContent();
 		s_iRevision++;
 	}
 
 	static void ClearSetupZones()
 	{
 		s_aZones.Clear();
-		s_bEnabled = false;
+		s_bEnabled = HasVisibleContent();
+		s_iRevision++;
+	}
+
+	static void SetSetupCandidate(vector position, string label, int color)
+	{
+		s_vCandidatePosition = position;
+		s_sCandidateLabel = label;
+		s_iCandidateColor = color;
+		s_bCandidateVisible = true;
+		s_bEnabled = HasVisibleContent();
+		s_iRevision++;
+	}
+
+	static void ClearSetupCandidate()
+	{
+		s_bCandidateVisible = false;
+		s_vCandidatePosition = "0 0 0";
+		s_sCandidateLabel = "";
+		s_iCandidateColor = 0;
+		s_bEnabled = HasVisibleContent();
 		s_iRevision++;
 	}
 
@@ -126,6 +151,11 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 
 		if (!m_MapEntity || !m_MapEntity.IsOpen() || !m_RootWidget)
 			return;
+		if (!CanProject())
+		{
+			m_bDirty = true;
+			return;
+		}
 
 		Widget mapFrame = m_RootWidget.FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME);
 		if (!mapFrame)
@@ -140,6 +170,9 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 			if (zone && zone.m_bVisible)
 				DrawZone(workspace, mapFrame, zone);
 		}
+
+		if (s_bCandidateVisible)
+			DrawCandidate(workspace, mapFrame);
 	}
 
 	protected void DrawZone(WorkspaceWidget workspace, Widget parent, HST_MapZoneOverlayRecord zone)
@@ -152,6 +185,8 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		int left = Math.Round(workspace.DPIUnscale(sx - radiusPx));
 		int top = Math.Round(workspace.DPIUnscale(sy - radiusPx));
 		int diameter = Math.Round(workspace.DPIUnscale(radiusPx * 2));
+		if (!IsOverlayRectWorthDrawing(left, top, diameter, parent))
+			return;
 
 		CreateCircle(workspace, parent, left, top, diameter, ZoneFillColor(zone.m_sTone), 0.48);
 		int pointSize = 6;
@@ -160,6 +195,24 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		CreateRect(workspace, parent, pointLeft, pointTop, pointSize, pointSize, ZonePointColor(zone.m_sTone), 1.0);
 		if (diameter >= 18)
 			CreateLabel(workspace, parent, ShortenText(zone.m_sLabel, 24), pointLeft + 9, pointTop - 5, 0xFFE5ECEE);
+	}
+
+	protected void DrawCandidate(WorkspaceWidget workspace, Widget parent)
+	{
+		int sx;
+		int sy;
+		m_MapEntity.WorldToScreen(s_vCandidatePosition[0], s_vCandidatePosition[2], sx, sy, true);
+
+		int x = Math.Round(workspace.DPIUnscale(sx));
+		int y = Math.Round(workspace.DPIUnscale(sy));
+		int size = 22;
+		if (!IsOverlayRectWorthDrawing(x - size / 2, y - size / 2, size, parent))
+			return;
+
+		CreateRect(workspace, parent, x - size / 2, y - 2, size, 4, s_iCandidateColor, 1.0);
+		CreateRect(workspace, parent, x - 2, y - size / 2, 4, size, s_iCandidateColor, 1.0);
+		if (!s_sCandidateLabel.IsEmpty())
+			CreateLabel(workspace, parent, s_sCandidateLabel, x + 10, y + 8, s_iCandidateColor);
 	}
 
 	protected int ResolveRadiusPixels(vector center, float radiusMeters)
@@ -173,6 +226,37 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		m_MapEntity.WorldToScreen(center[0], center[2], cx, cy, true);
 		m_MapEntity.WorldToScreen(edge[0], edge[2], rx, ry, true);
 		return AbsInt(rx - cx);
+	}
+
+	protected bool CanProject()
+	{
+		if (!m_MapEntity || !m_MapEntity.IsOpen())
+			return false;
+
+		CanvasWidget mapWidget = m_MapEntity.GetMapWidget();
+		if (!mapWidget)
+			return false;
+
+		float width;
+		float height;
+		mapWidget.GetScreenSize(width, height);
+		return width > 0.0 && height > 0.0 && m_MapEntity.GetCurrentZoom() > 0.0;
+	}
+
+	protected bool IsOverlayRectWorthDrawing(int left, int top, int size, Widget mapFrame)
+	{
+		if (!mapFrame || size <= 0)
+			return false;
+
+		float frameW;
+		float frameH;
+		mapFrame.GetScreenSize(frameW, frameH);
+		if (left + size < -128 || top + size < -128)
+			return false;
+		if (left > frameW + 128 || top > frameH + 128)
+			return false;
+
+		return true;
 	}
 
 	protected Widget CreateCircle(WorkspaceWidget workspace, Widget parent, int left, int top, int diameter, int color, float opacity)
@@ -312,6 +396,11 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 			return -value;
 
 		return value;
+	}
+
+	protected static bool HasVisibleContent()
+	{
+		return s_bCandidateVisible || s_aZones.Count() > 0;
 	}
 
 	protected string ShortenText(string text, int maxCharacters)

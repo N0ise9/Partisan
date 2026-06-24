@@ -241,6 +241,8 @@ class HST_CommandUIService
 		actions.Insert("admin_phase22_report");
 		actions.Insert("admin_phase23_ui_coverage");
 		actions.Insert("admin_phase23_marker_audit");
+		actions.Insert("admin_marker_native_report");
+		actions.Insert("admin_purge_hst_native_markers");
 		actions.Insert("admin_phase23_failed_action_sample");
 		actions.Insert("admin_phase24_seed_early");
 		actions.Insert("admin_phase24_seed_mid");
@@ -294,6 +296,8 @@ class HST_CommandUIService
 		required.Insert("admin_phase22_report");
 		required.Insert("admin_phase23_ui_coverage");
 		required.Insert("admin_phase23_marker_audit");
+		required.Insert("admin_marker_native_report");
+		required.Insert("admin_purge_hst_native_markers");
 		required.Insert("admin_phase23_failed_action_sample");
 		required.Insert("admin_phase24_seed_early");
 		required.Insert("admin_phase24_seed_mid");
@@ -408,6 +412,8 @@ class HST_CommandUIService
 		if (commandId == "admin_phase22_report") return true;
 		if (commandId == "admin_phase23_ui_coverage") return true;
 		if (commandId == "admin_phase23_marker_audit") return true;
+		if (commandId == "admin_marker_native_report") return true;
+		if (commandId == "admin_purge_hst_native_markers") return true;
 		if (commandId == "admin_phase23_failed_action_sample") return true;
 		if (commandId == "admin_phase24_seed_early") return true;
 		if (commandId == "admin_phase24_seed_mid") return true;
@@ -834,6 +840,12 @@ class HST_CommandUIService
 		if (commandId == "admin_phase23_marker_audit")
 			return coordinator.RequestAdminPhase23MarkerAudit(playerId);
 
+		if (commandId == "admin_marker_native_report")
+			return coordinator.RequestAdminNativeMarkerReport(playerId);
+
+		if (commandId == "admin_purge_hst_native_markers")
+			return coordinator.RequestAdminPurgeNativeHSTMarkers(playerId);
+
 		if (commandId == "admin_phase23_failed_action_sample")
 			return coordinator.RequestAdminPhase23FailedActionSample(playerId);
 
@@ -902,6 +914,8 @@ class HST_CommandUIService
 		if (commandId == "admin_phase22_report") return true;
 		if (commandId == "admin_phase23_ui_coverage") return true;
 		if (commandId == "admin_phase23_marker_audit") return true;
+		if (commandId == "admin_marker_native_report") return true;
+		if (commandId == "admin_purge_hst_native_markers") return true;
 		if (commandId == "admin_phase23_failed_action_sample") return true;
 		if (commandId == "admin_phase24_report") return true;
 
@@ -1338,6 +1352,12 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase23_marker_audit")
 			return !coordinator.RequestAdminPhase23MarkerAudit(playerId).IsEmpty();
+
+		if (commandId == "admin_marker_native_report")
+			return !coordinator.RequestAdminNativeMarkerReport(playerId).IsEmpty();
+
+		if (commandId == "admin_purge_hst_native_markers")
+			return !coordinator.RequestAdminPurgeNativeHSTMarkers(playerId).Contains("failed");
 
 		if (commandId == "admin_phase23_failed_action_sample")
 			return !coordinator.RequestAdminPhase23FailedActionSample(playerId).Contains("failed");
@@ -2501,6 +2521,8 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 22 report", "admin_phase22_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 UI coverage", "admin_phase23_ui_coverage", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 marker audit", "admin_phase23_marker_audit", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Native marker report", "admin_marker_native_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Purge HST native markers", "admin_purge_hst_native_markers", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 failed action sample", "admin_phase23_failed_action_sample", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 seed early", "admin_phase24_seed_early", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 seed mid", "admin_phase24_seed_mid", "", canUseAdmin, "admin required");

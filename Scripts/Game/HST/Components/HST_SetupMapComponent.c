@@ -99,8 +99,6 @@ class HST_SetupMapComponent : ScriptComponent
 	protected ref array<ref HST_SetupMapDrawCommandSet> m_aChromeDrawCommandSets = {};
 	protected ref array<ref HST_SetupMapDrawCommandSet> m_aOverlayDrawCommandSets = {};
 	protected ref array<ref HST_SetupMapDrawCommandSet> m_aModalDrawCommandSets = {};
-	protected ref HST_NativeMapMarkerReconciler m_SetupPreviewReconciler = new HST_NativeMapMarkerReconciler();
-	protected ref map<string, ref HST_MapMarkerRecord> m_mSetupPreviewMarkers = new map<string, ref HST_MapMarkerRecord>();
 	protected ref HST_SetupMapWidgetHandler m_WidgetHandler;
 	protected SCR_MapEntity m_MapEntity;
 	protected Widget m_wSetupRoot;
@@ -137,8 +135,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_OwnerEntity = owner;
 		m_bIsLocalOwner = IsLocalOwner(owner);
 		m_bDebugLoggingEnabled = HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet();
-		if (m_SetupPreviewReconciler)
-			m_SetupPreviewReconciler.SetDebugLoggingEnabled(m_bDebugLoggingEnabled);
 		m_WidgetHandler = new HST_SetupMapWidgetHandler();
 		m_WidgetHandler.Bind(this);
 		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
@@ -268,7 +264,7 @@ class HST_SetupMapComponent : ScriptComponent
 		DebugLog(string.Format("state payload #%1 phase=%2 active=%3 commander=%4 zones=%5 status=%6", m_iSetupPayloadCount, m_sPhase, m_bSetupActive, m_bIsCommander, m_aZoneIds.Count(), ShortenText(m_sStatusText, 96)));
 		if (!m_bSetupActive)
 		{
-			ClearSetupPreviewMarker();
+			ClearSetupCandidateOverlay();
 			HST_MapZoneOverlayUIComponent.ClearSetupZones();
 			if (IsAuthoritativeSetupComplete())
 				FinalizeSetupMap();
@@ -301,7 +297,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_fModalClickSuppressionSeconds = 0;
 		m_vCandidatePosition = "0 0 0";
 		m_vRequestedValidationPosition = "0 0 0";
-		ClearSetupPreviewMarker();
+		ClearSetupCandidateOverlay();
 		HST_MapZoneOverlayUIComponent.ClearSetupZones();
 		CloseNativeSetupMap();
 		CloseRespawnMenuAfterSetup();
@@ -359,15 +355,19 @@ class HST_SetupMapComponent : ScriptComponent
 		else if (action == "confirm" && accepted)
 		{
 			m_bConfirmOpen = false;
+			m_bCandidateValid = false;
+			m_vCandidatePosition = "0 0 0";
 			RequestSetupStateNow();
 		}
 		else if (action == "confirm")
 		{
 			m_bConfirmOpen = false;
+			m_bCandidateValid = false;
+			m_vCandidatePosition = "0 0 0";
 		}
 
 		m_bOverlayDirty = true;
-		ReconcileSetupPreviewMarker();
+		PublishSetupCandidateOverlay();
 		UpdateConfirmationVisibility();
 		UpdateSetupLocationSelectionMode();
 	}
@@ -480,7 +480,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bConfirmOpen = false;
 		m_sStatusText = "Select a location on the map to place the HQ";
 		m_bOverlayDirty = true;
-		ClearSetupPreviewMarker();
+		ClearSetupCandidateOverlay();
 		UpdateConfirmationVisibility();
 		UpdateSetupLocationSelectionMode();
 	}
@@ -508,8 +508,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_vWorldMax[2] = ExtractPipeField(header, 7).ToFloat();
 		m_sStatusText = ExtractPipeField(header, 8);
 		m_bDebugLoggingEnabled = ParseBool(ExtractPipeField(header, 9));
-		if (m_SetupPreviewReconciler)
-			m_SetupPreviewReconciler.SetDebugLoggingEnabled(m_bDebugLoggingEnabled);
 		if (m_sStatusText.IsEmpty())
 		{
 			if (m_bIsCommander)
@@ -553,52 +551,24 @@ class HST_SetupMapComponent : ScriptComponent
 		HST_MapZoneOverlayUIComponent.SetSetupZones(m_aZoneIds, m_aZoneLabels, m_aZoneXs, m_aZoneZs, m_aZoneRadii, m_aZoneTones);
 	}
 
-	protected void ReconcileSetupPreviewMarker()
+	protected void PublishSetupCandidateOverlay()
 	{
-		if (!m_SetupPreviewReconciler)
+		if (!m_bSetupActive || IsZeroVector(m_vCandidatePosition) || (!m_bCandidateValid && !m_bAwaitingServer))
+		{
+			HST_MapZoneOverlayUIComponent.ClearSetupCandidate();
 			return;
+		}
 
-		m_mSetupPreviewMarkers.Clear();
-		if (m_bSetupActive && (m_bCandidateValid || m_bAwaitingServer) && !IsZeroVector(m_vCandidatePosition))
-			m_mSetupPreviewMarkers.Set("setup:local:hq_candidate", BuildSetupPreviewRecord());
-
-		m_SetupPreviewReconciler.Reconcile(m_mSetupPreviewMarkers);
-	}
-
-	protected void ClearSetupPreviewMarker()
-	{
-		if (!m_SetupPreviewReconciler)
-			return;
-
-		m_mSetupPreviewMarkers.Clear();
-		m_SetupPreviewReconciler.Clear();
-	}
-
-	protected HST_MapMarkerRecord BuildSetupPreviewRecord()
-	{
-		HST_MapMarkerRecord record = new HST_MapMarkerRecord();
-		record.m_sId = "setup:local:hq_candidate";
-		record.m_eRenderMode = HST_EMapMarkerRenderMode.LOCAL_PREVIEW;
-		record.m_vWorldPosition = m_vCandidatePosition;
-		record.m_sLabel = "HQ";
-		record.m_sShortLabel = "HQ";
-		record.m_sCategory = "setup";
-		record.m_sFactionKey = "FIA";
-		record.m_sTone = "gold";
-		record.m_iPriority = 100;
-		record.m_eMarkerType = SCR_EMapMarkerType.PLACED_CUSTOM;
-		record.m_iConfigId = -1;
-		record.m_iIconEntry = SCR_EScenarioFrameworkMarkerCustom.PICK_UP2;
+		int color = 0xFFFFD166;
 		if (m_bAwaitingServer)
-			record.m_iColorEntry = SCR_EScenarioFrameworkMarkerCustomColor.BLUE;
-		else
-			record.m_iColorEntry = SCR_EScenarioFrameworkMarkerCustomColor.REFORGER_ORANGE;
-		record.m_iFactionFlags = 0;
-		record.m_bVisible = true;
-		record.m_bCanPlayerRemove = false;
-		record.m_bLocalOnly = true;
-		record.m_bServerMarker = false;
-		return record;
+			color = 0xFF9FD3FF;
+
+		HST_MapZoneOverlayUIComponent.SetSetupCandidate(m_vCandidatePosition, "HQ", color);
+	}
+
+	protected void ClearSetupCandidateOverlay()
+	{
+		HST_MapZoneOverlayUIComponent.ClearSetupCandidate();
 	}
 
 	protected void EnsureNativeSetupMapOpen()
@@ -690,7 +660,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected void CloseNativeSetupMap()
 	{
 		SetSetupLocationSelectionEnabled(false);
-		ClearSetupPreviewMarker();
+		ClearSetupCandidateOverlay();
 		HST_MapZoneOverlayUIComponent.ClearSetupZones();
 
 		if (m_bNativeInvokersBound)
@@ -970,7 +940,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_sStatusText = "Checking HQ location...";
 		m_bOverlayDirty = true;
 		DebugLog(string.Format("validate request %1", worldPosition));
-		ReconcileSetupPreviewMarker();
+		PublishSetupCandidateOverlay();
 		UpdateSetupLocationSelectionMode();
 		request.RequestSetupValidatePosition(worldPosition[0], worldPosition[2]);
 	}
@@ -991,7 +961,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_sStatusText = "Placing HQ...";
 		m_bOverlayDirty = true;
 		DebugLog(string.Format("confirm request %1", m_vCandidatePosition));
-		ReconcileSetupPreviewMarker();
+		PublishSetupCandidateOverlay();
 		UpdateSetupLocationSelectionMode();
 		request.RequestSetupConfirmPosition(m_vCandidatePosition[0], m_vCandidatePosition[2]);
 	}
@@ -1122,7 +1092,7 @@ class HST_SetupMapComponent : ScriptComponent
 			DebugLog(string.Format("overlay render #%1 commander=%2 confirm=%3 awaiting=%4 zones=%5", m_iOverlayRenderCount, m_bIsCommander, m_bConfirmOpen, m_bAwaitingServer, m_aZoneIds.Count()));
 
 		PublishSetupZoneOverlay();
-		ReconcileSetupPreviewMarker();
+		PublishSetupCandidateOverlay();
 	}
 
 	protected void NativeScreenToLayoutCandidates(float nativeScreenX, float nativeScreenY, out int layoutX, out int layoutY, out int alternateLayoutX, out int alternateLayoutY)

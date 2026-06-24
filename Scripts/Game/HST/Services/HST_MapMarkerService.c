@@ -215,6 +215,98 @@ class HST_MapMarkerService
 		return report + BuildMarkerDetailReport(state, 30);
 	}
 
+	string BuildNativeMarkerRuntimeReport(HST_CampaignState state)
+	{
+		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
+		if (!markerManager)
+			return "h-istasi native marker report | native marker manager not ready";
+
+		int desiredRecords = m_mDesiredNativeMarkers.Count();
+		int nativeStatic = markerManager.GetStaticMarkers().Count();
+		int nativeDisabled = markerManager.GetDisabledMarkers().Count();
+		int setupPreviewOrphans = CountSetupPreviewNativeMarkers(markerManager);
+		int campaignOrphanCandidates = Math.Max(0, CountDevelopmentHSTMarkers(markerManager) - setupPreviewOrphans);
+		string pending = "ready";
+		if (m_bNativePublishPending)
+			pending = "pending";
+
+		string report = "h-istasi native marker report";
+		report = report + string.Format("\ndesired records: %1", desiredRecords);
+		if (state)
+			report = report + string.Format("\nstate records: %1", state.m_aMapMarkers.Count());
+		report = report + string.Format("\nnative static array: %1", nativeStatic);
+		report = report + string.Format("\nnative disabled array: %1", nativeDisabled);
+		report = report + string.Format("\ntracked native handles: %1", m_iLastNativePublishedCount);
+		report = report + string.Format("\neligible native records: %1", m_iLastNativeEligibleCount);
+		report = report + string.Format("\nskipped/failed native records: %1", m_iLastNativeSkippedCount);
+		report = report + string.Format("\nsetup preview orphan candidates: %1", setupPreviewOrphans);
+		report = report + string.Format("\ncampaign orphan candidates: %1", campaignOrphanCandidates);
+		report = report + string.Format("\nrefresh: %1", pending);
+		if (m_NativeReconciler)
+		{
+			HST_MapMarkerReconcileResult result = m_NativeReconciler.GetLastResult();
+			report = report + string.Format("\nreconciler static handles: %1", m_NativeReconciler.GetTrackedStaticHandleCount());
+			report = report + string.Format("\nreconciler dynamic handles: %1", m_NativeReconciler.GetTrackedDynamicHandleCount());
+			report = report + string.Format("\ntracked static active: %1", m_NativeReconciler.CountTrackedStaticActive(markerManager));
+			report = report + string.Format("\ntracked static disabled: %1", m_NativeReconciler.CountTrackedStaticDisabled(markerManager));
+			report = report + string.Format("\ntracked static missing: %1", m_NativeReconciler.CountTrackedStaticMissing(markerManager));
+			if (result)
+			{
+				report = report + string.Format("\ncreated last reconcile: %1", result.m_iCreated);
+				report = report + string.Format("\nupdated last reconcile: %1", result.m_iUpdated);
+				report = report + string.Format("\nremoved last reconcile: %1", result.m_iRemoved);
+				report = report + string.Format("\nfailed last reconcile: %1", result.m_iFailed);
+			}
+			report = report + "\n" + m_NativeReconciler.BuildDetailedRuntimeReport(markerManager);
+		}
+		return report;
+	}
+
+	string AdminPurgeNativeHSTMarkers()
+	{
+		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
+		if (!markerManager)
+			return "h-istasi admin | native marker purge failed: native marker manager not ready";
+
+		int trackedRemoved;
+		if (m_NativeReconciler)
+		{
+			m_NativeReconciler.Clear(markerManager);
+			HST_MapMarkerReconcileResult result = m_NativeReconciler.GetLastResult();
+			if (result)
+				trackedRemoved = result.m_iRemoved;
+		}
+
+		array<SCR_MapMarkerBase> candidates = {};
+		array<SCR_MapMarkerBase> staticMarkers = markerManager.GetStaticMarkers();
+		foreach (SCR_MapMarkerBase marker : staticMarkers)
+			candidates.Insert(marker);
+
+		array<SCR_MapMarkerBase> disabledMarkers = markerManager.GetDisabledMarkers();
+		foreach (SCR_MapMarkerBase disabledMarker : disabledMarkers)
+			candidates.Insert(disabledMarker);
+
+		int orphanRemoved;
+		foreach (SCR_MapMarkerBase markerToRemove : candidates)
+		{
+			if (!IsDevelopmentHSTMarker(markerToRemove))
+				continue;
+
+			markerManager.RemoveStaticMarker(markerToRemove);
+			orphanRemoved++;
+		}
+
+		m_mDesiredNativeMarkers.Clear();
+		m_sLastNativeMarkerSignature = "";
+		m_iLastNativePublishedCount = 0;
+		m_iLastNativeEligibleCount = 0;
+		m_iLastNativeSkippedCount = 0;
+		m_bNativePublishPending = false;
+		m_fNativePublishRetrySeconds = 0;
+
+		return string.Format("h-istasi admin | purged %1 tracked and %2 orphan native HST marker(s)", trackedRemoved, orphanRemoved);
+	}
+
 	protected string BuildMarkerRefreshDiagnostic(HST_CampaignState state)
 	{
 		if (!state)
@@ -263,6 +355,89 @@ class HST_MapMarkerService
 			if (marker && marker.m_sMarkerId == markerId && marker.m_bVisible)
 				return true;
 		}
+
+		return false;
+	}
+
+	protected int CountSetupPreviewNativeMarkers(SCR_MapMarkerManagerComponent markerManager)
+	{
+		if (!markerManager)
+			return 0;
+
+		int count;
+		array<SCR_MapMarkerBase> staticMarkers = markerManager.GetStaticMarkers();
+		foreach (SCR_MapMarkerBase marker : staticMarkers)
+		{
+			if (IsSetupPreviewNativeMarker(marker))
+				count++;
+		}
+
+		array<SCR_MapMarkerBase> disabledMarkers = markerManager.GetDisabledMarkers();
+		foreach (SCR_MapMarkerBase disabledMarker : disabledMarkers)
+		{
+			if (IsSetupPreviewNativeMarker(disabledMarker))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountDevelopmentHSTMarkers(SCR_MapMarkerManagerComponent markerManager)
+	{
+		if (!markerManager)
+			return 0;
+
+		int count;
+		array<SCR_MapMarkerBase> staticMarkers = markerManager.GetStaticMarkers();
+		foreach (SCR_MapMarkerBase marker : staticMarkers)
+		{
+			if (IsDevelopmentHSTMarker(marker))
+				count++;
+		}
+
+		array<SCR_MapMarkerBase> disabledMarkers = markerManager.GetDisabledMarkers();
+		foreach (SCR_MapMarkerBase disabledMarker : disabledMarkers)
+		{
+			if (IsDevelopmentHSTMarker(disabledMarker))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool IsSetupPreviewNativeMarker(SCR_MapMarkerBase marker)
+	{
+		if (!marker)
+			return false;
+		if (marker.GetType() != SCR_EMapMarkerType.PLACED_CUSTOM)
+			return false;
+
+		string text = marker.GetCustomText();
+		return text == "HQ" || text == "HST_SETUP_HQ_CANDIDATE";
+	}
+
+	protected bool IsDevelopmentHSTMarker(SCR_MapMarkerBase marker)
+	{
+		if (!marker)
+			return false;
+		if (marker.GetType() != SCR_EMapMarkerType.PLACED_CUSTOM)
+			return false;
+
+		string text = marker.GetCustomText();
+		if (text == "HQ")
+			return true;
+		if (text.Contains("FIA HQ"))
+			return true;
+		if (text.Contains("Petros"))
+			return true;
+		if (text.Contains("Defend"))
+			return true;
+		if (text.Contains("QRF"))
+			return true;
+		if (text.Contains("Mission"))
+			return true;
+		if (text.Contains("Convoy"))
+			return true;
 
 		return false;
 	}

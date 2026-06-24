@@ -3,6 +3,25 @@ class HST_UIWorkspaceMetrics
 	static const float BASE_WIDTH = 1920.0;
 	static const float BASE_HEIGHT = 1080.0;
 
+	static void GetRawWorkspaceSize(WorkspaceWidget workspace, out int width, out int height)
+	{
+		width = 1;
+		height = 1;
+		if (!workspace)
+			return;
+
+		width = Math.Max(1, Math.Round(workspace.GetWidth()));
+		height = Math.Max(1, Math.Round(workspace.GetHeight()));
+	}
+
+	static int LayoutToRawPx(WorkspaceWidget workspace, float value)
+	{
+		if (!workspace)
+			return Math.Round(value);
+
+		return Math.Round(workspace.DPIScale(value));
+	}
+
 	static void GetLayoutSize(WorkspaceWidget workspace, out int width, out int height)
 	{
 		width = 1;
