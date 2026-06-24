@@ -1407,9 +1407,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		HST_UIWorkspaceMetrics.GetRawWorkspaceSize(workspace, m_iRawWorkspaceWidth, m_iRawWorkspaceHeight);
-		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, m_iEditorLayoutWidth, m_iEditorLayoutHeight);
-		m_iEditorWidth = m_iEditorLayoutWidth;
-		m_iEditorHeight = m_iEditorLayoutHeight;
+		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "loadout");
+		m_iEditorLayoutWidth = m_iRawWorkspaceWidth;
+		m_iEditorLayoutHeight = m_iRawWorkspaceHeight;
+		m_iEditorWidth = m_iRawWorkspaceWidth;
+		m_iEditorHeight = m_iRawWorkspaceHeight;
 		BuildEditorSafeRect();
 		EnsureVisualSettings();
 		BuildResponsiveLayout();
@@ -1421,7 +1423,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		FrameSlot.SetPos(root, 0, 0);
-		FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
+		FrameSlot.SetSize(root, m_iRawWorkspaceWidth, m_iRawWorkspaceHeight);
 
 		Widget layoutRoot = root.FindAnyWidget("HST_LoadoutEditorRoot");
 		if (layoutRoot)
@@ -1499,7 +1501,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget layoutRoot = workspace.CreateWidgets(EDITOR_LAYOUT, m_RootWidget);
 		m_bRootFromLayout = layoutRoot != null;
 		if (layoutRoot)
+		{
 			FrameSlot.SetPos(layoutRoot, 0, 0);
+			FrameSlot.SetSize(layoutRoot, m_iEditorWidth, m_iEditorHeight);
+			layoutRoot.SetZOrder(10);
+		}
 
 		m_UILayerWidget = null;
 		return m_RootWidget;
@@ -1602,6 +1608,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		m_iSafeWidth = Math.Min(m_iEditorWidth, 1920);
 		m_iSafeHeight = Math.Min(m_iEditorHeight, 1080);
+		if (m_iSafeHeight == m_iEditorHeight)
+			m_iSafeHeight = Math.Max(720, m_iEditorHeight - 48);
+
 		m_iSafeLeft = Math.Max(0, (m_iEditorWidth - m_iSafeWidth) / 2);
 		m_iSafeTop = Math.Max(0, (m_iEditorHeight - m_iSafeHeight) / 2);
 	}
@@ -1635,6 +1644,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_iGap = ScalePx(26);
 		if (m_Layout.m_bCompact)
 			m_Layout.m_iGap = ScalePx(18);
+
+		if (m_sEditorMode == "storage")
+		{
+			BuildStorageModeLayout(w, h);
+			return;
+		}
 
 		m_Layout.m_iTabHeight = ScalePx(58);
 		m_Layout.m_iTabWidth = ScalePx(58);
@@ -1761,6 +1776,78 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		ApplyEditorSafeRectOffset();
 
+	}
+
+	protected void BuildStorageModeLayout(int w, int h)
+	{
+		int sideMargin = ScalePx(90);
+		if (m_Layout.m_bCompact)
+			sideMargin = ScalePx(64);
+		if (m_Layout.m_bVeryCompact)
+			sideMargin = ScalePx(36);
+
+		int top = ScalePx(120);
+		int bottomReserve = ScalePx(88);
+		int height = Math.Max(ScalePx(420), h - top - bottomReserve);
+
+		m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.25), ScalePx(360), ScalePx(460));
+		m_Layout.m_iMainWidth = ClampInt(Math.Round(w * 0.36), ScalePx(520), ScalePx(760));
+
+		m_Layout.m_iRailLeft = sideMargin;
+		m_Layout.m_iRailTop = top;
+		m_Layout.m_iRailHeight = height;
+		m_Layout.m_iRailBottom = top + height;
+
+		m_Layout.m_iMainLeft = w - sideMargin - m_Layout.m_iMainWidth;
+		m_Layout.m_iMainTop = top;
+		m_Layout.m_iMainHeight = height;
+		m_Layout.m_iMainBottom = top + height;
+
+		int minimumGapBetweenPanels = ScalePx(180);
+		int overlap = (m_Layout.m_iRailLeft + m_Layout.m_iRailWidth + minimumGapBetweenPanels) - m_Layout.m_iMainLeft;
+		if (overlap > 0)
+		{
+			int shrinkEach = Math.Round(overlap / 2.0) + ScalePx(8);
+			m_Layout.m_iRailWidth = Math.Max(ScalePx(300), m_Layout.m_iRailWidth - shrinkEach);
+			m_Layout.m_iMainWidth = Math.Max(ScalePx(420), m_Layout.m_iMainWidth - shrinkEach);
+			m_Layout.m_iMainLeft = w - sideMargin - m_Layout.m_iMainWidth;
+		}
+
+		m_Layout.m_iTabHeight = ScalePx(58);
+		m_Layout.m_iTabWidth = ScalePx(58);
+		m_Layout.m_iTabGap = ScalePx(14);
+
+		int editorModeCount = GetEditorModeCount();
+		m_Layout.m_iTabsWidth = editorModeCount * m_Layout.m_iTabWidth;
+		if (editorModeCount > 1)
+			m_Layout.m_iTabsWidth += (editorModeCount - 1) * m_Layout.m_iTabGap;
+
+		m_Layout.m_iTabsHeight = m_Layout.m_iTabHeight + ScalePx(10);
+		m_Layout.m_iTabsLeft = m_Layout.m_iRailLeft + Math.Max(0, (m_Layout.m_iRailWidth - m_Layout.m_iTabsWidth) / 2);
+		m_Layout.m_iTabsTop = ScalePx(54);
+
+		m_Layout.m_iHeaderHeight = ScalePx(72);
+		m_Layout.m_iCategoryTop = m_Layout.m_iMainTop + m_Layout.m_iHeaderHeight;
+		m_Layout.m_iCategoryHeight = ScalePx(78);
+		m_Layout.m_iListTop = m_Layout.m_iCategoryTop + m_Layout.m_iCategoryHeight + ScalePx(14);
+		m_Layout.m_iListHeight = Math.Max(ScalePx(1), m_Layout.m_iMainTop + m_Layout.m_iMainHeight - m_Layout.m_iListTop - ScalePx(42));
+
+		m_Layout.m_iContentTop = m_Layout.m_iRailTop;
+		m_Layout.m_iContentBottom = m_Layout.m_iRailBottom;
+		m_Layout.m_iContentHeight = m_Layout.m_iRailHeight;
+
+		m_Layout.m_iSlotRowHeight = ScalePx(84);
+		m_Layout.m_iPreviewCellSmall = ClampInt(ScalePx(50), 42, 62);
+		m_Layout.m_iPreviewCellMedium = ClampInt(ScalePx(66), 56, 76);
+		m_Layout.m_iPreviewCellLarge = ClampInt(ScalePx(76), 64, 88);
+		m_Layout.m_iCountBadgeWidth = ClampInt(ScalePx(88), 70, 104);
+
+		m_Layout.m_iFontTiny = ScaleFont(10);
+		m_Layout.m_iFontSmall = ScaleFont(12);
+		m_Layout.m_iFontNormal = ScaleFont(14);
+		m_Layout.m_iFontTitle = ScaleFont(17);
+
+		ApplyEditorSafeRectOffset();
 	}
 
 	protected void ApplyEditorSafeRectOffset()

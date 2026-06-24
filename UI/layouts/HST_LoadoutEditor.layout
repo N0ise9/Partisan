@@ -1,7 +1,7 @@
 FrameWidgetClass "{7B2FD986A4D34110}" {
  Name "HST_LoadoutEditorRoot"
  Slot FrameWidgetSlot "{7B2FD986A4D3410F}" {
-  Anchor 0 0 0 0
+  Anchor 0 0 1 1
   OffsetLeft 0
   OffsetTop 0
   OffsetRight 0

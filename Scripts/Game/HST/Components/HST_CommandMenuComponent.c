@@ -989,11 +989,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			BuildResponsiveLayout(workspace);
 
-		int rawLeft = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, m_Layout.m_iRootLeft);
-		int rawTop = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, m_Layout.m_iRootTop);
-		int rawWidth = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, m_Layout.m_iRootWidth);
-		int rawHeight = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, m_Layout.m_iRootHeight);
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, rawLeft, rawTop, rawWidth, rawHeight, WidgetFlags.VISIBLE, null, 2500);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, m_Layout.m_iRootLeft, m_Layout.m_iRootTop, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight, WidgetFlags.VISIBLE, null, 2500);
 		if (!root)
 			return null;
 
@@ -1043,6 +1039,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		int screenW;
 		int screenH;
 		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
+		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "command");
 
 		m_Layout.m_iScreenW = screenW;
 		m_Layout.m_iScreenH = screenH;
@@ -1066,7 +1063,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		int availableW = Math.Max(1, screenW - m_Layout.m_iMargin * 2);
 		int availableH = Math.Max(1, screenH - m_Layout.m_iMargin * 2);
 		int maxRootW = ScalePx(1680);
-		int maxRootH = ScalePx(960);
+		int maxRootH = ScalePx(900);
 		m_Layout.m_iRootWidth = Math.Min(availableW, maxRootW);
 		m_Layout.m_iRootHeight = Math.Min(availableH, maxRootH);
 		m_Layout.m_iRootLeft = Math.Max(0, (screenW - m_Layout.m_iRootWidth) / 2);
@@ -1085,7 +1082,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_Layout.m_iStatsTop = m_Layout.m_iHeaderHeight + ScalePx(12);
 		m_Layout.m_iStatsHeight = ScalePx(62);
 
-		int rightCandidateWidth = ClampLayoutInt(Math.Round(m_Layout.m_iRootWidth * 0.28), ScalePx(360), ScalePx(460));
+		int rightCandidateWidth = ClampLayoutInt(Math.Round(m_Layout.m_iRootWidth * 0.30), ScalePx(400), ScalePx(520));
 		int mainLeft = m_Layout.m_iStatsLeft;
 		int rightLeft = m_Layout.m_iRootWidth - rightCandidateWidth - ScalePx(20);
 		int mainWidth = rightLeft - mainLeft - m_Layout.m_iGap;
@@ -1228,11 +1225,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, width), width, screenW, Math.Max(8, margin / 2));
 		int top = HST_UIWorkspaceMetrics.ClampTop(margin, height, screenH, Math.Max(4, margin / 2));
 
-		int rawLeft = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, left);
-		int rawTop = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, top);
-		int rawWidth = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, width);
-		int rawHeight = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, height);
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, rawLeft, rawTop, rawWidth, rawHeight, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 2850);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, width, height, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 2850);
 		if (!root)
 			return;
 
@@ -1530,7 +1523,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (feedTop + ScalePx(52) > m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight)
 			return;
 
-		CreateTextWidget(workspace, root, "Campaign Notes", m_Layout.m_iActivityTextLeft, feedTop, ScalePx(214), ScalePx(28), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
+		CreateWrappedTextWidget(workspace, root, "Campaign Notes", m_Layout.m_iActivityTextLeft, feedTop, m_Layout.m_iActivityTextWidth, ScalePx(28), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
 
 		int listTop = feedTop + ScalePx(36);
 		int listBottom = m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight - ScalePx(10);

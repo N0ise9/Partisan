@@ -181,17 +181,22 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		int sy;
 		m_MapEntity.WorldToScreen(zone.m_vWorldPosition[0], zone.m_vWorldPosition[2], sx, sy, true);
 
+		int centerX;
+		int centerY;
+		if (!NativeScreenToParentLocal(parent, sx, sy, centerX, centerY))
+			return;
+
 		int radiusPx = Math.Max(4, ResolveRadiusPixels(zone.m_vWorldPosition, zone.m_fRadiusMeters));
-		int left = Math.Round(workspace.DPIUnscale(sx - radiusPx));
-		int top = Math.Round(workspace.DPIUnscale(sy - radiusPx));
-		int diameter = Math.Round(workspace.DPIUnscale(radiusPx * 2));
+		int left = centerX - radiusPx;
+		int top = centerY - radiusPx;
+		int diameter = radiusPx * 2;
 		if (!IsOverlayRectWorthDrawing(left, top, diameter, parent))
 			return;
 
 		CreateCircle(workspace, parent, left, top, diameter, ZoneFillColor(zone.m_sTone), 0.48);
 		int pointSize = 6;
-		int pointLeft = Math.Round(workspace.DPIUnscale(sx)) - pointSize / 2;
-		int pointTop = Math.Round(workspace.DPIUnscale(sy)) - pointSize / 2;
+		int pointLeft = centerX - pointSize / 2;
+		int pointTop = centerY - pointSize / 2;
 		CreateRect(workspace, parent, pointLeft, pointTop, pointSize, pointSize, ZonePointColor(zone.m_sTone), 1.0);
 		if (diameter >= 18)
 			CreateLabel(workspace, parent, ShortenText(zone.m_sLabel, 24), pointLeft + 9, pointTop - 5, 0xFFE5ECEE);
@@ -203,8 +208,11 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		int sy;
 		m_MapEntity.WorldToScreen(s_vCandidatePosition[0], s_vCandidatePosition[2], sx, sy, true);
 
-		int x = Math.Round(workspace.DPIUnscale(sx));
-		int y = Math.Round(workspace.DPIUnscale(sy));
+		int x;
+		int y;
+		if (!NativeScreenToParentLocal(parent, sx, sy, x, y))
+			return;
+
 		int size = 22;
 		if (!IsOverlayRectWorthDrawing(x - size / 2, y - size / 2, size, parent))
 			return;
@@ -226,6 +234,22 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		m_MapEntity.WorldToScreen(center[0], center[2], cx, cy, true);
 		m_MapEntity.WorldToScreen(edge[0], edge[2], rx, ry, true);
 		return AbsInt(rx - cx);
+	}
+
+	protected bool NativeScreenToParentLocal(Widget parent, int nativeX, int nativeY, out int localX, out int localY)
+	{
+		localX = nativeX;
+		localY = nativeY;
+
+		if (!parent)
+			return false;
+
+		float parentX;
+		float parentY;
+		parent.GetScreenPos(parentX, parentY);
+		localX = Math.Round(nativeX - parentX);
+		localY = Math.Round(nativeY - parentY);
+		return true;
 	}
 
 	protected bool CanProject()

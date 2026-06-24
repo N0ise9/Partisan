@@ -48,9 +48,10 @@ class HST_SetupMapComponent : ScriptComponent
 	static const float SETUP_STATE_REQUEST_INTERVAL_SECONDS = 2.5;
 	static const float SETUP_SERVER_REQUEST_TIMEOUT_SECONDS = 5.0;
 	static const float SETUP_VALIDATION_RESULT_TOLERANCE_METERS = 8.0;
-	static const float SETUP_MODAL_CLICK_SUPPRESSION_SECONDS = 0.35;
+	static const float SETUP_MODAL_CLICK_SUPPRESSION_SECONDS = 0.75;
 	static const int SETUP_MAP_READY_MAX_RETRIES = 8;
 	static const ResourceName SETUP_NATIVE_MAP_LAYOUT = "{6985327711306200}UI/layouts/HST_SetupHQMap.layout";
+	static const ResourceName SETUP_CONFIRM_MODAL_LAYOUT = "{B55C6FB34BF94000}UI/layouts/HST_SetupConfirmModal.layout";
 	static const ResourceName SETUP_NATIVE_MAP_CONFIG = "{6985327711306210}Configs/Map/HST_SetupHQMap.conf";
 	static const string SETUP_INPUT_CONTEXT = "InGameMenuContext";
 	static const string SETUP_MAP_CONTEXT = "MapContext";
@@ -80,6 +81,8 @@ class HST_SetupMapComponent : ScriptComponent
 	protected string m_sPhase = "setup";
 	protected string m_sStatusText = "Waiting for setup state...";
 	protected string m_sLastResult;
+	protected string m_sLastSetupZoneOverlaySignature;
+	protected string m_sLastSetupCandidateOverlaySignature;
 	protected vector m_vWorldMin = "0 0 0";
 	protected vector m_vWorldMax = "12800 0 12800";
 	protected vector m_vCandidatePosition = "0 0 0";
@@ -104,13 +107,14 @@ class HST_SetupMapComponent : ScriptComponent
 	protected Widget m_wSetupRoot;
 	protected Widget m_wOverlayRoot;
 	protected TextWidget m_wPromptText;
+	protected Widget m_wConfirmModalRoot;
 	protected float m_fOwnerRetryAccumulator;
 	protected float m_fRequestAccumulator;
 	protected float m_fAwaitingServerAccumulator;
 	protected float m_fDebugHeartbeatAccumulator;
 	protected float m_fModalClickSuppressionSeconds;
-	protected int m_iScreenW; // Layout width used for FrameSlot positions.
-	protected int m_iScreenH; // Layout height used for FrameSlot positions.
+	protected int m_iScreenW; // Workspace width used for script-created widgets.
+	protected int m_iScreenH; // Workspace height used for script-created widgets.
 	protected int m_iSetupStateRequestCount;
 	protected int m_iSetupPayloadCount;
 	protected int m_iSetupResultCount;
@@ -477,10 +481,12 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void CancelConfirmSelection()
 	{
+		SuppressNativeMapSelection();
 		m_bConfirmOpen = false;
 		m_sStatusText = "Select a location on the map to place the HQ";
 		m_bOverlayDirty = true;
 		ClearSetupCandidateOverlay();
+		ClearModalWidgets();
 		UpdateConfirmationVisibility();
 		UpdateSetupLocationSelectionMode();
 	}
@@ -544,18 +550,56 @@ class HST_SetupMapComponent : ScriptComponent
 	{
 		if (!m_bSetupActive)
 		{
-			HST_MapZoneOverlayUIComponent.ClearSetupZones();
+			if (!m_sLastSetupZoneOverlaySignature.IsEmpty())
+			{
+				m_sLastSetupZoneOverlaySignature = "";
+				HST_MapZoneOverlayUIComponent.ClearSetupZones();
+			}
 			return;
 		}
 
+		string signature = BuildSetupZoneOverlaySignature();
+		if (signature == m_sLastSetupZoneOverlaySignature)
+			return;
+
+		m_sLastSetupZoneOverlaySignature = signature;
 		HST_MapZoneOverlayUIComponent.SetSetupZones(m_aZoneIds, m_aZoneLabels, m_aZoneXs, m_aZoneZs, m_aZoneRadii, m_aZoneTones);
+	}
+
+	protected string BuildSetupZoneOverlaySignature()
+	{
+		string signature = "";
+		for (int i = 0; i < m_aZoneIds.Count(); i++)
+		{
+			signature = signature + "|";
+			if (m_aZoneIds.IsIndexValid(i))
+				signature = signature + m_aZoneIds[i];
+			signature = signature + ":";
+			if (m_aZoneXs.IsIndexValid(i))
+				signature = signature + string.Format("%1", Math.Round(m_aZoneXs[i]));
+			signature = signature + ",";
+			if (m_aZoneZs.IsIndexValid(i))
+				signature = signature + string.Format("%1", Math.Round(m_aZoneZs[i]));
+			signature = signature + ",";
+			if (m_aZoneRadii.IsIndexValid(i))
+				signature = signature + string.Format("%1", Math.Round(m_aZoneRadii[i]));
+			signature = signature + ",";
+			if (m_aZoneTones.IsIndexValid(i))
+				signature = signature + m_aZoneTones[i];
+		}
+
+		return signature;
 	}
 
 	protected void PublishSetupCandidateOverlay()
 	{
 		if (!m_bSetupActive || IsZeroVector(m_vCandidatePosition) || (!m_bCandidateValid && !m_bAwaitingServer))
 		{
-			HST_MapZoneOverlayUIComponent.ClearSetupCandidate();
+			if (!m_sLastSetupCandidateOverlaySignature.IsEmpty())
+			{
+				m_sLastSetupCandidateOverlaySignature = "";
+				HST_MapZoneOverlayUIComponent.ClearSetupCandidate();
+			}
 			return;
 		}
 
@@ -563,11 +607,20 @@ class HST_SetupMapComponent : ScriptComponent
 		if (m_bAwaitingServer)
 			color = 0xFF9FD3FF;
 
+		string signature = string.Format("%1:%2:%3:%4:%5", Math.Round(m_vCandidatePosition[0]), Math.Round(m_vCandidatePosition[2]), m_bCandidateValid, m_bAwaitingServer, color);
+		if (signature == m_sLastSetupCandidateOverlaySignature)
+			return;
+
+		m_sLastSetupCandidateOverlaySignature = signature;
 		HST_MapZoneOverlayUIComponent.SetSetupCandidate(m_vCandidatePosition, "HQ", color);
 	}
 
 	protected void ClearSetupCandidateOverlay()
 	{
+		if (m_sLastSetupCandidateOverlaySignature.IsEmpty())
+			return;
+
+		m_sLastSetupCandidateOverlaySignature = "";
 		HST_MapZoneOverlayUIComponent.ClearSetupCandidate();
 	}
 
@@ -947,6 +1000,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void RequestConfirmPosition()
 	{
+		SuppressNativeMapSelection();
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.GetLocalOwner();
 		if (!request)
 		{
@@ -975,6 +1029,7 @@ class HST_SetupMapComponent : ScriptComponent
 		int screenW;
 		int screenH;
 		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
+		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "setup");
 		if (screenW != m_iScreenW || screenH != m_iScreenH)
 		{
 			m_iScreenW = screenW;
@@ -1039,59 +1094,91 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_bConfirmOpen)
 		{
 			ClearModalWidgets();
+			m_wConfirmModalRoot = null;
 			return;
 		}
 
-		if (m_aModalWidgets.Count() > 0)
+		if (m_wConfirmModalRoot)
 			return;
 
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		if (!workspace || !m_wSetupRoot)
 			return;
 
-		int modalW = Math.Min(ScalePx(560), m_iScreenW - ScalePx(80));
-		int modalH = ScalePx(280);
+		int modalW = 620;
+		int modalH = 280;
 		int left = (m_iScreenW - modalW) / 2;
 		int top = (m_iScreenH - modalH) / 2;
 		CreateModalRect(workspace, 0, 0, m_iScreenW, m_iScreenH, 0xA8000000, 1.0, CONFIRM_BLOCKER_WIDGET_ID, SETUP_MODAL_Z_ORDER + 1);
-		CreateModalRect(workspace, left - ScalePx(16), top - ScalePx(16), modalW + ScalePx(32), modalH + ScalePx(32), 0xE0000000, 1.0, CONFIRM_BLOCKER_WIDGET_ID, SETUP_MODAL_Z_ORDER + 2);
-		CreateModalRect(workspace, left, top, modalW, modalH, 0xFF1D2932, 1.0, CONFIRM_BLOCKER_WIDGET_ID, SETUP_MODAL_Z_ORDER + 3);
-		CreateModalRect(workspace, left, top, modalW, ScalePx(4), 0xFFC4953B, 1.0, CONFIRM_BLOCKER_WIDGET_ID, SETUP_MODAL_Z_ORDER + 4);
-		CreateModalText(workspace, "Are you sure you want to place the HQ here?", left + ScalePx(34), top + ScalePx(34), modalW - ScalePx(68), ScalePx(120), ScaleFont(22), 0xFFF2E6CA, CONFIRM_BLOCKER_WIDGET_ID, true, SETUP_MODAL_Z_ORDER + 5);
-		int buttonW = ScalePx(160);
-		int buttonH = ScalePx(50);
-		int buttonTop = top + modalH - ScalePx(74);
-		int noLeft = left + modalW / 2 - buttonW - ScalePx(12);
-		int yesLeft = left + modalW / 2 + ScalePx(12);
+		Widget modal = workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, ResolveModalRoot());
+		if (!modal)
+			return;
+
+		modal.SetZOrder(SETUP_MODAL_Z_ORDER + 3);
+		m_aModalWidgets.Insert(modal);
+		m_wConfirmModalRoot = modal;
+
+		BindConfirmModalButton(modal, "NoButton", CONFIRM_NO_WIDGET_ID);
+		BindConfirmModalButton(modal, "YesButton", CONFIRM_YES_WIDGET_ID);
+
+		TextWidget message = TextWidget.Cast(modal.FindAnyWidget("Message"));
+		if (message)
+		{
+			message.SetText("Are you sure you want to place the HQ here?");
+			message.SetTextWrapping(true);
+			ApplyTextStyle(message, ScaleFont(22), true);
+			message.SetColorInt(0xFFF2E6CA);
+		}
+
+		TextWidget noLabel = TextWidget.Cast(modal.FindAnyWidget("NoLabel"));
+		if (noLabel)
+		{
+			ApplyTextStyle(noLabel, ScaleFont(17), true);
+			noLabel.SetColorInt(0xFFF4EBD6);
+		}
+
+		TextWidget yesLabel = TextWidget.Cast(modal.FindAnyWidget("YesLabel"));
+		if (yesLabel)
+		{
+			ApplyTextStyle(yesLabel, ScaleFont(17), true);
+			yesLabel.SetColorInt(0xFF111820);
+		}
+
+		int buttonW = 160;
+		int buttonH = 50;
+		int buttonTop = top + modalH - 74;
+		int noLeft = left + modalW / 2 - 172;
+		int yesLeft = left + modalW / 2 + 12;
 		m_iConfirmNoLeft = noLeft;
 		m_iConfirmNoTop = buttonTop;
 		m_iConfirmYesLeft = yesLeft;
 		m_iConfirmYesTop = buttonTop;
 		m_iConfirmButtonW = buttonW;
 		m_iConfirmButtonH = buttonH;
-		CreateModalRect(workspace, noLeft, buttonTop, buttonW, buttonH, 0xFF46535D, 1.0, CONFIRM_NO_WIDGET_ID, SETUP_MODAL_Z_ORDER + 5);
-		CreateModalText(workspace, "No", noLeft + ScalePx(20), buttonTop + ScalePx(13), buttonW - ScalePx(40), ScalePx(26), ScaleFont(17), 0xFFF4EBD6, CONFIRM_NO_WIDGET_ID, true, SETUP_MODAL_Z_ORDER + 6);
-		CreateModalRect(workspace, yesLeft, buttonTop, buttonW, buttonH, 0xFFC4953B, 1.0, CONFIRM_YES_WIDGET_ID, SETUP_MODAL_Z_ORDER + 5);
-		CreateModalText(workspace, "Yes", yesLeft + ScalePx(20), buttonTop + ScalePx(13), buttonW - ScalePx(40), ScalePx(26), ScaleFont(17), 0xFF111820, CONFIRM_YES_WIDGET_ID, true, SETUP_MODAL_Z_ORDER + 6);
-		CreateModalHitTarget(workspace, noLeft, buttonTop, buttonW, buttonH, CONFIRM_NO_WIDGET_ID, SETUP_MODAL_Z_ORDER + 12);
-		CreateModalHitTarget(workspace, yesLeft, buttonTop, buttonW, buttonH, CONFIRM_YES_WIDGET_ID, SETUP_MODAL_Z_ORDER + 12);
+	}
+
+	protected void BindConfirmModalButton(Widget modal, string widgetName, int widgetId)
+	{
+		if (!modal || widgetId <= 0)
+			return;
+
+		Widget button = modal.FindAnyWidget(widgetName);
+		if (!button)
+			return;
+
+		button.SetUserID(widgetId);
+		button.AddHandler(m_WidgetHandler);
 	}
 
 	protected void RedrawNativeMapOverlay()
 	{
-		ClearOverlayWidgets();
 		if (!m_bSetupActive || !m_wOverlayRoot || !IsSetupMapViewReady())
-			return;
-
-		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		if (!workspace)
 			return;
 
 		m_iOverlayRenderCount++;
 		if (m_iOverlayRenderCount <= 3 || (m_iOverlayRenderCount % 20) == 0)
 			DebugLog(string.Format("overlay render #%1 commander=%2 confirm=%3 awaiting=%4 zones=%5", m_iOverlayRenderCount, m_bIsCommander, m_bConfirmOpen, m_bAwaitingServer, m_aZoneIds.Count()));
 
-		PublishSetupZoneOverlay();
 		PublishSetupCandidateOverlay();
 	}
 
@@ -1306,13 +1393,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (IsPointInsideRect(Math.Round(widgetX) + x, Math.Round(widgetY) + y, left, top, width, height))
 			return true;
 
-		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		if (!workspace)
-			return false;
-
-		int layoutX = Math.Round(workspace.DPIUnscale(widgetX)) + x;
-		int layoutY = Math.Round(workspace.DPIUnscale(widgetY)) + y;
-		return IsPointInsideRect(layoutX, layoutY, left, top, width, height);
+		return false;
 	}
 
 	protected bool IsLatestValidationResult(vector resolvedPosition)
@@ -1471,6 +1552,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 		m_aModalWidgets.Clear();
 		m_aModalDrawCommandSets.Clear();
+		m_wConfirmModalRoot = null;
 		ClearConfirmButtonRects();
 	}
 
