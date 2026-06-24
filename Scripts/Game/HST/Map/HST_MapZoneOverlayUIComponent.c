@@ -1,0 +1,328 @@
+class HST_MapZoneOverlayRecord
+{
+	string m_sId;
+	string m_sLabel;
+	vector m_vWorldPosition;
+	float m_fRadiusMeters;
+	string m_sTone;
+	bool m_bVisible = true;
+}
+
+class HST_MapZoneOverlayDrawCommandSet
+{
+	ref array<ref CanvasWidgetCommand> m_aCommands = {};
+}
+
+[BaseContainerProps()]
+class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
+{
+	protected static ref array<ref HST_MapZoneOverlayRecord> s_aZones = {};
+	protected static bool s_bEnabled;
+	protected static int s_iRevision;
+
+	protected ref array<Widget> m_aWidgets = {};
+	protected ref array<ref HST_MapZoneOverlayDrawCommandSet> m_aDrawCommandSets = {};
+	protected bool m_bDirty = true;
+	protected int m_iAppliedRevision = -1;
+
+	static void SetSetupZones(array<string> ids, array<string> labels, array<float> xs, array<float> zs, array<float> radii, array<string> tones)
+	{
+		s_aZones.Clear();
+		if (!ids || !labels || !xs || !zs || !radii || !tones)
+		{
+			s_iRevision++;
+			return;
+		}
+
+		int count = labels.Count();
+		for (int i = 0; i < count; i++)
+		{
+			if (!xs.IsIndexValid(i) || !zs.IsIndexValid(i) || !radii.IsIndexValid(i) || !tones.IsIndexValid(i))
+				continue;
+
+			HST_MapZoneOverlayRecord record = new HST_MapZoneOverlayRecord();
+			if (ids.IsIndexValid(i))
+				record.m_sId = ids[i];
+			record.m_sLabel = labels[i];
+			record.m_vWorldPosition = "0 0 0";
+			record.m_vWorldPosition[0] = xs[i];
+			record.m_vWorldPosition[2] = zs[i];
+			record.m_fRadiusMeters = Math.Max(50.0, radii[i]);
+			record.m_sTone = tones[i];
+			record.m_bVisible = true;
+			s_aZones.Insert(record);
+		}
+
+		s_bEnabled = true;
+		s_iRevision++;
+	}
+
+	static void ClearSetupZones()
+	{
+		s_aZones.Clear();
+		s_bEnabled = false;
+		s_iRevision++;
+	}
+
+	override void OnMapOpen(MapConfiguration config)
+	{
+		super.OnMapOpen(config);
+		m_MapEntity.GetOnMapPan().Insert(OnMapPan);
+		m_MapEntity.GetOnMapZoom().Insert(OnMapZoom);
+		m_MapEntity.GetOnMapPanEnd().Insert(OnMapPanEnd);
+		m_bDirty = true;
+	}
+
+	override void OnMapClose(MapConfiguration config)
+	{
+		m_MapEntity.GetOnMapPan().Remove(OnMapPan);
+		m_MapEntity.GetOnMapZoom().Remove(OnMapZoom);
+		m_MapEntity.GetOnMapPanEnd().Remove(OnMapPanEnd);
+		ClearOverlayWidgets();
+		super.OnMapClose(config);
+	}
+
+	override void Init()
+	{
+		m_bDirty = true;
+	}
+
+	override void Update(float timeSlice)
+	{
+		if (!s_bEnabled)
+		{
+			if (m_aWidgets.Count() > 0)
+				ClearOverlayWidgets();
+			m_iAppliedRevision = s_iRevision;
+			return;
+		}
+
+		if (!m_bDirty && m_iAppliedRevision == s_iRevision)
+			return;
+
+		Redraw();
+	}
+
+	protected void OnMapPan(float panX, float panY, bool adjusted)
+	{
+		m_bDirty = true;
+	}
+
+	protected void OnMapPanEnd(float panX, float panY)
+	{
+		m_bDirty = true;
+	}
+
+	protected void OnMapZoom(float zoom)
+	{
+		m_bDirty = true;
+	}
+
+	protected void Redraw()
+	{
+		ClearOverlayWidgets();
+		m_bDirty = false;
+		m_iAppliedRevision = s_iRevision;
+
+		if (!m_MapEntity || !m_MapEntity.IsOpen() || !m_RootWidget)
+			return;
+
+		Widget mapFrame = m_RootWidget.FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME);
+		if (!mapFrame)
+			return;
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+			return;
+
+		foreach (HST_MapZoneOverlayRecord zone : s_aZones)
+		{
+			if (zone && zone.m_bVisible)
+				DrawZone(workspace, mapFrame, zone);
+		}
+	}
+
+	protected void DrawZone(WorkspaceWidget workspace, Widget parent, HST_MapZoneOverlayRecord zone)
+	{
+		int sx;
+		int sy;
+		m_MapEntity.WorldToScreen(zone.m_vWorldPosition[0], zone.m_vWorldPosition[2], sx, sy, true);
+
+		int radiusPx = Math.Max(4, ResolveRadiusPixels(zone.m_vWorldPosition, zone.m_fRadiusMeters));
+		int left = Math.Round(workspace.DPIUnscale(sx - radiusPx));
+		int top = Math.Round(workspace.DPIUnscale(sy - radiusPx));
+		int diameter = Math.Round(workspace.DPIUnscale(radiusPx * 2));
+
+		CreateCircle(workspace, parent, left, top, diameter, ZoneFillColor(zone.m_sTone), 0.48);
+		int pointSize = 6;
+		int pointLeft = Math.Round(workspace.DPIUnscale(sx)) - pointSize / 2;
+		int pointTop = Math.Round(workspace.DPIUnscale(sy)) - pointSize / 2;
+		CreateRect(workspace, parent, pointLeft, pointTop, pointSize, pointSize, ZonePointColor(zone.m_sTone), 1.0);
+		if (diameter >= 18)
+			CreateLabel(workspace, parent, ShortenText(zone.m_sLabel, 24), pointLeft + 9, pointTop - 5, 0xFFE5ECEE);
+	}
+
+	protected int ResolveRadiusPixels(vector center, float radiusMeters)
+	{
+		int cx;
+		int cy;
+		int rx;
+		int ry;
+		vector edge = center;
+		edge[0] = edge[0] + radiusMeters;
+		m_MapEntity.WorldToScreen(center[0], center[2], cx, cy, true);
+		m_MapEntity.WorldToScreen(edge[0], edge[2], rx, ry, true);
+		return AbsInt(rx - cx);
+	}
+
+	protected Widget CreateCircle(WorkspaceWidget workspace, Widget parent, int left, int top, int diameter, int color, float opacity)
+	{
+		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 1, parent);
+		if (!widget)
+			return null;
+
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, diameter, diameter);
+		SetupPolygonWidget(widget, BuildCircleVertices(diameter), color);
+		widget.SetOpacity(opacity);
+		m_aWidgets.Insert(widget);
+		return widget;
+	}
+
+	protected Widget CreateRect(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity)
+	{
+		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 2, parent);
+		if (!widget)
+			return null;
+
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, width, height);
+		SetupPolygonWidget(widget, BuildRectVertices(width, height), color);
+		widget.SetOpacity(opacity);
+		m_aWidgets.Insert(widget);
+		return widget;
+	}
+
+	protected TextWidget CreateLabel(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int color)
+	{
+		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 3, parent);
+		if (!widget)
+			return null;
+
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, 160, 32);
+		TextWidget textWidget = TextWidget.Cast(widget);
+		if (textWidget)
+		{
+			textWidget.SetText(text);
+			textWidget.SetTextWrapping(true);
+			textWidget.SetExactFontSize(11);
+			textWidget.SetOutline(1, 0xDD000000);
+			textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
+		}
+
+		widget.SetColorInt(color);
+		m_aWidgets.Insert(widget);
+		return textWidget;
+	}
+
+	protected bool SetupPolygonWidget(Widget widget, array<float> vertices, int color)
+	{
+		CanvasWidget canvas = CanvasWidget.Cast(widget);
+		if (!canvas)
+			return false;
+
+		HST_MapZoneOverlayDrawCommandSet commandSet = new HST_MapZoneOverlayDrawCommandSet();
+		PolygonDrawCommand command = new PolygonDrawCommand();
+		command.m_iColor = color;
+		command.m_Vertices = vertices;
+		commandSet.m_aCommands.Insert(command);
+		canvas.SetDrawCommands(commandSet.m_aCommands);
+		m_aDrawCommandSets.Insert(commandSet);
+		return true;
+	}
+
+	protected ref array<float> BuildRectVertices(int width, int height)
+	{
+		ref array<float> vertices = {};
+		vertices.Insert(0.0);
+		vertices.Insert(0.0);
+		vertices.Insert(width);
+		vertices.Insert(0.0);
+		vertices.Insert(width);
+		vertices.Insert(height);
+		vertices.Insert(0.0);
+		vertices.Insert(height);
+		return vertices;
+	}
+
+	protected ref array<float> BuildCircleVertices(int diameter)
+	{
+		ref array<float> vertices = {};
+		float radius = diameter / 2.0;
+		for (int i = 0; i < 24; i++)
+		{
+			float angle = (6.283185 * i) / 24.0;
+			vertices.Insert(radius + Math.Cos(angle) * radius);
+			vertices.Insert(radius + Math.Sin(angle) * radius);
+		}
+
+		return vertices;
+	}
+
+	protected void ClearOverlayWidgets()
+	{
+		foreach (Widget widget : m_aWidgets)
+		{
+			if (widget)
+				widget.RemoveFromHierarchy();
+		}
+
+		m_aWidgets.Clear();
+		m_aDrawCommandSets.Clear();
+	}
+
+	protected int ZoneFillColor(string tone)
+	{
+		if (tone == "resistance")
+			return 0x8A226B3C;
+		if (tone == "town")
+			return 0x8A3F7397;
+		if (tone == "major")
+			return 0x9A8D3023;
+
+		return 0x8A95601F;
+	}
+
+	protected int ZonePointColor(string tone)
+	{
+		if (tone == "resistance")
+			return 0xFF80D68F;
+		if (tone == "town")
+			return 0xFF9FD3FF;
+		if (tone == "major")
+			return 0xFFFF8E72;
+
+		return 0xFFFFD166;
+	}
+
+	protected int AbsInt(int value)
+	{
+		if (value < 0)
+			return -value;
+
+		return value;
+	}
+
+	protected string ShortenText(string text, int maxCharacters)
+	{
+		if (text.IsEmpty() || maxCharacters <= 0)
+			return "";
+		if (text.Length() <= maxCharacters)
+			return text;
+		if (maxCharacters <= 3)
+			return text.Substring(0, maxCharacters);
+
+		return text.Substring(0, maxCharacters - 3) + "...";
+	}
+}

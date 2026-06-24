@@ -11,11 +11,12 @@ class HST_MapMarkerService
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 
 	protected ref array<IEntity> m_aNativeMarkerCandidates = {};
-	protected ref array<ref SCR_MapMarkerBase> m_aRuntimeNativeMarkers = {};
+	protected ref HST_CampaignMapMarkerDirector m_MarkerDirector = new HST_CampaignMapMarkerDirector();
+	protected ref HST_NativeMapMarkerReconciler m_NativeReconciler = new HST_NativeMapMarkerReconciler();
+	protected ref map<string, ref HST_MapMarkerRecord> m_mDesiredNativeMarkers = new map<string, ref HST_MapMarkerRecord>();
 	protected string m_sNativeMarkerEntityName;
 	protected bool m_bNativePublishPending;
 	protected bool m_bNativeMapRefreshBound;
-	protected bool m_bNativeMapRefreshQueued;
 	protected float m_fNativePublishRetrySeconds;
 	protected string m_sLastNativeMarkerSignature;
 	protected int m_iLastNativeEligibleCount;
@@ -23,6 +24,15 @@ class HST_MapMarkerService
 	protected int m_iLastNativeSkippedCount;
 	protected int m_iLastReportedMarkerRecordCount = -1;
 	protected int m_iLastNativeOwnershipSyncSecond = -999999;
+	protected int m_iNativeMapWidgetRefreshRetries;
+	protected bool m_bDebugLoggingEnabled;
+
+	void SetDebugLoggingEnabled(bool enabled)
+	{
+		m_bDebugLoggingEnabled = enabled;
+		if (m_NativeReconciler)
+			m_NativeReconciler.SetDebugLoggingEnabled(enabled);
+	}
 
 	bool RebuildAllMarkers(HST_CampaignState state, HST_CampaignPreset preset)
 	{
@@ -30,6 +40,21 @@ class HST_MapMarkerService
 			return false;
 
 		state.m_aMapMarkers.Clear();
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
+			int previousPublishedCount = m_iLastNativePublishedCount;
+			int previousEligibleCount = m_iLastNativeEligibleCount;
+			int previousSkippedCount = m_iLastNativeSkippedCount;
+			bool setupPublished = PublishRuntimeNativeMarkers(state, preset);
+			if (ShouldReportMarkerRebuild(state.m_aMapMarkers.Count(), setupPublished, false, previousReportedMarkerCount, previousPublishedCount, previousEligibleCount, previousSkippedCount))
+			{
+				DebugLog(string.Format("setup phase marker publisher empty, native %1/%2 published, %3 skipped", m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount));
+				m_iLastReportedMarkerRecordCount = state.m_aMapMarkers.Count();
+			}
+			return setupPublished;
+		}
+
 		AddHQMarker(state, preset);
 		AddDefendPetrosMarkers(state, preset);
 		AddZoneMarkers(state, preset);
@@ -44,7 +69,7 @@ class HST_MapMarkerService
 		bool published = PublishRuntimeNativeMarkers(state, preset);
 		if (ShouldReportMarkerRebuild(state.m_aMapMarkers.Count(), published, ownershipSynced, previousReportedMarkerCount, previousPublishedCount, previousEligibleCount, previousSkippedCount))
 		{
-			Print(string.Format("h-istasi | rebuilt %1 campaign map marker record(s), native %2/%3 published, %4 skipped", state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount));
+			DebugLog(string.Format("rebuilt %1 campaign map marker record(s), native %2/%3 published, %4 skipped", state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount));
 			m_iLastReportedMarkerRecordCount = state.m_aMapMarkers.Count();
 		}
 		return published || ownershipSynced;
@@ -52,20 +77,13 @@ class HST_MapMarkerService
 
 	void BindNativeMapRefresh()
 	{
-		if (m_bNativeMapRefreshBound)
-			return;
-
-		SCR_MapEntity.GetOnMapOpenComplete().Insert(OnNativeMapOpenComplete);
 		m_bNativeMapRefreshBound = true;
 	}
 
 	void UnbindNativeMapRefresh()
 	{
-		if (!m_bNativeMapRefreshBound)
-			return;
-
-		SCR_MapEntity.GetOnMapOpenComplete().Remove(OnNativeMapOpenComplete);
 		m_bNativeMapRefreshBound = false;
+		m_iNativeMapWidgetRefreshRetries = 0;
 	}
 
 	bool RefreshHQMarker(HST_CampaignState state, HST_CampaignPreset preset)
@@ -93,7 +111,7 @@ class HST_MapMarkerService
 		m_iLastReportedMarkerRecordCount = -1;
 		m_iLastNativeOwnershipSyncSecond = -999999;
 		m_bNativePublishPending = false;
-		m_bNativeMapRefreshQueued = false;
+		m_iNativeMapWidgetRefreshRetries = 0;
 		if (!state)
 			return;
 
@@ -115,37 +133,17 @@ class HST_MapMarkerService
 
 	protected void OnNativeMapOpenComplete(MapConfiguration config)
 	{
-		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
-		if (!mapEntity || !mapEntity.IsOpen() || !mapEntity.GetMapUIComponent(SCR_MapMarkersUI))
-			return;
-
-		if (m_bNativeMapRefreshQueued)
-			return;
-
-		m_bNativeMapRefreshQueued = true;
-		GetGame().GetCallqueue().CallLater(QueueNativeMapRefresh, 0, false);
+		// Native marker widgets are created by SCR_MapMarkersUI on map open.
 	}
 
 	protected void QueueNativeMapRefresh()
 	{
-		m_bNativeMapRefreshQueued = false;
-		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
-		if (!mapEntity || !mapEntity.IsOpen() || !mapEntity.GetMapUIComponent(SCR_MapMarkersUI))
-			return;
+		m_iNativeMapWidgetRefreshRetries = 0;
+	}
 
-		int recreatedWidgets = RecreateRuntimeNativeMarkerWidgets();
-		int widgetCount = CountRuntimeNativeMarkerWidgets();
-		Print(string.Format("h-istasi | native map marker widgets refreshed on map open: widgets %1/%2 recreated %3", widgetCount, m_iLastNativePublishedCount, recreatedWidgets));
-		if (widgetCount >= m_iLastNativePublishedCount)
-		{
-			m_bNativePublishPending = false;
-			m_fNativePublishRetrySeconds = 0;
-			return;
-		}
-
-		m_sLastNativeMarkerSignature = "";
-		m_bNativePublishPending = true;
-		m_fNativePublishRetrySeconds = 0;
+	protected bool RetryNativeMapRefresh()
+	{
+		return false;
 	}
 
 	string BuildMarkerReport(HST_CampaignState state)
@@ -745,52 +743,19 @@ class HST_MapMarkerService
 		{
 			m_bNativePublishPending = true;
 			m_fNativePublishRetrySeconds = 0.25;
-			Print("h-istasi | native map marker manager not ready; marker publish pending");
+			DebugLog("native map marker manager not ready; marker publish pending");
 			return false;
 		}
 
-		string nativeSignature = BuildNativeMarkerSignature(state);
-		if (nativeSignature == m_sLastNativeMarkerSignature && HasRuntimeNativeMarkers(markerManager) && HasRuntimeNativeMarkerWidgets())
-		{
-			m_bNativePublishPending = false;
-			m_fNativePublishRetrySeconds = 0;
-			return false;
-		}
-
-		ClearRuntimeNativeMarkers();
-		m_iLastNativeEligibleCount = 0;
-		m_iLastNativePublishedCount = 0;
-		m_iLastNativeSkippedCount = 0;
-
-		int tacticalCount;
-		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
-		{
-			if (!IsNativeMarkerCandidate(marker))
-				continue;
-
-			m_iLastNativeEligibleCount++;
-			if (!CanPublishNativeMarker(marker, tacticalCount, m_iLastNativePublishedCount))
-			{
-				m_iLastNativeSkippedCount++;
-				continue;
-			}
-
-			if (CreateRuntimeNativeMarker(markerManager, marker, preset))
-			{
-				m_iLastNativePublishedCount++;
-				if (IsTacticalNativeMarker(marker))
-					tacticalCount++;
-			}
-			else
-			{
-				m_iLastNativeSkippedCount++;
-			}
-		}
-
-		m_sLastNativeMarkerSignature = nativeSignature;
+		m_MarkerDirector.BuildDesiredMarkers(state, preset, m_mDesiredNativeMarkers);
+		bool changed = m_NativeReconciler.Reconcile(markerManager, m_mDesiredNativeMarkers);
+		HST_MapMarkerReconcileResult result = m_NativeReconciler.GetLastResult();
+		m_iLastNativeEligibleCount = m_MarkerDirector.GetLastEligibleCount();
+		m_iLastNativePublishedCount = result.m_iPublishedStatic + result.m_iPublishedDynamic;
+		m_iLastNativeSkippedCount = m_MarkerDirector.GetLastSkippedCount() + result.m_iFailed;
 		m_bNativePublishPending = false;
 		m_fNativePublishRetrySeconds = 0;
-		return true;
+		return changed;
 	}
 
 	protected bool ShouldReportMarkerRebuild(int markerCount, bool published, bool ownershipSynced, int previousMarkerCount, int previousPublishedCount, int previousEligibleCount, int previousSkippedCount)
@@ -811,42 +776,15 @@ class HST_MapMarkerService
 
 	protected bool CreateRuntimeNativeMarker(SCR_MapMarkerManagerComponent markerManager, HST_MapMarkerState marker, HST_CampaignPreset preset)
 	{
-		if (!markerManager || !marker || !marker.m_bVisible || !marker.m_bRuntimeNative)
-			return false;
-
-		SCR_MapMarkerBase nativeMarker = new SCR_MapMarkerBase();
-		nativeMarker.SetType(SCR_EMapMarkerType.PLACED_CUSTOM);
-		nativeMarker.SetIconEntry(ResolveNativeIcon(marker.m_sIconHint, marker.m_sCategory, marker.m_sStyleHint));
-		nativeMarker.SetColorEntry(ResolveNativeColor(marker, preset));
-		nativeMarker.SetRotation(0);
-		nativeMarker.SetWorldPos(marker.m_vPosition[0], marker.m_vPosition[2]);
-		nativeMarker.SetCustomText(ResolveNativeMarkerText(marker));
-		nativeMarker.SetCanBeRemovedByOwner(false);
-		nativeMarker.SetTimestampVisibility(false);
-		markerManager.InsertStaticMarker(nativeMarker, false, true);
-		m_aRuntimeNativeMarkers.Insert(nativeMarker);
-		return true;
+		return false;
 	}
 
 	protected void ClearRuntimeNativeMarkers()
 	{
 		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
-		if (markerManager)
-		{
-			foreach (SCR_MapMarkerBase nativeMarker : m_aRuntimeNativeMarkers)
-			{
-				if (!nativeMarker)
-					continue;
-
-				SCR_MapMarkerBase activeMarker = markerManager.GetStaticMarkerByID(nativeMarker.GetMarkerID());
-				if (activeMarker)
-					markerManager.RemoveStaticMarker(activeMarker);
-				else
-					markerManager.RemoveStaticMarker(nativeMarker);
-			}
-		}
-
-		m_aRuntimeNativeMarkers.Clear();
+		if (m_NativeReconciler)
+			m_NativeReconciler.Clear(markerManager);
+		m_mDesiredNativeMarkers.Clear();
 	}
 
 	protected string BuildNativeMarkerSignature(HST_CampaignState state)
@@ -903,84 +841,45 @@ class HST_MapMarkerService
 
 	protected bool HasRuntimeNativeMarkers(SCR_MapMarkerManagerComponent markerManager)
 	{
-		if (!markerManager || m_aRuntimeNativeMarkers.Count() == 0)
-			return false;
-
-		foreach (SCR_MapMarkerBase nativeMarker : m_aRuntimeNativeMarkers)
-		{
-			if (!nativeMarker)
-				return false;
-
-			if (!markerManager.GetStaticMarkerByID(nativeMarker.GetMarkerID()))
-				return false;
-		}
-
-		return true;
+		return markerManager && m_iLastNativePublishedCount > 0;
 	}
 
 	protected bool HasRuntimeNativeMarkerWidgets()
 	{
-		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
-		if (!mapEntity || !mapEntity.IsOpen() || !mapEntity.GetMapUIComponent(SCR_MapMarkersUI))
-			return true;
+		return true;
+	}
 
-		if (m_iLastNativePublishedCount == 0 && m_aRuntimeNativeMarkers.Count() == 0)
-			return true;
-		if (m_aRuntimeNativeMarkers.Count() < m_iLastNativePublishedCount)
+	protected bool IsNativeMapMarkerUIReady(SCR_MapEntity mapEntity)
+	{
+		if (!mapEntity || !mapEntity.IsOpen())
 			return false;
 
-		foreach (SCR_MapMarkerBase nativeMarker : m_aRuntimeNativeMarkers)
-		{
-			if (!nativeMarker)
-				return false;
+		if (!mapEntity.GetMapUIComponent(SCR_MapMarkersUI))
+			return false;
 
-			if (!nativeMarker.GetRootWidget())
-				return false;
-		}
+		Widget root = mapEntity.GetMapMenuRoot();
+		if (!root)
+			return false;
 
-		return true;
+		return root.FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME) != null;
 	}
 
 	protected int CountRuntimeNativeMarkerWidgets()
 	{
-		int count;
-		foreach (SCR_MapMarkerBase nativeMarker : m_aRuntimeNativeMarkers)
-		{
-			if (nativeMarker && nativeMarker.GetRootWidget())
-				count++;
-		}
-
-		return count;
+		return m_iLastNativePublishedCount;
 	}
 
 	protected int RecreateRuntimeNativeMarkerWidgets()
 	{
-		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
-		if (!mapEntity || !mapEntity.IsOpen() || !mapEntity.GetMapUIComponent(SCR_MapMarkersUI))
-			return 0;
-
-		int recreated;
-		foreach (SCR_MapMarkerBase nativeMarker : m_aRuntimeNativeMarkers)
-		{
-			if (!nativeMarker)
-				continue;
-
-			nativeMarker.OnDelete();
-			nativeMarker.OnCreateMarker(true);
-			if (nativeMarker.GetRootWidget())
-				recreated++;
-		}
-
-		return recreated;
+		return 0;
 	}
 
 	protected string BuildNativeWidgetReport()
 	{
-		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
-		if (!mapEntity || !mapEntity.IsOpen() || !mapEntity.GetMapUIComponent(SCR_MapMarkersUI))
-			return "closed";
+		if (!m_NativeReconciler)
+			return "native-managed";
 
-		return string.Format("%1/%2", CountRuntimeNativeMarkerWidgets(), m_iLastNativePublishedCount);
+		return m_NativeReconciler.BuildRuntimeReport();
 	}
 
 	protected bool IsNativeMarkerCandidate(HST_MapMarkerState marker)
@@ -2229,5 +2128,13 @@ class HST_MapMarkerService
 		text = zoneId;
 		text.Replace("_", " ");
 		return text;
+	}
+
+	protected void DebugLog(string message)
+	{
+		if (!m_bDebugLoggingEnabled)
+			return;
+
+		Print("h-istasi map marker debug | " + message);
 	}
 }

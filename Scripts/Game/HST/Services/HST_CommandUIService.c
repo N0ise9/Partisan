@@ -424,6 +424,10 @@ class HST_CommandUIService
 		selectedTabId = NormalizeTabId(selectedTabId);
 
 		string payload = string.Format("HST_MENU|%1|%2", selectedTabId, playerId);
+		if (settings && settings.m_Debug)
+			payload = payload + string.Format("\nDEBUG|%1", settings.m_Debug.m_bDebugLoggingEnabled);
+		else
+			payload = payload + "\nDEBUG|0";
 		payload = payload + "\nTAB|setup|Setup|1";
 		payload = payload + "\nTAB|overview|Overview|1";
 		payload = payload + "\nTAB|petros|HQ/Petros|1";

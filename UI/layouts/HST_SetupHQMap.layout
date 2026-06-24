@@ -31,5 +31,17 @@ FrameWidgetClass "{6985327711306000}" {
    "Is Visible" 1
    "Ignore Cursor" 1
   }
+  FrameWidgetClass "{6985327711306006}" {
+   Name "HST_SetupModalRoot"
+   Slot FrameWidgetSlot "{6985327711306007}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   "Is Visible" 1
+   "Ignore Cursor" 0
+  }
  }
 }

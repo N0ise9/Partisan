@@ -976,12 +976,14 @@ class HST_MissionDestroyTargetSabotageAction : HST_MissionUserActionBase
 		HST_MissionDestroyTargetComponent demolition = HST_MissionDestroyTargetComponent.Cast(pOwnerEntity.FindComponent(HST_MissionDestroyTargetComponent));
 		if (!demolition)
 		{
-			Print("h-istasi mission | demolition debug failed: component missing", LogLevel.WARNING);
+			if (HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet())
+				Print("h-istasi mission debug | demolition failed: component missing", LogLevel.WARNING);
 			return;
 		}
 
 		bool applied = demolition.DebugApplyRocketScore(pOwnerEntity);
-		Print(string.Format("h-istasi mission | demolition debug rocket score applied %1", applied));
+		if (HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet())
+			Print(string.Format("h-istasi mission debug | demolition debug rocket score applied %1", applied));
 	}
 
 	override bool GetActionNameScript(out string outName)

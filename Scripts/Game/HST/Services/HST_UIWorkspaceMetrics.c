@@ -10,8 +10,8 @@ class HST_UIWorkspaceMetrics
 		if (!workspace)
 			return;
 
-		width = Math.Max(1, Math.Round(workspace.GetWidth()));
-		height = Math.Max(1, Math.Round(workspace.GetHeight()));
+		width = Math.Max(1, Math.Round(workspace.DPIUnscale(workspace.GetWidth())));
+		height = Math.Max(1, Math.Round(workspace.DPIUnscale(workspace.GetHeight())));
 	}
 
 	static int GetLayoutWidth(WorkspaceWidget workspace)
@@ -19,7 +19,7 @@ class HST_UIWorkspaceMetrics
 		if (!workspace)
 			return 1;
 
-		return Math.Max(1, Math.Round(workspace.GetWidth()));
+		return Math.Max(1, Math.Round(workspace.DPIUnscale(workspace.GetWidth())));
 	}
 
 	static int GetLayoutHeight(WorkspaceWidget workspace)
@@ -27,7 +27,7 @@ class HST_UIWorkspaceMetrics
 		if (!workspace)
 			return 1;
 
-		return Math.Max(1, Math.Round(workspace.GetHeight()));
+		return Math.Max(1, Math.Round(workspace.DPIUnscale(workspace.GetHeight())));
 	}
 
 	static float GetScale(int width, int height, float minScale = 0.70, float maxScale = 1.15)

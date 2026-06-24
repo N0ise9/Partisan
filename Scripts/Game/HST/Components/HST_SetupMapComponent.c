@@ -72,6 +72,8 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bSetupMapOpenComplete;
 	protected bool m_bSetupMapInitialViewApplied;
 	protected bool m_bSetupMapReadyQueued;
+	protected bool m_bNativeMapViewportReady;
+	protected bool m_bOverlayRedrawQueued;
 	protected bool m_bSetupFinalized;
 	protected bool m_bOverlayDirty = true;
 	protected bool m_bSetupLocationSelectionEnabled;
@@ -97,6 +99,8 @@ class HST_SetupMapComponent : ScriptComponent
 	protected ref array<ref HST_SetupMapDrawCommandSet> m_aChromeDrawCommandSets = {};
 	protected ref array<ref HST_SetupMapDrawCommandSet> m_aOverlayDrawCommandSets = {};
 	protected ref array<ref HST_SetupMapDrawCommandSet> m_aModalDrawCommandSets = {};
+	protected ref HST_NativeMapMarkerReconciler m_SetupPreviewReconciler = new HST_NativeMapMarkerReconciler();
+	protected ref map<string, ref HST_MapMarkerRecord> m_mSetupPreviewMarkers = new map<string, ref HST_MapMarkerRecord>();
 	protected ref HST_SetupMapWidgetHandler m_WidgetHandler;
 	protected SCR_MapEntity m_MapEntity;
 	protected Widget m_wSetupRoot;
@@ -114,6 +118,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected int m_iSetupResultCount;
 	protected int m_iOverlayRenderCount;
 	protected int m_iSetupMapReadyRetries;
+	protected int m_iMapReadyFrames;
 	protected int m_iConfirmNoLeft;
 	protected int m_iConfirmNoTop;
 	protected int m_iConfirmYesLeft;
@@ -124,13 +129,16 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bLoggedBridgeMissing;
 	protected bool m_bLoggedBridgeRecovered;
 	protected float m_fScale = 1.0;
-	protected int m_iMapScreenCoordinateMode; // 0 unknown, 1 raw map screen, 2 DPI-unscaled map screen.
+	protected Widget m_wModalRoot;
 
 	override void OnPostInit(IEntity owner)
 	{
 		super.OnPostInit(owner);
 		m_OwnerEntity = owner;
 		m_bIsLocalOwner = IsLocalOwner(owner);
+		m_bDebugLoggingEnabled = HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet();
+		if (m_SetupPreviewReconciler)
+			m_SetupPreviewReconciler.SetDebugLoggingEnabled(m_bDebugLoggingEnabled);
 		m_WidgetHandler = new HST_SetupMapWidgetHandler();
 		m_WidgetHandler.Bind(this);
 		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
@@ -235,7 +243,7 @@ class HST_SetupMapComponent : ScriptComponent
 			if (!m_bLoggedBridgeMissing)
 			{
 				m_bLoggedBridgeMissing = true;
-				Print("h-istasi setup ui | request bridge not ready; setup state request pending");
+				DebugLog("request bridge not ready; setup state request pending");
 			}
 
 			return;
@@ -244,7 +252,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (m_bLoggedBridgeMissing && !m_bLoggedBridgeRecovered)
 		{
 			m_bLoggedBridgeRecovered = true;
-			Print("h-istasi setup ui | request bridge recovered");
+			DebugLog("request bridge recovered");
 		}
 
 		request.RequestSetupState(m_sLastResult);
@@ -256,9 +264,12 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bHasAuthoritativeSetupState = true;
 		m_sLastResult = lastResult;
 		ParseSetupStatePayload(payload);
+		PublishSetupZoneOverlay();
 		DebugLog(string.Format("state payload #%1 phase=%2 active=%3 commander=%4 zones=%5 status=%6", m_iSetupPayloadCount, m_sPhase, m_bSetupActive, m_bIsCommander, m_aZoneIds.Count(), ShortenText(m_sStatusText, 96)));
 		if (!m_bSetupActive)
 		{
+			ClearSetupPreviewMarker();
+			HST_MapZoneOverlayUIComponent.ClearSetupZones();
 			if (IsAuthoritativeSetupComplete())
 				FinalizeSetupMap();
 			else
@@ -290,6 +301,8 @@ class HST_SetupMapComponent : ScriptComponent
 		m_fModalClickSuppressionSeconds = 0;
 		m_vCandidatePosition = "0 0 0";
 		m_vRequestedValidationPosition = "0 0 0";
+		ClearSetupPreviewMarker();
+		HST_MapZoneOverlayUIComponent.ClearSetupZones();
 		CloseNativeSetupMap();
 		CloseRespawnMenuAfterSetup();
 		GetGame().GetCallqueue().CallLater(CloseRespawnMenuAfterSetup, 0, false);
@@ -354,6 +367,7 @@ class HST_SetupMapComponent : ScriptComponent
 		}
 
 		m_bOverlayDirty = true;
+		ReconcileSetupPreviewMarker();
 		UpdateConfirmationVisibility();
 		UpdateSetupLocationSelectionMode();
 	}
@@ -466,6 +480,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bConfirmOpen = false;
 		m_sStatusText = "Select a location on the map to place the HQ";
 		m_bOverlayDirty = true;
+		ClearSetupPreviewMarker();
 		UpdateConfirmationVisibility();
 		UpdateSetupLocationSelectionMode();
 	}
@@ -493,6 +508,8 @@ class HST_SetupMapComponent : ScriptComponent
 		m_vWorldMax[2] = ExtractPipeField(header, 7).ToFloat();
 		m_sStatusText = ExtractPipeField(header, 8);
 		m_bDebugLoggingEnabled = ParseBool(ExtractPipeField(header, 9));
+		if (m_SetupPreviewReconciler)
+			m_SetupPreviewReconciler.SetDebugLoggingEnabled(m_bDebugLoggingEnabled);
 		if (m_sStatusText.IsEmpty())
 		{
 			if (m_bIsCommander)
@@ -525,6 +542,65 @@ class HST_SetupMapComponent : ScriptComponent
 		}
 	}
 
+	protected void PublishSetupZoneOverlay()
+	{
+		if (!m_bSetupActive)
+		{
+			HST_MapZoneOverlayUIComponent.ClearSetupZones();
+			return;
+		}
+
+		HST_MapZoneOverlayUIComponent.SetSetupZones(m_aZoneIds, m_aZoneLabels, m_aZoneXs, m_aZoneZs, m_aZoneRadii, m_aZoneTones);
+	}
+
+	protected void ReconcileSetupPreviewMarker()
+	{
+		if (!m_SetupPreviewReconciler)
+			return;
+
+		m_mSetupPreviewMarkers.Clear();
+		if (m_bSetupActive && (m_bCandidateValid || m_bAwaitingServer) && !IsZeroVector(m_vCandidatePosition))
+			m_mSetupPreviewMarkers.Set("setup:local:hq_candidate", BuildSetupPreviewRecord());
+
+		m_SetupPreviewReconciler.Reconcile(m_mSetupPreviewMarkers);
+	}
+
+	protected void ClearSetupPreviewMarker()
+	{
+		if (!m_SetupPreviewReconciler)
+			return;
+
+		m_mSetupPreviewMarkers.Clear();
+		m_SetupPreviewReconciler.Clear();
+	}
+
+	protected HST_MapMarkerRecord BuildSetupPreviewRecord()
+	{
+		HST_MapMarkerRecord record = new HST_MapMarkerRecord();
+		record.m_sId = "setup:local:hq_candidate";
+		record.m_eRenderMode = HST_EMapMarkerRenderMode.LOCAL_PREVIEW;
+		record.m_vWorldPosition = m_vCandidatePosition;
+		record.m_sLabel = "HQ";
+		record.m_sShortLabel = "HQ";
+		record.m_sCategory = "setup";
+		record.m_sFactionKey = "FIA";
+		record.m_sTone = "gold";
+		record.m_iPriority = 100;
+		record.m_eMarkerType = SCR_EMapMarkerType.PLACED_CUSTOM;
+		record.m_iConfigId = -1;
+		record.m_iIconEntry = SCR_EScenarioFrameworkMarkerCustom.PICK_UP2;
+		if (m_bAwaitingServer)
+			record.m_iColorEntry = SCR_EScenarioFrameworkMarkerCustomColor.BLUE;
+		else
+			record.m_iColorEntry = SCR_EScenarioFrameworkMarkerCustomColor.REFORGER_ORANGE;
+		record.m_iFactionFlags = 0;
+		record.m_bVisible = true;
+		record.m_bCanPlayerRemove = false;
+		record.m_bLocalOnly = true;
+		record.m_bServerMarker = false;
+		return record;
+	}
+
 	protected void EnsureNativeSetupMapOpen()
 	{
 		if (!m_bSetupActive)
@@ -549,6 +625,9 @@ class HST_SetupMapComponent : ScriptComponent
 			m_wOverlayRoot = m_wSetupRoot.FindAnyWidget("HST_SetupOverlayRoot");
 			if (!m_wOverlayRoot)
 				m_wOverlayRoot = m_wSetupRoot;
+			m_wModalRoot = m_wSetupRoot.FindAnyWidget("HST_SetupModalRoot");
+			if (!m_wModalRoot)
+				m_wModalRoot = m_wSetupRoot;
 
 			m_wPromptText = CreatePromptText(workspace, m_wOverlayRoot);
 			m_bOverlayDirty = true;
@@ -591,7 +670,7 @@ class HST_SetupMapComponent : ScriptComponent
 		ResetSetupMapReadyState();
 		m_MapEntity.OpenMap(mapConfig);
 		m_bNativeMapOpen = true;
-		m_bOverlayDirty = true;
+		QueueApplySetupMapReadyState();
 		DebugLog("native setup map opened");
 	}
 
@@ -611,6 +690,8 @@ class HST_SetupMapComponent : ScriptComponent
 	protected void CloseNativeSetupMap()
 	{
 		SetSetupLocationSelectionEnabled(false);
+		ClearSetupPreviewMarker();
+		HST_MapZoneOverlayUIComponent.ClearSetupZones();
 
 		if (m_bNativeInvokersBound)
 		{
@@ -633,6 +714,7 @@ class HST_SetupMapComponent : ScriptComponent
 		ClearWidgets();
 		m_wSetupRoot = null;
 		m_wOverlayRoot = null;
+		m_wModalRoot = null;
 		m_wPromptText = null;
 	}
 
@@ -685,12 +767,12 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void OnNativeMapPan(float panX, float panY, bool adjusted)
 	{
-		m_bOverlayDirty = true;
+		QueueOverlayRedraw("pan");
 	}
 
 	protected void OnNativeMapZoom(float zoom)
 	{
-		m_bOverlayDirty = true;
+		QueueOverlayRedraw("zoom");
 	}
 
 	protected void OnNativeMapOpenComplete(MapConfiguration config)
@@ -698,10 +780,11 @@ class HST_SetupMapComponent : ScriptComponent
 		if (m_bSetupActive && IsSetupMapRootActive())
 		{
 			m_bSetupMapOpenComplete = true;
+			m_iMapReadyFrames = 0;
 			QueueApplySetupMapReadyState();
 		}
 
-		m_bOverlayDirty = true;
+		QueueOverlayRedraw("map open complete");
 	}
 
 	protected void OnNativeSetupMapClose(MapConfiguration config)
@@ -735,8 +818,10 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bSetupMapOpenComplete = false;
 		m_bSetupMapInitialViewApplied = false;
 		m_bSetupMapReadyQueued = false;
+		m_bNativeMapViewportReady = false;
+		m_bOverlayRedrawQueued = false;
 		m_iSetupMapReadyRetries = 0;
-		m_iMapScreenCoordinateMode = 0;
+		m_iMapReadyFrames = 0;
 	}
 
 	protected void QueueApplySetupMapReadyState()
@@ -754,7 +839,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_bSetupActive || !m_bSetupMapOpenComplete || !IsSetupMapRootActive())
 			return;
 
-		if (!IsSetupMapViewReady())
+		if (!IsNativeSetupMapZoomInitialized())
 		{
 			if (m_iSetupMapReadyRetries < SETUP_MAP_READY_MAX_RETRIES)
 			{
@@ -767,9 +852,17 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 		}
 
+		m_iMapReadyFrames++;
+		if (m_iMapReadyFrames < 2)
+		{
+			QueueApplySetupMapReadyState();
+			return;
+		}
+
+		m_bNativeMapViewportReady = true;
 		ApplySetupMapInitialView();
 		UpdateSetupLocationSelectionMode();
-		m_bOverlayDirty = true;
+		QueueOverlayRedraw("native map viewport ready");
 	}
 
 	protected void UpdateSetupLocationSelectionMode()
@@ -804,7 +897,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected bool IsSetupMapViewReady()
 	{
-		if (!m_bSetupMapOpenComplete || !IsSetupMapRootActive())
+		if (!m_bSetupMapOpenComplete || !m_bNativeMapViewportReady || !IsSetupMapRootActive())
 			return false;
 		if (!IsNativeSetupMapZoomInitialized())
 			return false;
@@ -815,6 +908,14 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool IsNativeSetupMapZoomInitialized()
 	{
 		if (!m_MapEntity || !m_MapEntity.IsOpen())
+			return false;
+		CanvasWidget mapWidget = m_MapEntity.GetMapWidget();
+		if (!mapWidget)
+			return false;
+		float mapScreenW;
+		float mapScreenH;
+		mapWidget.GetScreenSize(mapScreenW, mapScreenH);
+		if (mapScreenW <= 0.0 || mapScreenH <= 0.0)
 			return false;
 		if (m_MapEntity.GetCurrentZoom() <= 0.0)
 			return false;
@@ -831,6 +932,24 @@ class HST_SetupMapComponent : ScriptComponent
 
 		m_MapEntity.ZoomOut();
 		m_bSetupMapInitialViewApplied = true;
+		QueueOverlayRedraw("initial view");
+	}
+
+	protected void QueueOverlayRedraw(string reason)
+	{
+		if (m_bOverlayRedrawQueued)
+			return;
+
+		m_bOverlayRedrawQueued = true;
+		GetGame().GetCallqueue().CallLater(FlushOverlayRedraw, 0, false);
+	}
+
+	protected void FlushOverlayRedraw()
+	{
+		m_bOverlayRedrawQueued = false;
+		if (!m_bNativeMapViewportReady)
+			return;
+
 		m_bOverlayDirty = true;
 	}
 
@@ -851,6 +970,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_sStatusText = "Checking HQ location...";
 		m_bOverlayDirty = true;
 		DebugLog(string.Format("validate request %1", worldPosition));
+		ReconcileSetupPreviewMarker();
 		UpdateSetupLocationSelectionMode();
 		request.RequestSetupValidatePosition(worldPosition[0], worldPosition[2]);
 	}
@@ -871,6 +991,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_sStatusText = "Placing HQ...";
 		m_bOverlayDirty = true;
 		DebugLog(string.Format("confirm request %1", m_vCandidatePosition));
+		ReconcileSetupPreviewMarker();
 		UpdateSetupLocationSelectionMode();
 		request.RequestSetupConfirmPosition(m_vCandidatePosition[0], m_vCandidatePosition[2]);
 	}
@@ -889,8 +1010,11 @@ class HST_SetupMapComponent : ScriptComponent
 			m_iScreenW = screenW;
 			m_iScreenH = screenH;
 			m_bOverlayDirty = true;
-			m_iMapScreenCoordinateMode = 0;
+			m_bNativeMapViewportReady = false;
+			m_iMapReadyFrames = 0;
 			m_fScale = HST_UIWorkspaceMetrics.GetScale(m_iScreenW, m_iScreenH, 0.70, 1.15);
+			if (m_bSetupMapOpenComplete)
+				QueueApplySetupMapReadyState();
 
 			if (m_wOverlayRoot)
 			{
@@ -956,14 +1080,14 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 
 		int modalW = Math.Min(ScalePx(560), m_iScreenW - ScalePx(80));
-		int modalH = ScalePx(210);
+		int modalH = ScalePx(280);
 		int left = (m_iScreenW - modalW) / 2;
 		int top = (m_iScreenH - modalH) / 2;
 		CreateModalRect(workspace, 0, 0, m_iScreenW, m_iScreenH, 0xA8000000, 1.0, CONFIRM_BLOCKER_WIDGET_ID, SETUP_MODAL_Z_ORDER + 1);
 		CreateModalRect(workspace, left - ScalePx(16), top - ScalePx(16), modalW + ScalePx(32), modalH + ScalePx(32), 0xE0000000, 1.0, CONFIRM_BLOCKER_WIDGET_ID, SETUP_MODAL_Z_ORDER + 2);
 		CreateModalRect(workspace, left, top, modalW, modalH, 0xFF1D2932, 1.0, CONFIRM_BLOCKER_WIDGET_ID, SETUP_MODAL_Z_ORDER + 3);
 		CreateModalRect(workspace, left, top, modalW, ScalePx(4), 0xFFC4953B, 1.0, CONFIRM_BLOCKER_WIDGET_ID, SETUP_MODAL_Z_ORDER + 4);
-		CreateModalText(workspace, "Are you sure you want to place the HQ here?", left + ScalePx(34), top + ScalePx(34), modalW - ScalePx(68), ScalePx(72), ScaleFont(22), 0xFFF2E6CA, CONFIRM_BLOCKER_WIDGET_ID, true, SETUP_MODAL_Z_ORDER + 5);
+		CreateModalText(workspace, "Are you sure you want to place the HQ here?", left + ScalePx(34), top + ScalePx(34), modalW - ScalePx(68), ScalePx(120), ScaleFont(22), 0xFFF2E6CA, CONFIRM_BLOCKER_WIDGET_ID, true, SETUP_MODAL_Z_ORDER + 5);
 		int buttonW = ScalePx(160);
 		int buttonH = ScalePx(50);
 		int buttonTop = top + modalH - ScalePx(74);
@@ -997,66 +1121,8 @@ class HST_SetupMapComponent : ScriptComponent
 		if (m_iOverlayRenderCount <= 3 || (m_iOverlayRenderCount % 20) == 0)
 			DebugLog(string.Format("overlay render #%1 commander=%2 confirm=%3 awaiting=%4 zones=%5", m_iOverlayRenderCount, m_bIsCommander, m_bConfirmOpen, m_bAwaitingServer, m_aZoneIds.Count()));
 
-		for (int i = 0; i < m_aZoneLabels.Count(); i++)
-			DrawNativeZoneMarker(workspace, i);
-
-		if (m_bCandidateValid || m_bAwaitingServer)
-			DrawNativeCandidateMarker(workspace);
-	}
-
-	protected void DrawNativeZoneMarker(WorkspaceWidget workspace, int index)
-	{
-		vector pos = "0 0 0";
-		pos[0] = m_aZoneXs[index];
-		pos[2] = m_aZoneZs[index];
-		int sx;
-		int sy;
-		if (!WorldToNativeMapScreen(pos, sx, sy))
-			return;
-
-		int radiusPx = Math.Max(4, ResolveNativeRadiusPixels(pos, m_aZoneRadii[index]));
-		if (!IsScreenRectVisible(sx - radiusPx, sy - radiusPx, radiusPx * 2, radiusPx * 2))
-			return;
-
-		CreateOverlayCircle(workspace, sx - radiusPx, sy - radiusPx, radiusPx * 2, ZoneFillColor(m_aZoneTones[index]), 0.58);
-		CreateOverlayRect(workspace, sx - ScalePx(3), sy - ScalePx(3), ScalePx(6), ScalePx(6), ZonePointColor(m_aZoneTones[index]), 1.0);
-		if (radiusPx >= ScalePx(9))
-			CreateOverlayLabel(workspace, ShortenText(m_aZoneLabels[index], 24), sx + ScalePx(6), sy - ScalePx(8), 0xFFE5ECEE);
-	}
-
-	protected void DrawNativeCandidateMarker(WorkspaceWidget workspace)
-	{
-		int sx;
-		int sy;
-		if (!WorldToNativeMapScreen(m_vCandidatePosition, sx, sy))
-			return;
-
-		int size = ScalePx(22);
-		int color = 0xFFFFD166;
-		if (m_bAwaitingServer)
-			color = 0xFF9FD3FF;
-
-		CreateOverlayRect(workspace, sx - size / 2, sy - ScalePx(2), size, ScalePx(4), color, 1.0);
-		CreateOverlayRect(workspace, sx - ScalePx(2), sy - size / 2, ScalePx(4), size, color, 1.0);
-		CreateOverlayLabel(workspace, "HQ", sx + ScalePx(10), sy + ScalePx(8), color);
-	}
-
-	protected bool WorldToNativeMapScreen(vector worldPos, out int screenX, out int screenY)
-	{
-		screenX = 0;
-		screenY = 0;
-		if (!IsSetupMapViewReady())
-			return false;
-
-		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		if (!workspace)
-			return false;
-
-		int scaledX;
-		int scaledY;
-		m_MapEntity.WorldToScreen(worldPos[0], worldPos[2], scaledX, scaledY, true);
-		ResolveNativeMapLayoutPoint(workspace, scaledX, scaledY, screenX, screenY);
-		return true;
+		PublishSetupZoneOverlay();
+		ReconcileSetupPreviewMarker();
 	}
 
 	protected void NativeScreenToLayoutCandidates(float nativeScreenX, float nativeScreenY, out int layoutX, out int layoutY, out int alternateLayoutX, out int alternateLayoutY)
@@ -1065,111 +1131,15 @@ class HST_SetupMapComponent : ScriptComponent
 		HST_UIWorkspaceMetrics.GetNativePointCandidates(workspace, nativeScreenX, nativeScreenY, layoutX, layoutY, alternateLayoutX, alternateLayoutY);
 	}
 
-	protected void ResolveNativeMapLayoutPoint(WorkspaceWidget workspace, int rawX, int rawY, out int layoutX, out int layoutY)
-	{
-		layoutX = rawX;
-		layoutY = rawY;
-		if (!workspace)
-			return;
-
-		int unscaledX = Math.Round(workspace.DPIUnscale(rawX));
-		int unscaledY = Math.Round(workspace.DPIUnscale(rawY));
-		if (m_iMapScreenCoordinateMode == 0)
-			CalibrateNativeMapCoordinateMode(rawX, rawY, unscaledX, unscaledY);
-
-		if (m_iMapScreenCoordinateMode == 2)
-		{
-			layoutX = unscaledX;
-			layoutY = unscaledY;
-			return;
-		}
-
-		if (!IsScreenPointNearViewport(rawX, rawY, ScalePx(128)) && IsScreenPointNearViewport(unscaledX, unscaledY, ScalePx(128)))
-		{
-			layoutX = unscaledX;
-			layoutY = unscaledY;
-		}
-	}
-
-	protected void CalibrateNativeMapCoordinateMode(int rawX, int rawY, int unscaledX, int unscaledY)
-	{
-		m_iMapScreenCoordinateMode = 1;
-		if (!IsScreenPointNearViewport(rawX, rawY, ScalePx(128)) && IsScreenPointNearViewport(unscaledX, unscaledY, ScalePx(128)))
-			m_iMapScreenCoordinateMode = 2;
-	}
-
-	protected bool IsScreenPointNearViewport(int x, int y, int padding)
-	{
-		if (x < -padding || y < -padding)
-			return false;
-		if (x > m_iScreenW + padding || y > m_iScreenH + padding)
-			return false;
-
-		return true;
-	}
-
 	protected bool IsSetupChromePoint(int layoutX, int layoutY, int alternateLayoutX, int alternateLayoutY)
 	{
 		int chromeHeight = ScalePx(76);
 		return layoutY <= chromeHeight || alternateLayoutY <= chromeHeight;
 	}
 
-	protected int ResolveNativeRadiusPixels(vector center, float radiusMeters)
-	{
-		int cx;
-		int cy;
-		int rx;
-		int ry;
-		vector edge = center;
-		edge[0] = edge[0] + radiusMeters;
-		if (!WorldToNativeMapScreen(center, cx, cy))
-			return 0;
-		if (!WorldToNativeMapScreen(edge, rx, ry))
-			return 0;
-
-		return AbsInt(rx - cx);
-	}
-
-	protected Widget CreateOverlayRect(WorkspaceWidget workspace, int left, int top, int width, int height, int color, float opacity)
-	{
-		Widget widget = CreateRectWidgetAtZ(workspace, m_wOverlayRoot, left, top, width, height, color, opacity, 0, SETUP_MAP_MARKER_Z_ORDER, m_aOverlayDrawCommandSets);
-		if (widget)
-			m_aOverlayWidgets.Insert(widget);
-
-		return widget;
-	}
-
-	protected Widget CreateOverlayCircle(WorkspaceWidget workspace, int left, int top, int diameter, int color, float opacity)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, SETUP_MAP_MARKER_Z_ORDER, m_wOverlayRoot);
-		if (!widget)
-			return null;
-
-		widget.SetZOrder(SETUP_MAP_MARKER_Z_ORDER);
-		widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, diameter, diameter);
-		SetupPolygonWidget(widget, BuildCircleVertices(diameter), color, m_aOverlayDrawCommandSets);
-		widget.SetOpacity(opacity);
-		m_aOverlayWidgets.Insert(widget);
-		return widget;
-	}
-
-	protected TextWidget CreateOverlayLabel(WorkspaceWidget workspace, string text, int left, int top, int color)
-	{
-		TextWidget label = CreateWrappedTextWidgetAtZ(workspace, m_wOverlayRoot, text, left, top, ScalePx(160), ScalePx(32), ScaleFont(11), color, 0, false, SETUP_MAP_MARKER_Z_ORDER + 1);
-		if (label)
-		{
-			label.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-			m_aOverlayWidgets.Insert(label);
-		}
-
-		return label;
-	}
-
 	protected Widget CreateModalRect(WorkspaceWidget workspace, int left, int top, int width, int height, int color, float opacity, int userId, int zOrder)
 	{
-		Widget widget = CreateRectWidgetAtZ(workspace, m_wSetupRoot, left, top, width, height, color, opacity, userId, zOrder, m_aModalDrawCommandSets);
+		Widget widget = CreateRectWidgetAtZ(workspace, ResolveModalRoot(), left, top, width, height, color, opacity, userId, zOrder, m_aModalDrawCommandSets);
 		if (widget)
 			m_aModalWidgets.Insert(widget);
 
@@ -1178,7 +1148,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected TextWidget CreateModalText(WorkspaceWidget workspace, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold, int zOrder)
 	{
-		TextWidget widget = CreateWrappedTextWidgetAtZ(workspace, m_wSetupRoot, text, left, top, width, height, fontSize, color, userId, bold, zOrder);
+		TextWidget widget = CreateWrappedTextWidgetAtZ(workspace, ResolveModalRoot(), text, left, top, width, height, fontSize, color, userId, bold, zOrder);
 		if (widget)
 			m_aModalWidgets.Insert(widget);
 
@@ -1187,7 +1157,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected Widget CreateModalHitTarget(WorkspaceWidget workspace, int left, int top, int width, int height, int userId, int zOrder)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.ButtonWidgetTypeID, WidgetFlags.VISIBLE, null, zOrder, m_wSetupRoot);
+		Widget widget = workspace.CreateWidget(WidgetType.ButtonWidgetTypeID, WidgetFlags.VISIBLE, null, zOrder, ResolveModalRoot());
 		if (!widget)
 			return null;
 
@@ -1199,6 +1169,14 @@ class HST_SetupMapComponent : ScriptComponent
 		widget.AddHandler(m_WidgetHandler);
 		m_aModalWidgets.Insert(widget);
 		return widget;
+	}
+
+	protected Widget ResolveModalRoot()
+	{
+		if (m_wModalRoot)
+			return m_wModalRoot;
+
+		return m_wSetupRoot;
 	}
 
 	protected Widget CreateRectWidgetAtZ(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId, int zOrder, array<ref HST_SetupMapDrawCommandSet> commandSets)
@@ -1287,20 +1265,6 @@ class HST_SetupMapComponent : ScriptComponent
 		return vertices;
 	}
 
-	protected ref array<float> BuildCircleVertices(int diameter)
-	{
-		ref array<float> vertices = {};
-		float radius = diameter / 2.0;
-		for (int i = 0; i < 24; i++)
-		{
-			float angle = (6.283185 * i) / 24.0;
-			vertices.Insert(radius + Math.Cos(angle) * radius);
-			vertices.Insert(radius + Math.Sin(angle) * radius);
-		}
-
-		return vertices;
-	}
-
 	protected void ApplyTextStyle(TextWidget textWidget, int fontSize, bool bold)
 	{
 		if (!textWidget)
@@ -1311,30 +1275,6 @@ class HST_SetupMapComponent : ScriptComponent
 		textWidget.SetBold(bold);
 		textWidget.SetOutline(1, 0xDD000000);
 		textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
-	}
-
-	protected int ZoneFillColor(string tone)
-	{
-		if (tone == "resistance")
-			return 0x8A226B3C;
-		if (tone == "town")
-			return 0x8A3F7397;
-		if (tone == "major")
-			return 0x9A8D3023;
-
-		return 0x8A95601F;
-	}
-
-	protected int ZonePointColor(string tone)
-	{
-		if (tone == "resistance")
-			return 0xFF80D68F;
-		if (tone == "town")
-			return 0xFF9FD3FF;
-		if (tone == "major")
-			return 0xFFFF8E72;
-
-		return 0xFFFFD166;
 	}
 
 	protected int ScalePx(float value)
@@ -1358,14 +1298,6 @@ class HST_SetupMapComponent : ScriptComponent
 		return value;
 	}
 
-	protected int AbsInt(int value)
-	{
-		if (value < 0)
-			return -value;
-
-		return value;
-	}
-
 	protected float AbsFloat(float value)
 	{
 		if (value < 0.0)
@@ -1374,14 +1306,9 @@ class HST_SetupMapComponent : ScriptComponent
 		return value;
 	}
 
-	protected bool IsScreenRectVisible(int left, int top, int width, int height)
+	protected bool IsZeroVector(vector value)
 	{
-		if (left + width < 0 || top + height < 0)
-			return false;
-		if (left > m_iScreenW || top > m_iScreenH)
-			return false;
-
-		return true;
+		return AbsFloat(value[0]) < 0.01 && AbsFloat(value[1]) < 0.01 && AbsFloat(value[2]) < 0.01;
 	}
 
 	protected bool IsPointInsideRect(int x, int y, int left, int top, int width, int height)
@@ -1684,7 +1611,7 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 
 		m_bLoggedLocalReady = true;
-		Print("h-istasi setup ui | local player setup map component ready");
+		DebugLog("local player setup map component ready");
 	}
 
 	protected bool IsDebugLoggingEnabled()

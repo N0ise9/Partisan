@@ -121,6 +121,12 @@ class HST_PhysicalWarService
 	protected ref array<string> m_aVehicleSpawnBlockedReasons = {};
 	protected ref HST_ConvoyVehicleControlAdapter m_ConvoyVehicleControl;
 	protected bool m_bMarkerRefreshNeeded;
+	protected bool m_bDebugLoggingEnabled;
+
+	void SetDebugLoggingEnabled(bool enabled)
+	{
+		m_bDebugLoggingEnabled = enabled;
+	}
 
 	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset = null, HST_EnemyDirectorService enemyDirector = null, HST_ZoneCompositionService compositions = null)
 	{
@@ -158,7 +164,7 @@ class HST_PhysicalWarService
 
 			changed = true;
 			m_bMarkerRefreshNeeded = true;
-			Print(string.Format("h-istasi | zone %1 physical activation = %2", zone.m_sZoneId, shouldBeActive));
+			DebugLog(string.Format("zone %1 physical activation = %2", zone.m_sZoneId, shouldBeActive));
 		}
 
 		if (UpdateQRF(state, preset, enemyDirector))
@@ -187,7 +193,7 @@ class HST_PhysicalWarService
 		if (changed)
 		{
 			m_bMarkerRefreshNeeded = true;
-			Print(string.Format("h-istasi | mission target zone %1 forced physical activation", zone.m_sZoneId));
+			DebugLog(string.Format("mission target zone %1 forced physical activation", zone.m_sZoneId));
 		}
 
 		return changed;
@@ -5023,19 +5029,83 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+		if (agentCount <= 0)
+		{
+			activeGroup.m_bSpawnedEntity = false;
+			activeGroup.m_sRuntimeEntityId = "";
+			activeGroup.m_sRuntimeStatus = "spawn_pending_agents";
+			activeGroup.m_sSpawnFailureReason = "AIGroup spawned but contains zero agents.";
+			activeGroup.m_iSpawnedAgentCount = 0;
+			activeGroup.m_iLastSeenAliveCount = 0;
+			activeGroup.m_iSurvivorInfantryCount = 0;
+			activeGroup.m_iSurvivorVehicleCount = 0;
+			if (state)
+				activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
+			m_aRuntimeGroupEntities.Insert(entity);
+			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, 1000, false, activeGroup, requestedStatus, state);
+			DebugLog(string.Format("active group pending agent population %1 prefab %2", activeGroup.m_sGroupId, activeGroup.m_sPrefab));
+			return true;
+		}
+
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
 		activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
 		activeGroup.m_sSpawnFailureReason = "";
 		activeGroup.m_iSpawnedAgentCount = agentCount;
 		activeGroup.m_iLastSeenAliveCount = Math.Max(0, agentCount);
-		activeGroup.m_iSurvivorInfantryCount = activeGroup.m_iInfantryCount;
+		activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, agentCount);
 		if (state)
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeGroupEntities.Insert(entity);
-		Print(string.Format("h-istasi | spawned active group %1 using %2 (%3 agents)", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, agentCount));
+		DebugLog(string.Format("spawned active group %1 using %2 (%3 agents)", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, agentCount));
 		return true;
+	}
+
+	protected void ConfirmSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state)
+	{
+		if (!activeGroup || activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+			return;
+
+		int agentCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
+		if (agentCount > 0)
+		{
+			activeGroup.m_bSpawnedEntity = true;
+			activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
+			activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
+			activeGroup.m_sSpawnFailureReason = "";
+			activeGroup.m_iSpawnedAgentCount = agentCount;
+			activeGroup.m_iLastSeenAliveCount = agentCount;
+			activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, agentCount);
+			RefreshActiveGroupZoneCounts(state, activeGroup);
+			DebugLog(string.Format("active group populated %1 live agents %2 expected %3", activeGroup.m_sGroupId, agentCount, activeGroup.m_iInfantryCount));
+			return;
+		}
+
+		DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_sRuntimeEntityId = "";
+		activeGroup.m_sRuntimeStatus = "spawn_failed";
+		activeGroup.m_sSpawnFailureReason = "AIGroup prefab produced zero agents after population grace.";
+		activeGroup.m_iSpawnedAgentCount = 0;
+		activeGroup.m_iLastSeenAliveCount = 0;
+		activeGroup.m_iSurvivorInfantryCount = 0;
+		activeGroup.m_iSurvivorVehicleCount = 0;
+		RefreshActiveGroupZoneCounts(state, activeGroup);
+		Print(string.Format("h-istasi | active group failed %1 prefab %2: zero agents after grace", activeGroup.m_sGroupId, activeGroup.m_sPrefab), LogLevel.WARNING);
+	}
+
+	protected void RefreshActiveGroupZoneCounts(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (activeGroup && activeGroup.m_bQRF)
+			m_bMarkerRefreshNeeded = true;
+		if (!state || !activeGroup)
+			return;
+
+		HST_ZoneState zone = state.FindZone(activeGroup.m_sZoneId);
+		if (zone)
+			ApplyActiveZoneCounts(state, zone);
 	}
 
 	protected bool TrySpawnActiveVehicle(HST_ActiveGroupState activeGroup, HST_CampaignState state = null)
@@ -5247,7 +5317,7 @@ class HST_PhysicalWarService
 		int agentCount = group.GetAgentsCount();
 		if (agentCount <= 0)
 		{
-			Print(string.Format("h-istasi | spawned AIGroup %1 for %2 has no agents yet; keeping spawned group entity", activeGroup.m_sPrefab, activeGroup.m_sGroupId));
+			DebugLog(string.Format("spawned AIGroup %1 for %2 has no agents yet; awaiting population grace", activeGroup.m_sPrefab, activeGroup.m_sGroupId));
 			return 0;
 		}
 
@@ -5412,7 +5482,7 @@ class HST_PhysicalWarService
 			{
 				activeGroup.m_iSpawnedAgentCount = aliveCount;
 				changed = true;
-				Print(string.Format("h-istasi | active group populated %1 | zone %2 | live agents %3 | expected infantry %4 vehicles %5 | status %6", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, activeGroup.m_iInfantryCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
+				DebugLog(string.Format("active group populated %1 | zone %2 | live agents %3 | expected infantry %4 vehicles %5 | status %6", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, activeGroup.m_iInfantryCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
 			}
 			if (aliveCount == activeGroup.m_iLastSeenAliveCount)
 				continue;
@@ -5446,7 +5516,7 @@ class HST_PhysicalWarService
 				if (activeGroup.m_bQRF)
 					m_bMarkerRefreshNeeded = true;
 			}
-			Print(string.Format("h-istasi | active group survivors %1 | zone %2 | alive %3 from %4 | survivors infantry %5/%6 vehicles %7/%8 | status %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, previousAliveCount, activeGroup.m_iSurvivorInfantryCount, activeGroup.m_iInfantryCount, activeGroup.m_iSurvivorVehicleCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
+			DebugLog(string.Format("active group survivors %1 | zone %2 | alive %3 from %4 | survivors infantry %5/%6 vehicles %7/%8 | status %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, previousAliveCount, activeGroup.m_iSurvivorInfantryCount, activeGroup.m_iInfantryCount, activeGroup.m_iSurvivorVehicleCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
 			changed = true;
 		}
 
@@ -5492,6 +5562,32 @@ class HST_PhysicalWarService
 
 			IEntity vehicle = m_aRuntimeVehicleEntities[j];
 			if (IsLivingEntity(vehicle))
+				aliveCount++;
+		}
+
+		return aliveCount;
+	}
+
+	protected int CountAliveRuntimeInfantryGroupAgents(string groupId)
+	{
+		int aliveCount;
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (!entity)
+				continue;
+
+			AIGroup group = AIGroup.Cast(entity);
+			if (group)
+			{
+				aliveCount += Math.Max(0, group.GetAgentsCount());
+				continue;
+			}
+
+			if (IsLivingEntity(entity))
 				aliveCount++;
 		}
 
@@ -5564,7 +5660,7 @@ class HST_PhysicalWarService
 			m_bMarkerRefreshNeeded = true;
 		garrison.m_iInfantryCount += Math.Max(0, survivorInfantry);
 		garrison.m_iVehicleCount += Math.Max(0, survivorVehicles);
-		Print(string.Format("h-istasi | folded active group %1 | zone %2 | status %3 | returned infantry %4/%5 vehicles %6/%7 | last alive %8 | spawned agents %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, previousStatus, survivorInfantry, activeGroup.m_iInfantryCount, survivorVehicles, activeGroup.m_iVehicleCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount));
+		DebugLog(string.Format("folded active group %1 | zone %2 | status %3 | returned infantry %4/%5 vehicles %6/%7 | last alive %8 | spawned agents %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, previousStatus, survivorInfantry, activeGroup.m_iInfantryCount, survivorVehicles, activeGroup.m_iVehicleCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount));
 	}
 
 	protected string ResolveGroupRouteId(HST_ZoneState zone, bool qrf)
@@ -5764,5 +5860,13 @@ class HST_PhysicalWarService
 		float x = a[0] - b[0];
 		float z = a[2] - b[2];
 		return x * x + z * z;
+	}
+
+	protected void DebugLog(string message)
+	{
+		if (!m_bDebugLoggingEnabled)
+			return;
+
+		Print("h-istasi physical war debug | " + message);
 	}
 }

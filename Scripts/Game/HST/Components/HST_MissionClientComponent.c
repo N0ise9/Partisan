@@ -300,11 +300,17 @@ class HST_MissionClientComponent : ScriptComponent
 		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, rootW), rootW, screenW, Math.Max(8, margin / 2));
 		int top = HST_UIWorkspaceMetrics.ClampTop(margin, rootH, screenH, Math.Max(4, margin / 2));
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, rootW, rootH, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
+		Widget layer = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, screenW, screenH, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
+		if (!layer)
+			return;
+
+		m_aWidgets.Insert(layer);
+		Widget root = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z + 1, layer);
 		if (!root)
 			return;
 
-		m_aWidgets.Insert(root);
+		FrameSlot.SetPos(root, left, top);
+		FrameSlot.SetSize(root, rootW, rootH);
 		int accent = NotificationAccentColor(severity, category);
 		int ruleH = Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale));
 		int inset = HST_UIWorkspaceMetrics.ScalePx(24, scale);

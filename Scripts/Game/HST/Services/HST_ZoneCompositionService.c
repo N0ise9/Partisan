@@ -11,7 +11,6 @@ class HST_ZoneCompositionService
 	static const string PROP_HOLD_MARKER = "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et";
 	static const string PROP_DESTROY_TARGET = "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et";
 	static const string PROP_RESOURCE_CACHE = "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et";
-	static const string PROP_SANDBAG_CANDIDATE = "Prefabs/Structures/Military/Sandbags/SandbagWall_01.et";
 	static const string MISSION_DESTROY_RADIO_TOWER = "destroy_radio_tower";
 	static const string MISSION_STOP_TOWER_REBUILD = "dynamic_stop_tower_rebuild";
 	static const string ROLE_DESTROY_TARGET = "destroy_target";
@@ -244,7 +243,6 @@ class HST_ZoneCompositionService
 		definition.m_iPatrolPointCount = 4;
 		AddPropEntry(definition, SLOT_PROP, PROP_TENT, 1, true);
 		AddPropEntry(definition, SLOT_PROP, PROP_SUPPLY_CACHE, 1, true);
-		AddPropEntry(definition, SLOT_PROP, PROP_SANDBAG_CANDIDATE, 1, true);
 		return definition;
 	}
 
@@ -334,9 +332,6 @@ class HST_ZoneCompositionService
 			return PROP_TENT;
 		if (propIndex == 1)
 			return PROP_SUPPLY_CACHE;
-		if (propIndex == 2)
-			return PROP_SANDBAG_CANDIDATE;
-
 		return PROP_HOLD_MARKER;
 	}
 

@@ -104,8 +104,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ZoneCapture = new HST_ZoneCaptureService();
 		m_PlayerSpawn = new HST_PlayerSpawnService();
 		m_PhysicalWar = new HST_PhysicalWarService();
+		if (m_PhysicalWar && m_Settings && m_Settings.m_Debug)
+			m_PhysicalWar.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_ZoneCompositions = new HST_ZoneCompositionService();
 		m_MapMarkers = new HST_MapMarkerService();
+		if (m_MapMarkers && m_Settings && m_Settings.m_Debug)
+			m_MapMarkers.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_MapMarkers.BindNativeMapRefresh();
 		m_CommandUI = new HST_CommandUIService();
 		m_Loot = new HST_LootService();
@@ -116,6 +120,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Content = new HST_GeneratedContentService();
 		m_Objectives = new HST_MissionObjectiveService();
 		m_MissionRuntime = new HST_MissionRuntimeService();
+		if (m_MissionRuntime && m_Settings && m_Settings.m_Debug)
+			m_MissionRuntime.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_ConvoyOutcomes = new HST_ConvoyOutcomeService();
 		m_SupportRequests = new HST_SupportRequestService();
 		m_Civilians = new HST_CivilianService();
@@ -2638,7 +2644,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP && m_State.m_bHQDeployed)
 		{
 			m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
-			Print("h-istasi admin | repaired campaign phase for debug mission start: HQ was already deployed");
+			DebugLog("admin repaired campaign phase for debug mission start: HQ was already deployed");
 			return true;
 		}
 
