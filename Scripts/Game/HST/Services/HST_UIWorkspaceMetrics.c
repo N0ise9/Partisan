@@ -2,6 +2,7 @@ class HST_UIWorkspaceMetrics
 {
 	static const float BASE_WIDTH = 1920.0;
 	static const float BASE_HEIGHT = 1080.0;
+	protected static bool s_bLoggedMetrics;
 
 	static void GetRawWorkspaceSize(WorkspaceWidget workspace, out int width, out int height)
 	{
@@ -16,37 +17,43 @@ class HST_UIWorkspaceMetrics
 
 	static int LayoutToRawPx(WorkspaceWidget workspace, float value)
 	{
-		if (!workspace)
-			return Math.Round(value);
+		return Math.Round(value);
+	}
 
-		return Math.Round(workspace.DPIScale(value));
+	static void DebugWorkspaceMetrics(WorkspaceWidget workspace, string source)
+	{
+		if (s_bLoggedMetrics || !workspace)
+			return;
+
+		int rawW = Math.Round(workspace.GetWidth());
+		int rawH = Math.Round(workspace.GetHeight());
+		int unscaledW = Math.Round(workspace.DPIUnscale(workspace.GetWidth()));
+		int unscaledH = Math.Round(workspace.DPIUnscale(workspace.GetHeight()));
+		float dpi = workspace.GetUserDPIScale();
+
+		Print(string.Format("h-istasi ui metrics | %1 | raw=%2x%3 unscaled=%4x%5 dpi=%6", source, rawW, rawH, unscaledW, unscaledH, dpi));
+		s_bLoggedMetrics = true;
 	}
 
 	static void GetLayoutSize(WorkspaceWidget workspace, out int width, out int height)
 	{
-		width = 1;
-		height = 1;
-		if (!workspace)
-			return;
-
-		width = Math.Max(1, Math.Round(workspace.DPIUnscale(workspace.GetWidth())));
-		height = Math.Max(1, Math.Round(workspace.DPIUnscale(workspace.GetHeight())));
+		GetRawWorkspaceSize(workspace, width, height);
 	}
 
 	static int GetLayoutWidth(WorkspaceWidget workspace)
 	{
-		if (!workspace)
-			return 1;
-
-		return Math.Max(1, Math.Round(workspace.DPIUnscale(workspace.GetWidth())));
+		int width;
+		int height;
+		GetRawWorkspaceSize(workspace, width, height);
+		return width;
 	}
 
 	static int GetLayoutHeight(WorkspaceWidget workspace)
 	{
-		if (!workspace)
-			return 1;
-
-		return Math.Max(1, Math.Round(workspace.DPIUnscale(workspace.GetHeight())));
+		int width;
+		int height;
+		GetRawWorkspaceSize(workspace, width, height);
+		return height;
 	}
 
 	static float GetScale(int width, int height, float minScale = 0.70, float maxScale = 1.15)

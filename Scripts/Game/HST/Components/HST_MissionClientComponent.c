@@ -300,11 +300,7 @@ class HST_MissionClientComponent : ScriptComponent
 		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, rootW), rootW, screenW, Math.Max(8, margin / 2));
 		int top = HST_UIWorkspaceMetrics.ClampTop(margin, rootH, screenH, Math.Max(4, margin / 2));
 
-		int rawLeft = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, left);
-		int rawTop = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, top);
-		int rawRootW = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, rootW);
-		int rawRootH = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, rootH);
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, rawLeft, rawTop, rawRootW, rawRootH, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, DETAIL_ROOT_Z);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, rootW, rootH, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, DETAIL_ROOT_Z);
 		if (!root)
 			return;
 
@@ -425,11 +421,7 @@ class HST_MissionClientComponent : ScriptComponent
 		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, rootW), rootW, screenW, Math.Max(8, margin / 2));
 		int top = HST_UIWorkspaceMetrics.ClampTop(HST_UIWorkspaceMetrics.CenteredTop(screenH, rootH), rootH, screenH, Math.Max(8, margin / 2));
 
-		int rawLeft = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, left);
-		int rawTop = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, top);
-		int rawRootW = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, rootW);
-		int rawRootH = HST_UIWorkspaceMetrics.LayoutToRawPx(workspace, rootH);
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, rawLeft, rawTop, rawRootW, rawRootH, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, rootW, rootH, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
 		if (!root)
 			return;
 
