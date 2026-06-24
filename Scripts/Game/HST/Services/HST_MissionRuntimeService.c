@@ -96,6 +96,12 @@ class HST_MissionRuntimeService
 	protected ref array<string> m_aRestoredMissionCarrierRestoreMissionIds = {};
 	protected ref array<string> m_aCaptiveFollowWaypointAssetIds = {};
 	protected ref array<int> m_aCaptiveFollowWaypointSeconds = {};
+	protected bool m_bDebugLoggingEnabled;
+
+	void SetDebugLoggingEnabled(bool enabled)
+	{
+		m_bDebugLoggingEnabled = enabled;
+	}
 
 	bool InitializeMissionRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState mission, HST_GeneratedContentService content)
 	{
@@ -1118,7 +1124,7 @@ class HST_MissionRuntimeService
 
 		int removedWeaponItems = StripMissionCaptiveWeapons(entity);
 		if (removedWeaponItems > 0)
-			Print(string.Format("h-istasi mission runtime | disarmed captive projection | asset %1 | removed %2 weapon item(s)", asset.m_sAssetId, removedWeaponItems));
+			DebugLog(string.Format("disarmed captive projection | asset %1 | removed %2 weapon item(s)", asset.m_sAssetId, removedWeaponItems));
 	}
 
 	protected int StripMissionCaptiveWeapons(IEntity entity)
@@ -1209,7 +1215,7 @@ class HST_MissionRuntimeService
 		bool hasActions = ActionsManagerComponent.Cast(entity.FindComponent(ActionsManagerComponent)) != null;
 		bool hasRpl = BaseRplComponent.Cast(entity.FindComponent(BaseRplComponent)) != null;
 		bool hasMissionAsset = HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent)) != null;
-		Print(string.Format("h-istasi mission runtime | captive projection live | asset %1 | entity %2 | origin %3 | actions %4 | rpl %5 | mission asset component %6", asset.m_sAssetId, entity.GetName(), entity.GetOrigin(), hasActions, hasRpl, hasMissionAsset));
+		DebugLog(string.Format("captive projection live | asset %1 | entity %2 | origin %3 | actions %4 | rpl %5 | mission asset component %6", asset.m_sAssetId, entity.GetName(), entity.GetOrigin(), hasActions, hasRpl, hasMissionAsset));
 	}
 
 	protected bool EnsureRestoredMissionCarrierVehicles(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -5754,5 +5760,13 @@ class HST_MissionRuntimeService
 		float x = a[0] - b[0];
 		float z = a[2] - b[2];
 		return x * x + z * z;
+	}
+
+	protected void DebugLog(string message)
+	{
+		if (!m_bDebugLoggingEnabled)
+			return;
+
+		Print("h-istasi mission runtime debug | " + message);
 	}
 }

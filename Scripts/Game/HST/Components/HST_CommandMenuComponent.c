@@ -176,6 +176,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bLoggedCustomActionInput;
 	protected bool m_bLoggedRawIKeyInput;
 	protected bool m_bLoggedDuplicateToggle;
+	protected bool m_bDebugLoggingEnabled;
 	protected int m_iLoggedLayoutW;
 	protected int m_iLoggedLayoutH;
 	protected int m_iRowCreateLogCount;
@@ -195,6 +196,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		super.OnPostInit(owner);
 		m_OwnerEntity = owner;
 		m_bIsLocalOwner = IsLocalOwner(owner);
+		m_bDebugLoggingEnabled = HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet();
 		BuildTabList();
 		BuildActionList();
 		ClearRichPayload();
@@ -595,8 +597,15 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected bool TryToggleCommandMenu(string source)
 	{
+		if (!m_bIsLocalOwner)
+		{
+			DebugCommandMenuToggleRefused(source, "not local owner");
+			return false;
+		}
+
 		if (HST_SetupMapComponent.IsSetupBlocking())
 		{
+			DebugCommandMenuToggleRefused(source, "setup blocking");
 			if (m_bMenuOpen)
 				CloseMenu("setup blocking");
 			Debug.ClearKey(KeyCode.KC_I);
@@ -604,12 +613,24 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		if (m_fCommandMenuDebounceRemaining > 0)
+		{
+			DebugCommandMenuToggleRefused(source, "debounce");
 			return false;
+		}
+
+		if (!HST_CommandMenuRequestComponent.GetLocalOwner() && !Replication.IsServer())
+			DebugCommandMenuToggleRefused(source, "request bridge missing");
 
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		m_fCommandMenuDebounceRemaining = 0.15;
+		DebugLog(string.Format("input toggle source=%1 setupBlocking=%2 menuOpen=%3 localOwner=%4", source, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner));
 		ToggleMenu(source);
 		return true;
+	}
+
+	protected void DebugCommandMenuToggleRefused(string source, string reason)
+	{
+		DebugLog(string.Format("input refused source=%1 reason=%2 setupBlocking=%3 menuOpen=%4 localOwner=%5 inputRegistered=%6 customBinding=%7 debounce=%8", source, reason, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady, m_fCommandMenuDebounceRemaining));
 	}
 
 	protected void OnSelectPreviousInput(float value, EActionTrigger reason)
@@ -643,7 +664,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		s_LocalInstance = this;
 		m_fInputRetryAccumulator = 0;
-		Print("h-istasi menu | local player menu component ready");
+		DebugLog("local player menu component ready");
 		RegisterInputListeners();
 	}
 
@@ -676,14 +697,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!actionReady)
 		{
 			if (!m_bCustomBindingAttempted)
-				Print("h-istasi menu | waiting for I-key custom input action", LogLevel.WARNING);
+				DebugLog("waiting for I-key custom input action");
 
 			m_bCustomBindingAttempted = true;
 			return false;
 		}
 
 		m_bCustomBindingAttempted = true;
-		Print("h-istasi menu | HST_CommandMenu input action ready");
+		DebugLog("HST_CommandMenu input action ready");
 		array<string> bindings = {};
 		if (binding.GetBindings(COMMAND_MENU_CUSTOM_ACTION, bindings, EInputDeviceType.KEYBOARD, INPUT_CONFIG, false))
 		{
@@ -699,7 +720,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		binding.AddBinding(COMMAND_MENU_CUSTOM_ACTION, INPUT_CONFIG, COMMAND_MENU_KEYBOARD_BINDING, "down");
 		m_bCustomBindingReady = true;
-		Print("h-istasi menu | bound I key to command menu");
+		DebugLog("bound I key to command menu");
 		return true;
 	}
 
@@ -718,7 +739,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			customConfigs.Insert(INPUT_CONFIG);
 			binding.SetCustomConfigs(customConfigs);
-			Print("h-istasi menu | registered command menu input config");
+			DebugLog("registered command menu input config");
 		}
 
 		m_bInputConfigRegistered = true;
@@ -800,7 +821,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sStatusText = "h-istasi menu | requesting server snapshot";
 		RequestSnapshot();
 		RenderMenu();
-		Print("h-istasi menu | opened via " + source);
+		DebugLog("opened via " + source);
 		ShowMenuHint("Command menu opened", "h-istasi", 2.0);
 	}
 
@@ -811,7 +832,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		m_bMenuOpen = false;
 		ClearWidgets();
-		Print("h-istasi menu | closed via " + source);
+		DebugLog("closed via " + source);
 	}
 
 	protected void SelectPreviousAction()
@@ -1129,7 +1150,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			m_iLoggedLayoutW = screenW;
 			m_iLoggedLayoutH = screenH;
-			Print(string.Format("h-istasi menu layout | workspace=%1x%2 scale=%3 root=%4,%5 %6x%7", screenW, screenH, scale, m_Layout.m_iRootLeft, m_Layout.m_iRootTop, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight));
+			DebugLog(string.Format("layout workspace=%1x%2 scale=%3 root=%4,%5 %6x%7", screenW, screenH, scale, m_Layout.m_iRootLeft, m_Layout.m_iRootTop, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight));
 		}
 	}
 
@@ -1199,12 +1220,20 @@ class HST_CommandMenuComponent : ScriptComponent
 		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, width), width, screenW, Math.Max(8, margin / 2));
 		int top = HST_UIWorkspaceMetrics.ClampTop(margin, height, screenH, Math.Max(4, margin / 2));
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, width, height, WidgetFlags.VISIBLE, null, 2850);
+		Widget layer = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, screenW, screenH, WidgetFlags.VISIBLE, null, 2850);
+		if (!layer)
+			return;
+
+		layer.SetZOrder(2850);
+		m_aExternalNotificationWidgets.Insert(layer);
+
+		Widget root = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE, null, 2851, layer);
 		if (!root)
 			return;
 
+		FrameSlot.SetPos(root, left, top);
+		FrameSlot.SetSize(root, width, height);
 		root.SetZOrder(2850);
-		m_aExternalNotificationWidgets.Insert(root);
 		CreateExternalRectWidget(workspace, root, 0, 0, width, height, 0xF21A232B, 1.0);
 		CreateExternalRectWidget(workspace, root, 0, height - Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale)), width, Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale)), 0xFFC4953B, 1.0);
 		CreateExternalTextWidget(workspace, root, ShortenText(title, 44), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScalePx(10, scale), width - HST_UIWorkspaceMetrics.ScalePx(48, scale), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScaleFont(18, scale), 0xFFF2D18B, true);
@@ -1711,15 +1740,18 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void DebugRowCreated(string label, Widget row)
 	{
+		if (!IsDebugLoggingEnabled())
+			return;
+
 		if (!row)
 		{
-			Print("h-istasi ui row | failed to create " + label, LogLevel.WARNING);
+			Print("h-istasi menu debug | ui row failed to create " + label, LogLevel.WARNING);
 			return;
 		}
 
 		if (m_iRowCreateLogCount < 12)
 		{
-			Print("h-istasi ui row | created " + label);
+			DebugLog("ui row created " + label);
 			m_iRowCreateLogCount++;
 			return;
 		}
@@ -1727,7 +1759,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_bRowCreateLogSuppressed)
 		{
 			m_bRowCreateLogSuppressed = true;
-			Print("h-istasi ui row | additional row creation logs suppressed");
+			DebugLog("ui row additional row creation logs suppressed");
 		}
 	}
 
@@ -2091,6 +2123,10 @@ class HST_CommandMenuComponent : ScriptComponent
 		string tabId = NormalizeTabId(ExtractPipeField(line, 1));
 		if (!tabId.IsEmpty() && tabId != "offline")
 			m_sSelectedTab = tabId;
+
+		string debugLine = ExtractPayloadLine(payload, "DEBUG|");
+		if (!debugLine.IsEmpty())
+			m_bDebugLoggingEnabled = ParseBool(ExtractPipeField(debugLine, 1));
 	}
 
 	protected void ParseTabsFromPayload(string payload)
@@ -2285,6 +2321,22 @@ class HST_CommandMenuComponent : ScriptComponent
 		return payload.Substring(start, end - start);
 	}
 
+	protected string ExtractPayloadLine(string payload, string prefix)
+	{
+		if (payload.IsEmpty() || prefix.IsEmpty())
+			return "";
+
+		int start = payload.IndexOf(prefix);
+		if (start < 0)
+			return "";
+
+		int end = payload.IndexOfFrom(start, "\n");
+		if (end < 0)
+			end = payload.Length();
+
+		return payload.Substring(start, end - start);
+	}
+
 	protected int FindNextPayloadSection(string payload, int start)
 	{
 		int best = -1;
@@ -2340,6 +2392,19 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool ParseBool(string value)
 	{
 		return value == "true" || value == "1";
+	}
+
+	bool IsDebugLoggingEnabled()
+	{
+		return m_bDebugLoggingEnabled;
+	}
+
+	protected void DebugLog(string message)
+	{
+		if (!IsDebugLoggingEnabled())
+			return;
+
+		Print("h-istasi menu debug | " + message);
 	}
 
 	protected string NormalizeTabId(string tabId)

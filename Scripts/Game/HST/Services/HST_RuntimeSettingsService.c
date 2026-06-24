@@ -3,6 +3,27 @@ class HST_RuntimeSettingsService
 	static const string SETTINGS_DIRECTORY = "$profile:h-istasi";
 	static const string SETTINGS_FILE = "$profile:h-istasi/HST_Settings.json";
 
+	static bool LoadDebugLoggingEnabledQuiet()
+	{
+		bool enabled;
+		if (!FileIO.FileExists(SETTINGS_FILE))
+			return enabled;
+
+		FileHandle file = FileIO.OpenFile(SETTINGS_FILE, FileMode.READ);
+		if (!file)
+			return enabled;
+
+		string line;
+		while (file.ReadLine(line) >= 0)
+		{
+			if (LineHasKeyStatic(line, "verboseLogging") || LineHasKeyStatic(line, "debugLoggingEnabled"))
+				enabled = ExtractBoolValueStatic(line);
+		}
+
+		file.Close();
+		return enabled;
+	}
+
 	HST_RuntimeSettings LoadOrCreate()
 	{
 		HST_RuntimeSettings settings = new HST_RuntimeSettings();
@@ -302,6 +323,11 @@ class HST_RuntimeSettingsService
 		return line.Contains("\"" + key + "\"");
 	}
 
+	protected static bool LineHasKeyStatic(string line, string key)
+	{
+		return line.Contains("\"" + key + "\"");
+	}
+
 	protected string ExtractValue(string line)
 	{
 		int colon = line.IndexOf(":");
@@ -313,6 +339,20 @@ class HST_RuntimeSettingsService
 		value.Replace("\"", "");
 		value = value.Trim();
 		return value;
+	}
+
+	protected static bool ExtractBoolValueStatic(string line)
+	{
+		int colon = line.IndexOf(":");
+		if (colon < 0)
+			return false;
+
+		string value = line.Substring(colon + 1, line.Length() - colon - 1);
+		value.Replace(",", "");
+		value.Replace("\"", "");
+		value = value.Trim();
+		value.ToLower();
+		return value == "true" || value == "1";
 	}
 
 	protected void WriteDefault(notnull HST_RuntimeSettings settings)

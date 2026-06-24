@@ -144,7 +144,7 @@ class HST_HQService
 		if (!state || state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 			return;
 
-		ClearRuntimeObjects(state);
+		ClearRuntimeObjects(state, "reset initial HQ selection");
 		state.m_sHQHideoutId = "";
 		state.m_vHQPosition = "0 0 0";
 		state.m_vPetrosPosition = "0 0 0";
@@ -196,7 +196,7 @@ class HST_HQService
 
 		state.m_bPetrosAlive = false;
 		state.m_iPetrosDeaths++;
-		ClearRuntimeObjects(state);
+		ClearRuntimeObjects(state, "Petros killed");
 		economy.AddFactionMoney(state, -moneyPenalty);
 		economy.AddHR(state, -hrPenalty);
 	}
@@ -306,7 +306,7 @@ class HST_HQService
 		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
 			return false;
 
-		ClearRuntimeObjects(state);
+		ClearRuntimeObjects(state, "manual rebuild requested");
 		EnsureRuntimeGroundPlacement(state);
 		state.m_sArsenalPrefab = ARSENAL_PREFAB;
 		state.m_sHQArsenalRuntimeStatus = "rebuild requested";
@@ -582,7 +582,7 @@ class HST_HQService
 
 	protected void SetHQPosition(HST_CampaignState state, string hideoutId, vector hqPosition)
 	{
-		ClearRuntimeObjects(state);
+		ClearRuntimeObjects(state, "HQ moved or placed");
 		vector petrosOffset = "2 0 2";
 		vector cacheOffset = "4 0 -2";
 		vector tentOffset = "-4 0 2";
@@ -690,6 +690,17 @@ class HST_HQService
 		if (state)
 			petrosPosition = state.m_vPetrosPosition;
 
+		bool hqDeployed;
+		bool petrosAlive;
+		bool runtimeSpawned;
+		if (state)
+		{
+			hqDeployed = state.m_bHQDeployed;
+			petrosAlive = state.m_bPetrosAlive;
+			runtimeSpawned = state.m_bHQRuntimeObjectsSpawned;
+		}
+
+		DebugLog(string.Format("lifecycle spawning Petros prefab=%1 pos=%2 hqDeployed=%3 petrosAlive=%4 runtimeSpawned=%5", petrosPrefab, petrosPosition, hqDeployed, petrosAlive, runtimeSpawned));
 		GenericEntity petros = HST_WorldPositionService.SpawnPrefab(petrosPrefab, petrosPosition, "0 0 0");
 		if (petros)
 			return petros;
@@ -848,8 +859,9 @@ class HST_HQService
 		return true;
 	}
 
-	protected void ClearRuntimeObjects(HST_CampaignState state)
+	protected void ClearRuntimeObjects(HST_CampaignState state, string reason = "unspecified")
 	{
+		DebugLog(string.Format("lifecycle clearing runtime objects reason=%1 petros=%2 cache=%3 arsenal=%4 tent=%5", reason, m_PetrosEntity, m_CacheEntity, m_ArsenalEntity, m_TentEntity));
 		DeleteRuntimeEntity(m_PetrosEntity);
 		DeleteRuntimeEntity(m_CacheEntity);
 		DeleteRuntimeEntity(m_ArsenalEntity);

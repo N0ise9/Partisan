@@ -1487,10 +1487,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget layoutRoot = workspace.CreateWidgets(EDITOR_LAYOUT, m_RootWidget);
 		m_bRootFromLayout = layoutRoot != null;
 		if (layoutRoot)
-		{
 			FrameSlot.SetPos(layoutRoot, 0, 0);
-			FrameSlot.SetSize(layoutRoot, m_iEditorWidth, m_iEditorHeight);
-		}
 
 		m_UILayerWidget = null;
 		return m_RootWidget;
