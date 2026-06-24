@@ -79,7 +79,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_SettingsService = new HST_RuntimeSettingsService();
 		m_Settings = m_SettingsService.LoadOrCreate();
 		if (m_Settings)
+		{
 			m_Settings.ApplyTo(m_Preset, m_Balance);
+			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+			if (gameMode && m_Settings.m_Features)
+				gameMode.SetHistasiGameMasterBudgetsEnabled(m_Settings.m_Features.m_bGameMasterBudgetsEnabled, "campaign coordinator settings");
+		}
 
 		m_Economy = new HST_EconomyService();
 		m_Missions = new HST_MissionService();

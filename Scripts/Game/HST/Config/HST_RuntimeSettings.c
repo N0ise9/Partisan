@@ -123,11 +123,12 @@ class HST_RuntimeSettingsFeatures
 	bool m_bPhysicalWarEnabled = true;
 	bool m_bAreaLootEnabled = true;
 	bool m_bSetupUiReadOnly = true;
+	bool m_bGameMasterBudgetsEnabled;
 }
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 10;
+	static const int SCHEMA_VERSION = 11;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -291,6 +292,7 @@ class HST_RuntimeSettings
 		string airSupport = string.Format("\nair support | enabled %1 | cooldown %2s", m_AirSupport.m_bEnabled, m_AirSupport.m_iCooldownSeconds);
 		string civilians = string.Format("\ncivilians | enabled %1 | max %2 per town | civ vehicles %3-%4 | occupier vehicles %5-%6", m_Civilians.m_bEnabled, m_Civilians.m_iMaxActivePerTown, m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown, m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
 		string persistence = string.Format("\npersistence | autosave %1s | debounce %2s", m_Persistence.m_iAutosaveIntervalSeconds, m_Persistence.m_iMajorChangeDebounceSeconds);
-		return campaign + factions + economy + pacing + loss + capture + world + loot + vehicleLoot + airSupport + civilians + persistence + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
+		string features = string.Format("\nfeatures | physical war %1 | area loot %2 | setup read only %3 | GM budgets %4", m_Features.m_bPhysicalWarEnabled, m_Features.m_bAreaLootEnabled, m_Features.m_bSetupUiReadOnly, m_Features.m_bGameMasterBudgetsEnabled);
+		return campaign + factions + economy + pacing + loss + capture + world + loot + vehicleLoot + airSupport + civilians + persistence + features + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
 	}
 }

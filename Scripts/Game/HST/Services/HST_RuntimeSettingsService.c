@@ -136,6 +136,7 @@ class HST_RuntimeSettingsService
 			ApplyBool(line, "physicalWarEnabled", settings.m_Features.m_bPhysicalWarEnabled);
 			ApplyBool(line, "areaLootEnabled", settings.m_Features.m_bAreaLootEnabled);
 			ApplyBool(line, "setupUiReadOnly", settings.m_Features.m_bSetupUiReadOnly);
+			ApplyBool(line, "gameMasterBudgetsEnabled", settings.m_Features.m_bGameMasterBudgetsEnabled);
 		}
 	}
 
@@ -229,6 +230,12 @@ class HST_RuntimeSettingsService
 			changed = true;
 		}
 
+		if (settings.m_iSchemaVersion < 11)
+		{
+			settings.m_Features.m_bGameMasterBudgetsEnabled = false;
+			changed = true;
+		}
+
 		if (settings.m_iSchemaVersion < HST_RuntimeSettings.SCHEMA_VERSION)
 		{
 			settings.m_iSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;
@@ -310,6 +317,7 @@ class HST_RuntimeSettingsService
 
 	protected void WriteDefault(notnull HST_RuntimeSettings settings)
 	{
+		settings.Normalize();
 		array<string> lines = {};
 		lines.Insert("{");
 		lines.Insert(string.Format("  \"schemaVersion\": %1,", settings.m_iSchemaVersion));
@@ -412,7 +420,8 @@ class HST_RuntimeSettingsService
 		lines.Insert("  \"features\": {");
 		lines.Insert(string.Format("    \"physicalWarEnabled\": %1,", JsonBool(settings.m_Features.m_bPhysicalWarEnabled)));
 		lines.Insert(string.Format("    \"areaLootEnabled\": %1,", JsonBool(settings.m_Features.m_bAreaLootEnabled)));
-		lines.Insert(string.Format("    \"setupUiReadOnly\": %1", JsonBool(settings.m_Features.m_bSetupUiReadOnly)));
+		lines.Insert(string.Format("    \"setupUiReadOnly\": %1,", JsonBool(settings.m_Features.m_bSetupUiReadOnly)));
+		lines.Insert(string.Format("    \"gameMasterBudgetsEnabled\": %1", JsonBool(settings.m_Features.m_bGameMasterBudgetsEnabled)));
 		lines.Insert("  }");
 		lines.Insert("}");
 		WriteLines(SETTINGS_FILE, lines);
