@@ -1443,11 +1443,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget uiRoot = ResolveUILayer(root);
 		CreatePreviewDragSurface(workspace, uiRoot);
-		int closeLeft = ScalePx(24);
-		int centerY = m_iEditorHeight / 2;
-		CreateButton(workspace, uiRoot, "Back", closeLeft, centerY - ScalePx(54), ScalePx(70), ScalePx(38), BACK_WIDGET_ID);
-		CreateButton(workspace, uiRoot, "ESC", closeLeft, centerY + ScalePx(36), ScalePx(58), ScalePx(32), CLOSE_WIDGET_ID);
-
+		RenderLeftButtons(workspace, uiRoot);
 		RenderModeTabs(workspace, uiRoot);
 		// Editor visual states:
 		// clothing/weapons/attachments: left slot rail + mannequin
@@ -1534,6 +1530,85 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		return uiLayer;
+	}
+
+	protected void RenderLeftButtons(WorkspaceWidget workspace, Widget root)
+	{
+		if (!workspace || !root || !m_Layout)
+			return;
+
+		Widget leftButtons = ResolveLoadoutRegion(root, "LeftButtons");
+		if (!leftButtons)
+			return;
+
+		bool canBack = CanNavigateBack();
+		BindLoadoutClick(leftButtons, "LoadoutBackButton", BACK_WIDGET_ID);
+		BindLoadoutClick(leftButtons, "LoadoutCloseButton", CLOSE_WIDGET_ID);
+		float backOpacity = 0.45;
+		float backAccentOpacity = 0.35;
+		int backAccentColor = 0x884B5960;
+		int backTextColor = 0x889EA7AE;
+		if (canBack)
+		{
+			backOpacity = 0.98;
+			backAccentOpacity = 1.0;
+			backAccentColor = GetAccentColor();
+			backTextColor = 0xFFF4EBD6;
+		}
+
+		SetLoadoutWidgetColor(leftButtons, "BackBackground", 0xEE11171B, backOpacity);
+		SetLoadoutWidgetColor(leftButtons, "BackAccent", backAccentColor, backAccentOpacity);
+		SetLoadoutText(leftButtons, "BackLabel", "Back", backTextColor, m_Layout.m_iFontSmall, true, false);
+		SetLoadoutWidgetColor(leftButtons, "CloseBackground", 0xEE11171B, 0.98);
+		SetLoadoutWidgetColor(leftButtons, "CloseAccent", GetAccentColor(), 1.0);
+		SetLoadoutText(leftButtons, "CloseLabel", "ESC", 0xFFF4EBD6, m_Layout.m_iFontSmall, true, false);
+	}
+
+	protected void BindLoadoutClick(Widget root, string widgetName, int userId)
+	{
+		if (!root || userId <= 0)
+			return;
+
+		Widget widget = root.FindAnyWidget(widgetName);
+		if (!widget)
+			return;
+
+		widget.SetUserID(userId);
+		widget.AddHandler(m_WidgetHandler);
+	}
+
+	protected void SetLoadoutWidgetColor(Widget root, string widgetName, int color, float opacity)
+	{
+		if (!root)
+			return;
+
+		Widget widget = root.FindAnyWidget(widgetName);
+		if (!widget)
+			return;
+
+		widget.SetVisible(true);
+		widget.SetOpacity(opacity);
+		widget.SetColorInt(color);
+	}
+
+	protected void SetLoadoutText(Widget root, string widgetName, string text, int color, int fontSize, bool bold, bool wrap)
+	{
+		if (!root)
+			return;
+
+		TextWidget textWidget = TextWidget.Cast(root.FindAnyWidget(widgetName));
+		if (!textWidget)
+			return;
+
+		textWidget.SetVisible(true);
+		textWidget.SetOpacity(1.0);
+		textWidget.SetText(text);
+		textWidget.SetTextWrapping(wrap);
+		textWidget.SetExactFontSize(fontSize);
+		textWidget.SetBold(bold);
+		textWidget.SetOutline(1, 0xDD000000);
+		textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
+		textWidget.SetColorInt(color);
 	}
 
 	protected void GetRegionLayoutSize(WorkspaceWidget workspace, Widget region, int fallbackWidth, int fallbackHeight, out int width, out int height)

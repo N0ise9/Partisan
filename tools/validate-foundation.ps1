@@ -642,6 +642,14 @@ $setupConfirmModalLayoutText = Get-Content -Raw "UI/layouts/HST_SetupConfirmModa
 $notificationToastLayoutText = Get-Content -Raw "UI/layouts/HST_NotificationToast.layout"
 $notificationToastLayoutMetaText = Get-Content -Raw "UI/layouts/HST_NotificationToast.layout.meta"
 $setupNativeMapConfigText = Get-Content -Raw "Configs/Map/HST_SetupHQMap.conf"
+if (!(Test-Path "Configs/Map/HST_GameplayMap.conf")) {
+	throw "Gameplay map config is missing: Configs/Map/HST_GameplayMap.conf"
+}
+if (!(Test-Path "Configs/Map/HST_GameplayMap.conf.meta")) {
+	throw "Gameplay map config meta is missing: Configs/Map/HST_GameplayMap.conf.meta"
+}
+$gameplayMapConfigText = Get-Content -Raw "Configs/Map/HST_GameplayMap.conf"
+$gameplayMapConfigMetaText = Get-Content -Raw "Configs/Map/HST_GameplayMap.conf.meta"
 $requestBridgeSetupText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
 $playerSpawnSetupText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerSpawnService.c"
 $uiWorkspaceMetricsText = Get-Content -Raw "Scripts/Game/HST/Services/HST_UIWorkspaceMetrics.c"
@@ -999,6 +1007,25 @@ foreach ($requiredSetupNativeMapConfigEntry in @(
 		throw "Setup map config is missing setup-only map component: $requiredSetupNativeMapConfigEntry"
 	}
 }
+foreach ($requiredGameplayMapConfigEntry in @(
+	'SCR_MapConfig : "{1B8AC767E06A0ACD}Configs/Map/MapFullscreen.conf"',
+	'Name "{6985327711306211}Configs/Map/HST_GameplayMap.conf"'
+)) {
+	if (($gameplayMapConfigText + "`n" + $gameplayMapConfigMetaText) -notmatch [regex]::Escape($requiredGameplayMapConfigEntry)) {
+		throw "Gameplay map config must inherit the vanilla fullscreen map resource and have its own resource id: $requiredGameplayMapConfigEntry"
+	}
+}
+foreach ($forbiddenGameplayMapConfigEntry in @(
+	"HST_SetupHQMap",
+	"HST_MapZoneOverlayUIComponent",
+	"MapCursorModuleDef",
+	"m_bEnableCursorEdgePan 0",
+	"m_aUIComponents"
+)) {
+	if ($gameplayMapConfigText -match [regex]::Escape($forbiddenGameplayMapConfigEntry)) {
+		throw "Gameplay map config must not copy setup-only map behavior or override the vanilla tool stack: $forbiddenGameplayMapConfigEntry"
+	}
+}
 $setupConfigReferences = @()
 foreach ($setupReferenceFile in (Get-ChildItem -Recurse -File "Scripts", "Configs", "UI")) {
 	if ($setupReferenceFile.Extension -notin @(".c", ".conf", ".layout", ".meta")) {
@@ -1021,6 +1048,7 @@ foreach ($setupConfigReference in $setupConfigReferences) {
 	}
 }
 Write-Host "Initial HQ setup placement flow OK"
+Write-Host "Setup/gameplay map config separation OK"
 
 if ($defaultCatalog -notmatch 'preset\.m_sResistanceFactionKey = "FIA"' -or $defaultCatalog -notmatch 'preset\.m_sOccupierFactionKey = "US"' -or $defaultCatalog -notmatch 'preset\.m_sInvaderFactionKey = "USSR"') {
 	throw "Campaign catalog must keep FIA as resistance, US as occupier, and USSR as invader"
@@ -3309,6 +3337,49 @@ foreach ($requiredLayoutEntry in @(
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLayoutEntry)) {
 		throw "Loadout editor layout is missing stable render-target entry: $requiredLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutLeftButtonLayoutEntry in @(
+	'Name "LeftButtons"',
+	'Name "LoadoutBackButton"',
+	'Name "BackBackground"',
+	'Name "BackAccent"',
+	'Name "BackLabel"',
+	'Name "LoadoutCloseButton"',
+	'Name "CloseBackground"',
+	'Name "CloseAccent"',
+	'Name "CloseLabel"',
+	"Anchor 0 0.5 0 0.5",
+	"OffsetLeft 24",
+	"Text `"ESC`""
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutLeftButtonLayoutEntry)) {
+		throw "Loadout editor layout is missing layout-owned left button chrome: $requiredLoadoutLeftButtonLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutLeftButtonScriptEntry in @(
+	"RenderLeftButtons(workspace, uiRoot)",
+	'Widget leftButtons = ResolveLoadoutRegion(root, "LeftButtons")',
+	'BindLoadoutClick(leftButtons, "LoadoutBackButton", BACK_WIDGET_ID)',
+	'BindLoadoutClick(leftButtons, "LoadoutCloseButton", CLOSE_WIDGET_ID)',
+	'SetLoadoutText(leftButtons, "BackLabel"',
+	'SetLoadoutText(leftButtons, "CloseLabel"',
+	"protected void BindLoadoutClick",
+	"protected void SetLoadoutWidgetColor",
+	"protected void SetLoadoutText"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutLeftButtonScriptEntry)) {
+		throw "Loadout editor must bind layout-owned left button chrome: $requiredLoadoutLeftButtonScriptEntry"
+	}
+}
+foreach ($forbiddenLoadoutLeftButtonScriptGeometry in @(
+	'CreateButton(workspace, uiRoot, "Back"',
+	'CreateButton(workspace, uiRoot, "ESC"',
+	"int closeLeft = ScalePx(24)",
+	"int centerY = m_iEditorHeight / 2"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutLeftButtonScriptGeometry)) {
+		throw "Loadout editor left Back/ESC controls must be layout-owned: $forbiddenLoadoutLeftButtonScriptGeometry"
 	}
 }
 foreach ($requiredPreviewCellLayoutEntry in @(
