@@ -840,7 +840,7 @@ foreach ($requiredWorkspaceMetricCaller in @(
 	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_SetupMap`")",
 	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_CommandMenu`")",
 	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_LoadoutEditor`")",
-	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_MissionNotification`")",
+	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_NotificationToast`")",
 	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_MissionDetail`")"
 )) {
 	$foundWorkspaceMetricCaller = $false
@@ -848,7 +848,8 @@ foreach ($requiredWorkspaceMetricCaller in @(
 		$setupMapComponentText,
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"),
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"),
-		(Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c")
+		(Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c"),
+		(Get-Content -Raw "Scripts/Game/HST/UI/HST_NotificationToastController.c")
 	)) {
 		if ($uiText -and $uiText -match [regex]::Escape($requiredWorkspaceMetricCaller)) {
 			$foundWorkspaceMetricCaller = $true
@@ -879,7 +880,8 @@ if (!(Test-Path "docs/HST_UI_REWRITE_AUDIT.md")) {
 foreach ($requiredUIRootFile in @(
 	"Scripts/Game/HST/UI/HST_UIConstants.c",
 	"Scripts/Game/HST/UI/HST_UIScreenBase.c",
-	"Scripts/Game/HST/UI/HST_UIRootService.c"
+	"Scripts/Game/HST/UI/HST_UIRootService.c",
+	"Scripts/Game/HST/UI/HST_NotificationToastController.c"
 )) {
 	if (!(Test-Path $requiredUIRootFile)) {
 		throw "UI root coordinator file is missing: $requiredUIRootFile"
@@ -888,6 +890,7 @@ foreach ($requiredUIRootFile in @(
 $uiConstantsText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIConstants.c"
 $uiScreenBaseText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIScreenBase.c"
 $uiRootServiceText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIRootService.c"
+$notificationToastControllerText = Get-Content -Raw "Scripts/Game/HST/UI/HST_NotificationToastController.c"
 foreach ($requiredUIRootEntry in @(
 	"HST_EUIScreenMode",
 	"SETUP_MAP",
@@ -953,7 +956,8 @@ foreach ($requiredUIRootCaller in @(
 		$setupMapComponentText,
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"),
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"),
-		(Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c")
+		(Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c"),
+		$notificationToastControllerText
 	)) {
 		if ($uiText -and $uiText -match [regex]::Escape($requiredUIRootCaller)) {
 			$foundUIRootCaller = $true
@@ -1686,30 +1690,57 @@ $scriptText = ($scriptFiles | ForEach-Object { Get-Content -Raw $_.FullName }) -
 $commandMenuComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"
 $commandUiText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
 
-foreach ($requiredNotificationScriptEntry in @(
+foreach ($requiredNotificationControllerEntry in @(
+	"class HST_NotificationToastController",
 	'NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout"',
+	"static HST_NotificationToastController Get()",
+	"m_aQueue",
+	"void Show(string eventId, string category, string severity, string title, string message, float durationSeconds)",
 	"workspace.CreateWidgets(NOTIFICATION_TOAST_LAYOUT)",
+	'root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS)',
 	'FindAnyWidget("Title")',
 	'FindAnyWidget("Message")',
-	'FindAnyWidget("AccentLine")'
+	'FindAnyWidget("AccentLine")',
+	"HST_UIRootService.Get().NotifyNotificationShown()",
+	"HST_UIRootService.Get().NotifyNotificationHidden()",
+	"GetGame().GetCallqueue().CallLater(DismissCurrent",
+	"m_iToastGeneration",
+	"protected void DismissCurrent(int generation)",
+	"generation != m_iToastGeneration"
 )) {
-	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredNotificationScriptEntry)) {
-		throw "Command menu external notifications must use the shared anchored toast layout: $requiredNotificationScriptEntry"
-	}
-	if ($missionClientText -notmatch [regex]::Escape($requiredNotificationScriptEntry)) {
-		throw "Mission notifications must use the shared anchored toast layout: $requiredNotificationScriptEntry"
+	if ($notificationToastControllerText -notmatch [regex]::Escape($requiredNotificationControllerEntry)) {
+		throw "Notification toast controller must own passive anchored toast rendering and queueing: $requiredNotificationControllerEntry"
 	}
 }
-$commandNotificationMatch = [regex]::Match($commandMenuComponentText, "protected void RenderExternalNotification[\s\S]*?\r?\n\t}")
-if (!$commandNotificationMatch.Success) {
-	throw "Command menu external notification renderer is missing"
-}
-foreach ($forbiddenCommandNotificationMethodGeometry in @(
-	"FrameSlot.SetPos",
-	"FrameSlot.SetSize"
+foreach ($requiredNotificationCallerEntry in @(
+	"HST_NotificationToastController.Get().Show"
 )) {
-	if ($commandNotificationMatch.Value -match [regex]::Escape($forbiddenCommandNotificationMethodGeometry)) {
-		throw "Command menu external notification must not keep script-created toast geometry: $forbiddenCommandNotificationMethodGeometry"
+	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredNotificationCallerEntry)) {
+		throw "Command menu external notifications must enqueue through HST_NotificationToastController: $requiredNotificationCallerEntry"
+	}
+	if ($missionClientText -notmatch [regex]::Escape($requiredNotificationCallerEntry)) {
+		throw "Mission notifications must enqueue through HST_NotificationToastController: $requiredNotificationCallerEntry"
+	}
+}
+foreach ($forbiddenNotificationComponentRenderer in @(
+	"NOTIFICATION_TOAST_LAYOUT",
+	"RenderExternalNotification",
+	"QueueExternalNotification",
+	"TickExternalNotification",
+	"ClearExternalNotificationWidgets",
+	"RenderTopMissionNotification",
+	"QueueTopMissionNotification",
+	"ShowNextQueuedNotification",
+	"m_bNotificationVisible",
+	"m_bExternalNotificationVisible",
+	"m_fNotificationRemaining",
+	"m_fExternalNotificationRemaining"
+)) {
+	if ($commandMenuComponentText -match [regex]::Escape($forbiddenNotificationComponentRenderer)) {
+		throw "Command menu must not own notification toast widgets or timers after controller extraction: $forbiddenNotificationComponentRenderer"
+	}
+	if ($missionClientText -match [regex]::Escape($forbiddenNotificationComponentRenderer)) {
+		throw "Mission client must not own notification toast widgets or timers after controller extraction: $forbiddenNotificationComponentRenderer"
 	}
 }
 foreach ($forbiddenCommandNotificationHelper in @(
@@ -1723,19 +1754,15 @@ foreach ($forbiddenCommandNotificationHelper in @(
 		throw "Command menu external notification must not keep script-created toast geometry: $forbiddenCommandNotificationHelper"
 	}
 }
-$missionNotificationMatch = [regex]::Match($missionClientText, "protected void RenderTopMissionNotification[\s\S]*?\r?\n\t}")
-if (!$missionNotificationMatch.Success) {
-	throw "Mission notification renderer is missing"
-}
-foreach ($forbiddenMissionNotificationGeometry in @(
+foreach ($forbiddenNotificationGeometry in @(
 	"FrameSlot.SetPos",
 	"FrameSlot.SetSize",
 	"CreateRectWidget(workspace, root, 0, 0",
 	"CreateTextWidget(workspace, root, ShortenText(title",
 	"CreateTextWidget(workspace, root, ShortenText(message"
 )) {
-	if ($missionNotificationMatch.Value -match [regex]::Escape($forbiddenMissionNotificationGeometry)) {
-		throw "Mission notification must not keep script-created toast geometry: $forbiddenMissionNotificationGeometry"
+	if ($notificationToastControllerText -match [regex]::Escape($forbiddenNotificationGeometry)) {
+		throw "Notification toast controller must not keep script-created toast geometry: $forbiddenNotificationGeometry"
 	}
 }
 Write-Host "Anchored notification toast layout OK"
@@ -1849,10 +1876,11 @@ foreach ($forbiddenMissionDialogScriptGeometry in @(
 	}
 }
 foreach ($requiredNotificationVisibilityGuard in @(
-	"m_bNotificationVisible",
-	"m_bExternalNotificationVisible"
+	"m_bVisible",
+	"ClearCurrent",
+	"HST_UIRootService.Get().NotifyNotificationHidden()"
 )) {
-	if ($scriptText -notmatch [regex]::Escape($requiredNotificationVisibilityGuard)) {
+	if ($notificationToastControllerText -notmatch [regex]::Escape($requiredNotificationVisibilityGuard)) {
 		throw "Notification cleanup must guard UI-root notification state: $requiredNotificationVisibilityGuard"
 	}
 }

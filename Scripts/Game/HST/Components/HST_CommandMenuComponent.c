@@ -55,7 +55,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const ResourceName COMMAND_MENU_LAYOUT = "{A7B8C9D001234550}UI/layouts/HST_CommandMenu.layout";
-	static const ResourceName NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout";
 	static const ResourceName ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout";
 	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
 	static const ResourceName COMMAND_SECTION_ROW_LAYOUT = "{A7B8C9D001234580}UI/layouts/HST/Rows/HST_CommandSectionRow.layout";
@@ -104,11 +103,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected ref array<int> m_aContentItemRowIndexes = {};
 	protected ref array<Widget> m_aWidgets = {};
 	protected ref HST_CommandMenuLayoutMetrics m_Layout;
-	protected ref array<Widget> m_aExternalNotificationWidgets = {};
-	protected bool m_bExternalNotificationVisible;
-	protected ref array<string> m_aExternalNotificationTitleQueue = {};
-	protected ref array<string> m_aExternalNotificationMessageQueue = {};
-	protected ref array<float> m_aExternalNotificationDurationQueue = {};
 	protected ref HST_CommandMenuWidgetHandler m_WidgetHandler;
 	protected IEntity m_OwnerEntity;
 	protected bool m_bIsLocalOwner;
@@ -129,7 +123,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected int m_iLoggedLayoutH;
 	protected int m_iRowCreateLogCount;
 	protected bool m_bRowCreateLogSuppressed;
-	protected float m_fExternalNotificationRemaining;
 	protected float m_fPostSetupInputRecoveryRemaining;
 	protected float m_fPostSetupInputRecoveryAccumulator;
 	protected ScrollLayoutWidget m_ContentScroll;
@@ -164,7 +157,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_bIsLocalOwner)
 		{
 			UnregisterInputListeners();
-			ClearExternalNotificationWidgets();
 			CloseMenu("component delete");
 			if (s_LocalInstance == this)
 				s_LocalInstance = null;
@@ -185,9 +177,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		if (m_fCommandMenuDebounceRemaining > 0)
 			m_fCommandMenuDebounceRemaining = Math.Max(0, m_fCommandMenuDebounceRemaining - timeSlice);
-
-		if (m_bIsLocalOwner)
-			TickExternalNotification(timeSlice);
 
 		if (!m_bIsLocalOwner)
 		{
@@ -269,13 +258,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (message.IsEmpty())
 			return;
 
-		if (m_fExternalNotificationRemaining > 0)
-		{
-			QueueExternalNotification(title, message, durationSeconds);
-			return;
-		}
-
-		RenderExternalNotification(title, message, durationSeconds);
+		HST_NotificationToastController.Get().Show(title + "_" + message, "h-istasi", "info", title, message, durationSeconds);
 	}
 
 	void OpenPetrosMenu()
@@ -1213,97 +1196,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 	}
 
-	protected void TickExternalNotification(float timeSlice)
-	{
-		if (m_fExternalNotificationRemaining <= 0)
-			return;
-
-		m_fExternalNotificationRemaining = Math.Max(0, m_fExternalNotificationRemaining - timeSlice);
-		if (m_fExternalNotificationRemaining <= 0)
-		{
-			ClearExternalNotificationWidgets();
-			ShowNextExternalNotification();
-		}
-	}
-
-	protected void QueueExternalNotification(string title, string message, float durationSeconds)
-	{
-		m_aExternalNotificationTitleQueue.Insert(title);
-		m_aExternalNotificationMessageQueue.Insert(message);
-		m_aExternalNotificationDurationQueue.Insert(Math.Max(1.0, durationSeconds));
-
-		while (m_aExternalNotificationTitleQueue.Count() > 16)
-		{
-			m_aExternalNotificationTitleQueue.Remove(0);
-			m_aExternalNotificationMessageQueue.Remove(0);
-			m_aExternalNotificationDurationQueue.Remove(0);
-		}
-	}
-
-	protected void ShowNextExternalNotification()
-	{
-		if (m_aExternalNotificationTitleQueue.Count() == 0)
-			return;
-
-		string title = m_aExternalNotificationTitleQueue[0];
-		string message = m_aExternalNotificationMessageQueue[0];
-		float duration = m_aExternalNotificationDurationQueue[0];
-		m_aExternalNotificationTitleQueue.Remove(0);
-		m_aExternalNotificationMessageQueue.Remove(0);
-		m_aExternalNotificationDurationQueue.Remove(0);
-		RenderExternalNotification(title, message, duration);
-	}
-
-	protected void RenderExternalNotification(string title, string message, float durationSeconds)
-	{
-		ClearExternalNotificationWidgets();
-
-		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		if (!workspace)
-			return;
-
-		int screenW;
-		int screenH;
-		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
-		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
-
-		Widget root = workspace.CreateWidgets(NOTIFICATION_TOAST_LAYOUT);
-		if (!root)
-			return;
-
-		root.SetVisible(true);
-		root.SetOpacity(1.0);
-		root.SetZOrder(HST_UIConstants.Z_NOTIFICATION);
-		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		HST_UIRootService.Get().NotifyNotificationShown();
-		m_bExternalNotificationVisible = true;
-		m_aExternalNotificationWidgets.Insert(root);
-
-		Widget accentLine = root.FindAnyWidget("AccentLine");
-		if (accentLine)
-			accentLine.SetColorInt(0xFFC4953B);
-
-		TextWidget titleWidget = TextWidget.Cast(root.FindAnyWidget("Title"));
-		if (titleWidget)
-		{
-			titleWidget.SetText(ShortenText(title, 44));
-			titleWidget.SetTextWrapping(false);
-			ApplyTextStyle(titleWidget, HST_UIWorkspaceMetrics.ScaleFont(18, scale), true);
-			titleWidget.SetColorInt(0xFFF2D18B);
-		}
-
-		TextWidget messageWidget = TextWidget.Cast(root.FindAnyWidget("Message"));
-		if (messageWidget)
-		{
-			messageWidget.SetText(ShortenText(message, 140));
-			messageWidget.SetTextWrapping(true);
-			ApplyTextStyle(messageWidget, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false);
-			messageWidget.SetColorInt(0xFFF2F4F0);
-		}
-
-		m_fExternalNotificationRemaining = Math.Max(1.0, durationSeconds);
-	}
-
 	protected void RenderHeader(WorkspaceWidget workspace, Widget root)
 	{
 		if (!m_Layout)
@@ -1841,23 +1733,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
-	}
-
-	protected void ClearExternalNotificationWidgets()
-	{
-		foreach (Widget widget : m_aExternalNotificationWidgets)
-		{
-			if (widget)
-				widget.RemoveFromHierarchy();
-		}
-
-		m_aExternalNotificationWidgets.Clear();
-		m_fExternalNotificationRemaining = 0;
-		if (m_bExternalNotificationVisible)
-		{
-			HST_UIRootService.Get().NotifyNotificationHidden();
-			m_bExternalNotificationVisible = false;
-		}
 	}
 
 	protected void ClearRichPayload()

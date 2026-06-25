@@ -9,7 +9,6 @@ class HST_MissionClientComponent : ScriptComponent
 	static const ResourceName REPORT_DIALOG_LAYOUT = "{D66CFA01E5AA4100}UI/layouts/HST_ReportDialog.layout";
 	static const ResourceName ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout";
 	static const ResourceName REPORT_OBJECTIVE_ROW_LAYOUT = "{D66CFA01E5AA4300}UI/layouts/HST/Rows/HST_ReportObjectiveRow.layout";
-	static const ResourceName NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout";
 
 	protected static HST_MissionClientComponent s_LocalInstance;
 
@@ -20,18 +19,10 @@ class HST_MissionClientComponent : ScriptComponent
 	protected string m_sLastSummary;
 	protected string m_sSelectedMissionId;
 	protected bool m_bDetailOpen;
-	protected float m_fNotificationRemaining;
 	protected ref array<string> m_aRecentNotificationIds = {};
 	protected ref array<float> m_aRecentNotificationRemaining = {};
-	protected ref array<string> m_aQueuedNotificationIds = {};
-	protected ref array<string> m_aQueuedNotificationCategories = {};
-	protected ref array<string> m_aQueuedNotificationSeverities = {};
-	protected ref array<string> m_aQueuedNotificationTitles = {};
-	protected ref array<string> m_aQueuedNotificationMessages = {};
-	protected ref array<float> m_aQueuedNotificationDurations = {};
 	protected ref array<Widget> m_aWidgets = {};
 	protected ref HST_MissionClientWidgetHandler m_WidgetHandler;
-	protected bool m_bNotificationVisible;
 	protected ref array<string> m_aMissionIds = {};
 	protected ref array<string> m_aMissionTitles = {};
 	protected ref array<string> m_aMissionStatuses = {};
@@ -91,20 +82,6 @@ class HST_MissionClientComponent : ScriptComponent
 			}
 
 			return;
-		}
-
-		if (m_fNotificationRemaining > 0)
-		{
-			m_fNotificationRemaining = Math.Max(0, m_fNotificationRemaining - timeSlice);
-			if (m_fNotificationRemaining == 0 && !m_bDetailOpen)
-			{
-				ClearWidgets();
-				ShowNextQueuedNotification();
-			}
-		}
-		else if (!m_bDetailOpen && m_aQueuedNotificationIds.Count() > 0)
-		{
-			ShowNextQueuedNotification();
 		}
 
 		for (int i = m_aRecentNotificationIds.Count() - 1; i >= 0; i--)
@@ -234,117 +211,7 @@ class HST_MissionClientComponent : ScriptComponent
 
 		durationSeconds = Math.Max(1.0, durationSeconds);
 		TrackRecentNotification(eventId, Math.Max(durationSeconds, 5.0));
-		if (m_fNotificationRemaining > 0 || m_bDetailOpen)
-		{
-			QueueTopMissionNotification(eventId, category, severity, title, message, durationSeconds);
-			return;
-		}
-
-		RenderTopMissionNotification(eventId, category, severity, title, message, durationSeconds);
-	}
-
-	protected void QueueTopMissionNotification(string eventId, string category, string severity, string title, string message, float durationSeconds)
-	{
-		if (!eventId.IsEmpty() && m_aQueuedNotificationIds.Find(eventId) >= 0)
-			return;
-
-		m_aQueuedNotificationIds.Insert(eventId);
-		m_aQueuedNotificationCategories.Insert(category);
-		m_aQueuedNotificationSeverities.Insert(severity);
-		m_aQueuedNotificationTitles.Insert(title);
-		m_aQueuedNotificationMessages.Insert(message);
-		m_aQueuedNotificationDurations.Insert(durationSeconds);
-
-		while (m_aQueuedNotificationIds.Count() > 16)
-		{
-			m_aQueuedNotificationIds.Remove(0);
-			m_aQueuedNotificationCategories.Remove(0);
-			m_aQueuedNotificationSeverities.Remove(0);
-			m_aQueuedNotificationTitles.Remove(0);
-			m_aQueuedNotificationMessages.Remove(0);
-			m_aQueuedNotificationDurations.Remove(0);
-		}
-	}
-
-	protected void ShowNextQueuedNotification()
-	{
-		if (m_aQueuedNotificationIds.Count() == 0 || m_bDetailOpen)
-			return;
-
-		string eventId = m_aQueuedNotificationIds[0];
-		string category = m_aQueuedNotificationCategories[0];
-		string severity = m_aQueuedNotificationSeverities[0];
-		string title = m_aQueuedNotificationTitles[0];
-		string message = m_aQueuedNotificationMessages[0];
-		float duration = m_aQueuedNotificationDurations[0];
-
-		m_aQueuedNotificationIds.Remove(0);
-		m_aQueuedNotificationCategories.Remove(0);
-		m_aQueuedNotificationSeverities.Remove(0);
-		m_aQueuedNotificationTitles.Remove(0);
-		m_aQueuedNotificationMessages.Remove(0);
-		m_aQueuedNotificationDurations.Remove(0);
-
-		RenderTopMissionNotification(eventId, category, severity, title, message, duration);
-	}
-
-	protected void RenderTopMissionNotification(string eventId, string category, string severity, string title, string message, float durationSeconds)
-	{
-		durationSeconds = Math.Max(1.0, durationSeconds);
-
-		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		if (!workspace)
-			return;
-
-		ClearWidgets();
-		int screenW;
-		int screenH;
-		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
-		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "HST_MissionNotification");
-		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
-
-		Widget root = workspace.CreateWidgets(NOTIFICATION_TOAST_LAYOUT);
-		if (!root)
-			return;
-
-		root.SetVisible(true);
-		root.SetOpacity(1.0);
-		root.SetZOrder(HST_UIConstants.Z_NOTIFICATION);
-		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		HST_UIRootService.Get().NotifyNotificationShown();
-		m_bNotificationVisible = true;
-		m_aWidgets.Insert(root);
-		int accent = NotificationAccentColor(severity, category);
-
-		Widget accentLine = root.FindAnyWidget("AccentLine");
-		if (accentLine)
-			accentLine.SetColorInt(accent);
-
-		TextWidget titleWidget = TextWidget.Cast(root.FindAnyWidget("Title"));
-		if (titleWidget)
-		{
-			titleWidget.SetText(ShortenText(title, 44));
-			titleWidget.SetExactFontSize(HST_UIWorkspaceMetrics.ScaleFont(18, scale));
-			titleWidget.SetBold(true);
-			titleWidget.SetTextWrapping(false);
-			titleWidget.SetOutline(1, 0xDD000000);
-			titleWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
-			titleWidget.SetColorInt(accent);
-		}
-
-		TextWidget messageWidget = TextWidget.Cast(root.FindAnyWidget("Message"));
-		if (messageWidget)
-		{
-			messageWidget.SetText(ShortenText(message, 140));
-			messageWidget.SetExactFontSize(HST_UIWorkspaceMetrics.ScaleFont(16, scale));
-			messageWidget.SetBold(false);
-			messageWidget.SetTextWrapping(true);
-			messageWidget.SetOutline(1, 0xDD000000);
-			messageWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
-			messageWidget.SetColorInt(0xFFF2F4F0);
-		}
-
-		m_fNotificationRemaining = durationSeconds;
+		HST_NotificationToastController.Get().Show(eventId, category, severity, title, message, durationSeconds);
 	}
 
 	protected string MissionEventTitle(string eventType)
@@ -381,22 +248,6 @@ class HST_MissionClientComponent : ScriptComponent
 			return "info";
 
 		return "warning";
-	}
-
-	protected int NotificationAccentColor(string severity, string category)
-	{
-		if (severity == "danger" || severity == "error")
-			return 0xFFFF6B5C;
-		if (severity == "success" || severity == "good")
-			return 0xFF73D17C;
-		if (severity == "warning" || severity == "warn")
-			return 0xFFFFC45D;
-		if (category == "enemy")
-			return 0xFFFF8A5C;
-		if (category == "vehicle" || category == "garage")
-			return 0xFF8CC8FF;
-
-		return 0xFFFFD98B;
 	}
 
 	protected int FindRecentNotification(string eventId)
@@ -662,11 +513,6 @@ class HST_MissionClientComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
-		if (m_bNotificationVisible)
-		{
-			HST_UIRootService.Get().NotifyNotificationHidden();
-			m_bNotificationVisible = false;
-		}
 	}
 
 	protected bool IsLocalOwner(IEntity owner)
