@@ -3878,6 +3878,31 @@ foreach ($requiredLayoutEntry in @(
 		throw "Loadout editor layout is missing stable render-target entry: $requiredLayoutEntry"
 	}
 }
+foreach ($requiredLoadoutCoreVisibleWidget in @(
+	"HST_LoadoutEditorRoot",
+	"HST_LoadoutPreviewContainer",
+	"HST_LoadoutUILayer",
+	"PreviewDragSurface",
+	"LeftButtons",
+	"TopTabs",
+	"LeftRail",
+	"Footer"
+)) {
+	$visibilityPattern = [regex]::Escape("Name `"$requiredLoadoutCoreVisibleWidget`"") + "[\s\S]{0,900}?" + [regex]::Escape('"Is Visible" 1')
+	if ($loadoutEditorLayoutText -notmatch $visibilityPattern) {
+		throw "Loadout editor core chrome must be explicitly visible by default: $requiredLoadoutCoreVisibleWidget"
+	}
+}
+foreach ($requiredLoadoutModeHiddenWidget in @(
+	"CandidateList",
+	"StorageBrowser",
+	"SavePanel"
+)) {
+	$visibilityPattern = [regex]::Escape("Name `"$requiredLoadoutModeHiddenWidget`"") + "[\s\S]{0,900}?" + [regex]::Escape('"Is Visible" 0')
+	if ($loadoutEditorLayoutText -notmatch $visibilityPattern) {
+		throw "Loadout editor mode-specific panels must be hidden by default and shown by script: $requiredLoadoutModeHiddenWidget"
+	}
+}
 foreach ($requiredLoadoutLeftButtonLayoutEntry in @(
 	'Name "LeftButtons"',
 	'Name "LoadoutBackButton"',
