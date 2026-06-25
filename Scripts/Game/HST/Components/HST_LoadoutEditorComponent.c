@@ -401,12 +401,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sLastResult = "requested editor session";
 		if (!RenderEditor())
 		{
-			CloseEditorInternal(false, false);
+			CloseEditorInternal(false);
 			return;
 		}
 
 		RequestServerAction("loadout_editor_open_hq_arsenal", "");
-		ShowHint("Loadout editor opened");
 	}
 
 	bool OnWidgetClicked(int widgetId)
@@ -1062,10 +1061,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	void CloseEditor(bool requestServer)
 	{
-		CloseEditorInternal(requestServer, true);
+		CloseEditorInternal(requestServer);
 	}
 
-	protected void CloseEditorInternal(bool requestServer, bool showHint)
+	protected void CloseEditorInternal(bool requestServer)
 	{
 		if (!m_bEditorOpen)
 			return;
@@ -1080,8 +1079,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ClearWidgets();
 		DeleteEditorRoot();
 		DeletePreviewWorld();
-		if (showHint)
-			ShowHint("Loadout editor closed");
 	}
 
 	protected void RequestServerAction(string commandId, string argument)
@@ -7115,9 +7112,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void ShowHint(string text)
 	{
-		SCR_HintManagerComponent hintManager = SCR_HintManagerComponent.GetInstance();
-		if (hintManager)
-			hintManager.ShowCustomHint(text, "h-istasi", 2.0);
+		if (text.IsEmpty())
+			return;
+
+		HST_NotificationToastController.Get().Show("loadout_" + text, "loadout", "info", "h-istasi loadout", text, 2.0);
 	}
 
 	protected string ShortenText(string text, int maxCharacters)

@@ -3330,6 +3330,9 @@ $loadoutEditorComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_
 $displayNameServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_DisplayNameService.c"
 $coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $requestBridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
+if ($loadoutEditorComponentText -notmatch [regex]::Escape("HST_NotificationToastController.Get().Show")) {
+	throw "Loadout editor action notifications must enqueue through HST_NotificationToastController"
+}
 foreach ($requiredLoadoutEditorEntry in @(
 	"HST_LoadoutEditorService",
 	"HST_LoadoutEditorComponent",
@@ -3486,7 +3489,7 @@ foreach ($requiredLoadoutRootLifecycleEntry in @(
 	'HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent")',
 	"protected bool RenderEditor",
 	"if (!RenderEditor())",
-	"CloseEditorInternal(false, false)",
+	"CloseEditorInternal(false)",
 	"protected void CloseEditorInternal",
 	"if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, `"HST_LoadoutEditorComponent`", root, true, true, false))",
 	"DeleteEditorRoot()"
@@ -3497,6 +3500,16 @@ foreach ($requiredLoadoutRootLifecycleEntry in @(
 }
 if ($loadoutEditorComponentText -match [regex]::Escape('RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent", null')) {
 	throw "Loadout editor must not register as open before its layout root exists"
+}
+foreach ($forbiddenLoadoutNativeHintEntry in @(
+	"SCR_HintManagerComponent",
+	"ShowCustomHint",
+	"Loadout editor opened",
+	"Loadout editor closed"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutNativeHintEntry)) {
+		throw "Loadout editor action feedback must use the shared passive toast controller: $forbiddenLoadoutNativeHintEntry"
+	}
 }
 foreach ($forbiddenLoadoutRootMaskEntry in @(
 	"CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID",
