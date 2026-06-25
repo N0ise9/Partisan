@@ -51,6 +51,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Keep geometry in the layout file, but reassert sibling z-order for dimmers, shell surfaces, panels, headers, and overlaid button labels after creation and delayed layout resolution.
   - Current example: `HST_CommandMenu.layout` with `ApplyCommandMenuLayerOrder` and `command_menu_ready` diagnostics.
 
+- Layout defaults should match the script's first meaningful state.
+  - For mode-driven screens, mark always-on chrome explicitly visible and mark inactive mode panels hidden in the layout.
+  - Let script show the active mode panel during population instead of relying on a cleanup pass to hide every inactive panel after creation.
+  - Current example: `HST_LoadoutEditor.layout` keeps core chrome visible and starts candidate/storage/save panels hidden.
+
 ## Coordinates And DPI
 
 - Workspace raw size and layout size are different under UI scaling.
