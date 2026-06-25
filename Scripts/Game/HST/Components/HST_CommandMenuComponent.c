@@ -27,57 +27,9 @@ class HST_CommandMenuWidgetHandler : ScriptedWidgetEventHandler
 class HST_CommandMenuLayoutMetrics
 {
 	int m_iScreenW;
-	int m_iScreenH;
 
 	float m_fScale;
-	bool m_bCompact;
 	bool m_bVeryCompact;
-
-	int m_iRootLeft;
-	int m_iRootTop;
-	int m_iRootWidth;
-	int m_iRootHeight;
-
-	int m_iMargin;
-	int m_iGap;
-	int m_iHeaderHeight;
-
-	int m_iNavLeft;
-	int m_iNavTop;
-	int m_iNavWidth;
-	int m_iNavHeight;
-
-	int m_iStatsLeft;
-	int m_iStatsTop;
-	int m_iStatsWidth;
-	int m_iStatsHeight;
-	int m_iStatCardWidth;
-	int m_iStatCardGap;
-
-	int m_iMainLeft;
-	int m_iMainTop;
-	int m_iMainWidth;
-	int m_iMainHeight;
-	int m_iMainContentLeft;
-	int m_iMainContentTop;
-	int m_iMainContentWidth;
-	int m_iMainContentHeight;
-
-	int m_iRightLeft;
-	int m_iRightTop;
-	int m_iRightWidth;
-
-	int m_iActivityTop;
-	int m_iActivityHeight;
-	int m_iActivityTextLeft;
-	int m_iActivityTextWidth;
-
-	int m_iActionsTop;
-	int m_iActionsHeight;
-	int m_iActionsTextLeft;
-	int m_iActionsTextWidth;
-
-	int m_iTabRowHeight;
 
 	int m_iFontTiny;
 	int m_iFontSmall;
@@ -104,6 +56,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const ResourceName COMMAND_MENU_LAYOUT = "{A7B8C9D001234550}UI/layouts/HST_CommandMenu.layout";
 	static const ResourceName NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout";
+	static const ResourceName ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout";
 	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
 	static const ResourceName COMMAND_SECTION_ROW_LAYOUT = "{A7B8C9D001234580}UI/layouts/HST/Rows/HST_CommandSectionRow.layout";
 	static const ResourceName COMMAND_DATA_ROW_LAYOUT = "{A7B8C9D001234590}UI/layouts/HST/Rows/HST_CommandDataRow.layout";
@@ -116,6 +69,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const int TAB_WIDGET_ID_BASE = 10000;
 	static const int ACTION_WIDGET_ID_BASE = 30000;
 	static const int CLOSE_WIDGET_ID = 90000;
+	static const int ACTION_MODAL_CANCEL_WIDGET_ID = 90010;
+	static const int ACTION_MODAL_CONFIRM_WIDGET_ID = 90011;
 
 	protected static HST_CommandMenuComponent s_LocalInstance;
 
@@ -183,6 +138,11 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected float m_fContentScrollY;
 	protected float m_fActionScrollY;
 	protected float m_fFeedScrollY;
+	protected Widget m_wActionDialogRoot;
+	protected bool m_bActionDialogOpen;
+	protected string m_sPendingActionLabel;
+	protected string m_sPendingActionCommand;
+	protected string m_sPendingActionArgument;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -487,6 +447,21 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_bMenuOpen)
 			return false;
 
+		if (widgetId == ACTION_MODAL_CANCEL_WIDGET_ID)
+		{
+			CancelPendingActionDialog();
+			return true;
+		}
+
+		if (widgetId == ACTION_MODAL_CONFIRM_WIDGET_ID)
+		{
+			ConfirmPendingActionDialog();
+			return true;
+		}
+
+		if (m_bActionDialogOpen)
+			return true;
+
 		if (widgetId == CLOSE_WIDGET_ID)
 		{
 			CloseMenu("close button");
@@ -616,6 +591,13 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		m_fCommandMenuDebounceRemaining = 0.15;
+		if (m_bMenuOpen && m_bActionDialogOpen)
+		{
+			DebugLog("input toggle cancelled action dialog");
+			CancelPendingActionDialog();
+			return true;
+		}
+
 		DebugLog(string.Format("input toggle source=%1 setupBlocking=%2 menuOpen=%3 localOwner=%4", source, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner));
 		ToggleMenu(source);
 		return true;
@@ -628,12 +610,18 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OnSelectPreviousInput(float value, EActionTrigger reason)
 	{
+		if (m_bActionDialogOpen)
+			return;
+
 		if (reason == EActionTrigger.DOWN)
 			SelectPreviousAction();
 	}
 
 	protected void OnSelectNextInput(float value, EActionTrigger reason)
 	{
+		if (m_bActionDialogOpen)
+			return;
+
 		if (reason == EActionTrigger.DOWN)
 			SelectNextAction();
 	}
@@ -646,8 +634,16 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OnCloseMenuInput(float value, EActionTrigger reason)
 	{
-		if (reason == EActionTrigger.DOWN)
-			CloseMenu("menu back action");
+		if (reason != EActionTrigger.DOWN)
+			return;
+
+		if (m_bActionDialogOpen)
+		{
+			CancelPendingActionDialog();
+			return;
+		}
+
+		CloseMenu("menu back action");
 	}
 
 	protected void BecomeLocalOwner()
@@ -828,6 +824,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		m_bMenuOpen = false;
 		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent");
+		ClearActionDialog();
 		ClearWidgets();
 		DebugLog("closed via " + source);
 	}
@@ -869,6 +866,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_bMenuOpen)
 			return;
 
+		if (m_bActionDialogOpen)
+			return;
+
 		if (m_iSelectedControl < m_aTabIds.Count())
 		{
 			SwitchToTab(m_iSelectedControl);
@@ -887,10 +887,13 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 		}
 
-		m_sLastResult = "h-istasi command | requested " + m_aActionLabels[actionIndex];
-		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
-		RequestAction(m_aActionCommands[actionIndex], m_aActionArguments[actionIndex]);
-		RenderMenu();
+		if (ShouldConfirmAction(m_aActionCommands[actionIndex]))
+		{
+			ShowActionConfirmDialog(m_aActionLabels[actionIndex], m_aActionCommands[actionIndex], m_aActionArguments[actionIndex]);
+			return;
+		}
+
+		RequestConfirmedAction(m_aActionLabels[actionIndex], m_aActionCommands[actionIndex], m_aActionArguments[actionIndex]);
 	}
 
 	protected void SwitchToTab(int tabIndex)
@@ -946,6 +949,114 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		OnServerSnapshot("HST_MENU|offline|0\nSTATUS|h-istasi command | player request bridge not ready\nEND", "request bridge not ready");
+	}
+
+	protected void RequestConfirmedAction(string label, string commandId, string argument)
+	{
+		if (label.IsEmpty())
+			label = commandId;
+
+		m_sLastResult = "h-istasi command | requested " + label;
+		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+		RequestAction(commandId, argument);
+		RenderMenu();
+	}
+
+	protected bool ShouldConfirmAction(string commandId)
+	{
+		if (commandId == "new_campaign")
+			return true;
+		if (commandId == "admin_purge_hst_native_markers")
+			return true;
+		if (commandId.Contains("force_victory") || commandId.Contains("force_loss"))
+			return true;
+
+		return false;
+	}
+
+	protected void ShowActionConfirmDialog(string label, string commandId, string argument)
+	{
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+		{
+			RequestConfirmedAction(label, commandId, argument);
+			return;
+		}
+
+		ClearActionDialog();
+		if (!m_WidgetHandler)
+		{
+			m_WidgetHandler = new HST_CommandMenuWidgetHandler();
+			m_WidgetHandler.Bind(this);
+		}
+
+		Widget root = workspace.CreateWidgets(ACTION_DIALOG_LAYOUT);
+		if (!root)
+			return;
+
+		root.SetVisible(true);
+		root.SetOpacity(1.0);
+		root.SetZOrder(HST_UIConstants.Z_MISSION_DIALOG);
+		m_wActionDialogRoot = root;
+		m_bActionDialogOpen = true;
+		m_sPendingActionLabel = label;
+		m_sPendingActionCommand = commandId;
+		m_sPendingActionArgument = argument;
+
+		int screenW;
+		int screenH;
+		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
+		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
+
+		SetMenuText(root, "Title", "Confirm Action", 0xFFF7E6BE, HST_UIWorkspaceMetrics.ScaleFont(24, scale), true, false);
+		SetMenuText(root, "Message", BuildActionConfirmMessage(label, commandId), 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false, true);
+		SetMenuText(root, "CancelLabel", "Cancel", 0xFFF2F4F0, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
+		SetMenuText(root, "ConfirmLabel", "Confirm", 0xFF17110A, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
+		BindMenuClick(root, "CancelButton", ACTION_MODAL_CANCEL_WIDGET_ID);
+		BindMenuClick(root, "ConfirmButton", ACTION_MODAL_CONFIRM_WIDGET_ID);
+	}
+
+	protected string BuildActionConfirmMessage(string label, string commandId)
+	{
+		if (commandId == "new_campaign")
+			return "This will reset the h-istasi campaign state and return the campaign to initial setup. Confirm only if you intend to start over.";
+		if (commandId == "admin_purge_hst_native_markers")
+			return "This will remove h-istasi native map markers and rebuild marker state from campaign data.";
+		if (commandId.Contains("force_victory"))
+			return "This debug command forces the campaign victory state.";
+		if (commandId.Contains("force_loss"))
+			return "This debug command forces the campaign loss state.";
+
+		return "Confirm command: " + label;
+	}
+
+	protected void CancelPendingActionDialog()
+	{
+		ClearActionDialog();
+		m_sLastResult = "h-istasi command | cancelled";
+		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+		RenderMenu();
+	}
+
+	protected void ConfirmPendingActionDialog()
+	{
+		string label = m_sPendingActionLabel;
+		string commandId = m_sPendingActionCommand;
+		string argument = m_sPendingActionArgument;
+		ClearActionDialog();
+		RequestConfirmedAction(label, commandId, argument);
+	}
+
+	protected void ClearActionDialog()
+	{
+		if (m_wActionDialogRoot)
+			m_wActionDialogRoot.RemoveFromHierarchy();
+
+		m_wActionDialogRoot = null;
+		m_bActionDialogOpen = false;
+		m_sPendingActionLabel = "";
+		m_sPendingActionCommand = "";
+		m_sPendingActionArgument = "";
 	}
 
 	protected void RenderMenu()
@@ -1065,18 +1176,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		return ClampIntToRange(scaled, 9, Math.Round(value * 1.15));
 	}
 
-	protected int ClampLayoutInt(int value, int minValue, int maxValue)
-	{
-		if (maxValue < minValue)
-			return Math.Max(1, maxValue);
-		if (value < minValue)
-			return minValue;
-		if (value > maxValue)
-			return maxValue;
-
-		return value;
-	}
-
 	protected void BuildResponsiveLayout(WorkspaceWidget workspace)
 	{
 		if (!workspace)
@@ -1090,108 +1189,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
 
 		m_Layout.m_iScreenW = screenW;
-		m_Layout.m_iScreenH = screenH;
 
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 
 		m_Layout.m_fScale = scale;
-		m_Layout.m_bCompact = screenW < 1500 || screenH < 850;
 		m_Layout.m_bVeryCompact = screenW < 1250 || screenH < 720;
-
-		m_Layout.m_iMargin = ScalePx(24);
-		if (m_Layout.m_bCompact)
-			m_Layout.m_iMargin = ScalePx(18);
-		if (m_Layout.m_bVeryCompact)
-			m_Layout.m_iMargin = ScalePx(12);
-
-		m_Layout.m_iGap = ScalePx(20);
-		if (m_Layout.m_bCompact)
-			m_Layout.m_iGap = ScalePx(14);
-
-		int availableW = Math.Max(1, screenW - m_Layout.m_iMargin * 2);
-		int availableH = Math.Max(1, screenH - m_Layout.m_iMargin * 2);
-		int maxRootW = ScalePx(1680);
-		int maxRootH = ScalePx(900);
-		m_Layout.m_iRootWidth = Math.Min(availableW, maxRootW);
-		m_Layout.m_iRootHeight = Math.Min(availableH, maxRootH);
-		m_Layout.m_iRootLeft = Math.Max(0, (screenW - m_Layout.m_iRootWidth) / 2);
-		m_Layout.m_iRootTop = Math.Max(0, (screenH - m_Layout.m_iRootHeight) / 2);
-
-		m_Layout.m_iHeaderHeight = ScalePx(78);
-		if (m_Layout.m_bVeryCompact)
-			m_Layout.m_iHeaderHeight = ScalePx(68);
-
-		m_Layout.m_iNavLeft = ScalePx(20);
-		m_Layout.m_iNavTop = m_Layout.m_iHeaderHeight + ScalePx(14);
-		m_Layout.m_iNavWidth = ClampLayoutInt(Math.Round(m_Layout.m_iRootWidth * 0.115), ScalePx(160), ScalePx(210));
-		m_Layout.m_iNavHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iNavTop - ScalePx(20));
-
-		m_Layout.m_iStatsLeft = m_Layout.m_iNavLeft + m_Layout.m_iNavWidth + m_Layout.m_iGap;
-		m_Layout.m_iStatsTop = m_Layout.m_iHeaderHeight + ScalePx(12);
-		m_Layout.m_iStatsHeight = ScalePx(62);
-
-		int rightCandidateWidth = ClampLayoutInt(Math.Round(m_Layout.m_iRootWidth * 0.30), ScalePx(400), ScalePx(520));
-		int mainLeft = m_Layout.m_iStatsLeft;
-		int rightLeft = m_Layout.m_iRootWidth - rightCandidateWidth - ScalePx(20);
-		int mainWidth = rightLeft - mainLeft - m_Layout.m_iGap;
-
-		if (m_Layout.m_bVeryCompact || mainWidth < ScalePx(560))
-		{
-			m_Layout.m_bCompact = true;
-			m_Layout.m_iRightLeft = mainLeft;
-			m_Layout.m_iRightWidth = Math.Max(1, m_Layout.m_iRootWidth - mainLeft - ScalePx(20));
-
-			m_Layout.m_iMainLeft = mainLeft;
-			m_Layout.m_iMainTop = m_Layout.m_iStatsTop + m_Layout.m_iStatsHeight + ScalePx(14);
-			m_Layout.m_iMainWidth = m_Layout.m_iRightWidth;
-			int compactAvailableHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iMainTop - ScalePx(20));
-			int compactGap = ScalePx(14);
-			m_Layout.m_iMainHeight = Math.Round(compactAvailableHeight * 0.54);
-			m_Layout.m_iMainHeight = ClampLayoutInt(m_Layout.m_iMainHeight, Math.Min(ScalePx(140), compactAvailableHeight), Math.Max(1, compactAvailableHeight - compactGap * 2 - ScalePx(60)));
-
-			m_Layout.m_iActivityTop = m_Layout.m_iMainTop + m_Layout.m_iMainHeight + ScalePx(14);
-			int remainingAfterMain = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iActivityTop - ScalePx(20));
-			m_Layout.m_iActivityHeight = ClampLayoutInt(ScalePx(118), Math.Min(ScalePx(52), remainingAfterMain), Math.Max(1, remainingAfterMain - compactGap - ScalePx(44)));
-
-			m_Layout.m_iActionsTop = m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight + ScalePx(14);
-			m_Layout.m_iActionsHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iActionsTop - ScalePx(20));
-		}
-		else
-		{
-			m_Layout.m_iRightWidth = rightCandidateWidth;
-			m_Layout.m_iRightLeft = rightLeft;
-
-			m_Layout.m_iMainLeft = mainLeft;
-			m_Layout.m_iMainTop = m_Layout.m_iStatsTop + m_Layout.m_iStatsHeight + ScalePx(14);
-			m_Layout.m_iMainWidth = mainWidth;
-			m_Layout.m_iMainHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iMainTop - ScalePx(20));
-
-			m_Layout.m_iActivityTop = m_Layout.m_iStatsTop;
-			int rightAvailableHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iActivityTop - ScalePx(20));
-			int activityMaxHeight = Math.Max(1, rightAvailableHeight - ScalePx(120));
-			activityMaxHeight = Math.Min(activityMaxHeight, ScalePx(340));
-			m_Layout.m_iActivityHeight = ClampLayoutInt(Math.Round(m_Layout.m_iRootHeight * 0.34), Math.Min(ScalePx(250), activityMaxHeight), activityMaxHeight);
-
-			m_Layout.m_iActionsTop = m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight + ScalePx(20);
-			m_Layout.m_iActionsHeight = Math.Max(1, m_Layout.m_iRootHeight - m_Layout.m_iActionsTop - ScalePx(20));
-		}
-
-		m_Layout.m_iStatsWidth = m_Layout.m_iMainWidth;
-		m_Layout.m_iStatCardGap = ScalePx(12);
-		m_Layout.m_iStatCardWidth = Math.Max(1, (m_Layout.m_iStatsWidth - m_Layout.m_iStatCardGap * 3) / 4);
-
-		m_Layout.m_iMainContentLeft = m_Layout.m_iMainLeft + ScalePx(24);
-		m_Layout.m_iMainContentTop = m_Layout.m_iMainTop + ScalePx(30);
-		m_Layout.m_iMainContentWidth = Math.Max(1, m_Layout.m_iMainWidth - ScalePx(48));
-		m_Layout.m_iMainContentHeight = Math.Max(1, m_Layout.m_iMainHeight - ScalePx(72));
-
-		m_Layout.m_iActivityTextLeft = m_Layout.m_iRightLeft + ScalePx(20);
-		m_Layout.m_iActivityTextWidth = Math.Max(1, m_Layout.m_iRightWidth - ScalePx(40));
-
-		m_Layout.m_iActionsTextLeft = m_Layout.m_iRightLeft + ScalePx(20);
-		m_Layout.m_iActionsTextWidth = Math.Max(1, m_Layout.m_iRightWidth - ScalePx(40));
-
-		m_Layout.m_iTabRowHeight = ScalePx(44);
 
 		m_Layout.m_iFontTiny = ScaleFont(10);
 		m_Layout.m_iFontSmall = ScaleFont(12);
@@ -1203,7 +1205,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			m_iLoggedLayoutW = screenW;
 			m_iLoggedLayoutH = screenH;
-			DebugLog(string.Format("layout workspace=%1x%2 scale=%3 root=%4,%5 %6x%7", screenW, screenH, scale, m_Layout.m_iRootLeft, m_Layout.m_iRootTop, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight));
+			DebugLog(string.Format("layout workspace=%1x%2 scale=%3", screenW, screenH, scale));
 		}
 	}
 
@@ -1814,7 +1816,8 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		int rowHeight = ScalePx(COMMAND_ACTION_ROW_STRIDE);
 		int y = actionIndex * rowHeight;
-		m_ActionScroll.ScrollToView(0, y, m_Layout.m_iActionsTextWidth, rowHeight);
+		int actionViewWidth = Math.Max(ScalePx(320), Math.Round(m_Layout.m_iScreenW * 0.25));
+		m_ActionScroll.ScrollToView(0, y, actionViewWidth, rowHeight);
 	}
 
 	protected void ApplyTextStyle(TextWidget textWidget, int fontSize, bool bold)

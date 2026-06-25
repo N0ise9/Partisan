@@ -26,7 +26,7 @@ Current state:
 | `Scripts/Game/HST/Services/HST_UIWorkspaceMetrics.c` | `workspace.GetWidth`, `workspace.GetHeight`, `DPIUnscale`, `DPIScale` | Allowed | This is the central conversion boundary. Keep direct DPI calls here. |
 | `Scripts/Game/HST/Components/HST_SetupMapComponent.c` | Native map layout creation, `ScreenToWorld`, modal/prompt z-order, passive prompt flags | Allowed with guardrails | `ScreenToWorld` is allowed only after viewport readiness checks. Keep modal buttons widget-driven. Continue avoiding setup zone publish during setup. |
 | `Scripts/Game/HST/Map/HST_MapZoneOverlayUIComponent.c` | `WorldToScreen`, DPI-unscale projection, canvas circle/line/text widgets with `IGNORE_CURSOR`/`NOFOCUS` | Allowed for map overlay | This is the explicit map projection exception. Keep redraw throttled and passive. |
-| `Scripts/Game/HST/Components/HST_CommandMenuComponent.c` | Layout root, named region binding, row layout population, layout-owned scroll hosts and row resources | Allowed with guardrails | Main shell and rows are layout-driven. Keep new command-menu sections in layout files and named row resources rather than reintroducing generic canvas/text factories. |
+| `Scripts/Game/HST/Components/HST_CommandMenuComponent.c` | Layout root, named region binding, row layout population, layout-owned scroll hosts and row resources, shared action-confirmation modal | Allowed with guardrails | Main shell and rows are layout-driven. Script no longer builds absolute panel placement metrics. Destructive/admin actions use `HST_ActionDialog.layout` with real Cancel/Confirm buttons; keep new command-menu sections in layout files and named row resources rather than reintroducing generic canvas/text factories. |
 | `Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c` | No UI geometry matches in audit grep | Allowed | Request bridge can remain behavior-only. |
 | `Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c` | Layout root, named region binding, layout-owned left Back/ESC controls, layout-owned mode tabs, layout-owned preview drag surface, layout-owned preview status/toast text, layout-owned storage category tabs, layout-owned row preview chrome and fallback text, layout-owned row preview cell anchors, layout-owned storage volume progress bar, layout-owned left slot/storage rail shell and scroll hosts, layout-owned candidate/template/settings panel shell and controls, layout-owned footer hint slots, layout-owned storage add-items panel shell/grid, row layout population, preview world, dynamic preview contents | Mixed | Major shell regions, left controls, mode tabs, preview drag capture, preview status/toast text, storage category tabs, row preview chrome/fallback text, row preview cell anchors, storage volume track/fill, left rail chrome, candidate/template/settings panels, footer hints, and the right add-items panel are layout-owned. Script no longer builds a safe-rect or absolute panel placement model; it keeps scale/default size metrics, measures named layout regions, and sets storage volume as a native progress value instead of row geometry. |
 | `Scripts/Game/HST/Components/HST_MissionClientComponent.c` | Notification layout, modal report dialog layout, modal action dialog layout scaffold, objective row layout population | Mixed | Notifications and mission report details are layout-driven. Report/action dialog roots are cursor-active modal layouts; continue wiring future mission action/admin flows through `HST_ActionDialog.layout` instead of adding scripted panel geometry. |
@@ -55,7 +55,7 @@ Current state:
 
 ## Should Move To Layout File
 
-- Mission action/admin confirmation flows should use `HST_ActionDialog.layout` rather than ad hoc panels.
+- Mission and command-menu action/admin confirmation flows should use `HST_ActionDialog.layout` rather than ad hoc panels.
 - No current loadout row geometry should move; storage volume now uses a native progress bar.
 
 ## Should Be Deleted
@@ -68,6 +68,6 @@ Current state:
 ## Remaining Acceptance Gaps
 
 - Runtime-QA root service input blocking and topmost close behavior across setup, command menu, loadout, mission dialogs, and notifications.
-- Wire any remaining mission action/admin confirmation flows into `HST_ActionDialog.layout`.
+- Wire any remaining mission-specific action/admin confirmation flows into `HST_ActionDialog.layout`.
 - Continue reducing remaining mission mixed areas without reintroducing command/loadout row geometry.
 - Run in-game/Workbench QA at 1920x1080, 2560x1440 with 1920x1080 layout size, and ultrawide.

@@ -2359,6 +2359,47 @@ if ($commandMenuComponentText -match "CreateWidgetInWorkspace\(WidgetType\.Canva
 if ($commandMenuComponentText -match "\bWidgetFlags\.WRAP_TEXT\b") {
 	throw "Command menu fixed-height text must avoid automatic wrapping; shorten or clip instead"
 }
+foreach ($requiredCommandMenuActionDialogEntry in @(
+	'ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout"',
+	"ACTION_MODAL_CANCEL_WIDGET_ID",
+	"ACTION_MODAL_CONFIRM_WIDGET_ID",
+	"m_bActionDialogOpen",
+	"m_sPendingActionCommand",
+	"ShouldConfirmAction",
+	'commandId == "new_campaign"',
+	'commandId == "admin_purge_hst_native_markers"',
+	"ShowActionConfirmDialog",
+	"workspace.CreateWidgets(ACTION_DIALOG_LAYOUT)",
+	'BindMenuClick(root, "CancelButton", ACTION_MODAL_CANCEL_WIDGET_ID)',
+	'BindMenuClick(root, "ConfirmButton", ACTION_MODAL_CONFIRM_WIDGET_ID)',
+	"CancelPendingActionDialog",
+	"ConfirmPendingActionDialog",
+	"ClearActionDialog",
+	"RequestConfirmedAction",
+	"CancelPendingActionDialog();"
+)) {
+	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredCommandMenuActionDialogEntry)) {
+		throw "Command menu destructive/admin actions must use the named action-dialog modal: $requiredCommandMenuActionDialogEntry"
+	}
+}
+foreach ($forbiddenCommandMenuPanelMetric in @(
+	"m_iRootLeft",
+	"m_iRootTop",
+	"m_iRootWidth",
+	"m_iRootHeight",
+	"m_iNavLeft",
+	"m_iStatsLeft",
+	"m_iMainLeft",
+	"m_iRightLeft",
+	"m_iActivityTop",
+	"m_iActionsTop",
+	"m_iActionsTextWidth",
+	"ClampLayoutInt"
+)) {
+	if ($commandMenuComponentText -match [regex]::Escape($forbiddenCommandMenuPanelMetric)) {
+		throw "Command menu must not restore script-owned panel placement metrics: $forbiddenCommandMenuPanelMetric"
+	}
+}
 $contextCommandMatch = [regex]::Match($commandMenuComponentText, "void RunCommandFromContext[\s\S]*?\r?\n\t}\r?\n\r?\n\tvoid OnServerSnapshot")
 if (!$contextCommandMatch.Success) {
 	throw "Missing command menu context command path"
