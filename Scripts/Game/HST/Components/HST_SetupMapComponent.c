@@ -81,6 +81,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bSetupMapOpenComplete;
 	protected bool m_bSetupMapInitialViewApplied;
 	protected bool m_bSetupMapReadyQueued;
+	protected bool m_bSetupMapRootRefreshQueued;
 	protected bool m_bNativeMapViewportReady;
 	protected bool m_bSetupFinalized;
 	protected bool m_bSetupLocationSelectionEnabled;
@@ -583,8 +584,8 @@ class HST_SetupMapComponent : ScriptComponent
 
 		if (!m_wSetupRoot)
 		{
-			m_wSetupRoot = workspace.CreateWidgets(SETUP_NATIVE_MAP_LAYOUT);
-			HST_UIDebug.LogLayoutCreate("setup_map", SETUP_NATIVE_MAP_LAYOUT, m_wSetupRoot);
+			m_wSetupRoot = workspace.CreateWidgets(SETUP_NATIVE_MAP_LAYOUT, workspace);
+			HST_UIDebug.LogLayoutCreate("setup_map", SETUP_NATIVE_MAP_LAYOUT, m_wSetupRoot, workspace);
 			if (!m_wSetupRoot)
 			{
 				m_sStatusText = "setup map layout failed to load";
@@ -600,6 +601,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
 			EnsureSetupPromptLayout(workspace);
+			QueueSetupMapRootRefresh();
 			QueueSetupPromptRefresh();
 			ApplySetupLayerOrder();
 			UpdateSetupPrompt();
@@ -608,6 +610,7 @@ class HST_SetupMapComponent : ScriptComponent
 		{
 			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
 			EnsureSetupPromptLayout(workspace);
+			QueueSetupMapRootRefresh();
 			QueueSetupPromptRefresh();
 		}
 
@@ -649,6 +652,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_MapEntity.OpenMap(mapConfig);
 		m_bNativeMapOpen = true;
 		ApplySetupLayerOrder();
+		QueueSetupMapRootRefresh();
 		QueueApplySetupMapReadyState();
 		DebugLog("native setup map opened");
 	}
@@ -763,6 +767,7 @@ class HST_SetupMapComponent : ScriptComponent
 			m_bSetupMapOpenComplete = true;
 			m_iMapReadyFrames = 0;
 			ApplySetupLayerOrder();
+			QueueSetupMapRootRefresh();
 			QueueSetupPromptRefresh();
 			QueueApplySetupMapReadyState();
 		}
@@ -800,9 +805,34 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bSetupMapOpenComplete = false;
 		m_bSetupMapInitialViewApplied = false;
 		m_bSetupMapReadyQueued = false;
+		m_bSetupMapRootRefreshQueued = false;
 		m_bNativeMapViewportReady = false;
 		m_iSetupMapReadyRetries = 0;
 		m_iMapReadyFrames = 0;
+	}
+
+	protected void QueueSetupMapRootRefresh()
+	{
+		if (!m_bSetupActive || !m_wSetupRoot)
+			return;
+
+		if (m_bSetupMapRootRefreshQueued)
+			return;
+
+		m_bSetupMapRootRefreshQueued = true;
+		GetGame().GetCallqueue().CallLater(RefreshSetupMapRootAfterLayout, 0, false);
+		GetGame().GetCallqueue().CallLater(RefreshSetupMapRootAfterLayout, 50, false);
+	}
+
+	protected void RefreshSetupMapRootAfterLayout()
+	{
+		m_bSetupMapRootRefreshQueued = false;
+		if (!m_bSetupActive || !m_wSetupRoot)
+			return;
+
+		ApplySetupLayerOrder();
+		HST_UIDebug.LogWidgetGeometryCsv("setup_map_ready", m_wSetupRoot, "HST_SetupHQMap|MapMenu|MapFrame|MapWidget|DrawingContainer");
+		HST_UIDebug.LogReadyWidgetsCsv("setup_map_ready", m_wSetupRoot, "HST_SetupHQMap|MapMenu|MapFrame|MapWidget|DrawingContainer");
 	}
 
 	protected void QueueApplySetupMapReadyState()
