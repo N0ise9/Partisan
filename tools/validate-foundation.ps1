@@ -2429,10 +2429,27 @@ if (!(Test-Path "UI/layouts/HST_CommandMenu.layout")) {
 $commandMenuLayoutText = Get-Content -Raw "UI/layouts/HST_CommandMenu.layout"
 foreach ($requiredCommandMenuLayoutEntry in @(
 	"HST_CommandMenuRoot",
-	"HST_CommandMenuDynamicCanvas"
+	"CommandSurface",
+	"NavigationPanel",
+	"TabScroll",
+	"TabItems",
+	"StatsPanel",
+	"MainPanel",
+	"MainScroll",
+	"MainItems",
+	"ActivityPanel",
+	"ActionsPanel"
 )) {
 	if ($commandMenuLayoutText -notmatch [regex]::Escape($requiredCommandMenuLayoutEntry)) {
 		throw "Command menu layout is missing widget entry: $requiredCommandMenuLayoutEntry"
+	}
+}
+foreach ($forbiddenCommandMenuLayoutEntry in @(
+	"HST_CommandMenuDynamicCanvas",
+	"CanvasWidgetClass"
+)) {
+	if ($commandMenuLayoutText -match [regex]::Escape($forbiddenCommandMenuLayoutEntry)) {
+		throw "Command menu layout must not keep scripted-canvas placeholders: $forbiddenCommandMenuLayoutEntry"
 	}
 }
 
