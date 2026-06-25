@@ -142,6 +142,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int REMOVE_SELECTED_NODE_WIDGET_ID = 70000;
 	static const int ITEMS_PER_PAGE = 11;
 	static const int TEMPLATES_PER_PAGE = 6;
+	static const int LOADOUT_LAYOUT_FALLBACK_RAIL_WIDTH = 444;
+	static const int LOADOUT_LAYOUT_FALLBACK_RAIL_HEIGHT = 856;
+	static const int LOADOUT_LAYOUT_FALLBACK_MAIN_WIDTH = 704;
+	static const int LOADOUT_LAYOUT_FALLBACK_MAIN_HEIGHT = 856;
 	static const int PREVIEW_CAMERA = 0;
 	static const int PREVIEW_LIGHT_DELAY_MS = 500;
 	static const int PREVIEW_DRESS_DELAY_MS = 500;
@@ -1819,11 +1823,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_bCompact = w < 1550 || h < 880;
 		m_Layout.m_bVeryCompact = w < 1300 || h < 760;
 
-		// Fallbacks mirror the loadout editor layout; live widgets replace these through GetRegionLayoutSize.
-		m_Layout.m_iRailWidth = ScalePx(444);
-		m_Layout.m_iRailHeight = ScalePx(856);
-		m_Layout.m_iMainWidth = ScalePx(704);
-		m_Layout.m_iMainHeight = ScalePx(856);
+		// Fallbacks are layout coordinates; live named regions replace these through GetRegionLayoutSize.
+		m_Layout.m_iRailWidth = LOADOUT_LAYOUT_FALLBACK_RAIL_WIDTH;
+		m_Layout.m_iRailHeight = LOADOUT_LAYOUT_FALLBACK_RAIL_HEIGHT;
+		m_Layout.m_iMainWidth = LOADOUT_LAYOUT_FALLBACK_MAIN_WIDTH;
+		m_Layout.m_iMainHeight = LOADOUT_LAYOUT_FALLBACK_MAIN_HEIGHT;
 
 		m_Layout.m_iFontTiny = ScaleFont(10);
 		m_Layout.m_iFontSmall = ScaleFont(12);
