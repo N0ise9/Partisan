@@ -1034,6 +1034,7 @@ foreach ($requiredUIRootEntry in @(
 	"SETUP_MAP",
 	"COMMAND_MENU",
 	"LOADOUT_EDITOR",
+	"ACTION_DIALOG",
 	"MISSION_DIALOG",
 	"GAMEPLAY_MAP_OVERLAY",
 	"Z_SETUP_MAP",
@@ -1042,6 +1043,7 @@ foreach ($requiredUIRootEntry in @(
 	"Z_COMMAND_MENU",
 	"Z_NOTIFICATION",
 	"Z_LOADOUT_EDITOR",
+	"Z_ACTION_DIALOG",
 	"Z_MISSION_DIALOG"
 )) {
 	if ($uiConstantsText -notmatch [regex]::Escape($requiredUIRootEntry)) {
@@ -1069,7 +1071,7 @@ foreach ($requiredUIRootServiceEntry in @(
 	"NotifyNotificationHidden",
 	"CanOpen",
 	'CanOpen(HST_EUIScreenMode mode, string owner = "", bool modal = false)',
-	"bool wantsModal = modal || mode == HST_EUIScreenMode.MISSION_DIALOG",
+	"bool wantsModal = modal || mode == HST_EUIScreenMode.ACTION_DIALOG || mode == HST_EUIScreenMode.MISSION_DIALOG",
 	"if (m_ModalScreen)",
 	"m_ModalScreen.Matches(mode, owner)",
 	"m_CurrentScreen.Matches(mode, owner)",
@@ -1151,8 +1153,9 @@ foreach ($requiredActionDialogControllerEntry in @(
 	"class HST_ActionDialogController",
 	'ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout"',
 	"workspace.CreateWidgets(ACTION_DIALOG_LAYOUT, workspace)",
-	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG",
-	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG",
+	"root.SetZOrder(HST_UIConstants.Z_ACTION_DIALOG)",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.ACTION_DIALOG",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.ACTION_DIALOG",
 	"HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner",
 	"HST_UIDebug.LogLayoutRejected(data.m_sDebugOwner",
 	"HST_UIDebug.LogExpectedWidgetsCsv(data.m_sDebugOwner",
@@ -1178,6 +1181,8 @@ foreach ($requiredUIRootCaller in @(
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.COMMAND_MENU",
 	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR",
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.LOADOUT_EDITOR",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.ACTION_DIALOG",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.ACTION_DIALOG",
 	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG",
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG",
 	"HST_UIRootService.Get().NotifyNotificationShown()",
@@ -2768,8 +2773,8 @@ foreach ($requiredCommandMenuActionDialogEntry in @(
 foreach ($forbiddenCommandMenuLocalActionDialogEntry in @(
 	"ACTION_DIALOG_LAYOUT",
 	"workspace.CreateWidgets(ACTION_DIALOG_LAYOUT)",
-	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER, root",
-	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER)",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.ACTION_DIALOG, ACTION_DIALOG_OWNER, root",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.ACTION_DIALOG, ACTION_DIALOG_OWNER)",
 	'BindMenuClick(root, "CancelButton", ACTION_MODAL_CANCEL_WIDGET_ID)',
 	'BindMenuClick(root, "ConfirmButton", ACTION_MODAL_CONFIRM_WIDGET_ID)'
 )) {

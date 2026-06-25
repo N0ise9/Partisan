@@ -32,8 +32,8 @@ class HST_ActionDialogController
 
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
-		root.SetZOrder(HST_UIConstants.Z_MISSION_DIALOG);
-		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, data.m_sOwner, root, false, false, true))
+		root.SetZOrder(HST_UIConstants.Z_ACTION_DIALOG);
+		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.ACTION_DIALOG, data.m_sOwner, root, false, false, true))
 		{
 			HST_UIDebug.LogLayoutRejected(data.m_sDebugOwner, ACTION_DIALOG_LAYOUT, root, "UI root refused action modal");
 			root.RemoveFromHierarchy();
@@ -55,7 +55,7 @@ class HST_ActionDialogController
 
 	static void Close(string owner)
 	{
-		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, owner);
+		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.ACTION_DIALOG, owner);
 	}
 
 	protected static void BindClick(string debugOwner, Widget root, string widgetName, int userId, ScriptedWidgetEventHandler handler)

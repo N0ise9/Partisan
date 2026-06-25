@@ -22,7 +22,7 @@ class HST_UIRootService
 		if (mode == HST_EUIScreenMode.NONE)
 			return false;
 
-		bool wantsModal = modal || mode == HST_EUIScreenMode.MISSION_DIALOG;
+		bool wantsModal = modal || mode == HST_EUIScreenMode.ACTION_DIALOG || mode == HST_EUIScreenMode.MISSION_DIALOG;
 		if (!CanOpen(mode, owner, wantsModal))
 		{
 			DebugState("refused open", mode, owner, root, blocksGameplay, blocksMap, wantsModal, true);
@@ -94,7 +94,7 @@ class HST_UIRootService
 
 	bool CanOpen(HST_EUIScreenMode mode, string owner = "", bool modal = false)
 	{
-		bool wantsModal = modal || mode == HST_EUIScreenMode.MISSION_DIALOG;
+		bool wantsModal = modal || mode == HST_EUIScreenMode.ACTION_DIALOG || mode == HST_EUIScreenMode.MISSION_DIALOG;
 		if (m_ModalScreen)
 		{
 			if (wantsModal)

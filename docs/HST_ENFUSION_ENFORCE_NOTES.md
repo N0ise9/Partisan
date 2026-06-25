@@ -137,6 +137,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Modal state belongs in one coordinator.
   - `HST_UIRootService` tracks current screen, modal screen, blocking behavior, and topmost owner.
   - Repeated identical `RequestOpen` calls should be idempotent; otherwise refresh loops create noisy revision churn.
+  - Use distinct screen modes for distinct modal families. Action confirmations register as `ACTION_DIALOG`; mission report/details dialogs register as `MISSION_DIALOG`.
 
 - A modal over a native map may need a dialog input context every frame.
   - Map cursor modules can block map clicks correctly while the visible pointer still appears behind the modal.
