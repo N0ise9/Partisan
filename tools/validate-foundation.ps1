@@ -1867,6 +1867,11 @@ foreach ($requiredMissionDialogScriptEntry in @(
 	'BindDialogClick(root, "CloseButton", DETAIL_CLOSE_WIDGET_ID)',
 	'SetDialogText(root, "Title"',
 	'root.FindAnyWidget("ObjectiveItems")',
+	"protected bool OpenMissionDetailsAtIndex",
+	"protected bool RenderMissionDetailPanel",
+	"if (RenderMissionDetailPanel())",
+	"protected void CloseMissionDetails",
+	"root.RemoveFromHierarchy()",
 	"protected void BindDialogClick",
 	"protected void SetDialogText",
 	"protected void AddObjectiveRow"
@@ -1874,6 +1879,9 @@ foreach ($requiredMissionDialogScriptEntry in @(
 	if ($missionClientText -notmatch [regex]::Escape($requiredMissionDialogScriptEntry)) {
 		throw "Mission detail/report UI must populate named layout widgets: $requiredMissionDialogScriptEntry"
 	}
+}
+if ($missionClientText -match [regex]::Escape('RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", null')) {
+	throw "Mission detail modal must not register with UI root before a report dialog root exists"
 }
 foreach ($forbiddenMissionDialogScriptGeometry in @(
 	"SCRIPTED_PANEL_ROOT_LAYOUT",

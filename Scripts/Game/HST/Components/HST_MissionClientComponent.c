@@ -55,10 +55,7 @@ class HST_MissionClientComponent : ScriptComponent
 		if (s_LocalInstance == this)
 			s_LocalInstance = null;
 
-		if (m_bDetailOpen)
-			HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent");
-
-		ClearWidgets();
+		CloseMissionDetails();
 		super.OnDelete(owner);
 	}
 
@@ -150,8 +147,8 @@ class HST_MissionClientComponent : ScriptComponent
 	{
 		m_sLastIntelPayload = payload;
 		ParseMissionIntel(payload);
-		if (m_bDetailOpen)
-			RenderMissionDetailPanel();
+		if (m_bDetailOpen && !RenderMissionDetailPanel())
+			CloseMissionDetails();
 	}
 
 	bool OpenMissionDetailsForMarker(string markerId)
@@ -162,27 +159,16 @@ class HST_MissionClientComponent : ScriptComponent
 		if (index < 0)
 			return false;
 
-		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", null, false, false, true))
-			return false;
-
-		m_sSelectedMissionId = m_aMissionIds[index];
-		m_bDetailOpen = true;
-		RenderMissionDetailPanel();
-		return true;
+		return OpenMissionDetailsAtIndex(index);
 	}
 
 	bool OpenMissionDetails(string missionId)
 	{
-		if (m_aMissionIds.Find(missionId) < 0)
+		int index = m_aMissionIds.Find(missionId);
+		if (index < 0)
 			return false;
 
-		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", null, false, false, true))
-			return false;
-
-		m_sSelectedMissionId = missionId;
-		m_bDetailOpen = true;
-		RenderMissionDetailPanel();
-		return true;
+		return OpenMissionDetailsAtIndex(index);
 	}
 
 	// Fallback entry for custom map-overlay hit tests when native marker click callbacks are not available.
@@ -281,16 +267,30 @@ class HST_MissionClientComponent : ScriptComponent
 		m_aRecentNotificationRemaining.Insert(durationSeconds);
 	}
 
-	protected void RenderMissionDetailPanel()
+	protected bool OpenMissionDetailsAtIndex(int index)
+	{
+		if (index < 0 || index >= m_aMissionIds.Count())
+			return false;
+
+		m_sSelectedMissionId = m_aMissionIds[index];
+		m_bDetailOpen = true;
+		if (RenderMissionDetailPanel())
+			return true;
+
+		CloseMissionDetails();
+		return false;
+	}
+
+	protected bool RenderMissionDetailPanel()
 	{
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		if (!workspace)
-			return;
+			return false;
 
 		ClearWidgets();
 		int index = m_aMissionIds.Find(m_sSelectedMissionId);
 		if (index < 0)
-			return;
+			return false;
 
 		int screenW;
 		int screenH;
@@ -300,12 +300,17 @@ class HST_MissionClientComponent : ScriptComponent
 
 		Widget root = workspace.CreateWidgets(REPORT_DIALOG_LAYOUT);
 		if (!root)
-			return;
+			return false;
 
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_MISSION_DIALOG);
-		HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", root, false, false, true);
+		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", root, false, false, true))
+		{
+			root.RemoveFromHierarchy();
+			return false;
+		}
+
 		m_aWidgets.Insert(root);
 		if (!m_WidgetHandler)
 		{
@@ -344,6 +349,8 @@ class HST_MissionClientComponent : ScriptComponent
 
 		if (rendered == 0)
 			AddObjectiveRow(workspace, items, "No objective records.", "", scale);
+
+		return true;
 	}
 
 	bool OnWidgetClicked(int widgetId)
@@ -351,10 +358,19 @@ class HST_MissionClientComponent : ScriptComponent
 		if (widgetId != DETAIL_CLOSE_WIDGET_ID)
 			return false;
 
-		m_bDetailOpen = false;
-		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent");
-		ClearWidgets();
+		CloseMissionDetails();
 		return true;
+	}
+
+	protected void CloseMissionDetails()
+	{
+		bool wasOpen = m_bDetailOpen;
+		m_bDetailOpen = false;
+		m_sSelectedMissionId = "";
+		if (wasOpen)
+			HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent");
+
+		ClearWidgets();
 	}
 
 	protected void BindDialogClick(Widget root, string widgetName, int userId)
