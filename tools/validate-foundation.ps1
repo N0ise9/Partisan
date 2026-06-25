@@ -2316,6 +2316,9 @@ foreach ($requiredCommandMenuEntry in @(
 	'RenderActivityPanel',
 	'OpenPetrosMenu',
 	'OpenMenuToTab',
+	'HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU)',
+	'protected bool RenderMenu',
+	'if (!RenderMenu())',
 	'RunCommandFromContext',
 	'ParseActionsFromPayload',
 	'OnServerSnapshot',
@@ -2406,6 +2409,12 @@ if ($commandMenuComponentText -match "FrameSlot\.Set(Pos|Size)\((scroll|items|co
 }
 if ($commandMenuComponentText -match "CreateWidgetInWorkspace\(WidgetType\.CanvasWidgetTypeID") {
 	throw "Command menu root must be a child-capable frame/layout container, not a canvas widget"
+}
+if ($commandMenuComponentText -match [regex]::Escape('RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", null')) {
+	throw "Command menu must not register as open before its layout root exists"
+}
+if ($commandMenuComponentText -notmatch [regex]::Escape('root.RemoveFromHierarchy()')) {
+	throw "Command menu must remove a rejected layout root when UI root registration fails"
 }
 if ($commandMenuComponentText -match "\bWidgetFlags\.WRAP_TEXT\b") {
 	throw "Command menu fixed-height text must avoid automatic wrapping; shorten or clip instead"
@@ -3460,6 +3469,22 @@ if ($loadoutEditorComponentText -match [regex]::Escape("{0000000000000000}UI/lay
 }
 if ($loadoutEditorComponentText -notmatch "m_RootWidget\s*=\s*workspace\.CreateWidgets\(EDITOR_LAYOUT\)") {
 	throw "Loadout editor must create the anchored layout resource directly as its root"
+}
+foreach ($requiredLoadoutRootLifecycleEntry in @(
+	"HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.LOADOUT_EDITOR)",
+	"protected bool RenderEditor",
+	"if (!RenderEditor())",
+	"CloseEditorInternal(false, false)",
+	"protected void CloseEditorInternal",
+	"if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, `"HST_LoadoutEditorComponent`", root, true, true, false))",
+	"DeleteEditorRoot()"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutRootLifecycleEntry)) {
+		throw "Loadout editor must register blocking UI only after its layout root exists: $requiredLoadoutRootLifecycleEntry"
+	}
+}
+if ($loadoutEditorComponentText -match [regex]::Escape('RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent", null')) {
+	throw "Loadout editor must not register as open before its layout root exists"
 }
 foreach ($forbiddenLoadoutRootMaskEntry in @(
 	"CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID",

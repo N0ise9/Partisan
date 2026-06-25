@@ -782,7 +782,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OpenMenu(string source = "unknown")
 	{
-		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", null, true, false, false))
+		if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU))
 			return;
 
 		m_bMenuOpen = true;
@@ -796,7 +796,16 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_iSelectedControl = Math.Max(0, m_aTabIds.Find(m_sSelectedTab));
 		m_sStatusText = "h-istasi menu | requesting server snapshot";
 		RequestSnapshot();
-		RenderMenu();
+		if (!RenderMenu())
+		{
+			m_bMenuOpen = false;
+			HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent");
+			ClearActionDialog();
+			ClearWidgets();
+			DebugLog("open aborted: command menu layout root unavailable");
+			return;
+		}
+
 		DebugLog("opened via " + source);
 		ShowMenuHint("Command menu opened", "h-istasi", 2.0);
 	}
@@ -1052,13 +1061,13 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sPendingActionArgument = "";
 	}
 
-	protected void RenderMenu()
+	protected bool RenderMenu()
 	{
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		if (!workspace)
 		{
 			Print(BuildConsoleMenuText());
-			return;
+			return false;
 		}
 
 		SaveCommandMenuScrollOffsets();
@@ -1076,7 +1085,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		BuildResponsiveLayout(workspace);
 		Widget root = CreateMenuRoot(workspace);
 		if (!root)
-			return;
+			return false;
 
 		RenderHeader(workspace, root);
 		RenderNavigation(workspace, root);
@@ -1084,6 +1093,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		RenderMainSections(workspace, root);
 		RenderActivityPanel(workspace, root);
 		RenderActions(workspace, root);
+		return true;
 	}
 
 	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
@@ -1098,7 +1108,12 @@ class HST_CommandMenuComponent : ScriptComponent
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
-		HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", root, true, false, false);
+		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", root, true, false, false))
+		{
+			root.RemoveFromHierarchy();
+			return null;
+		}
+
 		m_aWidgets.Insert(root);
 		BindMenuClick(root, "CloseButton", CLOSE_WIDGET_ID);
 		return root;
