@@ -45,6 +45,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Negative bottom offsets are still correct for true stretched widgets where `AnchorMaxY` is `1` and the value is a bottom margin.
   - Current examples: setup prompt text/rule, notification title, command-menu header/stat/title strips.
 
+- `OffsetRight` and `OffsetBottom` are edge margins, not always width/height values.
+  - For same-anchor fixed boxes, such as `Anchor 0 0 0 0`, use negative right/bottom offsets to extend the box outward from the anchor.
+  - For stretched boxes, such as `Anchor 0 0 1 1`, use positive right/bottom offsets as inward margins.
+  - For right/bottom anchored boxes, such as `Anchor 1 0 1 1` or `Anchor 0 1 0 1`, use positive right/bottom offsets to keep the edge inside the parent and negative left/top offsets to define size.
+  - Runtime symptom when this is wrong: delayed ready logs show negative widget sizes, such as left rails, navigation panels, or footer hints resolving to impossible bounds.
+  - Current examples: `HST_CommandMenu.layout`, `HST_LoadoutEditor.layout`, loadout row layouts.
+
+- Layout fragments intended to fill a parent slot should use stretched anchors at their root.
+  - A root `FrameWidget` with `Anchor 0 0 0 0` can resolve to `0x0` when created inside a dynamically populated placeholder.
+  - Use `Anchor 0 0 1 1` for reusable item/preview fragments and let the parent list, tile, or placeholder own the actual dimensions.
+  - Current example: `HST_LoadoutItemPreviewCell.layout`.
+
 - Keep visual children passive unless they are real controls.
   - Use `WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS` or layout `Ignore Cursor = true` for passive panels, labels, overlays, and notification visuals.
   - Do not place invisible full-screen widgets unless they are intentional visible modal roots with real content.
@@ -120,6 +132,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Modal state belongs in one coordinator.
   - `HST_UIRootService` tracks current screen, modal screen, blocking behavior, and topmost owner.
   - Repeated identical `RequestOpen` calls should be idempotent; otherwise refresh loops create noisy revision churn.
+
+- A modal over a native map may need a dialog input context every frame.
+  - Map cursor modules can block map clicks correctly while the visible pointer still appears behind the modal.
+  - While the setup confirmation modal is open, activate a normal dialog context and call `WidgetManager.SetCursor(0)` from the per-frame setup input path.
+  - Current example: `HST_SetupMapComponent`.
 
 - Notifications should not participate in blocking input.
   - Keep toast roots and children cursor-ignored and no-focus.

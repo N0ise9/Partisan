@@ -56,11 +56,11 @@ ButtonWidgetClass "{A7B8C9D001234590}" {
         TextWidgetClass "{A7B8C9D001234594}" {
          Name "Label"
          Slot FrameWidgetSlot "{A7B8C9D001234595}" {
-          Anchor 0 0 0 1
-          OffsetLeft 10
-          OffsetTop 5
-          OffsetRight 220
-          OffsetBottom -5
+         Anchor 0 0 0 1
+         OffsetLeft 10
+         OffsetTop 5
+          OffsetRight -220
+          OffsetBottom 5
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -68,11 +68,11 @@ ButtonWidgetClass "{A7B8C9D001234590}" {
         TextWidgetClass "{A7B8C9D001234596}" {
          Name "Value"
          Slot FrameWidgetSlot "{A7B8C9D001234597}" {
-          Anchor 0 0 1 1
-          OffsetLeft 10
-          OffsetTop 5
-          OffsetRight -10
-          OffsetBottom -5
+         Anchor 0 0 1 1
+          OffsetLeft 230
+         OffsetTop 5
+          OffsetRight 10
+          OffsetBottom 5
          }
          "Is Visible" 1
          "Ignore Cursor" 1

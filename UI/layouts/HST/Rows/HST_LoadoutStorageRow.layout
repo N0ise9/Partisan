@@ -56,11 +56,11 @@ ButtonWidgetClass "{A7B8C9D0012345E0}" {
         PanelWidgetClass "{A7B8C9D001235E10}" {
          Name "PreviewBack"
          Slot FrameWidgetSlot "{A7B8C9D001235E11}" {
-          Anchor 0 0 0 0
-          OffsetLeft 6
-          OffsetTop 6
-          OffsetRight 74
-          OffsetBottom 74
+         Anchor 0 0 0 0
+         OffsetLeft 6
+         OffsetTop 6
+          OffsetRight -74
+          OffsetBottom -74
          }
          Color 0.035 0.05 0.063 0.86
          style full
@@ -70,11 +70,11 @@ ButtonWidgetClass "{A7B8C9D0012345E0}" {
         PanelWidgetClass "{A7B8C9D001235E12}" {
          Name "PreviewLine"
          Slot FrameWidgetSlot "{A7B8C9D001235E13}" {
-          Anchor 0 0 0 0
-          OffsetLeft 6
-          OffsetTop 6
-          OffsetRight 74
-          OffsetBottom 8
+         Anchor 0 0 0 0
+         OffsetLeft 6
+         OffsetTop 6
+          OffsetRight -74
+          OffsetBottom -8
          }
          Color 0.29 0.35 0.38 0.4
          style full
@@ -84,22 +84,22 @@ ButtonWidgetClass "{A7B8C9D0012345E0}" {
         FrameWidgetClass "{A7B8C9D0012345E4}" {
          Name "PreviewAnchor"
          Slot FrameWidgetSlot "{A7B8C9D0012345E5}" {
-          Anchor 0 0 0 0
-          OffsetLeft 8
-          OffsetTop 8
-          OffsetRight 72
-          OffsetBottom 72
+         Anchor 0 0 0 0
+         OffsetLeft 8
+         OffsetTop 8
+          OffsetRight -72
+          OffsetBottom -72
          }
          "Ignore Cursor" 1
         }
         TextWidgetClass "{A7B8C9D0012345E6}" {
          Name "Primary"
          Slot FrameWidgetSlot "{A7B8C9D0012345E7}" {
-          Anchor 0 0 1 0
-          OffsetLeft 86
-          OffsetTop 8
-          OffsetRight -10
-          OffsetBottom 28
+         Anchor 0 0 1 0
+         OffsetLeft 86
+         OffsetTop 8
+          OffsetRight 10
+          OffsetBottom -28
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -113,11 +113,11 @@ ButtonWidgetClass "{A7B8C9D0012345E0}" {
         TextWidgetClass "{A7B8C9D0012345E8}" {
          Name "Secondary"
          Slot FrameWidgetSlot "{A7B8C9D0012345E9}" {
-          Anchor 0 0 1 0
-          OffsetLeft 86
-          OffsetTop 30
-          OffsetRight -10
-          OffsetBottom 52
+         Anchor 0 0 1 0
+         OffsetLeft 86
+         OffsetTop 30
+          OffsetRight 10
+          OffsetBottom -52
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -131,11 +131,11 @@ ButtonWidgetClass "{A7B8C9D0012345E0}" {
         TextWidgetClass "{A7B8C9D0012345EA}" {
          Name "Meta"
          Slot FrameWidgetSlot "{A7B8C9D0012345EB}" {
-          Anchor 0 0 1 0
-          OffsetLeft 86
-          OffsetTop 54
-          OffsetRight -10
-          OffsetBottom 70
+         Anchor 0 0 1 0
+         OffsetLeft 86
+         OffsetTop 54
+          OffsetRight 10
+          OffsetBottom -70
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -149,11 +149,11 @@ ButtonWidgetClass "{A7B8C9D0012345E0}" {
         PanelWidgetClass "{A7B8C9D0012345EC}" {
          Name "VolumeBack"
          Slot FrameWidgetSlot "{A7B8C9D0012345ED}" {
-          Anchor 0 0 1 0
-          OffsetLeft 86
-          OffsetTop 74
-          OffsetRight -10
-          OffsetBottom 80
+         Anchor 0 0 1 0
+         OffsetLeft 86
+         OffsetTop 74
+          OffsetRight 10
+          OffsetBottom -80
          }
          Color 1 1 1 1
          style full
@@ -163,11 +163,11 @@ ButtonWidgetClass "{A7B8C9D0012345E0}" {
         ProgressBarWidgetClass "{A7B8C9D0012345EE}" {
          Name "VolumeFill"
          Slot FrameWidgetSlot "{A7B8C9D0012345EF}" {
-          Anchor 0 0 1 0
-          OffsetLeft 86
-          OffsetTop 74
-          OffsetRight -10
-          OffsetBottom 80
+         Anchor 0 0 1 0
+         OffsetLeft 86
+         OffsetTop 74
+          OffsetRight 10
+          OffsetBottom -80
          }
          Color 1 1 1 1
          style SimpleWithBackground

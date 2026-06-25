@@ -858,7 +858,9 @@ foreach ($requiredSetupMapLayerEntry in @(
 	"cursorModule.ToggleLocationSelection(false)",
 	"cursorModule.HandleDialog(true)",
 	"cursorModule.HandleDialog(false)",
-	"ReleaseSetupMapDialogState"
+	"ReleaseSetupMapDialogState",
+	'SETUP_CURSOR_CONTEXT = "DialogContext"',
+	"WidgetManager.SetCursor(0)"
 )) {
 	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupMapLayerEntry)) {
 		throw "Setup map UI must explicitly layer prompt/modal widgets and block native map input during confirmation: $requiredSetupMapLayerEntry"
@@ -2859,20 +2861,25 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"OffsetRight 24",
 	"OffsetBottom -63",
 	"NavigationPanel",
+	"OffsetRight -220",
 	'Name "NavigationTitle"',
 	"OffsetBottom -44",
 	"TabScroll",
 	"TabItems",
 	"StatsPanel",
+	"OffsetRight 524",
 	"OffsetBottom -168",
 	'Name "Stat0Label"',
 	"OffsetBottom -28",
 	"MainPanel",
+	"OffsetRight 524",
 	'Name "MainAccent"',
 	"OffsetBottom -4",
 	"MainScroll",
 	"MainItems",
 	"ActivityPanel",
+	"OffsetRight 20",
+	"OffsetBottom 382",
 	'Name "ActivityTitle"',
 	"OffsetBottom -48",
 	'Name "ActivityResult"',
@@ -2880,6 +2887,8 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	'Name "ActivityFeedTitle"',
 	"OffsetBottom -166",
 	"ActionsPanel",
+	"OffsetTop -360",
+	"OffsetBottom 20",
 	'Name "ActionsTitle"'
 )) {
 	if ($commandMenuLayoutText -notmatch [regex]::Escape($requiredCommandMenuLayoutEntry)) {
@@ -2889,7 +2898,6 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 foreach ($forbiddenCommandMenuLayoutEntry in @(
 	"HST_CommandMenuDynamicCanvas",
 	"CanvasWidgetClass",
-	"OffsetBottom 82",
 	"OffsetBottom 63",
 	"OffsetBottom 44",
 	"OffsetBottom 168",
@@ -2897,7 +2905,11 @@ foreach ($forbiddenCommandMenuLayoutEntry in @(
 	"OffsetBottom 4",
 	"OffsetBottom 48",
 	"OffsetBottom 126",
-	"OffsetBottom 166"
+	"OffsetBottom 166",
+	"OffsetRight 220",
+	"OffsetRight -524",
+	"OffsetBottom -382",
+	"OffsetTop 360"
 )) {
 	if ($commandMenuLayoutText -match [regex]::Escape($forbiddenCommandMenuLayoutEntry)) {
 		throw "Command menu layout must not keep scripted-canvas placeholders or positive fixed-height bounds: $forbiddenCommandMenuLayoutEntry"
@@ -3108,8 +3120,8 @@ foreach ($requiredLoadoutStorageItemRowEntry in @(
 	"HeightOverride 76",
 	"MinDesiredHeight 76",
 	"MaxDesiredHeight 76",
-	"OffsetRight 72",
-	"OffsetBottom 72",
+	"OffsetRight -72",
+	"OffsetBottom -72",
 	"OffsetLeft 84",
 	"OffsetTop 22"
 )) {
@@ -3125,8 +3137,8 @@ foreach ($requiredLoadoutStorageRowProgressEntry in @(
 	"Anchor 0 0 1 0",
 	"OffsetLeft 86",
 	"OffsetTop 74",
-	"OffsetRight -10",
-	"OffsetBottom 80",
+	"OffsetRight 10",
+	"OffsetBottom -80",
 	"style SimpleWithBackground",
 	"Maximum 1",
 	"Current 0"
@@ -3142,8 +3154,8 @@ foreach ($requiredLoadoutCandidateTileEntry in @(
 	"MinDesiredHeight 96",
 	"MaxDesiredWidth 354",
 	"MaxDesiredHeight 96",
-	"OffsetRight 82",
-	"OffsetBottom 82",
+	"OffsetRight -82",
+	"OffsetBottom -82",
 	"OffsetLeft 112",
 	"OffsetLeft -98",
 	"OffsetTop 34"
@@ -4586,7 +4598,7 @@ if ($loadoutEditorComponentText -match [regex]::Escape("protected void RenderCan
 foreach ($requiredPreviewCellLayoutEntry in @(
 	"HST_LoadoutItemPreviewCell",
 	'Slot FrameWidgetSlot "{7B2FD986A4D3420F}"',
-	"Anchor 0 0 0 0",
+	"Anchor 0 0 1 1",
 	"SlotImage",
 	"SlotPreview",
 	'"Is Visible" 0',

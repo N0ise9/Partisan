@@ -56,11 +56,11 @@ ButtonWidgetClass "{A7B8C9D0012345F0}" {
         PanelWidgetClass "{A7B8C9D001235F10}" {
          Name "PreviewBack"
          Slot FrameWidgetSlot "{A7B8C9D001235F11}" {
-          Anchor 0 0 0 0
-          OffsetLeft 6
-          OffsetTop 6
-          OffsetRight 74
-          OffsetBottom 74
+         Anchor 0 0 0 0
+         OffsetLeft 6
+         OffsetTop 6
+          OffsetRight -74
+          OffsetBottom -74
          }
          Color 0.035 0.05 0.063 0.86
          style full
@@ -70,11 +70,11 @@ ButtonWidgetClass "{A7B8C9D0012345F0}" {
         PanelWidgetClass "{A7B8C9D001235F12}" {
          Name "PreviewLine"
          Slot FrameWidgetSlot "{A7B8C9D001235F13}" {
-          Anchor 0 0 0 0
-          OffsetLeft 6
-          OffsetTop 6
-          OffsetRight 74
-          OffsetBottom 8
+         Anchor 0 0 0 0
+         OffsetLeft 6
+         OffsetTop 6
+          OffsetRight -74
+          OffsetBottom -8
          }
          Color 0.29 0.35 0.38 0.4
          style full
@@ -84,22 +84,22 @@ ButtonWidgetClass "{A7B8C9D0012345F0}" {
         FrameWidgetClass "{A7B8C9D0012345F4}" {
          Name "PreviewAnchor"
          Slot FrameWidgetSlot "{A7B8C9D0012345F5}" {
-          Anchor 0 0 0 0
-          OffsetLeft 8
-          OffsetTop 8
-          OffsetRight 72
-          OffsetBottom 72
+         Anchor 0 0 0 0
+         OffsetLeft 8
+         OffsetTop 8
+          OffsetRight -72
+          OffsetBottom -72
          }
          "Ignore Cursor" 1
         }
         TextWidgetClass "{A7B8C9D0012345F6}" {
          Name "Name"
          Slot FrameWidgetSlot "{A7B8C9D0012345F7}" {
-          Anchor 0 0 1 1
-          OffsetLeft 84
-          OffsetTop 12
-          OffsetRight -108
-          OffsetBottom -12
+         Anchor 0 0 1 1
+         OffsetLeft 84
+         OffsetTop 12
+          OffsetRight 108
+          OffsetBottom 12
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -113,11 +113,11 @@ ButtonWidgetClass "{A7B8C9D0012345F0}" {
         TextWidgetClass "{A7B8C9D0012345F8}" {
          Name "Count"
          Slot FrameWidgetSlot "{A7B8C9D0012345F9}" {
-          Anchor 1 0 1 0
-          OffsetLeft -90
-          OffsetTop 22
-          OffsetRight -16
-          OffsetBottom 46
+         Anchor 1 0 1 0
+         OffsetLeft -90
+         OffsetTop 22
+          OffsetRight 16
+          OffsetBottom -46
          }
          "Is Visible" 1
          "Ignore Cursor" 1

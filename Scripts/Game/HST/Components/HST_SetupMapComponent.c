@@ -63,6 +63,7 @@ class HST_SetupMapComponent : ScriptComponent
 	static const ResourceName SETUP_NATIVE_MAP_CONFIG = "{6985327711306210}Configs/Map/HST_SetupHQMap.conf";
 	static const string SETUP_INPUT_CONTEXT = "InGameMenuContext";
 	static const string SETUP_MAP_CONTEXT = "MapContext";
+	static const string SETUP_CURSOR_CONTEXT = "DialogContext";
 
 	protected static HST_SetupMapComponent s_LocalInstance;
 
@@ -1566,6 +1567,11 @@ class HST_SetupMapComponent : ScriptComponent
 
 		inputManager.ActivateContext(SETUP_INPUT_CONTEXT);
 		inputManager.ActivateContext(SETUP_MAP_CONTEXT);
+		if (m_bConfirmOpen)
+		{
+			inputManager.ActivateContext(SETUP_CURSOR_CONTEXT);
+			WidgetManager.SetCursor(0);
+		}
 	}
 
 	protected void RefreshResolvedLocalPlayerId()
