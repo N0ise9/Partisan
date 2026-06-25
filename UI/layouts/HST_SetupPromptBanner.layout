@@ -21,7 +21,7 @@ FrameWidgetClass "{A34F448C7E810601}" {
     SizeX 0
     OffsetRight 0
     SizeY 76
-    OffsetBottom -76
+    OffsetBottom 76
    }
    Color 0.05 0.075 0.095 1
    style full
@@ -39,7 +39,7 @@ FrameWidgetClass "{A34F448C7E810601}" {
     SizeX 0
     OffsetRight 0
     SizeY 4
-    OffsetBottom -76
+    OffsetBottom 76
    }
    Color 0.77 0.58 0.23 1
    style full
@@ -57,7 +57,7 @@ FrameWidgetClass "{A34F448C7E810601}" {
     SizeX -72
     OffsetRight -36
     SizeY 42
-    OffsetBottom -60
+    OffsetBottom 60
    }
    "Is Visible" 1
    "Ignore Cursor" 1

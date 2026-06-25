@@ -63,10 +63,10 @@ FrameWidgetClass "{A34F448C7E830601}" {
       OffsetLeft 24
       PositionY 10
       OffsetTop 10
-      SizeX -48
-      OffsetRight -24
-      SizeY 24
-      OffsetBottom -34
+     SizeX -48
+     OffsetRight -24
+     SizeY 24
+      OffsetBottom 34
      }
      "Is Visible" 1
      "Ignore Cursor" 1

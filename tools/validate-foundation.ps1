@@ -737,18 +737,20 @@ foreach ($requiredSetupLayoutEntry in @(
 	'Name "HST_SetupPromptText"',
 	"Anchor 0 0 1 0",
 	"SizeY 76",
-	"OffsetBottom -76"
+	"OffsetBottom 76",
+	"SizeY 42",
+	"OffsetBottom 60"
 )) {
 	if ($setupPromptBannerLayoutText -notmatch [regex]::Escape($requiredSetupLayoutEntry)) {
 		throw "Setup prompt banner layout is missing anchored prompt entry: $requiredSetupLayoutEntry"
 	}
 }
 foreach ($forbiddenSetupPromptLayoutEntry in @(
-	"OffsetBottom 76",
-	"OffsetBottom 60"
+	"OffsetBottom -76",
+	"OffsetBottom -60"
 )) {
 	if ($setupPromptBannerLayoutText -match [regex]::Escape($forbiddenSetupPromptLayoutEntry)) {
-		throw "Setup prompt banner fixed-height widgets must use negative bottom offsets: $forbiddenSetupPromptLayoutEntry"
+		throw "Setup prompt banner fixed-height widgets must use positive bottom-edge offsets: $forbiddenSetupPromptLayoutEntry"
 	}
 }
 foreach ($forbiddenSetupMapLayoutEntry in @(
@@ -761,8 +763,9 @@ foreach ($forbiddenSetupMapLayoutEntry in @(
 	}
 }
 foreach ($requiredConfirmModalLayoutEntry in @(
-	'PanelWidgetClass "{B55C6FB34BF94001}"',
+	'FrameWidgetClass "{B55C6FB34BF94001}"',
 	'Name "HST_SetupConfirmModalRoot"',
+	'Name "ModalDimmer"',
 	'Name "Dialog"',
 	'Name "Message"',
 	'Name "NoButton"',
@@ -771,30 +774,31 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 	"Color 0 0 0 0.16",
 	'"Ignore Cursor" 0',
 	"Anchor 0.5 0.5 0.5 0.5",
-	"PositionX 0",
-	"PositionY 0",
-	"SizeX 620",
-	"SizeY 280",
-	"OffsetRight -620",
-	"OffsetBottom -280",
-	"Alignment 0.5 0.5",
+	"OffsetLeft -310",
+	"OffsetTop -140",
+	"OffsetRight 310",
+	"OffsetBottom 140",
 	"SizeX 160",
-	"SizeY 50"
+	"SizeY 50",
+	"OffsetRight 298",
+	"OffsetRight 482",
+	"OffsetBottom 256"
 )) {
 	if ($setupConfirmModalLayoutText -notmatch [regex]::Escape($requiredConfirmModalLayoutEntry)) {
 		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
 	}
 }
 foreach ($forbiddenConfirmModalLayoutEntry in @(
-	"OffsetLeft -310",
-	"OffsetTop -140",
-	"OffsetRight 310",
-	"OffsetBottom 140",
-	"OffsetBottom 132",
-	"OffsetRight -138"
+	'PanelWidgetClass "{B55C6FB34BF94001}"',
+	"OffsetRight -620",
+	"OffsetBottom -280",
+	"OffsetBottom -132",
+	"OffsetRight -298",
+	"OffsetRight -482",
+	"OffsetBottom -256"
 )) {
 	if ($setupConfirmModalLayoutText -match [regex]::Escape($forbiddenConfirmModalLayoutEntry)) {
-		throw "Setup confirmation modal must use native fixed-size slot fields with negative right/bottom offsets: $forbiddenConfirmModalLayoutEntry"
+		throw "Setup confirmation modal must use drawable frame-root and positive button bounds: $forbiddenConfirmModalLayoutEntry"
 	}
 }
 foreach ($requiredSetupChromeEntry in @(
@@ -1181,7 +1185,7 @@ foreach ($requiredNotificationToastLayoutEntry in @(
 	"OffsetRight -840",
 	"Alignment 0.5 0",
 	"SizeY 24",
-	"OffsetBottom -34",
+	"OffsetBottom 34",
 	'"Ignore Cursor" 1'
 )) {
 	if ($notificationToastLayoutText -notmatch [regex]::Escape($requiredNotificationToastLayoutEntry)) {
@@ -1189,10 +1193,10 @@ foreach ($requiredNotificationToastLayoutEntry in @(
 	}
 }
 foreach ($forbiddenNotificationToastLayoutEntry in @(
-	"OffsetBottom 34"
+	"OffsetBottom -34"
 )) {
 	if ($notificationToastLayoutText -match [regex]::Escape($forbiddenNotificationToastLayoutEntry)) {
-		throw "Notification toast fixed-height text must use negative bottom offsets: $forbiddenNotificationToastLayoutEntry"
+		throw "Notification toast fixed-height text must use positive bottom-edge offsets: $forbiddenNotificationToastLayoutEntry"
 	}
 }
 if ($notificationToastLayoutMetaText -notmatch [regex]::Escape('Name "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout"')) {
@@ -2846,15 +2850,33 @@ $commandMenuLayoutText = Get-Content -Raw "UI/layouts/HST_CommandMenu.layout"
 foreach ($requiredCommandMenuLayoutEntry in @(
 	"HST_CommandMenuRoot",
 	"CommandSurface",
+	'Name "Header"',
+	"OffsetBottom 82",
+	'Name "CloseButton"',
+	"OffsetBottom 63",
 	"NavigationPanel",
+	'Name "NavigationTitle"',
+	"OffsetBottom 44",
 	"TabScroll",
 	"TabItems",
 	"StatsPanel",
+	"OffsetBottom 168",
+	'Name "Stat0Label"',
+	"OffsetBottom 28",
 	"MainPanel",
+	'Name "MainAccent"',
+	"OffsetBottom 4",
 	"MainScroll",
 	"MainItems",
 	"ActivityPanel",
-	"ActionsPanel"
+	'Name "ActivityTitle"',
+	"OffsetBottom 48",
+	'Name "ActivityResult"',
+	"OffsetBottom 126",
+	'Name "ActivityFeedTitle"',
+	"OffsetBottom 166",
+	"ActionsPanel",
+	'Name "ActionsTitle"'
 )) {
 	if ($commandMenuLayoutText -notmatch [regex]::Escape($requiredCommandMenuLayoutEntry)) {
 		throw "Command menu layout is missing widget entry: $requiredCommandMenuLayoutEntry"
@@ -2862,10 +2884,19 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 }
 foreach ($forbiddenCommandMenuLayoutEntry in @(
 	"HST_CommandMenuDynamicCanvas",
-	"CanvasWidgetClass"
+	"CanvasWidgetClass",
+	"OffsetBottom -82",
+	"OffsetBottom -63",
+	"OffsetBottom -44",
+	"OffsetBottom -168",
+	"OffsetBottom -28",
+	"OffsetBottom -4",
+	"OffsetBottom -48",
+	"OffsetBottom -126",
+	"OffsetBottom -166"
 )) {
 	if ($commandMenuLayoutText -match [regex]::Escape($forbiddenCommandMenuLayoutEntry)) {
-		throw "Command menu layout must not keep scripted-canvas placeholders: $forbiddenCommandMenuLayoutEntry"
+		throw "Command menu layout must not keep scripted-canvas placeholders or negative fixed-height bounds: $forbiddenCommandMenuLayoutEntry"
 	}
 }
 

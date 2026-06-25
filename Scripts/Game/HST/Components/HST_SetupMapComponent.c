@@ -612,8 +612,6 @@ class HST_SetupMapComponent : ScriptComponent
 		{
 			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
 			EnsureSetupPromptLayout(workspace);
-			QueueSetupMapRootRefresh();
-			QueueSetupPromptRefresh();
 		}
 
 		if (!m_MapEntity)
@@ -1227,7 +1225,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 		BindConfirmModalButton(modal, "NoButton", CONFIRM_NO_WIDGET_ID);
 		BindConfirmModalButton(modal, "YesButton", CONFIRM_YES_WIDGET_ID);
-		HST_UIDebug.LogExpectedWidgetsCsv("setup_confirm_modal", modal, "HST_SetupConfirmModalRoot|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
+		HST_UIDebug.LogExpectedWidgetsCsv("setup_confirm_modal", modal, "HST_SetupConfirmModalRoot|ModalDimmer|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
 		HST_UIDebug.LogPopulation("setup_confirm_modal", string.Format("candidate=%1 valid=%2 awaiting=%3 status=%4", m_vCandidatePosition, m_bCandidateValid, m_bAwaitingServer, ShortenText(m_sStatusText, 120)));
 		DebugLog(string.Format("setup confirmation modal layout created dialog=%1 message=%2 no=%3 yes=%4", modal.FindAnyWidget("Dialog") != null, modal.FindAnyWidget("Message") != null, modal.FindAnyWidget("NoButton") != null, modal.FindAnyWidget("YesButton") != null));
 
@@ -1289,8 +1287,8 @@ class HST_SetupMapComponent : ScriptComponent
 		ApplyConfirmModalContent(m_wConfirmModalRoot);
 		ApplyConfirmModalLayerOrder(m_wConfirmModalRoot);
 		ApplySetupLayerOrder();
-		HST_UIDebug.LogWidgetGeometryCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
-		HST_UIDebug.LogReadyWidgetsCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
+		HST_UIDebug.LogWidgetGeometryCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|ModalDimmer|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
+		HST_UIDebug.LogReadyWidgetsCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|ModalDimmer|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
 	}
 
 	protected void ApplyConfirmModalLayerOrder(Widget modal)
@@ -1300,6 +1298,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!modal)
 			return;
 
+		SetWidgetLayer(modal.FindAnyWidget("ModalDimmer"), HST_UIConstants.Z_SETUP_MODAL + 2, true);
 		SetWidgetLayer(modal.FindAnyWidget("Dialog"), HST_UIConstants.Z_SETUP_MODAL + 4, true);
 		SetWidgetLayer(modal.FindAnyWidget("Background"), HST_UIConstants.Z_SETUP_MODAL + 5, true);
 		SetWidgetLayer(modal.FindAnyWidget("TopAccent"), HST_UIConstants.Z_SETUP_MODAL + 6, true);
