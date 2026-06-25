@@ -655,6 +655,8 @@ if (Test-Path "UI/layouts/HST_SetupConfirmBlocker.layout.meta") {
 }
 $gameplayMapConfigText = Get-Content -Raw "Configs/Map/HST_GameplayMap.conf"
 $gameplayMapConfigMetaText = Get-Content -Raw "Configs/Map/HST_GameplayMap.conf.meta"
+$everonDefaultLayerText = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/default.layer"
+$devDefaultLayerText = Get-Content -Raw "Worlds/HST_Dev/HST_Dev_Layers/default.layer"
 $requestBridgeSetupText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
 $playerSpawnSetupText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerSpawnService.c"
 $uiWorkspaceMetricsText = Get-Content -Raw "Scripts/Game/HST/Services/HST_UIWorkspaceMetrics.c"
@@ -1161,6 +1163,7 @@ foreach ($requiredSetupHoldingEntry in @(
 	}
 }
 foreach ($requiredSetupNativeMapConfigEntry in @(
+	"m_iMapMode PLAIN",
 	"HST_MapZoneOverlayUIComponent",
 	"SCR_MapCursorModule",
 	"SCR_MapMarkersUI"
@@ -1168,6 +1171,9 @@ foreach ($requiredSetupNativeMapConfigEntry in @(
 	if ($setupNativeMapConfigText -notmatch [regex]::Escape($requiredSetupNativeMapConfigEntry)) {
 		throw "Setup map config is missing setup-only map component: $requiredSetupNativeMapConfigEntry"
 	}
+}
+if ($setupNativeMapConfigText -match [regex]::Escape("m_iMapMode FULLSCREEN")) {
+	throw "Setup map config must use a distinct non-fullscreen mode so it cannot poison the normal fullscreen map config cache"
 }
 foreach ($requiredGameplayMapConfigEntry in @(
 	'SCR_MapConfig : "{1B8AC767E06A0ACD}Configs/Map/MapFullscreen.conf"',
@@ -1186,6 +1192,14 @@ foreach ($forbiddenGameplayMapConfigEntry in @(
 )) {
 	if ($gameplayMapConfigText -match [regex]::Escape($forbiddenGameplayMapConfigEntry)) {
 		throw "Gameplay map config must not copy setup-only map behavior or override the vanilla tool stack: $forbiddenGameplayMapConfigEntry"
+	}
+}
+foreach ($requiredGameplayLayerEntry in @(
+	'm_sGadgetMapConfigPath "{6985327711306211}Configs/Map/HST_GameplayMap.conf"',
+	'm_sSpawnMapConfigPath "{901F9ED2088BBCA4}Configs/Map/MapSpawnConflict.conf"'
+)) {
+	if (($everonDefaultLayerText + "`n" + $devDefaultLayerText) -notmatch [regex]::Escape($requiredGameplayLayerEntry)) {
+		throw "Game mode map config component must explicitly separate gameplay and spawn map configs: $requiredGameplayLayerEntry"
 	}
 }
 $setupConfigReferences = @()

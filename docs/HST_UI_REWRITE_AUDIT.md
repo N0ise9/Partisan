@@ -41,8 +41,8 @@ Current state:
 | `UI/layouts/HST_SetupHQMap.layout` | Native setup map shell | Allowed | Setup-only layout. Keep separated from gameplay map config. |
 | `UI/layouts/HST_SetupConfirmModal.layout` | Full-screen dim modal root with centered `Dialog` child and real `NoButton` / `YesButton` | Allowed | Button behavior must remain widget-handler based. The modal is created as top-level setup chrome above the native map root and owns outside-click swallowing itself; no separate blocker layout should be reintroduced. |
 | `UI/layouts/HST_LoadoutEditor.layout` | Full-screen preview and named UI regions | Allowed, still expanding | Add dedicated tab/button/panel row layouts as script factories are retired. |
-| `Configs/Map/HST_SetupHQMap.conf` | Setup-only native map config with setup cursor module, marker UI, and zone overlay component | Allowed for setup only | Used only by `HST_SetupMapComponent`; keep setup selection behavior and setup-only zone overlays out of gameplay. |
-| `Configs/Map/HST_GameplayMap.conf` | Gameplay map config inheriting vanilla `MapFullscreen.conf` | Allowed | Keeps normal map tools and marker UI through the vanilla config instead of copying setup UI components. |
+| `Configs/Map/HST_SetupHQMap.conf` | Setup-only native map config with setup cursor module, marker UI, zone overlay component, and `PLAIN` map mode | Allowed for setup only | Used only by `HST_SetupMapComponent`; keep setup selection behavior and setup-only zone overlays out of gameplay. It must not use `FULLSCREEN`, because `SCR_MapEntity.SetupMapConfig` caches by map mode and can otherwise reuse setup UI components for the normal map. |
+| `Configs/Map/HST_GameplayMap.conf` | Gameplay map config inheriting vanilla `MapFullscreen.conf` | Allowed | Keeps normal map tools and marker UI through the vanilla config instead of copying setup UI components. The game mode map config component points its gadget map path here. |
 
 ## Allowed Uses
 
@@ -79,6 +79,7 @@ Current state:
 - Command menu close-button hierarchy no longer puts a child frame inside `CloseButton`, removing the runtime GUI error seen in the latest log.
 - Loadout editor reasserts its `HST_LoadoutUILayer` above the render target after layout refresh and logs the root, preview, UI layer, tabs, rails, footer, and drag surface geometry for the next test pass.
 - Setup candidate marker changed from a cross to a small temporary dot/ring marker overlay, keeping setup selection separate from persistent gameplay marker lifecycle.
+- Setup map now uses a distinct non-fullscreen map mode and the world map config component explicitly points the normal gadget map at `HST_GameplayMap.conf`, preventing setup's minimal map UI component stack from being reused by the normal gameplay map.
 
 ## Remaining Acceptance Gaps
 

@@ -652,7 +652,7 @@ class HST_SetupMapComponent : ScriptComponent
 			m_MapEntity.CloseMap();
 		}
 
-		MapConfiguration mapConfig = m_MapEntity.SetupMapConfig(EMapEntityMode.FULLSCREEN, SETUP_NATIVE_MAP_CONFIG, m_wSetupRoot);
+		MapConfiguration mapConfig = m_MapEntity.SetupMapConfig(EMapEntityMode.PLAIN, SETUP_NATIVE_MAP_CONFIG, m_wSetupRoot);
 		if (!mapConfig)
 		{
 			m_sStatusText = "setup map configuration failed";

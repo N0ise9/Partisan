@@ -34,6 +34,7 @@ SCR_BaseGameMode HST_GameMode : "{1B76F75A3175E85C}Prefabs/MP/Modes/Plain/GameMo
    m_iPlayableGroupFrequencyOffset 500
   }
   SCR_MapConfigComponent "{5C669498E250A34B}" {
+   m_sGadgetMapConfigPath "{6985327711306211}Configs/Map/HST_GameplayMap.conf"
    m_sSpawnMapConfigPath "{901F9ED2088BBCA4}Configs/Map/MapSpawnConflict.conf"
   }
   SCR_MapMarkerManagerComponent "{5D32E876D3886A72}" {
