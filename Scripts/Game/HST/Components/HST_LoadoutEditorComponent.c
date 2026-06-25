@@ -86,9 +86,6 @@ class HST_LoadoutEditorLayoutMetrics
 	int m_iListTop;
 	int m_iListHeight;
 	int m_iSlotRowHeight;
-	int m_iPreviewCellSmall;
-	int m_iPreviewCellMedium;
-	int m_iPreviewCellLarge;
 	int m_iCountBadgeWidth;
 	int m_iFontTiny;
 	int m_iFontSmall;
@@ -1758,14 +1755,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			height = layoutHeight;
 	}
 
-	protected int GetLayoutSquareSize(WorkspaceWidget workspace, Widget widget, int fallbackSize)
-	{
-		int width;
-		int height;
-		GetRegionLayoutSize(workspace, widget, fallbackSize, fallbackSize, width, height);
-		return Math.Max(1, Math.Min(width, height));
-	}
-
 	protected void DeleteEditorRoot()
 	{
 		if (m_RootWidget)
@@ -1982,9 +1971,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_iListHeight = Math.Max(ScalePx(1), m_Layout.m_iMainTop + m_Layout.m_iMainHeight - m_Layout.m_iListTop - ScalePx(42));
 
 		m_Layout.m_iSlotRowHeight = ScalePx(84);
-		m_Layout.m_iPreviewCellSmall = ClampInt(ScalePx(50), 42, 62);
-		m_Layout.m_iPreviewCellMedium = ClampInt(ScalePx(66), 56, 76);
-		m_Layout.m_iPreviewCellLarge = ClampInt(ScalePx(76), 64, 88);
 		m_Layout.m_iCountBadgeWidth = ClampInt(ScalePx(88), 70, 104);
 
 		m_Layout.m_iFontTiny = ScaleFont(10);
@@ -2055,9 +2041,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_iContentHeight = m_Layout.m_iRailHeight;
 
 		m_Layout.m_iSlotRowHeight = ScalePx(84);
-		m_Layout.m_iPreviewCellSmall = ClampInt(ScalePx(50), 42, 62);
-		m_Layout.m_iPreviewCellMedium = ClampInt(ScalePx(66), 56, 76);
-		m_Layout.m_iPreviewCellLarge = ClampInt(ScalePx(76), 64, 88);
 		m_Layout.m_iCountBadgeWidth = ClampInt(ScalePx(88), 70, 104);
 
 		m_Layout.m_iFontTiny = ScaleFont(10);
@@ -2423,7 +2406,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			secondaryText = "Empty Slot";
 
 		bool canOpen = nodeIndex >= 0 && nodeIndex < m_aNodeCanOpen.Count() && m_aNodeCanOpen[nodeIndex];
-		AddNodePreviewToRow(workspace, row, nodeIndex, userId, Math.Min(m_Layout.m_iPreviewCellMedium, ScalePx(64)));
+		AddNodePreviewToRow(workspace, row, nodeIndex, userId);
 		AddNodeOverlayText(workspace, row, primaryText, secondaryText, canOpen, userId);
 	}
 
@@ -2456,7 +2439,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowImageColor(row, "VolumeBack", GetVolumeTrackColor(), 1.0);
 		SetStorageVolumeFill(row, nodeIndex);
 
-		AddNodePreviewToRow(workspace, row, nodeIndex, userId, Math.Min(m_Layout.m_iPreviewCellLarge, ScalePx(64)));
+		AddNodePreviewToRow(workspace, row, nodeIndex, userId);
 		AddStorageContainerOverlayText(workspace, row, primaryText, secondaryText, metaText, userId);
 	}
 
@@ -2477,7 +2460,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedStoredItemNodeId)
 			color = GetSelectedRowColor();
 		SetRowImageColor(row, "Background", color, 0.98);
-		AddNodePreviewToRow(workspace, row, nodeIndex, userId, Math.Min(m_Layout.m_iPreviewCellMedium, ScalePx(62)));
+		AddNodePreviewToRow(workspace, row, nodeIndex, userId);
 		AddStorageItemOverlayText(workspace, row, GetNodeDisplay(nodeIndex), countText, userId);
 	}
 
@@ -2559,9 +2542,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		anchor.SetOpacity(1.0);
 		anchor.SetZOrder(20);
 
-		int previewSize = GetLayoutSquareSize(workspace, anchor, Math.Min(m_Layout.m_iPreviewCellMedium, ScalePx(64)));
 		ShowRowPreviewChrome(row);
-		CreateCandidatePreviewCell(workspace, anchor, candidateIndex, 0, 0, previewSize, userId, 0xFFE6E6E6);
+		CreateCandidatePreviewCell(workspace, anchor, candidateIndex, userId, 0xFFE6E6E6);
 	}
 
 	protected void AddCandidateListOverlayText(WorkspaceWidget workspace, Widget row, string name, string countText, int userId)
@@ -2703,7 +2685,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowTextOrHide(tile, "Count", countText, 0xFFFFD166, m_Layout.m_iFontSmall, true, false);
 	}
 
-	protected void AddNodePreviewToRow(WorkspaceWidget workspace, Widget row, int nodeIndex, int userId, int size)
+	protected void AddNodePreviewToRow(WorkspaceWidget workspace, Widget row, int nodeIndex, int userId)
 	{
 		Widget anchor = FindRowWidget(row, "PreviewAnchor");
 		if (!anchor)
@@ -2713,9 +2695,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		anchor.SetOpacity(1.0);
 		anchor.SetZOrder(20);
 
-		int previewSize = GetLayoutSquareSize(workspace, anchor, Math.Max(1, size));
 		ShowRowPreviewChrome(row);
-		CreateNodePreviewCell(workspace, anchor, nodeIndex, 0, 0, previewSize, userId, 0xFFE6E6E6);
+		CreateNodePreviewCell(workspace, anchor, nodeIndex, userId, 0xFFE6E6E6);
 	}
 
 	protected void AddCandidatePreviewToRow(WorkspaceWidget workspace, Widget row, int candidateIndex, int userId)
@@ -2728,9 +2709,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		anchor.SetOpacity(1.0);
 		anchor.SetZOrder(20);
 
-		int previewSize = GetLayoutSquareSize(workspace, anchor, Math.Min(ScalePx(82), Math.Max(m_Layout.m_iPreviewCellLarge, ScalePx(76))));
 		ShowRowPreviewChrome(row);
-		CreateCandidatePreviewCell(workspace, anchor, candidateIndex, 0, 0, previewSize, userId, 0xFFE6E6E6);
+		CreateCandidatePreviewCell(workspace, anchor, candidateIndex, userId, 0xFFE6E6E6);
 	}
 
 	protected void ShowRowPreviewChrome(Widget row)
@@ -3902,10 +3882,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget anchor = root.FindAnyWidget("CandidateHeaderPreviewAnchor");
 		if (anchor)
-		{
-			int previewSize = GetLayoutSquareSize(workspace, anchor, m_Layout.m_iPreviewCellMedium);
-			CreateNodePreviewCell(workspace, anchor, nodeIndex, 0, 0, previewSize, 0, 0xFFE6E6E6);
-		}
+			CreateNodePreviewCell(workspace, anchor, nodeIndex, 0, 0xFFE6E6E6);
 
 		SetLoadoutText(root, "CandidateHeaderSlot", GetNodeLabel(nodeIndex), 0xFFE2E6E8, m_Layout.m_iFontNormal, true, false);
 		SetLoadoutText(root, "CandidateHeaderName", ShortenText(GetNodeDisplay(nodeIndex), 38), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, false);
@@ -6898,7 +6875,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return m_ItemPreviewManager;
 	}
 
-	protected Widget CreateItemPreviewCell(WorkspaceWidget workspace, Widget parent, int left, int top, int size, int userId)
+	protected Widget CreateItemPreviewCell(WorkspaceWidget workspace, Widget parent, int userId)
 	{
 		if (!workspace || !parent)
 			return null;
@@ -6907,8 +6884,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!cell)
 			return null;
 
-		FrameSlot.SetPos(cell, left, top);
-		FrameSlot.SetSize(cell, size, size);
 		cell.SetVisible(true);
 		cell.SetOpacity(1.0);
 		cell.SetZOrder(20);
@@ -7070,10 +7045,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return true;
 	}
 
-	protected bool CreateNodePreviewCell(WorkspaceWidget workspace, Widget root, int nodeIndex, int left, int top, int size, int userId, int color)
+	protected bool CreateNodePreviewCell(WorkspaceWidget workspace, Widget root, int nodeIndex, int userId, int color)
 	{
 		ResourceName fallbackIcon = ResolveIconTexture(ResolveNodeIconKey(nodeIndex));
-		Widget cell = CreateItemPreviewCell(workspace, root, left, top, size, userId);
+		Widget cell = CreateItemPreviewCell(workspace, root, userId);
 		if (!cell)
 			return false;
 
@@ -7091,10 +7066,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return SetPreviewCellFromEntity(cell, itemEntity, fallbackIcon, color, itemEntity != null);
 	}
 
-	protected bool CreateCandidatePreviewCell(WorkspaceWidget workspace, Widget root, int candidateIndex, int left, int top, int size, int userId, int color)
+	protected bool CreateCandidatePreviewCell(WorkspaceWidget workspace, Widget root, int candidateIndex, int userId, int color)
 	{
 		ResourceName fallbackIcon = ResolveIconTexture(ResolveCandidateIconKey(candidateIndex));
-		Widget cell = CreateItemPreviewCell(workspace, root, left, top, size, userId);
+		Widget cell = CreateItemPreviewCell(workspace, root, userId);
 		if (!cell)
 			return false;
 

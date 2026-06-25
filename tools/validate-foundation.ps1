@@ -3951,6 +3951,32 @@ foreach ($requiredPreviewCellLayoutEntry in @(
 		throw "Loadout item preview cell layout is missing stable entry: $requiredPreviewCellLayoutEntry"
 	}
 }
+$loadoutPreviewCellFactoryMatch = [regex]::Match($loadoutEditorComponentText, "protected Widget CreateItemPreviewCell[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void BindItemPreviewCellChild")
+if (!$loadoutPreviewCellFactoryMatch.Success) {
+	throw "Loadout item preview cell factory is missing"
+}
+foreach ($forbiddenPreviewCellFactoryGeometry in @(
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"GetLayoutSquareSize",
+	"int left",
+	"int top",
+	"int size"
+)) {
+	if ($loadoutPreviewCellFactoryMatch.Value -match [regex]::Escape($forbiddenPreviewCellFactoryGeometry)) {
+		throw "Loadout item preview cell factory must rely on the stretched preview-cell layout: $forbiddenPreviewCellFactoryGeometry"
+	}
+}
+foreach ($forbiddenPreviewCellGeometryContract in @(
+	"GetLayoutSquareSize",
+	"CreateItemPreviewCell(WorkspaceWidget workspace, Widget parent, int left",
+	"CreateNodePreviewCell(WorkspaceWidget workspace, Widget root, int nodeIndex, int left",
+	"CreateCandidatePreviewCell(WorkspaceWidget workspace, Widget root, int candidateIndex, int left"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenPreviewCellGeometryContract)) {
+		throw "Loadout preview cells must be anchor-filled layout children, not script-sized widgets: $forbiddenPreviewCellGeometryContract"
+	}
+}
 if ($loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetPos(m_UILayerWidget") -or $loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetSize(m_UILayerWidget")) {
 	throw "Loadout editor must not manually size the stretched UI layer from script"
 }
@@ -4089,8 +4115,11 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"0x664B5960",
 	"PANEL_BACK_COLOR",
 	"0xF2151C20",
-	"GetLayoutSquareSize(workspace, anchor, Math.Min(ScalePx(82), Math.Max(m_Layout.m_iPreviewCellLarge, ScalePx(76))))",
-	"GetLayoutSquareSize(workspace, anchor, Math.Max(1, size))",
+	"CreateItemPreviewCell(WorkspaceWidget workspace, Widget parent, int userId)",
+	"CreateNodePreviewCell(WorkspaceWidget workspace, Widget root, int nodeIndex, int userId, int color)",
+	"CreateCandidatePreviewCell(WorkspaceWidget workspace, Widget root, int candidateIndex, int userId, int color)",
+	"CreateNodePreviewCell(workspace, anchor, nodeIndex, userId, 0xFFE6E6E6)",
+	"CreateCandidatePreviewCell(workspace, anchor, candidateIndex, userId, 0xFFE6E6E6)",
 	"AddStorageContainerOverlayText",
 	"AddStorageItemOverlayText",
 	"slotPreview.SetVisible(false)",
