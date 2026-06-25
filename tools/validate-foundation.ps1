@@ -730,9 +730,11 @@ foreach ($forbiddenSetupMapLayoutEntry in @(
 }
 foreach ($requiredConfirmModalLayoutEntry in @(
 	'Name "HST_SetupConfirmModalRoot"',
+	'Name "Dialog"',
 	'Name "Message"',
 	'Name "NoButton"',
 	'Name "YesButton"',
+	"Anchor 0 0 1 1",
 	"Anchor 0.5 0.5 0.5 0.5",
 	"OffsetLeft -310",
 	"OffsetRight 310"
@@ -744,7 +746,7 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 foreach ($requiredConfirmBlockerLayoutEntry in @(
 	'Name "HST_SetupConfirmBlocker"',
 	"Anchor 0 0 1 1",
-	"Color 0 0 0 0.66",
+	"Color 0 0 0 0.01",
 	'"Ignore Cursor" 0'
 )) {
 	if ($setupConfirmBlockerLayoutText -notmatch [regex]::Escape($requiredConfirmBlockerLayoutEntry)) {

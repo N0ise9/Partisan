@@ -7,7 +7,7 @@ PanelWidgetClass "{B55C6FB34BF96001}" {
   OffsetRight 0
   OffsetBottom 0
  }
- Color 0 0 0 0.66
+ Color 0 0 0 0.01
  style full
  "Is Visible" 1
  "Ignore Cursor" 0

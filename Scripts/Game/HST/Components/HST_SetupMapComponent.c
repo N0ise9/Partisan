@@ -596,8 +596,6 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 
 		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "HST_SetupMap");
-		HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
-		EnsureSetupPromptLayout(workspace);
 
 		if (!m_wSetupRoot)
 		{
@@ -610,14 +608,20 @@ class HST_SetupMapComponent : ScriptComponent
 			}
 
 			m_wSetupRoot.SetZOrder(SETUP_Z_ORDER);
-			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
 			m_aWidgets.Insert(m_wSetupRoot);
 			m_wMapMenuRoot = m_wSetupRoot.FindAnyWidget("MapMenu");
 			m_wOverlayRoot = m_wSetupRoot;
 
+			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
+			EnsureSetupPromptLayout(workspace);
 			ApplySetupLayerOrder();
 			UpdateSetupPrompt();
 			m_bOverlayDirty = true;
+		}
+		else
+		{
+			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
+			EnsureSetupPromptLayout(workspace);
 		}
 
 		if (!m_MapEntity)
@@ -1219,13 +1223,14 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 
 		SetWidgetLayer(modal, SETUP_MODAL_Z_ORDER + 3, true);
-		SetWidgetLayer(modal.FindAnyWidget("Background"), SETUP_MODAL_Z_ORDER + 4, true);
-		SetWidgetLayer(modal.FindAnyWidget("TopAccent"), SETUP_MODAL_Z_ORDER + 5, true);
-		SetWidgetLayer(modal.FindAnyWidget("Message"), SETUP_MODAL_Z_ORDER + 6, true);
-		SetWidgetLayer(modal.FindAnyWidget("NoButton"), SETUP_MODAL_Z_ORDER + 7, true);
-		SetWidgetLayer(modal.FindAnyWidget("YesButton"), SETUP_MODAL_Z_ORDER + 7, true);
-		SetWidgetLayer(modal.FindAnyWidget("NoLabel"), SETUP_MODAL_Z_ORDER + 8, true);
-		SetWidgetLayer(modal.FindAnyWidget("YesLabel"), SETUP_MODAL_Z_ORDER + 8, true);
+		SetWidgetLayer(modal.FindAnyWidget("Dialog"), SETUP_MODAL_Z_ORDER + 4, true);
+		SetWidgetLayer(modal.FindAnyWidget("Background"), SETUP_MODAL_Z_ORDER + 5, true);
+		SetWidgetLayer(modal.FindAnyWidget("TopAccent"), SETUP_MODAL_Z_ORDER + 6, true);
+		SetWidgetLayer(modal.FindAnyWidget("Message"), SETUP_MODAL_Z_ORDER + 7, true);
+		SetWidgetLayer(modal.FindAnyWidget("NoButton"), SETUP_MODAL_Z_ORDER + 8, true);
+		SetWidgetLayer(modal.FindAnyWidget("YesButton"), SETUP_MODAL_Z_ORDER + 8, true);
+		SetWidgetLayer(modal.FindAnyWidget("NoLabel"), SETUP_MODAL_Z_ORDER + 9, true);
+		SetWidgetLayer(modal.FindAnyWidget("YesLabel"), SETUP_MODAL_Z_ORDER + 9, true);
 	}
 
 	protected void SetWidgetLayer(Widget widget, int zOrder, bool visible)

@@ -35,7 +35,7 @@ Current state:
 | `Scripts/Game/HST/Map/HST_CampaignMapMarkerDirector.c` | No UI geometry matches in audit grep | Allowed | Desired marker record builder is correctly separated from UI projection. |
 | `Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c` | No UI geometry matches in audit grep | Allowed | Native map marker reconciler owns native marker lifecycle, not UI widgets. |
 | `UI/layouts/HST_SetupHQMap.layout` | Native setup map shell | Allowed | Setup-only layout. Keep separated from gameplay map config. |
-| `UI/layouts/HST_SetupConfirmModal.layout` | Centered modal with real `NoButton` and `YesButton` | Allowed | Button behavior must remain widget-handler based. |
+| `UI/layouts/HST_SetupConfirmModal.layout` | Full-screen modal root with centered `Dialog` child and real `NoButton` / `YesButton` | Allowed | Button behavior must remain widget-handler based; the root can swallow outside clicks while the separate blocker stays visually transparent. |
 | `UI/layouts/HST_LoadoutEditor.layout` | Full-screen preview and named UI regions | Allowed, still expanding | Add dedicated tab/button/panel row layouts as script factories are retired. |
 | `Configs/Map/HST_SetupHQMap.conf` | Setup-only native map config with setup cursor module, marker UI, and optional zone overlay component | Allowed for setup only | Used only by `HST_SetupMapComponent`; keep setup selection behavior out of gameplay. |
 | `Configs/Map/HST_GameplayMap.conf` | Gameplay map config inheriting vanilla `MapFullscreen.conf` | Allowed | Keeps normal map tools and marker UI through the vanilla config instead of copying setup UI components. |
