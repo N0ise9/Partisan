@@ -984,14 +984,18 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		Widget root = workspace.CreateWidgets(ACTION_DIALOG_LAYOUT);
+		HST_UIDebug.LogLayoutCreate("command_action_dialog", ACTION_DIALOG_LAYOUT, root);
 		if (!root)
 			return;
+
+		HST_UIDebug.LogExpectedWidgetsCsv("command_action_dialog", root, "HST_ActionDialogRoot|Dialog|Title|Message|CancelButton|CancelLabel|ConfirmButton|ConfirmLabel");
 
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_MISSION_DIALOG);
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER, root, false, false, true))
 		{
+			HST_UIDebug.LogLayoutRejected("command_action_dialog", ACTION_DIALOG_LAYOUT, root, "UI root refused action modal");
 			root.RemoveFromHierarchy();
 			return;
 		}
@@ -1013,6 +1017,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		SetMenuText(root, "ConfirmLabel", "Confirm", 0xFF17110A, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
 		BindMenuClick(root, "CancelButton", ACTION_MODAL_CANCEL_WIDGET_ID);
 		BindMenuClick(root, "ConfirmButton", ACTION_MODAL_CONFIRM_WIDGET_ID);
+		HST_UIDebug.LogPopulation("command_action_dialog", string.Format("label=%1 command=%2 argument=%3 message=%4", ShortenText(label, 64), commandId, ShortenText(argument, 96), ShortenText(BuildActionConfirmMessage(label, commandId), 140)));
 	}
 
 	protected string BuildActionConfirmMessage(string label, string commandId)
@@ -1093,6 +1098,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		RenderMainSections(workspace, root);
 		RenderActivityPanel(workspace, root);
 		RenderActions(workspace, root);
+		HST_UIDebug.LogPopulation("command_menu", string.Format("selectedTab=%1 tabs=%2 stats=%3 sections=%4 rows=%5 contentItems=%6 actions=%7 feed=%8 status=%9", m_sSelectedTab, m_aTabIds.Count(), m_aStatLabels.Count(), m_aSectionIds.Count(), m_aRowLabels.Count(), m_aContentItemKinds.Count(), m_aActionLabels.Count(), m_aFeedLines.Count(), ShortenText(m_sStatusText, 120)));
 		return true;
 	}
 
@@ -1102,14 +1108,18 @@ class HST_CommandMenuComponent : ScriptComponent
 			BuildResponsiveLayout(workspace);
 
 		Widget root = workspace.CreateWidgets(COMMAND_MENU_LAYOUT);
+		HST_UIDebug.LogLayoutCreate("command_menu", COMMAND_MENU_LAYOUT, root);
 		if (!root)
 			return null;
+
+		HST_UIDebug.LogExpectedWidgetsCsv("command_menu", root, "HST_CommandMenuRoot|CommandSurface|Header|HeaderTitle|HeaderSubtitle|HeaderTabTitle|CloseButton|CloseLabel|NavigationPanel|TabScroll|TabItems|StatsPanel|StatLayout|MainPanel|MainScroll|MainItems|ActivityPanel|ActivityScroll|ActivityItems|ActionsPanel|ActionsScroll|ActionsItems");
 
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", root, true, false, false))
 		{
+			HST_UIDebug.LogLayoutRejected("command_menu", COMMAND_MENU_LAYOUT, root, "UI root refused command menu");
 			root.RemoveFromHierarchy();
 			return null;
 		}
@@ -1304,6 +1314,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 			Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
 			DebugRowCreated("COMMAND_ACTION_ROW_LAYOUT tab", row);
+			HST_UIDebug.LogRowSample("command_menu_tabs", COMMAND_ACTION_ROW_LAYOUT, i, string.Format("tab=%1 label=%2 selected=%3 focused=%4 enabled=%5 userId=%6 row=%7", m_aTabIds[i], ShortenText(m_aTabLabels[i], 48), selected, focused, m_aTabEnabled[i], TAB_WIDGET_ID_BASE + i, HST_UIDebug.WidgetSummary(row)));
 			if (!row)
 				continue;
 
@@ -1312,6 +1323,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			SetRowImageColor(row, "Background", background, opacity);
 			SetRowText(row, "Label", label, color, m_Layout.m_iFontNormal, selected, true);
 		}
+
+		HST_UIDebug.LogRowSummary("command_menu_tabs", COMMAND_ACTION_ROW_LAYOUT, m_aTabLabels.Count(), string.Format("selectedTab=%1 focusedControl=%2", m_sSelectedTab, m_iSelectedControl));
 	}
 
 	protected void RenderMainSections(WorkspaceWidget workspace, Widget root)
@@ -1332,6 +1345,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_DATA_ROW_COMPACT_LAYOUT, items);
 			DebugRowCreated("COMMAND_DATA_ROW_COMPACT_LAYOUT", row);
+			HST_UIDebug.LogRowSample("command_menu_main", COMMAND_DATA_ROW_COMPACT_LAYOUT, 0, string.Format("emptyStatus=%1 row=%2", ShortenText(m_sStatusText, 120), HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -1340,6 +1354,7 @@ class HST_CommandMenuComponent : ScriptComponent
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
 			}
 
+			HST_UIDebug.LogRowSummary("command_menu_main", COMMAND_DATA_ROW_COMPACT_LAYOUT, 1, "fallback status row");
 			RestoreScrollPixels(m_ContentScroll, m_fContentScrollY);
 			return;
 		}
@@ -1347,6 +1362,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		for (int i = 0; i < m_aContentItemKinds.Count(); i++)
 			AddCommandContentRow(workspace, items, i);
 
+		HST_UIDebug.LogRowSummary("command_menu_main", COMMAND_DATA_ROW_LAYOUT, m_aContentItemKinds.Count(), string.Format("sections=%1 dataRows=%2 selectedTab=%3", m_aSectionIds.Count(), m_aRowLabels.Count(), m_sSelectedTab));
 		RestoreScrollPixels(m_ContentScroll, m_fContentScrollY);
 	}
 
@@ -1364,14 +1380,14 @@ class HST_CommandMenuComponent : ScriptComponent
 			int sectionIndex = m_aContentItemSectionIndexes[contentIndex];
 			Widget row = workspace.CreateWidgets(COMMAND_SECTION_ROW_LAYOUT, items);
 			DebugRowCreated("COMMAND_SECTION_ROW_LAYOUT", row);
+			string title = "";
+			if (sectionIndex >= 0 && sectionIndex < m_aSectionTitles.Count())
+				title = m_aSectionTitles[sectionIndex];
+			HST_UIDebug.LogRowSample("command_menu_main", COMMAND_SECTION_ROW_LAYOUT, contentIndex, string.Format("kind=section sectionIndex=%1 title=%2 row=%3", sectionIndex, ShortenText(title, 64), HST_UIDebug.WidgetSummary(row)));
 			if (!row)
 				return;
 
 			PrepareRowRoot(row);
-
-			string title = "";
-			if (sectionIndex >= 0 && sectionIndex < m_aSectionTitles.Count())
-				title = m_aSectionTitles[sectionIndex];
 
 			SetRowText(row, "Title", title, 0xFFEFE2C4, m_Layout.m_iFontTitle, true, true);
 			SetRowImageColor(row, "Background", 0xFF263341, 0.72);
@@ -1382,6 +1398,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_DATA_ROW_LAYOUT, items);
 			DebugRowCreated("COMMAND_DATA_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("command_menu_main", COMMAND_DATA_ROW_LAYOUT, contentIndex, string.Format("kind=empty row=%1", HST_UIDebug.WidgetSummary(row)));
 			if (!row)
 				return;
 
@@ -1407,6 +1424,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		Widget row = workspace.CreateWidgets(layout, items);
 		DebugRowCreated(layoutLabel, row);
+		HST_UIDebug.LogRowSample("command_menu_main", layout, contentIndex, string.Format("kind=data rowIndex=%1 label=%2 value=%3 tone=%4 row=%5", rowIndex, ShortenText(m_aRowLabels[rowIndex], 48), ShortenText(m_aRowValues[rowIndex], 96), m_aRowTones[rowIndex], HST_UIDebug.WidgetSummary(row)));
 		if (!row)
 			return;
 
@@ -1451,11 +1469,13 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_FEED_ROW_LAYOUT, items);
 			DebugRowCreated("COMMAND_FEED_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, 0, string.Format("emptyFeed=true row=%1", HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
 				SetRowText(row, "Text", "Waiting for HQ traffic.", 0xFFAFBAC1, m_Layout.m_iFontNormal, false, true);
 			}
+			HST_UIDebug.LogRowSummary("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, 1, "fallback feed row");
 			RestoreScrollPixels(m_FeedScroll, m_fFeedScrollY);
 			return;
 		}
@@ -1464,6 +1484,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_FEED_ROW_LAYOUT, items);
 			DebugRowCreated("COMMAND_FEED_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, i, string.Format("text=%1 tone=%2 row=%3", ShortenText(m_aFeedLines[i], 96), m_aFeedTones[i], HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -1471,6 +1492,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			}
 		}
 
+		HST_UIDebug.LogRowSummary("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, m_aFeedLines.Count(), string.Format("status=%1", ShortenText(BuildResultText(), 96)));
 		RestoreScrollPixels(m_FeedScroll, m_fFeedScrollY);
 	}
 
@@ -1494,6 +1516,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
 			DebugRowCreated("COMMAND_ACTION_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("command_menu_actions", COMMAND_ACTION_ROW_LAYOUT, 0, string.Format("emptyActions=true row=%1", HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -1501,6 +1524,7 @@ class HST_CommandMenuComponent : ScriptComponent
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
 			}
 
+			HST_UIDebug.LogRowSummary("command_menu_actions", COMMAND_ACTION_ROW_LAYOUT, 1, "fallback action row");
 			RestoreScrollPixels(m_ActionScroll, m_fActionScrollY);
 			return;
 		}
@@ -1508,6 +1532,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		for (int i = 0; i < m_aActionLabels.Count(); i++)
 			AddCommandActionRow(workspace, items, i);
 
+		HST_UIDebug.LogRowSummary("command_menu_actions", COMMAND_ACTION_ROW_LAYOUT, m_aActionLabels.Count(), string.Format("selectedTab=%1 focusedControl=%2", m_sSelectedTab, m_iSelectedControl));
 		RestoreScrollPixels(m_ActionScroll, m_fActionScrollY);
 		EnsureSelectedActionVisible();
 	}
@@ -1522,6 +1547,13 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
 		DebugRowCreated("COMMAND_ACTION_ROW_LAYOUT", row);
+		string debugCommandId = "";
+		if (actionIndex < m_aActionCommands.Count())
+			debugCommandId = m_aActionCommands[actionIndex];
+		string debugArgument = "";
+		if (actionIndex < m_aActionArguments.Count())
+			debugArgument = m_aActionArguments[actionIndex];
+		HST_UIDebug.LogRowSample("command_menu_actions", COMMAND_ACTION_ROW_LAYOUT, actionIndex, string.Format("label=%1 command=%2 argument=%3 enabled=%4 row=%5", ShortenText(m_aActionLabels[actionIndex], 64), debugCommandId, ShortenText(debugArgument, 96), (actionIndex >= m_aActionEnabled.Count() || m_aActionEnabled[actionIndex]), HST_UIDebug.WidgetSummary(row)));
 		if (!row)
 			return;
 

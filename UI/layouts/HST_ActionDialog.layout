@@ -14,10 +14,15 @@ FrameWidgetClass "{D66CFA01E5AA4200}" {
    Name "Dialog"
    Slot FrameWidgetSlot "{D66CFA01E5AA4203}" {
     Anchor 0.5 0.5 0.5 0.5
-    OffsetLeft -320
-    OffsetTop -170
-    OffsetRight 320
-    OffsetBottom 170
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 640
+    OffsetRight -640
+    SizeY 340
+    OffsetBottom -340
+    Alignment 0.5 0.5
    }
    "Is Visible" 1
    "Ignore Cursor" 0
@@ -75,10 +80,10 @@ FrameWidgetClass "{D66CFA01E5AA4200}" {
     ButtonWidgetClass "{D66CFA01E5AA420C}" {
      Name "CancelButton"
      Slot FrameWidgetSlot "{D66CFA01E5AA420D}" {
-      Anchor 0.5 1 0.5 1
-      OffsetLeft -180
+      Anchor 0 1 1 1
+      OffsetLeft 140
       OffsetTop -70
-      OffsetRight -20
+      OffsetRight -340
       OffsetBottom -24
      }
      Color 0.27 0.33 0.36 1
@@ -110,10 +115,10 @@ FrameWidgetClass "{D66CFA01E5AA4200}" {
     ButtonWidgetClass "{D66CFA01E5AA4212}" {
      Name "ConfirmButton"
      Slot FrameWidgetSlot "{D66CFA01E5AA4213}" {
-      Anchor 0.5 1 0.5 1
-      OffsetLeft 20
+      Anchor 0 1 1 1
+      OffsetLeft 340
       OffsetTop -70
-      OffsetRight 180
+      OffsetRight -140
       OffsetBottom -24
      }
      Color 0.77 0.58 0.23 1

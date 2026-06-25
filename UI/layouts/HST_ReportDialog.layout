@@ -14,10 +14,15 @@ FrameWidgetClass "{D66CFA01E5AA4100}" {
    Name "Dialog"
    Slot FrameWidgetSlot "{D66CFA01E5AA4103}" {
     Anchor 0.5 0.5 0.5 0.5
-    OffsetLeft -470
-    OffsetTop -290
-    OffsetRight 470
-    OffsetBottom 290
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 940
+    OffsetRight -940
+    SizeY 580
+    OffsetBottom -580
+    Alignment 0.5 0.5
    }
    "Is Visible" 1
    "Ignore Cursor" 0

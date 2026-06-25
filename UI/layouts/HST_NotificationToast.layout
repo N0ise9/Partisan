@@ -14,10 +14,15 @@ FrameWidgetClass "{A34F448C7E830601}" {
    Name "Toast"
    Slot FrameWidgetSlot "{A34F448C7E830604}" {
     Anchor 0.5 0 0.5 0
-    OffsetLeft -420
+    PositionX 0
+    OffsetLeft 0
+    PositionY 28
     OffsetTop 28
-    OffsetRight 420
-    OffsetBottom 118
+    SizeX 840
+    OffsetRight -840
+    SizeY 90
+    OffsetBottom -90
+    Alignment 0.5 0
    }
    "Is Visible" 1
    "Ignore Cursor" 1

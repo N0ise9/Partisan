@@ -259,6 +259,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ref array<string> m_aTemplateDisplays = {};
 	protected ref array<int> m_aTemplateSlotCounts = {};
 	protected ref array<Widget> m_aWidgets = {};
+	protected int m_iDebugPreviewCellLogIndex;
 	protected ref HST_LoadoutEditorLayoutMetrics m_Layout;
 	protected ref HST_LoadoutEditorWidgetHandler m_WidgetHandler;
 	protected ref HST_LoadoutEditorVisualSettings m_VisualSettings;
@@ -1380,6 +1381,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		root.SetZOrder(HST_UIConstants.Z_LOADOUT_EDITOR);
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent", root, true, true, false))
 		{
+			HST_UIDebug.LogLayoutRejected("loadout_editor", EDITOR_LAYOUT, root, "UI root refused loadout editor");
 			DeleteEditorRoot();
 			return false;
 		}
@@ -1399,6 +1401,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		RefreshPreviewWorldLoadout();
 
 		Widget uiRoot = ResolveUILayer(root);
+		m_iDebugPreviewCellLogIndex = 0;
 		ResetLoadoutModeRegions(uiRoot);
 		ConfigurePreviewDragSurface(uiRoot);
 		RenderLeftButtons(workspace, uiRoot);
@@ -1431,6 +1434,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 		RenderPreviewStage(workspace, uiRoot);
 		RenderContextHints(workspace, uiRoot);
+		string debugSummary = string.Format("mode=%1 candidateMode=%2 selectedNode=%3 selectedSlot=%4 selectedStorage=%5 selectedStoredItem=%6 category=%7 nodes=%8 visibleNodes=%9", m_sEditorMode, m_bCandidateMode, ShortenText(m_sSelectedNodeId, 48), ShortenText(m_sSelectedSlotId, 48), ShortenText(m_sSelectedStorageContainerNodeId, 48), ShortenText(m_sSelectedStoredItemNodeId, 48), m_sSelectedCategory, m_aNodeIds.Count(), m_aVisibleNodeIndexes.Count());
+		debugSummary = debugSummary + " " + string.Format("candidates=%1 visibleCandidates=%2 templates=%3 raw=%4x%5 layout=%6x%7", m_aCandidatePrefabs.Count(), m_aVisibleCandidateIndexes.Count(), m_aTemplateIds.Count(), m_iRawWorkspaceWidth, m_iRawWorkspaceHeight, m_iEditorLayoutWidth, m_iEditorLayoutHeight);
+		debugSummary = debugSummary + " " + string.Format("rail=%1x%2 main=%3x%4 previewWidget=%5 previewWorld=%6", m_Layout.m_iRailWidth, m_Layout.m_iRailHeight, m_Layout.m_iMainWidth, m_Layout.m_iMainHeight, m_PreviewWidget != null, m_PreviewWorld != null);
+		debugSummary = debugSummary + " " + string.Format("root=%1 ui=%2", HST_UIDebug.WidgetSummary(root), HST_UIDebug.WidgetSummary(uiRoot));
+		HST_UIDebug.LogPopulation("loadout_editor", debugSummary);
 		return true;
 	}
 
@@ -1442,6 +1450,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_RootWidget)
 			m_RootWidget = workspace.CreateWidgets(EDITOR_LAYOUT);
 
+		HST_UIDebug.LogLayoutCreate("loadout_editor", EDITOR_LAYOUT, m_RootWidget);
 		if (!m_RootWidget)
 			return null;
 
@@ -1451,6 +1460,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_bRootFromLayout = true;
 		m_UILayerWidget = null;
+		HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|LeftButtons|LoadoutBackButton|LoadoutCloseButton|TopTabs|TopTabItems|LeftRail|SlotRailScroll|SlotRailItems|StorageContainerItems|StorageContentItems|CandidateList|CandidateItems|StorageBrowser|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|Toast|ToastText|PreviewUnavailableText");
 		return m_RootWidget;
 	}
 
@@ -1854,6 +1864,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			nextIndex = 0;
 
 		AddLoadoutTabButton(workspace, items, "E", "", MODE_WIDGET_ID_BASE + nextIndex, false);
+		HST_UIDebug.LogRowSummary("loadout_mode_tabs", LOADOUT_TAB_BUTTON_LAYOUT, GetEditorModeCount() + 2, string.Format("activeMode=%1 activeIndex=%2", m_sEditorMode, activeIndex));
 	}
 
 	protected void AddLoadoutTabButton(WorkspaceWidget workspace, Widget parent, string fallback, ResourceName texture, int userId, bool active)
@@ -1886,11 +1897,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (SetLoadoutImageTexture(tab, "Icon", texture, foreground))
 		{
 			SetLoadoutWidgetVisible(tab, "Fallback", false);
+			HST_UIDebug.LogRowSample("loadout_mode_tabs", LOADOUT_TAB_BUTTON_LAYOUT, Math.Max(0, userId - MODE_WIDGET_ID_BASE), string.Format("userId=%1 active=%2 fallback=%3 texture=%4 image=true row=%5", userId, active, fallback, texture, HST_UIDebug.WidgetSummary(tab)));
 			return;
 		}
 
 		SetLoadoutWidgetVisible(tab, "Icon", false);
 		SetLoadoutText(tab, "Fallback", fallback, foreground, ScaleFont(22), true, false);
+		HST_UIDebug.LogRowSample("loadout_mode_tabs", LOADOUT_TAB_BUTTON_LAYOUT, Math.Max(0, userId - MODE_WIDGET_ID_BASE), string.Format("userId=%1 active=%2 fallback=%3 texture=%4 image=false row=%5", userId, active, fallback, texture, HST_UIDebug.WidgetSummary(tab)));
 	}
 
 	protected void RenderSlotRail(WorkspaceWidget workspace, Widget root)
@@ -1935,6 +1948,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
 			DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("loadout_slot_rows", LOADOUT_NODE_ROW_LAYOUT, 0, string.Format("empty=true reason=no visible nodes mode=%1 category=%2 row=%3", m_sEditorMode, m_sSelectedCategory, HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -1945,6 +1959,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 		}
 
+		HST_UIDebug.LogRowSummary("loadout_slot_rows", LOADOUT_NODE_ROW_LAYOUT, Math.Max(1, visibleIndex), string.Format("mode=%1 category=%2 selectedNode=%3 visible=%4 totalNodes=%5", m_sEditorMode, m_sSelectedCategory, ShortenText(m_sSelectedNodeId, 48), visibleIndex, m_aNodeIds.Count()));
 		RestoreScrollPixels(m_SlotScroll, m_fSlotScrollY);
 	}
 
@@ -1991,6 +2006,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ROW_LAYOUT, containerItems);
 			DebugRowCreated("LOADOUT_STORAGE_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("loadout_storage_containers", LOADOUT_STORAGE_ROW_LAYOUT, 0, string.Format("empty=true reason=no equipped storage row=%1", HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -2025,6 +2041,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ITEM_ROW_LAYOUT, contentItems);
 			DebugRowCreated("LOADOUT_STORAGE_ITEM_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("loadout_storage_items", LOADOUT_STORAGE_ITEM_ROW_LAYOUT, 0, string.Format("empty=true selectedStorage=%1 row=%2", ShortenText(selectedStorageNodeId, 48), HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -2034,6 +2051,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 		}
 
+		HST_UIDebug.LogRowSummary("loadout_storage_containers", LOADOUT_STORAGE_ROW_LAYOUT, Math.Max(1, visibleIndex), string.Format("selectedStorage=%1 storageRows=%2 totalNodes=%3", ShortenText(selectedStorageNodeId, 48), visibleIndex, m_aNodeIds.Count()));
+		HST_UIDebug.LogRowSummary("loadout_storage_items", LOADOUT_STORAGE_ITEM_ROW_LAYOUT, Math.Max(1, contentRows), string.Format("selectedStorage=%1 contentRows=%2 visibleNodes=%3", ShortenText(selectedStorageNodeId, 48), contentRows, m_aVisibleNodeIndexes.Count()));
 		RestoreScrollPixels(m_StorageContainerScroll, m_fStorageContainerScrollY);
 		RestoreScrollPixels(m_StorageContentScroll, m_fStorageContentScrollY);
 	}
@@ -2108,6 +2127,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			Widget row = workspace.CreateWidgets(LOADOUT_CANDIDATE_TILE_LAYOUT, items);
 			DebugRowCreated("LOADOUT_CANDIDATE_TILE_LAYOUT", row);
+			HST_UIDebug.LogRowSample("loadout_storage_candidates", LOADOUT_CANDIDATE_TILE_LAYOUT, 0, string.Format("empty=true target=%1 category=%2 text=%3 row=%4", ShortenText(targetNodeId, 48), m_sSelectedCategory, ShortenText(emptyText, 96), HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -2122,6 +2142,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 		}
 
+		HST_UIDebug.LogRowSummary("loadout_storage_candidates", LOADOUT_CANDIDATE_TILE_LAYOUT, Math.Max(1, visibleIndex), string.Format("target=%1 category=%2 visible=%3 totalCandidates=%4", ShortenText(ResolveSelectedStorageContainerNodeId(), 48), m_sSelectedCategory, visibleIndex, m_aCandidatePrefabs.Count()));
 		RestoreScrollPixels(m_StorageCandidateScroll, m_fStorageCandidateScrollY);
 	}
 
@@ -2132,6 +2153,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
 		DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
+		DebugLoadoutNodeRow("loadout_slot_rows", LOADOUT_NODE_ROW_LAYOUT, Math.Max(0, userId - NODE_WIDGET_ID_BASE), row, nodeIndex, userId, "slot");
 		if (!row)
 			return;
 
@@ -2163,6 +2185,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ROW_LAYOUT, items);
 		DebugRowCreated("LOADOUT_STORAGE_ROW_LAYOUT", row);
+		DebugLoadoutNodeRow("loadout_storage_containers", LOADOUT_STORAGE_ROW_LAYOUT, Math.Max(0, userId - NODE_WIDGET_ID_BASE), row, nodeIndex, userId, "storage_container");
 		if (!row)
 			return;
 
@@ -2196,6 +2219,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ITEM_ROW_LAYOUT, items);
 		DebugRowCreated("LOADOUT_STORAGE_ITEM_ROW_LAYOUT", row);
+		DebugLoadoutNodeRow("loadout_storage_items", LOADOUT_STORAGE_ITEM_ROW_LAYOUT, Math.Max(0, userId - NODE_WIDGET_ID_BASE), row, nodeIndex, userId, "storage_item");
 		if (!row)
 			return;
 
@@ -2261,6 +2285,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
 		DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
+		DebugLoadoutCandidateRow("loadout_candidate_rows", LOADOUT_NODE_ROW_LAYOUT, Math.Max(0, userId - CANDIDATE_WIDGET_ID_BASE), row, candidateIndex, userId, "candidate_list");
 		if (!row)
 			return;
 
@@ -2311,6 +2336,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
 		DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
+		DebugLoadoutTemplateRow("loadout_templates", LOADOUT_NODE_ROW_LAYOUT, templateIndex, row, templateIndex, userId);
 		if (!row)
 			return;
 
@@ -2338,6 +2364,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget tile = workspace.CreateWidgets(LOADOUT_CANDIDATE_TILE_LAYOUT, items);
 		DebugRowCreated("LOADOUT_CANDIDATE_TILE_LAYOUT", tile);
+		DebugLoadoutCandidateRow("loadout_storage_candidates", LOADOUT_CANDIDATE_TILE_LAYOUT, Math.Max(0, userId - CANDIDATE_WIDGET_ID_BASE), tile, candidateIndex, userId, "storage_candidate_tile");
 		if (!tile)
 			return;
 
@@ -2664,6 +2691,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
 			DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("loadout_candidate_rows", LOADOUT_NODE_ROW_LAYOUT, 0, string.Format("empty=true selectedNode=%1 text=%2 row=%3", ShortenText(m_sSelectedNodeId, 48), ShortenText(emptyText, 96), HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -2677,6 +2705,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 		}
 
+		HST_UIDebug.LogRowSummary("loadout_candidate_rows", LOADOUT_NODE_ROW_LAYOUT, Math.Max(1, visibleIndex), string.Format("selectedNode=%1 visible=%2 totalCandidates=%3 requested=%4", ShortenText(m_sSelectedNodeId, 48), visibleIndex, m_aCandidatePrefabs.Count(), FindStringIndex(m_aRequestedCandidateNodeIds, m_sSelectedNodeId) >= 0));
 		RestoreScrollPixels(m_CandidateScroll, m_fCandidateScrollY);
 	}
 
@@ -2711,6 +2740,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
 			DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("loadout_templates", LOADOUT_NODE_ROW_LAYOUT, 0, string.Format("empty=true row=%1", HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -2724,6 +2754,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 		}
 
+		HST_UIDebug.LogRowSummary("loadout_templates", LOADOUT_NODE_ROW_LAYOUT, Math.Max(1, m_aTemplateIds.Count()), string.Format("selectedTemplate=%1 templates=%2", ShortenText(m_sSelectedTemplateId, 48), m_aTemplateIds.Count()));
 		RestoreScrollPixels(m_TemplateScroll, m_fTemplateScrollY);
 	}
 
@@ -4850,6 +4881,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			string category = GetStorageBrowserCategoryId(i);
 			bool active = category == m_sSelectedCategory;
+			HST_UIDebug.LogRowSample("loadout_storage_category_tabs", LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT, i, string.Format("category=%1 label=%2 count=%3 active=%4 userId=%5 row=%6", category, ShortenText(GetStorageBrowserCategoryLabel(category), 48), CountStorageCandidatesForTab(category), active, STORAGE_CATEGORY_WIDGET_ID_BASE + i, HST_UIDebug.WidgetSummary(tab)));
 
 			int background = GetTabBackColor();
 			int accent = 0x884B5960;
@@ -4869,6 +4901,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (!SetLoadoutImageTexture(tab, "Icon", ResolveIconTexture(category), foreground))
 				SetLoadoutWidgetVisible(tab, "Icon", false);
 		}
+
+		HST_UIDebug.LogRowSummary("loadout_storage_category_tabs", LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT, count, string.Format("selectedCategory=%1 target=%2", m_sSelectedCategory, ShortenText(ResolveSelectedStorageContainerNodeId(), 48)));
 	}
 
 	protected int CountStorageCandidatesForTab(string tabCategory)
@@ -6621,6 +6655,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return null;
 
 		Widget cell = workspace.CreateWidgets(ITEM_PREVIEW_CELL_LAYOUT, parent);
+		int debugIndex = m_iDebugPreviewCellLogIndex;
+		m_iDebugPreviewCellLogIndex++;
+		HST_UIDebug.LogRowSample("loadout_preview_cells", ITEM_PREVIEW_CELL_LAYOUT, debugIndex, string.Format("userId=%1 parent=%2 cell=%3", userId, HST_UIDebug.WidgetSummary(parent), HST_UIDebug.WidgetSummary(cell)));
 		if (!cell)
 			return null;
 
@@ -6939,6 +6976,104 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		DebugLog("ui row failed to create " + label);
+	}
+
+	protected void DebugLoadoutNodeRow(string owner, ResourceName layout, int sampleIndex, Widget row, int nodeIndex, int userId, string role)
+	{
+		string nodeId = "";
+		string parentId = "";
+		string kind = "";
+		string slotKey = "";
+		string label = "";
+		string display = "";
+		string count = "";
+		string prefab = "";
+		bool canOpen;
+		bool canRemove;
+		bool canDeposit;
+		bool selected;
+
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
+		{
+			nodeId = m_aNodeIds[nodeIndex];
+			selected = nodeId == m_sSelectedNodeId || nodeId == m_sSelectedStorageContainerNodeId || nodeId == m_sSelectedStoredItemNodeId;
+		}
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeParents.Count())
+			parentId = m_aNodeParents[nodeIndex];
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeKinds.Count())
+			kind = m_aNodeKinds[nodeIndex];
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeSlotKeys.Count())
+			slotKey = m_aNodeSlotKeys[nodeIndex];
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeLabels.Count())
+			label = m_aNodeLabels[nodeIndex];
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeDisplays.Count())
+			display = m_aNodeDisplays[nodeIndex];
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeCounts.Count())
+			count = m_aNodeCounts[nodeIndex];
+		if (nodeIndex >= 0 && nodeIndex < m_aNodePrefabs.Count())
+			prefab = m_aNodePrefabs[nodeIndex];
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanOpen.Count())
+			canOpen = m_aNodeCanOpen[nodeIndex];
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanRemove.Count())
+			canRemove = m_aNodeCanRemove[nodeIndex];
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanDeposit.Count())
+			canDeposit = m_aNodeCanDeposit[nodeIndex];
+
+		string nodeSummary = string.Format("role=%1 nodeIndex=%2 userId=%3 id=%4 parent=%5 kind=%6 slot=%7", role, nodeIndex, userId, ShortenText(nodeId, 48), ShortenText(parentId, 48), kind, slotKey);
+		nodeSummary = nodeSummary + " " + string.Format("label=%1 display=%2 count=%3 prefabSet=%4 selected=%5 canOpen=%6 canRemove=%7 canDeposit=%8 row=%9", ShortenText(label, 48), ShortenText(display, 64), count, !prefab.IsEmpty(), selected, canOpen, canRemove, canDeposit, HST_UIDebug.WidgetSummary(row));
+		HST_UIDebug.LogRowSample(owner, layout, sampleIndex, nodeSummary);
+	}
+
+	protected void DebugLoadoutCandidateRow(string owner, ResourceName layout, int sampleIndex, Widget row, int candidateIndex, int userId, string role)
+	{
+		string nodeId = "";
+		string display = "";
+		string count = "";
+		string kind = "";
+		string prefab = "";
+		bool compatible;
+		bool ammoMatch;
+		bool currentItem;
+
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateNodeIds.Count())
+			nodeId = m_aCandidateNodeIds[candidateIndex];
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateDisplays.Count())
+			display = m_aCandidateDisplays[candidateIndex];
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateCounts.Count())
+			count = m_aCandidateCounts[candidateIndex];
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateKinds.Count())
+			kind = m_aCandidateKinds[candidateIndex];
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidatePrefabs.Count())
+			prefab = m_aCandidatePrefabs[candidateIndex];
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateCompatible.Count())
+			compatible = m_aCandidateCompatible[candidateIndex];
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count())
+			ammoMatch = m_aCandidateAmmoMatch[candidateIndex];
+		currentItem = IsCandidateCurrentNodeItem(candidateIndex);
+
+		string candidateSummary = string.Format("role=%1 candidateIndex=%2 userId=%3 nodeId=%4 display=%5 count=%6 kind=%7 prefabSet=%8 compatible=%9", role, candidateIndex, userId, ShortenText(nodeId, 48), ShortenText(display, 64), count, kind, !prefab.IsEmpty(), compatible);
+		candidateSummary = candidateSummary + " " + string.Format("ammoMatch=%1 current=%2 row=%3", ammoMatch, currentItem, HST_UIDebug.WidgetSummary(row));
+		HST_UIDebug.LogRowSample(owner, layout, sampleIndex, candidateSummary);
+	}
+
+	protected void DebugLoadoutTemplateRow(string owner, ResourceName layout, int sampleIndex, Widget row, int templateIndex, int userId)
+	{
+		string templateId = "";
+		string display = "";
+		int slots;
+		bool selected;
+
+		if (templateIndex >= 0 && templateIndex < m_aTemplateIds.Count())
+		{
+			templateId = m_aTemplateIds[templateIndex];
+			selected = templateId == m_sSelectedTemplateId;
+		}
+		if (templateIndex >= 0 && templateIndex < m_aTemplateDisplays.Count())
+			display = m_aTemplateDisplays[templateIndex];
+		if (templateIndex >= 0 && templateIndex < m_aTemplateSlotCounts.Count())
+			slots = m_aTemplateSlotCounts[templateIndex];
+
+		HST_UIDebug.LogRowSample(owner, layout, sampleIndex, string.Format("templateIndex=%1 userId=%2 id=%3 display=%4 slots=%5 selected=%6 row=%7", templateIndex, userId, ShortenText(templateId, 48), ShortenText(display, 64), slots, selected, HST_UIDebug.WidgetSummary(row)));
 	}
 
 	protected void SetRowText(Widget row, string widgetName, string text, int color, int fontSize, bool bold, bool wrap = true)

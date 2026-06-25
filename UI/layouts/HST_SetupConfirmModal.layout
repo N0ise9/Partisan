@@ -16,10 +16,15 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
    Name "Dialog"
    Slot FrameWidgetSlot "{B55C6FB34BF9401A}" {
     Anchor 0.5 0.5 0.5 0.5
-    OffsetLeft -310
-    OffsetTop -140
-    OffsetRight 310
-    OffsetBottom 140
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 620
+    OffsetRight -620
+    SizeY 280
+    OffsetBottom -280
+    Alignment 0.5 0.5
    }
    "Is Visible" 1
    "Ignore Cursor" 0
@@ -69,10 +74,10 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
     ButtonWidgetClass "{B55C6FB34BF94009}" {
      Name "NoButton"
      Slot FrameWidgetSlot "{B55C6FB34BF9400A}" {
-      Anchor 0.5 1 0.5 1
-      OffsetLeft -172
+      Anchor 0 1 1 1
+      OffsetLeft 138
       OffsetTop -74
-      OffsetRight -12
+      OffsetRight -322
       OffsetBottom -24
      }
      Color 0.27 0.33 0.36 1
@@ -119,10 +124,10 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
     ButtonWidgetClass "{B55C6FB34BF9400D}" {
      Name "YesButton"
      Slot FrameWidgetSlot "{B55C6FB34BF9400E}" {
-      Anchor 0.5 1 0.5 1
-      OffsetLeft 12
+      Anchor 0 1 1 1
+      OffsetLeft 322
       OffsetTop -74
-      OffsetRight 172
+      OffsetRight -138
       OffsetBottom -24
      }
      Color 0.77 0.58 0.23 1

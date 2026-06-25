@@ -121,23 +121,41 @@ FrameWidgetClass "{A7B8C9D001234550}" {
        }
        Color 0.37 0.42 0.46 1
        {
-        PanelWidgetClass "{A7B8C9D00123602C}" {
-         Name "CloseButtonBackground"
+        FrameWidgetClass "{A7B8C9D00123602C}" {
+         Name "CloseButtonBody"
          Slot ButtonWidgetSlot "{A7B8C9D00123602D}" {
          }
-         Color 0.37 0.42 0.46 1
-         style full
          "Ignore Cursor" 1
-        }
-        TextWidgetClass "{A7B8C9D00123602E}" {
-         Name "CloseLabel"
-         Slot ButtonWidgetSlot "{A7B8C9D00123602F}" {
+         {
+          PanelWidgetClass "{A7B8C9D00123602E}" {
+           Name "CloseButtonBackground"
+           Slot FrameWidgetSlot "{A7B8C9D00123602F}" {
+            Anchor 0 0 1 1
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 0
+            OffsetBottom 0
+           }
+           Color 0.37 0.42 0.46 1
+           style full
+           "Ignore Cursor" 1
+          }
+          TextWidgetClass "{A7B8C9D001236110}" {
+           Name "CloseLabel"
+           Slot FrameWidgetSlot "{A7B8C9D001236111}" {
+            Anchor 0 0 1 1
+            OffsetLeft 12
+            OffsetTop 10
+            OffsetRight -12
+            OffsetBottom -8
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Close"
+           "Horizontal Alignment" Center
+           "Vertical Alignment" Center
+          }
          }
-         "No Localization" 1
-         "Ignore Cursor" 1
-         Text "Close"
-         "Horizontal Alignment" Center
-         "Vertical Alignment" Center
         }
        }
       }

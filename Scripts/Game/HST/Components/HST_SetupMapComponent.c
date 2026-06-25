@@ -92,6 +92,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected string m_sLastResult;
 	protected string m_sLastSetupZoneOverlaySignature;
 	protected string m_sLastSetupCandidateOverlaySignature;
+	protected string m_sLastPromptDebugText;
 	protected vector m_vWorldMin = "0 0 0";
 	protected vector m_vWorldMax = "12800 0 12800";
 	protected vector m_vCandidatePosition = "0 0 0";
@@ -596,12 +597,15 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_wSetupRoot)
 		{
 			m_wSetupRoot = workspace.CreateWidgets(SETUP_NATIVE_MAP_LAYOUT);
+			HST_UIDebug.LogLayoutCreate("setup_map", SETUP_NATIVE_MAP_LAYOUT, m_wSetupRoot);
 			if (!m_wSetupRoot)
 			{
 				m_sStatusText = "setup map layout failed to load";
 				DebugLog("native setup map layout failed to load");
 				return;
 			}
+
+			HST_UIDebug.LogExpectedWidgetsCsv("setup_map", m_wSetupRoot, "HST_SetupHQMap|MapMenu|MapFrame|MapWidget|DrawingContainer");
 
 			m_wSetupRoot.SetZOrder(HST_UIConstants.Z_SETUP_MAP);
 			m_aWidgets.Insert(m_wSetupRoot);
@@ -759,12 +763,12 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void OnNativeMapPan(float panX, float panY, bool adjusted)
 	{
-		QueueOverlayRedraw("pan");
+		// The map overlay component owns pan/zoom redraws. Setup only republishes content changes.
 	}
 
 	protected void OnNativeMapZoom(float zoom)
 	{
-		QueueOverlayRedraw("zoom");
+		// The map overlay component owns pan/zoom redraws. Setup only republishes content changes.
 	}
 
 	protected void OnNativeMapOpenComplete(MapConfiguration config)
@@ -1065,13 +1069,15 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_wSetupRoot)
 			return;
 
-		m_wPromptRoot = workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, m_wSetupRoot);
+		m_wPromptRoot = workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT);
+		HST_UIDebug.LogLayoutCreate("setup_prompt", SETUP_PROMPT_BANNER_LAYOUT, m_wPromptRoot);
 		if (!m_wPromptRoot)
 		{
 			DebugLog("setup prompt banner layout failed to load");
 			return;
 		}
 
+		m_aWidgets.Insert(m_wPromptRoot);
 		m_wPromptRoot.SetVisible(true);
 		m_wPromptRoot.SetOpacity(1.0);
 		m_wPromptRoot.SetZOrder(HST_UIConstants.Z_SETUP_PROMPT);
@@ -1079,6 +1085,8 @@ class HST_SetupMapComponent : ScriptComponent
 		m_wPromptText = TextWidget.Cast(m_wPromptRoot.FindAnyWidget("HST_SetupPromptText"));
 		m_wPromptPanel = m_wPromptRoot.FindAnyWidget("HST_SetupPromptPanel");
 		m_wPromptRule = m_wPromptRoot.FindAnyWidget("HST_SetupPromptRule");
+		HST_UIDebug.LogExpectedWidgetsCsv("setup_prompt", m_wPromptRoot, "HST_SetupPromptBannerRoot|HST_SetupPromptPanel|HST_SetupPromptRule|HST_SetupPromptText");
+		DebugLog(string.Format("setup prompt banner layout created text=%1 panel=%2 rule=%3", m_wPromptText != null, m_wPromptPanel != null, m_wPromptRule != null));
 		ApplySetupPromptStyle();
 		ApplySetupLayerOrder();
 		UpdateSetupPrompt();
@@ -1108,6 +1116,11 @@ class HST_SetupMapComponent : ScriptComponent
 			prompt = "Select a location on the map to place the HQ";
 
 		m_wPromptText.SetText(prompt);
+		if (prompt != m_sLastPromptDebugText)
+		{
+			m_sLastPromptDebugText = prompt;
+			HST_UIDebug.LogPopulation("setup_prompt", string.Format("text=%1 commander=%2 active=%3 confirm=%4 awaiting=%5", ShortenText(prompt, 120), m_bIsCommander, m_bSetupActive, m_bConfirmOpen, m_bAwaitingServer));
+		}
 	}
 
 	protected void ApplySetupLayerOrder()
@@ -1156,7 +1169,8 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_wSetupRoot)
 			return;
 
-		Widget modal = workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, m_wSetupRoot);
+		Widget modal = workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT);
+		HST_UIDebug.LogLayoutCreate("setup_confirm_modal", SETUP_CONFIRM_MODAL_LAYOUT, modal);
 		if (!modal)
 		{
 			DebugLog("setup confirmation modal layout failed to load");
@@ -1169,6 +1183,8 @@ class HST_SetupMapComponent : ScriptComponent
 		modal.AddHandler(m_WidgetHandler);
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER, modal, false, true, true))
 		{
+			DebugLog("setup confirmation modal rejected by UI root service");
+			HST_UIDebug.LogLayoutRejected("setup_confirm_modal", SETUP_CONFIRM_MODAL_LAYOUT, modal, "UI root refused setup-owned modal");
 			modal.RemoveFromHierarchy();
 			return;
 		}
@@ -1181,6 +1197,9 @@ class HST_SetupMapComponent : ScriptComponent
 
 		BindConfirmModalButton(modal, "NoButton", CONFIRM_NO_WIDGET_ID);
 		BindConfirmModalButton(modal, "YesButton", CONFIRM_YES_WIDGET_ID);
+		HST_UIDebug.LogExpectedWidgetsCsv("setup_confirm_modal", modal, "HST_SetupConfirmModalRoot|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
+		HST_UIDebug.LogPopulation("setup_confirm_modal", string.Format("candidate=%1 valid=%2 awaiting=%3 status=%4", m_vCandidatePosition, m_bCandidateValid, m_bAwaitingServer, ShortenText(m_sStatusText, 120)));
+		DebugLog(string.Format("setup confirmation modal layout created dialog=%1 message=%2 no=%3 yes=%4", modal.FindAnyWidget("Dialog") != null, modal.FindAnyWidget("Message") != null, modal.FindAnyWidget("NoButton") != null, modal.FindAnyWidget("YesButton") != null));
 
 		TextWidget message = TextWidget.Cast(modal.FindAnyWidget("Message"));
 		if (message)

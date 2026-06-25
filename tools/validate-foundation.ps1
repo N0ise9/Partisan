@@ -744,8 +744,9 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 	"Color 0 0 0 0.01",
 	'"Ignore Cursor" 0',
 	"Anchor 0.5 0.5 0.5 0.5",
-	"OffsetLeft -310",
-	"OffsetRight 310"
+	"SizeX 620",
+	"OffsetRight -620",
+	"Alignment 0.5 0.5"
 )) {
 	if ($setupConfirmModalLayoutText -notmatch [regex]::Escape($requiredConfirmModalLayoutEntry)) {
 		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
@@ -756,8 +757,8 @@ foreach ($requiredSetupChromeEntry in @(
 	'SETUP_CONFIRM_MODAL_OWNER = "HST_SetupConfirmModal"',
 	"CONFIRM_BLOCKER_WIDGET_ID",
 	"SETUP_ZONE_OVERLAY_ENABLED = false",
-	"workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, m_wSetupRoot)",
-	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, m_wSetupRoot)",
+	"workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT)",
+	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT)",
 	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER, modal, false, true, true)",
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER)",
 	"m_wConfirmBlockerRoot = modal",
@@ -766,7 +767,17 @@ foreach ($requiredSetupChromeEntry in @(
 	"BindConfirmModalButton(modal, `"YesButton`", CONFIRM_YES_WIDGET_ID)"
 )) {
 	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupChromeEntry)) {
-		throw "Setup map component must parent prompt/modal chrome to the setup map root: $requiredSetupChromeEntry"
+		throw "Setup map component must create top-level prompt/modal chrome above the native setup map: $requiredSetupChromeEntry"
+	}
+}
+foreach ($forbiddenSetupChromeEntry in @(
+	"workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, m_wSetupRoot)",
+	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, m_wSetupRoot)",
+	'QueueOverlayRedraw("pan")',
+	'QueueOverlayRedraw("zoom")'
+)) {
+	if ($setupMapComponentText -match [regex]::Escape($forbiddenSetupChromeEntry)) {
+		throw "Setup chrome must not be hidden under the native map root or redraw on every map pan/zoom tick: $forbiddenSetupChromeEntry"
 	}
 }
 foreach ($requiredSetupMapLayerEntry in @(
@@ -894,6 +905,7 @@ foreach ($requiredUIRootFile in @(
 	"Scripts/Game/HST/UI/HST_UIConstants.c",
 	"Scripts/Game/HST/UI/HST_UIScreenBase.c",
 	"Scripts/Game/HST/UI/HST_UIRootService.c",
+	"Scripts/Game/HST/UI/HST_UIDebug.c",
 	"Scripts/Game/HST/UI/HST_NotificationToastController.c"
 )) {
 	if (!(Test-Path $requiredUIRootFile)) {
@@ -903,7 +915,29 @@ foreach ($requiredUIRootFile in @(
 $uiConstantsText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIConstants.c"
 $uiScreenBaseText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIScreenBase.c"
 $uiRootServiceText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIRootService.c"
+$uiDebugText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIDebug.c"
 $notificationToastControllerText = Get-Content -Raw "Scripts/Game/HST/UI/HST_NotificationToastController.c"
+foreach ($requiredUIDebugEntry in @(
+	"class HST_UIDebug",
+	"LAYOUT_DEBUG_ENABLED",
+	"LAYOUT_WIDGET_DEBUG_ENABLED",
+	"LAYOUT_POPULATION_DEBUG_ENABLED",
+	"LAYOUT_ROW_SAMPLE_DEBUG_ENABLED",
+	"LAYOUT_ROW_SAMPLE_LIMIT",
+	"LogLayoutCreate",
+	"LogLayoutRejected",
+	"LogExpectedWidgetsCsv",
+	"LogWidgetBound",
+	"LogPopulation",
+	"LogRowSample",
+	"LogRowSummary",
+	"WidgetSummary",
+	"h-istasi ui layout debug"
+)) {
+	if ($uiDebugText -notmatch [regex]::Escape($requiredUIDebugEntry)) {
+		throw "UI debug helper must expose layout diagnostics: $requiredUIDebugEntry"
+	}
+}
 foreach ($requiredUIRootEntry in @(
 	"HST_EUIScreenMode",
 	"SETUP_MAP",
@@ -1004,8 +1038,9 @@ foreach ($requiredNotificationToastLayoutEntry in @(
 	'Name "Message"',
 	"Anchor 0 0 1 1",
 	"Anchor 0.5 0 0.5 0",
-	"OffsetLeft -420",
-	"OffsetRight 420",
+	"SizeX 840",
+	"OffsetRight -840",
+	"Alignment 0.5 0",
 	'"Ignore Cursor" 1'
 )) {
 	if ($notificationToastLayoutText -notmatch [regex]::Escape($requiredNotificationToastLayoutEntry)) {
@@ -3330,6 +3365,93 @@ $loadoutEditorComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_
 $displayNameServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_DisplayNameService.c"
 $coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $requestBridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
+foreach ($requiredSetupUIDebugEntry in @(
+	'HST_UIDebug.LogLayoutCreate("setup_map"',
+	'HST_UIDebug.LogExpectedWidgetsCsv("setup_map"',
+	'HST_UIDebug.LogLayoutCreate("setup_prompt"',
+	'HST_UIDebug.LogExpectedWidgetsCsv("setup_prompt"',
+	'HST_UIDebug.LogPopulation("setup_prompt"',
+	'HST_UIDebug.LogLayoutCreate("setup_confirm_modal"',
+	'HST_UIDebug.LogLayoutRejected("setup_confirm_modal"',
+	'HST_UIDebug.LogExpectedWidgetsCsv("setup_confirm_modal"',
+	'HST_UIDebug.LogPopulation("setup_confirm_modal"'
+)) {
+	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupUIDebugEntry)) {
+		throw "Setup UI layouts must emit debug diagnostics: $requiredSetupUIDebugEntry"
+	}
+}
+foreach ($requiredNotificationUIDebugEntry in @(
+	'HST_UIDebug.LogLayoutCreate("notification_toast"',
+	'HST_UIDebug.LogExpectedWidgetsCsv("notification_toast"',
+	'HST_UIDebug.LogPopulation("notification_toast"'
+)) {
+	if ($notificationToastControllerText -notmatch [regex]::Escape($requiredNotificationUIDebugEntry)) {
+		throw "Notification toast layout must emit debug diagnostics: $requiredNotificationUIDebugEntry"
+	}
+}
+foreach ($requiredMissionUIDebugEntry in @(
+	'HST_UIDebug.LogLayoutCreate("mission_report_dialog"',
+	'HST_UIDebug.LogLayoutRejected("mission_report_dialog"',
+	'HST_UIDebug.LogExpectedWidgetsCsv("mission_report_dialog"',
+	'HST_UIDebug.LogPopulation("mission_report_dialog"',
+	'HST_UIDebug.LogWidgetBound("mission_report_dialog"',
+	'HST_UIDebug.LogRowSample("mission_report_objectives"',
+	'HST_UIDebug.LogRowSummary("mission_report_objectives"'
+)) {
+	if ($missionClientText -notmatch [regex]::Escape($requiredMissionUIDebugEntry)) {
+		throw "Mission report layouts must emit debug diagnostics: $requiredMissionUIDebugEntry"
+	}
+}
+foreach ($requiredCommandUIDebugEntry in @(
+	'HST_UIDebug.LogLayoutCreate("command_menu"',
+	'HST_UIDebug.LogExpectedWidgetsCsv("command_menu"',
+	'HST_UIDebug.LogPopulation("command_menu"',
+	'HST_UIDebug.LogRowSample("command_menu_tabs"',
+	'HST_UIDebug.LogRowSummary("command_menu_tabs"',
+	'HST_UIDebug.LogRowSample("command_menu_main"',
+	'HST_UIDebug.LogRowSummary("command_menu_main"',
+	'HST_UIDebug.LogRowSample("command_menu_activity"',
+	'HST_UIDebug.LogRowSummary("command_menu_activity"',
+	'HST_UIDebug.LogRowSample("command_menu_actions"',
+	'HST_UIDebug.LogRowSummary("command_menu_actions"',
+	'HST_UIDebug.LogLayoutCreate("command_action_dialog"',
+	'HST_UIDebug.LogPopulation("command_action_dialog"'
+)) {
+	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredCommandUIDebugEntry)) {
+		throw "Command UI layouts must emit debug diagnostics: $requiredCommandUIDebugEntry"
+	}
+}
+foreach ($requiredLoadoutUIDebugEntry in @(
+	'HST_UIDebug.LogLayoutCreate("loadout_editor"',
+	'HST_UIDebug.LogLayoutRejected("loadout_editor"',
+	'HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor"',
+	'HST_UIDebug.LogPopulation("loadout_editor"',
+	'HST_UIDebug.LogRowSample("loadout_mode_tabs"',
+	'HST_UIDebug.LogRowSummary("loadout_mode_tabs"',
+	'HST_UIDebug.LogRowSample("loadout_slot_rows"',
+	'HST_UIDebug.LogRowSummary("loadout_slot_rows"',
+	'HST_UIDebug.LogRowSample("loadout_storage_containers"',
+	'HST_UIDebug.LogRowSummary("loadout_storage_containers"',
+	'HST_UIDebug.LogRowSample("loadout_storage_items"',
+	'HST_UIDebug.LogRowSummary("loadout_storage_items"',
+	'HST_UIDebug.LogRowSample("loadout_candidate_rows"',
+	'HST_UIDebug.LogRowSummary("loadout_candidate_rows"',
+	'HST_UIDebug.LogRowSample("loadout_storage_candidates"',
+	'HST_UIDebug.LogRowSummary("loadout_storage_candidates"',
+	'HST_UIDebug.LogRowSample("loadout_templates"',
+	'HST_UIDebug.LogRowSummary("loadout_templates"',
+	'HST_UIDebug.LogRowSample("loadout_storage_category_tabs"',
+	'HST_UIDebug.LogRowSummary("loadout_storage_category_tabs"',
+	'HST_UIDebug.LogRowSample("loadout_preview_cells"',
+	"DebugLoadoutNodeRow",
+	"DebugLoadoutCandidateRow",
+	"DebugLoadoutTemplateRow"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutUIDebugEntry)) {
+		throw "Loadout editor layouts must emit debug diagnostics: $requiredLoadoutUIDebugEntry"
+	}
+}
+Write-Host "UI layout debug instrumentation OK"
 if ($loadoutEditorComponentText -notmatch [regex]::Escape("HST_NotificationToastController.Get().Show")) {
 	throw "Loadout editor action notifications must enqueue through HST_NotificationToastController"
 }

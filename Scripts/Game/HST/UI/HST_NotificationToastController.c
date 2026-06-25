@@ -88,8 +88,12 @@ class HST_NotificationToastController
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 
 		Widget root = workspace.CreateWidgets(NOTIFICATION_TOAST_LAYOUT);
+		HST_UIDebug.LogLayoutCreate("notification_toast", NOTIFICATION_TOAST_LAYOUT, root);
 		if (!root)
 			return;
+
+		HST_UIDebug.LogExpectedWidgetsCsv("notification_toast", root, "HST_NotificationRoot|Toast|Background|AccentLine|Title|Message");
+		HST_UIDebug.LogPopulation("notification_toast", string.Format("event=%1 category=%2 severity=%3 title=%4 message=%5 duration=%6 queueRemaining=%7", request.m_sEventId, request.m_sCategory, request.m_sSeverity, ShortenText(request.m_sTitle, 64), ShortenText(request.m_sMessage, 120), request.m_fDurationSeconds, m_aQueue.Count()));
 
 		root.SetVisible(true);
 		root.SetOpacity(1.0);

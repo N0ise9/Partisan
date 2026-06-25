@@ -299,6 +299,7 @@ class HST_MissionClientComponent : ScriptComponent
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 
 		Widget root = workspace.CreateWidgets(REPORT_DIALOG_LAYOUT);
+		HST_UIDebug.LogLayoutCreate("mission_report_dialog", REPORT_DIALOG_LAYOUT, root);
 		if (!root)
 			return false;
 
@@ -307,11 +308,14 @@ class HST_MissionClientComponent : ScriptComponent
 		root.SetZOrder(HST_UIConstants.Z_MISSION_DIALOG);
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", root, false, false, true))
 		{
+			HST_UIDebug.LogLayoutRejected("mission_report_dialog", REPORT_DIALOG_LAYOUT, root, "UI root refused mission dialog");
 			root.RemoveFromHierarchy();
 			return false;
 		}
 
 		m_aWidgets.Insert(root);
+		HST_UIDebug.LogExpectedWidgetsCsv("mission_report_dialog", root, "HST_ReportDialogRoot|Dialog|Background|CloseButton|CloseLabel|Title|Subtitle|LocationLabel|LocationValue|MapPositionLabel|MapPositionValue|RequirementLabel|RequirementValue|ProgressLabel|ProgressValue|RewardLabel|RewardValue|FailureLabel|FailureValue|ObjectiveItems");
+		HST_UIDebug.LogPopulation("mission_report_dialog", string.Format("missionId=%1 title=%2 category=%3 status=%4 remaining=%5 zone=%6 site=%7 position=%8", ShortenText(m_sSelectedMissionId, 48), ShortenText(m_aMissionTitles[index], 64), m_aMissionCategories[index], m_aMissionStatuses[index], m_aMissionRemaining[index], ShortenText(m_aMissionZones[index], 48), ShortenText(m_aMissionSites[index], 48), ShortenText(m_aMissionPositions[index], 48)));
 		if (!m_WidgetHandler)
 		{
 			m_WidgetHandler = new HST_MissionClientWidgetHandler();
@@ -343,13 +347,14 @@ class HST_MissionClientComponent : ScriptComponent
 			if (m_aObjectiveMissionIds[i] != m_sSelectedMissionId)
 				continue;
 
-			AddObjectiveRow(workspace, items, ShortenText(m_aObjectiveLabels[i], 42), ShortenText(m_aObjectiveProgress[i], 42), scale);
+			AddObjectiveRow(workspace, items, ShortenText(m_aObjectiveLabels[i], 42), ShortenText(m_aObjectiveProgress[i], 42), scale, rendered);
 			rendered++;
 		}
 
 		if (rendered == 0)
-			AddObjectiveRow(workspace, items, "No objective records.", "", scale);
+			AddObjectiveRow(workspace, items, "No objective records.", "", scale, rendered);
 
+		HST_UIDebug.LogRowSummary("mission_report_objectives", REPORT_OBJECTIVE_ROW_LAYOUT, Math.Max(1, rendered), string.Format("missionId=%1 realObjectives=%2", ShortenText(m_sSelectedMissionId, 48), rendered));
 		return true;
 	}
 
@@ -384,6 +389,7 @@ class HST_MissionClientComponent : ScriptComponent
 
 		widget.SetUserID(userId);
 		widget.AddHandler(m_WidgetHandler);
+		HST_UIDebug.LogWidgetBound("mission_report_dialog", root, widgetName, userId);
 	}
 
 	protected void SetDialogText(Widget root, string widgetName, string text, int color, int fontSize, bool bold, bool wrap)
@@ -406,12 +412,13 @@ class HST_MissionClientComponent : ScriptComponent
 		textWidget.SetColorInt(color);
 	}
 
-	protected void AddObjectiveRow(WorkspaceWidget workspace, Widget items, string label, string value, float scale)
+	protected void AddObjectiveRow(WorkspaceWidget workspace, Widget items, string label, string value, float scale, int rowIndex)
 	{
 		if (!workspace || !items)
 			return;
 
 		Widget row = workspace.CreateWidgets(REPORT_OBJECTIVE_ROW_LAYOUT, items);
+		HST_UIDebug.LogRowSample("mission_report_objectives", REPORT_OBJECTIVE_ROW_LAYOUT, rowIndex, string.Format("label=%1 value=%2 row=%3", ShortenText(label, 64), ShortenText(value, 64), HST_UIDebug.WidgetSummary(row)));
 		if (!row)
 			return;
 
