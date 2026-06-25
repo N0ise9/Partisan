@@ -44,11 +44,11 @@ ButtonWidgetClass "{A7B8C9D0012345C0}" {
         TextWidgetClass "{A7B8C9D0012345C2}" {
          Name "Text"
          Slot FrameWidgetSlot "{A7B8C9D0012345C3}" {
-          Anchor 0 0 1 1
-          OffsetLeft 0
-          OffsetTop 2
-          OffsetRight 0
-          OffsetBottom -2
+         Anchor 0 0 1 1
+         OffsetLeft 0
+         OffsetTop 2
+         OffsetRight 0
+          OffsetBottom 2
          }
          "Is Visible" 1
          "Ignore Cursor" 1

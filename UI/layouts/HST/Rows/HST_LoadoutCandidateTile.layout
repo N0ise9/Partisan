@@ -59,11 +59,11 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
         PanelWidgetClass "{A7B8C9D001236100}" {
          Name "PreviewBack"
          Slot FrameWidgetSlot "{A7B8C9D001236101}" {
-          Anchor 0 0 0 0
-          OffsetLeft 8
-          OffsetTop 8
-          OffsetRight 84
-          OffsetBottom 84
+         Anchor 0 0 0 0
+         OffsetLeft 8
+         OffsetTop 8
+          OffsetRight -84
+          OffsetBottom -84
          }
          Color 0.035 0.05 0.063 0.86
          style full
@@ -73,11 +73,11 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
         PanelWidgetClass "{A7B8C9D001236102}" {
          Name "PreviewLine"
          Slot FrameWidgetSlot "{A7B8C9D001236103}" {
-          Anchor 0 0 0 0
-          OffsetLeft 8
-          OffsetTop 8
-          OffsetRight 84
-          OffsetBottom 10
+         Anchor 0 0 0 0
+         OffsetLeft 8
+         OffsetTop 8
+          OffsetRight -84
+          OffsetBottom -10
          }
          Color 0.29 0.35 0.38 0.4
          style full
@@ -87,22 +87,22 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
         FrameWidgetClass "{A7B8C9D001234603}" {
          Name "PreviewAnchor"
          Slot FrameWidgetSlot "{A7B8C9D001234604}" {
-          Anchor 0 0 0 0
-          OffsetLeft 10
-          OffsetTop 10
-          OffsetRight 82
-          OffsetBottom 82
+         Anchor 0 0 0 0
+         OffsetLeft 10
+         OffsetTop 10
+          OffsetRight -82
+          OffsetBottom -82
          }
          "Ignore Cursor" 1
         }
         TextWidgetClass "{A7B8C9D001234605}" {
          Name "Name"
          Slot FrameWidgetSlot "{A7B8C9D001234606}" {
-          Anchor 0 0 1 1
-          OffsetLeft 112
-          OffsetTop 12
-          OffsetRight -116
-          OffsetBottom -12
+         Anchor 0 0 1 1
+         OffsetLeft 112
+         OffsetTop 12
+          OffsetRight 116
+          OffsetBottom 12
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -116,11 +116,11 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
         TextWidgetClass "{A7B8C9D001234607}" {
          Name "Count"
          Slot FrameWidgetSlot "{A7B8C9D001234608}" {
-          Anchor 1 0 1 0
-          OffsetLeft -98
-          OffsetTop 34
-          OffsetRight -18
-          OffsetBottom 58
+         Anchor 1 0 1 0
+         OffsetLeft -98
+         OffsetTop 34
+          OffsetRight 18
+          OffsetBottom -58
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -134,11 +134,11 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
         TextWidgetClass "{A7B8C9D001236110}" {
          Name "EmptyText"
          Slot FrameWidgetSlot "{A7B8C9D001236111}" {
-          Anchor 0 0 1 1
-          OffsetLeft 18
-          OffsetTop 24
-          OffsetRight -18
-          OffsetBottom -24
+         Anchor 0 0 1 1
+         OffsetLeft 18
+         OffsetTop 24
+          OffsetRight 18
+          OffsetBottom 24
          }
          "Is Visible" 0
          "No Localization" 1

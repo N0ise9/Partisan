@@ -87,11 +87,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D34230}" {
      Name "LeftButtons"
      Slot FrameWidgetSlot "{7B2FD986A4D34231}" {
-      Anchor 0 0.5 0 0.5
-      OffsetLeft 24
-      OffsetTop -54
-      OffsetRight 104
-      OffsetBottom 68
+     Anchor 0 0.5 0 0.5
+     OffsetLeft 24
+     OffsetTop -54
+      OffsetRight -104
+      OffsetBottom -68
      }
      "Is Visible" 1
      "Ignore Cursor" 0
@@ -103,7 +103,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 0
         OffsetRight 0
-        OffsetBottom 38
+        OffsetBottom -38
        }
        Color 0.07 0.09 0.11 0.98
        {
@@ -133,7 +133,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             OffsetLeft 0
             OffsetTop 0
             OffsetRight 0
-            OffsetBottom 3
+            OffsetBottom -3
            }
            Color 1 0.82 0.38 1
            style full
@@ -165,7 +165,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 90
         OffsetRight 0
-        OffsetBottom 122
+        OffsetBottom -122
        }
        Color 0.07 0.09 0.11 0.98
        {
@@ -195,7 +195,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             OffsetLeft 0
             OffsetTop 0
             OffsetRight 0
-            OffsetBottom 3
+            OffsetBottom -3
            }
            Color 1 0.82 0.38 1
            style full
@@ -225,11 +225,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D34115}" {
      Name "TopTabs"
      Slot FrameWidgetSlot "{7B2FD986A4D34215}" {
-      Anchor 0 0 0 0
-      OffsetLeft 116
-      OffsetTop 54
-      OffsetRight 720
-      OffsetBottom 126
+     Anchor 0 0 0 0
+     OffsetLeft 116
+     OffsetTop 54
+      OffsetRight -720
+      OffsetBottom -126
      }
      "Is Visible" 1
      "Ignore Cursor" 0
@@ -240,8 +240,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         Anchor 0 0 1 1
         OffsetLeft 38
         OffsetTop 0
-        OffsetRight -118
-        OffsetBottom -4
+        OffsetRight 118
+        OffsetBottom 4
        }
        Color 0.05 0.07 0.09 0.92
        style full
@@ -263,11 +263,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D34116}" {
      Name "LeftRail"
      Slot FrameWidgetSlot "{7B2FD986A4D34216}" {
-      Anchor 0 0 0 1
-      OffsetLeft 116
-      OffsetTop 132
-      OffsetRight 560
-      OffsetBottom -92
+     Anchor 0 0 0 1
+     OffsetLeft 116
+     OffsetTop 132
+      OffsetRight -560
+      OffsetBottom 92
      }
      "Is Visible" 1
      "Ignore Cursor" 0
@@ -292,7 +292,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 0
         OffsetRight 0
-        OffsetBottom 3
+        OffsetBottom -3
        }
        Color 1 0.82 0.38 1
        style full
@@ -304,8 +304,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         Anchor 0 0 1 1
         OffsetLeft 20
         OffsetTop 22
-        OffsetRight -20
-        OffsetBottom -22
+        OffsetRight 20
+        OffsetBottom 22
        }
        "Ignore Cursor" 0
        {
@@ -333,11 +333,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D34266}" {
          Name "SlotRailEmpty"
          Slot FrameWidgetSlot "{7B2FD986A4D34267}" {
-          Anchor 0 0 1 0
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 0
-          OffsetBottom 28
+         Anchor 0 0 1 0
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight 0
+          OffsetBottom -28
          }
          "Is Visible" 0
          "No Localization" 1
@@ -354,8 +354,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         Anchor 0 0 1 0
         OffsetLeft 20
         OffsetTop 18
-        OffsetRight -20
-        OffsetBottom 44
+        OffsetRight 20
+        OffsetBottom -44
        }
        "Is Visible" 0
        "No Localization" 1
@@ -370,8 +370,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         Anchor 0 0 1 0.52
         OffsetLeft 16
         OffsetTop 56
-        OffsetRight -16
-        OffsetBottom -18
+        OffsetRight 16
+        OffsetBottom 18
        }
        "Is Visible" 0
        "Ignore Cursor" 0
@@ -400,11 +400,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D34270}" {
          Name "StorageContainerEmpty"
          Slot FrameWidgetSlot "{7B2FD986A4D34271}" {
-          Anchor 0 0 1 0
-          OffsetLeft 6
-          OffsetTop 0
-          OffsetRight -6
-          OffsetBottom 28
+         Anchor 0 0 1 0
+         OffsetLeft 6
+         OffsetTop 0
+          OffsetRight 6
+          OffsetBottom -28
          }
          "Is Visible" 0
          "No Localization" 1
@@ -421,7 +421,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         Anchor 0 0.52 1 0.52
         OffsetLeft 16
         OffsetTop -10
-        OffsetRight -16
+        OffsetRight 16
         OffsetBottom -8
        }
        "Is Visible" 0
@@ -435,8 +435,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         Anchor 0 0.52 1 0.52
         OffsetLeft 22
         OffsetTop 0
-        OffsetRight -16
-        OffsetBottom 24
+        OffsetRight 16
+        OffsetBottom -24
        }
        "Is Visible" 0
        "No Localization" 1
@@ -451,8 +451,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         Anchor 0 0.52 1 1
         OffsetLeft 16
         OffsetTop 30
-        OffsetRight -16
-        OffsetBottom -28
+        OffsetRight 16
+        OffsetBottom 28
        }
        "Is Visible" 0
        "Ignore Cursor" 0
@@ -481,11 +481,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D3427C}" {
          Name "StorageContentEmpty"
          Slot FrameWidgetSlot "{7B2FD986A4D3427D}" {
-          Anchor 0 0 1 0
-          OffsetLeft 6
-          OffsetTop 0
-          OffsetRight -6
-          OffsetBottom 28
+         Anchor 0 0 1 0
+         OffsetLeft 6
+         OffsetTop 0
+          OffsetRight 6
+          OffsetBottom -28
          }
          "Is Visible" 0
          "No Localization" 1
@@ -501,31 +501,31 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D34117}" {
      Name "EditedSlotHeader"
      Slot FrameWidgetSlot "{7B2FD986A4D34217}" {
-      Anchor 0 0 0 0
-      OffsetLeft 116
-      OffsetTop 132
-      OffsetRight 560
-      OffsetBottom 226
+     Anchor 0 0 0 0
+     OffsetLeft 116
+     OffsetTop 132
+      OffsetRight -560
+      OffsetBottom -226
      }
     }
     FrameWidgetClass "{7B2FD986A4D34118}" {
      Name "SlotList"
      Slot FrameWidgetSlot "{7B2FD986A4D34218}" {
-      Anchor 0 0 0 1
-      OffsetLeft 116
-      OffsetTop 132
-      OffsetRight 560
-      OffsetBottom -92
+     Anchor 0 0 0 1
+     OffsetLeft 116
+     OffsetTop 132
+      OffsetRight -560
+      OffsetBottom 92
      }
     }
     FrameWidgetClass "{7B2FD986A4D34119}" {
      Name "CandidateList"
      Slot FrameWidgetSlot "{7B2FD986A4D34219}" {
-      Anchor 0 0 0 1
-      OffsetLeft 116
-      OffsetTop 132
-      OffsetRight 560
-      OffsetBottom -92
+     Anchor 0 0 0 1
+     OffsetLeft 116
+     OffsetTop 132
+      OffsetRight -560
+      OffsetBottom 92
      }
      "Is Visible" 0
      "Ignore Cursor" 0
@@ -546,11 +546,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       PanelWidgetClass "{7B2FD986A4D34302}" {
        Name "CandidateHeaderRule"
        Slot FrameWidgetSlot "{7B2FD986A4D34303}" {
-        Anchor 0 0 1 0
-        OffsetLeft 0
-        OffsetTop 94
-        OffsetRight 0
-        OffsetBottom 97
+       Anchor 0 0 1 0
+       OffsetLeft 0
+       OffsetTop 94
+       OffsetRight 0
+       OffsetBottom -97
        }
        Color 1 0.82 0.38 1
        style full
@@ -559,11 +559,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       PanelWidgetClass "{7B2FD986A4D34304}" {
        Name "CandidateHeaderPreviewBack"
        Slot FrameWidgetSlot "{7B2FD986A4D34305}" {
-        Anchor 0 0 0 0
-        OffsetLeft 26
-        OffsetTop 14
-        OffsetRight 94
-        OffsetBottom 82
+       Anchor 0 0 0 0
+       OffsetLeft 26
+       OffsetTop 14
+       OffsetRight -94
+       OffsetBottom -82
        }
        Color 0.035 0.05 0.063 0.86
        style full
@@ -572,11 +572,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       PanelWidgetClass "{7B2FD986A4D34306}" {
        Name "CandidateHeaderPreviewLine"
        Slot FrameWidgetSlot "{7B2FD986A4D34307}" {
-        Anchor 0 0 0 0
-        OffsetLeft 26
-        OffsetTop 14
-        OffsetRight 94
-        OffsetBottom 16
+       Anchor 0 0 0 0
+       OffsetLeft 26
+       OffsetTop 14
+       OffsetRight -94
+       OffsetBottom -16
        }
        Color 0.3 0.35 0.38 0.4
        style full
@@ -585,22 +585,22 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       FrameWidgetClass "{7B2FD986A4D34308}" {
        Name "CandidateHeaderPreviewAnchor"
        Slot FrameWidgetSlot "{7B2FD986A4D34309}" {
-        Anchor 0 0 0 0
-        OffsetLeft 28
-        OffsetTop 16
-        OffsetRight 92
-        OffsetBottom 80
+       Anchor 0 0 0 0
+       OffsetLeft 28
+       OffsetTop 16
+       OffsetRight -92
+       OffsetBottom -80
        }
        "Ignore Cursor" 1
       }
       TextWidgetClass "{7B2FD986A4D3430A}" {
        Name "CandidateHeaderSlot"
        Slot FrameWidgetSlot "{7B2FD986A4D3430B}" {
-        Anchor 0 0 1 0
-        OffsetLeft 106
-        OffsetTop 22
-        OffsetRight -52
-        OffsetBottom 44
+       Anchor 0 0 1 0
+       OffsetLeft 106
+       OffsetTop 22
+       OffsetRight 52
+       OffsetBottom -44
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -611,11 +611,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D3430C}" {
        Name "CandidateHeaderName"
        Slot FrameWidgetSlot "{7B2FD986A4D3430D}" {
-        Anchor 0 0 1 0
-        OffsetLeft 106
-        OffsetTop 48
-        OffsetRight -52
-        OffsetBottom 72
+       Anchor 0 0 1 0
+       OffsetLeft 106
+       OffsetTop 48
+       OffsetRight 52
+       OffsetBottom -72
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -626,11 +626,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D3430E}" {
        Name "CandidateHeaderMarker"
        Slot FrameWidgetSlot "{7B2FD986A4D3430F}" {
-        Anchor 1 0 1 0
-        OffsetLeft -44
-        OffsetTop 22
-        OffsetRight -24
-        OffsetBottom 44
+       Anchor 1 0 1 0
+       OffsetLeft -44
+       OffsetTop 22
+       OffsetRight 24
+       OffsetBottom -44
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -641,11 +641,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       ButtonWidgetClass "{7B2FD986A4D34310}" {
        Name "CandidateRemoveButton"
        Slot FrameWidgetSlot "{7B2FD986A4D34311}" {
-        Anchor 0 0 1 0
-        OffsetLeft 20
-        OffsetTop 114
-        OffsetRight -20
-        OffsetBottom 170
+       Anchor 0 0 1 0
+       OffsetLeft 20
+       OffsetTop 114
+       OffsetRight 20
+       OffsetBottom -170
        }
        "Is Visible" 0
        Color 0.07 0.09 0.11 0.98
@@ -672,11 +672,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           PanelWidgetClass "{7B2FD986A4D34316}" {
            Name "CandidateRemoveAccent"
            Slot FrameWidgetSlot "{7B2FD986A4D34317}" {
-            Anchor 0 0 1 0
-            OffsetLeft 0
-            OffsetTop 0
-            OffsetRight 0
-            OffsetBottom 3
+           Anchor 0 0 1 0
+           OffsetLeft 0
+           OffsetTop 0
+           OffsetRight 0
+           OffsetBottom -3
            }
            Color 1 0.82 0.38 1
            style full
@@ -688,7 +688,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 0 1
             OffsetLeft 20
             OffsetTop 0
-            OffsetRight 64
+            OffsetRight -64
             OffsetBottom 0
            }
            "No Localization" 1
@@ -703,7 +703,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 1
             OffsetLeft 82
             OffsetTop 0
-            OffsetRight -18
+            OffsetRight 18
             OffsetBottom 0
            }
            "No Localization" 1
@@ -719,11 +719,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       FrameWidgetClass "{7B2FD986A4D3431C}" {
        Name "CandidateListFrame"
        Slot FrameWidgetSlot "{7B2FD986A4D3431D}" {
-        Anchor 0 0 1 1
-        OffsetLeft 20
-        OffsetTop 184
-        OffsetRight -20
-        OffsetBottom -28
+       Anchor 0 0 1 1
+       OffsetLeft 20
+       OffsetTop 184
+       OffsetRight 20
+       OffsetBottom 28
        }
        "Ignore Cursor" 0
        {
@@ -751,11 +751,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D34322}" {
          Name "CandidateEmpty"
          Slot FrameWidgetSlot "{7B2FD986A4D34323}" {
-          Anchor 0 0 1 0
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 0
-          OffsetBottom 32
+         Anchor 0 0 1 0
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight 0
+          OffsetBottom -32
          }
          "Is Visible" 0
          "No Localization" 1
@@ -771,11 +771,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D3411A}" {
      Name "StorageBrowser"
      Slot FrameWidgetSlot "{7B2FD986A4D3421A}" {
-      Anchor 1 0 1 1
-      OffsetLeft -820
-      OffsetTop 132
-      OffsetRight -116
-      OffsetBottom -92
+     Anchor 1 0 1 1
+     OffsetLeft -820
+     OffsetTop 132
+      OffsetRight 116
+      OffsetBottom 92
      }
      "Is Visible" 0
      "Ignore Cursor" 0
@@ -796,11 +796,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       PanelWidgetClass "{7B2FD986A4D3424C}" {
        Name "StorageBrowserAccent"
        Slot FrameWidgetSlot "{7B2FD986A4D3424D}" {
-        Anchor 0 0 1 0
-        OffsetLeft 0
-        OffsetTop 0
-        OffsetRight 0
-        OffsetBottom 3
+       Anchor 0 0 1 0
+       OffsetLeft 0
+       OffsetTop 0
+       OffsetRight 0
+       OffsetBottom -3
        }
        Color 1 0.82 0.38 1
        style full
@@ -809,11 +809,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D3424E}" {
        Name "StorageBrowserTitle"
        Slot FrameWidgetSlot "{7B2FD986A4D3424F}" {
-        Anchor 0 0 1 0
-        OffsetLeft 20
-        OffsetTop 14
-        OffsetRight -20
-        OffsetBottom 40
+       Anchor 0 0 1 0
+       OffsetLeft 20
+       OffsetTop 14
+       OffsetRight 20
+       OffsetBottom -40
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -824,11 +824,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D34250}" {
        Name "StorageBrowserSubtitle"
        Slot FrameWidgetSlot "{7B2FD986A4D34251}" {
-        Anchor 0 0 1 0
-        OffsetLeft 20
-        OffsetTop 42
-        OffsetRight -20
-        OffsetBottom 66
+       Anchor 0 0 1 0
+       OffsetLeft 20
+       OffsetTop 42
+       OffsetRight 20
+       OffsetBottom -66
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -839,22 +839,22 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       HorizontalLayoutWidgetClass "{7B2FD986A4D34252}" {
        Name "StorageCategoryTabs"
        Slot FrameWidgetSlot "{7B2FD986A4D34253}" {
-        Anchor 0 0 1 0
-        OffsetLeft 20
-        OffsetTop 72
-        OffsetRight -20
-        OffsetBottom 150
+       Anchor 0 0 1 0
+       OffsetLeft 20
+       OffsetTop 72
+       OffsetRight 20
+       OffsetBottom -150
        }
        "Ignore Cursor" 0
       }
       FrameWidgetClass "{7B2FD986A4D34254}" {
        Name "StorageCandidateGrid"
        Slot FrameWidgetSlot "{7B2FD986A4D34255}" {
-        Anchor 0 0 1 1
-        OffsetLeft 20
-        OffsetTop 164
-        OffsetRight -20
-        OffsetBottom -46
+       Anchor 0 0 1 1
+       OffsetLeft 20
+       OffsetTop 164
+       OffsetRight 20
+       OffsetBottom 46
        }
        "Ignore Cursor" 0
        {
@@ -882,11 +882,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D3425A}" {
          Name "StorageCandidateEmpty"
          Slot FrameWidgetSlot "{7B2FD986A4D3425B}" {
-          Anchor 0 0 1 0
-          OffsetLeft 4
-          OffsetTop 8
-          OffsetRight -4
-          OffsetBottom 44
+         Anchor 0 0 1 0
+         OffsetLeft 4
+         OffsetTop 8
+          OffsetRight 4
+          OffsetBottom -44
          }
          "Is Visible" 0
          "No Localization" 1
@@ -902,11 +902,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D3411B}" {
      Name "SavePanel"
      Slot FrameWidgetSlot "{7B2FD986A4D3421B}" {
-      Anchor 0 0 0 1
-      OffsetLeft 116
-      OffsetTop 132
-      OffsetRight 560
-      OffsetBottom -92
+     Anchor 0 0 0 1
+     OffsetLeft 116
+     OffsetTop 132
+      OffsetRight -560
+      OffsetBottom 92
      }
      "Is Visible" 0
      "Ignore Cursor" 0
@@ -927,11 +927,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       PanelWidgetClass "{7B2FD986A4D34326}" {
        Name "SavePanelAccent"
        Slot FrameWidgetSlot "{7B2FD986A4D34327}" {
-        Anchor 0 0 1 0
-        OffsetLeft 0
-        OffsetTop 0
-        OffsetRight 0
-        OffsetBottom 3
+       Anchor 0 0 1 0
+       OffsetLeft 0
+       OffsetTop 0
+       OffsetRight 0
+       OffsetBottom -3
        }
        Color 1 0.82 0.38 1
        style full
@@ -940,11 +940,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D34328}" {
        Name "SavePanelTitle"
        Slot FrameWidgetSlot "{7B2FD986A4D34329}" {
-        Anchor 0 0 1 0
-        OffsetLeft 34
-        OffsetTop 22
-        OffsetRight -170
-        OffsetBottom 48
+       Anchor 0 0 1 0
+       OffsetLeft 34
+       OffsetTop 22
+       OffsetRight 170
+       OffsetBottom -48
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -955,11 +955,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       ButtonWidgetClass "{7B2FD986A4D3432A}" {
        Name "TemplateSaveButton"
        Slot FrameWidgetSlot "{7B2FD986A4D3432B}" {
-        Anchor 1 0 1 0
-        OffsetLeft -162
-        OffsetTop 22
-        OffsetRight -100
-        OffsetBottom 48
+       Anchor 1 0 1 0
+       OffsetLeft -162
+       OffsetTop 22
+       OffsetRight 100
+       OffsetBottom -48
        }
        Color 0.07 0.09 0.11 0.98
        {
@@ -985,11 +985,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           PanelWidgetClass "{7B2FD986A4D34330}" {
            Name "TemplateSaveAccent"
            Slot FrameWidgetSlot "{7B2FD986A4D34331}" {
-            Anchor 0 0 1 0
-            OffsetLeft 0
-            OffsetTop 0
-            OffsetRight 0
-            OffsetBottom 3
+           Anchor 0 0 1 0
+           OffsetLeft 0
+           OffsetTop 0
+           OffsetRight 0
+           OffsetBottom -3
            }
            Color 1 0.82 0.38 1
            style full
@@ -1017,11 +1017,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       ButtonWidgetClass "{7B2FD986A4D34334}" {
        Name "TemplateClearButton"
        Slot FrameWidgetSlot "{7B2FD986A4D34335}" {
-        Anchor 1 0 1 0
-        OffsetLeft -90
-        OffsetTop 22
-        OffsetRight -32
-        OffsetBottom 48
+       Anchor 1 0 1 0
+       OffsetLeft -90
+       OffsetTop 22
+       OffsetRight 32
+       OffsetBottom -48
        }
        Color 0.07 0.09 0.11 0.98
        {
@@ -1047,11 +1047,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           PanelWidgetClass "{7B2FD986A4D3433A}" {
            Name "TemplateClearAccent"
            Slot FrameWidgetSlot "{7B2FD986A4D3433B}" {
-            Anchor 0 0 1 0
-            OffsetLeft 0
-            OffsetTop 0
-            OffsetRight 0
-            OffsetBottom 3
+           Anchor 0 0 1 0
+           OffsetLeft 0
+           OffsetTop 0
+           OffsetRight 0
+           OffsetBottom -3
            }
            Color 1 0.82 0.38 1
            style full
@@ -1079,11 +1079,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       FrameWidgetClass "{7B2FD986A4D3433E}" {
        Name "TemplateList"
        Slot FrameWidgetSlot "{7B2FD986A4D3433F}" {
-        Anchor 0 0 1 1
-        OffsetLeft 20
-        OffsetTop 78
-        OffsetRight -20
-        OffsetBottom -28
+       Anchor 0 0 1 1
+       OffsetLeft 20
+       OffsetTop 78
+       OffsetRight 20
+       OffsetBottom 28
        }
        "Ignore Cursor" 0
        {
@@ -1111,11 +1111,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D34344}" {
          Name "TemplateEmpty"
          Slot FrameWidgetSlot "{7B2FD986A4D34345}" {
-          Anchor 0 0 1 0
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 0
-          OffsetBottom 32
+         Anchor 0 0 1 0
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight 0
+          OffsetBottom -32
          }
          "Is Visible" 0
          "No Localization" 1
@@ -1129,11 +1129,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       FrameWidgetClass "{7B2FD986A4D34346}" {
        Name "SettingsContent"
        Slot FrameWidgetSlot "{7B2FD986A4D34347}" {
-        Anchor 0 0 1 1
-        OffsetLeft 34
-        OffsetTop 82
-        OffsetRight -34
-        OffsetBottom -28
+       Anchor 0 0 1 1
+       OffsetLeft 34
+       OffsetTop 82
+       OffsetRight 34
+       OffsetBottom 28
        }
        "Is Visible" 0
        "Ignore Cursor" 0
@@ -1141,11 +1141,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         FrameWidgetClass "{7B2FD986A4D34348}" {
          Name "SettingsLightRow"
          Slot FrameWidgetSlot "{7B2FD986A4D34349}" {
-          Anchor 0 0 1 0
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 0
-          OffsetBottom 64
+         Anchor 0 0 1 0
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight 0
+          OffsetBottom -64
          }
          "Ignore Cursor" 0
          {
@@ -1155,8 +1155,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 0
-            OffsetRight -116
-            OffsetBottom 22
+            OffsetRight 116
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1170,8 +1170,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 24
-            OffsetRight -116
-            OffsetBottom 46
+            OffsetRight 116
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1185,8 +1185,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 1 0 1 0
             OffsetLeft -100
             OffsetTop 8
-            OffsetRight -58
-            OffsetBottom 40
+            OffsetRight 58
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1221,8 +1221,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 1 0 1 0
             OffsetLeft -44
             OffsetTop 8
-            OffsetRight -2
-            OffsetBottom 40
+            OffsetRight 2
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1256,11 +1256,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         FrameWidgetClass "{7B2FD986A4D3435A}" {
          Name "SettingsPanelPresetRow"
          Slot FrameWidgetSlot "{7B2FD986A4D3435B}" {
-          Anchor 0 0 1 0
-          OffsetLeft 0
-          OffsetTop 70
-          OffsetRight 0
-          OffsetBottom 126
+         Anchor 0 0 1 0
+         OffsetLeft 0
+         OffsetTop 70
+         OffsetRight 0
+          OffsetBottom -126
          }
          "Ignore Cursor" 0
          {
@@ -1270,8 +1270,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 0
-            OffsetRight -112
-            OffsetBottom 22
+            OffsetRight 112
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1285,8 +1285,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 24
-            OffsetRight -112
-            OffsetBottom 46
+            OffsetRight 112
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1301,7 +1301,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             OffsetLeft -92
             OffsetTop 8
             OffsetRight 0
-            OffsetBottom 40
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1335,11 +1335,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         FrameWidgetClass "{7B2FD986A4D34366}" {
          Name "SettingsAccentPresetRow"
          Slot FrameWidgetSlot "{7B2FD986A4D34367}" {
-          Anchor 0 0 1 0
-          OffsetLeft 0
-          OffsetTop 134
-          OffsetRight 0
-          OffsetBottom 190
+         Anchor 0 0 1 0
+         OffsetLeft 0
+         OffsetTop 134
+         OffsetRight 0
+          OffsetBottom -190
          }
          "Ignore Cursor" 0
          {
@@ -1349,8 +1349,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 0
-            OffsetRight -112
-            OffsetBottom 22
+            OffsetRight 112
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1364,8 +1364,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 24
-            OffsetRight -112
-            OffsetBottom 46
+            OffsetRight 112
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1380,7 +1380,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             OffsetLeft -92
             OffsetTop 8
             OffsetRight 0
-            OffsetBottom 40
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1414,11 +1414,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         FrameWidgetClass "{7B2FD986A4D34372}" {
          Name "SettingsRowPresetRow"
          Slot FrameWidgetSlot "{7B2FD986A4D34373}" {
-          Anchor 0 0 1 0
-          OffsetLeft 0
-          OffsetTop 198
-          OffsetRight 0
-          OffsetBottom 254
+         Anchor 0 0 1 0
+         OffsetLeft 0
+         OffsetTop 198
+         OffsetRight 0
+          OffsetBottom -254
          }
          "Ignore Cursor" 0
          {
@@ -1428,8 +1428,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 0
-            OffsetRight -112
-            OffsetBottom 22
+            OffsetRight 112
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1443,8 +1443,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 24
-            OffsetRight -112
-            OffsetBottom 46
+            OffsetRight 112
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1459,7 +1459,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             OffsetLeft -92
             OffsetTop 8
             OffsetRight 0
-            OffsetBottom 40
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1493,11 +1493,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         FrameWidgetClass "{7B2FD986A4D3437E}" {
          Name "SettingsWorldPresetRow"
          Slot FrameWidgetSlot "{7B2FD986A4D3437F}" {
-          Anchor 0 0 1 0
-          OffsetLeft 0
-          OffsetTop 262
-          OffsetRight 0
-          OffsetBottom 318
+         Anchor 0 0 1 0
+         OffsetLeft 0
+         OffsetTop 262
+         OffsetRight 0
+          OffsetBottom -318
          }
          "Ignore Cursor" 0
          {
@@ -1507,8 +1507,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 0
-            OffsetRight -112
-            OffsetBottom 22
+            OffsetRight 112
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1522,8 +1522,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 1 0
             OffsetLeft 0
             OffsetTop 24
-            OffsetRight -112
-            OffsetBottom 46
+            OffsetRight 112
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1538,7 +1538,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             OffsetLeft -92
             OffsetTop 8
             OffsetRight 0
-            OffsetBottom 40
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1572,11 +1572,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         FrameWidgetClass "{7B2FD986A4D3438A}" {
          Name "SettingsActionsRow"
          Slot FrameWidgetSlot "{7B2FD986A4D3438B}" {
-          Anchor 0 1 1 1
-          OffsetLeft 0
-          OffsetTop -52
-          OffsetRight 0
-          OffsetBottom -10
+         Anchor 0 1 1 1
+         OffsetLeft 0
+         OffsetTop -52
+         OffsetRight 0
+          OffsetBottom 10
          }
          "Ignore Cursor" 0
          {
@@ -1586,7 +1586,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 0 1
             OffsetLeft 0
             OffsetTop 0
-            OffsetRight 98
+            OffsetRight -98
             OffsetBottom 0
            }
            Color 0.07 0.09 0.11 0.98
@@ -1622,7 +1622,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 0 1
             OffsetLeft 114
             OffsetTop 0
-            OffsetRight 236
+            OffsetRight -236
             OffsetBottom 0
            }
            Color 0.07 0.09 0.11 0.98
@@ -1661,11 +1661,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D3411C}" {
      Name "Footer"
      Slot FrameWidgetSlot "{7B2FD986A4D3421C}" {
-      Anchor 0 1 0 1
-      OffsetLeft 116
-      OffsetTop -72
-      OffsetRight 920
-      OffsetBottom -24
+     Anchor 0 1 0 1
+     OffsetLeft 116
+     OffsetTop -72
+      OffsetRight -920
+      OffsetBottom 24
      }
      "Is Visible" 1
      "Ignore Cursor" 1
@@ -1673,11 +1673,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       FrameWidgetClass "{7B2FD986A4D34398}" {
        Name "FooterPrevTabHint"
        Slot FrameWidgetSlot "{7B2FD986A4D34399}" {
-        Anchor 0 0 0 1
-        OffsetLeft 0
-        OffsetTop 4
-        OffsetRight 118
-        OffsetBottom -8
+       Anchor 0 0 0 1
+       OffsetLeft 0
+       OffsetTop 4
+       OffsetRight -118
+       OffsetBottom 8
        }
        "Is Visible" 0
        "Ignore Cursor" 1
@@ -1685,11 +1685,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         PanelWidgetClass "{7B2FD986A4D3439A}" {
          Name "FooterPrevTabKeyBack"
          Slot FrameWidgetSlot "{7B2FD986A4D3439B}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 52
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -52
+         OffsetBottom 0
          }
          Color 0.07 0.09 0.11 0.84
          style full
@@ -1698,11 +1698,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D3439C}" {
          Name "FooterPrevTabKey"
          Slot FrameWidgetSlot "{7B2FD986A4D3439D}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 52
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -52
+         OffsetBottom 0
          }
          "No Localization" 1
          "Ignore Cursor" 1
@@ -1730,11 +1730,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       FrameWidgetClass "{7B2FD986A4D343A0}" {
        Name "FooterNextTabHint"
        Slot FrameWidgetSlot "{7B2FD986A4D343A1}" {
-        Anchor 0 0 0 1
-        OffsetLeft 136
-        OffsetTop 4
-        OffsetRight 254
-        OffsetBottom -8
+       Anchor 0 0 0 1
+       OffsetLeft 136
+       OffsetTop 4
+       OffsetRight -254
+       OffsetBottom 8
        }
        "Is Visible" 0
        "Ignore Cursor" 1
@@ -1742,11 +1742,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         PanelWidgetClass "{7B2FD986A4D343A2}" {
          Name "FooterNextTabKeyBack"
          Slot FrameWidgetSlot "{7B2FD986A4D343A3}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 52
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -52
+         OffsetBottom 0
          }
          Color 0.07 0.09 0.11 0.84
          style full
@@ -1755,11 +1755,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D343A4}" {
          Name "FooterNextTabKey"
          Slot FrameWidgetSlot "{7B2FD986A4D343A5}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 52
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -52
+         OffsetBottom 0
          }
          "No Localization" 1
          "Ignore Cursor" 1
@@ -1787,11 +1787,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       FrameWidgetClass "{7B2FD986A4D343A8}" {
        Name "FooterBackHint"
        Slot FrameWidgetSlot "{7B2FD986A4D343A9}" {
-        Anchor 0 0 0 1
-        OffsetLeft 272
-        OffsetTop 4
-        OffsetRight 412
-        OffsetBottom -8
+       Anchor 0 0 0 1
+       OffsetLeft 272
+       OffsetTop 4
+       OffsetRight -412
+       OffsetBottom 8
        }
        "Is Visible" 0
        "Ignore Cursor" 1
@@ -1799,11 +1799,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         PanelWidgetClass "{7B2FD986A4D343AA}" {
          Name "FooterBackKeyBack"
          Slot FrameWidgetSlot "{7B2FD986A4D343AB}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 58
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -58
+         OffsetBottom 0
          }
          Color 0.07 0.09 0.11 0.84
          style full
@@ -1812,11 +1812,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D343AC}" {
          Name "FooterBackKey"
          Slot FrameWidgetSlot "{7B2FD986A4D343AD}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 58
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -58
+         OffsetBottom 0
          }
          "No Localization" 1
          "Ignore Cursor" 1
@@ -1844,11 +1844,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       FrameWidgetClass "{7B2FD986A4D343B0}" {
        Name "FooterPrimaryHint"
        Slot FrameWidgetSlot "{7B2FD986A4D343B1}" {
-        Anchor 0 0 0 1
-        OffsetLeft 430
-        OffsetTop 4
-        OffsetRight 590
-        OffsetBottom -8
+       Anchor 0 0 0 1
+       OffsetLeft 430
+       OffsetTop 4
+       OffsetRight -590
+       OffsetBottom 8
        }
        "Is Visible" 0
        "Ignore Cursor" 1
@@ -1856,11 +1856,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         PanelWidgetClass "{7B2FD986A4D343B2}" {
          Name "FooterPrimaryKeyBack"
          Slot FrameWidgetSlot "{7B2FD986A4D343B3}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 58
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -58
+         OffsetBottom 0
          }
          Color 0.07 0.09 0.11 0.84
          style full
@@ -1869,11 +1869,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D343B4}" {
          Name "FooterPrimaryKey"
          Slot FrameWidgetSlot "{7B2FD986A4D343B5}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 58
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -58
+         OffsetBottom 0
          }
          "No Localization" 1
          "Ignore Cursor" 1
@@ -1901,11 +1901,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       FrameWidgetClass "{7B2FD986A4D343B8}" {
        Name "FooterSecondaryHint"
        Slot FrameWidgetSlot "{7B2FD986A4D343B9}" {
-        Anchor 0 0 0 1
-        OffsetLeft 608
-        OffsetTop 4
-        OffsetRight 780
-        OffsetBottom -8
+       Anchor 0 0 0 1
+       OffsetLeft 608
+       OffsetTop 4
+       OffsetRight -780
+       OffsetBottom 8
        }
        "Is Visible" 0
        "Ignore Cursor" 1
@@ -1913,11 +1913,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         PanelWidgetClass "{7B2FD986A4D343BA}" {
          Name "FooterSecondaryKeyBack"
          Slot FrameWidgetSlot "{7B2FD986A4D343BB}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 58
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -58
+         OffsetBottom 0
          }
          Color 0.07 0.09 0.11 0.84
          style full
@@ -1926,11 +1926,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         TextWidgetClass "{7B2FD986A4D343BC}" {
          Name "FooterSecondaryKey"
          Slot FrameWidgetSlot "{7B2FD986A4D343BD}" {
-          Anchor 0 0 0 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 58
-          OffsetBottom 0
+         Anchor 0 0 0 1
+         OffsetLeft 0
+         OffsetTop 0
+         OffsetRight -58
+         OffsetBottom 0
          }
          "No Localization" 1
          "Ignore Cursor" 1
@@ -1960,11 +1960,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D3411D}" {
      Name "Toast"
      Slot FrameWidgetSlot "{7B2FD986A4D3421D}" {
-      Anchor 0.5 0 0.5 0
-      OffsetLeft -240
-      OffsetTop 54
-      OffsetRight 240
-      OffsetBottom 88
+     Anchor 0.5 0 0.5 0
+     OffsetLeft -240
+     OffsetTop 54
+      OffsetRight -240
+      OffsetBottom -88
      }
      "Is Visible" 0
      "Ignore Cursor" 1
@@ -1998,11 +1998,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D343C6}" {
        Name "ToastText"
        Slot FrameWidgetSlot "{7B2FD986A4D343C7}" {
-        Anchor 0 0 1 1
-        OffsetLeft 18
-        OffsetTop 0
-        OffsetRight -18
-        OffsetBottom 0
+       Anchor 0 0 1 1
+       OffsetLeft 18
+       OffsetTop 0
+       OffsetRight 18
+       OffsetBottom 0
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -2015,11 +2015,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     TextWidgetClass "{7B2FD986A4D343C8}" {
      Name "PreviewUnavailableText"
      Slot FrameWidgetSlot "{7B2FD986A4D343C9}" {
-      Anchor 0.5 0.5 0.5 0.5
-      OffsetLeft -180
-      OffsetTop -20
-      OffsetRight 180
-      OffsetBottom 20
+     Anchor 0.5 0.5 0.5 0.5
+     OffsetLeft -180
+     OffsetTop -20
+      OffsetRight -180
+      OffsetBottom -20
      }
      "Is Visible" 0
      "No Localization" 1
