@@ -55,7 +55,7 @@ class HST_SetupMapComponent : ScriptComponent
 	static const float SETUP_VALIDATION_RESULT_TOLERANCE_METERS = 8.0;
 	static const float SETUP_MODAL_CLICK_SUPPRESSION_SECONDS = 0.75;
 	static const int SETUP_MAP_READY_MAX_RETRIES = 8;
-	static const bool SETUP_ZONE_OVERLAY_ENABLED = false;
+	static const bool SETUP_ZONE_OVERLAY_ENABLED = true;
 	static const string SETUP_CONFIRM_MODAL_OWNER = "HST_SetupConfirmModal";
 	static const ResourceName SETUP_NATIVE_MAP_LAYOUT = "{6985327711306200}UI/layouts/HST_SetupHQMap.layout";
 	static const ResourceName SETUP_PROMPT_BANNER_LAYOUT = "{A34F448C7E810600}UI/layouts/HST_SetupPromptBanner.layout";
