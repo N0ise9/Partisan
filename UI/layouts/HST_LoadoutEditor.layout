@@ -508,6 +508,245 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetRight 560
       OffsetBottom -92
      }
+     "Ignore Cursor" 0
+     {
+      PanelWidgetClass "{7B2FD986A4D34300}" {
+       Name "CandidatePanelBackground"
+       Slot FrameWidgetSlot "{7B2FD986A4D34301}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.05 0.07 0.09 0.95
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{7B2FD986A4D34302}" {
+       Name "CandidateHeaderRule"
+       Slot FrameWidgetSlot "{7B2FD986A4D34303}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 94
+        OffsetRight 0
+        OffsetBottom 97
+       }
+       Color 1 0.82 0.38 1
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{7B2FD986A4D34304}" {
+       Name "CandidateHeaderPreviewBack"
+       Slot FrameWidgetSlot "{7B2FD986A4D34305}" {
+        Anchor 0 0 0 0
+        OffsetLeft 26
+        OffsetTop 14
+        OffsetRight 94
+        OffsetBottom 82
+       }
+       Color 0.035 0.05 0.063 0.86
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{7B2FD986A4D34306}" {
+       Name "CandidateHeaderPreviewLine"
+       Slot FrameWidgetSlot "{7B2FD986A4D34307}" {
+        Anchor 0 0 0 0
+        OffsetLeft 26
+        OffsetTop 14
+        OffsetRight 94
+        OffsetBottom 16
+       }
+       Color 0.3 0.35 0.38 0.4
+       style full
+       "Ignore Cursor" 1
+      }
+      FrameWidgetClass "{7B2FD986A4D34308}" {
+       Name "CandidateHeaderPreviewAnchor"
+       Slot FrameWidgetSlot "{7B2FD986A4D34309}" {
+        Anchor 0 0 0 0
+        OffsetLeft 28
+        OffsetTop 16
+        OffsetRight 92
+        OffsetBottom 80
+       }
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{7B2FD986A4D3430A}" {
+       Name "CandidateHeaderSlot"
+       Slot FrameWidgetSlot "{7B2FD986A4D3430B}" {
+        Anchor 0 0 1 0
+        OffsetLeft 106
+        OffsetTop 22
+        OffsetRight -52
+        OffsetBottom 44
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Selected Slot"
+       "Horizontal Alignment" Left
+       "Vertical Alignment" Center
+      }
+      TextWidgetClass "{7B2FD986A4D3430C}" {
+       Name "CandidateHeaderName"
+       Slot FrameWidgetSlot "{7B2FD986A4D3430D}" {
+        Anchor 0 0 1 0
+        OffsetLeft 106
+        OffsetTop 48
+        OffsetRight -52
+        OffsetBottom 72
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Item"
+       "Horizontal Alignment" Left
+       "Vertical Alignment" Center
+      }
+      TextWidgetClass "{7B2FD986A4D3430E}" {
+       Name "CandidateHeaderMarker"
+       Slot FrameWidgetSlot "{7B2FD986A4D3430F}" {
+        Anchor 1 0 1 0
+        OffsetLeft -44
+        OffsetTop 22
+        OffsetRight -24
+        OffsetBottom 44
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "W"
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+      }
+      ButtonWidgetClass "{7B2FD986A4D34310}" {
+       Name "CandidateRemoveButton"
+       Slot FrameWidgetSlot "{7B2FD986A4D34311}" {
+        Anchor 0 0 1 0
+        OffsetLeft 20
+        OffsetTop 114
+        OffsetRight -20
+        OffsetBottom 170
+       }
+       "Is Visible" 0
+       Color 0.07 0.09 0.11 0.98
+       {
+        FrameWidgetClass "{7B2FD986A4D34312}" {
+         Name "CandidateRemoveBody"
+         Slot ButtonWidgetSlot "{7B2FD986A4D34313}" {
+         }
+         "Ignore Cursor" 1
+         {
+          PanelWidgetClass "{7B2FD986A4D34314}" {
+           Name "CandidateRemoveBackground"
+           Slot FrameWidgetSlot "{7B2FD986A4D34315}" {
+            Anchor 0 0 1 1
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 0
+            OffsetBottom 0
+           }
+           Color 0.07 0.09 0.11 0.98
+           style full
+           "Ignore Cursor" 1
+          }
+          PanelWidgetClass "{7B2FD986A4D34316}" {
+           Name "CandidateRemoveAccent"
+           Slot FrameWidgetSlot "{7B2FD986A4D34317}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 0
+            OffsetBottom 3
+           }
+           Color 1 0.82 0.38 1
+           style full
+           "Ignore Cursor" 1
+          }
+          TextWidgetClass "{7B2FD986A4D34318}" {
+           Name "CandidateRemoveIcon"
+           Slot FrameWidgetSlot "{7B2FD986A4D34319}" {
+            Anchor 0 0 0 1
+            OffsetLeft 20
+            OffsetTop 0
+            OffsetRight 64
+            OffsetBottom 0
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "X"
+           "Horizontal Alignment" Center
+           "Vertical Alignment" Center
+          }
+          TextWidgetClass "{7B2FD986A4D3431A}" {
+           Name "CandidateRemoveLabel"
+           Slot FrameWidgetSlot "{7B2FD986A4D3431B}" {
+            Anchor 0 0 1 1
+            OffsetLeft 82
+            OffsetTop 0
+            OffsetRight -18
+            OffsetBottom 0
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Remove"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{7B2FD986A4D3431C}" {
+       Name "CandidateListFrame"
+       Slot FrameWidgetSlot "{7B2FD986A4D3431D}" {
+        Anchor 0 0 1 1
+        OffsetLeft 20
+        OffsetTop 184
+        OffsetRight -20
+        OffsetBottom -28
+       }
+       "Ignore Cursor" 0
+       {
+        ScrollLayoutWidgetClass "{7B2FD986A4D3431E}" {
+         Name "CandidateScroll"
+         Slot FrameWidgetSlot "{7B2FD986A4D3431F}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "Scrollbar Always Visible" 1
+         {
+          VerticalLayoutWidgetClass "{7B2FD986A4D34320}" {
+           Name "CandidateItems"
+           Slot AlignableSlot "{7B2FD986A4D34321}" {
+            HorizontalAlign 3
+            VerticalAlign 0
+            Padding 0 0 0 0
+           }
+          }
+         }
+        }
+        TextWidgetClass "{7B2FD986A4D34322}" {
+         Name "CandidateEmpty"
+         Slot FrameWidgetSlot "{7B2FD986A4D34323}" {
+          Anchor 0 0 1 0
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 32
+         }
+         "Is Visible" 0
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Candidate list unavailable."
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+     }
     }
     FrameWidgetClass "{7B2FD986A4D3411A}" {
      Name "StorageBrowser"
@@ -647,6 +886,224 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetTop 132
       OffsetRight 560
       OffsetBottom -92
+     }
+     "Ignore Cursor" 0
+     {
+      PanelWidgetClass "{7B2FD986A4D34324}" {
+       Name "SavePanelBackground"
+       Slot FrameWidgetSlot "{7B2FD986A4D34325}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.05 0.07 0.09 0.95
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{7B2FD986A4D34326}" {
+       Name "SavePanelAccent"
+       Slot FrameWidgetSlot "{7B2FD986A4D34327}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 3
+       }
+       Color 1 0.82 0.38 1
+       style full
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{7B2FD986A4D34328}" {
+       Name "SavePanelTitle"
+       Slot FrameWidgetSlot "{7B2FD986A4D34329}" {
+        Anchor 0 0 1 0
+        OffsetLeft 34
+        OffsetTop 22
+        OffsetRight -170
+        OffsetBottom 48
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Save Loadout"
+       "Horizontal Alignment" Left
+       "Vertical Alignment" Center
+      }
+      ButtonWidgetClass "{7B2FD986A4D3432A}" {
+       Name "TemplateSaveButton"
+       Slot FrameWidgetSlot "{7B2FD986A4D3432B}" {
+        Anchor 1 0 1 0
+        OffsetLeft -162
+        OffsetTop 22
+        OffsetRight -100
+        OffsetBottom 48
+       }
+       Color 0.07 0.09 0.11 0.98
+       {
+        FrameWidgetClass "{7B2FD986A4D3432C}" {
+         Name "TemplateSaveBody"
+         Slot ButtonWidgetSlot "{7B2FD986A4D3432D}" {
+         }
+         "Ignore Cursor" 1
+         {
+          PanelWidgetClass "{7B2FD986A4D3432E}" {
+           Name "TemplateSaveBackground"
+           Slot FrameWidgetSlot "{7B2FD986A4D3432F}" {
+            Anchor 0 0 1 1
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 0
+            OffsetBottom 0
+           }
+           Color 0.07 0.09 0.11 0.98
+           style full
+           "Ignore Cursor" 1
+          }
+          PanelWidgetClass "{7B2FD986A4D34330}" {
+           Name "TemplateSaveAccent"
+           Slot FrameWidgetSlot "{7B2FD986A4D34331}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 0
+            OffsetBottom 3
+           }
+           Color 1 0.82 0.38 1
+           style full
+           "Ignore Cursor" 1
+          }
+          TextWidgetClass "{7B2FD986A4D34332}" {
+           Name "TemplateSaveLabel"
+           Slot FrameWidgetSlot "{7B2FD986A4D34333}" {
+            Anchor 0 0 1 1
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 0
+            OffsetBottom 0
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Save"
+           "Horizontal Alignment" Center
+           "Vertical Alignment" Center
+          }
+         }
+        }
+       }
+      }
+      ButtonWidgetClass "{7B2FD986A4D34334}" {
+       Name "TemplateClearButton"
+       Slot FrameWidgetSlot "{7B2FD986A4D34335}" {
+        Anchor 1 0 1 0
+        OffsetLeft -90
+        OffsetTop 22
+        OffsetRight -32
+        OffsetBottom 48
+       }
+       Color 0.07 0.09 0.11 0.98
+       {
+        FrameWidgetClass "{7B2FD986A4D34336}" {
+         Name "TemplateClearBody"
+         Slot ButtonWidgetSlot "{7B2FD986A4D34337}" {
+         }
+         "Ignore Cursor" 1
+         {
+          PanelWidgetClass "{7B2FD986A4D34338}" {
+           Name "TemplateClearBackground"
+           Slot FrameWidgetSlot "{7B2FD986A4D34339}" {
+            Anchor 0 0 1 1
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 0
+            OffsetBottom 0
+           }
+           Color 0.07 0.09 0.11 0.98
+           style full
+           "Ignore Cursor" 1
+          }
+          PanelWidgetClass "{7B2FD986A4D3433A}" {
+           Name "TemplateClearAccent"
+           Slot FrameWidgetSlot "{7B2FD986A4D3433B}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 0
+            OffsetBottom 3
+           }
+           Color 1 0.82 0.38 1
+           style full
+           "Ignore Cursor" 1
+          }
+          TextWidgetClass "{7B2FD986A4D3433C}" {
+           Name "TemplateClearLabel"
+           Slot FrameWidgetSlot "{7B2FD986A4D3433D}" {
+            Anchor 0 0 1 1
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 0
+            OffsetBottom 0
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Clear"
+           "Horizontal Alignment" Center
+           "Vertical Alignment" Center
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{7B2FD986A4D3433E}" {
+       Name "TemplateList"
+       Slot FrameWidgetSlot "{7B2FD986A4D3433F}" {
+        Anchor 0 0 1 1
+        OffsetLeft 20
+        OffsetTop 78
+        OffsetRight -20
+        OffsetBottom -28
+       }
+       "Ignore Cursor" 0
+       {
+        ScrollLayoutWidgetClass "{7B2FD986A4D34340}" {
+         Name "TemplateScroll"
+         Slot FrameWidgetSlot "{7B2FD986A4D34341}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "Scrollbar Always Visible" 1
+         {
+          VerticalLayoutWidgetClass "{7B2FD986A4D34342}" {
+           Name "TemplateItems"
+           Slot AlignableSlot "{7B2FD986A4D34343}" {
+            HorizontalAlign 3
+            VerticalAlign 0
+            Padding 0 0 0 0
+           }
+          }
+         }
+        }
+        TextWidgetClass "{7B2FD986A4D34344}" {
+         Name "TemplateEmpty"
+         Slot FrameWidgetSlot "{7B2FD986A4D34345}" {
+          Anchor 0 0 1 0
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 32
+         }
+         "Is Visible" 0
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Template list unavailable."
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
      }
     }
     FrameWidgetClass "{7B2FD986A4D3411C}" {

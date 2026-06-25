@@ -1402,6 +1402,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SaveLoadoutScrollOffsets();
 		ClearWidgets();
 		m_SlotScroll = null;
+		m_CandidateScroll = null;
+		m_TemplateScroll = null;
 		m_StorageCandidateScroll = null;
 		m_StorageContainerScroll = null;
 		m_StorageContentScroll = null;
@@ -1577,6 +1579,70 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutWidgetVisible(railRoot, "StorageContentTitle", true);
 		SetLoadoutWidgetVisible(railRoot, "StorageContentList", true);
 		SetLoadoutWidgetVisible(railRoot, "StorageContentEmpty", false);
+	}
+
+	protected void ShowCandidatePanelWidgets(Widget panelRoot)
+	{
+		if (!panelRoot)
+			return;
+
+		SetLoadoutWidgetVisible(panelRoot, "CandidateRemoveButton", false);
+		SetLoadoutWidgetVisible(panelRoot, "CandidateListFrame", true);
+		SetLoadoutWidgetVisible(panelRoot, "CandidateEmpty", false);
+	}
+
+	protected void ShowTemplatePanelWidgets(Widget panelRoot)
+	{
+		if (!panelRoot)
+			return;
+
+		SetLoadoutWidgetVisible(panelRoot, "TemplateSaveButton", true);
+		SetLoadoutWidgetVisible(panelRoot, "TemplateClearButton", true);
+		SetLoadoutWidgetVisible(panelRoot, "TemplateList", true);
+		SetLoadoutWidgetVisible(panelRoot, "TemplateEmpty", false);
+	}
+
+	protected void HideTemplatePanelWidgets(Widget panelRoot)
+	{
+		if (!panelRoot)
+			return;
+
+		SetLoadoutWidgetVisible(panelRoot, "TemplateSaveButton", false);
+		SetLoadoutWidgetVisible(panelRoot, "TemplateClearButton", false);
+		SetLoadoutWidgetVisible(panelRoot, "TemplateList", false);
+		SetLoadoutWidgetVisible(panelRoot, "TemplateEmpty", false);
+	}
+
+	protected void ConfigureLoadoutPanelShell(Widget panelRoot, string title)
+	{
+		if (!panelRoot)
+			return;
+
+		SetLoadoutWidgetColor(panelRoot, "SavePanelBackground", GetPanelBackColor(), 1.0);
+		SetLoadoutWidgetColor(panelRoot, "SavePanelAccent", GetAccentColor(), 1.0);
+		SetLoadoutText(panelRoot, "SavePanelTitle", title, 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
+	}
+
+	protected void ConfigureLoadoutPanelButton(Widget root, string buttonName, string backgroundName, string accentName, string labelName, string label, int userId)
+	{
+		if (!root || userId <= 0)
+			return;
+
+		Widget button = root.FindAnyWidget(buttonName);
+		if (!button)
+			return;
+
+		button.SetVisible(true);
+		button.SetOpacity(1.0);
+		button.SetUserID(userId);
+		button.AddHandler(m_WidgetHandler);
+
+		if (!backgroundName.IsEmpty())
+			SetLoadoutWidgetColor(root, backgroundName, 0xEE11171B, 0.98);
+		if (!accentName.IsEmpty())
+			SetLoadoutWidgetColor(root, accentName, GetAccentColor(), 1.0);
+		if (!labelName.IsEmpty())
+			SetLoadoutText(root, labelName, label, 0xFFF4EBD6, m_Layout.m_iFontSmall, true, false);
 	}
 
 	protected void RenderLeftButtons(WorkspaceWidget workspace, Widget root)
@@ -2892,38 +2958,28 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		Widget panelRoot = ResolveLoadoutRegion(root, "CandidateList");
-		int panelLeft = 0;
-		int panelTop = 0;
 		int panelWidth;
 		int panelHeight;
 		GetRegionLayoutSize(workspace, panelRoot, m_Layout.m_iRailWidth, m_Layout.m_iRailHeight, panelWidth, panelHeight);
 		m_Layout.m_iRailWidth = panelWidth;
 		m_Layout.m_iRailHeight = panelHeight;
-		Widget panelBack = CreateRectWidget(workspace, panelRoot, panelLeft, panelTop, panelWidth, panelHeight, GetPanelBackColor(), 1.0, 0);
-		if (panelBack)
-			panelBack.SetZOrder(0);
-		CreateRectWidget(workspace, panelRoot, panelLeft, panelTop + ScalePx(94), panelWidth, ScalePx(3), GetAccentColor(), 1.0, 0);
+		SetLoadoutWidgetColor(panelRoot, "CandidatePanelBackground", GetPanelBackColor(), 1.0);
+		SetLoadoutWidgetColor(panelRoot, "CandidateHeaderRule", GetAccentColor(), 1.0);
+		ShowCandidatePanelWidgets(panelRoot);
 		RenderSelectedNodeHeader(workspace, panelRoot);
 		int selectedNodeIndex = FindSelectedNodeIndex();
 		if (selectedNodeIndex >= 0 && selectedNodeIndex < m_aNodeCanRemove.Count() && m_aNodeCanRemove[selectedNodeIndex])
 		{
-			CreateRectWidget(workspace, panelRoot, panelLeft + ScalePx(20), panelTop + ScalePx(114), panelWidth - ScalePx(40), ScalePx(56), GetBaseRowColor(), 0.98, REMOVE_SELECTED_NODE_WIDGET_ID);
-			CreateTextWidget(workspace, panelRoot, "X", panelLeft + ScalePx(40), panelTop + ScalePx(121), ScalePx(44), ScalePx(38), ScaleFont(34), 0xFFFFFFFF, REMOVE_SELECTED_NODE_WIDGET_ID, true);
-			CreateTextWidget(workspace, panelRoot, "Remove", panelLeft + ScalePx(102), panelTop + ScalePx(131), panelWidth - ScalePx(150), ScalePx(22), m_Layout.m_iFontTitle, 0xFFE2E6E8, REMOVE_SELECTED_NODE_WIDGET_ID, true);
+			ConfigureLoadoutPanelButton(panelRoot, "CandidateRemoveButton", "CandidateRemoveBackground", "CandidateRemoveAccent", "CandidateRemoveLabel", "Remove", REMOVE_SELECTED_NODE_WIDGET_ID);
+			SetLoadoutText(panelRoot, "CandidateRemoveIcon", "X", 0xFFFFFFFF, ScaleFont(34), true, false);
 		}
 
 		m_aVisibleCandidateIndexes.Clear();
-		int firstRowTop = panelTop + ScalePx(184);
-		int listLeft = panelLeft + ScalePx(20);
-		int listWidth = Math.Max(1, panelWidth - ScalePx(40));
-		int listHeight = Math.Max(1, panelTop + panelHeight - firstRowTop - ScalePx(28));
-		ScrollLayoutWidget scroll;
-		Widget items;
-		CreateScrollContainer(workspace, panelRoot, VERTICAL_SCROLL_LIST_LAYOUT, listLeft, firstRowTop, listWidth, listHeight, scroll, items, true);
-		m_CandidateScroll = scroll;
+		m_CandidateScroll = ScrollLayoutWidget.Cast(panelRoot.FindAnyWidget("CandidateScroll"));
+		Widget items = panelRoot.FindAnyWidget("CandidateItems");
 		if (!items)
 		{
-			CreateTextWidget(workspace, panelRoot, "Candidate list unavailable: scroll layout missing Items.", listLeft, firstRowTop, listWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			SetLoadoutText(panelRoot, "CandidateEmpty", "Candidate list unavailable: layout missing CandidateItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 			return;
 		}
 
@@ -2967,33 +3023,21 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		Widget panelRoot = ResolveLoadoutRegion(root, "SavePanel");
-		int panelLeft = 0;
-		int panelTop = 0;
 		int panelWidth;
 		int panelHeight;
 		GetRegionLayoutSize(workspace, panelRoot, m_Layout.m_iRailWidth, m_Layout.m_iRailHeight, panelWidth, panelHeight);
 		m_Layout.m_iRailWidth = panelWidth;
 		m_Layout.m_iRailHeight = panelHeight;
-		Widget panelBack = CreateRectWidget(workspace, panelRoot, panelLeft, panelTop, panelWidth, panelHeight, GetPanelBackColor(), 1.0, 0);
-		if (panelBack)
-			panelBack.SetZOrder(0);
-		CreateRectWidget(workspace, panelRoot, panelLeft, panelTop, panelWidth, ScalePx(3), GetAccentColor(), 1.0, 0);
-		CreateTextWidget(workspace, panelRoot, "Save Loadout", panelLeft + ScalePx(34), panelTop + ScalePx(22), panelWidth - ScalePx(170), ScalePx(24), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
+		ConfigureLoadoutPanelShell(panelRoot, "Save Loadout");
+		ShowTemplatePanelWidgets(panelRoot);
+		ConfigureLoadoutPanelButton(panelRoot, "TemplateSaveButton", "TemplateSaveBackground", "TemplateSaveAccent", "TemplateSaveLabel", "Save", SAVE_WIDGET_ID);
+		ConfigureLoadoutPanelButton(panelRoot, "TemplateClearButton", "TemplateClearBackground", "TemplateClearAccent", "TemplateClearLabel", "Clear", DELETE_TEMPLATE_WIDGET_ID);
 
-		CreateButton(workspace, panelRoot, "Save", panelLeft + panelWidth - ScalePx(162), panelTop + ScalePx(22), ScalePx(62), ScalePx(26), SAVE_WIDGET_ID);
-		CreateButton(workspace, panelRoot, "Clear", panelLeft + panelWidth - ScalePx(90), panelTop + ScalePx(22), ScalePx(58), ScalePx(26), DELETE_TEMPLATE_WIDGET_ID);
-
-		int rowTop = panelTop + ScalePx(78);
-		int listLeft = panelLeft + ScalePx(20);
-		int listWidth = Math.Max(1, panelWidth - ScalePx(40));
-		int listHeight = Math.Max(1, panelTop + panelHeight - rowTop - ScalePx(28));
-		ScrollLayoutWidget scroll;
-		Widget items;
-		CreateScrollContainer(workspace, panelRoot, VERTICAL_SCROLL_LIST_LAYOUT, listLeft, rowTop, listWidth, listHeight, scroll, items, true);
-		m_TemplateScroll = scroll;
+		m_TemplateScroll = ScrollLayoutWidget.Cast(panelRoot.FindAnyWidget("TemplateScroll"));
+		Widget items = panelRoot.FindAnyWidget("TemplateItems");
 		if (!items)
 		{
-			CreateTextWidget(workspace, panelRoot, "Template list unavailable: scroll layout missing Items.", listLeft, rowTop, listWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			SetLoadoutText(panelRoot, "TemplateEmpty", "Template list unavailable: layout missing TemplateItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 			return;
 		}
 
@@ -3034,14 +3078,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		GetRegionLayoutSize(workspace, panelRoot, m_Layout.m_iRailWidth, m_Layout.m_iRailHeight, panelWidth, panelHeight);
 		m_Layout.m_iRailWidth = panelWidth;
 		m_Layout.m_iRailHeight = panelHeight;
-		Widget panelBack = CreateRectWidget(workspace, panelRoot, panelLeft, panelTop, panelWidth, panelHeight, GetPanelBackColor(), 1.0, 0);
-		if (panelBack)
-			panelBack.SetZOrder(0);
-		CreateRectWidget(workspace, panelRoot, panelLeft, panelTop, panelWidth, ScalePx(3), GetAccentColor(), 1.0, 0);
 		string panelTitle = "Settings";
 		if (m_sEditorMode == "save")
 			panelTitle = "Save Loadout";
-		CreateTextWidget(workspace, panelRoot, panelTitle, panelLeft + ScalePx(34), panelTop + ScalePx(22), panelWidth - ScalePx(68), ScalePx(24), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
+		ConfigureLoadoutPanelShell(panelRoot, panelTitle);
+		HideTemplatePanelWidgets(panelRoot);
 		if (m_sEditorMode == "save")
 		{
 			CreateWrappedTextWidget(workspace, panelRoot, "Save current draft or apply it from the footer.", panelLeft + ScalePx(34), panelTop + ScalePx(70), panelWidth - ScalePx(68), ScalePx(44), m_Layout.m_iFontNormal, 0xFFE2E6E8, 0, false);
@@ -3963,24 +4004,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		int nodeIndex = FindSelectedNodeIndex();
-		int left = ScalePx(28);
-		int top = ScalePx(16);
-		int previewSize = m_Layout.m_iPreviewCellMedium;
-		Widget previewBack = CreateRectWidget(workspace, root, left - ScalePx(2), top - ScalePx(2), previewSize + ScalePx(4), previewSize + ScalePx(4), 0xEE05080A, 1.0, 0);
-		if (previewBack)
-			previewBack.SetZOrder(1);
+		SetLoadoutWidgetColor(root, "CandidateHeaderPreviewBack", 0xEE05080A, 1.0);
+		SetLoadoutWidgetColor(root, "CandidateHeaderPreviewLine", 0x664B5960, 1.0);
 
-		Widget previewLine = CreateRectWidget(workspace, root, left - ScalePx(2), top - ScalePx(2), previewSize + ScalePx(4), ScalePx(2), 0x664B5960, 1.0, 0);
-		if (previewLine)
-			previewLine.SetZOrder(2);
+		Widget anchor = root.FindAnyWidget("CandidateHeaderPreviewAnchor");
+		if (anchor)
+		{
+			int previewSize = GetLayoutSquareSize(workspace, anchor, m_Layout.m_iPreviewCellMedium);
+			CreateNodePreviewCell(workspace, anchor, nodeIndex, 0, 0, previewSize, 0, 0xFFE6E6E6);
+		}
 
-		CreateNodePreviewCell(workspace, root, nodeIndex, left, top, previewSize, 0, 0xFFE6E6E6);
-
-		int textLeft = left + previewSize + ScalePx(14);
-		int textWidth = m_Layout.m_iRailWidth - textLeft - ScalePx(44);
-		CreateTextWidget(workspace, root, GetNodeLabel(nodeIndex), textLeft, top + ScalePx(6), textWidth, ScalePx(20), m_Layout.m_iFontNormal, 0xFFE2E6E8, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(GetNodeDisplay(nodeIndex), 38), textLeft, top + ScalePx(26), textWidth, ScalePx(20), m_Layout.m_iFontNormal, 0xFFD5D8D9, 0, false);
-		CreateTextWidget(workspace, root, "W", m_Layout.m_iRailWidth - ScalePx(44), top + ScalePx(6), ScalePx(18), ScalePx(18), m_Layout.m_iFontTitle, 0xFFFFFFFF, 0, true);
+		SetLoadoutText(root, "CandidateHeaderSlot", GetNodeLabel(nodeIndex), 0xFFE2E6E8, m_Layout.m_iFontNormal, true, false);
+		SetLoadoutText(root, "CandidateHeaderName", ShortenText(GetNodeDisplay(nodeIndex), 38), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, false);
+		SetLoadoutText(root, "CandidateHeaderMarker", "W", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
 	}
 
 	protected void RenderCandidateRow(WorkspaceWidget workspace, Widget root, int candidateIndex, int top, int userId)
