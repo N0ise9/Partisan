@@ -10,18 +10,6 @@ FrameWidgetClass "{A7B8C9D001234550}" {
  "Is Visible" 1
  "Ignore Cursor" 0
  {
-  FrameWidgetClass "{A7B8C9D001236000}" {
-   Name "HST_CommandMenuDynamicCanvas"
-   Slot FrameWidgetSlot "{A7B8C9D0012360A0}" {
-    Anchor 0 0 1 1
-    OffsetLeft 0
-    OffsetTop 0
-    OffsetRight 0
-    OffsetBottom 0
-   }
-   "Is Visible" 0
-   "Ignore Cursor" 1
-  }
   PanelWidgetClass "{A7B8C9D001236001}" {
    Name "ScreenDimmer"
    Slot FrameWidgetSlot "{A7B8C9D001236002}" {
