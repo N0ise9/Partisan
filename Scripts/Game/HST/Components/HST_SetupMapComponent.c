@@ -82,6 +82,8 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bSetupMapInitialViewApplied;
 	protected bool m_bSetupMapReadyQueued;
 	protected bool m_bSetupMapRootRefreshQueued;
+	protected bool m_bSetupPromptRefreshQueued;
+	protected bool m_bConfirmModalRefreshQueued;
 	protected bool m_bNativeMapViewportReady;
 	protected bool m_bSetupFinalized;
 	protected bool m_bSetupLocationSelectionEnabled;
@@ -806,6 +808,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bSetupMapInitialViewApplied = false;
 		m_bSetupMapReadyQueued = false;
 		m_bSetupMapRootRefreshQueued = false;
+		m_bSetupPromptRefreshQueued = false;
 		m_bNativeMapViewportReady = false;
 		m_iSetupMapReadyRetries = 0;
 		m_iMapReadyFrames = 0;
@@ -820,7 +823,6 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 
 		m_bSetupMapRootRefreshQueued = true;
-		GetGame().GetCallqueue().CallLater(RefreshSetupMapRootAfterLayout, 0, false);
 		GetGame().GetCallqueue().CallLater(RefreshSetupMapRootAfterLayout, 50, false);
 	}
 
@@ -1097,12 +1099,16 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_bSetupActive || !m_wPromptRoot)
 			return;
 
-		GetGame().GetCallqueue().CallLater(RefreshSetupPromptAfterLayout, 0, false);
+		if (m_bSetupPromptRefreshQueued)
+			return;
+
+		m_bSetupPromptRefreshQueued = true;
 		GetGame().GetCallqueue().CallLater(RefreshSetupPromptAfterLayout, 50, false);
 	}
 
 	protected void RefreshSetupPromptAfterLayout()
 	{
+		m_bSetupPromptRefreshQueued = false;
 		if (!m_bSetupActive || !m_wPromptRoot)
 			return;
 
@@ -1267,12 +1273,16 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_bSetupActive || !m_bConfirmOpen || !m_wConfirmModalRoot)
 			return;
 
-		GetGame().GetCallqueue().CallLater(RefreshConfirmModalAfterLayout, 0, false);
+		if (m_bConfirmModalRefreshQueued)
+			return;
+
+		m_bConfirmModalRefreshQueued = true;
 		GetGame().GetCallqueue().CallLater(RefreshConfirmModalAfterLayout, 50, false);
 	}
 
 	protected void RefreshConfirmModalAfterLayout()
 	{
+		m_bConfirmModalRefreshQueued = false;
 		if (!m_bSetupActive || !m_bConfirmOpen || !m_wConfirmModalRoot)
 			return;
 
@@ -1527,6 +1537,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_aModalWidgets.Clear();
 		m_wConfirmBlockerRoot = null;
 		m_wConfirmModalRoot = null;
+		m_bConfirmModalRefreshQueued = false;
 	}
 
 	protected void CloseCommandMenuIfOpen()

@@ -736,10 +736,19 @@ foreach ($requiredSetupLayoutEntry in @(
 	'Name "HST_SetupPromptRule"',
 	'Name "HST_SetupPromptText"',
 	"Anchor 0 0 1 0",
-	"OffsetBottom 76"
+	"SizeY 76",
+	"OffsetBottom -76"
 )) {
 	if ($setupPromptBannerLayoutText -notmatch [regex]::Escape($requiredSetupLayoutEntry)) {
 		throw "Setup prompt banner layout is missing anchored prompt entry: $requiredSetupLayoutEntry"
+	}
+}
+foreach ($forbiddenSetupPromptLayoutEntry in @(
+	"OffsetBottom 76",
+	"OffsetBottom 60"
+)) {
+	if ($setupPromptBannerLayoutText -match [regex]::Escape($forbiddenSetupPromptLayoutEntry)) {
+		throw "Setup prompt banner fixed-height widgets must use negative bottom offsets: $forbiddenSetupPromptLayoutEntry"
 	}
 }
 foreach ($forbiddenSetupMapLayoutEntry in @(
@@ -762,26 +771,30 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 	"Color 0 0 0 0.16",
 	'"Ignore Cursor" 0',
 	"Anchor 0.5 0.5 0.5 0.5",
-	"OffsetLeft -310",
-	"OffsetTop -140",
-	"OffsetRight 310",
-	"OffsetBottom 140"
-)) {
-	if ($setupConfirmModalLayoutText -notmatch [regex]::Escape($requiredConfirmModalLayoutEntry)) {
-		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
-	}
-}
-foreach ($forbiddenConfirmModalLayoutEntry in @(
 	"PositionX 0",
 	"PositionY 0",
 	"SizeX 620",
 	"SizeY 280",
 	"OffsetRight -620",
 	"OffsetBottom -280",
-	"Alignment 0.5 0.5"
+	"Alignment 0.5 0.5",
+	"SizeX 160",
+	"SizeY 50"
+)) {
+	if ($setupConfirmModalLayoutText -notmatch [regex]::Escape($requiredConfirmModalLayoutEntry)) {
+		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
+	}
+}
+foreach ($forbiddenConfirmModalLayoutEntry in @(
+	"OffsetLeft -310",
+	"OffsetTop -140",
+	"OffsetRight 310",
+	"OffsetBottom 140",
+	"OffsetBottom 132",
+	"OffsetRight -138"
 )) {
 	if ($setupConfirmModalLayoutText -match [regex]::Escape($forbiddenConfirmModalLayoutEntry)) {
-		throw "Setup confirmation modal must use centered offsets instead of mixed position/size slot fields: $forbiddenConfirmModalLayoutEntry"
+		throw "Setup confirmation modal must use native fixed-size slot fields with negative right/bottom offsets: $forbiddenConfirmModalLayoutEntry"
 	}
 }
 foreach ($requiredSetupChromeEntry in @(

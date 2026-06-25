@@ -16,10 +16,15 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
    Name "Dialog"
    Slot FrameWidgetSlot "{B55C6FB34BF9401A}" {
     Anchor 0.5 0.5 0.5 0.5
-    OffsetLeft -310
-    OffsetTop -140
-    OffsetRight 310
-    OffsetBottom 140
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 620
+    OffsetRight -620
+    SizeY 280
+    OffsetBottom -280
+    Alignment 0.5 0.5
    }
    "Is Visible" 1
    "Ignore Cursor" 0
@@ -42,10 +47,14 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
      Name "TopAccent"
      Slot FrameWidgetSlot "{B55C6FB34BF94006}" {
       Anchor 0 0 1 0
+      PositionX 0
       OffsetLeft 0
+      PositionY 0
       OffsetTop 0
+      SizeX 0
       OffsetRight 0
-      OffsetBottom 4
+      SizeY 4
+      OffsetBottom -4
      }
      Color 0.77 0.58 0.23 1
      style full
@@ -56,10 +65,14 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
      Name "Message"
      Slot FrameWidgetSlot "{B55C6FB34BF94008}" {
       Anchor 0 0 1 0
+      PositionX 0
       OffsetLeft 34
+      PositionY 34
       OffsetTop 34
+      SizeX -68
       OffsetRight -34
-      OffsetBottom 132
+      SizeY 98
+      OffsetBottom -132
      }
      "Is Visible" 1
      "Ignore Cursor" 1
@@ -71,11 +84,15 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
     ButtonWidgetClass "{B55C6FB34BF94009}" {
      Name "NoButton"
      Slot FrameWidgetSlot "{B55C6FB34BF9400A}" {
-      Anchor 0 1 1 1
+      Anchor 0 0 0 0
+      PositionX 138
       OffsetLeft 138
-      OffsetTop -74
-      OffsetRight -322
-      OffsetBottom -24
+      PositionY 206
+      OffsetTop 206
+      SizeX 160
+      OffsetRight -298
+      SizeY 50
+      OffsetBottom -256
      }
      Color 0.27 0.33 0.36 1
      "Is Visible" 1
@@ -84,11 +101,15 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
     TextWidgetClass "{B55C6FB34BF94013}" {
      Name "NoLabel"
      Slot FrameWidgetSlot "{B55C6FB34BF94014}" {
-      Anchor 0 1 1 1
+      Anchor 0 0 0 0
+      PositionX 138
       OffsetLeft 138
-      OffsetTop -74
-      OffsetRight -322
-      OffsetBottom -24
+      PositionY 206
+      OffsetTop 206
+      SizeX 160
+      OffsetRight -298
+      SizeY 50
+      OffsetBottom -256
      }
      "Is Visible" 1
      "Ignore Cursor" 1
@@ -100,11 +121,15 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
     ButtonWidgetClass "{B55C6FB34BF9400D}" {
      Name "YesButton"
      Slot FrameWidgetSlot "{B55C6FB34BF9400E}" {
-      Anchor 0 1 1 1
+      Anchor 0 0 0 0
+      PositionX 322
       OffsetLeft 322
-      OffsetTop -74
-      OffsetRight -138
-      OffsetBottom -24
+      PositionY 206
+      OffsetTop 206
+      SizeX 160
+      OffsetRight -482
+      SizeY 50
+      OffsetBottom -256
      }
      Color 0.77 0.58 0.23 1
      "Is Visible" 1
@@ -113,11 +138,15 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
     TextWidgetClass "{B55C6FB34BF94017}" {
      Name "YesLabel"
      Slot FrameWidgetSlot "{B55C6FB34BF94018}" {
-      Anchor 0 1 1 1
+      Anchor 0 0 0 0
+      PositionX 322
       OffsetLeft 322
-      OffsetTop -74
-      OffsetRight -138
-      OffsetBottom -24
+      PositionY 206
+      OffsetTop 206
+      SizeX 160
+      OffsetRight -482
+      SizeY 50
+      OffsetBottom -256
      }
      "Is Visible" 1
      "Ignore Cursor" 1

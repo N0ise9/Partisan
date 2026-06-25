@@ -34,9 +34,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Runtime warning pattern: position/size only works when min/max anchors are the same.
   - Let layout anchors own full-screen geometry; script may set z-order, visibility, opacity, and text/data.
 
-- Fixed-size centered children are more predictable with centered anchors plus explicit offsets.
-  - Prefer `Anchor 0.5 0.5 0.5 0.5` with negative left/top and positive right/bottom offsets.
-  - Avoid mixing centered anchors with `PositionX`, `PositionY`, `SizeX`, `SizeY`, and opposite-signed right/bottom offsets for modal dialogs when a simple centered rectangle is intended.
+- Fixed-size centered children need the native position/size slot pattern.
+  - Use `Anchor 0.5 0.5 0.5 0.5`, `PositionX/PositionY`, `SizeX/SizeY`, negative `OffsetRight/OffsetBottom`, and `Alignment 0.5 0.5`.
+  - Centered anchors plus only left/top/right/bottom offsets can resolve as `0x0` in runtime even if they look plausible in the layout file.
+
+- Fixed-height top-anchored children need negative bottom offsets.
+  - For a widget from y=18 to y=60, use `PositionY 18`, `OffsetTop 18`, `SizeY 42`, and `OffsetBottom -60`.
+  - Positive bottom offsets on `Anchor 0 0 1 0` widgets produced negative runtime heights in setup prompt and modal diagnostics.
 
 - Keep visual children passive unless they are real controls.
   - Use `WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS` or layout `Ignore Cursor = true` for passive panels, labels, overlays, and notification visuals.

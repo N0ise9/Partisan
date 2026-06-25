@@ -14,10 +14,14 @@ FrameWidgetClass "{A34F448C7E810601}" {
    Name "HST_SetupPromptPanel"
    Slot FrameWidgetSlot "{A34F448C7E810604}" {
     Anchor 0 0 1 0
+    PositionX 0
     OffsetLeft 0
+    PositionY 0
     OffsetTop 0
+    SizeX 0
     OffsetRight 0
-    OffsetBottom 76
+    SizeY 76
+    OffsetBottom -76
    }
    Color 0.05 0.075 0.095 1
    style full
@@ -28,10 +32,14 @@ FrameWidgetClass "{A34F448C7E810601}" {
    Name "HST_SetupPromptRule"
    Slot FrameWidgetSlot "{A34F448C7E810606}" {
     Anchor 0 0 1 0
+    PositionX 0
     OffsetLeft 0
+    PositionY 72
     OffsetTop 72
+    SizeX 0
     OffsetRight 0
-    OffsetBottom 76
+    SizeY 4
+    OffsetBottom -76
    }
    Color 0.77 0.58 0.23 1
    style full
@@ -42,10 +50,14 @@ FrameWidgetClass "{A34F448C7E810601}" {
    Name "HST_SetupPromptText"
    Slot FrameWidgetSlot "{A34F448C7E810608}" {
     Anchor 0 0 1 0
+    PositionX 0
     OffsetLeft 36
+    PositionY 18
     OffsetTop 18
+    SizeX -72
     OffsetRight -36
-    OffsetBottom 60
+    SizeY 42
+    OffsetBottom -60
    }
    "Is Visible" 1
    "Ignore Cursor" 1
