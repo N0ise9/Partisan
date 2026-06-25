@@ -1002,6 +1002,7 @@ foreach ($requiredUIScreenBaseEntry in @(
 	}
 }
 foreach ($requiredUIRootServiceEntry in @(
+	"UI_ROOT_DEBUG_ENABLED",
 	"static HST_UIRootService Get()",
 	"RequestOpen",
 	"NotifyClosed",
@@ -1028,6 +1029,17 @@ foreach ($requiredUIRootServiceEntry in @(
 	"IsMapBlocked",
 	"IsModalOpen",
 	"IsNotificationVisible",
+	"DebugState",
+	"DescribeScreen",
+	"HST_UIDebug.WidgetSummary",
+	"opened modal",
+	"opened screen",
+	"closed modal",
+	"closed screen",
+	"refused open",
+	"ignored close",
+	"notification shown",
+	"notification hidden",
 	"current == HST_EUIScreenMode.SETUP_MAP",
 	"mode == HST_EUIScreenMode.COMMAND_MENU && current == HST_EUIScreenMode.LOADOUT_EDITOR"
 )) {

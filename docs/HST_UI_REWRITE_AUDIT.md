@@ -19,7 +19,7 @@ Current state:
 - `DebugWorkspaceMetrics` logs raw size, layout size, and effective DPI scale once per UI source.
 - Main UI entry points now call the debug helper for setup map, command menu, shared notification toast, mission report dialogs, and loadout editor.
 - `HST_UIDebug` logs created layout roots, expected widget presence, expected widget screen bounds, z-order, opacity, flags, row samples, and data population summaries so runtime test logs can identify hidden, zero-sized, off-screen, or mis-stacked layout widgets.
-- `HST_UIRootService` owns current-screen, modal-screen, notification, topmost ownership, and modal-aware open/refresh arbitration so blocking screens cannot open underneath unrelated modals and keyboard input can ignore screens hidden under a modal.
+- `HST_UIRootService` owns current-screen, modal-screen, notification, topmost ownership, and modal-aware open/refresh arbitration so blocking screens cannot open underneath unrelated modals and keyboard input can ignore screens hidden under a modal. It logs every open, close, refused open, ignored close, and notification depth change with current/modal/topmost state and root widget geometry.
 
 ## File Audit
 

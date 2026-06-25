@@ -1,5 +1,7 @@
 class HST_UIRootService
 {
+	static const bool UI_ROOT_DEBUG_ENABLED = true;
+
 	protected static ref HST_UIRootService s_Instance;
 
 	protected ref HST_UIScreenBase m_CurrentScreen;
@@ -23,7 +25,7 @@ class HST_UIRootService
 		bool wantsModal = modal || mode == HST_EUIScreenMode.MISSION_DIALOG;
 		if (!CanOpen(mode, owner, wantsModal))
 		{
-			Print(string.Format("h-istasi ui root | refused open mode=%1 owner=%2 current=%3 modal=%4", HST_UIConstants.ModeName(mode), owner, HST_UIConstants.ModeName(GetCurrentMode()), HST_UIConstants.ModeName(GetModalMode())), LogLevel.WARNING);
+			DebugState("refused open", mode, owner, root, blocksGameplay, blocksMap, wantsModal, true);
 			return false;
 		}
 
@@ -34,6 +36,7 @@ class HST_UIRootService
 
 			m_ModalScreen.Configure(mode, owner, root, blocksGameplay, blocksMap, true);
 			m_iRevision++;
+			DebugState("opened modal", mode, owner, root, blocksGameplay, blocksMap, true, false);
 			return true;
 		}
 
@@ -41,6 +44,7 @@ class HST_UIRootService
 			m_CurrentScreen = new HST_UIScreenBase();
 		m_CurrentScreen.Configure(mode, owner, root, blocksGameplay, blocksMap, modal);
 		m_iRevision++;
+		DebugState("opened screen", mode, owner, root, blocksGameplay, blocksMap, false, false);
 		return true;
 	}
 
@@ -48,27 +52,37 @@ class HST_UIRootService
 	{
 		if (m_ModalScreen && m_ModalScreen.Matches(mode, owner))
 		{
+			Widget root = m_ModalScreen.m_wRoot;
 			m_ModalScreen = null;
 			m_iRevision++;
+			DebugState("closed modal", mode, owner, root, false, false, true, false);
 			return;
 		}
 
 		if (!m_CurrentScreen || !m_CurrentScreen.Matches(mode, owner))
+		{
+			DebugState("ignored close", mode, owner, null, false, false, false, false);
 			return;
+		}
 
+		Widget root = m_CurrentScreen.m_wRoot;
 		m_CurrentScreen = null;
 		m_iRevision++;
+		DebugState("closed screen", mode, owner, root, false, false, false, false);
 	}
 
 	void NotifyNotificationShown()
 	{
 		m_iNotificationDepth++;
+		DebugState("notification shown", HST_EUIScreenMode.NONE, "notification", null, false, false, false, false);
 	}
 
 	void NotifyNotificationHidden()
 	{
 		if (m_iNotificationDepth > 0)
 			m_iNotificationDepth--;
+
+		DebugState("notification hidden", HST_EUIScreenMode.NONE, "notification", null, false, false, false, false);
 	}
 
 	bool CanOpen(HST_EUIScreenMode mode, string owner = "", bool modal = false)
@@ -187,5 +201,28 @@ class HST_UIRootService
 	int GetRevision()
 	{
 		return m_iRevision;
+	}
+
+	protected void DebugState(string eventName, HST_EUIScreenMode mode, string owner, Widget root, bool blocksGameplay, bool blocksMap, bool modal, bool warning)
+	{
+		if (!UI_ROOT_DEBUG_ENABLED)
+			return;
+
+		string request = string.Format("event=%1 request=%2 owner=%3 modal=%4 blocksGameplay=%5 blocksMap=%6", eventName, HST_UIConstants.ModeName(mode), owner, modal, blocksGameplay, blocksMap);
+		string state = string.Format("current=%1 modalScreen=%2 topmost=%3 topOwner=%4 notifications=%5 revision=%6", DescribeScreen(m_CurrentScreen), DescribeScreen(m_ModalScreen), HST_UIConstants.ModeName(GetTopmostMode()), GetTopmostOwner(), m_iNotificationDepth, m_iRevision);
+		string rootSummary = "root=" + HST_UIDebug.WidgetSummary(root);
+		string message = string.Format("h-istasi ui root | %1 | %2 | %3", request, state, rootSummary);
+		if (warning)
+			Print(message, LogLevel.WARNING);
+		else
+			Print(message);
+	}
+
+	protected string DescribeScreen(HST_UIScreenBase screen)
+	{
+		if (!screen)
+			return "none";
+
+		return string.Format("%1:%2 gameplay=%3 map=%4 modal=%5 root=%6", HST_UIConstants.ModeName(screen.m_eMode), screen.m_sOwner, screen.m_bBlocksGameplay, screen.m_bBlocksMap, screen.m_bModal, HST_UIDebug.WidgetSummary(screen.m_wRoot));
 	}
 }
