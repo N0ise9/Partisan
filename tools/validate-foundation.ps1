@@ -4532,10 +4532,14 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"SetRowChildLayer",
 	'SetRowChildLayer(row, "PreviewLine", 5)',
 	"CountStorageCandidatesForTab",
-	"m_Layout.m_iRailWidth = ScalePx(444)",
-	"m_Layout.m_iRailHeight = ScalePx(856)",
-	"m_Layout.m_iMainWidth = ScalePx(704)",
-	"m_Layout.m_iMainHeight = ScalePx(856)",
+	"LOADOUT_LAYOUT_FALLBACK_RAIL_WIDTH = 444",
+	"LOADOUT_LAYOUT_FALLBACK_RAIL_HEIGHT = 856",
+	"LOADOUT_LAYOUT_FALLBACK_MAIN_WIDTH = 704",
+	"LOADOUT_LAYOUT_FALLBACK_MAIN_HEIGHT = 856",
+	"m_Layout.m_iRailWidth = LOADOUT_LAYOUT_FALLBACK_RAIL_WIDTH",
+	"m_Layout.m_iRailHeight = LOADOUT_LAYOUT_FALLBACK_RAIL_HEIGHT",
+	"m_Layout.m_iMainWidth = LOADOUT_LAYOUT_FALLBACK_MAIN_WIDTH",
+	"m_Layout.m_iMainHeight = LOADOUT_LAYOUT_FALLBACK_MAIN_HEIGHT",
 	"GetRegionLayoutSize(workspace, railRoot",
 	"GetRegionLayoutSize(workspace, panelRoot",
 	"LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT",
@@ -4652,6 +4656,16 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorComponentEntry)) {
 		throw "Fullscreen loadout editor component is missing: $requiredLoadoutEditorComponentEntry"
+	}
+}
+foreach ($forbiddenLoadoutScaledFallbackMetric in @(
+	"m_Layout.m_iRailWidth = ScalePx(444)",
+	"m_Layout.m_iRailHeight = ScalePx(856)",
+	"m_Layout.m_iMainWidth = ScalePx(704)",
+	"m_Layout.m_iMainHeight = ScalePx(856)"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutScaledFallbackMetric)) {
+		throw "Loadout editor fallback panel dimensions must be layout constants, not viewport-scaled geometry: $forbiddenLoadoutScaledFallbackMetric"
 	}
 }
 foreach ($forbiddenLoadoutScreenLayoutMetric in @(
