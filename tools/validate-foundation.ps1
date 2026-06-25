@@ -4224,16 +4224,12 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"SetRowChildLayer",
 	'SetRowChildLayer(row, "PreviewLine", 5)',
 	"CountStorageCandidatesForTab",
-	"m_Layout.m_iTabHeight = ScalePx(",
-	"m_Layout.m_iTabWidth = ScalePx(",
-	"m_Layout.m_iTabGap = ScalePx(",
-	"m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.245)",
-	"m_Layout.m_iRailHeight = desiredContentHeight",
-	"m_Layout.m_iMainWidth = ClampInt(Math.Round(w * 0.36)",
-	"m_Layout.m_iMainHeight = m_Layout.m_iRailHeight",
-	"m_Layout.m_iHeaderHeight = ScalePx(72)",
-	"m_Layout.m_iCategoryHeight = ScalePx(78)",
-	"m_Layout.m_iListHeight = Math.Max(ScalePx(1), m_Layout.m_iMainHeight - ScalePx(210))",
+	"m_Layout.m_iRailWidth = ScalePx(444)",
+	"m_Layout.m_iRailHeight = ScalePx(856)",
+	"m_Layout.m_iMainWidth = ScalePx(704)",
+	"m_Layout.m_iMainHeight = ScalePx(856)",
+	"GetRegionLayoutSize(workspace, railRoot",
+	"GetRegionLayoutSize(workspace, panelRoot",
 	"LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT",
 	"LOADOUT_TAB_BUTTON_LAYOUT",
 	"AddLoadoutTabButton(workspace, items",
@@ -4348,6 +4344,29 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorComponentEntry)) {
 		throw "Fullscreen loadout editor component is missing: $requiredLoadoutEditorComponentEntry"
+	}
+}
+foreach ($forbiddenLoadoutScreenLayoutMetric in @(
+	"m_Layout.m_iTabHeight",
+	"m_Layout.m_iTabWidth",
+	"m_Layout.m_iTabGap",
+	"m_Layout.m_iTabsHeight",
+	"m_Layout.m_iTabsWidth",
+	"m_Layout.m_iHeaderHeight",
+	"m_Layout.m_iCategoryHeight",
+	"m_Layout.m_iListHeight",
+	"m_Layout.m_iSlotRowHeight",
+	"m_Layout.m_iCountBadgeWidth",
+	"Math.Round(w * 0.245)",
+	"Math.Round(w * 0.30)",
+	"Math.Round(w * 0.34)",
+	"Math.Round(w * 0.36)",
+	"Math.Round(h * 0.70)",
+	"Math.Round(h * 0.64)",
+	"desiredContentHeight"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutScreenLayoutMetric)) {
+		throw "Loadout editor must not keep screen-derived panel metrics now owned by layouts: $forbiddenLoadoutScreenLayoutMetric"
 	}
 }
 foreach ($requiredLoadoutStorageServiceEntry in @(

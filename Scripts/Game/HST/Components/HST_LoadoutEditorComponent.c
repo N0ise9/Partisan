@@ -53,25 +53,13 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 
 class HST_LoadoutEditorLayoutMetrics
 {
-	int m_iScreenW;
-	int m_iScreenH;
 	float m_fScale;
 	bool m_bCompact;
 	bool m_bVeryCompact;
-	int m_iTabHeight;
-	int m_iTabWidth;
-	int m_iTabGap;
-	int m_iTabsHeight;
-	int m_iTabsWidth;
 	int m_iRailWidth;
 	int m_iRailHeight;
 	int m_iMainWidth;
 	int m_iMainHeight;
-	int m_iHeaderHeight;
-	int m_iCategoryHeight;
-	int m_iListHeight;
-	int m_iSlotRowHeight;
-	int m_iCountBadgeWidth;
 	int m_iFontTiny;
 	int m_iFontSmall;
 	int m_iFontNormal;
@@ -1799,9 +1787,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int w = Math.Max(1, m_iEditorWidth);
 		int h = Math.Max(1, m_iEditorHeight);
 
-		m_Layout.m_iScreenW = w;
-		m_Layout.m_iScreenH = h;
-
 		float sx = w / 1920.0;
 		float sy = h / 1080.0;
 		float scale = Math.Min(sx, sy);
@@ -1811,36 +1796,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_Layout.m_bCompact = w < 1550 || h < 880;
 		m_Layout.m_bVeryCompact = w < 1300 || h < 760;
 
-		m_Layout.m_iTabHeight = ScalePx(58);
-		m_Layout.m_iTabWidth = ScalePx(58);
-		m_Layout.m_iTabGap = ScalePx(14);
-
-		int editorModeCount = GetEditorModeCount();
-		m_Layout.m_iTabsWidth = editorModeCount * m_Layout.m_iTabWidth;
-		if (editorModeCount > 1)
-			m_Layout.m_iTabsWidth += (editorModeCount - 1) * m_Layout.m_iTabGap;
-		m_Layout.m_iTabsHeight = m_Layout.m_iTabHeight + ScalePx(10);
-
-		m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.245), ScalePx(390), ScalePx(520));
-		if (m_Layout.m_bVeryCompact)
-			m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.34), ScalePx(290), ScalePx(470));
-		else if (m_Layout.m_bCompact)
-			m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.30), ScalePx(360), ScalePx(500));
-
-		int desiredContentHeight = ClampInt(Math.Round(h * 0.70), ScalePx(460), Math.Max(ScalePx(1), h - m_Layout.m_iTabsHeight - ScalePx(136)));
-		if (m_Layout.m_bVeryCompact)
-			desiredContentHeight = ClampInt(Math.Round(h * 0.64), ScalePx(360), Math.Max(ScalePx(1), h - m_Layout.m_iTabsHeight - ScalePx(116)));
-
-		m_Layout.m_iRailHeight = desiredContentHeight;
-		m_Layout.m_iMainWidth = ClampInt(Math.Round(w * 0.36), ScalePx(520), ScalePx(760));
-		m_Layout.m_iMainHeight = m_Layout.m_iRailHeight;
-
-		m_Layout.m_iHeaderHeight = ScalePx(72);
-		m_Layout.m_iCategoryHeight = ScalePx(78);
-		m_Layout.m_iListHeight = Math.Max(ScalePx(1), m_Layout.m_iMainHeight - ScalePx(210));
-
-		m_Layout.m_iSlotRowHeight = ScalePx(84);
-		m_Layout.m_iCountBadgeWidth = ClampInt(ScalePx(88), 70, 104);
+		// Fallbacks mirror the loadout editor layout; live widgets replace these through GetRegionLayoutSize.
+		m_Layout.m_iRailWidth = ScalePx(444);
+		m_Layout.m_iRailHeight = ScalePx(856);
+		m_Layout.m_iMainWidth = ScalePx(704);
+		m_Layout.m_iMainHeight = ScalePx(856);
 
 		m_Layout.m_iFontTiny = ScaleFont(10);
 		m_Layout.m_iFontSmall = ScaleFont(12);
@@ -2078,9 +2038,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		GetRegionLayoutSize(workspace, panelRoot, m_Layout.m_iMainWidth, m_Layout.m_iMainHeight, panelWidth, panelHeight);
 		m_Layout.m_iMainWidth = panelWidth;
 		m_Layout.m_iMainHeight = panelHeight;
-		m_Layout.m_iHeaderHeight = ScalePx(72);
-		m_Layout.m_iCategoryHeight = ScalePx(78);
-		m_Layout.m_iListHeight = Math.Max(1, panelHeight - ScalePx(210));
 
 		SetLoadoutWidgetColor(panelRoot, "StorageBrowserBackground", GetPanelBackColor(), 1.0);
 		SetLoadoutWidgetColor(panelRoot, "StorageBrowserAccent", GetAccentColor(), 1.0);
