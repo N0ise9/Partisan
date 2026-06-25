@@ -3561,6 +3561,117 @@ foreach ($forbiddenLoadoutLeftRailGeometry in @(
 		throw "Loadout editor left rail must not create panel/scroll geometry in script: $forbiddenLoadoutLeftRailGeometry"
 	}
 }
+foreach ($requiredLoadoutCandidateTemplateLayoutEntry in @(
+	'Name "CandidateList"',
+	'Name "CandidatePanelBackground"',
+	'Name "CandidateHeaderRule"',
+	'Name "CandidateHeaderPreviewBack"',
+	'Name "CandidateHeaderPreviewLine"',
+	'Name "CandidateHeaderPreviewAnchor"',
+	'Name "CandidateHeaderSlot"',
+	'Name "CandidateHeaderName"',
+	'Name "CandidateHeaderMarker"',
+	'Name "CandidateRemoveButton"',
+	'Name "CandidateRemoveBackground"',
+	'Name "CandidateRemoveAccent"',
+	'Name "CandidateRemoveIcon"',
+	'Name "CandidateRemoveLabel"',
+	'Name "CandidateListFrame"',
+	'Name "CandidateScroll"',
+	'Name "CandidateItems"',
+	'Name "CandidateEmpty"',
+	'Name "SavePanel"',
+	'Name "SavePanelBackground"',
+	'Name "SavePanelAccent"',
+	'Name "SavePanelTitle"',
+	'Name "TemplateSaveButton"',
+	'Name "TemplateSaveBackground"',
+	'Name "TemplateSaveAccent"',
+	'Name "TemplateSaveLabel"',
+	'Name "TemplateClearButton"',
+	'Name "TemplateClearBackground"',
+	'Name "TemplateClearAccent"',
+	'Name "TemplateClearLabel"',
+	'Name "TemplateList"',
+	'Name "TemplateScroll"',
+	'Name "TemplateItems"',
+	'Name "TemplateEmpty"'
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutCandidateTemplateLayoutEntry)) {
+		throw "Loadout editor candidate/template panel must be layout-owned: $requiredLoadoutCandidateTemplateLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutCandidateTemplateScriptEntry in @(
+	"protected void ShowCandidatePanelWidgets",
+	"protected void ShowTemplatePanelWidgets",
+	"protected void HideTemplatePanelWidgets",
+	"protected void ConfigureLoadoutPanelShell",
+	"protected void ConfigureLoadoutPanelButton",
+	'SetLoadoutWidgetColor(panelRoot, "CandidatePanelBackground"',
+	'SetLoadoutWidgetColor(panelRoot, "CandidateHeaderRule"',
+	'ConfigureLoadoutPanelButton(panelRoot, "CandidateRemoveButton"',
+	'm_CandidateScroll = ScrollLayoutWidget.Cast(panelRoot.FindAnyWidget("CandidateScroll"))',
+	'Widget items = panelRoot.FindAnyWidget("CandidateItems")',
+	'SetLoadoutText(panelRoot, "CandidateEmpty"',
+	'ConfigureLoadoutPanelShell(panelRoot, "Save Loadout")',
+	'ConfigureLoadoutPanelButton(panelRoot, "TemplateSaveButton"',
+	'ConfigureLoadoutPanelButton(panelRoot, "TemplateClearButton"',
+	'm_TemplateScroll = ScrollLayoutWidget.Cast(panelRoot.FindAnyWidget("TemplateScroll"))',
+	'Widget items = panelRoot.FindAnyWidget("TemplateItems")',
+	'SetLoadoutText(panelRoot, "TemplateEmpty"',
+	'SetLoadoutWidgetColor(root, "CandidateHeaderPreviewBack"',
+	'Widget anchor = root.FindAnyWidget("CandidateHeaderPreviewAnchor")',
+	'SetLoadoutText(root, "CandidateHeaderSlot"',
+	'SetLoadoutText(root, "CandidateHeaderName"',
+	'SetLoadoutText(root, "CandidateHeaderMarker"'
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutCandidateTemplateScriptEntry)) {
+		throw "Loadout editor candidate/template panel must populate named layout widgets: $requiredLoadoutCandidateTemplateScriptEntry"
+	}
+}
+$loadoutCandidatePanelMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderCandidatePanel[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderTemplatePanel")
+if (!$loadoutCandidatePanelMatch.Success) {
+	throw "Loadout editor candidate panel renderer is missing"
+}
+$loadoutTemplatePanelMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderTemplatePanel[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderSettingsPanel")
+if (!$loadoutTemplatePanelMatch.Success) {
+	throw "Loadout editor template panel renderer is missing"
+}
+foreach ($forbiddenLoadoutCandidateTemplateGeometry in @(
+	"CreateRectWidget",
+	"CreateTextWidget",
+	"CreateScrollContainer",
+	"CreateButton",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"VERTICAL_SCROLL_LIST_LAYOUT",
+	"panelLeft",
+	"panelTop",
+	"listLeft",
+	"rowTop",
+	"firstRowTop"
+)) {
+	if ($loadoutCandidatePanelMatch.Value -match [regex]::Escape($forbiddenLoadoutCandidateTemplateGeometry)) {
+		throw "Loadout editor candidate panel must not create panel/scroll geometry in script: $forbiddenLoadoutCandidateTemplateGeometry"
+	}
+	if ($loadoutTemplatePanelMatch.Value -match [regex]::Escape($forbiddenLoadoutCandidateTemplateGeometry)) {
+		throw "Loadout editor template panel must not create panel/scroll geometry in script: $forbiddenLoadoutCandidateTemplateGeometry"
+	}
+}
+$loadoutSelectedNodeHeaderMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderSelectedNodeHeader[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderCandidateRow")
+if (!$loadoutSelectedNodeHeaderMatch.Success) {
+	throw "Loadout editor selected-node header renderer is missing"
+}
+foreach ($forbiddenLoadoutSelectedHeaderGeometry in @(
+	"CreateRectWidget",
+	"CreateTextWidget",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize"
+)) {
+	if ($loadoutSelectedNodeHeaderMatch.Value -match [regex]::Escape($forbiddenLoadoutSelectedHeaderGeometry)) {
+		throw "Loadout editor selected-node header must use named layout widgets: $forbiddenLoadoutSelectedHeaderGeometry"
+	}
+}
 foreach ($requiredPreviewCellLayoutEntry in @(
 	"HST_LoadoutItemPreviewCell",
 	'Slot FrameWidgetSlot "{7B2FD986A4D3420F}"',
