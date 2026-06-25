@@ -128,6 +128,36 @@ class HST_UIRootService
 		return m_ModalScreen.m_eMode;
 	}
 
+	HST_EUIScreenMode GetTopmostMode()
+	{
+		if (m_ModalScreen)
+			return m_ModalScreen.m_eMode;
+
+		return GetCurrentMode();
+	}
+
+	string GetTopmostOwner()
+	{
+		if (m_ModalScreen)
+			return m_ModalScreen.m_sOwner;
+
+		if (m_CurrentScreen)
+			return m_CurrentScreen.m_sOwner;
+
+		return "";
+	}
+
+	bool IsTopmost(HST_EUIScreenMode mode, string owner = "")
+	{
+		if (m_ModalScreen)
+			return m_ModalScreen.Matches(mode, owner);
+
+		if (!m_CurrentScreen)
+			return mode == HST_EUIScreenMode.NONE;
+
+		return m_CurrentScreen.Matches(mode, owner);
+	}
+
 	bool IsGameplayBlocked()
 	{
 		if (m_CurrentScreen && m_CurrentScreen.m_bBlocksGameplay)

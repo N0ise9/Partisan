@@ -1011,6 +1011,9 @@ foreach ($requiredUIRootServiceEntry in @(
 	"if (mode == HST_EUIScreenMode.SETUP_MAP)",
 	"return current == HST_EUIScreenMode.SETUP_MAP",
 	"GetModalMode",
+	"GetTopmostMode",
+	"GetTopmostOwner",
+	"IsTopmost",
 	"m_CurrentScreen",
 	"m_ModalScreen",
 	"m_ModalScreen.m_bBlocksGameplay",
@@ -2579,7 +2582,10 @@ foreach ($requiredCommandMenuActionDialogEntry in @(
 	"ConfirmPendingActionDialog",
 	"ClearActionDialog",
 	"RequestConfirmedAction",
-	"CancelPendingActionDialog();"
+	"CancelPendingActionDialog();",
+	"IsCommandMenuTopmost",
+	'!IsCommandMenuTopmost()',
+	'HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent")'
 )) {
 	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredCommandMenuActionDialogEntry)) {
 		throw "Command menu destructive/admin actions must use the named action-dialog modal: $requiredCommandMenuActionDialogEntry"
@@ -3726,7 +3732,10 @@ foreach ($requiredLoadoutRootLifecycleEntry in @(
 	"CloseEditorInternal(false)",
 	"protected void CloseEditorInternal",
 	"if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, `"HST_LoadoutEditorComponent`", root, true, true, false))",
-	"DeleteEditorRoot()"
+	"DeleteEditorRoot()",
+	"IsLoadoutEditorTopmost",
+	'!IsLoadoutEditorTopmost()',
+	'HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent")'
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutRootLifecycleEntry)) {
 		throw "Loadout editor must register blocking UI only after its layout root exists: $requiredLoadoutRootLifecycleEntry"

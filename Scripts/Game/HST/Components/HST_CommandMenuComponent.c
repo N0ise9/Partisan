@@ -569,6 +569,12 @@ class HST_CommandMenuComponent : ScriptComponent
 			return false;
 		}
 
+		if (m_bMenuOpen && !m_bActionDialogOpen && !IsCommandMenuTopmost())
+		{
+			DebugCommandMenuToggleRefused(source, "not topmost");
+			return false;
+		}
+
 		if (!HST_CommandMenuRequestComponent.GetLocalOwner() && !Replication.IsServer())
 			DebugCommandMenuToggleRefused(source, "request bridge missing");
 
@@ -593,7 +599,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OnSelectPreviousInput(float value, EActionTrigger reason)
 	{
-		if (m_bActionDialogOpen)
+		if (m_bActionDialogOpen || !IsCommandMenuTopmost())
 			return;
 
 		if (reason == EActionTrigger.DOWN)
@@ -602,7 +608,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OnSelectNextInput(float value, EActionTrigger reason)
 	{
-		if (m_bActionDialogOpen)
+		if (m_bActionDialogOpen || !IsCommandMenuTopmost())
 			return;
 
 		if (reason == EActionTrigger.DOWN)
@@ -611,6 +617,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OnExecuteSelectedInput(float value, EActionTrigger reason)
 	{
+		if (m_bActionDialogOpen || !IsCommandMenuTopmost())
+			return;
+
 		if (reason == EActionTrigger.DOWN)
 			ExecuteSelectedAction();
 	}
@@ -626,7 +635,15 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 		}
 
+		if (!IsCommandMenuTopmost())
+			return;
+
 		CloseMenu("menu back action");
+	}
+
+	protected bool IsCommandMenuTopmost()
+	{
+		return HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent");
 	}
 
 	protected void BecomeLocalOwner()

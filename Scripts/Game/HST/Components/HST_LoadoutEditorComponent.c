@@ -893,12 +893,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (reason != EActionTrigger.DOWN || !m_bEditorOpen)
 			return;
 
+		if (!IsLoadoutEditorTopmost())
+			return;
+
 		SwitchEditorModeByIndex(GetEditorModeIndex(m_sEditorMode) - 1);
 	}
 
 	protected void OnLoadoutTabRightInput(float value, EActionTrigger reason)
 	{
 		if (reason != EActionTrigger.DOWN || !m_bEditorOpen)
+			return;
+
+		if (!IsLoadoutEditorTopmost())
 			return;
 
 		SwitchEditorModeByIndex(GetEditorModeIndex(m_sEditorMode) + 1);
@@ -909,7 +915,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (reason != EActionTrigger.DOWN || !m_bEditorOpen)
 			return;
 
+		if (!IsLoadoutEditorTopmost())
+			return;
+
 		HandleBackAction(true);
+	}
+
+	protected bool IsLoadoutEditorTopmost()
+	{
+		return HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent");
 	}
 
 	protected void SwitchEditorModeByIndex(int modeIndex)
