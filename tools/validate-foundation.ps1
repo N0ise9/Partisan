@@ -939,6 +939,13 @@ foreach ($requiredUIRootServiceEntry in @(
 	"NotifyNotificationShown",
 	"NotifyNotificationHidden",
 	"CanOpen",
+	'CanOpen(HST_EUIScreenMode mode, string owner = "", bool modal = false)',
+	"bool wantsModal = modal || mode == HST_EUIScreenMode.MISSION_DIALOG",
+	"if (m_ModalScreen)",
+	"m_ModalScreen.Matches(mode, owner)",
+	"m_CurrentScreen.Matches(mode, owner)",
+	"owner.IsEmpty() || (m_CurrentScreen && m_CurrentScreen.Matches(mode, owner))",
+	"GetModalMode",
 	"m_CurrentScreen",
 	"m_ModalScreen",
 	"m_ModalScreen.m_bBlocksGameplay",
@@ -2316,7 +2323,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'RenderActivityPanel',
 	'OpenPetrosMenu',
 	'OpenMenuToTab',
-	'HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU)',
+	'HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent")',
 	'protected bool RenderMenu',
 	'if (!RenderMenu())',
 	'RunCommandFromContext',
@@ -3471,7 +3478,7 @@ if ($loadoutEditorComponentText -notmatch "m_RootWidget\s*=\s*workspace\.CreateW
 	throw "Loadout editor must create the anchored layout resource directly as its root"
 }
 foreach ($requiredLoadoutRootLifecycleEntry in @(
-	"HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.LOADOUT_EDITOR)",
+	'HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent")',
 	"protected bool RenderEditor",
 	"if (!RenderEditor())",
 	"CloseEditorInternal(false, false)",

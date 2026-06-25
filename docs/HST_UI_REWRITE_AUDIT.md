@@ -18,6 +18,7 @@ Current state:
 - `Scripts/Game/HST/Services/HST_UIWorkspaceMetrics.c` owns raw/layout size helpers and raw/layout conversion helpers.
 - `DebugWorkspaceMetrics` logs raw size, layout size, and effective DPI scale once per UI source.
 - Main UI entry points now call the debug helper for setup map, command menu, shared notification toast, mission detail UI, and loadout editor.
+- `HST_UIRootService` owns current-screen, modal-screen, notification, and modal-aware open/refresh arbitration so blocking screens cannot open underneath unrelated modals.
 
 ## File Audit
 

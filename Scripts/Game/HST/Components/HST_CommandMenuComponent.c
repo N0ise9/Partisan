@@ -782,7 +782,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OpenMenu(string source = "unknown")
 	{
-		if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU))
+		if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent"))
 			return;
 
 		m_bMenuOpen = true;

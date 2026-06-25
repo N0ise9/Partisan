@@ -374,7 +374,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (commandMenu)
 			commandMenu.CloseMenuFromExternal();
 
-		if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.LOADOUT_EDITOR))
+		if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent"))
 			return;
 
 		m_PreviewEditedCharacter = userEntity;

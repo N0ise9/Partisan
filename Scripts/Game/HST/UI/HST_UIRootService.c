@@ -20,13 +20,14 @@ class HST_UIRootService
 		if (mode == HST_EUIScreenMode.NONE)
 			return false;
 
-		if (!CanOpen(mode))
+		bool wantsModal = modal || mode == HST_EUIScreenMode.MISSION_DIALOG;
+		if (!CanOpen(mode, owner, wantsModal))
 		{
-			Print(string.Format("h-istasi ui root | refused open mode=%1 owner=%2 current=%3", HST_UIConstants.ModeName(mode), owner, HST_UIConstants.ModeName(GetCurrentMode())), LogLevel.WARNING);
+			Print(string.Format("h-istasi ui root | refused open mode=%1 owner=%2 current=%3 modal=%4", HST_UIConstants.ModeName(mode), owner, HST_UIConstants.ModeName(GetCurrentMode()), HST_UIConstants.ModeName(GetModalMode())), LogLevel.WARNING);
 			return false;
 		}
 
-		if (modal || mode == HST_EUIScreenMode.MISSION_DIALOG)
+		if (wantsModal)
 		{
 			if (!m_ModalScreen)
 				m_ModalScreen = new HST_UIScreenBase();
@@ -70,14 +71,29 @@ class HST_UIRootService
 			m_iNotificationDepth--;
 	}
 
-	bool CanOpen(HST_EUIScreenMode mode)
+	bool CanOpen(HST_EUIScreenMode mode, string owner = "", bool modal = false)
 	{
+		bool wantsModal = modal || mode == HST_EUIScreenMode.MISSION_DIALOG;
+		if (m_ModalScreen)
+		{
+			if (wantsModal)
+				return m_ModalScreen.Matches(mode, owner);
+
+			if (m_CurrentScreen && m_CurrentScreen.Matches(mode, owner))
+				return true;
+
+			return false;
+		}
+
 		HST_EUIScreenMode current = GetCurrentMode();
-		if (mode == HST_EUIScreenMode.MISSION_DIALOG)
+		if (wantsModal)
 			return current != HST_EUIScreenMode.SETUP_MAP;
 
-		if (current == HST_EUIScreenMode.NONE || current == mode)
+		if (current == HST_EUIScreenMode.NONE)
 			return true;
+
+		if (current == mode)
+			return owner.IsEmpty() || (m_CurrentScreen && m_CurrentScreen.Matches(mode, owner));
 
 		if (current == HST_EUIScreenMode.SETUP_MAP)
 			return false;
@@ -97,6 +113,14 @@ class HST_UIRootService
 			return HST_EUIScreenMode.NONE;
 
 		return m_CurrentScreen.m_eMode;
+	}
+
+	HST_EUIScreenMode GetModalMode()
+	{
+		if (!m_ModalScreen)
+			return HST_EUIScreenMode.NONE;
+
+		return m_ModalScreen.m_eMode;
 	}
 
 	bool IsGameplayBlocked()
