@@ -241,6 +241,57 @@ class HST_UIDebug
 		Print(string.Format("h-istasi ui layout debug | %1 | row summary | layout=%2 count=%3 | %4", owner, layout, count, summary));
 	}
 
+	static void LogNamedChildSummaryCsv(string owner, Widget root, string parentNames, int limit = 4)
+	{
+		if (!LAYOUT_ROW_SAMPLE_DEBUG_ENABLED)
+			return;
+		if (!root || parentNames.IsEmpty())
+			return;
+
+		array<string> names = {};
+		parentNames.Split("|", names, true);
+		foreach (string parentName : names)
+		{
+			if (parentName.IsEmpty())
+				continue;
+
+			Widget parent = root.FindAnyWidget(parentName);
+			if (!parent && root.GetName() == parentName)
+				parent = root;
+
+			LogChildSummary(owner, parent, parentName, limit);
+		}
+	}
+
+	static void LogChildSummary(string owner, Widget parent, string parentName, int limit = 4)
+	{
+		if (!LAYOUT_ROW_SAMPLE_DEBUG_ENABLED)
+			return;
+
+		if (!parent)
+		{
+			Print(string.Format("h-istasi ui layout debug | %1 | children missing | parent=%2", owner, parentName), LogLevel.WARNING);
+			return;
+		}
+
+		int count;
+		string sample = "";
+		Widget child = parent.GetChildren();
+		while (child)
+		{
+			count++;
+			if (count <= limit)
+				sample = AppendSampleValue(sample, WidgetSummary(child));
+
+			child = child.GetSibling();
+		}
+
+		if (sample.IsEmpty())
+			sample = "none";
+
+		Print(string.Format("h-istasi ui layout debug | %1 | children | parent=%2 target=%3 count=%4 sample=%5", owner, parentName, WidgetSummary(parent), count, sample));
+	}
+
 	static string WidgetSummary(Widget widget)
 	{
 		if (!widget)
@@ -341,6 +392,17 @@ class HST_UIDebug
 			return value;
 
 		return values + "," + value;
+	}
+
+	protected static string AppendSampleValue(string values, string value)
+	{
+		if (value.IsEmpty())
+			return values;
+
+		if (values.IsEmpty())
+			return value;
+
+		return values + " || " + value;
 	}
 
 	protected static string EmptyListAsNone(string values)

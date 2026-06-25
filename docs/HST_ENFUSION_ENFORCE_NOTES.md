@@ -21,6 +21,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Use `HST_UIDebug.LogReadyWidgetsCsv` in delayed ready passes beside geometry logs so playtest logs identify the exact failed widget state.
   - Negative sizes are different from delayed `0x0` layout resolution. Ready logs now separate `zero=`, `negative=`, and `offscreen=` so bad anchor signs are obvious.
 
+- Row/list containers need post-layout child samples when debugging generated UI.
+  - Creation-time row logs confirm data population, but list rows can still resolve into the wrong parent, wrong size, or wrong z-order after layout.
+  - Use `HST_UIDebug.LogNamedChildSummaryCsv` during delayed ready passes for dynamic list hosts such as command tabs/main/actions and loadout slot/candidate/storage lists.
+  - This logs the parent bounds plus the first few child widget bounds after Enfusion has settled anchors.
+
 - `root.FindAnyWidget(root.GetName())` may not find the root itself.
   - If debug code checks expected widgets and includes the root name, explicitly compare `root.GetName()` before reporting the root missing.
 

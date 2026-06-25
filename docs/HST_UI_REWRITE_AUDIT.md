@@ -81,6 +81,7 @@ Current state:
 - Command menu close-button hierarchy no longer puts a child frame inside `CloseButton`, removing the runtime GUI error seen in the latest log.
 - Command menu uses `ApplyCommandMenuLayerOrder` after creation, population, and delayed layout refresh so the dimmer, surface, panels, header, button, and label stack consistently without geometry offsets.
 - Loadout editor uses `ApplyLoadoutLayerOrder` after render and delayed layout refresh to keep the render target low, the UI layer above it, the preview drag surface behind panels, and expanded `loadout_editor_ready` geometry logs for the next test pass.
+- Command menu and loadout editor delayed ready logs now include child samples for dynamic list hosts so runtime logs show whether populated rows landed inside the expected scroll/list container after anchors resolve.
 - Loadout editor layout now explicitly marks core chrome visible by default and mode-specific panels hidden by default, so the layout's baseline state matches the script's mode population model.
 - Setup candidate marker changed from a cross to a small temporary dot/ring marker overlay, keeping setup selection separate from persistent gameplay marker lifecycle.
 - Setup map now uses a distinct non-fullscreen map mode and the world map config component explicitly points the normal gadget map at `HST_GameplayMap.conf`, preventing setup's minimal map UI component stack from being reused by the normal gameplay map.

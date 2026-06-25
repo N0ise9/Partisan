@@ -1342,8 +1342,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
 		ApplyCommandMenuLayerOrder(root);
-		HST_UIDebug.LogWidgetGeometryCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|StatsPanel|MainPanel|ActivityPanel|ActionsPanel|CloseButton|CloseLabel");
-		HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|StatsPanel|MainPanel|ActivityPanel|ActionsPanel|CloseButton|CloseLabel");
+		HST_UIDebug.LogWidgetGeometryCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|TabScroll|TabItems|StatsPanel|MainPanel|MainScroll|MainItems|ActivityPanel|ActivityScroll|ActivityItems|ActionsPanel|ActionsScroll|ActionsItems|CloseButton|CloseLabel");
+		HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|TabScroll|TabItems|StatsPanel|MainPanel|MainScroll|MainItems|ActivityPanel|ActivityScroll|ActivityItems|ActionsPanel|ActionsScroll|ActionsItems|CloseButton|CloseLabel");
+		HST_UIDebug.LogNamedChildSummaryCsv("command_menu_ready", root, "TabItems|MainItems|ActivityItems|ActionsItems", 5);
 	}
 
 	protected void RenderStats(WorkspaceWidget workspace, Widget root)
