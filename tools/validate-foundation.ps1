@@ -2529,10 +2529,10 @@ $rowLayoutContracts = @(
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout"; Guid = "{A7B8C9D0012345A0}"; Required = @('Name "HST_CommandDataRowCompact"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandActionRow.layout"; Guid = "{A7B8C9D0012345B0}"; Required = @('FrameWidgetClass', 'Name "HST_CommandActionRow"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandFeedRow.layout"; Guid = "{A7B8C9D0012345C0}"; Required = @('Name "HST_CommandFeedRow"', 'Slot AlignableSlot', 'Name "Text"') },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; Guid = "{A7B8C9D0012345D0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutNodeRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "OpenMarker"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; Guid = "{A7B8C9D0012345D0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutNodeRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "PreviewFallback"', 'Name "Primary"', 'Name "Secondary"', 'Name "OpenMarker"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; Guid = "{A7B8C9D0012345E0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "VolumeBack"', 'Name "VolumeFill"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; Guid = "{A7B8C9D0012345F0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageItemRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; Guid = "{A7B8C9D001234600}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutCandidateTile"', 'Slot AlignableSlot', 'Padding 0 0 8 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') }
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; Guid = "{A7B8C9D001234600}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutCandidateTile"', 'Slot AlignableSlot', 'Padding 0 0 8 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', 'Name "EmptyText"', '"Ignore Cursor" 1') }
 )
 foreach ($rowLayoutContract in $rowLayoutContracts) {
 	$rowLayoutPath = $rowLayoutContract.Path
@@ -2613,10 +2613,10 @@ if ($loadoutStorageCategoryTabMetaText -notmatch [regex]::Escape('Name "{A7B8C9D
 }
 
 $loadoutRowFontContracts = @(
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; FontGuids = @("{C1A9E1A2092846E0}", "{C1A9E1A2092846E1}", "{C1A9E1A2092846E2}") },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; FontGuids = @("{C1A9E1A2092846E0}", "{C1A9E1A2092846E1}", "{C1A9E1A2092846E2}", "{C1A9E1A2092846EA}") },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; FontGuids = @("{C1A9E1A2092846E3}", "{C1A9E1A2092846E4}", "{C1A9E1A2092846E5}") },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; FontGuids = @("{C1A9E1A2092846E6}", "{C1A9E1A2092846E7}") },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; FontGuids = @("{C1A9E1A2092846E8}", "{C1A9E1A2092846E9}") }
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; FontGuids = @("{C1A9E1A2092846E8}", "{C1A9E1A2092846E9}", "{C1A9E1A2092846EB}") }
 )
 foreach ($loadoutRowFontContract in $loadoutRowFontContracts) {
 	$loadoutRowFontText = Get-Content -Raw $loadoutRowFontContract.Path
@@ -4065,12 +4065,13 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"AddNodePreviewToRow",
 	"AddCandidatePreviewToRow",
 	"ShowRowPreviewChrome",
+	'SetRowText(row, "PreviewFallback"',
+	'SetRowText(row, "EmptyText"',
 	"BuildStorageCapacityLabel",
 	"BuildCountBadgeLabel",
 	"BuildNodeCountBadge",
 	"BuildCandidateCountLabel",
 	"SetRowWidgetVisible",
-	"ResolveRowOverlayRoot",
 	"SetRowChildLayer",
 	'SetRowChildLayer(row, "PreviewLine", 5)',
 	"CountStorageCandidatesForTab",
@@ -4286,6 +4287,18 @@ foreach ($forbiddenLoadoutPathBRegression in @(
 	"protected void CreateCountBadge",
 	"protected void CreateStorageVolumeBar",
 	"protected void RenderCategoryChips",
+	"protected Widget CreateRectWidget",
+	"protected bool SetupCanvasRect",
+	"protected ref array<float> BuildRectVertices",
+	"protected TextWidget CreateTextWidget",
+	"protected TextWidget CreateWrappedTextWidget",
+	"protected bool CreateIconWidget",
+	"protected string ResolveNodeIcon(",
+	"protected string ResolveCandidateIcon(",
+	"protected Widget ResolveRowOverlayRoot",
+	"HST_LoadoutEditorDrawCommandSet",
+	"TEXT_BASE_LAYOUT",
+	"m_aCanvasCommandSets",
 	"RenderNodeRowAt",
 	"RenderStorageNodeRow",
 	"RenderStorageCandidateTile",

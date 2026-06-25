@@ -92,6 +92,26 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
          }
          "Ignore Cursor" 1
         }
+        TextWidgetClass "{A7B8C9D001235D20}" {
+         Name "PreviewFallback"
+         Slot FrameWidgetSlot "{A7B8C9D001235D21}" {
+          Anchor 0 0 0 0
+          OffsetLeft 8
+          OffsetTop 8
+          OffsetRight 72
+          OffsetBottom 72
+         }
+         "Is Visible" 0
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "O"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{C1A9E1A2092846EA}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+          DisabledColor 0.38 0.38 0.38 1
+         }
+        }
         TextWidgetClass "{A7B8C9D0012345D8}" {
          Name "Primary"
          Slot FrameWidgetSlot "{A7B8C9D0012345D9}" {

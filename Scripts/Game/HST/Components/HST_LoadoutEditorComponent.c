@@ -51,11 +51,6 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 	}
 }
 
-class HST_LoadoutEditorDrawCommandSet
-{
-	ref array<ref CanvasWidgetCommand> m_aCommands = {};
-}
-
 class HST_LoadoutEditorLayoutMetrics
 {
 	int m_iScreenW;
@@ -113,7 +108,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
 	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
 	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
-	static const ResourceName TEXT_BASE_LAYOUT = "{C1A9E1A2092846D0}UI/layouts/HST/Text/HST_TextBase.layout";
 	static const ResourceName LOADOUT_NODE_ROW_LAYOUT = "{A7B8C9D0012345D0}UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout";
 	static const ResourceName LOADOUT_STORAGE_ROW_LAYOUT = "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout";
 	static const ResourceName LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout";
@@ -299,7 +293,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ref array<string> m_aTemplateDisplays = {};
 	protected ref array<int> m_aTemplateSlotCounts = {};
 	protected ref array<Widget> m_aWidgets = {};
-	protected ref array<ref HST_LoadoutEditorDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref HST_LoadoutEditorLayoutMetrics m_Layout;
 	protected ref HST_LoadoutEditorWidgetHandler m_WidgetHandler;
 	protected ref HST_LoadoutEditorVisualSettings m_VisualSettings;
@@ -2396,9 +2389,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				SetRowWidgetVisible(row, "PreviewBack", false);
 				SetRowWidgetVisible(row, "PreviewLine", false);
 				SetRowWidgetVisible(row, "PreviewAnchor", false);
-				Widget body = ResolveRowOverlayRoot(row);
-				if (body)
-					CreateWrappedTextWidget(workspace, body, emptyText, ScalePx(18), ScalePx(24), Math.Max(ScalePx(120), GetStorageCandidateTileBodyWidth() - ScalePx(36)), ScalePx(54), m_Layout.m_iFontNormal, 0xFFB7C7D7, 0, false);
+				SetRowText(row, "EmptyText", emptyText, 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
 			}
 		}
 
@@ -2608,15 +2599,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowText(row, "Secondary", string.Format("%1 slots", m_aTemplateSlotCounts[templateIndex]), 0xFFB7C7D7, m_Layout.m_iFontSmall, false, false);
 		SetRowText(row, "OpenMarker", "", 0xFFFFFFFF, m_Layout.m_iFontTitle, false, false);
 		ShowRowPreviewChrome(row);
-
-		Widget anchor = FindRowWidget(row, "PreviewAnchor");
-		if (!anchor)
-			return;
-
-		anchor.SetVisible(true);
-		anchor.SetOpacity(1.0);
-		int iconSize = GetLayoutSquareSize(workspace, anchor, ScalePx(60));
-		CreateTextWidget(workspace, anchor, "O", 0, Math.Max(0, (iconSize - ScalePx(34)) / 2), iconSize, ScalePx(34), ScaleFont(20), 0xFFF5E8CE, userId, true);
+		SetRowWidgetVisible(row, "PreviewAnchor", false);
+		SetRowText(row, "PreviewFallback", "O", 0xFFF5E8CE, ScaleFont(20), true, false);
 	}
 
 	protected void AddLoadoutCandidateTile(WorkspaceWidget workspace, Widget items, int candidateIndex, int userId)
@@ -2631,6 +2615,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		PrepareRowRoot(tile);
 		BindRowClick(tile, userId);
+		SetRowWidgetVisible(tile, "EmptyText", false);
 
 		ConfigureStorageCandidateTile(tile);
 
@@ -2752,6 +2737,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		SetRowImageColor(row, "PreviewBack", 0xEE05080A, 1.0);
 		SetRowImageColor(row, "PreviewLine", 0x664B5960, 1.0);
+		SetRowWidgetVisible(row, "PreviewFallback", false);
+		SetRowWidgetVisible(row, "EmptyText", false);
 	}
 
 	protected void SetStorageVolumeFill(Widget row, int nodeIndex)
@@ -4283,37 +4270,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return "Throwable";
 	}
 
-	protected string ResolveNodeIcon(int nodeIndex)
-	{
-		string category = ResolveNodeCategory(nodeIndex);
-		if (category == "headgear")
-			return "^";
-		if (category == "clothing")
-			return "J";
-		if (category == "vest")
-			return "V";
-		if (category == "pants")
-			return "P";
-		if (category == "boots")
-			return "b";
-		if (category == "backpack")
-			return "B";
-		if (category == "handwear")
-			return "H";
-		if (category == "weapon" || category == "launcher" || category == "sidearm")
-			return ">";
-		if (category == "attachment")
-			return "w";
-		if (category == "magazine")
-			return "|||";
-		if (category == "explosive")
-			return "*";
-		if (category == "medical")
-			return "+";
-
-		return "O";
-	}
-
 	protected int CountCandidatesForSelectedNode()
 	{
 		int count;
@@ -4487,26 +4443,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			infinite = m_aCandidateInfinite[candidateIndex];
 
 		return BuildCountBadgeLabel(m_aCandidateCounts[candidateIndex], infinite, showOne);
-	}
-
-	protected string ResolveCandidateIcon(int candidateIndex)
-	{
-		if (candidateIndex >= 0 && candidateIndex < m_aCandidateIconHints.Count())
-		{
-			string hint = m_aCandidateIconHints[candidateIndex];
-			if (hint == "weapon")
-				return ">";
-			if (hint == "ammo")
-				return "|||";
-			if (hint == "wrench")
-				return "w";
-			if (hint == "grenade")
-				return "*";
-			if (hint == "clothing")
-				return "J";
-		}
-
-		return "O";
 	}
 
 	protected string ResolveCandidateIconKey(int candidateIndex)
@@ -7139,11 +7075,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ResourceName fallbackIcon = ResolveIconTexture(ResolveNodeIconKey(nodeIndex));
 		Widget cell = CreateItemPreviewCell(workspace, root, left, top, size, userId);
 		if (!cell)
-		{
-			if (!CreateIconWidget(workspace, root, fallbackIcon, left, top, size, size, userId, color))
-				CreateTextWidget(workspace, root, ResolveNodeIcon(nodeIndex), left, top, size, size, Math.Max(14, size - 10), color, userId, true);
 			return false;
-		}
 
 		string prefab = "";
 		if (nodeIndex >= 0 && nodeIndex < m_aNodePrefabs.Count())
@@ -7164,11 +7096,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ResourceName fallbackIcon = ResolveIconTexture(ResolveCandidateIconKey(candidateIndex));
 		Widget cell = CreateItemPreviewCell(workspace, root, left, top, size, userId);
 		if (!cell)
-		{
-			if (!CreateIconWidget(workspace, root, fallbackIcon, left, top, size, size, userId, color))
-				CreateTextWidget(workspace, root, ResolveCandidateIcon(candidateIndex), left, top, size, size, Math.Max(14, size - 10), color, userId, true);
 			return false;
-		}
 
 		string prefab = "";
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidatePrefabs.Count())
@@ -7199,42 +7127,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return ICON_MEDICAL;
 
 		return ICON_EQUIPMENT;
-	}
-
-	protected bool CreateIconWidget(WorkspaceWidget workspace, Widget parent, ResourceName texture, int left, int top, int width, int height, int userId, int color)
-	{
-		if (!workspace || !parent || texture.IsEmpty())
-			return false;
-
-		Widget widget = workspace.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.STRETCH | WidgetFlags.NOWRAP, null, 3710, parent);
-		if (!widget)
-			return false;
-
-		ImageWidget imageWidget = ImageWidget.Cast(widget);
-		if (!imageWidget)
-		{
-			widget.RemoveFromHierarchy();
-			return false;
-		}
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		if (!imageWidget.LoadImageTexture(0, texture))
-		{
-			widget.RemoveFromHierarchy();
-			return false;
-		}
-
-		imageWidget.SetImage(0);
-		widget.SetColorInt(color);
-		if (userId != 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-
-		m_aWidgets.Insert(widget);
-		return true;
 	}
 
 	protected void DeletePreviewWorld()
@@ -7292,22 +7184,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return null;
 
 		return row.FindAnyWidget(name);
-	}
-
-	protected Widget ResolveRowOverlayRoot(Widget row)
-	{
-		if (!row)
-			return null;
-
-		Widget body = FindRowWidget(row, "Body");
-		if (body)
-			return body;
-
-		Widget overlay = FindRowWidget(row, "Overlay");
-		if (overlay)
-			return overlay;
-
-		return row;
 	}
 
 	protected void SetRowChildLayer(Widget row, string widgetName, int zOrder)
@@ -7498,138 +7374,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		scroll.SetSliderPosPixels(0, Math.Max(0.0, y));
 	}
 
-	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE, null, 3650, parent);
-		if (!widget)
-			return null;
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		SetupCanvasRect(widget, width, height, color);
-		widget.SetOpacity(opacity);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-
-		m_aWidgets.Insert(widget);
-		return widget;
-	}
-
-	protected bool SetupCanvasRect(Widget widget, int width, int height, int color)
-	{
-		CanvasWidget canvas = CanvasWidget.Cast(widget);
-		if (!canvas)
-			return false;
-
-		HST_LoadoutEditorDrawCommandSet commandSet = new HST_LoadoutEditorDrawCommandSet();
-		PolygonDrawCommand rectCommand = new PolygonDrawCommand();
-		rectCommand.m_iColor = color;
-		rectCommand.m_Vertices = BuildRectVertices(width, height);
-		commandSet.m_aCommands.Insert(rectCommand);
-		canvas.SetDrawCommands(commandSet.m_aCommands);
-		m_aCanvasCommandSets.Insert(commandSet);
-		return true;
-	}
-
-	protected ref array<float> BuildRectVertices(int width, int height)
-	{
-		ref array<float> vertices = {};
-		float rectWidth = width;
-		float rectHeight = height;
-		vertices.Insert(0.0);
-		vertices.Insert(0.0);
-		vertices.Insert(rectWidth);
-		vertices.Insert(0.0);
-		vertices.Insert(rectWidth);
-		vertices.Insert(rectHeight);
-		vertices.Insert(0.0);
-		vertices.Insert(rectHeight);
-		return vertices;
-	}
-
-	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
-	{
-		if (!workspace || !parent || width <= 0 || height <= 0)
-			return null;
-
-		Widget widget = workspace.CreateWidgets(TEXT_BASE_LAYOUT, parent);
-		if (!widget)
-			return null;
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		widget.SetZOrder(3700);
-		TextWidget textWidget = TextWidget.Cast(widget);
-		if (!textWidget)
-			textWidget = TextWidget.Cast(widget.FindAnyWidget("HST_TextBase"));
-		if (textWidget)
-		{
-			textWidget.SetVisible(true);
-			textWidget.SetOpacity(1.0);
-			textWidget.SetText(text);
-			textWidget.SetTextWrapping(false);
-			textWidget.SetExactFontSize(fontSize);
-			textWidget.SetLineSpacing(4.0);
-			textWidget.SetBold(bold);
-			textWidget.SetOutline(1, 0xDD000000);
-			textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
-			textWidget.SetColorInt(color);
-		}
-
-		widget.SetColorInt(color);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-
-		m_aWidgets.Insert(widget);
-		return textWidget;
-	}
-
-	protected TextWidget CreateWrappedTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
-	{
-		if (!workspace || !parent || width <= 0 || height <= 0)
-			return null;
-
-		Widget widget = workspace.CreateWidgets(TEXT_BASE_LAYOUT, parent);
-		if (!widget)
-			return null;
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		widget.SetZOrder(3700);
-		TextWidget textWidget = TextWidget.Cast(widget);
-		if (!textWidget)
-			textWidget = TextWidget.Cast(widget.FindAnyWidget("HST_TextBase"));
-		if (textWidget)
-		{
-			textWidget.SetVisible(true);
-			textWidget.SetOpacity(1.0);
-			textWidget.SetText(text);
-			textWidget.SetTextWrapping(true);
-			textWidget.SetExactFontSize(fontSize);
-			textWidget.SetLineSpacing(4.0);
-			textWidget.SetBold(bold);
-			textWidget.SetOutline(1, 0xDD000000);
-			textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
-			textWidget.SetColorInt(color);
-		}
-
-		widget.SetColorInt(color);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-
-		m_aWidgets.Insert(widget);
-		return textWidget;
-	}
-
 	protected void ClearWidgets()
 	{
 		for (int i = m_aWidgets.Count() - 1; i >= 0; i--)
@@ -7640,7 +7384,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
-		m_aCanvasCommandSets.Clear();
 	}
 
 	protected void ShowHint(string text)

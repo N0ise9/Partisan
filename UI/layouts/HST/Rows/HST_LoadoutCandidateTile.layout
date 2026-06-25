@@ -131,6 +131,26 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
           DisabledColor 0.38 0.38 0.38 1
          }
         }
+        TextWidgetClass "{A7B8C9D001236110}" {
+         Name "EmptyText"
+         Slot FrameWidgetSlot "{A7B8C9D001236111}" {
+          Anchor 0 0 1 1
+          OffsetLeft 18
+          OffsetTop 24
+          OffsetRight -18
+          OffsetBottom -24
+         }
+         "Is Visible" 0
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text ""
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{C1A9E1A2092846EB}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+          DisabledColor 0.38 0.38 0.38 1
+         }
+        }
        }
       }
      }
