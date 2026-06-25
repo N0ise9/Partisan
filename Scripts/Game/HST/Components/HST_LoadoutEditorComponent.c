@@ -1596,6 +1596,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!panelRoot)
 			return;
 
+		SetLoadoutWidgetVisible(panelRoot, "SettingsContent", false);
 		SetLoadoutWidgetVisible(panelRoot, "TemplateSaveButton", true);
 		SetLoadoutWidgetVisible(panelRoot, "TemplateClearButton", true);
 		SetLoadoutWidgetVisible(panelRoot, "TemplateList", true);
@@ -1611,6 +1612,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutWidgetVisible(panelRoot, "TemplateClearButton", false);
 		SetLoadoutWidgetVisible(panelRoot, "TemplateList", false);
 		SetLoadoutWidgetVisible(panelRoot, "TemplateEmpty", false);
+	}
+
+	protected void ShowSettingsPanelWidgets(Widget panelRoot)
+	{
+		if (!panelRoot)
+			return;
+
+		SetLoadoutWidgetVisible(panelRoot, "SettingsContent", true);
 	}
 
 	protected void ConfigureLoadoutPanelShell(Widget panelRoot, string title)
@@ -1634,6 +1643,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		button.SetVisible(true);
 		button.SetOpacity(1.0);
+		button.SetColorInt(0xEE11171B);
 		button.SetUserID(userId);
 		button.AddHandler(m_WidgetHandler);
 
@@ -3071,60 +3081,38 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		EnsureVisualSettings();
 
 		Widget panelRoot = ResolveLoadoutRegion(root, "SavePanel");
-		int panelLeft = 0;
-		int panelTop = 0;
 		int panelWidth;
 		int panelHeight;
 		GetRegionLayoutSize(workspace, panelRoot, m_Layout.m_iRailWidth, m_Layout.m_iRailHeight, panelWidth, panelHeight);
 		m_Layout.m_iRailWidth = panelWidth;
 		m_Layout.m_iRailHeight = panelHeight;
-		string panelTitle = "Settings";
-		if (m_sEditorMode == "save")
-			panelTitle = "Save Loadout";
-		ConfigureLoadoutPanelShell(panelRoot, panelTitle);
+		ConfigureLoadoutPanelShell(panelRoot, "Settings");
 		HideTemplatePanelWidgets(panelRoot);
-		if (m_sEditorMode == "save")
-		{
-			CreateWrappedTextWidget(workspace, panelRoot, "Save current draft or apply it from the footer.", panelLeft + ScalePx(34), panelTop + ScalePx(70), panelWidth - ScalePx(68), ScalePx(44), m_Layout.m_iFontNormal, 0xFFE2E6E8, 0, false);
-			CreateTextWidget(workspace, panelRoot, BuildDraftHeaderSummary(), panelLeft + ScalePx(34), panelTop + ScalePx(124), panelWidth - ScalePx(68), ScalePx(20), m_Layout.m_iFontNormal, 0xFFFFD166, 0, true);
-			CreateButton(workspace, panelRoot, "Save", panelLeft + ScalePx(34), panelTop + ScalePx(196), ScalePx(88), ScalePx(32), SAVE_WIDGET_ID);
-			CreateButton(workspace, panelRoot, "Apply", panelLeft + ScalePx(138), panelTop + ScalePx(196), ScalePx(92), ScalePx(32), APPLY_WIDGET_ID);
-			return;
-		}
+		ShowSettingsPanelWidgets(panelRoot);
 
-		int optionLeft = panelLeft + ScalePx(34);
-		int optionTop = panelTop + ScalePx(82);
-		int optionWidth = panelWidth - ScalePx(68);
-		optionTop = RenderSettingsLightRow(workspace, panelRoot, optionLeft, optionTop, optionWidth);
-		optionTop = RenderSettingsPresetRow(workspace, panelRoot, optionLeft, optionTop, optionWidth, "Menu Panel Color", GetPresetLabel("panel", m_VisualSettings.m_iPanelPreset), SETTINGS_PANEL_PRESET_WIDGET_ID);
-		optionTop = RenderSettingsPresetRow(workspace, panelRoot, optionLeft, optionTop, optionWidth, "Highlight Color", GetPresetLabel("accent", m_VisualSettings.m_iAccentPreset), SETTINGS_ACCENT_PRESET_WIDGET_ID);
-		optionTop = RenderSettingsPresetRow(workspace, panelRoot, optionLeft, optionTop, optionWidth, "Row Color", GetPresetLabel("row", m_VisualSettings.m_iRowPreset), SETTINGS_ROW_PRESET_WIDGET_ID);
-		optionTop = RenderSettingsPresetRow(workspace, panelRoot, optionLeft, optionTop, optionWidth, "Render Background Color", GetPresetLabel("world", m_VisualSettings.m_iWorldPreset), SETTINGS_WORLD_PRESET_WIDGET_ID);
+		SetLoadoutText(panelRoot, "SettingsLightLabel", "Preview Light", 0xFFFFD166, m_Layout.m_iFontNormal, true, false);
+		SetLoadoutText(panelRoot, "SettingsLightValue", string.Format("%1 LV", Math.Round(m_VisualSettings.m_fPreviewLightLV)), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsLightMinusButton", "", "", "SettingsLightMinusLabel", "-", SETTINGS_LIGHT_MINUS_WIDGET_ID);
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsLightPlusButton", "", "", "SettingsLightPlusLabel", "+", SETTINGS_LIGHT_PLUS_WIDGET_ID);
 
-		int buttonTop = Math.Min(panelTop + panelHeight - ScalePx(84), optionTop + ScalePx(18));
-		CreateButton(workspace, panelRoot, "Defaults", optionLeft, buttonTop, ScalePx(98), ScalePx(32), SETTINGS_RESET_WIDGET_ID);
-		CreateButton(workspace, panelRoot, "Reset Preview", optionLeft + ScalePx(114), buttonTop, ScalePx(122), ScalePx(32), RESET_PREVIEW_WIDGET_ID);
-	}
+		SetLoadoutText(panelRoot, "SettingsPanelPresetLabel", "Menu Panel Color", 0xFFFFD166, m_Layout.m_iFontNormal, true, false);
+		SetLoadoutText(panelRoot, "SettingsPanelPresetValue", GetPresetLabel("panel", m_VisualSettings.m_iPanelPreset), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsPanelPresetButton", "", "", "SettingsPanelPresetButtonLabel", "Next", SETTINGS_PANEL_PRESET_WIDGET_ID);
 
-	protected int RenderSettingsLightRow(WorkspaceWidget workspace, Widget root, int left, int top, int width)
-	{
-		CreateTextWidget(workspace, root, "Preview Light", left, top, Math.Max(ScalePx(120), width - ScalePx(150)), ScalePx(22), m_Layout.m_iFontNormal, 0xFFFFD166, 0, true);
-		CreateTextWidget(workspace, root, string.Format("%1 LV", Math.Round(m_VisualSettings.m_fPreviewLightLV)), left, top + ScalePx(24), Math.Max(ScalePx(80), width - ScalePx(150)), ScalePx(22), m_Layout.m_iFontNormal, 0xFFE2E6E8, 0, false);
-		int buttonTop = top + ScalePx(8);
-		int buttonLeft = left + width - ScalePx(100);
-		CreateButton(workspace, root, "-", buttonLeft, buttonTop, ScalePx(42), ScalePx(32), SETTINGS_LIGHT_MINUS_WIDGET_ID);
-		CreateButton(workspace, root, "+", buttonLeft + ScalePx(56), buttonTop, ScalePx(42), ScalePx(32), SETTINGS_LIGHT_PLUS_WIDGET_ID);
-		return top + ScalePx(70);
-	}
+		SetLoadoutText(panelRoot, "SettingsAccentPresetLabel", "Highlight Color", 0xFFFFD166, m_Layout.m_iFontNormal, true, false);
+		SetLoadoutText(panelRoot, "SettingsAccentPresetValue", GetPresetLabel("accent", m_VisualSettings.m_iAccentPreset), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsAccentPresetButton", "", "", "SettingsAccentPresetButtonLabel", "Next", SETTINGS_ACCENT_PRESET_WIDGET_ID);
 
-	protected int RenderSettingsPresetRow(WorkspaceWidget workspace, Widget root, int left, int top, int width, string label, string value, int widgetId)
-	{
-		int buttonWidth = ScalePx(92);
-		int valueWidth = Math.Max(ScalePx(90), width - buttonWidth - ScalePx(18));
-		CreateTextWidget(workspace, root, label, left, top, valueWidth, ScalePx(22), m_Layout.m_iFontNormal, 0xFFFFD166, 0, true);
-		CreateTextWidget(workspace, root, value, left, top + ScalePx(24), valueWidth, ScalePx(22), m_Layout.m_iFontNormal, 0xFFE2E6E8, 0, false);
-		CreateButton(workspace, root, "Next", left + width - buttonWidth, top + ScalePx(8), buttonWidth, ScalePx(32), widgetId);
-		return top + ScalePx(64);
+		SetLoadoutText(panelRoot, "SettingsRowPresetLabel", "Row Color", 0xFFFFD166, m_Layout.m_iFontNormal, true, false);
+		SetLoadoutText(panelRoot, "SettingsRowPresetValue", GetPresetLabel("row", m_VisualSettings.m_iRowPreset), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsRowPresetButton", "", "", "SettingsRowPresetButtonLabel", "Next", SETTINGS_ROW_PRESET_WIDGET_ID);
+
+		SetLoadoutText(panelRoot, "SettingsWorldPresetLabel", "Render Background Color", 0xFFFFD166, m_Layout.m_iFontNormal, true, false);
+		SetLoadoutText(panelRoot, "SettingsWorldPresetValue", GetPresetLabel("world", m_VisualSettings.m_iWorldPreset), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsWorldPresetButton", "", "", "SettingsWorldPresetButtonLabel", "Next", SETTINGS_WORLD_PRESET_WIDGET_ID);
+
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsDefaultsButton", "", "", "SettingsDefaultsLabel", "Defaults", SETTINGS_RESET_WIDGET_ID);
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsResetPreviewButton", "", "", "SettingsResetPreviewLabel", "Reset Preview", RESET_PREVIEW_WIDGET_ID);
 	}
 
 	protected void RenderFooter(WorkspaceWidget workspace, Widget root)

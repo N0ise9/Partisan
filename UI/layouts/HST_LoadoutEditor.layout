@@ -1104,6 +1104,536 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         }
        }
       }
+      FrameWidgetClass "{7B2FD986A4D34346}" {
+       Name "SettingsContent"
+       Slot FrameWidgetSlot "{7B2FD986A4D34347}" {
+        Anchor 0 0 1 1
+        OffsetLeft 34
+        OffsetTop 82
+        OffsetRight -34
+        OffsetBottom -28
+       }
+       "Is Visible" 0
+       "Ignore Cursor" 0
+       {
+        FrameWidgetClass "{7B2FD986A4D34348}" {
+         Name "SettingsLightRow"
+         Slot FrameWidgetSlot "{7B2FD986A4D34349}" {
+          Anchor 0 0 1 0
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 64
+         }
+         "Ignore Cursor" 0
+         {
+          TextWidgetClass "{7B2FD986A4D3434A}" {
+           Name "SettingsLightLabel"
+           Slot FrameWidgetSlot "{7B2FD986A4D3434B}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight -116
+            OffsetBottom 22
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Preview Light"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          TextWidgetClass "{7B2FD986A4D3434C}" {
+           Name "SettingsLightValue"
+           Slot FrameWidgetSlot "{7B2FD986A4D3434D}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 24
+            OffsetRight -116
+            OffsetBottom 46
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "0 LV"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          ButtonWidgetClass "{7B2FD986A4D3434E}" {
+           Name "SettingsLightMinusButton"
+           Slot FrameWidgetSlot "{7B2FD986A4D3434F}" {
+            Anchor 1 0 1 0
+            OffsetLeft -100
+            OffsetTop 8
+            OffsetRight -58
+            OffsetBottom 40
+           }
+           Color 0.07 0.09 0.11 0.98
+           {
+            FrameWidgetClass "{7B2FD986A4D34350}" {
+             Name "SettingsLightMinusBody"
+             Slot ButtonWidgetSlot "{7B2FD986A4D34351}" {
+             }
+             "Ignore Cursor" 1
+             {
+              TextWidgetClass "{7B2FD986A4D34352}" {
+               Name "SettingsLightMinusLabel"
+               Slot FrameWidgetSlot "{7B2FD986A4D34353}" {
+                Anchor 0 0 1 1
+                OffsetLeft 0
+                OffsetTop 0
+                OffsetRight 0
+                OffsetBottom 0
+               }
+               "No Localization" 1
+               "Ignore Cursor" 1
+               Text "-"
+               "Horizontal Alignment" Center
+               "Vertical Alignment" Center
+              }
+             }
+            }
+           }
+          }
+          ButtonWidgetClass "{7B2FD986A4D34354}" {
+           Name "SettingsLightPlusButton"
+           Slot FrameWidgetSlot "{7B2FD986A4D34355}" {
+            Anchor 1 0 1 0
+            OffsetLeft -44
+            OffsetTop 8
+            OffsetRight -2
+            OffsetBottom 40
+           }
+           Color 0.07 0.09 0.11 0.98
+           {
+            FrameWidgetClass "{7B2FD986A4D34356}" {
+             Name "SettingsLightPlusBody"
+             Slot ButtonWidgetSlot "{7B2FD986A4D34357}" {
+             }
+             "Ignore Cursor" 1
+             {
+              TextWidgetClass "{7B2FD986A4D34358}" {
+               Name "SettingsLightPlusLabel"
+               Slot FrameWidgetSlot "{7B2FD986A4D34359}" {
+                Anchor 0 0 1 1
+                OffsetLeft 0
+                OffsetTop 0
+                OffsetRight 0
+                OffsetBottom 0
+               }
+               "No Localization" 1
+               "Ignore Cursor" 1
+               Text "+"
+               "Horizontal Alignment" Center
+               "Vertical Alignment" Center
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        FrameWidgetClass "{7B2FD986A4D3435A}" {
+         Name "SettingsPanelPresetRow"
+         Slot FrameWidgetSlot "{7B2FD986A4D3435B}" {
+          Anchor 0 0 1 0
+          OffsetLeft 0
+          OffsetTop 70
+          OffsetRight 0
+          OffsetBottom 126
+         }
+         "Ignore Cursor" 0
+         {
+          TextWidgetClass "{7B2FD986A4D3435C}" {
+           Name "SettingsPanelPresetLabel"
+           Slot FrameWidgetSlot "{7B2FD986A4D3435D}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight -112
+            OffsetBottom 22
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Menu Panel Color"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          TextWidgetClass "{7B2FD986A4D3435E}" {
+           Name "SettingsPanelPresetValue"
+           Slot FrameWidgetSlot "{7B2FD986A4D3435F}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 24
+            OffsetRight -112
+            OffsetBottom 46
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Default"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          ButtonWidgetClass "{7B2FD986A4D34360}" {
+           Name "SettingsPanelPresetButton"
+           Slot FrameWidgetSlot "{7B2FD986A4D34361}" {
+            Anchor 1 0 1 0
+            OffsetLeft -92
+            OffsetTop 8
+            OffsetRight 0
+            OffsetBottom 40
+           }
+           Color 0.07 0.09 0.11 0.98
+           {
+            FrameWidgetClass "{7B2FD986A4D34362}" {
+             Name "SettingsPanelPresetButtonBody"
+             Slot ButtonWidgetSlot "{7B2FD986A4D34363}" {
+             }
+             "Ignore Cursor" 1
+             {
+              TextWidgetClass "{7B2FD986A4D34364}" {
+               Name "SettingsPanelPresetButtonLabel"
+               Slot FrameWidgetSlot "{7B2FD986A4D34365}" {
+                Anchor 0 0 1 1
+                OffsetLeft 0
+                OffsetTop 0
+                OffsetRight 0
+                OffsetBottom 0
+               }
+               "No Localization" 1
+               "Ignore Cursor" 1
+               Text "Next"
+               "Horizontal Alignment" Center
+               "Vertical Alignment" Center
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        FrameWidgetClass "{7B2FD986A4D34366}" {
+         Name "SettingsAccentPresetRow"
+         Slot FrameWidgetSlot "{7B2FD986A4D34367}" {
+          Anchor 0 0 1 0
+          OffsetLeft 0
+          OffsetTop 134
+          OffsetRight 0
+          OffsetBottom 190
+         }
+         "Ignore Cursor" 0
+         {
+          TextWidgetClass "{7B2FD986A4D34368}" {
+           Name "SettingsAccentPresetLabel"
+           Slot FrameWidgetSlot "{7B2FD986A4D34369}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight -112
+            OffsetBottom 22
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Highlight Color"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          TextWidgetClass "{7B2FD986A4D3436A}" {
+           Name "SettingsAccentPresetValue"
+           Slot FrameWidgetSlot "{7B2FD986A4D3436B}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 24
+            OffsetRight -112
+            OffsetBottom 46
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Default"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          ButtonWidgetClass "{7B2FD986A4D3436C}" {
+           Name "SettingsAccentPresetButton"
+           Slot FrameWidgetSlot "{7B2FD986A4D3436D}" {
+            Anchor 1 0 1 0
+            OffsetLeft -92
+            OffsetTop 8
+            OffsetRight 0
+            OffsetBottom 40
+           }
+           Color 0.07 0.09 0.11 0.98
+           {
+            FrameWidgetClass "{7B2FD986A4D3436E}" {
+             Name "SettingsAccentPresetButtonBody"
+             Slot ButtonWidgetSlot "{7B2FD986A4D3436F}" {
+             }
+             "Ignore Cursor" 1
+             {
+              TextWidgetClass "{7B2FD986A4D34370}" {
+               Name "SettingsAccentPresetButtonLabel"
+               Slot FrameWidgetSlot "{7B2FD986A4D34371}" {
+                Anchor 0 0 1 1
+                OffsetLeft 0
+                OffsetTop 0
+                OffsetRight 0
+                OffsetBottom 0
+               }
+               "No Localization" 1
+               "Ignore Cursor" 1
+               Text "Next"
+               "Horizontal Alignment" Center
+               "Vertical Alignment" Center
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        FrameWidgetClass "{7B2FD986A4D34372}" {
+         Name "SettingsRowPresetRow"
+         Slot FrameWidgetSlot "{7B2FD986A4D34373}" {
+          Anchor 0 0 1 0
+          OffsetLeft 0
+          OffsetTop 198
+          OffsetRight 0
+          OffsetBottom 254
+         }
+         "Ignore Cursor" 0
+         {
+          TextWidgetClass "{7B2FD986A4D34374}" {
+           Name "SettingsRowPresetLabel"
+           Slot FrameWidgetSlot "{7B2FD986A4D34375}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight -112
+            OffsetBottom 22
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Row Color"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          TextWidgetClass "{7B2FD986A4D34376}" {
+           Name "SettingsRowPresetValue"
+           Slot FrameWidgetSlot "{7B2FD986A4D34377}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 24
+            OffsetRight -112
+            OffsetBottom 46
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Default"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          ButtonWidgetClass "{7B2FD986A4D34378}" {
+           Name "SettingsRowPresetButton"
+           Slot FrameWidgetSlot "{7B2FD986A4D34379}" {
+            Anchor 1 0 1 0
+            OffsetLeft -92
+            OffsetTop 8
+            OffsetRight 0
+            OffsetBottom 40
+           }
+           Color 0.07 0.09 0.11 0.98
+           {
+            FrameWidgetClass "{7B2FD986A4D3437A}" {
+             Name "SettingsRowPresetButtonBody"
+             Slot ButtonWidgetSlot "{7B2FD986A4D3437B}" {
+             }
+             "Ignore Cursor" 1
+             {
+              TextWidgetClass "{7B2FD986A4D3437C}" {
+               Name "SettingsRowPresetButtonLabel"
+               Slot FrameWidgetSlot "{7B2FD986A4D3437D}" {
+                Anchor 0 0 1 1
+                OffsetLeft 0
+                OffsetTop 0
+                OffsetRight 0
+                OffsetBottom 0
+               }
+               "No Localization" 1
+               "Ignore Cursor" 1
+               Text "Next"
+               "Horizontal Alignment" Center
+               "Vertical Alignment" Center
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        FrameWidgetClass "{7B2FD986A4D3437E}" {
+         Name "SettingsWorldPresetRow"
+         Slot FrameWidgetSlot "{7B2FD986A4D3437F}" {
+          Anchor 0 0 1 0
+          OffsetLeft 0
+          OffsetTop 262
+          OffsetRight 0
+          OffsetBottom 318
+         }
+         "Ignore Cursor" 0
+         {
+          TextWidgetClass "{7B2FD986A4D34380}" {
+           Name "SettingsWorldPresetLabel"
+           Slot FrameWidgetSlot "{7B2FD986A4D34381}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight -112
+            OffsetBottom 22
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Render Background Color"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          TextWidgetClass "{7B2FD986A4D34382}" {
+           Name "SettingsWorldPresetValue"
+           Slot FrameWidgetSlot "{7B2FD986A4D34383}" {
+            Anchor 0 0 1 0
+            OffsetLeft 0
+            OffsetTop 24
+            OffsetRight -112
+            OffsetBottom 46
+           }
+           "No Localization" 1
+           "Ignore Cursor" 1
+           Text "Default"
+           "Horizontal Alignment" Left
+           "Vertical Alignment" Center
+          }
+          ButtonWidgetClass "{7B2FD986A4D34384}" {
+           Name "SettingsWorldPresetButton"
+           Slot FrameWidgetSlot "{7B2FD986A4D34385}" {
+            Anchor 1 0 1 0
+            OffsetLeft -92
+            OffsetTop 8
+            OffsetRight 0
+            OffsetBottom 40
+           }
+           Color 0.07 0.09 0.11 0.98
+           {
+            FrameWidgetClass "{7B2FD986A4D34386}" {
+             Name "SettingsWorldPresetButtonBody"
+             Slot ButtonWidgetSlot "{7B2FD986A4D34387}" {
+             }
+             "Ignore Cursor" 1
+             {
+              TextWidgetClass "{7B2FD986A4D34388}" {
+               Name "SettingsWorldPresetButtonLabel"
+               Slot FrameWidgetSlot "{7B2FD986A4D34389}" {
+                Anchor 0 0 1 1
+                OffsetLeft 0
+                OffsetTop 0
+                OffsetRight 0
+                OffsetBottom 0
+               }
+               "No Localization" 1
+               "Ignore Cursor" 1
+               Text "Next"
+               "Horizontal Alignment" Center
+               "Vertical Alignment" Center
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        FrameWidgetClass "{7B2FD986A4D3438A}" {
+         Name "SettingsActionsRow"
+         Slot FrameWidgetSlot "{7B2FD986A4D3438B}" {
+          Anchor 0 1 1 1
+          OffsetLeft 0
+          OffsetTop -52
+          OffsetRight 0
+          OffsetBottom -10
+         }
+         "Ignore Cursor" 0
+         {
+          ButtonWidgetClass "{7B2FD986A4D3438C}" {
+           Name "SettingsDefaultsButton"
+           Slot FrameWidgetSlot "{7B2FD986A4D3438D}" {
+            Anchor 0 0 0 1
+            OffsetLeft 0
+            OffsetTop 0
+            OffsetRight 98
+            OffsetBottom 0
+           }
+           Color 0.07 0.09 0.11 0.98
+           {
+            FrameWidgetClass "{7B2FD986A4D3438E}" {
+             Name "SettingsDefaultsBody"
+             Slot ButtonWidgetSlot "{7B2FD986A4D3438F}" {
+             }
+             "Ignore Cursor" 1
+             {
+              TextWidgetClass "{7B2FD986A4D34390}" {
+               Name "SettingsDefaultsLabel"
+               Slot FrameWidgetSlot "{7B2FD986A4D34391}" {
+                Anchor 0 0 1 1
+                OffsetLeft 0
+                OffsetTop 0
+                OffsetRight 0
+                OffsetBottom 0
+               }
+               "No Localization" 1
+               "Ignore Cursor" 1
+               Text "Defaults"
+               "Horizontal Alignment" Center
+               "Vertical Alignment" Center
+              }
+             }
+            }
+           }
+          }
+          ButtonWidgetClass "{7B2FD986A4D34392}" {
+           Name "SettingsResetPreviewButton"
+           Slot FrameWidgetSlot "{7B2FD986A4D34393}" {
+            Anchor 0 0 0 1
+            OffsetLeft 114
+            OffsetTop 0
+            OffsetRight 236
+            OffsetBottom 0
+           }
+           Color 0.07 0.09 0.11 0.98
+           {
+            FrameWidgetClass "{7B2FD986A4D34394}" {
+             Name "SettingsResetPreviewBody"
+             Slot ButtonWidgetSlot "{7B2FD986A4D34395}" {
+             }
+             "Ignore Cursor" 1
+             {
+              TextWidgetClass "{7B2FD986A4D34396}" {
+               Name "SettingsResetPreviewLabel"
+               Slot FrameWidgetSlot "{7B2FD986A4D34397}" {
+                Anchor 0 0 1 1
+                OffsetLeft 0
+                OffsetTop 0
+                OffsetRight 0
+                OffsetBottom 0
+               }
+               "No Localization" 1
+               "Ignore Cursor" 1
+               Text "Reset Preview"
+               "Horizontal Alignment" Center
+               "Vertical Alignment" Center
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
      }
     }
     FrameWidgetClass "{7B2FD986A4D3411C}" {

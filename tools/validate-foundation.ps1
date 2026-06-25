@@ -3672,6 +3672,97 @@ foreach ($forbiddenLoadoutSelectedHeaderGeometry in @(
 		throw "Loadout editor selected-node header must use named layout widgets: $forbiddenLoadoutSelectedHeaderGeometry"
 	}
 }
+foreach ($requiredLoadoutSettingsLayoutEntry in @(
+	'Name "SettingsContent"',
+	'Name "SettingsLightRow"',
+	'Name "SettingsLightLabel"',
+	'Name "SettingsLightValue"',
+	'Name "SettingsLightMinusButton"',
+	'Name "SettingsLightMinusLabel"',
+	'Name "SettingsLightPlusButton"',
+	'Name "SettingsLightPlusLabel"',
+	'Name "SettingsPanelPresetRow"',
+	'Name "SettingsPanelPresetLabel"',
+	'Name "SettingsPanelPresetValue"',
+	'Name "SettingsPanelPresetButton"',
+	'Name "SettingsPanelPresetButtonLabel"',
+	'Name "SettingsAccentPresetRow"',
+	'Name "SettingsAccentPresetLabel"',
+	'Name "SettingsAccentPresetValue"',
+	'Name "SettingsAccentPresetButton"',
+	'Name "SettingsAccentPresetButtonLabel"',
+	'Name "SettingsRowPresetRow"',
+	'Name "SettingsRowPresetLabel"',
+	'Name "SettingsRowPresetValue"',
+	'Name "SettingsRowPresetButton"',
+	'Name "SettingsRowPresetButtonLabel"',
+	'Name "SettingsWorldPresetRow"',
+	'Name "SettingsWorldPresetLabel"',
+	'Name "SettingsWorldPresetValue"',
+	'Name "SettingsWorldPresetButton"',
+	'Name "SettingsWorldPresetButtonLabel"',
+	'Name "SettingsActionsRow"',
+	'Name "SettingsDefaultsButton"',
+	'Name "SettingsDefaultsLabel"',
+	'Name "SettingsResetPreviewButton"',
+	'Name "SettingsResetPreviewLabel"'
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutSettingsLayoutEntry)) {
+		throw "Loadout editor settings panel must be layout-owned: $requiredLoadoutSettingsLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutSettingsScriptEntry in @(
+	"protected void ShowSettingsPanelWidgets",
+	'SetLoadoutWidgetVisible(panelRoot, "SettingsContent", false)',
+	'SetLoadoutWidgetVisible(panelRoot, "SettingsContent", true)',
+	'ConfigureLoadoutPanelShell(panelRoot, "Settings")',
+	'SetLoadoutText(panelRoot, "SettingsLightLabel"',
+	'SetLoadoutText(panelRoot, "SettingsLightValue"',
+	'ConfigureLoadoutPanelButton(panelRoot, "SettingsLightMinusButton"',
+	'ConfigureLoadoutPanelButton(panelRoot, "SettingsLightPlusButton"',
+	'SetLoadoutText(panelRoot, "SettingsPanelPresetLabel"',
+	'SetLoadoutText(panelRoot, "SettingsPanelPresetValue"',
+	'ConfigureLoadoutPanelButton(panelRoot, "SettingsPanelPresetButton"',
+	'SetLoadoutText(panelRoot, "SettingsAccentPresetLabel"',
+	'SetLoadoutText(panelRoot, "SettingsAccentPresetValue"',
+	'ConfigureLoadoutPanelButton(panelRoot, "SettingsAccentPresetButton"',
+	'SetLoadoutText(panelRoot, "SettingsRowPresetLabel"',
+	'SetLoadoutText(panelRoot, "SettingsRowPresetValue"',
+	'ConfigureLoadoutPanelButton(panelRoot, "SettingsRowPresetButton"',
+	'SetLoadoutText(panelRoot, "SettingsWorldPresetLabel"',
+	'SetLoadoutText(panelRoot, "SettingsWorldPresetValue"',
+	'ConfigureLoadoutPanelButton(panelRoot, "SettingsWorldPresetButton"',
+	'ConfigureLoadoutPanelButton(panelRoot, "SettingsDefaultsButton"',
+	'ConfigureLoadoutPanelButton(panelRoot, "SettingsResetPreviewButton"'
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutSettingsScriptEntry)) {
+		throw "Loadout editor settings panel must populate named layout widgets: $requiredLoadoutSettingsScriptEntry"
+	}
+}
+$loadoutSettingsPanelMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderSettingsPanel[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderFooter")
+if (!$loadoutSettingsPanelMatch.Success) {
+	throw "Loadout editor settings panel renderer is missing"
+}
+foreach ($forbiddenLoadoutSettingsGeometry in @(
+	"CreateRectWidget",
+	"CreateTextWidget",
+	"CreateWrappedTextWidget",
+	"CreateScrollContainer",
+	"CreateButton",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"RenderSettingsLightRow",
+	"RenderSettingsPresetRow",
+	"panelLeft",
+	"panelTop",
+	"optionLeft",
+	"optionTop",
+	"optionWidth"
+)) {
+	if ($loadoutSettingsPanelMatch.Value -match [regex]::Escape($forbiddenLoadoutSettingsGeometry)) {
+		throw "Loadout editor settings panel must not create row/control geometry in script: $forbiddenLoadoutSettingsGeometry"
+	}
+}
 foreach ($requiredPreviewCellLayoutEntry in @(
 	"HST_LoadoutItemPreviewCell",
 	'Slot FrameWidgetSlot "{7B2FD986A4D3420F}"',
