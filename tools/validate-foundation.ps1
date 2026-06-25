@@ -2783,7 +2783,10 @@ foreach ($requiredCommandMenuLayerEntry in @(
 	"SetMenuLayer(root, `"ScreenDimmer`", COMMAND_DIMMER_Z, true)",
 	"SetMenuLayer(root, `"CommandSurface`", COMMAND_SURFACE_Z, true)",
 	"SetMenuLayer(root, `"CloseLabel`", COMMAND_CLOSE_Z + 1, true)",
-	'HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready"'
+	'HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready"',
+	"RecoverStaleSetupRootStateForCommandOpen",
+	'HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent")',
+	"open refused by UI root"
 )) {
 	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredCommandMenuLayerEntry)) {
 		throw "Command menu must keep deterministic layout-layer ordering and ready diagnostics: $requiredCommandMenuLayerEntry"

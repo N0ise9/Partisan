@@ -806,7 +806,22 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected void OpenMenu(string source = "unknown")
 	{
 		if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent"))
+		{
+			RecoverStaleSetupRootStateForCommandOpen(source);
+			if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent"))
+			{
+				DebugLog("open refused by UI root via " + source);
+				m_fCommandMenuDebounceRemaining = 0;
+				return;
+			}
+		}
+
+		if (HST_SetupMapComponent.IsSetupBlocking())
+		{
+			DebugLog("open refused while setup is still blocking via " + source);
+			m_fCommandMenuDebounceRemaining = 0;
 			return;
+		}
 
 		m_bMenuOpen = true;
 		if (m_sSelectedTab.IsEmpty())
@@ -831,6 +846,18 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		DebugLog("opened via " + source);
 		ShowMenuHint("Command menu opened", "h-istasi", 2.0);
+	}
+
+	protected void RecoverStaleSetupRootStateForCommandOpen(string source)
+	{
+		if (HST_SetupMapComponent.IsSetupBlocking())
+			return;
+
+		if (HST_UIRootService.Get().GetCurrentMode() != HST_EUIScreenMode.SETUP_MAP)
+			return;
+
+		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent");
+		DebugLog("cleared stale setup UI root before command menu open via " + source);
 	}
 
 	protected void CloseMenu(string source = "unknown")
