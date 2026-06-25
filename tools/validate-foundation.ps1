@@ -3658,7 +3658,7 @@ foreach ($forbiddenLoadoutCandidateTemplateGeometry in @(
 		throw "Loadout editor template panel must not create panel/scroll geometry in script: $forbiddenLoadoutCandidateTemplateGeometry"
 	}
 }
-$loadoutSelectedNodeHeaderMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderSelectedNodeHeader[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderCandidateRow")
+$loadoutSelectedNodeHeaderMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderSelectedNodeHeader[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected int FindSelectedNodeIndex")
 if (!$loadoutSelectedNodeHeaderMatch.Success) {
 	throw "Loadout editor selected-node header renderer is missing"
 }
@@ -3883,6 +3883,51 @@ foreach ($forbiddenLoadoutPreviewDragLegacyEntry in @(
 		throw "Loadout editor must not keep legacy preview drag geometry helper: $forbiddenLoadoutPreviewDragLegacyEntry"
 	}
 }
+foreach ($requiredLoadoutPreviewStatusLayoutEntry in @(
+	'Name "Toast"',
+	'Name "ToastBackground"',
+	'Name "ToastAccent"',
+	'Name "ToastText"',
+	'Name "PreviewUnavailableText"'
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutPreviewStatusLayoutEntry)) {
+		throw "Loadout editor preview status must be layout-owned: $requiredLoadoutPreviewStatusLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutPreviewStatusScriptEntry in @(
+	"protected void RenderPreviewStage",
+	'SetLoadoutWidgetVisible(root, "Toast"',
+	'SetLoadoutWidgetColor(root, "ToastBackground"',
+	'SetLoadoutWidgetColor(root, "ToastAccent"',
+	'SetLoadoutText(root, "ToastText"',
+	'SetLoadoutWidgetVisible(root, "PreviewUnavailableText"',
+	'SetLoadoutText(root, "PreviewUnavailableText"'
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutPreviewStatusScriptEntry)) {
+		throw "Loadout editor preview status must populate named layout widgets: $requiredLoadoutPreviewStatusScriptEntry"
+	}
+}
+$loadoutPreviewStatusMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderPreviewStage[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected string BuildStageToast")
+if (!$loadoutPreviewStatusMatch.Success) {
+	throw "Loadout editor preview status renderer is missing"
+}
+foreach ($forbiddenLoadoutPreviewStatusGeometry in @(
+	"CreateTextWidget",
+	"CreateRectWidget",
+	"CreateWrappedTextWidget",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"GetRegionLayoutSize",
+	"m_iEditorWidth",
+	"m_Layout.m_iMainLeft"
+)) {
+	if ($loadoutPreviewStatusMatch.Value -match [regex]::Escape($forbiddenLoadoutPreviewStatusGeometry)) {
+		throw "Loadout editor preview status must use named layout widgets: $forbiddenLoadoutPreviewStatusGeometry"
+	}
+}
+if ($loadoutEditorComponentText -match [regex]::Escape("protected void RenderCandidateRow")) {
+	throw "Loadout editor must not keep unused legacy candidate row geometry renderer"
+}
 foreach ($requiredPreviewCellLayoutEntry in @(
 	"HST_LoadoutItemPreviewCell",
 	'Slot FrameWidgetSlot "{7B2FD986A4D3420F}"',
@@ -4045,7 +4090,6 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"imageWidget.SetOpacity(0.0)",
 	"SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, true)",
 	"SetPreviewCellFallbackIcon(cell, fallbackIcon, color)",
-	"RenderCandidateRow",
 	"RenderSelectedNodeHeader",
 	"ReturnFromAttachmentCandidateToWeapon",
 	"m_sSelectedStorageContainerNodeId",

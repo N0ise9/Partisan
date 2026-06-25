@@ -1955,6 +1955,67 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetRight 240
       OffsetBottom 88
      }
+     "Is Visible" 0
+     "Ignore Cursor" 1
+     {
+      PanelWidgetClass "{7B2FD986A4D343C2}" {
+       Name "ToastBackground"
+       Slot FrameWidgetSlot "{7B2FD986A4D343C3}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.07 0.09 0.11 0.96
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{7B2FD986A4D343C4}" {
+       Name "ToastAccent"
+       Slot FrameWidgetSlot "{7B2FD986A4D343C5}" {
+        Anchor 0 1 1 1
+        OffsetLeft 0
+        OffsetTop -3
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.95 0.72 0.32 1
+       style full
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{7B2FD986A4D343C6}" {
+       Name "ToastText"
+       Slot FrameWidgetSlot "{7B2FD986A4D343C7}" {
+        Anchor 0 0 1 1
+        OffsetLeft 18
+        OffsetTop 0
+        OffsetRight -18
+        OffsetBottom 0
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text ""
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+      }
+     }
+    }
+    TextWidgetClass "{7B2FD986A4D343C8}" {
+     Name "PreviewUnavailableText"
+     Slot FrameWidgetSlot "{7B2FD986A4D343C9}" {
+      Anchor 0.5 0.5 0.5 0.5
+      OffsetLeft -180
+      OffsetTop -20
+      OffsetRight 180
+      OffsetBottom 20
+     }
+     "Is Visible" 0
+     "No Localization" 1
+     "Ignore Cursor" 1
+     Text "Preview target unavailable"
+     "Horizontal Alignment" Center
+     "Vertical Alignment" Center
     }
    }
   }
