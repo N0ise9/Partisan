@@ -1752,6 +1752,14 @@ foreach ($missionDialogLayoutPath in @(
 		throw "Mission dialog layout resource is missing: $missionDialogLayoutPath"
 	}
 }
+foreach ($removedScriptedPanelLayoutPath in @(
+	"UI/layouts/HST_ScriptedPanelRoot.layout",
+	"UI/layouts/HST_ScriptedPanelRoot.layout.meta"
+)) {
+	if (Test-Path $removedScriptedPanelLayoutPath) {
+		throw "Legacy scripted panel layout must be deleted after report/action dialogs moved to named layouts: $removedScriptedPanelLayoutPath"
+	}
+}
 $reportDialogLayoutText = Get-Content -Raw "UI/layouts/HST_ReportDialog.layout"
 $actionDialogLayoutText = Get-Content -Raw "UI/layouts/HST_ActionDialog.layout"
 $reportObjectiveRowLayoutText = Get-Content -Raw "UI/layouts/HST/Rows/HST_ReportObjectiveRow.layout"

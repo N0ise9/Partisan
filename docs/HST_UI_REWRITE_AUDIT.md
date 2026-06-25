@@ -60,7 +60,7 @@ Current state:
 
 ## Should Be Deleted
 
-- `UI/layouts/HST_ScriptedPanelRoot.layout` after mission detail/report dialogs move to named layouts.
+- Any reintroduced generic scripted panel root after mission detail/report dialogs moved to named layouts.
 - Any invisible coordinate hit-test logic for visible buttons.
 - Any new direct `workspace.DPIUnscale` / `workspace.DPIScale` calls outside `HST_UIWorkspaceMetrics.c` and map overlay projection code.
 - Any full-screen blockers except explicit modal blocker layouts.
