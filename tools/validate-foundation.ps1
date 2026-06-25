@@ -947,6 +947,7 @@ foreach ($requiredUIDebugEntry in @(
 	"class HST_UIDebug",
 	"LAYOUT_DEBUG_ENABLED",
 	"LAYOUT_WIDGET_DEBUG_ENABLED",
+	"LAYOUT_GEOMETRY_DEBUG_ENABLED",
 	"LAYOUT_POPULATION_DEBUG_ENABLED",
 	"LAYOUT_ROW_SAMPLE_DEBUG_ENABLED",
 	"LAYOUT_ROW_SAMPLE_LIMIT",
@@ -954,10 +955,15 @@ foreach ($requiredUIDebugEntry in @(
 	"LogLayoutRejected",
 	"LogExpectedWidgetsCsv",
 	"LogWidgetBound",
+	"LogWidgetGeometryCsv",
+	"LogWidgetGeometry",
 	"LogPopulation",
 	"LogRowSample",
 	"LogRowSummary",
 	"WidgetSummary",
+	"GetScreenPos",
+	"GetScreenSize",
+	"screen=%1,%2 size=%3x%4",
 	"h-istasi ui layout debug"
 )) {
 	if ($uiDebugText -notmatch [regex]::Escape($requiredUIDebugEntry)) {
