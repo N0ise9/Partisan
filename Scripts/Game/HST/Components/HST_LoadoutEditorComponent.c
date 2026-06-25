@@ -2848,21 +2848,23 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void RenderPreviewStage(WorkspaceWidget workspace, Widget root)
 	{
-		if (!m_Layout)
+		if (!m_Layout || !root)
 			return;
 
 		string toast = BuildStageToast();
-		if (!toast.IsEmpty())
+		bool showToast = !toast.IsEmpty();
+		SetLoadoutWidgetVisible(root, "Toast", showToast);
+		if (showToast)
 		{
-			Widget toastRoot = ResolveLoadoutRegion(root, "Toast");
-			int toastWidth;
-			int toastHeight;
-			GetRegionLayoutSize(workspace, toastRoot, ScalePx(480), ScalePx(34), toastWidth, toastHeight);
-			CreateTextWidget(workspace, toastRoot, ShortenText(toast, 58), 0, 0, toastWidth, Math.Max(ScalePx(24), toastHeight), m_Layout.m_iFontTitle, 0xFFEFC16D, 0, true);
+			SetLoadoutWidgetColor(root, "ToastBackground", 0xEE11171B, 0.96);
+			SetLoadoutWidgetColor(root, "ToastAccent", GetAccentColor(), 1.0);
+			SetLoadoutText(root, "ToastText", ShortenText(toast, 58), 0xFFEFC16D, m_Layout.m_iFontTitle, true, false);
 		}
 
-		if (!m_PreviewWidget || !m_PreviewWorld)
-			CreateTextWidget(workspace, root, "Preview target unavailable", Math.Max(m_Layout.m_iMainLeft, (m_iEditorWidth / 2) - ScalePx(120)), ScalePx(348), ScalePx(280), ScalePx(24), m_Layout.m_iFontTitle, 0xFFFFD166, 0, true);
+		bool previewUnavailable = !m_PreviewWidget || !m_PreviewWorld;
+		SetLoadoutWidgetVisible(root, "PreviewUnavailableText", previewUnavailable);
+		if (previewUnavailable)
+			SetLoadoutText(root, "PreviewUnavailableText", "Preview target unavailable", 0xFFFFD166, m_Layout.m_iFontTitle, true, false);
 	}
 
 	protected string BuildStageToast()
@@ -3992,46 +3994,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutText(root, "CandidateHeaderSlot", GetNodeLabel(nodeIndex), 0xFFE2E6E8, m_Layout.m_iFontNormal, true, false);
 		SetLoadoutText(root, "CandidateHeaderName", ShortenText(GetNodeDisplay(nodeIndex), 38), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, false);
 		SetLoadoutText(root, "CandidateHeaderMarker", "W", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
-	}
-
-	protected void RenderCandidateRow(WorkspaceWidget workspace, Widget root, int candidateIndex, int top, int userId)
-	{
-		if (!m_Layout)
-			return;
-
-		int rowLeft = m_Layout.m_iRailLeft + ScalePx(20);
-		int rowWidth = m_Layout.m_iRailWidth - ScalePx(40);
-		int rowHeight = m_Layout.m_iSlotRowHeight;
-		int previewSize = m_Layout.m_iPreviewCellMedium;
-		int pad = ScalePx(8);
-		int countW = m_Layout.m_iCountBadgeWidth;
-		int color = GetBaseRowColor();
-		if (IsCandidateCurrentNodeItem(candidateIndex))
-			color = GetSelectedRowColor();
-		else if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
-			color = GetMatchedRowColor();
-
-		Widget rowBack = CreateRectWidget(workspace, root, rowLeft, top, rowWidth, rowHeight, color, 0.98, userId);
-		if (rowBack)
-			rowBack.SetZOrder(1);
-
-		int previewLeft = rowLeft + pad;
-		int previewTop = top + (rowHeight - previewSize) / 2;
-		Widget previewBack = CreateRectWidget(workspace, root, previewLeft - ScalePx(2), previewTop - ScalePx(2), previewSize + ScalePx(4), previewSize + ScalePx(4), 0xEE05080A, 1.0, userId);
-		if (previewBack)
-			previewBack.SetZOrder(2);
-
-		Widget previewLine = CreateRectWidget(workspace, root, previewLeft - ScalePx(2), previewTop - ScalePx(2), previewSize + ScalePx(4), ScalePx(2), 0x664B5960, 1.0, userId);
-		if (previewLine)
-			previewLine.SetZOrder(3);
-
-		CreateCandidatePreviewCell(workspace, root, candidateIndex, previewLeft, previewTop, previewSize, userId, 0xFFE6E6E6);
-
-		int countLeft = rowLeft + rowWidth - countW - pad;
-		int textLeft = previewLeft + previewSize + ScalePx(12);
-		int textWidth = Math.Max(ScalePx(80), countLeft - textLeft - ScalePx(8));
-		CreateWrappedTextWidget(workspace, root, ShortenText(GetCandidateDisplayName(candidateIndex), 40), textLeft, top + ScalePx(12), textWidth, rowHeight - ScalePx(20), m_Layout.m_iFontNormal, 0xFFE2E6E8, userId, false);
-		CreateCountBadge(workspace, root, BuildCandidateCountLabel(candidateIndex), countLeft, top + ScalePx(24), countW, ScalePx(28), userId);
 	}
 
 	protected int FindSelectedNodeIndex()
