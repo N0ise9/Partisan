@@ -2112,10 +2112,22 @@ if ($actionDialogLayoutText -notmatch 'Name "HST_ActionDialogRoot"[\s\S]*?"Ignor
 foreach ($requiredReportObjectiveRowLayoutEntry in @(
 	'Name "HST_ReportObjectiveRow"',
 	'Name "Label"',
-	'Name "Value"'
+	'Name "Value"',
+	"OffsetRight 12",
+	"OffsetBottom -28",
+	"OffsetBottom 7"
 )) {
 	if ($reportObjectiveRowLayoutText -notmatch [regex]::Escape($requiredReportObjectiveRowLayoutEntry)) {
 		throw "Mission report objective row layout is missing named widget: $requiredReportObjectiveRowLayoutEntry"
+	}
+}
+foreach ($forbiddenReportObjectiveRowLayoutEntry in @(
+	"OffsetRight -12",
+	"OffsetBottom 28",
+	"OffsetBottom -7"
+)) {
+	if ($reportObjectiveRowLayoutText -match [regex]::Escape($forbiddenReportObjectiveRowLayoutEntry)) {
+		throw "Mission report objective row layout must use Enfusion offset signs for anchored row children: $forbiddenReportObjectiveRowLayoutEntry"
 	}
 }
 foreach ($requiredMissionDialogComponentEntry in @(
@@ -3056,10 +3068,26 @@ foreach ($requiredStorageCategoryTabEntry in @(
 	'Name "Accent"',
 	'Name "Icon"',
 	'Name "Fallback"',
-	'"Ignore Cursor" 1'
+	'"Ignore Cursor" 1',
+	"OffsetBottom -3",
+	"OffsetRight 23",
+	"OffsetBottom 10",
+	"OffsetRight 4",
+	"OffsetBottom 4"
 )) {
 	if ($loadoutStorageCategoryTabText -notmatch [regex]::Escape($requiredStorageCategoryTabEntry)) {
 		throw "$loadoutStorageCategoryTabPath is missing storage category tab layout entry: $requiredStorageCategoryTabEntry"
+	}
+}
+foreach ($forbiddenStorageCategoryTabEntry in @(
+	"OffsetBottom 3",
+	"OffsetRight -23",
+	"OffsetBottom -10",
+	"OffsetRight -4",
+	"OffsetBottom -4"
+)) {
+	if ($loadoutStorageCategoryTabText -match [regex]::Escape($forbiddenStorageCategoryTabEntry)) {
+		throw "$loadoutStorageCategoryTabPath must use Enfusion offset signs for fixed and stretched tab children: $forbiddenStorageCategoryTabEntry"
 	}
 }
 if ($loadoutStorageCategoryTabMetaText -notmatch [regex]::Escape('Name "{A7B8C9D001234610}UI/layouts/HST/Rows/HST_LoadoutStorageCategoryTab.layout"')) {

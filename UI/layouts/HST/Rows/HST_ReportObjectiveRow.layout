@@ -50,8 +50,8 @@ FrameWidgetClass "{D66CFA01E5AA4300}" {
         Anchor 0 0 1 0
         OffsetLeft 12
         OffsetTop 7
-        OffsetRight -12
-        OffsetBottom 28
+        OffsetRight 12
+        OffsetBottom -28
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -62,8 +62,8 @@ FrameWidgetClass "{D66CFA01E5AA4300}" {
         Anchor 0 0 1 1
         OffsetLeft 12
         OffsetTop 30
-        OffsetRight -12
-        OffsetBottom -7
+        OffsetRight 12
+        OffsetBottom 7
        }
        "No Localization" 1
        "Ignore Cursor" 1

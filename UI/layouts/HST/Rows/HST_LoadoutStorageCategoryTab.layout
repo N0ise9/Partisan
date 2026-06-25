@@ -47,7 +47,7 @@ ButtonWidgetClass "{A7B8C9D001234610}" {
         OffsetLeft 0
         OffsetTop 0
         OffsetRight 0
-        OffsetBottom 3
+        OffsetBottom -3
        }
        Color 1 0.82 0.38 1
        style full
@@ -59,8 +59,8 @@ ButtonWidgetClass "{A7B8C9D001234610}" {
         Anchor 0 0 1 1
         OffsetLeft 23
         OffsetTop 10
-        OffsetRight -23
-        OffsetBottom -10
+        OffsetRight 23
+        OffsetBottom 10
        }
        "Is Visible" 1
        "Ignore Cursor" 1
@@ -72,8 +72,8 @@ ButtonWidgetClass "{A7B8C9D001234610}" {
         Anchor 0 0 1 1
         OffsetLeft 4
         OffsetTop 4
-        OffsetRight -4
-        OffsetBottom -4
+        OffsetRight 4
+        OffsetBottom 4
        }
        "Is Visible" 0
        "No Localization" 1
