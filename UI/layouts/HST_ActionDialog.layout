@@ -44,10 +44,14 @@ FrameWidgetClass "{D66CFA01E5AA4200}" {
      Name "AccentLine"
      Slot FrameWidgetSlot "{D66CFA01E5AA4207}" {
       Anchor 0 0 1 0
+      PositionX 0
       OffsetLeft 0
+      PositionY 0
       OffsetTop 0
+      SizeX 0
       OffsetRight 0
-      OffsetBottom 5
+      SizeY 5
+      OffsetBottom -5
      }
      Color 0.77 0.58 0.23 1
      style full
@@ -57,10 +61,14 @@ FrameWidgetClass "{D66CFA01E5AA4200}" {
      Name "Title"
      Slot FrameWidgetSlot "{D66CFA01E5AA4209}" {
       Anchor 0 0 1 0
+      PositionX 0
       OffsetLeft 32
+      PositionY 28
       OffsetTop 28
+      SizeX -64
       OffsetRight -32
-      OffsetBottom 66
+      SizeY 38
+      OffsetBottom -66
      }
      "No Localization" 1
      "Ignore Cursor" 1
@@ -80,72 +88,68 @@ FrameWidgetClass "{D66CFA01E5AA4200}" {
     ButtonWidgetClass "{D66CFA01E5AA420C}" {
      Name "CancelButton"
      Slot FrameWidgetSlot "{D66CFA01E5AA420D}" {
-      Anchor 0 1 1 1
+      Anchor 0 0 0 0
+      PositionX 140
       OffsetLeft 140
-      OffsetTop -70
-      OffsetRight -340
-      OffsetBottom -24
+      PositionY 270
+      OffsetTop 270
+      SizeX 160
+      OffsetRight -300
+      SizeY 46
+      OffsetBottom -316
      }
      Color 0.27 0.33 0.36 1
      "Is Visible" 1
-     {
-      FrameWidgetClass "{D66CFA01E5AA420E}" {
-       Name "CancelBody"
-       Slot ButtonWidgetSlot "{D66CFA01E5AA420F}" {
-       }
-       "Ignore Cursor" 1
-       {
-        TextWidgetClass "{D66CFA01E5AA4210}" {
-         Name "CancelLabel"
-         Slot FrameWidgetSlot "{D66CFA01E5AA4211}" {
-          Anchor 0 0 1 1
-          OffsetLeft 16
-          OffsetTop 10
-          OffsetRight -16
-          OffsetBottom -8
-         }
-         "No Localization" 1
-         "Ignore Cursor" 1
-         Text "Cancel"
-        }
-       }
-      }
+    }
+    TextWidgetClass "{D66CFA01E5AA4210}" {
+     Name "CancelLabel"
+     Slot FrameWidgetSlot "{D66CFA01E5AA4211}" {
+      Anchor 0 0 0 0
+      PositionX 140
+      OffsetLeft 140
+      PositionY 270
+      OffsetTop 270
+      SizeX 160
+      OffsetRight -300
+      SizeY 46
+      OffsetBottom -316
      }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     Text "Cancel"
     }
     ButtonWidgetClass "{D66CFA01E5AA4212}" {
      Name "ConfirmButton"
      Slot FrameWidgetSlot "{D66CFA01E5AA4213}" {
-      Anchor 0 1 1 1
+      Anchor 0 0 0 0
+      PositionX 340
       OffsetLeft 340
-      OffsetTop -70
-      OffsetRight -140
-      OffsetBottom -24
+      PositionY 270
+      OffsetTop 270
+      SizeX 160
+      OffsetRight -500
+      SizeY 46
+      OffsetBottom -316
      }
      Color 0.77 0.58 0.23 1
      "Is Visible" 1
-     {
-      FrameWidgetClass "{D66CFA01E5AA4214}" {
-       Name "ConfirmBody"
-       Slot ButtonWidgetSlot "{D66CFA01E5AA4215}" {
-       }
-       "Ignore Cursor" 1
-       {
-        TextWidgetClass "{D66CFA01E5AA4216}" {
-         Name "ConfirmLabel"
-         Slot FrameWidgetSlot "{D66CFA01E5AA4217}" {
-          Anchor 0 0 1 1
-          OffsetLeft 16
-          OffsetTop 10
-          OffsetRight -16
-          OffsetBottom -8
-         }
-         "No Localization" 1
-         "Ignore Cursor" 1
-         Text "Confirm"
-        }
-       }
-      }
+    }
+    TextWidgetClass "{D66CFA01E5AA4216}" {
+     Name "ConfirmLabel"
+     Slot FrameWidgetSlot "{D66CFA01E5AA4217}" {
+      Anchor 0 0 0 0
+      PositionX 340
+      OffsetLeft 340
+      PositionY 270
+      OffsetTop 270
+      SizeX 160
+      OffsetRight -500
+      SizeY 46
+      OffsetBottom -316
      }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     Text "Confirm"
     }
    }
   }

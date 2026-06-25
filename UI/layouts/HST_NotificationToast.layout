@@ -59,10 +59,14 @@ FrameWidgetClass "{A34F448C7E830601}" {
      Name "Title"
      Slot FrameWidgetSlot "{A34F448C7E83060A}" {
       Anchor 0 0 1 0
+      PositionX 0
       OffsetLeft 24
+      PositionY 10
       OffsetTop 10
+      SizeX -48
       OffsetRight -24
-      OffsetBottom 34
+      SizeY 24
+      OffsetBottom -34
      }
      "Is Visible" 1
      "Ignore Cursor" 1

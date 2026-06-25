@@ -27,7 +27,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Runtime symptom: `GUI (E): Cannot add a child, the ButtonWidget CloseButton does not accept more children`.
   - Avoid putting custom `FrameWidget`/`PanelWidget`/`TextWidget` children inside a `ButtonWidget` unless the engine-provided slot pattern is known to work for that exact widget.
   - Stable workaround: make the button a real sibling hit target and place a sibling `TextWidget` over it with `Ignore Cursor = true`.
-  - Current examples: `HST_CommandMenu.layout` close button, `HST_SetupConfirmModal.layout` Yes/No labels.
+  - Current examples: `HST_CommandMenu.layout` close button, `HST_SetupConfirmModal.layout` Yes/No labels, `HST_ActionDialog.layout` Cancel/Confirm labels, `HST_ReportDialog.layout` Close label.
 
 - Full-screen anchored roots should not be manually resized.
   - Avoid `FrameSlot.SetPos(root, 0, 0)` and `FrameSlot.SetSize(root, ...)` on roots using stretched anchors.
@@ -41,6 +41,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Fixed-height top-anchored children need negative bottom offsets.
   - For a widget from y=18 to y=60, use `PositionY 18`, `OffsetTop 18`, `SizeY 42`, and `OffsetBottom -60`.
   - Positive bottom offsets on `Anchor 0 0 1 0` widgets produced negative runtime heights in setup prompt and modal diagnostics.
+  - Current examples: setup prompt text/rule, notification title, action/report dialog title strips.
 
 - Keep visual children passive unless they are real controls.
   - Use `WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS` or layout `Ignore Cursor = true` for passive panels, labels, overlays, and notification visuals.

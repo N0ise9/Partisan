@@ -1180,10 +1180,19 @@ foreach ($requiredNotificationToastLayoutEntry in @(
 	"SizeX 840",
 	"OffsetRight -840",
 	"Alignment 0.5 0",
+	"SizeY 24",
+	"OffsetBottom -34",
 	'"Ignore Cursor" 1'
 )) {
 	if ($notificationToastLayoutText -notmatch [regex]::Escape($requiredNotificationToastLayoutEntry)) {
 		throw "Notification toast must use a passive anchored layout entry: $requiredNotificationToastLayoutEntry"
+	}
+}
+foreach ($forbiddenNotificationToastLayoutEntry in @(
+	"OffsetBottom 34"
+)) {
+	if ($notificationToastLayoutText -match [regex]::Escape($forbiddenNotificationToastLayoutEntry)) {
+		throw "Notification toast fixed-height text must use negative bottom offsets: $forbiddenNotificationToastLayoutEntry"
 	}
 }
 if ($notificationToastLayoutMetaText -notmatch [regex]::Escape('Name "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout"')) {
@@ -2011,6 +2020,7 @@ foreach ($requiredReportDialogLayoutEntry in @(
 	'Name "Title"',
 	'Name "Subtitle"',
 	'Name "CloseButton"',
+	'Name "CloseLabel"',
 	'Name "LocationLabel"',
 	'Name "LocationValue"',
 	'Name "MapPositionLabel"',
@@ -2025,10 +2035,31 @@ foreach ($requiredReportDialogLayoutEntry in @(
 	'Name "FailureValue"',
 	'Name "ObjectivesTitle"',
 	'Name "ObjectiveScroll"',
-	'Name "ObjectiveItems"'
+	'Name "ObjectiveItems"',
+	"SizeY 5",
+	"OffsetBottom -5",
+	"SizeY 36",
+	"OffsetBottom -58",
+	"SizeY 32",
+	"OffsetBottom -94",
+	"SizeY 42",
+	"OffsetBottom -62"
 )) {
 	if ($reportDialogLayoutText -notmatch [regex]::Escape($requiredReportDialogLayoutEntry)) {
 		throw "Mission report dialog layout is missing named widget: $requiredReportDialogLayoutEntry"
+	}
+}
+foreach ($forbiddenReportDialogLayoutEntry in @(
+	"CloseBody",
+	"CloseBackground",
+	"ButtonWidgetSlot",
+	"OffsetBottom 5",
+	"OffsetBottom 58",
+	"OffsetBottom 94",
+	"OffsetBottom 62"
+)) {
+	if ($reportDialogLayoutText -match [regex]::Escape($forbiddenReportDialogLayoutEntry)) {
+		throw "Mission report dialog layout must use passive sibling button labels and fixed-height negative bottom offsets: $forbiddenReportDialogLayoutEntry"
 	}
 }
 if ($reportDialogLayoutText -notmatch 'Name "HST_ReportDialogRoot"[\s\S]*?"Ignore Cursor" 0[\s\S]*?\{') {
@@ -2040,10 +2071,30 @@ foreach ($requiredActionDialogLayoutEntry in @(
 	'Name "Title"',
 	'Name "Message"',
 	'Name "CancelButton"',
-	'Name "ConfirmButton"'
+	'Name "CancelLabel"',
+	'Name "ConfirmButton"',
+	'Name "ConfirmLabel"',
+	"SizeY 5",
+	"OffsetBottom -5",
+	"SizeY 38",
+	"OffsetBottom -66",
+	"SizeY 46",
+	"OffsetBottom -316"
 )) {
 	if ($actionDialogLayoutText -notmatch [regex]::Escape($requiredActionDialogLayoutEntry)) {
 		throw "Mission action dialog layout is missing named widget: $requiredActionDialogLayoutEntry"
+	}
+}
+foreach ($forbiddenActionDialogLayoutEntry in @(
+	"CancelBody",
+	"ConfirmBody",
+	"ButtonWidgetSlot",
+	"OffsetBottom 5",
+	"OffsetBottom 66",
+	"OffsetBottom -24"
+)) {
+	if ($actionDialogLayoutText -match [regex]::Escape($forbiddenActionDialogLayoutEntry)) {
+		throw "Mission action dialog layout must use passive sibling button labels and fixed-height negative bottom offsets: $forbiddenActionDialogLayoutEntry"
 	}
 }
 if ($actionDialogLayoutText -notmatch 'Name "HST_ActionDialogRoot"[\s\S]*?"Ignore Cursor" 0[\s\S]*?\{') {
