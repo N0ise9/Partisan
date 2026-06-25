@@ -881,7 +881,7 @@ foreach ($requiredWorkspaceMetricCaller in @(
 	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_CommandMenu`")",
 	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_LoadoutEditor`")",
 	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_NotificationToast`")",
-	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_MissionDetail`")"
+	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, data.m_sDebugOwner)"
 )) {
 	$foundWorkspaceMetricCaller = $false
 	foreach ($uiText in @(
@@ -889,6 +889,7 @@ foreach ($requiredWorkspaceMetricCaller in @(
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"),
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"),
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c"),
+		(Get-Content -Raw "Scripts/Game/HST/UI/HST_ReportDialogController.c"),
 		(Get-Content -Raw "Scripts/Game/HST/UI/HST_NotificationToastController.c")
 	)) {
 		if ($uiText -and $uiText -match [regex]::Escape($requiredWorkspaceMetricCaller)) {
@@ -922,6 +923,7 @@ foreach ($requiredUIRootFile in @(
 	"Scripts/Game/HST/UI/HST_UIScreenBase.c",
 	"Scripts/Game/HST/UI/HST_UIRootService.c",
 	"Scripts/Game/HST/UI/HST_UIDebug.c",
+	"Scripts/Game/HST/UI/HST_ReportDialogController.c",
 	"Scripts/Game/HST/UI/HST_NotificationToastController.c"
 )) {
 	if (!(Test-Path $requiredUIRootFile)) {
@@ -932,6 +934,7 @@ $uiConstantsText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIConstants.c"
 $uiScreenBaseText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIScreenBase.c"
 $uiRootServiceText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIRootService.c"
 $uiDebugText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIDebug.c"
+$reportDialogControllerText = Get-Content -Raw "Scripts/Game/HST/UI/HST_ReportDialogController.c"
 $notificationToastControllerText = Get-Content -Raw "Scripts/Game/HST/UI/HST_NotificationToastController.c"
 foreach ($requiredUIDebugEntry in @(
 	"class HST_UIDebug",
@@ -1016,6 +1019,30 @@ foreach ($requiredUIRootServiceEntry in @(
 		throw "UI root service must centralize screen state and input blocking policy: $requiredUIRootServiceEntry"
 	}
 }
+foreach ($requiredReportDialogControllerEntry in @(
+	"class HST_ReportDialogData",
+	"class HST_ReportDialogController",
+	"REPORT_DIALOG_LAYOUT =",
+	"REPORT_OBJECTIVE_ROW_LAYOUT =",
+	"workspace.CreateWidgets(REPORT_DIALOG_LAYOUT)",
+	"workspace.CreateWidgets(REPORT_OBJECTIVE_ROW_LAYOUT, items)",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG",
+	"HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner",
+	"HST_UIDebug.LogLayoutRejected(data.m_sDebugOwner",
+	"HST_UIDebug.LogExpectedWidgetsCsv(data.m_sDebugOwner",
+	"HST_UIDebug.LogPopulation(data.m_sDebugOwner",
+	'HST_UIDebug.LogRowSample("mission_report_objectives"',
+	'HST_UIDebug.LogRowSummary("mission_report_objectives"',
+	"static void Close(string owner)",
+	"protected static void BindClick",
+	"protected static void SetText",
+	"protected static void AddObjectiveRow"
+)) {
+	if ($reportDialogControllerText -notmatch [regex]::Escape($requiredReportDialogControllerEntry)) {
+		throw "Report dialog controller must own layout creation, diagnostics, and row population: $requiredReportDialogControllerEntry"
+	}
+}
 foreach ($requiredUIRootCaller in @(
 	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP",
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP",
@@ -1034,6 +1061,7 @@ foreach ($requiredUIRootCaller in @(
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"),
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"),
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c"),
+		$reportDialogControllerText,
 		$notificationToastControllerText
 	)) {
 		if ($uiText -and $uiText -match [regex]::Escape($requiredUIRootCaller)) {
@@ -1921,28 +1949,45 @@ foreach ($requiredReportObjectiveRowLayoutEntry in @(
 		throw "Mission report objective row layout is missing named widget: $requiredReportObjectiveRowLayoutEntry"
 	}
 }
-foreach ($requiredMissionDialogScriptEntry in @(
-	'REPORT_DIALOG_LAYOUT = "{D66CFA01E5AA4100}UI/layouts/HST_ReportDialog.layout"',
+foreach ($requiredMissionDialogComponentEntry in @(
 	'ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout"',
-	'REPORT_OBJECTIVE_ROW_LAYOUT = "{D66CFA01E5AA4300}UI/layouts/HST/Rows/HST_ReportObjectiveRow.layout"',
-	"workspace.CreateWidgets(REPORT_DIALOG_LAYOUT)",
-	"workspace.CreateWidgets(REPORT_OBJECTIVE_ROW_LAYOUT, items)",
-	'BindDialogClick(root, "CloseButton", DETAIL_CLOSE_WIDGET_ID)',
-	'SetDialogText(root, "Title"',
-	'root.FindAnyWidget("ObjectiveItems")',
+	"HST_ReportDialogData data = new HST_ReportDialogData()",
+	'data.m_sOwner = "HST_MissionClientComponent"',
+	'data.m_sDebugOwner = "mission_report_dialog"',
+	"data.m_iCloseWidgetId = DETAIL_CLOSE_WIDGET_ID",
+	"data.m_sReportId = m_sSelectedMissionId",
+	"data.m_aObjectiveLabels.Insert",
+	"data.m_aObjectiveValues.Insert",
+	"HST_ReportDialogController.Render(workspace, data, m_WidgetHandler)",
+	'HST_ReportDialogController.Close("HST_MissionClientComponent")',
 	"protected bool OpenMissionDetailsAtIndex",
 	"protected bool RenderMissionDetailPanel",
 	"if (RenderMissionDetailPanel())",
-	"protected void CloseMissionDetails",
-	"root.RemoveFromHierarchy()",
-	"protected void BindDialogClick",
-	"protected void SetDialogText",
-	"protected void AddObjectiveRow"
+	"protected void CloseMissionDetails"
 )) {
-	if ($missionClientText -notmatch [regex]::Escape($requiredMissionDialogScriptEntry)) {
-		throw "Mission detail/report UI must populate named layout widgets: $requiredMissionDialogScriptEntry"
+	if ($missionClientText -notmatch [regex]::Escape($requiredMissionDialogComponentEntry)) {
+		throw "Mission client must delegate report dialog layout population to HST_ReportDialogController: $requiredMissionDialogComponentEntry"
 	}
 }
+foreach ($requiredMissionDialogControllerEntry in @(
+	'REPORT_DIALOG_LAYOUT = "{D66CFA01E5AA4100}UI/layouts/HST_ReportDialog.layout"',
+	'REPORT_OBJECTIVE_ROW_LAYOUT = "{D66CFA01E5AA4300}UI/layouts/HST/Rows/HST_ReportObjectiveRow.layout"',
+	"workspace.CreateWidgets(REPORT_DIALOG_LAYOUT)",
+	"workspace.CreateWidgets(REPORT_OBJECTIVE_ROW_LAYOUT, items)",
+	'HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, data.m_sOwner, root',
+	'BindClick(data.m_sDebugOwner, root, "CloseButton", data.m_iCloseWidgetId, handler)',
+	'SetText(root, "Title"',
+	'root.FindAnyWidget("ObjectiveItems")',
+	"root.RemoveFromHierarchy()",
+	"protected static void BindClick",
+	"protected static void SetText",
+	"protected static void AddObjectiveRow"
+)) {
+	if ($reportDialogControllerText -notmatch [regex]::Escape($requiredMissionDialogControllerEntry)) {
+		throw "Mission report controller must populate named layout widgets: $requiredMissionDialogControllerEntry"
+	}
+}
+$missionDialogScriptText = $missionClientText + "`n" + $reportDialogControllerText
 if ($missionClientText -match [regex]::Escape('RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", null')) {
 	throw "Mission detail modal must not register with UI root before a report dialog root exists"
 }
@@ -1957,7 +2002,7 @@ foreach ($forbiddenMissionDialogScriptGeometry in @(
 	"FrameSlot.SetPos(root",
 	"FrameSlot.SetSize(root"
 )) {
-	if ($missionClientText -match [regex]::Escape($forbiddenMissionDialogScriptGeometry)) {
+	if ($missionDialogScriptText -match [regex]::Escape($forbiddenMissionDialogScriptGeometry)) {
 		throw "Mission detail/report UI must not keep scripted panel geometry: $forbiddenMissionDialogScriptGeometry"
 	}
 }
@@ -3405,16 +3450,18 @@ foreach ($requiredNotificationUIDebugEntry in @(
 		throw "Notification toast layout must emit debug diagnostics: $requiredNotificationUIDebugEntry"
 	}
 }
+$missionReportDebugText = $missionClientText + "`n" + $reportDialogControllerText
 foreach ($requiredMissionUIDebugEntry in @(
-	'HST_UIDebug.LogLayoutCreate("mission_report_dialog"',
-	'HST_UIDebug.LogLayoutRejected("mission_report_dialog"',
-	'HST_UIDebug.LogExpectedWidgetsCsv("mission_report_dialog"',
-	'HST_UIDebug.LogPopulation("mission_report_dialog"',
-	'HST_UIDebug.LogWidgetBound("mission_report_dialog"',
+	'data.m_sDebugOwner = "mission_report_dialog"',
+	'HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner',
+	'HST_UIDebug.LogLayoutRejected(data.m_sDebugOwner',
+	'HST_UIDebug.LogExpectedWidgetsCsv(data.m_sDebugOwner',
+	'HST_UIDebug.LogPopulation(data.m_sDebugOwner',
+	'HST_UIDebug.LogWidgetBound(debugOwner',
 	'HST_UIDebug.LogRowSample("mission_report_objectives"',
 	'HST_UIDebug.LogRowSummary("mission_report_objectives"'
 )) {
-	if ($missionClientText -notmatch [regex]::Escape($requiredMissionUIDebugEntry)) {
+	if ($missionReportDebugText -notmatch [regex]::Escape($requiredMissionUIDebugEntry)) {
 		throw "Mission report layouts must emit debug diagnostics: $requiredMissionUIDebugEntry"
 	}
 }
