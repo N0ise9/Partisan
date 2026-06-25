@@ -374,7 +374,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (commandMenu)
 			commandMenu.CloseMenuFromExternal();
 
-		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent", null, true, true, false))
+		if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.LOADOUT_EDITOR))
 			return;
 
 		m_PreviewEditedCharacter = userEntity;
@@ -399,8 +399,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ResetLoadoutScroll();
 		m_sStatusText = "Opening h-istasi arsenal editor. Counts, INF unlocks, and apply validation stay server-authoritative.";
 		m_sLastResult = "requested editor session";
+		if (!RenderEditor())
+		{
+			CloseEditorInternal(false, false);
+			return;
+		}
+
 		RequestServerAction("loadout_editor_open_hq_arsenal", "");
-		RenderEditor();
 		ShowHint("Loadout editor opened");
 	}
 
@@ -1057,6 +1062,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	void CloseEditor(bool requestServer)
 	{
+		CloseEditorInternal(requestServer, true);
+	}
+
+	protected void CloseEditorInternal(bool requestServer, bool showHint)
+	{
 		if (!m_bEditorOpen)
 			return;
 
@@ -1070,7 +1080,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ClearWidgets();
 		DeleteEditorRoot();
 		DeletePreviewWorld();
-		ShowHint("Loadout editor closed");
+		if (showHint)
+			ShowHint("Loadout editor closed");
 	}
 
 	protected void RequestServerAction(string commandId, string argument)
@@ -1336,11 +1347,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return "";
 	}
 
-	protected void RenderEditor()
+	protected bool RenderEditor()
 	{
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		if (!workspace)
-			return;
+			return false;
 
 		SaveLoadoutScrollOffsets();
 		ClearWidgets();
@@ -1367,10 +1378,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget root = EnsureEditorRoot(workspace);
 
 		if (!root)
-			return;
+			return false;
 
 		root.SetZOrder(HST_UIConstants.Z_LOADOUT_EDITOR);
-		HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent", root, true, true, false);
+		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent", root, true, true, false))
+		{
+			DeleteEditorRoot();
+			return false;
+		}
 
 		Widget previewContainer = root.FindAnyWidget("HST_LoadoutPreviewContainer");
 		if (previewContainer)
@@ -1419,6 +1434,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 		RenderPreviewStage(workspace, uiRoot);
 		RenderContextHints(workspace, uiRoot);
+		return true;
 	}
 
 	protected Widget EnsureEditorRoot(WorkspaceWidget workspace)
