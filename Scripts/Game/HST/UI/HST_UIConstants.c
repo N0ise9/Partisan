@@ -10,7 +10,10 @@ enum HST_EUIScreenMode
 
 class HST_UIConstants
 {
-	static const int Z_SETUP_MAP = 2200;
+	// Keep the native map root low enough that the engine-owned map cursor stays usable.
+	static const int Z_SETUP_MAP = 9;
+	static const int Z_SETUP_PROMPT = 2300;
+	static const int Z_SETUP_MODAL = 2400;
 	static const int Z_COMMAND_MENU = 2500;
 	static const int Z_NOTIFICATION = 2850;
 	static const int Z_LOADOUT_EDITOR = 3600;

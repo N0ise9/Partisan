@@ -50,10 +50,6 @@ class HST_SetupMapComponent : ScriptComponent
 	static const int CONFIRM_YES_WIDGET_ID = 71002;
 	static const int CONFIRM_NO_WIDGET_ID = 71003;
 	static const int CONFIRM_BLOCKER_WIDGET_ID = 71004;
-	// Keep the map root below the cursor; prompt/modal children get explicit high z-order.
-	static const int SETUP_Z_ORDER = 9;
-	static const int SETUP_PROMPT_Z_ORDER = 51000;
-	static const int SETUP_MODAL_Z_ORDER = 52000;
 	static const float SETUP_STATE_REQUEST_INTERVAL_SECONDS = 2.5;
 	static const float SETUP_SERVER_REQUEST_TIMEOUT_SECONDS = 5.0;
 	static const float SETUP_VALIDATION_RESULT_TOLERANCE_METERS = 8.0;
@@ -607,7 +603,7 @@ class HST_SetupMapComponent : ScriptComponent
 				return;
 			}
 
-			m_wSetupRoot.SetZOrder(SETUP_Z_ORDER);
+			m_wSetupRoot.SetZOrder(HST_UIConstants.Z_SETUP_MAP);
 			m_aWidgets.Insert(m_wSetupRoot);
 			m_wMapMenuRoot = m_wSetupRoot.FindAnyWidget("MapMenu");
 			m_wOverlayRoot = m_wSetupRoot;
@@ -1075,7 +1071,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 		m_wPromptRoot.SetVisible(true);
 		m_wPromptRoot.SetOpacity(1.0);
-		m_wPromptRoot.SetZOrder(SETUP_PROMPT_Z_ORDER);
+		m_wPromptRoot.SetZOrder(HST_UIConstants.Z_SETUP_PROMPT);
 		m_wPromptRoot.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		m_aWidgets.Insert(m_wPromptRoot);
 		m_wPromptText = TextWidget.Cast(m_wPromptRoot.FindAnyWidget("HST_SetupPromptText"));
@@ -1117,7 +1113,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (m_wSetupRoot)
 		{
 			m_wSetupRoot.SetVisible(true);
-			m_wSetupRoot.SetZOrder(SETUP_Z_ORDER);
+			m_wSetupRoot.SetZOrder(HST_UIConstants.Z_SETUP_MAP);
 		}
 
 		if (m_wMapMenuRoot)
@@ -1126,14 +1122,14 @@ class HST_SetupMapComponent : ScriptComponent
 			m_wMapMenuRoot.SetZOrder(0);
 		}
 
-		SetWidgetLayer(m_wPromptRoot, SETUP_PROMPT_Z_ORDER, true);
-		SetWidgetLayer(m_wPromptPanel, SETUP_PROMPT_Z_ORDER + 1, true);
-		SetWidgetLayer(m_wPromptRule, SETUP_PROMPT_Z_ORDER + 2, true);
+		SetWidgetLayer(m_wPromptRoot, HST_UIConstants.Z_SETUP_PROMPT, true);
+		SetWidgetLayer(m_wPromptPanel, HST_UIConstants.Z_SETUP_PROMPT + 1, true);
+		SetWidgetLayer(m_wPromptRule, HST_UIConstants.Z_SETUP_PROMPT + 2, true);
 
 		if (m_wPromptText)
 		{
 			m_wPromptText.SetVisible(true);
-			m_wPromptText.SetZOrder(SETUP_PROMPT_Z_ORDER + 3);
+			m_wPromptText.SetZOrder(HST_UIConstants.Z_SETUP_PROMPT + 3);
 		}
 
 		ApplyConfirmModalLayerOrder(m_wConfirmModalRoot);
@@ -1163,7 +1159,7 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 		}
 
-		blocker.SetZOrder(SETUP_MODAL_Z_ORDER + 1);
+		blocker.SetZOrder(HST_UIConstants.Z_SETUP_MODAL + 1);
 		blocker.SetUserID(CONFIRM_BLOCKER_WIDGET_ID);
 		blocker.AddHandler(m_WidgetHandler);
 		m_aModalWidgets.Insert(blocker);
@@ -1177,7 +1173,7 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 		}
 
-		modal.SetZOrder(SETUP_MODAL_Z_ORDER + 3);
+		modal.SetZOrder(HST_UIConstants.Z_SETUP_MODAL + 3);
 		modal.SetUserID(CONFIRM_BLOCKER_WIDGET_ID);
 		modal.AddHandler(m_WidgetHandler);
 		m_aModalWidgets.Insert(modal);
@@ -1217,20 +1213,20 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void ApplyConfirmModalLayerOrder(Widget modal)
 	{
-		SetWidgetLayer(m_wConfirmBlockerRoot, SETUP_MODAL_Z_ORDER + 1, true);
+		SetWidgetLayer(m_wConfirmBlockerRoot, HST_UIConstants.Z_SETUP_MODAL + 1, true);
 
 		if (!modal)
 			return;
 
-		SetWidgetLayer(modal, SETUP_MODAL_Z_ORDER + 3, true);
-		SetWidgetLayer(modal.FindAnyWidget("Dialog"), SETUP_MODAL_Z_ORDER + 4, true);
-		SetWidgetLayer(modal.FindAnyWidget("Background"), SETUP_MODAL_Z_ORDER + 5, true);
-		SetWidgetLayer(modal.FindAnyWidget("TopAccent"), SETUP_MODAL_Z_ORDER + 6, true);
-		SetWidgetLayer(modal.FindAnyWidget("Message"), SETUP_MODAL_Z_ORDER + 7, true);
-		SetWidgetLayer(modal.FindAnyWidget("NoButton"), SETUP_MODAL_Z_ORDER + 8, true);
-		SetWidgetLayer(modal.FindAnyWidget("YesButton"), SETUP_MODAL_Z_ORDER + 8, true);
-		SetWidgetLayer(modal.FindAnyWidget("NoLabel"), SETUP_MODAL_Z_ORDER + 9, true);
-		SetWidgetLayer(modal.FindAnyWidget("YesLabel"), SETUP_MODAL_Z_ORDER + 9, true);
+		SetWidgetLayer(modal, HST_UIConstants.Z_SETUP_MODAL + 3, true);
+		SetWidgetLayer(modal.FindAnyWidget("Dialog"), HST_UIConstants.Z_SETUP_MODAL + 4, true);
+		SetWidgetLayer(modal.FindAnyWidget("Background"), HST_UIConstants.Z_SETUP_MODAL + 5, true);
+		SetWidgetLayer(modal.FindAnyWidget("TopAccent"), HST_UIConstants.Z_SETUP_MODAL + 6, true);
+		SetWidgetLayer(modal.FindAnyWidget("Message"), HST_UIConstants.Z_SETUP_MODAL + 7, true);
+		SetWidgetLayer(modal.FindAnyWidget("NoButton"), HST_UIConstants.Z_SETUP_MODAL + 8, true);
+		SetWidgetLayer(modal.FindAnyWidget("YesButton"), HST_UIConstants.Z_SETUP_MODAL + 8, true);
+		SetWidgetLayer(modal.FindAnyWidget("NoLabel"), HST_UIConstants.Z_SETUP_MODAL + 9, true);
+		SetWidgetLayer(modal.FindAnyWidget("YesLabel"), HST_UIConstants.Z_SETUP_MODAL + 9, true);
 	}
 
 	protected void SetWidgetLayer(Widget widget, int zOrder, bool visible)

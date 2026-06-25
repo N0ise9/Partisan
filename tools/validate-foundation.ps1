@@ -771,7 +771,9 @@ foreach ($requiredSetupChromeEntry in @(
 	}
 }
 foreach ($requiredSetupMapLayerEntry in @(
-	"SETUP_PROMPT_Z_ORDER = 51000",
+	"HST_UIConstants.Z_SETUP_MAP",
+	"HST_UIConstants.Z_SETUP_PROMPT",
+	"HST_UIConstants.Z_SETUP_MODAL",
 	"ApplySetupLayerOrder",
 	"ApplyConfirmModalLayerOrder",
 	"SetWidgetLayer(m_wPromptPanel",
@@ -783,6 +785,17 @@ foreach ($requiredSetupMapLayerEntry in @(
 )) {
 	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupMapLayerEntry)) {
 		throw "Setup map UI must explicitly layer prompt/modal widgets and block native map input during confirmation: $requiredSetupMapLayerEntry"
+	}
+}
+foreach ($forbiddenSetupMagicLayerEntry in @(
+	"SETUP_Z_ORDER",
+	"SETUP_PROMPT_Z_ORDER",
+	"SETUP_MODAL_Z_ORDER",
+	"51000",
+	"52000"
+)) {
+	if ($setupMapComponentText -match [regex]::Escape($forbiddenSetupMagicLayerEntry)) {
+		throw "Setup map UI must use centralized HST_UIConstants layer values: $forbiddenSetupMagicLayerEntry"
 	}
 }
 foreach ($setupLayoutPath in @(
@@ -900,6 +913,9 @@ foreach ($requiredUIRootEntry in @(
 	"LOADOUT_EDITOR",
 	"MISSION_DIALOG",
 	"GAMEPLAY_MAP_OVERLAY",
+	"Z_SETUP_MAP",
+	"Z_SETUP_PROMPT",
+	"Z_SETUP_MODAL",
 	"Z_COMMAND_MENU",
 	"Z_NOTIFICATION",
 	"Z_LOADOUT_EDITOR",
