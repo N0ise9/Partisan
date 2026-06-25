@@ -3274,10 +3274,18 @@ if (!(Test-Path "UI/layouts/HST_LoadoutItemPreviewCell.layout")) {
 if (!(Test-Path "UI/layouts/HST_LoadoutItemPreviewCell.layout.meta")) {
 	throw "Missing GUID-backed loadout item preview cell layout meta resource"
 }
+if (!(Test-Path "UI/layouts/HST_LoadoutEditor_TabButton.layout")) {
+	throw "Missing loadout editor tab button layout resource"
+}
+if (!(Test-Path "UI/layouts/HST_LoadoutEditor_TabButton.layout.meta")) {
+	throw "Missing GUID-backed loadout editor tab button layout meta resource"
+}
 $loadoutEditorLayoutText = Get-Content -Raw "UI/layouts/HST_LoadoutEditor.layout"
 $loadoutEditorLayoutMetaText = Get-Content -Raw "UI/layouts/HST_LoadoutEditor.layout.meta"
 $loadoutPreviewCellLayoutText = Get-Content -Raw "UI/layouts/HST_LoadoutItemPreviewCell.layout"
 $loadoutPreviewCellLayoutMetaText = Get-Content -Raw "UI/layouts/HST_LoadoutItemPreviewCell.layout.meta"
+$loadoutTabButtonLayoutText = Get-Content -Raw "UI/layouts/HST_LoadoutEditor_TabButton.layout"
+$loadoutTabButtonLayoutMetaText = Get-Content -Raw "UI/layouts/HST_LoadoutEditor_TabButton.layout.meta"
 if ($loadoutEditorComponentText -notmatch [regex]::Escape('EDITOR_LAYOUT = "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout"')) {
 	throw "Loadout editor must reference the GUID-backed layout resource"
 }
@@ -3290,7 +3298,8 @@ foreach ($requiredLoadoutPathBResource in @(
 	'LOADOUT_NODE_ROW_LAYOUT = "{A7B8C9D0012345D0}UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"',
 	'LOADOUT_STORAGE_ROW_LAYOUT = "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"',
 	'LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"',
-	'LOADOUT_CANDIDATE_TILE_LAYOUT = "{A7B8C9D001234600}UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"'
+	'LOADOUT_CANDIDATE_TILE_LAYOUT = "{A7B8C9D001234600}UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"',
+	'LOADOUT_TAB_BUTTON_LAYOUT = "{D66CFA01E5AA4400}UI/layouts/HST_LoadoutEditor_TabButton.layout"'
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutPathBResource)) {
 		throw "Loadout editor must reference Path B layout resource: $requiredLoadoutPathBResource"
@@ -3322,6 +3331,9 @@ if ($loadoutEditorLayoutMetaText -notmatch [regex]::Escape('Name "{5AF2D86E07D44
 }
 if ($loadoutPreviewCellLayoutMetaText -notmatch [regex]::Escape('Name "{6B43C4A98B4F47F2}UI/layouts/HST_LoadoutItemPreviewCell.layout"')) {
 	throw "Loadout item preview cell layout meta must carry the expected non-zero GUID"
+}
+if ($loadoutTabButtonLayoutMetaText -notmatch [regex]::Escape('Name "{D66CFA01E5AA4400}UI/layouts/HST_LoadoutEditor_TabButton.layout"')) {
+	throw "Loadout tab button layout meta must carry the expected non-zero GUID"
 }
 foreach ($requiredLayoutEntry in @(
 	"HST_LoadoutEditorRoot",
@@ -3380,6 +3392,53 @@ foreach ($forbiddenLoadoutLeftButtonScriptGeometry in @(
 )) {
 	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutLeftButtonScriptGeometry)) {
 		throw "Loadout editor left Back/ESC controls must be layout-owned: $forbiddenLoadoutLeftButtonScriptGeometry"
+	}
+}
+foreach ($requiredLoadoutTabLayoutEntry in @(
+	'Name "TopTabs"',
+	'Name "TopTabsBackground"',
+	'Name "TopTabItems"',
+	'Name "HST_LoadoutEditor_TabButton"',
+	'Name "SizeLayout"',
+	'Name "Background"',
+	'Name "Accent"',
+	'Name "Icon"',
+	'Name "Fallback"',
+	"HorizontalLayoutWidgetClass",
+	"WidthOverride 58",
+	"HeightOverride 58"
+)) {
+	if (($loadoutEditorLayoutText + "`n" + $loadoutTabButtonLayoutText) -notmatch [regex]::Escape($requiredLoadoutTabLayoutEntry)) {
+		throw "Loadout editor mode tabs must be layout-owned: $requiredLoadoutTabLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutTabScriptEntry in @(
+	'Widget items = target.FindAnyWidget("TopTabItems")',
+	"AddLoadoutTabButton(workspace, items",
+	"workspace.CreateWidgets(LOADOUT_TAB_BUTTON_LAYOUT, parent)",
+	"SetLoadoutImageTexture(tab, `"Icon`"",
+	"SetLoadoutText(tab, `"Fallback`"",
+	"protected void AddLoadoutTabButton",
+	"protected bool SetLoadoutImageTexture"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutTabScriptEntry)) {
+		throw "Loadout editor mode tabs must populate layout-owned tab buttons: $requiredLoadoutTabScriptEntry"
+	}
+}
+$loadoutModeTabsMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderModeTabs[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddLoadoutTabButton")
+if (!$loadoutModeTabsMatch.Success) {
+	throw "Loadout editor mode tab renderer is missing"
+}
+foreach ($forbiddenLoadoutModeTabGeometry in @(
+	"CreateButton",
+	"CreateRectWidget",
+	"CreateTextWidget",
+	"CreateIconWidget",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize"
+)) {
+	if ($loadoutModeTabsMatch.Value -match [regex]::Escape($forbiddenLoadoutModeTabGeometry)) {
+		throw "Loadout editor mode tabs must not use scripted geometry: $forbiddenLoadoutModeTabGeometry"
 	}
 }
 foreach ($requiredPreviewCellLayoutEntry in @(
@@ -3506,9 +3565,9 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"m_Layout.m_iHeaderHeight = ScalePx(72)",
 	"m_Layout.m_iCategoryHeight = ScalePx(78)",
 	"int tabHeight = m_Layout.m_iCategoryHeight",
-	"int tabHeight = m_Layout.m_iTabHeight",
-	"int compactTabWidth = m_Layout.m_iTabWidth",
-	"tabLeft += tabWidth + m_Layout.m_iTabGap",
+	"LOADOUT_TAB_BUTTON_LAYOUT",
+	"AddLoadoutTabButton(workspace, items",
+	'Widget items = target.FindAnyWidget("TopTabItems")',
 	"int iconSize = ScalePx(58)",
 	"iconSize = ScalePx(62)",
 	"ShortenText(BuildStorageTargetLabel(), 96)",

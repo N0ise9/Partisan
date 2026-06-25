@@ -118,6 +118,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName LOADOUT_STORAGE_ROW_LAYOUT = "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout";
 	static const ResourceName LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout";
 	static const ResourceName LOADOUT_CANDIDATE_TILE_LAYOUT = "{A7B8C9D001234600}UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout";
+	static const ResourceName LOADOUT_TAB_BUTTON_LAYOUT = "{D66CFA01E5AA4400}UI/layouts/HST_LoadoutEditor_TabButton.layout";
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const ResourceName PREVIEW_WORLD_PREFAB = "{71D2E9B5588949D8}Prefabs/HST/HST_LoadoutPreviewWorld.et";
 	static const ResourceName PREVIEW_LIGHTS_PREFAB = "{604FFDF1DE53BD1D}Prefabs/HST/HST_LoadoutPreviewLights.et";
@@ -1591,6 +1592,35 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		widget.SetColorInt(color);
 	}
 
+	protected void SetLoadoutWidgetVisible(Widget root, string widgetName, bool visible)
+	{
+		if (!root)
+			return;
+
+		Widget widget = root.FindAnyWidget(widgetName);
+		if (widget)
+			widget.SetVisible(visible);
+	}
+
+	protected bool SetLoadoutImageTexture(Widget root, string widgetName, ResourceName texture, int color)
+	{
+		if (!root || texture.IsEmpty())
+			return false;
+
+		ImageWidget imageWidget = ImageWidget.Cast(root.FindAnyWidget(widgetName));
+		if (!imageWidget)
+			return false;
+
+		if (!imageWidget.LoadImageTexture(0, texture))
+			return false;
+
+		imageWidget.SetImage(0);
+		imageWidget.SetVisible(true);
+		imageWidget.SetOpacity(1.0);
+		imageWidget.SetColorInt(color);
+		return true;
+	}
+
 	protected void SetLoadoutText(Widget root, string widgetName, string text, int color, int fontSize, bool bold, bool wrap)
 	{
 		if (!root)
@@ -1960,67 +1990,74 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void RenderModeTabs(WorkspaceWidget workspace, Widget root)
 	{
-		if (!m_Layout)
+		if (!workspace || !root || !m_Layout)
 			return;
 
 		Widget target = ResolveLoadoutRegion(root, "TopTabs");
-		bool useLayoutRegion = target && target != root;
-		int regionWidth;
-		int regionHeight;
-		GetRegionLayoutSize(workspace, target, m_Layout.m_iTabsWidth + ScalePx(100), m_Layout.m_iTabsHeight, regionWidth, regionHeight);
+		if (!target)
+			return;
 
-		int tabHeight = m_Layout.m_iTabHeight;
-		int compactTabWidth = m_Layout.m_iTabWidth;
-		int activeTabWidth = compactTabWidth;
-		int navButton = ScalePx(30);
-		int tabStart = m_Layout.m_iTabsLeft;
-		int tabTop = m_Layout.m_iTabsTop;
-		if (useLayoutRegion)
-		{
-			tabStart = navButton + ScalePx(8);
-			tabTop = 0;
-		}
+		SetLoadoutWidgetColor(target, "TopTabsBackground", GetTabBackColor(), 1.0);
 
-		int tabLeft = tabStart;
-		int navTop = tabTop + Math.Max(0, (tabHeight - navButton) / 2);
+		Widget items = target.FindAnyWidget("TopTabItems");
+		if (!items)
+			return;
 
-		CreateButton(workspace, target, "Q", Math.Max(0, tabStart - ScalePx(38)), navTop, navButton, navButton, MODE_WIDGET_ID_BASE + Math.Max(0, GetEditorModeIndex(m_sEditorMode) - 1));
-		CreateRectWidget(workspace, target, tabStart, tabTop, m_Layout.m_iTabsWidth, m_Layout.m_iTabsHeight, GetTabBackColor(), 1.0, 0);
+		int activeIndex = GetEditorModeIndex(m_sEditorMode);
+		int previousIndex = activeIndex - 1;
+		if (previousIndex < 0)
+			previousIndex = GetEditorModeCount() - 1;
+
+		AddLoadoutTabButton(workspace, items, "Q", "", MODE_WIDGET_ID_BASE + previousIndex, false);
 		for (int i = 0; i < GetEditorModeCount(); i++)
 		{
 			string modeId = GetEditorModeId(i);
 			bool active = modeId == m_sEditorMode;
-			int color = 0xFF12171B;
-			int tabWidth = compactTabWidth;
-			if (active)
-			{
-				color = GetAccentColor();
-				tabWidth = activeTabWidth;
-			}
-
-			CreateRectWidget(workspace, target, tabLeft, tabTop, tabWidth, tabHeight, color, 0.98, MODE_WIDGET_ID_BASE + i);
-
-			int iconSize = ScalePx(48);
-			if (active)
-				iconSize = ScalePx(52);
-			iconSize = Math.Min(iconSize, Math.Max(1, tabWidth - ScalePx(12)));
-			iconSize = Math.Min(iconSize, Math.Max(1, tabHeight - ScalePx(10)));
-			int iconLeft = tabLeft + Math.Max(0, (tabWidth - iconSize) / 2);
-			int iconTop = tabTop + Math.Max(0, (tabHeight - iconSize) / 2);
-			if (!CreateIconWidget(workspace, target, ResolveIconTexture(modeId), iconLeft, iconTop, iconSize, iconSize, MODE_WIDGET_ID_BASE + i, 0xFFFFFFFF))
-				CreateTextWidget(workspace, target, GetEditorModeIcon(modeId), iconLeft, iconTop + ScalePx(1), iconSize, iconSize, ScaleFont(30), 0xFFFFFFFF, MODE_WIDGET_ID_BASE + i, true);
-
-			if (i < GetEditorModeCount() - 1)
-				tabLeft += tabWidth + m_Layout.m_iTabGap;
-			else
-				tabLeft += tabWidth;
+			AddLoadoutTabButton(workspace, items, GetEditorModeIcon(modeId), ResolveIconTexture(modeId), MODE_WIDGET_ID_BASE + i, active);
 		}
 
-		int nextLeft = tabLeft + ScalePx(16);
-		if (useLayoutRegion)
-			nextLeft = Math.Min(nextLeft, Math.Max(0, regionWidth - navButton));
-		CreateButton(workspace, target, "E", nextLeft, navTop, navButton, navButton, MODE_WIDGET_ID_BASE + Math.Min(GetEditorModeCount() - 1, GetEditorModeIndex(m_sEditorMode) + 1));
-		CreateRectWidget(workspace, target, tabStart, tabTop + tabHeight, Math.Min(m_Layout.m_iTabsWidth, tabLeft - tabStart), ScalePx(3), GetAccentColor(), 1.0, 0);
+		int nextIndex = activeIndex + 1;
+		if (nextIndex >= GetEditorModeCount())
+			nextIndex = 0;
+
+		AddLoadoutTabButton(workspace, items, "E", "", MODE_WIDGET_ID_BASE + nextIndex, false);
+	}
+
+	protected void AddLoadoutTabButton(WorkspaceWidget workspace, Widget parent, string fallback, ResourceName texture, int userId, bool active)
+	{
+		if (!workspace || !parent)
+			return;
+
+		Widget tab = workspace.CreateWidgets(LOADOUT_TAB_BUTTON_LAYOUT, parent);
+		if (!tab)
+			return;
+
+		m_aWidgets.Insert(tab);
+		tab.SetUserID(userId);
+		tab.AddHandler(m_WidgetHandler);
+
+		int background = 0xFF12171B;
+		int accent = 0x884B5960;
+		int foreground = 0xFFF4EBD6;
+		float accentOpacity = 0.35;
+		if (active)
+		{
+			background = GetAccentColor();
+			accent = GetAccentColor();
+			foreground = 0xFFFFFFFF;
+			accentOpacity = 1.0;
+		}
+
+		SetLoadoutWidgetColor(tab, "Background", background, 0.98);
+		SetLoadoutWidgetColor(tab, "Accent", accent, accentOpacity);
+		if (SetLoadoutImageTexture(tab, "Icon", texture, foreground))
+		{
+			SetLoadoutWidgetVisible(tab, "Fallback", false);
+			return;
+		}
+
+		SetLoadoutWidgetVisible(tab, "Icon", false);
+		SetLoadoutText(tab, "Fallback", fallback, foreground, ScaleFont(22), true, false);
 	}
 
 	protected void RenderSlotRail(WorkspaceWidget workspace, Widget root)

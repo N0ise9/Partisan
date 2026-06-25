@@ -1,0 +1,17 @@
+MetaFileClass {
+ Name "{D66CFA01E5AA4400}UI/layouts/HST_LoadoutEditor_TabButton.layout"
+ Configurations {
+  CONFResourceClass PC {
+  }
+  CONFResourceClass XBOX_ONE : PC {
+  }
+  CONFResourceClass XBOX_SERIES : PC {
+  }
+  CONFResourceClass PS4 : PC {
+  }
+  CONFResourceClass PS5 : PC {
+  }
+  CONFResourceClass HEADLESS : PC {
+  }
+ }
+}

@@ -1,0 +1,89 @@
+ButtonWidgetClass "{D66CFA01E5AA4400}" {
+ Name "HST_LoadoutEditor_TabButton"
+ Slot LayoutSlot "{D66CFA01E5AA4401}" {
+  Padding 0 0 10 0
+ }
+ Color 1 1 1 0
+ "Is Visible" 1
+ {
+  SizeLayoutWidgetClass "{D66CFA01E5AA4402}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{D66CFA01E5AA4403}" {
+   }
+   AllowWidthOverride 1
+   WidthOverride 58
+   AllowHeightOverride 1
+   HeightOverride 58
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 58
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 58
+   {
+    FrameWidgetClass "{D66CFA01E5AA4404}" {
+     Name "Body"
+     Slot AlignableSlot "{D66CFA01E5AA4405}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     "Ignore Cursor" 1
+     {
+      PanelWidgetClass "{D66CFA01E5AA4406}" {
+       Name "Background"
+       Slot FrameWidgetSlot "{D66CFA01E5AA4407}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.07 0.09 0.11 0.98
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{D66CFA01E5AA4408}" {
+       Name "Accent"
+       Slot FrameWidgetSlot "{D66CFA01E5AA4409}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 3
+       }
+       Color 1 0.82 0.38 1
+       style full
+       "Ignore Cursor" 1
+      }
+      ImageWidgetClass "{D66CFA01E5AA440A}" {
+       Name "Icon"
+       Slot FrameWidgetSlot "{D66CFA01E5AA440B}" {
+        Anchor 0 0 1 1
+        OffsetLeft 9
+        OffsetTop 9
+        OffsetRight -9
+        OffsetBottom -9
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+       Size 40 40
+      }
+      TextWidgetClass "{D66CFA01E5AA440C}" {
+       Name "Fallback"
+       Slot FrameWidgetSlot "{D66CFA01E5AA440D}" {
+        Anchor 0 0 1 1
+        OffsetLeft 4
+        OffsetTop 4
+        OffsetRight -4
+        OffsetBottom -4
+       }
+       "Is Visible" 0
+       "No Localization" 1
+       "Ignore Cursor" 1
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+      }
+     }
+    }
+   }
+  }
+ }
+}

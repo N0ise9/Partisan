@@ -214,6 +214,33 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetRight 720
       OffsetBottom 126
      }
+     "Ignore Cursor" 0
+     {
+      PanelWidgetClass "{7B2FD986A4D34246}" {
+       Name "TopTabsBackground"
+       Slot FrameWidgetSlot "{7B2FD986A4D34247}" {
+        Anchor 0 0 1 1
+        OffsetLeft 38
+        OffsetTop 0
+        OffsetRight -118
+        OffsetBottom -4
+       }
+       Color 0.05 0.07 0.09 0.92
+       style full
+       "Ignore Cursor" 1
+      }
+      HorizontalLayoutWidgetClass "{7B2FD986A4D34248}" {
+       Name "TopTabItems"
+       Slot FrameWidgetSlot "{7B2FD986A4D34249}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       "Ignore Cursor" 0
+      }
+     }
     }
     FrameWidgetClass "{7B2FD986A4D34116}" {
      Name "LeftRail"
