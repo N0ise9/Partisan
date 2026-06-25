@@ -278,7 +278,6 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		int innerSize = 14;
 		CreateCircle(workspace, parent, x - outerSize / 2, y - outerSize / 2, outerSize, s_iCandidateColor, 0.34);
 		CreateCircle(workspace, parent, x - innerSize / 2, y - innerSize / 2, innerSize, s_iCandidateColor, 0.95);
-		CreateRect(workspace, parent, x - 2, y + innerSize / 2 - 1, 4, 12, s_iCandidateColor, 0.95);
 		if (!s_sCandidateLabel.IsEmpty())
 			CreateLabel(workspace, parent, s_sCandidateLabel, x + 15, y - 6, s_iCandidateColor);
 	}

@@ -34,14 +34,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Runtime warning pattern: position/size only works when min/max anchors are the same.
   - Let layout anchors own full-screen geometry; script may set z-order, visibility, opacity, and text/data.
 
-- Fixed-size centered modal panels are safest as direct center-relative bounds when they must be visible and clickable.
-  - Use `Anchor 0.5 0.5 0.5 0.5`, `OffsetLeft -width/2`, `OffsetTop -height/2`, `OffsetRight width/2`, and `OffsetBottom height/2`.
-  - A setup confirmation modal using centered size fields with negative right/bottom offsets created the layout and populated text, but the dialog resolved to `0x0` and buttons had unusable bounds.
-  - Current example: `HST_SetupConfirmModal.layout`.
+- Fixed-size centered modal panels should use the same `SizeX` / `SizeY` plus alignment pattern as working native dialogs.
+  - Use `Anchor 0.5 0.5 0.5 0.5`, `PositionX 0`, `OffsetLeft 0`, `PositionY 0`, `OffsetTop 0`, `SizeX width`, `OffsetRight -width`, `SizeY height`, `OffsetBottom -height`, and `Alignment 0.5 0.5`.
+  - A setup confirmation modal using direct center-relative offsets such as negative left/top and positive right/bottom created the layout and populated text, but the dialog resolved to `0x0` and buttons had unusable or negative bounds.
+  - Current examples: `HST_SetupConfirmModal.layout`, `HST_ActionDialog.layout`, `HST_ReportDialog.layout`.
 
-- Fixed-height top-anchored children need positive bottom-edge offsets.
-  - For a widget from y=18 to y=60, use `PositionY 18`, `OffsetTop 18`, `SizeY 42`, and `OffsetBottom 60`.
-  - Negative bottom offsets on `Anchor 0 0 1 0` widgets produced negative runtime heights in setup prompt and toast diagnostics.
+- Fixed-height top-anchored children need negative bottom-edge offsets.
+  - For a widget from y=18 to y=60, use `PositionY 18`, `OffsetTop 18`, `SizeY 42`, and `OffsetBottom -60`.
+  - Positive bottom offsets on `Anchor 0 0 1 0` widgets produced negative runtime heights in setup prompt and toast diagnostics.
   - Negative bottom offsets are still correct for true stretched widgets where `AnchorMaxY` is `1` and the value is a bottom margin.
   - Current examples: setup prompt text/rule, notification title, command-menu header/stat/title strips.
 
