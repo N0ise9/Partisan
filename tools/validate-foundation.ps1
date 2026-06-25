@@ -776,8 +776,11 @@ foreach ($requiredSetupChromeEntry in @(
 	"CONFIRM_BLOCKER_WIDGET_ID",
 	"SETUP_ZONE_OVERLAY_ENABLED = true",
 	"PublishSetupZoneOverlay();",
+	"PublishSetupCandidateOverlay();",
 	"BuildSetupZoneOverlaySignature",
+	"m_sLastSetupCandidateOverlaySignature",
 	"HST_MapZoneOverlayUIComponent.SetSetupZones",
+	"HST_MapZoneOverlayUIComponent.SetSetupCandidate",
 	"workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, workspace)",
 	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, workspace)",
 	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER, modal, false, true, true)",
@@ -795,7 +798,13 @@ foreach ($forbiddenSetupChromeEntry in @(
 	"workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, m_wSetupRoot)",
 	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, m_wSetupRoot)",
 	'QueueOverlayRedraw("pan")',
-	'QueueOverlayRedraw("zoom")'
+	'QueueOverlayRedraw("zoom")',
+	"QueueOverlayRedraw",
+	"FlushOverlayRedraw",
+	"RedrawNativeMapOverlay",
+	"m_bOverlayDirty",
+	"m_bOverlayRedrawQueued",
+	"overlay render #"
 )) {
 	if ($setupMapComponentText -match [regex]::Escape($forbiddenSetupChromeEntry)) {
 		throw "Setup chrome must not be hidden under the native map root or redraw on every map pan/zoom tick: $forbiddenSetupChromeEntry"

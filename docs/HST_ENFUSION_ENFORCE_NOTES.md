@@ -74,6 +74,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Redraw only when content or viewport state changes enough to matter.
   - Do not redraw on every frame while idle.
 
+- Keep map overlay redraw ownership in the map UI component.
+  - Setup/map-flow components should publish content changes, such as setup zones or the temporary HQ candidate marker.
+  - The `SCR_MapUIBaseComponent` overlay should own projection, revision checks, pan/zoom thresholds, and widget reuse.
+  - Avoid a second dirty/redraw loop in the flow component; duplicate redraw ownership makes readiness and input bugs harder to isolate.
+
 ## Input And Widget Events
 
 - Real controls should be widget-driven.

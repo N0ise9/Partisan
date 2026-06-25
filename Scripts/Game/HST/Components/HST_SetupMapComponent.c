@@ -82,9 +82,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bSetupMapInitialViewApplied;
 	protected bool m_bSetupMapReadyQueued;
 	protected bool m_bNativeMapViewportReady;
-	protected bool m_bOverlayRedrawQueued;
 	protected bool m_bSetupFinalized;
-	protected bool m_bOverlayDirty = true;
 	protected bool m_bSetupLocationSelectionEnabled;
 	protected bool m_bMapCursorDialogActive;
 	protected string m_sPhase = "setup";
@@ -111,7 +109,6 @@ class HST_SetupMapComponent : ScriptComponent
 	protected SCR_MapEntity m_MapEntity;
 	protected Widget m_wSetupRoot;
 	protected Widget m_wMapMenuRoot;
-	protected Widget m_wOverlayRoot;
 	protected Widget m_wPromptRoot;
 	protected Widget m_wPromptPanel;
 	protected Widget m_wPromptRule;
@@ -128,7 +125,6 @@ class HST_SetupMapComponent : ScriptComponent
 	protected int m_iSetupStateRequestCount;
 	protected int m_iSetupPayloadCount;
 	protected int m_iSetupResultCount;
-	protected int m_iOverlayRenderCount;
 	protected int m_iSetupMapReadyRetries;
 	protected int m_iMapReadyFrames;
 	protected bool m_bLoggedLocalReady;
@@ -214,11 +210,6 @@ class HST_SetupMapComponent : ScriptComponent
 		UpdateSetupPrompt();
 		UpdateConfirmationVisibility();
 		UpdateSetupLocationSelectionMode();
-		if (m_bOverlayDirty)
-		{
-			m_bOverlayDirty = false;
-			RedrawNativeMapOverlay();
-		}
 
 		DebugHeartbeat(timeSlice);
 	}
@@ -243,7 +234,6 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!request)
 		{
 			m_sStatusText = "Waiting for setup request bridge...";
-			m_bOverlayDirty = true;
 			if (!m_bLoggedBridgeMissing)
 			{
 				m_bLoggedBridgeMissing = true;
@@ -288,7 +278,6 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 		}
 
-		m_bOverlayDirty = true;
 	}
 
 	protected bool IsAuthoritativeSetupComplete()
@@ -380,7 +369,6 @@ class HST_SetupMapComponent : ScriptComponent
 			m_vCandidatePosition = "0 0 0";
 		}
 
-		m_bOverlayDirty = true;
 		PublishSetupCandidateOverlay();
 		UpdateConfirmationVisibility();
 		UpdateSetupLocationSelectionMode();
@@ -443,7 +431,6 @@ class HST_SetupMapComponent : ScriptComponent
 		SuppressNativeMapSelection();
 		m_bConfirmOpen = false;
 		m_sStatusText = "Select a location on the map to place the HQ";
-		m_bOverlayDirty = true;
 		ClearSetupCandidateOverlay();
 		ClearModalWidgets();
 		UpdateConfirmationVisibility();
@@ -610,14 +597,12 @@ class HST_SetupMapComponent : ScriptComponent
 			m_wSetupRoot.SetZOrder(HST_UIConstants.Z_SETUP_MAP);
 			m_aWidgets.Insert(m_wSetupRoot);
 			m_wMapMenuRoot = m_wSetupRoot.FindAnyWidget("MapMenu");
-			m_wOverlayRoot = m_wSetupRoot;
 
 			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
 			EnsureSetupPromptLayout(workspace);
 			QueueSetupPromptRefresh();
 			ApplySetupLayerOrder();
 			UpdateSetupPrompt();
-			m_bOverlayDirty = true;
 		}
 		else
 		{
@@ -708,7 +693,6 @@ class HST_SetupMapComponent : ScriptComponent
 		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent");
 		m_wSetupRoot = null;
 		m_wMapMenuRoot = null;
-		m_wOverlayRoot = null;
 		m_wPromptRoot = null;
 		m_wPromptPanel = null;
 		m_wPromptRule = null;
@@ -760,7 +744,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_vCandidatePosition = worldPosition;
 		m_bCandidateValid = false;
 		RequestValidatePosition(worldPosition);
-		m_bOverlayDirty = true;
 	}
 
 	protected void OnNativeMapPan(float panX, float panY, bool adjusted)
@@ -784,7 +767,6 @@ class HST_SetupMapComponent : ScriptComponent
 			QueueApplySetupMapReadyState();
 		}
 
-		QueueOverlayRedraw("map open complete");
 	}
 
 	protected void OnNativeSetupMapClose(MapConfiguration config)
@@ -819,7 +801,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bSetupMapInitialViewApplied = false;
 		m_bSetupMapReadyQueued = false;
 		m_bNativeMapViewportReady = false;
-		m_bOverlayRedrawQueued = false;
 		m_iSetupMapReadyRetries = 0;
 		m_iMapReadyFrames = 0;
 	}
@@ -862,7 +843,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bNativeMapViewportReady = true;
 		ApplySetupMapInitialView();
 		UpdateSetupLocationSelectionMode();
-		QueueOverlayRedraw("native map viewport ready");
 	}
 
 	protected void UpdateSetupLocationSelectionMode()
@@ -978,25 +958,6 @@ class HST_SetupMapComponent : ScriptComponent
 
 		m_MapEntity.ZoomOut();
 		m_bSetupMapInitialViewApplied = true;
-		QueueOverlayRedraw("initial view");
-	}
-
-	protected void QueueOverlayRedraw(string reason)
-	{
-		if (m_bOverlayRedrawQueued)
-			return;
-
-		m_bOverlayRedrawQueued = true;
-		GetGame().GetCallqueue().CallLater(FlushOverlayRedraw, 0, false);
-	}
-
-	protected void FlushOverlayRedraw()
-	{
-		m_bOverlayRedrawQueued = false;
-		if (!m_bNativeMapViewportReady)
-			return;
-
-		m_bOverlayDirty = true;
 	}
 
 	protected void RequestValidatePosition(vector worldPosition)
@@ -1005,7 +966,6 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!request)
 		{
 			m_sStatusText = "setup request bridge not ready";
-			m_bOverlayDirty = true;
 			DebugLog("validate request aborted: request bridge missing");
 			return;
 		}
@@ -1014,7 +974,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_fAwaitingServerAccumulator = 0;
 		m_vRequestedValidationPosition = worldPosition;
 		m_sStatusText = "Checking HQ location...";
-		m_bOverlayDirty = true;
 		DebugLog(string.Format("validate request %1", worldPosition));
 		PublishSetupCandidateOverlay();
 		UpdateSetupLocationSelectionMode();
@@ -1028,7 +987,6 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!request)
 		{
 			m_sStatusText = "setup request bridge not ready";
-			m_bOverlayDirty = true;
 			DebugLog("confirm request aborted: request bridge missing");
 			return;
 		}
@@ -1036,7 +994,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bAwaitingServer = true;
 		m_fAwaitingServerAccumulator = 0;
 		m_sStatusText = "Placing HQ...";
-		m_bOverlayDirty = true;
 		DebugLog(string.Format("confirm request %1", m_vCandidatePosition));
 		PublishSetupCandidateOverlay();
 		UpdateSetupLocationSelectionMode();
@@ -1056,7 +1013,6 @@ class HST_SetupMapComponent : ScriptComponent
 		{
 			m_iScreenW = screenW;
 			m_iScreenH = screenH;
-			m_bOverlayDirty = true;
 			m_bNativeMapViewportReady = false;
 			m_iMapReadyFrames = 0;
 			m_fScale = HST_UIWorkspaceMetrics.GetScale(m_iScreenW, m_iScreenH, 0.70, 1.15);
@@ -1334,18 +1290,6 @@ class HST_SetupMapComponent : ScriptComponent
 		button.AddHandler(m_WidgetHandler);
 	}
 
-	protected void RedrawNativeMapOverlay()
-	{
-		if (!m_bSetupActive || !m_wOverlayRoot || !IsSetupMapViewReady())
-			return;
-
-		m_iOverlayRenderCount++;
-		if (m_iOverlayRenderCount <= 3 || (m_iOverlayRenderCount % 20) == 0)
-			DebugLog(string.Format("overlay render #%1 commander=%2 confirm=%3 awaiting=%4 zones=%5", m_iOverlayRenderCount, m_bIsCommander, m_bConfirmOpen, m_bAwaitingServer, m_aZoneIds.Count()));
-
-		PublishSetupCandidateOverlay();
-	}
-
 	protected void NativeScreenToLayoutCandidates(float nativeScreenX, float nativeScreenY, out int layoutX, out int layoutY, out int alternateLayoutX, out int alternateLayoutY)
 	{
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
@@ -1436,7 +1380,6 @@ class HST_SetupMapComponent : ScriptComponent
 				m_sStatusText = "Please wait, the commander is selecting the HQ location...";
 		}
 
-		m_bOverlayDirty = true;
 		UpdateSetupLocationSelectionMode();
 		DebugLog("setup server request timed out; allowing retry");
 	}
@@ -1642,7 +1585,6 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!status.IsEmpty())
 			m_sStatusText = status;
 
-		m_bOverlayDirty = true;
 	}
 
 	protected void LogLocalReady()
