@@ -805,6 +805,12 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OpenMenu(string source = "unknown")
 	{
+		if (m_bMenuOpen)
+		{
+			DebugLog("open ignored; already open via " + source);
+			return;
+		}
+
 		if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent"))
 		{
 			RecoverStaleSetupRootStateForCommandOpen(source);

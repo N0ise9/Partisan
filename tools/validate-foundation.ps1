@@ -770,6 +770,9 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 	'Name "Message"',
 	'Name "NoButton"',
 	'Name "YesButton"',
+	'Name "ModalCursorProxy"',
+	'Name "ModalCursorProxyV"',
+	'Name "ModalCursorProxyH"',
 	"Anchor 0 0 1 1",
 	"Color 0 0 0 0.16",
 	'"Ignore Cursor" 0',
@@ -821,6 +824,7 @@ foreach ($requiredSetupChromeEntry in @(
 	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER, modal, false, true, true)",
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER)",
 	"m_wConfirmBlockerRoot = modal",
+	"m_wConfirmCursorProxy = modal.FindAnyWidget(`"ModalCursorProxy`")",
 	"OnSetupOverlayMouseWheel",
 	"BindConfirmModalButton(modal, `"NoButton`", CONFIRM_NO_WIDGET_ID)",
 	"BindConfirmModalButton(modal, `"YesButton`", CONFIRM_YES_WIDGET_ID)"
@@ -851,6 +855,7 @@ foreach ($requiredSetupMapLayerEntry in @(
 	"HST_UIConstants.Z_SETUP_MODAL",
 	"ApplySetupLayerOrder",
 	"ApplyConfirmModalLayerOrder",
+	"UpdateConfirmModalCursorProxy",
 	"SetWidgetLayer(m_wPromptPanel",
 	"SetWidgetLayer(m_wPromptRule",
 	"m_wPromptText.SetZOrder",
@@ -862,7 +867,8 @@ foreach ($requiredSetupMapLayerEntry in @(
 	'SETUP_CURSOR_CONTEXT = "DialogContext"',
 	'SETUP_INTERACTABLE_DIALOG_CONTEXT = "InteractableDialogContext"',
 	"inputManager.ActivateContext(SETUP_INTERACTABLE_DIALOG_CONTEXT)",
-	"WidgetManager.SetCursor(0)"
+	"WidgetManager.SetCursor(0)",
+	"FrameSlot.SetPos(m_wConfirmCursorProxy"
 )) {
 	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupMapLayerEntry)) {
 		throw "Setup map UI must explicitly layer prompt/modal widgets and block native map input during confirmation: $requiredSetupMapLayerEntry"
@@ -2906,7 +2912,7 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"OffsetRight 24",
 	"OffsetBottom -63",
 	"NavigationPanel",
-	"OffsetRight 220",
+	"OffsetRight -220",
 	'Name "NavigationTitle"',
 	"OffsetBottom -44",
 	"TabScroll",
@@ -2914,12 +2920,12 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"OffsetBottom -12",
 	"TabItems",
 	"StatsPanel",
-	"OffsetRight -524",
+	"OffsetRight 524",
 	"OffsetBottom -168",
 	'Name "Stat0Label"',
 	"OffsetBottom -28",
 	"MainPanel",
-	"OffsetRight -524",
+	"OffsetRight 524",
 	'Name "MainAccent"',
 	"OffsetBottom -4",
 	"MainScroll",
@@ -2928,7 +2934,7 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"MainItems",
 	"ActivityPanel",
 	"OffsetRight 20",
-	"OffsetBottom -382",
+	"OffsetBottom 382",
 	'Name "ActivityTitle"',
 	"OffsetBottom -48",
 	'Name "ActivityResult"',
@@ -2959,9 +2965,9 @@ foreach ($forbiddenCommandMenuLayoutEntry in @(
 	"OffsetBottom 48",
 	"OffsetBottom 126",
 	"OffsetBottom 166",
-	"OffsetRight -220",
-	"OffsetRight 524",
-	"OffsetBottom 382",
+	"OffsetRight 220",
+	"OffsetRight -524",
+	"OffsetBottom -382",
 	"OffsetTop 360"
 )) {
 	if ($commandMenuLayoutText -match [regex]::Escape($forbiddenCommandMenuLayoutEntry)) {
@@ -4088,28 +4094,28 @@ foreach ($requiredLoadoutModeHiddenWidget in @(
 $loadoutEditorResolvedGeometryContracts = @(
 	@{
 		Widget = "LeftButtons"
-		Required = @("OffsetRight 104", "OffsetBottom 68")
-		Forbidden = @("OffsetRight -104", "OffsetBottom -68")
+		Required = @("OffsetRight -104", "OffsetBottom -68")
+		Forbidden = @("OffsetRight 104", "OffsetBottom 68")
 	},
 	@{
 		Widget = "LoadoutBackButton"
-		Required = @("OffsetBottom 38")
-		Forbidden = @("OffsetBottom -38")
+		Required = @("OffsetBottom -38")
+		Forbidden = @("OffsetBottom 38")
 	},
 	@{
 		Widget = "LoadoutCloseButton"
-		Required = @("OffsetBottom 122")
-		Forbidden = @("OffsetBottom -122")
+		Required = @("OffsetBottom -122")
+		Forbidden = @("OffsetBottom 122")
 	},
 	@{
 		Widget = "TopTabs"
-		Required = @("OffsetRight 720", "OffsetBottom 126")
-		Forbidden = @("OffsetRight -720", "OffsetBottom -126")
+		Required = @("OffsetRight -720", "OffsetBottom -126")
+		Forbidden = @("OffsetRight 720", "OffsetBottom 126")
 	},
 	@{
 		Widget = "LeftRail"
-		Required = @("OffsetRight 560", "OffsetBottom -92")
-		Forbidden = @("OffsetRight -560", "OffsetBottom 92")
+		Required = @("OffsetRight -560", "OffsetBottom -92")
+		Forbidden = @("OffsetRight 560", "OffsetBottom 92")
 	},
 	@{
 		Widget = "SlotRailList"
@@ -4118,8 +4124,8 @@ $loadoutEditorResolvedGeometryContracts = @(
 	},
 	@{
 		Widget = "CandidateList"
-		Required = @("OffsetRight 560", "OffsetBottom -92")
-		Forbidden = @("OffsetRight -560", "OffsetBottom 92")
+		Required = @("OffsetRight -560", "OffsetBottom -92")
+		Forbidden = @("OffsetRight 560", "OffsetBottom 92")
 	},
 	@{
 		Widget = "StorageBrowser"
@@ -4128,8 +4134,8 @@ $loadoutEditorResolvedGeometryContracts = @(
 	},
 	@{
 		Widget = "SavePanel"
-		Required = @("OffsetRight 560", "OffsetBottom -92")
-		Forbidden = @("OffsetRight -560", "OffsetBottom 92")
+		Required = @("OffsetRight -560", "OffsetBottom -92")
+		Forbidden = @("OffsetRight 560", "OffsetBottom 92")
 	},
 	@{
 		Widget = "SettingsContent"
@@ -4138,13 +4144,13 @@ $loadoutEditorResolvedGeometryContracts = @(
 	},
 	@{
 		Widget = "Footer"
-		Required = @("OffsetRight 920", "OffsetBottom 24")
-		Forbidden = @("OffsetRight -920", "OffsetBottom -24")
+		Required = @("OffsetRight -920", "OffsetBottom 24")
+		Forbidden = @("OffsetRight 920", "OffsetBottom -24")
 	},
 	@{
 		Widget = "Toast"
-		Required = @("OffsetRight 240", "OffsetBottom 88")
-		Forbidden = @("OffsetRight -240", "OffsetBottom -88")
+		Required = @("SizeX 480", "OffsetRight -480", "SizeY 34", "OffsetBottom -88", "Alignment 0.5 0")
+		Forbidden = @("OffsetRight 240", "OffsetBottom 88")
 	}
 )
 foreach ($loadoutEditorResolvedGeometryContract in $loadoutEditorResolvedGeometryContracts) {

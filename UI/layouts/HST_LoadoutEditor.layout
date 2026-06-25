@@ -90,8 +90,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Anchor 0 0.5 0 0.5
      OffsetLeft 24
      OffsetTop -54
-      OffsetRight 104
-      OffsetBottom 68
+      OffsetRight -104
+      OffsetBottom -68
      }
      "Is Visible" 1
      "Ignore Cursor" 0
@@ -103,7 +103,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 0
         OffsetRight 0
-        OffsetBottom 38
+        OffsetBottom -38
        }
        Color 0.07 0.09 0.11 0.98
        {
@@ -165,7 +165,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 90
         OffsetRight 0
-        OffsetBottom 122
+        OffsetBottom -122
        }
        Color 0.07 0.09 0.11 0.98
        {
@@ -228,8 +228,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Anchor 0 0 0 0
      OffsetLeft 116
      OffsetTop 54
-      OffsetRight 720
-      OffsetBottom 126
+      OffsetRight -720
+      OffsetBottom -126
      }
      "Is Visible" 1
      "Ignore Cursor" 0
@@ -266,7 +266,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Anchor 0 0 0 1
      OffsetLeft 116
      OffsetTop 132
-      OffsetRight 560
+      OffsetRight -560
       OffsetBottom -92
      }
      "Is Visible" 1
@@ -504,8 +504,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Anchor 0 0 0 0
      OffsetLeft 116
      OffsetTop 132
-      OffsetRight 560
-      OffsetBottom 226
+      OffsetRight -560
+      OffsetBottom -226
      }
     }
     FrameWidgetClass "{7B2FD986A4D34118}" {
@@ -514,7 +514,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Anchor 0 0 0 1
      OffsetLeft 116
      OffsetTop 132
-      OffsetRight 560
+      OffsetRight -560
       OffsetBottom -92
      }
     }
@@ -524,7 +524,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Anchor 0 0 0 1
      OffsetLeft 116
      OffsetTop 132
-      OffsetRight 560
+      OffsetRight -560
       OffsetBottom -92
      }
      "Is Visible" 0
@@ -905,7 +905,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Anchor 0 0 0 1
      OffsetLeft 116
      OffsetTop 132
-      OffsetRight 560
+      OffsetRight -560
       OffsetBottom -92
      }
      "Is Visible" 0
@@ -1664,7 +1664,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Anchor 0 1 0 1
      OffsetLeft 116
      OffsetTop -72
-      OffsetRight 920
+      OffsetRight -920
       OffsetBottom 24
      }
      "Is Visible" 1
@@ -1961,10 +1961,15 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Name "Toast"
      Slot FrameWidgetSlot "{7B2FD986A4D3421D}" {
      Anchor 0.5 0 0.5 0
-     OffsetLeft -240
+     PositionX 0
+     OffsetLeft 0
+     PositionY 54
      OffsetTop 54
-      OffsetRight 240
-      OffsetBottom 88
+     SizeX 480
+      OffsetRight -480
+     SizeY 34
+      OffsetBottom -88
+     Alignment 0.5 0
      }
      "Is Visible" 0
      "Ignore Cursor" 1
@@ -2016,10 +2021,15 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Name "PreviewUnavailableText"
      Slot FrameWidgetSlot "{7B2FD986A4D343C9}" {
      Anchor 0.5 0.5 0.5 0.5
-     OffsetLeft -180
-     OffsetTop -20
-      OffsetRight -180
-      OffsetBottom -20
+     PositionX 0
+     OffsetLeft 0
+     PositionY 0
+     OffsetTop 0
+     SizeX 360
+      OffsetRight -360
+     SizeY 40
+      OffsetBottom -40
+     Alignment 0.5 0.5
      }
      "Is Visible" 0
      "No Localization" 1

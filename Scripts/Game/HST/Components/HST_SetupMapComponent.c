@@ -120,6 +120,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected TextWidget m_wPromptText;
 	protected Widget m_wConfirmBlockerRoot;
 	protected Widget m_wConfirmModalRoot;
+	protected Widget m_wConfirmCursorProxy;
 	protected float m_fOwnerRetryAccumulator;
 	protected float m_fRequestAccumulator;
 	protected float m_fAwaitingServerAccumulator;
@@ -214,6 +215,7 @@ class HST_SetupMapComponent : ScriptComponent
 		ApplySetupLayerOrder();
 		UpdateSetupPrompt();
 		UpdateConfirmationVisibility();
+		UpdateConfirmModalCursorProxy();
 		UpdateSetupLocationSelectionMode();
 
 		DebugHeartbeat(timeSlice);
@@ -1222,17 +1224,19 @@ class HST_SetupMapComponent : ScriptComponent
 		m_aModalWidgets.Insert(modal);
 		m_wConfirmBlockerRoot = modal;
 		m_wConfirmModalRoot = modal;
+		m_wConfirmCursorProxy = modal.FindAnyWidget("ModalCursorProxy");
 		ApplySetupLayerOrder();
 		ApplyConfirmModalLayerOrder(modal);
 
 		BindConfirmModalButton(modal, "NoButton", CONFIRM_NO_WIDGET_ID);
 		BindConfirmModalButton(modal, "YesButton", CONFIRM_YES_WIDGET_ID);
-		HST_UIDebug.LogExpectedWidgetsCsv("setup_confirm_modal", modal, "HST_SetupConfirmModalRoot|ModalDimmer|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
+		HST_UIDebug.LogExpectedWidgetsCsv("setup_confirm_modal", modal, "HST_SetupConfirmModalRoot|ModalDimmer|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel|ModalCursorProxy");
 		HST_UIDebug.LogPopulation("setup_confirm_modal", string.Format("candidate=%1 valid=%2 awaiting=%3 status=%4", m_vCandidatePosition, m_bCandidateValid, m_bAwaitingServer, ShortenText(m_sStatusText, 120)));
 		DebugLog(string.Format("setup confirmation modal layout created dialog=%1 message=%2 no=%3 yes=%4", modal.FindAnyWidget("Dialog") != null, modal.FindAnyWidget("Message") != null, modal.FindAnyWidget("NoButton") != null, modal.FindAnyWidget("YesButton") != null));
 
 		ApplyConfirmModalContent(modal);
 		ApplyConfirmModalLayerOrder(modal);
+		UpdateConfirmModalCursorProxy();
 		ApplySetupLayerOrder();
 		QueueConfirmModalRefresh();
 	}
@@ -1288,9 +1292,10 @@ class HST_SetupMapComponent : ScriptComponent
 
 		ApplyConfirmModalContent(m_wConfirmModalRoot);
 		ApplyConfirmModalLayerOrder(m_wConfirmModalRoot);
+		UpdateConfirmModalCursorProxy();
 		ApplySetupLayerOrder();
-		HST_UIDebug.LogWidgetGeometryCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|ModalDimmer|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
-		HST_UIDebug.LogReadyWidgetsCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|ModalDimmer|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
+		HST_UIDebug.LogWidgetGeometryCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|ModalDimmer|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel|ModalCursorProxy");
+		HST_UIDebug.LogReadyWidgetsCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|ModalDimmer|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel|ModalCursorProxy");
 	}
 
 	protected void ApplyConfirmModalLayerOrder(Widget modal)
@@ -1309,6 +1314,42 @@ class HST_SetupMapComponent : ScriptComponent
 		SetWidgetLayer(modal.FindAnyWidget("YesButton"), HST_UIConstants.Z_SETUP_MODAL + 8, true);
 		SetWidgetLayer(modal.FindAnyWidget("NoLabel"), HST_UIConstants.Z_SETUP_MODAL + 9, true);
 		SetWidgetLayer(modal.FindAnyWidget("YesLabel"), HST_UIConstants.Z_SETUP_MODAL + 9, true);
+		SetWidgetLayer(modal.FindAnyWidget("ModalCursorProxy"), HST_UIConstants.Z_SETUP_MODAL + 20, true);
+		SetWidgetLayer(modal.FindAnyWidget("ModalCursorProxyShadow"), HST_UIConstants.Z_SETUP_MODAL + 20, true);
+		SetWidgetLayer(modal.FindAnyWidget("ModalCursorProxyV"), HST_UIConstants.Z_SETUP_MODAL + 21, true);
+		SetWidgetLayer(modal.FindAnyWidget("ModalCursorProxyH"), HST_UIConstants.Z_SETUP_MODAL + 21, true);
+	}
+
+	protected void UpdateConfirmModalCursorProxy()
+	{
+		if (!m_bSetupActive || !m_bConfirmOpen)
+		{
+			if (m_wConfirmCursorProxy)
+				m_wConfirmCursorProxy.SetVisible(false);
+
+			return;
+		}
+
+		if (!m_wConfirmCursorProxy && m_wConfirmModalRoot)
+			m_wConfirmCursorProxy = m_wConfirmModalRoot.FindAnyWidget("ModalCursorProxy");
+
+		if (!m_wConfirmCursorProxy)
+			return;
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+			return;
+
+		int mouseX;
+		int mouseY;
+		WidgetManager.GetMousePos(mouseX, mouseY);
+
+		int layoutX = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, mouseX);
+		int layoutY = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, mouseY);
+		FrameSlot.SetPos(m_wConfirmCursorProxy, layoutX, layoutY);
+		m_wConfirmCursorProxy.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		m_wConfirmCursorProxy.SetZOrder(HST_UIConstants.Z_SETUP_MODAL + 20);
+		m_wConfirmCursorProxy.SetVisible(true);
 	}
 
 	protected void SetWidgetLayer(Widget widget, int zOrder, bool visible)
@@ -1538,6 +1579,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_aModalWidgets.Clear();
 		m_wConfirmBlockerRoot = null;
 		m_wConfirmModalRoot = null;
+		m_wConfirmCursorProxy = null;
 		m_bConfirmModalRefreshQueued = false;
 	}
 

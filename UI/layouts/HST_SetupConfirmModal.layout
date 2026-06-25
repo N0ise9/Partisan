@@ -169,5 +169,74 @@ FrameWidgetClass "{B55C6FB34BF94001}" {
     }
    }
   }
+  FrameWidgetClass "{B55C6FB34BF94020}" {
+   Name "ModalCursorProxy"
+   Slot FrameWidgetSlot "{B55C6FB34BF94021}" {
+    Anchor 0 0 0 0
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 18
+    OffsetRight -18
+    SizeY 18
+    OffsetBottom -18
+   }
+   "Is Visible" 0
+   "Ignore Cursor" 1
+   {
+    PanelWidgetClass "{B55C6FB34BF94022}" {
+     Name "ModalCursorProxyShadow"
+     Slot FrameWidgetSlot "{B55C6FB34BF94023}" {
+      Anchor 0 0 0 0
+      PositionX 5
+      OffsetLeft 5
+      PositionY 5
+      OffsetTop 5
+      SizeX 10
+      OffsetRight -15
+      SizeY 10
+      OffsetBottom -15
+     }
+     Color 0 0 0 0.55
+     style full
+     "Ignore Cursor" 1
+    }
+    PanelWidgetClass "{B55C6FB34BF94024}" {
+     Name "ModalCursorProxyV"
+     Slot FrameWidgetSlot "{B55C6FB34BF94025}" {
+      Anchor 0 0 0 0
+      PositionX 8
+      OffsetLeft 8
+      PositionY 1
+      OffsetTop 1
+      SizeX 2
+      OffsetRight -10
+      SizeY 16
+      OffsetBottom -17
+     }
+     Color 1 0.82 0.38 1
+     style full
+     "Ignore Cursor" 1
+    }
+    PanelWidgetClass "{B55C6FB34BF94026}" {
+     Name "ModalCursorProxyH"
+     Slot FrameWidgetSlot "{B55C6FB34BF94027}" {
+      Anchor 0 0 0 0
+      PositionX 1
+      OffsetLeft 1
+      PositionY 8
+      OffsetTop 8
+      SizeX 16
+      OffsetRight -17
+      SizeY 2
+      OffsetBottom -10
+     }
+     Color 1 0.82 0.38 1
+     style full
+     "Ignore Cursor" 1
+    }
+   }
+  }
  }
 }

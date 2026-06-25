@@ -47,8 +47,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - `OffsetRight` and `OffsetBottom` signs depend on whether a slot has explicit `SizeX` / `SizeY` and whether that axis stretches.
   - Slots with explicit `PositionX` / `PositionY` plus `SizeX` / `SizeY` often serialize the far edge as negative, such as a centered modal using `SizeX 620` with `OffsetRight -620`.
-  - Slots without explicit size on a same-anchor axis need the far edge to be greater than the near edge, such as `Anchor 0 0 0 0`, `OffsetLeft 116`, and `OffsetRight 720`.
-  - Stretched axes use negative far offsets for inward margins, such as `Anchor 0 0 1 1`, `OffsetRight -24`, and `OffsetBottom -24`.
+  - Slots without explicit size on a same-anchor axis usually need the far edge serialized as negative, such as `Anchor 0 0 0 0`, `OffsetLeft 116`, and `OffsetRight -560`; positive far offsets produced negative widths for fixed left rails and tab bars.
+  - Stretched axes use positive far offsets for inward margins, such as `Anchor 0 0 1 1`, `OffsetLeft 240`, and `OffsetRight 524`; negative far offsets made center panels grow underneath right-side panels.
   - Right or bottom anchored fixed boxes can use negative left/top offsets to define size while keeping positive right/bottom offsets inside the parent.
   - Runtime symptom when this is wrong: delayed ready logs show negative widget sizes, such as left rails, navigation panels, top tabs, or footer hints resolving to impossible bounds.
   - Current examples: `HST_SetupConfirmModal.layout`, `HST_CommandMenu.layout`, `HST_LoadoutEditor.layout`, loadout row layouts.
@@ -142,6 +142,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - A modal over a native map may need a dialog input context every frame.
   - Map cursor modules can block map clicks correctly while the visible pointer still appears behind the modal.
   - While the setup confirmation modal is open, activate a normal dialog context and call `WidgetManager.SetCursor(0)` from the per-frame setup input path.
+  - If the map cursor still renders below the workspace modal, use a tiny modal-owned passive cursor proxy that follows `WidgetManager.GetMousePos`; keep the proxy `Ignore Cursor` / `NOFOCUS` so it cannot intercept dialog buttons.
   - Current example: `HST_SetupMapComponent`.
 
 - Notifications should not participate in blocking input.

@@ -9,45 +9,50 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnClick(Widget w, int x, int y, int button)
 	{
-		if (!m_Editor || !w)
+		if (m_Editor == null || w == null)
 			return false;
 
-		return m_Editor.OnWidgetClickedWithButton(w.GetUserID(), button);
+		int widgetId = w.GetUserID();
+		return m_Editor.OnWidgetClickedWithButton(widgetId, button);
 	}
 
 	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
 	{
-		if (!m_Editor || !w)
+		if (m_Editor == null || w == null)
 			return false;
 
-		return m_Editor.OnWidgetMouseButtonDown(w.GetUserID(), x, y, button);
+		int widgetId = w.GetUserID();
+		return m_Editor.OnWidgetMouseButtonDown(widgetId, x, y, button);
 	}
 
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
 	{
-		if (!m_Editor || !w)
+		if (m_Editor == null || w == null)
 			return false;
 
-		if (m_Editor.OnWidgetMouseButtonUp(w.GetUserID(), x, y, button))
+		int widgetId = w.GetUserID();
+		if (m_Editor.OnWidgetMouseButtonUp(widgetId, x, y, button))
 			return true;
 
-		return m_Editor.OnWidgetClickedWithButton(w.GetUserID(), button);
+		return m_Editor.OnWidgetClickedWithButton(widgetId, button);
 	}
 
 	override bool OnMouseEnter(Widget w, int x, int y)
 	{
-		if (!m_Editor || !w)
+		if (m_Editor == null || w == null)
 			return false;
 
-		return m_Editor.OnWidgetMouseEnter(w.GetUserID(), x, y);
+		int widgetId = w.GetUserID();
+		return m_Editor.OnWidgetMouseEnter(widgetId, x, y);
 	}
 
 	override bool OnMouseLeave(Widget w, Widget enterW, int x, int y)
 	{
-		if (!m_Editor || !w)
+		if (m_Editor == null || w == null)
 			return false;
 
-		return m_Editor.OnWidgetMouseLeave(w.GetUserID(), x, y);
+		int widgetId = w.GetUserID();
+		return m_Editor.OnWidgetMouseLeave(widgetId, x, y);
 	}
 }
 

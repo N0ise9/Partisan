@@ -162,10 +162,10 @@ FrameWidgetClass "{A7B8C9D001234550}" {
     FrameWidgetClass "{A7B8C9D001236030}" {
      Name "NavigationPanel"
      Slot FrameWidgetSlot "{A7B8C9D001236031}" {
-      Anchor 0 0 0 1
-      OffsetLeft 20
-      OffsetTop 100
-      OffsetRight 220
+     Anchor 0 0 0 1
+     OffsetLeft 20
+     OffsetTop 100
+      OffsetRight -220
       OffsetBottom -20
      }
      "Ignore Cursor" 0
@@ -231,7 +231,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       PositionY 100
       OffsetTop 100
       SizeX -764
-      OffsetRight -524
+      OffsetRight 524
       SizeY 68
       OffsetBottom -168
      }
@@ -320,8 +320,8 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       Anchor 0 0 1 1
       OffsetLeft 240
       OffsetTop 182
-      OffsetRight -524
-      OffsetBottom -20
+      OffsetRight 524
+      OffsetBottom 20
      }
      "Ignore Cursor" 0
      {
@@ -356,7 +356,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       OffsetLeft -500
       OffsetTop 100
       OffsetRight 20
-      OffsetBottom -382
+      OffsetBottom 382
      }
      "Ignore Cursor" 0
      {
