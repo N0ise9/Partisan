@@ -757,7 +757,7 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 	'Name "NoButton"',
 	'Name "YesButton"',
 	"Anchor 0 0 1 1",
-	"Color 0 0 0 0.01",
+	"Color 0 0 0 0.16",
 	'"Ignore Cursor" 0',
 	"Anchor 0.5 0.5 0.5 0.5",
 	"SizeX 620",
@@ -776,8 +776,8 @@ foreach ($requiredSetupChromeEntry in @(
 	"PublishSetupZoneOverlay();",
 	"BuildSetupZoneOverlaySignature",
 	"HST_MapZoneOverlayUIComponent.SetSetupZones",
-	"workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT)",
-	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT)",
+	"workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, workspace)",
+	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, workspace)",
 	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER, modal, false, true, true)",
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER)",
 	"m_wConfirmBlockerRoot = modal",
@@ -2424,7 +2424,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'IsLocalOwner',
 	'local player menu component ready',
 	'CreateMenuRoot',
-	'workspace.CreateWidgets(COMMAND_MENU_LAYOUT)',
+	'workspace.CreateWidgets(COMMAND_MENU_LAYOUT, workspace)',
 	'COMMAND_SECTION_ROW_LAYOUT',
 	'COMMAND_DATA_ROW_LAYOUT',
 	'COMMAND_DATA_ROW_COMPACT_LAYOUT',
@@ -3740,7 +3740,7 @@ foreach ($requiredLoadoutPathBResource in @(
 if ($loadoutEditorComponentText -match [regex]::Escape("{0000000000000000}UI/layouts/HST_LoadoutEditor.layout")) {
 	throw "Loadout editor must not reference the zero-GUID layout resource"
 }
-if ($loadoutEditorComponentText -notmatch "m_RootWidget\s*=\s*workspace\.CreateWidgets\(EDITOR_LAYOUT\)") {
+if ($loadoutEditorComponentText -notmatch "m_RootWidget\s*=\s*workspace\.CreateWidgets\(EDITOR_LAYOUT,\s*workspace\)") {
 	throw "Loadout editor must create the anchored layout resource directly as its root"
 }
 foreach ($requiredLoadoutRootLifecycleEntry in @(

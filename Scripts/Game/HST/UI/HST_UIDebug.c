@@ -50,6 +50,8 @@ class HST_UIDebug
 				continue;
 
 			Widget widget = root.FindAnyWidget(widgetName);
+			if (!widget && root.GetName() == widgetName)
+				widget = root;
 			if (widget)
 			{
 				found++;
@@ -115,6 +117,8 @@ class HST_UIDebug
 				continue;
 
 			Widget widget = root.FindAnyWidget(widgetName);
+			if (!widget && root.GetName() == widgetName)
+				widget = root;
 			if (!widget)
 				continue;
 

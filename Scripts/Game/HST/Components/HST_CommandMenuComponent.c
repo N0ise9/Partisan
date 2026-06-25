@@ -119,6 +119,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bLoggedRawIKeyInput;
 	protected bool m_bLoggedDuplicateToggle;
 	protected bool m_bDebugLoggingEnabled;
+	protected bool m_bPostLayoutRefreshQueued;
 	protected int m_iLoggedLayoutW;
 	protected int m_iLoggedLayoutH;
 	protected int m_iRowCreateLogCount;
@@ -132,6 +133,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected float m_fActionScrollY;
 	protected float m_fFeedScrollY;
 	protected Widget m_wActionDialogRoot;
+	protected Widget m_wPostLayoutRoot;
 	protected bool m_bActionDialogOpen;
 	protected string m_sPendingActionLabel;
 	protected string m_sPendingActionCommand;
@@ -1100,6 +1102,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		RenderActivityPanel(workspace, root);
 		RenderActions(workspace, root);
 		HST_UIDebug.LogPopulation("command_menu", string.Format("selectedTab=%1 tabs=%2 stats=%3 sections=%4 rows=%5 contentItems=%6 actions=%7 feed=%8 status=%9", m_sSelectedTab, m_aTabIds.Count(), m_aStatLabels.Count(), m_aSectionIds.Count(), m_aRowLabels.Count(), m_aContentItemKinds.Count(), m_aActionLabels.Count(), m_aFeedLines.Count(), ShortenText(m_sStatusText, 120)));
+		QueueCommandMenuPostLayoutRefresh(root);
 		return true;
 	}
 
@@ -1108,8 +1111,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			BuildResponsiveLayout(workspace);
 
-		Widget root = workspace.CreateWidgets(COMMAND_MENU_LAYOUT);
-		HST_UIDebug.LogLayoutCreate("command_menu", COMMAND_MENU_LAYOUT, root);
+		Widget root = workspace.CreateWidgets(COMMAND_MENU_LAYOUT, workspace);
+		HST_UIDebug.LogLayoutCreate("command_menu", COMMAND_MENU_LAYOUT, root, workspace);
 		if (!root)
 			return null;
 
@@ -1241,8 +1244,35 @@ class HST_CommandMenuComponent : ScriptComponent
 		SetMenuText(root, "HeaderSubtitle", "FIA Resistance Command", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, false);
 		SetMenuText(root, "HeaderTabTitle", BuildSelectedTabTitle(), 0xFFECE6D2, m_Layout.m_iFontTitle, true, true);
 		SetMenuText(root, "CloseLabel", "Close", 0xFFF4EBD6, m_Layout.m_iFontNormal, true, false);
-		SetMenuWidgetColor(root, "CloseButtonBackground", 0xFF5F6C76, 0.96);
+		SetMenuWidgetColor(root, "CloseButton", 0xFF5F6C76, 0.96);
 		BindMenuClick(root, "CloseButton", CLOSE_WIDGET_ID);
+	}
+
+	protected void QueueCommandMenuPostLayoutRefresh(Widget root)
+	{
+		if (!root)
+			return;
+
+		m_wPostLayoutRoot = root;
+		if (m_bPostLayoutRefreshQueued)
+			return;
+
+		m_bPostLayoutRefreshQueued = true;
+		GetGame().GetCallqueue().CallLater(RefreshCommandMenuPostLayout, 0, false);
+		GetGame().GetCallqueue().CallLater(RefreshCommandMenuPostLayout, 50, false);
+	}
+
+	protected void RefreshCommandMenuPostLayout()
+	{
+		m_bPostLayoutRefreshQueued = false;
+		Widget root = m_wPostLayoutRoot;
+		if (!m_bMenuOpen || !root || !root.IsVisibleInHierarchy())
+			return;
+
+		root.SetVisible(true);
+		root.SetOpacity(1.0);
+		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
+		HST_UIDebug.LogWidgetGeometryCsv("command_menu_ready", root, "HST_CommandMenuRoot|CommandSurface|Header|NavigationPanel|StatsPanel|MainPanel|ActivityPanel|ActionsPanel|CloseButton|CloseLabel");
 	}
 
 	protected void RenderStats(WorkspaceWidget workspace, Widget root)
@@ -1791,6 +1821,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
+		m_wPostLayoutRoot = null;
+		m_bPostLayoutRefreshQueued = false;
 	}
 
 	protected void ClearRichPayload()

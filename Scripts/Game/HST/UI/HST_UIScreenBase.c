@@ -27,6 +27,14 @@ class HST_UIScreenBase
 		return true;
 	}
 
+	bool MatchesExact(HST_EUIScreenMode mode, string owner, Widget root, bool blocksGameplay, bool blocksMap, bool modal)
+	{
+		if (!Matches(mode, owner))
+			return false;
+
+		return m_wRoot == root && m_bBlocksGameplay == blocksGameplay && m_bBlocksMap == blocksMap && m_bModal == modal;
+	}
+
 	bool IsBlocking()
 	{
 		return m_bBlocksGameplay || m_bBlocksMap || m_bModal;

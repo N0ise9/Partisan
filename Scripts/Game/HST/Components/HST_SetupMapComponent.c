@@ -614,6 +614,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
 			EnsureSetupPromptLayout(workspace);
+			QueueSetupPromptRefresh();
 			ApplySetupLayerOrder();
 			UpdateSetupPrompt();
 			m_bOverlayDirty = true;
@@ -622,6 +623,7 @@ class HST_SetupMapComponent : ScriptComponent
 		{
 			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
 			EnsureSetupPromptLayout(workspace);
+			QueueSetupPromptRefresh();
 		}
 
 		if (!m_MapEntity)
@@ -778,6 +780,7 @@ class HST_SetupMapComponent : ScriptComponent
 			m_bSetupMapOpenComplete = true;
 			m_iMapReadyFrames = 0;
 			ApplySetupLayerOrder();
+			QueueSetupPromptRefresh();
 			QueueApplySetupMapReadyState();
 		}
 
@@ -1079,8 +1082,8 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_wSetupRoot)
 			return;
 
-		m_wPromptRoot = workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT);
-		HST_UIDebug.LogLayoutCreate("setup_prompt", SETUP_PROMPT_BANNER_LAYOUT, m_wPromptRoot);
+		m_wPromptRoot = workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, workspace);
+		HST_UIDebug.LogLayoutCreate("setup_prompt", SETUP_PROMPT_BANNER_LAYOUT, m_wPromptRoot, workspace);
 		if (!m_wPromptRoot)
 		{
 			DebugLog("setup prompt banner layout failed to load");
@@ -1100,6 +1103,27 @@ class HST_SetupMapComponent : ScriptComponent
 		ApplySetupPromptStyle();
 		ApplySetupLayerOrder();
 		UpdateSetupPrompt();
+		QueueSetupPromptRefresh();
+	}
+
+	protected void QueueSetupPromptRefresh()
+	{
+		if (!m_bSetupActive || !m_wPromptRoot)
+			return;
+
+		GetGame().GetCallqueue().CallLater(RefreshSetupPromptAfterLayout, 0, false);
+		GetGame().GetCallqueue().CallLater(RefreshSetupPromptAfterLayout, 50, false);
+	}
+
+	protected void RefreshSetupPromptAfterLayout()
+	{
+		if (!m_bSetupActive || !m_wPromptRoot)
+			return;
+
+		ApplySetupPromptStyle();
+		ApplySetupLayerOrder();
+		UpdateSetupPrompt();
+		HST_UIDebug.LogWidgetGeometryCsv("setup_prompt_ready", m_wPromptRoot, "HST_SetupPromptBannerRoot|HST_SetupPromptPanel|HST_SetupPromptRule|HST_SetupPromptText");
 	}
 
 	protected void ApplySetupPromptStyle()
@@ -1164,13 +1188,16 @@ class HST_SetupMapComponent : ScriptComponent
 	{
 		if (!m_bConfirmOpen)
 		{
-			ClearModalWidgets();
-			m_wConfirmModalRoot = null;
+			if (HasConfirmModalWidgets())
+				ClearModalWidgets();
 			return;
 		}
 
 		if (m_wConfirmModalRoot)
+		{
+			ApplyConfirmModalContent(m_wConfirmModalRoot);
 			return;
+		}
 
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		if (!workspace)
@@ -1179,8 +1206,8 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_wSetupRoot)
 			return;
 
-		Widget modal = workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT);
-		HST_UIDebug.LogLayoutCreate("setup_confirm_modal", SETUP_CONFIRM_MODAL_LAYOUT, modal);
+		Widget modal = workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, workspace);
+		HST_UIDebug.LogLayoutCreate("setup_confirm_modal", SETUP_CONFIRM_MODAL_LAYOUT, modal, workspace);
 		if (!modal)
 		{
 			DebugLog("setup confirmation modal layout failed to load");
@@ -1211,6 +1238,17 @@ class HST_SetupMapComponent : ScriptComponent
 		HST_UIDebug.LogPopulation("setup_confirm_modal", string.Format("candidate=%1 valid=%2 awaiting=%3 status=%4", m_vCandidatePosition, m_bCandidateValid, m_bAwaitingServer, ShortenText(m_sStatusText, 120)));
 		DebugLog(string.Format("setup confirmation modal layout created dialog=%1 message=%2 no=%3 yes=%4", modal.FindAnyWidget("Dialog") != null, modal.FindAnyWidget("Message") != null, modal.FindAnyWidget("NoButton") != null, modal.FindAnyWidget("YesButton") != null));
 
+		ApplyConfirmModalContent(modal);
+		ApplyConfirmModalLayerOrder(modal);
+		ApplySetupLayerOrder();
+		QueueConfirmModalRefresh();
+	}
+
+	protected void ApplyConfirmModalContent(Widget modal)
+	{
+		if (!modal)
+			return;
+
 		TextWidget message = TextWidget.Cast(modal.FindAnyWidget("Message"));
 		if (message)
 		{
@@ -1223,6 +1261,7 @@ class HST_SetupMapComponent : ScriptComponent
 		TextWidget noLabel = TextWidget.Cast(modal.FindAnyWidget("NoLabel"));
 		if (noLabel)
 		{
+			noLabel.SetText("No");
 			ApplyTextStyle(noLabel, ScaleFont(17), true);
 			noLabel.SetColorInt(0xFFF4EBD6);
 		}
@@ -1230,12 +1269,30 @@ class HST_SetupMapComponent : ScriptComponent
 		TextWidget yesLabel = TextWidget.Cast(modal.FindAnyWidget("YesLabel"));
 		if (yesLabel)
 		{
+			yesLabel.SetText("Yes");
 			ApplyTextStyle(yesLabel, ScaleFont(17), true);
 			yesLabel.SetColorInt(0xFF111820);
 		}
+	}
 
-		ApplyConfirmModalLayerOrder(modal);
+	protected void QueueConfirmModalRefresh()
+	{
+		if (!m_bSetupActive || !m_bConfirmOpen || !m_wConfirmModalRoot)
+			return;
+
+		GetGame().GetCallqueue().CallLater(RefreshConfirmModalAfterLayout, 0, false);
+		GetGame().GetCallqueue().CallLater(RefreshConfirmModalAfterLayout, 50, false);
+	}
+
+	protected void RefreshConfirmModalAfterLayout()
+	{
+		if (!m_bSetupActive || !m_bConfirmOpen || !m_wConfirmModalRoot)
+			return;
+
+		ApplyConfirmModalContent(m_wConfirmModalRoot);
+		ApplyConfirmModalLayerOrder(m_wConfirmModalRoot);
 		ApplySetupLayerOrder();
+		HST_UIDebug.LogWidgetGeometryCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
 	}
 
 	protected void ApplyConfirmModalLayerOrder(Widget modal)
@@ -1470,9 +1527,21 @@ class HST_SetupMapComponent : ScriptComponent
 		m_aWidgets.Clear();
 	}
 
+	protected bool HasConfirmModalWidgets()
+	{
+		if (m_wConfirmBlockerRoot)
+			return true;
+		if (m_wConfirmModalRoot)
+			return true;
+
+		return m_aModalWidgets.Count() > 0;
+	}
+
 	protected void ClearModalWidgets()
 	{
-		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER);
+		bool hadModal = HasConfirmModalWidgets();
+		if (hadModal)
+			HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER);
 
 		foreach (Widget widget : m_aModalWidgets)
 		{

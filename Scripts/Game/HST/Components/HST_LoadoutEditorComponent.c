@@ -187,6 +187,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected bool m_bPreviewSpawned;
 	protected bool m_bCandidateMode;
 	protected bool m_bPostActionRefreshQueued;
+	protected bool m_bPostLayoutRefreshQueued;
 	protected bool m_bDebugLoggingEnabled;
 	protected int m_iPreviewItemCount;
 	protected int m_iDraftSlotCount;
@@ -1093,6 +1094,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_bEditorOpen = false;
 		m_bPostActionRefreshQueued = false;
+		m_bPostLayoutRefreshQueued = false;
 		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent");
 		UnregisterInputListeners();
 		ClearWidgets();
@@ -1457,6 +1459,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		debugSummary = debugSummary + " " + string.Format("rail=%1x%2 main=%3x%4 previewWidget=%5 previewWorld=%6", m_Layout.m_iRailWidth, m_Layout.m_iRailHeight, m_Layout.m_iMainWidth, m_Layout.m_iMainHeight, m_PreviewWidget != null, m_PreviewWorld != null);
 		debugSummary = debugSummary + " " + string.Format("root=%1 ui=%2", HST_UIDebug.WidgetSummary(root), HST_UIDebug.WidgetSummary(uiRoot));
 		HST_UIDebug.LogPopulation("loadout_editor", debugSummary);
+		QueueLoadoutPostLayoutRefresh();
 		return true;
 	}
 
@@ -1466,9 +1469,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return m_RootWidget;
 
 		if (!m_RootWidget)
-			m_RootWidget = workspace.CreateWidgets(EDITOR_LAYOUT);
+			m_RootWidget = workspace.CreateWidgets(EDITOR_LAYOUT, workspace);
 
-		HST_UIDebug.LogLayoutCreate("loadout_editor", EDITOR_LAYOUT, m_RootWidget);
+		HST_UIDebug.LogLayoutCreate("loadout_editor", EDITOR_LAYOUT, m_RootWidget, workspace);
 		if (!m_RootWidget)
 			return null;
 
@@ -1492,7 +1495,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (m_UILayerWidget)
 		{
-			m_UILayerWidget.SetZOrder(10);
+			m_UILayerWidget.SetVisible(true);
+			m_UILayerWidget.SetOpacity(1.0);
+			m_UILayerWidget.SetZOrder(100);
 			return m_UILayerWidget;
 		}
 
@@ -1772,7 +1777,50 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_RootWidget = null;
 		m_UILayerWidget = null;
 		m_bRootFromLayout = false;
+		m_bPostLayoutRefreshQueued = false;
 		m_PreviewWidget = null;
+	}
+
+	protected void QueueLoadoutPostLayoutRefresh()
+	{
+		if (!m_RootWidget || m_bPostLayoutRefreshQueued)
+			return;
+
+		m_bPostLayoutRefreshQueued = true;
+		GetGame().GetCallqueue().CallLater(RefreshLoadoutPostLayout, 0, false);
+		GetGame().GetCallqueue().CallLater(RefreshLoadoutPostLayout, 50, false);
+	}
+
+	protected void RefreshLoadoutPostLayout()
+	{
+		m_bPostLayoutRefreshQueued = false;
+		if (!m_bEditorOpen || !m_RootWidget || !m_RootWidget.IsVisibleInHierarchy())
+			return;
+
+		m_RootWidget.SetVisible(true);
+		m_RootWidget.SetOpacity(1.0);
+		m_RootWidget.SetZOrder(HST_UIConstants.Z_LOADOUT_EDITOR);
+
+		Widget previewContainer = m_RootWidget.FindAnyWidget("HST_LoadoutPreviewContainer");
+		if (previewContainer)
+		{
+			previewContainer.SetVisible(true);
+			previewContainer.SetOpacity(1.0);
+			previewContainer.SetZOrder(1);
+		}
+
+		if (m_PreviewWidget)
+			m_PreviewWidget.SetZOrder(1);
+
+		Widget uiRoot = ResolveUILayer(m_RootWidget);
+		if (uiRoot)
+		{
+			uiRoot.SetVisible(true);
+			uiRoot.SetOpacity(1.0);
+			uiRoot.SetZOrder(100);
+		}
+
+		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|TopTabs|LeftButtons|LeftRail|SlotRailScroll|Footer|PreviewDragSurface");
 	}
 
 	protected bool IsDuplicateWidgetActivation(int widgetId, int button)

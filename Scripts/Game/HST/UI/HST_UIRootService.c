@@ -31,6 +31,9 @@ class HST_UIRootService
 
 		if (wantsModal)
 		{
+			if (m_ModalScreen && m_ModalScreen.MatchesExact(mode, owner, root, blocksGameplay, blocksMap, true))
+				return true;
+
 			if (!m_ModalScreen)
 				m_ModalScreen = new HST_UIScreenBase();
 
@@ -42,7 +45,11 @@ class HST_UIRootService
 
 		if (!m_CurrentScreen)
 			m_CurrentScreen = new HST_UIScreenBase();
-		m_CurrentScreen.Configure(mode, owner, root, blocksGameplay, blocksMap, modal);
+
+		if (m_CurrentScreen.MatchesExact(mode, owner, root, blocksGameplay, blocksMap, false))
+			return true;
+
+		m_CurrentScreen.Configure(mode, owner, root, blocksGameplay, blocksMap, false);
 		m_iRevision++;
 		DebugState("opened screen", mode, owner, root, blocksGameplay, blocksMap, false, false);
 		return true;

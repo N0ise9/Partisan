@@ -271,14 +271,16 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		int x = Math.Round(workspace.DPIUnscale(sx));
 		int y = Math.Round(workspace.DPIUnscale(sy));
 
-		int size = 22;
-		if (!IsOverlayRectWorthDrawing(x - size / 2, y - size / 2, size, parent, workspace))
+		int outerSize = 34;
+		if (!IsOverlayRectWorthDrawing(x - outerSize / 2, y - outerSize / 2, outerSize, parent, workspace))
 			return;
 
-		CreateRect(workspace, parent, x - size / 2, y - 2, size, 4, s_iCandidateColor, 1.0);
-		CreateRect(workspace, parent, x - 2, y - size / 2, 4, size, s_iCandidateColor, 1.0);
+		int innerSize = 14;
+		CreateCircle(workspace, parent, x - outerSize / 2, y - outerSize / 2, outerSize, s_iCandidateColor, 0.34);
+		CreateCircle(workspace, parent, x - innerSize / 2, y - innerSize / 2, innerSize, s_iCandidateColor, 0.95);
+		CreateRect(workspace, parent, x - 2, y + innerSize / 2 - 1, 4, 12, s_iCandidateColor, 0.95);
 		if (!s_sCandidateLabel.IsEmpty())
-			CreateLabel(workspace, parent, s_sCandidateLabel, x + 10, y + 8, s_iCandidateColor);
+			CreateLabel(workspace, parent, s_sCandidateLabel, x + 15, y - 6, s_iCandidateColor);
 	}
 
 	protected int ResolveRadiusPixels(vector center, float radiusMeters)

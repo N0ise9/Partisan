@@ -7,7 +7,7 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
   OffsetRight 0
   OffsetBottom 0
  }
- Color 0 0 0 0.01
+ Color 0 0 0 0.16
  style full
  "Is Visible" 1
  "Ignore Cursor" 0
@@ -70,6 +70,8 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
      "Ignore Cursor" 1
      "No Localization" 1
      Text "Are you sure you want to place the HQ here?"
+     "Horizontal Alignment" Center
+     "Vertical Alignment" Center
     }
     ButtonWidgetClass "{B55C6FB34BF94009}" {
      Name "NoButton"
@@ -82,44 +84,23 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
      }
      Color 0.27 0.33 0.36 1
      "Is Visible" 1
-     {
-      FrameWidgetClass "{B55C6FB34BF9400B}" {
-       Name "NoBody"
-       Slot ButtonWidgetSlot "{B55C6FB34BF9400C}" {
-       }
-       "Ignore Cursor" 1
-       {
-        PanelWidgetClass "{B55C6FB34BF94011}" {
-         Name "NoBackground"
-         Slot FrameWidgetSlot "{B55C6FB34BF94012}" {
-          Anchor 0 0 1 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 0
-          OffsetBottom 0
-         }
-         Color 0.27 0.33 0.36 1
-         style full
-         "Is Visible" 1
-         "Ignore Cursor" 1
-        }
-        TextWidgetClass "{B55C6FB34BF94013}" {
-         Name "NoLabel"
-         Slot FrameWidgetSlot "{B55C6FB34BF94014}" {
-          Anchor 0 0 1 1
-          OffsetLeft 20
-          OffsetTop 12
-          OffsetRight -20
-          OffsetBottom -10
-         }
-         "Is Visible" 1
-         "Ignore Cursor" 1
-         "No Localization" 1
-         Text "No"
-        }
-       }
-      }
+     "Ignore Cursor" 0
+    }
+    TextWidgetClass "{B55C6FB34BF94013}" {
+     Name "NoLabel"
+     Slot FrameWidgetSlot "{B55C6FB34BF94014}" {
+      Anchor 0 1 1 1
+      OffsetLeft 138
+      OffsetTop -74
+      OffsetRight -322
+      OffsetBottom -24
      }
+     "Is Visible" 1
+     "Ignore Cursor" 1
+     "No Localization" 1
+     Text "No"
+     "Horizontal Alignment" Center
+     "Vertical Alignment" Center
     }
     ButtonWidgetClass "{B55C6FB34BF9400D}" {
      Name "YesButton"
@@ -132,44 +113,23 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
      }
      Color 0.77 0.58 0.23 1
      "Is Visible" 1
-     {
-      FrameWidgetClass "{B55C6FB34BF9400F}" {
-       Name "YesBody"
-       Slot ButtonWidgetSlot "{B55C6FB34BF94010}" {
-       }
-       "Ignore Cursor" 1
-       {
-        PanelWidgetClass "{B55C6FB34BF94015}" {
-         Name "YesBackground"
-         Slot FrameWidgetSlot "{B55C6FB34BF94016}" {
-          Anchor 0 0 1 1
-          OffsetLeft 0
-          OffsetTop 0
-          OffsetRight 0
-          OffsetBottom 0
-         }
-         Color 0.77 0.58 0.23 1
-         style full
-         "Is Visible" 1
-         "Ignore Cursor" 1
-        }
-        TextWidgetClass "{B55C6FB34BF94017}" {
-         Name "YesLabel"
-         Slot FrameWidgetSlot "{B55C6FB34BF94018}" {
-          Anchor 0 0 1 1
-          OffsetLeft 20
-          OffsetTop 12
-          OffsetRight -20
-          OffsetBottom -10
-         }
-         "Is Visible" 1
-         "Ignore Cursor" 1
-         "No Localization" 1
-         Text "Yes"
-        }
-       }
-      }
+     "Ignore Cursor" 0
+    }
+    TextWidgetClass "{B55C6FB34BF94017}" {
+     Name "YesLabel"
+     Slot FrameWidgetSlot "{B55C6FB34BF94018}" {
+      Anchor 0 1 1 1
+      OffsetLeft 322
+      OffsetTop -74
+      OffsetRight -138
+      OffsetBottom -24
      }
+     "Is Visible" 1
+     "Ignore Cursor" 1
+     "No Localization" 1
+     Text "Yes"
+     "Horizontal Alignment" Center
+     "Vertical Alignment" Center
     }
    }
   }
