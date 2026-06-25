@@ -57,6 +57,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Use `WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS` or layout `Ignore Cursor = true` for passive panels, labels, overlays, and notification visuals.
   - Do not place invisible full-screen widgets unless they are intentional visible modal roots with real content.
 
+- Widget event callbacks can pass a null `Widget`.
+  - `ScriptedWidgetEventHandler` methods must guard `!w` before calling `w.GetUserID()` or passing the widget into component logic.
+  - Runtime symptom when this is wrong: VM exception in `OnMouseButtonUp` with a null variable named `w`.
+
 - Full-screen render targets need a repeatable sibling layer order.
   - Keep the render target container low in the root z-order and reassert visible UI panels above it after the layout has resolved.
   - Schedule a delayed ready pass for final geometry logs because render-target and UI-layer widgets can report `0x0` during creation.

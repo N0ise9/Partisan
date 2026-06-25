@@ -9,7 +9,7 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnClick(Widget w, int x, int y, int button)
 	{
-		if (!m_Component)
+		if (!m_Component || !w)
 			return true;
 
 		return m_Component.OnSetupOverlayClicked(w, w.GetUserID(), x, y);
@@ -17,7 +17,7 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
 	{
-		if (!m_Component)
+		if (!m_Component || !w)
 			return true;
 
 		return m_Component.OnSetupOverlayClicked(w, w.GetUserID(), x, y);
@@ -25,7 +25,7 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
 	{
-		if (!m_Component)
+		if (!m_Component || !w)
 			return true;
 
 		return m_Component.OnSetupOverlayPressed(w, w.GetUserID(), x, y);
@@ -33,7 +33,7 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnMouseWheel(Widget w, int x, int y, int wheel)
 	{
-		if (!m_Component)
+		if (!m_Component || !w)
 			return true;
 
 		return m_Component.OnSetupOverlayMouseWheel(w, w.GetUserID(), x, y, wheel);

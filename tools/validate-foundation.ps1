@@ -1098,8 +1098,22 @@ foreach ($requiredUIRootServiceEntry in @(
 	"current == HST_EUIScreenMode.SETUP_MAP",
 	"mode == HST_EUIScreenMode.COMMAND_MENU && current == HST_EUIScreenMode.LOADOUT_EDITOR"
 )) {
-	if ($uiRootServiceText -notmatch [regex]::Escape($requiredUIRootServiceEntry)) {
+if ($uiRootServiceText -notmatch [regex]::Escape($requiredUIRootServiceEntry)) {
 		throw "UI root service must centralize screen state and input blocking policy: $requiredUIRootServiceEntry"
+	}
+}
+foreach ($widgetHandlerContract in @(
+	@{ Path = "Scripts/Game/HST/Components/HST_SetupMapComponent.c"; Handler = "HST_SetupMapWidgetHandler" },
+	@{ Path = "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"; Handler = "HST_CommandMenuWidgetHandler" },
+	@{ Path = "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"; Handler = "HST_LoadoutEditorWidgetHandler" },
+	@{ Path = "Scripts/Game/HST/Components/HST_MissionClientComponent.c"; Handler = "HST_MissionClientWidgetHandler" }
+)) {
+	$widgetHandlerText = Get-Content -Raw $widgetHandlerContract.Path
+	if ($widgetHandlerText -notmatch [regex]::Escape("class $($widgetHandlerContract.Handler)")) {
+		throw "Missing HST widget handler contract: $($widgetHandlerContract.Handler)"
+	}
+	if ($widgetHandlerText -match "GetUserID\(\)" -and $widgetHandlerText -notmatch [regex]::Escape("!w")) {
+		throw "$($widgetHandlerContract.Handler) must guard null widget callbacks before GetUserID"
 	}
 }
 foreach ($requiredReportDialogControllerEntry in @(

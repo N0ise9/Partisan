@@ -485,7 +485,7 @@ class HST_MissionClientWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnClick(Widget w, int x, int y, int button)
 	{
-		if (!m_Client)
+		if (!m_Client || !w)
 			return false;
 
 		return m_Client.OnWidgetClicked(w.GetUserID());
@@ -493,7 +493,7 @@ class HST_MissionClientWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
 	{
-		if (!m_Client)
+		if (!m_Client || !w)
 			return false;
 
 		return m_Client.OnWidgetClicked(w.GetUserID());
