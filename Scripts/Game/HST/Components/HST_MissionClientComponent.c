@@ -12,6 +12,7 @@ class HST_MissionClientComponent : ScriptComponent
 {
 	static const int DETAIL_CLOSE_WIDGET_ID = 9801;
 	static const int DETAIL_ROOT_Z = 2700;
+	static const ResourceName SCRIPTED_PANEL_ROOT_LAYOUT = "{B55C6FB34BF95000}UI/layouts/HST_ScriptedPanelRoot.layout";
 
 	protected static HST_MissionClientComponent s_LocalInstance;
 
@@ -297,13 +298,20 @@ class HST_MissionClientComponent : ScriptComponent
 		int margin = HST_UIWorkspaceMetrics.ScalePx(24, scale);
 		int rootW = Math.Min(HST_UIWorkspaceMetrics.ScalePx(900, scale), Math.Max(1, screenW - margin * 2));
 		int rootH = HST_UIWorkspaceMetrics.ScalePx(92, scale);
-		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, rootW), rootW, screenW, Math.Max(8, margin / 2));
-		int top = HST_UIWorkspaceMetrics.ClampTop(margin, rootH, screenH, Math.Max(4, margin / 2));
+		int horizontalMargin = Math.Max(8, margin / 2);
+		int verticalMargin = Math.Max(4, margin / 2);
+		int left = HST_UIWorkspaceMetrics.ClampInt(Math.Max(0, (screenW - rootW) / 2), horizontalMargin, Math.Max(horizontalMargin, screenW - rootW - horizontalMargin));
+		int top = HST_UIWorkspaceMetrics.ClampInt(margin, verticalMargin, Math.Max(verticalMargin, screenH - rootH - verticalMargin));
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, rootW, rootH, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, DETAIL_ROOT_Z);
+		Widget root = workspace.CreateWidgets(SCRIPTED_PANEL_ROOT_LAYOUT);
 		if (!root)
 			return;
 
+		FrameSlot.SetPos(root, left, top);
+		FrameSlot.SetSize(root, rootW, rootH);
+		root.SetVisible(true);
+		root.SetOpacity(1.0);
+		root.SetZOrder(DETAIL_ROOT_Z);
 		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		m_aWidgets.Insert(root);
 		int accent = NotificationAccentColor(severity, category);
@@ -418,13 +426,19 @@ class HST_MissionClientComponent : ScriptComponent
 		int rootW = Math.Min(HST_UIWorkspaceMetrics.ScalePx(920, scale), Math.Max(1, screenW - margin * 2));
 		int rootH = Math.Min(HST_UIWorkspaceMetrics.ScalePx(560, scale), Math.Max(1, screenH - margin * 2));
 		float panelScale = Math.Min(rootW / 920.0, rootH / 560.0);
-		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, rootW), rootW, screenW, Math.Max(8, margin / 2));
-		int top = HST_UIWorkspaceMetrics.ClampTop(HST_UIWorkspaceMetrics.CenteredTop(screenH, rootH), rootH, screenH, Math.Max(8, margin / 2));
+		int panelMargin = Math.Max(8, margin / 2);
+		int left = HST_UIWorkspaceMetrics.ClampInt(Math.Max(0, (screenW - rootW) / 2), panelMargin, Math.Max(panelMargin, screenW - rootW - panelMargin));
+		int top = HST_UIWorkspaceMetrics.ClampInt(Math.Max(0, (screenH - rootH) / 2), panelMargin, Math.Max(panelMargin, screenH - rootH - panelMargin));
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, rootW, rootH, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
+		Widget root = workspace.CreateWidgets(SCRIPTED_PANEL_ROOT_LAYOUT);
 		if (!root)
 			return;
 
+		FrameSlot.SetPos(root, left, top);
+		FrameSlot.SetSize(root, rootW, rootH);
+		root.SetVisible(true);
+		root.SetOpacity(1.0);
+		root.SetZOrder(DETAIL_ROOT_Z);
 		m_aWidgets.Insert(root);
 		if (!m_WidgetHandler)
 		{

@@ -1029,7 +1029,6 @@ class HST_SetupMapComponent : ScriptComponent
 		int screenW;
 		int screenH;
 		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
-		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "setup");
 		if (screenW != m_iScreenW || screenH != m_iScreenH)
 		{
 			m_iScreenW = screenW;
@@ -1185,7 +1184,10 @@ class HST_SetupMapComponent : ScriptComponent
 	protected void NativeScreenToLayoutCandidates(float nativeScreenX, float nativeScreenY, out int layoutX, out int layoutY, out int alternateLayoutX, out int alternateLayoutY)
 	{
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		HST_UIWorkspaceMetrics.GetNativePointCandidates(workspace, nativeScreenX, nativeScreenY, layoutX, layoutY, alternateLayoutX, alternateLayoutY);
+		layoutX = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, nativeScreenX);
+		layoutY = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, nativeScreenY);
+		alternateLayoutX = Math.Round(nativeScreenX);
+		alternateLayoutY = Math.Round(nativeScreenY);
 	}
 
 	protected bool IsSetupChromePoint(int layoutX, int layoutY, int alternateLayoutX, int alternateLayoutY)

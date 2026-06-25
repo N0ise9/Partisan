@@ -1,0 +1,10 @@
+FrameWidgetClass "{B55C6FB34BF95000}" {
+ Name "HST_ScriptedPanelRoot"
+ Slot FrameWidgetSlot "{B55C6FB34BF95001}" {
+  Anchor 0 0 0 0
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+}

@@ -107,7 +107,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
-	static const string MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout";
+	static const ResourceName COMMAND_MENU_LAYOUT = "{A7B8C9D001234550}UI/layouts/HST_CommandMenu.layout";
+	static const ResourceName SCRIPTED_PANEL_ROOT_LAYOUT = "{B55C6FB34BF95000}UI/layouts/HST_ScriptedPanelRoot.layout";
 	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
 	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
 	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
@@ -989,10 +990,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			BuildResponsiveLayout(workspace);
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, m_Layout.m_iRootLeft, m_Layout.m_iRootTop, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight, WidgetFlags.VISIBLE, null, 2500);
+		Widget root = workspace.CreateWidgets(COMMAND_MENU_LAYOUT);
 		if (!root)
 			return null;
 
+		FrameSlot.SetPos(root, m_Layout.m_iRootLeft, m_Layout.m_iRootTop);
+		FrameSlot.SetSize(root, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight);
+		root.SetVisible(true);
+		root.SetOpacity(1.0);
 		root.SetZOrder(2500);
 		m_aWidgets.Insert(root);
 		CreateRectWidget(workspace, root, 0, 0, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight, 0xF2080D12, 1.0, 0);
@@ -1039,7 +1044,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		int screenW;
 		int screenH;
 		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
-		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "command");
 
 		m_Layout.m_iScreenW = screenW;
 		m_Layout.m_iScreenH = screenH;
@@ -1222,13 +1226,19 @@ class HST_CommandMenuComponent : ScriptComponent
 			width = Math.Max(1, screenW - margin * 2);
 
 		int height = HST_UIWorkspaceMetrics.ScalePx(92, scale);
-		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, width), width, screenW, Math.Max(8, margin / 2));
-		int top = HST_UIWorkspaceMetrics.ClampTop(margin, height, screenH, Math.Max(4, margin / 2));
+		int horizontalMargin = Math.Max(8, margin / 2);
+		int verticalMargin = Math.Max(4, margin / 2);
+		int left = HST_UIWorkspaceMetrics.ClampInt(Math.Max(0, (screenW - width) / 2), horizontalMargin, Math.Max(horizontalMargin, screenW - width - horizontalMargin));
+		int top = HST_UIWorkspaceMetrics.ClampInt(margin, verticalMargin, Math.Max(verticalMargin, screenH - height - verticalMargin));
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, width, height, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 2850);
+		Widget root = workspace.CreateWidgets(SCRIPTED_PANEL_ROOT_LAYOUT);
 		if (!root)
 			return;
 
+		FrameSlot.SetPos(root, left, top);
+		FrameSlot.SetSize(root, width, height);
+		root.SetVisible(true);
+		root.SetOpacity(1.0);
 		root.SetZOrder(2850);
 		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		m_aExternalNotificationWidgets.Insert(root);

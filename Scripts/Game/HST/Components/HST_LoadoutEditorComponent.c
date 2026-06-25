@@ -1406,16 +1406,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_WidgetHandler.Bind(this);
 		}
 
-		HST_UIWorkspaceMetrics.GetRawWorkspaceSize(workspace, m_iRawWorkspaceWidth, m_iRawWorkspaceHeight);
-		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "loadout");
-		m_iEditorLayoutWidth = m_iRawWorkspaceWidth;
-		m_iEditorLayoutHeight = m_iRawWorkspaceHeight;
-		m_iEditorWidth = m_iRawWorkspaceWidth;
-		m_iEditorHeight = m_iRawWorkspaceHeight;
+		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, m_iEditorLayoutWidth, m_iEditorLayoutHeight);
+		m_iRawWorkspaceWidth = m_iEditorLayoutWidth;
+		m_iRawWorkspaceHeight = m_iEditorLayoutHeight;
+		m_iEditorWidth = m_iEditorLayoutWidth;
+		m_iEditorHeight = m_iEditorLayoutHeight;
 		BuildEditorSafeRect();
 		EnsureVisualSettings();
 		BuildResponsiveLayout();
-		CreateFullscreenShield(workspace);
 
 		Widget root = EnsureEditorRoot(workspace);
 
@@ -1423,16 +1421,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		FrameSlot.SetPos(root, 0, 0);
-		FrameSlot.SetSize(root, m_iRawWorkspaceWidth, m_iRawWorkspaceHeight);
-
-		Widget layoutRoot = root.FindAnyWidget("HST_LoadoutEditorRoot");
-		if (layoutRoot)
-		{
-			FrameSlot.SetPos(layoutRoot, 0, 0);
-			FrameSlot.SetSize(layoutRoot, m_iEditorWidth, m_iEditorHeight);
-			layoutRoot.SetZOrder(10);
-		}
-
+		FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
 		root.SetZOrder(3600);
 
 		Widget previewContainer = root.FindAnyWidget("HST_LoadoutPreviewContainer");
@@ -1440,7 +1429,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			previewContainer.SetVisible(true);
 			previewContainer.SetOpacity(1.0);
-			previewContainer.SetZOrder(0);
+			previewContainer.SetZOrder(1);
 		}
 
 		m_PreviewWidget = RenderTargetWidget.Cast(root.FindAnyWidget("HST_LoadoutPreview"));
@@ -1493,42 +1482,20 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return m_RootWidget;
 
 		if (!m_RootWidget)
-			m_RootWidget = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, m_iRawWorkspaceWidth, m_iRawWorkspaceHeight, WidgetFlags.VISIBLE, null, 3600);
+			m_RootWidget = workspace.CreateWidgets(EDITOR_LAYOUT);
 
 		if (!m_RootWidget)
 			return null;
 
-		Widget layoutRoot = workspace.CreateWidgets(EDITOR_LAYOUT, m_RootWidget);
-		m_bRootFromLayout = layoutRoot != null;
-		if (layoutRoot)
-		{
-			FrameSlot.SetPos(layoutRoot, 0, 0);
-			FrameSlot.SetSize(layoutRoot, m_iEditorWidth, m_iEditorHeight);
-			layoutRoot.SetZOrder(10);
-		}
+		FrameSlot.SetPos(m_RootWidget, 0, 0);
+		FrameSlot.SetSize(m_RootWidget, m_iEditorWidth, m_iEditorHeight);
+		m_RootWidget.SetVisible(true);
+		m_RootWidget.SetOpacity(1.0);
+		m_RootWidget.SetZOrder(3600);
 
+		m_bRootFromLayout = true;
 		m_UILayerWidget = null;
 		return m_RootWidget;
-	}
-
-	protected Widget CreateFullscreenShield(WorkspaceWidget workspace)
-	{
-		if (!workspace)
-			return null;
-
-		int shieldLeft = 0;
-		int shieldTop = 0;
-		int shieldWidth = m_iRawWorkspaceWidth;
-		int shieldHeight = m_iRawWorkspaceHeight;
-		Widget shield = workspace.CreateWidgetInWorkspace(WidgetType.CanvasWidgetTypeID, shieldLeft, shieldTop, shieldWidth, shieldHeight, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 3500);
-		if (!shield)
-			return null;
-
-		SetupCanvasRect(shield, shieldWidth, shieldHeight, 0xFF1D292D);
-		shield.SetZOrder(3500);
-		shield.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		m_aWidgets.Insert(shield);
-		return shield;
 	}
 
 	protected Widget ResolveUILayer(Widget root)
@@ -5492,8 +5459,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget backdrop = root.FindAnyWidget("HST_LoadoutBackdrop");
 		if (backdrop)
 		{
-			backdrop.SetVisible(false);
-			backdrop.SetOpacity(0.0);
+			backdrop.SetVisible(true);
+			backdrop.SetOpacity(1.0);
+			backdrop.SetZOrder(0);
+			backdrop.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		}
 
 		Widget dimmer = root.FindAnyWidget("HST_LoadoutDimmer");
@@ -5502,7 +5471,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		dimmer.SetVisible(false);
 		dimmer.SetOpacity(0.0);
-		dimmer.SetZOrder(1);
+		dimmer.SetZOrder(2);
 	}
 
 	protected void ConfigurePreviewWidget()
