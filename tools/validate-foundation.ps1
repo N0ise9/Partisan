@@ -3493,6 +3493,74 @@ foreach ($forbiddenLoadoutStorageBrowserGeometry in @(
 		throw "Loadout editor storage add-items panel must not create panel/grid geometry in script: $forbiddenLoadoutStorageBrowserGeometry"
 	}
 }
+foreach ($requiredLoadoutLeftRailLayoutEntry in @(
+	'Name "LeftRail"',
+	'Name "LeftRailBackground"',
+	'Name "LeftRailAccent"',
+	'Name "SlotRailList"',
+	'Name "SlotRailScroll"',
+	'Name "SlotRailItems"',
+	'Name "SlotRailEmpty"',
+	'Name "StorageRailTitle"',
+	'Name "StorageContainerList"',
+	'Name "StorageContainerScroll"',
+	'Name "StorageContainerItems"',
+	'Name "StorageContainerEmpty"',
+	'Name "StorageContentRule"',
+	'Name "StorageContentTitle"',
+	'Name "StorageContentList"',
+	'Name "StorageContentScroll"',
+	'Name "StorageContentItems"',
+	'Name "StorageContentEmpty"'
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutLeftRailLayoutEntry)) {
+		throw "Loadout editor left rail must be layout-owned: $requiredLoadoutLeftRailLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutLeftRailScriptEntry in @(
+	"ResetLoadoutModeRegions(uiRoot)",
+	"protected void ShowSlotRailWidgets",
+	"protected void ShowStorageRailWidgets",
+	'SetLoadoutWidgetColor(railRoot, "LeftRailBackground"',
+	'SetLoadoutWidgetColor(railRoot, "LeftRailAccent"',
+	'm_SlotScroll = ScrollLayoutWidget.Cast(railRoot.FindAnyWidget("SlotRailScroll"))',
+	'Widget items = railRoot.FindAnyWidget("SlotRailItems")',
+	'SetLoadoutText(railRoot, "SlotRailEmpty"',
+	'SetLoadoutText(railRoot, "StorageRailTitle"',
+	'SetLoadoutWidgetColor(railRoot, "StorageContentRule"',
+	'SetLoadoutText(railRoot, "StorageContentTitle"',
+	'm_StorageContainerScroll = ScrollLayoutWidget.Cast(railRoot.FindAnyWidget("StorageContainerScroll"))',
+	'Widget containerItems = railRoot.FindAnyWidget("StorageContainerItems")',
+	'SetLoadoutText(railRoot, "StorageContainerEmpty"',
+	'm_StorageContentScroll = ScrollLayoutWidget.Cast(railRoot.FindAnyWidget("StorageContentScroll"))',
+	'Widget contentItems = railRoot.FindAnyWidget("StorageContentItems")',
+	'SetLoadoutText(railRoot, "StorageContentEmpty"'
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutLeftRailScriptEntry)) {
+		throw "Loadout editor left rail must populate named layout widgets: $requiredLoadoutLeftRailScriptEntry"
+	}
+}
+$loadoutLeftRailMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderSlotRail[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderStorageRail[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderStorageCandidatePanel")
+if (!$loadoutLeftRailMatch.Success) {
+	throw "Loadout editor left rail renderer is missing"
+}
+foreach ($forbiddenLoadoutLeftRailGeometry in @(
+	"CreateRectWidget",
+	"CreateTextWidget",
+	"CreateScrollContainer",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"VERTICAL_SCROLL_LIST_LAYOUT",
+	"railLeft",
+	"railTop",
+	"containerTop",
+	"contentTop",
+	"contentsHeaderTop"
+)) {
+	if ($loadoutLeftRailMatch.Value -match [regex]::Escape($forbiddenLoadoutLeftRailGeometry)) {
+		throw "Loadout editor left rail must not create panel/scroll geometry in script: $forbiddenLoadoutLeftRailGeometry"
+	}
+}
 foreach ($requiredPreviewCellLayoutEntry in @(
 	"HST_LoadoutItemPreviewCell",
 	'Slot FrameWidgetSlot "{7B2FD986A4D3420F}"',

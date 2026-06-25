@@ -251,6 +251,233 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetRight 560
       OffsetBottom -92
      }
+     "Ignore Cursor" 0
+     {
+      PanelWidgetClass "{7B2FD986A4D3425C}" {
+       Name "LeftRailBackground"
+       Slot FrameWidgetSlot "{7B2FD986A4D3425D}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.05 0.07 0.09 0.95
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{7B2FD986A4D3425E}" {
+       Name "LeftRailAccent"
+       Slot FrameWidgetSlot "{7B2FD986A4D3425F}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 3
+       }
+       Color 1 0.82 0.38 1
+       style full
+       "Ignore Cursor" 1
+      }
+      FrameWidgetClass "{7B2FD986A4D34260}" {
+       Name "SlotRailList"
+       Slot FrameWidgetSlot "{7B2FD986A4D34261}" {
+        Anchor 0 0 1 1
+        OffsetLeft 20
+        OffsetTop 22
+        OffsetRight -20
+        OffsetBottom -22
+       }
+       "Ignore Cursor" 0
+       {
+        ScrollLayoutWidgetClass "{7B2FD986A4D34262}" {
+         Name "SlotRailScroll"
+         Slot FrameWidgetSlot "{7B2FD986A4D34263}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "Scrollbar Always Visible" 1
+         {
+          VerticalLayoutWidgetClass "{7B2FD986A4D34264}" {
+           Name "SlotRailItems"
+           Slot AlignableSlot "{7B2FD986A4D34265}" {
+            HorizontalAlign 3
+            VerticalAlign 0
+            Padding 0 0 0 0
+           }
+          }
+         }
+        }
+        TextWidgetClass "{7B2FD986A4D34266}" {
+         Name "SlotRailEmpty"
+         Slot FrameWidgetSlot "{7B2FD986A4D34267}" {
+          Anchor 0 0 1 0
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 28
+         }
+         "Is Visible" 0
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Slot list unavailable."
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+      TextWidgetClass "{7B2FD986A4D34268}" {
+       Name "StorageRailTitle"
+       Slot FrameWidgetSlot "{7B2FD986A4D34269}" {
+        Anchor 0 0 1 0
+        OffsetLeft 20
+        OffsetTop 18
+        OffsetRight -20
+        OffsetBottom 44
+       }
+       "Is Visible" 0
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Inventory Storage"
+       "Horizontal Alignment" Left
+       "Vertical Alignment" Center
+      }
+      FrameWidgetClass "{7B2FD986A4D3426A}" {
+       Name "StorageContainerList"
+       Slot FrameWidgetSlot "{7B2FD986A4D3426B}" {
+        Anchor 0 0 1 0.52
+        OffsetLeft 16
+        OffsetTop 56
+        OffsetRight -16
+        OffsetBottom -18
+       }
+       "Is Visible" 0
+       "Ignore Cursor" 0
+       {
+        ScrollLayoutWidgetClass "{7B2FD986A4D3426C}" {
+         Name "StorageContainerScroll"
+         Slot FrameWidgetSlot "{7B2FD986A4D3426D}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "Scrollbar Always Visible" 1
+         {
+          VerticalLayoutWidgetClass "{7B2FD986A4D3426E}" {
+           Name "StorageContainerItems"
+           Slot AlignableSlot "{7B2FD986A4D3426F}" {
+            HorizontalAlign 3
+            VerticalAlign 0
+            Padding 0 0 0 0
+           }
+          }
+         }
+        }
+        TextWidgetClass "{7B2FD986A4D34270}" {
+         Name "StorageContainerEmpty"
+         Slot FrameWidgetSlot "{7B2FD986A4D34271}" {
+          Anchor 0 0 1 0
+          OffsetLeft 6
+          OffsetTop 0
+          OffsetRight -6
+          OffsetBottom 28
+         }
+         "Is Visible" 0
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Storage list unavailable."
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+      PanelWidgetClass "{7B2FD986A4D34272}" {
+       Name "StorageContentRule"
+       Slot FrameWidgetSlot "{7B2FD986A4D34273}" {
+        Anchor 0 0.52 1 0.52
+        OffsetLeft 16
+        OffsetTop -10
+        OffsetRight -16
+        OffsetBottom -8
+       }
+       "Is Visible" 0
+       Color 1 0.82 0.38 1
+       style full
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{7B2FD986A4D34274}" {
+       Name "StorageContentTitle"
+       Slot FrameWidgetSlot "{7B2FD986A4D34275}" {
+        Anchor 0 0.52 1 0.52
+        OffsetLeft 22
+        OffsetTop 0
+        OffsetRight -16
+        OffsetBottom 24
+       }
+       "Is Visible" 0
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Contents"
+       "Horizontal Alignment" Left
+       "Vertical Alignment" Center
+      }
+      FrameWidgetClass "{7B2FD986A4D34276}" {
+       Name "StorageContentList"
+       Slot FrameWidgetSlot "{7B2FD986A4D34277}" {
+        Anchor 0 0.52 1 1
+        OffsetLeft 16
+        OffsetTop 30
+        OffsetRight -16
+        OffsetBottom -28
+       }
+       "Is Visible" 0
+       "Ignore Cursor" 0
+       {
+        ScrollLayoutWidgetClass "{7B2FD986A4D34278}" {
+         Name "StorageContentScroll"
+         Slot FrameWidgetSlot "{7B2FD986A4D34279}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "Scrollbar Always Visible" 1
+         {
+          VerticalLayoutWidgetClass "{7B2FD986A4D3427A}" {
+           Name "StorageContentItems"
+           Slot AlignableSlot "{7B2FD986A4D3427B}" {
+            HorizontalAlign 3
+            VerticalAlign 0
+            Padding 0 0 0 0
+           }
+          }
+         }
+        }
+        TextWidgetClass "{7B2FD986A4D3427C}" {
+         Name "StorageContentEmpty"
+         Slot FrameWidgetSlot "{7B2FD986A4D3427D}" {
+          Anchor 0 0 1 0
+          OffsetLeft 6
+          OffsetTop 0
+          OffsetRight -6
+          OffsetBottom 28
+         }
+         "Is Visible" 0
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Contents unavailable."
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+     }
     }
     FrameWidgetClass "{7B2FD986A4D34117}" {
      Name "EditedSlotHeader"

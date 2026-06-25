@@ -1443,6 +1443,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		RefreshPreviewWorldLoadout();
 
 		Widget uiRoot = ResolveUILayer(root);
+		ResetLoadoutModeRegions(uiRoot);
 		CreatePreviewDragSurface(workspace, uiRoot);
 		RenderLeftButtons(workspace, uiRoot);
 		RenderModeTabs(workspace, uiRoot);
@@ -1531,6 +1532,51 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		return uiLayer;
+	}
+
+	protected void ResetLoadoutModeRegions(Widget root)
+	{
+		if (!root)
+			return;
+
+		SetLoadoutWidgetVisible(root, "LeftRail", false);
+		SetLoadoutWidgetVisible(root, "EditedSlotHeader", false);
+		SetLoadoutWidgetVisible(root, "SlotList", false);
+		SetLoadoutWidgetVisible(root, "CandidateList", false);
+		SetLoadoutWidgetVisible(root, "StorageBrowser", false);
+		SetLoadoutWidgetVisible(root, "SavePanel", false);
+	}
+
+	protected void ShowSlotRailWidgets(Widget railRoot)
+	{
+		if (!railRoot)
+			return;
+
+		SetLoadoutWidgetVisible(railRoot, "SlotRailList", true);
+		SetLoadoutWidgetVisible(railRoot, "SlotRailEmpty", false);
+		SetLoadoutWidgetVisible(railRoot, "StorageRailTitle", false);
+		SetLoadoutWidgetVisible(railRoot, "StorageContainerList", false);
+		SetLoadoutWidgetVisible(railRoot, "StorageContainerEmpty", false);
+		SetLoadoutWidgetVisible(railRoot, "StorageContentRule", false);
+		SetLoadoutWidgetVisible(railRoot, "StorageContentTitle", false);
+		SetLoadoutWidgetVisible(railRoot, "StorageContentList", false);
+		SetLoadoutWidgetVisible(railRoot, "StorageContentEmpty", false);
+	}
+
+	protected void ShowStorageRailWidgets(Widget railRoot)
+	{
+		if (!railRoot)
+			return;
+
+		SetLoadoutWidgetVisible(railRoot, "SlotRailList", false);
+		SetLoadoutWidgetVisible(railRoot, "SlotRailEmpty", false);
+		SetLoadoutWidgetVisible(railRoot, "StorageRailTitle", true);
+		SetLoadoutWidgetVisible(railRoot, "StorageContainerList", true);
+		SetLoadoutWidgetVisible(railRoot, "StorageContainerEmpty", false);
+		SetLoadoutWidgetVisible(railRoot, "StorageContentRule", true);
+		SetLoadoutWidgetVisible(railRoot, "StorageContentTitle", true);
+		SetLoadoutWidgetVisible(railRoot, "StorageContentList", true);
+		SetLoadoutWidgetVisible(railRoot, "StorageContentEmpty", false);
 	}
 
 	protected void RenderLeftButtons(WorkspaceWidget workspace, Widget root)
@@ -2068,31 +2114,22 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		Widget railRoot = ResolveLoadoutRegion(root, "LeftRail");
-		int railLeft = 0;
-		int railTop = 0;
 		int railWidth;
 		int railHeight;
 		GetRegionLayoutSize(workspace, railRoot, m_Layout.m_iRailWidth, m_Layout.m_iRailHeight, railWidth, railHeight);
 		m_Layout.m_iRailWidth = railWidth;
 		m_Layout.m_iRailHeight = railHeight;
-		Widget railBack = CreateRectWidget(workspace, railRoot, railLeft, railTop, railWidth, railHeight, GetPanelBackColor(), 1.0, 0);
-		if (railBack)
-			railBack.SetZOrder(0);
+		SetLoadoutWidgetColor(railRoot, "LeftRailBackground", GetPanelBackColor(), 1.0);
+		SetLoadoutWidgetColor(railRoot, "LeftRailAccent", GetAccentColor(), 1.0);
+		ShowSlotRailWidgets(railRoot);
 
 		m_aVisibleNodeIndexes.Clear();
-		int listLeft = railLeft + ScalePx(20);
-		int listTop = railTop + ScalePx(22);
-		int listWidth = Math.Max(1, railWidth - ScalePx(40));
-		int listHeight = Math.Max(1, railHeight - ScalePx(44));
-
-		ScrollLayoutWidget scroll;
-		Widget items;
-		CreateScrollContainer(workspace, railRoot, VERTICAL_SCROLL_LIST_LAYOUT, listLeft, listTop, listWidth, listHeight, scroll, items, true);
-		m_SlotScroll = scroll;
+		m_SlotScroll = ScrollLayoutWidget.Cast(railRoot.FindAnyWidget("SlotRailScroll"));
+		Widget items = railRoot.FindAnyWidget("SlotRailItems");
 
 		if (!items)
 		{
-			CreateTextWidget(workspace, railRoot, "Slot list unavailable: scroll layout missing Items.", listLeft, listTop, listWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			SetLoadoutText(railRoot, "SlotRailEmpty", "Slot list unavailable: layout missing SlotRailItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 			return;
 		}
 
@@ -2133,38 +2170,22 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		string selectedStorageNodeId = ResolveSelectedStorageContainerNodeId();
 
 		Widget railRoot = ResolveLoadoutRegion(root, "LeftRail");
-		int railLeft = 0;
-		int railTop = 0;
 		int railWidth;
 		int railHeight;
 		GetRegionLayoutSize(workspace, railRoot, m_Layout.m_iRailWidth, m_Layout.m_iRailHeight, railWidth, railHeight);
 		m_Layout.m_iRailWidth = railWidth;
 		m_Layout.m_iRailHeight = railHeight;
 
-		Widget railBack = CreateRectWidget(workspace, railRoot, railLeft, railTop, railWidth, railHeight, GetPanelBackColor(), 1.0, 0);
-		if (railBack)
-			railBack.SetZOrder(0);
-		CreateTextWidget(workspace, railRoot, "Inventory Storage", railLeft + ScalePx(20), railTop + ScalePx(18), railWidth - ScalePx(40), ScalePx(22), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
+		SetLoadoutWidgetColor(railRoot, "LeftRailBackground", GetPanelBackColor(), 1.0);
+		SetLoadoutWidgetColor(railRoot, "LeftRailAccent", GetAccentColor(), 1.0);
+		ShowStorageRailWidgets(railRoot);
+		SetLoadoutText(railRoot, "StorageRailTitle", "Inventory Storage", 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
+		SetLoadoutWidgetColor(railRoot, "StorageContentRule", GetAccentColor(), 1.0);
+		SetLoadoutText(railRoot, "StorageContentTitle", "Contents", 0xFFFFD166, m_Layout.m_iFontSmall, true, false);
 		m_aVisibleNodeIndexes.Clear();
 
-		int listLeft = railLeft + ScalePx(16);
-		int listWidth = railWidth - ScalePx(32);
-		int containerTop = railTop + ScalePx(56);
-		int contentsHeaderTop = railTop + Math.Round(railHeight * 0.52);
-		int minContentsHeaderTop = containerTop + ScalePx(132);
-		int maxContentsHeaderTop = railTop + railHeight - ScalePx(126);
-		if (maxContentsHeaderTop < minContentsHeaderTop)
-			contentsHeaderTop = Math.Max(containerTop + ScalePx(72), maxContentsHeaderTop);
-		else
-			contentsHeaderTop = ClampInt(contentsHeaderTop, minContentsHeaderTop, maxContentsHeaderTop);
-		int containerHeight = Math.Max(ScalePx(72), contentsHeaderTop - containerTop - ScalePx(18));
-		int contentTop = contentsHeaderTop + ScalePx(30);
-		int contentHeight = Math.Max(ScalePx(60), railTop + railHeight - contentTop - ScalePx(28));
-
-		ScrollLayoutWidget containerScroll;
-		Widget containerItems;
-		CreateScrollContainer(workspace, railRoot, VERTICAL_SCROLL_LIST_LAYOUT, listLeft, containerTop, listWidth, containerHeight, containerScroll, containerItems, true);
-		m_StorageContainerScroll = containerScroll;
+		m_StorageContainerScroll = ScrollLayoutWidget.Cast(railRoot.FindAnyWidget("StorageContainerScroll"));
+		Widget containerItems = railRoot.FindAnyWidget("StorageContainerItems");
 
 		int visibleIndex = 0;
 		for (int nodeIndex = 0; nodeIndex < m_aNodeKinds.Count(); nodeIndex++)
@@ -2178,7 +2199,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		if (!containerItems)
-			CreateTextWidget(workspace, railRoot, "Storage list unavailable: scroll layout missing Items.", listLeft + ScalePx(6), containerTop, listWidth - ScalePx(12), ScalePx(22), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			SetLoadoutText(railRoot, "StorageContainerEmpty", "Storage list unavailable: layout missing StorageContainerItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 		else if (visibleIndex == 0)
 		{
 			Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ROW_LAYOUT, containerItems);
@@ -2195,13 +2216,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 		}
 
-		CreateRectWidget(workspace, railRoot, listLeft, contentsHeaderTop - ScalePx(10), listWidth, ScalePx(2), GetAccentColor(), 1.0, 0);
-		CreateTextWidget(workspace, railRoot, "Contents", listLeft + ScalePx(6), contentsHeaderTop, listWidth - ScalePx(12), ScalePx(20), m_Layout.m_iFontSmall, 0xFFFFD166, 0, true);
-
-		ScrollLayoutWidget contentScroll;
-		Widget contentItems;
-		CreateScrollContainer(workspace, railRoot, VERTICAL_SCROLL_LIST_LAYOUT, listLeft, contentTop, listWidth, contentHeight, contentScroll, contentItems, true);
-		m_StorageContentScroll = contentScroll;
+		m_StorageContentScroll = ScrollLayoutWidget.Cast(railRoot.FindAnyWidget("StorageContentScroll"));
+		Widget contentItems = railRoot.FindAnyWidget("StorageContentItems");
 
 		int contentRows = 0;
 		for (int nodeIndex = 0; nodeIndex < m_aNodeKinds.Count(); nodeIndex++)
@@ -2217,7 +2233,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		if (!contentItems)
-			CreateTextWidget(workspace, railRoot, "Contents unavailable: scroll layout missing Items.", listLeft + ScalePx(6), contentTop, listWidth - ScalePx(12), ScalePx(22), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			SetLoadoutText(railRoot, "StorageContentEmpty", "Contents unavailable: layout missing StorageContentItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 		else if (contentRows == 0)
 		{
 			Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ITEM_ROW_LAYOUT, contentItems);

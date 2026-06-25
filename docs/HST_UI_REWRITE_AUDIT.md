@@ -28,7 +28,7 @@ Current state:
 | `Scripts/Game/HST/Map/HST_MapZoneOverlayUIComponent.c` | `WorldToScreen`, DPI-unscale projection, canvas circle/line/text widgets with `IGNORE_CURSOR`/`NOFOCUS` | Allowed for map overlay | This is the explicit map projection exception. Keep redraw throttled and passive. |
 | `Scripts/Game/HST/Components/HST_CommandMenuComponent.c` | Layout root, named region binding, row layout population, legacy canvas/text factories and scroll helper | Mixed | Main shell is layout-driven. Remaining generic `CreateRectWidget`, `CreateTextWidget`, and `CreateScrollContainer` should shrink as more rows/panels move to layout files. |
 | `Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c` | No UI geometry matches in audit grep | Allowed | Request bridge can remain behavior-only. |
-| `Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c` | Layout root, named region binding, layout-owned left Back/ESC controls, layout-owned mode tabs, layout-owned storage add-items panel shell/grid, row layout population, preview world, dynamic preview cells, legacy factories | Mixed | Major shell regions, left controls, mode tabs, and the right add-items panel are layout-owned. Dynamic item previews and volume fill are allowed data-driven geometry. Remaining save/settings/candidate panels and left storage rail chrome should be replaced by dedicated layouts/controllers. |
+| `Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c` | Layout root, named region binding, layout-owned left Back/ESC controls, layout-owned mode tabs, layout-owned left slot/storage rail shell and scroll hosts, layout-owned storage add-items panel shell/grid, row layout population, preview world, dynamic preview cells, legacy factories | Mixed | Major shell regions, left controls, mode tabs, left rail chrome, and the right add-items panel are layout-owned. Dynamic item previews and volume fill are allowed data-driven geometry. Remaining save/settings/candidate panels should be replaced by dedicated layouts/controllers. |
 | `Scripts/Game/HST/Components/HST_MissionClientComponent.c` | Notification layout, report dialog layout, action dialog layout scaffold, objective row layout population | Mixed | Notifications and mission report details are layout-driven. Continue wiring future mission action/admin flows through `HST_ActionDialog.layout` instead of adding scripted panel geometry. |
 | `Scripts/Game/HST/Services/HST_MapMarkerService.c` | No UI geometry matches in audit grep | Allowed | Native marker service should remain marker-record orchestration only. |
 | `Scripts/Game/HST/Map/HST_CampaignMapMarkerDirector.c` | No UI geometry matches in audit grep | Allowed | Desired marker record builder is correctly separated from UI projection. |
@@ -57,7 +57,7 @@ Current state:
 
 - Mission action/admin confirmation flows should use `HST_ActionDialog.layout` rather than ad hoc panels.
 - Command menu fallback text/rect factories that are no longer part of the primary layout path.
-- Loadout save/settings/candidate panels and left storage rail chrome that still create substantial panel chrome in script.
+- Loadout save/settings/candidate panels that still create substantial panel chrome in script.
 
 ## Should Be Deleted
 
@@ -70,5 +70,5 @@ Current state:
 
 - Runtime-QA root service input blocking and topmost close behavior across setup, command menu, loadout, mission dialogs, and notifications.
 - Wire any remaining mission action/admin confirmation flows into `HST_ActionDialog.layout`.
-- Finish replacing remaining loadout save/settings/candidate and left storage rail chrome with dedicated layout widgets.
+- Finish replacing remaining loadout save/settings/candidate panels with dedicated layout widgets.
 - Run in-game/Workbench QA at 1920x1080, 2560x1440 with 1920x1080 layout size, and ultrawide.
