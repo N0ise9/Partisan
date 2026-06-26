@@ -64,18 +64,22 @@ ButtonWidgetClass "{A7B8C9D001234590}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
         }
         TextWidgetClass "{A7B8C9D001234596}" {
          Name "Value"
          Slot FrameWidgetSlot "{A7B8C9D001234597}" {
          Anchor 0 0 1 1
-          OffsetLeft 230
+          OffsetLeft 10
          OffsetTop 5
           OffsetRight 10
           OffsetBottom 5
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
         }
        }
       }

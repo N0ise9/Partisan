@@ -82,6 +82,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected string m_sSelectedTab = "overview";
 	protected string m_sLastPayload;
 	protected string m_sLastResult;
+	protected string m_sLastActionName;
 	protected string m_sStatusText = "h-istasi menu | waiting for server snapshot";
 	protected int m_iSelectedControl;
 	protected ref array<string> m_aTabIds = {};
@@ -332,7 +333,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_fCommandMenuDebounceRemaining = 0;
 		m_bCommandMenuKeyDownLastFrame = false;
 		m_bRawIKeyDownLastFrame = false;
-		Debug.ClearKey(KeyCode.KC_I);
 
 		InputManager inputManager = GetGame().GetInputManager();
 		if (!inputManager)
@@ -392,6 +392,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (commandId.IsEmpty())
 			return;
 
+		m_sLastActionName = commandId;
 		m_sLastResult = "h-istasi command | requested " + commandId;
 		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
 		RequestAction(commandId, argument);
@@ -954,6 +955,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (!m_aActionEnabled[actionIndex])
 		{
+			m_sLastActionName = m_aActionLabels[actionIndex];
 			m_sLastResult = "h-istasi command | " + m_aActionLabels[actionIndex] + " | " + m_aActionDisabledReasons[actionIndex];
 			ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
 			RenderMenu();
@@ -1029,6 +1031,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (label.IsEmpty())
 			label = commandId;
 
+		m_sLastActionName = label;
 		m_sLastResult = "h-istasi command | requested " + label;
 		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
 		RequestAction(commandId, argument);
@@ -1102,6 +1105,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected void CancelPendingActionDialog()
 	{
 		ClearActionDialog();
+		m_sLastActionName = "Cancelled";
 		m_sLastResult = "h-istasi command | cancelled";
 		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
 		RenderMenu();
@@ -1329,7 +1333,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		SetMenuText(root, "HeaderTitle", "h-istasi HQ", 0xFFF2D18B, m_Layout.m_iFontHeader, true, false);
 		SetMenuText(root, "HeaderSubtitle", "FIA Resistance Command", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, false);
-		SetMenuText(root, "HeaderTabTitle", BuildSelectedTabTitle(), 0xFFECE6D2, m_Layout.m_iFontTitle, true, true);
+		SetMenuText(root, "HeaderTabTitle", "", 0xFFECE6D2, m_Layout.m_iFontTitle, true, true);
 		SetMenuText(root, "CloseLabel", "Close", 0xFFF4EBD6, m_Layout.m_iFontNormal, true, false);
 		SetMenuWidgetColor(root, "CloseButton", 0xFF5F6C76, 0.96);
 	}
@@ -1354,7 +1358,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		SetMenuLayer(root, "HeaderBackground", COMMAND_HEADER_Z, true);
 		SetMenuLayer(root, "HeaderTitle", COMMAND_HEADER_Z + 1, true);
 		SetMenuLayer(root, "HeaderSubtitle", COMMAND_HEADER_Z + 1, true);
-		SetMenuLayer(root, "HeaderTabTitle", COMMAND_HEADER_Z + 1, true);
+		SetMenuLayer(root, "HeaderTabTitle", COMMAND_HEADER_Z + 1, false);
 		SetMenuLayer(root, "CloseButton", COMMAND_CLOSE_Z, true);
 		SetMenuLayer(root, "CloseLabel", COMMAND_CLOSE_Z + 1, true);
 	}
@@ -1990,12 +1994,13 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		string inputStatus = "";
 		if (!m_bCustomBindingReady)
-			inputStatus = "Input\nI key binding pending\n";
+			inputStatus = "Input: I key binding pending\n";
 
-		if (m_sLastResult.IsEmpty())
-			return inputStatus + "Last action\n-";
+		string lastAction = m_sLastActionName;
+		if (lastAction.IsEmpty())
+			lastAction = "-";
 
-		return inputStatus + "Last action\n" + m_sLastResult;
+		return inputStatus + "Last action: " + lastAction;
 	}
 
 	protected string ShortenText(string text, int maxCharacters)

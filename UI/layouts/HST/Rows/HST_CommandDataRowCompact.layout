@@ -64,6 +64,8 @@ ButtonWidgetClass "{A7B8C9D0012345A0}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
         }
         TextWidgetClass "{A7B8C9D0012345A6}" {
          Name "Value"
@@ -76,6 +78,8 @@ ButtonWidgetClass "{A7B8C9D0012345A0}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
         }
        }
       }

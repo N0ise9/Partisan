@@ -1431,6 +1431,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		RefreshPreviewWorldLoadout();
 
 		Widget uiRoot = ResolveUILayer(root);
+		ClearLoadoutDynamicContainers(uiRoot);
 		m_iDebugPreviewCellLogIndex = 0;
 		ResetLoadoutModeRegions(uiRoot);
 		ConfigurePreviewDragSurface(uiRoot);
@@ -6975,7 +6976,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
 			itemEntity = ResolveItemIconPreviewEntityForNode(m_aNodeIds[nodeIndex]);
 
-		return SetPreviewCellFromEntity(cell, itemEntity, fallbackIcon, color, itemEntity != null);
+		bool showFallbackIcon = !prefab.IsEmpty() || itemEntity != null;
+		return SetPreviewCellFromEntity(cell, itemEntity, fallbackIcon, color, showFallbackIcon);
 	}
 
 	protected bool CreateCandidatePreviewCell(WorkspaceWidget workspace, Widget root, int candidateIndex, int userId, int color)
@@ -7378,6 +7380,37 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
+	}
+
+	protected void ClearLoadoutDynamicContainers(Widget root)
+	{
+		if (!root)
+			return;
+
+		ClearLoadoutContainerChildren(root, "TopTabItems");
+		ClearLoadoutContainerChildren(root, "SlotRailItems");
+		ClearLoadoutContainerChildren(root, "StorageContainerItems");
+		ClearLoadoutContainerChildren(root, "StorageContentItems");
+		ClearLoadoutContainerChildren(root, "CandidateItems");
+		ClearLoadoutContainerChildren(root, "StorageCategoryTabs");
+		ClearLoadoutContainerChildren(root, "StorageCandidateItems");
+		ClearLoadoutContainerChildren(root, "TemplateItems");
+		m_aWidgets.Clear();
+	}
+
+	protected void ClearLoadoutContainerChildren(Widget root, string containerName)
+	{
+		Widget container = root.FindAnyWidget(containerName);
+		if (!container)
+			return;
+
+		Widget child = container.GetChildren();
+		while (child)
+		{
+			Widget next = child.GetSibling();
+			child.RemoveFromHierarchy();
+			child = next;
+		}
 	}
 
 	protected void ShowHint(string text)

@@ -1075,6 +1075,14 @@ foreach ($requiredUIRootEntry in @(
 		throw "UI constants must define shared screen modes and z-order entries: $requiredUIRootEntry"
 	}
 }
+foreach ($requiredSetupZBandEntry in @(
+	"static const int Z_SETUP_MAP = 0;",
+	"static const int Z_SETUP_MODAL = 0;"
+)) {
+	if ($uiConstantsText -notmatch [regex]::Escape($requiredSetupZBandEntry)) {
+		throw "Setup map/modal z-order must stay below the native map cursor band: $requiredSetupZBandEntry"
+	}
+}
 foreach ($requiredUIScreenBaseEntry in @(
 	"Widget m_wRoot",
 	"m_bBlocksGameplay",
@@ -2991,17 +2999,17 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"MainItems",
 	"ActivityPanel",
 	"OffsetRight 20",
-	"OffsetBottom 382",
+	"OffsetBottom 520",
 	'Name "ActivityTitle"',
 	"OffsetBottom -48",
 	'Name "ActivityResult"',
-	"OffsetBottom -126",
+	"OffsetBottom -88",
 	'Name "ActivityFeedTitle"',
-	"OffsetBottom -166",
+	"OffsetBottom -130",
 	"ActivityScroll",
 	"OffsetRight 20",
 	"ActionsPanel",
-	"OffsetTop -360",
+	"OffsetTop -500",
 	"OffsetBottom 20",
 	"ActionsScroll",
 	"OffsetBottom 16",
@@ -3024,8 +3032,8 @@ foreach ($forbiddenCommandMenuLayoutEntry in @(
 	"OffsetBottom 166",
 	"OffsetRight 220",
 	"OffsetRight -524",
-	"OffsetBottom -382",
-	"OffsetTop 360"
+	"OffsetBottom -520",
+	"OffsetTop 500"
 )) {
 	if ($commandMenuLayoutText -match [regex]::Escape($forbiddenCommandMenuLayoutEntry)) {
 		throw "Command menu layout must not keep scripted-canvas placeholders or positive fixed-height bounds: $forbiddenCommandMenuLayoutEntry"
@@ -3049,12 +3057,12 @@ $commandMenuResolvedGeometryContracts = @(
 	},
 	@{
 		Widget = "ActivityPanel"
-		Required = @("Anchor 1 0 1 1", "OffsetLeft -500", "OffsetRight 20", "OffsetBottom 382")
-		Forbidden = @("OffsetRight -20", "OffsetBottom -382")
+		Required = @("Anchor 1 0 1 1", "OffsetLeft -500", "OffsetRight 20", "OffsetBottom 520")
+		Forbidden = @("OffsetRight -20", "OffsetBottom -520")
 	},
 	@{
 		Widget = "ActionsPanel"
-		Required = @("Anchor 1 1 1 1", "OffsetLeft -500", "OffsetTop -360", "OffsetRight 20", "OffsetBottom 20")
+		Required = @("Anchor 1 1 1 1", "OffsetLeft -500", "OffsetTop -500", "OffsetRight 20", "OffsetBottom 20")
 		Forbidden = @("OffsetRight -20", "OffsetBottom -20")
 	}
 )
@@ -4247,7 +4255,7 @@ if ($loadoutSameAnchorNegativeFindings.Count -gt 0) {
 $loadoutEditorResolvedGeometryContracts = @(
 	@{
 		Widget = "LeftButtons"
-		Required = @("OffsetRight -104", "OffsetBottom -68")
+		Required = @("SizeX 92", "OffsetRight -116", "SizeY 160", "OffsetBottom -80")
 	},
 	@{
 		Widget = "LoadoutBackButton"
@@ -4255,7 +4263,7 @@ $loadoutEditorResolvedGeometryContracts = @(
 	},
 	@{
 		Widget = "LoadoutCloseButton"
-		Required = @("OffsetBottom -122")
+		Required = @("OffsetBottom -126")
 	},
 	@{
 		Widget = "TopTabs"

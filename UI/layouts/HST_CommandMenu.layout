@@ -95,19 +95,17 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       TextWidgetClass "{A7B8C9D001236026}" {
        Name "HeaderSubtitle"
        Slot FrameWidgetSlot "{A7B8C9D001236027}" {
-        Anchor 0 0 0 0
-        PositionX 316
-        OffsetLeft 316
-        PositionY 32
-        OffsetTop 32
-        SizeX 304
-        OffsetRight -620
-        SizeY 28
-        OffsetBottom -60
+        Anchor 0 0 1 0
+        OffsetLeft 360
+        OffsetTop 23
+        OffsetRight 360
+        OffsetBottom -59
        }
        "No Localization" 1
        "Ignore Cursor" 1
        Text "FIA Resistance Command"
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
       }
       TextWidgetClass "{A7B8C9D001236028}" {
        Name "HeaderTabTitle"
@@ -121,6 +119,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
        "No Localization" 1
        "Ignore Cursor" 1
        Text "Overview"
+       "Is Visible" 0
       }
       ButtonWidgetClass "{A7B8C9D00123602A}" {
        Name "CloseButton"
@@ -356,21 +355,21 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       OffsetLeft -500
       OffsetTop 100
       OffsetRight 20
-      OffsetBottom 382
+      OffsetBottom 520
      }
      "Ignore Cursor" 0
      {
       PanelWidgetClass "{A7B8C9D001236082}" { Name "ActivityBackground" Slot FrameWidgetSlot "{A7B8C9D001236083}" { Anchor 0 0 1 1 OffsetLeft 0 OffsetTop 0 OffsetRight 0 OffsetBottom 0 } Color 0.10 0.14 0.17 0.98 style full "Ignore Cursor" 1 }
       PanelWidgetClass "{A7B8C9D001236084}" { Name "ActivityAccent" Slot FrameWidgetSlot "{A7B8C9D001236085}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 0 PositionY 0 OffsetTop 0 SizeX 0 OffsetRight 0 SizeY 4 OffsetBottom -4 } Color 0.31 0.44 0.29 1 style full "Ignore Cursor" 1 }
-      TextWidgetClass "{A7B8C9D001236086}" { Name "ActivityTitle" Slot FrameWidgetSlot "{A7B8C9D001236087}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 18 OffsetTop 18 SizeX -40 OffsetRight 20 SizeY 30 OffsetBottom -48 } "No Localization" 1 "Ignore Cursor" 1 Text "Activity" }
-      TextWidgetClass "{A7B8C9D001236088}" { Name "ActivityResult" Slot FrameWidgetSlot "{A7B8C9D001236089}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 54 OffsetTop 54 SizeX -40 OffsetRight 20 SizeY 72 OffsetBottom -126 } "No Localization" 1 "Ignore Cursor" 1 }
-      TextWidgetClass "{A7B8C9D00123608A}" { Name "ActivityFeedTitle" Slot FrameWidgetSlot "{A7B8C9D00123608B}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 136 OffsetTop 136 SizeX -40 OffsetRight 20 SizeY 30 OffsetBottom -166 } "No Localization" 1 "Ignore Cursor" 1 Text "Campaign Notes" }
+      TextWidgetClass "{A7B8C9D001236086}" { Name "ActivityTitle" Slot FrameWidgetSlot "{A7B8C9D001236087}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 18 OffsetTop 18 SizeX -40 OffsetRight 20 SizeY 30 OffsetBottom -48 } "No Localization" 1 "Ignore Cursor" 1 Text "Activity" "Horizontal Alignment" Left "Vertical Alignment" Center }
+      TextWidgetClass "{A7B8C9D001236088}" { Name "ActivityResult" Slot FrameWidgetSlot "{A7B8C9D001236089}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 54 OffsetTop 54 SizeX -40 OffsetRight 20 SizeY 34 OffsetBottom -88 } "No Localization" 1 "Ignore Cursor" 1 "Horizontal Alignment" Left "Vertical Alignment" Center }
+      TextWidgetClass "{A7B8C9D00123608A}" { Name "ActivityFeedTitle" Slot FrameWidgetSlot "{A7B8C9D00123608B}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 100 OffsetTop 100 SizeX -40 OffsetRight 20 SizeY 30 OffsetBottom -130 } "No Localization" 1 "Ignore Cursor" 1 Text "Campaign Notes" "Horizontal Alignment" Left "Vertical Alignment" Center }
       ScrollLayoutWidgetClass "{A7B8C9D00123608C}" {
        Name "ActivityScroll"
        Slot FrameWidgetSlot "{A7B8C9D00123608D}" {
         Anchor 0 0 1 1
         OffsetLeft 20
-        OffsetTop 174
+        OffsetTop 138
         OffsetRight 20
         OffsetBottom 12
        }
@@ -392,7 +391,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
      Slot FrameWidgetSlot "{A7B8C9D001236091}" {
       Anchor 1 1 1 1
       OffsetLeft -500
-      OffsetTop -360
+      OffsetTop -500
       OffsetRight 20
       OffsetBottom 20
      }
@@ -400,7 +399,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
      {
       PanelWidgetClass "{A7B8C9D001236092}" { Name "ActionsBackground" Slot FrameWidgetSlot "{A7B8C9D001236093}" { Anchor 0 0 1 1 OffsetLeft 0 OffsetTop 0 OffsetRight 0 OffsetBottom 0 } Color 0.10 0.14 0.17 0.98 style full "Ignore Cursor" 1 }
       PanelWidgetClass "{A7B8C9D001236094}" { Name "ActionsAccent" Slot FrameWidgetSlot "{A7B8C9D001236095}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 0 PositionY 0 OffsetTop 0 SizeX 0 OffsetRight 0 SizeY 4 OffsetBottom -4 } Color 0.55 0.31 0.26 1 style full "Ignore Cursor" 1 }
-      TextWidgetClass "{A7B8C9D001236096}" { Name "ActionsTitle" Slot FrameWidgetSlot "{A7B8C9D001236097}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 18 OffsetTop 18 SizeX -40 OffsetRight 20 SizeY 30 OffsetBottom -48 } "No Localization" 1 "Ignore Cursor" 1 Text "Actions" }
+      TextWidgetClass "{A7B8C9D001236096}" { Name "ActionsTitle" Slot FrameWidgetSlot "{A7B8C9D001236097}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 18 OffsetTop 18 SizeX -40 OffsetRight 20 SizeY 30 OffsetBottom -48 } "No Localization" 1 "Ignore Cursor" 1 Text "Actions" "Horizontal Alignment" Left "Vertical Alignment" Center }
       ScrollLayoutWidgetClass "{A7B8C9D001236098}" {
        Name "ActionsScroll"
        Slot FrameWidgetSlot "{A7B8C9D001236099}" {

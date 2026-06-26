@@ -2332,9 +2332,6 @@ class HST_CommandUIService
 		string firstGarageVehicleId = SelectFirstGarageVehicleId(state);
 		if (selectedTabId == TAB_SETUP)
 		{
-			AddMenuAction(actions, TAB_SETUP, "Start HQ: north forest", "setup_hideout", "hideout_north_forest", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_SETUP, "Start HQ: central hills", "setup_hideout", "hideout_central_hills", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_SETUP, "Start HQ: south woods", "setup_hideout", "hideout_south_woods", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_SETUP, "Persistence status", "inspect_persistence", "", canUseMember, "membership required");
 			return;
 		}

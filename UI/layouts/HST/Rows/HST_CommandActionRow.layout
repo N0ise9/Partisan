@@ -64,6 +64,8 @@ ButtonWidgetClass "{A7B8C9D0012345B0}" {
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
         }
        }
       }

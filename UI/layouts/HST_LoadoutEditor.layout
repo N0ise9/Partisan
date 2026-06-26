@@ -87,11 +87,15 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D34230}" {
      Name "LeftButtons"
      Slot FrameWidgetSlot "{7B2FD986A4D34231}" {
-     Anchor 0 0.5 0 0.5
-     OffsetLeft 24
-     OffsetTop -54
-      OffsetRight -104
-      OffsetBottom -68
+      Anchor 0 0.5 0 0.5
+      PositionX 24
+      OffsetLeft 24
+      PositionY -80
+      OffsetTop -80
+      SizeX 92
+      OffsetRight -116
+      SizeY 160
+      OffsetBottom -80
      }
      "Is Visible" 1
      "Ignore Cursor" 0
@@ -99,10 +103,14 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       ButtonWidgetClass "{7B2FD986A4D34232}" {
        Name "LoadoutBackButton"
        Slot FrameWidgetSlot "{7B2FD986A4D34233}" {
-        Anchor 0 0 1 0
+        Anchor 0 0 0 0
+        PositionX 0
         OffsetLeft 0
+        PositionY 0
         OffsetTop 0
-        OffsetRight 0
+        SizeX 92
+        OffsetRight -92
+        SizeY 38
         OffsetBottom -38
        }
        Color 0.07 0.09 0.11 0.98
@@ -161,11 +169,15 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       ButtonWidgetClass "{7B2FD986A4D3423C}" {
        Name "LoadoutCloseButton"
        Slot FrameWidgetSlot "{7B2FD986A4D3423D}" {
-        Anchor 0 0 1 0
+        Anchor 0 0 0 0
+        PositionX 0
         OffsetLeft 0
-        OffsetTop 90
-        OffsetRight 0
-        OffsetBottom -122
+        PositionY 88
+        OffsetTop 88
+        SizeX 92
+        OffsetRight -92
+        SizeY 38
+        OffsetBottom -126
        }
        Color 0.07 0.09 0.11 0.98
        {

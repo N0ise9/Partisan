@@ -146,9 +146,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Repeated identical `RequestOpen` calls should be idempotent; otherwise refresh loops create noisy revision churn.
   - Use distinct screen modes for distinct modal families. Action confirmations register as `ACTION_DIALOG`; mission report/details dialogs register as `MISSION_DIALOG`.
 
-- A modal over a native map should not automatically use normal dialog cursor handling.
-  - If the native map cursor should remain the only visible cursor, do not activate `DialogContext` / `InteractableDialogContext` over the map and do not call `SCR_MapCursorModule.HandleDialog(true)`.
+- A modal over a native map needs cursor handling split between the UI root and the map selection mode.
+  - Do not activate `DialogContext` / `InteractableDialogContext` over the map just to make buttons clickable; those contexts can create an extra OS-style pointer over the map cursor.
   - Disable the current map selection mode directly, for example `ToggleLocationSelection(false)`, and let a full-screen modal root swallow clicks while real button widgets handle confirmation.
+  - Avoid `SCR_MapCursorModule.HandleDialog(true)` in setup-map confirmation code unless the cursor lifecycle is proven not to duplicate with the active map cursor.
+  - The native custom map cursor lives in its own workspace cursor layout with a low z-order. Keep setup-map modal chrome above the map root but below that cursor band if the map cursor must remain visible over confirmation buttons.
   - Do not force `WidgetManager.SetCursor(0)` over an active map cursor; the native map cursor already hides the real cursor and forcing it back creates a second pointer.
   - Avoid modal-owned cursor proxy widgets over native map dialogs. They are easy to layer above the dialog, but they create a third visible cursor and drift from the engine cursor lifecycle.
   - Current example: `HST_SetupMapComponent`.
@@ -164,6 +166,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - `CallLater` supports delayed UI repair/diagnostic passes and can accept arguments.
   - Existing examples with arguments include notification dismissal generation checks and preview entity finalization.
+
+- Reused layout roots need container cleanup, not just tracked-widget cleanup.
+  - If generated rows are created into layout-owned containers and the root is reused, remove all children from the dynamic containers before repopulating.
+  - Clearing only an array of widgets misses rows that were not inserted into that array and causes tabs/lists to accumulate stale entries.
+
+- `ItemPreviewWidget` does not reliably render every inventory prefab.
+  - Keep a category/fallback icon available when prefab or entity preview setup fails.
+  - Do not hide the fallback icon just because the entity preview lookup returned null for a non-empty prefab.
+
+- Native input hints should use the widget-library input button components when possible.
+  - `SCR_InputButtonComponent` can bind an action name and label to the current input device.
+  - Hand-drawn key boxes are useful as placeholders, but they do not update like native button hints.
 
 - Keep code comments sparse and practical.
   - Comments should capture non-obvious engine constraints, not restate simple assignments.
