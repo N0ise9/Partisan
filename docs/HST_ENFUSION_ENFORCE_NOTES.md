@@ -177,7 +177,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Native input hints should use the widget-library input button components when possible.
   - `SCR_InputButtonComponent` can bind an action name and label to the current input device.
-  - Hand-drawn key boxes are useful as placeholders, but they do not update like native button hints.
+  - Pass configured input action names to `SetAction`, not literal keys. The component resolves the current keyboard, mouse, or controller glyph.
+  - Keep generated hint widgets passive with `WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS` when they are only visual footer/context hints.
+  - Hand-drawn key boxes are useful as fallbacks, but they do not update like native button hints.
+  - If a persistent footer or row container is repopulated, clear its child widgets before adding native hint widgets; stale children remain visible even when the backing arrays were cleared.
 
 - Keep code comments sparse and practical.
   - Comments should capture non-obvious engine constraints, not restate simple assignments.

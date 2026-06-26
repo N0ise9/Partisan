@@ -89,6 +89,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName LOADOUT_CANDIDATE_TILE_LAYOUT = "{A7B8C9D001234600}UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout";
 	static const ResourceName LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT = "{A7B8C9D001234610}UI/layouts/HST/Rows/HST_LoadoutStorageCategoryTab.layout";
 	static const ResourceName LOADOUT_TAB_BUTTON_LAYOUT = "{D66CFA01E5AA4400}UI/layouts/HST_LoadoutEditor_TabButton.layout";
+	static const ResourceName LOADOUT_INPUT_BUTTON_LAYOUT = "{C42847838185932E}UI/layouts/WidgetLibrary/Buttons/WLib_InputButton.layout";
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const ResourceName PREVIEW_WORLD_PREFAB = "{71D2E9B5588949D8}Prefabs/HST/HST_LoadoutPreviewWorld.et";
 	static const ResourceName PREVIEW_LIGHTS_PREFAB = "{604FFDF1DE53BD1D}Prefabs/HST/HST_LoadoutPreviewLights.et";
@@ -1493,7 +1494,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_bRootFromLayout = true;
 		m_UILayerWidget = null;
-		HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|LeftButtons|LoadoutBackButton|LoadoutCloseButton|TopTabs|TopTabItems|LeftRail|SlotRailScroll|SlotRailItems|StorageContainerItems|StorageContentItems|CandidateList|CandidateItems|StorageBrowser|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|Toast|ToastText|PreviewUnavailableText");
+		HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|LeftButtons|LoadoutBackButton|LoadoutCloseButton|TopTabs|TopTabItems|LeftRail|SlotRailScroll|SlotRailItems|StorageContainerItems|StorageContentItems|CandidateList|CandidateItems|StorageBrowser|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
 		return m_RootWidget;
 	}
 
@@ -1887,9 +1888,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		ApplyLoadoutLayerOrder(m_RootWidget);
-		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutDimmer|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LeftRail|SlotRailScroll|SlotRailItems|CandidateList|CandidateItems|StorageBrowser|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|Toast|ToastText|PreviewUnavailableText");
-		HST_UIDebug.LogReadyWidgetsCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LoadoutBackButton|LoadoutCloseButton|LeftRail|SlotRailScroll|Footer");
-		HST_UIDebug.LogNamedChildSummaryCsv("loadout_editor_ready", m_RootWidget, "TopTabItems|SlotRailItems|CandidateItems|StorageCandidateItems|TemplateItems", 5);
+		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutDimmer|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LeftRail|SlotRailScroll|SlotRailItems|CandidateList|CandidateItems|StorageBrowser|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
+		HST_UIDebug.LogReadyWidgetsCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LoadoutBackButton|LoadoutCloseButton|LeftRail|SlotRailScroll|Footer|FooterHintItems");
+		HST_UIDebug.LogNamedChildSummaryCsv("loadout_editor_ready", m_RootWidget, "TopTabItems|SlotRailItems|CandidateItems|StorageCandidateItems|TemplateItems|FooterHintItems", 5);
 		HST_UIDebug.LogPopulation("loadout_editor_ready", string.Format("root=%1 previewContainer=%2 preview=%3 ui=%4 tabs=%5 rail=%6 footer=%7 drag=%8", HST_UIDebug.WidgetSummary(m_RootWidget), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("HST_LoadoutPreviewContainer")), HST_UIDebug.WidgetSummary(m_PreviewWidget), HST_UIDebug.WidgetSummary(uiRoot), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("TopTabs")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("LeftRail")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("Footer")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("PreviewDragSurface"))));
 	}
 
@@ -2947,6 +2948,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget footerRoot = ResolveLoadoutRegion(root, "Footer");
 		HideLoadoutFooterHints(footerRoot);
+		if (RenderNativeFooterHints(workspace, footerRoot))
+			return;
+
 		SetLoadoutFooterHint(footerRoot, "FooterPrevTabHint", "FooterPrevTabKeyBack", "FooterPrevTabKey", "FooterPrevTabLabel", "Q", "Prev Tab");
 		SetLoadoutFooterHint(footerRoot, "FooterNextTabHint", "FooterNextTabKeyBack", "FooterNextTabKey", "FooterNextTabLabel", "E", "Next Tab");
 		string backLabel = "Close";
@@ -2961,6 +2965,93 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		else if (m_bCandidateMode)
 		{
 			SetLoadoutFooterHint(footerRoot, "FooterPrimaryHint", "FooterPrimaryKeyBack", "FooterPrimaryKey", "FooterPrimaryLabel", "LMB", "Select");
+		}
+	}
+
+	protected bool RenderNativeFooterHints(WorkspaceWidget workspace, Widget footerRoot)
+	{
+		if (!workspace || !footerRoot)
+			return false;
+
+		Widget hintRoot = footerRoot.FindAnyWidget("FooterHintItems");
+		if (!hintRoot)
+			return false;
+
+		ClearLoadoutContainerChildren(footerRoot, "FooterHintItems");
+		int hintCount = 0;
+		bool createdAny = false;
+
+		createdAny = AddNativeFooterHint(workspace, hintRoot, LOADOUT_ACTION_TAB_LEFT, "Prev Tab", hintCount) || createdAny;
+		hintCount++;
+		createdAny = AddNativeFooterHint(workspace, hintRoot, LOADOUT_ACTION_TAB_RIGHT, "Next Tab", hintCount) || createdAny;
+		hintCount++;
+		string backLabel = "Close";
+		if (CanNavigateBack())
+			backLabel = "Back";
+		createdAny = AddNativeFooterHint(workspace, hintRoot, LOADOUT_ACTION_BACK, backLabel, hintCount) || createdAny;
+		hintCount++;
+
+		if (m_sEditorMode == "storage")
+		{
+			createdAny = AddNativeFooterHint(workspace, hintRoot, LOADOUT_ACTION_SELECT_MOUSE, "Add One", hintCount) || createdAny;
+			hintCount++;
+			createdAny = AddNativeFooterHint(workspace, hintRoot, LOADOUT_ACTION_MOUSE_RIGHT, "Remove One", hintCount) || createdAny;
+		}
+		else if (m_bCandidateMode)
+		{
+			createdAny = AddNativeFooterHint(workspace, hintRoot, LOADOUT_ACTION_SELECT_MOUSE, "Select", hintCount) || createdAny;
+		}
+
+		if (!createdAny)
+			ClearLoadoutContainerChildren(footerRoot, "FooterHintItems");
+
+		return createdAny;
+	}
+
+	protected bool AddNativeFooterHint(WorkspaceWidget workspace, Widget hintRoot, string actionName, string label, int hintIndex)
+	{
+		if (!workspace || !hintRoot || actionName.IsEmpty())
+			return false;
+
+		Widget hint = workspace.CreateWidgets(LOADOUT_INPUT_BUTTON_LAYOUT, hintRoot);
+		if (!hint)
+			return false;
+
+		hint.SetVisible(true);
+		hint.SetOpacity(1.0);
+		LayoutSlot.SetPadding(hint, 0, 0, ScalePx(24), 0);
+		MakeWidgetTreePassive(hint);
+
+		SCR_InputButtonComponent inputButton = SCR_InputButtonComponent.FindComponent(hint);
+		if (!inputButton)
+		{
+			hint.RemoveFromHierarchy();
+			return false;
+		}
+
+		inputButton.SetSize(ScalePx(30));
+		inputButton.SetLabel(label);
+		inputButton.SetLabelColor(Color.FromInt(0xFFE2E6E8));
+		inputButton.SetClickSoundDisabled(true);
+		inputButton.SetAction(actionName);
+
+		m_aWidgets.Insert(hint);
+		HST_UIDebug.LogRowSample("loadout_footer_hints", LOADOUT_INPUT_BUTTON_LAYOUT, hintIndex, string.Format("action=%1 label=%2 widget=%3 inputButton=%4", actionName, label, HST_UIDebug.WidgetSummary(hint), inputButton != null));
+		return true;
+	}
+
+	protected void MakeWidgetTreePassive(Widget root)
+	{
+		if (!root)
+			return;
+
+		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		Widget child = root.GetChildren();
+		while (child)
+		{
+			Widget next = child.GetSibling();
+			MakeWidgetTreePassive(child);
+			child = next;
 		}
 	}
 
@@ -7395,6 +7486,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ClearLoadoutContainerChildren(root, "StorageCategoryTabs");
 		ClearLoadoutContainerChildren(root, "StorageCandidateItems");
 		ClearLoadoutContainerChildren(root, "TemplateItems");
+		ClearLoadoutContainerChildren(root, "FooterHintItems");
 		m_aWidgets.Clear();
 	}
 

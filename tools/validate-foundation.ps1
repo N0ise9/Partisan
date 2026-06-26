@@ -4725,6 +4725,7 @@ foreach ($forbiddenLoadoutSettingsGeometry in @(
 }
 foreach ($requiredLoadoutFooterLayoutEntry in @(
 	'Name "Footer"',
+	'Name "FooterHintItems"',
 	'Name "FooterPrevTabHint"',
 	'Name "FooterPrevTabKeyBack"',
 	'Name "FooterPrevTabKey"',
@@ -4751,6 +4752,13 @@ foreach ($requiredLoadoutFooterLayoutEntry in @(
 	}
 }
 foreach ($requiredLoadoutFooterScriptEntry in @(
+	"LOADOUT_INPUT_BUTTON_LAYOUT",
+	"protected bool RenderNativeFooterHints",
+	"protected bool AddNativeFooterHint",
+	"SCR_InputButtonComponent.FindComponent",
+	"inputButton.SetAction(actionName)",
+	"MakeWidgetTreePassive(hint)",
+	'ClearLoadoutContainerChildren(root, "FooterHintItems")',
 	"protected void HideLoadoutFooterHints",
 	"protected void SetLoadoutFooterHint",
 	'SetLoadoutFooterHint(footerRoot, "FooterPrevTabHint"',
