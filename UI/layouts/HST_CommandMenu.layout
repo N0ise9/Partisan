@@ -96,9 +96,9 @@ FrameWidgetClass "{A7B8C9D001234550}" {
        Name "HeaderSubtitle"
        Slot FrameWidgetSlot "{A7B8C9D001236027}" {
         Anchor 0 0 1 0
-        OffsetLeft 360
+        OffsetLeft 0
         OffsetTop 23
-        OffsetRight 360
+        OffsetRight 0
         OffsetBottom -59
        }
        "No Localization" 1
@@ -355,7 +355,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       OffsetLeft -500
       OffsetTop 100
       OffsetRight 20
-      OffsetBottom 520
+      OffsetBottom 610
      }
      "Ignore Cursor" 0
      {
@@ -391,7 +391,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
      Slot FrameWidgetSlot "{A7B8C9D001236091}" {
       Anchor 1 1 1 1
       OffsetLeft -500
-      OffsetTop -500
+      OffsetTop -580
       OffsetRight 20
       OffsetBottom 20
      }

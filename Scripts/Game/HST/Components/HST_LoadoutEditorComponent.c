@@ -1984,6 +1984,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!items)
 			return;
 
+		ClearLoadoutContainerChildren(target, "TopTabItems");
+
 		int activeIndex = GetEditorModeIndex(m_sEditorMode);
 		int previousIndex = activeIndex - 1;
 		if (previousIndex < 0)
@@ -2071,6 +2073,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 		}
 
+		ClearLoadoutContainerChildren(railRoot, "SlotRailItems");
+
 		int visibleIndex = 0;
 		for (int nodeIndex = 0; nodeIndex < m_aNodeIds.Count(); nodeIndex++)
 		{
@@ -2126,6 +2130,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_StorageContainerScroll = ScrollLayoutWidget.Cast(railRoot.FindAnyWidget("StorageContainerScroll"));
 		Widget containerItems = railRoot.FindAnyWidget("StorageContainerItems");
+		if (containerItems)
+			ClearLoadoutContainerChildren(railRoot, "StorageContainerItems");
 
 		int visibleIndex = 0;
 		for (int nodeIndex = 0; nodeIndex < m_aNodeKinds.Count(); nodeIndex++)
@@ -2159,6 +2165,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_StorageContentScroll = ScrollLayoutWidget.Cast(railRoot.FindAnyWidget("StorageContentScroll"));
 		Widget contentItems = railRoot.FindAnyWidget("StorageContentItems");
+		if (contentItems)
+			ClearLoadoutContainerChildren(railRoot, "StorageContentItems");
 
 		int contentRows = 0;
 		for (int nodeIndex = 0; nodeIndex < m_aNodeKinds.Count(); nodeIndex++)
@@ -2216,6 +2224,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutWidgetVisible(panelRoot, "StorageCandidateEmpty", false);
 
 		Widget categoryRoot = panelRoot.FindAnyWidget("StorageCategoryTabs");
+		if (categoryRoot)
+			ClearLoadoutContainerChildren(panelRoot, "StorageCategoryTabs");
 		RenderStorageCategoryTabs(workspace, categoryRoot);
 
 		m_aVisibleCandidateIndexes.Clear();
@@ -2243,6 +2253,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			SetLoadoutText(root, "StorageCandidateEmpty", "Candidate grid unavailable: layout missing StorageCandidateItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 			return;
 		}
+
+		ClearLoadoutContainerChildren(root, "StorageCandidateItems");
 
 		int visibleIndex = 0;
 
@@ -2810,6 +2822,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 		}
 
+		ClearLoadoutContainerChildren(panelRoot, "CandidateItems");
+
 		int visibleIndex = 0;
 		for (int candidateIndex = 0; candidateIndex < m_aCandidatePrefabs.Count(); candidateIndex++)
 		{
@@ -2871,6 +2885,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 		}
 
+		ClearLoadoutContainerChildren(panelRoot, "TemplateItems");
+
 		for (int templateIndex = 0; templateIndex < m_aTemplateIds.Count(); templateIndex++)
 			AddTemplateRow(workspace, items, templateIndex, TEMPLATE_WIDGET_ID_BASE + templateIndex);
 
@@ -2912,6 +2928,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ConfigureLoadoutPanelShell(panelRoot, "Settings");
 		HideTemplatePanelWidgets(panelRoot);
 		ShowSettingsPanelWidgets(panelRoot);
+		ClearLoadoutContainerChildren(panelRoot, "TemplateItems");
 
 		SetLoadoutText(panelRoot, "SettingsLightLabel", "Preview Light", 0xFFFFD166, m_Layout.m_iFontNormal, true, false);
 		SetLoadoutText(panelRoot, "SettingsLightValue", string.Format("%1 LV", Math.Round(m_VisualSettings.m_fPreviewLightLV)), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
@@ -7058,10 +7075,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected bool CreateNodePreviewCell(WorkspaceWidget workspace, Widget root, int nodeIndex, int userId, int color)
 	{
-		ResourceName fallbackIcon = ResolveIconTexture(ResolveNodeIconKey(nodeIndex));
+		string iconKey = ResolveNodeIconKey(nodeIndex);
+		ResourceName fallbackIcon = ResolveIconTexture(iconKey);
 		Widget cell = CreateItemPreviewCell(workspace, root, userId);
 		if (!cell)
 			return false;
+
+		if (!ShouldUseNativeLoadoutItemPreview(iconKey))
+		{
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+			HST_UIDebug.LogRowSample("loadout_preview_cells", ITEM_PREVIEW_CELL_LAYOUT, Math.Max(0, m_iDebugPreviewCellLogIndex - 1), string.Format("fallbackOnly=true node=%1 iconKey=%2 fallbackIcon=%3 cell=%4", ShortenText(GetNodeLabel(nodeIndex), 48), iconKey, fallbackIcon, HST_UIDebug.WidgetSummary(cell)));
+			return true;
+		}
 
 		string prefab = "";
 		if (nodeIndex >= 0 && nodeIndex < m_aNodePrefabs.Count())
@@ -7080,16 +7105,38 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected bool CreateCandidatePreviewCell(WorkspaceWidget workspace, Widget root, int candidateIndex, int userId, int color)
 	{
-		ResourceName fallbackIcon = ResolveIconTexture(ResolveCandidateIconKey(candidateIndex));
+		string iconKey = ResolveCandidateIconKey(candidateIndex);
+		ResourceName fallbackIcon = ResolveIconTexture(iconKey);
 		Widget cell = CreateItemPreviewCell(workspace, root, userId);
 		if (!cell)
 			return false;
+
+		if (!ShouldUseNativeLoadoutItemPreview(iconKey))
+		{
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+			HST_UIDebug.LogRowSample("loadout_preview_cells", ITEM_PREVIEW_CELL_LAYOUT, Math.Max(0, m_iDebugPreviewCellLogIndex - 1), string.Format("fallbackOnly=true candidate=%1 iconKey=%2 fallbackIcon=%3 cell=%4", ShortenText(GetCandidateDisplayName(candidateIndex), 48), iconKey, fallbackIcon, HST_UIDebug.WidgetSummary(cell)));
+			return true;
+		}
 
 		string prefab = "";
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidatePrefabs.Count())
 			prefab = m_aCandidatePrefabs[candidateIndex];
 
 		return SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, true);
+	}
+
+	protected bool ShouldUseNativeLoadoutItemPreview(string iconKey)
+	{
+		if (iconKey == "weapon_group" || iconKey == "weapons" || iconKey == "weapon" || iconKey == "launcher" || iconKey == "sidearm")
+			return true;
+		if (iconKey == "magazine" || iconKey == "ammo")
+			return true;
+		if (iconKey == "explosive" || iconKey == "grenade" || iconKey == "throwable")
+			return true;
+		if (iconKey == "medical")
+			return true;
+
+		return false;
 	}
 
 	protected ResourceName ResolveIconTexture(string key)

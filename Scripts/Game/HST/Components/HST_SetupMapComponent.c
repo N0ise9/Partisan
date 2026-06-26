@@ -88,6 +88,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bSetupFinalized;
 	protected bool m_bSetupLocationSelectionEnabled;
 	protected bool m_bSetupSelectionSuppressedForModal;
+	protected bool m_bSetupMapDialogCursorActive;
 	protected string m_sPhase = "setup";
 	protected string m_sStatusText = "Waiting for setup state...";
 	protected string m_sLastResult;
@@ -935,6 +936,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_MapEntity || !m_MapEntity.IsOpen())
 		{
 			m_bSetupSelectionSuppressedForModal = false;
+			m_bSetupMapDialogCursorActive = false;
 			return;
 		}
 
@@ -944,9 +946,21 @@ class HST_SetupMapComponent : ScriptComponent
 		if (shouldBlockMap)
 		{
 			cursorModule.ToggleLocationSelection(false);
+			if (!m_bSetupMapDialogCursorActive)
+			{
+				cursorModule.HandleDialog(true);
+				m_bSetupMapDialogCursorActive = true;
+			}
+
 			m_bSetupLocationSelectionEnabled = false;
 			m_bSetupSelectionSuppressedForModal = true;
 			return;
+		}
+
+		if (m_bSetupMapDialogCursorActive)
+		{
+			cursorModule.HandleDialog(false);
+			m_bSetupMapDialogCursorActive = false;
 		}
 
 		if (!m_bSetupSelectionSuppressedForModal)
@@ -957,6 +971,14 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void ReleaseSetupMapDialogState()
 	{
+		if (m_bSetupMapDialogCursorActive && m_MapEntity && m_MapEntity.IsOpen())
+		{
+			SCR_MapCursorModule cursorModule = SCR_MapCursorModule.Cast(m_MapEntity.GetMapModule(SCR_MapCursorModule));
+			if (cursorModule)
+				cursorModule.HandleDialog(false);
+		}
+
+		m_bSetupMapDialogCursorActive = false;
 		m_bSetupSelectionSuppressedForModal = false;
 	}
 

@@ -61,6 +61,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const ResourceName COMMAND_DATA_ROW_LAYOUT = "{A7B8C9D001234590}UI/layouts/HST/Rows/HST_CommandDataRow.layout";
 	static const ResourceName COMMAND_DATA_ROW_COMPACT_LAYOUT = "{A7B8C9D0012345A0}UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout";
 	static const ResourceName COMMAND_ACTION_ROW_LAYOUT = "{A7B8C9D0012345B0}UI/layouts/HST/Rows/HST_CommandActionRow.layout";
+	static const ResourceName COMMAND_PANEL_ACTION_ROW_LAYOUT = "{A7B8C9D0012365B0}UI/layouts/HST/Rows/HST_CommandPanelActionRow.layout";
 	static const ResourceName COMMAND_FEED_ROW_LAYOUT = "{A7B8C9D0012345C0}UI/layouts/HST/Rows/HST_CommandFeedRow.layout";
 	static const float POST_SETUP_INPUT_RECOVERY_SECONDS = 3.0;
 	static const float POST_SETUP_INPUT_REBIND_INTERVAL_SECONDS = 0.25;
@@ -234,7 +235,6 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_bWasSetupBlocking = true;
 			if (m_bMenuOpen)
 				CloseMenu("setup blocking");
-			Debug.ClearKey(KeyCode.KC_I);
 			m_bCommandMenuKeyDownLastFrame = false;
 			m_bRawIKeyDownLastFrame = false;
 			return;
@@ -591,7 +591,6 @@ class HST_CommandMenuComponent : ScriptComponent
 			DebugCommandMenuToggleRefused(source, "setup blocking");
 			if (m_bMenuOpen)
 				CloseMenu("setup blocking");
-			Debug.ClearKey(KeyCode.KC_I);
 			return false;
 		}
 
@@ -1673,9 +1672,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (m_aActionLabels.Count() == 0)
 		{
-			Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
-			DebugRowCreated("COMMAND_ACTION_ROW_LAYOUT", row);
-			HST_UIDebug.LogRowSample("command_menu_actions", COMMAND_ACTION_ROW_LAYOUT, 0, string.Format("emptyActions=true row=%1", HST_UIDebug.WidgetSummary(row)));
+			Widget row = workspace.CreateWidgets(COMMAND_PANEL_ACTION_ROW_LAYOUT, items);
+			DebugRowCreated("COMMAND_PANEL_ACTION_ROW_LAYOUT", row);
+			HST_UIDebug.LogRowSample("command_menu_actions", COMMAND_PANEL_ACTION_ROW_LAYOUT, 0, string.Format("emptyActions=true row=%1", HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -1683,7 +1682,7 @@ class HST_CommandMenuComponent : ScriptComponent
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
 			}
 
-			HST_UIDebug.LogRowSummary("command_menu_actions", COMMAND_ACTION_ROW_LAYOUT, 1, "fallback action row");
+			HST_UIDebug.LogRowSummary("command_menu_actions", COMMAND_PANEL_ACTION_ROW_LAYOUT, 1, "fallback action row");
 			RestoreScrollPixels(m_ActionScroll, m_fActionScrollY);
 			return;
 		}
@@ -1691,7 +1690,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		for (int i = 0; i < m_aActionLabels.Count(); i++)
 			AddCommandActionRow(workspace, items, i);
 
-		HST_UIDebug.LogRowSummary("command_menu_actions", COMMAND_ACTION_ROW_LAYOUT, m_aActionLabels.Count(), string.Format("selectedTab=%1 focusedControl=%2", m_sSelectedTab, m_iSelectedControl));
+		HST_UIDebug.LogRowSummary("command_menu_actions", COMMAND_PANEL_ACTION_ROW_LAYOUT, m_aActionLabels.Count(), string.Format("selectedTab=%1 focusedControl=%2", m_sSelectedTab, m_iSelectedControl));
 		RestoreScrollPixels(m_ActionScroll, m_fActionScrollY);
 		EnsureSelectedActionVisible();
 	}
@@ -1704,15 +1703,15 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (actionIndex < 0 || actionIndex >= m_aActionLabels.Count())
 			return;
 
-		Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
-		DebugRowCreated("COMMAND_ACTION_ROW_LAYOUT", row);
+		Widget row = workspace.CreateWidgets(COMMAND_PANEL_ACTION_ROW_LAYOUT, items);
+		DebugRowCreated("COMMAND_PANEL_ACTION_ROW_LAYOUT", row);
 		string debugCommandId = "";
 		if (actionIndex < m_aActionCommands.Count())
 			debugCommandId = m_aActionCommands[actionIndex];
 		string debugArgument = "";
 		if (actionIndex < m_aActionArguments.Count())
 			debugArgument = m_aActionArguments[actionIndex];
-		HST_UIDebug.LogRowSample("command_menu_actions", COMMAND_ACTION_ROW_LAYOUT, actionIndex, string.Format("label=%1 command=%2 argument=%3 enabled=%4 row=%5", ShortenText(m_aActionLabels[actionIndex], 64), debugCommandId, ShortenText(debugArgument, 96), (actionIndex >= m_aActionEnabled.Count() || m_aActionEnabled[actionIndex]), HST_UIDebug.WidgetSummary(row)));
+		HST_UIDebug.LogRowSample("command_menu_actions", COMMAND_PANEL_ACTION_ROW_LAYOUT, actionIndex, string.Format("label=%1 command=%2 argument=%3 enabled=%4 row=%5", ShortenText(m_aActionLabels[actionIndex], 64), debugCommandId, ShortenText(debugArgument, 96), (actionIndex >= m_aActionEnabled.Count() || m_aActionEnabled[actionIndex]), HST_UIDebug.WidgetSummary(row)));
 		if (!row)
 			return;
 
@@ -1992,15 +1991,14 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected string BuildResultText()
 	{
-		string inputStatus = "";
 		if (!m_bCustomBindingReady)
-			inputStatus = "Input: I key binding pending\n";
+			return "I key binding pending";
 
 		string lastAction = m_sLastActionName;
 		if (lastAction.IsEmpty())
 			lastAction = "-";
 
-		return inputStatus + "Last action: " + lastAction;
+		return lastAction;
 	}
 
 	protected string ShortenText(string text, int maxCharacters)

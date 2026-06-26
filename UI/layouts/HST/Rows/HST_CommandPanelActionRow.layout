@@ -1,49 +1,49 @@
-ButtonWidgetClass "{A7B8C9D001234580}" {
- Name "HST_CommandSectionRow"
- Slot AlignableSlot "{A7B8C9D001234581}" {
+ButtonWidgetClass "{A7B8C9D0012365B0}" {
+ Name "HST_CommandPanelActionRow"
+ Slot AlignableSlot "{A7B8C9D0012365B1}" {
   HorizontalAlign 3
   VerticalAlign 0
-  Padding 0 0 0 4
+  Padding 0 0 0 8
  }
  Color 1 1 1 0
  "Is Visible" 1
  {
-  SizeLayoutWidgetClass "{A7B8C9D001235800}" {
+  SizeLayoutWidgetClass "{A7B8C9D0012365B2}" {
    Name "SizeLayout"
-   Slot ButtonWidgetSlot "{A7B8C9D001235801}" {
+   Slot ButtonWidgetSlot "{A7B8C9D0012365B3}" {
    }
    AllowWidthOverride 1
-   WidthOverride 940
+   WidthOverride 420
    AllowHeightOverride 1
-   HeightOverride 32
+   HeightOverride 56
    AllowMinDesiredWidth 1
-   MinDesiredWidth 940
+   MinDesiredWidth 420
    AllowMinDesiredHeight 1
-   MinDesiredHeight 32
+   MinDesiredHeight 56
    AllowMaxDesiredWidth 1
-   MaxDesiredWidth 940
+   MaxDesiredWidth 420
    AllowMaxDesiredHeight 1
-   MaxDesiredHeight 32
+   MaxDesiredHeight 56
    {
-    OverlayWidgetClass "{A7B8C9D001235802}" {
+    OverlayWidgetClass "{A7B8C9D0012365B4}" {
      Name "Overlay"
-     Slot AlignableSlot "{A7B8C9D001235803}" {
+     Slot AlignableSlot "{A7B8C9D0012365B5}" {
       HorizontalAlign 3
       VerticalAlign 3
      }
      "Ignore Cursor" 1
      {
-      FrameWidgetClass "{A7B8C9D001235804}" {
+      FrameWidgetClass "{A7B8C9D0012365B6}" {
        Name "Body"
-       Slot OverlayWidgetSlot "{A7B8C9D001235805}" {
+       Slot OverlayWidgetSlot "{A7B8C9D0012365B7}" {
         HorizontalAlign 3
         VerticalAlign 3
        }
        "Ignore Cursor" 1
        {
-        PanelWidgetClass "{A7B8C9D001234582}" {
+        PanelWidgetClass "{A7B8C9D0012365B8}" {
          Name "Background"
-         Slot FrameWidgetSlot "{A7B8C9D001234583}" {
+         Slot FrameWidgetSlot "{A7B8C9D0012365B9}" {
           Anchor 0 0 1 1
           OffsetLeft 0
           OffsetTop 0
@@ -55,14 +55,14 @@ ButtonWidgetClass "{A7B8C9D001234580}" {
          "Is Visible" 1
          "Ignore Cursor" 1
         }
-        TextWidgetClass "{A7B8C9D001234584}" {
-         Name "Title"
-         Slot FrameWidgetSlot "{A7B8C9D001234585}" {
-         Anchor 0 0 1 1
-         OffsetLeft 10
-         OffsetTop 4
-          OffsetRight 10
-          OffsetBottom 4
+        TextWidgetClass "{A7B8C9D0012365BA}" {
+         Name "Label"
+         Slot FrameWidgetSlot "{A7B8C9D0012365BB}" {
+          Anchor 0 0 1 1
+          OffsetLeft 12
+          OffsetTop 7
+          OffsetRight 12
+          OffsetBottom 7
          }
          "Is Visible" 1
          "Ignore Cursor" 1

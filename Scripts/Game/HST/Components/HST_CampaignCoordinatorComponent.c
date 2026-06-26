@@ -81,6 +81,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_Settings)
 		{
 			m_Settings.ApplyTo(m_Preset, m_Balance);
+			if (m_Settings.m_Debug)
+				HST_UIDebug.SetRuntimeDebugEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
+
 			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 			if (gameMode && m_Settings.m_Features)
 				gameMode.SetHistasiGameMasterBudgetsEnabled(m_Settings.m_Features.m_bGameMasterBudgetsEnabled, "campaign coordinator settings");

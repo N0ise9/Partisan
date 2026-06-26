@@ -1,0 +1,17 @@
+MetaFileClass {
+ Name "{A7B8C9D0012365B0}UI/layouts/HST/Rows/HST_CommandPanelActionRow.layout"
+ Configurations {
+  LayoutResourceClass PC {
+  }
+  LayoutResourceClass XBOX_ONE : PC {
+  }
+  LayoutResourceClass XBOX_SERIES : PC {
+  }
+  LayoutResourceClass PS4 : PC {
+  }
+  LayoutResourceClass PS5 : PC {
+  }
+  LayoutResourceClass HEADLESS : PC {
+  }
+ }
+}

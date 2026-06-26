@@ -26,6 +26,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Use `HST_UIDebug.LogNamedChildSummaryCsv` during delayed ready passes for dynamic list hosts such as command tabs/main/actions and loadout slot/candidate/storage lists.
   - This logs the parent bounds plus the first few child widget bounds after Enfusion has settled anchors.
 
+- Layout diagnostics must be runtime-gated.
+  - Compile-time `static const` feature flags are useful as a hard kill switch, but every high-volume helper should also check the debug setting loaded from runtime settings.
+  - Cache the loaded runtime setting in the debug helper so row/widget probes do not parse settings on every row.
+
 - `root.FindAnyWidget(root.GetName())` may not find the root itself.
   - If debug code checks expected widgets and includes the root name, explicitly compare `root.GetName()` before reporting the root missing.
 
@@ -148,9 +152,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - A modal over a native map needs cursor handling split between the UI root and the map selection mode.
   - Do not activate `DialogContext` / `InteractableDialogContext` over the map just to make buttons clickable; those contexts can create an extra OS-style pointer over the map cursor.
-  - Disable the current map selection mode directly, for example `ToggleLocationSelection(false)`, and let a full-screen modal root swallow clicks while real button widgets handle confirmation.
-  - Avoid `SCR_MapCursorModule.HandleDialog(true)` in setup-map confirmation code unless the cursor lifecycle is proven not to duplicate with the active map cursor.
-  - The native custom map cursor lives in its own workspace cursor layout with a low z-order. Keep setup-map modal chrome above the map root but below that cursor band if the map cursor must remain visible over confirmation buttons.
+  - Disable the current map selection mode directly, for example `ToggleLocationSelection(false)`, while the modal is waiting for an answer.
+  - Use `SCR_MapCursorModule.HandleDialog(true)` / `HandleDialog(false)` for map-owned dialog state so the native map cursor is allowed to travel above the modal and selection/drag cursor modes are suppressed.
+  - The native custom map cursor lives in its own workspace cursor layout with a low z-order. Keep setup-map modal chrome above the map root but below that cursor band when the map cursor must remain visible over confirmation buttons.
   - Do not force `WidgetManager.SetCursor(0)` over an active map cursor; the native map cursor already hides the real cursor and forcing it back creates a second pointer.
   - Avoid modal-owned cursor proxy widgets over native map dialogs. They are easy to layer above the dialog, but they create a third visible cursor and drift from the engine cursor lifecycle.
   - Current example: `HST_SetupMapComponent`.
@@ -170,6 +174,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Reused layout roots need container cleanup, not just tracked-widget cleanup.
   - If generated rows are created into layout-owned containers and the root is reused, remove all children from the dynamic containers before repopulating.
   - Clearing only an array of widgets misses rows that were not inserted into that array and causes tabs/lists to accumulate stale entries.
+  - Hidden layout regions may not be reliably found by a global cleanup pass, depending on visibility and resolution timing.
+  - Clear the active dynamic container again after the region has been resolved and shown, then populate it.
 
 - `ItemPreviewWidget` does not reliably render every inventory prefab.
   - Keep a category/fallback icon available when prefab or entity preview setup fails.
@@ -189,6 +195,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - `ItemPreviewWidget` setup is not proof that a prefab will render useful pixels.
   - Put a category/fallback image behind the native preview widget and keep it visible at low opacity after calling `SetPreviewItemFromPrefab` or `SetPreviewItem`.
   - This preserves a visible row affordance for unsupported prefabs without adding script geometry or hiding native previews that do render.
+  - For equipment categories that commonly fail as standalone item previews, skip the native preview and show the category fallback directly; reserve native preview cells for weapons, ammo, throwable/explosive items, and medical items that tend to render usefully.
 
 - Keep code comments sparse and practical.
   - Comments should capture non-obvious engine constraints, not restate simple assignments.

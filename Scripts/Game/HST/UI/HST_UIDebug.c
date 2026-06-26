@@ -6,10 +6,54 @@ class HST_UIDebug
 	static const bool LAYOUT_POPULATION_DEBUG_ENABLED = true;
 	static const bool LAYOUT_ROW_SAMPLE_DEBUG_ENABLED = true;
 	static const int LAYOUT_ROW_SAMPLE_LIMIT = 8;
+	protected static bool s_bRuntimeDebugLoaded;
+	protected static bool s_bRuntimeDebugEnabled;
+
+	static void SetRuntimeDebugEnabled(bool enabled)
+	{
+		s_bRuntimeDebugLoaded = true;
+		s_bRuntimeDebugEnabled = enabled;
+	}
+
+	protected static bool IsRuntimeDebugEnabled()
+	{
+		if (!s_bRuntimeDebugLoaded)
+		{
+			s_bRuntimeDebugEnabled = HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet();
+			s_bRuntimeDebugLoaded = true;
+		}
+
+		return s_bRuntimeDebugEnabled;
+	}
+
+	protected static bool CanLogLayout()
+	{
+		return LAYOUT_DEBUG_ENABLED && IsRuntimeDebugEnabled();
+	}
+
+	protected static bool CanLogWidget()
+	{
+		return LAYOUT_WIDGET_DEBUG_ENABLED && IsRuntimeDebugEnabled();
+	}
+
+	protected static bool CanLogGeometry()
+	{
+		return LAYOUT_GEOMETRY_DEBUG_ENABLED && IsRuntimeDebugEnabled();
+	}
+
+	protected static bool CanLogPopulation()
+	{
+		return LAYOUT_POPULATION_DEBUG_ENABLED && IsRuntimeDebugEnabled();
+	}
+
+	protected static bool CanLogRowSample()
+	{
+		return LAYOUT_ROW_SAMPLE_DEBUG_ENABLED && IsRuntimeDebugEnabled();
+	}
 
 	static void LogLayoutCreate(string owner, ResourceName layout, Widget root, Widget parent = null)
 	{
-		if (!LAYOUT_DEBUG_ENABLED)
+		if (!CanLogLayout())
 			return;
 
 		if (!root)
@@ -23,7 +67,7 @@ class HST_UIDebug
 
 	static void LogLayoutRejected(string owner, ResourceName layout, Widget root, string reason)
 	{
-		if (!LAYOUT_DEBUG_ENABLED)
+		if (!CanLogLayout())
 			return;
 
 		Print(string.Format("h-istasi ui layout debug | %1 | rejected | layout=%2 root=%3 reason=%4", owner, layout, WidgetSummary(root), reason), LogLevel.WARNING);
@@ -31,7 +75,7 @@ class HST_UIDebug
 
 	static void LogExpectedWidgets(string owner, Widget root, array<string> widgetNames)
 	{
-		if (!LAYOUT_WIDGET_DEBUG_ENABLED)
+		if (!CanLogWidget())
 			return;
 		if (!widgetNames)
 			return;
@@ -75,7 +119,7 @@ class HST_UIDebug
 
 	static void LogExpectedWidgetsCsv(string owner, Widget root, string widgetNames)
 	{
-		if (!LAYOUT_WIDGET_DEBUG_ENABLED)
+		if (!CanLogWidget())
 			return;
 		if (widgetNames.IsEmpty())
 			return;
@@ -87,7 +131,7 @@ class HST_UIDebug
 
 	static void LogWidgetBound(string owner, Widget root, string widgetName, int userId)
 	{
-		if (!LAYOUT_WIDGET_DEBUG_ENABLED)
+		if (!CanLogWidget())
 			return;
 		if (!root || widgetName.IsEmpty())
 			return;
@@ -104,7 +148,7 @@ class HST_UIDebug
 
 	static void LogWidgetGeometryCsv(string owner, Widget root, string widgetNames)
 	{
-		if (!LAYOUT_GEOMETRY_DEBUG_ENABLED)
+		if (!CanLogGeometry())
 			return;
 		if (!root || widgetNames.IsEmpty())
 			return;
@@ -128,7 +172,7 @@ class HST_UIDebug
 
 	static void LogReadyWidgetsCsv(string owner, Widget root, string widgetNames)
 	{
-		if (!LAYOUT_GEOMETRY_DEBUG_ENABLED)
+		if (!CanLogGeometry())
 			return;
 		if (widgetNames.IsEmpty())
 			return;
@@ -140,7 +184,7 @@ class HST_UIDebug
 
 	static void LogReadyWidgets(string owner, Widget root, array<string> widgetNames)
 	{
-		if (!LAYOUT_GEOMETRY_DEBUG_ENABLED)
+		if (!CanLogGeometry())
 			return;
 		if (!widgetNames)
 			return;
@@ -207,7 +251,7 @@ class HST_UIDebug
 
 	static void LogWidgetGeometry(string owner, string widgetName, Widget widget)
 	{
-		if (!LAYOUT_GEOMETRY_DEBUG_ENABLED)
+		if (!CanLogGeometry())
 			return;
 		if (!widget)
 			return;
@@ -217,7 +261,7 @@ class HST_UIDebug
 
 	static void LogPopulation(string owner, string summary)
 	{
-		if (!LAYOUT_POPULATION_DEBUG_ENABLED)
+		if (!CanLogPopulation())
 			return;
 
 		Print(string.Format("h-istasi ui layout debug | %1 | populate | %2", owner, summary));
@@ -225,7 +269,7 @@ class HST_UIDebug
 
 	static void LogRowSample(string owner, ResourceName layout, int index, string summary)
 	{
-		if (!LAYOUT_ROW_SAMPLE_DEBUG_ENABLED)
+		if (!CanLogRowSample())
 			return;
 		if (index >= LAYOUT_ROW_SAMPLE_LIMIT)
 			return;
@@ -235,7 +279,7 @@ class HST_UIDebug
 
 	static void LogRowSummary(string owner, ResourceName layout, int count, string summary)
 	{
-		if (!LAYOUT_POPULATION_DEBUG_ENABLED)
+		if (!CanLogPopulation())
 			return;
 
 		Print(string.Format("h-istasi ui layout debug | %1 | row summary | layout=%2 count=%3 | %4", owner, layout, count, summary));
@@ -243,7 +287,7 @@ class HST_UIDebug
 
 	static void LogNamedChildSummaryCsv(string owner, Widget root, string parentNames, int limit = 4)
 	{
-		if (!LAYOUT_ROW_SAMPLE_DEBUG_ENABLED)
+		if (!CanLogRowSample())
 			return;
 		if (!root || parentNames.IsEmpty())
 			return;
@@ -265,7 +309,7 @@ class HST_UIDebug
 
 	static void LogChildSummary(string owner, Widget parent, string parentName, int limit = 4)
 	{
-		if (!LAYOUT_ROW_SAMPLE_DEBUG_ENABLED)
+		if (!CanLogRowSample())
 			return;
 
 		if (!parent)

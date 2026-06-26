@@ -861,7 +861,6 @@ foreach ($forbiddenSetupChromeEntry in @(
 	"UpdateConfirmModalCursorProxy",
 	"FrameSlot.SetPos(m_wConfirmCursorProxy",
 	"WidgetManager.SetCursor(0)",
-	"cursorModule.HandleDialog(",
 	"SETUP_CURSOR_CONTEXT",
 	"SETUP_INTERACTABLE_DIALOG_CONTEXT",
 	'"DialogContext"',
@@ -891,8 +890,11 @@ foreach ($requiredSetupMapLayerEntry in @(
 	"SetWidgetLayer(m_wPromptRule",
 	"m_wPromptText.SetZOrder",
 	"ApplySetupMapDialogState",
+	"m_bSetupMapDialogCursorActive",
 	"m_bSetupSelectionSuppressedForModal",
 	"cursorModule.ToggleLocationSelection(false)",
+	"cursorModule.HandleDialog(true)",
+	"cursorModule.HandleDialog(false)",
 	"ReleaseSetupMapDialogState",
 	"inputManager.ActivateContext(SETUP_MAP_CONTEXT)"
 )) {
@@ -1033,6 +1035,14 @@ foreach ($requiredUIDebugEntry in @(
 	"LAYOUT_POPULATION_DEBUG_ENABLED",
 	"LAYOUT_ROW_SAMPLE_DEBUG_ENABLED",
 	"LAYOUT_ROW_SAMPLE_LIMIT",
+	"SetRuntimeDebugEnabled",
+	"IsRuntimeDebugEnabled",
+	"HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet",
+	"CanLogLayout",
+	"CanLogWidget",
+	"CanLogGeometry",
+	"CanLogPopulation",
+	"CanLogRowSample",
 	"LogLayoutCreate",
 	"LogLayoutRejected",
 	"LogExpectedWidgetsCsv",
@@ -2637,6 +2647,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'COMMAND_DATA_ROW_LAYOUT',
 	'COMMAND_DATA_ROW_COMPACT_LAYOUT',
 	'COMMAND_ACTION_ROW_LAYOUT',
+	'COMMAND_PANEL_ACTION_ROW_LAYOUT',
 	'COMMAND_FEED_ROW_LAYOUT',
 	'COMMAND_ACTION_ROW_STRIDE',
 	'FindRowText',
@@ -3006,7 +3017,7 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"MainItems",
 	"ActivityPanel",
 	"OffsetRight 20",
-	"OffsetBottom 520",
+	"OffsetBottom 610",
 	'Name "ActivityTitle"',
 	"OffsetBottom -48",
 	'Name "ActivityResult"',
@@ -3016,7 +3027,7 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"ActivityScroll",
 	"OffsetRight 20",
 	"ActionsPanel",
-	"OffsetTop -500",
+	"OffsetTop -580",
 	"OffsetBottom 20",
 	"ActionsScroll",
 	"OffsetBottom 16",
@@ -3064,12 +3075,12 @@ $commandMenuResolvedGeometryContracts = @(
 	},
 	@{
 		Widget = "ActivityPanel"
-		Required = @("Anchor 1 0 1 1", "OffsetLeft -500", "OffsetRight 20", "OffsetBottom 520")
-		Forbidden = @("OffsetRight -20", "OffsetBottom -520")
+		Required = @("Anchor 1 0 1 1", "OffsetLeft -500", "OffsetRight 20", "OffsetBottom 610")
+		Forbidden = @("OffsetRight -20", "OffsetBottom -610")
 	},
 	@{
 		Widget = "ActionsPanel"
-		Required = @("Anchor 1 1 1 1", "OffsetLeft -500", "OffsetTop -500", "OffsetRight 20", "OffsetBottom 20")
+		Required = @("Anchor 1 1 1 1", "OffsetLeft -500", "OffsetTop -580", "OffsetRight 20", "OffsetBottom 20")
 		Forbidden = @("OffsetRight -20", "OffsetBottom -20")
 	}
 )
@@ -3154,6 +3165,7 @@ $rowLayoutContracts = @(
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRow.layout"; Guid = "{A7B8C9D001234590}"; Required = @('Name "HST_CommandDataRow"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout"; Guid = "{A7B8C9D0012345A0}"; Required = @('Name "HST_CommandDataRowCompact"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandActionRow.layout"; Guid = "{A7B8C9D0012345B0}"; Required = @('FrameWidgetClass', 'Name "HST_CommandActionRow"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_CommandPanelActionRow.layout"; Guid = "{A7B8C9D0012365B0}"; Required = @('FrameWidgetClass', 'Name "HST_CommandPanelActionRow"', 'Slot AlignableSlot', 'WidthOverride 420', 'HeightOverride 56', 'Name "Background"', 'Name "Label"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandFeedRow.layout"; Guid = "{A7B8C9D0012345C0}"; Required = @('Name "HST_CommandFeedRow"', 'Slot AlignableSlot', 'Name "Text"') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; Guid = "{A7B8C9D0012345D0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutNodeRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "PreviewFallback"', 'Name "Primary"', 'Name "Secondary"', 'Name "OpenMarker"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; Guid = "{A7B8C9D0012345E0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "VolumeBack"', 'ProgressBarWidgetClass', 'Name "VolumeFill"', 'style SimpleWithBackground', 'Maximum 1', 'Current 0', '"Ignore Cursor" 1') },

@@ -13,15 +13,15 @@ ButtonWidgetClass "{A7B8C9D0012345C0}" {
    Slot ButtonWidgetSlot "{A7B8C9D001235C01}" {
    }
    AllowWidthOverride 1
-   WidthOverride 520
+   WidthOverride 420
    AllowHeightOverride 1
    HeightOverride 30
    AllowMinDesiredWidth 1
-   MinDesiredWidth 520
+   MinDesiredWidth 420
    AllowMinDesiredHeight 1
    MinDesiredHeight 30
    AllowMaxDesiredWidth 1
-   MaxDesiredWidth 520
+   MaxDesiredWidth 420
    AllowMaxDesiredHeight 1
    MaxDesiredHeight 30
    {
