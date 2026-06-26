@@ -139,15 +139,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Some interactions may arrive through both `OnClick` and `OnMouseButtonUp`.
   - Use duplicate-activation guards where a widget action can be triggered by both callbacks in the same frame.
   - Pass the mouse button through both event paths and key the guard by widget id, button, and frame serial so right-click/left-click actions remain distinct.
-  - Current examples: `HST_LoadoutEditorComponent` and `HST_CommandMenuComponent`.
+  - Current examples: `HST_SetupMapComponent`, `HST_CommandMenuComponent`, `HST_LoadoutEditorComponent`, and `HST_MissionClientComponent`.
 
 - Modal state belongs in one coordinator.
   - `HST_UIRootService` tracks current screen, modal screen, blocking behavior, and topmost owner.
   - Repeated identical `RequestOpen` calls should be idempotent; otherwise refresh loops create noisy revision churn.
   - Use distinct screen modes for distinct modal families. Action confirmations register as `ACTION_DIALOG`; mission report/details dialogs register as `MISSION_DIALOG`.
 
-- A modal over a native map may need a dialog input context every frame.
-  - Use the map cursor module's dialog state, for example `HandleDialog(true)`, to keep native map selection restricted while a confirmation is visible.
+- A modal over a native map should not automatically use normal dialog cursor handling.
+  - If the native map cursor should remain the only visible cursor, do not activate `DialogContext` / `InteractableDialogContext` over the map and do not call `SCR_MapCursorModule.HandleDialog(true)`.
+  - Disable the current map selection mode directly, for example `ToggleLocationSelection(false)`, and let a full-screen modal root swallow clicks while real button widgets handle confirmation.
   - Do not force `WidgetManager.SetCursor(0)` over an active map cursor; the native map cursor already hides the real cursor and forcing it back creates a second pointer.
   - Avoid modal-owned cursor proxy widgets over native map dialogs. They are easy to layer above the dialog, but they create a third visible cursor and drift from the engine cursor lifecycle.
   - Current example: `HST_SetupMapComponent`.

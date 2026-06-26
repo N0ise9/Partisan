@@ -78,13 +78,13 @@ FrameWidgetClass "{B55C6FB34BF94001}" {
      Slot FrameWidgetSlot "{B55C6FB34BF94008}" {
       Anchor 0 0 1 0
       PositionX 0
-      OffsetLeft 0
-      PositionY 34
-      OffsetTop 34
-      SizeX 0
-      OffsetRight 0
-      SizeY 98
-      OffsetBottom -132
+      OffsetLeft 42
+      PositionY 52
+      OffsetTop 52
+      SizeX -84
+      OffsetRight -42
+      SizeY 86
+      OffsetBottom -138
      }
      "Is Visible" 1
      "Ignore Cursor" 1

@@ -783,14 +783,19 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 	"SizeY 50",
 	"OffsetRight -298",
 	"OffsetRight -482",
-	"OffsetBottom -256"
+	"OffsetBottom -256",
+	"OffsetLeft 42",
+	"SizeX -84",
+	"OffsetRight -42",
+	"SizeY 86",
+	"OffsetBottom -138"
 )) {
 	if ($setupConfirmModalLayoutText -notmatch [regex]::Escape($requiredConfirmModalLayoutEntry)) {
 		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
 	}
 }
-if ($setupConfirmModalLayoutText -notmatch '(?s)Name "Message".*?OffsetLeft 0.*?SizeX 0.*?OffsetRight 0.*?"Horizontal Alignment" Center.*?"Vertical Alignment" Center') {
-	throw "Setup confirmation modal message must be centered against the full dialog width."
+if ($setupConfirmModalLayoutText -notmatch '(?s)Name "Message".*?OffsetLeft 42.*?SizeX -84.*?OffsetRight -42.*?"Horizontal Alignment" Center.*?"Vertical Alignment" Center') {
+	throw "Setup confirmation modal message must use symmetric centered bounds inside the dialog."
 }
 foreach ($forbiddenConfirmModalLayoutEntry in @(
 	'PanelWidgetClass "{B55C6FB34BF94001}"',
@@ -829,6 +834,10 @@ foreach ($requiredSetupChromeEntry in @(
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER)",
 	"m_wConfirmBlockerRoot = modal",
 	"OnSetupOverlayMouseWheel",
+	"m_iFrameSerial",
+	"m_Component.OnSetupOverlayClicked(w, w.GetUserID(), x, y, button)",
+	"OnSetupOverlayClicked(Widget widget, int widgetId, int x = -1, int y = -1, int button = 0)",
+	"IsDuplicateWidgetActivation(resolvedWidgetId, button)",
 	"BindConfirmModalButton(modal, `"NoButton`", CONFIRM_NO_WIDGET_ID)",
 	"BindConfirmModalButton(modal, `"YesButton`", CONFIRM_YES_WIDGET_ID)"
 )) {
@@ -851,11 +860,19 @@ foreach ($forbiddenSetupChromeEntry in @(
 	"ModalCursorProxy",
 	"UpdateConfirmModalCursorProxy",
 	"FrameSlot.SetPos(m_wConfirmCursorProxy",
-	"WidgetManager.SetCursor(0)"
+	"WidgetManager.SetCursor(0)",
+	"cursorModule.HandleDialog(",
+	"SETUP_CURSOR_CONTEXT",
+	"SETUP_INTERACTABLE_DIALOG_CONTEXT",
+	'"DialogContext"',
+	'"InteractableDialogContext"'
 )) {
 	if ($setupMapComponentText -match [regex]::Escape($forbiddenSetupChromeEntry)) {
 		throw "Setup chrome must not be hidden under the native map root or redraw on every map pan/zoom tick: $forbiddenSetupChromeEntry"
 	}
+}
+if ($setupMapComponentText -match [regex]::Escape("OnSetupOverlayClicked(w, w.GetUserID(), x, y);")) {
+	throw "Setup modal widget handler must pass button state through the duplicate-activation guard"
 }
 foreach ($requiredSetupMapLayerEntry in @(
 	"HST_UIConstants.Z_SETUP_MAP",
@@ -867,13 +884,10 @@ foreach ($requiredSetupMapLayerEntry in @(
 	"SetWidgetLayer(m_wPromptRule",
 	"m_wPromptText.SetZOrder",
 	"ApplySetupMapDialogState",
+	"m_bSetupSelectionSuppressedForModal",
 	"cursorModule.ToggleLocationSelection(false)",
-	"cursorModule.HandleDialog(true)",
-	"cursorModule.HandleDialog(false)",
 	"ReleaseSetupMapDialogState",
-	'SETUP_CURSOR_CONTEXT = "DialogContext"',
-	'SETUP_INTERACTABLE_DIALOG_CONTEXT = "InteractableDialogContext"',
-	"inputManager.ActivateContext(SETUP_INTERACTABLE_DIALOG_CONTEXT)"
+	"inputManager.ActivateContext(SETUP_MAP_CONTEXT)"
 )) {
 	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupMapLayerEntry)) {
 		throw "Setup map UI must explicitly layer prompt/modal widgets and block native map input during confirmation: $requiredSetupMapLayerEntry"
@@ -2176,6 +2190,10 @@ foreach ($requiredMissionDialogComponentEntry in @(
 	'data.m_sOwner = "HST_MissionClientComponent"',
 	'data.m_sDebugOwner = "mission_report_dialog"',
 	"data.m_iCloseWidgetId = DETAIL_CLOSE_WIDGET_ID",
+	"m_iFrameSerial",
+	"m_Client.OnWidgetClicked(w.GetUserID(), button)",
+	"OnWidgetClicked(int widgetId, int button = 0)",
+	"IsDuplicateWidgetActivation(widgetId, button)",
 	"data.m_sReportId = m_sSelectedMissionId",
 	"data.m_aObjectiveLabels.Insert",
 	"data.m_aObjectiveValues.Insert",
@@ -2189,6 +2207,9 @@ foreach ($requiredMissionDialogComponentEntry in @(
 	if ($missionClientText -notmatch [regex]::Escape($requiredMissionDialogComponentEntry)) {
 		throw "Mission client must delegate report dialog layout population to HST_ReportDialogController: $requiredMissionDialogComponentEntry"
 	}
+}
+if ($missionClientText -match [regex]::Escape("m_Client.OnWidgetClicked(w.GetUserID());")) {
+	throw "Mission report widget handler must pass button state through the duplicate-activation guard"
 }
 foreach ($requiredMissionDialogControllerEntry in @(
 	'REPORT_DIALOG_LAYOUT = "{D66CFA01E5AA4100}UI/layouts/HST_ReportDialog.layout"',

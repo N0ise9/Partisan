@@ -12,7 +12,7 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 		if (!m_Component || !w)
 			return true;
 
-		return m_Component.OnSetupOverlayClicked(w, w.GetUserID(), x, y);
+		return m_Component.OnSetupOverlayClicked(w, w.GetUserID(), x, y, button);
 	}
 
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
@@ -20,7 +20,7 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 		if (!m_Component || !w)
 			return true;
 
-		return m_Component.OnSetupOverlayClicked(w, w.GetUserID(), x, y);
+		return m_Component.OnSetupOverlayClicked(w, w.GetUserID(), x, y, button);
 	}
 
 	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
@@ -63,8 +63,6 @@ class HST_SetupMapComponent : ScriptComponent
 	static const ResourceName SETUP_NATIVE_MAP_CONFIG = "{6985327711306210}Configs/Map/HST_SetupHQMap.conf";
 	static const string SETUP_INPUT_CONTEXT = "InGameMenuContext";
 	static const string SETUP_MAP_CONTEXT = "MapContext";
-	static const string SETUP_CURSOR_CONTEXT = "DialogContext";
-	static const string SETUP_INTERACTABLE_DIALOG_CONTEXT = "InteractableDialogContext";
 
 	protected static HST_SetupMapComponent s_LocalInstance;
 
@@ -89,7 +87,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bNativeMapViewportReady;
 	protected bool m_bSetupFinalized;
 	protected bool m_bSetupLocationSelectionEnabled;
-	protected bool m_bMapCursorDialogActive;
+	protected bool m_bSetupSelectionSuppressedForModal;
 	protected string m_sPhase = "setup";
 	protected string m_sStatusText = "Waiting for setup state...";
 	protected string m_sLastResult;
@@ -132,6 +130,10 @@ class HST_SetupMapComponent : ScriptComponent
 	protected int m_iSetupResultCount;
 	protected int m_iSetupMapReadyRetries;
 	protected int m_iMapReadyFrames;
+	protected int m_iFrameSerial;
+	protected int m_iLastActivatedWidgetId;
+	protected int m_iLastActivatedButton;
+	protected int m_iLastActivatedFrame = -1;
 	protected bool m_bLoggedLocalReady;
 	protected bool m_bLoggedBridgeMissing;
 	protected bool m_bLoggedBridgeRecovered;
@@ -177,6 +179,8 @@ class HST_SetupMapComponent : ScriptComponent
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
+		m_iFrameSerial++;
+
 		if (!m_bIsLocalOwner)
 		{
 			m_fOwnerRetryAccumulator += timeSlice;
@@ -387,7 +391,7 @@ class HST_SetupMapComponent : ScriptComponent
 		return true;
 	}
 
-	bool OnSetupOverlayClicked(Widget widget, int widgetId, int x = -1, int y = -1)
+	bool OnSetupOverlayClicked(Widget widget, int widgetId, int x = -1, int y = -1, int button = 0)
 	{
 		if (!m_bSetupActive)
 			return true;
@@ -395,6 +399,9 @@ class HST_SetupMapComponent : ScriptComponent
 		int resolvedWidgetId = widgetId;
 		if (IsConfirmModalInput(widget, resolvedWidgetId, x, y))
 			SuppressNativeMapSelection();
+
+		if (IsDuplicateWidgetActivation(resolvedWidgetId, button))
+			return true;
 
 		if (resolvedWidgetId == CONFIRM_NO_WIDGET_ID)
 		{
@@ -410,6 +417,20 @@ class HST_SetupMapComponent : ScriptComponent
 		}
 
 		return true;
+	}
+
+	protected bool IsDuplicateWidgetActivation(int widgetId, int button)
+	{
+		if (widgetId == 0)
+			return false;
+
+		if (m_iLastActivatedFrame == m_iFrameSerial && m_iLastActivatedWidgetId == widgetId && m_iLastActivatedButton == button)
+			return true;
+
+		m_iLastActivatedWidgetId = widgetId;
+		m_iLastActivatedButton = button;
+		m_iLastActivatedFrame = m_iFrameSerial;
+		return false;
 	}
 
 	bool OnSetupOverlayMouseWheel(Widget widget, int widgetId, int x, int y, int wheel)
@@ -914,7 +935,7 @@ class HST_SetupMapComponent : ScriptComponent
 		bool shouldBlockMap = m_bSetupActive && m_bConfirmOpen;
 		if (!m_MapEntity || !m_MapEntity.IsOpen())
 		{
-			m_bMapCursorDialogActive = false;
+			m_bSetupSelectionSuppressedForModal = false;
 			return;
 		}
 
@@ -923,34 +944,21 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 		if (shouldBlockMap)
 		{
-			if (m_bSetupLocationSelectionEnabled)
-				cursorModule.ToggleLocationSelection(false);
+			cursorModule.ToggleLocationSelection(false);
 			m_bSetupLocationSelectionEnabled = false;
-			cursorModule.HandleDialog(true);
-			m_bMapCursorDialogActive = true;
+			m_bSetupSelectionSuppressedForModal = true;
 			return;
 		}
 
-		if (!m_bMapCursorDialogActive)
+		if (!m_bSetupSelectionSuppressedForModal)
 			return;
 
-		cursorModule.HandleDialog(false);
-		m_bMapCursorDialogActive = false;
+		m_bSetupSelectionSuppressedForModal = false;
 	}
 
 	protected void ReleaseSetupMapDialogState()
 	{
-		if (!m_bMapCursorDialogActive)
-			return;
-
-		if (m_MapEntity && m_MapEntity.IsOpen())
-		{
-			SCR_MapCursorModule cursorModule = SCR_MapCursorModule.Cast(m_MapEntity.GetMapModule(SCR_MapCursorModule));
-			if (cursorModule)
-				cursorModule.HandleDialog(false);
-		}
-
-		m_bMapCursorDialogActive = false;
+		m_bSetupSelectionSuppressedForModal = false;
 	}
 
 	protected bool IsSetupMapViewReady()
@@ -1568,11 +1576,6 @@ class HST_SetupMapComponent : ScriptComponent
 
 		inputManager.ActivateContext(SETUP_INPUT_CONTEXT);
 		inputManager.ActivateContext(SETUP_MAP_CONTEXT);
-		if (m_bConfirmOpen)
-		{
-			inputManager.ActivateContext(SETUP_CURSOR_CONTEXT);
-			inputManager.ActivateContext(SETUP_INTERACTABLE_DIALOG_CONTEXT);
-		}
 	}
 
 	protected void RefreshResolvedLocalPlayerId()

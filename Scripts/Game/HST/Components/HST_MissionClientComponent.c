@@ -36,6 +36,10 @@ class HST_MissionClientComponent : ScriptComponent
 	protected ref array<string> m_aObjectiveMissionIds = {};
 	protected ref array<string> m_aObjectiveLabels = {};
 	protected ref array<string> m_aObjectiveProgress = {};
+	protected int m_iFrameSerial;
+	protected int m_iLastActivatedWidgetId;
+	protected int m_iLastActivatedButton;
+	protected int m_iLastActivatedFrame = -1;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -67,6 +71,8 @@ class HST_MissionClientComponent : ScriptComponent
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
+		m_iFrameSerial++;
+
 		if (!m_bIsLocalOwner)
 		{
 			if (IsLocalOwner(owner))
@@ -328,13 +334,30 @@ class HST_MissionClientComponent : ScriptComponent
 		return true;
 	}
 
-	bool OnWidgetClicked(int widgetId)
+	bool OnWidgetClicked(int widgetId, int button = 0)
 	{
+		if (IsDuplicateWidgetActivation(widgetId, button))
+			return true;
+
 		if (widgetId != DETAIL_CLOSE_WIDGET_ID)
 			return false;
 
 		CloseMissionDetails();
 		return true;
+	}
+
+	protected bool IsDuplicateWidgetActivation(int widgetId, int button)
+	{
+		if (widgetId == 0)
+			return false;
+
+		if (m_iLastActivatedFrame == m_iFrameSerial && m_iLastActivatedWidgetId == widgetId && m_iLastActivatedButton == button)
+			return true;
+
+		m_iLastActivatedWidgetId = widgetId;
+		m_iLastActivatedButton = button;
+		m_iLastActivatedFrame = m_iFrameSerial;
+		return false;
 	}
 
 	protected void CloseMissionDetails()
@@ -488,7 +511,7 @@ class HST_MissionClientWidgetHandler : ScriptedWidgetEventHandler
 		if (!m_Client || !w)
 			return false;
 
-		return m_Client.OnWidgetClicked(w.GetUserID());
+		return m_Client.OnWidgetClicked(w.GetUserID(), button);
 	}
 
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
@@ -496,6 +519,6 @@ class HST_MissionClientWidgetHandler : ScriptedWidgetEventHandler
 		if (!m_Client || !w)
 			return false;
 
-		return m_Client.OnWidgetClicked(w.GetUserID());
+		return m_Client.OnWidgetClicked(w.GetUserID(), button);
 	}
 }
