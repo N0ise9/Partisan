@@ -1,7 +1,7 @@
 ButtonWidgetClass "{A7B8C9D0012345C0}" {
  Name "HST_CommandFeedRow"
  Slot AlignableSlot "{A7B8C9D0012345C1}" {
-  HorizontalAlign 3
+  HorizontalAlign 0
   VerticalAlign 0
   Padding 0 0 0 4
  }

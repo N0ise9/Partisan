@@ -340,7 +340,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
         VerticalLayoutWidgetClass "{A7B8C9D001236078}" {
          Name "MainItems"
          Slot AlignableSlot "{A7B8C9D001236079}" {
-          HorizontalAlign 3
+          HorizontalAlign 0
           VerticalAlign 0
          }
         }
@@ -355,7 +355,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       OffsetLeft -500
       OffsetTop 100
       OffsetRight 20
-      OffsetBottom 610
+      OffsetBottom 740
      }
      "Ignore Cursor" 0
      {
@@ -378,7 +378,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
         VerticalLayoutWidgetClass "{A7B8C9D00123608E}" {
          Name "ActivityItems"
          Slot AlignableSlot "{A7B8C9D00123608F}" {
-          HorizontalAlign 3
+          HorizontalAlign 0
           VerticalAlign 0
          }
         }
@@ -391,7 +391,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
      Slot FrameWidgetSlot "{A7B8C9D001236091}" {
       Anchor 1 1 1 1
       OffsetLeft -500
-      OffsetTop -580
+      OffsetTop -710
       OffsetRight 20
       OffsetBottom 20
      }
@@ -414,7 +414,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
         VerticalLayoutWidgetClass "{A7B8C9D00123609A}" {
          Name "ActionsItems"
          Slot AlignableSlot "{A7B8C9D00123609B}" {
-          HorizontalAlign 3
+          HorizontalAlign 0
           VerticalAlign 0
          }
         }

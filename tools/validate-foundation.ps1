@@ -887,7 +887,8 @@ if ($setupFinalizeMatch.Value -match [regex]::Escape('Debug.ClearKey(KeyCode.KC_
 foreach ($requiredSetupMapLayerEntry in @(
 	"HST_UIConstants.Z_SETUP_MAP",
 	"HST_UIConstants.Z_SETUP_PROMPT",
-	"HST_UIConstants.Z_SETUP_MODAL",
+	"SETUP_CONFIRM_MODAL_ROOT_Z",
+	"SETUP_CONFIRM_MODAL_LABEL_Z",
 	"ApplySetupLayerOrder",
 	"ApplyConfirmModalLayerOrder",
 	"SetWidgetLayer(m_wPromptPanel",
@@ -3021,7 +3022,7 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"MainItems",
 	"ActivityPanel",
 	"OffsetRight 20",
-	"OffsetBottom 610",
+	"OffsetBottom 740",
 	'Name "ActivityTitle"',
 	"OffsetBottom -48",
 	'Name "ActivityResult"',
@@ -3031,7 +3032,7 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"ActivityScroll",
 	"OffsetRight 20",
 	"ActionsPanel",
-	"OffsetTop -580",
+	"OffsetTop -710",
 	"OffsetBottom 20",
 	"ActionsScroll",
 	"OffsetBottom 16",
@@ -3079,12 +3080,12 @@ $commandMenuResolvedGeometryContracts = @(
 	},
 	@{
 		Widget = "ActivityPanel"
-		Required = @("Anchor 1 0 1 1", "OffsetLeft -500", "OffsetRight 20", "OffsetBottom 610")
-		Forbidden = @("OffsetRight -20", "OffsetBottom -610")
+		Required = @("Anchor 1 0 1 1", "OffsetLeft -500", "OffsetRight 20", "OffsetBottom 740")
+		Forbidden = @("OffsetRight -20", "OffsetBottom -740")
 	},
 	@{
 		Widget = "ActionsPanel"
-		Required = @("Anchor 1 1 1 1", "OffsetLeft -500", "OffsetTop -580", "OffsetRight 20", "OffsetBottom 20")
+		Required = @("Anchor 1 1 1 1", "OffsetLeft -500", "OffsetTop -710", "OffsetRight 20", "OffsetBottom 20")
 		Forbidden = @("OffsetRight -20", "OffsetBottom -20")
 	}
 )
@@ -3219,6 +3220,14 @@ foreach ($rowLayoutContract in $rowLayoutContracts) {
 	}
 	if ($rowLayoutText -match '"Text Wrapping"') {
 		throw "$rowLayoutPath must not use layout Text Wrapping keywords; wrap behavior belongs in script SetRowText"
+	}
+	if ($rowLayoutPath -match "HST_Command(SectionRow|DataRow|DataRowCompact|FeedRow|PanelActionRow)\.layout") {
+		if ($rowLayoutText -notmatch "Slot AlignableSlot[\s\S]{0,140}?HorizontalAlign 0") {
+			throw "$rowLayoutPath command row roots must be left aligned in scroll containers"
+		}
+		if ($rowLayoutText -match '"Horizontal Alignment" Center') {
+			throw "$rowLayoutPath command row text must stay left aligned"
+		}
 	}
 }
 
@@ -5446,6 +5455,26 @@ if ($previewCargoStorageFilterMatch.Success -and $previewCargoStorageFilterMatch
 }
 if ($loadoutEditorComponentText -match "CreateTextWidget\([^\r\n]*m_sLastResult") {
 	throw "Loadout editor must not render raw server result/debug text across the preview stage"
+}
+foreach ($requiredLoadoutDedupEntry in @(
+	"protected bool IsNestedStorageDraftSlot",
+	"IsNestedStorageDraftSlot(slot)",
+	'if (slot.m_sSlotKind == "storage_item")',
+	"return !slot.m_sParentSlotId.IsEmpty();"
+)) {
+	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutDedupEntry)) {
+		throw "Loadout editor service must not re-emit nested storage draft slots as synthetic inventory rows: $requiredLoadoutDedupEntry"
+	}
+}
+foreach ($requiredLoadoutDynamicClearEntry in @(
+	"for (int i = m_aWidgets.Count() - 1; i >= 0; i--)",
+	"widget.RemoveFromHierarchy();",
+	"ClearLoadoutContainerChildren(root, `"TopTabItems`")",
+	"m_aWidgets.Clear();"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutDynamicClearEntry)) {
+		throw "Loadout editor must remove tracked dynamic widgets before rebuilding mode/tab rows: $requiredLoadoutDynamicClearEntry"
+	}
 }
 if ($coordinatorText -match [regex]::Escape("AppendLoadoutEditorPayload")) {
 	throw "Normal command menu snapshots must not append loadout-editor payloads"

@@ -3001,7 +3001,7 @@ class HST_LoadoutEditorService
 		int emitted;
 		foreach (HST_LoadoutSlotState slot : session.m_aDraftSlots)
 		{
-			if (!slot || ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory) != category)
+			if (!slot || IsNestedStorageDraftSlot(slot) || ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory) != category)
 				continue;
 
 			HST_LoadoutNodeState node = new HST_LoadoutNodeState();
@@ -3216,6 +3216,8 @@ class HST_LoadoutEditorService
 		{
 			if (!slot)
 				continue;
+			if (IsNestedStorageDraftSlot(slot))
+				continue;
 
 			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
 			if (category == "magazine" || category == "explosive" || category == "medical" || category == "utility" || category == "attachment")
@@ -3223,6 +3225,15 @@ class HST_LoadoutEditorService
 		}
 
 		return count;
+	}
+
+	protected bool IsNestedStorageDraftSlot(HST_LoadoutSlotState slot)
+	{
+		if (!slot)
+			return false;
+		if (slot.m_sSlotKind == "storage_item")
+			return true;
+		return !slot.m_sParentSlotId.IsEmpty();
 	}
 
 	protected string GetEditorSlotLabel(string categoryId)

@@ -154,7 +154,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Do not activate `DialogContext` / `InteractableDialogContext` over the map just to make buttons clickable; those contexts can create an extra OS-style pointer over the map cursor.
   - Disable the current map selection mode directly, for example `ToggleLocationSelection(false)`, while the modal is waiting for an answer.
   - Use `SCR_MapCursorModule.HandleDialog(true)` / `HandleDialog(false)` for map-owned dialog state so the native map cursor is allowed to travel above the modal and selection/drag cursor modes are suppressed.
-  - The native custom map cursor lives in its own workspace cursor layout with a low z-order. Keep setup-map modal chrome above the map root but below that cursor band when the map cursor must remain visible over confirmation buttons.
+  - The native custom map cursor lives in its own workspace cursor layout at z-order `10`. Keep setup-map modal chrome above the map root but below that cursor band, for example modal root/dimmer/dialog/buttons/text in `1..9`, when the map cursor must remain visible over confirmation buttons.
   - Do not force `WidgetManager.SetCursor(0)` over an active map cursor; the native map cursor already hides the real cursor and forcing it back creates a second pointer.
   - Avoid modal-owned cursor proxy widgets over native map dialogs. They are easy to layer above the dialog, but they create a third visible cursor and drift from the engine cursor lifecycle.
   - Current example: `HST_SetupMapComponent`.
@@ -172,7 +172,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Existing examples with arguments include notification dismissal generation checks and preview entity finalization.
 
 - Reused layout roots need container cleanup, not just tracked-widget cleanup.
-  - If generated rows are created into layout-owned containers and the root is reused, remove all children from the dynamic containers before repopulating.
+  - If generated rows are created into layout-owned containers and the root is reused, remove tracked dynamic widgets and then remove all children from the dynamic containers before repopulating.
+  - Hidden or parent-hidden generated widgets can survive a mode switch if cleanup only clears visible children. Remove tracked dynamic widgets regardless of current visibility before the container sweep.
+
+- Keep live inventory payloads single-owner.
+  - If a server payload emits real storage contents as storage-node children, do not also re-emit those same entries as synthetic top-level inventory rows.
+  - A simple guard is to treat slots with `m_sSlotKind == "storage_item"` or a non-empty parent slot id as nested storage rows only.
   - Clearing only an array of widgets misses rows that were not inserted into that array and causes tabs/lists to accumulate stale entries.
   - Hidden layout regions may not be reliably found by a global cleanup pass, depending on visibility and resolution timing.
   - Clear the active dynamic container again after the region has been resolved and shown, then populate it.
@@ -191,6 +196,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Avoid clearing action keys during UI teardown unless that UI will continue owning input for the next frame.
   - `Debug.ClearKey(KeyCode.KC_I)` is acceptable while setup is actively blocking command menu input, but clearing it after setup finalization can consume the first legitimate command-menu open press.
   - Prefer resetting the destination UI input latch and rebinding its input context after a modal/setup screen closes.
+  - If a raw key bridge is needed for the destination UI, clear that raw key once inside the destination recovery method, alongside its previous-frame latch reset. Do not leave that cleanup in the closing setup/modal flow.
 
 - `ItemPreviewWidget` setup is not proof that a prefab will render useful pixels.
   - Put a category/fallback image behind the native preview widget and keep it visible at low opacity after calling `SetPreviewItemFromPrefab` or `SetPreviewItem`.

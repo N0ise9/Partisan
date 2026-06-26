@@ -333,6 +333,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_fCommandMenuDebounceRemaining = 0;
 		m_bCommandMenuKeyDownLastFrame = false;
 		m_bRawIKeyDownLastFrame = false;
+		Debug.ClearKey(KeyCode.KC_I);
 
 		InputManager inputManager = GetGame().GetInputManager();
 		if (!inputManager)

@@ -7532,6 +7532,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!root)
 			return;
 
+		for (int i = m_aWidgets.Count() - 1; i >= 0; i--)
+		{
+			Widget widget = m_aWidgets[i];
+			if (widget)
+				widget.RemoveFromHierarchy();
+		}
+		m_aWidgets.Clear();
+
 		ClearLoadoutContainerChildren(root, "TopTabItems");
 		ClearLoadoutContainerChildren(root, "SlotRailItems");
 		ClearLoadoutContainerChildren(root, "StorageContainerItems");
@@ -7541,7 +7549,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ClearLoadoutContainerChildren(root, "StorageCandidateItems");
 		ClearLoadoutContainerChildren(root, "TemplateItems");
 		ClearLoadoutContainerChildren(root, "FooterHintItems");
-		m_aWidgets.Clear();
 	}
 
 	protected void ClearLoadoutContainerChildren(Widget root, string containerName)
