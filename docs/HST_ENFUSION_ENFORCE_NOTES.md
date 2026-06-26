@@ -145,9 +145,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Use distinct screen modes for distinct modal families. Action confirmations register as `ACTION_DIALOG`; mission report/details dialogs register as `MISSION_DIALOG`.
 
 - A modal over a native map may need a dialog input context every frame.
-  - Map cursor modules can block map clicks correctly while the visible pointer still appears behind the modal.
-  - While the setup confirmation modal is open, activate a normal dialog context and call `WidgetManager.SetCursor(0)` from the per-frame setup input path.
-  - If the map cursor still renders below the workspace modal, use a tiny modal-owned passive cursor proxy that follows `WidgetManager.GetMousePos`; keep the proxy `Ignore Cursor` / `NOFOCUS` so it cannot intercept dialog buttons.
+  - Use the map cursor module's dialog state, for example `HandleDialog(true)`, to keep native map selection restricted while a confirmation is visible.
+  - Do not force `WidgetManager.SetCursor(0)` over an active map cursor; the native map cursor already hides the real cursor and forcing it back creates a second pointer.
+  - Avoid modal-owned cursor proxy widgets over native map dialogs. They are easy to layer above the dialog, but they create a third visible cursor and drift from the engine cursor lifecycle.
   - Current example: `HST_SetupMapComponent`.
 
 - Notifications should not participate in blocking input.
