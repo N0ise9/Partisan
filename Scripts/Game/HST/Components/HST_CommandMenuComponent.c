@@ -12,7 +12,7 @@ class HST_CommandMenuWidgetHandler : ScriptedWidgetEventHandler
 		if (!m_Menu || !w)
 			return false;
 
-		return m_Menu.OnWidgetClicked(w.GetUserID());
+		return m_Menu.OnWidgetClicked(w.GetUserID(), button);
 	}
 
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
@@ -20,7 +20,7 @@ class HST_CommandMenuWidgetHandler : ScriptedWidgetEventHandler
 		if (!m_Menu || !w)
 			return false;
 
-		return m_Menu.OnWidgetClicked(w.GetUserID());
+		return m_Menu.OnWidgetClicked(w.GetUserID(), button);
 	}
 }
 
@@ -120,6 +120,10 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected float m_fCommandMenuDebounceRemaining;
 	protected bool m_bCommandMenuKeyDownLastFrame;
 	protected bool m_bRawIKeyDownLastFrame;
+	protected int m_iFrameSerial;
+	protected int m_iLastActivatedWidgetId;
+	protected int m_iLastActivatedButton;
+	protected int m_iLastActivatedFrame = -1;
 	protected bool m_bWasSetupBlocking;
 	protected bool m_bLoggedCustomActionInput;
 	protected bool m_bLoggedRawIKeyInput;
@@ -183,6 +187,8 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
+		m_iFrameSerial++;
+
 		if (m_fCommandMenuDebounceRemaining > 0)
 			m_fCommandMenuDebounceRemaining = Math.Max(0, m_fCommandMenuDebounceRemaining - timeSlice);
 
@@ -433,10 +439,13 @@ class HST_CommandMenuComponent : ScriptComponent
 			ShowMenuHint(lastResult, "h-istasi", 3.0);
 	}
 
-	bool OnWidgetClicked(int widgetId)
+	bool OnWidgetClicked(int widgetId, int button = 0)
 	{
 		if (!m_bMenuOpen)
 			return false;
+
+		if (IsDuplicateWidgetActivation(widgetId, button))
+			return true;
 
 		if (widgetId == ACTION_MODAL_CANCEL_WIDGET_ID)
 		{
@@ -476,6 +485,20 @@ class HST_CommandMenuComponent : ScriptComponent
 			return true;
 		}
 
+		return false;
+	}
+
+	protected bool IsDuplicateWidgetActivation(int widgetId, int button)
+	{
+		if (widgetId == 0)
+			return false;
+
+		if (m_iLastActivatedFrame == m_iFrameSerial && m_iLastActivatedWidgetId == widgetId && m_iLastActivatedButton == button)
+			return true;
+
+		m_iLastActivatedWidgetId = widgetId;
+		m_iLastActivatedButton = button;
+		m_iLastActivatedFrame = m_iFrameSerial;
 		return false;
 	}
 

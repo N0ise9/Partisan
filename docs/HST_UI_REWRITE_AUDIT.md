@@ -82,6 +82,7 @@ Current state:
 - Command menu uses `ApplyCommandMenuLayerOrder` after creation, population, and delayed layout refresh so the dimmer, surface, panels, header, button, and label stack consistently without geometry offsets.
 - Command menu now keeps one workspace-parented layout root while open and clears only `TabItems`, `MainItems`, `ActivityItems`, and `ActionsItems` during snapshot refreshes. This avoids rebuilding the whole shell under active input or server updates.
 - Command menu nav/stats/main/activity/action panel slots now use resolved-bounds-safe offset signs, preventing the left nav from collapsing negative and the center/right columns from expanding through sibling panels.
+- Command menu widget activation is now guarded by widget id, mouse button, and frame serial so `OnClick` plus `OnMouseButtonUp` cannot double-fire tabs, close, action rows, or command action-dialog buttons.
 - Loadout editor uses `ApplyLoadoutLayerOrder` after render and delayed layout refresh to keep the render target low, the UI layer above it, the preview drag surface behind panels, and expanded `loadout_editor_ready` geometry logs for the next test pass.
 - Command menu and loadout editor delayed ready logs now include child samples for dynamic list hosts so runtime logs show whether populated rows landed inside the expected scroll/list container after anchors resolve.
 - Loadout editor layout now explicitly marks core chrome visible by default and mode-specific panels hidden by default, so the layout's baseline state matches the script's mode population model.

@@ -2622,6 +2622,11 @@ foreach ($requiredCommandMenuEntry in @(
 	'm_fCommandMenuDebounceRemaining',
 	'm_bCommandMenuKeyDownLastFrame',
 	'm_bRawIKeyDownLastFrame',
+	'm_iFrameSerial',
+	'm_iLastActivatedFrame',
+	'OnWidgetClicked(int widgetId, int button = 0)',
+	'm_Menu.OnWidgetClicked(w.GetUserID(), button)',
+	'IsDuplicateWidgetActivation(widgetId, button)',
 	'PollCommandMenuInput',
 	'PollRawCommandMenuKey',
 	'TryToggleCommandMenu',
@@ -2740,6 +2745,9 @@ if ($commandMenuComponentText -match "FrameSlot\.Set(Pos|Size)\((scroll|items|co
 }
 if ($commandMenuComponentText -match "CreateWidgetInWorkspace\(WidgetType\.CanvasWidgetTypeID") {
 	throw "Command menu root must be a child-capable frame/layout container, not a canvas widget"
+}
+if ($commandMenuComponentText -match [regex]::Escape("m_Menu.OnWidgetClicked(w.GetUserID());")) {
+	throw "Command menu widget handler must pass button state through the duplicate-activation guard"
 }
 if ($commandMenuComponentText -match [regex]::Escape('RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", null')) {
 	throw "Command menu must not register as open before its layout root exists"

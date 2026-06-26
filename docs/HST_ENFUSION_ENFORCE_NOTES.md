@@ -138,6 +138,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Some interactions may arrive through both `OnClick` and `OnMouseButtonUp`.
   - Use duplicate-activation guards where a widget action can be triggered by both callbacks in the same frame.
+  - Pass the mouse button through both event paths and key the guard by widget id, button, and frame serial so right-click/left-click actions remain distinct.
+  - Current examples: `HST_LoadoutEditorComponent` and `HST_CommandMenuComponent`.
 
 - Modal state belongs in one coordinator.
   - `HST_UIRootService` tracks current screen, modal screen, blocking behavior, and topmost owner.
