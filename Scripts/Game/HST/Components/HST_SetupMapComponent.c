@@ -317,7 +317,6 @@ class HST_SetupMapComponent : ScriptComponent
 		GetGame().GetCallqueue().CallLater(CloseRespawnMenuAfterSetup, 250, false);
 		GetGame().GetCallqueue().CallLater(CloseRespawnMenuAfterSetup, 750, false);
 		ResetCommandMenuInputLatch();
-		Debug.ClearKey(KeyCode.KC_I);
 		DebugLog("setup finalized; native setup map closed");
 	}
 

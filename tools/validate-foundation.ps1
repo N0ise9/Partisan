@@ -874,6 +874,13 @@ foreach ($forbiddenSetupChromeEntry in @(
 if ($setupMapComponentText -match [regex]::Escape("OnSetupOverlayClicked(w, w.GetUserID(), x, y);")) {
 	throw "Setup modal widget handler must pass button state through the duplicate-activation guard"
 }
+$setupFinalizeMatch = [regex]::Match($setupMapComponentText, "protected void FinalizeSetupMap[\s\S]*?\r?\n\t}\r?\n\r?\n\tvoid OnServerSetupResult")
+if (!$setupFinalizeMatch.Success) {
+	throw "Setup map finalization method is missing"
+}
+if ($setupFinalizeMatch.Value -match [regex]::Escape('Debug.ClearKey(KeyCode.KC_I)')) {
+	throw "Setup finalization must not clear KC_I after HQ placement; command menu recovery owns that input latch"
+}
 foreach ($requiredSetupMapLayerEntry in @(
 	"HST_UIConstants.Z_SETUP_MAP",
 	"HST_UIConstants.Z_SETUP_PROMPT",
@@ -4938,6 +4945,18 @@ foreach ($forbiddenPreviewCellGeometryContract in @(
 )) {
 	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenPreviewCellGeometryContract)) {
 		throw "Loadout preview cells must be anchor-filled layout children, not script-sized widgets: $forbiddenPreviewCellGeometryContract"
+	}
+}
+foreach ($requiredPreviewFallbackUnderlayEntry in @(
+	"PREVIEW_FALLBACK_UNDERLAY_OPACITY",
+	"protected void SetPreviewCellFallbackUnderlay",
+	"SetPreviewCellFallbackUnderlay(cell)",
+	"imageWidget.SetOpacity(PREVIEW_FALLBACK_UNDERLAY_OPACITY)",
+	"nativePrefab=true",
+	"nativeEntity=true"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredPreviewFallbackUnderlayEntry)) {
+		throw "Loadout preview cells must keep a fallback underlay while native item previews are attempted: $requiredPreviewFallbackUnderlayEntry"
 	}
 }
 if ($loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetPos(m_UILayerWidget") -or $loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetSize(m_UILayerWidget")) {

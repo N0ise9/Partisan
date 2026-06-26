@@ -164,6 +164,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int PREVIEW_BOUNDS_RETRY_COUNT = 4;
 	static const int POST_ACTION_REFRESH_DELAY_MS = 350;
 	static const int PANEL_BACK_COLOR = 0xF20D1114;
+	static const float PREVIEW_FALLBACK_UNDERLAY_OPACITY = 0.28;
 	static const ResourceName ICON_CLOTHING = "{A9AFA05DD269660A}Assets/512/clothing_icon.edds";
 	static const ResourceName ICON_WEAPONS = "{4F051820B3912C59}Assets/512/weapons_icon.edds";
 	static const ResourceName ICON_ATTACHMENTS = "{E77BB529AFB78928}Assets/512/attachments_icon.edds";
@@ -7003,17 +7004,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!resource || !resource.IsValid())
 			return false;
 
-		ImageWidget imageWidget = ImageWidget.Cast(cell.FindAnyWidget("SlotImage"));
-		if (imageWidget)
-		{
-			imageWidget.SetVisible(false);
-			imageWidget.SetOpacity(0.0);
-		}
+		SetPreviewCellFallbackUnderlay(cell);
 
 		previewWidget.SetVisible(true);
 		previewWidget.SetOpacity(1.0);
 		previewWidget.SetZOrder(22);
 		previewManager.SetPreviewItemFromPrefab(previewWidget, resourceName, null, true);
+		HST_UIDebug.LogRowSample("loadout_preview_cells", ITEM_PREVIEW_CELL_LAYOUT, Math.Max(0, m_iDebugPreviewCellLogIndex - 1), string.Format("nativePrefab=true prefab=%1 fallbackIcon=%2 cell=%3", prefab, fallbackIcon, HST_UIDebug.WidgetSummary(cell)));
 		return true;
 	}
 
@@ -7035,18 +7032,28 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!previewManager || !previewWidget)
 			return false;
 
-		ImageWidget imageWidget = ImageWidget.Cast(cell.FindAnyWidget("SlotImage"));
-		if (imageWidget)
-		{
-			imageWidget.SetVisible(false);
-			imageWidget.SetOpacity(0.0);
-		}
+		SetPreviewCellFallbackUnderlay(cell);
 
 		previewWidget.SetVisible(true);
 		previewWidget.SetOpacity(1.0);
 		previewWidget.SetZOrder(22);
 		previewManager.SetPreviewItem(previewWidget, entity, null, true);
+		HST_UIDebug.LogRowSample("loadout_preview_cells", ITEM_PREVIEW_CELL_LAYOUT, Math.Max(0, m_iDebugPreviewCellLogIndex - 1), string.Format("nativeEntity=true entity=%1 fallbackIcon=%2 cell=%3", entity, fallbackIcon, HST_UIDebug.WidgetSummary(cell)));
 		return true;
+	}
+
+	protected void SetPreviewCellFallbackUnderlay(Widget cell)
+	{
+		if (!cell)
+			return;
+
+		ImageWidget imageWidget = ImageWidget.Cast(cell.FindAnyWidget("SlotImage"));
+		if (!imageWidget)
+			return;
+
+		imageWidget.SetVisible(true);
+		imageWidget.SetOpacity(PREVIEW_FALLBACK_UNDERLAY_OPACITY);
+		imageWidget.SetZOrder(21);
 	}
 
 	protected bool CreateNodePreviewCell(WorkspaceWidget workspace, Widget root, int nodeIndex, int userId, int color)

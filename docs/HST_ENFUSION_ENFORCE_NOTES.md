@@ -182,6 +182,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Hand-drawn key boxes are useful as fallbacks, but they do not update like native button hints.
   - If a persistent footer or row container is repopulated, clear its child widgets before adding native hint widgets; stale children remain visible even when the backing arrays were cleared.
 
+- Avoid clearing action keys during UI teardown unless that UI will continue owning input for the next frame.
+  - `Debug.ClearKey(KeyCode.KC_I)` is acceptable while setup is actively blocking command menu input, but clearing it after setup finalization can consume the first legitimate command-menu open press.
+  - Prefer resetting the destination UI input latch and rebinding its input context after a modal/setup screen closes.
+
+- `ItemPreviewWidget` setup is not proof that a prefab will render useful pixels.
+  - Put a category/fallback image behind the native preview widget and keep it visible at low opacity after calling `SetPreviewItemFromPrefab` or `SetPreviewItem`.
+  - This preserves a visible row affordance for unsupported prefabs without adding script geometry or hiding native previews that do render.
+
 - Keep code comments sparse and practical.
   - Comments should capture non-obvious engine constraints, not restate simple assignments.
 
