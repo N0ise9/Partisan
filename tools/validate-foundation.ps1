@@ -770,9 +770,6 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 	'Name "Message"',
 	'Name "NoButton"',
 	'Name "YesButton"',
-	'Name "ModalCursorProxy"',
-	'Name "ModalCursorProxyV"',
-	'Name "ModalCursorProxyH"',
 	"Anchor 0 0 1 1",
 	"Color 0 0 0 0.16",
 	'"Ignore Cursor" 0',
@@ -792,8 +789,15 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
 	}
 }
+if ($setupConfirmModalLayoutText -notmatch '(?s)Name "Message".*?OffsetLeft 0.*?SizeX 0.*?OffsetRight 0.*?"Horizontal Alignment" Center.*?"Vertical Alignment" Center') {
+	throw "Setup confirmation modal message must be centered against the full dialog width."
+}
 foreach ($forbiddenConfirmModalLayoutEntry in @(
 	'PanelWidgetClass "{B55C6FB34BF94001}"',
+	'Name "ModalCursorProxy"',
+	'Name "ModalCursorProxyShadow"',
+	'Name "ModalCursorProxyV"',
+	'Name "ModalCursorProxyH"',
 	"OffsetLeft -310",
 	"OffsetTop -140",
 	"OffsetRight 310",
@@ -824,7 +828,6 @@ foreach ($requiredSetupChromeEntry in @(
 	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER, modal, false, true, true)",
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER)",
 	"m_wConfirmBlockerRoot = modal",
-	"m_wConfirmCursorProxy = modal.FindAnyWidget(`"ModalCursorProxy`")",
 	"OnSetupOverlayMouseWheel",
 	"BindConfirmModalButton(modal, `"NoButton`", CONFIRM_NO_WIDGET_ID)",
 	"BindConfirmModalButton(modal, `"YesButton`", CONFIRM_YES_WIDGET_ID)"
@@ -843,7 +846,12 @@ foreach ($forbiddenSetupChromeEntry in @(
 	"RedrawNativeMapOverlay",
 	"m_bOverlayDirty",
 	"m_bOverlayRedrawQueued",
-	"overlay render #"
+	"overlay render #",
+	"m_wConfirmCursorProxy",
+	"ModalCursorProxy",
+	"UpdateConfirmModalCursorProxy",
+	"FrameSlot.SetPos(m_wConfirmCursorProxy",
+	"WidgetManager.SetCursor(0)"
 )) {
 	if ($setupMapComponentText -match [regex]::Escape($forbiddenSetupChromeEntry)) {
 		throw "Setup chrome must not be hidden under the native map root or redraw on every map pan/zoom tick: $forbiddenSetupChromeEntry"
@@ -855,7 +863,6 @@ foreach ($requiredSetupMapLayerEntry in @(
 	"HST_UIConstants.Z_SETUP_MODAL",
 	"ApplySetupLayerOrder",
 	"ApplyConfirmModalLayerOrder",
-	"UpdateConfirmModalCursorProxy",
 	"SetWidgetLayer(m_wPromptPanel",
 	"SetWidgetLayer(m_wPromptRule",
 	"m_wPromptText.SetZOrder",
@@ -866,9 +873,7 @@ foreach ($requiredSetupMapLayerEntry in @(
 	"ReleaseSetupMapDialogState",
 	'SETUP_CURSOR_CONTEXT = "DialogContext"',
 	'SETUP_INTERACTABLE_DIALOG_CONTEXT = "InteractableDialogContext"',
-	"inputManager.ActivateContext(SETUP_INTERACTABLE_DIALOG_CONTEXT)",
-	"WidgetManager.SetCursor(0)",
-	"FrameSlot.SetPos(m_wConfirmCursorProxy"
+	"inputManager.ActivateContext(SETUP_INTERACTABLE_DIALOG_CONTEXT)"
 )) {
 	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupMapLayerEntry)) {
 		throw "Setup map UI must explicitly layer prompt/modal widgets and block native map input during confirmation: $requiredSetupMapLayerEntry"
