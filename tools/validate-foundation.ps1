@@ -790,7 +790,7 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 	"OffsetBottom -256",
 	"OffsetLeft 42",
 	"SizeX -84",
-	"OffsetRight -42",
+	"OffsetRight 42",
 	"SizeY 86",
 	"OffsetBottom -138"
 )) {
@@ -798,7 +798,7 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
 	}
 }
-if ($setupConfirmModalLayoutText -notmatch '(?s)Name "Message".*?OffsetLeft 42.*?SizeX -84.*?OffsetRight -42.*?"Horizontal Alignment" Center.*?"Vertical Alignment" Center') {
+if ($setupConfirmModalLayoutText -notmatch '(?s)Name "Message".*?OffsetLeft 42.*?SizeX -84.*?OffsetRight 42.*?"Horizontal Alignment" Center.*?"Vertical Alignment" Center') {
 	throw "Setup confirmation modal message must use symmetric centered bounds inside the dialog."
 }
 foreach ($forbiddenConfirmModalLayoutEntry in @(
@@ -3024,13 +3024,16 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"OffsetRight 20",
 	"OffsetBottom 740",
 	'Name "ActivityTitle"',
+	'Text "Last Activity"',
 	"OffsetBottom -48",
 	'Name "ActivityResult"',
-	"OffsetBottom -88",
+	"OffsetBottom 18",
 	'Name "ActivityFeedTitle"',
 	"OffsetBottom -130",
+	'"Is Visible" 0',
 	"ActivityScroll",
 	"OffsetRight 20",
+	'"Scrollbar Always Visible" 0',
 	"ActionsPanel",
 	"OffsetTop -710",
 	"OffsetBottom 20",
@@ -3255,10 +3258,10 @@ foreach ($requiredStorageCategoryTabEntry in @(
 	'Name "Fallback"',
 	'"Ignore Cursor" 1',
 	"OffsetBottom 3",
-	"OffsetRight -23",
-	"OffsetBottom -10",
-	"OffsetRight -4",
-	"OffsetBottom -4"
+	"OffsetRight 23",
+	"OffsetBottom 10",
+	"OffsetRight 4",
+	"OffsetBottom 4"
 )) {
 	if ($loadoutStorageCategoryTabText -notmatch [regex]::Escape($requiredStorageCategoryTabEntry)) {
 		throw "$loadoutStorageCategoryTabPath is missing storage category tab layout entry: $requiredStorageCategoryTabEntry"
@@ -3266,10 +3269,10 @@ foreach ($requiredStorageCategoryTabEntry in @(
 }
 foreach ($forbiddenStorageCategoryTabEntry in @(
 	"OffsetBottom -3",
-	"OffsetRight 23",
-	"OffsetBottom 10",
-	"OffsetRight 4",
-	"OffsetBottom 4"
+	"OffsetRight -23",
+	"OffsetBottom -10",
+	"OffsetRight -4",
+	"OffsetBottom -4"
 )) {
 	if ($loadoutStorageCategoryTabText -match [regex]::Escape($forbiddenStorageCategoryTabEntry)) {
 		throw "$loadoutStorageCategoryTabPath must use Enfusion offset signs for fixed and stretched tab children: $forbiddenStorageCategoryTabEntry"
@@ -4287,19 +4290,19 @@ if ($loadoutSameAnchorNegativeFindings.Count -gt 0) {
 $loadoutEditorResolvedGeometryContracts = @(
 	@{
 		Widget = "LeftButtons"
-		Required = @("SizeX 92", "OffsetRight -116", "SizeY 160", "OffsetBottom -80")
+		Required = @("SizeX 78", "OffsetRight -102", "SizeY 128", "OffsetBottom -64")
 	},
 	@{
 		Widget = "LoadoutBackButton"
-		Required = @("OffsetBottom -38")
+		Required = @("OffsetBottom -34")
 	},
 	@{
 		Widget = "LoadoutCloseButton"
-		Required = @("OffsetBottom -126")
+		Required = @("OffsetBottom -108")
 	},
 	@{
 		Widget = "TopTabs"
-		Required = @("OffsetRight -720", "OffsetBottom -126")
+		Required = @("OffsetRight -560", "OffsetBottom -126")
 	},
 	@{
 		Widget = "LeftRail"
@@ -4352,9 +4355,11 @@ foreach ($requiredLoadoutLeftButtonLayoutEntry in @(
 	'Name "CloseBackground"',
 	'Name "CloseAccent"',
 	'Name "CloseLabel"',
+	'Name "BackVisibleLabel"',
+	'Name "CloseVisibleLabel"',
 	"Anchor 0 0.5 0 0.5",
 	"OffsetLeft 24",
-	"Text `"ESC`""
+	"Text `"Exit`""
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutLeftButtonLayoutEntry)) {
 		throw "Loadout editor layout is missing layout-owned left button chrome: $requiredLoadoutLeftButtonLayoutEntry"
@@ -4447,6 +4452,8 @@ foreach ($requiredLoadoutStorageBrowserLayoutEntry in @(
 	"ScrollLayoutWidgetClass",
 	"WrapLayoutWidgetClass",
 	"OffsetLeft -820",
+	"SizeY 78",
+	"OffsetBottom -150",
 	"OffsetTop 164",
 	"OffsetBottom 46"
 )) {

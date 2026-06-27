@@ -56,15 +56,15 @@ ButtonWidgetClass "{D66CFA01E5AA4400}" {
       ImageWidgetClass "{D66CFA01E5AA440A}" {
        Name "Icon"
        Slot FrameWidgetSlot "{D66CFA01E5AA440B}" {
-        Anchor 0 0 1 1
-        OffsetLeft 9
-        OffsetTop 9
-        OffsetRight 9
-        OffsetBottom 9
+       Anchor 0 0 1 1
+        OffsetLeft 5
+        OffsetTop 5
+        OffsetRight 5
+        OffsetBottom 5
        }
        "Is Visible" 1
        "Ignore Cursor" 1
-       Size 40 40
+       Size 48 48
       }
       TextWidgetClass "{D66CFA01E5AA440C}" {
        Name "Fallback"

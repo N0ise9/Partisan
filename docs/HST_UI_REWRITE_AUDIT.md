@@ -87,6 +87,8 @@ Current state:
 - Command menu now keeps one workspace-parented layout root while open and clears only `TabItems`, `MainItems`, `ActivityItems`, and `ActionsItems` during snapshot refreshes. This avoids rebuilding the whole shell under active input or server updates.
 - Command menu nav/stats/main/activity/action panel slots now use resolved-bounds-safe offset signs, preventing the left nav from collapsing negative and the center/right columns from expanding through sibling panels.
 - Command menu main, feed, and right-side action list hosts/row templates are left-aligned, the activity panel is shorter, and the actions panel is taller.
+- Command menu activity has been simplified to a Last Activity panel. Campaign notes stay in the main content sections instead of occupying a second scroll host inside the small right column.
+- Command menu post-setup input recovery now resets key latches and rebinds contexts without clearing the raw `I` key until an actual command-menu toggle is handled.
 - Command menu widget activation is now guarded by widget id, mouse button, and frame serial so `OnClick` plus `OnMouseButtonUp` cannot double-fire tabs, close, action rows, or command action-dialog buttons.
 - Mission report close activation uses the same duplicate guard, keeping modal close state transitions single-shot.
 - Loadout editor uses `ApplyLoadoutLayerOrder` after render and delayed layout refresh to keep the render target low, the UI layer above it, the preview drag surface behind panels, and expanded `loadout_editor_ready` geometry logs for the next test pass.
@@ -95,6 +97,9 @@ Current state:
 - Loadout editor layout now explicitly marks core chrome visible by default and mode-specific panels hidden by default, so the layout's baseline state matches the script's mode population model.
 - Loadout editor top/left fixed same-anchor slots now use negative far-edge coordinates, while stretched panel interiors use positive far-edge margins. Runtime ready logs had shown the top tabs, left buttons, left rail, footer, and mode panels resolving to negative sizes while the render target stayed visible.
 - Loadout editor left Back/ESC buttons and footer hint children also use signed fixed-child bounds so the chrome can become visible without leaving the actual controls or hint labels in negative child slots.
+- Loadout editor mode tabs now contain only true mode buttons; Q/E remain footer input hints instead of decorative clickable tabs. The left rail and tab strip share the same layout width.
+- Loadout editor storage add-items tabs use fixed-height layout-owned bounds and stretched child icon margins so the right-side storage browser can show its item category tabs instead of collapsing into text-only content.
+- Loadout editor item rows attempt native previews for worn equipment and storage items while retaining the category fallback underlay for unsupported preview prefabs.
 - Setup candidate marker changed from a cross to a small temporary dot/ring marker overlay, keeping setup selection separate from persistent gameplay marker lifecycle.
 - Setup map now uses a distinct non-fullscreen map mode and the world map config component explicitly points the normal gadget map at `HST_GameplayMap.conf`, preventing setup's minimal map UI component stack from being reused by the normal gameplay map.
 - Shared notification, action-dialog, and report-dialog roots now use workspace-parented layout creation and emit delayed `*_ready` geometry logs, matching the setup/command/loadout chrome lifecycle.

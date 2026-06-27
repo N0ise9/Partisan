@@ -82,7 +82,7 @@ FrameWidgetClass "{B55C6FB34BF94001}" {
       PositionY 52
       OffsetTop 52
       SizeX -84
-      OffsetRight -42
+      OffsetRight 42
       SizeY 86
       OffsetBottom -138
      }

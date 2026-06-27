@@ -51,7 +51,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - `OffsetRight` and `OffsetBottom` signs depend on whether a slot has explicit `SizeX` / `SizeY`, whether that axis stretches, and which side the fixed anchor uses.
   - Slots with explicit `PositionX` / `PositionY` plus `SizeX` / `SizeY` often serialize the far edge as negative, such as a centered modal using `SizeX 620` with `OffsetRight -620`.
-  - Top/left same-anchor fixed boxes without explicit size need negative far edges, such as `Anchor 0 0 0 0`, `OffsetLeft 116`, and `OffsetRight -720`. Positive far edges produced negative runtime sizes for top tabs, left buttons, left rail, and footer chrome.
+  - Top/left same-anchor fixed boxes without explicit size need negative far edges, such as `Anchor 0 0 0 0`, `OffsetLeft 116`, and `OffsetRight -560`. Positive far edges produced negative runtime sizes for top tabs, left buttons, left rail, and footer chrome.
+  - Top/left same-anchor fixed-height children also need explicit `SizeY` with a negative far edge, such as `OffsetTop 72`, `SizeY 78`, and `OffsetBottom -150`. Positive far edges can collapse tab strips and text bands even when the parent panel is visible.
   - Stretched inset panels need positive far-edge margins, such as `Anchor 0 0 1 1`, `OffsetLeft 240`, and `OffsetRight 524`. Negative far-edge margins made command-menu center and right panels grow underneath sibling panels.
   - Right or bottom anchored fixed boxes can use negative left/top offsets to define size while keeping positive right/bottom offsets inside the parent.
   - Runtime symptom when this is wrong: delayed ready logs show negative widget sizes or panels wider/taller than their parent, such as left rails, navigation panels, top tabs, command-menu center panels, or footer hints resolving to impossible bounds.
@@ -196,12 +197,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Avoid clearing action keys during UI teardown unless that UI will continue owning input for the next frame.
   - `Debug.ClearKey(KeyCode.KC_I)` is acceptable while setup is actively blocking command menu input, but clearing it after setup finalization can consume the first legitimate command-menu open press.
   - Prefer resetting the destination UI input latch and rebinding its input context after a modal/setup screen closes.
-  - If a raw key bridge is needed for the destination UI, clear that raw key once inside the destination recovery method, alongside its previous-frame latch reset. Do not leave that cleanup in the closing setup/modal flow.
+  - If a raw key bridge is needed for the destination UI, clear the raw key only after the destination UI actually handles a toggle. A post-setup recovery method can run on the same frame as the user's first real press and eat that press if it calls `Debug.ClearKey` speculatively.
 
 - `ItemPreviewWidget` setup is not proof that a prefab will render useful pixels.
   - Put a category/fallback image behind the native preview widget and keep it visible at low opacity after calling `SetPreviewItemFromPrefab` or `SetPreviewItem`.
   - This preserves a visible row affordance for unsupported prefabs without adding script geometry or hiding native previews that do render.
-  - For equipment categories that commonly fail as standalone item previews, skip the native preview and show the category fallback directly; reserve native preview cells for weapons, ammo, throwable/explosive items, and medical items that tend to render usefully.
+  - Do not hard-exclude worn equipment categories from native previews. Clothing, storage containers, and weapons should attempt native preview first with the fallback underlay still present, because a visible character item may have a valid preview prefab even if some inventory entries still fall back.
 
 - Keep code comments sparse and practical.
   - Comments should capture non-obvious engine constraints, not restate simple assignments.

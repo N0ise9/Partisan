@@ -56,11 +56,11 @@ ButtonWidgetClass "{A7B8C9D001234610}" {
       ImageWidgetClass "{A7B8C9D00123461A}" {
        Name "Icon"
        Slot FrameWidgetSlot "{A7B8C9D00123461B}" {
-        Anchor 0 0 1 1
+       Anchor 0 0 1 1
         OffsetLeft 23
         OffsetTop 10
-        OffsetRight -23
-        OffsetBottom -10
+        OffsetRight 23
+        OffsetBottom 10
        }
        "Is Visible" 1
        "Ignore Cursor" 1
@@ -69,11 +69,11 @@ ButtonWidgetClass "{A7B8C9D001234610}" {
       TextWidgetClass "{A7B8C9D00123461C}" {
        Name "Fallback"
        Slot FrameWidgetSlot "{A7B8C9D00123461D}" {
-        Anchor 0 0 1 1
+       Anchor 0 0 1 1
         OffsetLeft 4
         OffsetTop 4
-        OffsetRight -4
-        OffsetBottom -4
+        OffsetRight 4
+        OffsetBottom 4
        }
        "Is Visible" 0
        "No Localization" 1

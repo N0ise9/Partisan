@@ -87,15 +87,15 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     FrameWidgetClass "{7B2FD986A4D34230}" {
      Name "LeftButtons"
      Slot FrameWidgetSlot "{7B2FD986A4D34231}" {
-      Anchor 0 0.5 0 0.5
+     Anchor 0 0.5 0 0.5
       PositionX 24
       OffsetLeft 24
-      PositionY -80
-      OffsetTop -80
-      SizeX 92
-      OffsetRight -116
-      SizeY 160
-      OffsetBottom -80
+      PositionY -64
+      OffsetTop -64
+      SizeX 78
+      OffsetRight -102
+      SizeY 128
+      OffsetBottom -64
      }
      "Is Visible" 1
      "Ignore Cursor" 0
@@ -108,10 +108,10 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         PositionY 0
         OffsetTop 0
-        SizeX 92
-        OffsetRight -92
-        SizeY 38
-        OffsetBottom -38
+        SizeX 78
+        OffsetRight -78
+        SizeY 34
+        OffsetBottom -34
        }
        Color 0.07 0.09 0.11 0.98
        {
@@ -166,18 +166,38 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         }
        }
       }
+      TextWidgetClass "{7B2FD986A4D342AA}" {
+       Name "BackVisibleLabel"
+       Slot FrameWidgetSlot "{7B2FD986A4D342AB}" {
+        Anchor 0 0 0 0
+        PositionX 0
+        OffsetLeft 0
+        PositionY 0
+        OffsetTop 0
+        SizeX 78
+        OffsetRight -78
+        SizeY 34
+        OffsetBottom -34
+       }
+       "Is Visible" 1
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Back"
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+      }
       ButtonWidgetClass "{7B2FD986A4D3423C}" {
        Name "LoadoutCloseButton"
        Slot FrameWidgetSlot "{7B2FD986A4D3423D}" {
         Anchor 0 0 0 0
         PositionX 0
         OffsetLeft 0
-        PositionY 88
-        OffsetTop 88
-        SizeX 92
-        OffsetRight -92
-        SizeY 38
-        OffsetBottom -126
+        PositionY 74
+        OffsetTop 74
+        SizeX 78
+        OffsetRight -78
+        SizeY 34
+        OffsetBottom -108
        }
        Color 0.07 0.09 0.11 0.98
        {
@@ -224,13 +244,33 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            }
            "No Localization" 1
            "Ignore Cursor" 1
-           Text "ESC"
+           Text "Exit"
            "Horizontal Alignment" Center
            "Vertical Alignment" Center
           }
          }
         }
        }
+      }
+      TextWidgetClass "{7B2FD986A4D342AC}" {
+       Name "CloseVisibleLabel"
+       Slot FrameWidgetSlot "{7B2FD986A4D342AD}" {
+        Anchor 0 0 0 0
+        PositionX 0
+        OffsetLeft 0
+        PositionY 74
+        OffsetTop 74
+        SizeX 78
+        OffsetRight -78
+        SizeY 34
+        OffsetBottom -108
+       }
+       "Is Visible" 1
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Exit"
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
       }
      }
     }
@@ -240,7 +280,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
      Anchor 0 0 0 0
      OffsetLeft 116
      OffsetTop 54
-      OffsetRight -720
+      OffsetRight -560
       OffsetBottom -126
      }
      "Is Visible" 1
@@ -250,9 +290,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "TopTabsBackground"
        Slot FrameWidgetSlot "{7B2FD986A4D34247}" {
         Anchor 0 0 1 1
-        OffsetLeft 38
+        OffsetLeft 0
         OffsetTop 0
-        OffsetRight 118
+        OffsetRight 0
         OffsetBottom 4
        }
        Color 0.05 0.07 0.09 0.92
@@ -825,7 +865,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetLeft 20
       OffsetTop 14
       OffsetRight 20
-      OffsetBottom 40
+      SizeY 26
+      OffsetBottom -40
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -840,7 +881,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetLeft 20
       OffsetTop 42
       OffsetRight 20
-      OffsetBottom 66
+      SizeY 24
+      OffsetBottom -66
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -855,7 +897,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetLeft 20
       OffsetTop 72
       OffsetRight 20
-      OffsetBottom 150
+      SizeY 78
+      OffsetBottom -150
        }
        "Ignore Cursor" 0
       }
@@ -898,7 +941,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
          OffsetLeft 4
          OffsetTop 8
           OffsetRight 4
-          OffsetBottom 44
+          SizeY 36
+          OffsetBottom -44
          }
          "Is Visible" 0
          "No Localization" 1

@@ -1495,7 +1495,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_bRootFromLayout = true;
 		m_UILayerWidget = null;
-		HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|LeftButtons|LoadoutBackButton|LoadoutCloseButton|TopTabs|TopTabItems|LeftRail|SlotRailScroll|SlotRailItems|StorageContainerItems|StorageContentItems|CandidateList|CandidateItems|StorageBrowser|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
+		HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|LeftButtons|LoadoutBackButton|LoadoutCloseButton|TopTabs|TopTabItems|LeftRail|SlotRailScroll|SlotRailItems|StorageContainerItems|StorageContentItems|CandidateList|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
 		return m_RootWidget;
 	}
 
@@ -1738,9 +1738,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutWidgetColor(leftButtons, "BackBackground", 0xEE11171B, backOpacity);
 		SetLoadoutWidgetColor(leftButtons, "BackAccent", backAccentColor, backAccentOpacity);
 		SetLoadoutText(leftButtons, "BackLabel", "Back", backTextColor, m_Layout.m_iFontSmall, true, false);
+		SetLoadoutText(leftButtons, "BackVisibleLabel", "Back", backTextColor, m_Layout.m_iFontSmall, true, false);
 		SetLoadoutWidgetColor(leftButtons, "CloseBackground", 0xEE11171B, 0.98);
 		SetLoadoutWidgetColor(leftButtons, "CloseAccent", GetAccentColor(), 1.0);
-		SetLoadoutText(leftButtons, "CloseLabel", "ESC", 0xFFF4EBD6, m_Layout.m_iFontSmall, true, false);
+		SetLoadoutText(leftButtons, "CloseLabel", "Exit", 0xFFF4EBD6, m_Layout.m_iFontSmall, true, false);
+		SetLoadoutText(leftButtons, "CloseVisibleLabel", "Exit", 0xFFF4EBD6, m_Layout.m_iFontSmall, true, false);
 	}
 
 	protected void BindLoadoutClick(Widget root, string widgetName, int userId)
@@ -1889,9 +1891,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		ApplyLoadoutLayerOrder(m_RootWidget);
-		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutDimmer|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LeftRail|SlotRailScroll|SlotRailItems|CandidateList|CandidateItems|StorageBrowser|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
+		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutDimmer|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LeftRail|SlotRailScroll|SlotRailItems|CandidateList|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
 		HST_UIDebug.LogReadyWidgetsCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LoadoutBackButton|LoadoutCloseButton|LeftRail|SlotRailScroll|Footer|FooterHintItems");
-		HST_UIDebug.LogNamedChildSummaryCsv("loadout_editor_ready", m_RootWidget, "TopTabItems|SlotRailItems|CandidateItems|StorageCandidateItems|TemplateItems|FooterHintItems", 5);
+		HST_UIDebug.LogNamedChildSummaryCsv("loadout_editor_ready", m_RootWidget, "TopTabItems|SlotRailItems|CandidateItems|StorageCategoryTabs|StorageCandidateItems|TemplateItems|FooterHintItems", 5);
 		HST_UIDebug.LogPopulation("loadout_editor_ready", string.Format("root=%1 previewContainer=%2 preview=%3 ui=%4 tabs=%5 rail=%6 footer=%7 drag=%8", HST_UIDebug.WidgetSummary(m_RootWidget), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("HST_LoadoutPreviewContainer")), HST_UIDebug.WidgetSummary(m_PreviewWidget), HST_UIDebug.WidgetSummary(uiRoot), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("TopTabs")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("LeftRail")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("Footer")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("PreviewDragSurface"))));
 	}
 
@@ -1987,11 +1989,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ClearLoadoutContainerChildren(target, "TopTabItems");
 
 		int activeIndex = GetEditorModeIndex(m_sEditorMode);
-		int previousIndex = activeIndex - 1;
-		if (previousIndex < 0)
-			previousIndex = GetEditorModeCount() - 1;
-
-		AddLoadoutTabButton(workspace, items, "Q", "", MODE_WIDGET_ID_BASE + previousIndex, false);
 		for (int i = 0; i < GetEditorModeCount(); i++)
 		{
 			string modeId = GetEditorModeId(i);
@@ -1999,12 +1996,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			AddLoadoutTabButton(workspace, items, GetEditorModeIcon(modeId), ResolveIconTexture(modeId), MODE_WIDGET_ID_BASE + i, active);
 		}
 
-		int nextIndex = activeIndex + 1;
-		if (nextIndex >= GetEditorModeCount())
-			nextIndex = 0;
-
-		AddLoadoutTabButton(workspace, items, "E", "", MODE_WIDGET_ID_BASE + nextIndex, false);
-		HST_UIDebug.LogRowSummary("loadout_mode_tabs", LOADOUT_TAB_BUTTON_LAYOUT, GetEditorModeCount() + 2, string.Format("activeMode=%1 activeIndex=%2", m_sEditorMode, activeIndex));
+		HST_UIDebug.LogRowSummary("loadout_mode_tabs", LOADOUT_TAB_BUTTON_LAYOUT, GetEditorModeCount(), string.Format("activeMode=%1 activeIndex=%2", m_sEditorMode, activeIndex));
 	}
 
 	protected void AddLoadoutTabButton(WorkspaceWidget workspace, Widget parent, string fallback, ResourceName texture, int userId, bool active)
@@ -5043,7 +5035,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!selectedContainerNodeId.IsEmpty())
 		{
 			m_sSelectedStorageContainerNodeId = selectedContainerNodeId;
-			if (m_sSelectedNodeId.IsEmpty())
+			if (m_sEditorMode == "storage" && FindStorageContainerNodeIndex(m_sSelectedNodeId) < 0)
+			{
+				m_sSelectedNodeId = selectedContainerNodeId;
+				m_sSelectedStoredItemNodeId = "";
+				m_bCandidateMode = true;
+			}
+			else if (m_sSelectedNodeId.IsEmpty())
 			{
 				m_sSelectedNodeId = selectedContainerNodeId;
 				m_bCandidateMode = true;
@@ -5057,9 +5055,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				continue;
 
 			m_sSelectedStorageContainerNodeId = m_aNodeIds[i];
-			if (m_sSelectedNodeId.IsEmpty() || m_sSelectedStoredItemNodeId.IsEmpty())
+			if (m_sEditorMode == "storage" || m_sSelectedNodeId.IsEmpty() || m_sSelectedStoredItemNodeId.IsEmpty())
 			{
 				m_sSelectedNodeId = m_aNodeIds[i];
+				m_sSelectedStoredItemNodeId = "";
 				m_bCandidateMode = true;
 			}
 			return;
@@ -7134,6 +7133,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (iconKey == "explosive" || iconKey == "grenade" || iconKey == "throwable")
 			return true;
 		if (iconKey == "medical")
+			return true;
+		if (iconKey == "clothing_group" || iconKey == "clothing" || iconKey == "headgear" || iconKey == "vest" || iconKey == "pants" || iconKey == "boots" || iconKey == "backpack" || iconKey == "handwear")
+			return true;
+		if (iconKey == "storage" || iconKey == "inventory")
 			return true;
 
 		return false;

@@ -333,7 +333,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_fCommandMenuDebounceRemaining = 0;
 		m_bCommandMenuKeyDownLastFrame = false;
 		m_bRawIKeyDownLastFrame = false;
-		Debug.ClearKey(KeyCode.KC_I);
 
 		InputManager inputManager = GetGame().GetInputManager();
 		if (!inputManager)
@@ -1353,6 +1352,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		SetMenuLayer(root, "StatsPanel", COMMAND_PANEL_Z, true);
 		SetMenuLayer(root, "MainPanel", COMMAND_PANEL_Z, true);
 		SetMenuLayer(root, "ActivityPanel", COMMAND_PANEL_Z, true);
+		SetMenuLayer(root, "ActivityFeedTitle", COMMAND_PANEL_Z + 1, false);
+		SetMenuLayer(root, "ActivityScroll", COMMAND_PANEL_Z + 1, false);
 		SetMenuLayer(root, "ActionsPanel", COMMAND_PANEL_Z, true);
 		SetMenuLayer(root, "Header", COMMAND_HEADER_Z, true);
 		SetMenuLayer(root, "HeaderBackground", COMMAND_HEADER_Z, true);
@@ -1398,9 +1399,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
 		ApplyCommandMenuLayerOrder(root);
-		HST_UIDebug.LogWidgetGeometryCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|TabScroll|TabItems|StatsPanel|MainPanel|MainScroll|MainItems|ActivityPanel|ActivityScroll|ActivityItems|ActionsPanel|ActionsScroll|ActionsItems|CloseButton|CloseLabel");
-		HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|TabScroll|TabItems|StatsPanel|MainPanel|MainScroll|MainItems|ActivityPanel|ActivityScroll|ActivityItems|ActionsPanel|ActionsScroll|ActionsItems|CloseButton|CloseLabel");
-		HST_UIDebug.LogNamedChildSummaryCsv("command_menu_ready", root, "TabItems|MainItems|ActivityItems|ActionsItems", 5);
+		HST_UIDebug.LogWidgetGeometryCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|TabScroll|TabItems|StatsPanel|MainPanel|MainScroll|MainItems|ActivityPanel|ActionsPanel|ActionsScroll|ActionsItems|CloseButton|CloseLabel");
+		HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|TabScroll|TabItems|StatsPanel|MainPanel|MainScroll|MainItems|ActivityPanel|ActionsPanel|ActionsScroll|ActionsItems|CloseButton|CloseLabel");
+		HST_UIDebug.LogNamedChildSummaryCsv("command_menu_ready", root, "TabItems|MainItems|ActionsItems", 5);
 	}
 
 	protected void RenderStats(WorkspaceWidget workspace, Widget root)
@@ -1611,48 +1612,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		SetMenuText(root, "ActivityTitle", "Activity", 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
-		SetMenuText(root, "ActivityResult", BuildResultText(), 0xFFD2E7B8, m_Layout.m_iFontNormal, false, true);
-		SetMenuText(root, "ActivityFeedTitle", "Campaign Notes", 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
-
-		m_FeedScroll = ScrollLayoutWidget.Cast(FindMenuWidget(root, "ActivityScroll"));
-		Widget items = FindMenuWidget(root, "ActivityItems");
-
-		if (!items)
-		{
-			SetMenuText(root, "ActivityResult", "Activity feed unavailable: layout missing ActivityItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
-			return;
-		}
-
-		if (m_aFeedLines.Count() == 0)
-		{
-			Widget row = workspace.CreateWidgets(COMMAND_FEED_ROW_LAYOUT, items);
-			DebugRowCreated("COMMAND_FEED_ROW_LAYOUT", row);
-			HST_UIDebug.LogRowSample("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, 0, string.Format("emptyFeed=true row=%1", HST_UIDebug.WidgetSummary(row)));
-			if (row)
-			{
-				PrepareRowRoot(row);
-				SetRowText(row, "Text", "Waiting for HQ traffic.", 0xFFAFBAC1, m_Layout.m_iFontNormal, false, true);
-			}
-			HST_UIDebug.LogRowSummary("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, 1, "fallback feed row");
-			RestoreScrollPixels(m_FeedScroll, m_fFeedScrollY);
-			return;
-		}
-
-		for (int i = 0; i < m_aFeedLines.Count(); i++)
-		{
-			Widget row = workspace.CreateWidgets(COMMAND_FEED_ROW_LAYOUT, items);
-			DebugRowCreated("COMMAND_FEED_ROW_LAYOUT", row);
-			HST_UIDebug.LogRowSample("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, i, string.Format("text=%1 tone=%2 row=%3", ShortenText(m_aFeedLines[i], 96), m_aFeedTones[i], HST_UIDebug.WidgetSummary(row)));
-			if (row)
-			{
-				PrepareRowRoot(row);
-				SetRowText(row, "Text", m_aFeedLines[i], ToneTextColor(m_aFeedTones[i]), m_Layout.m_iFontSmall, false, true);
-			}
-		}
-
-		HST_UIDebug.LogRowSummary("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, m_aFeedLines.Count(), string.Format("status=%1", ShortenText(BuildResultText(), 96)));
-		RestoreScrollPixels(m_FeedScroll, m_fFeedScrollY);
+		string lastActivity = BuildResultText();
+		SetMenuText(root, "ActivityTitle", "Last Activity", 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
+		SetMenuText(root, "ActivityResult", lastActivity, 0xFFD2E7B8, m_Layout.m_iFontNormal, false, true);
+		SetMenuLayer(root, "ActivityFeedTitle", COMMAND_PANEL_Z + 1, false);
+		SetMenuLayer(root, "ActivityScroll", COMMAND_PANEL_Z + 1, false);
+		m_FeedScroll = null;
+		HST_UIDebug.LogRowSample("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, 0, string.Format("lastActivityOnly=true text=%1", ShortenText(lastActivity, 96)));
+		HST_UIDebug.LogRowSummary("command_menu_activity", COMMAND_FEED_ROW_LAYOUT, 0, "last activity only");
 	}
 
 	protected void RenderActions(WorkspaceWidget workspace, Widget root)
