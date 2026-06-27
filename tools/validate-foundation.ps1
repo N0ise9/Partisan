@@ -3389,7 +3389,8 @@ foreach ($requiredLoadoutCandidateTileEntry in @(
 	"OffsetRight -82",
 	"OffsetBottom -82",
 	"OffsetLeft 112",
-	"OffsetLeft -98",
+	"OffsetRight 82",
+	"OffsetLeft -72",
 	"OffsetTop 34"
 )) {
 	$loadoutCandidateTileText = Get-Content -Raw "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"

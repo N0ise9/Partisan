@@ -41,15 +41,12 @@ redistributed in this addon.
 
 ## Bacon Loadout Editor
 
-h-istasi's custom loadout editor pays likeness to the Bacon Loadout Editor's
-presentation and interaction style: dark fullscreen editor, left-side slot and
-category navigation, character preview emphasis, amber selected rows, and
-footer controls. The h-istasi implementation is original and remains
-h-istasi-owned: `HST_LoadoutEditorComponent`, `HST_LoadoutEditorService`, the
-HST loadout layout, profile save files, issued-item ledger, icon references,
-and HQ arsenal action filtering are authored for this addon. No Bacon scripts,
-prefabs, UI layouts, packed assets, or dependency declarations are
-redistributed in this addon.
+h-istasi's loadout editor was independently authored for h-istasi's custom arsenal, persistence, and issued-item accounting systems. Bacon Loadout Editor was used only as general UX reference for familiar loadout-management presentation patterns in Arma Reforger.
+
+All h-istasi loadout-editor scripts, layouts, prefabs, profile-save handling, server payload logic, icon references, arsenal integration, and issued-item accounting are original h-istasi project content. No Bacon Loadout Editor code, prefabs, UI layouts, packed assets, resources, or addon dependency declarations are included or redistributed by this project.
+
+- Workshop page:
+  https://reforger.armaplatform.com/workshop/606B100247F5C709
 
 ## Overthrow
 

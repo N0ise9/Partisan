@@ -303,9 +303,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "TopTabItems"
        Slot FrameWidgetSlot "{7B2FD986A4D34249}" {
         Anchor 0 0 1 1
-        OffsetLeft 0
+        OffsetLeft 18
         OffsetTop 0
-        OffsetRight 0
+        OffsetRight 18
         OffsetBottom 0
        }
        "Ignore Cursor" 0
