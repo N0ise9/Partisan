@@ -1126,6 +1126,10 @@ foreach ($requiredUIRootServiceEntry in @(
 	"NotifyNotificationHidden",
 	"CanOpen",
 	'CanOpen(HST_EUIScreenMode mode, string owner = "", bool modal = false)',
+	"CanHandleScreenInput",
+	'CanHandleScreenInput(HST_EUIScreenMode mode, string owner = "")',
+	"CanHandleModalInput",
+	'CanHandleModalInput(HST_EUIScreenMode mode, string owner = "")',
 	"bool wantsModal = modal || mode == HST_EUIScreenMode.ACTION_DIALOG || mode == HST_EUIScreenMode.MISSION_DIALOG",
 	"if (m_ModalScreen)",
 	"m_ModalScreen.Matches(mode, owner)",
@@ -2224,6 +2228,8 @@ foreach ($requiredMissionDialogComponentEntry in @(
 	"m_Client.OnWidgetClicked(w.GetUserID(), button)",
 	"OnWidgetClicked(int widgetId, int button = 0)",
 	"IsDuplicateWidgetActivation(widgetId, button)",
+	"CanHandleMissionDialogInput",
+	'HST_UIRootService.Get().CanHandleModalInput(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent")',
 	"data.m_sReportId = m_sSelectedMissionId",
 	"data.m_aObjectiveLabels.Insert",
 	"data.m_aObjectiveValues.Insert",
@@ -2863,8 +2869,12 @@ foreach ($requiredCommandMenuActionDialogEntry in @(
 	"RequestConfirmedAction",
 	"CancelPendingActionDialog();",
 	"IsCommandMenuTopmost",
+	"CanHandleCommandMenuInput",
+	"CanHandleActionDialogInput",
 	'!IsCommandMenuTopmost()',
-	'HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent")'
+	'HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent")',
+	'HST_UIRootService.Get().CanHandleScreenInput(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent")',
+	'HST_UIRootService.Get().CanHandleModalInput(HST_EUIScreenMode.ACTION_DIALOG, ACTION_DIALOG_OWNER)'
 )) {
 	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredCommandMenuActionDialogEntry)) {
 		throw "Command menu destructive/admin actions must use the named action-dialog modal: $requiredCommandMenuActionDialogEntry"
@@ -4145,8 +4155,9 @@ foreach ($requiredLoadoutRootLifecycleEntry in @(
 	"if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR, `"HST_LoadoutEditorComponent`", root, true, true, false))",
 	"DeleteEditorRoot()",
 	"IsLoadoutEditorTopmost",
-	'!IsLoadoutEditorTopmost()',
 	'HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent")',
+	"CanHandleLoadoutEditorInput",
+	'HST_UIRootService.Get().CanHandleScreenInput(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent")',
 	"LOADOUT_PREVIEW_Z",
 	"LOADOUT_UI_LAYER_Z",
 	"LOADOUT_PREVIEW_INPUT_Z",

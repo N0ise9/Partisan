@@ -151,6 +151,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Repeated identical `RequestOpen` calls should be idempotent; otherwise refresh loops create noisy revision churn.
   - Use distinct screen modes for distinct modal families. Action confirmations register as `ACTION_DIALOG`; mission report/details dialogs register as `MISSION_DIALOG`.
 
+- Screen input and modal input need separate ownership gates.
+  - A full-screen UI should only process keyboard, preview drag, and widget clicks when `HST_UIRootService.CanHandleScreenInput(mode, owner)` matches that screen and no modal is above it.
+  - A modal should process its buttons through `CanHandleModalInput(mode, owner)` instead of checking the underlying screen's open flag.
+  - This matters when a contextual command opens only a confirmation modal while the command menu shell is closed; the modal still owns Yes/No input, but the closed screen should not receive normal menu navigation.
+  - Current examples: command action dialogs, mission report close, and loadout editor preview drag/tab/back input.
+
 - Shared confirmation rules need to cover both row clicks and contextual commands.
   - Command-menu row activation and contextual user actions can reach the same campaign mutation through different methods.
   - Put the confirmation decision in the destination UI component, not in a specific row factory, so actions such as HQ relocation and mission-objective completion cannot bypass the shared modal when triggered from world-space user actions.

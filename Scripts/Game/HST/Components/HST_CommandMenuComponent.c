@@ -446,26 +446,35 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	bool OnWidgetClicked(int widgetId, int button = 0)
 	{
-		if (!m_bMenuOpen)
-			return false;
-
 		if (IsDuplicateWidgetActivation(widgetId, button))
 			return true;
 
 		if (widgetId == ACTION_MODAL_CANCEL_WIDGET_ID)
 		{
+			if (!CanHandleActionDialogInput())
+				return false;
+
 			CancelPendingActionDialog();
 			return true;
 		}
 
 		if (widgetId == ACTION_MODAL_CONFIRM_WIDGET_ID)
 		{
+			if (!CanHandleActionDialogInput())
+				return false;
+
 			ConfirmPendingActionDialog();
 			return true;
 		}
 
+		if (!m_bMenuOpen)
+			return m_bActionDialogOpen && CanHandleActionDialogInput();
+
 		if (m_bActionDialogOpen)
 			return true;
+
+		if (!CanHandleCommandMenuInput())
+			return false;
 
 		if (widgetId == CLOSE_WIDGET_ID)
 		{
@@ -634,7 +643,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OnSelectPreviousInput(float value, EActionTrigger reason)
 	{
-		if (m_bActionDialogOpen || !IsCommandMenuTopmost())
+		if (m_bActionDialogOpen || !CanHandleCommandMenuInput())
 			return;
 
 		if (reason == EActionTrigger.DOWN)
@@ -643,7 +652,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OnSelectNextInput(float value, EActionTrigger reason)
 	{
-		if (m_bActionDialogOpen || !IsCommandMenuTopmost())
+		if (m_bActionDialogOpen || !CanHandleCommandMenuInput())
 			return;
 
 		if (reason == EActionTrigger.DOWN)
@@ -652,7 +661,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OnExecuteSelectedInput(float value, EActionTrigger reason)
 	{
-		if (m_bActionDialogOpen || !IsCommandMenuTopmost())
+		if (m_bActionDialogOpen || !CanHandleCommandMenuInput())
 			return;
 
 		if (reason == EActionTrigger.DOWN)
@@ -666,11 +675,14 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (m_bActionDialogOpen)
 		{
+			if (!CanHandleActionDialogInput())
+				return;
+
 			CancelPendingActionDialog();
 			return;
 		}
 
-		if (!IsCommandMenuTopmost())
+		if (!CanHandleCommandMenuInput())
 			return;
 
 		CloseMenu("menu back action");
@@ -679,6 +691,16 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool IsCommandMenuTopmost()
 	{
 		return HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent");
+	}
+
+	protected bool CanHandleCommandMenuInput()
+	{
+		return HST_UIRootService.Get().CanHandleScreenInput(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent");
+	}
+
+	protected bool CanHandleActionDialogInput()
+	{
+		return HST_UIRootService.Get().CanHandleModalInput(HST_EUIScreenMode.ACTION_DIALOG, ACTION_DIALOG_OWNER);
 	}
 
 	protected void BecomeLocalOwner()

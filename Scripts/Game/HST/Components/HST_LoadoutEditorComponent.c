@@ -435,6 +435,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		if (widgetId != PREVIEW_DRAG_WIDGET_ID)
 			return false;
+		if (!m_bEditorOpen || !CanHandleLoadoutEditorInput())
+			return false;
 
 		m_bPreviewDragFocused = true;
 		return false;
@@ -444,6 +446,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		if (widgetId != PREVIEW_DRAG_WIDGET_ID)
 			return false;
+		if (!m_bEditorOpen || !CanHandleLoadoutEditorInput())
+			return false;
 
 		m_bPreviewDragFocused = false;
 		return false;
@@ -452,6 +456,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	bool OnWidgetMouseButtonDown(int widgetId, int x, int y, int button)
 	{
 		if (widgetId != PREVIEW_DRAG_WIDGET_ID)
+			return false;
+		if (!m_bEditorOpen || !CanHandleLoadoutEditorInput())
 			return false;
 
 		if (button == 0)
@@ -470,6 +476,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		if (widgetId != PREVIEW_DRAG_WIDGET_ID)
 			return false;
+		if (!m_bEditorOpen || !CanHandleLoadoutEditorInput())
+			return false;
 
 		if (!m_bPreviewDragActive)
 			return false;
@@ -481,6 +489,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	bool OnWidgetClickedWithButton(int widgetId, int button)
 	{
 		if (!m_bEditorOpen)
+			return false;
+		if (!CanHandleLoadoutEditorInput())
 			return false;
 
 		if (IsDuplicateWidgetActivation(widgetId, button))
@@ -906,7 +916,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (reason != EActionTrigger.DOWN || !m_bEditorOpen)
 			return;
 
-		if (!IsLoadoutEditorTopmost())
+		if (!CanHandleLoadoutEditorInput())
 			return;
 
 		SwitchEditorModeByIndex(GetEditorModeIndex(m_sEditorMode) - 1);
@@ -917,7 +927,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (reason != EActionTrigger.DOWN || !m_bEditorOpen)
 			return;
 
-		if (!IsLoadoutEditorTopmost())
+		if (!CanHandleLoadoutEditorInput())
 			return;
 
 		SwitchEditorModeByIndex(GetEditorModeIndex(m_sEditorMode) + 1);
@@ -928,7 +938,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (reason != EActionTrigger.DOWN || !m_bEditorOpen)
 			return;
 
-		if (!IsLoadoutEditorTopmost())
+		if (!CanHandleLoadoutEditorInput())
 			return;
 
 		HandleBackAction(true);
@@ -937,6 +947,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected bool IsLoadoutEditorTopmost()
 	{
 		return HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent");
+	}
+
+	protected bool CanHandleLoadoutEditorInput()
+	{
+		return HST_UIRootService.Get().CanHandleScreenInput(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent");
 	}
 
 	protected void SwitchEditorModeByIndex(int modeIndex)

@@ -338,12 +338,19 @@ class HST_MissionClientComponent : ScriptComponent
 	{
 		if (IsDuplicateWidgetActivation(widgetId, button))
 			return true;
+		if (!CanHandleMissionDialogInput())
+			return false;
 
 		if (widgetId != DETAIL_CLOSE_WIDGET_ID)
 			return false;
 
 		CloseMissionDetails();
 		return true;
+	}
+
+	protected bool CanHandleMissionDialogInput()
+	{
+		return HST_UIRootService.Get().CanHandleModalInput(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent");
 	}
 
 	protected bool IsDuplicateWidgetActivation(int widgetId, int button)

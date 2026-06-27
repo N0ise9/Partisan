@@ -179,6 +179,25 @@ class HST_UIRootService
 		return m_CurrentScreen.Matches(mode, owner);
 	}
 
+	bool CanHandleScreenInput(HST_EUIScreenMode mode, string owner = "")
+	{
+		if (m_ModalScreen)
+			return false;
+
+		if (!m_CurrentScreen)
+			return mode == HST_EUIScreenMode.NONE;
+
+		return m_CurrentScreen.Matches(mode, owner);
+	}
+
+	bool CanHandleModalInput(HST_EUIScreenMode mode, string owner = "")
+	{
+		if (!m_ModalScreen)
+			return false;
+
+		return m_ModalScreen.Matches(mode, owner);
+	}
+
 	bool IsGameplayBlocked()
 	{
 		if (m_CurrentScreen && m_CurrentScreen.m_bBlocksGameplay)
