@@ -718,6 +718,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (candidateIndex >= 0 && candidateIndex < m_aCandidatePrefabs.Count())
 			{
 				string nodeId = m_sSelectedNodeId;
+				if (nodeId.IsEmpty() || FindStringIndex(m_aNodeIds, nodeId) < 0)
+					nodeId = ResolveSelectedCandidateNodeId();
 				string commandId = ResolveNodeSetCommand(nodeId);
 				if (m_sEditorMode == "storage")
 				{
@@ -745,11 +747,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (widgetId == REMOVE_SELECTED_NODE_WIDGET_ID)
 		{
-			if (m_sSelectedNodeId.IsEmpty())
-				return true;
-
-			m_sLastResult = "requested remove item";
-			RequestServerAction(ResolveNodeRemoveCommand(m_sSelectedNodeId), m_sSelectedNodeId);
+			RequestRemoveSelectedEditingItem();
 			RenderEditor();
 			return true;
 		}
@@ -1132,6 +1130,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void RequestServerAction(string commandId, string argument)
 	{
 		DebugLog(string.Format("request command=%1 arg=%2", commandId, ShortenText(argument, 120)));
+		InvalidateCandidatePayloadsForCommand(commandId);
 
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.GetLocalOwner();
 		if (request)
@@ -1153,6 +1152,22 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		m_sLastResult = "player request bridge not ready";
+	}
+
+	protected void InvalidateCandidatePayloadsForCommand(string commandId)
+	{
+		if (commandId == "set_node_item"
+			|| commandId == "set_attachment"
+			|| commandId == "add_storage_item"
+			|| commandId == "remove_node_item"
+			|| commandId == "remove_attachment"
+			|| commandId == "loadout_replace_slot"
+			|| commandId == "loadout_add_item"
+			|| commandId == "loadout_remove_slot"
+			|| commandId == "loadout_set_quantity")
+		{
+			ClearAllCandidatePayloads();
+		}
 	}
 
 	protected void EnsureVisualSettings()
@@ -2192,16 +2207,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			SetLoadoutText(railRoot, "StorageContentEmpty", "Contents unavailable: layout missing StorageContentItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 		else if (contentRows == 0)
 		{
-			Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ITEM_ROW_LAYOUT, contentItems);
-			DebugRowCreated("LOADOUT_STORAGE_ITEM_ROW_LAYOUT", row);
-			HST_UIDebug.LogRowSample("loadout_storage_items", LOADOUT_STORAGE_ITEM_ROW_LAYOUT, 0, string.Format("empty=true selectedStorage=%1 row=%2", ShortenText(selectedStorageNodeId, 48), HST_UIDebug.WidgetSummary(row)));
-			if (row)
-			{
-				PrepareRowRoot(row);
-				SetRowText(row, "Name", "Empty", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
-				SetRowText(row, "Count", "", 0xFFB7C7D7, m_Layout.m_iFontTiny, false, false);
-				SetRowImageColor(row, "Background", 0x00111111, 0.01);
-			}
+			SetLoadoutText(railRoot, "StorageContentEmpty", "Empty", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
+			SetLoadoutWidgetVisible(railRoot, "StorageContentEmpty", true);
+			HST_UIDebug.LogRowSample("loadout_storage_items", LOADOUT_STORAGE_ITEM_ROW_LAYOUT, 0, string.Format("empty=true selectedStorage=%1 plainText=true", ShortenText(selectedStorageNodeId, 48)));
 		}
 
 		HST_UIDebug.LogRowSummary("loadout_storage_containers", LOADOUT_STORAGE_ROW_LAYOUT, Math.Max(1, visibleIndex), string.Format("selectedStorage=%1 storageRows=%2 totalNodes=%3", ShortenText(selectedStorageNodeId, 48), visibleIndex, m_aNodeIds.Count()));
@@ -2318,7 +2326,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		BindRowClick(row, userId);
 
 		int color = GetBaseRowColor();
-		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedNodeId)
+		string selectedNodeId = m_sSelectedNodeId;
+		if (selectedNodeId.IsEmpty() && m_bCandidateMode)
+			selectedNodeId = ResolveSelectedCandidateNodeId();
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == selectedNodeId)
 			color = GetSelectedRowColor();
 
 		SetRowImageColor(row, "Background", color, 0.98);
@@ -2813,8 +2824,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutWidgetColor(panelRoot, "CandidateHeaderRule", GetAccentColor(), 1.0);
 		ShowCandidatePanelWidgets(panelRoot);
 		RenderSelectedNodeHeader(workspace, panelRoot);
-		int selectedNodeIndex = FindSelectedNodeIndex();
-		if (selectedNodeIndex >= 0 && selectedNodeIndex < m_aNodeCanRemove.Count() && m_aNodeCanRemove[selectedNodeIndex])
+		if (CanRemoveSelectedEditingItem())
 		{
 			ConfigureLoadoutPanelButton(panelRoot, "CandidateRemoveButton", "CandidateRemoveBackground", "CandidateRemoveAccent", "CandidateRemoveLabel", "Remove", REMOVE_SELECTED_NODE_WIDGET_ID);
 			SetLoadoutText(panelRoot, "CandidateRemoveIcon", "X", 0xFFFFFFFF, ScaleFont(34), true, false);
@@ -2844,13 +2854,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (visibleIndex == 0)
 		{
-			string emptyText = ResolveCandidateEmptyText(m_sSelectedNodeId, "No compatible recovered items.");
-			if (FindStringIndex(m_aRequestedCandidateNodeIds, m_sSelectedNodeId) >= 0)
+			string selectedCandidateNodeId = ResolveSelectedCandidateNodeId();
+			string emptyText = ResolveCandidateEmptyText(selectedCandidateNodeId, "No compatible recovered items.");
+			if (FindStringIndex(m_aRequestedCandidateNodeIds, selectedCandidateNodeId) >= 0)
 				emptyText = "Loading compatible items...";
 
 			Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
 			DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
-			HST_UIDebug.LogRowSample("loadout_candidate_rows", LOADOUT_NODE_ROW_LAYOUT, 0, string.Format("empty=true selectedNode=%1 text=%2 row=%3", ShortenText(m_sSelectedNodeId, 48), ShortenText(emptyText, 96), HST_UIDebug.WidgetSummary(row)));
+			HST_UIDebug.LogRowSample("loadout_candidate_rows", LOADOUT_NODE_ROW_LAYOUT, 0, string.Format("empty=true selectedNode=%1 text=%2 row=%3", ShortenText(selectedCandidateNodeId, 48), ShortenText(emptyText, 96), HST_UIDebug.WidgetSummary(row)));
 			if (row)
 			{
 				PrepareRowRoot(row);
@@ -2864,7 +2875,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			}
 		}
 
-		HST_UIDebug.LogRowSummary("loadout_candidate_rows", LOADOUT_NODE_ROW_LAYOUT, Math.Max(1, visibleIndex), string.Format("selectedNode=%1 visible=%2 totalCandidates=%3 requested=%4", ShortenText(m_sSelectedNodeId, 48), visibleIndex, m_aCandidatePrefabs.Count(), FindStringIndex(m_aRequestedCandidateNodeIds, m_sSelectedNodeId) >= 0));
+		string summarySelectedNodeId = ResolveSelectedCandidateNodeId();
+		HST_UIDebug.LogRowSummary("loadout_candidate_rows", LOADOUT_NODE_ROW_LAYOUT, Math.Max(1, visibleIndex), string.Format("selectedNode=%1 visible=%2 totalCandidates=%3 requested=%4", ShortenText(summarySelectedNodeId, 48), visibleIndex, m_aCandidatePrefabs.Count(), FindStringIndex(m_aRequestedCandidateNodeIds, summarySelectedNodeId) >= 0));
 		RestoreScrollPixels(m_CandidateScroll, m_fCandidateScrollY);
 	}
 
@@ -3543,9 +3555,30 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 	}
 
+	protected void ClearAllCandidatePayloads()
+	{
+		m_aCandidateNodeIds.Clear();
+		m_aCandidatePrefabs.Clear();
+		m_aCandidateDisplays.Clear();
+		m_aCandidateShortDisplays.Clear();
+		m_aCandidateCounts.Clear();
+		m_aCandidateInfinite.Clear();
+		m_aCandidateKinds.Clear();
+		m_aCandidateCompatible.Clear();
+		m_aCandidateAmmoMatch.Clear();
+		m_aCandidateIconHints.Clear();
+		m_aVisibleCandidateIndexes.Clear();
+		m_aLoadedCandidateNodeIds.Clear();
+		m_aRequestedCandidateNodeIds.Clear();
+		m_aRequestedCandidateFrames.Clear();
+		m_aRequestedCandidateAttempts.Clear();
+		m_aCandidateEmptyNodeIds.Clear();
+		m_aCandidateEmptyReasons.Clear();
+	}
+
 	protected void EnsureCandidatePayloadForSelectedNode()
 	{
-		EnsureCandidatePayloadForNode(m_sSelectedNodeId);
+		EnsureCandidatePayloadForNode(ResolveSelectedCandidateNodeId());
 	}
 
 	protected void EnsureCandidatePayloadForStorageContainer()
@@ -3899,17 +3932,52 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		int nodeIndex = FindSelectedNodeIndex();
+		int nodeIndex = FindSelectedEditingNodeIndex();
+		int slotIndex = FindSelectedSlotIndex();
+		string headerSlot = "Selected Slot";
+		string headerName = "Empty Slot";
+		string headerPrefab = "";
+		string headerIconKey = "utility";
+
+		if (nodeIndex >= 0)
+		{
+			headerSlot = GetNodeLabel(nodeIndex);
+			headerName = GetNodeDisplay(nodeIndex);
+			headerIconKey = ResolveNodeIconKey(nodeIndex);
+			if (nodeIndex < m_aNodePrefabs.Count())
+				headerPrefab = m_aNodePrefabs[nodeIndex];
+		}
+		else if (slotIndex >= 0)
+		{
+			headerSlot = GetSlotLabel(slotIndex);
+			headerName = GetSlotDisplay(slotIndex);
+			if (slotIndex < m_aSlotCategories.Count())
+				headerIconKey = m_aSlotCategories[slotIndex];
+			if (slotIndex < m_aSlotPrefabs.Count())
+				headerPrefab = m_aSlotPrefabs[slotIndex];
+		}
+
+		if (headerName.IsEmpty() || headerName == "empty")
+			headerName = "Empty Slot";
+
 		SetLoadoutWidgetColor(root, "CandidateHeaderPreviewBack", 0xEE05080A, 1.0);
 		SetLoadoutWidgetColor(root, "CandidateHeaderPreviewLine", 0x664B5960, 1.0);
 
 		Widget anchor = root.FindAnyWidget("CandidateHeaderPreviewAnchor");
 		if (anchor)
-			CreateNodePreviewCell(workspace, anchor, nodeIndex, 0, 0xFFE6E6E6);
+		{
+			ClearLoadoutContainerChildren(root, "CandidateHeaderPreviewAnchor");
+			if (nodeIndex >= 0)
+				CreateNodePreviewCell(workspace, anchor, nodeIndex, 0, 0xFFE6E6E6);
+			else
+				CreateSlotPreviewCell(workspace, anchor, slotIndex, headerIconKey, 0, 0xFFE6E6E6);
+		}
 
-		SetLoadoutText(root, "CandidateHeaderSlot", GetNodeLabel(nodeIndex), 0xFFE2E6E8, m_Layout.m_iFontNormal, true, false);
-		SetLoadoutText(root, "CandidateHeaderName", ShortenText(GetNodeDisplay(nodeIndex), 38), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, false);
-		SetLoadoutText(root, "CandidateHeaderMarker", "W", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
+		SetLoadoutText(root, "CandidateHeaderSlot", ShortenText(headerSlot, 44), 0xFFE2E6E8, m_Layout.m_iFontNormal, true, false);
+		SetLoadoutText(root, "CandidateHeaderName", ShortenText(headerName, 52), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, true);
+		SetLoadoutWidgetVisible(root, "CandidateHeaderMarker", !headerPrefab.IsEmpty());
+		if (!headerPrefab.IsEmpty())
+			SetLoadoutText(root, "CandidateHeaderMarker", "W", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
 	}
 
 	protected int FindSelectedNodeIndex()
@@ -3924,6 +3992,88 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		return -1;
+	}
+
+	protected int FindSelectedEditingNodeIndex()
+	{
+		int nodeIndex = FindSelectedNodeIndex();
+		if (nodeIndex >= 0)
+			return nodeIndex;
+
+		if (m_sSelectedSlotId.IsEmpty())
+			return -1;
+
+		nodeIndex = FindStringIndex(m_aNodeIds, m_sSelectedSlotId);
+		if (nodeIndex >= 0)
+			return nodeIndex;
+
+		return FindStringIndex(m_aNodeIds, "node_" + m_sSelectedSlotId);
+	}
+
+	protected string ResolveSelectedCandidateNodeId()
+	{
+		int nodeIndex = FindSelectedEditingNodeIndex();
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
+			return m_aNodeIds[nodeIndex];
+
+		if (!m_sSelectedNodeId.IsEmpty())
+			return m_sSelectedNodeId;
+		if (!m_sSelectedSlotId.IsEmpty())
+			return m_sSelectedSlotId;
+
+		return "";
+	}
+
+	protected string ResolveSelectedEditingPrefab()
+	{
+		int nodeIndex = FindSelectedEditingNodeIndex();
+		if (nodeIndex >= 0 && nodeIndex < m_aNodePrefabs.Count())
+			return m_aNodePrefabs[nodeIndex];
+
+		int slotIndex = FindSelectedSlotIndex();
+		if (slotIndex >= 0 && slotIndex < m_aSlotPrefabs.Count())
+			return m_aSlotPrefabs[slotIndex];
+
+		return "";
+	}
+
+	protected bool CanRemoveSelectedEditingItem()
+	{
+		int nodeIndex = FindSelectedEditingNodeIndex();
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanRemove.Count() && m_aNodeCanRemove[nodeIndex])
+		{
+			if (nodeIndex < m_aNodePrefabs.Count())
+				return !m_aNodePrefabs[nodeIndex].IsEmpty();
+			return true;
+		}
+
+		int slotIndex = FindSelectedSlotIndex();
+		if (slotIndex >= 0 && slotIndex < m_aSlotPrefabs.Count())
+			return !m_aSlotPrefabs[slotIndex].IsEmpty();
+
+		return false;
+	}
+
+	protected bool RequestRemoveSelectedEditingItem()
+	{
+		string nodeId = ResolveSelectedCandidateNodeId();
+		int nodeIndex = FindSelectedEditingNodeIndex();
+		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanRemove.Count() && m_aNodeCanRemove[nodeIndex] && !nodeId.IsEmpty())
+		{
+			m_sLastResult = "requested remove item";
+			RequestServerAction(ResolveNodeRemoveCommand(nodeId), nodeId);
+			return true;
+		}
+
+		int slotIndex = FindSelectedSlotIndex();
+		if (slotIndex >= 0 && slotIndex < m_aSlotIds.Count() && slotIndex < m_aSlotPrefabs.Count() && !m_aSlotPrefabs[slotIndex].IsEmpty())
+		{
+			m_sLastResult = "requested remove slot";
+			RequestServerAction("loadout_remove_slot", m_aSlotIds[slotIndex]);
+			return true;
+		}
+
+		return false;
 	}
 
 	protected int CountVisibleNodesForCurrentMode()
@@ -4287,10 +4437,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (candidateIndex < 0 || candidateIndex >= m_aCandidateNodeIds.Count())
 			return false;
 
-		if (m_sSelectedNodeId.IsEmpty())
+		string selectedNodeId = ResolveSelectedCandidateNodeId();
+		if (selectedNodeId.IsEmpty())
 			return false;
 
-		return m_aCandidateNodeIds[candidateIndex] == m_sSelectedNodeId;
+		return m_aCandidateNodeIds[candidateIndex] == selectedNodeId;
 	}
 
 	protected bool IsCandidateVisibleForStorageBrowser(int candidateIndex)
@@ -4469,11 +4620,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected bool IsCandidateCurrentNodeItem(int candidateIndex)
 	{
-		int nodeIndex = FindSelectedNodeIndex();
-		if (nodeIndex < 0 || candidateIndex < 0 || nodeIndex >= m_aNodePrefabs.Count() || candidateIndex >= m_aCandidatePrefabs.Count())
+		if (candidateIndex < 0 || candidateIndex >= m_aCandidatePrefabs.Count())
 			return false;
 
-		return !m_aNodePrefabs[nodeIndex].IsEmpty() && m_aNodePrefabs[nodeIndex] == m_aCandidatePrefabs[candidateIndex];
+		string selectedPrefab = ResolveSelectedEditingPrefab();
+		return !selectedPrefab.IsEmpty() && selectedPrefab == m_aCandidatePrefabs[candidateIndex];
 	}
 
 	protected int FindCategoryIndex(string categoryId)
@@ -5266,6 +5417,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return "empty";
 	}
 
+	protected string GetSlotDisplay(int slotIndex)
+	{
+		if (slotIndex >= 0 && slotIndex < m_aSlotDisplays.Count() && !m_aSlotDisplays[slotIndex].IsEmpty())
+			return m_aSlotDisplays[slotIndex];
+
+		return GetSlotShortDisplay(slotIndex);
+	}
+
 	protected string GetItemSlotLabel(int itemIndex)
 	{
 		if (itemIndex >= 0 && itemIndex < m_aItemSlotLabels.Count() && !m_aItemSlotLabels[itemIndex].IsEmpty())
@@ -5312,7 +5471,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "Swap";
 		}
 
-		int nodeIndex = FindSelectedNodeIndex();
+		int nodeIndex = FindSelectedEditingNodeIndex();
 		if (nodeIndex < 0)
 			return "Add";
 
@@ -5327,7 +5486,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (nodeId.Contains("attach"))
 			return "set_attachment";
 
-		int nodeIndex = FindSelectedNodeIndex();
+		int nodeIndex = FindStringIndex(m_aNodeIds, nodeId);
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeKinds.Count() && (m_aNodeKinds[nodeIndex] == "storage" || m_aNodeKinds[nodeIndex] == "storage_item"))
 			return "add_storage_item";
 
@@ -5339,7 +5498,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (nodeId.Contains("attach"))
 			return "remove_attachment";
 
-		int nodeIndex = FindSelectedNodeIndex();
+		int nodeIndex = FindStringIndex(m_aNodeIds, nodeId);
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeKinds.Count() && m_aNodeKinds[nodeIndex] == "storage_item")
 			return "remove_node_item";
 
@@ -7117,6 +7276,24 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return SetPreviewCellFromEntity(cell, itemEntity, fallbackIcon, color, showFallbackIcon);
 	}
 
+	protected bool CreateSlotPreviewCell(WorkspaceWidget workspace, Widget root, int slotIndex, string iconKey, int userId, int color)
+	{
+		ResourceName fallbackIcon = ResolveIconTexture(iconKey);
+		Widget cell = CreateItemPreviewCell(workspace, root, userId);
+		if (!cell)
+			return false;
+
+		string prefab = "";
+		if (slotIndex >= 0 && slotIndex < m_aSlotPrefabs.Count())
+			prefab = m_aSlotPrefabs[slotIndex];
+
+		if (!prefab.IsEmpty() && ShouldUseNativeLoadoutItemPreview(iconKey) && SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, true))
+			return true;
+
+		SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+		return true;
+	}
+
 	protected bool CreateCandidatePreviewCell(WorkspaceWidget workspace, Widget root, int candidateIndex, int userId, int color)
 	{
 		string iconKey = ResolveCandidateIconKey(candidateIndex);
@@ -7296,7 +7473,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
 		{
 			nodeId = m_aNodeIds[nodeIndex];
-			selected = nodeId == m_sSelectedNodeId || nodeId == m_sSelectedStorageContainerNodeId || nodeId == m_sSelectedStoredItemNodeId;
+			string selectedNodeId = m_sSelectedNodeId;
+			if (selectedNodeId.IsEmpty() && m_bCandidateMode)
+				selectedNodeId = ResolveSelectedCandidateNodeId();
+			selected = nodeId == selectedNodeId || nodeId == m_sSelectedStorageContainerNodeId || nodeId == m_sSelectedStoredItemNodeId;
 		}
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeParents.Count())
 			parentId = m_aNodeParents[nodeIndex];

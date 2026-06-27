@@ -101,7 +101,7 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          Anchor 0 0 1 1
          OffsetLeft 112
          OffsetTop 12
-          OffsetRight 116
+          OffsetRight 82
           OffsetBottom 12
          }
          "Is Visible" 1
@@ -117,7 +117,7 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          Name "Count"
          Slot FrameWidgetSlot "{A7B8C9D001234608}" {
          Anchor 1 0 1 0
-         OffsetLeft -98
+         OffsetLeft -72
          OffsetTop 34
           OffsetRight 18
           OffsetBottom -58

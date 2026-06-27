@@ -194,6 +194,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Clearing only an array of widgets misses rows that were not inserted into that array and causes tabs/lists to accumulate stale entries.
   - Hidden layout regions may not be reliably found by a global cleanup pass, depending on visibility and resolution timing.
   - Clear the active dynamic container again after the region has been resolved and shown, then populate it.
+  - Treat the selected loadout edit target as a single resolved context, not as separate slot-only and node-only states. A layout row may leave only a selected slot id while candidate payloads and remove commands still need the live node id.
+  - Invalidate compatible-item candidate payloads after loadout or storage mutations. Arsenal counts, storage capacity, and compatibility can change immediately after inserting/removing an item, so a cached empty candidate result can become stale.
 
 - `ItemPreviewWidget` does not reliably render every inventory prefab.
   - Keep a category/fallback icon available when prefab or entity preview setup fails.
