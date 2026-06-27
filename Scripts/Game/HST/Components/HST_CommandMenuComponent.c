@@ -392,10 +392,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (commandId.IsEmpty())
 			return;
 
-		m_sLastActionName = commandId;
-		m_sLastResult = "h-istasi command | requested " + commandId;
-		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
-		RequestAction(commandId, argument);
+		string label = BuildContextActionLabel(commandId, argument);
+		if (ShouldConfirmAction(commandId))
+		{
+			ShowActionConfirmDialog(label, commandId, argument);
+			return;
+		}
+
+		RequestConfirmedAction(label, commandId, argument);
 		if (m_bMenuOpen)
 		{
 			int tabIndex = m_aTabIds.Find(m_sSelectedTab);
@@ -1034,7 +1038,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sLastResult = "h-istasi command | requested " + label;
 		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
 		RequestAction(commandId, argument);
-		RenderMenu();
+		if (m_bMenuOpen)
+			RenderMenu();
 	}
 
 	protected bool ShouldConfirmAction(string commandId)
@@ -1042,6 +1047,26 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (commandId == "new_campaign")
 			return true;
 		if (commandId == "admin_purge_hst_native_markers")
+			return true;
+		if (commandId == "move_hq_here" || commandId == "move_hq" || commandId == "rebuild_hq_assets")
+			return true;
+		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "complete_mission")
+			return true;
+		if (commandId == "mission_asset_deliver" || commandId == "mission_asset_sabotage" || commandId == "mission_vehicle_capture" || commandId == "mission_captive_extract")
+			return true;
+		if (commandId == "remove_garrison" || commandId == "cancel_support" || commandId == "civilian_aid")
+			return true;
+		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search")
+			return true;
+		if (commandId == "support_gbu" || commandId == "support_umpk" || commandId == "support_kh55")
+			return true;
+		if (commandId == "activate_zone" || commandId == "deactivate_zone" || commandId == "capture_zone" || commandId == "progress_zone")
+			return true;
+		if (commandId == "debug_mission" || commandId == "debug_mission_id" || commandId == "award_small" || commandId == "income_now" || commandId == "progress_mission")
+			return true;
+		if (commandId == "admin_persistence_smoke_test" || commandId == "admin_phase23_failed_action_sample")
+			return true;
+		if (commandId.Contains("admin_") && (commandId.Contains("_seed") || commandId.Contains("_force") || commandId.Contains("_simulate") || commandId.Contains("_clear") || commandId.Contains("_queue") || commandId.Contains("_start") || commandId.Contains("_kill") || commandId.Contains("_succeed") || commandId.Contains("_apply") || commandId.Contains("_resolve")))
 			return true;
 		if (commandId.Contains("force_victory") || commandId.Contains("force_loss"))
 			return true;
@@ -1071,7 +1096,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		data.m_iCancelWidgetId = ACTION_MODAL_CANCEL_WIDGET_ID;
 		data.m_iConfirmWidgetId = ACTION_MODAL_CONFIRM_WIDGET_ID;
 		data.m_sTitle = "Confirm Action";
-		data.m_sMessage = BuildActionConfirmMessage(label, commandId);
+		data.m_sMessage = BuildActionConfirmMessage(label, commandId, argument);
 		data.m_sCancelLabel = "Cancel";
 		data.m_sConfirmLabel = "Confirm";
 
@@ -1087,12 +1112,34 @@ class HST_CommandMenuComponent : ScriptComponent
 		HST_UIDebug.LogPopulation("command_action_dialog", string.Format("label=%1 command=%2 argument=%3", ShortenText(label, 64), commandId, ShortenText(argument, 96)));
 	}
 
-	protected string BuildActionConfirmMessage(string label, string commandId)
+	protected string BuildActionConfirmMessage(string label, string commandId, string argument)
 	{
 		if (commandId == "new_campaign")
 			return "This will reset the h-istasi campaign state and return the campaign to initial setup. Confirm only if you intend to start over.";
 		if (commandId == "admin_purge_hst_native_markers")
 			return "This will remove h-istasi native map markers and rebuild marker state from campaign data.";
+		if (commandId == "move_hq_here" || commandId == "move_hq")
+			return "This will move the h-istasi HQ. Confirm only if the new location is intentional.";
+		if (commandId == "rebuild_hq_assets")
+			return "This will rebuild HQ assets around the current HQ location.";
+		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "debug_mission" || commandId == "debug_mission_id")
+			return "This will start a mission and update campaign mission state.";
+		if (commandId == "complete_mission")
+			return "This will force-complete the selected mission objective.";
+		if (commandId == "mission_asset_deliver" || commandId == "mission_asset_sabotage" || commandId == "mission_vehicle_capture" || commandId == "mission_captive_extract")
+			return "This mission action will update the selected objective state.";
+		if (commandId == "remove_garrison")
+			return "This will remove FIA troops from the selected garrison.";
+		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search" || commandId == "support_gbu" || commandId == "support_umpk" || commandId == "support_kh55")
+			return "This will request campaign support at the selected target.";
+		if (commandId == "cancel_support")
+			return "This will cancel the active player support request.";
+		if (commandId == "civilian_aid")
+			return "This will deliver civilian aid to the nearest eligible town.";
+		if (commandId == "activate_zone" || commandId == "deactivate_zone" || commandId == "capture_zone" || commandId == "progress_zone")
+			return "This debug command will directly mutate zone state.";
+		if (commandId == "award_small" || commandId == "income_now" || commandId == "progress_mission" || commandId == "admin_persistence_smoke_test" || commandId.Contains("admin_phase"))
+			return "This admin/debug command mutates campaign state.";
 		if (commandId.Contains("force_victory"))
 			return "This debug command forces the campaign victory state.";
 		if (commandId.Contains("force_loss"))
@@ -1101,13 +1148,26 @@ class HST_CommandMenuComponent : ScriptComponent
 		return "Confirm command: " + label;
 	}
 
+	protected string BuildContextActionLabel(string commandId, string argument)
+	{
+		if (commandId == "move_hq_here")
+			return "Move base to my position";
+		if (commandId == "vehicle_collect_loot")
+			return "Load loot to vehicle";
+		if (commandId == "vehicle_unload_loot")
+			return "Unload vehicle loot to arsenal";
+
+		return commandId;
+	}
+
 	protected void CancelPendingActionDialog()
 	{
 		ClearActionDialog();
 		m_sLastActionName = "Cancelled";
 		m_sLastResult = "h-istasi command | cancelled";
 		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
-		RenderMenu();
+		if (m_bMenuOpen)
+			RenderMenu();
 	}
 
 	protected void ConfirmPendingActionDialog()

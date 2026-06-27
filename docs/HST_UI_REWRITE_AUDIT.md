@@ -90,6 +90,7 @@ Current state:
 - Command menu activity has been simplified to a Last Activity panel. Campaign notes stay in the main content sections instead of occupying a second scroll host inside the small right column.
 - Command menu post-setup input recovery now resets key latches and rebinds contexts without clearing the raw `I` key until an actual command-menu toggle is handled.
 - Command menu widget activation is now guarded by widget id, mouse button, and frame serial so `OnClick` plus `OnMouseButtonUp` cannot double-fire tabs, close, action rows, or command action-dialog buttons.
+- Command menu state-changing HQ, support, mission objective, zone debug, admin/debug, and contextual Petros commands now route through `HST_ActionDialogController` before they mutate campaign state. Contextual command confirmation no longer renders the full command-menu shell when the menu is closed.
 - Mission report close activation uses the same duplicate guard, keeping modal close state transitions single-shot.
 - Loadout editor uses `ApplyLoadoutLayerOrder` after render and delayed layout refresh to keep the render target low, the UI layer above it, the preview drag surface behind panels, and expanded `loadout_editor_ready` geometry logs for the next test pass.
 - Loadout editor dynamic rebuilds now remove tracked generated widgets before clearing named containers, and storage contents are emitted as nested storage rows only instead of being duplicated into synthetic inventory rows.
@@ -110,6 +111,5 @@ Current state:
 
 - Runtime-QA root service input blocking across setup, command menu, loadout, mission dialogs, and notifications.
 - Re-test command menu and loadout editor delayed ready logs for any remaining `negative=` or offscreen panel entries after the slot sign correction.
-- Wire any remaining mission-specific action/admin confirmation flows into `HST_ActionDialogController`.
-- Continue reducing remaining mission action/admin areas without reintroducing command/loadout row geometry.
+- Continue reducing any future mission action/admin areas without reintroducing command/loadout row geometry or bypassing `HST_ActionDialogController` for state-changing commands.
 - Run in-game/Workbench QA at 1920x1080, 2560x1440 with 1920x1080 layout size, and ultrawide.
