@@ -1802,7 +1802,8 @@ foreach ($requiredPlayerMarkerEntry in @(
 	"ResolveControlledPlayerEntity",
 	"ResolvePlayerName",
 	"SetEnabled",
-	"ClearAll"
+	"ClearAll",
+	"ReportReconcileFailure"
 )) {
 	if (($playerMarkerServiceText + "`n" + $coordinatorMarkerText) -notmatch [regex]::Escape($requiredPlayerMarkerEntry)) {
 		throw "Player map marker implementation is missing: $requiredPlayerMarkerEntry"
@@ -1814,10 +1815,13 @@ foreach ($requiredPlayerMarkerEntryConfig in @(
 	"SCR_EMapMarkerType.HST_PLAYER",
 	"PLAYER_MARKER_ICON = `"circle`"",
 	"SetImage(PLAYER_MARKER_IMAGESET, PLAYER_MARKER_ICON)",
+	"PLAYER_MARKER_LABEL_RETRY_COUNT = 12",
 	"ApplyPlayerMarkerLabel(marker, widgetComp, 0)",
 	"GetMarkerConfigID()",
 	"ResolvePlayerMarkerLabel",
+	"ResolvePlayerDisplayName",
 	"SCR_PlayerNamesFilterCache.GetInstance().GetPlayerDisplayName(playerId)",
+	"GetGame().GetPlayerManager()",
 	"CallLater(ApplyPlayerMarkerLabel"
 )) {
 	if ($playerMarkerEntryText -notmatch [regex]::Escape($requiredPlayerMarkerEntryConfig)) {

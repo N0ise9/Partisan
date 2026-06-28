@@ -4,7 +4,7 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 	static const ResourceName PLAYER_MARKER_IMAGESET = "{2EFEA2AF1F38E7F0}UI/Textures/Icons/icons_wrapperUI-64.imageset";
 	static const string PLAYER_MARKER_ICON = "circle";
 	static const int PLAYER_MARKER_LABEL_RETRY_MS = 250;
-	static const int PLAYER_MARKER_LABEL_RETRY_COUNT = 4;
+	static const int PLAYER_MARKER_LABEL_RETRY_COUNT = 12;
 
 	override SCR_EMapMarkerType GetMarkerType()
 	{
@@ -56,8 +56,7 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 		int playerId = marker.GetMarkerConfigID();
 		if (playerId > 0)
 		{
-			string playerName = SCR_PlayerNamesFilterCache.GetInstance().GetPlayerDisplayName(playerId);
-			playerName = playerName.Trim();
+			string playerName = ResolvePlayerDisplayName(playerId);
 			if (!playerName.IsEmpty())
 				return playerName;
 		}
@@ -71,5 +70,28 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 			return string.Format("Player %1", playerId);
 
 		return "";
+	}
+
+	protected string ResolvePlayerDisplayName(int playerId)
+	{
+		if (playerId <= 0)
+			return "";
+
+		string fallbackName = string.Format("Player %1", playerId);
+		string filteredName = SCR_PlayerNamesFilterCache.GetInstance().GetPlayerDisplayName(playerId);
+		filteredName = filteredName.Trim();
+		if (!filteredName.IsEmpty() && filteredName != fallbackName)
+			return filteredName;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (playerManager)
+		{
+			string managerName = playerManager.GetPlayerName(playerId);
+			managerName = managerName.Trim();
+			if (!managerName.IsEmpty() && managerName != fallbackName)
+				return managerName;
+		}
+
+		return filteredName;
 	}
 }
