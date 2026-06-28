@@ -10,6 +10,7 @@ class HST_PlayerMapMarkerService
 	protected bool m_bDebugLoggingEnabled;
 	protected float m_fRefreshAccumulator = REFRESH_INTERVAL_SECONDS;
 	protected string m_sLastSignature;
+	protected string m_sLastFailureReportSignature;
 	protected int m_iRevision;
 
 	void SetDebugLoggingEnabled(bool enabled)
@@ -66,6 +67,7 @@ class HST_PlayerMapMarkerService
 		bool changed;
 		m_mDesiredPlayerMarkers.Clear();
 		m_sLastSignature = "";
+		m_sLastFailureReportSignature = "";
 		m_bRefreshRequested = false;
 		if (m_Reconciler)
 			changed = m_Reconciler.Clear();
@@ -111,16 +113,31 @@ class HST_PlayerMapMarkerService
 		if (result && result.m_iFailed > 0)
 		{
 			failed = true;
+			ReportReconcileFailure(signature, result);
 			m_sLastSignature = "";
 			m_bRefreshRequested = true;
 		}
 		else
 		{
 			m_sLastSignature = signature;
+			m_sLastFailureReportSignature = "";
 		}
 
 		DebugLog(string.Format("reconciled players=%1 changed=%2 failed=%3 tracked=%4", m_mDesiredPlayerMarkers.Count(), changed, failed, m_Reconciler.GetTrackedDynamicHandleCount()));
 		return changed;
+	}
+
+	protected void ReportReconcileFailure(string signature, HST_MapMarkerReconcileResult result)
+	{
+		if (!result)
+			return;
+
+		string reportSignature = string.Format("%1|%2|%3|%4", signature, result.m_iFailed, m_mDesiredPlayerMarkers.Count(), m_Reconciler.GetTrackedDynamicHandleCount());
+		if (reportSignature == m_sLastFailureReportSignature)
+			return;
+
+		m_sLastFailureReportSignature = reportSignature;
+		Print(string.Format("h-istasi player map marker | native reconcile failed | desired=%1 failed=%2 trackedDynamic=%3 | verify SCR_MapMarkerManagerComponent uses HST_PlayerMapMarkerConfig.conf and SCR_EMapMarkerType.HST_PLAYER has an active HST_PlayerMapMarkerEntry", m_mDesiredPlayerMarkers.Count(), result.m_iFailed, m_Reconciler.GetTrackedDynamicHandleCount()), LogLevel.WARNING);
 	}
 
 	protected HST_MapMarkerRecord BuildPlayerRecord(int playerId, IEntity entity, string playerName, HST_CampaignState state)

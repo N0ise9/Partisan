@@ -158,6 +158,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Custom marker entry classes used from `.conf` need the same `[BaseContainerProps(), SCR_MapMarkerTitle()]` attributes as stock marker entries; without them the config entry can fail to instantiate even though the script class exists.
   - Validate both the imageset resource and the quad name. `{2EFEA2AF1F38E7F0}UI/Textures/Icons/icons_wrapperUI-64.imageset` has `circle` but not `dot`; using a missing quad can leave an otherwise created marker visually blank.
   - `SCR_MapMarkerEntity.SetText()` is not replicated. If server-created dynamic markers need per-player labels, pass a stable value through replicated marker data such as `configId` and resolve the client-side label in `InitClientSettingsDynamic`. Replicated marker fields can arrive around widget creation, so reapply labels briefly from the callqueue if the first pass only has fallback text.
+  - `SCR_PlayerNamesFilterCache` can lag marker widget creation. Resolve labels through the cache first, fall back to `PlayerManager.GetPlayerName(playerId)`, and retry for a few seconds before accepting a generic `Player X` label.
+  - If `HST_PlayerMapMarkerService` logs `native reconcile failed`, first verify the active world layer `SCR_MapMarkerManagerComponent.m_sMarkerCfgPath`, the custom marker entry config, and the dedicated `SCR_EMapMarkerType.HST_PLAYER` enum.
   - For custom dynamic visuals, call `super.InitClientSettingsDynamic(marker, widgetComp)` first, then set image/color/text on `SCR_MapMarkerDynamicWComponent`.
   - Current examples: `HST_PlayerMapMarkerService`, `HST_PlayerMapMarkerEntry`, `HST_PlayerMapMarkerConfig.conf`.
 
