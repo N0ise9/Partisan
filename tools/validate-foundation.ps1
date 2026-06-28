@@ -1699,6 +1699,9 @@ $markerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerSe
 $coordinatorMarkerText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $campaignMarkerDirectorText = Get-Content -Raw "Scripts/Game/HST/Map/HST_CampaignMapMarkerDirector.c"
 $nativeMarkerReconcilerText = Get-Content -Raw "Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c"
+$playerMarkerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerMapMarkerService.c"
+$playerMarkerEntryText = Get-Content -Raw "Scripts/Game/HST/Map/HST_PlayerMapMarkerEntry.c"
+$playerMarkerConfigText = Get-Content -Raw "Configs/Map/HST_PlayerMapMarkerConfig.conf"
 $runtimeMarkerPipelineText = $markerServiceText + "`n" + $coordinatorMarkerText + "`n" + $campaignMarkerDirectorText + "`n" + $nativeMarkerReconcilerText
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
 
@@ -1780,6 +1783,47 @@ foreach ($requiredNativeMarkerEntry in @(
 	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredNativeMarkerEntry)) {
 		throw "Missing campaign map marker scaffold entry: $requiredNativeMarkerEntry"
 	}
+}
+
+foreach ($requiredPlayerMarkerEntry in @(
+	"HST_PlayerMapMarkerService",
+	"HST_NativeMapMarkerReconciler",
+	"HST_EMapMarkerRenderMode.DYNAMIC_ENTITY",
+	"SCR_EMapMarkerType.DYNAMIC_EXAMPLE",
+	"RequestRefresh",
+	"ResolveControlledPlayerEntity",
+	"ResolvePlayerName",
+	"SetEnabled",
+	"ClearAll"
+)) {
+	if (($playerMarkerServiceText + "`n" + $coordinatorMarkerText) -notmatch [regex]::Escape($requiredPlayerMarkerEntry)) {
+		throw "Player map marker implementation is missing: $requiredPlayerMarkerEntry"
+	}
+}
+foreach ($requiredPlayerMarkerEntryConfig in @(
+	"[BaseContainerProps(), SCR_MapMarkerTitle()]",
+	"class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic",
+	"PLAYER_MARKER_ICON = `"circle`"",
+	"SetImage(PLAYER_MARKER_IMAGESET, PLAYER_MARKER_ICON)",
+	"SetText(marker.GetText())"
+)) {
+	if ($playerMarkerEntryText -notmatch [regex]::Escape($requiredPlayerMarkerEntryConfig)) {
+		throw "Player map marker entry must keep config-safe visible dynamic marker visuals: $requiredPlayerMarkerEntryConfig"
+	}
+}
+foreach ($forbiddenPlayerMarkerEntryConfig in @(
+	"PLAYER_MARKER_ICON = `"dot`"",
+	"SCR_MapMarkerEntryDynamicExample"
+)) {
+	if (($playerMarkerEntryText + "`n" + $playerMarkerConfigText) -match [regex]::Escape($forbiddenPlayerMarkerEntryConfig)) {
+		throw "Player map marker entry must not use known-bad marker config/visual entry: $forbiddenPlayerMarkerEntryConfig"
+	}
+}
+if ($playerMarkerConfigText -notmatch "SCR_MapMarkerConfig[\s\S]*?HST_PlayerMapMarkerEntry" -or $playerMarkerConfigText -notmatch [regex]::Escape('{DD74BE2BBAE07192}Prefabs/Markers/MapMarkerEntityBase.et')) {
+	throw "Player map marker config must inherit map marker config and register HST_PlayerMapMarkerEntry with marker entity prefab"
+}
+if ($playerMarkerConfigText -match [regex]::Escape('HST_PlayerMapMarkerEntry "{6985327711306212}"')) {
+	throw "Player map marker entry must not reuse the config resource GUID as its inner entry id"
 }
 
 $legacyMarkerAreaName = "HST_" + "Ton" + "kaMapMarkerArea"
@@ -4504,6 +4548,109 @@ foreach ($requiredLoadoutStorageBrowserScriptEntry in @(
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutStorageBrowserScriptEntry)) {
 		throw "Loadout editor storage add-items panel must populate named layout widgets: $requiredLoadoutStorageBrowserScriptEntry"
+	}
+}
+foreach ($requiredLoadoutStorageFeatureLayoutEntry in @(
+	'Name "StorageFilterSortBar"',
+	'Name "StorageFilterFitButton"',
+	'Name "StorageFilterFitLabel"',
+	'Name "StorageFilterAmmoButton"',
+	'Name "StorageFilterAmmoLabel"',
+	'Name "StorageFilterInfiniteButton"',
+	'Name "StorageFilterInfiniteLabel"',
+	'Name "StorageFilterShowAllButton"',
+	'Name "StorageFilterShowAllLabel"',
+	'Name "StorageFilterNotInfiniteButton"',
+	'Name "StorageFilterNotInfiniteLabel"',
+	'Name "StorageSortAZButton"',
+	'Name "StorageSortAZLabel"',
+	'Name "StorageSortZAButton"',
+	'Name "StorageSortZALabel"',
+	'Name "StorageSortCountDescButton"',
+	'Name "StorageSortCountDescLabel"',
+	'Name "StorageSortCountAscButton"',
+	'Name "StorageSortCountAscLabel"',
+	'Name "StorageSearchPanel"',
+	'Name "StorageSearchInput"',
+	'Name "StorageSearchClearButton"',
+	'Name "StorageSearchClearLabel"',
+	'Name "StorageSearchItems"'
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutStorageFeatureLayoutEntry)) {
+		throw "Loadout editor storage filter/sort/search layout is missing: $requiredLoadoutStorageFeatureLayoutEntry"
+	}
+}
+foreach ($forbiddenLoadoutStorageFeatureLayoutEntry in @(
+	"CandidateRemoveBody",
+	"StorageFilterFitBody",
+	"StorageFilterAmmoBody",
+	"StorageFilterInfiniteBody",
+	"StorageFilterShowAllBody",
+	"StorageFilterNotInfiniteBody",
+	"StorageSortAZBody",
+	"StorageSortZABody",
+	"StorageSortCountDescBody",
+	"StorageSortCountAscBody",
+	"StorageSearchClearBody",
+	"HorizontalAlign 1`r`n       VerticalAlign 1"
+)) {
+	if ($loadoutEditorLayoutText -match [regex]::Escape($forbiddenLoadoutStorageFeatureLayoutEntry)) {
+		throw "Loadout editor storage controls must avoid known runtime-bad layout shape: $forbiddenLoadoutStorageFeatureLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
+	"STORAGE_FILTER_WIDGET_ID_BASE = 48000",
+	"STORAGE_SORT_WIDGET_ID_BASE = 48100",
+	"STORAGE_SEARCH_RESULT_WIDGET_ID_BASE = 50000",
+	"STORAGE_SEARCH_CLEAR_WIDGET_ID = 69000",
+	"STORAGE_SEARCH_INPUT_WIDGET_ID = 69001",
+	"RenderStorageFilterSortControls",
+	"ToggleStorageFilterByIndex",
+	"SetStorageSortMode",
+	"PassesStorageCandidateFilters",
+	"SortStorageVisibleCandidateIndexes",
+	"RenderStorageSearchPanel",
+	"BuildStorageSearchResults",
+	"IsArsenalItemSearchMatch",
+	"RequestServerAction(`"add_storage_item`""
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutStorageFeatureScriptEntry)) {
+		throw "Loadout editor storage filter/sort/search script is missing: $requiredLoadoutStorageFeatureScriptEntry"
+	}
+}
+$loadoutVisualSettingsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_LoadoutEditorVisualSettings.c"
+foreach ($requiredLoadoutVisualSettingsEntry in @(
+	"SCHEMA_VERSION = 4",
+	"STORAGE_FILTER_FIT_ONLY",
+	"STORAGE_FILTER_AMMO_USABLE",
+	"STORAGE_FILTER_INFINITE_ONLY",
+	"STORAGE_FILTER_SHOW_ALL",
+	"STORAGE_FILTER_NOT_INFINITE",
+	"STORAGE_SORT_AZ",
+	"STORAGE_SORT_ZA",
+	"STORAGE_SORT_COUNT_DESC",
+	"STORAGE_SORT_COUNT_ASC",
+	"m_iStorageFilterMask",
+	"m_iStorageSortMode",
+	"storageFilterMask",
+	"storageSortMode",
+	"shouldSaveNormalized"
+)) {
+	if ($loadoutVisualSettingsText -notmatch [regex]::Escape($requiredLoadoutVisualSettingsEntry)) {
+		throw "Loadout editor visual settings must persist storage filter/sort setting: $requiredLoadoutVisualSettingsEntry"
+	}
+}
+foreach ($requiredLoadoutStoragePayloadEntry in @(
+	"BuildCandidatePayloadsForNode",
+	"bool isStorageBrowserNode = node.m_sKind == `"storage`" || node.m_sKind == `"storage_item`"",
+	"if (!isStorageBrowserNode && !compatible)",
+	'payload = payload + string.Format("\nCANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9"',
+	"payload = payload + string.Format(`"|%1`", ammoMatch)",
+	"if (category == `"magazine`")",
+	"ammoMatch = IsMagazineCompatibleWithEquippedWeapons"
+)) {
+	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutStoragePayloadEntry)) {
+		throw "Loadout editor service must emit storage candidates with fit/ammo metadata: $requiredLoadoutStoragePayloadEntry"
 	}
 }
 $loadoutStorageCandidatePanelMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderStorageCandidatePanel[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderStorageCandidateGrid[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddLoadoutNodeRow")
