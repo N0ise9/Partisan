@@ -4412,6 +4412,13 @@ foreach ($requiredLoadoutModeHiddenWidget in @(
 	}
 }
 $loadoutLayoutLines = Get-Content "UI/layouts/HST_LoadoutEditor.layout"
+$loadoutFrameSlotAlignmentFindings = @()
+foreach ($loadoutFrameSlotAlignmentMatch in [regex]::Matches($loadoutEditorLayoutText, 'Slot FrameWidgetSlot "[^"]+"\s*\{(?<slot>[^{}]*\b(?:HorizontalAlign|VerticalAlign)\b[^{}]*)\}')) {
+	$loadoutFrameSlotAlignmentFindings += (($loadoutFrameSlotAlignmentMatch.Value -split "`r?`n") | Select-Object -First 1).Trim()
+}
+if ($loadoutFrameSlotAlignmentFindings.Count -gt 0) {
+	throw "Loadout editor FrameWidgetSlot blocks must not use HorizontalAlign/VerticalAlign; use Frame offsets or an Alignable/Overlay slot instead: $($loadoutFrameSlotAlignmentFindings -join '; ')"
+}
 $loadoutSlotStack = @()
 $loadoutSameAnchorNegativeFindings = @()
 for ($i = 0; $i -lt $loadoutLayoutLines.Count; $i++) {
@@ -4747,6 +4754,26 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 		throw "Loadout editor storage filter/sort/search script is missing: $requiredLoadoutStorageFeatureScriptEntry"
 	}
 }
+$loadoutStorageButtonBindingContracts = @(
+	@("StorageFilterFitButton", "StorageFilterFitAccent", "StorageFilterFitLabel", "Fits", "STORAGE_FILTER_WIDGET_ID_BASE + 0"),
+	@("StorageFilterAmmoButton", "StorageFilterAmmoAccent", "StorageFilterAmmoLabel", "Ammo", "STORAGE_FILTER_WIDGET_ID_BASE + 1"),
+	@("StorageFilterInfiniteButton", "StorageFilterInfiniteAccent", "StorageFilterInfiniteLabel", "INF", "STORAGE_FILTER_WIDGET_ID_BASE + 2"),
+	@("StorageFilterShowAllButton", "StorageFilterShowAllAccent", "StorageFilterShowAllLabel", "All", "STORAGE_FILTER_WIDGET_ID_BASE + 3"),
+	@("StorageFilterNotInfiniteButton", "StorageFilterNotInfiniteAccent", "StorageFilterNotInfiniteLabel", "Not INF", "STORAGE_FILTER_WIDGET_ID_BASE + 4"),
+	@("StorageSortAZButton", "StorageSortAZAccent", "StorageSortAZLabel", "A-Z", "STORAGE_SORT_WIDGET_ID_BASE + 0"),
+	@("StorageSortZAButton", "StorageSortZAAccent", "StorageSortZALabel", "Z-A", "STORAGE_SORT_WIDGET_ID_BASE + 1"),
+	@("StorageSortCountDescButton", "StorageSortCountDescAccent", "StorageSortCountDescLabel", "INF-1", "STORAGE_SORT_WIDGET_ID_BASE + 2"),
+	@("StorageSortCountAscButton", "StorageSortCountAscAccent", "StorageSortCountAscLabel", "1-INF", "STORAGE_SORT_WIDGET_ID_BASE + 3")
+)
+foreach ($loadoutStorageButtonBindingContract in $loadoutStorageButtonBindingContracts) {
+	$expectedStorageButtonBinding = "ConfigureStorageBrowserButton(panelRoot, `"$($loadoutStorageButtonBindingContract[0])`", `"$($loadoutStorageButtonBindingContract[0])`", `"$($loadoutStorageButtonBindingContract[1])`", `"$($loadoutStorageButtonBindingContract[2])`", `"$($loadoutStorageButtonBindingContract[3])`", $($loadoutStorageButtonBindingContract[4])"
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($expectedStorageButtonBinding)) {
+		throw "Loadout editor storage filter/sort button must bind and populate its layout-owned label: $expectedStorageButtonBinding"
+	}
+}
+if ($loadoutEditorComponentText -notmatch [regex]::Escape('ConfigureStorageBrowserButton(searchRoot, "StorageSearchClearButton", "StorageSearchClearButton", "StorageSearchClearAccent", "StorageSearchClearLabel", "Clear", STORAGE_SEARCH_CLEAR_WIDGET_ID')) {
+	throw "Loadout editor storage search clear button must bind and populate its layout-owned label"
+}
 if ($loadoutEditorComponentText -notmatch "if \(\s*m_bSyncingStorageSearchInput\s*\)\s*\r?\n\s*return true;" -or $loadoutEditorComponentText -notmatch "m_bSyncingStorageSearchInput = true;[\s\S]*?input\.SetText\(m_sStorageSearchQuery\);[\s\S]*?m_bSyncingStorageSearchInput = false;") {
 	throw "Loadout editor search input must guard programmatic SetText sync from re-entering OnChange render"
 }
@@ -4972,6 +4999,12 @@ foreach ($requiredLoadoutCandidateTemplateLayoutEntry in @(
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutCandidateTemplateLayoutEntry)) {
 		throw "Loadout editor candidate/template panel must be layout-owned: $requiredLoadoutCandidateTemplateLayoutEntry"
 	}
+}
+if ($loadoutEditorComponentText -notmatch [regex]::Escape('ConfigureLoadoutPanelButton(panelRoot, "CandidateRemoveButton", "CandidateRemoveBackground", "CandidateRemoveAccent", "CandidateRemoveLabel", "Remove", REMOVE_SELECTED_NODE_WIDGET_ID)')) {
+	throw "Loadout editor candidate remove button must bind and populate its layout-owned Remove label"
+}
+if ($loadoutEditorComponentText -notmatch [regex]::Escape('SetLoadoutText(panelRoot, "CandidateRemoveIcon", "X"')) {
+	throw "Loadout editor candidate remove button must populate its layout-owned remove icon text"
 }
 foreach ($requiredFixedCandidateHeaderLayoutPattern in @(
 	'Name "CandidateHeaderPreviewBack"[\s\S]*?OffsetRight -94[\s\S]*?OffsetBottom -82',
