@@ -1525,7 +1525,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_bRootFromLayout = true;
 		m_UILayerWidget = null;
-		HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|LeftButtons|LoadoutBackButton|LoadoutCloseButton|TopTabs|TopTabItems|LeftRail|SlotRailScroll|SlotRailItems|StorageContainerItems|StorageContentItems|CandidateList|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
+		HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|LeftButtons|LoadoutBackButton|LoadoutCloseButton|TopTabs|TopTabItems|LeftRail|SlotRailScroll|SlotRailItems|StorageContainerItems|StorageContentItems|CandidateList|CandidateHeaderPreviewAnchor|CandidateHeaderSlot|CandidateHeaderName|CandidateRemoveButton|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|SettingsLightRow|SettingsPanelPresetRow|SettingsAccentPresetRow|SettingsRowPresetRow|SettingsWorldPresetRow|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
 		return m_RootWidget;
 	}
 
@@ -1921,7 +1921,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		ApplyLoadoutLayerOrder(m_RootWidget);
-		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutDimmer|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LeftRail|SlotRailScroll|SlotRailItems|CandidateList|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
+		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutDimmer|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LeftRail|SlotRailScroll|SlotRailItems|CandidateList|CandidateHeaderPreviewAnchor|CandidateHeaderSlot|CandidateHeaderName|CandidateRemoveButton|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|SettingsLightRow|SettingsPanelPresetRow|SettingsAccentPresetRow|SettingsRowPresetRow|SettingsWorldPresetRow|SettingsActionsRow|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
 		HST_UIDebug.LogReadyWidgetsCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LoadoutBackButton|LoadoutCloseButton|LeftRail|SlotRailScroll|Footer|FooterHintItems");
 		HST_UIDebug.LogNamedChildSummaryCsv("loadout_editor_ready", m_RootWidget, "TopTabItems|SlotRailItems|CandidateItems|StorageCategoryTabs|StorageCandidateItems|TemplateItems|FooterHintItems", 5);
 		HST_UIDebug.LogPopulation("loadout_editor_ready", string.Format("root=%1 previewContainer=%2 preview=%3 ui=%4 tabs=%5 rail=%6 footer=%7 drag=%8", HST_UIDebug.WidgetSummary(m_RootWidget), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("HST_LoadoutPreviewContainer")), HST_UIDebug.WidgetSummary(m_PreviewWidget), HST_UIDebug.WidgetSummary(uiRoot), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("TopTabs")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("LeftRail")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("Footer")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("PreviewDragSurface"))));
@@ -2438,8 +2438,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !row || !m_Layout)
 			return;
 
-		SetRowTextOrHide(row, "Primary", ShortenText(primary, 48), 0xFFEFE2C4, m_Layout.m_iFontNormal, true, false);
-		SetRowTextOrHide(row, "Secondary", ShortenText(secondary, 72), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, true);
+		SetRowTextOrHide(row, "Primary", ShortenText(primary, 64), 0xFFEFE2C4, m_Layout.m_iFontNormal, true, true);
+		SetRowTextOrHide(row, "Secondary", ShortenText(secondary, 80), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, true);
 		if (canOpen)
 			SetRowTextOrHide(row, "OpenMarker", "W", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
 		else
@@ -2490,7 +2490,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !row || !m_Layout)
 			return;
 
-		SetRowTextOrHide(row, "Primary", ShortenText(name, 44), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
+		SetRowTextOrHide(row, "Primary", ShortenText(name, 72), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
 		SetRowTextOrHide(row, "Secondary", countText, 0xFFFFD166, m_Layout.m_iFontSmall, true, false);
 		SetRowWidgetVisible(row, "OpenMarker", false);
 	}
@@ -2824,7 +2824,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutWidgetColor(panelRoot, "CandidateHeaderRule", GetAccentColor(), 1.0);
 		ShowCandidatePanelWidgets(panelRoot);
 		RenderSelectedNodeHeader(workspace, panelRoot);
-		if (CanRemoveSelectedEditingItem())
+		bool canRemoveSelected = CanRemoveSelectedEditingItem();
+		DebugLog(string.Format("candidate remove state nodeId=%1 selectedNode=%2 selectedSlot=%3 prefabSet=%4 canRemove=%5 button=%6", ResolveSelectedCandidateNodeId(), m_sSelectedNodeId, m_sSelectedSlotId, !ResolveSelectedEditingPrefab().IsEmpty(), canRemoveSelected, HST_UIDebug.WidgetSummary(panelRoot.FindAnyWidget("CandidateRemoveButton"))));
+		if (canRemoveSelected)
 		{
 			ConfigureLoadoutPanelButton(panelRoot, "CandidateRemoveButton", "CandidateRemoveBackground", "CandidateRemoveAccent", "CandidateRemoveLabel", "Remove", REMOVE_SELECTED_NODE_WIDGET_ID);
 			SetLoadoutText(panelRoot, "CandidateRemoveIcon", "X", 0xFFFFFFFF, ScaleFont(34), true, false);
@@ -3957,8 +3959,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				headerPrefab = m_aSlotPrefabs[slotIndex];
 		}
 
-		if (headerName.IsEmpty() || headerName == "empty")
-			headerName = "Empty Slot";
+		if (headerSlot.IsEmpty())
+			headerSlot = BuildSlotCategoryLabel(headerIconKey);
+		if (headerName.IsEmpty() || headerName == "empty" || headerName == "Empty Slot")
+			headerName = "Empty";
 
 		SetLoadoutWidgetColor(root, "CandidateHeaderPreviewBack", 0xEE05080A, 1.0);
 		SetLoadoutWidgetColor(root, "CandidateHeaderPreviewLine", 0x664B5960, 1.0);
@@ -3973,11 +3977,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				CreateSlotPreviewCell(workspace, anchor, slotIndex, headerIconKey, 0, 0xFFE6E6E6);
 		}
 
-		SetLoadoutText(root, "CandidateHeaderSlot", ShortenText(headerSlot, 44), 0xFFE2E6E8, m_Layout.m_iFontNormal, true, false);
-		SetLoadoutText(root, "CandidateHeaderName", ShortenText(headerName, 52), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, true);
+		SetLoadoutText(root, "CandidateHeaderSlot", ShortenText(headerSlot, 56), 0xFFE2E6E8, m_Layout.m_iFontNormal, true, false);
+		SetLoadoutText(root, "CandidateHeaderName", ShortenText(headerName, 72), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, true);
 		SetLoadoutWidgetVisible(root, "CandidateHeaderMarker", !headerPrefab.IsEmpty());
 		if (!headerPrefab.IsEmpty())
 			SetLoadoutText(root, "CandidateHeaderMarker", "W", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
+
+		string headerSummary = string.Format("nodeIndex=%1 slotIndex=%2 slot=%3 name=%4 prefabSet=%5 icon=%6 remove=%7 slotText=%8 nameText=%9", nodeIndex, slotIndex, ShortenText(headerSlot, 64), ShortenText(headerName, 96), !headerPrefab.IsEmpty(), headerIconKey, CanRemoveSelectedEditingItem(), HST_UIDebug.WidgetSummary(root.FindAnyWidget("CandidateHeaderSlot")), HST_UIDebug.WidgetSummary(root.FindAnyWidget("CandidateHeaderName")));
+		headerSummary = headerSummary + " preview=" + HST_UIDebug.WidgetSummary(root.FindAnyWidget("CandidateHeaderPreviewAnchor"));
+		HST_UIDebug.LogPopulation("loadout_candidate_header", headerSummary);
 	}
 
 	protected int FindSelectedNodeIndex()
@@ -7272,8 +7280,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
 			itemEntity = ResolveItemIconPreviewEntityForNode(m_aNodeIds[nodeIndex]);
 
-		bool showFallbackIcon = !prefab.IsEmpty() || itemEntity != null;
-		return SetPreviewCellFromEntity(cell, itemEntity, fallbackIcon, color, showFallbackIcon);
+		if (!itemEntity)
+		{
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+			HST_UIDebug.LogRowSample("loadout_preview_cells", ITEM_PREVIEW_CELL_LAYOUT, Math.Max(0, m_iDebugPreviewCellLogIndex - 1), string.Format("emptyFallback=true node=%1 iconKey=%2 fallbackIcon=%3 cell=%4", ShortenText(GetNodeLabel(nodeIndex), 48), iconKey, fallbackIcon, HST_UIDebug.WidgetSummary(cell)));
+			return true;
+		}
+
+		return SetPreviewCellFromEntity(cell, itemEntity, fallbackIcon, color, true);
 	}
 
 	protected bool CreateSlotPreviewCell(WorkspaceWidget workspace, Widget root, int slotIndex, string iconKey, int userId, int color)
@@ -7329,6 +7343,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (iconKey == "clothing_group" || iconKey == "clothing" || iconKey == "headgear" || iconKey == "vest" || iconKey == "pants" || iconKey == "boots" || iconKey == "backpack" || iconKey == "handwear")
 			return true;
 		if (iconKey == "storage" || iconKey == "inventory")
+			return true;
+		if (iconKey == "attachments" || iconKey == "attachment" || iconKey == "wrench")
+			return true;
+		if (iconKey == "utility" || iconKey == "equipment")
 			return true;
 
 		return false;
