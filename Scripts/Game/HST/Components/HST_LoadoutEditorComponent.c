@@ -1850,7 +1850,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget button = root.FindAnyWidget(buttonName);
 		if (!button)
+		{
+			HST_UIDebug.LogWidgetBound("loadout_panel_buttons", root, buttonName, userId);
 			return;
+		}
 
 		button.SetVisible(true);
 		button.SetOpacity(1.0);
@@ -1864,6 +1867,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			SetLoadoutWidgetColor(root, accentName, GetAccentColor(), 1.0);
 		if (!labelName.IsEmpty())
 			SetLoadoutText(root, labelName, label, 0xFFF4EBD6, m_Layout.m_iFontSmall, true, false);
+
+		DebugLoadoutPanelButton("loadout_panel_buttons", root, buttonName, accentName, labelName, label, userId, true);
 	}
 
 	protected void RenderLeftButtons(WorkspaceWidget workspace, Widget root)
@@ -2686,6 +2691,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		EnsureVisualSettings();
+		HST_UIDebug.LogPopulation("loadout_storage_filter_controls", string.Format("mask=%1 sort=%2 category=%3 selectedStorage=%4", m_VisualSettings.m_iStorageFilterMask, m_VisualSettings.m_iStorageSortMode, m_sSelectedCategory, ShortenText(ResolveSelectedStorageContainerNodeId(), 48)));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterFitButton", "StorageFilterFitButton", "StorageFilterFitAccent", "StorageFilterFitLabel", "Fits", STORAGE_FILTER_WIDGET_ID_BASE + 0, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterAmmoButton", "StorageFilterAmmoButton", "StorageFilterAmmoAccent", "StorageFilterAmmoLabel", "Ammo", STORAGE_FILTER_WIDGET_ID_BASE + 1, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterInfiniteButton", "StorageFilterInfiniteButton", "StorageFilterInfiniteAccent", "StorageFilterInfiniteLabel", "INF", STORAGE_FILTER_WIDGET_ID_BASE + 2, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_INFINITE_ONLY));
@@ -2706,7 +2712,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget button = root.FindAnyWidget(buttonName);
 		if (!button)
+		{
+			HST_UIDebug.LogWidgetBound("loadout_storage_filter_controls", root, buttonName, userId);
 			return;
+		}
 
 		button.SetVisible(true);
 		button.SetOpacity(1.0);
@@ -2729,6 +2738,27 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutWidgetColor(root, backgroundName, background, 0.98);
 		SetLoadoutWidgetColor(root, accentName, accent, accentOpacity);
 		SetLoadoutText(root, labelName, label, foreground, m_Layout.m_iFontSmall, true, false);
+		DebugLoadoutPanelButton("loadout_storage_filter_controls", root, buttonName, accentName, labelName, label, userId, active);
+	}
+
+	protected void DebugLoadoutPanelButton(string owner, Widget root, string buttonName, string accentName, string labelName, string label, int userId, bool active)
+	{
+		if (!root)
+			return;
+
+		HST_UIDebug.LogWidgetBound(owner, root, buttonName, userId);
+
+		Widget buttonWidget = root.FindAnyWidget(buttonName);
+		Widget accentWidget;
+		Widget labelWidget;
+		if (!accentName.IsEmpty())
+			accentWidget = root.FindAnyWidget(accentName);
+		if (!labelName.IsEmpty())
+			labelWidget = root.FindAnyWidget(labelName);
+
+		string summary = string.Format("button=%1 labelName=%2 label=%3 userId=%4 active=%5 buttonWidget=%6", buttonName, labelName, label, userId, active, HST_UIDebug.WidgetSummary(buttonWidget));
+		summary = summary + " " + string.Format("labelWidget=%1 accentWidget=%2", HST_UIDebug.WidgetSummary(labelWidget), HST_UIDebug.WidgetSummary(accentWidget));
+		HST_UIDebug.LogPopulation(owner, summary);
 	}
 
 	protected bool IsStorageFilterEnabled(int flag)
