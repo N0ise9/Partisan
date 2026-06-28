@@ -1807,11 +1807,16 @@ foreach ($requiredPlayerMarkerEntryConfig in @(
 	"SCR_EMapMarkerType.HST_PLAYER",
 	"PLAYER_MARKER_ICON = `"circle`"",
 	"SetImage(PLAYER_MARKER_IMAGESET, PLAYER_MARKER_ICON)",
-	"SetText(marker.GetText())"
+	"SetText(ResolvePlayerMarkerLabel(marker))",
+	"GetMarkerConfigID()",
+	"ResolvePlayerMarkerLabel"
 )) {
 	if ($playerMarkerEntryText -notmatch [regex]::Escape($requiredPlayerMarkerEntryConfig)) {
 		throw "Player map marker entry must keep config-safe visible dynamic marker visuals: $requiredPlayerMarkerEntryConfig"
 	}
+}
+if ($playerMarkerServiceText -notmatch [regex]::Escape("record.m_iConfigId = playerId;")) {
+	throw "Player map marker service must pass player id through replicated marker config id for client-side label resolution"
 }
 foreach ($forbiddenPlayerMarkerEntryConfig in @(
 	"PLAYER_MARKER_ICON = `"dot`"",
