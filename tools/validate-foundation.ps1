@@ -1811,6 +1811,7 @@ foreach ($requiredPlayerMarkerEntry in @(
 	"HST_EMapMarkerRenderMode.DYNAMIC_ENTITY",
 	"SCR_EMapMarkerType.HST_PLAYER",
 	"RequestRefresh",
+	"IsEnabled",
 	"ResolveControlledPlayerEntity",
 	"ResolvePlayerName",
 	"SetEnabled",
@@ -1885,6 +1886,10 @@ foreach ($requiredPlayerMarkerReportContract in @(
 }
 if ($coordinatorMarkerText -notmatch [regex]::Escape("m_PlayerMapMarkers.BuildRuntimeReport()")) {
 	throw "Native marker admin report must include player marker service diagnostics"
+}
+$nativeMarkerPurgeMatch = [regex]::Match($coordinatorMarkerText, "string RequestAdminPurgeNativeHSTMarkers[\s\S]*?\r?\n\t}")
+if (!$nativeMarkerPurgeMatch.Success -or $nativeMarkerPurgeMatch.Value -notmatch [regex]::Escape("m_MapMarkers.AdminPurgeNativeHSTMarkers()") -or $nativeMarkerPurgeMatch.Value -notmatch [regex]::Escape("m_PlayerMapMarkers.ClearAll()") -or $nativeMarkerPurgeMatch.Value -notmatch [regex]::Escape('m_PlayerMapMarkers.RequestRefresh("admin native marker purge")')) {
+	throw "Native marker admin purge must clear both campaign marker and separate player marker reconcilers"
 }
 foreach ($forbiddenPlayerMarkerEntryConfig in @(
 	"PLAYER_MARKER_ICON = `"dot`"",

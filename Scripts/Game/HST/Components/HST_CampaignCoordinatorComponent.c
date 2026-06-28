@@ -3751,7 +3751,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MapMarkers)
 			return "h-istasi admin | native marker purge failed: marker service not ready";
 
-		return m_MapMarkers.AdminPurgeNativeHSTMarkers();
+		string report = m_MapMarkers.AdminPurgeNativeHSTMarkers();
+		if (!m_PlayerMapMarkers)
+			return report + "\nplayer marker purge | service not ready";
+
+		bool playerMarkersChanged = m_PlayerMapMarkers.ClearAll();
+		if (m_PlayerMapMarkers.IsEnabled())
+			m_PlayerMapMarkers.RequestRefresh("admin native marker purge");
+
+		return report + string.Format("\nplayer marker purge | cleared %1 | enabled %2", playerMarkersChanged, m_PlayerMapMarkers.IsEnabled());
 	}
 
 	string RequestAdminPhase23FailedActionSample(int playerId)
