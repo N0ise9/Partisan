@@ -36,6 +36,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Compile-time `static const` feature flags are useful as a hard kill switch, but every high-volume helper should also check the debug setting loaded from runtime settings.
   - Cache the loaded runtime setting in the debug helper so row/widget probes do not parse settings on every row.
 
+- EDDS metafiles must have matching EDDS resources.
+  - Runtime symptom: `RESOURCES (E): metafile without corresponding resource`.
+  - If an icon is regenerated under a new path, delete any stale `.edds.meta` left behind at the old path; Workbench still scans it and reports the missing resource even when scripts reference the new GUID.
+  - Current example: loadout editor search uses `Assets/512/search_icon.edds`; the old `Assets/1254/Search Icon.edds.meta` had no matching `.edds`.
+
 - `root.FindAnyWidget(root.GetName())` may not find the root itself.
   - If debug code checks expected widgets and includes the root name, explicitly compare `root.GetName()` before reporting the root missing.
 

@@ -20,6 +20,18 @@ foreach ($layoutGuidGroup in ($layoutMetaResources | Group-Object Guid | Where-O
 }
 Write-Host "Layout resource GUID uniqueness OK: $($layoutMetaResources.Count)"
 
+$orphanedEddsMetas = @()
+foreach ($eddsMeta in Get-ChildItem -Path "." -Recurse -File -Filter "*.edds.meta") {
+	$resourcePath = $eddsMeta.FullName.Substring(0, $eddsMeta.FullName.Length - ".meta".Length)
+	if (-not (Test-Path -LiteralPath $resourcePath -PathType Leaf)) {
+		$orphanedEddsMetas += $eddsMeta.FullName.Substring($root.Length + 1)
+	}
+}
+if ($orphanedEddsMetas.Count -gt 0) {
+	throw "EDDS metafile(s) without matching resource: $($orphanedEddsMetas -join ', ')"
+}
+Write-Host "EDDS metafile resource pairing OK"
+
 function Assert-EqualSet {
 	param(
 		[string] $Label,
