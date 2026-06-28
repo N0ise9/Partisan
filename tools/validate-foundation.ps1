@@ -4621,7 +4621,10 @@ foreach ($requiredLoadoutStorageFeatureLayoutEntry in @(
 	'Name "StorageSearchClearButton"',
 	'Name "StorageSearchClearAccent"',
 	'Name "StorageSearchClearLabel"',
-	'Name "StorageSearchItems"'
+	'Name "StorageSearchResultMeta"',
+	'Name "StorageSearchScroll"',
+	'Name "StorageSearchItems"',
+	'Name "StorageSearchEmpty"'
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutStorageFeatureLayoutEntry)) {
 		throw "Loadout editor storage filter/sort/search layout is missing: $requiredLoadoutStorageFeatureLayoutEntry"
@@ -4651,6 +4654,7 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 	"STORAGE_SEARCH_RESULT_WIDGET_ID_BASE = 50000",
 	"STORAGE_SEARCH_CLEAR_WIDGET_ID = 69000",
 	"STORAGE_SEARCH_INPUT_WIDGET_ID = 69001",
+	'ICON_SEARCH = "{4EE10E8893136EF3}Assets/512/search_icon.edds"',
 	"RenderStorageFilterSortControls",
 	"ToggleStorageFilterByIndex",
 	"SetStorageSortMode",
@@ -4661,6 +4665,7 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 	"RenderStorageSearchPanel",
 	"BuildStorageSearchResults",
 	"IsArsenalItemSearchMatch",
+	"SortStorageSearchResultsAZ",
 	"m_bSyncingStorageSearchInput",
 	"RequestServerAction(`"add_storage_item`""
 )) {
@@ -4670,6 +4675,56 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 }
 if ($loadoutEditorComponentText -notmatch "if \(\s*m_bSyncingStorageSearchInput\s*\)\s*\r?\n\s*return true;" -or $loadoutEditorComponentText -notmatch "m_bSyncingStorageSearchInput = true;[\s\S]*?input\.SetText\(m_sStorageSearchQuery\);[\s\S]*?m_bSyncingStorageSearchInput = false;") {
 	throw "Loadout editor search input must guard programmatic SetText sync from re-entering OnChange render"
+}
+if ($loadoutEditorComponentText -notmatch 'if \(key == "search"\)\s*\r?\n\s*return ICON_SEARCH;') {
+	throw "Loadout editor storage search tab must resolve the search icon resource"
+}
+if ($loadoutEditorComponentText -notmatch 'if \(m_sSelectedCategory != "search"\)\s*\r?\n\s*EnsureCandidatePayloadForStorageContainer\(\);') {
+	throw "Loadout editor search tab must not request selected-storage candidate payloads when selected"
+}
+$loadoutSearchImplementationMatch = [regex]::Match($loadoutEditorComponentText, "protected void BuildStorageSearchResults[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool IsArsenalItemSearchMatch[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void SortStorageSearchResultsAZ")
+if (!$loadoutSearchImplementationMatch.Success) {
+	throw "Loadout editor storage search implementation block is missing"
+}
+foreach ($requiredSearchImplementationEntry in @(
+	"m_aItemPrefabs.Count()",
+	"GetArsenalItemDisplayName(itemIndex)",
+	"m_aItemShortDisplays",
+	"m_aItemCategories",
+	"BuildSlotCategoryLabel",
+	"haystack.ToLower()",
+	"needle.ToLower()"
+)) {
+	if ($loadoutSearchImplementationMatch.Value -notmatch [regex]::Escape($requiredSearchImplementationEntry)) {
+		throw "Loadout editor storage search must query full recovered arsenal item fields: $requiredSearchImplementationEntry"
+	}
+}
+foreach ($forbiddenSearchImplementationEntry in @(
+	"m_aCandidate",
+	"PassesStorageCandidateFilters",
+	"m_iStorageFilterMask",
+	"m_iStorageSortMode",
+	"CompareStorageCandidates"
+)) {
+	if ($loadoutSearchImplementationMatch.Value -match [regex]::Escape($forbiddenSearchImplementationEntry)) {
+		throw "Loadout editor storage search must stay independent from selected-storage candidates/filter/sort: $forbiddenSearchImplementationEntry"
+	}
+}
+$loadoutSearchDisplayHelperMatch = [regex]::Match($loadoutEditorComponentText, "protected string GetArsenalItemDisplayName[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderStorageFilterSortControls")
+if (!$loadoutSearchDisplayHelperMatch.Success -or $loadoutSearchDisplayHelperMatch.Value -notmatch "m_aItemDisplays" -or $loadoutSearchDisplayHelperMatch.Value -notmatch "m_aItemShortDisplays") {
+	throw "Loadout editor search display helper must use full item display arrays"
+}
+$loadoutSearchResultTileMatch = [regex]::Match($loadoutEditorComponentText, "protected void AddStorageSearchResultTile[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddStorageSearchPreviewToRow")
+if (!$loadoutSearchResultTileMatch.Success -or $loadoutSearchResultTileMatch.Value -notmatch [regex]::Escape("BuildCountLabel(itemIndex)")) {
+	throw "Loadout editor search result tiles must render recovered arsenal count badges"
+}
+$loadoutSearchCountHelperMatch = [regex]::Match($loadoutEditorComponentText, "protected string BuildCountLabel[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected string BuildPreviewStatusLabel")
+if (!$loadoutSearchCountHelperMatch.Success -or $loadoutSearchCountHelperMatch.Value -notmatch "m_aItemCounts" -or $loadoutSearchCountHelperMatch.Value -notmatch "m_aItemInfinite") {
+	throw "Loadout editor search count badges must use full item count/infinite arrays"
+}
+$loadoutSearchClickMatch = [regex]::Match($loadoutEditorComponentText, "int storageSearchVisibleIndex = widgetId - STORAGE_SEARCH_RESULT_WIDGET_ID_BASE;[\s\S]*?\r?\n\t\tint itemVisibleIndex = widgetId - ITEM_WIDGET_ID_BASE;")
+if (!$loadoutSearchClickMatch.Success -or $loadoutSearchClickMatch.Value -notmatch [regex]::Escape('RequestServerAction("add_storage_item", targetNodeId + ":" + m_aItemPrefabs[itemIndex]);') -or $loadoutSearchClickMatch.Value -notmatch [regex]::Escape('select storage before adding search result')) {
+	throw "Loadout editor search result clicks must require selected storage and route through add_storage_item"
 }
 $loadoutEditorLayoutWidgetNames = @{}
 foreach ($layoutWidgetNameMatch in [regex]::Matches($loadoutEditorLayoutText, 'Name "([^"]+)"')) {
