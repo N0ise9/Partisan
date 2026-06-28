@@ -173,6 +173,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Real controls should be widget-driven.
   - Give interactive widgets stable `UserID`s and attach a `ScriptedWidgetEventHandler`.
   - Avoid raw coordinate hit testing for visible buttons.
+  - When a render path programmatically syncs an `EditBoxWidget` with `SetText`, guard the paired `OnChange` handler so the sync cannot re-enter the render path. Attach the handler after the sync where practical, but still use an explicit guard because the reused widget may already have a handler.
 
 - Some interactions may arrive through both `OnClick` and `OnMouseButtonUp`.
   - Use duplicate-activation guards where a widget action can be triggered by both callbacks in the same frame.
