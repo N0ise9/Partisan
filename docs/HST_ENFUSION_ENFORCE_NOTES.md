@@ -26,6 +26,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Use `HST_UIDebug.LogNamedChildSummaryCsv` during delayed ready passes for dynamic list hosts such as command tabs/main/actions and loadout slot/candidate/storage lists.
   - This logs the parent bounds plus the first few child widget bounds after Enfusion has settled anchors.
 
+- Generated row and tile dimensions should live in the row layout resource.
+  - Script-side `SizeLayoutWidget` overrides on every generated row reintroduce viewport-dependent geometry logic and can fight wrap/scroll hosts.
+  - Prefer fixed `SizeLayoutWidget` dimensions in the row layout and let the parent `VerticalLayoutWidget` or `WrapLayoutWidget` place children.
+  - Script should create the row, bind user ids, set colors/text/images, and leave row size to the layout.
+  - Current example: `HST_LoadoutCandidateTile.layout` owns storage candidate tile width, height, and text bounds.
+
 - Layout diagnostics must be runtime-gated.
   - Compile-time `static const` feature flags are useful as a hard kill switch, but every high-volume helper should also check the debug setting loaded from runtime settings.
   - Cache the loaded runtime setting in the debug helper so row/widget probes do not parse settings on every row.

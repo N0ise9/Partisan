@@ -2296,7 +2296,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (row)
 			{
 				PrepareRowRoot(row);
-				ConfigureStorageCandidateTile(row);
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
 				SetRowWidgetVisible(row, "Name", false);
 				SetRowWidgetVisible(row, "Count", false);
@@ -2540,8 +2539,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		BindRowClick(tile, userId);
 		SetRowWidgetVisible(tile, "EmptyText", false);
 
-		ConfigureStorageCandidateTile(tile);
-
 		int color = GetBaseRowColor();
 		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = GetMatchedRowColor();
@@ -2553,68 +2550,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		AddCandidatePreviewToRow(workspace, tile, candidateIndex, userId);
 
 		AddCandidateTileOverlayText(workspace, tile, itemName, countText, userId);
-	}
-
-	protected int GetStorageCandidateTileWidth()
-	{
-		if (!m_Layout)
-			return ScalePx(354);
-
-		int listWidth = Math.Max(ScalePx(260), m_Layout.m_iMainWidth - ScalePx(40));
-		int gap = GetStorageCandidateTileGap();
-		int columns = GetStorageCandidateColumnCount(listWidth);
-		if (m_Layout.m_bVeryCompact)
-			columns = ClampInt(columns, 1, 2);
-
-		int tileWidth = (listWidth - ((columns - 1) * gap)) / columns;
-		return Math.Max(ScalePx(220), tileWidth);
-	}
-
-	protected int GetStorageCandidateTileGap()
-	{
-		if (!m_Layout)
-			return ScalePx(10);
-
-		if (m_Layout.m_bVeryCompact)
-			return ScalePx(8);
-		if (m_Layout.m_bCompact)
-			return ScalePx(8);
-
-		return ScalePx(10);
-	}
-
-	protected int GetStorageCandidateColumnCount(int listWidth)
-	{
-		if (!m_Layout)
-			return 3;
-
-		if (listWidth < ScalePx(540))
-			return 1;
-		if (listWidth < ScalePx(760) || m_Layout.m_bVeryCompact)
-			return 2;
-		return 3;
-	}
-
-	protected int GetStorageCandidateTileBodyWidth()
-	{
-		return Math.Max(ScalePx(180), GetStorageCandidateTileWidth() - GetStorageCandidateTileGap());
-	}
-
-	protected void ConfigureStorageCandidateTile(Widget tile)
-	{
-		if (!tile || !m_Layout)
-			return;
-
-		int tileWidth = GetStorageCandidateTileWidth();
-		int tileHeight = ScalePx(140);
-		SizeLayoutWidget sizeLayout = SizeLayoutWidget.Cast(tile.FindAnyWidget("SizeLayout"));
-		if (sizeLayout)
-		{
-			sizeLayout.EnableWidthOverride(true);
-			sizeLayout.SetWidthOverride(tileWidth);
-			sizeLayout.EnableHeightOverride(true);
-			sizeLayout.SetHeightOverride(tileHeight);
-		}
 	}
 
 	protected void AddCandidateTileOverlayText(WorkspaceWidget workspace, Widget tile, string name, string countText, int userId)

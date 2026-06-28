@@ -3381,21 +3381,23 @@ foreach ($requiredLoadoutStorageRowProgressEntry in @(
 }
 foreach ($requiredLoadoutCandidateTileEntry in @(
 	"WidthOverride 354",
-	"HeightOverride 96",
+	"HeightOverride 140",
 	"MinDesiredWidth 354",
-	"MinDesiredHeight 96",
+	"MinDesiredHeight 140",
 	"MaxDesiredWidth 354",
-	"MaxDesiredHeight 96",
+	"MaxDesiredHeight 140",
 	"OffsetRight -82",
 	"OffsetBottom -82",
 	"OffsetLeft 112",
+	"SizeY 72",
 	"OffsetRight 82",
 	"OffsetLeft -72",
-	"OffsetTop 34"
+	"OffsetTop 88",
+	"SizeY 28"
 )) {
 	$loadoutCandidateTileText = Get-Content -Raw "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"
 	if ($loadoutCandidateTileText -notmatch [regex]::Escape($requiredLoadoutCandidateTileEntry)) {
-		throw "Loadout candidate tile is missing Bacon-scale tile entry: $requiredLoadoutCandidateTileEntry"
+		throw "Loadout candidate tile is missing layout-owned tile entry: $requiredLoadoutCandidateTileEntry"
 	}
 }
 

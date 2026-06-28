@@ -15,15 +15,15 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
    AllowWidthOverride 1
    WidthOverride 354
    AllowHeightOverride 1
-   HeightOverride 96
+   HeightOverride 140
    AllowMinDesiredWidth 1
    MinDesiredWidth 354
    AllowMinDesiredHeight 1
-   MinDesiredHeight 96
+   MinDesiredHeight 140
    AllowMaxDesiredWidth 0
    MaxDesiredWidth 354
    AllowMaxDesiredHeight 0
-   MaxDesiredHeight 96
+   MaxDesiredHeight 140
    {
     OverlayWidgetClass "{A7B8C9D001236002}" {
      Name "Overlay"
@@ -98,11 +98,12 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
         TextWidgetClass "{A7B8C9D001234605}" {
          Name "Name"
          Slot FrameWidgetSlot "{A7B8C9D001234606}" {
-         Anchor 0 0 1 1
+         Anchor 0 0 1 0
          OffsetLeft 112
-         OffsetTop 12
+         OffsetTop 14
           OffsetRight 82
-          OffsetBottom 12
+          SizeY 72
+          OffsetBottom -86
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -118,9 +119,10 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          Slot FrameWidgetSlot "{A7B8C9D001234608}" {
          Anchor 1 0 1 0
          OffsetLeft -72
-         OffsetTop 34
+         OffsetTop 88
           OffsetRight 18
-          OffsetBottom -58
+          SizeY 28
+          OffsetBottom -116
          }
          "Is Visible" 1
          "Ignore Cursor" 1
