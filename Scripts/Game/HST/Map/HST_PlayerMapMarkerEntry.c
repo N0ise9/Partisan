@@ -1,7 +1,8 @@
+[BaseContainerProps(), SCR_MapMarkerTitle()]
 class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 {
 	static const ResourceName PLAYER_MARKER_IMAGESET = "{2EFEA2AF1F38E7F0}UI/Textures/Icons/icons_wrapperUI-64.imageset";
-	static const string PLAYER_MARKER_ICON = "dot";
+	static const string PLAYER_MARKER_ICON = "circle";
 
 	override SCR_EMapMarkerType GetMarkerType()
 	{

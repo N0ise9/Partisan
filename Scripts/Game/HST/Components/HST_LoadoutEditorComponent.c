@@ -1764,6 +1764,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		SetLoadoutWidgetVisible(panelRoot, "CandidateRemoveButton", false);
+		SetLoadoutWidgetVisible(panelRoot, "CandidateRemoveBackground", false);
+		SetLoadoutWidgetVisible(panelRoot, "CandidateRemoveAccent", false);
+		SetLoadoutWidgetVisible(panelRoot, "CandidateRemoveIcon", false);
+		SetLoadoutWidgetVisible(panelRoot, "CandidateRemoveLabel", false);
 		SetLoadoutWidgetVisible(panelRoot, "CandidateListFrame", true);
 		SetLoadoutWidgetVisible(panelRoot, "CandidateEmpty", false);
 	}

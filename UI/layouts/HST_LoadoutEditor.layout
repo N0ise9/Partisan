@@ -308,8 +308,6 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetRight 24
         OffsetBottom 0
        }
-       HorizontalAlign 1
-       VerticalAlign 1
        "Ignore Cursor" 0
       }
      }
@@ -708,73 +706,71 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        }
        "Is Visible" 0
        Color 0.07 0.09 0.11 0.98
-       {
-        FrameWidgetClass "{7B2FD986A4D34312}" {
-         Name "CandidateRemoveBody"
-         Slot ButtonWidgetSlot "{7B2FD986A4D34313}" {
-         }
-         "Ignore Cursor" 1
-         {
-          PanelWidgetClass "{7B2FD986A4D34314}" {
-           Name "CandidateRemoveBackground"
-           Slot FrameWidgetSlot "{7B2FD986A4D34315}" {
-            Anchor 0 0 1 1
-            OffsetLeft 0
-            OffsetTop 0
-            OffsetRight 0
-            OffsetBottom 0
-           }
-           Color 0.07 0.09 0.11 0.98
-           style full
-           "Ignore Cursor" 1
-          }
-          PanelWidgetClass "{7B2FD986A4D34316}" {
-           Name "CandidateRemoveAccent"
-           Slot FrameWidgetSlot "{7B2FD986A4D34317}" {
-           Anchor 0 0 1 0
-           OffsetLeft 0
-           OffsetTop 0
-           OffsetRight 0
-           SizeY 3
-           OffsetBottom -3
-           }
-           Color 1 0.82 0.38 1
-           style full
-           "Ignore Cursor" 1
-          }
-          TextWidgetClass "{7B2FD986A4D34318}" {
-           Name "CandidateRemoveIcon"
-           Slot FrameWidgetSlot "{7B2FD986A4D34319}" {
-           Anchor 0 0 0 1
-           OffsetLeft 20
-           OffsetTop 0
-           OffsetRight 64
-           OffsetBottom 0
-           }
-           "No Localization" 1
-           "Ignore Cursor" 1
-           Text "X"
-           "Horizontal Alignment" Center
-           "Vertical Alignment" Center
-          }
-          TextWidgetClass "{7B2FD986A4D3431A}" {
-           Name "CandidateRemoveLabel"
-           Slot FrameWidgetSlot "{7B2FD986A4D3431B}" {
-            Anchor 0 0 1 1
-            OffsetLeft 82
-            OffsetTop 0
-            OffsetRight 18
-            OffsetBottom 0
-           }
-           "No Localization" 1
-           "Ignore Cursor" 1
-           Text "Remove"
-           "Horizontal Alignment" Left
-           "Vertical Alignment" Center
-          }
-         }
-        }
+      }
+      PanelWidgetClass "{7B2FD986A4D34314}" {
+       Name "CandidateRemoveBackground"
+       Slot FrameWidgetSlot "{7B2FD986A4D34315}" {
+        Anchor 0 0 1 0
+        OffsetLeft 20
+        OffsetTop 114
+        OffsetRight 20
+        SizeY 56
+        OffsetBottom -170
        }
+       "Is Visible" 0
+       Color 0.07 0.09 0.11 0.98
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{7B2FD986A4D34316}" {
+       Name "CandidateRemoveAccent"
+       Slot FrameWidgetSlot "{7B2FD986A4D34317}" {
+       Anchor 0 0 1 0
+       OffsetLeft 20
+       OffsetTop 114
+       OffsetRight 20
+       SizeY 3
+       OffsetBottom -117
+       }
+       "Is Visible" 0
+       Color 1 0.82 0.38 1
+       style full
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{7B2FD986A4D34318}" {
+       Name "CandidateRemoveIcon"
+       Slot FrameWidgetSlot "{7B2FD986A4D34319}" {
+       Anchor 0 0 0 0
+       OffsetLeft 40
+       OffsetTop 114
+       SizeX 44
+       SizeY 56
+       OffsetRight -84
+       OffsetBottom -170
+       }
+       "Is Visible" 0
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "X"
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+      }
+      TextWidgetClass "{7B2FD986A4D3431A}" {
+       Name "CandidateRemoveLabel"
+       Slot FrameWidgetSlot "{7B2FD986A4D3431B}" {
+        Anchor 0 0 1 0
+        OffsetLeft 102
+        OffsetTop 114
+        OffsetRight 38
+        SizeY 56
+        OffsetBottom -170
+       }
+       "Is Visible" 0
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Remove"
+       "Horizontal Alignment" Left
+       "Vertical Alignment" Center
       }
       FrameWidgetClass "{7B2FD986A4D3431C}" {
        Name "CandidateListFrame"
@@ -968,31 +964,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -52
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D35208}" {
-           Name "StorageFilterFitBody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D35209}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D3520A}" {
-             Name "StorageFilterFitLabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D3520B}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "Fits"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D3520A}" {
+         Name "StorageFilterFitLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D3520B}" {
+          Anchor 0 0 0 0
+          OffsetLeft 0
+          OffsetTop 22
+          SizeX 62
+          SizeY 30
+          OffsetRight -62
+          OffsetBottom -52
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Fits"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
         ButtonWidgetClass "{7B2FD986A4D3520C}" {
          Name "StorageFilterAmmoButton"
@@ -1006,31 +994,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -52
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D3520E}" {
-           Name "StorageFilterAmmoBody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D3520F}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D35210}" {
-             Name "StorageFilterAmmoLabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D35211}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "Ammo"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D35210}" {
+         Name "StorageFilterAmmoLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D35211}" {
+          Anchor 0 0 0 0
+          OffsetLeft 68
+          OffsetTop 22
+          SizeX 66
+          SizeY 30
+          OffsetRight -134
+          OffsetBottom -52
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Ammo"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
         ButtonWidgetClass "{7B2FD986A4D35212}" {
          Name "StorageFilterInfiniteButton"
@@ -1044,31 +1024,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -52
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D35214}" {
-           Name "StorageFilterInfiniteBody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D35215}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D35216}" {
-             Name "StorageFilterInfiniteLabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D35217}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "INF"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D35216}" {
+         Name "StorageFilterInfiniteLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D35217}" {
+          Anchor 0 0 0 0
+          OffsetLeft 140
+          OffsetTop 22
+          SizeX 58
+          SizeY 30
+          OffsetRight -198
+          OffsetBottom -52
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "INF"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
         ButtonWidgetClass "{7B2FD986A4D35218}" {
          Name "StorageFilterShowAllButton"
@@ -1082,31 +1054,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -52
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D3521A}" {
-           Name "StorageFilterShowAllBody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D3521B}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D3521C}" {
-             Name "StorageFilterShowAllLabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D3521D}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "All"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D3521C}" {
+         Name "StorageFilterShowAllLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D3521D}" {
+          Anchor 0 0 0 0
+          OffsetLeft 204
+          OffsetTop 22
+          SizeX 52
+          SizeY 30
+          OffsetRight -256
+          OffsetBottom -52
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "All"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
         ButtonWidgetClass "{7B2FD986A4D3521E}" {
          Name "StorageFilterNotInfiniteButton"
@@ -1120,31 +1084,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -52
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D35220}" {
-           Name "StorageFilterNotInfiniteBody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D35221}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D35222}" {
-             Name "StorageFilterNotInfiniteLabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D35223}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "Not INF"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D35222}" {
+         Name "StorageFilterNotInfiniteLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D35223}" {
+          Anchor 0 0 0 0
+          OffsetLeft 262
+          OffsetTop 22
+          SizeX 92
+          SizeY 30
+          OffsetRight -354
+          OffsetBottom -52
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Not INF"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
         ButtonWidgetClass "{7B2FD986A4D35224}" {
          Name "StorageSortAZButton"
@@ -1158,31 +1114,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -52
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D35226}" {
-           Name "StorageSortAZBody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D35227}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D35228}" {
-             Name "StorageSortAZLabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D35229}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "A-Z"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D35228}" {
+         Name "StorageSortAZLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D35229}" {
+          Anchor 0 0 0 0
+          OffsetLeft 370
+          OffsetTop 22
+          SizeX 58
+          SizeY 30
+          OffsetRight -428
+          OffsetBottom -52
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "A-Z"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
         ButtonWidgetClass "{7B2FD986A4D3522A}" {
          Name "StorageSortZAButton"
@@ -1196,31 +1144,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -52
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D3522C}" {
-           Name "StorageSortZABody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D3522D}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D3522E}" {
-             Name "StorageSortZALabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D3522F}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "Z-A"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D3522E}" {
+         Name "StorageSortZALabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D3522F}" {
+          Anchor 0 0 0 0
+          OffsetLeft 434
+          OffsetTop 22
+          SizeX 58
+          SizeY 30
+          OffsetRight -492
+          OffsetBottom -52
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Z-A"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
         ButtonWidgetClass "{7B2FD986A4D35230}" {
          Name "StorageSortCountDescButton"
@@ -1234,31 +1174,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -52
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D35232}" {
-           Name "StorageSortCountDescBody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D35233}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D35234}" {
-             Name "StorageSortCountDescLabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D35235}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "INF-1"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D35234}" {
+         Name "StorageSortCountDescLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D35235}" {
+          Anchor 0 0 0 0
+          OffsetLeft 498
+          OffsetTop 22
+          SizeX 72
+          SizeY 30
+          OffsetRight -570
+          OffsetBottom -52
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "INF-1"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
         ButtonWidgetClass "{7B2FD986A4D35236}" {
          Name "StorageSortCountAscButton"
@@ -1272,31 +1204,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -52
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D35238}" {
-           Name "StorageSortCountAscBody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D35239}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D3523A}" {
-             Name "StorageSortCountAscLabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D3523B}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "1-INF"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D3523A}" {
+         Name "StorageSortCountAscLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D3523B}" {
+          Anchor 0 0 0 0
+          OffsetLeft 576
+          OffsetTop 22
+          SizeX 72
+          SizeY 30
+          OffsetRight -648
+          OffsetBottom -52
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "1-INF"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
        }
       }
@@ -1409,31 +1333,23 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           OffsetBottom -36
          }
          Color 0.07 0.09 0.11 0.98
-         {
-          FrameWidgetClass "{7B2FD986A4D35307}" {
-           Name "StorageSearchClearBody"
-           Slot ButtonWidgetSlot "{7B2FD986A4D35308}" {
-           }
-           "Ignore Cursor" 1
-           {
-            TextWidgetClass "{7B2FD986A4D35309}" {
-             Name "StorageSearchClearLabel"
-             Slot FrameWidgetSlot "{7B2FD986A4D3530A}" {
-              Anchor 0 0 1 1
-              OffsetLeft 0
-              OffsetTop 0
-              OffsetRight 0
-              OffsetBottom 0
-             }
-             "No Localization" 1
-             "Ignore Cursor" 1
-             Text "Clear"
-             "Horizontal Alignment" Center
-             "Vertical Alignment" Center
-            }
-           }
-          }
+        }
+        TextWidgetClass "{7B2FD986A4D35309}" {
+         Name "StorageSearchClearLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D3530A}" {
+          Anchor 1 0 1 0
+          OffsetLeft -86
+          OffsetTop 0
+          OffsetRight 0
+          SizeX 86
+          SizeY 36
+          OffsetBottom -36
          }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Clear"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
         }
         TextWidgetClass "{7B2FD986A4D3530B}" {
          Name "StorageSearchResultMeta"

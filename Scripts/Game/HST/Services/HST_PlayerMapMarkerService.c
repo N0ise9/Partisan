@@ -99,15 +99,27 @@ class HST_PlayerMapMarkerService
 				m_mDesiredPlayerMarkers.Set(record.m_sId, record);
 		}
 
-		if (signature == m_sLastSignature)
+		if (signature == m_sLastSignature && m_Reconciler && m_Reconciler.GetTrackedDynamicHandleCount() == m_mDesiredPlayerMarkers.Count())
 			return false;
 
-		m_sLastSignature = signature;
 		if (!m_Reconciler)
 			return false;
 
 		bool changed = m_Reconciler.Reconcile(m_mDesiredPlayerMarkers);
-		DebugLog(string.Format("reconciled players=%1 changed=%2", m_mDesiredPlayerMarkers.Count(), changed));
+		HST_MapMarkerReconcileResult result = m_Reconciler.GetLastResult();
+		bool failed;
+		if (result && result.m_iFailed > 0)
+		{
+			failed = true;
+			m_sLastSignature = "";
+			m_bRefreshRequested = true;
+		}
+		else
+		{
+			m_sLastSignature = signature;
+		}
+
+		DebugLog(string.Format("reconciled players=%1 changed=%2 failed=%3 tracked=%4", m_mDesiredPlayerMarkers.Count(), changed, failed, m_Reconciler.GetTrackedDynamicHandleCount()));
 		return changed;
 	}
 
