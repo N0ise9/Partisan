@@ -2570,13 +2570,38 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (itemIndex < m_aItemShortDisplays.Count())
 			haystack = haystack + " " + m_aItemShortDisplays[itemIndex];
 		if (itemIndex < m_aItemCategories.Count())
-			haystack = haystack + " " + m_aItemCategories[itemIndex] + " " + BuildSlotCategoryLabel(m_aItemCategories[itemIndex]);
+			haystack = haystack + " " + BuildStorageSearchCategoryText(m_aItemCategories[itemIndex]);
 		haystack = haystack + " " + m_aItemPrefabs[itemIndex];
 		haystack.ToLower();
 
 		string needle = query;
 		needle.ToLower();
 		return haystack.Contains(needle);
+	}
+
+	protected string BuildStorageSearchCategoryText(string itemCategory)
+	{
+		string categoryText = itemCategory + " " + BuildSlotCategoryLabel(itemCategory);
+		string storageCategory = ResolveStorageBrowserCategoryForItem(itemCategory);
+		string storageCategoryLabel = GetStorageBrowserCategoryLabel(storageCategory);
+		if (!storageCategoryLabel.IsEmpty())
+			categoryText = categoryText + " " + storageCategoryLabel;
+
+		return categoryText;
+	}
+
+	protected string ResolveStorageBrowserCategoryForItem(string itemCategory)
+	{
+		for (int i = 0; i < GetStorageBrowserCategoryCount(); i++)
+		{
+			string storageCategory = GetStorageBrowserCategoryId(i);
+			if (storageCategory == "search")
+				continue;
+			if (IsCategoryInStorageBrowserTab(itemCategory, storageCategory))
+				return storageCategory;
+		}
+
+		return itemCategory;
 	}
 
 	protected void SortStorageSearchResultsAZ()

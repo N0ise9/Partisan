@@ -4797,13 +4797,17 @@ foreach ($requiredSearchImplementationEntry in @(
 	"GetArsenalItemDisplayName(itemIndex)",
 	"m_aItemShortDisplays",
 	"m_aItemCategories",
-	"BuildSlotCategoryLabel",
+	"BuildStorageSearchCategoryText",
 	"haystack.ToLower()",
 	"needle.ToLower()"
 )) {
 	if ($loadoutSearchImplementationMatch.Value -notmatch [regex]::Escape($requiredSearchImplementationEntry)) {
 		throw "Loadout editor storage search must query full recovered arsenal item fields: $requiredSearchImplementationEntry"
 	}
+}
+$loadoutSearchCategoryTextMatch = [regex]::Match($loadoutEditorComponentText, "protected string BuildStorageSearchCategoryText[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected string ResolveStorageBrowserCategoryForItem[\s\S]*?\r?\n\t}")
+if (!$loadoutSearchCategoryTextMatch.Success -or $loadoutSearchCategoryTextMatch.Value -notmatch "BuildSlotCategoryLabel" -or $loadoutSearchCategoryTextMatch.Value -notmatch "GetStorageBrowserCategoryLabel" -or $loadoutSearchCategoryTextMatch.Value -notmatch "IsCategoryInStorageBrowserTab") {
+	throw "Loadout editor storage search must match raw, slot, and visible storage browser category labels"
 }
 foreach ($forbiddenSearchImplementationEntry in @(
 	"m_aCandidate",
