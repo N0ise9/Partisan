@@ -283,6 +283,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected string m_sStorageSearchQuery;
 	protected ref array<int> m_aVisibleStorageSearchItemIndexes = {};
 	protected bool m_bSyncingStorageSearchInput;
+	protected bool m_bDeferredStorageBrowserRenderQueued;
 	protected ref array<string> m_aLoadedCandidateNodeIds = {};
 	protected ref array<string> m_aCandidateEmptyNodeIds = {};
 	protected ref array<string> m_aCandidateEmptyReasons = {};
@@ -419,6 +420,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sPreviewRenderKey = "";
 		m_bCameraInitialized = false;
 		m_bPostActionRefreshQueued = false;
+		m_bDeferredStorageBrowserRenderQueued = false;
 		m_iCameraMode = 0;
 		m_fPreviewYawDegrees = 0;
 		EnsureVisualSettings();
@@ -526,8 +528,26 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_sStorageSearchQuery = query;
 		m_fStorageCandidateScrollY = 0.0;
-		RenderEditor();
+		QueueStorageBrowserRender();
 		return true;
+	}
+
+	protected void QueueStorageBrowserRender()
+	{
+		if (m_bDeferredStorageBrowserRenderQueued)
+			return;
+
+		m_bDeferredStorageBrowserRenderQueued = true;
+		GetGame().GetCallqueue().CallLater(FlushStorageBrowserRender, 0, false);
+	}
+
+	protected void FlushStorageBrowserRender()
+	{
+		m_bDeferredStorageBrowserRenderQueued = false;
+		if (!m_bEditorOpen)
+			return;
+
+		RenderEditor();
 	}
 
 	bool OnWidgetClickedWithButton(int widgetId, int button)
@@ -717,7 +737,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			ToggleStorageFilterByIndex(storageFilterIndex);
 			m_fStorageCandidateScrollY = 0.0;
-			RenderEditor();
+			QueueStorageBrowserRender();
 			return true;
 		}
 
@@ -726,7 +746,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			SetStorageSortMode(storageSortIndex);
 			m_fStorageCandidateScrollY = 0.0;
-			RenderEditor();
+			QueueStorageBrowserRender();
 			return true;
 		}
 
@@ -735,7 +755,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_sStorageSearchQuery = "";
 			m_aVisibleStorageSearchItemIndexes.Clear();
 			m_fStorageCandidateScrollY = 0.0;
-			RenderEditor();
+			QueueStorageBrowserRender();
 			return true;
 		}
 
@@ -1213,6 +1233,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_bEditorOpen = false;
 		m_bPostActionRefreshQueued = false;
 		m_bPostLayoutRefreshQueued = false;
+		m_bDeferredStorageBrowserRenderQueued = false;
 		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent");
 		UnregisterInputListeners();
 		ClearWidgets();

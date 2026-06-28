@@ -1693,6 +1693,7 @@ Write-Host "Unique IDs OK"
 $worldResourceText = (Get-ChildItem -Recurse -File "Worlds" -Include *.layer |
 	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 $runtimeMarkerLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/default.layer"
+$devRuntimeMarkerLayer = Get-Content -Raw "Worlds/HST_Dev/HST_Dev_Layers/default.layer"
 $townLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/Towns.layer"
 $strategicZonesLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/StrategicZones.layer"
 $markerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
@@ -1777,12 +1778,18 @@ foreach ($oldPlaceholderId in @(
 	}
 }
 
-foreach ($requiredNativeMarkerEntry in @(
-	"SCR_MapMarkerManagerComponent",
-	"Configs/Map/HST_PlayerMapMarkerConfig.conf"
-)) {
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredNativeMarkerEntry)) {
-		throw "Missing campaign map marker scaffold entry: $requiredNativeMarkerEntry"
+$runtimeMarkerLayerChecks = @(
+	@{ Name = "Everon"; Text = $runtimeMarkerLayer },
+	@{ Name = "Dev"; Text = $devRuntimeMarkerLayer }
+)
+foreach ($markerLayerCheck in $runtimeMarkerLayerChecks) {
+	foreach ($requiredNativeMarkerEntry in @(
+		"SCR_MapMarkerManagerComponent",
+		'm_sMarkerCfgPath "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf"'
+	)) {
+		if ($markerLayerCheck["Text"] -notmatch [regex]::Escape($requiredNativeMarkerEntry)) {
+			throw "$($markerLayerCheck["Name"]) runtime layer is missing campaign/player map marker scaffold entry: $requiredNativeMarkerEntry"
+		}
 	}
 }
 
@@ -1839,6 +1846,9 @@ foreach ($requiredPlayerMarkerTypeEntry in @(
 }
 if ($playerMarkerConfigText -notmatch "SCR_MapMarkerConfig[\s\S]*?HST_PlayerMapMarkerEntry" -or $playerMarkerConfigText -notmatch [regex]::Escape('{DD74BE2BBAE07192}Prefabs/Markers/MapMarkerEntityBase.et')) {
 	throw "Player map marker config must inherit map marker config and register HST_PlayerMapMarkerEntry with marker entity prefab"
+}
+if ($playerMarkerConfigText -notmatch [regex]::Escape('SCR_MapMarkerConfig : "{3583D42139D9A10B}Configs/Map/CampaignMapMarkerConfig.conf"')) {
+	throw "Player map marker config must inherit CampaignMapMarkerConfig.conf so existing campaign markers stay registered"
 }
 if ($playerMarkerConfigText -match [regex]::Escape('HST_PlayerMapMarkerEntry "{6985327711306212}"')) {
 	throw "Player map marker entry must not reuse the config resource GUID as its inner entry id"
@@ -4640,6 +4650,8 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 	"RenderStorageFilterSortControls",
 	"ToggleStorageFilterByIndex",
 	"SetStorageSortMode",
+	"QueueStorageBrowserRender",
+	"FlushStorageBrowserRender",
 	"PassesStorageCandidateFilters",
 	"SortStorageVisibleCandidateIndexes",
 	"RenderStorageSearchPanel",
@@ -4684,6 +4696,7 @@ foreach ($requiredLoadoutVisualSettingsEntry in @(
 	"m_iStorageSortMode",
 	"storageFilterMask",
 	"storageSortMode",
+	"validStorageFilterMask",
 	"shouldSaveNormalized"
 )) {
 	if ($loadoutVisualSettingsText -notmatch [regex]::Escape($requiredLoadoutVisualSettingsEntry)) {

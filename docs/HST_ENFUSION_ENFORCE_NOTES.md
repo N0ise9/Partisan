@@ -150,6 +150,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Dynamic player markers need a marker config entry before `InsertDynamicMarker` can work.
   - `SCR_MapMarkerManagerComponent.InsertDynamicMarker(type, entity, configId)` resolves `type` through the active `SCR_MapMarkerConfig`; stock `CampaignMapMarkerConfig.conf` does not expose every dynamic marker type.
+  - The custom config must be the marker manager config on every gameplay/dev world layer that should show the marker. Having `Configs/Map/HST_PlayerMapMarkerConfig.conf` in the addon is not enough if the active layer still points at a config without `SCR_EMapMarkerType.HST_PLAYER`.
+  - Inherit the custom config from `CampaignMapMarkerConfig.conf` rather than replacing the campaign marker config from scratch, or existing HQ/zone/mission marker entries can disappear while the player marker entry works.
   - Do not use `PLACED_CUSTOM` for tracked entities; it is a static marker type. For h-istasi player tracking, the world layers point the marker manager at `Configs/Map/HST_PlayerMapMarkerConfig.conf`, which inherits the campaign marker config and adds `HST_PlayerMapMarkerEntry`.
   - Do not reuse `SCR_EMapMarkerType.DYNAMIC_EXAMPLE` for custom dynamic markers. `SCR_MapMarkerConfig.GetMarkerEntryConfigByType` returns the first matching entry, and the parent map marker config already defines the stock example entry. Add a dedicated modded enum value such as `SCR_EMapMarkerType.HST_PLAYER`.
   - The stock `SCR_MapMarkerEntryDynamicExample` registers its own spawn/death handlers. If h-istasi owns marker lifecycle through a service/reconciler, use a custom `SCR_MapMarkerEntryDynamic` subclass, call `super.InitServerLogic()` to bind the manager, and do not register stock events.
@@ -180,6 +182,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Use duplicate-activation guards where a widget action can be triggered by both callbacks in the same frame.
   - Pass the mouse button through both event paths and key the guard by widget id, button, and frame serial so right-click/left-click actions remain distinct.
   - Current examples: `HST_SetupMapComponent`, `HST_CommandMenuComponent`, `HST_LoadoutEditorComponent`, and `HST_MissionClientComponent`.
+
+- Avoid synchronously deleting and rebuilding a newly added control subtree from that same control's callback.
+  - Existing long-lived menus may tolerate direct `RenderEditor()` calls from established row buttons, but new filter/sort/search controls are safer when they mutate state and queue a zero-delay callqueue render.
+  - This keeps the handler return path from walking widgets that were just destroyed by the render.
+  - Current example: `HST_LoadoutEditorComponent.QueueStorageBrowserRender()` for storage filter/sort/search controls.
 
 - Modal state belongs in one coordinator.
   - `HST_UIRootService` tracks current screen, modal screen, blocking behavior, and topmost owner.

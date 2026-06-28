@@ -33,6 +33,8 @@ class HST_LoadoutEditorVisualSettings
 		m_iAccentPreset = ClampPreset(m_iAccentPreset, 6);
 		m_iRowPreset = ClampPreset(m_iRowPreset, 5);
 		m_iWorldPreset = ClampPreset(m_iWorldPreset, 5);
+		int validStorageFilterMask = STORAGE_FILTER_FIT_ONLY | STORAGE_FILTER_AMMO_USABLE | STORAGE_FILTER_INFINITE_ONLY | STORAGE_FILTER_SHOW_ALL | STORAGE_FILTER_NOT_INFINITE;
+		m_iStorageFilterMask = m_iStorageFilterMask & validStorageFilterMask;
 		if (m_iStorageFilterMask <= 0)
 			m_iStorageFilterMask = STORAGE_FILTER_FIT_ONLY;
 
