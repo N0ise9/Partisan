@@ -4751,6 +4751,8 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 	"BuildStorageSearchResults",
 	"IsArsenalItemSearchMatch",
 	"SortStorageSearchResultsAZ",
+	"m_fStorageSearchScrollY",
+	"RestoreScrollPixels(m_StorageSearchScroll, m_fStorageSearchScrollY)",
 	"workspace.SetFocusedWidget(input, true)",
 	"m_bSyncingStorageSearchInput",
 	"RequestServerAction(`"add_storage_item`""
@@ -4781,6 +4783,9 @@ if ($loadoutEditorComponentText -notmatch [regex]::Escape('ConfigureStorageBrows
 }
 if ($loadoutEditorComponentText -notmatch "if \(\s*m_bSyncingStorageSearchInput\s*\)\s*\r?\n\s*return true;" -or $loadoutEditorComponentText -notmatch "m_bSyncingStorageSearchInput = true;[\s\S]*?input\.SetText\(m_sStorageSearchQuery\);[\s\S]*?m_bSyncingStorageSearchInput = false;") {
 	throw "Loadout editor search input must guard programmatic SetText sync from re-entering OnChange render"
+}
+if ($loadoutEditorComponentText -notmatch "m_StorageSearchScroll\.GetSliderPosPixels\(x, y\);[\s\S]*?m_fStorageSearchScrollY = y;" -or $loadoutEditorComponentText -match "m_StorageSearchScroll\.GetSliderPosPixels\(x, y\);[\s\S]{0,120}?m_fStorageCandidateScrollY = y;") {
+	throw "Loadout editor storage search scroll must persist independently from the normal storage candidate grid scroll"
 }
 if ($loadoutEditorComponentText -notmatch 'if \(key == "search"\)\s*\r?\n\s*return ICON_SEARCH;') {
 	throw "Loadout editor storage search tab must resolve the search icon resource"

@@ -311,6 +311,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected float m_fCandidateScrollY;
 	protected float m_fTemplateScrollY;
 	protected float m_fStorageCandidateScrollY;
+	protected float m_fStorageSearchScrollY;
 	protected float m_fStorageContainerScrollY;
 	protected float m_fStorageContentScrollY;
 	protected Widget m_RootWidget;
@@ -528,7 +529,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return true;
 
 		m_sStorageSearchQuery = query;
-		m_fStorageCandidateScrollY = 0.0;
+		m_fStorageSearchScrollY = 0.0;
 		QueueStorageBrowserRender();
 		return true;
 	}
@@ -755,7 +756,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			m_sStorageSearchQuery = "";
 			m_aVisibleStorageSearchItemIndexes.Clear();
-			m_fStorageCandidateScrollY = 0.0;
+			m_fStorageSearchScrollY = 0.0;
 			QueueStorageBrowserRender();
 			return true;
 		}
@@ -2542,7 +2543,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		HST_UIDebug.LogRowSummary("loadout_storage_search", LOADOUT_CANDIDATE_TILE_LAYOUT, Math.Max(1, m_aVisibleStorageSearchItemIndexes.Count()), string.Format("query=%1 results=%2 selectedStorage=%3", ShortenText(query, 48), m_aVisibleStorageSearchItemIndexes.Count(), ShortenText(selectedStorageNodeId, 48)));
-		RestoreScrollPixels(m_StorageSearchScroll, m_fStorageCandidateScrollY);
+		RestoreScrollPixels(m_StorageSearchScroll, m_fStorageSearchScrollY);
 	}
 
 	protected void BuildStorageSearchResults()
@@ -5807,6 +5808,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		m_sStorageSearchQuery = "";
 		m_aVisibleStorageSearchItemIndexes.Clear();
+		m_fStorageSearchScrollY = 0.0;
 	}
 
 	protected int FindStorageContainerNodeIndex(string nodeId)
@@ -7754,6 +7756,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_fCandidateScrollY = 0.0;
 		m_fTemplateScrollY = 0.0;
 		m_fStorageCandidateScrollY = 0.0;
+		m_fStorageSearchScrollY = 0.0;
 		m_fStorageContainerScrollY = 0.0;
 		m_fStorageContentScrollY = 0.0;
 	}
@@ -8415,7 +8418,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (m_StorageSearchScroll)
 		{
 			m_StorageSearchScroll.GetSliderPosPixels(x, y);
-			m_fStorageCandidateScrollY = y;
+			m_fStorageSearchScrollY = y;
 		}
 
 		if (m_StorageContainerScroll)

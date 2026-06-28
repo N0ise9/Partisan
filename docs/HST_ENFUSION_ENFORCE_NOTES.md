@@ -166,6 +166,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Do not reuse `SCR_EMapMarkerType.DYNAMIC_EXAMPLE` for custom dynamic markers. `SCR_MapMarkerConfig.GetMarkerEntryConfigByType` returns the first matching entry, and the parent map marker config already defines the stock example entry. Add a dedicated modded enum value such as `SCR_EMapMarkerType.HST_PLAYER`.
   - The stock `SCR_MapMarkerEntryDynamicExample` registers its own spawn/death handlers. If h-istasi owns marker lifecycle through a service/reconciler, use a custom `SCR_MapMarkerEntryDynamic` subclass, call `super.InitServerLogic()` to bind the manager, and do not register stock events.
   - Custom marker entry classes used from `.conf` need the same `[BaseContainerProps(), SCR_MapMarkerTitle()]` attributes as stock marker entries; without them the config entry can fail to instantiate even though the script class exists.
+  - Runtime symptom: `Unknown class 'HST_PlayerMapMarkerEntry'` while loading `HST_PlayerMapMarkerConfig.conf` means the config can load but the marker entry script class was not registered/compiled for that run, so `InsertDynamicMarker` will not have a usable `HST_PLAYER` entry.
   - Validate both the imageset resource and the quad name. `{2EFEA2AF1F38E7F0}UI/Textures/Icons/icons_wrapperUI-64.imageset` has `circle` but not `dot`; using a missing quad can leave an otherwise created marker visually blank.
   - `SCR_MapMarkerEntity.SetText()` is not replicated. If server-created dynamic markers need per-player labels, pass a stable value through replicated marker data such as `configId` and resolve the client-side label in `InitClientSettingsDynamic`. Replicated marker fields can arrive around widget creation, so reapply labels briefly from the callqueue if the first pass only has fallback text.
   - Reconciler dynamic cleanup must remove tracked domain ids even if the stored `SCR_MapMarkerEntity` pointer is already null. A stale dynamic handle can poison tracked counts and prevent player marker cleanup/recreate from converging.
@@ -204,6 +205,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Existing long-lived menus may tolerate direct `RenderEditor()` calls from established row buttons, but new filter/sort/search controls are safer when they mutate state and queue a zero-delay callqueue render.
   - This keeps the handler return path from walking widgets that were just destroyed by the render.
   - Current example: `HST_LoadoutEditorComponent.QueueStorageBrowserRender()` for storage filter/sort/search controls.
+  - Keep storage search scroll state separate from the normal storage candidate grid scroll. Search query/results intentionally persist while the editor stays open, but search rerenders should restore `m_fStorageSearchScrollY` rather than inheriting the category grid's `m_fStorageCandidateScrollY`.
 
 - Modal state belongs in one coordinator.
   - `HST_UIRootService` tracks current screen, modal screen, blocking behavior, and topmost owner.
