@@ -92,6 +92,9 @@ class HST_PlayerMapMarkerService
 		int removed;
 		int unchanged;
 		int failed;
+		int nativeDynamic;
+		bool managerReady;
+		bool playerEntryReady;
 		if (m_Reconciler)
 		{
 			trackedDynamic = m_Reconciler.GetTrackedDynamicHandleCount();
@@ -107,7 +110,18 @@ class HST_PlayerMapMarkerService
 			}
 		}
 
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (markerManager)
+		{
+			managerReady = true;
+			nativeDynamic = markerManager.GetDynamicMarkers().Count();
+			SCR_MapMarkerConfig markerConfig = markerManager.GetMarkerConfig();
+			if (markerConfig && markerConfig.GetMarkerEntryConfigByType(SCR_EMapMarkerType.HST_PLAYER))
+				playerEntryReady = true;
+		}
+
 		string report = string.Format("h-istasi player marker report | enabled %1 | desired %2 | tracked %3 | live %4 | refresh %5", enabledText, m_mDesiredPlayerMarkers.Count(), trackedDynamic, liveDynamic, refreshText);
+		report = report + string.Format("\nnative marker manager | ready %1 | hst player entry %2 | native dynamic %3", managerReady, playerEntryReady, nativeDynamic);
 		report = report + string.Format("\nlast reconcile | created %1 | updated %2 | removed %3 | unchanged %4 | failed %5", created, updated, removed, unchanged, failed);
 
 		int detailCount;

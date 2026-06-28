@@ -1860,6 +1860,10 @@ foreach ($requiredPlayerMarkerReportContract in @(
 	"h-istasi player marker report",
 	"m_Reconciler.GetTrackedDynamicHandleCount()",
 	"m_Reconciler.CountTrackedDynamicLive()",
+	"SCR_MapMarkerManagerComponent.GetInstance()",
+	"markerManager.GetDynamicMarkers().Count()",
+	"markerConfig.GetMarkerEntryConfigByType(SCR_EMapMarkerType.HST_PLAYER)",
+	"native marker manager",
 	"last reconcile",
 	"player marker | id"
 )) {
