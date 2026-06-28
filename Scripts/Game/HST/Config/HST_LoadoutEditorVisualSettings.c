@@ -84,12 +84,29 @@ class HST_LoadoutEditorVisualSettingsService
 			ApplyInt(line, "storageSortMode", settings.m_iStorageSortMode);
 		}
 
+		int loadedSchemaVersion = settings.m_iSchemaVersion;
+		float loadedPreviewLightLV = settings.m_fPreviewLightLV;
+		int loadedPanelPreset = settings.m_iPanelPreset;
+		int loadedAccentPreset = settings.m_iAccentPreset;
+		int loadedRowPreset = settings.m_iRowPreset;
+		int loadedWorldPreset = settings.m_iWorldPreset;
+		int loadedStorageFilterMask = settings.m_iStorageFilterMask;
+		int loadedStorageSortMode = settings.m_iStorageSortMode;
+
 		settings.Normalize();
 		if (settings.m_iSchemaVersion < HST_LoadoutEditorVisualSettings.SCHEMA_VERSION)
-		{
 			settings.m_iSchemaVersion = HST_LoadoutEditorVisualSettings.SCHEMA_VERSION;
+
+		bool shouldSaveNormalized = loadedSchemaVersion != settings.m_iSchemaVersion;
+		shouldSaveNormalized = shouldSaveNormalized || loadedPreviewLightLV != settings.m_fPreviewLightLV;
+		shouldSaveNormalized = shouldSaveNormalized || loadedPanelPreset != settings.m_iPanelPreset;
+		shouldSaveNormalized = shouldSaveNormalized || loadedAccentPreset != settings.m_iAccentPreset;
+		shouldSaveNormalized = shouldSaveNormalized || loadedRowPreset != settings.m_iRowPreset;
+		shouldSaveNormalized = shouldSaveNormalized || loadedWorldPreset != settings.m_iWorldPreset;
+		shouldSaveNormalized = shouldSaveNormalized || loadedStorageFilterMask != settings.m_iStorageFilterMask;
+		shouldSaveNormalized = shouldSaveNormalized || loadedStorageSortMode != settings.m_iStorageSortMode;
+		if (shouldSaveNormalized)
 			Save(settings);
-		}
 
 		return settings;
 	}
