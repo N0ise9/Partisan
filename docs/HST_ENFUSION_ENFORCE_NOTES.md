@@ -58,6 +58,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Runtime symptom when this is wrong: delayed ready logs show negative widget sizes or panels wider/taller than their parent, such as left rails, navigation panels, top tabs, command-menu center panels, or footer hints resolving to impossible bounds.
   - Current examples: `HST_SetupConfirmModal.layout`, `HST_CommandMenu.layout`, `HST_LoadoutEditor.layout`, loadout row layouts.
 
+- Mode-owned header/action/settings controls need fixed-height slots just like visible chrome.
+  - Workbench can show top-anchored header text, action buttons, or settings rows that use positive `OffsetBottom` values, but runtime can hide or collapse them when the mode panel is toggled and repopulated.
+  - Use explicit `SizeY` and a negative far edge for candidate headers, remove buttons, and settings rows; keep stretched anchors only for containers that truly fill their parent.
+  - Current example: `HST_LoadoutEditor.layout` candidate header/remove controls and settings rows.
+
 - Layout fragments intended to fill a parent slot should use stretched anchors at their root.
   - A root `FrameWidget` with `Anchor 0 0 0 0` can resolve to `0x0` when created inside a dynamically populated placeholder.
   - Use `Anchor 0 0 1 1` for reusable item/preview fragments and let the parent list, tile, or placeholder own the actual dimensions.
@@ -178,6 +183,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Enforce Script Practicalities
 
+- `string.Format` placeholders are limited to `%1` through `%9`.
+  - Do not use `%10` or higher in diagnostics or reports; split the report into multiple `string.Format` calls or append the remaining values with string concatenation.
+
 - Prefer explicit boolean checks for object references when returning a bool.
   - `if (widget) return true;` is clearer and safer than returning widget-reference expressions from `bool` methods.
 
@@ -207,6 +215,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - `ItemPreviewWidget` does not reliably render every inventory prefab.
   - Keep a category/fallback icon available when prefab or entity preview setup fails.
   - Do not hide the fallback icon just because the entity preview lookup returned null for a non-empty prefab.
+  - Empty live equipment nodes still need a visible fallback tile plus `Empty` text; suppressing the fallback makes the header look like a missing render instead of an empty slot.
 
 - Native input hints should use the widget-library input button components when possible.
   - `SCR_InputButtonComponent` can bind an action name and label to the current input device.

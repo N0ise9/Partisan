@@ -602,7 +602,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetLeft 0
       OffsetTop 94
       OffsetRight 0
-      OffsetBottom 97
+      SizeY 3
+      OffsetBottom -97
        }
        Color 1 0.82 0.38 1
        style full
@@ -652,7 +653,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetLeft 106
       OffsetTop 22
       OffsetRight 52
-      OffsetBottom 44
+      SizeY 28
+      OffsetBottom -50
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -667,7 +669,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetLeft 106
       OffsetTop 48
       OffsetRight 52
-      OffsetBottom 72
+      SizeY 38
+      OffsetBottom -86
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -682,7 +685,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetLeft -44
       OffsetTop 22
       OffsetRight 24
-      OffsetBottom 44
+      SizeY 28
+      OffsetBottom -50
        }
        "No Localization" 1
        "Ignore Cursor" 1
@@ -697,7 +701,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetLeft 20
       OffsetTop 114
       OffsetRight 20
-      OffsetBottom 170
+      SizeY 56
+      OffsetBottom -170
        }
        "Is Visible" 0
        Color 0.07 0.09 0.11 0.98
@@ -728,7 +733,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 0
            OffsetRight 0
-           OffsetBottom 3
+           SizeY 3
+           OffsetBottom -3
            }
            Color 1 0.82 0.38 1
            style full
@@ -1201,7 +1207,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 0
         OffsetRight 0
-         OffsetBottom 64
+         SizeY 64
+         OffsetBottom -64
          }
          "Ignore Cursor" 0
          {
@@ -1212,7 +1219,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 0
            OffsetRight 116
-            OffsetBottom 22
+            SizeY 22
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1227,7 +1235,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 24
            OffsetRight 116
-            OffsetBottom 46
+            SizeY 22
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1242,7 +1251,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft -100
            OffsetTop 8
            OffsetRight 58
-            OffsetBottom 40
+            SizeX 42
+            SizeY 32
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1278,7 +1289,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft -44
            OffsetTop 8
            OffsetRight 2
-            OffsetBottom 40
+            SizeX 42
+            SizeY 32
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1316,7 +1329,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 70
         OffsetRight 0
-          OffsetBottom 126
+          SizeY 56
+          OffsetBottom -126
          }
          "Ignore Cursor" 0
          {
@@ -1327,7 +1341,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 0
            OffsetRight 112
-            OffsetBottom 22
+            SizeY 22
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1342,7 +1357,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 24
            OffsetRight 112
-            OffsetBottom 46
+            SizeY 22
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1357,7 +1373,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft -92
            OffsetTop 8
            OffsetRight 0
-            OffsetBottom 40
+            SizeX 92
+            SizeY 32
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1395,7 +1413,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 134
         OffsetRight 0
-          OffsetBottom 190
+          SizeY 56
+          OffsetBottom -190
          }
          "Ignore Cursor" 0
          {
@@ -1406,7 +1425,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 0
            OffsetRight 112
-            OffsetBottom 22
+            SizeY 22
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1421,7 +1441,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 24
            OffsetRight 112
-            OffsetBottom 46
+            SizeY 22
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1436,7 +1457,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft -92
            OffsetTop 8
            OffsetRight 0
-            OffsetBottom 40
+            SizeX 92
+            SizeY 32
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1474,7 +1497,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 198
         OffsetRight 0
-          OffsetBottom 254
+          SizeY 56
+          OffsetBottom -254
          }
          "Ignore Cursor" 0
          {
@@ -1485,7 +1509,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 0
            OffsetRight 112
-            OffsetBottom 22
+            SizeY 22
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1500,7 +1525,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 24
            OffsetRight 112
-            OffsetBottom 46
+            SizeY 22
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1515,7 +1541,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft -92
            OffsetTop 8
            OffsetRight 0
-            OffsetBottom 40
+            SizeX 92
+            SizeY 32
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -1553,7 +1581,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetLeft 0
         OffsetTop 262
         OffsetRight 0
-          OffsetBottom 318
+          SizeY 56
+          OffsetBottom -318
          }
          "Ignore Cursor" 0
          {
@@ -1564,7 +1593,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 0
            OffsetRight 112
-            OffsetBottom 22
+            SizeY 22
+            OffsetBottom -22
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1579,7 +1609,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft 0
            OffsetTop 24
            OffsetRight 112
-            OffsetBottom 46
+            SizeY 22
+            OffsetBottom -46
            }
            "No Localization" 1
            "Ignore Cursor" 1
@@ -1594,7 +1625,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            OffsetLeft -92
            OffsetTop 8
            OffsetRight 0
-            OffsetBottom 40
+            SizeX 92
+            SizeY 32
+            OffsetBottom -40
            }
            Color 0.07 0.09 0.11 0.98
            {
