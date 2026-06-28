@@ -35,6 +35,11 @@ class HST_PlayerMapMarkerService
 		RequestRefresh("enabled");
 	}
 
+	bool IsEnabled()
+	{
+		return m_bEnabled;
+	}
+
 	void RequestRefresh(string reason = "")
 	{
 		m_bRefreshRequested = true;
