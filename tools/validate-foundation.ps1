@@ -1701,6 +1701,7 @@ $campaignMarkerDirectorText = Get-Content -Raw "Scripts/Game/HST/Map/HST_Campaig
 $nativeMarkerReconcilerText = Get-Content -Raw "Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c"
 $playerMarkerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerMapMarkerService.c"
 $playerMarkerEntryText = Get-Content -Raw "Scripts/Game/HST/Map/HST_PlayerMapMarkerEntry.c"
+$playerMarkerTypesText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MapMarkerTypes.c"
 $playerMarkerConfigText = Get-Content -Raw "Configs/Map/HST_PlayerMapMarkerConfig.conf"
 $runtimeMarkerPipelineText = $markerServiceText + "`n" + $coordinatorMarkerText + "`n" + $campaignMarkerDirectorText + "`n" + $nativeMarkerReconcilerText
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
@@ -1789,7 +1790,7 @@ foreach ($requiredPlayerMarkerEntry in @(
 	"HST_PlayerMapMarkerService",
 	"HST_NativeMapMarkerReconciler",
 	"HST_EMapMarkerRenderMode.DYNAMIC_ENTITY",
-	"SCR_EMapMarkerType.DYNAMIC_EXAMPLE",
+	"SCR_EMapMarkerType.HST_PLAYER",
 	"RequestRefresh",
 	"ResolveControlledPlayerEntity",
 	"ResolvePlayerName",
@@ -1803,6 +1804,7 @@ foreach ($requiredPlayerMarkerEntry in @(
 foreach ($requiredPlayerMarkerEntryConfig in @(
 	"[BaseContainerProps(), SCR_MapMarkerTitle()]",
 	"class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic",
+	"SCR_EMapMarkerType.HST_PLAYER",
 	"PLAYER_MARKER_ICON = `"circle`"",
 	"SetImage(PLAYER_MARKER_IMAGESET, PLAYER_MARKER_ICON)",
 	"SetText(marker.GetText())"
@@ -1813,10 +1815,19 @@ foreach ($requiredPlayerMarkerEntryConfig in @(
 }
 foreach ($forbiddenPlayerMarkerEntryConfig in @(
 	"PLAYER_MARKER_ICON = `"dot`"",
-	"SCR_MapMarkerEntryDynamicExample"
+	"SCR_MapMarkerEntryDynamicExample",
+	"SCR_EMapMarkerType.DYNAMIC_EXAMPLE"
 )) {
-	if (($playerMarkerEntryText + "`n" + $playerMarkerConfigText) -match [regex]::Escape($forbiddenPlayerMarkerEntryConfig)) {
+	if (($playerMarkerEntryText + "`n" + $playerMarkerConfigText + "`n" + $playerMarkerServiceText) -match [regex]::Escape($forbiddenPlayerMarkerEntryConfig)) {
 		throw "Player map marker entry must not use known-bad marker config/visual entry: $forbiddenPlayerMarkerEntryConfig"
+	}
+}
+foreach ($requiredPlayerMarkerTypeEntry in @(
+	"modded enum SCR_EMapMarkerType",
+	"HST_PLAYER"
+)) {
+	if ($playerMarkerTypesText -notmatch [regex]::Escape($requiredPlayerMarkerTypeEntry)) {
+		throw "Player markers need a dedicated map marker enum value, missing: $requiredPlayerMarkerTypeEntry"
 	}
 }
 if ($playerMarkerConfigText -notmatch "SCR_MapMarkerConfig[\s\S]*?HST_PlayerMapMarkerEntry" -or $playerMarkerConfigText -notmatch [regex]::Escape('{DD74BE2BBAE07192}Prefabs/Markers/MapMarkerEntityBase.et')) {
@@ -2417,6 +2428,11 @@ Write-Host "Faction marker color contract OK"
 $definedSymbols = @([regex]::Matches($scriptText, "(?:class|enum)\s+(HST_[A-Za-z0-9_]+)") |
 	ForEach-Object { $_.Groups[1].Value } |
 	Sort-Object -Unique)
+foreach ($enumBlockMatch in [regex]::Matches($scriptText, "(?s)(?:modded\s+)?enum\s+[A-Za-z0-9_]+\s*(?::\s*[A-Za-z0-9_]+)?\s*\{(?<body>.*?)\}")) {
+	$definedSymbols = @($definedSymbols + @([regex]::Matches($enumBlockMatch.Groups["body"].Value, "(?m)^\s*(HST_[A-Za-z0-9_]+)\b") |
+		ForEach-Object { $_.Groups[1].Value }))
+}
+$definedSymbols = @($definedSymbols | Sort-Object -Unique)
 $codeOnly = [regex]::Replace($scriptText, '"(?:\\.|[^"\\])*"', "")
 $referencedSymbols = @([regex]::Matches($codeOnly, "\b(HST_[A-Za-z0-9_]+)\b") |
 	ForEach-Object { $_.Groups[1].Value } |

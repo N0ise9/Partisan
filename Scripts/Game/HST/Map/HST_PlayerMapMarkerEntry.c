@@ -6,7 +6,7 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 
 	override SCR_EMapMarkerType GetMarkerType()
 	{
-		return SCR_EMapMarkerType.DYNAMIC_EXAMPLE;
+		return SCR_EMapMarkerType.HST_PLAYER;
 	}
 
 	override void InitServerLogic()

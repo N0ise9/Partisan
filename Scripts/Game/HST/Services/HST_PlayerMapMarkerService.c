@@ -137,7 +137,7 @@ class HST_PlayerMapMarkerService
 		record.m_sShortLabel = playerName;
 		record.m_sCategory = "player";
 		record.m_iPriority = 90;
-		record.m_eMarkerType = SCR_EMapMarkerType.DYNAMIC_EXAMPLE;
+		record.m_eMarkerType = SCR_EMapMarkerType.HST_PLAYER;
 		record.m_iConfigId = -1;
 		record.m_bVisible = true;
 		record.m_bCanPlayerRemove = false;
