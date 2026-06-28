@@ -4124,11 +4124,13 @@ foreach ($requiredLoadoutUIDebugEntry in @(
 	'HST_UIDebug.LogRowSummary("loadout_templates"',
 	'HST_UIDebug.LogRowSample("loadout_storage_category_tabs"',
 	'HST_UIDebug.LogRowSummary("loadout_storage_category_tabs"',
+	'HST_UIDebug.LogPopulation("loadout_storage_filter_controls"',
 	'HST_UIDebug.LogRowSample("loadout_preview_cells"',
 	'HST_UIDebug.LogNamedChildSummaryCsv("loadout_editor_ready"',
 	"DebugLoadoutNodeRow",
 	"DebugLoadoutCandidateRow",
-	"DebugLoadoutTemplateRow"
+	"DebugLoadoutTemplateRow",
+	"DebugLoadoutPanelButton"
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutUIDebugEntry)) {
 		throw "Loadout editor layouts must emit debug diagnostics: $requiredLoadoutUIDebugEntry"
