@@ -1807,9 +1807,11 @@ foreach ($requiredPlayerMarkerEntryConfig in @(
 	"SCR_EMapMarkerType.HST_PLAYER",
 	"PLAYER_MARKER_ICON = `"circle`"",
 	"SetImage(PLAYER_MARKER_IMAGESET, PLAYER_MARKER_ICON)",
-	"SetText(ResolvePlayerMarkerLabel(marker))",
+	"ApplyPlayerMarkerLabel(marker, widgetComp, 0)",
 	"GetMarkerConfigID()",
-	"ResolvePlayerMarkerLabel"
+	"ResolvePlayerMarkerLabel",
+	"SCR_PlayerNamesFilterCache.GetInstance().GetPlayerDisplayName(playerId)",
+	"CallLater(ApplyPlayerMarkerLabel"
 )) {
 	if ($playerMarkerEntryText -notmatch [regex]::Escape($requiredPlayerMarkerEntryConfig)) {
 		throw "Player map marker entry must keep config-safe visible dynamic marker visuals: $requiredPlayerMarkerEntryConfig"
