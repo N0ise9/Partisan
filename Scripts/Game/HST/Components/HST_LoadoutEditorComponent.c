@@ -282,6 +282,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ref array<int> m_aVisibleCandidateIndexes = {};
 	protected string m_sStorageSearchQuery;
 	protected ref array<int> m_aVisibleStorageSearchItemIndexes = {};
+	protected bool m_bSyncingStorageSearchInput;
 	protected ref array<string> m_aLoadedCandidateNodeIds = {};
 	protected ref array<string> m_aCandidateEmptyNodeIds = {};
 	protected ref array<string> m_aCandidateEmptyReasons = {};
@@ -511,6 +512,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (widget.GetUserID() != STORAGE_SEARCH_INPUT_WIDGET_ID)
 			return false;
+
+		if (m_bSyncingStorageSearchInput)
+			return true;
 
 		EditBoxWidget editBox = EditBoxWidget.Cast(widget);
 		if (!editBox)
@@ -2449,9 +2453,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			input.SetOpacity(1.0);
 			input.SetUserID(STORAGE_SEARCH_INPUT_WIDGET_ID);
 			input.SetPlaceholderText("Search recovered arsenal");
-			input.AddHandler(m_WidgetHandler);
 			if (input.GetText() != m_sStorageSearchQuery)
+			{
+				m_bSyncingStorageSearchInput = true;
 				input.SetText(m_sStorageSearchQuery);
+				m_bSyncingStorageSearchInput = false;
+			}
+			input.AddHandler(m_WidgetHandler);
 		}
 
 		ConfigureStorageBrowserButton(searchRoot, "StorageSearchClearButton", "StorageSearchClearButton", "StorageSearchClearAccent", "StorageSearchClearLabel", "Clear", STORAGE_SEARCH_CLEAR_WIDGET_ID, !m_sStorageSearchQuery.IsEmpty());

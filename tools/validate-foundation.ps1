@@ -4638,11 +4638,15 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 	"RenderStorageSearchPanel",
 	"BuildStorageSearchResults",
 	"IsArsenalItemSearchMatch",
+	"m_bSyncingStorageSearchInput",
 	"RequestServerAction(`"add_storage_item`""
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutStorageFeatureScriptEntry)) {
 		throw "Loadout editor storage filter/sort/search script is missing: $requiredLoadoutStorageFeatureScriptEntry"
 	}
+}
+if ($loadoutEditorComponentText -notmatch "if \(\s*m_bSyncingStorageSearchInput\s*\)\s*\r?\n\s*return true;" -or $loadoutEditorComponentText -notmatch "m_bSyncingStorageSearchInput = true;[\s\S]*?input\.SetText\(m_sStorageSearchQuery\);[\s\S]*?m_bSyncingStorageSearchInput = false;") {
+	throw "Loadout editor search input must guard programmatic SetText sync from re-entering OnChange render"
 }
 $loadoutEditorLayoutWidgetNames = @{}
 foreach ($layoutWidgetNameMatch in [regex]::Matches($loadoutEditorLayoutText, 'Name "([^"]+)"')) {
