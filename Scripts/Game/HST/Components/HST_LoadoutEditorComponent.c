@@ -2481,6 +2481,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				m_bSyncingStorageSearchInput = false;
 			}
 			input.AddHandler(m_WidgetHandler);
+			if (workspace.GetFocusedWidget() != input)
+				workspace.SetFocusedWidget(input, true);
 		}
 
 		ConfigureStorageBrowserButton(searchRoot, "StorageSearchClearButton", "StorageSearchClearButton", "StorageSearchClearAccent", "StorageSearchClearLabel", "Clear", STORAGE_SEARCH_CLEAR_WIDGET_ID, !m_sStorageSearchQuery.IsEmpty());

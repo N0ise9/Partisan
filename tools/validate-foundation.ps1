@@ -4666,6 +4666,7 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 	"BuildStorageSearchResults",
 	"IsArsenalItemSearchMatch",
 	"SortStorageSearchResultsAZ",
+	"workspace.SetFocusedWidget(input, true)",
 	"m_bSyncingStorageSearchInput",
 	"RequestServerAction(`"add_storage_item`""
 )) {
