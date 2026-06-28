@@ -2232,7 +2232,7 @@ class HST_LoadoutEditorService
 		else if (node.m_sKind == "storage" || node.m_sKind == "storage_item")
 			compatible = IsCandidateCompatibleWithStorage(playerEntity, node.m_sNodeId, temp);
 
-		if (compatible && category == "magazine")
+		if (category == "magazine")
 			ammoMatch = IsMagazineCompatibleWithEquippedWeapons(playerEntity, temp);
 
 		SCR_EntityHelper.DeleteEntityAndChildren(temp);
@@ -2912,10 +2912,13 @@ class HST_LoadoutEditorService
 
 			categoryMatches++;
 			bool ammoMatch;
-			if (!IsLiveCandidateCompatible(state, session.m_iPlayerId, node, item.m_sPrefab, category, ammoMatch))
+			bool compatible = IsLiveCandidateCompatible(state, session.m_iPlayerId, node, item.m_sPrefab, category, ammoMatch);
+			bool isStorageBrowserNode = node.m_sKind == "storage" || node.m_sKind == "storage_item";
+			if (!isStorageBrowserNode && !compatible)
 				continue;
 
-			compatibilityMatches++;
+			if (compatible)
+				compatibilityMatches++;
 			string display = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
 			string shortDisplay = HST_DisplayNameService.ResolveShortItemDisplayName(display, item.m_sPrefab);
 			int availableCount;
@@ -2926,7 +2929,7 @@ class HST_LoadoutEditorService
 			if (infiniteAvailable)
 				infinite = "INF";
 
-			payload = payload + string.Format("\nCANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9", node.m_sNodeId, item.m_sPrefab, SanitizePayloadField(display), SanitizePayloadField(shortDisplay), availableCount, infinite, category, true, SanitizePayloadField(BuildCandidateIconHint(category, item.m_sPrefab)));
+			payload = payload + string.Format("\nCANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9", node.m_sNodeId, item.m_sPrefab, SanitizePayloadField(display), SanitizePayloadField(shortDisplay), availableCount, infinite, category, compatible, SanitizePayloadField(BuildCandidateIconHint(category, item.m_sPrefab)));
 			payload = payload + string.Format("|%1", ammoMatch);
 			candidateCount++;
 		}

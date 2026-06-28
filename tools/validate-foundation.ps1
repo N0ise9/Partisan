@@ -217,7 +217,7 @@ $requiredRuntimeScaffold = @(
 	'SCR_MapConfigComponent',
 	'Configs/Map/MapSpawnConflict.conf',
 	'SCR_MapMarkerManagerComponent',
-	'Configs/Map/CampaignMapMarkerConfig.conf',
+	'Configs/Map/HST_PlayerMapMarkerConfig.conf',
 	'SCR_PlayerSpawnPointManagerComponent',
 	'SCR_SpawnProtectionComponent',
 	'SCR_TimedSpawnPointComponent',
@@ -1775,7 +1775,7 @@ foreach ($oldPlaceholderId in @(
 
 foreach ($requiredNativeMarkerEntry in @(
 	"SCR_MapMarkerManagerComponent",
-	"Configs/Map/CampaignMapMarkerConfig.conf"
+	"Configs/Map/HST_PlayerMapMarkerConfig.conf"
 )) {
 	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredNativeMarkerEntry)) {
 		throw "Missing campaign map marker scaffold entry: $requiredNativeMarkerEntry"
@@ -3464,6 +3464,7 @@ foreach ($requiredSettingsEntry in @(
 	"enemySupportIncomeWarPercent",
 	"aggressionDecayIntervalSeconds",
 	"aggressionDecayAmount",
+	"showPlayerMapMarkers",
 	"MigrateSettings",
 	"ApplyTo"
 )) {
@@ -3471,14 +3472,20 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 11") {
-	throw "Runtime settings schema must be bumped to 11 for game master budget configuration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 12") {
+	throw "Runtime settings schema must be bumped to 12 for player map marker configuration"
 }
 if ($scriptText -notmatch "m_bGameMasterBudgetsEnabled" -or $scriptText -notmatch '\\"gameMasterBudgetsEnabled\\": %1') {
 	throw "Runtime settings must expose gameMasterBudgetsEnabled"
 }
+if ($scriptText -notmatch "m_bShowPlayerMapMarkers" -or $scriptText -notmatch '\\"showPlayerMapMarkers\\": %1') {
+	throw "Runtime settings must expose showPlayerMapMarkers"
+}
 if ($scriptText -notmatch "settings.m_Features.m_bGameMasterBudgetsEnabled = false") {
 	throw "Runtime settings migration must default Game Master budgets to disabled"
+}
+if ($scriptText -notmatch "settings.m_Features.m_bShowPlayerMapMarkers = true") {
+	throw "Runtime settings migration must default player map markers to enabled"
 }
 if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 18") {
 	throw "Runtime/balance defaults must set arsenal unlock threshold to 18"

@@ -43,6 +43,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_PhysicalWarService m_PhysicalWar;
 	protected ref HST_ZoneCompositionService m_ZoneCompositions;
 	protected ref HST_MapMarkerService m_MapMarkers;
+	protected ref HST_PlayerMapMarkerService m_PlayerMapMarkers;
 	protected ref HST_CommandUIService m_CommandUI;
 	protected ref HST_LootService m_Loot;
 	protected ref HST_BuildModeService m_BuildMode;
@@ -114,6 +115,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_MapMarkers && m_Settings && m_Settings.m_Debug)
 			m_MapMarkers.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_MapMarkers.BindNativeMapRefresh();
+		m_PlayerMapMarkers = new HST_PlayerMapMarkerService();
+		if (m_PlayerMapMarkers && m_Settings && m_Settings.m_Debug)
+			m_PlayerMapMarkers.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
+		if (m_PlayerMapMarkers && m_Settings && m_Settings.m_Features)
+			m_PlayerMapMarkers.SetEnabled(m_Settings.m_Features.m_bShowPlayerMapMarkers);
 		m_CommandUI = new HST_CommandUIService();
 		m_Loot = new HST_LootService();
 		m_BuildMode = new HST_BuildModeService();
@@ -146,6 +152,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (m_MapMarkers)
 			m_MapMarkers.UnbindNativeMapRefresh();
+		if (m_PlayerMapMarkers)
+			m_PlayerMapMarkers.ClearAll();
 
 		if (s_Instance == this)
 			s_Instance = null;
@@ -172,6 +180,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		super.OnPlayerConnected(playerId);
 		ArmPlayerSpawnSweep(4);
 		ProcessPlayerSpawnSweep(string.Format("player-connected-%1", playerId), true);
+		if (m_PlayerMapMarkers)
+			m_PlayerMapMarkers.RequestRefresh(string.Format("player connected %1", playerId));
+	}
+
+	override void OnPlayerDisconnected(int playerId, KickCauseCode cause, int timeout)
+	{
+		super.OnPlayerDisconnected(playerId, cause, timeout);
+		if (m_PlayerMapMarkers)
+			m_PlayerMapMarkers.RequestRefresh(string.Format("player disconnected %1", playerId));
 	}
 
 	override void EOnFrame(IEntity owner, float timeSlice)
@@ -182,6 +199,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_PlayerSpawn.Tick(timeSlice);
 		if (m_MapMarkers)
 			m_MapMarkers.TickNativePublish(m_State, m_Preset, timeSlice);
+		if (m_PlayerMapMarkers)
+			m_PlayerMapMarkers.Tick(m_State, timeSlice);
 		if (!m_bPersistentFieldVehicleRestoreChecked && GetGame().GetWorld())
 		{
 			m_bPersistentFieldVehicleRestoreChecked = true;
@@ -699,7 +718,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool requested = m_PlayerSpawn.SpawnOrRespawnPlayer(m_State, m_Authorization, m_PlayerLifecycle, playerId);
 		if (requested)
+		{
 			ArmPlayerSpawnSweep(2);
+			if (m_PlayerMapMarkers)
+				m_PlayerMapMarkers.RequestRefresh(string.Format("spawn requested %1", playerId));
+		}
 
 		return requested;
 	}
@@ -720,6 +743,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_LoadoutEditor && previousSpawnCount > 0 && !identityId.IsEmpty())
 				m_LoadoutEditor.MarkIssuedLoadoutLostOnDeath(m_State, identityId);
 			MarkMajorCampaignChange();
+			if (m_PlayerMapMarkers)
+				m_PlayerMapMarkers.RequestRefresh(string.Format("player spawned %1", playerId));
 		}
 	}
 

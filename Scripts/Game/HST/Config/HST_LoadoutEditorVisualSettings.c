@@ -1,6 +1,15 @@
 class HST_LoadoutEditorVisualSettings
 {
-	static const int SCHEMA_VERSION = 3;
+	static const int SCHEMA_VERSION = 4;
+	static const int STORAGE_FILTER_FIT_ONLY = 1;
+	static const int STORAGE_FILTER_AMMO_USABLE = 2;
+	static const int STORAGE_FILTER_INFINITE_ONLY = 4;
+	static const int STORAGE_FILTER_SHOW_ALL = 8;
+	static const int STORAGE_FILTER_NOT_INFINITE = 16;
+	static const int STORAGE_SORT_AZ = 0;
+	static const int STORAGE_SORT_ZA = 1;
+	static const int STORAGE_SORT_COUNT_DESC = 2;
+	static const int STORAGE_SORT_COUNT_ASC = 3;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	float m_fPreviewLightLV = 6.0;
@@ -8,6 +17,8 @@ class HST_LoadoutEditorVisualSettings
 	int m_iAccentPreset;
 	int m_iRowPreset;
 	int m_iWorldPreset;
+	int m_iStorageFilterMask = STORAGE_FILTER_FIT_ONLY;
+	int m_iStorageSortMode = STORAGE_SORT_AZ;
 
 	void Normalize()
 	{
@@ -22,6 +33,14 @@ class HST_LoadoutEditorVisualSettings
 		m_iAccentPreset = ClampPreset(m_iAccentPreset, 6);
 		m_iRowPreset = ClampPreset(m_iRowPreset, 5);
 		m_iWorldPreset = ClampPreset(m_iWorldPreset, 5);
+		if (m_iStorageFilterMask <= 0)
+			m_iStorageFilterMask = STORAGE_FILTER_FIT_ONLY;
+
+		if ((m_iStorageFilterMask & STORAGE_FILTER_SHOW_ALL) != 0 && (m_iStorageFilterMask & STORAGE_FILTER_FIT_ONLY) != 0)
+			m_iStorageFilterMask = m_iStorageFilterMask - STORAGE_FILTER_FIT_ONLY;
+
+		if (m_iStorageSortMode < STORAGE_SORT_AZ || m_iStorageSortMode > STORAGE_SORT_COUNT_ASC)
+			m_iStorageSortMode = STORAGE_SORT_AZ;
 	}
 
 	protected int ClampPreset(int value, int count)
@@ -61,6 +80,8 @@ class HST_LoadoutEditorVisualSettingsService
 			ApplyInt(line, "accentPreset", settings.m_iAccentPreset);
 			ApplyInt(line, "rowPreset", settings.m_iRowPreset);
 			ApplyInt(line, "worldPreset", settings.m_iWorldPreset);
+			ApplyInt(line, "storageFilterMask", settings.m_iStorageFilterMask);
+			ApplyInt(line, "storageSortMode", settings.m_iStorageSortMode);
 		}
 
 		settings.Normalize();
@@ -85,7 +106,9 @@ class HST_LoadoutEditorVisualSettingsService
 		lines.Insert(string.Format("  \"panelPreset\": %1,", settings.m_iPanelPreset));
 		lines.Insert(string.Format("  \"accentPreset\": %1,", settings.m_iAccentPreset));
 		lines.Insert(string.Format("  \"rowPreset\": %1,", settings.m_iRowPreset));
-		lines.Insert(string.Format("  \"worldPreset\": %1", settings.m_iWorldPreset));
+		lines.Insert(string.Format("  \"worldPreset\": %1,", settings.m_iWorldPreset));
+		lines.Insert(string.Format("  \"storageFilterMask\": %1,", settings.m_iStorageFilterMask));
+		lines.Insert(string.Format("  \"storageSortMode\": %1", settings.m_iStorageSortMode));
 		lines.Insert("}");
 		return WriteLines(SETTINGS_FILE, lines);
 	}

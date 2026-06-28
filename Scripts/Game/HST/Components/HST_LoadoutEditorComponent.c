@@ -54,6 +54,14 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 		int widgetId = w.GetUserID();
 		return m_Editor.OnWidgetMouseLeave(widgetId, x, y);
 	}
+
+	override bool OnChange(Widget w, bool finished)
+	{
+		if (!m_Editor || !w)
+			return false;
+
+		return m_Editor.OnWidgetChanged(w, finished);
+	}
 }
 
 class HST_LoadoutEditorLayoutMetrics
@@ -150,6 +158,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int SLOT_SELECT_WIDGET_ID_BASE = 9900;
 	static const int NODE_WIDGET_ID_BASE = 20000;
 	static const int CANDIDATE_WIDGET_ID_BASE = 40000;
+	static const int STORAGE_FILTER_WIDGET_ID_BASE = 48000;
+	static const int STORAGE_SORT_WIDGET_ID_BASE = 48100;
+	static const int STORAGE_SEARCH_RESULT_WIDGET_ID_BASE = 50000;
+	static const int STORAGE_SEARCH_CLEAR_WIDGET_ID = 69000;
+	static const int STORAGE_SEARCH_INPUT_WIDGET_ID = 69001;
 	static const int REMOVE_SELECTED_NODE_WIDGET_ID = 70000;
 	static const int ITEMS_PER_PAGE = 11;
 	static const int TEMPLATES_PER_PAGE = 6;
@@ -175,6 +188,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName ICON_EQUIPMENT = "{82311870FB87265B}Assets/512/equipment_icon.edds";
 	static const ResourceName ICON_THROWABLES = "{15364AA4BD9F047E}Assets/512/throwables_icon.edds";
 	static const ResourceName ICON_MEDICAL = "{5E7C2CD59EAB96ED}Assets/512/medical_icon.edds";
+	static const ResourceName ICON_SEARCH = "{4EE10E8893136EF3}Assets/512/search_icon.edds";
 	static const ResourceName FALLBACK_PREVIEW_ICON = "{82311870FB87265B}Assets/512/equipment_icon.edds";
 
 	protected static HST_LoadoutEditorComponent s_LocalInstance;
@@ -266,6 +280,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ref array<bool> m_aCandidateAmmoMatch = {};
 	protected ref array<string> m_aCandidateIconHints = {};
 	protected ref array<int> m_aVisibleCandidateIndexes = {};
+	protected string m_sStorageSearchQuery;
+	protected ref array<int> m_aVisibleStorageSearchItemIndexes = {};
 	protected ref array<string> m_aLoadedCandidateNodeIds = {};
 	protected ref array<string> m_aCandidateEmptyNodeIds = {};
 	protected ref array<string> m_aCandidateEmptyReasons = {};
@@ -285,6 +301,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected ScrollLayoutWidget m_CandidateScroll;
 	protected ScrollLayoutWidget m_TemplateScroll;
 	protected ScrollLayoutWidget m_StorageCandidateScroll;
+	protected ScrollLayoutWidget m_StorageSearchScroll;
 	protected ScrollLayoutWidget m_StorageContainerScroll;
 	protected ScrollLayoutWidget m_StorageContentScroll;
 	protected float m_fSlotScrollY;
@@ -413,6 +430,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sSelectedSlotId = "";
 		m_sSelectedNodeId = "";
 		ClearStorageSelection();
+		ClearStorageSearchState();
 		m_bCandidateMode = false;
 		ResetLoadoutScroll();
 		m_sStatusText = "Opening h-istasi arsenal editor. Counts, INF unlocks, and apply validation stay server-authoritative.";
@@ -483,6 +501,28 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return false;
 
 		m_bPreviewDragActive = false;
+		return true;
+	}
+
+	bool OnWidgetChanged(Widget widget, bool finished)
+	{
+		if (!m_bEditorOpen || !CanHandleLoadoutEditorInput() || !widget)
+			return false;
+
+		if (widget.GetUserID() != STORAGE_SEARCH_INPUT_WIDGET_ID)
+			return false;
+
+		EditBoxWidget editBox = EditBoxWidget.Cast(widget);
+		if (!editBox)
+			return false;
+
+		string query = editBox.GetText();
+		if (query == m_sStorageSearchQuery)
+			return true;
+
+		m_sStorageSearchQuery = query;
+		m_fStorageCandidateScrollY = 0.0;
+		RenderEditor();
 		return true;
 	}
 
@@ -668,6 +708,33 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return true;
 		}
 
+		int storageFilterIndex = widgetId - STORAGE_FILTER_WIDGET_ID_BASE;
+		if (storageFilterIndex >= 0 && storageFilterIndex < 5)
+		{
+			ToggleStorageFilterByIndex(storageFilterIndex);
+			m_fStorageCandidateScrollY = 0.0;
+			RenderEditor();
+			return true;
+		}
+
+		int storageSortIndex = widgetId - STORAGE_SORT_WIDGET_ID_BASE;
+		if (storageSortIndex >= 0 && storageSortIndex < 4)
+		{
+			SetStorageSortMode(storageSortIndex);
+			m_fStorageCandidateScrollY = 0.0;
+			RenderEditor();
+			return true;
+		}
+
+		if (widgetId == STORAGE_SEARCH_CLEAR_WIDGET_ID)
+		{
+			m_sStorageSearchQuery = "";
+			m_aVisibleStorageSearchItemIndexes.Clear();
+			m_fStorageCandidateScrollY = 0.0;
+			RenderEditor();
+			return true;
+		}
+
 		int modeIndex = widgetId - MODE_WIDGET_ID_BASE;
 		if (modeIndex >= 0 && modeIndex < GetEditorModeCount())
 		{
@@ -684,7 +751,29 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_fCandidateScrollY = 0.0;
 			m_fStorageCandidateScrollY = 0.0;
 			EnsureSelectedStorageNode();
-			EnsureCandidatePayloadForStorageContainer();
+			if (m_sSelectedCategory != "search")
+				EnsureCandidatePayloadForStorageContainer();
+			RenderEditor();
+			return true;
+		}
+
+		int storageSearchVisibleIndex = widgetId - STORAGE_SEARCH_RESULT_WIDGET_ID_BASE;
+		if (storageSearchVisibleIndex >= 0 && storageSearchVisibleIndex < m_aVisibleStorageSearchItemIndexes.Count())
+		{
+			int itemIndex = m_aVisibleStorageSearchItemIndexes[storageSearchVisibleIndex];
+			string targetNodeId = ResolveSelectedStorageContainerNodeId();
+			if (targetNodeId.IsEmpty())
+			{
+				m_sLastResult = "select storage before adding search result";
+				RenderEditor();
+				return true;
+			}
+
+			if (itemIndex < 0 || itemIndex >= m_aItemPrefabs.Count())
+				return true;
+
+			m_sLastResult = "requested add searched storage item";
+			RequestServerAction("add_storage_item", targetNodeId + ":" + m_aItemPrefabs[itemIndex]);
 			RenderEditor();
 			return true;
 		}
@@ -1419,6 +1508,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_CandidateScroll = null;
 		m_TemplateScroll = null;
 		m_StorageCandidateScroll = null;
+		m_StorageSearchScroll = null;
 		m_StorageContainerScroll = null;
 		m_StorageContentScroll = null;
 		if (!m_WidgetHandler)
@@ -1525,7 +1615,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_bRootFromLayout = true;
 		m_UILayerWidget = null;
-		HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|LeftButtons|LoadoutBackButton|LoadoutCloseButton|TopTabs|TopTabItems|LeftRail|SlotRailScroll|SlotRailItems|StorageContainerItems|StorageContentItems|CandidateList|CandidateHeaderPreviewAnchor|CandidateHeaderSlot|CandidateHeaderName|CandidateRemoveButton|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|SettingsLightRow|SettingsPanelPresetRow|SettingsAccentPresetRow|SettingsRowPresetRow|SettingsWorldPresetRow|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
+		HST_UIDebug.LogExpectedWidgetsCsv("loadout_editor", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|LeftButtons|LoadoutBackButton|LoadoutCloseButton|TopTabs|TopTabItems|LeftRail|SlotRailScroll|SlotRailItems|StorageContainerItems|StorageContentItems|CandidateList|CandidateHeaderPreviewAnchor|CandidateHeaderSlot|CandidateHeaderName|CandidateRemoveButton|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageFilterSortBar|StorageCandidateItems|StorageSearchPanel|StorageSearchInput|StorageSearchClearButton|StorageSearchItems|SavePanel|TemplateItems|SettingsContent|SettingsLightRow|SettingsPanelPresetRow|SettingsAccentPresetRow|SettingsRowPresetRow|SettingsWorldPresetRow|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
 		return m_RootWidget;
 	}
 
@@ -1926,9 +2016,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		ApplyLoadoutLayerOrder(m_RootWidget);
-		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutDimmer|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LeftRail|SlotRailScroll|SlotRailItems|CandidateList|CandidateHeaderPreviewAnchor|CandidateHeaderSlot|CandidateHeaderName|CandidateRemoveButton|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|SettingsLightRow|SettingsPanelPresetRow|SettingsAccentPresetRow|SettingsRowPresetRow|SettingsWorldPresetRow|SettingsActionsRow|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
+		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutDimmer|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LeftRail|SlotRailScroll|SlotRailItems|CandidateList|CandidateHeaderPreviewAnchor|CandidateHeaderSlot|CandidateHeaderName|CandidateRemoveButton|CandidateItems|StorageBrowser|StorageCategoryTabs|StorageFilterSortBar|StorageCandidateItems|StorageSearchPanel|StorageSearchInput|StorageSearchClearButton|StorageSearchItems|SavePanel|TemplateItems|SettingsContent|SettingsLightRow|SettingsPanelPresetRow|SettingsAccentPresetRow|SettingsRowPresetRow|SettingsWorldPresetRow|SettingsActionsRow|Footer|FooterHintItems|Toast|ToastText|PreviewUnavailableText");
 		HST_UIDebug.LogReadyWidgetsCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LoadoutBackButton|LoadoutCloseButton|LeftRail|SlotRailScroll|Footer|FooterHintItems");
-		HST_UIDebug.LogNamedChildSummaryCsv("loadout_editor_ready", m_RootWidget, "TopTabItems|SlotRailItems|CandidateItems|StorageCategoryTabs|StorageCandidateItems|TemplateItems|FooterHintItems", 5);
+		HST_UIDebug.LogNamedChildSummaryCsv("loadout_editor_ready", m_RootWidget, "TopTabItems|SlotRailItems|CandidateItems|StorageCategoryTabs|StorageCandidateItems|StorageSearchItems|TemplateItems|FooterHintItems", 5);
 		HST_UIDebug.LogPopulation("loadout_editor_ready", string.Format("root=%1 previewContainer=%2 preview=%3 ui=%4 tabs=%5 rail=%6 footer=%7 drag=%8", HST_UIDebug.WidgetSummary(m_RootWidget), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("HST_LoadoutPreviewContainer")), HST_UIDebug.WidgetSummary(m_PreviewWidget), HST_UIDebug.WidgetSummary(uiRoot), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("TopTabs")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("LeftRail")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("Footer")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("PreviewDragSurface"))));
 	}
 
@@ -2242,6 +2332,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutText(panelRoot, "StorageBrowserTitle", "Add Items", 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
 		SetLoadoutText(panelRoot, "StorageBrowserSubtitle", ShortenText(BuildStorageTargetLabel(), 96), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
 		SetLoadoutWidgetVisible(panelRoot, "StorageCandidateEmpty", false);
+		SetLoadoutWidgetVisible(panelRoot, "StorageSearchPanel", false);
+		SetLoadoutWidgetVisible(panelRoot, "StorageCandidateGrid", true);
+		SetLoadoutWidgetVisible(panelRoot, "StorageFilterSortBar", true);
 
 		Widget categoryRoot = panelRoot.FindAnyWidget("StorageCategoryTabs");
 		if (categoryRoot)
@@ -2249,6 +2342,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		RenderStorageCategoryTabs(workspace, categoryRoot);
 
 		m_aVisibleCandidateIndexes.Clear();
+		if (m_sSelectedCategory == "search")
+		{
+			SetLoadoutWidgetVisible(panelRoot, "StorageFilterSortBar", false);
+			SetLoadoutWidgetVisible(panelRoot, "StorageCandidateGrid", false);
+			RenderStorageSearchPanel(workspace, panelRoot);
+			return;
+		}
+
+		RenderStorageFilterSortControls(workspace, panelRoot);
 		if (selectedStorageNodeId.IsEmpty())
 		{
 			SetLoadoutText(panelRoot, "StorageCandidateEmpty", "Select equipped storage on the left.", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
@@ -2282,16 +2384,24 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			if (!IsCandidateVisibleForStorageBrowser(candidateIndex))
 				continue;
+			if (!PassesStorageCandidateFilters(candidateIndex))
+				continue;
 
 			m_aVisibleCandidateIndexes.Insert(candidateIndex);
-			AddLoadoutCandidateTile(workspace, items, candidateIndex, CANDIDATE_WIDGET_ID_BASE + visibleIndex);
-			visibleIndex++;
+		}
+
+		SortStorageVisibleCandidateIndexes();
+
+		for (visibleIndex = 0; visibleIndex < m_aVisibleCandidateIndexes.Count(); visibleIndex++)
+		{
+			int visibleCandidateIndex = m_aVisibleCandidateIndexes[visibleIndex];
+			AddLoadoutCandidateTile(workspace, items, visibleCandidateIndex, CANDIDATE_WIDGET_ID_BASE + visibleIndex);
 		}
 
 		if (visibleIndex == 0)
 		{
 			string targetNodeId = ResolveSelectedStorageContainerNodeId();
-			string emptyText = ResolveCandidateEmptyText(targetNodeId, "No compatible items in this category.");
+			string emptyText = ResolveCandidateEmptyText(targetNodeId, "No storage items match these filters.");
 			if (FindStringIndex(m_aRequestedCandidateNodeIds, targetNodeId) >= 0)
 				emptyText = "Loading compatible items...";
 
@@ -2313,6 +2423,452 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		HST_UIDebug.LogRowSummary("loadout_storage_candidates", LOADOUT_CANDIDATE_TILE_LAYOUT, Math.Max(1, visibleIndex), string.Format("target=%1 category=%2 visible=%3 totalCandidates=%4", ShortenText(ResolveSelectedStorageContainerNodeId(), 48), m_sSelectedCategory, visibleIndex, m_aCandidatePrefabs.Count()));
 		RestoreScrollPixels(m_StorageCandidateScroll, m_fStorageCandidateScrollY);
+	}
+
+	protected void RenderStorageSearchPanel(WorkspaceWidget workspace, Widget panelRoot)
+	{
+		if (!workspace || !panelRoot)
+			return;
+
+		SetLoadoutWidgetVisible(panelRoot, "StorageSearchPanel", true);
+		Widget searchRoot = panelRoot.FindAnyWidget("StorageSearchPanel");
+		if (!searchRoot)
+		{
+			SetLoadoutText(panelRoot, "StorageCandidateEmpty", "Search unavailable: layout missing StorageSearchPanel.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
+			return;
+		}
+
+		EditBoxWidget input = EditBoxWidget.Cast(searchRoot.FindAnyWidget("StorageSearchInput"));
+		if (input)
+		{
+			input.SetVisible(true);
+			input.SetOpacity(1.0);
+			input.SetUserID(STORAGE_SEARCH_INPUT_WIDGET_ID);
+			input.SetPlaceholderText("Search recovered arsenal");
+			input.AddHandler(m_WidgetHandler);
+			if (input.GetText() != m_sStorageSearchQuery)
+				input.SetText(m_sStorageSearchQuery);
+		}
+
+		ConfigureStorageBrowserButton(searchRoot, "StorageSearchClearButton", "StorageSearchClearBackground", "StorageSearchClearAccent", "StorageSearchClearLabel", "Clear", STORAGE_SEARCH_CLEAR_WIDGET_ID, !m_sStorageSearchQuery.IsEmpty());
+		BuildStorageSearchResults();
+
+		string selectedStorageNodeId = ResolveSelectedStorageContainerNodeId();
+		string query = m_sStorageSearchQuery.Trim();
+		if (query.IsEmpty())
+			SetLoadoutText(searchRoot, "StorageSearchResultMeta", "Type to search all recovered arsenal items.", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, false);
+		else if (selectedStorageNodeId.IsEmpty())
+			SetLoadoutText(searchRoot, "StorageSearchResultMeta", string.Format("%1 result(s) | select storage before adding", m_aVisibleStorageSearchItemIndexes.Count()), 0xFFFFD166, m_Layout.m_iFontNormal, false, false);
+		else
+			SetLoadoutText(searchRoot, "StorageSearchResultMeta", string.Format("%1 result(s)", m_aVisibleStorageSearchItemIndexes.Count()), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
+
+		m_StorageSearchScroll = ScrollLayoutWidget.Cast(searchRoot.FindAnyWidget("StorageSearchScroll"));
+		Widget items = searchRoot.FindAnyWidget("StorageSearchItems");
+		if (!items)
+		{
+			SetLoadoutText(searchRoot, "StorageSearchEmpty", "Search unavailable: layout missing StorageSearchItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
+			return;
+		}
+
+		ClearLoadoutContainerChildren(searchRoot, "StorageSearchItems");
+		SetLoadoutWidgetVisible(searchRoot, "StorageSearchEmpty", false);
+
+		for (int visibleIndex = 0; visibleIndex < m_aVisibleStorageSearchItemIndexes.Count(); visibleIndex++)
+		{
+			int itemIndex = m_aVisibleStorageSearchItemIndexes[visibleIndex];
+			AddStorageSearchResultTile(workspace, items, itemIndex, STORAGE_SEARCH_RESULT_WIDGET_ID_BASE + visibleIndex);
+		}
+
+		if (m_aVisibleStorageSearchItemIndexes.Count() == 0)
+		{
+			string emptyText = "Type to search all recovered arsenal items.";
+			if (!query.IsEmpty())
+				emptyText = "No recovered arsenal items match this search.";
+			SetLoadoutText(searchRoot, "StorageSearchEmpty", emptyText, 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
+		}
+
+		HST_UIDebug.LogRowSummary("loadout_storage_search", LOADOUT_CANDIDATE_TILE_LAYOUT, Math.Max(1, m_aVisibleStorageSearchItemIndexes.Count()), string.Format("query=%1 results=%2 selectedStorage=%3", ShortenText(query, 48), m_aVisibleStorageSearchItemIndexes.Count(), ShortenText(selectedStorageNodeId, 48)));
+		RestoreScrollPixels(m_StorageSearchScroll, m_fStorageCandidateScrollY);
+	}
+
+	protected void BuildStorageSearchResults()
+	{
+		m_aVisibleStorageSearchItemIndexes.Clear();
+		string query = m_sStorageSearchQuery.Trim();
+		if (query.IsEmpty())
+			return;
+
+		for (int itemIndex = 0; itemIndex < m_aItemPrefabs.Count(); itemIndex++)
+		{
+			if (IsArsenalItemSearchMatch(itemIndex, query))
+				m_aVisibleStorageSearchItemIndexes.Insert(itemIndex);
+		}
+
+		SortStorageSearchResultsAZ();
+	}
+
+	protected bool IsArsenalItemSearchMatch(int itemIndex, string query)
+	{
+		if (itemIndex < 0 || itemIndex >= m_aItemPrefabs.Count())
+			return false;
+
+		string haystack = GetArsenalItemDisplayName(itemIndex);
+		if (itemIndex < m_aItemShortDisplays.Count())
+			haystack = haystack + " " + m_aItemShortDisplays[itemIndex];
+		if (itemIndex < m_aItemCategories.Count())
+			haystack = haystack + " " + m_aItemCategories[itemIndex] + " " + BuildSlotCategoryLabel(m_aItemCategories[itemIndex]);
+		haystack = haystack + " " + m_aItemPrefabs[itemIndex];
+		haystack.ToLower();
+
+		string needle = query;
+		needle.ToLower();
+		return haystack.Contains(needle);
+	}
+
+	protected void SortStorageSearchResultsAZ()
+	{
+		for (int i = 1; i < m_aVisibleStorageSearchItemIndexes.Count(); i++)
+		{
+			int key = m_aVisibleStorageSearchItemIndexes[i];
+			int j = i - 1;
+			while (j >= 0 && CompareStorageSearchItems(m_aVisibleStorageSearchItemIndexes[j], key) > 0)
+			{
+				m_aVisibleStorageSearchItemIndexes[j + 1] = m_aVisibleStorageSearchItemIndexes[j];
+				j--;
+			}
+
+			m_aVisibleStorageSearchItemIndexes[j + 1] = key;
+		}
+	}
+
+	protected int CompareStorageSearchItems(int left, int right)
+	{
+		string leftName = GetArsenalItemDisplayName(left);
+		string rightName = GetArsenalItemDisplayName(right);
+		leftName.ToLower();
+		rightName.ToLower();
+		int compare = leftName.Compare(rightName);
+		if (compare != 0)
+			return compare;
+
+		string leftPrefab;
+		string rightPrefab;
+		if (left >= 0 && left < m_aItemPrefabs.Count())
+			leftPrefab = m_aItemPrefabs[left];
+		if (right >= 0 && right < m_aItemPrefabs.Count())
+			rightPrefab = m_aItemPrefabs[right];
+		return leftPrefab.Compare(rightPrefab);
+	}
+
+	protected void AddStorageSearchResultTile(WorkspaceWidget workspace, Widget items, int itemIndex, int userId)
+	{
+		if (!workspace || !items || itemIndex < 0 || itemIndex >= m_aItemPrefabs.Count())
+			return;
+
+		Widget tile = workspace.CreateWidgets(LOADOUT_CANDIDATE_TILE_LAYOUT, items);
+		DebugRowCreated("LOADOUT_CANDIDATE_TILE_LAYOUT", tile);
+		HST_UIDebug.LogRowSample("loadout_storage_search", LOADOUT_CANDIDATE_TILE_LAYOUT, Math.Max(0, userId - STORAGE_SEARCH_RESULT_WIDGET_ID_BASE), string.Format("itemIndex=%1 userId=%2 display=%3 prefab=%4 row=%5", itemIndex, userId, ShortenText(GetArsenalItemDisplayName(itemIndex), 64), ShortenText(m_aItemPrefabs[itemIndex], 96), HST_UIDebug.WidgetSummary(tile)));
+		if (!tile)
+			return;
+
+		PrepareRowRoot(tile);
+		BindRowClick(tile, userId);
+		SetRowWidgetVisible(tile, "EmptyText", false);
+		SetRowImageColor(tile, "Background", GetBaseRowColor(), 0.98);
+		AddStorageSearchPreviewToRow(workspace, tile, itemIndex, userId);
+		AddCandidateTileOverlayText(workspace, tile, GetArsenalItemDisplayName(itemIndex), BuildCountLabel(itemIndex), userId);
+	}
+
+	protected void AddStorageSearchPreviewToRow(WorkspaceWidget workspace, Widget row, int itemIndex, int userId)
+	{
+		Widget anchor = FindRowWidget(row, "PreviewAnchor");
+		if (!anchor)
+			return;
+
+		anchor.SetVisible(true);
+		anchor.SetOpacity(1.0);
+		anchor.SetZOrder(20);
+		ShowRowPreviewChrome(row);
+		CreateArsenalItemPreviewCell(workspace, anchor, itemIndex, userId, 0xFFE6E6E6);
+	}
+
+	protected bool CreateArsenalItemPreviewCell(WorkspaceWidget workspace, Widget root, int itemIndex, int userId, int color)
+	{
+		string iconKey = ResolveArsenalItemIconKey(itemIndex);
+		ResourceName fallbackIcon = ResolveIconTexture(iconKey);
+		Widget cell = CreateItemPreviewCell(workspace, root, userId);
+		if (!cell)
+			return false;
+
+		if (!ShouldUseNativeLoadoutItemPreview(iconKey))
+		{
+			SetPreviewCellFallbackIcon(cell, fallbackIcon, color);
+			return true;
+		}
+
+		string prefab = "";
+		if (itemIndex >= 0 && itemIndex < m_aItemPrefabs.Count())
+			prefab = m_aItemPrefabs[itemIndex];
+
+		return SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, true);
+	}
+
+	protected string ResolveArsenalItemIconKey(int itemIndex)
+	{
+		if (itemIndex >= 0 && itemIndex < m_aItemCategories.Count())
+			return m_aItemCategories[itemIndex];
+
+		return "utility";
+	}
+
+	protected string GetArsenalItemDisplayName(int itemIndex)
+	{
+		if (itemIndex >= 0 && itemIndex < m_aItemDisplays.Count() && !m_aItemDisplays[itemIndex].IsEmpty())
+			return m_aItemDisplays[itemIndex];
+		if (itemIndex >= 0 && itemIndex < m_aItemShortDisplays.Count() && !m_aItemShortDisplays[itemIndex].IsEmpty())
+			return m_aItemShortDisplays[itemIndex];
+
+		return "Item";
+	}
+
+	protected void RenderStorageFilterSortControls(WorkspaceWidget workspace, Widget panelRoot)
+	{
+		if (!panelRoot)
+			return;
+
+		EnsureVisualSettings();
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterFitButton", "StorageFilterFitBackground", "StorageFilterFitAccent", "StorageFilterFitLabel", "Fits", STORAGE_FILTER_WIDGET_ID_BASE + 0, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterAmmoButton", "StorageFilterAmmoBackground", "StorageFilterAmmoAccent", "StorageFilterAmmoLabel", "Ammo", STORAGE_FILTER_WIDGET_ID_BASE + 1, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterInfiniteButton", "StorageFilterInfiniteBackground", "StorageFilterInfiniteAccent", "StorageFilterInfiniteLabel", "INF", STORAGE_FILTER_WIDGET_ID_BASE + 2, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_INFINITE_ONLY));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterShowAllButton", "StorageFilterShowAllBackground", "StorageFilterShowAllAccent", "StorageFilterShowAllLabel", "All", STORAGE_FILTER_WIDGET_ID_BASE + 3, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterNotInfiniteButton", "StorageFilterNotInfiniteBackground", "StorageFilterNotInfiniteAccent", "StorageFilterNotInfiniteLabel", "Not INF", STORAGE_FILTER_WIDGET_ID_BASE + 4, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_NOT_INFINITE));
+
+		int sortMode = m_VisualSettings.m_iStorageSortMode;
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortAZButton", "StorageSortAZBackground", "StorageSortAZAccent", "StorageSortAZLabel", "A-Z", STORAGE_SORT_WIDGET_ID_BASE + 0, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortZAButton", "StorageSortZABackground", "StorageSortZAAccent", "StorageSortZALabel", "Z-A", STORAGE_SORT_WIDGET_ID_BASE + 1, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_ZA);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountDescButton", "StorageSortCountDescBackground", "StorageSortCountDescAccent", "StorageSortCountDescLabel", "INF-1", STORAGE_SORT_WIDGET_ID_BASE + 2, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_DESC);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountAscButton", "StorageSortCountAscBackground", "StorageSortCountAscAccent", "StorageSortCountAscLabel", "1-INF", STORAGE_SORT_WIDGET_ID_BASE + 3, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC);
+	}
+
+	protected void ConfigureStorageBrowserButton(Widget root, string buttonName, string backgroundName, string accentName, string labelName, string label, int userId, bool active)
+	{
+		if (!root || userId <= 0)
+			return;
+
+		Widget button = root.FindAnyWidget(buttonName);
+		if (!button)
+			return;
+
+		button.SetVisible(true);
+		button.SetOpacity(1.0);
+		button.SetUserID(userId);
+		button.AddHandler(m_WidgetHandler);
+
+		int background = 0xDD11171B;
+		int accent = 0x664B5960;
+		int foreground = 0xFFD5D8D9;
+		float accentOpacity = 0.45;
+		if (active)
+		{
+			background = GetSelectedRowColor();
+			accent = GetAccentColor();
+			foreground = 0xFFFFFFFF;
+			accentOpacity = 1.0;
+		}
+
+		button.SetColorInt(background);
+		SetLoadoutWidgetColor(root, backgroundName, background, 0.98);
+		SetLoadoutWidgetColor(root, accentName, accent, accentOpacity);
+		SetLoadoutText(root, labelName, label, foreground, m_Layout.m_iFontSmall, true, false);
+	}
+
+	protected bool IsStorageFilterEnabled(int flag)
+	{
+		EnsureVisualSettings();
+		return (m_VisualSettings.m_iStorageFilterMask & flag) != 0;
+	}
+
+	protected void ToggleStorageFilterByIndex(int filterIndex)
+	{
+		EnsureVisualSettings();
+		int flag = ResolveStorageFilterFlagByIndex(filterIndex);
+		if (flag <= 0)
+			return;
+
+		int mask = m_VisualSettings.m_iStorageFilterMask;
+		if ((mask & flag) != 0)
+			mask = mask - flag;
+		else
+			mask = mask | flag;
+
+		if ((mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL) != 0 && (mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY) != 0)
+		{
+			if (flag == HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL)
+				mask = mask - HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY;
+			else if (flag == HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY)
+				mask = mask - HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL;
+		}
+
+		if (mask <= 0)
+			mask = HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL;
+
+		m_VisualSettings.m_iStorageFilterMask = mask;
+		SaveVisualSettings();
+	}
+
+	protected int ResolveStorageFilterFlagByIndex(int filterIndex)
+	{
+		if (filterIndex == 0)
+			return HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY;
+		if (filterIndex == 1)
+			return HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE;
+		if (filterIndex == 2)
+			return HST_LoadoutEditorVisualSettings.STORAGE_FILTER_INFINITE_ONLY;
+		if (filterIndex == 3)
+			return HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL;
+		if (filterIndex == 4)
+			return HST_LoadoutEditorVisualSettings.STORAGE_FILTER_NOT_INFINITE;
+
+		return 0;
+	}
+
+	protected void SetStorageSortMode(int sortIndex)
+	{
+		EnsureVisualSettings();
+		if (sortIndex < HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ)
+			sortIndex = HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ;
+		else if (sortIndex > HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC)
+			sortIndex = HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC;
+
+		m_VisualSettings.m_iStorageSortMode = sortIndex;
+		SaveVisualSettings();
+	}
+
+	protected bool PassesStorageCandidateFilters(int candidateIndex)
+	{
+		EnsureVisualSettings();
+		int mask = m_VisualSettings.m_iStorageFilterMask;
+		bool showEverything = (mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL) != 0;
+
+		if (!showEverything && (mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY) != 0 && !IsStorageCandidateFit(candidateIndex))
+			return false;
+		if ((mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE) != 0 && !IsStorageCandidateAmmoUsable(candidateIndex))
+			return false;
+		if ((mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_INFINITE_ONLY) != 0 && !IsStorageCandidateInfinite(candidateIndex))
+			return false;
+		if ((mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_NOT_INFINITE) != 0 && IsStorageCandidateInfinite(candidateIndex))
+			return false;
+
+		return true;
+	}
+
+	protected bool IsStorageCandidateFit(int candidateIndex)
+	{
+		if (candidateIndex < 0 || candidateIndex >= m_aCandidateCompatible.Count())
+			return false;
+
+		return m_aCandidateCompatible[candidateIndex];
+	}
+
+	protected bool IsStorageCandidateAmmoUsable(int candidateIndex)
+	{
+		if (candidateIndex < 0 || candidateIndex >= m_aCandidateKinds.Count() || m_aCandidateKinds[candidateIndex] != "magazine")
+			return false;
+		if (candidateIndex >= m_aCandidateAmmoMatch.Count())
+			return false;
+
+		return m_aCandidateAmmoMatch[candidateIndex];
+	}
+
+	protected bool IsStorageCandidateInfinite(int candidateIndex)
+	{
+		if (candidateIndex < 0 || candidateIndex >= m_aCandidateInfinite.Count())
+			return false;
+
+		return m_aCandidateInfinite[candidateIndex];
+	}
+
+	protected void SortStorageVisibleCandidateIndexes()
+	{
+		for (int i = 1; i < m_aVisibleCandidateIndexes.Count(); i++)
+		{
+			int key = m_aVisibleCandidateIndexes[i];
+			int j = i - 1;
+			while (j >= 0 && CompareStorageCandidates(m_aVisibleCandidateIndexes[j], key) > 0)
+			{
+				m_aVisibleCandidateIndexes[j + 1] = m_aVisibleCandidateIndexes[j];
+				j--;
+			}
+
+			m_aVisibleCandidateIndexes[j + 1] = key;
+		}
+	}
+
+	protected int CompareStorageCandidates(int left, int right)
+	{
+		EnsureVisualSettings();
+		int sortMode = m_VisualSettings.m_iStorageSortMode;
+		if (sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_ZA)
+			return CompareCandidateNames(right, left);
+		if (sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_DESC)
+		{
+			int countCompareDesc = CompareCandidateCounts(right, left);
+			if (countCompareDesc != 0)
+				return countCompareDesc;
+
+			return CompareCandidateNames(left, right);
+		}
+		if (sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC)
+		{
+			int countCompareAsc = CompareCandidateCounts(left, right);
+			if (countCompareAsc != 0)
+				return countCompareAsc;
+
+			return CompareCandidateNames(left, right);
+		}
+
+		return CompareCandidateNames(left, right);
+	}
+
+	protected int CompareCandidateNames(int left, int right)
+	{
+		string leftName = GetCandidateDisplayName(left);
+		string rightName = GetCandidateDisplayName(right);
+		leftName.ToLower();
+		rightName.ToLower();
+		int compare = leftName.Compare(rightName);
+		if (compare != 0)
+			return compare;
+
+		string leftPrefab;
+		string rightPrefab;
+		if (left >= 0 && left < m_aCandidatePrefabs.Count())
+			leftPrefab = m_aCandidatePrefabs[left];
+		if (right >= 0 && right < m_aCandidatePrefabs.Count())
+			rightPrefab = m_aCandidatePrefabs[right];
+		return leftPrefab.Compare(rightPrefab);
+	}
+
+	protected int CompareCandidateCounts(int left, int right)
+	{
+		int leftCount = GetStorageCandidateSortCount(left);
+		int rightCount = GetStorageCandidateSortCount(right);
+		if (leftCount < rightCount)
+			return -1;
+		if (leftCount > rightCount)
+			return 1;
+
+		return 0;
+	}
+
+	protected int GetStorageCandidateSortCount(int candidateIndex)
+	{
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateInfinite.Count() && m_aCandidateInfinite[candidateIndex])
+			return 2147483647;
+		if (candidateIndex >= 0 && candidateIndex < m_aCandidateCounts.Count())
+			return Math.Max(0, m_aCandidateCounts[candidateIndex].ToInt());
+
+		return 0;
 	}
 
 	protected void AddLoadoutNodeRow(WorkspaceWidget workspace, Widget items, int nodeIndex, int userId)
@@ -2557,10 +3113,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowWidgetVisible(tile, "EmptyText", false);
 
 		int color = GetBaseRowColor();
-		if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
+		bool fitsStorage = IsStorageCandidateFit(candidateIndex);
+		if (m_sEditorMode == "storage" && !fitsStorage)
+			color = 0x884B5960;
+		else if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = GetMatchedRowColor();
 
 		string countText = BuildCandidateCountLabel(candidateIndex, true);
+		if (m_sEditorMode == "storage" && !fitsStorage)
+			countText = "NO FIT";
 		string itemName = GetCandidateDisplayName(candidateIndex);
 
 		SetRowImageColor(tile, "Background", color, 0.98);
@@ -4969,7 +5530,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "weapons";
 		if (category == "attachment")
 			return "attachments";
-		if (category == "magazine" || category == "explosive" || category == "medical" || category == "utility" || category == "weapon_group" || category == "clothing_group")
+		if (category == "magazine" || category == "explosive" || category == "medical" || category == "utility" || category == "weapon_group" || category == "clothing_group" || category == "search")
 			return "storage";
 
 		return m_sEditorMode;
@@ -4993,7 +5554,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected int GetStorageBrowserCategoryCount()
 	{
-		return 6;
+		return 7;
 	}
 
 	protected string GetStorageBrowserCategoryId(int index)
@@ -5008,8 +5569,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "medical";
 		if (index == 4)
 			return "weapon_group";
+		if (index == 5)
+			return "clothing_group";
 
-		return "clothing_group";
+		return "search";
 	}
 
 	protected int FindStorageBrowserCategoryIndex(string category)
@@ -5037,12 +5600,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "Weapons";
 		if (category == "clothing_group")
 			return "Clothing";
+		if (category == "search")
+			return "Search";
 
 		return "Items";
 	}
 
 	protected bool IsCategoryInStorageBrowserTab(string itemCategory, string tabCategory)
 	{
+		if (tabCategory == "search")
+			return false;
 		if (tabCategory == "weapon_group")
 			return itemCategory == "weapon" || itemCategory == "launcher" || itemCategory == "sidearm";
 		if (tabCategory == "clothing_group")
@@ -5110,6 +5677,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		m_sSelectedStorageContainerNodeId = "";
 		m_sSelectedStoredItemNodeId = "";
+	}
+
+	protected void ClearStorageSearchState()
+	{
+		m_sStorageSearchQuery = "";
+		m_aVisibleStorageSearchItemIndexes.Clear();
 	}
 
 	protected int FindStorageContainerNodeIndex(string nodeId)
@@ -7363,6 +7936,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return ICON_SAVE;
 		if (key == "settings")
 			return ICON_SETTINGS;
+		if (key == "search")
+			return ICON_SEARCH;
 		if (key == "magazine" || key == "ammo")
 			return ICON_AMMO;
 		if (key == "explosive" || key == "grenade" || key == "throwable")
@@ -7707,6 +8282,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_fStorageCandidateScrollY = y;
 		}
 
+		if (m_StorageSearchScroll)
+		{
+			m_StorageSearchScroll.GetSliderPosPixels(x, y);
+			m_fStorageCandidateScrollY = y;
+		}
+
 		if (m_StorageContainerScroll)
 		{
 			m_StorageContainerScroll.GetSliderPosPixels(x, y);
@@ -7760,6 +8341,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ClearLoadoutContainerChildren(root, "CandidateItems");
 		ClearLoadoutContainerChildren(root, "StorageCategoryTabs");
 		ClearLoadoutContainerChildren(root, "StorageCandidateItems");
+		ClearLoadoutContainerChildren(root, "StorageSearchItems");
 		ClearLoadoutContainerChildren(root, "TemplateItems");
 		ClearLoadoutContainerChildren(root, "FooterHintItems");
 	}
