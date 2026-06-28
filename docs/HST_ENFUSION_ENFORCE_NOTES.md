@@ -181,9 +181,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - When a render path programmatically syncs an `EditBoxWidget` with `SetText`, guard the paired `OnChange` handler so the sync cannot re-enter the render path. Attach the handler after the sync where practical, but still use an explicit guard because the reused widget may already have a handler.
 
 - Some interactions may arrive through both `OnClick` and `OnMouseButtonUp`.
-  - Use duplicate-activation guards where a widget action can be triggered by both callbacks in the same frame.
+  - Prefer a single activation owner for normal buttons, usually `OnClick`.
+  - Use duplicate-activation guards only where a widget action can unavoidably be triggered by both callbacks in the same frame.
   - Pass the mouse button through both event paths and key the guard by widget id, button, and frame serial so right-click/left-click actions remain distinct.
-  - Current examples: `HST_SetupMapComponent`, `HST_CommandMenuComponent`, `HST_LoadoutEditorComponent`, and `HST_MissionClientComponent`.
+  - Current examples for guards include `HST_SetupMapComponent`, `HST_CommandMenuComponent`, and `HST_MissionClientComponent`; `HST_LoadoutEditorComponent` keeps normal button commands on `OnClick` and uses mouse-up only for preview drag release.
 
 - Avoid synchronously deleting and rebuilding a newly added control subtree from that same control's callback.
   - Existing long-lived menus may tolerate direct `RenderEditor()` calls from established row buttons, but new filter/sort/search controls are safer when they mutate state and queue a zero-delay callqueue render.
@@ -236,6 +237,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Hidden or parent-hidden generated widgets can survive a mode switch if cleanup only clears visible children. Remove tracked dynamic widgets regardless of current visibility before the container sweep.
   - Reused static widgets should not call `AddHandler(m_WidgetHandler)` on every render. Route editor-owned bindings through an idempotent helper that checks `FindHandler(EditorWidgetHandlerType)` before adding the handler, or repeated renders can stack callbacks on filter/sort/close buttons.
   - When script populates text into layout-owned controls, set a known font in the common text setter. Newly added `TextWidget` labels without `FontProperties` can otherwise appear as blank clickable buttons even though the widgets exist.
+  - Do not route normal button activation through both `OnClick` and `OnMouseButtonUp`. Use mouse-up only for drag state that explicitly consumes the event; otherwise return false and let `OnClick` perform the command once.
 
 - Keep live inventory payloads single-owner.
   - If a server payload emits real storage contents as storage-node children, do not also re-emit those same entries as synthetic top-level inventory rows.

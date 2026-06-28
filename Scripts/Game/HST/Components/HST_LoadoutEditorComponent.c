@@ -34,7 +34,7 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 		if (m_Editor.OnWidgetMouseButtonUp(widgetId, x, y, button))
 			return true;
 
-		return m_Editor.OnWidgetClickedWithButton(widgetId, button);
+		return false;
 	}
 
 	override bool OnMouseEnter(Widget w, int x, int y)

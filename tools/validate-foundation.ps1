@@ -3996,6 +3996,10 @@ if ($loadoutEditorDirectHandlerAdds.Count -ne 1) {
 if ($loadoutEditorComponentText -notmatch 'LOADOUT_TEXT_FONT = "\{E2CBA6F76AAA42AF\}UI/Fonts/Roboto/Roboto_Regular\.fnt"' -or $loadoutEditorComponentText -notmatch "protected void SetLoadoutText[\s\S]*?textWidget\.SetFont\(LOADOUT_TEXT_FONT\)[\s\S]*?textWidget\.SetForceFont\(true\)") {
 	throw "Loadout editor common text setter must force a known font for layout-owned labels"
 }
+$loadoutMouseUpHandlerMatch = [regex]::Match($loadoutEditorComponentText, "override bool OnMouseButtonUp[\s\S]*?\r?\n\t}\r?\n\r?\n\toverride bool OnMouseEnter")
+if (!$loadoutMouseUpHandlerMatch.Success -or $loadoutMouseUpHandlerMatch.Value -match [regex]::Escape("OnWidgetClickedWithButton(widgetId, button)")) {
+	throw "Loadout editor mouse-up handler must not also dispatch normal button clicks; OnClick owns activation"
+}
 foreach ($requiredSetupUIDebugEntry in @(
 	'HST_UIDebug.LogLayoutCreate("setup_map"',
 	'HST_UIDebug.LogExpectedWidgetsCsv("setup_map"',
