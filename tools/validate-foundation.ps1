@@ -3986,6 +3986,16 @@ $loadoutEditorComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_
 $displayNameServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_DisplayNameService.c"
 $coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $requestBridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
+if ($loadoutEditorComponentText -notmatch "protected void BindEditorHandler[\s\S]*?FindHandler\(HST_LoadoutEditorWidgetHandler\)[\s\S]*?widget\.AddHandler\(m_WidgetHandler\)") {
+	throw "Loadout editor reused layout widgets must bind handlers through idempotent BindEditorHandler"
+}
+$loadoutEditorDirectHandlerAdds = @([regex]::Matches($loadoutEditorComponentText, "\.AddHandler\(m_WidgetHandler\)"))
+if ($loadoutEditorDirectHandlerAdds.Count -ne 1) {
+	throw "Loadout editor must not repeatedly AddHandler(m_WidgetHandler) outside BindEditorHandler"
+}
+if ($loadoutEditorComponentText -notmatch 'LOADOUT_TEXT_FONT = "\{E2CBA6F76AAA42AF\}UI/Fonts/Roboto/Roboto_Regular\.fnt"' -or $loadoutEditorComponentText -notmatch "protected void SetLoadoutText[\s\S]*?textWidget\.SetFont\(LOADOUT_TEXT_FONT\)[\s\S]*?textWidget\.SetForceFont\(true\)") {
+	throw "Loadout editor common text setter must force a known font for layout-owned labels"
+}
 foreach ($requiredSetupUIDebugEntry in @(
 	'HST_UIDebug.LogLayoutCreate("setup_map"',
 	'HST_UIDebug.LogExpectedWidgetsCsv("setup_map"',
@@ -5167,7 +5177,7 @@ foreach ($requiredLoadoutPreviewDragScriptEntry in @(
 	"protected void ConfigurePreviewDragSurface",
 	'Widget surface = root.FindAnyWidget("PreviewDragSurface")',
 	"surface.SetUserID(PREVIEW_DRAG_WIDGET_ID)",
-	"surface.AddHandler(m_WidgetHandler)",
+	"BindEditorHandler(surface)",
 	"surface.SetZOrder(LOADOUT_PREVIEW_INPUT_Z)"
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutPreviewDragScriptEntry)) {

@@ -98,6 +98,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT = "{A7B8C9D001234610}UI/layouts/HST/Rows/HST_LoadoutStorageCategoryTab.layout";
 	static const ResourceName LOADOUT_TAB_BUTTON_LAYOUT = "{D66CFA01E5AA4400}UI/layouts/HST_LoadoutEditor_TabButton.layout";
 	static const ResourceName LOADOUT_INPUT_BUTTON_LAYOUT = "{C42847838185932E}UI/layouts/WidgetLibrary/Buttons/WLib_InputButton.layout";
+	static const ResourceName LOADOUT_TEXT_FONT = "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt";
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const ResourceName PREVIEW_WORLD_PREFAB = "{71D2E9B5588949D8}Prefabs/HST/HST_LoadoutPreviewWorld.et";
 	static const ResourceName PREVIEW_LIGHTS_PREFAB = "{604FFDF1DE53BD1D}Prefabs/HST/HST_LoadoutPreviewLights.et";
@@ -1855,7 +1856,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		button.SetOpacity(1.0);
 		button.SetColorInt(0xEE11171B);
 		button.SetUserID(userId);
-		button.AddHandler(m_WidgetHandler);
+		BindEditorHandler(button);
 
 		if (!backgroundName.IsEmpty())
 			SetLoadoutWidgetColor(root, backgroundName, 0xEE11171B, 0.98);
@@ -1909,6 +1910,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		widget.SetUserID(userId);
+		BindEditorHandler(widget);
+	}
+
+	protected void BindEditorHandler(Widget widget)
+	{
+		if (!widget || !m_WidgetHandler)
+			return;
+
+		if (widget.FindHandler(HST_LoadoutEditorWidgetHandler))
+			return;
+
 		widget.AddHandler(m_WidgetHandler);
 	}
 
@@ -1966,6 +1978,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		textWidget.SetVisible(true);
 		textWidget.SetOpacity(1.0);
+		textWidget.SetFont(LOADOUT_TEXT_FONT);
+		textWidget.SetForceFont(true);
 		textWidget.SetText(text);
 		textWidget.SetTextWrapping(wrap);
 		textWidget.SetExactFontSize(fontSize);
@@ -2164,7 +2178,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_aWidgets.Insert(tab);
 		tab.SetUserID(userId);
-		tab.AddHandler(m_WidgetHandler);
+		BindEditorHandler(tab);
 
 		int background = 0xFF12171B;
 		int accent = 0x884B5960;
@@ -2480,7 +2494,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				input.SetText(m_sStorageSearchQuery);
 				m_bSyncingStorageSearchInput = false;
 			}
-			input.AddHandler(m_WidgetHandler);
+			BindEditorHandler(input);
 			if (workspace.GetFocusedWidget() != input)
 				workspace.SetFocusedWidget(input, true);
 		}
@@ -2697,7 +2711,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		button.SetVisible(true);
 		button.SetOpacity(1.0);
 		button.SetUserID(userId);
-		button.AddHandler(m_WidgetHandler);
+		BindEditorHandler(button);
 
 		int background = 0xDD11171B;
 		int accent = 0x664B5960;
@@ -3679,7 +3693,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		surface.SetOpacity(0.01);
 		surface.SetColorInt(0x00111111);
 		surface.SetUserID(PREVIEW_DRAG_WIDGET_ID);
-		surface.AddHandler(m_WidgetHandler);
+		BindEditorHandler(surface);
 		surface.SetZOrder(LOADOUT_PREVIEW_INPUT_Z);
 	}
 
@@ -5896,7 +5910,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			m_aWidgets.Insert(tab);
 			tab.SetUserID(STORAGE_CATEGORY_WIDGET_ID_BASE + i);
-			tab.AddHandler(m_WidgetHandler);
+			BindEditorHandler(tab);
 
 			string category = GetStorageBrowserCategoryId(i);
 			bool active = category == m_sSelectedCategory;
@@ -7711,7 +7725,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (userId != 0)
 		{
 			cell.SetUserID(userId);
-			cell.AddHandler(m_WidgetHandler);
+			BindEditorHandler(cell);
 			BindItemPreviewCellChild(cell, "SlotPreview", userId);
 			BindItemPreviewCellChild(cell, "SlotImage", userId);
 		}
@@ -7730,7 +7744,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		child.SetUserID(userId);
-		child.AddHandler(m_WidgetHandler);
+		BindEditorHandler(child);
 	}
 
 	protected void SetPreviewCellFallbackIcon(Widget cell, ResourceName iconTexture, int color)
@@ -8259,7 +8273,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		row.SetUserID(userId);
-		row.AddHandler(m_WidgetHandler);
+		BindEditorHandler(row);
 
 		BindRowChildClick(row, "ClickSurface", userId);
 		BindRowChildClick(row, "Background", userId);
@@ -8284,7 +8298,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (child)
 		{
 			child.SetUserID(userId);
-			child.AddHandler(m_WidgetHandler);
+			BindEditorHandler(child);
 		}
 	}
 
