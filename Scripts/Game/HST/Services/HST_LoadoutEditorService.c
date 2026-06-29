@@ -3273,8 +3273,12 @@ class HST_LoadoutEditorService
 			return "clothing";
 		if (category == "explosive")
 			return "grenade";
+		if (category == "medical")
+			return "medical";
+		if (category == "utility")
+			return "utility";
 
-		return "gear";
+		return "equipment";
 	}
 
 	protected int ResolveDisplayCapacityForCategory(string category)

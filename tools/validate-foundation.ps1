@@ -4935,6 +4935,24 @@ foreach ($requiredLoadoutStoragePayloadEntry in @(
 		throw "Loadout editor service must emit storage candidates with fit/ammo metadata: $requiredLoadoutStoragePayloadEntry"
 	}
 }
+foreach ($requiredCandidatePreviewHintEntry in @(
+	"if (category == `"medical`")",
+	"return `"medical`";",
+	"if (category == `"utility`")",
+	"return `"utility`";",
+	"return `"equipment`";"
+)) {
+	if ($loadoutEditorText -notmatch [regex]::Escape($requiredCandidatePreviewHintEntry)) {
+		throw "Loadout editor service must emit preview-capable candidate icon hints: $requiredCandidatePreviewHintEntry"
+	}
+}
+$candidateIconHintMatch = [regex]::Match($loadoutEditorText, "protected string BuildCandidateIconHint[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected int ResolveDisplayCapacityForCategory")
+if (!$candidateIconHintMatch.Success) {
+	throw "Loadout editor service candidate icon hint function is missing"
+}
+if ($candidateIconHintMatch.Value -match "return `"gear`";") {
+	throw "Loadout editor candidate icon hints must not fall back to gear, because the preview renderer treats that as icon-only"
+}
 $loadoutStorageCandidatePanelMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderStorageCandidatePanel[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderStorageCandidateGrid[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddLoadoutNodeRow")
 if (!$loadoutStorageCandidatePanelMatch.Success) {
 	throw "Loadout editor storage add-items renderer is missing"
