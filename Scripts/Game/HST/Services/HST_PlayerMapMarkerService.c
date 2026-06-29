@@ -1,6 +1,7 @@
 class HST_PlayerMapMarkerService
 {
 	static const string PLAYER_MARKER_PREFIX = "hst_player_marker_";
+	static const ResourceName PLAYER_MARKER_CONFIG = "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf";
 	static const float REFRESH_INTERVAL_SECONDS = 1.5;
 
 	protected ref map<string, ref HST_MapMarkerRecord> m_mDesiredPlayerMarkers = new map<string, ref HST_MapMarkerRecord>();
@@ -127,6 +128,7 @@ class HST_PlayerMapMarkerService
 		if (markerManager)
 		{
 			managerReady = true;
+			markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
 			nativeDynamic = markerManager.GetDynamicMarkers().Count();
 			SCR_MapMarkerConfig markerConfig = markerManager.GetMarkerConfig();
 			if (markerConfig && markerConfig.GetMarkerEntryConfigByType(SCR_EMapMarkerType.HST_PLAYER))
@@ -189,6 +191,12 @@ class HST_PlayerMapMarkerService
 
 		if (!m_Reconciler)
 			return false;
+		if (!EnsurePlayerMarkerConfig())
+		{
+			ReportMissingMarkerConfig(signature);
+			m_bRefreshRequested = true;
+			return false;
+		}
 
 		bool changed = m_Reconciler.Reconcile(m_mDesiredPlayerMarkers);
 		HST_MapMarkerReconcileResult result = m_Reconciler.GetLastResult();
@@ -221,6 +229,25 @@ class HST_PlayerMapMarkerService
 
 		m_sLastFailureReportSignature = reportSignature;
 		Print(string.Format("h-istasi player map marker | native reconcile failed | desired=%1 failed=%2 trackedDynamic=%3 | verify SCR_MapMarkerManagerComponent uses HST_PlayerMapMarkerConfig.conf and SCR_EMapMarkerType.HST_PLAYER has an active HST_PlayerMapMarkerEntry", m_mDesiredPlayerMarkers.Count(), result.m_iFailed, m_Reconciler.GetTrackedDynamicHandleCount()), LogLevel.WARNING);
+	}
+
+	protected bool EnsurePlayerMarkerConfig()
+	{
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+			return false;
+
+		return markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+	}
+
+	protected void ReportMissingMarkerConfig(string signature)
+	{
+		string reportSignature = "missing_config|" + signature;
+		if (reportSignature == m_sLastFailureReportSignature)
+			return;
+
+		m_sLastFailureReportSignature = reportSignature;
+		Print("h-istasi player map marker | marker manager is not using HST_PlayerMapMarkerConfig; player markers cannot render until the HST_PLAYER entry is loaded", LogLevel.WARNING);
 	}
 
 	protected HST_MapMarkerRecord BuildPlayerRecord(int playerId, IEntity entity, string playerName, HST_CampaignState state)

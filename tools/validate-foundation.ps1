@@ -1828,7 +1828,8 @@ foreach ($requiredPlayerMarkerEntryConfig in @(
 	"[BaseContainerProps(), SCR_MapMarkerTitle()]",
 	"class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic",
 	"SCR_EMapMarkerType.HST_PLAYER",
-	"PLAYER_MARKER_ICON = `"circle`"",
+	'PLAYER_MARKER_IMAGESET = "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"',
+	"PLAYER_MARKER_ICON = `"whisper`"",
 	"SetImage(PLAYER_MARKER_IMAGESET, PLAYER_MARKER_ICON)",
 	"PLAYER_MARKER_LABEL_RETRY_COUNT = 12",
 	"ApplyPlayerMarkerLabel(marker, widgetComp, 0)",
@@ -4838,8 +4839,10 @@ foreach ($requiredSearchImplementationEntry in @(
 	"m_aItemShortDisplays",
 	"m_aItemCategories",
 	"BuildStorageSearchCategoryText",
-	"haystack.ToLower()",
-	"needle.ToLower()"
+	"IsBlockedStorageSearchItem(itemIndex)",
+	"NormalizeStorageSearchText(query)",
+	"NormalizeStorageSearchText(haystack)",
+	"ShouldStorageSearchIncludePrefabPath(query)"
 )) {
 	if ($loadoutSearchImplementationMatch.Value -notmatch [regex]::Escape($requiredSearchImplementationEntry)) {
 		throw "Loadout editor storage search must query full recovered arsenal item fields: $requiredSearchImplementationEntry"

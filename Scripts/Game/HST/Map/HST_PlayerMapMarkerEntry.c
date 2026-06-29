@@ -1,8 +1,8 @@
 [BaseContainerProps(), SCR_MapMarkerTitle()]
 class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 {
-	static const ResourceName PLAYER_MARKER_IMAGESET = "{2EFEA2AF1F38E7F0}UI/Textures/Icons/icons_wrapperUI-64.imageset";
-	static const string PLAYER_MARKER_ICON = "circle";
+	static const ResourceName PLAYER_MARKER_IMAGESET = "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset";
+	static const string PLAYER_MARKER_ICON = "whisper";
 	static const int PLAYER_MARKER_LABEL_RETRY_MS = 250;
 	static const int PLAYER_MARKER_LABEL_RETRY_COUNT = 12;
 
