@@ -528,6 +528,33 @@ class HST_LoadoutEditorService
 		return "h-istasi loadout editor | selected " + loadout.m_sDisplayName;
 	}
 
+	string RenameSavedLoadout(HST_CampaignState state, string identityId, string argument)
+	{
+		if (!state || identityId.IsEmpty() || argument.IsEmpty())
+			return "h-istasi loadout editor | failed: missing template rename";
+
+		string loadoutId;
+		string loadoutName;
+		if (!ParseLoadoutRenameArgument(argument, loadoutId, loadoutName))
+			return "h-istasi loadout editor | failed: malformed template rename";
+
+		HST_SavedLoadoutState loadout = state.FindSavedLoadout(identityId, loadoutId);
+		if (!loadout)
+			return "h-istasi loadout editor | failed: template not found";
+		if (IsFixedLoadoutSlotEmpty(loadout))
+			return "h-istasi loadout editor | failed: selected loadout slot is empty";
+
+		loadout.m_sDisplayName = loadoutName;
+		loadout.m_iUpdatedAtSecond = state.m_iElapsedSeconds;
+		SavePersonalLoadoutsToFile(state, identityId);
+
+		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
+		session.m_sCurrentLoadoutId = loadout.m_sLoadoutId;
+		session.m_sStatus = "template renamed";
+		ClearLoadoutEditorFailure(state, identityId);
+		return "h-istasi loadout editor | renamed " + loadout.m_sDisplayName;
+	}
+
 	string ClearDraft(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId)
 	{
 		if (!state || identityId.IsEmpty())
@@ -743,14 +770,25 @@ class HST_LoadoutEditorService
 			if (!attachmentSlot || !attachmentSlot.GetAttachmentSlotType())
 				continue;
 
-			string slotKey = ResolveAttachmentSlotKeyFromSlot(slot, attachmentSlot, slot.GetAttachedEntity());
+			IEntity attachedEntity = ResolveEditableAttachmentEntity(slot.GetAttachedEntity());
+			string slotKey = ResolveAttachmentSlotKeyFromSlot(slot, attachmentSlot, attachedEntity);
 			string label = ResolveAttachmentSlotLabel(slotKey, slot.GetSourceName());
 			string nodeId = NODE_ATTACHMENT_PREFIX + string.Format("%1_%2_%3", weaponStorageIndex, weaponSlotIndex, slotIndex);
-			AddLiveNodeFromSlot(session, nodeId, parentNodeId, "attachment", "attachment", label, "weapon", slot.GetAttachedEntity(), true, false, false);
+			AddLiveNodeFromSlot(session, nodeId, parentNodeId, "attachment", "attachment", label, "weapon", attachedEntity, true, false, false);
 			HST_LoadoutNodeState added = FindDraftNodeById(session, nodeId);
 			if (added)
 				added.m_sSlotKey = slotKey;
 		}
+	}
+
+	protected IEntity ResolveEditableAttachmentEntity(IEntity attachedEntity)
+	{
+		if (!attachedEntity)
+			return null;
+		if (!InventoryItemComponent.Cast(attachedEntity.FindComponent(InventoryItemComponent)))
+			return null;
+
+		return attachedEntity;
 	}
 
 	protected void ScanEquippedStorageContainers(HST_CampaignState state, IEntity playerEntity, HST_LoadoutEditorSessionState session)
@@ -1177,11 +1215,55 @@ class HST_LoadoutEditorService
 			if (!storage)
 				continue;
 
-			usedVolume += Math.Max(0.0, storage.GetOccupiedSpace());
-			totalVolume += Math.Max(0.0, storage.GetMaxVolumeCapacity());
+			usedVolume += CalculateStorageOccupiedVolume(storage);
+			totalVolume += CalculateStorageMaxVolume(storage);
 		}
 
 		freeVolume = Math.Max(0.0, totalVolume - usedVolume);
+	}
+
+	protected float CalculateStorageOccupiedVolume(BaseInventoryStorageComponent storage)
+	{
+		if (!storage)
+			return 0.0;
+
+		if (ClothNodeStorageComponent.Cast(storage))
+		{
+			float occupied;
+			array<BaseInventoryStorageComponent> ownedStorages = {};
+			storage.GetOwnedStorages(ownedStorages, 1, false);
+			foreach (BaseInventoryStorageComponent ownedStorage : ownedStorages)
+			{
+				if (SCR_UniversalInventoryStorageComponent.Cast(ownedStorage))
+					occupied += Math.Max(0.0, ownedStorage.GetOccupiedSpace());
+			}
+
+			return occupied;
+		}
+
+		return Math.Max(0.0, storage.GetOccupiedSpace());
+	}
+
+	protected float CalculateStorageMaxVolume(BaseInventoryStorageComponent storage)
+	{
+		if (!storage)
+			return 0.0;
+
+		if (ClothNodeStorageComponent.Cast(storage))
+		{
+			float capacity;
+			array<BaseInventoryStorageComponent> ownedStorages = {};
+			storage.GetOwnedStorages(ownedStorages, 1, false);
+			foreach (BaseInventoryStorageComponent ownedStorage : ownedStorages)
+			{
+				if (SCR_UniversalInventoryStorageComponent.Cast(ownedStorage))
+					capacity += Math.Max(0.0, ownedStorage.GetMaxVolumeCapacity());
+			}
+
+			return capacity;
+		}
+
+		return Math.Max(0.0, storage.GetMaxVolumeCapacity());
 	}
 
 	protected int CountStorageAvailableFitOptions(HST_CampaignState state, IEntity playerEntity, notnull array<BaseInventoryStorageComponent> storages)
@@ -2723,9 +2805,48 @@ class HST_LoadoutEditorService
 		}
 
 		JsonLoadContext loadContext = new JsonLoadContext();
-		loadContext.LoadFromString(loadout.m_sSerializedLoadout);
-		SCR_PlayerArsenalLoadout.ApplyLoadoutString(gameEntity, loadContext);
+		if (!loadContext.LoadFromString(loadout.m_sSerializedLoadout))
+		{
+			failure = "saved loadout data could not be read";
+			return false;
+		}
+
+		if (!SCR_PlayerArsenalLoadout.ApplyLoadoutString(gameEntity, loadContext))
+		{
+			failure = "native loadout apply failed";
+			return false;
+		}
+
+		gameEntity.Update();
 		return true;
+	}
+
+	protected bool ParseLoadoutRenameArgument(string argument, out string loadoutId, out string loadoutName)
+	{
+		loadoutId = "";
+		loadoutName = "";
+		int split = argument.IndexOf(":");
+		if (split <= 0 || split >= argument.Length() - 1)
+			return false;
+
+		loadoutId = argument.Substring(0, split).Trim();
+		loadoutName = SanitizeLoadoutDisplayName(argument.Substring(split + 1, argument.Length() - split - 1));
+		return !loadoutId.IsEmpty() && !loadoutName.IsEmpty();
+	}
+
+	protected string SanitizeLoadoutDisplayName(string value)
+	{
+		value = value.Trim();
+		value.Replace("\n", " ");
+		value.Replace("\r", " ");
+		value.Replace("|", " ");
+		value.Replace(":", " ");
+		while (value.Contains("  "))
+			value.Replace("  ", " ");
+		if (value.Length() > 48)
+			value = value.Substring(0, 48).Trim();
+
+		return value;
 	}
 
 	protected void BuildSavedLoadoutMetadata(HST_SavedLoadoutState loadout)
@@ -2963,7 +3084,7 @@ class HST_LoadoutEditorService
 		if (prefab.IsEmpty())
 			return false;
 
-		if (category != "utility" && category != "magazine" && category != "attachment" && category != "vest" && category != "backpack")
+		if (category != "utility" && category != "equipment" && category != "magazine" && category != "attachment" && category != "vest" && category != "backpack")
 			return false;
 
 		if (ContainsStructuralStorageCandidateToken(prefab) || ContainsStructuralStorageCandidateToken(display) || ContainsStructuralStorageCandidateToken(shortDisplay))
@@ -3011,7 +3132,7 @@ class HST_LoadoutEditorService
 			return false;
 
 		value.ToLower();
-		return value.Contains("pouch") || value.Contains("holster") || value.Contains("bandolier");
+		return value.Contains("pouch") || value.Contains("holster") || value.Contains("bandolier") || value.Contains("carrier") || value.Contains("scabbard") || value.Contains("sheath") || value.Contains("etool") || value.Contains("e-tool") || value.Contains("entrenching tool");
 	}
 
 	protected void RefreshDraftNodes(HST_CampaignState state, HST_LoadoutEditorSessionState session)

@@ -2275,11 +2275,12 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         FrameWidgetClass "{7B2FD986A4D3438A}" {
          Name "SettingsActionsRow"
          Slot FrameWidgetSlot "{7B2FD986A4D3438B}" {
-         Anchor 0 1 1 1
+         Anchor 0 0 1 0
          OffsetLeft 0
-         OffsetTop -52
+         OffsetTop 340
          OffsetRight 0
-          OffsetBottom 10
+          SizeY 44
+          OffsetBottom -384
          }
          "Ignore Cursor" 0
          {
@@ -2313,7 +2314,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
                }
                "No Localization" 1
                "Ignore Cursor" 1
-               Text "Defaults"
+               Text "Reset"
                "Horizontal Alignment" Center
                "Vertical Alignment" Center
               }

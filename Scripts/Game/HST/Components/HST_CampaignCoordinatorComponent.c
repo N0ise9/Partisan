@@ -617,6 +617,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (commandId == "loadout_select" || commandId == "load_loadout")
 			return RequestMemberSelectSavedLoadout(playerId, argument);
 
+		if (commandId == "loadout_rename" || commandId == "rename_loadout")
+			return RequestMemberRenameSavedLoadout(playerId, argument);
+
 		if (commandId == "loadout_delete" || commandId == "delete_loadout")
 			return RequestMemberDeleteSavedLoadout(playerId, argument);
 
@@ -2054,6 +2057,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string result = m_LoadoutEditor.ApplySavedLoadout(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, loadoutId);
 		if (result.Contains("applied"))
+			MarkMajorCampaignChange();
+		return result;
+	}
+
+	string RequestMemberRenameSavedLoadout(int playerId, string argument)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi loadout editor | membership required";
+
+		if (!m_LoadoutEditor)
+			return "h-istasi loadout editor | service not ready";
+
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi loadout editor");
+
+		string result = m_LoadoutEditor.RenameSavedLoadout(m_State, ResolveTrustedIdentityId(playerId), argument);
+		if (!result.Contains("failed"))
 			MarkMajorCampaignChange();
 		return result;
 	}

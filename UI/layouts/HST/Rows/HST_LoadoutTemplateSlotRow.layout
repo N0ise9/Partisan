@@ -107,6 +107,42 @@ ButtonWidgetClass "{A7B8C9D001234620}" {
           DisabledColor 0.38 0.38 0.38 1
          }
         }
+        PanelWidgetClass "{A7B8C9D001234634}" {
+         Name "NameInputBackground"
+         Slot FrameWidgetSlot "{A7B8C9D001234635}" {
+          Anchor 0 0 1 0
+          OffsetLeft 16
+          OffsetTop 44
+          OffsetRight 190
+          SizeY 28
+          OffsetBottom -72
+         }
+         "Is Visible" 0
+         Color 0.07 0.09 0.11 0.82
+         style full
+         "Ignore Cursor" 1
+        }
+        EditBoxWidgetClass "{A7B8C9D001234636}" {
+         Name "NameInput"
+         Slot FrameWidgetSlot "{A7B8C9D001234637}" {
+          Anchor 0 0 1 0
+          OffsetLeft 18
+          OffsetTop 44
+          OffsetRight 190
+          SizeY 28
+          OffsetBottom -72
+         }
+         "Is Visible" 0
+         Clipping True
+         Color 0.88 0.90 0.91 1
+         "Font Size" 16
+         "Use placeholder text" 1
+         "Placeholder color" 0.58 0.64 0.68 1
+         "Placeholder text" "Loadout name"
+         FontProperties FontProperties "{A7B8C9D001234638}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+         }
+        }
         TextWidgetClass "{A7B8C9D00123462A}" {
          Name "Meta"
          Slot FrameWidgetSlot "{A7B8C9D00123462B}" {

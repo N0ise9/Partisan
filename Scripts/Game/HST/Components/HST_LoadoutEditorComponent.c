@@ -168,6 +168,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int REMOVE_SELECTED_NODE_WIDGET_ID = 70000;
 	static const int TEMPLATE_SAVE_WIDGET_ID_BASE = 72000;
 	static const int TEMPLATE_LOAD_WIDGET_ID_BASE = 72100;
+	static const int TEMPLATE_RENAME_INPUT_WIDGET_ID_BASE = 72200;
 	static const int ITEMS_PER_PAGE = 11;
 	static const int TEMPLATES_PER_PAGE = 6;
 	static const int LOADOUT_LAYOUT_FALLBACK_RAIL_WIDTH = 444;
@@ -287,6 +288,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected string m_sStorageSearchQuery;
 	protected ref array<int> m_aVisibleStorageSearchItemIndexes = {};
 	protected bool m_bSyncingStorageSearchInput;
+	protected bool m_bSyncingTemplateRenameInput;
 	protected bool m_bDeferredStorageBrowserRenderQueued;
 	protected ref array<string> m_aLoadedCandidateNodeIds = {};
 	protected ref array<string> m_aCandidateEmptyNodeIds = {};
@@ -332,6 +334,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected IEntity m_PreviewEntity;
 	protected string m_sPreviewSourceMode = PREVIEW_MODE_CHARACTER;
 	protected string m_sPreviewRenderKey;
+	protected bool m_bPreviewCameraAutoFramed;
 	protected bool m_bPreviewLightSpawnQueued;
 	protected bool m_bPreviewLightAnglesInitialized;
 	protected vector m_vPreviewLightBaseAngles;
@@ -423,6 +426,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_PreviewSourceEntity = userEntity;
 		m_sPreviewSourceMode = PREVIEW_MODE_CHARACTER;
 		m_sPreviewRenderKey = "";
+		m_bPreviewCameraAutoFramed = false;
 		m_bCameraInitialized = false;
 		m_bPostActionRefreshQueued = false;
 		m_bDeferredStorageBrowserRenderQueued = false;
@@ -517,7 +521,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_bEditorOpen || !CanHandleLoadoutEditorInput() || !widget)
 			return false;
 
-		if (widget.GetUserID() != STORAGE_SEARCH_INPUT_WIDGET_ID)
+		int widgetId = widget.GetUserID();
+		int templateRenameIndex = widgetId - TEMPLATE_RENAME_INPUT_WIDGET_ID_BASE;
+		if (templateRenameIndex >= 0 && templateRenameIndex < m_aTemplateIds.Count())
+			return OnTemplateRenameChanged(widget, templateRenameIndex, finished);
+
+		if (widgetId != STORAGE_SEARCH_INPUT_WIDGET_ID)
 			return false;
 
 		if (m_bSyncingStorageSearchInput)
@@ -534,6 +543,32 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sStorageSearchQuery = query;
 		m_fStorageSearchScrollY = 0.0;
 		QueueStorageBrowserRender();
+		return true;
+	}
+
+	protected bool OnTemplateRenameChanged(Widget widget, int templateIndex, bool finished)
+	{
+		if (m_bSyncingTemplateRenameInput)
+			return true;
+		if (!finished)
+			return true;
+		if (templateIndex < 0 || templateIndex >= m_aTemplateIds.Count() || IsTemplateSlotEmpty(templateIndex))
+			return true;
+
+		EditBoxWidget editBox = EditBoxWidget.Cast(widget);
+		if (!editBox)
+			return false;
+
+		string loadoutName = SanitizeTemplateRenameInput(editBox.GetText());
+		if (loadoutName.IsEmpty())
+			return true;
+		if (templateIndex < m_aTemplateDisplays.Count() && loadoutName == m_aTemplateDisplays[templateIndex])
+			return true;
+
+		m_sSelectedTemplateId = m_aTemplateIds[templateIndex];
+		m_sLastResult = "requested rename saved loadout";
+		RequestServerAction("loadout_rename", m_sSelectedTemplateId + ":" + loadoutName);
+		RenderEditor();
 		return true;
 	}
 
@@ -599,6 +634,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			ClearStorageSelection();
 			m_bCandidateMode = false;
 			m_sPreviewRenderKey = "";
+			m_bPreviewCameraAutoFramed = false;
 			ResetLoadoutScroll();
 			RefreshPreviewWorldLoadout();
 			UpdatePreviewCamera(false);
@@ -879,7 +915,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				if (m_sEditorMode == "storage" && nodeIndex < m_aNodeKinds.Count() && m_aNodeKinds[nodeIndex] == "storage")
 				{
 					SelectStorageContainerNode(nodeIndex);
-					UpdatePreviewCamera(true);
 					RenderEditor();
 					return true;
 				}
@@ -915,7 +950,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 					m_iItemPage = 0;
 					m_fCandidateScrollY = 0.0;
 					m_fStorageCandidateScrollY = 0.0;
-					UpdatePreviewCamera(true);
 					RenderEditor();
 					return true;
 				}
@@ -928,7 +962,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				m_fCandidateScrollY = 0.0;
 				m_fStorageCandidateScrollY = 0.0;
 				EnsureCandidatePayloadForSelectedNode();
-				UpdatePreviewCamera(true);
 				RenderEditor();
 				return true;
 			}
@@ -949,7 +982,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_fCandidateScrollY = 0.0;
 			m_fStorageCandidateScrollY = 0.0;
 			EnsureCandidatePayloadForSelectedNode();
-			UpdatePreviewCamera(true);
 			RenderEditor();
 			return true;
 		}
@@ -1118,7 +1150,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			EnsureSelectedStorageNode();
 			EnsureCandidatePayloadForStorageContainer();
 		}
-		UpdatePreviewCamera(true);
 		RenderEditor();
 	}
 
@@ -1175,7 +1206,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_sSelectedNodeId = "";
 		}
 		ResetLoadoutScroll();
-		UpdatePreviewCamera(true);
 		RenderEditor();
 	}
 
@@ -1477,6 +1507,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected int GetPreviewWorldTintColor()
 	{
+		EnsureVisualSettings();
+		if (m_VisualSettings.m_iWorldPreset == 1)
+			return 0xFFE1E8D7;
+		if (m_VisualSettings.m_iWorldPreset == 2)
+			return 0xFFD9E4EA;
+		if (m_VisualSettings.m_iWorldPreset == 3)
+			return 0xFFFFE4C4;
+		if (m_VisualSettings.m_iWorldPreset == 4)
+			return 0xFFB8C2D0;
+
 		return 0xFFFFFFFF;
 	}
 
@@ -1521,7 +1561,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Blue";
 			if (preset == 5)
 				return "Sand";
-			return "Amber";
+			return "HST";
 		}
 		if (settingId == "row")
 		{
@@ -1533,7 +1573,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Brown";
 			if (preset == 4)
 				return "Blue";
-			return "Dark";
+			return "HST";
 		}
 		if (settingId == "world")
 		{
@@ -1545,7 +1585,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Dawn";
 			if (preset == 4)
 				return "Night";
-			return "Neutral";
+			return "HST";
 		}
 
 		return "";
@@ -2564,10 +2604,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (m_aVisibleStorageSearchItemIndexes.Count() == 0)
 		{
-			string emptyText = "Type to search all recovered arsenal items.";
 			if (!query.IsEmpty())
-				emptyText = "No recovered arsenal items match this search.";
-			SetLoadoutText(searchRoot, "StorageSearchEmpty", emptyText, 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
+				SetLoadoutText(searchRoot, "StorageSearchEmpty", "No recovered arsenal items match this search.", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
 		}
 
 		HST_UIDebug.LogRowSummary("loadout_storage_search", LOADOUT_CANDIDATE_TILE_LAYOUT, Math.Max(1, m_aVisibleStorageSearchItemIndexes.Count()), string.Format("query=%1 results=%2 selectedStorage=%3", ShortenText(query, 48), m_aVisibleStorageSearchItemIndexes.Count(), ShortenText(selectedStorageNodeId, 48)));
@@ -2594,18 +2632,87 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		if (itemIndex < 0 || itemIndex >= m_aItemPrefabs.Count())
 			return false;
+		if (IsBlockedStorageSearchItem(itemIndex))
+			return false;
 
 		string haystack = GetArsenalItemDisplayName(itemIndex);
 		if (itemIndex < m_aItemShortDisplays.Count())
 			haystack = haystack + " " + m_aItemShortDisplays[itemIndex];
 		if (itemIndex < m_aItemCategories.Count())
 			haystack = haystack + " " + BuildStorageSearchCategoryText(m_aItemCategories[itemIndex]);
-		haystack = haystack + " " + m_aItemPrefabs[itemIndex];
-		haystack.ToLower();
 
-		string needle = query;
-		needle.ToLower();
-		return haystack.Contains(needle);
+		string needle = NormalizeStorageSearchText(query);
+		string normalizedHaystack = NormalizeStorageSearchText(haystack);
+		if (!needle.IsEmpty() && normalizedHaystack.Contains(needle))
+			return true;
+
+		if (!ShouldStorageSearchIncludePrefabPath(query))
+			return false;
+
+		string prefabHaystack = NormalizeStorageSearchText(m_aItemPrefabs[itemIndex]);
+		return !needle.IsEmpty() && prefabHaystack.Contains(needle);
+	}
+
+	protected bool IsBlockedStorageSearchItem(int itemIndex)
+	{
+		if (itemIndex < 0 || itemIndex >= m_aItemPrefabs.Count())
+			return true;
+
+		if (ContainsStorageContainerSearchToken(m_aItemPrefabs[itemIndex]))
+			return true;
+		if (itemIndex < m_aItemDisplays.Count() && ContainsStorageContainerSearchToken(m_aItemDisplays[itemIndex]))
+			return true;
+		if (itemIndex < m_aItemShortDisplays.Count() && ContainsStorageContainerSearchToken(m_aItemShortDisplays[itemIndex]))
+			return true;
+
+		return false;
+	}
+
+	protected bool ContainsStorageContainerSearchToken(string value)
+	{
+		if (value.IsEmpty())
+			return false;
+
+		value.ToLower();
+		return value.Contains("pouch") || value.Contains("holster") || value.Contains("bandolier") || value.Contains("carrier") || value.Contains("scabbard") || value.Contains("sheath") || value.Contains("etool") || value.Contains("e-tool") || value.Contains("entrenching tool");
+	}
+
+	protected string NormalizeStorageSearchText(string value)
+	{
+		value.ToLower();
+		value.Replace(".", "");
+		value.Replace("-", "");
+		value.Replace("_", " ");
+		value.Replace("/", " ");
+		value.Replace("{", " ");
+		value.Replace("}", " ");
+		return value.Trim();
+	}
+
+	protected bool ShouldStorageSearchIncludePrefabPath(string query)
+	{
+		string trimmed = query.Trim();
+		if (trimmed.Length() < 5)
+			return false;
+		if (IsNumericSearchText(trimmed))
+			return false;
+
+		return trimmed.Contains("/") || trimmed.Contains("{") || trimmed.Contains("}") || trimmed.Contains("prefab") || trimmed.Contains(".et");
+	}
+
+	protected bool IsNumericSearchText(string value)
+	{
+		if (value.IsEmpty())
+			return false;
+
+		for (int i = 0; i < value.Length(); i++)
+		{
+			string character = value.Substring(i, 1);
+			if (!"0123456789".Contains(character))
+				return false;
+		}
+
+		return true;
 	}
 
 	protected string BuildStorageSearchCategoryText(string itemCategory)
@@ -3271,9 +3378,43 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowImageColor(row, "Accent", accentColor, accentOpacity);
 		SetRowText(row, "Primary", BuildTemplateSlotTitle(templateIndex), 0xFFE2E6E8, m_Layout.m_iFontNormal, selected, true);
 		SetRowText(row, "Secondary", BuildTemplateSlotSubtitle(templateIndex), 0xFFB7C7D7, m_Layout.m_iFontSmall, false, true);
+		ConfigureTemplateNameInput(row, templateIndex);
 		SetRowText(row, "Meta", BuildTemplateSlotMeta(templateIndex), 0xFFFFD166, m_Layout.m_iFontSmall, false, false);
 		ConfigureTemplateSlotButton(row, "SaveButton", "SaveLabel", "Save", TEMPLATE_SAVE_WIDGET_ID_BASE + templateIndex, true);
 		ConfigureTemplateSlotButton(row, "LoadButton", "LoadLabel", "Load", TEMPLATE_LOAD_WIDGET_ID_BASE + templateIndex, !IsTemplateSlotEmpty(templateIndex));
+	}
+
+	protected void ConfigureTemplateNameInput(Widget row, int templateIndex)
+	{
+		if (!row)
+			return;
+
+		bool enabled = !IsTemplateSlotEmpty(templateIndex);
+		SetRowWidgetVisible(row, "NameInputBackground", enabled);
+		SetRowWidgetVisible(row, "NameInput", enabled);
+		SetRowWidgetVisible(row, "Secondary", !enabled);
+		if (!enabled)
+			return;
+
+		EditBoxWidget input = EditBoxWidget.Cast(FindRowWidget(row, "NameInput"));
+		if (!input)
+			return;
+
+		input.SetVisible(true);
+		input.SetOpacity(1.0);
+		input.SetUserID(TEMPLATE_RENAME_INPUT_WIDGET_ID_BASE + templateIndex);
+		input.SetPlaceholderText("Loadout name");
+		string displayName;
+		if (templateIndex >= 0 && templateIndex < m_aTemplateDisplays.Count())
+			displayName = m_aTemplateDisplays[templateIndex];
+		if (input.GetText() != displayName)
+		{
+			m_bSyncingTemplateRenameInput = true;
+			input.SetText(displayName);
+			m_bSyncingTemplateRenameInput = false;
+		}
+
+		BindEditorHandler(input);
 	}
 
 	protected void ConfigureTemplateSlotButton(Widget row, string buttonName, string labelName, string label, int userId, bool enabled)
@@ -3343,6 +3484,21 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			count = m_aTemplateSlotCounts[templateIndex];
 
 		return string.Format("%1 saved item slot(s)", Math.Max(1, count));
+	}
+
+	protected string SanitizeTemplateRenameInput(string value)
+	{
+		value = value.Trim();
+		value.Replace("\n", " ");
+		value.Replace("\r", " ");
+		value.Replace("|", " ");
+		value.Replace(":", " ");
+		while (value.Contains("  "))
+			value.Replace("  ", " ");
+		if (value.Length() > 48)
+			value = value.Substring(0, 48).Trim();
+
+		return value;
 	}
 
 	protected bool IsTemplateSlotEmpty(int templateIndex)
@@ -3756,7 +3912,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutText(panelRoot, "SettingsWorldPresetValue", GetPresetLabel("world", m_VisualSettings.m_iWorldPreset), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
 		ConfigureLoadoutPanelButton(panelRoot, "SettingsWorldPresetButton", "", "", "SettingsWorldPresetButtonLabel", "Next", SETTINGS_WORLD_PRESET_WIDGET_ID);
 
-		ConfigureLoadoutPanelButton(panelRoot, "SettingsDefaultsButton", "", "", "SettingsDefaultsLabel", "Defaults", SETTINGS_RESET_WIDGET_ID);
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsDefaultsButton", "", "", "SettingsDefaultsLabel", "Reset", SETTINGS_RESET_WIDGET_ID);
 		ConfigureLoadoutPanelButton(panelRoot, "SettingsResetPreviewButton", "", "", "SettingsResetPreviewLabel", "Reset Preview", RESET_PREVIEW_WIDGET_ID);
 	}
 
@@ -6044,7 +6200,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_iItemPage = 0;
 		m_fCandidateScrollY = 0.0;
 		m_fStorageCandidateScrollY = 0.0;
-		m_sPreviewRenderKey = "";
 		EnsureCandidatePayloadForStorageContainer();
 	}
 
@@ -6059,7 +6214,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sSelectedNodeId = m_sSelectedStoredItemNodeId;
 		m_sSelectedSlotId = "";
 		m_bCandidateMode = false;
-		m_sPreviewRenderKey = "";
 	}
 
 	protected void EnsureSelectedStorageNode()
@@ -6476,8 +6630,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			m_PreviewWidget.SetWorld(m_PreviewWorld, PREVIEW_CAMERA);
 			RefreshPreviewLightState();
-			if (m_PreviewEntity)
-				UpdatePreviewCamera(false);
 		}
 	}
 
@@ -6715,7 +6867,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return false;
 		}
 
-		ResetPreviewCameraToReferenceDefault();
 		m_PreviewEntity = previewItem.CreatePreviewEntity(m_PreviewWorld, PREVIEW_CAMERA);
 		if (!m_PreviewEntity)
 		{
@@ -6758,7 +6909,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_sPreviewStatus = "preview live character";
 
 		UpdatePreviewedEntityMetrics();
-		UpdatePreviewCameraImmediate(true, "live");
+		AutoFramePreviewCameraOnce("live");
 		return true;
 	}
 
@@ -6886,7 +7037,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_sPreviewStatus = string.Format("preview skipped %1", ShortenText(firstFailure, 34));
 
 		UpdatePreviewedEntityMetrics();
-		UpdatePreviewCameraImmediate(true, "fallback");
+		AutoFramePreviewCameraOnce("fallback");
 	}
 
 	protected IEntity CreatePreviewCloneFromDressedSource(IEntity sourceCharacter)
@@ -6898,7 +7049,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!previewItem)
 			return null;
 
-		ResetPreviewCameraToReferenceDefault();
 		return previewItem.CreatePreviewEntity(m_PreviewWorld, PREVIEW_CAMERA);
 	}
 
@@ -7681,8 +7831,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		string key = m_sPreviewPrefab;
 		key = key + "|source:" + BuildPreviewEntityKey(previewSource);
 		key = key + "|mode:" + previewMode;
-		key = key + "|node:" + m_sSelectedNodeId;
-		key = key + "|slot:" + m_sSelectedSlotId;
+		if (m_sEditorMode != "storage")
+		{
+			key = key + "|node:" + m_sSelectedNodeId;
+			key = key + "|slot:" + m_sSelectedSlotId;
+		}
 		for (int i = 0; i < m_aSlotPrefabs.Count(); i++)
 			key = key + "|" + m_aSlotPrefabs[i] + ":" + m_aSlotQuantities[i];
 		for (int nodeIndex = 0; nodeIndex < m_aNodePrefabs.Count(); nodeIndex++)
@@ -7783,6 +7936,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		UpdatePreviewCamera(allowSelectedFocus);
 		DebugLog(string.Format("preview camera %1 entity=%2 target=%3 look=%4 direction=%5 distance=%6 yaw=%7 sourceMode=%8", reason, m_PreviewEntity, m_vCameraTargetPosition, m_vCameraTargetLook, m_vCameraTargetDirection, m_fCameraTargetDistance, m_fPreviewYawDegrees, m_sPreviewSourceMode));
+	}
+
+	protected void AutoFramePreviewCameraOnce(string reason)
+	{
+		if (m_bPreviewCameraAutoFramed)
+			return;
+
+		UpdatePreviewCameraImmediate(false, reason);
+		m_bPreviewCameraAutoFramed = true;
 	}
 
 	protected void HandlePreviewDragInput(InputManager inputManager)
@@ -8266,6 +8428,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_bPreviewLightAnglesInitialized = false;
 		m_sPreviewSourceMode = PREVIEW_MODE_CHARACTER;
 		m_sPreviewRenderKey = "";
+		m_bPreviewCameraAutoFramed = false;
 		m_vCameraTargetPosition = "5 1 5";
 		m_vCameraTargetLook = "0 0.5 0";
 		m_vCameraCurrentPosition = "5 1 5";
