@@ -1,0 +1,67 @@
+FrameWidgetClass "{6985327711306214}" {
+ Name "HST_PlayerMapMarkerDynamic"
+ Slot FrameWidgetSlot "{6985327711306215}" {
+  OffsetLeft 0
+  OffsetTop 0
+  SizeX 96
+  OffsetRight -96
+  SizeY 88
+  OffsetBottom -88
+  Alignment 0.5 0.5
+ }
+ "Z Order" 60
+ Clipping False
+ "Ignore Cursor" 0
+ components {
+  SCR_MapMarkerDynamicWComponent "{6985327711306216}" {
+  }
+ }
+ {
+  VerticalLayoutWidgetClass "{6985327711306217}" {
+   Name "MarkerStack"
+   Slot FrameWidgetSlot "{6985327711306218}" {
+    Anchor 0.5 0.5 0.5 0.5
+    PositionX 0
+    OffsetLeft 0
+    OffsetTop 0
+    SizeX 112
+    OffsetRight -112
+    SizeY 96
+    OffsetBottom -96
+    Alignment 0.5 0.5
+    SizeToContent 1
+   }
+   {
+    ImageWidgetClass "{6985327711306219}" {
+     Name "MarkerIcon"
+     Slot LayoutSlot "{698532771130621A}" {
+      HorizontalAlign 1
+      VerticalAlign 1
+     }
+     Clipping False
+     Texture "{2EFEA2AF1F38E7F0}UI/Textures/Icons/icons_wrapperUI-64.imageset"
+     Image "circle"
+     Size 56 56
+    }
+    TextWidgetClass "{698532771130621B}" {
+     Name "MarkerText"
+     Slot LayoutSlot "{698532771130621C}" {
+      HorizontalAlign 1
+      VerticalAlign 1
+     }
+     Clipping False
+     Color 0 0.001 0 1
+     Text ""
+     "Font Size" 18
+     "Min Font Size" 16
+     "Horizontal Alignment" Center
+     FontProperties FontProperties "{698532771130621D}" {
+      Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+      Bold 1
+      ShadowSize 3
+     }
+    }
+   }
+  }
+ }
+}

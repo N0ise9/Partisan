@@ -1920,8 +1920,25 @@ foreach ($requiredPlayerMarkerTypeEntry in @(
 if ($playerMarkerConfigText -notmatch "SCR_MapMarkerConfig[\s\S]*?HST_PlayerMapMarkerEntry" -or $playerMarkerConfigText -notmatch [regex]::Escape('{DD74BE2BBAE07192}Prefabs/Markers/MapMarkerEntityBase.et')) {
 	throw "Player map marker config must inherit map marker config and register HST_PlayerMapMarkerEntry with marker entity prefab"
 }
-if ($playerMarkerConfigText -notmatch [regex]::Escape('m_sMarkerLayout "{0CF9A6FB588EB475}UI/layouts/Map/MapMarkerSquadMember.layout"')) {
-	throw "Player map marker config must use a dynamic marker layout with SCR_MapMarkerDynamicWComponent"
+if ($playerMarkerConfigText -notmatch [regex]::Escape('m_sMarkerLayout "{6985327711306214}UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout"')) {
+	throw "Player map marker config must use the HST dynamic marker layout"
+}
+if (!(Test-Path "UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout")) {
+	throw "Player marker layout is missing: UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout"
+}
+$playerMarkerLayoutText = Get-Content -Raw "UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout"
+foreach ($requiredPlayerMarkerLayoutEntry in @(
+	"Name `"HST_PlayerMapMarkerDynamic`"",
+	"SCR_MapMarkerDynamicWComponent",
+	"Name `"MarkerIcon`"",
+	"Name `"MarkerText`""
+)) {
+	if ($playerMarkerLayoutText -notmatch [regex]::Escape($requiredPlayerMarkerLayoutEntry)) {
+		throw "Player marker layout is missing dynamic marker widget contract: $requiredPlayerMarkerLayoutEntry"
+	}
+}
+if ($playerMarkerLayoutText -match "SCR_MapMarkerSquadMemberComponent") {
+	throw "Player marker layout must not use the squad-member component for SCR_MapMarkerEntity dynamic markers"
 }
 if ($playerMarkerConfigText -notmatch [regex]::Escape('SCR_MapMarkerConfig : "{3583D42139D9A10B}Configs/Map/CampaignMapMarkerConfig.conf"')) {
 	throw "Player map marker config must inherit CampaignMapMarkerConfig.conf so existing campaign markers stay registered"

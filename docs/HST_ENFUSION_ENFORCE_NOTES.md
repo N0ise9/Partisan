@@ -185,9 +185,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - `SCR_PlayerNamesFilterCache` can lag marker widget creation. Resolve labels through the cache first, fall back to `PlayerManager.GetPlayerName(playerId)`, and retry for a few seconds before accepting a generic `Player X` label.
   - If `HST_PlayerMapMarkerService` logs `native reconcile failed`, first verify the active world layer `SCR_MapMarkerManagerComponent.m_sMarkerCfgPath`, the custom marker entry config, and the dedicated `SCR_EMapMarkerType.HST_PLAYER` enum.
   - For custom dynamic visuals, call `super.InitClientSettingsDynamic(marker, widgetComp)` first, then set image/color/text on `SCR_MapMarkerDynamicWComponent`.
-  - Dynamic marker config entries must name a dynamic marker layout. The default `SCR_MapMarkerEntryConfig` layout is `MapMarkerBase.layout`, which lacks `SCR_MapMarkerDynamicWComponent`; `SCR_MapMarkerEntity.OnCreateMarker()` dereferences that handler and can VM-exception on map open.
-  - Current working player-marker layout: `{0CF9A6FB588EB475}UI/layouts/Map/MapMarkerSquadMember.layout`.
-  - `MapMarkerSquadMember.layout` starts marker text hidden. Custom player marker entries that set a name must also call `SetTextVisible(true)`.
+  - Dynamic marker config entries must name a layout with `SCR_MapMarkerDynamicWComponent`. The default `SCR_MapMarkerEntryConfig` layout is `MapMarkerBase.layout`, and `MapMarkerSquadMember.layout` uses `SCR_MapMarkerSquadMemberComponent`; both lack the dynamic handler that `SCR_MapMarkerEntity.OnCreateMarker()` dereferences on map open.
+  - Current working player-marker layout: `{6985327711306214}UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout`.
+  - Custom player marker entries that set a name must also call `SetTextVisible(true)`.
   - Player markers should be gated to the active campaign phase. Setup bootstrap player entities are not gameplay map markers and can pollute the setup map or create stale dynamic handles before HQ setup is finalized.
   - For faction-colored player markers, resolve `SCR_FactionManager.SGetPlayerFaction(playerId)` client-side and fall back to the FIA faction color before using a hardcoded color.
   - Current examples: `HST_PlayerMapMarkerService`, `HST_PlayerMapMarkerEntry`, `HST_PlayerMapMarkerConfig.conf`.
