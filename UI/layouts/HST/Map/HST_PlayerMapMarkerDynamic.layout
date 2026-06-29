@@ -13,7 +13,7 @@ FrameWidgetClass "{6985327711306214}" {
  Clipping False
  "Ignore Cursor" 1
  components {
-  SCR_MapMarkerDynamicWComponent "{6985327711306216}" {
+  HST_PlayerMapMarkerDynamicWComponent "{6985327711306216}" {
   }
  }
  {

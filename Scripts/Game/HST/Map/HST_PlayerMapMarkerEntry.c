@@ -23,6 +23,10 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 		widgetComp.SetColor(ResolvePlayerMarkerColor(marker.GetMarkerConfigID()));
 		widgetComp.SetTextVisible(true);
 		ApplyPlayerMarkerLabel(marker, widgetComp, 0);
+
+		HST_PlayerMapMarkerDynamicWComponent playerWidgetComp = HST_PlayerMapMarkerDynamicWComponent.Cast(widgetComp);
+		if (playerWidgetComp)
+			playerWidgetComp.TrackPlayerFacing(marker);
 	}
 
 	protected void ApplyPlayerMarkerLabel(SCR_MapMarkerEntity marker, SCR_MapMarkerDynamicWComponent widgetComp, int attempt)

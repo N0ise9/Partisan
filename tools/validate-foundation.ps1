@@ -1930,7 +1930,7 @@ if (!(Test-Path "UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout")) {
 $playerMarkerLayoutText = Get-Content -Raw "UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout"
 foreach ($requiredPlayerMarkerLayoutEntry in @(
 	"Name `"HST_PlayerMapMarkerDynamic`"",
-	"SCR_MapMarkerDynamicWComponent",
+	"HST_PlayerMapMarkerDynamicWComponent",
 	"Name `"MarkerIcon`"",
 	"Name `"MarkerText`""
 )) {
