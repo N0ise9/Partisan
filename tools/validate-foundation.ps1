@@ -5223,6 +5223,24 @@ foreach ($requiredChestRigLabelPattern in @(
 		throw "Loadout editor vest-category UI must resolve to Chest Rig/Webbing, not Armored Vest: $requiredChestRigLabelPattern"
 	}
 }
+$loadoutClothingEditMatch = [regex]::Match($loadoutEditorComponentText, "protected bool RequestEditSelectedWornStorage\(\)[\s\S]*?\r?\n\t}")
+if (!$loadoutClothingEditMatch.Success) {
+	throw "Loadout editor clothing Edit action is missing"
+}
+foreach ($requiredClothingEditEntry in @(
+		'm_sEditorMode = "attachments"',
+		'm_sSelectedCategory = "attachment"',
+		'm_sSelectedStorageContainerNodeId = ""',
+		'm_sSelectedStoredItemNodeId = ""',
+		"EnsureCandidatePayloadForSelectedNode()"
+	)) {
+	if ($loadoutClothingEditMatch.Value -notmatch [regex]::Escape($requiredClothingEditEntry)) {
+		throw "Loadout editor clothing Edit must route to attachment editing, not storage browsing: $requiredClothingEditEntry"
+	}
+}
+if ($loadoutClothingEditMatch.Value -match [regex]::Escape('m_sEditorMode = "storage"')) {
+	throw "Loadout editor clothing Edit must not switch to storage mode"
+}
 foreach ($requiredFixedCandidateHeaderLayoutPattern in @(
 		'Name "CandidateHeaderPreviewBack"[\s\S]*?OffsetRight -94[\s\S]*?OffsetBottom -82',
 		'Name "CandidateHeaderPreviewLine"[\s\S]*?OffsetRight -94[\s\S]*?OffsetBottom -16',
@@ -5995,6 +6013,20 @@ if ($storageBrowserCandidateCategoryMatch.Success -and $storageBrowserCandidateC
 $storageVolumeFillMatch = [regex]::Match($loadoutEditorComponentText, "protected void SetStorageVolumeFill[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderPreviewStage")
 if (!$storageVolumeFillMatch.Success) {
 	throw "Loadout editor storage volume fill updater is missing"
+}
+$loadoutPreviewRenderKeyMatch = [regex]::Match($loadoutEditorComponentText, "protected string BuildPreviewRenderKey\(\)[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool GetPreviewCharacterBounds")
+if (!$loadoutPreviewRenderKeyMatch.Success) {
+	throw "Loadout editor preview render key builder is missing"
+}
+foreach ($requiredPreviewRenderKeyEntry in @(
+		'if (m_sEditorMode != "storage")',
+		'if (i < m_aSlotIds.Count() && m_aSlotIds[i].IndexOf(NODE_STORAGE_ITEM_PREFIX) == 0)',
+		'continue;',
+		'if (nodeIndex < m_aNodeKinds.Count() && m_aNodeKinds[nodeIndex] == "storage_item")'
+	)) {
+	if ($loadoutPreviewRenderKeyMatch.Value -notmatch [regex]::Escape($requiredPreviewRenderKeyEntry)) {
+		throw "Loadout editor preview render key must ignore storage selection/content mutations: $requiredPreviewRenderKeyEntry"
+	}
 }
 foreach ($requiredStorageVolumeProgressEntry in @(
 		'ProgressBarWidget fill = ProgressBarWidget.Cast(FindRowWidget(row, "VolumeFill"))',
