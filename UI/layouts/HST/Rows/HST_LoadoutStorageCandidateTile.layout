@@ -13,15 +13,15 @@ ButtonWidgetClass "{A7B8C9D001236600}" {
     VerticalAlign 0
    }
    AllowWidthOverride 1
-   WidthOverride 320
+   WidthOverride 300
    AllowHeightOverride 1
    HeightOverride 128
    AllowMinDesiredWidth 1
-   MinDesiredWidth 320
+   MinDesiredWidth 300
    AllowMinDesiredHeight 1
    MinDesiredHeight 128
    AllowMaxDesiredWidth 0
-   MaxDesiredWidth 320
+   MaxDesiredWidth 300
    AllowMaxDesiredHeight 0
    MaxDesiredHeight 128
    {

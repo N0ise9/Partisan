@@ -69,13 +69,23 @@ class HST_ArsenalItemFilter
 		if (value.Contains("scabbard") || value.Contains("sheath"))
 			return true;
 
-		if (value.Contains("etool") || value.Contains("e-tool") || value.Contains("entrenching tool"))
+		if (HasEntrenchingToolToken(value) && HasStructuralContainerQualifier(value))
 			return true;
 
 		if (value.Contains("carrier") && !IsLoadoutClothingCategory(category))
 			return true;
 
 		return false;
+	}
+
+	protected static bool HasEntrenchingToolToken(string value)
+	{
+		return value.Contains("etool") || value.Contains("e-tool") || value.Contains("e tool") || value.Contains("entrenching tool");
+	}
+
+	protected static bool HasStructuralContainerQualifier(string value)
+	{
+		return value.Contains("carrier") || value.Contains("case") || value.Contains("cover") || value.Contains("holder") || value.Contains("sleeve") || value.Contains("mount");
 	}
 
 	static bool IsMedicalItemToken(string prefab, string displayName = "")
@@ -89,7 +99,16 @@ class HST_ArsenalItemFilter
 	{
 		prefab.ToLower();
 		displayName.ToLower();
-		return prefab.Contains("backpack") || prefab.Contains("fieldpack") || prefab.Contains("field pack") || prefab.Contains("pack_") || displayName.Contains("field pack");
+		return prefab.Contains("backpack")
+			|| prefab.Contains("/backpacks/")
+			|| prefab.Contains("fieldpack")
+			|| prefab.Contains("field_pack")
+			|| prefab.Contains("field pack")
+			|| prefab.Contains("pack_")
+			|| prefab.Contains("ruck")
+			|| displayName.Contains("field pack")
+			|| displayName.Contains("ruck")
+			|| ((prefab.Contains("alice") || displayName.Contains("alice")) && (prefab.Contains("pack") || displayName.Contains("pack")));
 	}
 
 	static bool IsLoadoutClothingCategory(string category)

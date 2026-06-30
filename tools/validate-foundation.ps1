@@ -3455,7 +3455,7 @@ foreach ($requiredStorageCategoryTabEntry in @(
 		"Slot LayoutSlot",
 		"Padding 0 0 8 0",
 		"SizeLayoutWidgetClass",
-		"WidthOverride 104",
+		"WidthOverride 84",
 		"HeightOverride 78",
 		'Name "Background"',
 		'Name "Accent"',
@@ -3463,7 +3463,7 @@ foreach ($requiredStorageCategoryTabEntry in @(
 		'Name "Fallback"',
 		'"Ignore Cursor" 1',
 		"OffsetBottom 3",
-		"OffsetRight 15",
+		"OffsetRight 11",
 		"OffsetBottom 10",
 		"OffsetRight 4",
 		"OffsetBottom 4"
@@ -3474,7 +3474,7 @@ foreach ($requiredStorageCategoryTabEntry in @(
 }
 foreach ($forbiddenStorageCategoryTabEntry in @(
 		"OffsetBottom -3",
-		"OffsetRight -15",
+		"OffsetRight -11",
 		"OffsetBottom -10",
 		"OffsetRight -4",
 		"OffsetBottom -4"
@@ -5745,8 +5745,9 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 		"protected int GetStorageBrowserCategoryCount()",
 		"return 6;",
 		'weapon_group',
-		'clothing_group',
+		"IsStorageBrowserItemCategory",
 		"ConfigurePreviewDimmer",
+		"m_PreviewWidget.SetClearColor(true, GetPreviewWorldTintColor())",
 		'HST_LoadoutDimmer',
 		'PositionPreviewEntityAtStage(m_PreviewEntity, "0 1.15 0")',
 		'PositionPreviewEntityAtStage(m_PreviewEntity, "0 0.95 0")',
@@ -5845,13 +5846,6 @@ foreach ($requiredLoadoutStorageServiceEntry in @(
 		'category == "weapon"',
 		'category == "launcher"',
 		'category == "sidearm"',
-		'category == "clothing"',
-		'category == "headgear"',
-		'category == "vest"',
-		'category == "pants"',
-		'category == "boots"',
-		'category == "backpack"',
-		'category == "handwear"',
 		"return IsStorageBrowserCandidateCategory(category)",
 		"ResolveArsenalCountForPrefab(state, item.m_sPrefab, availableCount, infiniteAvailable)",
 		"candidateCount > 0",
@@ -5892,6 +5886,9 @@ foreach ($forbiddenStorageCategoryTabsGeometry in @(
 $storageBrowserCandidateCategoryMatch = [regex]::Match($loadoutEditorText, "protected bool IsStorageBrowserCandidateCategory[\s\S]*?\r?\n\t}")
 if ($storageBrowserCandidateCategoryMatch.Success -and $storageBrowserCandidateCategoryMatch.Value -match [regex]::Escape('category == "attachment"')) {
 	throw "Storage browser candidate categories must not include attachment; attachments belong in the attachment editor mode"
+}
+if ($storageBrowserCandidateCategoryMatch.Success -and $storageBrowserCandidateCategoryMatch.Value -match [regex]::Escape('category == "backpack"')) {
+	throw "Storage browser candidate categories must not include wearable storage categories; those belong in loadout slots, not add-items search"
 }
 $storageVolumeFillMatch = [regex]::Match($loadoutEditorComponentText, "protected void SetStorageVolumeFill[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderPreviewStage")
 if (!$storageVolumeFillMatch.Success) {

@@ -3362,14 +3362,7 @@ class HST_LoadoutEditorService
 			|| category == "utility"
 			|| category == "weapon"
 			|| category == "launcher"
-			|| category == "sidearm"
-			|| category == "clothing"
-			|| category == "headgear"
-			|| category == "vest"
-			|| category == "pants"
-			|| category == "boots"
-			|| category == "backpack"
-			|| category == "handwear";
+			|| category == "sidearm";
 	}
 
 	protected void ResolveArsenalCountForPrefab(HST_CampaignState state, string prefab, out int count, out bool infinite)

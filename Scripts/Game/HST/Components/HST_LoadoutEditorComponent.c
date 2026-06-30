@@ -123,7 +123,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const string NODE_ATTACHMENT_PREFIX = "live_attach_";
 	static const string NODE_STORAGE_PREFIX = "live_storage_";
 	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
-	static const int STORAGE_BROWSER_TILE_WIDTH = 320;
+	static const int STORAGE_BROWSER_TILE_WIDTH = 300;
 	static const int STORAGE_BROWSER_TILE_HEIGHT = 128;
 	static const int LOADOUT_PREVIEW_Z = 1;
 	static const int LOADOUT_UI_LAYER_Z = 100;
@@ -1918,6 +1918,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		panelRoot.SetVisible(true);
 		panelRoot.SetOpacity(1.0);
 		SetLoadoutWidgetVisible(panelRoot, "SettingsContent", true);
+		SetLoadoutWidgetVisible(panelRoot, "SettingsActionsRow", true);
+		SetLoadoutWidgetVisible(panelRoot, "SettingsDefaultsButton", true);
+		SetLoadoutWidgetVisible(panelRoot, "SettingsDefaultsBody", true);
+		SetLoadoutWidgetVisible(panelRoot, "SettingsDefaultsLabel", true);
+		SetLoadoutWidgetVisible(panelRoot, "SettingsResetPreviewButton", true);
+		SetLoadoutWidgetVisible(panelRoot, "SettingsResetPreviewBody", true);
+		SetLoadoutWidgetVisible(panelRoot, "SettingsResetPreviewLabel", true);
 	}
 
 	protected void ConfigureLoadoutPanelShell(Widget panelRoot, string title)
@@ -2653,11 +2660,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (IsBlockedStorageSearchItem(itemIndex))
 			return false;
 
+		string itemCategory;
+		if (itemIndex < m_aItemCategories.Count())
+			itemCategory = m_aItemCategories[itemIndex];
+		if (!IsStorageBrowserItemCategory(itemCategory))
+			return false;
+
 		string haystack = GetArsenalItemDisplayName(itemIndex);
 		if (itemIndex < m_aItemShortDisplays.Count())
 			haystack = haystack + " " + m_aItemShortDisplays[itemIndex];
 		if (itemIndex < m_aItemCategories.Count())
-			haystack = haystack + " " + BuildStorageSearchCategoryText(m_aItemCategories[itemIndex]);
+			haystack = haystack + " " + BuildStorageSearchCategoryText(itemCategory);
 
 		string needle = NormalizeStorageSearchText(query);
 		string normalizedHaystack = NormalizeStorageSearchText(haystack);
@@ -6053,7 +6066,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "weapons";
 		if (category == "attachment")
 			return "attachments";
-		if (category == "magazine" || category == "explosive" || category == "medical" || category == "utility" || category == "weapon_group" || category == "clothing_group" || category == "search")
+		if (category == "magazine" || category == "explosive" || category == "medical" || category == "utility" || category == "weapon_group" || category == "search")
 			return "storage";
 
 		return m_sEditorMode;
@@ -6068,11 +6081,22 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (modeId == "attachments")
 			return category == "attachment";
 		if (modeId == "storage")
-			return category == "magazine" || category == "explosive" || category == "medical" || category == "utility" || category == "weapon" || category == "launcher" || category == "sidearm" || category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear" || category == "weapon_group" || category == "clothing_group";
+			return IsStorageBrowserItemCategory(category) || category == "weapon_group" || category == "search";
 		if (modeId == "settings" || modeId == "save")
 			return true;
 
 		return false;
+	}
+
+	protected bool IsStorageBrowserItemCategory(string category)
+	{
+		return category == "magazine"
+			|| category == "explosive"
+			|| category == "medical"
+			|| category == "utility"
+			|| category == "weapon"
+			|| category == "launcher"
+			|| category == "sidearm";
 	}
 
 	protected int GetStorageBrowserCategoryCount()
@@ -6153,8 +6177,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return false;
 		if (tabCategory == "weapon_group")
 			return itemCategory == "weapon" || itemCategory == "launcher" || itemCategory == "sidearm";
-		if (tabCategory == "clothing_group")
-			return itemCategory == "clothing" || itemCategory == "headgear" || itemCategory == "vest" || itemCategory == "pants" || itemCategory == "boots" || itemCategory == "backpack" || itemCategory == "handwear";
+		if (!IsStorageBrowserItemCategory(itemCategory))
+			return false;
 
 		return itemCategory == tabCategory;
 	}
@@ -6694,6 +6718,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_PreviewWidget.SetVisible(true);
 		m_PreviewWidget.SetOpacity(1.0);
+		m_PreviewWidget.SetClearColor(true, GetPreviewWorldTintColor());
 		m_PreviewWidget.SetColorInt(0xFFFFFFFF);
 		m_PreviewWidget.SetZOrder(LOADOUT_PREVIEW_Z);
 	}

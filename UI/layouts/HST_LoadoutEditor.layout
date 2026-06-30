@@ -984,9 +984,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "StorageCategoryTabs"
        Slot FrameWidgetSlot "{7B2FD986A4D34253}" {
       Anchor 0 0 1 0
-      OffsetLeft 108
+      OffsetLeft 76
       OffsetTop 72
-      OffsetRight 108
+      OffsetRight 76
       SizeY 78
       OffsetBottom -150
        }

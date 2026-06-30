@@ -18,10 +18,13 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 
 	override void InitClientSettingsDynamic(notnull SCR_MapMarkerEntity marker, notnull SCR_MapMarkerDynamicWComponent widgetComp)
 	{
-		super.InitClientSettingsDynamic(marker, widgetComp);
+		string label = ResolvePlayerMarkerLabel(marker);
+		Color markerColor = ResolvePlayerMarkerColor(marker.GetMarkerConfigID());
 		widgetComp.SetImage(PLAYER_MARKER_IMAGESET, PLAYER_MARKER_ICON);
-		widgetComp.SetColor(ResolvePlayerMarkerColor(marker.GetMarkerConfigID()));
+		widgetComp.SetColor(markerColor);
 		widgetComp.SetTextVisible(true);
+		widgetComp.SetText(label);
+		Print(string.Format("h-istasi player map marker debug | client widget init player=%1 label=%2 color=%3", marker.GetMarkerConfigID(), label, markerColor.PackToInt()));
 		ApplyPlayerMarkerLabel(marker, widgetComp, 0);
 
 		HST_PlayerMapMarkerDynamicWComponent playerWidgetComp = HST_PlayerMapMarkerDynamicWComponent.Cast(widgetComp);
@@ -114,7 +117,7 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 		}
 
 		if (faction)
-			return faction.GetFactionColor();
+			return Color.FromInt(faction.GetFactionColor().PackToInt() | 0xFF000000);
 
 		return Color.FromInt(0xFF7FD36B);
 	}

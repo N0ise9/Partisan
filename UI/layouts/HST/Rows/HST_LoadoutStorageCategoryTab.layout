@@ -11,11 +11,11 @@ ButtonWidgetClass "{A7B8C9D001234610}" {
    Slot ButtonWidgetSlot "{A7B8C9D001234613}" {
    }
    AllowWidthOverride 1
-   WidthOverride 104
+   WidthOverride 84
    AllowHeightOverride 1
    HeightOverride 78
    AllowMinDesiredWidth 1
-   MinDesiredWidth 104
+   MinDesiredWidth 84
    AllowMinDesiredHeight 1
    MinDesiredHeight 78
    {
@@ -57,9 +57,9 @@ ButtonWidgetClass "{A7B8C9D001234610}" {
        Name "Icon"
        Slot FrameWidgetSlot "{A7B8C9D00123461B}" {
        Anchor 0 0 1 1
-       OffsetLeft 15
+       OffsetLeft 11
        OffsetTop 10
-       OffsetRight 15
+       OffsetRight 11
        OffsetBottom 10
        }
        "Is Visible" 1
