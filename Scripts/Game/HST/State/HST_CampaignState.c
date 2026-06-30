@@ -781,7 +781,16 @@ class HST_CampaignState
 	{
 		foreach (HST_ArsenalItemState item : m_aArsenalItems)
 		{
-			if (item.m_sPrefab == prefab)
+			if (item && item.m_sPrefab == prefab)
+				return item;
+		}
+
+		if (!HST_ArsenalItemEquivalence.IsPaperMapPrefab(prefab))
+			return null;
+
+		foreach (HST_ArsenalItemState item : m_aArsenalItems)
+		{
+			if (item && HST_ArsenalItemEquivalence.AreEquivalentPrefabs(item.m_sPrefab, prefab))
 				return item;
 		}
 
@@ -866,6 +875,15 @@ class HST_CampaignState
 		foreach (HST_IssuedLoadoutItemState issuedItem : m_aIssuedLoadoutItems)
 		{
 			if (issuedItem && issuedItem.m_sOwnerIdentityId == ownerIdentityId && issuedItem.m_sItemPrefab == itemPrefab)
+				return issuedItem;
+		}
+
+		if (!HST_ArsenalItemEquivalence.IsPaperMapPrefab(itemPrefab))
+			return null;
+
+		foreach (HST_IssuedLoadoutItemState issuedItem : m_aIssuedLoadoutItems)
+		{
+			if (issuedItem && issuedItem.m_sOwnerIdentityId == ownerIdentityId && HST_ArsenalItemEquivalence.AreEquivalentPrefabs(issuedItem.m_sItemPrefab, itemPrefab))
 				return issuedItem;
 		}
 

@@ -1929,14 +1929,11 @@ if (!(Test-Path "Prefabs/Markers/HST_PlayerMapMarker.et")) {
 	throw "Player marker prefab is missing: Prefabs/Markers/HST_PlayerMapMarker.et"
 }
 $playerMarkerPrefabText = Get-Content -Raw "Prefabs/Markers/HST_PlayerMapMarker.et"
-foreach ($requiredPlayerMarkerPrefabEntry in @(
-		'RplComponent',
-		'SpatialRelevancy 0',
-		'Streamable Disabled'
-	)) {
-	if ($playerMarkerPrefabText -notmatch [regex]::Escape($requiredPlayerMarkerPrefabEntry)) {
-		throw "Player marker prefab must disable spatial streaming like native squad marker prefabs: $requiredPlayerMarkerPrefabEntry"
-	}
+if ($playerMarkerPrefabText -notmatch [regex]::Escape('Prefabs/Markers/MapMarkerEntityBase.et')) {
+	throw "Player marker prefab must inherit MapMarkerEntityBase.et so SCR_MapMarkerEntity has its native marker/RPL shell"
+}
+if ($playerMarkerPrefabText -match "components\s*\{[\s\S]*?RplComponent") {
+	throw "Player marker prefab must not add a duplicate RplComponent when inheriting MapMarkerEntityBase.et"
 }
 if ($playerMarkerConfigText -notmatch [regex]::Escape('m_sMarkerLayout "{6985327711306214}UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout"')) {
 	throw "Player map marker config must use the HST dynamic marker layout"

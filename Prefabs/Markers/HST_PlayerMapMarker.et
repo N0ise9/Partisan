@@ -1,11 +1,4 @@
 SCR_MapMarkerEntity : "{DD74BE2BBAE07192}Prefabs/Markers/MapMarkerEntityBase.et" {
  ID "6985327711306230"
- components {
-  RplComponent "{6985327711306231}" {
-   "Parent Node From Parent Entity" 0
-   SpatialRelevancy 0
-   Streamable Disabled
-  }
- }
  m_fUpdateDelayData 0.25
 }

@@ -871,11 +871,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				if (!m_sSelectedSlotId.IsEmpty())
 				{
 					m_sLastResult = "requested swap item";
+					RequestPreviewCameraRefocusForNonStorageSelection();
 					RequestServerAction("loadout_replace_slot", m_sSelectedSlotId + ":" + m_aItemPrefabs[itemIndex]);
 				}
 				else
 				{
 					m_sLastResult = "requested add item";
+					RequestPreviewCameraRefocusForNonStorageSelection();
 					RequestServerAction("loadout_add_item", m_aItemPrefabs[itemIndex]);
 				}
 
@@ -911,7 +913,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				if (m_sEditorMode == "storage")
 					m_sLastResult = "requested add storage item";
 				else
+				{
 					m_sLastResult = "requested " + BuildNodeActionLabel();
+					RequestPreviewCameraRefocusForNonStorageSelection();
+				}
 				RequestServerAction(commandId, nodeId + ":" + m_aCandidatePrefabs[candidateIndex]);
 				RenderEditor();
 				return true;
@@ -976,6 +981,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 					m_iItemPage = 0;
 					m_fCandidateScrollY = 0.0;
 					m_fStorageCandidateScrollY = 0.0;
+					RequestPreviewCameraRefocusForNonStorageSelection();
 					RenderEditor();
 					return true;
 				}
@@ -987,6 +993,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				m_iItemPage = 0;
 				m_fCandidateScrollY = 0.0;
 				m_fStorageCandidateScrollY = 0.0;
+				RequestPreviewCameraRefocusForNonStorageSelection();
 				EnsureCandidatePayloadForSelectedNode();
 				RenderEditor();
 				return true;
@@ -1007,6 +1014,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_iItemPage = 0;
 			m_fCandidateScrollY = 0.0;
 			m_fStorageCandidateScrollY = 0.0;
+			RequestPreviewCameraRefocusForNonStorageSelection();
 			EnsureCandidatePayloadForSelectedNode();
 			RenderEditor();
 			return true;
@@ -8260,7 +8268,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		float cameraTargetDistance = Math.Clamp(m_fPreviewedEntitySize * 1.5, 3.2, 7.0);
 		if (m_sPreviewSourceMode == PREVIEW_MODE_ENTITY)
 		{
-			cameraTargetDistance = Math.Clamp(m_fPreviewedEntitySize * 1.25, 0.85, 3.6);
+			cameraTargetDistance = Math.Clamp(m_fPreviewedEntitySize * 1.05, 0.7, 2.8);
 			targetCameraLookPosition = m_vPreviewedEntityCenterWorld;
 			targetCameraDirection = BuildPreviewCameraDirection(0);
 			if (m_aCurrentCameraMatrix[3][0] < -0.1)
@@ -8311,6 +8319,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		UpdatePreviewCameraImmediate(false, reason);
 		m_bPreviewCameraAutoFramed = true;
+	}
+
+	protected void RequestPreviewCameraRefocusForNonStorageSelection()
+	{
+		if (m_sEditorMode == "storage")
+			return;
+
+		m_iCameraMode = 0;
+		m_bPreviewCameraAutoFramed = false;
 	}
 
 	protected void HandlePreviewDragInput(InputManager inputManager)

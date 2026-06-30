@@ -1213,14 +1213,6 @@ class HST_LoadoutEditorService
 	{
 		FindCargoDepositStorages(entity, outStorages);
 
-		array<BaseInventoryStorageComponent> structuralStorages = {};
-		FindStructuralAttachmentStorages(entity, structuralStorages);
-		foreach (BaseInventoryStorageComponent structuralStorage : structuralStorages)
-		{
-			if (structuralStorage && outStorages.Find(structuralStorage) < 0)
-				outStorages.Insert(structuralStorage);
-		}
-
 		return outStorages.Count();
 	}
 
@@ -3941,7 +3933,7 @@ class HST_LoadoutEditorService
 
 		foreach (HST_LoadoutCostEntry entry : costLedger)
 		{
-			if (entry && entry.m_sPrefab == prefab)
+			if (entry && HST_ArsenalItemEquivalence.AreEquivalentPrefabs(entry.m_sPrefab, prefab))
 				return entry;
 		}
 
@@ -4241,7 +4233,7 @@ class HST_LoadoutEditorService
 		int count;
 		foreach (HST_LoadoutSlotState slot : loadout.m_aSlots)
 		{
-			if (slot && slot.m_sItemPrefab == prefab)
+			if (slot && HST_ArsenalItemEquivalence.AreEquivalentPrefabs(slot.m_sItemPrefab, prefab))
 				count += Math.Max(1, slot.m_iQuantity);
 		}
 
@@ -4324,6 +4316,9 @@ class HST_LoadoutEditorService
 	protected string ResolveEditorCategory(string prefab, string sourceCategory)
 	{
 		string derivedCategory = ResolveCategoryFromPrefab(prefab);
+		if (IsLoadoutClothingCategory(derivedCategory))
+			return derivedCategory;
+
 		if (!sourceCategory.IsEmpty() && sourceCategory != "equipment")
 		{
 			if (sourceCategory == "launcher")
