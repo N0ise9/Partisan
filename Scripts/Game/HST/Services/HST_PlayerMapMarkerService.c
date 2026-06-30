@@ -179,9 +179,10 @@ class HST_PlayerMapMarkerService
 
 			string playerName = ResolvePlayerName(playerManager, playerId);
 			string entitySignature = ResolveEntitySignature(playerEntity);
-			signature = signature + string.Format("\n%1|%2|%3", playerId, entitySignature, playerName);
+			string factionKey = ResolvePlayerMarkerFactionKey(playerId, playerEntity);
+			signature = signature + string.Format("\n%1|%2|%3|%4", playerId, entitySignature, playerName, factionKey);
 
-			HST_MapMarkerRecord record = BuildPlayerRecord(playerId, playerEntity, playerName, state);
+			HST_MapMarkerRecord record = BuildPlayerRecord(playerId, playerEntity, playerName, factionKey, state);
 			if (record && !record.m_sId.IsEmpty())
 				m_mDesiredPlayerMarkers.Set(record.m_sId, record);
 		}
@@ -250,7 +251,7 @@ class HST_PlayerMapMarkerService
 		Print("h-istasi player map marker | marker manager is not using HST_PlayerMapMarkerConfig; player markers cannot render until the HST_PLAYER entry is loaded", LogLevel.WARNING);
 	}
 
-	protected HST_MapMarkerRecord BuildPlayerRecord(int playerId, IEntity entity, string playerName, HST_CampaignState state)
+	protected HST_MapMarkerRecord BuildPlayerRecord(int playerId, IEntity entity, string playerName, string factionKey, HST_CampaignState state)
 	{
 		if (playerId <= 0 || !entity)
 			return null;
@@ -263,7 +264,7 @@ class HST_PlayerMapMarkerService
 		record.m_sLabel = playerName;
 		record.m_sShortLabel = playerName;
 		record.m_sCategory = "player";
-		record.m_sFactionKey = "FIA";
+		record.m_sFactionKey = factionKey;
 		record.m_iPriority = 90;
 		record.m_eMarkerType = SCR_EMapMarkerType.HST_PLAYER;
 		record.m_iConfigId = playerId;
@@ -277,6 +278,25 @@ class HST_PlayerMapMarkerService
 			record.m_iLastChangedSecond = state.m_iElapsedSeconds;
 
 		return record;
+	}
+
+	protected string ResolvePlayerMarkerFactionKey(int playerId, IEntity entity)
+	{
+		Faction faction;
+		if (playerId > 0)
+			faction = SCR_FactionManager.SGetPlayerFaction(playerId);
+
+		if (!faction && entity)
+		{
+			FactionAffiliationComponent affiliation = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+			if (affiliation)
+				faction = affiliation.GetAffiliatedFaction();
+		}
+
+		if (faction)
+			return faction.GetFactionKey();
+
+		return "";
 	}
 
 	protected bool ShouldPublishPlayerMarkers(HST_CampaignState state)
