@@ -754,7 +754,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        "Is Visible" 0
        "No Localization" 1
        "Ignore Cursor" 1
-       Text ">"
+       Text ""
        "Horizontal Alignment" Center
        "Vertical Alignment" Center
       }
@@ -762,10 +762,10 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "CandidateEditLabel"
        Slot FrameWidgetSlot "{7B2FD986A4D35399}" {
         Anchor 1 0 1 0
-        OffsetLeft -94
+        OffsetLeft -128
         OffsetTop 58
-        OffsetRight 24
-        SizeX 70
+        OffsetRight 20
+        SizeX 108
         SizeY 32
         OffsetBottom -90
        }
@@ -773,7 +773,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        "No Localization" 1
        "Ignore Cursor" 1
        Text "Edit"
-       "Horizontal Alignment" Left
+       "Horizontal Alignment" Center
        "Vertical Alignment" Center
       }
       ButtonWidgetClass "{7B2FD986A4D34310}" {

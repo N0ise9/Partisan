@@ -4846,6 +4846,9 @@ foreach ($loadoutStorageButtonBindingContract in $loadoutStorageButtonBindingCon
 		throw "Loadout editor storage filter/sort button must bind and populate its layout-owned label: $expectedStorageButtonBinding"
 	}
 }
+if ($loadoutEditorLayoutText -notmatch 'Name "StorageFilterNotInfiniteButton"[\s\S]*?OffsetLeft 204' -or $loadoutEditorLayoutText -notmatch 'Name "StorageFilterShowAllButton"[\s\S]*?OffsetLeft 302') {
+	throw "Loadout editor storage filters must render Not INF before All"
+}
 if ($loadoutEditorComponentText -notmatch [regex]::Escape('ConfigureStorageBrowserButton(searchRoot, "StorageSearchClearButton", "StorageSearchClearButton", "StorageSearchClearAccent", "StorageSearchClearLabel", "Clear", STORAGE_SEARCH_CLEAR_WIDGET_ID')) {
 	throw "Loadout editor storage search clear button must bind and populate its layout-owned label"
 }
@@ -5089,6 +5092,11 @@ foreach ($requiredLoadoutCandidateTemplateLayoutEntry in @(
 		'Name "CandidateHeaderSlot"',
 		'Name "CandidateHeaderName"',
 		'Name "CandidateHeaderMarker"',
+		'Name "CandidateEditButton"',
+		'Name "CandidateEditBackground"',
+		'Name "CandidateEditAccent"',
+		'Name "CandidateEditIcon"',
+		'Name "CandidateEditLabel"',
 		'Name "CandidateRemoveButton"',
 		'Name "CandidateRemoveBackground"',
 		'Name "CandidateRemoveAccent"',
@@ -5124,6 +5132,12 @@ if ($loadoutEditorComponentText -notmatch [regex]::Escape('ConfigureLoadoutPanel
 }
 if ($loadoutEditorComponentText -notmatch [regex]::Escape('SetLoadoutText(panelRoot, "CandidateRemoveIcon", "X"')) {
 	throw "Loadout editor candidate remove button must populate its layout-owned remove icon text"
+}
+if ($loadoutEditorLayoutText -match 'Name "CandidateEditIcon"[\s\S]*?Text ">"') {
+	throw "Loadout editor candidate edit button must not carry a visible or fallback > icon"
+}
+if ($loadoutEditorLayoutText -notmatch 'Name "CandidateEditLabel"[\s\S]*?OffsetLeft -128[\s\S]*?OffsetRight 20[\s\S]*?SizeX 108[\s\S]*?"Horizontal Alignment" Center') {
+	throw "Loadout editor candidate edit label must span and center inside the full Edit button"
 }
 foreach ($requiredFixedCandidateHeaderLayoutPattern in @(
 		'Name "CandidateHeaderPreviewBack"[\s\S]*?OffsetRight -94[\s\S]*?OffsetBottom -82',
