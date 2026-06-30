@@ -3763,12 +3763,45 @@ $configModelsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_ConfigModels.c
 $arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
 $lootServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c"
 $loadoutEditorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LoadoutEditorService.c"
+$campaignStateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$arsenalEquivalenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalItemEquivalence.c"
 $campaignSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
 $loadoutPreviewWorldText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewWorld.et"
 $loadoutPreviewLightsText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewLights.et"
 $loadoutPreviewSkyText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewSky.emat"
 $loadoutPreviewSkySphereText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewSkySphere.et"
 $loadoutPreviewVisualText = $loadoutPreviewWorldText + "`n" + $loadoutPreviewSkyText + "`n" + $loadoutPreviewSkySphereText
+foreach ($requiredPaperMapEquivalenceEntry in @(
+		"AreEquivalentPrefabs",
+		"IsPaperMapPrefab",
+		'prefab.Contains("prefabs/items/equipment/maps/")',
+		'prefab.Contains("papermap_")',
+		'prefab.Contains("paper_map_")',
+		'prefab.Contains("map_paper_")'
+	)) {
+	if ($arsenalEquivalenceText -notmatch [regex]::Escape($requiredPaperMapEquivalenceEntry)) {
+		throw "Paper map arsenal equivalence helper is missing: $requiredPaperMapEquivalenceEntry"
+	}
+}
+foreach ($requiredPaperMapUsageEntry in @(
+		"FindArsenalItem",
+		"FindIssuedLoadoutItem",
+		"HST_ArsenalItemEquivalence.IsPaperMapPrefab",
+		"HST_ArsenalItemEquivalence.AreEquivalentPrefabs"
+	)) {
+	if ($campaignStateText -notmatch [regex]::Escape($requiredPaperMapUsageEntry)) {
+		throw "Campaign state must resolve paper-map equivalent arsenal and issued-loadout items: $requiredPaperMapUsageEntry"
+	}
+}
+foreach ($requiredPaperMapLoadoutEntry in @(
+		"FindCostEntry",
+		"CountLoadoutItem",
+		"HST_ArsenalItemEquivalence.AreEquivalentPrefabs"
+	)) {
+	if ($loadoutEditorText -notmatch [regex]::Escape($requiredPaperMapLoadoutEntry)) {
+		throw "Loadout editor accounting must group paper-map equivalent prefabs: $requiredPaperMapLoadoutEntry"
+	}
+}
 foreach ($requiredPhase14ConfigEntry in @(
 		"HST_ArsenalItemRule",
 		"m_sPrefabContains",
@@ -5167,6 +5200,26 @@ if ($loadoutEditorLayoutText -match 'Name "CandidateEditIcon"[\s\S]*?Text ">"') 
 }
 if ($loadoutEditorLayoutText -notmatch 'Name "CandidateEditLabel"[\s\S]*?OffsetLeft -128[\s\S]*?OffsetRight 20[\s\S]*?SizeX 108[\s\S]*?"Horizontal Alignment" Center') {
 	throw "Loadout editor candidate edit label must span and center inside the full Edit button"
+}
+$loadoutEditorCombinedText = $loadoutEditorComponentText + "`n" + $loadoutEditorText + "`n" + $loadoutEditorLayoutText
+if ($loadoutEditorCombinedText -match [regex]::Escape('"Armored Vest"')) {
+	throw "Loadout editor must not expose the legacy visible label `"Armored Vest`"; use `"Chest Rig`" for vest-category UI text"
+}
+foreach ($requiredChestRigLabelEntry in @(
+		'InsertCategory("vest", "Chest Rig"',
+		'AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Chest Rig", "torso")'
+	)) {
+	if ($loadoutEditorCombinedText -notmatch [regex]::Escape($requiredChestRigLabelEntry)) {
+		throw "Loadout editor vest-category UI must resolve to Chest Rig/Webbing, not Armored Vest: $requiredChestRigLabelEntry"
+	}
+}
+foreach ($requiredChestRigLabelPattern in @(
+		'if \(category == "vest"\)[\s\S]{0,140}?return "Chest Rig";',
+		'if \(categoryId == "vest"\)[\s\S]{0,140}?return "Chest Rig";'
+	)) {
+	if ($loadoutEditorCombinedText -notmatch $requiredChestRigLabelPattern) {
+		throw "Loadout editor vest-category UI must resolve to Chest Rig/Webbing, not Armored Vest: $requiredChestRigLabelPattern"
+	}
 }
 foreach ($requiredFixedCandidateHeaderLayoutPattern in @(
 		'Name "CandidateHeaderPreviewBack"[\s\S]*?OffsetRight -94[\s\S]*?OffsetBottom -82',
