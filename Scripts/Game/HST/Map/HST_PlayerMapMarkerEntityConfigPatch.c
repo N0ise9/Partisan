@@ -2,6 +2,28 @@ modded class SCR_MapMarkerEntity
 {
 	static const ResourceName PLAYER_MARKER_CONFIG = "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf";
 
+	override protected void EOnInit(IEntity owner)
+	{
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+			return;
+
+		markerManager.RegisterDynamicMarker(this);
+
+		BaseRplComponent rplComp = BaseRplComponent.Cast(FindComponent(BaseRplComponent));
+		if (!rplComp || rplComp.IsOwner())
+		{
+			SetFlags(EntityFlags.ACTIVE, true);
+			SetEventMask(EntityEvent.FRAME);
+		}
+
+		SCR_MapMarkerEntityClass markerEntityClass = SCR_MapMarkerEntityClass.Cast(GetPrefabData());
+		if (markerEntityClass)
+			m_fUpdateDelay = markerEntityClass.GetUpdateDelay();
+
+		m_fTimeTracker = m_fUpdateDelay;
+	}
+
 	override void OnCreateMarker()
 	{
 		if (GetType() == SCR_EMapMarkerType.HST_PLAYER)

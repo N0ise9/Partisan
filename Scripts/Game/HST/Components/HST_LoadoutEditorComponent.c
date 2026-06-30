@@ -121,9 +121,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const string NODE_LOADOUT_PREFIX = "live_loadout_";
 	static const string NODE_WEAPON_PREFIX = "live_weapon_";
 	static const string NODE_ATTACHMENT_PREFIX = "live_attach_";
+	static const string NODE_CLOTHING_ATTACHMENT_PREFIX = "live_cloth_attach_";
 	static const string NODE_STORAGE_PREFIX = "live_storage_";
 	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
-	static const int STORAGE_BROWSER_TILE_WIDTH = 300;
+	static const int STORAGE_BROWSER_TILE_WIDTH = 244;
 	static const int STORAGE_BROWSER_TILE_HEIGHT = 128;
 	static const int LOADOUT_PREVIEW_Z = 1;
 	static const int LOADOUT_UI_LAYER_Z = 100;
@@ -295,6 +296,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected bool m_bSyncingStorageSearchInput;
 	protected bool m_bSyncingTemplateRenameInput;
 	protected bool m_bDeferredStorageBrowserRenderQueued;
+	protected int m_iPressedWidgetId = -1;
 	protected ref array<string> m_aLoadedCandidateNodeIds = {};
 	protected ref array<string> m_aCandidateEmptyNodeIds = {};
 	protected ref array<string> m_aCandidateEmptyReasons = {};
@@ -491,7 +493,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	bool OnWidgetMouseButtonDown(int widgetId, int x, int y, int button)
 	{
 		if (widgetId != PREVIEW_DRAG_WIDGET_ID)
+		{
+			if (button == 0)
+				ApplyPressedButtonFeedback(widgetId, true);
+
 			return false;
+		}
 		if (!m_bEditorOpen || !CanHandleLoadoutEditorInput())
 			return false;
 
@@ -510,7 +517,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	bool OnWidgetMouseButtonUp(int widgetId, int x, int y, int button)
 	{
 		if (widgetId != PREVIEW_DRAG_WIDGET_ID)
+		{
+			if (m_iPressedWidgetId >= 0)
+				ApplyPressedButtonFeedback(m_iPressedWidgetId, false);
+
 			return false;
+		}
 		if (!m_bEditorOpen || !CanHandleLoadoutEditorInput())
 			return false;
 
@@ -643,6 +655,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			ResetLoadoutScroll();
 			RefreshPreviewWorldLoadout();
 			UpdatePreviewCamera(false);
+			ShowHint("Render Preview Reset");
 			RenderEditor();
 			return true;
 		}
@@ -700,7 +713,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			SaveVisualSettings();
 			ApplyPreviewLightSettings();
 			RebuildPreviewStage();
-			ShowHint("Settings set to default");
+			ShowHint("Loadout Editor Settings Reset");
 			RenderEditor();
 			return true;
 		}
@@ -1407,7 +1420,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		SaveVisualSettings();
 		if (settingId == "world")
-			RebuildPreviewStage();
+		{
+			ApplyPreviewWorldSettings();
+			ConfigurePreviewWidget();
+			ConfigurePreviewDimmer(m_RootWidget);
+		}
 		RenderEditor();
 	}
 
@@ -2884,8 +2901,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterFitButton", "StorageFilterFitButton", "StorageFilterFitAccent", "StorageFilterFitLabel", "Fits", STORAGE_FILTER_WIDGET_ID_BASE + 0, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterAmmoButton", "StorageFilterAmmoButton", "StorageFilterAmmoAccent", "StorageFilterAmmoLabel", "Ammo", STORAGE_FILTER_WIDGET_ID_BASE + 1, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterInfiniteButton", "StorageFilterInfiniteButton", "StorageFilterInfiniteAccent", "StorageFilterInfiniteLabel", "INF", STORAGE_FILTER_WIDGET_ID_BASE + 2, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_INFINITE_ONLY));
-		ConfigureStorageBrowserButton(panelRoot, "StorageFilterShowAllButton", "StorageFilterShowAllButton", "StorageFilterShowAllAccent", "StorageFilterShowAllLabel", "All", STORAGE_FILTER_WIDGET_ID_BASE + 3, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterNotInfiniteButton", "StorageFilterNotInfiniteButton", "StorageFilterNotInfiniteAccent", "StorageFilterNotInfiniteLabel", "Not INF", STORAGE_FILTER_WIDGET_ID_BASE + 4, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_NOT_INFINITE));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterShowAllButton", "StorageFilterShowAllButton", "StorageFilterShowAllAccent", "StorageFilterShowAllLabel", "All", STORAGE_FILTER_WIDGET_ID_BASE + 3, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL));
 
 		int nameSortMode = m_VisualSettings.m_iStorageNameSortMode;
 		int countSortMode = m_VisualSettings.m_iStorageCountSortMode;
@@ -3810,7 +3827,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (CanEditSelectedWornStorage())
 		{
 			ConfigureLoadoutPanelButton(panelRoot, "CandidateEditButton", "CandidateEditBackground", "CandidateEditAccent", "CandidateEditLabel", "Edit", EDIT_SELECTED_STORAGE_WIDGET_ID);
-			SetLoadoutText(panelRoot, "CandidateEditIcon", ">", 0xFFFFFFFF, ScaleFont(30), true, false);
+			SetLoadoutWidgetVisible(panelRoot, "CandidateEditIcon", false);
 		}
 
 		m_aVisibleCandidateIndexes.Clear();
@@ -3953,7 +3970,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutText(panelRoot, "SettingsWorldPresetValue", GetPresetLabel("world", m_VisualSettings.m_iWorldPreset), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
 		ConfigureLoadoutPanelButton(panelRoot, "SettingsWorldPresetButton", "", "", "SettingsWorldPresetButtonLabel", "Next", SETTINGS_WORLD_PRESET_WIDGET_ID);
 
-		ConfigureLoadoutPanelButton(panelRoot, "SettingsDefaultsButton", "", "", "SettingsDefaultsLabel", "Set to Default", SETTINGS_RESET_WIDGET_ID);
+		ConfigureLoadoutPanelButton(panelRoot, "SettingsDefaultsButton", "", "", "SettingsDefaultsLabel", "Reset Defaults", SETTINGS_RESET_WIDGET_ID);
 		ConfigureLoadoutPanelButton(panelRoot, "SettingsResetPreviewButton", "", "", "SettingsResetPreviewLabel", "Reset Preview", RESET_PREVIEW_WIDGET_ID);
 	}
 
@@ -4755,7 +4772,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		InsertCategory("headgear", "Headgear", 0);
 		InsertCategory("clothing", "Clothing", 0);
-		InsertCategory("vest", "Armored Vest", 0);
+		InsertCategory("vest", "Chest Rig", 0);
 		InsertCategory("pants", "Pants", 0);
 		InsertCategory("boots", "Boots", 0);
 		InsertCategory("backpack", "Backpack", 0);
@@ -5114,26 +5131,26 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!HST_ArsenalItemFilter.IsLoadoutClothingCategory(category))
 			return false;
 
-		return !ResolveSelectedWornStorageNodeId().IsEmpty();
+		return !ResolveSelectedWornAttachmentParentNodeId().IsEmpty();
 	}
 
 	protected bool RequestEditSelectedWornStorage()
 	{
-		string storageNodeId = ResolveSelectedWornStorageNodeId();
-		if (storageNodeId.IsEmpty())
+		string parentNodeId = ResolveSelectedWornAttachmentParentNodeId();
+		if (parentNodeId.IsEmpty())
 			return false;
 
-		m_sEditorMode = "storage";
-		m_sSelectedCategory = ResolveDefaultStorageCategory();
-		m_sSelectedStorageContainerNodeId = storageNodeId;
+		m_sEditorMode = "attachments";
+		m_sSelectedCategory = "attachment";
+		m_sSelectedStorageContainerNodeId = "";
 		m_sSelectedStoredItemNodeId = "";
-		m_sSelectedNodeId = storageNodeId;
-		m_sSelectedSlotId = "";
+		m_sSelectedNodeId = parentNodeId;
+		m_sSelectedSlotId = parentNodeId;
 		m_bCandidateMode = true;
 		m_iItemPage = 0;
 		m_fCandidateScrollY = 0.0;
 		m_fStorageCandidateScrollY = 0.0;
-		EnsureCandidatePayloadForStorageContainer();
+		EnsureCandidatePayloadForSelectedNode();
 		return true;
 	}
 
@@ -5148,6 +5165,52 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return m_aSlotCategories[slotIndex];
 
 		return "";
+	}
+
+	protected string ResolveSelectedWornAttachmentParentNodeId()
+	{
+		string selectedNodeId = ResolveSelectedCandidateNodeId();
+		if (HasAttachmentChildren(selectedNodeId))
+			return selectedNodeId;
+
+		if (selectedNodeId.IndexOf(NODE_CLOTHING_ATTACHMENT_PREFIX) == 0)
+		{
+			int selectedNodeIndex = FindStringIndex(m_aNodeIds, selectedNodeId);
+			if (selectedNodeIndex >= 0 && selectedNodeIndex < m_aNodeParents.Count() && HasAttachmentChildren(m_aNodeParents[selectedNodeIndex]))
+				return m_aNodeParents[selectedNodeIndex];
+		}
+
+		int slotIndex = -1;
+		if (selectedNodeId.IndexOf(NODE_LOADOUT_PREFIX) == 0)
+			slotIndex = ParseSinglePreviewNodeIndex(selectedNodeId, NODE_LOADOUT_PREFIX);
+		else if (!m_sSelectedSlotId.IsEmpty() && m_sSelectedSlotId.IndexOf(NODE_LOADOUT_PREFIX) == 0)
+			slotIndex = ParseSinglePreviewNodeIndex(m_sSelectedSlotId, NODE_LOADOUT_PREFIX);
+
+		if (slotIndex < 0)
+			return "";
+
+		string loadoutNodeId = NODE_LOADOUT_PREFIX + string.Format("%1", slotIndex);
+		if (HasAttachmentChildren(loadoutNodeId))
+			return loadoutNodeId;
+
+		return "";
+	}
+
+	protected bool HasAttachmentChildren(string parentNodeId)
+	{
+		if (parentNodeId.IsEmpty())
+			return false;
+
+		for (int i = 0; i < m_aNodeIds.Count(); i++)
+		{
+			if (i >= m_aNodeParents.Count() || i >= m_aNodeKinds.Count())
+				continue;
+
+			if (m_aNodeParents[i] == parentNodeId && m_aNodeKinds[i] == "attachment")
+				return true;
+		}
+
+		return false;
 	}
 
 	protected string ResolveSelectedWornStorageNodeId()
@@ -5285,7 +5348,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (category == "clothing")
 			return "Jacket";
 		if (category == "vest")
-			return "Armored Vest";
+			return "Chest Rig";
 		if (category == "pants")
 			return "Pants";
 		if (category == "boots")
@@ -5883,7 +5946,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (category == "headgear")
 			return "Headgear";
 		if (category == "vest")
-			return "Armored Vest";
+			return "Chest Rig";
 		if (category == "pants")
 			return "Pants";
 		if (category == "boots")
@@ -6827,40 +6890,40 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int preset = m_VisualSettings.m_iWorldPreset;
 		if (preset == 1)
 		{
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.13, 0.18, 0.145, 0.0);
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.025, 0.045, 0.032, 0.0);
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.08, 0.12, 0.09, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.13, 0.18, 0.145, 1.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.025, 0.045, 0.032, 1.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.08, 0.12, 0.09, 1.0);
 			skyMaterial.SetParam("IntensityLV", -7.0);
 			return;
 		}
 		if (preset == 2)
 		{
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.10, 0.15, 0.18, 0.0);
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.02, 0.04, 0.06, 0.0);
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.06, 0.10, 0.13, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.10, 0.15, 0.18, 1.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.02, 0.04, 0.06, 1.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.06, 0.10, 0.13, 1.0);
 			skyMaterial.SetParam("IntensityLV", -7.8);
 			return;
 		}
 		if (preset == 3)
 		{
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.22, 0.14, 0.09, 0.0);
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.07, 0.035, 0.025, 0.0);
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.15, 0.08, 0.05, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.22, 0.14, 0.09, 1.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.07, 0.035, 0.025, 1.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.15, 0.08, 0.05, 1.0);
 			skyMaterial.SetParam("IntensityLV", -7.2);
 			return;
 		}
 		if (preset == 4)
 		{
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.035, 0.045, 0.075, 0.0);
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.004, 0.008, 0.02, 0.0);
-			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.02, 0.03, 0.055, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.035, 0.045, 0.075, 1.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.004, 0.008, 0.02, 1.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.02, 0.03, 0.055, 1.0);
 			skyMaterial.SetParam("IntensityLV", -9.5);
 			return;
 		}
 
-		SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.10, 0.13, 0.15, 0.0);
-		SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.015, 0.025, 0.035, 0.0);
-		SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.06, 0.08, 0.09, 0.0);
+		SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.10, 0.13, 0.15, 1.0);
+		SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.015, 0.025, 0.035, 1.0);
+		SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.06, 0.08, 0.09, 1.0);
 		skyMaterial.SetParam("IntensityLV", -8.0);
 	}
 
@@ -7401,6 +7464,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return true;
 		}
 
+		if (slotId.IndexOf(NODE_CLOTHING_ATTACHMENT_PREFIX) == 0)
+		{
+			BaseInventoryStorageComponent attachmentStorage;
+			InventoryStorageSlot attachmentSlot;
+			IEntity clothingEntity;
+			if (!ResolvePreviewClothingAttachmentSlot(m_PreviewSourceCharacter, slotId, attachmentStorage, attachmentSlot, clothingEntity))
+				return false;
+
+			storage = attachmentStorage;
+			storageSlotId = attachmentSlot.GetID();
+			return true;
+		}
+
 		if (slotId.IndexOf(NODE_ATTACHMENT_PREFIX) == 0)
 		{
 			int weaponStorageIndex;
@@ -7536,6 +7612,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return previewSource != null;
 		}
 
+		if (nodeId.IndexOf(NODE_CLOTHING_ATTACHMENT_PREFIX) == 0)
+		{
+			BaseInventoryStorageComponent attachmentStorage;
+			InventoryStorageSlot attachmentSlot;
+			IEntity clothingEntity;
+			if (!ResolvePreviewClothingAttachmentSlot(character, nodeId, attachmentStorage, attachmentSlot, clothingEntity))
+				return false;
+
+			previewSource = clothingEntity;
+			previewMode = PREVIEW_MODE_ENTITY;
+			return previewSource != null;
+		}
+
 		if (nodeId.IndexOf(NODE_ATTACHMENT_PREFIX) == 0)
 		{
 			int weaponStorageIndex;
@@ -7628,6 +7717,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return weaponSlot.GetAttachedEntity();
 		}
 
+		if (nodeId.IndexOf(NODE_CLOTHING_ATTACHMENT_PREFIX) == 0)
+		{
+			BaseInventoryStorageComponent attachmentStorage;
+			InventoryStorageSlot attachmentSlot;
+			IEntity clothingEntity;
+			if (!ResolvePreviewClothingAttachmentSlot(character, nodeId, attachmentStorage, attachmentSlot, clothingEntity))
+				return null;
+
+			return attachmentSlot.GetAttachedEntity();
+		}
+
 		if (nodeId.IndexOf(NODE_ATTACHMENT_PREFIX) == 0)
 		{
 			int weaponStorageIndex;
@@ -7665,6 +7765,87 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		return null;
+	}
+
+	protected bool ResolvePreviewClothingAttachmentSlot(IEntity character, string nodeId, out BaseInventoryStorageComponent storage, out InventoryStorageSlot slot, out IEntity clothingEntity)
+	{
+		storage = null;
+		slot = null;
+		clothingEntity = null;
+		if (!character || nodeId.IsEmpty())
+			return false;
+
+		int loadoutSlotIndex;
+		int attachmentStorageIndex;
+		int attachmentSlotIndex;
+		if (!ParseThreePreviewNodeIndexes(nodeId, NODE_CLOTHING_ATTACHMENT_PREFIX, loadoutSlotIndex, attachmentStorageIndex, attachmentSlotIndex))
+			return false;
+
+		SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(character.FindComponent(SCR_CharacterInventoryStorageComponent));
+		if (!characterStorage || loadoutSlotIndex < 0 || loadoutSlotIndex >= characterStorage.GetSlotsCount())
+			return false;
+
+		InventoryStorageSlot loadoutSlot = characterStorage.GetSlot(loadoutSlotIndex);
+		if (!loadoutSlot)
+			return false;
+
+		clothingEntity = loadoutSlot.GetAttachedEntity();
+		if (!clothingEntity)
+			return false;
+
+		array<BaseInventoryStorageComponent> attachmentStorages = {};
+		FindPreviewEditableAttachmentStorages(clothingEntity, attachmentStorages);
+		if (attachmentStorageIndex < 0 || attachmentStorageIndex >= attachmentStorages.Count())
+			return false;
+
+		storage = attachmentStorages[attachmentStorageIndex];
+		if (!storage || attachmentSlotIndex < 0 || attachmentSlotIndex >= storage.GetSlotsCount())
+			return false;
+
+		slot = storage.GetSlot(attachmentSlotIndex);
+		return slot != null;
+	}
+
+	protected int FindPreviewEditableAttachmentStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		if (!entity)
+			return 0;
+
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!storage || storage.GetSlotsCount() <= 0 || outStorages.Find(storage) >= 0)
+				continue;
+
+			if (!PreviewStorageHasInspectableAttachmentSlot(storage))
+				continue;
+
+			outStorages.Insert(storage);
+		}
+
+		return outStorages.Count();
+	}
+
+	protected bool PreviewStorageHasInspectableAttachmentSlot(BaseInventoryStorageComponent storage)
+	{
+		if (!storage)
+			return false;
+
+		int slotCount = storage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+			if (!slot)
+				continue;
+
+			AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
+			if (attachmentSlot && attachmentSlot.GetAttachmentSlotType() && attachmentSlot.ShouldShowInInspection())
+				return true;
+		}
+
+		return false;
 	}
 
 	protected bool ResolvePreviewIndexedStorageSlot(IEntity character, string nodeId, string prefix, out BaseInventoryStorageComponent storage, out InventoryStorageSlot slot)
@@ -9015,6 +9196,102 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		m_sEditorToastText = text;
+	}
+
+	protected bool ApplyPressedButtonFeedback(int widgetId, bool pressed)
+	{
+		if (!ShouldApplyPressedFeedback(widgetId) || !m_RootWidget)
+			return false;
+
+		Widget button = FindWidgetByUserId(m_RootWidget, widgetId);
+		if (!button)
+			return false;
+
+		int color = 0xEE11171B;
+		float opacity = 0.98;
+		if (pressed)
+		{
+			m_iPressedWidgetId = widgetId;
+			color = GetAccentColor();
+			opacity = 1.0;
+		}
+		else
+		{
+			m_iPressedWidgetId = -1;
+		}
+
+		button.SetColorInt(color);
+		button.SetOpacity(opacity);
+		Widget background = ResolveButtonFeedbackBackground(button);
+		if (background && background != button)
+		{
+			background.SetColorInt(color);
+			background.SetOpacity(opacity);
+		}
+
+		return true;
+	}
+
+	protected bool ShouldApplyPressedFeedback(int widgetId)
+	{
+		if (widgetId == CLOSE_WIDGET_ID || widgetId == BACK_WIDGET_ID || widgetId == RESET_PREVIEW_WIDGET_ID || widgetId == SETTINGS_RESET_WIDGET_ID || widgetId == EDIT_SELECTED_STORAGE_WIDGET_ID || widgetId == REMOVE_SELECTED_NODE_WIDGET_ID)
+			return true;
+		if (widgetId >= SETTINGS_LIGHT_MINUS_WIDGET_ID && widgetId <= SETTINGS_WORLD_PRESET_WIDGET_ID)
+			return true;
+		if (widgetId >= MODE_WIDGET_ID_BASE && widgetId < MODE_WIDGET_ID_BASE + GetEditorModeCount())
+			return true;
+		if (widgetId >= STORAGE_CATEGORY_WIDGET_ID_BASE && widgetId < STORAGE_CATEGORY_WIDGET_ID_BASE + GetStorageBrowserCategoryCount())
+			return true;
+		if (widgetId >= STORAGE_FILTER_WIDGET_ID_BASE && widgetId < STORAGE_FILTER_WIDGET_ID_BASE + 5)
+			return true;
+		if (widgetId >= STORAGE_SORT_WIDGET_ID_BASE && widgetId < STORAGE_SORT_WIDGET_ID_BASE + 4)
+			return true;
+		if (widgetId >= TEMPLATE_SAVE_WIDGET_ID_BASE && widgetId < TEMPLATE_SAVE_WIDGET_ID_BASE + m_aTemplateIds.Count())
+			return true;
+		if (widgetId >= TEMPLATE_LOAD_WIDGET_ID_BASE && widgetId < TEMPLATE_LOAD_WIDGET_ID_BASE + m_aTemplateIds.Count())
+			return true;
+
+		return false;
+	}
+
+	protected Widget ResolveButtonFeedbackBackground(Widget button)
+	{
+		if (!button)
+			return null;
+
+		Widget parent = button.GetParent();
+		if (!parent)
+			return button;
+
+		string backgroundName = button.GetName();
+		backgroundName.Replace("Button", "Background");
+		if (backgroundName != button.GetName())
+		{
+			Widget background = parent.FindAnyWidget(backgroundName);
+			if (background)
+				return background;
+		}
+
+		return button;
+	}
+
+	protected Widget FindWidgetByUserId(Widget root, int userId)
+	{
+		if (!root)
+			return null;
+		if (root.GetUserID() == userId)
+			return root;
+
+		Widget child = root.GetChildren();
+		while (child)
+		{
+			Widget found = FindWidgetByUserId(child, userId);
+			if (found)
+				return found;
+			child = child.GetSibling();
+		}
+
+		return null;
 	}
 
 	protected string ShortenText(string text, int maxCharacters)

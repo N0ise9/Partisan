@@ -67,6 +67,7 @@ class HST_LoadoutEditorService
 	static const string NODE_LOADOUT_PREFIX = "live_loadout_";
 	static const string NODE_WEAPON_PREFIX = "live_weapon_";
 	static const string NODE_ATTACHMENT_PREFIX = "live_attach_";
+	static const string NODE_CLOTHING_ATTACHMENT_PREFIX = "live_cloth_attach_";
 	static const string NODE_STORAGE_PREFIX = "live_storage_";
 	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
 
@@ -698,6 +699,7 @@ class HST_LoadoutEditorService
 			string focus = ResolveFocusForCategory(category);
 			string nodeId = NODE_LOADOUT_PREFIX + string.Format("%1", slotIndex);
 			AddLiveNodeFromSlot(session, nodeId, "", "slot", category, label, focus, slot.GetAttachedEntity(), true, true, true);
+			ScanClothingAttachmentSlots(session, slot.GetAttachedEntity(), nodeId, slotIndex, focus);
 		}
 	}
 
@@ -783,7 +785,7 @@ class HST_LoadoutEditorService
 				continue;
 
 			AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
-			if (!attachmentSlot || !attachmentSlot.GetAttachmentSlotType())
+			if (!attachmentSlot || !attachmentSlot.GetAttachmentSlotType() || !attachmentSlot.ShouldShowInInspection())
 				continue;
 
 			IEntity attachedEntity = ResolveEditableAttachmentEntity(slot.GetAttachedEntity());
@@ -795,6 +797,84 @@ class HST_LoadoutEditorService
 			if (added)
 				added.m_sSlotKey = slotKey;
 		}
+	}
+
+	protected void ScanClothingAttachmentSlots(HST_LoadoutEditorSessionState session, IEntity clothingEntity, string parentNodeId, int loadoutSlotIndex, string focus)
+	{
+		if (!session || !clothingEntity)
+			return;
+
+		array<BaseInventoryStorageComponent> attachmentStorages = {};
+		FindEditableAttachmentStorages(clothingEntity, attachmentStorages);
+		for (int storageIndex = 0; storageIndex < attachmentStorages.Count(); storageIndex++)
+		{
+			BaseInventoryStorageComponent attachmentStorage = attachmentStorages[storageIndex];
+			if (!attachmentStorage)
+				continue;
+
+			int slotCount = attachmentStorage.GetSlotsCount();
+			for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+			{
+				InventoryStorageSlot slot = attachmentStorage.GetSlot(slotIndex);
+				if (!slot)
+					continue;
+
+				AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
+				if (!attachmentSlot || !attachmentSlot.GetAttachmentSlotType() || !attachmentSlot.ShouldShowInInspection())
+					continue;
+
+				IEntity attachedEntity = ResolveEditableAttachmentEntity(slot.GetAttachedEntity());
+				string slotKey = ResolveAttachmentSlotKeyFromSlot(slot, attachmentSlot, attachedEntity);
+				string label = ResolveAttachmentSlotLabel(slotKey, slot.GetSourceName());
+				string nodeId = NODE_CLOTHING_ATTACHMENT_PREFIX + string.Format("%1_%2_%3", loadoutSlotIndex, storageIndex, slotIndex);
+				AddLiveNodeFromSlot(session, nodeId, parentNodeId, "attachment", "attachment", label, focus, attachedEntity, true, false, false);
+				HST_LoadoutNodeState added = FindDraftNodeById(session, nodeId);
+				if (added)
+					added.m_sSlotKey = slotKey;
+			}
+		}
+	}
+
+	protected int FindEditableAttachmentStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		if (!entity)
+			return 0;
+
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!storage || storage.GetSlotsCount() <= 0 || outStorages.Find(storage) >= 0)
+				continue;
+
+			if (!StorageHasInspectableAttachmentSlot(storage))
+				continue;
+
+			outStorages.Insert(storage);
+		}
+
+		return outStorages.Count();
+	}
+
+	protected bool StorageHasInspectableAttachmentSlot(BaseInventoryStorageComponent storage)
+	{
+		if (!storage)
+			return false;
+
+		int slotCount = storage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+			if (!slot)
+				continue;
+
+			AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
+			if (attachmentSlot && attachmentSlot.GetAttachmentSlotType() && attachmentSlot.ShouldShowInInspection())
+				return true;
+		}
+
+		return false;
 	}
 
 	protected IEntity ResolveEditableAttachmentEntity(IEntity attachedEntity)
@@ -826,6 +906,8 @@ class HST_LoadoutEditorService
 			array<BaseInventoryStorageComponent> insertStorages = {};
 			if (FindStorageInsertTargetStorages(containerEntity, insertStorages) <= 0)
 				continue;
+			array<BaseInventoryStorageComponent> contentStorages = {};
+			AddUniqueStorages(insertStorages, contentStorages);
 
 			string containerNodeId = NODE_STORAGE_PREFIX + string.Format("%1", slotIndex);
 			string label = ResolveEntityDisplayName(containerEntity, ResolveEntityPrefab(containerEntity));
@@ -848,11 +930,11 @@ class HST_LoadoutEditorService
 			float usedVolume;
 			float totalVolume;
 			float freeVolume;
-			CalculateStorageVolume(containerStorages, usedVolume, totalVolume, freeVolume);
+			CalculateStorageVolume(insertStorages, usedVolume, totalVolume, freeVolume);
 			node.m_fUsedVolume = usedVolume;
 			node.m_fTotalVolume = totalVolume;
 			node.m_fFreeVolume = freeVolume;
-			node.m_iUsedCapacity = CountStorageItems(containerStorages);
+			node.m_iUsedCapacity = CountStorageDisplayItems(contentStorages);
 			node.m_iTotalCapacity = CountStorageAvailableFitOptions(state, playerEntity, insertStorages);
 			session.m_aDraftNodes.Insert(node);
 			if (IsDebugLoggingEnabled())
@@ -862,7 +944,7 @@ class HST_LoadoutEditorService
 				Print(storageLog);
 			}
 
-			AddStorageContentNodes(session, containerStorages, containerNodeId, slotIndex);
+			AddStorageContentNodes(session, contentStorages, containerNodeId, slotIndex);
 		}
 	}
 
@@ -887,6 +969,9 @@ class HST_LoadoutEditorService
 			string prefab = ResolveEntityPrefab(item);
 			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab));
 			string display = ResolveEntityDisplayName(item, prefab);
+			if (!ShouldDisplayStorageContentEntity(item, prefab, category, display))
+				continue;
+
 			string groupKey = prefab + "|" + category + "|" + display;
 			int groupIndex = groupKeys.Find(groupKey);
 			if (groupIndex >= 0)
@@ -1139,6 +1224,15 @@ class HST_LoadoutEditorService
 		return outStorages.Count();
 	}
 
+	protected void AddUniqueStorages(notnull array<BaseInventoryStorageComponent> source, notnull array<BaseInventoryStorageComponent> target)
+	{
+		foreach (BaseInventoryStorageComponent storage : source)
+		{
+			if (storage && target.Find(storage) < 0)
+				target.Insert(storage);
+		}
+	}
+
 	protected int FindStructuralAttachmentStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
 	{
 		array<IEntity> visited = {};
@@ -1218,6 +1312,36 @@ class HST_LoadoutEditorService
 		array<IEntity> visited = {};
 		GatherStorageContentEntitiesFromStorages(storages, contents, visited);
 		return contents.Count();
+	}
+
+	protected int CountStorageDisplayItems(notnull array<BaseInventoryStorageComponent> storages)
+	{
+		array<IEntity> contents = {};
+		array<IEntity> visited = {};
+		GatherStorageContentEntitiesFromStorages(storages, contents, visited);
+
+		int count;
+		foreach (IEntity item : contents)
+		{
+			if (!item)
+				continue;
+
+			string prefab = ResolveEntityPrefab(item);
+			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab));
+			string display = ResolveEntityDisplayName(item, prefab);
+			if (ShouldDisplayStorageContentEntity(item, prefab, category, display))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool ShouldDisplayStorageContentEntity(IEntity item, string prefab, string category, string display)
+	{
+		if (!item)
+			return false;
+
+		return !HST_ArsenalItemFilter.ShouldBlockArsenalEntity(item, prefab, category, display);
 	}
 
 	protected void CalculateStorageVolume(notnull array<BaseInventoryStorageComponent> storages, out float usedVolume, out float totalVolume, out float freeVolume)
@@ -1422,7 +1546,7 @@ class HST_LoadoutEditorService
 			if (IsLoadoutSlotWebbing(loadoutSlot, attachedEntity))
 				return "Webbing";
 
-			return "Armored Vest";
+			return "Chest Rig";
 		}
 		if (category == "pants")
 			return "Pants";
@@ -2154,6 +2278,52 @@ class HST_LoadoutEditorService
 			return true;
 		}
 
+		if (nodeId.IndexOf(NODE_CLOTHING_ATTACHMENT_PREFIX) == 0)
+		{
+			int loadoutSlotIndex;
+			int attachmentStorageIndex;
+			int attachmentSlotIndex;
+			if (!ParseThreeNodeIndexes(nodeId, NODE_CLOTHING_ATTACHMENT_PREFIX, loadoutSlotIndex, attachmentStorageIndex, attachmentSlotIndex))
+			{
+				failure = "clothing attachment slot id malformed";
+				return false;
+			}
+
+			SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(playerEntity.FindComponent(SCR_CharacterInventoryStorageComponent));
+			if (!characterStorage || loadoutSlotIndex < 0 || loadoutSlotIndex >= characterStorage.GetSlotsCount())
+			{
+				failure = "clothing slot not found";
+				return false;
+			}
+
+			IEntity clothingEntity = characterStorage.GetSlot(loadoutSlotIndex).GetAttachedEntity();
+			if (!clothingEntity)
+			{
+				failure = "clothing slot is empty";
+				return false;
+			}
+
+			array<BaseInventoryStorageComponent> attachmentStorages = {};
+			FindEditableAttachmentStorages(clothingEntity, attachmentStorages);
+			if (attachmentStorageIndex < 0 || attachmentStorageIndex >= attachmentStorages.Count())
+			{
+				failure = "clothing attachment storage not found";
+				return false;
+			}
+
+			BaseInventoryStorageComponent attachmentStorage = attachmentStorages[attachmentStorageIndex];
+			if (!attachmentStorage || attachmentSlotIndex < 0 || attachmentSlotIndex >= attachmentStorage.GetSlotsCount())
+			{
+				failure = "clothing attachment slot not found";
+				return false;
+			}
+
+			storage = attachmentStorage;
+			slot = attachmentStorage.GetSlot(attachmentSlotIndex);
+			attachedEntity = slot.GetAttachedEntity();
+			return true;
+		}
+
 		if (nodeId.IndexOf(NODE_ATTACHMENT_PREFIX) == 0)
 		{
 			int weaponStorageIndex;
@@ -2234,7 +2404,7 @@ class HST_LoadoutEditorService
 		if (!containerEntity)
 			return 0;
 
-		if (FindCargoDepositStorages(containerEntity, outStorages) <= 0)
+		if (FindStorageInsertTargetStorages(containerEntity, outStorages) <= 0)
 		{
 			failure = "selected item has no stored cargo";
 			return 0;
@@ -2993,7 +3163,7 @@ class HST_LoadoutEditorService
 		if (categoryId == "headgear")
 			return "Headgear";
 		if (categoryId == "vest")
-			return "Armored Vest";
+			return "Chest Rig";
 		if (categoryId == "pants")
 			return "Pants";
 		if (categoryId == "boots")
@@ -3151,7 +3321,7 @@ class HST_LoadoutEditorService
 		session.m_aDraftNodes.Clear();
 		AddLoadoutNodeForCategory(session, "headgear", "Headgear", "Headgear", "head");
 		AddLoadoutNodeForCategory(session, "clothing", "Jacket", "Jacket", "torso");
-		AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Armored Vest", "torso");
+		AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Chest Rig", "torso");
 		AddLoadoutNodeForCategory(session, "pants", "Pants", "Pants", "legs");
 		AddLoadoutNodeForCategory(session, "boots", "Boots", "Boots", "feet");
 		AddLoadoutNodeForCategory(session, "backpack", "Backpack", "Backpack", "back");
@@ -3449,7 +3619,7 @@ class HST_LoadoutEditorService
 		if (categoryId == "headgear")
 			return "Headgear";
 		if (categoryId == "vest")
-			return "Armored Vest";
+			return "Chest Rig";
 		if (categoryId == "pants")
 			return "Pants";
 		if (categoryId == "boots")
@@ -3572,7 +3742,7 @@ class HST_LoadoutEditorService
 		if (nodeId.Contains("headgear"))
 			return "Headgear";
 		if (nodeId.Contains("vest"))
-			return "Armored Vest";
+			return "Chest Rig";
 		if (nodeId.Contains("backpack"))
 			return "Backpack";
 		if (nodeId.Contains("weapon"))

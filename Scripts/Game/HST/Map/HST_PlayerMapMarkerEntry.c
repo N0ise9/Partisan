@@ -29,7 +29,10 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 
 		HST_PlayerMapMarkerDynamicWComponent playerWidgetComp = HST_PlayerMapMarkerDynamicWComponent.Cast(widgetComp);
 		if (playerWidgetComp)
+		{
+			playerWidgetComp.SetLabelColor(0xFFFFFFFF);
 			playerWidgetComp.TrackPlayerFacing(marker);
+		}
 	}
 
 	protected void ApplyPlayerMarkerLabel(SCR_MapMarkerEntity marker, SCR_MapMarkerDynamicWComponent widgetComp, int attempt)
@@ -85,20 +88,20 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 		if (playerId <= 0)
 			return "";
 
-		string fallbackName = string.Format("Player %1", playerId);
-		string filteredName = SCR_PlayerNamesFilterCache.GetInstance().GetPlayerDisplayName(playerId);
-		filteredName = filteredName.Trim();
-		if (!filteredName.IsEmpty() && filteredName != fallbackName)
-			return filteredName;
-
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (playerManager)
 		{
 			string managerName = playerManager.GetPlayerName(playerId);
 			managerName = managerName.Trim();
-			if (!managerName.IsEmpty() && managerName != fallbackName)
+			if (!managerName.IsEmpty())
 				return managerName;
 		}
+
+		string fallbackName = string.Format("Player %1", playerId);
+		string filteredName = SCR_PlayerNamesFilterCache.GetInstance().GetPlayerDisplayName(playerId);
+		filteredName = filteredName.Trim();
+		if (!filteredName.IsEmpty() && filteredName != fallbackName)
+			return filteredName;
 
 		return filteredName;
 	}

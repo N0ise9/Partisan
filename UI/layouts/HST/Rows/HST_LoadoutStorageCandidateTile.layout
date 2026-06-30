@@ -9,7 +9,7 @@ ButtonWidgetClass "{A7B8C9D001236600}" {
   SizeLayoutWidgetClass "{A7B8C9D001237000}" {
    Name "SizeLayout"
    Slot ButtonWidgetSlot "{A7B8C9D001237001}" {
-    HorizontalAlign 3
+    HorizontalAlign 0
     VerticalAlign 0
    }
    AllowWidthOverride 1

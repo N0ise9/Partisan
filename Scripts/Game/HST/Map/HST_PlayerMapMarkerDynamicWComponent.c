@@ -2,6 +2,7 @@ class HST_PlayerMapMarkerDynamicWComponent : SCR_MapMarkerDynamicWComponent
 {
 	static const int FACING_UPDATE_INTERVAL_MS = 100;
 	static const float FACING_ROTATION_EPSILON = 0.1;
+	static const float WHISPER_ICON_FORWARD_OFFSET_DEGREES = -45.0;
 
 	protected int m_iPlayerId;
 	protected bool m_bFacingUpdateActive;
@@ -41,13 +42,29 @@ class HST_PlayerMapMarkerDynamicWComponent : SCR_MapMarkerDynamicWComponent
 		if (!playerEntity)
 			return;
 
-		vector angles = playerEntity.GetAngles();
-		float rotation = angles[1];
+		vector yawPitchRoll = playerEntity.GetYawPitchRoll();
+		float rotation = NormalizeMarkerRotation(yawPitchRoll[0] + WHISPER_ICON_FORWARD_OFFSET_DEGREES);
 		if (Math.AbsFloat(rotation - m_fLastFacingRotation) < FACING_ROTATION_EPSILON)
 			return;
 
 		m_fLastFacingRotation = rotation;
 		m_wMarkerIcon.SetRotation(rotation);
+	}
+
+	void SetLabelColor(int color)
+	{
+		if (m_wMarkerText)
+			m_wMarkerText.SetColorInt(color);
+	}
+
+	protected float NormalizeMarkerRotation(float rotation)
+	{
+		while (rotation < 0.0)
+			rotation = rotation + 360.0;
+		while (rotation >= 360.0)
+			rotation = rotation - 360.0;
+
+		return rotation;
 	}
 
 	protected IEntity ResolvePlayerEntity()
