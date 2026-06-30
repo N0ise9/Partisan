@@ -190,6 +190,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - For custom dynamic visuals, call `super.InitClientSettingsDynamic(marker, widgetComp)` first, then set image/color/text on `SCR_MapMarkerDynamicWComponent`.
   - Dynamic marker config entries must name a layout with `SCR_MapMarkerDynamicWComponent` or a subclass. The default `SCR_MapMarkerEntryConfig` layout is `MapMarkerBase.layout`, and `MapMarkerSquadMember.layout` uses `SCR_MapMarkerSquadMemberComponent`; both lack the dynamic handler that `SCR_MapMarkerEntity.OnCreateMarker()` dereferences on map open.
   - Native dynamic markers follow movement through their target entity. `SCR_MapMarkerEntity.SetTarget()` enables frame updates, and authority-side `EOnFrame()` copies `m_Target.GetOrigin()` into the replicated marker position, so player markers should not be recreated just to follow walking/driving movement.
+  - Server-created dynamic marker prefabs need non-spatial/non-streamable replication, matching vanilla squad marker prefabs (`SpatialRelevancy 0`, `Streamable Disabled`). A marker can reconcile successfully on the server but stay invisible to the local map if it uses the base marker prefab's default streamed `RplComponent`.
   - Player marker facing rotation lives in the marker widget component, not the marker service. `HST_PlayerMapMarkerDynamicWComponent` rotates only `MarkerIcon` from the player entity's map yaw, leaving `MarkerText` upright and avoiding extra server marker churn.
   - Current working player-marker layout: `{6985327711306214}UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout`.
   - Custom player marker entries that set a name must also call `SetTextVisible(true)`.
@@ -301,6 +302,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Bandages/field dressings use medicine-prefab paths and may not include the word `Bandage` in the prefab. Classify `Medicine`, `FieldDressing`, `FirstAid`, `Bandage`, `Morphine`, `Tourniquet`, and `Medkit` tokens as `medical` before falling back to generic equipment.
   - Storage-browser candidate preview keys must ignore `live_storage_item_` draft slots. Changing the contents of the selected container should refresh inventory lists and capacity bars, but it should not rebuild/refocus the rendered entity unless the displayed container/gear actually changes.
   - Wrap-layout storage grids need children whose root slot is `WrapLayoutWidgetSlot`; reusing a vertical-row layout with an `AlignableSlot` can collapse the right-hand storage browser to a single column.
+  - If a wrap-grid child is a clickable `ButtonWidget`, also keep a `SizeLayoutWidget` child with explicit width/height and enforce those overrides when creating rows. Otherwise the button root can stretch to the scroll width and visually behave like a single-column list even under a `WrapLayoutWidget`.
 
 - Loadout editor saved loadouts:
   - Fixed save slots are server-owned campaign state and profile persistence. Passing `slot_N` to `loadout_save` selects the slot; it must not overwrite an already renamed display name unless the slot was empty or an explicit rename command was sent.
@@ -332,6 +334,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Preview camera movement should be intentional.
   - Auto-frame the loadout editor preview once when opening or rebuilding the preview world.
+  - The visible color behind the mannequin comes from the preview stage `MatSkyBox`/`SkyPreset`, not just the `RenderTargetWidget` tint or the decorative sky sphere. Render-background color settings should update the spawned `GenericWorldEntity.GetSkyMaterial()` colors or rebuild the stage with an alternate sky preset.
   - Storage selection and storage item add/remove should not invalidate the preview render key or move the camera unless the visible equipped entity actually changes appearance.
   - Do not include selected storage-item ids in the preview render key; doing so forces unnecessary clone rebuilds and camera motion while adding repeated inventory contents.
 

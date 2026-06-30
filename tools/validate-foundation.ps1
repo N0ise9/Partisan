@@ -1922,8 +1922,21 @@ foreach ($requiredPlayerMarkerTypeEntry in @(
 		throw "Player markers need a dedicated map marker enum value, missing: $requiredPlayerMarkerTypeEntry"
 	}
 }
-if ($playerMarkerConfigText -notmatch "SCR_MapMarkerConfig[\s\S]*?HST_PlayerMapMarkerEntry" -or $playerMarkerConfigText -notmatch [regex]::Escape('{DD74BE2BBAE07192}Prefabs/Markers/MapMarkerEntityBase.et')) {
-	throw "Player map marker config must inherit map marker config and register HST_PlayerMapMarkerEntry with marker entity prefab"
+if ($playerMarkerConfigText -notmatch "SCR_MapMarkerConfig[\s\S]*?HST_PlayerMapMarkerEntry" -or $playerMarkerConfigText -notmatch [regex]::Escape('{6985327711306230}Prefabs/Markers/HST_PlayerMapMarker.et')) {
+	throw "Player map marker config must inherit map marker config and register HST_PlayerMapMarkerEntry with the HST marker entity prefab"
+}
+if (!(Test-Path "Prefabs/Markers/HST_PlayerMapMarker.et")) {
+	throw "Player marker prefab is missing: Prefabs/Markers/HST_PlayerMapMarker.et"
+}
+$playerMarkerPrefabText = Get-Content -Raw "Prefabs/Markers/HST_PlayerMapMarker.et"
+foreach ($requiredPlayerMarkerPrefabEntry in @(
+		'RplComponent',
+		'SpatialRelevancy 0',
+		'Streamable Disabled'
+	)) {
+	if ($playerMarkerPrefabText -notmatch [regex]::Escape($requiredPlayerMarkerPrefabEntry)) {
+		throw "Player marker prefab must disable spatial streaming like native squad marker prefabs: $requiredPlayerMarkerPrefabEntry"
+	}
 }
 if ($playerMarkerConfigText -notmatch [regex]::Escape('m_sMarkerLayout "{6985327711306214}UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout"')) {
 	throw "Player map marker config must use the HST dynamic marker layout"
@@ -3442,7 +3455,7 @@ foreach ($requiredStorageCategoryTabEntry in @(
 		"Slot LayoutSlot",
 		"Padding 0 0 8 0",
 		"SizeLayoutWidgetClass",
-		"WidthOverride 88",
+		"WidthOverride 104",
 		"HeightOverride 78",
 		'Name "Background"',
 		'Name "Accent"',

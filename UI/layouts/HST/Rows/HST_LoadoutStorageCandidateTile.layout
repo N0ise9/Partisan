@@ -9,19 +9,21 @@ ButtonWidgetClass "{A7B8C9D001236600}" {
   SizeLayoutWidgetClass "{A7B8C9D001237000}" {
    Name "SizeLayout"
    Slot ButtonWidgetSlot "{A7B8C9D001237001}" {
+    HorizontalAlign 3
+    VerticalAlign 0
    }
    AllowWidthOverride 1
-   WidthOverride 354
+   WidthOverride 320
    AllowHeightOverride 1
-   HeightOverride 140
+   HeightOverride 128
    AllowMinDesiredWidth 1
-   MinDesiredWidth 354
+   MinDesiredWidth 320
    AllowMinDesiredHeight 1
-   MinDesiredHeight 140
+   MinDesiredHeight 128
    AllowMaxDesiredWidth 0
-   MaxDesiredWidth 354
+   MaxDesiredWidth 320
    AllowMaxDesiredHeight 0
-   MaxDesiredHeight 140
+   MaxDesiredHeight 128
    {
     OverlayWidgetClass "{A7B8C9D001237002}" {
      Name "Overlay"
@@ -60,8 +62,8 @@ ButtonWidgetClass "{A7B8C9D001236600}" {
           Anchor 0 0 0 0
           OffsetLeft 8
           OffsetTop 8
-          OffsetRight -84
-          OffsetBottom -84
+          OffsetRight -78
+          OffsetBottom -78
          }
          Color 0.035 0.05 0.063 0.86
          style full
@@ -72,9 +74,9 @@ ButtonWidgetClass "{A7B8C9D001236600}" {
          Name "PreviewLine"
          Slot FrameWidgetSlot "{A7B8C9D001237103}" {
           Anchor 0 0 0 0
-          OffsetLeft 8
-          OffsetTop 8
-          OffsetRight -84
+         OffsetLeft 8
+         OffsetTop 8
+          OffsetRight -78
           OffsetBottom -10
          }
          Color 0.29 0.35 0.38 0.4
@@ -88,8 +90,8 @@ ButtonWidgetClass "{A7B8C9D001236600}" {
           Anchor 0 0 0 0
           OffsetLeft 10
           OffsetTop 10
-          OffsetRight -82
-          OffsetBottom -82
+          OffsetRight -76
+          OffsetBottom -76
          }
          "Ignore Cursor" 1
         }
@@ -97,11 +99,11 @@ ButtonWidgetClass "{A7B8C9D001236600}" {
          Name "Name"
          Slot FrameWidgetSlot "{A7B8C9D001236606}" {
           Anchor 0 0 1 0
-          OffsetLeft 112
+          OffsetLeft 98
           OffsetTop 14
-          OffsetRight 82
-          SizeY 72
-          OffsetBottom -86
+          OffsetRight 70
+          SizeY 66
+          OffsetBottom -80
          }
          "Is Visible" 1
          "Ignore Cursor" 1
@@ -116,11 +118,11 @@ ButtonWidgetClass "{A7B8C9D001236600}" {
          Name "Count"
          Slot FrameWidgetSlot "{A7B8C9D001236608}" {
           Anchor 1 0 1 0
-          OffsetLeft -72
-          OffsetTop 88
-          OffsetRight 18
+          OffsetLeft -64
+          OffsetTop 82
+          OffsetRight 14
           SizeY 28
-          OffsetBottom -116
+          OffsetBottom -110
          }
          "Is Visible" 1
          "Ignore Cursor" 1

@@ -652,7 +652,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       Anchor 0 0 1 0
       OffsetLeft 106
       OffsetTop 22
-      OffsetRight 18
+      OffsetRight 148
       SizeY 28
       OffsetBottom -50
        }
@@ -668,7 +668,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       Anchor 0 0 1 0
       OffsetLeft 106
       OffsetTop 48
-      OffsetRight 18
+      OffsetRight 148
       SizeY 42
       OffsetBottom -90
        }
@@ -697,12 +697,13 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       ButtonWidgetClass "{7B2FD986A4D35390}" {
        Name "CandidateEditButton"
        Slot FrameWidgetSlot "{7B2FD986A4D35391}" {
-        Anchor 0 0 1 0
-        OffsetLeft 20
-        OffsetTop 114
-        OffsetRight 300
-        SizeY 56
-        OffsetBottom -170
+        Anchor 1 0 1 0
+        OffsetLeft -128
+        OffsetTop 58
+        OffsetRight 20
+        SizeX 108
+        SizeY 32
+        OffsetBottom -90
        }
        "Is Visible" 0
        Color 0.07 0.09 0.11 0.98
@@ -710,12 +711,13 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       PanelWidgetClass "{7B2FD986A4D35392}" {
        Name "CandidateEditBackground"
        Slot FrameWidgetSlot "{7B2FD986A4D35393}" {
-        Anchor 0 0 1 0
-        OffsetLeft 20
-        OffsetTop 114
-        OffsetRight 300
-        SizeY 56
-        OffsetBottom -170
+        Anchor 1 0 1 0
+        OffsetLeft -128
+        OffsetTop 58
+        OffsetRight 20
+        SizeX 108
+        SizeY 32
+        OffsetBottom -90
        }
        "Is Visible" 0
        Color 0.07 0.09 0.11 0.98
@@ -725,12 +727,13 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       PanelWidgetClass "{7B2FD986A4D35394}" {
        Name "CandidateEditAccent"
        Slot FrameWidgetSlot "{7B2FD986A4D35395}" {
-        Anchor 0 0 1 0
-        OffsetLeft 20
-        OffsetTop 114
-        OffsetRight 300
+        Anchor 1 0 1 0
+        OffsetLeft -128
+        OffsetTop 58
+        OffsetRight 20
+        SizeX 108
         SizeY 3
-        OffsetBottom -117
+        OffsetBottom -61
        }
        "Is Visible" 0
        Color 1 0.82 0.38 1
@@ -740,13 +743,13 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D35396}" {
        Name "CandidateEditIcon"
        Slot FrameWidgetSlot "{7B2FD986A4D35397}" {
-        Anchor 0 0 0 0
-        OffsetLeft 40
-        OffsetTop 114
-        SizeX 44
-        SizeY 56
-        OffsetRight -84
-        OffsetBottom -170
+        Anchor 1 0 1 0
+        OffsetLeft -124
+        OffsetTop 58
+        SizeX 28
+        SizeY 32
+        OffsetRight -96
+        OffsetBottom -90
        }
        "Is Visible" 0
        "No Localization" 1
@@ -758,12 +761,13 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D35398}" {
        Name "CandidateEditLabel"
        Slot FrameWidgetSlot "{7B2FD986A4D35399}" {
-        Anchor 0 0 1 0
-        OffsetLeft 102
-        OffsetTop 114
-        OffsetRight 318
-        SizeY 56
-        OffsetBottom -170
+        Anchor 1 0 1 0
+        OffsetLeft -94
+        OffsetTop 58
+        OffsetRight 24
+        SizeX 70
+        SizeY 32
+        OffsetBottom -90
        }
        "Is Visible" 0
        "No Localization" 1
@@ -775,10 +779,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       ButtonWidgetClass "{7B2FD986A4D34310}" {
        Name "CandidateRemoveButton"
        Slot FrameWidgetSlot "{7B2FD986A4D34311}" {
-      Anchor 0 0 1 0
-      OffsetLeft 312
+      Anchor 1 0 1 0
+      OffsetLeft -180
       OffsetTop 114
       OffsetRight 20
+      SizeX 160
       SizeY 56
       OffsetBottom -170
        }
@@ -788,10 +793,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       PanelWidgetClass "{7B2FD986A4D34314}" {
        Name "CandidateRemoveBackground"
        Slot FrameWidgetSlot "{7B2FD986A4D34315}" {
-        Anchor 0 0 1 0
-        OffsetLeft 312
+        Anchor 1 0 1 0
+        OffsetLeft -180
         OffsetTop 114
         OffsetRight 20
+        SizeX 160
         SizeY 56
         OffsetBottom -170
        }
@@ -803,10 +809,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       PanelWidgetClass "{7B2FD986A4D34316}" {
        Name "CandidateRemoveAccent"
        Slot FrameWidgetSlot "{7B2FD986A4D34317}" {
-       Anchor 0 0 1 0
-       OffsetLeft 312
+       Anchor 1 0 1 0
+       OffsetLeft -180
        OffsetTop 114
        OffsetRight 20
+       SizeX 160
        SizeY 3
        OffsetBottom -117
        }
@@ -818,12 +825,12 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D34318}" {
        Name "CandidateRemoveIcon"
        Slot FrameWidgetSlot "{7B2FD986A4D34319}" {
-       Anchor 0 0 0 0
-       OffsetLeft 332
+       Anchor 1 0 1 0
+       OffsetLeft -168
        OffsetTop 114
-       SizeX 44
+       SizeX 36
        SizeY 56
-       OffsetRight -84
+       OffsetRight -132
        OffsetBottom -170
        }
        "Is Visible" 0
@@ -836,10 +843,11 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       TextWidgetClass "{7B2FD986A4D3431A}" {
        Name "CandidateRemoveLabel"
        Slot FrameWidgetSlot "{7B2FD986A4D3431B}" {
-        Anchor 0 0 1 0
-        OffsetLeft 394
+        Anchor 1 0 1 0
+        OffsetLeft -126
         OffsetTop 114
-        OffsetRight 38
+        OffsetRight 34
+        SizeX 92
         SizeY 56
         OffsetBottom -170
        }
@@ -976,9 +984,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "StorageCategoryTabs"
        Slot FrameWidgetSlot "{7B2FD986A4D34253}" {
       Anchor 0 0 1 0
-      OffsetLeft 20
+      OffsetLeft 108
       OffsetTop 72
-      OffsetRight 20
+      OffsetRight 108
       SizeY 78
       OffsetBottom -150
        }
@@ -2365,11 +2373,13 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           ButtonWidgetClass "{7B2FD986A4D3438C}" {
            Name "SettingsDefaultsButton"
            Slot FrameWidgetSlot "{7B2FD986A4D3438D}" {
-            Anchor 0 0 0 1
+            Anchor 0 0 0 0
             OffsetLeft 0
             OffsetTop 0
-            OffsetRight 150
-            OffsetBottom 0
+            SizeX 196
+            SizeY 44
+            OffsetRight -196
+            OffsetBottom -44
            }
            Color 0.07 0.09 0.11 0.98
            {
@@ -2403,11 +2413,13 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
           ButtonWidgetClass "{7B2FD986A4D34392}" {
            Name "SettingsResetPreviewButton"
            Slot FrameWidgetSlot "{7B2FD986A4D34393}" {
-            Anchor 0 0 0 1
-            OffsetLeft 166
+            Anchor 0 0 0 0
+            OffsetLeft 214
             OffsetTop 0
-            OffsetRight 306
-            OffsetBottom 0
+            SizeX 172
+            SizeY 44
+            OffsetRight -386
+            OffsetBottom -44
            }
            Color 0.07 0.09 0.11 0.98
            {

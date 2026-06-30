@@ -11,11 +11,11 @@ ButtonWidgetClass "{A7B8C9D001234610}" {
    Slot ButtonWidgetSlot "{A7B8C9D001234613}" {
    }
    AllowWidthOverride 1
-   WidthOverride 88
+   WidthOverride 104
    AllowHeightOverride 1
    HeightOverride 78
    AllowMinDesiredWidth 1
-   MinDesiredWidth 88
+   MinDesiredWidth 104
    AllowMinDesiredHeight 1
    MinDesiredHeight 78
    {
@@ -57,14 +57,14 @@ ButtonWidgetClass "{A7B8C9D001234610}" {
        Name "Icon"
        Slot FrameWidgetSlot "{A7B8C9D00123461B}" {
        Anchor 0 0 1 1
-        OffsetLeft 15
-        OffsetTop 10
-        OffsetRight 15
-        OffsetBottom 10
+       OffsetLeft 15
+       OffsetTop 10
+       OffsetRight 15
+       OffsetBottom 10
        }
        "Is Visible" 1
        "Ignore Cursor" 1
-       Size 58 58
+       Size 62 58
       }
       TextWidgetClass "{A7B8C9D00123461C}" {
        Name "Fallback"

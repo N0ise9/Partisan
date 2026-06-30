@@ -123,6 +123,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const string NODE_ATTACHMENT_PREFIX = "live_attach_";
 	static const string NODE_STORAGE_PREFIX = "live_storage_";
 	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
+	static const int STORAGE_BROWSER_TILE_WIDTH = 320;
+	static const int STORAGE_BROWSER_TILE_HEIGHT = 128;
 	static const int LOADOUT_PREVIEW_Z = 1;
 	static const int LOADOUT_UI_LAYER_Z = 100;
 	static const int LOADOUT_PREVIEW_INPUT_Z = 2;
@@ -2799,6 +2801,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		PrepareRowRoot(tile);
+		ApplyStorageBrowserTileSize(tile);
 		BindRowClick(tile, userId);
 		SetRowWidgetVisible(tile, "EmptyText", false);
 		SetRowImageColor(tile, "Background", GetBaseRowColor(), 0.98);
@@ -3539,6 +3542,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		PrepareRowRoot(tile);
+		ApplyStorageBrowserTileSize(tile);
 		BindRowClick(tile, userId);
 		SetRowWidgetVisible(tile, "EmptyText", false);
 
@@ -3565,6 +3569,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		SetRowTextOrHide(tile, "Name", ShortenText(name, 96), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
 		SetRowTextOrHide(tile, "Count", countText, 0xFFFFD166, m_Layout.m_iFontSmall, true, false);
+	}
+
+	protected void ApplyStorageBrowserTileSize(Widget tile)
+	{
+		if (!tile)
+			return;
+
+		SizeLayoutWidget sizeLayout = SizeLayoutWidget.Cast(tile.FindAnyWidget("SizeLayout"));
+		if (!sizeLayout)
+			return;
+
+		sizeLayout.SetWidthOverride(STORAGE_BROWSER_TILE_WIDTH);
+		sizeLayout.SetHeightOverride(STORAGE_BROWSER_TILE_HEIGHT);
 	}
 
 	protected void AddNodePreviewToRow(WorkspaceWidget workspace, Widget row, int nodeIndex, int userId)
@@ -6677,7 +6694,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_PreviewWidget.SetVisible(true);
 		m_PreviewWidget.SetOpacity(1.0);
-		m_PreviewWidget.SetColorInt(GetPreviewWorldTintColor());
+		m_PreviewWidget.SetColorInt(0xFFFFFFFF);
 		m_PreviewWidget.SetZOrder(LOADOUT_PREVIEW_Z);
 	}
 
@@ -6768,10 +6785,64 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		EnsureVisualSettings();
-		if (m_VisualSettings.m_iWorldPreset <= 0)
+		ApplyPreviewSkyPreset();
+		ApplyPreviewWorldMaterialToSkySphereRecursive(m_PreviewStageEntity, GetPreviewWorldMaterial());
+	}
+
+	protected void ApplyPreviewSkyPreset()
+	{
+		GenericWorldEntity worldEntity = GenericWorldEntity.Cast(m_PreviewStageEntity);
+		if (!worldEntity)
 			return;
 
-		ApplyPreviewWorldMaterialToSkySphereRecursive(m_PreviewStageEntity, GetPreviewWorldMaterial());
+		Material skyMaterial = worldEntity.GetSkyMaterial();
+		if (!skyMaterial)
+			return;
+
+		int preset = m_VisualSettings.m_iWorldPreset;
+		if (preset == 1)
+		{
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.13, 0.18, 0.145, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.025, 0.045, 0.032, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.08, 0.12, 0.09, 0.0);
+			skyMaterial.SetParam("IntensityLV", -7.0);
+			return;
+		}
+		if (preset == 2)
+		{
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.10, 0.15, 0.18, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.02, 0.04, 0.06, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.06, 0.10, 0.13, 0.0);
+			skyMaterial.SetParam("IntensityLV", -7.8);
+			return;
+		}
+		if (preset == 3)
+		{
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.22, 0.14, 0.09, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.07, 0.035, 0.025, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.15, 0.08, 0.05, 0.0);
+			skyMaterial.SetParam("IntensityLV", -7.2);
+			return;
+		}
+		if (preset == 4)
+		{
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.035, 0.045, 0.075, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.004, 0.008, 0.02, 0.0);
+			SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.02, 0.03, 0.055, 0.0);
+			skyMaterial.SetParam("IntensityLV", -9.5);
+			return;
+		}
+
+		SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom", 0.10, 0.13, 0.15, 0.0);
+		SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith", 0.015, 0.025, 0.035, 0.0);
+		SetPreviewSkyMaterialColor(skyMaterial, "ColorUp", 0.06, 0.08, 0.09, 0.0);
+		skyMaterial.SetParam("IntensityLV", -8.0);
+	}
+
+	protected void SetPreviewSkyMaterialColor(notnull Material material, string paramName, float r, float g, float b, float a)
+	{
+		float rgba[4] = {r, g, b, a};
+		material.SetParam(paramName, rgba);
 	}
 
 	protected bool ApplyPreviewWorldMaterialToSkySphereRecursive(IEntity entity, ResourceName material)
