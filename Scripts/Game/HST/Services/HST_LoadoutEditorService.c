@@ -2838,7 +2838,24 @@ class HST_LoadoutEditorService
 		}
 
 		gameEntity.Update();
+		RefreshPlayerControllerMainEntity(playerId, gameEntity);
 		return true;
+	}
+
+	protected void RefreshPlayerControllerMainEntity(int playerId, IEntity playerEntity)
+	{
+		if (!playerEntity)
+			return;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager || playerId <= 0)
+			return;
+
+		SCR_PlayerController playerController = SCR_PlayerController.Cast(playerManager.GetPlayerController(playerId));
+		if (!playerController)
+			return;
+
+		playerController.SetInitialMainEntity(playerEntity);
 	}
 
 	protected bool ParseLoadoutRenameArgument(string argument, out string loadoutId, out string loadoutName)

@@ -194,6 +194,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Custom player marker entries that set a name must also call `SetTextVisible(true)`.
   - Player markers should be gated to the active campaign phase. Setup bootstrap player entities are not gameplay map markers and can pollute the setup map or create stale dynamic handles before HQ setup is finalized.
   - For faction-colored player markers, resolve `SCR_FactionManager.SGetPlayerFaction(playerId)` client-side and fall back to the FIA faction color before using a hardcoded color.
+  - Player marker reconcile signatures must include the resolved player/entity faction key, not just player id, target entity, and name. Faction assignment can arrive after the marker is created, and skipping reconciliation on an unchanged entity can leave the native marker with stale stream rules.
+  - Do not hard-code the native marker stream faction to FIA. Use `SCR_FactionManager.SGetPlayerFaction(playerId)` first, then the controlled entity's `FactionAffiliationComponent`, and leave the stream key empty if neither is available so a bad fallback does not hide the player's own marker.
   - Current examples: `HST_PlayerMapMarkerService`, `HST_PlayerMapMarkerEntry`, `HST_PlayerMapMarkerConfig.conf`.
 
 - Map overlay widgets must be passive.
@@ -300,6 +302,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Loadout editor saved loadouts:
   - Fixed save slots are server-owned campaign state and profile persistence. Passing `slot_N` to `loadout_save` selects the slot; it must not overwrite an already renamed display name unless the slot was empty or an explicit rename command was sent.
   - Use `SCR_JsonSaveContext.ExportToString()` and `SCR_JsonLoadContext.ImportFromString()` with `SCR_PlayerArsenalLoadout.ReadLoadoutString/ApplyLoadoutString`, matching Bacon Loadout Editor. The older generic JSON context path can silently fail to apply saved equipment.
+  - After a successful serialized native loadout apply, refresh the server-side `SCR_PlayerController` main entity with `SetInitialMainEntity(playerEntity)`. h-istasi applies in place, but the controller refresh still helps possession/UI systems observe the changed entity state.
   - Save/load feedback should be an in-editor toast, not a global notification. Disabled `Load` buttons should stay visible for empty fixed slots.
   - Loadout candidate icon hints also drive native row previews. Use preview-capable hints such as `medical`, `utility`, and `equipment`; a generic value that the client does not recognize as preview-capable will render as a flat fallback icon even when the prefab can be previewed.
   - Fixed saved loadout slots should be emitted in deterministic slot order from the service payload, including empty slots. A per-slot row can then show both `Save` and `Load`; keep `Load` visible but do not bind a user id when the slot is empty.
