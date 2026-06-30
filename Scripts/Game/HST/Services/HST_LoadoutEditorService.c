@@ -300,11 +300,18 @@ class HST_LoadoutEditorService
 
 		int slotIndex = ResolveSaveSlotIndex(state, identityId, targetLoadoutId);
 		HST_SavedLoadoutState loadout = FindOrCreateFixedLoadoutSlot(state, identityId, slotIndex);
+		string existingDisplayName = loadout.m_sDisplayName;
+		bool wasEmptySlot = IsFixedLoadoutSlotEmpty(loadout);
 		loadout.m_sSerializedLoadout = serialized;
 		loadout.m_sCharacterPrefab = ResolveEntityPrefab(playerEntity);
 		loadout.m_iUpdatedAtSecond = state.m_iElapsedSeconds;
 		if (loadoutName.IsEmpty())
-			loadout.m_sDisplayName = string.Format("Field Loadout %1", slotIndex + 1);
+		{
+			if (existingDisplayName.IsEmpty() || wasEmptySlot)
+				loadout.m_sDisplayName = string.Format("Field Loadout %1", slotIndex + 1);
+			else
+				loadout.m_sDisplayName = existingDisplayName;
+		}
 		else
 			loadout.m_sDisplayName = loadoutName;
 		loadout.m_aSlots.Clear();
@@ -377,6 +384,8 @@ class HST_LoadoutEditorService
 		HST_ArsenalItemState item = state.FindArsenalItem(itemPrefab);
 		if (!IsArsenalItemAvailable(item))
 			return "h-istasi loadout editor | failed: item not available in arsenal";
+		if (HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(item.m_sPrefab, ResolveEditorCategory(item.m_sPrefab, item.m_sCategory), item.m_sDisplayName))
+			return "h-istasi loadout editor | failed: structural inventory containers cannot be added from arsenal";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_iPlayerId = playerId;
@@ -423,9 +432,16 @@ class HST_LoadoutEditorService
 		RefreshDraftNodes(state, session);
 		HST_LoadoutNodeState targetNode = FindDraftNodeById(session, nodeId);
 		string itemCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+		string itemDisplay = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
+		bool isStorageBrowserNode;
+		if (targetNode)
+			isStorageBrowserNode = targetNode.m_sKind == "storage" || targetNode.m_sKind == "storage_item";
+		if (HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(item.m_sPrefab, itemCategory) || HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(itemDisplay, itemCategory) || (isStorageBrowserNode && HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(item.m_sPrefab, itemCategory, itemDisplay)))
+			return "h-istasi loadout editor | failed: structural inventory containers cannot be added from arsenal";
+
 		bool ammoMatch;
 		if (targetNode && !IsLiveCandidateCompatible(state, playerId, targetNode, item.m_sPrefab, itemCategory, ammoMatch))
-			return "h-istasi loadout editor | failed: " + HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName) + " is not compatible with " + targetNode.m_sLabel;
+			return "h-istasi loadout editor | failed: " + itemDisplay + " is not compatible with " + targetNode.m_sLabel;
 
 		string failure;
 		if (!ReserveArsenalItemForEditor(state, arsenal, identityId, itemPrefab, 1, failure))
@@ -2779,11 +2795,15 @@ class HST_LoadoutEditorService
 		if (!characterEntity)
 			return false;
 
-		JsonSaveContext saveContext = new JsonSaveContext();
+		GameEntity gameEntity = GameEntity.Cast(characterEntity);
+		if (!gameEntity)
+			return false;
+
+		SCR_JsonSaveContext saveContext = new SCR_JsonSaveContext();
 		if (!SCR_PlayerArsenalLoadout.ReadLoadoutString(characterEntity, saveContext))
 			return false;
 
-		serialized = saveContext.SaveToString();
+		serialized = saveContext.ExportToString();
 		return !serialized.IsEmpty();
 	}
 
@@ -2804,8 +2824,8 @@ class HST_LoadoutEditorService
 			return false;
 		}
 
-		JsonLoadContext loadContext = new JsonLoadContext();
-		if (!loadContext.LoadFromString(loadout.m_sSerializedLoadout))
+		SCR_JsonLoadContext loadContext = new SCR_JsonLoadContext();
+		if (!loadContext.ImportFromString(loadout.m_sSerializedLoadout))
 		{
 			failure = "saved loadout data could not be read";
 			return false;
@@ -2887,7 +2907,11 @@ class HST_LoadoutEditorService
 
 	protected bool IsArsenalItemAvailable(HST_ArsenalItemState item)
 	{
-		return item && !item.m_sPrefab.IsEmpty() && !IsRemovedExternalItem(item.m_sPrefab, item.m_sDisplayName) && (item.m_bUnlocked || item.m_iCount > 0);
+		if (!item || item.m_sPrefab.IsEmpty() || IsRemovedExternalItem(item.m_sPrefab, item.m_sDisplayName) || (!item.m_bUnlocked && item.m_iCount <= 0))
+			return false;
+
+		string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+		return !HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(item.m_sPrefab, category) && !HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(item.m_sDisplayName, category);
 	}
 
 	protected int CountAvailableItemsInCategory(HST_CampaignState state, string categoryId)
@@ -3084,46 +3108,10 @@ class HST_LoadoutEditorService
 		if (prefab.IsEmpty())
 			return false;
 
-		if (category != "utility" && category != "equipment" && category != "magazine" && category != "attachment" && category != "vest" && category != "backpack")
-			return false;
-
-		if (ContainsStructuralStorageCandidateToken(prefab) || ContainsStructuralStorageCandidateToken(display) || ContainsStructuralStorageCandidateToken(shortDisplay))
+		if (HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(prefab, category) || HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(display, category) || HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(shortDisplay, category))
 			return true;
 
-		ResourceName resourceName = prefab;
-		Resource loaded = Resource.Load(resourceName);
-		if (!loaded)
-			return false;
-
-		vector origin = vector.Zero;
-		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
-		if (playerEntity)
-			origin = playerEntity.GetOrigin();
-
-		EntitySpawnParams params = new EntitySpawnParams;
-		params.TransformMode = ETransformMode.WORLD;
-		params.Transform[3] = origin;
-		IEntity temp = GetGame().SpawnEntityPrefabEx(resourceName, false, GetGame().GetWorld(), params);
-		if (!temp)
-			return false;
-
-		bool blocked;
-		if (!BaseLoadoutClothComponent.Cast(temp.FindComponent(BaseLoadoutClothComponent)))
-		{
-			array<BaseInventoryStorageComponent> structuralStorages = {};
-			if (FindStructuralAttachmentStorages(temp, structuralStorages) > 0)
-				blocked = true;
-
-			if (!blocked && category == "utility")
-			{
-				array<BaseInventoryStorageComponent> cargoStorages = {};
-				if (FindCargoDepositStorages(temp, cargoStorages) > 0)
-					blocked = true;
-			}
-		}
-
-		SCR_EntityHelper.DeleteEntityAndChildren(temp);
-		return blocked;
+		return HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(prefab, category, display);
 	}
 
 	protected bool ContainsStructuralStorageCandidateToken(string value)
@@ -3132,7 +3120,7 @@ class HST_LoadoutEditorService
 			return false;
 
 		value.ToLower();
-		return value.Contains("pouch") || value.Contains("holster") || value.Contains("bandolier") || value.Contains("carrier") || value.Contains("scabbard") || value.Contains("sheath") || value.Contains("etool") || value.Contains("e-tool") || value.Contains("entrenching tool");
+		return HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(value);
 	}
 
 	protected void RefreshDraftNodes(HST_CampaignState state, HST_LoadoutEditorSessionState session)
@@ -4178,6 +4166,10 @@ class HST_LoadoutEditorService
 
 	protected string ResolveCategoryFromPrefab(string prefab)
 	{
+		if (HST_ArsenalItemFilter.IsMedicalItemToken(prefab))
+			return "medical";
+		if (HST_ArsenalItemFilter.IsKnownBackpackToken(prefab))
+			return "backpack";
 		if (prefab.Contains("Helmet") || prefab.Contains("Hat") || prefab.Contains("Headgear") || prefab.Contains("Cap") || prefab.Contains("Beanie") || prefab.Contains("Boonie") || prefab.Contains("Beret"))
 			return "headgear";
 		if (prefab.Contains("Pants") || prefab.Contains("Trouser"))

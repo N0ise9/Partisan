@@ -1030,7 +1030,7 @@ class HST_LootService
 		displayName = BuildDisplayName(item, prefab);
 
 		string depositReason;
-		if (!arsenal.CanDepositItem(balance, prefab, category, vehicleLoot, depositReason))
+		if (!arsenal.CanDepositItem(balance, prefab, category, vehicleLoot, depositReason, displayName))
 		{
 			if (result)
 			{
@@ -2668,6 +2668,12 @@ class HST_LootService
 
 		if (prefab.Contains("Launcher") || prefab.Contains("RPG") || prefab.Contains("M72") || prefab.Contains("AT4"))
 			return "launcher";
+
+		if (HST_ArsenalItemFilter.IsMedicalItemToken(prefab, BuildDisplayName(item, prefab)))
+			return "medical";
+
+		if (HST_ArsenalItemFilter.IsKnownBackpackToken(prefab, BuildDisplayName(item, prefab)))
+			return "backpack";
 
 		return "equipment";
 	}

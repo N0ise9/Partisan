@@ -340,6 +340,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "HST_MENU|offline|0\nSTATUS|h-istasi menu | server coordinator not ready\nEND";
 
+		if (m_Arsenal)
+			m_Arsenal.PurgeBlockedArsenalItems(m_State);
+
 		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId), m_ZoneCompositions, m_ZoneCapture);
 	}
 
@@ -490,6 +493,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_LoadoutEditor)
 			return "HST_LOADOUT_EDITOR|offline||false|0|0|0|0\nPREVIEW|false|0 0 0|0|server coordinator not ready\nEND";
+
+		if (m_Arsenal)
+			m_Arsenal.PurgeBlockedArsenalItems(m_State);
 
 		string payload = m_LoadoutEditor.BuildEditorPayload(m_State, ResolveTrustedIdentityId(playerId), playerId);
 		if (payload.IsEmpty())

@@ -4190,8 +4190,18 @@ foreach ($requiredLoadoutUIDebugEntry in @(
 	}
 }
 Write-Host "UI layout debug instrumentation OK"
-if ($loadoutEditorComponentText -notmatch [regex]::Escape("HST_NotificationToastController.Get().Show")) {
-	throw "Loadout editor action notifications must enqueue through HST_NotificationToastController"
+foreach ($requiredLoadoutEditorToastEntry in @(
+	"protected string m_sEditorToastText",
+	"protected string BuildStageToast()",
+	"return m_sEditorToastText",
+	"protected void ShowHint(string text)",
+	"m_sEditorToastText = text",
+	"Saved to Loadout Slot %1",
+	"Loaded Loadout Slot %1"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorToastEntry)) {
+		throw "Loadout editor action notifications must use editor-local toast text: $requiredLoadoutEditorToastEntry"
+	}
 }
 foreach ($requiredLoadoutEditorEntry in @(
 	"HST_LoadoutEditorService",

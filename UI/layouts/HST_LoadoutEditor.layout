@@ -694,11 +694,89 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        "Horizontal Alignment" Center
        "Vertical Alignment" Center
       }
+      ButtonWidgetClass "{7B2FD986A4D35390}" {
+       Name "CandidateEditButton"
+       Slot FrameWidgetSlot "{7B2FD986A4D35391}" {
+        Anchor 0 0 1 0
+        OffsetLeft 20
+        OffsetTop 114
+        OffsetRight 300
+        SizeY 56
+        OffsetBottom -170
+       }
+       "Is Visible" 0
+       Color 0.07 0.09 0.11 0.98
+      }
+      PanelWidgetClass "{7B2FD986A4D35392}" {
+       Name "CandidateEditBackground"
+       Slot FrameWidgetSlot "{7B2FD986A4D35393}" {
+        Anchor 0 0 1 0
+        OffsetLeft 20
+        OffsetTop 114
+        OffsetRight 300
+        SizeY 56
+        OffsetBottom -170
+       }
+       "Is Visible" 0
+       Color 0.07 0.09 0.11 0.98
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{7B2FD986A4D35394}" {
+       Name "CandidateEditAccent"
+       Slot FrameWidgetSlot "{7B2FD986A4D35395}" {
+        Anchor 0 0 1 0
+        OffsetLeft 20
+        OffsetTop 114
+        OffsetRight 300
+        SizeY 3
+        OffsetBottom -117
+       }
+       "Is Visible" 0
+       Color 1 0.82 0.38 1
+       style full
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{7B2FD986A4D35396}" {
+       Name "CandidateEditIcon"
+       Slot FrameWidgetSlot "{7B2FD986A4D35397}" {
+        Anchor 0 0 0 0
+        OffsetLeft 40
+        OffsetTop 114
+        SizeX 44
+        SizeY 56
+        OffsetRight -84
+        OffsetBottom -170
+       }
+       "Is Visible" 0
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text ">"
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+      }
+      TextWidgetClass "{7B2FD986A4D35398}" {
+       Name "CandidateEditLabel"
+       Slot FrameWidgetSlot "{7B2FD986A4D35399}" {
+        Anchor 0 0 1 0
+        OffsetLeft 102
+        OffsetTop 114
+        OffsetRight 318
+        SizeY 56
+        OffsetBottom -170
+       }
+       "Is Visible" 0
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Edit"
+       "Horizontal Alignment" Left
+       "Vertical Alignment" Center
+      }
       ButtonWidgetClass "{7B2FD986A4D34310}" {
        Name "CandidateRemoveButton"
        Slot FrameWidgetSlot "{7B2FD986A4D34311}" {
       Anchor 0 0 1 0
-      OffsetLeft 20
+      OffsetLeft 312
       OffsetTop 114
       OffsetRight 20
       SizeY 56
@@ -711,7 +789,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "CandidateRemoveBackground"
        Slot FrameWidgetSlot "{7B2FD986A4D34315}" {
         Anchor 0 0 1 0
-        OffsetLeft 20
+        OffsetLeft 312
         OffsetTop 114
         OffsetRight 20
         SizeY 56
@@ -726,7 +804,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "CandidateRemoveAccent"
        Slot FrameWidgetSlot "{7B2FD986A4D34317}" {
        Anchor 0 0 1 0
-       OffsetLeft 20
+       OffsetLeft 312
        OffsetTop 114
        OffsetRight 20
        SizeY 3
@@ -741,7 +819,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "CandidateRemoveIcon"
        Slot FrameWidgetSlot "{7B2FD986A4D34319}" {
        Anchor 0 0 0 0
-       OffsetLeft 40
+       OffsetLeft 332
        OffsetTop 114
        SizeX 44
        SizeY 56
@@ -759,7 +837,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "CandidateRemoveLabel"
        Slot FrameWidgetSlot "{7B2FD986A4D3431B}" {
         Anchor 0 0 1 0
-        OffsetLeft 102
+        OffsetLeft 394
         OffsetTop 114
         OffsetRight 38
         SizeY 56
@@ -2290,7 +2368,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             Anchor 0 0 0 1
             OffsetLeft 0
             OffsetTop 0
-            OffsetRight 98
+            OffsetRight 150
             OffsetBottom 0
            }
            Color 0.07 0.09 0.11 0.98
@@ -2314,7 +2392,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
                }
                "No Localization" 1
                "Ignore Cursor" 1
-               Text "Reset"
+               Text "Set to Default"
                "Horizontal Alignment" Center
                "Vertical Alignment" Center
               }
@@ -2326,9 +2404,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
            Name "SettingsResetPreviewButton"
            Slot FrameWidgetSlot "{7B2FD986A4D34393}" {
             Anchor 0 0 0 1
-            OffsetLeft 114
+            OffsetLeft 166
             OffsetTop 0
-            OffsetRight 236
+            OffsetRight 306
             OffsetBottom 0
            }
            Color 0.07 0.09 0.11 0.98

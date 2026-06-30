@@ -13,7 +13,7 @@ class HST_ArsenalService
 		}
 
 		string depositReason;
-		if (!CanDepositItem(balance, prefab, category, false, depositReason))
+		if (!CanDepositItem(balance, prefab, category, false, depositReason, displayName))
 		{
 			Print(string.Format("h-istasi arsenal | blocked item deposit %1 | %2", prefab, depositReason));
 			return null;
@@ -46,6 +46,9 @@ class HST_ArsenalService
 		if (!state || prefab.IsEmpty() || amount <= 0)
 			return null;
 
+		if (HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(prefab, category, displayName))
+			return null;
+
 		HST_ArsenalItemState item = state.FindArsenalItem(prefab);
 		if (!item)
 		{
@@ -65,7 +68,7 @@ class HST_ArsenalService
 		return item;
 	}
 
-	bool CanDepositItem(HST_BalanceConfig balance, string prefab, string category, bool vehicleLoot, out string reason)
+	bool CanDepositItem(HST_BalanceConfig balance, string prefab, string category, bool vehicleLoot, out string reason, string displayName = "")
 	{
 		reason = "";
 		if (prefab.IsEmpty())
@@ -77,6 +80,12 @@ class HST_ArsenalService
 		if (IsRawNonLootAsset(prefab))
 		{
 			reason = "raw visual/support asset is not loot";
+			return false;
+		}
+
+		if (HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(prefab, category, displayName))
+		{
+			reason = "structural inventory container is not arsenal loot";
 			return false;
 		}
 
@@ -103,6 +112,32 @@ class HST_ArsenalService
 		}
 
 		return true;
+	}
+
+	int PurgeBlockedArsenalItems(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int removed;
+		for (int i = state.m_aArsenalItems.Count() - 1; i >= 0; i--)
+		{
+			HST_ArsenalItemState item = state.m_aArsenalItems[i];
+			if (!item)
+			{
+				state.m_aArsenalItems.Remove(i);
+				removed++;
+				continue;
+			}
+
+			if (!HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(item.m_sPrefab, item.m_sCategory, item.m_sDisplayName))
+				continue;
+
+			state.m_aArsenalItems.Remove(i);
+			removed++;
+		}
+
+		return removed;
 	}
 
 	bool IsItemUnlocked(HST_CampaignState state, string prefab)
@@ -168,7 +203,11 @@ class HST_ArsenalService
 		if (!state)
 			return "h-istasi arsenal | campaign state not ready";
 
+		int purged = PurgeBlockedArsenalItems(state);
 		string report = string.Format("h-istasi arsenal | tracked items %1", state.m_aArsenalItems.Count());
+		if (purged > 0)
+			report = report + string.Format(" | purged blocked %1", purged);
+
 		foreach (HST_ArsenalItemState item : state.m_aArsenalItems)
 		{
 			if (!item)
