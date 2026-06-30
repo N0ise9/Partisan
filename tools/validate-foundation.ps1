@@ -4276,6 +4276,8 @@ foreach ($requiredLoadoutEditorToastEntry in @(
 		"CallLater(ClearEditorToast, EDITOR_TOAST_DURATION_MS, false, m_iEditorToastGeneration)",
 		"protected void ClearEditorToast(int generation)",
 		"generation != m_iEditorToastGeneration",
+		"Render Preview Reset",
+		"Loadout Editor Settings Reset",
 		"Saved to Loadout Slot %1",
 		"Loaded Loadout Slot %1"
 	)) {
