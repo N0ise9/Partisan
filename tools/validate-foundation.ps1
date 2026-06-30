@@ -4166,6 +4166,31 @@ $loadoutMouseUpHandlerMatch = [regex]::Match($loadoutEditorComponentText, "overr
 if (!$loadoutMouseUpHandlerMatch.Success -or $loadoutMouseUpHandlerMatch.Value -match [regex]::Escape("OnWidgetClickedWithButton(widgetId, button)")) {
 	throw "Loadout editor mouse-up handler must not also dispatch normal button clicks; OnClick owns activation"
 }
+$loadoutMouseDownHandlerMatch = [regex]::Match($loadoutEditorComponentText, "override bool OnMouseButtonDown[\s\S]*?\r?\n\t}\r?\n\r?\n\toverride bool OnMouseButtonUp")
+if (!$loadoutMouseDownHandlerMatch.Success -or $loadoutMouseDownHandlerMatch.Value -notmatch [regex]::Escape("return m_Editor.OnWidgetMouseButtonDown(widgetId, x, y, button)")) {
+	throw "Loadout editor mouse-down handler must route to component feedback handling"
+}
+$loadoutPressedFeedbackMatch = [regex]::Match($loadoutEditorComponentText, "protected bool ApplyPressedButtonFeedback[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool ShouldApplyPressedFeedback[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected Widget ResolveButtonFeedbackBackground")
+if (!$loadoutPressedFeedbackMatch.Success) {
+	throw "Loadout editor pressed-button feedback contract is missing"
+}
+foreach ($requiredLoadoutPressedFeedbackEntry in @(
+		"if (widgetId != PREVIEW_DRAG_WIDGET_ID)",
+		"if (button == 0)",
+		"ApplyPressedButtonFeedback(widgetId, true)",
+		"if (m_iPressedWidgetId >= 0)",
+		"ApplyPressedButtonFeedback(m_iPressedWidgetId, false)",
+		"m_iPressedWidgetId = widgetId",
+		"color = GetAccentColor()",
+		"m_iPressedWidgetId = -1",
+		"background.SetColorInt(color)",
+		"widgetId >= SETTINGS_LIGHT_MINUS_WIDGET_ID && widgetId <= SETTINGS_WORLD_PRESET_WIDGET_ID",
+		"widgetId == SETTINGS_RESET_WIDGET_ID"
+	)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutPressedFeedbackEntry)) {
+		throw "Loadout editor buttons must show accent-color feedback on mouse down and reset on mouse up: $requiredLoadoutPressedFeedbackEntry"
+	}
+}
 foreach ($requiredSetupUIDebugEntry in @(
 		'HST_UIDebug.LogLayoutCreate("setup_map"',
 		'HST_UIDebug.LogExpectedWidgetsCsv("setup_map"',
@@ -5927,6 +5952,30 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorComponentEntry)) {
 		throw "Fullscreen loadout editor component is missing: $requiredLoadoutEditorComponentEntry"
 	}
+}
+$previewWorldSettingsMatch = [regex]::Match($loadoutEditorComponentText, "protected void ApplyPreviewWorldSettings[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void ApplyPreviewSkyPreset[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void SetPreviewSkyMaterialColor[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool ApplyPreviewWorldMaterialToSkySphereRecursive")
+if (!$previewWorldSettingsMatch.Success) {
+	throw "Loadout editor render-background settings must include preview world and sky material update helpers"
+}
+foreach ($requiredPreviewWorldSettingsEntry in @(
+		"ApplyPreviewSkyPreset()",
+		"ApplyPreviewWorldMaterialToSkySphereRecursive(m_PreviewStageEntity, GetPreviewWorldMaterial())",
+		"GenericWorldEntity worldEntity = GenericWorldEntity.Cast(m_PreviewStageEntity)",
+		"Material skyMaterial = worldEntity.GetSkyMaterial()",
+		"int preset = m_VisualSettings.m_iWorldPreset",
+		'SetPreviewSkyMaterialColor(skyMaterial, "ColorBottom"',
+		'SetPreviewSkyMaterialColor(skyMaterial, "ColorZenith"',
+		'SetPreviewSkyMaterialColor(skyMaterial, "ColorUp"',
+		'skyMaterial.SetParam("IntensityLV"',
+		"material.SetParam(paramName, rgba)"
+	)) {
+	if ($previewWorldSettingsMatch.Value -notmatch [regex]::Escape($requiredPreviewWorldSettingsEntry)) {
+		throw "Loadout editor Render Background Color must update the actual preview sky/background material: $requiredPreviewWorldSettingsEntry"
+	}
+}
+$previewSkySphereMaterialMatch = [regex]::Match($loadoutEditorComponentText, "protected bool ApplyPreviewWorldMaterialToSkySphereRecursive[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool IsPreviewSkySphereEntity")
+if (!$previewSkySphereMaterialMatch.Success -or $previewSkySphereMaterialMatch.Value -notmatch [regex]::Escape("SCR_Global.SetMaterial(entity, material, true)")) {
+	throw "Loadout editor Render Background Color must also update the spawned preview sky-sphere material"
 }
 foreach ($forbiddenLoadoutScaledFallbackMetric in @(
 		"m_Layout.m_iRailWidth = ScalePx(444)",
