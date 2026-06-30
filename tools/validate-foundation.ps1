@@ -4232,17 +4232,26 @@ foreach ($requiredLoadoutUIDebugEntry in @(
 }
 Write-Host "UI layout debug instrumentation OK"
 foreach ($requiredLoadoutEditorToastEntry in @(
+		"EDITOR_TOAST_DURATION_MS = 2600",
 		"protected string m_sEditorToastText",
+		"protected int m_iEditorToastGeneration",
 		"protected string BuildStageToast()",
 		"return m_sEditorToastText",
 		"protected void ShowHint(string text)",
+		"m_iEditorToastGeneration++",
 		"m_sEditorToastText = text",
+		"CallLater(ClearEditorToast, EDITOR_TOAST_DURATION_MS, false, m_iEditorToastGeneration)",
+		"protected void ClearEditorToast(int generation)",
+		"generation != m_iEditorToastGeneration",
 		"Saved to Loadout Slot %1",
 		"Loaded Loadout Slot %1"
 	)) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorToastEntry)) {
 		throw "Loadout editor action notifications must use editor-local toast text: $requiredLoadoutEditorToastEntry"
 	}
+}
+if ($loadoutEditorComponentText -notmatch "CloseEditorInternal[\s\S]*?GetGame\(\)\.GetCallqueue\(\)\.Remove\(ClearEditorToast\)") {
+	throw "Loadout editor must clear pending local toast timers when closing"
 }
 foreach ($requiredLoadoutEditorEntry in @(
 		"HST_LoadoutEditorService",

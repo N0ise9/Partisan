@@ -186,6 +186,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int PREVIEW_BOUNDS_RETRY_DELAY_MS = 120;
 	static const int PREVIEW_BOUNDS_RETRY_COUNT = 4;
 	static const int POST_ACTION_REFRESH_DELAY_MS = 350;
+	static const int EDITOR_TOAST_DURATION_MS = 2600;
 	static const int PANEL_BACK_COLOR = 0xF20D1114;
 	static const float PREVIEW_FALLBACK_UNDERLAY_OPACITY = 0.28;
 	static const ResourceName ICON_CLOTHING = "{A9AFA05DD269660A}Assets/512/clothing_icon.edds";
@@ -221,6 +222,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected string m_sLastResult;
 	protected string m_sEditorToastText;
 	protected string m_sServerFailureText;
+	protected int m_iEditorToastGeneration;
 	protected bool m_bPreviewSpawned;
 	protected bool m_bCandidateMode;
 	protected bool m_bPostActionRefreshQueued;
@@ -1328,6 +1330,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_bPostActionRefreshQueued = false;
 		m_bPostLayoutRefreshQueued = false;
 		m_bDeferredStorageBrowserRenderQueued = false;
+		m_iEditorToastGeneration++;
+		m_sEditorToastText = "";
+		GetGame().GetCallqueue().Remove(ClearEditorToast);
 		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent");
 		UnregisterInputListeners();
 		ClearWidgets();
@@ -9212,7 +9217,20 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (text.IsEmpty())
 			return;
 
+		m_iEditorToastGeneration++;
 		m_sEditorToastText = text;
+		GetGame().GetCallqueue().Remove(ClearEditorToast);
+		GetGame().GetCallqueue().CallLater(ClearEditorToast, EDITOR_TOAST_DURATION_MS, false, m_iEditorToastGeneration);
+	}
+
+	protected void ClearEditorToast(int generation)
+	{
+		if (generation != m_iEditorToastGeneration)
+			return;
+
+		m_sEditorToastText = "";
+		if (m_bEditorOpen)
+			RenderEditor();
 	}
 
 	protected bool ApplyPressedButtonFeedback(int widgetId, bool pressed)
