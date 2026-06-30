@@ -1858,6 +1858,9 @@ if ($playerMarkerServiceText -notmatch [regex]::Escape("record.m_iConfigId = pla
 if ($playerMarkerServiceText -notmatch "if \(!ShouldPublishPlayerMarkers\(state\)\)[\s\S]{0,180}?ClearAll\(\)") {
 	throw "Player map marker service must clear and suppress markers while campaign is not active"
 }
+if ($playerMarkerServiceText -notmatch "protected bool ShouldPublishPlayerMarkers\(HST_CampaignState state\)[\s\S]*?return state && state\.m_ePhase == HST_ECampaignPhase\.HST_CAMPAIGN_ACTIVE;") {
+	throw "Player map marker service must publish only during active campaign phase"
+}
 foreach ($requiredDynamicCleanupContract in @(
 		"if (!m_mDynamicDomainIdToMarkerEntity.Contains(id))",
 		"if (manager && markerEntity)",
@@ -1949,6 +1952,7 @@ if (!(Test-Path "UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout")) {
 	throw "Player marker layout is missing: UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout"
 }
 $playerMarkerLayoutText = Get-Content -Raw "UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout"
+$playerMarkerDynamicWidgetText = Get-Content -Raw "Scripts/Game/HST/Map/HST_PlayerMapMarkerDynamicWComponent.c"
 foreach ($requiredPlayerMarkerLayoutEntry in @(
 		"Name `"HST_PlayerMapMarkerDynamic`"",
 		"HST_PlayerMapMarkerDynamicWComponent",
@@ -1961,6 +1965,22 @@ foreach ($requiredPlayerMarkerLayoutEntry in @(
 }
 if ($playerMarkerLayoutText -match "SCR_MapMarkerSquadMemberComponent") {
 	throw "Player marker layout must not use the squad-member component for SCR_MapMarkerEntity dynamic markers"
+}
+foreach ($requiredPlayerMarkerFacingEntry in @(
+		"WHISPER_ICON_FORWARD_OFFSET_DEGREES = -45.0",
+		"GetYawPitchRoll()",
+		"yawPitchRoll[0] + WHISPER_ICON_FORWARD_OFFSET_DEGREES",
+		"m_wMarkerIcon.SetRotation(rotation)",
+		"GetGame().GetCallqueue().CallLater(UpdateFacingRotation, FACING_UPDATE_INTERVAL_MS, true)",
+		"GetGame().GetCallqueue().Remove(UpdateFacingRotation)",
+		"return m_MarkerEnt.GetTarget()"
+	)) {
+	if ($playerMarkerDynamicWidgetText -notmatch [regex]::Escape($requiredPlayerMarkerFacingEntry)) {
+		throw "Player marker widget must rotate the whisper icon from player facing and stop its update loop on detach: $requiredPlayerMarkerFacingEntry"
+	}
+}
+if ($playerMarkerDynamicWidgetText -match "m_wMarkerText\.SetRotation") {
+	throw "Player marker facing must rotate only the icon, not the label text"
 }
 if ($playerMarkerConfigText -notmatch [regex]::Escape('SCR_MapMarkerConfig : "{3583D42139D9A10B}Configs/Map/CampaignMapMarkerConfig.conf"')) {
 	throw "Player map marker config must inherit CampaignMapMarkerConfig.conf so existing campaign markers stay registered"
