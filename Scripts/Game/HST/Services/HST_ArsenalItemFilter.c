@@ -5,7 +5,7 @@ class HST_ArsenalItemFilter
 		if (HasBlockedStructuralContainerToken(prefab, category) || HasBlockedStructuralContainerToken(displayName, category))
 			return true;
 
-		if (!ShouldProbeStructuralContainer(category) || IsKnownWearableContainer(prefab, displayName))
+		if (!ShouldProbeStructuralContainer(category) || IsKnownWearableContainer(prefab, displayName) || IsLoadoutClothingCategory(category))
 			return false;
 
 		if (!GetGame() || !GetGame().GetWorld())
@@ -33,7 +33,7 @@ class HST_ArsenalItemFilter
 		if (HasBlockedStructuralContainerToken(prefab, category) || HasBlockedStructuralContainerToken(displayName, category))
 			return true;
 
-		if (!entity || !ShouldProbeStructuralContainer(category) || IsKnownWearableContainer(prefab, displayName))
+		if (!entity || !ShouldProbeStructuralContainer(category) || IsKnownWearableContainer(prefab, displayName) || IsLoadoutClothingCategory(category))
 			return false;
 
 		if (BaseLoadoutClothComponent.Cast(entity.FindComponent(BaseLoadoutClothComponent)))
@@ -111,6 +111,38 @@ class HST_ArsenalItemFilter
 			|| ((prefab.Contains("alice") || displayName.Contains("alice")) && (prefab.Contains("pack") || displayName.Contains("pack")));
 	}
 
+	static string ResolveWearableCategory(string prefab, string displayName = "")
+	{
+		prefab.ToLower();
+		displayName.ToLower();
+
+		if (IsKnownBackpackToken(prefab, displayName))
+			return "backpack";
+
+		if (prefab.Contains("helmet") || prefab.Contains("hat") || prefab.Contains("headgear") || prefab.Contains("cap") || prefab.Contains("beanie") || prefab.Contains("boonie") || prefab.Contains("beret") || displayName.Contains("helmet") || displayName.Contains("hat") || displayName.Contains("cap"))
+			return "headgear";
+
+		if (prefab.Contains("pants") || prefab.Contains("trouser") || displayName.Contains("pants") || displayName.Contains("trouser"))
+			return "pants";
+
+		if (prefab.Contains("boot") || displayName.Contains("boot"))
+			return "boots";
+
+		if (prefab.Contains("glove") || prefab.Contains("handwear") || displayName.Contains("glove"))
+			return "handwear";
+
+		if (prefab.Contains("uniform") || prefab.Contains("jacket") || prefab.Contains("shirt") || prefab.Contains("clothes") || prefab.Contains("blouse") || prefab.Contains("parka") || prefab.Contains("coat") || displayName.Contains("uniform") || displayName.Contains("jacket") || displayName.Contains("shirt") || displayName.Contains("blouse") || displayName.Contains("parka") || displayName.Contains("coat"))
+			return "clothing";
+
+		if (prefab.Contains("vest") || prefab.Contains("webbing") || prefab.Contains("chestrig") || prefab.Contains("chest_rig") || prefab.Contains("chest rig") || displayName.Contains("vest") || displayName.Contains("webbing") || displayName.Contains("chest rig"))
+			return "vest";
+
+		if (prefab.Contains("alice") || displayName.Contains("alice"))
+			return "vest";
+
+		return "";
+	}
+
 	static bool IsLoadoutClothingCategory(string category)
 	{
 		return category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear";
@@ -118,12 +150,15 @@ class HST_ArsenalItemFilter
 
 	protected static bool ShouldProbeStructuralContainer(string category)
 	{
-		return category.IsEmpty() || category == "equipment" || category == "utility" || category == "magazine" || category == "attachment" || category == "vest" || category == "backpack";
+		if (IsLoadoutClothingCategory(category))
+			return false;
+
+		return category.IsEmpty() || category == "equipment" || category == "utility" || category == "magazine" || category == "attachment";
 	}
 
 	protected static bool IsKnownWearableContainer(string prefab, string displayName)
 	{
-		return IsKnownBackpackToken(prefab, displayName);
+		return !ResolveWearableCategory(prefab, displayName).IsEmpty();
 	}
 
 	protected static bool HasStructuralAttachmentStorage(IEntity entity)

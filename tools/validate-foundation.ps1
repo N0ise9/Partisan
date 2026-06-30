@@ -1929,11 +1929,18 @@ if (!(Test-Path "Prefabs/Markers/HST_PlayerMapMarker.et")) {
 	throw "Player marker prefab is missing: Prefabs/Markers/HST_PlayerMapMarker.et"
 }
 $playerMarkerPrefabText = Get-Content -Raw "Prefabs/Markers/HST_PlayerMapMarker.et"
-if ($playerMarkerPrefabText -notmatch [regex]::Escape('Prefabs/Markers/MapMarkerEntityBase.et')) {
-	throw "Player marker prefab must inherit MapMarkerEntityBase.et so SCR_MapMarkerEntity has its native marker/RPL shell"
+if ($playerMarkerPrefabText -match [regex]::Escape('Prefabs/Markers/MapMarkerEntityBase.et')) {
+	throw "Player marker prefab must be standalone when declaring its non-streaming RplComponent; inheriting MapMarkerEntityBase.et and adding RPL creates duplicate components"
 }
-if ($playerMarkerPrefabText -match "components\s*\{[\s\S]*?RplComponent") {
-	throw "Player marker prefab must not add a duplicate RplComponent when inheriting MapMarkerEntityBase.et"
+foreach ($requiredPlayerMarkerPrefabEntry in @(
+		'SCR_MapMarkerEntity',
+		'RplComponent',
+		'SpatialRelevancy 0',
+		'Streamable Disabled'
+	)) {
+	if ($playerMarkerPrefabText -notmatch [regex]::Escape($requiredPlayerMarkerPrefabEntry)) {
+		throw "Player marker prefab must declare exactly one non-streaming local RplComponent like native squad marker prefabs: $requiredPlayerMarkerPrefabEntry"
+	}
 }
 if ($playerMarkerConfigText -notmatch [regex]::Escape('m_sMarkerLayout "{6985327711306214}UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout"')) {
 	throw "Player map marker config must use the HST dynamic marker layout"
@@ -6258,6 +6265,31 @@ foreach ($requiredRecursiveLootEntry in @(
 	)) {
 	if ($lootServiceText -notmatch [regex]::Escape($requiredRecursiveLootEntry)) {
 		throw "Loot service must recursively gather nested corpse/crate/gear inventory: $requiredRecursiveLootEntry"
+	}
+}
+$arsenalItemFilterText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalItemFilter.c"
+foreach ($requiredWearableLootFilterEntry in @(
+		"static string ResolveWearableCategory",
+		"IsKnownWearableContainer(prefab, displayName) || IsLoadoutClothingCategory(category)",
+		"if (IsLoadoutClothingCategory(category))",
+		"return !ResolveWearableCategory(prefab, displayName).IsEmpty()",
+		"value.Contains(`"pouch`")",
+		"value.Contains(`"suspenders`")",
+		"HasEntrenchingToolToken(value) && HasStructuralContainerQualifier(value)"
+	)) {
+	if ($arsenalItemFilterText -notmatch [regex]::Escape($requiredWearableLootFilterEntry)) {
+		throw "Arsenal structural-container filter must exempt real worn gear while still blocking child containers: $requiredWearableLootFilterEntry"
+	}
+}
+foreach ($requiredWearableLootClassifierEntry in @(
+		"string wearableCategory = HST_ArsenalItemFilter.ResolveWearableCategory(prefab, displayName)",
+		"!wearableCategory.IsEmpty()",
+		"HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(prefab, wearableCategory)",
+		"HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(displayName, wearableCategory)",
+		"return wearableCategory;"
+	)) {
+	if ($lootServiceText -notmatch [regex]::Escape($requiredWearableLootClassifierEntry)) {
+		throw "Loot service must classify worn gear before structural cargo-storage filtering: $requiredWearableLootClassifierEntry"
 	}
 }
 if ($lootServiceText -notmatch 'RekeyLegacyVehiclePartCargo[\s\S]*?m_sVehicleRuntimeId = vehicleId') {
