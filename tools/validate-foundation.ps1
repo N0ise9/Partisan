@@ -1718,6 +1718,8 @@ $campaignMarkerDirectorText = Get-Content -Raw "Scripts/Game/HST/Map/HST_Campaig
 $nativeMarkerReconcilerText = Get-Content -Raw "Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c"
 $playerMarkerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerMapMarkerService.c"
 $playerMarkerEntryText = Get-Content -Raw "Scripts/Game/HST/Map/HST_PlayerMapMarkerEntry.c"
+$playerMarkerEntityPatchText = Get-Content -Raw "Scripts/Game/HST/Map/HST_PlayerMapMarkerEntityConfigPatch.c"
+$mapMarkerManagerPatchText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MapMarkerManagerConfigPatch.c"
 $playerMarkerTypesText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MapMarkerTypes.c"
 $playerMarkerConfigText = Get-Content -Raw "Configs/Map/HST_PlayerMapMarkerConfig.conf"
 $runtimeMarkerPipelineText = $markerServiceText + "`n" + $coordinatorMarkerText + "`n" + $campaignMarkerDirectorText + "`n" + $nativeMarkerReconcilerText
@@ -1904,6 +1906,42 @@ foreach ($requiredPlayerMarkerReportContract in @(
 if ($coordinatorMarkerText -notmatch [regex]::Escape("m_PlayerMapMarkers.BuildRuntimeReport()")) {
 	throw "Native marker admin report must include player marker service diagnostics"
 }
+foreach ($requiredPlayerMarkerManagerPatchEntry in @(
+		"bool EnsureHSTMarkerConfig(ResourceName markerConfigPath)",
+		"m_MarkerCfg.GetMarkerEntryConfigByType(SCR_EMapMarkerType.HST_PLAYER)",
+		"BaseContainerTools.LoadContainer(markerConfigPath)",
+		"BaseContainerTools.CreateInstanceFromContainer",
+		"m_MarkerCfg = markerConfig",
+		"InitHSTMarkerConfigEntries()",
+		"dynamicEntry.InitServerLogic()",
+		"dynamicEntry.InitClientLogic()"
+	)) {
+	if ($mapMarkerManagerPatchText -notmatch [regex]::Escape($requiredPlayerMarkerManagerPatchEntry)) {
+		throw "Player marker manager config patch must load and initialize the HST_PLAYER marker config: $requiredPlayerMarkerManagerPatchEntry"
+	}
+}
+foreach ($requiredPlayerMarkerEntityPatchEntry in @(
+		"modded class SCR_MapMarkerEntity",
+		"override protected void EOnInit(IEntity owner)",
+		"markerManager.RegisterDynamicMarker(this)",
+		"BaseRplComponent rplComp = BaseRplComponent.Cast(FindComponent(BaseRplComponent))",
+		"if (!rplComp || rplComp.IsOwner())",
+		"SetFlags(EntityFlags.ACTIVE, true)",
+		"SetEventMask(EntityEvent.FRAME)",
+		"m_fUpdateDelay = markerEntityClass.GetUpdateDelay()",
+		"m_fTimeTracker = m_fUpdateDelay",
+		"override void OnCreateMarker()",
+		"GetType() == SCR_EMapMarkerType.HST_PLAYER",
+		"markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG)",
+		"super.OnCreateMarker()"
+	)) {
+	if ($playerMarkerEntityPatchText -notmatch [regex]::Escape($requiredPlayerMarkerEntityPatchEntry)) {
+		throw "Player marker entity patch must guard vanilla dynamic marker init/config creation path: $requiredPlayerMarkerEntityPatchEntry"
+	}
+}
+if ($playerMarkerEntityPatchText -match [regex]::Escape("super.EOnInit(owner)")) {
+	throw "Player marker entity patch must not call vanilla EOnInit; vanilla dereferences rplComp without a null guard"
+}
 $nativeMarkerPurgeMatch = [regex]::Match($coordinatorMarkerText, "string RequestAdminPurgeNativeHSTMarkers[\s\S]*?\r?\n\t}")
 if (!$nativeMarkerPurgeMatch.Success -or $nativeMarkerPurgeMatch.Value -notmatch [regex]::Escape("m_MapMarkers.AdminPurgeNativeHSTMarkers()") -or $nativeMarkerPurgeMatch.Value -notmatch [regex]::Escape("m_PlayerMapMarkers.ClearAll()") -or $nativeMarkerPurgeMatch.Value -notmatch [regex]::Escape('m_PlayerMapMarkers.RequestRefresh("admin native marker purge")')) {
 	throw "Native marker admin purge must clear both campaign marker and separate player marker reconcilers"
@@ -1934,6 +1972,10 @@ if (!(Test-Path "Prefabs/Markers/HST_PlayerMapMarker.et")) {
 $playerMarkerPrefabText = Get-Content -Raw "Prefabs/Markers/HST_PlayerMapMarker.et"
 if ($playerMarkerPrefabText -match [regex]::Escape('Prefabs/Markers/MapMarkerEntityBase.et')) {
 	throw "Player marker prefab must be standalone when declaring its non-streaming RplComponent; inheriting MapMarkerEntityBase.et and adding RPL creates duplicate components"
+}
+$playerMarkerRplComponentCount = ([regex]::Matches($playerMarkerPrefabText, "\bRplComponent\b")).Count
+if ($playerMarkerRplComponentCount -ne 1) {
+	throw "Player marker prefab must declare exactly one RplComponent; duplicate RPL leaves SCR_MapMarkerEntity rplComp null at runtime, found $playerMarkerRplComponentCount"
 }
 foreach ($requiredPlayerMarkerPrefabEntry in @(
 		'SCR_MapMarkerEntity',
