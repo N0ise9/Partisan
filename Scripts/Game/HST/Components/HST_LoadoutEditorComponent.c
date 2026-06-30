@@ -2686,11 +2686,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected bool ContainsStorageContainerSearchToken(string value)
 	{
-		if (value.IsEmpty())
-			return false;
-
-		value.ToLower();
-		return value.Contains("pouch") || value.Contains("holster") || value.Contains("bandolier") || value.Contains("carrier") || value.Contains("scabbard") || value.Contains("sheath") || value.Contains("etool") || value.Contains("e-tool") || value.Contains("entrenching tool");
+		return HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(value);
 	}
 
 	protected string NormalizeStorageSearchText(string value)

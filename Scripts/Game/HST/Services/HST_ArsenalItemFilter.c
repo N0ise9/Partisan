@@ -36,7 +36,7 @@ class HST_ArsenalItemFilter
 		if (!entity || !ShouldProbeStructuralContainer(category) || IsKnownWearableContainer(prefab, displayName))
 			return false;
 
-		if (BaseLoadoutClothComponent.Cast(entity.FindComponent(BaseLoadoutClothComponent)))
+		if (BaseLoadoutClothComponent.Cast(entity.FindComponent(BaseLoadoutClothComponent)) && IsLoadoutClothingCategory(category))
 			return false;
 
 		if (HasStructuralAttachmentStorage(entity))
