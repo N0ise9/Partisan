@@ -66,13 +66,16 @@ class HST_ArsenalItemFilter
 		if (value.Contains("pouch") || value.Contains("holster") || value.Contains("bandolier") || value.Contains("bandoleer"))
 			return true;
 
+		if (value.Contains("buttpack") || value.Contains("butt pack"))
+			return true;
+
 		if (value.Contains("scabbard") || value.Contains("sheath"))
 			return true;
 
 		if (HasEntrenchingToolToken(value) && HasStructuralContainerQualifier(value))
 			return true;
 
-		if (value.Contains("carrier") && !IsLoadoutClothingCategory(category))
+		if (value.Contains("carrier") && !IsLoadoutClothingCategory(category) && (HasEntrenchingToolToken(value) || value.Contains("compass") || value.Contains("radio")))
 			return true;
 
 		return false;
@@ -80,7 +83,7 @@ class HST_ArsenalItemFilter
 
 	protected static bool HasEntrenchingToolToken(string value)
 	{
-		return value.Contains("etool") || value.Contains("e-tool") || value.Contains("e tool") || value.Contains("entrenching tool");
+		return value.Contains("etool") || value.Contains("e-tool") || value.Contains("e_tool") || value.Contains("e tool") || value.Contains("entrenchingtool") || value.Contains("entrenching_tool") || value.Contains("entrenching tool") || value.Contains("mpl50") || value.Contains("mpl_50") || value.Contains("mpl-50");
 	}
 
 	protected static bool HasStructuralContainerQualifier(string value)
@@ -99,6 +102,9 @@ class HST_ArsenalItemFilter
 	{
 		prefab.ToLower();
 		displayName.ToLower();
+		if (prefab.Contains("buttpack") || prefab.Contains("butt_pack") || displayName.Contains("buttpack") || displayName.Contains("butt pack"))
+			return false;
+
 		return prefab.Contains("backpack")
 			|| prefab.Contains("/backpacks/")
 			|| prefab.Contains("fieldpack")
@@ -115,6 +121,9 @@ class HST_ArsenalItemFilter
 	{
 		prefab.ToLower();
 		displayName.ToLower();
+		if (IsEntrenchingToolItemToken(prefab, displayName))
+			return false;
+
 		return prefab.Contains("webbing")
 			|| prefab.Contains("chest_rig")
 			|| prefab.Contains("chestrig")
@@ -131,13 +140,34 @@ class HST_ArsenalItemFilter
 			|| prefab.Contains("alice")
 			|| displayName.Contains("alice")
 			|| displayName.Contains("grenadier vest")
-			|| prefab.Contains("grenadier");
+			|| ((prefab.Contains("grenadier") || displayName.Contains("grenadier")) && (prefab.Contains("vest") || displayName.Contains("vest") || prefab.Contains("webbing") || displayName.Contains("webbing")));
+	}
+
+	static bool IsEntrenchingToolItemToken(string prefab, string displayName = "")
+	{
+		prefab.ToLower();
+		displayName.ToLower();
+		return prefab.Contains("etool")
+			|| prefab.Contains("e_tool")
+			|| prefab.Contains("entrenchingtool")
+			|| prefab.Contains("entrenching_tool")
+			|| prefab.Contains("mpl50")
+			|| prefab.Contains("mpl_50")
+			|| displayName.Contains("etool")
+			|| displayName.Contains("e-tool")
+			|| displayName.Contains("e tool")
+			|| displayName.Contains("entrenching tool")
+			|| displayName.Contains("mpl-50")
+			|| displayName.Contains("mpl 50");
 	}
 
 	static string ResolveWearableCategory(string prefab, string displayName = "")
 	{
 		prefab.ToLower();
 		displayName.ToLower();
+
+		if (IsEntrenchingToolItemToken(prefab, displayName))
+			return "";
 
 		if (IsKnownBackpackToken(prefab, displayName))
 			return "backpack";

@@ -166,8 +166,8 @@ class HST_LoadoutEditorService
 			if (!IsArsenalItemAvailable(item))
 				continue;
 
-			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
 			string label = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
+			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, label);
 			string infiniteMarker = "";
 			if (item.m_bUnlocked)
 				infiniteMarker = "INF";
@@ -179,8 +179,8 @@ class HST_LoadoutEditorService
 			if (!slot)
 				continue;
 
-			string slotCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
 			string slotLabel = HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName);
+			string slotCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, slotLabel);
 			payload = payload + BuildEditorSlotPayload(slot, slotCategory, slotLabel);
 		}
 
@@ -385,7 +385,8 @@ class HST_LoadoutEditorService
 		HST_ArsenalItemState item = state.FindArsenalItem(itemPrefab);
 		if (!IsArsenalItemAvailable(item))
 			return "h-istasi loadout editor | failed: item not available in arsenal";
-		if (HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(item.m_sPrefab, ResolveEditorCategory(item.m_sPrefab, item.m_sCategory), item.m_sDisplayName))
+		string itemDisplay = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
+		if (HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(item.m_sPrefab, ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, itemDisplay), itemDisplay))
 			return "h-istasi loadout editor | failed: structural inventory containers cannot be added from arsenal";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
@@ -432,8 +433,8 @@ class HST_LoadoutEditorService
 		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
 		HST_LoadoutNodeState targetNode = FindDraftNodeById(session, nodeId);
-		string itemCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
 		string itemDisplay = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
+		string itemCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, itemDisplay);
 		bool isStorageBrowserNode;
 		if (targetNode)
 			isStorageBrowserNode = targetNode.m_sKind == "storage" || targetNode.m_sKind == "storage_item";
@@ -696,7 +697,7 @@ class HST_LoadoutEditorService
 				continue;
 
 			string category = ResolveLoadoutSlotCategory(loadoutSlot, slot.GetAttachedEntity());
-			if (IsVestLikeLoadoutSlot(loadoutSlot, slot.GetAttachedEntity()))
+			if (category == "vest" || category == "webbing" || IsVestLikeLoadoutSlot(loadoutSlot, slot.GetAttachedEntity()))
 			{
 				if (vestLikeSlotOrdinal > 0)
 					category = "webbing";
@@ -827,10 +828,13 @@ class HST_LoadoutEditorService
 					continue;
 
 				AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
-				if (!attachmentSlot || !attachmentSlot.GetAttachmentSlotType() || !attachmentSlot.ShouldShowInInspection())
+				if (!attachmentSlot || !attachmentSlot.GetAttachmentSlotType())
 					continue;
 
 				IEntity attachedEntity = ResolveEditableAttachmentEntity(slot.GetAttachedEntity());
+				if (ShouldSkipClothingAttachmentSlot(slot, attachedEntity))
+					continue;
+
 				string slotKey = ResolveAttachmentSlotKeyFromSlot(slot, attachmentSlot, attachedEntity);
 				string label = ResolveAttachmentSlotLabel(slotKey, slot.GetSourceName());
 				string nodeId = NODE_CLOTHING_ATTACHMENT_PREFIX + string.Format("%1_%2_%3", loadoutSlotIndex, storageIndex, slotIndex);
@@ -847,21 +851,47 @@ class HST_LoadoutEditorService
 		if (!entity)
 			return 0;
 
+		array<IEntity> visitedEntities = {};
+		array<BaseInventoryStorageComponent> visitedStorages = {};
+		FindEditableAttachmentStoragesRecursive(entity, outStorages, visitedEntities, visitedStorages, 0);
+		return outStorages.Count();
+	}
+
+	protected void FindEditableAttachmentStoragesRecursive(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<IEntity> visitedEntities, notnull array<BaseInventoryStorageComponent> visitedStorages, int depth)
+	{
+		if (!entity || depth > 8 || visitedEntities.Find(entity) >= 0)
+			return;
+
+		visitedEntities.Insert(entity);
 		array<Managed> components = {};
 		entity.FindComponents(BaseInventoryStorageComponent, components);
 		foreach (Managed component : components)
 		{
 			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
-			if (!storage || storage.GetSlotsCount() <= 0 || outStorages.Find(storage) >= 0)
-				continue;
-
-			if (!StorageHasInspectableAttachmentSlot(storage))
-				continue;
-
-			outStorages.Insert(storage);
+			AddEditableAttachmentStorage(storage, outStorages, visitedStorages, depth);
 		}
 
-		return outStorages.Count();
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			FindEditableAttachmentStoragesRecursive(child, outStorages, visitedEntities, visitedStorages, depth + 1);
+			child = child.GetSibling();
+		}
+	}
+
+	protected void AddEditableAttachmentStorage(BaseInventoryStorageComponent storage, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<BaseInventoryStorageComponent> visitedStorages, int depth)
+	{
+		if (!storage || depth > 8 || visitedStorages.Find(storage) >= 0)
+			return;
+
+		visitedStorages.Insert(storage);
+		if (storage.GetSlotsCount() > 0 && !SCR_UniversalInventoryStorageComponent.Cast(storage) && StorageHasInspectableAttachmentSlot(storage) && outStorages.Find(storage) < 0)
+			outStorages.Insert(storage);
+
+		array<BaseInventoryStorageComponent> ownedStorages = {};
+		storage.GetOwnedStorages(ownedStorages, 1, false);
+		foreach (BaseInventoryStorageComponent ownedStorage : ownedStorages)
+			AddEditableAttachmentStorage(ownedStorage, outStorages, visitedStorages, depth + 1);
 	}
 
 	protected bool StorageHasInspectableAttachmentSlot(BaseInventoryStorageComponent storage)
@@ -877,11 +907,22 @@ class HST_LoadoutEditorService
 				continue;
 
 			AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
-			if (attachmentSlot && attachmentSlot.GetAttachmentSlotType() && attachmentSlot.ShouldShowInInspection())
+			if (attachmentSlot && attachmentSlot.GetAttachmentSlotType())
 				return true;
 		}
 
 		return false;
+	}
+
+	protected bool ShouldSkipClothingAttachmentSlot(InventoryStorageSlot slot, IEntity attachedEntity)
+	{
+		string text;
+		if (slot)
+			text = slot.GetSourceName();
+		string prefab = ResolveEntityPrefab(attachedEntity);
+		string display = ResolveEntityDisplayName(attachedEntity, prefab);
+		text = text + " " + prefab + " " + display;
+		return HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(text, "utility");
 	}
 
 	protected IEntity ResolveEditableAttachmentEntity(IEntity attachedEntity)
@@ -974,8 +1015,8 @@ class HST_LoadoutEditorService
 				continue;
 
 			string prefab = ResolveEntityPrefab(item);
-			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab));
 			string display = ResolveEntityDisplayName(item, prefab);
+			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab), display);
 			if (!ShouldDisplayStorageContentEntity(item, prefab, category, display))
 				continue;
 
@@ -1000,7 +1041,8 @@ class HST_LoadoutEditorService
 				continue;
 
 			string prefab = ResolveEntityPrefab(item);
-			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab));
+			string display = ResolveEntityDisplayName(item, prefab);
+			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab), display);
 			string nodeId = NODE_STORAGE_ITEM_PREFIX + string.Format("%1_%2", containerSlotIndex, groupFirstIndexes[groupIndex]);
 			HST_LoadoutNodeState node = new HST_LoadoutNodeState();
 			node.m_sNodeId = nodeId;
@@ -1009,7 +1051,7 @@ class HST_LoadoutEditorService
 			node.m_sSlotKey = category;
 			node.m_sLabel = "";
 			node.m_sItemPrefab = prefab;
-			node.m_sDisplayName = ResolveEntityDisplayName(item, prefab);
+			node.m_sDisplayName = display;
 			node.m_sCategory = category;
 			node.m_sFocus = ResolveFocusForCategory(category);
 			node.m_bCanRemove = true;
@@ -1180,6 +1222,13 @@ class HST_LoadoutEditorService
 
 			if (IsStructuralAttachmentStorage(storage))
 				FindCargoDepositStoragesInAttachedEntities(storage, outStorages, visited, depth + 1);
+		}
+
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			FindCargoDepositStoragesRecursive(child, outStorages, visited, depth + 1);
+			child = child.GetSibling();
 		}
 	}
 
@@ -1360,8 +1409,8 @@ class HST_LoadoutEditorService
 				continue;
 
 			string prefab = ResolveEntityPrefab(item);
-			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab));
 			string display = ResolveEntityDisplayName(item, prefab);
+			string category = ResolveEditorCategory(prefab, ResolveCategoryFromEntity(item, prefab), display);
 			if (ShouldDisplayStorageContentEntity(item, prefab, category, display))
 				count++;
 		}
@@ -1508,7 +1557,8 @@ class HST_LoadoutEditorService
 
 	protected string ResolveCategoryFromEntity(IEntity entity, string prefab)
 	{
-		string prefabCategory = ResolveCategoryFromPrefab(prefab);
+		string displayName = ResolveEntityDisplayName(entity, prefab);
+		string prefabCategory = ResolveCategoryFromPrefab(prefab, displayName);
 		if (!entity)
 			return prefabCategory;
 
@@ -1779,8 +1829,8 @@ class HST_LoadoutEditorService
 			return false;
 		}
 
-		string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
 		string displayName = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
+		string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, displayName);
 		if (!item.m_bUnlocked && !arsenal.WithdrawItem(state, prefab, count))
 		{
 			failure = string.Format("%1 unavailable; only %2 remain", displayName, item.m_iCount);
@@ -1960,9 +2010,10 @@ class HST_LoadoutEditorService
 		if (prefab.IsEmpty())
 			return;
 
+		string displayName = ResolveEntityDisplayName(entity, prefab);
 		prefabs.Insert(prefab);
-		categories.Insert(ResolveEditorCategory(prefab, ResolveCategoryFromEntity(entity, prefab)));
-		displayNames.Insert(ResolveEntityDisplayName(entity, prefab));
+		categories.Insert(ResolveEditorCategory(prefab, ResolveCategoryFromEntity(entity, prefab), displayName));
+		displayNames.Insert(displayName);
 	}
 
 	protected void ApplyRemovedEntityLedger(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, array<string> prefabs, array<string> categories, array<string> displayNames)
@@ -2000,10 +2051,10 @@ class HST_LoadoutEditorService
 			return;
 		}
 
-		if (category.IsEmpty())
-			category = ResolveEditorCategory(prefab, "");
 		if (displayName.IsEmpty())
 			displayName = HST_DisplayNameService.ResolveItemDisplayName(null, prefab);
+		if (category.IsEmpty())
+			category = ResolveEditorCategory(prefab, "", displayName);
 		arsenal.RefundItem(state, prefab, 1, category, displayName);
 	}
 
@@ -2572,6 +2623,8 @@ class HST_LoadoutEditorService
 	{
 		if (!node)
 			return false;
+		if (!InventoryItemComponent.Cast(temp.FindComponent(InventoryItemComponent)))
+			return false;
 
 		BaseInventoryStorageComponent storage;
 		InventoryStorageSlot slot;
@@ -2582,6 +2635,17 @@ class HST_LoadoutEditorService
 
 		LoadoutSlotInfo loadoutSlot = LoadoutSlotInfo.Cast(slot);
 		if (!loadoutSlot || !loadoutSlot.GetAreaType())
+			return false;
+
+		if (storage)
+		{
+			if (attached && storage.CanReplaceItem(temp, slot.GetID()))
+				return true;
+			if (!attached && storage.CanStoreItem(temp, slot.GetID()))
+				return true;
+		}
+
+		if (category == "utility" || category == "magazine" || category == "explosive" || category == "medical" || category == "attachment")
 			return false;
 
 		if (node && IsLoadoutClothingCategory(node.m_sCategory) && node.m_sCategory == category)
@@ -3030,11 +3094,11 @@ class HST_LoadoutEditorService
 		if (!gameEntity)
 			return false;
 
-		SCR_JsonSaveContext saveContext = new SCR_JsonSaveContext();
+		JsonSaveContext saveContext = new JsonSaveContext();
 		if (!SCR_PlayerArsenalLoadout.ReadLoadoutString(characterEntity, saveContext))
 			return false;
 
-		serialized = saveContext.ExportToString();
+		serialized = saveContext.SaveToString();
 		return !serialized.IsEmpty();
 	}
 
@@ -3055,8 +3119,8 @@ class HST_LoadoutEditorService
 			return false;
 		}
 
-		SCR_JsonLoadContext loadContext = new SCR_JsonLoadContext();
-		if (!loadContext.ImportFromString(loadout.m_sSerializedLoadout))
+		JsonLoadContext loadContext = new JsonLoadContext();
+		if (!loadContext.LoadFromString(loadout.m_sSerializedLoadout))
 		{
 			failure = "saved loadout data could not be read";
 			return false;
@@ -3129,7 +3193,7 @@ class HST_LoadoutEditorService
 			if (!slot)
 				continue;
 
-			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, slot.m_sDisplayName);
 			if (category == "headgear" || category == "clothing" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear")
 				clothes.Insert(slot.m_sDisplayName);
 			else if (category == "weapon" || category == "sidearm" || category == "launcher")
@@ -3158,7 +3222,7 @@ class HST_LoadoutEditorService
 		if (!item || item.m_sPrefab.IsEmpty() || IsRemovedExternalItem(item.m_sPrefab, item.m_sDisplayName) || (!item.m_bUnlocked && item.m_iCount <= 0))
 			return false;
 
-		string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+		string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, item.m_sDisplayName);
 		return !HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(item.m_sPrefab, category) && !HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(item.m_sDisplayName, category);
 	}
 
@@ -3173,7 +3237,7 @@ class HST_LoadoutEditorService
 			if (!IsArsenalItemAvailable(item))
 				continue;
 
-			if (ResolveEditorCategory(item.m_sPrefab, item.m_sCategory) == categoryId)
+			if (ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, item.m_sDisplayName) == categoryId)
 				count++;
 		}
 
@@ -3309,11 +3373,11 @@ class HST_LoadoutEditorService
 				continue;
 
 			availableItems++;
-			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+			string display = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
+			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, display);
 			if (!IsCandidateCategoryForNode(node, category, item.m_sPrefab))
 				continue;
 
-			string display = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
 			string shortDisplay = HST_DisplayNameService.ResolveShortItemDisplayName(display, item.m_sPrefab);
 			bool isStorageBrowserNode = node.m_sKind == "storage" || node.m_sKind == "storage_item";
 			if (isStorageBrowserNode && IsBlockedStorageBrowserContainerCandidate(session.m_iPlayerId, item.m_sPrefab, display, shortDisplay, category))
@@ -3446,7 +3510,7 @@ class HST_LoadoutEditorService
 		int emitted;
 		foreach (HST_LoadoutSlotState slot : session.m_aDraftSlots)
 		{
-			if (!slot || IsNestedStorageDraftSlot(slot) || ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory) != category)
+			if (!slot || IsNestedStorageDraftSlot(slot) || ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, slot.m_sDisplayName) != category)
 				continue;
 
 			HST_LoadoutNodeState node = new HST_LoadoutNodeState();
@@ -3521,7 +3585,7 @@ class HST_LoadoutEditorService
 
 		node.m_sItemPrefab = slot.m_sItemPrefab;
 		node.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName);
-		node.m_sCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+		node.m_sCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, node.m_sDisplayName);
 		node.m_iQuantity = Math.Max(1, slot.m_iQuantity);
 		node.m_iUsedCapacity = node.m_iQuantity;
 	}
@@ -3533,7 +3597,7 @@ class HST_LoadoutEditorService
 
 		foreach (HST_LoadoutSlotState slot : session.m_aDraftSlots)
 		{
-			if (slot && ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory) == category)
+			if (slot && ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, slot.m_sDisplayName) == category)
 				return slot;
 		}
 
@@ -3575,6 +3639,9 @@ class HST_LoadoutEditorService
 	{
 		if (!node)
 			return false;
+
+		if (node.m_sKind == "attachment" && node.m_sNodeId.IndexOf(NODE_CLOTHING_ATTACHMENT_PREFIX) == 0)
+			return category != "weapon" && category != "launcher" && category != "sidearm" && category != "magazine" && category != "explosive" && category != "medical";
 
 		if (node.m_sKind == "attachment")
 			return category == "attachment" && IsAttachmentCandidateForSlot(node.m_sSlotKey, prefab);
@@ -3663,7 +3730,7 @@ class HST_LoadoutEditorService
 			if (IsNestedStorageDraftSlot(slot))
 				continue;
 
-			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, slot.m_sDisplayName);
 			if (category == "magazine" || category == "explosive" || category == "medical" || category == "utility" || category == "attachment")
 				count += Math.Max(1, slot.m_iQuantity);
 		}
@@ -3835,7 +3902,7 @@ class HST_LoadoutEditorService
 			if (!slot)
 				continue;
 
-			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, slot.m_sDisplayName);
 			if (category == "weapon" || category == "launcher")
 				return "node_" + slot.m_sSlotId;
 		}
@@ -3884,7 +3951,7 @@ class HST_LoadoutEditorService
 			if (!item.m_bUnlocked && item.m_iCount <= 0)
 				continue;
 
-			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, item.m_sDisplayName);
 			if (usedCategories.Find(category) >= 0 && category != "magazine" && category != "attachment" && category != "medical" && category != "utility")
 				continue;
 
@@ -3923,7 +3990,7 @@ class HST_LoadoutEditorService
 		if (!BuildLoadoutCostLedger(state, loadout, identityId, costLedger, failure))
 			return false;
 
-		if (!ValidateAttachmentCompatibility(loadout, failure))
+		if (loadout.m_sSerializedLoadout.IsEmpty() && !ValidateAttachmentCompatibility(loadout, failure))
 			return false;
 
 		return true;
@@ -3941,8 +4008,14 @@ class HST_LoadoutEditorService
 
 		foreach (HST_LoadoutSlotState slot : loadout.m_aSlots)
 		{
+			if (ShouldSkipSerializedLoadoutCostSlot(loadout, slot))
+				continue;
+
 			if (!slot || slot.m_sItemPrefab.IsEmpty())
 			{
+				if (!loadout.m_sSerializedLoadout.IsEmpty())
+					continue;
+
 				failure = "saved loadout contains an empty slot";
 				return false;
 			}
@@ -3950,6 +4023,9 @@ class HST_LoadoutEditorService
 			HST_ArsenalItemState arsenalItem = state.FindArsenalItem(slot.m_sItemPrefab);
 			if (!arsenalItem)
 			{
+				if (!loadout.m_sSerializedLoadout.IsEmpty())
+					continue;
+
 				failure = "item not present in h-istasi arsenal: " + slot.m_sItemPrefab;
 				return false;
 			}
@@ -3961,7 +4037,7 @@ class HST_LoadoutEditorService
 				entry = new HST_LoadoutCostEntry();
 				entry.m_sPrefab = slot.m_sItemPrefab;
 				entry.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName);
-				entry.m_sCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+				entry.m_sCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, slot.m_sDisplayName);
 				entry.m_iAlreadyIssuedFinite = CountIssuedFiniteItem(state, identityId, slot.m_sItemPrefab);
 				entry.m_bInfinite = arsenalItem.m_bUnlocked;
 				costLedger.Insert(entry);
@@ -3973,7 +4049,7 @@ class HST_LoadoutEditorService
 			if (entry.m_sDisplayName.IsEmpty())
 				entry.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName);
 			if (entry.m_sCategory.IsEmpty())
-				entry.m_sCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+				entry.m_sCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, slot.m_sDisplayName);
 		}
 
 		foreach (HST_LoadoutCostEntry costEntry : costLedger)
@@ -4008,6 +4084,14 @@ class HST_LoadoutEditorService
 		return true;
 	}
 
+	protected bool ShouldSkipSerializedLoadoutCostSlot(HST_SavedLoadoutState loadout, HST_LoadoutSlotState slot)
+	{
+		if (!loadout || loadout.m_sSerializedLoadout.IsEmpty() || !slot)
+			return false;
+
+		return slot.m_sSlotKind == "attachment" || !slot.m_sAttachmentSlotId.IsEmpty();
+	}
+
 	protected HST_LoadoutCostEntry FindCostEntry(notnull array<ref HST_LoadoutCostEntry> costLedger, string prefab)
 	{
 		if (prefab.IsEmpty())
@@ -4036,7 +4120,7 @@ class HST_LoadoutEditorService
 				return false;
 			}
 
-			string attachmentCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+			string attachmentCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory, slot.m_sDisplayName);
 			if (attachmentCategory != "attachment" || !IsAttachmentCandidateForSlot(ResolveAttachmentSlotKey(slot.m_sAttachmentSlotId), slot.m_sItemPrefab))
 			{
 				failure = "attachment is not compatible with weapon slot: " + slot.m_sDisplayName;
@@ -4116,6 +4200,8 @@ class HST_LoadoutEditorService
 			failure = "item entity failed to spawn: " + prefab;
 			return false;
 		}
+
+		ClearSpawnedCargoStorageContents(itemEntity);
 
 		BaseInventoryStorageComponent storage = inventory.FindStorageForInsert(itemEntity, null, EStoragePurpose.PURPOSE_ANY);
 		if (!storage)
@@ -4360,7 +4446,7 @@ class HST_LoadoutEditorService
 			if (!IsArsenalItemAvailable(item))
 				continue;
 
-			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+			string category = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, item.m_sDisplayName);
 			if (category == "clothing")
 				clothing++;
 			else if (category == "headgear")
@@ -4399,10 +4485,16 @@ class HST_LoadoutEditorService
 		return firstHalf + " / " + secondHalf;
 	}
 
-	protected string ResolveEditorCategory(string prefab, string sourceCategory)
+	protected string ResolveEditorCategory(string prefab, string sourceCategory, string displayName = "")
 	{
-		string derivedCategory = ResolveCategoryFromPrefab(prefab);
+		string combined = prefab + " " + displayName;
+		if (HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(combined, "utility"))
+			return "utility";
+
+		string derivedCategory = ResolveCategoryFromPrefab(prefab, displayName);
 		if (IsLoadoutClothingCategory(derivedCategory))
+			return derivedCategory;
+		if (derivedCategory == "utility" && HST_ArsenalItemFilter.IsEntrenchingToolItemToken(prefab, displayName))
 			return derivedCategory;
 
 		if (!sourceCategory.IsEmpty() && sourceCategory != "equipment")
@@ -4425,27 +4517,34 @@ class HST_LoadoutEditorService
 		return derivedCategory;
 	}
 
-	protected string ResolveCategoryFromPrefab(string prefab)
+	protected string ResolveCategoryFromPrefab(string prefab, string displayName = "")
 	{
-		if (HST_ArsenalItemFilter.IsMedicalItemToken(prefab))
+		string value = prefab + " " + displayName;
+		value.ToLower();
+
+		if (HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(value, "utility"))
+			return "utility";
+		if (HST_ArsenalItemFilter.IsEntrenchingToolItemToken(prefab, displayName))
+			return "utility";
+		if (HST_ArsenalItemFilter.IsMedicalItemToken(prefab, displayName))
 			return "medical";
-		if (HST_ArsenalItemFilter.IsKnownBackpackToken(prefab))
+		if (HST_ArsenalItemFilter.IsKnownBackpackToken(prefab, displayName))
 			return "backpack";
-		if (prefab.Contains("Helmet") || prefab.Contains("Hat") || prefab.Contains("Headgear") || prefab.Contains("Cap") || prefab.Contains("Beanie") || prefab.Contains("Boonie") || prefab.Contains("Beret"))
+		if (value.Contains("helmet") || value.Contains("hat") || value.Contains("headgear") || value.Contains("cap") || value.Contains("beanie") || value.Contains("boonie") || value.Contains("beret"))
 			return "headgear";
-		if (prefab.Contains("Pants") || prefab.Contains("Trouser"))
+		if (value.Contains("pants") || value.Contains("trouser"))
 			return "pants";
-		if (prefab.Contains("Boot"))
+		if (value.Contains("boot"))
 			return "boots";
-		if (prefab.Contains("Glove") || prefab.Contains("Handwear"))
+		if (value.Contains("glove") || value.Contains("handwear"))
 			return "handwear";
-		if (prefab.Contains("Uniform") || prefab.Contains("Jacket") || prefab.Contains("Shirt") || prefab.Contains("Clothes") || prefab.Contains("Blouse") || prefab.Contains("Parka") || prefab.Contains("Coat"))
+		if (value.Contains("uniform") || value.Contains("jacket") || value.Contains("shirt") || value.Contains("clothes") || value.Contains("blouse") || value.Contains("parka") || value.Contains("coat"))
 			return "clothing";
-		if (HST_ArsenalItemFilter.IsKnownWebbingToken(prefab))
+		if (HST_ArsenalItemFilter.IsKnownWebbingToken(prefab, displayName))
 			return "webbing";
-		if (prefab.Contains("Vest") || prefab.Contains("Carrier") || prefab.Contains("Webbing"))
+		if (value.Contains("vest") || value.Contains("carrier") || value.Contains("webbing"))
 			return "vest";
-		if (prefab.Contains("Backpack") || prefab.Contains("Bag") || prefab.Contains("Pack_"))
+		if (value.Contains("backpack") || value.Contains("bag") || value.Contains("pack_"))
 			return "backpack";
 		if (IsAttachmentPrefab(prefab))
 			return "attachment";

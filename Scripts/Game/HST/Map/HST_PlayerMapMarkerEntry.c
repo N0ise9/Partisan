@@ -30,7 +30,7 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 		HST_PlayerMapMarkerDynamicWComponent playerWidgetComp = HST_PlayerMapMarkerDynamicWComponent.Cast(widgetComp);
 		if (playerWidgetComp)
 		{
-			playerWidgetComp.SetLabelColor(0xFFFFFFFF);
+			playerWidgetComp.SetLabelColor(0xFF000000);
 			playerWidgetComp.TrackPlayerFacing(marker);
 			playerWidgetComp.ForceVisibleStyle();
 		}
