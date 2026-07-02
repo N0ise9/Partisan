@@ -124,7 +124,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const string NODE_CLOTHING_ATTACHMENT_PREFIX = "live_cloth_attach_";
 	static const string NODE_STORAGE_PREFIX = "live_storage_";
 	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
-	static const int STORAGE_BROWSER_TILE_WIDTH = 354;
+	static const int STORAGE_BROWSER_TILE_WIDTH = 330;
 	static const int STORAGE_BROWSER_TILE_HEIGHT = 140;
 	static const int LOADOUT_PREVIEW_Z = 1;
 	static const int LOADOUT_UI_LAYER_Z = 100;
@@ -1180,6 +1180,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sSelectedNodeId = "";
 		ClearStorageSelection();
 		m_bCandidateMode = false;
+		m_iCameraMode = 0;
+		m_bPreviewCameraAutoFramed = false;
+		m_sPreviewRenderKey = "";
+		ResetPreviewCameraToReferenceDefault();
 		ResetLoadoutScroll();
 		if (m_sEditorMode == "storage")
 		{
@@ -1221,6 +1225,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			ClearStorageSelection();
 			m_bCandidateMode = false;
 			m_iItemPage = 0;
+			m_iCameraMode = 0;
+			m_bPreviewCameraAutoFramed = false;
+			m_sPreviewRenderKey = "";
+			ResetPreviewCameraToReferenceDefault();
 		}
 		else if (m_bCandidateMode)
 		{
@@ -1241,6 +1249,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_sSelectedNodeId = "";
 			m_sSelectedSlotId = "";
 			m_sSelectedCategory = "attachment";
+			m_iCameraMode = 0;
+			m_bPreviewCameraAutoFramed = false;
+			m_sPreviewRenderKey = "";
+			ResetPreviewCameraToReferenceDefault();
 		}
 		else
 		{
@@ -1248,6 +1260,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_sSelectedCategory = ResolveDefaultCategoryForMode(m_sEditorMode);
 			m_sSelectedSlotId = "";
 			m_sSelectedNodeId = "";
+			m_iCameraMode = 0;
+			m_bPreviewCameraAutoFramed = false;
+			m_sPreviewRenderKey = "";
+			ResetPreviewCameraToReferenceDefault();
 		}
 		ResetLoadoutScroll();
 		RenderEditor();
@@ -3227,7 +3243,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		PrepareRowRoot(row);
-		BindRowClick(row, userId);
+		bool editedAttachmentParent = m_sEditorMode == "attachments" && !m_sSelectedNodeId.IsEmpty() && nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex] == m_sSelectedNodeId;
+		if (editedAttachmentParent)
+			row.SetUserID(0);
+		else
+			BindRowClick(row, userId);
 
 		int color = GetBaseRowColor();
 		string selectedNodeId = m_sSelectedNodeId;
@@ -3627,12 +3647,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!tile)
 			return;
 
+		LayoutSlot.SetSizeMode(tile, LayoutSizeMode.Auto);
 		SizeLayoutWidget sizeLayout = SizeLayoutWidget.Cast(tile.FindAnyWidget("SizeLayout"));
 		if (!sizeLayout)
 			return;
 
+		sizeLayout.EnableWidthOverride(true);
+		sizeLayout.EnableHeightOverride(true);
+		sizeLayout.EnableMinDesiredWidth(true);
+		sizeLayout.EnableMinDesiredHeight(true);
 		sizeLayout.SetWidthOverride(STORAGE_BROWSER_TILE_WIDTH);
 		sizeLayout.SetHeightOverride(STORAGE_BROWSER_TILE_HEIGHT);
+		sizeLayout.SetMinDesiredWidth(STORAGE_BROWSER_TILE_WIDTH);
+		sizeLayout.SetMinDesiredHeight(STORAGE_BROWSER_TILE_HEIGHT);
 	}
 
 	protected void AddNodePreviewToRow(WorkspaceWidget workspace, Widget row, int nodeIndex, int userId)
@@ -4794,6 +4821,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		InsertCategory("headgear", "Headgear", 0);
 		InsertCategory("clothing", "Clothing", 0);
 		InsertCategory("vest", "Armored Vest", 0);
+		InsertCategory("webbing", "Chest Rig", 0);
 		InsertCategory("pants", "Pants", 0);
 		InsertCategory("boots", "Boots", 0);
 		InsertCategory("backpack", "Backpack", 0);
@@ -5152,11 +5180,31 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!HST_ArsenalItemFilter.IsLoadoutClothingCategory(category))
 			return false;
 
-		return !ResolveSelectedCandidateNodeId().IsEmpty();
+		if (!ResolveSelectedWornStorageNodeId().IsEmpty())
+			return true;
+
+		return !ResolveSelectedWornAttachmentParentNodeId().IsEmpty();
 	}
 
 	protected bool RequestEditSelectedWornStorage()
 	{
+		string storageNodeId = ResolveSelectedWornStorageNodeId();
+		if (!storageNodeId.IsEmpty())
+		{
+			m_sEditorMode = "storage";
+			m_sSelectedCategory = ResolveDefaultStorageCategory();
+			m_sSelectedStorageContainerNodeId = storageNodeId;
+			m_sSelectedStoredItemNodeId = "";
+			m_sSelectedNodeId = storageNodeId;
+			m_sSelectedSlotId = "";
+			m_bCandidateMode = true;
+			m_iItemPage = 0;
+			m_fCandidateScrollY = 0.0;
+			m_fStorageCandidateScrollY = 0.0;
+			EnsureCandidatePayloadForStorageContainer();
+			return true;
+		}
+
 		string parentNodeId = ResolveSelectedWornAttachmentParentNodeId();
 		if (parentNodeId.IsEmpty())
 			return false;
@@ -5214,7 +5262,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (HasAttachmentChildren(loadoutNodeId))
 			return loadoutNodeId;
 
-		return loadoutNodeId;
+		return "";
 	}
 
 	protected bool HasAttachmentChildren(string parentNodeId)
@@ -5276,7 +5324,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		string kind = m_aNodeKinds[nodeIndex];
 		string category = ResolveNodeCategory(nodeIndex);
 		if (m_sEditorMode == "clothing")
-			return kind == "slot" && (category == "headgear" || category == "clothing" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear");
+			return kind == "slot" && (category == "headgear" || category == "clothing" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear");
 		if (m_sEditorMode == "weapons")
 			return kind == "weapon_slot" || category == "weapon" || category == "launcher" || category == "sidearm";
 		if (m_sEditorMode == "attachments")
@@ -5375,6 +5423,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			return "Armored Vest";
 		}
+		if (category == "webbing")
+			return "Chest Rig";
 		if (category == "pants")
 			return "Pants";
 		if (category == "boots")
@@ -5939,6 +5989,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "HEAD";
 		if (category == "vest")
 			return "VEST";
+		if (category == "webbing")
+			return "RIG";
 		if (category == "pants")
 			return "PANT";
 		if (category == "boots")
@@ -5973,6 +6025,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "Headgear";
 		if (category == "vest")
 			return "Armored Vest";
+		if (category == "webbing")
+			return "Chest Rig";
 		if (category == "pants")
 			return "Pants";
 		if (category == "boots")
@@ -6001,7 +6055,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected bool IsPreviewEligibleCategory(string category)
 	{
-		return category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear" || category == "weapon" || category == "sidearm" || category == "launcher" || category == "attachment";
+		return category == "clothing" || category == "headgear" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear" || category == "weapon" || category == "sidearm" || category == "launcher" || category == "attachment";
 	}
 
 	protected bool ParsePayloadBool(string value, bool fallback)
@@ -6149,7 +6203,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected string ResolveModeForCategory(string category)
 	{
-		if (category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear")
+		if (category == "clothing" || category == "headgear" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear")
 			return "clothing";
 		if (category == "weapon" || category == "launcher" || category == "sidearm")
 			return "weapons";
@@ -6164,7 +6218,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected bool IsCategoryVisibleForMode(string category, string modeId)
 	{
 		if (modeId == "clothing")
-			return category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear";
+			return category == "clothing" || category == "headgear" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear";
 		if (modeId == "weapons")
 			return category == "weapon" || category == "launcher" || category == "sidearm";
 		if (modeId == "attachments")
@@ -8773,7 +8827,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return true;
 		if (iconKey == "medical")
 			return true;
-		if (iconKey == "clothing_group" || iconKey == "clothing" || iconKey == "headgear" || iconKey == "vest" || iconKey == "pants" || iconKey == "boots" || iconKey == "backpack" || iconKey == "handwear")
+		if (iconKey == "clothing_group" || iconKey == "clothing" || iconKey == "headgear" || iconKey == "vest" || iconKey == "webbing" || iconKey == "pants" || iconKey == "boots" || iconKey == "backpack" || iconKey == "handwear")
 			return true;
 		if (iconKey == "storage" || iconKey == "inventory")
 			return true;
@@ -8787,7 +8841,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected ResourceName ResolveIconTexture(string key)
 	{
-		if (key == "clothing_group" || key == "clothing" || key == "headgear" || key == "vest" || key == "pants" || key == "boots" || key == "backpack" || key == "handwear")
+		if (key == "clothing_group" || key == "clothing" || key == "headgear" || key == "vest" || key == "webbing" || key == "pants" || key == "boots" || key == "backpack" || key == "handwear")
 			return ICON_CLOTHING;
 		if (key == "weapon_group" || key == "weapons" || key == "weapon" || key == "launcher" || key == "sidearm")
 			return ICON_WEAPONS;

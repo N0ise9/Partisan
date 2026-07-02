@@ -65,6 +65,11 @@ modded class SCR_MapMarkerEntity
 		if (!m_wRoot || !m_MarkerWidgetComp)
 			OnCreateMarker();
 
+		HST_PlayerMapMarkerDynamicWComponent playerWidgetComp = HST_PlayerMapMarkerDynamicWComponent.Cast(m_MarkerWidgetComp);
+		if (playerWidgetComp)
+			playerWidgetComp.ForceVisibleStyle();
+		OnUpdate();
+
 		return m_wRoot != null && m_MarkerWidgetComp != null;
 	}
 }

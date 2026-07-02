@@ -368,7 +368,7 @@ class HST_NativeMapMarkerReconciler
 		markerEntity.SetGlobalVisible(record.m_bVisible);
 
 		Faction markerFaction = ResolveFaction(record.m_sFactionKey);
-		if (markerFaction)
+		if (markerFaction && record.m_sCategory != "player")
 			markerEntity.SetFaction(markerFaction);
 
 		m_mPublishedRevisionByDomainId.Set(record.m_sId, record.m_iRevision);

@@ -57,6 +57,28 @@ class HST_PlayerMapMarkerDynamicWComponent : SCR_MapMarkerDynamicWComponent
 			m_wMarkerText.SetColorInt(color);
 	}
 
+	void ForceVisibleStyle()
+	{
+		if (m_wRoot)
+		{
+			m_wRoot.SetVisible(true);
+			m_wRoot.SetOpacity(1.0);
+			m_wRoot.SetZOrder(80);
+		}
+
+		if (m_wMarkerIcon)
+		{
+			m_wMarkerIcon.SetVisible(true);
+			m_wMarkerIcon.SetOpacity(1.0);
+		}
+
+		if (m_wMarkerText)
+		{
+			m_wMarkerText.SetVisible(true);
+			m_wMarkerText.SetOpacity(1.0);
+		}
+	}
+
 	protected float NormalizeMarkerRotation(float rotation)
 	{
 		while (rotation < 0.0)

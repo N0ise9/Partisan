@@ -687,6 +687,7 @@ class HST_LoadoutEditorService
 			return;
 
 		int slotCount = characterStorage.GetSlotsCount();
+		int vestLikeSlotOrdinal;
 		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
 		{
 			InventoryStorageSlot slot = characterStorage.GetSlot(slotIndex);
@@ -695,6 +696,12 @@ class HST_LoadoutEditorService
 				continue;
 
 			string category = ResolveLoadoutSlotCategory(loadoutSlot, slot.GetAttachedEntity());
+			if (IsVestLikeLoadoutSlot(loadoutSlot, slot.GetAttachedEntity()))
+			{
+				if (vestLikeSlotOrdinal > 0)
+					category = "webbing";
+				vestLikeSlotOrdinal++;
+			}
 			string label = ResolveLoadoutSlotLabel(loadoutSlot, category, slot.GetAttachedEntity());
 			string focus = ResolveFocusForCategory(category);
 			string nodeId = NODE_LOADOUT_PREFIX + string.Format("%1", slotIndex);
@@ -1108,7 +1115,7 @@ class HST_LoadoutEditorService
 
 	protected bool IsUsableDepositStorage(BaseInventoryStorageComponent storage)
 	{
-		if (!storage || storage.GetSlotsCount() <= 0)
+		if (!HasInventoryStorageCapacity(storage))
 			return false;
 
 		if (SCR_SalineStorageComponent.Cast(storage) || SCR_TourniquetStorageComponent.Cast(storage))
@@ -1125,7 +1132,7 @@ class HST_LoadoutEditorService
 
 	protected bool IsCargoDepositStorage(BaseInventoryStorageComponent storage)
 	{
-		if (!storage || storage.GetSlotsCount() <= 0)
+		if (!HasInventoryStorageCapacity(storage))
 			return false;
 
 		if (SCR_SalineStorageComponent.Cast(storage) || SCR_TourniquetStorageComponent.Cast(storage))
@@ -1165,7 +1172,7 @@ class HST_LoadoutEditorService
 				continue;
 
 			FindOwnedCargoDepositStorages(storage, outStorages, 0);
-			if (storage.GetSlotsCount() <= 0)
+			if (!HasInventoryStorageCapacity(storage))
 				continue;
 
 			if (IsCargoDepositStorage(storage) && outStorages.Find(storage) < 0)
@@ -1201,6 +1208,17 @@ class HST_LoadoutEditorService
 			return false;
 
 		return SCR_Enum.HasFlag(storage.GetPurpose(), EStoragePurpose.PURPOSE_EQUIPMENT_ATTACHMENT);
+	}
+
+	protected bool HasInventoryStorageCapacity(BaseInventoryStorageComponent storage)
+	{
+		if (!storage)
+			return false;
+
+		if (storage.GetSlotsCount() > 0)
+			return true;
+
+		return storage.GetMaxVolumeCapacity() > 0.0;
 	}
 
 	protected void FindCargoDepositStoragesInAttachedEntities(BaseInventoryStorageComponent storage, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<IEntity> visited, int depth)
@@ -1510,7 +1528,7 @@ class HST_LoadoutEditorService
 
 	protected bool IsLoadoutClothingCategory(string category)
 	{
-		return category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear";
+		return category == "clothing" || category == "headgear" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear";
 	}
 
 	protected string ResolveLoadoutSlotCategory(LoadoutSlotInfo loadoutSlot, IEntity attachedEntity = null)
@@ -1536,7 +1554,9 @@ class HST_LoadoutEditorService
 			return "headgear";
 		if (areaName.Contains("jacket") || areaName.Contains("body") || loweredSource.Contains("jacket") || loweredSource.Contains("blouse") || loweredSource.Contains("uniform"))
 			return "clothing";
-		if (areaName.Contains("vest") || loweredSource.Contains("vest") || loweredSource.Contains("webbing"))
+		if (IsWebbingText(loweredSource) || IsWebbingText(areaName))
+			return "webbing";
+		if (areaName.Contains("vest") || loweredSource.Contains("vest"))
 			return "vest";
 		if (areaName.Contains("pants") || areaName.Contains("trouser") || loweredSource.Contains("pants") || loweredSource.Contains("trouser"))
 			return "pants";
@@ -1557,12 +1577,9 @@ class HST_LoadoutEditorService
 		if (category == "clothing")
 			return "Jacket";
 		if (category == "vest")
-		{
-			if (IsLoadoutSlotWebbing(loadoutSlot, attachedEntity))
-				return "Chest Rig";
-
 			return "Armored Vest";
-		}
+		if (category == "webbing")
+			return "Chest Rig";
 		if (category == "pants")
 			return "Pants";
 		if (category == "boots")
@@ -1596,13 +1613,36 @@ class HST_LoadoutEditorService
 		return IsWebbingText(area.Type().ToString());
 	}
 
+	protected bool IsVestLikeLoadoutSlot(LoadoutSlotInfo loadoutSlot, IEntity attachedEntity = null)
+	{
+		string attachedCategory = ResolveCategoryFromEntity(attachedEntity, ResolveEntityPrefab(attachedEntity));
+		if (attachedCategory == "vest" || attachedCategory == "webbing")
+			return true;
+
+		if (!loadoutSlot)
+			return false;
+
+		string source = loadoutSlot.GetSourceName();
+		source.ToLower();
+		if (source.Contains("vest") || IsWebbingText(source))
+			return true;
+
+		LoadoutAreaType area = loadoutSlot.GetAreaType();
+		if (!area)
+			return false;
+
+		string areaName = area.Type().ToString();
+		areaName.ToLower();
+		return areaName.Contains("vest") || IsWebbingText(areaName);
+	}
+
 	protected bool IsWebbingText(string value)
 	{
 		if (value.IsEmpty())
 			return false;
 
 		value.ToLower();
-		return value.Contains("webbing") || value.Contains("belt") || value.Contains("alice") || value.Contains("lbe") || value.Contains("harness") || value.Contains("chest_rig") || value.Contains("chest rig");
+		return value.Contains("webbing") || value.Contains("belt") || value.Contains("alice") || value.Contains("lbe") || value.Contains("harness") || value.Contains("chest_rig") || value.Contains("chest rig") || value.Contains("load bearing") || value.Contains("load_bearing") || value.Contains("grenadier vest");
 	}
 
 	protected string ResolveFocusForCategory(string category)
@@ -2530,9 +2570,6 @@ class HST_LoadoutEditorService
 
 	protected bool IsCandidateCompatibleWithLoadoutSlot(IEntity playerEntity, HST_LoadoutNodeState node, IEntity temp, string category)
 	{
-		BaseLoadoutClothComponent cloth = BaseLoadoutClothComponent.Cast(temp.FindComponent(BaseLoadoutClothComponent));
-		if (!cloth || !cloth.GetAreaType())
-			return false;
 		if (!node)
 			return false;
 
@@ -2549,6 +2586,10 @@ class HST_LoadoutEditorService
 
 		if (node && IsLoadoutClothingCategory(node.m_sCategory) && node.m_sCategory == category)
 			return true;
+
+		BaseLoadoutClothComponent cloth = BaseLoadoutClothComponent.Cast(temp.FindComponent(BaseLoadoutClothComponent));
+		if (!cloth || !cloth.GetAreaType())
+			return false;
 
 		return loadoutSlot.GetAreaType().Type().ToString() == cloth.GetAreaType().Type().ToString();
 	}
@@ -3089,7 +3130,7 @@ class HST_LoadoutEditorService
 				continue;
 
 			string category = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
-			if (category == "headgear" || category == "clothing" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear")
+			if (category == "headgear" || category == "clothing" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear")
 				clothes.Insert(slot.m_sDisplayName);
 			else if (category == "weapon" || category == "sidearm" || category == "launcher")
 				weapons.Insert(slot.m_sDisplayName);
@@ -3141,7 +3182,7 @@ class HST_LoadoutEditorService
 
 	protected int GetEditorCategoryCount()
 	{
-		return 14;
+		return 15;
 	}
 
 	protected string GetEditorCategoryId(int index)
@@ -3153,24 +3194,26 @@ class HST_LoadoutEditorService
 		if (index == 2)
 			return "vest";
 		if (index == 3)
-			return "pants";
+			return "webbing";
 		if (index == 4)
-			return "boots";
+			return "pants";
 		if (index == 5)
-			return "backpack";
+			return "boots";
 		if (index == 6)
-			return "handwear";
+			return "backpack";
 		if (index == 7)
-			return "weapon";
+			return "handwear";
 		if (index == 8)
-			return "sidearm";
+			return "weapon";
 		if (index == 9)
-			return "magazine";
+			return "sidearm";
 		if (index == 10)
-			return "explosive";
+			return "magazine";
 		if (index == 11)
-			return "attachment";
+			return "explosive";
 		if (index == 12)
+			return "attachment";
+		if (index == 13)
 			return "medical";
 
 		return "utility";
@@ -3184,6 +3227,8 @@ class HST_LoadoutEditorService
 			return "Headgear";
 		if (categoryId == "vest")
 			return "Armored Vest";
+		if (categoryId == "webbing")
+			return "Chest Rig";
 		if (categoryId == "pants")
 			return "Pants";
 		if (categoryId == "boots")
@@ -3342,6 +3387,7 @@ class HST_LoadoutEditorService
 		AddLoadoutNodeForCategory(session, "headgear", "Headgear", "Headgear", "head");
 		AddLoadoutNodeForCategory(session, "clothing", "Jacket", "Jacket", "torso");
 		AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Armored Vest", "torso");
+		AddLoadoutNodeForCategory(session, "webbing", "ChestRig", "Chest Rig", "torso");
 		AddLoadoutNodeForCategory(session, "pants", "Pants", "Pants", "legs");
 		AddLoadoutNodeForCategory(session, "boots", "Boots", "Boots", "feet");
 		AddLoadoutNodeForCategory(session, "backpack", "Backpack", "Backpack", "back");
@@ -3370,7 +3416,7 @@ class HST_LoadoutEditorService
 		node.m_sCategory = category;
 		node.m_sFocus = focus;
 		node.m_bCanRemove = slot != null;
-		node.m_bCanOpen = slot != null && (category == "vest" || category == "backpack" || category == "clothing");
+		node.m_bCanOpen = slot != null && (category == "vest" || category == "webbing" || category == "backpack" || category == "clothing");
 		node.m_bCanDeposit = node.m_bCanOpen;
 		node.m_iTotalCapacity = ResolveDisplayCapacityForCategory(category);
 		if (slot)
@@ -3578,7 +3624,7 @@ class HST_LoadoutEditorService
 			return "ammo";
 		if (category == "attachment")
 			return "wrench";
-		if (category == "vest" || category == "backpack" || category == "clothing" || category == "headgear" || category == "pants" || category == "boots" || category == "handwear")
+		if (category == "vest" || category == "webbing" || category == "backpack" || category == "clothing" || category == "headgear" || category == "pants" || category == "boots" || category == "handwear")
 			return "clothing";
 		if (category == "explosive")
 			return "grenade";
@@ -3595,6 +3641,8 @@ class HST_LoadoutEditorService
 		if (category == "backpack")
 			return 12;
 		if (category == "vest")
+			return 8;
+		if (category == "webbing")
 			return 8;
 		if (category == "clothing")
 			return 4;
@@ -3640,6 +3688,8 @@ class HST_LoadoutEditorService
 			return "Headgear";
 		if (categoryId == "vest")
 			return "Armored Vest";
+		if (categoryId == "webbing")
+			return "Chest Rig";
 		if (categoryId == "pants")
 			return "Pants";
 		if (categoryId == "boots")
@@ -3668,7 +3718,7 @@ class HST_LoadoutEditorService
 
 	protected bool IsPreviewEligibleCategory(string categoryId)
 	{
-		return categoryId == "clothing" || categoryId == "headgear" || categoryId == "vest" || categoryId == "pants" || categoryId == "boots" || categoryId == "backpack" || categoryId == "handwear" || categoryId == "weapon" || categoryId == "sidearm" || categoryId == "launcher" || categoryId == "attachment";
+		return categoryId == "clothing" || categoryId == "headgear" || categoryId == "vest" || categoryId == "webbing" || categoryId == "pants" || categoryId == "boots" || categoryId == "backpack" || categoryId == "handwear" || categoryId == "weapon" || categoryId == "sidearm" || categoryId == "launcher" || categoryId == "attachment";
 	}
 
 	protected bool ParseSlotQuantityArgument(string argument, out string slotId, out int quantity)
@@ -3729,6 +3779,8 @@ class HST_LoadoutEditorService
 			return "headgear";
 		if (nodeId.Contains("clothing"))
 			return "clothing";
+		if (nodeId.Contains("webbing") || nodeId.Contains("chest") || nodeId.Contains("rig"))
+			return "webbing";
 		if (nodeId.Contains("vest"))
 			return "vest";
 		if (nodeId.Contains("backpack"))
@@ -3761,6 +3813,8 @@ class HST_LoadoutEditorService
 			return "Underbarrel";
 		if (nodeId.Contains("headgear"))
 			return "Headgear";
+		if (nodeId.Contains("webbing") || nodeId.Contains("chest") || nodeId.Contains("rig"))
+			return "Chest Rig";
 		if (nodeId.Contains("vest"))
 			return "Armored Vest";
 		if (nodeId.Contains("backpack"))
@@ -4289,6 +4343,7 @@ class HST_LoadoutEditorService
 		int clothing;
 		int headgear;
 		int vest;
+		int webbing;
 		int pants;
 		int boots;
 		int backpack;
@@ -4312,6 +4367,8 @@ class HST_LoadoutEditorService
 				headgear++;
 			else if (category == "vest")
 				vest++;
+			else if (category == "webbing")
+				webbing++;
 			else if (category == "pants")
 				pants++;
 			else if (category == "boots")
@@ -4336,7 +4393,8 @@ class HST_LoadoutEditorService
 				utility++;
 		}
 
-		string firstHalf = string.Format("clothing %1 / head %2 / vest %3 / pants %4 / boots %5 / pack %6 / hands %7 / weapons %8 / sidearms %9", clothing, headgear, vest, pants, boots, backpack, handwear, weapon, sidearm);
+		string firstHalf = string.Format("clothing %1 / head %2 / armor %3 / rig %4 / pants %5 / boots %6 / pack %7 / hands %8 / weapons %9", clothing, headgear, vest, webbing, pants, boots, backpack, handwear, weapon);
+		firstHalf = firstHalf + string.Format(" / sidearms %1", sidearm);
 		string secondHalf = string.Format("mags %1 / explosives %2 / attachments %3 / medical %4 / utility %5", magazine, explosive, attachment, medical, utility);
 		return firstHalf + " / " + secondHalf;
 	}
@@ -4383,6 +4441,8 @@ class HST_LoadoutEditorService
 			return "handwear";
 		if (prefab.Contains("Uniform") || prefab.Contains("Jacket") || prefab.Contains("Shirt") || prefab.Contains("Clothes") || prefab.Contains("Blouse") || prefab.Contains("Parka") || prefab.Contains("Coat"))
 			return "clothing";
+		if (HST_ArsenalItemFilter.IsKnownWebbingToken(prefab))
+			return "webbing";
 		if (prefab.Contains("Vest") || prefab.Contains("Carrier") || prefab.Contains("Webbing"))
 			return "vest";
 		if (prefab.Contains("Backpack") || prefab.Contains("Bag") || prefab.Contains("Pack_"))

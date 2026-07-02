@@ -111,6 +111,29 @@ class HST_ArsenalItemFilter
 			|| ((prefab.Contains("alice") || displayName.Contains("alice")) && (prefab.Contains("pack") || displayName.Contains("pack")));
 	}
 
+	static bool IsKnownWebbingToken(string prefab, string displayName = "")
+	{
+		prefab.ToLower();
+		displayName.ToLower();
+		return prefab.Contains("webbing")
+			|| prefab.Contains("chest_rig")
+			|| prefab.Contains("chestrig")
+			|| prefab.Contains("chest rig")
+			|| prefab.Contains("lbe")
+			|| prefab.Contains("loadbearing")
+			|| prefab.Contains("load_bearing")
+			|| prefab.Contains("harness")
+			|| displayName.Contains("webbing")
+			|| displayName.Contains("chest rig")
+			|| displayName.Contains("lbe")
+			|| displayName.Contains("load bearing")
+			|| displayName.Contains("harness")
+			|| prefab.Contains("alice")
+			|| displayName.Contains("alice")
+			|| displayName.Contains("grenadier vest")
+			|| prefab.Contains("grenadier");
+	}
+
 	static string ResolveWearableCategory(string prefab, string displayName = "")
 	{
 		prefab.ToLower();
@@ -134,10 +157,10 @@ class HST_ArsenalItemFilter
 		if (prefab.Contains("uniform") || prefab.Contains("jacket") || prefab.Contains("shirt") || prefab.Contains("clothes") || prefab.Contains("blouse") || prefab.Contains("parka") || prefab.Contains("coat") || displayName.Contains("uniform") || displayName.Contains("jacket") || displayName.Contains("shirt") || displayName.Contains("blouse") || displayName.Contains("parka") || displayName.Contains("coat"))
 			return "clothing";
 
-		if (prefab.Contains("vest") || prefab.Contains("webbing") || prefab.Contains("chestrig") || prefab.Contains("chest_rig") || prefab.Contains("chest rig") || displayName.Contains("vest") || displayName.Contains("webbing") || displayName.Contains("chest rig"))
-			return "vest";
+		if (IsKnownWebbingToken(prefab, displayName))
+			return "webbing";
 
-		if (prefab.Contains("alice") || displayName.Contains("alice"))
+		if (prefab.Contains("vest") || displayName.Contains("vest"))
 			return "vest";
 
 		return "";
@@ -145,7 +168,7 @@ class HST_ArsenalItemFilter
 
 	static bool IsLoadoutClothingCategory(string category)
 	{
-		return category == "clothing" || category == "headgear" || category == "vest" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear";
+		return category == "clothing" || category == "headgear" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear";
 	}
 
 	protected static bool ShouldProbeStructuralContainer(string category)
