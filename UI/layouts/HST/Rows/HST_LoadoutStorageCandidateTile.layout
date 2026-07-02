@@ -13,16 +13,16 @@ ButtonWidgetClass "{A7B8C9D001236600}" {
     VerticalAlign 0
    }
    AllowWidthOverride 1
-   WidthOverride 330
+   WidthOverride 320
    AllowHeightOverride 1
    HeightOverride 140
    AllowMinDesiredWidth 1
-   MinDesiredWidth 330
+   MinDesiredWidth 320
    AllowMinDesiredHeight 1
    MinDesiredHeight 140
-   AllowMaxDesiredWidth 0
-   MaxDesiredWidth 330
-   AllowMaxDesiredHeight 0
+   AllowMaxDesiredWidth 1
+   MaxDesiredWidth 320
+   AllowMaxDesiredHeight 1
    MaxDesiredHeight 140
    {
     OverlayWidgetClass "{A7B8C9D001237002}" {

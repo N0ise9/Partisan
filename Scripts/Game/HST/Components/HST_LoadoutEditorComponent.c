@@ -124,7 +124,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const string NODE_CLOTHING_ATTACHMENT_PREFIX = "live_cloth_attach_";
 	static const string NODE_STORAGE_PREFIX = "live_storage_";
 	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
-	static const int STORAGE_BROWSER_TILE_WIDTH = 330;
+	static const int STORAGE_BROWSER_TILE_WIDTH = 320;
+	static const int STORAGE_BROWSER_TILE_MIN_WIDTH = 300;
+	static const int STORAGE_BROWSER_TILE_MAX_WIDTH = 370;
 	static const int STORAGE_BROWSER_TILE_HEIGHT = 140;
 	static const int LOADOUT_PREVIEW_Z = 1;
 	static const int LOADOUT_UI_LAYER_Z = 100;
@@ -945,6 +947,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			int nodeIndex = m_aVisibleNodeIndexes[nodeVisibleIndex];
 			if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
 			{
+				string clickedNodeId = m_aNodeIds[nodeIndex];
+				if (m_sEditorMode == "attachments" && !m_sSelectedNodeId.IsEmpty() && clickedNodeId == m_sSelectedNodeId)
+					return true;
+
 				if (m_sEditorMode == "storage" && nodeIndex < m_aNodeKinds.Count() && m_aNodeKinds[nodeIndex] == "storage")
 				{
 					SelectStorageContainerNode(nodeIndex);
@@ -3638,8 +3644,32 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !tile || !m_Layout)
 			return;
 
-		SetRowTextOrHide(tile, "Name", ShortenText(name, 96), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
+		int nameFont = m_Layout.m_iFontNormal;
+		if (name.Length() > 28)
+			nameFont = m_Layout.m_iFontSmall;
+		if (name.Length() > 52)
+			nameFont = m_Layout.m_iFontTiny;
+
+		SetRowTextOrHide(tile, "Name", ShortenText(name, 96), 0xFFE2E6E8, nameFont, false, true);
 		SetRowTextOrHide(tile, "Count", countText, 0xFFFFD166, m_Layout.m_iFontSmall, true, false);
+	}
+
+	protected int ResolveStorageBrowserTileWidth()
+	{
+		if (!m_Layout)
+			return STORAGE_BROWSER_TILE_WIDTH;
+
+		int usableWidth = m_Layout.m_iMainWidth - 72;
+		if (usableWidth <= 0)
+			return STORAGE_BROWSER_TILE_WIDTH;
+
+		int tileWidth = (usableWidth - 8) / 2;
+		if (tileWidth < STORAGE_BROWSER_TILE_MIN_WIDTH)
+			tileWidth = STORAGE_BROWSER_TILE_MIN_WIDTH;
+		if (tileWidth > STORAGE_BROWSER_TILE_MAX_WIDTH)
+			tileWidth = STORAGE_BROWSER_TILE_MAX_WIDTH;
+
+		return tileWidth;
 	}
 
 	protected void ApplyStorageBrowserTileSize(Widget tile)
@@ -3647,19 +3677,23 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!tile)
 			return;
 
-		LayoutSlot.SetSizeMode(tile, LayoutSizeMode.Auto);
 		SizeLayoutWidget sizeLayout = SizeLayoutWidget.Cast(tile.FindAnyWidget("SizeLayout"));
 		if (!sizeLayout)
 			return;
 
+		int tileWidth = ResolveStorageBrowserTileWidth();
 		sizeLayout.EnableWidthOverride(true);
 		sizeLayout.EnableHeightOverride(true);
 		sizeLayout.EnableMinDesiredWidth(true);
 		sizeLayout.EnableMinDesiredHeight(true);
-		sizeLayout.SetWidthOverride(STORAGE_BROWSER_TILE_WIDTH);
+		sizeLayout.EnableMaxDesiredWidth(true);
+		sizeLayout.EnableMaxDesiredHeight(true);
+		sizeLayout.SetWidthOverride(tileWidth);
 		sizeLayout.SetHeightOverride(STORAGE_BROWSER_TILE_HEIGHT);
-		sizeLayout.SetMinDesiredWidth(STORAGE_BROWSER_TILE_WIDTH);
+		sizeLayout.SetMinDesiredWidth(tileWidth);
 		sizeLayout.SetMinDesiredHeight(STORAGE_BROWSER_TILE_HEIGHT);
+		sizeLayout.SetMaxDesiredWidth(tileWidth);
+		sizeLayout.SetMaxDesiredHeight(STORAGE_BROWSER_TILE_HEIGHT);
 	}
 
 	protected void AddNodePreviewToRow(WorkspaceWidget workspace, Widget row, int nodeIndex, int userId)
@@ -5180,31 +5214,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!HST_ArsenalItemFilter.IsLoadoutClothingCategory(category))
 			return false;
 
-		if (!ResolveSelectedWornStorageNodeId().IsEmpty())
-			return true;
-
 		return !ResolveSelectedWornAttachmentParentNodeId().IsEmpty();
 	}
 
 	protected bool RequestEditSelectedWornStorage()
 	{
-		string storageNodeId = ResolveSelectedWornStorageNodeId();
-		if (!storageNodeId.IsEmpty())
-		{
-			m_sEditorMode = "storage";
-			m_sSelectedCategory = ResolveDefaultStorageCategory();
-			m_sSelectedStorageContainerNodeId = storageNodeId;
-			m_sSelectedStoredItemNodeId = "";
-			m_sSelectedNodeId = storageNodeId;
-			m_sSelectedSlotId = "";
-			m_bCandidateMode = true;
-			m_iItemPage = 0;
-			m_fCandidateScrollY = 0.0;
-			m_fStorageCandidateScrollY = 0.0;
-			EnsureCandidatePayloadForStorageContainer();
-			return true;
-		}
-
 		string parentNodeId = ResolveSelectedWornAttachmentParentNodeId();
 		if (parentNodeId.IsEmpty())
 			return false;
@@ -8400,6 +8414,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_iCameraMode = 0;
 		m_bPreviewCameraAutoFramed = false;
+		if (m_sPreviewSourceMode == PREVIEW_MODE_ENTITY)
+			m_sPreviewRenderKey = "";
 	}
 
 	protected void HandlePreviewDragInput(InputManager inputManager)
@@ -9322,15 +9338,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_iPressedWidgetId = -1;
 		}
 
-		button.SetColorInt(color);
-		button.SetOpacity(opacity);
 		Widget background = ResolveButtonFeedbackBackground(button);
 		if (background && background != button)
 		{
 			background.SetColorInt(color);
 			background.SetOpacity(opacity);
+			return true;
 		}
 
+		button.SetColorInt(color);
+		button.SetOpacity(opacity);
 		return true;
 	}
 
@@ -9360,6 +9377,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		if (!button)
 			return null;
+
+		Widget childBackground = button.FindAnyWidget("Background");
+		if (childBackground)
+			return childBackground;
 
 		Widget parent = button.GetParent();
 		if (!parent)
