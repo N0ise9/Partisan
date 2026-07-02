@@ -7,6 +7,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 {
 	static const int CLIENT_MAP_MARKER_REFRESH_MAX_RETRIES = 10;
 	static const int CLIENT_MAP_MARKER_REFRESH_RETRY_MS = 250;
+	static const ResourceName PLAYER_MARKER_CONFIG = "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf";
 
 	protected static HST_CommandMenuRequestComponent s_LocalOwner;
 	protected static HST_CommandMenuRequestComponent s_ServerBroadcaster;
@@ -172,6 +173,40 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		DebugLog(string.Format("map ui ready | root %1 markerUI %2 toolMenuUI %3 toolInteractionUI %4 toolMenuWidget %5 toolMenuBarWidget %6 retry %7", rootName, markerUIReady, toolMenuUIReady, toolInteractionUIReady, toolMenuWidgetReady, toolMenuBarWidgetReady, m_iNativeMapMarkerRefreshRetries));
+		if (!RefreshHSTPlayerMarkerWidgets())
+			RetryClientNativeMapMarkerRefresh();
+	}
+
+	protected bool RefreshHSTPlayerMarkerWidgets()
+	{
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+			return true;
+
+		markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+		array<SCR_MapMarkerEntity> dynamicMarkers = markerManager.GetDynamicMarkers();
+		int playerMarkers;
+		int readyMarkers;
+		foreach (SCR_MapMarkerEntity marker : dynamicMarkers)
+		{
+			if (!marker || marker.GetType() != SCR_EMapMarkerType.HST_PLAYER)
+				continue;
+
+			playerMarkers++;
+			if (marker.EnsureHSTPlayerMarkerWidget())
+				readyMarkers++;
+		}
+
+		if (playerMarkers == 0)
+		{
+			DebugLog(string.Format("player marker widget refresh | no dynamic player markers retry %1", m_iNativeMapMarkerRefreshRetries));
+			return false;
+		}
+
+		if (playerMarkers > 0)
+			DebugLog(string.Format("player marker widget refresh | ready %1/%2 retry %3", readyMarkers, playerMarkers, m_iNativeMapMarkerRefreshRetries));
+
+		return readyMarkers >= playerMarkers;
 	}
 
 	protected bool RetryClientNativeMapMarkerRefresh()

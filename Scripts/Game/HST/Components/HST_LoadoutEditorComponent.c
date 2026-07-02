@@ -124,8 +124,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const string NODE_CLOTHING_ATTACHMENT_PREFIX = "live_cloth_attach_";
 	static const string NODE_STORAGE_PREFIX = "live_storage_";
 	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
-	static const int STORAGE_BROWSER_TILE_WIDTH = 244;
-	static const int STORAGE_BROWSER_TILE_HEIGHT = 128;
+	static const int STORAGE_BROWSER_TILE_WIDTH = 354;
+	static const int STORAGE_BROWSER_TILE_HEIGHT = 140;
 	static const int LOADOUT_PREVIEW_Z = 1;
 	static const int LOADOUT_UI_LAYER_Z = 100;
 	static const int LOADOUT_PREVIEW_INPUT_Z = 2;
@@ -1225,7 +1225,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		else if (m_bCandidateMode)
 		{
 			if (!ReturnFromAttachmentCandidateToWeapon())
+			{
 				m_bCandidateMode = false;
+				m_sSelectedNodeId = "";
+				m_sSelectedSlotId = "";
+				m_iCameraMode = 0;
+				m_bPreviewCameraAutoFramed = false;
+				m_sPreviewRenderKey = "";
+				ResetPreviewCameraToReferenceDefault();
+			}
 			m_iItemPage = 0;
 		}
 		else if (m_sEditorMode == "attachments" && !m_sSelectedNodeId.IsEmpty())
@@ -4785,7 +4793,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		InsertCategory("headgear", "Headgear", 0);
 		InsertCategory("clothing", "Clothing", 0);
-		InsertCategory("vest", "Chest Rig", 0);
+		InsertCategory("vest", "Armored Vest", 0);
 		InsertCategory("pants", "Pants", 0);
 		InsertCategory("boots", "Boots", 0);
 		InsertCategory("backpack", "Backpack", 0);
@@ -5144,7 +5152,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!HST_ArsenalItemFilter.IsLoadoutClothingCategory(category))
 			return false;
 
-		return !ResolveSelectedWornAttachmentParentNodeId().IsEmpty();
+		return !ResolveSelectedCandidateNodeId().IsEmpty();
 	}
 
 	protected bool RequestEditSelectedWornStorage()
@@ -5159,11 +5167,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_sSelectedStoredItemNodeId = "";
 		m_sSelectedNodeId = parentNodeId;
 		m_sSelectedSlotId = parentNodeId;
-		m_bCandidateMode = true;
+		m_bCandidateMode = false;
 		m_iItemPage = 0;
 		m_fCandidateScrollY = 0.0;
 		m_fStorageCandidateScrollY = 0.0;
-		EnsureCandidatePayloadForSelectedNode();
+		RequestPreviewCameraRefocusForNonStorageSelection();
 		return true;
 	}
 
@@ -5206,7 +5214,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (HasAttachmentChildren(loadoutNodeId))
 			return loadoutNodeId;
 
-		return "";
+		return loadoutNodeId;
 	}
 
 	protected bool HasAttachmentChildren(string parentNodeId)
@@ -5361,7 +5369,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (category == "clothing")
 			return "Jacket";
 		if (category == "vest")
-			return "Chest Rig";
+		{
+			if (nodeIndex >= 0 && nodeIndex < m_aNodeLabels.Count() && !m_aNodeLabels[nodeIndex].IsEmpty())
+				return m_aNodeLabels[nodeIndex];
+
+			return "Armored Vest";
+		}
 		if (category == "pants")
 			return "Pants";
 		if (category == "boots")
@@ -5959,7 +5972,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (category == "headgear")
 			return "Headgear";
 		if (category == "vest")
-			return "Chest Rig";
+			return "Armored Vest";
 		if (category == "pants")
 			return "Pants";
 		if (category == "boots")

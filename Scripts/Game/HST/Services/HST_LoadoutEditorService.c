@@ -1161,7 +1161,11 @@ class HST_LoadoutEditorService
 		foreach (Managed component : components)
 		{
 			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
-			if (!storage || storage.GetSlotsCount() <= 0)
+			if (!storage)
+				continue;
+
+			FindOwnedCargoDepositStorages(storage, outStorages, 0);
+			if (storage.GetSlotsCount() <= 0)
 				continue;
 
 			if (IsCargoDepositStorage(storage) && outStorages.Find(storage) < 0)
@@ -1169,6 +1173,25 @@ class HST_LoadoutEditorService
 
 			if (IsStructuralAttachmentStorage(storage))
 				FindCargoDepositStoragesInAttachedEntities(storage, outStorages, visited, depth + 1);
+		}
+	}
+
+	protected void FindOwnedCargoDepositStorages(BaseInventoryStorageComponent storage, notnull array<BaseInventoryStorageComponent> outStorages, int depth)
+	{
+		if (!storage || depth > 4)
+			return;
+
+		array<BaseInventoryStorageComponent> ownedStorages = {};
+		storage.GetOwnedStorages(ownedStorages, 1, false);
+		foreach (BaseInventoryStorageComponent ownedStorage : ownedStorages)
+		{
+			if (!ownedStorage || ownedStorage == storage)
+				continue;
+
+			if (IsCargoDepositStorage(ownedStorage) && outStorages.Find(ownedStorage) < 0)
+				outStorages.Insert(ownedStorage);
+
+			FindOwnedCargoDepositStorages(ownedStorage, outStorages, depth + 1);
 		}
 	}
 
@@ -1536,9 +1559,9 @@ class HST_LoadoutEditorService
 		if (category == "vest")
 		{
 			if (IsLoadoutSlotWebbing(loadoutSlot, attachedEntity))
-				return "Webbing";
+				return "Chest Rig";
 
-			return "Chest Rig";
+			return "Armored Vest";
 		}
 		if (category == "pants")
 			return "Pants";
@@ -2490,7 +2513,7 @@ class HST_LoadoutEditorService
 
 		bool compatible = false;
 		if (node.m_sKind == "slot")
-			compatible = IsCandidateCompatibleWithLoadoutSlot(playerEntity, node.m_sNodeId, temp);
+			compatible = IsCandidateCompatibleWithLoadoutSlot(playerEntity, node, temp, category);
 		else if (node.m_sKind == "weapon_slot")
 			compatible = IsCandidateCompatibleWithWeaponSlot(playerEntity, node, temp, prefab);
 		else if (node.m_sKind == "attachment")
@@ -2505,22 +2528,27 @@ class HST_LoadoutEditorService
 		return compatible;
 	}
 
-	protected bool IsCandidateCompatibleWithLoadoutSlot(IEntity playerEntity, string nodeId, IEntity temp)
+	protected bool IsCandidateCompatibleWithLoadoutSlot(IEntity playerEntity, HST_LoadoutNodeState node, IEntity temp, string category)
 	{
 		BaseLoadoutClothComponent cloth = BaseLoadoutClothComponent.Cast(temp.FindComponent(BaseLoadoutClothComponent));
 		if (!cloth || !cloth.GetAreaType())
+			return false;
+		if (!node)
 			return false;
 
 		BaseInventoryStorageComponent storage;
 		InventoryStorageSlot slot;
 		IEntity attached;
 		string failure;
-		if (!ResolveLiveSlotTarget(playerEntity, nodeId, storage, slot, attached, failure))
+		if (!ResolveLiveSlotTarget(playerEntity, node.m_sNodeId, storage, slot, attached, failure))
 			return false;
 
 		LoadoutSlotInfo loadoutSlot = LoadoutSlotInfo.Cast(slot);
 		if (!loadoutSlot || !loadoutSlot.GetAreaType())
 			return false;
+
+		if (node && IsLoadoutClothingCategory(node.m_sCategory) && node.m_sCategory == category)
+			return true;
 
 		return loadoutSlot.GetAreaType().Type().ToString() == cloth.GetAreaType().Type().ToString();
 	}
@@ -3155,7 +3183,7 @@ class HST_LoadoutEditorService
 		if (categoryId == "headgear")
 			return "Headgear";
 		if (categoryId == "vest")
-			return "Chest Rig";
+			return "Armored Vest";
 		if (categoryId == "pants")
 			return "Pants";
 		if (categoryId == "boots")
@@ -3313,7 +3341,7 @@ class HST_LoadoutEditorService
 		session.m_aDraftNodes.Clear();
 		AddLoadoutNodeForCategory(session, "headgear", "Headgear", "Headgear", "head");
 		AddLoadoutNodeForCategory(session, "clothing", "Jacket", "Jacket", "torso");
-		AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Chest Rig", "torso");
+		AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Armored Vest", "torso");
 		AddLoadoutNodeForCategory(session, "pants", "Pants", "Pants", "legs");
 		AddLoadoutNodeForCategory(session, "boots", "Boots", "Boots", "feet");
 		AddLoadoutNodeForCategory(session, "backpack", "Backpack", "Backpack", "back");
@@ -3611,7 +3639,7 @@ class HST_LoadoutEditorService
 		if (categoryId == "headgear")
 			return "Headgear";
 		if (categoryId == "vest")
-			return "Chest Rig";
+			return "Armored Vest";
 		if (categoryId == "pants")
 			return "Pants";
 		if (categoryId == "boots")
@@ -3734,7 +3762,7 @@ class HST_LoadoutEditorService
 		if (nodeId.Contains("headgear"))
 			return "Headgear";
 		if (nodeId.Contains("vest"))
-			return "Chest Rig";
+			return "Armored Vest";
 		if (nodeId.Contains("backpack"))
 			return "Backpack";
 		if (nodeId.Contains("weapon"))

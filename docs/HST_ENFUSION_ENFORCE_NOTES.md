@@ -199,6 +199,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - For faction-colored player markers, resolve `SCR_FactionManager.SGetPlayerFaction(playerId)` client-side and fall back to the FIA faction color before using a hardcoded color.
   - Player marker reconcile signatures must include the resolved player/entity faction key, not just player id, target entity, and name. Faction assignment can arrive after the marker is created, and skipping reconciliation on an unchanged entity can leave the native marker with stale stream rules.
   - Do not hard-code the native marker stream faction to FIA. Use `SCR_FactionManager.SGetPlayerFaction(playerId)` first, then the controlled entity's `FactionAffiliationComponent`, and leave the stream key empty if neither is available so a bad fallback does not hide the player's own marker.
+  - `SCR_MapMarkersUI.CreateDynamicMarkers()` can call `SCR_MapMarkerEntity.OnCreateMarker()` before the map frame is actually usable. A log before `super.OnCreateMarker()` only proves creation was requested; the reliable success signal is a non-null marker root/widget component or the custom marker entry's `InitClientSettingsDynamic()` log.
+  - Gameplay-map open repair should retry until HST dynamic player marker entities exist and their widgets are created. Treat `0` dynamic HST player markers as not-ready for a few retries, because the replicated marker entity can arrive after `OnMapOpenComplete`.
+  - If a cached dynamic marker widget root is detached from the current map hierarchy, clear the root and widget component before rebuilding. Native dynamic marker deletion/removal paths can leave a stale reference even though the visible map root has been destroyed.
   - Current examples: `HST_PlayerMapMarkerService`, `HST_PlayerMapMarkerEntry`, `HST_PlayerMapMarkerConfig.conf`.
 
 - Map overlay widgets must be passive.
@@ -311,6 +314,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Storage-browser candidate preview keys must ignore `live_storage_item_` draft slots. Changing the contents of the selected container should refresh inventory lists and capacity bars, but it should not rebuild/refocus the rendered entity unless the displayed container/gear actually changes.
   - Wrap-layout storage grids need children whose root slot is `WrapLayoutWidgetSlot`, and the tile's inner `SizeLayout` must not horizontally fill the parent. Reusing a vertical-row layout or a fill-aligned size wrapper can collapse the right-hand storage browser to a single column even when a fixed tile width is set from script.
   - If a wrap-grid child is a clickable `ButtonWidget`, also keep a `SizeLayoutWidget` child with explicit width/height and enforce those overrides when creating rows. Otherwise the button root can stretch to the scroll width and visually behave like a single-column list even under a `WrapLayoutWidget`.
+  - Worn clothing swapped through live inventory can expose useful cargo through `BaseInventoryStorageComponent.GetOwnedStorages()` even when the direct clothing storage has no insertable slots. Discover owned cargo/deposit storages before skipping zero-slot parent storage components, or BDU blouses, ALICE webbing, and similar swapped clothing can disappear from the storage tab while still showing capacity in the vanilla inventory UI.
+  - Empty live loadout slot compatibility sometimes needs a category fallback before exact `LoadoutAreaType` equality. Looted backpacks/field packs can be correctly classified as `backpack` in the arsenal while the native slot-area type comparison still rejects them, so validate the live node category first for loadout clothing categories.
 
 - Loadout editor saved loadouts:
   - Fixed save slots are server-owned campaign state and profile persistence. Passing `slot_N` to `loadout_save` selects the slot; it must not overwrite an already renamed display name unless the slot was empty or an explicit rename command was sent.
@@ -379,6 +384,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Keep code comments sparse and practical.
   - Comments should capture non-obvious engine constraints, not restate simple assignments.
+
+## AI And Spawning
+
+- `AIGroup` prefab spawning is not necessarily populated on the same frame as `SpawnEntityPrefab`.
+  - Native/editor logs can report that a group prefab was spawned while its agents are still invisible or pending creation.
+  - h-istasi mission/physical-war spawning should keep the existing population grace/polling path before declaring a group failed. The July 2026 logs showed HST-spawned groups reporting zero agents first and then later folding/populating correctly.
+  - Game Master/editor placement uses the editor path, not the HST physical-war service path. If editor-placed squads only appear after camera movement, inspect streaming/editor placement addons or native editor activation first; do not assume the HST active-group population guard is involved unless HST spawn logs appear around the placement.
 
 ## Native Reference Sources
 

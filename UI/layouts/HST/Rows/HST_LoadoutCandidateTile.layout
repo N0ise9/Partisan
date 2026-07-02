@@ -101,7 +101,7 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          Anchor 0 0 1 0
          OffsetLeft 112
          OffsetTop 14
-          OffsetRight 82
+          OffsetRight 18
           SizeY 72
           OffsetBottom -86
          }

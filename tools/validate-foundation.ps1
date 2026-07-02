@@ -3646,7 +3646,7 @@ foreach ($requiredLoadoutCandidateTileEntry in @(
 		"OffsetBottom -82",
 		"OffsetLeft 112",
 		"SizeY 72",
-		"OffsetRight 82",
+		"OffsetRight 18",
 		"OffsetLeft -72",
 		"OffsetTop 88",
 		"SizeY 28"
@@ -5271,23 +5271,21 @@ if ($loadoutEditorLayoutText -notmatch 'Name "CandidateEditLabel"[\s\S]*?OffsetL
 	throw "Loadout editor candidate edit label must span and center inside the full Edit button"
 }
 $loadoutEditorCombinedText = $loadoutEditorComponentText + "`n" + $loadoutEditorText + "`n" + $loadoutEditorLayoutText
-if ($loadoutEditorCombinedText -match [regex]::Escape('"Armored Vest"')) {
-	throw "Loadout editor must not expose the legacy visible label `"Armored Vest`"; use `"Chest Rig`" for vest-category UI text"
-}
-foreach ($requiredChestRigLabelEntry in @(
-		'InsertCategory("vest", "Chest Rig"',
-		'AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Chest Rig", "torso")'
+foreach ($requiredArmoredVestLabelEntry in @(
+		'InsertCategory("vest", "Armored Vest"',
+		'AddLoadoutNodeForCategory(session, "vest", "ArmoredVest", "Armored Vest", "torso")'
 	)) {
-	if ($loadoutEditorCombinedText -notmatch [regex]::Escape($requiredChestRigLabelEntry)) {
-		throw "Loadout editor vest-category UI must resolve to Chest Rig/Webbing, not Armored Vest: $requiredChestRigLabelEntry"
+	if ($loadoutEditorCombinedText -notmatch [regex]::Escape($requiredArmoredVestLabelEntry)) {
+		throw "Loadout editor armor vest-category fallback UI must resolve to Armored Vest: $requiredArmoredVestLabelEntry"
 	}
 }
-foreach ($requiredChestRigLabelPattern in @(
-		'if \(category == "vest"\)[\s\S]{0,140}?return "Chest Rig";',
-		'if \(categoryId == "vest"\)[\s\S]{0,140}?return "Chest Rig";'
+foreach ($requiredVestLabelPattern in @(
+		'if \(category == "vest"\)[\s\S]{0,220}?IsLoadoutSlotWebbing[\s\S]{0,120}?return "Chest Rig";[\s\S]{0,120}?return "Armored Vest";',
+		'if \(category == "vest"\)[\s\S]{0,220}?m_aNodeLabels\[nodeIndex\][\s\S]{0,120}?return m_aNodeLabels\[nodeIndex\];[\s\S]{0,120}?return "Armored Vest";',
+		'if \(category == "vest"\)[\s\S]{0,80}?return "Armored Vest";'
 	)) {
-	if ($loadoutEditorCombinedText -notmatch $requiredChestRigLabelPattern) {
-		throw "Loadout editor vest-category UI must resolve to Chest Rig/Webbing, not Armored Vest: $requiredChestRigLabelPattern"
+	if ($loadoutEditorCombinedText -notmatch $requiredVestLabelPattern) {
+		throw "Loadout editor vest-category UI must distinguish Armored Vest from webbing/Chest Rig: $requiredVestLabelPattern"
 	}
 }
 $loadoutClothingEditMatch = [regex]::Match($loadoutEditorComponentText, "protected bool RequestEditSelectedWornStorage\(\)[\s\S]*?\r?\n\t}")
@@ -5299,7 +5297,7 @@ foreach ($requiredClothingEditEntry in @(
 		'm_sSelectedCategory = "attachment"',
 		'm_sSelectedStorageContainerNodeId = ""',
 		'm_sSelectedStoredItemNodeId = ""',
-		"EnsureCandidatePayloadForSelectedNode()"
+		'm_bCandidateMode = false'
 	)) {
 	if ($loadoutClothingEditMatch.Value -notmatch [regex]::Escape($requiredClothingEditEntry)) {
 		throw "Loadout editor clothing Edit must route to attachment editing, not storage browsing: $requiredClothingEditEntry"
@@ -5307,6 +5305,9 @@ foreach ($requiredClothingEditEntry in @(
 }
 if ($loadoutClothingEditMatch.Value -match [regex]::Escape('m_sEditorMode = "storage"')) {
 	throw "Loadout editor clothing Edit must not switch to storage mode"
+}
+if ($loadoutClothingEditMatch.Value -match [regex]::Escape('EnsureCandidatePayloadForSelectedNode()')) {
+	throw "Loadout editor clothing Edit must not immediately open replacement candidates"
 }
 foreach ($requiredFixedCandidateHeaderLayoutPattern in @(
 		'Name "CandidateHeaderPreviewBack"[\s\S]*?OffsetRight -94[\s\S]*?OffsetBottom -82',

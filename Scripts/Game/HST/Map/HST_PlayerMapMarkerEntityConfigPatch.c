@@ -33,9 +33,38 @@ modded class SCR_MapMarkerEntity
 			if (markerManager)
 				configReady = markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
 
-			Print(string.Format("h-istasi player map marker debug | create marker widget player=%1 configReady=%2", GetMarkerConfigID(), configReady));
+			Print(string.Format("h-istasi player map marker debug | create marker widget requested player=%1 configReady=%2", GetMarkerConfigID(), configReady));
 		}
 
 		super.OnCreateMarker();
+
+		if (GetType() == SCR_EMapMarkerType.HST_PLAYER)
+			Print(string.Format("h-istasi player map marker debug | create marker widget result player=%1 root=%2 widget=%3", GetMarkerConfigID(), m_wRoot != null, m_MarkerWidgetComp != null));
+	}
+
+	bool EnsureHSTPlayerMarkerWidget()
+	{
+		if (GetType() != SCR_EMapMarkerType.HST_PLAYER)
+			return false;
+
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (markerManager)
+			markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+
+		SetLocalVisible(true);
+		if (m_wRoot && !m_wRoot.GetParent())
+		{
+			m_wRoot = null;
+			m_MarkerWidgetComp = null;
+		}
+		if (m_wRoot && !m_MarkerWidgetComp)
+		{
+			m_wRoot.RemoveFromHierarchy();
+			m_wRoot = null;
+		}
+		if (!m_wRoot || !m_MarkerWidgetComp)
+			OnCreateMarker();
+
+		return m_wRoot != null && m_MarkerWidgetComp != null;
 	}
 }
