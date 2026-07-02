@@ -5214,12 +5214,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!HST_ArsenalItemFilter.IsLoadoutClothingCategory(category))
 			return false;
 
-		return !ResolveSelectedWornAttachmentParentNodeId().IsEmpty();
+		return !ResolveSelectedEditingPrefab().IsEmpty();
 	}
 
 	protected bool RequestEditSelectedWornStorage()
 	{
 		string parentNodeId = ResolveSelectedWornAttachmentParentNodeId();
+		if (parentNodeId.IsEmpty())
+			parentNodeId = ResolveSelectedCandidateNodeId();
+		if (parentNodeId.IsEmpty())
+			parentNodeId = m_sSelectedSlotId;
 		if (parentNodeId.IsEmpty())
 			return false;
 
@@ -7467,6 +7471,122 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return removed;
 	}
 
+	protected int ClearLocalPreviewSpawnedStorageContents(IEntity itemEntity)
+	{
+		if (!itemEntity)
+			return 0;
+
+		array<IEntity> contents = {};
+		array<IEntity> visited = {};
+
+		array<BaseInventoryStorageComponent> cargoStorages = {};
+		if (FindPreviewCargoDepositStorages(itemEntity, cargoStorages) > 0)
+			GatherPreviewStorageContentEntitiesFromStorages(cargoStorages, contents, visited);
+
+		if (ShouldClearPreviewDefaultStructuralStoredItems(itemEntity))
+		{
+			array<BaseInventoryStorageComponent> structuralStorages = {};
+			if (FindPreviewStructuralAttachmentStorages(itemEntity, structuralStorages) > 0)
+				GatherPreviewDefaultStructuralContentEntitiesFromStorages(structuralStorages, contents, visited);
+		}
+
+		int removed;
+		foreach (IEntity content : contents)
+		{
+			if (!content || content == itemEntity)
+				continue;
+
+			SCR_EntityHelper.DeleteEntityAndChildren(content);
+			removed++;
+		}
+
+		return removed;
+	}
+
+	protected bool ShouldClearPreviewDefaultStructuralStoredItems(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		if (BaseLoadoutClothComponent.Cast(entity.FindComponent(BaseLoadoutClothComponent)))
+			return true;
+
+		return ClothNodeStorageComponent.Cast(entity.FindComponent(ClothNodeStorageComponent)) != null;
+	}
+
+	protected int FindPreviewStructuralAttachmentStorages(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages)
+	{
+		array<IEntity> visited = {};
+		FindPreviewStructuralAttachmentStoragesRecursive(entity, outStorages, visited, 0);
+		return outStorages.Count();
+	}
+
+	protected void FindPreviewStructuralAttachmentStoragesRecursive(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<IEntity> visited, int depth)
+	{
+		if (!entity || depth > 8 || visited.Find(entity) >= 0)
+			return;
+
+		visited.Insert(entity);
+		array<Managed> components = {};
+		entity.FindComponents(BaseInventoryStorageComponent, components);
+		foreach (Managed component : components)
+		{
+			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
+			if (!storage || storage.GetSlotsCount() <= 0 || !IsPreviewStructuralAttachmentStorage(storage))
+				continue;
+
+			if (outStorages.Find(storage) < 0)
+				outStorages.Insert(storage);
+
+			array<IEntity> attached = {};
+			array<IEntity> attachedVisited = {};
+			GatherPreviewStorageContentEntities(storage, attached, attachedVisited);
+			foreach (IEntity child : attached)
+				FindPreviewStructuralAttachmentStoragesRecursive(child, outStorages, visited, depth + 1);
+		}
+	}
+
+	protected void GatherPreviewDefaultStructuralContentEntitiesFromStorages(notnull array<BaseInventoryStorageComponent> storages, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		foreach (BaseInventoryStorageComponent storage : storages)
+			GatherPreviewDefaultStructuralContentEntities(storage, outItems, visited);
+	}
+
+	protected void GatherPreviewDefaultStructuralContentEntities(BaseInventoryStorageComponent storage, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		if (!storage)
+			return;
+
+		int slotCount = storage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+			if (!slot)
+				continue;
+
+			IEntity attached = slot.GetAttachedEntity();
+			if (!attached || !IsPreviewDefaultStructuralStoredItem(attached))
+				continue;
+
+			AddPreviewStorageContentEntity(attached, outItems, visited);
+		}
+	}
+
+	protected bool IsPreviewDefaultStructuralStoredItem(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		string prefab = ResolvePreviewEntityPrefab(entity);
+		string display = ResolvePreviewEntityDisplayName(entity);
+		string combined = prefab + " " + display;
+		combined.ToLower();
+		if (HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(combined, "utility"))
+			return false;
+
+		return combined.Contains("bayonet");
+	}
+
 	protected bool TryInsertLocalPreviewItem(SCR_InventoryStorageManagerComponent inventory, string prefab, string slotId, out string failure)
 	{
 		failure = "";
@@ -7500,6 +7620,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			failure = "not inventory";
 			return false;
 		}
+
+		ClearLocalPreviewSpawnedStorageContents(itemEntity);
 
 		BaseInventoryStorageComponent storage;
 		int storageSlotId = -1;
@@ -7905,21 +8027,47 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!entity)
 			return 0;
 
+		array<IEntity> visitedEntities = {};
+		array<BaseInventoryStorageComponent> visitedStorages = {};
+		FindPreviewEditableAttachmentStoragesRecursive(entity, outStorages, visitedEntities, visitedStorages, 0);
+		return outStorages.Count();
+	}
+
+	protected void FindPreviewEditableAttachmentStoragesRecursive(IEntity entity, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<IEntity> visitedEntities, notnull array<BaseInventoryStorageComponent> visitedStorages, int depth)
+	{
+		if (!entity || depth > 8 || visitedEntities.Find(entity) >= 0)
+			return;
+
+		visitedEntities.Insert(entity);
 		array<Managed> components = {};
 		entity.FindComponents(BaseInventoryStorageComponent, components);
 		foreach (Managed component : components)
 		{
 			BaseInventoryStorageComponent storage = BaseInventoryStorageComponent.Cast(component);
-			if (!storage || storage.GetSlotsCount() <= 0 || outStorages.Find(storage) >= 0)
-				continue;
-
-			if (!PreviewStorageHasInspectableAttachmentSlot(storage))
-				continue;
-
-			outStorages.Insert(storage);
+			AddPreviewEditableAttachmentStorage(storage, outStorages, visitedStorages, depth);
 		}
 
-		return outStorages.Count();
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			FindPreviewEditableAttachmentStoragesRecursive(child, outStorages, visitedEntities, visitedStorages, depth + 1);
+			child = child.GetSibling();
+		}
+	}
+
+	protected void AddPreviewEditableAttachmentStorage(BaseInventoryStorageComponent storage, notnull array<BaseInventoryStorageComponent> outStorages, notnull array<BaseInventoryStorageComponent> visitedStorages, int depth)
+	{
+		if (!storage || depth > 8 || visitedStorages.Find(storage) >= 0)
+			return;
+
+		visitedStorages.Insert(storage);
+		if (storage.GetSlotsCount() > 0 && !SCR_UniversalInventoryStorageComponent.Cast(storage) && PreviewStorageHasInspectableAttachmentSlot(storage) && outStorages.Find(storage) < 0)
+			outStorages.Insert(storage);
+
+		array<BaseInventoryStorageComponent> ownedStorages = {};
+		storage.GetOwnedStorages(ownedStorages, 1, false);
+		foreach (BaseInventoryStorageComponent ownedStorage : ownedStorages)
+			AddPreviewEditableAttachmentStorage(ownedStorage, outStorages, visitedStorages, depth + 1);
 	}
 
 	protected bool PreviewStorageHasInspectableAttachmentSlot(BaseInventoryStorageComponent storage)
@@ -7933,6 +8081,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
 			if (!slot)
 				continue;
+
+			if (LoadoutSlotInfo.Cast(slot))
+				return true;
 
 			AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
 			if (attachmentSlot && attachmentSlot.GetAttachmentSlotType() && attachmentSlot.ShouldShowInInspection())

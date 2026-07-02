@@ -2,7 +2,7 @@ class HST_PlayerMapMarkerDynamicWComponent : SCR_MapMarkerDynamicWComponent
 {
 	static const int FACING_UPDATE_INTERVAL_MS = 100;
 	static const float FACING_ROTATION_EPSILON = 0.1;
-	static const float WHISPER_ICON_FORWARD_OFFSET_DEGREES = -45.0;
+	static const float WHISPER_ICON_FORWARD_OFFSET_DEGREES = -40.0;
 
 	protected int m_iPlayerId;
 	protected bool m_bFacingUpdateActive;

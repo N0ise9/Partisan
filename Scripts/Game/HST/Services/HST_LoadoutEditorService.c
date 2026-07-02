@@ -828,7 +828,8 @@ class HST_LoadoutEditorService
 					continue;
 
 				AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
-				if (!attachmentSlot || !attachmentSlot.GetAttachmentSlotType())
+				LoadoutSlotInfo loadoutSlot = LoadoutSlotInfo.Cast(slot);
+				if ((!attachmentSlot || !attachmentSlot.GetAttachmentSlotType()) && !loadoutSlot)
 					continue;
 
 				IEntity attachedEntity = ResolveEditableAttachmentEntity(slot.GetAttachedEntity());
@@ -905,6 +906,10 @@ class HST_LoadoutEditorService
 			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
 			if (!slot)
 				continue;
+
+			LoadoutSlotInfo loadoutSlot = LoadoutSlotInfo.Cast(slot);
+			if (loadoutSlot)
+				return true;
 
 			AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
 			if (attachmentSlot && attachmentSlot.GetAttachmentSlotType())
@@ -2275,13 +2280,20 @@ class HST_LoadoutEditorService
 		if (!itemEntity)
 			return 0;
 
-		array<BaseInventoryStorageComponent> storages = {};
-		if (FindCargoDepositStorages(itemEntity, storages) <= 0)
-			return 0;
-
 		array<IEntity> contents = {};
 		array<IEntity> visited = {};
-		GatherStorageContentEntitiesFromStorages(storages, contents, visited);
+
+		array<BaseInventoryStorageComponent> cargoStorages = {};
+		if (FindCargoDepositStorages(itemEntity, cargoStorages) > 0)
+			GatherStorageContentEntitiesFromStorages(cargoStorages, contents, visited);
+
+		if (ShouldClearDefaultStructuralStoredItems(itemEntity))
+		{
+			array<BaseInventoryStorageComponent> structuralStorages = {};
+			if (FindStructuralAttachmentStorages(itemEntity, structuralStorages) > 0)
+				GatherDefaultStructuralContentEntitiesFromStorages(structuralStorages, contents, visited);
+		}
+
 		int removed;
 		foreach (IEntity content : contents)
 		{
@@ -2293,6 +2305,58 @@ class HST_LoadoutEditorService
 		}
 
 		return removed;
+	}
+
+	protected bool ShouldClearDefaultStructuralStoredItems(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		if (BaseLoadoutClothComponent.Cast(entity.FindComponent(BaseLoadoutClothComponent)))
+			return true;
+
+		return ClothNodeStorageComponent.Cast(entity.FindComponent(ClothNodeStorageComponent)) != null;
+	}
+
+	protected void GatherDefaultStructuralContentEntitiesFromStorages(notnull array<BaseInventoryStorageComponent> storages, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		foreach (BaseInventoryStorageComponent storage : storages)
+			GatherDefaultStructuralContentEntities(storage, outItems, visited);
+	}
+
+	protected void GatherDefaultStructuralContentEntities(BaseInventoryStorageComponent storage, notnull array<IEntity> outItems, notnull array<IEntity> visited)
+	{
+		if (!storage)
+			return;
+
+		int slotCount = storage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+			if (!slot)
+				continue;
+
+			IEntity attached = slot.GetAttachedEntity();
+			if (!attached || !IsDefaultStructuralStoredItem(attached))
+				continue;
+
+			AddStorageContentEntity(attached, outItems, visited);
+		}
+	}
+
+	protected bool IsDefaultStructuralStoredItem(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		string prefab = ResolveEntityPrefab(entity);
+		string display = ResolveEntityDisplayName(entity, prefab);
+		string combined = prefab + " " + display;
+		combined.ToLower();
+		if (HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(combined, "utility"))
+			return false;
+
+		return combined.Contains("bayonet");
 	}
 
 	protected SCR_InventoryStorageManagerComponent ResolveInventoryManager(IEntity playerEntity, out string failure)
@@ -2722,7 +2786,17 @@ class HST_LoadoutEditorService
 			return false;
 
 		AttachmentSlotComponent attachmentSlot = AttachmentSlotComponent.Cast(slot.GetParentContainer());
-		return attachmentSlot && attachmentSlot.CanSetAttachment(temp);
+		if (attachmentSlot)
+			return attachmentSlot.CanSetAttachment(temp);
+
+		LoadoutSlotInfo loadoutSlot = LoadoutSlotInfo.Cast(slot);
+		if (!loadoutSlot || !storage)
+			return false;
+
+		if (attached)
+			return storage.CanReplaceItem(temp, slot.GetID());
+
+		return storage.CanStoreItem(temp, slot.GetID());
 	}
 
 	protected bool IsCandidateCompatibleWithStorage(IEntity playerEntity, string nodeId, IEntity temp)
