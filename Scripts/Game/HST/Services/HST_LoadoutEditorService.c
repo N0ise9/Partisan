@@ -1632,7 +1632,12 @@ class HST_LoadoutEditorService
 		if (category == "clothing")
 			return "Jacket";
 		if (category == "vest")
+		{
+			if (IsLoadoutSlotWebbing(loadoutSlot, attachedEntity))
+				return "Chest Rig";
+
 			return "Armored Vest";
+		}
 		if (category == "webbing")
 			return "Chest Rig";
 		if (category == "pants")
@@ -2792,11 +2797,33 @@ class HST_LoadoutEditorService
 		LoadoutSlotInfo loadoutSlot = LoadoutSlotInfo.Cast(slot);
 		if (!loadoutSlot || !storage)
 			return false;
+		if (nodeId.IndexOf(NODE_CLOTHING_ATTACHMENT_PREFIX) == 0 && !IsLoadoutAreaCandidateForSlot(loadoutSlot, temp))
+			return false;
 
 		if (attached)
 			return storage.CanReplaceItem(temp, slot.GetID());
 
 		return storage.CanStoreItem(temp, slot.GetID());
+	}
+
+	protected bool IsLoadoutAreaCandidateForSlot(LoadoutSlotInfo loadoutSlot, IEntity candidate)
+	{
+		if (!loadoutSlot || !candidate)
+			return false;
+
+		LoadoutAreaType slotArea = loadoutSlot.GetAreaType();
+		if (!slotArea)
+			return false;
+
+		BaseLoadoutClothComponent clothComponent = BaseLoadoutClothComponent.Cast(candidate.FindComponent(BaseLoadoutClothComponent));
+		if (!clothComponent)
+			return false;
+
+		LoadoutAreaType itemArea = clothComponent.GetAreaType();
+		if (!itemArea)
+			return false;
+
+		return slotArea.Type().ToString() == itemArea.Type().ToString();
 	}
 
 	protected bool IsCandidateCompatibleWithStorage(IEntity playerEntity, string nodeId, IEntity temp)

@@ -2009,7 +2009,7 @@ if ($playerMarkerLayoutText -match "SCR_MapMarkerSquadMemberComponent") {
 	throw "Player marker layout must not use the squad-member component for SCR_MapMarkerEntity dynamic markers"
 }
 foreach ($requiredPlayerMarkerFacingEntry in @(
-		"WHISPER_ICON_FORWARD_OFFSET_DEGREES = -45.0",
+		"WHISPER_ICON_FORWARD_OFFSET_DEGREES = -50.0",
 		"GetYawPitchRoll()",
 		"yawPitchRoll[0] + WHISPER_ICON_FORWARD_OFFSET_DEGREES",
 		"m_wMarkerIcon.SetRotation(rotation)",
@@ -5293,15 +5293,18 @@ if (!$loadoutClothingEditMatch.Success) {
 	throw "Loadout editor clothing Edit action is missing"
 }
 foreach ($requiredClothingEditEntry in @(
-		'm_sEditorMode = "attachments"',
-		'm_sSelectedCategory = "attachment"',
+		'm_sEditorMode = EDITOR_MODE_CLOTHING_EDIT',
+		'ResolveSelectedWornAttachmentParentNodeId()',
 		'm_sSelectedStorageContainerNodeId = ""',
 		'm_sSelectedStoredItemNodeId = ""',
 		'm_bCandidateMode = false'
 	)) {
 	if ($loadoutClothingEditMatch.Value -notmatch [regex]::Escape($requiredClothingEditEntry)) {
-		throw "Loadout editor clothing Edit must route to attachment editing, not storage browsing: $requiredClothingEditEntry"
+		throw "Loadout editor clothing Edit must route to clothing child-slot editing, not storage browsing: $requiredClothingEditEntry"
 	}
+}
+if ($loadoutClothingEditMatch.Value -match [regex]::Escape('m_sEditorMode = "attachments"')) {
+	throw "Loadout editor clothing Edit must not switch to the weapon attachments mode"
 }
 if ($loadoutClothingEditMatch.Value -match [regex]::Escape('m_sEditorMode = "storage"')) {
 	throw "Loadout editor clothing Edit must not switch to storage mode"

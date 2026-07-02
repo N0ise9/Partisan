@@ -111,6 +111,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName PREVIEW_WORLD_MATERIAL_NIGHT = "{A19E4F4D03C04B24}Prefabs/HST/HST_LoadoutPreviewWorld_Night.emat";
 	static const string PREVIEW_MODE_CHARACTER = "character";
 	static const string PREVIEW_MODE_ENTITY = "entity";
+	static const string EDITOR_MODE_CLOTHING_EDIT = "clothing_edit";
 	static const string EDITOR_INPUT_CONTEXT = "MenuContext";
 	static const string EDITOR_CURSOR_CONTEXT = "InventoryContext";
 	static const string LOADOUT_ACTION_TAB_LEFT = "MenuTabLeft";
@@ -948,7 +949,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
 			{
 				string clickedNodeId = m_aNodeIds[nodeIndex];
-				if (m_sEditorMode == "attachments" && !m_sSelectedNodeId.IsEmpty() && clickedNodeId == m_sSelectedNodeId)
+				if ((m_sEditorMode == "attachments" || IsClothingEditMode()) && !m_sSelectedNodeId.IsEmpty() && clickedNodeId == m_sSelectedNodeId)
 					return true;
 
 				if (m_sEditorMode == "storage" && nodeIndex < m_aNodeKinds.Count() && m_aNodeKinds[nodeIndex] == "storage")
@@ -1249,6 +1250,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				ResetPreviewCameraToReferenceDefault();
 			}
 			m_iItemPage = 0;
+		}
+		else if (IsClothingEditMode())
+		{
+			m_sEditorMode = "clothing";
+			m_sSelectedCategory = ResolveDefaultCategoryForMode(m_sEditorMode);
+			m_sSelectedNodeId = "";
+			m_sSelectedSlotId = "";
+			m_iCameraMode = 0;
+			m_bPreviewCameraAutoFramed = false;
+			m_sPreviewRenderKey = "";
+			ResetPreviewCameraToReferenceDefault();
 		}
 		else if (m_sEditorMode == "attachments" && !m_sSelectedNodeId.IsEmpty())
 		{
@@ -2315,15 +2327,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		ClearLoadoutContainerChildren(target, "TopTabItems");
 
-		int activeIndex = GetEditorModeIndex(m_sEditorMode);
+		string activeMode = GetVisibleEditorModeId(m_sEditorMode);
+		int activeIndex = GetEditorModeIndex(activeMode);
 		for (int i = 0; i < GetEditorModeCount(); i++)
 		{
 			string modeId = GetEditorModeId(i);
-			bool active = modeId == m_sEditorMode;
+			bool active = modeId == activeMode;
 			AddLoadoutTabButton(workspace, items, GetEditorModeIcon(modeId), ResolveIconTexture(modeId), MODE_WIDGET_ID_BASE + i, active);
 		}
 
-		HST_UIDebug.LogRowSummary("loadout_mode_tabs", LOADOUT_TAB_BUTTON_LAYOUT, GetEditorModeCount(), string.Format("activeMode=%1 activeIndex=%2", m_sEditorMode, activeIndex));
+		HST_UIDebug.LogRowSummary("loadout_mode_tabs", LOADOUT_TAB_BUTTON_LAYOUT, GetEditorModeCount(), string.Format("activeMode=%1 visibleMode=%2 activeIndex=%3", m_sEditorMode, activeMode, activeIndex));
 	}
 
 	protected void AddLoadoutTabButton(WorkspaceWidget workspace, Widget parent, string fallback, ResourceName texture, int userId, bool active)
@@ -5214,21 +5227,20 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!HST_ArsenalItemFilter.IsLoadoutClothingCategory(category))
 			return false;
 
-		return !ResolveSelectedEditingPrefab().IsEmpty();
+		return !ResolveSelectedEditingPrefab().IsEmpty() && !ResolveSelectedWornAttachmentParentNodeId().IsEmpty();
 	}
 
 	protected bool RequestEditSelectedWornStorage()
 	{
 		string parentNodeId = ResolveSelectedWornAttachmentParentNodeId();
 		if (parentNodeId.IsEmpty())
-			parentNodeId = ResolveSelectedCandidateNodeId();
-		if (parentNodeId.IsEmpty())
-			parentNodeId = m_sSelectedSlotId;
-		if (parentNodeId.IsEmpty())
 			return false;
 
-		m_sEditorMode = "attachments";
-		m_sSelectedCategory = "attachment";
+		m_sEditorMode = EDITOR_MODE_CLOTHING_EDIT;
+		m_sSelectedCategory = ResolveSelectedEditingCategory();
+		int parentNodeIndex = FindStringIndex(m_aNodeIds, parentNodeId);
+		if (parentNodeIndex >= 0)
+			m_sSelectedCategory = ResolveNodeCategory(parentNodeIndex);
 		m_sSelectedStorageContainerNodeId = "";
 		m_sSelectedStoredItemNodeId = "";
 		m_sSelectedNodeId = parentNodeId;
@@ -5351,6 +5363,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return m_aNodeIds[nodeIndex] == m_sSelectedNodeId || (kind == "attachment" && nodeIndex < m_aNodeParents.Count() && m_aNodeParents[nodeIndex] == m_sSelectedNodeId);
 
 			return kind == "weapon_slot" && IsAttachableWeaponCategory(category) && nodeIndex < m_aNodePrefabs.Count() && !m_aNodePrefabs[nodeIndex].IsEmpty();
+		}
+		if (IsClothingEditMode())
+		{
+			if (m_sSelectedNodeId.IsEmpty())
+				return false;
+
+			return m_aNodeIds[nodeIndex] == m_sSelectedNodeId || (kind == "attachment" && nodeIndex < m_aNodeParents.Count() && m_aNodeParents[nodeIndex] == m_sSelectedNodeId);
 		}
 		if (m_sEditorMode == "storage")
 			return kind == "storage" || kind == "storage_item";
@@ -6191,6 +6210,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected int GetEditorModeIndex(string modeId)
 	{
+		modeId = GetVisibleEditorModeId(modeId);
 		for (int i = 0; i < GetEditorModeCount(); i++)
 		{
 			if (GetEditorModeId(i) == modeId)
@@ -6200,8 +6220,22 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return 0;
 	}
 
+	protected string GetVisibleEditorModeId(string modeId)
+	{
+		if (modeId == EDITOR_MODE_CLOTHING_EDIT)
+			return "clothing";
+
+		return modeId;
+	}
+
+	protected bool IsClothingEditMode()
+	{
+		return m_sEditorMode == EDITOR_MODE_CLOTHING_EDIT;
+	}
+
 	protected string ResolveDefaultCategoryForMode(string modeId)
 	{
+		modeId = GetVisibleEditorModeId(modeId);
 		if (modeId == "clothing")
 			return "clothing";
 		if (modeId == "weapons")
@@ -6235,6 +6269,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected bool IsCategoryVisibleForMode(string category, string modeId)
 	{
+		modeId = GetVisibleEditorModeId(modeId);
 		if (modeId == "clothing")
 			return category == "clothing" || category == "headgear" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "backpack" || category == "handwear";
 		if (modeId == "weapons")
@@ -6536,7 +6571,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected bool ReturnFromAttachmentCandidateToWeapon()
 	{
-		if (m_sEditorMode != "attachments")
+		if (m_sEditorMode != "attachments" && !IsClothingEditMode())
 			return false;
 
 		int selectedNodeIndex = FindSelectedNodeIndex();
@@ -6549,9 +6584,21 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (selectedNodeIndex >= m_aNodeParents.Count() || m_aNodeParents[selectedNodeIndex].IsEmpty())
 			return false;
 
-		m_sSelectedNodeId = m_aNodeParents[selectedNodeIndex];
+		string parentNodeId = m_aNodeParents[selectedNodeIndex];
+		m_sSelectedNodeId = parentNodeId;
 		m_sSelectedSlotId = "";
-		m_sSelectedCategory = "attachment";
+		if (IsClothingEditMode())
+		{
+			int parentIndex = FindStringIndex(m_aNodeIds, parentNodeId);
+			if (parentIndex >= 0)
+				m_sSelectedCategory = ResolveNodeCategory(parentIndex);
+			else
+				m_sSelectedCategory = ResolveDefaultCategoryForMode("clothing");
+		}
+		else
+		{
+			m_sSelectedCategory = "attachment";
+		}
 		m_bCandidateMode = false;
 		return true;
 	}
