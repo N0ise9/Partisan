@@ -4104,6 +4104,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugSummaryCases(lines, "BLOCKED");
 		AppendCampaignDebugSummaryCases(lines, "WARN");
 		lines.Insert("");
+		AppendCampaignDebugFeatureMatrix(lines);
+		lines.Insert("");
+		AppendCampaignDebugMissionMatrix(lines);
+		lines.Insert("");
+		AppendCampaignDebugPhysicalAIMatrix(lines);
+		lines.Insert("");
+		AppendCampaignDebugCleanupMatrix(lines);
+		lines.Insert("");
+		AppendCampaignDebugInspectionHints(lines);
+		lines.Insert("");
 		lines.Insert("recent log");
 		int first = Math.Max(0, m_aCampaignDebugRecentLog.Count() - 24);
 		for (int i = first; i < m_aCampaignDebugRecentLog.Count(); i++)
@@ -4185,6 +4195,256 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				break;
 			}
 		}
+	}
+
+	protected void AppendCampaignDebugFeatureMatrix(notnull array<string> lines)
+	{
+		lines.Insert("feature matrix");
+		AppendCampaignDebugMatrixHeader(lines);
+		if (!m_CampaignDebugRunResult)
+		{
+			lines.Insert("none");
+			return;
+		}
+
+		int rows;
+		foreach (HST_CampaignDebugCaseResult caseResult : m_CampaignDebugRunResult.m_aCases)
+		{
+			if (!caseResult)
+				continue;
+
+			lines.Insert(BuildCampaignDebugMatrixRow(caseResult));
+			rows++;
+		}
+
+		if (rows == 0)
+			lines.Insert("none");
+	}
+
+	protected void AppendCampaignDebugMissionMatrix(notnull array<string> lines)
+	{
+		lines.Insert("mission matrix");
+		AppendCampaignDebugMatrixHeader(lines);
+		if (!m_CampaignDebugRunResult)
+		{
+			lines.Insert("none");
+			return;
+		}
+
+		int rows;
+		foreach (HST_CampaignDebugCaseResult caseResult : m_CampaignDebugRunResult.m_aCases)
+		{
+			if (!caseResult || !IsCampaignDebugMissionMatrixCase(caseResult))
+				continue;
+
+			lines.Insert(BuildCampaignDebugMatrixRow(caseResult));
+			rows++;
+		}
+
+		if (rows == 0)
+			lines.Insert("none");
+	}
+
+	protected void AppendCampaignDebugPhysicalAIMatrix(notnull array<string> lines)
+	{
+		lines.Insert("physical AI matrix");
+		AppendCampaignDebugMatrixHeader(lines);
+		if (!m_CampaignDebugRunResult)
+		{
+			lines.Insert("none");
+			return;
+		}
+
+		int rows;
+		foreach (HST_CampaignDebugCaseResult caseResult : m_CampaignDebugRunResult.m_aCases)
+		{
+			if (!caseResult || !IsCampaignDebugPhysicalAIMatrixCase(caseResult))
+				continue;
+
+			lines.Insert(BuildCampaignDebugMatrixRow(caseResult));
+			rows++;
+		}
+
+		if (rows == 0)
+			lines.Insert("none");
+	}
+
+	protected void AppendCampaignDebugCleanupMatrix(notnull array<string> lines)
+	{
+		lines.Insert("cleanup matrix");
+		AppendCampaignDebugMatrixHeader(lines);
+		if (!m_CampaignDebugRunResult)
+		{
+			lines.Insert("none");
+			return;
+		}
+
+		int rows;
+		foreach (HST_CampaignDebugCaseResult caseResult : m_CampaignDebugRunResult.m_aCases)
+		{
+			if (!caseResult || !IsCampaignDebugCleanupMatrixCase(caseResult))
+				continue;
+
+			lines.Insert(BuildCampaignDebugMatrixRow(caseResult));
+			rows++;
+		}
+
+		if (rows == 0)
+			lines.Insert("none");
+	}
+
+	protected void AppendCampaignDebugMatrixHeader(notnull array<string> lines)
+	{
+		lines.Insert("status | category | feature | stage | case | reason");
+	}
+
+	protected string BuildCampaignDebugMatrixRow(HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return "missing";
+
+		return string.Format("%1 | %2 | %3 | %4 | %5 | %6",
+			EmptyCampaignDebugField(caseResult.m_sStatus),
+			EmptyCampaignDebugField(caseResult.m_sCategory),
+			EmptyCampaignDebugField(caseResult.m_sFeature),
+			EmptyCampaignDebugField(caseResult.m_sStage),
+			EmptyCampaignDebugField(caseResult.m_sCaseId),
+			ShortCampaignDebugLine(caseResult.m_sReason, 220)
+		);
+	}
+
+	protected bool IsCampaignDebugMissionMatrixCase(HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return false;
+		if (caseResult.m_sCategory == "mission_runtime")
+			return true;
+		if (caseResult.m_sCaseId.Contains("start_mission_") || caseResult.m_sCaseId.Contains("runtime_mission_") || caseResult.m_sCaseId.Contains("complete_mission_"))
+			return true;
+		if (caseResult.m_sCaseId.Contains("mission_cleanup."))
+			return true;
+
+		return false;
+	}
+
+	protected bool IsCampaignDebugPhysicalAIMatrixCase(HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return false;
+		if (caseResult.m_sStage == "physical_probe" || caseResult.m_sStage == "primitive_probe")
+			return true;
+		if (caseResult.m_sFeature == "convoy_intercept" || caseResult.m_sFeature == "rescue_extract")
+			return true;
+		if (caseResult.m_sFeature.Contains("physical") || caseResult.m_sCaseId.Contains("physical"))
+			return true;
+
+		return false;
+	}
+
+	protected bool IsCampaignDebugCleanupMatrixCase(HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return false;
+		if (caseResult.m_sCategory == "cleanup" || caseResult.m_sStage == "cleanup")
+			return true;
+		if (caseResult.m_sCaseId.Contains("cleanup"))
+			return true;
+
+		return false;
+	}
+
+	protected void AppendCampaignDebugInspectionHints(notnull array<string> lines)
+	{
+		lines.Insert("failure inspection commands");
+		if (!m_CampaignDebugRunResult)
+		{
+			lines.Insert("none");
+			return;
+		}
+
+		int rows;
+		foreach (HST_CampaignDebugCaseResult caseResult : m_CampaignDebugRunResult.m_aCases)
+		{
+			if (!caseResult || caseResult.m_sStatus == "PASS")
+				continue;
+
+			rows++;
+			lines.Insert(string.Format("%1 | %2 | %3", caseResult.m_sStatus, caseResult.m_sCaseId, ShortCampaignDebugLine(caseResult.m_sReason, 180)));
+			lines.Insert("  admin_campaign_debug_status");
+			AppendCampaignDebugCaseSpecificInspectionHints(lines, caseResult);
+		}
+
+		if (rows == 0)
+			lines.Insert("none");
+	}
+
+	protected void AppendCampaignDebugCaseSpecificInspectionHints(notnull array<string> lines, HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return;
+
+		string missionInstanceId = FindCampaignDebugCaseMissionInstanceId(caseResult);
+		string zoneId = FindCampaignDebugCaseZoneId(caseResult);
+		string orderId = FindCampaignDebugCaseOrderId(caseResult);
+		if (!missionInstanceId.IsEmpty())
+			lines.Insert("  inspect_mission " + missionInstanceId);
+		else if (IsCampaignDebugMissionMatrixCase(caseResult))
+			lines.Insert("  inspect_mission_runtime");
+
+		if (caseResult.m_sFeature == "convoy_intercept" || caseResult.m_sCaseId.Contains("convoy"))
+			lines.Insert("  inspect_convoy_runtime");
+		if (caseResult.m_sFeature == "player_support" || caseResult.m_sCategory == "support")
+			lines.Insert("  inspect_support");
+		if (caseResult.m_sCategory == "civilians" || caseResult.m_sFeature == "town_support")
+			lines.Insert("  inspect_civilians");
+		if (caseResult.m_sFeature == "undercover")
+			lines.Insert("  inspect_undercover");
+		if (!zoneId.IsEmpty())
+			lines.Insert("  inspect_markers | zone " + zoneId);
+		if (!orderId.IsEmpty())
+			lines.Insert("  inspect_support | order " + orderId);
+	}
+
+	protected string FindCampaignDebugCaseMissionInstanceId(HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return "";
+
+		foreach (HST_CampaignDebugAssertion assertion : caseResult.m_aAssertions)
+		{
+			if (assertion && !assertion.m_sMissionInstanceId.IsEmpty())
+				return assertion.m_sMissionInstanceId;
+		}
+
+		return "";
+	}
+
+	protected string FindCampaignDebugCaseZoneId(HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return "";
+
+		foreach (HST_CampaignDebugAssertion assertion : caseResult.m_aAssertions)
+		{
+			if (assertion && !assertion.m_sZoneId.IsEmpty())
+				return assertion.m_sZoneId;
+		}
+
+		return "";
+	}
+
+	protected string FindCampaignDebugCaseOrderId(HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return "";
+
+		foreach (HST_CampaignDebugAssertion assertion : caseResult.m_aAssertions)
+		{
+			if (assertion && !assertion.m_sOrderId.IsEmpty())
+				return assertion.m_sOrderId;
+		}
+
+		return "";
 	}
 
 	protected bool WriteCampaignDebugLines(string fileName, notnull array<string> lines)

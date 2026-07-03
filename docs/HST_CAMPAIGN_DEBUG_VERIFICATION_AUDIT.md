@@ -28,6 +28,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Mission cleanup checks active mission status, unresolved assets, mission-owned groups, and linked markers.
 - The state-diff artifact snapshots start/end objectives, runtime vehicles, mission assets, active groups, support requests, enemy orders, markers, garage vehicles, arsenal items, civilian zones, and undercover records.
 - Final completion now records a typed cleanup leak snapshot for active missions, player support, enemy orders, active groups, markers, and current/early debug mission IDs.
+- The summary artifact now includes feature, mission, physical AI, and cleanup matrices built from typed case results, plus failure inspection command hints for non-pass cases.
 
 ## Not Fully Implemented
 
@@ -45,7 +46,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Counterattack physical spawn/advance/wave tests are not implemented.
 - Player render-bubble tests for far/near/leave/mission-assets/convoy-expired behavior are not implemented.
 - Persistence roundtrip/temp-restore tests for active missions, field vehicles, garage/cargo, undercover, and civilian state are not implemented. Real restart/multiclient soak remains a warning gap.
-- Final artifacts do not yet include the requested full feature matrix, mission matrix, physical AI matrix, cleanup matrix, or failure blocks with suggested inspection commands.
+- Final artifacts include the requested summary matrix sections, but those matrices still expose partial coverage because many underlying cases remain legacy string wrappers.
 - Cleanup leak checks are not run after every major case; current coverage is selected support cleanup, mission cleanup checks, and a final run-level leak snapshot.
 - Stall detection and timeout evidence dumps are not implemented for physical tests.
 - Run profiles (`smoke`, `physical`, `full`) are not implemented; the runner has a fixed `full` profile label.
@@ -54,4 +55,4 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 
 - `git diff --check` passed, with only CRLF warnings reported by Git.
 - Basic brace counts matched for the touched script files.
-- `tools/validate-foundation.ps1` passed general brace/string/resource checks and then failed on an existing unrelated contract: `Player map marker service must publish only during active campaign phase`.
+- `tools/validate-foundation.ps1` passed.
