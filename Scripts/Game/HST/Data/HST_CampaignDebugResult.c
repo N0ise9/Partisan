@@ -101,10 +101,13 @@ class HST_CampaignDebugSupportProbeContext
 	int m_iRouteSampleCount;
 	int m_iRouteMovementCount;
 	int m_iRouteDistanceDecreaseCount;
+	int m_iRouteTimeoutSeconds;
 	float m_fRouteMaxMovementMeters;
 	float m_fRouteMaxDistanceClosedMeters;
+	bool m_bRouteTimedOut;
 	string m_sRouteSampleHistory;
 	string m_sRouteLastObserved;
+	string m_sRouteTimeoutEvidence;
 	string m_sGroupStatusAfterRoute;
 	string m_sGroupStatusAtArrival;
 	string m_sRequestRuntimeStatusAtArrival;
@@ -150,10 +153,13 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	int m_iRouteSampleCount;
 	int m_iRouteMovementCount;
 	int m_iRouteDistanceDecreaseCount;
+	int m_iRouteTimeoutSeconds;
 	float m_fRouteMaxMovementMeters;
 	float m_fRouteMaxDistanceClosedMeters;
+	bool m_bRouteTimedOut;
 	string m_sRouteSampleHistory;
 	string m_sRouteLastObserved;
+	string m_sRouteTimeoutEvidence;
 	string m_sGroupStatusAfterRoute;
 	string m_sFailureReason;
 }
