@@ -4162,6 +4162,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RecordCampaignDebugResult("runtime mission " + definition.m_sMissionId, runtimeReport, IsCampaignDebugMissionRuntimeHealthy(m_sCampaignDebugCurrentMissionInstanceId, runtimeReport));
 			if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
 				RecordCampaignDebugConvoyPhysicalProbe("mission sweep " + definition.m_sMissionId, m_sCampaignDebugCurrentMissionInstanceId);
+			else
+				RecordCampaignDebugPrimitiveMissionProbe(definition, m_sCampaignDebugCurrentMissionInstanceId);
 			m_iCampaignDebugMissionSubStep = 2;
 			m_iCampaignDebugWaitSeconds = 1;
 			return;
@@ -7126,6 +7128,354 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		probe.m_aEvidence.Insert("runner label " + label);
 		RecordCampaignDebugCase(probe);
+	}
+
+	protected void RecordCampaignDebugPrimitiveMissionProbe(HST_MissionDefinition definition, string instanceId)
+	{
+		if (!m_State || instanceId.IsEmpty())
+		{
+			HST_CampaignDebugCaseResult missingPrimitiveCase = CreateCampaignDebugCase("primitive_runtime.missing." + SafeCampaignDebugToken(instanceId), "mission_runtime", "primitive", "primitive_probe");
+			AddCampaignDebugAssertion(missingPrimitiveCase, "primitive.runtime.instance", "mission instance id present", EmptyCampaignDebugField(instanceId), "BLOCKED", "primitive mission probe has no mission instance id");
+			FinalizeCampaignDebugCaseFromAssertions(missingPrimitiveCase);
+			RecordCampaignDebugCase(missingPrimitiveCase);
+			return;
+		}
+
+		HST_ActiveMissionState primitiveMission = m_State.FindActiveMission(instanceId);
+		if (!primitiveMission)
+		{
+			HST_CampaignDebugCaseResult absentPrimitiveCase = CreateCampaignDebugCase("primitive_runtime.absent." + SafeCampaignDebugToken(instanceId), "mission_runtime", "primitive", "primitive_probe");
+			AddCampaignDebugAssertion(absentPrimitiveCase, "primitive.runtime.mission", "active mission exists for primitive probe", "missing", "BLOCKED", "primitive mission record missing", "", instanceId);
+			FinalizeCampaignDebugCaseFromAssertions(absentPrimitiveCase);
+			RecordCampaignDebugCase(absentPrimitiveCase);
+			return;
+		}
+
+		if (primitiveMission.m_sRuntimePrimitive == "convoy_intercept")
+			return;
+
+		if (primitiveMission.m_sRuntimePrimitive == "rescue_extract")
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugCaptiveProbeCase(instanceId));
+			return;
+		}
+
+		RecordCampaignDebugCase(BuildCampaignDebugPrimitiveMissionProbeCase(definition, primitiveMission));
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPrimitiveMissionProbeCase(HST_MissionDefinition definition, HST_ActiveMissionState mission)
+	{
+		string primitiveMissionId = "missing";
+		string primitiveInstanceId = "";
+		string primitiveName = "unknown";
+		if (mission)
+		{
+			primitiveMissionId = mission.m_sMissionId;
+			primitiveInstanceId = mission.m_sInstanceId;
+			primitiveName = mission.m_sRuntimePrimitive;
+		}
+
+		HST_CampaignDebugCaseResult primitiveCase = CreateCampaignDebugCase("primitive_runtime." + SafeCampaignDebugToken(primitiveMissionId) + "." + SafeCampaignDebugToken(primitiveInstanceId), "mission_runtime", EmptyCampaignDebugField(primitiveName), "primitive_probe");
+		if (!m_State || !mission)
+		{
+			AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.prerequisite", "campaign state and mission exist", "missing", "BLOCKED", "primitive probe prerequisites missing", "", primitiveInstanceId);
+			FinalizeCampaignDebugCaseFromAssertions(primitiveCase);
+			return primitiveCase;
+		}
+
+		int primitiveObjectiveCount = CountCampaignDebugMissionObjectives(primitiveInstanceId, false);
+		int primitiveObjectiveCompleteBefore = CountCampaignDebugMissionObjectives(primitiveInstanceId, true);
+		AddCampaignDebugMetric(primitiveCase, "primitive.objectives.count", string.Format("%1", primitiveObjectiveCount), "count");
+		AddCampaignDebugMetric(primitiveCase, "primitive.objectives.complete_before", string.Format("%1", primitiveObjectiveCompleteBefore), "count");
+		AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.active", "mission is active before primitive action", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "primitive probe mission is not active", "", primitiveInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.spawned", "runtime spawned without fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission.m_bRuntimeSpawned && !mission.m_bRuntimeFallback && mission.m_sRuntimeFailureReason.IsEmpty()), "primitive runtime did not spawn cleanly", "", primitiveInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.objectives.present", "mission has runtime objectives", string.Format("%1", primitiveObjectiveCount), CampaignDebugStatus(primitiveObjectiveCount > 0), "primitive mission has no objective records", "", primitiveInstanceId, mission.m_sTargetZoneId);
+
+		if (primitiveName == "kill_hvt")
+			AddCampaignDebugKillTargetPrimitiveAssertions(primitiveCase, definition, mission);
+		else if (primitiveName == "destroy_target")
+			AddCampaignDebugDestroyTargetPrimitiveAssertions(primitiveCase, definition, mission);
+		else if (primitiveName == "recover_cargo")
+			AddCampaignDebugTransportPrimitiveAssertions(primitiveCase, definition, mission, "logistics_cargo", "recover_cargo");
+		else if (primitiveName == "deliver_supplies")
+			AddCampaignDebugTransportPrimitiveAssertions(primitiveCase, definition, mission, "city_supplies", "deliver_supplies");
+		else if (primitiveName == "hold_area" || primitiveName == "clear_area")
+			AddCampaignDebugAreaPrimitiveGapAssertion(primitiveCase, mission);
+		else
+			AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.supported", "primitive has a typed mission-sweep probe", EmptyCampaignDebugField(primitiveName), "WARN", "mission primitive is not yet covered by a typed runtime action probe", "", primitiveInstanceId, mission.m_sTargetZoneId);
+
+		FinalizeCampaignDebugCaseFromAssertions(primitiveCase);
+		return primitiveCase;
+	}
+
+	protected void AddCampaignDebugKillTargetPrimitiveAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission)
+	{
+		if (!primitiveCase || !mission || !m_State)
+			return;
+
+		string killInstanceId = mission.m_sInstanceId;
+		HST_MissionAssetState killAsset = FindCampaignDebugMissionAsset(killInstanceId, "hvt");
+		if (!killAsset)
+		{
+			AddCampaignDebugAssertion(primitiveCase, "primitive.kill.asset", "HVT mission asset exists", "missing", "BLOCKED", "kill_hvt primitive has no HVT asset", "", killInstanceId, mission.m_sTargetZoneId);
+			return;
+		}
+
+		int killMoneyBefore = m_State.m_iFactionMoney;
+		int killHRBefore = m_State.m_iHR;
+		vector killPosition = ResolveCampaignDebugMissionAssetProbePosition(killAsset, mission);
+		AddCampaignDebugMissionAssetReadinessAssertions(primitiveCase, mission, killAsset, "primitive.kill.asset");
+		string killResult = RequestServerMissionAssetDestroyed(killAsset.m_sAssetId, killPosition);
+		primitiveCase.m_aEvidence.Insert("kill_hvt action | " + ShortCampaignDebugLine(killResult, 220));
+
+		bool killCommandAccepted = IsCampaignDebugResultSuccessful(killResult);
+		bool killAssetDestroyed = killAsset.m_bDestroyed && !killAsset.m_bAlive;
+		AddCampaignDebugAssertion(primitiveCase, "primitive.kill.command", "server asset-destroyed path accepts HVT", ShortCampaignDebugLine(killResult, 220), CampaignDebugStatus(killCommandAccepted), "kill_hvt server destroy command failed", killAsset.m_sAssetId, killInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.kill.destroyed", "HVT asset is destroyed and not alive", BuildCampaignDebugMissionAssetActual(killAsset), CampaignDebugStatus(killAssetDestroyed), "kill_hvt action did not destroy the HVT asset", killAsset.m_sAssetId, killInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugPrimitiveCompletionAssertions(primitiveCase, definition, mission, killMoneyBefore, killHRBefore, "kill_hvt");
+	}
+
+	protected void AddCampaignDebugDestroyTargetPrimitiveAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission)
+	{
+		if (!primitiveCase || !mission || !m_State)
+			return;
+
+		string destroyInstanceId = mission.m_sInstanceId;
+		HST_MissionAssetState destroyAsset = FindCampaignDebugMissionAsset(destroyInstanceId, "destroy_target");
+		if (!destroyAsset)
+		{
+			AddCampaignDebugAssertion(primitiveCase, "primitive.destroy.asset", "destroy-target mission asset exists", "missing", "BLOCKED", "destroy_target primitive has no destroy-target asset", "", destroyInstanceId, mission.m_sTargetZoneId);
+			return;
+		}
+
+		int destroyMoneyBefore = m_State.m_iFactionMoney;
+		int destroyHRBefore = m_State.m_iHR;
+		int destroyHitsBefore = destroyAsset.m_iDemolitionHits;
+		float destroyRequiredDamage = destroyAsset.m_fDemolitionRequiredDamage;
+		if (destroyRequiredDamage <= 0.0)
+			destroyRequiredDamage = 300.0;
+		float destroyDamage = destroyRequiredDamage + 25.0;
+		vector destroyPosition = ResolveCampaignDebugMissionAssetProbePosition(destroyAsset, mission);
+		AddCampaignDebugMissionAssetReadinessAssertions(primitiveCase, mission, destroyAsset, "primitive.destroy.asset");
+		string destroyResult = RequestServerMissionAssetExplosiveDamage(destroyAsset.m_sAssetId, destroyPosition, destroyDamage, "campaign_debug_primitive");
+		primitiveCase.m_aEvidence.Insert("destroy_target explosive action | " + ShortCampaignDebugLine(destroyResult, 220));
+
+		bool destroyCommandAccepted = IsCampaignDebugResultSuccessful(destroyResult);
+		bool destroyAssetDemolished = destroyAsset.m_bDestroyed && destroyAsset.m_fDemolitionDamage >= destroyAsset.m_fDemolitionRequiredDamage;
+		bool destroyDamageRecorded = destroyAsset.m_iDemolitionHits > destroyHitsBefore && destroyAsset.m_sLastDemolitionSource == "campaign_debug_primitive";
+		AddCampaignDebugMetric(primitiveCase, "primitive.destroy.damage_required", string.Format("%1", Math.Round(destroyAsset.m_fDemolitionRequiredDamage)), "damage");
+		AddCampaignDebugMetric(primitiveCase, "primitive.destroy.damage_applied", string.Format("%1", Math.Round(destroyAsset.m_fDemolitionDamage)), "damage");
+		AddCampaignDebugAssertion(primitiveCase, "primitive.destroy.command", "server explosive-damage path accepts target", ShortCampaignDebugLine(destroyResult, 220), CampaignDebugStatus(destroyCommandAccepted), "destroy_target explosive damage command failed", destroyAsset.m_sAssetId, destroyInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.destroy.damage_record", "demolition hit/source/damage recorded", string.Format("hits %1 -> %2 | source %3", destroyHitsBefore, destroyAsset.m_iDemolitionHits, EmptyCampaignDebugField(destroyAsset.m_sLastDemolitionSource)), CampaignDebugStatus(destroyDamageRecorded), "destroy_target did not record demolition source/hit", destroyAsset.m_sAssetId, destroyInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.destroy.destroyed", "target asset is destroyed by explosive damage", BuildCampaignDebugMissionAssetActual(destroyAsset), CampaignDebugStatus(destroyAssetDemolished), "destroy_target action did not demolish the asset", destroyAsset.m_sAssetId, destroyInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugPrimitiveCompletionAssertions(primitiveCase, definition, mission, destroyMoneyBefore, destroyHRBefore, "destroy_target");
+	}
+
+	protected void AddCampaignDebugTransportPrimitiveAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission, string assetRole, string primitiveLabel)
+	{
+		if (!primitiveCase || !mission || !m_State)
+			return;
+
+		string transportInstanceId = mission.m_sInstanceId;
+		HST_MissionAssetState transportAsset = FindCampaignDebugMissionAsset(transportInstanceId, assetRole);
+		if (!transportAsset)
+		{
+			AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".asset", "transport mission asset exists for role " + assetRole, "missing", "BLOCKED", primitiveLabel + " primitive has no transport asset", "", transportInstanceId, mission.m_sTargetZoneId);
+			return;
+		}
+
+		int transportMoneyBefore = m_State.m_iFactionMoney;
+		int transportHRBefore = m_State.m_iHR;
+		vector transportPickupPosition = ResolveCampaignDebugMissionAssetProbePosition(transportAsset, mission);
+		vector transportDeliveryPosition = ResolveCampaignDebugMissionAssetDeliveryPosition(transportAsset, mission);
+		bool transportPickupTeleport = TeleportCampaignDebugPlayer(transportPickupPosition + "2 0 2", primitiveLabel + " pickup");
+		AddCampaignDebugMissionAssetReadinessAssertions(primitiveCase, mission, transportAsset, "primitive." + primitiveLabel + ".asset");
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".pickup_teleport", "player teleported to asset pickup position", string.Format("%1 | target %2", transportPickupTeleport, transportPickupPosition), CampaignDebugStatus(transportPickupTeleport, "WARN"), primitiveLabel + " pickup teleport did not confirm", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+
+		string transportLoadResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_asset_load", transportAsset.m_sAssetId);
+		primitiveCase.m_aEvidence.Insert(primitiveLabel + " load action | " + ShortCampaignDebugLine(transportLoadResult, 220));
+		bool transportLoaded = transportAsset.m_bPickedUp && transportAsset.m_bAttachedToCarrier && !transportAsset.m_sCarriedByVehicleId.IsEmpty();
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".load_command", "real load interaction accepts cargo", ShortCampaignDebugLine(transportLoadResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(transportLoadResult), "BLOCKED"), primitiveLabel + " load interaction could not be arranged", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".loaded_state", "asset is picked up and attached to a carrier", BuildCampaignDebugMissionAssetActual(transportAsset), CampaignDebugStatus(transportLoaded, "BLOCKED"), primitiveLabel + " asset was not loaded into a carrier", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+		if (!transportLoaded)
+		{
+			AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_arrangement", "mission sweep arranged a nearby physical carrier before delivery", BuildCampaignDebugMissionAssetActual(transportAsset), "BLOCKED", primitiveLabel + " primitive requires a nearby vehicle carrier before load/deliver can be certified", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+			return;
+		}
+
+		bool transportDeliveryTeleport = TeleportCampaignDebugPlayer(transportDeliveryPosition + "2 0 2", primitiveLabel + " delivery");
+		string transportDeliverResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_asset_deliver", transportAsset.m_sAssetId);
+		primitiveCase.m_aEvidence.Insert(primitiveLabel + " deliver action | " + ShortCampaignDebugLine(transportDeliverResult, 220));
+		bool transportDelivered = transportAsset.m_bDelivered && transportAsset.m_sLastInteraction == "delivered";
+		float transportDeliveryDistance = Math.Sqrt(DistanceSq2D(transportAsset.m_vCurrentPosition, transportDeliveryPosition));
+		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".delivery_distance", string.Format("%1", Math.Round(transportDeliveryDistance)), "meters");
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".delivery_teleport", "player teleported to asset delivery position", string.Format("%1 | target %2", transportDeliveryTeleport, transportDeliveryPosition), CampaignDebugStatus(transportDeliveryTeleport, "WARN"), primitiveLabel + " delivery teleport did not confirm", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".deliver_command", "real deliver interaction accepts cargo", ShortCampaignDebugLine(transportDeliverResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(transportDeliverResult)), primitiveLabel + " deliver interaction failed", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".delivered_state", "asset reaches delivered state at delivery target", BuildCampaignDebugMissionAssetActual(transportAsset), CampaignDebugStatus(transportDelivered && transportDeliveryDistance <= 50.0), primitiveLabel + " asset was not delivered to the target", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugPrimitiveCompletionAssertions(primitiveCase, definition, mission, transportMoneyBefore, transportHRBefore, primitiveLabel);
+	}
+
+	protected void AddCampaignDebugAreaPrimitiveGapAssertion(HST_CampaignDebugCaseResult primitiveCase, HST_ActiveMissionState mission)
+	{
+		if (!primitiveCase || !mission)
+			return;
+
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.timed_physical_probe", "timed player/radius/hostile physical probe covers hold_area and clear_area", BuildCampaignDebugPrimitiveMissionActual(mission), "WARN", "area-control primitive still needs a timed physical-zone probe instead of admin/objective completion", "", mission.m_sInstanceId, mission.m_sTargetZoneId);
+	}
+
+	protected void AddCampaignDebugMissionAssetReadinessAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_ActiveMissionState mission, HST_MissionAssetState asset, string assertionPrefix)
+	{
+		if (!primitiveCase || !mission || !asset)
+			return;
+
+		bool assetPositionReady = !IsZeroVector(ResolveCampaignDebugMissionAssetProbePosition(asset, mission));
+		AddCampaignDebugAssertion(primitiveCase, assertionPrefix + ".spawned", "mission asset spawned with entity id", BuildCampaignDebugMissionAssetActual(asset), CampaignDebugStatus(asset.m_bSpawned && !asset.m_sEntityId.IsEmpty(), "WARN"), "mission asset was not physically spawned or has no entity id", asset.m_sAssetId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, assertionPrefix + ".available", "mission asset starts available", BuildCampaignDebugMissionAssetActual(asset), CampaignDebugStatus(!asset.m_bDestroyed && !asset.m_bDelivered), "mission asset was already destroyed or delivered before primitive probe", asset.m_sAssetId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, assertionPrefix + ".position", "mission asset has a usable probe position", string.Format("%1", ResolveCampaignDebugMissionAssetProbePosition(asset, mission)), CampaignDebugStatus(assetPositionReady), "mission asset position could not be resolved", asset.m_sAssetId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+	}
+
+	protected void AddCampaignDebugPrimitiveCompletionAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission, int moneyBefore, int hrBefore, string primitiveLabel)
+	{
+		if (!primitiveCase || !mission || !m_State)
+			return;
+
+		string completionInstanceId = mission.m_sInstanceId;
+		HST_ActiveMissionState completionMissionAfter = m_State.FindActiveMission(completionInstanceId);
+		int completionObjectiveCount = CountCampaignDebugMissionObjectives(completionInstanceId, false);
+		int completionObjectiveComplete = CountCampaignDebugMissionObjectives(completionInstanceId, true);
+		bool completionObjectivesSatisfied = AreCampaignDebugMissionObjectivesComplete(completionInstanceId);
+		bool completionMissionSucceeded = completionMissionAfter && completionMissionAfter.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED;
+		int completionMoneyDelta = m_State.m_iFactionMoney - moneyBefore;
+		int completionHRDelta = m_State.m_iHR - hrBefore;
+		int completionExpectedMoney;
+		int completionExpectedHR;
+		bool completionHasDefinition;
+		if (definition)
+		{
+			completionExpectedMoney = definition.m_iRewardMoney;
+			completionExpectedHR = definition.m_iRewardHR;
+			completionHasDefinition = true;
+		}
+
+		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".objectives.complete_after", string.Format("%1", completionObjectiveComplete), "count");
+		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".money_delta", string.Format("%1", completionMoneyDelta), "money");
+		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".hr_delta", string.Format("%1", completionHRDelta), "hr");
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".objectives_complete", "all mission objectives complete through primitive path", BuildCampaignDebugMissionObjectiveActual(completionInstanceId), CampaignDebugStatus(completionObjectivesSatisfied && completionObjectiveCount > 0 && completionObjectiveComplete >= completionObjectiveCount), primitiveLabel + " primitive did not complete all objectives", "", completionInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".mission_succeeded", "mission status becomes SUCCEEDED through primitive path", BuildCampaignDebugPrimitiveMissionActual(completionMissionAfter), CampaignDebugStatus(completionMissionSucceeded), primitiveLabel + " primitive did not complete the mission", "", completionInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".rewards", "primitive completion applies exact configured rewards", string.Format("money %1/%2 | HR %3/%4", completionMoneyDelta, completionExpectedMoney, completionHRDelta, completionExpectedHR), CampaignDebugStatus(completionHasDefinition && completionMoneyDelta == completionExpectedMoney && completionHRDelta == completionExpectedHR), primitiveLabel + " primitive did not apply exact configured mission rewards", "", completionInstanceId, mission.m_sTargetZoneId);
+	}
+
+	protected vector ResolveCampaignDebugMissionAssetProbePosition(HST_MissionAssetState asset, HST_ActiveMissionState mission)
+	{
+		if (asset)
+		{
+			if (!IsZeroVector(asset.m_vCurrentPosition))
+				return asset.m_vCurrentPosition;
+			if (!IsZeroVector(asset.m_vSourcePosition))
+				return asset.m_vSourcePosition;
+			if (!IsZeroVector(asset.m_vLastKnownPosition))
+				return asset.m_vLastKnownPosition;
+		}
+		if (mission && !IsZeroVector(mission.m_vTargetPosition))
+			return mission.m_vTargetPosition;
+		if (m_State && !IsZeroVector(m_State.m_vHQPosition))
+			return m_State.m_vHQPosition;
+
+		return "0 0 0";
+	}
+
+	protected vector ResolveCampaignDebugMissionAssetDeliveryPosition(HST_MissionAssetState asset, HST_ActiveMissionState mission)
+	{
+		if (asset)
+		{
+			if (!IsZeroVector(asset.m_vTargetPosition))
+				return asset.m_vTargetPosition;
+			if (!IsZeroVector(asset.m_vCurrentPosition) && asset.m_bDelivered)
+				return asset.m_vCurrentPosition;
+		}
+		if (mission && !IsZeroVector(mission.m_vTargetPosition))
+			return mission.m_vTargetPosition;
+		if (m_State && !IsZeroVector(m_State.m_vHQPosition))
+			return m_State.m_vHQPosition;
+
+		return "0 0 0";
+	}
+
+	protected int CountCampaignDebugMissionObjectives(string instanceId, bool completeOnly)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return 0;
+
+		int objectiveCount;
+		foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != instanceId)
+				continue;
+			if (completeOnly && (!objective.m_bComplete || objective.m_bFailed))
+				continue;
+
+			objectiveCount++;
+		}
+
+		return objectiveCount;
+	}
+
+	protected bool AreCampaignDebugMissionObjectivesComplete(string instanceId)
+	{
+		if (!m_State || !m_Objectives || instanceId.IsEmpty())
+			return false;
+
+		return m_Objectives.AreMissionObjectivesComplete(m_State, instanceId);
+	}
+
+	protected string BuildCampaignDebugMissionObjectiveActual(string instanceId)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return "missing";
+
+		int objectiveTotal;
+		int objectiveComplete;
+		int objectiveFailed;
+		string firstIncomplete = "";
+		foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != instanceId)
+				continue;
+
+			objectiveTotal++;
+			if (objective.m_bFailed)
+				objectiveFailed++;
+			if (objective.m_bComplete && !objective.m_bFailed)
+			{
+				objectiveComplete++;
+				continue;
+			}
+			if (firstIncomplete.IsEmpty())
+				firstIncomplete = string.Format("%1 | type %2 | progress %3/%4 | count %5/%6", objective.m_sObjectiveId, objective.m_eType, objective.m_iCurrentProgress, objective.m_iRequiredProgress, objective.m_iCurrentCount, objective.m_iRequiredCount);
+		}
+
+		return string.Format("complete %1/%2 | failed %3 | first incomplete %4", objectiveComplete, objectiveTotal, objectiveFailed, EmptyCampaignDebugField(firstIncomplete));
+	}
+
+	protected string BuildCampaignDebugPrimitiveMissionActual(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "missing";
+
+		string actual = string.Format("id %1 | mission %2 | status %3 | primitive %4", EmptyCampaignDebugField(mission.m_sInstanceId), EmptyCampaignDebugField(mission.m_sMissionId), mission.m_eStatus, EmptyCampaignDebugField(mission.m_sRuntimePrimitive));
+		actual = actual + string.Format(" | phase %1 | spawned %2 | fallback %3 | failure %4", EmptyCampaignDebugField(mission.m_sRuntimePhase), mission.m_bRuntimeSpawned, mission.m_bRuntimeFallback, EmptyCampaignDebugField(mission.m_sRuntimeFailureReason));
+		return actual;
+	}
+
+	protected string BuildCampaignDebugMissionAssetActual(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return "missing";
+
+		string actual = string.Format("id %1 | kind %2 | role %3 | entity %4", EmptyCampaignDebugField(asset.m_sAssetId), EmptyCampaignDebugField(asset.m_sKind), EmptyCampaignDebugField(asset.m_sRole), EmptyCampaignDebugField(asset.m_sEntityId));
+		actual = actual + string.Format(" | spawned %1 | picked %2 | delivered %3 | destroyed %4 | alive %5", asset.m_bSpawned, asset.m_bPickedUp, asset.m_bDelivered, asset.m_bDestroyed, asset.m_bAlive);
+		actual = actual + string.Format(" | phase %1 | carrier %2 | current %3 | target %4", EmptyCampaignDebugField(asset.m_sLastInteraction), EmptyCampaignDebugField(asset.m_sCarriedByVehicleId), asset.m_vCurrentPosition, asset.m_vTargetPosition);
+		return actual;
 	}
 
 	protected bool IsCampaignDebugMissionRuntimeHealthy(string instanceId, string report)
