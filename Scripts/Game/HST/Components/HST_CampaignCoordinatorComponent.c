@@ -6944,6 +6944,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void RecordCampaignDebugPhaseSmokeTypedProbe(int index, string label, string result)
 	{
+		if (index >= 17 && index <= 21)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPhase18EnemyOrderCase(index, label, result));
+			return;
+		}
+
+		if (index >= 22 && index <= 26)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPhase19SupportCase(index, label, result));
+			return;
+		}
+
 		if (index >= 27 && index <= 30)
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugPhase20CivilianCase(index, label, result));
@@ -6952,6 +6964,212 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (index >= 32 && index <= 37)
 			RecordCampaignDebugCase(BuildCampaignDebugPhase21UndercoverCase(index, label, result));
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase18EnemyOrderCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult orderCase = CreateCampaignDebugCase("phase18." + SafeCampaignDebugToken(label), "phase_smoke", "enemy_commander", "phase18");
+		orderCase.m_aEvidence.Insert(result);
+		AddCampaignDebugAssertion(orderCase, "phase18.command_result", "phase 18 command/report accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index))), "phase 18 command returned failure text");
+		if (!m_State || !m_EnemyCommander)
+		{
+			AddCampaignDebugAssertion(orderCase, "phase18.prerequisite", "campaign and enemy commander ready", "missing", "BLOCKED", "phase 18 typed probe missing state or enemy commander");
+			FinalizeCampaignDebugCaseFromAssertions(orderCase);
+			return orderCase;
+		}
+
+		if (index >= 17 && index <= 19)
+		{
+			HST_EEnemyOrderType expectedType = HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK;
+			if (index == 18)
+				expectedType = HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON;
+			else if (index == 19)
+				expectedType = HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK;
+
+			HST_EnemyOrderState order = FindLatestCampaignDebugPrefixedEnemyOrder(expectedType);
+			AddCampaignDebugAssertion(orderCase, "phase18.order.created", "debug-prefixed enemy order exists for this seed", BuildCampaignDebugEnemyOrderActual(order), CampaignDebugStatus(order != null), "phase 18 did not create a debug-prefixed enemy order");
+			if (order)
+			{
+				HST_ZoneState targetZone = m_State.FindZone(order.m_sTargetZoneId);
+				AddCampaignDebugMetric(orderCase, "phase18.order.attack_cost", string.Format("%1", order.m_iAttackCost), "attack");
+				AddCampaignDebugMetric(orderCase, "phase18.order.support_cost", string.Format("%1", order.m_iSupportCost), "support");
+				AddCampaignDebugAssertion(orderCase, "phase18.order.prefix", "order id carries current debug prefix", order.m_sOrderId, CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix)), "enemy order was not retagged with the run prefix", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+				AddCampaignDebugAssertion(orderCase, "phase18.order.type", "order type matches seed", string.Format("%1", order.m_eType), CampaignDebugStatus(order.m_eType == expectedType), "enemy order type does not match phase 18 seed", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+				AddCampaignDebugAssertion(orderCase, "phase18.order.status", "order is queued, active, resolved, or aborted", string.Format("%1 | runtime %2", order.m_eStatus, EmptyCampaignDebugField(order.m_sRuntimeStatus)), CampaignDebugStatus(order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED), "enemy order entered an unexpected status", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+				AddCampaignDebugAssertion(orderCase, "phase18.order.faction", "order faction non-empty", EmptyCampaignDebugField(order.m_sFactionKey), CampaignDebugStatus(!order.m_sFactionKey.IsEmpty()), "enemy order faction missing", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+				AddCampaignDebugAssertion(orderCase, "phase18.order.target", "order target zone exists and has a valid position", string.Format("zone %1 | target %2 | order %3", targetZone != null, order.m_vTargetPosition, order.m_sTargetZoneId), CampaignDebugStatus(targetZone != null && !IsZeroVector(order.m_vTargetPosition)), "enemy order target zone or position invalid", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+				AddCampaignDebugAssertion(orderCase, "phase18.order.cost", "order attack/support cost recorded", string.Format("%1/%2", order.m_iAttackCost, order.m_iSupportCost), CampaignDebugStatus(order.m_iAttackCost > 0 || order.m_iSupportCost > 0), "enemy order did not record resource costs", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+			}
+		}
+		else
+		{
+			int openPrefixedOrders = CountCampaignDebugPrefixedOpenEnemyOrders();
+			AddCampaignDebugMetric(orderCase, "phase18.prefixed_open_orders", string.Format("%1", openPrefixedOrders), "count");
+			AddCampaignDebugAssertion(orderCase, "phase18.resolve.open_prefixed_orders", "no debug-prefixed enemy orders remain open after resolve/report", string.Format("%1", openPrefixedOrders), CampaignDebugStatus(openPrefixedOrders == 0, "WARN"), "phase 18 left debug-prefixed enemy orders open");
+		}
+
+		FinalizeCampaignDebugCaseFromAssertions(orderCase);
+		return orderCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase19SupportCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult supportCase = CreateCampaignDebugCase("phase19." + SafeCampaignDebugToken(label), "phase_smoke", "support_requests", "phase19");
+		supportCase.m_aEvidence.Insert(result);
+		AddCampaignDebugAssertion(supportCase, "phase19.command_result", "phase 19 command/report accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index))), "phase 19 command returned failure text");
+		if (!m_State || !m_SupportRequests)
+		{
+			AddCampaignDebugAssertion(supportCase, "phase19.prerequisite", "campaign and support service ready", "missing", "BLOCKED", "phase 19 typed probe missing state or support service");
+			FinalizeCampaignDebugCaseFromAssertions(supportCase);
+			return supportCase;
+		}
+
+		if (index >= 22 && index <= 24)
+		{
+			HST_ESupportRequestType expectedType = HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP;
+			bool expectedPlayerRequest = true;
+			if (index == 23)
+				expectedType = HST_ESupportRequestType.HST_SUPPORT_QRF;
+			else if (index == 24)
+			{
+				expectedType = HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+				expectedPlayerRequest = false;
+			}
+
+			HST_SupportRequestState request = FindLatestCampaignDebugPrefixedSupportRequest(expectedType);
+			AddCampaignDebugAssertion(supportCase, "phase19.support.created", "debug-prefixed support request exists for this seed", BuildCampaignDebugSupportRequestActual(request), CampaignDebugStatus(request != null), "phase 19 did not create a debug-prefixed support request");
+			if (request)
+			{
+				HST_ZoneState targetZone = m_State.FindZone(request.m_sTargetZoneId);
+				AddCampaignDebugMetric(supportCase, "phase19.support.eta", string.Format("%1", request.m_iETASeconds), "seconds");
+				AddCampaignDebugMetric(supportCase, "phase19.support.money_cost", string.Format("%1", request.m_iMoneyCost), "money");
+				AddCampaignDebugMetric(supportCase, "phase19.support.attack_cost", string.Format("%1", request.m_iAttackCost), "attack");
+				AddCampaignDebugMetric(supportCase, "phase19.support.support_cost", string.Format("%1", request.m_iSupportCost), "support");
+				AddCampaignDebugAssertion(supportCase, "phase19.support.prefix", "support request id carries current debug prefix", request.m_sRequestId, CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(request.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "support request was not retagged with the run prefix", request.m_sRequestId);
+				AddCampaignDebugAssertion(supportCase, "phase19.support.type", "support type matches seed", string.Format("%1", request.m_eType), CampaignDebugStatus(request.m_eType == expectedType), "support request type does not match phase 19 seed", request.m_sRequestId);
+				AddCampaignDebugAssertion(supportCase, "phase19.support.player_requested", "player-requested flag matches seed", string.Format("%1", request.m_bPlayerRequested), CampaignDebugStatus(request.m_bPlayerRequested == expectedPlayerRequest), "support request player-requested flag does not match seed", request.m_sRequestId);
+				AddCampaignDebugAssertion(supportCase, "phase19.support.target", "support target zone exists and has a valid position", string.Format("zone %1 | target %2 | id %3", targetZone != null, request.m_vTargetPosition, request.m_sTargetZoneId), CampaignDebugStatus(targetZone != null && !IsZeroVector(request.m_vTargetPosition)), "support target zone or position invalid", request.m_sRequestId, "", request.m_sTargetZoneId);
+				AddCampaignDebugAssertion(supportCase, "phase19.support.status", "support status queued, active, resolved, or cancelled", string.Format("%1 | runtime %2", request.m_eStatus, EmptyCampaignDebugField(request.m_sRuntimeStatus)), CampaignDebugStatus(request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED), "support request entered an unexpected status", request.m_sRequestId);
+			}
+		}
+		else
+		{
+			int openPrefixedSupport = CountCampaignDebugPrefixedOpenSupportRequests();
+			int inboundPrefixedSupport = CountCampaignDebugPrefixedInboundSupportRequests();
+			AddCampaignDebugMetric(supportCase, "phase19.prefixed_open_support", string.Format("%1", openPrefixedSupport), "count");
+			AddCampaignDebugMetric(supportCase, "phase19.prefixed_inbound_support", string.Format("%1", inboundPrefixedSupport), "count");
+			AddCampaignDebugAssertion(supportCase, "phase19.support.open_prefixed", "debug-prefixed support requests are tracked in open/pending state", string.Format("%1", openPrefixedSupport), CampaignDebugStatus(openPrefixedSupport >= 0), "phase 19 support count could not be evaluated");
+			if (index == 25)
+				AddCampaignDebugAssertion(supportCase, "phase19.support.inbound_eta", "force ETA moves at least one debug-prefixed support request to inbound window", string.Format("%1", inboundPrefixedSupport), CampaignDebugStatus(inboundPrefixedSupport > 0, "WARN"), "phase 19 force ETA did not move a debug-prefixed support request into the inbound window");
+		}
+
+		FinalizeCampaignDebugCaseFromAssertions(supportCase);
+		return supportCase;
+	}
+
+	protected HST_EnemyOrderState FindLatestCampaignDebugPrefixedEnemyOrder(HST_EEnemyOrderType orderType)
+	{
+		if (!m_State || m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return null;
+
+		for (int i = m_State.m_aEnemyOrders.Count() - 1; i >= 0; i--)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[i];
+			if (!order || order.m_eType != orderType)
+				continue;
+			if (MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+				return order;
+		}
+
+		return null;
+	}
+
+	protected int CountCampaignDebugPrefixedOpenEnemyOrders()
+	{
+		if (!m_State || m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (!order || !MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+				continue;
+			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
+	protected HST_SupportRequestState FindLatestCampaignDebugPrefixedSupportRequest(HST_ESupportRequestType supportType)
+	{
+		if (!m_State || m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return null;
+
+		for (int i = m_State.m_aSupportRequests.Count() - 1; i >= 0; i--)
+		{
+			HST_SupportRequestState request = m_State.m_aSupportRequests[i];
+			if (!request || request.m_eType != supportType)
+				continue;
+			if (MissionValueHasCampaignDebugPrefix(request.m_sRequestId, m_sCampaignDebugMarkerPrefix))
+				return request;
+		}
+
+		return null;
+	}
+
+	protected int CountCampaignDebugPrefixedOpenSupportRequests()
+	{
+		if (!m_State || m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (!request || !MissionValueHasCampaignDebugPrefix(request.m_sRequestId, m_sCampaignDebugMarkerPrefix))
+				continue;
+			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountCampaignDebugPrefixedInboundSupportRequests()
+	{
+		if (!m_State || m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (!request || !MissionValueHasCampaignDebugPrefix(request.m_sRequestId, m_sCampaignDebugMarkerPrefix))
+				continue;
+			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_QUEUED && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				continue;
+			if (RemainingCampaignDebugSupportETA(request) <= HST_SupportRequestService.PHYSICAL_SUPPORT_INBOUND_SPAWN_SECONDS)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected string BuildCampaignDebugEnemyOrderActual(HST_EnemyOrderState order)
+	{
+		if (!order)
+			return "missing";
+
+		return string.Format("id %1 | type %2 | status %3 | faction %4 | target %5 | support %6 | group %7 | runtime %8", order.m_sOrderId, order.m_eType, order.m_eStatus, EmptyCampaignDebugField(order.m_sFactionKey), EmptyCampaignDebugField(order.m_sTargetZoneId), EmptyCampaignDebugField(order.m_sSupportRequestId), EmptyCampaignDebugField(order.m_sGroupId), EmptyCampaignDebugField(order.m_sRuntimeStatus));
+	}
+
+	protected string BuildCampaignDebugSupportRequestActual(HST_SupportRequestState request)
+	{
+		if (!request)
+			return "missing";
+
+		return string.Format("id %1 | type %2 | status %3 | faction %4 | target %5 | group %6 | runtime %7 | player %8", request.m_sRequestId, request.m_eType, request.m_eStatus, EmptyCampaignDebugField(request.m_sFactionKey), EmptyCampaignDebugField(request.m_sTargetZoneId), EmptyCampaignDebugField(request.m_sGroupId), EmptyCampaignDebugField(request.m_sRuntimeStatus), request.m_bPlayerRequested);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase20CivilianCase(int index, string label, string result)

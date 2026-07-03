@@ -27,6 +27,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Stage 3 support requests now clear prior player support, call the real support command, assert the created support request record type, faction, target zone/position, ETA, money cost, status, marker publication/pending state, controlled ETA progression, and QRF/search ground-support physicalization into linked active groups before cleaning the debug probe.
 - Civilian aid now records typed money/support/heat assertions, and support cancellation now seeds and cancels a real player support request by ID.
 - Phase 20/21 smoke now records typed town support, wanted heat, eligibility, clear-heat, undercover apply, weapon/vehicle compromise, roadblock/police scan, and clear-heat assertions.
+- Phase 18/19 smoke now records typed enemy-order/support assertions for debug-prefixed records, order/support type, faction/player-requested policy, target validity, resource cost fields, open-order resolution, and forced-ETA inbound support evidence.
 - Convoy physical probing asserts vehicle asset counts, spawned vehicle entities, crew groups, alive crew, seated drivers, mobile vehicles, route assignment, waypoint assignment, readiness, progress sample presence, and hard-stuck count.
 - POW/captive probing uses real `mission_captive_extract` and `mission_captive_follow` interactions and asserts freed/following carrier state.
 - Mission cleanup checks active mission status, unresolved assets, mission-owned groups, and linked markers.
@@ -45,7 +46,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - The all-mission sweep does not run primitive-specific physical probes for `kill_hvt`, `hold_area`, `clear_area`, `destroy_target`, `recover_cargo`, `deliver_supplies`, or most `rescue_extract` cases. Admin completion is still the common mission end path.
 - Convoy probing uses existing readiness/progress status, but it does not actively sample positions every few seconds over a movement window or prove phase history from staging to moving to contact to arrival/elimination.
 - The POW/captive probe verifies free/follow state once; it does not prove distance decreases over time, boarding/transport behavior, extraction completion, alive captive count, or reward/support/HR deltas.
-- Phase 14-24 smoke steps remain mostly legacy string classifications outside the newly typed Phase 20/21 civilian/undercover probes. Arsenal, garage/source vehicles, garrisons/training, capture/counterattack, enemy commander orders, support physicalization, HQ threat/Defend Petros, UI/markers, campaign pacing, victory, and loss still need typed assertions.
+- Phase 14-24 smoke steps remain partly legacy string classifications outside the newly typed Phase 18/19 enemy/support and Phase 20/21 civilian/undercover probes. Arsenal, garage/source vehicles, garrisons/training, capture/counterattack physical advance, HQ threat/Defend Petros, UI/markers, campaign pacing, victory, and loss still need stronger typed assertions.
 - Background war and commander target testing is not implemented as a dedicated typed stage.
 - War level escalation/aggression pressure tests are not implemented.
 - Counterattack physical spawn/advance/wave tests are not implemented.
