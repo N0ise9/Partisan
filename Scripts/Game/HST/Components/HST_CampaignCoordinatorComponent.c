@@ -7073,6 +7073,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		if (index >= 39 && index <= 45)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPhase22HQDefenseCase(index, label, result));
+			return;
+		}
+
 		if (index >= 51 && index <= 61)
 			RecordCampaignDebugCase(BuildCampaignDebugPhase24PacingCase(index, label, result));
 	}
@@ -7911,6 +7917,369 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(undercoverCase);
 		return undercoverCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase22HQDefenseCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult defenseCase = CreateCampaignDebugCase("phase22." + SafeCampaignDebugToken(label), "phase_smoke", "hq_defend_petros", "phase22");
+		defenseCase.m_aEvidence.Insert(result);
+		AddCampaignDebugAssertion(defenseCase, "phase22.command_result", "phase 22 command/report accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index))), "phase 22 command returned failure text");
+		if (!m_State || !m_Preset || !m_HQ)
+		{
+			AddCampaignDebugAssertion(defenseCase, "phase22.prerequisite", "campaign state, preset, and HQ service ready", "missing", "BLOCKED", "phase 22 typed probe missing state, preset, or HQ service");
+			FinalizeCampaignDebugCaseFromAssertions(defenseCase);
+			return defenseCase;
+		}
+
+		HST_EnemyOrderState petrosOrder = ResolveCampaignDebugPhase22PetrosOrder();
+		HST_ActiveMissionState defenseMission = ResolveCampaignDebugPhase22DefenseMission();
+		HST_MissionObjectiveState defenseObjective = ResolveCampaignDebugPhase22Objective(defenseMission);
+		HST_CampaignTaskState defenseTask = ResolveCampaignDebugPhase22Task(defenseMission);
+		HST_SupportRequestState attackSupport = ResolveCampaignDebugPhase22Support(petrosOrder);
+		HST_ActiveGroupState attackGroup = ResolveCampaignDebugPhase22Group(petrosOrder, attackSupport);
+
+		AddCampaignDebugMetric(defenseCase, "phase22.hq.knowledge", string.Format("%1", m_State.m_iHQKnowledge), "knowledge");
+		AddCampaignDebugMetric(defenseCase, "phase22.hq.threat", string.Format("%1", m_State.m_iHQThreatLevel), "threat");
+		AddCampaignDebugMetric(defenseCase, "phase22.attackers.total", string.Format("%1", m_State.m_iDefendPetrosAttackerCount), "count");
+		AddCampaignDebugMetric(defenseCase, "phase22.attackers.alive", string.Format("%1", m_State.m_iDefendPetrosAliveAttackerCount), "count");
+
+		AddCampaignDebugPhase22CommonAssertions(defenseCase, index);
+		if (index == 39)
+			AddCampaignDebugPhase22SeedAssertions(defenseCase);
+		else if (index >= 40 && index <= 42)
+			AddCampaignDebugPhase22ActiveDefenseAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask, attackSupport, attackGroup, result);
+		else if (index == 43)
+			AddCampaignDebugPhase22SuccessAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask);
+		else if (index == 44)
+			AddCampaignDebugPhase22KillAssertions(defenseCase);
+		else if (index == 45)
+			AddCampaignDebugPhase22RecoveryAssertions(defenseCase, defenseMission);
+
+		FinalizeCampaignDebugCaseFromAssertions(defenseCase);
+		return defenseCase;
+	}
+
+	protected void AddCampaignDebugPhase22CommonAssertions(HST_CampaignDebugCaseResult defenseCase, int index)
+	{
+		string expectedPetros = "Petros alive true";
+		bool petrosStateOk = m_State.m_bPetrosAlive;
+		if (index == 44)
+		{
+			expectedPetros = "Petros alive false after kill command";
+			petrosStateOk = !m_State.m_bPetrosAlive;
+		}
+
+		AddCampaignDebugAssertion(defenseCase, "phase22.hq.deployed", "HQ deployed true", string.Format("%1", m_State.m_bHQDeployed), CampaignDebugStatus(m_State.m_bHQDeployed), "Phase 22 requires a deployed HQ");
+		AddCampaignDebugAssertion(defenseCase, "phase22.hq.position", "HQ position not zero", string.Format("%1", m_State.m_vHQPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vHQPosition)), "Phase 22 HQ position is zero");
+		AddCampaignDebugAssertion(defenseCase, "phase22.petros.position", "Petros position not zero", string.Format("%1", m_State.m_vPetrosPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vPetrosPosition)), "Phase 22 Petros position is zero");
+		AddCampaignDebugAssertion(defenseCase, "phase22.petros.alive_state", expectedPetros, string.Format("%1", m_State.m_bPetrosAlive), CampaignDebugStatus(petrosStateOk), "Phase 22 Petros alive state does not match the current step");
+	}
+
+	protected void AddCampaignDebugPhase22SeedAssertions(HST_CampaignDebugCaseResult defenseCase)
+	{
+		AddCampaignDebugAssertion(defenseCase, "phase22.seed.knowledge", "HQ knowledge seeded to 100", string.Format("%1", m_State.m_iHQKnowledge), CampaignDebugStatus(m_State.m_iHQKnowledge >= 100), "Phase 22 seed did not maximize HQ knowledge");
+		AddCampaignDebugAssertion(defenseCase, "phase22.seed.threat", "HQ threat at least matches seeded knowledge", string.Format("knowledge %1 | threat %2", m_State.m_iHQKnowledge, m_State.m_iHQThreatLevel), CampaignDebugStatus(m_State.m_iHQThreatLevel >= m_State.m_iHQKnowledge), "Phase 22 seed did not raise HQ threat with HQ knowledge");
+		AddCampaignDebugAssertion(defenseCase, "phase22.seed.reason", "last HQ knowledge/threat reasons name phase22 seed", string.Format("knowledge %1 | threat %2", EmptyCampaignDebugField(m_State.m_sLastHQKnowledgeReason), EmptyCampaignDebugField(m_State.m_sLastHQThreatReason)), CampaignDebugStatus(m_State.m_sLastHQKnowledgeReason.Contains("phase22") && m_State.m_sLastHQThreatReason.Contains("phase22")), "Phase 22 seed did not record HQ knowledge/threat reasons");
+		AddCampaignDebugAssertion(defenseCase, "phase22.seed.activity_second", "last HQ activity second equals current elapsed second", string.Format("%1 / %2", m_State.m_iLastHQActivitySecond, m_State.m_iElapsedSeconds), CampaignDebugStatus(m_State.m_iLastHQActivitySecond == m_State.m_iElapsedSeconds), "Phase 22 seed did not refresh HQ activity time");
+	}
+
+	protected void AddCampaignDebugPhase22ActiveDefenseAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder, HST_ActiveMissionState defenseMission, HST_MissionObjectiveState defenseObjective, HST_CampaignTaskState defenseTask, HST_SupportRequestState attackSupport, HST_ActiveGroupState attackGroup, string result)
+	{
+		AddCampaignDebugPhase22OrderAssertions(defenseCase, petrosOrder, false);
+		AddCampaignDebugAssertion(defenseCase, "phase22.defense.active_flag", "Defend Petros active true", BuildCampaignDebugPhase22DefenseActual(), CampaignDebugStatus(m_State.m_bDefendPetrosActive), "Phase 22 did not activate Defend Petros");
+		if (petrosOrder)
+			AddCampaignDebugAssertion(defenseCase, "phase22.defense.order_link", "state links Defend Petros to the Petros attack order", BuildCampaignDebugPhase22DefenseActual(), CampaignDebugStatus(m_State.m_sDefendPetrosOrderId == petrosOrder.m_sOrderId), "Defend Petros order link does not match the Petros attack order", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
+
+		AddCampaignDebugPhase22MissionAssertions(defenseCase, defenseMission, true);
+		AddCampaignDebugPhase22ObjectiveAssertions(defenseCase, defenseObjective, true);
+		AddCampaignDebugPhase22TaskAssertions(defenseCase, defenseTask, true);
+		AddCampaignDebugPhase22MarkerAssertions(defenseCase, defenseMission, true);
+		AddCampaignDebugPhase22SupportAssertions(defenseCase, attackSupport, attackGroup, true);
+		AddCampaignDebugAssertion(defenseCase, "phase22.report.hq_threat", "active/report output includes HQ threat report", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi HQ threat")), "Phase 22 active defense output did not include HQ threat state");
+		AddCampaignDebugAssertion(defenseCase, "phase22.physical_advance", "attacker movement/wave advance sampled over time", "not sampled in Phase 22 smoke", "WARN", "Phase 22 typed smoke verifies order/mission/link state only; physical attack movement remains a separate gap");
+	}
+
+	protected void AddCampaignDebugPhase22SuccessAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder, HST_ActiveMissionState defenseMission, HST_MissionObjectiveState defenseObjective, HST_CampaignTaskState defenseTask)
+	{
+		AddCampaignDebugPhase22OrderAssertions(defenseCase, petrosOrder, true);
+		AddCampaignDebugAssertion(defenseCase, "phase22.success.active_flag", "Defend Petros inactive after success", BuildCampaignDebugPhase22DefenseActual(), CampaignDebugStatus(!m_State.m_bDefendPetrosActive), "Phase 22 success left Defend Petros active");
+		AddCampaignDebugAssertion(defenseCase, "phase22.success.status", "Defend Petros status succeeded with no failure reason", BuildCampaignDebugPhase22DefenseActual(), CampaignDebugStatus(m_State.m_sDefendPetrosStatus == "succeeded" && m_State.m_sDefendPetrosFailureReason.IsEmpty()), "Phase 22 success did not set succeeded status cleanly");
+		AddCampaignDebugAssertion(defenseCase, "phase22.success.outcome_applied", "Defend Petros outcome applied true", string.Format("%1", m_State.m_bDefendPetrosOutcomeApplied), CampaignDebugStatus(m_State.m_bDefendPetrosOutcomeApplied), "Phase 22 success did not mark outcome applied");
+		AddCampaignDebugPhase22MissionAssertions(defenseCase, defenseMission, false);
+		AddCampaignDebugPhase22ObjectiveAssertions(defenseCase, defenseObjective, false);
+		AddCampaignDebugPhase22TaskAssertions(defenseCase, defenseTask, false);
+		AddCampaignDebugAssertion(defenseCase, "phase22.success.knowledge_reduced", "success records HQ knowledge reduction reason", string.Format("knowledge %1 | reason %2", m_State.m_iHQKnowledge, EmptyCampaignDebugField(m_State.m_sLastHQKnowledgeReason)), CampaignDebugStatus(m_State.m_sLastHQKnowledgeReason.Contains("Defend Petros succeeded")), "Phase 22 success did not record the HQ knowledge reduction reason");
+	}
+
+	protected void AddCampaignDebugPhase22KillAssertions(HST_CampaignDebugCaseResult defenseCase)
+	{
+		AddCampaignDebugAssertion(defenseCase, "phase22.kill.petros_dead", "Petros alive false", string.Format("%1", m_State.m_bPetrosAlive), CampaignDebugStatus(!m_State.m_bPetrosAlive), "Phase 22 kill command did not mark Petros dead");
+		AddCampaignDebugAssertion(defenseCase, "phase22.kill.death_count", "Petros death count increments above zero", string.Format("%1", m_State.m_iPetrosDeaths), CampaignDebugStatus(m_State.m_iPetrosDeaths > 0), "Phase 22 kill command did not increment Petros death count");
+		AddCampaignDebugAssertion(defenseCase, "phase22.kill.runtime_cleared", "HQ runtime objects cleared after Petros death", string.Format("runtime %1 | arsenal %2", m_State.m_bHQRuntimeObjectsSpawned, EmptyCampaignDebugField(m_State.m_sHQArsenalRuntimeStatus)), CampaignDebugStatus(!m_State.m_bHQRuntimeObjectsSpawned && m_State.m_sHQArsenalRuntimeStatus == "cleared"), "Phase 22 kill command did not clear HQ runtime objects");
+		AddCampaignDebugAssertion(defenseCase, "phase22.kill.defense_not_active", "Defend Petros inactive after kill path", BuildCampaignDebugPhase22DefenseActual(), CampaignDebugStatus(!m_State.m_bDefendPetrosActive), "Phase 22 kill path left Defend Petros active unexpectedly");
+	}
+
+	protected void AddCampaignDebugPhase22RecoveryAssertions(HST_CampaignDebugCaseResult defenseCase, HST_ActiveMissionState defenseMission)
+	{
+		AddCampaignDebugAssertion(defenseCase, "phase22.recovery.petros_alive", "campaign debug recovery restores Petros alive", string.Format("%1", m_State.m_bPetrosAlive), CampaignDebugStatus(m_State.m_bPetrosAlive), "Phase 22 recovery did not restore Petros");
+		AddCampaignDebugAssertion(defenseCase, "phase22.recovery.phase", "campaign remains ACTIVE after recovery", string.Format("%1", m_State.m_ePhase), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE), "Phase 22 recovery did not return campaign to ACTIVE");
+		AddCampaignDebugAssertion(defenseCase, "phase22.recovery.status", "Defend Petros status records campaign debug recovery", BuildCampaignDebugPhase22DefenseActual(), CampaignDebugStatus(m_State.m_sDefendPetrosStatus == "campaign_debug_recovered"), "Phase 22 post-kill report did not observe campaign debug recovery status");
+		AddCampaignDebugAssertion(defenseCase, "phase22.recovery.runtime", "HQ runtime objects restored after recovery", string.Format("%1", m_State.m_bHQRuntimeObjectsSpawned), CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned), "Phase 22 recovery did not restore HQ runtime objects");
+		AddCampaignDebugPhase22MarkerAssertions(defenseCase, defenseMission, false);
+	}
+
+	protected void AddCampaignDebugPhase22OrderAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder, bool expectResolved)
+	{
+		AddCampaignDebugAssertion(defenseCase, "phase22.order.exists", "Petros attack order exists", BuildCampaignDebugEnemyOrderActual(petrosOrder), CampaignDebugStatus(petrosOrder != null), "Phase 22 did not create or retain a Petros attack order");
+		if (!petrosOrder)
+			return;
+
+		bool expectedStatusOk = petrosOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
+		string expectedStatus = "Petros attack order active";
+		if (expectResolved)
+		{
+			expectedStatusOk = petrosOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && petrosOrder.m_sResolutionKind == "defend_petros_succeeded";
+			expectedStatus = "Petros attack order resolved by successful defense";
+		}
+
+		AddCampaignDebugAssertion(defenseCase, "phase22.order.prefix", "order id carries current debug prefix", EmptyCampaignDebugField(petrosOrder.m_sOrderId), CampaignDebugStatus(!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(petrosOrder.m_sOrderId, m_sCampaignDebugMarkerPrefix)), "Phase 22 Petros attack order was not prefixed for cleanup", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.order.type", "order type is PETROS_ATTACK", string.Format("%1", petrosOrder.m_eType), CampaignDebugStatus(petrosOrder.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK), "Phase 22 enemy order is not a Petros attack", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.order.faction", "order faction is occupier", EmptyCampaignDebugField(petrosOrder.m_sFactionKey), CampaignDebugStatus(petrosOrder.m_sFactionKey == m_Preset.m_sOccupierFactionKey), "Phase 22 Petros attack faction mismatch", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.order.status", expectedStatus, string.Format("%1 | runtime %2 | resolution %3", petrosOrder.m_eStatus, EmptyCampaignDebugField(petrosOrder.m_sRuntimeStatus), EmptyCampaignDebugField(petrosOrder.m_sResolutionKind)), CampaignDebugStatus(expectedStatusOk), "Phase 22 Petros attack order status mismatch", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.order.costs", "Petros attack records attack/support costs", string.Format("attack %1 | support %2", petrosOrder.m_iAttackCost, petrosOrder.m_iSupportCost), CampaignDebugStatus(petrosOrder.m_iAttackCost >= 20 && petrosOrder.m_iSupportCost >= 8), "Phase 22 Petros attack costs are below expected values", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.order.positions", "order source and Petros target positions are valid", string.Format("source %1 | target %2", petrosOrder.m_vSourcePosition, petrosOrder.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(petrosOrder.m_vSourcePosition) && !IsZeroVector(petrosOrder.m_vTargetPosition)), "Phase 22 Petros attack source or target position is invalid", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
+	}
+
+	protected void AddCampaignDebugPhase22MissionAssertions(HST_CampaignDebugCaseResult defenseCase, HST_ActiveMissionState defenseMission, bool expectActive)
+	{
+		AddCampaignDebugAssertion(defenseCase, "phase22.mission.exists", "dynamic Defend Petros mission exists", BuildCampaignDebugPhase22MissionActual(defenseMission), CampaignDebugStatus(defenseMission != null), "Phase 22 did not create or retain the Defend Petros mission");
+		if (!defenseMission)
+			return;
+
+		bool statusOk = defenseMission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED;
+		string statusExpected = "mission succeeded";
+		if (expectActive)
+		{
+			statusOk = defenseMission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
+			statusExpected = "mission active";
+		}
+
+		AddCampaignDebugAssertion(defenseCase, "phase22.mission.prefix", "debug-created mission id carries current debug prefix", defenseMission.m_sInstanceId, CampaignDebugStatus(!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(defenseMission.m_sInstanceId, m_sCampaignDebugMarkerPrefix)), "Phase 22 Defend Petros mission was not prefixed for cleanup", "", defenseMission.m_sInstanceId, defenseMission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.mission.identity", "mission id is dynamic_defend_petros", defenseMission.m_sMissionId, CampaignDebugStatus(defenseMission.m_sMissionId == "dynamic_defend_petros"), "Phase 22 mission id mismatch", "", defenseMission.m_sInstanceId, defenseMission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.mission.status", statusExpected, BuildCampaignDebugPhase22MissionActual(defenseMission), CampaignDebugStatus(statusOk), "Phase 22 Defend Petros mission status mismatch", "", defenseMission.m_sInstanceId, defenseMission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.mission.runtime", "mission uses state-machine hold_area runtime", string.Format("mode %1 | primitive %2 | type %3", defenseMission.m_eRuntimeMode, EmptyCampaignDebugField(defenseMission.m_sRuntimePrimitive), EmptyCampaignDebugField(defenseMission.m_sRuntimeType)), CampaignDebugStatus(defenseMission.m_eRuntimeMode == HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_STATE_MACHINE && defenseMission.m_sRuntimePrimitive == "hold_area"), "Phase 22 Defend Petros runtime metadata mismatch", "", defenseMission.m_sInstanceId, defenseMission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.mission.target", "mission target position is valid", string.Format("zone %1 | target %2", EmptyCampaignDebugField(defenseMission.m_sTargetZoneId), defenseMission.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(defenseMission.m_vTargetPosition)), "Phase 22 Defend Petros mission target position is invalid", "", defenseMission.m_sInstanceId, defenseMission.m_sTargetZoneId);
+	}
+
+	protected void AddCampaignDebugPhase22ObjectiveAssertions(HST_CampaignDebugCaseResult defenseCase, HST_MissionObjectiveState defenseObjective, bool expectActive)
+	{
+		AddCampaignDebugAssertion(defenseCase, "phase22.objective.exists", "Defend Petros hold objective exists", BuildCampaignDebugPhase22ObjectiveActual(defenseObjective), CampaignDebugStatus(defenseObjective != null), "Phase 22 Defend Petros objective missing");
+		if (!defenseObjective)
+			return;
+
+		bool completionOk = defenseObjective.m_bComplete && !defenseObjective.m_bFailed;
+		string completionExpected = "objective complete and not failed";
+		if (expectActive)
+		{
+			completionOk = !defenseObjective.m_bComplete && !defenseObjective.m_bFailed;
+			completionExpected = "objective active and not failed";
+		}
+
+		AddCampaignDebugAssertion(defenseCase, "phase22.objective.prefix", "objective id carries current debug prefix through mission id", defenseObjective.m_sObjectiveId, CampaignDebugStatus(!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(defenseObjective.m_sObjectiveId, m_sCampaignDebugMarkerPrefix)), "Phase 22 objective was not prefixed for cleanup", "", defenseObjective.m_sMissionInstanceId, defenseObjective.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.objective.type", "objective is HOLD_AREA targeting Petros", BuildCampaignDebugPhase22ObjectiveActual(defenseObjective), CampaignDebugStatus(defenseObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA && defenseObjective.m_sTargetId == "petros"), "Phase 22 objective type or target mismatch", "", defenseObjective.m_sMissionInstanceId, defenseObjective.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.objective.status", completionExpected, BuildCampaignDebugPhase22ObjectiveActual(defenseObjective), CampaignDebugStatus(completionOk), "Phase 22 objective completion state mismatch", "", defenseObjective.m_sMissionInstanceId, defenseObjective.m_sTargetZoneId);
+	}
+
+	protected void AddCampaignDebugPhase22TaskAssertions(HST_CampaignDebugCaseResult defenseCase, HST_CampaignTaskState defenseTask, bool expectActive)
+	{
+		AddCampaignDebugAssertion(defenseCase, "phase22.task.exists", "Defend Petros campaign task exists", BuildCampaignDebugPhase22TaskActual(defenseTask), CampaignDebugStatus(defenseTask != null), "Phase 22 Defend Petros task missing");
+		if (!defenseTask)
+			return;
+
+		bool taskOk = defenseTask.m_bSucceeded && !defenseTask.m_bActive && !defenseTask.m_bFailed;
+		string taskExpected = "task succeeded and inactive";
+		if (expectActive)
+		{
+			taskOk = defenseTask.m_bActive && !defenseTask.m_bSucceeded && !defenseTask.m_bFailed;
+			taskExpected = "task active and not failed";
+		}
+
+		AddCampaignDebugAssertion(defenseCase, "phase22.task.prefix", "task id carries current debug prefix through mission id", defenseTask.m_sTaskId, CampaignDebugStatus(!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(defenseTask.m_sTaskId, m_sCampaignDebugMarkerPrefix)), "Phase 22 task was not prefixed for cleanup", defenseTask.m_sTaskId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.task.status", taskExpected, BuildCampaignDebugPhase22TaskActual(defenseTask), CampaignDebugStatus(taskOk), "Phase 22 task state mismatch", defenseTask.m_sTaskId);
+	}
+
+	protected void AddCampaignDebugPhase22MarkerAssertions(HST_CampaignDebugCaseResult defenseCase, HST_ActiveMissionState defenseMission, bool expectDefenseMarker)
+	{
+		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
+		HST_MapMarkerState petrosMarker = m_State.FindMapMarker("hst_petros");
+		HST_MapMarkerState defenseMarker = m_State.FindMapMarker("hst_defend_petros");
+		AddCampaignDebugAssertion(defenseCase, "phase22.marker.hq", "HQ marker exists", BuildCampaignDebugMarkerActual(hqMarker), CampaignDebugStatus(hqMarker != null), "Phase 22 HQ marker missing");
+		if (expectDefenseMarker)
+		{
+			AddCampaignDebugAssertion(defenseCase, "phase22.marker.petros", "Petros marker exists while defense active", BuildCampaignDebugMarkerActual(petrosMarker), CampaignDebugStatus(petrosMarker != null), "Phase 22 Petros marker missing while defense active");
+			AddCampaignDebugAssertion(defenseCase, "phase22.marker.defense", "Defend Petros marker linked to mission", BuildCampaignDebugMarkerActual(defenseMarker), CampaignDebugStatus(defenseMarker && defenseMission && defenseMarker.m_sLinkedId == defenseMission.m_sInstanceId), "Phase 22 Defend Petros marker missing or linked to the wrong mission");
+		}
+	}
+
+	protected void AddCampaignDebugPhase22SupportAssertions(HST_CampaignDebugCaseResult defenseCase, HST_SupportRequestState attackSupport, HST_ActiveGroupState attackGroup, bool supportMayBePending)
+	{
+		if (!attackSupport)
+		{
+			string supportStatus = "FAIL";
+			if (supportMayBePending)
+				supportStatus = "WARN";
+			AddCampaignDebugAssertion(defenseCase, "phase22.support.exists", "Petros attack support request exists once physicalized", "missing", supportStatus, "Phase 22 Petros attack has not linked a physical support request yet");
+			return;
+		}
+
+		AddCampaignDebugAssertion(defenseCase, "phase22.support.prefix", "support request id carries current debug prefix", attackSupport.m_sRequestId, CampaignDebugStatus(!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(attackSupport.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "Phase 22 Petros support request was not prefixed for cleanup", attackSupport.m_sRequestId, "", attackSupport.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.support.type", "support type is SEARCH_AND_DESTROY", string.Format("%1", attackSupport.m_eType), CampaignDebugStatus(attackSupport.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY), "Phase 22 Petros support request type mismatch", attackSupport.m_sRequestId, "", attackSupport.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.support.status", "support status queued, active, resolved, or cancelled", BuildCampaignDebugSupportRequestActual(attackSupport), CampaignDebugStatus(attackSupport.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || attackSupport.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE || attackSupport.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED || attackSupport.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED), "Phase 22 Petros support request status mismatch", attackSupport.m_sRequestId, "", attackSupport.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.support.target", "support target position is valid", string.Format("zone %1 | target %2", EmptyCampaignDebugField(attackSupport.m_sTargetZoneId), attackSupport.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(attackSupport.m_vTargetPosition)), "Phase 22 support target position invalid", attackSupport.m_sRequestId, "", attackSupport.m_sTargetZoneId);
+		if (attackGroup)
+			AddCampaignDebugAssertion(defenseCase, "phase22.support.group", "support links an active attacker group", BuildCampaignDebugPhase22GroupActual(attackGroup), CampaignDebugStatus(attackSupport.m_sGroupId == attackGroup.m_sGroupId), "Phase 22 support request group link mismatch", attackGroup.m_sGroupId, "", attackGroup.m_sZoneId);
+		else
+			AddCampaignDebugAssertion(defenseCase, "phase22.support.group_pending", "attacker group may be pending until support ETA/physicalization", BuildCampaignDebugSupportRequestActual(attackSupport), "WARN", "Phase 22 support exists but no attacker group has been linked yet", attackSupport.m_sRequestId, "", attackSupport.m_sTargetZoneId);
+	}
+
+	protected HST_EnemyOrderState ResolveCampaignDebugPhase22PetrosOrder()
+	{
+		if (!m_State)
+			return null;
+
+		HST_EnemyOrderState linkedOrder = FindEnemyOrderById(m_State.m_sDefendPetrosOrderId);
+		if (linkedOrder && linkedOrder.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+			return linkedOrder;
+
+		HST_EnemyOrderState prefixedOrder = FindLatestCampaignDebugPrefixedEnemyOrder(HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK);
+		if (prefixedOrder)
+			return prefixedOrder;
+
+		for (int orderIndex = m_State.m_aEnemyOrders.Count() - 1; orderIndex >= 0; orderIndex--)
+		{
+			HST_EnemyOrderState candidateOrder = m_State.m_aEnemyOrders[orderIndex];
+			if (candidateOrder && candidateOrder.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+				return candidateOrder;
+		}
+
+		return null;
+	}
+
+	protected HST_ActiveMissionState ResolveCampaignDebugPhase22DefenseMission()
+	{
+		if (!m_State)
+			return null;
+
+		HST_ActiveMissionState linkedMission = m_State.FindActiveMission(m_State.m_sDefendPetrosMissionId);
+		if (linkedMission && linkedMission.m_sMissionId == "dynamic_defend_petros")
+			return linkedMission;
+
+		for (int missionIndex = m_State.m_aActiveMissions.Count() - 1; missionIndex >= 0; missionIndex--)
+		{
+			HST_ActiveMissionState missionCandidate = m_State.m_aActiveMissions[missionIndex];
+			if (missionCandidate && missionCandidate.m_sMissionId == "dynamic_defend_petros")
+				return missionCandidate;
+		}
+
+		return null;
+	}
+
+	protected HST_MissionObjectiveState ResolveCampaignDebugPhase22Objective(HST_ActiveMissionState defenseMission)
+	{
+		if (!m_State || !defenseMission)
+			return null;
+
+		for (int objectiveIndex = m_State.m_aMissionObjectives.Count() - 1; objectiveIndex >= 0; objectiveIndex--)
+		{
+			HST_MissionObjectiveState objectiveCandidate = m_State.m_aMissionObjectives[objectiveIndex];
+			if (objectiveCandidate && objectiveCandidate.m_sMissionInstanceId == defenseMission.m_sInstanceId)
+				return objectiveCandidate;
+		}
+
+		return null;
+	}
+
+	protected HST_CampaignTaskState ResolveCampaignDebugPhase22Task(HST_ActiveMissionState defenseMission)
+	{
+		if (!m_State || !defenseMission)
+			return null;
+
+		return m_State.FindCampaignTask("task_" + defenseMission.m_sInstanceId);
+	}
+
+	protected HST_SupportRequestState ResolveCampaignDebugPhase22Support(HST_EnemyOrderState petrosOrder)
+	{
+		if (!m_State)
+			return null;
+
+		if (petrosOrder && !petrosOrder.m_sSupportRequestId.IsEmpty())
+		{
+			HST_SupportRequestState orderSupport = m_State.FindSupportRequest(petrosOrder.m_sSupportRequestId);
+			if (orderSupport)
+				return orderSupport;
+		}
+
+		if (!m_State.m_sDefendPetrosSupportRequestId.IsEmpty())
+		{
+			HST_SupportRequestState linkedSupport = m_State.FindSupportRequest(m_State.m_sDefendPetrosSupportRequestId);
+			if (linkedSupport)
+				return linkedSupport;
+		}
+
+		return FindLatestCampaignDebugPrefixedSupportRequest(HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
+	}
+
+	protected HST_ActiveGroupState ResolveCampaignDebugPhase22Group(HST_EnemyOrderState petrosOrder, HST_SupportRequestState attackSupport)
+	{
+		if (!m_State)
+			return null;
+
+		string groupId = m_State.m_sDefendPetrosAttackerGroupId;
+		if (groupId.IsEmpty() && petrosOrder)
+			groupId = petrosOrder.m_sGroupId;
+		if (groupId.IsEmpty() && attackSupport)
+			groupId = attackSupport.m_sGroupId;
+		if (groupId.IsEmpty())
+			return null;
+
+		return m_State.FindActiveGroup(groupId);
+	}
+
+	protected string BuildCampaignDebugPhase22DefenseActual()
+	{
+		return string.Format("active %1 | status %2 | mission %3 | order %4 | support %5 | group %6 | attackers %7/%8", m_State.m_bDefendPetrosActive, EmptyCampaignDebugField(m_State.m_sDefendPetrosStatus), EmptyCampaignDebugField(m_State.m_sDefendPetrosMissionId), EmptyCampaignDebugField(m_State.m_sDefendPetrosOrderId), EmptyCampaignDebugField(m_State.m_sDefendPetrosSupportRequestId), EmptyCampaignDebugField(m_State.m_sDefendPetrosAttackerGroupId), m_State.m_iDefendPetrosAliveAttackerCount, m_State.m_iDefendPetrosAttackerCount);
+	}
+
+	protected string BuildCampaignDebugPhase22MissionActual(HST_ActiveMissionState defenseMission)
+	{
+		if (!defenseMission)
+			return "missing";
+
+		return string.Format("id %1 | mission %2 | status %3 | primitive %4 | phase %5 | target %6 | remaining %7 | marker %8", EmptyCampaignDebugField(defenseMission.m_sInstanceId), EmptyCampaignDebugField(defenseMission.m_sMissionId), defenseMission.m_eStatus, EmptyCampaignDebugField(defenseMission.m_sRuntimePrimitive), EmptyCampaignDebugField(defenseMission.m_sRuntimePhase), EmptyCampaignDebugField(defenseMission.m_sTargetZoneId), defenseMission.m_iRemainingSeconds, EmptyCampaignDebugField(defenseMission.m_sMarkerId));
+	}
+
+	protected string BuildCampaignDebugPhase22ObjectiveActual(HST_MissionObjectiveState defenseObjective)
+	{
+		if (!defenseObjective)
+			return "missing";
+
+		return string.Format("id %1 | mission %2 | type %3 | target %4 | complete %5 | failed %6 | progress %7/%8", EmptyCampaignDebugField(defenseObjective.m_sObjectiveId), EmptyCampaignDebugField(defenseObjective.m_sMissionInstanceId), defenseObjective.m_eType, EmptyCampaignDebugField(defenseObjective.m_sTargetId), defenseObjective.m_bComplete, defenseObjective.m_bFailed, defenseObjective.m_iCurrentProgress, defenseObjective.m_iRequiredProgress);
+	}
+
+	protected string BuildCampaignDebugPhase22TaskActual(HST_CampaignTaskState defenseTask)
+	{
+		if (!defenseTask)
+			return "missing";
+
+		return string.Format("id %1 | linked %2 | active %3 | succeeded %4 | failed %5 | category %6", EmptyCampaignDebugField(defenseTask.m_sTaskId), EmptyCampaignDebugField(defenseTask.m_sLinkedId), defenseTask.m_bActive, defenseTask.m_bSucceeded, defenseTask.m_bFailed, EmptyCampaignDebugField(defenseTask.m_sCategory));
+	}
+
+	protected string BuildCampaignDebugPhase22GroupActual(HST_ActiveGroupState attackGroup)
+	{
+		if (!attackGroup)
+			return "missing";
+
+		return string.Format("id %1 | zone %2 | faction %3 | status %4 | infantry %5 | vehicles %6 | target %7 | runtime %8", EmptyCampaignDebugField(attackGroup.m_sGroupId), EmptyCampaignDebugField(attackGroup.m_sZoneId), EmptyCampaignDebugField(attackGroup.m_sFactionKey), EmptyCampaignDebugField(attackGroup.m_sRuntimeStatus), attackGroup.m_iInfantryCount, attackGroup.m_iVehicleCount, attackGroup.m_vTargetPosition, EmptyCampaignDebugField(attackGroup.m_sRuntimeEntityId));
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase24PacingCase(int index, string label, string result)
@@ -9663,8 +10032,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (IsZeroVector(targetPosition))
 			targetPosition = m_State.m_vHQPosition;
 
+		string defenseInstanceId = string.Format("defend_petros_%1_%2", m_State.m_iElapsedSeconds, m_State.m_aActiveMissions.Count());
+		if (m_bCampaignDebugRunning && !m_sCampaignDebugMissionPrefix.IsEmpty())
+			defenseInstanceId = m_sCampaignDebugMissionPrefix + "dynamic_defend_petros_" + SafeCampaignDebugToken(defenseInstanceId);
+
 		HST_ActiveMissionState mission = new HST_ActiveMissionState();
-		mission.m_sInstanceId = string.Format("defend_petros_%1_%2", m_State.m_iElapsedSeconds, m_State.m_aActiveMissions.Count());
+		mission.m_sInstanceId = defenseInstanceId;
 		mission.m_sMissionId = "dynamic_defend_petros";
 		mission.m_sDisplayName = displayName;
 		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
@@ -9836,6 +10209,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			{
 				m_State.m_sDefendPetrosOrderId = order.m_sOrderId;
 				changed = true;
+			}
+			if (m_bCampaignDebugRunning && !m_sCampaignDebugMarkerPrefix.IsEmpty() && MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix) && !order.m_sSupportRequestId.IsEmpty())
+			{
+				HST_SupportRequestState linkedSupportRequest = m_State.FindSupportRequest(order.m_sSupportRequestId);
+				if (linkedSupportRequest && linkedSupportRequest.m_sGroupId.IsEmpty())
+				{
+					string prefixedSupportId = ApplyCampaignDebugSupportRequestPrefix(linkedSupportRequest, "phase22_petros_attack");
+					if (!prefixedSupportId.IsEmpty() && order.m_sSupportRequestId != prefixedSupportId)
+					{
+						order.m_sSupportRequestId = prefixedSupportId;
+						changed = true;
+					}
+				}
 			}
 			if (m_State.m_sDefendPetrosSupportRequestId != order.m_sSupportRequestId)
 			{
