@@ -98,6 +98,13 @@ class HST_CampaignDebugSupportProbeContext
 	float m_fDistanceBefore;
 	float m_fDistanceAfter;
 	float m_fDistanceAtArrival;
+	int m_iRouteSampleCount;
+	int m_iRouteMovementCount;
+	int m_iRouteDistanceDecreaseCount;
+	float m_fRouteMaxMovementMeters;
+	float m_fRouteMaxDistanceClosedMeters;
+	string m_sRouteSampleHistory;
+	string m_sRouteLastObserved;
 	string m_sGroupStatusAfterRoute;
 	string m_sGroupStatusAtArrival;
 	string m_sRequestRuntimeStatusAtArrival;

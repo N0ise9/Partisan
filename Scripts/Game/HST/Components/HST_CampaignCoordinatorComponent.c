@@ -3838,9 +3838,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_arrival", string.Format("%1", Math.Round(probeContext.m_fDistanceAtArrival)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_route_advance_seconds", string.Format("%1", probeContext.m_iRouteAdvanceSeconds), "seconds");
 			AddCampaignDebugMetric(supportCase, "support.physical_arrival_advance_seconds", string.Format("%1", probeContext.m_iArrivalAdvanceSeconds), "seconds");
+			AddCampaignDebugMetric(supportCase, "support.physical_route_sample_count", string.Format("%1", probeContext.m_iRouteSampleCount), "count");
+			AddCampaignDebugMetric(supportCase, "support.physical_route_movement_count", string.Format("%1", probeContext.m_iRouteMovementCount), "count");
+			AddCampaignDebugMetric(supportCase, "support.physical_route_distance_decrease_count", string.Format("%1", probeContext.m_iRouteDistanceDecreaseCount), "count");
+			AddCampaignDebugMetric(supportCase, "support.physical_route_max_movement", string.Format("%1", Math.Round(probeContext.m_fRouteMaxMovementMeters)), "meters");
+			AddCampaignDebugMetric(supportCase, "support.physical_route_max_distance_closed", string.Format("%1", Math.Round(probeContext.m_fRouteMaxDistanceClosedMeters)), "meters");
+			if (!probeContext.m_sRouteSampleHistory.IsEmpty())
+				supportCase.m_aEvidence.Insert("support route samples | " + ShortCampaignDebugLine(probeContext.m_sRouteSampleHistory, 260));
 			string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4 | status %5", Math.Round(probeContext.m_fDistanceBefore), Math.Round(probeContext.m_fDistanceAfter), probeContext.m_vGroupPositionBefore, probeContext.m_vGroupPositionAfter, EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterRoute));
 			bool advanced = probeContext.m_bRouteTickChanged && probeContext.m_fDistanceBefore > 0 && probeContext.m_fDistanceAfter < probeContext.m_fDistanceBefore;
 			AddCampaignDebugAssertion(supportCase, "support.physical_advance", "ground support group advances toward support target over a route tick", advanceActual, CampaignDebugStatus(advanced), "ground support group did not advance toward its target", observedSupportRequest.m_sRequestId);
+			string samplesActual = string.Format("samples %1 | movement %2 | decreases %3 | max move %4m | max closed %5m | history %6", probeContext.m_iRouteSampleCount, probeContext.m_iRouteMovementCount, probeContext.m_iRouteDistanceDecreaseCount, Math.Round(probeContext.m_fRouteMaxMovementMeters), Math.Round(probeContext.m_fRouteMaxDistanceClosedMeters), EmptyCampaignDebugField(probeContext.m_sRouteSampleHistory));
+			AddCampaignDebugAssertion(supportCase, "support.physical_repeated_samples", "ground support group is sampled across repeated routed update windows", samplesActual, CampaignDebugStatus(probeContext.m_iRouteSampleCount >= 2, "WARN"), "ground support route probe did not gather repeated movement samples", observedSupportRequest.m_sRequestId);
+			bool repeatedProgress = probeContext.m_iRouteDistanceDecreaseCount > 0 || probeContext.m_fRouteMaxDistanceClosedMeters > 0.5;
+			AddCampaignDebugAssertion(supportCase, "support.physical_repeated_progress", "repeated route samples show distance closure toward the support target", samplesActual, CampaignDebugStatus(repeatedProgress || probeContext.m_sGroupStatusAtArrival == "support_arrived" || probeContext.m_sRequestRuntimeStatusAtArrival == "physical_arrived", "WARN"), "ground support route samples did not show target distance closure", observedSupportRequest.m_sRequestId);
+			string stallActual = string.Format("last observed %1 | history %2", EmptyCampaignDebugField(probeContext.m_sRouteLastObserved), EmptyCampaignDebugField(probeContext.m_sRouteSampleHistory));
+			bool stallEvidenceRecorded = probeContext.m_iRouteSampleCount == 0 || repeatedProgress || !probeContext.m_sRouteSampleHistory.IsEmpty();
+			AddCampaignDebugAssertion(supportCase, "support.physical_stall_evidence", "route probe records last-observed sample history when movement stalls", stallActual, CampaignDebugStatus(stallEvidenceRecorded, "WARN"), "ground support route probe lacked sample history for a stalled route", observedSupportRequest.m_sRequestId);
 			string arrivalActual = string.Format("distance %1m | group status %2 | request runtime %3 | arrival tick %4", Math.Round(probeContext.m_fDistanceAtArrival), EmptyCampaignDebugField(probeContext.m_sGroupStatusAtArrival), EmptyCampaignDebugField(probeContext.m_sRequestRuntimeStatusAtArrival), probeContext.m_bArrivalTickChanged);
 			bool arrived = probeContext.m_bArrivalTickChanged && (probeContext.m_sGroupStatusAtArrival == "support_arrived" || probeContext.m_sRequestRuntimeStatusAtArrival == "physical_arrived");
 			AddCampaignDebugAssertion(supportCase, "support.physical_arrival", "ground support reaches arrival state after controlled ETA advance", arrivalActual, CampaignDebugStatus(arrived, "WARN"), "ground support did not reach arrival status inside the controlled probe window", observedSupportRequest.m_sRequestId);
@@ -3870,6 +3884,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_fDistanceBefore = -1.0;
 		probeContext.m_fDistanceAfter = -1.0;
 		probeContext.m_fDistanceAtArrival = -1.0;
+		probeContext.m_iRouteSampleCount = 0;
+		probeContext.m_iRouteMovementCount = 0;
+		probeContext.m_iRouteDistanceDecreaseCount = 0;
+		probeContext.m_fRouteMaxMovementMeters = 0.0;
+		probeContext.m_fRouteMaxDistanceClosedMeters = 0.0;
+		probeContext.m_sRouteSampleHistory = "";
+		probeContext.m_sRouteLastObserved = "";
 		HST_SupportRequestState supportRequest = probeContext.m_Request;
 		if (!m_State || !m_Preset || !m_SupportRequests || !supportRequest)
 			return false;
@@ -3912,16 +3933,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			int routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - (m_State.m_iElapsedSeconds % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS);
 			if (routeAdvanceSeconds <= 0)
 				routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
-			probeContext.m_iRouteAdvanceSeconds = routeAdvanceSeconds;
-			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + routeAdvanceSeconds;
-			probeContext.m_bRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			probeContext.m_iRouteAdvanceSeconds = 0;
+			SampleCampaignDebugSupportRouteProgress(probeContext, supportRequest, group, routeAdvanceSeconds, 3);
 			group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
-			if (group)
-			{
-				probeContext.m_vGroupPositionAfter = group.m_vPosition;
-				probeContext.m_fDistanceAfter = Math.Sqrt(DistanceSq2D(group.m_vPosition, group.m_vTargetPosition));
-				probeContext.m_sGroupStatusAfterRoute = group.m_sRuntimeStatus;
-			}
 
 			int arrivalAtSecond = supportRequest.m_iRequestedAtSecond + Math.Max(0, supportRequest.m_iETASeconds);
 			int arrivalAdvanceSeconds = Math.Max(0, arrivalAtSecond - m_State.m_iElapsedSeconds);
@@ -3955,6 +3969,85 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| probeContext.m_iEtaRemainingAfter < probeContext.m_iEtaRemainingBefore
 			|| probeContext.m_bRouteTickChanged
 			|| probeContext.m_bArrivalTickChanged;
+	}
+
+	protected void SampleCampaignDebugSupportRouteProgress(HST_CampaignDebugSupportProbeContext probeContext, HST_SupportRequestState supportRequest, HST_ActiveGroupState initialGroup, int firstAdvanceSeconds, int sampleLimit)
+	{
+		if (!probeContext || !supportRequest || !m_State || !m_PhysicalWar || sampleLimit <= 0)
+			return;
+
+		HST_ActiveGroupState sampleGroup = initialGroup;
+		if (!sampleGroup)
+			sampleGroup = m_State.FindActiveGroup(supportRequest.m_sGroupId);
+		if (!sampleGroup)
+		{
+			probeContext.m_sRouteLastObserved = "missing group before route samples";
+			AppendCampaignDebugSupportRouteSampleText(probeContext, probeContext.m_sRouteLastObserved);
+			return;
+		}
+
+		vector previousPosition = sampleGroup.m_vPosition;
+		float previousDistance = Math.Sqrt(DistanceSq2D(sampleGroup.m_vPosition, sampleGroup.m_vTargetPosition));
+		for (int supportSampleIndex = 0; supportSampleIndex < sampleLimit; supportSampleIndex++)
+		{
+			int supportSampleAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
+			if (supportSampleIndex == 0 && firstAdvanceSeconds > 0)
+				supportSampleAdvanceSeconds = firstAdvanceSeconds;
+
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + supportSampleAdvanceSeconds;
+			probeContext.m_iRouteAdvanceSeconds = probeContext.m_iRouteAdvanceSeconds + supportSampleAdvanceSeconds;
+			bool routeChangedThisSample = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			if (routeChangedThisSample)
+				probeContext.m_bRouteTickChanged = true;
+
+			sampleGroup = m_State.FindActiveGroup(supportRequest.m_sGroupId);
+			if (!sampleGroup)
+			{
+				probeContext.m_sRouteLastObserved = string.Format("sample %1 missing group after %2s", supportSampleIndex + 1, supportSampleAdvanceSeconds);
+				AppendCampaignDebugSupportRouteSampleText(probeContext, probeContext.m_sRouteLastObserved);
+				break;
+			}
+
+			float currentDistance = Math.Sqrt(DistanceSq2D(sampleGroup.m_vPosition, sampleGroup.m_vTargetPosition));
+			float movedMeters = Math.Sqrt(DistanceSq2D(previousPosition, sampleGroup.m_vPosition));
+			float closedMeters = previousDistance - currentDistance;
+			probeContext.m_iRouteSampleCount++;
+			if (movedMeters > 0.5)
+				probeContext.m_iRouteMovementCount++;
+			if (closedMeters > 0.5)
+				probeContext.m_iRouteDistanceDecreaseCount++;
+			if (movedMeters > probeContext.m_fRouteMaxMovementMeters)
+				probeContext.m_fRouteMaxMovementMeters = movedMeters;
+			if (closedMeters > probeContext.m_fRouteMaxDistanceClosedMeters)
+				probeContext.m_fRouteMaxDistanceClosedMeters = closedMeters;
+
+			string sampleText = string.Format("%1:%2 changed %3 dist %4m moved %5m closed %6m pos %7", supportSampleIndex + 1, EmptyCampaignDebugField(sampleGroup.m_sRuntimeStatus), routeChangedThisSample, Math.Round(currentDistance), Math.Round(movedMeters), Math.Round(closedMeters), sampleGroup.m_vPosition);
+			probeContext.m_sRouteLastObserved = sampleText;
+			AppendCampaignDebugSupportRouteSampleText(probeContext, sampleText);
+			previousPosition = sampleGroup.m_vPosition;
+			previousDistance = currentDistance;
+			if (sampleGroup.m_sRuntimeStatus == "support_arrived")
+				break;
+		}
+
+		sampleGroup = m_State.FindActiveGroup(supportRequest.m_sGroupId);
+		if (sampleGroup)
+		{
+			probeContext.m_vGroupPositionAfter = sampleGroup.m_vPosition;
+			probeContext.m_fDistanceAfter = Math.Sqrt(DistanceSq2D(sampleGroup.m_vPosition, sampleGroup.m_vTargetPosition));
+			probeContext.m_sGroupStatusAfterRoute = sampleGroup.m_sRuntimeStatus;
+		}
+	}
+
+	protected void AppendCampaignDebugSupportRouteSampleText(HST_CampaignDebugSupportProbeContext probeContext, string sampleText)
+	{
+		if (!probeContext || sampleText.IsEmpty())
+			return;
+
+		if (probeContext.m_sRouteSampleHistory.IsEmpty())
+			probeContext.m_sRouteSampleHistory = sampleText;
+		else
+			probeContext.m_sRouteSampleHistory = probeContext.m_sRouteSampleHistory + " | " + sampleText;
 	}
 
 	protected int RemainingCampaignDebugSupportETA(HST_SupportRequestState supportRequest)
