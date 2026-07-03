@@ -8135,8 +8135,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ActiveMissionState defenseMission = ResolveCampaignDebugPhase22DefenseMission();
 		HST_MissionObjectiveState defenseObjective = ResolveCampaignDebugPhase22Objective(defenseMission);
 		HST_CampaignTaskState defenseTask = ResolveCampaignDebugPhase22Task(defenseMission);
-		HST_SupportRequestState attackSupport = ResolveCampaignDebugPhase22Support(petrosOrder);
-		HST_ActiveGroupState attackGroup = ResolveCampaignDebugPhase22Group(petrosOrder, attackSupport);
 
 		AddCampaignDebugMetric(defenseCase, "phase22.hq.knowledge", string.Format("%1", m_State.m_iHQKnowledge), "knowledge");
 		AddCampaignDebugMetric(defenseCase, "phase22.hq.threat", string.Format("%1", m_State.m_iHQThreatLevel), "threat");
@@ -8147,7 +8145,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (index == 39)
 			AddCampaignDebugPhase22SeedAssertions(defenseCase);
 		else if (index >= 40 && index <= 42)
-			AddCampaignDebugPhase22ActiveDefenseAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask, attackSupport, attackGroup, result);
+			AddCampaignDebugPhase22ActiveDefenseAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask, result);
 		else if (index == 43)
 			AddCampaignDebugPhase22SuccessAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask);
 		else if (index == 44)
@@ -8183,7 +8181,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(defenseCase, "phase22.seed.activity_second", "last HQ activity second equals current elapsed second", string.Format("%1 / %2", m_State.m_iLastHQActivitySecond, m_State.m_iElapsedSeconds), CampaignDebugStatus(m_State.m_iLastHQActivitySecond == m_State.m_iElapsedSeconds), "Phase 22 seed did not refresh HQ activity time");
 	}
 
-	protected void AddCampaignDebugPhase22ActiveDefenseAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder, HST_ActiveMissionState defenseMission, HST_MissionObjectiveState defenseObjective, HST_CampaignTaskState defenseTask, HST_SupportRequestState attackSupport, HST_ActiveGroupState attackGroup, string result)
+	protected void AddCampaignDebugPhase22ActiveDefenseAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder, HST_ActiveMissionState defenseMission, HST_MissionObjectiveState defenseObjective, HST_CampaignTaskState defenseTask, string result)
 	{
 		AddCampaignDebugPhase22OrderAssertions(defenseCase, petrosOrder, false);
 		AddCampaignDebugAssertion(defenseCase, "phase22.defense.active_flag", "Defend Petros active true", BuildCampaignDebugPhase22DefenseActual(), CampaignDebugStatus(m_State.m_bDefendPetrosActive), "Phase 22 did not activate Defend Petros");
@@ -8194,9 +8192,71 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugPhase22ObjectiveAssertions(defenseCase, defenseObjective, true);
 		AddCampaignDebugPhase22TaskAssertions(defenseCase, defenseTask, true);
 		AddCampaignDebugPhase22MarkerAssertions(defenseCase, defenseMission, true);
-		AddCampaignDebugPhase22SupportAssertions(defenseCase, attackSupport, attackGroup, true);
+		AddCampaignDebugPhase22PhysicalAdvanceAssertions(defenseCase, petrosOrder);
+		HST_SupportRequestState refreshedAttackSupport = ResolveCampaignDebugPhase22Support(petrosOrder);
+		HST_ActiveGroupState refreshedAttackGroup = ResolveCampaignDebugPhase22Group(petrosOrder, refreshedAttackSupport);
+		AddCampaignDebugPhase22SupportAssertions(defenseCase, refreshedAttackSupport, refreshedAttackGroup, true);
 		AddCampaignDebugAssertion(defenseCase, "phase22.report.hq_threat", "active/report output includes HQ threat report", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi HQ threat")), "Phase 22 active defense output did not include HQ threat state");
-		AddCampaignDebugAssertion(defenseCase, "phase22.physical_advance", "attacker movement/wave advance sampled over time", "not sampled in Phase 22 smoke", "WARN", "Phase 22 typed smoke verifies order/mission/link state only; physical attack movement remains a separate gap");
+	}
+
+	protected void AddCampaignDebugPhase22PhysicalAdvanceAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder)
+	{
+		string targetZoneId = "";
+		string orderId = "";
+		HST_ZoneState targetZone = null;
+		if (petrosOrder)
+		{
+			targetZoneId = petrosOrder.m_sTargetZoneId;
+			orderId = petrosOrder.m_sOrderId;
+			targetZone = m_State.FindZone(targetZoneId);
+		}
+
+		HST_CampaignDebugEnemyOrderPhysicalProbeContext physicalProbe = ProbeCampaignDebugEnemyOrderPhysicalAdvance(petrosOrder, targetZone, "phase22_petros_attack_physical");
+		if (!physicalProbe)
+		{
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.physical_probe", "Petros attack physical probe context created", "missing", "BLOCKED", "Phase 22 physical probe did not create a context", "", "", targetZoneId, orderId);
+			return;
+		}
+
+		AddCampaignDebugMetric(defenseCase, "phase22.attack.distance_before", string.Format("%1", Math.Round(physicalProbe.m_fDistanceBefore)), "meters");
+		AddCampaignDebugMetric(defenseCase, "phase22.attack.distance_after", string.Format("%1", Math.Round(physicalProbe.m_fDistanceAfter)), "meters");
+		AddCampaignDebugMetric(defenseCase, "phase22.attack.route_advance_seconds", string.Format("%1", physicalProbe.m_iRouteAdvanceSeconds), "seconds");
+
+		string physicalActual = BuildCampaignDebugEnemyOrderPhysicalActual(physicalProbe);
+		bool physicalized = petrosOrder && petrosOrder.m_bPhysicalized && !petrosOrder.m_sSupportRequestId.IsEmpty();
+		AddCampaignDebugAssertion(defenseCase, "phase22.attack.physicalized", "Petros attack order physicalizes through real enemy commander tick", physicalActual, CampaignDebugStatus(physicalized), "Phase 22 Petros attack did not physicalize into a support request", "", "", targetZoneId, orderId);
+
+		HST_SupportRequestState physicalSupport = physicalProbe.m_SupportRequest;
+		if (physicalSupport)
+		{
+			string supportActual = BuildCampaignDebugSupportRequestActual(physicalSupport);
+			bool supportExpected = physicalSupport.m_bPhysicalized && !physicalSupport.m_sGroupId.IsEmpty();
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.support_physicalized", "linked Petros attack support request physicalizes a group", supportActual, CampaignDebugStatus(supportExpected), "Phase 22 Petros support request did not physicalize a group", physicalSupport.m_sRequestId, "", physicalSupport.m_sTargetZoneId, orderId);
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.support_prefix", "linked Petros attack support carries current debug prefix", EmptyCampaignDebugField(physicalSupport.m_sRequestId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(physicalSupport.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "Phase 22 Petros physical support request was not prefixed for cleanup", physicalSupport.m_sRequestId, "", physicalSupport.m_sTargetZoneId, orderId);
+		}
+		else
+		{
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.support_physicalized", "linked Petros attack support request physicalizes a group", EmptyCampaignDebugField(physicalProbe.m_sFailureReason), "BLOCKED", "Phase 22 physical probe did not create a linked support request", "", "", targetZoneId, orderId);
+		}
+
+		HST_ActiveGroupState physicalGroup = physicalProbe.m_Group;
+		if (physicalGroup)
+		{
+			string groupActual = BuildCampaignDebugActiveGroupActual(physicalGroup);
+			bool groupExpected = physicalGroup.m_bSpawnedEntity && physicalGroup.m_sRuntimeStatus != "spawn_failed";
+			bool groupPrefixed = MissionValueHasCampaignDebugPrefix(physicalGroup.m_sGroupId, m_sCampaignDebugMarkerPrefix);
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_spawned", "linked Petros attacker group exists and spawned runtime entities", groupActual, CampaignDebugStatus(groupExpected), "Phase 22 Petros attacker group did not spawn runtime entities", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_prefix", "linked Petros attacker group carries current debug prefix", EmptyCampaignDebugField(physicalGroup.m_sGroupId), CampaignDebugStatus(groupPrefixed), "Phase 22 Petros attacker group was not prefixed for cleanup", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
+		}
+		else
+		{
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_spawned", "linked Petros attacker group exists and spawned runtime entities", EmptyCampaignDebugField(physicalProbe.m_sFailureReason), "BLOCKED", "Phase 22 physical probe did not create a linked attacker group", "", "", targetZoneId, orderId);
+		}
+
+		string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4", Math.Round(physicalProbe.m_fDistanceBefore), Math.Round(physicalProbe.m_fDistanceAfter), physicalProbe.m_vGroupPositionBefore, physicalProbe.m_vGroupPositionAfter);
+		bool advanced = physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore;
+		AddCampaignDebugAssertion(defenseCase, "phase22.attack.physical_advance", "Petros attacker group advances toward HQ/Petros over a route tick", advanceActual, CampaignDebugStatus(advanced), "Phase 22 Petros attacker group did not advance toward the target", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.attack.wave_gap", "multi-wave/contact/arrival behavior remains explicitly not covered by this route sample", "single routed attacker group sampled", "WARN", "Phase 22 still needs a longer wave/contact/arrival probe", "", "", targetZoneId, orderId);
 	}
 
 	protected void AddCampaignDebugPhase22SuccessAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder, HST_ActiveMissionState defenseMission, HST_MissionObjectiveState defenseObjective, HST_CampaignTaskState defenseTask)
