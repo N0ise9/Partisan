@@ -438,6 +438,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Full-campaign debug coverage should explicitly map to the phase plan instead of assuming late smoke helpers cover everything.
   - Phase 0-13 coverage needs its own sweep for foundation/checkpoint reports, mission runtime visibility, convoy route/readiness/waypoint/contact/completion behavior, active-mission persistence, non-convoy primitive runtime, zone activation, garrison recruit/remove, civilian aid, support cancellation, vehicle/loadout reports, and command UI coverage.
+  - Phase 12 persistence smoke should seed sentinel state first, then record typed assertions against the actual `HST_CampaignState`: expected-summary task, active smoke missions, convoy and primitive mission matrices, mission assets/runtime entities, garage cargo, support/order sentinels, civilian records, and undercover records. Use `HST_CampaignSaveData.Capture()` plus `Restore()` for an in-memory roundtrip and compare the smoke summary/report/counts between live and restored state.
   - Later phase smoke helpers can then focus on the dedicated Phase 14-24 systems, while the final report represents the Phase 25 full-campaign soak summary.
   - Phase 24 typed coverage should assert early/mid/late seeded resource/control profiles and forced victory/loss end metadata. Treat long-window escalation pressure, post-end mutation checks, and physical follow-on behavior as separate WARN/not-covered gaps until they are sampled over time.
 
@@ -468,6 +469,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Phase 23 UI/marker smoke should assert command/menu and marker state directly: no `missing visible command:` or `missing dispatch:` detail rows, admin menu strings for campaign-debug and Phase-23 controls, HQ/mission/support/QRF marker coverage from `HST_CampaignState.m_aMapMarkers`, and marker/backing-state consistency via the same helpers used by post-case cleanup. Native map-marker manager absence should be explicit WARN/report evidence; visual widget inspection still requires a separate UI/render probe.
 
 - A one-button debug run can cover in-process Phase 25 soak checks, but not external session conditions.
+  - An in-memory `HST_CampaignSaveData` restore is useful certification evidence for copied state shape, but it is not a substitute for a process restart, second-client reconnect, or long soak.
   - Report real restart-after-each-primitive, second-client join/reconnect, and two-hour endurance as explicit WARN/manual gaps instead of silently treating them as covered.
   - Keep the rest of the Phase 25 summary tied to actual counters from the sequenced run: early phase steps, mission definitions, Phase 14-24 smoke steps, and aggregate pass/warn/fail totals.
 
