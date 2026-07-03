@@ -4094,7 +4094,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_iCampaignDebugEarlyPhaseIndex == 6 || m_iCampaignDebugEarlyPhaseIndex == 8)
 			RecordCampaignDebugConvoyPhysicalProbe(label, m_sCampaignDebugEarlyMissionInstanceId);
 
-		if (m_iCampaignDebugEarlyPhaseIndex == 5 || m_iCampaignDebugEarlyPhaseIndex == 7)
+		if (m_iCampaignDebugEarlyPhaseIndex == 5)
+			m_iCampaignDebugWaitSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS * 3 + 1;
+		else if (m_iCampaignDebugEarlyPhaseIndex == 7)
 			m_iCampaignDebugWaitSeconds = 2;
 		else
 			m_iCampaignDebugWaitSeconds = 1;
@@ -4133,6 +4135,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			{
 				m_sCampaignDebugCurrentMissionInstanceId = FindLatestCampaignDebugMissionInstance(definition.m_sMissionId);
 				TeleportCampaignDebugPlayerToMission(m_sCampaignDebugCurrentMissionInstanceId, definition.m_sMissionId);
+				if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+					ForceCampaignDebugConvoyDepartureForInstance(m_sCampaignDebugCurrentMissionInstanceId);
 			}
 
 			RecordCampaignDebugResult("start mission " + definition.m_sMissionId, startResult, started);
@@ -4144,7 +4148,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_iCampaignDebugMissionSubStep = 0;
 			}
 
-			m_iCampaignDebugWaitSeconds = 1;
+			if (started && definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+				m_iCampaignDebugWaitSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS * 3 + 1;
+			else
+				m_iCampaignDebugWaitSeconds = 1;
 			return;
 		}
 
@@ -6303,15 +6310,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (mission.m_sRuntimePrimitive != "convoy_intercept")
 			return "h-istasi campaign debug | failed: early sample is not a convoy mission";
 
-		if (mission.m_iRuntimeCounterB <= 0)
-			mission.m_iRuntimeCounterB = Math.Max(1, mission.m_iRuntimeCounterA + 1);
-		if (mission.m_iRuntimeCounterC <= mission.m_iRuntimeCounterB)
-			mission.m_iRuntimeCounterC = mission.m_iRuntimeCounterB + 300;
-
-		mission.m_iRuntimeCounterA = Math.Max(mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB);
-		mission.m_iRuntimeETASeconds = 0;
+		ForceCampaignDebugConvoyDepartureForInstance(mission.m_sInstanceId);
 		MarkMajorCampaignChange(true);
 		return string.Format("h-istasi campaign debug | convoy departure forced | instance %1 | counters %2/%3/%4", mission.m_sInstanceId, mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB, mission.m_iRuntimeCounterC);
+	}
+
+	protected bool ForceCampaignDebugConvoyDepartureForInstance(string instanceId)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return false;
+
+		HST_ActiveMissionState convoyMission = m_State.FindActiveMission(instanceId);
+		if (!convoyMission || convoyMission.m_sRuntimePrimitive != "convoy_intercept")
+			return false;
+
+		if (convoyMission.m_iRuntimeCounterB <= 0)
+			convoyMission.m_iRuntimeCounterB = Math.Max(1, convoyMission.m_iRuntimeCounterA + 1);
+		if (convoyMission.m_iRuntimeCounterC <= convoyMission.m_iRuntimeCounterB)
+			convoyMission.m_iRuntimeCounterC = convoyMission.m_iRuntimeCounterB + 300;
+
+		convoyMission.m_iRuntimeCounterA = Math.Max(convoyMission.m_iRuntimeCounterA, convoyMission.m_iRuntimeCounterB);
+		convoyMission.m_iRuntimeETASeconds = 0;
+		return true;
 	}
 
 	protected string TeleportCampaignDebugPlayerToConvoySample()

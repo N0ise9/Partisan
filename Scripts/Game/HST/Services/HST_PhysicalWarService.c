@@ -28,13 +28,19 @@ class HST_ConvoyProgressStatus
 	int m_iRouteSnapAttemptCount;
 	int m_iLastRouteReissueSecond;
 	int m_iLastRouteSnapSecond;
+	int m_iSampleCount;
 	float m_fDistanceToDestinationMeters;
 	float m_fPreviousDistanceToDestinationMeters;
+	float m_fLastMovementMeters;
+	float m_fLastDistanceClosedMeters;
+	float m_fMaxMovementMeters;
+	float m_fMaxDistanceClosedMeters;
 	float m_fNearestPlayerDistanceMeters = -1.0;
 	bool m_bNoProgress;
 	bool m_bHardStuck;
 	string m_sLastProgressReason;
 	string m_sLastRecoveryResult;
+	string m_sPhaseHistory;
 }
 
 class HST_ConvoyCompletionStatus
@@ -344,9 +350,14 @@ class HST_PhysicalWarService
 
 		int assetIndex;
 		int progressSampledCount;
+		int repeatedProgressSampledCount;
+		int distanceDecreaseSampledCount;
 		int hardStuckCount;
 		int noProgressCount;
 		int missingProgressCount;
+		float bestMovementMeters;
+		float bestDistanceClosedMeters;
+		string convoyPhaseHistory;
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != MISSION_CONVOY_VEHICLE_ROLE)
@@ -373,6 +384,13 @@ class HST_PhysicalWarService
 			else
 			{
 				progressSampledCount++;
+				if (progress.m_iSampleCount >= 2)
+					repeatedProgressSampledCount++;
+				if (progress.m_fMaxDistanceClosedMeters >= 25.0)
+					distanceDecreaseSampledCount++;
+				bestMovementMeters = Math.Max(bestMovementMeters, progress.m_fMaxMovementMeters);
+				bestDistanceClosedMeters = Math.Max(bestDistanceClosedMeters, progress.m_fMaxDistanceClosedMeters);
+				convoyPhaseHistory = AppendConvoyDebugPhaseHistory(convoyPhaseHistory, progress.m_sPhaseHistory);
 				if (progress.m_bHardStuck)
 					hardStuckCount++;
 				if (progress.m_bNoProgress)
@@ -380,15 +398,24 @@ class HST_PhysicalWarService
 
 				string progressActual = string.Format("distance %1m | sampled %2m | no-progress %3 | hard-stuck %4 | reason %5 | recovery %6", Math.Round(ResolveMissionConvoyDistanceToDestinationMeters(mission, asset, vehiclePosition)), Math.Round(progress.m_fDistanceToDestinationMeters), ReportBool(progress.m_bNoProgress), ReportBool(progress.m_bHardStuck), ReportText(progress.m_sLastProgressReason), ReportText(progress.m_sLastRecoveryResult));
 				AddConvoyDebugProbeAssertion(probe, "convoy.movement.progress." + asset.m_sAssetId, "progress sampled with no hard stuck", progressActual, ConvoyDebugStatus(!progress.m_bHardStuck, "WARN"), "convoy progress reports hard-stuck recovery state", groupId, mission.m_sInstanceId);
+				string sampleWindowActual = string.Format("samples %1 | last moved %2m | last closed %3m | max moved %4m | max closed %5m | phases %6", progress.m_iSampleCount, Math.Round(progress.m_fLastMovementMeters), Math.Round(progress.m_fLastDistanceClosedMeters), Math.Round(progress.m_fMaxMovementMeters), Math.Round(progress.m_fMaxDistanceClosedMeters), ReportText(progress.m_sPhaseHistory));
+				AddConvoyDebugProbeAssertion(probe, "convoy.movement.window." + asset.m_sAssetId, "at least two progress samples and >= 25m distance decrease when movement window runs", sampleWindowActual, ConvoyDebugStatus(progress.m_iSampleCount >= 2 && progress.m_fMaxDistanceClosedMeters >= 25.0, "WARN"), "convoy movement window did not prove repeated distance closure for this vehicle", groupId, mission.m_sInstanceId);
 			}
 			assetIndex++;
 		}
 
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.sampled", string.Format("%1", progressSampledCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.progress.repeated_sampled", string.Format("%1", repeatedProgressSampledCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.progress.distance_decrease_sampled", string.Format("%1", distanceDecreaseSampledCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.missing", string.Format("%1", missingProgressCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.no_progress", string.Format("%1", noProgressCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.hard_stuck", string.Format("%1", hardStuckCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.progress.best_movement", string.Format("%1", Math.Round(bestMovementMeters)), "meters");
+		AddConvoyDebugProbeMetric(probe, "convoy.progress.best_distance_closed", string.Format("%1", Math.Round(bestDistanceClosedMeters)), "meters");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.sample_count", "progress sample exists for each convoy vehicle", string.Format("%1/%2 sampled | missing %3", progressSampledCount, readiness.m_iVehicleAssetCount, missingProgressCount), ConvoyDebugStatus(progressSampledCount >= readiness.m_iVehicleAssetCount && missingProgressCount == 0, "WARN"), "one or more convoy vehicles have no movement sample yet");
+		AddConvoyDebugProbeAssertion(probe, "convoy.movement.repeated_sample_count", "at least two progress samples exist for each convoy vehicle", string.Format("%1/%2 repeated | phases %3", repeatedProgressSampledCount, readiness.m_iVehicleAssetCount, ReportText(convoyPhaseHistory)), ConvoyDebugStatus(repeatedProgressSampledCount >= readiness.m_iVehicleAssetCount && readiness.m_iVehicleAssetCount > 0, "WARN"), "one or more convoy vehicles lack a repeated movement-window sample");
+		AddConvoyDebugProbeAssertion(probe, "convoy.movement.distance_decrease_count", "each convoy vehicle closes at least 25m toward destination during sampled movement window", string.Format("%1/%2 closed >= 25m | best closed %3m | best moved %4m", distanceDecreaseSampledCount, readiness.m_iVehicleAssetCount, Math.Round(bestDistanceClosedMeters), Math.Round(bestMovementMeters)), ConvoyDebugStatus(distanceDecreaseSampledCount >= readiness.m_iVehicleAssetCount && readiness.m_iVehicleAssetCount > 0, "WARN"), "one or more convoy vehicles did not prove a 25m destination-distance decrease");
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase.sample_history", "sample history includes moving or contact convoy phase", ReportText(convoyPhaseHistory), ConvoyDebugStatus(ConvoyDebugPhaseHistoryHasTravelPhase(convoyPhaseHistory), "WARN"), "convoy movement samples did not observe a travel/contact phase");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.hard_stuck_count", "hard-stuck count 0", string.Format("%1", hardStuckCount), ConvoyDebugStatus(hardStuckCount == 0), "one or more convoy vehicles are hard-stuck");
 
 		probe.m_aEvidence.Insert(BuildConvoyRuntimeReport(state, mission));
@@ -531,6 +558,23 @@ class HST_PhysicalWarService
 			return "route missing";
 
 		return string.Format("route %1 | waypoints %2 | distance %3m | road %4 | vehicle-safe %5", ReportText(route.m_sRouteId), route.m_iWaypointCount, route.m_iDistanceMeters, ReportBool(route.m_bRoadRoute), ReportBool(route.m_bValidatedForVehicles));
+	}
+
+	protected string AppendConvoyDebugPhaseHistory(string summary, string phaseHistory)
+	{
+		if (phaseHistory.IsEmpty())
+			return summary;
+		if (summary.IsEmpty())
+			return phaseHistory;
+		if (summary.Contains(phaseHistory))
+			return summary;
+
+		return summary + " | " + phaseHistory;
+	}
+
+	protected bool ConvoyDebugPhaseHistoryHasTravelPhase(string phaseHistory)
+	{
+		return phaseHistory.Contains(MISSION_CONVOY_MOVING) || phaseHistory.Contains(MISSION_CONVOY_CONTACT) || phaseHistory.Contains(MISSION_CONVOY_ARRIVED) || phaseHistory.Contains(MISSION_CONVOY_ELIMINATED);
 	}
 
 	bool UpdateMissionConvoys(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)
@@ -1657,12 +1701,16 @@ class HST_PhysicalWarService
 		float distanceToDestination = ResolveMissionConvoyDistanceToDestinationMeters(mission, asset, position);
 		progress.m_fNearestPlayerDistanceMeters = ResolveNearestLivingPlayerDistanceMeters(position);
 		progress.m_fDistanceToDestinationMeters = distanceToDestination;
+		RememberConvoyProgressPhase(progress, mission.m_sRuntimePhase);
 		if (progress.m_iLastSampleSecond <= 0)
 		{
 			progress.m_vLastSamplePosition = position;
 			progress.m_iLastSampleSecond = now;
 			progress.m_iLastProgressSecond = now;
 			progress.m_fPreviousDistanceToDestinationMeters = distanceToDestination;
+			progress.m_iSampleCount = 1;
+			progress.m_fLastMovementMeters = 0.0;
+			progress.m_fLastDistanceClosedMeters = 0.0;
 			progress.m_bNoProgress = false;
 			progress.m_bHardStuck = false;
 			progress.m_sLastProgressReason = "progress initialized";
@@ -1675,6 +1723,11 @@ class HST_PhysicalWarService
 		progress.m_vLastSamplePosition = position;
 		progress.m_iLastSampleSecond = now;
 		progress.m_fPreviousDistanceToDestinationMeters = distanceToDestination;
+		progress.m_iSampleCount++;
+		progress.m_fLastMovementMeters = movementMeters;
+		progress.m_fLastDistanceClosedMeters = distanceImprovedMeters;
+		progress.m_fMaxMovementMeters = Math.Max(progress.m_fMaxMovementMeters, movementMeters);
+		progress.m_fMaxDistanceClosedMeters = Math.Max(progress.m_fMaxDistanceClosedMeters, distanceImprovedMeters);
 		if (madeProgress)
 		{
 			progress.m_iLastProgressSecond = now;
@@ -1699,6 +1752,23 @@ class HST_PhysicalWarService
 			changed = TrySnapMissionConvoyVehicleToRoute(state, mission, asset, activeGroup, progress) || changed;
 
 		return changed;
+	}
+
+	protected void RememberConvoyProgressPhase(HST_ConvoyProgressStatus progress, string phase)
+	{
+		if (!progress)
+			return;
+		if (phase.IsEmpty())
+			phase = "unknown";
+		if (progress.m_sPhaseHistory.IsEmpty())
+		{
+			progress.m_sPhaseHistory = phase;
+			return;
+		}
+		if (progress.m_sPhaseHistory.Contains(phase))
+			return;
+
+		progress.m_sPhaseHistory = progress.m_sPhaseHistory + ">" + phase;
 	}
 
 	protected bool TryReissueMissionConvoyRouteForProgress(HST_CampaignState state, HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup, HST_ConvoyProgressStatus progress, string reason)

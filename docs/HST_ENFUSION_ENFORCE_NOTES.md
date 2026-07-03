@@ -448,6 +448,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - This exercises the real route/readiness/contact reporting path without making admin diagnostics wait for natural convoy timers.
   - Keep physical convoy internals behind a narrow debug probe API on `HST_PhysicalWarService` instead of widening every runtime helper. The probe can use readiness/progress internals to assert vehicle assets, runtime vehicle entities, crew groups, alive crew, seated drivers, routes, waypoints, and progress samples.
   - Convoy movement proof should include readiness and progress, not just spawned object counts. Treat missing progress samples as WARN while the async runtime catches up, but hard-stuck progress should fail the certification case.
+  - For repeated convoy movement proof, let the campaign debug runner wait across real five-second convoy progress intervals after forcing departure. `HST_ConvoyProgressStatus` can then store sample count, max movement, max distance closed, and sampled phase history for the typed probe. Do not synthesize movement in the probe itself; the assertion should report WARN if the engine did not physically move far enough during the window.
 
 - POW/captive debug certification should use the real interaction commands.
   - For `rescue_extract`, call `mission_captive_extract` first; that path frees an unpicked captive and marks the asset picked up.
