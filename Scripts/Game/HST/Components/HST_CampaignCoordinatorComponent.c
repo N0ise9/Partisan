@@ -7079,6 +7079,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		if (index >= 46 && index <= 50)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPhase23UIMarkerCase(index, label, result));
+			return;
+		}
+
 		if (index >= 51 && index <= 61)
 			RecordCampaignDebugCase(BuildCampaignDebugPhase24PacingCase(index, label, result));
 	}
@@ -8280,6 +8286,184 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		return string.Format("id %1 | zone %2 | faction %3 | status %4 | infantry %5 | vehicles %6 | target %7 | runtime %8", EmptyCampaignDebugField(attackGroup.m_sGroupId), EmptyCampaignDebugField(attackGroup.m_sZoneId), EmptyCampaignDebugField(attackGroup.m_sFactionKey), EmptyCampaignDebugField(attackGroup.m_sRuntimeStatus), attackGroup.m_iInfantryCount, attackGroup.m_iVehicleCount, attackGroup.m_vTargetPosition, EmptyCampaignDebugField(attackGroup.m_sRuntimeEntityId));
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase23UIMarkerCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult phaseCase = CreateCampaignDebugCase("phase23." + SafeCampaignDebugToken(label), "phase_smoke", "ui_markers", "phase23");
+		phaseCase.m_aEvidence.Insert(result);
+		AddCampaignDebugAssertion(phaseCase, "phase23.command_result", "phase 23 command/report accepted", ShortCampaignDebugLine(result, 220), ResolveCampaignDebugPhase23CommandStatus(index, result), "phase 23 command returned administrative failure text");
+		if (!m_State || !m_Preset)
+		{
+			AddCampaignDebugAssertion(phaseCase, "phase23.prerequisite.state", "campaign state and preset ready", "missing", "BLOCKED", "phase 23 typed probe missing campaign state or preset");
+			FinalizeCampaignDebugCaseFromAssertions(phaseCase);
+			return phaseCase;
+		}
+
+		if (index == 46)
+			AddCampaignDebugPhase23UICoverageAssertions(phaseCase, result);
+		else if (index == 47)
+			AddCampaignDebugPhase23MarkerAuditAssertions(phaseCase, result);
+		else if (index == 48)
+			AddCampaignDebugPhase23NativeMarkerReportAssertions(phaseCase, result);
+		else if (index == 49)
+			AddCampaignDebugPhase23NativePurgeAssertions(phaseCase, result);
+		else if (index == 50)
+			AddCampaignDebugPhase23FailedActionAssertions(phaseCase, result);
+
+		FinalizeCampaignDebugCaseFromAssertions(phaseCase);
+		return phaseCase;
+	}
+
+	protected string ResolveCampaignDebugPhase23CommandStatus(int index, string result)
+	{
+		bool accepted = IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index));
+		if (!accepted)
+			return "FAIL";
+		if (index == 50)
+			return "WARN";
+
+		return "PASS";
+	}
+
+	protected void AddCampaignDebugPhase23UICoverageAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
+	{
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.service", "command UI service ready", string.Format("%1", m_CommandUI != null), CampaignDebugStatus(m_CommandUI != null), "Phase 23 UI coverage requires command UI service");
+		if (!m_CommandUI)
+			return;
+
+		string adminMenu = m_CommandUI.BuildAdminMenu(m_State, m_Preset, m_MapMarkers);
+		phaseCase.m_aEvidence.Insert("admin menu | " + ShortCampaignDebugLine(adminMenu, 260));
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.report_header", "coverage report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi UI coverage")), "Phase 23 UI coverage report header missing");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_visible", "no missing visible command detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing visible command:")), "Phase 23 UI coverage found missing visible commands");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_dispatch", "no missing dispatch detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing dispatch:")), "Phase 23 UI coverage found missing dispatch handlers");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.coverage_counts", "coverage summary reports zero missing visible/dispatch", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing visible 0") && result.Contains("missing dispatch 0")), "Phase 23 UI coverage summary does not report zero missing entries");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.debug_controls", "admin menu exposes campaign debug run/status/cancel/cleanup", ShortCampaignDebugLine(adminMenu, 220), CampaignDebugStatus(adminMenu.Contains("admin_run_campaign_debug") && adminMenu.Contains("admin_campaign_debug_status") && adminMenu.Contains("admin_campaign_debug_cancel") && adminMenu.Contains("admin_campaign_debug_cleanup")), "Phase 23 admin menu is missing campaign debug controls");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.phase23_controls", "admin menu exposes Phase 23 marker/UI controls", ShortCampaignDebugLine(adminMenu, 220), CampaignDebugStatus(adminMenu.Contains("admin_phase23_ui_coverage") && adminMenu.Contains("admin_phase23_marker_audit") && adminMenu.Contains("admin_marker_native_report") && adminMenu.Contains("admin_purge_hst_native_markers") && adminMenu.Contains("admin_phase23_failed_action_sample")), "Phase 23 admin menu is missing Phase 23 controls");
+	}
+
+	protected void AddCampaignDebugPhase23MarkerAuditAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
+	{
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.service", "map marker service ready", string.Format("%1", m_MapMarkers != null), CampaignDebugStatus(m_MapMarkers != null), "Phase 23 marker audit requires map marker service");
+		if (!m_MapMarkers)
+			return;
+
+		int totalMarkers = m_State.m_aMapMarkers.Count();
+		int hqMarkers = CountCampaignDebugMarkersByCategory("hq");
+		int missionMarkers = CountCampaignDebugMarkersByCategory("mission") + CountCampaignDebugMarkersByCategory("mission_objective") + CountCampaignDebugMarkersByCategory("mission_asset");
+		int supportMarkers = CountCampaignDebugMarkersByCategory("support");
+		int qrfMarkers = CountCampaignDebugMarkersByCategory("qrf");
+		int activeMissions = CountCampaignDebugActiveMissions();
+		int activeSupport = CountCampaignDebugActiveSupportRequests();
+		int activeQRFs = CountCampaignDebugActiveQRFs();
+		string orphanExample;
+		string missingExample;
+		int orphanMarkers = CountCampaignDebugOrphanMarkers(orphanExample);
+		int missingBackingMarkers = CountCampaignDebugBackingStatesWithoutMarkers(missingExample);
+		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
+		HST_MapMarkerState petrosMarker = m_State.FindMapMarker("hst_petros");
+		HST_MapMarkerState defendMarker = m_State.FindMapMarker("hst_defend_petros");
+
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.total", string.Format("%1", totalMarkers), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.hq", string.Format("%1", hqMarkers), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.mission", string.Format("%1", missionMarkers), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.support", string.Format("%1", supportMarkers), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.qrf", string.Format("%1", qrfMarkers), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.orphan", string.Format("%1", orphanMarkers), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.backing_missing", string.Format("%1", missingBackingMarkers), "count");
+
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.report_header", "marker audit report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi phase 23 marker audit")), "Phase 23 marker audit report header missing");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.records", "marker model has records", string.Format("%1", totalMarkers), CampaignDebugStatus(totalMarkers > 0), "Phase 23 marker model has no records");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.hq", "HQ marker exists when HQ is deployed", BuildCampaignDebugMarkerActual(hqMarker), CampaignDebugStatus(!m_State.m_bHQDeployed || hqMarker != null), "Phase 23 marker audit did not find the HQ marker");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.defense_markers", "Petros/defense markers exist while Defend Petros is active", string.Format("active %1 | Petros %2 | defend %3", m_State.m_bDefendPetrosActive, petrosMarker != null, defendMarker != null), CampaignDebugStatus(!m_State.m_bDefendPetrosActive || (petrosMarker != null && defendMarker != null)), "Phase 23 marker audit did not find active Defend Petros markers");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.missions", "active missions have mission/objective/asset marker coverage", string.Format("markers %1 | active %2", missionMarkers, activeMissions), CampaignDebugStatus(activeMissions <= 0 || missionMarkers > 0), "Phase 23 active missions have no mission marker coverage");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.support", "active support has support marker coverage", string.Format("markers %1 | active %2", supportMarkers, activeSupport), CampaignDebugStatus(activeSupport <= 0 || supportMarkers > 0), "Phase 23 active support requests have no support marker coverage");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.qrf", "active QRFs have QRF marker coverage", string.Format("markers %1 | active %2", qrfMarkers, activeQRFs), CampaignDebugStatus(activeQRFs <= 0 || qrfMarkers > 0), "Phase 23 active QRF records have no QRF marker coverage");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.orphans", "visible linked markers have backing state", BuildCampaignDebugCountExample(orphanMarkers, orphanExample), CampaignDebugStatus(orphanMarkers == 0, "WARN"), "Phase 23 marker audit found visible linked markers without backing state");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.backing", "active missions/support/QRFs have marker backing", BuildCampaignDebugCountExample(missingBackingMarkers, missingExample), CampaignDebugStatus(missingBackingMarkers == 0, "WARN"), "Phase 23 marker audit found active backing state without markers");
+	}
+
+	protected void AddCampaignDebugPhase23NativeMarkerReportAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
+	{
+		AddCampaignDebugAssertion(phaseCase, "phase23.native.service", "map marker service ready", string.Format("%1", m_MapMarkers != null), CampaignDebugStatus(m_MapMarkers != null), "Phase 23 native marker report requires map marker service");
+		if (!m_MapMarkers)
+			return;
+
+		bool nativeManagerReady = !result.Contains("native marker manager not ready");
+		AddCampaignDebugAssertion(phaseCase, "phase23.native.report_header", "native marker report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi native marker report")), "Phase 23 native marker report header missing");
+		AddCampaignDebugAssertion(phaseCase, "phase23.native.manager", "native marker manager ready or explicit environment warning", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(nativeManagerReady, "WARN"), "Native marker manager unavailable during Phase 23 report");
+		if (nativeManagerReady)
+		{
+			AddCampaignDebugAssertion(phaseCase, "phase23.native.state_records", "native report includes desired/state/native handle counts", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(result.Contains("desired records:") && result.Contains("state records:") && result.Contains("tracked native handles:")), "Phase 23 native marker report missing record/handle counts");
+			AddCampaignDebugAssertion(phaseCase, "phase23.native.reconcile", "native report includes reconciliation details", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(result.Contains("last reconcile") || result.Contains("reconciler")), "Phase 23 native marker report missing reconcile details");
+		}
+		AddCampaignDebugAssertion(phaseCase, "phase23.native.player_report", "player marker runtime report included", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(m_PlayerMapMarkers != null && result.Contains("h-istasi player marker report"), "WARN"), "Phase 23 native marker report did not include player marker runtime state");
+	}
+
+	protected void AddCampaignDebugPhase23NativePurgeAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
+	{
+		AddCampaignDebugAssertion(phaseCase, "phase23.purge.service", "map marker service ready", string.Format("%1", m_MapMarkers != null), CampaignDebugStatus(m_MapMarkers != null), "Phase 23 native marker purge requires map marker service");
+		if (!m_MapMarkers)
+			return;
+
+		bool purgeSucceeded = result.Contains("purged") && result.Contains("native HST marker");
+		AddCampaignDebugAssertion(phaseCase, "phase23.purge.native", "native HST marker purge completed", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(purgeSucceeded), "Phase 23 native marker purge did not report success");
+		AddCampaignDebugAssertion(phaseCase, "phase23.purge.player", "player marker clear attempted/reported", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("player marker purge"), "WARN"), "Phase 23 native marker purge did not report player marker cleanup");
+	}
+
+	protected void AddCampaignDebugPhase23FailedActionAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
+	{
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.intentional", "failed-action sample is intentionally warning-level", ShortCampaignDebugLine(result, 180), "WARN", "Phase 23 failed-action sample intentionally exercises negative paths");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.move_hq", "missing hideout negative path included", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing_hideout_id"), "WARN"), "Phase 23 failed-action sample missing HQ negative-path evidence");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.zone_mission", "missing zone negative path included", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing_zone_id"), "WARN"), "Phase 23 failed-action sample missing zone negative-path evidence");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.complete_mission", "missing mission negative path included", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing_mission_id"), "WARN"), "Phase 23 failed-action sample missing mission-completion negative-path evidence");
+	}
+
+	protected int CountCampaignDebugMarkersByCategory(string category)
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
+		{
+			if (marker && marker.m_bVisible && marker.m_sCategory == category)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountCampaignDebugActiveSupportRequests()
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (!request)
+				continue;
+			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountCampaignDebugActiveQRFs()
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_QRFState qrf : m_State.m_aQRFs)
+		{
+			if (qrf && !qrf.m_bResolved)
+				count++;
+		}
+
+		return count;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase24PacingCase(int index, string label, string result)
