@@ -7292,27 +7292,128 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMissionAssetReadinessAssertions(primitiveCase, mission, transportAsset, "primitive." + primitiveLabel + ".asset");
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".pickup_teleport", "player teleported to asset pickup position", string.Format("%1 | target %2", transportPickupTeleport, transportPickupPosition), CampaignDebugStatus(transportPickupTeleport, "WARN"), primitiveLabel + " pickup teleport did not confirm", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
 
+		string transportArrangedCarrierId;
+		vector transportCarrierPickupPosition;
+		GenericEntity transportCarrierEntity = SpawnCampaignDebugTransportCarrier(primitiveCase, mission, primitiveLabel, transportPickupPosition, transportArrangedCarrierId, transportCarrierPickupPosition);
 		string transportLoadResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_asset_load", transportAsset.m_sAssetId);
 		primitiveCase.m_aEvidence.Insert(primitiveLabel + " load action | " + ShortCampaignDebugLine(transportLoadResult, 220));
 		bool transportLoaded = transportAsset.m_bPickedUp && transportAsset.m_bAttachedToCarrier && !transportAsset.m_sCarriedByVehicleId.IsEmpty();
+		string transportLoadedCarrierId = transportAsset.m_sCarriedByVehicleId;
+		bool transportCarrierMatched = !transportArrangedCarrierId.IsEmpty() && transportLoadedCarrierId == transportArrangedCarrierId;
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".load_command", "real load interaction accepts cargo", ShortCampaignDebugLine(transportLoadResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(transportLoadResult), "BLOCKED"), primitiveLabel + " load interaction could not be arranged", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".loaded_state", "asset is picked up and attached to a carrier", BuildCampaignDebugMissionAssetActual(transportAsset), CampaignDebugStatus(transportLoaded, "BLOCKED"), primitiveLabel + " asset was not loaded into a carrier", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_match", "loaded asset uses the arranged debug carrier", string.Format("arranged %1 | loaded %2", EmptyCampaignDebugField(transportArrangedCarrierId), EmptyCampaignDebugField(transportLoadedCarrierId)), CampaignDebugStatus(!transportLoaded || transportCarrierMatched, "WARN"), primitiveLabel + " loaded into a carrier other than the arranged debug carrier", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
 		if (!transportLoaded)
 		{
+			bool transportLoadCleanup = CleanupCampaignDebugTransportCarrier(transportCarrierEntity, transportArrangedCarrierId);
+			AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_cleanup_after_load_block", "temporary carrier cleaned after failed load arrangement", string.Format("%1 | carrier %2", transportLoadCleanup, EmptyCampaignDebugField(transportArrangedCarrierId)), CampaignDebugStatus(transportLoadCleanup || !transportCarrierEntity, "WARN"), primitiveLabel + " temporary transport carrier cleanup after load block was incomplete", transportArrangedCarrierId, transportInstanceId, mission.m_sTargetZoneId);
 			AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_arrangement", "mission sweep arranged a nearby physical carrier before delivery", BuildCampaignDebugMissionAssetActual(transportAsset), "BLOCKED", primitiveLabel + " primitive requires a nearby vehicle carrier before load/deliver can be certified", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
 			return;
 		}
 
+		vector transportCarrierDeliveryPosition;
+		bool transportCarrierMoved = MoveCampaignDebugTransportCarrier(transportCarrierEntity, transportArrangedCarrierId, transportDeliveryPosition, transportCarrierDeliveryPosition);
 		bool transportDeliveryTeleport = TeleportCampaignDebugPlayer(transportDeliveryPosition + "2 0 2", primitiveLabel + " delivery");
 		string transportDeliverResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_asset_deliver", transportAsset.m_sAssetId);
 		primitiveCase.m_aEvidence.Insert(primitiveLabel + " deliver action | " + ShortCampaignDebugLine(transportDeliverResult, 220));
 		bool transportDelivered = transportAsset.m_bDelivered && transportAsset.m_sLastInteraction == "delivered";
 		float transportDeliveryDistance = Math.Sqrt(DistanceSq2D(transportAsset.m_vCurrentPosition, transportDeliveryPosition));
+		float transportCarrierMoveDistance = Math.Sqrt(DistanceSq2D(transportCarrierPickupPosition, transportCarrierDeliveryPosition));
 		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".delivery_distance", string.Format("%1", Math.Round(transportDeliveryDistance)), "meters");
+		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".carrier_move_distance", string.Format("%1", Math.Round(transportCarrierMoveDistance)), "meters");
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_delivery_position", "arranged carrier moved to delivery area before deliver interaction", string.Format("moved %1 | pickup %2 | delivery %3", transportCarrierMoved, transportCarrierPickupPosition, transportCarrierDeliveryPosition), CampaignDebugStatus(transportCarrierMoved && Math.Sqrt(DistanceSq2D(transportCarrierDeliveryPosition, transportDeliveryPosition)) <= 45.0), primitiveLabel + " temporary transport carrier was not moved to the delivery area", transportArrangedCarrierId, transportInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".delivery_teleport", "player teleported to asset delivery position", string.Format("%1 | target %2", transportDeliveryTeleport, transportDeliveryPosition), CampaignDebugStatus(transportDeliveryTeleport, "WARN"), primitiveLabel + " delivery teleport did not confirm", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".deliver_command", "real deliver interaction accepts cargo", ShortCampaignDebugLine(transportDeliverResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(transportDeliverResult)), primitiveLabel + " deliver interaction failed", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".delivered_state", "asset reaches delivered state at delivery target", BuildCampaignDebugMissionAssetActual(transportAsset), CampaignDebugStatus(transportDelivered && transportDeliveryDistance <= 50.0), primitiveLabel + " asset was not delivered to the target", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+		bool transportFinalCleanup = CleanupCampaignDebugTransportCarrier(transportCarrierEntity, transportArrangedCarrierId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_cleanup", "temporary transport carrier entity/runtime record cleaned after delivery", string.Format("%1 | carrier %2", transportFinalCleanup, EmptyCampaignDebugField(transportArrangedCarrierId)), CampaignDebugStatus(transportFinalCleanup || !transportCarrierEntity, "WARN"), primitiveLabel + " temporary transport carrier cleanup was incomplete", transportArrangedCarrierId, transportInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugPrimitiveCompletionAssertions(primitiveCase, definition, mission, transportMoneyBefore, transportHRBefore, primitiveLabel);
+	}
+
+	protected GenericEntity SpawnCampaignDebugTransportCarrier(HST_CampaignDebugCaseResult primitiveCase, HST_ActiveMissionState mission, string primitiveLabel, vector pickupPosition, out string carrierRuntimeId, out vector carrierPosition)
+	{
+		carrierRuntimeId = "";
+		carrierPosition = "0 0 0";
+		if (!primitiveCase || !mission)
+			return null;
+
+		if (m_bCampaignDebugPhysicalBlocked)
+		{
+			AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_spawn", "temporary physical carrier can be arranged near pickup", "physical tests blocked", "BLOCKED", "bootstrap marked physical runtime tests blocked", "", mission.m_sInstanceId, mission.m_sTargetZoneId);
+			return null;
+		}
+
+		IEntity carrierPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!carrierPlayer)
+		{
+			m_bCampaignDebugPhysicalBlocked = true;
+			AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_spawn", "controlled player entity available for carrier arrangement", "missing", "BLOCKED", "no controlled player entity for transport primitive carrier arrangement", "", mission.m_sInstanceId, mission.m_sTargetZoneId);
+			return null;
+		}
+
+		vector carrierPreferred = pickupPosition + "6 0 0";
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(carrierPreferred, carrierPosition, true))
+			carrierPosition = HST_WorldPositionService.ResolveSafeGroundPosition(carrierPreferred, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 5.0);
+
+		vector carrierAngles = HST_WorldPositionService.BuildUprightAngles(0.0);
+		GenericEntity carrierEntity = HST_WorldPositionService.SpawnPrefab(PHASE15_SMOKE_VEHICLE_PREFAB, carrierPosition, carrierAngles);
+		if (carrierEntity)
+			carrierRuntimeId = ResolveCampaignDebugTransportCarrierRuntimeId(carrierEntity);
+
+		float carrierDistance = 999999.0;
+		if (carrierEntity)
+			carrierDistance = Math.Sqrt(DistanceSq2D(carrierPlayer.GetOrigin(), carrierEntity.GetOrigin()));
+		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".carrier_pickup_distance", string.Format("%1", Math.Round(carrierDistance)), "meters");
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_spawn", "temporary physical carrier spawned within load radius", string.Format("entity %1 | id %2 | distance %3m | position %4", carrierEntity != null, EmptyCampaignDebugField(carrierRuntimeId), Math.Round(carrierDistance), carrierPosition), CampaignDebugStatus(carrierEntity != null && carrierDistance <= 10.0, "BLOCKED"), primitiveLabel + " temporary physical carrier could not be arranged near pickup", carrierRuntimeId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+		return carrierEntity;
+	}
+
+	protected bool MoveCampaignDebugTransportCarrier(GenericEntity carrierEntity, string carrierRuntimeId, vector deliveryPosition, out vector resolvedPosition)
+	{
+		resolvedPosition = "0 0 0";
+		if (!carrierEntity)
+			return false;
+
+		vector preferredDelivery = deliveryPosition + "6 0 0";
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(preferredDelivery, resolvedPosition, true))
+			resolvedPosition = HST_WorldPositionService.ResolveSafeGroundPosition(preferredDelivery, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 5.0);
+
+		HST_WorldPositionService.ApplyUprightEntityTransform(carrierEntity, resolvedPosition, carrierEntity.GetYawPitchRoll());
+		HST_RuntimeVehicleState carrierRuntime = null;
+		if (m_State && !carrierRuntimeId.IsEmpty())
+			carrierRuntime = m_State.FindRuntimeVehicle(carrierRuntimeId);
+		if (carrierRuntime)
+		{
+			carrierRuntime.m_vPosition = resolvedPosition;
+			carrierRuntime.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(carrierEntity.GetYawPitchRoll());
+		}
+		return Math.Sqrt(DistanceSq2D(carrierEntity.GetOrigin(), resolvedPosition)) <= 2.0;
+	}
+
+	protected bool CleanupCampaignDebugTransportCarrier(GenericEntity carrierEntity, string carrierRuntimeId)
+	{
+		bool cleanupChanged;
+		if (carrierEntity)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(carrierEntity);
+			cleanupChanged = true;
+		}
+		if (m_State && !carrierRuntimeId.IsEmpty())
+			cleanupChanged = m_State.RemoveRuntimeVehicle(carrierRuntimeId) || cleanupChanged;
+
+		return cleanupChanged;
+	}
+
+	protected string ResolveCampaignDebugTransportCarrierRuntimeId(IEntity carrierEntity)
+	{
+		if (!carrierEntity)
+			return "";
+
+		BaseRplComponent carrierRpl = BaseRplComponent.Cast(carrierEntity.FindComponent(BaseRplComponent));
+		if (carrierRpl)
+			return string.Format("vehicle_%1", carrierRpl.Id());
+
+		return string.Format("vehicle_local_%1_%2", carrierEntity.GetName(), carrierEntity.GetOrigin());
 	}
 
 	protected void AddCampaignDebugAreaPrimitiveGapAssertion(HST_CampaignDebugCaseResult primitiveCase, HST_ActiveMissionState mission)
