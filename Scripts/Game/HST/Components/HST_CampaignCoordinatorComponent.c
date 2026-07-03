@@ -114,6 +114,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugStartArsenalItems;
 	protected int m_iCampaignDebugStartCivilianZones;
 	protected int m_iCampaignDebugStartUndercoverRecords;
+	protected int m_iCampaignDebugBackgroundWarOrderCountBefore;
+	protected int m_iCampaignDebugBackgroundWarOrderCountAfter;
+	protected int m_iCampaignDebugBackgroundWarOccupierAttackBefore;
+	protected int m_iCampaignDebugBackgroundWarOccupierSupportBefore;
+	protected int m_iCampaignDebugBackgroundWarOccupierAttackAfter;
+	protected int m_iCampaignDebugBackgroundWarOccupierSupportAfter;
+	protected int m_iCampaignDebugBackgroundWarInvaderAttackBefore;
+	protected int m_iCampaignDebugBackgroundWarInvaderSupportBefore;
+	protected int m_iCampaignDebugBackgroundWarInvaderAttackAfter;
+	protected int m_iCampaignDebugBackgroundWarInvaderSupportAfter;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
 	protected string m_sCampaignDebugLastResult;
@@ -126,6 +136,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugMissionPrefix;
 	protected string m_sCampaignDebugEntityTag;
 	protected string m_sCampaignDebugPreviousCommanderIdentityId;
+	protected string m_sCampaignDebugBackgroundWarResistanceZoneId;
+	protected string m_sCampaignDebugBackgroundWarOccupierZoneId;
+	protected string m_sCampaignDebugBackgroundWarInvaderZoneId;
+	protected string m_sCampaignDebugBackgroundWarOccupierOrderId;
+	protected string m_sCampaignDebugBackgroundWarInvaderOrderId;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
 	protected ref HST_CampaignDebugRunResult m_CampaignDebugRunResult;
@@ -7007,15 +7022,63 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				AddCampaignDebugAssertion(orderCase, "phase18.order.cost", "order attack/support cost recorded", string.Format("%1/%2", order.m_iAttackCost, order.m_iSupportCost), CampaignDebugStatus(order.m_iAttackCost > 0 || order.m_iSupportCost > 0), "enemy order did not record resource costs", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 			}
 		}
-		else
+		else if (index == 20)
 		{
 			int openPrefixedOrders = CountCampaignDebugPrefixedOpenEnemyOrders();
 			AddCampaignDebugMetric(orderCase, "phase18.prefixed_open_orders", string.Format("%1", openPrefixedOrders), "count");
 			AddCampaignDebugAssertion(orderCase, "phase18.resolve.open_prefixed_orders", "no debug-prefixed enemy orders remain open after resolve/report", string.Format("%1", openPrefixedOrders), CampaignDebugStatus(openPrefixedOrders == 0, "WARN"), "phase 18 left debug-prefixed enemy orders open");
 		}
+		else if (index == 21)
+		{
+			HST_ZoneState resistanceZone = m_State.FindZone(m_sCampaignDebugBackgroundWarResistanceZoneId);
+			HST_ZoneState occupierZone = m_State.FindZone(m_sCampaignDebugBackgroundWarOccupierZoneId);
+			HST_ZoneState invaderZone = m_State.FindZone(m_sCampaignDebugBackgroundWarInvaderZoneId);
+			HST_EnemyOrderState occupierOrder = FindCampaignDebugEnemyOrderById(m_sCampaignDebugBackgroundWarOccupierOrderId);
+			HST_EnemyOrderState invaderOrder = FindCampaignDebugEnemyOrderById(m_sCampaignDebugBackgroundWarInvaderOrderId);
+			AddCampaignDebugMetric(orderCase, "background_war.orders_before", string.Format("%1", m_iCampaignDebugBackgroundWarOrderCountBefore), "count");
+			AddCampaignDebugMetric(orderCase, "background_war.orders_after", string.Format("%1", m_iCampaignDebugBackgroundWarOrderCountAfter), "count");
+			AddCampaignDebugMetric(orderCase, "background_war.occupier_attack_before", string.Format("%1", m_iCampaignDebugBackgroundWarOccupierAttackBefore), "attack");
+			AddCampaignDebugMetric(orderCase, "background_war.occupier_attack_after", string.Format("%1", m_iCampaignDebugBackgroundWarOccupierAttackAfter), "attack");
+			AddCampaignDebugMetric(orderCase, "background_war.invader_attack_before", string.Format("%1", m_iCampaignDebugBackgroundWarInvaderAttackBefore), "attack");
+			AddCampaignDebugMetric(orderCase, "background_war.invader_attack_after", string.Format("%1", m_iCampaignDebugBackgroundWarInvaderAttackAfter), "attack");
+			AddCampaignDebugAssertion(orderCase, "background_war.seed.resistance_zone", "resistance owns a valid strategic POI target", EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarResistanceZoneId), CampaignDebugStatus(resistanceZone && resistanceZone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && IsCampaignDebugBackgroundWarPOI(resistanceZone)), "background war did not seed a resistance-owned POI", "", "", m_sCampaignDebugBackgroundWarResistanceZoneId);
+			AddCampaignDebugAssertion(orderCase, "background_war.seed.occupier_zone", "occupier owns a valid strategic POI", EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarOccupierZoneId), CampaignDebugStatus(occupierZone && occupierZone.m_sOwnerFactionKey == m_Preset.m_sOccupierFactionKey && IsCampaignDebugBackgroundWarPOI(occupierZone)), "background war did not seed an occupier-owned POI", "", "", m_sCampaignDebugBackgroundWarOccupierZoneId);
+			AddCampaignDebugAssertion(orderCase, "background_war.seed.invader_zone", "invader owns a valid strategic POI", EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarInvaderZoneId), CampaignDebugStatus(invaderZone && invaderZone.m_sOwnerFactionKey == m_Preset.m_sInvaderFactionKey && IsCampaignDebugBackgroundWarPOI(invaderZone)), "background war did not seed an invader-owned POI", "", "", m_sCampaignDebugBackgroundWarInvaderZoneId);
+			AddCampaignDebugAssertion(orderCase, "background_war.commander_tick.created_orders", "normal commander tick creates at least two enemy orders", string.Format("%1 -> %2", m_iCampaignDebugBackgroundWarOrderCountBefore, m_iCampaignDebugBackgroundWarOrderCountAfter), CampaignDebugStatus(m_iCampaignDebugBackgroundWarOrderCountAfter >= m_iCampaignDebugBackgroundWarOrderCountBefore + 2), "background war commander tick did not create orders for both enemy factions");
+			AddCampaignDebugBackgroundWarOrderAssertions(orderCase, "occupier", occupierOrder, m_Preset.m_sOccupierFactionKey, m_iCampaignDebugBackgroundWarOccupierAttackBefore, m_iCampaignDebugBackgroundWarOccupierAttackAfter, m_iCampaignDebugBackgroundWarOccupierSupportBefore, m_iCampaignDebugBackgroundWarOccupierSupportAfter);
+			AddCampaignDebugBackgroundWarOrderAssertions(orderCase, "invader", invaderOrder, m_Preset.m_sInvaderFactionKey, m_iCampaignDebugBackgroundWarInvaderAttackBefore, m_iCampaignDebugBackgroundWarInvaderAttackAfter, m_iCampaignDebugBackgroundWarInvaderSupportBefore, m_iCampaignDebugBackgroundWarInvaderSupportAfter);
+		}
 
 		FinalizeCampaignDebugCaseFromAssertions(orderCase);
 		return orderCase;
+	}
+
+	protected void AddCampaignDebugBackgroundWarOrderAssertions(HST_CampaignDebugCaseResult orderCase, string label, HST_EnemyOrderState order, string expectedFactionKey, int attackBefore, int attackAfter, int supportBefore, int supportAfter)
+	{
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".order_created", label + " commander tick order exists", BuildCampaignDebugEnemyOrderActual(order), CampaignDebugStatus(order != null), label + " commander tick did not create a new order");
+		if (!order)
+			return;
+
+		HST_ZoneState targetZone = m_State.FindZone(order.m_sTargetZoneId);
+		int duplicateOpen = CountCampaignDebugOpenOrdersForFactionZone(order.m_sFactionKey, order.m_sTargetZoneId);
+		string targetType = "missing";
+		string targetOwner = "missing";
+		int targetCaptureProgress = -1;
+		if (targetZone)
+		{
+			targetType = ResolveZoneTypeLabel(targetZone.m_eType);
+			targetOwner = EmptyCampaignDebugField(targetZone.m_sOwnerFactionKey);
+			targetCaptureProgress = targetZone.m_iResistanceCaptureProgress;
+		}
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".prefix", "order id carries current debug prefix", EmptyCampaignDebugField(order.m_sOrderId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix)), label + " background-war order was not retagged with the run prefix", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".faction", "order faction matches expected enemy faction", EmptyCampaignDebugField(order.m_sFactionKey), CampaignDebugStatus(order.m_sFactionKey == expectedFactionKey), label + " background-war order faction mismatch", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".status", "order is active after commander tick", string.Format("%1 | runtime %2", order.m_eStatus, EmptyCampaignDebugField(order.m_sRuntimeStatus)), CampaignDebugStatus(order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE), label + " background-war order is not active after commander tick", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".target_poi", "target is a valid POI zone", string.Format("zone %1 | type %2 | owner %3", targetZone != null, targetType, targetOwner), CampaignDebugStatus(targetZone && IsCampaignDebugBackgroundWarPOI(targetZone)), label + " background-war target is not a valid POI", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".target_position", "source and target positions are valid", string.Format("source %1 | target %2", order.m_vSourcePosition, order.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(order.m_vSourcePosition) && !IsZeroVector(order.m_vTargetPosition)), label + " background-war order has invalid source or target position", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".target_hq_safe_area", "target outside HQ safe area unless Petros attack", string.Format("type %1 | target %2", order.m_eType, order.m_sTargetZoneId), CampaignDebugStatus(IsCampaignDebugOrderOutsideHQSafeAreaUnlessPetros(order, targetZone)), label + " background-war target is inside HQ safe area without a Petros attack", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".type_context", "order type matches target context", string.Format("type %1 | target owner %2 | progress %3", order.m_eType, targetOwner, targetCaptureProgress), CampaignDebugStatus(IsCampaignDebugExpectedBackgroundWarOrderType(order, targetZone)), label + " background-war order type does not match target context", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".duplicate_guard", "only one open order for faction/target", string.Format("%1", duplicateOpen), CampaignDebugStatus(duplicateOpen == 1), label + " background-war commander tick created duplicate open orders for one faction/target", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".resource_spend", "attack/support pools spent at least the order costs", string.Format("attack %1 -> %2 cost %3 | support %4 -> %5 cost %6", attackBefore, attackAfter, order.m_iAttackCost, supportBefore, supportAfter, order.m_iSupportCost), CampaignDebugStatus(attackBefore - attackAfter >= order.m_iAttackCost && supportBefore - supportAfter >= order.m_iSupportCost), label + " background-war order did not spend expected enemy resources", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase19SupportCase(int index, string label, string result)
@@ -7545,7 +7608,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 18: return "phase18 rebuild";
 			case 19: return "phase18 roadblock";
 			case 20: return "phase18 resolve";
-			case 21: return "phase18 report";
+			case 21: return "phase18 commander tick report";
 			case 22: return "phase19 FIA supply";
 			case 23: return "phase19 FIA ground";
 			case 24: return "phase19 enemy ground";
@@ -7616,7 +7679,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 18: return RequestAdminPhase18SeedRebuild(m_iCampaignDebugPlayerId);
 			case 19: return RequestAdminPhase18SeedRoadblock(m_iCampaignDebugPlayerId);
 			case 20: return RequestAdminPhase18ResolveNow(m_iCampaignDebugPlayerId);
-			case 21: return RequestAdminPhase18Report(m_iCampaignDebugPlayerId);
+			case 21: return RequestAdminPhase18CommanderTickReport(m_iCampaignDebugPlayerId);
 			case 22: return RequestAdminPhase19SeedFIASupply(m_iCampaignDebugPlayerId);
 			case 23: return RequestAdminPhase19SeedFIAGround(m_iCampaignDebugPlayerId);
 			case 24: return RequestAdminPhase19SeedEnemyGround(m_iCampaignDebugPlayerId);
@@ -8098,6 +8161,59 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
 			report = report + "\n" + m_EnemyCommander.BuildPhysicalResponseReport(m_State);
 		}
+		if (m_SupportRequests)
+			report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		if (m_CommandUI)
+			report = report + "\n" + m_CommandUI.BuildEconomyReport(m_State);
+
+		return report;
+	}
+
+	string RequestAdminPhase18CommanderTickReport(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 18 smoke | failed: admin required";
+
+		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
+			return "h-istasi phase 18 smoke | failed: enemy commander not ready";
+
+		bool arranged = ArrangeCampaignDebugBackgroundWarState();
+		CaptureCampaignDebugBackgroundWarPools(true);
+		m_iCampaignDebugBackgroundWarOrderCountBefore = m_State.m_aEnemyOrders.Count();
+		bool changed = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 180);
+		m_iCampaignDebugBackgroundWarOrderCountAfter = m_State.m_aEnemyOrders.Count();
+		CaptureCampaignDebugBackgroundWarPools(false);
+		CaptureCampaignDebugBackgroundWarOrders();
+		if (arranged || changed || m_iCampaignDebugBackgroundWarOrderCountAfter > m_iCampaignDebugBackgroundWarOrderCountBefore)
+			MarkMajorCampaignChange(true);
+
+		string report = string.Format(
+			"h-istasi phase 18 smoke | commander tick %1 | orders %2 -> %3 | resistance %4 | occupier %5 | invader %6",
+			changed,
+			m_iCampaignDebugBackgroundWarOrderCountBefore,
+			m_iCampaignDebugBackgroundWarOrderCountAfter,
+			EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarResistanceZoneId),
+			EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarOccupierZoneId),
+			EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarInvaderZoneId)
+		);
+		report = report + string.Format(
+			"\npools | occupier attack %1 -> %2 support %3 -> %4 | invader attack %5 -> %6 support %7 -> %8",
+			m_iCampaignDebugBackgroundWarOccupierAttackBefore,
+			m_iCampaignDebugBackgroundWarOccupierAttackAfter,
+			m_iCampaignDebugBackgroundWarOccupierSupportBefore,
+			m_iCampaignDebugBackgroundWarOccupierSupportAfter,
+			m_iCampaignDebugBackgroundWarInvaderAttackBefore,
+			m_iCampaignDebugBackgroundWarInvaderAttackAfter,
+			m_iCampaignDebugBackgroundWarInvaderSupportBefore,
+			m_iCampaignDebugBackgroundWarInvaderSupportAfter
+		);
+		report = report + string.Format(
+			"\norders | occupier %1 | invader %2",
+			EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarOccupierOrderId),
+			EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarInvaderOrderId)
+		);
+		report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
+		report = report + "\n" + m_EnemyCommander.BuildPhysicalResponseReport(m_State);
 		if (m_SupportRequests)
 			report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 		if (m_CommandUI)
@@ -9486,6 +9602,305 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return null;
+	}
+
+	protected bool ArrangeCampaignDebugBackgroundWarState()
+	{
+		ResetCampaignDebugBackgroundWarState();
+		if (!m_State || !m_Preset || !m_EnemyDirector)
+			return false;
+
+		bool changed;
+		string resistanceFactionKey = m_Preset.m_sResistanceFactionKey;
+		if (resistanceFactionKey.IsEmpty())
+			resistanceFactionKey = "FIA";
+
+		string occupierFactionKey = m_Preset.m_sOccupierFactionKey;
+		if (occupierFactionKey.IsEmpty())
+			occupierFactionKey = "US";
+
+		string invaderFactionKey = m_Preset.m_sInvaderFactionKey;
+		if (invaderFactionKey.IsEmpty())
+			invaderFactionKey = "USSR";
+
+		array<string> excludedZoneIds = {};
+		HST_ZoneState resistanceZone = SelectCampaignDebugBackgroundWarZone(excludedZoneIds);
+		if (resistanceZone)
+		{
+			changed = ApplyCampaignDebugBackgroundWarZoneProfile(resistanceZone, resistanceFactionKey, 90, 55) || changed;
+			m_sCampaignDebugBackgroundWarResistanceZoneId = resistanceZone.m_sZoneId;
+			excludedZoneIds.Insert(resistanceZone.m_sZoneId);
+		}
+
+		HST_ZoneState occupierZone = SelectCampaignDebugBackgroundWarZone(excludedZoneIds);
+		if (occupierZone)
+		{
+			changed = ApplyCampaignDebugBackgroundWarZoneProfile(occupierZone, occupierFactionKey, 70, 0) || changed;
+			m_sCampaignDebugBackgroundWarOccupierZoneId = occupierZone.m_sZoneId;
+			excludedZoneIds.Insert(occupierZone.m_sZoneId);
+		}
+
+		HST_ZoneState invaderZone = SelectCampaignDebugBackgroundWarZone(excludedZoneIds);
+		if (invaderZone)
+		{
+			changed = ApplyCampaignDebugBackgroundWarZoneProfile(invaderZone, invaderFactionKey, 70, 0) || changed;
+			m_sCampaignDebugBackgroundWarInvaderZoneId = invaderZone.m_sZoneId;
+		}
+
+		if (m_State.m_iWarLevel < 4)
+		{
+			m_State.m_iWarLevel = 4;
+			changed = true;
+		}
+
+		changed = EnsureCampaignDebugBackgroundWarPool(occupierFactionKey, 120, 120, 35) || changed;
+		changed = EnsureCampaignDebugBackgroundWarPool(invaderFactionKey, 120, 120, 35) || changed;
+		return changed;
+	}
+
+	protected void ResetCampaignDebugBackgroundWarState()
+	{
+		m_iCampaignDebugBackgroundWarOrderCountBefore = 0;
+		m_iCampaignDebugBackgroundWarOrderCountAfter = 0;
+		m_iCampaignDebugBackgroundWarOccupierAttackBefore = 0;
+		m_iCampaignDebugBackgroundWarOccupierSupportBefore = 0;
+		m_iCampaignDebugBackgroundWarOccupierAttackAfter = 0;
+		m_iCampaignDebugBackgroundWarOccupierSupportAfter = 0;
+		m_iCampaignDebugBackgroundWarInvaderAttackBefore = 0;
+		m_iCampaignDebugBackgroundWarInvaderSupportBefore = 0;
+		m_iCampaignDebugBackgroundWarInvaderAttackAfter = 0;
+		m_iCampaignDebugBackgroundWarInvaderSupportAfter = 0;
+		m_sCampaignDebugBackgroundWarResistanceZoneId = "";
+		m_sCampaignDebugBackgroundWarOccupierZoneId = "";
+		m_sCampaignDebugBackgroundWarInvaderZoneId = "";
+		m_sCampaignDebugBackgroundWarOccupierOrderId = "";
+		m_sCampaignDebugBackgroundWarInvaderOrderId = "";
+	}
+
+	protected HST_ZoneState SelectCampaignDebugBackgroundWarZone(array<string> excludedZoneIds)
+	{
+		if (!m_State)
+			return null;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!IsCampaignDebugBackgroundWarPOI(zone))
+				continue;
+			if (excludedZoneIds && excludedZoneIds.Contains(zone.m_sZoneId))
+				continue;
+			if (!IsCampaignDebugBackgroundWarOutsideHQSafeArea(zone))
+				continue;
+
+			return zone;
+		}
+
+		foreach (HST_ZoneState fallback : m_State.m_aZones)
+		{
+			if (!fallback)
+				continue;
+			if (excludedZoneIds && excludedZoneIds.Contains(fallback.m_sZoneId))
+				continue;
+			if (fallback.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || fallback.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+
+			return fallback;
+		}
+
+		return null;
+	}
+
+	protected bool ApplyCampaignDebugBackgroundWarZoneProfile(HST_ZoneState zone, string ownerFactionKey, int priority, int support)
+	{
+		if (!zone || ownerFactionKey.IsEmpty())
+			return false;
+
+		bool changed;
+		if (zone.m_sOwnerFactionKey != ownerFactionKey)
+		{
+			zone.m_sOwnerFactionKey = ownerFactionKey;
+			changed = true;
+		}
+		if (zone.m_iPriority < priority)
+		{
+			zone.m_iPriority = priority;
+			changed = true;
+		}
+		if (zone.m_iSupport != support)
+		{
+			zone.m_iSupport = support;
+			changed = true;
+		}
+		if (zone.m_iResistanceCaptureProgress != 0)
+		{
+			zone.m_iResistanceCaptureProgress = 0;
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	protected bool EnsureCampaignDebugBackgroundWarPool(string factionKey, int minAttack, int minSupport, int minAggression)
+	{
+		if (!m_State || !m_EnemyDirector || factionKey.IsEmpty())
+			return false;
+
+		HST_FactionPoolState pool = m_State.FindFactionPool(factionKey);
+		if (!pool)
+			return false;
+
+		bool changed;
+		int attackTopUp = Math.Max(0, minAttack - pool.m_iAttackResources);
+		int supportTopUp = Math.Max(0, minSupport - pool.m_iSupportResources);
+		if (attackTopUp > 0 || supportTopUp > 0)
+		{
+			m_EnemyDirector.AddResources(m_State, factionKey, attackTopUp, supportTopUp);
+			changed = true;
+		}
+		if (pool.m_iAggression < minAggression)
+		{
+			pool.m_iAggression = minAggression;
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	protected void CaptureCampaignDebugBackgroundWarPools(bool beforeTick)
+	{
+		if (!m_State || !m_Preset)
+			return;
+
+		HST_FactionPoolState occupierPool = m_State.FindFactionPool(m_Preset.m_sOccupierFactionKey);
+		HST_FactionPoolState invaderPool = m_State.FindFactionPool(m_Preset.m_sInvaderFactionKey);
+		if (beforeTick)
+		{
+			if (occupierPool)
+			{
+				m_iCampaignDebugBackgroundWarOccupierAttackBefore = occupierPool.m_iAttackResources;
+				m_iCampaignDebugBackgroundWarOccupierSupportBefore = occupierPool.m_iSupportResources;
+			}
+			if (invaderPool)
+			{
+				m_iCampaignDebugBackgroundWarInvaderAttackBefore = invaderPool.m_iAttackResources;
+				m_iCampaignDebugBackgroundWarInvaderSupportBefore = invaderPool.m_iSupportResources;
+			}
+			return;
+		}
+
+		if (occupierPool)
+		{
+			m_iCampaignDebugBackgroundWarOccupierAttackAfter = occupierPool.m_iAttackResources;
+			m_iCampaignDebugBackgroundWarOccupierSupportAfter = occupierPool.m_iSupportResources;
+		}
+		if (invaderPool)
+		{
+			m_iCampaignDebugBackgroundWarInvaderAttackAfter = invaderPool.m_iAttackResources;
+			m_iCampaignDebugBackgroundWarInvaderSupportAfter = invaderPool.m_iSupportResources;
+		}
+	}
+
+	protected void CaptureCampaignDebugBackgroundWarOrders()
+	{
+		if (!m_State || !m_Preset)
+			return;
+
+		for (int i = m_iCampaignDebugBackgroundWarOrderCountBefore; i < m_State.m_aEnemyOrders.Count(); i++)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[i];
+			if (!order)
+				continue;
+
+			if (!MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+				ApplyCampaignDebugEnemyOrderPrefix(order, "phase18_background_war");
+
+			if (order.m_sFactionKey == m_Preset.m_sOccupierFactionKey && m_sCampaignDebugBackgroundWarOccupierOrderId.IsEmpty())
+				m_sCampaignDebugBackgroundWarOccupierOrderId = order.m_sOrderId;
+			else if (order.m_sFactionKey == m_Preset.m_sInvaderFactionKey && m_sCampaignDebugBackgroundWarInvaderOrderId.IsEmpty())
+				m_sCampaignDebugBackgroundWarInvaderOrderId = order.m_sOrderId;
+		}
+	}
+
+	protected HST_EnemyOrderState FindCampaignDebugEnemyOrderById(string orderId)
+	{
+		if (!m_State || orderId.IsEmpty())
+			return null;
+
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (order && order.m_sOrderId == orderId)
+				return order;
+		}
+
+		return null;
+	}
+
+	protected bool IsCampaignDebugBackgroundWarPOI(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+
+		return zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_TOWN;
+	}
+
+	protected bool IsCampaignDebugBackgroundWarOutsideHQSafeArea(HST_ZoneState zone)
+	{
+		if (!zone || !m_State || IsZeroVector(m_State.m_vHQPosition))
+			return true;
+
+		return DistanceSq2D(m_State.m_vHQPosition, zone.m_vPosition) > 1440000.0;
+	}
+
+	protected bool IsCampaignDebugExpectedBackgroundWarOrderType(HST_EnemyOrderState order, HST_ZoneState targetZone)
+	{
+		if (!order || !targetZone || !m_Preset)
+			return false;
+
+		if (targetZone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+			return order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK;
+		if (targetZone.m_iResistanceCaptureProgress > 0)
+			return order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF;
+		if (targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+			return order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK || order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON;
+
+		return order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
+	}
+
+	protected bool IsCampaignDebugOrderOutsideHQSafeAreaUnlessPetros(HST_EnemyOrderState order, HST_ZoneState targetZone)
+	{
+		if (!order || !targetZone || !m_State || IsZeroVector(m_State.m_vHQPosition))
+			return true;
+		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+			return true;
+
+		return DistanceSq2D(m_State.m_vHQPosition, targetZone.m_vPosition) > 1440000.0;
+	}
+
+	protected int CountCampaignDebugOpenOrdersForFactionZone(string factionKey, string zoneId)
+	{
+		if (!m_State || factionKey.IsEmpty() || zoneId.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (!order || order.m_sFactionKey != factionKey || order.m_sTargetZoneId != zoneId)
+				continue;
+			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
+				continue;
+
+			count++;
+		}
+
+		return count;
 	}
 
 	protected HST_ZoneState SelectTownOrderTargetZone()
