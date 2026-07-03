@@ -3029,19 +3029,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_iCampaignDebugMissionSubStep == 1)
 		{
 			ProcessPlayerSpawnSweep("campaign debug mission runtime", true);
-			string runtimeReport = RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
-			runtimeReport = runtimeReport + "\n" + RequestMemberInspectMission(m_iCampaignDebugPlayerId, m_sCampaignDebugCurrentMissionInstanceId);
-			RecordCampaignDebugObservation("runtime mission " + definition.m_sMissionId, runtimeReport);
+			string runtimeReport = BuildCampaignDebugMissionRuntimeReport(m_sCampaignDebugCurrentMissionInstanceId);
+			RecordCampaignDebugResult("runtime mission " + definition.m_sMissionId, runtimeReport, IsCampaignDebugMissionRuntimeHealthy(m_sCampaignDebugCurrentMissionInstanceId, runtimeReport));
 			m_iCampaignDebugMissionSubStep = 2;
 			m_iCampaignDebugWaitSeconds = 1;
 			return;
 		}
 
-		bool completed = false;
-		if (!m_sCampaignDebugCurrentMissionInstanceId.IsEmpty())
-			completed = CompleteMission(m_sCampaignDebugCurrentMissionInstanceId);
+		string completionStatus;
+		bool completed = CompleteCampaignDebugMissionInstance(m_sCampaignDebugCurrentMissionInstanceId, completionStatus);
 
-		string completeResult = string.Format("mission %1 | instance %2 | completed %3", definition.m_sMissionId, m_sCampaignDebugCurrentMissionInstanceId, completed);
+		string completeResult = string.Format("mission %1 | instance %2 | %3", definition.m_sMissionId, m_sCampaignDebugCurrentMissionInstanceId, completionStatus);
 		RecordCampaignDebugResult("complete mission " + definition.m_sMissionId, completeResult, completed);
 		m_sCampaignDebugCurrentMissionInstanceId = "";
 		m_iCampaignDebugMissionIndex++;
@@ -3071,14 +3069,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string label = ResolveCampaignDebugPhaseSmokeLabel(m_iCampaignDebugPhaseStepIndex);
 		string result = ExecuteCampaignDebugPhaseSmokeStep(m_iCampaignDebugPhaseStepIndex);
 		bool reportStep = IsCampaignDebugPhaseSmokeReportStep(m_iCampaignDebugPhaseStepIndex);
-		bool success = reportStep || IsCampaignDebugResultSuccessful(result);
+		bool success = IsCampaignDebugPhaseSmokeResultSuccessful(m_iCampaignDebugPhaseStepIndex, result, reportStep);
 		if (m_iCampaignDebugPhaseStepIndex == 50)
 			success = !result.IsEmpty();
 
 		if (reportStep && m_iCampaignDebugPhaseStepIndex == 50)
 			RecordCampaignDebugResult(label, result, success, true);
 		else if (reportStep)
-			RecordCampaignDebugObservation(label, result);
+			RecordCampaignDebugResult(label, result, success);
 		else
 			RecordCampaignDebugResult(label, result, success);
 		if (m_iCampaignDebugPhaseStepIndex == 44)
@@ -3393,10 +3391,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string BuildCampaignDebugConvoySampleReport()
 	{
 		string report = "h-istasi campaign debug | convoy phase sample";
-		report = report + "\n" + RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
-		report = report + "\n" + RequestMemberInspectConvoyRuntime(m_iCampaignDebugPlayerId);
 		if (!m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
-			report = report + "\n" + RequestMemberInspectMission(m_iCampaignDebugPlayerId, m_sCampaignDebugEarlyMissionInstanceId);
+			report = report + "\n" + BuildCampaignDebugMissionRuntimeReport(m_sCampaignDebugEarlyMissionInstanceId);
+		else
+			report = report + "\n" + RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
 		return report;
 	}
 
@@ -3439,11 +3437,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi campaign debug | failed: no convoy sample mission to complete";
 
 		string instanceId = mission.m_sInstanceId;
-		bool completed = CompleteMission(instanceId);
+		string completionStatus;
+		bool completed = CompleteCampaignDebugMissionInstance(instanceId, completionStatus);
 		m_sCampaignDebugEarlyMissionInstanceId = "";
 		m_sCampaignDebugCurrentMissionInstanceId = "";
 		if (!completed)
-			return "h-istasi campaign debug | failed: convoy sample completion returned false | " + instanceId;
+			return "h-istasi campaign debug | failed: convoy sample completion returned false | " + instanceId + " | " + completionStatus;
 
 		return "h-istasi campaign debug | convoy sample completed | " + instanceId + "\n" + RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
 	}
@@ -3472,13 +3471,84 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ProcessPlayerSpawnSweep("campaign debug primitive runtime", true);
 		string report = "h-istasi campaign debug | phase 13 primitive sample";
 		report = report + "\n" + startResult;
-		report = report + "\n" + RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
-		report = report + "\n" + RequestMemberInspectMission(m_iCampaignDebugPlayerId, instanceId);
-		bool completed = CompleteMission(instanceId);
+		report = report + "\n" + BuildCampaignDebugMissionRuntimeReport(instanceId);
+		string completionStatus;
+		bool completed = CompleteCampaignDebugMissionInstance(instanceId, completionStatus);
 		if (!completed)
-			return report + "\nh-istasi campaign debug | failed: primitive sample completion returned false";
+			return report + "\nh-istasi campaign debug | failed: primitive sample completion returned false | " + completionStatus;
 
 		return report + "\nh-istasi campaign debug | primitive sample completed | " + instanceId;
+	}
+
+	protected string BuildCampaignDebugMissionRuntimeReport(string instanceId)
+	{
+		string report = RequestMemberInspectMission(m_iCampaignDebugPlayerId, instanceId);
+		if (!m_State || instanceId.IsEmpty())
+			return report;
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		if (m_PhysicalWar && mission && mission.m_sRuntimePrimitive == "convoy_intercept")
+			report = report + "\n" + m_PhysicalWar.BuildConvoyRuntimeReport(m_State, mission);
+
+		return report;
+	}
+
+	protected bool IsCampaignDebugMissionRuntimeHealthy(string instanceId, string report)
+	{
+		if (!IsCampaignDebugResultSuccessful(report))
+			return false;
+		if (!m_State || instanceId.IsEmpty())
+			return false;
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		if (!mission)
+			return false;
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED || mission.m_sRuntimePhase == "failed")
+			return false;
+		if (!mission.m_bRuntimeSpawned)
+			return false;
+		if (mission.m_bRuntimeFallback && mission.m_sRuntimePrimitive != "abstract_fallback")
+			return false;
+		if (!mission.m_sRuntimeFailureReason.IsEmpty())
+			return false;
+		if (mission.m_sRuntimePrimitive == "convoy_intercept" && m_State.CountMissionAssets(instanceId, "convoy_vehicle") <= 0)
+			return false;
+
+		return true;
+	}
+
+	protected bool CompleteCampaignDebugMissionInstance(string instanceId, out string completionStatus)
+	{
+		completionStatus = "completed 0";
+		if (!m_State || instanceId.IsEmpty())
+		{
+			completionStatus = "completed 0 | missing campaign state or instance";
+			return false;
+		}
+
+		bool completed = CompleteMission(instanceId);
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		if (completed)
+		{
+			if (mission)
+				completionStatus = string.Format("completed 1 | status %1 | phase %2 | failure %3", mission.m_eStatus, mission.m_sRuntimePhase, EmptyCampaignDebugField(mission.m_sRuntimeFailureReason));
+			else
+				completionStatus = "completed 1 | mission record missing after completion";
+			return true;
+		}
+
+		if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+		{
+			completionStatus = string.Format("already succeeded | status %1 | phase %2 | failure %3", mission.m_eStatus, mission.m_sRuntimePhase, EmptyCampaignDebugField(mission.m_sRuntimeFailureReason));
+			return true;
+		}
+
+		if (mission)
+			completionStatus = string.Format("completed 0 | status %1 | phase %2 | failure %3", mission.m_eStatus, mission.m_sRuntimePhase, EmptyCampaignDebugField(mission.m_sRuntimeFailureReason));
+		else
+			completionStatus = "completed 0 | mission record missing";
+
+		return false;
 	}
 
 	protected string RunCampaignDebugZoneActivationToggle()
@@ -3809,10 +3879,52 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (result.Contains("failed:") || result.Contains("admin required") || result.Contains("server required") || result.Contains("not ready") || result.Contains("could not"))
 			return false;
-		if (result.Contains("missing visible command") || result.Contains("missing dispatch"))
+		if (result.Contains("missing visible command:") || result.Contains("missing dispatch:"))
 			return false;
 
 		return true;
+	}
+
+	protected bool IsCampaignDebugPhaseSmokeResultSuccessful(int index, string result, bool reportStep)
+	{
+		if (result.IsEmpty())
+			return false;
+
+		if (reportStep)
+			return !IsCampaignDebugAdministrativeFailure(result);
+
+		switch (index)
+		{
+			case 39: return result.Contains("HQ knowledge seeded");
+			case 40: return result.Contains("queue Petros attack 1");
+			case 41: return result.Contains("start defense mission 1") && result.Contains("order 1");
+			case 43: return result.Contains("succeed defense 1");
+			case 44: return result.Contains("Petros killed");
+		}
+
+		return IsCampaignDebugResultSuccessful(result);
+	}
+
+	protected bool IsCampaignDebugAdministrativeFailure(string result)
+	{
+		if (result.IsEmpty())
+			return true;
+		if (result == "FAIL" || result.Contains("| FAIL") || result.Contains("FAIL |"))
+			return true;
+		if (result.Contains("failed: admin required") || result.Contains("failed: server required") || result.Contains("admin required") || result.Contains("server required"))
+			return true;
+		if (result.Contains("service not ready") || result.Contains("state not ready") || result.Contains("campaign state not ready"))
+			return true;
+
+		return false;
+	}
+
+	protected string EmptyCampaignDebugField(string value)
+	{
+		if (value.IsEmpty())
+			return "none";
+
+		return value;
 	}
 
 	protected string ShortCampaignDebugLine(string text, int maxCharacters)

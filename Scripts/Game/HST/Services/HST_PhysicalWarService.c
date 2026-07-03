@@ -1090,11 +1090,18 @@ class HST_PhysicalWarService
 
 		m_aRuntimeVehicleGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeVehicleEntities.Insert(vehicleEntity);
-		activeGroup.m_sRuntimeStatus = ResolveMissionConvoyRuntimeStatus(mission);
+		bool crewPopulationPending = activeGroup.m_sRuntimeStatus == "spawn_pending_agents" && activeGroup.m_iSpawnedAgentCount <= 0;
+		if (!crewPopulationPending)
+			activeGroup.m_sRuntimeStatus = ResolveMissionConvoyRuntimeStatus(mission);
 		activeGroup.m_iAssignedWaypointCount = 0;
 		string adapterBindReason;
 		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
-		if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, adapterBindReason))
+		if (crewPopulationPending)
+		{
+			activeGroup.m_sSpawnFallbackMode = "convoy_crew_population_pending";
+			activeGroup.m_sSpawnFailureReason = "Convoy crew group is awaiting AI agent population.";
+		}
+		else if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, adapterBindReason))
 		{
 			activeGroup.m_sSpawnFallbackMode = "convoy_driver_available";
 			activeGroup.m_sSpawnFailureReason = adapterBindReason;
@@ -2622,10 +2629,16 @@ class HST_PhysicalWarService
 
 	protected bool IsConvoyCrewPopulationPending(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
-		if (!state || !activeGroup || !activeGroup.m_bSpawnedEntity || activeGroup.m_iSpawnedAgentCount > 0)
+		if (!state || !activeGroup || activeGroup.m_iSpawnedAgentCount > 0)
 			return false;
+		if (state.m_iElapsedSeconds >= activeGroup.m_iSpawnedAtSecond + CONVOY_CREW_POPULATION_GRACE_SECONDS)
+			return false;
+		if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
+			return true;
+		if (activeGroup.m_bSpawnAttempted && GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId))
+			return true;
 
-		return state.m_iElapsedSeconds < activeGroup.m_iSpawnedAtSecond + CONVOY_CREW_POPULATION_GRACE_SECONDS;
+		return false;
 	}
 
 	protected bool IsRestoredMissionConvoyRuntimeRebindPending(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -5079,6 +5092,7 @@ class HST_PhysicalWarService
 			activeGroup.m_iLastSeenAliveCount = agentCount;
 			activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, agentCount);
 			RefreshActiveGroupZoneCounts(state, activeGroup);
+			TryBindPopulatedMissionConvoyGroup(state, activeGroup);
 			DebugLog(string.Format("active group populated %1 live agents %2 expected %3", activeGroup.m_sGroupId, agentCount, activeGroup.m_iInfantryCount));
 			return;
 		}
@@ -5094,6 +5108,40 @@ class HST_PhysicalWarService
 		activeGroup.m_iSurvivorVehicleCount = 0;
 		RefreshActiveGroupZoneCounts(state, activeGroup);
 		Print(string.Format("h-istasi | active group failed %1 prefab %2: zero agents after grace", activeGroup.m_sGroupId, activeGroup.m_sPrefab), LogLevel.WARNING);
+	}
+
+	protected bool TryBindPopulatedMissionConvoyGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!IsMissionConvoyGroup(activeGroup))
+			return false;
+
+		HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
+		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
+			return false;
+
+		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
+		if (!crewEntity || !vehicleEntity)
+			return false;
+
+		string seatingReason;
+		if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, seatingReason))
+		{
+			activeGroup.m_sSpawnFallbackMode = "convoy_driver_available";
+			activeGroup.m_sSpawnFailureReason = "Convoy crew populated and bound: " + seatingReason;
+			RefreshMissionConvoyCrewCount(activeGroup);
+			return true;
+		}
+
+		if (seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for animated AI boarding"))
+			activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
+		else
+			activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
+
+		activeGroup.m_sSpawnFailureReason = "Convoy crew populated; binding pending: " + seatingReason;
+		if (activeGroup.m_sSpawnFailureReason.IsEmpty())
+			activeGroup.m_sSpawnFailureReason = "Convoy crew populated; binding pending.";
+		return true;
 	}
 
 	protected void RefreshActiveGroupZoneCounts(HST_CampaignState state, HST_ActiveGroupState activeGroup)

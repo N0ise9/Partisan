@@ -196,7 +196,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Player marker facing rotation lives in the marker widget component, not the marker service. `HST_PlayerMapMarkerDynamicWComponent` rotates only `MarkerIcon` from the player entity's map yaw, leaving `MarkerText` upright and avoiding extra server marker churn. The `whisper` icon art points roughly 50 degrees off its widget zero after in-game alignment, so apply the icon forward offset when converting yaw to widget rotation.
   - Current working player-marker layout: `{6985327711306214}UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout`.
   - Custom player marker entries that set a name must also call `SetTextVisible(true)`.
-  - Player markers should be gated to the active campaign phase. Setup bootstrap player entities are not gameplay map markers and can pollute the setup map or create stale dynamic handles before HQ setup is finalized.
+  - Player markers should be gated to post-setup gameplay, not only `HST_CAMPAIGN_ACTIVE`. Setup bootstrap player entities are not gameplay map markers and can pollute the setup map or create stale dynamic handles before HQ setup is finalized, but markers should continue publishing once HQ is deployed, including campaign won/lost states and the end of a full debug run.
   - For faction-colored player markers, resolve `SCR_FactionManager.SGetPlayerFaction(playerId)` client-side and fall back to the FIA faction color before using a hardcoded color.
   - Player marker reconcile signatures must include the resolved player/entity faction key, not just player id, target entity, and name. Faction assignment can arrive after the marker is created, and skipping reconciliation on an unchanged entity can leave the native marker with stale stream rules.
   - Do not hard-code the native marker stream faction to FIA. Use `SCR_FactionManager.SGetPlayerFaction(playerId)` first, then the controlled entity's `FactionAffiliationComponent`, and leave the stream key empty if neither is available so a bad fallback does not hide the player's own marker.
@@ -428,6 +428,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - A destructive full-campaign runner that calls member/commander APIs must normalize the clicking admin's authority for the run.
   - Admin status alone does not imply commander status. Temporarily make the actor member/commander while the runner executes, then restore the previous commander identity on completion.
   - This avoids false failures in commander-gated systems such as HQ rebuild, income, training, and support requests.
+
+- Full-campaign debug report classification must not scan stale aggregate text as if it belonged to the current action.
+  - Mission-sweep runtime checks should inspect the selected mission instance, then append selected convoy diagnostics only for that mission. Global mission runtime reports include completed/failed historical mission records and can poison every later mission with old `failed:` text.
+  - Diagnostic report steps should be judged by report availability/admin errors, not by generic action failure substrings. Summaries such as `missing dispatch 0`, expected Defend Petros failure text, or historical support/order failure reasons are useful diagnostics, not proof that the current report step failed.
+  - UI coverage reports should only fail on explicit detail rows such as `missing visible command:` or `missing dispatch:`, not on the zero-count summary labels.
+
+- Convoy mission runtime should not fall back to a generic mission prop when convoy vehicle asset planning fails.
+  - A convoy with `spawned 1` and `vehicle asset count 0` is misleading: the physical convoy did not exist even though the generic runtime prop spawned.
+  - Keep the convoy unspawned, preserve `m_sRuntimeFailureReason`, and log the road/destination/slot-plan reason so the next debug run shows whether the blocker is destination road resolution, the 2000-5000m band, full-column slot probing, or vehicle footprint checks.
+  - Convoy vehicle spawn and AI crew population are asynchronous. If an AIGroup initially has zero agents, preserve `spawn_pending_agents` while the convoy vehicle is spawned; otherwise the delayed population callback will skip the group and the convoy health check can fail immediately with `Convoy could not spawn three crewed vehicles.` even though the agents were still inside the population grace window.
+  - When the delayed AIGroup population callback does find agents for a convoy crew group, immediately retry the convoy vehicle binding path. The normal spawn path may already have both crew and vehicle runtime handles, so a handle-missing respawn check will not necessarily revisit seating by itself.
 
 - Terminal campaign phases need special runner handling.
   - If `EOnFrame` returns early for `HST_CAMPAIGN_WON` or `HST_CAMPAIGN_LOST`, tick the debug runner before returning or a forced victory/loss step can strand the sequence.

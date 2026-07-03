@@ -63,7 +63,7 @@ class HST_PlayerMapMarkerService
 		{
 			bool cleared = ClearAll();
 			if (cleared)
-				DebugLog("cleared player markers while campaign is not active");
+				DebugLog("cleared player markers before gameplay marker publication is available");
 			return cleared;
 		}
 
@@ -301,7 +301,10 @@ class HST_PlayerMapMarkerService
 
 	protected bool ShouldPublishPlayerMarkers(HST_CampaignState state)
 	{
-		return state && state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		if (!state || !state.m_bHQDeployed)
+			return false;
+
+		return state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
 	}
 
 	protected IEntity ResolveControlledPlayerEntity(PlayerManager playerManager, int playerId)

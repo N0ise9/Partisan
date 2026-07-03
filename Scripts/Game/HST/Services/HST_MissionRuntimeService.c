@@ -558,6 +558,7 @@ class HST_MissionRuntimeService
 		if (!TryResolveConvoyEndPosition(state, mission, convoyEnd, convoyDestinationReason))
 		{
 			mission.m_sRuntimeFailureReason = "No road-resolved convoy destination: " + convoyDestinationReason;
+			Print(string.Format("h-istasi mission runtime | convoy asset plan failed for %1: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
 			return false;
 		}
 		mission.m_vTargetPosition = convoyEnd;
@@ -569,11 +570,13 @@ class HST_MissionRuntimeService
 		if (!TryResolveConvoySpawnPlan(state, mission, convoyRoute, convoyEnd, convoyVehicleCount, convoyStart, convoyStartSlots, convoySpawnPlanReason))
 		{
 			mission.m_sRuntimeFailureReason = "No road-resolved convoy spawn plan found in required 2000-5000m band: " + convoySpawnPlanReason;
+			Print(string.Format("h-istasi mission runtime | convoy asset plan failed for %1: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
 			return false;
 		}
 		if (IsZeroVector(convoyStart) || convoyStartSlots.Count() != convoyVehicleCount)
 		{
 			mission.m_sRuntimeFailureReason = "No road-resolved convoy spawn plan found in required 2000-5000m band: full-column probe returned incomplete slots.";
+			Print(string.Format("h-istasi mission runtime | convoy asset plan failed for %1: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
 			return false;
 		}
 
@@ -1011,6 +1014,11 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || mission.m_sRuntimeEntityId.IsEmpty() || mission.m_sRuntimePrimitive == PRIMITIVE_ABSTRACT_FALLBACK)
 			return false;
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0)
+		{
+			Print(string.Format("h-istasi mission runtime | convoy fallback prop suppressed for %1 because no convoy vehicle assets were planned: %2", mission.m_sInstanceId, ReportText(mission.m_sRuntimeFailureReason)), LogLevel.WARNING);
+			return false;
+		}
 
 		vector position = ResolveRuntimePropPosition(state, mission);
 		string prefab = SelectRuntimePropPrefab(mission.m_sRuntimePrimitive);
