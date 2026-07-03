@@ -157,3 +157,50 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	string m_sGroupStatusAfterRoute;
 	string m_sFailureReason;
 }
+
+class HST_CampaignDebugEscalationProfileResult
+{
+	string m_sLabel;
+	int m_iWarLevel;
+	int m_iAggressionSeed;
+	int m_iAttackBefore;
+	int m_iAttackAfterResourceTick;
+	int m_iAttackAfterCommanderTick;
+	int m_iSupportBefore;
+	int m_iSupportAfterResourceTick;
+	int m_iSupportAfterCommanderTick;
+	int m_iAggressionBefore;
+	int m_iAggressionAfter;
+	int m_iOrdersBefore;
+	int m_iOrdersAfter;
+	int m_iOrdersCreated;
+	int m_iSupportRequestsBefore;
+	int m_iSupportRequestsAfter;
+	int m_iSupportRequestsCreated;
+	int m_iActiveGroupsBefore;
+	int m_iActiveGroupsAfter;
+	int m_iActiveGroupsCreated;
+	int m_iAttackIncomeDelta;
+	int m_iSupportIncomeDelta;
+	bool m_bResourceTickChanged;
+	bool m_bCommanderTickChanged;
+	string m_sOrderIds;
+	string m_sOrderTypes;
+	string m_sSupportRequestIds;
+}
+
+class HST_CampaignDebugEscalationProbeContext
+{
+	bool m_bArranged;
+	ref HST_CampaignDebugEscalationProfileResult m_Low;
+	ref HST_CampaignDebugEscalationProfileResult m_Mid;
+	ref HST_CampaignDebugEscalationProfileResult m_High;
+	bool m_bDecayChanged;
+	int m_iDecayBefore;
+	int m_iDecayAfter;
+	int m_iDecayElapsedSeconds;
+	int m_iDecayAmount;
+	int m_iDecayEnemyPoolCount;
+	int m_iExpectedDecayTotal;
+	string m_sReport;
+}

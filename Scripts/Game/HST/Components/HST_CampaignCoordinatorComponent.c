@@ -175,6 +175,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugPhase24TerminalEnemyOrders;
 	protected int m_iCampaignDebugPhase24TerminalActiveGroups;
 	protected int m_iCampaignDebugPhase24TerminalRuntimeVehicles;
+	protected ref HST_CampaignDebugEscalationProbeContext m_CampaignDebugPhase24EscalationContext;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
 	protected string m_sCampaignDebugLastResult;
@@ -3019,6 +3020,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ResetCampaignDebugPhase16Observations();
 		ResetCampaignDebugPhase17Observations();
 		ResetCampaignDebugPhase24TerminalSnapshot();
+		m_CampaignDebugPhase24EscalationContext = null;
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
@@ -4432,7 +4434,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string label = ResolveCampaignDebugPhaseSmokeLabel(m_iCampaignDebugPhaseStepIndex);
 		string result = ExecuteCampaignDebugPhaseSmokeStep(m_iCampaignDebugPhaseStepIndex);
-		if (m_iCampaignDebugPhaseStepIndex == 57 || m_iCampaignDebugPhaseStepIndex == 59)
+		if (m_iCampaignDebugPhaseStepIndex == 58 || m_iCampaignDebugPhaseStepIndex == 60)
 			CaptureCampaignDebugPhase24TerminalSnapshot(m_iCampaignDebugPhaseStepIndex);
 		bool reportStep = IsCampaignDebugPhaseSmokeReportStep(m_iCampaignDebugPhaseStepIndex);
 		bool success = IsCampaignDebugPhaseSmokeResultSuccessful(m_iCampaignDebugPhaseStepIndex, result, reportStep);
@@ -5723,6 +5725,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		order.m_sOrderId = m_sCampaignDebugMarkerPrefix + "_order_" + SafeCampaignDebugToken(label) + "_" + SafeCampaignDebugToken(originalOrderId);
 		RetagCampaignDebugMarkers(originalOrderId, order.m_sOrderId);
 		return order.m_sOrderId;
+	}
+
+	protected string ApplyCampaignDebugActiveGroupPrefix(HST_ActiveGroupState group, string label)
+	{
+		if (!m_bCampaignDebugRunning || !group || m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return "";
+		if (MissionValueHasCampaignDebugPrefix(group.m_sGroupId, m_sCampaignDebugMarkerPrefix))
+			return group.m_sGroupId;
+
+		string originalGroupId = group.m_sGroupId;
+		group.m_sGroupId = m_sCampaignDebugMarkerPrefix + "_group_" + SafeCampaignDebugToken(label) + "_" + SafeCampaignDebugToken(originalGroupId);
+		if (m_State)
+		{
+			foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+			{
+				if (request && request.m_sGroupId == originalGroupId)
+					request.m_sGroupId = group.m_sGroupId;
+			}
+
+			foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+			{
+				if (order && order.m_sGroupId == originalGroupId)
+					order.m_sGroupId = group.m_sGroupId;
+			}
+		}
+
+		RetagCampaignDebugMarkers(originalGroupId, group.m_sGroupId);
+		return group.m_sGroupId;
 	}
 
 	protected HST_EnemyOrderState FindLatestCampaignDebugEnemyOrder(int countBefore)
@@ -8826,7 +8856,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (index >= 51 && index <= 61)
+		if (index >= 51 && index <= 62)
 			RecordCampaignDebugCase(BuildCampaignDebugPhase24PacingCase(index, label, result));
 	}
 
@@ -10841,20 +10871,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(pacingCase, "phase24.late.control", "FIA controls a high share of counted strategic zones without accidental end", string.Format("FIA %1 | enemy %2 | control %3", fiaZones, enemyZones, controlPercent), CampaignDebugStatus(fiaZones > 0 && controlPercent > 0 && enemyZones > 0), "late-game zone control profile mismatch");
 			AddCampaignDebugAssertion(pacingCase, "phase24.late.war_level", "late profile war level is above baseline or explicitly warns", string.Format("%1", m_State.m_iWarLevel), CampaignDebugStatus(m_State.m_iWarLevel >= 3, "WARN"), "late-game war level did not rise above early baseline");
 		}
-		else if (index == 57 || index == 58)
+		else if (index == 57)
+		{
+			AddCampaignDebugPhase24EscalationAssertions(pacingCase);
+		}
+		else if (index == 58 || index == 59)
 		{
 			AddCampaignDebugAssertion(pacingCase, "phase24.victory.phase", "campaign phase WON", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON), "forced victory did not set campaign phase WON");
 			AddCampaignDebugAssertion(pacingCase, "phase24.victory.reason", "campaign end reason names victory and report generated", string.Format("reason %1 | summary %2 | report %3", EmptyCampaignDebugField(m_State.m_sCampaignEndReason), EmptyCampaignDebugField(m_State.m_sCampaignEndSummary), m_State.m_bCampaignEndReportGenerated), CampaignDebugStatus(m_State.m_bCampaignEndReportGenerated && m_State.m_sCampaignEndReason.Contains("victory") && !m_State.m_sCampaignEndSummary.IsEmpty()), "forced victory did not populate victory end metadata");
 			AddCampaignDebugAssertion(pacingCase, "phase24.victory.control", "control percent reaches configured victory threshold", string.Format("control %1 | threshold %2 | FIA %3 | enemy %4", m_State.m_iCampaignEndControlPercent, m_Balance.m_iVictoryControlPercent, m_State.m_iCampaignEndFIAZones, m_State.m_iCampaignEndEnemyZones), CampaignDebugStatus(m_State.m_iCampaignEndControlPercent >= m_Balance.m_iVictoryControlPercent && m_State.m_iCampaignEndFIAZones > m_State.m_iCampaignEndEnemyZones), "forced victory persisted control metadata below victory threshold");
-			if (index == 58)
+			if (index == 59)
 				AddCampaignDebugPhase24TerminalInactivityAssertions(pacingCase, "victory");
 		}
-		else if (index >= 59 && index <= 61)
+		else if (index >= 60 && index <= 62)
 		{
 			AddCampaignDebugAssertion(pacingCase, "phase24.loss.phase", "campaign phase LOST", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST), "forced loss did not set campaign phase LOST");
 			AddCampaignDebugAssertion(pacingCase, "phase24.loss.reason", "campaign end reason names loss and report generated", string.Format("reason %1 | summary %2 | report %3", EmptyCampaignDebugField(m_State.m_sCampaignEndReason), EmptyCampaignDebugField(m_State.m_sCampaignEndSummary), m_State.m_bCampaignEndReportGenerated), CampaignDebugStatus(m_State.m_bCampaignEndReportGenerated && m_State.m_sCampaignEndReason.Contains("loss") && !m_State.m_sCampaignEndSummary.IsEmpty()), "forced loss did not populate loss end metadata");
 			AddCampaignDebugAssertion(pacingCase, "phase24.loss.thresholds", "loss thresholds are satisfied", string.Format("money %1 <= %2 | HR %3 <= %4 | Petros deaths %5 >= %6", m_State.m_iFactionMoney, m_Balance.m_iLossMoneyThreshold, m_State.m_iHR, m_Balance.m_iLossHRThreshold, m_State.m_iPetrosDeaths, m_Balance.m_iLossPetrosDeathLimit), CampaignDebugStatus(m_State.m_iFactionMoney <= m_Balance.m_iLossMoneyThreshold && m_State.m_iHR <= m_Balance.m_iLossHRThreshold && m_State.m_iPetrosDeaths >= m_Balance.m_iLossPetrosDeathLimit), "forced loss state does not satisfy configured loss thresholds");
-			if (index == 60 || index == 61)
+			if (index == 61 || index == 62)
 				AddCampaignDebugPhase24TerminalInactivityAssertions(pacingCase, "loss");
 		}
 
@@ -10868,6 +10902,462 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		return string.Format("phase %1 | money %2 | HR %3 | training %4 | war %5 | control %6 | FIA zones %7 | enemy zones %8 | end %9", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel, controlPercent, fiaZones, enemyZones, m_State.m_bCampaignEndReportGenerated);
+	}
+
+	protected void AddCampaignDebugPhase24EscalationAssertions(HST_CampaignDebugCaseResult pacingCase)
+	{
+		if (!pacingCase)
+			return;
+
+		HST_CampaignDebugEscalationProbeContext escalationContext = m_CampaignDebugPhase24EscalationContext;
+		if (!escalationContext)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24.escalation.context", "escalation probe context captured", "missing", "BLOCKED", "Phase 24 escalation pressure probe did not run");
+			return;
+		}
+
+		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "low", escalationContext.m_Low);
+		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "mid", escalationContext.m_Mid);
+		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "high", escalationContext.m_High);
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.decay_before", string.Format("%1", escalationContext.m_iDecayBefore), "aggression");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.decay_after", string.Format("%1", escalationContext.m_iDecayAfter), "aggression");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.decay_expected_total", string.Format("%1", escalationContext.m_iExpectedDecayTotal), "aggression");
+
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.context", "escalation probe context captured", "present", "PASS", "");
+		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "low", escalationContext.m_Low, 1);
+		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "mid", escalationContext.m_Mid, 3);
+		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "high", escalationContext.m_High, 6);
+
+		bool attackScaling = escalationContext.m_Low && escalationContext.m_Mid && escalationContext.m_High && escalationContext.m_Mid.m_iAttackIncomeDelta >= escalationContext.m_Low.m_iAttackIncomeDelta && escalationContext.m_High.m_iAttackIncomeDelta >= escalationContext.m_Mid.m_iAttackIncomeDelta;
+		bool supportScaling = escalationContext.m_Low && escalationContext.m_Mid && escalationContext.m_High && escalationContext.m_Mid.m_iSupportIncomeDelta >= escalationContext.m_Low.m_iSupportIncomeDelta && escalationContext.m_High.m_iSupportIncomeDelta >= escalationContext.m_Mid.m_iSupportIncomeDelta;
+		string scalingActual = BuildCampaignDebugPhase24EscalationScalingActual(escalationContext);
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.attack_scaling", "enemy attack income delta is low <= mid <= high", scalingActual, CampaignDebugStatus(attackScaling), "enemy attack income did not scale monotonically with war level");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.support_scaling", "enemy support income delta is low <= mid <= high", scalingActual, CampaignDebugStatus(supportScaling), "enemy support income did not scale monotonically with war level");
+
+		bool orderActivityScaling = escalationContext.m_Low && escalationContext.m_Mid && escalationContext.m_High && escalationContext.m_Low.m_iOrdersCreated > 0 && escalationContext.m_Mid.m_iOrdersCreated >= escalationContext.m_Low.m_iOrdersCreated && escalationContext.m_High.m_iOrdersCreated >= escalationContext.m_Mid.m_iOrdersCreated;
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.order_activity", "commander creates orders and activity is low <= mid <= high", scalingActual, CampaignDebugStatus(orderActivityScaling), "commander order activity did not stay monotonic across escalation profiles");
+
+		int totalSupportCreated = CountCampaignDebugEscalationSupportCreated(escalationContext);
+		int totalGroupsCreated = CountCampaignDebugEscalationGroupsCreated(escalationContext);
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.support_physicalization", "active target bubble can create linked support requests", string.Format("support requests +%1", totalSupportCreated), CampaignDebugStatus(totalSupportCreated > 0, "WARN"), "escalation orders did not physicalize into support requests during the controlled probe");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.group_physicalization", "support path may spawn routed active groups", string.Format("groups +%1", totalGroupsCreated), CampaignDebugStatus(totalGroupsCreated > 0, "WARN"), "escalation support did not spawn active groups during the controlled probe");
+		AddCampaignDebugPhase24EscalationDecayAssertion(pacingCase, escalationContext);
+	}
+
+	protected void AddCampaignDebugPhase24EscalationProfileMetrics(HST_CampaignDebugCaseResult pacingCase, string label, HST_CampaignDebugEscalationProfileResult profile)
+	{
+		if (!pacingCase || !profile)
+			return;
+
+		string prefix = "phase24.escalation." + label;
+		AddCampaignDebugMetric(pacingCase, prefix + ".war_level", string.Format("%1", profile.m_iWarLevel), "level");
+		AddCampaignDebugMetric(pacingCase, prefix + ".attack_income_delta", string.Format("%1", profile.m_iAttackIncomeDelta), "attack");
+		AddCampaignDebugMetric(pacingCase, prefix + ".support_income_delta", string.Format("%1", profile.m_iSupportIncomeDelta), "support");
+		AddCampaignDebugMetric(pacingCase, prefix + ".orders_created", string.Format("%1", profile.m_iOrdersCreated), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".support_requests_created", string.Format("%1", profile.m_iSupportRequestsCreated), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".active_groups_created", string.Format("%1", profile.m_iActiveGroupsCreated), "count");
+	}
+
+	protected void AddCampaignDebugPhase24EscalationProfileAssertions(HST_CampaignDebugCaseResult pacingCase, string label, HST_CampaignDebugEscalationProfileResult profile, int expectedWarLevel)
+	{
+		if (!pacingCase)
+			return;
+		if (!profile)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".profile", "profile result exists", "missing", "BLOCKED", "escalation profile did not run");
+			return;
+		}
+
+		string profileActual = BuildCampaignDebugPhase24EscalationProfileActual(profile);
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".war_level", "profile war level matches seed", string.Format("%1", profile.m_iWarLevel), CampaignDebugStatus(profile.m_iWarLevel == expectedWarLevel), label + " escalation profile war level mismatch");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".resource_tick", "enemy resource tick ran and produced income", profileActual, CampaignDebugStatus(profile.m_bResourceTickChanged && profile.m_iAttackIncomeDelta > 0 && profile.m_iSupportIncomeDelta > 0), label + " escalation profile did not produce enemy resource income");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".commander_tick", "enemy commander tick created at least one real order", profileActual, CampaignDebugStatus(profile.m_bCommanderTickChanged && profile.m_iOrdersCreated > 0), label + " escalation profile did not create enemy commander orders");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".order_prefix", "created order ids carry current debug prefix", EmptyCampaignDebugField(profile.m_sOrderIds), CampaignDebugStatus(profile.m_iOrdersCreated <= 0 || profile.m_sOrderIds.Contains(m_sCampaignDebugMarkerPrefix)), label + " escalation orders were not retagged for cleanup");
+	}
+
+	protected string BuildCampaignDebugPhase24EscalationProfileActual(HST_CampaignDebugEscalationProfileResult profile)
+	{
+		if (!profile)
+			return "missing";
+
+		string actual = string.Format("war %1 | attack %2 -> %3 -> %4", profile.m_iWarLevel, profile.m_iAttackBefore, profile.m_iAttackAfterResourceTick, profile.m_iAttackAfterCommanderTick);
+		actual = actual + string.Format(" | support %1 -> %2 -> %3", profile.m_iSupportBefore, profile.m_iSupportAfterResourceTick, profile.m_iSupportAfterCommanderTick);
+		actual = actual + string.Format(" | aggression %1 -> %2 | orders +%3", profile.m_iAggressionBefore, profile.m_iAggressionAfter, profile.m_iOrdersCreated);
+		actual = actual + string.Format(" | support +%1 | groups +%2 | order types %3", profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated, EmptyCampaignDebugField(profile.m_sOrderTypes));
+		return actual;
+	}
+
+	protected string BuildCampaignDebugPhase24EscalationScalingActual(HST_CampaignDebugEscalationProbeContext escalationContext)
+	{
+		if (!escalationContext)
+			return "missing";
+
+		string lowText = BuildCampaignDebugPhase24EscalationScalePart(escalationContext.m_Low);
+		string midText = BuildCampaignDebugPhase24EscalationScalePart(escalationContext.m_Mid);
+		string highText = BuildCampaignDebugPhase24EscalationScalePart(escalationContext.m_High);
+		return "low " + lowText + " | mid " + midText + " | high " + highText;
+	}
+
+	protected string BuildCampaignDebugPhase24EscalationScalePart(HST_CampaignDebugEscalationProfileResult profile)
+	{
+		if (!profile)
+			return "missing";
+
+		return string.Format("war %1 attack +%2 support +%3 orders +%4", profile.m_iWarLevel, profile.m_iAttackIncomeDelta, profile.m_iSupportIncomeDelta, profile.m_iOrdersCreated);
+	}
+
+	protected int CountCampaignDebugEscalationSupportCreated(HST_CampaignDebugEscalationProbeContext escalationContext)
+	{
+		if (!escalationContext)
+			return 0;
+
+		int totalCreated;
+		if (escalationContext.m_Low)
+			totalCreated += escalationContext.m_Low.m_iSupportRequestsCreated;
+		if (escalationContext.m_Mid)
+			totalCreated += escalationContext.m_Mid.m_iSupportRequestsCreated;
+		if (escalationContext.m_High)
+			totalCreated += escalationContext.m_High.m_iSupportRequestsCreated;
+		return totalCreated;
+	}
+
+	protected int CountCampaignDebugEscalationGroupsCreated(HST_CampaignDebugEscalationProbeContext escalationContext)
+	{
+		if (!escalationContext)
+			return 0;
+
+		int totalCreated;
+		if (escalationContext.m_Low)
+			totalCreated += escalationContext.m_Low.m_iActiveGroupsCreated;
+		if (escalationContext.m_Mid)
+			totalCreated += escalationContext.m_Mid.m_iActiveGroupsCreated;
+		if (escalationContext.m_High)
+			totalCreated += escalationContext.m_High.m_iActiveGroupsCreated;
+		return totalCreated;
+	}
+
+	protected void AddCampaignDebugPhase24EscalationDecayAssertion(HST_CampaignDebugCaseResult pacingCase, HST_CampaignDebugEscalationProbeContext escalationContext)
+	{
+		if (!pacingCase || !escalationContext)
+			return;
+
+		int expectedAfter = Math.Max(0, escalationContext.m_iDecayBefore - escalationContext.m_iExpectedDecayTotal);
+		string decayStatus = "FAIL";
+		if (escalationContext.m_iDecayEnemyPoolCount <= 0)
+			decayStatus = "BLOCKED";
+		else if (escalationContext.m_iDecayAmount <= 0)
+			decayStatus = "SKIPPED";
+		else if (escalationContext.m_bDecayChanged && escalationContext.m_iDecayAfter == expectedAfter)
+			decayStatus = "PASS";
+
+		string decayActual = string.Format("before %1 | after %2 | expected %3 | amount %4 | pools %5", escalationContext.m_iDecayBefore, escalationContext.m_iDecayAfter, expectedAfter, escalationContext.m_iDecayAmount, escalationContext.m_iDecayEnemyPoolCount);
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.aggression_decay", "aggression decay applies exact configured amount per enemy pool without underflow", decayActual, decayStatus, "aggression decay did not match configured pacing");
+	}
+
+	protected HST_CampaignDebugEscalationProbeContext RunCampaignDebugPhase24EscalationProbe()
+	{
+		HST_CampaignDebugEscalationProbeContext escalationContext = new HST_CampaignDebugEscalationProbeContext();
+		if (!m_State || !m_Preset || !m_Balance || !m_Economy || !m_EnemyDirector || !m_EnemyCommander || !m_SupportRequests)
+		{
+			escalationContext.m_sReport = "h-istasi phase 24 escalation pressure | failed: services not ready";
+			return escalationContext;
+		}
+
+		escalationContext.m_bArranged = ArrangeCampaignDebugBackgroundWarState();
+		escalationContext.m_Low = RunCampaignDebugPhase24EscalationProfile("low", 1, 50, 50, 10);
+		escalationContext.m_Mid = RunCampaignDebugPhase24EscalationProfile("mid", 3, 50, 50, 35);
+		escalationContext.m_High = RunCampaignDebugPhase24EscalationProfile("high", 6, 50, 50, 70);
+		RunCampaignDebugPhase24AggressionDecayProbe(escalationContext);
+		escalationContext.m_sReport = BuildCampaignDebugPhase24EscalationReport(escalationContext);
+		return escalationContext;
+	}
+
+	protected HST_CampaignDebugEscalationProfileResult RunCampaignDebugPhase24EscalationProfile(string label, int warLevel, int baseAttack, int baseSupport, int aggression)
+	{
+		HST_CampaignDebugEscalationProfileResult profile = new HST_CampaignDebugEscalationProfileResult();
+		profile.m_sLabel = label;
+		profile.m_iWarLevel = warLevel;
+		profile.m_iAggressionSeed = aggression;
+		if (!m_State || !m_Preset || !m_Balance || !m_EnemyDirector || !m_EnemyCommander)
+			return profile;
+
+		ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase24_escalation_" + label);
+		PrepareCampaignDebugPhase24EscalationProfile(warLevel, baseAttack, baseSupport, aggression);
+		int attackBefore;
+		int supportBefore;
+		int aggressionBefore;
+		CaptureCampaignDebugEnemyPoolTotals(attackBefore, supportBefore, aggressionBefore);
+		profile.m_iAttackBefore = attackBefore;
+		profile.m_iSupportBefore = supportBefore;
+		profile.m_iAggressionBefore = aggressionBefore;
+		profile.m_iOrdersBefore = m_State.m_aEnemyOrders.Count();
+		profile.m_iSupportRequestsBefore = m_State.m_aSupportRequests.Count();
+		profile.m_iActiveGroupsBefore = m_State.m_aActiveGroups.Count();
+		m_State.m_iEnemyResourceAccumulatorSeconds = 0;
+
+		profile.m_bResourceTickChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, HST_EnemyDirectorService.RESOURCE_TICK_SECONDS);
+		int attackAfterResource;
+		int supportAfterResource;
+		int aggressionAfterResource;
+		CaptureCampaignDebugEnemyPoolTotals(attackAfterResource, supportAfterResource, aggressionAfterResource);
+		profile.m_iAttackAfterResourceTick = attackAfterResource;
+		profile.m_iSupportAfterResourceTick = supportAfterResource;
+		profile.m_iAggressionAfter = aggressionAfterResource;
+		profile.m_iAttackIncomeDelta = profile.m_iAttackAfterResourceTick - profile.m_iAttackBefore;
+		profile.m_iSupportIncomeDelta = profile.m_iSupportAfterResourceTick - profile.m_iSupportBefore;
+
+		profile.m_bCommanderTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, HST_EnemyCommanderService.ORDER_TICK_SECONDS);
+		RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, label);
+		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
+		bool physicalizeChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+		RetagCampaignDebugEscalationSupportRequests(profile, profile.m_iSupportRequestsBefore, label);
+		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+		bool syncChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+		bool routeChanged;
+		if (m_PhysicalWar)
+			routeChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+		RetagCampaignDebugEscalationGroups(profile.m_iActiveGroupsBefore, label);
+		RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, label);
+		profile.m_bCommanderTickChanged = profile.m_bCommanderTickChanged || physicalizeChanged || supportChanged || syncChanged || routeChanged;
+
+		int attackAfterCommander;
+		int supportAfterCommander;
+		int aggressionAfterCommander;
+		CaptureCampaignDebugEnemyPoolTotals(attackAfterCommander, supportAfterCommander, aggressionAfterCommander);
+		profile.m_iAttackAfterCommanderTick = attackAfterCommander;
+		profile.m_iSupportAfterCommanderTick = supportAfterCommander;
+		profile.m_iAggressionAfter = aggressionAfterCommander;
+		profile.m_iOrdersAfter = m_State.m_aEnemyOrders.Count();
+		profile.m_iOrdersCreated = Math.Max(0, profile.m_iOrdersAfter - profile.m_iOrdersBefore);
+		profile.m_iSupportRequestsAfter = m_State.m_aSupportRequests.Count();
+		profile.m_iSupportRequestsCreated = Math.Max(0, profile.m_iSupportRequestsAfter - profile.m_iSupportRequestsBefore);
+		profile.m_iActiveGroupsAfter = m_State.m_aActiveGroups.Count();
+		profile.m_iActiveGroupsCreated = Math.Max(0, profile.m_iActiveGroupsAfter - profile.m_iActiveGroupsBefore);
+		return profile;
+	}
+
+	protected void PrepareCampaignDebugPhase24EscalationProfile(int warLevel, int baseAttack, int baseSupport, int aggression)
+	{
+		if (!m_State || !m_Preset)
+			return;
+
+		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		ResetCampaignEndState();
+		m_State.m_iWarLevel = warLevel;
+		m_State.m_iHQKnowledge = 0;
+		m_State.m_iHQThreatLevel = 0;
+		m_State.m_iEnemyResourceAccumulatorSeconds = 0;
+
+		HST_ZoneState resistanceProfileZone = m_State.FindZone(m_sCampaignDebugBackgroundWarResistanceZoneId);
+		if (resistanceProfileZone)
+		{
+			ApplyCampaignDebugBackgroundWarZoneProfile(resistanceProfileZone, m_Preset.m_sResistanceFactionKey, 180, 70);
+			resistanceProfileZone.m_bActive = true;
+		}
+
+		HST_ZoneState occupierProfileZone = m_State.FindZone(m_sCampaignDebugBackgroundWarOccupierZoneId);
+		if (occupierProfileZone)
+			ApplyCampaignDebugBackgroundWarZoneProfile(occupierProfileZone, m_Preset.m_sOccupierFactionKey, 90, 0);
+
+		HST_ZoneState invaderProfileZone = m_State.FindZone(m_sCampaignDebugBackgroundWarInvaderZoneId);
+		if (invaderProfileZone)
+			ApplyCampaignDebugBackgroundWarZoneProfile(invaderProfileZone, m_Preset.m_sInvaderFactionKey, 90, 0);
+
+		SetCampaignDebugEnemyPoolsForEscalation(baseAttack, baseSupport, aggression);
+	}
+
+	protected int SetCampaignDebugEnemyPoolsForEscalation(int attack, int support, int aggression)
+	{
+		if (!m_State || !m_Preset)
+			return 0;
+
+		int poolCount;
+		foreach (HST_FactionPoolState pool : m_State.m_aFactionPools)
+		{
+			if (!pool || pool.m_sFactionKey == m_Preset.m_sResistanceFactionKey)
+				continue;
+
+			pool.m_iAttackResources = Math.Max(0, attack);
+			pool.m_iSupportResources = Math.Max(0, support);
+			pool.m_iAggression = Math.Max(0, aggression);
+			poolCount++;
+		}
+
+		return poolCount;
+	}
+
+	protected void CaptureCampaignDebugEnemyPoolTotals(out int attack, out int support, out int aggression)
+	{
+		attack = 0;
+		support = 0;
+		aggression = 0;
+		if (!m_State || !m_Preset)
+			return;
+
+		foreach (HST_FactionPoolState pool : m_State.m_aFactionPools)
+		{
+			if (!pool || pool.m_sFactionKey == m_Preset.m_sResistanceFactionKey)
+				continue;
+
+			attack += pool.m_iAttackResources;
+			support += pool.m_iSupportResources;
+			aggression += pool.m_iAggression;
+		}
+	}
+
+	protected int ResolveCampaignDebugOpenEnemyOrdersForEscalation(string reason)
+	{
+		if (!m_State)
+			return 0;
+
+		int resolvedCount;
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (!order)
+				continue;
+			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
+				continue;
+
+			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
+			order.m_iResolvedAtSecond = m_State.m_iElapsedSeconds;
+			order.m_sRuntimeStatus = reason;
+			order.m_sResolutionKind = reason;
+			resolvedCount++;
+		}
+
+		return resolvedCount;
+	}
+
+	protected void RetagCampaignDebugEscalationOrders(HST_CampaignDebugEscalationProfileResult profile, int orderStartIndex, string label)
+	{
+		if (!profile || !m_State)
+			return;
+
+		string orderIds;
+		string orderTypes;
+		int startIndex = Math.Max(0, orderStartIndex);
+		for (int orderIndex = startIndex; orderIndex < m_State.m_aEnemyOrders.Count(); orderIndex++)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[orderIndex];
+			if (!order)
+				continue;
+
+			if (!MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+				ApplyCampaignDebugEnemyOrderPrefix(order, "phase24_escalation_" + label);
+			if (!orderIds.IsEmpty())
+				orderIds = orderIds + ", ";
+			orderIds = orderIds + EmptyCampaignDebugField(order.m_sOrderId);
+			if (!orderTypes.IsEmpty())
+				orderTypes = orderTypes + ", ";
+			orderTypes = orderTypes + string.Format("%1", order.m_eType);
+		}
+
+		profile.m_sOrderIds = orderIds;
+		profile.m_sOrderTypes = orderTypes;
+	}
+
+	protected void RetagCampaignDebugEscalationSupportRequests(HST_CampaignDebugEscalationProfileResult profile, int requestStartIndex, string label)
+	{
+		if (!profile || !m_State)
+			return;
+
+		string requestIds;
+		int startIndex = Math.Max(0, requestStartIndex);
+		for (int requestIndex = startIndex; requestIndex < m_State.m_aSupportRequests.Count(); requestIndex++)
+		{
+			HST_SupportRequestState supportRequest = m_State.m_aSupportRequests[requestIndex];
+			if (!supportRequest)
+				continue;
+
+			string originalRequestId = supportRequest.m_sRequestId;
+			string prefixedRequestId = ApplyCampaignDebugSupportRequestPrefix(supportRequest, "phase24_escalation_" + label);
+			if (!prefixedRequestId.IsEmpty())
+				RetagCampaignDebugEscalationSupportLinks(originalRequestId, prefixedRequestId);
+			int inboundLeadSeconds = ResolveCampaignDebugSupportInboundLeadSeconds(supportRequest);
+			if (supportRequest.m_iETASeconds > inboundLeadSeconds)
+				supportRequest.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, supportRequest.m_iETASeconds - inboundLeadSeconds);
+			if (!requestIds.IsEmpty())
+				requestIds = requestIds + ", ";
+			requestIds = requestIds + EmptyCampaignDebugField(supportRequest.m_sRequestId);
+		}
+
+		profile.m_sSupportRequestIds = requestIds;
+	}
+
+	protected void RetagCampaignDebugEscalationSupportLinks(string oldRequestId, string newRequestId)
+	{
+		if (!m_State || oldRequestId.IsEmpty() || newRequestId.IsEmpty())
+			return;
+
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (order && order.m_sSupportRequestId == oldRequestId)
+				order.m_sSupportRequestId = newRequestId;
+		}
+	}
+
+	protected void RetagCampaignDebugEscalationGroups(int groupStartIndex, string label)
+	{
+		if (!m_State)
+			return;
+
+		int startIndex = Math.Max(0, groupStartIndex);
+		for (int groupIndex = startIndex; groupIndex < m_State.m_aActiveGroups.Count(); groupIndex++)
+		{
+			HST_ActiveGroupState group = m_State.m_aActiveGroups[groupIndex];
+			if (group)
+				ApplyCampaignDebugActiveGroupPrefix(group, "phase24_escalation_" + label);
+		}
+	}
+
+	protected void RunCampaignDebugPhase24AggressionDecayProbe(HST_CampaignDebugEscalationProbeContext escalationContext)
+	{
+		if (!escalationContext || !m_State || !m_Preset || !m_Balance || !m_Economy)
+			return;
+
+		escalationContext.m_iDecayEnemyPoolCount = SetCampaignDebugEnemyPoolsForEscalation(50, 50, 80);
+		m_State.m_iAggressionAccumulatorSeconds = 0;
+		int decayAttackBefore;
+		int decaySupportBefore;
+		int decayAggressionBefore;
+		CaptureCampaignDebugEnemyPoolTotals(decayAttackBefore, decaySupportBefore, decayAggressionBefore);
+		escalationContext.m_iDecayBefore = decayAggressionBefore;
+		escalationContext.m_iDecayElapsedSeconds = Math.Max(60, m_Balance.m_iAggressionDecayIntervalSeconds);
+		escalationContext.m_iDecayAmount = Math.Max(0, m_Balance.m_iAggressionDecayAmount);
+		escalationContext.m_iExpectedDecayTotal = escalationContext.m_iDecayAmount * escalationContext.m_iDecayEnemyPoolCount;
+		escalationContext.m_bDecayChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, escalationContext.m_iDecayElapsedSeconds);
+		int decayAttackAfter;
+		int decaySupportAfter;
+		int decayAggressionAfter;
+		CaptureCampaignDebugEnemyPoolTotals(decayAttackAfter, decaySupportAfter, decayAggressionAfter);
+		escalationContext.m_iDecayAfter = decayAggressionAfter;
+	}
+
+	protected string BuildCampaignDebugPhase24EscalationReport(HST_CampaignDebugEscalationProbeContext escalationContext)
+	{
+		if (!escalationContext)
+			return "h-istasi phase 24 escalation pressure | failed: missing context";
+
+		string report = "h-istasi phase 24 escalation pressure";
+		report = report + string.Format("\narranged %1", escalationContext.m_bArranged);
+		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_Low);
+		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_Mid);
+		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_High);
+		report = report + string.Format("\ndecay | before %1 | after %2 | elapsed %3 | amount %4 | pools %5 | changed %6", escalationContext.m_iDecayBefore, escalationContext.m_iDecayAfter, escalationContext.m_iDecayElapsedSeconds, escalationContext.m_iDecayAmount, escalationContext.m_iDecayEnemyPoolCount, escalationContext.m_bDecayChanged);
+		return report;
+	}
+
+	protected string BuildCampaignDebugPhase24EscalationProfileLine(HST_CampaignDebugEscalationProfileResult profile)
+	{
+		if (!profile)
+			return "profile missing";
+
+		string line = string.Format("%1 | war %2 | aggression %3 -> %4", profile.m_sLabel, profile.m_iWarLevel, profile.m_iAggressionBefore, profile.m_iAggressionAfter);
+		line = line + string.Format(" | attack %1 -> %2 -> %3", profile.m_iAttackBefore, profile.m_iAttackAfterResourceTick, profile.m_iAttackAfterCommanderTick);
+		line = line + string.Format(" | support %1 -> %2 -> %3", profile.m_iSupportBefore, profile.m_iSupportAfterResourceTick, profile.m_iSupportAfterCommanderTick);
+		line = line + string.Format(" | orders +%1 | support +%2 | groups +%3", profile.m_iOrdersCreated, profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated);
+		line = line + string.Format(" | resource tick %1 | commander tick %2", profile.m_bResourceTickChanged, profile.m_bCommanderTickChanged);
+		return line;
 	}
 
 	protected void ResetCampaignDebugPhase24TerminalSnapshot()
@@ -10925,7 +11415,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(pacingCase, "phase24." + terminalLabel + ".post_end_mission_delta", string.Format("%1", m_State.m_aActiveMissions.Count() - m_iCampaignDebugPhase24TerminalActiveMissions), "count");
 		AddCampaignDebugMetric(pacingCase, "phase24." + terminalLabel + ".post_end_support_delta", string.Format("%1", m_State.m_aSupportRequests.Count() - m_iCampaignDebugPhase24TerminalSupportRequests), "count");
 		AddCampaignDebugMetric(pacingCase, "phase24." + terminalLabel + ".post_end_order_delta", string.Format("%1", m_State.m_aEnemyOrders.Count() - m_iCampaignDebugPhase24TerminalEnemyOrders), "count");
-		bool snapshotReady = m_bCampaignDebugPhase24TerminalSnapshotValid && (m_iCampaignDebugPhase24TerminalStepIndex == 57 || m_iCampaignDebugPhase24TerminalStepIndex == 59);
+		bool snapshotReady = m_bCampaignDebugPhase24TerminalSnapshotValid && (m_iCampaignDebugPhase24TerminalStepIndex == 58 || m_iCampaignDebugPhase24TerminalStepIndex == 60);
 		bool phaseTerminal = m_State.m_ePhase == m_eCampaignDebugPhase24TerminalPhase && (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST);
 		AddCampaignDebugAssertion(pacingCase, "phase24." + terminalLabel + ".post_end_phase_guard", "terminal phase remains unchanged across the delayed report step", actual, CampaignDebugStatus(snapshotReady && phaseTerminal), "Phase 24 terminal phase changed or no terminal snapshot was captured");
 		AddCampaignDebugAssertion(pacingCase, "phase24." + terminalLabel + ".post_end_elapsed_guard", "normal elapsed-second progression is skipped while terminal", actual, CampaignDebugStatus(snapshotReady && m_State.m_iElapsedSeconds == m_iCampaignDebugPhase24TerminalElapsed), "terminal phase frame processing advanced campaign elapsed seconds unexpectedly");
@@ -11078,12 +11568,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected int GetCampaignDebugPhaseSmokeStepCount()
 	{
-		return 62;
+		return 63;
 	}
 
 	protected bool ShouldRepairCampaignDebugBeforePhaseSmokeStep(int index)
 	{
-		if (index == 58 || index == 60 || index == 61)
+		if (index == 59 || index == 61 || index == 62)
 			return false;
 
 		return true;
@@ -11111,9 +11601,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 52:
 			case 54:
 			case 56:
-			case 58:
-			case 60:
+			case 59:
 			case 61:
+			case 62:
 				return true;
 		}
 
@@ -11181,11 +11671,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 54: return "phase24 report mid";
 			case 55: return "phase24 seed late";
 			case 56: return "phase24 report late";
-			case 57: return "phase24 force victory";
-			case 58: return "campaign end victory report";
-			case 59: return "phase24 force loss";
-			case 60: return "campaign end loss report";
-			case 61: return "phase24 final report";
+			case 57: return "phase24 escalation pressure";
+			case 58: return "phase24 force victory";
+			case 59: return "campaign end victory report";
+			case 60: return "phase24 force loss";
+			case 61: return "campaign end loss report";
+			case 62: return "phase24 final report";
 		}
 
 		return "phase smoke step " + string.Format("%1", index);
@@ -11252,11 +11743,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 54: return RequestAdminPhase24Report(m_iCampaignDebugPlayerId);
 			case 55: return RequestAdminPhase24SeedLateGame(m_iCampaignDebugPlayerId);
 			case 56: return RequestAdminPhase24Report(m_iCampaignDebugPlayerId);
-			case 57: return RequestAdminPhase24ForceVictory(m_iCampaignDebugPlayerId);
-			case 58: return RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId);
-			case 59: return RequestAdminPhase24ForceLoss(m_iCampaignDebugPlayerId);
-			case 60: return RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId);
-			case 61: return RequestAdminPhase24Report(m_iCampaignDebugPlayerId);
+			case 57: return RequestAdminPhase24EscalationPressure(m_iCampaignDebugPlayerId);
+			case 58: return RequestAdminPhase24ForceVictory(m_iCampaignDebugPlayerId);
+			case 59: return RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId);
+			case 60: return RequestAdminPhase24ForceLoss(m_iCampaignDebugPlayerId);
+			case 61: return RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId);
+			case 62: return RequestAdminPhase24Report(m_iCampaignDebugPlayerId);
 		}
 
 		return "h-istasi campaign debug | failed: unknown phase smoke step";
@@ -12506,6 +12998,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iTrainingLevel = Math.Max(m_State.m_iTrainingLevel, 6);
 		MarkMajorCampaignChange(true);
 		return "h-istasi phase 24 | late game seeded\n" + RequestMemberInspectBalancePacing(playerId);
+	}
+
+	string RequestAdminPhase24EscalationPressure(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 24 escalation | failed: admin required";
+
+		if (!m_State || !m_Preset || !m_Balance || !m_Economy || !m_EnemyDirector || !m_EnemyCommander || !m_SupportRequests)
+			return "h-istasi phase 24 escalation | failed: services not ready";
+
+		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		ResetCampaignEndState();
+		m_CampaignDebugPhase24EscalationContext = RunCampaignDebugPhase24EscalationProbe();
+		if (!m_CampaignDebugPhase24EscalationContext)
+			return "h-istasi phase 24 escalation | failed: probe did not run";
+
+		MarkMajorCampaignChange(true);
+		return m_CampaignDebugPhase24EscalationContext.m_sReport;
 	}
 
 	string RequestAdminPhase24ForceVictory(int playerId)
