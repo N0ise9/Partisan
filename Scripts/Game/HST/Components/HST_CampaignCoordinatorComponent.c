@@ -5267,6 +5267,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int assetCount = RemoveCampaignDebugPrefixedMissionAssets(prefix);
 		int activeGroupCount = RemoveCampaignDebugPrefixedActiveGroups(prefix);
 		int runtimeVehicleCount = RemoveCampaignDebugPrefixedRuntimeVehicles(prefix);
+		int garageVehicleCount = RemoveCampaignDebugPrefixedGarageVehicles(prefix);
 		int qrfCount = RemoveCampaignDebugPrefixedQRFs(prefix);
 		int supportCount = RemoveCampaignDebugPrefixedSupportRequests(prefix);
 		int enemyOrderCount = RemoveCampaignDebugPrefixedEnemyOrders(prefix);
@@ -5289,6 +5290,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.assets_removed", string.Format("%1", assetCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.active_groups_removed", string.Format("%1", activeGroupCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.runtime_vehicles_removed", string.Format("%1", runtimeVehicleCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.garage_vehicles_removed", string.Format("%1", garageVehicleCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.qrfs_removed", string.Format("%1", qrfCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.support_requests_removed", string.Format("%1", supportCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.enemy_orders_removed", string.Format("%1", enemyOrderCount), "count");
@@ -5453,6 +5455,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					example = "runtime vehicle " + vehicle.m_sVehicleRuntimeId;
 			}
 		}
+		foreach (HST_GarageVehicleState garageVehicle : m_State.m_aGarageVehicles)
+		{
+			if (CampaignDebugGarageVehicleMatchesPrefix(garageVehicle, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "garage vehicle " + garageVehicle.m_sVehicleId;
+			}
+		}
 		foreach (HST_QRFState qrf : m_State.m_aQRFs)
 		{
 			if (CampaignDebugQRFMatchesPrefix(qrf, prefix))
@@ -5591,6 +5602,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (CampaignDebugRuntimeVehicleMatchesPrefix(vehicle, prefix))
 			{
 				m_State.m_aRuntimeVehicles.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedGarageVehicles(string prefix)
+	{
+		int removed;
+		for (int garageIndex = m_State.m_aGarageVehicles.Count() - 1; garageIndex >= 0; garageIndex--)
+		{
+			HST_GarageVehicleState garageVehicle = m_State.m_aGarageVehicles[garageIndex];
+			if (CampaignDebugGarageVehicleMatchesPrefix(garageVehicle, prefix))
+			{
+				m_State.m_aGarageVehicles.Remove(garageIndex);
 				removed++;
 			}
 		}
@@ -5737,6 +5764,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return MissionValueHasCampaignDebugPrefix(vehicle.m_sVehicleRuntimeId, prefix);
+	}
+
+	protected bool CampaignDebugGarageVehicleMatchesPrefix(HST_GarageVehicleState garageVehicle, string prefix)
+	{
+		if (!garageVehicle)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(garageVehicle.m_sVehicleId, prefix);
 	}
 
 	protected bool CampaignDebugQRFMatchesPrefix(HST_QRFState qrf, string prefix)
@@ -6967,6 +7002,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		if (index >= 7 && index <= 9)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPhase15GarageCase(index, label, result));
+			return;
+		}
+
 		if (index >= 17 && index <= 21)
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugPhase18EnemyOrderCase(index, label, result));
@@ -7086,6 +7127,122 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		syntheticRecord.m_sPrefab = prefab;
 		syntheticRecord.m_sCategory = category;
 		return m_Arsenal.ResolveUnlockThreshold(syntheticRecord, m_Balance);
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase15GarageCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult garageCase = CreateCampaignDebugCase("phase15." + SafeCampaignDebugToken(label), "phase_smoke", "garage", "phase15");
+		garageCase.m_aEvidence.Insert(result);
+		AddCampaignDebugAssertion(garageCase, "phase15.command_result", "phase 15 command/report accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index))), "phase 15 command returned failure text");
+		if (!m_State || !m_Arsenal)
+		{
+			AddCampaignDebugAssertion(garageCase, "phase15.prerequisite", "campaign state and arsenal service ready", "missing", "BLOCKED", "phase 15 typed probe missing state or arsenal service");
+			FinalizeCampaignDebugCaseFromAssertions(garageCase);
+			return garageCase;
+		}
+
+		HST_GarageVehicleState storedRecord = FindLatestCampaignDebugPhase15GarageVehicle("phase15_smoke_garage");
+		HST_GarageVehicleState sourceRecord = FindLatestCampaignDebugPhase15GarageVehicle("phase15_smoke_source");
+		int garageVehicleCount = m_State.m_aGarageVehicles.Count();
+		int garageAmmoSources = CountGarageSourceVehicles(true, false, false);
+		int garageRepairSources = CountGarageSourceVehicles(false, true, false);
+		int garageFuelSources = CountGarageSourceVehicles(false, false, true);
+		AddCampaignDebugMetric(garageCase, "phase15.garage.vehicles", string.Format("%1", garageVehicleCount), "count");
+		AddCampaignDebugMetric(garageCase, "phase15.garage.ammo_sources", string.Format("%1", garageAmmoSources), "count");
+		AddCampaignDebugMetric(garageCase, "phase15.garage.repair_sources", string.Format("%1", garageRepairSources), "count");
+		AddCampaignDebugMetric(garageCase, "phase15.garage.fuel_sources", string.Format("%1", garageFuelSources), "count");
+
+		if (storedRecord)
+		{
+			int storedCargoCount = CountCampaignDebugStoredVehicleCargoItems(storedRecord);
+			int storedPhase15CargoCount = CountCampaignDebugStoredPhase15Cargo(storedRecord);
+			AddCampaignDebugMetric(garageCase, "phase15.garage.stored_cargo_items", string.Format("%1", storedCargoCount), "count");
+			AddCampaignDebugAssertion(garageCase, "phase15.garage.record", "garage seed creates a stored vehicle record", BuildCampaignDebugGarageVehicleActual(storedRecord), CampaignDebugStatus(true), "");
+			AddCampaignDebugAssertion(garageCase, "phase15.garage.prefix", "debug-run garage id carries the current run prefix", storedRecord.m_sVehicleId, CampaignDebugStatus(!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(storedRecord.m_sVehicleId, m_sCampaignDebugMarkerPrefix)), "Phase 15 garage vehicle id was not prefixed for cleanup");
+			AddCampaignDebugAssertion(garageCase, "phase15.garage.prefab", "stored garage prefab is the smoke vehicle and a valid vehicle root", EmptyCampaignDebugField(storedRecord.m_sPrefab), CampaignDebugStatus(storedRecord.m_sPrefab == PHASE15_SMOKE_VEHICLE_PREFAB && HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(storedRecord.m_sPrefab)), "Phase 15 garage seed stored an unexpected or invalid vehicle prefab");
+			AddCampaignDebugAssertion(garageCase, "phase15.garage.metadata", "garage metadata has cost, fuel, damage, source, and unlocked state", BuildCampaignDebugGarageVehicleActual(storedRecord), CampaignDebugStatus(storedRecord.m_iRedeployCost == 25 && storedRecord.m_fFuel >= 1.0 && storedRecord.m_sDamageState == "ok" && storedRecord.m_bUnlocked && storedRecord.m_sSourceZoneId == "phase15_smoke"), "Phase 15 garage metadata mismatch");
+			AddCampaignDebugAssertion(garageCase, "phase15.garage.transport_policy", "normal smoke vehicle remains a non-source transport", BuildCampaignDebugGarageVehicleActual(storedRecord), CampaignDebugStatus(storedRecord.m_sSourceVehicleKind == "transport" && !storedRecord.m_bAmmoSource && !storedRecord.m_bRepairSource && !storedRecord.m_bFuelSource), "Phase 15 normal garage vehicle was misclassified as a source vehicle");
+			AddCampaignDebugAssertion(garageCase, "phase15.garage.cargo", "stored vehicle cargo contains the Phase 15 cargo item x2", string.Format("cargo entries %1 | phase15 count %2", storedCargoCount, storedPhase15CargoCount), CampaignDebugStatus(storedCargoCount > 0 && storedPhase15CargoCount == 2), "Phase 15 garage seed did not preserve stored cargo");
+		}
+		else if (index == 7 || index == 9)
+		{
+			AddCampaignDebugAssertion(garageCase, "phase15.garage.record", "garage seed creates a stored vehicle record", "missing", CampaignDebugStatus(false), "Phase 15 garage seed did not create a stored vehicle record");
+		}
+
+		if (sourceRecord)
+		{
+			AddCampaignDebugAssertion(garageCase, "phase15.source.record", "source seed creates a stored source vehicle record", BuildCampaignDebugGarageVehicleActual(sourceRecord), CampaignDebugStatus(true), "");
+			AddCampaignDebugAssertion(garageCase, "phase15.source.prefix", "debug-run source id carries the current run prefix", sourceRecord.m_sVehicleId, CampaignDebugStatus(!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(sourceRecord.m_sVehicleId, m_sCampaignDebugMarkerPrefix)), "Phase 15 source vehicle id was not prefixed for cleanup");
+			AddCampaignDebugAssertion(garageCase, "phase15.source.prefab", "source vehicle prefab resolves as a valid vehicle root", EmptyCampaignDebugField(sourceRecord.m_sPrefab), CampaignDebugStatus(HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(sourceRecord.m_sPrefab)), "Phase 15 source seed stored an invalid vehicle prefab");
+			AddCampaignDebugAssertion(garageCase, "phase15.source.metadata", "source metadata has cost, fuel, damage, source, and unlocked state", BuildCampaignDebugGarageVehicleActual(sourceRecord), CampaignDebugStatus(sourceRecord.m_iRedeployCost == 50 && sourceRecord.m_fFuel >= 1.0 && sourceRecord.m_sDamageState == "ok" && sourceRecord.m_bUnlocked && sourceRecord.m_sSourceZoneId == "phase15_smoke"), "Phase 15 source metadata mismatch");
+			AddCampaignDebugAssertion(garageCase, "phase15.source.ammo_policy", "source vehicle is explicitly marked ammo-only", BuildCampaignDebugGarageVehicleActual(sourceRecord), CampaignDebugStatus(sourceRecord.m_sSourceVehicleKind == "ammo" && sourceRecord.m_bAmmoSource && !sourceRecord.m_bRepairSource && !sourceRecord.m_bFuelSource), "Phase 15 source vehicle did not keep ammo-only metadata");
+		}
+		else if (index == 8 || index == 9)
+		{
+			AddCampaignDebugAssertion(garageCase, "phase15.source.record", "source seed creates a stored source vehicle record", "missing", CampaignDebugStatus(false), "Phase 15 source seed did not create a stored source vehicle record");
+		}
+
+		if (index == 9)
+		{
+			AddCampaignDebugAssertion(garageCase, "phase15.report.garage_records", "Phase 15 report sees both garage fixture records", string.Format("garage %1 | source %2", storedRecord != null, sourceRecord != null), CampaignDebugStatus(storedRecord != null && sourceRecord != null), "Phase 15 report did not find both seeded garage records");
+			AddCampaignDebugAssertion(garageCase, "phase15.report.source_counts", "garage ammo source count is at least one", string.Format("ammo %1 | repair %2 | fuel %3", garageAmmoSources, garageRepairSources, garageFuelSources), CampaignDebugStatus(garageAmmoSources > 0), "Phase 15 report did not expose the seeded ammo source vehicle");
+		}
+
+		FinalizeCampaignDebugCaseFromAssertions(garageCase);
+		return garageCase;
+	}
+
+	protected HST_GarageVehicleState FindLatestCampaignDebugPhase15GarageVehicle(string idToken)
+	{
+		if (!m_State || idToken.IsEmpty())
+			return null;
+
+		for (int garageIndex = m_State.m_aGarageVehicles.Count() - 1; garageIndex >= 0; garageIndex--)
+		{
+			HST_GarageVehicleState garageCandidate = m_State.m_aGarageVehicles[garageIndex];
+			if (garageCandidate && garageCandidate.m_sVehicleId.Contains(idToken))
+				return garageCandidate;
+		}
+
+		return null;
+	}
+
+	protected string BuildCampaignDebugGarageVehicleActual(HST_GarageVehicleState garageRecord)
+	{
+		if (!garageRecord)
+			return "missing";
+
+		return string.Format("id %1 | prefab %2 | kind %3 | A/R/F %4/%5/%6 | cost %7 | cargo %8", EmptyCampaignDebugField(garageRecord.m_sVehicleId), EmptyCampaignDebugField(garageRecord.m_sPrefab), EmptyCampaignDebugField(garageRecord.m_sSourceVehicleKind), garageRecord.m_bAmmoSource, garageRecord.m_bRepairSource, garageRecord.m_bFuelSource, garageRecord.m_iRedeployCost, CountCampaignDebugStoredVehicleCargoItems(garageRecord));
+	}
+
+	protected int CountCampaignDebugStoredVehicleCargoItems(HST_GarageVehicleState garageRecord)
+	{
+		if (!garageRecord)
+			return 0;
+
+		int cargoCount;
+		foreach (HST_StoredVehicleCargoState cargoItem : garageRecord.m_aStoredCargoItems)
+		{
+			if (cargoItem)
+				cargoCount += Math.Max(1, cargoItem.m_iCount);
+		}
+
+		return cargoCount;
+	}
+
+	protected int CountCampaignDebugStoredPhase15Cargo(HST_GarageVehicleState garageRecord)
+	{
+		if (!garageRecord)
+			return 0;
+
+		int phase15CargoCount;
+		foreach (HST_StoredVehicleCargoState phase15CargoItem : garageRecord.m_aStoredCargoItems)
+		{
+			if (phase15CargoItem && phase15CargoItem.m_sItemPrefab == PHASE15_SMOKE_CARGO_PREFAB)
+				phase15CargoCount += Math.Max(1, phase15CargoItem.m_iCount);
+		}
+
+		return phase15CargoCount;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase18EnemyOrderCase(int index, string label, string result)
@@ -10075,7 +10232,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi phase 15 smoke | arsenal service not ready";
 
 		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
-		vehicle.m_sVehicleId = string.Format("phase15_smoke_garage_%1_%2", m_State.m_iElapsedSeconds, m_State.m_aGarageVehicles.Count());
+		vehicle.m_sVehicleId = BuildPhase15SmokeVehicleId("garage");
 		vehicle.m_sPrefab = PHASE15_SMOKE_VEHICLE_PREFAB;
 		vehicle.m_sDisplayName = "Phase 15 Smoke Vehicle";
 		vehicle.m_sSourceZoneId = "phase15_smoke";
@@ -10118,7 +10275,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi phase 15 smoke | failed: no loadable source vehicle prefab candidate configured";
 
 		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
-		vehicle.m_sVehicleId = string.Format("phase15_smoke_source_%1_%2", m_State.m_iElapsedSeconds, m_State.m_aGarageVehicles.Count());
+		vehicle.m_sVehicleId = BuildPhase15SmokeVehicleId("source");
 		vehicle.m_sPrefab = sourcePrefab;
 		vehicle.m_sDisplayName = "Phase 15 Ammo Source Vehicle";
 		vehicle.m_sSourceZoneId = "phase15_smoke";
@@ -10185,6 +10342,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return "";
+	}
+
+	protected string BuildPhase15SmokeVehicleId(string stem)
+	{
+		string idPrefix = "phase15_smoke_" + stem;
+		if (m_bCampaignDebugRunning && !m_sCampaignDebugMarkerPrefix.IsEmpty())
+			idPrefix = m_sCampaignDebugMarkerPrefix + "_" + idPrefix;
+
+		return string.Format("%1_%2_%3", idPrefix, m_State.m_iElapsedSeconds, m_State.m_aGarageVehicles.Count());
 	}
 
 	protected void ApplyPhase15SmokeSourceCapability(HST_GarageVehicleState vehicle)
