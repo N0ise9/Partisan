@@ -175,6 +175,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugPhase24TerminalEnemyOrders;
 	protected int m_iCampaignDebugPhase24TerminalActiveGroups;
 	protected int m_iCampaignDebugPhase24TerminalRuntimeVehicles;
+	protected ref HST_CampaignDebugFailedActionProbeContext m_CampaignDebugPhase23FailedActionContext;
 	protected ref HST_CampaignDebugEscalationProbeContext m_CampaignDebugPhase24EscalationContext;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
@@ -3020,6 +3021,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ResetCampaignDebugPhase16Observations();
 		ResetCampaignDebugPhase17Observations();
 		ResetCampaignDebugPhase24TerminalSnapshot();
+		m_CampaignDebugPhase23FailedActionContext = null;
 		m_CampaignDebugPhase24EscalationContext = null;
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
@@ -10813,6 +10815,99 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.move_hq", "missing hideout negative path included", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing_hideout_id"), "WARN"), "Phase 23 failed-action sample missing HQ negative-path evidence");
 		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.zone_mission", "missing zone negative path included", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing_zone_id"), "WARN"), "Phase 23 failed-action sample missing zone negative-path evidence");
 		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.complete_mission", "missing mission negative path included", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing_mission_id"), "WARN"), "Phase 23 failed-action sample missing mission-completion negative-path evidence");
+		HST_CampaignDebugFailedActionProbeContext failedActionContext = m_CampaignDebugPhase23FailedActionContext;
+		if (!failedActionContext || !failedActionContext.m_bRan)
+		{
+			AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.context", "failed-action mutation snapshot captured", "missing", "BLOCKED", "Phase 23 failed-action sample did not capture before/after state");
+			return;
+		}
+
+		AddCampaignDebugMetric(phaseCase, "phase23.failed_sample.active_missions_delta", string.Format("%1", failedActionContext.m_iActiveMissionsAfter - failedActionContext.m_iActiveMissionsBefore), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.failed_sample.objectives_delta", string.Format("%1", failedActionContext.m_iObjectivesAfter - failedActionContext.m_iObjectivesBefore), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.failed_sample.assets_delta", string.Format("%1", failedActionContext.m_iMissionAssetsAfter - failedActionContext.m_iMissionAssetsBefore), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.failed_sample.support_delta", string.Format("%1", failedActionContext.m_iSupportRequestsAfter - failedActionContext.m_iSupportRequestsBefore), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.failed_sample.orders_delta", string.Format("%1", failedActionContext.m_iEnemyOrdersAfter - failedActionContext.m_iEnemyOrdersBefore), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.failed_sample.markers_delta", string.Format("%1", failedActionContext.m_iMarkersAfter - failedActionContext.m_iMarkersBefore), "count");
+		phaseCase.m_aEvidence.Insert("failed action before | " + ShortCampaignDebugLine(failedActionContext.m_sSnapshotBefore, 260));
+		phaseCase.m_aEvidence.Insert("failed action after | " + ShortCampaignDebugLine(failedActionContext.m_sSnapshotAfter, 260));
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.move_hq_failed", "invalid HQ move returns failed text", ShortCampaignDebugLine(failedActionContext.m_sMoveHQResult, 180), CampaignDebugStatus(failedActionContext.m_sMoveHQResult.Contains("failed:") && failedActionContext.m_sMoveHQResult.Contains("missing_hideout_id")), "invalid HQ move did not fail with the expected missing hideout evidence");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.start_mission_failed", "invalid zone mission start returns failed text", ShortCampaignDebugLine(failedActionContext.m_sStartMissionResult, 180), CampaignDebugStatus(failedActionContext.m_sStartMissionResult.Contains("failed:") && failedActionContext.m_sStartMissionResult.Contains("missing_zone_id")), "invalid mission start did not fail with the expected missing zone evidence");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.complete_mission_failed", "invalid mission completion returns failed text", ShortCampaignDebugLine(failedActionContext.m_sCompleteMissionResult, 180), CampaignDebugStatus(failedActionContext.m_sCompleteMissionResult.Contains("failed:") && failedActionContext.m_sCompleteMissionResult.Contains("missing_mission_id")), "invalid mission completion did not fail with the expected missing mission evidence");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.no_state_mutation", "failed actions do not mutate campaign state snapshot", BuildCampaignDebugFailedActionMutationActual(failedActionContext), CampaignDebugStatus(failedActionContext.m_sSnapshotBefore == failedActionContext.m_sSnapshotAfter), "failed Phase 23 negative actions mutated campaign state");
+	}
+
+	protected HST_CampaignDebugFailedActionProbeContext BuildCampaignDebugFailedActionContext()
+	{
+		HST_CampaignDebugFailedActionProbeContext failedActionContext = new HST_CampaignDebugFailedActionProbeContext();
+		CaptureCampaignDebugFailedActionSnapshot(failedActionContext, true);
+		return failedActionContext;
+	}
+
+	protected void CaptureCampaignDebugFailedActionSnapshot(HST_CampaignDebugFailedActionProbeContext failedActionContext, bool beforeActions)
+	{
+		if (!failedActionContext)
+			return;
+
+		string snapshot = BuildCampaignDebugFailedActionSnapshot();
+		int activeMissionCount;
+		int objectiveCount;
+		int assetCount;
+		int supportCount;
+		int orderCount;
+		int markerCount;
+		if (m_State)
+		{
+			activeMissionCount = m_State.m_aActiveMissions.Count();
+			objectiveCount = m_State.m_aMissionObjectives.Count();
+			assetCount = m_State.m_aMissionAssets.Count();
+			supportCount = m_State.m_aSupportRequests.Count();
+			orderCount = m_State.m_aEnemyOrders.Count();
+			markerCount = m_State.m_aMapMarkers.Count();
+		}
+
+		if (beforeActions)
+		{
+			failedActionContext.m_sSnapshotBefore = snapshot;
+			failedActionContext.m_iActiveMissionsBefore = activeMissionCount;
+			failedActionContext.m_iObjectivesBefore = objectiveCount;
+			failedActionContext.m_iMissionAssetsBefore = assetCount;
+			failedActionContext.m_iSupportRequestsBefore = supportCount;
+			failedActionContext.m_iEnemyOrdersBefore = orderCount;
+			failedActionContext.m_iMarkersBefore = markerCount;
+			return;
+		}
+
+		failedActionContext.m_sSnapshotAfter = snapshot;
+		failedActionContext.m_iActiveMissionsAfter = activeMissionCount;
+		failedActionContext.m_iObjectivesAfter = objectiveCount;
+		failedActionContext.m_iMissionAssetsAfter = assetCount;
+		failedActionContext.m_iSupportRequestsAfter = supportCount;
+		failedActionContext.m_iEnemyOrdersAfter = orderCount;
+		failedActionContext.m_iMarkersAfter = markerCount;
+	}
+
+	protected string BuildCampaignDebugFailedActionSnapshot()
+	{
+		if (!m_State)
+			return "missing state";
+
+		string snapshot = string.Format("phase %1 | hq %2 | hq deployed %3 | petros %4", m_State.m_ePhase, EmptyCampaignDebugField(m_State.m_sHQHideoutId), m_State.m_bHQDeployed, m_State.m_bPetrosAlive);
+		snapshot = snapshot + string.Format(" | hq pos %1 | money %2 | HR %3 | training %4 | war %5 | elapsed %6", m_State.m_vHQPosition, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel, m_State.m_iElapsedSeconds);
+		snapshot = snapshot + string.Format(" | missions %1 objectives %2 assets %3 groups %4 vehicles %5", m_State.m_aActiveMissions.Count(), m_State.m_aMissionObjectives.Count(), m_State.m_aMissionAssets.Count(), m_State.m_aActiveGroups.Count(), m_State.m_aRuntimeVehicles.Count());
+		snapshot = snapshot + string.Format(" | support %1 orders %2 qrf %3 markers %4 tasks %5", m_State.m_aSupportRequests.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aQRFs.Count(), m_State.m_aMapMarkers.Count(), m_State.m_aCampaignTasks.Count());
+		snapshot = snapshot + string.Format(" | garage %1 arsenal %2 civilian %3 undercover %4", m_State.m_aGarageVehicles.Count(), m_State.m_aArsenalItems.Count(), m_State.m_aCivilianZones.Count(), m_State.m_aUndercoverPlayers.Count());
+		return snapshot;
+	}
+
+	protected string BuildCampaignDebugFailedActionMutationActual(HST_CampaignDebugFailedActionProbeContext failedActionContext)
+	{
+		if (!failedActionContext)
+			return "missing";
+
+		string actual = string.Format("missions %1 -> %2 | objectives %3 -> %4 | assets %5 -> %6", failedActionContext.m_iActiveMissionsBefore, failedActionContext.m_iActiveMissionsAfter, failedActionContext.m_iObjectivesBefore, failedActionContext.m_iObjectivesAfter, failedActionContext.m_iMissionAssetsBefore, failedActionContext.m_iMissionAssetsAfter);
+		actual = actual + string.Format(" | support %1 -> %2 | orders %3 -> %4 | markers %5 -> %6", failedActionContext.m_iSupportRequestsBefore, failedActionContext.m_iSupportRequestsAfter, failedActionContext.m_iEnemyOrdersBefore, failedActionContext.m_iEnemyOrdersAfter, failedActionContext.m_iMarkersBefore, failedActionContext.m_iMarkersAfter);
+		actual = actual + string.Format(" | snapshot equal %1", failedActionContext.m_sSnapshotBefore == failedActionContext.m_sSnapshotAfter);
+		return actual;
 	}
 
 	protected int CountCampaignDebugMarkersByCategory(string category)
@@ -12958,10 +13053,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "h-istasi phase 23 failed-action sample | failed: admin required";
 
+		m_CampaignDebugPhase23FailedActionContext = BuildCampaignDebugFailedActionContext();
 		string report = "h-istasi phase 23 failed-action sample";
-		report = report + "\n" + RequestCommanderMoveHQReport(playerId, "missing_hideout_id");
-		report = report + "\n" + RequestCommanderStartZoneMissionReport(playerId, "missing_zone_id");
-		report = report + "\n" + RequestCommanderCompleteMissionReport(playerId, "missing_mission_id");
+		if (!m_CampaignDebugPhase23FailedActionContext)
+			m_CampaignDebugPhase23FailedActionContext = new HST_CampaignDebugFailedActionProbeContext();
+		m_CampaignDebugPhase23FailedActionContext.m_bRan = true;
+		m_CampaignDebugPhase23FailedActionContext.m_sMoveHQResult = RequestCommanderMoveHQReport(playerId, "missing_hideout_id");
+		m_CampaignDebugPhase23FailedActionContext.m_sStartMissionResult = RequestCommanderStartZoneMissionReport(playerId, "missing_zone_id");
+		m_CampaignDebugPhase23FailedActionContext.m_sCompleteMissionResult = RequestCommanderCompleteMissionReport(playerId, "missing_mission_id");
+		CaptureCampaignDebugFailedActionSnapshot(m_CampaignDebugPhase23FailedActionContext, false);
+		report = report + "\n" + m_CampaignDebugPhase23FailedActionContext.m_sMoveHQResult;
+		report = report + "\n" + m_CampaignDebugPhase23FailedActionContext.m_sStartMissionResult;
+		report = report + "\n" + m_CampaignDebugPhase23FailedActionContext.m_sCompleteMissionResult;
+		report = report + "\nmutation snapshot before | " + EmptyCampaignDebugField(m_CampaignDebugPhase23FailedActionContext.m_sSnapshotBefore);
+		report = report + "\nmutation snapshot after | " + EmptyCampaignDebugField(m_CampaignDebugPhase23FailedActionContext.m_sSnapshotAfter);
 		return report;
 	}
 	string RequestAdminPhase24SeedEarlyGame(int playerId)

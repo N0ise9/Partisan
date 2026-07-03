@@ -164,6 +164,28 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	string m_sFailureReason;
 }
 
+class HST_CampaignDebugFailedActionProbeContext
+{
+	bool m_bRan;
+	string m_sMoveHQResult;
+	string m_sStartMissionResult;
+	string m_sCompleteMissionResult;
+	string m_sSnapshotBefore;
+	string m_sSnapshotAfter;
+	int m_iActiveMissionsBefore;
+	int m_iActiveMissionsAfter;
+	int m_iObjectivesBefore;
+	int m_iObjectivesAfter;
+	int m_iMissionAssetsBefore;
+	int m_iMissionAssetsAfter;
+	int m_iSupportRequestsBefore;
+	int m_iSupportRequestsAfter;
+	int m_iEnemyOrdersBefore;
+	int m_iEnemyOrdersAfter;
+	int m_iMarkersBefore;
+	int m_iMarkersAfter;
+}
+
 class HST_CampaignDebugEscalationProfileResult
 {
 	string m_sLabel;
