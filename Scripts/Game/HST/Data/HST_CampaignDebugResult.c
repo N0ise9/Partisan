@@ -67,3 +67,19 @@ class HST_CampaignDebugRunResult
 	ref array<ref HST_CampaignDebugMetric> m_aMetrics = {};
 	ref array<string> m_aArtifacts = {};
 }
+
+class HST_CampaignDebugSupportProbeContext
+{
+	HST_SupportRequestState m_Request;
+	bool m_bRuntimeProbeRan;
+	int m_iEtaRemainingBefore = -1;
+	int m_iEtaRemainingAfter = -1;
+	HST_ESupportRequestStatus m_eStatusBeforeTick = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+	HST_ESupportRequestStatus m_eStatusAfterTick = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+	string m_sRuntimeStatusBeforeTick;
+	string m_sRuntimeStatusAfterTick;
+	bool m_bPhysicalizedBeforeTick;
+	bool m_bPhysicalizedAfterTick;
+	string m_sGroupIdAfterTick;
+	string m_sGroupStatusAfterTick;
+}
