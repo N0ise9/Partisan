@@ -130,5 +130,13 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	vector m_vGroupPositionAfter;
 	float m_fDistanceBefore;
 	float m_fDistanceAfter;
+	int m_iRouteSampleCount;
+	int m_iRouteMovementCount;
+	int m_iRouteDistanceDecreaseCount;
+	float m_fRouteMaxMovementMeters;
+	float m_fRouteMaxDistanceClosedMeters;
+	string m_sRouteSampleHistory;
+	string m_sRouteLastObserved;
+	string m_sGroupStatusAfterRoute;
 	string m_sFailureReason;
 }
