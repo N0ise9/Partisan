@@ -3468,7 +3468,63 @@ class HST_PhysicalWarService
 		}
 
 		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi mission convoy | %1 failed: %2", mission.m_sInstanceId, reason), LogLevel.WARNING);
+		Print(string.Format("h-istasi mission convoy | %1 failed: %2%3", mission.m_sInstanceId, reason, BuildMissionConvoyFailureContext(state, mission)), LogLevel.WARNING);
+	}
+
+	protected string BuildMissionConvoyFailureContext(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "";
+
+		int vehicleAssets;
+		int attemptedGroups;
+		int spawnedGroups;
+		int pendingPopulationGroups;
+		int aliveCrewGroups;
+		int aliveCrew;
+		int crewRuntimeEntities;
+		int vehicleRuntimeEntities;
+		string sample = "";
+		int assetIndex;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != MISSION_CONVOY_VEHICLE_ROLE)
+				continue;
+
+			string groupId = BuildMissionConvoyGroupId(mission, assetIndex);
+			assetIndex++;
+			vehicleAssets++;
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
+			if (!activeGroup)
+			{
+				if (sample.IsEmpty())
+					sample = string.Format(" | sample group %1 missing", ReportText(groupId));
+				continue;
+			}
+
+			if (activeGroup.m_bSpawnAttempted)
+				attemptedGroups++;
+			if (activeGroup.m_bSpawnedEntity)
+				spawnedGroups++;
+			if (IsConvoyCrewPopulationPending(state, activeGroup))
+				pendingPopulationGroups++;
+			if (GetRuntimeCrewGroupEntity(groupId))
+				crewRuntimeEntities++;
+			if (GetRuntimeVehicleEntity(groupId))
+				vehicleRuntimeEntities++;
+
+			int groupAliveCrew = CountAliveRuntimeCrewAgents(activeGroup);
+			if (groupAliveCrew > 0)
+			{
+				aliveCrewGroups++;
+				aliveCrew += groupAliveCrew;
+			}
+
+			if (sample.IsEmpty())
+				sample = string.Format(" | sample group %1 status %2 spawned %3 agents %4 alive %5 mode %6 reason %7", ReportText(groupId), ReportText(activeGroup.m_sRuntimeStatus), ReportBool(activeGroup.m_bSpawnedEntity), activeGroup.m_iSpawnedAgentCount, groupAliveCrew, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason));
+		}
+
+		return string.Format(" | context assets %1 | attempted groups %2 | spawned groups %3 | pending population %4 | alive crew groups %5 | alive crew %6 | crew runtime entities %7 | vehicle runtime entities %8%9", vehicleAssets, attemptedGroups, spawnedGroups, pendingPopulationGroups, aliveCrewGroups, aliveCrew, crewRuntimeEntities, vehicleRuntimeEntities, sample);
 	}
 
 	protected IEntity GetRuntimeCrewGroupEntity(string groupId)
