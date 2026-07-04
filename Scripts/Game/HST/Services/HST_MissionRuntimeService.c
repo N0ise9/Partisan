@@ -5410,6 +5410,11 @@ class HST_MissionRuntimeService
 		return resolved;
 	}
 
+	IEntity GetRuntimeEntityForDebug(string runtimeEntityId)
+	{
+		return GetRuntimeEntity(runtimeEntityId);
+	}
+
 	protected int ResolveConvoyArrivalSeconds(HST_ActiveMissionState mission)
 	{
 		int duration = mission.m_iActiveUntilSecond - mission.m_iStartedAtSecond;

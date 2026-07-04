@@ -8027,6 +8027,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		AddCampaignDebugCaptiveRuntimeFollowAssertions(captiveCase, mission, captive, instanceId);
+		AddCampaignDebugCaptiveVehicleTransportAssertions(captiveCase, mission, captive, instanceId);
 		AddCampaignDebugCaptiveExtractionAssertions(captiveCase, mission, instanceId);
 
 		FinalizeCampaignDebugCaseFromAssertions(captiveCase);
@@ -8131,6 +8132,130 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		followDistanceAssertion.m_vExpectedPosition = followTickPlayerPosition;
 		followDistanceAssertion.m_vActualPosition = followTickCaptivePosition;
 		followDistanceAssertion.m_fDistanceMeters = followDistanceAfterTick;
+	}
+
+	protected void AddCampaignDebugCaptiveVehicleTransportAssertions(HST_CampaignDebugCaseResult captiveCase, HST_ActiveMissionState mission, HST_MissionAssetState captive, string instanceId)
+	{
+		if (!captiveCase || !mission || !captive || !m_State || !m_MissionRuntime)
+		{
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.prerequisite", "campaign state, mission, captive, and runtime service exist", "missing", "BLOCKED", "captive vehicle transport probe prerequisites missing", "", instanceId);
+			return;
+		}
+		if (!captive.m_bAttachedToCarrier || captive.m_sCarriedByVehicleId.IsEmpty())
+		{
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.follow_link", "captive is attached to player carrier before vehicle transport probe", BuildCampaignDebugMissionAssetActual(captive), "BLOCKED", "captive was not following or attached before vehicle transport probe", captive.m_sAssetId, instanceId);
+			return;
+		}
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!playerEntity)
+		{
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.player", "controlled player entity available for vehicle transport probe", "missing", "BLOCKED", "no controlled player entity for captive vehicle transport probe", captive.m_sAssetId, instanceId);
+			return;
+		}
+
+		vector transportPickupPosition = captive.m_vCurrentPosition;
+		if (IsZeroVector(transportPickupPosition))
+			transportPickupPosition = playerEntity.GetOrigin();
+		bool transportTeleport = TeleportCampaignDebugPlayer(transportPickupPosition + "2 0 2", "rescue captive vehicle transport pickup");
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.pickup_teleport", "player teleported near captive before vehicle transport probe", string.Format("%1 | target %2", transportTeleport, transportPickupPosition), CampaignDebugStatus(transportTeleport, "WARN"), "could not place player near captive for vehicle transport probe", captive.m_sAssetId, instanceId);
+
+		string carrierRuntimeId;
+		vector carrierPosition;
+		GenericEntity carrierEntity = SpawnCampaignDebugTransportCarrier(captiveCase, mission, "captive_vehicle", transportPickupPosition, carrierRuntimeId, carrierPosition);
+		if (!carrierEntity)
+			return;
+
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		string playerSeatReason;
+		bool playerSeatIssued = TrySeatCampaignDebugEntityInVehicle(playerEntity, carrierEntity, playerSeatReason);
+		bool playerInCarrierBeforeTick = ResolveCampaignDebugEntityVehicle(playerEntity) == carrierEntity;
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.player_seat_order", "debug player receives a move-in order for the temporary vehicle", string.Format("issued %1 | in carrier %2 | reason %3", playerSeatIssued, playerInCarrierBeforeTick, EmptyCampaignDebugField(playerSeatReason)), CampaignDebugStatus(playerSeatIssued, "BLOCKED"), "debug player could not be ordered into the temporary captive transport vehicle", carrierRuntimeId, instanceId);
+
+		int vehicleSampleSeconds = 3;
+		int vehicleSampleTargetCount = 4;
+		int vehicleActualSampleCount;
+		int vehicleRuntimeChangedCount;
+		float vehicleBestDistance = 999999.0;
+		bool vehiclePlayerInCarrierObserved = playerInCarrierBeforeTick;
+		bool vehicleLoadedObserved;
+		bool vehicleTransportObserved;
+		bool vehicleCompartmentObserved;
+		bool vehicleBoardingObserved;
+		string vehicleSampleHistory;
+		vector vehicleLastCaptivePosition = captive.m_vCurrentPosition;
+		for (int vehicleSampleIndex = 0; vehicleSampleIndex < vehicleSampleTargetCount; vehicleSampleIndex++)
+		{
+			vehicleActualSampleCount++;
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + vehicleSampleSeconds;
+			bool vehicleRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, vehicleSampleSeconds);
+			if (vehicleRuntimeChanged)
+				vehicleRuntimeChangedCount++;
+
+			playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+			bool playerInCarrier = ResolveCampaignDebugEntityVehicle(playerEntity) == carrierEntity;
+			if (playerInCarrier)
+				vehiclePlayerInCarrierObserved = true;
+
+			IEntity captiveEntity = m_MissionRuntime.GetRuntimeEntityForDebug(captive.m_sEntityId);
+			bool captiveInCarrier = IsCampaignDebugEntitySeatedInVehicle(captiveEntity, carrierEntity);
+			bool captiveBoarding = IsCampaignDebugEntityGettingInVehicle(captiveEntity);
+			if (captiveInCarrier)
+				vehicleCompartmentObserved = true;
+			if (captiveBoarding)
+				vehicleBoardingObserved = true;
+
+			float captiveVehicleDistance = Math.Sqrt(DistanceSq2D(captive.m_vCurrentPosition, carrierEntity.GetOrigin()));
+			if (captiveVehicleDistance < vehicleBestDistance)
+				vehicleBestDistance = captiveVehicleDistance;
+			if (captive.m_sLastInteraction == "loaded")
+				vehicleLoadedObserved = true;
+			if (captive.m_sLastInteraction == "loaded" && captiveVehicleDistance <= 12.0)
+				vehicleTransportObserved = true;
+
+			string vehicleSample = string.Format("#%1 player %2 | captive loaded %3 | dist %4m", vehicleSampleIndex + 1, playerInCarrier, captive.m_sLastInteraction == "loaded", Math.Round(captiveVehicleDistance));
+			vehicleSample = vehicleSample + string.Format(" | seated %1 | boarding %2 | changed %3", captiveInCarrier, captiveBoarding, vehicleRuntimeChanged);
+			if (vehicleSampleHistory.IsEmpty())
+				vehicleSampleHistory = vehicleSample;
+			else
+				vehicleSampleHistory = vehicleSampleHistory + " | " + vehicleSample;
+			vehicleLastCaptivePosition = captive.m_vCurrentPosition;
+
+			if (vehicleTransportObserved && (vehicleCompartmentObserved || vehicleBoardingObserved))
+				break;
+		}
+
+		string transportActual = string.Format("player vehicle %1 | loaded %2 | transported %3 | best %4m", vehiclePlayerInCarrierObserved, vehicleLoadedObserved, vehicleTransportObserved, Math.Round(vehicleBestDistance));
+		transportActual = transportActual + string.Format(" | samples %1 | changed %2 | carrier %3", vehicleActualSampleCount, vehicleRuntimeChangedCount, EmptyCampaignDebugField(carrierRuntimeId));
+		string transportStatus = CampaignDebugStatus(vehiclePlayerInCarrierObserved && vehicleTransportObserved);
+		if (!vehiclePlayerInCarrierObserved)
+			transportStatus = "BLOCKED";
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.vehicle_sample_count", string.Format("%1", vehicleActualSampleCount), "count");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.vehicle_runtime_changed", string.Format("%1", vehicleRuntimeChangedCount), "count");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.vehicle_best_distance", string.Format("%1", Math.Round(vehicleBestDistance)), "meters");
+		captiveCase.m_aEvidence.Insert("captive vehicle samples | " + ShortCampaignDebugLine(vehicleSampleHistory, 260));
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle_transport_state", "following captive enters vehicle-loaded transport state near the player vehicle through the real runtime tick", transportActual + " | samples " + ShortCampaignDebugLine(vehicleSampleHistory, 180), transportStatus, "captive did not enter loaded vehicle transport state during the controlled vehicle probe", captive.m_sAssetId, instanceId);
+		HST_CampaignDebugAssertion transportPositionAssertion = AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle_transport_position", "captive state position follows the temporary transport vehicle", string.Format("best %1m | captive %2 | carrier %3", Math.Round(vehicleBestDistance), vehicleLastCaptivePosition, carrierEntity.GetOrigin()), CampaignDebugStatus(vehicleTransportObserved, "WARN"), "captive state did not stay near the temporary transport vehicle", captive.m_sAssetId, instanceId);
+		transportPositionAssertion.m_vExpectedPosition = carrierEntity.GetOrigin();
+		transportPositionAssertion.m_vActualPosition = vehicleLastCaptivePosition;
+		transportPositionAssertion.m_fDistanceMeters = vehicleBestDistance;
+
+		string compartmentActual = string.Format("seated %1 | boarding %2 | player carrier %3 | history %4", vehicleCompartmentObserved, vehicleBoardingObserved, vehiclePlayerInCarrierObserved, ShortCampaignDebugLine(vehicleSampleHistory, 180));
+		string compartmentStatus = CampaignDebugStatus(vehicleCompartmentObserved || vehicleBoardingObserved, "WARN");
+		if (!vehiclePlayerInCarrierObserved || !vehicleTransportObserved)
+			compartmentStatus = "BLOCKED";
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle_compartment_boarding", "captive receives actual vehicle compartment seating or boarding order when vehicle seats are available", compartmentActual, compartmentStatus, "captive vehicle transport used loaded/follow fallback without observed compartment seating", captive.m_sAssetId, instanceId);
+
+		IEntity captiveEntityAfterProbe = m_MissionRuntime.GetRuntimeEntityForDebug(captive.m_sEntityId);
+		string captiveExitReason;
+		bool captiveExited = TryExitCampaignDebugEntityVehicle(captiveEntityAfterProbe, captiveExitReason);
+		string playerExitReason;
+		bool playerExited = TryExitCampaignDebugEntityVehicle(playerEntity, playerExitReason);
+		bool exitTeleport = TeleportCampaignDebugPlayer(carrierEntity.GetOrigin() + "8 0 0", "rescue captive vehicle transport exit");
+		bool carrierCleanup = CleanupCampaignDebugTransportCarrier(carrierEntity, carrierRuntimeId);
+		string cleanupActual = string.Format("player exit %1 (%2) | captive exit %3 (%4)", playerExited, EmptyCampaignDebugField(playerExitReason), captiveExited, EmptyCampaignDebugField(captiveExitReason));
+		cleanupActual = cleanupActual + string.Format(" | teleport %1 | carrier cleanup %2", exitTeleport, carrierCleanup);
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle_cleanup", "temporary captive transport vehicle is cleaned after the probe", cleanupActual, CampaignDebugStatus(carrierCleanup, "WARN"), "captive vehicle transport probe left the temporary vehicle behind", carrierRuntimeId, instanceId);
 	}
 
 	protected void AddCampaignDebugCaptiveExtractionAssertions(HST_CampaignDebugCaseResult captiveCase, HST_ActiveMissionState mission, string instanceId)
@@ -8794,6 +8919,194 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return string.Format("vehicle_%1", carrierRpl.Id());
 
 		return string.Format("vehicle_local_%1_%2", carrierEntity.GetName(), carrierEntity.GetOrigin());
+	}
+
+	protected bool TrySeatCampaignDebugEntityInVehicle(IEntity entity, IEntity vehicleEntity, out string reason)
+	{
+		reason = "";
+		if (!entity || !vehicleEntity)
+		{
+			reason = "entity or vehicle missing";
+			return false;
+		}
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access)
+		{
+			reason = "entity has no compartment access component";
+			return false;
+		}
+		if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
+		{
+			reason = "entity already seated in vehicle";
+			return true;
+		}
+		if (access.IsGettingIn())
+		{
+			reason = "entity already getting into a vehicle";
+			return true;
+		}
+
+		BaseCompartmentManagerComponent compartmentManager = ResolveCampaignDebugCompartmentManager(vehicleEntity);
+		if (!compartmentManager)
+		{
+			reason = "vehicle has no compartment manager";
+			return false;
+		}
+
+		array<BaseCompartmentSlot> slots = {};
+		compartmentManager.GetCompartments(slots);
+		ECompartmentType compartmentType = ECompartmentType.PILOT;
+		BaseCompartmentSlot slot = FindCampaignDebugVehicleSeat(slots, entity, compartmentType);
+		if (!slot)
+		{
+			compartmentType = ECompartmentType.CARGO;
+			slot = FindCampaignDebugVehicleSeat(slots, entity, compartmentType);
+		}
+		if (!slot)
+		{
+			compartmentType = ECompartmentType.TURRET;
+			slot = FindCampaignDebugVehicleSeat(slots, entity, compartmentType);
+		}
+		if (!slot)
+		{
+			reason = "vehicle has no available compartment for entity";
+			return false;
+		}
+
+		if (!access.MoveInVehicle(vehicleEntity, compartmentType, false, slot))
+		{
+			reason = "compartment move-in order rejected";
+			return false;
+		}
+
+		reason = "compartment move-in order issued: " + ResolveCampaignDebugCompartmentLabel(compartmentType);
+		return true;
+	}
+
+	protected bool TryExitCampaignDebugEntityVehicle(IEntity entity, out string reason)
+	{
+		reason = "";
+		if (!entity)
+		{
+			reason = "entity missing";
+			return false;
+		}
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access)
+		{
+			reason = "entity has no compartment access component";
+			return false;
+		}
+		if (!access.IsInCompartment())
+		{
+			reason = "entity not in vehicle";
+			return true;
+		}
+
+		if (!access.GetOutVehicle(EGetOutType.TELEPORT, -1, ECloseDoorAfterActions.INVALID, false))
+		{
+			reason = "vehicle get-out order rejected";
+			return false;
+		}
+
+		reason = "vehicle get-out order issued";
+		return true;
+	}
+
+	protected IEntity ResolveCampaignDebugEntityVehicle(IEntity entity)
+	{
+		if (!entity)
+			return null;
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access || !access.IsInCompartment())
+			return null;
+
+		return access.GetVehicle();
+	}
+
+	protected bool IsCampaignDebugEntitySeatedInVehicle(IEntity entity, IEntity vehicleEntity)
+	{
+		return entity && vehicleEntity && ResolveCampaignDebugEntityVehicle(entity) == vehicleEntity;
+	}
+
+	protected bool IsCampaignDebugEntityGettingInVehicle(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
+		return access && access.IsGettingIn();
+	}
+
+	protected BaseCompartmentManagerComponent ResolveCampaignDebugCompartmentManager(IEntity vehicleEntity)
+	{
+		if (!vehicleEntity)
+			return null;
+
+		SCR_BaseCompartmentManagerComponent scrManager = SCR_BaseCompartmentManagerComponent.Cast(vehicleEntity.FindComponent(SCR_BaseCompartmentManagerComponent));
+		if (scrManager)
+			return scrManager;
+
+		return BaseCompartmentManagerComponent.Cast(vehicleEntity.FindComponent(BaseCompartmentManagerComponent));
+	}
+
+	protected BaseCompartmentSlot FindCampaignDebugVehicleSeat(array<BaseCompartmentSlot> slots, IEntity entity, ECompartmentType compartmentType)
+	{
+		if (!slots || !entity)
+			return null;
+
+		foreach (BaseCompartmentSlot slot : slots)
+		{
+			if (!CampaignDebugVehicleSeatMatchesType(slot, compartmentType))
+				continue;
+			if (!CampaignDebugVehicleSeatAvailableForEntity(slot, entity))
+				continue;
+
+			return slot;
+		}
+
+		return null;
+	}
+
+	protected bool CampaignDebugVehicleSeatMatchesType(BaseCompartmentSlot slot, ECompartmentType compartmentType)
+	{
+		if (!slot)
+			return false;
+		if (compartmentType == ECompartmentType.PILOT)
+			return slot.IsPiloting() || slot.GetType() == ECompartmentType.PILOT;
+
+		return slot.GetType() == compartmentType;
+	}
+
+	protected bool CampaignDebugVehicleSeatAvailableForEntity(BaseCompartmentSlot slot, IEntity entity)
+	{
+		if (!slot || !entity)
+			return false;
+		if (!slot.IsCompartmentAccessible())
+			return false;
+		if (slot.IsOccupied())
+			return false;
+		if (slot.IsReserved() && !slot.IsReservedBy(entity))
+			return false;
+		if (slot.IsGetInLockedFor(entity))
+			return false;
+
+		return true;
+	}
+
+	protected string ResolveCampaignDebugCompartmentLabel(ECompartmentType compartmentType)
+	{
+		if (compartmentType == ECompartmentType.PILOT)
+			return "pilot";
+		if (compartmentType == ECompartmentType.TURRET)
+			return "turret";
+		if (compartmentType == ECompartmentType.CARGO)
+			return "cargo";
+
+		return "compartment";
 	}
 
 	protected void AddCampaignDebugAreaPrimitiveAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission)
