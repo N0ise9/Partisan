@@ -124,6 +124,10 @@ class HST_PhysicalWarService
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
+	protected ref array<string> m_aPendingPopulationGroupIds = {};
+	protected ref array<string> m_aPendingPopulationRequestedStatuses = {};
+	protected ref array<ref HST_ActiveGroupState> m_aPendingPopulationActiveGroups = {};
+	protected ref array<ref HST_CampaignState> m_aPendingPopulationStates = {};
 	protected ref array<string> m_aRuntimeVehicleGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeVehicleEntities = {};
 	protected ref array<ref HST_ConvoyProgressStatus> m_aConvoyProgressStatuses = {};
@@ -6200,6 +6204,7 @@ class HST_PhysicalWarService
 				activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 			m_aRuntimeGroupEntities.Insert(entity);
+			RegisterPendingActiveGroupPopulation(entity, activeGroup, requestedStatus, state);
 			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup, requestedStatus, state, 1);
 			DebugLog(string.Format("active group pending agent population %1 prefab %2", activeGroup.m_sGroupId, activeGroup.m_sPrefab));
 			return true;
@@ -6223,23 +6228,13 @@ class HST_PhysicalWarService
 	protected void ConfirmSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, int attempt)
 	{
 		if (!activeGroup || activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
-			return;
-
-		int agentCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
-		if (agentCount > 0)
 		{
-			activeGroup.m_bSpawnedEntity = true;
-			activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
-			activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
-			activeGroup.m_sSpawnFailureReason = "";
-			activeGroup.m_iSpawnedAgentCount = agentCount;
-			activeGroup.m_iLastSeenAliveCount = agentCount;
-			activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, agentCount);
-			RefreshActiveGroupZoneCounts(state, activeGroup);
-			TryBindPopulatedMissionConvoyGroup(state, activeGroup);
-			DebugLog(string.Format("active group populated %1 live agents %2 expected %3", activeGroup.m_sGroupId, agentCount, activeGroup.m_iInfantryCount));
+			ClearPendingActiveGroupPopulation(activeGroup);
 			return;
 		}
+
+		if (TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "retry"))
+			return;
 
 		if (attempt < ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS)
 		{
@@ -6249,6 +6244,7 @@ class HST_PhysicalWarService
 			return;
 		}
 
+		ClearPendingActiveGroupPopulation(activeGroup);
 		DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
 		activeGroup.m_bSpawnedEntity = false;
 		activeGroup.m_sRuntimeEntityId = "";
@@ -6260,6 +6256,119 @@ class HST_PhysicalWarService
 		activeGroup.m_iSurvivorVehicleCount = 0;
 		RefreshActiveGroupZoneCounts(state, activeGroup);
 		Print(string.Format("h-istasi | active group failed %1 prefab %2: zero agents after grace", activeGroup.m_sGroupId, activeGroup.m_sPrefab), LogLevel.WARNING);
+	}
+
+	protected bool TryFinalizeSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
+	{
+		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+			return false;
+
+		int agentCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
+		if (agentCount <= 0)
+			return false;
+
+		ClearPendingActiveGroupPopulation(activeGroup);
+		activeGroup.m_bSpawnedEntity = true;
+		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
+		activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
+		activeGroup.m_sSpawnFailureReason = "";
+		activeGroup.m_iSpawnedAgentCount = agentCount;
+		activeGroup.m_iLastSeenAliveCount = agentCount;
+		activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, agentCount);
+		RefreshActiveGroupZoneCounts(state, activeGroup);
+		TryBindPopulatedMissionConvoyGroup(state, activeGroup);
+		DebugLog(string.Format("active group populated %1 live agents %2 expected %3 via %4", activeGroup.m_sGroupId, agentCount, activeGroup.m_iInfantryCount, source));
+		return true;
+	}
+
+	protected void RegisterPendingActiveGroupPopulation(IEntity entity, HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state)
+	{
+		if (!entity || !activeGroup)
+			return;
+
+		ClearPendingActiveGroupPopulation(activeGroup);
+		SCR_AIGroup group = SCR_AIGroup.Cast(entity);
+		if (!group)
+			return;
+
+		group.GetOnAllDelayedEntitySpawned().Remove(OnDelayedActiveGroupMembersSpawned);
+		group.GetOnAllDelayedEntitySpawned().Insert(OnDelayedActiveGroupMembersSpawned);
+		m_aPendingPopulationGroupIds.Insert(activeGroup.m_sGroupId);
+		m_aPendingPopulationRequestedStatuses.Insert(requestedStatus);
+		m_aPendingPopulationActiveGroups.Insert(activeGroup);
+		m_aPendingPopulationStates.Insert(state);
+	}
+
+	protected void OnDelayedActiveGroupMembersSpawned(SCR_AIGroup group)
+	{
+		if (!group)
+			return;
+
+		string groupId = ResolveRuntimeGroupIdForEntity(group);
+		int index = FindPendingActiveGroupPopulationIndex(groupId);
+		if (index < 0)
+			return;
+
+		HST_ActiveGroupState activeGroup = m_aPendingPopulationActiveGroups[index];
+		string requestedStatus = m_aPendingPopulationRequestedStatuses[index];
+		HST_CampaignState state = m_aPendingPopulationStates[index];
+		if (!TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "native delayed spawn event"))
+			DebugLog(string.Format("active group delayed spawn event fired before live agents were countable %1", groupId));
+	}
+
+	protected void ClearPendingActiveGroupPopulation(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return;
+
+		string groupId = activeGroup.m_sGroupId;
+		SCR_AIGroup group = SCR_AIGroup.Cast(GetRuntimeGroupEntity(groupId));
+		if (group)
+			group.GetOnAllDelayedEntitySpawned().Remove(OnDelayedActiveGroupMembersSpawned);
+
+		for (int i = m_aPendingPopulationGroupIds.Count() - 1; i >= 0; i--)
+		{
+			if (m_aPendingPopulationGroupIds[i] != groupId)
+				continue;
+
+			m_aPendingPopulationGroupIds.Remove(i);
+			if (i < m_aPendingPopulationRequestedStatuses.Count())
+				m_aPendingPopulationRequestedStatuses.Remove(i);
+			if (i < m_aPendingPopulationActiveGroups.Count())
+				m_aPendingPopulationActiveGroups.Remove(i);
+			if (i < m_aPendingPopulationStates.Count())
+				m_aPendingPopulationStates.Remove(i);
+		}
+	}
+
+	protected int FindPendingActiveGroupPopulationIndex(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return -1;
+
+		for (int i = 0; i < m_aPendingPopulationGroupIds.Count(); i++)
+		{
+			if (m_aPendingPopulationGroupIds[i] == groupId)
+				return i;
+		}
+
+		return -1;
+	}
+
+	protected string ResolveRuntimeGroupIdForEntity(IEntity entity)
+	{
+		if (!entity)
+			return "";
+
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (i >= m_aRuntimeGroupEntities.Count())
+				continue;
+			if (m_aRuntimeGroupEntities[i] == entity)
+				return m_aRuntimeGroupIds[i];
+		}
+
+		return "";
 	}
 
 	protected bool TryBindPopulatedMissionConvoyGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)

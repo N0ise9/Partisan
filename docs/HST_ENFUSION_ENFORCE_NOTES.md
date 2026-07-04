@@ -588,6 +588,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - `AIGroup` prefab spawning is not necessarily populated on the same frame as `SpawnEntityPrefab`.
   - Native/editor logs can report that a group prefab was spawned while its agents are still invisible or pending creation.
   - h-istasi mission/physical-war spawning should keep the existing population grace/polling path before declaring a group failed. The July 2026 logs showed HST-spawned groups reporting zero agents first and then later folding/populating correctly.
+  - `SCR_AIGroup.GetOnAllDelayedEntitySpawned()` is the native signal that the delayed member-spawn list drained. Subscribe to it for pending groups and use the event to retry the live-agent count early, while keeping a timed retry fallback because navmesh/AI budget failures can still drain the list without immediately yielding countable agents.
   - Game Master/editor placement uses the editor path, not the HST physical-war service path. If editor-placed squads only appear after camera movement, inspect streaming/editor placement addons or native editor activation first; do not assume the HST active-group population guard is involved unless HST spawn logs appear around the placement.
 
 - Entity-follow behavior needs an entity waypoint, not a static move waypoint.
