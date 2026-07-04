@@ -4061,6 +4061,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		if (IsCampaignDebugHelicopterSupportType(probeContext.m_eExpectedType))
+		{
+			AddCampaignDebugMetric(supportCase, "support.helicopter_arrival_advance_seconds", string.Format("%1", probeContext.m_iArrivalAdvanceSeconds), "seconds");
+			AddCampaignDebugMetric(supportCase, "support.helicopter_resolved_second", string.Format("%1", probeContext.m_iResolvedAtSecondAfterTerminal), "seconds");
+			string helicopterPolicyActual = string.Format("helo %1 | physicalized %2 -> %3 | group %4 | mode %5", observedSupportRequest.m_bHelicopterStyle, probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(observedSupportRequest.m_sGroupId), EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode));
+			bool helicopterPolicyOk = observedSupportRequest.m_bHelicopterStyle && !observedSupportRequest.m_bPhysicalized && observedSupportRequest.m_sGroupId.IsEmpty();
+			AddCampaignDebugAssertion(supportCase, "support.helicopter_style_policy", "transport-style support is marked helicopter-style and does not use ground group physicalization", helicopterPolicyActual, CampaignDebugStatus(helicopterPolicyOk), "helicopter-style support unexpectedly used ground physicalization state", observedSupportRequest.m_sRequestId);
+			string helicopterEtaActual = string.Format("eta %1 -> %2 | arrival advance %3s | requested %4 | resolved %5", probeContext.m_iEtaRemainingBefore, probeContext.m_iEtaRemainingAfter, probeContext.m_iArrivalAdvanceSeconds, observedSupportRequest.m_iRequestedAtSecond, probeContext.m_iResolvedAtSecondAfterTerminal);
+			bool helicopterEtaOk = probeContext.m_bRuntimeProbeRan && probeContext.m_iEtaRemainingAfter < probeContext.m_iEtaRemainingBefore && probeContext.m_iArrivalAdvanceSeconds > 0 && probeContext.m_iResolvedAtSecondAfterTerminal >= observedSupportRequest.m_iRequestedAtSecond + observedSupportRequest.m_iETASeconds;
+			AddCampaignDebugAssertion(supportCase, "support.helicopter_eta_travel", "transport-style support progresses through its real ETA window", helicopterEtaActual, CampaignDebugStatus(helicopterEtaOk), "helicopter-style support did not progress through its configured ETA window", observedSupportRequest.m_sRequestId);
+			string helicopterResolutionActual = string.Format("arrival tick %1 | status %2 | runtime %3 | resolution %4 | abstract %5 | outcome %6", probeContext.m_bArrivalTickChanged, probeContext.m_eStatusAfterTerminal, EmptyCampaignDebugField(probeContext.m_sRequestRuntimeStatusAfterTerminal), EmptyCampaignDebugField(probeContext.m_sResolutionKindAfterTerminal), probeContext.m_bAbstractResolvedAfterTerminal, probeContext.m_bOutcomeAppliedAfterTerminal);
+			bool helicopterResolved = probeContext.m_bArrivalTickChanged
+				&& probeContext.m_eStatusAfterTerminal == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+				&& probeContext.m_sRequestRuntimeStatusAfterTerminal == "resolved_abstract_no_effect"
+				&& probeContext.m_sResolutionKindAfterTerminal == "abstract_no_effect"
+				&& probeContext.m_bOutcomeAppliedAfterTerminal
+				&& probeContext.m_bAbstractResolvedAfterTerminal;
+			AddCampaignDebugAssertion(supportCase, "support.helicopter_abstract_resolution", "current transport support resolves through the real abstract helicopter-style support path", helicopterResolutionActual, CampaignDebugStatus(helicopterResolved), "helicopter-style support did not resolve through the implemented abstract support path", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.helicopter_physical_travel_gap", "physical passenger boarding and vehicle travel are explicitly reported as not implemented", helicopterPolicyActual + " | " + helicopterResolutionActual, "WARN", "transport support currently has ETA/abstract lifecycle only; no physical passenger boarding or vehicle travel exists", observedSupportRequest.m_sRequestId);
+			return;
+		}
+
 		string policyActual = string.Format("physical %1 -> %2 | mode %3 | runtime %4", probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode), EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus));
 		AddCampaignDebugAssertion(supportCase, "support.physicalization_policy", "non-ground support remains abstract or ETA-driven", policyActual, "PASS", "non-ground support unexpectedly used the ground physicalization path", observedSupportRequest.m_sRequestId);
 	}
@@ -4080,6 +4102,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_bPhysicalizedAfterTick = false;
 		probeContext.m_sGroupIdAfterTick = "";
 		probeContext.m_sGroupStatusAfterTick = "";
+		probeContext.m_bRouteTickChanged = false;
+		probeContext.m_bArrivalRouteTickChanged = false;
+		probeContext.m_bArrivalTickChanged = false;
+		probeContext.m_iRouteAdvanceSeconds = 0;
+		probeContext.m_iArrivalAdvanceSeconds = 0;
 		probeContext.m_fDistanceBefore = -1.0;
 		probeContext.m_fDistanceAfter = -1.0;
 		probeContext.m_fDistanceAtArrival = -1.0;
@@ -4187,6 +4214,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				probeContext.m_bAbstractResolvedAfterTerminal = supportRequest.m_bAbstractResolved;
 				probeContext.m_iResolvedAtSecondAfterTerminal = supportRequest.m_iResolvedAtSecond;
 			}
+		}
+		else if (IsCampaignDebugHelicopterSupportType(supportRequest.m_eType))
+		{
+			int helicopterArrivalAtSecond = supportRequest.m_iRequestedAtSecond + Math.Max(0, supportRequest.m_iETASeconds);
+			int helicopterArrivalAdvanceSeconds = Math.Max(0, helicopterArrivalAtSecond - m_State.m_iElapsedSeconds);
+			probeContext.m_iArrivalAdvanceSeconds = helicopterArrivalAdvanceSeconds;
+			if (helicopterArrivalAdvanceSeconds > 0)
+				m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + helicopterArrivalAdvanceSeconds;
+			probeContext.m_bArrivalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+			probeContext.m_eStatusAfterTerminal = supportRequest.m_eStatus;
+			probeContext.m_sRequestRuntimeStatusAfterTerminal = supportRequest.m_sRuntimeStatus;
+			probeContext.m_sResolutionKindAfterTerminal = supportRequest.m_sResolutionKind;
+			probeContext.m_bOutcomeAppliedAfterTerminal = supportRequest.m_bOutcomeApplied;
+			probeContext.m_bAbstractResolvedAfterTerminal = supportRequest.m_bAbstractResolved;
+			probeContext.m_iResolvedAtSecondAfterTerminal = supportRequest.m_iResolvedAtSecond;
 		}
 
 		if (!supportRequest.m_sGroupId.IsEmpty() && m_PhysicalWar)
@@ -4315,6 +4357,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_QRF || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
 	}
 
+	protected bool IsCampaignDebugHelicopterSupportType(HST_ESupportRequestType candidateSupportType)
+	{
+		return candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_TRANSPORT || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_EVACUATION;
+	}
+
 	protected void CleanupCampaignDebugSupportRuntimeProbe(HST_SupportRequestState supportRequest)
 	{
 		if (!m_State || !supportRequest)
@@ -4400,6 +4447,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RunCampaignDebugSupportRequestCase("QRF support", HST_ESupportRequestType.HST_SUPPORT_QRF, false);
 		RunCampaignDebugSupportRequestCase("suppressive fire support", HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE, false);
 		RunCampaignDebugSupportRequestCase("search support", HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, false);
+		RunCampaignDebugSupportRequestCase("transport support", HST_ESupportRequestType.HST_SUPPORT_TRANSPORT, false);
 		RecordCampaignDebugObservation("support report", RequestMemberInspectSupport(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("civilian report", RequestMemberInspectCivilians(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("town support", RequestMemberInspectTownSupport(m_iCampaignDebugPlayerId));
