@@ -9025,6 +9025,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			missionActual = string.Format("status %1 | phase %2 | cleanup %3 | failure %4", mission.m_eStatus, EmptyCampaignDebugField(mission.m_sRuntimePhase), mission.m_bRuntimeCleanupComplete, EmptyCampaignDebugField(mission.m_sRuntimeFailureReason));
 		AddCampaignDebugAssertion(cleanupCase, "mission.cleanup.not_active", "debug mission is not active after cleanup", missionActual, CampaignDebugStatus(missionNotActive), "mission remained active after debug cleanup", "", instanceId);
 
+		bool cleanupAlreadySucceeded = completionStatus.Contains("already succeeded");
+		bool cleanupUsedAdminCompletion = completionStatus.Contains("completed 1") && !cleanupAlreadySucceeded;
+		bool cleanupFailed = completionStatus.Contains("completed 0");
+		string cleanupPath = "unknown";
+		string cleanupPathStatus = "WARN";
+		string cleanupPathFailure = "mission cleanup path was not classified";
+		if (cleanupAlreadySucceeded)
+		{
+			cleanupPath = "runtime_completed_before_cleanup";
+			cleanupPathFailure = "";
+		}
+		else if (cleanupUsedAdminCompletion)
+		{
+			cleanupPath = "admin_cleanup_completed_active_mission";
+			cleanupPathStatus = "WARN";
+			cleanupPathFailure = "mission required admin cleanup; this is cleanup evidence only and must not count as physical mission completion";
+		}
+		else if (cleanupFailed)
+		{
+			cleanupPath = "cleanup_failed";
+			cleanupPathStatus = "FAIL";
+			cleanupPathFailure = "mission cleanup command did not complete the mission";
+		}
+
 		int assetCount;
 		int unresolvedAssetCount;
 		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
@@ -9059,6 +9083,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.groups", string.Format("%1", linkedGroupCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.live_groups", string.Format("%1", liveGroupCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.markers", string.Format("%1", markerCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.completion_path", cleanupPath, "path");
+		AddCampaignDebugAssertion(cleanupCase, "mission.cleanup.completion_path", "runtime completion is proven separately; admin completion is WARN-only cleanup evidence", completionStatus + " | path " + cleanupPath, cleanupPathStatus, cleanupPathFailure, "", instanceId);
 		AddCampaignDebugAssertion(cleanupCase, "mission.cleanup.groups", "no live mission-owned active groups after cleanup", string.Format("live %1 | linked %2", liveGroupCount, linkedGroupCount), CampaignDebugStatus(liveGroupCount == 0, "WARN"), "mission-owned groups remain live after cleanup", "", instanceId);
 		AddCampaignDebugAssertion(cleanupCase, "mission.cleanup.assets", "no unresolved mission assets after cleanup", string.Format("unresolved %1 | total %2", unresolvedAssetCount, assetCount), CampaignDebugStatus(unresolvedAssetCount == 0, "WARN"), "mission assets remain unresolved after cleanup", "", instanceId);
 		AddCampaignDebugAssertion(cleanupCase, "mission.cleanup.markers", "no linked mission markers after cleanup", string.Format("%1", markerCount), CampaignDebugStatus(markerCount == 0, "WARN"), "mission markers remain linked after cleanup", "", instanceId);
