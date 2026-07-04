@@ -193,6 +193,8 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	string m_sPhysicalLoadoutApplyResult;
 	string m_sRestoreLoadoutApplyResult;
 	string m_sSerializedLoadoutFailure;
+	string m_sPhysicalDraftLocationsAfterApply;
+	string m_sPhysicalDraftLocationsAfterRestore;
 	string m_sFiniteArsenalCategoryBefore;
 	string m_sFiniteArsenalDisplayNameBefore;
 	string m_sFiniteIssuedCategoryBefore;
@@ -212,6 +214,9 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	bool m_bPhysicalInventoryAccessible;
 	bool m_bPhysicalInventoryReflected;
 	bool m_bPhysicalInventoryRestored;
+	bool m_bPhysicalDraftAccessible;
+	bool m_bPhysicalDraftReflected;
+	bool m_bPhysicalDraftRestored;
 	bool m_bFiniteArsenalExistedBefore;
 	bool m_bFiniteArsenalUnlockedBefore;
 	bool m_bFiniteArsenalUnlockedAfterSeed;
@@ -266,6 +271,12 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	int m_iPhysicalInventoryCountBefore;
 	int m_iPhysicalInventoryCountAfterApply;
 	int m_iPhysicalInventoryCountAfterRestore;
+	int m_iPhysicalDraftCountBefore;
+	int m_iPhysicalDraftCountAfterApply;
+	int m_iPhysicalDraftCountAfterRestore;
+	int m_iPhysicalDraftStorageItemCountBefore;
+	int m_iPhysicalDraftStorageItemCountAfterApply;
+	int m_iPhysicalDraftStorageItemCountAfterRestore;
 	int m_iLoadoutSavedCleanupRemoved;
 	int m_iDraftSlotsAfterOpen;
 	int m_iDraftNodesAfterOpen;
