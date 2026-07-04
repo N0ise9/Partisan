@@ -7608,30 +7608,72 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			followMovedPlayerPosition = followMovedPlayer.GetOrigin();
 
 		float followDistanceAfterMove = Math.Sqrt(DistanceSq2D(followMovedPlayerPosition, captive.m_vCurrentPosition));
-		int followTickSeconds = 5;
-		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + followTickSeconds;
-		bool followRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, followTickSeconds);
-		IEntity followTickPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		int followSampleSeconds = 5;
+		int followSampleTargetCount = 6;
+		int followRuntimeChangedCount;
+		float followBestDistance = followDistanceAfterMove;
+		float followMaxMovement;
+		float followMaxDistanceClosed;
+		string followSampleHistory;
+		int followActualSampleCount;
+		vector previousCaptivePosition = captive.m_vCurrentPosition;
 		vector followTickPlayerPosition = followMovedPlayerPosition;
-		if (followTickPlayer)
-			followTickPlayerPosition = followTickPlayer.GetOrigin();
-
 		vector followTickCaptivePosition = captive.m_vCurrentPosition;
-		float followDistanceAfterTick = Math.Sqrt(DistanceSq2D(followTickPlayerPosition, followTickCaptivePosition));
+		float followDistanceAfterTick = followDistanceAfterMove;
+		for (int followSampleIndex = 0; followSampleIndex < followSampleTargetCount; followSampleIndex++)
+		{
+			followActualSampleCount++;
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + followSampleSeconds;
+			bool sampleRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, followSampleSeconds);
+			if (sampleRuntimeChanged)
+				followRuntimeChangedCount++;
+
+			IEntity followTickPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+			if (followTickPlayer)
+				followTickPlayerPosition = followTickPlayer.GetOrigin();
+
+			followTickCaptivePosition = captive.m_vCurrentPosition;
+			followDistanceAfterTick = Math.Sqrt(DistanceSq2D(followTickPlayerPosition, followTickCaptivePosition));
+			float sampleMovement = Math.Sqrt(DistanceSq2D(previousCaptivePosition, followTickCaptivePosition));
+			float sampleDistanceClosed = followDistanceAfterMove - followDistanceAfterTick;
+			if (sampleMovement > followMaxMovement)
+				followMaxMovement = sampleMovement;
+			if (sampleDistanceClosed > followMaxDistanceClosed)
+				followMaxDistanceClosed = sampleDistanceClosed;
+			if (followDistanceAfterTick < followBestDistance)
+				followBestDistance = followDistanceAfterTick;
+
+			if (!followSampleHistory.IsEmpty())
+				followSampleHistory = followSampleHistory + " | ";
+			followSampleHistory = followSampleHistory + string.Format("#%1 d%2 move%3 changed%4", followSampleIndex + 1, Math.Round(followDistanceAfterTick), Math.Round(sampleMovement), sampleRuntimeChanged);
+			previousCaptivePosition = followTickCaptivePosition;
+
+			if (followDistanceAfterTick <= 25.0 || followMaxDistanceClosed >= 3.0)
+				break;
+		}
+
 		bool followStillLinked = captive.m_bAttachedToCarrier && !captive.m_sCarriedByVehicleId.IsEmpty() && (captive.m_sLastInteraction == "following" || captive.m_sLastInteraction == "loaded");
 		bool followWithinBreakRange = followDistanceAfterTick <= 100.0;
-		bool followClosedDistance = followDistanceAfterTick + 1.0 < followDistanceAfterMove;
-		bool followNearPlayer = followDistanceAfterTick <= 25.0;
-		string followDistanceActual = string.Format("before %1m | moved %2m | after tick %3m", Math.Round(followDistanceBeforeMove), Math.Round(followDistanceAfterMove), Math.Round(followDistanceAfterTick));
-		followDistanceActual = followDistanceActual + string.Format(" | tick %1s changed %2 | phase %3", followTickSeconds, followRuntimeChanged, EmptyCampaignDebugField(captive.m_sLastInteraction));
+		bool followClosedDistance = followMaxDistanceClosed >= 3.0;
+		bool followNearPlayer = followBestDistance <= 25.0;
+		int followTickSeconds = followSampleSeconds * followSampleTargetCount;
+		bool followTimedOut = !followClosedDistance && !followNearPlayer;
+		string followDistanceActual = string.Format("before %1m | moved %2m | final %3m | best %4m", Math.Round(followDistanceBeforeMove), Math.Round(followDistanceAfterMove), Math.Round(followDistanceAfterTick), Math.Round(followBestDistance));
+		followDistanceActual = followDistanceActual + string.Format(" | max move %1m | closed %2m | changed %3/%4", Math.Round(followMaxMovement), Math.Round(followMaxDistanceClosed), followRuntimeChangedCount, followActualSampleCount);
+		followDistanceActual = followDistanceActual + string.Format(" | timeout %1s | phase %2", followTickSeconds, EmptyCampaignDebugField(captive.m_sLastInteraction));
 
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_distance_before_move", string.Format("%1", Math.Round(followDistanceBeforeMove)), "meters");
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_distance_after_move", string.Format("%1", Math.Round(followDistanceAfterMove)), "meters");
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_distance_after_tick", string.Format("%1", Math.Round(followDistanceAfterTick)), "meters");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_best_distance", string.Format("%1", Math.Round(followBestDistance)), "meters");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_max_movement", string.Format("%1", Math.Round(followMaxMovement)), "meters");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_max_distance_closed", string.Format("%1", Math.Round(followMaxDistanceClosed)), "meters");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_sample_count", string.Format("%1", followActualSampleCount), "count");
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_tick_seconds", string.Format("%1", followTickSeconds), "seconds");
+		captiveCase.m_aEvidence.Insert("captive follow samples | " + followSampleHistory);
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_move_teleport", "player can be moved within captive follow break distance for timed probe", string.Format("%1 | target %2", followMoveTeleported, followMoveTarget), CampaignDebugStatus(followMoveTeleported, "WARN"), "could not move player for timed captive follow probe", captive.m_sAssetId, instanceId);
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_tick_state", "runtime tick keeps captive attached/following after player displacement", followDistanceActual, CampaignDebugStatus(followStillLinked && followWithinBreakRange), "captive follow link broke during controlled runtime tick", captive.m_sAssetId, instanceId);
-		HST_CampaignDebugAssertion followDistanceAssertion = AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_distance_over_time", "captive distance decreases during runtime tick or remains within 25m", followDistanceActual, CampaignDebugStatus(followClosedDistance || followNearPlayer, "WARN"), "captive physical distance did not decrease during the synchronous follow probe window", captive.m_sAssetId, instanceId);
+		HST_CampaignDebugAssertion followDistanceAssertion = AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_distance_over_time", "captive distance decreases within timeout or remains within 25m", followDistanceActual + " | samples " + followSampleHistory, CampaignDebugStatus(!followTimedOut), "captive physical distance did not decrease before the follow timeout", captive.m_sAssetId, instanceId);
 		followDistanceAssertion.m_vExpectedPosition = followTickPlayerPosition;
 		followDistanceAssertion.m_vActualPosition = followTickCaptivePosition;
 		followDistanceAssertion.m_fDistanceMeters = followDistanceAfterTick;
