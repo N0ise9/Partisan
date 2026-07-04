@@ -9650,6 +9650,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string selectedActual = BuildCampaignDebugRenderBubbleZoneActual(zone, CountCampaignDebugZoneActiveGroups(zone.m_sZoneId), CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId));
 		int typeCoverageCount = CountCampaignDebugRenderBubbleCandidateTypes();
 		string typeCoverageActual = BuildCampaignDebugRenderBubbleTypeCoverage();
+		string typeWindowActual;
+		int typeWindowAttempted;
+		int typeWindowPassed;
+		int typeWindowRestored;
+		int typeWindowCleanupRemoved;
 		bool originalActive = zone.m_bActive;
 		int originalActiveInfantry = zone.m_iActiveInfantryCount;
 		int originalActiveVehicles = zone.m_iActiveVehicleCount;
@@ -9829,6 +9834,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		zone.m_iActiveInfantryCount = originalActiveInfantry;
 		zone.m_iActiveVehicleCount = originalActiveVehicles;
 
+		ProbeCampaignDebugRenderBubbleTypeWindows(typeWindowActual, typeWindowAttempted, typeWindowPassed, typeWindowRestored, typeWindowCleanupRemoved);
+		renderCase.m_aEvidence.Insert("type windows | " + ShortCampaignDebugLine(typeWindowActual, 360));
+
 		AddCampaignDebugMetric(renderCase, "render_bubble.activation_radius", string.Format("%1", Math.Round(activationRadius)), "m");
 		AddCampaignDebugMetric(renderCase, "render_bubble.near_groups", string.Format("%1", nearGroupCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.near_spawned_groups", string.Format("%1", nearSpawnedGroupCount), "count");
@@ -9840,9 +9848,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(renderCase, "render_bubble.mission_zone_spawned_groups", string.Format("%1", forcedSpawnedGroupCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_removed_zone_groups", string.Format("%1", cleanupRemovedZoneGroups), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.candidate_zone_types", string.Format("%1", typeCoverageCount), "count");
+		AddCampaignDebugMetric(renderCase, "render_bubble.type_windows_attempted", string.Format("%1", typeWindowAttempted), "count");
+		AddCampaignDebugMetric(renderCase, "render_bubble.type_windows_passed", string.Format("%1", typeWindowPassed), "count");
+		AddCampaignDebugMetric(renderCase, "render_bubble.type_windows_restored", string.Format("%1", typeWindowRestored), "count");
+		AddCampaignDebugMetric(renderCase, "render_bubble.type_window_cleanup_removed_groups", string.Format("%1", typeWindowCleanupRemoved), "count");
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_selected", "inactive zone with abstract garrison and no active groups selected", selectedActual, CampaignDebugStatus(garrison != null && originalTotalGarrison > 0 && originalGroupCount == 0), "selected zone was not a clean abstract-garrison render-bubble target", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_type_candidates", "strict render-bubble candidates exist across multiple strategic zone types", typeCoverageActual, CampaignDebugStatus(typeCoverageCount >= 3, "WARN"), "render-bubble candidate coverage spans too few strategic zone types for broad activation confidence", "", "", zone.m_sZoneId);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_type_window_gap", "per-type activation windows are explicitly not all executed by this focused render-bubble case", typeCoverageActual, "WARN", "render-bubble still needs separate activation/deactivation windows per zone type", "", "", zone.m_sZoneId);
+		bool typeWindowsCovered = typeWindowAttempted > 0 && typeWindowAttempted == typeCoverageCount && typeWindowPassed == typeWindowAttempted && typeWindowRestored == typeWindowAttempted;
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_type_windows", "one candidate per available strategic zone type activates near, cleans up far, and restores", typeWindowActual, CampaignDebugStatus(typeWindowsCovered, "WARN"), "per-type render-bubble activation windows did not run/pass/restore for every available candidate type", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.teleport", "player teleported outside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", farTeleport, Math.Round(farDistance), Math.Round(activationRadius)), CampaignDebugStatus(farTeleport && farDistance > activationRadius), "could not place player outside selected zone activation radius", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.inactive", "far update leaves selected zone inactive with no active groups", farActual, CampaignDebugStatus(farInactive), "far render-bubble update left active state or active groups behind", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.teleport", "player teleported inside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", nearTeleport, Math.Round(nearDistance), Math.Round(activationRadius)), CampaignDebugStatus(nearTeleport && nearDistance <= activationRadius), "could not place player inside selected zone activation radius", "", "", zone.m_sZoneId);
@@ -9864,7 +9877,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& restoredGroupCount == originalGroupCount
 			&& (!garrison || (garrison.m_iInfantryCount == originalGarrisonInfantry && garrison.m_iVehicleCount == originalGarrisonVehicles));
 		AddCampaignDebugAssertion(renderCase, "render_bubble.restore", "original active flag/counts, group count, and abstract garrison restored after probe", BuildCampaignDebugRenderBubbleZoneActual(zone, restoredGroupCount, restoredSpawnedGroupCount), CampaignDebugStatus(restoreMatched), "render-bubble probe failed to restore selected zone state", "", "", zone.m_sZoneId);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.physical_asset_gap", "physical mission-asset entity retention and convoy-expired policies remain separate probes", "state retention covered; physical entity retention not executed", "WARN", "physical mission asset entity retention and convoy-expired bubble policies remain open");
+		AddCampaignDebugAssertion(renderCase, "render_bubble.physical_asset_gap", "physical mission-asset entity retention and convoy-expired policies remain separate probes", "state retention and per-type windows covered; physical entity retention not executed", "WARN", "physical mission asset entity retention and convoy-expired bubble policies remain open");
 		FinalizeCampaignDebugCaseFromAssertions(renderCase);
 		MarkMajorCampaignChange(true);
 		return renderCase;
@@ -10034,6 +10047,219 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return count;
+	}
+
+	protected void ProbeCampaignDebugRenderBubbleTypeWindows(out string actual, out int attemptedTypes, out int passedTypes, out int restoredTypes, out int cleanupRemovedGroups)
+	{
+		actual = "";
+		attemptedTypes = 0;
+		passedTypes = 0;
+		restoredTypes = 0;
+		cleanupRemovedGroups = 0;
+
+		string result;
+		bool attempted;
+		bool passed;
+		bool restored;
+		int removed;
+
+		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_TOWN, result, attempted, passed, restored, removed);
+		if (!result.IsEmpty())
+			actual = result;
+		if (attempted)
+			attemptedTypes++;
+		if (passed)
+			passedTypes++;
+		if (restored)
+			restoredTypes++;
+		cleanupRemovedGroups = cleanupRemovedGroups + removed;
+
+		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_OUTPOST, result, attempted, passed, restored, removed);
+		if (actual.IsEmpty())
+			actual = result;
+		else
+			actual = actual + " | " + result;
+		if (attempted)
+			attemptedTypes++;
+		if (passed)
+			passedTypes++;
+		if (restored)
+			restoredTypes++;
+		cleanupRemovedGroups = cleanupRemovedGroups + removed;
+
+		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_RESOURCE, result, attempted, passed, restored, removed);
+		if (actual.IsEmpty())
+			actual = result;
+		else
+			actual = actual + " | " + result;
+		if (attempted)
+			attemptedTypes++;
+		if (passed)
+			passedTypes++;
+		if (restored)
+			restoredTypes++;
+		cleanupRemovedGroups = cleanupRemovedGroups + removed;
+
+		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_FACTORY, result, attempted, passed, restored, removed);
+		if (actual.IsEmpty())
+			actual = result;
+		else
+			actual = actual + " | " + result;
+		if (attempted)
+			attemptedTypes++;
+		if (passed)
+			passedTypes++;
+		if (restored)
+			restoredTypes++;
+		cleanupRemovedGroups = cleanupRemovedGroups + removed;
+
+		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_RADIO_TOWER, result, attempted, passed, restored, removed);
+		if (actual.IsEmpty())
+			actual = result;
+		else
+			actual = actual + " | " + result;
+		if (attempted)
+			attemptedTypes++;
+		if (passed)
+			passedTypes++;
+		if (restored)
+			restoredTypes++;
+		cleanupRemovedGroups = cleanupRemovedGroups + removed;
+
+		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_AIRFIELD, result, attempted, passed, restored, removed);
+		if (actual.IsEmpty())
+			actual = result;
+		else
+			actual = actual + " | " + result;
+		if (attempted)
+			attemptedTypes++;
+		if (passed)
+			passedTypes++;
+		if (restored)
+			restoredTypes++;
+		cleanupRemovedGroups = cleanupRemovedGroups + removed;
+
+		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_SEAPORT, result, attempted, passed, restored, removed);
+		if (actual.IsEmpty())
+			actual = result;
+		else
+			actual = actual + " | " + result;
+		if (attempted)
+			attemptedTypes++;
+		if (passed)
+			passedTypes++;
+		if (restored)
+			restoredTypes++;
+		cleanupRemovedGroups = cleanupRemovedGroups + removed;
+	}
+
+	protected void ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType zoneType, out string actual, out bool attempted, out bool passed, out bool restored, out int cleanupRemovedGroups)
+	{
+		actual = "";
+		attempted = false;
+		passed = false;
+		restored = false;
+		cleanupRemovedGroups = 0;
+
+		string label = ResolveZoneTypeLabel(zoneType);
+		HST_ZoneState zone = SelectCampaignDebugRenderBubbleZoneOfType(zoneType);
+		if (!zone)
+		{
+			actual = label + ":none";
+			return;
+		}
+
+		attempted = true;
+		HST_GarrisonState garrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+		if (!garrison)
+		{
+			actual = label + ":" + EmptyCampaignDebugField(zone.m_sZoneId) + " | missing garrison";
+			return;
+		}
+
+		bool originalActive = zone.m_bActive;
+		int originalActiveInfantry = zone.m_iActiveInfantryCount;
+		int originalActiveVehicles = zone.m_iActiveVehicleCount;
+		int originalGarrisonInfantry = garrison.m_iInfantryCount;
+		int originalGarrisonVehicles = garrison.m_iVehicleCount;
+		int originalGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		int originalTotalGarrison = originalGarrisonInfantry + originalGarrisonVehicles;
+		float activationRadius = ResolveCampaignDebugActivationRadius(zone);
+		vector farPosition = m_State.m_vHQPosition + "6 0 6";
+		vector nearPosition = zone.m_vPosition + "8 0 8";
+
+		bool farTeleport = TeleportCampaignDebugPlayer(farPosition, "render bubble " + label + " far");
+		bool farChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
+		int farGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		int farSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
+		bool farInactive = !zone.m_bActive && zone.m_iActiveInfantryCount == 0 && zone.m_iActiveVehicleCount == 0 && farGroupCount == 0;
+
+		bool nearTeleport = TeleportCampaignDebugPlayer(nearPosition, "render bubble " + label + " near");
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		float nearDistance = 999999.0;
+		if (playerEntity)
+			nearDistance = Math.Sqrt(DistanceSq2D(playerEntity.GetOrigin(), zone.m_vPosition));
+		bool nearChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
+		int nearGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		int nearSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
+		int nearTotalActiveForces = zone.m_iActiveInfantryCount + zone.m_iActiveVehicleCount;
+		bool nearActive = zone.m_bActive && nearGroupCount > 0 && nearSpawnedGroupCount > 0 && nearTotalActiveForces > 0;
+		bool nearWithinBudget = originalTotalGarrison > 0 && nearTotalActiveForces <= originalTotalGarrison && nearGroupCount <= originalTotalGarrison;
+
+		bool leaveTeleport = TeleportCampaignDebugPlayer(farPosition, "render bubble " + label + " leave");
+		bool leaveChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
+		int leaveGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		int leaveSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
+		bool leaveInactive = !zone.m_bActive && zone.m_iActiveInfantryCount == 0 && zone.m_iActiveVehicleCount == 0 && leaveGroupCount == 0;
+
+		if (CountCampaignDebugZoneActiveGroups(zone.m_sZoneId) > originalGroupCount)
+			cleanupRemovedGroups = RemoveCampaignDebugActiveGroupsForZone(zone.m_sZoneId);
+
+		garrison.m_iInfantryCount = originalGarrisonInfantry;
+		garrison.m_iVehicleCount = originalGarrisonVehicles;
+		zone.m_bActive = originalActive;
+		zone.m_iActiveInfantryCount = originalActiveInfantry;
+		zone.m_iActiveVehicleCount = originalActiveVehicles;
+
+		int restoredGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		restored = zone.m_bActive == originalActive
+			&& zone.m_iActiveInfantryCount == originalActiveInfantry
+			&& zone.m_iActiveVehicleCount == originalActiveVehicles
+			&& garrison.m_iInfantryCount == originalGarrisonInfantry
+			&& garrison.m_iVehicleCount == originalGarrisonVehicles
+			&& restoredGroupCount == originalGroupCount;
+		passed = farTeleport && farInactive && nearTeleport && nearDistance <= activationRadius && nearActive && nearWithinBudget && leaveTeleport && leaveInactive;
+
+		actual = label + ":" + EmptyCampaignDebugField(zone.m_sZoneId);
+		actual = actual + string.Format(" | far %1/%2/%3/%4", farTeleport, farChanged, farGroupCount, farSpawnedGroupCount);
+		actual = actual + string.Format(" | near %1/%2/%3/%4", nearTeleport, nearChanged, nearGroupCount, nearSpawnedGroupCount);
+		actual = actual + string.Format(" | leave %1/%2/%3/%4", leaveTeleport, leaveChanged, leaveGroupCount, leaveSpawnedGroupCount);
+		actual = actual + string.Format(" | budget %1 | restore %2 | removed %3", nearWithinBudget, restored, cleanupRemovedGroups);
+	}
+
+	protected HST_ZoneState SelectCampaignDebugRenderBubbleZoneOfType(HST_EZoneType zoneType)
+	{
+		if (!m_State || !m_Balance || IsZeroVector(m_State.m_vHQPosition))
+			return null;
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = -1.0;
+		foreach (HST_ZoneState candidate : m_State.m_aZones)
+		{
+			if (!candidate || candidate.m_eType != zoneType)
+				continue;
+			if (!IsCampaignDebugRenderBubbleZoneCandidate(candidate))
+				continue;
+
+			float distanceSq = DistanceSq2D(m_State.m_vHQPosition, candidate.m_vPosition);
+			if (distanceSq > bestDistanceSq)
+			{
+				bestZone = candidate;
+				bestDistanceSq = distanceSq;
+			}
+		}
+
+		return bestZone;
 	}
 
 	protected float ResolveCampaignDebugActivationRadius(HST_ZoneState zone)
