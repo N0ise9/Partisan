@@ -12508,7 +12508,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_GarrisonState enemyGarrison;
 		if (phase17Zone)
 			enemyGarrison = m_State.FindGarrison(phase17Zone.m_sZoneId, m_Preset.m_sOccupierFactionKey);
+		bool conquestGated = IsPhase17CaptureTargetConquestGated(phase17Zone);
 		AddCampaignDebugAssertion(captureCase, "phase17.seed.zone", "seeded capturable enemy zone exists", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone != null && IsPhase17CapturableZone(phase17Zone)), "Phase 17 did not select a capturable zone", "", "", seedZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.seed.conquest_gate", "selected target is not gated by an incomplete conquest mission", string.Format("gated %1", conquestGated), CampaignDebugStatus(phase17Zone && !conquestGated), "Phase 17 selected a conquest-gated target that cannot direct-capture through progress", "", "", seedZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.seed.owner", "seeded zone owner is occupier", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && phase17Zone.m_sOwnerFactionKey == m_Preset.m_sOccupierFactionKey), "Phase 17 seed did not set occupier ownership", "", "", seedZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.seed.progress", "resistance capture progress reset to zero", string.Format("%1", m_iCampaignDebugPhase17ProgressAfter), CampaignDebugStatus(phase17Zone && phase17Zone.m_iResistanceCaptureProgress == 0), "Phase 17 seed did not reset resistance capture progress", "", "", seedZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.seed.inactive", "zone active runtime counts cleared", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && !phase17Zone.m_bActive && phase17Zone.m_iActiveInfantryCount == 0 && phase17Zone.m_iActiveVehicleCount == 0), "Phase 17 seed left active runtime counts in the target zone", "", "", seedZoneId);
@@ -17489,9 +17491,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		foreach (HST_ZoneState zone : m_State.m_aZones)
 		{
-			if (!zone)
-				continue;
-			if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+			if (!IsPhase17SelectableEnemyCaptureTarget(zone))
 				continue;
 			if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST)
 				return zone;
@@ -17499,11 +17499,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		foreach (HST_ZoneState fallback : m_State.m_aZones)
 		{
-			if (!fallback)
-				continue;
-			if (fallback.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
-				continue;
-			if (IsPhase17CapturableZone(fallback))
+			if (IsPhase17SelectableEnemyCaptureTarget(fallback))
 				return fallback;
 		}
 
@@ -17518,11 +17514,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_sCampaignDebugPhase17ZoneId.IsEmpty())
 		{
 			HST_ZoneState storedTarget = m_State.FindZone(m_sCampaignDebugPhase17ZoneId);
-			if (storedTarget && storedTarget.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey && IsPhase17CapturableZone(storedTarget))
+			if (IsPhase17SelectableEnemyCaptureTarget(storedTarget))
 				return storedTarget;
 		}
 
 		return SelectPhase17CaptureTarget();
+	}
+
+	protected bool IsPhase17SelectableEnemyCaptureTarget(HST_ZoneState zone)
+	{
+		if (!zone || !m_Preset)
+			return false;
+		if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+			return false;
+		if (!IsPhase17CapturableZone(zone))
+			return false;
+		if (IsPhase17CaptureTargetConquestGated(zone))
+			return false;
+
+		return true;
+	}
+
+	protected bool IsPhase17CaptureTargetConquestGated(HST_ZoneState zone)
+	{
+		if (!zone || !m_State || !m_ZoneCapture)
+			return false;
+
+		return m_ZoneCapture.HasIncompleteConquestMissionForZone(m_State, zone);
 	}
 
 	protected HST_ZoneState ResolveCampaignDebugPhase17CapturedZone()

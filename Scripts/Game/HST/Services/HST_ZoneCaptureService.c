@@ -214,6 +214,11 @@ class HST_ZoneCaptureService
 		return status;
 	}
 
+	bool HasIncompleteConquestMissionForZone(HST_CampaignState state, HST_ZoneState zone)
+	{
+		return HasIncompleteConquestMission(state, zone);
+	}
+
 	string BuildCaptureReport(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int maxRows = 20)
 	{
 		if (!state)
