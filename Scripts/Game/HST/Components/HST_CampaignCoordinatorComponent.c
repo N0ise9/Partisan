@@ -4014,6 +4014,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugMetric(supportCase, "support.physical_route_max_movement", string.Format("%1", Math.Round(probeContext.m_fRouteMaxMovementMeters)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_route_max_distance_closed", string.Format("%1", Math.Round(probeContext.m_fRouteMaxDistanceClosedMeters)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_route_timeout_seconds", string.Format("%1", probeContext.m_iRouteTimeoutSeconds), "seconds");
+			AddCampaignDebugMetric(supportCase, "support.physical_resolved_second", string.Format("%1", probeContext.m_iResolvedAtSecondAfterTerminal), "seconds");
 			if (!probeContext.m_sRouteSampleHistory.IsEmpty())
 				supportCase.m_aEvidence.Insert("support route samples | " + ShortCampaignDebugLine(probeContext.m_sRouteSampleHistory, 260));
 			if (!probeContext.m_sRouteTimeoutEvidence.IsEmpty())
@@ -4038,6 +4039,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string arrivalActual = string.Format("distance %1m | group status %2 | request runtime %3 | arrival tick %4", Math.Round(probeContext.m_fDistanceAtArrival), EmptyCampaignDebugField(probeContext.m_sGroupStatusAtArrival), EmptyCampaignDebugField(probeContext.m_sRequestRuntimeStatusAtArrival), probeContext.m_bArrivalTickChanged);
 			bool arrived = probeContext.m_bArrivalTickChanged && (probeContext.m_sGroupStatusAtArrival == "support_arrived" || probeContext.m_sRequestRuntimeStatusAtArrival == "physical_arrived");
 			AddCampaignDebugAssertion(supportCase, "support.physical_arrival", "ground support reaches arrival state after controlled ETA advance", arrivalActual, CampaignDebugStatus(arrived, "WARN"), "ground support did not reach arrival status inside the controlled probe window", observedSupportRequest.m_sRequestId);
+			string terminalActual = string.Format("injected %1 | tick %2 | group %3 -> %4 | status %5",
+				probeContext.m_bTerminalStatusInjected,
+				probeContext.m_bTerminalTickChanged,
+				EmptyCampaignDebugField(probeContext.m_sGroupStatusBeforeTerminal),
+				EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterTerminal),
+				probeContext.m_eStatusAfterTerminal
+			);
+			terminalActual = terminalActual + string.Format(" | runtime %1 | resolution %2 | abstract %3 | outcome %4",
+				EmptyCampaignDebugField(probeContext.m_sRequestRuntimeStatusAfterTerminal),
+				EmptyCampaignDebugField(probeContext.m_sResolutionKindAfterTerminal),
+				probeContext.m_bAbstractResolvedAfterTerminal,
+				probeContext.m_bOutcomeAppliedAfterTerminal
+			);
+			bool terminalResolved = probeContext.m_bTerminalStatusInjected
+				&& probeContext.m_bTerminalTickChanged
+				&& probeContext.m_eStatusAfterTerminal == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+				&& probeContext.m_sRequestRuntimeStatusAfterTerminal == "resolved_physical_group_terminal"
+				&& probeContext.m_sResolutionKindAfterTerminal == "physical_group_terminal";
+			AddCampaignDebugAssertion(supportCase, "support.physical_terminal_resolution", "controlled terminal support group resolves through the real support tick", terminalActual, CampaignDebugStatus(terminalResolved, "WARN"), "ground support did not resolve through the physical terminal support path after arrival", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_cleanup", "support runtime group entity is removed during probe cleanup", string.Format("%1", probeContext.m_bRuntimeEntityCleaned), CampaignDebugStatus(probeContext.m_bRuntimeEntityCleaned, "WARN"), "support physical runtime entity cleanup did not confirm an entity was removed", observedSupportRequest.m_sRequestId);
 			return;
 		}
@@ -4074,6 +4094,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_sRouteSampleHistory = "";
 		probeContext.m_sRouteLastObserved = "";
 		probeContext.m_sRouteTimeoutEvidence = "";
+		probeContext.m_bTerminalStatusInjected = false;
+		probeContext.m_bTerminalTickChanged = false;
+		probeContext.m_sGroupStatusBeforeTerminal = "";
+		probeContext.m_sGroupStatusAfterTerminal = "";
+		probeContext.m_eStatusAfterTerminal = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+		probeContext.m_sRequestRuntimeStatusAfterTerminal = "";
+		probeContext.m_sResolutionKindAfterTerminal = "";
+		probeContext.m_bOutcomeAppliedAfterTerminal = false;
+		probeContext.m_bAbstractResolvedAfterTerminal = false;
+		probeContext.m_iResolvedAtSecondAfterTerminal = 0;
 		HST_SupportRequestState supportRequest = probeContext.m_Request;
 		if (!m_State || !m_Preset || !m_SupportRequests || !supportRequest)
 			return false;
@@ -4137,6 +4167,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				probeContext.m_sGroupStatusAtArrival = group.m_sRuntimeStatus;
 			}
 			probeContext.m_sRequestRuntimeStatusAtArrival = supportRequest.m_sRuntimeStatus;
+			if (group && supportRequest.m_sRuntimeStatus == "physical_arrived")
+			{
+				probeContext.m_sGroupStatusBeforeTerminal = group.m_sRuntimeStatus;
+				if (group.m_sRuntimeStatus == "support_arrived" || group.m_sRuntimeStatus == "support_active")
+				{
+					group.m_sRuntimeStatus = "folded";
+					probeContext.m_bTerminalStatusInjected = true;
+				}
+
+				m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
+				probeContext.m_bTerminalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+				group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
+				if (group)
+					probeContext.m_sGroupStatusAfterTerminal = group.m_sRuntimeStatus;
+				probeContext.m_eStatusAfterTerminal = supportRequest.m_eStatus;
+				probeContext.m_sRequestRuntimeStatusAfterTerminal = supportRequest.m_sRuntimeStatus;
+				probeContext.m_sResolutionKindAfterTerminal = supportRequest.m_sResolutionKind;
+				probeContext.m_bOutcomeAppliedAfterTerminal = supportRequest.m_bOutcomeApplied;
+				probeContext.m_bAbstractResolvedAfterTerminal = supportRequest.m_bAbstractResolved;
+				probeContext.m_iResolvedAtSecondAfterTerminal = supportRequest.m_iResolvedAtSecond;
+			}
 		}
 
 		if (!supportRequest.m_sGroupId.IsEmpty() && m_PhysicalWar)
@@ -4151,7 +4202,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| probeContext.m_bPhysicalizedBeforeTick != probeContext.m_bPhysicalizedAfterTick
 			|| probeContext.m_iEtaRemainingAfter < probeContext.m_iEtaRemainingBefore
 			|| probeContext.m_bRouteTickChanged
-			|| probeContext.m_bArrivalTickChanged;
+			|| probeContext.m_bArrivalTickChanged
+			|| probeContext.m_bTerminalTickChanged;
 	}
 
 	protected void SampleCampaignDebugSupportRouteProgress(HST_CampaignDebugSupportProbeContext probeContext, HST_SupportRequestState supportRequest, HST_ActiveGroupState initialGroup, int firstAdvanceSeconds, int sampleLimit)

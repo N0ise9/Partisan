@@ -111,6 +111,16 @@ class HST_CampaignDebugSupportProbeContext
 	string m_sGroupStatusAfterRoute;
 	string m_sGroupStatusAtArrival;
 	string m_sRequestRuntimeStatusAtArrival;
+	bool m_bTerminalStatusInjected;
+	bool m_bTerminalTickChanged;
+	string m_sGroupStatusBeforeTerminal;
+	string m_sGroupStatusAfterTerminal;
+	HST_ESupportRequestStatus m_eStatusAfterTerminal = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+	string m_sRequestRuntimeStatusAfterTerminal;
+	string m_sResolutionKindAfterTerminal;
+	bool m_bOutcomeAppliedAfterTerminal;
+	bool m_bAbstractResolvedAfterTerminal;
+	int m_iResolvedAtSecondAfterTerminal;
 	bool m_bRuntimeEntityCleaned;
 }
 
