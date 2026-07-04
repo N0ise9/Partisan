@@ -79,6 +79,12 @@ class HST_CivilianService
 	static const float TOWN_MILITARY_VEHICLE_BASE_RADIUS_METERS = 36.0;
 	static const int TOWN_MILITARY_VEHICLE_RADIUS_VARIANCE_METERS = 43;
 	static const int TOWN_VEHICLE_POSITION_ATTEMPTS = 10;
+	static const int TOWN_RESISTANCE_FLIP_FIA_SUPPORT = 65;
+	static const int TOWN_RESISTANCE_FLIP_SUPPORT_MARGIN = 15;
+	static const int TOWN_RESISTANCE_FLIP_MAX_HEAT = 5;
+	static const int TOWN_ENEMY_FLIP_OCCUPIER_SUPPORT = 65;
+	static const int TOWN_ENEMY_FLIP_SUPPORT_MARGIN = 15;
+	static const int TOWN_ENEMY_FLIP_HEAT = 15;
 	static const string CIVILIAN_FACTION_KEY = "CIV";
 	static const string CIVILIAN_VEHICLE_ENTITY_CATALOG = "{7C53DF3E1349C5B8}Configs/EntityCatalog/CIV/Vehicles_EntityCatalog_CIV.conf";
 
@@ -241,7 +247,7 @@ class HST_CivilianService
 		return undercover;
 	}
 
-	bool RegisterIncident(HST_CampaignState state, string zoneId, int reputationDelta, int heatDelta, string reason)
+	bool RegisterIncident(HST_CampaignState state, string zoneId, int reputationDelta, int heatDelta, string reason, HST_CampaignPreset preset = null)
 	{
 		if (!state || zoneId.IsEmpty())
 			return false;
@@ -262,9 +268,65 @@ class HST_CivilianService
 
 		HST_ZoneState zone = state.FindZone(zoneId);
 		if (zone)
+		{
 			zone.m_iSupport = Math.Max(-100, Math.Min(100, civilianZone.m_iFIASupport - civilianZone.m_iOccupierSupport));
+			civilianZone.m_bUndercoverRestricted = zone.m_iSupport < 25;
+			ApplyTownSupportOwnershipPolicy(state, preset, civilianZone, zone);
+		}
 
 		return true;
+	}
+
+	protected bool ApplyTownSupportOwnershipPolicy(HST_CampaignState state, HST_CampaignPreset preset, HST_CivilianZoneState civilianZone, HST_ZoneState zone)
+	{
+		if (!state || !preset || !civilianZone || !zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			return false;
+
+		string resistanceFactionKey = preset.m_sResistanceFactionKey;
+		if (resistanceFactionKey.IsEmpty() || !state.FindFactionPool(resistanceFactionKey))
+			return false;
+
+		int supportMargin = civilianZone.m_iFIASupport - civilianZone.m_iOccupierSupport;
+		if (zone.m_sOwnerFactionKey != resistanceFactionKey)
+		{
+			if (civilianZone.m_iFIASupport < TOWN_RESISTANCE_FLIP_FIA_SUPPORT)
+				return false;
+			if (supportMargin < TOWN_RESISTANCE_FLIP_SUPPORT_MARGIN)
+				return false;
+			if (civilianZone.m_iWantedHeat > TOWN_RESISTANCE_FLIP_MAX_HEAT)
+				return false;
+
+			zone.m_sOwnerFactionKey = resistanceFactionKey;
+			zone.m_iResistanceCaptureProgress = 0;
+			civilianZone.m_sLastSecurityReason = "support flipped town to resistance";
+			return true;
+		}
+
+		bool occupierSupportDominant = civilianZone.m_iOccupierSupport >= TOWN_ENEMY_FLIP_OCCUPIER_SUPPORT && supportMargin <= -TOWN_ENEMY_FLIP_SUPPORT_MARGIN;
+		bool heatedOccupierPressure = civilianZone.m_iWantedHeat >= TOWN_ENEMY_FLIP_HEAT && civilianZone.m_iOccupierSupport > civilianZone.m_iFIASupport;
+		if (!occupierSupportDominant && !heatedOccupierPressure)
+			return false;
+
+		string enemyFactionKey = ResolveTownSupportEnemyFaction(state, preset, zone.m_sOwnerFactionKey);
+		if (enemyFactionKey.IsEmpty())
+			return false;
+
+		zone.m_sOwnerFactionKey = enemyFactionKey;
+		zone.m_iResistanceCaptureProgress = 0;
+		civilianZone.m_sLastSecurityReason = "support flipped town to enemy";
+		return true;
+	}
+
+	protected string ResolveTownSupportEnemyFaction(HST_CampaignState state, HST_CampaignPreset preset, string currentOwner)
+	{
+		if (!currentOwner.IsEmpty() && preset && currentOwner != preset.m_sResistanceFactionKey && state.FindFactionPool(currentOwner))
+			return currentOwner;
+		if (preset && !preset.m_sOccupierFactionKey.IsEmpty() && state.FindFactionPool(preset.m_sOccupierFactionKey))
+			return preset.m_sOccupierFactionKey;
+		if (preset && !preset.m_sInvaderFactionKey.IsEmpty() && state.FindFactionPool(preset.m_sInvaderFactionKey))
+			return preset.m_sInvaderFactionKey;
+
+		return "";
 	}
 
 	bool CheckUndercover(HST_CampaignState state, string identityId, string zoneId, bool visiblyArmed, bool suspiciousVehicle, bool recentCombat)
