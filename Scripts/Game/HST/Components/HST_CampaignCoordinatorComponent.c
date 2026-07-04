@@ -201,7 +201,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugBackgroundWarInvaderOrderId;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
+	protected ref array<IEntity> m_aCampaignDebugWorldCleanupEntities = {};
 	protected ref HST_CampaignDebugRunResult m_CampaignDebugRunResult;
+	protected string m_sCampaignDebugWorldCleanupPrefix;
+	protected string m_sCampaignDebugWorldCleanupExample;
+	protected int m_iCampaignDebugWorldCleanupScannedCount;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -5706,6 +5710,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int enemyOrderCount = RemoveCampaignDebugPrefixedEnemyOrders(prefix);
 		int taskCount = RemoveCampaignDebugPrefixedCampaignTasks(prefix);
 		int markerCount = RemoveCampaignDebugPrefixedMarkers(prefix);
+		string taggedWorldBeforeExample;
+		int taggedWorldScannedBefore;
+		int taggedWorldBefore = CountCampaignDebugTaggedWorldEntities(prefix, taggedWorldScannedBefore, taggedWorldBeforeExample);
+		string taggedWorldRemovedExample = "";
+		int taggedWorldRemovedScanned = 0;
+		int taggedWorldRemoved = -1;
+		if (taggedWorldBefore >= 0)
+			taggedWorldRemoved = RemoveCampaignDebugTaggedWorldEntities(prefix, taggedWorldRemovedScanned, taggedWorldRemovedExample);
 		bool markerRebuildAttempted = false;
 		if ((markerCount > 0 || missionCount > 0 || supportCount > 0 || qrfCount > 0 || enemyOrderCount > 0) && m_MapMarkers && m_Preset)
 		{
@@ -5715,6 +5727,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string afterExample;
 		int afterCount = CountCampaignDebugPrefixedStateRecords(prefix, afterExample);
+		string taggedWorldAfterExample;
+		int taggedWorldScannedAfter;
+		int taggedWorldAfter = CountCampaignDebugTaggedWorldEntities(prefix, taggedWorldScannedAfter, taggedWorldAfterExample);
+		bool taggedWorldScanAvailable = taggedWorldBefore >= 0 && taggedWorldRemoved >= 0 && taggedWorldAfter >= 0;
+		string taggedWorldStatus = CampaignDebugStatus(taggedWorldScanAvailable && taggedWorldAfter == 0);
+		if (!taggedWorldScanAvailable)
+			taggedWorldStatus = "WARN";
+		string taggedWorldActual = string.Format("scanned before/delete/after %1/%2/%3", taggedWorldScannedBefore, taggedWorldRemovedScanned, taggedWorldScannedAfter);
+		taggedWorldActual = taggedWorldActual + string.Format(" | before %1 | removed %2", taggedWorldBefore, taggedWorldRemoved);
+		taggedWorldActual = taggedWorldActual + string.Format(" | after %1 | example %2", taggedWorldAfter, EmptyCampaignDebugField(taggedWorldBeforeExample));
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.before", string.Format("%1", beforeCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.after", string.Format("%1", afterCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.missions_removed", string.Format("%1", missionCount), "count");
@@ -5729,13 +5751,95 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.enemy_orders_removed", string.Format("%1", enemyOrderCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tasks_removed", string.Format("%1", taskCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.markers_removed", string.Format("%1", markerCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tagged_world_before", string.Format("%1", taggedWorldBefore), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tagged_world_removed", string.Format("%1", taggedWorldRemoved), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tagged_world_after", string.Format("%1", taggedWorldAfter), "count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.before_count", "prefixed records counted before cleanup", BuildCampaignDebugCountExample(beforeCount, beforeExample), "PASS", "");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.after_count", "no records matching cleanup prefix remain", BuildCampaignDebugCountExample(afterCount, afterExample), CampaignDebugStatus(afterCount == 0), "prefixed cleanup left campaign state records behind");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.tagged_world_entities", "world scan removes physical entities named with debug tag/prefix", taggedWorldActual, taggedWorldStatus, "tagged debug world entities remain after prefixed cleanup");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.marker_rebuild", "marker rebuild attempted when prefixed marker-backed records changed", string.Format("changed %1 | attempted %2", markerCount + missionCount + supportCount + qrfCount + enemyOrderCount, markerRebuildAttempted), CampaignDebugStatus(markerCount + missionCount + supportCount + qrfCount + enemyOrderCount == 0 || markerRebuildAttempted, "WARN"), "prefixed cleanup changed marker-backed records but marker rebuild was unavailable");
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
-		if (beforeCount > 0 || afterCount > 0 || markerRebuildAttempted)
+		if (beforeCount > 0 || afterCount > 0 || markerRebuildAttempted || taggedWorldRemoved > 0)
 			MarkMajorCampaignChange(true);
 		return cleanupCase;
+	}
+
+	protected int CountCampaignDebugTaggedWorldEntities(string prefix, out int scannedCount, out string example)
+	{
+		return QueryCampaignDebugTaggedWorldEntities(prefix, false, scannedCount, example);
+	}
+
+	protected int RemoveCampaignDebugTaggedWorldEntities(string prefix, out int scannedCount, out string example)
+	{
+		return QueryCampaignDebugTaggedWorldEntities(prefix, true, scannedCount, example);
+	}
+
+	protected int QueryCampaignDebugTaggedWorldEntities(string prefix, bool deleteMatched, out int scannedCount, out string example)
+	{
+		scannedCount = 0;
+		example = "";
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return -1;
+
+		m_aCampaignDebugWorldCleanupEntities.Clear();
+		m_sCampaignDebugWorldCleanupPrefix = prefix;
+		m_sCampaignDebugWorldCleanupExample = "";
+		m_iCampaignDebugWorldCleanupScannedCount = 0;
+
+		vector center = "0 0 0";
+		center[0] = (SETUP_MAP_WORLD_MIN_X + SETUP_MAP_WORLD_MAX_X) * 0.5;
+		center[2] = (SETUP_MAP_WORLD_MIN_Z + SETUP_MAP_WORLD_MAX_Z) * 0.5;
+		float mapWidth = SETUP_MAP_WORLD_MAX_X - SETUP_MAP_WORLD_MIN_X;
+		float mapDepth = SETUP_MAP_WORLD_MAX_Z - SETUP_MAP_WORLD_MIN_Z;
+		float radiusMeters = Math.Sqrt(mapWidth * mapWidth + mapDepth * mapDepth) * 0.5 + 1000.0;
+		world.QueryEntitiesBySphere(center, radiusMeters, AddCampaignDebugTaggedWorldEntityCandidate, null, EQueryEntitiesFlags.ALL);
+
+		scannedCount = m_iCampaignDebugWorldCleanupScannedCount;
+		example = m_sCampaignDebugWorldCleanupExample;
+		int matchedCount = m_aCampaignDebugWorldCleanupEntities.Count();
+		if (!deleteMatched)
+			return matchedCount;
+
+		int removedCount;
+		foreach (IEntity entity : m_aCampaignDebugWorldCleanupEntities)
+		{
+			if (!entity)
+				continue;
+
+			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			removedCount++;
+		}
+
+		return removedCount;
+	}
+
+	protected bool AddCampaignDebugTaggedWorldEntityCandidate(IEntity entity)
+	{
+		m_iCampaignDebugWorldCleanupScannedCount++;
+		if (!CampaignDebugWorldEntityMatchesCleanupToken(entity))
+			return true;
+
+		if (m_sCampaignDebugWorldCleanupExample.IsEmpty())
+			m_sCampaignDebugWorldCleanupExample = entity.GetName();
+		m_aCampaignDebugWorldCleanupEntities.Insert(entity);
+		return true;
+	}
+
+	protected bool CampaignDebugWorldEntityMatchesCleanupToken(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		string name = entity.GetName();
+		if (name.IsEmpty())
+			return false;
+		if (name.Contains(CAMPAIGN_DEBUG_ENTITY_TAG))
+			return true;
+		if (!m_sCampaignDebugWorldCleanupPrefix.IsEmpty() && name.Contains(m_sCampaignDebugWorldCleanupPrefix))
+			return true;
+
+		return false;
 	}
 
 	protected string ResolveCampaignDebugCleanupPrefix()
@@ -5744,6 +5848,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return m_sCampaignDebugMarkerPrefix;
 
 		return CAMPAIGN_DEBUG_PREFIX_ROOT;
+	}
+
+	protected void ApplyCampaignDebugEntityName(IEntity entity, string label, string sourceId)
+	{
+		if (!entity || !m_bCampaignDebugRunning || m_sCampaignDebugEntityTag.IsEmpty())
+			return;
+
+		string sourceToken = SafeCampaignDebugToken(sourceId);
+		if (sourceToken.IsEmpty())
+			sourceToken = "entity";
+		entity.SetName(m_sCampaignDebugEntityTag + "_" + SafeCampaignDebugToken(label) + "_" + sourceToken);
 	}
 
 	protected string ApplyCampaignDebugSupportRequestPrefix(HST_SupportRequestState request, string label)
@@ -8150,7 +8265,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vector carrierAngles = HST_WorldPositionService.BuildUprightAngles(0.0);
 		GenericEntity carrierEntity = HST_WorldPositionService.SpawnPrefab(PHASE15_SMOKE_VEHICLE_PREFAB, carrierPosition, carrierAngles);
 		if (carrierEntity)
+		{
 			carrierRuntimeId = ResolveCampaignDebugTransportCarrierRuntimeId(carrierEntity);
+			ApplyCampaignDebugEntityName(carrierEntity, primitiveLabel + "_carrier", carrierRuntimeId);
+		}
 
 		float carrierDistance = 999999.0;
 		if (carrierEntity)

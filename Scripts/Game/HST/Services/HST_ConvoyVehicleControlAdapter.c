@@ -44,6 +44,8 @@ class HST_ConvoyCrewSeatingResult
 class HST_ConvoyVehicleControlAdapter
 {
 	static const string CONVOY_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
+	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
+	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 
 	bool TryBindCrewToVehicle(HST_ActiveGroupState groupState, IEntity groupEntity, IEntity vehicleEntity, out string reason)
 	{
@@ -126,7 +128,7 @@ class HST_ConvoyVehicleControlAdapter
 		array<IEntity> spawnedWaypoints = {};
 		foreach (vector waypointPosition : waypoints)
 		{
-			IEntity waypointEntity = SpawnRouteWaypoint(waypointPosition);
+			IEntity waypointEntity = SpawnRouteWaypoint(waypointPosition, groupState.m_sGroupId, spawnedWaypoints.Count() + 1);
 			if (!waypointEntity)
 			{
 				DeleteSpawnedWaypoints(spawnedWaypoints);
@@ -661,7 +663,7 @@ class HST_ConvoyVehicleControlAdapter
 		return "vehicle compartment";
 	}
 
-	protected IEntity SpawnRouteWaypoint(vector position)
+	protected IEntity SpawnRouteWaypoint(vector position, string groupId, int waypointIndex)
 	{
 		ResourceName waypointResource = CONVOY_WAYPOINT_PREFAB;
 		Resource loaded = Resource.Load(waypointResource);
@@ -670,6 +672,7 @@ class HST_ConvoyVehicleControlAdapter
 
 		vector waypointPosition = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
 		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CONVOY_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
+		ApplyCampaignDebugEntityName(waypointEntity, string.Format("convoy_waypoint_%1", waypointIndex), groupId);
 		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (!waypoint)
 		{
@@ -679,6 +682,28 @@ class HST_ConvoyVehicleControlAdapter
 		}
 
 		return waypointEntity;
+	}
+
+	protected void ApplyCampaignDebugEntityName(IEntity entity, string label, string sourceId)
+	{
+		if (!entity || sourceId.IsEmpty() || !sourceId.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))
+			return;
+
+		entity.SetName(CAMPAIGN_DEBUG_ENTITY_TAG + "_" + SanitizeCampaignDebugEntityToken(label) + "_" + SanitizeCampaignDebugEntityToken(sourceId));
+	}
+
+	protected string SanitizeCampaignDebugEntityToken(string value)
+	{
+		string safe = value;
+		safe.Replace("/", "_");
+		safe.Replace(":", "_");
+		safe.Replace(" ", "_");
+		safe.Replace("@", "_");
+		safe.Replace(".", "_");
+		if (safe.Length() > 160)
+			return safe.Substring(0, 160);
+
+		return safe;
 	}
 
 	protected void DeleteSpawnedWaypoints(array<IEntity> waypoints)

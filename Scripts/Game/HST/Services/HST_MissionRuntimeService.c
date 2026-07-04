@@ -89,6 +89,8 @@ class HST_MissionRuntimeService
 	static const string CAPTIVE_FOLLOW_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string MISSION_CONVOY_GROUP_PREFIX = "mission_convoy_";
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
+	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 
 	protected ref array<string> m_aRuntimeEntityIds = {};
 	protected ref array<IEntity> m_aRuntimeEntities = {};
@@ -101,6 +103,28 @@ class HST_MissionRuntimeService
 	void SetDebugLoggingEnabled(bool enabled)
 	{
 		m_bDebugLoggingEnabled = enabled;
+	}
+
+	protected void ApplyCampaignDebugEntityName(IEntity entity, string label, string sourceId)
+	{
+		if (!entity || sourceId.IsEmpty() || !sourceId.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))
+			return;
+
+		entity.SetName(CAMPAIGN_DEBUG_ENTITY_TAG + "_" + SanitizeCampaignDebugEntityToken(label) + "_" + SanitizeCampaignDebugEntityToken(sourceId));
+	}
+
+	protected string SanitizeCampaignDebugEntityToken(string value)
+	{
+		string safe = value;
+		safe.Replace("/", "_");
+		safe.Replace(":", "_");
+		safe.Replace(" ", "_");
+		safe.Replace("@", "_");
+		safe.Replace(".", "_");
+		if (safe.Length() > 160)
+			return safe.Substring(0, 160);
+
+		return safe;
 	}
 
 	bool InitializeMissionRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState mission, HST_GeneratedContentService content)
@@ -982,6 +1006,7 @@ class HST_MissionRuntimeService
 				Print(string.Format("h-istasi mission runtime | asset spawn failed for %1 using %2", asset.m_sAssetId, asset.m_sPrefab), LogLevel.WARNING);
 				continue;
 			}
+			ApplyCampaignDebugEntityName(entity, asset.m_sRole, asset.m_sAssetId);
 			if (ShouldApplyUprightMissionAssetTransform(asset))
 				HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
 			ApplyMissionAssetIdentity(entity, asset);
@@ -1037,6 +1062,7 @@ class HST_MissionRuntimeService
 		}
 
 		HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
+		ApplyCampaignDebugEntityName(entity, mission.m_sRuntimePrimitive, mission.m_sRuntimeEntityId);
 		m_aRuntimeEntityIds.Insert(mission.m_sRuntimeEntityId);
 		m_aRuntimeEntities.Insert(entity);
 		RegisterRuntimeEntityState(state, mission, prefab, position, angles);
@@ -2919,6 +2945,7 @@ class HST_MissionRuntimeService
 		if (!entity)
 			return null;
 
+		ApplyCampaignDebugEntityName(entity, asset.m_sRole, asset.m_sAssetId);
 		ApplyMissionAssetIdentity(entity, asset);
 		HST_MissionAssetComponent assetComponent = HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent));
 		if (assetComponent)
@@ -2946,6 +2973,7 @@ class HST_MissionRuntimeService
 			return false;
 
 		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CAPTIVE_FOLLOW_WAYPOINT_PREFAB, followPosition, "0 0 0");
+		ApplyCampaignDebugEntityName(waypointEntity, "captive_waypoint", string.Format("%1_%2", asset.m_sAssetId, state.m_iElapsedSeconds));
 		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (!waypoint)
 		{

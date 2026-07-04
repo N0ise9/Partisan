@@ -116,6 +116,8 @@ class HST_PhysicalWarService
 	static const float CONVOY_ROAD_REPORT_SEARCH_RADIUS_METERS = 6.0;
 	static const float PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
+	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
@@ -132,6 +134,28 @@ class HST_PhysicalWarService
 	void SetDebugLoggingEnabled(bool enabled)
 	{
 		m_bDebugLoggingEnabled = enabled;
+	}
+
+	protected void ApplyCampaignDebugEntityName(IEntity entity, string label, string sourceId)
+	{
+		if (!entity || sourceId.IsEmpty() || !sourceId.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))
+			return;
+
+		entity.SetName(CAMPAIGN_DEBUG_ENTITY_TAG + "_" + SanitizeCampaignDebugEntityToken(label) + "_" + SanitizeCampaignDebugEntityToken(sourceId));
+	}
+
+	protected string SanitizeCampaignDebugEntityToken(string value)
+	{
+		string safe = value;
+		safe.Replace("/", "_");
+		safe.Replace(":", "_");
+		safe.Replace(" ", "_");
+		safe.Replace("@", "_");
+		safe.Replace(".", "_");
+		if (safe.Length() > 160)
+			return safe.Substring(0, 160);
+
+		return safe;
 	}
 
 	bool UpdateRoutedActiveGroupsNow(HST_CampaignState state)
@@ -1521,6 +1545,7 @@ class HST_PhysicalWarService
 		if (!vehicleEntity)
 			return null;
 
+		ApplyCampaignDebugEntityName(vehicleEntity, MISSION_CONVOY_VEHICLE_ROLE, asset.m_sAssetId);
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, angles);
 		asset.m_sPrefab = vehiclePrefab;
 		asset.m_bSpawned = true;
@@ -5482,6 +5507,7 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+		ApplyCampaignDebugEntityName(entity, "active_group", activeGroup.m_sGroupId);
 		if (agentCount <= 0)
 		{
 			activeGroup.m_bSpawnedEntity = false;
