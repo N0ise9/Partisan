@@ -6540,7 +6540,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 14: return RunCampaignDebugCivilianAidTyped();
 			case 15: return RunCampaignDebugSupportCancelTyped();
 			case 16: return BuildCampaignDebugVehicleAndLoadoutReport();
-			case 17: return RequestAdminPhase23UICoverageReport(m_iCampaignDebugPlayerId);
+			case 17: return RunCampaignDebugCommandUICoverageTyped();
 		}
 
 		return "h-istasi campaign debug | failed: unknown phase 0-13 mechanic step";
@@ -9135,6 +9135,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		cleanupActual = cleanupActual + string.Format(" | cargo %1 -> %2", vehicleLoadoutContext.m_iVehicleCargoCountBefore, vehicleLoadoutContext.m_iVehicleCargoCountAfterCleanup);
 		cleanupActual = cleanupActual + string.Format(" | removed garage/runtime/cargo %1/%2/%3", vehicleLoadoutContext.m_iGarageCleanupRemoved, vehicleLoadoutContext.m_iRuntimeCleanupRemoved, vehicleLoadoutContext.m_iCargoCleanupRemoved);
 		return cleanupActual;
+	}
+
+	protected string RunCampaignDebugCommandUICoverageTyped()
+	{
+		string uiCoverageResult = RequestAdminPhase23UICoverageReport(m_iCampaignDebugPlayerId);
+		RecordCampaignDebugCase(BuildCampaignDebugEarlyCommandUICoverageCase(uiCoverageResult));
+		return uiCoverageResult;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugEarlyCommandUICoverageCase(string uiCoverageResult)
+	{
+		HST_CampaignDebugCaseResult uiCoverageCase = CreateCampaignDebugCase("early_mechanics.command_ui.coverage", "early_mechanics", "command_ui", "early_mechanics");
+		uiCoverageCase.m_aEvidence.Insert(uiCoverageResult);
+		AddCampaignDebugAssertion(uiCoverageCase, "early_ui.command_result", "UI coverage report command accepted", ShortCampaignDebugLine(uiCoverageResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(uiCoverageResult)), "early command UI coverage returned failure text");
+		if (!m_State || !m_Preset)
+		{
+			AddCampaignDebugAssertion(uiCoverageCase, "early_ui.prerequisite", "campaign state and preset ready", "missing", "BLOCKED", "early command UI coverage missing campaign state or preset");
+			FinalizeCampaignDebugCaseFromAssertions(uiCoverageCase);
+			return uiCoverageCase;
+		}
+
+		AddCampaignDebugPhase23UICoverageAssertions(uiCoverageCase, uiCoverageResult);
+		FinalizeCampaignDebugCaseFromAssertions(uiCoverageCase);
+		return uiCoverageCase;
 	}
 
 	protected HST_ActiveMissionState ResolveCampaignDebugEarlyMission()
