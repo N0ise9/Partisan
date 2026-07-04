@@ -13546,8 +13546,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool accepted = IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index));
 		if (!accepted)
 			return "FAIL";
-		if (index == 50)
-			return "WARN";
 
 		return "PASS";
 	}
@@ -13671,10 +13669,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void AddCampaignDebugPhase23FailedActionAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
 	{
-		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.intentional", "failed-action sample is intentionally warning-level", ShortCampaignDebugLine(result, 180), "WARN", "Phase 23 failed-action sample intentionally exercises negative paths");
-		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.move_hq", "missing hideout negative path included", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing_hideout_id"), "WARN"), "Phase 23 failed-action sample missing HQ negative-path evidence");
-		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.zone_mission", "missing zone negative path included", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing_zone_id"), "WARN"), "Phase 23 failed-action sample missing zone negative-path evidence");
-		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.complete_mission", "missing mission negative path included", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing_mission_id"), "WARN"), "Phase 23 failed-action sample missing mission-completion negative-path evidence");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.report_header", "failed-action sample report generated", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("h-istasi phase 23 failed-action sample")), "Phase 23 failed-action sample report header missing");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.report_evidence", "report includes all three negative-path identifiers", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(result.Contains("missing_hideout_id") && result.Contains("missing_zone_id") && result.Contains("missing_mission_id")), "Phase 23 failed-action sample missing one or more negative-path identifiers");
 		HST_CampaignDebugFailedActionProbeContext failedActionContext = m_CampaignDebugPhase23FailedActionContext;
 		if (!failedActionContext || !failedActionContext.m_bRan)
 		{
@@ -13690,10 +13686,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(phaseCase, "phase23.failed_sample.markers_delta", string.Format("%1", failedActionContext.m_iMarkersAfter - failedActionContext.m_iMarkersBefore), "count");
 		phaseCase.m_aEvidence.Insert("failed action before | " + ShortCampaignDebugLine(failedActionContext.m_sSnapshotBefore, 260));
 		phaseCase.m_aEvidence.Insert("failed action after | " + ShortCampaignDebugLine(failedActionContext.m_sSnapshotAfter, 260));
-		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.move_hq_failed", "invalid HQ move returns failed text", ShortCampaignDebugLine(failedActionContext.m_sMoveHQResult, 180), CampaignDebugStatus(failedActionContext.m_sMoveHQResult.Contains("failed:") && failedActionContext.m_sMoveHQResult.Contains("missing_hideout_id")), "invalid HQ move did not fail with the expected missing hideout evidence");
-		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.start_mission_failed", "invalid zone mission start returns failed text", ShortCampaignDebugLine(failedActionContext.m_sStartMissionResult, 180), CampaignDebugStatus(failedActionContext.m_sStartMissionResult.Contains("failed:") && failedActionContext.m_sStartMissionResult.Contains("missing_zone_id")), "invalid mission start did not fail with the expected missing zone evidence");
-		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.complete_mission_failed", "invalid mission completion returns failed text", ShortCampaignDebugLine(failedActionContext.m_sCompleteMissionResult, 180), CampaignDebugStatus(failedActionContext.m_sCompleteMissionResult.Contains("failed:") && failedActionContext.m_sCompleteMissionResult.Contains("missing_mission_id")), "invalid mission completion did not fail with the expected missing mission evidence");
-		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.no_state_mutation", "failed actions do not mutate campaign state snapshot", BuildCampaignDebugFailedActionMutationActual(failedActionContext), CampaignDebugStatus(failedActionContext.m_sSnapshotBefore == failedActionContext.m_sSnapshotAfter), "failed Phase 23 negative actions mutated campaign state");
+		bool moveHQFailed = failedActionContext.m_sMoveHQResult.Contains("failed:") && failedActionContext.m_sMoveHQResult.Contains("missing_hideout_id");
+		bool startMissionFailed = failedActionContext.m_sStartMissionResult.Contains("failed:") && failedActionContext.m_sStartMissionResult.Contains("missing_zone_id");
+		bool completeMissionFailed = failedActionContext.m_sCompleteMissionResult.Contains("failed:") && failedActionContext.m_sCompleteMissionResult.Contains("missing_mission_id");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.move_hq_failed", "invalid HQ move fails with explicit reason", ShortCampaignDebugLine(failedActionContext.m_sMoveHQResult, 180), CampaignDebugStatus(moveHQFailed), "invalid HQ move did not fail with the expected missing hideout evidence");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.start_mission_failed", "invalid zone mission start fails with explicit reason", ShortCampaignDebugLine(failedActionContext.m_sStartMissionResult, 180), CampaignDebugStatus(startMissionFailed), "invalid mission start did not fail with the expected missing zone evidence");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.complete_mission_failed", "invalid mission completion fails with explicit reason", ShortCampaignDebugLine(failedActionContext.m_sCompleteMissionResult, 180), CampaignDebugStatus(completeMissionFailed), "invalid mission completion did not fail with the expected missing mission evidence");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.all_failed", "all negative commands are rejected instead of silently succeeding", BuildCampaignDebugFailedActionCommandActual(failedActionContext), CampaignDebugStatus(moveHQFailed && startMissionFailed && completeMissionFailed), "one or more Phase 23 negative commands did not fail cleanly");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.no_count_mutation", "failed actions do not change tracked mission/support/order/marker counts", BuildCampaignDebugFailedActionMutationActual(failedActionContext), CampaignDebugStatus(CampaignDebugFailedActionCountsUnchanged(failedActionContext)), "failed Phase 23 negative actions changed tracked state counts");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.no_state_mutation", "failed actions do not mutate the wider campaign state snapshot", BuildCampaignDebugFailedActionMutationActual(failedActionContext), CampaignDebugStatus(failedActionContext.m_sSnapshotBefore == failedActionContext.m_sSnapshotAfter), "failed Phase 23 negative actions mutated campaign state");
 	}
 
 	protected HST_CampaignDebugFailedActionProbeContext BuildCampaignDebugFailedActionContext()
@@ -13768,6 +13769,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		actual = actual + string.Format(" | support %1 -> %2 | orders %3 -> %4 | markers %5 -> %6", failedActionContext.m_iSupportRequestsBefore, failedActionContext.m_iSupportRequestsAfter, failedActionContext.m_iEnemyOrdersBefore, failedActionContext.m_iEnemyOrdersAfter, failedActionContext.m_iMarkersBefore, failedActionContext.m_iMarkersAfter);
 		actual = actual + string.Format(" | snapshot equal %1", failedActionContext.m_sSnapshotBefore == failedActionContext.m_sSnapshotAfter);
 		return actual;
+	}
+
+	protected string BuildCampaignDebugFailedActionCommandActual(HST_CampaignDebugFailedActionProbeContext failedActionContext)
+	{
+		if (!failedActionContext)
+			return "missing";
+
+		string actual = "move_hq " + ShortCampaignDebugLine(failedActionContext.m_sMoveHQResult, 90);
+		actual = actual + " | start_mission " + ShortCampaignDebugLine(failedActionContext.m_sStartMissionResult, 90);
+		actual = actual + " | complete_mission " + ShortCampaignDebugLine(failedActionContext.m_sCompleteMissionResult, 90);
+		return actual;
+	}
+
+	protected bool CampaignDebugFailedActionCountsUnchanged(HST_CampaignDebugFailedActionProbeContext failedActionContext)
+	{
+		if (!failedActionContext)
+			return false;
+
+		return failedActionContext.m_iActiveMissionsBefore == failedActionContext.m_iActiveMissionsAfter
+			&& failedActionContext.m_iObjectivesBefore == failedActionContext.m_iObjectivesAfter
+			&& failedActionContext.m_iMissionAssetsBefore == failedActionContext.m_iMissionAssetsAfter
+			&& failedActionContext.m_iSupportRequestsBefore == failedActionContext.m_iSupportRequestsAfter
+			&& failedActionContext.m_iEnemyOrdersBefore == failedActionContext.m_iEnemyOrdersAfter
+			&& failedActionContext.m_iMarkersBefore == failedActionContext.m_iMarkersAfter;
 	}
 
 	protected int CountCampaignDebugMarkersByCategory(string category)

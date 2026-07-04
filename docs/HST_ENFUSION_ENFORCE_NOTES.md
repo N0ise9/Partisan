@@ -545,7 +545,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Aggregate debug results should separate action assertions from diagnostic reports.
   - Score mutation/test commands through a shared failure classifier (`failed:`, server/admin required, not-ready, `FAIL` smoke output).
   - Log read-only reports as INFO unless the report itself is empty or indicates a hard service failure.
-  - Intentional negative-path samples, such as the Phase 23 failed-action sample, should count as WARN instead of FAIL so the final totals stay actionable.
+  - Intentional negative-path samples, such as the Phase 23 failed-action sample, should count as PASS only when the expected commands fail with explicit reason text and before/after mutation snapshots stay equal. The negative path itself is not warning-worthy; missing failure text or silent state mutation is a real FAIL.
   - Phase 20/21 undercover smoke should assert `HST_PlayerUndercoverState` directly. Useful fields are `m_eStatus`, `m_iWantedHeat`, `m_bUndercoverRequested`, `m_bUndercoverApplied`, `m_sAppliedMode`, `m_sLastDetectionSource`, roadblock/police scan counts, and last scan failure booleans.
 
 ## AI And Spawning
