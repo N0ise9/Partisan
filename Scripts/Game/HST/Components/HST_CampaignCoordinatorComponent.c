@@ -12643,7 +12643,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string groupActual = BuildCampaignDebugActiveGroupActual(physicalGroup);
 			bool groupExpected = physicalGroup.m_bSpawnedEntity && physicalGroup.m_sRuntimeStatus != "spawn_failed";
 			bool groupPrefixed = MissionValueHasCampaignDebugPrefix(physicalGroup.m_sGroupId, m_sCampaignDebugMarkerPrefix);
-			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.group_spawned", "linked active group exists and spawned runtime entities", groupActual, CampaignDebugStatus(groupExpected), "Phase 17 physical counterattack group did not spawn runtime entities", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, counterattackOrder.m_sOrderId);
+			bool groupPending = IsCampaignDebugAsyncRuntimePending(physicalGroup.m_sRuntimeStatus) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterTick) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
+			string groupSpawnedStatus = "FAIL";
+			if (groupPending)
+				groupSpawnedStatus = "WARN";
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.group_spawned", "linked active group exists and spawned runtime entities", groupActual, CampaignDebugStatus(groupExpected, groupSpawnedStatus), "Phase 17 physical counterattack group did not spawn runtime entities", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, counterattackOrder.m_sOrderId);
 			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.group_prefix", "linked active group carries current debug prefix", EmptyCampaignDebugField(physicalGroup.m_sGroupId), CampaignDebugStatus(groupPrefixed), "Phase 17 physical counterattack group was not prefixed for cleanup", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, counterattackOrder.m_sOrderId);
 		}
 		else
@@ -17386,9 +17390,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		undercover.m_bEnforcementEnabled = true;
 		undercover.m_sAppliedMode = "phase21_smoke";
 		undercover.m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR;
+		undercover.m_iWantedHeat = 0;
 		undercover.m_iCompromisedUntilSecond = 0;
 		undercover.m_iLastEnforcementSecond = m_State.m_iElapsedSeconds - 60;
 		undercover.m_sLastReason = "phase21 smoke prepared";
+		undercover.m_sLastCompromiseReason = "";
+		undercover.m_sLastDetectionSource = "phase21_smoke";
+		undercover.m_iDetectionScore = 0;
+		undercover.m_bLastRoadblockScanFailed = false;
+		undercover.m_bLastPoliceScanFailed = false;
+		undercover.m_bLastEligibilityResult = true;
+		undercover.m_sLastEligibilitySummary = "phase21 smoke prepared";
+		undercover.m_sClothingReason = "OK prechecked civilian clothing";
+		undercover.m_sWeaponReason = "OK prechecked no visible military weapon";
+		undercover.m_sVehicleReason = "OK prechecked civilian vehicle/on foot";
+		undercover.m_sOffroadReason = "OK prechecked off-road state";
+		undercover.m_sEnemyProximityReason = "OK prechecked no enemy nearby";
+		undercover.m_sWantedHeatReason = "OK wanted heat clear";
 	}
 
 	protected HST_CivilianZoneState SelectPhase21SmokeTown(int playerId)
