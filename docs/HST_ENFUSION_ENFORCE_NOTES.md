@@ -277,6 +277,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Keep assertion calls flat in large debug builders: compute `actual` strings and status booleans before `AddCampaignDebugAssertion(...)` instead of nesting several helper calls inside the assertion call.
   - Avoid reusing generic parameter names such as `request` across adjacent support helpers when fixing wide signatures; a previous support probe refactor produced follow-on `Multiple declaration of variable` errors until the shared state moved into a context object and parameters were renamed to `supportRequest`.
 
+- Avoid redundant `Cast(...)` calls when the API already returns the requested base type.
+  - Workbench reports this as `No need to use 'Cast' for up-casting`.
+  - Current example: `AIAgent.GetMovementComponent()` can be returned directly from a method typed as `AIBaseMovementComponent`.
+
 - Campaign debug physical probes should recover or block on player liveness before real interactions.
   - `SCR_DamageManagerComponent.FullHeal()` is useful only for a non-destroyed controlled entity; destroyed players need the normal h-istasi respawn sweep.
   - Put liveness guards at the teleport/interaction boundary so later cargo, captive, or area probes do not report misleading `player is not alive` mission-action failures caused by an earlier physical probe.

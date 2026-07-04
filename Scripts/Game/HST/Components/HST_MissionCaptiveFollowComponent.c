@@ -152,7 +152,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 
 		agent.ActivateAI();
 		group = EnsureCaptiveAIGroup(owner, agent);
-		return AIBaseMovementComponent.Cast(agent.GetMovementComponent());
+		return agent.GetMovementComponent();
 	}
 
 	protected bool IssueFollowWaypoint(AIGroup group, vector ownerPosition, vector targetPosition, EMovementType movementType)
