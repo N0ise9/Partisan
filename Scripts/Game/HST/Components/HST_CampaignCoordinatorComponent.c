@@ -10477,6 +10477,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void RecordCampaignDebugPhaseSmokeTypedProbe(int index, string label, string result)
 	{
+		if (index >= 0 && index <= 2)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPhasePersistenceCase(index, label, result));
+			return;
+		}
+
 		if (index >= 3 && index <= 6)
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugPhase14ArsenalCase(index, label, result));
@@ -10543,7 +10549,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool HasCampaignDebugPhaseSmokeTypedProbe(int index)
 	{
-		return index >= 3 && index <= 62;
+		return index >= 0 && index <= 62;
 	}
 
 	protected void RecordCampaignDebugPhaseSmokeEvidence(string label, string result, bool success, bool warning = false)
@@ -10558,6 +10564,37 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			tone = "WARN";
 
 		AppendCampaignDebugLog(tone, label, result);
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhasePersistenceCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult persistenceCase = CreateCampaignDebugCase("phase_persistence." + SafeCampaignDebugToken(label), "phase_smoke", "persistence_smoke", "phase_persistence");
+		persistenceCase.m_aEvidence.Insert(result);
+		bool reportStep = IsCampaignDebugPhaseSmokeReportStep(index);
+		bool commandAccepted = IsCampaignDebugPhaseSmokeResultSuccessful(index, result, reportStep);
+		AddCampaignDebugAssertion(persistenceCase, "phase_persistence.command_result", "phase persistence command/report accepted", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(commandAccepted), "phase persistence command returned failure text");
+		AddCampaignDebugAssertion(persistenceCase, "phase_persistence.service", "persistence smoke service ready", string.Format("%1", m_PersistenceSmokeTest != null), CampaignDebugStatus(m_PersistenceSmokeTest != null), "persistence smoke service is not ready");
+		AddCampaignDebugAssertion(persistenceCase, "phase_persistence.state", "campaign state ready", string.Format("%1", m_State != null), CampaignDebugStatus(m_State != null), "campaign state is not ready for persistence smoke");
+
+		bool reportPassed = CampaignDebugPersistenceReportPassed(result);
+		bool checkpointAttempted = result.Contains("manual checkpoint");
+		if (index == 0)
+		{
+			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.seed", "seed command creates/refreshes persistence smoke baseline and reports PASS", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(result.Contains("seeded") && reportPassed), "persistence smoke seed did not report a healthy baseline");
+			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.seed_checkpoint", "seed command attempts manual checkpoint", string.Format("%1", checkpointAttempted), CampaignDebugStatus(checkpointAttempted), "persistence smoke seed did not attempt a manual checkpoint");
+		}
+		else if (index == 1)
+		{
+			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.smoke", "smoke command reports current state PASS", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(reportPassed), "persistence smoke run did not report PASS");
+			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.smoke_checkpoint", "smoke command attempts manual checkpoint", string.Format("%1", checkpointAttempted), CampaignDebugStatus(checkpointAttempted), "persistence smoke run did not attempt a manual checkpoint");
+		}
+		else if (index == 2)
+		{
+			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.report", "persistence smoke report is PASS with expected/current/missing fields", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(reportPassed && result.Contains("expected") && result.Contains("current") && result.Contains("missing/zero")), "persistence smoke report did not include the expected PASS summary shape");
+		}
+
+		FinalizeCampaignDebugCaseFromAssertions(persistenceCase);
+		return persistenceCase;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase14ArsenalCase(int index, string label, string result)
