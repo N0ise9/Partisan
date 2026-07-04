@@ -3588,7 +3588,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string persistenceReport = BuildCampaignDebugBaselinePersistenceReport();
 		bool persistenceHealthy = IsCampaignDebugPersistenceReportHealthy(persistenceReport);
 		bool persistenceWarning = persistenceHealthy && IsCampaignDebugPersistenceReportWarning(persistenceReport);
-		RecordCampaignDebugResult("persistence", persistenceReport, persistenceHealthy, persistenceWarning);
+		RecordCampaignDebugCase(BuildCampaignDebugBaselinePersistenceCase(persistenceReport, persistenceHealthy, persistenceWarning));
 		RecordCampaignDebugObservation("markers", RequestMemberInspectMarkers(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("zone composition", RequestAdminInspectZoneComposition(m_iCampaignDebugPlayerId));
 		AdvanceCampaignDebugStep("Baseline reports complete.");
@@ -10274,6 +10274,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			report = report + "\nh-istasi persistence smoke | baseline deferred until seeded persistence smoke step";
 
 		return report;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugBaselinePersistenceCase(string persistenceReport, bool persistenceHealthy, bool persistenceWarning)
+	{
+		HST_CampaignDebugCaseResult persistenceCase = CreateCampaignDebugCase("baseline.persistence.status", "persistence", "baseline_persistence", "baseline");
+		persistenceCase.m_aEvidence.Insert(persistenceReport);
+		bool nativeUnavailable = IsCampaignDebugNativePersistenceUnavailable(persistenceReport);
+		bool profileFallbackAvailable = IsCampaignDebugProfileFallbackAvailable(persistenceReport);
+		string modeStatus = "PASS";
+		if (nativeUnavailable && profileFallbackAvailable)
+			modeStatus = "WARN";
+		else if (nativeUnavailable)
+			modeStatus = "FAIL";
+
+		AddCampaignDebugAssertion(persistenceCase, "baseline.persistence.service", "persistence service ready and member report allowed", string.Format("server %1 | member %2 | service %3", Replication.IsServer(), CanPlayerUseMemberActions(m_iCampaignDebugPlayerId), m_Persistence != null), CampaignDebugStatus(Replication.IsServer() && CanPlayerUseMemberActions(m_iCampaignDebugPlayerId) && m_Persistence != null), "baseline persistence prerequisites missing");
+		AddCampaignDebugAssertion(persistenceCase, "baseline.persistence.report", "persistence report generated", ShortCampaignDebugLine(persistenceReport, 220), CampaignDebugStatus(!persistenceReport.IsEmpty()), "baseline persistence report was empty");
+		AddCampaignDebugAssertion(persistenceCase, "baseline.persistence.health", "report has no persistence failure text", ShortCampaignDebugLine(persistenceReport, 220), CampaignDebugStatus(persistenceHealthy), "baseline persistence report contains failure text or missing fallback evidence");
+		AddCampaignDebugAssertion(persistenceCase, "baseline.persistence.mode", "native persistence available or profile fallback explicitly available", string.Format("native unavailable %1 | profile fallback %2 | warning %3", nativeUnavailable, profileFallbackAvailable, persistenceWarning), modeStatus, "native persistence unavailable without confirmed profile fallback");
+		FinalizeCampaignDebugCaseFromAssertions(persistenceCase);
+		return persistenceCase;
 	}
 
 	protected bool IsCampaignDebugPersistenceReportHealthy(string result)
