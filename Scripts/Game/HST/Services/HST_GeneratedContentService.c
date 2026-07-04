@@ -9,6 +9,8 @@ class HST_GeneratedContentService
 	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_MEDIUM_METERS = 420.0;
 	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_FAR_METERS = 700.0;
 	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_EXTREME_METERS = 2200.0;
+	static const float GENERATED_ROUTE_REPAIR_SEARCH_STEP_METERS = 180.0;
+	static const int GENERATED_ROUTE_REPAIR_SEARCH_RINGS = 8;
 
 	bool EnsureGeneratedContent(HST_CampaignState state, HST_CampaignPreset preset)
 	{
@@ -505,20 +507,78 @@ class HST_GeneratedContentService
 			return false;
 
 		vector destination = ResolveGeneratedRouteValidationDestination(route, index);
+		if (TryResolveGeneratedRouteVehicleWaypointPosition(waypoint.m_vPosition, destination, repairedPosition))
+			return true;
+
+		if (TryResolveGeneratedRouteVehicleWaypointPosition(destination, destination, repairedPosition))
+			return true;
+
+		if (TryResolveGeneratedRouteVehicleWaypointPosition(route.m_vEndPosition, destination, repairedPosition))
+			return true;
+		if (TryResolveGeneratedRouteVehicleWaypointPosition(route.m_vMidPosition, destination, repairedPosition))
+			return true;
+		if (TryResolveGeneratedRouteVehicleWaypointPosition(route.m_vStartPosition, destination, repairedPosition))
+			return true;
+
+		if (TryRepairGeneratedRouteWaypointAround(destination, destination, repairedPosition))
+			return true;
+		if (TryRepairGeneratedRouteWaypointAround(route.m_vEndPosition, destination, repairedPosition))
+			return true;
+		if (TryRepairGeneratedRouteWaypointAround(route.m_vMidPosition, destination, repairedPosition))
+			return true;
+		if (TryRepairGeneratedRouteWaypointAround(route.m_vStartPosition, destination, repairedPosition))
+			return true;
+
+		return false;
+	}
+
+	protected bool TryRepairGeneratedRouteWaypointAround(vector center, vector destination, out vector repairedPosition)
+	{
+		repairedPosition = "0 0 0";
+		if (IsZeroVector(center))
+			return false;
+
+		for (int ring = 1; ring <= GENERATED_ROUTE_REPAIR_SEARCH_RINGS; ring++)
+		{
+			float radius = GENERATED_ROUTE_REPAIR_SEARCH_STEP_METERS * ring;
+			for (int step = 0; step < 8; step++)
+			{
+				vector candidate = OffsetRadialPosition(center, radius, step);
+				if (TryResolveGeneratedRouteVehicleWaypointPosition(candidate, destination, repairedPosition))
+					return true;
+			}
+		}
+
+		return false;
+	}
+
+	protected bool TryResolveGeneratedRouteVehicleWaypointPosition(vector preferred, vector destination, out vector resolved)
+	{
+		resolved = "0 0 0";
+		if (IsZeroVector(preferred))
+			return false;
+
 		vector roadForward;
 		float roadWidth;
 		float roadDistance;
 		string roadReason;
-		if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(waypoint.m_vPosition, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_EXTREME_METERS, destination, repairedPosition, roadForward, roadWidth, roadDistance, roadReason))
+		if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_EXTREME_METERS, destination, resolved, roadForward, roadWidth, roadDistance, roadReason))
 			return true;
 
-		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(waypoint.m_vPosition, repairedPosition, true) && !HST_WorldPositionService.IsLikelyOpenWater(repairedPosition))
+		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(preferred, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved))
 			return true;
 
-		if (HST_WorldPositionService.TryResolveSafeGroundPosition(waypoint.m_vPosition, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, repairedPosition, true, 16.0) && IsGeneratedContentPositionAccepted(repairedPosition))
+		if (HST_WorldPositionService.TryResolveVehicleSpawnPosition(preferred, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved))
 			return true;
 
-		return false;
+		vector safeGround;
+		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(preferred, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, safeGround, true, 16.0))
+			return false;
+
+		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(safeGround, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved))
+			return true;
+
+		return HST_WorldPositionService.TryResolveVehicleSpawnPosition(safeGround, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved);
 	}
 
 	protected bool IsGeneratedRouteWaypointVehicleSafe(HST_GeneratedRouteState route, int index, HST_RouteWaypointState waypoint)
@@ -540,7 +600,10 @@ class HST_GeneratedContentService
 		}
 
 		vector resolved;
-		return HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(waypoint.m_vPosition, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved);
+		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(waypoint.m_vPosition, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved))
+			return true;
+
+		return HST_WorldPositionService.TryResolveVehicleSpawnPosition(waypoint.m_vPosition, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved);
 	}
 
 	protected vector ResolveGeneratedRouteValidationDestination(HST_GeneratedRouteState route, int index)

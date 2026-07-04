@@ -4642,6 +4642,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		ClearCampaignDebugPlayerSupportRequests("run completion");
 		RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(ResolveCampaignDebugCleanupPrefix(), "run completion"), false);
+		RefreshCampaignMarkers();
 		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
 		m_bCampaignDebugRunning = false;
 		m_bCampaignDebugCompleted = true;
@@ -4992,6 +4993,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		HST_CampaignDebugCaseResult leakCase = CreateCampaignDebugCase("post_case_cleanup." + SafeCampaignDebugToken(sourceCase.m_sCaseId), "cleanup", sourceCase.m_sFeature, "post_case");
 		leakCase.m_aEvidence.Insert(string.Format("source %1 | status %2 | stage %3", sourceCase.m_sCaseId, sourceCase.m_sStatus, sourceCase.m_sStage));
+		RefreshCampaignMarkers();
 
 		string activeMissionExample;
 		string assetExample;
@@ -7284,6 +7286,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int waypointIndexMismatches;
 		int waypointZeroPositions;
 		int minWaypointCount = 999999;
+		string invalidRouteDetails;
 		foreach (HST_GeneratedRouteState route : m_State.m_aGeneratedRoutes)
 		{
 			if (!route)
@@ -7296,7 +7299,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				routeIds.Insert(route.m_sRouteId);
 
 			if (!route.m_bValidatedForVehicles)
+			{
 				invalidRoutes++;
+				if (invalidRoutes <= 8)
+				{
+					if (!invalidRouteDetails.IsEmpty())
+						invalidRouteDetails = invalidRouteDetails + "; ";
+					invalidRouteDetails = invalidRouteDetails + string.Format("%1(%2)", route.m_sRouteId, EmptyCampaignDebugField(route.m_sValidationFailureReason));
+				}
+			}
 			if (!m_State.FindZone(route.m_sSourceZoneId) || !m_State.FindZone(route.m_sTargetZoneId))
 				routesMissingZone++;
 			if (route.m_iWaypointCount < 3 || route.m_aWaypoints.Count() < 3)
@@ -7337,7 +7348,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(contentCase, "generated_content.site_metadata", "generated sites carry source metadata and route links resolve", string.Format("missing metadata %1 | missing route %2", missingSiteSourceMetadata, sitesMissingRoute), CampaignDebugStatus(missingSiteSourceMetadata == 0 && sitesMissingRoute == 0), "generated site metadata or route links are incomplete");
 		AddCampaignDebugAssertion(contentCase, "generated_content.site_type_coverage", "roadblock/support/stash/crashsite type coverage matches zone mix", string.Format("roadblock %1/%2 | support %3/%4 | stash %5/%6 | crashsite %7/%8", roadblockSiteCount, zoneCount, supportSiteCount, zoneCount, stashSiteCount, townCount, crashsiteCount, nonTownCount), CampaignDebugStatus(roadblockSiteCount >= zoneCount && supportSiteCount >= zoneCount && stashSiteCount >= townCount && crashsiteCount >= nonTownCount), "generated site type coverage is incomplete");
 		AddCampaignDebugAssertion(contentCase, "generated_content.route_ids_unique", "generated route ids are unique", string.Format("duplicates %1/%2", duplicateRouteIds, routeCount), CampaignDebugStatus(duplicateRouteIds == 0), "duplicate generated route ids found");
-		AddCampaignDebugAssertion(contentCase, "generated_content.route_validation", "all generated routes are vehicle-safe with at least three waypoints", string.Format("invalid %1 | too few waypoints %2 | min waypoints %3", invalidRoutes, routesWithTooFewWaypoints, minWaypointCount), CampaignDebugStatus(routeCount > 0 && invalidRoutes == 0 && routesWithTooFewWaypoints == 0 && minWaypointCount >= 3), "generated routes are not all vehicle-safe or waypoint-complete");
+		string routeValidationActual = string.Format("invalid %1 | too few waypoints %2 | min waypoints %3", invalidRoutes, routesWithTooFewWaypoints, minWaypointCount);
+		if (!invalidRouteDetails.IsEmpty())
+			routeValidationActual = routeValidationActual + " | examples " + invalidRouteDetails;
+		AddCampaignDebugAssertion(contentCase, "generated_content.route_validation", "all generated routes are vehicle-safe with at least three waypoints", routeValidationActual, CampaignDebugStatus(routeCount > 0 && invalidRoutes == 0 && routesWithTooFewWaypoints == 0 && minWaypointCount >= 3), "generated routes are not all vehicle-safe or waypoint-complete");
 		AddCampaignDebugAssertion(contentCase, "generated_content.route_metadata", "route zone links, endpoint positions, and waypoint metadata are coherent", string.Format("missing zone %1 | zero endpoints %2 | waypoint route mismatch %3 | index mismatch %4 | zero waypoint %5", routesMissingZone, routesWithZeroPositions, waypointRouteMismatches, waypointIndexMismatches, waypointZeroPositions), CampaignDebugStatus(routesMissingZone == 0 && routesWithZeroPositions == 0 && waypointRouteMismatches == 0 && waypointIndexMismatches == 0 && waypointZeroPositions == 0), "generated route metadata is incomplete");
 		FinalizeCampaignDebugCaseFromAssertions(contentCase);
 		return contentCase;
@@ -16758,6 +16772,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				factionKey = "US";
 			order = m_EnemyCommander.QueueDebugPetrosAttack(m_State, m_Preset, m_EnemyDirector, factionKey);
 		}
+		if (order)
+			ApplyCampaignDebugEnemyOrderPrefix(order, "phase22_petros_attack");
 
 		HST_ActiveMissionState mission = EnsureDefendPetrosMissionForOrder(order);
 		if (mission)
