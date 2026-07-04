@@ -11411,6 +11411,43 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int expectedCharacters = Math.Min(populationTown.m_iCivilianPresence, m_Balance.m_iCivilianMaxActivePerTown);
 		int spawnFailuresAfter = m_State.m_iRuntimeSpawnFailureCount;
 		string populationActual = m_Civilians.BuildRuntimeTownPopulationReport(m_State, zoneId);
+		float movementThresholdMeters = 1.0;
+		int movementSampleSeconds = 5;
+		int movementSampleTargetCount = 6;
+		int movementActualSampleCount;
+		int movementRuntimeChangedCount;
+		int bestMovedCharacters = m_Civilians.CountRuntimeEntitiesForZoneMovedFromSpawn(zoneId, movementThresholdMeters, "CIV_CHARACTER", "CIV");
+		float maxCharacterMovement = m_Civilians.ResolveRuntimeEntitiesForZoneMaxMovementFromSpawn(zoneId, "CIV_CHARACTER", "CIV");
+		string movementSampleHistory;
+		for (int movementSampleIndex = 0; movementSampleIndex < movementSampleTargetCount; movementSampleIndex++)
+		{
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + movementSampleSeconds;
+			bool movementCivilianTickChanged = m_Civilians.Tick(m_State, movementSampleSeconds);
+			bool movementPopulationChanged = m_Civilians.UpdatePhysicalTownPopulationForZone(m_State, m_Preset, m_Balance, zoneId, true);
+			if (movementCivilianTickChanged || movementPopulationChanged)
+				movementRuntimeChangedCount++;
+
+			int movedCharacters = m_Civilians.CountRuntimeEntitiesForZoneMovedFromSpawn(zoneId, movementThresholdMeters, "CIV_CHARACTER", "CIV");
+			float sampleMaxMovement = m_Civilians.ResolveRuntimeEntitiesForZoneMaxMovementFromSpawn(zoneId, "CIV_CHARACTER", "CIV");
+			if (movedCharacters > bestMovedCharacters)
+				bestMovedCharacters = movedCharacters;
+			if (sampleMaxMovement > maxCharacterMovement)
+				maxCharacterMovement = sampleMaxMovement;
+
+			movementActualSampleCount++;
+			string movementSample = string.Format("sample %1 moved %2/%3", movementActualSampleCount, movedCharacters, civilianCharacters);
+			movementSample = movementSample + string.Format(" | max %1m | tick changed %2", Math.Round(sampleMaxMovement), movementCivilianTickChanged || movementPopulationChanged);
+			if (movementSampleHistory.IsEmpty())
+				movementSampleHistory = movementSample;
+			else
+				movementSampleHistory = movementSampleHistory + "; " + movementSample;
+		}
+
+		int movementWindowSeconds = movementSampleSeconds * movementActualSampleCount;
+		bool movementObserved = bestMovedCharacters > 0 || maxCharacterMovement >= movementThresholdMeters;
+		string movementActual = m_Civilians.BuildRuntimeMovementSampleReport(zoneId, movementThresholdMeters, "CIV_CHARACTER", "CIV");
+		movementActual = movementActual + string.Format(" | window %1s | samples %2 | runtime changed %3", movementWindowSeconds, movementActualSampleCount, movementRuntimeChangedCount);
+		movementActual = movementActual + string.Format(" | best moved %1/%2 | max %3m", bestMovedCharacters, civilianCharacters, Math.Round(maxCharacterMovement));
 
 		populationZone.m_bActive = false;
 		bool cleanupChanged = m_Civilians.UpdatePhysicalTownPopulationForZone(m_State, m_Preset, m_Balance, zoneId, false);
@@ -11434,10 +11471,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool civilianFactionOk = civilianCharacters == civilianCharacterAnyFaction && civilianVehicles == civilianVehicleAnyFaction;
 
 		phaseCase.m_aEvidence.Insert("civilian population | " + populationActual);
+		phaseCase.m_aEvidence.Insert("civilian movement samples | " + ShortCampaignDebugLine(movementSampleHistory, 260));
 		phaseCase.m_aEvidence.Insert(string.Format("civilian population cleanup | changed %1 | runtime left %2 | vehicle records removed %3", cleanupChanged, cleanupRuntime, removedRuntimeVehicles));
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.characters", string.Format("%1", civilianCharacters), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.vehicles", string.Format("%1", civilianVehicles), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.outside_radius", string.Format("%1", outsideRadius), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.movement_window_seconds", string.Format("%1", movementWindowSeconds), "seconds");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.moved_characters", string.Format("%1", bestMovedCharacters), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.max_character_movement", string.Format("%1", Math.Round(maxCharacterMovement)), "meters");
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.town_selected", "clean inactive town selected for population probe", BuildCampaignDebugCivilianPopulationTownActual(populationTown, populationZone), CampaignDebugStatus(populationZone != null && !originalActive && CountActiveMissionsAtZone(zoneId) == 0), "civilian population probe town was not clean/inactive", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.player_bubble", "player teleported inside town population bubble", string.Format("teleport %1 | distance %2m | radius %3m", teleported, Math.Round(playerDistance), Math.Round(populationRadius)), CampaignDebugStatus(teleported && playerDistance <= populationRadius), "player was not inside the civilian town bubble", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.runtime_zone", "civilian service marks town as runtime-active", populationActual, CampaignDebugStatus(runtimeChanged && m_Civilians.HasRuntimeTownZone(zoneId)), "civilian runtime update did not activate the town population", "", "", zoneId);
@@ -11445,6 +11486,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.vehicle_count", "civilian vehicles spawn when configured and stay within configured bounds", populationActual, CampaignDebugStatus(vehicleCountOk), "civilian vehicle runtime count outside configured bounds", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.civ_faction", "civilian characters/vehicles are tagged CIV and runtime kinds are known", populationActual, CampaignDebugStatus(civilianFactionOk && knownRuntimeKinds), "civilian runtime entities missing CIV faction tag or unknown runtime kind", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.positions", "runtime civilian entities stay inside town bubble radius", string.Format("outside %1/%2 | radius %3m", outsideRadius, totalRuntime, Math.Round(populationRadius)), CampaignDebugStatus(totalRuntime > 0 && outsideRadius == 0), "civilian runtime entities spawned outside the town bubble", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.movement_samples", "bounded civilian movement window records repeated samples and timeout evidence", movementActual + " | history " + ShortCampaignDebugLine(movementSampleHistory, 180), CampaignDebugStatus(movementActualSampleCount == movementSampleTargetCount && !movementSampleHistory.IsEmpty()), "civilian movement sample window did not record repeated sample evidence", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.movement_observed", "civilian character position changes by at least 1m during sample window, or current static behavior is reported", movementActual, CampaignDebugStatus(civilianCharacters > 0 && movementObserved, "WARN"), "current civilian runtime did not move any character from spawn during the sample window", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.spawn_failures", "no new civilian runtime spawn failures", string.Format("%1 -> %2", spawnFailuresBefore, spawnFailuresAfter), CampaignDebugStatus(spawnFailuresAfter == spawnFailuresBefore), "civilian population probe introduced spawn failures", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.cleanup", "probe runtime entities and vehicle records cleaned up", string.Format("runtime left %1 | vehicle records removed %2", cleanupRuntime, removedRuntimeVehicles), CampaignDebugStatus(cleanupRuntime == 0 && m_State.m_aRuntimeVehicles.Count() == runtimeVehicleStartCount), "civilian population probe leaked runtime entities or vehicle records", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.restore", "town presence and zone active state restored after probe", BuildCampaignDebugCivilianPopulationTownActual(populationTown, populationZone), CampaignDebugStatus(restored), "civilian population probe did not restore town/zone state", "", "", zoneId);

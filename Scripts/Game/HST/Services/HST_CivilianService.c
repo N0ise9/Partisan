@@ -1576,6 +1576,64 @@ class HST_CivilianService
 		return count;
 	}
 
+	int CountRuntimeEntitiesForZoneMovedFromSpawn(string zoneId, float minDistanceMeters, string runtimeKind = "", string factionKey = "")
+	{
+		if (zoneId.IsEmpty())
+			return 0;
+
+		float minDistanceSq = minDistanceMeters * minDistanceMeters;
+		int count;
+		for (int i = 0; i < m_aRuntimeEntities.Count(); i++)
+		{
+			if (!MatchesRuntimeEntityFilter(i, zoneId, runtimeKind, factionKey))
+				continue;
+			if (i >= m_aRuntimeEntitySpawnPositions.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeEntities[i];
+			if (!entity)
+				continue;
+			if (DistanceSq2D(entity.GetOrigin(), m_aRuntimeEntitySpawnPositions[i]) >= minDistanceSq)
+				count++;
+		}
+
+		return count;
+	}
+
+	float ResolveRuntimeEntitiesForZoneMaxMovementFromSpawn(string zoneId, string runtimeKind = "", string factionKey = "")
+	{
+		if (zoneId.IsEmpty())
+			return 0.0;
+
+		float maxMovementSq;
+		for (int i = 0; i < m_aRuntimeEntities.Count(); i++)
+		{
+			if (!MatchesRuntimeEntityFilter(i, zoneId, runtimeKind, factionKey))
+				continue;
+			if (i >= m_aRuntimeEntitySpawnPositions.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeEntities[i];
+			if (!entity)
+				continue;
+
+			float movementSq = DistanceSq2D(entity.GetOrigin(), m_aRuntimeEntitySpawnPositions[i]);
+			if (movementSq > maxMovementSq)
+				maxMovementSq = movementSq;
+		}
+
+		return Math.Sqrt(maxMovementSq);
+	}
+
+	string BuildRuntimeMovementSampleReport(string zoneId, float minDistanceMeters, string runtimeKind = "", string factionKey = "")
+	{
+		int total = CountRuntimeEntitiesForZone(zoneId, runtimeKind, factionKey);
+		int moved = CountRuntimeEntitiesForZoneMovedFromSpawn(zoneId, minDistanceMeters, runtimeKind, factionKey);
+		float maxMovement = ResolveRuntimeEntitiesForZoneMaxMovementFromSpawn(zoneId, runtimeKind, factionKey);
+		string report = string.Format("runtime movement %1 | kind %2 | faction %3 | moved %4/%5", EmptyRuntimeField(zoneId), EmptyRuntimeField(runtimeKind), EmptyRuntimeField(factionKey), moved, total);
+		return report + string.Format(" | threshold %1m | max %2m", Math.Round(minDistanceMeters), Math.Round(maxMovement));
+	}
+
 	string BuildRuntimeTownPopulationReport(HST_CampaignState state, string zoneId)
 	{
 		int civilianCharacters = CountRuntimeEntitiesForZone(zoneId, "CIV_CHARACTER", "CIV");
@@ -1587,6 +1645,30 @@ class HST_CivilianService
 			report = report + string.Format(" | global civ chars %1 | civ vehicles %2 | failures %3 | last failure %4", state.m_iRuntimeCivilianCharacterCount, state.m_iRuntimeCivilianVehicleCount, state.m_iRuntimeSpawnFailureCount, EmptyRuntimeField(state.m_sLastRuntimeSpawnFailurePrefab));
 
 		return report;
+	}
+
+	protected bool MatchesRuntimeEntityFilter(int index, string zoneId, string runtimeKind = "", string factionKey = "")
+	{
+		if (index < 0 || index >= m_aRuntimeEntities.Count())
+			return false;
+		if (index >= m_aRuntimeEntityZoneIds.Count() || m_aRuntimeEntityZoneIds[index] != zoneId)
+			return false;
+		if (!runtimeKind.IsEmpty())
+		{
+			if (index >= m_aRuntimeEntityKinds.Count() || m_aRuntimeEntityKinds[index] != runtimeKind)
+				return false;
+		}
+
+		if (!factionKey.IsEmpty())
+		{
+			string runtimeFactionKey;
+			if (index < m_aRuntimeEntityFactionKeys.Count())
+				runtimeFactionKey = m_aRuntimeEntityFactionKeys[index];
+			if (runtimeFactionKey != factionKey)
+				return false;
+		}
+
+		return true;
 	}
 
 	protected string EmptyRuntimeField(string value)
