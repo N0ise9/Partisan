@@ -11390,6 +11390,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool upReasonOk = town.m_sLastIncidentReason == "phase20 support up probe" && town.m_iLastSupportChangeSecond == m_State.m_iElapsedSeconds;
 		bool upFlipImplemented = m_Preset && zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && upOwnerBefore != zone.m_sOwnerFactionKey;
 		string upActual = BuildCampaignDebugTownSupportActual("up", town, zone, upSupportBefore, upOwnerBefore);
+		bool upMarkerRefresh = false;
+		HST_MapMarkerState upMarker;
+		if (m_MapMarkers && m_Preset)
+		{
+			upMarkerRefresh = m_MapMarkers.RefreshZoneMarker(m_State, m_Preset, zoneId);
+			upMarker = m_State.FindMapMarker("hst_zone_" + zoneId);
+		}
+		bool upMarkerOk = upMarker && upMarker.m_sLinkedId == zoneId && upMarker.m_sOwnerFactionKey == zone.m_sOwnerFactionKey && !upMarker.m_sColorHint.IsEmpty() && !upMarker.m_sStyleHint.IsEmpty();
+		string upMarkerActual = string.Format("refresh %1 | %2", upMarkerRefresh, BuildCampaignDebugMarkerActual(upMarker));
 
 		town.m_iFIASupport = 60;
 		town.m_iOccupierSupport = 40;
@@ -11413,6 +11422,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool downReasonOk = town.m_sLastIncidentReason == "phase20 support down probe" && town.m_iLastSupportChangeSecond == m_State.m_iElapsedSeconds;
 		bool downFlipImplemented = m_Preset && zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey && downOwnerBefore != zone.m_sOwnerFactionKey;
 		string downActual = BuildCampaignDebugTownSupportActual("down", town, zone, downSupportBefore, downOwnerBefore);
+		bool downMarkerRefresh = false;
+		HST_MapMarkerState downMarker;
+		if (m_MapMarkers && m_Preset)
+		{
+			downMarkerRefresh = m_MapMarkers.RefreshZoneMarker(m_State, m_Preset, zoneId);
+			downMarker = m_State.FindMapMarker("hst_zone_" + zoneId);
+		}
+		bool downMarkerOk = downMarker && downMarker.m_sLinkedId == zoneId && downMarker.m_sOwnerFactionKey == zone.m_sOwnerFactionKey && !downMarker.m_sColorHint.IsEmpty() && !downMarker.m_sStyleHint.IsEmpty();
+		string downMarkerActual = string.Format("refresh %1 | %2", downMarkerRefresh, BuildCampaignDebugMarkerActual(downMarker));
 
 		town.m_iFIASupport = originalFIA;
 		town.m_iOccupierSupport = originalOccupier;
@@ -11427,6 +11445,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		zone.m_sOwnerFactionKey = originalOwner;
 		zone.m_iResistanceCaptureProgress = originalCaptureProgress;
 		bool restored = town.m_iFIASupport == originalFIA && town.m_iOccupierSupport == originalOccupier && town.m_iReputation == originalReputation && town.m_iWantedHeat == originalHeat && town.m_sLastSecurityReason == originalSecurityReason && town.m_bUndercoverRestricted == originalUndercoverRestricted && zone.m_iSupport == originalZoneSupport && zone.m_sOwnerFactionKey == originalOwner && zone.m_iResistanceCaptureProgress == originalCaptureProgress;
+		bool restoreMarkerRefresh = false;
+		HST_MapMarkerState restoredMarker;
+		if (m_MapMarkers && m_Preset)
+		{
+			restoreMarkerRefresh = m_MapMarkers.RefreshZoneMarker(m_State, m_Preset, zoneId);
+			restoredMarker = m_State.FindMapMarker("hst_zone_" + zoneId);
+		}
+		bool restoredMarkerOk = restoredMarker && restoredMarker.m_sLinkedId == zoneId && restoredMarker.m_sOwnerFactionKey == originalOwner;
+		string restoredMarkerActual = string.Format("refresh %1 | %2", restoreMarkerRefresh, BuildCampaignDebugMarkerActual(restoredMarker));
 
 		phaseCase.m_aEvidence.Insert("town support up transition | " + upActual);
 		phaseCase.m_aEvidence.Insert("town support down transition | " + downActual);
@@ -11437,12 +11464,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.up_formula", "zone support equals clamped FIA minus occupier support and values stay bounded", upActual, CampaignDebugStatus(upFormulaOk && upBoundsOk), "support-up incident produced invalid support bounds or formula", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.up_reason", "last incident reason/support timestamp updated", upActual, CampaignDebugStatus(upReasonOk), "support-up incident did not update town incident metadata", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.up_flip_policy", "high FIA support flips owner to resistance", upActual, CampaignDebugStatus(upFlipImplemented), "support-only ownership flip to resistance did not occur", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.up_marker", "zone marker model reflects resistance owner flip", upMarkerActual, CampaignDebugStatus(upMarkerOk), "support-up owner flip did not refresh a matching zone marker", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_changed", "civilian incident mutation accepts negative reputation and heat", downActual, CampaignDebugStatus(downChanged), "support-down incident did not mutate the civilian town", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_direction", "FIA support and zone support decrease while occupier support/heat rise", downActual, CampaignDebugStatus(downDirectionOk), "support-down incident did not move town support toward occupier pressure", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_formula", "zone support equals clamped FIA minus occupier support and values stay bounded", downActual, CampaignDebugStatus(downFormulaOk && downBoundsOk), "support-down incident produced invalid support bounds or formula", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_reason", "last incident reason/support timestamp updated", downActual, CampaignDebugStatus(downReasonOk), "support-down incident did not update town incident metadata", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_flip_policy", "support loss flips owner away from resistance", downActual, CampaignDebugStatus(downFlipImplemented), "support-only ownership flip away from resistance did not occur", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_marker", "zone marker model reflects enemy owner flip", downMarkerActual, CampaignDebugStatus(downMarkerOk), "support-down owner flip did not refresh a matching zone marker", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.cleanup_restore", "temporary support transition state restored to seeded Phase 20 town values", BuildCampaignDebugTownSupportActual("restored", town, zone, originalZoneSupport, originalOwner), CampaignDebugStatus(restored), "town support transition probe leaked temporary state", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.marker_restore", "zone marker model restored to original town owner", restoredMarkerActual, CampaignDebugStatus(restoredMarkerOk), "town support transition probe left the zone marker on the temporary owner", "", "", zoneId);
 	}
 
 	protected bool IsCampaignDebugTownSupportBounded(HST_CivilianZoneState town, HST_ZoneState zone)
