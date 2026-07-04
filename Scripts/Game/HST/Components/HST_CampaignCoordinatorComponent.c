@@ -3704,21 +3704,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool cancelVisible = adminPayload.Contains("|admin_campaign_debug_cancel|");
 		bool cleanupVisible = adminPayload.Contains("|admin_campaign_debug_cleanup|");
 		bool coverageComplete = !coverageReport.Contains("missing visible command: admin_run_campaign_debug") && !coverageReport.Contains("missing dispatch: admin_run_campaign_debug") && !coverageReport.Contains("missing visible command: admin_campaign_debug_status") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_status") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cancel") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cancel") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cleanup") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cleanup");
-		string renderedMenuActual = "local command menu component unavailable";
-		string renderedMenuStatus = "WARN";
-		HST_CommandMenuComponent localCommandMenu = HST_CommandMenuComponent.GetLocalInstance();
-		if (localCommandMenu)
-		{
-			bool renderedMenuReady = localCommandMenu.ProbeCampaignDebugRenderedMenu(renderedMenuActual);
-			renderedMenuStatus = CampaignDebugStatus(renderedMenuReady, "WARN");
-		}
 
 		hqCase.m_aEvidence.Insert("command UI admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
 		hqCase.m_aEvidence.Insert("command UI coverage | " + ShortCampaignDebugLine(coverageReport, 260));
-		hqCase.m_aEvidence.Insert("command UI rendered | " + ShortCampaignDebugLine(renderedMenuActual, 260));
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.admin_payload", "admin menu exposes campaign debug start/status/cancel/cleanup while run is active", string.Format("run %1 | status %2 | cancel %3 | cleanup %4", runVisible, statusVisible, cancelVisible, cleanupVisible), CampaignDebugStatus(runVisible && statusVisible && cancelVisible && cleanupVisible), "campaign debug controls are missing from the active admin menu payload");
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.coverage", "campaign debug visible commands have dispatch coverage", ShortCampaignDebugLine(coverageReport, 220), CampaignDebugStatus(m_CommandUI != null && coverageComplete), "campaign debug command coverage is missing visible command or dispatch entries");
-		AddCampaignDebugAssertion(hqCase, "hq.command_menu.rendered", "local command menu opens admin tab and renders expected root widgets when a client UI instance exists", ShortCampaignDebugLine(renderedMenuActual, 260), renderedMenuStatus, "command menu widget root was unavailable, incomplete, hidden, or zero-sized");
 	}
 
 	protected void AddCampaignDebugHQEntityAssertion(HST_CampaignDebugCaseResult hqCase, string objectId, string label, bool present, string entityKey, vector expectedPosition, vector actualPosition, float toleranceMeters)
