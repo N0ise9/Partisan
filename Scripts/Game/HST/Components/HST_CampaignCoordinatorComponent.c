@@ -8465,37 +8465,86 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string RunCampaignDebugSupportCancelTyped()
 	{
+		HST_CampaignDebugSupportCancelProbeContext cancelContext = new HST_CampaignDebugSupportCancelProbeContext();
+		cancelContext.m_iPendingBeforeClear = CountCampaignDebugPendingPlayerSupportRequests();
 		ClearCampaignDebugPlayerSupportRequests("before support cancellation probe");
-		int countBefore = 0;
+		cancelContext.m_iPendingAfterPreClear = CountCampaignDebugPendingPlayerSupportRequests();
 		int requestedAtSecond = GetCampaignDebugElapsedSecond();
 		if (m_State)
-			countBefore = m_State.m_aSupportRequests.Count();
+			cancelContext.m_iCountBefore = m_State.m_aSupportRequests.Count();
 
-		string seedResult = RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, HST_ESupportRequestType.HST_SUPPORT_QRF);
-		HST_SupportRequestState request = FindLatestCampaignDebugSupportRequest(HST_ESupportRequestType.HST_SUPPORT_QRF, countBefore, requestedAtSecond);
-		string cancelResult;
-		if (request)
-			cancelResult = RequestCommanderCancelSupportReport(m_iCampaignDebugPlayerId, request.m_sRequestId);
-		else
-			cancelResult = RequestCommanderCancelSupportReport(m_iCampaignDebugPlayerId);
-
-		RecordCampaignDebugCase(BuildCampaignDebugSupportCancelCase(seedResult, cancelResult, request));
-		return seedResult + "\n" + cancelResult;
-	}
-
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportCancelCase(string seedResult, string cancelResult, HST_SupportRequestState request)
-	{
-		HST_CampaignDebugCaseResult cancelCase = CreateCampaignDebugCase("support.cancel.player_request", "support", "player_support", "early_mechanics");
-		cancelCase.m_aEvidence.Insert(seedResult);
-		cancelCase.m_aEvidence.Insert(cancelResult);
-		AddCampaignDebugAssertion(cancelCase, "support.cancel.seed", "cancel probe creates a player QRF request", ShortCampaignDebugLine(seedResult, 220), CampaignDebugStatus(request != null && IsCampaignDebugResultSuccessful(seedResult)), "support cancellation probe could not seed a request");
-		AddCampaignDebugAssertion(cancelCase, "support.cancel.command_result", "cancel command accepted", ShortCampaignDebugLine(cancelResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(cancelResult)), "support cancel command returned failure text");
-		if (request)
+		cancelContext.m_sSeedResult = RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, HST_ESupportRequestType.HST_SUPPORT_QRF);
+		HST_SupportRequestState supportRequest = FindLatestCampaignDebugSupportRequest(HST_ESupportRequestType.HST_SUPPORT_QRF, cancelContext.m_iCountBefore, requestedAtSecond);
+		cancelContext.m_iPendingAfterSeed = CountCampaignDebugPendingPlayerSupportRequests();
+		if (supportRequest)
 		{
-			AddCampaignDebugAssertion(cancelCase, "support.cancel.status", "request status CANCELLED", string.Format("%1 | runtime %2 | reason %3", request.m_eStatus, EmptyCampaignDebugField(request.m_sRuntimeStatus), EmptyCampaignDebugField(request.m_sFailureReason)), CampaignDebugStatus(request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED), "support request did not enter cancelled status", request.m_sRequestId);
-			AddCampaignDebugAssertion(cancelCase, "support.cancel.resolution", "resolution kind cancelled and resolved second set", string.Format("%1 | resolved %2", EmptyCampaignDebugField(request.m_sResolutionKind), request.m_iResolvedAtSecond), CampaignDebugStatus(request.m_sResolutionKind == "cancelled" && request.m_iResolvedAtSecond == GetCampaignDebugElapsedSecond()), "support cancel did not stamp cancellation resolution", request.m_sRequestId);
+			cancelContext.m_bRequestCreated = true;
+			cancelContext.m_sRequestId = supportRequest.m_sRequestId;
 		}
 
+		if (supportRequest)
+			cancelContext.m_sCancelResult = RequestCommanderCancelSupportReport(m_iCampaignDebugPlayerId, supportRequest.m_sRequestId);
+		else
+			cancelContext.m_sCancelResult = RequestCommanderCancelSupportReport(m_iCampaignDebugPlayerId);
+
+		cancelContext.m_iCancelSecond = GetCampaignDebugElapsedSecond();
+		CaptureCampaignDebugSupportCancelSnapshot(cancelContext, supportRequest, false);
+		cancelContext.m_iPendingAfterCancel = CountCampaignDebugPendingPlayerSupportRequests();
+		ClearCampaignDebugPlayerSupportRequests("after support cancellation probe");
+		CaptureCampaignDebugSupportCancelSnapshot(cancelContext, supportRequest, true);
+		cancelContext.m_iPendingAfterCleanup = CountCampaignDebugPendingPlayerSupportRequests();
+		cancelContext.m_iTotalAfterCleanup = CampaignDebugSupportRequestCount();
+
+		RecordCampaignDebugCase(BuildCampaignDebugSupportCancelCase(cancelContext));
+		return cancelContext.m_sSeedResult + "\n" + cancelContext.m_sCancelResult;
+	}
+
+	protected void CaptureCampaignDebugSupportCancelSnapshot(HST_CampaignDebugSupportCancelProbeContext cancelContext, HST_SupportRequestState supportRequest, bool afterCleanup)
+	{
+		if (!cancelContext || !supportRequest)
+			return;
+
+		if (afterCleanup)
+		{
+			cancelContext.m_sRuntimeStatusAfterCleanup = supportRequest.m_sRuntimeStatus;
+			cancelContext.m_sResolutionKindAfterCleanup = supportRequest.m_sResolutionKind;
+			cancelContext.m_iCooldownAfterCleanup = supportRequest.m_iCooldownUntilSecond;
+			return;
+		}
+
+		cancelContext.m_eStatusAfterCancel = supportRequest.m_eStatus;
+		cancelContext.m_sRuntimeStatusAfterCancel = supportRequest.m_sRuntimeStatus;
+		cancelContext.m_sFailureReasonAfterCancel = supportRequest.m_sFailureReason;
+		cancelContext.m_sResolutionKindAfterCancel = supportRequest.m_sResolutionKind;
+		cancelContext.m_iResolvedAtSecondAfterCancel = supportRequest.m_iResolvedAtSecond;
+		cancelContext.m_iCooldownAfterCancel = supportRequest.m_iCooldownUntilSecond;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportCancelCase(HST_CampaignDebugSupportCancelProbeContext cancelContext)
+	{
+		HST_CampaignDebugCaseResult cancelCase = CreateCampaignDebugCase("support.cancel.player_request", "support", "player_support", "early_mechanics");
+		if (!cancelContext)
+		{
+			AddCampaignDebugAssertion(cancelCase, "support.cancel.context", "support cancellation context exists", "missing", "BLOCKED", "support cancellation context missing");
+			FinalizeCampaignDebugCaseFromAssertions(cancelCase);
+			return cancelCase;
+		}
+
+		cancelCase.m_aEvidence.Insert(cancelContext.m_sSeedResult);
+		cancelCase.m_aEvidence.Insert(cancelContext.m_sCancelResult);
+		AddCampaignDebugMetric(cancelCase, "support.cancel.count_before", string.Format("%1", cancelContext.m_iCountBefore), "count");
+		AddCampaignDebugMetric(cancelCase, "support.cancel.pending_before_clear", string.Format("%1", cancelContext.m_iPendingBeforeClear), "count");
+		AddCampaignDebugMetric(cancelCase, "support.cancel.pending_after_preclear", string.Format("%1", cancelContext.m_iPendingAfterPreClear), "count");
+		AddCampaignDebugMetric(cancelCase, "support.cancel.pending_after_seed", string.Format("%1", cancelContext.m_iPendingAfterSeed), "count");
+		AddCampaignDebugMetric(cancelCase, "support.cancel.pending_after_cancel", string.Format("%1", cancelContext.m_iPendingAfterCancel), "count");
+		AddCampaignDebugMetric(cancelCase, "support.cancel.pending_after_cleanup", string.Format("%1", cancelContext.m_iPendingAfterCleanup), "count");
+		AddCampaignDebugAssertion(cancelCase, "support.cancel.preclear", "pre-existing queued/active player support cleared before probe", string.Format("%1 -> %2", cancelContext.m_iPendingBeforeClear, cancelContext.m_iPendingAfterPreClear), CampaignDebugStatus(cancelContext.m_iPendingAfterPreClear == 0), "pre-existing player support requests remained open before cancellation probe");
+		AddCampaignDebugAssertion(cancelCase, "support.cancel.seed", "cancel probe creates a player QRF request", ShortCampaignDebugLine(cancelContext.m_sSeedResult, 220), CampaignDebugStatus(cancelContext.m_bRequestCreated && IsCampaignDebugResultSuccessful(cancelContext.m_sSeedResult)), "support cancellation probe could not seed a request", cancelContext.m_sRequestId);
+		AddCampaignDebugAssertion(cancelCase, "support.cancel.command_result", "cancel command accepted", ShortCampaignDebugLine(cancelContext.m_sCancelResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(cancelContext.m_sCancelResult)), "support cancel command returned failure text", cancelContext.m_sRequestId);
+		AddCampaignDebugAssertion(cancelCase, "support.cancel.status", "request status CANCELLED immediately after cancel command", string.Format("%1 | runtime %2 | reason %3", cancelContext.m_eStatusAfterCancel, EmptyCampaignDebugField(cancelContext.m_sRuntimeStatusAfterCancel), EmptyCampaignDebugField(cancelContext.m_sFailureReasonAfterCancel)), CampaignDebugStatus(cancelContext.m_bRequestCreated && cancelContext.m_eStatusAfterCancel == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED), "support request did not enter cancelled status", cancelContext.m_sRequestId);
+		AddCampaignDebugAssertion(cancelCase, "support.cancel.resolution", "resolution kind cancelled and resolved second set", string.Format("%1 | resolved %2 | cancel second %3", EmptyCampaignDebugField(cancelContext.m_sResolutionKindAfterCancel), cancelContext.m_iResolvedAtSecondAfterCancel, cancelContext.m_iCancelSecond), CampaignDebugStatus(cancelContext.m_sResolutionKindAfterCancel == "cancelled" && cancelContext.m_iResolvedAtSecondAfterCancel == cancelContext.m_iCancelSecond), "support cancel did not stamp cancellation resolution", cancelContext.m_sRequestId);
+		AddCampaignDebugAssertion(cancelCase, "support.cancel.cleanup_open_requests", "no queued/active player support requests remain after cleanup", string.Format("pending %1 | total %2", cancelContext.m_iPendingAfterCleanup, cancelContext.m_iTotalAfterCleanup), CampaignDebugStatus(cancelContext.m_iPendingAfterCleanup == 0), "support cancellation cleanup left queued or active player support requests", cancelContext.m_sRequestId);
+		AddCampaignDebugAssertion(cancelCase, "support.cancel.cleanup_cooldown", "cleanup clears player support cooldown for follow-on support probes", string.Format("cooldown %1 -> %2 | runtime %3", cancelContext.m_iCooldownAfterCancel, cancelContext.m_iCooldownAfterCleanup, EmptyCampaignDebugField(cancelContext.m_sRuntimeStatusAfterCleanup)), CampaignDebugStatus(!cancelContext.m_bRequestCreated || cancelContext.m_iCooldownAfterCleanup == 0), "support cancellation cleanup left player support cooldown set", cancelContext.m_sRequestId);
 		FinalizeCampaignDebugCaseFromAssertions(cancelCase);
 		return cancelCase;
 	}

@@ -114,6 +114,31 @@ class HST_CampaignDebugSupportProbeContext
 	bool m_bRuntimeEntityCleaned;
 }
 
+class HST_CampaignDebugSupportCancelProbeContext
+{
+	string m_sSeedResult;
+	string m_sCancelResult;
+	string m_sRequestId;
+	int m_iCountBefore;
+	int m_iPendingBeforeClear;
+	int m_iPendingAfterPreClear;
+	int m_iPendingAfterSeed;
+	int m_iPendingAfterCancel;
+	int m_iPendingAfterCleanup;
+	int m_iTotalAfterCleanup;
+	bool m_bRequestCreated;
+	int m_iCancelSecond;
+	HST_ESupportRequestStatus m_eStatusAfterCancel = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+	string m_sRuntimeStatusAfterCancel;
+	string m_sFailureReasonAfterCancel;
+	string m_sResolutionKindAfterCancel;
+	int m_iResolvedAtSecondAfterCancel;
+	int m_iCooldownAfterCancel;
+	string m_sRuntimeStatusAfterCleanup;
+	string m_sResolutionKindAfterCleanup;
+	int m_iCooldownAfterCleanup;
+}
+
 class HST_CampaignDebugIncomeProbeContext
 {
 	string m_sSeedResult;
