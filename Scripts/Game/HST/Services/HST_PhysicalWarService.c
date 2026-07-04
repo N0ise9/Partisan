@@ -59,6 +59,100 @@ class HST_ConvoyCompletionStatus
 	string m_sReason;
 }
 
+class HST_ConvoyDebugGroupSnapshot
+{
+	string m_sGroupId;
+	string m_sSpawnFallbackMode;
+	string m_sSpawnFailureReason;
+	vector m_vPosition;
+	string m_sRouteId;
+	vector m_vSourcePosition;
+	vector m_vTargetPosition;
+	string m_sRuntimeStatus;
+	int m_iInfantryCount;
+	int m_iVehicleCount;
+	int m_iLastSeenAliveCount;
+	int m_iSurvivorInfantryCount;
+	int m_iSurvivorVehicleCount;
+	int m_iSpawnedAgentCount;
+	int m_iAssignedWaypointCount;
+	bool m_bSpawnAttempted;
+	bool m_bSpawnedEntity;
+	bool m_bHadCrewEntity;
+	bool m_bHadVehicleEntity;
+	vector m_vCrewEntityPosition;
+	vector m_vVehicleEntityPosition;
+	vector m_vVehicleEntityAngles;
+}
+
+class HST_ConvoyDebugObjectiveSnapshot
+{
+	string m_sObjectiveId;
+	int m_iRequiredProgress;
+	int m_iCurrentProgress;
+	int m_iRequiredCount;
+	int m_iCurrentCount;
+	bool m_bComplete;
+	bool m_bFailed;
+	bool m_bWorldDetected;
+	bool m_bAbstractFallback;
+}
+
+class HST_ConvoyDebugAssetSnapshot
+{
+	string m_sAssetId;
+	string m_sEntityId;
+	string m_sCarriedByVehicleId;
+	string m_sLastInteraction;
+	bool m_bSpawned;
+	bool m_bPickedUp;
+	bool m_bDelivered;
+	bool m_bDestroyed;
+	bool m_bAlive;
+	bool m_bAttachedToCarrier;
+	bool m_bOutcomeApplied;
+	string m_sOutcomeKind;
+	vector m_vSourcePosition;
+	vector m_vTargetPosition;
+	vector m_vCurrentPosition;
+	vector m_vLastKnownPosition;
+}
+
+class HST_ConvoyDebugRuntimeEntitySnapshot
+{
+	string m_sRuntimeEntityId;
+	vector m_vPosition;
+	vector m_vAngles;
+	bool m_bSpawned;
+	bool m_bDestroyed;
+	bool m_bRecovered;
+}
+
+class HST_ConvoyDebugPhaseRestoreState
+{
+	string m_sMissionInstanceId;
+	string m_sRuntimePhase;
+	string m_sRuntimeFailureReason;
+	string m_sLastRuntimeEventKey;
+	int m_iRuntimeETASeconds;
+	int m_iRuntimeCounterA;
+	int m_iRuntimeCounterB;
+	int m_iRuntimeCounterC;
+	int m_iRuntimeDestroyedCount;
+	int m_iCapturedVehicleCount;
+	bool m_bConvoyArrivalOutcomeApplied;
+	bool m_bConvoyCrewEliminatedOutcomeApplied;
+	bool m_bConvoyVehicleCapturedOutcomeApplied;
+	bool m_bConvoyCargoDeliveredOutcomeApplied;
+	bool m_bConvoyExpiredOutcomeApplied;
+	string m_sConvoyOutcomeSummary;
+	bool m_bMarkerRefreshNeeded;
+	ref array<ref HST_ConvoyDebugGroupSnapshot> m_aGroups = {};
+	ref array<ref HST_ConvoyDebugObjectiveSnapshot> m_aObjectives = {};
+	ref array<ref HST_ConvoyDebugAssetSnapshot> m_aAssets = {};
+	ref array<ref HST_ConvoyDebugRuntimeEntitySnapshot> m_aRuntimeEntities = {};
+}
+
 class HST_PhysicalWarService
 {
 	static const int MAX_ACTIVE_INFANTRY_PER_ZONE = 6;
@@ -488,9 +582,503 @@ class HST_PhysicalWarService
 		string routeTimeoutActual = string.Format("timed out %1/%2 | sampled windows %3 | window %4s | evidence %5", routeTimeoutCount, readiness.m_iVehicleAssetCount, movementWindowCount, maxRouteTimeoutSeconds, ReportText(routeTimeoutEvidence));
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.stall_timeout", "fully sampled convoy movement windows do not stall without movement, distance closure, recovery, contact, or arrival", routeTimeoutActual, routeTimeoutStatus, "one or more convoy vehicles timed out across the controlled movement window", "", mission.m_sInstanceId);
 
+		AddConvoyDebugControlledPhaseAssertions(probe, state, mission);
+
 		probe.m_aEvidence.Insert(BuildConvoyRuntimeReport(state, mission));
 		FinalizeConvoyDebugProbeCase(state, probe);
 		return probe;
+	}
+
+	protected void AddConvoyDebugControlledPhaseAssertions(HST_CampaignDebugCaseResult probe, HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!probe)
+			return;
+		if (!state || !mission)
+		{
+			AddConvoyDebugProbeAssertion(probe, "convoy.phase.controlled_prerequisite", "campaign state and convoy mission exist", "missing", "BLOCKED", "convoy controlled phase probe missing state or mission");
+			return;
+		}
+
+		HST_ConvoyDebugPhaseRestoreState eliminationSnapshot = CaptureConvoyDebugPhaseState(state, mission);
+		if (!eliminationSnapshot)
+		{
+			AddConvoyDebugProbeAssertion(probe, "convoy.phase.controlled_prerequisite", "convoy phase snapshot captured", "snapshot failed", "BLOCKED", "convoy controlled phase probe could not capture restorable state", "", mission.m_sInstanceId);
+			return;
+		}
+
+		string eliminationHistory;
+		string eliminationActual;
+		int eliminationForcedGroups;
+		bool eliminationTerminal = RunConvoyDebugEliminationPhaseWalk(state, mission, eliminationHistory, eliminationActual, eliminationForcedGroups);
+		string eliminationRestoreReason;
+		bool eliminationRestored = RestoreConvoyDebugPhaseState(state, mission, eliminationSnapshot, eliminationRestoreReason);
+		AddConvoyDebugProbeMetric(probe, "convoy.phase.controlled_eliminated_groups", string.Format("%1", eliminationForcedGroups), "count");
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase.controlled_history", "debug-controlled walk observes staging > moving > contact > eliminated through convoy phase/objective paths", string.Format("%1 | %2", ReportText(eliminationHistory), ReportText(eliminationActual)), ConvoyDebugStatus(eliminationTerminal, "WARN"), "controlled convoy phase walk did not reach eliminated terminal state through the convoy objective path", "", mission.m_sInstanceId);
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase.controlled_restore", "controlled phase walk restores mission/group/objective/asset/entity state", ReportText(eliminationRestoreReason), ConvoyDebugStatus(eliminationRestored), "controlled convoy phase walk did not restore all touched state", "", mission.m_sInstanceId);
+
+		HST_ConvoyDebugPhaseRestoreState destinationSnapshot = CaptureConvoyDebugPhaseState(state, mission);
+		if (!destinationSnapshot)
+		{
+			AddConvoyDebugProbeAssertion(probe, "convoy.phase.destination_prerequisite", "convoy destination terminal snapshot captured", "snapshot failed", "BLOCKED", "convoy destination terminal probe could not capture restorable state", "", mission.m_sInstanceId);
+			return;
+		}
+
+		string destinationActual;
+		bool destinationTerminal = RunConvoyDebugDestinationTerminalProbe(state, mission, destinationActual);
+		string destinationRestoreReason;
+		bool destinationRestored = RestoreConvoyDebugPhaseState(state, mission, destinationSnapshot, destinationRestoreReason);
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase.destination_terminal", "live-crewed convoy vehicle reaching destination records the designed failed/destination terminal condition", destinationActual, ConvoyDebugStatus(destinationTerminal, "WARN"), "controlled convoy destination probe did not observe the destination terminal condition", "", mission.m_sInstanceId);
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase.destination_restore", "destination terminal probe restores mission/group/objective/asset/entity state", ReportText(destinationRestoreReason), ConvoyDebugStatus(destinationRestored), "controlled convoy destination probe did not restore all touched state", "", mission.m_sInstanceId);
+	}
+
+	protected bool RunConvoyDebugEliminationPhaseWalk(HST_CampaignState state, HST_ActiveMissionState mission, out string phaseHistory, out string actual, out int forcedGroups)
+	{
+		phaseHistory = "";
+		actual = "";
+		forcedGroups = 0;
+		if (!state || !mission)
+		{
+			actual = "state or mission missing";
+			return false;
+		}
+
+		mission.m_sRuntimePhase = MISSION_CONVOY_STAGING;
+		mission.m_sRuntimeFailureReason = "";
+		mission.m_sLastRuntimeEventKey = "";
+		if (mission.m_iRuntimeCounterB <= 0)
+			mission.m_iRuntimeCounterB = 1;
+		mission.m_iRuntimeCounterA = Math.Max(mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB);
+		phaseHistory = AppendConvoyDebugPhaseHistory(phaseHistory, mission.m_sRuntimePhase);
+
+		HST_ConvoyReadinessStatus phaseReadiness = BuildMissionConvoyReadinessStatus(state, mission);
+		bool phaseAdvanced = TryAdvanceMissionConvoyFromStaging(state, mission);
+		bool movingObserved = mission.m_sRuntimePhase == MISSION_CONVOY_MOVING;
+		phaseHistory = AppendConvoyDebugPhaseHistory(phaseHistory, mission.m_sRuntimePhase);
+
+		string contactReason;
+		bool contactReasonAvailable = TryResolveMissionConvoyContactReason(state, mission, contactReason);
+		bool contactApplied;
+		if (movingObserved || mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
+			contactApplied = SetMissionConvoyContact(state, mission, "Campaign debug controlled contact phase sample.");
+		bool contactObserved = mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT;
+		phaseHistory = AppendConvoyDebugPhaseHistory(phaseHistory, mission.m_sRuntimePhase);
+
+		if (contactObserved)
+		{
+			foreach (HST_ActiveGroupState phaseGroup : state.m_aActiveGroups)
+			{
+				if (!IsMissionConvoyGroupForMission(phaseGroup, mission) || phaseGroup.m_sRuntimeStatus == "spawn_failed")
+					continue;
+
+				phaseGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED;
+				phaseGroup.m_iLastSeenAliveCount = 0;
+				phaseGroup.m_iSurvivorInfantryCount = 0;
+				forcedGroups++;
+			}
+
+			UpdateMissionConvoyObjective(state, mission);
+		}
+
+		bool eliminatedObserved = mission.m_sRuntimePhase == MISSION_CONVOY_ELIMINATED && mission.m_sLastRuntimeEventKey == CONVOY_COMPLETE_EVENT_KEY;
+		phaseHistory = AppendConvoyDebugPhaseHistory(phaseHistory, mission.m_sRuntimePhase);
+		HST_ConvoyCompletionStatus phaseCompletion = BuildMissionConvoyCompletionStatus(state, mission);
+		actual = string.Format("advanced %1 | moving %2 | readiness %3 | contact reason %4/%5 | contact applied %6 | forced groups %7 | terminal %8 | completion %9",
+			ReportBool(phaseAdvanced),
+			ReportBool(movingObserved),
+			ReportText(phaseReadiness.m_sReason),
+			ReportBool(contactReasonAvailable),
+			ReportText(contactReason),
+			ReportBool(contactApplied),
+			forcedGroups,
+			ReportText(mission.m_sRuntimePhase),
+			ReportText(phaseCompletion.m_sReason));
+		return movingObserved && contactObserved && eliminatedObserved && forcedGroups > 0;
+	}
+
+	protected bool RunConvoyDebugDestinationTerminalProbe(HST_CampaignState state, HST_ActiveMissionState mission, out string actual)
+	{
+		actual = "";
+		if (!state || !mission)
+		{
+			actual = "state or mission missing";
+			return false;
+		}
+
+		HST_MissionAssetState destinationAsset;
+		HST_ActiveGroupState destinationGroup;
+		string destinationGroupId;
+		IEntity destinationVehicle;
+		string destinationReason;
+		if (!TrySelectConvoyDebugLiveVehicle(state, mission, destinationAsset, destinationGroup, destinationGroupId, destinationVehicle, destinationReason))
+		{
+			actual = destinationReason;
+			return false;
+		}
+
+		vector destinationTarget = mission.m_vTargetPosition;
+		if (IsZeroVector(destinationTarget))
+			destinationTarget = destinationAsset.m_vTargetPosition;
+		if (IsZeroVector(destinationTarget))
+		{
+			actual = "target position missing";
+			return false;
+		}
+
+		vector destinationPosition;
+		if (!HST_WorldPositionService.TryResolveGroundPosition(destinationTarget, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, destinationPosition, true))
+			destinationPosition = destinationTarget;
+		vector destinationForward = BuildConvoyRouteSnapForward(destinationGroup.m_vPosition, destinationTarget);
+		vector destinationAngles = BuildConvoyVehicleAnglesFromForward(destinationPosition, destinationForward, destinationTarget);
+		HST_WorldPositionService.ApplyUprightEntityTransform(destinationVehicle, destinationPosition, destinationAngles);
+		SetRuntimeGroupEntitiesOrigin(destinationGroupId, destinationPosition);
+
+		mission.m_sRuntimePhase = MISSION_CONVOY_MOVING;
+		mission.m_sRuntimeFailureReason = "";
+		mission.m_sLastRuntimeEventKey = "";
+		bool destinationChanged = TryResolveMissionConvoyDestinationArrival(state, mission);
+		bool destinationObserved = mission.m_sRuntimePhase == MISSION_CONVOY_FAILED && mission.m_sRuntimeFailureReason.Contains("destination") && mission.m_sLastRuntimeEventKey == CONVOY_FAIL_EVENT_KEY;
+		actual = string.Format("asset %1 | group %2 | changed %3 | phase %4 | event %5 | reason %6",
+			ReportText(destinationAsset.m_sAssetId),
+			ReportText(destinationGroupId),
+			ReportBool(destinationChanged),
+			ReportText(mission.m_sRuntimePhase),
+			ReportText(mission.m_sLastRuntimeEventKey),
+			ReportText(mission.m_sRuntimeFailureReason));
+		return destinationObserved;
+	}
+
+	protected bool TrySelectConvoyDebugLiveVehicle(HST_CampaignState state, HST_ActiveMissionState mission, out HST_MissionAssetState selectedAsset, out HST_ActiveGroupState selectedGroup, out string selectedGroupId, out IEntity selectedVehicle, out string reason)
+	{
+		selectedAsset = null;
+		selectedGroup = null;
+		selectedGroupId = "";
+		selectedVehicle = null;
+		reason = "";
+		if (!state || !mission)
+		{
+			reason = "state or mission missing";
+			return false;
+		}
+
+		int selectAssetIndex;
+		foreach (HST_MissionAssetState selectAsset : state.m_aMissionAssets)
+		{
+			if (!selectAsset || selectAsset.m_sMissionInstanceId != mission.m_sInstanceId || selectAsset.m_sRole != MISSION_CONVOY_VEHICLE_ROLE)
+				continue;
+
+			string selectGroupId = BuildMissionConvoyGroupId(mission, selectAssetIndex);
+			selectAssetIndex++;
+			HST_ActiveGroupState selectGroup = state.FindActiveGroup(selectGroupId);
+			if (!selectGroup)
+			{
+				if (reason.IsEmpty())
+					reason = "convoy active group missing";
+				continue;
+			}
+
+			if (CountAliveRuntimeCrewAgents(selectGroup) <= 0)
+			{
+				if (reason.IsEmpty())
+					reason = "no live convoy crew available";
+				continue;
+			}
+
+			IEntity selectVehicle = GetRuntimeVehicleEntity(selectGroupId);
+			if (!selectVehicle)
+			{
+				if (reason.IsEmpty())
+					reason = "convoy vehicle entity missing";
+				continue;
+			}
+
+			selectedAsset = selectAsset;
+			selectedGroup = selectGroup;
+			selectedGroupId = selectGroupId;
+			selectedVehicle = selectVehicle;
+			reason = "selected live convoy vehicle";
+			return true;
+		}
+
+		if (reason.IsEmpty())
+			reason = "no convoy vehicle asset found";
+		return false;
+	}
+
+	protected HST_ConvoyDebugPhaseRestoreState CaptureConvoyDebugPhaseState(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return null;
+
+		HST_ConvoyDebugPhaseRestoreState snapshot = new HST_ConvoyDebugPhaseRestoreState();
+		snapshot.m_sMissionInstanceId = mission.m_sInstanceId;
+		snapshot.m_sRuntimePhase = mission.m_sRuntimePhase;
+		snapshot.m_sRuntimeFailureReason = mission.m_sRuntimeFailureReason;
+		snapshot.m_sLastRuntimeEventKey = mission.m_sLastRuntimeEventKey;
+		snapshot.m_iRuntimeETASeconds = mission.m_iRuntimeETASeconds;
+		snapshot.m_iRuntimeCounterA = mission.m_iRuntimeCounterA;
+		snapshot.m_iRuntimeCounterB = mission.m_iRuntimeCounterB;
+		snapshot.m_iRuntimeCounterC = mission.m_iRuntimeCounterC;
+		snapshot.m_iRuntimeDestroyedCount = mission.m_iRuntimeDestroyedCount;
+		snapshot.m_iCapturedVehicleCount = mission.m_iCapturedVehicleCount;
+		snapshot.m_bConvoyArrivalOutcomeApplied = mission.m_bConvoyArrivalOutcomeApplied;
+		snapshot.m_bConvoyCrewEliminatedOutcomeApplied = mission.m_bConvoyCrewEliminatedOutcomeApplied;
+		snapshot.m_bConvoyVehicleCapturedOutcomeApplied = mission.m_bConvoyVehicleCapturedOutcomeApplied;
+		snapshot.m_bConvoyCargoDeliveredOutcomeApplied = mission.m_bConvoyCargoDeliveredOutcomeApplied;
+		snapshot.m_bConvoyExpiredOutcomeApplied = mission.m_bConvoyExpiredOutcomeApplied;
+		snapshot.m_sConvoyOutcomeSummary = mission.m_sConvoyOutcomeSummary;
+		snapshot.m_bMarkerRefreshNeeded = m_bMarkerRefreshNeeded;
+
+		foreach (HST_ActiveGroupState snapshotGroup : state.m_aActiveGroups)
+		{
+			if (!IsMissionConvoyGroupForMission(snapshotGroup, mission))
+				continue;
+
+			HST_ConvoyDebugGroupSnapshot groupSnapshot = new HST_ConvoyDebugGroupSnapshot();
+			groupSnapshot.m_sGroupId = snapshotGroup.m_sGroupId;
+			groupSnapshot.m_sSpawnFallbackMode = snapshotGroup.m_sSpawnFallbackMode;
+			groupSnapshot.m_sSpawnFailureReason = snapshotGroup.m_sSpawnFailureReason;
+			groupSnapshot.m_vPosition = snapshotGroup.m_vPosition;
+			groupSnapshot.m_sRouteId = snapshotGroup.m_sRouteId;
+			groupSnapshot.m_vSourcePosition = snapshotGroup.m_vSourcePosition;
+			groupSnapshot.m_vTargetPosition = snapshotGroup.m_vTargetPosition;
+			groupSnapshot.m_sRuntimeStatus = snapshotGroup.m_sRuntimeStatus;
+			groupSnapshot.m_iInfantryCount = snapshotGroup.m_iInfantryCount;
+			groupSnapshot.m_iVehicleCount = snapshotGroup.m_iVehicleCount;
+			groupSnapshot.m_iLastSeenAliveCount = snapshotGroup.m_iLastSeenAliveCount;
+			groupSnapshot.m_iSurvivorInfantryCount = snapshotGroup.m_iSurvivorInfantryCount;
+			groupSnapshot.m_iSurvivorVehicleCount = snapshotGroup.m_iSurvivorVehicleCount;
+			groupSnapshot.m_iSpawnedAgentCount = snapshotGroup.m_iSpawnedAgentCount;
+			groupSnapshot.m_iAssignedWaypointCount = snapshotGroup.m_iAssignedWaypointCount;
+			groupSnapshot.m_bSpawnAttempted = snapshotGroup.m_bSpawnAttempted;
+			groupSnapshot.m_bSpawnedEntity = snapshotGroup.m_bSpawnedEntity;
+			IEntity snapshotCrewEntity = GetRuntimeCrewGroupEntity(snapshotGroup.m_sGroupId);
+			IEntity snapshotVehicleEntity = GetRuntimeVehicleEntity(snapshotGroup.m_sGroupId);
+			groupSnapshot.m_bHadCrewEntity = snapshotCrewEntity != null;
+			groupSnapshot.m_bHadVehicleEntity = snapshotVehicleEntity != null;
+			if (snapshotCrewEntity)
+				groupSnapshot.m_vCrewEntityPosition = snapshotCrewEntity.GetOrigin();
+			if (snapshotVehicleEntity)
+			{
+				groupSnapshot.m_vVehicleEntityPosition = snapshotVehicleEntity.GetOrigin();
+				groupSnapshot.m_vVehicleEntityAngles = snapshotVehicleEntity.GetYawPitchRoll();
+			}
+			snapshot.m_aGroups.Insert(groupSnapshot);
+		}
+
+		foreach (HST_MissionObjectiveState snapshotObjective : state.m_aMissionObjectives)
+		{
+			if (!snapshotObjective || snapshotObjective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			HST_ConvoyDebugObjectiveSnapshot objectiveSnapshot = new HST_ConvoyDebugObjectiveSnapshot();
+			objectiveSnapshot.m_sObjectiveId = snapshotObjective.m_sObjectiveId;
+			objectiveSnapshot.m_iRequiredProgress = snapshotObjective.m_iRequiredProgress;
+			objectiveSnapshot.m_iCurrentProgress = snapshotObjective.m_iCurrentProgress;
+			objectiveSnapshot.m_iRequiredCount = snapshotObjective.m_iRequiredCount;
+			objectiveSnapshot.m_iCurrentCount = snapshotObjective.m_iCurrentCount;
+			objectiveSnapshot.m_bComplete = snapshotObjective.m_bComplete;
+			objectiveSnapshot.m_bFailed = snapshotObjective.m_bFailed;
+			objectiveSnapshot.m_bWorldDetected = snapshotObjective.m_bWorldDetected;
+			objectiveSnapshot.m_bAbstractFallback = snapshotObjective.m_bAbstractFallback;
+			snapshot.m_aObjectives.Insert(objectiveSnapshot);
+		}
+
+		foreach (HST_MissionAssetState snapshotAsset : state.m_aMissionAssets)
+		{
+			if (!snapshotAsset || snapshotAsset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			HST_ConvoyDebugAssetSnapshot assetSnapshot = new HST_ConvoyDebugAssetSnapshot();
+			assetSnapshot.m_sAssetId = snapshotAsset.m_sAssetId;
+			assetSnapshot.m_sEntityId = snapshotAsset.m_sEntityId;
+			assetSnapshot.m_sCarriedByVehicleId = snapshotAsset.m_sCarriedByVehicleId;
+			assetSnapshot.m_sLastInteraction = snapshotAsset.m_sLastInteraction;
+			assetSnapshot.m_bSpawned = snapshotAsset.m_bSpawned;
+			assetSnapshot.m_bPickedUp = snapshotAsset.m_bPickedUp;
+			assetSnapshot.m_bDelivered = snapshotAsset.m_bDelivered;
+			assetSnapshot.m_bDestroyed = snapshotAsset.m_bDestroyed;
+			assetSnapshot.m_bAlive = snapshotAsset.m_bAlive;
+			assetSnapshot.m_bAttachedToCarrier = snapshotAsset.m_bAttachedToCarrier;
+			assetSnapshot.m_bOutcomeApplied = snapshotAsset.m_bOutcomeApplied;
+			assetSnapshot.m_sOutcomeKind = snapshotAsset.m_sOutcomeKind;
+			assetSnapshot.m_vSourcePosition = snapshotAsset.m_vSourcePosition;
+			assetSnapshot.m_vTargetPosition = snapshotAsset.m_vTargetPosition;
+			assetSnapshot.m_vCurrentPosition = snapshotAsset.m_vCurrentPosition;
+			assetSnapshot.m_vLastKnownPosition = snapshotAsset.m_vLastKnownPosition;
+			snapshot.m_aAssets.Insert(assetSnapshot);
+		}
+
+		foreach (HST_MissionRuntimeEntityState snapshotRuntime : state.m_aMissionRuntimeEntities)
+		{
+			if (!snapshotRuntime || snapshotRuntime.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			HST_ConvoyDebugRuntimeEntitySnapshot runtimeSnapshot = new HST_ConvoyDebugRuntimeEntitySnapshot();
+			runtimeSnapshot.m_sRuntimeEntityId = snapshotRuntime.m_sRuntimeEntityId;
+			runtimeSnapshot.m_vPosition = snapshotRuntime.m_vPosition;
+			runtimeSnapshot.m_vAngles = snapshotRuntime.m_vAngles;
+			runtimeSnapshot.m_bSpawned = snapshotRuntime.m_bSpawned;
+			runtimeSnapshot.m_bDestroyed = snapshotRuntime.m_bDestroyed;
+			runtimeSnapshot.m_bRecovered = snapshotRuntime.m_bRecovered;
+			snapshot.m_aRuntimeEntities.Insert(runtimeSnapshot);
+		}
+
+		return snapshot;
+	}
+
+	protected bool RestoreConvoyDebugPhaseState(HST_CampaignState state, HST_ActiveMissionState mission, HST_ConvoyDebugPhaseRestoreState snapshot, out string reason)
+	{
+		reason = "";
+		if (!state || !mission || !snapshot)
+		{
+			reason = "restore missing state, mission, or snapshot";
+			return false;
+		}
+
+		bool restored = true;
+		mission.m_sRuntimePhase = snapshot.m_sRuntimePhase;
+		mission.m_sRuntimeFailureReason = snapshot.m_sRuntimeFailureReason;
+		mission.m_sLastRuntimeEventKey = snapshot.m_sLastRuntimeEventKey;
+		mission.m_iRuntimeETASeconds = snapshot.m_iRuntimeETASeconds;
+		mission.m_iRuntimeCounterA = snapshot.m_iRuntimeCounterA;
+		mission.m_iRuntimeCounterB = snapshot.m_iRuntimeCounterB;
+		mission.m_iRuntimeCounterC = snapshot.m_iRuntimeCounterC;
+		mission.m_iRuntimeDestroyedCount = snapshot.m_iRuntimeDestroyedCount;
+		mission.m_iCapturedVehicleCount = snapshot.m_iCapturedVehicleCount;
+		mission.m_bConvoyArrivalOutcomeApplied = snapshot.m_bConvoyArrivalOutcomeApplied;
+		mission.m_bConvoyCrewEliminatedOutcomeApplied = snapshot.m_bConvoyCrewEliminatedOutcomeApplied;
+		mission.m_bConvoyVehicleCapturedOutcomeApplied = snapshot.m_bConvoyVehicleCapturedOutcomeApplied;
+		mission.m_bConvoyCargoDeliveredOutcomeApplied = snapshot.m_bConvoyCargoDeliveredOutcomeApplied;
+		mission.m_bConvoyExpiredOutcomeApplied = snapshot.m_bConvoyExpiredOutcomeApplied;
+		mission.m_sConvoyOutcomeSummary = snapshot.m_sConvoyOutcomeSummary;
+		m_bMarkerRefreshNeeded = snapshot.m_bMarkerRefreshNeeded;
+
+		foreach (HST_ConvoyDebugGroupSnapshot restoreGroupSnapshot : snapshot.m_aGroups)
+		{
+			HST_ActiveGroupState restoreGroup = state.FindActiveGroup(restoreGroupSnapshot.m_sGroupId);
+			if (!restoreGroup)
+			{
+				restored = false;
+				reason = AppendConvoyDebugEvidence(reason, "missing group " + restoreGroupSnapshot.m_sGroupId);
+				continue;
+			}
+
+			restoreGroup.m_sSpawnFallbackMode = restoreGroupSnapshot.m_sSpawnFallbackMode;
+			restoreGroup.m_sSpawnFailureReason = restoreGroupSnapshot.m_sSpawnFailureReason;
+			restoreGroup.m_vPosition = restoreGroupSnapshot.m_vPosition;
+			restoreGroup.m_sRouteId = restoreGroupSnapshot.m_sRouteId;
+			restoreGroup.m_vSourcePosition = restoreGroupSnapshot.m_vSourcePosition;
+			restoreGroup.m_vTargetPosition = restoreGroupSnapshot.m_vTargetPosition;
+			restoreGroup.m_sRuntimeStatus = restoreGroupSnapshot.m_sRuntimeStatus;
+			restoreGroup.m_iInfantryCount = restoreGroupSnapshot.m_iInfantryCount;
+			restoreGroup.m_iVehicleCount = restoreGroupSnapshot.m_iVehicleCount;
+			restoreGroup.m_iLastSeenAliveCount = restoreGroupSnapshot.m_iLastSeenAliveCount;
+			restoreGroup.m_iSurvivorInfantryCount = restoreGroupSnapshot.m_iSurvivorInfantryCount;
+			restoreGroup.m_iSurvivorVehicleCount = restoreGroupSnapshot.m_iSurvivorVehicleCount;
+			restoreGroup.m_iSpawnedAgentCount = restoreGroupSnapshot.m_iSpawnedAgentCount;
+			restoreGroup.m_iAssignedWaypointCount = restoreGroupSnapshot.m_iAssignedWaypointCount;
+			restoreGroup.m_bSpawnAttempted = restoreGroupSnapshot.m_bSpawnAttempted;
+			restoreGroup.m_bSpawnedEntity = restoreGroupSnapshot.m_bSpawnedEntity;
+
+			IEntity restoreCrewEntity = GetRuntimeCrewGroupEntity(restoreGroupSnapshot.m_sGroupId);
+			IEntity restoreVehicleEntity = GetRuntimeVehicleEntity(restoreGroupSnapshot.m_sGroupId);
+			if (restoreGroupSnapshot.m_bHadCrewEntity && restoreCrewEntity)
+				restoreCrewEntity.SetOrigin(restoreGroupSnapshot.m_vCrewEntityPosition);
+			else if (restoreGroupSnapshot.m_bHadCrewEntity)
+			{
+				restored = false;
+				reason = AppendConvoyDebugEvidence(reason, "missing crew entity " + restoreGroupSnapshot.m_sGroupId);
+			}
+			if (restoreGroupSnapshot.m_bHadVehicleEntity && restoreVehicleEntity)
+				HST_WorldPositionService.ApplyUprightEntityTransform(restoreVehicleEntity, restoreGroupSnapshot.m_vVehicleEntityPosition, restoreGroupSnapshot.m_vVehicleEntityAngles);
+			else if (restoreGroupSnapshot.m_bHadVehicleEntity)
+			{
+				restored = false;
+				reason = AppendConvoyDebugEvidence(reason, "missing vehicle entity " + restoreGroupSnapshot.m_sGroupId);
+			}
+		}
+
+		foreach (HST_ConvoyDebugObjectiveSnapshot restoreObjectiveSnapshot : snapshot.m_aObjectives)
+		{
+			HST_MissionObjectiveState restoreObjective = FindConvoyDebugMissionObjective(state, restoreObjectiveSnapshot.m_sObjectiveId);
+			if (!restoreObjective)
+			{
+				restored = false;
+				reason = AppendConvoyDebugEvidence(reason, "missing objective " + restoreObjectiveSnapshot.m_sObjectiveId);
+				continue;
+			}
+
+			restoreObjective.m_iRequiredProgress = restoreObjectiveSnapshot.m_iRequiredProgress;
+			restoreObjective.m_iCurrentProgress = restoreObjectiveSnapshot.m_iCurrentProgress;
+			restoreObjective.m_iRequiredCount = restoreObjectiveSnapshot.m_iRequiredCount;
+			restoreObjective.m_iCurrentCount = restoreObjectiveSnapshot.m_iCurrentCount;
+			restoreObjective.m_bComplete = restoreObjectiveSnapshot.m_bComplete;
+			restoreObjective.m_bFailed = restoreObjectiveSnapshot.m_bFailed;
+			restoreObjective.m_bWorldDetected = restoreObjectiveSnapshot.m_bWorldDetected;
+			restoreObjective.m_bAbstractFallback = restoreObjectiveSnapshot.m_bAbstractFallback;
+		}
+
+		foreach (HST_ConvoyDebugAssetSnapshot restoreAssetSnapshot : snapshot.m_aAssets)
+		{
+			HST_MissionAssetState restoreAsset = state.FindMissionAsset(restoreAssetSnapshot.m_sAssetId);
+			if (!restoreAsset)
+			{
+				restored = false;
+				reason = AppendConvoyDebugEvidence(reason, "missing asset " + restoreAssetSnapshot.m_sAssetId);
+				continue;
+			}
+
+			restoreAsset.m_sEntityId = restoreAssetSnapshot.m_sEntityId;
+			restoreAsset.m_sCarriedByVehicleId = restoreAssetSnapshot.m_sCarriedByVehicleId;
+			restoreAsset.m_sLastInteraction = restoreAssetSnapshot.m_sLastInteraction;
+			restoreAsset.m_bSpawned = restoreAssetSnapshot.m_bSpawned;
+			restoreAsset.m_bPickedUp = restoreAssetSnapshot.m_bPickedUp;
+			restoreAsset.m_bDelivered = restoreAssetSnapshot.m_bDelivered;
+			restoreAsset.m_bDestroyed = restoreAssetSnapshot.m_bDestroyed;
+			restoreAsset.m_bAlive = restoreAssetSnapshot.m_bAlive;
+			restoreAsset.m_bAttachedToCarrier = restoreAssetSnapshot.m_bAttachedToCarrier;
+			restoreAsset.m_bOutcomeApplied = restoreAssetSnapshot.m_bOutcomeApplied;
+			restoreAsset.m_sOutcomeKind = restoreAssetSnapshot.m_sOutcomeKind;
+			restoreAsset.m_vSourcePosition = restoreAssetSnapshot.m_vSourcePosition;
+			restoreAsset.m_vTargetPosition = restoreAssetSnapshot.m_vTargetPosition;
+			restoreAsset.m_vCurrentPosition = restoreAssetSnapshot.m_vCurrentPosition;
+			restoreAsset.m_vLastKnownPosition = restoreAssetSnapshot.m_vLastKnownPosition;
+		}
+
+		foreach (HST_ConvoyDebugRuntimeEntitySnapshot restoreRuntimeSnapshot : snapshot.m_aRuntimeEntities)
+		{
+			HST_MissionRuntimeEntityState restoreRuntime = state.FindMissionRuntimeEntity(restoreRuntimeSnapshot.m_sRuntimeEntityId);
+			if (!restoreRuntime)
+			{
+				restored = false;
+				reason = AppendConvoyDebugEvidence(reason, "missing runtime entity " + restoreRuntimeSnapshot.m_sRuntimeEntityId);
+				continue;
+			}
+
+			restoreRuntime.m_vPosition = restoreRuntimeSnapshot.m_vPosition;
+			restoreRuntime.m_vAngles = restoreRuntimeSnapshot.m_vAngles;
+			restoreRuntime.m_bSpawned = restoreRuntimeSnapshot.m_bSpawned;
+			restoreRuntime.m_bDestroyed = restoreRuntimeSnapshot.m_bDestroyed;
+			restoreRuntime.m_bRecovered = restoreRuntimeSnapshot.m_bRecovered;
+		}
+
+		if (reason.IsEmpty())
+			reason = "restored";
+		return restored;
+	}
+
+	protected HST_MissionObjectiveState FindConvoyDebugMissionObjective(HST_CampaignState state, string objectiveId)
+	{
+		if (!state || objectiveId.IsEmpty())
+			return null;
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (objective && objective.m_sObjectiveId == objectiveId)
+				return objective;
+		}
+
+		return null;
 	}
 
 	protected HST_CampaignDebugCaseResult CreateConvoyDebugProbeCase(HST_CampaignState state, HST_ActiveMissionState mission)
