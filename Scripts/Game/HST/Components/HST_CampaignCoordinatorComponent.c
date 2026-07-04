@@ -6666,11 +6666,140 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string BuildCampaignDebugPhase1Report()
 	{
 		string report = "h-istasi campaign debug | phase 1 mission runtime visibility";
-		report = report + "\n" + RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
-		report = report + "\n" + RequestMemberInspectActiveMissions(m_iCampaignDebugPlayerId);
-		report = report + "\n" + RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
-		report = report + "\n" + RequestMemberInspectObjectives(m_iCampaignDebugPlayerId);
+		string summaryReport = RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
+		string activeMissionsReport = RequestMemberInspectActiveMissions(m_iCampaignDebugPlayerId);
+		string runtimeReport = RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
+		string objectivesReport = RequestMemberInspectObjectives(m_iCampaignDebugPlayerId);
+		report = report + "\n" + summaryReport;
+		report = report + "\n" + activeMissionsReport;
+		report = report + "\n" + runtimeReport;
+		report = report + "\n" + objectivesReport;
+		RecordCampaignDebugCase(BuildCampaignDebugMissionRuntimeVisibilityCase(summaryReport, activeMissionsReport, runtimeReport, objectivesReport));
 		return report;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionRuntimeVisibilityCase(string summaryReport, string activeMissionsReport, string runtimeReport, string objectivesReport)
+	{
+		HST_CampaignDebugCaseResult runtimeCase = CreateCampaignDebugCase("early_mechanics.mission_runtime.visibility", "early_mechanics", "mission_runtime", "early_mechanics");
+		runtimeCase.m_aEvidence.Insert(ShortCampaignDebugLine(summaryReport, 360));
+		runtimeCase.m_aEvidence.Insert(ShortCampaignDebugLine(activeMissionsReport, 360));
+		runtimeCase.m_aEvidence.Insert(ShortCampaignDebugLine(runtimeReport, 360));
+		runtimeCase.m_aEvidence.Insert(ShortCampaignDebugLine(objectivesReport, 360));
+
+		bool servicesReady = m_State != null && m_Missions != null && m_CommandUI != null && m_MissionRuntime != null && m_Objectives != null;
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.visibility.services", "state, mission, UI, runtime, and objective services ready", string.Format("state %1 | missions %2 | UI %3 | runtime %4 | objectives %5", m_State != null, m_Missions != null, m_CommandUI != null, m_MissionRuntime != null, m_Objectives != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "mission runtime visibility prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(runtimeCase);
+			return runtimeCase;
+		}
+
+		array<ref HST_MissionDefinition> definitions = m_Missions.GetDefinitions();
+		int definitionCount = definitions.Count();
+		int activeMissionCount;
+		int missingMissionIds;
+		int missingInstanceIds;
+		int missingRuntimePhases;
+		int missingRuntimePrimitives;
+		int runtimeFallbackCount;
+		int runtimeFailureCount;
+		int spawnedRuntimeCount;
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+			if (IsPersistenceSmokeMission(mission))
+				continue;
+
+			activeMissionCount++;
+			if (mission.m_sInstanceId.IsEmpty())
+				missingInstanceIds++;
+			if (mission.m_sMissionId.IsEmpty())
+				missingMissionIds++;
+			if (mission.m_sRuntimePhase.IsEmpty())
+				missingRuntimePhases++;
+			if (mission.m_sRuntimePrimitive.IsEmpty())
+				missingRuntimePrimitives++;
+			if (mission.m_bRuntimeFallback)
+				runtimeFallbackCount++;
+			if (!mission.m_sRuntimeFailureReason.IsEmpty())
+				runtimeFailureCount++;
+			if (mission.m_bRuntimeSpawned)
+				spawnedRuntimeCount++;
+		}
+
+		int objectiveCount;
+		int orphanObjectives;
+		foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
+		{
+			if (!objective)
+				continue;
+			HST_ActiveMissionState objectiveMission = m_State.FindActiveMission(objective.m_sMissionInstanceId);
+			if (IsPersistenceSmokeMission(objectiveMission))
+				continue;
+
+			objectiveCount++;
+			if (!objectiveMission)
+				orphanObjectives++;
+		}
+
+		int assetCount;
+		int orphanAssets;
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (!asset)
+				continue;
+			HST_ActiveMissionState assetMission = m_State.FindActiveMission(asset.m_sMissionInstanceId);
+			if (IsPersistenceSmokeMission(assetMission))
+				continue;
+
+			assetCount++;
+			if (!assetMission)
+				orphanAssets++;
+		}
+
+		int runtimeEntityCount;
+		int orphanRuntimeEntities;
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : m_State.m_aMissionRuntimeEntities)
+		{
+			if (!runtimeEntity)
+				continue;
+			HST_ActiveMissionState runtimeMission = m_State.FindActiveMission(runtimeEntity.m_sMissionInstanceId);
+			if (IsPersistenceSmokeMission(runtimeMission))
+				continue;
+
+			runtimeEntityCount++;
+			if (!runtimeMission)
+				orphanRuntimeEntities++;
+		}
+
+		AddCampaignDebugMetric(runtimeCase, "mission_runtime.definitions", string.Format("%1", definitionCount), "count");
+		AddCampaignDebugMetric(runtimeCase, "mission_runtime.active_missions", string.Format("%1", activeMissionCount), "count");
+		AddCampaignDebugMetric(runtimeCase, "mission_runtime.spawned_active", string.Format("%1", spawnedRuntimeCount), "count");
+		AddCampaignDebugMetric(runtimeCase, "mission_runtime.objectives", string.Format("%1", objectiveCount), "count");
+		AddCampaignDebugMetric(runtimeCase, "mission_runtime.assets", string.Format("%1", assetCount), "count");
+		AddCampaignDebugMetric(runtimeCase, "mission_runtime.runtime_entities", string.Format("%1", runtimeEntityCount), "count");
+
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.registry.visible", "mission registry has definitions for runtime visibility", string.Format("definitions %1", definitionCount), CampaignDebugStatus(definitionCount > 0), "mission registry is empty during runtime visibility probe");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.summary_report", "active mission summary report is available", ShortCampaignDebugLine(summaryReport, 220), CampaignDebugStatus(summaryReport.Contains("h-istasi active mission summary")), "active mission summary report missing expected prefix");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_report", "active mission runtime report is available", ShortCampaignDebugLine(activeMissionsReport, 220), CampaignDebugStatus(activeMissionsReport.Contains("h-istasi mission runtime")), "active mission runtime report missing expected prefix");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.runtime_report", "mission runtime report is available", ShortCampaignDebugLine(runtimeReport, 220), CampaignDebugStatus(runtimeReport.Contains("h-istasi mission runtime")), "mission runtime report missing expected prefix");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.objective_report", "objective report is available", ShortCampaignDebugLine(objectivesReport, 220), CampaignDebugStatus(objectivesReport.Contains("h-istasi objectives")), "objective report missing expected prefix");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.no_active_summary", "zero-active state is explicitly reported when no missions are active", string.Format("active %1 | summary %2", activeMissionCount, ShortCampaignDebugLine(summaryReport, 160)), CampaignDebugStatus(activeMissionCount > 0 || summaryReport.Contains("no active mission")), "active mission summary did not explain the zero-active state");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_identity", "active mission records expose instance and mission ids", BuildCampaignDebugMissionRuntimeVisibilityActual(activeMissionCount, missingInstanceIds, missingMissionIds, missingRuntimePhases, missingRuntimePrimitives), CampaignDebugStatus(missingInstanceIds == 0 && missingMissionIds == 0), "one or more active mission records have missing identifiers");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_metadata", "active mission records expose runtime primitive and phase metadata", BuildCampaignDebugMissionRuntimeVisibilityActual(activeMissionCount, missingInstanceIds, missingMissionIds, missingRuntimePhases, missingRuntimePrimitives), CampaignDebugStatus(activeMissionCount == 0 || (missingRuntimePhases == 0 && missingRuntimePrimitives == 0)), "one or more active mission records have missing runtime metadata");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_health", "currently active missions do not report fallback or runtime failure", string.Format("fallback %1 | failures %2 | active %3", runtimeFallbackCount, runtimeFailureCount, activeMissionCount), CampaignDebugStatus(runtimeFallbackCount == 0 && runtimeFailureCount == 0, "WARN"), "one or more active missions report runtime fallback or failure during visibility probe");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.orphan_state", "objective, asset, and runtime-entity records all link to existing non-smoke missions", string.Format("orphan objectives %1/%2 | assets %3/%4 | runtime entities %5/%6", orphanObjectives, objectiveCount, orphanAssets, assetCount, orphanRuntimeEntities, runtimeEntityCount), CampaignDebugStatus(orphanObjectives == 0 && orphanAssets == 0 && orphanRuntimeEntities == 0), "mission runtime visibility found orphan objective/asset/runtime-entity records");
+
+		FinalizeCampaignDebugCaseFromAssertions(runtimeCase);
+		return runtimeCase;
+	}
+
+	protected string BuildCampaignDebugMissionRuntimeVisibilityActual(int activeMissionCount, int missingInstanceIds, int missingMissionIds, int missingRuntimePhases, int missingRuntimePrimitives)
+	{
+		string actual = string.Format("active %1 | missing instance ids %2 | missing mission ids %3", activeMissionCount, missingInstanceIds, missingMissionIds);
+		actual = actual + string.Format(" | missing phases %1 | missing primitives %2", missingRuntimePhases, missingRuntimePrimitives);
+		return actual;
 	}
 
 	protected string RunCampaignDebugGeneratedContentTyped()
