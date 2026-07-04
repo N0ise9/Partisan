@@ -590,6 +590,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - h-istasi mission/physical-war spawning should keep the existing population grace/polling path before declaring a group failed. The July 2026 logs showed HST-spawned groups reporting zero agents first and then later folding/populating correctly.
   - Game Master/editor placement uses the editor path, not the HST physical-war service path. If editor-placed squads only appear after camera movement, inspect streaming/editor placement addons or native editor activation first; do not assume the HST active-group population guard is involved unless HST spawn logs appear around the placement.
 
+- Entity-follow behavior needs an entity waypoint, not a static move waypoint.
+  - The base-game pattern is `SCR_FollowGroupCommand`: spawn `{A0509D3C4DD4475E}Prefabs/AI/Waypoints/AIWaypoint_Follow.et`, cast it to `SCR_EntityWaypoint`, call `SetEntity(target)`, then `AIGroup.AddWaypoint`.
+  - A patrol hierarchy waypoint such as `{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et` only moves to the sampled position. Keep it as a last-resort static move fallback, but do not expect it to remain bound to a moving player or vehicle.
+  - After adding a follow waypoint, apply `AIGroupMovementComponent.SetFormationDisplacement(1)` so the follower stays close to the target instead of regrouping at a loose formation offset.
+
 ## Native Reference Sources
 
 - Native map config reference: `Configs/Map/MapFullscreen.conf`.

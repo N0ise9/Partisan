@@ -86,7 +86,8 @@ class HST_MissionRuntimeService
 	static const float CAPTIVE_DISEMBARK_RADIUS_METERS = 35.0;
 	static const float POST_EXPIRY_PLAYER_ASSET_BUBBLE_METERS = 1800.0;
 	static const int CAPTIVE_FOLLOW_WAYPOINT_INTERVAL_SECONDS = 4;
-	static const string CAPTIVE_FOLLOW_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
+	static const string CAPTIVE_FOLLOW_WAYPOINT_PREFAB = "{A0509D3C4DD4475E}Prefabs/AI/Waypoints/AIWaypoint_Follow.et";
+	static const string CAPTIVE_MOVE_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string MISSION_CONVOY_GROUP_PREFIX = "mission_convoy_";
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
@@ -3431,7 +3432,7 @@ class HST_MissionRuntimeService
 					{
 						vector vehicleFollowPosition = BuildCaptiveFollowPosition(vehiclePosition, followIndex);
 						if (!StartCaptiveFollowController(asset, playerVehicle))
-							TryIssueCaptiveFollowWaypoint(state, asset, captiveEntity, vehicleFollowPosition);
+							TryIssueCaptiveFollowWaypoint(state, asset, captiveEntity, vehicleFollowPosition, playerVehicle);
 						vector captivePosition = captiveEntity.GetOrigin();
 						if (DistanceSq2D(asset.m_vCurrentPosition, captivePosition) > 0.5)
 							changed = true;
@@ -3541,7 +3542,7 @@ class HST_MissionRuntimeService
 			if (followDistanceSq > CAPTIVE_FOLLOW_NEAR_DISTANCE_METERS * CAPTIVE_FOLLOW_NEAR_DISTANCE_METERS)
 			{
 				if (!StartCaptiveFollowController(asset, playerEntity))
-					TryIssueCaptiveFollowWaypoint(state, asset, captiveEntity, followPosition);
+					TryIssueCaptiveFollowWaypoint(state, asset, captiveEntity, followPosition, playerEntity);
 			}
 
 			if (DistanceSq2D(asset.m_vCurrentPosition, captivePosition) > 0.5)
@@ -3610,7 +3611,7 @@ class HST_MissionRuntimeService
 		return entity;
 	}
 
-	protected bool TryIssueCaptiveFollowWaypoint(HST_CampaignState state, HST_MissionAssetState asset, IEntity captiveEntity, vector followPosition)
+	protected bool TryIssueCaptiveFollowWaypoint(HST_CampaignState state, HST_MissionAssetState asset, IEntity captiveEntity, vector followPosition, IEntity followTarget)
 	{
 		if (!state || !asset || !captiveEntity)
 			return false;
@@ -3622,9 +3623,29 @@ class HST_MissionRuntimeService
 		if (!group)
 			return false;
 
-		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CAPTIVE_FOLLOW_WAYPOINT_PREFAB, followPosition, "0 0 0");
-		ApplyCampaignDebugEntityName(waypointEntity, "captive_waypoint", string.Format("%1_%2", asset.m_sAssetId, state.m_iElapsedSeconds));
-		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
+		GenericEntity waypointEntity;
+		AIWaypoint waypoint;
+		if (followTarget)
+		{
+			waypointEntity = HST_WorldPositionService.SpawnPrefab(CAPTIVE_FOLLOW_WAYPOINT_PREFAB, followPosition, "0 0 0");
+			ApplyCampaignDebugEntityName(waypointEntity, "captive_follow_waypoint", string.Format("%1_%2", asset.m_sAssetId, state.m_iElapsedSeconds));
+			SCR_EntityWaypoint entityWaypoint = SCR_EntityWaypoint.Cast(waypointEntity);
+			if (entityWaypoint)
+			{
+				entityWaypoint.SetEntity(followTarget);
+				waypoint = entityWaypoint;
+			}
+		}
+
+		if (!waypoint)
+		{
+			if (waypointEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+			waypointEntity = HST_WorldPositionService.SpawnPrefab(CAPTIVE_MOVE_WAYPOINT_PREFAB, followPosition, "0 0 0");
+			ApplyCampaignDebugEntityName(waypointEntity, "captive_move_waypoint", string.Format("%1_%2", asset.m_sAssetId, state.m_iElapsedSeconds));
+			waypoint = AIWaypoint.Cast(waypointEntity);
+		}
+
 		if (!waypoint)
 		{
 			if (waypointEntity)
@@ -3632,7 +3653,15 @@ class HST_MissionRuntimeService
 			return false;
 		}
 
+		waypoint.SetCompletionRadius(CAPTIVE_FOLLOW_NEAR_DISTANCE_METERS);
+		waypoint.SetPriorityLevel(SCR_AIActionBase.PRIORITY_LEVEL_PLAYER);
 		group.AddWaypoint(waypoint);
+		AIGroupMovementComponent groupMovement = AIGroupMovementComponent.Cast(group.FindComponent(AIGroupMovementComponent));
+		if (groupMovement)
+		{
+			groupMovement.SetGroupCharactersWantedMovementType(EMovementType.RUN);
+			groupMovement.SetFormationDisplacement(1);
+		}
 		return true;
 	}
 

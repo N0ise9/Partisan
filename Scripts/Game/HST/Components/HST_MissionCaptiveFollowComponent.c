@@ -6,7 +6,8 @@ class HST_MissionCaptiveFollowComponentClass : ScriptComponentClass
 class HST_MissionCaptiveFollowComponent : ScriptComponent
 {
 	static const string CAPTIVE_AI_GROUP_PREFAB = "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et";
-	static const string CAPTIVE_FOLLOW_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
+	static const string CAPTIVE_FOLLOW_WAYPOINT_PREFAB = "{A0509D3C4DD4475E}Prefabs/AI/Waypoints/AIWaypoint_Follow.et";
+	static const string CAPTIVE_MOVE_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const float STOP_DISTANCE_METERS = 2.25;
 	static const float WAYPOINT_REFRESH_DISTANCE_METERS = 14.0;
 	static const float WAYPOINT_REACHED_REFRESH_DISTANCE_METERS = 4.0;
@@ -135,7 +136,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			m_bDirectFollowUnavailable = true;
 		}
 
-		IssueFollowWaypoint(group, ownerPosition, followPosition, movementType);
+		IssueFollowWaypoint(group, ownerPosition, followPosition, movementType, m_FollowTarget);
 	}
 
 	protected AIBaseMovementComponent ResolveAIMovement(IEntity owner, out AIGroup group)
@@ -155,7 +156,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		return agent.GetMovementComponent();
 	}
 
-	protected bool IssueFollowWaypoint(AIGroup group, vector ownerPosition, vector targetPosition, EMovementType movementType)
+	protected bool IssueFollowWaypoint(AIGroup group, vector ownerPosition, vector targetPosition, EMovementType movementType, IEntity targetEntity)
 	{
 		if (!group)
 			return false;
@@ -165,17 +166,72 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		vector waypointPosition = HST_WorldPositionService.ResolveSafeGroundPosition(targetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
 		if (m_WaypointEntity)
 		{
-			bool waypointReached = DistanceSq2D(ownerPosition, m_WaypointPosition) <= WAYPOINT_REACHED_REFRESH_DISTANCE_METERS * WAYPOINT_REACHED_REFRESH_DISTANCE_METERS;
-			bool waypointStale = DistanceSq2D(m_WaypointPosition, waypointPosition) > WAYPOINT_REFRESH_DISTANCE_METERS * WAYPOINT_REFRESH_DISTANCE_METERS;
-			if (!waypointReached && !waypointStale)
+			SCR_EntityWaypoint entityWaypoint = SCR_EntityWaypoint.Cast(m_WaypointEntity);
+			if (entityWaypoint)
 			{
-				ApplyGroupFollowSpeed(group, movementType);
-				return true;
+				if (targetEntity && entityWaypoint.GetEntity() == targetEntity)
+				{
+					ApplyGroupFollowSpeed(group, movementType);
+					ApplyGroupFollowFormation(group);
+					return true;
+				}
+			}
+			else
+			{
+				bool waypointReached = DistanceSq2D(ownerPosition, m_WaypointPosition) <= WAYPOINT_REACHED_REFRESH_DISTANCE_METERS * WAYPOINT_REACHED_REFRESH_DISTANCE_METERS;
+				bool waypointStale = DistanceSq2D(m_WaypointPosition, waypointPosition) > WAYPOINT_REFRESH_DISTANCE_METERS * WAYPOINT_REFRESH_DISTANCE_METERS;
+				if (!waypointReached && !waypointStale)
+				{
+					ApplyGroupFollowSpeed(group, movementType);
+					ApplyGroupFollowFormation(group);
+					return true;
+				}
 			}
 		}
 
 		ClearFollowWaypoint(group);
+		if (targetEntity && IssueEntityFollowWaypoint(group, targetEntity, waypointPosition, movementType))
+			return true;
+
+		return IssueStaticMoveWaypoint(group, waypointPosition, movementType);
+	}
+
+	protected bool IssueEntityFollowWaypoint(AIGroup group, IEntity targetEntity, vector waypointPosition, EMovementType movementType)
+	{
+		if (!group || !targetEntity)
+			return false;
+
 		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CAPTIVE_FOLLOW_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
+		SCR_EntityWaypoint waypoint = SCR_EntityWaypoint.Cast(waypointEntity);
+		if (!waypoint)
+		{
+			if (waypointEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+			return false;
+		}
+
+		waypoint.SetEntity(targetEntity);
+		waypoint.SetCompletionRadius(STOP_DISTANCE_METERS);
+		waypoint.SetPriorityLevel(SCR_AIActionBase.PRIORITY_LEVEL_PLAYER);
+		group.AddWaypoint(waypoint);
+		ApplyGroupFollowSpeed(group, movementType);
+		ApplyGroupFollowFormation(group);
+		m_WaypointEntity = waypointEntity;
+		m_WaypointPosition = waypointPosition;
+		if (!m_bLoggedWaypointFallback)
+		{
+			Print(string.Format("h-istasi mission captive follow | using entity follow waypoint fallback | target %1", targetEntity.GetName()));
+			m_bLoggedWaypointFallback = true;
+		}
+		return true;
+	}
+
+	protected bool IssueStaticMoveWaypoint(AIGroup group, vector waypointPosition, EMovementType movementType)
+	{
+		if (!group)
+			return false;
+
+		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CAPTIVE_MOVE_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
 		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (!waypoint)
 		{
@@ -190,8 +246,10 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		}
 
 		waypoint.SetCompletionRadius(STOP_DISTANCE_METERS);
+		waypoint.SetPriorityLevel(SCR_AIActionBase.PRIORITY_LEVEL_PLAYER);
 		group.AddWaypoint(waypoint);
 		ApplyGroupFollowSpeed(group, movementType);
+		ApplyGroupFollowFormation(group);
 		m_WaypointEntity = waypointEntity;
 		m_WaypointPosition = waypointPosition;
 		if (!m_bLoggedWaypointFallback)
@@ -303,6 +361,16 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		AIGroupMovementComponent groupMovement = AIGroupMovementComponent.Cast(group.GetMovementComponent());
 		if (groupMovement)
 			groupMovement.SetGroupCharactersWantedMovementType(movementType);
+	}
+
+	protected void ApplyGroupFollowFormation(AIGroup group)
+	{
+		if (!group)
+			return;
+
+		AIGroupMovementComponent groupMovement = AIGroupMovementComponent.Cast(group.FindComponent(AIGroupMovementComponent));
+		if (groupMovement)
+			groupMovement.SetFormationDisplacement(1);
 	}
 
 	protected float ResolveTargetStepDistance(vector targetPosition)
