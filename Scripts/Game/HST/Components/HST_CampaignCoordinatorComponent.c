@@ -3639,6 +3639,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugHQEntityAssertion(hqCase, "arsenal", "HQ arsenal", m_HQ.HasArsenalRuntimeEntity(), m_HQ.GetArsenalRuntimeEntityKey(), m_State.m_vArsenalPosition, m_HQ.GetArsenalRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "tent", "HQ tent", m_HQ.HasTentRuntimeEntity(), m_HQ.GetTentRuntimeEntityKey(), m_State.m_vHQTentPosition, m_HQ.GetTentRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "spawn_point", "HQ spawn point", m_HQ.HasSpawnPointRuntimeEntity(), m_HQ.GetSpawnPointRuntimeEntityKey(), m_State.m_vHQSpawnPointPosition, m_HQ.GetSpawnPointRuntimeEntityPosition(), 8.0);
+			int petrosWorldCount = m_HQ.CountPetrosWorldRuntimeEntities(m_State);
+			int cacheWorldCount = m_HQ.CountCacheWorldRuntimeEntities(m_State);
+			int arsenalWorldCount = m_HQ.CountArsenalWorldRuntimeEntities(m_State);
+			int tentWorldCount = m_HQ.CountTentWorldRuntimeEntities(m_State);
+			int spawnPointWorldCount = m_HQ.CountSpawnPointWorldRuntimeEntities(m_State);
+			string worldScanSummary = string.Format("petros %1 | cache %2 | arsenal %3 | tent %4 | spawn_point %5", petrosWorldCount, cacheWorldCount, arsenalWorldCount, tentWorldCount, spawnPointWorldCount);
+			hqCase.m_aEvidence.Insert("HQ world duplicate scan | " + worldScanSummary);
+			AddCampaignDebugMetric(hqCase, "hq.world_scan.petros", string.Format("%1", petrosWorldCount), "count");
+			AddCampaignDebugMetric(hqCase, "hq.world_scan.cache", string.Format("%1", cacheWorldCount), "count");
+			AddCampaignDebugMetric(hqCase, "hq.world_scan.arsenal", string.Format("%1", arsenalWorldCount), "count");
+			AddCampaignDebugMetric(hqCase, "hq.world_scan.tent", string.Format("%1", tentWorldCount), "count");
+			AddCampaignDebugMetric(hqCase, "hq.world_scan.spawn_point", string.Format("%1", spawnPointWorldCount), "count");
+			AddCampaignDebugHQWorldScanAssertion(hqCase, "petros", "Petros", petrosWorldCount);
+			AddCampaignDebugHQWorldScanAssertion(hqCase, "cache", "HQ cache", cacheWorldCount);
+			AddCampaignDebugHQWorldScanAssertion(hqCase, "arsenal", "HQ arsenal", arsenalWorldCount);
+			AddCampaignDebugHQWorldScanAssertion(hqCase, "tent", "HQ tent", tentWorldCount);
+			AddCampaignDebugHQWorldScanAssertion(hqCase, "spawn_point", "HQ spawn point", spawnPointWorldCount);
 			AddCampaignDebugAssertion(hqCase, "hq.arsenal.entity_usable", "arsenal runtime entity has usable action surface", m_HQ.GetArsenalRuntimeEntityKey(), CampaignDebugStatus(m_HQ.IsArsenalRuntimeEntityUsable()), "HQ arsenal runtime entity is missing or failed readiness checks");
 		}
 		else
@@ -3707,6 +3724,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		assertion.m_vExpectedPosition = expectedPosition;
 		assertion.m_vActualPosition = actualPosition;
 		assertion.m_fDistanceMeters = distanceMeters;
+	}
+
+	protected void AddCampaignDebugHQWorldScanAssertion(HST_CampaignDebugCaseResult hqCase, string objectId, string label, int count)
+	{
+		if (!hqCase)
+			return;
+
+		string status = "BLOCKED";
+		if (count >= 0)
+			status = CampaignDebugStatus(count == 1);
+
+		AddCampaignDebugAssertion(hqCase, "hq." + objectId + ".world_unique", label + " has exactly one matching world entity near the expected HQ slot", string.Format("matches %1", count), status, label + " world scan found missing or duplicate matching entities near the expected HQ slot");
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugResourceAwardCase(int moneyBefore, int hrBefore, int moneyAfter, int hrAfter, string awardResult)

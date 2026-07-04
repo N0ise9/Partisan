@@ -15,6 +15,8 @@ class HST_HQService
 	protected IEntity m_ArsenalEntity;
 	protected IEntity m_TentEntity;
 	protected IEntity m_SpawnPointEntity;
+	protected ref array<IEntity> m_aWorldScanCandidates = {};
+	protected string m_sWorldScanPrefab;
 	protected bool m_bWarnedPetrosResourceFailure;
 	protected bool m_bWarnedArsenalResourceFailure;
 	protected bool m_bWarnedRuntimeSpawnIncomplete;
@@ -535,6 +537,51 @@ class HST_HQService
 		return string.Format("petros %1 | cache %2 | arsenal %3 | tent %4 | spawn_point %5", GetPetrosRuntimeEntityKey(), GetCacheRuntimeEntityKey(), GetArsenalRuntimeEntityKey(), GetTentRuntimeEntityKey(), GetSpawnPointRuntimeEntityKey());
 	}
 
+	int CountPetrosWorldRuntimeEntities(HST_CampaignState state)
+	{
+		if (!state)
+			return -1;
+
+		return CountWorldRuntimeEntitiesNear(state.m_vPetrosPosition, ResolveRuntimeScanPrefab(m_PetrosEntity, ResolvePetrosPrefab(state)), 10.0);
+	}
+
+	int CountCacheWorldRuntimeEntities(HST_CampaignState state)
+	{
+		if (!state)
+			return -1;
+
+		return CountWorldRuntimeEntitiesNear(state.m_vHQCachePosition, ResolveRuntimeScanPrefab(m_CacheEntity, ResolveStatePrefab(state.m_sHQCachePrefab, HQ_CACHE_PREFAB)), 10.0);
+	}
+
+	int CountArsenalWorldRuntimeEntities(HST_CampaignState state)
+	{
+		if (!state)
+			return -1;
+
+		return CountWorldRuntimeEntitiesNear(state.m_vArsenalPosition, ResolveRuntimeScanPrefab(m_ArsenalEntity, ResolveStatePrefab(state.m_sArsenalPrefab, ARSENAL_PREFAB)), 10.0);
+	}
+
+	int CountTentWorldRuntimeEntities(HST_CampaignState state)
+	{
+		if (!state)
+			return -1;
+
+		return CountWorldRuntimeEntitiesNear(state.m_vHQTentPosition, ResolveRuntimeScanPrefab(m_TentEntity, ResolveStatePrefab(state.m_sHQTentPrefab, HQ_TENT_PREFAB)), 10.0);
+	}
+
+	int CountSpawnPointWorldRuntimeEntities(HST_CampaignState state)
+	{
+		if (!state)
+			return -1;
+
+		return CountWorldRuntimeEntitiesNear(state.m_vHQSpawnPointPosition, ResolveRuntimeScanPrefab(m_SpawnPointEntity, ResolveStatePrefab(state.m_sHQSpawnPointPrefab, HQ_SPAWN_POINT_PREFAB)), 10.0);
+	}
+
+	string BuildRuntimeWorldScanSummary(HST_CampaignState state)
+	{
+		return string.Format("petros %1 | cache %2 | arsenal %3 | tent %4 | spawn_point %5", CountPetrosWorldRuntimeEntities(state), CountCacheWorldRuntimeEntities(state), CountArsenalWorldRuntimeEntities(state), CountTentWorldRuntimeEntities(state), CountSpawnPointWorldRuntimeEntities(state));
+	}
+
 	protected int ResolveEnemyActivityThreatNearHQ(HST_CampaignState state, HST_CampaignPreset preset, out string reason)
 	{
 		reason = "no enemy activity near HQ";
@@ -993,6 +1040,60 @@ class HST_HQService
 			return string.Format("%1:%2", prefab, rpl.Id());
 
 		return string.Format("%1:%2", prefab, entity);
+	}
+
+	protected int CountWorldRuntimeEntitiesNear(vector center, string prefab, float radiusMeters)
+	{
+		if (prefab.IsEmpty() || radiusMeters <= 0 || !GetGame())
+			return -1;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return -1;
+
+		m_sWorldScanPrefab = prefab;
+		m_aWorldScanCandidates.Clear();
+		world.QueryEntitiesBySphere(center, radiusMeters, AddWorldScanCandidate, null, EQueryEntitiesFlags.ALL);
+		int count = m_aWorldScanCandidates.Count();
+		m_aWorldScanCandidates.Clear();
+		m_sWorldScanPrefab = "";
+		return count;
+	}
+
+	protected bool AddWorldScanCandidate(IEntity entity)
+	{
+		if (!entity || m_sWorldScanPrefab.IsEmpty())
+			return true;
+
+		if (ResolveEntityPrefabName(entity) == m_sWorldScanPrefab)
+			m_aWorldScanCandidates.Insert(entity);
+
+		return true;
+	}
+
+	protected string ResolveRuntimeScanPrefab(IEntity entity, string fallbackPrefab)
+	{
+		string prefab = ResolveEntityPrefabName(entity);
+		if (!prefab.IsEmpty())
+			return prefab;
+
+		return fallbackPrefab;
+	}
+
+	protected string ResolveStatePrefab(string statePrefab, string fallbackPrefab)
+	{
+		if (!statePrefab.IsEmpty())
+			return statePrefab;
+
+		return fallbackPrefab;
+	}
+
+	protected string ResolveEntityPrefabName(IEntity entity)
+	{
+		if (!entity || !entity.GetPrefabData())
+			return "";
+
+		return entity.GetPrefabData().GetPrefabName();
 	}
 
 	protected float DistanceSq2D(vector first, vector second)
