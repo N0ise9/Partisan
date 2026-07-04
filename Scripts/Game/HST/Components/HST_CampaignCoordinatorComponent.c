@@ -8764,8 +8764,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vector transportPickupPosition = ResolveCampaignDebugMissionAssetProbePosition(transportAsset, mission);
 		vector transportDeliveryPosition = ResolveCampaignDebugMissionAssetDeliveryPosition(transportAsset, mission);
 		bool transportPickupTeleport = TeleportCampaignDebugPlayer(transportPickupPosition + "2 0 2", primitiveLabel + " pickup");
+		IEntity transportPlayerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		bool transportPlayerReady = IsLivingEntity(transportPlayerEntity);
 		AddCampaignDebugMissionAssetReadinessAssertions(primitiveCase, mission, transportAsset, "primitive." + primitiveLabel + ".asset");
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".pickup_teleport", "player teleported to asset pickup position", string.Format("%1 | target %2", transportPickupTeleport, transportPickupPosition), CampaignDebugStatus(transportPickupTeleport, "WARN"), primitiveLabel + " pickup teleport did not confirm", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".player_ready", "living controlled player is available before transport interaction", BuildCampaignDebugPlayerEntityActual(transportPlayerEntity), CampaignDebugStatus(transportPlayerReady, "BLOCKED"), primitiveLabel + " transport interaction requires a living controlled player", "", transportInstanceId, mission.m_sTargetZoneId);
+		if (!transportPlayerReady)
+			return;
 
 		string transportArrangedCarrierId;
 		vector transportCarrierPickupPosition;
@@ -9061,9 +9066,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool areaTeleport = TeleportCampaignDebugPlayer(areaObjective.m_vPosition + "2 0 2", "area primitive probe");
 		IEntity areaPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		bool areaPlayerReady = IsLivingEntity(areaPlayer);
 		float areaPlayerDistance = 999999.0;
 		if (areaPlayer)
 			areaPlayerDistance = Math.Sqrt(DistanceSq2D(areaPlayer.GetOrigin(), areaObjective.m_vPosition));
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.player_ready", "living controlled player is available before area objective tick", BuildCampaignDebugPlayerEntityActual(areaPlayer), CampaignDebugStatus(areaPlayerReady, "BLOCKED"), "area primitive objective tick requires a living controlled player", "", areaInstanceId, mission.m_sTargetZoneId);
+		if (!areaPlayerReady)
+			return;
 
 		bool areaRuntimeChanged;
 		bool areaObjectiveTickChanged;
@@ -11707,6 +11716,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (m_iCampaignDebugPlayerId <= 0 || IsZeroVector(position))
 			return false;
+		if (!EnsureCampaignDebugLivingPlayer(reason))
+			return false;
 
 		vector resolved = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true);
 		bool nativeTeleported = SCR_Global.TeleportPlayer(m_iCampaignDebugPlayerId, resolved, SCR_EPlayerTeleportedReason.DEFAULT);
@@ -11733,6 +11744,62 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AppendCampaignDebugLog("INFO", "teleport " + reason, string.Format("player %1 -> %2 | native %3 | forced %4 | confirmed %5", m_iCampaignDebugPlayerId, resolved, nativeTeleported, forcedEntityOrigin, entityConfirmed));
 
 		return teleported;
+	}
+
+	protected bool EnsureCampaignDebugLivingPlayer(string reason)
+	{
+		if (m_iCampaignDebugPlayerId <= 0)
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (IsLivingEntity(playerEntity))
+			return HealCampaignDebugPlayerEntity(playerEntity);
+		if (m_bCampaignDebugPhysicalBlocked)
+			return false;
+
+		ProcessPlayerSpawnSweep("campaign debug player recovery " + reason, true);
+		if (m_PlayerSpawn)
+			m_PlayerSpawn.Tick(3.25);
+		ProcessPlayerSpawnSweep("campaign debug player recovery retry " + reason, true);
+
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (IsLivingEntity(playerEntity))
+		{
+			bool healed = HealCampaignDebugPlayerEntity(playerEntity);
+			AppendCampaignDebugLog("WARN", "player recovery " + reason, string.Format("living controlled player recovered | healed %1 | %2", healed, BuildCampaignDebugPlayerEntityActual(playerEntity)));
+			return healed;
+		}
+
+		AppendCampaignDebugLog("WARN", "player recovery " + reason, "controlled player is not living after spawn sweep recovery");
+		return false;
+	}
+
+	protected bool HealCampaignDebugPlayerEntity(IEntity playerEntity)
+	{
+		if (!playerEntity)
+			return false;
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(playerEntity.FindComponent(SCR_DamageManagerComponent));
+		if (!damageManager)
+			return true;
+		if (damageManager.GetState() == EDamageState.DESTROYED)
+			return false;
+
+		damageManager.FullHeal();
+		return true;
+	}
+
+	protected string BuildCampaignDebugPlayerEntityActual(IEntity playerEntity)
+	{
+		if (!playerEntity)
+			return "missing";
+
+		string actual = string.Format("pos %1", playerEntity.GetOrigin());
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(playerEntity.FindComponent(SCR_DamageManagerComponent));
+		if (!damageManager)
+			return actual + " | damage none";
+
+		return actual + string.Format(" | damage state %1 | health %2", damageManager.GetState(), Math.Round(damageManager.GetHealthScaled() * 100.0));
 	}
 
 	protected vector OffsetCampaignDebugRadialPosition(vector source, float distanceMeters, int slot)

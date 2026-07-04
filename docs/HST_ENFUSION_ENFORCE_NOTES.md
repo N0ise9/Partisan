@@ -277,6 +277,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Keep assertion calls flat in large debug builders: compute `actual` strings and status booleans before `AddCampaignDebugAssertion(...)` instead of nesting several helper calls inside the assertion call.
   - Avoid reusing generic parameter names such as `request` across adjacent support helpers when fixing wide signatures; a previous support probe refactor produced follow-on `Multiple declaration of variable` errors until the shared state moved into a context object and parameters were renamed to `supportRequest`.
 
+- Campaign debug physical probes should recover or block on player liveness before real interactions.
+  - `SCR_DamageManagerComponent.FullHeal()` is useful only for a non-destroyed controlled entity; destroyed players need the normal h-istasi respawn sweep.
+  - Put liveness guards at the teleport/interaction boundary so later cargo, captive, or area probes do not report misleading `player is not alive` mission-action failures caused by an earlier physical probe.
+
+- Vehicle source capability metadata is persisted state from campaign schema 19 onward.
+  - Use prefab-based `HST_VehicleCapabilityPolicy` backfill for pre-schema-19 saves, new captures, or direct world scans; do not reapply it during current-schema save restore because it can erase explicit source flags.
+  - When redeploying a garage vehicle, copy its persisted source kind and ammo/repair/fuel flags onto the runtime record and preserve those copied values.
+
 - Prefer explicit boolean checks for object references when returning a bool.
   - `if (widget) return true;` is clearer and safer than returning widget-reference expressions from `bool` methods.
 

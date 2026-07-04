@@ -1328,12 +1328,16 @@ class HST_CampaignSaveData
 		}
 
 
+		bool backfillVehicleCapabilities = restoredSchemaVersion < 19;
 		foreach (HST_GarageVehicleState garageVehicle : m_aGarageVehicles)
 		{
 			if (!garageVehicle)
 				continue;
 
-			HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(garageVehicle);
+			if (backfillVehicleCapabilities)
+				HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(garageVehicle);
+			else if (garageVehicle.m_sSourceVehicleKind.IsEmpty())
+				garageVehicle.m_sSourceVehicleKind = HST_VehicleCapabilityPolicy.ResolveSourceVehicleKindFromState(garageVehicle.m_sPrefab, garageVehicle.m_bAmmoSource, garageVehicle.m_bRepairSource, garageVehicle.m_bFuelSource);
 		}
 		foreach (HST_RuntimeVehicleState vehicle : m_aRuntimeVehicles)
 		{
@@ -1346,7 +1350,10 @@ class HST_CampaignSaveData
 				vehicle.m_sDisplayName = vehicle.m_sRuntimeKind;
 			if (vehicle.m_sRuntimeKind.IsEmpty())
 				vehicle.m_sRuntimeKind = "runtime_vehicle";
-			HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(vehicle);
+			if (backfillVehicleCapabilities)
+				HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(vehicle);
+			else if (vehicle.m_sSourceVehicleKind.IsEmpty())
+				vehicle.m_sSourceVehicleKind = HST_VehicleCapabilityPolicy.ResolveSourceVehicleKindFromState(vehicle.m_sPrefab, vehicle.m_bAmmoSource, vehicle.m_bRepairSource, vehicle.m_bFuelSource);
 		}
 
 		foreach (HST_SupportRequestState request : m_aSupportRequests)

@@ -572,7 +572,6 @@ class HST_ArsenalService
 		runtimeVehicle.m_bAmmoSource = garageVehicle.m_bAmmoSource;
 		runtimeVehicle.m_bRepairSource = garageVehicle.m_bRepairSource;
 		runtimeVehicle.m_bFuelSource = garageVehicle.m_bFuelSource;
-		HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(runtimeVehicle);
 		runtimeVehicle.m_bDetached = false;
 		runtimeVehicle.m_vAngles = angles;
 		runtimeVehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;

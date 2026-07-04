@@ -123,6 +123,8 @@ Phase 15 garage and vehicle persistence hardening.
 - Garage vehicle records and runtime vehicle records now persist source-vehicle
   capability fields: ammo source, repair source, fuel source, and source vehicle kind.
 - Existing garage/runtime vehicle records are backfilled from prefab-based capability rules.
+- Schema 19+ restores preserve persisted source capability fields; prefab backfill is only
+  for pre-schema-19 records or newly captured world vehicles.
 - Garage redeploy runtime vehicles are eligible for persistent field-vehicle restore.
 - No raw `IEntity`, `AIGroup`, inventory handles, or runtime pointers are persisted.
 

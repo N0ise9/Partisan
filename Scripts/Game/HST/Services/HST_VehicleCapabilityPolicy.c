@@ -17,6 +17,20 @@ class HST_VehicleCapabilityPolicy
 		return "transport";
 	}
 
+	static string ResolveSourceVehicleKindFromState(string prefab, bool ammoSource, bool repairSource, bool fuelSource)
+	{
+		if (ammoSource)
+			return "ammo";
+
+		if (repairSource)
+			return "repair";
+
+		if (fuelSource)
+			return "fuel";
+
+		return ResolveSourceVehicleKind(prefab);
+	}
+
 	static bool IsAmmoSourcePrefab(string prefab)
 	{
 		if (prefab.IsEmpty())
