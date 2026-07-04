@@ -215,6 +215,43 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	bool m_bLiveCharacterAfterOpen;
 }
 
+class HST_CampaignDebugGarrisonProbeContext
+{
+	string m_sResult;
+	string m_sRecruitResult;
+	string m_sRemoveResult;
+	string m_sZoneId;
+	string m_sResistanceFactionKey;
+	string m_sOriginalOwnerFactionKey;
+	string m_sOwnerAfterCleanup;
+	bool m_bOriginalActive;
+	bool m_bArranged;
+	bool m_bHadGarrisonBefore;
+	bool m_bRemovedCreatedEmptyGarrison;
+	bool m_bRestoredZoneState;
+	int m_iOriginalActiveInfantry;
+	int m_iOriginalActiveVehicles;
+	int m_iGarrisonSlots;
+	int m_iGarrisonRecordsBefore;
+	int m_iGarrisonRecordsAfterRecruit;
+	int m_iGarrisonRecordsAfterRemove;
+	int m_iGarrisonRecordsAfterCleanup;
+	int m_iInfantryBefore;
+	int m_iVehiclesBefore;
+	int m_iInfantryAfterRecruit;
+	int m_iVehiclesAfterRecruit;
+	int m_iInfantryAfterRemove;
+	int m_iVehiclesAfterRemove;
+	int m_iInfantryAfterCleanup;
+	int m_iVehiclesAfterCleanup;
+	int m_iMoneyBefore;
+	int m_iMoneyAfterRecruit;
+	int m_iMoneyAfterRemove;
+	int m_iHRBefore;
+	int m_iHRAfterRecruit;
+	int m_iHRAfterRemove;
+}
+
 class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 {
 	HST_EnemyOrderState m_Order;
