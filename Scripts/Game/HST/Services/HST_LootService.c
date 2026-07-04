@@ -193,6 +193,50 @@ class HST_LootService
 		return restoredVehicles;
 	}
 
+	bool RemoveRuntimeVehicleEntityForDebug(HST_CampaignState state, string vehicleRuntimeId, out string reason)
+	{
+		reason = "";
+		if (!state)
+		{
+			reason = "state missing";
+			return false;
+		}
+		if (vehicleRuntimeId.IsEmpty())
+		{
+			reason = "runtime vehicle id missing";
+			return false;
+		}
+
+		HST_RuntimeVehicleState record = state.FindRuntimeVehicle(vehicleRuntimeId);
+		if (!record)
+		{
+			reason = "runtime vehicle record missing";
+			return false;
+		}
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+		{
+			reason = "world not ready";
+			return false;
+		}
+
+		int scannedCandidates;
+		int resolvedRoots;
+		string rejectReason;
+		IEntity rootVehicle = ResolveRuntimeVehicleRootFromRecord(world, record, scannedCandidates, resolvedRoots, rejectReason);
+		bool recordRemoved = state.RemoveRuntimeVehicle(vehicleRuntimeId);
+		if (!rootVehicle)
+		{
+			reason = string.Format("entity missing | record removed %1 | scanned %2 | roots %3 | reason %4", recordRemoved, scannedCandidates, resolvedRoots, rejectReason);
+			return false;
+		}
+
+		SCR_EntityHelper.DeleteEntityAndChildren(rootVehicle);
+		reason = string.Format("entity deleted | record removed %1 | scanned %2 | roots %3", recordRemoved, scannedCandidates, resolvedRoots);
+		return true;
+	}
+
 	string CaptureNearbyVehicleToGarage(HST_CampaignState state, HST_CampaignPreset preset, HST_ArsenalService arsenal, int playerId)
 	{
 		if (!state || !preset || !arsenal || playerId <= 0)
