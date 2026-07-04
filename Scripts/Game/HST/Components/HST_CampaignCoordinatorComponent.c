@@ -12314,6 +12314,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.zone", "zone support equals civilian support difference", string.Format("zone %1 | FIA %2 | occupier %3", zone, town.m_iFIASupport, town.m_iOccupierSupport), CampaignDebugStatus(zone && zone.m_iSupport == Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport))), "zone support does not match civilian support difference", "", "", town.m_sZoneId);
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_security", "police and roadblock presence seeded", string.Format("police %1 | roadblocks %2", town.m_iPolicePresence, town.m_iRoadblockPresence), CampaignDebugStatus(town.m_iPolicePresence > 0 && town.m_iRoadblockPresence > 0), "phase 20 did not seed security presence", "", "", town.m_sZoneId);
 			AddCampaignDebugTownSupportTransitionAssertions(phaseCase, town, zone);
+			AddCampaignDebugCivilianLongWindowAssertions(phaseCase, town, zone);
 			AddCampaignDebugCivilianPopulationAssertions(phaseCase);
 		}
 		else if (index == 28)
@@ -12471,6 +12472,189 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.marker_restore", "zone marker model restored to original town owner", restoredMarkerActual, CampaignDebugStatus(restoredMarkerOk), "town support transition probe left the zone marker on the temporary owner", "", "", zoneId);
 	}
 
+	protected void AddCampaignDebugCivilianLongWindowAssertions(HST_CampaignDebugCaseResult phaseCase, HST_CivilianZoneState town, HST_ZoneState zone)
+	{
+		if (!phaseCase)
+			return;
+
+		if (!town || !zone || !m_State || !m_Civilians)
+		{
+			AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.prerequisite", "town, linked zone, state, and civilian service ready", "missing", "BLOCKED", "civilian long-window reaction probe missing prerequisites");
+			return;
+		}
+
+		string longWindowZoneId = town.m_sZoneId;
+		int originalElapsedSeconds = m_State.m_iElapsedSeconds;
+		int originalFIA = town.m_iFIASupport;
+		int originalOccupier = town.m_iOccupierSupport;
+		int originalReputation = town.m_iReputation;
+		int originalHeat = town.m_iWantedHeat;
+		int originalIncidentSecond = town.m_iLastIncidentSecond;
+		int originalSupportSecond = town.m_iLastSupportChangeSecond;
+		int originalRoadblockSecond = town.m_iLastRoadblockScanSecond;
+		int originalPoliceSecond = town.m_iLastPoliceScanSecond;
+		string originalIncidentReason = town.m_sLastIncidentReason;
+		string originalSecurityReason = town.m_sLastSecurityReason;
+		bool originalUndercoverRestricted = town.m_bUndercoverRestricted;
+		int originalZoneSupport = zone.m_iSupport;
+		string originalOwner = zone.m_sOwnerFactionKey;
+		int originalCaptureProgress = zone.m_iResistanceCaptureProgress;
+		ref array<int> undercoverHeatBefore = {};
+		ref array<HST_EUndercoverStatus> undercoverStatusBefore = {};
+		ref array<string> undercoverReasonBefore = {};
+		foreach (HST_PlayerUndercoverState undercoverBefore : m_State.m_aUndercoverPlayers)
+		{
+			if (!undercoverBefore)
+				continue;
+
+			undercoverHeatBefore.Insert(undercoverBefore.m_iWantedHeat);
+			undercoverStatusBefore.Insert(undercoverBefore.m_eStatus);
+			undercoverReasonBefore.Insert(undercoverBefore.m_sLastReason);
+		}
+
+		town.m_iFIASupport = 55;
+		town.m_iOccupierSupport = 45;
+		town.m_iReputation = 55;
+		town.m_iWantedHeat = 0;
+		town.m_iLastIncidentSecond = m_State.m_iElapsedSeconds;
+		town.m_iLastSupportChangeSecond = m_State.m_iElapsedSeconds;
+		town.m_iLastRoadblockScanSecond = m_State.m_iElapsedSeconds - 60;
+		town.m_iLastPoliceScanSecond = m_State.m_iElapsedSeconds - 90;
+		town.m_sLastIncidentReason = "phase20 long-window arrange";
+		town.m_sLastSecurityReason = "phase20 long-window arrange";
+		town.m_bUndercoverRestricted = false;
+		zone.m_iSupport = Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
+		if (m_Preset && !m_Preset.m_sOccupierFactionKey.IsEmpty())
+			zone.m_sOwnerFactionKey = m_Preset.m_sOccupierFactionKey;
+
+		int incidentSupportBefore = zone.m_iSupport;
+		bool incidentChanged = m_Civilians.RegisterIncident(m_State, longWindowZoneId, -10, 6, "phase20 long-window heat probe", m_Preset);
+		int heatAfterIncident = town.m_iWantedHeat;
+		int supportAfterIncident = zone.m_iSupport;
+		bool incidentReasonOk = town.m_sLastIncidentReason == "phase20 long-window heat probe" && town.m_iLastIncidentSecond == m_State.m_iElapsedSeconds && town.m_iLastSupportChangeSecond == m_State.m_iElapsedSeconds;
+		bool incidentHeatOk = heatAfterIncident == 6;
+		bool incidentSupportOk = supportAfterIncident < incidentSupportBefore && zone.m_iSupport == Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
+		bool incidentRestrictionOk = town.m_bUndercoverRestricted == (zone.m_iSupport < 25);
+		string incidentActual = BuildCampaignDebugCivilianLongWindowActual("incident", town, zone, incidentSupportBefore, originalElapsedSeconds);
+
+		int decayIntervalSeconds = HST_CivilianService.HEAT_DECAY_SECONDS;
+		int decayTargetCount = Math.Min(3, heatAfterIncident);
+		int expectedHeatAfterDecay = Math.Max(0, heatAfterIncident - decayTargetCount);
+		int lastHeat = heatAfterIncident;
+		int decayTickChangedCount;
+		int decaySampleCount;
+		bool decayStepOk = true;
+		bool decayTimestampOk = true;
+		string decayHistory;
+		for (int decayIndex = 0; decayIndex < decayTargetCount; decayIndex++)
+		{
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + decayIntervalSeconds;
+			int expectedStepHeat = Math.Max(0, lastHeat - 1);
+			bool decayTickChanged = m_Civilians.Tick(m_State, decayIntervalSeconds);
+			int sampleHeat = town.m_iWantedHeat;
+			if (decayTickChanged)
+				decayTickChangedCount++;
+			if (sampleHeat != expectedStepHeat)
+				decayStepOk = false;
+			if (town.m_iLastIncidentSecond != m_State.m_iElapsedSeconds)
+				decayTimestampOk = false;
+
+			lastHeat = sampleHeat;
+			decaySampleCount++;
+			string decaySample = string.Format("sample %1 heat %2 expected %3 changed %4 at %5", decaySampleCount, sampleHeat, expectedStepHeat, decayTickChanged, m_State.m_iElapsedSeconds);
+			if (decayHistory.IsEmpty())
+				decayHistory = decaySample;
+			else
+				decayHistory = decayHistory + "; " + decaySample;
+		}
+
+		string decayActual = BuildCampaignDebugCivilianLongWindowActual("decay", town, zone, incidentSupportBefore, originalElapsedSeconds);
+		decayActual = decayActual + string.Format(" | interval %1s | samples %2/%3 | history %4", decayIntervalSeconds, decaySampleCount, decayTargetCount, ShortCampaignDebugLine(decayHistory, 180));
+		bool decayHeatOk = town.m_iWantedHeat == expectedHeatAfterDecay && decayStepOk && decayTimestampOk;
+		bool noUnderflowOk = town.m_iWantedHeat >= 0 && town.m_iWantedHeat <= heatAfterIncident;
+
+		town.m_iFIASupport = originalFIA;
+		town.m_iOccupierSupport = originalOccupier;
+		town.m_iReputation = originalReputation;
+		town.m_iWantedHeat = originalHeat;
+		town.m_iLastIncidentSecond = originalIncidentSecond;
+		town.m_iLastSupportChangeSecond = originalSupportSecond;
+		town.m_iLastRoadblockScanSecond = originalRoadblockSecond;
+		town.m_iLastPoliceScanSecond = originalPoliceSecond;
+		town.m_sLastIncidentReason = originalIncidentReason;
+		town.m_sLastSecurityReason = originalSecurityReason;
+		town.m_bUndercoverRestricted = originalUndercoverRestricted;
+		zone.m_iSupport = originalZoneSupport;
+		zone.m_sOwnerFactionKey = originalOwner;
+		zone.m_iResistanceCaptureProgress = originalCaptureProgress;
+		m_State.m_iElapsedSeconds = originalElapsedSeconds;
+
+		int undercoverRestoreIndex;
+		foreach (HST_PlayerUndercoverState undercoverAfter : m_State.m_aUndercoverPlayers)
+		{
+			if (!undercoverAfter)
+				continue;
+			if (undercoverRestoreIndex >= undercoverHeatBefore.Count())
+				break;
+
+			undercoverAfter.m_iWantedHeat = undercoverHeatBefore[undercoverRestoreIndex];
+			undercoverAfter.m_eStatus = undercoverStatusBefore[undercoverRestoreIndex];
+			undercoverAfter.m_sLastReason = undercoverReasonBefore[undercoverRestoreIndex];
+			undercoverRestoreIndex++;
+		}
+
+		bool undercoverRestored = undercoverRestoreIndex == undercoverHeatBefore.Count();
+		int undercoverVerifyIndex;
+		foreach (HST_PlayerUndercoverState undercoverVerify : m_State.m_aUndercoverPlayers)
+		{
+			if (!undercoverVerify)
+				continue;
+			if (undercoverVerifyIndex >= undercoverHeatBefore.Count())
+			{
+				undercoverRestored = false;
+				break;
+			}
+			if (undercoverVerify.m_iWantedHeat != undercoverHeatBefore[undercoverVerifyIndex])
+				undercoverRestored = false;
+			if (undercoverVerify.m_eStatus != undercoverStatusBefore[undercoverVerifyIndex])
+				undercoverRestored = false;
+			if (undercoverVerify.m_sLastReason != undercoverReasonBefore[undercoverVerifyIndex])
+				undercoverRestored = false;
+
+			undercoverVerifyIndex++;
+		}
+		if (undercoverVerifyIndex != undercoverHeatBefore.Count())
+			undercoverRestored = false;
+
+		bool restored = town.m_iFIASupport == originalFIA
+			&& town.m_iOccupierSupport == originalOccupier
+			&& town.m_iReputation == originalReputation
+			&& town.m_iWantedHeat == originalHeat
+			&& town.m_iLastIncidentSecond == originalIncidentSecond
+			&& town.m_iLastSupportChangeSecond == originalSupportSecond
+			&& town.m_iLastRoadblockScanSecond == originalRoadblockSecond
+			&& town.m_iLastPoliceScanSecond == originalPoliceSecond
+			&& town.m_sLastIncidentReason == originalIncidentReason
+			&& town.m_sLastSecurityReason == originalSecurityReason
+			&& town.m_bUndercoverRestricted == originalUndercoverRestricted
+			&& zone.m_iSupport == originalZoneSupport
+			&& zone.m_sOwnerFactionKey == originalOwner
+			&& zone.m_iResistanceCaptureProgress == originalCaptureProgress
+			&& m_State.m_iElapsedSeconds == originalElapsedSeconds
+			&& undercoverRestored;
+
+		phaseCase.m_aEvidence.Insert("civilian long-window incident | " + incidentActual);
+		phaseCase.m_aEvidence.Insert("civilian long-window decay | " + ShortCampaignDebugLine(decayActual, 260));
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_long_window.decay_interval", string.Format("%1", decayIntervalSeconds), "seconds");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_long_window.decay_samples", string.Format("%1", decaySampleCount), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_long_window.heat_after_decay", string.Format("%1", expectedHeatAfterDecay), "heat");
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.incident", "incident mutates town heat, support, restriction, and metadata through the civilian service", incidentActual, CampaignDebugStatus(incidentChanged && incidentHeatOk && incidentSupportOk && incidentRestrictionOk && incidentReasonOk), "long-window incident did not update town reaction state correctly", "", "", longWindowZoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.decay_samples", "civilian tick samples each configured heat-decay interval", decayActual, CampaignDebugStatus(decaySampleCount == decayTargetCount && decayTargetCount > 0 && decayTickChangedCount == decayTargetCount), "long-window heat decay did not tick at each configured interval", "", "", longWindowZoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.decay_formula", "town heat decreases by one per interval and updates last incident second", decayActual, CampaignDebugStatus(decayHeatOk), "long-window heat decay did not follow civilian service timing", "", "", longWindowZoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.no_underflow", "wanted heat remains bounded during decay", decayActual, CampaignDebugStatus(noUnderflowOk), "long-window heat decay underflowed or increased unexpectedly", "", "", longWindowZoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.restore", "temporary long-window town, zone, elapsed-time, and undercover heat state restored", BuildCampaignDebugCivilianLongWindowActual("restored", town, zone, originalZoneSupport, originalElapsedSeconds), CampaignDebugStatus(restored), "long-window civilian probe leaked temporary state", "", "", longWindowZoneId);
+	}
+
 	protected bool IsCampaignDebugTownSupportBounded(HST_CivilianZoneState town, HST_ZoneState zone)
 	{
 		if (!town || !zone)
@@ -12486,6 +12670,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string actual = string.Format("%1 | zone %2 | FIA %3 | occupier %4 | reputation %5 | heat %6 | zone support %7 | owner %8", label, EmptyCampaignDebugField(town.m_sZoneId), town.m_iFIASupport, town.m_iOccupierSupport, town.m_iReputation, town.m_iWantedHeat, zone.m_iSupport, EmptyCampaignDebugField(zone.m_sOwnerFactionKey));
 		actual = actual + string.Format(" | support before %1 | owner before %2 | capture %3 | restricted %4 | reason %5 | security %6", supportBefore, EmptyCampaignDebugField(ownerBefore), zone.m_iResistanceCaptureProgress, town.m_bUndercoverRestricted, EmptyCampaignDebugField(town.m_sLastIncidentReason), EmptyCampaignDebugField(town.m_sLastSecurityReason));
+		return actual;
+	}
+
+	protected string BuildCampaignDebugCivilianLongWindowActual(string label, HST_CivilianZoneState town, HST_ZoneState zone, int supportBefore, int elapsedBefore)
+	{
+		if (!town || !zone || !m_State)
+			return "missing";
+
+		string actual = string.Format("%1 | zone %2 | heat %3 | FIA %4 | occupier %5 | reputation %6 | support %7 -> %8", label, EmptyCampaignDebugField(town.m_sZoneId), town.m_iWantedHeat, town.m_iFIASupport, town.m_iOccupierSupport, town.m_iReputation, supportBefore, zone.m_iSupport);
+		actual = actual + string.Format(" | elapsed %1 -> %2 | last incident %3 | reason %4 | restricted %5 | owner %6", elapsedBefore, m_State.m_iElapsedSeconds, town.m_iLastIncidentSecond, EmptyCampaignDebugField(town.m_sLastIncidentReason), town.m_bUndercoverRestricted, EmptyCampaignDebugField(zone.m_sOwnerFactionKey));
 		return actual;
 	}
 
