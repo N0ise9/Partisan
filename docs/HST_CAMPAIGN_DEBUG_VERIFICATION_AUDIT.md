@@ -11,6 +11,26 @@ The current `Run Campaign Debug` implementation is a useful certification scaffo
 
 It does not yet satisfy the full pasted contract for a complete one-button in-game verification suite. Large areas remain partial state/runtime probes or are not represented at all.
 
+## Completion Verification Snapshot
+
+Source contract rechecked: the pasted `Run Campaign Debug: full in-game suite contract`, using current repository state at commit `6624cd7`.
+
+Current verification result: **not complete**. The code proves that the admin controls, `smoke`/`physical`/`full` profiles, typed case/assertion/metric result layer, JSON/summary/state-diff artifacts, deterministic debug prefixes, prefixed cleanup, post-case leak probes, physical convoy/captive/support samples, and the render-bubble zone/mission-asset/expired-convoy policy probes are implemented. The full contract also requires natural or long-window physical behavior that the current runner still marks as `WARN`, partial, or external/manual.
+
+Evidence checked in code:
+
+- Admin UI/dispatch: `admin_run_campaign_debug [smoke|physical|full]`, `admin_campaign_debug_status`, `admin_campaign_debug_cancel`, and `admin_campaign_debug_cleanup` are in command coverage, visible admin actions, and coordinator dispatch.
+- Result/artifact harness: `HST_CampaignDebugRunResult`, `HST_CampaignDebugCaseResult`, `HST_CampaignDebugAssertion`, and `HST_CampaignDebugMetric` exist and are used by `RecordCampaignDebugCase`; run artifacts are written as JSON, summary, and state-diff files.
+- Stage conversion: bootstrap, preflight, HQ runtime, economy/income/training, support, generated content, persistence smoke, mission start/runtime/cleanup, primitive probes, render bubbles, garrison, civilian aid, support cancel, garage/loadout, Phase 14-24, and cleanup leak checks emit typed cases.
+- Recent render-bubble closure: Run Campaign Debug now records `render_bubble.zone_activation.early`, `render_bubble.mission_asset.expired_player_bound`, and `render_bubble.convoy.expired_contact`.
+
+Unproven or incomplete against the pasted contract:
+
+- Natural physical behavior is still incomplete for support contact/combat, player-driven transport over real routes, POW transport over a real route, observed hostile area-clearing combat, full convoy staging-to-terminal phase history, counterattack/Defend Petros multi-wave contact/arrival/resolution, and extended autonomous background-war soak.
+- Render/UI proof is still model/native-state based; rendered command-menu opening and rendered map widget inspection are not automated.
+- Persistence proof is still in-process/seeded for the one-button runner; real process restart, multiclient reconnect/soak, and broader field-vehicle restore remain external/manual.
+- The latest debug-only code slice has passed static validation, but this audit does not include a fresh Workbench script reload/runtime run after commit `6624cd7`.
+
 ## Behavior Safety
 
 - Recent runner changes are debug-only/admin-only unless noted otherwise: typed result cases, action/observation wrappers, phase-smoke persistence cases, marker/native-marker assertions, reports, artifacts, cleanup probes, and audit text only run from campaign debug/admin commands.
