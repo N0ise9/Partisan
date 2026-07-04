@@ -389,9 +389,7 @@ class HST_GeneratedContentService
 			float roadWidth;
 			float roadDistance;
 			string roadReason;
-			float waypointRadius = waypoint.m_iRadiusMeters;
-			if (waypointRadius < 12.0)
-				waypointRadius = 12.0;
+			float waypointRadius = Math.Max(waypoint.m_iRadiusMeters, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_FAR_METERS);
 			vector destination = ResolveGeneratedRouteValidationDestination(route, index);
 			if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(waypoint.m_vPosition, waypointRadius, destination, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
 				return true;
@@ -556,7 +554,24 @@ class HST_GeneratedContentService
 		if (!state)
 			return false;
 
-		return HST_WorldPositionService.IsDryGroundPosition(position);
+		return IsGeneratedContentPositionAccepted(position);
+	}
+
+	protected bool IsGeneratedContentPositionAccepted(vector position)
+	{
+		if (HST_WorldPositionService.IsDryGroundPosition(position))
+			return true;
+
+		vector roadPosition;
+		vector roadForward;
+		float roadWidth;
+		float roadDistance;
+		string roadReason;
+		if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(position, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_FAR_METERS, position, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
+			return true;
+
+		vector resolved;
+		return HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(position, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved);
 	}
 
 	protected float DistanceSq2D(vector a, vector b)

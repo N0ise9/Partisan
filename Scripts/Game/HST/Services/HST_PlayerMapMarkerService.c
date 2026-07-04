@@ -301,7 +301,10 @@ class HST_PlayerMapMarkerService
 
 	protected bool ShouldPublishPlayerMarkers(HST_CampaignState state)
 	{
-		return state && state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		if (!state)
+			return false;
+
+		return state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST;
 	}
 
 	protected IEntity ResolveControlledPlayerEntity(PlayerManager playerManager, int playerId)

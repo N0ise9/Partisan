@@ -214,6 +214,7 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	bool m_bPhysicalLoadoutSeeded;
 	bool m_bRestoreLoadoutSeeded;
 	bool m_bPhysicalInventoryAccessible;
+	bool m_bPhysicalInventoryCapacityAvailable;
 	bool m_bPhysicalInventoryReflected;
 	bool m_bPhysicalInventoryRestored;
 	bool m_bPhysicalDraftAccessible;

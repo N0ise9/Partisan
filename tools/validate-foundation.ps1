@@ -1824,7 +1824,9 @@ foreach ($requiredPlayerMarkerEntry in @(
 		"ClearAll",
 		"ReportReconcileFailure",
 		"ShouldPublishPlayerMarkers",
-		"HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE"
+		"HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE",
+		"HST_ECampaignPhase.HST_CAMPAIGN_WON",
+		"HST_ECampaignPhase.HST_CAMPAIGN_LOST"
 	)) {
 	if (($playerMarkerServiceText + "`n" + $coordinatorMarkerText) -notmatch [regex]::Escape($requiredPlayerMarkerEntry)) {
 		throw "Player map marker implementation is missing: $requiredPlayerMarkerEntry"
@@ -1858,10 +1860,10 @@ if ($playerMarkerServiceText -notmatch [regex]::Escape("record.m_iConfigId = pla
 	throw "Player map marker service must pass player id through replicated marker config id for client-side label resolution"
 }
 if ($playerMarkerServiceText -notmatch "if \(!ShouldPublishPlayerMarkers\(state\)\)[\s\S]{0,180}?ClearAll\(\)") {
-	throw "Player map marker service must clear and suppress markers while campaign is not active"
+	throw "Player map marker service must clear and suppress markers before gameplay marker publication is available"
 }
-if ($playerMarkerServiceText -notmatch "protected bool ShouldPublishPlayerMarkers\(HST_CampaignState state\)[\s\S]*?return state && state\.m_ePhase == HST_ECampaignPhase\.HST_CAMPAIGN_ACTIVE;") {
-	throw "Player map marker service must publish only during active campaign phase"
+if ($playerMarkerServiceText -notmatch "protected bool ShouldPublishPlayerMarkers\(HST_CampaignState state\)[\s\S]*?HST_CAMPAIGN_ACTIVE[\s\S]*?HST_CAMPAIGN_WON[\s\S]*?HST_CAMPAIGN_LOST") {
+	throw "Player map marker service must publish during active and terminal gameplay campaign phases"
 }
 foreach ($requiredDynamicCleanupContract in @(
 		"if (!m_mDynamicDomainIdToMarkerEntity.Contains(id))",

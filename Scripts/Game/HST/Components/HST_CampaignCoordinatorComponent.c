@@ -10606,6 +10606,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			vehicleLoadoutContext.m_bPhysicalInventoryAccessible = true;
 			vehicleLoadoutContext.m_iPhysicalInventoryCountBefore = inventoryCountBefore;
+			vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable = CanCampaignDebugPlayerInventoryAcceptPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
 		}
 		int draftCountBefore;
 		int draftStorageItemCountBefore;
@@ -10623,6 +10624,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | blocked: original serialized loadout unavailable for physical apply restore";
 			else
 				vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | blocked: player inventory not accessible for physical reflection check";
+			return;
+		}
+		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
+		{
+			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | blocked: player inventory has no cargo capacity for physical reflection check";
+			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "h-istasi loadout editor | blocked: physical apply probe skipped because player inventory has no cargo capacity";
 			return;
 		}
 
@@ -11239,6 +11246,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
+	protected bool CanCampaignDebugPlayerInventoryAcceptPrefab(int playerId, string prefab)
+	{
+		if (prefab.IsEmpty())
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+			return false;
+
+		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(playerEntity.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (!inventory)
+			return false;
+
+		ResourceName resourceName = prefab;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded)
+			return false;
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = playerEntity.GetOrigin();
+		IEntity itemEntity = GetGame().SpawnEntityPrefabEx(resourceName, false, GetGame().GetWorld(), params);
+		if (!itemEntity)
+			return false;
+
+		BaseInventoryStorageComponent storage = inventory.FindStorageForInsert(itemEntity, null, EStoragePurpose.PURPOSE_ANY);
+		SCR_EntityHelper.DeleteEntityAndChildren(itemEntity);
+		return storage != null;
+	}
+
 	protected bool CountCampaignDebugLoadoutDraftPrefab(string identityId, string prefab, out int count, out int storageItemCount, out string locations)
 	{
 		count = 0;
@@ -11363,6 +11400,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalInventoryAccessible)
 			return "BLOCKED";
+		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
+			return "BLOCKED";
 
 		bool physicalApplyPassed = vehicleLoadoutContext.m_bPhysicalLoadoutSeeded;
 		physicalApplyPassed = physicalApplyPassed && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult);
@@ -11379,6 +11418,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalDraftAccessible)
 			return "BLOCKED";
+		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
+			return "BLOCKED";
 
 		bool draftApplyPassed = IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult);
 		draftApplyPassed = draftApplyPassed && vehicleLoadoutContext.m_bPhysicalDraftReflected;
@@ -11391,6 +11432,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "FAIL";
 
 		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalInventoryAccessible)
+			return "BLOCKED";
+		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
 			return "BLOCKED";
 
 		bool restorePassed = vehicleLoadoutContext.m_bRestoreLoadoutSeeded;
@@ -11405,6 +11448,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "FAIL";
 
 		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalDraftAccessible)
+			return "BLOCKED";
+		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
 			return "BLOCKED";
 
 		bool draftRestorePassed = IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult);
@@ -11466,7 +11511,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!vehicleLoadoutContext)
 			return "missing";
 
-		string physicalActual = string.Format("inventory accessible %1 | seeded %2 | carrier %3 -> %4 | result %5", vehicleLoadoutContext.m_bPhysicalInventoryAccessible, vehicleLoadoutContext.m_bPhysicalLoadoutSeeded, vehicleLoadoutContext.m_iStorageArsenalCountBefore, vehicleLoadoutContext.m_iStorageArsenalCountAfterPhysicalSeed, ShortCampaignDebugLine(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult, 120));
+		string physicalActual = string.Format("inventory accessible %1 | capacity %2 | seeded %3 | carrier %4 -> %5 | result %6", vehicleLoadoutContext.m_bPhysicalInventoryAccessible, vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable, vehicleLoadoutContext.m_bPhysicalLoadoutSeeded, vehicleLoadoutContext.m_iStorageArsenalCountBefore, vehicleLoadoutContext.m_iStorageArsenalCountAfterPhysicalSeed, ShortCampaignDebugLine(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult, 120));
 		physicalActual = physicalActual + string.Format(" | inventory %1 -> %2", vehicleLoadoutContext.m_iPhysicalInventoryCountBefore, vehicleLoadoutContext.m_iPhysicalInventoryCountAfterApply);
 		physicalActual = physicalActual + string.Format(" | arsenal %1 -> %2 | issued finite %3", vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalSeed, vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalApply, vehicleLoadoutContext.m_iFiniteIssuedCountAfterPhysicalApply);
 		return physicalActual;
@@ -19718,7 +19763,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
 		{
-			AwardFactionResources(150, 1);
+			if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+				AwardFactionResources(150, 1);
 			m_EnemyDirector.AddResources(m_State, zone.m_sOwnerFactionKey, -8, -4);
 			return true;
 		}

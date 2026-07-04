@@ -3184,7 +3184,21 @@ class HST_MissionRuntimeService
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role)
 				continue;
 
+			if (mission.m_sRuntimePrimitive == PRIMITIVE_DESTROY_TARGET && asset.m_sRole == ROLE_DESTROY_TARGET)
+			{
+				if (asset.m_bDestroyed || (asset.m_sKind == ASSET_KIND_VEHICLE && asset.m_bDelivered))
+					satisfied++;
+				continue;
+			}
+
 			if (mission.m_sRuntimePrimitive == PRIMITIVE_RECOVER_CARGO)
+			{
+				if (asset.m_bDelivered)
+					satisfied++;
+				continue;
+			}
+
+			if (mission.m_sRuntimePrimitive == PRIMITIVE_DELIVER_SUPPLIES && asset.m_sRole == ROLE_CITY_SUPPLIES)
 			{
 				if (asset.m_bDelivered)
 					satisfied++;
@@ -5477,7 +5491,9 @@ class HST_MissionRuntimeService
 					return true;
 				}
 
-				if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET || objective.m_sTargetId == "convoy")
+				if (mission.m_sRuntimePrimitive == PRIMITIVE_DESTROY_TARGET && asset.m_sRole == ROLE_DESTROY_TARGET)
+					satisfiedCount++;
+				else if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET || objective.m_sTargetId == "convoy")
 					satisfiedCount++;
 
 				continue;
@@ -5492,6 +5508,22 @@ class HST_MissionRuntimeService
 
 			if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET)
 				continue;
+
+			if (mission.m_sRuntimePrimitive == PRIMITIVE_RECOVER_CARGO && asset.m_sRole == ROLE_LOGISTICS_CARGO)
+			{
+				if (asset.m_bDelivered)
+					satisfiedCount++;
+
+				continue;
+			}
+
+			if (mission.m_sRuntimePrimitive == PRIMITIVE_DELIVER_SUPPLIES && asset.m_sRole == ROLE_CITY_SUPPLIES)
+			{
+				if (asset.m_bDelivered)
+					satisfiedCount++;
+
+				continue;
+			}
 
 			if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RECOVER_LOOT)
 			{
