@@ -8576,6 +8576,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int fiaSupportBefore;
 		int occupierSupportBefore;
 		int heatBefore;
+		int reputationBefore;
 		if (m_State)
 		{
 			moneyBefore = m_State.m_iFactionMoney;
@@ -8588,15 +8589,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				fiaSupportBefore = civilianZone.m_iFIASupport;
 				occupierSupportBefore = civilianZone.m_iOccupierSupport;
 				heatBefore = civilianZone.m_iWantedHeat;
+				reputationBefore = civilianZone.m_iReputation;
 			}
 		}
 
 		string result = RequestCommanderAidNearestTownReport(m_iCampaignDebugPlayerId);
-		RecordCampaignDebugCase(BuildCampaignDebugCivilianAidCase(targetZoneId, result, moneyBefore, supportBefore, fiaSupportBefore, occupierSupportBefore, heatBefore));
+		RecordCampaignDebugCase(BuildCampaignDebugCivilianAidCase(targetZoneId, result, moneyBefore, supportBefore, fiaSupportBefore, occupierSupportBefore, heatBefore, reputationBefore));
 		return result;
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugCivilianAidCase(string targetZoneId, string result, int moneyBefore, int supportBefore, int fiaSupportBefore, int occupierSupportBefore, int heatBefore)
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugCivilianAidCase(string targetZoneId, string result, int moneyBefore, int supportBefore, int fiaSupportBefore, int occupierSupportBefore, int heatBefore, int reputationBefore)
 	{
 		HST_CampaignDebugCaseResult aidCase = CreateCampaignDebugCase("civilian.aid.support_delta." + SafeCampaignDebugToken(targetZoneId), "civilians", "town_support", "early_mechanics");
 		aidCase.m_aEvidence.Insert(result);
@@ -8618,18 +8620,49 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			int occupierSupportDelta = civilianZone.m_iOccupierSupport - occupierSupportBefore;
 			int supportDelta = zone.m_iSupport - supportBefore;
 			int heatDelta = civilianZone.m_iWantedHeat - heatBefore;
+			int reputationDelta = civilianZone.m_iReputation - reputationBefore;
+			int expectedFiaSupport = Math.Max(0, Math.Min(100, fiaSupportBefore + 12));
+			int expectedOccupierSupport = Math.Max(0, Math.Min(100, occupierSupportBefore - 6));
+			int expectedWantedHeat = Math.Max(0, heatBefore - 2);
+			int expectedReputation = Math.Max(0, Math.Min(100, reputationBefore + 12));
+			int expectedZoneSupport = Math.Max(-100, Math.Min(100, expectedFiaSupport - expectedOccupierSupport));
+			bool aidBoundsOk = civilianZone.m_iFIASupport >= 0 && civilianZone.m_iFIASupport <= 100 && civilianZone.m_iOccupierSupport >= 0 && civilianZone.m_iOccupierSupport <= 100 && civilianZone.m_iReputation >= 0 && civilianZone.m_iReputation <= 100 && civilianZone.m_iWantedHeat >= 0 && zone.m_iSupport >= -100 && zone.m_iSupport <= 100;
+			bool aidExactOk = civilianZone.m_iFIASupport == expectedFiaSupport && civilianZone.m_iOccupierSupport == expectedOccupierSupport && civilianZone.m_iWantedHeat == expectedWantedHeat && civilianZone.m_iReputation == expectedReputation && zone.m_iSupport == expectedZoneSupport;
 			AddCampaignDebugMetric(aidCase, "civilian.aid.money_delta", string.Format("%1", moneyDelta), "money");
 			AddCampaignDebugMetric(aidCase, "civilian.aid.zone_support_delta", string.Format("%1", supportDelta), "support");
 			AddCampaignDebugMetric(aidCase, "civilian.aid.fia_support_delta", string.Format("%1", fiaSupportDelta), "support");
+			AddCampaignDebugMetric(aidCase, "civilian.aid.reputation_delta", string.Format("%1", reputationDelta), "reputation");
 			AddCampaignDebugAssertion(aidCase, "civilian.aid.money_cost", "money before - 100", string.Format("%1 -> %2 (delta %3)", moneyBefore, m_State.m_iFactionMoney, moneyDelta), CampaignDebugStatus(moneyDelta == -100), "civilian aid did not spend exactly 100 money", "", "", targetZoneId);
 			AddCampaignDebugAssertion(aidCase, "civilian.aid.fia_support", "FIA support increases or is already capped", string.Format("%1 -> %2 (delta %3)", fiaSupportBefore, civilianZone.m_iFIASupport, fiaSupportDelta), CampaignDebugStatus(fiaSupportDelta > 0 || civilianZone.m_iFIASupport == 100), "civilian aid did not increase FIA town support", "", "", targetZoneId);
 			AddCampaignDebugAssertion(aidCase, "civilian.aid.occupier_support", "occupier support decreases or is already floored", string.Format("%1 -> %2 (delta %3)", occupierSupportBefore, civilianZone.m_iOccupierSupport, occupierSupportDelta), CampaignDebugStatus(occupierSupportDelta < 0 || civilianZone.m_iOccupierSupport == 0), "civilian aid did not reduce occupier town support", "", "", targetZoneId);
 			AddCampaignDebugAssertion(aidCase, "civilian.aid.zone_support", "zone support reflects civilian support delta", string.Format("%1 -> %2 (delta %3)", supportBefore, zone.m_iSupport, supportDelta), CampaignDebugStatus(zone.m_iSupport == Math.Max(-100, Math.Min(100, civilianZone.m_iFIASupport - civilianZone.m_iOccupierSupport))), "zone support does not match civilian support difference", "", "", targetZoneId);
-			AddCampaignDebugAssertion(aidCase, "civilian.aid.heat", "wanted heat does not increase", string.Format("%1 -> %2 (delta %3)", heatBefore, civilianZone.m_iWantedHeat, heatDelta), CampaignDebugStatus(heatDelta <= 0), "civilian aid increased wanted heat", "", "", targetZoneId);
+			AddCampaignDebugAssertion(aidCase, "civilian.aid.heat", "wanted heat decreases by 2 or floors at 0", string.Format("%1 -> %2 (delta %3)", heatBefore, civilianZone.m_iWantedHeat, heatDelta), CampaignDebugStatus(civilianZone.m_iWantedHeat == expectedWantedHeat), "civilian aid wanted heat did not match the clamped -2 delta", "", "", targetZoneId);
+			AddCampaignDebugAssertion(aidCase, "civilian.aid.bounds", "town support, reputation, heat, and zone support stay inside configured bounds", BuildCampaignDebugCivilianAidBoundsActual(civilianZone, zone), CampaignDebugStatus(aidBoundsOk), "civilian aid left town support, reputation, heat, or zone support outside bounds", "", "", targetZoneId);
+			AddCampaignDebugAssertion(aidCase, "civilian.aid.exact_clamped_deltas", "aid applies exact clamped +12 FIA, -6 occupier, +12 reputation, -2 heat deltas", BuildCampaignDebugCivilianAidExpectedActual(expectedFiaSupport, expectedOccupierSupport, expectedReputation, expectedWantedHeat, expectedZoneSupport, civilianZone, zone), CampaignDebugStatus(aidExactOk), "civilian aid did not match exact clamped support/reputation/heat formula", "", "", targetZoneId);
 		}
 
 		FinalizeCampaignDebugCaseFromAssertions(aidCase);
 		return aidCase;
+	}
+
+	protected string BuildCampaignDebugCivilianAidBoundsActual(HST_CivilianZoneState civilianZone, HST_ZoneState zone)
+	{
+		if (!civilianZone || !zone)
+			return "missing";
+
+		return string.Format("FIA %1 | occupier %2 | reputation %3 | heat %4 | zone support %5", civilianZone.m_iFIASupport, civilianZone.m_iOccupierSupport, civilianZone.m_iReputation, civilianZone.m_iWantedHeat, zone.m_iSupport);
+	}
+
+	protected string BuildCampaignDebugCivilianAidExpectedActual(int expectedFiaSupport, int expectedOccupierSupport, int expectedReputation, int expectedWantedHeat, int expectedZoneSupport, HST_CivilianZoneState civilianZone, HST_ZoneState zone)
+	{
+		if (!civilianZone || !zone)
+			return "missing";
+
+		string expectedActual = string.Format("expected FIA/occupier/reputation %1/%2/%3", expectedFiaSupport, expectedOccupierSupport, expectedReputation);
+		expectedActual = expectedActual + string.Format(" | expected heat/zone %1/%2", expectedWantedHeat, expectedZoneSupport);
+		expectedActual = expectedActual + string.Format(" | actual FIA/occupier/reputation %1/%2/%3", civilianZone.m_iFIASupport, civilianZone.m_iOccupierSupport, civilianZone.m_iReputation);
+		expectedActual = expectedActual + string.Format(" | actual heat/zone %1/%2", civilianZone.m_iWantedHeat, zone.m_iSupport);
+		return expectedActual;
 	}
 
 	protected string RunCampaignDebugSupportCancelTyped()
