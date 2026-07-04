@@ -105,6 +105,324 @@ class HST_MissionRuntimeService
 		m_bDebugLoggingEnabled = enabled;
 	}
 
+	HST_CampaignDebugCaseResult BuildCampaignDebugCaptiveBoardingProbe(HST_CampaignState state, HST_ActiveMissionState mission, string carrierPrefab, string debugPrefix, bool physicalBlocked)
+	{
+		HST_CampaignDebugCaseResult probe = CreateCaptiveBoardingDebugProbeCase(state, mission);
+		string instanceId = "";
+		string zoneId = "";
+		if (mission)
+		{
+			instanceId = mission.m_sInstanceId;
+			zoneId = mission.m_sTargetZoneId;
+		}
+
+		if (physicalBlocked)
+		{
+			AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.player_presence", "physical runtime tests not blocked", "blocked", "BLOCKED", "bootstrap marked physical runtime tests blocked", "", instanceId, zoneId);
+			FinalizeCaptiveBoardingDebugProbeCase(state, probe);
+			return probe;
+		}
+		if (!state || !mission)
+		{
+			AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.prerequisite", "campaign state and mission exist", "missing", "BLOCKED", "captive boarding probe missing state or mission", "", instanceId, zoneId);
+			FinalizeCaptiveBoardingDebugProbeCase(state, probe);
+			return probe;
+		}
+		if (carrierPrefab.IsEmpty())
+		{
+			AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.carrier_prefab", "carrier prefab configured", "missing", "BLOCKED", "captive boarding probe missing carrier prefab", "", instanceId, zoneId);
+			FinalizeCaptiveBoardingDebugProbeCase(state, probe);
+			return probe;
+		}
+
+		string sourceId = debugPrefix;
+		if (sourceId.IsEmpty())
+			sourceId = CAMPAIGN_DEBUG_PREFIX_ROOT + "captive_boarding";
+		string assetId = sourceId + "_captive_boarding_asset_" + state.m_iElapsedSeconds;
+		string entityId = sourceId + "_captive_boarding_entity_" + state.m_iElapsedSeconds;
+		string carrierId = sourceId + "_captive_boarding_carrier_" + state.m_iElapsedSeconds;
+		vector basePosition = ResolveCaptiveBoardingDebugBasePosition(state, mission);
+		vector captivePosition = HST_WorldPositionService.ResolveSafeGroundPosition(basePosition + "3 0 0", HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 2.0);
+		vector carrierPosition;
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(basePosition + "8 0 0", carrierPosition, true))
+			carrierPosition = HST_WorldPositionService.ResolveSafeGroundPosition(basePosition + "8 0 0", HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 5.0);
+
+		HST_MissionAssetState probeAsset = new HST_MissionAssetState();
+		probeAsset.m_sAssetId = assetId;
+		probeAsset.m_sMissionInstanceId = mission.m_sInstanceId;
+		probeAsset.m_sKind = ASSET_KIND_CAPTIVE;
+		probeAsset.m_sRole = ROLE_CAPTIVE;
+		probeAsset.m_sPrefab = PROP_CAPTIVES;
+		probeAsset.m_sEntityId = entityId;
+		probeAsset.m_sLastInteraction = PHASE_FREED;
+		probeAsset.m_bAlive = true;
+		probeAsset.m_bPickedUp = true;
+		probeAsset.m_vSourcePosition = captivePosition;
+		probeAsset.m_vCurrentPosition = captivePosition;
+		probeAsset.m_vLastKnownPosition = captivePosition;
+		probeAsset.m_vTargetPosition = mission.m_vTargetPosition;
+		state.m_aMissionAssets.Insert(probeAsset);
+
+		GenericEntity carrierEntity = HST_WorldPositionService.SpawnPrefab(carrierPrefab, carrierPosition, HST_WorldPositionService.BuildUprightAngles(0.0));
+		ApplyCampaignDebugEntityName(carrierEntity, "captive_boarding_carrier", carrierId);
+		IEntity captiveEntity = SpawnCaptiveFollowerProjection(state, mission, probeAsset, captivePosition, "0 0 0");
+		AddCaptiveBoardingDebugMetric(probe, "rescue.captive.boarding.spawn_distance", string.Format("%1", Math.Round(Math.Sqrt(DistanceSq2D(captivePosition, carrierPosition)))), "meters");
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.temp_asset", "temporary captive mission asset created", BuildCaptiveBoardingDebugAssetActual(probeAsset), CaptiveBoardingDebugStatus(probeAsset != null), "temporary captive asset was not created", assetId, instanceId, zoneId);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.captive_entity", "temporary captive projection spawned", string.Format("entity %1 | position %2", captiveEntity != null, captivePosition), CaptiveBoardingDebugStatus(captiveEntity != null), "temporary captive projection did not spawn", assetId, instanceId, zoneId);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.carrier_entity", "temporary carrier spawned", string.Format("entity %1 | prefab %2 | position %3", carrierEntity != null, carrierPrefab, carrierPosition), CaptiveBoardingDebugStatus(carrierEntity != null), "temporary carrier did not spawn", carrierId, instanceId, zoneId);
+
+		string boardingReason;
+		bool boardingAccepted = false;
+		SCR_CompartmentAccessComponent boardingAccess = null;
+		if (captiveEntity && carrierEntity)
+		{
+			boardingAccepted = TryMoveCaptiveIntoVehicle(captiveEntity, carrierEntity, boardingReason);
+			boardingAccess = SCR_CompartmentAccessComponent.Cast(captiveEntity.FindComponent(SCR_CompartmentAccessComponent));
+		}
+		else
+		{
+			boardingReason = "captive or carrier missing";
+		}
+
+		bool captiveInCarrier = false;
+		bool captiveGettingIn = false;
+		if (boardingAccess)
+		{
+			captiveInCarrier = boardingAccess.IsInCompartment() && boardingAccess.GetVehicle() == carrierEntity;
+			captiveGettingIn = boardingAccess.IsGettingIn();
+		}
+		if (boardingAccepted)
+		{
+			probeAsset.m_sLastInteraction = PHASE_LOADED;
+			probeAsset.m_bAttachedToCarrier = true;
+			probeAsset.m_sCarriedByVehicleId = carrierId;
+			probeAsset.m_vCurrentPosition = carrierPosition;
+			probeAsset.m_vLastKnownPosition = carrierPosition;
+		}
+
+		string boardingActual = string.Format("accepted %1 | seated %2 | gettingIn %3 | reason %4", boardingAccepted, captiveInCarrier, captiveGettingIn, boardingReason);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.command", "runtime captive boarding helper accepts a cargo seat", boardingActual, CaptiveBoardingDebugStatus(boardingAccepted), "captive boarding helper rejected the temporary carrier", assetId, instanceId, zoneId);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.seat_state", "captive is seated in or actively boarding the temporary carrier", boardingActual, CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn, "WARN"), "captive boarding command was accepted but no immediate seat/boarding state was visible", assetId, instanceId, zoneId);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.asset_loaded_state", "temporary captive asset records loaded carrier state", BuildCaptiveBoardingDebugAssetActual(probeAsset), CaptiveBoardingDebugStatus(probeAsset.m_sLastInteraction == PHASE_LOADED && probeAsset.m_bAttachedToCarrier && probeAsset.m_sCarriedByVehicleId == carrierId), "temporary captive asset did not enter loaded carrier state", assetId, instanceId, zoneId);
+
+		vector transportPosition;
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(basePosition + "35 0 0", transportPosition, true))
+			transportPosition = HST_WorldPositionService.ResolveSafeGroundPosition(basePosition + "35 0 0", HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 5.0);
+		bool carrierMoved = false;
+		float carrierMoveDistance = 0.0;
+		if (carrierEntity)
+		{
+			vector carrierBeforeMove = carrierEntity.GetOrigin();
+			HST_WorldPositionService.ApplyUprightEntityTransform(carrierEntity, transportPosition, carrierEntity.GetYawPitchRoll());
+			carrierMoveDistance = Math.Sqrt(DistanceSq2D(carrierBeforeMove, carrierEntity.GetOrigin()));
+			carrierMoved = carrierMoveDistance >= 10.0;
+		}
+		bool captiveStillInCarrier = false;
+		if (boardingAccess)
+			captiveStillInCarrier = boardingAccess.IsInCompartment() && boardingAccess.GetVehicle() == carrierEntity;
+		if (carrierMoved && boardingAccepted)
+		{
+			probeAsset.m_vCurrentPosition = transportPosition;
+			probeAsset.m_vLastKnownPosition = transportPosition;
+		}
+
+		string transportActual = string.Format("moved %1 | distance %2m | still seated %3 | position %4", carrierMoved, Math.Round(carrierMoveDistance), captiveStillInCarrier, transportPosition);
+		AddCaptiveBoardingDebugMetric(probe, "rescue.captive.boarding.transport_distance", string.Format("%1", Math.Round(carrierMoveDistance)), "meters");
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.transport", "loaded captive remains associated with carrier after carrier movement", transportActual, CaptiveBoardingDebugStatus(carrierMoved && (captiveStillInCarrier || captiveGettingIn), "WARN"), "temporary captive did not remain visibly associated with the carrier after movement", assetId, instanceId, zoneId);
+
+		bool disembarked = false;
+		if (boardingAccess && boardingAccess.IsInCompartment())
+			disembarked = boardingAccess.GetOutVehicle(EGetOutType.TELEPORT, -1, ECloseDoorAfterActions.INVALID, false);
+		DeleteRuntimeEntity(probeAsset.m_sEntityId);
+		if (carrierEntity)
+			SCR_EntityHelper.DeleteEntityAndChildren(carrierEntity);
+		bool recordsRemoved = RemoveCaptiveBoardingDebugRecords(state, assetId, entityId);
+		bool runtimeRemoved = !HasRuntimeEntity(entityId);
+		string cleanupActual = string.Format("disembarked %1 | records removed %2 | runtime removed %3", disembarked, recordsRemoved, runtimeRemoved);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.cleanup", "temporary captive boarding entities and records are cleaned", cleanupActual, CaptiveBoardingDebugStatus(recordsRemoved && runtimeRemoved), "temporary captive boarding probe leaked records or runtime entities", assetId, instanceId, zoneId);
+
+		FinalizeCaptiveBoardingDebugProbeCase(state, probe);
+		return probe;
+	}
+
+	protected HST_CampaignDebugCaseResult CreateCaptiveBoardingDebugProbeCase(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		HST_CampaignDebugCaseResult probe = new HST_CampaignDebugCaseResult();
+		string instanceId = "missing";
+		string missionId = "missing";
+		if (mission)
+		{
+			instanceId = mission.m_sInstanceId;
+			missionId = mission.m_sMissionId;
+		}
+
+		probe.m_sCaseId = "rescue_extract.captive_boarding." + SanitizeCampaignDebugEntityToken(missionId) + "." + SanitizeCampaignDebugEntityToken(instanceId);
+		probe.m_sCategory = "mission_runtime";
+		probe.m_sFeature = "rescue_extract";
+		probe.m_sStage = "physical_probe";
+		probe.m_sStatus = "PASS";
+		if (state)
+		{
+			probe.m_iStartSecond = state.m_iElapsedSeconds;
+			probe.m_iEndSecond = state.m_iElapsedSeconds;
+		}
+		probe.m_aEvidence.Insert("temporary debug captive asset uses the normal captive boarding helper and is removed before the case is recorded");
+		return probe;
+	}
+
+	protected HST_CampaignDebugAssertion AddCaptiveBoardingDebugAssertion(HST_CampaignDebugCaseResult probe, string assertionId, string expected, string actual, string status, string failureReason = "", string entityId = "", string missionInstanceId = "", string zoneId = "")
+	{
+		if (!probe)
+			return null;
+
+		HST_CampaignDebugAssertion assertion = new HST_CampaignDebugAssertion();
+		assertion.m_sAssertionId = assertionId;
+		assertion.m_sExpected = expected;
+		assertion.m_sActual = actual;
+		assertion.m_sStatus = status;
+		assertion.m_sFailureReason = failureReason;
+		assertion.m_sEntityId = entityId;
+		assertion.m_sMissionInstanceId = missionInstanceId;
+		assertion.m_sZoneId = zoneId;
+		probe.m_aAssertions.Insert(assertion);
+		return assertion;
+	}
+
+	protected void AddCaptiveBoardingDebugMetric(HST_CampaignDebugCaseResult probe, string metricId, string value, string unit = "")
+	{
+		if (!probe)
+			return;
+
+		HST_CampaignDebugMetric metric = new HST_CampaignDebugMetric();
+		metric.m_sMetricId = metricId;
+		metric.m_sName = metricId;
+		metric.m_sValue = value;
+		metric.m_sUnit = unit;
+		metric.m_sFeature = probe.m_sFeature;
+		metric.m_sStage = probe.m_sStage;
+		metric.m_sMissionInstanceId = ResolveCaptiveBoardingDebugMissionInstanceId(probe);
+		probe.m_aMetrics.Insert(metric);
+	}
+
+	protected string ResolveCaptiveBoardingDebugMissionInstanceId(HST_CampaignDebugCaseResult probe)
+	{
+		if (!probe)
+			return "";
+
+		foreach (HST_CampaignDebugAssertion assertion : probe.m_aAssertions)
+		{
+			if (assertion && !assertion.m_sMissionInstanceId.IsEmpty())
+				return assertion.m_sMissionInstanceId;
+		}
+
+		return "";
+	}
+
+	protected void FinalizeCaptiveBoardingDebugProbeCase(HST_CampaignState state, HST_CampaignDebugCaseResult probe)
+	{
+		if (!probe)
+			return;
+
+		string resolvedStatus = "PASS";
+		string resolvedReason;
+		foreach (HST_CampaignDebugAssertion assertion : probe.m_aAssertions)
+		{
+			if (!assertion)
+				continue;
+
+			if (assertion.m_sStatus == "FAIL")
+			{
+				resolvedStatus = "FAIL";
+				resolvedReason = assertion.m_sFailureReason;
+				break;
+			}
+
+			if (assertion.m_sStatus == "BLOCKED" && resolvedStatus != "FAIL")
+			{
+				resolvedStatus = "BLOCKED";
+				if (resolvedReason.IsEmpty())
+					resolvedReason = assertion.m_sFailureReason;
+			}
+			else if (assertion.m_sStatus == "WARN" && resolvedStatus == "PASS")
+			{
+				resolvedStatus = "WARN";
+				if (resolvedReason.IsEmpty())
+					resolvedReason = assertion.m_sFailureReason;
+			}
+			else if (assertion.m_sStatus == "SKIPPED" && resolvedStatus == "PASS")
+			{
+				resolvedStatus = "SKIPPED";
+				if (resolvedReason.IsEmpty())
+					resolvedReason = assertion.m_sFailureReason;
+			}
+		}
+
+		probe.m_sStatus = resolvedStatus;
+		if (resolvedReason.IsEmpty())
+			resolvedReason = "temporary captive boarding probe assertions passed";
+		probe.m_sReason = resolvedReason;
+		if (state)
+			probe.m_iEndSecond = state.m_iElapsedSeconds;
+	}
+
+	protected string CaptiveBoardingDebugStatus(bool passed, string failStatus = "FAIL")
+	{
+		if (passed)
+			return "PASS";
+
+		return failStatus;
+	}
+
+	protected string BuildCaptiveBoardingDebugAssetActual(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return "asset missing";
+
+		return string.Format("asset %1 | phase %2 | pickedUp %3 | attached %4 | carrier %5 | entity %6", ReportText(asset.m_sAssetId), ReportText(asset.m_sLastInteraction), ReportBool(asset.m_bPickedUp), ReportBool(asset.m_bAttachedToCarrier), ReportText(asset.m_sCarriedByVehicleId), ReportText(asset.m_sEntityId));
+	}
+
+	protected vector ResolveCaptiveBoardingDebugBasePosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (mission && !IsZeroVector(mission.m_vTargetPosition))
+			return mission.m_vTargetPosition;
+		if (state && !IsZeroVector(state.m_vHQPosition))
+			return state.m_vHQPosition;
+		if (state && !IsZeroVector(state.m_vPetrosPosition))
+			return state.m_vPetrosPosition;
+
+		return "0 0 0";
+	}
+
+	protected bool RemoveCaptiveBoardingDebugRecords(HST_CampaignState state, string assetId, string entityId)
+	{
+		if (!state)
+			return false;
+
+		bool assetRemoved = false;
+		for (int assetIndex = state.m_aMissionAssets.Count() - 1; assetIndex >= 0; assetIndex--)
+		{
+			HST_MissionAssetState asset = state.m_aMissionAssets[assetIndex];
+			if (!asset || asset.m_sAssetId != assetId)
+				continue;
+
+			state.m_aMissionAssets.Remove(assetIndex);
+			assetRemoved = true;
+		}
+
+		bool runtimeRemoved = true;
+		for (int runtimeIndex = state.m_aMissionRuntimeEntities.Count() - 1; runtimeIndex >= 0; runtimeIndex--)
+		{
+			HST_MissionRuntimeEntityState runtimeEntity = state.m_aMissionRuntimeEntities[runtimeIndex];
+			if (!runtimeEntity || runtimeEntity.m_sRuntimeEntityId != entityId)
+				continue;
+
+			state.m_aMissionRuntimeEntities.Remove(runtimeIndex);
+			runtimeRemoved = true;
+		}
+
+		return assetRemoved && runtimeRemoved;
+	}
+
 	protected void ApplyCampaignDebugEntityName(IEntity entity, string label, string sourceId)
 	{
 		if (!entity || sourceId.IsEmpty() || !sourceId.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))

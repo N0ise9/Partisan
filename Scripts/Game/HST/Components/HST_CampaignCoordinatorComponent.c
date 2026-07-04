@@ -8384,6 +8384,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (primitiveMission.m_sRuntimePrimitive == "rescue_extract")
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugCaptiveProbeCase(instanceId));
+			if (m_MissionRuntime)
+				RecordCampaignDebugCase(m_MissionRuntime.BuildCampaignDebugCaptiveBoardingProbe(m_State, primitiveMission, PHASE15_SMOKE_VEHICLE_PREFAB, m_sCampaignDebugMarkerPrefix, m_bCampaignDebugPhysicalBlocked));
 			return;
 		}
 
