@@ -100,7 +100,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bCampaignDebugRunning;
 	protected bool m_bCampaignDebugCompleted;
 	protected bool m_bCampaignDebugPhysicalBlocked;
-	protected bool m_bCampaignDebugMissionAssetRetentionSampled;
 	protected int m_iCampaignDebugPlayerId;
 	protected int m_iCampaignDebugStepIndex;
 	protected int m_iCampaignDebugMissionIndex;
@@ -2998,7 +2997,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_bCampaignDebugRunning = true;
 		m_bCampaignDebugCompleted = false;
 		m_bCampaignDebugPhysicalBlocked = false;
-		m_bCampaignDebugMissionAssetRetentionSampled = false;
 		m_iCampaignDebugPlayerId = playerId;
 		m_iCampaignDebugStepIndex = 0;
 		m_iCampaignDebugMissionIndex = 0;
@@ -8534,28 +8532,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return null;
 	}
 
-	protected HST_MissionAssetState FindCampaignDebugPhysicalMissionAsset(string instanceId)
-	{
-		if (!m_State || !m_MissionRuntime || instanceId.IsEmpty())
-			return null;
-
-		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
-		{
-			if (!asset || asset.m_sMissionInstanceId != instanceId)
-				continue;
-			if (asset.m_bDestroyed || asset.m_bDelivered || !asset.m_bAlive)
-				continue;
-			if (asset.m_sEntityId.IsEmpty())
-				continue;
-			if (!m_MissionRuntime.GetRuntimeEntityForDebug(asset.m_sEntityId))
-				continue;
-
-			return asset;
-		}
-
-		return null;
-	}
-
 	protected string BuildCampaignDebugMissionRuntimeReport(string instanceId)
 	{
 		string report = RequestMemberInspectMission(m_iCampaignDebugPlayerId, instanceId);
@@ -8661,74 +8637,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.marker", "mission marker model is linked to backing state", BuildCampaignDebugMarkerActual(marker), CampaignDebugStatus(marker != null, "WARN"), "mission runtime has no linked marker record", "", instanceId);
 		if (mission && mission.m_sRuntimePrimitive == "convoy_intercept")
 			AddCampaignDebugAssertion(runtimeCase, "mission.runtime.convoy_assets", "convoy runtime has convoy vehicle assets", string.Format("%1", convoyVehicleAssets), CampaignDebugStatus(convoyVehicleAssets > 0), "convoy runtime has no convoy vehicle assets", "", instanceId);
-		AddCampaignDebugMissionAssetRetentionAssertions(runtimeCase, mission);
 		FinalizeCampaignDebugCaseFromAssertions(runtimeCase);
 		return runtimeCase;
-	}
-
-	protected void AddCampaignDebugMissionAssetRetentionAssertions(HST_CampaignDebugCaseResult runtimeCase, HST_ActiveMissionState mission)
-	{
-		if (!runtimeCase || m_bCampaignDebugMissionAssetRetentionSampled)
-			return;
-		if (!m_State || !m_MissionRuntime || !m_PhysicalWar || !m_Balance || !m_Preset || !mission)
-			return;
-		if (mission.m_sRuntimePrimitive == "convoy_intercept")
-			return;
-
-		HST_MissionAssetState retentionAsset = FindCampaignDebugPhysicalMissionAsset(mission.m_sInstanceId);
-		if (!retentionAsset)
-			return;
-
-		m_bCampaignDebugMissionAssetRetentionSampled = true;
-		IEntity retentionEntityBefore = m_MissionRuntime.GetRuntimeEntityForDebug(retentionAsset.m_sEntityId);
-		string retentionAssetActual = BuildCampaignDebugMissionAssetActual(retentionAsset);
-		bool retentionEntityExisted = retentionEntityBefore != null;
-		AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.entity_before", "sampled active mission asset has a physical runtime entity before player-bubble update", retentionAssetActual, CampaignDebugStatus(retentionEntityExisted), "mission asset selected for render-bubble retention had no runtime entity before update", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
-		if (!retentionEntityExisted)
-			return;
-
-		IEntity retentionPlayerBefore = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		if (m_bCampaignDebugPhysicalBlocked || !IsLivingEntity(retentionPlayerBefore))
-		{
-			AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.player", "living controlled player entity available for far render-bubble update", "missing", "BLOCKED", "mission asset render-bubble retention probe requires a controlled player entity", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
-			return;
-		}
-
-		vector retentionOriginalPlayerPosition = retentionPlayerBefore.GetOrigin();
-		vector retentionEntityPosition = retentionEntityBefore.GetOrigin();
-		if (IsZeroVector(retentionEntityPosition))
-			retentionEntityPosition = retentionAsset.m_vCurrentPosition;
-		if (IsZeroVector(retentionEntityPosition))
-			retentionEntityPosition = retentionAsset.m_vSourcePosition;
-		if (IsZeroVector(retentionEntityPosition))
-			retentionEntityPosition = mission.m_vTargetPosition;
-
-		vector retentionFarPosition = retentionEntityPosition + "3200 0 3200";
-		bool retentionFarTeleport = TeleportCampaignDebugPlayer(retentionFarPosition, "mission asset render retention far");
-		bool retentionUpdateChanged = false;
-		float retentionPlayerDistance = 0.0;
-		if (retentionFarTeleport)
-		{
-			retentionUpdateChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
-			MarkMajorCampaignChange(true);
-		}
-
-		IEntity retentionPlayerAfterFar = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		if (retentionPlayerAfterFar)
-			retentionPlayerDistance = Math.Sqrt(DistanceSq2D(retentionPlayerAfterFar.GetOrigin(), retentionEntityPosition));
-
-		IEntity retentionEntityAfter = m_MissionRuntime.GetRuntimeEntityForDebug(retentionAsset.m_sEntityId);
-		bool retentionSameEntity = retentionEntityAfter == retentionEntityBefore;
-		bool retentionDistanceReady = retentionPlayerDistance >= 1800.0;
-		string retentionDistanceActual = string.Format("teleport %1 | distance %2m | update changed %3", retentionFarTeleport, Math.Round(retentionPlayerDistance), retentionUpdateChanged);
-		AddCampaignDebugMetric(runtimeCase, "mission_asset.render_bubble_retention.distance", string.Format("%1", Math.Round(retentionPlayerDistance)), "m");
-		AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.player_far", "player is moved outside the sampled mission asset bubble before physical-war activation update", retentionDistanceActual, CampaignDebugStatus(retentionFarTeleport && retentionDistanceReady), "player was not placed far enough from the sampled mission asset", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
-
-		string retentionAfterActual = string.Format("before %1 | after %2 | same %3 | asset %4", retentionEntityExisted, retentionEntityAfter != null, retentionSameEntity, retentionAssetActual);
-		AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.entity_after", "mission asset runtime entity remains resolved after far player-bubble update", retentionAfterActual, CampaignDebugStatus(retentionFarTeleport && retentionSameEntity), "physical-war player-bubble update removed or replaced a live mission asset runtime entity", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
-
-		bool retentionRestoredPlayer = TeleportCampaignDebugPlayer(retentionOriginalPlayerPosition, "mission asset render retention restore");
-		AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.player_restore", "player position restored after mission asset retention probe", string.Format("restored %1 | original %2", retentionRestoredPlayer, retentionOriginalPlayerPosition), CampaignDebugStatus(retentionRestoredPlayer, "WARN"), "mission asset retention probe could not restore the player position", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
 	}
 
 	protected HST_MapMarkerState FindCampaignDebugMissionMarker(string instanceId, HST_ActiveMissionState mission)
@@ -9738,13 +9648,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_GarrisonState garrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
 		string selectedActual = BuildCampaignDebugRenderBubbleZoneActual(zone, CountCampaignDebugZoneActiveGroups(zone.m_sZoneId), CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId));
-		int typeCoverageCount = CountCampaignDebugRenderBubbleCandidateTypes();
-		string typeCoverageActual = BuildCampaignDebugRenderBubbleTypeCoverage();
-		string typeWindowActual;
-		int typeWindowAttempted;
-		int typeWindowPassed;
-		int typeWindowRestored;
-		int typeWindowCleanupRemoved;
 		bool originalActive = zone.m_bActive;
 		int originalActiveInfantry = zone.m_iActiveInfantryCount;
 		int originalActiveVehicles = zone.m_iActiveVehicleCount;
@@ -9828,93 +9731,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			cleanupTimeoutStatus = "FAIL";
 		renderCase.m_aEvidence.Insert("cleanup window | " + ShortCampaignDebugLine(cleanupSampleHistory, 360));
 
-		string forcedMissionInstanceId = BuildCampaignDebugRenderBubbleMissionInstanceId(zone);
-		bool forcedPrerequisite = cleanupWindowInactive && CountCampaignDebugZoneActiveGroups(zone.m_sZoneId) == 0;
-		bool forcedMissionInserted;
-		bool forcedMissionRemoved;
-		bool forcedFarTeleport;
-		bool forcedChanged;
-		bool forcedCleanupChanged;
-		float forcedFarDistance;
-		int forcedGroupCount;
-		int forcedSpawnedGroupCount;
-		int forcedCleanupGroupCount;
-		int forcedCleanupSpawnedGroupCount;
-		string forcedMissionActual = "not executed";
-		string forcedActivationActual = "not executed";
-		string forcedCleanupActual = "not executed";
-		string forcedAssetActual = "not executed";
-		string forcedPrerequisiteActual = BuildCampaignDebugRenderBubbleZoneActual(zone, CountCampaignDebugZoneActiveGroups(zone.m_sZoneId), CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId));
-		string forcedAssetId = forcedMissionInstanceId + "_asset_retention";
-		bool forcedActivated;
-		bool forcedCleanupInactive;
-		bool forcedAssetInserted;
-		bool forcedAssetRetainedAfterActivation;
-		bool forcedAssetRetainedAfterCleanup;
-		bool forcedAssetRemoved;
-		if (forcedPrerequisite)
-		{
-			HST_ActiveMissionState forcedMission = new HST_ActiveMissionState();
-			forcedMission.m_sInstanceId = forcedMissionInstanceId;
-			forcedMission.m_sMissionId = "campaign_debug_render_bubble_force";
-			forcedMission.m_sDisplayName = "Campaign Debug Render Bubble Force";
-			forcedMission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
-			forcedMission.m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_STATE_MACHINE;
-			forcedMission.m_sTargetZoneId = zone.m_sZoneId;
-			forcedMission.m_vTargetPosition = zone.m_vPosition;
-			forcedMission.m_sMarkerId = m_sCampaignDebugMarkerPrefix + "_marker_render_bubble_force_" + SafeCampaignDebugToken(zone.m_sZoneId);
-			forcedMission.m_sRuntimePrimitive = "hold_area";
-			forcedMission.m_sRuntimeType = "state_machine";
-			forcedMission.m_sRuntimePhase = "debug_forced_zone";
-			forcedMission.m_iStartedAtSecond = GetCampaignDebugElapsedSecond();
-			forcedMission.m_iActiveUntilSecond = forcedMission.m_iStartedAtSecond + 300;
-			m_State.m_aActiveMissions.Insert(forcedMission);
-			forcedMissionInserted = true;
-			forcedMissionActual = string.Format("mission %1 | primitive %2 | target %3 | status %4", forcedMission.m_sInstanceId, forcedMission.m_sRuntimePrimitive, forcedMission.m_sTargetZoneId, forcedMission.m_eStatus);
-
-			HST_MissionAssetState forcedAsset = new HST_MissionAssetState();
-			forcedAsset.m_sAssetId = forcedAssetId;
-			forcedAsset.m_sMissionInstanceId = forcedMissionInstanceId;
-			forcedAsset.m_sKind = "debug_state_asset";
-			forcedAsset.m_sRole = "render_bubble_retention";
-			forcedAsset.m_sEntityId = forcedAssetId;
-			forcedAsset.m_bSpawned = true;
-			forcedAsset.m_bAlive = true;
-			forcedAsset.m_vSourcePosition = zone.m_vPosition;
-			forcedAsset.m_vTargetPosition = zone.m_vPosition;
-			forcedAsset.m_vCurrentPosition = zone.m_vPosition;
-			forcedAsset.m_vLastKnownPosition = zone.m_vPosition;
-			m_State.m_aMissionAssets.Insert(forcedAsset);
-			forcedAssetInserted = true;
-			forcedAssetActual = BuildCampaignDebugMissionAssetActual(forcedAsset);
-
-			forcedFarTeleport = TeleportCampaignDebugPlayer(farPosition, "render bubble mission-zone force");
-			playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-			if (playerEntity)
-				forcedFarDistance = Math.Sqrt(DistanceSq2D(playerEntity.GetOrigin(), zone.m_vPosition));
-			forcedChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
-			forcedGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
-			forcedSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
-			forcedAssetRetainedAfterActivation = m_State.FindMissionAsset(forcedAssetId) != null;
-			forcedActivationActual = string.Format("teleport %1 | changed %2 | distance %3m | %4", forcedFarTeleport, forcedChanged, Math.Round(forcedFarDistance), BuildCampaignDebugRenderBubbleZoneActual(zone, forcedGroupCount, forcedSpawnedGroupCount));
-			forcedActivated = zone.m_bActive && forcedGroupCount > 0 && forcedSpawnedGroupCount > 0;
-			renderCase.m_aEvidence.Insert("mission-zone forced activation | " + forcedActivationActual);
-
-			forcedMissionRemoved = RemoveCampaignDebugActiveMissionByInstanceId(forcedMissionInstanceId);
-			forcedCleanupChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
-			forcedCleanupGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
-			forcedCleanupSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
-			forcedAssetRetainedAfterCleanup = m_State.FindMissionAsset(forcedAssetId) != null;
-			forcedCleanupActual = string.Format("mission removed %1 | changed %2 | %3", forcedMissionRemoved, forcedCleanupChanged, BuildCampaignDebugRenderBubbleZoneActual(zone, forcedCleanupGroupCount, forcedCleanupSpawnedGroupCount));
-			forcedCleanupInactive = !zone.m_bActive && zone.m_iActiveInfantryCount == 0 && zone.m_iActiveVehicleCount == 0 && forcedCleanupGroupCount == 0;
-			renderCase.m_aEvidence.Insert("mission-zone force cleanup | " + forcedCleanupActual);
-			forcedAssetRemoved = RemoveCampaignDebugMissionAssetById(forcedAssetId);
-		}
-
-		int cleanupRemovedZoneGroups;
-		if (CountCampaignDebugZoneActiveGroups(zone.m_sZoneId) > originalGroupCount)
-			cleanupRemovedZoneGroups = RemoveCampaignDebugActiveGroupsForZone(zone.m_sZoneId);
-
 		if (garrison)
 		{
 			garrison.m_iInfantryCount = originalGarrisonInfantry;
@@ -9924,9 +9740,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		zone.m_iActiveInfantryCount = originalActiveInfantry;
 		zone.m_iActiveVehicleCount = originalActiveVehicles;
 
-		ProbeCampaignDebugRenderBubbleTypeWindows(typeWindowActual, typeWindowAttempted, typeWindowPassed, typeWindowRestored, typeWindowCleanupRemoved);
-		renderCase.m_aEvidence.Insert("type windows | " + ShortCampaignDebugLine(typeWindowActual, 360));
-
 		AddCampaignDebugMetric(renderCase, "render_bubble.activation_radius", string.Format("%1", Math.Round(activationRadius)), "m");
 		AddCampaignDebugMetric(renderCase, "render_bubble.near_groups", string.Format("%1", nearGroupCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.near_spawned_groups", string.Format("%1", nearSpawnedGroupCount), "count");
@@ -9934,18 +9747,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_window_seconds", string.Format("%1", cleanupWindowSeconds), "seconds");
 		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_max_groups", string.Format("%1", cleanupMaxGroupCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_max_spawned_groups", string.Format("%1", cleanupMaxSpawnedGroupCount), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.mission_zone_groups", string.Format("%1", forcedGroupCount), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.mission_zone_spawned_groups", string.Format("%1", forcedSpawnedGroupCount), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_removed_zone_groups", string.Format("%1", cleanupRemovedZoneGroups), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.candidate_zone_types", string.Format("%1", typeCoverageCount), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.type_windows_attempted", string.Format("%1", typeWindowAttempted), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.type_windows_passed", string.Format("%1", typeWindowPassed), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.type_windows_restored", string.Format("%1", typeWindowRestored), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.type_window_cleanup_removed_groups", string.Format("%1", typeWindowCleanupRemoved), "count");
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_selected", "inactive zone with abstract garrison and no active groups selected", selectedActual, CampaignDebugStatus(garrison != null && originalTotalGarrison > 0 && originalGroupCount == 0), "selected zone was not a clean abstract-garrison render-bubble target", "", "", zone.m_sZoneId);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_type_candidates", "strict render-bubble candidates exist across multiple strategic zone types", typeCoverageActual, CampaignDebugStatus(typeCoverageCount >= 3, "WARN"), "render-bubble candidate coverage spans too few strategic zone types for broad activation confidence", "", "", zone.m_sZoneId);
-		bool typeWindowsCovered = typeWindowAttempted > 0 && typeWindowAttempted == typeCoverageCount && typeWindowPassed == typeWindowAttempted && typeWindowRestored == typeWindowAttempted;
-		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_type_windows", "one candidate per available strategic zone type activates near, cleans up far, and restores", typeWindowActual, CampaignDebugStatus(typeWindowsCovered, "WARN"), "per-type render-bubble activation windows did not run/pass/restore for every available candidate type", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.teleport", "player teleported outside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", farTeleport, Math.Round(farDistance), Math.Round(activationRadius)), CampaignDebugStatus(farTeleport && farDistance > activationRadius), "could not place player outside selected zone activation radius", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.inactive", "far update leaves selected zone inactive with no active groups", farActual, CampaignDebugStatus(farInactive), "far render-bubble update left active state or active groups behind", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.teleport", "player teleported inside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", nearTeleport, Math.Round(nearDistance), Math.Round(activationRadius)), CampaignDebugStatus(nearTeleport && nearDistance <= activationRadius), "could not place player inside selected zone activation radius", "", "", zone.m_sZoneId);
@@ -9953,12 +9755,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.budget", "active groups/forces stay within abstract garrison budget", string.Format("active forces %1/%2 | groups %3", nearTotalActiveForces, originalTotalGarrison, nearGroupCount), CampaignDebugStatus(nearWithinBudget), "render-bubble activation exceeded selected zone garrison budget", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_leave.cleanup", "leave update deactivates zone and folds/removes active groups", leaveActual, CampaignDebugStatus(leaveInactive), "leave render-bubble update did not clean up active zone runtime", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_leave.cleanup_timeout", "repeated cleanup window leaves no active zone runtime", string.Format("timed out %1 | window %2s | samples %3 | last %4", cleanupTimedOut, cleanupWindowSeconds, cleanupSampleCount, ShortCampaignDebugLine(cleanupLastObserved, 220)), cleanupTimeoutStatus, "render-bubble cleanup window timed out with active zone runtime still present", "", "", zone.m_sZoneId);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.mission_zone.prerequisite", "leave cleanup produced a clean far-zone baseline before mission-zone force probe", forcedPrerequisiteActual, CampaignDebugStatus(forcedPrerequisite), "mission-zone force probe requires a clean inactive zone after leave cleanup", "", forcedMissionInstanceId, zone.m_sZoneId);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.mission_zone.created", "temporary debug active hold_area mission targets selected zone", forcedMissionActual, CampaignDebugStatus(forcedMissionInserted && MissionValueHasCampaignDebugPrefix(forcedMissionInstanceId, m_sCampaignDebugMissionPrefix)), "debug mission-zone activation probe was not inserted with the current run prefix", "", forcedMissionInstanceId, zone.m_sZoneId);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.mission_zone.far_forced_active", "active hold_area mission target forces zone active while player remains outside activation radius", forcedActivationActual, CampaignDebugStatus(forcedMissionInserted && forcedFarTeleport && forcedFarDistance > activationRadius && forcedActivated), "mission target zone was not forced active from outside the player activation bubble", "", forcedMissionInstanceId, zone.m_sZoneId);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.mission_zone.cleanup", "removing temporary mission lets far update deactivate and clean mission-forced zone runtime", forcedCleanupActual, CampaignDebugStatus(forcedMissionRemoved && forcedCleanupInactive), "mission-zone force probe did not cleanly deactivate after removing the temporary mission", "", forcedMissionInstanceId, zone.m_sZoneId);
-		string forcedAssetRetentionActual = string.Format("inserted %1 | activation retained %2 | cleanup retained %3 | removed %4 | %5", forcedAssetInserted, forcedAssetRetainedAfterActivation, forcedAssetRetainedAfterCleanup, forcedAssetRemoved, forcedAssetActual);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.mission_asset_state_retention", "mission-backed asset state survives zone activation/deactivation cleanup until explicit debug asset cleanup", forcedAssetRetentionActual, CampaignDebugStatus(forcedAssetInserted && forcedAssetRetainedAfterActivation && forcedAssetRetainedAfterCleanup && forcedAssetRemoved), "render-bubble cleanup mutated mission asset state or failed explicit asset cleanup", forcedAssetId, forcedMissionInstanceId, zone.m_sZoneId);
 		int restoredGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
 		int restoredSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
 		bool restoreMatched = zone.m_bActive == originalActive
@@ -9967,79 +9763,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& restoredGroupCount == originalGroupCount
 			&& (!garrison || (garrison.m_iInfantryCount == originalGarrisonInfantry && garrison.m_iVehicleCount == originalGarrisonVehicles));
 		AddCampaignDebugAssertion(renderCase, "render_bubble.restore", "original active flag/counts, group count, and abstract garrison restored after probe", BuildCampaignDebugRenderBubbleZoneActual(zone, restoredGroupCount, restoredSpawnedGroupCount), CampaignDebugStatus(restoreMatched), "render-bubble probe failed to restore selected zone state", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.mission_assets", "mission asset and convoy-expired bubble policies are separate probes", "not executed", "WARN", "this probe covers zone far/near/leave only");
 		FinalizeCampaignDebugCaseFromAssertions(renderCase);
 		MarkMajorCampaignChange(true);
 		return renderCase;
-	}
-
-	protected string BuildCampaignDebugRenderBubbleMissionInstanceId(HST_ZoneState zone)
-	{
-		string prefix = m_sCampaignDebugMissionPrefix;
-		if (prefix.IsEmpty())
-			prefix = CAMPAIGN_DEBUG_PREFIX_ROOT + "mission_";
-
-		string zoneToken = "zone";
-		if (zone)
-			zoneToken = SafeCampaignDebugToken(zone.m_sZoneId);
-
-		return prefix + "render_bubble_force_" + zoneToken;
-	}
-
-	protected bool RemoveCampaignDebugActiveMissionByInstanceId(string instanceId)
-	{
-		if (!m_State || instanceId.IsEmpty())
-			return false;
-
-		for (int i = m_State.m_aActiveMissions.Count() - 1; i >= 0; i--)
-		{
-			HST_ActiveMissionState mission = m_State.m_aActiveMissions[i];
-			if (mission && mission.m_sInstanceId == instanceId)
-			{
-				m_State.m_aActiveMissions.Remove(i);
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	protected bool RemoveCampaignDebugMissionAssetById(string assetId)
-	{
-		if (!m_State || assetId.IsEmpty())
-			return false;
-
-		for (int i = m_State.m_aMissionAssets.Count() - 1; i >= 0; i--)
-		{
-			HST_MissionAssetState asset = m_State.m_aMissionAssets[i];
-			if (asset && asset.m_sAssetId == assetId)
-			{
-				m_State.m_aMissionAssets.Remove(i);
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	protected int RemoveCampaignDebugActiveGroupsForZone(string zoneId)
-	{
-		if (!m_State || zoneId.IsEmpty())
-			return 0;
-
-		int removed;
-		for (int i = m_State.m_aActiveGroups.Count() - 1; i >= 0; i--)
-		{
-			HST_ActiveGroupState activeGroup = m_State.m_aActiveGroups[i];
-			if (activeGroup && activeGroup.m_sZoneId == zoneId)
-			{
-				if (m_PhysicalWar)
-					m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(activeGroup.m_sGroupId);
-				m_State.m_aActiveGroups.Remove(i);
-				removed++;
-			}
-		}
-
-		return removed;
 	}
 
 	protected HST_ZoneState SelectCampaignDebugRenderBubbleZone()
@@ -10084,271 +9811,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return garrison.m_iInfantryCount + garrison.m_iVehicleCount > 0;
-	}
-
-	protected int CountCampaignDebugRenderBubbleCandidateTypes()
-	{
-		int coveredTypes;
-		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_TOWN) > 0)
-			coveredTypes++;
-		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_OUTPOST) > 0)
-			coveredTypes++;
-		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_RESOURCE) > 0)
-			coveredTypes++;
-		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_FACTORY) > 0)
-			coveredTypes++;
-		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_RADIO_TOWER) > 0)
-			coveredTypes++;
-		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_AIRFIELD) > 0)
-			coveredTypes++;
-		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_SEAPORT) > 0)
-			coveredTypes++;
-
-		return coveredTypes;
-	}
-
-	protected string BuildCampaignDebugRenderBubbleTypeCoverage()
-	{
-		int townCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_TOWN);
-		int outpostCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_OUTPOST);
-		int resourceCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_RESOURCE);
-		int factoryCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_FACTORY);
-		int radioCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_RADIO_TOWER);
-		int airfieldCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_AIRFIELD);
-		int seaportCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_SEAPORT);
-		return string.Format("town %1 | outpost %2 | resource %3 | factory %4 | radio %5 | airfield %6 | seaport %7", townCandidates, outpostCandidates, resourceCandidates, factoryCandidates, radioCandidates, airfieldCandidates, seaportCandidates);
-	}
-
-	protected int CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType zoneType)
-	{
-		if (!m_State)
-			return 0;
-
-		int count;
-		foreach (HST_ZoneState candidate : m_State.m_aZones)
-		{
-			if (!candidate || candidate.m_eType != zoneType)
-				continue;
-			if (!IsCampaignDebugRenderBubbleZoneCandidate(candidate))
-				continue;
-
-			count++;
-		}
-
-		return count;
-	}
-
-	protected void ProbeCampaignDebugRenderBubbleTypeWindows(out string actual, out int attemptedTypes, out int passedTypes, out int restoredTypes, out int cleanupRemovedGroups)
-	{
-		actual = "";
-		attemptedTypes = 0;
-		passedTypes = 0;
-		restoredTypes = 0;
-		cleanupRemovedGroups = 0;
-
-		string result;
-		bool attempted;
-		bool passed;
-		bool restored;
-		int removed;
-
-		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_TOWN, result, attempted, passed, restored, removed);
-		if (!result.IsEmpty())
-			actual = result;
-		if (attempted)
-			attemptedTypes++;
-		if (passed)
-			passedTypes++;
-		if (restored)
-			restoredTypes++;
-		cleanupRemovedGroups = cleanupRemovedGroups + removed;
-
-		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_OUTPOST, result, attempted, passed, restored, removed);
-		if (actual.IsEmpty())
-			actual = result;
-		else
-			actual = actual + " | " + result;
-		if (attempted)
-			attemptedTypes++;
-		if (passed)
-			passedTypes++;
-		if (restored)
-			restoredTypes++;
-		cleanupRemovedGroups = cleanupRemovedGroups + removed;
-
-		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_RESOURCE, result, attempted, passed, restored, removed);
-		if (actual.IsEmpty())
-			actual = result;
-		else
-			actual = actual + " | " + result;
-		if (attempted)
-			attemptedTypes++;
-		if (passed)
-			passedTypes++;
-		if (restored)
-			restoredTypes++;
-		cleanupRemovedGroups = cleanupRemovedGroups + removed;
-
-		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_FACTORY, result, attempted, passed, restored, removed);
-		if (actual.IsEmpty())
-			actual = result;
-		else
-			actual = actual + " | " + result;
-		if (attempted)
-			attemptedTypes++;
-		if (passed)
-			passedTypes++;
-		if (restored)
-			restoredTypes++;
-		cleanupRemovedGroups = cleanupRemovedGroups + removed;
-
-		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_RADIO_TOWER, result, attempted, passed, restored, removed);
-		if (actual.IsEmpty())
-			actual = result;
-		else
-			actual = actual + " | " + result;
-		if (attempted)
-			attemptedTypes++;
-		if (passed)
-			passedTypes++;
-		if (restored)
-			restoredTypes++;
-		cleanupRemovedGroups = cleanupRemovedGroups + removed;
-
-		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_AIRFIELD, result, attempted, passed, restored, removed);
-		if (actual.IsEmpty())
-			actual = result;
-		else
-			actual = actual + " | " + result;
-		if (attempted)
-			attemptedTypes++;
-		if (passed)
-			passedTypes++;
-		if (restored)
-			restoredTypes++;
-		cleanupRemovedGroups = cleanupRemovedGroups + removed;
-
-		ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType.HST_ZONE_SEAPORT, result, attempted, passed, restored, removed);
-		if (actual.IsEmpty())
-			actual = result;
-		else
-			actual = actual + " | " + result;
-		if (attempted)
-			attemptedTypes++;
-		if (passed)
-			passedTypes++;
-		if (restored)
-			restoredTypes++;
-		cleanupRemovedGroups = cleanupRemovedGroups + removed;
-	}
-
-	protected void ProbeCampaignDebugRenderBubbleTypeWindow(HST_EZoneType zoneType, out string actual, out bool attempted, out bool passed, out bool restored, out int cleanupRemovedGroups)
-	{
-		actual = "";
-		attempted = false;
-		passed = false;
-		restored = false;
-		cleanupRemovedGroups = 0;
-
-		string label = ResolveZoneTypeLabel(zoneType);
-		HST_ZoneState zone = SelectCampaignDebugRenderBubbleZoneOfType(zoneType);
-		if (!zone)
-		{
-			actual = label + ":none";
-			return;
-		}
-
-		attempted = true;
-		HST_GarrisonState garrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
-		if (!garrison)
-		{
-			actual = label + ":" + EmptyCampaignDebugField(zone.m_sZoneId) + " | missing garrison";
-			return;
-		}
-
-		bool originalActive = zone.m_bActive;
-		int originalActiveInfantry = zone.m_iActiveInfantryCount;
-		int originalActiveVehicles = zone.m_iActiveVehicleCount;
-		int originalGarrisonInfantry = garrison.m_iInfantryCount;
-		int originalGarrisonVehicles = garrison.m_iVehicleCount;
-		int originalGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
-		int originalTotalGarrison = originalGarrisonInfantry + originalGarrisonVehicles;
-		float activationRadius = ResolveCampaignDebugActivationRadius(zone);
-		vector farPosition = m_State.m_vHQPosition + "6 0 6";
-		vector nearPosition = zone.m_vPosition + "8 0 8";
-
-		bool farTeleport = TeleportCampaignDebugPlayer(farPosition, "render bubble " + label + " far");
-		bool farChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
-		int farGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
-		int farSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
-		bool farInactive = !zone.m_bActive && zone.m_iActiveInfantryCount == 0 && zone.m_iActiveVehicleCount == 0 && farGroupCount == 0;
-
-		bool nearTeleport = TeleportCampaignDebugPlayer(nearPosition, "render bubble " + label + " near");
-		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		float nearDistance = 999999.0;
-		if (playerEntity)
-			nearDistance = Math.Sqrt(DistanceSq2D(playerEntity.GetOrigin(), zone.m_vPosition));
-		bool nearChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
-		int nearGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
-		int nearSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
-		int nearTotalActiveForces = zone.m_iActiveInfantryCount + zone.m_iActiveVehicleCount;
-		bool nearActive = zone.m_bActive && nearGroupCount > 0 && nearSpawnedGroupCount > 0 && nearTotalActiveForces > 0;
-		bool nearWithinBudget = originalTotalGarrison > 0 && nearTotalActiveForces <= originalTotalGarrison && nearGroupCount <= originalTotalGarrison;
-
-		bool leaveTeleport = TeleportCampaignDebugPlayer(farPosition, "render bubble " + label + " leave");
-		bool leaveChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
-		int leaveGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
-		int leaveSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
-		bool leaveInactive = !zone.m_bActive && zone.m_iActiveInfantryCount == 0 && zone.m_iActiveVehicleCount == 0 && leaveGroupCount == 0;
-
-		if (CountCampaignDebugZoneActiveGroups(zone.m_sZoneId) > originalGroupCount)
-			cleanupRemovedGroups = RemoveCampaignDebugActiveGroupsForZone(zone.m_sZoneId);
-
-		garrison.m_iInfantryCount = originalGarrisonInfantry;
-		garrison.m_iVehicleCount = originalGarrisonVehicles;
-		zone.m_bActive = originalActive;
-		zone.m_iActiveInfantryCount = originalActiveInfantry;
-		zone.m_iActiveVehicleCount = originalActiveVehicles;
-
-		int restoredGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
-		restored = zone.m_bActive == originalActive
-			&& zone.m_iActiveInfantryCount == originalActiveInfantry
-			&& zone.m_iActiveVehicleCount == originalActiveVehicles
-			&& garrison.m_iInfantryCount == originalGarrisonInfantry
-			&& garrison.m_iVehicleCount == originalGarrisonVehicles
-			&& restoredGroupCount == originalGroupCount;
-		passed = farTeleport && farInactive && nearTeleport && nearDistance <= activationRadius && nearActive && nearWithinBudget && leaveTeleport && leaveInactive;
-
-		actual = label + ":" + EmptyCampaignDebugField(zone.m_sZoneId);
-		actual = actual + string.Format(" | far %1/%2/%3/%4", farTeleport, farChanged, farGroupCount, farSpawnedGroupCount);
-		actual = actual + string.Format(" | near %1/%2/%3/%4", nearTeleport, nearChanged, nearGroupCount, nearSpawnedGroupCount);
-		actual = actual + string.Format(" | leave %1/%2/%3/%4", leaveTeleport, leaveChanged, leaveGroupCount, leaveSpawnedGroupCount);
-		actual = actual + string.Format(" | budget %1 | restore %2 | removed %3", nearWithinBudget, restored, cleanupRemovedGroups);
-	}
-
-	protected HST_ZoneState SelectCampaignDebugRenderBubbleZoneOfType(HST_EZoneType zoneType)
-	{
-		if (!m_State || !m_Balance || IsZeroVector(m_State.m_vHQPosition))
-			return null;
-
-		HST_ZoneState bestZone;
-		float bestDistanceSq = -1.0;
-		foreach (HST_ZoneState candidate : m_State.m_aZones)
-		{
-			if (!candidate || candidate.m_eType != zoneType)
-				continue;
-			if (!IsCampaignDebugRenderBubbleZoneCandidate(candidate))
-				continue;
-
-			float distanceSq = DistanceSq2D(m_State.m_vHQPosition, candidate.m_vPosition);
-			if (distanceSq > bestDistanceSq)
-			{
-				bestZone = candidate;
-				bestDistanceSq = distanceSq;
-			}
-		}
-
-		return bestZone;
 	}
 
 	protected float ResolveCampaignDebugActivationRadius(HST_ZoneState zone)

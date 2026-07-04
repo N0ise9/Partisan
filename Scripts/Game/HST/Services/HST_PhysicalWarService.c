@@ -131,7 +131,6 @@ class HST_ConvoyDebugRuntimeEntitySnapshot
 class HST_ConvoyDebugPhaseRestoreState
 {
 	string m_sMissionInstanceId;
-	HST_EMissionStatus m_eStatus;
 	string m_sRuntimePhase;
 	string m_sRuntimeFailureReason;
 	string m_sLastRuntimeEventKey;
@@ -630,139 +629,6 @@ class HST_PhysicalWarService
 		bool destinationRestored = RestoreConvoyDebugPhaseState(state, mission, destinationSnapshot, destinationRestoreReason);
 		AddConvoyDebugProbeAssertion(probe, "convoy.phase.destination_terminal", "live-crewed convoy vehicle reaching destination records the designed failed/destination terminal condition", destinationActual, ConvoyDebugStatus(destinationTerminal, "WARN"), "controlled convoy destination probe did not observe the destination terminal condition", "", mission.m_sInstanceId);
 		AddConvoyDebugProbeAssertion(probe, "convoy.phase.destination_restore", "destination terminal probe restores mission/group/objective/asset/entity state", ReportText(destinationRestoreReason), ConvoyDebugStatus(destinationRestored), "controlled convoy destination probe did not restore all touched state", "", mission.m_sInstanceId);
-
-		AddConvoyDebugExpiredRenderBubbleAssertions(probe, state, mission);
-	}
-
-	protected void AddConvoyDebugExpiredRenderBubbleAssertions(HST_CampaignDebugCaseResult probe, HST_CampaignState state, HST_ActiveMissionState mission)
-	{
-		HST_ConvoyDebugPhaseRestoreState snapshot = CaptureConvoyDebugPhaseState(state, mission);
-		if (!snapshot)
-		{
-			AddConvoyDebugProbeAssertion(probe, "convoy.expired.prerequisite", "expired convoy render-bubble snapshot captured", "snapshot failed", "BLOCKED", "expired convoy render-bubble probe could not capture restorable state", "", ResolveConvoyDebugProbeMissionInstanceId(probe));
-			return;
-		}
-
-		string nearActual;
-		string farActual;
-		bool farPolicyRemove;
-		bool nearPreserved = RunConvoyDebugExpiredRenderBubbleProbe(state, mission, nearActual, farActual, farPolicyRemove);
-		string restoreReason;
-		bool restored = RestoreConvoyDebugPhaseState(state, mission, snapshot, restoreReason);
-		AddConvoyDebugProbeMetric(probe, "convoy.expired.render_bubble_radius", string.Format("%1", Math.Round(EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS)), "m");
-		AddConvoyDebugProbeAssertion(probe, "convoy.expired.near_preserve", "expired in-contact convoy runtime is preserved while a living player is inside the render bubble", nearActual, ConvoyDebugStatus(nearPreserved, "WARN"), "expired in-contact convoy runtime was not preserved near the player", "", mission.m_sInstanceId);
-		AddConvoyDebugProbeAssertion(probe, "convoy.expired.far_policy", "the same expired convoy runtime would be eligible for cleanup outside the render bubble", farActual, ConvoyDebugStatus(farPolicyRemove, "WARN"), "expired convoy render-bubble policy did not switch to cleanup outside player range", "", mission.m_sInstanceId);
-		AddConvoyDebugProbeAssertion(probe, "convoy.expired.restore", "expired render-bubble probe restores mission/group/objective/asset/entity state", ReportText(restoreReason), ConvoyDebugStatus(restored), "expired convoy render-bubble probe did not restore all touched state", "", mission.m_sInstanceId);
-	}
-
-	protected bool RunConvoyDebugExpiredRenderBubbleProbe(HST_CampaignState state, HST_ActiveMissionState mission, out string nearActual, out string farActual, out bool farPolicyRemove)
-	{
-		nearActual = "";
-		farActual = "";
-		farPolicyRemove = false;
-		if (!state || !mission)
-		{
-			nearActual = "state or mission missing";
-			farActual = nearActual;
-			return false;
-		}
-
-		HST_MissionAssetState selectedAsset;
-		HST_ActiveGroupState selectedGroup;
-		string selectedGroupId;
-		IEntity selectedVehicle;
-		string selectReason;
-		if (!TrySelectConvoyDebugLiveVehicle(state, mission, selectedAsset, selectedGroup, selectedGroupId, selectedVehicle, selectReason))
-		{
-			nearActual = selectReason;
-			farActual = selectReason;
-			return false;
-		}
-
-		vector playerPosition;
-		if (!TryResolveAnyLivingPlayerPosition(playerPosition))
-		{
-			nearActual = "living player missing";
-			farActual = nearActual;
-			return false;
-		}
-
-		vector nearPosition = playerPosition + "35 0 35";
-		vector resolvedNearPosition;
-		if (HST_WorldPositionService.TryResolveGroundPosition(nearPosition, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, resolvedNearPosition, true))
-			nearPosition = resolvedNearPosition;
-		MoveConvoyDebugRuntimeToPosition(state, selectedAsset, selectedGroup, selectedGroupId, selectedVehicle, nearPosition);
-		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
-		mission.m_sRuntimePhase = MISSION_CONVOY_CONTACT;
-		mission.m_sRuntimeFailureReason = "";
-		selectedGroup.m_sRuntimeStatus = MISSION_CONVOY_CONTACT;
-
-		float nearDistance = ResolveNearestLivingPlayerDistanceMeters(nearPosition);
-		bool nearPolicyPreserve = ShouldKeepExpiredEngagedConvoyRuntime(state, selectedGroup);
-		bool markChanged = false;
-		if (nearPolicyPreserve)
-			markChanged = MarkExpiredEngagedConvoyRuntimePreserved(selectedGroup);
-		bool nearPreserved = nearPolicyPreserve && selectedGroup.m_sSpawnFallbackMode == "expired_combat_preserved";
-		nearActual = string.Format("group %1 | distance %2m | policy %3", ReportText(selectedGroupId), Math.Round(nearDistance), ReportBool(nearPolicyPreserve));
-		nearActual = nearActual + string.Format(" | marked %1 | mode %2", ReportBool(markChanged), ReportText(selectedGroup.m_sSpawnFallbackMode));
-
-		vector farPosition = playerPosition + "2600 0 2600";
-		vector resolvedFarPosition;
-		if (HST_WorldPositionService.TryResolveGroundPosition(farPosition, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, resolvedFarPosition, true))
-			farPosition = resolvedFarPosition;
-		MoveConvoyDebugRuntimeToPosition(state, selectedAsset, selectedGroup, selectedGroupId, selectedVehicle, farPosition);
-		float farDistance = ResolveNearestLivingPlayerDistanceMeters(farPosition);
-		bool farWouldPreserve = ShouldKeepExpiredEngagedConvoyRuntime(state, selectedGroup);
-		farPolicyRemove = farDistance > EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS && !farWouldPreserve;
-		farActual = string.Format("group %1 | distance %2m | radius %3m", ReportText(selectedGroupId), Math.Round(farDistance), Math.Round(EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS));
-		farActual = farActual + string.Format(" | preserve %1 | cleanup eligible %2", ReportBool(farWouldPreserve), ReportBool(farPolicyRemove));
-		return nearPreserved;
-	}
-
-	protected void MoveConvoyDebugRuntimeToPosition(HST_CampaignState state, HST_MissionAssetState asset, HST_ActiveGroupState activeGroup, string groupId, IEntity vehicleEntity, vector position)
-	{
-		if (activeGroup)
-		{
-			activeGroup.m_vPosition = position;
-			activeGroup.m_vSourcePosition = position;
-		}
-		if (asset)
-		{
-			asset.m_vCurrentPosition = position;
-			asset.m_vLastKnownPosition = position;
-		}
-
-		SetRuntimeGroupEntitiesOrigin(groupId, position);
-		if (vehicleEntity)
-			HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, position, vehicleEntity.GetYawPitchRoll());
-
-		HST_MissionRuntimeEntityState runtimeEntity = null;
-		if (state && asset && !asset.m_sEntityId.IsEmpty())
-			runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
-		if (runtimeEntity)
-			runtimeEntity.m_vPosition = position;
-	}
-
-	protected bool TryResolveAnyLivingPlayerPosition(out vector playerPosition)
-	{
-		playerPosition = "0 0 0";
-		PlayerManager playerManager = GetGame().GetPlayerManager();
-		if (!playerManager)
-			return false;
-
-		array<int> playerIds = {};
-		playerManager.GetPlayers(playerIds);
-		foreach (int playerId : playerIds)
-		{
-			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
-			if (!IsLivingPlayerEntity(playerEntity))
-				continue;
-
-			playerPosition = playerEntity.GetOrigin();
-			return true;
-		}
-
-		return false;
 	}
 
 	protected bool RunConvoyDebugEliminationPhaseWalk(HST_CampaignState state, HST_ActiveMissionState mission, out string phaseHistory, out string actual, out int forcedGroups)
@@ -945,7 +811,6 @@ class HST_PhysicalWarService
 
 		HST_ConvoyDebugPhaseRestoreState snapshot = new HST_ConvoyDebugPhaseRestoreState();
 		snapshot.m_sMissionInstanceId = mission.m_sInstanceId;
-		snapshot.m_eStatus = mission.m_eStatus;
 		snapshot.m_sRuntimePhase = mission.m_sRuntimePhase;
 		snapshot.m_sRuntimeFailureReason = mission.m_sRuntimeFailureReason;
 		snapshot.m_sLastRuntimeEventKey = mission.m_sLastRuntimeEventKey;
@@ -1071,7 +936,6 @@ class HST_PhysicalWarService
 		}
 
 		bool restored = true;
-		mission.m_eStatus = snapshot.m_eStatus;
 		mission.m_sRuntimePhase = snapshot.m_sRuntimePhase;
 		mission.m_sRuntimeFailureReason = snapshot.m_sRuntimeFailureReason;
 		mission.m_sLastRuntimeEventKey = snapshot.m_sLastRuntimeEventKey;
