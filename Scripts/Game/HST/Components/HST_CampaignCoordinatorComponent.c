@@ -9648,6 +9648,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_GarrisonState garrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
 		string selectedActual = BuildCampaignDebugRenderBubbleZoneActual(zone, CountCampaignDebugZoneActiveGroups(zone.m_sZoneId), CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId));
+		int typeCoverageCount = CountCampaignDebugRenderBubbleCandidateTypes();
+		string typeCoverageActual = BuildCampaignDebugRenderBubbleTypeCoverage();
 		bool originalActive = zone.m_bActive;
 		int originalActiveInfantry = zone.m_iActiveInfantryCount;
 		int originalActiveVehicles = zone.m_iActiveVehicleCount;
@@ -9837,7 +9839,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(renderCase, "render_bubble.mission_zone_groups", string.Format("%1", forcedGroupCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.mission_zone_spawned_groups", string.Format("%1", forcedSpawnedGroupCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_removed_zone_groups", string.Format("%1", cleanupRemovedZoneGroups), "count");
+		AddCampaignDebugMetric(renderCase, "render_bubble.candidate_zone_types", string.Format("%1", typeCoverageCount), "count");
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_selected", "inactive zone with abstract garrison and no active groups selected", selectedActual, CampaignDebugStatus(garrison != null && originalTotalGarrison > 0 && originalGroupCount == 0), "selected zone was not a clean abstract-garrison render-bubble target", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_type_candidates", "strict render-bubble candidates exist across multiple strategic zone types", typeCoverageActual, CampaignDebugStatus(typeCoverageCount >= 3, "WARN"), "render-bubble candidate coverage spans too few strategic zone types for broad activation confidence", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_type_window_gap", "per-type activation windows are explicitly not all executed by this focused render-bubble case", typeCoverageActual, "WARN", "render-bubble still needs separate activation/deactivation windows per zone type", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.teleport", "player teleported outside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", farTeleport, Math.Round(farDistance), Math.Round(activationRadius)), CampaignDebugStatus(farTeleport && farDistance > activationRadius), "could not place player outside selected zone activation radius", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.inactive", "far update leaves selected zone inactive with no active groups", farActual, CampaignDebugStatus(farInactive), "far render-bubble update left active state or active groups behind", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.teleport", "player teleported inside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", nearTeleport, Math.Round(nearDistance), Math.Round(activationRadius)), CampaignDebugStatus(nearTeleport && nearDistance <= activationRadius), "could not place player inside selected zone activation radius", "", "", zone.m_sZoneId);
@@ -9977,6 +9982,58 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return garrison.m_iInfantryCount + garrison.m_iVehicleCount > 0;
+	}
+
+	protected int CountCampaignDebugRenderBubbleCandidateTypes()
+	{
+		int coveredTypes;
+		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_TOWN) > 0)
+			coveredTypes++;
+		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_OUTPOST) > 0)
+			coveredTypes++;
+		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_RESOURCE) > 0)
+			coveredTypes++;
+		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_FACTORY) > 0)
+			coveredTypes++;
+		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_RADIO_TOWER) > 0)
+			coveredTypes++;
+		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_AIRFIELD) > 0)
+			coveredTypes++;
+		if (CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_SEAPORT) > 0)
+			coveredTypes++;
+
+		return coveredTypes;
+	}
+
+	protected string BuildCampaignDebugRenderBubbleTypeCoverage()
+	{
+		int townCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_TOWN);
+		int outpostCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_OUTPOST);
+		int resourceCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_RESOURCE);
+		int factoryCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_FACTORY);
+		int radioCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_RADIO_TOWER);
+		int airfieldCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_AIRFIELD);
+		int seaportCandidates = CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType.HST_ZONE_SEAPORT);
+		return string.Format("town %1 | outpost %2 | resource %3 | factory %4 | radio %5 | airfield %6 | seaport %7", townCandidates, outpostCandidates, resourceCandidates, factoryCandidates, radioCandidates, airfieldCandidates, seaportCandidates);
+	}
+
+	protected int CountCampaignDebugRenderBubbleCandidatesOfType(HST_EZoneType zoneType)
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_ZoneState candidate : m_State.m_aZones)
+		{
+			if (!candidate || candidate.m_eType != zoneType)
+				continue;
+			if (!IsCampaignDebugRenderBubbleZoneCandidate(candidate))
+				continue;
+
+			count++;
+		}
+
+		return count;
 	}
 
 	protected float ResolveCampaignDebugActivationRadius(HST_ZoneState zone)
