@@ -13057,6 +13057,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "low", escalationContext.m_Low);
 		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "mid", escalationContext.m_Mid);
 		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "high", escalationContext.m_High);
+		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "multi_cycle", escalationContext.m_MultiCycle);
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.decay_before", string.Format("%1", escalationContext.m_iDecayBefore), "aggression");
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.decay_after", string.Format("%1", escalationContext.m_iDecayAfter), "aggression");
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.decay_expected_total", string.Format("%1", escalationContext.m_iExpectedDecayTotal), "aggression");
@@ -13065,6 +13066,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "low", escalationContext.m_Low, 1);
 		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "mid", escalationContext.m_Mid, 3);
 		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "high", escalationContext.m_High, 6);
+		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "multi_cycle", escalationContext.m_MultiCycle, 4);
 
 		bool attackScaling = escalationContext.m_Low && escalationContext.m_Mid && escalationContext.m_High && escalationContext.m_Mid.m_iAttackIncomeDelta >= escalationContext.m_Low.m_iAttackIncomeDelta && escalationContext.m_High.m_iAttackIncomeDelta >= escalationContext.m_Mid.m_iAttackIncomeDelta;
 		bool supportScaling = escalationContext.m_Low && escalationContext.m_Mid && escalationContext.m_High && escalationContext.m_Mid.m_iSupportIncomeDelta >= escalationContext.m_Low.m_iSupportIncomeDelta && escalationContext.m_High.m_iSupportIncomeDelta >= escalationContext.m_Mid.m_iSupportIncomeDelta;
@@ -13079,6 +13081,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int totalGroupsCreated = CountCampaignDebugEscalationGroupsCreated(escalationContext);
 		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.support_physicalization", "active target bubble can create linked support requests", string.Format("support requests +%1", totalSupportCreated), CampaignDebugStatus(totalSupportCreated > 0, "WARN"), "escalation orders did not physicalize into support requests during the controlled probe");
 		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.group_physicalization", "support path may spawn routed active groups", string.Format("groups +%1", totalGroupsCreated), CampaignDebugStatus(totalGroupsCreated > 0, "WARN"), "escalation support did not spawn active groups during the controlled probe");
+		AddCampaignDebugPhase24MultiCycleAssertions(pacingCase, escalationContext.m_MultiCycle);
 		AddCampaignDebugPhase24EscalationDecayAssertion(pacingCase, escalationContext);
 	}
 
@@ -13094,6 +13097,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(pacingCase, prefix + ".orders_created", string.Format("%1", profile.m_iOrdersCreated), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".support_requests_created", string.Format("%1", profile.m_iSupportRequestsCreated), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".active_groups_created", string.Format("%1", profile.m_iActiveGroupsCreated), "count");
+		if (profile.m_iCycleCount > 0)
+		{
+			AddCampaignDebugMetric(pacingCase, prefix + ".cycles", string.Format("%1", profile.m_iCycleCount), "count");
+			AddCampaignDebugMetric(pacingCase, prefix + ".resource_ticks_changed", string.Format("%1", profile.m_iResourceTicksChanged), "count");
+			AddCampaignDebugMetric(pacingCase, prefix + ".commander_ticks_changed", string.Format("%1", profile.m_iCommanderTicksChanged), "count");
+			AddCampaignDebugMetric(pacingCase, prefix + ".open_orders_after_cycles", string.Format("%1", profile.m_iOpenOrdersAfterCycles), "count");
+		}
 	}
 
 	protected void AddCampaignDebugPhase24EscalationProfileAssertions(HST_CampaignDebugCaseResult pacingCase, string label, HST_CampaignDebugEscalationProfileResult profile, int expectedWarLevel)
@@ -13111,6 +13121,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".resource_tick", "enemy resource tick ran and produced income", profileActual, CampaignDebugStatus(profile.m_bResourceTickChanged && profile.m_iAttackIncomeDelta > 0 && profile.m_iSupportIncomeDelta > 0), label + " escalation profile did not produce enemy resource income");
 		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".commander_tick", "enemy commander tick created at least one real order", profileActual, CampaignDebugStatus(profile.m_bCommanderTickChanged && profile.m_iOrdersCreated > 0), label + " escalation profile did not create enemy commander orders");
 		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".order_prefix", "created order ids carry current debug prefix", EmptyCampaignDebugField(profile.m_sOrderIds), CampaignDebugStatus(profile.m_iOrdersCreated <= 0 || profile.m_sOrderIds.Contains(m_sCampaignDebugMarkerPrefix)), label + " escalation orders were not retagged for cleanup");
+	}
+
+	protected void AddCampaignDebugPhase24MultiCycleAssertions(HST_CampaignDebugCaseResult pacingCase, HST_CampaignDebugEscalationProfileResult profile)
+	{
+		if (!pacingCase)
+			return;
+		if (!profile)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.profile", "multi-cycle background-war profile exists", "missing", "BLOCKED", "multi-cycle background-war profile did not run");
+			return;
+		}
+
+		string actual = BuildCampaignDebugPhase24EscalationProfileActual(profile);
+		actual = actual + string.Format(" | cycles %1 | resource ticks %2 | commander ticks %3", profile.m_iCycleCount, profile.m_iResourceTicksChanged, profile.m_iCommanderTicksChanged);
+		actual = actual + string.Format(" | resolved %1 | open after %2", profile.m_iOpenOrdersResolvedBetweenCycles, profile.m_iOpenOrdersAfterCycles);
+		bool repeatedResourceTicks = profile.m_iCycleCount >= 3 && profile.m_iResourceTicksChanged >= 2;
+		bool repeatedCommanderTicks = profile.m_iCycleCount >= 3 && profile.m_iCommanderTicksChanged >= 2;
+		bool repeatedOrders = profile.m_iOrdersCreated >= 2;
+		bool prefixOk = profile.m_iOrdersCreated <= 0 || profile.m_sOrderIds.Contains(m_sCampaignDebugMarkerPrefix);
+		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.resource_ticks", "multi-cycle window runs repeated normal enemy resource ticks", actual, CampaignDebugStatus(repeatedResourceTicks), "multi-cycle background-war probe did not observe repeated resource ticks");
+		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.commander_ticks", "multi-cycle window runs repeated normal commander ticks", actual, CampaignDebugStatus(repeatedCommanderTicks), "multi-cycle background-war probe did not observe repeated commander ticks");
+		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.orders", "multi-cycle window creates retagged enemy orders across repeated cycles", actual, CampaignDebugStatus(repeatedOrders && prefixOk), "multi-cycle background-war probe did not create repeated debug-prefixed enemy orders");
+		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.cleanup_ready", "multi-cycle probe leaves no debug-prefixed enemy order open after controlled cycle resolution", actual, CampaignDebugStatus(profile.m_iOpenOrdersAfterCycles == 0, "WARN"), "multi-cycle background-war probe left debug-prefixed enemy orders open");
 	}
 
 	protected string BuildCampaignDebugPhase24EscalationProfileActual(HST_CampaignDebugEscalationProfileResult profile)
@@ -13205,6 +13238,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		escalationContext.m_Low = RunCampaignDebugPhase24EscalationProfile("low", 1, 50, 50, 10);
 		escalationContext.m_Mid = RunCampaignDebugPhase24EscalationProfile("mid", 3, 50, 50, 35);
 		escalationContext.m_High = RunCampaignDebugPhase24EscalationProfile("high", 6, 50, 50, 70);
+		escalationContext.m_MultiCycle = RunCampaignDebugPhase24MultiCycleBackgroundWarProfile();
 		RunCampaignDebugPhase24AggressionDecayProbe(escalationContext);
 		escalationContext.m_sReport = BuildCampaignDebugPhase24EscalationReport(escalationContext);
 		return escalationContext;
@@ -13271,6 +13305,83 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		profile.m_iSupportRequestsCreated = Math.Max(0, profile.m_iSupportRequestsAfter - profile.m_iSupportRequestsBefore);
 		profile.m_iActiveGroupsAfter = m_State.m_aActiveGroups.Count();
 		profile.m_iActiveGroupsCreated = Math.Max(0, profile.m_iActiveGroupsAfter - profile.m_iActiveGroupsBefore);
+		return profile;
+	}
+
+	protected HST_CampaignDebugEscalationProfileResult RunCampaignDebugPhase24MultiCycleBackgroundWarProfile()
+	{
+		HST_CampaignDebugEscalationProfileResult profile = new HST_CampaignDebugEscalationProfileResult();
+		profile.m_sLabel = "multi_cycle";
+		profile.m_iWarLevel = 4;
+		profile.m_iAggressionSeed = 55;
+		profile.m_iCycleCount = 3;
+		if (!m_State || !m_Preset || !m_Balance || !m_EnemyDirector || !m_EnemyCommander)
+			return profile;
+
+		profile.m_iOpenOrdersResolvedBetweenCycles = ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase24_multi_cycle_start");
+		PrepareCampaignDebugPhase24EscalationProfile(profile.m_iWarLevel, 220, 220, profile.m_iAggressionSeed);
+		int attackBefore;
+		int supportBefore;
+		int aggressionBefore;
+		CaptureCampaignDebugEnemyPoolTotals(attackBefore, supportBefore, aggressionBefore);
+		profile.m_iAttackBefore = attackBefore;
+		profile.m_iSupportBefore = supportBefore;
+		profile.m_iAggressionBefore = aggressionBefore;
+		profile.m_iOrdersBefore = m_State.m_aEnemyOrders.Count();
+		profile.m_iSupportRequestsBefore = m_State.m_aSupportRequests.Count();
+		profile.m_iActiveGroupsBefore = m_State.m_aActiveGroups.Count();
+
+		for (int cycleIndex = 0; cycleIndex < profile.m_iCycleCount; cycleIndex++)
+		{
+			if (cycleIndex > 0)
+				profile.m_iOpenOrdersResolvedBetweenCycles += ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase24_multi_cycle_between");
+
+			int attackBeforeResource;
+			int supportBeforeResource;
+			int aggressionBeforeResource;
+			CaptureCampaignDebugEnemyPoolTotals(attackBeforeResource, supportBeforeResource, aggressionBeforeResource);
+			m_State.m_iEnemyResourceAccumulatorSeconds = 0;
+			bool resourceChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, HST_EnemyDirectorService.RESOURCE_TICK_SECONDS);
+			int attackAfterResource;
+			int supportAfterResource;
+			int aggressionAfterResource;
+			CaptureCampaignDebugEnemyPoolTotals(attackAfterResource, supportAfterResource, aggressionAfterResource);
+			if (resourceChanged)
+			{
+				profile.m_bResourceTickChanged = true;
+				profile.m_iResourceTicksChanged++;
+			}
+			profile.m_iAttackIncomeDelta += Math.Max(0, attackAfterResource - attackBeforeResource);
+			profile.m_iSupportIncomeDelta += Math.Max(0, supportAfterResource - supportBeforeResource);
+			profile.m_iAttackAfterResourceTick = attackAfterResource;
+			profile.m_iSupportAfterResourceTick = supportAfterResource;
+
+			bool commanderChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, HST_EnemyCommanderService.ORDER_TICK_SECONDS);
+			if (commanderChanged)
+			{
+				profile.m_bCommanderTickChanged = true;
+				profile.m_iCommanderTicksChanged++;
+			}
+			RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, "multi_cycle");
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + HST_EnemyCommanderService.ORDER_TICK_SECONDS;
+		}
+
+		profile.m_iOpenOrdersResolvedBetweenCycles += ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase24_multi_cycle_after");
+		RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, "multi_cycle");
+		int attackAfterCommander;
+		int supportAfterCommander;
+		int aggressionAfterCommander;
+		CaptureCampaignDebugEnemyPoolTotals(attackAfterCommander, supportAfterCommander, aggressionAfterCommander);
+		profile.m_iAttackAfterCommanderTick = attackAfterCommander;
+		profile.m_iSupportAfterCommanderTick = supportAfterCommander;
+		profile.m_iAggressionAfter = aggressionAfterCommander;
+		profile.m_iOrdersAfter = m_State.m_aEnemyOrders.Count();
+		profile.m_iOrdersCreated = Math.Max(0, profile.m_iOrdersAfter - profile.m_iOrdersBefore);
+		profile.m_iSupportRequestsAfter = m_State.m_aSupportRequests.Count();
+		profile.m_iSupportRequestsCreated = Math.Max(0, profile.m_iSupportRequestsAfter - profile.m_iSupportRequestsBefore);
+		profile.m_iActiveGroupsAfter = m_State.m_aActiveGroups.Count();
+		profile.m_iActiveGroupsCreated = Math.Max(0, profile.m_iActiveGroupsAfter - profile.m_iActiveGroupsBefore);
+		profile.m_iOpenOrdersAfterCycles = CountCampaignDebugPrefixedOpenEnemyOrders();
 		return profile;
 	}
 
@@ -13481,6 +13592,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_Low);
 		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_Mid);
 		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_High);
+		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_MultiCycle);
 		report = report + string.Format("\ndecay | before %1 | after %2 | elapsed %3 | amount %4 | pools %5 | changed %6", escalationContext.m_iDecayBefore, escalationContext.m_iDecayAfter, escalationContext.m_iDecayElapsedSeconds, escalationContext.m_iDecayAmount, escalationContext.m_iDecayEnemyPoolCount, escalationContext.m_bDecayChanged);
 		return report;
 	}
@@ -13495,6 +13607,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		line = line + string.Format(" | support %1 -> %2 -> %3", profile.m_iSupportBefore, profile.m_iSupportAfterResourceTick, profile.m_iSupportAfterCommanderTick);
 		line = line + string.Format(" | orders +%1 | support +%2 | groups +%3", profile.m_iOrdersCreated, profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated);
 		line = line + string.Format(" | resource tick %1 | commander tick %2", profile.m_bResourceTickChanged, profile.m_bCommanderTickChanged);
+		if (profile.m_iCycleCount > 0)
+			line = line + string.Format(" | cycles %1 | resource ticks %2 | commander ticks %3 | open after %4", profile.m_iCycleCount, profile.m_iResourceTicksChanged, profile.m_iCommanderTicksChanged, profile.m_iOpenOrdersAfterCycles);
 		return line;
 	}
 

@@ -341,6 +341,11 @@ class HST_CampaignDebugEscalationProfileResult
 	int m_iActiveGroupsCreated;
 	int m_iAttackIncomeDelta;
 	int m_iSupportIncomeDelta;
+	int m_iCycleCount;
+	int m_iResourceTicksChanged;
+	int m_iCommanderTicksChanged;
+	int m_iOpenOrdersResolvedBetweenCycles;
+	int m_iOpenOrdersAfterCycles;
 	bool m_bResourceTickChanged;
 	bool m_bCommanderTickChanged;
 	string m_sOrderIds;
@@ -354,6 +359,7 @@ class HST_CampaignDebugEscalationProbeContext
 	ref HST_CampaignDebugEscalationProfileResult m_Low;
 	ref HST_CampaignDebugEscalationProfileResult m_Mid;
 	ref HST_CampaignDebugEscalationProfileResult m_High;
+	ref HST_CampaignDebugEscalationProfileResult m_MultiCycle;
 	bool m_bDecayChanged;
 	int m_iDecayBefore;
 	int m_iDecayAfter;
