@@ -9100,7 +9100,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(renderCase);
 		HST_CampaignDebugCaseResult missionAssetCase = BuildCampaignDebugRenderBubbleMissionAssetCase();
 		RecordCampaignDebugCase(missionAssetCase);
-		return string.Format("h-istasi campaign debug | render bubble zone activation | %1 | %2 | mission asset bubble %3", renderCase.m_sStatus, renderCase.m_sReason, missionAssetCase.m_sStatus);
+		HST_CampaignDebugCaseResult convoyCase = BuildCampaignDebugRenderBubbleConvoyCase();
+		RecordCampaignDebugCase(convoyCase);
+		return string.Format("h-istasi campaign debug | render bubble zone activation | %1 | %2 | mission asset bubble %3 | convoy bubble %4", renderCase.m_sStatus, renderCase.m_sReason, missionAssetCase.m_sStatus, convoyCase.m_sStatus);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionAssetCase()
@@ -9112,6 +9114,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(missionAssetCase, "render_bubble.mission_asset.service", "mission runtime service ready", "missing", "BLOCKED", "mission asset bubble probe requires mission runtime service");
 		FinalizeCampaignDebugCaseFromAssertions(missionAssetCase);
 		return missionAssetCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleConvoyCase()
+	{
+		if (m_PhysicalWar)
+			return m_PhysicalWar.BuildCampaignDebugExpiredConvoyRenderBubbleProbe(m_State, m_sCampaignDebugMarkerPrefix, m_bCampaignDebugPhysicalBlocked);
+
+		HST_CampaignDebugCaseResult convoyCase = CreateCampaignDebugCase("render_bubble.convoy.expired_contact", "physical_war", "render_bubble", "early_mechanics");
+		AddCampaignDebugAssertion(convoyCase, "render_bubble.convoy.service", "physical war service ready", "missing", "BLOCKED", "expired convoy render-bubble probe requires physical war service");
+		FinalizeCampaignDebugCaseFromAssertions(convoyCase);
+		return convoyCase;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleZoneCase()

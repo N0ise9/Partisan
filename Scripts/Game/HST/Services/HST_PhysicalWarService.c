@@ -118,6 +118,7 @@ class HST_PhysicalWarService
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
+	static const string CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
@@ -501,6 +502,92 @@ class HST_PhysicalWarService
 		return probe;
 	}
 
+	HST_CampaignDebugCaseResult BuildCampaignDebugExpiredConvoyRenderBubbleProbe(HST_CampaignState state, string debugPrefix, bool physicalBlocked)
+	{
+		HST_CampaignDebugCaseResult probe = CreateExpiredConvoyRenderBubbleDebugCase(state);
+		if (physicalBlocked)
+		{
+			AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.prerequisite.player", "controlled player entity available", "missing", "BLOCKED", "bootstrap marked physical runtime tests blocked");
+			FinalizeExpiredConvoyRenderBubbleDebugCase(state, probe);
+			return probe;
+		}
+
+		if (!state)
+		{
+			AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.prerequisite.state", "campaign state exists", "missing", "BLOCKED", "expired convoy render-bubble probe missing campaign state");
+			FinalizeExpiredConvoyRenderBubbleDebugCase(state, probe);
+			return probe;
+		}
+
+		vector playerPosition;
+		if (!ResolveFirstLivingPlayerDebugPosition(playerPosition))
+		{
+			AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.player", "living player entity exists", "missing", "BLOCKED", "expired convoy render-bubble probe requires a living player");
+			FinalizeExpiredConvoyRenderBubbleDebugCase(state, probe);
+			return probe;
+		}
+
+		string prefix = ResolveExpiredConvoyRenderBubbleDebugPrefix(debugPrefix);
+		vector nearPosition = playerPosition;
+		nearPosition[0] = nearPosition[0] + 10.0;
+		vector farPosition = ResolveExpiredConvoyRenderBubbleDebugFarPosition(playerPosition);
+
+		string nearInstanceId = prefix + "_expired_convoy_near";
+		HST_ActiveMissionState nearMission = CreateExpiredConvoyRenderBubbleDebugMission(nearInstanceId, nearPosition);
+		HST_ActiveGroupState nearGroup = CreateExpiredConvoyRenderBubbleDebugGroup(nearMission, nearPosition);
+		RemoveExpiredConvoyRenderBubbleDebugRecords(state, nearMission.m_sInstanceId, nearGroup.m_sGroupId);
+		IEntity nearCrewEntity = SpawnExpiredConvoyRenderBubbleDebugCrewEntity(nearPosition, nearGroup.m_sGroupId);
+		if (!nearCrewEntity)
+		{
+			AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.temp_entity.near", "temporary live crew entity spawns", "missing", "BLOCKED", "expired convoy render-bubble probe could not spawn temporary crew entity", nearGroup.m_sGroupId, nearMission.m_sInstanceId);
+			FinalizeExpiredConvoyRenderBubbleDebugCase(state, probe);
+			return probe;
+		}
+
+		RegisterExpiredConvoyRenderBubbleDebugRuntime(state, nearMission, nearGroup, nearCrewEntity);
+		int nearAliveCrewBefore = CountAliveRuntimeCrewAgents(nearGroup);
+		float nearDistance = ResolveNearestLivingPlayerDistanceMeters(nearPosition);
+		bool nearCleanupChanged = CleanupInactiveMissionConvoyRuntimeGroupForDebug(state, nearGroup);
+		HST_ActiveGroupState nearObservedGroup = state.FindActiveGroup(nearGroup.m_sGroupId);
+		bool nearGroupPreserved = nearObservedGroup != null;
+		bool nearRuntimePreserved = GetRuntimeCrewGroupEntity(nearGroup.m_sGroupId) != null;
+		bool nearMarkedPreserved = nearObservedGroup != null && nearObservedGroup.m_sSpawnFallbackMode == "expired_combat_preserved";
+		string nearActual = BuildExpiredConvoyRenderBubbleDebugActual(nearGroup.m_sGroupId, nearCleanupChanged, nearGroupPreserved, nearRuntimePreserved, nearAliveCrewBefore, nearDistance, nearGroup.m_sSpawnFallbackMode, nearGroup.m_sSpawnFailureReason);
+		AddConvoyDebugProbeMetric(probe, "render_bubble.convoy.radius", string.Format("%1", Math.Round(EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS)), "m");
+		AddConvoyDebugProbeMetric(probe, "render_bubble.convoy.near_distance", string.Format("%1", Math.Round(nearDistance)), "m");
+		AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.near_preserve", "expired contact convoy runtime inside player bubble is preserved and marked", nearActual, ConvoyDebugStatus(nearAliveCrewBefore > 0 && nearDistance >= 0 && nearDistance <= EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS && nearGroupPreserved && nearRuntimePreserved && nearMarkedPreserved), "near expired convoy contact runtime was not preserved", nearGroup.m_sGroupId, nearMission.m_sInstanceId);
+		bool nearRecordsRemoved = RemoveExpiredConvoyRenderBubbleDebugRecords(state, nearMission.m_sInstanceId, nearGroup.m_sGroupId);
+
+		string farInstanceId = prefix + "_expired_convoy_far";
+		HST_ActiveMissionState farMission = CreateExpiredConvoyRenderBubbleDebugMission(farInstanceId, farPosition);
+		HST_ActiveGroupState farGroup = CreateExpiredConvoyRenderBubbleDebugGroup(farMission, farPosition);
+		RemoveExpiredConvoyRenderBubbleDebugRecords(state, farMission.m_sInstanceId, farGroup.m_sGroupId);
+		IEntity farCrewEntity = SpawnExpiredConvoyRenderBubbleDebugCrewEntity(farPosition, farGroup.m_sGroupId);
+		if (!farCrewEntity)
+		{
+			AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.temp_entity.far", "temporary live crew entity spawns outside bubble", "missing", "BLOCKED", "expired convoy render-bubble probe could not spawn far temporary crew entity", farGroup.m_sGroupId, farMission.m_sInstanceId);
+			bool farFailedRecordsRemoved = RemoveExpiredConvoyRenderBubbleDebugRecords(state, farMission.m_sInstanceId, farGroup.m_sGroupId);
+			AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.cleanup", "temporary expired convoy records are cleaned", BuildExpiredConvoyRenderBubbleCleanupActual(nearRecordsRemoved, farFailedRecordsRemoved), ConvoyDebugStatus(nearRecordsRemoved && farFailedRecordsRemoved), "expired convoy render-bubble probe leaked temporary records");
+			FinalizeExpiredConvoyRenderBubbleDebugCase(state, probe);
+			return probe;
+		}
+
+		RegisterExpiredConvoyRenderBubbleDebugRuntime(state, farMission, farGroup, farCrewEntity);
+		int farAliveCrewBefore = CountAliveRuntimeCrewAgents(farGroup);
+		float farDistance = ResolveNearestLivingPlayerDistanceMeters(farPosition);
+		bool farCleanupChanged = CleanupInactiveMissionConvoyRuntimeGroupForDebug(state, farGroup);
+		bool farGroupRemoved = state.FindActiveGroup(farGroup.m_sGroupId) == null;
+		bool farRuntimeRemoved = GetRuntimeCrewGroupEntity(farGroup.m_sGroupId) == null;
+		string farActual = BuildExpiredConvoyRenderBubbleDebugActual(farGroup.m_sGroupId, farCleanupChanged, !farGroupRemoved, !farRuntimeRemoved, farAliveCrewBefore, farDistance, farGroup.m_sSpawnFallbackMode, farGroup.m_sSpawnFailureReason);
+		AddConvoyDebugProbeMetric(probe, "render_bubble.convoy.far_distance", string.Format("%1", Math.Round(farDistance)), "m");
+		AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.far_cleanup", "expired contact convoy runtime outside player bubble is deleted", farActual, ConvoyDebugStatus(farAliveCrewBefore > 0 && farDistance > EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS && farGroupRemoved && farRuntimeRemoved), "far expired convoy contact runtime was not cleaned up", farGroup.m_sGroupId, farMission.m_sInstanceId);
+		bool farRecordsRemoved = RemoveExpiredConvoyRenderBubbleDebugRecords(state, farMission.m_sInstanceId, farGroup.m_sGroupId);
+
+		AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.cleanup", "temporary expired convoy records are cleaned", BuildExpiredConvoyRenderBubbleCleanupActual(nearRecordsRemoved, farRecordsRemoved), ConvoyDebugStatus(nearRecordsRemoved && farRecordsRemoved), "expired convoy render-bubble probe leaked temporary records");
+		FinalizeExpiredConvoyRenderBubbleDebugCase(state, probe);
+		return probe;
+	}
+
 	protected HST_CampaignDebugCaseResult CreateConvoyDebugProbeCase(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		HST_CampaignDebugCaseResult probe = new HST_CampaignDebugCaseResult();
@@ -628,6 +715,195 @@ class HST_PhysicalWarService
 			return "PASS";
 
 		return failStatus;
+	}
+
+	protected HST_CampaignDebugCaseResult CreateExpiredConvoyRenderBubbleDebugCase(HST_CampaignState state)
+	{
+		HST_CampaignDebugCaseResult probe = new HST_CampaignDebugCaseResult();
+		probe.m_sCaseId = "render_bubble.convoy.expired_contact";
+		probe.m_sCategory = "physical_war";
+		probe.m_sFeature = "render_bubble";
+		probe.m_sStage = "early_mechanics";
+		probe.m_sStatus = "PASS";
+		if (state)
+		{
+			probe.m_iStartSecond = state.m_iElapsedSeconds;
+			probe.m_iEndSecond = state.m_iElapsedSeconds;
+		}
+		probe.m_aEvidence.Insert("temporary expired convoy contact groups exercise player-bubble preserve/delete cleanup policy and are removed before the case is recorded");
+		return probe;
+	}
+
+	protected void FinalizeExpiredConvoyRenderBubbleDebugCase(HST_CampaignState state, HST_CampaignDebugCaseResult probe)
+	{
+		FinalizeConvoyDebugProbeCase(state, probe);
+		if (probe && probe.m_sStatus == "PASS")
+			probe.m_sReason = "expired convoy render-bubble probe assertions passed";
+	}
+
+	protected string ResolveExpiredConvoyRenderBubbleDebugPrefix(string debugPrefix)
+	{
+		if (debugPrefix.IsEmpty())
+			return CAMPAIGN_DEBUG_PREFIX_ROOT + "render_bubble";
+		if (debugPrefix.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))
+			return debugPrefix;
+
+		return CAMPAIGN_DEBUG_PREFIX_ROOT + debugPrefix;
+	}
+
+	protected HST_ActiveMissionState CreateExpiredConvoyRenderBubbleDebugMission(string instanceId, vector position)
+	{
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = instanceId;
+		mission.m_sMissionId = "campaign_debug_expired_convoy";
+		mission.m_sDisplayName = "Campaign Debug Expired Convoy";
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
+		mission.m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_PHYSICAL_MVP;
+		mission.m_sRuntimePrimitive = MISSION_CONVOY_PRIMITIVE;
+		mission.m_sRuntimeType = "convoy_intercept";
+		mission.m_sRuntimePhase = MISSION_CONVOY_CONTACT;
+		mission.m_vTargetPosition = position;
+		return mission;
+	}
+
+	protected HST_ActiveGroupState CreateExpiredConvoyRenderBubbleDebugGroup(HST_ActiveMissionState mission, vector position)
+	{
+		HST_ActiveGroupState activeGroup = new HST_ActiveGroupState();
+		activeGroup.m_sGroupId = BuildMissionConvoyGroupId(mission, 0);
+		activeGroup.m_sFactionKey = "USSR";
+		activeGroup.m_sPrefab = CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB;
+		activeGroup.m_vPosition = position;
+		activeGroup.m_vSourcePosition = position;
+		activeGroup.m_vTargetPosition = position;
+		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
+		activeGroup.m_sRuntimeStatus = MISSION_CONVOY_CONTACT;
+		activeGroup.m_iInfantryCount = 1;
+		activeGroup.m_iLastSeenAliveCount = 1;
+		activeGroup.m_iSurvivorInfantryCount = 1;
+		activeGroup.m_iSpawnedAgentCount = 1;
+		activeGroup.m_bSpawnAttempted = true;
+		activeGroup.m_bSpawnedEntity = true;
+		return activeGroup;
+	}
+
+	protected void RegisterExpiredConvoyRenderBubbleDebugRuntime(HST_CampaignState state, HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup, IEntity crewEntity)
+	{
+		if (!state || !mission || !activeGroup || !crewEntity)
+			return;
+
+		state.m_aActiveMissions.Insert(mission);
+		state.m_aActiveGroups.Insert(activeGroup);
+		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
+		m_aRuntimeGroupEntities.Insert(crewEntity);
+	}
+
+	protected IEntity SpawnExpiredConvoyRenderBubbleDebugCrewEntity(vector position, string groupId)
+	{
+		GenericEntity tempEntity = HST_WorldPositionService.SpawnPrefab(CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB, position, "0 0 0");
+		if (!tempEntity)
+			return null;
+
+		ApplyCampaignDebugEntityName(tempEntity, "expired_convoy_crew", groupId);
+		return tempEntity;
+	}
+
+	protected bool CleanupInactiveMissionConvoyRuntimeGroupForDebug(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup)
+			return false;
+		if (!IsMissionConvoyGroup(activeGroup))
+			return false;
+		if (HasActiveMissionForConvoyGroup(state, activeGroup))
+			return false;
+
+		if (ShouldKeepExpiredEngagedConvoyRuntime(state, activeGroup))
+			return MarkExpiredEngagedConvoyRuntimePreserved(activeGroup);
+
+		DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+		RemoveConvoyProgressStatusForGroup(activeGroup.m_sGroupId);
+		RemoveActiveGroupStateForDebug(state, activeGroup.m_sGroupId);
+		m_bMarkerRefreshNeeded = true;
+		return true;
+	}
+
+	protected bool RemoveExpiredConvoyRenderBubbleDebugRecords(HST_CampaignState state, string instanceId, string groupId)
+	{
+		if (!state)
+			return false;
+
+		if (!groupId.IsEmpty())
+		{
+			DeleteRuntimeGroupEntity(groupId);
+			RemoveConvoyProgressStatusForGroup(groupId);
+			RemoveActiveGroupStateForDebug(state, groupId);
+		}
+
+		for (int missionIndex = state.m_aActiveMissions.Count() - 1; missionIndex >= 0; missionIndex--)
+		{
+			HST_ActiveMissionState mission = state.m_aActiveMissions[missionIndex];
+			if (mission && mission.m_sInstanceId == instanceId)
+				state.m_aActiveMissions.Remove(missionIndex);
+		}
+
+		bool groupClear = groupId.IsEmpty() || state.FindActiveGroup(groupId) == null;
+		bool missionClear = instanceId.IsEmpty() || state.FindActiveMission(instanceId) == null;
+		bool runtimeClear = groupId.IsEmpty() || GetRuntimeGroupEntity(groupId) == null;
+		return groupClear && missionClear && runtimeClear;
+	}
+
+	protected void RemoveActiveGroupStateForDebug(HST_CampaignState state, string groupId)
+	{
+		if (!state || groupId.IsEmpty())
+			return;
+
+		for (int groupIndex = state.m_aActiveGroups.Count() - 1; groupIndex >= 0; groupIndex--)
+		{
+			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[groupIndex];
+			if (activeGroup && activeGroup.m_sGroupId == groupId)
+				state.m_aActiveGroups.Remove(groupIndex);
+		}
+	}
+
+	protected bool ResolveFirstLivingPlayerDebugPosition(out vector playerPosition)
+	{
+		playerPosition = "0 0 0";
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+			if (!IsLivingPlayerEntity(playerEntity))
+				continue;
+
+			playerPosition = playerEntity.GetOrigin();
+			return true;
+		}
+
+		return false;
+	}
+
+	protected vector ResolveExpiredConvoyRenderBubbleDebugFarPosition(vector playerPosition)
+	{
+		float minimumDistance = EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS + 500.0;
+		vector farPosition = playerPosition;
+		farPosition[0] = farPosition[0] + minimumDistance;
+		return farPosition;
+	}
+
+	protected string BuildExpiredConvoyRenderBubbleDebugActual(string groupId, bool cleanupChanged, bool groupPreserved, bool runtimePreserved, int aliveCrew, float distanceMeters, string fallbackMode, string reason)
+	{
+		string actual = string.Format("group %1 | changed %2 | group present %3 | runtime present %4", ReportText(groupId), ReportBool(cleanupChanged), ReportBool(groupPreserved), ReportBool(runtimePreserved));
+		actual = actual + string.Format(" | alive crew %1 | distance %2m | mode %3 | reason %4", aliveCrew, Math.Round(distanceMeters), ReportText(fallbackMode), ReportText(reason));
+		return actual;
+	}
+
+	protected string BuildExpiredConvoyRenderBubbleCleanupActual(bool nearRecordsRemoved, bool farRecordsRemoved)
+	{
+		return string.Format("near clear %1 | far clear %2", ReportBool(nearRecordsRemoved), ReportBool(farRecordsRemoved));
 	}
 
 	protected string BuildConvoyDebugRouteActual(HST_GeneratedRouteState route)
