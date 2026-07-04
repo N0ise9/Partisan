@@ -246,7 +246,9 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		}
 
 		waypoint.SetCompletionRadius(STOP_DISTANCE_METERS);
-		waypoint.SetPriorityLevel(SCR_AIActionBase.PRIORITY_LEVEL_PLAYER);
+		SCR_AIWaypoint scriptedWaypoint = SCR_AIWaypoint.Cast(waypoint);
+		if (scriptedWaypoint)
+			scriptedWaypoint.SetPriorityLevel(SCR_AIActionBase.PRIORITY_LEVEL_PLAYER);
 		group.AddWaypoint(waypoint);
 		ApplyGroupFollowSpeed(group, movementType);
 		ApplyGroupFollowFormation(group);

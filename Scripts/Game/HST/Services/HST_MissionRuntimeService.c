@@ -3654,7 +3654,9 @@ class HST_MissionRuntimeService
 		}
 
 		waypoint.SetCompletionRadius(CAPTIVE_FOLLOW_NEAR_DISTANCE_METERS);
-		waypoint.SetPriorityLevel(SCR_AIActionBase.PRIORITY_LEVEL_PLAYER);
+		SCR_AIWaypoint scriptedWaypoint = SCR_AIWaypoint.Cast(waypoint);
+		if (scriptedWaypoint)
+			scriptedWaypoint.SetPriorityLevel(SCR_AIActionBase.PRIORITY_LEVEL_PLAYER);
 		group.AddWaypoint(waypoint);
 		AIGroupMovementComponent groupMovement = AIGroupMovementComponent.Cast(group.FindComponent(AIGroupMovementComponent));
 		if (groupMovement)

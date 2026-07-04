@@ -595,6 +595,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Entity-follow behavior needs an entity waypoint, not a static move waypoint.
   - The base-game pattern is `SCR_FollowGroupCommand`: spawn `{A0509D3C4DD4475E}Prefabs/AI/Waypoints/AIWaypoint_Follow.et`, cast it to `SCR_EntityWaypoint`, call `SetEntity(target)`, then `AIGroup.AddWaypoint`.
   - A patrol hierarchy waypoint such as `{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et` only moves to the sampled position. Keep it as a last-resort static move fallback, but do not expect it to remain bound to a moving player or vehicle.
+  - `SetPriorityLevel()` is defined on `SCR_AIWaypoint`, not the generated base `AIWaypoint`. If code must keep an `AIWaypoint` variable for `AIGroup.AddWaypoint()`, cast to `SCR_AIWaypoint` before applying player priority.
   - After adding a follow waypoint, apply `AIGroupMovementComponent.SetFormationDisplacement(1)` so the follower stays close to the target instead of regrouping at a loose formation offset.
 
 ## Native Reference Sources
