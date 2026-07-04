@@ -307,10 +307,8 @@ class HST_GeneratedContentService
 		string roadReason;
 		if (!HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_FAR_METERS, destination, resolved, roadForward, roadWidth, roadDistance, roadReason))
 			return false;
-		if (HST_WorldPositionService.IsLikelyOpenWater(resolved))
-			return false;
 
-		return HST_WorldPositionService.IsDryGroundPosition(resolved);
+		return true;
 	}
 
 	protected void EnsureRouteWaypointMetadata(HST_GeneratedRouteState route)
