@@ -6577,10 +6577,90 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string BuildCampaignDebugPhase0Report()
 	{
+		int lastSaveSecondBefore;
+		int activeMissionsBefore = CountFoundationActiveMissions();
+		int activeGroupsBefore = CountVisibleActiveGroups();
+		if (m_State)
+			lastSaveSecondBefore = m_State.m_iLastSaveSecond;
+
 		string report = "h-istasi campaign debug | phase 0 foundation";
-		report = report + "\n" + RequestMemberFoundationStatus(m_iCampaignDebugPlayerId);
-		report = report + "\n" + RequestMemberManualCheckpointReport(m_iCampaignDebugPlayerId);
+		string foundationReport = RequestMemberFoundationStatus(m_iCampaignDebugPlayerId);
+		string checkpointReport = RequestMemberManualCheckpointReport(m_iCampaignDebugPlayerId);
+		report = report + "\n" + foundationReport;
+		report = report + "\n" + checkpointReport;
+		RecordCampaignDebugCase(BuildCampaignDebugFoundationCheckpointCase(foundationReport, checkpointReport, lastSaveSecondBefore, activeMissionsBefore, activeGroupsBefore));
 		return report;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugFoundationCheckpointCase(string foundationReport, string checkpointReport, int lastSaveSecondBefore, int activeMissionsBefore, int activeGroupsBefore)
+	{
+		HST_CampaignDebugCaseResult foundationCase = CreateCampaignDebugCase("early_mechanics.foundation_checkpoint", "early_mechanics", "campaign_foundation", "early_mechanics");
+		foundationCase.m_aEvidence.Insert(ShortCampaignDebugLine(foundationReport, 360));
+		foundationCase.m_aEvidence.Insert(ShortCampaignDebugLine(checkpointReport, 360));
+
+		bool serverAuthority = Replication.IsServer();
+		bool memberAccess = CanPlayerUseMemberActions(m_iCampaignDebugPlayerId);
+		bool stateReady = m_State != null;
+		bool persistenceReady = m_Persistence != null;
+		AddCampaignDebugAssertion(foundationCase, "foundation.prerequisite.server", "campaign debug phase 0 runs on server", string.Format("%1", serverAuthority), CampaignDebugStatus(serverAuthority), "phase 0 foundation/checkpoint ran without server authority");
+		AddCampaignDebugAssertion(foundationCase, "foundation.prerequisite.member_access", "debug actor has member access for foundation reports", string.Format("%1", memberAccess), CampaignDebugStatus(memberAccess), "debug actor cannot use member foundation/checkpoint reports");
+		AddCampaignDebugAssertion(foundationCase, "foundation.prerequisite.services", "campaign state and persistence service ready", string.Format("state %1 | persistence %2", stateReady, persistenceReady), CampaignDebugStatus(stateReady && persistenceReady, "BLOCKED"), "foundation/checkpoint prerequisites missing");
+
+		if (!m_State)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(foundationCase);
+			return foundationCase;
+		}
+
+		int activeMissionsAfter = CountFoundationActiveMissions();
+		int activeGroupsAfter = CountVisibleActiveGroups();
+		int lastSaveSecondAfter = m_State.m_iLastSaveSecond;
+		HST_CampaignSaveData capturedSave = null;
+		if (m_Persistence)
+			capturedSave = m_Persistence.GetLastCapturedSave();
+
+		AddCampaignDebugMetric(foundationCase, "foundation.schema", string.Format("%1", m_State.m_iSchemaVersion), "schema");
+		AddCampaignDebugMetric(foundationCase, "foundation.last_save_before", string.Format("%1", lastSaveSecondBefore), "seconds");
+		AddCampaignDebugMetric(foundationCase, "foundation.last_save_after", string.Format("%1", lastSaveSecondAfter), "seconds");
+		AddCampaignDebugMetric(foundationCase, "foundation.active_missions", string.Format("%1", activeMissionsAfter), "count");
+		AddCampaignDebugMetric(foundationCase, "foundation.active_groups", string.Format("%1", activeGroupsAfter), "count");
+
+		string foundationActual = BuildCampaignDebugFoundationActual(activeMissionsAfter, activeGroupsAfter);
+		AddCampaignDebugAssertion(foundationCase, "foundation.report", "foundation report includes expected campaign foundation prefix", ShortCampaignDebugLine(foundationReport, 220), CampaignDebugStatus(foundationReport.Contains("h-istasi foundation")), "foundation status report missing expected prefix");
+		AddCampaignDebugAssertion(foundationCase, "foundation.schema", "campaign schema matches current script schema", foundationActual, CampaignDebugStatus(m_State.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION), "campaign schema does not match current script schema");
+		AddCampaignDebugAssertion(foundationCase, "foundation.phase", "campaign phase is ACTIVE for early mechanics", foundationActual, CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE), "campaign phase is not ACTIVE during early mechanics");
+		AddCampaignDebugAssertion(foundationCase, "foundation.hq_state", "HQ is deployed with non-empty hideout and Petros alive", foundationActual, CampaignDebugStatus(m_State.m_bHQDeployed && !m_State.m_sHQHideoutId.IsEmpty() && m_State.m_bPetrosAlive), "HQ/Petros foundation state invalid");
+		AddCampaignDebugAssertion(foundationCase, "foundation.hq_position", "HQ and Petros positions are non-zero", foundationActual, CampaignDebugStatus(!IsZeroVector(m_State.m_vHQPosition) && !IsZeroVector(m_State.m_vPetrosPosition)), "HQ or Petros position is zero");
+		AddCampaignDebugAssertion(foundationCase, "foundation.runtime_counts_stable", "checkpoint report does not mutate active mission/group counts", string.Format("missions %1 -> %2 | groups %3 -> %4", activeMissionsBefore, activeMissionsAfter, activeGroupsBefore, activeGroupsAfter), CampaignDebugStatus(activeMissionsAfter == activeMissionsBefore && activeGroupsAfter == activeGroupsBefore), "foundation/checkpoint phase mutated active mission or group counts");
+
+		bool checkpointAccepted = IsCampaignDebugResultSuccessful(checkpointReport) && checkpointReport.Contains("success");
+		bool checkpointStatusUpdated = m_State.m_sLastPersistenceStatus.Contains("checkpoint requested:");
+		bool checkpointTimestampCurrent = m_State.m_iLastSaveSecond == m_State.m_iElapsedSeconds;
+		AddCampaignDebugAssertion(foundationCase, "checkpoint.command_result", "manual checkpoint command succeeds", ShortCampaignDebugLine(checkpointReport, 220), CampaignDebugStatus(checkpointAccepted), "manual checkpoint report did not succeed");
+		AddCampaignDebugAssertion(foundationCase, "checkpoint.persistence_status", "last persistence status records checkpoint request evidence", EmptyCampaignDebugField(m_State.m_sLastPersistenceStatus), CampaignDebugStatus(checkpointStatusUpdated), "checkpoint did not update persistence status with request evidence");
+		AddCampaignDebugAssertion(foundationCase, "checkpoint.last_save_second", "last save second is refreshed to current elapsed second", string.Format("before %1 | after %2 | elapsed %3", lastSaveSecondBefore, m_State.m_iLastSaveSecond, m_State.m_iElapsedSeconds), CampaignDebugStatus(checkpointTimestampCurrent), "checkpoint did not refresh last save second to the current elapsed second");
+		AddCampaignDebugAssertion(foundationCase, "checkpoint.captured_save", "persistence service captured a current-schema save snapshot", BuildCampaignDebugCapturedSaveActual(capturedSave), CampaignDebugStatus(capturedSave != null && capturedSave.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION && capturedSave.m_bHQDeployed && capturedSave.m_bPetrosAlive), "checkpoint did not capture a current-schema deployed-HQ save snapshot");
+
+		FinalizeCampaignDebugCaseFromAssertions(foundationCase);
+		return foundationCase;
+	}
+
+	protected string BuildCampaignDebugFoundationActual(int activeMissions, int activeGroups)
+	{
+		if (!m_State)
+			return "missing";
+
+		string actual = string.Format("phase %1 | schema %2/%3 | HQ %4 deployed %5 | HQ pos %6", m_State.m_ePhase, m_State.m_iSchemaVersion, HST_CampaignState.SCHEMA_VERSION, EmptyCampaignDebugField(m_State.m_sHQHideoutId), m_State.m_bHQDeployed, m_State.m_vHQPosition);
+		actual = actual + string.Format(" | Petros %1 pos %2 | active missions %3 | active groups %4", m_State.m_bPetrosAlive, m_State.m_vPetrosPosition, activeMissions, activeGroups);
+		return actual;
+	}
+
+	protected string BuildCampaignDebugCapturedSaveActual(HST_CampaignSaveData capturedSave)
+	{
+		if (!capturedSave)
+			return "missing";
+
+		return string.Format("schema %1/%2 | last save %3 | HQ %4 deployed %5 | Petros %6 | persistence %7", capturedSave.m_iSchemaVersion, HST_CampaignState.SCHEMA_VERSION, capturedSave.m_iLastSaveSecond, EmptyCampaignDebugField(capturedSave.m_sHQHideoutId), capturedSave.m_bHQDeployed, capturedSave.m_bPetrosAlive, EmptyCampaignDebugField(capturedSave.m_sLastPersistenceStatus));
 	}
 
 	protected string BuildCampaignDebugPhase1Report()
