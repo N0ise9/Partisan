@@ -566,6 +566,8 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		"WarnPetrosAIGroupFallback",
 		"HasPetrosRuntimeAIGroup",
 		"BuildPetrosAIGroupDebugSummary",
+		"AttachPetrosToAIGroup",
+		"group.AddAgentFromControlledEntity(petros)",
 		"AIGroup parentGroup",
 		"parentGroup = agent.GetParentGroup();",
 		"m_PetrosEntity && !IsLivingRuntimeEntity(m_PetrosEntity)",
@@ -7080,6 +7082,26 @@ Write-Host "Phase 2 convoy runtime report contract OK"
 $campaignSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
 $generatedContentServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GeneratedContentService.c"
 $coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+foreach ($requiredObservationClassifierEntry in @(
+		"IsCampaignDebugObservationReportHealthy",
+		"read-only report generated without access/service/dispatch errors",
+		"observation report was unavailable or missing required access/service/dispatch coverage"
+	)) {
+	if ($coordinatorText -notmatch [regex]::Escape($requiredObservationClassifierEntry)) {
+		throw "Missing campaign-debug read-only observation classifier entry: $requiredObservationClassifierEntry"
+	}
+}
+$observationCaseMatch = [regex]::Match($coordinatorText, "protected HST_CampaignDebugCaseResult BuildCampaignDebugObservationCase[\s\S]*?protected HST_CampaignDebugCaseResult BuildCampaignDebugActionCase")
+if (!$observationCaseMatch.Success) {
+	throw "Could not locate campaign-debug observation/action case boundary"
+}
+if ($observationCaseMatch.Value -match "IsCampaignDebugResultSuccessful\(result\)") {
+	throw "Campaign-debug read-only observation reports must not use the mutating action result classifier"
+}
+$actionCaseMatch = [regex]::Match($coordinatorText, "protected HST_CampaignDebugCaseResult BuildCampaignDebugActionCase[\s\S]*?protected string SaveCampaignDebugRunArtifacts")
+if (!$actionCaseMatch.Success -or $actionCaseMatch.Value -notmatch "IsCampaignDebugResultSuccessful\(result\)") {
+	throw "Campaign-debug action reports must keep the mutating action result classifier"
+}
 foreach ($requiredConvoyMissionSweepEntry in @(
 		"requiredConvoyVehicleAssets = 3",
 		"mission.m_iRequiredVehicleCount > requiredConvoyVehicleAssets",
@@ -7618,6 +7640,10 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"active group direct infantry fallback skipped",
 		"Direct faction infantry fallback replacing missing runtime group entity.",
 		"active group direct infantry fallback replacing missing runtime group entity",
+		"AttachFactionInfantryMemberToRuntimeGroup",
+		"ResolveRuntimeMemberAIAgent",
+		"group.AddAgentFromControlledEntity(member)",
+		"active group direct fallback member attach failed",
 		"CountCampaignDebugRuntimeFactionMismatches",
 		"campaign debug faction audit",
 		"IsGroupPrefabCatalogFactionMatch",

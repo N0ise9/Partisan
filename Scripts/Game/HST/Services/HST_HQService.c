@@ -1105,20 +1105,7 @@ class HST_HQService
 			return true;
 		}
 
-		AIAgent agent = ResolvePetrosAIAgent(petros);
-		AIGroup parentGroup;
-		if (agent)
-			parentGroup = agent.GetParentGroup();
-		if (agent && parentGroup && parentGroup != group)
-			group.AddAgent(agent);
-
-		if (!group.AddAIEntityToGroup(petros) && !IsPetrosAgentInGroup(petros, group))
-		{
-			Print(string.Format("h-istasi | Petros AI group attach failed via %1 | petros %2 | group %3", source, petros, group), LogLevel.WARNING);
-			return false;
-		}
-
-		if (!IsPetrosAgentInGroup(petros, group))
+		if (!AttachPetrosToAIGroup(petros, group, source))
 		{
 			Print(string.Format("h-istasi | Petros AI group attach unverified via %1 | petros %2 | group %3", source, petros, group), LogLevel.WARNING);
 			return false;
@@ -1127,6 +1114,34 @@ class HST_HQService
 		ApplyFaction(petros);
 		DebugLog(string.Format("lifecycle attached Petros to AIGroup via %1 | petros=%2 group=%3", source, petros, m_PetrosGroupEntity));
 		return true;
+	}
+
+	protected bool AttachPetrosToAIGroup(IEntity petros, SCR_AIGroup group, string source)
+	{
+		if (!petros || !group)
+			return false;
+
+		AIAgent agent = ResolvePetrosAIAgent(petros);
+		if (!agent)
+		{
+			DebugLog(string.Format("lifecycle Petros AIGroup attach skipped via %1: Petros has no AIAgent", source));
+			return false;
+		}
+
+		AIGroup parentGroup = agent.GetParentGroup();
+		if (parentGroup == group)
+			return true;
+
+		group.AddAgentFromControlledEntity(petros);
+		if (IsPetrosAgentInGroup(petros, group))
+			return true;
+
+		if (parentGroup && parentGroup != group)
+			group.AddAgent(agent);
+		else if (!group.AddAIEntityToGroup(petros))
+			group.AddAgent(agent);
+
+		return IsPetrosAgentInGroup(petros, group);
 	}
 
 	protected SCR_AIGroup ResolvePetrosAIGroup(vector position, string source)

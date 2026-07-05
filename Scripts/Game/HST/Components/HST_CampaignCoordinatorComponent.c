@@ -5927,12 +5927,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!generated)
 			result = "empty result";
 
-		bool accepted = generated && IsCampaignDebugResultSuccessful(result);
+		bool accepted = generated && IsCampaignDebugObservationReportHealthy(result);
 		HST_CampaignDebugCaseResult caseResult = CreateCampaignDebugCase(BuildCampaignDebugObservationCaseId(label), "observation", label, "report_snapshot");
 		caseResult.m_aEvidence.Insert(result);
 		string actual = ShortCampaignDebugLine(result, 420);
 		AddCampaignDebugAssertion(caseResult, "observation.generated", "read-only report text generated", actual, CampaignDebugStatus(generated), "observation report returned empty text");
-		AddCampaignDebugAssertion(caseResult, "observation.classifier", "read-only report has no failure classifier text", actual, CampaignDebugStatus(accepted), "observation report matched failure classifier text");
+		AddCampaignDebugAssertion(caseResult, "observation.classifier", "read-only report generated without access/service/dispatch errors", actual, CampaignDebugStatus(accepted), "observation report was unavailable or missing required access/service/dispatch coverage");
 		FinalizeCampaignDebugCaseFromAssertions(caseResult);
 		return caseResult;
 	}
@@ -13036,6 +13036,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		if (result.Contains("failed:") || result.Contains("admin required") || result.Contains("server required") || result.Contains("not ready") || result.Contains("could not"))
+			return false;
+		if (result.Contains("missing visible command:") || result.Contains("missing dispatch:"))
+			return false;
+
+		return true;
+	}
+
+	protected bool IsCampaignDebugObservationReportHealthy(string result)
+	{
+		if (result.IsEmpty())
+			return false;
+
+		if (result.Contains("admin required") || result.Contains("member required") || result.Contains("server required"))
+			return false;
+		if (result.Contains("service not ready") || result.Contains("state not ready") || result.Contains("service missing"))
 			return false;
 		if (result.Contains("missing visible command:") || result.Contains("missing dispatch:"))
 			return false;

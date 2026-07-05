@@ -7400,7 +7400,8 @@ class HST_PhysicalWarService
 			if (!member)
 				continue;
 
-			if (!group.AddAIEntityToGroup(member))
+			ApplyEntityFaction(member, activeGroup.m_sFactionKey);
+			if (!AttachFactionInfantryMemberToRuntimeGroup(group, member, activeGroup, i))
 			{
 				SCR_EntityHelper.DeleteEntityAndChildren(member);
 				continue;
@@ -7422,6 +7423,54 @@ class HST_PhysicalWarService
 			Print(string.Format("h-istasi | active group fallback infantry failed %1 faction %2 prefab %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, activeGroup.m_sPrefab), LogLevel.WARNING);
 
 		return spawnedCount;
+	}
+
+	protected bool AttachFactionInfantryMemberToRuntimeGroup(SCR_AIGroup group, IEntity member, HST_ActiveGroupState activeGroup, int index)
+	{
+		if (!group || !member || !activeGroup)
+			return false;
+
+		AIAgent agent = ResolveRuntimeMemberAIAgent(member);
+		if (!agent)
+		{
+			DebugLog(string.Format("active group direct fallback member attach failed %1 index %2: missing AI agent", activeGroup.m_sGroupId, index));
+			return false;
+		}
+
+		if (agent.GetParentGroup() == group)
+			return true;
+
+		group.AddAgentFromControlledEntity(member);
+		if (agent.GetParentGroup() != group)
+		{
+			if (!group.AddAIEntityToGroup(member))
+				group.AddAgent(agent);
+		}
+
+		if (agent.GetParentGroup() != group)
+		{
+			DebugLog(string.Format("active group direct fallback member attach failed %1 index %2: parent group did not match after attach", activeGroup.m_sGroupId, index));
+			return false;
+		}
+
+		agent.ActivateAI();
+		return true;
+	}
+
+	protected AIAgent ResolveRuntimeMemberAIAgent(IEntity member)
+	{
+		if (!member)
+			return null;
+
+		AIControlComponent control = AIControlComponent.Cast(member.FindComponent(AIControlComponent));
+		if (!control)
+			return null;
+
+		AIAgent agent = control.GetControlAIAgent();
+		if (agent)
+			return agent;
+
+		return control.GetAIAgent();
 	}
 
 	protected string SelectFactionInfantryCharacterPrefab(string factionKey, string groupId, int index)
