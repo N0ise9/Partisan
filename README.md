@@ -84,6 +84,9 @@ The repository contains a broad-alpha campaign foundation:
   command coverage smoke paths, clear failed-action text, HQ threat/Defend
   Petros reports, enemy order and physical-response reports, support
   ETA/status reports, balance/pacing diagnostics, and campaign-end summaries
+- Admin-only campaign debug controls expose one-button smoke, physical, and
+  full runtime verification profiles with status, cancel, cleanup, structured
+  result artifacts, and bootstrap identity/admin evidence
 - Persistent campaign win/loss state with schema-25 end reason, summary,
   elapsed time, strategic control, war level, FIA/enemy zone counts, and report
   generation state
@@ -132,12 +135,28 @@ eligibility/request/check/clear flows, zone capture/activation, arsenal
 reporting, vehicle cargo, garage capture/redeploy, nearby loot collection,
 loadout editor status/application, generated content reports, HQ asset rebuilds,
 command coverage and failed-action smoke reports, roster admin helpers,
-campaign reset, and small debug resource awards.
+campaign reset, one-button campaign debug verification, and small debug
+resource awards.
 Multiplayer clients use a player-owned request/RPC component;
 the server resolves the caller from ownership instead of trusting a client
 provided player ID. Petros opens this same menu path through contextual
 interactions, and the visible HQ arsenal is backed by the same server commands
 from the Arsenal/Loot tab.
+
+## Admin and Runtime Debug
+
+To grant h-istasi admin rights on a local or dedicated server, add the player's
+raw 17-digit SteamID64 to `membership.adminIdentityIds` in
+`$profile:h-istasi/HST_Settings.json`. Backend UUIDs, BattleEye GUIDs,
+`workbench_player_N` aliases, and per-session player IDs are not durable
+h-istasi admin tokens.
+
+The Admin tab exposes `Run Campaign Debug` profiles for `smoke`, `physical`,
+and `full` verification, plus status, cancel, and cleanup commands. Results are
+written under `$profile:h-istasi/debug` as structured JSON, summary text, and
+state-diff text. A valid admin grant should be visible in logs as a
+`settings SteamID64` runtime grant, and command-menu input diagnostics log the
+local `I` key/action path when troubleshooting menu access.
 
 ## Design Rules
 
