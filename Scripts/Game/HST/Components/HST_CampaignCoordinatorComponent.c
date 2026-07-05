@@ -840,10 +840,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return null;
 
-		HST_PlayerState player = m_Authorization.RegisterPlayer(m_State, identityId, isAdmin || IsSettingsAdminIdentity(identityId) || IsDeveloperFallbackAdminIdentity(identityId));
+		HST_PlayerState existingPlayer = null;
+		if (m_State)
+			existingPlayer = m_State.FindPlayer(identityId);
+		bool wasAdmin = existingPlayer && existingPlayer.m_bAdmin;
+		string adminGrantReason = ResolveRuntimeAdminGrantReason(0, identityId, isAdmin);
+		HST_PlayerState player = m_Authorization.RegisterPlayer(m_State, identityId, false);
 		ApplyRuntimeMembershipDefaults(player);
+		bool adminChanged = ApplyRuntimeAdminGrant(player, adminGrantReason, wasAdmin);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
+		if (adminChanged)
+			MarkMajorCampaignChange(false);
 		return player;
 	}
 
@@ -885,8 +893,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return null;
 
 		string resolvedIdentityId = m_PlayerLifecycle.ResolveIdentityId(playerId, identityId);
-		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, isAdmin || IsSettingsAdminIdentity(resolvedIdentityId) || IsServerListedAdminPlayer(playerId) || IsDeveloperFallbackAdminIdentity(resolvedIdentityId));
+		HST_PlayerState existingPlayer = null;
+		if (m_State)
+			existingPlayer = m_State.FindPlayer(resolvedIdentityId);
+		bool wasAdmin = existingPlayer && existingPlayer.m_bAdmin;
+		string adminGrantReason = ResolveRuntimeAdminGrantReason(playerId, resolvedIdentityId, isAdmin);
+		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, false);
 		ApplyRuntimeMembershipDefaults(player);
+		ApplyRuntimeAdminGrant(player, adminGrantReason, wasAdmin);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
 		if (player)
@@ -3202,8 +3216,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool teleported = TeleportCampaignDebugPlayerToHQ("bootstrap");
 		HST_CampaignDebugCaseResult bootstrapCase = CreateCampaignDebugCase("bootstrap.server_authoritative_active_campaign", "bootstrap", "campaign_foundation", "bootstrap");
 		bool serverAuthority = Replication.IsServer();
+		string debugActorIdentityId = ResolveTrustedIdentityId(m_iCampaignDebugPlayerId);
+		string debugActorSteamId64 = ResolvePlayerSteamId64(m_iCampaignDebugPlayerId);
+		string debugActorAdminReason = ResolveRuntimeAdminGrantReason(m_iCampaignDebugPlayerId, debugActorIdentityId);
+		bool settingsAdminProof = debugActorAdminReason.Contains("settings SteamID64");
+		bootstrapCase.m_aEvidence.Insert(string.Format("debug actor admin identity | backend %1 | steamID64 %2 | reason %3", EmptyCampaignDebugField(debugActorIdentityId), EmptyCampaignDebugField(debugActorSteamId64), EmptyCampaignDebugField(debugActorAdminReason)));
 		AddCampaignDebugAssertion(bootstrapCase, "bootstrap.server_authority", "Replication.IsServer true", string.Format("%1", serverAuthority), CampaignDebugStatus(serverAuthority), "campaign debug must run on the server");
 		AddCampaignDebugAssertion(bootstrapCase, "bootstrap.debug_actor_access", "admin/member/commander true", string.Format("%1", accessReady), CampaignDebugStatus(accessReady), "debug actor did not receive required command authority");
+		AddCampaignDebugAssertion(bootstrapCase, "bootstrap.debug_actor_admin_id", "admin grant reason uses configured SteamID64", EmptyCampaignDebugField(debugActorAdminReason), CampaignDebugStatus(settingsAdminProof, "WARN"), "admin authority was not proven through membership.adminIdentityIds SteamID64 matching");
 		AddCampaignDebugAssertion(bootstrapCase, "bootstrap.phase", "campaign phase ACTIVE after repair", string.Format("%1", m_State.m_ePhase), CampaignDebugStatus(ready && m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE), "campaign phase did not repair to active");
 		AddCampaignDebugAssertion(bootstrapCase, "bootstrap.hq_deployed", "HQ deployed true", string.Format("%1", m_State.m_bHQDeployed), CampaignDebugStatus(m_State.m_bHQDeployed), "HQ is not deployed");
 		AddCampaignDebugAssertion(bootstrapCase, "bootstrap.hq_hideout", "HQ hideout id non-empty", EmptyCampaignDebugField(m_State.m_sHQHideoutId), CampaignDebugStatus(!m_State.m_sHQHideoutId.IsEmpty()), "HQ hideout id missing");
@@ -20051,12 +20071,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return null;
 
 		string resolvedIdentityId = m_PlayerLifecycle.ResolveIdentityId(playerId, "");
-		bool known = m_State.FindPlayer(resolvedIdentityId) != null;
-		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, "", IsSettingsAdminIdentity(resolvedIdentityId) || IsServerListedAdminPlayer(playerId) || IsDeveloperFallbackAdminIdentity(resolvedIdentityId));
+		HST_PlayerState existingPlayer = m_State.FindPlayer(resolvedIdentityId);
+		bool known = existingPlayer != null;
+		bool wasAdmin = existingPlayer && existingPlayer.m_bAdmin;
+		string adminGrantReason = ResolveRuntimeAdminGrantReason(playerId, resolvedIdentityId);
+		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, "", false);
 		ApplyRuntimeMembershipDefaults(player);
+		bool adminChanged = ApplyRuntimeAdminGrant(player, adminGrantReason, wasAdmin);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
-		if (player && !known)
+		if (player && (!known || adminChanged))
 			MarkMajorCampaignChange(false);
 
 		return player;
@@ -20228,12 +20252,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool CanPlayerUseAdminActions(int playerId)
 	{
-		if (!m_Authorization)
+		if (!m_Authorization || !m_State)
 			return false;
 
 		EnsureSetupRegisteredPlayer(playerId);
 		string identityId = ResolveTrustedIdentityId(playerId);
-		EnsureDeveloperFallbackAdmin(identityId);
+		HST_PlayerState player = m_State.FindPlayer(identityId);
+		if (player)
+			ApplyRuntimeAdminGrant(player, ResolveRuntimeAdminGrantReason(playerId, identityId), player.m_bAdmin);
 		return m_Authorization.CanUseAdminActions(m_State, identityId);
 	}
 
@@ -20264,14 +20290,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return prefab.Contains("Aircraft") || prefab.Contains("Airplane") || prefab.Contains("Plane") || prefab.Contains("Helicopter") || prefab.Contains("Helicopters") || prefab.Contains("UH") || prefab.Contains("AH") || prefab.Contains("Mi-") || prefab.Contains("KA-") || prefab.Contains("Ka-");
 	}
 
-	protected bool IsSettingsAdminIdentity(string identityId)
-	{
-		if (!m_Settings || !m_Settings.m_Membership || identityId.IsEmpty())
-			return false;
-
-		return m_Settings.m_Membership.m_aAdminIdentityIds.Contains(identityId);
-	}
-
 	protected bool IsServerListedAdminPlayer(int playerId)
 	{
 		if (!Replication.IsServer() || playerId <= 0)
@@ -20285,64 +20303,134 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return backendApi && backendApi.IsListedServerAdmin(playerId);
 	}
 
-	protected bool IsDeveloperFallbackAdminIdentity(string identityId)
+	protected string ResolveRuntimeAdminGrantReason(int playerId, string identityId, bool explicitAdmin = false)
 	{
-		if (!m_Settings || !m_Settings.m_Debug || !m_Settings.m_Debug.m_bDebugMenuEnabled || identityId.IsEmpty())
-			return false;
+		if (explicitAdmin)
+			return "explicit runtime admin flag";
 
-		if (HasAnyAdminPlayer())
-			return false;
+		string settingsReason = ResolveSettingsAdminGrantReason(playerId, identityId);
+		if (!settingsReason.IsEmpty())
+			return settingsReason;
 
-		return identityId == "workbench_player_1";
+		if (IsServerListedAdminPlayer(playerId))
+			return "server listed admin";
+
+		return "";
 	}
 
-	protected void EnsureDeveloperFallbackAdmin(string identityId)
+	protected string ResolveSettingsAdminGrantReason(int playerId, string identityId = "")
 	{
-		if (!IsDeveloperFallbackAdminIdentity(identityId))
-			return;
+		if (!m_Settings || !m_Settings.m_Membership)
+			return "";
 
-		HST_PlayerState player = m_State.FindPlayer(identityId);
-		if (!player)
-			return;
-
-		player.m_bAdmin = true;
-		player.m_bMember = true;
-		player.m_bGuest = false;
-		Print(string.Format("h-istasi admin | granted Workbench fallback admin to %1", identityId));
-		MarkMajorCampaignChange();
-	}
-
-	protected bool HasAnyAdminPlayer()
-	{
-		if (!m_State)
-			return false;
-
-		foreach (HST_PlayerState player : m_State.m_aPlayers)
+		if (playerId > 0)
 		{
-			if (player && player.m_bAdmin)
+			string steamId64 = ResolvePlayerSteamId64(playerId);
+			if (MatchesSettingsAdminSteamId64(steamId64))
+				return "settings SteamID64 " + steamId64;
+		}
+
+		return "";
+	}
+
+	protected string ResolvePlayerSteamId64(int playerId)
+	{
+		if (!Replication.IsServer() || playerId <= 0)
+			return "";
+
+		BackendApi backendApi = GetGame().GetBackendApi();
+		if (!backendApi)
+			return "";
+
+		return backendApi.GetPlayerPlatformId(playerId);
+	}
+
+	protected bool MatchesSettingsAdminSteamId64(string candidate)
+	{
+		if (!m_Settings || !m_Settings.m_Membership || candidate.IsEmpty())
+			return false;
+
+		string normalizedCandidate = NormalizeAdminToken(candidate);
+		if (!IsSteamId64Format(normalizedCandidate))
+			return false;
+
+		foreach (string adminIdentityId : m_Settings.m_Membership.m_aAdminIdentityIds)
+		{
+			string normalizedToken = NormalizeAdminToken(adminIdentityId);
+			if (!IsSteamId64Format(normalizedToken))
+				continue;
+			if (normalizedToken == normalizedCandidate)
 				return true;
 		}
 
 		return false;
 	}
 
-	protected void ApplyRuntimeMembershipDefaults(HST_PlayerState player)
+	protected bool IsSteamId64Format(string normalized)
+	{
+		if (normalized.Length() != 17)
+			return false;
+
+		for (int i = 0; i < normalized.Length(); i++)
+		{
+			string character = normalized.Substring(i, 1);
+			if (!"0123456789".Contains(character))
+				return false;
+		}
+
+		return true;
+	}
+
+	protected string NormalizeAdminToken(string value)
+	{
+		if (value.IsEmpty())
+			return "";
+
+		string normalized = value.Trim();
+		normalized.Replace("\"", "");
+		normalized.ToLower();
+		return normalized;
+	}
+
+	protected bool ApplyRuntimeAdminGrant(HST_PlayerState player, string grantReason, bool wasAdmin)
+	{
+		if (!player || grantReason.IsEmpty())
+			return false;
+
+		bool changed;
+		if (!player.m_bAdmin)
+			changed = true;
+		if (!player.m_bMember)
+			changed = true;
+		if (player.m_bGuest)
+			changed = true;
+
+		player.m_bAdmin = true;
+		player.m_bMember = true;
+		player.m_bGuest = false;
+
+		if (!wasAdmin || changed)
+			Print(string.Format("h-istasi admin | granted runtime admin to %1 via %2", player.m_sIdentityId, grantReason));
+
+		return changed || !wasAdmin;
+	}
+
+	protected bool ApplyRuntimeMembershipDefaults(HST_PlayerState player)
 	{
 		if (!player || !m_Settings)
-			return;
+			return false;
+
+		bool changed;
 
 		if (!m_Settings.m_Membership.m_bMembershipEnabled)
 		{
+			if (!player.m_bMember || player.m_bGuest)
+				changed = true;
 			player.m_bMember = true;
 			player.m_bGuest = false;
 		}
 
-		if (IsSettingsAdminIdentity(player.m_sIdentityId))
-		{
-			player.m_bAdmin = true;
-			player.m_bMember = true;
-			player.m_bGuest = false;
-		}
+		return changed;
 	}
 
 	protected IEntity ResolveControlledPlayerEntity(int playerId)

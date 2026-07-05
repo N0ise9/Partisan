@@ -608,12 +608,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - A destructive full-campaign runner that calls member/commander APIs must normalize the clicking admin's authority for the run.
   - Admin status alone does not imply commander status. Temporarily make the actor member/commander while the runner executes, then restore the previous commander identity on completion.
   - This avoids false failures in commander-gated systems such as HQ rebuild, income, training, and support requests.
+  - Bootstrap evidence should record the debug actor's backend UUID, SteamID64, and admin grant reason. Treat missing SteamID64 settings proof as WARN when the actor is already admin by another path, not PASS.
 
-- Player identity for durable h-istasi permissions should use backend identity IDs, not session player IDs.
+- Player identity for h-istasi state and admin configuration use different durable IDs.
   - `PlayerId=2` is only a per-session connection id; it can change on reconnect and should not be stored in `membership.adminIdentityIds`.
-  - On the server, `GetGame().GetBackendApi().GetPlayerIdentityId(playerId)` returns the UUID shown in backend/network logs after authentication. Use that UUID for admin config and persistent member/commander state, with `workbench_player_N` only as a local/early fallback.
+  - `membership.adminIdentityIds` should only contain raw 17-digit SteamID64 values. Do not store backend UUIDs, `workbench_player_N`, prefixed aliases, or session player ids there.
+  - On the server, `GetGame().GetBackendApi().GetPlayerPlatformId(playerId)` exposes the SteamID64 value and can be proved in h-istasi grant logs.
+  - `GetGame().GetBackendApi().GetPlayerIdentityId(playerId)` returns the backend UUID shown in backend/network logs after authentication. Use that UUID for internal persistent player/member/commander state, with `workbench_player_N` only as a local/early bootstrap placeholder, not as an admin fallback.
   - If a player was registered before the backend identity was available, migrate the placeholder record and rewrite commander/loadout/undercover owner references once the UUID resolves.
-  - Server-host admin lists can be bridged through the session player id after connection: use `SCR_PlayerListedAdminManagerComponent.GetInstance().IsPlayerOnAdminList(playerId)` or `BackendApi.IsListedServerAdmin(playerId)` for runtime admin grants, but do not persist the session id as the durable h-istasi identity.
+  - Server-host admin lists can be bridged through the session player id after connection: use `SCR_PlayerListedAdminManagerComponent.GetInstance().IsPlayerOnAdminList(playerId)` or `BackendApi.IsListedServerAdmin(playerId)` for runtime admin grants, but do not persist the session id as the durable h-istasi identity. This is a separate native-server admin source, not a third `membership.adminIdentityIds` token type.
 
 - Full-campaign debug report classification must not scan stale aggregate text as if it belonged to the current action.
   - Mission-sweep runtime checks should inspect the selected mission instance, then append selected convoy diagnostics only for that mission. Global mission runtime reports include completed/failed historical mission records and can poison every later mission with old `failed:` text.

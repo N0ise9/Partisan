@@ -66,6 +66,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const ResourceName COMMAND_FEED_ROW_LAYOUT = "{A7B8C9D0012345C0}UI/layouts/HST/Rows/HST_CommandFeedRow.layout";
 	static const float POST_SETUP_INPUT_RECOVERY_SECONDS = 3.0;
 	static const float POST_SETUP_INPUT_REBIND_INTERVAL_SECONDS = 0.25;
+	static const float INPUT_DIAGNOSTIC_INTERVAL_SECONDS = 5.0;
+	static const int INPUT_DIAGNOSTIC_MAX_LINES = 12;
 	static const int COMMAND_ACTION_ROW_STRIDE = 70;
 	static const int TAB_WIDGET_ID_BASE = 10000;
 	static const int ACTION_WIDGET_ID_BASE = 30000;
@@ -142,6 +144,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bRowCreateLogSuppressed;
 	protected float m_fPostSetupInputRecoveryRemaining;
 	protected float m_fPostSetupInputRecoveryAccumulator;
+	protected float m_fInputDiagnosticAccumulator;
+	protected int m_iInputDiagnosticLineCount;
 	protected ScrollLayoutWidget m_ContentScroll;
 	protected ScrollLayoutWidget m_ActionScroll;
 	protected ScrollLayoutWidget m_FeedScroll;
@@ -261,6 +265,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_bCommandMenuInputConsumedThisFrame = false;
 			PollRawCommandMenuKey();
 			PollCommandMenuInput(inputManager);
+			TickInputDiagnostics(timeSlice, inputManager);
 
 			if (m_bMenuOpen)
 				inputManager.ActivateContext(MENU_CURSOR_CONTEXT);
@@ -620,6 +625,36 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		m_bRawIKeyDownLastFrame = keyDown;
+	}
+
+	protected void TickInputDiagnostics(float timeSlice, InputManager inputManager)
+	{
+		if (!IsDebugLoggingEnabled() || m_iInputDiagnosticLineCount >= INPUT_DIAGNOSTIC_MAX_LINES)
+			return;
+
+		m_fInputDiagnosticAccumulator += timeSlice;
+		if (m_fInputDiagnosticAccumulator < INPUT_DIAGNOSTIC_INTERVAL_SECONDS)
+			return;
+
+		m_fInputDiagnosticAccumulator = 0;
+		m_iInputDiagnosticLineCount++;
+
+		int rawState = Debug.KeyState(KeyCode.KC_I);
+		bool actionTriggered = inputManager && inputManager.GetActionTriggered(COMMAND_MENU_CUSTOM_ACTION);
+		string heartbeat = string.Format(
+			"h-istasi menu debug | input heartbeat localPlayer=%1 resolvedPlayer=%2 ownerPlayer=%3 localOwner=%4 inputRegistered=%5 configRegistered=%6 customBinding=%7 actionTriggered=%8 rawIState=%9",
+			SCR_PlayerController.GetLocalPlayerId(),
+			ResolveLocalPlayerId(),
+			ResolveOwnerPlayerId(m_OwnerEntity),
+			m_bIsLocalOwner,
+			m_bInputRegistered,
+			m_bInputConfigRegistered,
+			m_bCustomBindingReady,
+			actionTriggered,
+			rawState
+		);
+		heartbeat = heartbeat + string.Format(" setupBlocking=%1 menuOpen=%2 top=%3", HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()));
+		Print(heartbeat);
 	}
 
 	protected bool TryToggleCommandMenu(string source)
