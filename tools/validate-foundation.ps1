@@ -511,6 +511,8 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		'EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach")',
 		'PreparePetrosRuntimeEntity(petros, petrosPosition, "dedicated Petros spawn")',
 		'PreparePetrosRuntimeEntity(petros, petrosPosition, "base FIA Petros fallback")',
+		"HasPetrosRuntimeAIGroup",
+		"BuildPetrosAIGroupDebugSummary",
 		"m_PetrosEntity && !IsPetrosRuntimeTracked()",
 		"return IsLivingRuntimeEntity(m_PetrosEntity) && IsPetrosAIGroupTracked()"
 	)) {
@@ -3799,7 +3801,9 @@ foreach ($requiredGameMasterBudgetDiagnostic in @(
 foreach ($requiredGameMasterBudgetShimEntry in @(
 		"ResolveDisabledBudgetHeadroom",
 		"budgetSettings.SetCurrentBudget(disabledBudget)",
+		"HistasiCountManagedCurrentBudgetsAtDisabledHeadroom",
 		"HistasiCountBudgetDeficitCorrections",
+		"trackedHeadroom",
 		"deficitCorrections"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredGameMasterBudgetShimEntry)) {
@@ -7445,10 +7449,21 @@ foreach ($requiredPhase9RuntimeEntry in @(
 foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4",
 		'TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", true)',
-		"AIGroup direct faction infantry fallback attempted but still has zero agents"
+		"AIGroup direct faction infantry fallback attempted but still has zero agents",
+		"CountCampaignDebugRuntimeFactionMismatches",
+		"campaign debug faction audit"
 	)) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
 		throw "Active AIGroup population must force faction infantry fallback before the final grace attempt: $requiredActiveGroupPopulationRuntimeEntry"
+	}
+}
+foreach ($requiredRuntimeFactionAuditEntry in @(
+		"post_cleanup.runtime_factions",
+		"cleanup.runtime_factions",
+		"runtime_faction_mismatches"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredRuntimeFactionAuditEntry)) {
+		throw "Campaign debug cleanup must audit runtime group/vehicle faction mismatches: $requiredRuntimeFactionAuditEntry"
 	}
 }
 $phase9ContactIndex = $physicalWarServiceText.IndexOf("changed = UpdateMissionConvoyContact(state, mission) || changed;")

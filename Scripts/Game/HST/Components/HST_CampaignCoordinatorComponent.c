@@ -3537,13 +3537,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool deficitHandlerRegistered;
 		int managedBudgetCount;
 		int disabledHeadroomCount;
+		int trackedHeadroomCount;
 		int originalCapCount;
 		if (budgetEditor)
 		{
+			budgetEditor.HistasiRefreshGameMasterBudgetCaps();
 			capEnabled = budgetEditor.HistasiIsBudgetCapEnabledForDiagnostics();
 			deficitHandlerRegistered = budgetEditor.HistasiIsBudgetDeficitHandlerRegistered();
 			managedBudgetCount = budgetEditor.HistasiCountManagedBudgetTypes();
 			disabledHeadroomCount = budgetEditor.HistasiCountManagedBudgetsAtDisabledHeadroom();
+			trackedHeadroomCount = budgetEditor.HistasiCountManagedCurrentBudgetsAtDisabledHeadroom();
 			originalCapCount = budgetEditor.HistasiCountManagedBudgetsAtOriginalCap();
 			editorActual = budgetEditor.HistasiBuildGameMasterBudgetDiagnostics();
 		}
@@ -3551,13 +3554,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.editor", "budget editor diagnostics available when GM budget policy is testable", ShortCampaignDebugLine(editorActual, 260), CampaignDebugStatus(editorReady, "WARN"), "Game Master budget editor was not available for cap/deficit diagnostics");
 		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.managed_budget_count", string.Format("%1", managedBudgetCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.disabled_headroom_count", string.Format("%1", disabledHeadroomCount), "count");
+		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.tracked_headroom_count", string.Format("%1", trackedHeadroomCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.original_cap_count", string.Format("%1", originalCapCount), "count");
 
-		bool disabledShimOk = settingsEnabled || (editorReady && managedBudgetCount > 0 && !capEnabled && disabledHeadroomCount == managedBudgetCount && deficitHandlerRegistered);
+		bool disabledShimOk = settingsEnabled || (editorReady && managedBudgetCount > 0 && !capEnabled && disabledHeadroomCount == managedBudgetCount && trackedHeadroomCount == managedBudgetCount && deficitHandlerRegistered);
 		string disabledShimStatus = CampaignDebugStatus(disabledShimOk);
 		if (!editorReady)
 			disabledShimStatus = "WARN";
-		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.disabled_shim", "disabled GM budget mode disables placement caps, adds managed-budget headroom, and registers deficit correction", ShortCampaignDebugLine(editorActual, 260), disabledShimStatus, "disabled Game Master budget shim is not fully active");
+		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.disabled_shim", "disabled GM budget mode disables placement caps, adds cap/current headroom, and registers deficit correction", ShortCampaignDebugLine(editorActual, 260), disabledShimStatus, "disabled Game Master budget shim is not fully active");
 	}
 
 	protected bool CampaignDebugMissionHasCompatibleTarget(HST_MissionDefinition definition)
@@ -3812,6 +3816,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
 		if (m_HQ)
 		{
+			string petrosGroupReport = m_HQ.BuildPetrosAIGroupDebugSummary();
+			hqCase.m_aEvidence.Insert(petrosGroupReport);
+			AddCampaignDebugMetric(hqCase, "hq.petros.ai_group", string.Format("%1", m_HQ.HasPetrosRuntimeAIGroup()), "bool");
+			AddCampaignDebugAssertion(hqCase, "hq.petros.ai_group", "Petros AI agent is attached to the durable HQ AIGroup", petrosGroupReport, CampaignDebugStatus(m_HQ.HasPetrosRuntimeAIGroup()), "Petros runtime entity exists but is not attached to the HQ AIGroup");
 			AddCampaignDebugHQEntityAssertion(hqCase, "petros", "Petros", m_HQ.HasPetrosRuntimeEntity(), m_HQ.GetPetrosRuntimeEntityKey(), m_State.m_vPetrosPosition, m_HQ.GetPetrosRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "cache", "HQ cache", m_HQ.HasCacheRuntimeEntity(), m_HQ.GetCacheRuntimeEntityKey(), m_State.m_vHQCachePosition, m_HQ.GetCacheRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "arsenal", "HQ arsenal", m_HQ.HasArsenalRuntimeEntity(), m_HQ.GetArsenalRuntimeEntityKey(), m_State.m_vArsenalPosition, m_HQ.GetArsenalRuntimeEntityPosition(), 8.0);
@@ -5276,15 +5284,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int orphanGroups = CountCampaignDebugOrphanActiveGroups(groupExample);
 		int orphanMarkers = CountCampaignDebugOrphanMarkers(markerExample);
 		int missingBackingMarkers = CountCampaignDebugBackingStatesWithoutMarkers(missingMarkerExample);
+		string factionAuditEvidence = "physical war service missing";
+		int runtimeFactionMismatches = -1;
+		if (m_PhysicalWar)
+			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);
 
 		AddCampaignDebugMetric(leakCase, "post_cleanup.unexpected_active_missions", string.Format("%1", unexpectedActiveMissions), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_mission_assets", string.Format("%1", orphanAssets), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_active_groups", string.Format("%1", orphanGroups), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_markers", string.Format("%1", orphanMarkers), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkers), "count");
+		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.active_missions", "no unexpected active missions beyond the case under test", BuildCampaignDebugCountExample(unexpectedActiveMissions, activeMissionExample), CampaignDebugStatus(unexpectedActiveMissions == 0), "unexpected active mission leak after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.mission_assets", "no mission assets whose mission record is missing", BuildCampaignDebugCountExample(orphanAssets, assetExample), CampaignDebugStatus(orphanAssets == 0), "orphan mission assets after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.active_groups", "no active groups without zone/mission/support/order/QRF backing", BuildCampaignDebugCountExample(orphanGroups, groupExample), CampaignDebugStatus(orphanGroups == 0), "orphan active groups after source case " + sourceCase.m_sCaseId);
+		AddCampaignDebugAssertion(leakCase, "post_cleanup.runtime_factions", "all active runtime group and vehicle entities match their active-group faction", ShortCampaignDebugLine(factionAuditEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && runtimeFactionMismatches == 0, "BLOCKED"), "runtime faction mismatch after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.markers", "no visible markers whose linked backing state is missing", BuildCampaignDebugCountExample(orphanMarkers, markerExample), CampaignDebugStatus(orphanMarkers == 0, "WARN"), "orphan linked markers after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.backing_markers", "active missions/support/QRF records have marker backing or pending refresh evidence", BuildCampaignDebugCountExample(missingBackingMarkers, missingMarkerExample), CampaignDebugStatus(missingBackingMarkers == 0, "WARN"), "backing state is missing marker after source case " + sourceCase.m_sCaseId);
 		FinalizeCampaignDebugCaseFromAssertions(leakCase);
@@ -6214,6 +6228,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int orphanMarkerCount = CountCampaignDebugOrphanMarkers(orphanMarkerExample);
 		string missingMarkerExample;
 		int missingBackingMarkerCount = CountCampaignDebugBackingStatesWithoutMarkers(missingMarkerExample);
+		string factionAuditEvidence = "physical war service missing";
+		int runtimeFactionMismatches = -1;
+		if (m_PhysicalWar)
+			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);
 		AddCampaignDebugMetric(cleanupCase, "cleanup.active_missions", string.Format("%1", activeMissionCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.pending_player_support", string.Format("%1", pendingPlayerSupportCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.open_enemy_orders", string.Format("%1", openEnemyOrderCount), "count");
@@ -6222,6 +6240,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.markers", string.Format("%1", markerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.orphan_markers", string.Format("%1", orphanMarkerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkerCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.debug_prefixed_records", string.Format("%1", remainingPrefixedRecords), "count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.current_mission_id", "runner current/early mission ids empty", string.Format("current %1 | early %2", EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId), EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId)), CampaignDebugStatus(m_sCampaignDebugCurrentMissionInstanceId.IsEmpty() && m_sCampaignDebugEarlyMissionInstanceId.IsEmpty()), "runner still references a debug mission at completion");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.debug_prefixed_records", "no hst_debug-prefixed persisted records remain", BuildCampaignDebugCountExample(remainingPrefixedRecords, remainingPrefixExample), CampaignDebugStatus(remainingPrefixedRecords == 0), "debug-prefixed persisted state remains after cleanup");
@@ -6229,6 +6248,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.pending_player_support", "no queued/active player support requests", string.Format("%1", pendingPlayerSupportCount), CampaignDebugStatus(pendingPlayerSupportCount == 0, "WARN"), "player support requests remain queued or active after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.open_enemy_orders", "open enemy order count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartEnemyOrders, openEnemyOrderCount), CampaignDebugStatus(openEnemyOrderCount <= m_iCampaignDebugStartEnemyOrders, "WARN"), "enemy orders remain open above run-start count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.orphan_active_groups", "no active groups without zone/mission/support/order/QRF backing", BuildCampaignDebugCountExample(orphanGroupCount, orphanGroupExample) + string.Format(" | total %1 -> %2", m_iCampaignDebugStartActiveGroups, activeGroupCount), CampaignDebugStatus(orphanGroupCount == 0), "orphan active groups remain after debug run");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.runtime_factions", "all active runtime group and vehicle entities match their active-group faction", ShortCampaignDebugLine(factionAuditEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && runtimeFactionMismatches == 0, "BLOCKED"), "runtime faction mismatches remain after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.marker_orphans", "no visible markers whose linked backing state is missing", BuildCampaignDebugCountExample(orphanMarkerCount, orphanMarkerExample) + string.Format(" | total %1 -> %2", m_iCampaignDebugStartMarkers, markerCount), CampaignDebugStatus(orphanMarkerCount == 0, "WARN"), "visible linked markers remain without backing state after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.backing_markers", "active missions/support/QRF records have marker backing after final refresh", BuildCampaignDebugCountExample(missingBackingMarkerCount, missingMarkerExample), CampaignDebugStatus(missingBackingMarkerCount == 0, "WARN"), "backing state is missing marker after final cleanup refresh");
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);

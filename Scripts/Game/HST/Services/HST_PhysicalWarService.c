@@ -1887,6 +1887,41 @@ class HST_PhysicalWarService
 		return string.Format("group %1 | expected %2 | group entity %3 | vehicle entity %4 | mismatches %5 | sample %6", ReportText(activeGroup.m_sGroupId), ReportText(activeGroup.m_sFactionKey), ReportBool(groupEntityPresent), ReportBool(vehicleEntityPresent), mismatchCount, ReportText(sample));
 	}
 
+	int CountCampaignDebugRuntimeFactionMismatches(HST_CampaignState state, out string evidence)
+	{
+		evidence = "state missing";
+		if (!state)
+			return 0;
+
+		int runtimeGroupCount;
+		int checkedGroupCount;
+		int mismatchCount;
+		string firstMismatch;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_sFactionKey.IsEmpty())
+				continue;
+
+			bool groupEntityPresent = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId) != null;
+			bool vehicleEntityPresent = GetRuntimeVehicleEntity(activeGroup.m_sGroupId) != null;
+			if (!groupEntityPresent && !vehicleEntityPresent)
+				continue;
+
+			runtimeGroupCount++;
+			EnsureActiveGroupRuntimeFaction(activeGroup, "campaign debug faction audit");
+
+			string sample;
+			int activeGroupMismatches = CountActiveGroupRuntimeFactionMismatches(activeGroup, sample);
+			checkedGroupCount++;
+			mismatchCount += activeGroupMismatches;
+			if (activeGroupMismatches > 0 && firstMismatch.IsEmpty())
+				firstMismatch = BuildActiveGroupRuntimeFactionActual(activeGroup, activeGroupMismatches, sample, groupEntityPresent, vehicleEntityPresent);
+		}
+
+		evidence = string.Format("runtime groups %1 | checked %2 | mismatches %3 | first %4", runtimeGroupCount, checkedGroupCount, mismatchCount, ReportText(firstMismatch));
+		return mismatchCount;
+	}
+
 	protected string AppendConvoyDebugPhaseHistory(string summary, string phaseHistory)
 	{
 		if (phaseHistory.IsEmpty())

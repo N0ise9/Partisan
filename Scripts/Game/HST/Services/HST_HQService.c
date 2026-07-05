@@ -629,6 +629,23 @@ class HST_HQService
 		return BuildRuntimeEntityKey("petros", m_PetrosEntity);
 	}
 
+	bool HasPetrosRuntimeAIGroup()
+	{
+		return IsPetrosAIGroupTracked();
+	}
+
+	string BuildPetrosAIGroupDebugSummary()
+	{
+		AIAgent agent = ResolvePetrosAIAgent(m_PetrosEntity);
+		SCR_AIGroup group = SCR_AIGroup.Cast(m_PetrosGroupEntity);
+		SCR_AIGroup parentGroup;
+		if (agent)
+			parentGroup = agent.GetParentGroup();
+
+		bool parentMatches = group != null && parentGroup == group;
+		return string.Format("petros %1 | alive %2 | group %3 | agent %4 | parent matches %5", GetPetrosRuntimeEntityKey(), IsLivingRuntimeEntity(m_PetrosEntity), BuildRuntimeEntityKey("petros_group", m_PetrosGroupEntity), agent != null, parentMatches);
+	}
+
 	string GetCacheRuntimeEntityKey()
 	{
 		return BuildRuntimeEntityKey("cache", m_CacheEntity);

@@ -666,10 +666,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - HQ/Petros runtime proof must require a live character and a durable AI group.
   - A Petros entity handle is not sufficient. Dedicated-server logs can show `Petros character runtime was removed after spawn` when the character is spawned without being attached to a valid `SCR_AIGroup`.
   - After spawn or reattach, call `EnsurePetrosAIGroup()` and only count HQ runtime objects as spawned when Petros is alive and `IsPetrosAIGroupTracked()` is true. Delete ungrouped rediscovered Petros entities and respawn them through the grouped path.
+  - The campaign-debug HQ case should include an explicit `hq.petros.ai_group` assertion and `BuildPetrosAIGroupDebugSummary()` evidence. Do not rely only on aggregate `tracked_count 5/5` when debugging Petros spawn/reattach failures.
 
 - Active AI groups cannot wait until the final retry before proving live agents.
   - Native group prefabs can spawn an `SCR_AIGroup` with zero countable agents for several ticks on a dedicated server.
   - Queue one native `SpawnUnits()` retry, then force direct faction infantry fallback before the final population grace attempt. The fallback must use the active group's faction key and debug output must prove expected faction, live count, and zero mismatches for the spawned members.
+  - Post-case and final cleanup should run the physical-war runtime faction audit. `post_cleanup.runtime_factions` / `cleanup.runtime_factions` must report zero mismatches across live runtime group members and runtime vehicles, otherwise the run has not disproved the "everything spawned as FIA" failure.
 
 - Full-campaign debug report classification must not scan stale aggregate text as if it belonged to the current action.
   - Mission-sweep runtime checks should inspect the selected mission instance, then append selected convoy diagnostics only for that mission. Global mission runtime reports include completed/failed historical mission records and can poison every later mission with old `failed:` text.

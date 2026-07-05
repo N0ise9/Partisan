@@ -276,6 +276,28 @@ modded class SCR_BudgetEditorComponent
 		return count;
 	}
 
+	int HistasiCountManagedCurrentBudgetsAtDisabledHeadroom()
+	{
+		CaptureHistasiOriginalBudgetCaps();
+		if (!m_MaxBudgets)
+			return 0;
+
+		int count;
+		foreach (SCR_EntityBudgetValue maxBudget : m_MaxBudgets)
+		{
+			if (!maxBudget || !HST_GameMasterBudgetService.IsManagedBudgetType(maxBudget.GetBudgetType()))
+				continue;
+
+			EEditableEntityBudget budgetType = maxBudget.GetBudgetType();
+			int originalBudget = m_mHSTOriginalBudgetCaps.Get(budgetType);
+			int expectedBudget = HST_GameMasterBudgetService.ResolveDisabledBudgetHeadroom(originalBudget);
+			if (HistasiResolveCurrentBudgetValue(budgetType) >= expectedBudget)
+				count++;
+		}
+
+		return count;
+	}
+
 	int HistasiCountBudgetDeficitCorrections()
 	{
 		return m_iHSTBudgetDeficitCorrectionCount;
@@ -325,6 +347,7 @@ modded class SCR_BudgetEditorComponent
 			HistasiCountManagedBudgetsAtOriginalCap(),
 			HST_GameMasterBudgetService.BUDGET_HEADROOM_MULTIPLIER,
 			HistasiCountBudgetDeficitCorrections());
+		report = report + string.Format(" | trackedHeadroom %1", HistasiCountManagedCurrentBudgetsAtDisabledHeadroom());
 		return report + " | " + entries;
 	}
 
