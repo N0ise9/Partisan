@@ -6973,7 +6973,10 @@ class HST_PhysicalWarService
 			if (!entity)
 				failureReason = string.Format("Group prefab did not spawn: %1.", activeGroup.m_sPrefab);
 			else
+			{
+				StabilizeRuntimeAIGroupRoot(entity, activeGroup, "group prefab spawn");
 				agentCount = ResolveSpawnedAgentCount(entity, activeGroup);
+			}
 		}
 		else
 		{
@@ -7026,6 +7029,20 @@ class HST_PhysicalWarService
 		m_aRuntimeGroupEntities.Insert(entity);
 		DebugLog(string.Format("spawned active group %1 using %2 (%3 agents)", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, agentCount));
 		return true;
+	}
+
+	protected void StabilizeRuntimeAIGroupRoot(IEntity entity, HST_ActiveGroupState activeGroup, string source)
+	{
+		SCR_AIGroup group = SCR_AIGroup.Cast(entity);
+		if (!group)
+			return;
+
+		group.SetDeleteWhenEmpty(false);
+		group.SetMemberSpawnDelay(0);
+		if (activeGroup && activeGroup.m_iInfantryCount > 0)
+			group.SetMaxUnitsToSpawn(activeGroup.m_iInfantryCount);
+		if (activeGroup)
+			DebugLog(string.Format("active group stabilized native AIGroup root %1 deleteWhenEmpty false expected infantry %2 via %3", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, source));
 	}
 
 	protected void ConfirmSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, int attempt)
@@ -7121,6 +7138,7 @@ class HST_PhysicalWarService
 		if (!group)
 			return;
 
+		StabilizeRuntimeAIGroupRoot(entity, activeGroup, "pending population registration");
 		group.GetOnAllDelayedEntitySpawned().Remove(OnDelayedActiveGroupMembersSpawned);
 		group.GetOnAllDelayedEntitySpawned().Insert(OnDelayedActiveGroupMembersSpawned);
 		m_aPendingPopulationGroupIds.Insert(activeGroup.m_sGroupId);
@@ -7250,34 +7268,37 @@ class HST_PhysicalWarService
 		}
 
 		IEntity runtimeGroupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		SCR_AIGroup group;
 		if (!runtimeGroupEntity)
 		{
-			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: missing runtime group entity.";
-			DebugLog(string.Format("active group direct infantry fallback skipped %1: missing runtime group entity via %2", activeGroup.m_sGroupId, source));
-			return false;
+			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback replacing missing runtime group entity.";
+			DebugLog(string.Format("active group direct infantry fallback replacing missing runtime group entity %1 via %2", activeGroup.m_sGroupId, source));
+			group = ReplaceEmptyNativeGroupForDirectInfantry(activeGroup, null, source + " missing runtime group");
 		}
-
-		SCR_AIGroup group = SCR_AIGroup.Cast(runtimeGroupEntity);
-		if (!group)
+		else
 		{
-			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: runtime entity is not SCR_AIGroup.";
-			DebugLog(string.Format("active group direct infantry fallback skipped %1: runtime entity is not SCR_AIGroup via %2", activeGroup.m_sGroupId, source));
-			return false;
-		}
-		if (group.IsInitializing() && !allowInitializingFallback)
-		{
-			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: native group is still initializing.";
-			DebugLog(string.Format("active group direct infantry fallback skipped %1: native group still initializing via %2", activeGroup.m_sGroupId, source));
-			return false;
-		}
-		if (group.IsInitializing() && allowInitializingFallback)
-			DebugLog(string.Format("active group forcing direct infantry fallback while native group is still initializing %1 via %2", activeGroup.m_sGroupId, source));
+			group = SCR_AIGroup.Cast(runtimeGroupEntity);
+			if (!group)
+			{
+				activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: runtime entity is not SCR_AIGroup.";
+				DebugLog(string.Format("active group direct infantry fallback skipped %1: runtime entity is not SCR_AIGroup via %2", activeGroup.m_sGroupId, source));
+				return false;
+			}
+			if (group.IsInitializing() && !allowInitializingFallback)
+			{
+				activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: native group is still initializing.";
+				DebugLog(string.Format("active group direct infantry fallback skipped %1: native group still initializing via %2", activeGroup.m_sGroupId, source));
+				return false;
+			}
+			if (group.IsInitializing() && allowInitializingFallback)
+				DebugLog(string.Format("active group forcing direct infantry fallback while native group is still initializing %1 via %2", activeGroup.m_sGroupId, source));
 
-		int existingCount = CountAliveRuntimeNativeGroupAgents(activeGroup.m_sGroupId);
-		if (existingCount > 0)
-			return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " existing agents");
+			int existingCount = CountAliveRuntimeNativeGroupAgents(activeGroup.m_sGroupId);
+			if (existingCount > 0)
+				return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " existing agents");
 
-		group = ReplaceEmptyNativeGroupForDirectInfantry(activeGroup, group, source);
+			group = ReplaceEmptyNativeGroupForDirectInfantry(activeGroup, group, source);
+		}
 		if (!group)
 		{
 			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback failed: replacement group could not be created.";

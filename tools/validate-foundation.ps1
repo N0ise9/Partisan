@@ -7533,9 +7533,13 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"AIGroup direct faction infantry fallback attempted but still has zero agents",
 		"BuildFinalActiveGroupPopulationFailureReason",
 		"zero agents after grace | reason %3",
+		'StabilizeRuntimeAIGroupRoot(entity, activeGroup, "group prefab spawn")',
+		'StabilizeRuntimeAIGroupRoot(entity, activeGroup, "pending population registration")',
+		"active group stabilized native AIGroup root",
 		"Native SCR_AIGroup.SpawnUnits retry skipped",
 		"active group direct infantry fallback skipped",
-		"Direct faction infantry fallback skipped: missing runtime group entity.",
+		"Direct faction infantry fallback replacing missing runtime group entity.",
+		"active group direct infantry fallback replacing missing runtime group entity",
 		"CountCampaignDebugRuntimeFactionMismatches",
 		"campaign debug faction audit"
 	)) {
