@@ -120,6 +120,10 @@ campaigns. The same settings file also controls h-istasi's Game Master budget
 policy through `features.gameMasterBudgetsEnabled`, which defaults to `false`
 so GM placement budgets are disabled automatically on game start.
 
+During initial HQ placement the setup map owns keyboard input; complete HQ
+placement first, then `I` opens the command menu and server snapshots add the
+Admin tab for configured SteamID64 admins.
+
 - `MenuUp` / `MenuDown`: change selection
 - `MenuSelect`: run the selected command
 - `MenuBack` or `I`: close the menu

@@ -462,6 +462,10 @@ class HST_PlayerSpawnService
 		if (!state || !authorization || !lifecycle || playerId <= 0)
 			return null;
 
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (coordinator)
+			return coordinator.RegisterConnectedPlayer(playerId, "", false);
+
 		return lifecycle.RegisterConnectedPlayer(state, authorization, playerId, "", false);
 	}
 

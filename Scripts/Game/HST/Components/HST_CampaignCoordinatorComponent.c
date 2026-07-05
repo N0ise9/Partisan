@@ -899,6 +899,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_PlayerState existingPlayer = null;
 		if (m_State)
 			existingPlayer = m_State.FindPlayer(resolvedIdentityId);
+		bool known = existingPlayer != null;
 		bool wasAdmin = existingPlayer && existingPlayer.m_bAdmin;
 		string adminGrantReason = ResolveRuntimeAdminGrantReason(playerId, resolvedIdentityId, isAdmin);
 		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, false);
@@ -909,7 +910,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			displayNameChanged = m_PlayerLifecycle.RefreshPlayerDisplayName(player, playerId, resolvedIdentityId);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
-		if (player && (adminChanged || displayNameChanged || !wasAdmin))
+		if (player && (!known || adminChanged || displayNameChanged))
 			MarkMajorCampaignChange();
 		return player;
 	}
