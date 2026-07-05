@@ -2781,6 +2781,18 @@ foreach ($requiredSaveEntry in @(
 }
 Write-Host "Campaign save scaffold OK"
 
+foreach ($requiredPersistenceSmokeEntry in @(
+		"persistence.restore.report_exact",
+		"restoredReportHealthy",
+		"CampaignDebugPersistenceReportHealthy(restoredReport)",
+		"restored persistence smoke report failed or reported missing data"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredPersistenceSmokeEntry)) {
+		throw "Missing persistence smoke restored-report drift contract entry: $requiredPersistenceSmokeEntry"
+	}
+}
+Write-Host "Persistence smoke restored-report drift contract OK"
+
 foreach ($requiredSupportStrikeEntry in @(
 		"HST_SUPPORT_AIRSTRIKE_GBU",
 		"HST_SUPPORT_AIRSTRIKE_UMPK",
