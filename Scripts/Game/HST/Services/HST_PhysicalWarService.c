@@ -129,7 +129,7 @@ class HST_PhysicalWarService
 	static const string DIRECT_INFANTRY_GROUP_PREFAB = "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et";
 	static const string CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
-	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 30;
+	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45;
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT = 4;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_PLAYER_OFFSET_METERS = 90.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS = 36.0;
@@ -944,6 +944,8 @@ class HST_PhysicalWarService
 		bool friendlyRuntimeExists = GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId) != null;
 		bool enemyRuntimeExists = GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId) != null;
 		bool factionSplit = !m_sCampaignDebugCombatProbeFriendlyFaction.IsEmpty() && !m_sCampaignDebugCombatProbeEnemyFaction.IsEmpty() && m_sCampaignDebugCombatProbeFriendlyFaction != m_sCampaignDebugCombatProbeEnemyFaction;
+		string factionRelationActual;
+		bool factionsHostile = AreRuntimeFactionKeysHostile(m_sCampaignDebugCombatProbeFriendlyFaction, m_sCampaignDebugCombatProbeEnemyFaction, factionRelationActual);
 		bool friendlyAliveObserved = m_iCampaignDebugCombatProbeFriendlyStartAlive > 0 || m_iCampaignDebugCombatProbeFriendlyEndAlive > 0;
 		bool enemyAliveObserved = m_iCampaignDebugCombatProbeEnemyStartAlive > 0 || m_iCampaignDebugCombatProbeEnemyEndAlive > 0;
 		bool friendlyLossObserved = m_iCampaignDebugCombatProbeFriendlyStartAlive > 0 && m_iCampaignDebugCombatProbeFriendlyMinAlive >= 0 && m_iCampaignDebugCombatProbeFriendlyMinAlive < m_iCampaignDebugCombatProbeFriendlyStartAlive;
@@ -982,6 +984,7 @@ class HST_PhysicalWarService
 		probe.m_aEvidence.Insert("population | friendly " + ReportText(m_sCampaignDebugCombatProbeFriendlyPopulationEvidence) + " | enemy " + ReportText(m_sCampaignDebugCombatProbeEnemyPopulationEvidence));
 		probe.m_aEvidence.Insert("samples | " + ReportText(m_sCampaignDebugCombatProbeHistory));
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.faction_split", "temporary groups use resistance and enemy factions, not all FIA", string.Format("friendly %1 | enemy %2", ReportText(m_sCampaignDebugCombatProbeFriendlyFaction), ReportText(m_sCampaignDebugCombatProbeEnemyFaction)), ConvoyDebugStatus(factionSplit), "physical combat probe factions were not split between resistance and enemy", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.faction_hostility", "temporary group factions are mutually hostile in native faction relations", factionRelationActual, ConvoyDebugStatus(factionsHostile), "physical combat probe selected factions that are not mutually hostile", "", "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.friendly_runtime_faction", "friendly runtime group/entities are stamped with the resistance faction", BuildActiveGroupRuntimeFactionActual(friendlyGroup, friendlyFactionMismatches, friendlyFactionSample, friendlyRuntimeExists, false), ConvoyDebugStatus(friendlyFactionOk), "friendly combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeFriendlyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.enemy_runtime_faction", "enemy runtime group/entities are stamped with the enemy faction", BuildActiveGroupRuntimeFactionActual(enemyGroup, enemyFactionMismatches, enemyFactionSample, enemyRuntimeExists, false), ConvoyDebugStatus(enemyFactionOk), "enemy combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeEnemyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.active_group_records", "temporary active-group records exist for both sides during sample window", string.Format("friendly %1 | enemy %2", friendlyGroup != null, enemyGroup != null), ConvoyDebugStatus(friendlyGroup != null && enemyGroup != null), "temporary active-group records missing before cleanup", "", "", m_sCampaignDebugCombatProbeZoneId);
@@ -991,7 +994,7 @@ class HST_PhysicalWarService
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.search_waypoints", "both groups receive search-and-destroy waypoints toward the opposing side", string.Format("%1/2", m_iCampaignDebugCombatProbeWaypointCount), ConvoyDebugStatus(m_iCampaignDebugCombatProbeWaypointCount >= 2), "combat probe did not assign opposing search-and-destroy waypoints", "", "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.sample_window", "normal server tick samples the spawned groups across the configured combat window", string.Format("elapsed %1/%2 | samples %3 | last %4", elapsedSeconds, CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS, m_iCampaignDebugCombatProbeSampleCount, ReportText(m_sCampaignDebugCombatProbeLastObserved)), ConvoyDebugStatus(sampleWindowCovered), "physical combat probe did not collect enough timed samples", "", "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.contact_distance", "opposing groups reach direct contact distance or produce casualty evidence", string.Format("distance %1m | casualty %2", Math.Round(m_fCampaignDebugCombatProbeLastDistance), casualtyObserved), ConvoyDebugStatus(contactObserved), "opposing groups did not reach contact distance or casualty evidence", "", "", m_sCampaignDebugCombatProbeZoneId);
-		AddConvoyDebugProbeAssertion(probe, "physical_combat.casualty_resolution", "natural AI combat changes at least one side's live-count during the sample window", string.Format("friendly %1 -> min %2 -> %3 | enemy %4 -> min %5 -> %6", m_iCampaignDebugCombatProbeFriendlyStartAlive, m_iCampaignDebugCombatProbeFriendlyMinAlive, m_iCampaignDebugCombatProbeFriendlyEndAlive, m_iCampaignDebugCombatProbeEnemyStartAlive, m_iCampaignDebugCombatProbeEnemyMinAlive, m_iCampaignDebugCombatProbeEnemyEndAlive), ConvoyDebugStatus(casualtyObserved, "WARN"), "no live-count loss was observed during the physical combat window", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.casualty_resolution", "natural AI combat changes at least one side's live-count during the sample window", string.Format("friendly %1 -> min %2 -> %3 | enemy %4 -> min %5 -> %6", m_iCampaignDebugCombatProbeFriendlyStartAlive, m_iCampaignDebugCombatProbeFriendlyMinAlive, m_iCampaignDebugCombatProbeFriendlyEndAlive, m_iCampaignDebugCombatProbeEnemyStartAlive, m_iCampaignDebugCombatProbeEnemyMinAlive, m_iCampaignDebugCombatProbeEnemyEndAlive), ConvoyDebugStatus(casualtyObserved), "no live-count loss was observed during the physical combat window", "", "", m_sCampaignDebugCombatProbeZoneId);
 
 		bool cleaned = CleanupCampaignDebugPhysicalCombatProbeRuntime(state);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.cleanup", "temporary combat groups and waypoints are removed after result collection", BuildPhysicalCombatCleanupActual(state, cleaned), ConvoyDebugStatus(cleaned), "physical combat probe leaked temporary runtime or state records", "", "", m_sCampaignDebugCombatProbeZoneId);
@@ -1044,6 +1047,10 @@ class HST_PhysicalWarService
 
 	protected string ResolveCampaignDebugPhysicalCombatEnemyFaction(HST_CampaignPreset preset, string resistanceFaction)
 	{
+		if (preset && !preset.m_sOccupierFactionKey.IsEmpty() && preset.m_sOccupierFactionKey != resistanceFaction && AreRuntimeFactionKeysHostileOrUnknown(resistanceFaction, preset.m_sOccupierFactionKey))
+			return preset.m_sOccupierFactionKey;
+		if (preset && !preset.m_sInvaderFactionKey.IsEmpty() && preset.m_sInvaderFactionKey != resistanceFaction && AreRuntimeFactionKeysHostileOrUnknown(resistanceFaction, preset.m_sInvaderFactionKey))
+			return preset.m_sInvaderFactionKey;
 		if (preset && !preset.m_sOccupierFactionKey.IsEmpty() && preset.m_sOccupierFactionKey != resistanceFaction)
 			return preset.m_sOccupierFactionKey;
 		if (preset && !preset.m_sInvaderFactionKey.IsEmpty() && preset.m_sInvaderFactionKey != resistanceFaction)
@@ -1052,6 +1059,36 @@ class HST_PhysicalWarService
 			return "USSR";
 
 		return "US";
+	}
+
+	protected bool AreRuntimeFactionKeysHostileOrUnknown(string factionKeyA, string factionKeyB)
+	{
+		string actual;
+		if (AreRuntimeFactionKeysHostile(factionKeyA, factionKeyB, actual))
+			return true;
+
+		return actual.Contains("missing");
+	}
+
+	protected bool AreRuntimeFactionKeysHostile(string factionKeyA, string factionKeyB, out string actual)
+	{
+		actual = string.Format("friendly %1 | enemy %2 | relation missing", ReportText(factionKeyA), ReportText(factionKeyB));
+		if (factionKeyA.IsEmpty() || factionKeyB.IsEmpty() || GetGame() == null)
+			return false;
+
+		FactionManager factionManager = GetGame().GetFactionManager();
+		if (!factionManager)
+			return false;
+
+		Faction factionA = factionManager.GetFactionByKey(factionKeyA);
+		Faction factionB = factionManager.GetFactionByKey(factionKeyB);
+		if (!factionA || !factionB)
+			return false;
+
+		bool aHostileB = factionA.IsFactionEnemy(factionB);
+		bool bHostileA = factionB.IsFactionEnemy(factionA);
+		actual = string.Format("friendly %1 hostileToEnemy %2 | enemy %3 hostileToFriendly %4", ReportText(factionKeyA), ReportBool(aHostileB), ReportText(factionKeyB), ReportBool(bHostileA));
+		return aHostileB && bHostileA;
 	}
 
 	protected HST_ZoneState SelectCampaignDebugPhysicalCombatProbeZone(HST_CampaignState state, vector centerPosition)

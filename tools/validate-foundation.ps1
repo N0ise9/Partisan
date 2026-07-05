@@ -2843,6 +2843,22 @@ foreach ($requiredSupportRuntimeProbeEntry in @(
 }
 Write-Host "Physical support runtime debug proof OK"
 
+foreach ($requiredPhysicalCombatStrictEntry in @(
+		"CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45",
+		"physical_combat.faction_hostility",
+		"AreRuntimeFactionKeysHostile",
+		"IsFactionEnemy",
+		"ConvoyDebugStatus(casualtyObserved)"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredPhysicalCombatStrictEntry)) {
+		throw "Missing strict physical-combat runtime proof entry: $requiredPhysicalCombatStrictEntry"
+	}
+}
+if ($scriptText -match [regex]::Escape('ConvoyDebugStatus(casualtyObserved, "WARN")')) {
+	throw "Physical combat casualty resolution must be strict FAIL after the timed hostile-contact window, not WARN"
+}
+Write-Host "Physical combat strict proof OK"
+
 $externalOpforGroupCopies = @(Get-ChildItem -Path "Prefabs/Groups/OPFOR" -Directory -ErrorAction SilentlyContinue)
 if ($externalOpforGroupCopies.Count -gt 0) {
 	throw "External OPFOR group copies must not remain in the base-game preset"
