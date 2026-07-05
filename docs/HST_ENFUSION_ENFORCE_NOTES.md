@@ -133,6 +133,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - If a normal gameplay action previously used a `*_report` command id, expose a non-report gameplay id for the regular menu path so turning off the debug menu does not remove real gameplay controls.
   - Current examples: Overview undercover request/clear stays visible, Admin is omitted when debug menu is disabled, and Forces training uses `train_troops` instead of `train_troops_report`.
 
+- HQ arsenal user-action order must be proved from the runtime action manager.
+  - `ScriptedUserAction` exposes script hooks for names, visibility, and performability, but not a script-side priority/order override. For the HST HQ arsenal, keep the custom loadout action before the HQ menu action in `Prefabs/Objects/HST/HST_HQArsenal.et`, disable inherited stock arsenal actions through `HST_HQArsenalActionFilterComponent`, then assert the first selectable runtime action through `ActionsManagerComponent.GetActionsList()`.
+  - Treat the campaign-debug assertion `hq.arsenal.loadout_editor_first` plus the `h-istasi HQ arsenal actions` evidence row as the proof that the Loadout Editor is the first selectable arsenal option. If the row reports a different first selectable action, the prefab/action-filter order is wrong even if the editor can still be opened manually.
+
 - Layout defaults should match the script's first meaningful state.
   - For mode-driven screens, mark always-on chrome explicitly visible and mark inactive mode panels hidden in the layout.
   - Let script show the active mode panel during population instead of relying on a cleanup pass to hide every inactive panel after creation.

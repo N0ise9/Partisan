@@ -517,6 +517,68 @@ class HST_HQService
 		return IsUsableArsenalEntity(m_ArsenalEntity);
 	}
 
+	bool IsLoadoutEditorFirstArsenalSelectableAction(IEntity userEntity)
+	{
+		string firstActionKind;
+		string firstActionName;
+		int firstActionIndex;
+		return ResolveFirstArsenalSelectableAction(userEntity, firstActionKind, firstActionName, firstActionIndex) && firstActionKind == "loadout_editor";
+	}
+
+	string BuildArsenalActionSurfaceReport(IEntity userEntity)
+	{
+		if (!m_ArsenalEntity)
+			return "h-istasi HQ arsenal actions | entity missing";
+
+		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(m_ArsenalEntity.FindComponent(ActionsManagerComponent));
+		if (!actionsManager)
+			return "h-istasi HQ arsenal actions | actions manager missing";
+
+		array<BaseUserAction> actions = {};
+		int actionCount = actionsManager.GetActionsList(actions);
+		string firstActionKind;
+		string firstActionName;
+		int firstActionIndex;
+		bool firstResolved = ResolveFirstArsenalSelectableAction(userEntity, firstActionKind, firstActionName, firstActionIndex);
+
+		int loadoutIndex = -1;
+		int hqMenuIndex = -1;
+		int disabledCount;
+		int shownCount;
+		int selectableCount;
+		string rows;
+		for (int i = 0; i < actions.Count(); i++)
+		{
+			BaseUserAction action = actions[i];
+			if (!action)
+				continue;
+
+			string kind = ResolveArsenalActionKind(action);
+			if (kind == "loadout_editor")
+				loadoutIndex = i;
+			else if (kind == "hq_menu")
+				hqMenuIndex = i;
+
+			bool disabled = action.WasDisabledByServer();
+			bool shown = IsArsenalActionShown(action, userEntity);
+			bool selectable = IsArsenalActionSelectable(action, userEntity);
+			if (disabled)
+				disabledCount++;
+			if (shown)
+				shownCount++;
+			if (selectable)
+				selectableCount++;
+
+			rows = rows + string.Format("\n  #%1 %2 | %3 | disabled %4 | shown %5 | selectable %6", i, ResolveActionName(action), kind, disabled, shown, selectable);
+		}
+
+		string firstSummary = "none";
+		if (firstResolved)
+			firstSummary = string.Format("#%1 %2 | %3", firstActionIndex, firstActionName, firstActionKind);
+
+		return string.Format("h-istasi HQ arsenal actions | count %1 | disabled %2 | shown %3 | selectable %4 | first selectable %5 | loadout index %6 | HQ menu index %7%8", actionCount, disabledCount, shownCount, selectableCount, firstSummary, loadoutIndex, hqMenuIndex, rows);
+	}
+
 	vector GetPetrosRuntimeEntityPosition()
 	{
 		return ResolveRuntimeEntityPosition(ResolvePetrosRuntimeEntity());
@@ -1118,6 +1180,83 @@ class HST_HQService
 	{
 		string failure = ResolveArsenalReadinessFailure(arsenal, "0 0 0", false);
 		return failure.IsEmpty();
+	}
+
+	protected bool ResolveFirstArsenalSelectableAction(IEntity userEntity, out string actionKind, out string actionName, out int actionIndex)
+	{
+		actionKind = "";
+		actionName = "";
+		actionIndex = -1;
+		if (!m_ArsenalEntity)
+			return false;
+
+		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(m_ArsenalEntity.FindComponent(ActionsManagerComponent));
+		if (!actionsManager)
+			return false;
+
+		array<BaseUserAction> actions = {};
+		actionsManager.GetActionsList(actions);
+		for (int i = 0; i < actions.Count(); i++)
+		{
+			BaseUserAction action = actions[i];
+			if (!action || !IsArsenalActionSelectable(action, userEntity))
+				continue;
+
+			actionKind = ResolveArsenalActionKind(action);
+			actionName = ResolveActionName(action);
+			actionIndex = i;
+			return true;
+		}
+
+		return false;
+	}
+
+	protected bool IsArsenalActionShown(BaseUserAction action, IEntity userEntity)
+	{
+		if (!action || action.WasDisabledByServer())
+			return false;
+
+		if (!userEntity)
+			return true;
+
+		return action.CanBeShown(userEntity);
+	}
+
+	protected bool IsArsenalActionSelectable(BaseUserAction action, IEntity userEntity)
+	{
+		if (!IsArsenalActionShown(action, userEntity))
+			return false;
+
+		if (!userEntity)
+			return true;
+
+		return action.CanBePerformed(userEntity);
+	}
+
+	protected string ResolveArsenalActionKind(BaseUserAction action)
+	{
+		if (HST_HQArsenalLoadoutEditorAction.Cast(action))
+			return "loadout_editor";
+
+		if (HST_PetrosCommandMenuAction.Cast(action))
+			return "hq_menu";
+
+		if (action && action.WasDisabledByServer())
+			return "disabled_inherited";
+
+		return "other";
+	}
+
+	protected string ResolveActionName(BaseUserAction action)
+	{
+		if (!action)
+			return "missing";
+
+		string name = action.GetActionName();
+		if (name.IsEmpty())
+			name = "unnamed";
+
+		return name;
 	}
 
 	protected string ResolveArsenalReadinessFailure(IEntity arsenal, vector intendedPosition, bool checkPosition)

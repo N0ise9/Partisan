@@ -3691,6 +3691,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(hqCase, "hq.spawn_point.position", "spawn point position not zero", string.Format("%1 | prefab %2", m_State.m_vHQSpawnPointPosition, EmptyCampaignDebugField(m_State.m_sHQSpawnPointPrefab)), CampaignDebugStatus(!IsZeroVector(m_State.m_vHQSpawnPointPosition)), "HQ spawn point position is zero");
 		bool arsenalReady = !m_State.m_sHQArsenalRuntimeStatus.Contains("failed") && m_State.m_sLastHQArsenalFailure.IsEmpty();
 		AddCampaignDebugAssertion(hqCase, "hq.arsenal.status", "arsenal runtime status not failed", m_State.m_sHQArsenalRuntimeStatus + " | failure " + EmptyCampaignDebugField(m_State.m_sLastHQArsenalFailure), CampaignDebugStatus(arsenalReady), "HQ arsenal runtime status reports a failure");
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
 		if (m_HQ)
 		{
 			AddCampaignDebugHQEntityAssertion(hqCase, "petros", "Petros", m_HQ.HasPetrosRuntimeEntity(), m_HQ.GetPetrosRuntimeEntityKey(), m_State.m_vPetrosPosition, m_HQ.GetPetrosRuntimeEntityPosition(), 8.0);
@@ -3716,6 +3717,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugHQWorldScanAssertion(hqCase, "tent", "HQ tent", tentWorldCount);
 			AddCampaignDebugHQWorldScanAssertion(hqCase, "spawn_point", "HQ spawn point", spawnPointWorldCount);
 			AddCampaignDebugAssertion(hqCase, "hq.arsenal.entity_usable", "arsenal runtime entity has usable action surface", m_HQ.GetArsenalRuntimeEntityKey(), CampaignDebugStatus(m_HQ.IsArsenalRuntimeEntityUsable()), "HQ arsenal runtime entity is missing or failed readiness checks");
+			string arsenalActionReport = m_HQ.BuildArsenalActionSurfaceReport(playerEntity);
+			hqCase.m_aEvidence.Insert(arsenalActionReport);
+			string loadoutFirstStatus = CampaignDebugStatus(playerEntity != null && m_HQ.IsLoadoutEditorFirstArsenalSelectableAction(playerEntity), "BLOCKED");
+			if (playerEntity && !m_HQ.IsLoadoutEditorFirstArsenalSelectableAction(playerEntity))
+				loadoutFirstStatus = "FAIL";
+			AddCampaignDebugAssertion(hqCase, "hq.arsenal.loadout_editor_first", "Loadout Editor is the first selectable HQ arsenal action", ShortCampaignDebugLine(arsenalActionReport, 260), loadoutFirstStatus, "HQ arsenal action order does not expose Loadout Editor as the first selectable option");
 		}
 		else
 		{
@@ -3724,7 +3731,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
 		AddCampaignDebugAssertion(hqCase, "hq.marker.model", "HQ marker model exists", string.Format("%1", hqMarker != null), CampaignDebugStatus(hqMarker != null), "HQ marker state hst_hq missing");
 		AddCampaignDebugCommandMenuAvailabilityAssertions(hqCase);
-		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
 		if (!playerEntity)
 		{
 			m_bCampaignDebugPhysicalBlocked = true;
