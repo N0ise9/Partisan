@@ -162,6 +162,14 @@ state-diff text. A valid admin grant should be visible in logs as a
 `settings SteamID64` runtime grant, and command-menu input diagnostics log the
 local `I` key/action path when troubleshooting menu access.
 
+For dedicated server tests, repack/publish the Workbench addon before launching
+`serverStart.bat`. The server log must contain
+`h-istasi boot | authority build 2026-07-05-steam64-admin-menu-v3-package-proof`
+and the client log must contain
+`build=2026-07-05-menu-input-v3-package-proof` on the local command-menu ready
+line. If either line is missing, the server/client is running a stale packaged
+addon under `ArmaReforger/addons`, even if the repository has newer commits.
+
 ## Design Rules
 
 - Prefix addon-owned scripts and resources with `HST_`.

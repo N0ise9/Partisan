@@ -53,6 +53,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string COMMAND_MENU_INPUT_CONTEXT = "HST_CommandMenuContext";
 	static const string COMMAND_MENU_NATIVE_I_CONTEXT = "PlayerMenuContext";
+	static const string COMMAND_MENU_BUILD = "2026-07-05-menu-input-v3-package-proof";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
@@ -864,7 +865,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		m_bLoggedLocalReadyPrinted = true;
-		Print(string.Format("h-istasi menu | local command menu component ready via %1 | localPlayer=%2 ownerPlayer=%3 inputRegistered=%4 customBinding=%5", reason, SCR_PlayerController.GetLocalPlayerId(), ResolveOwnerPlayerId(m_OwnerEntity), m_bInputRegistered, m_bCustomBindingReady));
+		Print(string.Format("h-istasi menu | local command menu component ready via %1 | localPlayer=%2 ownerPlayer=%3 inputRegistered=%4 customBinding=%5 | build=%6", reason, SCR_PlayerController.GetLocalPlayerId(), ResolveOwnerPlayerId(m_OwnerEntity), m_bInputRegistered, m_bCustomBindingReady, COMMAND_MENU_BUILD));
 	}
 
 	protected void RefreshLocalOwnership(IEntity owner)

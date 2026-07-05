@@ -636,6 +636,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Bootstrap evidence should record the debug actor's backend UUID, SteamID64, and admin grant reason. Treat missing SteamID64 settings proof as WARN when the actor is already admin by another path, not PASS.
 
 - Player identity for h-istasi state and admin configuration use different durable IDs.
+  - Dedicated server admin/menu tests must first prove the packaged addon is current. The server log should print `h-istasi boot | authority build ...` from `HST_CampaignCoordinatorComponent`, and the client local-ready menu line should include the command-menu build stamp. If those current stamps are missing, the run is using a stale `ArmaReforger/addons/.../data.pak` package even if the Workbench repository has the fix.
   - `PlayerId=2` is only a per-session connection id; it can change on reconnect and should not be stored in `membership.adminIdentityIds`.
   - `membership.adminIdentityIds` should only contain raw 17-digit SteamID64 values. Do not store backend UUIDs, `workbench_player_N`, prefixed aliases, or session player ids there.
   - On the server, `GetGame().GetBackendApi().GetPlayerPlatformId(playerId)` is the intended script-side platform-id source for matching the SteamID64 value and should be proved in h-istasi grant logs. If that path does not match, log the backend UUID, platform-id candidate, and configured admin count before assuming the settings token is wrong.

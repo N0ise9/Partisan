@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-05-steam64-admin-menu-v2";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-05-steam64-admin-menu-v3-package-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -225,6 +225,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
+		Print(string.Format("h-istasi boot | authority build %1 | server coordinator loaded", RUNTIME_AUTHORITY_BUILD));
 		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
 		m_SettingsService = new HST_RuntimeSettingsService();
