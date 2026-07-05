@@ -566,7 +566,8 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		"WarnPetrosAIGroupFallback",
 		"HasPetrosRuntimeAIGroup",
 		"BuildPetrosAIGroupDebugSummary",
-		"SCR_AIGroup.Cast(agent.GetParentGroup())",
+		"AIGroup parentGroup",
+		"parentGroup = agent.GetParentGroup();",
 		"m_PetrosEntity && !IsLivingRuntimeEntity(m_PetrosEntity)",
 		"return IsLivingRuntimeEntity(m_PetrosEntity);",
 		'CampaignDebugStatus(m_HQ.HasPetrosRuntimeAIGroup(), "WARN")'
@@ -576,11 +577,11 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		throw "HQ runtime must preserve a living Petros character and report AIGroup attachment separately: $requiredPetrosGroupRuntimeEntry"
 	}
 }
-if ($hqServiceText -match '=\s*agent\.GetParentGroup\(\)') {
-	throw "HQ Petros runtime must cast AIAgent.GetParentGroup() through SCR_AIGroup.Cast before assigning to SCR_AIGroup"
+if ($hqServiceText -match 'SCR_AIGroup\.Cast\(agent\.GetParentGroup\(\)\)') {
+	throw "HQ Petros runtime must keep AIAgent.GetParentGroup() as base AIGroup; Workbench rejects casting that native return to SCR_AIGroup"
 }
 if ($hqServiceText -match 'agent\.GetParentGroup\(\)\s*[!=]=\s*group' -or $hqServiceText -match 'group\s*[!=]=\s*agent\.GetParentGroup\(\)') {
-	throw "HQ Petros runtime must cast AIAgent.GetParentGroup() before comparing it with tracked SCR_AIGroup"
+	throw "HQ Petros runtime must store AIAgent.GetParentGroup() in a base AIGroup variable before comparing it with tracked SCR_AIGroup"
 }
 if ($hqServiceText -match '\{000CD338713F2B5A\}Prefabs/AI/Groups/Group_Base\.et') {
 	throw "HQ Petros runtime must use the HST-owned non-deleting Petros group prefab instead of raw Group_Base"
