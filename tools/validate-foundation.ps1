@@ -7860,4 +7860,20 @@ foreach ($requiredPetrosQueueEntry in @(
 }
 Write-Host "Petros attack queue resource authority OK"
 
+foreach ($requiredPhase18BackgroundWarIsolationEntry in @(
+		"AbortCampaignDebugBackgroundWarPetrosOrders",
+		"background_war.unexpected_petros_orders",
+		"background_war.commander_tick.no_petros_attack",
+		"background-war debug probe does not own Defend Petros"
+	)) {
+	if ($coordinatorForCoverageText -notmatch [regex]::Escape($requiredPhase18BackgroundWarIsolationEntry)) {
+		throw "Phase 18 background-war Petros isolation is missing entry: $requiredPhase18BackgroundWarIsolationEntry"
+	}
+}
+$phase18BackgroundWarContext = [regex]::Match($coordinatorForCoverageText, "(?s)protected bool IsCampaignDebugExpectedBackgroundWarOrderType\(.*?\r?\n\t\}")
+if (!$phase18BackgroundWarContext.Success -or $phase18BackgroundWarContext.Value -match "HST_ENEMY_ORDER_PETROS_ATTACK") {
+	throw "Phase 18 background-war context must not accept Petros attack orders; Phase 22 owns Defend Petros"
+}
+Write-Host "Phase 18 background-war Petros isolation OK"
+
 Write-Host "h-istasi foundation validation passed"
