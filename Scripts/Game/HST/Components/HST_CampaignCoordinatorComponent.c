@@ -8711,6 +8711,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!probe)
 			return;
 
+		if (!label.IsEmpty())
+			probe.m_sCaseId = probe.m_sCaseId + "." + SafeCampaignDebugToken(label);
 		probe.m_aEvidence.Insert("runner label " + label);
 		probe.m_aEvidence.Insert("runtime ensure before probe " + string.Format("%1", runtimeEnsured));
 		RecordCampaignDebugCase(probe);

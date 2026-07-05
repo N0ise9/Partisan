@@ -450,8 +450,11 @@ class HST_PhysicalWarService
 			HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
 			IEntity vehicleEntity = GetRuntimeVehicleEntity(groupId);
 			IEntity crewEntity = GetRuntimeCrewGroupEntity(groupId);
+			string crewEntityMissingStatus = "FAIL";
+			if (readiness.m_bPendingGrace || IsConvoyCrewControlPending(state, activeGroup))
+				crewEntityMissingStatus = "WARN";
 			AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entity." + asset.m_sAssetId, "vehicle entity exists for asset", string.Format("group %1 | vehicle %2", groupId, vehicleEntity != null), ConvoyDebugStatus(vehicleEntity != null), "convoy vehicle entity missing", groupId, mission.m_sInstanceId);
-			AddConvoyDebugProbeAssertion(probe, "convoy.crew_entity." + asset.m_sAssetId, "crew entity exists for asset", string.Format("group %1 | crew %2", groupId, crewEntity != null), ConvoyDebugStatus(crewEntity != null), "convoy crew entity missing", groupId, mission.m_sInstanceId);
+			AddConvoyDebugProbeAssertion(probe, "convoy.crew_entity." + asset.m_sAssetId, "crew entity exists for asset", string.Format("group %1 | crew %2 | pending grace %3", groupId, crewEntity != null, readiness.m_bPendingGrace), ConvoyDebugStatus(crewEntity != null, crewEntityMissingStatus), "convoy crew entity missing", groupId, mission.m_sInstanceId);
 			if (activeGroup)
 			{
 				string groupWaypointStatus = "FAIL";
@@ -5600,9 +5603,9 @@ class HST_PhysicalWarService
 			if (m_aVehicleSpawnBlockedZoneIds[i] != zoneId)
 				continue;
 
-			m_aVehicleSpawnBlockedZoneIds.Remove(i);
 			if (i < m_aVehicleSpawnBlockedReasons.Count())
 				m_aVehicleSpawnBlockedReasons.Remove(i);
+			m_aVehicleSpawnBlockedZoneIds.Remove(i);
 		}
 	}
 
@@ -7281,13 +7284,13 @@ class HST_PhysicalWarService
 			if (m_aPendingPopulationGroupIds[i] != groupId)
 				continue;
 
-			m_aPendingPopulationGroupIds.Remove(i);
 			if (i < m_aPendingPopulationRequestedStatuses.Count())
 				m_aPendingPopulationRequestedStatuses.Remove(i);
 			if (i < m_aPendingPopulationActiveGroups.Count())
 				m_aPendingPopulationActiveGroups.Remove(i);
 			if (i < m_aPendingPopulationStates.Count())
 				m_aPendingPopulationStates.Remove(i);
+			m_aPendingPopulationGroupIds.Remove(i);
 		}
 	}
 
@@ -8038,9 +8041,9 @@ class HST_PhysicalWarService
 			if (deleteVehicle && vehicle)
 				SCR_EntityHelper.DeleteEntityAndChildren(vehicle);
 
-			m_aRuntimeVehicleGroupIds.Remove(j);
 			if (j < m_aRuntimeVehicleEntities.Count())
 				m_aRuntimeVehicleEntities.Remove(j);
+			m_aRuntimeVehicleGroupIds.Remove(j);
 		}
 	}
 
@@ -8057,9 +8060,9 @@ class HST_PhysicalWarService
 			if (entity)
 				SCR_EntityHelper.DeleteEntityAndChildren(entity);
 
-			m_aRuntimeGroupIds.Remove(i);
 			if (i < m_aRuntimeGroupEntities.Count())
 				m_aRuntimeGroupEntities.Remove(i);
+			m_aRuntimeGroupIds.Remove(i);
 		}
 	}
 
