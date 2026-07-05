@@ -4184,11 +4184,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			probeContext.m_sCommandResult = RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, requestedSupportType);
 
 		probeContext.m_Request = FindLatestCampaignDebugSupportRequest(requestedSupportType, probeContext.m_iCountBefore, requestedAtSecond);
+		CaptureCampaignDebugSupportRequestMarkerSnapshot(probeContext);
 		probeContext.m_bRuntimeProbeRan = ProbeCampaignDebugSupportRequestRuntime(probeContext);
 		RecordCampaignDebugAction(label, probeContext.m_sCommandResult);
 		HST_CampaignDebugCaseResult supportCase = BuildCampaignDebugSupportRequestCase(probeContext);
 		CleanupCampaignDebugSupportRuntimeProbe(probeContext.m_Request);
 		RecordCampaignDebugCase(supportCase);
+	}
+
+	protected void CaptureCampaignDebugSupportRequestMarkerSnapshot(HST_CampaignDebugSupportProbeContext probeContext)
+	{
+		if (!probeContext || !probeContext.m_Request)
+			return;
+
+		RefreshCampaignMarkers();
+		HST_MapMarkerState marker = FindCampaignDebugMarkerLinkedTo(probeContext.m_Request.m_sRequestId);
+		probeContext.m_bMarkerVisibleAfterRequest = marker != null;
+		probeContext.m_sMarkerActualAfterRequest = "after request | " + BuildCampaignDebugMarkerActual(marker);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportRequestCase(HST_CampaignDebugSupportProbeContext probeContext)
@@ -4227,7 +4239,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ZoneState targetZoneState = null;
 		if (m_State)
 			targetZoneState = m_State.FindZone(observedSupportRequest.m_sTargetZoneId);
-		HST_MapMarkerState linkedMarkerState = FindCampaignDebugMarkerLinkedTo(observedSupportRequest.m_sRequestId);
+		bool markerVisible = probeContext.m_bMarkerVisibleAfterRequest;
+		string markerActual = probeContext.m_sMarkerActualAfterRequest;
+		if (markerActual.IsEmpty())
+		{
+			HST_MapMarkerState linkedMarkerState = FindCampaignDebugMarkerLinkedTo(observedSupportRequest.m_sRequestId);
+			markerVisible = linkedMarkerState != null;
+			markerActual = "current | " + BuildCampaignDebugMarkerActual(linkedMarkerState);
+		}
 		int moneyDelta = 0;
 		if (m_State)
 			moneyDelta = m_State.m_iFactionMoney - probeContext.m_iMoneyBefore;
@@ -4250,7 +4269,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(supportCase, "support.target_position", "target position not zero", string.Format("%1", observedSupportRequest.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(observedSupportRequest.m_vTargetPosition)), "support target position is zero", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugAssertion(supportCase, "support.eta", "ETA seconds > 0", string.Format("%1", observedSupportRequest.m_iETASeconds), CampaignDebugStatus(observedSupportRequest.m_iETASeconds > 0), "support request ETA is not positive", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugAssertion(supportCase, "support.money_cost", "money delta equals request money cost", string.Format("%1 | request cost %2", moneyDelta, observedSupportRequest.m_iMoneyCost), CampaignDebugStatus(moneyDelta == -observedSupportRequest.m_iMoneyCost), "support request money cost was not applied exactly", observedSupportRequest.m_sRequestId);
-		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published or pending refresh", string.Format("%1", linkedMarkerState != null), CampaignDebugStatus(linkedMarkerState != null, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published immediately after request before runtime resolution", markerActual, CampaignDebugStatus(markerVisible, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest);
 	}
 

@@ -76,6 +76,8 @@ class HST_CampaignDebugSupportProbeContext
 	int m_iCountBefore;
 	int m_iMoneyBefore;
 	HST_SupportRequestState m_Request;
+	bool m_bMarkerVisibleAfterRequest;
+	string m_sMarkerActualAfterRequest;
 	bool m_bRuntimeProbeRan;
 	int m_iEtaRemainingBefore = -1;
 	int m_iEtaRemainingAfter = -1;

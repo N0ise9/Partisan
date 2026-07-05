@@ -2879,6 +2879,9 @@ foreach ($requiredSupportRuntimeProbeEntry in @(
 		"support.physical_spawn_probe_ran",
 		"support.physical_spawn_probe_changed",
 		"m_bPendingPopulationResolvedBeforeRoute",
+		"CaptureCampaignDebugSupportRequestMarkerSnapshot",
+		"m_bMarkerVisibleAfterRequest",
+		"linked support marker published immediately after request before runtime resolution",
 		"support.physical_terminal_resolution"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSupportRuntimeProbeEntry)) {
