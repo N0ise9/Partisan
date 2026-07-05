@@ -1,6 +1,8 @@
 class HST_ConvoyReadinessStatus
 {
 	int m_iVehicleAssetCount;
+	int m_iActiveVehicleAssetCount;
+	int m_iResolvedVehicleAssetCount;
 	int m_iSpawnedVehicleCount;
 	int m_iCrewGroupCount;
 	int m_iAliveCrewGroupCount;
@@ -413,6 +415,8 @@ class HST_PhysicalWarService
 		string populationEvidence = ResolveCampaignDebugMissionConvoyPopulation(state, mission, populationAttempted, populationResolved, populationUnresolved, populationSeatingChanged, populationWaypointChanged);
 		HST_ConvoyReadinessStatus readiness = BuildMissionConvoyReadinessStatus(state, mission);
 		AddConvoyDebugProbeMetric(probe, "convoy.assets.vehicle_count", string.Format("%1", readiness.m_iVehicleAssetCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.assets.active_vehicle_count", string.Format("%1", readiness.m_iActiveVehicleAssetCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.assets.resolved_vehicle_count", string.Format("%1", readiness.m_iResolvedVehicleAssetCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.vehicles.spawned", string.Format("%1", readiness.m_iSpawnedVehicleCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.crew.groups", string.Format("%1", readiness.m_iCrewGroupCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.crew.alive", string.Format("%1", readiness.m_iAliveCrewCount), "count");
@@ -429,15 +433,18 @@ class HST_PhysicalWarService
 			pendingGraceStatus = "WARN";
 		string populationActual = string.Format("attempted %1 | resolved %2 | unresolved %3 | seating %4 | waypoints %5", populationAttempted, populationResolved, populationUnresolved, ReportBool(populationSeatingChanged), ReportBool(populationWaypointChanged));
 		populationActual = populationActual + string.Format(" | evidence %1", ReportText(populationEvidence));
+		int activeVehicleAssets = readiness.m_iActiveVehicleAssetCount;
+		string assetCountActual = string.Format("planned %1 | active %2 | resolved %3", readiness.m_iVehicleAssetCount, activeVehicleAssets, readiness.m_iResolvedVehicleAssetCount);
 		AddConvoyDebugProbeAssertion(probe, "convoy.crew.population", "pending convoy crew groups have durable runtime agents before readiness is judged", populationActual, ConvoyDebugStatus(populationUnresolved == 0), "convoy crew population remained pending or unresolved before readiness assertions", "", mission.m_sInstanceId);
-		AddConvoyDebugProbeAssertion(probe, "convoy.assets.vehicle_count", "vehicle assets >= 3", string.Format("%1", readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iVehicleAssetCount >= 3), "convoy has fewer than three vehicle assets");
-		AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entities.spawned", "spawned vehicle entities == vehicle asset count", string.Format("%1/%2", readiness.m_iSpawnedVehicleCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iVehicleAssetCount > 0 && readiness.m_iSpawnedVehicleCount >= readiness.m_iVehicleAssetCount), "not every convoy vehicle asset has a runtime vehicle entity");
-		AddConvoyDebugProbeAssertion(probe, "convoy.crew.groups", "crew group count >= vehicle count", string.Format("%1/%2 | pending grace %3", readiness.m_iCrewGroupCount, readiness.m_iVehicleAssetCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iCrewGroupCount >= readiness.m_iVehicleAssetCount && readiness.m_iCrewGroupCount >= 3, pendingGraceStatus), "not every convoy vehicle has a crew group");
+		AddConvoyDebugProbeAssertion(probe, "convoy.assets.vehicle_count", "planned vehicle assets >= 3", assetCountActual, ConvoyDebugStatus(readiness.m_iVehicleAssetCount >= 3), "convoy has fewer than three planned vehicle assets");
+		AddConvoyDebugProbeAssertion(probe, "convoy.assets.active_vehicle_count", "active unresolved vehicle assets >= 3 before movement proof", assetCountActual, ConvoyDebugStatus(activeVehicleAssets >= 3), "convoy has fewer than three active unresolved vehicle assets");
+		AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entities.spawned", "spawned vehicle entities == active vehicle asset count", string.Format("%1/%2 active | planned %3 | resolved %4", readiness.m_iSpawnedVehicleCount, activeVehicleAssets, readiness.m_iVehicleAssetCount, readiness.m_iResolvedVehicleAssetCount), ConvoyDebugStatus(activeVehicleAssets >= 3 && readiness.m_iSpawnedVehicleCount >= activeVehicleAssets), "not every active convoy vehicle asset has a runtime vehicle entity");
+		AddConvoyDebugProbeAssertion(probe, "convoy.crew.groups", "crew group count >= active vehicle count", string.Format("%1/%2 active | pending grace %3", readiness.m_iCrewGroupCount, activeVehicleAssets, readiness.m_bPendingGrace), ConvoyDebugStatus(activeVehicleAssets >= 3 && readiness.m_iCrewGroupCount >= activeVehicleAssets, pendingGraceStatus), "not every active convoy vehicle has a crew group");
 		AddConvoyDebugProbeAssertion(probe, "convoy.crew.alive", "alive crew count > 0", string.Format("%1 | pending grace %2", readiness.m_iAliveCrewCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iAliveCrewCount > 0, pendingGraceStatus), "convoy crew groups have no living crew");
-		AddConvoyDebugProbeAssertion(probe, "convoy.crew.driver_seated", "driver available for every moving vehicle", string.Format("%1/%2 | pending grace %3", readiness.m_iDriverAvailableCount, readiness.m_iVehicleAssetCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iDriverAvailableCount >= readiness.m_iVehicleAssetCount && readiness.m_iDriverAvailableCount >= 3, pendingGraceStatus), "not every convoy vehicle has a seated living driver");
-		AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entities.mobile", "mobile vehicle count == vehicle asset count", string.Format("%1/%2", readiness.m_iMobileVehicleCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iMobileVehicleCount >= readiness.m_iVehicleAssetCount && readiness.m_iMobileVehicleCount >= 3), "not every convoy vehicle is mobile");
-		AddConvoyDebugProbeAssertion(probe, "convoy.route.assigned", "route assigned count == vehicle asset count", string.Format("%1/%2 | pending grace %3", readiness.m_iRouteAssignedCount, readiness.m_iVehicleAssetCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iRouteAssignedCount >= readiness.m_iVehicleAssetCount && readiness.m_iRouteAssignedCount >= 3, pendingGraceStatus), "not every convoy group has the mission route assigned");
-		AddConvoyDebugProbeAssertion(probe, "convoy.route.waypoints", "waypoint assigned count == vehicle asset count", string.Format("%1/%2 | pending grace %3", readiness.m_iWaypointAssignedCount, readiness.m_iVehicleAssetCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iWaypointAssignedCount >= readiness.m_iVehicleAssetCount && readiness.m_iWaypointAssignedCount >= 3, pendingGraceStatus), "not every convoy group has runtime waypoints assigned");
+		AddConvoyDebugProbeAssertion(probe, "convoy.crew.driver_seated", "driver available for every moving vehicle", string.Format("%1/%2 active | pending grace %3", readiness.m_iDriverAvailableCount, activeVehicleAssets, readiness.m_bPendingGrace), ConvoyDebugStatus(activeVehicleAssets >= 3 && readiness.m_iDriverAvailableCount >= activeVehicleAssets, pendingGraceStatus), "not every convoy vehicle has a seated living driver");
+		AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entities.mobile", "mobile vehicle count == active vehicle asset count", string.Format("%1/%2 active", readiness.m_iMobileVehicleCount, activeVehicleAssets), ConvoyDebugStatus(activeVehicleAssets >= 3 && readiness.m_iMobileVehicleCount >= activeVehicleAssets), "not every active convoy vehicle is mobile");
+		AddConvoyDebugProbeAssertion(probe, "convoy.route.assigned", "route assigned count == active vehicle asset count", string.Format("%1/%2 active | pending grace %3", readiness.m_iRouteAssignedCount, activeVehicleAssets, readiness.m_bPendingGrace), ConvoyDebugStatus(activeVehicleAssets >= 3 && readiness.m_iRouteAssignedCount >= activeVehicleAssets, pendingGraceStatus), "not every convoy group has the mission route assigned");
+		AddConvoyDebugProbeAssertion(probe, "convoy.route.waypoints", "waypoint assigned count == active vehicle asset count", string.Format("%1/%2 active | pending grace %3", readiness.m_iWaypointAssignedCount, activeVehicleAssets, readiness.m_bPendingGrace), ConvoyDebugStatus(activeVehicleAssets >= 3 && readiness.m_iWaypointAssignedCount >= activeVehicleAssets, pendingGraceStatus), "not every convoy group has runtime waypoints assigned");
 		AddConvoyDebugProbeAssertion(probe, "convoy.readiness.ready_to_move", "convoy ready-to-move state true", readiness.m_sReason, ConvoyDebugStatus(readiness.m_bReadyToMove, "WARN"), "convoy readiness is not complete yet");
 
 		HST_GeneratedRouteState route = ResolveMissionConvoyRoute(state, mission);
@@ -599,9 +606,9 @@ class HST_PhysicalWarService
 			probe.m_aEvidence.Insert("convoy route timeout | " + routeTimeoutEvidence);
 		if (!factionMismatchEvidence.IsEmpty())
 			probe.m_aEvidence.Insert("convoy faction mismatch | " + factionMismatchEvidence);
-		AddConvoyDebugProbeAssertion(probe, "convoy.movement.sample_count", "progress sample exists for each convoy vehicle", string.Format("%1/%2 sampled | missing %3", progressSampledCount, readiness.m_iVehicleAssetCount, missingProgressCount), ConvoyDebugStatus(progressSampledCount >= readiness.m_iVehicleAssetCount && missingProgressCount == 0, "WARN"), "one or more convoy vehicles have no movement sample yet");
-		AddConvoyDebugProbeAssertion(probe, "convoy.movement.repeated_sample_count", "at least two progress samples exist for each convoy vehicle", string.Format("%1/%2 repeated | phases %3", repeatedProgressSampledCount, readiness.m_iVehicleAssetCount, ReportText(convoyPhaseHistory)), ConvoyDebugStatus(repeatedProgressSampledCount >= readiness.m_iVehicleAssetCount && readiness.m_iVehicleAssetCount > 0, "WARN"), "one or more convoy vehicles lack a repeated movement-window sample");
-		AddConvoyDebugProbeAssertion(probe, "convoy.movement.distance_decrease_count", "each convoy vehicle closes at least 25m toward destination during sampled movement window", string.Format("%1/%2 closed >= 25m | best closed %3m | best moved %4m", distanceDecreaseSampledCount, readiness.m_iVehicleAssetCount, Math.Round(bestDistanceClosedMeters), Math.Round(bestMovementMeters)), ConvoyDebugStatus(distanceDecreaseSampledCount >= readiness.m_iVehicleAssetCount && readiness.m_iVehicleAssetCount > 0, "WARN"), "one or more convoy vehicles did not prove a 25m destination-distance decrease");
+		AddConvoyDebugProbeAssertion(probe, "convoy.movement.sample_count", "progress sample exists for each active convoy vehicle", string.Format("%1/%2 sampled | missing %3", progressSampledCount, activeVehicleAssets, missingProgressCount), ConvoyDebugStatus(activeVehicleAssets >= 3 && progressSampledCount >= activeVehicleAssets && missingProgressCount == 0, "WARN"), "one or more active convoy vehicles have no movement sample yet");
+		AddConvoyDebugProbeAssertion(probe, "convoy.movement.repeated_sample_count", "at least two progress samples exist for each active convoy vehicle", string.Format("%1/%2 repeated | phases %3", repeatedProgressSampledCount, activeVehicleAssets, ReportText(convoyPhaseHistory)), ConvoyDebugStatus(activeVehicleAssets >= 3 && repeatedProgressSampledCount >= activeVehicleAssets, "WARN"), "one or more active convoy vehicles lack a repeated movement-window sample");
+		AddConvoyDebugProbeAssertion(probe, "convoy.movement.distance_decrease_count", "each active convoy vehicle closes at least 25m toward destination during sampled movement window", string.Format("%1/%2 closed >= 25m | best closed %3m | best moved %4m", distanceDecreaseSampledCount, activeVehicleAssets, Math.Round(bestDistanceClosedMeters), Math.Round(bestMovementMeters)), ConvoyDebugStatus(activeVehicleAssets >= 3 && distanceDecreaseSampledCount >= activeVehicleAssets, "WARN"), "one or more active convoy vehicles did not prove a 25m destination-distance decrease");
 		string convoyPhaseActual = string.Format("mission phase %1 | sampled phases %2", ReportText(mission.m_sRuntimePhase), ReportText(convoyPhaseHistory));
 		bool convoyTravelPhaseObserved = ConvoyDebugPhaseHistoryHasTravelPhase(convoyPhaseHistory) || ConvoyDebugPhaseIsTravelOrTerminal(mission.m_sRuntimePhase);
 		bool convoyContactOrTerminalObserved = ConvoyDebugPhaseHistoryHasPhase(convoyPhaseHistory, MISSION_CONVOY_CONTACT) || ConvoyDebugPhaseHistoryHasTerminalPhase(convoyPhaseHistory) || mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT || ConvoyDebugPhaseIsTerminal(mission.m_sRuntimePhase);
@@ -611,20 +618,20 @@ class HST_PhysicalWarService
 		AddConvoyDebugProbeAssertion(probe, "convoy.phase.terminal_history", "sample history or final phase includes arrival or elimination when a terminal condition is driven", convoyPhaseActual, ConvoyDebugStatus(convoyTerminalObserved, "WARN"), "convoy probe has not yet proven arrival/elimination terminal phase evidence");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.hard_stuck_count", "hard-stuck count 0", string.Format("%1", hardStuckCount), ConvoyDebugStatus(hardStuckCount == 0), "one or more convoy vehicles are hard-stuck");
 		string routeTimeoutStatus = "PASS";
-		if (movementWindowCount < readiness.m_iVehicleAssetCount || readiness.m_iVehicleAssetCount <= 0)
+		if (movementWindowCount < activeVehicleAssets || activeVehicleAssets <= 0)
 			routeTimeoutStatus = "WARN";
 		if (routeTimeoutCount > 0)
 			routeTimeoutStatus = "FAIL";
 		else if (pendingStallWindowCount > 0)
 			routeTimeoutStatus = "WARN";
-		string routeTimeoutActual = string.Format("timed out %1/%2 | pending %3 | sampled windows %4 | window %5/%6s | evidence %7", routeTimeoutCount, readiness.m_iVehicleAssetCount, pendingStallWindowCount, movementWindowCount, maxRouteTimeoutSeconds, CONVOY_ROUTE_REISSUE_THRESHOLD_SECONDS, ReportText(routeTimeoutEvidence));
+		string routeTimeoutActual = string.Format("timed out %1/%2 active | pending %3 | sampled windows %4 | window %5/%6s | evidence %7", routeTimeoutCount, activeVehicleAssets, pendingStallWindowCount, movementWindowCount, maxRouteTimeoutSeconds, CONVOY_ROUTE_REISSUE_THRESHOLD_SECONDS, ReportText(routeTimeoutEvidence));
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.stall_timeout", "fully sampled convoy movement windows do not stall without movement, distance closure, recovery, contact, or arrival", routeTimeoutActual, routeTimeoutStatus, "one or more convoy vehicles timed out across the controlled movement window", "", mission.m_sInstanceId);
 		string factionAggregateStatus = "PASS";
 		if (factionMismatchGroupCount > 0)
 			factionAggregateStatus = "FAIL";
-		else if (factionUncheckableCount > 0 || factionCheckedCount < readiness.m_iVehicleAssetCount)
+		else if (factionUncheckableCount > 0 || factionCheckedCount < activeVehicleAssets)
 			factionAggregateStatus = "WARN";
-		string factionAggregateActual = string.Format("checked %1/%2 | mismatched groups %3 | uncheckable %4 | evidence %5", factionCheckedCount, readiness.m_iVehicleAssetCount, factionMismatchGroupCount, factionUncheckableCount, ReportText(factionMismatchEvidence));
+		string factionAggregateActual = string.Format("checked %1/%2 active | mismatched groups %3 | uncheckable %4 | evidence %5", factionCheckedCount, activeVehicleAssets, factionMismatchGroupCount, factionUncheckableCount, ReportText(factionMismatchEvidence));
 		AddConvoyDebugProbeAssertion(probe, "convoy.faction.runtime_entities", "every checkable convoy crew and vehicle entity is stamped with its active-group faction", factionAggregateActual, factionAggregateStatus, "one or more convoy runtime entities used the wrong faction", "", mission.m_sInstanceId);
 
 		probe.m_aEvidence.Insert(BuildConvoyRuntimeReport(state, mission));
@@ -4065,7 +4072,7 @@ class HST_PhysicalWarService
 	{
 		HST_ConvoyReadinessStatus readiness = BuildMissionConvoyReadinessStatus(state, mission);
 		string report = string.Format("\n  convoy readiness | ready %1 | pending grace %2 | static fallback %3 | reason %4", ReportBool(readiness.m_bReadyToMove), ReportBool(readiness.m_bPendingGrace), ReportBool(readiness.m_bStaticFallbackAvailable), ReportText(readiness.m_sReason));
-		report = report + string.Format("\n    convoy readiness vehicle assets %1 | spawned vehicles %2", readiness.m_iVehicleAssetCount, readiness.m_iSpawnedVehicleCount);
+		report = report + string.Format("\n    convoy readiness vehicle assets planned %1 | active %2 | resolved %3 | spawned vehicles %4", readiness.m_iVehicleAssetCount, readiness.m_iActiveVehicleAssetCount, readiness.m_iResolvedVehicleAssetCount, readiness.m_iSpawnedVehicleCount);
 		report = report + string.Format("\n    convoy readiness crew groups %1 | alive crew groups %2 | alive crew count %3", readiness.m_iCrewGroupCount, readiness.m_iAliveCrewGroupCount, readiness.m_iAliveCrewCount);
 		report = report + string.Format("\n    convoy readiness driver availability %1 | mobile vehicles %2 | route assignment %3 | waypoint assignment %4", readiness.m_iDriverAvailableCount, readiness.m_iMobileVehicleCount, readiness.m_iRouteAssignedCount, readiness.m_iWaypointAssignedCount);
 		return report;
@@ -4090,11 +4097,15 @@ class HST_PhysicalWarService
 
 			string groupId = BuildMissionConvoyGroupId(mission, assetIndex);
 			assetIndex++;
+			readiness.m_iVehicleAssetCount++;
 			if (IsMissionConvoyVehicleAssetResolved(asset))
+			{
+				readiness.m_iResolvedVehicleAssetCount++;
 				continue;
+			}
 
 			HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
-			readiness.m_iVehicleAssetCount++;
+			readiness.m_iActiveVehicleAssetCount++;
 			if (GetRuntimeVehicleEntity(groupId) != null)
 				readiness.m_iSpawnedVehicleCount++;
 			if (IsMissionConvoyCrewGroupSpawned(activeGroup))
@@ -4169,28 +4180,28 @@ class HST_PhysicalWarService
 
 	protected bool IsMissionConvoyReadyToMove(HST_ConvoyReadinessStatus readiness)
 	{
-		if (!readiness || readiness.m_iVehicleAssetCount < 3)
+		if (!readiness || readiness.m_iActiveVehicleAssetCount < 3)
 			return false;
 
-		int required = readiness.m_iVehicleAssetCount;
+		int required = readiness.m_iActiveVehicleAssetCount;
 		return readiness.m_iSpawnedVehicleCount >= required && readiness.m_iCrewGroupCount >= required && readiness.m_iAliveCrewGroupCount >= required && readiness.m_iMobileVehicleCount >= required && readiness.m_iDriverAvailableCount >= required && readiness.m_iRouteAssignedCount >= required && readiness.m_iWaypointAssignedCount >= required;
 	}
 
 	protected bool IsMissionConvoyStaticFallbackAvailable(HST_ConvoyReadinessStatus readiness)
 	{
-		if (!readiness || readiness.m_iVehicleAssetCount < 3)
+		if (!readiness || readiness.m_iActiveVehicleAssetCount < 3)
 			return false;
 
-		int required = readiness.m_iVehicleAssetCount;
+		int required = readiness.m_iActiveVehicleAssetCount;
 		return readiness.m_iSpawnedVehicleCount >= required && readiness.m_iCrewGroupCount >= required;
 	}
 
 	protected bool CanAttemptMissionConvoyWaypointAssignment(HST_ConvoyReadinessStatus readiness)
 	{
-		if (!readiness || readiness.m_iVehicleAssetCount < 3)
+		if (!readiness || readiness.m_iActiveVehicleAssetCount < 3)
 			return false;
 
-		int required = readiness.m_iVehicleAssetCount;
+		int required = readiness.m_iActiveVehicleAssetCount;
 		return readiness.m_iSpawnedVehicleCount >= required && readiness.m_iCrewGroupCount >= required && readiness.m_iAliveCrewGroupCount >= required && readiness.m_iMobileVehicleCount >= required && readiness.m_iDriverAvailableCount >= required && readiness.m_iRouteAssignedCount >= required && readiness.m_iWaypointAssignedCount < required;
 	}
 
@@ -4208,28 +4219,32 @@ class HST_PhysicalWarService
 		if (!readiness)
 			return "Convoy readiness state missing.";
 		if (readiness.m_iVehicleAssetCount <= 0)
-			return "No convoy vehicle assets exist; convoy cannot move.";
+			return "No planned convoy vehicle assets exist; convoy cannot move.";
 		if (readiness.m_iVehicleAssetCount < 3)
-			return "Convoy needs at least three vehicle assets for readiness.";
+			return "Convoy needs at least three planned vehicle assets for readiness.";
+		if (readiness.m_iActiveVehicleAssetCount <= 0)
+			return string.Format("No active convoy vehicle assets remain; planned %1 resolved %2.", readiness.m_iVehicleAssetCount, readiness.m_iResolvedVehicleAssetCount);
+		if (readiness.m_iActiveVehicleAssetCount < 3)
+			return string.Format("Convoy needs at least three active vehicle assets for movement; active %1 planned %2 resolved %3.", readiness.m_iActiveVehicleAssetCount, readiness.m_iVehicleAssetCount, readiness.m_iResolvedVehicleAssetCount);
 		if (readiness.m_iSpawnedVehicleCount <= 0)
 			return "No convoy vehicles spawned; convoy cannot move.";
-		if (readiness.m_iSpawnedVehicleCount < readiness.m_iVehicleAssetCount)
+		if (readiness.m_iSpawnedVehicleCount < readiness.m_iActiveVehicleAssetCount)
 			return "Not all convoy vehicle assets spawned physical vehicles.";
 		if (readiness.m_iCrewGroupCount <= 0)
 			return "Convoy crew groups failed to spawn.";
-		if (readiness.m_iCrewGroupCount < readiness.m_iVehicleAssetCount)
+		if (readiness.m_iCrewGroupCount < readiness.m_iActiveVehicleAssetCount)
 			return "Not all convoy crew groups spawned.";
 		if (readiness.m_iAliveCrewCount <= 0)
 			return "Convoy crew groups have no living crew.";
-		if (readiness.m_iAliveCrewGroupCount < readiness.m_iVehicleAssetCount)
+		if (readiness.m_iAliveCrewGroupCount < readiness.m_iActiveVehicleAssetCount)
 			return "Not all convoy crew groups have living crew.";
-		if (readiness.m_iMobileVehicleCount < readiness.m_iVehicleAssetCount)
+		if (readiness.m_iMobileVehicleCount < readiness.m_iActiveVehicleAssetCount)
 			return "Not all convoy vehicles are mobile according to the vehicle-control adapter.";
-		if (readiness.m_iDriverAvailableCount < readiness.m_iVehicleAssetCount)
+		if (readiness.m_iDriverAvailableCount < readiness.m_iActiveVehicleAssetCount)
 			return "Convoy has no seated living AI driver yet.";
-		if (readiness.m_iRouteAssignedCount < readiness.m_iVehicleAssetCount)
+		if (readiness.m_iRouteAssignedCount < readiness.m_iActiveVehicleAssetCount)
 			return "Convoy route assignment failed.";
-		if (readiness.m_iWaypointAssignedCount < readiness.m_iVehicleAssetCount)
+		if (readiness.m_iWaypointAssignedCount < readiness.m_iActiveVehicleAssetCount)
 			return "Convoy waypoint assignment failed.";
 
 		return "ready";
