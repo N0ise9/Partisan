@@ -109,6 +109,7 @@ class HST_PhysicalWarService
 	static const int CONVOY_READINESS_GRACE_SECONDS = 60;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS = 1000;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS = 8;
+	static const int ACTIVE_GROUP_AGENT_POPULATION_FORCE_FALLBACK_ATTEMPT = 3;
 	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
 	static const int CONVOY_RUNTIME_WAYPOINT_MAX_COUNT = 5;
 	static const float EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS = 1800.0;
@@ -6738,7 +6739,8 @@ class HST_PhysicalWarService
 
 		if (TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "retry"))
 			return;
-		if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry"))
+		bool forceFallback = attempt >= ACTIVE_GROUP_AGENT_POPULATION_FORCE_FALLBACK_ATTEMPT;
+		if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", forceFallback))
 			return;
 
 		if (attempt < ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS)
@@ -6820,14 +6822,14 @@ class HST_PhysicalWarService
 		HST_CampaignState state = m_aPendingPopulationStates[index];
 		if (!TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "native delayed spawn event"))
 		{
-			if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "native delayed spawn event"))
+			if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "native delayed spawn event", false))
 				return;
 
 			DebugLog(string.Format("active group delayed spawn event fired before live agents were countable %1", groupId));
 		}
 	}
 
-	protected bool TryPopulatePendingActiveGroupFromFactionInfantry(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
+	protected bool TryPopulatePendingActiveGroupFromFactionInfantry(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source, bool allowInitializingFallback = false)
 	{
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
@@ -6837,8 +6839,10 @@ class HST_PhysicalWarService
 		SCR_AIGroup group = SCR_AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId));
 		if (!group)
 			return false;
-		if (group.IsInitializing())
+		if (group.IsInitializing() && !allowInitializingFallback)
 			return false;
+		if (group.IsInitializing() && allowInitializingFallback)
+			DebugLog(string.Format("active group forcing direct infantry fallback while native group is still initializing %1 via %2", activeGroup.m_sGroupId, source));
 
 		int existingCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
 		if (existingCount > 0)
