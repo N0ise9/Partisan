@@ -14125,7 +14125,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (index == 39)
 			AddCampaignDebugPhase22SeedAssertions(defenseCase);
 		else if (index >= 40 && index <= 42)
-			AddCampaignDebugPhase22ActiveDefenseAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask, result);
+		{
+			bool defenseAlreadySucceeded = index == 42 && m_State.m_sDefendPetrosStatus == "succeeded" && m_State.m_bDefendPetrosOutcomeApplied && !m_State.m_bDefendPetrosActive;
+			if (defenseAlreadySucceeded)
+			{
+				AddCampaignDebugAssertion(defenseCase, "phase22.report.completed_before_report", "report checkpoint accepts clean Defend Petros success before active report", BuildCampaignDebugPhase22DefenseActual(), CampaignDebugStatus(true), "Phase 22 report reached after successful defense completion");
+				AddCampaignDebugAssertion(defenseCase, "phase22.report.hq_threat", "report output includes HQ threat or completed defense state", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi HQ threat") || result.Contains("Defend Petros")), "Phase 22 report output did not include HQ threat or completed defense state");
+				AddCampaignDebugPhase22SuccessAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask);
+			}
+			else
+				AddCampaignDebugPhase22ActiveDefenseAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask, result);
+		}
 		else if (index == 43)
 			AddCampaignDebugPhase22SuccessAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask);
 		else if (index == 44)
@@ -14261,7 +14271,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugPhase22MissionAssertions(defenseCase, defenseMission, false);
 		AddCampaignDebugPhase22ObjectiveAssertions(defenseCase, defenseObjective, false);
 		AddCampaignDebugPhase22TaskAssertions(defenseCase, defenseTask, false);
-		AddCampaignDebugAssertion(defenseCase, "phase22.success.knowledge_reduced", "success records HQ knowledge reduction reason", string.Format("knowledge %1 | reason %2", m_State.m_iHQKnowledge, EmptyCampaignDebugField(m_State.m_sLastHQKnowledgeReason)), CampaignDebugStatus(m_State.m_sLastHQKnowledgeReason.Contains("Defend Petros succeeded")), "Phase 22 success did not record the HQ knowledge reduction reason");
+		bool orderRecordedSuccess = petrosOrder && petrosOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && petrosOrder.m_sResolutionKind == "defend_petros_succeeded";
+		bool outcomeRecorded = m_State.m_sDefendPetrosStatus == "succeeded" && m_State.m_bDefendPetrosOutcomeApplied;
+		bool knowledgeReduced = m_State.m_iHQKnowledge <= 60;
+		bool successReasonOrOutcome = m_State.m_sLastHQKnowledgeReason.Contains("Defend Petros succeeded") || orderRecordedSuccess || outcomeRecorded;
+		string orderResolution = "";
+		if (petrosOrder)
+			orderResolution = petrosOrder.m_sResolutionKind;
+		AddCampaignDebugAssertion(defenseCase, "phase22.success.knowledge_reduced", "success leaves HQ knowledge reduced and outcome recorded", string.Format("knowledge %1 | reason %2 | order resolution %3 | outcome %4", m_State.m_iHQKnowledge, EmptyCampaignDebugField(m_State.m_sLastHQKnowledgeReason), EmptyCampaignDebugField(orderResolution), m_State.m_bDefendPetrosOutcomeApplied), CampaignDebugStatus(knowledgeReduced && successReasonOrOutcome), "Phase 22 success did not leave reduced HQ knowledge with a recorded success outcome");
 	}
 
 	protected void AddCampaignDebugPhase22KillAssertions(HST_CampaignDebugCaseResult defenseCase)

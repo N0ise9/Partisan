@@ -105,6 +105,7 @@ class HST_PhysicalWarService
 	static const float CONVOY_ROUTE_SNAP_MIN_DESTINATION_DISTANCE_METERS = 250.0;
 	static const float CONVOY_ROUTE_SNAP_MAX_ADVANCE_METERS = 160.0;
 	static const int CONVOY_CREW_POPULATION_GRACE_SECONDS = 20;
+	static const int CONVOY_CREW_SEATING_GRACE_SECONDS = 45;
 	static const int CONVOY_READINESS_GRACE_SECONDS = 60;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS = 1000;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS = 8;
@@ -375,8 +376,8 @@ class HST_PhysicalWarService
 			pendingGraceStatus = "WARN";
 		AddConvoyDebugProbeAssertion(probe, "convoy.assets.vehicle_count", "vehicle assets >= 3", string.Format("%1", readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iVehicleAssetCount >= 3), "convoy has fewer than three vehicle assets");
 		AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entities.spawned", "spawned vehicle entities == vehicle asset count", string.Format("%1/%2", readiness.m_iSpawnedVehicleCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iVehicleAssetCount > 0 && readiness.m_iSpawnedVehicleCount >= readiness.m_iVehicleAssetCount), "not every convoy vehicle asset has a runtime vehicle entity");
-		AddConvoyDebugProbeAssertion(probe, "convoy.crew.groups", "crew group count >= vehicle count", string.Format("%1/%2", readiness.m_iCrewGroupCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iCrewGroupCount >= readiness.m_iVehicleAssetCount && readiness.m_iCrewGroupCount >= 3), "not every convoy vehicle has a crew group");
-		AddConvoyDebugProbeAssertion(probe, "convoy.crew.alive", "alive crew count > 0", string.Format("%1", readiness.m_iAliveCrewCount), ConvoyDebugStatus(readiness.m_iAliveCrewCount > 0), "convoy crew groups have no living crew");
+		AddConvoyDebugProbeAssertion(probe, "convoy.crew.groups", "crew group count >= vehicle count", string.Format("%1/%2 | pending grace %3", readiness.m_iCrewGroupCount, readiness.m_iVehicleAssetCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iCrewGroupCount >= readiness.m_iVehicleAssetCount && readiness.m_iCrewGroupCount >= 3, pendingGraceStatus), "not every convoy vehicle has a crew group");
+		AddConvoyDebugProbeAssertion(probe, "convoy.crew.alive", "alive crew count > 0", string.Format("%1 | pending grace %2", readiness.m_iAliveCrewCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iAliveCrewCount > 0, pendingGraceStatus), "convoy crew groups have no living crew");
 		AddConvoyDebugProbeAssertion(probe, "convoy.crew.driver_seated", "driver available for every moving vehicle", string.Format("%1/%2 | pending grace %3", readiness.m_iDriverAvailableCount, readiness.m_iVehicleAssetCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iDriverAvailableCount >= readiness.m_iVehicleAssetCount && readiness.m_iDriverAvailableCount >= 3, pendingGraceStatus), "not every convoy vehicle has a seated living driver");
 		AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entities.mobile", "mobile vehicle count == vehicle asset count", string.Format("%1/%2", readiness.m_iMobileVehicleCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iMobileVehicleCount >= readiness.m_iVehicleAssetCount && readiness.m_iMobileVehicleCount >= 3), "not every convoy vehicle is mobile");
 		AddConvoyDebugProbeAssertion(probe, "convoy.route.assigned", "route assigned count == vehicle asset count", string.Format("%1/%2 | pending grace %3", readiness.m_iRouteAssignedCount, readiness.m_iVehicleAssetCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iRouteAssignedCount >= readiness.m_iVehicleAssetCount && readiness.m_iRouteAssignedCount >= 3, pendingGraceStatus), "not every convoy group has the mission route assigned");
@@ -1656,7 +1657,7 @@ class HST_PhysicalWarService
 				continue;
 
 			int aliveCrew = CountAliveRuntimeCrewAgents(activeGroup);
-			if (activeGroup.m_iLastSeenAliveCount > 0 && aliveCrew < activeGroup.m_iLastSeenAliveCount && !IsConvoyCrewPopulationPending(state, activeGroup))
+			if (activeGroup.m_iLastSeenAliveCount > 0 && aliveCrew < activeGroup.m_iLastSeenAliveCount && !IsConvoyCrewControlPending(state, activeGroup))
 			{
 				reason = string.Format("Convoy contact: crew count decreased for %1 from %2 to %3.", ReportText(groupId), activeGroup.m_iLastSeenAliveCount, aliveCrew);
 				return true;
@@ -1757,7 +1758,7 @@ class HST_PhysicalWarService
 		{
 			activeGroup.m_iSurvivorVehicleCount = 0;
 			int aliveCrew = CountAliveRuntimeCrewAgents(activeGroup);
-			if (aliveCrew <= 0 && !IsConvoyCrewPopulationPending(state, activeGroup))
+			if (aliveCrew <= 0 && !IsConvoyCrewControlPending(state, activeGroup))
 			{
 				activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED;
 				activeGroup.m_iLastSeenAliveCount = 0;
@@ -1996,7 +1997,7 @@ class HST_PhysicalWarService
 			SetMissionConvoyFailure(state, mission, "Convoy needs at least three valid vehicle assets.");
 			changed = true;
 		}
-		else if (mission.m_sRuntimePhase != MISSION_CONVOY_CONTACT && vehicleAssets >= 3 && crewedVehicles < 3 && AllMissionConvoyGroupsAttempted(state, mission, vehicleAssets) && !HasPendingConvoyCrewPopulation(state, mission, vehicleAssets))
+		else if (mission.m_sRuntimePhase != MISSION_CONVOY_CONTACT && vehicleAssets >= 3 && crewedVehicles < 3 && AllMissionConvoyGroupsAttempted(state, mission, vehicleAssets) && !HasPendingConvoyCrewControl(state, mission, vehicleAssets))
 		{
 			SetMissionConvoyFailure(state, mission, "Convoy could not spawn three crewed vehicles.");
 			changed = true;
@@ -2246,6 +2247,7 @@ class HST_PhysicalWarService
 			return null;
 
 		ApplyCampaignDebugEntityName(vehicleEntity, MISSION_CONVOY_VEHICLE_ROLE, asset.m_sAssetId);
+		ApplyEntityFaction(vehicleEntity, activeGroup.m_sFactionKey);
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, angles);
 		asset.m_sPrefab = vehiclePrefab;
 		asset.m_bSpawned = true;
@@ -3407,7 +3409,7 @@ class HST_PhysicalWarService
 
 		readiness.m_bReadyToMove = IsMissionConvoyReadyToMove(readiness);
 		readiness.m_bStaticFallbackAvailable = IsMissionConvoyStaticFallbackAvailable(readiness);
-		readiness.m_bPendingGrace = IsMissionConvoyReadinessGraceActive(mission);
+		readiness.m_bPendingGrace = IsMissionConvoyReadinessGraceActive(mission) || HasMissionConvoyControlPending(state, mission);
 		readiness.m_sReason = ResolveMissionConvoyReadinessReason(readiness);
 		return readiness;
 	}
@@ -3684,7 +3686,7 @@ class HST_PhysicalWarService
 			return false;
 		if (!activeGroup.m_bSpawnedEntity && activeGroup.m_iSpawnedAgentCount <= 0)
 			return false;
-		if (IsConvoyCrewPopulationPending(state, activeGroup))
+		if (IsConvoyCrewControlPending(state, activeGroup))
 			return false;
 
 		return true;
@@ -3736,6 +3738,41 @@ class HST_PhysicalWarService
 		return false;
 	}
 
+	protected bool HasPendingConvoyCrewControl(HST_CampaignState state, HST_ActiveMissionState mission, int vehicleAssets)
+	{
+		if (!state || !mission)
+			return false;
+
+		for (int index = 0; index < vehicleAssets; index++)
+		{
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(BuildMissionConvoyGroupId(mission, index));
+			if (IsConvoyCrewControlPending(state, activeGroup))
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasMissionConvoyControlPending(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+
+		int assetIndex;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != MISSION_CONVOY_VEHICLE_ROLE)
+				continue;
+
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(BuildMissionConvoyGroupId(mission, assetIndex));
+			assetIndex++;
+			if (IsConvoyCrewControlPending(state, activeGroup))
+				return true;
+		}
+
+		return false;
+	}
+
 	protected bool IsConvoyCrewPopulationPending(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
 		if (!state || !activeGroup || activeGroup.m_iSpawnedAgentCount > 0)
@@ -3748,6 +3785,22 @@ class HST_PhysicalWarService
 			return true;
 
 		return false;
+	}
+
+	protected bool IsConvoyCrewControlPending(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (IsConvoyCrewPopulationPending(state, activeGroup))
+			return true;
+		if (!state || !activeGroup)
+			return false;
+		if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "eliminated")
+			return false;
+		if (activeGroup.m_sSpawnFallbackMode != "convoy_seating_pending")
+			return false;
+		if (activeGroup.m_iSpawnedAgentCount <= 0 && activeGroup.m_iLastSeenAliveCount <= 0 && activeGroup.m_iSurvivorInfantryCount <= 0)
+			return false;
+
+		return state.m_iElapsedSeconds < activeGroup.m_iSpawnedAtSecond + CONVOY_CREW_SEATING_GRACE_SECONDS;
 	}
 
 	protected bool IsRestoredMissionConvoyRuntimeRebindPending(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -4588,7 +4641,7 @@ class HST_PhysicalWarService
 		int vehicleAssets;
 		int attemptedGroups;
 		int spawnedGroups;
-		int pendingPopulationGroups;
+		int pendingControlGroups;
 		int aliveCrewGroups;
 		int aliveCrew;
 		int crewRuntimeEntities;
@@ -4615,8 +4668,8 @@ class HST_PhysicalWarService
 				attemptedGroups++;
 			if (activeGroup.m_bSpawnedEntity)
 				spawnedGroups++;
-			if (IsConvoyCrewPopulationPending(state, activeGroup))
-				pendingPopulationGroups++;
+			if (IsConvoyCrewControlPending(state, activeGroup))
+				pendingControlGroups++;
 			if (GetRuntimeCrewGroupEntity(groupId))
 				crewRuntimeEntities++;
 			if (GetRuntimeVehicleEntity(groupId))
@@ -4633,7 +4686,7 @@ class HST_PhysicalWarService
 				sample = string.Format(" | sample group %1 status %2 spawned %3 agents %4 alive %5 mode %6 reason %7", ReportText(groupId), ReportText(activeGroup.m_sRuntimeStatus), ReportBool(activeGroup.m_bSpawnedEntity), activeGroup.m_iSpawnedAgentCount, groupAliveCrew, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason));
 		}
 
-		return string.Format(" | context assets %1 | attempted groups %2 | spawned groups %3 | pending population %4 | alive crew groups %5 | alive crew %6 | crew runtime entities %7 | vehicle runtime entities %8%9", vehicleAssets, attemptedGroups, spawnedGroups, pendingPopulationGroups, aliveCrewGroups, aliveCrew, crewRuntimeEntities, vehicleRuntimeEntities, sample);
+		return string.Format(" | context assets %1 | attempted groups %2 | spawned groups %3 | pending control %4 | alive crew groups %5 | alive crew %6 | crew runtime entities %7 | vehicle runtime entities %8%9", vehicleAssets, attemptedGroups, spawnedGroups, pendingControlGroups, aliveCrewGroups, aliveCrew, crewRuntimeEntities, vehicleRuntimeEntities, sample);
 	}
 
 	protected IEntity GetRuntimeCrewGroupEntity(string groupId)
@@ -6213,6 +6266,7 @@ class HST_PhysicalWarService
 		}
 
 		ApplyCampaignDebugEntityName(entity, "active_group", activeGroup.m_sGroupId);
+		ApplyRuntimeGroupFaction(entity, activeGroup, "group prefab spawn");
 		if (agentCount <= 0)
 		{
 			activeGroup.m_bSpawnedEntity = false;
@@ -6234,6 +6288,7 @@ class HST_PhysicalWarService
 		}
 
 		activeGroup.m_bSpawnedEntity = true;
+		ApplyEntityFaction(entity, activeGroup.m_sFactionKey);
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
 		activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
 		activeGroup.m_sSpawnFailureReason = "";
@@ -6292,6 +6347,7 @@ class HST_PhysicalWarService
 		if (agentCount <= 0)
 			return false;
 
+		ApplyRuntimeGroupFaction(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId), activeGroup, source);
 		ClearPendingActiveGroupPopulation(activeGroup);
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
@@ -6394,11 +6450,15 @@ class HST_PhysicalWarService
 				SCR_EntityHelper.DeleteEntityAndChildren(member);
 				continue;
 			}
+			ApplyEntityFaction(member, activeGroup.m_sFactionKey);
 
 			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 			m_aRuntimeGroupEntities.Insert(member);
 			spawnedCount++;
 		}
+
+		if (spawnedCount > 0)
+			ApplyRuntimeGroupFaction(group, activeGroup, "direct infantry fallback");
 
 		if (spawnedCount <= 0)
 			Print(string.Format("h-istasi | active group fallback infantry failed %1 faction %2 prefab %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, activeGroup.m_sPrefab), LogLevel.WARNING);
@@ -6465,6 +6525,89 @@ class HST_PhysicalWarService
 			factionComponent.SetAffiliatedFactionByKey(factionKey);
 
 		return entity;
+	}
+
+	protected void ApplyRuntimeGroupFaction(IEntity entity, HST_ActiveGroupState activeGroup, string source)
+	{
+		if (!entity || !activeGroup || activeGroup.m_sFactionKey.IsEmpty())
+			return;
+
+		string factionKey = activeGroup.m_sFactionKey;
+		bool groupChanged;
+		int memberCount;
+		int memberChangedCount;
+		int mismatchedCount;
+		SCR_AIGroup group = SCR_AIGroup.Cast(entity);
+		if (group)
+		{
+			Faction faction = ResolveRuntimeFaction(factionKey);
+			if (faction)
+				groupChanged = group.SetFaction(faction);
+
+			array<AIAgent> agents = new array<AIAgent>;
+			group.GetAgents(agents);
+			foreach (AIAgent agent : agents)
+			{
+				if (!agent)
+					continue;
+
+				IEntity controlledEntity = agent.GetControlledEntity();
+				if (!controlledEntity)
+					continue;
+
+				memberCount++;
+				if (ApplyEntityFaction(controlledEntity, factionKey))
+					memberChangedCount++;
+				if (ResolveEntityFactionKey(controlledEntity) != factionKey)
+					mismatchedCount++;
+			}
+		}
+		else if (ApplyEntityFaction(entity, factionKey))
+		{
+			groupChanged = true;
+		}
+
+		if (groupChanged || memberChangedCount > 0 || mismatchedCount > 0)
+			Print(string.Format("h-istasi | runtime faction applied | group %1 | expected %2 | source %3 | group changed %4 | members changed %5/%6 | mismatches %7", activeGroup.m_sGroupId, factionKey, source, ReportBool(groupChanged), memberChangedCount, memberCount, mismatchedCount));
+	}
+
+	protected Faction ResolveRuntimeFaction(string factionKey)
+	{
+		if (factionKey.IsEmpty())
+			return null;
+
+		FactionManager factionManager = GetGame().GetFactionManager();
+		if (!factionManager)
+			return null;
+
+		return factionManager.GetFactionByKey(factionKey);
+	}
+
+	protected bool ApplyEntityFaction(IEntity entity, string factionKey)
+	{
+		if (!entity || factionKey.IsEmpty())
+			return false;
+
+		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+		if (!factionComponent)
+			return false;
+		if (factionComponent.GetAffiliatedFactionKey() == factionKey)
+			return false;
+
+		factionComponent.SetAffiliatedFactionByKey(factionKey);
+		return true;
+	}
+
+	protected string ResolveEntityFactionKey(IEntity entity)
+	{
+		if (!entity)
+			return "";
+
+		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+		if (!factionComponent)
+			return "";
+
+		return factionComponent.GetAffiliatedFactionKey();
 	}
 
 	protected vector ResolveFallbackInfantryMemberPosition(vector groupPosition, int index)
@@ -6971,6 +7114,8 @@ class HST_PhysicalWarService
 				aliveCount = CountAliveRuntimeCrewAgents(activeGroup);
 			else
 				aliveCount = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
+			if (missionConvoyGroup && aliveCount <= 0 && IsConvoyCrewControlPending(state, activeGroup))
+				continue;
 			if (missionConvoyGroup && aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && ResolveMissionConvoyRestorableCrewCount(state, activeGroup) > 0)
 				continue;
 			if (aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && (!missionConvoyGroup || activeGroup.m_iLastSeenAliveCount <= 0))

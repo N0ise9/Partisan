@@ -377,6 +377,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected bool m_bPreviewDragActive;
 	protected bool m_bRawEscapeDownLastFrame;
 	protected bool m_bPendingEscapePauseMenuDismiss;
+	protected bool m_bPauseMenuGuardRegistered;
 	protected int m_iPendingEscapePauseMenuDismissAttempts;
 	protected int m_iPreviewDragLastX;
 	protected int m_iPreviewDragLastY;
@@ -400,6 +401,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		GetGame().GetCallqueue().Remove(DismissPauseMenuOpenedByLoadoutEscape);
 		m_bPendingEscapePauseMenuDismiss = false;
 		m_iPendingEscapePauseMenuDismissAttempts = 0;
+		UnregisterEscapePauseMenuGuard();
 		CloseEditor(false);
 		super.OnDelete(owner);
 	}
@@ -464,6 +466,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_bEditorOpen = true;
 		m_bRawEscapeDownLastFrame = Debug.KeyState(KeyCode.KC_ESCAPE) != 0;
+		RegisterEscapePauseMenuGuard();
 		RegisterInputListeners();
 		m_sEditorMode = "clothing";
 		m_sSelectedCategory = "clothing";
@@ -1209,15 +1212,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		ConsumeNativePauseInputActions();
+		ScheduleEscapePauseMenuDismiss();
 		DebugLog(string.Format("escape close source=%1 mode=%2 category=%3", source, m_sEditorMode, m_sSelectedCategory));
 		CloseEditor(true);
-		ScheduleEscapePauseMenuDismiss();
 	}
 
 	protected void ScheduleEscapePauseMenuDismiss()
 	{
 		m_bPendingEscapePauseMenuDismiss = true;
 		m_iPendingEscapePauseMenuDismissAttempts = 0;
+		RegisterEscapePauseMenuGuard();
 		GetGame().GetCallqueue().Remove(DismissPauseMenuOpenedByLoadoutEscape);
 		GetGame().GetCallqueue().CallLater(DismissPauseMenuOpenedByLoadoutEscape, 0, false);
 	}
@@ -1231,18 +1235,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		bool escapeStillDown = Debug.KeyState(KeyCode.KC_ESCAPE) != 0;
 		ConsumeNativePauseInputActions();
 
-		bool closedPauseMenu;
-		MenuManager menuManager = GetGame().GetMenuManager();
-		if (menuManager)
-		{
-			MenuBase pauseMenu = menuManager.FindMenuByPreset(ChimeraMenuPreset.PauseMenu);
-			if (pauseMenu)
-			{
-				menuManager.CloseMenu(pauseMenu);
-				closedPauseMenu = true;
-				DebugLog("dismissed native pause menu opened by loadout escape");
-			}
-		}
+		bool closedPauseMenu = CloseNativePauseMenuOpenedByLoadoutEscape("dismiss retry");
 
 		if ((escapeStillDown || closedPauseMenu) && m_iPendingEscapePauseMenuDismissAttempts < ESCAPE_PAUSE_DISMISS_MAX_ATTEMPTS)
 		{
@@ -1252,6 +1245,67 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		m_bPendingEscapePauseMenuDismiss = false;
 		m_iPendingEscapePauseMenuDismissAttempts = 0;
+		if (!m_bEditorOpen)
+			UnregisterEscapePauseMenuGuard();
+	}
+
+	protected void RegisterEscapePauseMenuGuard()
+	{
+		if (m_bPauseMenuGuardRegistered)
+			return;
+
+		PauseMenuUI.m_OnPauseMenuOpened.Insert(OnPauseMenuOpenedByLoadoutEscape);
+		m_bPauseMenuGuardRegistered = true;
+	}
+
+	protected void UnregisterEscapePauseMenuGuard()
+	{
+		if (!m_bPauseMenuGuardRegistered)
+			return;
+
+		PauseMenuUI.m_OnPauseMenuOpened.Remove(OnPauseMenuOpenedByLoadoutEscape);
+		m_bPauseMenuGuardRegistered = false;
+	}
+
+	protected void OnPauseMenuOpenedByLoadoutEscape()
+	{
+		if (!m_bEditorOpen && !m_bPendingEscapePauseMenuDismiss)
+			return;
+
+		m_bPendingEscapePauseMenuDismiss = true;
+		ConsumeNativePauseInputActions();
+		if (m_bEditorOpen)
+		{
+			DebugLog("native pause menu opened while loadout editor active; closing editor");
+			CloseEditor(true);
+		}
+
+		CloseNativePauseMenuOpenedByLoadoutEscape("pause menu opened event");
+		GetGame().GetCallqueue().Remove(DismissPauseMenuOpenedByLoadoutEscape);
+		GetGame().GetCallqueue().CallLater(DismissPauseMenuOpenedByLoadoutEscape, ESCAPE_PAUSE_DISMISS_RETRY_MS, false);
+	}
+
+	protected bool CloseNativePauseMenuOpenedByLoadoutEscape(string source)
+	{
+		MenuManager menuManager = GetGame().GetMenuManager();
+		if (!menuManager)
+			return false;
+
+		bool closed = menuManager.CloseMenuByPreset(ChimeraMenuPreset.PauseMenu);
+		if (!closed)
+		{
+			MenuBase pauseMenu = menuManager.FindMenuByPreset(ChimeraMenuPreset.PauseMenu);
+			if (pauseMenu)
+			{
+				menuManager.CloseMenu(pauseMenu);
+				closed = true;
+			}
+		}
+
+		if (closed)
+			DebugLog("dismissed native pause menu opened by loadout escape via " + source);
+
+		return closed;
 	}
 
 	protected void ConsumeNativePauseInputActions()
@@ -1486,6 +1540,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		GetGame().GetCallqueue().Remove(ClearEditorToast);
 		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent");
 		UnregisterInputListeners();
+		if (!m_bPendingEscapePauseMenuDismiss)
+			UnregisterEscapePauseMenuGuard();
 		ClearWidgets();
 		DeleteEditorRoot();
 		DeletePreviewWorld();

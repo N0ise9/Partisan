@@ -123,6 +123,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected float m_fCommandMenuDebounceRemaining;
 	protected bool m_bCommandMenuKeyDownLastFrame;
 	protected bool m_bRawIKeyDownLastFrame;
+	protected bool m_bCommandMenuInputConsumedThisFrame;
 	protected int m_iFrameSerial;
 	protected int m_iLastActivatedWidgetId;
 	protected int m_iLastActivatedButton;
@@ -257,6 +258,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			inputManager.ActivateContext(COMMAND_MENU_INPUT_CONTEXT);
 			inputManager.ActivateContext(MENU_INPUT_CONTEXT);
 			inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
+			m_bCommandMenuInputConsumedThisFrame = false;
 			PollRawCommandMenuKey();
 			PollCommandMenuInput(inputManager);
 
@@ -574,6 +576,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (reason != EActionTrigger.DOWN)
 			return;
 
+		Print(string.Format("h-istasi menu | action input detected source=%1 value=%2 menuOpen=%3 top=%4", COMMAND_MENU_CUSTOM_ACTION, value, m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
+		m_bCommandMenuInputConsumedThisFrame = true;
 		TryToggleCommandMenu("custom action");
 	}
 
@@ -587,8 +591,18 @@ class HST_CommandMenuComponent : ScriptComponent
 			source = COMMAND_MENU_CUSTOM_ACTION;
 		}
 
+		if (m_bCommandMenuInputConsumedThisFrame)
+		{
+			m_bCommandMenuKeyDownLastFrame = keyDown;
+			return;
+		}
+
 		if (keyDown && !m_bCommandMenuKeyDownLastFrame)
+		{
+			Print(string.Format("h-istasi menu | polled action input detected source=%1 menuOpen=%2 top=%3", source, m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
+			m_bCommandMenuInputConsumedThisFrame = true;
 			TryToggleCommandMenu("poll " + source);
+		}
 
 		m_bCommandMenuKeyDownLastFrame = keyDown;
 	}
@@ -599,6 +613,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		bool keyDown = keyState != 0;
 		if (keyDown && !m_bRawIKeyDownLastFrame)
 		{
+			Print(string.Format("h-istasi menu | raw I input detected menuOpen=%1 top=%2", m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
+			m_bCommandMenuInputConsumedThisFrame = true;
 			TryToggleCommandMenu("raw KC_I");
 			Debug.ClearKey(KeyCode.KC_I);
 		}
@@ -893,6 +909,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent"))
 			{
 				DebugLog("open refused by UI root via " + source);
+				Print(string.Format("h-istasi menu | open refused by UI root source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 				m_fCommandMenuDebounceRemaining = 0;
 				return;
 			}
@@ -901,6 +918,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (HST_SetupMapComponent.IsSetupBlocking())
 		{
 			DebugLog("open refused while setup is still blocking via " + source);
+			Print(string.Format("h-istasi menu | open refused by setup blocking source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 			m_fCommandMenuDebounceRemaining = 0;
 			return;
 		}
@@ -923,6 +941,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			ClearActionDialog();
 			ClearWidgets();
 			DebugLog("open aborted: command menu layout root unavailable");
+			Print(string.Format("h-istasi menu | open aborted because command menu root unavailable source=%1", source), LogLevel.WARNING);
 			return;
 		}
 
@@ -1291,6 +1310,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", m_wMenuRoot, true, false, false))
 			{
 				HST_UIDebug.LogLayoutRejected("command_menu", COMMAND_MENU_LAYOUT, m_wMenuRoot, "UI root refused reused command menu");
+				Print(string.Format("h-istasi menu | UI root refused reused command menu | current=%1 top=%2 owner=%3", HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 				return null;
 			}
 
@@ -1320,6 +1340,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", root, true, false, false))
 		{
 			HST_UIDebug.LogLayoutRejected("command_menu", COMMAND_MENU_LAYOUT, root, "UI root refused command menu");
+			Print(string.Format("h-istasi menu | UI root refused command menu | current=%1 top=%2 owner=%3", HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 			root.RemoveFromHierarchy();
 			m_wMenuRoot = null;
 			return null;
