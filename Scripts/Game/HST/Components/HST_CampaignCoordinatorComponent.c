@@ -10113,6 +10113,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				unresolvedAssetCount++;
 		}
 
+		int removedGroupRuntimeCount;
+		int removedGroupRecordCount = CleanupCampaignDebugMissionOwnedGroups(instanceId, removedGroupRuntimeCount);
 		int linkedGroupCount;
 		int liveGroupCount;
 		foreach (HST_ActiveGroupState group : m_State.m_aActiveGroups)
@@ -10135,6 +10137,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.unresolved_assets", string.Format("%1", unresolvedAssetCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.groups", string.Format("%1", linkedGroupCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.live_groups", string.Format("%1", liveGroupCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.group_records_removed", string.Format("%1", removedGroupRecordCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.group_runtime_removed", string.Format("%1", removedGroupRuntimeCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.markers", string.Format("%1", markerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "mission.cleanup.completion_path", cleanupPath, "path");
 		AddCampaignDebugAssertion(cleanupCase, "mission.cleanup.completion_path", "runtime completion is proven separately; admin completion is WARN-only cleanup evidence", completionStatus + " | path " + cleanupPath, cleanupPathStatus, cleanupPathFailure, "", instanceId);
@@ -10143,6 +10147,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(cleanupCase, "mission.cleanup.markers", "no linked mission markers after cleanup", string.Format("%1", markerCount), CampaignDebugStatus(markerCount == 0, "WARN"), "mission markers remain linked after cleanup", "", instanceId);
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
 		return cleanupCase;
+	}
+
+	protected int CleanupCampaignDebugMissionOwnedGroups(string instanceId, out int removedRuntimeCount)
+	{
+		removedRuntimeCount = 0;
+		if (!m_State || instanceId.IsEmpty() || !MissionValueHasCampaignDebugPrefix(instanceId, CAMPAIGN_DEBUG_PREFIX_ROOT))
+			return 0;
+
+		int removedRecordCount;
+		for (int i = m_State.m_aActiveGroups.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveGroupState group = m_State.m_aActiveGroups[i];
+			if (!group || !group.m_sGroupId.Contains(instanceId))
+				continue;
+
+			if (m_PhysicalWar && m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(group.m_sGroupId))
+				removedRuntimeCount++;
+			m_State.m_aActiveGroups.Remove(i);
+			removedRecordCount++;
+		}
+
+		return removedRecordCount;
 	}
 
 	protected string RunCampaignDebugZoneActivationToggle()

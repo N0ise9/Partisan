@@ -7515,6 +7515,17 @@ foreach ($requiredRuntimeFactionAuditEntry in @(
 		throw "Campaign debug cleanup must audit runtime group/vehicle faction mismatches: $requiredRuntimeFactionAuditEntry"
 	}
 }
+foreach ($requiredMissionCleanupGroupRemovalEntry in @(
+		"CleanupCampaignDebugMissionOwnedGroups",
+		"mission.cleanup.group_records_removed",
+		"mission.cleanup.group_runtime_removed",
+		"CleanupRuntimeGroupEntityForDebug(group.m_sGroupId)",
+		"MissionValueHasCampaignDebugPrefix(instanceId, CAMPAIGN_DEBUG_PREFIX_ROOT)"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredMissionCleanupGroupRemovalEntry)) {
+		throw "Campaign debug mission cleanup must remove debug-owned active groups before asserting no live groups: $requiredMissionCleanupGroupRemovalEntry"
+	}
+}
 $phase9ContactIndex = $physicalWarServiceText.IndexOf("changed = UpdateMissionConvoyContact(state, mission) || changed;")
 $phase9SurvivorIndex = $physicalWarServiceText.IndexOf("changed = UpdateRuntimeGroupSurvivors(state) || changed;")
 if ($phase9ContactIndex -lt 0 -or $phase9SurvivorIndex -lt 0 -or $phase9ContactIndex -gt $phase9SurvivorIndex) {
