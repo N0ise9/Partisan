@@ -120,6 +120,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const string LOADOUT_ACTION_BACK_WB = "MenuBackWB";
 	static const string LOADOUT_ACTION_MENU_OPEN = "MenuOpen";
 	static const string LOADOUT_ACTION_MENU_OPEN_WB = "MenuOpenWB";
+	static const int ESCAPE_PAUSE_DISMISS_RETRY_MS = 50;
+	static const int ESCAPE_PAUSE_DISMISS_MAX_ATTEMPTS = 8;
 	static const string LOADOUT_ACTION_SELECT_MOUSE = "MenuSelectMouse";
 	static const string LOADOUT_ACTION_MOUSE_RIGHT = "MouseRight";
 	static const string NODE_LOADOUT_PREFIX = "live_loadout_";
@@ -375,6 +377,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected bool m_bPreviewDragActive;
 	protected bool m_bRawEscapeDownLastFrame;
 	protected bool m_bPendingEscapePauseMenuDismiss;
+	protected int m_iPendingEscapePauseMenuDismissAttempts;
 	protected int m_iPreviewDragLastX;
 	protected int m_iPreviewDragLastY;
 
@@ -394,6 +397,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (s_LocalInstance == this)
 			s_LocalInstance = null;
 
+		GetGame().GetCallqueue().Remove(DismissPauseMenuOpenedByLoadoutEscape);
+		m_bPendingEscapePauseMenuDismiss = false;
+		m_iPendingEscapePauseMenuDismissAttempts = 0;
 		CloseEditor(false);
 		super.OnDelete(owner);
 	}
@@ -1202,7 +1208,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_bEditorOpen)
 			return;
 
-		Debug.ClearKey(KeyCode.KC_ESCAPE);
+		ConsumeNativePauseInputActions();
 		DebugLog(string.Format("escape close source=%1 mode=%2 category=%3", source, m_sEditorMode, m_sSelectedCategory));
 		CloseEditor(true);
 		ScheduleEscapePauseMenuDismiss();
@@ -1211,6 +1217,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void ScheduleEscapePauseMenuDismiss()
 	{
 		m_bPendingEscapePauseMenuDismiss = true;
+		m_iPendingEscapePauseMenuDismissAttempts = 0;
 		GetGame().GetCallqueue().Remove(DismissPauseMenuOpenedByLoadoutEscape);
 		GetGame().GetCallqueue().CallLater(DismissPauseMenuOpenedByLoadoutEscape, 0, false);
 	}
@@ -1220,17 +1227,45 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_bPendingEscapePauseMenuDismiss)
 			return;
 
-		m_bPendingEscapePauseMenuDismiss = false;
+		m_iPendingEscapePauseMenuDismissAttempts++;
+		bool escapeStillDown = Debug.KeyState(KeyCode.KC_ESCAPE) != 0;
+		ConsumeNativePauseInputActions();
+
+		bool closedPauseMenu;
 		MenuManager menuManager = GetGame().GetMenuManager();
-		if (!menuManager)
+		if (menuManager)
+		{
+			MenuBase pauseMenu = menuManager.FindMenuByPreset(ChimeraMenuPreset.PauseMenu);
+			if (pauseMenu)
+			{
+				menuManager.CloseMenu(pauseMenu);
+				closedPauseMenu = true;
+				DebugLog("dismissed native pause menu opened by loadout escape");
+			}
+		}
+
+		if ((escapeStillDown || closedPauseMenu) && m_iPendingEscapePauseMenuDismissAttempts < ESCAPE_PAUSE_DISMISS_MAX_ATTEMPTS)
+		{
+			GetGame().GetCallqueue().CallLater(DismissPauseMenuOpenedByLoadoutEscape, ESCAPE_PAUSE_DISMISS_RETRY_MS, false);
+			return;
+		}
+
+		m_bPendingEscapePauseMenuDismiss = false;
+		m_iPendingEscapePauseMenuDismissAttempts = 0;
+	}
+
+	protected void ConsumeNativePauseInputActions()
+	{
+		Debug.ClearKey(KeyCode.KC_ESCAPE);
+
+		InputManager inputManager = GetGame().GetInputManager();
+		if (!inputManager)
 			return;
 
-		MenuBase pauseMenu = menuManager.FindMenuByPreset(ChimeraMenuPreset.PauseMenu);
-		if (!pauseMenu)
-			return;
-
-		menuManager.CloseMenu(pauseMenu);
-		DebugLog("dismissed native pause menu opened by loadout escape");
+		inputManager.ResetAction(LOADOUT_ACTION_BACK);
+		inputManager.ResetAction(LOADOUT_ACTION_BACK_WB);
+		inputManager.ResetAction(LOADOUT_ACTION_MENU_OPEN);
+		inputManager.ResetAction(LOADOUT_ACTION_MENU_OPEN_WB);
 	}
 
 	protected bool IsLoadoutEditorTopmost()

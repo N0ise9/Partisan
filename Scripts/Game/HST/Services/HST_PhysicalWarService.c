@@ -180,6 +180,8 @@ class HST_PhysicalWarService
 	{
 		if (!state || !balance)
 			return false;
+		if (state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+			return false;
 
 		bool routedGroupChanged = UpdateRoutedActiveGroupsNow(state);
 
@@ -223,6 +225,8 @@ class HST_PhysicalWarService
 	bool EnsureMissionTargetZoneActive(HST_CampaignState state, string zoneId, HST_ZoneCompositionService compositions = null)
 	{
 		if (!state || zoneId.IsEmpty())
+			return false;
+		if (state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
 			return false;
 
 		HST_ZoneState zone = state.FindZone(zoneId);
@@ -1354,6 +1358,8 @@ class HST_PhysicalWarService
 	bool UpdateMissionConvoys(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)
 	{
 		if (!state)
+			return false;
+		if (state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
 			return false;
 
 		bool changed = CleanupInactiveMissionConvoyRuntime(state);
@@ -4632,17 +4638,22 @@ class HST_PhysicalWarService
 
 	protected IEntity GetRuntimeCrewGroupEntity(string groupId)
 	{
+		IEntity fallbackEntity;
 		for (int i = m_aRuntimeGroupIds.Count() - 1; i >= 0; i--)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
 				continue;
 
 			IEntity entity = m_aRuntimeGroupEntities[i];
-			if (entity)
+			if (!entity)
+				continue;
+			if (AIGroup.Cast(entity))
 				return entity;
+			if (!fallbackEntity)
+				fallbackEntity = entity;
 		}
 
-		return null;
+		return fallbackEntity;
 	}
 
 	protected IEntity GetRuntimeVehicleEntity(string groupId)
@@ -6247,6 +6258,8 @@ class HST_PhysicalWarService
 
 		if (TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "retry"))
 			return;
+		if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry"))
+			return;
 
 		if (attempt < ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS)
 		{
@@ -6325,7 +6338,170 @@ class HST_PhysicalWarService
 		string requestedStatus = m_aPendingPopulationRequestedStatuses[index];
 		HST_CampaignState state = m_aPendingPopulationStates[index];
 		if (!TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "native delayed spawn event"))
+		{
+			if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "native delayed spawn event"))
+				return;
+
 			DebugLog(string.Format("active group delayed spawn event fired before live agents were countable %1", groupId));
+		}
+	}
+
+	protected bool TryPopulatePendingActiveGroupFromFactionInfantry(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
+	{
+		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+			return false;
+		if (activeGroup.m_iInfantryCount <= 0)
+			return false;
+
+		SCR_AIGroup group = SCR_AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId));
+		if (!group)
+			return false;
+		if (group.IsInitializing())
+			return false;
+
+		int existingCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
+		if (existingCount > 0)
+			return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " existing agents");
+
+		int spawnedCount = SpawnFactionInfantryIntoRuntimeGroup(group, activeGroup);
+		if (spawnedCount <= 0)
+			return false;
+
+		DebugLog(string.Format("active group populated %1 with %2 direct %3 infantry after empty group prefab via %4", activeGroup.m_sGroupId, spawnedCount, activeGroup.m_sFactionKey, source));
+		return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " direct infantry fallback");
+	}
+
+	protected int SpawnFactionInfantryIntoRuntimeGroup(SCR_AIGroup group, HST_ActiveGroupState activeGroup)
+	{
+		if (!group || !activeGroup)
+			return 0;
+
+		int desiredCount = Math.Max(1, activeGroup.m_iInfantryCount);
+		int spawnedCount;
+		for (int i = 0; i < desiredCount; i++)
+		{
+			string prefab = SelectFactionInfantryCharacterPrefab(activeGroup.m_sFactionKey, activeGroup.m_sGroupId, i);
+			if (prefab.IsEmpty())
+				continue;
+
+			vector position = ResolveFallbackInfantryMemberPosition(activeGroup.m_vPosition, i);
+			IEntity member = SpawnFallbackInfantryCharacter(prefab, position, activeGroup.m_sFactionKey);
+			if (!member)
+				continue;
+
+			if (!group.AddAIEntityToGroup(member))
+			{
+				SCR_EntityHelper.DeleteEntityAndChildren(member);
+				continue;
+			}
+
+			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
+			m_aRuntimeGroupEntities.Insert(member);
+			spawnedCount++;
+		}
+
+		if (spawnedCount <= 0)
+			Print(string.Format("h-istasi | active group fallback infantry failed %1 faction %2 prefab %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, activeGroup.m_sPrefab), LogLevel.WARNING);
+
+		return spawnedCount;
+	}
+
+	protected string SelectFactionInfantryCharacterPrefab(string factionKey, string groupId, int index)
+	{
+		HST_FactionTemplate faction = HST_DefaultCatalog.CreateFactionTemplate(factionKey);
+		if (!faction || faction.m_aInfantryPrefabs.Count() == 0)
+			return "";
+
+		int seed = groupId.Length() * 17 + factionKey.Length() * 31 + index * 43;
+		int startIndex = HST_DefaultCatalog.PositiveMod(seed, faction.m_aInfantryPrefabs.Count());
+		for (int offset = 0; offset < faction.m_aInfantryPrefabs.Count(); offset++)
+		{
+			int candidateIndex = HST_DefaultCatalog.PositiveMod(startIndex + offset, faction.m_aInfantryPrefabs.Count());
+			string prefab = faction.m_aInfantryPrefabs[candidateIndex];
+			if (IsValidInfantryCharacterPrefabResource(prefab, factionKey))
+				return prefab;
+		}
+
+		Print(string.Format("h-istasi | no valid infantry character prefab found for fallback group %1 faction %2", groupId, factionKey), LogLevel.WARNING);
+		return "";
+	}
+
+	protected bool IsValidInfantryCharacterPrefabResource(string prefab, string factionKey)
+	{
+		if (prefab.IsEmpty() || !prefab.Contains("{") || !prefab.Contains("}") || !prefab.Contains("Prefabs/Characters/"))
+			return false;
+
+		Resource loaded = Resource.Load(prefab);
+		if (!loaded || !loaded.IsValid())
+		{
+			Print(string.Format("h-istasi | rejected missing infantry character prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			return false;
+		}
+
+		return true;
+	}
+
+	protected IEntity SpawnFallbackInfantryCharacter(string prefab, vector position, string factionKey)
+	{
+		ResourceName resourceName = prefab;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded || !loaded.IsValid())
+			return null;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return null;
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = position;
+		IEntity entity = GetGame().SpawnEntityPrefabEx(resourceName, true, world, params);
+		if (!entity)
+			return null;
+
+		entity.SetOrigin(position);
+		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+		if (factionComponent && !factionKey.IsEmpty())
+			factionComponent.SetAffiliatedFactionByKey(factionKey);
+
+		return entity;
+	}
+
+	protected vector ResolveFallbackInfantryMemberPosition(vector groupPosition, int index)
+	{
+		vector candidate = groupPosition;
+		float distance = 1.5 + (index / 8) * 1.25;
+		int slot = index % 8;
+		if (slot == 0)
+			candidate[0] = candidate[0] + distance;
+		else if (slot == 1)
+			candidate[2] = candidate[2] + distance;
+		else if (slot == 2)
+			candidate[0] = candidate[0] - distance;
+		else if (slot == 3)
+			candidate[2] = candidate[2] - distance;
+		else if (slot == 4)
+		{
+			candidate[0] = candidate[0] + distance;
+			candidate[2] = candidate[2] + distance;
+		}
+		else if (slot == 5)
+		{
+			candidate[0] = candidate[0] - distance;
+			candidate[2] = candidate[2] + distance;
+		}
+		else if (slot == 6)
+		{
+			candidate[0] = candidate[0] + distance;
+			candidate[2] = candidate[2] - distance;
+		}
+		else
+		{
+			candidate[0] = candidate[0] - distance;
+			candidate[2] = candidate[2] - distance;
+		}
+
+		return HST_WorldPositionService.ResolveSafeGroundPosition(candidate, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 1.0);
 	}
 
 	protected void ClearPendingActiveGroupPopulation(HST_ActiveGroupState activeGroup)
@@ -6855,7 +7031,7 @@ class HST_PhysicalWarService
 
 	protected int CountAliveRuntimeGroupAgents(string groupId)
 	{
-		int aliveCount;
+		int groupAgentCount;
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
@@ -6867,15 +7043,10 @@ class HST_PhysicalWarService
 
 			AIGroup group = AIGroup.Cast(entity);
 			if (group)
-			{
-				aliveCount += Math.Max(0, group.GetAgentsCount());
-				continue;
-			}
-
-			if (IsLivingEntity(entity))
-				aliveCount++;
+				groupAgentCount += Math.Max(0, group.GetAgentsCount());
 		}
 
+		int vehicleAliveCount;
 		for (int j = 0; j < m_aRuntimeVehicleGroupIds.Count(); j++)
 		{
 			if (m_aRuntimeVehicleGroupIds[j] != groupId || j >= m_aRuntimeVehicleEntities.Count())
@@ -6883,15 +7054,31 @@ class HST_PhysicalWarService
 
 			IEntity vehicle = m_aRuntimeVehicleEntities[j];
 			if (IsLivingEntity(vehicle))
+				vehicleAliveCount++;
+		}
+
+		if (groupAgentCount > 0)
+			return groupAgentCount + vehicleAliveCount;
+
+		int aliveCount;
+		for (int k = 0; k < m_aRuntimeGroupIds.Count(); k++)
+		{
+			if (m_aRuntimeGroupIds[k] != groupId || k >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[k];
+			if (!entity || AIGroup.Cast(entity))
+				continue;
+			if (IsLivingEntity(entity))
 				aliveCount++;
 		}
 
-		return aliveCount;
+		return aliveCount + vehicleAliveCount;
 	}
 
 	protected int CountAliveRuntimeInfantryGroupAgents(string groupId)
 	{
-		int aliveCount;
+		int groupAgentCount;
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
@@ -6903,11 +7090,21 @@ class HST_PhysicalWarService
 
 			AIGroup group = AIGroup.Cast(entity);
 			if (group)
-			{
-				aliveCount += Math.Max(0, group.GetAgentsCount());
-				continue;
-			}
+				groupAgentCount += Math.Max(0, group.GetAgentsCount());
+		}
 
+		if (groupAgentCount > 0)
+			return groupAgentCount;
+
+		int aliveCount;
+		for (int j = 0; j < m_aRuntimeGroupIds.Count(); j++)
+		{
+			if (m_aRuntimeGroupIds[j] != groupId || j >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[j];
+			if (!entity || AIGroup.Cast(entity))
+				continue;
 			if (IsLivingEntity(entity))
 				aliveCount++;
 		}

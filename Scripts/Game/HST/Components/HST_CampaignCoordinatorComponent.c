@@ -386,6 +386,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			TickCampaignDebugRunner(elapsedSeconds);
+			return;
+		}
+
 		m_State.m_iElapsedSeconds += elapsedSeconds;
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		if (missionChanged)
