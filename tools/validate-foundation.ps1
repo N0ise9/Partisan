@@ -2866,6 +2866,24 @@ foreach ($requiredSaveEntry in @(
 }
 Write-Host "Campaign save scaffold OK"
 
+foreach ($requiredCampaignDebugSummaryEntry in @(
+		"critical failures %1",
+		"CountCampaignDebugCriticalFailures",
+		"AppendCampaignDebugFailureDetails",
+		"failure details",
+		"FindCampaignDebugPrimaryFailureAssertion",
+		"BuildCampaignDebugFailureReference",
+		"BuildCampaignDebugFailurePosition",
+		"ResolveCampaignDebugFailureReason",
+		"BuildCampaignDebugSuggestedInspectionCommand",
+		"Suggested next inspection:"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugSummaryEntry)) {
+		throw "Campaign debug summary must include critical failure details for forensic triage: $requiredCampaignDebugSummaryEntry"
+	}
+}
+Write-Host "Campaign debug critical failure summary OK"
+
 foreach ($requiredPersistenceSmokeEntry in @(
 		"persistence.restore.report_exact",
 		"restoredReportHealthy",

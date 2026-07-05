@@ -6007,6 +6007,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		lines.Insert("mission prefix " + EmptyCampaignDebugField(m_sCampaignDebugMissionPrefix));
 		lines.Insert("entity tag " + EmptyCampaignDebugField(m_sCampaignDebugEntityTag));
 		lines.Insert(string.Format("pass %1 | warn %2 | fail %3 | blocked %4 | skipped %5", m_iCampaignDebugPassCount, m_iCampaignDebugWarnCount, m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount));
+		lines.Insert(string.Format("critical failures %1", CountCampaignDebugCriticalFailures()));
 		lines.Insert("report " + m_sCampaignDebugReportPath);
 		lines.Insert("summary " + m_sCampaignDebugSummaryPath);
 		lines.Insert("state diff " + m_sCampaignDebugStateDiffPath);
@@ -6024,6 +6025,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugSummaryCases(lines, "BLOCKED");
 		AppendCampaignDebugSummaryCases(lines, "WARN");
 		lines.Insert("");
+		AppendCampaignDebugFailureDetails(lines);
+		lines.Insert("");
 		AppendCampaignDebugFeatureMatrix(lines);
 		lines.Insert("");
 		AppendCampaignDebugMissionMatrix(lines);
@@ -6040,6 +6043,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			lines.Insert(m_aCampaignDebugRecentLog[i]);
 
 		return lines;
+	}
+
+	protected int CountCampaignDebugCriticalFailures()
+	{
+		return m_iCampaignDebugFailCount + m_iCampaignDebugBlockedCount;
 	}
 
 	protected array<string> BuildCampaignDebugStateDiffLines()
@@ -6118,6 +6126,152 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				break;
 			}
 		}
+	}
+
+	protected void AppendCampaignDebugFailureDetails(notnull array<string> lines)
+	{
+		lines.Insert("failure details");
+		if (!m_CampaignDebugRunResult)
+		{
+			lines.Insert("none");
+			return;
+		}
+
+		int rows;
+		foreach (HST_CampaignDebugCaseResult caseResult : m_CampaignDebugRunResult.m_aCases)
+		{
+			if (!caseResult || (caseResult.m_sStatus != "FAIL" && caseResult.m_sStatus != "BLOCKED"))
+				continue;
+
+			rows++;
+			HST_CampaignDebugAssertion assertion = FindCampaignDebugPrimaryFailureAssertion(caseResult);
+			lines.Insert(string.Format("%1 ID: %2", caseResult.m_sStatus, EmptyCampaignDebugField(caseResult.m_sCaseId)));
+			lines.Insert("  Feature: " + EmptyCampaignDebugField(caseResult.m_sFeature));
+			lines.Insert("  Stage: " + EmptyCampaignDebugField(caseResult.m_sStage));
+			if (assertion)
+			{
+				lines.Insert("  Expected: " + ShortCampaignDebugLine(assertion.m_sExpected, 220));
+				lines.Insert("  Actual: " + ShortCampaignDebugLine(assertion.m_sActual, 220));
+				lines.Insert("  Reference: " + BuildCampaignDebugFailureReference(assertion));
+				lines.Insert("  Position: " + BuildCampaignDebugFailurePosition(assertion));
+				lines.Insert("  Likely reason: " + ShortCampaignDebugLine(ResolveCampaignDebugFailureReason(caseResult, assertion), 220));
+			}
+			else
+			{
+				lines.Insert("  Expected: case assertions identify the failure");
+				lines.Insert("  Actual: no failing assertion was recorded");
+				lines.Insert("  Reference: none");
+				lines.Insert("  Position: none");
+				lines.Insert("  Likely reason: " + ShortCampaignDebugLine(caseResult.m_sReason, 220));
+			}
+			lines.Insert("  Suggested next inspection: " + BuildCampaignDebugSuggestedInspectionCommand(caseResult));
+		}
+
+		if (rows == 0)
+			lines.Insert("none");
+	}
+
+	protected HST_CampaignDebugAssertion FindCampaignDebugPrimaryFailureAssertion(HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return null;
+
+		foreach (HST_CampaignDebugAssertion assertion : caseResult.m_aAssertions)
+		{
+			if (assertion && assertion.m_sStatus == "FAIL")
+				return assertion;
+		}
+
+		foreach (HST_CampaignDebugAssertion blockedAssertion : caseResult.m_aAssertions)
+		{
+			if (blockedAssertion && blockedAssertion.m_sStatus == "BLOCKED")
+				return blockedAssertion;
+		}
+
+		foreach (HST_CampaignDebugAssertion warningAssertion : caseResult.m_aAssertions)
+		{
+			if (warningAssertion && warningAssertion.m_sStatus != "PASS")
+				return warningAssertion;
+		}
+
+		return null;
+	}
+
+	protected string BuildCampaignDebugFailureReference(HST_CampaignDebugAssertion assertion)
+	{
+		if (!assertion)
+			return "none";
+
+		string reference;
+		if (!assertion.m_sMissionInstanceId.IsEmpty())
+			reference = AppendCampaignDebugReferencePart(reference, "mission " + assertion.m_sMissionInstanceId);
+		if (!assertion.m_sZoneId.IsEmpty())
+			reference = AppendCampaignDebugReferencePart(reference, "zone " + assertion.m_sZoneId);
+		if (!assertion.m_sOrderId.IsEmpty())
+			reference = AppendCampaignDebugReferencePart(reference, "order " + assertion.m_sOrderId);
+		if (!assertion.m_sEntityId.IsEmpty())
+			reference = AppendCampaignDebugReferencePart(reference, "entity " + assertion.m_sEntityId);
+		if (reference.IsEmpty())
+			return "none";
+
+		return reference;
+	}
+
+	protected string AppendCampaignDebugReferencePart(string reference, string part)
+	{
+		if (part.IsEmpty())
+			return reference;
+		if (reference.IsEmpty())
+			return part;
+
+		return reference + " | " + part;
+	}
+
+	protected string BuildCampaignDebugFailurePosition(HST_CampaignDebugAssertion assertion)
+	{
+		if (!assertion)
+			return "none";
+
+		bool hasExpected = !IsZeroVector(assertion.m_vExpectedPosition);
+		bool hasActual = !IsZeroVector(assertion.m_vActualPosition);
+		if (!hasExpected && !hasActual && assertion.m_fDistanceMeters <= 0)
+			return "none";
+
+		return string.Format("expected %1 | actual %2 | distance %3m", assertion.m_vExpectedPosition, assertion.m_vActualPosition, Math.Round(assertion.m_fDistanceMeters));
+	}
+
+	protected string ResolveCampaignDebugFailureReason(HST_CampaignDebugCaseResult caseResult, HST_CampaignDebugAssertion assertion)
+	{
+		if (assertion && !assertion.m_sFailureReason.IsEmpty())
+			return assertion.m_sFailureReason;
+		if (caseResult && !caseResult.m_sReason.IsEmpty())
+			return caseResult.m_sReason;
+
+		return "no failure reason recorded";
+	}
+
+	protected string BuildCampaignDebugSuggestedInspectionCommand(HST_CampaignDebugCaseResult caseResult)
+	{
+		if (!caseResult)
+			return "admin_campaign_debug_status";
+
+		string missionInstanceId = FindCampaignDebugCaseMissionInstanceId(caseResult);
+		if (!missionInstanceId.IsEmpty())
+			return "inspect_mission " + missionInstanceId;
+		if (caseResult.m_sFeature == "convoy_intercept" || caseResult.m_sCaseId.Contains("convoy"))
+			return "inspect_convoy_runtime";
+		if (caseResult.m_sFeature == "player_support" || caseResult.m_sCategory == "support")
+			return "inspect_support";
+		if (caseResult.m_sCategory == "civilians" || caseResult.m_sFeature == "town_support")
+			return "inspect_civilians";
+		if (caseResult.m_sFeature == "undercover")
+			return "inspect_undercover";
+
+		string zoneId = FindCampaignDebugCaseZoneId(caseResult);
+		if (!zoneId.IsEmpty())
+			return "inspect_markers | zone " + zoneId;
+
+		return "admin_campaign_debug_status";
 	}
 
 	protected void AppendCampaignDebugFeatureMatrix(notnull array<string> lines)
