@@ -3819,7 +3819,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string petrosGroupReport = m_HQ.BuildPetrosAIGroupDebugSummary();
 			hqCase.m_aEvidence.Insert(petrosGroupReport);
 			AddCampaignDebugMetric(hqCase, "hq.petros.ai_group", string.Format("%1", m_HQ.HasPetrosRuntimeAIGroup()), "bool");
-			AddCampaignDebugAssertion(hqCase, "hq.petros.ai_group", "Petros AI agent is attached to the durable HQ AIGroup", petrosGroupReport, CampaignDebugStatus(m_HQ.HasPetrosRuntimeAIGroup()), "Petros runtime entity exists but is not attached to the HQ AIGroup");
+			AddCampaignDebugAssertion(hqCase, "hq.petros.ai_group", "Petros AIGroup attachment is reported as diagnostic evidence", petrosGroupReport, CampaignDebugStatus(m_HQ.HasPetrosRuntimeAIGroup(), "WARN"), "Petros runtime character is alive but is not attached to the optional HQ AIGroup");
 			AddCampaignDebugHQEntityAssertion(hqCase, "petros", "Petros", m_HQ.HasPetrosRuntimeEntity(), m_HQ.GetPetrosRuntimeEntityKey(), m_State.m_vPetrosPosition, m_HQ.GetPetrosRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "cache", "HQ cache", m_HQ.HasCacheRuntimeEntity(), m_HQ.GetCacheRuntimeEntityKey(), m_State.m_vHQCachePosition, m_HQ.GetCacheRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "arsenal", "HQ arsenal", m_HQ.HasArsenalRuntimeEntity(), m_HQ.GetArsenalRuntimeEntityKey(), m_State.m_vArsenalPosition, m_HQ.GetArsenalRuntimeEntityPosition(), 8.0);

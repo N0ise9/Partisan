@@ -511,13 +511,16 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		'EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach")',
 		'PreparePetrosRuntimeEntity(petros, petrosPosition, "dedicated Petros spawn")',
 		'PreparePetrosRuntimeEntity(petros, petrosPosition, "base FIA Petros fallback")',
+		"WarnPetrosAIGroupFallback",
 		"HasPetrosRuntimeAIGroup",
 		"BuildPetrosAIGroupDebugSummary",
-		"m_PetrosEntity && !IsPetrosRuntimeTracked()",
-		"return IsLivingRuntimeEntity(m_PetrosEntity) && IsPetrosAIGroupTracked()"
+		"m_PetrosEntity && !IsLivingRuntimeEntity(m_PetrosEntity)",
+		"return IsLivingRuntimeEntity(m_PetrosEntity);",
+		'CampaignDebugStatus(m_HQ.HasPetrosRuntimeAIGroup(), "WARN")'
 	)) {
-	if ($hqServiceText -notmatch [regex]::Escape($requiredPetrosGroupRuntimeEntry)) {
-		throw "HQ runtime must prove Petros is alive and attached to a durable AIGroup: $requiredPetrosGroupRuntimeEntry"
+	$petrosRuntimeProofText = $hqServiceText + "`n" + $coordinatorText
+	if ($petrosRuntimeProofText -notmatch [regex]::Escape($requiredPetrosGroupRuntimeEntry)) {
+		throw "HQ runtime must preserve a living Petros character and report AIGroup attachment separately: $requiredPetrosGroupRuntimeEntry"
 	}
 }
 if ($coordinatorText -notmatch "RequestCommanderRebuildHQAssets" -or $coordinatorText -notmatch "ResolveHQRebuildPlacement") {

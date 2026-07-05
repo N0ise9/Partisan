@@ -24,6 +24,7 @@ class HST_HQService
 	protected bool m_bWarnedArsenalResourceFailure;
 	protected bool m_bWarnedRuntimeSpawnIncomplete;
 	protected bool m_bWarnedPetrosRemovalRetry;
+	protected bool m_bWarnedPetrosAIGroupFallback;
 	protected bool m_bLoggedPetrosSpawned;
 	protected bool m_bLoggedCacheSpawned;
 	protected bool m_bLoggedArsenalSpawned;
@@ -240,25 +241,21 @@ class HST_HQService
 				if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach"))
 				{
 					DebugLog(string.Format("lifecycle reattached Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
-					changed = true;
 				}
 				else
 				{
-					Print(string.Format("h-istasi | reattached Petros prefab %1 was not AI-grouped; deleting it for grouped respawn", ResolvePetrosPrefab(state)), LogLevel.WARNING);
-					DeleteRuntimeEntity(m_PetrosEntity);
-					m_PetrosEntity = null;
-					DeleteRuntimeEntity(m_PetrosGroupEntity);
-					m_PetrosGroupEntity = null;
-					changed = true;
+					WarnPetrosAIGroupFallback("reattach");
+					DebugLog(string.Format("lifecycle reattached Petros without durable AIGroup prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
 				}
+				changed = true;
 			}
 		}
 
-		if (m_PetrosEntity && !IsPetrosRuntimeTracked())
+		if (m_PetrosEntity && !IsLivingRuntimeEntity(m_PetrosEntity))
 		{
 			if (!m_bWarnedPetrosRemovalRetry)
 			{
-				Print("h-istasi | Petros runtime is no longer alive/grouped; retrying real grouped Petros spawn", LogLevel.WARNING);
+				Print("h-istasi | Petros runtime is no longer alive; retrying real Petros spawn", LogLevel.WARNING);
 				m_bWarnedPetrosRemovalRetry = true;
 			}
 			DeleteRuntimeEntity(m_PetrosEntity);
@@ -268,6 +265,11 @@ class HST_HQService
 			m_bLoggedPetrosSpawned = false;
 			changed = true;
 		}
+		else if (m_PetrosEntity && !IsPetrosAIGroupTracked())
+		{
+			if (!EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "runtime refresh"))
+				WarnPetrosAIGroupFallback("runtime refresh");
+		}
 
 		if (!m_PetrosEntity && m_bLoggedPetrosSpawned)
 		{
@@ -275,7 +277,7 @@ class HST_HQService
 			m_PetrosGroupEntity = null;
 			if (!m_bWarnedPetrosRemovalRetry)
 			{
-				Print("h-istasi | Petros character runtime was removed after spawn; retrying real grouped Petros spawn", LogLevel.WARNING);
+				Print("h-istasi | Petros character runtime was removed after spawn; retrying real Petros spawn", LogLevel.WARNING);
 				m_bWarnedPetrosRemovalRetry = true;
 			}
 			m_bLoggedPetrosSpawned = false;
@@ -1048,10 +1050,19 @@ class HST_HQService
 		if (EnsurePetrosAIGroup(petros, position, source))
 			return true;
 
-		Print(string.Format("h-istasi | Petros prefab spawned via %1 but could not be attached to a durable AIGroup", source), LogLevel.WARNING);
+		WarnPetrosAIGroupFallback(source);
 		DeleteRuntimeEntity(m_PetrosGroupEntity);
 		m_PetrosGroupEntity = null;
-		return false;
+		return IsLivingRuntimeEntity(petros);
+	}
+
+	protected void WarnPetrosAIGroupFallback(string source)
+	{
+		if (m_bWarnedPetrosAIGroupFallback)
+			return;
+
+		m_bWarnedPetrosAIGroupFallback = true;
+		Print(string.Format("h-istasi | Petros spawned via %1 without durable AIGroup attachment; preserving living HQ character and reporting AIGroup as diagnostic WARN", source), LogLevel.WARNING);
 	}
 
 	protected void PreparePetrosEntity(IEntity petros, vector position)
@@ -1374,7 +1385,7 @@ class HST_HQService
 
 	protected bool IsPetrosRuntimeTracked()
 	{
-		return IsLivingRuntimeEntity(m_PetrosEntity) && IsPetrosAIGroupTracked();
+		return IsLivingRuntimeEntity(m_PetrosEntity);
 	}
 
 	protected bool IsLivingRuntimeEntity(IEntity entity)
@@ -1407,7 +1418,7 @@ class HST_HQService
 	protected bool IsPetrosAIGroupTracked()
 	{
 		SCR_AIGroup group = SCR_AIGroup.Cast(m_PetrosGroupEntity);
-		return group && IsPetrosAgentInGroup(m_PetrosEntity, group);
+		return IsLivingRuntimeEntity(m_PetrosEntity) && group && IsPetrosAgentInGroup(m_PetrosEntity, group);
 	}
 
 	protected bool IsPetrosAgentInGroup(IEntity petros, SCR_AIGroup group)
@@ -1582,6 +1593,7 @@ class HST_HQService
 		m_bLoggedTentSpawned = false;
 		m_bLoggedSpawnPointSpawned = false;
 		m_bWarnedPetrosRemovalRetry = false;
+		m_bWarnedPetrosAIGroupFallback = false;
 
 		if (state)
 		{

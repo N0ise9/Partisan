@@ -664,10 +664,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Treat `deficitCorrections` in `HistasiBuildGameMasterBudgetDiagnostics()` plus at most one `corrected first disabled-budget deficit` log line as proof that the disabled-budget shim is active without accepting per-frame correction spam.
   - Campaign-debug preflight should record `preflight.gm_budget.*` assertions showing settings/runtime/game-mode agreement, budget editor availability, cap-enabled state, managed-budget headroom, original cap counts, and deficit-handler registration. A full run with `gameMasterBudgetsEnabled=false` should prove placement caps are disabled and the deficit correction hook is active before accepting any GM-budget clamp investigation as closed.
 
-- HQ/Petros runtime proof must require a live character and a durable AI group.
-  - A Petros entity handle is not sufficient. Dedicated-server logs can show `Petros character runtime was removed after spawn` when the character is spawned without being attached to a valid `SCR_AIGroup`.
-  - After spawn or reattach, call `EnsurePetrosAIGroup()` and only count HQ runtime objects as spawned when Petros is alive and `IsPetrosAIGroupTracked()` is true. Delete ungrouped rediscovered Petros entities and respawn them through the grouped path.
-  - The campaign-debug HQ case should include an explicit `hq.petros.ai_group` assertion and `BuildPetrosAIGroupDebugSummary()` evidence. Do not rely only on aggregate `tracked_count 5/5` when debugging Petros spawn/reattach failures.
+- HQ/Petros runtime proof must require the real live Petros character; AIGroup attachment is diagnostic evidence.
+  - A Petros entity handle is not sufficient unless the character is alive, prepared, at the HQ Petros position, and exposed through the HQ service's tracked handle. Dedicated-server logs can show `Petros character runtime was removed after spawn`, so disappearance should still trigger a respawn.
+  - After spawn or reattach, call `EnsurePetrosAIGroup()` and report `BuildPetrosAIGroupDebugSummary()` evidence, but do not delete a living Petros only because the optional `SCR_AIGroup` link is missing or later drops out of service tracking.
+  - The campaign-debug HQ case should include an explicit `hq.petros.ai_group` assertion as WARN-level diagnostic evidence. The hard HQ runtime proof is the live tracked Petros character plus cache/arsenal/tent/spawn-point handles.
 
 - Active AI groups cannot wait until the final retry before proving live agents.
   - Native group prefabs can spawn an `SCR_AIGroup` with zero countable agents for several ticks on a dedicated server.
