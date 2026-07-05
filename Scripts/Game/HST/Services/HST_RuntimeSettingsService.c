@@ -24,6 +24,11 @@ class HST_RuntimeSettingsService
 		return enabled;
 	}
 
+	string GetSettingsFilePath()
+	{
+		return SETTINGS_FILE;
+	}
+
 	HST_RuntimeSettings LoadOrCreate()
 	{
 		HST_RuntimeSettings settings = new HST_RuntimeSettings();

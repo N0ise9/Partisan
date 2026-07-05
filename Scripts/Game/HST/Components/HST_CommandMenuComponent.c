@@ -2729,6 +2729,10 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!owner)
 			return false;
 
+		IEntity localControlledEntity = SCR_PlayerController.GetLocalControlledEntity();
+		if (localControlledEntity && owner == localControlledEntity)
+			return true;
+
 		PlayerController localController = GetGame().GetPlayerController();
 		PlayerController ownerController = PlayerController.Cast(owner);
 		if (localController)
@@ -2745,7 +2749,19 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (localPlayerId <= 0)
 			return false;
 
-		return ownerController && ownerController.GetPlayerId() == localPlayerId;
+		if (ownerController && ownerController.GetPlayerId() == localPlayerId)
+			return true;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		int ownerPlayerId = playerManager.GetPlayerIdFromControlledEntity(owner);
+		if (ownerPlayerId == localPlayerId)
+			return true;
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(owner.FindComponent(BaseRplComponent));
+		return rpl && playerManager.GetPlayerIdFromEntityRplId(rpl.Id()) == localPlayerId;
 	}
 
 	protected int ResolveNativeLocalPlayerId()
@@ -2771,10 +2787,25 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected int ResolveOwnerPlayerId(IEntity owner)
 	{
-		PlayerController controller = PlayerController.Cast(owner);
-		if (!controller)
+		if (!owner)
 			return 0;
 
-		return controller.GetPlayerId();
+		PlayerController controller = PlayerController.Cast(owner);
+		if (controller)
+			return controller.GetPlayerId();
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		int ownerPlayerId = playerManager.GetPlayerIdFromControlledEntity(owner);
+		if (ownerPlayerId > 0)
+			return ownerPlayerId;
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(owner.FindComponent(BaseRplComponent));
+		if (rpl)
+			return playerManager.GetPlayerIdFromEntityRplId(rpl.Id());
+
+		return 0;
 	}
 }

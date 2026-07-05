@@ -413,121 +413,128 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	void RequestSnapshot(string selectedTabId, string lastResult = "")
 	{
+		int clientPlayerId = ResolveLocalPlayerId();
 		if (Replication.IsServer())
 		{
-			SendSnapshotToOwner(selectedTabId, lastResult);
+			SendSnapshotToOwner(selectedTabId, lastResult, clientPlayerId);
 			return;
 		}
 
-		Rpc(RpcAsk_RequestSnapshot, selectedTabId, lastResult);
+		Rpc(RpcAsk_RequestSnapshot, selectedTabId, lastResult, clientPlayerId);
 	}
 
 	void RequestAction(string selectedTabId, string commandId, string argument = "")
 	{
+		int clientPlayerId = ResolveLocalPlayerId();
 		if (Replication.IsServer())
 		{
-			SendActionResultToOwner(selectedTabId, commandId, argument);
+			SendActionResultToOwner(selectedTabId, commandId, argument, clientPlayerId);
 			return;
 		}
 
-		Rpc(RpcAsk_RequestAction, selectedTabId, commandId, argument);
+		Rpc(RpcAsk_RequestAction, selectedTabId, commandId, argument, clientPlayerId);
 	}
 
 	void RequestLoadoutEditorAction(string commandId, string argument = "")
 	{
+		int clientPlayerId = ResolveLocalPlayerId();
 		if (Replication.IsServer())
 		{
-			SendLoadoutEditorActionResultToOwner(commandId, argument);
+			SendLoadoutEditorActionResultToOwner(commandId, argument, clientPlayerId);
 			return;
 		}
 
-		Rpc(RpcAsk_RequestLoadoutEditorAction, commandId, argument);
+		Rpc(RpcAsk_RequestLoadoutEditorAction, commandId, argument, clientPlayerId);
 	}
 
 	void RequestMissionIntel()
 	{
+		int clientPlayerId = ResolveLocalPlayerId();
 		if (Replication.IsServer())
 		{
-			SendMissionIntelToOwner();
+			SendMissionIntelToOwner(clientPlayerId);
 			return;
 		}
 
-		Rpc(RpcAsk_RequestMissionIntel);
+		Rpc(RpcAsk_RequestMissionIntel, clientPlayerId);
 	}
 
 	void RequestSetupState(string lastResult = "")
 	{
+		int clientPlayerId = ResolveLocalPlayerId();
 		if (Replication.IsServer())
 		{
-			SendSetupStateToOwner(lastResult);
+			SendSetupStateToOwner(lastResult, clientPlayerId);
 			return;
 		}
 
-		Rpc(RpcAsk_RequestSetupState, lastResult);
+		Rpc(RpcAsk_RequestSetupState, lastResult, clientPlayerId);
 	}
 
 	void RequestSetupValidatePosition(float worldX, float worldZ)
 	{
+		int clientPlayerId = ResolveLocalPlayerId();
 		if (Replication.IsServer())
 		{
-			SendSetupValidateResultToOwner(worldX, worldZ);
+			SendSetupValidateResultToOwner(worldX, worldZ, clientPlayerId);
 			return;
 		}
 
-		Rpc(RpcAsk_RequestSetupValidatePosition, worldX, worldZ);
+		Rpc(RpcAsk_RequestSetupValidatePosition, worldX, worldZ, clientPlayerId);
 	}
 
 	void RequestSetupConfirmPosition(float worldX, float worldZ)
 	{
+		int clientPlayerId = ResolveLocalPlayerId();
 		if (Replication.IsServer())
 		{
-			SendSetupConfirmResultToOwner(worldX, worldZ);
+			SendSetupConfirmResultToOwner(worldX, worldZ, clientPlayerId);
 			return;
 		}
 
-		Rpc(RpcAsk_RequestSetupConfirmPosition, worldX, worldZ);
+		Rpc(RpcAsk_RequestSetupConfirmPosition, worldX, worldZ, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_RequestSnapshot(string selectedTabId, string lastResult)
+	protected void RpcAsk_RequestSnapshot(string selectedTabId, string lastResult, int clientPlayerId)
 	{
-		SendSnapshotToOwner(selectedTabId, lastResult);
+		SendSnapshotToOwner(selectedTabId, lastResult, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_RequestAction(string selectedTabId, string commandId, string argument)
+	protected void RpcAsk_RequestAction(string selectedTabId, string commandId, string argument, int clientPlayerId)
 	{
-		SendActionResultToOwner(selectedTabId, commandId, argument);
+		SendActionResultToOwner(selectedTabId, commandId, argument, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_RequestLoadoutEditorAction(string commandId, string argument)
+	protected void RpcAsk_RequestLoadoutEditorAction(string commandId, string argument, int clientPlayerId)
 	{
-		SendLoadoutEditorActionResultToOwner(commandId, argument);
+		SendLoadoutEditorActionResultToOwner(commandId, argument, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_RequestMissionIntel()
+	protected void RpcAsk_RequestMissionIntel(int clientPlayerId)
 	{
-		SendMissionIntelToOwner();
+		SendMissionIntelToOwner(clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_RequestSetupState(string lastResult)
+	protected void RpcAsk_RequestSetupState(string lastResult, int clientPlayerId)
 	{
-		SendSetupStateToOwner(lastResult);
+		SendSetupStateToOwner(lastResult, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_RequestSetupValidatePosition(float worldX, float worldZ)
+	protected void RpcAsk_RequestSetupValidatePosition(float worldX, float worldZ, int clientPlayerId)
 	{
-		SendSetupValidateResultToOwner(worldX, worldZ);
+		SendSetupValidateResultToOwner(worldX, worldZ, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_RequestSetupConfirmPosition(float worldX, float worldZ)
+	protected void RpcAsk_RequestSetupConfirmPosition(float worldX, float worldZ, int clientPlayerId)
 	{
-		SendSetupConfirmResultToOwner(worldX, worldZ);
+		SendSetupConfirmResultToOwner(worldX, worldZ, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -637,7 +644,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Print(string.Format("h-istasi campaign debug teleport owner | reason %1 | player %2 | target %3 | native %4 | forced %5 | confirmed %6 | actual %7", reason, localPlayerId, position, nativeTeleported, forcedEntityOrigin, confirmed, actual));
 	}
 
-	protected void SendSnapshotToOwner(string selectedTabId, string lastResult)
+	protected void SendSnapshotToOwner(string selectedTabId, string lastResult, int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
@@ -646,7 +653,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 		}
 
-		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "snapshot");
+		DebugLog(string.Format("snapshot request | selected=%1 ownerPlayer=%2 clientHint=%3", selectedTabId, playerId, clientPlayerId));
 		string payload = coordinator.BuildVisibleMenuPayload(playerId, selectedTabId, lastResult);
 		DeliverSnapshot(payload, lastResult);
 	}
@@ -711,7 +719,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return false;
 	}
 
-	protected void SendActionResultToOwner(string selectedTabId, string commandId, string argument)
+	protected void SendActionResultToOwner(string selectedTabId, string commandId, string argument, int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
@@ -720,13 +728,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 		}
 
-		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "action");
+		DebugLog(string.Format("action request | command=%1 ownerPlayer=%2 clientHint=%3", commandId, playerId, clientPlayerId));
 		string result = coordinator.RequestVisibleMenuCommand(playerId, selectedTabId, commandId, argument);
 		string payload = coordinator.BuildVisibleMenuPayload(playerId, selectedTabId, result);
 		DeliverSnapshot(payload, result);
 	}
 
-	protected void SendLoadoutEditorActionResultToOwner(string commandId, string argument)
+	protected void SendLoadoutEditorActionResultToOwner(string commandId, string argument, int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
@@ -735,7 +744,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 		}
 
-		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "loadout");
 		string result = coordinator.RequestLoadoutEditorCommand(playerId, commandId, argument);
 		string payload;
 		if (commandId == "loadout_editor_candidates")
@@ -745,7 +754,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		DeliverLoadoutEditorPayload(payload, result);
 	}
 
-	protected void SendMissionIntelToOwner()
+	protected void SendMissionIntelToOwner(int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
@@ -754,11 +763,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 		}
 
-		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "mission intel");
 		DeliverMissionIntel(coordinator.BuildMissionIntelPayload(playerId));
 	}
 
-	protected void SendSetupStateToOwner(string lastResult = "")
+	protected void SendSetupStateToOwner(string lastResult = "", int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
@@ -767,11 +776,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 		}
 
-		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "setup state");
 		DeliverSetupState(coordinator.BuildSetupMapPayload(playerId, lastResult), lastResult);
 	}
 
-	protected void SendSetupValidateResultToOwner(float worldX, float worldZ)
+	protected void SendSetupValidateResultToOwner(float worldX, float worldZ, int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
@@ -780,12 +789,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 		}
 
-		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "setup validate");
 		string result = coordinator.RequestSetupValidateHQPosition(playerId, worldX, worldZ);
 		DeliverSetupResult(result);
 	}
 
-	protected void SendSetupConfirmResultToOwner(float worldX, float worldZ)
+	protected void SendSetupConfirmResultToOwner(float worldX, float worldZ, int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
@@ -794,7 +803,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 		}
 
-		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "setup confirm");
 		string result = coordinator.RequestSetupConfirmHQPosition(playerId, worldX, worldZ);
 		DeliverSetupResult(result);
 		DeliverSetupState(coordinator.BuildSetupMapPayload(playerId, result), result);
@@ -883,6 +892,10 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (!owner)
 			return false;
 
+		IEntity localControlledEntity = SCR_PlayerController.GetLocalControlledEntity();
+		if (localControlledEntity && owner == localControlledEntity)
+			return true;
+
 		PlayerController localController = GetGame().GetPlayerController();
 		PlayerController ownerController = PlayerController.Cast(owner);
 		if (localController)
@@ -899,7 +912,19 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (localPlayerId <= 0)
 			return false;
 
-		return ownerController && ownerController.GetPlayerId() == localPlayerId;
+		if (ownerController && ownerController.GetPlayerId() == localPlayerId)
+			return true;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		int ownerPlayerId = playerManager.GetPlayerIdFromControlledEntity(owner);
+		if (ownerPlayerId == localPlayerId)
+			return true;
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(owner.FindComponent(BaseRplComponent));
+		return rpl && playerManager.GetPlayerIdFromEntityRplId(rpl.Id()) == localPlayerId;
 	}
 
 	protected int ResolveNativeLocalPlayerId()

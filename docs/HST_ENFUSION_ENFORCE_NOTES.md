@@ -12,6 +12,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Member/commander UI should show `m_sDisplayName` as the row/action label and, if needed, only a shortened identity as secondary diagnostic evidence.
   - Current examples: `HST_PlayerLifecycleService.RefreshPlayerDisplayName()`, `HST_CommandUIService.BuildPlayerRosterName()`, and commander-transfer actions in the Members tab.
 
+- Runtime admin grants from settings should be re-applied during every authoritative player refresh, not only on the first connection/spawn event.
+  - `BackendApi.GetPlayerPlatformId(playerId)` can become available later than the initial player registration path. If a player is first registered under a fallback/backend identity and the SteamID64 appears later, a one-time admin check can leave them non-admin for menu/action requests.
+  - Use the settings `adminIdentityIds` list for SteamID64 tokens only. Non-17-digit tokens are ignored and logged as diagnostics.
+  - Current example: `HST_CampaignCoordinatorComponent.RefreshRuntimePlayerAuthority()` is used by setup, member, commander, admin, and visible-menu payload checks so the role state and the rendered menu snapshot agree.
+
+- Player-owned UI components may be attached to either the player controller or the possessed entity depending on runtime context.
+  - Local-owner checks should accept `GetGame().GetPlayerController()`, `SCR_PlayerController.GetLocalControlledEntity()`, `PlayerManager.GetPlayerIdFromControlledEntity(owner)`, and owner RPL-id lookup before deciding a component is not local.
+  - If this is too strict, client input listeners such as the command menu `I` key never run because the component keeps returning before input polling.
+  - Current examples: `HST_CommandMenuComponent.IsLocalOwner()` and `HST_CommandMenuRequestComponent.IsLocalOwner()`.
+
 ## UI Layouts
 
 - Top-level UI layouts should be created with the workspace as the parent when they are meant to exist above game/map UI:
