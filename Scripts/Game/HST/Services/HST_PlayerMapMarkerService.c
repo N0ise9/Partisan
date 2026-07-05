@@ -48,6 +48,48 @@ class HST_PlayerMapMarkerService
 		DebugLog("refresh requested " + reason);
 	}
 
+	bool ForceRefresh(HST_CampaignState state, string reason = "")
+	{
+		m_sLastSignature = "";
+		RequestRefresh(reason);
+		return Tick(state, REFRESH_INTERVAL_SECONDS);
+	}
+
+	int GetDesiredPlayerMarkerCount()
+	{
+		return m_mDesiredPlayerMarkers.Count();
+	}
+
+	int GetTrackedPlayerMarkerCount()
+	{
+		if (!m_Reconciler)
+			return 0;
+
+		return m_Reconciler.GetTrackedDynamicHandleCount();
+	}
+
+	int GetLivePlayerMarkerCount()
+	{
+		if (!m_Reconciler)
+			return 0;
+
+		return m_Reconciler.CountTrackedDynamicLive();
+	}
+
+	bool IsPlayerMarkerEntryReady()
+	{
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+			return false;
+
+		markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+		SCR_MapMarkerConfig markerConfig = markerManager.GetMarkerConfig();
+		if (!markerConfig)
+			return false;
+
+		return markerConfig.GetMarkerEntryConfigByType(SCR_EMapMarkerType.HST_PLAYER) != null;
+	}
+
 	bool Tick(HST_CampaignState state, float timeSlice)
 	{
 		if (!Replication.IsServer())

@@ -4646,6 +4646,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
 		m_bCampaignDebugRunning = false;
 		m_bCampaignDebugCompleted = true;
+		RecordCampaignDebugCase(BuildCampaignDebugPlayerMarkerCompletionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugRunCleanupSnapshotCase());
 		m_sCampaignDebugLastResult = string.Format("complete | run %1 | pass %2 | warn %3 | fail %4 | blocked %5 | skipped %6", m_sCampaignDebugRunId, m_iCampaignDebugPassCount, m_iCampaignDebugWarnCount, m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount);
 		AppendCampaignDebugLog("DONE", "complete", m_sCampaignDebugLastResult);
@@ -4663,8 +4664,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_PlayerMapMarkers)
 			return;
 
-		m_PlayerMapMarkers.RequestRefresh("campaign debug completion");
-		m_PlayerMapMarkers.Tick(m_State, 0.0);
+		m_PlayerMapMarkers.ForceRefresh(m_State, "campaign debug completion");
 	}
 
 	protected string BuildCampaignDebugRunId(int playerId)
@@ -5888,6 +5888,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		file.Close();
 		return true;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPlayerMarkerCompletionCase()
+	{
+		HST_CampaignDebugCaseResult markerCase = CreateCampaignDebugCase("cleanup.player_marker_completion", "cleanup", "player_markers", "final");
+		if (!m_PlayerMapMarkers)
+		{
+			AddCampaignDebugAssertion(markerCase, "cleanup.player_marker.service", "player marker service exists", "missing", "WARN", "player marker service missing during campaign debug completion");
+			FinalizeCampaignDebugCaseFromAssertions(markerCase);
+			return markerCase;
+		}
+
+		string report = m_PlayerMapMarkers.BuildRuntimeReport();
+		markerCase.m_aEvidence.Insert(report);
+		int desiredCount = m_PlayerMapMarkers.GetDesiredPlayerMarkerCount();
+		int trackedCount = m_PlayerMapMarkers.GetTrackedPlayerMarkerCount();
+		int liveCount = m_PlayerMapMarkers.GetLivePlayerMarkerCount();
+		bool entryReady = m_PlayerMapMarkers.IsPlayerMarkerEntryReady();
+		bool enabled = m_PlayerMapMarkers.IsEnabled();
+		string actual = string.Format("enabled %1 | desired %2 | tracked %3 | live %4 | entry %5", enabled, desiredCount, trackedCount, liveCount, entryReady);
+		AddCampaignDebugMetric(markerCase, "cleanup.player_markers.desired", string.Format("%1", desiredCount), "count");
+		AddCampaignDebugMetric(markerCase, "cleanup.player_markers.tracked", string.Format("%1", trackedCount), "count");
+		AddCampaignDebugMetric(markerCase, "cleanup.player_markers.live", string.Format("%1", liveCount), "count");
+		AddCampaignDebugAssertion(markerCase, "cleanup.player_marker.config", "HST player marker config entry is ready", actual, CampaignDebugStatus(!enabled || entryReady, "WARN"), "player marker config entry missing after campaign debug completion");
+		AddCampaignDebugAssertion(markerCase, "cleanup.player_marker.live", "enabled player marker service has desired/tracked/live marker after cleanup", actual, CampaignDebugStatus(!enabled || (desiredCount > 0 && trackedCount >= desiredCount && liveCount >= desiredCount), "WARN"), "player marker did not reconcile after campaign debug completion");
+		FinalizeCampaignDebugCaseFromAssertions(markerCase);
+		return markerCase;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRunCleanupSnapshotCase()
