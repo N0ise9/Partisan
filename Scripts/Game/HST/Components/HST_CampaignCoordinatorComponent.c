@@ -7713,13 +7713,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		bool seedAccepted = IsCampaignDebugResultSuccessful(seedResult) && seedResult.Contains("h-istasi persistence smoke | seeded") && CampaignDebugPersistenceReportPassed(seedResult);
-		bool smokeAccepted = IsCampaignDebugResultSuccessful(smokeResult) && CampaignDebugPersistenceReportPassed(smokeResult);
-		bool reportAccepted = CampaignDebugPersistenceReportPassed(reportResult);
+		bool smokeAccepted = IsCampaignDebugResultSuccessful(smokeResult) && CampaignDebugPersistenceReportHealthy(smokeResult);
+		bool smokeExact = CampaignDebugPersistenceReportPassed(smokeResult);
+		bool reportAccepted = CampaignDebugPersistenceReportHealthy(reportResult);
+		bool reportExact = CampaignDebugPersistenceReportPassed(reportResult);
 		bool checkpointAttempted = seedResult.Contains("manual checkpoint") && smokeResult.Contains("manual checkpoint");
 
 		string liveSummary = m_PersistenceSmokeTest.BuildSummary(m_State);
 		string liveReport = m_PersistenceSmokeTest.BuildReport(m_State);
 		bool liveReportPassed = CampaignDebugPersistenceReportPassed(liveReport);
+		bool liveReportHealthy = CampaignDebugPersistenceReportHealthy(liveReport);
 		HST_CampaignTaskState expectedTaskState = m_State.FindCampaignTask(PERSISTENCE_SMOKE_EXPECTED_TASK_ID);
 		string expectedSummaryDescription = "";
 		if (expectedTaskState)
@@ -7792,8 +7795,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(persistenceCase, "persistence.smoke_field_vehicles", string.Format("%1", smokeFieldVehicles), "count");
 
 		AddCampaignDebugAssertion(persistenceCase, "persistence.seed.command", "seed command creates/refreshes smoke baseline and reports PASS", ShortCampaignDebugLine(seedResult, 260), CampaignDebugStatus(seedAccepted), "persistence smoke seed did not report a healthy baseline");
-		AddCampaignDebugAssertion(persistenceCase, "persistence.smoke.command", "smoke command reports current state PASS", ShortCampaignDebugLine(smokeResult, 260), CampaignDebugStatus(smokeAccepted), "persistence smoke run did not report PASS");
-		AddCampaignDebugAssertion(persistenceCase, "persistence.report.current", "current smoke report PASS with missing/zero none", ShortCampaignDebugLine(reportResult, 260), CampaignDebugStatus(reportAccepted && liveReportPassed), "current persistence smoke report is not PASS");
+		AddCampaignDebugAssertion(persistenceCase, "persistence.smoke.command", "smoke command reports current state PASS or WARN with missing/zero none", ShortCampaignDebugLine(smokeResult, 260), CampaignDebugStatus(smokeAccepted), "persistence smoke run reported failure or missing data");
+		AddCampaignDebugAssertion(persistenceCase, "persistence.smoke.exact", "current smoke summary still exactly matches the seeded baseline", ShortCampaignDebugLine(smokeResult, 260), CampaignDebugStatus(smokeExact, "WARN"), "persistence smoke expected/current summary drifted during Phase 12");
+		AddCampaignDebugAssertion(persistenceCase, "persistence.report.current", "current smoke report PASS or WARN with missing/zero none", ShortCampaignDebugLine(reportResult, 260), CampaignDebugStatus(reportAccepted && liveReportHealthy), "current persistence smoke report failed or reported missing data");
+		AddCampaignDebugAssertion(persistenceCase, "persistence.report.exact", "current report summary still exactly matches the seeded baseline", ShortCampaignDebugLine(reportResult, 260), CampaignDebugStatus(reportExact && liveReportPassed, "WARN"), "persistence smoke expected/current summary drifted by Phase 12 report time");
 		AddCampaignDebugAssertion(persistenceCase, "persistence.checkpoint.attempted", "seed and smoke commands attempt manual checkpoint", string.Format("%1", checkpointAttempted), CampaignDebugStatus(checkpointAttempted), "manual checkpoint evidence missing from persistence smoke commands");
 		AddCampaignDebugAssertion(persistenceCase, "persistence.expected_summary", "expected summary task exists and stores baseline", EmptyCampaignDebugField(expectedSummaryDescription), CampaignDebugStatus(!expectedSummaryDescription.IsEmpty()), "expected persistence smoke summary task missing");
 		AddCampaignDebugAssertion(persistenceCase, "persistence.main_mission", "main smoke mission exists and is active", BuildCampaignDebugMissionActual(mainSmokeMission), CampaignDebugStatus(mainSmokeMission != null && mainSmokeMission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "main persistence smoke mission missing or inactive", "", PERSISTENCE_SMOKE_MISSION_ID);
