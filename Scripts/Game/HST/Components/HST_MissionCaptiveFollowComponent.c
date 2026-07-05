@@ -17,6 +17,8 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 	static const float SPRINT_CATCHUP_DISTANCE_METERS = 8.0;
 	static const float STUCK_RECOVERY_DISTANCE_METERS = 6.0;
 	static const float STUCK_RECOVERY_MIN_MOVE_METERS = 0.75;
+	static const float DIRECT_CATCHUP_MIN_DISTANCE_METERS = 12.0;
+	static const float DIRECT_CATCHUP_STEP_METERS = 8.0;
 	static const int STUCK_RECOVERY_TICKS = 6;
 	static const int FOLLOW_UPDATE_MS = 500;
 
@@ -37,6 +39,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 	protected bool m_bLoggedWaypointFallback;
 	protected bool m_bLoggedWaypointFailed;
 	protected bool m_bLoggedStuckRecovery;
+	protected bool m_bLoggedDirectCatchup;
 	protected bool m_bDirectFollowUnavailable;
 	protected int m_iNoProgressTicks;
 
@@ -55,7 +58,10 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			return;
 
 		if (m_bFollowing && m_FollowTarget == target)
+		{
+			FollowTick();
 			return;
+		}
 
 		m_FollowTarget = target;
 		m_bFollowing = true;
@@ -71,6 +77,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		m_bLoggedWaypointFallback = false;
 		m_bLoggedWaypointFailed = false;
 		m_bLoggedStuckRecovery = false;
+		m_bLoggedDirectCatchup = false;
 		m_bDirectFollowUnavailable = false;
 
 		FollowTick();
@@ -154,6 +161,58 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		}
 
 		IssueFollowWaypoint(group, ownerPosition, followPosition, movementType, m_FollowTarget, forceWaypointRefresh);
+		if (forceWaypointRefresh)
+			TryApplyDirectCatchup(owner, ownerPosition, followPosition);
+	}
+
+	protected bool TryApplyDirectCatchup(IEntity owner, vector ownerPosition, vector followPosition)
+	{
+		if (!owner || IsZeroVector(followPosition))
+			return false;
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(owner.FindComponent(SCR_CompartmentAccessComponent));
+		if (access && access.IsInCompartment())
+			return false;
+
+		float distanceSq = DistanceSq2D(ownerPosition, followPosition);
+		if (distanceSq <= DIRECT_CATCHUP_MIN_DISTANCE_METERS * DIRECT_CATCHUP_MIN_DISTANCE_METERS)
+			return false;
+
+		float distance = Math.Sqrt(distanceSq);
+		float stepDistance = distance - STOP_DISTANCE_METERS;
+		if (stepDistance > DIRECT_CATCHUP_STEP_METERS)
+			stepDistance = DIRECT_CATCHUP_STEP_METERS;
+		if (stepDistance <= 0.1)
+			return false;
+
+		float dx = followPosition[0] - ownerPosition[0];
+		float dz = followPosition[2] - ownerPosition[2];
+		float length = Math.Sqrt(dx * dx + dz * dz);
+		if (length <= 0.01)
+			return false;
+
+		vector catchupPosition = ownerPosition;
+		catchupPosition[0] = catchupPosition[0] + (dx / length) * stepDistance;
+		catchupPosition[2] = catchupPosition[2] + (dz / length) * stepDistance;
+		catchupPosition = HST_WorldPositionService.ResolveSafeGroundPosition(catchupPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 1.0);
+		HST_WorldPositionService.ApplyUprightEntityTransform(owner, catchupPosition, owner.GetYawPitchRoll());
+
+		Physics physics = owner.GetPhysics();
+		if (physics)
+		{
+			physics.SetVelocity(vector.Zero);
+			physics.SetAngularVelocity(vector.Zero);
+		}
+
+		m_vLastOwnerPosition = catchupPosition;
+		m_iNoProgressTicks = 0;
+		if (!m_bLoggedDirectCatchup)
+		{
+			Print(string.Format("h-istasi mission captive follow | direct catch-up after stalled follow | owner %1 -> %2 | target %3 | distance %4m", ownerPosition, catchupPosition, followPosition, Math.Round(distance)), LogLevel.WARNING);
+			m_bLoggedDirectCatchup = true;
+		}
+
+		return true;
 	}
 
 	protected AIBaseMovementComponent ResolveAIMovement(IEntity owner, out AIGroup group)
