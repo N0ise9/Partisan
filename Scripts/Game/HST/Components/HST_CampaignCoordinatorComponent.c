@@ -20455,6 +20455,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return "0";
 	}
 
+	protected string ReportBool(bool value)
+	{
+		if (value)
+			return "yes";
+
+		return "no";
+	}
+
 	protected string BuildSetupResultPayload(string action, bool accepted, vector resolvedPosition, string message)
 	{
 		return string.Format(

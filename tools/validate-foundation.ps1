@@ -2644,6 +2644,10 @@ if ($missingSymbols.Count -gt 0) {
 }
 Write-Host "Script symbol references OK: $($definedSymbols.Count)"
 
+if (($coordinatorText -match "\bReportBool\s*\(") -and ($coordinatorText -notmatch "protected\s+string\s+ReportBool\s*\(\s*bool\s+value\s*\)")) {
+	throw "Campaign coordinator calls ReportBool but does not define a class-local helper; Enforce does not share protected helpers across services"
+}
+
 foreach ($requiredService in @(
 		"HST_PlayerSpawnLogic",
 		"HST_PlayerLifecycleService",
