@@ -438,11 +438,15 @@ class HST_PhysicalWarService
 		int routeTimeoutCount;
 		int pendingStallWindowCount;
 		int recoveryAttemptCount;
+		int factionCheckedCount;
+		int factionMismatchGroupCount;
+		int factionUncheckableCount;
 		int maxRouteTimeoutSeconds;
 		float bestMovementMeters;
 		float bestDistanceClosedMeters;
 		string convoyPhaseHistory;
 		string routeTimeoutEvidence;
+		string factionMismatchEvidence;
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != MISSION_CONVOY_VEHICLE_ROLE)
@@ -463,9 +467,33 @@ class HST_PhysicalWarService
 				if (readiness.m_bPendingGrace || activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending")
 					groupWaypointStatus = "WARN";
 				AddConvoyDebugProbeAssertion(probe, "convoy.group_waypoints." + asset.m_sAssetId, "assigned waypoint count >= 2", string.Format("%1 | mode %2 | reason %3", activeGroup.m_iAssignedWaypointCount, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason)), ConvoyDebugStatus(activeGroup.m_iAssignedWaypointCount >= 2, groupWaypointStatus), "convoy group has too few assigned waypoints", groupId, mission.m_sInstanceId);
+				EnsureActiveGroupRuntimeFaction(activeGroup, "convoy physical probe");
+				string factionSample;
+				int factionMismatches = CountActiveGroupRuntimeFactionMismatches(activeGroup, factionSample);
+				bool factionCheckable = crewEntity != null || vehicleEntity != null;
+				string factionStatus = "FAIL";
+				if (factionCheckable && factionMismatches <= 0)
+				{
+					factionStatus = "PASS";
+					factionCheckedCount++;
+				}
+				else if (!factionCheckable)
+				{
+					factionStatus = crewEntityMissingStatus;
+					factionUncheckableCount++;
+				}
+				else
+				{
+					factionMismatchGroupCount++;
+					factionMismatchEvidence = AppendConvoyDebugEvidence(factionMismatchEvidence, string.Format("%1 expected %2 mismatches %3 sample %4", groupId, activeGroup.m_sFactionKey, factionMismatches, ReportText(factionSample)));
+				}
+				AddConvoyDebugProbeAssertion(probe, "convoy.faction." + asset.m_sAssetId, "crew and vehicle runtime factions match the active-group faction", BuildActiveGroupRuntimeFactionActual(activeGroup, factionMismatches, factionSample, crewEntity != null, vehicleEntity != null), factionStatus, "convoy runtime entity faction mismatch", groupId, mission.m_sInstanceId);
 			}
 			else
+			{
+				factionUncheckableCount++;
 				AddConvoyDebugProbeAssertion(probe, "convoy.group_waypoints." + asset.m_sAssetId, "assigned waypoint count >= 2", "group missing", "FAIL", "convoy active group missing", groupId, mission.m_sInstanceId);
+			}
 
 			vector vehiclePosition = ResolveMissionConvoyVehiclePosition(asset, groupId);
 			HST_ConvoyProgressStatus progress = FindConvoyProgressStatus(mission, asset, groupId);
@@ -546,10 +574,15 @@ class HST_PhysicalWarService
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.stall_timeout_seconds", string.Format("%1", maxRouteTimeoutSeconds), "seconds");
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.best_movement", string.Format("%1", Math.Round(bestMovementMeters)), "meters");
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.best_distance_closed", string.Format("%1", Math.Round(bestDistanceClosedMeters)), "meters");
+		AddConvoyDebugProbeMetric(probe, "convoy.faction.checked", string.Format("%1", factionCheckedCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.faction.mismatch_groups", string.Format("%1", factionMismatchGroupCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.faction.uncheckable", string.Format("%1", factionUncheckableCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.phase.final", ReportText(mission.m_sRuntimePhase), "phase");
 		AddConvoyDebugProbeMetric(probe, "convoy.phase.history", ReportText(convoyPhaseHistory), "phase");
 		if (!routeTimeoutEvidence.IsEmpty())
 			probe.m_aEvidence.Insert("convoy route timeout | " + routeTimeoutEvidence);
+		if (!factionMismatchEvidence.IsEmpty())
+			probe.m_aEvidence.Insert("convoy faction mismatch | " + factionMismatchEvidence);
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.sample_count", "progress sample exists for each convoy vehicle", string.Format("%1/%2 sampled | missing %3", progressSampledCount, readiness.m_iVehicleAssetCount, missingProgressCount), ConvoyDebugStatus(progressSampledCount >= readiness.m_iVehicleAssetCount && missingProgressCount == 0, "WARN"), "one or more convoy vehicles have no movement sample yet");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.repeated_sample_count", "at least two progress samples exist for each convoy vehicle", string.Format("%1/%2 repeated | phases %3", repeatedProgressSampledCount, readiness.m_iVehicleAssetCount, ReportText(convoyPhaseHistory)), ConvoyDebugStatus(repeatedProgressSampledCount >= readiness.m_iVehicleAssetCount && readiness.m_iVehicleAssetCount > 0, "WARN"), "one or more convoy vehicles lack a repeated movement-window sample");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.distance_decrease_count", "each convoy vehicle closes at least 25m toward destination during sampled movement window", string.Format("%1/%2 closed >= 25m | best closed %3m | best moved %4m", distanceDecreaseSampledCount, readiness.m_iVehicleAssetCount, Math.Round(bestDistanceClosedMeters), Math.Round(bestMovementMeters)), ConvoyDebugStatus(distanceDecreaseSampledCount >= readiness.m_iVehicleAssetCount && readiness.m_iVehicleAssetCount > 0, "WARN"), "one or more convoy vehicles did not prove a 25m destination-distance decrease");
@@ -570,6 +603,13 @@ class HST_PhysicalWarService
 			routeTimeoutStatus = "WARN";
 		string routeTimeoutActual = string.Format("timed out %1/%2 | pending %3 | sampled windows %4 | window %5/%6s | evidence %7", routeTimeoutCount, readiness.m_iVehicleAssetCount, pendingStallWindowCount, movementWindowCount, maxRouteTimeoutSeconds, CONVOY_ROUTE_REISSUE_THRESHOLD_SECONDS, ReportText(routeTimeoutEvidence));
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.stall_timeout", "fully sampled convoy movement windows do not stall without movement, distance closure, recovery, contact, or arrival", routeTimeoutActual, routeTimeoutStatus, "one or more convoy vehicles timed out across the controlled movement window", "", mission.m_sInstanceId);
+		string factionAggregateStatus = "PASS";
+		if (factionMismatchGroupCount > 0)
+			factionAggregateStatus = "FAIL";
+		else if (factionUncheckableCount > 0 || factionCheckedCount < readiness.m_iVehicleAssetCount)
+			factionAggregateStatus = "WARN";
+		string factionAggregateActual = string.Format("checked %1/%2 | mismatched groups %3 | uncheckable %4 | evidence %5", factionCheckedCount, readiness.m_iVehicleAssetCount, factionMismatchGroupCount, factionUncheckableCount, ReportText(factionMismatchEvidence));
+		AddConvoyDebugProbeAssertion(probe, "convoy.faction.runtime_entities", "every checkable convoy crew and vehicle entity is stamped with its active-group faction", factionAggregateActual, factionAggregateStatus, "one or more convoy runtime entities used the wrong faction", "", mission.m_sInstanceId);
 
 		probe.m_aEvidence.Insert(BuildConvoyRuntimeReport(state, mission));
 		FinalizeConvoyDebugProbeCase(state, probe);
@@ -839,6 +879,22 @@ class HST_PhysicalWarService
 		bool casualtyObserved = friendlyLossObserved || enemyLossObserved;
 		bool contactObserved = casualtyObserved || (m_fCampaignDebugCombatProbeLastDistance >= 0 && m_fCampaignDebugCombatProbeLastDistance <= CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS);
 		bool sampleWindowCovered = elapsedSeconds >= CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS - 1 && m_iCampaignDebugCombatProbeSampleCount >= 2;
+		string friendlyFactionSample;
+		string enemyFactionSample;
+		int friendlyFactionMismatches = -1;
+		int enemyFactionMismatches = -1;
+		if (friendlyGroup)
+		{
+			EnsureActiveGroupRuntimeFaction(friendlyGroup, "physical combat probe");
+			friendlyFactionMismatches = CountActiveGroupRuntimeFactionMismatches(friendlyGroup, friendlyFactionSample);
+		}
+		if (enemyGroup)
+		{
+			EnsureActiveGroupRuntimeFaction(enemyGroup, "physical combat probe");
+			enemyFactionMismatches = CountActiveGroupRuntimeFactionMismatches(enemyGroup, enemyFactionSample);
+		}
+		bool friendlyFactionOk = friendlyGroup && friendlyRuntimeExists && friendlyFactionMismatches == 0;
+		bool enemyFactionOk = enemyGroup && enemyRuntimeExists && enemyFactionMismatches == 0;
 
 		AddConvoyDebugProbeMetric(probe, "physical_combat.elapsed_seconds", string.Format("%1", elapsedSeconds), "seconds");
 		AddConvoyDebugProbeMetric(probe, "physical_combat.samples", string.Format("%1", m_iCampaignDebugCombatProbeSampleCount), "count");
@@ -851,6 +907,8 @@ class HST_PhysicalWarService
 		probe.m_aEvidence.Insert("start | " + ReportText(m_sCampaignDebugCombatProbeStartResult));
 		probe.m_aEvidence.Insert("samples | " + ReportText(m_sCampaignDebugCombatProbeHistory));
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.faction_split", "temporary groups use resistance and enemy factions, not all FIA", string.Format("friendly %1 | enemy %2", ReportText(m_sCampaignDebugCombatProbeFriendlyFaction), ReportText(m_sCampaignDebugCombatProbeEnemyFaction)), ConvoyDebugStatus(factionSplit), "physical combat probe factions were not split between resistance and enemy", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.friendly_runtime_faction", "friendly runtime group/entities are stamped with the resistance faction", BuildActiveGroupRuntimeFactionActual(friendlyGroup, friendlyFactionMismatches, friendlyFactionSample, friendlyRuntimeExists, false), ConvoyDebugStatus(friendlyFactionOk), "friendly combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeFriendlyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.enemy_runtime_faction", "enemy runtime group/entities are stamped with the enemy faction", BuildActiveGroupRuntimeFactionActual(enemyGroup, enemyFactionMismatches, enemyFactionSample, enemyRuntimeExists, false), ConvoyDebugStatus(enemyFactionOk), "enemy combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeEnemyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.active_group_records", "temporary active-group records exist for both sides during sample window", string.Format("friendly %1 | enemy %2", friendlyGroup != null, enemyGroup != null), ConvoyDebugStatus(friendlyGroup != null && enemyGroup != null), "temporary active-group records missing before cleanup", "", "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.runtime_entities", "both temporary groups spawn runtime AI group entities", string.Format("friendly runtime %1 alive %2 | enemy runtime %3 alive %4", friendlyRuntimeExists, m_iCampaignDebugCombatProbeFriendlyEndAlive, enemyRuntimeExists, m_iCampaignDebugCombatProbeEnemyEndAlive), ConvoyDebugStatus(friendlyRuntimeExists && enemyRuntimeExists && friendlyAliveObserved && enemyAliveObserved), "one or both combat probe groups did not spawn living runtime AI", "", "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.search_waypoints", "both groups receive search-and-destroy waypoints toward the opposing side", string.Format("%1/2", m_iCampaignDebugCombatProbeWaypointCount), ConvoyDebugStatus(m_iCampaignDebugCombatProbeWaypointCount >= 2), "combat probe did not assign opposing search-and-destroy waypoints", "", "", m_sCampaignDebugCombatProbeZoneId);
@@ -1738,6 +1796,14 @@ class HST_PhysicalWarService
 			return "route missing";
 
 		return string.Format("route %1 | waypoints %2 | distance %3m | road %4 | vehicle-safe %5", ReportText(route.m_sRouteId), route.m_iWaypointCount, route.m_iDistanceMeters, ReportBool(route.m_bRoadRoute), ReportBool(route.m_bValidatedForVehicles));
+	}
+
+	protected string BuildActiveGroupRuntimeFactionActual(HST_ActiveGroupState activeGroup, int mismatchCount, string sample, bool groupEntityPresent, bool vehicleEntityPresent)
+	{
+		if (!activeGroup)
+			return "group missing";
+
+		return string.Format("group %1 | expected %2 | group entity %3 | vehicle entity %4 | mismatches %5 | sample %6", ReportText(activeGroup.m_sGroupId), ReportText(activeGroup.m_sFactionKey), ReportBool(groupEntityPresent), ReportBool(vehicleEntityPresent), mismatchCount, ReportText(sample));
 	}
 
 	protected string AppendConvoyDebugPhaseHistory(string summary, string phaseHistory)
