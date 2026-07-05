@@ -15,6 +15,9 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 	static const float TARGET_LEAD_MULTIPLIER = 4.0;
 	static const float MAX_TARGET_LEAD_METERS = 14.0;
 	static const float SPRINT_CATCHUP_DISTANCE_METERS = 8.0;
+	static const float STUCK_RECOVERY_DISTANCE_METERS = 6.0;
+	static const float STUCK_RECOVERY_MIN_MOVE_METERS = 0.75;
+	static const int STUCK_RECOVERY_TICKS = 6;
 	static const int FOLLOW_UPDATE_MS = 500;
 
 	protected IEntity m_FollowTarget;
@@ -22,16 +25,20 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 	protected IEntity m_WaypointEntity;
 	protected vector m_WaypointPosition;
 	protected vector m_vLastTargetPosition;
+	protected vector m_vLastOwnerPosition;
 	protected bool m_bFollowing;
 	protected bool m_bAddedToGroup;
 	protected bool m_bHasLastTargetPosition;
+	protected bool m_bHasLastOwnerPosition;
 	protected bool m_bLoggedGroupCreated;
 	protected bool m_bLoggedGroupFailed;
 	protected bool m_bLoggedMissingMovement;
 	protected bool m_bLoggedRequestFailed;
 	protected bool m_bLoggedWaypointFallback;
 	protected bool m_bLoggedWaypointFailed;
+	protected bool m_bLoggedStuckRecovery;
 	protected bool m_bDirectFollowUnavailable;
+	protected int m_iNoProgressTicks;
 
 	bool IsFollowing()
 	{
@@ -53,13 +60,17 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		m_FollowTarget = target;
 		m_bFollowing = true;
 		m_bHasLastTargetPosition = false;
+		m_bHasLastOwnerPosition = false;
 		m_vLastTargetPosition = "0 0 0";
+		m_vLastOwnerPosition = "0 0 0";
+		m_iNoProgressTicks = 0;
 		m_bLoggedGroupCreated = false;
 		m_bLoggedGroupFailed = false;
 		m_bLoggedMissingMovement = false;
 		m_bLoggedRequestFailed = false;
 		m_bLoggedWaypointFallback = false;
 		m_bLoggedWaypointFailed = false;
+		m_bLoggedStuckRecovery = false;
 		m_bDirectFollowUnavailable = false;
 
 		FollowTick();
@@ -104,6 +115,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		vector targetPosition = m_FollowTarget.GetOrigin();
 		float targetStepDistance = ResolveTargetStepDistance(targetPosition);
 		vector followPosition = BuildResponsiveFollowPosition(targetPosition, targetStepDistance);
+		bool forceWaypointRefresh = UpdateFollowProgressState(ownerPosition, targetPosition);
 		RememberTargetPosition(targetPosition);
 
 		if (DistanceSq2D(ownerPosition, targetPosition) <= STOP_DISTANCE_METERS * STOP_DISTANCE_METERS && targetStepDistance < TARGET_MOVING_STEP_METERS)
@@ -123,8 +135,13 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 
 		EMovementType movementType = ResolveFollowMovementType(DistanceSq2D(ownerPosition, targetPosition));
 		TryForceFollowSpeed(owner, movementType);
-		if (!m_bDirectFollowUnavailable && movement.RequestFollowPathOfEntity(m_FollowTarget))
+		if (!forceWaypointRefresh && !m_bDirectFollowUnavailable && movement.RequestFollowPathOfEntity(m_FollowTarget))
 			return;
+		if (forceWaypointRefresh && !m_bLoggedStuckRecovery)
+		{
+			Print(string.Format("h-istasi mission captive follow | direct follow stalled, refreshing waypoint | owner %1 | target %2", owner.GetOrigin(), m_FollowTarget.GetOrigin()), LogLevel.WARNING);
+			m_bLoggedStuckRecovery = true;
+		}
 
 		if (!m_bDirectFollowUnavailable)
 		{
@@ -136,7 +153,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			m_bDirectFollowUnavailable = true;
 		}
 
-		IssueFollowWaypoint(group, ownerPosition, followPosition, movementType, m_FollowTarget);
+		IssueFollowWaypoint(group, ownerPosition, followPosition, movementType, m_FollowTarget, forceWaypointRefresh);
 	}
 
 	protected AIBaseMovementComponent ResolveAIMovement(IEntity owner, out AIGroup group)
@@ -156,7 +173,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		return agent.GetMovementComponent();
 	}
 
-	protected bool IssueFollowWaypoint(AIGroup group, vector ownerPosition, vector targetPosition, EMovementType movementType, IEntity targetEntity)
+	protected bool IssueFollowWaypoint(AIGroup group, vector ownerPosition, vector targetPosition, EMovementType movementType, IEntity targetEntity, bool forceRefresh = false)
 	{
 		if (!group)
 			return false;
@@ -169,7 +186,8 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			SCR_EntityWaypoint entityWaypoint = SCR_EntityWaypoint.Cast(m_WaypointEntity);
 			if (entityWaypoint)
 			{
-				if (targetEntity && entityWaypoint.GetEntity() == targetEntity)
+				bool waypointStale = DistanceSq2D(m_WaypointPosition, waypointPosition) > WAYPOINT_REFRESH_DISTANCE_METERS * WAYPOINT_REFRESH_DISTANCE_METERS;
+				if (targetEntity && entityWaypoint.GetEntity() == targetEntity && !forceRefresh && !waypointStale)
 				{
 					ApplyGroupFollowSpeed(group, movementType);
 					ApplyGroupFollowFormation(group);
@@ -180,7 +198,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			{
 				bool waypointReached = DistanceSq2D(ownerPosition, m_WaypointPosition) <= WAYPOINT_REACHED_REFRESH_DISTANCE_METERS * WAYPOINT_REACHED_REFRESH_DISTANCE_METERS;
 				bool waypointStale = DistanceSq2D(m_WaypointPosition, waypointPosition) > WAYPOINT_REFRESH_DISTANCE_METERS * WAYPOINT_REFRESH_DISTANCE_METERS;
-				if (!waypointReached && !waypointStale)
+				if (!forceRefresh && !waypointReached && !waypointStale)
 				{
 					ApplyGroupFollowSpeed(group, movementType);
 					ApplyGroupFollowFormation(group);
@@ -190,7 +208,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		}
 
 		ClearFollowWaypoint(group);
-		if (targetEntity && IssueEntityFollowWaypoint(group, targetEntity, waypointPosition, movementType))
+		if (targetEntity && !forceRefresh && IssueEntityFollowWaypoint(group, targetEntity, waypointPosition, movementType))
 			return true;
 
 		return IssueStaticMoveWaypoint(group, waypointPosition, movementType);
@@ -401,6 +419,36 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 	{
 		m_vLastTargetPosition = targetPosition;
 		m_bHasLastTargetPosition = true;
+	}
+
+	protected bool UpdateFollowProgressState(vector ownerPosition, vector targetPosition)
+	{
+		if (DistanceSq2D(ownerPosition, targetPosition) <= STUCK_RECOVERY_DISTANCE_METERS * STUCK_RECOVERY_DISTANCE_METERS)
+		{
+			m_iNoProgressTicks = 0;
+			m_vLastOwnerPosition = ownerPosition;
+			m_bHasLastOwnerPosition = true;
+			return false;
+		}
+
+		if (!m_bHasLastOwnerPosition)
+		{
+			m_iNoProgressTicks = 0;
+			m_vLastOwnerPosition = ownerPosition;
+			m_bHasLastOwnerPosition = true;
+			return false;
+		}
+
+		if (DistanceSq2D(ownerPosition, m_vLastOwnerPosition) >= STUCK_RECOVERY_MIN_MOVE_METERS * STUCK_RECOVERY_MIN_MOVE_METERS)
+		{
+			m_iNoProgressTicks = 0;
+			m_vLastOwnerPosition = ownerPosition;
+			return false;
+		}
+
+		m_iNoProgressTicks++;
+		m_vLastOwnerPosition = ownerPosition;
+		return m_iNoProgressTicks >= STUCK_RECOVERY_TICKS;
 	}
 
 	protected float DistanceSq2D(vector a, vector b)

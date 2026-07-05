@@ -363,7 +363,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	int ResolveLocalPlayerId()
 	{
 		if (!m_OwnerEntity)
-			return 0;
+			return ResolveNativeLocalPlayerId();
 
 		PlayerController controller = PlayerController.Cast(m_OwnerEntity);
 		if (controller && controller.GetPlayerId() > 0)
@@ -381,7 +381,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (rpl)
 			return playerManager.GetPlayerIdFromEntityRplId(rpl.Id());
 
-		return 0;
+		return ResolveNativeLocalPlayerId();
 	}
 
 	void RequestSnapshot(string selectedTabId, string lastResult = "")
@@ -814,11 +814,43 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (!owner)
 			return false;
 
-		int localPlayerId = SCR_PlayerController.GetLocalPlayerId();
+		PlayerController localController = GetGame().GetPlayerController();
+		PlayerController ownerController = PlayerController.Cast(owner);
+		if (localController)
+		{
+			if (ownerController && ownerController == localController)
+				return true;
+
+			HST_CommandMenuRequestComponent localComponent = HST_CommandMenuRequestComponent.Cast(localController.FindComponent(HST_CommandMenuRequestComponent));
+			if (localComponent == this)
+				return true;
+		}
+
+		int localPlayerId = ResolveNativeLocalPlayerId();
 		if (localPlayerId <= 0)
 			return false;
 
-		PlayerController controller = PlayerController.Cast(owner);
-		return controller && controller.GetPlayerId() == localPlayerId;
+		return ownerController && ownerController.GetPlayerId() == localPlayerId;
+	}
+
+	protected int ResolveNativeLocalPlayerId()
+	{
+		int localPlayerId = SCR_PlayerController.GetLocalPlayerId();
+		if (localPlayerId > 0)
+			return localPlayerId;
+
+		PlayerController localController = GetGame().GetPlayerController();
+		if (localController && localController.GetPlayerId() > 0)
+			return localController.GetPlayerId();
+
+		IEntity controlledEntity = SCR_PlayerController.GetLocalControlledEntity();
+		if (!controlledEntity)
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		return playerManager.GetPlayerIdFromControlledEntity(controlledEntity);
 	}
 }

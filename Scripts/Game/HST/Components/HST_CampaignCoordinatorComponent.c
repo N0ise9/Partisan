@@ -5279,6 +5279,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				continue;
 			if (!mission.m_sMarkerId.IsEmpty() && m_State.FindMapMarker(mission.m_sMarkerId))
 				continue;
+			if (FindCampaignDebugMarkerLinkedTo(mission.m_sInstanceId))
+				continue;
 
 			count++;
 			if (example.IsEmpty())
@@ -8681,11 +8683,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		bool runtimeEnsured = m_PhysicalWar.EnsureMissionConvoyRuntimeNow(m_State, m_Preset, mission);
 		HST_CampaignDebugCaseResult probe = m_PhysicalWar.BuildCampaignDebugConvoyPhysicalProbe(m_State, mission, m_bCampaignDebugPhysicalBlocked);
 		if (!probe)
 			return;
 
 		probe.m_aEvidence.Insert("runner label " + label);
+		probe.m_aEvidence.Insert("runtime ensure before probe " + string.Format("%1", runtimeEnsured));
 		RecordCampaignDebugCase(probe);
 
 		if (!m_bCampaignDebugConvoyPhaseChainRecorded)
