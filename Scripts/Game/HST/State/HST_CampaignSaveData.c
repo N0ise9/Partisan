@@ -468,6 +468,7 @@ class HST_CampaignSaveData
 	{
 		HST_PlayerState target = new HST_PlayerState();
 		target.m_sIdentityId = source.m_sIdentityId;
+		target.m_sDisplayName = source.m_sDisplayName;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_bMember = source.m_bMember;
 		target.m_bAdmin = source.m_bAdmin;

@@ -13,6 +13,7 @@ class HST_FactionPoolState
 class HST_PlayerState
 {
 	string m_sIdentityId;
+	string m_sDisplayName;
 	string m_sFactionKey = "FIA";
 	bool m_bMember;
 	bool m_bAdmin;
@@ -631,7 +632,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 26;
+	static const int SCHEMA_VERSION = 27;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

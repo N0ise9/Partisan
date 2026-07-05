@@ -903,10 +903,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string adminGrantReason = ResolveRuntimeAdminGrantReason(playerId, resolvedIdentityId, isAdmin);
 		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, false);
 		ApplyRuntimeMembershipDefaults(player);
-		ApplyRuntimeAdminGrant(player, adminGrantReason, wasAdmin);
+		bool adminChanged = ApplyRuntimeAdminGrant(player, adminGrantReason, wasAdmin);
+		bool displayNameChanged = false;
+		if (player)
+			displayNameChanged = m_PlayerLifecycle.RefreshPlayerDisplayName(player, playerId, resolvedIdentityId);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
-		if (player)
+		if (player && (adminChanged || displayNameChanged || !wasAdmin))
 			MarkMajorCampaignChange();
 		return player;
 	}
@@ -19082,6 +19085,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
+	bool RequestCommanderTransferCommander(int playerId, string targetIdentityId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		bool changed = m_Authorization.TransferCommander(m_State, ResolveTrustedIdentityId(playerId), targetIdentityId);
+		if (changed)
+			MarkMajorCampaignChange();
+		return changed;
+	}
+
+	bool RequestAdminForceSelfCommander(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		HST_PlayerState actor = EnsureSetupRegisteredPlayer(playerId);
+		if (!actor || actor.m_sIdentityId.IsEmpty())
+			return false;
+
+		HST_PlayerState previousCommander = m_State.FindPlayer(m_State.m_sCommanderIdentityId);
+		if (previousCommander)
+		{
+			previousCommander.m_bMember = true;
+			previousCommander.m_bGuest = false;
+		}
+
+		bool changed = m_State.m_sCommanderIdentityId != actor.m_sIdentityId || !actor.m_bMember || actor.m_bGuest;
+		actor.m_bMember = true;
+		actor.m_bGuest = false;
+		m_State.m_sCommanderIdentityId = actor.m_sIdentityId;
+		if (changed)
+			MarkMajorCampaignChange();
+		return true;
+	}
+
 	string RequestAdminInspectZone(int playerId, string zoneId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
@@ -20105,9 +20144,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, "", false);
 		ApplyRuntimeMembershipDefaults(player);
 		bool adminChanged = ApplyRuntimeAdminGrant(player, adminGrantReason, wasAdmin);
+		bool displayNameChanged = false;
+		if (player)
+			displayNameChanged = m_PlayerLifecycle.RefreshPlayerDisplayName(player, playerId, resolvedIdentityId);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
-		if (player && (!known || adminChanged))
+		if (player && (!known || adminChanged || displayNameChanged))
 			MarkMajorCampaignChange(false);
 
 		return player;

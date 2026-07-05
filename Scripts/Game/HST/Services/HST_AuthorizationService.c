@@ -53,6 +53,35 @@ class HST_AuthorizationService
 		if (!actor || !actor.m_bAdmin || !target || !target.m_bMember)
 			return false;
 
+		HST_PlayerState previousCommander = state.FindPlayer(state.m_sCommanderIdentityId);
+		if (previousCommander)
+		{
+			previousCommander.m_bMember = true;
+			previousCommander.m_bGuest = false;
+		}
+
+		state.m_sCommanderIdentityId = targetIdentityId;
+		return true;
+	}
+
+	bool TransferCommander(HST_CampaignState state, string actorIdentityId, string targetIdentityId)
+	{
+		if (!state || actorIdentityId.IsEmpty() || targetIdentityId.IsEmpty() || actorIdentityId == targetIdentityId)
+			return false;
+		if (state.m_sCommanderIdentityId != actorIdentityId)
+			return false;
+
+		HST_PlayerState target = state.FindPlayer(targetIdentityId);
+		if (!target || !target.m_bMember)
+			return false;
+
+		HST_PlayerState previousCommander = state.FindPlayer(actorIdentityId);
+		if (previousCommander)
+		{
+			previousCommander.m_bMember = true;
+			previousCommander.m_bGuest = false;
+		}
+
 		state.m_sCommanderIdentityId = targetIdentityId;
 		return true;
 	}

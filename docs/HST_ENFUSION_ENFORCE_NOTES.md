@@ -4,6 +4,14 @@ Purpose: capture reusable facts learned while building h-istasi so we do not red
 
 This file is for practical engine/script behavior, not project planning. Keep entries concrete: what failed, why it failed, what works instead, and where the example lives.
 
+## Player Identity And Roster UI
+
+- Player display names are presentation-only.
+  - Use `PlayerManager.GetPlayerName(playerId)` or `GetPlayerNameByIdentity(identityId)` to populate `HST_PlayerState.m_sDisplayName` when a player is seen.
+  - Keep backend identity/SteamID64 values as the only authority for membership, commander, admin, loadout ownership, undercover state, and persistence references.
+  - Member/commander UI should show `m_sDisplayName` as the row/action label and, if needed, only a shortened identity as secondary diagnostic evidence.
+  - Current examples: `HST_PlayerLifecycleService.RefreshPlayerDisplayName()`, `HST_CommandUIService.BuildPlayerRosterName()`, and commander-transfer actions in the Members tab.
+
 ## UI Layouts
 
 - Top-level UI layouts should be created with the workspace as the parent when they are meant to exist above game/map UI:

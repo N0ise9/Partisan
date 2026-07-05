@@ -351,6 +351,8 @@ class HST_CommandUIService
 		if (commandId == "admin_campaign_debug_status") return true;
 		if (commandId == "admin_campaign_debug_cancel") return true;
 		if (commandId == "admin_campaign_debug_cleanup") return true;
+		if (commandId == "member_promote_commander") return true;
+		if (commandId == "admin_force_self_commander") return true;
 		if (commandId == "admin_phase14_report") return true;
 		if (commandId == "admin_phase15_report") return true;
 		if (commandId == "admin_phase16_report") return true;
@@ -943,6 +945,12 @@ class HST_CommandUIService
 		if (commandId == "admin_grant")
 			return BuildBoolResult("grant admin " + argument, coordinator.RequestAdminSetAdminRole(playerId, argument, true), "admin required or target identity missing");
 
+		if (commandId == "member_promote_commander")
+			return BuildBoolResult("promote commander " + argument, coordinator.RequestCommanderTransferCommander(playerId, argument), "commander required, target missing, or target is not a member");
+
+		if (commandId == "admin_force_self_commander")
+			return BuildBoolResult("force self commander", coordinator.RequestAdminForceSelfCommander(playerId), "admin required or player identity missing");
+
 		return "h-istasi command | unknown command: " + commandId;
 	}
 
@@ -956,7 +964,7 @@ class HST_CommandUIService
 			return false;
 		if (commandId == "admin_campaign_debug_status" || commandId == "admin_campaign_debug_cancel" || commandId == "admin_campaign_debug_cleanup")
 			return false;
-		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant")
+		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant" || commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
 			return false;
 		if (commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
 			return false;
@@ -1453,6 +1461,12 @@ class HST_CommandUIService
 
 		if (commandId == "admin_grant")
 			return coordinator.RequestAdminSetAdminRole(playerId, argument, true);
+
+		if (commandId == "member_promote_commander")
+			return coordinator.RequestCommanderTransferCommander(playerId, argument);
+
+		if (commandId == "admin_force_self_commander")
+			return coordinator.RequestAdminForceSelfCommander(playerId);
 
 		return false;
 	}
@@ -2336,7 +2350,7 @@ class HST_CommandUIService
 			if (state.m_sCommanderIdentityId == player.m_sIdentityId)
 				suffix = " / commander";
 
-			payload = AppendRow(payload, "members", player.m_sIdentityId, string.Format("%1 / money %2 / spawns %3%4", role, player.m_iMoney, player.m_iSpawnCount, suffix), tone);
+			payload = AppendRow(payload, "members", BuildPlayerRosterName(player), string.Format("%1 / money %2 / spawns %3%4 / id %5", role, player.m_iMoney, player.m_iSpawnCount, suffix, ShortIdentityLabel(player.m_sIdentityId)), tone);
 		}
 
 		return payload;
@@ -2534,6 +2548,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_MEMBERS, "Accept first guest", "member_accept", guestIdentityId, canUseAdmin && !guestIdentityId.IsEmpty(), "admin required or no guest");
 			AddMenuAction(actions, TAB_MEMBERS, "Remove first member", "member_remove", memberIdentityId, canUseAdmin && !memberIdentityId.IsEmpty(), "admin required or no member");
 			AddMenuAction(actions, TAB_MEMBERS, "Grant admin to member", "admin_grant", memberIdentityId, canUseAdmin && !memberIdentityId.IsEmpty(), "admin required or no member");
+			AddCommanderTransferActions(state, actions, playerId, canUseCommander);
 			AddMenuAction(actions, TAB_MEMBERS, "Town support report", "inspect_town_support", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MEMBERS, "Undercover status", "inspect_undercover", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MEMBERS, "Undercover eligibility", "undercover_eligibility", "", canUseMember, "membership required");
@@ -2551,6 +2566,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Campaign Debug Status", "admin_campaign_debug_status", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Cancel Campaign Debug", "admin_campaign_debug_cancel", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Cleanup Campaign Debug", "admin_campaign_debug_cleanup", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Force myself commander", "admin_force_self_commander", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Ammo convoy", "debug_mission_id", "convoy_ammo", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Armored convoy", "debug_mission_id", "convoy_armored", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Money convoy", "debug_mission_id", "convoy_money", canUseAdmin, "admin required");
@@ -2639,6 +2655,55 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Garage report", "inspect_garage", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Danger] Reset campaign", "new_campaign", "", canUseAdmin, "admin required");
 		}
+	}
+
+	protected void AddCommanderTransferActions(HST_CampaignState state, notnull array<ref HST_CommandMenuAction> actions, int playerId, bool canUseCommander)
+	{
+		string actorIdentityId = ResolveMenuPlayerIdentityId(state, playerId);
+		int targetCount;
+
+		if (state)
+		{
+			foreach (HST_PlayerState player : state.m_aPlayers)
+			{
+				if (!IsCommanderTransferTarget(player, actorIdentityId))
+					continue;
+
+				AddMenuAction(actions, TAB_MEMBERS, "Make commander: " + ShortText(BuildPlayerRosterName(player), 18), "member_promote_commander", player.m_sIdentityId, canUseCommander, CommanderTransferDisabledReason(state, actorIdentityId, canUseCommander));
+				targetCount++;
+				if (targetCount >= 6)
+					break;
+			}
+		}
+
+		if (targetCount == 0)
+			AddMenuAction(actions, TAB_MEMBERS, "Make member commander", "member_promote_commander", "", false, CommanderTransferDisabledReason(state, actorIdentityId, canUseCommander));
+	}
+
+	protected bool IsCommanderTransferTarget(HST_PlayerState player, string actorIdentityId)
+	{
+		if (!player || !player.m_bMember || player.m_sIdentityId.IsEmpty())
+			return false;
+		if (!actorIdentityId.IsEmpty() && player.m_sIdentityId == actorIdentityId)
+			return false;
+
+		return true;
+	}
+
+	protected string CommanderTransferDisabledReason(HST_CampaignState state, string actorIdentityId, bool canUseCommander)
+	{
+		if (!canUseCommander)
+			return "commander required";
+		if (!state)
+			return "campaign state not ready";
+
+		foreach (HST_PlayerState player : state.m_aPlayers)
+		{
+			if (IsCommanderTransferTarget(player, actorIdentityId))
+				return "";
+		}
+
+		return "no other member players";
 	}
 
 	protected string AppendStat(string payload, string label, string value, string tone)
@@ -3299,7 +3364,35 @@ class HST_CommandUIService
 		if (!state || state.m_sCommanderIdentityId.IsEmpty())
 			return "unassigned";
 
-		return state.m_sCommanderIdentityId;
+		HST_PlayerState commander = state.FindPlayer(state.m_sCommanderIdentityId);
+		if (commander)
+			return BuildPlayerRosterName(commander);
+
+		return ShortIdentityLabel(state.m_sCommanderIdentityId);
+	}
+
+	protected string BuildPlayerRosterName(HST_PlayerState player)
+	{
+		if (!player)
+			return "unknown";
+
+		if (!player.m_sDisplayName.IsEmpty())
+			return ShortText(player.m_sDisplayName, 24);
+
+		if (player.m_iLastSeenPlayerId > 0)
+			return string.Format("Player %1", player.m_iLastSeenPlayerId);
+
+		return ShortIdentityLabel(player.m_sIdentityId);
+	}
+
+	protected string ShortIdentityLabel(string identityId)
+	{
+		if (identityId.IsEmpty())
+			return "unknown";
+		if (identityId.Length() <= 12)
+			return identityId;
+
+		return identityId.Substring(0, 6) + "." + identityId.Substring(identityId.Length() - 4, 4);
 	}
 
 	protected string BuildHQLabel(HST_CampaignState state)

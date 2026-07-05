@@ -28,7 +28,41 @@ class HST_PlayerLifecycleService
 
 		player.m_sFactionKey = DEFAULT_PLAYER_FACTION;
 		player.m_iLastSeenPlayerId = playerId;
+		RefreshPlayerDisplayName(player, playerId, resolvedIdentityId);
 		return player;
+	}
+
+	bool RefreshPlayerDisplayName(HST_PlayerState player, int playerId, string identityId = "")
+	{
+		if (!player)
+			return false;
+
+		string displayName = ResolvePlayerDisplayName(playerId, identityId);
+		if (displayName.IsEmpty())
+			return false;
+		if (player.m_sDisplayName == displayName)
+			return false;
+
+		player.m_sDisplayName = displayName;
+		return true;
+	}
+
+	string ResolvePlayerDisplayName(int playerId, string identityId = "")
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return "";
+
+		string displayName;
+		if (playerId > 0)
+			displayName = playerManager.GetPlayerName(playerId);
+		if (displayName.IsEmpty() && !identityId.IsEmpty())
+			displayName = playerManager.GetPlayerNameByIdentity(identityId);
+
+		if (displayName == identityId)
+			return "";
+
+		return displayName;
 	}
 
 	protected string BuildWorkbenchIdentityId(int playerId)
@@ -86,6 +120,8 @@ class HST_PlayerLifecycleService
 
 		if (target.m_sFactionKey.IsEmpty() && !source.m_sFactionKey.IsEmpty())
 			target.m_sFactionKey = source.m_sFactionKey;
+		if (target.m_sDisplayName.IsEmpty() && !source.m_sDisplayName.IsEmpty())
+			target.m_sDisplayName = source.m_sDisplayName;
 
 		bool preserveTargetGuest = !target.m_bMember && target.m_bGuest && !source.m_bAdmin;
 		if (!preserveTargetGuest)

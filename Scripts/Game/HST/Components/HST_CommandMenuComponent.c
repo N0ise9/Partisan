@@ -1189,6 +1189,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			return true;
 		if (commandId == "remove_garrison" || commandId == "cancel_support" || commandId == "civilian_aid")
 			return true;
+		if (commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
+			return true;
 		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search")
 			return true;
 		if (commandId == "support_gbu" || commandId == "support_umpk" || commandId == "support_kh55")
@@ -1269,6 +1271,10 @@ class HST_CommandMenuComponent : ScriptComponent
 			return "This will cancel the active player support request.";
 		if (commandId == "civilian_aid")
 			return "This will deliver civilian aid to the nearest eligible town.";
+		if (commandId == "member_promote_commander")
+			return "This will transfer commander authority to the selected member.";
+		if (commandId == "admin_force_self_commander")
+			return "This will make you the commander and leave the previous commander as a member.";
 		if (commandId == "activate_zone" || commandId == "deactivate_zone" || commandId == "capture_zone" || commandId == "progress_zone")
 			return "This debug command will directly mutate zone state.";
 		if (commandId == "award_small" || commandId == "income_now" || commandId == "progress_mission" || commandId == "admin_persistence_smoke_test" || commandId.Contains("admin_phase"))

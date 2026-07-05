@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `26`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `27`.
 
+- Schema 27 adds a durable display-only player name field so member/commander
+  roster UI can show readable player names while backend identity remains the
+  authority for permissions and ownership.
 - Schema 26 adds durable HQ spawn-point position/prefab fields and backfills
   older deployed HQ saves so the HQ runtime object rebuild can spawn and
   verify a physical respawn marker.
@@ -35,6 +38,21 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 27
+
+Player roster display names.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `27`.
+- `HST_PlayerState` now persists `m_sDisplayName`, refreshed from the connected
+  player manager when a player registers or is seen during menu/permission
+  checks.
+- Member and commander UI uses the display name for labels and only shows a
+  shortened backend identity as secondary evidence.
+- Permission checks, admin grants, loadouts, undercover state, and ownership
+  records continue to use backend identity/SteamID64 values, not display names.
+- Existing schema-26 and older saves default display names to empty and refresh
+  them when the player reconnects.
 
 ## Schema 26
 
