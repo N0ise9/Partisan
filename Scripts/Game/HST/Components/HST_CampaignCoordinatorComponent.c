@@ -3335,6 +3335,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.enemy_commander", "enemy commander service non-null", string.Format("%1", m_EnemyCommander != null), CampaignDebugStatus(m_EnemyCommander != null), "enemy commander service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.hq", "HQ service non-null", string.Format("%1", m_HQ != null), CampaignDebugStatus(m_HQ != null), "HQ service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.map_markers", "map marker service non-null", string.Format("%1", m_MapMarkers != null), CampaignDebugStatus(m_MapMarkers != null), "map marker service missing");
+		AddCampaignDebugGameMasterBudgetAssertions(preflightCase);
 
 		int missionCount;
 		int duplicateMissionIds;
@@ -3505,6 +3506,58 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(preflightCase);
 		return preflightCase;
+	}
+
+	protected void AddCampaignDebugGameMasterBudgetAssertions(HST_CampaignDebugCaseResult preflightCase)
+	{
+		if (!preflightCase)
+			return;
+
+		bool settingsReady = m_Settings && m_Settings.m_Features;
+		bool settingsEnabled;
+		if (settingsReady)
+			settingsEnabled = m_Settings.m_Features.m_bGameMasterBudgetsEnabled;
+
+		bool serviceEnabled = HST_GameMasterBudgetService.AreGameMasterBudgetsEnabled();
+		SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
+		bool gameModeReady = gameMode != null;
+		bool gameModeEnabled;
+		if (gameMode)
+			gameModeEnabled = gameMode.AreHistasiGameMasterBudgetsEnabled();
+
+		string stateActual = string.Format("settingsReady %1 | settingsEnabled %2 | serviceEnabled %3 | gameModeReady %4 | gameModeEnabled %5", settingsReady, settingsEnabled, serviceEnabled, gameModeReady, gameModeEnabled);
+		bool stateMatches = settingsReady && serviceEnabled == settingsEnabled && gameModeReady && gameModeEnabled == settingsEnabled;
+		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.state", "settings, replicated game mode, and static shim agree", stateActual, CampaignDebugStatus(stateMatches), "Game Master budget setting did not propagate to the runtime shim");
+		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.enabled", string.Format("%1", settingsEnabled), "bool");
+
+		SCR_BudgetEditorComponent budgetEditor = SCR_BudgetEditorComponent.Cast(SCR_BudgetEditorComponent.GetInstance(SCR_BudgetEditorComponent, false, true));
+		bool editorReady = budgetEditor != null;
+		string editorActual = "missing";
+		bool capEnabled;
+		bool deficitHandlerRegistered;
+		int managedBudgetCount;
+		int disabledHeadroomCount;
+		int originalCapCount;
+		if (budgetEditor)
+		{
+			capEnabled = budgetEditor.HistasiIsBudgetCapEnabledForDiagnostics();
+			deficitHandlerRegistered = budgetEditor.HistasiIsBudgetDeficitHandlerRegistered();
+			managedBudgetCount = budgetEditor.HistasiCountManagedBudgetTypes();
+			disabledHeadroomCount = budgetEditor.HistasiCountManagedBudgetsAtDisabledHeadroom();
+			originalCapCount = budgetEditor.HistasiCountManagedBudgetsAtOriginalCap();
+			editorActual = budgetEditor.HistasiBuildGameMasterBudgetDiagnostics();
+		}
+
+		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.editor", "budget editor diagnostics available when GM budget policy is testable", ShortCampaignDebugLine(editorActual, 260), CampaignDebugStatus(editorReady, "WARN"), "Game Master budget editor was not available for cap/deficit diagnostics");
+		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.managed_budget_count", string.Format("%1", managedBudgetCount), "count");
+		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.disabled_headroom_count", string.Format("%1", disabledHeadroomCount), "count");
+		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.original_cap_count", string.Format("%1", originalCapCount), "count");
+
+		bool disabledShimOk = settingsEnabled || (editorReady && managedBudgetCount > 0 && !capEnabled && disabledHeadroomCount == managedBudgetCount && deficitHandlerRegistered);
+		string disabledShimStatus = CampaignDebugStatus(disabledShimOk);
+		if (!editorReady)
+			disabledShimStatus = "WARN";
+		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.disabled_shim", "disabled GM budget mode disables placement caps, adds managed-budget headroom, and registers deficit correction", ShortCampaignDebugLine(editorActual, 260), disabledShimStatus, "disabled Game Master budget shim is not fully active");
 	}
 
 	protected bool CampaignDebugMissionHasCompatibleTarget(HST_MissionDefinition definition)

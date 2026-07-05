@@ -161,9 +161,14 @@ modded class SCR_BudgetEditorComponent
 	{
 		if (m_bHSTOriginalBudgetCapsCaptured)
 			return;
+		if (!m_MaxBudgets)
+			return;
 
 		foreach (SCR_EntityBudgetValue maxBudget : m_MaxBudgets)
-			m_mHSTOriginalBudgetCaps.Set(maxBudget.GetBudgetType(), maxBudget.GetBudgetValue());
+		{
+			if (maxBudget)
+				m_mHSTOriginalBudgetCaps.Set(maxBudget.GetBudgetType(), maxBudget.GetBudgetValue());
+		}
 
 		m_bHSTOriginalBudgetCapsCaptured = true;
 	}
@@ -184,6 +189,110 @@ modded class SCR_BudgetEditorComponent
 
 		m_EntityCore.Event_OnEntityBudgetUpdatedPerEntity.Remove(HistasiOnEntityBudgetUpdatedPerEntity);
 		m_bHSTBudgetDeficitHandlerRegistered = false;
+	}
+
+	bool HistasiIsBudgetCapEnabledForDiagnostics()
+	{
+		return IsBudgetCapEnabled();
+	}
+
+	bool HistasiIsBudgetDeficitHandlerRegistered()
+	{
+		return m_bHSTBudgetDeficitHandlerRegistered;
+	}
+
+	int HistasiCountManagedBudgetTypes()
+	{
+		CaptureHistasiOriginalBudgetCaps();
+		if (!m_MaxBudgets)
+			return 0;
+
+		int count;
+		foreach (SCR_EntityBudgetValue maxBudget : m_MaxBudgets)
+		{
+			if (maxBudget && HST_GameMasterBudgetService.IsManagedBudgetType(maxBudget.GetBudgetType()))
+				count++;
+		}
+
+		return count;
+	}
+
+	int HistasiCountManagedBudgetsAtDisabledHeadroom()
+	{
+		CaptureHistasiOriginalBudgetCaps();
+		if (!m_MaxBudgets)
+			return 0;
+
+		int count;
+		foreach (SCR_EntityBudgetValue maxBudget : m_MaxBudgets)
+		{
+			if (!maxBudget || !HST_GameMasterBudgetService.IsManagedBudgetType(maxBudget.GetBudgetType()))
+				continue;
+
+			int originalBudget = m_mHSTOriginalBudgetCaps.Get(maxBudget.GetBudgetType());
+			int expectedBudget = originalBudget * HST_GameMasterBudgetService.BUDGET_HEADROOM_MULTIPLIER;
+			if (maxBudget.GetBudgetValue() == expectedBudget)
+				count++;
+		}
+
+		return count;
+	}
+
+	int HistasiCountManagedBudgetsAtOriginalCap()
+	{
+		CaptureHistasiOriginalBudgetCaps();
+		if (!m_MaxBudgets)
+			return 0;
+
+		int count;
+		foreach (SCR_EntityBudgetValue maxBudget : m_MaxBudgets)
+		{
+			if (!maxBudget || !HST_GameMasterBudgetService.IsManagedBudgetType(maxBudget.GetBudgetType()))
+				continue;
+
+			int originalBudget = m_mHSTOriginalBudgetCaps.Get(maxBudget.GetBudgetType());
+			if (maxBudget.GetBudgetValue() == originalBudget)
+				count++;
+		}
+
+		return count;
+	}
+
+	string HistasiBuildGameMasterBudgetDiagnostics()
+	{
+		CaptureHistasiOriginalBudgetCaps();
+
+		string entries;
+		if (m_MaxBudgets)
+		{
+			foreach (SCR_EntityBudgetValue maxBudget : m_MaxBudgets)
+			{
+				if (!maxBudget || !HST_GameMasterBudgetService.IsManagedBudgetType(maxBudget.GetBudgetType()))
+					continue;
+
+				EEditableEntityBudget budgetType = maxBudget.GetBudgetType();
+				int originalBudget = m_mHSTOriginalBudgetCaps.Get(budgetType);
+				string entry = string.Format("%1 current %2 original %3", typename.EnumToString(EEditableEntityBudget, budgetType), maxBudget.GetBudgetValue(), originalBudget);
+				if (entries.IsEmpty())
+					entries = entry;
+				else
+					entries = entries + "; " + entry;
+			}
+		}
+
+		if (entries.IsEmpty())
+			entries = "none";
+
+		return string.Format("editor %1 | budgetsEnabled %2 | capEnabled %3 | handler %4 | managed %5 | headroom %6 | original %7 | multiplier %8 | %9",
+			this.ClassName(),
+			HST_GameMasterBudgetService.AreGameMasterBudgetsEnabled(),
+			HistasiIsBudgetCapEnabledForDiagnostics(),
+			m_bHSTBudgetDeficitHandlerRegistered,
+			HistasiCountManagedBudgetTypes(),
+			HistasiCountManagedBudgetsAtDisabledHeadroom(),
+			HistasiCountManagedBudgetsAtOriginalCap(),
+			HST_GameMasterBudgetService.BUDGET_HEADROOM_MULTIPLIER,
+			entries);
 	}
 
 	protected void HistasiOnEntityBudgetUpdatedPerEntity(EEditableEntityBudget entityBudget, int originalBudgetValue, int budgetChange, int updatedBudgetValue, SCR_EditableEntityComponent entity)

@@ -3742,6 +3742,17 @@ if ($scriptText -notmatch "m_bShowPlayerMapMarkers" -or $scriptText -notmatch '\
 if ($scriptText -notmatch "settings.m_Features.m_bGameMasterBudgetsEnabled = false") {
 	throw "Runtime settings migration must default Game Master budgets to disabled"
 }
+foreach ($requiredGameMasterBudgetDiagnostic in @(
+		"preflight.gm_budget.state",
+		"preflight.gm_budget.disabled_shim",
+		"HistasiBuildGameMasterBudgetDiagnostics",
+		"HistasiIsBudgetDeficitHandlerRegistered",
+		"HistasiIsBudgetCapEnabledForDiagnostics"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredGameMasterBudgetDiagnostic)) {
+		throw "Campaign debug preflight must prove Game Master budget policy: $requiredGameMasterBudgetDiagnostic"
+	}
+}
 if ($scriptText -notmatch "settings.m_Features.m_bShowPlayerMapMarkers = true") {
 	throw "Runtime settings migration must default player map markers to enabled"
 }
