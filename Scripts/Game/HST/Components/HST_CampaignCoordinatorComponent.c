@@ -4270,12 +4270,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (physicalExpected && physicalPending)
 				physicalStatus = "WARN";
 			AddCampaignDebugAssertion(supportCase, "support.physicalization", "ground support physicalizes and links an active group in the inbound window", physicalActual, physicalStatus, "ground support did not physicalize a linked support group", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugMetric(supportCase, "support.physical_spawn_probe_ran", string.Format("%1", probeContext.m_bRuntimeSpawnProbeRanBeforePopulation), "bool");
+			AddCampaignDebugMetric(supportCase, "support.physical_spawn_probe_changed", string.Format("%1", probeContext.m_bRuntimeSpawnProbeChangedBeforePopulation), "bool");
+			AddCampaignDebugMetric(supportCase, "support.physical_spawned_before_population", string.Format("%1", probeContext.m_bRuntimeSpawnedBeforePopulation), "bool");
 			AddCampaignDebugMetric(supportCase, "support.physical_pending_population_attempted", string.Format("%1", probeContext.m_bPendingPopulationAttemptedBeforeRoute), "bool");
 			AddCampaignDebugMetric(supportCase, "support.physical_population_resolved", string.Format("%1", probeContext.m_bPendingPopulationResolvedBeforeRoute), "bool");
-			string populationActual = string.Format("attempted %1 | resolved %2 | status %3 -> %4 | evidence %5",
+			string populationActual = string.Format("spawnProbe %1/%2 spawned %3 | attempted %4 | resolved %5 | status %6 -> %7 -> %8 | evidence %9",
+				probeContext.m_bRuntimeSpawnProbeRanBeforePopulation,
+				probeContext.m_bRuntimeSpawnProbeChangedBeforePopulation,
+				probeContext.m_bRuntimeSpawnedBeforePopulation,
 				probeContext.m_bPendingPopulationAttemptedBeforeRoute,
 				probeContext.m_bPendingPopulationResolvedBeforeRoute,
 				EmptyCampaignDebugField(probeContext.m_sGroupStatusBeforePopulation),
+				EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterSpawnProbe),
 				EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterPopulation),
 				EmptyCampaignDebugField(probeContext.m_sPendingPopulationEvidence));
 			AddCampaignDebugAssertion(supportCase, "support.physical_population", "ground support group has durable runtime agents before route movement is judged", ShortCampaignDebugLine(populationActual, 260), CampaignDebugStatus(probeContext.m_bPendingPopulationResolvedBeforeRoute), "ground support route probe cannot prove movement while active group agent population is pending", observedSupportRequest.m_sRequestId);
@@ -4362,6 +4369,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_bPhysicalizedAfterTick = false;
 		probeContext.m_sGroupIdAfterTick = "";
 		probeContext.m_sGroupStatusAfterTick = "";
+		probeContext.m_bRuntimeSpawnProbeRanBeforePopulation = false;
+		probeContext.m_bRuntimeSpawnProbeChangedBeforePopulation = false;
+		probeContext.m_sGroupStatusAfterSpawnProbe = "";
+		probeContext.m_bRuntimeSpawnedBeforePopulation = false;
 		probeContext.m_bPendingPopulationAttemptedBeforeRoute = false;
 		probeContext.m_bPendingPopulationResolvedBeforeRoute = false;
 		probeContext.m_sGroupStatusBeforePopulation = "";
@@ -4428,7 +4439,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (group && IsCampaignDebugPhysicalGroundSupportType(supportRequest.m_eType) && m_PhysicalWar)
 		{
 			probeContext.m_sGroupStatusBeforePopulation = group.m_sRuntimeStatus;
-			if (group.m_sRuntimeStatus == "spawn_pending_agents")
+			string statusBeforeSpawnProbe = group.m_sRuntimeStatus;
+			bool spawnedBeforeSpawnProbe = group.m_bSpawnedEntity;
+			int agentsBeforeSpawnProbe = group.m_iSpawnedAgentCount;
+			int aliveBeforeSpawnProbe = group.m_iLastSeenAliveCount;
+			probeContext.m_bRuntimeSpawnProbeRanBeforePopulation = true;
+			bool runtimeSpawnProbeChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
+			if (group)
+			{
+				probeContext.m_sGroupStatusAfterSpawnProbe = group.m_sRuntimeStatus;
+				probeContext.m_bRuntimeSpawnedBeforePopulation = group.m_bSpawnedEntity || group.m_iSpawnedAgentCount > 0 || group.m_iLastSeenAliveCount > 0;
+				probeContext.m_bRuntimeSpawnProbeChangedBeforePopulation = runtimeSpawnProbeChanged
+					|| statusBeforeSpawnProbe != group.m_sRuntimeStatus
+					|| spawnedBeforeSpawnProbe != group.m_bSpawnedEntity
+					|| agentsBeforeSpawnProbe != group.m_iSpawnedAgentCount
+					|| aliveBeforeSpawnProbe != group.m_iLastSeenAliveCount;
+			}
+			if (!group)
+			{
+				probeContext.m_bRuntimeSpawnProbeChangedBeforePopulation = true;
+				probeContext.m_sPendingPopulationEvidence = "group missing after support runtime spawn probe";
+			}
+			else if (group.m_sRuntimeStatus == "spawn_pending_agents")
 			{
 				probeContext.m_bPendingPopulationAttemptedBeforeRoute = true;
 				string pendingPopulationEvidence;
@@ -4439,7 +4472,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			else
 			{
 				probeContext.m_bPendingPopulationResolvedBeforeRoute = group.m_bSpawnedEntity || group.m_iSpawnedAgentCount > 0 || group.m_iLastSeenAliveCount > 0;
-				probeContext.m_sPendingPopulationEvidence = string.Format("pending 0 | status %1 | agents %2 | lastAlive %3", EmptyCampaignDebugField(group.m_sRuntimeStatus), group.m_iSpawnedAgentCount, group.m_iLastSeenAliveCount);
+				probeContext.m_sPendingPopulationEvidence = string.Format("pending 0 | spawned %1 | status %2 | agents %3 | lastAlive %4", group.m_bSpawnedEntity, EmptyCampaignDebugField(group.m_sRuntimeStatus), group.m_iSpawnedAgentCount, group.m_iLastSeenAliveCount);
 			}
 			if (group)
 				probeContext.m_sGroupStatusAfterPopulation = group.m_sRuntimeStatus;

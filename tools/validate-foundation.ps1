@@ -2837,6 +2837,10 @@ foreach ($requiredSupportRuntimeProbeEntry in @(
 		".physical_population",
 		"CampaignDebugResolvePendingActiveGroupPopulation",
 		"ResolveCampaignDebugMissionConvoyPopulation",
+		"m_bRuntimeSpawnProbeRanBeforePopulation",
+		"m_bRuntimeSpawnProbeChangedBeforePopulation",
+		"support.physical_spawn_probe_ran",
+		"support.physical_spawn_probe_changed",
 		"m_bPendingPopulationResolvedBeforeRoute",
 		"support.physical_terminal_resolution"
 	)) {

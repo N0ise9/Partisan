@@ -87,6 +87,10 @@ class HST_CampaignDebugSupportProbeContext
 	bool m_bPhysicalizedAfterTick;
 	string m_sGroupIdAfterTick;
 	string m_sGroupStatusAfterTick;
+	bool m_bRuntimeSpawnProbeRanBeforePopulation;
+	bool m_bRuntimeSpawnProbeChangedBeforePopulation;
+	string m_sGroupStatusAfterSpawnProbe;
+	bool m_bRuntimeSpawnedBeforePopulation;
 	bool m_bPendingPopulationAttemptedBeforeRoute;
 	bool m_bPendingPopulationResolvedBeforeRoute;
 	string m_sGroupStatusBeforePopulation;
