@@ -176,6 +176,10 @@ class HST_PhysicalWarService
 	protected string m_sCampaignDebugCombatProbeHistory;
 	protected string m_sCampaignDebugCombatProbeLastObserved;
 	protected string m_sCampaignDebugCombatProbeStartResult;
+	protected bool m_bCampaignDebugCombatProbeFriendlyPopulationResolved;
+	protected bool m_bCampaignDebugCombatProbeEnemyPopulationResolved;
+	protected string m_sCampaignDebugCombatProbeFriendlyPopulationEvidence;
+	protected string m_sCampaignDebugCombatProbeEnemyPopulationEvidence;
 	protected ref array<IEntity> m_aCampaignDebugCombatProbeWaypointEntities = {};
 
 	void SetDebugLoggingEnabled(bool enabled)
@@ -401,6 +405,12 @@ class HST_PhysicalWarService
 			return probe;
 		}
 
+		int populationAttempted;
+		int populationResolved;
+		int populationUnresolved;
+		bool populationSeatingChanged;
+		bool populationWaypointChanged;
+		string populationEvidence = ResolveCampaignDebugMissionConvoyPopulation(state, mission, populationAttempted, populationResolved, populationUnresolved, populationSeatingChanged, populationWaypointChanged);
 		HST_ConvoyReadinessStatus readiness = BuildMissionConvoyReadinessStatus(state, mission);
 		AddConvoyDebugProbeMetric(probe, "convoy.assets.vehicle_count", string.Format("%1", readiness.m_iVehicleAssetCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.vehicles.spawned", string.Format("%1", readiness.m_iSpawnedVehicleCount), "count");
@@ -410,10 +420,16 @@ class HST_PhysicalWarService
 		AddConvoyDebugProbeMetric(probe, "convoy.vehicles.mobile", string.Format("%1", readiness.m_iMobileVehicleCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.routes.assigned", string.Format("%1", readiness.m_iRouteAssignedCount), "count");
 		AddConvoyDebugProbeMetric(probe, "convoy.waypoints.assigned", string.Format("%1", readiness.m_iWaypointAssignedCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.crew.population_attempted", string.Format("%1", populationAttempted), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.crew.population_resolved", string.Format("%1", populationResolved), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.crew.population_unresolved", string.Format("%1", populationUnresolved), "count");
 
 		string pendingGraceStatus = "FAIL";
 		if (readiness.m_bPendingGrace)
 			pendingGraceStatus = "WARN";
+		string populationActual = string.Format("attempted %1 | resolved %2 | unresolved %3 | seating %4 | waypoints %5", populationAttempted, populationResolved, populationUnresolved, ReportBool(populationSeatingChanged), ReportBool(populationWaypointChanged));
+		populationActual = populationActual + string.Format(" | evidence %1", ReportText(populationEvidence));
+		AddConvoyDebugProbeAssertion(probe, "convoy.crew.population", "pending convoy crew groups have durable runtime agents before readiness is judged", populationActual, ConvoyDebugStatus(populationUnresolved == 0), "convoy crew population remained pending or unresolved before readiness assertions", "", mission.m_sInstanceId);
 		AddConvoyDebugProbeAssertion(probe, "convoy.assets.vehicle_count", "vehicle assets >= 3", string.Format("%1", readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iVehicleAssetCount >= 3), "convoy has fewer than three vehicle assets");
 		AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entities.spawned", "spawned vehicle entities == vehicle asset count", string.Format("%1/%2", readiness.m_iSpawnedVehicleCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iVehicleAssetCount > 0 && readiness.m_iSpawnedVehicleCount >= readiness.m_iVehicleAssetCount), "not every convoy vehicle asset has a runtime vehicle entity");
 		AddConvoyDebugProbeAssertion(probe, "convoy.crew.groups", "crew group count >= vehicle count", string.Format("%1/%2 | pending grace %3", readiness.m_iCrewGroupCount, readiness.m_iVehicleAssetCount, readiness.m_bPendingGrace), ConvoyDebugStatus(readiness.m_iCrewGroupCount >= readiness.m_iVehicleAssetCount && readiness.m_iCrewGroupCount >= 3, pendingGraceStatus), "not every convoy vehicle has a crew group");
@@ -614,6 +630,59 @@ class HST_PhysicalWarService
 		probe.m_aEvidence.Insert(BuildConvoyRuntimeReport(state, mission));
 		FinalizeConvoyDebugProbeCase(state, probe);
 		return probe;
+	}
+
+	protected string ResolveCampaignDebugMissionConvoyPopulation(HST_CampaignState state, HST_ActiveMissionState mission, out int attempted, out int resolved, out int unresolved, out bool seatingChanged, out bool waypointChanged)
+	{
+		attempted = 0;
+		resolved = 0;
+		unresolved = 0;
+		seatingChanged = false;
+		waypointChanged = false;
+		if (!state || !mission)
+			return "missing state or mission";
+
+		string evidence;
+		int assetIndex;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != MISSION_CONVOY_VEHICLE_ROLE)
+				continue;
+
+			string groupId = BuildMissionConvoyGroupId(mission, assetIndex);
+			assetIndex++;
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
+			if (!activeGroup)
+				continue;
+			if (activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+				continue;
+
+			attempted++;
+			int liveBefore = CountAliveRuntimeCrewAgents(activeGroup);
+			string groupEvidence;
+			bool groupResolved = CampaignDebugResolvePendingActiveGroupPopulation(activeGroup, state, ResolveMissionConvoyRuntimeStatus(mission), groupEvidence);
+			int liveAfter = CountAliveRuntimeCrewAgents(activeGroup);
+			if (groupResolved && liveAfter > 0)
+				resolved++;
+			else
+				unresolved++;
+
+			string sample = string.Format("%1 live %2 -> %3 | resolved %4", ReportText(groupId), liveBefore, liveAfter, ReportBool(groupResolved));
+			sample = sample + string.Format(" | %1", ReportText(groupEvidence));
+			evidence = AppendConvoyDebugEvidence(evidence, sample);
+		}
+
+		if (attempted > 0)
+		{
+			seatingChanged = EnsureMissionConvoyCrewSeating(state, mission);
+			HST_ConvoyReadinessStatus readiness = BuildMissionConvoyReadinessStatus(state, mission);
+			if (CanAttemptMissionConvoyWaypointAssignment(readiness))
+				waypointChanged = AssignMissionConvoyWaypoints(state, mission);
+		}
+
+		if (evidence.IsEmpty())
+			evidence = "no pending convoy crew population";
+		return evidence;
 	}
 
 	HST_CampaignDebugCaseResult BuildCampaignDebugConvoyPhaseChainProbe(HST_CampaignState state, string debugPrefix)
@@ -830,6 +899,8 @@ class HST_PhysicalWarService
 		state.m_aActiveGroups.Insert(enemyGroup);
 		bool friendlySpawned = TrySpawnActiveGroup(friendlyGroup, state);
 		bool enemySpawned = TrySpawnActiveGroup(enemyGroup, state);
+		m_bCampaignDebugCombatProbeFriendlyPopulationResolved = CampaignDebugResolvePendingActiveGroupPopulation(friendlyGroup, state, "campaign_debug_combat", m_sCampaignDebugCombatProbeFriendlyPopulationEvidence);
+		m_bCampaignDebugCombatProbeEnemyPopulationResolved = CampaignDebugResolvePendingActiveGroupPopulation(enemyGroup, state, "campaign_debug_combat", m_sCampaignDebugCombatProbeEnemyPopulationEvidence);
 		if (AssignCampaignDebugPhysicalCombatWaypoint(m_sCampaignDebugCombatProbeFriendlyGroupId, m_vCampaignDebugCombatProbeEnemyPosition))
 			m_iCampaignDebugCombatProbeWaypointCount++;
 		if (AssignCampaignDebugPhysicalCombatWaypoint(m_sCampaignDebugCombatProbeEnemyGroupId, m_vCampaignDebugCombatProbeFriendlyPosition))
@@ -838,7 +909,8 @@ class HST_PhysicalWarService
 		m_iCampaignDebugCombatProbeStartSecond = state.m_iElapsedSeconds;
 		m_bCampaignDebugCombatProbeActive = true;
 		SampleCampaignDebugPhysicalCombatProbe(state, true);
-		m_sCampaignDebugCombatProbeStartResult = string.Format("friendly %1 spawned %2 | enemy %3 spawned %4 | waypoints %5 | center %6", m_sCampaignDebugCombatProbeFriendlyGroupId, friendlySpawned, m_sCampaignDebugCombatProbeEnemyGroupId, enemySpawned, m_iCampaignDebugCombatProbeWaypointCount, m_vCampaignDebugCombatProbeCenter);
+		m_sCampaignDebugCombatProbeStartResult = string.Format("friendly %1 spawned %2 population %3 | enemy %4 spawned %5 population %6", m_sCampaignDebugCombatProbeFriendlyGroupId, friendlySpawned, m_bCampaignDebugCombatProbeFriendlyPopulationResolved, m_sCampaignDebugCombatProbeEnemyGroupId, enemySpawned, m_bCampaignDebugCombatProbeEnemyPopulationResolved);
+		m_sCampaignDebugCombatProbeStartResult = m_sCampaignDebugCombatProbeStartResult + string.Format(" | waypoints %1 | center %2", m_iCampaignDebugCombatProbeWaypointCount, m_vCampaignDebugCombatProbeCenter);
 		result = "h-istasi campaign debug | physical combat probe started | " + m_sCampaignDebugCombatProbeStartResult;
 		return true;
 	}
@@ -903,13 +975,18 @@ class HST_PhysicalWarService
 		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_alive_end", string.Format("%1", m_iCampaignDebugCombatProbeFriendlyEndAlive), "count");
 		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_alive_end", string.Format("%1", m_iCampaignDebugCombatProbeEnemyEndAlive), "count");
 		AddConvoyDebugProbeMetric(probe, "physical_combat.final_distance", string.Format("%1", Math.Round(m_fCampaignDebugCombatProbeLastDistance)), "meters");
+		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_population_resolved", string.Format("%1", m_bCampaignDebugCombatProbeFriendlyPopulationResolved), "bool");
+		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_population_resolved", string.Format("%1", m_bCampaignDebugCombatProbeEnemyPopulationResolved), "bool");
 
 		probe.m_aEvidence.Insert("start | " + ReportText(m_sCampaignDebugCombatProbeStartResult));
+		probe.m_aEvidence.Insert("population | friendly " + ReportText(m_sCampaignDebugCombatProbeFriendlyPopulationEvidence) + " | enemy " + ReportText(m_sCampaignDebugCombatProbeEnemyPopulationEvidence));
 		probe.m_aEvidence.Insert("samples | " + ReportText(m_sCampaignDebugCombatProbeHistory));
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.faction_split", "temporary groups use resistance and enemy factions, not all FIA", string.Format("friendly %1 | enemy %2", ReportText(m_sCampaignDebugCombatProbeFriendlyFaction), ReportText(m_sCampaignDebugCombatProbeEnemyFaction)), ConvoyDebugStatus(factionSplit), "physical combat probe factions were not split between resistance and enemy", "", "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.friendly_runtime_faction", "friendly runtime group/entities are stamped with the resistance faction", BuildActiveGroupRuntimeFactionActual(friendlyGroup, friendlyFactionMismatches, friendlyFactionSample, friendlyRuntimeExists, false), ConvoyDebugStatus(friendlyFactionOk), "friendly combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeFriendlyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.enemy_runtime_faction", "enemy runtime group/entities are stamped with the enemy faction", BuildActiveGroupRuntimeFactionActual(enemyGroup, enemyFactionMismatches, enemyFactionSample, enemyRuntimeExists, false), ConvoyDebugStatus(enemyFactionOk), "enemy combat probe runtime faction mismatch", m_sCampaignDebugCombatProbeEnemyGroupId, "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.active_group_records", "temporary active-group records exist for both sides during sample window", string.Format("friendly %1 | enemy %2", friendlyGroup != null, enemyGroup != null), ConvoyDebugStatus(friendlyGroup != null && enemyGroup != null), "temporary active-group records missing before cleanup", "", "", m_sCampaignDebugCombatProbeZoneId);
+		string populationActual = string.Format("friendly %1 | enemy %2", ReportText(m_sCampaignDebugCombatProbeFriendlyPopulationEvidence), ReportText(m_sCampaignDebugCombatProbeEnemyPopulationEvidence));
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.population", "both temporary groups have durable runtime agents before waypoints and samples are judged", populationActual, ConvoyDebugStatus(m_bCampaignDebugCombatProbeFriendlyPopulationResolved && m_bCampaignDebugCombatProbeEnemyPopulationResolved), "physical combat probe could not prove durable AI population for both sides", "", "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.runtime_entities", "both temporary groups spawn runtime AI group entities", string.Format("friendly runtime %1 alive %2 | enemy runtime %3 alive %4", friendlyRuntimeExists, m_iCampaignDebugCombatProbeFriendlyEndAlive, enemyRuntimeExists, m_iCampaignDebugCombatProbeEnemyEndAlive), ConvoyDebugStatus(friendlyRuntimeExists && enemyRuntimeExists && friendlyAliveObserved && enemyAliveObserved), "one or both combat probe groups did not spawn living runtime AI", "", "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.search_waypoints", "both groups receive search-and-destroy waypoints toward the opposing side", string.Format("%1/2", m_iCampaignDebugCombatProbeWaypointCount), ConvoyDebugStatus(m_iCampaignDebugCombatProbeWaypointCount >= 2), "combat probe did not assign opposing search-and-destroy waypoints", "", "", m_sCampaignDebugCombatProbeZoneId);
 		AddConvoyDebugProbeAssertion(probe, "physical_combat.sample_window", "normal server tick samples the spawned groups across the configured combat window", string.Format("elapsed %1/%2 | samples %3 | last %4", elapsedSeconds, CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS, m_iCampaignDebugCombatProbeSampleCount, ReportText(m_sCampaignDebugCombatProbeLastObserved)), ConvoyDebugStatus(sampleWindowCovered), "physical combat probe did not collect enough timed samples", "", "", m_sCampaignDebugCombatProbeZoneId);
@@ -1176,6 +1253,10 @@ class HST_PhysicalWarService
 		m_sCampaignDebugCombatProbeHistory = "";
 		m_sCampaignDebugCombatProbeLastObserved = "";
 		m_sCampaignDebugCombatProbeStartResult = "";
+		m_bCampaignDebugCombatProbeFriendlyPopulationResolved = false;
+		m_bCampaignDebugCombatProbeEnemyPopulationResolved = false;
+		m_sCampaignDebugCombatProbeFriendlyPopulationEvidence = "";
+		m_sCampaignDebugCombatProbeEnemyPopulationEvidence = "";
 	}
 
 	protected HST_CampaignDebugCaseResult CreateConvoyDebugProbeCase(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -7010,8 +7091,9 @@ class HST_PhysicalWarService
 				populatedFallback = TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "campaign debug pre-route", true);
 		}
 
-		bool resolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents" && (activeGroup.m_bSpawnedEntity || activeGroup.m_iSpawnedAgentCount > 0 || activeGroup.m_iLastSeenAliveCount > 0);
-		evidence = string.Format("pending %1 | finalized %2 | nativeRetry %3 | directFallback %4 | status %5 -> %6 | agents %7 -> %8 | lastAlive %9",
+		int liveAfter = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
+		bool resolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents" && liveAfter > 0;
+		evidence = string.Format("pending %1 | finalized %2 | nativeRetry %3 | directFallback %4 | status %5 -> %6 | agents %7 -> %8 | live %9",
 			wasPending,
 			finalized,
 			kickedNativeSpawn,
@@ -7020,8 +7102,8 @@ class HST_PhysicalWarService
 			ReportText(activeGroup.m_sRuntimeStatus),
 			beforeAgents,
 			activeGroup.m_iSpawnedAgentCount,
-			activeGroup.m_iLastSeenAliveCount);
-		evidence = evidence + string.Format(" | reason %1", ReportText(activeGroup.m_sSpawnFailureReason));
+			liveAfter);
+		evidence = evidence + string.Format(" | lastAlive %1 | reason %2", activeGroup.m_iLastSeenAliveCount, ReportText(activeGroup.m_sSpawnFailureReason));
 		return resolved;
 	}
 
@@ -7749,14 +7831,15 @@ class HST_PhysicalWarService
 			return 0;
 		}
 
-		int agentCount = group.GetAgentsCount();
-		if (agentCount <= 0)
+		int rawAgentCount = group.GetAgentsCount();
+		int livingAgentCount = CountLivingNativeAIGroupAgents(group);
+		if (livingAgentCount <= 0)
 		{
-			DebugLog(string.Format("spawned AIGroup %1 for %2 has no agents yet; awaiting population grace", activeGroup.m_sPrefab, activeGroup.m_sGroupId));
+			DebugLog(string.Format("spawned AIGroup %1 for %2 has %3 raw agents but no living controlled agents yet; awaiting population grace", activeGroup.m_sPrefab, activeGroup.m_sGroupId, rawAgentCount));
 			return 0;
 		}
 
-		return agentCount;
+		return livingAgentCount;
 	}
 
 	protected void NotifyRuntimeEvent(HST_CampaignState state, string eventId, string title, string message, string zoneId, vector position, float durationSeconds)

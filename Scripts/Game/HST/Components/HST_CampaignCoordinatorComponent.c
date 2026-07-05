@@ -13377,6 +13377,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		physicalProbe.m_sRouteTimeoutEvidence = "";
 		physicalProbe.m_sGroupStatusAfterTick = "";
 		physicalProbe.m_sGroupStatusAfterRoute = "";
+		physicalProbe.m_bPendingPopulationAttemptedBeforeRoute = false;
+		physicalProbe.m_bPendingPopulationResolvedBeforeRoute = false;
+		physicalProbe.m_sGroupStatusBeforePopulation = "";
+		physicalProbe.m_sGroupStatusAfterPopulation = "";
+		physicalProbe.m_sPendingPopulationEvidence = "";
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector || !m_SupportRequests || !m_PhysicalWar || !m_Balance)
 		{
 			physicalProbe.m_sFailureReason = "physical probe services not ready";
@@ -13429,6 +13434,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			physicalProbe.m_Group = m_State.FindActiveGroup(physicalProbe.m_Group.m_sGroupId);
 			if (physicalProbe.m_Group)
 				physicalProbe.m_sGroupStatusAfterTick = physicalProbe.m_Group.m_sRuntimeStatus;
+		}
+
+		if (physicalProbe.m_Group)
+		{
+			physicalProbe.m_sGroupStatusBeforePopulation = physicalProbe.m_Group.m_sRuntimeStatus;
+			if (physicalProbe.m_Group.m_sRuntimeStatus == "spawn_pending_agents")
+			{
+				physicalProbe.m_bPendingPopulationAttemptedBeforeRoute = true;
+				string pendingPopulationEvidence;
+				physicalProbe.m_bPendingPopulationResolvedBeforeRoute = m_PhysicalWar.CampaignDebugResolvePendingActiveGroupPopulation(physicalProbe.m_Group, m_State, "support_active", pendingPopulationEvidence);
+				physicalProbe.m_sPendingPopulationEvidence = pendingPopulationEvidence;
+				physicalProbe.m_Group = m_State.FindActiveGroup(physicalProbe.m_Group.m_sGroupId);
+			}
+			else
+			{
+				physicalProbe.m_bPendingPopulationResolvedBeforeRoute = physicalProbe.m_Group.m_bSpawnedEntity || physicalProbe.m_Group.m_iSpawnedAgentCount > 0 || physicalProbe.m_Group.m_iLastSeenAliveCount > 0;
+				physicalProbe.m_sPendingPopulationEvidence = string.Format("pending 0 | status %1 | agents %2 | lastAlive %3", EmptyCampaignDebugField(physicalProbe.m_Group.m_sRuntimeStatus), physicalProbe.m_Group.m_iSpawnedAgentCount, physicalProbe.m_Group.m_iLastSeenAliveCount);
+			}
+			if (physicalProbe.m_Group)
+				physicalProbe.m_sGroupStatusAfterPopulation = physicalProbe.m_Group.m_sRuntimeStatus;
 		}
 
 		if (physicalProbe.m_Group)
@@ -13565,11 +13590,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(targetCase, metricPrefix + ".route_max_movement", string.Format("%1", Math.Round(physicalProbe.m_fRouteMaxMovementMeters)), "meters");
 		AddCampaignDebugMetric(targetCase, metricPrefix + ".route_max_distance_closed", string.Format("%1", Math.Round(physicalProbe.m_fRouteMaxDistanceClosedMeters)), "meters");
 		AddCampaignDebugMetric(targetCase, metricPrefix + ".route_timeout_seconds", string.Format("%1", physicalProbe.m_iRouteTimeoutSeconds), "seconds");
+		AddCampaignDebugMetric(targetCase, metricPrefix + ".physical_pending_population_attempted", string.Format("%1", physicalProbe.m_bPendingPopulationAttemptedBeforeRoute), "bool");
+		AddCampaignDebugMetric(targetCase, metricPrefix + ".physical_population_resolved", string.Format("%1", physicalProbe.m_bPendingPopulationResolvedBeforeRoute), "bool");
 		if (!physicalProbe.m_sRouteSampleHistory.IsEmpty())
 			targetCase.m_aEvidence.Insert(assertionPrefix + " route samples | " + ShortCampaignDebugLine(physicalProbe.m_sRouteSampleHistory, 260));
 		if (!physicalProbe.m_sRouteTimeoutEvidence.IsEmpty())
 			targetCase.m_aEvidence.Insert(assertionPrefix + " route timeout | " + ShortCampaignDebugLine(physicalProbe.m_sRouteTimeoutEvidence, 260));
+		if (!physicalProbe.m_sPendingPopulationEvidence.IsEmpty())
+			targetCase.m_aEvidence.Insert(assertionPrefix + " population | " + ShortCampaignDebugLine(physicalProbe.m_sPendingPopulationEvidence, 260));
 
+		string populationActual = string.Format("attempted %1 | resolved %2 | status %3 -> %4 | evidence %5",
+			physicalProbe.m_bPendingPopulationAttemptedBeforeRoute,
+			physicalProbe.m_bPendingPopulationResolvedBeforeRoute,
+			EmptyCampaignDebugField(physicalProbe.m_sGroupStatusBeforePopulation),
+			EmptyCampaignDebugField(physicalProbe.m_sGroupStatusAfterPopulation),
+			EmptyCampaignDebugField(physicalProbe.m_sPendingPopulationEvidence));
+		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_population", subjectLabel + " has durable runtime agents before route movement is judged", ShortCampaignDebugLine(populationActual, 260), CampaignDebugStatus(physicalProbe.m_bPendingPopulationResolvedBeforeRoute), failureLabel + " route probe cannot prove movement while active-group agent population is pending", entityId, missionInstanceId, zoneId, orderId);
 		string routeSamplesActual = string.Format("samples %1 | movement %2 | decreases %3 | max move %4m | max closed %5m | history %6", physicalProbe.m_iRouteSampleCount, physicalProbe.m_iRouteMovementCount, physicalProbe.m_iRouteDistanceDecreaseCount, Math.Round(physicalProbe.m_fRouteMaxMovementMeters), Math.Round(physicalProbe.m_fRouteMaxDistanceClosedMeters), EmptyCampaignDebugField(physicalProbe.m_sRouteSampleHistory));
 		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_repeated_samples", subjectLabel + " is sampled across repeated routed update windows", routeSamplesActual, CampaignDebugStatus(physicalProbe.m_iRouteSampleCount >= 2, "WARN"), failureLabel + " route probe did not gather repeated movement samples", entityId, missionInstanceId, zoneId, orderId);
 		bool enemyRouteAtTarget = physicalProbe.m_fDistanceAfter <= 25.0;

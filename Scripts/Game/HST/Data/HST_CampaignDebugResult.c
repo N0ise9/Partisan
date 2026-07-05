@@ -359,6 +359,8 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	bool m_bRouteTickChanged;
 	bool m_bTargetWasActive;
 	bool m_bTargetActiveRestored;
+	bool m_bPendingPopulationAttemptedBeforeRoute;
+	bool m_bPendingPopulationResolvedBeforeRoute;
 	int m_iElapsedBefore;
 	int m_iElapsedAfter;
 	int m_iRouteAdvanceSeconds;
@@ -376,6 +378,9 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	string m_sRouteSampleHistory;
 	string m_sRouteLastObserved;
 	string m_sRouteTimeoutEvidence;
+	string m_sGroupStatusBeforePopulation;
+	string m_sGroupStatusAfterPopulation;
+	string m_sPendingPopulationEvidence;
 	string m_sGroupStatusAfterTick;
 	string m_sGroupStatusAfterRoute;
 	string m_sFailureReason;

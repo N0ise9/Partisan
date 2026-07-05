@@ -2800,7 +2800,11 @@ Write-Host "Base-game abstract support strike contract OK"
 
 foreach ($requiredSupportRuntimeProbeEntry in @(
 		"support.physical_population",
+		"convoy.crew.population",
+		"physical_combat.population",
+		".physical_population",
 		"CampaignDebugResolvePendingActiveGroupPopulation",
+		"ResolveCampaignDebugMissionConvoyPopulation",
 		"m_bPendingPopulationResolvedBeforeRoute",
 		"support.physical_terminal_resolution"
 	)) {
