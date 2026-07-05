@@ -3819,10 +3819,15 @@ foreach ($requiredGameMasterBudgetDiagnostic in @(
 }
 foreach ($requiredGameMasterBudgetShimEntry in @(
 		"ResolveDisabledBudgetHeadroom",
+		"ResolveDisabledBudgetRepairHeadroom",
 		"budgetSettings.SetCurrentBudget(disabledBudget)",
+		"modded class SCR_EditableEntityCoreBudgetSetting",
+		"HistasiEnsureDisabledBudgetHeadroomBeforeSubtract",
+		"restored disabled-budget headroom before native subtract",
 		"HistasiCountManagedCurrentBudgetsAtDisabledHeadroom",
 		"HistasiCountBudgetDeficitCorrections",
 		"trackedHeadroom",
+		"preSubtractRepairs",
 		"deficitCorrections"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredGameMasterBudgetShimEntry)) {
