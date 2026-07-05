@@ -130,6 +130,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bLoggedCustomActionInput;
 	protected bool m_bLoggedRawIKeyInput;
 	protected bool m_bLoggedDuplicateToggle;
+	protected bool m_bLoggedInputManagerMissing;
+	protected bool m_bLoggedLocalReadyPrinted;
 	protected bool m_bDebugLoggingEnabled;
 	protected bool m_bPostLayoutRefreshQueued;
 	protected int m_iLoggedLayoutW;
@@ -523,7 +525,15 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		InputManager inputManager = GetGame().GetInputManager();
 		if (!inputManager)
+		{
+			if (!m_bLoggedInputManagerMissing)
+			{
+				m_bLoggedInputManagerMissing = true;
+				Print("h-istasi menu | input manager unavailable while registering command menu input", LogLevel.WARNING);
+			}
+
 			return false;
+		}
 
 		EnsureInputConfig(inputManager);
 		EnsureIKeyBinding(inputManager);
@@ -534,6 +544,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		inputManager.AddActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, OnExecuteSelectedInput);
 		inputManager.AddActionListener(COMMAND_MENU_BACK_ACTION, EActionTrigger.DOWN, OnCloseMenuInput);
 		m_bInputRegistered = true;
+		PrintCommandMenuReadyOnce("input registered");
 		return true;
 	}
 
@@ -620,7 +631,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		if (!HST_CommandMenuRequestComponent.GetLocalOwner() && !Replication.IsServer())
-			DebugCommandMenuToggleRefused(source, "request bridge missing");
+			Print("h-istasi menu | input toggle continuing without local request bridge; menu will show cached/local data if available", LogLevel.WARNING);
 
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		m_fCommandMenuDebounceRemaining = 0.15;
@@ -632,12 +643,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		DebugLog(string.Format("input toggle source=%1 setupBlocking=%2 menuOpen=%3 localOwner=%4", source, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner));
+		Print(string.Format("h-istasi menu | input toggle source=%1 menuOpen=%2 localOwner=%3 inputRegistered=%4 customBinding=%5", source, m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady));
 		ToggleMenu(source);
 		return true;
 	}
 
 	protected void DebugCommandMenuToggleRefused(string source, string reason)
 	{
+		Print(string.Format("h-istasi menu | input refused source=%1 reason=%2 setupBlocking=%3 menuOpen=%4 localOwner=%5 inputRegistered=%6 customBinding=%7 debounce=%8", source, reason, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady, m_fCommandMenuDebounceRemaining), LogLevel.WARNING);
 		DebugLog(string.Format("input refused source=%1 reason=%2 setupBlocking=%3 menuOpen=%4 localOwner=%5 inputRegistered=%6 customBinding=%7 debounce=%8", source, reason, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady, m_fCommandMenuDebounceRemaining));
 	}
 
@@ -712,6 +725,16 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_fInputRetryAccumulator = 0;
 		DebugLog("local player menu component ready");
 		RegisterInputListeners();
+		PrintCommandMenuReadyOnce("local owner");
+	}
+
+	protected void PrintCommandMenuReadyOnce(string reason)
+	{
+		if (m_bLoggedLocalReadyPrinted)
+			return;
+
+		m_bLoggedLocalReadyPrinted = true;
+		Print(string.Format("h-istasi menu | local command menu component ready via %1 | localPlayer=%2 ownerPlayer=%3 inputRegistered=%4 customBinding=%5", reason, SCR_PlayerController.GetLocalPlayerId(), ResolveOwnerPlayerId(m_OwnerEntity), m_bInputRegistered, m_bCustomBindingReady));
 	}
 
 	protected void RefreshLocalOwnership(IEntity owner)
@@ -2481,5 +2504,14 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		PlayerController controller = PlayerController.Cast(owner);
 		return controller && controller.GetPlayerId() == localPlayerId;
+	}
+
+	protected int ResolveOwnerPlayerId(IEntity owner)
+	{
+		PlayerController controller = PlayerController.Cast(owner);
+		if (!controller)
+			return 0;
+
+		return controller.GetPlayerId();
 	}
 }

@@ -372,6 +372,7 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 			textWidget.SetText(text);
 			textWidget.SetTextWrapping(true);
 			textWidget.SetExactFontSize(11);
+			textWidget.SetColorInt(color);
 			textWidget.SetOutline(1, 0xDD000000);
 			textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
 		}

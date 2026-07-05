@@ -7,6 +7,7 @@ class HST_HQService
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
 	static const string HQ_SPAWN_POINT_PREFAB = "{72713ED566A531F3}PrefabsEditable/SpawnPoints/E_SpawnPoint_FIA.et";
 	static const float ARSENAL_POSITION_TOLERANCE_METERS = 4.0;
+	static const float PETROS_REATTACH_RADIUS_METERS = 8.0;
 	static const string CUSTOM_SETUP_HQ_ID = "custom_setup_hq";
 	static const float SETUP_ZONE_FALLBACK_RADIUS_METERS = 150.0;
 
@@ -229,10 +230,21 @@ class HST_HQService
 
 		if (!m_PetrosEntity)
 		{
+			m_PetrosEntity = FindWorldRuntimeEntityNear(state.m_vPetrosPosition, ResolvePetrosPrefab(state), PETROS_REATTACH_RADIUS_METERS);
+			if (m_PetrosEntity)
+			{
+				PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
+				DebugLog(string.Format("lifecycle reattached Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
+				changed = true;
+			}
+		}
+
+		if (!m_PetrosEntity)
+		{
 			m_PetrosEntity = SpawnPetros(respawnSystem, state);
 			if (m_PetrosEntity)
 			{
-				ApplyFaction(m_PetrosEntity);
+				PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
 				m_bLoggedPetrosSpawned = LogRuntimeObjectSpawnSuccess("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition, m_bLoggedPetrosSpawned);
 				changed = true;
 			}
@@ -881,7 +893,10 @@ class HST_HQService
 		DebugLog(string.Format("lifecycle spawning Petros prefab=%1 pos=%2 hqDeployed=%3 petrosAlive=%4 runtimeSpawned=%5", petrosPrefab, petrosPosition, hqDeployed, petrosAlive, runtimeSpawned));
 		GenericEntity petros = HST_WorldPositionService.SpawnPrefab(petrosPrefab, petrosPosition, "0 0 0");
 		if (petros)
+		{
+			PreparePetrosEntity(petros, petrosPosition);
 			return petros;
+		}
 
 		if (petrosPrefab != PETROS_BASE_PREFAB)
 		{
@@ -891,10 +906,37 @@ class HST_HQService
 				m_bWarnedPetrosResourceFailure = true;
 			}
 
-			return HST_WorldPositionService.SpawnPrefab(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
+			petros = HST_WorldPositionService.SpawnPrefab(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
+			if (petros)
+				PreparePetrosEntity(petros, petrosPosition);
+
+			return petros;
 		}
 
 		return null;
+	}
+
+	protected void PreparePetrosEntity(IEntity petros, vector position)
+	{
+		if (!petros)
+			return;
+
+		petros.SetName("HST_Petros");
+		petros.SetOrigin(position);
+		petros.SetFlags(EntityFlags.VISIBLE | EntityFlags.TRACEABLE | EntityFlags.ACTIVE, true);
+		ApplyFaction(petros);
+
+		ChimeraCharacter character = ChimeraCharacter.Cast(petros);
+		if (!character)
+			return;
+
+		CharacterControllerComponent controller = character.GetCharacterController();
+		if (!controller)
+			return;
+
+		controller.SetMovement(0, vector.Zero);
+		controller.SetDisableMovementControls(true);
+		controller.SetDisableWeaponControls(true);
 	}
 
 	protected string ResolveArsenalPrefab(HST_CampaignState state)
@@ -1058,6 +1100,34 @@ class HST_HQService
 		m_aWorldScanCandidates.Clear();
 		m_sWorldScanPrefab = "";
 		return count;
+	}
+
+	protected IEntity FindWorldRuntimeEntityNear(vector center, string prefab, float radiusMeters)
+	{
+		if (prefab.IsEmpty() || radiusMeters <= 0 || !GetGame())
+			return null;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return null;
+
+		m_sWorldScanPrefab = prefab;
+		m_aWorldScanCandidates.Clear();
+		world.QueryEntitiesBySphere(center, radiusMeters, AddWorldScanCandidate, null, EQueryEntitiesFlags.ALL);
+
+		IEntity found;
+		foreach (IEntity candidate : m_aWorldScanCandidates)
+		{
+			if (!candidate)
+				continue;
+
+			found = candidate;
+			break;
+		}
+
+		m_aWorldScanCandidates.Clear();
+		m_sWorldScanPrefab = "";
+		return found;
 	}
 
 	protected bool AddWorldScanCandidate(IEntity entity)

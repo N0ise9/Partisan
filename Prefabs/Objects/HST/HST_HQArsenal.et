@@ -5,6 +5,14 @@ GenericEntity HST_HQArsenal : "{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/
   }
   ActionsManagerComponent "{56F2C6D1431ADB12}" {
    additionalActions {
+    HST_PetrosCommandMenuAction "{698532771130340A}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{698532771130340B}" {
+      Name "h-istasi HQ Menu"
+     }
+    }
     HST_HQArsenalLoadoutEditorAction "{6985327711303407}" {
      ParentContextList {
       "default"

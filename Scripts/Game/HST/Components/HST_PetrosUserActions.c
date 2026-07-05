@@ -158,13 +158,16 @@ class HST_HQArsenalActionFilterComponent : ScriptComponent
 			if (HST_HQArsenalLoadoutEditorAction.Cast(action))
 				continue;
 
+			if (HST_PetrosCommandMenuAction.Cast(action))
+				continue;
+
 			action.SetActionEnabled_S(false);
 		}
 
 		m_bActionsFiltered = true;
 		m_iFilterFrames++;
 		if (m_iFilterFrames == 1 || m_iFilterFrames == 90)
-			Print(string.Format("h-istasi arsenal | filtered %1 inherited action(s); custom loadout editor action remains authoritative", Math.Max(0, actionCount - 1)));
+			Print(string.Format("h-istasi arsenal | filtered %1 inherited action(s); custom HQ menu/loadout actions remain authoritative", Math.Max(0, actionCount - 2)));
 	}
 }
 

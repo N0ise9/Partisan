@@ -160,6 +160,9 @@ class HST_PlayerSpawnService
 			if (!IsConnectedPlayerSpawnGraceElapsed(playerId, diagnostics))
 				continue;
 
+			if (!IsNativeSpawnControllerReady(playerManager, playerId, diagnostics))
+				continue;
+
 			if (RequestPlayerSpawn(state, authorization, lifecycle, playerId, diagnostics))
 				spawned++;
 		}
@@ -214,6 +217,9 @@ class HST_PlayerSpawnService
 				continue;
 
 			if (!IsConnectedPlayerSpawnGraceElapsed(playerId, diagnostics))
+				continue;
+
+			if (!IsNativeSpawnControllerReady(playerManager, playerId, diagnostics))
 				continue;
 
 			if (RequestSetupHoldingSpawn(state, authorization, lifecycle, playerId, diagnostics))
@@ -283,6 +289,9 @@ class HST_PlayerSpawnService
 
 			return false;
 		}
+
+		if (!IsNativeSpawnControllerReady(playerManager, playerId, diagnostics))
+			return false;
 
 		HST_PlayerState player = RegisterPlayerOnly(state, authorization, lifecycle, playerId);
 		if (!player)
@@ -477,6 +486,9 @@ class HST_PlayerSpawnService
 		if (!playerManager || !playerManager.IsPlayerConnected(playerId))
 			return false;
 
+		if (!IsNativeSpawnControllerReady(playerManager, playerId, diagnostics))
+			return false;
+
 		if (HasPendingSpawn(playerId))
 			return true;
 
@@ -514,6 +526,23 @@ class HST_PlayerSpawnService
 		vector offset = GetSpawnRingOffset(PositiveModulo(playerId - 1, 16));
 		offset = vector.Direction(vector.Zero, offset) * SETUP_HOLDING_SPAWN_OFFSET_METERS;
 		return ResolveDryPlayerSpawnPosition(holdingCenter + offset, holdingCenter, fallbackPosition);
+	}
+
+	protected bool IsNativeSpawnControllerReady(PlayerManager playerManager, int playerId, bool diagnostics = false)
+	{
+		if (!playerManager || playerId <= 0 || !playerManager.IsPlayerConnected(playerId))
+			return false;
+
+		SCR_PlayerController playerController = SCR_PlayerController.Cast(playerManager.GetPlayerController(playerId));
+		if (!playerController)
+		{
+			if (diagnostics)
+				Print(string.Format("h-istasi | spawn request delayed for player %1: player controller not ready", playerId));
+
+			return false;
+		}
+
+		return true;
 	}
 
 	protected bool AreSetupHoldingPlayersStable()
