@@ -992,8 +992,8 @@ class HST_PhysicalWarService
 			EnsureActiveGroupRuntimeFaction(enemyGroup, "physical combat probe");
 			enemyFactionMismatches = CountActiveGroupRuntimeFactionMismatches(enemyGroup, enemyFactionSample);
 		}
-		bool friendlyFactionOk = friendlyGroup && friendlyRuntimeExists && CountRuntimeGroupControlledEntities(friendlyGroup.m_sGroupId) > 0 && friendlyFactionMismatches == 0;
-		bool enemyFactionOk = enemyGroup && enemyRuntimeExists && CountRuntimeGroupControlledEntities(enemyGroup.m_sGroupId) > 0 && enemyFactionMismatches == 0;
+		bool friendlyFactionOk = friendlyGroup && friendlyRuntimeExists && friendlyAliveObserved && friendlyFactionMismatches == 0;
+		bool enemyFactionOk = enemyGroup && enemyRuntimeExists && enemyAliveObserved && enemyFactionMismatches == 0;
 
 		AddConvoyDebugProbeMetric(probe, "physical_combat.elapsed_seconds", string.Format("%1", elapsedSeconds), "seconds");
 		AddConvoyDebugProbeMetric(probe, "physical_combat.samples", string.Format("%1", m_iCampaignDebugCombatProbeSampleCount), "count");
@@ -7902,7 +7902,7 @@ class HST_PhysicalWarService
 
 		string expectedFactionKey = activeGroup.m_sFactionKey;
 		int mismatches;
-		bool checkedGroupAgents;
+		array<IEntity> checkedMemberEntities = {};
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != activeGroup.m_sGroupId || i >= m_aRuntimeGroupEntities.Count())
@@ -7935,15 +7935,21 @@ class HST_PhysicalWarService
 					if (!controlledEntity)
 						continue;
 
-					checkedGroupAgents = true;
+					if (checkedMemberEntities.Find(controlledEntity) >= 0)
+						continue;
+
+					checkedMemberEntities.Insert(controlledEntity);
 					mismatches += CountRuntimeEntityFactionMismatch(controlledEntity, expectedFactionKey, sample);
 				}
 
 				continue;
 			}
 
-			if (!checkedGroupAgents)
-				mismatches += CountRuntimeEntityFactionMismatch(entity, expectedFactionKey, sample);
+			if (!IsLivingEntity(entity) || checkedMemberEntities.Find(entity) >= 0)
+				continue;
+
+			checkedMemberEntities.Insert(entity);
+			mismatches += CountRuntimeEntityFactionMismatch(entity, expectedFactionKey, sample);
 		}
 
 		for (int j = 0; j < m_aRuntimeVehicleGroupIds.Count(); j++)
@@ -7975,21 +7981,7 @@ class HST_PhysicalWarService
 		if (groupId.IsEmpty())
 			return 0;
 
-		IEntity groupEntity = GetRuntimeCrewGroupEntity(groupId);
-		SCR_AIGroup group = SCR_AIGroup.Cast(groupEntity);
-		if (!group)
-			return 0;
-
-		array<AIAgent> agents = new array<AIAgent>;
-		group.GetAgents(agents);
-		int count;
-		foreach (AIAgent agent : agents)
-		{
-			if (agent && IsLivingEntity(agent.GetControlledEntity()))
-				count++;
-		}
-
-		return count;
+		return CountAliveRuntimeInfantryGroupAgents(groupId);
 	}
 
 	protected int CountRuntimeEntityFactionMismatch(IEntity entity, string expectedFactionKey, out string sample)
