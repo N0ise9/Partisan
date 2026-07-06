@@ -258,6 +258,7 @@ class HST_HQService
 		}
 		else if (m_PetrosEntity)
 		{
+			PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
 			m_iPetrosMissingSinceSecond = -1;
 			m_sPetrosStableRuntimeKey = BuildRuntimeEntityKey("petros", m_PetrosEntity);
 			if (!IsPetrosAIGroupTracked() && !EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "runtime refresh"))

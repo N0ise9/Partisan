@@ -607,6 +607,9 @@ if ($petrosLivenessMatch.Value -match 'if \(!controller\)\s+return false;') {
 if ($petrosLivenessMatch.Value -notmatch 'if \(controller\)\s+return controller\.GetLifeState\(\) != ECharacterLifeState\.DEAD;') {
 	throw "HQ Petros liveness must use controller life state only when the controller is available"
 }
+if ($hqServiceText -notmatch 'else if \(m_PetrosEntity\)[\s\S]*?PreparePetrosEntity\(m_PetrosEntity, state\.m_vPetrosPosition\);') {
+	throw "HQ Petros runtime refresh must re-prepare the tracked character so delayed controller initialization still gets stationary HQ controls"
+}
 if ($hqServiceText -match 'agent\.GetParentGroup\(\)\s*[!=]=\s*group' -or $hqServiceText -match 'group\s*[!=]=\s*agent\.GetParentGroup\(\)') {
 	throw "HQ Petros runtime must store AIAgent.GetParentGroup() in a base AIGroup variable before comparing it with tracked SCR_AIGroup"
 }
