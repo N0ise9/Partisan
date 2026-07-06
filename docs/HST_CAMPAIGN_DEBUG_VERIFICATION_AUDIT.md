@@ -161,6 +161,13 @@ Unproven or incomplete against the pasted contract:
 - Cleanup/stall coverage is not universal: untagged debug leftovers cannot be deterministically removed, cleanup depends on debug spawn paths naming physical entities, and some physical categories still lack stall evidence dumps.
 - Some rows are intentionally classifier-backed action/observation evidence rather than feature-specific physical probes; these should be replaced with narrower typed cases when they represent real mechanics rather than reports.
 
+## Latest r11 Petros/Faction Follow-up
+
+- The latest inspected runtime artifacts were still r10 and proved Petros could fail before any command-menu interaction: first-run HQ setup spawned and attached Petros, then the runtime character was removed on the next proof tick and retried repeatedly.
+- The post-restart r10 artifact proved a separate debug-rebuild bug: the HQ rebuild command cleared Petros, but the Petros respawn debounce still blocked the replacement in the same short debug window.
+- r11 changes reset Petros respawn state on explicit HQ runtime clears, configure the manually-owned Petros group as a non-spawning/non-empty-deleting container, and activate both the group and attached Petros agent after attachment. The next runtime artifact must prove `hq.runtime_objects_existing` and `hq.rebuild_command` both retain Petros.
+- r10 also proved faction-key repair was too shallow for fallback/direct active-group members. r11 now repairs every tracked runtime entity for the active group and records direct infantry prefab/faction visual evidence. The next runtime artifact must prove cleanup faction mismatches are gone or report exact prefab-level evidence for any remaining mismatch.
+
 ## Validation Run
 
 - `git diff --check` passed, with only CRLF warnings reported by Git.

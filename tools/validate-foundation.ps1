@@ -583,6 +583,11 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		"BuildPetrosAIGroupDebugSummary",
 		"AttachPetrosToAIGroup",
 		"group.AddAgentFromControlledEntity(petros)",
+		"group.ActivateAI()",
+		"agent.ActivateAI()",
+		"group.SetMaxUnitsToSpawn(0)",
+		"ResetPetrosRespawnState",
+		"m_iPetrosLastSpawnSecond = -999999",
 		"AIGroup parentGroup",
 		"parentGroup = agent.GetParentGroup();",
 		"m_PetrosEntity && !IsLivingRuntimeEntity(m_PetrosEntity)",
@@ -7895,6 +7900,7 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"ResolveRuntimeMemberAIAgent",
 		"group.AddAgentFromControlledEntity(member)",
 		"active group direct fallback member attach failed",
+		"direct infantry spawned",
 		"array<IEntity> checkedMemberEntities",
 		"checkedMemberEntities.Find(entity) >= 0",
 		"return CountAliveRuntimeInfantryGroupAgents(groupId);",
@@ -7911,7 +7917,10 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"prefab %3 | group root faction",
 		"group root faction",
 		"ResolveActiveGroupRuntimeRootFactionKey",
-		"CountRuntimeGroupControlledEntities"
+		"CountRuntimeGroupControlledEntities",
+		"BuildActiveGroupRuntimeVisualEvidence",
+		"BuildRuntimeEntityVisualEvidence",
+		"visual %9"
 	)) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
 		throw "Active AIGroup population must force faction infantry fallback before the final grace attempt: $requiredActiveGroupPopulationRuntimeEntry"

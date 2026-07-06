@@ -53,7 +53,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string COMMAND_MENU_INPUT_CONTEXT = "HST_CommandMenuContext";
 	static const string COMMAND_MENU_NATIVE_I_CONTEXT = "PlayerMenuContext";
-	static const string COMMAND_MENU_BUILD = "2026-07-06-menu-input-r10-direct-faction";
+	static const string COMMAND_MENU_BUILD = "2026-07-06-menu-input-r11-petros-faction";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";

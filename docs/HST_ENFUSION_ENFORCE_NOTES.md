@@ -528,6 +528,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - HQ runtime checks should read tracked entity handles from `HST_HQService`, not just campaign-state positions. A rebuild case should assert tracked Petros/cache/arsenal/tent/spawn-point runtime keys, their actual positions against expected HQ offsets, per-slot nearby world duplicate counts, and arsenal readiness/action-surface status.
   - Keep existing-HQ runtime proof separate from HQ rebuild placement proof. If the rebuild command is blocked by dry-ground/build placement validation while the existing Petros/cache/arsenal/tent/spawn-point runtime objects are tracked and unique in the world, classify the rebuild case as `BLOCKED` and leave the hard runtime-object flag assertions to `hq.runtime_objects_existing`.
   - The player spawn service submits `SCR_FreeSpawnData` for actual player possession, but the HQ runtime service should still keep a physical FIA spawn-point entity near HQ so the command menu and campaign debug suite can prove the respawn surface exists after HQ rebuilds.
+  - Explicit HQ runtime clears must reset Petros' missing/last-spawn debounce state. A manual rebuild can otherwise delete a valid Petros handle and then refuse to replace him while the debug runner advances in short same-second slices.
+  - A manually spawned Petros AIGroup should be made non-spawning, non-empty-deleting, and activated after Petros is attached. The Petros character itself is the durable runtime object; the group is only the AI ownership container.
   - While the runner is active, HQ-stage command-menu checks should build the real admin-tab visible payload and assert campaign debug start/status/cancel/cleanup controls are still present, then cross-check command coverage for missing visible/dispatch entries.
   - Ground support physicalization only creates and links an active-group record. A campaign-debug support probe must run `HST_PhysicalWarService.UpdateRoutedActiveGroupsNow()` before asserting physical population, then resolve any `spawn_pending_agents` group through the debug population fallback before route movement is judged.
 
@@ -765,6 +767,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 ## AI And Spawning
 
 - Native `SCR_FreeSpawnData` requests require a fully available player controller.
+- Runtime faction repair must cover every registered runtime entity for an active group, not just `GetRuntimeCrewGroupEntity()`. Direct infantry fallback stores the AIGroup root and individual character handles in parallel arrays; an audit that checks those direct handles can still fail if only the root group was repaired.
+- Faction proof should include the actual spawned prefab evidence in addition to `FactionAffiliationComponent`/`SCR_AIGroup.GetFactionName()` results. A correct faction key does not prove that the visible character/equipment prefab came from the US or USSR catalog.
   - `SCR_RespawnComponent` can be obtainable while `PlayerManager.GetPlayerController(playerId)` still returns null during a connect/setup race. Submitting a native free-spawn request in that window can produce `SCR_FreeSpawnHandlerComponent.AssignEntity_S` VM exceptions on `playerController.GetControlledEntity()`.
   - Gate both setup-holding and active FIA spawn requests on `GetPlayerController(playerId)` before calling `RequestSpawn`; retry on later spawn sweeps instead of treating this as a hard failure.
 

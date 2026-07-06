@@ -1950,7 +1950,8 @@ class HST_PhysicalWarService
 
 		string groupRootFaction = ResolveActiveGroupRuntimeRootFactionKey(activeGroup);
 		int liveMemberCount = CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId);
-		return string.Format("group %1 | expected %2 | prefab %3 | group root faction %4 | live members %5 | group entity %6 | vehicle entity %7 | mismatches %8 | sample %9", ReportText(activeGroup.m_sGroupId), ReportText(activeGroup.m_sFactionKey), ReportText(activeGroup.m_sPrefab), ReportText(groupRootFaction), liveMemberCount, ReportBool(groupEntityPresent), ReportBool(vehicleEntityPresent), mismatchCount, ReportText(sample));
+		string actual = string.Format("group %1 | expected %2 | prefab %3 | group root faction %4 | live members %5 | group entity %6 | vehicle entity %7 | mismatches %8 | visual %9", ReportText(activeGroup.m_sGroupId), ReportText(activeGroup.m_sFactionKey), ReportText(activeGroup.m_sPrefab), ReportText(groupRootFaction), liveMemberCount, ReportBool(groupEntityPresent), ReportBool(vehicleEntityPresent), mismatchCount, ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)));
+		return actual + string.Format(" | sample %1", ReportText(sample));
 	}
 
 	int CountCampaignDebugRuntimeFactionMismatches(HST_CampaignState state, out string evidence)
@@ -7545,6 +7546,7 @@ class HST_PhysicalWarService
 
 			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 			m_aRuntimeGroupEntities.Insert(member);
+			Print(string.Format("h-istasi | direct infantry spawned | group %1 | faction %2 | prefab %3 | position %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, prefab, position));
 			spawnedCount++;
 		}
 
@@ -7770,9 +7772,33 @@ class HST_PhysicalWarService
 		if (!activeGroup || activeGroup.m_sFactionKey.IsEmpty())
 			return;
 
-		IEntity groupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
-		if (groupEntity)
-			ApplyRuntimeGroupFaction(groupEntity, activeGroup, source);
+		int totalChanged = 0;
+		int totalMismatches = 0;
+		string firstSample = "";
+		array<IEntity> checkedEntities = {};
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != activeGroup.m_sGroupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity runtimeEntity = m_aRuntimeGroupEntities[i];
+			if (!runtimeEntity || checkedEntities.Find(runtimeEntity) >= 0)
+				continue;
+
+			checkedEntities.Insert(runtimeEntity);
+			int changed;
+			int mismatches;
+			string sample;
+			EnsureRuntimeFactionRecursive(runtimeEntity, activeGroup.m_sFactionKey, changed, mismatches, sample);
+			totalChanged += changed;
+			totalMismatches += mismatches;
+			if (firstSample.IsEmpty() && !sample.IsEmpty())
+				firstSample = sample;
+			if (changed > 0 || mismatches > 0)
+			{
+				Print(string.Format("h-istasi | runtime faction applied | group %1 | expected %2 | source %3 | changed %4 | mismatches %5 | visual %6 | sample %7", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source, changed, mismatches, ReportText(BuildRuntimeEntityVisualEvidence(runtimeEntity)), ReportText(sample)));
+			}
+		}
 
 		IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
 		if (vehicleEntity)
@@ -7781,14 +7807,20 @@ class HST_PhysicalWarService
 			int vehicleMismatches;
 			string vehicleSample;
 			EnsureRuntimeFactionRecursive(vehicleEntity, activeGroup.m_sFactionKey, vehicleChanged, vehicleMismatches, vehicleSample);
+			totalChanged += vehicleChanged;
+			totalMismatches += vehicleMismatches;
+			if (firstSample.IsEmpty() && !vehicleSample.IsEmpty())
+				firstSample = vehicleSample;
 			if (vehicleChanged > 0)
 				Print(string.Format("h-istasi | runtime vehicle faction applied | group %1 | expected %2 | source %3 | changed %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source, vehicleChanged));
 		}
 
 		string sample;
 		int mismatches = CountActiveGroupRuntimeFactionMismatches(activeGroup, sample);
+		if (sample.IsEmpty())
+			sample = firstSample;
 		if (mismatches > 0)
-			Print(string.Format("h-istasi | runtime faction mismatch persists | group %1 | expected %2 | source %3 | mismatches %4 | sample %5", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source, mismatches, ReportText(sample)), LogLevel.WARNING);
+			Print(string.Format("h-istasi | runtime faction mismatch persists | group %1 | expected %2 | source %3 | repaired changed %4 mismatches %5 | audit mismatches %6 | visual %7 | sample %8", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source, totalChanged, totalMismatches, mismatches, ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)), ReportText(sample)), LogLevel.WARNING);
 	}
 
 	protected bool TryRepairEmptyRuntimeGroupPopulation(HST_CampaignState state, HST_ActiveGroupState activeGroup, string source)
@@ -7893,6 +7925,79 @@ class HST_PhysicalWarService
 			activeGroup.m_sConvoyRuntimeStage = previousStage;
 		Print(string.Format("h-istasi mission convoy | zero-live crew repair failed for %1 expected %2 via %3; convoy remains pending instead of eliminated", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source), LogLevel.WARNING);
 		return false;
+	}
+
+	protected string BuildActiveGroupRuntimeVisualEvidence(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return "group missing";
+
+		string evidence;
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (!entity)
+				continue;
+
+			string entityEvidence = BuildRuntimeEntityVisualEvidence(entity);
+			if (evidence.IsEmpty())
+				evidence = entityEvidence;
+			else
+				evidence = evidence + " ; " + entityEvidence;
+
+			if (evidence.Length() > 180)
+				break;
+		}
+
+		IEntity vehicleEntity = GetRuntimeVehicleEntity(groupId);
+		if (vehicleEntity)
+		{
+			string vehicleEvidence = "vehicle " + BuildRuntimeEntityVisualEvidence(vehicleEntity);
+			if (evidence.IsEmpty())
+				evidence = vehicleEvidence;
+			else
+				evidence = evidence + " ; " + vehicleEvidence;
+		}
+
+		if (evidence.IsEmpty())
+			return "no runtime entities";
+
+		return evidence;
+	}
+
+	protected string BuildRuntimeEntityVisualEvidence(IEntity entity)
+	{
+		if (!entity)
+			return "missing";
+
+		AIGroup group = AIGroup.Cast(entity);
+		if (group)
+		{
+			string memberPrefab = "";
+			string memberFaction = "";
+			array<AIAgent> agents = new array<AIAgent>;
+			group.GetAgents(agents);
+			foreach (AIAgent agent : agents)
+			{
+				if (!agent)
+					continue;
+
+				IEntity controlledEntity = agent.GetControlledEntity();
+				if (!controlledEntity)
+					continue;
+
+				memberPrefab = ResolveEntityPrefabName(controlledEntity);
+				memberFaction = ResolveEntityFactionKey(controlledEntity);
+				break;
+			}
+
+			return string.Format("root %1 groupFaction %2 member %3 memberFaction %4", ReportText(ResolveEntityPrefabName(entity)), ReportText(group.GetFactionName()), ReportText(memberPrefab), ReportText(memberFaction));
+		}
+
+		return string.Format("entity %1 faction %2 name %3", ReportText(ResolveEntityPrefabName(entity)), ReportText(ResolveEntityFactionKey(entity)), ReportText(entity.GetName()));
 	}
 
 	protected int CountActiveGroupRuntimeFactionMismatches(HST_ActiveGroupState activeGroup, out string sample)

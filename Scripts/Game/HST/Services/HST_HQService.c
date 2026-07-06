@@ -1176,6 +1176,7 @@ class HST_HQService
 			return false;
 		}
 
+		group.ActivateAI();
 		ApplyFaction(petros);
 		DebugLog(string.Format("lifecycle attached Petros to AIGroup via %1 | petros=%2 group=%3", source, petros, m_PetrosGroupEntity));
 		return true;
@@ -1206,6 +1207,7 @@ class HST_HQService
 		else if (!group.AddAIEntityToGroup(petros))
 			group.AddAgent(agent);
 
+		agent.ActivateAI();
 		return IsPetrosAgentInGroup(petros, group);
 	}
 
@@ -1247,6 +1249,9 @@ class HST_HQService
 
 		group.SetName("HST_Petros_Group");
 		group.SetOrigin(position);
+		group.SetSpawnImmediately(false);
+		group.SetMaxUnitsToSpawn(0);
+		group.SetMemberSpawnDelay(0);
 		group.SetDeleteWhenEmpty(false);
 		m_PetrosGroupEntity = groupEntity;
 		DebugLog(string.Format("lifecycle spawned Petros AIGroup via %1 prefab=%2 pos=%3 entity=%4", source, PETROS_GROUP_PREFAB, position, groupEntity));
@@ -1788,14 +1793,21 @@ class HST_HQService
 		m_bLoggedSpawnPointSpawned = false;
 		m_bWarnedPetrosRemovalRetry = false;
 		m_bWarnedPetrosAIGroupFallback = false;
-		m_iPetrosMissingSinceSecond = -1;
-		m_sPetrosStableRuntimeKey = "";
+		ResetPetrosRespawnState();
 
 		if (state)
 		{
 			state.m_bHQRuntimeObjectsSpawned = false;
 			state.m_sHQArsenalRuntimeStatus = "cleared";
 		}
+	}
+
+	protected void ResetPetrosRespawnState()
+	{
+		m_iPetrosMissingSinceSecond = -1;
+		m_iPetrosLastSpawnSecond = -999999;
+		m_iPetrosSpawnCount = 0;
+		m_sPetrosStableRuntimeKey = "";
 	}
 
 	protected void DeleteRuntimeEntity(IEntity entity)
