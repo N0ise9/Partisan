@@ -597,6 +597,16 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 if ($hqServiceText -match 'SCR_AIGroup\.Cast\(agent\.GetParentGroup\(\)\)') {
 	throw "HQ Petros runtime must keep AIAgent.GetParentGroup() as base AIGroup; Workbench rejects casting that native return to SCR_AIGroup"
 }
+$petrosLivenessMatch = [regex]::Match($hqServiceText, "protected bool IsLivingRuntimeEntity[\s\S]*?protected IEntity ResolvePetrosRuntimeEntity")
+if (!$petrosLivenessMatch.Success) {
+	throw "Could not locate HQ Petros liveness helper"
+}
+if ($petrosLivenessMatch.Value -match 'if \(!controller\)\s+return false;') {
+	throw "HQ Petros liveness must not treat an initializing character with no controller as dead; fall through to damage-state proof"
+}
+if ($petrosLivenessMatch.Value -notmatch 'if \(controller\)\s+return controller\.GetLifeState\(\) != ECharacterLifeState\.DEAD;') {
+	throw "HQ Petros liveness must use controller life state only when the controller is available"
+}
 if ($hqServiceText -match 'agent\.GetParentGroup\(\)\s*[!=]=\s*group' -or $hqServiceText -match 'group\s*[!=]=\s*agent\.GetParentGroup\(\)') {
 	throw "HQ Petros runtime must store AIAgent.GetParentGroup() in a base AIGroup variable before comparing it with tracked SCR_AIGroup"
 }

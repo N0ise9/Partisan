@@ -1482,10 +1482,8 @@ class HST_HQService
 		if (character)
 		{
 			CharacterControllerComponent controller = character.GetCharacterController();
-			if (!controller)
-				return false;
-
-			return controller.GetLifeState() != ECharacterLifeState.DEAD;
+			if (controller)
+				return controller.GetLifeState() != ECharacterLifeState.DEAD;
 		}
 
 		DamageManagerComponent damageManager = DamageManagerComponent.Cast(entity.FindComponent(DamageManagerComponent));
