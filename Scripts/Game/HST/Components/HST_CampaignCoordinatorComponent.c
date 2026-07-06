@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r20-direct-member-visual-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r22-global-primary-method-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -5971,8 +5971,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int missingBackingMarkers = CountCampaignDebugBackingStatesWithoutMarkers(missingMarkerExample);
 		string factionAuditEvidence = "physical war service missing";
 		int runtimeFactionMismatches = -1;
+		string directFallbackEvidence = "physical war service missing";
+		int directFallbackGroups = -1;
 		if (m_PhysicalWar)
+		{
 			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);
+			directFallbackGroups = m_PhysicalWar.CountCampaignDebugDirectFallbackActiveGroups(m_State, directFallbackEvidence);
+		}
 
 		AddCampaignDebugMetric(leakCase, "post_cleanup.unexpected_active_missions", string.Format("%1", unexpectedActiveMissions), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_mission_assets", string.Format("%1", orphanAssets), "count");
@@ -5980,10 +5985,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_markers", string.Format("%1", orphanMarkers), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkers), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
+		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_direct_fallback_groups", string.Format("%1", directFallbackGroups), "count");
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.active_missions", "no unexpected active missions beyond the case under test", BuildCampaignDebugCountExample(unexpectedActiveMissions, activeMissionExample), CampaignDebugStatus(unexpectedActiveMissions == 0), "unexpected active mission leak after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.mission_assets", "no mission assets whose mission record is missing", BuildCampaignDebugCountExample(orphanAssets, assetExample), CampaignDebugStatus(orphanAssets == 0), "orphan mission assets after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.active_groups", "no active groups without zone/mission/support/order/QRF backing", BuildCampaignDebugCountExample(orphanGroups, groupExample), CampaignDebugStatus(orphanGroups == 0), "orphan active groups after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.runtime_factions", "all active runtime group and vehicle entities match their active-group faction", ShortCampaignDebugLine(factionAuditEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && runtimeFactionMismatches == 0, "BLOCKED"), "runtime faction mismatch after source case " + sourceCase.m_sCaseId);
+		AddCampaignDebugAssertion(leakCase, "post_cleanup.runtime_group_primary_spawn", "active infantry groups used native group-prefab population without direct faction-infantry fallback", ShortCampaignDebugLine(directFallbackEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && directFallbackGroups == 0, "BLOCKED"), "direct faction-infantry fallback was used after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.markers", "no visible markers whose linked backing state is missing", BuildCampaignDebugCountExample(orphanMarkers, markerExample), CampaignDebugStatus(orphanMarkers == 0, "WARN"), "orphan linked markers after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.backing_markers", "active missions/support/QRF records have marker backing or pending refresh evidence", BuildCampaignDebugCountExample(missingBackingMarkers, missingMarkerExample), CampaignDebugStatus(missingBackingMarkers == 0, "WARN"), "backing state is missing marker after source case " + sourceCase.m_sCaseId);
 		FinalizeCampaignDebugCaseFromAssertions(leakCase);
@@ -7140,8 +7147,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int missingBackingMarkerCount = CountCampaignDebugBackingStatesWithoutMarkers(missingMarkerExample);
 		string factionAuditEvidence = "physical war service missing";
 		int runtimeFactionMismatches = -1;
+		string directFallbackEvidence = "physical war service missing";
+		int directFallbackGroups = -1;
 		if (m_PhysicalWar)
+		{
 			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);
+			directFallbackGroups = m_PhysicalWar.CountCampaignDebugDirectFallbackActiveGroups(m_State, directFallbackEvidence);
+		}
 		AddCampaignDebugMetric(cleanupCase, "cleanup.active_missions", string.Format("%1", activeMissionCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.pending_player_support", string.Format("%1", pendingPlayerSupportCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.open_enemy_orders", string.Format("%1", openEnemyOrderCount), "count");
@@ -7151,6 +7163,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.orphan_markers", string.Format("%1", orphanMarkerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_direct_fallback_groups", string.Format("%1", directFallbackGroups), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.debug_prefixed_records", string.Format("%1", remainingPrefixedRecords), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.smoke_prefixed_records", string.Format("%1", remainingSmokeRecords), "count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.current_mission_id", "runner current/early mission ids empty", string.Format("current %1 | early %2", EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId), EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId)), CampaignDebugStatus(m_sCampaignDebugCurrentMissionInstanceId.IsEmpty() && m_sCampaignDebugEarlyMissionInstanceId.IsEmpty()), "runner still references a debug mission at completion");
@@ -7170,6 +7183,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.open_enemy_orders", "open enemy order count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartEnemyOrders, openEnemyOrderCount), CampaignDebugStatus(openEnemyOrderCount <= m_iCampaignDebugStartEnemyOrders, "WARN"), "enemy orders remain open above run-start count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.orphan_active_groups", "no active groups without zone/mission/support/order/QRF backing", BuildCampaignDebugCountExample(orphanGroupCount, orphanGroupExample) + string.Format(" | total %1 -> %2", m_iCampaignDebugStartActiveGroups, activeGroupCount), CampaignDebugStatus(orphanGroupCount == 0), "orphan active groups remain after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.runtime_factions", "all active runtime group and vehicle entities match their active-group faction", ShortCampaignDebugLine(factionAuditEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && runtimeFactionMismatches == 0, "BLOCKED"), "runtime faction mismatches remain after debug run");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.runtime_group_primary_spawn", "active infantry groups used native group-prefab population without direct faction-infantry fallback", ShortCampaignDebugLine(directFallbackEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && directFallbackGroups == 0, "BLOCKED"), "direct faction-infantry fallback groups remain after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.marker_orphans", "no visible markers whose linked backing state is missing", BuildCampaignDebugCountExample(orphanMarkerCount, orphanMarkerExample) + string.Format(" | total %1 -> %2", m_iCampaignDebugStartMarkers, markerCount), CampaignDebugStatus(orphanMarkerCount == 0, "WARN"), "visible linked markers remain without backing state after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.backing_markers", "active missions/support/QRF records have marker backing after final refresh", BuildCampaignDebugCountExample(missingBackingMarkerCount, missingMarkerExample), CampaignDebugStatus(missingBackingMarkerCount == 0, "WARN"), "backing state is missing marker after final cleanup refresh");
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
@@ -8506,7 +8520,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.no_active_summary", "zero-active state is explicitly reported when no missions are active", string.Format("active %1 | summary %2", activeMissionCount, ShortCampaignDebugLine(summaryReport, 160)), CampaignDebugStatus(activeMissionCount > 0 || summaryReport.Contains("no active mission")), "active mission summary did not explain the zero-active state");
 		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_identity", "active mission records expose instance and mission ids", BuildCampaignDebugMissionRuntimeVisibilityActual(activeMissionCount, missingInstanceIds, missingMissionIds, missingRuntimePhases, missingRuntimePrimitives), CampaignDebugStatus(missingInstanceIds == 0 && missingMissionIds == 0), "one or more active mission records have missing identifiers");
 		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_metadata", "active mission records expose runtime primitive and phase metadata", BuildCampaignDebugMissionRuntimeVisibilityActual(activeMissionCount, missingInstanceIds, missingMissionIds, missingRuntimePhases, missingRuntimePrimitives), CampaignDebugStatus(activeMissionCount == 0 || (missingRuntimePhases == 0 && missingRuntimePrimitives == 0)), "one or more active mission records have missing runtime metadata");
-		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_health", "currently active missions do not report fallback or runtime failure", string.Format("fallback %1 | failures %2 | active %3", runtimeFallbackCount, runtimeFailureCount, activeMissionCount), CampaignDebugStatus(runtimeFallbackCount == 0 && runtimeFailureCount == 0, "WARN"), "one or more active missions report runtime fallback or failure during visibility probe");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_health", "currently active missions do not report fallback or runtime failure", string.Format("fallback %1 | failures %2 | active %3", runtimeFallbackCount, runtimeFailureCount, activeMissionCount), CampaignDebugStatus(runtimeFallbackCount == 0 && runtimeFailureCount == 0), "one or more active missions report runtime fallback or failure during visibility probe");
 		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.orphan_state", "objective, asset, and runtime-entity records all link to existing non-smoke missions", string.Format("orphan objectives %1/%2 | assets %3/%4 | runtime entities %5/%6", orphanObjectives, objectiveCount, orphanAssets, assetCount, orphanRuntimeEntities, runtimeEntityCount), CampaignDebugStatus(orphanObjectives == 0 && orphanAssets == 0 && orphanRuntimeEntities == 0), "mission runtime visibility found orphan objective/asset/runtime-entity records");
 
 		FinalizeCampaignDebugCaseFromAssertions(runtimeCase);
@@ -9793,7 +9807,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool runtimeHealthy = IsCampaignDebugMissionRuntimeHealthy(instanceId, runtimeReport);
 		bool runtimeTypeMatches = !definition || !mission || definition.m_sRuntimeType.IsEmpty() || mission.m_sRuntimeType == definition.m_sRuntimeType;
 		bool failureClear = mission && mission.m_sRuntimeFailureReason.IsEmpty() && mission.m_sRuntimePhase != "failed" && mission.m_eStatus != HST_EMissionStatus.HST_MISSION_FAILED;
-		bool fallbackOk = mission && (!mission.m_bRuntimeFallback || mission.m_sRuntimePrimitive == "abstract_fallback");
+		bool primaryRuntimeOk = mission && !mission.m_bRuntimeFallback;
 		bool runtimeActive = mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
 		bool runtimeAlreadySucceeded = mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED && objectiveCount > 0 && objectiveComplete >= objectiveCount;
 		bool runtimeEarlyCompletionAllowed = runtimeAlreadySucceeded && IsCampaignDebugInstantOrAbstractPrimitive(mission);
@@ -9806,10 +9820,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(runtimeCase, "mission.runtime.assets", string.Format("%1", assetCount), "count");
 		AddCampaignDebugMetric(runtimeCase, "mission.runtime.entities", string.Format("%1", runtimeEntityCount), "count");
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.report", "runtime inspection report is accepted", ShortCampaignDebugLine(runtimeReport, 220), CampaignDebugStatus(reportOk), "mission runtime report returned failure text", "", instanceId);
-		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.record", "mission record exists and remains active before primitive proof; only explicit abstract_fallback may already be complete", BuildCampaignDebugPrimitiveMissionActual(mission), runtimeRecordStatus, "mission runtime record missing, inactive, or completed before runtime proof", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.record", "mission record exists and remains active before primitive proof; explicit abstract fallback is reported but does not certify primary runtime", BuildCampaignDebugPrimitiveMissionActual(mission), runtimeRecordStatus, "mission runtime record missing, inactive, or completed before runtime proof", "", instanceId);
 		if (runtimeObjectivesAlreadyComplete)
 			AddCampaignDebugAssertion(runtimeCase, "mission.runtime.debug_hold", "debug-owned mission with completed objectives stays active until primitive proof", string.Format("held %1 | objectives %2/%3 | current %4 | early %5", runtimeCompletionHeld, objectiveComplete, objectiveCount, EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId), EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId)), CampaignDebugStatus(runtimeCompletionHeld || IsCampaignDebugInstantOrAbstractPrimitive(mission)), "mission completed objectives before primitive proof without debug hold evidence", "", instanceId);
-		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.spawned", "runtime spawned without unexpected fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(runtimeHealthy && failureClear && fallbackOk), "mission runtime did not spawn cleanly", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.spawned", "runtime spawned through the primary runtime path without fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(runtimeHealthy && failureClear && primaryRuntimeOk), "mission runtime did not spawn cleanly through the primary path", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.primitive", "runtime primitive/type metadata is populated and matches definition", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission && !mission.m_sRuntimePrimitive.IsEmpty() && runtimeTypeMatches), "mission runtime primitive/type metadata mismatch", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.objectives", "mission has objective records before primitive probe", BuildCampaignDebugMissionObjectiveActual(instanceId), CampaignDebugStatus(objectiveCount > 0), "mission runtime has no objective records", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.target", "target zone and position remain valid", BuildCampaignDebugMissionTargetActual(mission, targetZone), CampaignDebugStatus(mission && targetZone && !IsZeroVector(mission.m_vTargetPosition)), "mission runtime target state invalid", "", instanceId);
@@ -10000,12 +10014,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string primitiveSpawnedStatus = CampaignDebugStatus(primitiveSpawnedClean || primitiveEarlyCompletionAllowed);
 		AddCampaignDebugMetric(primitiveCase, "primitive.objectives.count", string.Format("%1", primitiveObjectiveCount), "count");
 		AddCampaignDebugMetric(primitiveCase, "primitive.objectives.complete_before", string.Format("%1", primitiveObjectiveCompleteBefore), "count");
-		AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.active", "mission is active before primitive action; only explicit abstract_fallback may already be complete", BuildCampaignDebugPrimitiveMissionActual(mission), primitiveActiveStatus, "primitive probe mission is not active before runtime action proof", "", primitiveInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.active", "mission is active before primitive action; explicit abstract fallback may already be complete but does not certify primary runtime", BuildCampaignDebugPrimitiveMissionActual(mission), primitiveActiveStatus, "primitive probe mission is not active before runtime action proof", "", primitiveInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.spawned", "runtime spawned without fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), primitiveSpawnedStatus, "primitive runtime did not spawn cleanly", "", primitiveInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.objectives.present", "mission has runtime objectives", string.Format("%1", primitiveObjectiveCount), CampaignDebugStatus(primitiveObjectiveCount > 0), "primitive mission has no objective records", "", primitiveInstanceId, mission.m_sTargetZoneId);
 		if (primitiveAlreadySucceeded)
 		{
-			AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.already_succeeded", "only explicit abstract_fallback may complete before primitive action sampling", BuildCampaignDebugMissionObjectiveActual(primitiveInstanceId), CampaignDebugStatus(primitiveEarlyCompletionAllowed), "primitive probe skipped action because mission was already completed", "", primitiveInstanceId, mission.m_sTargetZoneId);
+			AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.already_succeeded", "only instant or explicit fallback primitives may complete before action sampling, and fallback remains degraded evidence", BuildCampaignDebugMissionObjectiveActual(primitiveInstanceId), CampaignDebugStatus(primitiveEarlyCompletionAllowed), "primitive probe skipped action because mission was already completed", "", primitiveInstanceId, mission.m_sTargetZoneId);
 			FinalizeCampaignDebugCaseFromAssertions(primitiveCase);
 			return primitiveCase;
 		}
@@ -10923,7 +10937,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (!mission.m_bRuntimeSpawned)
 			return false;
-		if (mission.m_bRuntimeFallback && mission.m_sRuntimePrimitive != "abstract_fallback")
+		if (mission.m_bRuntimeFallback)
 			return false;
 		if (!mission.m_sRuntimeFailureReason.IsEmpty())
 			return false;

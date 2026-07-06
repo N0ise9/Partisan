@@ -3206,13 +3206,22 @@ foreach ($requiredCampaignDebugMissionProofEntry in @(
 		"mission.runtime.debug_hold",
 		"mission runtime record missing, inactive, or completed before runtime proof",
 		"primitive mission record disappeared before runtime action proof",
-		"only explicit abstract_fallback may already be complete",
+		"explicit abstract fallback is reported but does not certify primary runtime",
+		"runtime spawned through the primary runtime path without fallback/failure",
+		"mission runtime did not spawn cleanly through the primary path",
+		'CampaignDebugStatus(runtimeFallbackCount == 0 && runtimeFailureCount == 0)',
 		"primitive probe mission is not active before runtime action proof",
 		"rescue.captive.active_before_action"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugMissionProofEntry)) {
-		throw "Campaign debug mission proof must fail early completion except explicit abstract fallback: $requiredCampaignDebugMissionProofEntry"
+		throw "Campaign debug mission proof must keep fallback separate from primary runtime proof: $requiredCampaignDebugMissionProofEntry"
 	}
+}
+if ($scriptText -match [regex]::Escape('CampaignDebugStatus(runtimeFallbackCount == 0 && runtimeFailureCount == 0, "WARN")')) {
+	throw "Mission runtime fallback/failure must fail certification-required active health instead of downgrading to WARN"
+}
+if ($scriptText -match 'bool\s+fallbackOk\s*=') {
+	throw "Mission runtime proof must not hide fallback behind a fallbackOk helper"
 }
 foreach ($requiredCampaignDebugAreaProofEntry in @(
 		"primitive.area.physical_combat_observed",
@@ -7981,12 +7990,16 @@ if ($missionRuntimeServiceText -match "protected bool HasConvoyCrewEliminatedFor
 }
 foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4",
+		"ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK",
 		'DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et"',
+		"SpawnControlledNativeActiveGroupPrefab",
+		"SCR_AIGroup.IgnoreSpawning(true)",
+		"controlled group prefab spawn",
+		"group.SpawnUnits();",
 		'TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", true)',
 		"AIGroup direct faction infantry fallback attempted but still has zero agents",
 		"BuildFinalActiveGroupPopulationFailureReason",
 		"zero agents after grace | reason %3",
-		'StabilizeRuntimeAIGroupRoot(entity, activeGroup, "group prefab spawn")',
 		'StabilizeRuntimeAIGroupRoot(entity, activeGroup, "pending population registration")',
 		"active group stabilized native AIGroup root",
 		"Native SCR_AIGroup.SpawnUnits retry skipped",
@@ -8017,11 +8030,28 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"CountRuntimeGroupControlledEntities",
 		"BuildActiveGroupRuntimeVisualEvidence",
 		"BuildRuntimeEntityVisualEvidence",
-		"visual %9"
+		"visual %9",
+		"CountCampaignDebugDirectFallbackActiveGroups",
+		"direct fallback groups %2 | terminal fallback groups %3"
 	)) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
-		throw "Active AIGroup population must force faction infantry fallback before the final grace attempt: $requiredActiveGroupPopulationRuntimeEntry"
+		throw "Active AIGroup population must prove controlled native group spawning and tagged direct fallback detection: $requiredActiveGroupPopulationRuntimeEntry"
 	}
+}
+if ($physicalWarServiceText -match [regex]::Escape("skipped terminal %3")) {
+	throw "Direct fallback certification must count terminal fallback rows as degraded primary-method evidence"
+}
+foreach ($requiredPrimaryGroupCertificationEntry in @(
+		"post_cleanup.runtime_group_primary_spawn",
+		"cleanup.runtime_group_primary_spawn",
+		"runtime_direct_fallback_groups"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredPrimaryGroupCertificationEntry)) {
+		throw "Campaign debug cleanup must fail active direct-fallback groups instead of certifying them: $requiredPrimaryGroupCertificationEntry"
+	}
+}
+if ($physicalWarServiceText -match [regex]::Escape('TryRepairEmptyRuntimeGroupPopulation(state, activeGroup, "campaign debug faction audit")')) {
+	throw "Campaign debug faction audits must not repair empty runtime group shells while measuring primary spawn proof"
 }
 if ($physicalWarServiceText -match 'DIRECT_INFANTRY_GROUP_PREFAB = "\{000CD338713F2B5A\}Prefabs/AI/Groups/Group_Base\.et"') {
 	throw "Active-group direct infantry fallback must use the HST-owned non-deleting runtime group prefab instead of raw Group_Base"

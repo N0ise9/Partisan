@@ -128,6 +128,9 @@ class HST_PhysicalWarService
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
+	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP = "group";
+	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY = "group_spawn_retry";
+	static const string ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK = "direct_infantry_fallback";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB_US = "{2E3755F24A57D1A0}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_US.et";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB_USSR = "{94AA122B0CFB7E40}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_USSR.et";
@@ -1991,13 +1994,6 @@ class HST_PhysicalWarService
 			}
 
 			runtimeGroupCount++;
-			if (activeGroup.m_iInfantryCount > 0 && groupEntityPresent && liveControlledMembers <= 0 && TryRepairEmptyRuntimeGroupPopulation(state, activeGroup, "campaign debug faction audit"))
-			{
-				groupEntityPresent = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId) != null;
-				vehicleEntityPresent = GetRuntimeVehicleEntity(activeGroup.m_sGroupId) != null;
-				liveControlledMembers = CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId);
-				liveRuntimeEntities = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
-			}
 			EnsureActiveGroupRuntimeFaction(activeGroup, "campaign debug faction audit");
 
 			string sample;
@@ -2031,6 +2027,56 @@ class HST_PhysicalWarService
 		if (!firstPending.IsEmpty() || !firstTerminalEmpty.IsEmpty())
 			evidence = evidence + string.Format(" | first pending %1 | first terminal empty %2", ReportText(firstPending), ReportText(firstTerminalEmpty));
 		return mismatchCount;
+	}
+
+	int CountCampaignDebugDirectFallbackActiveGroups(HST_CampaignState state, out string evidence)
+	{
+		evidence = "state missing";
+		if (!state)
+			return -1;
+
+		int checkedCount;
+		int fallbackCount;
+		int terminalCount;
+		string firstFallback;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_iInfantryCount <= 0)
+				continue;
+
+			if (!IsDirectInfantryFallbackMode(activeGroup.m_sSpawnFallbackMode))
+				continue;
+
+			checkedCount++;
+			if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
+				terminalCount++;
+
+			fallbackCount++;
+			if (firstFallback.IsEmpty())
+				firstFallback = BuildActiveGroupDirectFallbackActual(activeGroup);
+		}
+
+		evidence = string.Format("checked fallback-tagged %1 | direct fallback groups %2 | terminal fallback groups %3 | first %4", checkedCount, fallbackCount, terminalCount, ReportText(firstFallback));
+		return fallbackCount;
+	}
+
+	protected string BuildActiveGroupDirectFallbackActual(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return "missing";
+
+		int liveMembers = CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId);
+		string actual = string.Format("group %1 | zone %2 | faction %3 | prefab %4 | mode %5 | status %6 | spawned %7 | agents %8/%9",
+			ReportText(activeGroup.m_sGroupId),
+			ReportText(activeGroup.m_sZoneId),
+			ReportText(activeGroup.m_sFactionKey),
+			ReportText(activeGroup.m_sPrefab),
+			ReportText(activeGroup.m_sSpawnFallbackMode),
+			ReportText(activeGroup.m_sRuntimeStatus),
+			ReportBool(activeGroup.m_bSpawnedEntity),
+			liveMembers,
+			activeGroup.m_iInfantryCount);
+		return actual + " | visual " + ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId));
 	}
 
 	protected string AppendConvoyDebugPhaseHistory(string summary, string phaseHistory)
@@ -7105,7 +7151,7 @@ class HST_PhysicalWarService
 		activeGroup.m_bSpawnAttempted = true;
 		string requestedStatus = activeGroup.m_sRuntimeStatus;
 		activeGroup.m_sRuntimeStatus = "spawning";
-		activeGroup.m_sSpawnFallbackMode = "group";
+		activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP;
 		activeGroup.m_sSpawnFailureReason = "";
 		activeGroup.m_iSpawnedAgentCount = 0;
 
@@ -7121,12 +7167,14 @@ class HST_PhysicalWarService
 		}
 		else if (IsValidGroupPrefabResource(activeGroup.m_sPrefab, activeGroup.m_sFactionKey))
 		{
-			entity = HST_WorldPositionService.SpawnPrefab(activeGroup.m_sPrefab, spawnPosition, "0 0 0");
+			entity = SpawnControlledNativeActiveGroupPrefab(activeGroup.m_sPrefab, spawnPosition, activeGroup, failureReason);
 			if (!entity)
-				failureReason = string.Format("Group prefab did not spawn: %1.", activeGroup.m_sPrefab);
+			{
+				if (failureReason.IsEmpty())
+					failureReason = string.Format("Group prefab did not spawn: %1.", activeGroup.m_sPrefab);
+			}
 			else
 			{
-				StabilizeRuntimeAIGroupRoot(entity, activeGroup, "group prefab spawn");
 				agentCount = ResolveSpawnedAgentCount(entity, activeGroup);
 			}
 		}
@@ -7183,6 +7231,65 @@ class HST_PhysicalWarService
 		m_aRuntimeGroupEntities.Insert(entity);
 		DebugLog(string.Format("spawned active group %1 using %2 (%3 agents)", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, agentCount));
 		return true;
+	}
+
+	protected GenericEntity SpawnControlledNativeActiveGroupPrefab(string prefab, vector position, HST_ActiveGroupState activeGroup, out string failureReason)
+	{
+		failureReason = "";
+		if (prefab.IsEmpty())
+		{
+			failureReason = "Group prefab path is empty.";
+			return null;
+		}
+
+		ResourceName resourceName = prefab;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded || !loaded.IsValid())
+		{
+			failureReason = "Group prefab resource did not load: " + prefab;
+			return null;
+		}
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+		{
+			failureReason = "World is unavailable for group prefab spawn.";
+			return null;
+		}
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = position;
+
+		SCR_AIGroup.IgnoreSpawning(true);
+		IEntity spawnedEntity = GetGame().SpawnEntityPrefabEx(resourceName, false, world, params);
+		SCR_AIGroup.IgnoreSpawning(false);
+		GenericEntity entity = GenericEntity.Cast(spawnedEntity);
+		if (!entity)
+		{
+			if (spawnedEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(spawnedEntity);
+			failureReason = "Group prefab did not create a GenericEntity: " + prefab;
+			return null;
+		}
+
+		SCR_AIGroup group = SCR_AIGroup.Cast(entity);
+		if (!group)
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			failureReason = "Group prefab did not create an SCR_AIGroup: " + prefab;
+			return null;
+		}
+
+		vector zeroAngles = HST_WorldPositionService.BuildUprightAngles(0);
+		entity.SetOrigin(position);
+		entity.SetAngles(HST_WorldPositionService.BuildEntitySetAnglesFromYawVector(zeroAngles));
+		StabilizeRuntimeAIGroupRoot(entity, activeGroup, "controlled group prefab spawn");
+		ApplyRuntimeGroupFaction(entity, activeGroup, "controlled group prefab pre-spawn");
+		group.SpawnUnits();
+		if (activeGroup)
+			DebugLog(string.Format("active group requested controlled native member spawn %1 expected infantry %2 prefab %3", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, prefab));
+		return entity;
 	}
 
 	protected void StabilizeRuntimeAIGroupRoot(IEntity entity, HST_ActiveGroupState activeGroup, string source)
@@ -7276,6 +7383,8 @@ class HST_PhysicalWarService
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
 		activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
+		if (!IsDirectInfantryFallbackMode(activeGroup.m_sSpawnFallbackMode))
+			activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP;
 		activeGroup.m_sSpawnFailureReason = "";
 		activeGroup.m_iSpawnedAgentCount = agentCount;
 		activeGroup.m_iLastSeenAliveCount = agentCount;
@@ -7337,9 +7446,9 @@ class HST_PhysicalWarService
 		string beforeStatus = activeGroup.m_sRuntimeStatus;
 		int beforeAgents = activeGroup.m_iSpawnedAgentCount;
 		bool wasPending = activeGroup.m_sRuntimeStatus == "spawn_pending_agents";
-		bool finalized;
-		bool kickedNativeSpawn;
-		bool populatedFallback;
+		bool finalized = false;
+		bool kickedNativeSpawn = false;
+		bool populatedFallback = false;
 
 		if (requestedStatus.IsEmpty())
 			requestedStatus = activeGroup.m_sRuntimeStatus;
@@ -7353,8 +7462,6 @@ class HST_PhysicalWarService
 				kickedNativeSpawn = TryKickPendingNativeGroupSpawn(activeGroup, "campaign debug pre-route");
 			if (!finalized && kickedNativeSpawn)
 				finalized = TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "campaign debug pre-route native retry");
-			if (!finalized)
-				populatedFallback = TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "campaign debug pre-route", true);
 		}
 
 		int liveAfter = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
@@ -7377,7 +7484,7 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
-		if (activeGroup.m_sSpawnFallbackMode == "group_spawn_retry")
+		if (activeGroup.m_sSpawnFallbackMode == ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY)
 		{
 			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup.SpawnUnits retry already queued via earlier attempt.";
 			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: already queued via %2", activeGroup.m_sGroupId, source));
@@ -7399,6 +7506,12 @@ class HST_PhysicalWarService
 			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: runtime entity is not SCR_AIGroup via %2", activeGroup.m_sGroupId, source));
 			return false;
 		}
+		if (group.IsInitializing())
+		{
+			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup.SpawnUnits retry skipped: native delayed spawn is still initializing.";
+			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: native group still initializing via %2", activeGroup.m_sGroupId, source));
+			return false;
+		}
 
 		int existingAgents = CountLivingNativeAIGroupAgents(group);
 		if (existingAgents > 0)
@@ -7412,7 +7525,7 @@ class HST_PhysicalWarService
 		group.SetMaxUnitsToSpawn(Math.Max(1, activeGroup.m_iInfantryCount));
 		group.SetMemberSpawnDelay(0);
 		group.SpawnUnits();
-		activeGroup.m_sSpawnFallbackMode = "group_spawn_retry";
+		activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY;
 		activeGroup.m_sSpawnFailureReason = "Queued native SCR_AIGroup.SpawnUnits retry via " + source;
 		DebugLog(string.Format("active group native SpawnUnits retry queued %1 expected infantry %2 via %3", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, source));
 		return true;
@@ -7476,8 +7589,25 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+		activeGroup.m_sSpawnFallbackMode = ResolveDirectInfantryFallbackMode(activeGroup.m_sSpawnFallbackMode);
+		activeGroup.m_sSpawnFailureReason = "Native group prefab produced zero live controlled members; direct faction infantry fallback populated via " + source + ".";
 		DebugLog(string.Format("active group populated %1 with %2 direct %3 infantry after empty group prefab via %4", activeGroup.m_sGroupId, spawnedCount, activeGroup.m_sFactionKey, source));
 		return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " direct infantry fallback");
+	}
+
+	protected string ResolveDirectInfantryFallbackMode(string previousMode)
+	{
+		if (IsDirectInfantryFallbackMode(previousMode))
+			return previousMode;
+		if (previousMode.IsEmpty() || previousMode == ACTIVE_GROUP_SPAWN_MODE_GROUP || previousMode == ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY)
+			return ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK;
+
+		return previousMode + "_" + ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK;
+	}
+
+	protected bool IsDirectInfantryFallbackMode(string mode)
+	{
+		return mode.Contains(ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK);
 	}
 
 	protected SCR_AIGroup ReplaceEmptyNativeGroupForDirectInfantry(HST_ActiveGroupState activeGroup, SCR_AIGroup nativeGroup, string source)
