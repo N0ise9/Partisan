@@ -668,13 +668,22 @@ class HST_PhysicalWarService
 			HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
 			if (!activeGroup)
 				continue;
-			if (activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+			int liveBefore = CountAliveRuntimeCrewAgents(activeGroup);
+			bool pendingPopulation = activeGroup.m_sRuntimeStatus == "spawn_pending_agents";
+			bool repairPopulation = !pendingPopulation && liveBefore <= 0 && CanAttemptMissionConvoyCrewPopulationRepair(state, mission, activeGroup);
+			if (!pendingPopulation && !repairPopulation)
 				continue;
 
 			attempted++;
-			int liveBefore = CountAliveRuntimeCrewAgents(activeGroup);
 			string groupEvidence;
-			bool groupResolved = CampaignDebugResolvePendingActiveGroupPopulation(activeGroup, state, ResolveMissionConvoyRuntimeStatus(mission), groupEvidence);
+			bool groupResolved;
+			if (pendingPopulation)
+				groupResolved = CampaignDebugResolvePendingActiveGroupPopulation(activeGroup, state, ResolveMissionConvoyRuntimeStatus(mission), groupEvidence);
+			else
+			{
+				groupResolved = TryRepairMissionConvoyCrewPopulation(state, mission, activeGroup, "campaign debug pre-route");
+				groupEvidence = "zero-live convoy crew repair";
+			}
 			int liveAfter = CountAliveRuntimeCrewAgents(activeGroup);
 			if (groupResolved && liveAfter > 0)
 				resolved++;
@@ -682,6 +691,8 @@ class HST_PhysicalWarService
 				unresolved++;
 
 			string sample = string.Format("%1 live %2 -> %3 | resolved %4", ReportText(groupId), liveBefore, liveAfter, ReportBool(groupResolved));
+			if (repairPopulation)
+				sample = sample + " | repair yes";
 			sample = sample + string.Format(" | %1", ReportText(groupEvidence));
 			evidence = AppendConvoyDebugEvidence(evidence, sample);
 		}
@@ -2357,8 +2368,16 @@ class HST_PhysicalWarService
 			int aliveCrew = CountAliveRuntimeCrewAgents(activeGroup);
 			if (activeGroup.m_iLastSeenAliveCount > 0 && aliveCrew < activeGroup.m_iLastSeenAliveCount && !IsConvoyCrewControlPending(state, activeGroup))
 			{
-				reason = string.Format("Convoy contact: crew count decreased for %1 from %2 to %3.", ReportText(groupId), activeGroup.m_iLastSeenAliveCount, aliveCrew);
-				return true;
+				if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
+				{
+					reason = string.Format("Convoy contact: crew count decreased for %1 from %2 to %3.", ReportText(groupId), activeGroup.m_iLastSeenAliveCount, aliveCrew);
+					return true;
+				}
+				if (allowStateMutation && TryRepairMissionConvoyCrewPopulation(state, mission, activeGroup, "contact gate"))
+					continue;
+				activeGroup.m_sSpawnFailureReason = string.Format("Convoy contact pending: crew count decreased before explicit contact for %1 from %2 to %3.", ReportText(groupId), activeGroup.m_iLastSeenAliveCount, aliveCrew);
+				activeGroup.m_sConvoyRuntimeStage = "CREW_UNOBSERVED";
+				continue;
 			}
 
 			IEntity vehicleEntity = GetRuntimeVehicleEntity(groupId);
@@ -3736,7 +3755,7 @@ class HST_PhysicalWarService
 		if (!HasMissionConvoyCrewEverBeenObservedAlive(activeGroup))
 			return false;
 		if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "eliminated")
-			return true;
+			return HasMissionConvoyExplicitEliminationContext(state, activeGroup);
 		if (IsConvoyCrewControlPending(state, activeGroup))
 			return false;
 		if (!activeGroup.m_bSpawnedEntity)
@@ -3746,7 +3765,7 @@ class HST_PhysicalWarService
 		if (activeGroup.m_iSpawnedAgentCount <= 0 && activeGroup.m_iLastSeenAliveCount <= 0 && activeGroup.m_iSurvivorInfantryCount <= 0)
 			return false;
 
-		return true;
+		return HasMissionConvoyExplicitEliminationContext(state, activeGroup);
 	}
 
 	protected bool ApplyMissionConvoyEliminatedGroupStatuses(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -4447,11 +4466,31 @@ class HST_PhysicalWarService
 		if (!HasMissionConvoyCrewEverBeenObservedAlive(activeGroup))
 			return false;
 		if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "eliminated")
-			return true;
+			return HasMissionConvoyExplicitEliminationContext(state, activeGroup);
 		if (!IsMissionConvoyCrewEliminationObservable(state, activeGroup))
 			return false;
 
 		return true;
+	}
+
+	protected bool HasMissionConvoyExplicitEliminationContext(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup)
+			return false;
+
+		HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
+		if (!mission)
+			return false;
+		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT || mission.m_sRuntimePhase == MISSION_CONVOY_ELIMINATED)
+			return true;
+		if (mission.m_sLastRuntimeEventKey == CONVOY_COMPLETE_EVENT_KEY || mission.m_sLastRuntimeEventKey == MISSION_CONVOY_ELIMINATED || mission.m_sLastRuntimeEventKey == "convoy_secured_sent")
+			return true;
+
+		HST_MissionAssetState asset = FindMissionConvoyAssetForGroup(state, mission, activeGroup);
+		if (asset && IsMissionConvoyVehicleAssetResolved(asset))
+			return true;
+
+		return false;
 	}
 
 	protected bool HasMissionConvoyCrewEverBeenObservedAlive(HST_ActiveGroupState activeGroup)
@@ -7777,6 +7816,73 @@ class HST_PhysicalWarService
 		return false;
 	}
 
+	protected bool CanAttemptMissionConvoyCrewPopulationRepair(HST_CampaignState state, HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !mission || !activeGroup)
+			return false;
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
+			return false;
+		if (!IsMissionConvoyGroupForMission(activeGroup, mission))
+			return false;
+		if (IsTerminalMissionConvoyPhase(mission) || mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
+			return false;
+		if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed")
+			return false;
+		if (activeGroup.m_bCrewPopulationTerminallyFailed || activeGroup.m_iInfantryCount <= 0)
+			return false;
+		if (IsMissionConvoyGroupAssetTerminal(state, activeGroup))
+			return false;
+		if (CountAliveRuntimeCrewAgents(activeGroup) > 0)
+			return false;
+		if (IsConvoyCrewControlPending(state, activeGroup))
+			return false;
+
+		return activeGroup.m_bSpawnAttempted || activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus == "spawn_pending_agents";
+	}
+
+	protected bool TryRepairMissionConvoyCrewPopulation(HST_CampaignState state, HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup, string source)
+	{
+		if (!CanAttemptMissionConvoyCrewPopulationRepair(state, mission, activeGroup))
+			return false;
+
+		string previousStatus = activeGroup.m_sRuntimeStatus;
+		string previousMode = activeGroup.m_sSpawnFallbackMode;
+		string previousReason = activeGroup.m_sSpawnFailureReason;
+		string previousStage = activeGroup.m_sConvoyRuntimeStage;
+
+		activeGroup.m_sRuntimeStatus = "spawn_pending_agents";
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_iSpawnedAgentCount = 0;
+		activeGroup.m_iLastSeenAliveCount = 0;
+		activeGroup.m_iSurvivorInfantryCount = 0;
+		activeGroup.m_sSpawnFallbackMode = "convoy_crew_population_repair";
+		activeGroup.m_sSpawnFailureReason = "Convoy crew became unobserved before explicit contact; forcing direct faction infantry population via " + source + ".";
+		activeGroup.m_sConvoyRuntimeStage = "CREW_REPAIR";
+
+		if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, ResolveMissionConvoyRuntimeStatus(mission), state, source + " convoy crew repair", true) && CountAliveRuntimeCrewAgents(activeGroup) > 0)
+		{
+			activeGroup.m_bCrewPopulationTerminallyFailed = false;
+			activeGroup.m_sCrewPopulationFailureReason = "";
+			Print(string.Format("h-istasi mission convoy | repaired zero-live crew group %1 with direct %2 infantry via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+			return true;
+		}
+
+		activeGroup.m_sRuntimeStatus = previousStatus;
+		activeGroup.m_bSpawnAttempted = false;
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_iSpawnedAgentCount = 0;
+		activeGroup.m_iLastSeenAliveCount = 0;
+		activeGroup.m_iSurvivorInfantryCount = 0;
+		activeGroup.m_sSpawnFallbackMode = "convoy_crew_population_repair_failed";
+		activeGroup.m_sSpawnFailureReason = "Convoy crew population repair failed via " + source + ". Previous mode " + previousMode + " reason " + previousReason + ".";
+		activeGroup.m_sCrewPopulationFailureReason = activeGroup.m_sSpawnFailureReason;
+		activeGroup.m_sConvoyRuntimeStage = "CREW_REPAIR_PENDING";
+		if (!previousStage.IsEmpty() && previousStage == "CREW_UNOBSERVED")
+			activeGroup.m_sConvoyRuntimeStage = previousStage;
+		Print(string.Format("h-istasi mission convoy | zero-live crew repair failed for %1 expected %2 via %3; convoy remains pending instead of eliminated", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source), LogLevel.WARNING);
+		return false;
+	}
+
 	protected int CountActiveGroupRuntimeFactionMismatches(HST_ActiveGroupState activeGroup, out string sample)
 	{
 		if (!activeGroup || activeGroup.m_sFactionKey.IsEmpty())
@@ -8456,7 +8562,15 @@ class HST_PhysicalWarService
 			if (missionConvoyGroup && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
 				continue;
 
-			if (TryRepairEmptyRuntimeGroupPopulation(state, activeGroup, "survivor update"))
+			HST_ActiveMissionState convoyMission;
+			if (missionConvoyGroup)
+				convoyMission = FindMissionForConvoyGroup(state, activeGroup);
+			if (missionConvoyGroup)
+			{
+				if (TryRepairMissionConvoyCrewPopulation(state, convoyMission, activeGroup, "survivor update"))
+					changed = true;
+			}
+			else if (TryRepairEmptyRuntimeGroupPopulation(state, activeGroup, "survivor update"))
 				changed = true;
 
 			EnsureActiveGroupRuntimeFaction(activeGroup, "survivor update");
@@ -8478,6 +8592,15 @@ class HST_PhysicalWarService
 			}
 			if (aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && (!missionConvoyGroup || activeGroup.m_iLastSeenAliveCount <= 0))
 				continue;
+			if (missionConvoyGroup && aliveCount <= 0 && !HasMissionConvoyExplicitEliminationContext(state, activeGroup))
+			{
+				string previousReason = activeGroup.m_sSpawnFailureReason;
+				activeGroup.m_sSpawnFailureReason = "Convoy crew unobserved before explicit contact; awaiting population repair or physical contact proof.";
+				activeGroup.m_sConvoyRuntimeStage = "CREW_UNOBSERVED";
+				if (previousReason != activeGroup.m_sSpawnFailureReason)
+					changed = true;
+				continue;
+			}
 			if (aliveCount > 0 && activeGroup.m_iSpawnedAgentCount <= 0)
 			{
 				activeGroup.m_iSpawnedAgentCount = aliveCount;
