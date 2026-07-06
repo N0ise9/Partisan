@@ -1,6 +1,8 @@
-SCR_AIGroup HST_RuntimeEmptyGroup_US : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et" {
+SCR_AIGroup HST_RuntimeEmptyGroup_US : "{EACD97CF4A702FAE}Prefabs/Groups/BLUFOR/Group_US_Base.et" {
  ID "2E3755F24A57D1A1"
  m_bSpawnImmediately 0
  m_bDeleteWhenEmpty 0
  m_faction "US"
+ m_aUnitPrefabSlots {
+ }
 }

@@ -7156,6 +7156,7 @@ class HST_PhysicalWarService
 		activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP;
 		activeGroup.m_sSpawnFailureReason = "";
 		activeGroup.m_iSpawnedAgentCount = 0;
+		PrintActiveGroupSpawnEvidence(state, activeGroup, "request");
 
 		vector spawnPosition = HST_WorldPositionService.ResolveSafeGroundPosition(activeGroup.m_vPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
 		activeGroup.m_vPosition = spawnPosition;
@@ -7192,6 +7193,7 @@ class HST_PhysicalWarService
 				activeGroup.m_sSpawnFailureReason = string.Format("Group prefab spawn failed for faction %1.", activeGroup.m_sFactionKey);
 			activeGroup.m_sRuntimeStatus = "spawn_failed";
 			Print(string.Format("h-istasi | active group prefab spawn failed for %1 (%2): %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
+			PrintActiveGroupSpawnEvidence(state, activeGroup, "failed");
 			return false;
 		}
 
@@ -7212,6 +7214,7 @@ class HST_PhysicalWarService
 			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 			m_aRuntimeGroupEntities.Insert(entity);
 			RegisterPendingActiveGroupPopulation(entity, activeGroup, requestedStatus, state);
+			PrintActiveGroupSpawnEvidence(state, activeGroup, "pending_agents");
 			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup, requestedStatus, state, 1);
 			DebugLog(string.Format("active group pending agent population %1 prefab %2", activeGroup.m_sGroupId, activeGroup.m_sPrefab));
 			return true;
@@ -7231,8 +7234,60 @@ class HST_PhysicalWarService
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeGroupEntities.Insert(entity);
+		PrintActiveGroupSpawnEvidence(state, activeGroup, "spawned");
 		DebugLog(string.Format("spawned active group %1 using %2 (%3 agents)", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, agentCount));
 		return true;
+	}
+
+	protected void PrintActiveGroupSpawnEvidence(HST_CampaignState state, HST_ActiveGroupState activeGroup, string stage)
+	{
+		if (!activeGroup)
+			return;
+
+		HST_ZoneState zone;
+		if (state && !activeGroup.m_sZoneId.IsEmpty())
+			zone = state.FindZone(activeGroup.m_sZoneId);
+
+		string zoneOwner = "missing";
+		bool zoneActive;
+		int zoneActiveInfantry;
+		int zoneActiveVehicles;
+		if (zone)
+		{
+			zoneOwner = zone.m_sOwnerFactionKey;
+			zoneActive = zone.m_bActive;
+			zoneActiveInfantry = zone.m_iActiveInfantryCount;
+			zoneActiveVehicles = zone.m_iActiveVehicleCount;
+		}
+
+		bool catalogMatch = IsGroupPrefabCatalogFactionMatch(activeGroup.m_sPrefab, activeGroup.m_sFactionKey);
+		bool resourceLoaded;
+		if (!activeGroup.m_sPrefab.IsEmpty())
+		{
+			Resource loaded = Resource.Load(activeGroup.m_sPrefab);
+			if (loaded && loaded.IsValid())
+				resourceLoaded = true;
+		}
+
+		string evidence = string.Format("h-istasi | active group runtime proof | stage %1 | group %2 | zone %3 owner %4 active %5 | expected %6 | prefab %7",
+			ReportText(stage),
+			ReportText(activeGroup.m_sGroupId),
+			ReportText(activeGroup.m_sZoneId),
+			ReportText(zoneOwner),
+			ReportBool(zoneActive),
+			ReportText(activeGroup.m_sFactionKey),
+			ReportText(activeGroup.m_sPrefab));
+		evidence = evidence + string.Format(" | catalog %1 resource %2 | status %3 mode %4 | agents %5/%6 | zone counts %7/%8 | visual %9",
+			ReportBool(catalogMatch),
+			ReportBool(resourceLoaded),
+			ReportText(activeGroup.m_sRuntimeStatus),
+			ReportText(activeGroup.m_sSpawnFallbackMode),
+			activeGroup.m_iSpawnedAgentCount,
+			activeGroup.m_iLastSeenAliveCount,
+			zoneActiveInfantry,
+			zoneActiveVehicles,
+			ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)));
+		Print(evidence);
 	}
 
 	protected GenericEntity SpawnControlledNativeActiveGroupPrefab(string prefab, vector position, HST_ActiveGroupState activeGroup, out string failureReason)
@@ -7415,6 +7470,7 @@ class HST_PhysicalWarService
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		RefreshActiveGroupZoneCounts(state, activeGroup);
 		TryBindPopulatedMissionConvoyGroup(state, activeGroup);
+		PrintActiveGroupSpawnEvidence(state, activeGroup, source + "_populated");
 		DebugLog(string.Format("active group populated %1 live agents %2 expected %3 via %4", activeGroup.m_sGroupId, agentCount, activeGroup.m_iInfantryCount, source));
 		return true;
 	}

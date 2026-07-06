@@ -1,6 +1,8 @@
-SCR_AIGroup HST_RuntimeEmptyGroup_USSR : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et" {
+SCR_AIGroup HST_RuntimeEmptyGroup_USSR : "{8DE0C0830FE0C33D}Prefabs/Groups/OPFOR/Group_USSR_Base.et" {
  ID "94AA122B0CFB7E41"
  m_bSpawnImmediately 0
  m_bDeleteWhenEmpty 0
  m_faction "USSR"
+ m_aUnitPrefabSlots {
+ }
 }

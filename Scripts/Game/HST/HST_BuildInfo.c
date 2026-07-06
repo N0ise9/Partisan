@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r26-root-faction-hq-proof";
-	static const string BUILD_UTC = "2026-07-06T15:49:26Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r26-root-faction-hq-proof";
+	static const string BUILD_SHA = "r27-gm-faction-root-proof";
+	static const string BUILD_UTC = "2026-07-06T16:00:13Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r27-gm-faction-root-proof";
 
 	static string BuildSummary()
 	{

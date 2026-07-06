@@ -430,28 +430,56 @@ foreach ($requiredPetrosGroupPrefabEntry in @(
 	}
 }
 
-$runtimeEmptyGroupPrefabPath = "Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et"
-if (!(Test-Path $runtimeEmptyGroupPrefabPath)) {
-	throw "Missing generic non-deleting runtime AIGroup prefab: $runtimeEmptyGroupPrefabPath"
-}
+$runtimeEmptyGroupPrefabs = @(
+	@{
+		Path = "Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et"
+		MetaPattern = '\{6985327711303910\}Prefabs/Groups/HST/HST_RuntimeEmptyGroup\.et'
+		Header = 'SCR_AIGroup HST_RuntimeEmptyGroup : "{242BC3C6BCE96EA5}Prefabs/Groups/INDFOR/Group_FIA_Base.et"'
+		Faction = 'm_faction "FIA"'
+	},
+	@{
+		Path = "Prefabs/Groups/HST/HST_RuntimeEmptyGroup_US.et"
+		MetaPattern = '\{2E3755F24A57D1A0\}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_US\.et'
+		Header = 'SCR_AIGroup HST_RuntimeEmptyGroup_US : "{EACD97CF4A702FAE}Prefabs/Groups/BLUFOR/Group_US_Base.et"'
+		Faction = 'm_faction "US"'
+	},
+	@{
+		Path = "Prefabs/Groups/HST/HST_RuntimeEmptyGroup_USSR.et"
+		MetaPattern = '\{94AA122B0CFB7E40\}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_USSR\.et'
+		Header = 'SCR_AIGroup HST_RuntimeEmptyGroup_USSR : "{8DE0C0830FE0C33D}Prefabs/Groups/OPFOR/Group_USSR_Base.et"'
+		Faction = 'm_faction "USSR"'
+	}
+)
 
-$runtimeEmptyGroupPrefabMetaPath = "$runtimeEmptyGroupPrefabPath.meta"
-if (!(Test-Path $runtimeEmptyGroupPrefabMetaPath)) {
-	throw "Missing generic non-deleting runtime AIGroup prefab metadata: $runtimeEmptyGroupPrefabMetaPath"
-}
+foreach ($runtimeEmptyGroupPrefab in $runtimeEmptyGroupPrefabs) {
+	$runtimeEmptyGroupPrefabPath = $runtimeEmptyGroupPrefab.Path
+	if (!(Test-Path $runtimeEmptyGroupPrefabPath)) {
+		throw "Missing faction-specific non-deleting runtime AIGroup prefab: $runtimeEmptyGroupPrefabPath"
+	}
 
-if ((Get-Content -Raw $runtimeEmptyGroupPrefabMetaPath) -notmatch '\{6985327711303910\}Prefabs/Groups/HST/HST_RuntimeEmptyGroup\.et') {
-	throw "Generic runtime AIGroup prefab metadata must expose the GUID-qualified resource name"
-}
+	$runtimeEmptyGroupPrefabMetaPath = "$runtimeEmptyGroupPrefabPath.meta"
+	if (!(Test-Path $runtimeEmptyGroupPrefabMetaPath)) {
+		throw "Missing faction-specific non-deleting runtime AIGroup prefab metadata: $runtimeEmptyGroupPrefabMetaPath"
+	}
 
-$runtimeEmptyGroupPrefabText = Get-Content -Raw $runtimeEmptyGroupPrefabPath
-foreach ($requiredRuntimeEmptyGroupPrefabEntry in @(
-		'SCR_AIGroup HST_RuntimeEmptyGroup : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et"',
-		"m_bSpawnImmediately 0",
-		"m_bDeleteWhenEmpty 0"
-	)) {
-	if ($runtimeEmptyGroupPrefabText -notmatch [regex]::Escape($requiredRuntimeEmptyGroupPrefabEntry)) {
-		throw "Generic runtime AIGroup fallback prefab must start empty and not queue native empty-group deletion: $requiredRuntimeEmptyGroupPrefabEntry"
+	if ((Get-Content -Raw $runtimeEmptyGroupPrefabMetaPath) -notmatch $runtimeEmptyGroupPrefab.MetaPattern) {
+		throw "Runtime AIGroup prefab metadata must expose the GUID-qualified resource name: $runtimeEmptyGroupPrefabPath"
+	}
+
+	$runtimeEmptyGroupPrefabText = Get-Content -Raw $runtimeEmptyGroupPrefabPath
+	foreach ($requiredRuntimeEmptyGroupPrefabEntry in @(
+			$runtimeEmptyGroupPrefab.Header,
+			"m_bSpawnImmediately 0",
+			"m_bDeleteWhenEmpty 0",
+			$runtimeEmptyGroupPrefab.Faction
+		)) {
+		if ($runtimeEmptyGroupPrefabText -notmatch [regex]::Escape($requiredRuntimeEmptyGroupPrefabEntry)) {
+			throw "Runtime AIGroup fallback prefab must inherit a faction base, start empty, and not queue native empty-group deletion: $requiredRuntimeEmptyGroupPrefabEntry"
+		}
+	}
+
+	if ($runtimeEmptyGroupPrefabText -notmatch 'm_aUnitPrefabSlots\s*\{\s*\}') {
+		throw "Runtime AIGroup fallback prefab must explicitly clear inherited unit slots: $runtimeEmptyGroupPrefabPath"
 	}
 }
 

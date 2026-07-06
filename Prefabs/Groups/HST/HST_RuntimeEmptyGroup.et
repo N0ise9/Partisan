@@ -1,6 +1,8 @@
-SCR_AIGroup HST_RuntimeEmptyGroup : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et" {
+SCR_AIGroup HST_RuntimeEmptyGroup : "{242BC3C6BCE96EA5}Prefabs/Groups/INDFOR/Group_FIA_Base.et" {
  ID "6985327711303911"
  m_bSpawnImmediately 0
  m_bDeleteWhenEmpty 0
  m_faction "FIA"
+ m_aUnitPrefabSlots {
+ }
 }
