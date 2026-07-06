@@ -7980,7 +7980,7 @@ class HST_PhysicalWarService
 		if (!entity)
 			return "missing";
 
-		AIGroup group = AIGroup.Cast(entity);
+		SCR_AIGroup group = SCR_AIGroup.Cast(entity);
 		if (group)
 		{
 			string memberPrefab = "";
