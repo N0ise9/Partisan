@@ -7209,7 +7209,7 @@ class HST_PhysicalWarService
 		}
 
 		ApplyCampaignDebugEntityName(entity, "active_group", activeGroup.m_sGroupId);
-		ApplyRuntimeGroupFaction(entity, activeGroup, "group prefab spawn", true);
+		ApplyRuntimeGroupFaction(entity, activeGroup, "group prefab spawn");
 		if (agentCount <= 0)
 		{
 			activeGroup.m_bSpawnedEntity = false;
@@ -7330,9 +7330,7 @@ class HST_PhysicalWarService
 		params.TransformMode = ETransformMode.WORLD;
 		params.Transform[3] = position;
 
-		SCR_AIGroup.IgnoreSpawning(true);
 		IEntity spawnedEntity = GetGame().SpawnEntityPrefabEx(resourceName, false, world, params);
-		SCR_AIGroup.IgnoreSpawning(false);
 		GenericEntity entity = GenericEntity.Cast(spawnedEntity);
 		if (!entity)
 		{
@@ -7354,7 +7352,6 @@ class HST_PhysicalWarService
 		entity.SetOrigin(position);
 		entity.SetAngles(HST_WorldPositionService.BuildEntitySetAnglesFromYawVector(zeroAngles));
 		StabilizeRuntimeAIGroupRoot(entity, activeGroup, "controlled group prefab spawn");
-		ApplyRuntimeGroupFaction(entity, activeGroup, "controlled group prefab pre-spawn", true);
 		string actualGroupFaction;
 		if (!IsRuntimeGroupRootFactionExpected(entity, activeGroup, actualGroupFaction))
 		{
@@ -7368,7 +7365,8 @@ class HST_PhysicalWarService
 			SCR_EntityHelper.DeleteEntityAndChildren(entity);
 			return null;
 		}
-		group.SpawnUnits();
+		if (!group.GetSpawnImmediately())
+			group.SpawnUnits();
 		if (activeGroup)
 			DebugLog(string.Format("active group requested controlled native member spawn %1 expected infantry %2 prefab %3 | %4", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, prefab, BuildNativeGroupPopulationDebug(group)));
 		if (activeGroup && CountLivingNativeAIGroupAgents(group) <= 0 && group.GetSpawnQueueSize() <= 0)
@@ -9350,6 +9348,8 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
 			return;
+		if (IsPetrosAttackSupportGroup(activeGroup))
+			return;
 		if (activeGroup.m_sRuntimeStatus == "routing" || activeGroup.m_sRuntimeStatus == "support_active")
 			return;
 		if (activeGroup.m_sRouteId.IsEmpty())
@@ -9358,6 +9358,14 @@ class HST_PhysicalWarService
 		activeGroup.m_sRouteId = "";
 		activeGroup.m_vSourcePosition = activeGroup.m_vPosition;
 		activeGroup.m_vTargetPosition = activeGroup.m_vPosition;
+	}
+
+	protected bool IsPetrosAttackSupportGroup(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		return activeGroup.m_sSpawnFallbackMode == "petros_attack_support";
 	}
 
 	protected bool UpdateRuntimeGroupSurvivors(HST_CampaignState state)

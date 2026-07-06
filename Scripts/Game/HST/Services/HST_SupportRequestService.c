@@ -522,6 +522,8 @@ class HST_SupportRequestService
 		group.m_sFactionKey = request.m_sFactionKey;
 		group.m_sPrefab = prefab;
 		group.m_sSpawnFallbackMode = "support";
+		if (IsPetrosAttackSupport(request))
+			group.m_sSpawnFallbackMode = "petros_attack_support";
 		group.m_sRouteId = request.m_sSourceZoneId + "_to_" + request.m_sTargetZoneId;
 		group.m_vSourcePosition = sourcePosition;
 		group.m_vTargetPosition = targetPosition;

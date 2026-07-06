@@ -8041,8 +8041,8 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"ACTIVE_GROUP_SPAWN_MODE_AIWORLD_BUDGET_DEFERRED",
 		'DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et"',
 		"SpawnControlledNativeActiveGroupPrefab",
-		"SCR_AIGroup.IgnoreSpawning(true)",
 		"controlled group prefab spawn",
+		"if (!group.GetSpawnImmediately())",
 		"EnsureActiveGroupAIWorldBudget",
 		"MarkActiveGroupAIWorldBudgetDeferred",
 		"aiWorld.SetAILimit(requiredLimit)",
@@ -8099,6 +8099,13 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
 		throw "Active AIGroup population must prove controlled native group spawning and tagged direct fallback detection: $requiredActiveGroupPopulationRuntimeEntry"
 	}
+}
+$controlledStockGroupSpawnMatch = [regex]::Match($physicalWarServiceText, "protected GenericEntity SpawnControlledNativeActiveGroupPrefab[\s\S]*?protected void StabilizeRuntimeAIGroupRoot")
+if (!$controlledStockGroupSpawnMatch.Success) {
+	throw "Could not locate controlled active-group stock spawn helper"
+}
+if ($controlledStockGroupSpawnMatch.Value -match [regex]::Escape("SCR_AIGroup.IgnoreSpawning(true)") -or $controlledStockGroupSpawnMatch.Value -match [regex]::Escape("controlled group prefab pre-spawn")) {
+	throw "Controlled stock active-group spawning must follow the vanilla SCR_AIGroup spawn path and must not suppress native spawning or force pre-spawn faction rebroadcast"
 }
 if ($scriptText -notmatch [regex]::Escape('statusOrHistory.Contains("spawn_deferred_aiworld_budget")')) {
 	throw "Campaign debug async runtime classifier must treat AIWorld budget deferrals as pending/blocking proof, not generic failures"
@@ -8508,6 +8515,20 @@ foreach ($requiredPetrosQueueEntry in @(
 	}
 }
 Write-Host "Petros attack queue resource authority OK"
+
+$supportRequestForPetrosTargetText = Get-Content -Raw "Scripts/Game/HST/Services/HST_SupportRequestService.c"
+foreach ($requiredPetrosTargetPreservationEntry in @(
+		"petros_attack_support",
+		"IsPetrosAttackSupportGroup",
+		"if (IsPetrosAttackSupportGroup(activeGroup))",
+		"ResolvePetrosAttackTargetPosition(state)",
+		"phase22.attack.group_target_base_position"
+	)) {
+	if (($physicalWarServiceText + "`n" + $supportRequestForPetrosTargetText + "`n" + $enemyCommanderForAuditText + "`n" + $coordinatorForCoverageText) -notmatch [regex]::Escape($requiredPetrosTargetPreservationEntry)) {
+		throw "Phase 22 Petros attack support must preserve HQ/Petros target instead of static-zone normalization: $requiredPetrosTargetPreservationEntry"
+	}
+}
+Write-Host "Petros attack support target preservation OK"
 
 foreach ($requiredPhase18BackgroundWarIsolationEntry in @(
 		"AbortCampaignDebugBackgroundWarPetrosOrders",
