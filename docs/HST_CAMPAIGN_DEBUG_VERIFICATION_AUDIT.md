@@ -1,5 +1,7 @@
 # HST Campaign Debug Verification Audit
 
+Latest r37 build-provenance follow-up: the current repository had structured `HST_BuildInfo` stamped as r36 while the coordinator's legacy authority boot/admin string still reported r35. Current code now synchronizes both runtime build identifiers at `2026-07-06-runtime-proof-r37-build-provenance-sync` / `r37-build-provenance-sync`, so the next server log and generated campaign-debug report can be matched without ambiguity. The newest available runtime logs and debug artifacts still loaded r29, so they cannot certify the current r36/r37 zone-AI changes; a fresh server or single-player run should show the r37 authority line before any Game Master AI/faction result is considered current.
+
 Date: 2026-07-05
 
 

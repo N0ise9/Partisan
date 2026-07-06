@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r36-conflict-ambient-patrol-proof";
-	static const string BUILD_UTC = "2026-07-06T21:05:07Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r36-conflict-ambient-patrol-proof";
+	static const string BUILD_SHA = "r37-build-provenance-sync";
+	static const string BUILD_UTC = "2026-07-06T21:37:18Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r37-build-provenance-sync";
 
 	static string BuildSummary()
 	{
