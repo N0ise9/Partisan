@@ -28,6 +28,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
    SCR_CampaignSpawnPointGroup {
     ID "5C6696731466AF36"
     coords 0 0 0

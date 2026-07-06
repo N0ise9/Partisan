@@ -171,6 +171,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_outpost_levie_base {
@@ -201,6 +205,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -235,6 +243,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_outpost_military_hospital {
@@ -265,6 +277,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -299,6 +315,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_seaport_coastal_base_lamentin {
@@ -329,6 +349,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -363,6 +387,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_outpost_north_hq {
@@ -393,6 +421,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -427,6 +459,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_resource_quarry {
@@ -457,6 +493,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -491,6 +531,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_outpost_pennants_pass {
@@ -521,6 +565,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -555,6 +603,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_richemont {
@@ -585,6 +637,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -619,6 +675,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_outpost_pinewood_lake {
@@ -649,6 +709,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -683,6 +747,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_maidens_bay {
@@ -713,6 +781,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -747,6 +819,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_radio_andres_beacon {
@@ -777,6 +853,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -811,6 +891,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_chotain {
@@ -841,6 +925,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -875,6 +963,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_entre_deux {
@@ -905,6 +997,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -939,6 +1035,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_laruns {
@@ -969,6 +1069,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1003,6 +1107,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_levie {
@@ -1033,6 +1141,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1067,6 +1179,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_montignac {
@@ -1097,6 +1213,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1131,6 +1251,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_regina {
@@ -1161,6 +1285,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1195,6 +1323,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_vernon {
@@ -1225,6 +1357,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1259,6 +1395,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_gravette {
@@ -1289,6 +1429,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1323,6 +1467,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_les_creux {
@@ -1353,6 +1501,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1387,6 +1539,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_redon {
@@ -1417,6 +1573,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1451,6 +1611,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_outpost_firing_range {
@@ -1481,6 +1645,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1515,6 +1683,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_scythe {
@@ -1545,6 +1717,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1579,6 +1755,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_lancre {
@@ -1609,6 +1789,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1643,6 +1827,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_outpost_cheval_gin_lodge {
@@ -1673,6 +1861,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1707,6 +1899,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_saint_pierre {
@@ -1737,6 +1933,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1771,6 +1971,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_outpost_montfort_castle {
@@ -1801,6 +2005,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1835,6 +2043,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_le_bosc {
@@ -1865,6 +2077,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1899,6 +2115,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_argent {
@@ -1929,6 +2149,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -1963,6 +2187,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_radio_erquy_lighthouse {
@@ -1993,6 +2221,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2027,6 +2259,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_outpost_smugglers_hole {
@@ -2057,6 +2293,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2091,6 +2331,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_fishermans_cove {
@@ -2121,6 +2365,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2155,6 +2403,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_factory_power_plant {
@@ -2185,6 +2437,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2219,6 +2475,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_town_skua_point {
@@ -2249,6 +2509,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2283,6 +2547,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_radio_pins_tower {
@@ -2313,6 +2581,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2347,6 +2619,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_radio_estrapade_tower {
@@ -2377,6 +2653,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2411,6 +2691,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_depot_green_valley_supply_depot {
@@ -2441,6 +2725,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2475,6 +2763,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_depot_figari_supply_depot {
@@ -2505,6 +2797,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2539,6 +2835,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_depot_gorey_supply_depot {
@@ -2569,6 +2869,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }
@@ -2603,6 +2907,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_depot_sawmill_supply_depot {
@@ -2635,6 +2943,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     ID "5CCED514A5908822"
     Flags 2097155
    }
+   GenericEntity {
+    ID "606078EE23DE48AC"
+    Flags 2097155
+   }
   }
  }
  HST_ConflictMapMarker_depot_regina_supply_depot {
@@ -2665,6 +2977,10 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   {
    GenericEntity {
     ID "5CCED514A5908822"
+    Flags 2097155
+   }
+   GenericEntity {
+    ID "606078EE23DE48AC"
     Flags 2097155
    }
   }

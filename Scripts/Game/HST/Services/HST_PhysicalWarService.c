@@ -7864,7 +7864,7 @@ class HST_PhysicalWarService
 		if (!group)
 			return "native group missing | " + BuildAIWorldBudgetDebug();
 
-		return string.Format("raw %1 living %2 slots %3 queue %4 initializing %5 membersToSpawn %6 | %7",
+		string evidence = string.Format("raw %1 living %2 slots %3 queue %4 initializing %5 membersToSpawn %6 | %7",
 			group.GetAgentsCount(),
 			CountLivingNativeAIGroupAgents(group),
 			CountNativeGroupMemberSlots(group),
@@ -7872,6 +7872,24 @@ class HST_PhysicalWarService
 			ReportBool(group.IsInitializing()),
 			group.GetNumberOfMembersToSpawn(),
 			BuildAIWorldBudgetDebug());
+		return evidence + " | " + BuildEditableGroupRuntimeEvidence(group);
+	}
+
+	protected string BuildEditableGroupRuntimeEvidence(SCR_AIGroup group)
+	{
+		if (!group)
+			return "editable missing";
+
+		SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(group.FindComponent(SCR_EditableGroupComponent));
+		if (!editableGroup)
+			return "editable missing";
+
+		string factionKey = "";
+		Faction faction = editableGroup.GetFaction();
+		if (faction)
+			factionKey = faction.GetFactionKey();
+
+		return string.Format("editableSize %1 editableFaction %2", editableGroup.GetSize(), ReportText(factionKey));
 	}
 
 	protected bool TryPopulatePendingActiveGroupFromNativeSlots(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
@@ -8735,7 +8753,8 @@ class HST_PhysicalWarService
 				break;
 			}
 
-			return string.Format("root %1 groupFaction %2 rootFaction %3 raw %4 living %5 slots %6 queue %7 member %8 memberFaction %9", ReportText(ResolveEntityPrefabName(entity)), ReportText(group.GetFactionName()), ReportText(ResolveEntityFactionKey(entity)), group.GetAgentsCount(), CountLivingNativeAIGroupAgents(group), CountNativeGroupMemberSlots(group), group.GetSpawnQueueSize(), ReportText(memberPrefab), ReportText(memberFaction));
+			string evidence = string.Format("root %1 groupFaction %2 rootFaction %3 raw %4 living %5 slots %6 queue %7 member %8 memberFaction %9", ReportText(ResolveEntityPrefabName(entity)), ReportText(group.GetFactionName()), ReportText(ResolveEntityFactionKey(entity)), group.GetAgentsCount(), CountLivingNativeAIGroupAgents(group), CountNativeGroupMemberSlots(group), group.GetSpawnQueueSize(), ReportText(memberPrefab), ReportText(memberFaction));
+			return evidence + " | " + BuildEditableGroupRuntimeEvidence(group);
 		}
 
 		return string.Format("entity %1 faction %2 name %3", ReportText(ResolveEntityPrefabName(entity)), ReportText(ResolveEntityFactionKey(entity)), ReportText(entity.GetName()));

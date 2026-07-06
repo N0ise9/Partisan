@@ -76,6 +76,16 @@ function Get-ConfigBlocks {
 	return $blocks
 }
 
+function Get-DisabledAmbientPatrolChildCount {
+	param(
+		[string] $Text,
+		[string] $ChildId
+	)
+
+	$pattern = 'ID "' + [regex]::Escape($ChildId) + '"\s*\r?\n\s*Flags 2097155'
+	return ([regex]::Matches($Text, $pattern)).Count
+}
+
 function Get-VectorXZKey {
 	param([string] $Block)
 
@@ -2308,6 +2318,13 @@ if ($conflictMarkerCount -ne $configZones.Count) {
 	throw "Visible native Conflict campaign marker count must equal configured zone count: markers=$conflictMarkerCount zones=$($configZones.Count)"
 }
 
+foreach ($ambientPatrolChildId in @("5CCED514A5908822", "606078EE23DE48AC")) {
+	$ambientPatrolDisableCount = Get-DisabledAmbientPatrolChildCount $runtimeMarkerLayer $ambientPatrolChildId
+	if ($ambientPatrolDisableCount -ne $conflictMarkerCount) {
+		throw "Visible native Conflict campaign markers must disable inherited FIA ambient patrol child ${ambientPatrolChildId}: disabled=$ambientPatrolDisableCount markers=$conflictMarkerCount"
+	}
+}
+
 if ($runtimeMarkerLayer -notmatch "HST_ConflictMapMarker_[\s\S]*?SCR_FactionAffiliationComponent" -or $runtimeMarkerLayer -notmatch "HST_ConflictMapMarker_[\s\S]*?SCR_CampaignMilitaryBaseComponent") {
 	throw "Visible native Conflict campaign markers must carry faction affiliation and military base components"
 }
@@ -2351,6 +2368,7 @@ foreach ($expectedHideoutId in $expectedHideoutCoordinates.Keys) {
 
 $everonStartingPointsLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/StartingPoints.layer"
 $everonHideoutsLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/Hideouts.layer"
+$devStartingPointsLayer = Get-Content -Raw "Worlds/HST_Dev/HST_Dev_Layers/StartingPoints.layer"
 foreach ($expectedHideoutId in $expectedHideoutCoordinates.Keys) {
 	$expectedCoord = $expectedHideoutCoordinates[$expectedHideoutId]
 	if ($defaultCatalog -notmatch [regex]::Escape($expectedCoord)) {
@@ -2363,6 +2381,18 @@ foreach ($expectedHideoutId in $expectedHideoutCoordinates.Keys) {
 
 	if ($everonHideoutsLayer -notmatch [regex]::Escape("coords $expectedCoord")) {
 		throw "Everon hideouts layer is missing inland hideout anchor ${expectedHideoutId}: $expectedCoord"
+	}
+}
+
+foreach ($ambientPatrolLayer in @(
+		@{ Label = "Everon starting points"; Text = $everonStartingPointsLayer; Expected = $expectedHideoutCoordinates.Count },
+		@{ Label = "Dev starting points"; Text = $devStartingPointsLayer; Expected = 1 }
+	)) {
+	foreach ($ambientPatrolChildId in @("5CCED514A5908822", "606078EE23DE48AC")) {
+		$ambientPatrolDisableCount = Get-DisabledAmbientPatrolChildCount $ambientPatrolLayer.Text $ambientPatrolChildId
+		if ($ambientPatrolDisableCount -ne $ambientPatrolLayer.Expected) {
+			throw "$($ambientPatrolLayer.Label) must disable inherited FIA ambient patrol child ${ambientPatrolChildId}: disabled=$ambientPatrolDisableCount expected=$($ambientPatrolLayer.Expected)"
+		}
 	}
 }
 
