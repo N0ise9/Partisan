@@ -608,9 +608,12 @@ if ($hqServiceText -notmatch 'm_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTra
 }
 foreach ($requiredPetrosGroupRuntimeEntry in @(
 		'ReattachUniqueLivingWorldPetros(state, "reattach")',
+		'ReattachUniqueLivingWorldPetros(state, "ready check")',
 		'ReattachUniqueLivingWorldPetros(state, "final runtime proof")',
+		'ReattachUniqueLivingWorldPetros(state, "final ready check")',
 		'CountLivingPetrosWorldRuntimeEntities(state) == 1',
-		'bool petrosRuntimeReady = IsPetrosRuntimeTracked(state) && IsLivingRuntimeEntity(m_PetrosEntity);',
+		'bool petrosRuntimeReady = IsPetrosRuntimeTracked(state);',
+		'GetTrackedRuntimeObjectCount(HST_CampaignState state = null)',
 		'TryResolvePetrosFromTrackedGroup(state.m_vPetrosPosition, "tracked group")',
 		'SpawnPetrosViaGroupPrefab(petrosPosition, "dedicated Petros group spawn")',
 		'TryResolvePetrosFromTrackedGroup(position, source)',
@@ -8136,6 +8139,16 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
 		throw "Active AIGroup population must prove controlled native group spawning and tagged direct fallback detection: $requiredActiveGroupPopulationRuntimeEntry"
 	}
+}
+$campaignDebugPopulationResolverMatch = [regex]::Match($physicalWarServiceText, "bool CampaignDebugResolvePendingActiveGroupPopulation[\s\S]*?protected bool TryKickPendingNativeGroupSpawn")
+if (!$campaignDebugPopulationResolverMatch.Success) {
+	throw "Could not locate campaign-debug active-group population resolver"
+}
+if ($campaignDebugPopulationResolverMatch.Value -match "TryPopulatePendingActiveGroupFromFactionInfantry") {
+	throw "Campaign-debug pre-route population resolver must not create direct faction-infantry fallback while certifying primary group population"
+}
+if ($campaignDebugPopulationResolverMatch.Value -notmatch [regex]::Escape("direct faction-infantry fallback is not certification proof")) {
+	throw "Campaign-debug pre-route population resolver must explicitly report pending primary population instead of direct fallback certification"
 }
 $controlledStockGroupSpawnMatch = [regex]::Match($physicalWarServiceText, "protected GenericEntity SpawnControlledNativeActiveGroupPrefab[\s\S]*?protected void StabilizeRuntimeAIGroupRoot")
 if (!$controlledStockGroupSpawnMatch.Success) {

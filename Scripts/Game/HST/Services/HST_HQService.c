@@ -225,7 +225,10 @@ class HST_HQService
 		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
 			return false;
 
-		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked(state) && IsUsableArsenalEntity(m_ArsenalEntity) && AreRuntimeObjectsWorldProven(state) && IsLivingRuntimeEntity(m_PetrosEntity))
+		if (state.m_bHQRuntimeObjectsSpawned && !IsLivingRuntimeEntity(m_PetrosEntity) && IsPetrosRuntimeTracked(state))
+			ReattachUniqueLivingWorldPetros(state, "ready check");
+
+		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked(state) && IsUsableArsenalEntity(m_ArsenalEntity) && AreRuntimeObjectsWorldProven(state) && IsPetrosRuntimeTracked(state))
 			return false;
 
 		if (state.m_bHQRuntimeObjectsSpawned && !AreRuntimeObjectsTracked(state))
@@ -435,8 +438,11 @@ class HST_HQService
 		if (!IsLivingRuntimeEntity(m_PetrosEntity) && ReattachUniqueLivingWorldPetros(state, "final runtime proof"))
 			changed = true;
 
+		if (!IsLivingRuntimeEntity(m_PetrosEntity) && IsPetrosRuntimeTracked(state))
+			ReattachUniqueLivingWorldPetros(state, "final ready check");
+
 		bool allRuntimeObjectsTracked = AreRuntimeObjectsTracked(state);
-		bool petrosRuntimeReady = IsPetrosRuntimeTracked(state) && IsLivingRuntimeEntity(m_PetrosEntity);
+		bool petrosRuntimeReady = IsPetrosRuntimeTracked(state);
 		bool runtimeObjectsWorldProven = AreRuntimeObjectsWorldProven(state);
 		bool runtimeObjectsReady = allRuntimeObjectsTracked && runtimeObjectsWorldProven && IsUsableArsenalEntity(m_ArsenalEntity) && petrosRuntimeReady;
 		bool runtimeFlagChanged = state.m_bHQRuntimeObjectsSpawned != runtimeObjectsReady;
@@ -570,10 +576,10 @@ class HST_HQService
 		return HQ_SPAWN_POINT_PREFAB;
 	}
 
-	int GetTrackedRuntimeObjectCount()
+	int GetTrackedRuntimeObjectCount(HST_CampaignState state = null)
 	{
 		int count;
-		if (IsPetrosRuntimeTracked())
+		if (IsPetrosRuntimeTracked(state))
 			count++;
 		if (m_CacheEntity)
 			count++;

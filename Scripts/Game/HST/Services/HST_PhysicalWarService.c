@@ -7646,9 +7646,8 @@ class HST_PhysicalWarService
 			if (!finalized)
 			{
 				nativeDelayedActiveBeforeDirectFallback = IsActiveGroupNativeDelayedPopulationActive(activeGroup);
-				populatedDirectFallback = TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "campaign debug pre-route", true);
-				if (populatedDirectFallback)
-					finalized = true;
+				activeGroup.m_sSpawnFailureReason = "Campaign debug pre-route proof left group pending because primary native/stock-slot population has not completed; direct faction-infantry fallback is not certification proof.";
+				DebugLog(string.Format("active group campaign debug pre-route kept primary population pending %1 | nativeDelayed %2 | status %3", activeGroup.m_sGroupId, nativeDelayedActiveBeforeDirectFallback, activeGroup.m_sRuntimeStatus));
 			}
 		}
 
