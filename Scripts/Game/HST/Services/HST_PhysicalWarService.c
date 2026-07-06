@@ -8150,6 +8150,14 @@ class HST_PhysicalWarService
 		return factionComponent.GetAffiliatedFactionKey();
 	}
 
+	protected string ResolveEntityPrefabName(IEntity entity)
+	{
+		if (!entity || !entity.GetPrefabData())
+			return "";
+
+		return entity.GetPrefabData().GetPrefabName();
+	}
+
 	protected vector ResolveFallbackInfantryMemberPosition(vector groupPosition, int index)
 	{
 		vector candidate = groupPosition;
