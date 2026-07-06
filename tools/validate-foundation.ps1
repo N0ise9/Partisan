@@ -3161,12 +3161,16 @@ foreach ($requiredCampaignDebugSmokeCleanupEntry in @(
 foreach ($requiredCampaignDebugMissionProofEntry in @(
 		"IsCampaignDebugInstantOrAbstractPrimitive",
 		"ShouldCampaignDebugHoldRuntimeCompletion",
-		"missionRuntimeChanged = true",
+		"HandleRuntimeMissionCompletionCandidate",
+		"ReleaseCampaignDebugRuntimeCompletionHoldForPrimitiveProof",
+		"runtime completion hold released after active primitive snapshot",
+		"mission completion held before primitive proof",
 		"mission.runtime.debug_hold",
 		"mission runtime record missing, inactive, or completed before runtime proof",
 		"primitive mission record disappeared before runtime action proof",
 		"only explicit abstract_fallback may already be complete",
-		"primitive probe mission is not active before runtime action proof"
+		"primitive probe mission is not active before runtime action proof",
+		"rescue.captive.active_before_action"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugMissionProofEntry)) {
 		throw "Campaign debug mission proof must fail early completion except explicit abstract fallback: $requiredCampaignDebugMissionProofEntry"

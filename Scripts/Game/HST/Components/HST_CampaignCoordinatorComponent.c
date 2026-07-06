@@ -215,6 +215,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugBackgroundWarUnexpectedPetrosOrders;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
+	protected ref array<string> m_aCampaignDebugPrimitiveProofReleasedMissionIds = {};
 	protected ref array<IEntity> m_aCampaignDebugWorldCleanupEntities = {};
 	protected ref array<int> m_aAdminIdentityDiagnosticPlayerIds = {};
 	protected ref HST_CampaignDebugRunResult m_CampaignDebugRunResult;
@@ -422,10 +423,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (convoyRuntimeChanged)
 			BroadcastPendingMissionRuntimeEvents();
 		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
-		if (!completedRuntimeMissionId.IsEmpty() && ShouldCampaignDebugHoldRuntimeCompletion(completedRuntimeMissionId))
-			missionRuntimeChanged = true;
-		else if (!completedRuntimeMissionId.IsEmpty())
-			missionRuntimeChanged = CompleteMission(completedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged;
+		if (!completedRuntimeMissionId.IsEmpty())
+			missionRuntimeChanged = HandleRuntimeMissionCompletionCandidate(completedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged;
 		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
 		if (!failedRuntimeMissionId.IsEmpty())
 			missionRuntimeChanged = FailMission(failedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged;
@@ -2546,7 +2545,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
 		if (!completedRuntimeMissionId.IsEmpty())
-			CompleteMission(completedRuntimeMissionId);
+			HandleRuntimeMissionCompletionCandidate(completedRuntimeMissionId);
 
 		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
 		if (!failedRuntimeMissionId.IsEmpty())
@@ -2584,7 +2583,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
 		if (!completedRuntimeMissionId.IsEmpty())
-			CompleteMission(completedRuntimeMissionId);
+			HandleRuntimeMissionCompletionCandidate(completedRuntimeMissionId);
 
 		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
 		if (!failedRuntimeMissionId.IsEmpty())
@@ -2622,7 +2621,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
 		if (!completedRuntimeMissionId.IsEmpty())
-			CompleteMission(completedRuntimeMissionId);
+			HandleRuntimeMissionCompletionCandidate(completedRuntimeMissionId);
 
 		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
 		if (!failedRuntimeMissionId.IsEmpty())
@@ -3100,12 +3099,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			bool completed = CompleteCampaignDebugMissionInstance(m_sCampaignDebugCurrentMissionInstanceId, completionStatus);
 			report = report + string.Format("\ncurrent mission %1 | completed %2 | %3", m_sCampaignDebugCurrentMissionInstanceId, completed, completionStatus);
+			ClearCampaignDebugPrimitiveProofRelease(m_sCampaignDebugCurrentMissionInstanceId);
 			m_sCampaignDebugCurrentMissionInstanceId = "";
 		}
 		if (!m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
 		{
 			bool earlyCompleted = CompleteCampaignDebugMissionInstance(m_sCampaignDebugEarlyMissionInstanceId, completionStatus);
 			report = report + string.Format("\nearly mission %1 | completed %2 | %3", m_sCampaignDebugEarlyMissionInstanceId, earlyCompleted, completionStatus);
+			ClearCampaignDebugPrimitiveProofRelease(m_sCampaignDebugEarlyMissionInstanceId);
 			m_sCampaignDebugEarlyMissionInstanceId = "";
 		}
 		ClearCampaignDebugPlayerSupportRequests("admin cleanup command");
@@ -3157,6 +3158,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
+		m_aCampaignDebugPrimitiveProofReleasedMissionIds.Clear();
 		HST_CampaignDebugCaseResult staleCleanupCase = CleanupCampaignDebugPrefixedState(CAMPAIGN_DEBUG_PREFIX_ROOT, "start preflight");
 		InitializeCampaignDebugRunResult(playerId);
 		RecordCampaignDebugCase(staleCleanupCase, false);
@@ -3306,12 +3308,62 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (instanceId != m_sCampaignDebugCurrentMissionInstanceId && instanceId != m_sCampaignDebugEarlyMissionInstanceId)
 			return false;
+		if (IsCampaignDebugPrimitiveProofReleased(instanceId))
+			return false;
 
 		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
 		if (IsCampaignDebugInstantOrAbstractPrimitive(mission))
 			return false;
 
 		return true;
+	}
+
+	protected bool IsCampaignDebugPrimitiveProofReleased(string instanceId)
+	{
+		if (!m_aCampaignDebugPrimitiveProofReleasedMissionIds || instanceId.IsEmpty())
+			return false;
+
+		return m_aCampaignDebugPrimitiveProofReleasedMissionIds.Find(instanceId) >= 0;
+	}
+
+	protected bool HandleRuntimeMissionCompletionCandidate(string instanceId)
+	{
+		if (instanceId.IsEmpty())
+			return false;
+
+		if (ShouldCampaignDebugHoldRuntimeCompletion(instanceId))
+		{
+			AppendCampaignDebugLog("INFO", "mission completion held before primitive proof", "instance " + instanceId);
+			return true;
+		}
+
+		return CompleteMission(instanceId);
+	}
+
+	protected void ReleaseCampaignDebugRuntimeCompletionHoldForPrimitiveProof(string instanceId, HST_CampaignDebugCaseResult primitiveCase)
+	{
+		if (instanceId.IsEmpty())
+			return;
+		if (!m_bCampaignDebugRunning)
+			return;
+		if (instanceId != m_sCampaignDebugCurrentMissionInstanceId && instanceId != m_sCampaignDebugEarlyMissionInstanceId)
+			return;
+
+		if (m_aCampaignDebugPrimitiveProofReleasedMissionIds && m_aCampaignDebugPrimitiveProofReleasedMissionIds.Find(instanceId) < 0)
+			m_aCampaignDebugPrimitiveProofReleasedMissionIds.Insert(instanceId);
+
+		if (primitiveCase)
+			primitiveCase.m_aEvidence.Insert("runtime completion hold released after active primitive snapshot | " + instanceId);
+	}
+
+	protected void ClearCampaignDebugPrimitiveProofRelease(string instanceId)
+	{
+		if (!m_aCampaignDebugPrimitiveProofReleasedMissionIds || instanceId.IsEmpty())
+			return;
+
+		int index = m_aCampaignDebugPrimitiveProofReleasedMissionIds.Find(instanceId);
+		if (index >= 0)
+			m_aCampaignDebugPrimitiveProofReleasedMissionIds.Remove(index);
 	}
 
 	protected bool ShouldCampaignDebugRunEarlyPhaseStage()
@@ -5192,6 +5244,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_iCampaignDebugEarlyPhaseIndex >= GetCampaignDebugEarlyPhaseStepCount())
 		{
 			RecordCampaignDebugObservation("phase 0-13 and mechanics sweep complete", string.Format("early phase steps %1", m_iCampaignDebugEarlyPhaseIndex));
+			ClearCampaignDebugPrimitiveProofRelease(m_sCampaignDebugCurrentMissionInstanceId);
+			ClearCampaignDebugPrimitiveProofRelease(m_sCampaignDebugEarlyMissionInstanceId);
 			m_sCampaignDebugCurrentMissionInstanceId = "";
 			m_sCampaignDebugEarlyMissionInstanceId = "";
 			AdvanceCampaignDebugStep("Phase 0-13 and working-mechanics sweep complete.");
@@ -5295,6 +5349,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!completed)
 			AppendCampaignDebugLog("FAIL", "complete mission " + definition.m_sMissionId, completeResult);
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCleanupCase(definition.m_sMissionId, m_sCampaignDebugCurrentMissionInstanceId, completionStatus));
+		ClearCampaignDebugPrimitiveProofRelease(m_sCampaignDebugCurrentMissionInstanceId);
 		m_sCampaignDebugCurrentMissionInstanceId = "";
 		m_iCampaignDebugMissionIndex++;
 		m_iCampaignDebugMissionSubStep = 0;
@@ -5377,11 +5432,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_sCampaignDebugCurrentMissionInstanceId.IsEmpty())
 		{
 			CompleteCampaignDebugMissionInstance(m_sCampaignDebugCurrentMissionInstanceId, completionStatus);
+			ClearCampaignDebugPrimitiveProofRelease(m_sCampaignDebugCurrentMissionInstanceId);
 			m_sCampaignDebugCurrentMissionInstanceId = "";
 		}
 		if (!m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
 		{
 			CompleteCampaignDebugMissionInstance(m_sCampaignDebugEarlyMissionInstanceId, completionStatus);
+			ClearCampaignDebugPrimitiveProofRelease(m_sCampaignDebugEarlyMissionInstanceId);
 			m_sCampaignDebugEarlyMissionInstanceId = "";
 		}
 		ClearCampaignDebugPlayerSupportRequests("run completion");
@@ -8676,6 +8733,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string instanceId = mission.m_sInstanceId;
 		string completionStatus;
 		bool completed = CompleteCampaignDebugMissionInstance(instanceId, completionStatus);
+		ClearCampaignDebugPrimitiveProofRelease(instanceId);
 		m_sCampaignDebugEarlyMissionInstanceId = "";
 		m_sCampaignDebugCurrentMissionInstanceId = "";
 		if (!completed)
@@ -9225,6 +9283,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.primitive", "runtime primitive rescue_extract", EmptyCampaignDebugField(mission.m_sRuntimePrimitive), CampaignDebugStatus(mission.m_sRuntimePrimitive == "rescue_extract"), "mission primitive is not rescue_extract", "", instanceId);
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.active_before_action", "rescue mission remains active before captive primitive actions", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "rescue mission is not active before captive primitive actions", "", instanceId);
 		int captiveCount = m_State.CountMissionAssets(instanceId, "captive");
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.asset_count", string.Format("%1", captiveCount), "count");
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.asset_count", "captive asset count >= required captive count", string.Format("%1/%2", captiveCount, mission.m_iRequiredCaptiveCount), CampaignDebugStatus(captiveCount >= Math.Max(1, mission.m_iRequiredCaptiveCount)), "rescue mission did not create required captive assets", "", instanceId);
@@ -9265,6 +9324,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool teleported = TeleportCampaignDebugPlayer(captivePosition + "2 0 2", "rescue captive probe");
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.teleport", "player teleported to captive interaction radius", string.Format("%1 | target %2", teleported, captivePosition), CampaignDebugStatus(teleported, "WARN"), "could not teleport player to captive for interaction probe", captive.m_sAssetId, instanceId);
 
+		ReleaseCampaignDebugRuntimeCompletionHoldForPrimitiveProof(instanceId, captiveCase);
 		string freeResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", captive.m_sAssetId);
 		string freePhase = captive.m_sLastInteraction;
 		string followResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_follow", captive.m_sAssetId);
@@ -9902,6 +9962,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return primitiveCase;
 		}
 
+		if (primitiveActive)
+			ReleaseCampaignDebugRuntimeCompletionHoldForPrimitiveProof(primitiveInstanceId, primitiveCase);
+
 		if (primitiveName == "kill_hvt")
 			AddCampaignDebugKillTargetPrimitiveAssertions(primitiveCase, definition, mission);
 		else if (primitiveName == "destroy_target")
@@ -10092,7 +10155,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool changed = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, elapsedSeconds);
 		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
 		if (!completedRuntimeMissionId.IsEmpty())
-			changed = CompleteMission(completedRuntimeMissionId) || changed;
+			changed = HandleRuntimeMissionCompletionCandidate(completedRuntimeMissionId) || changed;
 
 		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
 		if (!failedRuntimeMissionId.IsEmpty())
@@ -10444,7 +10507,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_MissionRuntime && m_Objectives)
 			areaCompletedMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
 		if (areaCompletedMissionId == areaInstanceId)
-			areaCompletedByRuntime = CompleteMission(areaCompletedMissionId);
+			areaCompletedByRuntime = HandleRuntimeMissionCompletionCandidate(areaCompletedMissionId);
 
 		bool areaObjectiveComplete = areaObjective.m_bComplete && !areaObjective.m_bFailed;
 		bool areaHoldComplete = areaObjective.m_eType != HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || areaObjective.m_iHoldSeconds >= areaRequiredHold;
