@@ -7082,6 +7082,7 @@ foreach ($requiredFactionCatalogPreflightEntry in @(
 Write-Host "Campaign-debug faction catalog preflight proof OK"
 
 $physicalWarServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$convoyOutcomeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ConvoyOutcomeService.c"
 foreach ($requiredActiveVehicleDetachEntry in @(
 		"PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS",
 		"m_aVehicleSpawnBlockedZoneIds",
@@ -7780,6 +7781,22 @@ foreach ($requiredPhase9RuntimeEntry in @(
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase9RuntimeEntry)) {
 		throw "Missing Phase 9 convoy contact runtime entry: $requiredPhase9RuntimeEntry"
 	}
+}
+foreach ($requiredConvoyOutcomeLiveHistoryEntry in @(
+		"ShouldApplyConvoyCrewEliminatedOutcome(state, mission)",
+		"HasConvoyEliminatedCrewEvidence",
+		"HasConvoyCrewLiveHistory",
+		'MISSION_CONVOY_GROUP_PREFIX = "mission_convoy_"',
+		"activeGroup.m_bEverHadLivingCrew",
+		"activeGroup.m_iMaxObservedCrewAlive > 0",
+		"convoyGroups > 0 && eliminatedGroups == convoyGroups"
+	)) {
+	if ($convoyOutcomeServiceText -notmatch [regex]::Escape($requiredConvoyOutcomeLiveHistoryEntry)) {
+		throw "Convoy outcome crew-elimination rewards must require observed live crew history: $requiredConvoyOutcomeLiveHistoryEntry"
+	}
+}
+if ($convoyOutcomeServiceText -match "ShouldApplyConvoyCrewEliminatedOutcome\s*\(\s*HST_ActiveMissionState\s+mission\s*\)") {
+	throw "Convoy outcome crew-elimination guard must receive campaign state so it can prove mission_convoy_ active group live history"
 }
 foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4",

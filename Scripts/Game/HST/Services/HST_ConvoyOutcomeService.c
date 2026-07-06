@@ -4,6 +4,7 @@ class HST_ConvoyOutcomeService
 	static const string ROLE_CONVOY_VEHICLE = "convoy_vehicle";
 	static const string ROLE_CONVOY_PAYLOAD = "convoy_payload";
 	static const string ROLE_CONVOY_CAPTIVE = "convoy_captive";
+	static const string MISSION_CONVOY_GROUP_PREFIX = "mission_convoy_";
 	static const string PHASE_CONVOY_ELIMINATED = "convoy_eliminated";
 	static const string PHASE_CONVOY_ARRIVED = "convoy_arrived";
 	static const string PHASE_FAILED = "failed";
@@ -32,7 +33,7 @@ class HST_ConvoyOutcomeService
 			string result;
 			if (ShouldApplyConvoyArrivalOutcome(mission))
 				changed = OnConvoyArrived(state, preset, balance, mission, garrisons, towns, result) || changed;
-			if (ShouldApplyConvoyCrewEliminatedOutcome(mission))
+			if (ShouldApplyConvoyCrewEliminatedOutcome(state, mission))
 				changed = OnConvoyCrewEliminated(state, preset, balance, mission, economy, result) || changed;
 
 			foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
@@ -395,15 +396,15 @@ class HST_ConvoyOutcomeService
 		return false;
 	}
 
-	protected bool ShouldApplyConvoyCrewEliminatedOutcome(HST_ActiveMissionState mission)
+	protected bool ShouldApplyConvoyCrewEliminatedOutcome(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!mission || mission.m_bConvoyCrewEliminatedOutcomeApplied)
 			return false;
-		if (mission.m_sRuntimePhase == PHASE_CONVOY_ELIMINATED)
-			return true;
-		if (mission.m_sLastRuntimeEventKey == EVENT_CONVOY_COMPLETE)
-			return true;
-		return false;
+		bool eliminatedEvent = mission.m_sRuntimePhase == PHASE_CONVOY_ELIMINATED || mission.m_sLastRuntimeEventKey == EVENT_CONVOY_COMPLETE;
+		if (!eliminatedEvent)
+			return false;
+
+		return HasConvoyEliminatedCrewEvidence(state, mission);
 	}
 
 	protected bool ShouldApplyConvoyExpiredOutcome(HST_ActiveMissionState mission)
@@ -425,6 +426,47 @@ class HST_ConvoyOutcomeService
 	protected bool IsConvoyMission(HST_ActiveMissionState mission)
 	{
 		return mission && mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT;
+	}
+
+	protected bool HasConvoyEliminatedCrewEvidence(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
+			return false;
+
+		string groupPrefix = string.Format("%1%2_", MISSION_CONVOY_GROUP_PREFIX, mission.m_sInstanceId);
+		int convoyGroups = 0;
+		int eliminatedGroups = 0;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || !activeGroup.m_sGroupId.Contains(groupPrefix))
+				continue;
+
+			convoyGroups++;
+			if (activeGroup.m_sRuntimeStatus != PHASE_CONVOY_ELIMINATED && activeGroup.m_sRuntimeStatus != "eliminated")
+				return false;
+			if (!HasConvoyCrewLiveHistory(activeGroup))
+				return false;
+
+			eliminatedGroups++;
+		}
+
+		return convoyGroups > 0 && eliminatedGroups == convoyGroups;
+	}
+
+	protected bool HasConvoyCrewLiveHistory(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+		if (activeGroup.m_bEverHadLivingCrew)
+			return true;
+		if (activeGroup.m_iMaxObservedCrewAlive > 0)
+			return true;
+		if (activeGroup.m_iLastSeenAliveCount > 0)
+			return true;
+		if (activeGroup.m_iSurvivorInfantryCount > 0)
+			return true;
+
+		return false;
 	}
 
 	protected bool IsAmmoConvoy(HST_ActiveMissionState mission)
