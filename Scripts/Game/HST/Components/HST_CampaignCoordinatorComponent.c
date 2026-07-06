@@ -4665,7 +4665,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			int agentsBeforeSpawnProbe = group.m_iSpawnedAgentCount;
 			int aliveBeforeSpawnProbe = group.m_iLastSeenAliveCount;
 			probeContext.m_bRuntimeSpawnProbeRanBeforePopulation = true;
-			bool runtimeSpawnProbeChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			bool runtimeSpawnProbeChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
 			group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
 			if (group)
 			{
@@ -4721,7 +4721,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					arrivalAdvanceSeconds = arrivalAdvanceSeconds + (HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - arrivalRemainder);
 				probeContext.m_iArrivalAdvanceSeconds = arrivalAdvanceSeconds;
 				m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + arrivalAdvanceSeconds;
-				probeContext.m_bArrivalRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+				probeContext.m_bArrivalRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
 				probeContext.m_bArrivalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
 				group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
 				if (group)
@@ -4796,7 +4796,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + supportSampleAdvanceSeconds;
 			probeContext.m_iRouteAdvanceSeconds = probeContext.m_iRouteAdvanceSeconds + supportSampleAdvanceSeconds;
-			bool routeChangedThisSample = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			bool routeChangedThisSample = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
 			if (routeChangedThisSample)
 				probeContext.m_bRouteTickChanged = true;
 
@@ -14083,7 +14083,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (physicalProbe.m_Group)
 		{
-			physicalProbe.m_bSpawnTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			physicalProbe.m_bSpawnTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
 			physicalProbe.m_Group = m_State.FindActiveGroup(physicalProbe.m_Group.m_sGroupId);
 			if (physicalProbe.m_Group)
 				physicalProbe.m_sGroupStatusAfterTick = physicalProbe.m_Group.m_sRuntimeStatus;
@@ -14146,7 +14146,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + enemySampleAdvanceSeconds;
 			physicalProbe.m_iRouteAdvanceSeconds = physicalProbe.m_iRouteAdvanceSeconds + enemySampleAdvanceSeconds;
-			bool enemyRouteChangedThisSample = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			bool enemyRouteChangedThisSample = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
 			if (enemyRouteChangedThisSample)
 				physicalProbe.m_bRouteTickChanged = true;
 
@@ -16300,7 +16300,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool syncChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
 		bool routeChanged;
 		if (m_PhysicalWar)
-			routeChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			routeChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
 		RetagCampaignDebugEscalationGroups(profile.m_iActiveGroupsBefore, label);
 		RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, label);
 		profile.m_bCommanderTickChanged = profile.m_bCommanderTickChanged || physicalizeChanged || supportChanged || syncChanged || routeChanged;

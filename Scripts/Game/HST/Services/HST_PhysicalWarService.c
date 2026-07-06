@@ -211,12 +211,12 @@ class HST_PhysicalWarService
 		return safe;
 	}
 
-	bool UpdateRoutedActiveGroupsNow(HST_CampaignState state)
+	bool UpdateRoutedActiveGroupsNow(HST_CampaignState state, HST_CampaignPreset preset = null)
 	{
 		if (!state)
 			return false;
 
-		EnsureRuntimeGroupEntities(state);
+		EnsureRuntimeGroupEntities(state, preset);
 		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
 		bool routeChanged = UpdateActiveGroupRoutes(state);
 		bool combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
@@ -230,7 +230,7 @@ class HST_PhysicalWarService
 		if (state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
 			return false;
 
-		bool routedGroupChanged = UpdateRoutedActiveGroupsNow(state);
+		bool routedGroupChanged = UpdateRoutedActiveGroupsNow(state, preset);
 
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
@@ -2679,7 +2679,7 @@ class HST_PhysicalWarService
 			}
 
 			if (activeGroup && activeGroup.m_sRuntimeStatus != "spawn_failed" && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
-				changed = TrySpawnMissionConvoyGroup(state, mission, asset, activeGroup, vehicleIndex) || changed;
+				changed = TrySpawnMissionConvoyGroup(state, preset, mission, asset, activeGroup, vehicleIndex) || changed;
 
 			if (activeGroup)
 				changed = SyncMissionConvoyVehicleAssetRuntimeState(state, mission, asset, activeGroup, groupId) || changed;
@@ -2820,7 +2820,7 @@ class HST_PhysicalWarService
 		return activeGroup;
 	}
 
-	protected bool TrySpawnMissionConvoyGroup(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, HST_ActiveGroupState activeGroup, int index)
+	protected bool TrySpawnMissionConvoyGroup(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionAssetState asset, HST_ActiveGroupState activeGroup, int index)
 	{
 		if (!state || !mission || !asset || !activeGroup)
 			return false;
@@ -2866,7 +2866,7 @@ class HST_PhysicalWarService
 		if (vehiclePrefab.IsEmpty())
 			vehiclePrefab = SelectMissionConvoyVehiclePrefab(state, ResolveMissionConvoyTargetZone(state, mission, asset), activeGroup.m_sFactionKey, mission, index, preset);
 
-		GenericEntity vehicleEntity = SpawnMissionConvoyVehicle(state, mission, asset, activeGroup, vehiclePrefab, spawnPosition, index);
+		GenericEntity vehicleEntity = SpawnMissionConvoyVehicle(state, preset, mission, asset, activeGroup, vehiclePrefab, spawnPosition, index);
 		if (!vehicleEntity)
 		{
 			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
@@ -2940,7 +2940,7 @@ class HST_PhysicalWarService
 		return true;
 	}
 
-	protected GenericEntity SpawnMissionConvoyVehicle(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, HST_ActiveGroupState activeGroup, string vehiclePrefab, vector spawnPosition, int index)
+	protected GenericEntity SpawnMissionConvoyVehicle(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionAssetState asset, HST_ActiveGroupState activeGroup, string vehiclePrefab, vector spawnPosition, int index)
 	{
 		string selectedPrefab = SelectMissionConvoyVehiclePrefab(state, ResolveMissionConvoyTargetZone(state, mission, asset), activeGroup.m_sFactionKey, mission, index + 13, preset);
 		if (!selectedPrefab.IsEmpty())
@@ -8378,7 +8378,7 @@ class HST_PhysicalWarService
 		return activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed";
 	}
 
-	protected void EnsureRuntimeGroupEntities(HST_CampaignState state)
+	protected void EnsureRuntimeGroupEntities(HST_CampaignState state, HST_CampaignPreset preset = null)
 	{
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
@@ -8394,7 +8394,7 @@ class HST_PhysicalWarService
 				if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
 					continue;
 				if (mission && asset && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
-					TrySpawnMissionConvoyGroup(state, mission, asset, activeGroup, ResolveMissionConvoyGroupIndex(mission, activeGroup.m_sGroupId));
+					TrySpawnMissionConvoyGroup(state, preset, mission, asset, activeGroup, ResolveMissionConvoyGroupIndex(mission, activeGroup.m_sGroupId));
 				continue;
 			}
 
