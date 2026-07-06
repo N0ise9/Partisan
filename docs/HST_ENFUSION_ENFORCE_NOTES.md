@@ -332,6 +332,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Enforce parser diagnostics can blame the first statement inside a helper when the method signature is the real problem.
   - Current observed case: a campaign-debug marker-audit helper with six `out` parameters reported `Broken expression (missing ';'?)` on the following `foreach` line during Workbench Game script compilation.
   - Keep detailed debug counters in a context object or component fields and use at most a small number of `out` parameters on hot helpers.
+  - A valid-looking chained helper branch can also report the error on the next plain `return`. If a marker/debug audit helper combines category checks with direct `return service.FindX(...) != null` expressions, prefer explicit typed locals plus simple branch returns; this keeps Workbench's parser from blaming the following statement.
 
 - Avoid redundant `Cast(...)` calls when the API already returns the requested base type.
   - Workbench reports this as `No need to use 'Cast' for up-casting`.

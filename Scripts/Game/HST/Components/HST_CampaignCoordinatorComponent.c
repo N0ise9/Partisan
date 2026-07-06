@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r5-mission-convoy-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r6-marker-compilefix";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -6194,13 +6194,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (category == "hq" || category == "hideout")
 			return true;
 		if (category == "mission" || category == "mission_objective" || category == "mission_asset" || category == "mission_route")
-			return m_State.FindActiveMission(marker.m_sLinkedId) != null;
+		{
+			HST_ActiveMissionState mission = m_State.FindActiveMission(marker.m_sLinkedId);
+			return mission != null;
+		}
 		if (category == "support")
-			return m_State.FindSupportRequest(marker.m_sLinkedId) != null;
+		{
+			HST_SupportRequestState request = m_State.FindSupportRequest(marker.m_sLinkedId);
+			return request != null;
+		}
 		if (category == "qrf")
-			return FindCampaignDebugQRF(marker.m_sLinkedId) != null;
-		if (category == "town" || marker.m_sMarkerId.Contains("hst_zone_"))
-			return m_State.FindZone(marker.m_sLinkedId) != null;
+		{
+			HST_QRFState qrf = FindCampaignDebugQRF(marker.m_sLinkedId);
+			return qrf != null;
+		}
+
+		bool zoneMarker = category == "town";
+		if (!zoneMarker && marker.m_sMarkerId.Contains("hst_zone_"))
+			zoneMarker = true;
+		if (zoneMarker)
+		{
+			HST_ZoneState zone = m_State.FindZone(marker.m_sLinkedId);
+			return zone != null;
+		}
 
 		return true;
 	}
