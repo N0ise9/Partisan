@@ -7196,7 +7196,7 @@ class HST_PhysicalWarService
 		}
 
 		ApplyCampaignDebugEntityName(entity, "active_group", activeGroup.m_sGroupId);
-		ApplyRuntimeGroupFaction(entity, activeGroup, "group prefab spawn");
+		ApplyRuntimeGroupFaction(entity, activeGroup, "group prefab spawn", true);
 		if (agentCount <= 0)
 		{
 			activeGroup.m_bSpawnedEntity = false;
@@ -7287,7 +7287,15 @@ class HST_PhysicalWarService
 		entity.SetOrigin(position);
 		entity.SetAngles(HST_WorldPositionService.BuildEntitySetAnglesFromYawVector(zeroAngles));
 		StabilizeRuntimeAIGroupRoot(entity, activeGroup, "controlled group prefab spawn");
-		ApplyRuntimeGroupFaction(entity, activeGroup, "controlled group prefab pre-spawn");
+		ApplyRuntimeGroupFaction(entity, activeGroup, "controlled group prefab pre-spawn", true);
+		string actualGroupFaction;
+		if (!IsRuntimeGroupRootFactionExpected(entity, activeGroup, actualGroupFaction))
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			failureReason = string.Format("Group prefab root faction mismatch before native member spawn: expected %1 actual %2 prefab %3.", activeGroup.m_sFactionKey, ReportText(actualGroupFaction), prefab);
+			Print(string.Format("h-istasi | active group root faction mismatch %1 expected %2 actual %3 prefab %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, ReportText(actualGroupFaction), prefab), LogLevel.WARNING);
+			return null;
+		}
 		group.SpawnUnits();
 		if (activeGroup)
 			DebugLog(string.Format("active group requested controlled native member spawn %1 expected infantry %2 prefab %3 | %4", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, prefab, BuildNativeGroupPopulationDebug(group)));
@@ -7390,7 +7398,7 @@ class HST_PhysicalWarService
 		if (agentCount <= 0)
 			return false;
 
-		ApplyRuntimeGroupFaction(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId), activeGroup, source);
+		ApplyRuntimeGroupFaction(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId), activeGroup, source, true);
 		ClearPendingActiveGroupPopulation(activeGroup);
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
@@ -7705,7 +7713,7 @@ class HST_PhysicalWarService
 		if (spawnedCount > 0)
 		{
 			group.SetNumberOfMembersToSpawn(spawnedCount);
-			ApplyRuntimeGroupFaction(group, activeGroup, "stock group member slots");
+			ApplyRuntimeGroupFaction(group, activeGroup, "stock group member slots", true);
 			group.ActivateAI();
 		}
 		else
@@ -7835,7 +7843,7 @@ class HST_PhysicalWarService
 		ApplyCampaignDebugEntityName(entity, "direct_group", activeGroup.m_sGroupId);
 		replacementGroup.SetSpawnImmediately(false);
 		replacementGroup.SetDeleteWhenEmpty(false);
-		ApplyRuntimeGroupFaction(entity, activeGroup, source + " direct infantry group replacement");
+		ApplyRuntimeGroupFaction(entity, activeGroup, source + " direct infantry group replacement", true);
 		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeGroupEntities.Insert(entity);
 		DebugLog(string.Format("active group replaced empty native AIGroup for direct infantry fallback %1 via %2", activeGroup.m_sGroupId, source));
@@ -7886,7 +7894,7 @@ class HST_PhysicalWarService
 
 		if (spawnedCount > 0)
 		{
-			ApplyRuntimeGroupFaction(group, activeGroup, "direct infantry fallback");
+			ApplyRuntimeGroupFaction(group, activeGroup, "direct infantry fallback", true);
 			group.ActivateAI();
 		}
 
@@ -8028,7 +8036,21 @@ class HST_PhysicalWarService
 		return entity;
 	}
 
-	protected void ApplyRuntimeGroupFaction(IEntity entity, HST_ActiveGroupState activeGroup, string source)
+	protected bool IsRuntimeGroupRootFactionExpected(IEntity entity, HST_ActiveGroupState activeGroup, out string actualFaction)
+	{
+		actualFaction = "";
+		if (!activeGroup || activeGroup.m_sFactionKey.IsEmpty())
+			return true;
+
+		SCR_AIGroup group = SCR_AIGroup.Cast(entity);
+		if (!group)
+			return true;
+
+		actualFaction = group.GetFactionName();
+		return actualFaction == activeGroup.m_sFactionKey;
+	}
+
+	protected void ApplyRuntimeGroupFaction(IEntity entity, HST_ActiveGroupState activeGroup, string source, bool forceGroupSetFaction = false)
 	{
 		if (!entity || !activeGroup || activeGroup.m_sFactionKey.IsEmpty())
 			return;
@@ -8037,13 +8059,13 @@ class HST_PhysicalWarService
 		int changedCount;
 		int mismatchedCount;
 		string sample;
-		EnsureRuntimeFactionRecursive(entity, factionKey, changedCount, mismatchedCount, sample);
+		EnsureRuntimeFactionRecursive(entity, factionKey, changedCount, mismatchedCount, sample, forceGroupSetFaction);
 
 		if (changedCount > 0 || mismatchedCount > 0)
 			Print(string.Format("h-istasi | runtime faction applied | group %1 | expected %2 | source %3 | changed %4 | mismatches %5 | sample %6", activeGroup.m_sGroupId, factionKey, source, changedCount, mismatchedCount, ReportText(sample)));
 	}
 
-	protected bool EnsureRuntimeFactionRecursive(IEntity root, string factionKey, out int changed, out int mismatches, out string sample)
+	protected bool EnsureRuntimeFactionRecursive(IEntity root, string factionKey, out int changed, out int mismatches, out string sample, bool forceGroupSetFaction = false)
 	{
 		changed = 0;
 		mismatches = 0;
@@ -8058,13 +8080,22 @@ class HST_PhysicalWarService
 			if (groupFactionKey != factionKey)
 			{
 				string groupFactionMethod;
-				if (ApplyAIGroupFaction(group, factionKey, groupFactionMethod))
+				if (ApplyAIGroupFaction(group, factionKey, groupFactionMethod, forceGroupSetFaction))
 				{
 					changed++;
 					if (sample.IsEmpty())
 						sample = string.Format("group root faction changed %1 -> %2 via %3", ReportText(groupFactionKey), ReportText(group.GetFactionName()), ReportText(groupFactionMethod));
 				}
 				groupFactionKey = group.GetFactionName();
+			}
+			else if (forceGroupSetFaction)
+			{
+				string groupFactionMethod;
+				if (ApplyAIGroupFaction(group, factionKey, groupFactionMethod, forceGroupSetFaction))
+				{
+					if (sample.IsEmpty())
+						sample = string.Format("group root faction rebroadcast %1 via %2", ReportText(groupFactionKey), ReportText(groupFactionMethod));
+				}
 			}
 			if (groupFactionKey != factionKey)
 			{
@@ -8108,14 +8139,14 @@ class HST_PhysicalWarService
 		return mismatches == 0;
 	}
 
-	protected bool ApplyAIGroupFaction(SCR_AIGroup group, string factionKey, out string method)
+	protected bool ApplyAIGroupFaction(SCR_AIGroup group, string factionKey, out string method, bool forceSetFaction = false)
 	{
 		method = "";
 		if (!group || factionKey.IsEmpty())
 			return false;
 
 		string before = group.GetFactionName();
-		if (before == factionKey)
+		if (before == factionKey && !forceSetFaction)
 			return false;
 
 		bool changed = false;
@@ -8135,6 +8166,17 @@ class HST_PhysicalWarService
 					method = "SetFaction";
 				else
 					method = method + "+SetFaction";
+			}
+		}
+		else if (forceSetFaction)
+		{
+			Faction broadcastFaction = ResolveRuntimeFaction(factionKey);
+			if (broadcastFaction && group.SetFaction(broadcastFaction))
+			{
+				if (method.IsEmpty())
+					method = "SetFactionBroadcast";
+				else
+					method = method + "+SetFactionBroadcast";
 			}
 		}
 

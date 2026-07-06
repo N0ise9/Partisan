@@ -166,7 +166,7 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 `serverStart.bat`. The server log must contain
-`h-istasi boot | authority build 2026-07-06-runtime-proof-r24-group-faction-init-proof`
+`h-istasi boot | authority build 2026-07-06-runtime-proof-r25-group-faction-broadcast-proof`
 and the client log must contain
 `build=2026-07-06-menu-input-r14-ui-render-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged
