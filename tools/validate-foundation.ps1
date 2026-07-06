@@ -3512,6 +3512,44 @@ foreach ($requiredCommandMenuLayerEntry in @(
 		throw "Command menu must keep deterministic layout-layer ordering and ready diagnostics: $requiredCommandMenuLayerEntry"
 	}
 }
+foreach ($requiredCommandMenuRenderedProofEntry in @(
+		"CampaignDebugReportBool(report, `"menuOpen`")",
+		"CampaignDebugReportBool(report, `"root`")",
+		"CampaignDebugReportBool(report, `"readyOk`")",
+		"return report.Contains(fieldName + `" true`") || report.Contains(fieldName + `" 1`")"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCommandMenuRenderedProofEntry)) {
+		throw "Command menu rendered proof must parse Enfusion bool fields from client reports: $requiredCommandMenuRenderedProofEntry"
+	}
+}
+$renderedProofWidgetListMatch = [regex]::Match($commandMenuComponentText, "protected void BuildCampaignDebugRenderedProofWidgetList[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool CampaignDebugWidgetHasUsableBounds")
+if (!$renderedProofWidgetListMatch.Success) {
+	throw "Missing command menu rendered proof widget-list boundary"
+}
+foreach ($requiredRenderedProofWidget in @(
+		'HST_CommandMenuRoot',
+		'CommandSurface',
+		'Header',
+		'NavigationPanel',
+		'TabItems',
+		'StatsPanel',
+		'MainItems',
+		'ActivityPanel',
+		'ActionsItems'
+	)) {
+	if ($renderedProofWidgetListMatch.Value -notmatch [regex]::Escape($requiredRenderedProofWidget)) {
+		throw "Command menu rendered proof is missing required visible widget: $requiredRenderedProofWidget"
+	}
+}
+foreach ($optionalHiddenRenderedProofWidget in @(
+		'HeaderTabTitle',
+		'ActivityScroll',
+		'ActivityItems'
+	)) {
+	if ($renderedProofWidgetListMatch.Value -match [regex]::Escape($optionalHiddenRenderedProofWidget)) {
+		throw "Command menu rendered proof must not require optional or hidden-by-design widget: $optionalHiddenRenderedProofWidget"
+	}
+}
 $contextCommandMatch = [regex]::Match($commandMenuComponentText, "void RunCommandFromContext[\s\S]*?\r?\n\t}\r?\n\r?\n\tvoid OnServerSnapshot")
 if (!$contextCommandMatch.Success) {
 	throw "Missing command menu context command path"

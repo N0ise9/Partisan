@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "de3db34+convoyui";
-	static const string BUILD_UTC = "2026-07-06T13:00:25Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r13-convoy-ui";
+	static const string BUILD_SHA = "22ca457+uirenderproof";
+	static const string BUILD_UTC = "2026-07-06T13:05:16Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r14-ui-render-proof";
 
 	static string BuildSummary()
 	{

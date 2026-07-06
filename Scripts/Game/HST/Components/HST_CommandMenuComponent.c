@@ -53,7 +53,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string COMMAND_MENU_INPUT_CONTEXT = "HST_CommandMenuContext";
 	static const string COMMAND_MENU_NATIVE_I_CONTEXT = "PlayerMenuContext";
-	static const string COMMAND_MENU_BUILD = "2026-07-06-menu-input-r13-convoy-ui";
+	static const string COMMAND_MENU_BUILD = "2026-07-06-menu-input-r14-ui-render-proof";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
@@ -439,7 +439,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		widgetNames.Insert("Header");
 		widgetNames.Insert("HeaderTitle");
 		widgetNames.Insert("HeaderSubtitle");
-		widgetNames.Insert("HeaderTabTitle");
 		widgetNames.Insert("CloseButton");
 		widgetNames.Insert("CloseLabel");
 		widgetNames.Insert("NavigationPanel");
@@ -451,8 +450,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		widgetNames.Insert("MainScroll");
 		widgetNames.Insert("MainItems");
 		widgetNames.Insert("ActivityPanel");
-		widgetNames.Insert("ActivityScroll");
-		widgetNames.Insert("ActivityItems");
 		widgetNames.Insert("ActionsPanel");
 		widgetNames.Insert("ActionsScroll");
 		widgetNames.Insert("ActionsItems");

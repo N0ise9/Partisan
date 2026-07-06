@@ -258,6 +258,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Current example: `Configs/HST/Input/HST_Input.conf` defines `HST_CommandMenuContext` with `HST_CommandMenu`, and `HST_CommandMenuComponent` activates that context before polling the `I` key command-menu action.
   - If a key is covered by both raw `Debug.KeyState()` fallback polling and an action-manager binding, consume the first edge for the frame before polling the second path. Otherwise one physical key press can produce duplicate open/close or debounce-refusal evidence that makes the input path look broken.
   - Log action edges, raw key edges, and UI-root refusal state while diagnosing input. A log that only says a component registered its listener does not prove the key path fired.
+  - Enfusion string-formatting of bools in debug reports may appear as `1`/`0`, not `true`/`false`. Server-side parsers for owner-client UI proof reports must accept both forms, otherwise `menuOpen 1` and `root 1` can be misclassified as a closed menu.
+  - Rendered UI proof lists should include only widgets that are expected to be visible in the normal layout. Do not require hidden-by-design labels or optional empty panels, such as a blank header tab title or empty activity feed rows, as full-menu readiness gates.
 
 - Full-screen modal UIs that close on Escape need to consume both menu actions bound to Escape.
   - Base Reforger configs bind `KC_ESCAPE` to `MenuBack` and `MenuOpen`; listening only to `MenuBack` can close the mod UI and still let the native pause menu open from the same keypress.
