@@ -8062,7 +8062,7 @@ class HST_PhysicalWarService
 		EnsureRuntimeFactionRecursive(entity, factionKey, changedCount, mismatchedCount, sample, forceGroupSetFaction);
 
 		if (changedCount > 0 || mismatchedCount > 0)
-			Print(string.Format("h-istasi | runtime faction applied | group %1 | expected %2 | source %3 | changed %4 | mismatches %5 | sample %6", activeGroup.m_sGroupId, factionKey, source, changedCount, mismatchedCount, ReportText(sample)));
+			Print(string.Format("h-istasi | runtime faction applied | group %1 | expected %2 | source %3 | changed %4 | mismatches %5 | visual %6 | sample %7", activeGroup.m_sGroupId, factionKey, source, changedCount, mismatchedCount, ReportText(BuildRuntimeEntityVisualEvidence(entity)), ReportText(sample)));
 	}
 
 	protected bool EnsureRuntimeFactionRecursive(IEntity root, string factionKey, out int changed, out int mismatches, out string sample, bool forceGroupSetFaction = false)
@@ -8076,6 +8076,21 @@ class HST_PhysicalWarService
 		SCR_AIGroup group = SCR_AIGroup.Cast(root);
 		if (group)
 		{
+			if (ApplyEntityFaction(root, factionKey))
+			{
+				changed++;
+				if (sample.IsEmpty())
+					sample = string.Format("group root affiliation changed to %1", ReportText(factionKey));
+			}
+
+			string rootFactionKey = ResolveEntityFactionKey(root);
+			if (!rootFactionKey.IsEmpty() && rootFactionKey != factionKey)
+			{
+				mismatches++;
+				if (sample.IsEmpty())
+					sample = string.Format("group root affiliation pos %1 actual %2", root.GetOrigin(), ReportText(rootFactionKey));
+			}
+
 			string groupFactionKey = group.GetFactionName();
 			if (groupFactionKey != factionKey)
 			{
@@ -8093,6 +8108,7 @@ class HST_PhysicalWarService
 				string groupFactionMethod;
 				if (ApplyAIGroupFaction(group, factionKey, groupFactionMethod, forceGroupSetFaction))
 				{
+					changed++;
 					if (sample.IsEmpty())
 						sample = string.Format("group root faction rebroadcast %1 via %2", ReportText(groupFactionKey), ReportText(groupFactionMethod));
 				}
@@ -8173,6 +8189,7 @@ class HST_PhysicalWarService
 			Faction broadcastFaction = ResolveRuntimeFaction(factionKey);
 			if (broadcastFaction && group.SetFaction(broadcastFaction))
 			{
+				changed = true;
 				if (method.IsEmpty())
 					method = "SetFactionBroadcast";
 				else
@@ -8437,7 +8454,7 @@ class HST_PhysicalWarService
 				break;
 			}
 
-			return string.Format("root %1 groupFaction %2 raw %3 living %4 slots %5 queue %6 member %7 memberFaction %8", ReportText(ResolveEntityPrefabName(entity)), ReportText(group.GetFactionName()), group.GetAgentsCount(), CountLivingNativeAIGroupAgents(group), CountNativeGroupMemberSlots(group), group.GetSpawnQueueSize(), ReportText(memberPrefab), ReportText(memberFaction));
+			return string.Format("root %1 groupFaction %2 rootFaction %3 raw %4 living %5 slots %6 queue %7 member %8 memberFaction %9", ReportText(ResolveEntityPrefabName(entity)), ReportText(group.GetFactionName()), ReportText(ResolveEntityFactionKey(entity)), group.GetAgentsCount(), CountLivingNativeAIGroupAgents(group), CountNativeGroupMemberSlots(group), group.GetSpawnQueueSize(), ReportText(memberPrefab), ReportText(memberFaction));
 		}
 
 		return string.Format("entity %1 faction %2 name %3", ReportText(ResolveEntityPrefabName(entity)), ReportText(ResolveEntityFactionKey(entity)), ReportText(entity.GetName()));
@@ -8463,6 +8480,8 @@ class HST_PhysicalWarService
 			SCR_AIGroup group = SCR_AIGroup.Cast(entity);
 			if (group)
 			{
+				mismatches += CountRuntimeGroupRootAffiliationMismatch(entity, expectedFactionKey, sample);
+
 				string groupFactionKey = group.GetFactionName();
 				if (groupFactionKey != expectedFactionKey)
 				{
@@ -8511,6 +8530,25 @@ class HST_PhysicalWarService
 		}
 
 		return mismatches;
+	}
+
+	protected int CountRuntimeGroupRootAffiliationMismatch(IEntity entity, string expectedFactionKey, out string sample)
+	{
+		if (!entity || expectedFactionKey.IsEmpty())
+			return 0;
+
+		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+		if (!factionComponent)
+			return 0;
+
+		string actualFactionKey = factionComponent.GetAffiliatedFactionKey();
+		if (actualFactionKey == expectedFactionKey)
+			return 0;
+
+		if (sample.IsEmpty())
+			sample = string.Format("group root affiliation pos %1 actual %2 expected %3", entity.GetOrigin(), ReportText(actualFactionKey), ReportText(expectedFactionKey));
+
+		return 1;
 	}
 
 	protected string ResolveActiveGroupRuntimeRootFactionKey(HST_ActiveGroupState activeGroup)

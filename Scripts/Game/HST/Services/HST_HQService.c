@@ -225,7 +225,7 @@ class HST_HQService
 		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
 			return false;
 
-		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked(state) && IsUsableArsenalEntity(m_ArsenalEntity) && IsLivingRuntimeEntity(m_PetrosEntity))
+		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked(state) && IsUsableArsenalEntity(m_ArsenalEntity) && AreRuntimeObjectsWorldProven(state) && IsLivingRuntimeEntity(m_PetrosEntity))
 			return false;
 
 		if (state.m_bHQRuntimeObjectsSpawned && !AreRuntimeObjectsTracked(state))
@@ -313,6 +313,17 @@ class HST_HQService
 
 		if (!m_CacheEntity)
 		{
+			IEntity cacheEntity = ResolveReusableHQRuntimeObject(state.m_vHQCachePosition, ResolveStatePrefab(state.m_sHQCachePrefab, HQ_CACHE_PREFAB), 10.0, "cache", "reattach");
+			if (cacheEntity)
+			{
+				m_CacheEntity = cacheEntity;
+				m_bLoggedCacheSpawned = true;
+				changed = true;
+			}
+		}
+
+		if (!m_CacheEntity)
+		{
 			m_CacheEntity = HST_WorldPositionService.SpawnPrefab(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
 			if (m_CacheEntity)
 			{
@@ -321,6 +332,17 @@ class HST_HQService
 			}
 			else if (logDetails)
 				LogRuntimeObjectSpawnFailure("cache", HQ_CACHE_PREFAB, state.m_vHQCachePosition);
+		}
+
+		if (!m_ArsenalEntity)
+		{
+			IEntity arsenalEntity = ResolveReusableHQRuntimeObject(state.m_vArsenalPosition, ResolveStatePrefab(state.m_sArsenalPrefab, ARSENAL_PREFAB), 10.0, "arsenal", "reattach");
+			if (arsenalEntity)
+			{
+				m_ArsenalEntity = arsenalEntity;
+				m_bLoggedArsenalSpawned = true;
+				changed = true;
+			}
 		}
 
 		if (!m_ArsenalEntity)
@@ -348,6 +370,17 @@ class HST_HQService
 
 		if (!m_TentEntity)
 		{
+			IEntity tentEntity = ResolveReusableHQRuntimeObject(state.m_vHQTentPosition, ResolveStatePrefab(state.m_sHQTentPrefab, HQ_TENT_PREFAB), 10.0, "tent", "reattach");
+			if (tentEntity)
+			{
+				m_TentEntity = tentEntity;
+				m_bLoggedTentSpawned = true;
+				changed = true;
+			}
+		}
+
+		if (!m_TentEntity)
+		{
 			m_TentEntity = HST_WorldPositionService.SpawnPrefab(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
 			if (m_TentEntity)
 			{
@@ -356,6 +389,19 @@ class HST_HQService
 			}
 			else if (logDetails)
 				LogRuntimeObjectSpawnFailure("tent", HQ_TENT_PREFAB, state.m_vHQTentPosition);
+		}
+
+		if (!m_SpawnPointEntity)
+		{
+			IEntity spawnPointEntity = ResolveReusableHQRuntimeObject(state.m_vHQSpawnPointPosition, ResolveStatePrefab(state.m_sHQSpawnPointPrefab, HQ_SPAWN_POINT_PREFAB), 10.0, "spawn point", "reattach");
+			if (spawnPointEntity)
+			{
+				m_SpawnPointEntity = spawnPointEntity;
+				ApplyFaction(m_SpawnPointEntity);
+				state.m_sHQSpawnPointPrefab = HQ_SPAWN_POINT_PREFAB;
+				m_bLoggedSpawnPointSpawned = true;
+				changed = true;
+			}
 		}
 
 		if (!m_SpawnPointEntity)
@@ -377,7 +423,8 @@ class HST_HQService
 
 		bool allRuntimeObjectsTracked = AreRuntimeObjectsTracked(state);
 		bool petrosRuntimeReady = IsPetrosRuntimeTracked(state) && IsLivingRuntimeEntity(m_PetrosEntity);
-		bool runtimeObjectsReady = allRuntimeObjectsTracked && IsUsableArsenalEntity(m_ArsenalEntity) && petrosRuntimeReady;
+		bool runtimeObjectsWorldProven = AreRuntimeObjectsWorldProven(state);
+		bool runtimeObjectsReady = allRuntimeObjectsTracked && runtimeObjectsWorldProven && IsUsableArsenalEntity(m_ArsenalEntity) && petrosRuntimeReady;
 		bool runtimeFlagChanged = state.m_bHQRuntimeObjectsSpawned != runtimeObjectsReady;
 		state.m_bHQRuntimeObjectsSpawned = runtimeObjectsReady;
 		if (!runtimeObjectsReady)
@@ -1471,6 +1518,18 @@ class HST_HQService
 		return IsPetrosRuntimeTracked(state) && m_CacheEntity && m_ArsenalEntity && m_TentEntity && m_SpawnPointEntity;
 	}
 
+	protected bool AreRuntimeObjectsWorldProven(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		return CountPetrosWorldRuntimeEntities(state) == 1
+			&& CountCacheWorldRuntimeEntities(state) == 1
+			&& CountArsenalWorldRuntimeEntities(state) == 1
+			&& CountTentWorldRuntimeEntities(state) == 1
+			&& CountSpawnPointWorldRuntimeEntities(state) == 1;
+	}
+
 	protected bool IsPetrosRuntimeTracked(HST_CampaignState state = null)
 	{
 		if (!state)
@@ -1536,6 +1595,19 @@ class HST_HQService
 		}
 
 		return true;
+	}
+
+	protected IEntity ResolveReusableHQRuntimeObject(vector position, string prefab, float radiusMeters, string label, string source)
+	{
+		if (prefab.IsEmpty())
+			return null;
+
+		IEntity entity = FindWorldRuntimeEntityNear(position, prefab, radiusMeters);
+		if (!entity)
+			return null;
+
+		DebugLog(string.Format("lifecycle reattached HQ %1 world entity via %2 prefab=%3 entity=%4 pos=%5", label, source, prefab, entity, ResolveRuntimeEntityPosition(entity)));
+		return entity;
 	}
 
 	protected IEntity ResolveLivingPetrosWorldEntity(HST_CampaignState state)
