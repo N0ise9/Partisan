@@ -140,7 +140,7 @@ SCR_MapLocator {
 }
 
 // BEGIN HST generated native conflict campaign markers
-$grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMilitaryBase.et" {
+$grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_ConflictMarkerBase.et" {
  HST_ConflictMapMarker_airfield_airbase_saint_philippe {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
@@ -166,16 +166,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4915.073 28.594 11855.36
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_levie_base {
   components {
@@ -202,16 +192,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7518.644 166.752 4265.595
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_calvary_hill {
   components {
@@ -238,16 +218,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 3512.013 181.915 5816.282
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_military_hospital {
   components {
@@ -274,16 +244,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 3867.375 14.906 8486.563
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_seaport_coastal_base_chotain {
   components {
@@ -310,16 +270,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7462.489 7.867 6700.641
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_seaport_coastal_base_lamentin {
   components {
@@ -346,16 +296,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 1204.166 35.034 5984.738
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_seaport_coastal_base_morton {
   components {
@@ -382,16 +322,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 5035.522 15.382 4000.177
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_north_hq {
   components {
@@ -418,16 +348,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4458.606 8.968 10916.659
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_south_hq {
   components {
@@ -454,16 +374,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 10127.863 2.525 1524.779
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_resource_quarry {
   components {
@@ -490,16 +400,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 8819.119 198.157 3909.07
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_black_lake {
   components {
@@ -526,16 +426,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 9452.499 209.48 2946.152
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_pennants_pass {
   components {
@@ -562,16 +452,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 8232.763 223.125 2164.719
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_simons_wood {
   components {
@@ -598,16 +478,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 6311.913 104.423 5226.068
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_richemont {
   components {
@@ -634,16 +504,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4451.371 64.043 5010.427
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_shepherds_pond {
   components {
@@ -670,16 +530,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 3319.675 121.874 4438.134
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_pinewood_lake {
   components {
@@ -706,16 +556,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4509.178 57.291 6231.707
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_tillers_find {
   components {
@@ -742,16 +582,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 3789.583 59.781 6997.688
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_maidens_bay {
   components {
@@ -778,16 +608,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 5345.855 43.594 10536.602
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_hornbeam_valley {
   components {
@@ -814,16 +634,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 5491.385 75.196 7952.735
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_radio_andres_beacon {
   components {
@@ -850,16 +660,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 6970.651 86.463 8271.547
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_goat_bay {
   components {
@@ -886,16 +686,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 6635.185 5.902 3119.359
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_chotain {
   components {
@@ -922,16 +712,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7084.424 118.776 6017.588
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_durras {
   components {
@@ -958,16 +738,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 8827.942 95.124 2769.363
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_entre_deux {
   components {
@@ -994,16 +764,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 5754.045 217.12 7053.081
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_figari {
   components {
@@ -1030,16 +790,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 5281.364 62.97 5361.538
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_laruns {
   components {
@@ -1066,16 +816,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7573.111 82.461 5525.154
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_le_moule {
   components {
@@ -1102,16 +842,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 2570.692 94.634 5423.876
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_levie {
   components {
@@ -1138,16 +868,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7463.167 137.26 4736.242
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_meaux {
   components {
@@ -1174,16 +894,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4464.711 13.481 9468.255
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_montignac {
   components {
@@ -1210,16 +920,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4731.929 162.779 6970.114
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_provins {
   components {
@@ -1246,16 +946,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 5596.906 96.146 6027.447
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_regina {
   components {
@@ -1282,16 +972,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7241.147 136.629 2312.1
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_tyrone {
   components {
@@ -1318,16 +998,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4933.47 37.785 9053.985
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_vernon {
   components {
@@ -1354,16 +1024,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 9198.983 64.51 2112.621
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_villeneuve {
   components {
@@ -1390,16 +1050,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 2885.242 85.58 6402.408
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_gravette {
   components {
@@ -1426,16 +1076,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4106.324 34.435 7794.186
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_kermovan {
   components {
@@ -1462,16 +1102,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 6384.869 9.616 9675.053
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_les_creux {
   components {
@@ -1498,16 +1128,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 5244.656 38.613 11354.579
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_factory_saint_philippe {
   components {
@@ -1534,16 +1154,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4542.439 15.996 10477.004
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_redon {
   components {
@@ -1570,16 +1180,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 2203.623 20.229 7478.579
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_kervel {
   components {
@@ -1606,16 +1206,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 2482.494 10.406 4232.124
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_firing_range {
   components {
@@ -1642,16 +1232,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7631.984 13.255 8097.089
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_benac {
   components {
@@ -1678,16 +1258,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 6607.746 148.937 7090.993
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_scythe {
   components {
@@ -1714,16 +1284,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7463.339 3.435 9524.696
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_perelle {
   components {
@@ -1750,16 +1310,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 9319.43 7.215 5046.667
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_lancre {
   components {
@@ -1786,16 +1336,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 11707.554 7.889 2249.905
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_cave {
   components {
@@ -1822,16 +1362,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 10600.378 188.127 2438.645
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_cheval_gin_lodge {
   components {
@@ -1858,16 +1388,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 9929.094 296.506 2578.768
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_ghost_town {
   components {
@@ -1894,16 +1414,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 11155.366 24.133 1777.733
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_saint_pierre {
   components {
@@ -1930,16 +1440,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 9716.864 11.392 1526.447
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_larue_bay {
   components {
@@ -1966,16 +1466,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 9329.601 16.333 317.23
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_montfort_castle {
   components {
@@ -2002,16 +1492,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 9337.43 197.055 1171.087
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_rockweed_cape {
   components {
@@ -2038,16 +1518,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 10355.198 31.18 350.046
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_le_bosc {
   components {
@@ -2074,16 +1544,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7896.114 10.121 1456.076
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_thollevast {
   components {
@@ -2110,16 +1570,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 2932.089 7.291 2070.882
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_argent {
   components {
@@ -2146,16 +1596,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 10944.771 25.522 8689.265
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_erquy {
   components {
@@ -2182,16 +1622,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 10923.335 25.03 11718.213
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_radio_erquy_lighthouse {
   components {
@@ -2218,16 +1648,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 11347.524 62.473 11237.517
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_resource_etoupe_gas_station {
   components {
@@ -2254,16 +1674,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 5301.91 20.614 9861.939
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_smugglers_hole {
   components {
@@ -2290,16 +1700,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 10755.526 35.145 2845.76
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_pins {
   components {
@@ -2326,16 +1726,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 1154.921 42.893 11495.366
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_fishermans_cove {
   components {
@@ -2362,16 +1752,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 6053.254 7.852 10159.83
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_courbet {
   components {
@@ -2398,16 +1778,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 8422.677 9.357 809.545
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_factory_power_plant {
   components {
@@ -2434,16 +1804,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 5848.77 5.245 9654.499
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_crag_point {
   components {
@@ -2470,16 +1830,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 11667.637 12.049 1446.685
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_town_skua_point {
   components {
@@ -2506,16 +1856,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 9628.168 16.323 5379.435
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_outpost_western_heights {
   components {
@@ -2542,16 +1882,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 7712.864 341.226 3068.306
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_radio_pins_tower {
   components {
@@ -2578,16 +1908,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 1553.824 21.747 11227.977
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_radio_eastern_sea_relay {
   components {
@@ -2614,16 +1934,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 9215.885 27.552 9351.145
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_radio_estrapade_tower {
   components {
@@ -2650,16 +1960,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 3402.537 21.509 1621.985
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_radio_st_phillipe_relay {
   components {
@@ -2686,16 +1986,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 3924.682 31.384 10769.63
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_depot_green_valley_supply_depot {
   components {
@@ -2722,16 +2012,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 8504.755 128.823 3303.259
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_depot_levie_supply_depot {
   components {
@@ -2758,16 +2038,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 6912.457 57.718 4482.109
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_depot_figari_supply_depot {
   components {
@@ -2794,16 +2064,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4814.289 53.445 5819.508
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_depot_farm_supply_depot {
   components {
@@ -2830,16 +2090,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4995.1 25.473 9943.72
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_depot_gorey_supply_depot {
   components {
@@ -2866,16 +2116,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 4841.866 112.853 8100.993
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_depot_industrial_supply_depot {
   components {
@@ -2902,16 +2142,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 6458.873 162.267 6496.987
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_depot_sawmill_supply_depot {
   components {
@@ -2938,16 +2168,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 3079.382 117.506 5184.799
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
  HST_ConflictMapMarker_depot_regina_supply_depot {
   components {
@@ -2974,16 +2194,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
    }
   }
   coords 6589.783 7.228 2329.923
-  {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
-  }
  }
 }
 // END HST generated native conflict campaign markers

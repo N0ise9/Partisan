@@ -429,6 +429,33 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return true;
 	}
 
+	static bool SendCampaignDebugMapProofOwner(int playerId, string requestId)
+	{
+		if (!Replication.IsServer() || playerId <= 0 || requestId.IsEmpty())
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		PlayerController controller = playerManager.GetPlayerController(playerId);
+		if (!controller)
+		{
+			Print(string.Format("h-istasi campaign debug map | owner RPC unavailable: player controller missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			return false;
+		}
+
+		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
+		if (!request)
+		{
+			Print(string.Format("h-istasi campaign debug map | owner RPC unavailable: request bridge missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			return false;
+		}
+
+		request.DeliverCampaignDebugMapProof(requestId);
+		return true;
+	}
+
 	string GetLastSnapshot()
 	{
 		return m_sLastSnapshot;
@@ -559,6 +586,18 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_ReportCampaignDebugCommandMenuProof, requestId, report, clientPlayerId);
 	}
 
+	void ReportCampaignDebugMapProof(string requestId, string report)
+	{
+		int clientPlayerId = ResolveLocalPlayerId();
+		if (Replication.IsServer())
+		{
+			ReceiveCampaignDebugMapProofReport(requestId, report, clientPlayerId);
+			return;
+		}
+
+		Rpc(RpcAsk_ReportCampaignDebugMapProof, requestId, report, clientPlayerId);
+	}
+
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_RequestSnapshot(string selectedTabId, string lastResult, int clientPlayerId)
 	{
@@ -605,6 +644,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void RpcAsk_ReportCampaignDebugCommandMenuProof(string requestId, string report, int clientPlayerId)
 	{
 		ReceiveCampaignDebugCommandMenuProofReport(requestId, report, clientPlayerId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_ReportCampaignDebugMapProof(string requestId, string report, int clientPlayerId)
+	{
+		ReceiveCampaignDebugMapProofReport(requestId, report, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -725,6 +770,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		menu.RunCampaignDebugRenderedProof(requestId, selectedTabId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_CampaignDebugMapProof(string requestId)
+	{
+		RunCampaignDebugMapProof(requestId);
 	}
 
 	protected void SendSnapshotToOwner(string selectedTabId, string lastResult, int clientPlayerId = 0)
@@ -969,6 +1020,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcDo_CampaignDebugCommandMenuProof, requestId, selectedTabId);
 	}
 
+	protected void DeliverCampaignDebugMapProof(string requestId)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_CampaignDebugMapProof(requestId);
+			return;
+		}
+
+		Rpc(RpcDo_CampaignDebugMapProof, requestId);
+	}
+
 	protected void ReceiveCampaignDebugCommandMenuProofReport(string requestId, string report, int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
@@ -977,6 +1039,95 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "command menu rendered proof");
 		coordinator.ReceiveCampaignDebugCommandMenuProofReport(playerId, requestId, report);
+	}
+
+	protected void ReceiveCampaignDebugMapProofReport(string requestId, string report, int clientPlayerId = 0)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return;
+
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "map marker rendered proof");
+		coordinator.ReceiveCampaignDebugMapProofReport(playerId, requestId, report);
+	}
+
+	protected void RunCampaignDebugMapProof(string requestId)
+	{
+		if (requestId.IsEmpty())
+			return;
+
+		GetGame().GetCallqueue().CallLater(DispatchCampaignDebugMapProofReport, 120, false, requestId, 0);
+		GetGame().GetCallqueue().CallLater(DispatchCampaignDebugMapProofReport, 650, false, requestId, 1);
+	}
+
+	protected void DispatchCampaignDebugMapProofReport(string requestId, int passIndex)
+	{
+		string report = BuildCampaignDebugMapProofReport(requestId, passIndex);
+		ReportCampaignDebugMapProof(requestId, report);
+		Print("h-istasi map | campaign debug rendered proof | " + report);
+	}
+
+	protected string BuildCampaignDebugMapProofReport(string requestId, int passIndex)
+	{
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		bool mapOpen = mapEntity && mapEntity.IsOpen();
+		Widget rootWidget;
+		if (mapEntity)
+			rootWidget = mapEntity.GetMapMenuRoot();
+		bool rootVisible = rootWidget && rootWidget.IsVisibleInHierarchy();
+		bool hasFrame = HasOpenMapFrame(mapEntity);
+		bool markerUI = mapEntity && mapEntity.GetMapUIComponent(SCR_MapMarkersUI) != null;
+		bool toolMenuUI = mapEntity && mapEntity.GetMapUIComponent(SCR_MapToolMenuUI) != null;
+		bool toolInteractionUI = mapEntity && mapEntity.GetMapUIComponent(SCR_MapToolInteractionUI) != null;
+		bool toolMenuWidget = HasMapWidget(mapEntity, "ToolMenu");
+		bool toolMenuBarWidget = HasMapWidget(mapEntity, "ToolMenuBar");
+		int staticMarkers;
+		int dynamicMarkers;
+		int playerMarkers;
+		int readyPlayerMarkers;
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (markerManager)
+		{
+			staticMarkers = markerManager.GetStaticMarkers().Count();
+			dynamicMarkers = markerManager.GetDynamicMarkers().Count();
+			if (mapOpen)
+				RefreshHSTPlayerMarkerWidgets();
+			foreach (SCR_MapMarkerEntity marker : markerManager.GetDynamicMarkers())
+			{
+				if (!marker || marker.GetType() != SCR_EMapMarkerType.HST_PLAYER)
+					continue;
+
+				playerMarkers++;
+				if (mapOpen && marker.EnsureHSTPlayerMarkerWidget())
+					readyPlayerMarkers++;
+				else if (!mapOpen && marker.GetRootWidget())
+					readyPlayerMarkers++;
+			}
+		}
+
+		bool markersReady = markerManager != null && (staticMarkers + dynamicMarkers) > 0;
+		bool playerReady = playerMarkers > 0 && readyPlayerMarkers >= playerMarkers;
+		string rootSummary = "none";
+		if (rootWidget)
+			rootSummary = HST_UIDebug.WidgetSummary(rootWidget);
+
+		string report = string.Format("request %1 | player %2 | pass %3 | mapOpen %4 | root %5 | frame %6 | markerUI %7 | markersReady %8 | playerReady %9", requestId, ResolveLocalPlayerId(), passIndex, mapOpen, rootVisible, hasFrame, markerUI, markersReady, playerReady);
+		report = report + string.Format(" | static %1 | dynamic %2 | playerMarkers %3/%4", staticMarkers, dynamicMarkers, readyPlayerMarkers, playerMarkers);
+		report = report + string.Format(" | toolMenuUI %1 | toolInteractionUI %2 | toolMenuWidget %3 | toolMenuBarWidget %4", toolMenuUI, toolInteractionUI, toolMenuWidget, toolMenuBarWidget);
+		report = report + " | rootSummary " + ShortenText(rootSummary, 140);
+		return report;
+	}
+
+	protected string ShortenText(string text, int maxCharacters)
+	{
+		if (text.IsEmpty() || maxCharacters <= 0)
+			return "";
+		if (text.Length() <= maxCharacters)
+			return text;
+		if (maxCharacters <= 3)
+			return text.Substring(0, maxCharacters);
+
+		return text.Substring(0, maxCharacters - 3) + "...";
 	}
 
 	protected void RefreshLocalOwner(IEntity owner)

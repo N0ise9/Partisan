@@ -1,4 +1,4 @@
-$grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMilitaryBase.et" {
+$grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_ConflictMarkerBase.et" {
  HST_Dev_CentralHideout {
   components {
    SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
@@ -24,14 +24,6 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
   coords 4280.766 14.317 3468.06
   angleY 0
   {
-   GenericEntity {
-    ID "5CCED514A5908822"
-    Flags 2097155
-   }
-   GenericEntity {
-    ID "606078EE23DE48AC"
-    Flags 2097155
-   }
    SCR_CampaignSpawnPointGroup {
     ID "5C6696731466AF36"
     coords 0 0 0

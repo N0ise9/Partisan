@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r37-build-provenance-sync";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r38-stripped-conflict-markers";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -214,8 +214,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugBackgroundWarInvaderOrderId;
 	protected string m_sCampaignDebugClientMenuProofRequestId;
 	protected string m_sCampaignDebugClientMenuProofReport;
+	protected string m_sCampaignDebugClientMapProofRequestId;
+	protected string m_sCampaignDebugClientMapProofReport;
 	protected bool m_bCampaignDebugClientMenuProofRequestDispatched;
+	protected bool m_bCampaignDebugClientMapProofRequestDispatched;
 	protected int m_iCampaignDebugClientMenuProofPlayerId;
+	protected int m_iCampaignDebugClientMapProofPlayerId;
 	protected int m_iCampaignDebugBackgroundWarUnexpectedPetrosOrders;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
@@ -3153,6 +3157,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugStateDiffPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_state_diff.txt";
 		m_sCampaignDebugPreviousCommanderIdentityId = "";
 		ResetCampaignDebugClientMenuProof();
+		ResetCampaignDebugClientMapProof();
 		if (m_State)
 			m_sCampaignDebugPreviousCommanderIdentityId = m_State.m_sCommanderIdentityId;
 		ResetCampaignDebugPhase16Observations();
@@ -3215,9 +3220,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (m_iCampaignDebugStepIndex == 4)
 		{
+			if (!ShouldCampaignDebugRunRenderedMapStage())
+			{
+				SkipCampaignDebugStageForProfile("rendered map marker proof", 5);
+				return;
+			}
+
+			RunCampaignDebugRenderedMapProbeStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 5)
+		{
 			if (!ShouldCampaignDebugRunEconomyForceStage())
 			{
-				SkipCampaignDebugStageForProfile("economy force", 5);
+				SkipCampaignDebugStageForProfile("economy force", 6);
 				return;
 			}
 
@@ -3225,11 +3242,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 5)
+		if (m_iCampaignDebugStepIndex == 6)
 		{
 			if (!ShouldCampaignDebugRunEarlyPhaseStage())
 			{
-				SkipCampaignDebugStageForProfile("early mechanics, mission sweep, and phase smoke", 8);
+				SkipCampaignDebugStageForProfile("early mechanics, mission sweep, and phase smoke", 9);
 				return;
 			}
 
@@ -3237,11 +3254,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 6)
+		if (m_iCampaignDebugStepIndex == 7)
 		{
 			if (!ShouldCampaignDebugRunMissionSweepStage())
 			{
-				SkipCampaignDebugStageForProfile("mission sweep", 7);
+				SkipCampaignDebugStageForProfile("mission sweep", 8);
 				return;
 			}
 
@@ -3249,11 +3266,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 7)
+		if (m_iCampaignDebugStepIndex == 8)
 		{
 			if (!ShouldCampaignDebugRunPhaseSmokeStage())
 			{
-				SkipCampaignDebugStageForProfile("phase smoke", 8);
+				SkipCampaignDebugStageForProfile("phase smoke", 9);
 				return;
 			}
 
@@ -3261,7 +3278,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 8)
+		if (m_iCampaignDebugStepIndex == 9)
 		{
 			RunCampaignDebugFinalReportStep();
 			return;
@@ -3382,6 +3399,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	}
 
 	protected bool ShouldCampaignDebugRunRenderedCommandMenuStage()
+	{
+		return !IsCampaignDebugExternalProfile();
+	}
+
+	protected bool ShouldCampaignDebugRunRenderedMapStage()
 	{
 		return !IsCampaignDebugExternalProfile();
 	}
@@ -4192,12 +4214,46 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AdvanceCampaignDebugStep("Rendered command menu proof complete.");
 	}
 
+	protected void RunCampaignDebugRenderedMapProbeStep()
+	{
+		if (m_sCampaignDebugClientMapProofRequestId.IsEmpty())
+		{
+			ResetCampaignDebugClientMapProof();
+			m_sCampaignDebugClientMapProofRequestId = "map_marker_render_" + SafeCampaignDebugToken(m_sCampaignDebugRunId);
+			m_iCampaignDebugClientMapProofPlayerId = m_iCampaignDebugPlayerId;
+			m_bCampaignDebugClientMapProofRequestDispatched = HST_CommandMenuRequestComponent.SendCampaignDebugMapProofOwner(m_iCampaignDebugPlayerId, m_sCampaignDebugClientMapProofRequestId);
+			AppendCampaignDebugLog("INFO", "map marker rendered proof request", string.Format("request %1 | player %2 | dispatched %3", m_sCampaignDebugClientMapProofRequestId, m_iCampaignDebugPlayerId, m_bCampaignDebugClientMapProofRequestDispatched));
+			if (!m_bCampaignDebugClientMapProofRequestDispatched)
+			{
+				RecordCampaignDebugCase(BuildCampaignDebugRenderedMapCase());
+				ResetCampaignDebugClientMapProof();
+				AdvanceCampaignDebugStep("Rendered map marker proof blocked.");
+				return;
+			}
+
+			m_iCampaignDebugWaitSeconds = 2;
+			return;
+		}
+
+		RecordCampaignDebugCase(BuildCampaignDebugRenderedMapCase());
+		ResetCampaignDebugClientMapProof();
+		AdvanceCampaignDebugStep("Rendered map marker proof complete.");
+	}
+
 	protected void ResetCampaignDebugClientMenuProof()
 	{
 		m_sCampaignDebugClientMenuProofRequestId = "";
 		m_sCampaignDebugClientMenuProofReport = "";
 		m_bCampaignDebugClientMenuProofRequestDispatched = false;
 		m_iCampaignDebugClientMenuProofPlayerId = 0;
+	}
+
+	protected void ResetCampaignDebugClientMapProof()
+	{
+		m_sCampaignDebugClientMapProofRequestId = "";
+		m_sCampaignDebugClientMapProofReport = "";
+		m_bCampaignDebugClientMapProofRequestDispatched = false;
+		m_iCampaignDebugClientMapProofPlayerId = 0;
 	}
 
 	void ReceiveCampaignDebugCommandMenuProofReport(int playerId, string requestId, string report)
@@ -4215,6 +4271,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugClientMenuProofPlayerId = playerId;
 		m_sCampaignDebugClientMenuProofReport = report;
 		AppendCampaignDebugLog("INFO", "command menu rendered proof report", ShortCampaignDebugLine(report, 260));
+	}
+
+	void ReceiveCampaignDebugMapProofReport(int playerId, string requestId, string report)
+	{
+		if (!Replication.IsServer())
+			return;
+		if (requestId.IsEmpty())
+			return;
+		if (requestId != m_sCampaignDebugClientMapProofRequestId)
+		{
+			Print(string.Format("h-istasi campaign debug | stale map proof report ignored request=%1 expected=%2 player=%3", requestId, EmptyCampaignDebugField(m_sCampaignDebugClientMapProofRequestId), playerId), LogLevel.WARNING);
+			return;
+		}
+
+		m_iCampaignDebugClientMapProofPlayerId = playerId;
+		m_sCampaignDebugClientMapProofReport = report;
+		AppendCampaignDebugLog("INFO", "map marker rendered proof report", ShortCampaignDebugLine(report, 260));
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderedCommandMenuCase()
@@ -4247,6 +4320,52 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(menuCase, "command_ui.rendered_admin_payload", "rendered owner-client menu is on the admin tab with action rows", report, CampaignDebugStatus(m_bCampaignDebugClientMenuProofRequestDispatched && reportMatched && adminTab && actionsReady, clientProofFailureStatus), "rendered command menu did not show admin tab action rows");
 		FinalizeCampaignDebugCaseFromAssertions(menuCase);
 		return menuCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderedMapCase()
+	{
+		HST_CampaignDebugCaseResult mapCase = CreateCampaignDebugCase("map_ui.rendered_markers", "ui", "map_ui", "rendered_owner_client");
+		string report = m_sCampaignDebugClientMapProofReport;
+		if (report.IsEmpty())
+			report = "missing client report";
+
+		string markerModelReport = "map marker service missing";
+		if (m_MapMarkers)
+			markerModelReport = m_MapMarkers.BuildMarkerReport(m_State);
+		mapCase.m_aEvidence.Insert("request " + EmptyCampaignDebugField(m_sCampaignDebugClientMapProofRequestId));
+		mapCase.m_aEvidence.Insert("server marker model | " + ShortCampaignDebugLine(markerModelReport, 360));
+		mapCase.m_aEvidence.Insert("client report | " + ShortCampaignDebugLine(report, 360));
+
+		bool requestValid = !m_sCampaignDebugClientMapProofRequestId.IsEmpty();
+		bool reportMatched = requestValid && report.Contains("request " + m_sCampaignDebugClientMapProofRequestId);
+		bool playerMatched = m_iCampaignDebugClientMapProofPlayerId == m_iCampaignDebugPlayerId;
+		bool mapOpen = CampaignDebugReportBool(report, "mapOpen");
+		bool root = CampaignDebugReportBool(report, "root");
+		bool frame = CampaignDebugReportBool(report, "frame");
+		bool markerUI = CampaignDebugReportBool(report, "markerUI");
+		bool markersReady = CampaignDebugReportBool(report, "markersReady");
+		bool playerReady = CampaignDebugReportBool(report, "playerReady");
+		bool markerModelReady = markerModelReport.Contains("h-istasi map markers") && !markerModelReport.Contains("campaign state not ready");
+		string dispatchStatus = "PASS";
+		if (!m_bCampaignDebugClientMapProofRequestDispatched)
+			dispatchStatus = "BLOCKED";
+		string clientProofFailureStatus = "FAIL";
+		if (!m_bCampaignDebugClientMapProofRequestDispatched)
+			clientProofFailureStatus = "BLOCKED";
+		string mapOpenFailureStatus = clientProofFailureStatus;
+		if (m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && !mapOpen)
+			mapOpenFailureStatus = "BLOCKED";
+		string markerUiFailureStatus = clientProofFailureStatus;
+		if (m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && !mapOpen)
+			markerUiFailureStatus = "BLOCKED";
+		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_owner_rpc", "server dispatches an owner-client map-marker render proof request", string.Format("request %1 | player %2 | dispatched %3", EmptyCampaignDebugField(m_sCampaignDebugClientMapProofRequestId), m_iCampaignDebugPlayerId, m_bCampaignDebugClientMapProofRequestDispatched), dispatchStatus, "owner request bridge unavailable for rendered map-marker proof");
+		AddCampaignDebugAssertion(mapCase, "map_ui.server_marker_model", "server marker model exists before client rendered proof", ShortCampaignDebugLine(markerModelReport, 220), CampaignDebugStatus(markerModelReady, "BLOCKED"), "server marker model was unavailable before rendered map-marker proof");
+		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_client_report", "owner client returns matching rendered-map report", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && playerMatched, clientProofFailureStatus), "owner client did not return a matching rendered map-marker report");
+		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_visible_root", "map is open with a visible root widget and map frame on the owner client", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && root && frame, mapOpenFailureStatus), "map root/frame was not visibly open on the owner client");
+		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_marker_component", "map marker UI component is active and native marker arrays are visible to the owner client", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && markerUI && markersReady, markerUiFailureStatus), "owner client did not expose active rendered marker UI and native marker counts");
+		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_player_marker_widget", "HST player marker widgets are ready when player markers exist", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && playerReady, markerUiFailureStatus), "owner client did not prove rendered HST player marker widgets");
+		FinalizeCampaignDebugCaseFromAssertions(mapCase);
+		return mapCase;
 	}
 
 	protected bool CampaignDebugReportBool(string report, string fieldName)
@@ -5760,6 +5879,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "PHYSICAL_RUNTIME";
 		if (feature == "command_ui" && stage.Contains("rendered"))
 			return "CLIENT_RENDERED";
+		if (feature == "map_ui" && stage.Contains("rendered"))
+			return "CLIENT_RENDERED";
 		if (category == "action" || category == "observation" || category == "legacy" || category == "cleanup" || category == "profile")
 			return "STATE_ONLY";
 		if (stage.Contains("phase") || stage.Contains("economy") || stage.Contains("mission") || stage.Contains("primitive"))
@@ -5791,6 +5912,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "manual_external_gap";
 		if (caseResult.m_sFeature == "command_ui" && caseResult.m_sStage.Contains("rendered"))
 			return "owner_client_widget_report";
+		if (caseResult.m_sFeature == "map_ui" && caseResult.m_sStage.Contains("rendered"))
+			return "owner_client_map_widget_report";
 		if (caseResult.m_sFeature == "hq_runtime")
 			return "world_runtime_entity_scan";
 		if (caseResult.m_sFeature.Contains("convoy") || caseResult.m_sCaseId.Contains("convoy_physical"))
@@ -5816,6 +5939,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "physical HQ runtime entity proof";
 		if (caseResult.m_sFeature == "command_ui" && caseResult.m_sStage.Contains("rendered"))
 			return "owner client rendered widget visibility and geometry proof";
+		if (caseResult.m_sFeature == "map_ui" && caseResult.m_sStage.Contains("rendered"))
+			return "owner client rendered map root, marker UI, native marker counts, and HST player marker widget proof";
 		if (caseResult.m_sFeature.Contains("convoy") || caseResult.m_sCaseId.Contains("convoy_physical"))
 			return "physical vehicle, crew, driver, route, movement, and outcome proof";
 		if (caseResult.m_sCaseId.Contains("physical_combat"))

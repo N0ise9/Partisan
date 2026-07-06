@@ -76,16 +76,6 @@ function Get-ConfigBlocks {
 	return $blocks
 }
 
-function Get-DisabledAmbientPatrolChildCount {
-	param(
-		[string] $Text,
-		[string] $ChildId
-	)
-
-	$pattern = 'ID "' + [regex]::Escape($ChildId) + '"\s*\r?\n\s*Flags 2097155'
-	return ([regex]::Matches($Text, $pattern)).Count
-}
-
 function Get-VectorXZKey {
 	param([string] $Block)
 
@@ -369,7 +359,7 @@ foreach ($startingPointLayer in $startingPointLayers) {
 	}
 
 	foreach ($requiredEntry in @(
-			"Prefabs/Systems/MilitaryBase/ConflictMilitaryBase.et",
+			"Prefabs/Systems/MilitaryBase/HST_ConflictMarkerBase.et",
 			"SCR_CampaignMilitaryBaseComponent",
 			"SCR_CampaignSpawnPointGroup",
 			'"faction affiliation" "FIA"',
@@ -2318,10 +2308,24 @@ if ($conflictMarkerCount -ne $configZones.Count) {
 	throw "Visible native Conflict campaign marker count must equal configured zone count: markers=$conflictMarkerCount zones=$($configZones.Count)"
 }
 
-foreach ($ambientPatrolChildId in @("5CCED514A5908822", "606078EE23DE48AC")) {
-	$ambientPatrolDisableCount = Get-DisabledAmbientPatrolChildCount $runtimeMarkerLayer $ambientPatrolChildId
-	if ($ambientPatrolDisableCount -ne $conflictMarkerCount) {
-		throw "Visible native Conflict campaign markers must disable inherited FIA ambient patrol child ${ambientPatrolChildId}: disabled=$ambientPatrolDisableCount markers=$conflictMarkerCount"
+$hstConflictMarkerPrefab = "Prefabs/Systems/MilitaryBase/HST_ConflictMarkerBase.et"
+$hstConflictMarkerMeta = "$hstConflictMarkerPrefab.meta"
+if (!(Test-Path $hstConflictMarkerPrefab) -or !(Test-Path $hstConflictMarkerMeta)) {
+	throw "Missing stripped HST conflict marker prefab or metadata"
+}
+
+$hstConflictMarkerText = Get-Content -Raw $hstConflictMarkerPrefab
+if ($hstConflictMarkerText -match "AmbientPatrolSpawnpoint" -or $hstConflictMarkerText -match "SCR_AmbientPatrolSpawnPointComponent") {
+	throw "Stripped HST conflict marker prefab must not include ambient patrol spawnpoints"
+}
+
+foreach ($layerToCheck in @($runtimeMarkerLayer, (Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/StartingPoints.layer"), (Get-Content -Raw "Worlds/HST_Dev/HST_Dev_Layers/StartingPoints.layer"))) {
+	if ($layerToCheck -match "Prefabs/Systems/MilitaryBase/ConflictMilitaryBase.et") {
+		throw "HST marker/hideout layers must use HST_ConflictMarkerBase instead of stock ConflictMilitaryBase"
+	}
+
+	if ($layerToCheck -match "AmbientPatrolSpawnpoint_FIA" -or $layerToCheck -match "5CCED514A5908822" -or $layerToCheck -match "606078EE23DE48AC") {
+		throw "HST marker/hideout layers must not carry inherited FIA ambient patrol spawnpoint references"
 	}
 }
 
@@ -2384,15 +2388,12 @@ foreach ($expectedHideoutId in $expectedHideoutCoordinates.Keys) {
 	}
 }
 
-foreach ($ambientPatrolLayer in @(
-		@{ Label = "Everon starting points"; Text = $everonStartingPointsLayer; Expected = $expectedHideoutCoordinates.Count },
-		@{ Label = "Dev starting points"; Text = $devStartingPointsLayer; Expected = 1 }
-	)) {
-	foreach ($ambientPatrolChildId in @("5CCED514A5908822", "606078EE23DE48AC")) {
-		$ambientPatrolDisableCount = Get-DisabledAmbientPatrolChildCount $ambientPatrolLayer.Text $ambientPatrolChildId
-		if ($ambientPatrolDisableCount -ne $ambientPatrolLayer.Expected) {
-			throw "$($ambientPatrolLayer.Label) must disable inherited FIA ambient patrol child ${ambientPatrolChildId}: disabled=$ambientPatrolDisableCount expected=$($ambientPatrolLayer.Expected)"
-		}
+foreach ($startingPointMarkerLayer in @(
+		@{ Label = "Everon starting points"; Text = $everonStartingPointsLayer },
+		@{ Label = "Dev starting points"; Text = $devStartingPointsLayer }
+)) {
+	if ($startingPointMarkerLayer.Text -match "Prefabs/Systems/MilitaryBase/ConflictMilitaryBase.et" -or $startingPointMarkerLayer.Text -match "AmbientPatrolSpawnpoint_FIA") {
+		throw "$($startingPointMarkerLayer.Label) must use stripped HST conflict markers without FIA ambient patrol references"
 	}
 }
 
