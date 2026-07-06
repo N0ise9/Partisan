@@ -4527,10 +4527,6 @@ class HST_PhysicalWarService
 			return true;
 		if (activeGroup.m_iMaxObservedCrewAlive > 0)
 			return true;
-		if (activeGroup.m_iLastSeenAliveCount > 0)
-			return true;
-		if (activeGroup.m_iSurvivorInfantryCount > 0)
-			return true;
 
 		return false;
 	}

@@ -7922,6 +7922,37 @@ foreach ($requiredConvoyUiLiveHistoryEntry in @(
 		throw "Command UI post-completion convoy actions must require state-backed live-crew history: $requiredConvoyUiLiveHistoryEntry"
 	}
 }
+$convoyLiveHistoryGuards = @(
+	@{
+		Name = "physical-war convoy completion"
+		Text = $physicalWarServiceText
+		Pattern = "protected bool HasMissionConvoyCrewEverBeenObservedAlive[\s\S]*?return false;\s*\}"
+	},
+	@{
+		Name = "convoy outcome rewards"
+		Text = $convoyOutcomeServiceText
+		Pattern = "protected bool HasConvoyCrewLiveHistory[\s\S]*?return false;\s*\}"
+	},
+	@{
+		Name = "mission runtime post-completion"
+		Text = $missionRuntimeServiceText
+		Pattern = "protected bool HasConvoyCrewLiveHistory[\s\S]*?return false;\s*\}"
+	},
+	@{
+		Name = "command UI post-completion"
+		Text = $commandUIServiceText
+		Pattern = "protected bool HasConvoyCrewLiveHistory[\s\S]*?return false;\s*\}"
+	}
+)
+foreach ($guard in $convoyLiveHistoryGuards) {
+	$match = [regex]::Match($guard.Text, $guard.Pattern)
+	if (!$match.Success) {
+		throw "Missing convoy live-history guard for $($guard.Name)"
+	}
+	if ($match.Value -match "m_iLastSeenAliveCount\s*>\s*0" -or $match.Value -match "m_iSurvivorInfantryCount\s*>\s*0") {
+		throw "Convoy live-history guard must use explicit observation fields only for $($guard.Name)"
+	}
+}
 if ($missionRuntimeServiceText -match "protected bool HasConvoyCrewEliminatedForPostCompletion\s*\(\s*HST_ActiveMissionState\s+mission\s*\)" -or $commandUIServiceText -match "protected bool HasConvoyCrewEliminatedForPostCompletion\s*\(\s*HST_ActiveMissionState\s+mission\s*\)") {
 	throw "Post-completion convoy helpers must not use mission-only event-token checks"
 }
