@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r28-petros-group-spawn-proof";
-	static const string BUILD_UTC = "2026-07-06T19:01:17Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r28-petros-group-spawn-proof";
+	static const string BUILD_SHA = "r29-aiworld-budget-proof";
+	static const string BUILD_UTC = "2026-07-06T19:35:42Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r29-aiworld-budget-proof";
 
 	static string BuildSummary()
 	{

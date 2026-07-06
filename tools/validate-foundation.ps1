@@ -8033,10 +8033,19 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"ACTIVE_GROUP_AGENT_POPULATION_SLOT_PRIMARY_ATTEMPT = 4",
 		"ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK",
 		"ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY",
+		"ACTIVE_GROUP_AI_WORLD_MIN_LIMIT = 512",
+		"ACTIVE_GROUP_RUNTIME_STATUS_AIWORLD_BUDGET_DEFERRED",
+		"ACTIVE_GROUP_SPAWN_MODE_AIWORLD_BUDGET_DEFERRED",
 		'DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et"',
 		"SpawnControlledNativeActiveGroupPrefab",
 		"SCR_AIGroup.IgnoreSpawning(true)",
 		"controlled group prefab spawn",
+		"EnsureActiveGroupAIWorldBudget",
+		"MarkActiveGroupAIWorldBudgetDeferred",
+		"aiWorld.SetAILimit(requiredLimit)",
+		"active group AIWorld limit raised",
+		"active group AIWorld native spawn deferred",
+		"spawn_deferred_aiworld_budget",
 		"group.SpawnUnits();",
 		"TryPopulatePendingActiveGroupFromNativeSlots",
 		"SpawnNativeSlotMembersIntoRuntimeGroup",
@@ -8087,6 +8096,9 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
 		throw "Active AIGroup population must prove controlled native group spawning and tagged direct fallback detection: $requiredActiveGroupPopulationRuntimeEntry"
 	}
+}
+if ($scriptText -notmatch [regex]::Escape('statusOrHistory.Contains("spawn_deferred_aiworld_budget")')) {
+	throw "Campaign debug async runtime classifier must treat AIWorld budget deferrals as pending/blocking proof, not generic failures"
 }
 if ($physicalWarServiceText -match [regex]::Escape("skipped terminal %3")) {
 	throw "Direct fallback certification must count terminal fallback rows as degraded primary-method evidence"

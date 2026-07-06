@@ -117,6 +117,8 @@ class HST_PhysicalWarService
 	static const int ACTIVE_GROUP_AGENT_POPULATION_SLOT_PRIMARY_ATTEMPT = 4;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4;
 	static const int ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS = 8;
+	static const int ACTIVE_GROUP_AI_WORLD_MIN_LIMIT = 512;
+	static const int ACTIVE_GROUP_AI_WORLD_REQUIRED_HEADROOM = 32;
 	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
 	static const int CONVOY_RUNTIME_WAYPOINT_MAX_COUNT = 5;
 	static const float EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS = 1800.0;
@@ -133,6 +135,8 @@ class HST_PhysicalWarService
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY = "group_spawn_retry";
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY = "group_slot_primary";
 	static const string ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK = "direct_infantry_fallback";
+	static const string ACTIVE_GROUP_SPAWN_MODE_AIWORLD_BUDGET_DEFERRED = "aiworld_budget_deferred";
+	static const string ACTIVE_GROUP_RUNTIME_STATUS_AIWORLD_BUDGET_DEFERRED = "spawn_deferred_aiworld_budget";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB_US = "{2E3755F24A57D1A0}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_US.et";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB_USSR = "{94AA122B0CFB7E40}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_USSR.et";
@@ -7150,6 +7154,13 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+		string aiWorldBudgetFailure;
+		if (!EnsureActiveGroupAIWorldBudget(activeGroup, "pre-spawn native group", aiWorldBudgetFailure))
+		{
+			MarkActiveGroupAIWorldBudgetDeferred(activeGroup, state, aiWorldBudgetFailure, "pre_spawn_budget");
+			return false;
+		}
+
 		activeGroup.m_bSpawnAttempted = true;
 		string requestedStatus = activeGroup.m_sRuntimeStatus;
 		activeGroup.m_sRuntimeStatus = "spawning";
@@ -7287,6 +7298,7 @@ class HST_PhysicalWarService
 			zoneActiveInfantry,
 			zoneActiveVehicles,
 			ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)));
+		evidence = evidence + " | " + BuildAIWorldBudgetDebug();
 		Print(evidence);
 	}
 
@@ -7351,6 +7363,11 @@ class HST_PhysicalWarService
 			Print(string.Format("h-istasi | active group root faction mismatch %1 expected %2 actual %3 prefab %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, ReportText(actualGroupFaction), prefab), LogLevel.WARNING);
 			return null;
 		}
+		if (activeGroup && !EnsureActiveGroupAIWorldBudget(activeGroup, "controlled group prefab SpawnUnits", failureReason))
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			return null;
+		}
 		group.SpawnUnits();
 		if (activeGroup)
 			DebugLog(string.Format("active group requested controlled native member spawn %1 expected infantry %2 prefab %3 | %4", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, prefab, BuildNativeGroupPopulationDebug(group)));
@@ -7387,6 +7404,13 @@ class HST_PhysicalWarService
 
 		if (TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "retry"))
 			return;
+		string aiWorldBudgetFailure;
+		if (!EnsureActiveGroupAIWorldBudget(activeGroup, string.Format("pending population retry %1", attempt), aiWorldBudgetFailure))
+		{
+			MarkActiveGroupAIWorldBudgetDeferred(activeGroup, state, aiWorldBudgetFailure, "pending_budget");
+			return;
+		}
+
 		bool forceFallback = attempt >= ACTIVE_GROUP_AGENT_POPULATION_FORCE_FALLBACK_ATTEMPT;
 		if (forceFallback && TryKickPendingNativeGroupSpawn(activeGroup, "retry"))
 		{
@@ -7601,6 +7625,14 @@ class HST_PhysicalWarService
 			return false;
 		}
 
+		string aiWorldBudgetFailure;
+		if (!EnsureActiveGroupAIWorldBudget(activeGroup, "native SpawnUnits retry " + source, aiWorldBudgetFailure))
+		{
+			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup.SpawnUnits retry deferred: " + aiWorldBudgetFailure;
+			DebugLog(string.Format("active group native SpawnUnits retry deferred %1 via %2 | %3", activeGroup.m_sGroupId, source, aiWorldBudgetFailure));
+			return false;
+		}
+
 		group.SetDeleteWhenEmpty(false);
 		group.SetMaxUnitsToSpawn(Math.Max(1, activeGroup.m_iInfantryCount));
 		group.SetMemberSpawnDelay(0);
@@ -7650,6 +7682,98 @@ class HST_PhysicalWarService
 			ReportBool(aiWorld.CanAIBeActivated()));
 	}
 
+	protected int ResolveActiveGroupAIWorldDesiredMemberCount(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return 1;
+
+		if (activeGroup.m_iInfantryCount > 0)
+			return Math.Max(1, activeGroup.m_iInfantryCount);
+
+		return 1;
+	}
+
+	protected bool EnsureActiveGroupAIWorldBudget(HST_ActiveGroupState activeGroup, string source, out string failureReason)
+	{
+		failureReason = "";
+		if (!activeGroup)
+		{
+			failureReason = "AIWorld budget check failed: active group is missing.";
+			return false;
+		}
+		if (activeGroup.m_iInfantryCount <= 0)
+			return true;
+
+		AIWorld aiWorld = GetGame().GetAIWorld();
+		if (!aiWorld)
+		{
+			failureReason = "AIWorld budget check failed: AIWorld is missing.";
+			return false;
+		}
+
+		int desiredMembers = ResolveActiveGroupAIWorldDesiredMemberCount(activeGroup);
+		int currentLimited = aiWorld.GetCurrentAmountOfLimitedAIs();
+		int currentLimit = aiWorld.GetAILimit();
+		int requiredLimit = currentLimited + desiredMembers + ACTIVE_GROUP_AI_WORLD_REQUIRED_HEADROOM;
+		if (requiredLimit < ACTIVE_GROUP_AI_WORLD_MIN_LIMIT)
+			requiredLimit = ACTIVE_GROUP_AI_WORLD_MIN_LIMIT;
+
+		if (currentLimit < requiredLimit)
+		{
+			aiWorld.SetAILimit(requiredLimit);
+			Print(string.Format("h-istasi | active group AIWorld limit raised | group %1 | source %2 | limited %3 | limit %4 -> %5 | desiredMembers %6 | headroom %7",
+				activeGroup.m_sGroupId,
+				ReportText(source),
+				currentLimited,
+				currentLimit,
+				requiredLimit,
+				desiredMembers,
+				ACTIVE_GROUP_AI_WORLD_REQUIRED_HEADROOM));
+		}
+
+		currentLimited = aiWorld.GetCurrentAmountOfLimitedAIs();
+		currentLimit = aiWorld.GetAILimit();
+		if (!aiWorld.CanLimitedAIBeAdded())
+		{
+			failureReason = string.Format("AIWorld native member budget denied for primary active-group spawn via %1: expected members %2 | %3", ReportText(source), desiredMembers, BuildAIWorldBudgetDebug());
+			return false;
+		}
+		if (currentLimit > 0 && currentLimited + desiredMembers > currentLimit)
+		{
+			failureReason = string.Format("AIWorld native member budget lacks headroom for primary active-group spawn via %1: expected members %2 | %3", ReportText(source), desiredMembers, BuildAIWorldBudgetDebug());
+			return false;
+		}
+
+		return true;
+	}
+
+	protected void MarkActiveGroupAIWorldBudgetDeferred(HST_ActiveGroupState activeGroup, HST_CampaignState state, string failureReason, string stage)
+	{
+		if (!activeGroup)
+			return;
+
+		ClearPendingActiveGroupPopulation(activeGroup);
+		DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+		activeGroup.m_bSpawnAttempted = false;
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_sRuntimeEntityId = "";
+		activeGroup.m_sRuntimeStatus = ACTIVE_GROUP_RUNTIME_STATUS_AIWORLD_BUDGET_DEFERRED;
+		activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_AIWORLD_BUDGET_DEFERRED;
+		activeGroup.m_sSpawnFailureReason = failureReason;
+		activeGroup.m_iSpawnedAgentCount = 0;
+		activeGroup.m_iLastSeenAliveCount = 0;
+		activeGroup.m_iSurvivorInfantryCount = 0;
+		activeGroup.m_iSurvivorVehicleCount = 0;
+		if (IsMissionConvoyGroup(activeGroup))
+		{
+			activeGroup.m_sCrewPopulationFailureReason = failureReason;
+			activeGroup.m_sConvoyRuntimeStage = "CREW_AIWORLD_BUDGET_DEFERRED";
+		}
+		RefreshActiveGroupZoneCounts(state, activeGroup);
+		Print(string.Format("h-istasi | active group AIWorld native spawn deferred | group %1 | stage %2 | reason %3", activeGroup.m_sGroupId, ReportText(stage), ReportText(failureReason)), LogLevel.WARNING);
+		PrintActiveGroupSpawnEvidence(state, activeGroup, stage);
+	}
+
 	protected string BuildNativeGroupPopulationDebug(SCR_AIGroup group)
 	{
 		if (!group)
@@ -7695,6 +7819,14 @@ class HST_PhysicalWarService
 		int existingCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
 		if (existingCount > 0)
 			return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " existing stock members");
+
+		string aiWorldBudgetFailure;
+		if (!EnsureActiveGroupAIWorldBudget(activeGroup, "stock member-slot population " + source, aiWorldBudgetFailure))
+		{
+			activeGroup.m_sSpawnFailureReason = "Stock group member-slot population deferred: " + aiWorldBudgetFailure;
+			DebugLog(string.Format("active group stock member-slot population deferred %1 via %2 | %3", activeGroup.m_sGroupId, source, aiWorldBudgetFailure));
+			return false;
+		}
 
 		int spawnedCount = SpawnNativeSlotMembersIntoRuntimeGroup(group, activeGroup, source);
 		if (spawnedCount <= 0)
@@ -7788,6 +7920,14 @@ class HST_PhysicalWarService
 		{
 			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: active group has no infantry count.";
 			DebugLog(string.Format("active group direct infantry fallback skipped %1: no infantry count via %2", activeGroup.m_sGroupId, source));
+			return false;
+		}
+
+		string aiWorldBudgetFailure;
+		if (!EnsureActiveGroupAIWorldBudget(activeGroup, "direct faction infantry fallback " + source, aiWorldBudgetFailure))
+		{
+			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback deferred: " + aiWorldBudgetFailure;
+			DebugLog(string.Format("active group direct infantry fallback deferred %1 via %2 | %3", activeGroup.m_sGroupId, source, aiWorldBudgetFailure));
 			return false;
 		}
 
