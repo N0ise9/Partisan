@@ -9499,16 +9499,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool fallbackOk = mission && (!mission.m_bRuntimeFallback || mission.m_sRuntimePrimitive == "abstract_fallback");
 		bool runtimeActive = mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
 		bool runtimeAlreadySucceeded = mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED && objectiveCount > 0 && objectiveComplete >= objectiveCount;
-		string runtimeRecordStatus = CampaignDebugStatus(runtimeActive);
-		if (!runtimeActive && runtimeAlreadySucceeded)
-			runtimeRecordStatus = "WARN";
+		bool runtimeEarlyCompletionAllowed = runtimeAlreadySucceeded && IsCampaignDebugInstantOrAbstractPrimitive(mission);
+		string runtimeRecordStatus = CampaignDebugStatus(runtimeActive || runtimeEarlyCompletionAllowed);
 
 		AddCampaignDebugMetric(runtimeCase, "mission.runtime.objectives", string.Format("%1", objectiveCount), "count");
 		AddCampaignDebugMetric(runtimeCase, "mission.runtime.objectives_complete", string.Format("%1", objectiveComplete), "count");
 		AddCampaignDebugMetric(runtimeCase, "mission.runtime.assets", string.Format("%1", assetCount), "count");
 		AddCampaignDebugMetric(runtimeCase, "mission.runtime.entities", string.Format("%1", runtimeEntityCount), "count");
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.report", "runtime inspection report is accepted", ShortCampaignDebugLine(runtimeReport, 220), CampaignDebugStatus(reportOk), "mission runtime report returned failure text", "", instanceId);
-		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.record", "mission record exists and remains active or has already completed", BuildCampaignDebugPrimitiveMissionActual(mission), runtimeRecordStatus, "mission runtime record missing or not active", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.record", "mission record exists and remains active before primitive proof; only explicit abstract_fallback may already be complete", BuildCampaignDebugPrimitiveMissionActual(mission), runtimeRecordStatus, "mission runtime record missing, inactive, or completed before runtime proof", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.spawned", "runtime spawned without unexpected fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(runtimeHealthy && failureClear && fallbackOk), "mission runtime did not spawn cleanly", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.primitive", "runtime primitive/type metadata is populated and matches definition", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission && !mission.m_sRuntimePrimitive.IsEmpty() && runtimeTypeMatches), "mission runtime primitive/type metadata mismatch", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.objectives", "mission has objective records before primitive probe", BuildCampaignDebugMissionObjectiveActual(instanceId), CampaignDebugStatus(objectiveCount > 0), "mission runtime has no objective records", "", instanceId);
@@ -9650,7 +9649,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!primitiveMission)
 		{
 			HST_CampaignDebugCaseResult absentPrimitiveCase = CreateCampaignDebugCase("primitive_runtime.absent." + SafeCampaignDebugToken(instanceId), "mission_runtime", "primitive", "primitive_probe");
-			AddCampaignDebugAssertion(absentPrimitiveCase, "primitive.runtime.mission", "active mission exists for primitive probe", "missing", "BLOCKED", "primitive mission record missing", "", instanceId);
+			AddCampaignDebugAssertion(absentPrimitiveCase, "primitive.runtime.mission", "active mission exists for primitive probe", "missing", "FAIL", "primitive mission record disappeared before runtime action proof", "", instanceId);
 			FinalizeCampaignDebugCaseFromAssertions(absentPrimitiveCase);
 			RecordCampaignDebugCase(absentPrimitiveCase);
 			return;
@@ -9695,20 +9694,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool primitiveActive = mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
 		bool primitiveAlreadySucceeded = mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED && primitiveObjectiveCount > 0 && primitiveObjectiveCompleteBefore >= primitiveObjectiveCount;
 		bool primitiveSpawnedClean = mission.m_bRuntimeSpawned && !mission.m_bRuntimeFallback && mission.m_sRuntimeFailureReason.IsEmpty();
-		string primitiveActiveStatus = CampaignDebugStatus(primitiveActive);
-		if (!primitiveActive && primitiveAlreadySucceeded)
-			primitiveActiveStatus = "WARN";
-		string primitiveSpawnedStatus = CampaignDebugStatus(primitiveSpawnedClean);
-		if (!primitiveSpawnedClean && primitiveAlreadySucceeded)
-			primitiveSpawnedStatus = "WARN";
+		bool primitiveEarlyCompletionAllowed = primitiveAlreadySucceeded && IsCampaignDebugInstantOrAbstractPrimitive(mission);
+		string primitiveActiveStatus = CampaignDebugStatus(primitiveActive || primitiveEarlyCompletionAllowed);
+		string primitiveSpawnedStatus = CampaignDebugStatus(primitiveSpawnedClean || primitiveEarlyCompletionAllowed);
 		AddCampaignDebugMetric(primitiveCase, "primitive.objectives.count", string.Format("%1", primitiveObjectiveCount), "count");
 		AddCampaignDebugMetric(primitiveCase, "primitive.objectives.complete_before", string.Format("%1", primitiveObjectiveCompleteBefore), "count");
-		AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.active", "mission is active before primitive action or already completed", BuildCampaignDebugPrimitiveMissionActual(mission), primitiveActiveStatus, "primitive probe mission is not active", "", primitiveInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.active", "mission is active before primitive action; only explicit abstract_fallback may already be complete", BuildCampaignDebugPrimitiveMissionActual(mission), primitiveActiveStatus, "primitive probe mission is not active before runtime action proof", "", primitiveInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.spawned", "runtime spawned without fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), primitiveSpawnedStatus, "primitive runtime did not spawn cleanly", "", primitiveInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.objectives.present", "mission has runtime objectives", string.Format("%1", primitiveObjectiveCount), CampaignDebugStatus(primitiveObjectiveCount > 0), "primitive mission has no objective records", "", primitiveInstanceId, mission.m_sTargetZoneId);
 		if (primitiveAlreadySucceeded)
 		{
-			AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.already_succeeded", "mission completed before primitive action could be sampled", BuildCampaignDebugMissionObjectiveActual(primitiveInstanceId), "WARN", "primitive probe skipped action because mission was already completed", "", primitiveInstanceId, mission.m_sTargetZoneId);
+			AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.already_succeeded", "only explicit abstract_fallback may complete before primitive action sampling", BuildCampaignDebugMissionObjectiveActual(primitiveInstanceId), CampaignDebugStatus(primitiveEarlyCompletionAllowed), "primitive probe skipped action because mission was already completed", "", primitiveInstanceId, mission.m_sTargetZoneId);
 			FinalizeCampaignDebugCaseFromAssertions(primitiveCase);
 			return primitiveCase;
 		}
@@ -10582,6 +10578,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string actual = string.Format("id %1 | mission %2 | status %3 | primitive %4", EmptyCampaignDebugField(mission.m_sInstanceId), EmptyCampaignDebugField(mission.m_sMissionId), mission.m_eStatus, EmptyCampaignDebugField(mission.m_sRuntimePrimitive));
 		actual = actual + string.Format(" | phase %1 | spawned %2 | fallback %3 | failure %4", EmptyCampaignDebugField(mission.m_sRuntimePhase), mission.m_bRuntimeSpawned, mission.m_bRuntimeFallback, EmptyCampaignDebugField(mission.m_sRuntimeFailureReason));
 		return actual;
+	}
+
+	protected bool IsCampaignDebugInstantOrAbstractPrimitive(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sRuntimePrimitive == "abstract_fallback";
 	}
 
 	protected string BuildCampaignDebugMissionAssetActual(HST_MissionAssetState asset)

@@ -3131,6 +3131,17 @@ foreach ($requiredCampaignDebugSmokeCleanupEntry in @(
 		throw "Campaign debug cleanup must explicitly remove or externally preserve persistence smoke sentinels: $requiredCampaignDebugSmokeCleanupEntry"
 	}
 }
+foreach ($requiredCampaignDebugMissionProofEntry in @(
+		"IsCampaignDebugInstantOrAbstractPrimitive",
+		"mission runtime record missing, inactive, or completed before runtime proof",
+		"primitive mission record disappeared before runtime action proof",
+		"only explicit abstract_fallback may already be complete",
+		"primitive probe mission is not active before runtime action proof"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugMissionProofEntry)) {
+		throw "Campaign debug mission proof must fail early completion except explicit abstract fallback: $requiredCampaignDebugMissionProofEntry"
+	}
+}
 Write-Host "Campaign debug build/proof/profile contract OK"
 
 foreach ($requiredCommandMenuEntry in @(
