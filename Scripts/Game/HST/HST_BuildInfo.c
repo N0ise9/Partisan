@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r39-petros-world-primary-population";
-	static const string BUILD_UTC = "2026-07-06T21:41:21Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r39-petros-world-primary-population";
+	static const string BUILD_SHA = "r40-map-proof-compile-fix";
+	static const string BUILD_UTC = "2026-07-06T22:33:05Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r40-map-proof-compile-fix";
 
 	static string BuildSummary()
 	{
