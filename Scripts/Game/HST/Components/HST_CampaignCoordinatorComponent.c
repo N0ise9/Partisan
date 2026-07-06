@@ -3636,6 +3636,45 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!editorReady)
 			disabledShimStatus = "WARN";
 		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.disabled_shim", "disabled GM budget mode disables placement caps, adds cap/current headroom, and registers deficit correction", ShortCampaignDebugLine(editorActual, 260), disabledShimStatus, "disabled Game Master budget shim is not fully active");
+		string spawnProbeActual;
+		bool spawnProbeOk = RunCampaignDebugGameMasterBudgetDisabledSpawnProbe(spawnProbeActual);
+		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.spawn_probe", string.Format("%1", spawnProbeOk), "bool");
+		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.disabled_spawn_probe", "runtime placement/spawn path succeeds and is cleaned while GM budgets are disabled", spawnProbeActual, CampaignDebugStatus(settingsEnabled || spawnProbeOk), "disabled Game Master budget placement probe failed");
+	}
+
+	protected bool RunCampaignDebugGameMasterBudgetDisabledSpawnProbe(out string actual)
+	{
+		actual = "missing state";
+		if (!m_State)
+			return false;
+
+		vector probePosition = m_State.m_vHQPosition;
+		if (IsZeroVector(probePosition))
+			probePosition = m_State.m_vPetrosPosition;
+		if (IsZeroVector(probePosition))
+		{
+			actual = "missing HQ/Petros position";
+			return false;
+		}
+
+		probePosition[0] = probePosition[0] + 2.0;
+		probePosition[2] = probePosition[2] + 2.0;
+		probePosition = HST_WorldPositionService.ResolveSafeGroundPosition(probePosition, HST_WorldPositionService.PROP_GROUND_OFFSET, true, 2.0);
+		vector probeAngles = "0 0 0";
+		GenericEntity probeEntity = HST_WorldPositionService.SpawnPrefab(CAMPAIGN_DEBUG_RUNTIME_DESTROY_TARGET_PREFAB, probePosition, probeAngles);
+		if (!probeEntity)
+		{
+			actual = string.Format("spawned 0 | prefab %1 | position %2", CAMPAIGN_DEBUG_RUNTIME_DESTROY_TARGET_PREFAB, probePosition);
+			return false;
+		}
+
+		string sourceId = m_sCampaignDebugMarkerPrefix;
+		if (sourceId.IsEmpty())
+			sourceId = "gm_budget_preflight";
+		ApplyCampaignDebugEntityName(probeEntity, "gm_budget_spawn_probe", sourceId);
+		SCR_EntityHelper.DeleteEntityAndChildren(probeEntity);
+		actual = string.Format("spawned 1 | cleanup requested 1 | prefab %1 | position %2", CAMPAIGN_DEBUG_RUNTIME_DESTROY_TARGET_PREFAB, probePosition);
+		return true;
 	}
 
 	protected bool CampaignDebugMissionHasCompatibleTarget(HST_MissionDefinition definition)
