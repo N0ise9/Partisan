@@ -114,6 +114,7 @@ class HST_PhysicalWarService
 	static const int ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS = 1000;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS = 8;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_FORCE_FALLBACK_ATTEMPT = 3;
+	static const int ACTIVE_GROUP_AGENT_POPULATION_SLOT_PRIMARY_ATTEMPT = 4;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4;
 	static const int ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS = 8;
 	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
@@ -130,6 +131,7 @@ class HST_PhysicalWarService
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP = "group";
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY = "group_spawn_retry";
+	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY = "group_slot_primary";
 	static const string ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK = "direct_infantry_fallback";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB_US = "{2E3755F24A57D1A0}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_US.et";
@@ -7288,7 +7290,13 @@ class HST_PhysicalWarService
 		ApplyRuntimeGroupFaction(entity, activeGroup, "controlled group prefab pre-spawn");
 		group.SpawnUnits();
 		if (activeGroup)
-			DebugLog(string.Format("active group requested controlled native member spawn %1 expected infantry %2 prefab %3", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, prefab));
+			DebugLog(string.Format("active group requested controlled native member spawn %1 expected infantry %2 prefab %3 | %4", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, prefab, BuildNativeGroupPopulationDebug(group)));
+		if (activeGroup && CountLivingNativeAIGroupAgents(group) <= 0 && group.GetSpawnQueueSize() <= 0)
+		{
+			int slotSpawned = SpawnNativeSlotMembersIntoRuntimeGroup(group, activeGroup, "controlled group prefab empty native queue");
+			if (slotSpawned > 0)
+				activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY;
+		}
 		return entity;
 	}
 
@@ -7323,14 +7331,18 @@ class HST_PhysicalWarService
 			return;
 		}
 
+		bool forceSlotPrimary = attempt >= ACTIVE_GROUP_AGENT_POPULATION_SLOT_PRIMARY_ATTEMPT;
+		if (forceSlotPrimary && TryPopulatePendingActiveGroupFromNativeSlots(activeGroup, requestedStatus, state, "retry"))
+			return;
+
 		bool forceDirectFallback = attempt >= ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT;
-		if (forceDirectFallback && TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", true))
+		if (forceDirectFallback && !IsActiveGroupNativeDelayedPopulationActive(activeGroup) && TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", true))
 			return;
 
 		if (attempt < ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS)
 		{
 			if (forceDirectFallback)
-				activeGroup.m_sSpawnFailureReason = string.Format("AIGroup direct faction infantry fallback attempted but still has zero agents (%1/%2).", attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
+				activeGroup.m_sSpawnFailureReason = string.Format("AIGroup stock member-slot population or direct faction infantry fallback attempted but still has zero agents (%1/%2).", attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
 			else
 				activeGroup.m_sSpawnFailureReason = string.Format("AIGroup spawned but is still awaiting agent population (%1/%2).", attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
 
@@ -7383,7 +7395,7 @@ class HST_PhysicalWarService
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
 		activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
-		if (!IsDirectInfantryFallbackMode(activeGroup.m_sSpawnFallbackMode))
+		if (!IsDirectInfantryFallbackMode(activeGroup.m_sSpawnFallbackMode) && activeGroup.m_sSpawnFallbackMode != ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY)
 			activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP;
 		activeGroup.m_sSpawnFailureReason = "";
 		activeGroup.m_iSpawnedAgentCount = agentCount;
@@ -7448,7 +7460,7 @@ class HST_PhysicalWarService
 		bool wasPending = activeGroup.m_sRuntimeStatus == "spawn_pending_agents";
 		bool finalized = false;
 		bool kickedNativeSpawn = false;
-		bool populatedFallback = false;
+		bool populatedSlotPrimary = false;
 
 		if (requestedStatus.IsEmpty())
 			requestedStatus = activeGroup.m_sRuntimeStatus;
@@ -7462,15 +7474,19 @@ class HST_PhysicalWarService
 				kickedNativeSpawn = TryKickPendingNativeGroupSpawn(activeGroup, "campaign debug pre-route");
 			if (!finalized && kickedNativeSpawn)
 				finalized = TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "campaign debug pre-route native retry");
+			if (!finalized)
+				populatedSlotPrimary = TryPopulatePendingActiveGroupFromNativeSlots(activeGroup, requestedStatus, state, "campaign debug pre-route");
+			if (!finalized && populatedSlotPrimary)
+				finalized = true;
 		}
 
 		int liveAfter = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
 		bool resolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents" && liveAfter > 0;
-		evidence = string.Format("pending %1 | finalized %2 | nativeRetry %3 | directFallback %4 | status %5 -> %6 | agents %7 -> %8 | live %9",
+		evidence = string.Format("pending %1 | finalized %2 | nativeRetry %3 | slotPrimary %4 | status %5 -> %6 | agents %7 -> %8 | live %9",
 			wasPending,
 			finalized,
 			kickedNativeSpawn,
-			populatedFallback,
+			populatedSlotPrimary,
 			ReportText(beforeStatus),
 			ReportText(activeGroup.m_sRuntimeStatus),
 			beforeAgents,
@@ -7509,7 +7525,7 @@ class HST_PhysicalWarService
 		if (group.IsInitializing())
 		{
 			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup.SpawnUnits retry skipped: native delayed spawn is still initializing.";
-			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: native group still initializing via %2", activeGroup.m_sGroupId, source));
+			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: native group still initializing via %2 | %3", activeGroup.m_sGroupId, source, BuildNativeGroupPopulationDebug(group)));
 			return false;
 		}
 
@@ -7517,7 +7533,7 @@ class HST_PhysicalWarService
 		if (existingAgents > 0)
 		{
 			activeGroup.m_sSpawnFailureReason = string.Format("Native SCR_AIGroup.SpawnUnits retry skipped: already has %1 live agents.", existingAgents);
-			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: already has live agents %2 via %3", activeGroup.m_sGroupId, existingAgents, source));
+			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: already has live agents %2 via %3 | %4", activeGroup.m_sGroupId, existingAgents, source, BuildNativeGroupPopulationDebug(group)));
 			return false;
 		}
 
@@ -7527,8 +7543,177 @@ class HST_PhysicalWarService
 		group.SpawnUnits();
 		activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY;
 		activeGroup.m_sSpawnFailureReason = "Queued native SCR_AIGroup.SpawnUnits retry via " + source;
-		DebugLog(string.Format("active group native SpawnUnits retry queued %1 expected infantry %2 via %3", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, source));
+		DebugLog(string.Format("active group native SpawnUnits retry queued %1 expected infantry %2 via %3 | %4", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, source, BuildNativeGroupPopulationDebug(group)));
 		return true;
+	}
+
+	protected bool IsActiveGroupNativeDelayedPopulationActive(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		return IsNativeGroupDelayedPopulationActive(SCR_AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId)));
+	}
+
+	protected bool IsNativeGroupDelayedPopulationActive(SCR_AIGroup group)
+	{
+		if (!group)
+			return false;
+
+		return group.IsInitializing() || group.GetSpawnQueueSize() > 0;
+	}
+
+	protected int CountNativeGroupMemberSlots(SCR_AIGroup group)
+	{
+		if (!group || !group.m_aUnitPrefabSlots)
+			return 0;
+
+		return group.m_aUnitPrefabSlots.Count();
+	}
+
+	protected string BuildAIWorldBudgetDebug()
+	{
+		AIWorld aiWorld = GetGame().GetAIWorld();
+		if (!aiWorld)
+			return "aiWorld missing";
+
+		return string.Format("aiWorld limited %1/%2 canAdd %3 active %4/%5 canActivate %6",
+			aiWorld.GetCurrentAmountOfLimitedAIs(),
+			aiWorld.GetAILimit(),
+			ReportBool(aiWorld.CanLimitedAIBeAdded()),
+			aiWorld.GetCurrentNumOfActiveAIs(),
+			aiWorld.GetLimitOfActiveAIs(),
+			ReportBool(aiWorld.CanAIBeActivated()));
+	}
+
+	protected string BuildNativeGroupPopulationDebug(SCR_AIGroup group)
+	{
+		if (!group)
+			return "native group missing | " + BuildAIWorldBudgetDebug();
+
+		return string.Format("raw %1 living %2 slots %3 queue %4 initializing %5 membersToSpawn %6 | %7",
+			group.GetAgentsCount(),
+			CountLivingNativeAIGroupAgents(group),
+			CountNativeGroupMemberSlots(group),
+			group.GetSpawnQueueSize(),
+			ReportBool(group.IsInitializing()),
+			group.GetNumberOfMembersToSpawn(),
+			BuildAIWorldBudgetDebug());
+	}
+
+	protected bool TryPopulatePendingActiveGroupFromNativeSlots(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
+	{
+		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+			return false;
+		if (activeGroup.m_iInfantryCount <= 0)
+		{
+			activeGroup.m_sSpawnFailureReason = "Stock group member-slot population skipped: active group has no infantry count.";
+			DebugLog(string.Format("active group stock member-slot population skipped %1: no infantry count via %2", activeGroup.m_sGroupId, source));
+			return false;
+		}
+
+		IEntity runtimeGroupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		SCR_AIGroup group = SCR_AIGroup.Cast(runtimeGroupEntity);
+		if (!group)
+		{
+			activeGroup.m_sSpawnFailureReason = "Stock group member-slot population skipped: runtime entity is not SCR_AIGroup.";
+			DebugLog(string.Format("active group stock member-slot population skipped %1: runtime entity is not SCR_AIGroup via %2", activeGroup.m_sGroupId, source));
+			return false;
+		}
+
+		if (IsNativeGroupDelayedPopulationActive(group))
+		{
+			activeGroup.m_sSpawnFailureReason = "Stock group member-slot population waiting: native delayed spawn queue is still active.";
+			DebugLog(string.Format("active group stock member-slot population waiting %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildNativeGroupPopulationDebug(group)));
+			return false;
+		}
+
+		int existingCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
+		if (existingCount > 0)
+			return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " existing stock members");
+
+		int spawnedCount = SpawnNativeSlotMembersIntoRuntimeGroup(group, activeGroup, source);
+		if (spawnedCount <= 0)
+		{
+			activeGroup.m_sSpawnFailureReason = "Stock group member-slot population failed: spawned zero valid members.";
+			DebugLog(string.Format("active group stock member-slot population failed %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildNativeGroupPopulationDebug(group)));
+			return false;
+		}
+
+		activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY;
+		activeGroup.m_sSpawnFailureReason = "Native group prefab populated from its stock member slots via " + source + ".";
+		DebugLog(string.Format("active group populated %1 with %2 stock %3 slot members via %4 | %5", activeGroup.m_sGroupId, spawnedCount, activeGroup.m_sFactionKey, source, BuildNativeGroupPopulationDebug(group)));
+		return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " stock member slots");
+	}
+
+	protected int SpawnNativeSlotMembersIntoRuntimeGroup(SCR_AIGroup group, HST_ActiveGroupState activeGroup, string source)
+	{
+		if (!group || !activeGroup || activeGroup.m_iInfantryCount <= 0)
+			return 0;
+		if (!group.m_aUnitPrefabSlots || group.m_aUnitPrefabSlots.Count() <= 0)
+		{
+			DebugLog(string.Format("active group stock member-slot population failed %1: group prefab has zero member slots via %2", activeGroup.m_sGroupId, source));
+			return 0;
+		}
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return 0;
+
+		int desiredCount = Math.Min(Math.Max(1, activeGroup.m_iInfantryCount), group.m_aUnitPrefabSlots.Count());
+		int spawnedCount;
+		string firstPrefab;
+		for (int i = 0; i < desiredCount; i++)
+		{
+			ResourceName slotPrefab = group.m_aUnitPrefabSlots[i];
+			string slotPrefabText = slotPrefab;
+			if (slotPrefabText.IsEmpty())
+				continue;
+			if (firstPrefab.IsEmpty())
+				firstPrefab = slotPrefabText;
+			if (!IsValidInfantryCharacterPrefabResource(slotPrefabText, activeGroup.m_sFactionKey))
+			{
+				Print(string.Format("h-istasi | active group rejected stock slot member %1 | group %2 | expected %3 | source %4", slotPrefabText, activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source), LogLevel.WARNING);
+				continue;
+			}
+
+			vector position = ResolveFallbackInfantryMemberPosition(activeGroup.m_vPosition, i);
+			EntitySpawnParams params = new EntitySpawnParams;
+			params.TransformMode = ETransformMode.WORLD;
+			params.Transform[3] = position;
+			IEntity member = GetGame().SpawnEntityPrefabEx(slotPrefab, true, world, params);
+			if (!member)
+			{
+				Print(string.Format("h-istasi | active group stock slot member spawn failed | group %1 | prefab %2 | source %3", activeGroup.m_sGroupId, slotPrefabText, source), LogLevel.WARNING);
+				continue;
+			}
+
+			member.SetOrigin(position);
+			ApplyEntityFaction(member, activeGroup.m_sFactionKey);
+			if (!AttachFactionInfantryMemberToRuntimeGroup(group, member, activeGroup, i))
+			{
+				SCR_EntityHelper.DeleteEntityAndChildren(member);
+				continue;
+			}
+			ApplyEntityFaction(member, activeGroup.m_sFactionKey);
+			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
+			m_aRuntimeGroupEntities.Insert(member);
+			Print(string.Format("h-istasi | stock group slot member spawned | group %1 | faction %2 | prefab %3 | position %4 | source %5", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, slotPrefabText, position, source));
+			spawnedCount++;
+		}
+
+		if (spawnedCount > 0)
+		{
+			group.SetNumberOfMembersToSpawn(spawnedCount);
+			ApplyRuntimeGroupFaction(group, activeGroup, "stock group member slots");
+			group.ActivateAI();
+		}
+		else
+		{
+			Print(string.Format("h-istasi | active group stock member-slot population failed %1 faction %2 groupPrefab %3 firstSlot %4 source %5", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, activeGroup.m_sPrefab, ReportText(firstPrefab), source), LogLevel.WARNING);
+		}
+
+		return spawnedCount;
 	}
 
 	protected bool TryPopulatePendingActiveGroupFromFactionInfantry(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source, bool allowInitializingFallback = false)
@@ -7719,7 +7904,7 @@ class HST_PhysicalWarService
 		AIAgent agent = ResolveRuntimeMemberAIAgent(member);
 		if (!agent)
 		{
-			DebugLog(string.Format("active group direct fallback member attach failed %1 index %2: missing AI agent", activeGroup.m_sGroupId, index));
+			DebugLog(string.Format("active group member attach failed %1 index %2: missing AI agent", activeGroup.m_sGroupId, index));
 			return false;
 		}
 
@@ -7735,7 +7920,7 @@ class HST_PhysicalWarService
 
 		if (agent.GetParentGroup() != group)
 		{
-			DebugLog(string.Format("active group direct fallback member attach failed %1 index %2: parent group did not match after attach", activeGroup.m_sGroupId, index));
+			DebugLog(string.Format("active group member attach failed %1 index %2: parent group did not match after attach", activeGroup.m_sGroupId, index));
 			return false;
 		}
 
@@ -7995,9 +8180,15 @@ class HST_PhysicalWarService
 		activeGroup.m_sRuntimeStatus = "spawn_pending_agents";
 		activeGroup.m_bSpawnedEntity = false;
 		activeGroup.m_iSpawnedAgentCount = 0;
-		activeGroup.m_sSpawnFailureReason = "Runtime group shell had zero live agents; forcing direct faction infantry population via " + source + ".";
+		activeGroup.m_sSpawnFailureReason = "Runtime group shell had zero live agents; forcing stock group member-slot population via " + source + ".";
 		if (IsMissionConvoyGroup(activeGroup) && activeGroup.m_sConvoyRuntimeStage.IsEmpty())
 			activeGroup.m_sConvoyRuntimeStage = "CREW_GROUP_CREATED";
+
+		if (TryPopulatePendingActiveGroupFromNativeSlots(activeGroup, previousStatus, state, source + " empty runtime shell"))
+		{
+			Print(string.Format("h-istasi | repaired empty runtime group %1 with stock %2 member slots via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+			return true;
+		}
 
 		if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, previousStatus, state, source + " empty runtime shell", true))
 		{
@@ -8052,8 +8243,16 @@ class HST_PhysicalWarService
 		activeGroup.m_iLastSeenAliveCount = 0;
 		activeGroup.m_iSurvivorInfantryCount = 0;
 		activeGroup.m_sSpawnFallbackMode = "convoy_crew_population_repair";
-		activeGroup.m_sSpawnFailureReason = "Convoy crew became unobserved before explicit contact; forcing direct faction infantry population via " + source + ".";
+		activeGroup.m_sSpawnFailureReason = "Convoy crew became unobserved before explicit contact; forcing stock group member-slot population via " + source + ".";
 		activeGroup.m_sConvoyRuntimeStage = "CREW_REPAIR";
+
+		if (TryPopulatePendingActiveGroupFromNativeSlots(activeGroup, ResolveMissionConvoyRuntimeStatus(mission), state, source + " convoy crew repair") && CountAliveRuntimeCrewAgents(activeGroup) > 0)
+		{
+			activeGroup.m_bCrewPopulationTerminallyFailed = false;
+			activeGroup.m_sCrewPopulationFailureReason = "";
+			Print(string.Format("h-istasi mission convoy | repaired zero-live crew group %1 with stock %2 member slots via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+			return true;
+		}
 
 		if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, ResolveMissionConvoyRuntimeStatus(mission), state, source + " convoy crew repair", true) && CountAliveRuntimeCrewAgents(activeGroup) > 0)
 		{
@@ -8085,10 +8284,10 @@ class HST_PhysicalWarService
 			return "group missing";
 
 		string rootEvidence;
-		string directEvidence;
+		string memberHandleEvidence;
 		int rootCount;
-		int directCount;
-		int livingDirectCount;
+		int memberHandleCount;
+		int livingMemberHandleCount;
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
@@ -8107,16 +8306,16 @@ class HST_PhysicalWarService
 				continue;
 			}
 
-			directCount++;
+			memberHandleCount++;
 			if (IsLivingEntity(entity))
-				livingDirectCount++;
-			if (directEvidence.IsEmpty())
-				directEvidence = entityEvidence;
+				livingMemberHandleCount++;
+			if (memberHandleEvidence.IsEmpty())
+				memberHandleEvidence = entityEvidence;
 		}
 
-		string evidence = string.Format("roots %1 direct %2 livingDirect %3", rootCount, directCount, livingDirectCount);
-		if (!directEvidence.IsEmpty())
-			evidence = evidence + " | directSample " + directEvidence;
+		string evidence = string.Format("roots %1 memberHandles %2 livingMemberHandles %3", rootCount, memberHandleCount, livingMemberHandleCount);
+		if (!memberHandleEvidence.IsEmpty())
+			evidence = evidence + " | memberHandleSample " + memberHandleEvidence;
 		if (!rootEvidence.IsEmpty())
 			evidence = evidence + " | rootSample " + rootEvidence;
 
@@ -8127,7 +8326,7 @@ class HST_PhysicalWarService
 			evidence = evidence + " | " + vehicleEvidence;
 		}
 
-		if (rootCount <= 0 && directCount <= 0 && !vehicleEntity)
+		if (rootCount <= 0 && memberHandleCount <= 0 && !vehicleEntity)
 			return "no runtime entities";
 
 		return evidence;
@@ -8159,7 +8358,7 @@ class HST_PhysicalWarService
 				break;
 			}
 
-			return string.Format("root %1 groupFaction %2 member %3 memberFaction %4", ReportText(ResolveEntityPrefabName(entity)), ReportText(group.GetFactionName()), ReportText(memberPrefab), ReportText(memberFaction));
+			return string.Format("root %1 groupFaction %2 raw %3 living %4 slots %5 queue %6 member %7 memberFaction %8", ReportText(ResolveEntityPrefabName(entity)), ReportText(group.GetFactionName()), group.GetAgentsCount(), CountLivingNativeAIGroupAgents(group), CountNativeGroupMemberSlots(group), group.GetSpawnQueueSize(), ReportText(memberPrefab), ReportText(memberFaction));
 		}
 
 		return string.Format("entity %1 faction %2 name %3", ReportText(ResolveEntityPrefabName(entity)), ReportText(ResolveEntityFactionKey(entity)), ReportText(entity.GetName()));
@@ -8699,7 +8898,7 @@ class HST_PhysicalWarService
 		if (!entity || !activeGroup)
 			return 0;
 
-		AIGroup group = AIGroup.Cast(entity);
+		SCR_AIGroup group = SCR_AIGroup.Cast(entity);
 		if (!group)
 		{
 			Print(string.Format("h-istasi | spawned prefab %1 for %2 did not create an AIGroup", activeGroup.m_sPrefab, activeGroup.m_sGroupId), LogLevel.WARNING);
@@ -8710,7 +8909,7 @@ class HST_PhysicalWarService
 		int livingAgentCount = CountLivingNativeAIGroupAgents(group);
 		if (livingAgentCount <= 0)
 		{
-			DebugLog(string.Format("spawned AIGroup %1 for %2 has %3 raw agents but no living controlled agents yet; awaiting population grace", activeGroup.m_sPrefab, activeGroup.m_sGroupId, rawAgentCount));
+			DebugLog(string.Format("spawned AIGroup %1 for %2 has %3 raw agents but no living controlled agents yet; awaiting population grace | %4", activeGroup.m_sPrefab, activeGroup.m_sGroupId, rawAgentCount, BuildNativeGroupPopulationDebug(group)));
 			return 0;
 		}
 
