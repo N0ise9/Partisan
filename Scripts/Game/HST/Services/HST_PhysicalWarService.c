@@ -5447,7 +5447,7 @@ class HST_PhysicalWarService
 			}
 
 			if (sample.IsEmpty())
-				sample = string.Format(" | sample group %1 status %2 spawned %3 agents %4 alive %5 maxObserved %6 everAlive %7 stage %8 mode %9 reason %10 crewFailure %11", ReportText(groupId), ReportText(activeGroup.m_sRuntimeStatus), ReportBool(activeGroup.m_bSpawnedEntity), activeGroup.m_iSpawnedAgentCount, groupAliveCrew, activeGroup.m_iMaxObservedCrewAlive, ReportBool(activeGroup.m_bEverHadLivingCrew), ReportText(activeGroup.m_sConvoyRuntimeStage), ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason), ReportText(activeGroup.m_sCrewPopulationFailureReason));
+				sample = string.Format(" | sample group %1 status %2 spawned %3 agents %4 alive %5 maxObserved %6 everAlive %7 stage %8 mode %9", ReportText(groupId), ReportText(activeGroup.m_sRuntimeStatus), ReportBool(activeGroup.m_bSpawnedEntity), activeGroup.m_iSpawnedAgentCount, groupAliveCrew, activeGroup.m_iMaxObservedCrewAlive, ReportBool(activeGroup.m_bEverHadLivingCrew), ReportText(activeGroup.m_sConvoyRuntimeStage), ReportText(activeGroup.m_sSpawnFallbackMode)) + string.Format(" reason %1 crewFailure %2", ReportText(activeGroup.m_sSpawnFailureReason), ReportText(activeGroup.m_sCrewPopulationFailureReason));
 		}
 
 		return string.Format(" | context assets %1 | attempted groups %2 | spawned groups %3 | pending control %4 | alive crew groups %5 | alive crew %6 | crew runtime entities %7 | vehicle runtime entities %8%9", vehicleAssets, attemptedGroups, spawnedGroups, pendingControlGroups, aliveCrewGroups, aliveCrew, crewRuntimeEntities, vehicleRuntimeEntities, sample);

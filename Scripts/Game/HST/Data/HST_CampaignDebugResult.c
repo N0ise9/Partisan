@@ -20,6 +20,10 @@ class HST_CampaignDebugAssertion
 	string m_sActual;
 	string m_sStatus;
 	string m_sFailureReason;
+	string m_sProofLevel;
+	string m_sObservedPath;
+	string m_sRequiredPath;
+	bool m_bCountsTowardCertification;
 	vector m_vExpectedPosition;
 	vector m_vActualPosition;
 	float m_fDistanceMeters;
@@ -66,6 +70,12 @@ class HST_CampaignDebugRunResult
 	int m_iFailCount;
 	int m_iBlockedCount;
 	int m_iSkippedCount;
+	int m_iCertificationRequiredCount;
+	int m_iCertificationProvenCount;
+	int m_iCertificationFailCount;
+	int m_iCertificationBlockedCount;
+	int m_iCertificationWarnCount;
+	bool m_bCertificationPassed;
 	ref array<ref HST_CampaignDebugCaseResult> m_aCases = {};
 	ref array<ref HST_CampaignDebugMetric> m_aMetrics = {};
 	ref array<string> m_aArtifacts = {};

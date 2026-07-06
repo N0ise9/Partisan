@@ -5369,8 +5369,140 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		assertion.m_sMissionInstanceId = missionInstanceId;
 		assertion.m_sZoneId = zoneId;
 		assertion.m_sOrderId = orderId;
+		ApplyCampaignDebugProofDefaults(caseResult, assertion);
 		caseResult.m_aAssertions.Insert(assertion);
 		return assertion;
+	}
+
+	protected void ApplyCampaignDebugProofDefaults(HST_CampaignDebugCaseResult caseResult, HST_CampaignDebugAssertion assertion)
+	{
+		if (!caseResult || !assertion)
+			return;
+
+		assertion.m_sProofLevel = ResolveCampaignDebugProofLevel(caseResult, assertion);
+		assertion.m_sObservedPath = ResolveCampaignDebugObservedPath(caseResult, assertion);
+		assertion.m_sRequiredPath = ResolveCampaignDebugRequiredPath(caseResult, assertion);
+		assertion.m_bCountsTowardCertification = ShouldCampaignDebugAssertionCountTowardCertification(caseResult, assertion);
+	}
+
+	protected bool IsCampaignDebugExternalProofGap(HST_CampaignDebugCaseResult caseResult, HST_CampaignDebugAssertion assertion)
+	{
+		if (!caseResult)
+			return false;
+
+		string caseId = caseResult.m_sCaseId;
+		string category = caseResult.m_sCategory;
+		string feature = caseResult.m_sFeature;
+		if (category == "soak" || feature == "external_harness" || caseId.Contains("external_required") || caseId.Contains("manual_external_gaps") || caseId.Contains("post_restart"))
+			return true;
+
+		if (!assertion)
+			return false;
+
+		string assertionId = assertion.m_sAssertionId;
+		string expected = assertion.m_sExpected;
+		string failureReason = assertion.m_sFailureReason;
+		if (assertionId.Contains("external_required") || assertionId.Contains("manual_external") || assertionId.Contains("post_restart") || assertionId.Contains("real_restart") || assertionId.Contains("reconnect") || assertionId.Contains("second_client") || assertionId.Contains("two_hour_soak"))
+			return true;
+		if (expected.Contains("external") || expected.Contains("manual") || expected.Contains("restart") || expected.Contains("reconnect") || expected.Contains("second client") || expected.Contains("long soak"))
+			return true;
+		if (failureReason.Contains("external") || failureReason.Contains("manual") || failureReason.Contains("restart") || failureReason.Contains("reconnect") || failureReason.Contains("second client") || failureReason.Contains("long soak"))
+			return true;
+
+		return false;
+	}
+
+	protected string ResolveCampaignDebugProofLevel(HST_CampaignDebugCaseResult caseResult, HST_CampaignDebugAssertion assertion)
+	{
+		if (!caseResult)
+			return "STATE_ONLY";
+
+		string caseId = caseResult.m_sCaseId;
+		string category = caseResult.m_sCategory;
+		string feature = caseResult.m_sFeature;
+		string stage = caseResult.m_sStage;
+		if (IsCampaignDebugExternalProofGap(caseResult, assertion))
+			return "EXTERNAL_PROCESS";
+		if (category == "hq" || feature == "hq_runtime")
+			return "PHYSICAL_RUNTIME";
+		if (feature.Contains("convoy") || caseId.Contains("convoy_physical") || caseId.Contains("physical_combat"))
+			return "PHYSICAL_RUNTIME";
+		if (caseId.Contains("render_bubble") || caseId.Contains("civilian_population") || caseId.Contains("qrf") || feature.Contains("player_support"))
+			return "PHYSICAL_RUNTIME";
+		if (feature == "command_ui" && stage.Contains("rendered"))
+			return "CLIENT_RENDERED";
+		if (category == "action" || category == "observation" || category == "legacy" || category == "cleanup" || category == "profile")
+			return "STATE_ONLY";
+		if (stage.Contains("phase") || stage.Contains("economy") || stage.Contains("mission") || stage.Contains("primitive"))
+			return "CONTROLLED_RUNTIME";
+
+		return "STATE_ONLY";
+	}
+
+	protected string ResolveCampaignDebugObservedPath(HST_CampaignDebugCaseResult caseResult, HST_CampaignDebugAssertion assertion)
+	{
+		if (!caseResult)
+			return "unknown";
+
+		if (IsCampaignDebugExternalProofGap(caseResult, assertion))
+			return "manual_external_gap";
+		if (assertion && assertion.m_sStatus == "WARN")
+			return "diagnostic_only";
+		if (caseResult.m_sCategory == "action")
+			return "command_result";
+		if (caseResult.m_sCategory == "observation")
+			return "report_snapshot";
+		if (caseResult.m_sCategory == "legacy")
+			return "legacy_text_classifier";
+		if (caseResult.m_sCategory == "cleanup")
+			return "cleanup_probe";
+		if (caseResult.m_sFeature == "external_harness")
+			return "manual_external_gap";
+		if (caseResult.m_sFeature == "hq_runtime")
+			return "world_runtime_entity_scan";
+		if (caseResult.m_sFeature.Contains("convoy") || caseResult.m_sCaseId.Contains("convoy_physical"))
+			return "physical_convoy_probe";
+		if (caseResult.m_sCaseId.Contains("physical_combat"))
+			return "physical_ai_contact_probe";
+		if (caseResult.m_sCategory == "preflight")
+			return "static_and_runtime_preflight";
+
+		return caseResult.m_sStage;
+	}
+
+	protected string ResolveCampaignDebugRequiredPath(HST_CampaignDebugCaseResult caseResult, HST_CampaignDebugAssertion assertion)
+	{
+		if (!caseResult)
+			return "typed assertion";
+
+		if (IsCampaignDebugExternalProofGap(caseResult, assertion))
+			return "external process restart, reconnect, or long-soak harness";
+		if (caseResult.m_sFeature == "hq_runtime")
+			return "physical HQ runtime entity proof";
+		if (caseResult.m_sFeature.Contains("convoy") || caseResult.m_sCaseId.Contains("convoy_physical"))
+			return "physical vehicle, crew, driver, route, movement, and outcome proof";
+		if (caseResult.m_sCaseId.Contains("physical_combat"))
+			return "physical AI spawn, hostility, contact, casualty, and cleanup proof";
+		if (caseResult.m_sCategory == "action" || caseResult.m_sCategory == "observation" || caseResult.m_sCategory == "legacy")
+			return "narrow typed feature case";
+		if (caseResult.m_sCategory == "cleanup")
+			return "no debug-owned state or world leak";
+
+		return "typed runtime/state transition proof";
+	}
+
+	protected bool ShouldCampaignDebugAssertionCountTowardCertification(HST_CampaignDebugCaseResult caseResult, HST_CampaignDebugAssertion assertion)
+	{
+		if (!caseResult || !assertion)
+			return false;
+		if (assertion.m_sStatus == "WARN" || assertion.m_sStatus == "SKIPPED")
+			return false;
+		if (assertion.m_sProofLevel == "EXTERNAL_PROCESS")
+			return false;
+		if (caseResult.m_sCategory == "action" || caseResult.m_sCategory == "observation" || caseResult.m_sCategory == "legacy" || caseResult.m_sCategory == "profile")
+			return false;
+
+		return true;
 	}
 
 	protected string CampaignDebugStatus(bool passed, string failStatus = "FAIL")
@@ -6050,6 +6182,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_CampaignDebugRunResult.m_iFailCount = m_iCampaignDebugFailCount;
 		m_CampaignDebugRunResult.m_iBlockedCount = m_iCampaignDebugBlockedCount;
 		m_CampaignDebugRunResult.m_iSkippedCount = m_iCampaignDebugSkippedCount;
+		FinalizeCampaignDebugCertificationSummary();
+	}
+
+	protected void FinalizeCampaignDebugCertificationSummary()
+	{
+		if (!m_CampaignDebugRunResult)
+			return;
+
+		m_CampaignDebugRunResult.m_iCertificationRequiredCount = 0;
+		m_CampaignDebugRunResult.m_iCertificationProvenCount = 0;
+		m_CampaignDebugRunResult.m_iCertificationFailCount = 0;
+		m_CampaignDebugRunResult.m_iCertificationBlockedCount = 0;
+		m_CampaignDebugRunResult.m_iCertificationWarnCount = 0;
+		foreach (HST_CampaignDebugCaseResult caseResult : m_CampaignDebugRunResult.m_aCases)
+		{
+			if (!caseResult)
+				continue;
+
+			foreach (HST_CampaignDebugAssertion assertion : caseResult.m_aAssertions)
+			{
+				if (!assertion || !assertion.m_bCountsTowardCertification)
+					continue;
+
+				m_CampaignDebugRunResult.m_iCertificationRequiredCount++;
+				if (assertion.m_sStatus == "PASS")
+					m_CampaignDebugRunResult.m_iCertificationProvenCount++;
+				else if (assertion.m_sStatus == "FAIL")
+					m_CampaignDebugRunResult.m_iCertificationFailCount++;
+				else if (assertion.m_sStatus == "BLOCKED")
+					m_CampaignDebugRunResult.m_iCertificationBlockedCount++;
+				else if (assertion.m_sStatus == "WARN")
+					m_CampaignDebugRunResult.m_iCertificationWarnCount++;
+			}
+		}
+
+		m_CampaignDebugRunResult.m_bCertificationPassed = m_CampaignDebugRunResult.m_iCertificationRequiredCount > 0 && m_CampaignDebugRunResult.m_iCertificationFailCount == 0 && m_CampaignDebugRunResult.m_iCertificationBlockedCount == 0 && m_CampaignDebugRunResult.m_iCertificationWarnCount == 0 && m_CampaignDebugRunResult.m_iCertificationProvenCount == m_CampaignDebugRunResult.m_iCertificationRequiredCount;
 	}
 
 	protected array<string> BuildCampaignDebugSummaryLines()
@@ -6063,6 +6231,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		lines.Insert("entity tag " + EmptyCampaignDebugField(m_sCampaignDebugEntityTag));
 		lines.Insert(string.Format("pass %1 | warn %2 | fail %3 | blocked %4 | skipped %5", m_iCampaignDebugPassCount, m_iCampaignDebugWarnCount, m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount));
 		lines.Insert(string.Format("critical failures %1", CountCampaignDebugCriticalFailures()));
+		if (m_CampaignDebugRunResult)
+			lines.Insert(string.Format("certification proven %1/%2 | fail %3 | blocked %4 | warn %5 | passed %6", m_CampaignDebugRunResult.m_iCertificationProvenCount, m_CampaignDebugRunResult.m_iCertificationRequiredCount, m_CampaignDebugRunResult.m_iCertificationFailCount, m_CampaignDebugRunResult.m_iCertificationBlockedCount, m_CampaignDebugRunResult.m_iCertificationWarnCount, m_CampaignDebugRunResult.m_bCertificationPassed));
 		lines.Insert("report " + m_sCampaignDebugReportPath);
 		lines.Insert("summary " + m_sCampaignDebugSummaryPath);
 		lines.Insert("state diff " + m_sCampaignDebugStateDiffPath);

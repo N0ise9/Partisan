@@ -225,7 +225,7 @@ class HST_HQService
 		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
 			return false;
 
-		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked(state) && IsUsableArsenalEntity(m_ArsenalEntity) && IsLivingRuntimeEntity(m_PetrosEntity))
+		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked() && IsUsableArsenalEntity(m_ArsenalEntity) && IsLivingRuntimeEntity(m_PetrosEntity))
 			return false;
 
 		if (state.m_bHQRuntimeObjectsSpawned && !AreRuntimeObjectsTracked(state))
@@ -246,13 +246,13 @@ class HST_HQService
 			PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
 			m_iPetrosMissingSinceSecond = -1;
 			m_sPetrosStableRuntimeKey = BuildRuntimeEntityKey("petros", m_PetrosEntity);
-			if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "world reattach"))
+			if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach"))
 			{
 				DebugLog(string.Format("lifecycle reattached living world Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
 			}
 			else
 			{
-				WarnPetrosAIGroupFallback("world reattach");
+				WarnPetrosAIGroupFallback("reattach");
 				DebugLog(string.Format("lifecycle reattached living world Petros without durable AIGroup prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
 			}
 			changed = true;
@@ -388,9 +388,10 @@ class HST_HQService
 		}
 
 		bool allRuntimeObjectsTracked = AreRuntimeObjectsTracked(state);
-		bool runtimeFlagChanged = state.m_bHQRuntimeObjectsSpawned != allRuntimeObjectsTracked;
-		state.m_bHQRuntimeObjectsSpawned = allRuntimeObjectsTracked;
-		if (!allRuntimeObjectsTracked)
+		bool runtimeObjectsReady = allRuntimeObjectsTracked && IsUsableArsenalEntity(m_ArsenalEntity) && IsLivingRuntimeEntity(m_PetrosEntity);
+		bool runtimeFlagChanged = state.m_bHQRuntimeObjectsSpawned != runtimeObjectsReady;
+		state.m_bHQRuntimeObjectsSpawned = runtimeObjectsReady;
+		if (!runtimeObjectsReady)
 		{
 			if (!m_bWarnedRuntimeSpawnIncomplete)
 			{
@@ -538,7 +539,7 @@ class HST_HQService
 
 	bool HasPetrosRuntimeEntity()
 	{
-		return IsPetrosRuntimeTracked();
+		return IsLivingRuntimeEntity(m_PetrosEntity);
 	}
 
 	bool HasCacheRuntimeEntity()
