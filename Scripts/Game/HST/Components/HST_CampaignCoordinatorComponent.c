@@ -5178,9 +5178,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CampaignDebugCaseResult gapCase = CreateCampaignDebugCase("phase25.manual_external_gaps", "soak", "external_harness", "final");
 		string gapSummary = "real restart after each primitive, second-client join/reconnect, and two-hour full-session soak require external automation";
 		gapCase.m_aEvidence.Insert(gapSummary);
-		AddCampaignDebugAssertion(gapCase, "phase25.real_restart", "real restart-after-primitive explicitly reported as not executed", "manual external gap", "WARN", "single-button in-process runner cannot restart the whole session");
-		AddCampaignDebugAssertion(gapCase, "phase25.second_client", "second-client join/reconnect explicitly reported as not executed", "manual external gap", "WARN", "single-button server runner cannot create a second client");
-		AddCampaignDebugAssertion(gapCase, "phase25.two_hour_soak", "two-hour endurance soak explicitly reported as not executed", "manual external gap", "WARN", "long soak requires external automation time budget");
+		AddCampaignDebugAssertion(gapCase, "phase25.real_restart", "real restart-after-primitive explicitly reported as not executed", "manual external gap", "BLOCKED", "single-button in-process runner cannot restart the whole session");
+		AddCampaignDebugAssertion(gapCase, "phase25.second_client", "second-client join/reconnect explicitly reported as not executed", "manual external gap", "BLOCKED", "single-button server runner cannot create a second client");
+		AddCampaignDebugAssertion(gapCase, "phase25.two_hour_soak", "two-hour endurance soak explicitly reported as not executed", "manual external gap", "BLOCKED", "long soak requires external automation time budget");
 		FinalizeCampaignDebugCaseFromAssertions(gapCase);
 		return gapCase;
 	}
@@ -8647,7 +8647,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (restoredStateReady)
 			restoredFieldVehicle = restoredCampaignState.FindRuntimeVehicle(PERSISTENCE_SMOKE_FIELD_VEHICLE_ID);
 		AddCampaignDebugAssertion(persistenceCase, "persistence.restore.field_vehicle", "restored temp state keeps exactly one restore-eligible field vehicle sentinel", BuildCampaignDebugFieldVehicleRestoreActual(smokeFieldVehicle, restoredFieldVehicle, smokeFieldVehicles, restoredFieldVehicles), CampaignDebugStatus(restoredStateReady && IsCampaignDebugPersistenceFieldVehicleValid(restoredFieldVehicle) && restoredFieldVehicles == 1 && CampaignDebugRuntimeVehicleFieldsMatch(smokeFieldVehicle, restoredFieldVehicle)), "in-memory save-data restore lost or changed the field vehicle persistence sentinel", PERSISTENCE_SMOKE_FIELD_VEHICLE_ID);
-		AddCampaignDebugAssertion(persistenceCase, "persistence.real_restart", "external process restart / reconnect is not executed by this one-button in-memory probe", "not executed", "WARN", "manual or automation-harness restart remains required");
+		AddCampaignDebugAssertion(persistenceCase, "persistence.real_restart", "external process restart / reconnect is not executed by this one-button in-memory probe", "not executed", "BLOCKED", "manual or automation-harness restart remains required");
 		FinalizeCampaignDebugCaseFromAssertions(persistenceCase);
 		return persistenceCase;
 	}

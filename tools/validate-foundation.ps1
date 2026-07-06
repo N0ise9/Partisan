@@ -3084,6 +3084,16 @@ foreach ($requiredCampaignDebugProofEntry in @(
 		throw "Campaign debug certification proof metadata missing: $requiredCampaignDebugProofEntry"
 	}
 }
+foreach ($requiredCampaignDebugExternalBlockEntry in @(
+		'AddCampaignDebugAssertion(gapCase, "phase25.real_restart", "real restart-after-primitive explicitly reported as not executed", "manual external gap", "BLOCKED"',
+		'AddCampaignDebugAssertion(gapCase, "phase25.second_client", "second-client join/reconnect explicitly reported as not executed", "manual external gap", "BLOCKED"',
+		'AddCampaignDebugAssertion(gapCase, "phase25.two_hour_soak", "two-hour endurance soak explicitly reported as not executed", "manual external gap", "BLOCKED"',
+		'AddCampaignDebugAssertion(persistenceCase, "persistence.real_restart", "external process restart / reconnect is not executed by this one-button in-memory probe", "not executed", "BLOCKED"'
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugExternalBlockEntry)) {
+		throw "Campaign debug external gaps must be BLOCKED instead of WARN/PASS: $requiredCampaignDebugExternalBlockEntry"
+	}
+}
 foreach ($requiredCampaignDebugProfileEntry in @(
 		"admin_smoke",
 		"foundation",
