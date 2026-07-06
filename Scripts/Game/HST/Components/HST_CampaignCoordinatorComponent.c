@@ -3271,6 +3271,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_sCampaignDebugProfile == "smoke" || m_sCampaignDebugProfile == "admin_smoke" || m_sCampaignDebugProfile == "foundation" || m_sCampaignDebugProfile == "post_restart_verify";
 	}
 
+	protected bool ShouldCampaignDebugPreservePersistenceSmokeState()
+	{
+		return m_sCampaignDebugProfile == "persistence_restart_external";
+	}
+
 	protected bool ShouldCampaignDebugRunEarlyPhaseStage()
 	{
 		return !IsCampaignDebugFoundationOnlyProfile() && !IsCampaignDebugExternalProfile();
@@ -5196,6 +5201,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		ClearCampaignDebugPlayerSupportRequests("run completion");
 		RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(ResolveCampaignDebugCleanupPrefix(), "run completion"), false);
+		if (!ShouldCampaignDebugPreservePersistenceSmokeState())
+			RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(PERSISTENCE_SMOKE_PREFIX, "run completion persistence smoke cleanup"), false);
 		RefreshCampaignMarkers();
 		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
 		m_bCampaignDebugRunning = false;
@@ -6828,6 +6835,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int markerCount = m_State.m_aMapMarkers.Count();
 		string remainingPrefixExample;
 		int remainingPrefixedRecords = CountCampaignDebugPrefixedStateRecords(CAMPAIGN_DEBUG_PREFIX_ROOT, remainingPrefixExample);
+		string remainingSmokeExample;
+		int remainingSmokeRecords = CountCampaignDebugPrefixedStateRecords(PERSISTENCE_SMOKE_PREFIX, remainingSmokeExample);
+		bool preservePersistenceSmoke = ShouldCampaignDebugPreservePersistenceSmokeState();
 		string orphanGroupExample;
 		int orphanGroupCount = CountCampaignDebugOrphanActiveGroups(orphanGroupExample);
 		string orphanMarkerExample;
@@ -6848,8 +6858,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.debug_prefixed_records", string.Format("%1", remainingPrefixedRecords), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.smoke_prefixed_records", string.Format("%1", remainingSmokeRecords), "count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.current_mission_id", "runner current/early mission ids empty", string.Format("current %1 | early %2", EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId), EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId)), CampaignDebugStatus(m_sCampaignDebugCurrentMissionInstanceId.IsEmpty() && m_sCampaignDebugEarlyMissionInstanceId.IsEmpty()), "runner still references a debug mission at completion");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.debug_prefixed_records", "no hst_debug-prefixed persisted records remain", BuildCampaignDebugCountExample(remainingPrefixedRecords, remainingPrefixExample), CampaignDebugStatus(remainingPrefixedRecords == 0), "debug-prefixed persisted state remains after cleanup");
+		string smokeStatus = CampaignDebugStatus(remainingSmokeRecords == 0);
+		string smokeExpected = "no hst_smoke-prefixed persistence sentinels remain after normal campaign debug cleanup";
+		string smokeFailure = "persistence smoke sentinel state remains after normal non-restart debug profile";
+		if (preservePersistenceSmoke)
+		{
+			smokeStatus = "BLOCKED";
+			smokeExpected = "external restart profile preserves hst_smoke sentinels for post_restart_verify instead of claiming in-process cleanup";
+			smokeFailure = "persistence smoke sentinels require an external restart and post_restart_verify before cleanup can be certified";
+		}
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.smoke_prefixed_records", smokeExpected, BuildCampaignDebugCountExample(remainingSmokeRecords, remainingSmokeExample), smokeStatus, smokeFailure);
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.active_mission_delta", "active mission count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartActiveMissions, activeMissionCount), CampaignDebugStatus(activeMissionCount <= m_iCampaignDebugStartActiveMissions, "WARN"), "active mission count increased during debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.pending_player_support", "no queued/active player support requests", string.Format("%1", pendingPlayerSupportCount), CampaignDebugStatus(pendingPlayerSupportCount == 0, "WARN"), "player support requests remain queued or active after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.open_enemy_orders", "open enemy order count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartEnemyOrders, openEnemyOrderCount), CampaignDebugStatus(openEnemyOrderCount <= m_iCampaignDebugStartEnemyOrders, "WARN"), "enemy orders remain open above run-start count");

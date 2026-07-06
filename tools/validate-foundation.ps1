@@ -3100,6 +3100,7 @@ foreach ($requiredCampaignDebugProfileEntry in @(
 		"external_required",
 		"IsCampaignDebugExternalProfile",
 		"IsCampaignDebugFoundationOnlyProfile",
+		"ShouldCampaignDebugPreservePersistenceSmokeState",
 		"preflight.external_required",
 		"Run Full Certification",
 		"Persistence Restart External",
@@ -3107,6 +3108,17 @@ foreach ($requiredCampaignDebugProfileEntry in @(
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugProfileEntry)) {
 		throw "Campaign debug profile vocabulary missing: $requiredCampaignDebugProfileEntry"
+	}
+}
+foreach ($requiredCampaignDebugSmokeCleanupEntry in @(
+		'CleanupCampaignDebugPrefixedState(PERSISTENCE_SMOKE_PREFIX, "run completion persistence smoke cleanup")',
+		"cleanup.smoke_prefixed_records",
+		"normal non-restart debug profile",
+		"external restart profile preserves hst_smoke sentinels",
+		"post_restart_verify before cleanup can be certified"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugSmokeCleanupEntry)) {
+		throw "Campaign debug cleanup must explicitly remove or externally preserve persistence smoke sentinels: $requiredCampaignDebugSmokeCleanupEntry"
 	}
 }
 Write-Host "Campaign debug build/proof/profile contract OK"
