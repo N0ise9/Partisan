@@ -1,6 +1,9 @@
-SCR_AIGroup HST_PetrosGroup : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et" {
+SCR_AIGroup HST_PetrosGroup : "{242BC3C6BCE96EA5}Prefabs/Groups/INDFOR/Group_FIA_Base.et" {
  ID "6985327711303901"
  m_bSpawnImmediately 0
  m_bDeleteWhenEmpty 0
  m_faction "FIA"
+ m_aUnitPrefabSlots {
+  "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et"
+ }
 }

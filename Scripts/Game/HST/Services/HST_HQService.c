@@ -242,6 +242,12 @@ class HST_HQService
 		if (ReattachUniqueLivingWorldPetros(state, "reattach"))
 			changed = true;
 
+		if (!m_PetrosEntity && TryResolvePetrosFromTrackedGroup(state.m_vPetrosPosition, "tracked group"))
+		{
+			m_bLoggedPetrosSpawned = LogRuntimeObjectSpawnSuccess("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition, m_bLoggedPetrosSpawned);
+			changed = true;
+		}
+
 		if (m_PetrosEntity && !IsLivingRuntimeEntity(m_PetrosEntity))
 		{
 			if (!m_bWarnedPetrosRemovalRetry)
@@ -304,10 +310,18 @@ class HST_HQService
 					m_bLoggedPetrosSpawned = LogRuntimeObjectSpawnSuccess("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition, m_bLoggedPetrosSpawned);
 					changed = true;
 				}
-				else if (logDetails)
+				else if (IsPetrosGroupSpawnPending())
 				{
-					LogRuntimeObjectSpawnFailure("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition);
+					if (m_iPetrosSpawnCount <= 0 || sinceLastSpawn >= PETROS_RESPAWN_DEBOUNCE_SECONDS)
+					{
+						m_iPetrosLastSpawnSecond = state.m_iElapsedSeconds;
+						m_iPetrosSpawnCount++;
+					}
+					if (logDetails)
+						DebugLog(string.Format("lifecycle Petros group-owned spawn pending | group=%1 | %2", m_PetrosGroupEntity, BuildPetrosAIGroupDebugSummary()));
 				}
+				else if (logDetails)
+					LogRuntimeObjectSpawnFailure("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition);
 			}
 		}
 
@@ -1102,11 +1116,11 @@ class HST_HQService
 		}
 
 		DebugLog(string.Format("lifecycle spawning Petros prefab=%1 pos=%2 hqDeployed=%3 petrosAlive=%4 runtimeSpawned=%5", petrosPrefab, petrosPosition, hqDeployed, petrosAlive, runtimeSpawned));
-		GenericEntity petros = SpawnPetrosCharacterPrefab(petrosPrefab, petrosPosition);
-		if (petros && PreparePetrosRuntimeEntity(petros, petrosPosition, "dedicated Petros spawn"))
-			return petros;
+		GenericEntity petros = SpawnPetrosViaGroupPrefab(petrosPosition, "dedicated Petros group spawn");
 		if (petros)
-			DeleteRuntimeEntity(petros);
+			return petros;
+		if (IsPetrosGroupSpawnPending())
+			return null;
 
 		if (petrosPrefab != PETROS_BASE_PREFAB)
 		{
@@ -1124,6 +1138,32 @@ class HST_HQService
 
 			return null;
 		}
+
+		return null;
+	}
+
+	protected GenericEntity SpawnPetrosViaGroupPrefab(vector position, string source)
+	{
+		SCR_AIGroup group = ResolvePetrosAIGroup(position, source);
+		if (!group)
+			return null;
+
+		group.SetOrigin(position);
+		group.SetSpawnImmediately(false);
+		group.SetMaxUnitsToSpawn(1);
+		group.SetMemberSpawnDelay(0);
+		group.SetDeleteWhenEmpty(false);
+		ApplyPetrosGroupFaction(group, source);
+
+		if (group.GetAgentsCount() <= 0 && group.GetSpawnQueueSize() <= 0)
+		{
+			group.SpawnUnits();
+			DebugLog(string.Format("lifecycle queued Petros group-owned SpawnUnits via %1 | group=%2 | queue=%3", source, group, group.GetSpawnQueueSize()));
+		}
+
+		group.ActivateAI();
+		if (TryResolvePetrosFromTrackedGroup(position, source))
+			return GenericEntity.Cast(m_PetrosEntity);
 
 		return null;
 	}
@@ -1166,6 +1206,45 @@ class HST_HQService
 		DeleteRuntimeEntity(m_PetrosGroupEntity);
 		m_PetrosGroupEntity = null;
 		return IsLivingRuntimeEntity(petros);
+	}
+
+	protected bool TryResolvePetrosFromTrackedGroup(vector position, string source)
+	{
+		SCR_AIGroup group = SCR_AIGroup.Cast(m_PetrosGroupEntity);
+		if (!group)
+			return false;
+
+		array<AIAgent> agents = new array<AIAgent>;
+		group.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+
+			IEntity controlledEntity = agent.GetControlledEntity();
+			if (!controlledEntity || !IsLivingRuntimeEntity(controlledEntity))
+				continue;
+
+			m_PetrosEntity = controlledEntity;
+			PreparePetrosEntity(m_PetrosEntity, position);
+			m_iPetrosMissingSinceSecond = -1;
+			m_sPetrosStableRuntimeKey = BuildRuntimeEntityKey("petros", m_PetrosEntity);
+			ApplyPetrosGroupFaction(group, source);
+			agent.ActivateAI();
+			DebugLog(string.Format("lifecycle resolved Petros from group-owned slot via %1 | petros=%2 | group=%3 | agents=%4 | queue=%5", source, m_PetrosEntity, group, group.GetAgentsCount(), group.GetSpawnQueueSize()));
+			return true;
+		}
+
+		if (group.GetAgentsCount() <= 0 && group.GetSpawnQueueSize() <= 0)
+		{
+			group.SetMaxUnitsToSpawn(1);
+			group.SetMemberSpawnDelay(0);
+			group.SetDeleteWhenEmpty(false);
+			group.SpawnUnits();
+			DebugLog(string.Format("lifecycle requeued Petros group-owned SpawnUnits via %1 | group=%2 | queue=%3", source, group, group.GetSpawnQueueSize()));
+		}
+
+		return false;
 	}
 
 	protected void WarnPetrosAIGroupFallback(string source)
@@ -1297,7 +1376,7 @@ class HST_HQService
 		group.SetName("HST_Petros_Group");
 		group.SetOrigin(position);
 		group.SetSpawnImmediately(false);
-		group.SetMaxUnitsToSpawn(0);
+		group.SetMaxUnitsToSpawn(1);
 		group.SetMemberSpawnDelay(0);
 		group.SetDeleteWhenEmpty(false);
 		m_PetrosGroupEntity = groupEntity;
@@ -1657,6 +1736,15 @@ class HST_HQService
 	{
 		SCR_AIGroup group = SCR_AIGroup.Cast(m_PetrosGroupEntity);
 		return IsLivingRuntimeEntity(m_PetrosEntity) && group && IsPetrosAgentInGroup(m_PetrosEntity, group);
+	}
+
+	protected bool IsPetrosGroupSpawnPending()
+	{
+		SCR_AIGroup group = SCR_AIGroup.Cast(m_PetrosGroupEntity);
+		if (!group || IsLivingRuntimeEntity(m_PetrosEntity))
+			return false;
+
+		return group.GetSpawnQueueSize() > 0 || group.GetAgentsCount() == 0;
 	}
 
 	protected bool IsPetrosAgentInGroup(IEntity petros, SCR_AIGroup group)

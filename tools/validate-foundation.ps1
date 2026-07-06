@@ -420,13 +420,15 @@ if ((Get-Content -Raw $petrosGroupPrefabMetaPath) -notmatch '\{6985327711303900\
 
 $petrosGroupPrefabText = Get-Content -Raw $petrosGroupPrefabPath
 foreach ($requiredPetrosGroupPrefabEntry in @(
-		'SCR_AIGroup HST_PetrosGroup : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et"',
+		'SCR_AIGroup HST_PetrosGroup : "{242BC3C6BCE96EA5}Prefabs/Groups/INDFOR/Group_FIA_Base.et"',
 		"m_bSpawnImmediately 0",
 		"m_bDeleteWhenEmpty 0",
-		'm_faction "FIA"'
+		'm_faction "FIA"',
+		"m_aUnitPrefabSlots",
+		'"{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et"'
 	)) {
 	if ($petrosGroupPrefabText -notmatch [regex]::Escape($requiredPetrosGroupPrefabEntry)) {
-		throw "Dedicated Petros AIGroup prefab must start empty and not queue native empty-group deletion: $requiredPetrosGroupPrefabEntry"
+		throw "Dedicated Petros AIGroup prefab must be a non-empty FIA group-owned Petros spawn root: $requiredPetrosGroupPrefabEntry"
 	}
 }
 
@@ -513,6 +515,9 @@ foreach ($requiredPetrosServiceEntry in @(
 		"BootstrapInitialHideout",
 		"ResolvePetrosPrefab",
 		"SpawnPetros",
+		"SpawnPetrosViaGroupPrefab",
+		"TryResolvePetrosFromTrackedGroup",
+		"IsPetrosGroupSpawnPending",
 		"SpawnPetrosCharacterPrefab",
 		"ResolveArsenalPrefab",
 		"SpawnArsenal",
@@ -544,8 +549,11 @@ foreach ($requiredPetrosServiceEntry in @(
 if ($hqServiceText -notmatch "SpawnPetros\(respawnSystem, state\)") {
 	throw "HQ runtime spawn must route Petros through the custom-prefab fallback helper"
 }
-if ($hqServiceText -notmatch "SpawnPetrosCharacterPrefab\(petrosPrefab, petrosPosition\)" -or $hqServiceText -notmatch "SpawnPetrosCharacterPrefab\(PETROS_BASE_PREFAB, petrosPosition\)") {
-	throw "HQ runtime Petros spawn must use the dedicated forced character prefab helper for both custom and base fallback Petros"
+if ($hqServiceText -notmatch "SpawnPetrosViaGroupPrefab\(petrosPosition, `"dedicated Petros group spawn`"\)" -or $hqServiceText -notmatch "TryResolvePetrosFromTrackedGroup\(position, source\)") {
+	throw "HQ runtime Petros primary spawn must use the dedicated Petros AIGroup slot path"
+}
+if ($hqServiceText -notmatch "SpawnPetrosCharacterPrefab\(PETROS_BASE_PREFAB, petrosPosition\)") {
+	throw "HQ runtime Petros base fallback must keep the forced character prefab helper for diagnostics"
 }
 $spawnPetrosMethodMatch = [regex]::Match($hqServiceText, "protected GenericEntity SpawnPetros[\s\S]*?protected GenericEntity SpawnPetrosCharacterPrefab")
 if ($spawnPetrosMethodMatch.Success -and $spawnPetrosMethodMatch.Value -match "HST_WorldPositionService\.SpawnPrefab") {
@@ -603,9 +611,12 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		'ReattachUniqueLivingWorldPetros(state, "final runtime proof")',
 		'CountLivingPetrosWorldRuntimeEntities(state) == 1',
 		'bool petrosRuntimeReady = IsPetrosRuntimeTracked(state) && IsLivingRuntimeEntity(m_PetrosEntity);',
-		'PreparePetrosRuntimeEntity(petros, petrosPosition, "dedicated Petros spawn")',
+		'TryResolvePetrosFromTrackedGroup(state.m_vPetrosPosition, "tracked group")',
+		'SpawnPetrosViaGroupPrefab(petrosPosition, "dedicated Petros group spawn")',
+		'TryResolvePetrosFromTrackedGroup(position, source)',
 		'PreparePetrosRuntimeEntity(petros, petrosPosition, "base FIA Petros fallback")',
 		'PETROS_GROUP_PREFAB = "{6985327711303900}Prefabs/Groups/HST/HST_PetrosGroup.et"',
+		"IsPetrosGroupSpawnPending",
 		"WarnPetrosAIGroupFallback",
 		"HasPetrosRuntimeAIGroup",
 		"BuildPetrosAIGroupDebugSummary",
@@ -613,7 +624,8 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		"group.AddAgentFromControlledEntity(petros)",
 		"group.ActivateAI()",
 		"agent.ActivateAI()",
-		"group.SetMaxUnitsToSpawn(0)",
+		"group.SetMaxUnitsToSpawn(1)",
+		"group.SpawnUnits()",
 		"ResetPetrosRespawnState",
 		"m_iPetrosLastSpawnSecond = -999999",
 		"AIGroup parentGroup",
