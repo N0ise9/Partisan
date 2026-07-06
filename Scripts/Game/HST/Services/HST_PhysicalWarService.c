@@ -7225,7 +7225,6 @@ class HST_PhysicalWarService
 		}
 
 		ApplyCampaignDebugEntityName(entity, "active_group", activeGroup.m_sGroupId);
-		ApplyRuntimeGroupFaction(entity, activeGroup, "group prefab spawn");
 		if (agentCount <= 0)
 		{
 			activeGroup.m_bSpawnedEntity = false;
@@ -7248,7 +7247,7 @@ class HST_PhysicalWarService
 		}
 
 		activeGroup.m_bSpawnedEntity = true;
-		ApplyEntityFaction(entity, activeGroup.m_sFactionKey);
+		ApplyRuntimeGroupFaction(entity, activeGroup, "native immediate populated", true);
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
 		activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
 		activeGroup.m_sSpawnFailureReason = "";
@@ -7376,6 +7375,8 @@ class HST_PhysicalWarService
 			Print(string.Format("h-istasi | active group root faction mismatch %1 expected %2 actual %3 prefab %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, ReportText(actualGroupFaction), prefab), LogLevel.WARNING);
 			return null;
 		}
+		if (activeGroup)
+			DebugLog(string.Format("active group primary stock root faction verified %1 expected %2 prefab %3 | %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, prefab, BuildNativeGroupPopulationDebug(group)));
 		if (activeGroup && !EnsureActiveGroupAIWorldBudget(activeGroup, "controlled group prefab SpawnUnits", failureReason))
 		{
 			SCR_EntityHelper.DeleteEntityAndChildren(entity);

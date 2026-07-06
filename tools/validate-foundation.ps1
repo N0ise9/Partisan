@@ -8064,6 +8064,8 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"zero agents after grace | reason %3",
 		'StabilizeRuntimeAIGroupRoot(entity, activeGroup, "pending population registration")',
 		"active group stabilized native AIGroup root",
+		"active group primary stock root faction verified",
+		'"native immediate populated", true',
 		"activation pending native population",
 		"CountPendingActiveZonePopulationInfantry",
 		"CountPendingActiveZonePopulationGroups",
@@ -8110,6 +8112,9 @@ if (!$controlledStockGroupSpawnMatch.Success) {
 }
 if ($controlledStockGroupSpawnMatch.Value -match [regex]::Escape("SCR_AIGroup.IgnoreSpawning(true)") -or $controlledStockGroupSpawnMatch.Value -match [regex]::Escape("controlled group prefab pre-spawn")) {
 	throw "Controlled stock active-group spawning must follow the vanilla SCR_AIGroup spawn path and must not suppress native spawning or force pre-spawn faction rebroadcast"
+}
+if ($physicalWarServiceText -match [regex]::Escape('ApplyRuntimeGroupFaction(entity, activeGroup, "group prefab spawn")')) {
+	throw "Controlled stock active-group spawning must not repair or broadcast faction on an empty/pending group root before native member proof exists"
 }
 if ($scriptText -notmatch [regex]::Escape('statusOrHistory.Contains("spawn_deferred_aiworld_budget")')) {
 	throw "Campaign debug async runtime classifier must treat AIWorld budget deferrals as pending/blocking proof, not generic failures"
