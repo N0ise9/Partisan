@@ -7438,7 +7438,9 @@ class HST_PhysicalWarService
 			return;
 
 		bool forceDirectFallback = attempt >= ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT;
-		if (forceDirectFallback && !IsActiveGroupNativeDelayedPopulationActive(activeGroup) && TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", true))
+		if (forceDirectFallback && IsActiveGroupNativeDelayedPopulationActive(activeGroup))
+			DebugLog(string.Format("active group forcing direct infantry fallback while native delayed population remains active %1 attempt %2/%3 | %4", activeGroup.m_sGroupId, attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS, BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)));
+		if (forceDirectFallback && TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", true))
 			return;
 
 		if (attempt < ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS)
@@ -7564,6 +7566,8 @@ class HST_PhysicalWarService
 		bool finalized = false;
 		bool kickedNativeSpawn = false;
 		bool populatedSlotPrimary = false;
+		bool populatedDirectFallback = false;
+		bool nativeDelayedActiveBeforeDirectFallback = false;
 
 		if (requestedStatus.IsEmpty())
 			requestedStatus = activeGroup.m_sRuntimeStatus;
@@ -7581,20 +7585,28 @@ class HST_PhysicalWarService
 				populatedSlotPrimary = TryPopulatePendingActiveGroupFromNativeSlots(activeGroup, requestedStatus, state, "campaign debug pre-route");
 			if (!finalized && populatedSlotPrimary)
 				finalized = true;
+			if (!finalized)
+			{
+				nativeDelayedActiveBeforeDirectFallback = IsActiveGroupNativeDelayedPopulationActive(activeGroup);
+				populatedDirectFallback = TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "campaign debug pre-route", true);
+				if (populatedDirectFallback)
+					finalized = true;
+			}
 		}
 
 		int liveAfter = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
 		bool resolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents" && liveAfter > 0;
-		evidence = string.Format("pending %1 | finalized %2 | nativeRetry %3 | slotPrimary %4 | status %5 -> %6 | agents %7 -> %8 | live %9",
+		evidence = string.Format("pending %1 | finalized %2 | nativeRetry %3 | slotPrimary %4 | directFallback %5 | nativeDelayedBeforeDirect %6 | status %7 -> %8 | agents %9",
 			wasPending,
 			finalized,
 			kickedNativeSpawn,
 			populatedSlotPrimary,
+			populatedDirectFallback,
+			nativeDelayedActiveBeforeDirectFallback,
 			ReportText(beforeStatus),
 			ReportText(activeGroup.m_sRuntimeStatus),
-			beforeAgents,
-			activeGroup.m_iSpawnedAgentCount,
-			liveAfter);
+			beforeAgents);
+		evidence = evidence + string.Format(" -> %1 | live %2", activeGroup.m_iSpawnedAgentCount, liveAfter);
 		evidence = evidence + string.Format(" | lastAlive %1 | reason %2", activeGroup.m_iLastSeenAliveCount, ReportText(activeGroup.m_sSpawnFailureReason));
 		return resolved;
 	}
