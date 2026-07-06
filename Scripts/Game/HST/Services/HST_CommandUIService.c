@@ -225,7 +225,7 @@ class HST_CommandUIService
 		actions.Insert("activate_zone <zone>");
 		actions.Insert("deactivate_zone <zone>");
 		actions.Insert("award_small");
-		actions.Insert("admin_run_campaign_debug [smoke|faction|physical|full|post_restart_verify|external_required]");
+		actions.Insert("admin_run_campaign_debug [smoke|admin_smoke|foundation|faction|faction_physical|physical|support_physical|mission_matrix_state|mission_matrix_physical|civilian_undercover|arsenal_garage_build|persistence_inprocess|full|full_certification|post_restart_verify|persistence_restart_external|background_soak|external_required]");
 		actions.Insert("admin_campaign_debug_status");
 		actions.Insert("admin_campaign_debug_cancel");
 		actions.Insert("admin_campaign_debug_cleanup");
@@ -2575,9 +2575,13 @@ class HST_CommandUIService
 		{
 			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Smoke", "admin_run_campaign_debug", "smoke", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Faction", "admin_run_campaign_debug", "faction", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run Faction Physical", "admin_run_campaign_debug", "faction_physical", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Physical", "admin_run_campaign_debug", "physical", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Full", "admin_run_campaign_debug", "full", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run Full Certification", "admin_run_campaign_debug", "full_certification", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Post-Restart Verify", "admin_run_campaign_debug", "post_restart_verify", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Persistence Restart External", "admin_run_campaign_debug", "persistence_restart_external", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Background Soak External", "admin_run_campaign_debug", "background_soak", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "External Required", "admin_run_campaign_debug", "external_required", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Campaign Debug Status", "admin_campaign_debug_status", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Cancel Campaign Debug", "admin_campaign_debug_cancel", "", canUseAdmin, "admin required");

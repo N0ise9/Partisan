@@ -3051,6 +3051,66 @@ foreach ($requiredCoordinatorEntry in @(
 }
 Write-Host "Antistasi framework service spine OK"
 
+foreach ($requiredCampaignDebugBuildEntry in @(
+		"HST_BuildInfo",
+		"BUILD_SHA",
+		"BUILD_UTC",
+		"BUILD_LABEL",
+		"preflight.build_provenance",
+		"m_sBuildSha",
+		"m_sBuildUtc",
+		"m_sBuildLabel",
+		"run.build.sha",
+		"BuildSummary()",
+		'lines.Insert("build " + HST_BuildInfo.BuildSummary())'
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugBuildEntry)) {
+		throw "Campaign debug build provenance contract missing: $requiredCampaignDebugBuildEntry"
+	}
+}
+foreach ($requiredCampaignDebugProofEntry in @(
+		"m_sProofLevel",
+		"m_sObservedPath",
+		"m_sRequiredPath",
+		"m_bCountsTowardCertification",
+		"ShouldCampaignDebugAssertionCountTowardCertification",
+		"FinalizeCampaignDebugCertificationSummary",
+		"certification proven %1/%2",
+		"EXTERNAL_PROCESS",
+		"CONTROLLED_RUNTIME",
+		"PHYSICAL_RUNTIME"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugProofEntry)) {
+		throw "Campaign debug certification proof metadata missing: $requiredCampaignDebugProofEntry"
+	}
+}
+foreach ($requiredCampaignDebugProfileEntry in @(
+		"admin_smoke",
+		"foundation",
+		"faction_physical",
+		"support_physical",
+		"mission_matrix_state",
+		"mission_matrix_physical",
+		"civilian_undercover",
+		"arsenal_garage_build",
+		"persistence_inprocess",
+		"full_certification",
+		"persistence_restart_external",
+		"background_soak",
+		"external_required",
+		"IsCampaignDebugExternalProfile",
+		"IsCampaignDebugFoundationOnlyProfile",
+		"preflight.external_required",
+		"Run Full Certification",
+		"Persistence Restart External",
+		"Background Soak External"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugProfileEntry)) {
+		throw "Campaign debug profile vocabulary missing: $requiredCampaignDebugProfileEntry"
+	}
+}
+Write-Host "Campaign debug build/proof/profile contract OK"
+
 foreach ($requiredCommandMenuEntry in @(
 		'ScriptComponentClass',
 		'COMMAND_MENU_CUSTOM_ACTION = "HST_CommandMenu"',

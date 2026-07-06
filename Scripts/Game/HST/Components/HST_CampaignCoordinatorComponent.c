@@ -3036,7 +3036,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string normalizedProfile = NormalizeCampaignDebugProfile(profile);
 		if (normalizedProfile.IsEmpty())
-			return "h-istasi campaign debug | failed: invalid profile, use smoke, faction, physical, full, post_restart_verify, or external_required";
+			return "h-istasi campaign debug | failed: invalid profile, use smoke, admin_smoke, foundation, faction, faction_physical, physical, support_physical, mission_matrix_state, mission_matrix_physical, civilian_undercover, arsenal_garage_build, persistence_inprocess, full, full_certification, post_restart_verify, persistence_restart_external, background_soak, or external_required";
 
 		if (m_bCampaignDebugRunning)
 			return "h-istasi campaign debug | already running\n" + BuildCampaignDebugStatusReport();
@@ -3245,30 +3245,50 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		normalized.ToLower();
 		if (normalized.IsEmpty())
 			return CAMPAIGN_DEBUG_DEFAULT_PROFILE;
-		if (normalized == "smoke" || normalized == "faction" || normalized == "physical" || normalized == "full" || normalized == "post_restart_verify" || normalized == "external_required")
+		if (normalized == "smoke" || normalized == "admin_smoke" || normalized == "foundation")
+			return normalized;
+		if (normalized == "faction" || normalized == "faction_physical")
+			return normalized;
+		if (normalized == "physical" || normalized == "support_physical" || normalized == "mission_matrix_state" || normalized == "mission_matrix_physical")
+			return normalized;
+		if (normalized == "civilian_undercover" || normalized == "arsenal_garage_build" || normalized == "persistence_inprocess")
+			return normalized;
+		if (normalized == "full" || normalized == "full_certification")
+			return normalized;
+		if (normalized == "post_restart_verify" || normalized == "persistence_restart_external" || normalized == "background_soak" || normalized == "external_required")
 			return normalized;
 
 		return "";
 	}
 
+	protected bool IsCampaignDebugExternalProfile()
+	{
+		return m_sCampaignDebugProfile == "external_required" || m_sCampaignDebugProfile == "persistence_restart_external" || m_sCampaignDebugProfile == "background_soak";
+	}
+
+	protected bool IsCampaignDebugFoundationOnlyProfile()
+	{
+		return m_sCampaignDebugProfile == "smoke" || m_sCampaignDebugProfile == "admin_smoke" || m_sCampaignDebugProfile == "foundation" || m_sCampaignDebugProfile == "post_restart_verify";
+	}
+
 	protected bool ShouldCampaignDebugRunEarlyPhaseStage()
 	{
-		return m_sCampaignDebugProfile != "smoke" && m_sCampaignDebugProfile != "post_restart_verify" && m_sCampaignDebugProfile != "external_required";
+		return !IsCampaignDebugFoundationOnlyProfile() && !IsCampaignDebugExternalProfile();
 	}
 
 	protected bool ShouldCampaignDebugRunEconomyForceStage()
 	{
-		return m_sCampaignDebugProfile != "post_restart_verify" && m_sCampaignDebugProfile != "external_required";
+		return !IsCampaignDebugExternalProfile() && m_sCampaignDebugProfile != "post_restart_verify";
 	}
 
 	protected bool ShouldCampaignDebugRunMissionSweepStage()
 	{
-		return m_sCampaignDebugProfile == "physical" || m_sCampaignDebugProfile == "full";
+		return m_sCampaignDebugProfile == "physical" || m_sCampaignDebugProfile == "faction_physical" || m_sCampaignDebugProfile == "mission_matrix_state" || m_sCampaignDebugProfile == "mission_matrix_physical" || m_sCampaignDebugProfile == "full" || m_sCampaignDebugProfile == "full_certification";
 	}
 
 	protected bool ShouldCampaignDebugRunPhaseSmokeStage()
 	{
-		return m_sCampaignDebugProfile == "full";
+		return m_sCampaignDebugProfile == "full" || m_sCampaignDebugProfile == "full_certification" || m_sCampaignDebugProfile == "civilian_undercover" || m_sCampaignDebugProfile == "arsenal_garage_build" || m_sCampaignDebugProfile == "persistence_inprocess";
 	}
 
 	protected void SkipCampaignDebugStageForProfile(string stageName, int nextStepIndex)
@@ -3350,8 +3370,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.map_markers", "map marker service non-null", string.Format("%1", m_MapMarkers != null), CampaignDebugStatus(m_MapMarkers != null), "map marker service missing");
 		bool buildProvenancePresent = !HST_BuildInfo.BUILD_SHA.IsEmpty() && !HST_BuildInfo.BUILD_UTC.IsEmpty() && !HST_BuildInfo.BUILD_LABEL.IsEmpty();
 		AddCampaignDebugAssertion(preflightCase, "preflight.build_provenance", "server build sha, utc, and label are non-empty", HST_BuildInfo.BuildSummary(), CampaignDebugStatus(buildProvenancePresent), "build provenance is missing from this server build");
-		if (m_sCampaignDebugProfile == "external_required")
-			AddCampaignDebugAssertion(preflightCase, "preflight.external_required", "real restart, reconnect, and second-client soak are not claimed by the in-process runner", "external launcher/client orchestration required", "BLOCKED", "run post_restart_verify after an actual server restart and client reconnect");
+		if (IsCampaignDebugExternalProfile())
+			AddCampaignDebugAssertion(preflightCase, "preflight.external_required", "real restart, reconnect, long soak, and external restart profiles are not claimed by the in-process runner", "external launcher/client orchestration required for profile " + m_sCampaignDebugProfile, "BLOCKED", "run post_restart_verify after an actual server restart and client reconnect");
 		else if (m_sCampaignDebugProfile == "post_restart_verify")
 			AddCampaignDebugAssertion(preflightCase, "preflight.post_restart_scope", "post-restart verify checks the currently loaded restarted server process only", "in-process verification profile", "WARN", "the runner cannot prove who restarted the process");
 		AddCampaignDebugGameMasterBudgetAssertions(preflightCase);
@@ -4090,7 +4110,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_CommandUI)
 			coverageReport = m_CommandUI.BuildCommandCoverageReport(m_State);
 
-		bool runVisible = adminPayload.Contains("|admin_run_campaign_debug|smoke|") && adminPayload.Contains("|admin_run_campaign_debug|faction|") && adminPayload.Contains("|admin_run_campaign_debug|physical|") && adminPayload.Contains("|admin_run_campaign_debug|full|") && adminPayload.Contains("|admin_run_campaign_debug|post_restart_verify|") && adminPayload.Contains("|admin_run_campaign_debug|external_required|");
+		bool runVisible = adminPayload.Contains("|admin_run_campaign_debug|smoke|") && adminPayload.Contains("|admin_run_campaign_debug|faction|") && adminPayload.Contains("|admin_run_campaign_debug|faction_physical|") && adminPayload.Contains("|admin_run_campaign_debug|physical|") && adminPayload.Contains("|admin_run_campaign_debug|full|") && adminPayload.Contains("|admin_run_campaign_debug|full_certification|") && adminPayload.Contains("|admin_run_campaign_debug|post_restart_verify|") && adminPayload.Contains("|admin_run_campaign_debug|persistence_restart_external|") && adminPayload.Contains("|admin_run_campaign_debug|background_soak|") && adminPayload.Contains("|admin_run_campaign_debug|external_required|");
 		bool statusVisible = adminPayload.Contains("|admin_campaign_debug_status|");
 		bool cancelVisible = adminPayload.Contains("|admin_campaign_debug_cancel|");
 		bool cleanupVisible = adminPayload.Contains("|admin_campaign_debug_cleanup|");
