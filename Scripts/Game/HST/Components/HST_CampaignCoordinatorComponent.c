@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r34-stuck-pending-population-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r35-pending-population-certification";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -6022,10 +6022,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int runtimeFactionMismatches = -1;
 		string directFallbackEvidence = "physical war service missing";
 		int directFallbackGroups = -1;
+		string pendingPopulationEvidence = "physical war service missing";
+		int pendingPopulationGroups = -1;
 		if (m_PhysicalWar)
 		{
 			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);
 			directFallbackGroups = m_PhysicalWar.CountCampaignDebugDirectFallbackActiveGroups(m_State, directFallbackEvidence);
+			pendingPopulationGroups = m_PhysicalWar.CountCampaignDebugPendingPopulationActiveGroups(m_State, pendingPopulationEvidence);
 		}
 
 		AddCampaignDebugMetric(leakCase, "post_cleanup.unexpected_active_missions", string.Format("%1", unexpectedActiveMissions), "count");
@@ -6035,11 +6038,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(leakCase, "post_cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkers), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_direct_fallback_groups", string.Format("%1", directFallbackGroups), "count");
+		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_pending_population_groups", string.Format("%1", pendingPopulationGroups), "count");
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.active_missions", "no unexpected active missions beyond the case under test", BuildCampaignDebugCountExample(unexpectedActiveMissions, activeMissionExample), CampaignDebugStatus(unexpectedActiveMissions == 0), "unexpected active mission leak after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.mission_assets", "no mission assets whose mission record is missing", BuildCampaignDebugCountExample(orphanAssets, assetExample), CampaignDebugStatus(orphanAssets == 0), "orphan mission assets after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.active_groups", "no active groups without zone/mission/support/order/QRF backing", BuildCampaignDebugCountExample(orphanGroups, groupExample), CampaignDebugStatus(orphanGroups == 0), "orphan active groups after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.runtime_factions", "all active runtime group and vehicle entities match their active-group faction", ShortCampaignDebugLine(factionAuditEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && runtimeFactionMismatches == 0, "BLOCKED"), "runtime faction mismatch after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.runtime_group_primary_spawn", "active infantry groups used native group-prefab population without direct faction-infantry fallback", ShortCampaignDebugLine(directFallbackEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && directFallbackGroups == 0, "BLOCKED"), "direct faction-infantry fallback was used after source case " + sourceCase.m_sCaseId);
+		AddCampaignDebugAssertion(leakCase, "post_cleanup.runtime_group_population_settled", "active infantry groups are not stuck in pending native population or AIWorld budget deferral", ShortCampaignDebugLine(pendingPopulationEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && pendingPopulationGroups == 0, "BLOCKED"), "pending active-group population remains after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.markers", "no visible markers whose linked backing state is missing", BuildCampaignDebugCountExample(orphanMarkers, markerExample), CampaignDebugStatus(orphanMarkers == 0, "WARN"), "orphan linked markers after source case " + sourceCase.m_sCaseId);
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.backing_markers", "active missions/support/QRF records have marker backing or pending refresh evidence", BuildCampaignDebugCountExample(missingBackingMarkers, missingMarkerExample), CampaignDebugStatus(missingBackingMarkers == 0, "WARN"), "backing state is missing marker after source case " + sourceCase.m_sCaseId);
 		FinalizeCampaignDebugCaseFromAssertions(leakCase);
@@ -7198,10 +7203,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int runtimeFactionMismatches = -1;
 		string directFallbackEvidence = "physical war service missing";
 		int directFallbackGroups = -1;
+		string pendingPopulationEvidence = "physical war service missing";
+		int pendingPopulationGroups = -1;
 		if (m_PhysicalWar)
 		{
 			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);
 			directFallbackGroups = m_PhysicalWar.CountCampaignDebugDirectFallbackActiveGroups(m_State, directFallbackEvidence);
+			pendingPopulationGroups = m_PhysicalWar.CountCampaignDebugPendingPopulationActiveGroups(m_State, pendingPopulationEvidence);
 		}
 		AddCampaignDebugMetric(cleanupCase, "cleanup.active_missions", string.Format("%1", activeMissionCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.pending_player_support", string.Format("%1", pendingPlayerSupportCount), "count");
@@ -7213,6 +7221,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_direct_fallback_groups", string.Format("%1", directFallbackGroups), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_pending_population_groups", string.Format("%1", pendingPopulationGroups), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.debug_prefixed_records", string.Format("%1", remainingPrefixedRecords), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.smoke_prefixed_records", string.Format("%1", remainingSmokeRecords), "count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.current_mission_id", "runner current/early mission ids empty", string.Format("current %1 | early %2", EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId), EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId)), CampaignDebugStatus(m_sCampaignDebugCurrentMissionInstanceId.IsEmpty() && m_sCampaignDebugEarlyMissionInstanceId.IsEmpty()), "runner still references a debug mission at completion");
@@ -7233,6 +7242,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.orphan_active_groups", "no active groups without zone/mission/support/order/QRF backing", BuildCampaignDebugCountExample(orphanGroupCount, orphanGroupExample) + string.Format(" | total %1 -> %2", m_iCampaignDebugStartActiveGroups, activeGroupCount), CampaignDebugStatus(orphanGroupCount == 0), "orphan active groups remain after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.runtime_factions", "all active runtime group and vehicle entities match their active-group faction", ShortCampaignDebugLine(factionAuditEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && runtimeFactionMismatches == 0, "BLOCKED"), "runtime faction mismatches remain after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.runtime_group_primary_spawn", "active infantry groups used native group-prefab population without direct faction-infantry fallback", ShortCampaignDebugLine(directFallbackEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && directFallbackGroups == 0, "BLOCKED"), "direct faction-infantry fallback groups remain after debug run");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.runtime_group_population_settled", "active infantry groups are not stuck in pending native population or AIWorld budget deferral", ShortCampaignDebugLine(pendingPopulationEvidence, 220), CampaignDebugStatus(m_PhysicalWar != null && pendingPopulationGroups == 0, "BLOCKED"), "pending active-group population remains after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.marker_orphans", "no visible markers whose linked backing state is missing", BuildCampaignDebugCountExample(orphanMarkerCount, orphanMarkerExample) + string.Format(" | total %1 -> %2", m_iCampaignDebugStartMarkers, markerCount), CampaignDebugStatus(orphanMarkerCount == 0, "WARN"), "visible linked markers remain without backing state after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.backing_markers", "active missions/support/QRF records have marker backing after final refresh", BuildCampaignDebugCountExample(missingBackingMarkerCount, missingMarkerExample), CampaignDebugStatus(missingBackingMarkerCount == 0, "WARN"), "backing state is missing marker after final cleanup refresh");
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);

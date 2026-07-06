@@ -2066,6 +2066,64 @@ class HST_PhysicalWarService
 		return fallbackCount;
 	}
 
+	int CountCampaignDebugPendingPopulationActiveGroups(HST_CampaignState state, out string evidence)
+	{
+		evidence = "state missing";
+		if (!state)
+			return -1;
+
+		int pendingCount;
+		int nativePendingCount;
+		int aiWorldDeferredCount;
+		string firstPending;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_iInfantryCount <= 0)
+				continue;
+			if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
+				continue;
+
+			bool nativePending = activeGroup.m_sRuntimeStatus == "spawn_pending_agents";
+			bool aiWorldDeferred = activeGroup.m_sRuntimeStatus == ACTIVE_GROUP_RUNTIME_STATUS_AIWORLD_BUDGET_DEFERRED;
+			if (!nativePending && !aiWorldDeferred)
+				continue;
+
+			pendingCount++;
+			if (nativePending)
+				nativePendingCount++;
+			if (aiWorldDeferred)
+				aiWorldDeferredCount++;
+			if (firstPending.IsEmpty())
+				firstPending = BuildActiveGroupPendingPopulationActual(activeGroup);
+		}
+
+		evidence = string.Format("pending population groups %1 | native pending %2 | aiworld deferred %3 | first %4", pendingCount, nativePendingCount, aiWorldDeferredCount, ReportText(firstPending));
+		return pendingCount;
+	}
+
+	protected string BuildActiveGroupPendingPopulationActual(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return "missing";
+
+		bool groupEntityPresent = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId) != null;
+		int liveMembers = CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId);
+		string actual = string.Format("group %1 | zone %2 | faction %3 | prefab %4 | status %5 | mode %6 | spawned %7 | root %8 | live %9",
+			ReportText(activeGroup.m_sGroupId),
+			ReportText(activeGroup.m_sZoneId),
+			ReportText(activeGroup.m_sFactionKey),
+			ReportText(activeGroup.m_sPrefab),
+			ReportText(activeGroup.m_sRuntimeStatus),
+			ReportText(activeGroup.m_sSpawnFallbackMode),
+			ReportBool(activeGroup.m_bSpawnedEntity),
+			ReportBool(groupEntityPresent),
+			liveMembers);
+		return actual + string.Format("/%1 | reason %2 | visual %3",
+			activeGroup.m_iInfantryCount,
+			ReportText(activeGroup.m_sSpawnFailureReason),
+			ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)));
+	}
+
 	protected string BuildActiveGroupDirectFallbackActual(HST_ActiveGroupState activeGroup)
 	{
 		if (!activeGroup)
