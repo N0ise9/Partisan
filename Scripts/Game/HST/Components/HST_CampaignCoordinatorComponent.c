@@ -4022,17 +4022,41 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int trackedRuntimeObjects;
 		if (m_HQ)
 			trackedRuntimeObjects = m_HQ.GetTrackedRuntimeObjectCount();
+		int petrosWorldCount = 0;
+		int cacheWorldCount = 0;
+		int arsenalWorldCount = 0;
+		int tentWorldCount = 0;
+		int spawnPointWorldCount = 0;
+		if (m_HQ)
+		{
+			petrosWorldCount = m_HQ.CountPetrosWorldRuntimeEntities(m_State);
+			cacheWorldCount = m_HQ.CountCacheWorldRuntimeEntities(m_State);
+			arsenalWorldCount = m_HQ.CountArsenalWorldRuntimeEntities(m_State);
+			tentWorldCount = m_HQ.CountTentWorldRuntimeEntities(m_State);
+			spawnPointWorldCount = m_HQ.CountSpawnPointWorldRuntimeEntities(m_State);
+		}
 		AddCampaignDebugMetric(hqCase, "hq.runtime_objects.tracked", string.Format("%1", trackedRuntimeObjects), "count");
+		bool rebuildSucceeded = IsCampaignDebugResultSuccessful(rebuildResult);
+		bool rebuildPlacementBlocked = rebuildAttempted && !rebuildSucceeded && IsCampaignDebugHQRebuildPlacementBlocked(rebuildResult);
 		bool runtimeObjectsProven = m_HQ != null && trackedRuntimeObjects == 5 && m_State.m_bHQRuntimeObjectsSpawned;
+		bool runtimeObjectsPhysicallyProven = m_HQ != null && m_State != null && trackedRuntimeObjects == 5 && m_State.m_bPetrosAlive && petrosWorldCount == 1 && cacheWorldCount == 1 && arsenalWorldCount == 1 && tentWorldCount == 1 && spawnPointWorldCount == 1;
 		if (rebuildAttempted)
 		{
-			string rebuildStatus = CampaignDebugStatus(IsCampaignDebugResultSuccessful(rebuildResult));
-			if (!IsCampaignDebugResultSuccessful(rebuildResult) && IsCampaignDebugHQRebuildPlacementBlocked(rebuildResult) && runtimeObjectsProven)
+			string rebuildStatus = CampaignDebugStatus(rebuildSucceeded);
+			if (rebuildPlacementBlocked && (runtimeObjectsProven || runtimeObjectsPhysicallyProven))
 				rebuildStatus = "BLOCKED";
 			AddCampaignDebugAssertion(hqCase, "hq.rebuild.command_result", "HQ rebuild command succeeds or is blocked by placement while existing runtime objects are proven", ShortCampaignDebugLine(rebuildResult, 220), rebuildStatus, "HQ rebuild command returned failure text");
+			if (rebuildPlacementBlocked)
+			{
+				string rebuildBlockedActual = string.Format("blocked 1 | tracked %1/5 | flag %2 | world petros %3 cache %4 arsenal %5 tent %6 spawn %7", trackedRuntimeObjects, m_State.m_bHQRuntimeObjectsSpawned, petrosWorldCount, cacheWorldCount, arsenalWorldCount, tentWorldCount, spawnPointWorldCount);
+				AddCampaignDebugAssertion(hqCase, "hq.rebuild.existing_runtime_preserved", "placement-blocked rebuild leaves existing HQ runtime proof to the existing-runtime case", rebuildBlockedActual, CampaignDebugStatus(runtimeObjectsProven || runtimeObjectsPhysicallyProven), "HQ rebuild was placement-blocked and existing runtime objects were not proven");
+			}
 		}
-		AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.flag", "HQ runtime object flag true", string.Format("%1", m_State.m_bHQRuntimeObjectsSpawned), CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned), "HQ runtime object flag is false after rebuild");
-		AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.tracked_count", "Petros/cache/arsenal/tent/spawn-point runtime entities tracked", string.Format("%1/5 | %2", trackedRuntimeObjects, EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(m_HQ != null && trackedRuntimeObjects == 5), "HQ service is not tracking all runtime entities");
+		if (!rebuildPlacementBlocked)
+		{
+			AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.flag", "HQ runtime object flag true", string.Format("%1", m_State.m_bHQRuntimeObjectsSpawned), CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned), "HQ runtime object flag is false");
+			AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.tracked_count", "Petros/cache/arsenal/tent/spawn-point runtime entities tracked", string.Format("%1/5 | %2", trackedRuntimeObjects, EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(m_HQ != null && trackedRuntimeObjects == 5), "HQ service is not tracking all runtime entities");
+		}
 		if (rebuildAttempted)
 			AddCampaignDebugAssertion(hqCase, "hq.rebuild.identity_refresh", "rebuild refreshes runtime object identities, starts from empty, or is blocked before mutation", string.Format("before %1 | after %2", EmptyCampaignDebugField(runtimeSummaryBefore), EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(IsCampaignDebugHQRebuildPlacementBlocked(rebuildResult) || runtimeSummaryBefore.IsEmpty() || runtimeSummaryBefore.Contains(":missing") || runtimeSummaryBefore != runtimeSummaryAfter, "WARN"), "HQ rebuild returned the same runtime identity summary; verify intentional reuse");
 		AddCampaignDebugAssertion(hqCase, "hq.petros.alive", "Petros alive true", string.Format("%1", m_State.m_bPetrosAlive), CampaignDebugStatus(m_State.m_bPetrosAlive), "Petros is not alive after HQ rebuild");
@@ -4053,11 +4077,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugHQEntityAssertion(hqCase, "arsenal", "HQ arsenal", m_HQ.HasArsenalRuntimeEntity(), m_HQ.GetArsenalRuntimeEntityKey(), m_State.m_vArsenalPosition, m_HQ.GetArsenalRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "tent", "HQ tent", m_HQ.HasTentRuntimeEntity(), m_HQ.GetTentRuntimeEntityKey(), m_State.m_vHQTentPosition, m_HQ.GetTentRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "spawn_point", "HQ spawn point", m_HQ.HasSpawnPointRuntimeEntity(), m_HQ.GetSpawnPointRuntimeEntityKey(), m_State.m_vHQSpawnPointPosition, m_HQ.GetSpawnPointRuntimeEntityPosition(), 8.0);
-			int petrosWorldCount = m_HQ.CountPetrosWorldRuntimeEntities(m_State);
-			int cacheWorldCount = m_HQ.CountCacheWorldRuntimeEntities(m_State);
-			int arsenalWorldCount = m_HQ.CountArsenalWorldRuntimeEntities(m_State);
-			int tentWorldCount = m_HQ.CountTentWorldRuntimeEntities(m_State);
-			int spawnPointWorldCount = m_HQ.CountSpawnPointWorldRuntimeEntities(m_State);
 			string worldScanSummary = string.Format("petros %1 | cache %2 | arsenal %3 | tent %4 | spawn_point %5", petrosWorldCount, cacheWorldCount, arsenalWorldCount, tentWorldCount, spawnPointWorldCount);
 			hqCase.m_aEvidence.Insert("HQ world duplicate scan | " + worldScanSummary);
 			AddCampaignDebugMetric(hqCase, "hq.world_scan.petros", string.Format("%1", petrosWorldCount), "count");
@@ -4072,7 +4091,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string petrosStabilityActual = string.Format("spawnCount %1/%2 | world count %3 | stable key %4 | debounce %5s", m_HQ.GetPetrosSpawnCount(), allowedPetrosSpawnCount, petrosWorldCount, EmptyCampaignDebugField(m_HQ.GetPetrosStableRuntimeKey()), m_HQ.GetPetrosRespawnDebounceSeconds());
 			AddCampaignDebugAssertion(hqCase, "hq.petros.spawn_loop_guard", "Petros has exactly one living world entity and does not require repeated lifecycle spawns", petrosStabilityActual, CampaignDebugStatus(petrosWorldCount == 1 && m_HQ.GetPetrosSpawnCount() <= allowedPetrosSpawnCount), "Petros spawn lifecycle is unstable or duplicated");
 			string runtimeFlagActual = string.Format("flag %1 | tracked %2/5 | petrosWorld %3 | cache %4 | arsenal %5 | tent %6 | spawn %7", m_State.m_bHQRuntimeObjectsSpawned, trackedRuntimeObjects, petrosWorldCount, cacheWorldCount, arsenalWorldCount, tentWorldCount, spawnPointWorldCount);
-			AddCampaignDebugAssertion(hqCase, "hq.runtime.flag_stabilizes", "HQ runtime flag is true once all five runtime objects are world-proven", runtimeFlagActual, CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned && petrosWorldCount == 1 && cacheWorldCount == 1 && arsenalWorldCount == 1 && tentWorldCount == 1 && spawnPointWorldCount == 1), "HQ runtime flag did not stabilize despite world object proof");
+			if (!rebuildPlacementBlocked)
+				AddCampaignDebugAssertion(hqCase, "hq.runtime.flag_stabilizes", "HQ runtime flag is true once all five runtime objects are world-proven", runtimeFlagActual, CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned && petrosWorldCount == 1 && cacheWorldCount == 1 && arsenalWorldCount == 1 && tentWorldCount == 1 && spawnPointWorldCount == 1), "HQ runtime flag did not stabilize despite world object proof");
 			AddCampaignDebugHQWorldScanAssertion(hqCase, "petros", "Petros", petrosWorldCount);
 			AddCampaignDebugHQWorldScanAssertion(hqCase, "cache", "HQ cache", cacheWorldCount);
 			AddCampaignDebugHQWorldScanAssertion(hqCase, "arsenal", "HQ arsenal", arsenalWorldCount);

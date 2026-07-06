@@ -3096,6 +3096,18 @@ foreach ($requiredCampaignDebugProofEntry in @(
 		throw "Campaign debug certification proof metadata missing: $requiredCampaignDebugProofEntry"
 	}
 }
+foreach ($requiredCampaignDebugHQRebuildEntry in @(
+		"rebuildPlacementBlocked",
+		"runtimeObjectsPhysicallyProven",
+		"hq.rebuild.existing_runtime_preserved",
+		"placement-blocked rebuild leaves existing HQ runtime proof to the existing-runtime case",
+		"if (!rebuildPlacementBlocked)",
+		"CampaignDebugStatus(runtimeObjectsProven || runtimeObjectsPhysicallyProven)"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugHQRebuildEntry)) {
+		throw "Campaign debug HQ rebuild proof must not convert placement-blocked rebuilds into existing-runtime failures: $requiredCampaignDebugHQRebuildEntry"
+	}
+}
 foreach ($requiredCampaignDebugExternalBlockEntry in @(
 		'AddCampaignDebugAssertion(gapCase, "phase25.real_restart", "real restart-after-primitive explicitly reported as not executed", "manual external gap", "BLOCKED"',
 		'AddCampaignDebugAssertion(gapCase, "phase25.second_client", "second-client join/reconnect explicitly reported as not executed", "manual external gap", "BLOCKED"',
