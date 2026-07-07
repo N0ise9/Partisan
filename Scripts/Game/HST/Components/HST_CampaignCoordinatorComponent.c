@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r57-enemy-order-resolution-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r58-enemy-order-compile-fix";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4427,8 +4427,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		roundTripSaveData.Capture(m_State);
 		HST_CampaignState restoredState = new HST_CampaignState();
 		roundTripSaveData.ApplyTo(restoredState);
-		HST_EnemyOrderState restoredRebuildOrder = FindEnemyOrderInState(restoredState, rebuildOrder);
-		HST_EnemyOrderState restoredRoadblockOrder = FindEnemyOrderInState(restoredState, roadblockOrder);
+		string rebuildOrderId;
+		string roadblockOrderId;
+		if (rebuildOrder)
+			rebuildOrderId = rebuildOrder.m_sOrderId;
+		if (roadblockOrder)
+			roadblockOrderId = roadblockOrder.m_sOrderId;
+		HST_EnemyOrderState restoredRebuildOrder = FindCampaignDebugEnemyOrderInState(restoredState, rebuildOrderId);
+		HST_EnemyOrderState restoredRoadblockOrder = FindCampaignDebugEnemyOrderInState(restoredState, roadblockOrderId);
 		HST_GarrisonState restoredGarrison = restoredState.FindGarrison(rebuildZoneId, factionKey);
 		HST_CivilianZoneState restoredTown = restoredState.FindCivilianZone(roadblockZoneId);
 		bool roundTripExpected = restoredRebuildOrder && restoredRoadblockOrder && restoredGarrison && restoredTown
@@ -4485,20 +4491,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		return string.Format("zone %1 | FIA %2 | occupier %3 | police %4 | roadblocks %5 | population %6", EmptyCampaignDebugField(town.m_sZoneId), town.m_iFIASupport, town.m_iOccupierSupport, town.m_iPolicePresence, town.m_iRoadblockPresence, town.m_iPopulationRemaining);
-	}
-
-	protected HST_EnemyOrderState FindEnemyOrderInState(HST_CampaignState state, HST_EnemyOrderState sourceOrder)
-	{
-		if (!state || !sourceOrder)
-			return null;
-
-		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
-		{
-			if (order && order.m_sOrderId == sourceOrder.m_sOrderId)
-				return order;
-		}
-
-		return null;
 	}
 
 	protected void CleanupCampaignDebugEnemyOrderResolutionRecords(string rebuildZoneId, string roadblockZoneId)
@@ -11076,20 +11068,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& liveVehicle.m_sRuntimeKind == restoredVehicle.m_sRuntimeKind
 			&& liveVehicle.m_bDeleted == restoredVehicle.m_bDeleted
 			&& liveVehicle.m_bDetached == restoredVehicle.m_bDetached;
-	}
-
-	protected HST_EnemyOrderState FindCampaignDebugEnemyOrderInState(HST_CampaignState targetState, string orderId)
-	{
-		if (!targetState || orderId.IsEmpty())
-			return null;
-
-		foreach (HST_EnemyOrderState smokeEnemyOrder : targetState.m_aEnemyOrders)
-		{
-			if (smokeEnemyOrder && smokeEnemyOrder.m_sOrderId == orderId)
-				return smokeEnemyOrder;
-		}
-
-		return null;
 	}
 
 	protected bool CampaignDebugValueHasPersistenceSmokePrefix(string value)

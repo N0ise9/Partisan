@@ -59,6 +59,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Enforce class scope does not allow duplicate helper method declarations.
+  - Even identical helper bodies in different parts of a large component fail
+    Game script compilation as a multiple declaration. Reuse one class-local
+    helper for shared debug lookups instead of adding a second same-named
+    helper near a new proof case.
+  - Current example:
+    `HST_CampaignCoordinatorComponent.FindCampaignDebugEnemyOrderInState()`.
+
 - Enemy abstract orders should be resolved as named, auditable outcomes.
   - Strategic enemy actions that do not need live AI still need the same
     durable order lifecycle as physical orders: spend resources, store target

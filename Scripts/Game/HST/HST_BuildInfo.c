@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r57-enemy-order-resolution-proof";
-	static const string BUILD_UTC = "2026-07-07T17:45:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r57-enemy-order-resolution-proof";
+	static const string BUILD_SHA = "r58-enemy-order-compile-fix";
+	static const string BUILD_UTC = "2026-07-07T17:55:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r58-enemy-order-compile-fix";
 
 	static string BuildSummary()
 	{
