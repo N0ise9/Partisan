@@ -1755,7 +1755,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "pressure", "Enemy Pressure");
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{
-			if (!pool || (preset && pool.m_sFactionKey == preset.m_sResistanceFactionKey))
+			if (!pool || (preset && !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey)))
 				continue;
 
 			payload = AppendRow(payload, "pressure", pool.m_sFactionKey, string.Format("attack %1 / support %2 / aggression %3", pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression), "bad");
@@ -2138,7 +2138,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "enemy", "Enemy Resources");
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{
-			if (!pool || (preset && pool.m_sFactionKey == preset.m_sResistanceFactionKey))
+			if (!pool || (preset && !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey)))
 				continue;
 
 			payload = AppendRow(payload, "enemy", pool.m_sFactionKey, string.Format("attack %1 / support %2 / aggression %3", pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression), "bad");

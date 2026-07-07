@@ -380,7 +380,7 @@ class HST_ArsenalService
 			return string.Format("h-istasi garage | failed: could not spawn %1", GarageVehicleDisplayLabel(vehicle));
 		}
 		HST_WorldPositionService.ApplyUprightEntityTransform(entity, resolvedDeployPosition, deployAngles);
-		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(entity);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
 
 		RegisterRedeployedRuntimeVehicle(state, entity, vehicle, resolvedDeployPosition, deployAngles);
 		string restoredRuntimeId;

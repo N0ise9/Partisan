@@ -25,6 +25,105 @@ class HST_VehicleRootPolicy
 		return changed;
 	}
 
+	static bool ClearVehicleFactionAffiliationRecursive(IEntity entity)
+	{
+		int changedCount;
+		return ClearVehicleFactionAffiliationRecursiveCount(entity, changedCount);
+	}
+
+	static bool ClearVehicleFactionAffiliationRecursiveCount(IEntity entity, out int changedCount)
+	{
+		changedCount = 0;
+		if (!entity)
+			return false;
+
+		ClearVehicleFactionAffiliationRecursiveWalk(entity, changedCount, 0);
+		return changedCount > 0;
+	}
+
+	protected static void ClearVehicleFactionAffiliationRecursiveWalk(IEntity entity, out int changedCount, int depth)
+	{
+		changedCount = 0;
+		if (!entity || depth > 24)
+			return;
+
+		if (IsVehicleRootLikeEntity(entity) && ClearVehicleFactionAffiliation(entity))
+			changedCount++;
+
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			int childChangedCount;
+			ClearVehicleFactionAffiliationRecursiveWalk(child, childChangedCount, depth + 1);
+			changedCount += childChangedCount;
+			child = child.GetSibling();
+		}
+	}
+
+	static int CountVehicleFactionClaimsRecursive(IEntity entity, out string sample)
+	{
+		return CountVehicleFactionClaimsRecursiveInternal(entity, sample, 0);
+	}
+
+	protected static int CountVehicleFactionClaimsRecursiveInternal(IEntity entity, out string sample, int depth)
+	{
+		sample = "";
+		if (!entity || depth > 24)
+			return 0;
+
+		int claimCount = 0;
+		if (IsVehicleRootLikeEntity(entity))
+		{
+			string claimKey = ResolveVehicleFactionKey(entity);
+			if (!claimKey.IsEmpty())
+			{
+				claimCount++;
+				sample = string.Format("vehicle pos %1 claimed faction %2 prefab %3", entity.GetOrigin(), claimKey, ResolveEntityPrefabName(entity));
+			}
+		}
+
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			string childSample;
+			claimCount += CountVehicleFactionClaimsRecursiveInternal(child, childSample, depth + 1);
+			if (sample.IsEmpty() && !childSample.IsEmpty())
+				sample = childSample;
+			child = child.GetSibling();
+		}
+
+		return claimCount;
+	}
+
+	static bool IsVehicleRootLikeEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		if (SCR_VehicleFactionAffiliationComponent.Cast(entity.FindComponent(SCR_VehicleFactionAffiliationComponent)))
+			return true;
+
+		string prefab = ResolveEntityPrefabName(entity);
+		if (IsVehicleRootLikePrefab(prefab))
+			return true;
+
+		return IsKnownVehicleRootName(entity.GetName());
+	}
+
+	static bool IsVehicleRootLikePrefab(string prefab)
+	{
+		if (prefab.IsEmpty())
+			return false;
+
+		if (IsVehiclePartPrefab(prefab))
+			return false;
+
+		if (prefab.Contains("Prefabs/Vehicles/") || prefab.Contains("/Vehicles/"))
+			return true;
+
+		return IsKnownVehicleRootName(prefab);
+	}
+
 	static string ResolveVehicleFactionKey(IEntity entity)
 	{
 		if (!entity)
@@ -47,6 +146,14 @@ class HST_VehicleRootPolicy
 			return "";
 
 		return faction.GetFactionKey();
+	}
+
+	static string ResolveEntityPrefabName(IEntity entity)
+	{
+		if (!entity || !entity.GetPrefabData())
+			return "";
+
+		return entity.GetPrefabData().GetPrefabName();
 	}
 
 	static bool IsEligibleVehicleRootPrefab(string prefab)

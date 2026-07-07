@@ -3,6 +3,7 @@ class HST_EnemyTargetScoreCandidate
 	string m_sZoneId;
 	string m_sDisplayName;
 	string m_sOwnerFactionKey;
+	string m_sOwnerRelation;
 	HST_EZoneType m_eType;
 	int m_iScore;
 	int m_iWeight;
@@ -62,7 +63,7 @@ class HST_EnemyCommanderService
 		m_iOrderAccumulatorSeconds -= ORDER_TICK_SECONDS;
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{
-			if (!pool || pool.m_sFactionKey == preset.m_sResistanceFactionKey)
+			if (!pool || !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey))
 				continue;
 
 			HST_ZoneState targetZone = SelectTargetZone(state, preset, pool.m_sFactionKey);
@@ -326,7 +327,8 @@ class HST_EnemyCommanderService
 			if (!candidate || candidate.m_iScore < topBandFloor)
 				continue;
 
-			report = report + string.Format("\n%1 | score %2 | weight %3 | owner %4 | type %5 | reason %6", ReportText(candidate.m_sZoneId), candidate.m_iScore, candidate.m_iWeight, ReportText(candidate.m_sOwnerFactionKey), candidate.m_eType, ReportText(candidate.m_sReason));
+			report = report + string.Format("\n%1 | score %2 | weight %3 | owner %4 | relation %5", ReportText(candidate.m_sZoneId), candidate.m_iScore, candidate.m_iWeight, ReportText(candidate.m_sOwnerFactionKey), ReportText(candidate.m_sOwnerRelation));
+			report = report + string.Format(" | type %1 | reason %2", candidate.m_eType, ReportText(candidate.m_sReason));
 			emitted++;
 			if (emitted >= 8)
 				break;
@@ -1017,9 +1019,13 @@ class HST_EnemyCommanderService
 
 	protected HST_EEnemyOrderType SelectOrderType(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone, HST_FactionPoolState pool)
 	{
-		string resistanceFactionKey = "FIA";
-		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
-			resistanceFactionKey = preset.m_sResistanceFactionKey;
+		if (!state || !preset || !targetZone || !pool)
+			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL;
+
+		string ownerRelation = HST_FactionRelationService.ResolveRelation(preset, pool.m_sFactionKey, targetZone.m_sOwnerFactionKey);
+		bool targetOwnedByFaction = HST_FactionRelationService.IsSameFaction(ownerRelation);
+		bool targetOwnedByResistance = HST_FactionRelationService.IsResistanceEnemy(ownerRelation);
+		bool targetOwnedByRival = HST_FactionRelationService.IsRivalEnemy(ownerRelation);
 
 		if (state.m_iHQKnowledge >= 100 && IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 20 && state.m_iElapsedSeconds > state.m_iLastHQAttackSecond + 1800)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
@@ -1027,24 +1033,26 @@ class HST_EnemyCommanderService
 		if (IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 25 && state.m_iWarLevel >= 4)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 
-		if (targetZone.m_sOwnerFactionKey == resistanceFactionKey)
+		if (targetOwnedByResistance)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK;
+		if (targetOwnedByRival && pool.m_iAttackResources >= 18)
+			return HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL;
 
 		int recentDamageScore;
-		if (state && pool)
+		if (targetOwnedByFaction && state && pool)
 		{
 			HST_EnemySupportLedgerState ledger = state.FindEnemySupportLedger(pool.m_sFactionKey, targetZone.m_sZoneId);
 			if (ledger)
 				recentDamageScore = ledger.m_iRecentDamageScore;
 		}
-		if (targetZone.m_iResistanceCaptureProgress > 0 || recentDamageScore > 0)
+		if (targetOwnedByFaction && (targetZone.m_iResistanceCaptureProgress > 0 || recentDamageScore > 0))
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF;
 
 		HST_GarrisonState garrison = state.FindGarrison(targetZone.m_sZoneId, pool.m_sFactionKey);
-		if ((!garrison || garrison.m_iInfantryCount < Math.Max(2, state.m_iWarLevel)) && pool.m_iSupportResources >= 10)
+		if (targetOwnedByFaction && (!garrison || garrison.m_iInfantryCount < Math.Max(2, state.m_iWarLevel)) && pool.m_iSupportResources >= 10)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON;
 
-		if (targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && pool.m_iSupportResources >= 12)
+		if (targetOwnedByFaction && targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && pool.m_iSupportResources >= 12)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK;
 
 		if (pool.m_iAttackResources >= 20 && state.m_iWarLevel >= 3)
@@ -1058,10 +1066,8 @@ class HST_EnemyCommanderService
 		if (!state || !enemyDirector || !targetZone || factionKey.IsEmpty())
 			return;
 
-		string resistanceFactionKey = "FIA";
-		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
-			resistanceFactionKey = preset.m_sResistanceFactionKey;
-		if (targetZone.m_sOwnerFactionKey == resistanceFactionKey)
+		string ownerRelation = HST_FactionRelationService.ResolveRelation(preset, factionKey, targetZone.m_sOwnerFactionKey);
+		if (!HST_FactionRelationService.IsSameFaction(ownerRelation))
 			return;
 
 		int damageScore = Math.Max(0, targetZone.m_iResistanceCaptureProgress / 5);
@@ -1100,26 +1106,28 @@ class HST_EnemyCommanderService
 		candidate.m_sZoneId = zone.m_sZoneId;
 		candidate.m_sDisplayName = zone.m_sDisplayName;
 		candidate.m_sOwnerFactionKey = zone.m_sOwnerFactionKey;
+		candidate.m_sOwnerRelation = HST_FactionRelationService.ResolveRelation(preset, factionKey, zone.m_sOwnerFactionKey);
 		candidate.m_eType = zone.m_eType;
 
-		string resistanceFactionKey = "FIA";
-		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
-			resistanceFactionKey = preset.m_sResistanceFactionKey;
-
-		if (zone.m_sOwnerFactionKey == resistanceFactionKey)
+		if (HST_FactionRelationService.IsResistanceEnemy(candidate.m_sOwnerRelation))
 		{
 			candidate.m_iOwnerScore = 24;
 			AddTargetScoreReason(candidate, "resistance_control", candidate.m_iOwnerScore);
 		}
-		else if (zone.m_sOwnerFactionKey == factionKey)
+		else if (HST_FactionRelationService.IsSameFaction(candidate.m_sOwnerRelation))
 		{
 			candidate.m_iOwnerScore = 12;
 			AddTargetScoreReason(candidate, "owned_zone_pressure", candidate.m_iOwnerScore);
 		}
+		else if (HST_FactionRelationService.IsRivalEnemy(candidate.m_sOwnerRelation))
+		{
+			candidate.m_iOwnerScore = 9;
+			AddTargetScoreReason(candidate, "rival_enemy_pressure", candidate.m_iOwnerScore);
+		}
 		else
 		{
-			candidate.m_iOwnerScore = 5;
-			AddTargetScoreReason(candidate, "third_party_pressure", candidate.m_iOwnerScore);
+			candidate.m_iOwnerScore = 2;
+			AddTargetScoreReason(candidate, "neutral_pressure", candidate.m_iOwnerScore);
 		}
 
 		candidate.m_iPriorityScore = Math.Min(35, Math.Max(0, zone.m_iPriority));

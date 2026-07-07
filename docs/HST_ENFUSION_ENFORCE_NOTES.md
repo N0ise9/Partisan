@@ -86,8 +86,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Runtime debug should check these as separate facts: crew/group faction must
     match the active group, while linked vehicles must have no claim.
   - Current examples:
-    `HST_VehicleRootPolicy.ClearVehicleFactionAffiliation()` and
+    `HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive()`,
+    `HST_VehicleRootPolicy.CountVehicleFactionClaimsRecursive()`, and
     `HST_PhysicalWarService.CountRuntimeVehicleClaimMismatch()`.
+  - If a runtime faction repair pass starts from an AI group, convoy, carrier,
+    or vehicle root, clear vehicle claims recursively before applying faction
+    to crews. Use `HST_VehicleRootPolicy.IsVehicleRootLikeEntity()` to avoid
+    stamping a vehicle root back to the active-group faction while still
+    keeping infantry and group roots factioned.
 
 - Planning/checklist docs should be first-party h-istasi documents.
   - When converting external planning material, keep feature status, gaps,
@@ -302,6 +308,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Track the vehicle under the same active group id so existing runtime group
     cleanup deletes crew, route waypoints, and the attached vehicle together.
   - Current example: `HST_PhysicalWarService.TrySpawnActiveGroupAttachedVehicle()`.
+
+- Enemy faction checks should use campaign relation helpers, not broad
+  "not resistance" tests.
+  - `HST_FactionRelationService.ResolveRelation()` distinguishes same faction,
+    resistance-vs-enemy, rival enemy, neutral, and unknown relationships.
+  - Enemy commander target scoring should record owner relation and explain the
+    owner-score component (`resistance_control`, `owned_zone_pressure`,
+    `rival_enemy_pressure`, or `neutral_pressure`).
+  - Defense pressure ledgers, rebuild, roadblock, and QRF behavior should only
+    run for same-faction holdings. Rival-held zones may be attacked, but they
+    are not a garrison-rebuild target for the evaluating faction.
 
 - Town political support should be event-ledger backed.
   - Directly changing FIA/occupier support, reputation, heat, population, or

@@ -102,12 +102,17 @@ treated as future work:
   with the runtime group.
 - Vehicle-capable support/QRF active groups now persist their selected vehicle
   prefab and spawn a linked runtime vehicle entity when the infantry group
-  becomes live.
+  becomes live. Runtime vehicle roots are recursively cleared of engine faction
+  claims so selected faction catalogs do not make the spawned vehicles
+  player-unusable.
 - Enemy support ledgers track recent damage pressure, cooldowns, max defense
   spend, same-zone stacking, and survivor refunds. Proactive background-war and
   HQ-pressure orders spend attack resources only, while QRFs, capture-triggered
   counterattacks, rebuilds, roadblocks, and direct enemy support requests spend
   support resources through the ledger.
+- Enemy commander target scoring is relation-aware: same-faction holdings,
+  resistance-held zones, and rival-held zones have distinct owner-score reasons,
+  while hideout and mission-site bookkeeping anchors are excluded.
 - Civilian town influence events track support, reputation, heat, population,
   police, roadblock, active/expired modifier counts, and political ownership
   consequences.
@@ -124,7 +129,7 @@ treated as future work:
 ## Next Engineering Milestones
 
 1. Extend routed response infantry into richer counterattack/HQ-pressure target
-   behavior plus vehicle seating/movement.
+   behavior plus sustained vehicle seating/movement/contact proof.
 2. Finish live undercover equipment/clothing/off-road/security-scan
    enforcement.
 3. Deepen town influence into the primary political control and mission-output

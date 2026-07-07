@@ -174,7 +174,7 @@ class HST_MissionRuntimeService
 
 		GenericEntity carrierEntity = HST_WorldPositionService.SpawnPrefab(carrierPrefab, carrierPosition, HST_WorldPositionService.BuildUprightAngles(0.0));
 		if (carrierEntity)
-			HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(carrierEntity);
+			HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(carrierEntity);
 		ApplyCampaignDebugEntityName(carrierEntity, "captive_boarding_carrier", carrierId);
 		IEntity captiveEntity = SpawnCaptiveFollowerProjection(state, mission, probeAsset, captivePosition, "0 0 0");
 		AddCaptiveBoardingDebugMetric(probe, "rescue.captive.boarding.spawn_distance", string.Format("%1", Math.Round(Math.Sqrt(DistanceSq2D(captivePosition, carrierPosition)))), "meters");
@@ -1708,7 +1708,7 @@ class HST_MissionRuntimeService
 			}
 			ApplyCampaignDebugEntityName(entity, asset.m_sRole, asset.m_sAssetId);
 			if (asset.m_sKind == ASSET_KIND_VEHICLE || HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(asset.m_sPrefab))
-				HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(entity);
+				HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
 			if (ShouldApplyUprightMissionAssetTransform(asset))
 				HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
 			ApplyMissionAssetIdentity(entity, asset);
@@ -1766,7 +1766,7 @@ class HST_MissionRuntimeService
 		HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
 		ApplyCampaignDebugEntityName(entity, mission.m_sRuntimePrimitive, mission.m_sRuntimeEntityId);
 		if (HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
-			HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(entity);
+			HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
 		m_aRuntimeEntityIds.Insert(mission.m_sRuntimeEntityId);
 		m_aRuntimeEntities.Insert(entity);
 		RegisterRuntimeEntityState(state, mission, prefab, position, angles);
@@ -2026,7 +2026,7 @@ class HST_MissionRuntimeService
 		}
 
 		HST_WorldPositionService.ApplyUprightEntityTransform(entity, spawnPosition, angles);
-		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(entity);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
 		m_aRuntimeEntityIds.Insert(asset.m_sCarriedByVehicleId);
 		m_aRuntimeEntities.Insert(entity);
 		runtimeVehicle.m_vPosition = spawnPosition;

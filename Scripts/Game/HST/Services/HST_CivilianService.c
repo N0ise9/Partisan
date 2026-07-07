@@ -2540,7 +2540,7 @@ class HST_CivilianService
 
 	protected void ClearRuntimeVehicleFaction(IEntity entity)
 	{
-		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(entity);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
 	}
 
 	protected bool TickRuntimeVehicleHeat(HST_CampaignState state, HST_RuntimeVehicleState vehicle)

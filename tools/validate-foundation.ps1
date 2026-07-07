@@ -3264,21 +3264,39 @@ foreach ($requiredCampaignDebugBuildEntry in @(
 	}
 }
 foreach ($requiredEnemyTargetScoringEntry in @(
+		"HST_FactionRelationService",
+		"ResolveRelation",
+		"RELATION_RIVAL",
 		"HST_EnemyTargetScoreCandidate",
 		"HST_EnemyTargetScoreResult",
 		"BuildTargetScoreResult",
 		"BuildEnemyTargetScoreReport",
 		"weighted_top_band",
+		"rival_enemy_pressure",
 		"IsEligibleTargetZone",
 		"HST_ZONE_HIDEOUT",
 		"HST_ZONE_MISSION_SITE",
 		"enemy_target_scoring.contract.runtime",
 		"enemy_target_scoring.high_value_selection",
 		"enemy_target_scoring.excludes_bookkeeping_zones",
+		"enemy_target_scoring.relation_owner_scores",
 		"RecordCampaignDebugCase(BuildCampaignDebugEnemyTargetScoringCase())"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredEnemyTargetScoringEntry)) {
 		throw "Enemy commander target scoring proof contract missing: $requiredEnemyTargetScoringEntry"
+	}
+}
+foreach ($requiredRuntimeVehicleUnclaimEntry in @(
+		"ClearVehicleFactionAffiliationRecursive",
+		"ClearVehicleFactionAffiliationRecursiveCount",
+		"CountVehicleFactionClaimsRecursive",
+		"IsVehicleRootLikeEntity",
+		"vehicle claimed faction %1",
+		"vehicles are unclaimed",
+		"runtime vehicle faction cleared"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredRuntimeVehicleUnclaimEntry)) {
+		throw "Runtime vehicle unclaimed ownership contract missing: $requiredRuntimeVehicleUnclaimEntry"
 	}
 }
 foreach ($requiredCampaignDebugProofEntry in @(
@@ -8415,14 +8433,18 @@ if ($physicalWarServiceText -match [regex]::Escape("runtime vehicle faction appl
 }
 foreach ($requiredUnclaimedVehicleEntry in @(
 		"static bool ClearVehicleFactionAffiliation",
-		"static string ResolveVehicleFactionKey"
+		"static bool ClearVehicleFactionAffiliationRecursive",
+		"static bool ClearVehicleFactionAffiliationRecursiveCount",
+		"static string ResolveVehicleFactionKey",
+		"static int CountVehicleFactionClaimsRecursive"
 	)) {
 	if ($vehicleRootPolicyText -notmatch [regex]::Escape($requiredUnclaimedVehicleEntry)) {
 		throw "Vehicle root policy must expose shared unclaimed-vehicle helpers: $requiredUnclaimedVehicleEntry"
 	}
 }
 foreach ($requiredUnclaimedRuntimeVehicleAuditEntry in @(
-		"HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(vehicleEntity)",
+		"HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(vehicleEntity)",
+		"HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursiveCount(vehicleEntity",
 		"CountRuntimeVehicleClaimMismatch",
 		"runtime vehicle faction cleared",
 		"vehicle claimed faction",

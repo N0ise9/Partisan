@@ -61,7 +61,7 @@ class HST_EconomyService
 		bool changed;
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{
-			if (!pool || pool.m_sFactionKey == preset.m_sResistanceFactionKey || pool.m_iAggression <= 0)
+			if (!pool || !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey) || pool.m_iAggression <= 0)
 				continue;
 
 			int nextAggression = Math.Max(0, pool.m_iAggression - totalDecay);
@@ -287,7 +287,7 @@ class HST_EconomyService
 		string report = "enemy pressure | current pools";
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{
-			if (!pool || pool.m_sFactionKey == preset.m_sResistanceFactionKey)
+			if (!pool || !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey))
 				continue;
 
 			report = report + string.Format("\n%1 | attack %2 | support %3 | aggression %4", pool.m_sFactionKey, pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression);

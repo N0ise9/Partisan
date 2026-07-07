@@ -262,7 +262,7 @@ class HST_EnemyDirectorService
 
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{
-			if (!pool || pool.m_sFactionKey == preset.m_sResistanceFactionKey)
+			if (!pool || !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey))
 				continue;
 
 			int attackIncome;
@@ -295,7 +295,7 @@ class HST_EnemyDirectorService
 		string report = "h-istasi enemy support ledgers";
 		foreach (HST_EnemySupportLedgerState ledger : state.m_aEnemySupportLedgers)
 		{
-			if (!ledger || ledger.m_sFactionKey == preset.m_sResistanceFactionKey)
+			if (!ledger || !HST_FactionRelationService.IsEnemyFaction(preset, ledger.m_sFactionKey))
 				continue;
 
 			UpdateLedgerWindows(state, ledger);

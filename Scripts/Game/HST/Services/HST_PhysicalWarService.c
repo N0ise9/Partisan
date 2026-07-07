@@ -3240,7 +3240,7 @@ class HST_PhysicalWarService
 			return null;
 
 		ApplyCampaignDebugEntityName(vehicleEntity, MISSION_CONVOY_VEHICLE_ROLE, asset.m_sAssetId);
-		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(vehicleEntity);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(vehicleEntity);
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, angles);
 		asset.m_sPrefab = vehiclePrefab;
 		asset.m_bSpawned = true;
@@ -7779,7 +7779,7 @@ class HST_PhysicalWarService
 		}
 
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, spawnAngles);
-		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(vehicleEntity);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(vehicleEntity);
 		ApplyCampaignDebugEntityName(vehicleEntity, "active_group_vehicle", activeGroup.m_sGroupId);
 		m_aRuntimeVehicleGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeVehicleEntities.Insert(vehicleEntity);
@@ -9158,10 +9158,12 @@ class HST_PhysicalWarService
 		if (!root || factionKey.IsEmpty())
 			return false;
 
-		if (SCR_VehicleFactionAffiliationComponent.Cast(root.FindComponent(SCR_VehicleFactionAffiliationComponent)))
+		int vehicleChangedCount;
+		if (HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursiveCount(root, vehicleChangedCount))
+			changed += vehicleChangedCount;
+
+		if (HST_VehicleRootPolicy.IsVehicleRootLikeEntity(root))
 		{
-			if (HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(root))
-				changed++;
 			mismatches += CountRuntimeVehicleClaimMismatch(root, sample);
 			return mismatches == 0;
 		}
@@ -9329,16 +9331,17 @@ class HST_PhysicalWarService
 		IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
 		if (vehicleEntity)
 		{
-			bool vehicleChanged = HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(vehicleEntity);
+			int vehicleChangedCount;
+			bool vehicleChanged = HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursiveCount(vehicleEntity, vehicleChangedCount);
 			string vehicleSample;
 			int vehicleMismatches = CountRuntimeVehicleClaimMismatch(vehicleEntity, vehicleSample);
 			if (vehicleChanged)
-				totalChanged++;
+				totalChanged += Math.Max(1, vehicleChangedCount);
 			totalMismatches += vehicleMismatches;
 			if (firstSample.IsEmpty() && !vehicleSample.IsEmpty())
 				firstSample = vehicleSample;
 			if (vehicleChanged || vehicleMismatches > 0)
-				Print(string.Format("h-istasi | runtime vehicle faction cleared | group %1 | source %2 | changed %3 | remaining claims %4 | sample %5", activeGroup.m_sGroupId, source, vehicleChanged, vehicleMismatches, ReportText(vehicleSample)));
+				Print(string.Format("h-istasi | runtime vehicle faction cleared | group %1 | source %2 | changed %3 | remaining claims %4 | sample %5", activeGroup.m_sGroupId, source, vehicleChangedCount, vehicleMismatches, ReportText(vehicleSample)));
 		}
 
 		string sample;
@@ -9735,7 +9738,7 @@ class HST_PhysicalWarService
 		if (!entity || expectedFactionKey.IsEmpty())
 			return 0;
 
-		if (SCR_VehicleFactionAffiliationComponent.Cast(entity.FindComponent(SCR_VehicleFactionAffiliationComponent)))
+		if (HST_VehicleRootPolicy.IsVehicleRootLikeEntity(entity))
 			return CountRuntimeVehicleClaimMismatch(entity, sample);
 
 		string actualFactionKey = ResolveEntityFactionKey(entity);
@@ -9761,14 +9764,15 @@ class HST_PhysicalWarService
 		if (!entity)
 			return 0;
 
-		string actualFactionKey = HST_VehicleRootPolicy.ResolveVehicleFactionKey(entity);
-		if (actualFactionKey.IsEmpty())
+		string claimSample;
+		int claimCount = HST_VehicleRootPolicy.CountVehicleFactionClaimsRecursive(entity, claimSample);
+		if (claimCount <= 0)
 			return 0;
 
 		if (sample.IsEmpty())
-			sample = string.Format("vehicle pos %1 claimed faction %2 prefab %3", entity.GetOrigin(), ReportText(actualFactionKey), ReportText(ResolveEntityPrefabName(entity)));
+			sample = claimSample;
 
-		return 1;
+		return claimCount;
 	}
 
 	protected bool IsInfantryCharacterPrefabVisualMismatch(string prefab, string factionKey)
@@ -10039,7 +10043,7 @@ class HST_PhysicalWarService
 		activeGroup.m_iSurvivorVehicleCount = Math.Max(1, activeGroup.m_iVehicleCount);
 		if (state)
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
-		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(entity);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
 		m_aRuntimeVehicleGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeVehicleEntities.Insert(entity);
 		EnsureActiveGroupRuntimeFaction(activeGroup, "vehicle spawn");

@@ -837,7 +837,7 @@ class HST_HQService
 		{
 			if (!group)
 				continue;
-			if (group.m_sFactionKey == preset.m_sResistanceFactionKey || group.m_sFactionKey == "CIV")
+			if (!HST_FactionRelationService.IsEnemyFaction(preset, group.m_sFactionKey))
 				continue;
 			if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed")
 				continue;
@@ -860,7 +860,7 @@ class HST_HQService
 
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{
-			if (!pool || (preset && pool.m_sFactionKey == preset.m_sResistanceFactionKey))
+			if (!pool || (preset && !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey)))
 				continue;
 			if (pool.m_iAggression <= 0)
 				continue;
