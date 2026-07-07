@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r67-response-sweep-waypoints";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r68-response-mixed-vehicle";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4665,6 +4665,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string groupStatusBeforeFold;
 		if (group)
 			groupStatusBeforeFold = group.m_sRuntimeStatus;
+		bool vehicleRuntimeBeforeFold;
+		string vehicleRuntimeEvidenceBeforeFold = "missing";
+		if (group && m_PhysicalWar)
+		{
+			vehicleRuntimeBeforeFold = m_PhysicalWar.CampaignDebugHasRuntimeVehicleEntity(group.m_sGroupId);
+			vehicleRuntimeEvidenceBeforeFold = m_PhysicalWar.CampaignDebugBuildActiveGroupRuntimeVisualEvidence(group.m_sGroupId);
+		}
 		bool foldTickChanged;
 		bool orderSyncChanged;
 		if (request && group)
@@ -4721,6 +4728,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			routeWaypointExpected = !group.m_sRouteId.IsEmpty() && group.m_iAssignedWaypointCount >= 2 && group.m_sSpawnFallbackMode.Contains("infantry_waypoints") && group.m_sSpawnFallbackMode.Contains("infantry_sweep");
 		}
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.route_waypoints", "physical response assigns generated-route move and final sweep AI waypoints to the active infantry group", routeWaypointActual, CampaignDebugStatus(routeWaypointExpected), "physical response did not assign generated route move/sweep AI waypoints", "", "", targetZone.m_sZoneId);
+		string mixedVehicleActual = "missing";
+		bool mixedVehicleExpected = false;
+		if (request && group)
+		{
+			mixedVehicleActual = BuildCampaignDebugActiveGroupActual(group) + string.Format(" | requested vehicles %1 armed %2 | runtime vehicle before fold %3 | visual %4", request.m_iCompositionVehicleCount, request.m_iCompositionArmedVehicleCount, vehicleRuntimeBeforeFold, EmptyCampaignDebugField(vehicleRuntimeEvidenceBeforeFold));
+			mixedVehicleExpected = request.m_iCompositionVehicleCount > 0 && group.m_iVehicleCount == request.m_iCompositionVehicleCount && !group.m_sVehiclePrefab.IsEmpty() && group.m_sSpawnFallbackMode.Contains("vehicle_attached") && vehicleRuntimeBeforeFold;
+		}
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.mixed_vehicle_spawn", "vehicle-capable physical response stores a selected vehicle prefab and spawns a linked runtime vehicle", mixedVehicleActual, CampaignDebugStatus(mixedVehicleExpected), "vehicle-capable physical response did not materialize a linked runtime vehicle", "", "", targetZone.m_sZoneId);
 		string vehicleSafeActual = "missing";
 		bool vehicleSafeExpected = false;
 		if (request)
@@ -4749,7 +4764,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool orderExpected = order && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && order.m_sRuntimeStatus == "resolved_group_folded" && order.m_bResourceRefundApplied;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.order_resolution", "folded physical group resolves linked enemy order and applies survivor refund once", orderActual, CampaignDebugStatus(orderExpected), "folded support group did not resolve linked enemy order/refund");
 		string roundTripActual = BuildCampaignDebugPhysicalResponseRoundTripActual(restoredOrder, restoredRequest, restoredGroup);
-		bool roundTripExpected = request && group && restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded" && restoredGroup.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredGroup.m_iOriginalInfantryCount == restoredGroup.m_iInfantryCount && restoredGroup.m_iOriginalVehicleCount == restoredGroup.m_iVehicleCount && restoredRequest.m_sDeploymentRouteId == restoredGroup.m_sRouteId && restoredRequest.m_sDeploymentRouteId == request.m_sDeploymentRouteId && restoredRequest.m_sDeploymentSummary == request.m_sDeploymentSummary && restoredRequest.m_bDeploymentVehicleSafe == request.m_bDeploymentVehicleSafe && restoredGroup.m_iAssignedWaypointCount == group.m_iAssignedWaypointCount;
+		bool roundTripExpected = request && group && restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded" && restoredGroup.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredGroup.m_iOriginalInfantryCount == restoredGroup.m_iInfantryCount && restoredGroup.m_iOriginalVehicleCount == restoredGroup.m_iVehicleCount && restoredGroup.m_sVehiclePrefab == group.m_sVehiclePrefab && restoredRequest.m_sDeploymentRouteId == restoredGroup.m_sRouteId && restoredRequest.m_sDeploymentRouteId == request.m_sDeploymentRouteId && restoredRequest.m_sDeploymentSummary == request.m_sDeploymentSummary && restoredRequest.m_bDeploymentVehicleSafe == request.m_bDeploymentVehicleSafe && restoredGroup.m_iAssignedWaypointCount == group.m_iAssignedWaypointCount;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.save_roundtrip", "save-data roundtrip preserves folded order/support/group state without losing linkage", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded physical response state did not survive save-data copy");
 
 		pool.m_iAttackResources = attackBefore;
@@ -17030,6 +17045,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string actual = string.Format("group %1 | zone %2 | faction %3 | spawned %4 | agents %5/%6 | status %7 | route %8 | pos %9", EmptyCampaignDebugField(activeGroup.m_sGroupId), EmptyCampaignDebugField(activeGroup.m_sZoneId), EmptyCampaignDebugField(activeGroup.m_sFactionKey), activeGroup.m_bSpawnedEntity, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, EmptyCampaignDebugField(activeGroup.m_sRuntimeStatus), EmptyCampaignDebugField(activeGroup.m_sRouteId), activeGroup.m_vPosition);
 		actual = actual + string.Format(" | source mission %1 support %2 garrison %3 qrf %4 | original %5/%6 | force %7/%8 | waypoints %9", EmptyCampaignDebugField(activeGroup.m_sMissionInstanceId), EmptyCampaignDebugField(activeGroup.m_sSupportRequestId), EmptyCampaignDebugField(activeGroup.m_sGarrisonZoneId), EmptyCampaignDebugField(activeGroup.m_sQRFInstanceId), activeGroup.m_iOriginalInfantryCount, activeGroup.m_iOriginalVehicleCount, activeGroup.m_iInfantryCount, activeGroup.m_iVehicleCount, activeGroup.m_iAssignedWaypointCount);
+		actual = actual + string.Format(" | vehiclePrefab %1", EmptyCampaignDebugField(activeGroup.m_sVehiclePrefab));
 		return actual;
 	}
 

@@ -116,10 +116,10 @@ fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. The
 state model is versioned from day one. `HST_CampaignSaveData` is the deep-copy
 save container for current campaign fields and nested runtime arrays, including
-campaign metadata, resources, schema-35 campaign-end reason/summary/elapsed
-second/control/war/zone-count fields, outcome-mode, population/support, and
-airfield metadata, support deployment proof, active-group route waypoint counts,
-runtime infantry waypoint assignment and final-sweep state,
+campaign metadata, resources, schema-36 save fields including campaign-end
+reason/summary/elapsed second/control/war/zone-count fields, outcome-mode,
+population/support, airfield metadata, support deployment proof, active-group
+vehicle prefab, active-group route waypoint counts, runtime infantry waypoint assignment and final-sweep state,
 HQ/Petros/cache/arsenal/tent/spawn-point fields,
 faction pools, players, zones, garrisons, active groups, QRFs, map markers,
 generated content, objectives, mission runtime, mission assets, support, enemy

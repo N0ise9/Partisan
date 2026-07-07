@@ -581,6 +581,7 @@ class HST_CampaignSaveData
 		target.m_sGarrisonZoneId = source.m_sGarrisonZoneId;
 		target.m_sQRFInstanceId = source.m_sQRFInstanceId;
 		target.m_sPrefab = source.m_sPrefab;
+		target.m_sVehiclePrefab = source.m_sVehiclePrefab;
 		target.m_sCompositionRequestId = source.m_sCompositionRequestId;
 		target.m_sCompositionIntentId = source.m_sCompositionIntentId;
 		target.m_sCompositionTier = source.m_sCompositionTier;

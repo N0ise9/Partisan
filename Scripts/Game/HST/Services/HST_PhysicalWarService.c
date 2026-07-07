@@ -940,8 +940,8 @@ class HST_PhysicalWarService
 
 		state.m_aActiveGroups.Insert(friendlyGroup);
 		state.m_aActiveGroups.Insert(enemyGroup);
-		bool friendlySpawned = TrySpawnActiveGroup(friendlyGroup, state);
-		bool enemySpawned = TrySpawnActiveGroup(enemyGroup, state);
+		bool friendlySpawned = TrySpawnActiveGroup(friendlyGroup, state, preset);
+		bool enemySpawned = TrySpawnActiveGroup(enemyGroup, state, preset);
 		m_bCampaignDebugCombatProbeFriendlyPopulationResolved = CampaignDebugResolvePendingActiveGroupPopulation(friendlyGroup, state, "campaign_debug_combat", m_sCampaignDebugCombatProbeFriendlyPopulationEvidence);
 		m_bCampaignDebugCombatProbeEnemyPopulationResolved = CampaignDebugResolvePendingActiveGroupPopulation(enemyGroup, state, "campaign_debug_combat", m_sCampaignDebugCombatProbeEnemyPopulationEvidence);
 		if (AssignCampaignDebugPhysicalCombatWaypoint(m_sCampaignDebugCombatProbeFriendlyGroupId, m_vCampaignDebugCombatProbeEnemyPosition))
@@ -3032,7 +3032,7 @@ class HST_PhysicalWarService
 
 		activeGroup.m_vPosition = OffsetConvoyCrewSpawnPosition(spawnPosition, asset.m_vTargetPosition, index);
 		activeGroup.m_vSourcePosition = activeGroup.m_vPosition;
-		if (!TrySpawnActiveGroup(activeGroup, state))
+		if (!TrySpawnActiveGroup(activeGroup, state, preset))
 		{
 			activeGroup.m_bCrewPopulationTerminallyFailed = true;
 			activeGroup.m_sCrewPopulationFailureReason = activeGroup.m_sSpawnFailureReason;
@@ -6351,7 +6351,7 @@ class HST_PhysicalWarService
 		if (vehicleCount > 0 && infantryCount <= 0)
 			spawned = TrySpawnActiveVehicle(activeGroup, state);
 		else
-			spawned = TrySpawnActiveGroup(activeGroup, state);
+			spawned = TrySpawnActiveGroup(activeGroup, state, preset);
 
 		if (!spawned)
 		{
@@ -6502,7 +6502,7 @@ class HST_PhysicalWarService
 			activeGroup.m_sRuntimeStatus = "routing";
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 			state.m_aActiveGroups.Insert(activeGroup);
-			if (!TrySpawnActiveGroup(activeGroup, state))
+			if (!TrySpawnActiveGroup(activeGroup, state, preset))
 			{
 				state.m_aActiveGroups.Remove(state.m_aActiveGroups.Count() - 1);
 				qrf.m_bResolved = true;
@@ -6978,6 +6978,21 @@ class HST_PhysicalWarService
 			return mode;
 
 		return mode + "_" + token;
+	}
+
+	protected void AppendActiveGroupSpawnFailureNote(HST_ActiveGroupState activeGroup, string note)
+	{
+		if (!activeGroup || note.IsEmpty())
+			return;
+		if (activeGroup.m_sSpawnFailureReason.IsEmpty())
+		{
+			activeGroup.m_sSpawnFailureReason = note;
+			return;
+		}
+		if (activeGroup.m_sSpawnFailureReason.Contains(note))
+			return;
+
+		activeGroup.m_sSpawnFailureReason = activeGroup.m_sSpawnFailureReason + " " + note;
 	}
 
 	protected HST_GeneratedRouteState ResolveActiveGroupGeneratedRoute(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -7512,7 +7527,7 @@ class HST_PhysicalWarService
 		return seed;
 	}
 
-	protected bool TrySpawnActiveGroup(HST_ActiveGroupState activeGroup, HST_CampaignState state = null)
+	protected bool TrySpawnActiveGroup(HST_ActiveGroupState activeGroup, HST_CampaignState state = null, HST_CampaignPreset preset = null)
 	{
 		if (!activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup) || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 			return false;
@@ -7618,8 +7633,63 @@ class HST_PhysicalWarService
 		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeGroupEntities.Insert(entity);
 		ReconcileRuntimeGroupEditableMembership(SCR_AIGroup.Cast(entity), activeGroup, "native immediate populated");
+		TrySpawnActiveGroupAttachedVehicle(state, preset, activeGroup, "native immediate populated");
 		PrintActiveGroupSpawnEvidence(state, activeGroup, "spawned");
 		DebugLog(string.Format("spawned active group %1 using %2 (%3 agents)", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, agentCount));
+		return true;
+	}
+
+	protected bool TrySpawnActiveGroupAttachedVehicle(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup, string source)
+	{
+		if (!activeGroup || activeGroup.m_iVehicleCount <= 0 || activeGroup.m_iInfantryCount <= 0 || IsMissionConvoyGroup(activeGroup))
+			return false;
+		if (GetRuntimeVehicleEntity(activeGroup.m_sGroupId))
+			return true;
+
+		HST_ZoneState zone;
+		if (state && !activeGroup.m_sZoneId.IsEmpty())
+			zone = state.FindZone(activeGroup.m_sZoneId);
+
+		string vehiclePrefab = activeGroup.m_sVehiclePrefab;
+		if (vehiclePrefab.IsEmpty())
+			vehiclePrefab = SelectVehiclePrefab(state, zone, activeGroup.m_sFactionKey, activeGroup.m_sGroupId.Length() + activeGroup.m_iSpawnedAtSecond, preset);
+		if (vehiclePrefab.IsEmpty() || !IsValidVehiclePrefabResource(vehiclePrefab, activeGroup.m_sFactionKey))
+		{
+			activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "vehicle_attach_missing");
+			AppendActiveGroupSpawnFailureNote(activeGroup, "Attached vehicle prefab unavailable for mixed active group.");
+			return false;
+		}
+
+		vector vehicleAnchor = activeGroup.m_vPosition;
+		vehicleAnchor[0] = vehicleAnchor[0] + 8.0;
+		vehicleAnchor[2] = vehicleAnchor[2] + 6.0;
+		vector spawnPosition;
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(vehicleAnchor, spawnPosition, true) && !HST_WorldPositionService.TryResolveVehicleSpawnPosition(activeGroup.m_vPosition, spawnPosition, true))
+		{
+			activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "vehicle_attach_blocked");
+			AppendActiveGroupSpawnFailureNote(activeGroup, "Attached vehicle spawn position unavailable for mixed active group.");
+			return false;
+		}
+
+		vector spawnAngles = HST_WorldPositionService.BuildUprightAngles(0);
+		GenericEntity vehicleEntity = HST_WorldPositionService.SpawnPrefab(vehiclePrefab, spawnPosition, spawnAngles);
+		if (!vehicleEntity)
+		{
+			activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "vehicle_attach_failed");
+			AppendActiveGroupSpawnFailureNote(activeGroup, "Attached vehicle prefab spawn failed for mixed active group.");
+			return false;
+		}
+
+		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, spawnAngles);
+		ApplyEntityFaction(vehicleEntity, activeGroup.m_sFactionKey);
+		ApplyCampaignDebugEntityName(vehicleEntity, "active_group_vehicle", activeGroup.m_sGroupId);
+		m_aRuntimeVehicleGroupIds.Insert(activeGroup.m_sGroupId);
+		m_aRuntimeVehicleEntities.Insert(vehicleEntity);
+		activeGroup.m_sVehiclePrefab = vehiclePrefab;
+		activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "vehicle_attached");
+		activeGroup.m_iSurvivorVehicleCount = Math.Max(1, activeGroup.m_iVehicleCount);
+		activeGroup.m_iLastSeenAliveCount = Math.Max(activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount + activeGroup.m_iVehicleCount);
+		DebugLog(string.Format("spawned attached active group vehicle %1 via %2 | prefab %3 | source %4", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, vehiclePrefab, source));
 		return true;
 	}
 
@@ -7873,6 +7943,7 @@ class HST_PhysicalWarService
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		RefreshActiveGroupZoneCounts(state, activeGroup);
 		TryBindPopulatedMissionConvoyGroup(state, activeGroup);
+		TrySpawnActiveGroupAttachedVehicle(state, null, activeGroup, source);
 		PrintActiveGroupSpawnEvidence(state, activeGroup, source + "_populated");
 		DebugLog(string.Format("active group populated %1 live agents %2 expected %3 via %4", activeGroup.m_sGroupId, agentCount, activeGroup.m_iInfantryCount, source));
 		return true;
@@ -9276,6 +9347,16 @@ class HST_PhysicalWarService
 		return false;
 	}
 
+	bool CampaignDebugHasRuntimeVehicleEntity(string groupId)
+	{
+		return GetRuntimeVehicleEntity(groupId) != null;
+	}
+
+	string CampaignDebugBuildActiveGroupRuntimeVisualEvidence(string groupId)
+	{
+		return BuildActiveGroupRuntimeVisualEvidence(groupId);
+	}
+
 	protected string BuildActiveGroupRuntimeVisualEvidence(string groupId)
 	{
 		if (groupId.IsEmpty())
@@ -10158,7 +10239,7 @@ class HST_PhysicalWarService
 			if (activeGroup.m_iVehicleCount > 0 && activeGroup.m_iInfantryCount <= 0)
 				TrySpawnActiveVehicle(activeGroup, state);
 			else
-				TrySpawnActiveGroup(activeGroup, state);
+				TrySpawnActiveGroup(activeGroup, state, preset);
 		}
 	}
 

@@ -100,6 +100,9 @@ treated as future work:
   assigns real AI route waypoints from the generated route chain, uses a final
   search/sweep waypoint at the target, and cleans those waypoint entities up
   with the runtime group.
+- Vehicle-capable support/QRF active groups now persist their selected vehicle
+  prefab and spawn a linked runtime vehicle entity when the infantry group
+  becomes live.
 - Enemy support ledgers track recent damage pressure, cooldowns, max defense
   spend, same-zone stacking, and survivor refunds. Proactive background-war and
   HQ-pressure orders spend attack resources only, while QRFs, capture-triggered
@@ -121,7 +124,7 @@ treated as future work:
 ## Next Engineering Milestones
 
 1. Extend routed response infantry into richer counterattack/HQ-pressure target
-   behavior and mixed vehicle spawning.
+   behavior plus vehicle seating/movement.
 2. Finish live undercover equipment/clothing/off-road/security-scan
    enforcement.
 3. Deepen town influence into the primary political control and mission-output

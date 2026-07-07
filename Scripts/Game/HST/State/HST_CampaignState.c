@@ -80,6 +80,7 @@ class HST_ActiveGroupState
 	string m_sGarrisonZoneId;
 	string m_sQRFInstanceId;
 	string m_sPrefab;
+	string m_sVehiclePrefab;
 	string m_sCompositionRequestId;
 	string m_sCompositionIntentId;
 	string m_sCompositionTier;
@@ -744,7 +745,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 35;
+	static const int SCHEMA_VERSION = 36;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

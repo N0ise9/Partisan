@@ -140,6 +140,9 @@ class HST_ForceCompositionService
 		group.m_sCompositionIntentId = result.m_sIntentId;
 		group.m_sCompositionTier = result.m_sSelectedTier;
 		group.m_sCompositionSummary = result.m_sDebugSummary;
+		HST_VehicleSpawnPlan vehicle = result.GetPrimaryVehicle();
+		if (vehicle)
+			group.m_sVehiclePrefab = vehicle.m_sPrefab;
 		group.m_iCompositionCost = result.m_iTotalCost;
 		group.m_iCompositionManpower = result.m_iManpower;
 		group.m_iCompositionVehicleCount = result.m_iVehicleCount;

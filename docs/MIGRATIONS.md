@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `35`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `36`.
 
+- Schema 36 adds the selected active-group vehicle prefab so mixed
+  infantry/vehicle response groups can respawn the same vehicle choice after a
+  save/load roundtrip.
 - Schema 35 adds persisted support deployment proof for physicalized support:
   deployment route id, placement type/summary, target/road/HQ distances,
   road resolution, vehicle-safe result, and whether vehicle-safe placement was
@@ -65,6 +68,17 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 36
+
+Active-group vehicle prefab.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `36`.
+- `HST_ActiveGroupState` now persists the selected vehicle prefab for mixed
+  infantry/vehicle groups.
+- Existing schema-35 and older active groups load with an empty vehicle prefab;
+  the runtime can select a valid faction vehicle when it next materializes a
+  mixed active group that lacks a stored vehicle prefab.
 
 ## Schema 35
 

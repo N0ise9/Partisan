@@ -236,6 +236,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Current examples: `HST_PhysicalWarService.AssignActiveGroupInfantryRouteWaypoints()`
     and `HST_PhysicalWarService.DeleteRuntimeGroupWaypoints()`.
 
+- Mixed response vehicles should use the force-composed vehicle prefab, not a
+  late random reselection.
+  - Persist the selected vehicle prefab on `HST_ActiveGroupState` when applying
+    force composition, then spawn the linked runtime vehicle only after the
+    infantry `AIGroup` has populated or finalized.
+  - Track the vehicle under the same active group id so existing runtime group
+    cleanup deletes crew, route waypoints, and the attached vehicle together.
+  - Current example: `HST_PhysicalWarService.TrySpawnActiveGroupAttachedVehicle()`.
+
 - Town political support should be event-ledger backed.
   - Directly changing FIA/occupier support, reputation, heat, population, or
     police/roadblock pressure hides why a town flipped and makes save/reload
