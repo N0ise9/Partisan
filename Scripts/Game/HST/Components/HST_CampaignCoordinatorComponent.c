@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r60-category-mission-selection-debug-fixes";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r61-category-selection-compile-fix";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -24533,7 +24533,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected HST_MissionCategorySelectionResult FailMissionCategorySelection(HST_MissionCategorySelectionResult result, string reason)
 	{
 		if (!result)
-			result = new HST_MissionCategorySelectionResult();
+		{
+			HST_MissionCategorySelectionResult failedResult = new HST_MissionCategorySelectionResult();
+			failedResult.m_bSuccess = false;
+			failedResult.m_sFailureReason = reason;
+			failedResult.m_sDebugSummary = BuildMissionCategorySelectionActual(failedResult);
+			return failedResult;
+		}
 
 		result.m_bSuccess = false;
 		result.m_sFailureReason = reason;

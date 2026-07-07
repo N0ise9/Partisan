@@ -67,7 +67,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
     return it instead of assigning into the parameter.
   - Current examples:
     `HST_ForceCompositionService.Fail()` and
-    `HST_SpawnPlacementService.Fail()`.
+    `HST_SpawnPlacementService.Fail()`. The same pattern applies to
+    `HST_CampaignCoordinatorComponent.FailMissionCategorySelection()`.
 
 - Enforce class scope does not allow duplicate helper method declarations.
   - Even identical helper bodies in different parts of a large component fail
