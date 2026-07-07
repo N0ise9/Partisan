@@ -111,7 +111,8 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|undercover_applied=%1|undercover_compromised=%2|undercover_detection=%3|roadblock_scans=%4|police_scans=%5", CountUndercoverApplied(state), CountUndercoverCompromised(state), SumUndercoverDetectionScore(state), SumRoadblockScans(state), SumPoliceScans(state));
 		summary = summary + string.Format("|hq_knowledge=%1|hq_threat=%2|defend_petros_active=%3|petros_alive=%4|petros_deaths=%5", state.m_iHQKnowledge, state.m_iHQThreatLevel, state.m_bDefendPetrosActive, state.m_bPetrosAlive, state.m_iPetrosDeaths);
 		summary = summary + string.Format("|markers=%1|mission_markers=%2|support_markers=%3|qrf_markers=%4|hq_marker=%5|ui_schema=%6", state.m_aMapMarkers.Count(), CountMarkersByCategory(state, "mission") + CountMarkersByCategory(state, "mission_objective") + CountMarkersByCategory(state, "mission_asset"), CountMarkersByCategory(state, "support"), CountMarkersByCategory(state, "qrf"), HasMarker(state, "hst_hq"), state.m_iSchemaVersion);
-		summary = summary + string.Format("|campaign_phase=%1|end_second=%2|end_reason=%3|end_control=%4|end_war=%5|end_fia=%6|end_enemy=%7|end_report=%8", state.m_ePhase, state.m_iCampaignEndedAtSecond, state.m_sCampaignEndReason, state.m_iCampaignEndControlPercent, state.m_iCampaignEndWarLevel, state.m_iCampaignEndFIAZones, state.m_iCampaignEndEnemyZones, state.m_bCampaignEndReportGenerated);
+		summary = summary + string.Format("|campaign_phase=%1|end_second=%2|end_reason=%3|end_control=%4|end_war=%5|end_fia=%6|end_enemy=%7|end_mode=%8", state.m_ePhase, state.m_iCampaignEndedAtSecond, state.m_sCampaignEndReason, state.m_iCampaignEndControlPercent, state.m_iCampaignEndWarLevel, state.m_iCampaignEndFIAZones, state.m_iCampaignEndEnemyZones, state.m_sCampaignEndOutcomeMode);
+		summary = summary + string.Format("|end_pop=%1/%2/%3|end_support_pop=%4|end_airfields=%5/%6|end_report=%7", state.m_iCampaignEndInitialPopulation, state.m_iCampaignEndRemainingPopulation, state.m_iCampaignEndKilledPopulation, state.m_iCampaignEndFIASupportPopulation, state.m_iCampaignEndAirfieldsControlled, state.m_iCampaignEndAirfieldsTotal, state.m_bCampaignEndReportGenerated);
 		return summary;
 	}
 
@@ -1339,6 +1340,14 @@ class HST_PersistenceSmokeTestService
 		hash = MixInt(hash, state.m_iCampaignEndWarLevel);
 		hash = MixInt(hash, state.m_iCampaignEndFIAZones);
 		hash = MixInt(hash, state.m_iCampaignEndEnemyZones);
+		hash = MixStringLength(hash, state.m_sCampaignEndOutcomeMode);
+		hash = MixInt(hash, state.m_iCampaignEndInitialPopulation);
+		hash = MixInt(hash, state.m_iCampaignEndRemainingPopulation);
+		hash = MixInt(hash, state.m_iCampaignEndKilledPopulation);
+		hash = MixInt(hash, state.m_iCampaignEndFIASupportPopulation);
+		hash = MixInt(hash, state.m_iCampaignEndSupportPercent);
+		hash = MixInt(hash, state.m_iCampaignEndAirfieldsControlled);
+		hash = MixInt(hash, state.m_iCampaignEndAirfieldsTotal);
 		if (state.m_bCampaignEndReportGenerated)
 			hash = MixInt(hash, 1);
 		if (hash < 0)

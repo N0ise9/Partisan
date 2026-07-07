@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r61-category-selection-compile-fix";
-	static const string BUILD_UTC = "2026-07-07T18:45:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r61-category-selection-compile-fix";
+	static const string BUILD_SHA = "r62-population-outcome-proof";
+	static const string BUILD_UTC = "2026-07-07T19:20:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r62-population-outcome-proof";
 
 	static string BuildSummary()
 	{

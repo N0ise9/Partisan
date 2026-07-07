@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `33`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `34`.
 
+- Schema 34 adds persisted population-outcome metadata for campaign-end state:
+  outcome mode, initial/remaining/killed population, FIA-supporting population,
+  support percent, and controlled/total airfields.
 - Schema 33 adds durable active-group source-link fields and original force
   count fields so support, mission, QRF, and garrison active groups can be
   traced through fold-back, cleanup, refunds, and save-data roundtrips.
@@ -51,13 +54,31 @@
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
   `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
-- Runtime settings remain schema `13` and are migrated separately by
+- Runtime settings remain schema `15` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, the current same-container data can be
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 34
+
+Population outcome metadata.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `34`.
+- Campaign end state now persists the outcome mode, initial population,
+  remaining population, killed population, FIA-supporting population, support
+  percent, controlled airfields, and total airfields.
+- Population victory is the default outcome mode: enough remaining population
+  must support the resistance and all airfields must be controlled.
+- Population loss is the default loss mode: killed population greater than one
+  third of initial population ends the campaign.
+- Existing ended saves backfill the new metadata from civilian town state and
+  airfield ownership when possible; older control-based ended saves keep
+  `legacy_control` as the persisted outcome mode.
+- Runtime settings schema `15` adds `populationOutcomeEnabled`,
+  `victoryPopulationSupportPercent`, and `legacyControlVictoryEnabled`.
 
 ## Schema 33
 

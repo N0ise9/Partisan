@@ -78,6 +78,48 @@ The state model already has the right Antistasi save-game spine:
 The plan should harden each existing service into a playable, testable vertical
 slice. It should not rebuild the foundation.
 
+## Current Implementation Baseline
+
+The codebase now includes the core implementation pieces that older phase rows
+treated as future work:
+
+- `HST_ForceCompositionService` owns request/result force planning for support,
+  mission guards, garrison activation, QRFs, counterattacks, convoy guards, HQ
+  attacks, and debug probes.
+- `HST_SpawnPlacementService` owns request/result placement for QRF staging, HQ
+  attack standoff, convoy endpoints, dry-ground checks, vehicle-safe placement,
+  road preference, and HQ standoff.
+- Enemy support ledgers track recent damage pressure, cooldowns, max defense
+  spend, same-zone stacking, and survivor refunds.
+- Civilian town influence events track support, reputation, heat, population,
+  police, roadblock, active/expired modifier counts, and political ownership
+  consequences.
+- Civilian/vehicle heat and undercover enforcement already cover request/apply,
+  wanted heat, vehicle reports, passenger compromise, police/roadblock scans,
+  and explicit reports.
+- Category mission selection is active: commander mission starts select a
+  category, then the server chooses a valid definition and nearby eligible
+  target.
+- Campaign end rules now default to population support plus all-airfield
+  control for victory and killed population greater than one third for loss,
+  with legacy control-percent victory remaining optional.
+
+## Next Engineering Milestones
+
+1. Split proactive enemy attack resources from reactive defense/support spend.
+2. Harden route-aware and vehicle-aware physical responses for QRF,
+   counterattack, support, and HQ-pressure groups.
+3. Finish live undercover equipment/clothing/off-road/security-scan
+   enforcement.
+4. Deepen town influence into the primary political control and mission-output
+   layer.
+5. Add player-facing garrison management, training effects, static defenses,
+   and arsenal-driven AI loadouts.
+6. Replace mission MVP primitives with mission-family runtime modules and
+   mission-specific assets/consequences.
+7. Soak population campaign-end, active missions, support, orders, garage,
+   undercover, and terminal saves across real restart and multiplayer profiles.
+
 ## Game-Mode Target
 
 The player fantasy is FIA resistance on Everon with almost nothing. The US
@@ -364,16 +406,16 @@ Acceptance pattern:
 | 12 | Active mission persistence | Complete |
 | 13 | Non-convoy mission primitive hardening | Complete |
 | 14 | Arsenal, loot, and finite/infinite unlock loop | In progress - loadout smoke pending |
-| 15 | Garage and vehicle persistence | Planned - early scaffold exists |
-| 16 | Recruitment, training, and garrisons | Planned |
-| 17 | Zone capture and ownership | Planned |
-| 18 | Enemy commander physical responses | Planned |
-| 19 | Support requests | Planned |
-| 20 | Civilians, town support, and undercover reports | Planned |
-| 21 | Undercover enforcement and police/roadblocks | Planned |
-| 22 | HQ threat and Defend Petros | Planned |
+| 15 | Garage and vehicle persistence | In progress - broad-alpha scaffold exists |
+| 16 | Recruitment, training, and garrisons | In progress - recruitment/garrison foundation exists |
+| 17 | Zone capture and ownership | In progress - capture/counterattack smoke exists |
+| 18 | Enemy commander physical responses | In progress - enemy orders and physical response broad alpha |
+| 19 | Support requests | In progress - stateful support broad alpha |
+| 20 | Civilians, town support, and undercover reports | In progress - town influence/civilian/undercover broad alpha |
+| 21 | Undercover enforcement and police/roadblocks | In progress - enforcement broad alpha |
+| 22 | HQ threat and Defend Petros | In progress - HQ threat and defense broad alpha |
 | 23 | UI and map marker polish | Planned |
-| 24 | Balance, campaign pacing, and victory/loss | Planned |
+| 24 | Balance, campaign pacing, and victory/loss | In progress - population outcome default |
 | 25 | Full-campaign soak testing | Planned |
 
 ## Roadmap Sequencing Rationale
@@ -2014,7 +2056,9 @@ Acceptance criteria:
 
 ## Phase 24 - Balance, Campaign Pacing, And Victory/Loss
 
-Status: Planned
+Status: In progress - population outcome default. Strategic pacing and enemy
+pressure smoke exists; population-support victory/loss is implemented and still
+needs real restart/multiplayer soak.
 
 Goal: turn working systems into a coherent campaign loop.
 
@@ -2027,9 +2071,12 @@ Implementation:
 - Tune aggression gain/decay.
 - Tune enemy resource income/spending.
 - Tune war-level thresholds.
-- Add victory condition.
-- Add loss condition if desired.
-- Add campaign end report.
+- Default victory: remaining population support reaches the configured
+  threshold and all airfields are controlled.
+- Default loss: killed population exceeds one third of initial population.
+- Keep legacy control-percent victory optional for debug or alternate presets.
+- Add campaign end report with population, support, airfield, outcome-mode,
+  next-check, and persisted terminal metadata.
 
 Acceptance criteria:
 
@@ -2038,8 +2085,12 @@ Acceptance criteria:
 - Early game remains loot-focused.
 - Mid game enables outpost/resource capture.
 - Late game enables airfield/seaport pressure.
-- Victory triggers when required island-control condition is met.
-- Campaign end state persists.
+- Victory triggers only when population support and airfield control are both
+  satisfied in default mode.
+- Loss triggers when civilian killed population exceeds the catastrophe
+  threshold in default mode.
+- Campaign end state persists with outcome mode, population counts, support
+  population, and airfield metadata.
 
 ## Phase 25 - Full-Campaign Soak Testing
 

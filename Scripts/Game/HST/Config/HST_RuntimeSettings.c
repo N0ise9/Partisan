@@ -33,6 +33,9 @@ class HST_RuntimeSettingsEconomy
 	int m_iWarLevel9Score = 265;
 	int m_iWarLevel10Score = 320;
 	int m_iVictoryControlPercent = 70;
+	bool m_bPopulationOutcomeEnabled = true;
+	int m_iVictoryPopulationSupportPercent = 50;
+	bool m_bLegacyControlVictoryEnabled;
 	bool m_bVictoryRequiresAirfields = true;
 	bool m_bVictoryRequiresSeaports = true;
 	bool m_bLossConditionEnabled = true;
@@ -132,7 +135,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 14;
+	static const int SCHEMA_VERSION = 15;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -177,6 +180,7 @@ class HST_RuntimeSettings
 		m_Economy.m_iWarLevel9Score = Math.Max(m_Economy.m_iWarLevel8Score + 1, m_Economy.m_iWarLevel9Score);
 		m_Economy.m_iWarLevel10Score = Math.Max(m_Economy.m_iWarLevel9Score + 1, m_Economy.m_iWarLevel10Score);
 		m_Economy.m_iVictoryControlPercent = Math.Max(1, Math.Min(100, m_Economy.m_iVictoryControlPercent));
+		m_Economy.m_iVictoryPopulationSupportPercent = Math.Max(1, Math.Min(100, m_Economy.m_iVictoryPopulationSupportPercent));
 		m_Economy.m_iLossHRThreshold = Math.Max(0, m_Economy.m_iLossHRThreshold);
 		m_Economy.m_iLossMoneyThreshold = Math.Max(0, m_Economy.m_iLossMoneyThreshold);
 		m_Economy.m_iLossPetrosDeathLimit = Math.Max(1, m_Economy.m_iLossPetrosDeathLimit);
@@ -275,6 +279,9 @@ class HST_RuntimeSettings
 		balance.m_iWarLevel9Score = m_Economy.m_iWarLevel9Score;
 		balance.m_iWarLevel10Score = m_Economy.m_iWarLevel10Score;
 		balance.m_iVictoryControlPercent = m_Economy.m_iVictoryControlPercent;
+		balance.m_bPopulationOutcomeEnabled = m_Economy.m_bPopulationOutcomeEnabled;
+		balance.m_iVictoryPopulationSupportPercent = m_Economy.m_iVictoryPopulationSupportPercent;
+		balance.m_bLegacyControlVictoryEnabled = m_Economy.m_bLegacyControlVictoryEnabled;
 		balance.m_bVictoryRequiresAirfields = m_Economy.m_bVictoryRequiresAirfields;
 		balance.m_bVictoryRequiresSeaports = m_Economy.m_bVictoryRequiresSeaports;
 		balance.m_bLossConditionEnabled = m_Economy.m_bLossConditionEnabled;
@@ -294,8 +301,8 @@ class HST_RuntimeSettings
 		string factions = string.Format("\nfactions | resistance %1 | occupier %2 | invader %3", m_Factions.m_sResistanceFactionKey, m_Factions.m_sOccupierFactionKey, m_Factions.m_sInvaderFactionKey);
 		string economy = string.Format("\neconomy | money %1 | HR %2 | training %3 | income %4s | war max %5", m_Economy.m_iStartingFactionMoney, m_Economy.m_iStartingHR, m_Economy.m_iStartingTrainingLevel, m_Economy.m_iZoneIncomeIntervalSeconds, m_Economy.m_iWarLevelMaximum);
 		string pacing = string.Format("\npacing | WL2 %1 | WL3 %2 | WL4 %3 | WL5 %4 | WL6 %5 | WL7 %6 | WL8 %7 | WL9 %8 | WL10 %9", m_Economy.m_iWarLevel2Score, m_Economy.m_iWarLevel3Score, m_Economy.m_iWarLevel4Score, m_Economy.m_iWarLevel5Score, m_Economy.m_iWarLevel6Score, m_Economy.m_iWarLevel7Score, m_Economy.m_iWarLevel8Score, m_Economy.m_iWarLevel9Score, m_Economy.m_iWarLevel10Score);
-		pacing = pacing + string.Format(" | victory %1 pct", m_Economy.m_iVictoryControlPercent);
-		string loss = string.Format("\nloss | enabled %1 | HR %2 | money %3 | Petros deaths %4 | grace %5s", m_Economy.m_bLossConditionEnabled, m_Economy.m_iLossHRThreshold, m_Economy.m_iLossMoneyThreshold, m_Economy.m_iLossPetrosDeathLimit, m_Economy.m_iLossGraceSeconds);
+		pacing = pacing + string.Format(" | population outcome %1 | support victory %2 pct | legacy control %3 pct enabled %4", m_Economy.m_bPopulationOutcomeEnabled, m_Economy.m_iVictoryPopulationSupportPercent, m_Economy.m_iVictoryControlPercent, m_Economy.m_bLegacyControlVictoryEnabled);
+		string loss = string.Format("\nloss | enabled %1 | population catastrophe when more than one third killed | HR %2 | money %3 | Petros deaths %4 | grace %5s", m_Economy.m_bLossConditionEnabled, m_Economy.m_iLossHRThreshold, m_Economy.m_iLossMoneyThreshold, m_Economy.m_iLossPetrosDeathLimit, m_Economy.m_iLossGraceSeconds);
 		string capture = string.Format("\ncapture | required %1 | progress %2/s | decay %3/s | aggression %4 | counterattack %5 pct", m_Capture.m_iProgressRequired, m_Capture.m_iProgressPerSecond, m_Capture.m_iDecayPerSecond, m_Capture.m_iAggressionBase, m_Capture.m_iCounterattackChancePercent);
 		string world = string.Format("\nworld | activation %1m | deactivation %2m | render bubble %3m | mission selection %4m | mission duration %5s", m_World.m_iActivationRadiusMeters, m_World.m_iDeactivationRadiusMeters, m_World.m_iPlayerRenderBubbleRadiusMeters, m_World.m_iMissionSelectionRadiusMeters, m_World.m_iMissionDefaultDurationSeconds);
 		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | HQ radius %3m | loot radius %4m | locked only %5 | remove source %6", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iHQInteractionRadiusMeters, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootOnlyLockedItems, m_ArsenalLoot.m_bRemoveLootedItems);

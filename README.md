@@ -51,7 +51,7 @@ The repository contains a broad-alpha campaign foundation:
 - First-load server settings generation at `$profile:h-istasi/HST_Settings.json`
   with config-backed defaults for campaign, factions, economy, membership,
   world activation, arsenal/loot, persistence, logging, and feature toggles,
-  including configurable infinite stamina
+  including configurable infinite stamina and population-based campaign outcomes
 - Server-side area and vehicle loot actions that deposit eligible nearby gear
   into the campaign arsenal or vehicle cargo, remove transferred source items
   when configured, and reject raw visual/support assets
@@ -103,9 +103,9 @@ The repository contains a broad-alpha campaign foundation:
 - Admin-only campaign debug controls expose one-button smoke, physical, and
   full runtime verification profiles with status, cancel, cleanup, structured
   result artifacts, and bootstrap identity/admin evidence
-- Persistent campaign win/loss state with schema-25 end reason, summary,
-  elapsed time, strategic control, war level, FIA/enemy zone counts, and report
-  generation state
+- Persistent campaign win/loss state with schema-34 end reason, summary,
+  elapsed time, strategic control, war level, FIA/enemy zone counts,
+  population/support, airfield, outcome-mode, and report generation metadata
 - Versioned campaign save-data container that is migrated, tracked through
   `PersistenceSystem`, and flushed before native `SaveGameManager`
   checkpoint requests when saving is possible, with a profile JSON fallback at
@@ -185,7 +185,7 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-07-runtime-proof-r61-category-selection-compile-fix`
+`h-istasi boot | authority build 2026-07-07-runtime-proof-r62-population-outcome-proof`
 and the client log must contain
 `build=2026-07-06-menu-input-r14-ui-render-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged
@@ -209,6 +209,7 @@ addon under `ArmaReforger/addons`, even if the repository has newer commits.
 - `Missions/HST_Everon.conf`: full-island campaign shell
 - `Missions/HST_Dev.conf`: compact systems-development shell
 
-See `docs/ARCHITECTURE.md`, `docs/FEATURE_CHECKLIST.md`, `docs/PARITY.md`,
-and `docs/PHASE_PLAN.md` for the implementation map, feature checklist, and
-current phase roadmap.
+See `docs/ARCHITECTURE.md`, `docs/FEATURE_CHECKLIST.md`,
+`docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md`, `docs/PARITY.md`, and
+`docs/PHASE_PLAN.md` for the implementation map, feature checklist, runtime
+verification audit, and current phase roadmap.

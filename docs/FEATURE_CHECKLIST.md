@@ -121,7 +121,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Town support ledger | Events change support, reputation, heat, security, and population with explainable history. | Broad Alpha | Add more event types, expiry/reversal, actor/target faction, and radio influence. | Highest |
 | Political town flips | Town ownership changes by support majority with hysteresis, not only direct combat. | Broad Alpha | Tune majority thresholds and prevent flicker. | High |
-| Population state | Population remaining/killed affects support, income, victory, and loss. | Partial | Make population-based win/loss default. | Highest |
+| Population state | Population remaining/killed affects support, income, victory, and loss. | Broad Alpha / Needs Soak | Tune support-population math, expand event coverage, and soak save/restart terminal states. | Highest |
 | Civilian runtime population | Town civilians spawn and move within safe, bounded runtime probes. | Broad Alpha | Soak with active combat, cleanup, and persistence. | High |
 | Police and roadblocks | Security systems create scan pressure and town-state consequences. | Partial | Tie police/roadblock density to support, heat, and enemy strategy. | High |
 
@@ -179,8 +179,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Victory | Default victory depends on population support and decisive airbase control. | Partial | Replace or gate current control-percent victory with population/airbase rules. | Highest |
-| Loss | Default loss depends on civilian catastrophe, with optional collapse settings. | Partial | Add population-killed threshold and report. | Highest |
+| Victory | Default victory depends on population support and decisive airfield control. | Broad Alpha / Needs Soak | Soak population/airfield outcomes across save/load and tune support thresholds. | Highest |
+| Loss | Default loss depends on civilian catastrophe, with optional collapse settings. | Broad Alpha / Needs Soak | Soak killed-population outcomes across save/load and mission/civilian event paths. | Highest |
 | Multiplayer soak | Campaign survives co-op, reconnect, restart, active missions, active support, and terminal saves. | Needs Soak | Build repeatable 2/4/8+ player test profiles. | Highest |
 | Performance soak | Physical/abstract transitions do not leave stuck groups, duplicate vehicles, or missing markers. | Needs Soak | Add long-window background profile and cleanup certification. | Highest |
 
@@ -188,18 +188,18 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 1. Reconcile planning docs with current code. The implementation has advanced
    past older phase labels.
-2. Make victory/loss population-based by default, with optional legacy collapse
-   settings.
-3. Split proactive enemy attacks from reactive defense/support spending.
-4. Make QRF, counterattack, and HQ-pressure groups route-aware and
+2. Split proactive enemy attacks from reactive defense/support spending.
+3. Make QRF, counterattack, and HQ-pressure groups route-aware and
    vehicle-aware.
-5. Finish undercover enforcement from live equipment, vehicle state, off-road
+4. Finish undercover enforcement from live equipment, vehicle state, off-road
    behavior, and security scans.
-6. Deepen town influence events into the primary political control layer.
-7. Add player-facing garrison management, training effects, static defenses,
+5. Deepen town influence events into the primary political control layer.
+6. Add player-facing garrison management, training effects, static defenses,
    and arsenal-driven AI loadout improvements.
-8. Replace MVP mission primitives with mission-specific physical content and
+7. Replace MVP mission primitives with mission-specific physical content and
    strategic outcomes.
+8. Soak population-based victory/loss through real restart, campaign-end
+   restore, and civilian-event mission paths.
 9. Run repeated save/load and multiplayer soak across missions, support,
    orders, garage, undercover, and campaign end states.
 10. Tune economy, war level, aggression, support pressure, and mission pacing
@@ -229,4 +229,3 @@ intervention:
 16. Victory occurs through population support and decisive military control.
 17. Loss occurs through civilian catastrophe or optional collapse settings.
 ```
-

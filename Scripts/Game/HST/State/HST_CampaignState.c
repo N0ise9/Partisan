@@ -735,7 +735,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 33;
+	static const int SCHEMA_VERSION = 34;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -756,6 +756,14 @@ class HST_CampaignState
 	int m_iCampaignEndWarLevel;
 	int m_iCampaignEndFIAZones;
 	int m_iCampaignEndEnemyZones;
+	string m_sCampaignEndOutcomeMode;
+	int m_iCampaignEndInitialPopulation;
+	int m_iCampaignEndRemainingPopulation;
+	int m_iCampaignEndKilledPopulation;
+	int m_iCampaignEndFIASupportPopulation;
+	int m_iCampaignEndSupportPercent;
+	int m_iCampaignEndAirfieldsControlled;
+	int m_iCampaignEndAirfieldsTotal;
 	bool m_bCampaignEndReportGenerated;
 	int m_iIncomeAccumulatorSeconds;
 	int m_iEnemyResourceAccumulatorSeconds;

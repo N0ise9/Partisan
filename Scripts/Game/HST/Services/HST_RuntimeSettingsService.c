@@ -111,6 +111,9 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "warLevel9Score", settings.m_Economy.m_iWarLevel9Score);
 			ApplyInt(line, "warLevel10Score", settings.m_Economy.m_iWarLevel10Score);
 			ApplyInt(line, "victoryControlPercent", settings.m_Economy.m_iVictoryControlPercent);
+			ApplyBool(line, "populationOutcomeEnabled", settings.m_Economy.m_bPopulationOutcomeEnabled);
+			ApplyInt(line, "victoryPopulationSupportPercent", settings.m_Economy.m_iVictoryPopulationSupportPercent);
+			ApplyBool(line, "legacyControlVictoryEnabled", settings.m_Economy.m_bLegacyControlVictoryEnabled);
 			ApplyBool(line, "victoryRequiresAirfields", settings.m_Economy.m_bVictoryRequiresAirfields);
 			ApplyBool(line, "victoryRequiresSeaports", settings.m_Economy.m_bVictoryRequiresSeaports);
 			ApplyBool(line, "lossConditionEnabled", settings.m_Economy.m_bLossConditionEnabled);
@@ -284,6 +287,14 @@ class HST_RuntimeSettingsService
 		{
 			settings.m_World.m_iPlayerRenderBubbleRadiusMeters = 1800;
 			settings.m_World.m_iMissionSelectionRadiusMeters = 1800;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 15)
+		{
+			settings.m_Economy.m_bPopulationOutcomeEnabled = true;
+			settings.m_Economy.m_iVictoryPopulationSupportPercent = 50;
+			settings.m_Economy.m_bLegacyControlVictoryEnabled = false;
 			changed = true;
 		}
 
@@ -468,6 +479,9 @@ class HST_RuntimeSettingsService
 		lines.Insert(string.Format("    \"warLevel9Score\": %1,", settings.m_Economy.m_iWarLevel9Score));
 		lines.Insert(string.Format("    \"warLevel10Score\": %1,", settings.m_Economy.m_iWarLevel10Score));
 		lines.Insert(string.Format("    \"victoryControlPercent\": %1,", settings.m_Economy.m_iVictoryControlPercent));
+		lines.Insert(string.Format("    \"populationOutcomeEnabled\": %1,", JsonBool(settings.m_Economy.m_bPopulationOutcomeEnabled)));
+		lines.Insert(string.Format("    \"victoryPopulationSupportPercent\": %1,", settings.m_Economy.m_iVictoryPopulationSupportPercent));
+		lines.Insert(string.Format("    \"legacyControlVictoryEnabled\": %1,", JsonBool(settings.m_Economy.m_bLegacyControlVictoryEnabled)));
 		lines.Insert(string.Format("    \"victoryRequiresAirfields\": %1,", JsonBool(settings.m_Economy.m_bVictoryRequiresAirfields)));
 		lines.Insert(string.Format("    \"victoryRequiresSeaports\": %1,", JsonBool(settings.m_Economy.m_bVictoryRequiresSeaports)));
 		lines.Insert(string.Format("    \"lossConditionEnabled\": %1,", JsonBool(settings.m_Economy.m_bLossConditionEnabled)));

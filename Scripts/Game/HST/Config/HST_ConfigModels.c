@@ -164,6 +164,15 @@ class HST_BalanceConfig
 	[Attribute(defvalue: "70", uiwidget: UIWidgets.EditBox, desc: "Strategic control percent needed for victory.", category: "HST Campaign")]
 	int m_iVictoryControlPercent = 70;
 
+	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Use population support plus airfield control as the default campaign outcome.", params: "", category: "HST Campaign")]
+	bool m_bPopulationOutcomeEnabled = true;
+
+	[Attribute(defvalue: "50", uiwidget: UIWidgets.EditBox, desc: "Percent of remaining population support needed for population victory.", category: "HST Campaign")]
+	int m_iVictoryPopulationSupportPercent = 50;
+
+	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Allow legacy strategic-control victory mode when population outcome is disabled.", params: "", category: "HST Campaign")]
+	bool m_bLegacyControlVictoryEnabled;
+
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Require all airfields for victory.", params: "", category: "HST Campaign")]
 	bool m_bVictoryRequiresAirfields = true;
 

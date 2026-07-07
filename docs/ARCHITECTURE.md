@@ -20,8 +20,8 @@ single `HST_CampaignState` and delegates to small services:
 - `HST_AuthorizationService`: persistent members, guests, admins, and the
   first commander-vacancy policy.
 - `HST_StrategicService`: ownership changes, town support, Petros penalties,
-  activation flags, victory/loss evaluation, and durable campaign-end
-  state/reporting.
+  activation flags, population-first victory/loss evaluation, and durable
+  campaign-end state/reporting.
 - `HST_HQService`: initial HQ selection, HQ movement, Petros/cache/arsenal/tent/spawn-point
   runtime objects, rebuilds, Petros-loss state, HQ knowledge, HQ threat scans,
   and Defend Petros diagnostics.
@@ -116,8 +116,9 @@ fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. The
 state model is versioned from day one. `HST_CampaignSaveData` is the deep-copy
 save container for current campaign fields and nested runtime arrays, including
-campaign metadata, resources, schema-26 campaign-end reason/summary/elapsed
-second/control/war/zone-count fields, HQ/Petros/cache/arsenal/tent/spawn-point fields,
+campaign metadata, resources, schema-34 campaign-end reason/summary/elapsed
+second/control/war/zone-count fields, outcome-mode, population/support, and
+airfield metadata, HQ/Petros/cache/arsenal/tent/spawn-point fields,
 faction pools, players, zones, garrisons, active groups, QRFs, map markers,
 generated content, objectives, mission runtime, mission assets, support, enemy
 order, civilian, undercover, arsenal, garage, vehicle cargo, runtime vehicle,

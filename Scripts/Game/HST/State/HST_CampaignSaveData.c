@@ -20,6 +20,14 @@ class HST_CampaignSaveData
 	int m_iCampaignEndWarLevel;
 	int m_iCampaignEndFIAZones;
 	int m_iCampaignEndEnemyZones;
+	string m_sCampaignEndOutcomeMode;
+	int m_iCampaignEndInitialPopulation;
+	int m_iCampaignEndRemainingPopulation;
+	int m_iCampaignEndKilledPopulation;
+	int m_iCampaignEndFIASupportPopulation;
+	int m_iCampaignEndSupportPercent;
+	int m_iCampaignEndAirfieldsControlled;
+	int m_iCampaignEndAirfieldsTotal;
 	bool m_bCampaignEndReportGenerated;
 	int m_iIncomeAccumulatorSeconds;
 	int m_iEnemyResourceAccumulatorSeconds;
@@ -119,6 +127,14 @@ class HST_CampaignSaveData
 		m_iCampaignEndWarLevel = state.m_iCampaignEndWarLevel;
 		m_iCampaignEndFIAZones = state.m_iCampaignEndFIAZones;
 		m_iCampaignEndEnemyZones = state.m_iCampaignEndEnemyZones;
+		m_sCampaignEndOutcomeMode = state.m_sCampaignEndOutcomeMode;
+		m_iCampaignEndInitialPopulation = state.m_iCampaignEndInitialPopulation;
+		m_iCampaignEndRemainingPopulation = state.m_iCampaignEndRemainingPopulation;
+		m_iCampaignEndKilledPopulation = state.m_iCampaignEndKilledPopulation;
+		m_iCampaignEndFIASupportPopulation = state.m_iCampaignEndFIASupportPopulation;
+		m_iCampaignEndSupportPercent = state.m_iCampaignEndSupportPercent;
+		m_iCampaignEndAirfieldsControlled = state.m_iCampaignEndAirfieldsControlled;
+		m_iCampaignEndAirfieldsTotal = state.m_iCampaignEndAirfieldsTotal;
 		m_bCampaignEndReportGenerated = state.m_bCampaignEndReportGenerated;
 		m_iIncomeAccumulatorSeconds = state.m_iIncomeAccumulatorSeconds;
 		m_iEnemyResourceAccumulatorSeconds = state.m_iEnemyResourceAccumulatorSeconds;
@@ -311,6 +327,14 @@ class HST_CampaignSaveData
 		state.m_iCampaignEndWarLevel = m_iCampaignEndWarLevel;
 		state.m_iCampaignEndFIAZones = m_iCampaignEndFIAZones;
 		state.m_iCampaignEndEnemyZones = m_iCampaignEndEnemyZones;
+		state.m_sCampaignEndOutcomeMode = m_sCampaignEndOutcomeMode;
+		state.m_iCampaignEndInitialPopulation = m_iCampaignEndInitialPopulation;
+		state.m_iCampaignEndRemainingPopulation = m_iCampaignEndRemainingPopulation;
+		state.m_iCampaignEndKilledPopulation = m_iCampaignEndKilledPopulation;
+		state.m_iCampaignEndFIASupportPopulation = m_iCampaignEndFIASupportPopulation;
+		state.m_iCampaignEndSupportPercent = m_iCampaignEndSupportPercent;
+		state.m_iCampaignEndAirfieldsControlled = m_iCampaignEndAirfieldsControlled;
+		state.m_iCampaignEndAirfieldsTotal = m_iCampaignEndAirfieldsTotal;
 		state.m_bCampaignEndReportGenerated = m_bCampaignEndReportGenerated;
 		state.m_iIncomeAccumulatorSeconds = m_iIncomeAccumulatorSeconds;
 		state.m_iEnemyResourceAccumulatorSeconds = m_iEnemyResourceAccumulatorSeconds;
@@ -1352,6 +1376,8 @@ class HST_CampaignSaveData
 				m_sCampaignEndReason = "legacy campaign end/backfilled";
 			if (m_sCampaignEndSummary.IsEmpty())
 				m_sCampaignEndSummary = string.Format("Migrated schema %1 campaign end with FIA zones %2 and enemy zones %3.", restoredSchemaVersion, fiaZones, enemyZones);
+			if (m_sCampaignEndOutcomeMode.IsEmpty())
+				m_sCampaignEndOutcomeMode = "legacy_control";
 			m_bCampaignEndReportGenerated = true;
 		}
 		foreach (HST_ActiveMissionState mission : m_aActiveMissions)
@@ -1618,6 +1644,9 @@ class HST_CampaignSaveData
 			civilianZone.m_sLastInfluenceEventId = lastInfluenceEventId;
 		}
 
+		if ((m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST) && m_bCampaignEndReportGenerated)
+			BackfillCampaignEndPopulationMetadata();
+
 		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)
 		{
 			if (!undercover)
@@ -1712,6 +1741,58 @@ class HST_CampaignSaveData
 		}
 
 		return null;
+	}
+
+	protected void BackfillCampaignEndPopulationMetadata()
+	{
+		if (m_sCampaignEndOutcomeMode.IsEmpty())
+			m_sCampaignEndOutcomeMode = "legacy_control";
+
+		int initialPopulation;
+		int remainingPopulation;
+		int killedPopulation;
+		int fiaSupportPopulation;
+		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
+		{
+			if (!civilianZone)
+				continue;
+
+			int townRemaining = Math.Max(0, civilianZone.m_iPopulationRemaining);
+			int townKilled = Math.Max(0, civilianZone.m_iPopulationKilled);
+			remainingPopulation += townRemaining;
+			killedPopulation += townKilled;
+			initialPopulation += townRemaining + townKilled;
+			int townSupport = Math.Max(0, Math.Min(100, civilianZone.m_iFIASupport));
+			fiaSupportPopulation += Math.Round(townRemaining * townSupport / 100.0);
+		}
+
+		if (m_iCampaignEndInitialPopulation <= 0)
+			m_iCampaignEndInitialPopulation = initialPopulation;
+		if (m_iCampaignEndRemainingPopulation <= 0)
+			m_iCampaignEndRemainingPopulation = remainingPopulation;
+		if (m_iCampaignEndKilledPopulation <= 0)
+			m_iCampaignEndKilledPopulation = killedPopulation;
+		if (m_iCampaignEndFIASupportPopulation <= 0)
+			m_iCampaignEndFIASupportPopulation = fiaSupportPopulation;
+		if (m_iCampaignEndSupportPercent <= 0 && remainingPopulation > 0)
+			m_iCampaignEndSupportPercent = Math.Round(fiaSupportPopulation * 100.0 / remainingPopulation);
+
+		int airfieldsTotal;
+		int airfieldsControlled;
+		foreach (HST_ZoneState zone : m_aZones)
+		{
+			if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_AIRFIELD)
+				continue;
+
+			airfieldsTotal++;
+			if (zone.m_sOwnerFactionKey == "FIA")
+				airfieldsControlled++;
+		}
+
+		if (m_iCampaignEndAirfieldsTotal <= 0)
+			m_iCampaignEndAirfieldsTotal = airfieldsTotal;
+		if (m_iCampaignEndAirfieldsControlled <= 0)
+			m_iCampaignEndAirfieldsControlled = airfieldsControlled;
 	}
 
 	protected bool RuntimeVehicleCanProvideCivilianUndercover(HST_RuntimeVehicleState vehicle)

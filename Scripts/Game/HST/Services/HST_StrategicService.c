@@ -8,6 +8,14 @@ class HST_CampaignOutcomeResult
 	int m_iWarLevel;
 	int m_iFIAZones;
 	int m_iEnemyZones;
+	string m_sOutcomeMode;
+	int m_iInitialPopulation;
+	int m_iRemainingPopulation;
+	int m_iKilledPopulation;
+	int m_iFIASupportPopulation;
+	int m_iSupportPercent;
+	int m_iAirfieldsControlled;
+	int m_iAirfieldsTotal;
 }
 
 class HST_StrategicService
@@ -74,11 +82,47 @@ class HST_StrategicService
 		result.m_iWarLevel = state.m_iWarLevel;
 		result.m_iFIAZones = fiaZones;
 		result.m_iEnemyZones = enemyZones;
+		result.m_iInitialPopulation = GetTotalInitialPopulation(state);
+		result.m_iRemainingPopulation = GetTotalRemainingPopulation(state);
+		result.m_iKilledPopulation = GetTotalKilledPopulation(state);
+		result.m_iFIASupportPopulation = GetTotalFIASupportPopulation(state);
+		result.m_iSupportPercent = CalculatePopulationSupportPercent(result.m_iFIASupportPopulation, result.m_iRemainingPopulation);
+		result.m_iAirfieldsTotal = CountZonesOfType(state, HST_EZoneType.HST_ZONE_AIRFIELD);
+		result.m_iAirfieldsControlled = CountTypeOwnedBy(state, HST_EZoneType.HST_ZONE_AIRFIELD, resistanceFactionKey);
+		result.m_sOutcomeMode = ResolveOutcomeMode(balance);
 
-		bool airfieldsReady = !balance.m_bVictoryRequiresAirfields || AreAllTypeOwnedBy(state, HST_EZoneType.HST_ZONE_AIRFIELD, resistanceFactionKey);
+		if (!IsCampaignOutcomeCheckDue(state, balance))
+			return result;
+
+		if (balance.m_bPopulationOutcomeEnabled)
+		{
+			if (ShouldLosePopulationCampaign(result, balance))
+			{
+				result.m_bEnded = true;
+				result.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_LOST;
+				result.m_sReason = "loss: civilian catastrophe";
+				result.m_sSummary = string.Format("Civilian killed population %1/%2 exceeded one third of initial population.", result.m_iKilledPopulation, result.m_iInitialPopulation);
+				return result;
+			}
+
+			bool populationSupportReady = result.m_iRemainingPopulation > 0 && result.m_iFIASupportPopulation * 100 >= result.m_iRemainingPopulation * balance.m_iVictoryPopulationSupportPercent;
+			bool populationAirfieldsReady = !balance.m_bVictoryRequiresAirfields || AreAllAirfieldsControlledBy(state, resistanceFactionKey);
+			if (populationSupportReady && populationAirfieldsReady)
+			{
+				result.m_bEnded = true;
+				result.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_WON;
+				result.m_sReason = "victory: population support and airfield control";
+				result.m_sSummary = string.Format("FIA support population %1/%2 (%3 pct) reached the %4 pct threshold with airfields %5/%6 controlled.", result.m_iFIASupportPopulation, result.m_iRemainingPopulation, result.m_iSupportPercent, balance.m_iVictoryPopulationSupportPercent, result.m_iAirfieldsControlled, result.m_iAirfieldsTotal);
+				return result;
+			}
+
+			return result;
+		}
+
+		bool airfieldsReady = !balance.m_bVictoryRequiresAirfields || AreAllAirfieldsControlledBy(state, resistanceFactionKey);
 		bool seaportsReady = !balance.m_bVictoryRequiresSeaports || AreAllTypeOwnedBy(state, HST_EZoneType.HST_ZONE_SEAPORT, resistanceFactionKey);
 		bool controlReady = controlPercent >= balance.m_iVictoryControlPercent;
-		if (controlReady && airfieldsReady && seaportsReady)
+		if (balance.m_bLegacyControlVictoryEnabled && controlReady && airfieldsReady && seaportsReady)
 		{
 			result.m_bEnded = true;
 			result.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_WON;
@@ -112,6 +156,14 @@ class HST_StrategicService
 		state.m_iCampaignEndWarLevel = outcome.m_iWarLevel;
 		state.m_iCampaignEndFIAZones = outcome.m_iFIAZones;
 		state.m_iCampaignEndEnemyZones = outcome.m_iEnemyZones;
+		state.m_sCampaignEndOutcomeMode = outcome.m_sOutcomeMode;
+		state.m_iCampaignEndInitialPopulation = outcome.m_iInitialPopulation;
+		state.m_iCampaignEndRemainingPopulation = outcome.m_iRemainingPopulation;
+		state.m_iCampaignEndKilledPopulation = outcome.m_iKilledPopulation;
+		state.m_iCampaignEndFIASupportPopulation = outcome.m_iFIASupportPopulation;
+		state.m_iCampaignEndSupportPercent = outcome.m_iSupportPercent;
+		state.m_iCampaignEndAirfieldsControlled = outcome.m_iAirfieldsControlled;
+		state.m_iCampaignEndAirfieldsTotal = outcome.m_iAirfieldsTotal;
 		state.m_bCampaignEndReportGenerated = true;
 	}
 
@@ -136,6 +188,25 @@ class HST_StrategicService
 				controlPercent = Math.Round(score * 100.0 / totalScore);
 		}
 
+		int initialPopulation = GetTotalInitialPopulation(state);
+		int remainingPopulation = GetTotalRemainingPopulation(state);
+		int killedPopulation = GetTotalKilledPopulation(state);
+		int fiaSupportPopulation = GetTotalFIASupportPopulation(state);
+		int supportPercent = CalculatePopulationSupportPercent(fiaSupportPopulation, remainingPopulation);
+		int killedPercent;
+		if (initialPopulation > 0)
+			killedPercent = Math.Round(killedPopulation * 100.0 / initialPopulation);
+		int airfieldsTotal = CountZonesOfType(state, HST_EZoneType.HST_ZONE_AIRFIELD);
+		int airfieldsControlled = CountTypeOwnedBy(state, HST_EZoneType.HST_ZONE_AIRFIELD, resistanceFactionKey);
+		int nextOutcomeCheckSecond = GetNextOutcomeCheckSecond(state, balance);
+		string outcomeMode = "population";
+		bool airfieldsRequired;
+		if (balance)
+		{
+			outcomeMode = ResolveOutcomeMode(balance);
+			airfieldsRequired = balance.m_bVictoryRequiresAirfields;
+		}
+
 		string report = string.Format(
 			"h-istasi campaign end | phase %1 | ended %2 | reason %3 | summary %4 | control %5 pct | score %6/%7 | war %8 | FIA zones %9",
 			phase,
@@ -149,22 +220,30 @@ class HST_StrategicService
 			CountZonesOwnedBy(state, resistanceFactionKey)
 		);
 		report = report + string.Format(" | enemy zones %1", CountZonesNotOwnedBy(state, resistanceFactionKey));
+		report = report + string.Format("\noutcome | mode %1 | next check second %2", outcomeMode, nextOutcomeCheckSecond);
+		report = report + string.Format("\npopulation | initial %1 | remaining %2 | killed %3 (%4 pct) | FIA support population %5 (%6 pct of remaining)", initialPopulation, remainingPopulation, killedPopulation, killedPercent, fiaSupportPopulation, supportPercent);
+		report = report + string.Format("\nairfields | controlled %1/%2 | required %3", airfieldsControlled, airfieldsTotal, airfieldsRequired);
 
 		if (state.m_bCampaignEndReportGenerated)
 		{
 			report = report + string.Format(
-				"\nfinal persisted | control %1 pct | war %2 | FIA zones %3 | enemy zones %4",
+				"\nfinal persisted | control %1 pct | war %2 | FIA zones %3 | enemy zones %4 | mode %5",
 				state.m_iCampaignEndControlPercent,
 				state.m_iCampaignEndWarLevel,
 				state.m_iCampaignEndFIAZones,
-				state.m_iCampaignEndEnemyZones
+				state.m_iCampaignEndEnemyZones,
+				EmptyReportField(state.m_sCampaignEndOutcomeMode)
 			);
+			report = report + string.Format("\nfinal population | initial %1 | remaining %2 | killed %3 | FIA support %4 (%5 pct) | airfields %6/%7", state.m_iCampaignEndInitialPopulation, state.m_iCampaignEndRemainingPopulation, state.m_iCampaignEndKilledPopulation, state.m_iCampaignEndFIASupportPopulation, state.m_iCampaignEndSupportPercent, state.m_iCampaignEndAirfieldsControlled, state.m_iCampaignEndAirfieldsTotal);
 		}
 
 		if (balance)
 		{
 			report = report + string.Format(
-				"\nrequirements | victory %1 pct | airfields %2 | seaports %3 | loss enabled %4 | Petros death limit %5 | grace %6s",
+				"\nrequirements | population outcome %1 | support %2 pct | legacy control enabled %3 | legacy victory %4 pct | airfields %5 | seaports %6 | loss enabled %7 | Petros death limit %8 | grace %9s",
+				balance.m_bPopulationOutcomeEnabled,
+				balance.m_iVictoryPopulationSupportPercent,
+				balance.m_bLegacyControlVictoryEnabled,
 				balance.m_iVictoryControlPercent,
 				balance.m_bVictoryRequiresAirfields,
 				balance.m_bVictoryRequiresSeaports,
@@ -205,6 +284,108 @@ class HST_StrategicService
 		}
 
 		return count;
+	}
+
+	int CountZonesOfType(HST_CampaignState state, HST_EZoneType zoneType)
+	{
+		int count;
+		if (!state)
+			return count;
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone && zone.m_eType == zoneType)
+				count++;
+		}
+
+		return count;
+	}
+
+	int CountTypeOwnedBy(HST_CampaignState state, HST_EZoneType zoneType, string factionKey)
+	{
+		int count;
+		if (!state)
+			return count;
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone && zone.m_eType == zoneType && zone.m_sOwnerFactionKey == factionKey)
+				count++;
+		}
+
+		return count;
+	}
+
+	int GetTotalInitialPopulation(HST_CampaignState state)
+	{
+		int total;
+		if (!state)
+			return total;
+
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (!town)
+				continue;
+
+			total += Math.Max(0, town.m_iPopulationRemaining) + Math.Max(0, town.m_iPopulationKilled);
+		}
+
+		return total;
+	}
+
+	int GetTotalRemainingPopulation(HST_CampaignState state)
+	{
+		int total;
+		if (!state)
+			return total;
+
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (town)
+				total += Math.Max(0, town.m_iPopulationRemaining);
+		}
+
+		return total;
+	}
+
+	int GetTotalKilledPopulation(HST_CampaignState state)
+	{
+		int total;
+		if (!state)
+			return total;
+
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (town)
+				total += Math.Max(0, town.m_iPopulationKilled);
+		}
+
+		return total;
+	}
+
+	int GetTotalFIASupportPopulation(HST_CampaignState state)
+	{
+		int total;
+		if (!state)
+			return total;
+
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (!town)
+				continue;
+
+			int remaining = Math.Max(0, town.m_iPopulationRemaining);
+			int support = Math.Max(0, Math.Min(100, town.m_iFIASupport));
+			total += Math.Round(remaining * support / 100.0);
+		}
+
+		return total;
+	}
+
+	bool AreAllAirfieldsControlledBy(HST_CampaignState state, string factionKey)
+	{
+		int total = CountZonesOfType(state, HST_EZoneType.HST_ZONE_AIRFIELD);
+		return total > 0 && CountTypeOwnedBy(state, HST_EZoneType.HST_ZONE_AIRFIELD, factionKey) == total;
 	}
 
 	protected bool IsStrategicZoneCounted(HST_ZoneState zone)
@@ -256,6 +437,63 @@ class HST_StrategicService
 		}
 
 		return found;
+	}
+
+	protected bool IsCampaignOutcomeCheckDue(HST_CampaignState state, HST_BalanceConfig balance)
+	{
+		if (!state || !balance)
+			return true;
+
+		return state.m_iIncomeAccumulatorSeconds == 0;
+	}
+
+	protected int GetNextOutcomeCheckSecond(HST_CampaignState state, HST_BalanceConfig balance)
+	{
+		if (!state || !balance)
+			return 0;
+
+		int interval = Math.Max(1, balance.m_iZoneIncomeIntervalSeconds);
+		int remaining = interval - Math.Max(0, state.m_iIncomeAccumulatorSeconds);
+		if (remaining <= 0)
+			remaining = interval;
+		return state.m_iElapsedSeconds + remaining;
+	}
+
+	protected string ResolveOutcomeMode(HST_BalanceConfig balance)
+	{
+		if (!balance)
+			return "unknown";
+		if (balance.m_bPopulationOutcomeEnabled)
+			return "population";
+		if (balance.m_bLegacyControlVictoryEnabled)
+			return "legacy_control";
+		return "disabled";
+	}
+
+	protected int CalculatePopulationSupportPercent(int supportPopulation, int remainingPopulation)
+	{
+		if (remainingPopulation <= 0)
+			return 0;
+
+		return Math.Round(supportPopulation * 100.0 / remainingPopulation);
+	}
+
+	protected bool ShouldLosePopulationCampaign(HST_CampaignOutcomeResult result, HST_BalanceConfig balance)
+	{
+		if (!result || !balance || !balance.m_bLossConditionEnabled)
+			return false;
+		if (result.m_iInitialPopulation <= 0)
+			return false;
+
+		return result.m_iKilledPopulation * 3 > result.m_iInitialPopulation;
+	}
+
+	protected string EmptyReportField(string value)
+	{
+		if (value.IsEmpty())
+			return "-";
+
+		return value;
 	}
 
 	protected bool ShouldLoseCampaign(HST_CampaignState state, HST_BalanceConfig balance, string resistanceFactionKey)

@@ -4202,6 +4202,9 @@ foreach ($requiredSettingsEntry in @(
 		"infiniteStaminaEnabled",
 		"SetPlayerEventBubbleRadiusMeters",
 		"mission_category",
+		"populationOutcomeEnabled",
+		"victoryPopulationSupportPercent",
+		"legacyControlVictoryEnabled",
 		"MigrateSettings",
 		"ApplyTo"
 	)) {
@@ -4209,8 +4212,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 14") {
-	throw "Runtime settings schema must be bumped to 14 for render-bubble and mission-selection radius configuration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 15") {
+	throw "Runtime settings schema must be bumped to 15 for population outcome configuration"
 }
 if ($scriptText -notmatch "m_bGameMasterBudgetsEnabled" -or $scriptText -notmatch '\\"gameMasterBudgetsEnabled\\": %1') {
 	throw "Runtime settings must expose gameMasterBudgetsEnabled"
@@ -4226,6 +4229,15 @@ if ($scriptText -notmatch "m_iPlayerRenderBubbleRadiusMeters" -or $scriptText -n
 }
 if ($scriptText -notmatch "m_iMissionSelectionRadiusMeters" -or $scriptText -notmatch '\\"missionSelectionRadiusMeters\\": %1') {
 	throw "Runtime settings must expose missionSelectionRadiusMeters"
+}
+if ($scriptText -notmatch "m_bPopulationOutcomeEnabled" -or $scriptText -notmatch '\\"populationOutcomeEnabled\\": %1') {
+	throw "Runtime settings must expose populationOutcomeEnabled"
+}
+if ($scriptText -notmatch "m_iVictoryPopulationSupportPercent" -or $scriptText -notmatch '\\"victoryPopulationSupportPercent\\": %1') {
+	throw "Runtime settings must expose victoryPopulationSupportPercent"
+}
+if ($scriptText -notmatch "m_bLegacyControlVictoryEnabled" -or $scriptText -notmatch '\\"legacyControlVictoryEnabled\\": %1') {
+	throw "Runtime settings must expose legacyControlVictoryEnabled"
 }
 if ($scriptText -notmatch "settings.m_Features.m_bGameMasterBudgetsEnabled = false") {
 	throw "Runtime settings migration must default Game Master budgets to disabled"

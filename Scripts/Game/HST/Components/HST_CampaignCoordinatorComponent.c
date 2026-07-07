@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r61-category-selection-compile-fix";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r62-population-outcome-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -18665,6 +18665,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int controlPercent = m_Economy.ResolveControlPercent(resistanceScore, totalScore);
 		int fiaZones = m_Strategic.CountZonesOwnedBy(m_State, resistanceFactionKey);
 		int enemyZones = m_Strategic.CountZonesNotOwnedBy(m_State, resistanceFactionKey);
+		int initialPopulation = m_Strategic.GetTotalInitialPopulation(m_State);
+		int remainingPopulation = m_Strategic.GetTotalRemainingPopulation(m_State);
+		int killedPopulation = m_Strategic.GetTotalKilledPopulation(m_State);
+		int fiaSupportPopulation = m_Strategic.GetTotalFIASupportPopulation(m_State);
+		int supportPercent;
+		if (remainingPopulation > 0)
+			supportPercent = Math.Round(fiaSupportPopulation * 100.0 / remainingPopulation);
+		int airfieldsControlled = m_Strategic.CountTypeOwnedBy(m_State, HST_EZoneType.HST_ZONE_AIRFIELD, resistanceFactionKey);
+		int airfieldsTotal = m_Strategic.CountZonesOfType(m_State, HST_EZoneType.HST_ZONE_AIRFIELD);
 		int maxEnemyAttack;
 		int maxEnemySupport;
 		int maxEnemyAggression;
@@ -18675,6 +18684,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(pacingCase, "phase24.control_percent", string.Format("%1", controlPercent), "percent");
 		AddCampaignDebugMetric(pacingCase, "phase24.fia_zones", string.Format("%1", fiaZones), "count");
 		AddCampaignDebugMetric(pacingCase, "phase24.enemy_zones", string.Format("%1", enemyZones), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.population.initial", string.Format("%1", initialPopulation), "population");
+		AddCampaignDebugMetric(pacingCase, "phase24.population.remaining", string.Format("%1", remainingPopulation), "population");
+		AddCampaignDebugMetric(pacingCase, "phase24.population.killed", string.Format("%1", killedPopulation), "population");
+		AddCampaignDebugMetric(pacingCase, "phase24.population.fia_support", string.Format("%1", fiaSupportPopulation), "population");
+		AddCampaignDebugMetric(pacingCase, "phase24.population.support_percent", string.Format("%1", supportPercent), "percent");
+		AddCampaignDebugMetric(pacingCase, "phase24.airfields.controlled", string.Format("%1", airfieldsControlled), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.airfields.total", string.Format("%1", airfieldsTotal), "count");
 		AddCampaignDebugMetric(pacingCase, "phase24.enemy_attack_max", string.Format("%1", maxEnemyAttack), "resources");
 		AddCampaignDebugMetric(pacingCase, "phase24.enemy_support_max", string.Format("%1", maxEnemySupport), "resources");
 		AddCampaignDebugMetric(pacingCase, "phase24.enemy_aggression_max", string.Format("%1", maxEnemyAggression), "aggression");
@@ -18709,6 +18725,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(pacingCase, "phase24.victory.phase", "campaign phase WON", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON), "forced victory did not set campaign phase WON");
 			AddCampaignDebugAssertion(pacingCase, "phase24.victory.reason", "campaign end reason names victory and report generated", string.Format("reason %1 | summary %2 | report %3", EmptyCampaignDebugField(m_State.m_sCampaignEndReason), EmptyCampaignDebugField(m_State.m_sCampaignEndSummary), m_State.m_bCampaignEndReportGenerated), CampaignDebugStatus(m_State.m_bCampaignEndReportGenerated && m_State.m_sCampaignEndReason.Contains("victory") && !m_State.m_sCampaignEndSummary.IsEmpty()), "forced victory did not populate victory end metadata");
 			AddCampaignDebugAssertion(pacingCase, "phase24.victory.control", "control percent reaches configured victory threshold", string.Format("control %1 | threshold %2 | FIA %3 | enemy %4", m_State.m_iCampaignEndControlPercent, m_Balance.m_iVictoryControlPercent, m_State.m_iCampaignEndFIAZones, m_State.m_iCampaignEndEnemyZones), CampaignDebugStatus(m_State.m_iCampaignEndControlPercent >= m_Balance.m_iVictoryControlPercent && m_State.m_iCampaignEndFIAZones > m_State.m_iCampaignEndEnemyZones), "forced victory persisted control metadata below victory threshold");
+			bool populationVictory = m_State.m_sCampaignEndOutcomeMode == "population" && m_State.m_iCampaignEndRemainingPopulation > 0 && m_State.m_iCampaignEndFIASupportPopulation * 100 >= m_State.m_iCampaignEndRemainingPopulation * m_Balance.m_iVictoryPopulationSupportPercent && m_State.m_iCampaignEndAirfieldsTotal > 0 && m_State.m_iCampaignEndAirfieldsControlled == m_State.m_iCampaignEndAirfieldsTotal;
+			AddCampaignDebugAssertion(pacingCase, "phase24.victory.population_rule", "default victory uses population support plus all airfields", BuildCampaignDebugPhase24PopulationActual(), CampaignDebugStatus(populationVictory), "forced victory did not persist population-support and airfield-control metadata");
+			AddCampaignDebugPhase24CampaignEndRoundTripAssertion(pacingCase, "victory");
 			if (index == 59)
 				AddCampaignDebugPhase24TerminalInactivityAssertions(pacingCase, "victory");
 		}
@@ -18717,6 +18736,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(pacingCase, "phase24.loss.phase", "campaign phase LOST", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST), "forced loss did not set campaign phase LOST");
 			AddCampaignDebugAssertion(pacingCase, "phase24.loss.reason", "campaign end reason names loss and report generated", string.Format("reason %1 | summary %2 | report %3", EmptyCampaignDebugField(m_State.m_sCampaignEndReason), EmptyCampaignDebugField(m_State.m_sCampaignEndSummary), m_State.m_bCampaignEndReportGenerated), CampaignDebugStatus(m_State.m_bCampaignEndReportGenerated && m_State.m_sCampaignEndReason.Contains("loss") && !m_State.m_sCampaignEndSummary.IsEmpty()), "forced loss did not populate loss end metadata");
 			AddCampaignDebugAssertion(pacingCase, "phase24.loss.thresholds", "loss thresholds are satisfied", string.Format("money %1 <= %2 | HR %3 <= %4 | Petros deaths %5 >= %6", m_State.m_iFactionMoney, m_Balance.m_iLossMoneyThreshold, m_State.m_iHR, m_Balance.m_iLossHRThreshold, m_State.m_iPetrosDeaths, m_Balance.m_iLossPetrosDeathLimit), CampaignDebugStatus(m_State.m_iFactionMoney <= m_Balance.m_iLossMoneyThreshold && m_State.m_iHR <= m_Balance.m_iLossHRThreshold && m_State.m_iPetrosDeaths >= m_Balance.m_iLossPetrosDeathLimit), "forced loss state does not satisfy configured loss thresholds");
+			bool populationLoss = m_State.m_sCampaignEndOutcomeMode == "population" && m_State.m_iCampaignEndInitialPopulation > 0 && m_State.m_iCampaignEndKilledPopulation * 3 > m_State.m_iCampaignEndInitialPopulation;
+			AddCampaignDebugAssertion(pacingCase, "phase24.loss.population_rule", "default loss uses killed population greater than one third", BuildCampaignDebugPhase24PopulationActual(), CampaignDebugStatus(populationLoss), "forced loss did not persist killed-population catastrophe metadata");
+			AddCampaignDebugPhase24CampaignEndRoundTripAssertion(pacingCase, "loss");
 			if (index == 61 || index == 62)
 				AddCampaignDebugPhase24TerminalInactivityAssertions(pacingCase, "loss");
 		}
@@ -18730,7 +18752,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State)
 			return "missing";
 
-		return string.Format("phase %1 | money %2 | HR %3 | training %4 | war %5 | control %6 | FIA zones %7 | enemy zones %8 | end %9", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel, controlPercent, fiaZones, enemyZones, m_State.m_bCampaignEndReportGenerated);
+		string actual = string.Format("phase %1 | money %2 | HR %3 | training %4 | war %5 | control %6 | FIA zones %7 | enemy zones %8 | end %9", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel, controlPercent, fiaZones, enemyZones, m_State.m_bCampaignEndReportGenerated);
+		return actual + " | " + BuildCampaignDebugPhase24PopulationActual();
+	}
+
+	protected string BuildCampaignDebugPhase24PopulationActual()
+	{
+		if (!m_State)
+			return "missing";
+
+		return string.Format("mode %1 | population initial %2 remaining %3 killed %4 | FIA support %5 (%6 pct) | airfields %7/%8", EmptyCampaignDebugField(m_State.m_sCampaignEndOutcomeMode), m_State.m_iCampaignEndInitialPopulation, m_State.m_iCampaignEndRemainingPopulation, m_State.m_iCampaignEndKilledPopulation, m_State.m_iCampaignEndFIASupportPopulation, m_State.m_iCampaignEndSupportPercent, m_State.m_iCampaignEndAirfieldsControlled, m_State.m_iCampaignEndAirfieldsTotal);
+	}
+
+	protected void AddCampaignDebugPhase24CampaignEndRoundTripAssertion(HST_CampaignDebugCaseResult pacingCase, string label)
+	{
+		if (!pacingCase || !m_State)
+			return;
+
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(m_State);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		saveData.ApplyTo(restoredState);
+		bool roundTrip = restoredState.m_ePhase == m_State.m_ePhase
+			&& restoredState.m_sCampaignEndOutcomeMode == m_State.m_sCampaignEndOutcomeMode
+			&& restoredState.m_iCampaignEndInitialPopulation == m_State.m_iCampaignEndInitialPopulation
+			&& restoredState.m_iCampaignEndRemainingPopulation == m_State.m_iCampaignEndRemainingPopulation
+			&& restoredState.m_iCampaignEndKilledPopulation == m_State.m_iCampaignEndKilledPopulation
+			&& restoredState.m_iCampaignEndFIASupportPopulation == m_State.m_iCampaignEndFIASupportPopulation
+			&& restoredState.m_iCampaignEndSupportPercent == m_State.m_iCampaignEndSupportPercent
+			&& restoredState.m_iCampaignEndAirfieldsControlled == m_State.m_iCampaignEndAirfieldsControlled
+			&& restoredState.m_iCampaignEndAirfieldsTotal == m_State.m_iCampaignEndAirfieldsTotal;
+		string actual = string.Format("phase %1/%2 | mode %3/%4 | population %5/%6/%7/%8", restoredState.m_ePhase, m_State.m_ePhase, EmptyCampaignDebugField(restoredState.m_sCampaignEndOutcomeMode), EmptyCampaignDebugField(m_State.m_sCampaignEndOutcomeMode), restoredState.m_iCampaignEndInitialPopulation, restoredState.m_iCampaignEndRemainingPopulation, restoredState.m_iCampaignEndKilledPopulation, restoredState.m_iCampaignEndFIASupportPopulation);
+		actual = actual + string.Format(" | airfields %1/%2", restoredState.m_iCampaignEndAirfieldsControlled, restoredState.m_iCampaignEndAirfieldsTotal);
+		AddCampaignDebugAssertion(pacingCase, "phase24." + label + ".population_roundtrip", "campaign-end population outcome metadata survives save-data capture/apply", actual, CampaignDebugStatus(roundTrip), "campaign-end population metadata did not survive save-data roundtrip");
 	}
 
 	protected void AddCampaignDebugPhase24EscalationAssertions(HST_CampaignDebugCaseResult pacingCase)
@@ -20978,6 +21032,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ResetCampaignEndState();
 		ResetCampaignDebugPhase24HQPressure("early game seed");
 		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		ArrangePhase24NeutralPopulation(20);
 		m_State.m_iFactionMoney = 750;
 		m_State.m_iHR = 10;
 		m_State.m_iTrainingLevel = 1;
@@ -21005,6 +21060,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ResetCampaignEndState();
 		ResetCampaignDebugPhase24HQPressure("mid game seed");
 		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		ArrangePhase24NeutralPopulation(35);
 		int changed;
 		foreach (HST_ZoneState zone : m_State.m_aZones)
 		{
@@ -21036,6 +21092,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ResetCampaignEndState();
 		ResetCampaignDebugPhase24HQPressure("late game seed");
 		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		ArrangePhase24NeutralPopulation(45);
 		foreach (HST_ZoneState zone : m_State.m_aZones)
 		{
 			if (!zone)
@@ -21063,6 +21120,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
 		ResetCampaignDebugPhase24HQPressure("escalation pressure");
+		ArrangePhase24NeutralPopulation(30);
 		m_CampaignDebugPhase24EscalationContext = RunCampaignDebugPhase24EscalationProbe();
 		if (!m_CampaignDebugPhase24EscalationContext)
 			return "h-istasi phase 24 escalation | failed: probe did not run";
@@ -21086,6 +21144,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
 		}
 
+		ArrangePhase24PopulationVictory();
+		m_State.m_iIncomeAccumulatorSeconds = 0;
 		m_Economy.RecalculateWarLevel(m_State, m_Balance, m_Preset.m_sResistanceFactionKey);
 		EvaluateCampaignOutcomeNow();
 		MarkMajorCampaignChange(true);
@@ -21100,10 +21160,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
 		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		ArrangePhase24PopulationCatastrophe();
 		m_State.m_iFactionMoney = 0;
 		m_State.m_iHR = 0;
 		m_State.m_iPetrosDeaths = Math.Max(m_State.m_iPetrosDeaths, m_Balance.m_iLossPetrosDeathLimit);
 		m_State.m_iElapsedSeconds = Math.Max(m_State.m_iElapsedSeconds, m_Balance.m_iLossGraceSeconds + 1);
+		m_State.m_iIncomeAccumulatorSeconds = 0;
 		EvaluateCampaignOutcomeNow();
 		MarkMajorCampaignChange(true);
 		return "h-istasi phase 24 | loss forced\n" + m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
@@ -21149,6 +21211,63 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (changed)
 			AppendCampaignDebugLog("INFO", "phase24 hq pressure reset", reason);
 		return changed;
+	}
+
+	protected void ArrangePhase24NeutralPopulation(int fiaSupport)
+	{
+		if (!m_State)
+			return;
+
+		foreach (HST_CivilianZoneState town : m_State.m_aCivilianZones)
+		{
+			if (!town)
+				continue;
+
+			int population = Math.Max(80, Math.Max(1, town.m_iCivilianPresence) * 8);
+			town.m_iPopulationRemaining = population;
+			town.m_iPopulationKilled = 0;
+			town.m_iFIASupport = Math.Max(0, Math.Min(100, fiaSupport));
+			town.m_iOccupierSupport = Math.Max(0, 100 - town.m_iFIASupport);
+			town.m_sLastInfluenceKind = "phase24_population_seed";
+			town.m_sLastInfluenceReason = "phase24 neutral outcome seed";
+			town.m_iLastInfluenceEventSecond = m_State.m_iElapsedSeconds;
+
+			HST_ZoneState zone = m_State.FindZone(town.m_sZoneId);
+			if (zone)
+				zone.m_iSupport = town.m_iFIASupport;
+		}
+	}
+
+	protected void ArrangePhase24PopulationVictory()
+	{
+		int support = 80;
+		if (m_Balance)
+			support = Math.Max(80, m_Balance.m_iVictoryPopulationSupportPercent + 10);
+		ArrangePhase24NeutralPopulation(support);
+	}
+
+	protected void ArrangePhase24PopulationCatastrophe()
+	{
+		if (!m_State)
+			return;
+
+		foreach (HST_CivilianZoneState town : m_State.m_aCivilianZones)
+		{
+			if (!town)
+				continue;
+
+			town.m_iPopulationRemaining = 60;
+			town.m_iPopulationKilled = 40;
+			town.m_iFIASupport = 5;
+			town.m_iOccupierSupport = 95;
+			town.m_sLastInfluenceKind = "phase24_population_loss_seed";
+			town.m_sLastInfluenceReason = "phase24 civilian catastrophe seed";
+			town.m_iLastInfluenceEventSecond = m_State.m_iElapsedSeconds;
+
+			HST_ZoneState zone = m_State.FindZone(town.m_sZoneId);
+			if (zone)
+				zone.m_iSupport = town.m_iFIASupport;
+		}
 	}
 
 	protected string BuildPhase22Report()
@@ -23128,6 +23247,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iCampaignEndWarLevel = 0;
 		m_State.m_iCampaignEndFIAZones = 0;
 		m_State.m_iCampaignEndEnemyZones = 0;
+		m_State.m_sCampaignEndOutcomeMode = "";
+		m_State.m_iCampaignEndInitialPopulation = 0;
+		m_State.m_iCampaignEndRemainingPopulation = 0;
+		m_State.m_iCampaignEndKilledPopulation = 0;
+		m_State.m_iCampaignEndFIASupportPopulation = 0;
+		m_State.m_iCampaignEndSupportPercent = 0;
+		m_State.m_iCampaignEndAirfieldsControlled = 0;
+		m_State.m_iCampaignEndAirfieldsTotal = 0;
 		m_State.m_bCampaignEndReportGenerated = false;
 	}
 
