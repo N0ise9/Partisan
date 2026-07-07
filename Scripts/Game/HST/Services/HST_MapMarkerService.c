@@ -1274,11 +1274,29 @@ class HST_MapMarkerService
 		if (iconHint == "OBSERVATION_POST")
 			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
 
+		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "town" || category == "town"))
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
+
+		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base"))
+			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+
+		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "mission_site" || category == "mission_site"))
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
+
 		if (iconHint == "OBJECTIVE_MARKER")
 			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER;
 
 		if (styleHint == "resource" || styleHint == "depot")
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
+
+		if (styleHint == "town" || category == "town")
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
+
+		if (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base")
+			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+
+		if (styleHint == "mission_site" || category == "mission_site")
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
 
 		if (styleHint == "support" || category == "hq" || category == "hideout")
 			return SCR_EScenarioFrameworkMarkerCustom.PICK_UP2;
@@ -1449,11 +1467,13 @@ class HST_MapMarkerService
 			if (zone.m_sMarkerStyle == "resource" || zone.m_sMarkerStyle == "depot")
 				return "MINE_SINGLE";
 			if (zone.m_sMarkerStyle == "town")
-				return "MINE_SINGLE";
+				return "POINT_OF_INTEREST";
 			if (zone.m_sMarkerStyle == "radio")
 				return "OBSERVATION_POST";
 			if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")
-				return "OBJECTIVE_MARKER";
+				return "OBSERVATION_POST";
+			if (zone.m_sMarkerStyle == "mission_site")
+				return "POINT_SPECIAL";
 			if (zone.m_sMarkerStyle == "support")
 				return "PICK_UP2";
 		}
@@ -1467,6 +1487,15 @@ class HST_MapMarkerService
 
 		if (zoneType == HST_EZoneType.HST_ZONE_HIDEOUT)
 			return "PICK_UP2";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_TOWN)
+			return "POINT_OF_INTEREST";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+			return "POINT_SPECIAL";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_AIRFIELD || zoneType == HST_EZoneType.HST_ZONE_SEAPORT || zoneType == HST_EZoneType.HST_ZONE_OUTPOST)
+			return "OBSERVATION_POST";
 
 		return "OBJECTIVE_MARKER";
 	}

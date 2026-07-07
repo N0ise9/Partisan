@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r81-relation-order-decision-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r82-location-qrf-marker-deconflict";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -8962,6 +8962,46 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_iCampaignDebugZoneMarkerMissingCount + m_iCampaignDebugZoneMarkerLinkOwnerMismatchCount + m_iCampaignDebugZoneMarkerPresentationMismatchCount + m_iCampaignDebugZoneMarkerPositionMismatchCount;
 	}
 
+	protected int CountCampaignDebugStaticLocationQRFIconCollisions(out string example)
+	{
+		example = "";
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
+		{
+			if (!marker || !marker.m_bVisible)
+				continue;
+			if (marker.m_sMarkerId.IndexOf("hst_zone_") != 0)
+				continue;
+			if (marker.m_sIconHint != "OBJECTIVE_MARKER")
+				continue;
+			if (!IsCampaignDebugStaticLocationMarkerCategory(marker))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = BuildCampaignDebugMarkerActual(marker);
+		}
+
+		return count;
+	}
+
+	protected bool IsCampaignDebugStaticLocationMarkerCategory(HST_MapMarkerState marker)
+	{
+		if (!marker)
+			return false;
+
+		return marker.m_sCategory == "town"
+			|| marker.m_sCategory == "enemy_base"
+			|| marker.m_sCategory == "mission_site"
+			|| marker.m_sStyleHint == "town"
+			|| marker.m_sStyleHint == "enemy_base"
+			|| marker.m_sStyleHint == "stronghold"
+			|| marker.m_sStyleHint == "mission_site";
+	}
+
 	protected bool CampaignDebugMarkerPositionMatchesZone(HST_MapMarkerState marker, HST_ZoneState zone)
 	{
 		if (!marker || !zone)
@@ -17466,7 +17506,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!marker)
 			return "missing";
 
-		return string.Format("id %1 | linked %2 | owner %3 | color %4 | style %5", EmptyCampaignDebugField(marker.m_sMarkerId), EmptyCampaignDebugField(marker.m_sLinkedId), EmptyCampaignDebugField(marker.m_sOwnerFactionKey), EmptyCampaignDebugField(marker.m_sColorHint), EmptyCampaignDebugField(marker.m_sStyleHint));
+		return string.Format("id %1 | linked %2 | category %3 | owner %4 | color %5 | style %6 | icon %7", EmptyCampaignDebugField(marker.m_sMarkerId), EmptyCampaignDebugField(marker.m_sLinkedId), EmptyCampaignDebugField(marker.m_sCategory), EmptyCampaignDebugField(marker.m_sOwnerFactionKey), EmptyCampaignDebugField(marker.m_sColorHint), EmptyCampaignDebugField(marker.m_sStyleHint), EmptyCampaignDebugField(marker.m_sIconHint));
 	}
 
 	protected void ResetCampaignDebugPhase17Observations()
@@ -18903,6 +18943,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int presentationZoneMarkerMismatches = m_iCampaignDebugZoneMarkerPresentationMismatchCount;
 		int positionZoneMarkerMismatches = m_iCampaignDebugZoneMarkerPositionMismatchCount;
 		string zoneMarkerActual = BuildCampaignDebugZoneMarkerAuditActual(expectedZoneMarkers, missingZoneMarkers, linkOwnerZoneMarkerMismatches, presentationZoneMarkerMismatches, positionZoneMarkerMismatches, zoneMarkerExample);
+		string locationIconCollisionExample;
+		int locationIconCollisionCount = CountCampaignDebugStaticLocationQRFIconCollisions(locationIconCollisionExample);
 		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
 		HST_MapMarkerState petrosMarker = m_State.FindMapMarker("hst_petros");
 		HST_MapMarkerState defendMarker = m_State.FindMapMarker("hst_defend_petros");
@@ -18920,11 +18962,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.presentation_mismatch", string.Format("%1", presentationZoneMarkerMismatches), "count");
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.position_mismatch", string.Format("%1", positionZoneMarkerMismatches), "count");
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.mismatch_total", string.Format("%1", zoneMarkerMismatches), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.location_qrf_icon_collision", string.Format("%1", locationIconCollisionCount), "count");
 
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.report_header", "marker audit report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi phase 23 marker audit")), "Phase 23 marker audit report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.records", "marker model has records", string.Format("%1", totalMarkers), CampaignDebugStatus(totalMarkers > 0), "Phase 23 marker model has no records");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.coverage", "every campaign zone has a visible marker model entry", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && missingZoneMarkers == 0), "Phase 23 marker audit found zones without visible marker model records");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.state", "zone marker linked id, owner, color, style, and position match zone state", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && zoneMarkerMismatches == 0), "Phase 23 marker audit found zone marker state mismatches");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.location_qrf_icon_deconflict", "static location markers use icons distinct from QRF tactical markers", BuildCampaignDebugCountExample(locationIconCollisionCount, locationIconCollisionExample), CampaignDebugStatus(locationIconCollisionCount == 0), "Phase 23 found static location markers reusing the QRF tactical icon");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.hq", "HQ marker exists when HQ is deployed", BuildCampaignDebugMarkerActual(hqMarker), CampaignDebugStatus(!m_State.m_bHQDeployed || hqMarker != null), "Phase 23 marker audit did not find the HQ marker");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.defense_markers", "Petros/defense markers exist while Defend Petros is active", string.Format("active %1 | Petros %2 | defend %3", m_State.m_bDefendPetrosActive, petrosMarker != null, defendMarker != null), CampaignDebugStatus(!m_State.m_bDefendPetrosActive || (petrosMarker != null && defendMarker != null)), "Phase 23 marker audit did not find active Defend Petros markers");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.missions", "active missions have mission/objective/asset marker coverage", string.Format("markers %1 | active %2", missionMarkers, activeMissions), CampaignDebugStatus(activeMissions <= 0 || missionMarkers > 0), "Phase 23 active missions have no mission marker coverage");

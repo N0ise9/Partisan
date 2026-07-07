@@ -1971,6 +1971,20 @@ foreach ($requiredSupportMarkerEntry in @(
 if ($coordinatorMarkerText -notmatch [regex]::Escape('return qrf != null || HasCampaignDebugLiveActiveGroup(marker.m_sLinkedId);')) {
 	throw "QRF-style marker backing audit must accept live active-group backing for Defend Petros attacker markers"
 }
+foreach ($requiredMarkerIconDeconflictEntry in @(
+		'if (zone.m_sMarkerStyle == "town")',
+		'return "POINT_OF_INTEREST";',
+		'if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")',
+		'return "OBSERVATION_POST";',
+		'if (zone.m_sMarkerStyle == "mission_site")',
+		'return "POINT_SPECIAL";',
+		'phase23.marker.location_qrf_icon_deconflict',
+		'CountCampaignDebugStaticLocationQRFIconCollisions'
+	)) {
+	if ($runtimeMarkerPipelineText -notmatch [regex]::Escape($requiredMarkerIconDeconflictEntry)) {
+		throw "Static location marker/QRF icon deconflict contract is missing entry: $requiredMarkerIconDeconflictEntry"
+	}
+}
 
 if ($configZones.Count -ne 79 -or $runtimeZones.Count -ne 79) {
 	throw "Everon campaign catalog must contain 79 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"

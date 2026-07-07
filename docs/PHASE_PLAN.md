@@ -115,6 +115,9 @@ treated as future work:
   while hideout and mission-site bookkeeping anchors are excluded. Full
   Campaign Debug also proves the related order-type branches for counterattack,
   QRF, rebuild, roadblock, and rival support-call decisions.
+- Static location map markers are visually separated from QRF tactical response
+  markers. Towns, base/outpost/seaport/airfield locations, and mission-site
+  anchors publish non-QRF icon hints, with Phase 23 proving the deconflict.
 - Civilian town influence events track support, reputation, heat, population,
   police, roadblock, active/expired modifier counts, and political ownership
   consequences.

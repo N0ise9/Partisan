@@ -175,11 +175,29 @@ class HST_CampaignMapMarkerDirector
 		if (iconHint == "OBSERVATION_POST")
 			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
 
+		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "town" || category == "town"))
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
+
+		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base"))
+			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+
+		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "mission_site" || category == "mission_site"))
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
+
 		if (iconHint == "OBJECTIVE_MARKER")
 			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER;
 
 		if (styleHint == "resource" || styleHint == "depot")
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
+
+		if (styleHint == "town" || category == "town")
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
+
+		if (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base")
+			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+
+		if (styleHint == "mission_site" || category == "mission_site")
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
 
 		if (styleHint == "support" || category == "hq" || category == "hideout")
 			return SCR_EScenarioFrameworkMarkerCustom.PICK_UP2;
