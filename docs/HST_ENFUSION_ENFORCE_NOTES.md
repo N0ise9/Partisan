@@ -164,6 +164,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - A plain resource check is not enough for QRF/support pacing because it cannot
     explain why a zone did or did not receive help, cannot prevent same-zone
     stacking, and cannot safely refund survivor fold-back.
+  - Keep proactive attack pressure and reactive support spending separate.
+    Proactive background-war attacks, support pressure, and Petros pressure
+    should spend attack resources only. Capture-triggered counterattacks, QRFs,
+    rebuilds, roadblocks, and direct enemy support requests should spend support
+    resources through the support ledger.
   - Keep the ledger data-only: faction, zone, recent damage score, attack/support
     spent, cooldown, refund totals, and last decision reason. Runtime services
     should call the gate before spending and let reports read the ledger instead

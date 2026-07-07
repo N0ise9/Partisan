@@ -90,7 +90,10 @@ treated as future work:
   attack standoff, convoy endpoints, dry-ground checks, vehicle-safe placement,
   road preference, and HQ standoff.
 - Enemy support ledgers track recent damage pressure, cooldowns, max defense
-  spend, same-zone stacking, and survivor refunds.
+  spend, same-zone stacking, and survivor refunds. Proactive background-war and
+  HQ-pressure orders spend attack resources only, while QRFs, capture-triggered
+  counterattacks, rebuilds, roadblocks, and direct enemy support requests spend
+  support resources through the ledger.
 - Civilian town influence events track support, reputation, heat, population,
   police, roadblock, active/expired modifier counts, and political ownership
   consequences.
@@ -106,18 +109,17 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Split proactive enemy attack resources from reactive defense/support spend.
-2. Harden route-aware and vehicle-aware physical responses for QRF,
+1. Harden route-aware and vehicle-aware physical responses for QRF,
    counterattack, support, and HQ-pressure groups.
-3. Finish live undercover equipment/clothing/off-road/security-scan
+2. Finish live undercover equipment/clothing/off-road/security-scan
    enforcement.
-4. Deepen town influence into the primary political control and mission-output
+3. Deepen town influence into the primary political control and mission-output
    layer.
-5. Add player-facing garrison management, training effects, static defenses,
+4. Add player-facing garrison management, training effects, static defenses,
    and arsenal-driven AI loadouts.
-6. Replace mission MVP primitives with mission-family runtime modules and
+5. Replace mission MVP primitives with mission-family runtime modules and
    mission-specific assets/consequences.
-7. Soak population campaign-end, active missions, support, orders, garage,
+6. Soak population campaign-end, active missions, support, orders, garage,
    undercover, and terminal saves across real restart and multiplayer profiles.
 
 ## Game-Mode Target
@@ -409,7 +411,7 @@ Acceptance pattern:
 | 15 | Garage and vehicle persistence | In progress - broad-alpha scaffold exists |
 | 16 | Recruitment, training, and garrisons | In progress - recruitment/garrison foundation exists |
 | 17 | Zone capture and ownership | In progress - capture/counterattack smoke exists |
-| 18 | Enemy commander physical responses | In progress - enemy orders and physical response broad alpha |
+| 18 | Enemy commander physical responses | In progress - attack/support split and physical response broad alpha |
 | 19 | Support requests | In progress - stateful support broad alpha |
 | 20 | Civilians, town support, and undercover reports | In progress - town influence/civilian/undercover broad alpha |
 | 21 | Undercover enforcement and police/roadblocks | In progress - enforcement broad alpha |

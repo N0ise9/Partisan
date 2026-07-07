@@ -80,8 +80,8 @@ The repository contains a broad-alpha campaign foundation:
 - Request-driven spawn placement for physical support and debug probes, with
   road/dry-ground/vehicle-safe validation and visible placement failure reasons
 - Enemy support-spend ledgers for QRF/support damage pressure, same-zone
-  cooldowns, max defense spend caps, survivor refunds, and reportable denial
-  reasons
+  cooldowns, max defense spend caps, survivor refunds, reportable denial
+  reasons, and separated proactive attack versus reactive support spending
 - Civilian town support plus undercover eligibility, request/application,
   detection, police/roadblock scan, compromise, and clear-state enforcement
 - Commander-facing no-admin actions for initial HQ selection, random mission
@@ -185,7 +185,7 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-07-runtime-proof-r62-population-outcome-proof`
+`h-istasi boot | authority build 2026-07-07-runtime-proof-r63-attack-support-spend-split`
 and the client log must contain
 `build=2026-07-06-menu-input-r14-ui-render-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged

@@ -3,6 +3,8 @@ class HST_EnemyCommanderService
 	static const int ORDER_TICK_SECONDS = 180;
 	static const int ORDER_RESOLVE_SECONDS = 420;
 	static const int PHYSICAL_ORDER_TIMEOUT_SECONDS = 300;
+	static const string SPEND_MODE_PROACTIVE_ATTACK = "proactive_attack";
+	static const string SPEND_MODE_REACTIVE_DEFENSE = "reactive_defense";
 	protected int m_iOrderAccumulatorSeconds;
 
 	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, HST_GarrisonService garrisons, int elapsedSeconds)
@@ -179,7 +181,7 @@ class HST_EnemyCommanderService
 
 		int attackCost;
 		int supportCost;
-		ResolveOrderCosts(HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK, attackCost, supportCost);
+		ResolveOrderCostsForSpendMode(HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK, SPEND_MODE_REACTIVE_DEFENSE, attackCost, supportCost);
 		string spendReason;
 		if (!enemyDirector.CanSpendDefense(state, capturedZone, factionKey, attackCost, supportCost, spendReason))
 		{
@@ -197,7 +199,7 @@ class HST_EnemyCommanderService
 			return false;
 		}
 
-		bool queued = QueueOrder(state, preset, enemyDirector, support, factionKey, capturedZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK);
+		bool queued = QueueOrder(state, preset, enemyDirector, support, factionKey, capturedZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK, SPEND_MODE_REACTIVE_DEFENSE);
 		if (queued)
 			Print(string.Format("h-istasi capture | counterattack queued for %1 at %2 | roll %3 chance %4", factionKey, capturedZone.m_sZoneId, roll, chance));
 		else
@@ -206,7 +208,7 @@ class HST_EnemyCommanderService
 		return queued;
 	}
 
-	HST_EnemyOrderState QueueDebugOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
+	HST_EnemyOrderState QueueDebugOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string spendMode = "")
 	{
 		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
 			return null;
@@ -216,7 +218,7 @@ class HST_EnemyCommanderService
 
 		enemyDirector.AddResources(state, factionKey, 100, 100);
 		int beforeCount = state.m_aEnemyOrders.Count();
-		if (!QueueOrder(state, preset, enemyDirector, null, factionKey, targetZone, orderType))
+		if (!QueueOrder(state, preset, enemyDirector, null, factionKey, targetZone, orderType, spendMode))
 			return null;
 
 		if (state.m_aEnemyOrders.Count() <= beforeCount)
@@ -247,7 +249,7 @@ class HST_EnemyCommanderService
 			return null;
 
 		int beforeCount = state.m_aEnemyOrders.Count();
-		if (!QueueOrder(state, preset, enemyDirector, null, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK))
+		if (!QueueOrder(state, preset, enemyDirector, null, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK, SPEND_MODE_PROACTIVE_ATTACK))
 			return null;
 		if (state.m_aEnemyOrders.Count() <= beforeCount)
 			return null;
@@ -295,18 +297,25 @@ class HST_EnemyCommanderService
 		return ApplySurvivorRefund(state, enemyDirector, order, group);
 	}
 
-	protected bool QueueOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
+	protected bool QueueOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string spendMode = "")
 	{
 		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
 			return false;
 
+		string resolvedSpendMode = ResolveOrderSpendMode(state, preset, targetZone, orderType, spendMode);
 		int attackCost;
 		int supportCost;
-		ResolveOrderCosts(orderType, attackCost, supportCost);
+		ResolveOrderCostsForSpendMode(orderType, resolvedSpendMode, attackCost, supportCost);
 		string spendReason;
-		if (!enemyDirector.TrySpendDefense(state, targetZone, factionKey, attackCost, supportCost, spendReason))
+		bool spent;
+		if (resolvedSpendMode == SPEND_MODE_PROACTIVE_ATTACK)
+			spent = enemyDirector.TrySpendProactiveAttack(state, factionKey, attackCost, spendReason);
+		else
+			spent = enemyDirector.TrySpendDefense(state, targetZone, factionKey, attackCost, supportCost, spendReason);
+
+		if (!spent)
 		{
-			Print(string.Format("h-istasi enemy commander | order skipped for %1 at %2 type %3 | %4", factionKey, targetZone.m_sZoneId, orderType, spendReason));
+			Print(string.Format("h-istasi enemy commander | order skipped for %1 at %2 type %3 mode %4 | %5", factionKey, targetZone.m_sZoneId, orderType, resolvedSpendMode, spendReason));
 			return false;
 		}
 
@@ -316,7 +325,7 @@ class HST_EnemyCommanderService
 		order.m_eType = orderType;
 		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
 		order.m_sTargetZoneId = targetZone.m_sZoneId;
-		order.m_sRuntimeStatus = "active_abstract_pending";
+		order.m_sRuntimeStatus = "active_" + resolvedSpendMode + "_pending";
 		order.m_vTargetPosition = targetZone.m_vPosition;
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
 			order.m_vTargetPosition = ResolvePetrosAttackTargetPosition(state);
@@ -875,10 +884,10 @@ class HST_EnemyCommanderService
 		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
 			resistanceFactionKey = preset.m_sResistanceFactionKey;
 
-		if (state.m_iHQKnowledge >= 100 && IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 20 && pool.m_iSupportResources >= 8 && state.m_iElapsedSeconds > state.m_iLastHQAttackSecond + 1800)
+		if (state.m_iHQKnowledge >= 100 && IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 20 && state.m_iElapsedSeconds > state.m_iLastHQAttackSecond + 1800)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 
-		if (IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 25 && pool.m_iSupportResources >= 8 && state.m_iWarLevel >= 4)
+		if (IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 25 && state.m_iWarLevel >= 4)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 
 		if (targetZone.m_sOwnerFactionKey == resistanceFactionKey)
@@ -1153,6 +1162,43 @@ class HST_EnemyCommanderService
 			attackCost = 4;
 			supportCost = 10;
 		}
+	}
+
+	protected string ResolveOrderSpendMode(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string requestedMode)
+	{
+		if (!requestedMode.IsEmpty())
+			return requestedMode;
+
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			|| orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+			|| orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK)
+			return SPEND_MODE_REACTIVE_DEFENSE;
+
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+		{
+			string resistanceFactionKey = "FIA";
+			if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+				resistanceFactionKey = preset.m_sResistanceFactionKey;
+			if (targetZone && targetZone.m_sOwnerFactionKey == resistanceFactionKey)
+				return SPEND_MODE_PROACTIVE_ATTACK;
+
+			return SPEND_MODE_REACTIVE_DEFENSE;
+		}
+
+		return SPEND_MODE_PROACTIVE_ATTACK;
+	}
+
+	protected void ResolveOrderCostsForSpendMode(HST_EEnemyOrderType orderType, string spendMode, out int attackCost, out int supportCost)
+	{
+		ResolveOrderCosts(orderType, attackCost, supportCost);
+		if (spendMode == SPEND_MODE_PROACTIVE_ATTACK)
+		{
+			supportCost = 0;
+			return;
+		}
+
+		if (spendMode == SPEND_MODE_REACTIVE_DEFENSE)
+			attackCost = 0;
 	}
 
 	protected bool HasActiveOrderForZone(HST_CampaignState state, string factionKey, string zoneId)

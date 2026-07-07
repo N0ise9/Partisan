@@ -109,8 +109,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Enemy resource pools | Enemy attack and support capacity grows from map control and pressure. | Broad Alpha | Split proactive attack behavior from reactive defense/support spending. | Highest |
-| Support spend ledger | Same-zone support stacking, recent damage pressure, spend caps, cooldowns, and refunds are tracked. | Broad Alpha | Keep as the reactive defense gate, not the whole enemy war brain. | High |
+| Enemy resource pools | Enemy attack and support capacity grows from map control and pressure. | Broad Alpha / Needs Soak | Tune attack/support income and costs after real background-war runs. | Highest |
+| Support spend ledger | Same-zone support stacking, recent damage pressure, spend caps, cooldowns, and refunds are tracked. | Broad Alpha | Keep as the reactive defense gate and continue tuning caps/cooldowns. | High |
 | Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Broad Alpha | Add richer target scoring, proactive timing, and three-way pressure. | Highest |
 | Abstract resolution | Off-screen orders and support resolve without needing physical entities. | Broad Alpha | Add stronger survivor, vehicle, and garrison outcome math. | High |
 | Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | Make QRF/counterattack/HQ-pressure groups route-aware and vehicle-aware. | Highest |
@@ -188,21 +188,21 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 1. Reconcile planning docs with current code. The implementation has advanced
    past older phase labels.
-2. Split proactive enemy attacks from reactive defense/support spending.
-3. Make QRF, counterattack, and HQ-pressure groups route-aware and
+2. Make QRF, counterattack, and HQ-pressure groups route-aware and
    vehicle-aware.
-4. Finish undercover enforcement from live equipment, vehicle state, off-road
+3. Finish undercover enforcement from live equipment, vehicle state, off-road
    behavior, and security scans.
-5. Deepen town influence events into the primary political control layer.
-6. Add player-facing garrison management, training effects, static defenses,
+4. Deepen town influence events into the primary political control layer.
+5. Add player-facing garrison management, training effects, static defenses,
    and arsenal-driven AI loadout improvements.
-7. Replace MVP mission primitives with mission-specific physical content and
+6. Replace MVP mission primitives with mission-specific physical content and
    strategic outcomes.
-8. Soak population-based victory/loss through real restart, campaign-end
-   restore, and civilian-event mission paths.
-9. Run repeated save/load and multiplayer soak across missions, support,
+7. Soak attack/support spend separation and population-based victory/loss
+   through real restart, background-war, campaign-end restore, and
+   civilian-event mission paths.
+8. Run repeated save/load and multiplayer soak across missions, support,
    orders, garage, undercover, and campaign end states.
-10. Tune economy, war level, aggression, support pressure, and mission pacing
+9. Tune economy, war level, aggression, support pressure, and mission pacing
     through repeated real campaign runs.
 
 ## Definition Of Done For The Final Campaign Loop

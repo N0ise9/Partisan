@@ -48,6 +48,54 @@ class HST_EnemyDirectorService
 		return true;
 	}
 
+	bool CanSpendProactiveAttack(HST_CampaignState state, string factionKey, int attackCost, out string reason)
+	{
+		reason = "";
+		if (!state || factionKey.IsEmpty())
+		{
+			reason = "state or faction missing";
+			return false;
+		}
+
+		if (attackCost < 0)
+		{
+			reason = "negative proactive attack spend requested";
+			return false;
+		}
+
+		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
+		if (!pool)
+		{
+			reason = "faction resource pool missing";
+			return false;
+		}
+
+		if (pool.m_iAttackResources < attackCost)
+		{
+			reason = string.Format("cannot afford proactive attack %1/%2", pool.m_iAttackResources, attackCost);
+			return false;
+		}
+
+		reason = string.Format("proactive attack spend allowed | attack %1/%2", pool.m_iAttackResources, attackCost);
+		return true;
+	}
+
+	bool TrySpendProactiveAttack(HST_CampaignState state, string factionKey, int attackCost, out string reason)
+	{
+		if (!CanSpendProactiveAttack(state, factionKey, attackCost, reason))
+			return false;
+
+		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
+		if (!pool)
+		{
+			reason = "faction resource pool missing after proactive gate";
+			return false;
+		}
+
+		pool.m_iAttackResources = Math.Max(0, pool.m_iAttackResources - Math.Max(0, attackCost));
+		return true;
+	}
+
 	bool CanSpendDefense(HST_CampaignState state, HST_ZoneState targetZone, string factionKey, int attackCost, int supportCost, out string reason)
 	{
 		reason = "";
@@ -210,6 +258,7 @@ class HST_EnemyDirectorService
 			balance.m_iEnemyAttackIncomeWarPercent,
 			balance.m_iEnemySupportIncomeWarPercent
 		);
+		report = report + "\nspend policy | proactive attacks use attack pool | reactive defense/support uses support ledger";
 
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{

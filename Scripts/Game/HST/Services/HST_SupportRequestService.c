@@ -134,6 +134,7 @@ class HST_SupportRequestService
 				return result;
 			}
 
+			attackCost = 0;
 			string spendReason;
 			if (!enemyDirector.CanSpendDefense(state, targetZone, factionKey, attackCost, supportCost, spendReason))
 			{
