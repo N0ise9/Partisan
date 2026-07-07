@@ -8449,7 +8449,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!group)
 			return true;
 
-		return group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "convoy_eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed";
+		return group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "convoy_eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed" || group.m_sRuntimeStatus == "despawned" || group.m_sRuntimeStatus == "deleted";
 	}
 
 	protected bool HasCampaignDebugActiveGroupBacking(HST_ActiveGroupState group)
@@ -8582,7 +8582,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (category == "qrf")
 		{
 			HST_QRFState qrf = FindCampaignDebugQRF(marker.m_sLinkedId);
-			return qrf != null;
+			return qrf != null || HasCampaignDebugLiveActiveGroup(marker.m_sLinkedId);
 		}
 
 		bool zoneMarker = category == "town";
@@ -8623,6 +8623,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return false;
+	}
+
+	protected bool HasCampaignDebugLiveActiveGroup(string groupId)
+	{
+		if (!m_State || groupId.IsEmpty())
+			return false;
+
+		HST_ActiveGroupState group = m_State.FindActiveGroup(groupId);
+		return group && !IsCampaignDebugTerminalGroup(group);
 	}
 
 	protected bool IsCampaignDebugResistanceSupportGroupMarkerExpected(HST_ActiveGroupState group)
@@ -18397,7 +18406,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(defenseCase, "phase22.support.status", "support status queued, active, resolved, or cancelled", BuildCampaignDebugSupportRequestActual(attackSupport), CampaignDebugStatus(attackSupport.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || attackSupport.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE || attackSupport.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED || attackSupport.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED), "Phase 22 Petros support request status mismatch", attackSupport.m_sRequestId, "", attackSupport.m_sTargetZoneId);
 		AddCampaignDebugAssertion(defenseCase, "phase22.support.target", "support target position is valid", string.Format("zone %1 | target %2", EmptyCampaignDebugField(attackSupport.m_sTargetZoneId), attackSupport.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(attackSupport.m_vTargetPosition)), "Phase 22 support target position invalid", attackSupport.m_sRequestId, "", attackSupport.m_sTargetZoneId);
 		if (attackGroup)
+		{
 			AddCampaignDebugAssertion(defenseCase, "phase22.support.group", "support links an active attacker group", BuildCampaignDebugPhase22GroupActual(attackGroup), CampaignDebugStatus(attackSupport.m_sGroupId == attackGroup.m_sGroupId), "Phase 22 support request group link mismatch", attackGroup.m_sGroupId, "", attackGroup.m_sZoneId);
+			SyncDefendPetrosLinks(null);
+			RefreshCampaignMarkers();
+			HST_MapMarkerState attackerMarker = m_State.FindMapMarker("hst_defend_petros_attackers");
+			bool markerExpected = m_State.m_bDefendPetrosActive && !IsCampaignDebugTerminalGroup(attackGroup);
+			bool markerLinked = attackerMarker && attackerMarker.m_sLinkedId == attackGroup.m_sGroupId;
+			AddCampaignDebugAssertion(defenseCase, "phase22.marker.attackers", "Petros attacker marker links to the live attacker group", BuildCampaignDebugMarkerActual(attackerMarker), CampaignDebugStatus(!markerExpected || markerLinked), "Phase 22 Petros attacker marker missing or linked to the wrong group", attackGroup.m_sGroupId, "", attackGroup.m_sZoneId);
+			if (attackerMarker)
+				AddCampaignDebugAssertion(defenseCase, "phase22.marker.attackers_backing", "Petros attacker marker has a non-terminal active-group backing state", string.Format("marker %1 | group %2 | status %3", attackerMarker.m_sMarkerId, attackGroup.m_sGroupId, EmptyCampaignDebugField(attackGroup.m_sRuntimeStatus)), CampaignDebugStatus(markerLinked && HasCampaignDebugLiveActiveGroup(attackerMarker.m_sLinkedId)), "Phase 22 Petros attacker marker has no live active-group backing", attackGroup.m_sGroupId, "", attackGroup.m_sZoneId);
+		}
 		else
 			AddCampaignDebugAssertion(defenseCase, "phase22.support.group_pending", "attacker group may be pending until support ETA/physicalization", BuildCampaignDebugSupportRequestActual(attackSupport), "WARN", "Phase 22 support exists but no attacker group has been linked yet", attackSupport.m_sRequestId, "", attackSupport.m_sTargetZoneId);
 	}

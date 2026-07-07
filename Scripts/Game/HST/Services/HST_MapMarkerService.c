@@ -620,6 +620,8 @@ class HST_MapMarkerService
 		HST_ActiveGroupState group = state.FindActiveGroup(state.m_sDefendPetrosAttackerGroupId);
 		if (!group)
 			return;
+		if (IsTerminalActiveGroupStatus(group.m_sRuntimeStatus))
+			return;
 
 		vector attackerPosition = group.m_vPosition;
 		if (IsZeroVector(attackerPosition))
@@ -629,6 +631,11 @@ class HST_MapMarkerService
 
 		string attackerLabel = string.Format("Petros attackers | %1 | alive %2 | group %3", group.m_sRuntimeStatus, group.m_iLastSeenAliveCount, group.m_sGroupId);
 		AddMarker(state, "hst_defend_petros_attackers", state.m_sDefendPetrosAttackerGroupId, attackerLabel, "", "qrf", group.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(group.m_sFactionKey, preset), attackerPosition, true, FactionToMarkerTextColor(group.m_sFactionKey, preset), "enemy_response", true);
+	}
+
+	protected bool IsTerminalActiveGroupStatus(string runtimeStatus)
+	{
+		return runtimeStatus == "eliminated" || runtimeStatus == "folded" || runtimeStatus == "spawn_failed" || runtimeStatus == "despawned" || runtimeStatus == "deleted";
 	}
 
 	protected void AddZoneMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -959,7 +966,7 @@ class HST_MapMarkerService
 		if (!group.m_bSpawnedEntity && group.m_sRuntimeEntityId.IsEmpty())
 			return false;
 
-		if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed" || group.m_sRuntimeStatus == "despawned" || group.m_sRuntimeStatus == "deleted")
+		if (IsTerminalActiveGroupStatus(group.m_sRuntimeStatus))
 			return false;
 
 		HST_SupportRequestState request = state.FindSupportRequest(group.m_sSupportRequestId);

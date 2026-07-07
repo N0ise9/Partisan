@@ -170,8 +170,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Keep mission starts category-based and improve disabled reasons. | High |
-| Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned, and native publication budgets cover the current curated marker set; continue owner-client visual proof and marker/backing consistency checks. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, curated location taxonomy preflight, runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, and a threshold-length convoy movement window before contact; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
+| Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned; Defend Petros attacker markers are backed by live active-group state; continue owner-client visual proof and marker/backing consistency checks. | High |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, and a threshold-length convoy movement window before contact; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build. | Implemented Foundation | Bump synchronized build markers for every runtime-proof behavior change. | Keep |
 
@@ -188,7 +188,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 1. Reconcile planning docs with current code. The implementation has advanced
    past older phase labels.
-2. Run the next server proof on the r77 convoy movement window, then extend
+2. Run the next server proof on the r78 convoy/marker cleanup build, then extend
    routed response infantry into richer
    counterattack/HQ-pressure target behavior.
 3. Finish undercover enforcement from live equipment, vehicle state, off-road

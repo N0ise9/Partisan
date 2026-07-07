@@ -1958,11 +1958,18 @@ foreach ($requiredSupportMarkerEntry in @(
 		"ShouldShowResistanceSupportGroupMarker",
 		"support_group_live",
 		"support.physical_live_marker",
-		"support.physical_live_marker_terminal"
+		"support.physical_live_marker_terminal",
+		"hst_defend_petros_attackers",
+		"IsTerminalActiveGroupStatus",
+		"HasCampaignDebugLiveActiveGroup",
+		"phase22.marker.attackers_backing"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSupportMarkerEntry) -and $runtimeMarkerPipelineText -notmatch [regex]::Escape($requiredSupportMarkerEntry)) {
 		throw "Resistance support live-marker contract is missing entry: $requiredSupportMarkerEntry"
 	}
+}
+if ($coordinatorMarkerText -notmatch [regex]::Escape('return qrf != null || HasCampaignDebugLiveActiveGroup(marker.m_sLinkedId);')) {
+	throw "QRF-style marker backing audit must accept live active-group backing for Defend Petros attacker markers"
 }
 
 if ($configZones.Count -ne 79 -or $runtimeZones.Count -ne 79) {
