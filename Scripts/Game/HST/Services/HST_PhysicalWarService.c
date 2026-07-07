@@ -535,7 +535,7 @@ class HST_PhysicalWarService
 					factionMismatchGroupCount++;
 					factionMismatchEvidence = AppendConvoyDebugEvidence(factionMismatchEvidence, string.Format("%1 expected %2 mismatches %3 liveMembers %4 sample %5", groupId, activeGroup.m_sFactionKey, factionMismatches, liveFactionMembers, ReportText(factionSample)));
 				}
-				AddConvoyDebugProbeAssertion(probe, "convoy.faction." + asset.m_sAssetId, "crew and vehicle runtime factions match the active-group faction", BuildActiveGroupRuntimeFactionActual(activeGroup, factionMismatches, factionSample, crewEntity != null, vehicleEntity != null), factionStatus, "convoy runtime entity faction mismatch", groupId, mission.m_sInstanceId);
+				AddConvoyDebugProbeAssertion(probe, "convoy.faction." + asset.m_sAssetId, "crew runtime faction matches the active-group faction and vehicle is unclaimed", BuildActiveGroupRuntimeFactionActual(activeGroup, factionMismatches, factionSample, crewEntity != null, vehicleEntity != null), factionStatus, "convoy crew faction mismatch or vehicle still claimed", groupId, mission.m_sInstanceId);
 			}
 			else
 			{
@@ -630,7 +630,7 @@ class HST_PhysicalWarService
 		if (!routeTimeoutEvidence.IsEmpty())
 			probe.m_aEvidence.Insert("convoy route timeout | " + routeTimeoutEvidence);
 		if (!factionMismatchEvidence.IsEmpty())
-			probe.m_aEvidence.Insert("convoy faction mismatch | " + factionMismatchEvidence);
+			probe.m_aEvidence.Insert("convoy crew/vehicle claim mismatch | " + factionMismatchEvidence);
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.sample_count", "progress sample exists for each active convoy vehicle", string.Format("%1/%2 sampled | missing %3", progressSampledCount, activeVehicleAssets, missingProgressCount), ConvoyDebugStatus(activeVehicleAssets >= 3 && progressSampledCount >= activeVehicleAssets && missingProgressCount == 0, "WARN"), "one or more active convoy vehicles have no movement sample yet");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.repeated_sample_count", "at least two progress samples exist for each active convoy vehicle", string.Format("%1/%2 repeated | phases %3", repeatedProgressSampledCount, activeVehicleAssets, ReportText(convoyPhaseHistory)), ConvoyDebugStatus(activeVehicleAssets >= 3 && repeatedProgressSampledCount >= activeVehicleAssets, "WARN"), "one or more active convoy vehicles lack a repeated movement-window sample");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.distance_decrease_count", "each active convoy vehicle closes at least 25m toward destination during sampled movement window", string.Format("%1/%2 closed >= 25m | best closed %3m | best moved %4m", distanceDecreaseSampledCount, activeVehicleAssets, Math.Round(bestDistanceClosedMeters), Math.Round(bestMovementMeters)), ConvoyDebugStatus(activeVehicleAssets >= 3 && distanceDecreaseSampledCount >= activeVehicleAssets, "WARN"), "one or more active convoy vehicles did not prove a 25m destination-distance decrease");
@@ -657,7 +657,7 @@ class HST_PhysicalWarService
 		else if (factionUncheckableCount > 0 || factionCheckedCount < activeVehicleAssets)
 			factionAggregateStatus = "WARN";
 		string factionAggregateActual = string.Format("checked %1/%2 active | mismatched groups %3 | uncheckable %4 | evidence %5", factionCheckedCount, activeVehicleAssets, factionMismatchGroupCount, factionUncheckableCount, ReportText(factionMismatchEvidence));
-		AddConvoyDebugProbeAssertion(probe, "convoy.faction.runtime_entities", "every checkable convoy crew and vehicle entity is stamped with its active-group faction", factionAggregateActual, factionAggregateStatus, "one or more convoy runtime entities used the wrong faction", "", mission.m_sInstanceId);
+		AddConvoyDebugProbeAssertion(probe, "convoy.faction.runtime_entities", "every checkable convoy crew entity is factioned and convoy vehicles are unclaimed", factionAggregateActual, factionAggregateStatus, "one or more convoy crews used the wrong faction or vehicles were claimed", "", mission.m_sInstanceId);
 
 		probe.m_aEvidence.Insert(BuildConvoyRuntimeReport(state, mission));
 		FinalizeConvoyDebugProbeCase(state, probe);
@@ -1969,6 +1969,9 @@ class HST_PhysicalWarService
 		string groupRootFaction = ResolveActiveGroupRuntimeRootFactionKey(activeGroup);
 		int liveMemberCount = CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId);
 		string actual = string.Format("group %1 | expected %2 | prefab %3 | group root faction %4 | live members %5 | group entity %6 | vehicle entity %7 | mismatches %8 | visual %9", ReportText(activeGroup.m_sGroupId), ReportText(activeGroup.m_sFactionKey), ReportText(activeGroup.m_sPrefab), ReportText(groupRootFaction), liveMemberCount, ReportBool(groupEntityPresent), ReportBool(vehicleEntityPresent), mismatchCount, ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)));
+		IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
+		if (vehicleEntity)
+			actual = actual + string.Format(" | vehicle claimed faction %1", ReportText(HST_VehicleRootPolicy.ResolveVehicleFactionKey(vehicleEntity)));
 		return actual + string.Format(" | sample %1", ReportText(sample));
 	}
 
@@ -3143,7 +3146,7 @@ class HST_PhysicalWarService
 			return null;
 
 		ApplyCampaignDebugEntityName(vehicleEntity, MISSION_CONVOY_VEHICLE_ROLE, asset.m_sAssetId);
-		ApplyEntityFaction(vehicleEntity, activeGroup.m_sFactionKey);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(vehicleEntity);
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, angles);
 		asset.m_sPrefab = vehiclePrefab;
 		asset.m_bSpawned = true;
@@ -7681,7 +7684,7 @@ class HST_PhysicalWarService
 		}
 
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, spawnPosition, spawnAngles);
-		ApplyEntityFaction(vehicleEntity, activeGroup.m_sFactionKey);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(vehicleEntity);
 		ApplyCampaignDebugEntityName(vehicleEntity, "active_group_vehicle", activeGroup.m_sGroupId);
 		m_aRuntimeVehicleGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeVehicleEntities.Insert(vehicleEntity);
@@ -8993,6 +8996,14 @@ class HST_PhysicalWarService
 		if (!root || factionKey.IsEmpty())
 			return false;
 
+		if (SCR_VehicleFactionAffiliationComponent.Cast(root.FindComponent(SCR_VehicleFactionAffiliationComponent)))
+		{
+			if (HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(root))
+				changed++;
+			mismatches += CountRuntimeVehicleClaimMismatch(root, sample);
+			return mismatches == 0;
+		}
+
 		SCR_AIGroup group = SCR_AIGroup.Cast(root);
 		if (group)
 		{
@@ -9156,16 +9167,16 @@ class HST_PhysicalWarService
 		IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
 		if (vehicleEntity)
 		{
-			int vehicleChanged;
-			int vehicleMismatches;
+			bool vehicleChanged = HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(vehicleEntity);
 			string vehicleSample;
-			EnsureRuntimeFactionRecursive(vehicleEntity, activeGroup.m_sFactionKey, vehicleChanged, vehicleMismatches, vehicleSample);
-			totalChanged += vehicleChanged;
+			int vehicleMismatches = CountRuntimeVehicleClaimMismatch(vehicleEntity, vehicleSample);
+			if (vehicleChanged)
+				totalChanged++;
 			totalMismatches += vehicleMismatches;
 			if (firstSample.IsEmpty() && !vehicleSample.IsEmpty())
 				firstSample = vehicleSample;
-			if (vehicleChanged > 0)
-				Print(string.Format("h-istasi | runtime vehicle faction applied | group %1 | expected %2 | source %3 | changed %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source, vehicleChanged));
+			if (vehicleChanged || vehicleMismatches > 0)
+				Print(string.Format("h-istasi | runtime vehicle faction cleared | group %1 | source %2 | changed %3 | remaining claims %4 | sample %5", activeGroup.m_sGroupId, source, vehicleChanged, vehicleMismatches, ReportText(vehicleSample)));
 		}
 
 		string sample;
@@ -9446,6 +9457,7 @@ class HST_PhysicalWarService
 
 	protected int CountActiveGroupRuntimeFactionMismatches(HST_ActiveGroupState activeGroup, out string sample)
 	{
+		sample = "";
 		if (!activeGroup || activeGroup.m_sFactionKey.IsEmpty())
 			return 0;
 
@@ -9510,7 +9522,7 @@ class HST_PhysicalWarService
 			if (m_aRuntimeVehicleGroupIds[j] != activeGroup.m_sGroupId || j >= m_aRuntimeVehicleEntities.Count())
 				continue;
 
-			mismatches += CountRuntimeEntityFactionMismatch(m_aRuntimeVehicleEntities[j], expectedFactionKey, sample);
+			mismatches += CountRuntimeVehicleClaimMismatch(m_aRuntimeVehicleEntities[j], sample);
 		}
 
 		return mismatches;
@@ -9561,6 +9573,9 @@ class HST_PhysicalWarService
 		if (!entity || expectedFactionKey.IsEmpty())
 			return 0;
 
+		if (SCR_VehicleFactionAffiliationComponent.Cast(entity.FindComponent(SCR_VehicleFactionAffiliationComponent)))
+			return CountRuntimeVehicleClaimMismatch(entity, sample);
+
 		string actualFactionKey = ResolveEntityFactionKey(entity);
 		string prefab = ResolveEntityPrefabName(entity);
 		bool factionMismatch = actualFactionKey != expectedFactionKey;
@@ -9575,6 +9590,21 @@ class HST_PhysicalWarService
 			else
 				sample = string.Format("pos %1 actual %2 prefab %3", entity.GetOrigin(), ReportText(actualFactionKey), ReportText(prefab));
 		}
+
+		return 1;
+	}
+
+	protected int CountRuntimeVehicleClaimMismatch(IEntity entity, out string sample)
+	{
+		if (!entity)
+			return 0;
+
+		string actualFactionKey = HST_VehicleRootPolicy.ResolveVehicleFactionKey(entity);
+		if (actualFactionKey.IsEmpty())
+			return 0;
+
+		if (sample.IsEmpty())
+			sample = string.Format("vehicle pos %1 claimed faction %2 prefab %3", entity.GetOrigin(), ReportText(actualFactionKey), ReportText(ResolveEntityPrefabName(entity)));
 
 		return 1;
 	}
@@ -9846,7 +9876,7 @@ class HST_PhysicalWarService
 		activeGroup.m_iSurvivorVehicleCount = Math.Max(1, activeGroup.m_iVehicleCount);
 		if (state)
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
-		ApplyEntityFaction(entity, activeGroup.m_sFactionKey);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(entity);
 		m_aRuntimeVehicleGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeVehicleEntities.Insert(entity);
 		EnsureActiveGroupRuntimeFaction(activeGroup, "vehicle spawn");

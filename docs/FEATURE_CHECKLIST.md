@@ -113,7 +113,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Support spend ledger | Same-zone support stacking, recent damage pressure, spend caps, cooldowns, and refunds are tracked. | Broad Alpha | Keep as the reactive defense gate and continue tuning caps/cooldowns. | High |
 | Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Broad Alpha | Add richer target scoring, proactive timing, and three-way pressure. | Highest |
 | Abstract resolution | Off-screen orders and support resolve without needing physical entities. | Broad Alpha | Add stronger survivor, vehicle, and garrison outcome math. | High |
-| Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | QRF/support infantry now receives generated-route move/sweep AI waypoints and materializes linked response vehicles; next add richer HQ-pressure/counterattack behavior plus vehicle seating/movement. | Highest |
+| Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | QRF/support infantry now receives generated-route move/sweep AI waypoints and materializes linked unclaimed response vehicles; next add richer HQ-pressure/counterattack behavior plus vehicle seating/movement. | Highest |
 
 ### Civilians, Town Influence, And Population
 
@@ -161,7 +161,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Persistent arsenal | Loot deposits unlock faction equipment and support finite item accounting. | Broad Alpha | Finish AI loadout policy from arsenal unlocks. | High |
 | Loadout editor | Client UI edits loadouts, server applies atomically, and finite items are rolled back on failure. | Broad Alpha | Finish rendered UI smoke and long-run inventory soak. | High |
-| Vehicle capture and garage | Vehicles can be captured, stored, redeployed, and restored with cargo/heat metadata. | Broad Alpha / Needs Soak | Add capacity, class limits, fuel/damage polish, and repeated restart tests. | High |
+| Vehicle capture and garage | Vehicles can be captured, stored, redeployed, and restored with cargo/heat metadata. | Broad Alpha / Needs Soak | Redeployed/restored HST vehicles now clear engine faction claims; add capacity, class limits, fuel/damage polish, and repeated restart tests. | High |
 | Vehicle cargo | Captured/redeployed vehicles retain cargo records and restored contents. | Broad Alpha | Soak with mission cargo, garage handoff, and loot operations. | High |
 | Fuel/ammo/repair sources | Vehicle roles affect logistics and field support. | Partial | Add durable fuel and repair logistics rules. | Medium |
 
@@ -171,7 +171,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Keep mission starts category-based and improve disabled reasons. | High |
 | Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned; continue owner-client visual proof and marker/backing consistency checks. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions and curated location taxonomy preflight; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, curated location taxonomy preflight, and runtime vehicle-unclaimed audits; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build. | Implemented Foundation | Bump synchronized build markers for every runtime-proof behavior change. | Keep |
 

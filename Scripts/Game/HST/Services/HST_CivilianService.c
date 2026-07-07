@@ -2540,19 +2540,7 @@ class HST_CivilianService
 
 	protected void ClearRuntimeVehicleFaction(IEntity entity)
 	{
-		if (!entity)
-			return;
-
-		SCR_VehicleFactionAffiliationComponent vehicleFaction = SCR_VehicleFactionAffiliationComponent.Cast(entity.FindComponent(SCR_VehicleFactionAffiliationComponent));
-		if (vehicleFaction)
-		{
-			vehicleFaction.SetAffiliatedFaction(null);
-			return;
-		}
-
-		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
-		if (factionComponent)
-			factionComponent.SetAffiliatedFaction(null);
+		HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(entity);
 	}
 
 	protected bool TickRuntimeVehicleHeat(HST_CampaignState state, HST_RuntimeVehicleState vehicle)

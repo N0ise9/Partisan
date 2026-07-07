@@ -8313,6 +8313,34 @@ foreach ($requiredRuntimeFactionAuditEntry in @(
 		throw "Campaign debug cleanup must audit runtime group/vehicle faction mismatches: $requiredRuntimeFactionAuditEntry"
 	}
 }
+if ($physicalWarServiceText -match [regex]::Escape("ApplyEntityFaction(vehicleEntity")) {
+	throw "Physical-war vehicle spawns must remain unclaimed; do not stamp vehicle entities with faction ownership"
+}
+if ($physicalWarServiceText -match [regex]::Escape("ApplyEntityFaction(entity, activeGroup.m_sFactionKey);")) {
+	throw "Physical-war vehicle-only group spawns must remain unclaimed; do not stamp vehicle entities with active-group faction ownership"
+}
+if ($physicalWarServiceText -match [regex]::Escape("runtime vehicle faction applied")) {
+	throw "Runtime faction repair must clear vehicle claims instead of applying a faction to vehicle entities"
+}
+foreach ($requiredUnclaimedVehicleEntry in @(
+		"static bool ClearVehicleFactionAffiliation",
+		"static string ResolveVehicleFactionKey"
+	)) {
+	if ($vehicleRootPolicyText -notmatch [regex]::Escape($requiredUnclaimedVehicleEntry)) {
+		throw "Vehicle root policy must expose shared unclaimed-vehicle helpers: $requiredUnclaimedVehicleEntry"
+	}
+}
+foreach ($requiredUnclaimedRuntimeVehicleAuditEntry in @(
+		"HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(vehicleEntity)",
+		"CountRuntimeVehicleClaimMismatch",
+		"runtime vehicle faction cleared",
+		"vehicle claimed faction",
+		"vehicles are unclaimed"
+	)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredUnclaimedRuntimeVehicleAuditEntry)) {
+		throw "Physical-war runtime proof must keep vehicles unclaimed while factioning crews: $requiredUnclaimedRuntimeVehicleAuditEntry"
+	}
+}
 foreach ($requiredMissionCleanupGroupRemovalEntry in @(
 		"CleanupCampaignDebugMissionOwnedGroups",
 		"mission.cleanup.group_records_removed",

@@ -1,5 +1,54 @@
 class HST_VehicleRootPolicy
 {
+	static bool ClearVehicleFactionAffiliation(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		bool changed = false;
+		SCR_VehicleFactionAffiliationComponent vehicleFaction = SCR_VehicleFactionAffiliationComponent.Cast(entity.FindComponent(SCR_VehicleFactionAffiliationComponent));
+		if (vehicleFaction)
+		{
+			if (vehicleFaction.GetAffiliatedFaction())
+				changed = true;
+			vehicleFaction.SetAffiliatedFaction(null);
+		}
+
+		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+		if (factionComponent)
+		{
+			if (factionComponent.GetAffiliatedFaction())
+				changed = true;
+			factionComponent.SetAffiliatedFaction(null);
+		}
+
+		return changed;
+	}
+
+	static string ResolveVehicleFactionKey(IEntity entity)
+	{
+		if (!entity)
+			return "";
+
+		SCR_VehicleFactionAffiliationComponent vehicleFaction = SCR_VehicleFactionAffiliationComponent.Cast(entity.FindComponent(SCR_VehicleFactionAffiliationComponent));
+		if (vehicleFaction)
+		{
+			Faction vehicleClaim = vehicleFaction.GetAffiliatedFaction();
+			if (vehicleClaim)
+				return vehicleClaim.GetFactionKey();
+		}
+
+		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+		if (!factionComponent)
+			return "";
+
+		Faction faction = factionComponent.GetAffiliatedFaction();
+		if (!faction)
+			return "";
+
+		return faction.GetFactionKey();
+	}
+
 	static bool IsEligibleVehicleRootPrefab(string prefab)
 	{
 		if (prefab.IsEmpty())

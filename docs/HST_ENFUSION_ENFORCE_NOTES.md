@@ -75,6 +75,20 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_DefaultCatalog.EnsureCivilianPools()` and
     `HST_CivilianService.SelectCivilianCharacterPrefab()`.
 
+- HST-spawned vehicles should be source-catalog selected, but unclaimed.
+  - Selecting a vehicle prefab from a faction, zone, garage, or runtime record is
+    not the same as assigning engine faction ownership to the spawned entity.
+    A vehicle with an affiliated faction can reject player entry/use when the
+    player's faction is not friendly to that claim.
+  - Clear `SCR_VehicleFactionAffiliationComponent`/`FactionAffiliationComponent`
+    after spawning vehicles and during runtime repair. Keep faction stamping for
+    group roots and crew characters only.
+  - Runtime debug should check these as separate facts: crew/group faction must
+    match the active group, while linked vehicles must have no claim.
+  - Current examples:
+    `HST_VehicleRootPolicy.ClearVehicleFactionAffiliation()` and
+    `HST_PhysicalWarService.CountRuntimeVehicleClaimMismatch()`.
+
 - Planning/checklist docs should be first-party h-istasi documents.
   - When converting external planning material, keep feature status, gaps,
     priorities, implementation contracts, and acceptance tests.

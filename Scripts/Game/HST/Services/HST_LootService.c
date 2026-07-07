@@ -177,6 +177,7 @@ class HST_LootService
 			}
 
 			HST_WorldPositionService.ApplyUprightEntityTransform(spawnedVehicle, record.m_vPosition, record.m_vAngles);
+			HST_VehicleRootPolicy.ClearVehicleFactionAffiliation(spawnedVehicle);
 			HST_RuntimeVehicleState restoredRecord = EnsureRuntimeVehicleRecord(state, spawnedVehicle, record, record.m_sPrefab);
 			if (restoredRecord)
 			{
