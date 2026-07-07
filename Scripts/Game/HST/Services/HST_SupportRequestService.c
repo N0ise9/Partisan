@@ -45,11 +45,18 @@ class HST_SupportRequestService
 
 	protected bool m_bMarkerRefreshNeeded;
 	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
+	protected ref HST_SpawnPlacementService m_SpawnPlacements = new HST_SpawnPlacementService();
 
 	void SetForceCompositionService(HST_ForceCompositionService forceCompositions)
 	{
 		if (forceCompositions)
 			m_ForceCompositions = forceCompositions;
+	}
+
+	void SetSpawnPlacementService(HST_SpawnPlacementService spawnPlacements)
+	{
+		if (spawnPlacements)
+			m_SpawnPlacements = spawnPlacements;
 	}
 
 	HST_SupportRequestState RequestSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
@@ -520,19 +527,33 @@ class HST_SupportRequestService
 
 		string prefab = groupPlan.m_sPrefab;
 
-		vector objectivePosition = ResolvePhysicalSupportTargetPosition(state, request);
+		if (!m_SpawnPlacements)
+			m_SpawnPlacements = new HST_SpawnPlacementService();
+
+		HST_SpawnPlacementResult placement = m_SpawnPlacements.ResolvePlacement(state, preset, m_SpawnPlacements.BuildSupportPlacementRequest(state, preset, request, arrivedAtTarget));
+		if (!placement || !placement.m_bSuccess)
+		{
+			request.m_sFailureReason = "spawn placement failed";
+			if (placement && !placement.m_sFailureReason.IsEmpty())
+				request.m_sFailureReason = placement.m_sFailureReason;
+			request.m_sRuntimeStatus = "physicalize_failed_placement";
+			request.m_sPhysicalizationMode = "ground_group_blocked";
+			return false;
+		}
+
+		vector objectivePosition = placement.m_vTargetPosition;
 		vector targetPosition = objectivePosition;
 		vector sourcePosition;
 		string phase = "staged";
 		if (arrivedAtTarget)
 		{
-			sourcePosition = ResolvePhysicalSupportArrivalPosition(state, request);
+			sourcePosition = placement.m_vSpawnPosition;
 			targetPosition = sourcePosition;
 			phase = "arrived";
 		}
 		else
 		{
-			sourcePosition = ResolvePhysicalSupportStagingPosition(state, request);
+			sourcePosition = placement.m_vSpawnPosition;
 			targetPosition = objectivePosition;
 		}
 

@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r45-force-composition-suite";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r46-spawn-placement-suite";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -82,6 +82,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_PhysicalWarService m_PhysicalWar;
 	protected ref HST_ZoneCompositionService m_ZoneCompositions;
 	protected ref HST_ForceCompositionService m_ForceCompositions;
+	protected ref HST_SpawnPlacementService m_SpawnPlacements;
 	protected ref HST_MapMarkerService m_MapMarkers;
 	protected ref HST_PlayerMapMarkerService m_PlayerMapMarkers;
 	protected ref HST_CommandUIService m_CommandUI;
@@ -289,6 +290,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_PhysicalWar.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_ZoneCompositions = new HST_ZoneCompositionService();
 		m_ForceCompositions = new HST_ForceCompositionService();
+		m_SpawnPlacements = new HST_SpawnPlacementService();
 		m_MapMarkers = new HST_MapMarkerService();
 		if (m_MapMarkers && m_Settings && m_Settings.m_Debug)
 			m_MapMarkers.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
@@ -314,7 +316,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ConvoyOutcomes = new HST_ConvoyOutcomeService();
 		m_SupportRequests = new HST_SupportRequestService();
 		if (m_SupportRequests)
+		{
 			m_SupportRequests.SetForceCompositionService(m_ForceCompositions);
+			m_SupportRequests.SetSpawnPlacementService(m_SpawnPlacements);
+		}
 		m_Civilians = new HST_CivilianService();
 		m_EnemyCommander = new HST_EnemyCommanderService();
 
@@ -3503,6 +3508,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.mission_runtime", "mission runtime service non-null", string.Format("%1", m_MissionRuntime != null), CampaignDebugStatus(m_MissionRuntime != null), "mission runtime service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.support_requests", "support request service non-null", string.Format("%1", m_SupportRequests != null), CampaignDebugStatus(m_SupportRequests != null), "support request service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.force_composition", "force composition service non-null", string.Format("%1", m_ForceCompositions != null), CampaignDebugStatus(m_ForceCompositions != null), "force composition service missing");
+		AddCampaignDebugAssertion(preflightCase, "preflight.service.spawn_placement", "spawn placement service non-null", string.Format("%1", m_SpawnPlacements != null), CampaignDebugStatus(m_SpawnPlacements != null), "spawn placement service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.civilians", "civilian service non-null", string.Format("%1", m_Civilians != null), CampaignDebugStatus(m_Civilians != null), "civilian service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.enemy_commander", "enemy commander service non-null", string.Format("%1", m_EnemyCommander != null), CampaignDebugStatus(m_EnemyCommander != null), "enemy commander service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.hq", "HQ service non-null", string.Format("%1", m_HQ != null), CampaignDebugStatus(m_HQ != null), "HQ service missing");
@@ -3974,6 +3980,153 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result.m_iVehicleCount;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugSpawnPlacementCase()
+	{
+		HST_CampaignDebugCaseResult placementCase = CreateCampaignDebugCase("spawn_placement.contract.runtime", "spawn_placement", "spawn_placement_contract", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_SpawnPlacements != null;
+		AddCampaignDebugAssertion(placementCase, "spawn_placement.prerequisite", "state, preset, and spawn placement service ready", string.Format("state %1 | preset %2 | service %3", m_State != null, m_Preset != null, m_SpawnPlacements != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "spawn placement prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(placementCase);
+			return placementCase;
+		}
+
+		HST_ZoneState targetZone = FindCampaignDebugSpawnPlacementOutpost();
+		HST_ZoneState sourceZone = FindCampaignDebugSpawnPlacementSourceZone(targetZone);
+		HST_SpawnPlacementResult qrfPlacement = m_SpawnPlacements.ResolvePlacement(m_State, m_Preset, BuildCampaignDebugQRFPlacementRequest(targetZone, sourceZone));
+		HST_SpawnPlacementResult petrosPlacement = m_SpawnPlacements.ResolvePlacement(m_State, m_Preset, BuildCampaignDebugPetrosPlacementRequest(targetZone, sourceZone));
+		HST_SpawnPlacementResult convoyPlacement = m_SpawnPlacements.ResolvePlacement(m_State, m_Preset, BuildCampaignDebugConvoyPlacementRequest(targetZone, sourceZone));
+		HST_SpawnPlacementResult failurePlacement = m_SpawnPlacements.ResolvePlacement(m_State, m_Preset, BuildCampaignDebugInvalidPlacementRequest());
+
+		placementCase.m_aEvidence.Insert(BuildCampaignDebugSpawnPlacementActual(qrfPlacement));
+		placementCase.m_aEvidence.Insert(BuildCampaignDebugSpawnPlacementActual(petrosPlacement));
+		placementCase.m_aEvidence.Insert(BuildCampaignDebugSpawnPlacementActual(convoyPlacement));
+		placementCase.m_aEvidence.Insert(BuildCampaignDebugSpawnPlacementActual(failurePlacement));
+
+		AddCampaignDebugAssertion(placementCase, "spawn_placement.qrf_road_safe", "QRF staging can find a dry road-safe source near an outpost", BuildCampaignDebugSpawnPlacementActual(qrfPlacement), CampaignDebugStatus(qrfPlacement && qrfPlacement.m_bSuccess && qrfPlacement.m_bDryGround && qrfPlacement.m_bRoadResolved), "QRF placement did not resolve a dry road-safe source");
+		bool petrosTargetReady = m_State.m_bHQDeployed;
+		bool petrosSafe = petrosPlacement && petrosPlacement.m_bSuccess && petrosPlacement.m_bHQStandoffSatisfied && petrosPlacement.m_fHQDistanceMeters >= HST_SpawnPlacementService.HQ_SAFE_RADIUS_METERS;
+		string petrosStatus = "FAIL";
+		if (!petrosTargetReady)
+			petrosStatus = "BLOCKED";
+		AddCampaignDebugAssertion(placementCase, "spawn_placement.petros_hq_standoff", "Petros attackers avoid HQ safe radius while targeting HQ area", BuildCampaignDebugSpawnPlacementActual(petrosPlacement), CampaignDebugStatus(petrosTargetReady && petrosSafe, petrosStatus), "Petros attack placement did not preserve HQ standoff");
+		bool convoyReported = convoyPlacement && !convoyPlacement.m_sDebugSummary.IsEmpty() && (convoyPlacement.m_sDebugSummary.Contains("dry") || convoyPlacement.m_sDebugSummary.Contains("failure"));
+		AddCampaignDebugAssertion(placementCase, "spawn_placement.convoy_dry_ground_report", "convoy source/destination placement reports road and dry-ground validation", BuildCampaignDebugSpawnPlacementActual(convoyPlacement), CampaignDebugStatus(convoyReported), "convoy placement did not report road/dry validation");
+		AddCampaignDebugAssertion(placementCase, "spawn_placement.failure_reason", "placement failure reports an explicit reason", BuildCampaignDebugSpawnPlacementActual(failurePlacement), CampaignDebugStatus(failurePlacement && !failurePlacement.m_bSuccess && !failurePlacement.m_sFailureReason.IsEmpty()), "invalid placement request did not produce a visible failure reason");
+
+		FinalizeCampaignDebugCaseFromAssertions(placementCase);
+		return placementCase;
+	}
+
+	protected HST_SpawnPlacementRequest BuildCampaignDebugQRFPlacementRequest(HST_ZoneState targetZone, HST_ZoneState sourceZone)
+	{
+		HST_SpawnPlacementRequest request = new HST_SpawnPlacementRequest();
+		request.m_sRequestId = "debug_spawn_qrf";
+		request.m_sPlacementType = HST_SpawnPlacementService.TYPE_QRF_STAGING;
+		if (targetZone)
+		{
+			request.m_sTargetZoneId = targetZone.m_sZoneId;
+			request.m_vTargetPosition = targetZone.m_vPosition;
+		}
+		if (sourceZone)
+		{
+			request.m_sSourceZoneId = sourceZone.m_sZoneId;
+			request.m_vPreferredSourcePosition = sourceZone.m_vPosition;
+		}
+		request.m_fMinStandoffMeters = 220.0;
+		request.m_fMaxStandoffMeters = 900.0;
+		request.m_fRoadSearchRadiusMeters = 700.0;
+		request.m_bRequireDryGround = true;
+		request.m_bPreferRoadSource = true;
+		request.m_bRequireRoadSource = true;
+		request.m_sReason = "campaign debug qrf placement";
+		request.m_bExplain = true;
+		return request;
+	}
+
+	protected HST_SpawnPlacementRequest BuildCampaignDebugPetrosPlacementRequest(HST_ZoneState targetZone, HST_ZoneState sourceZone)
+	{
+		HST_SpawnPlacementRequest request = new HST_SpawnPlacementRequest();
+		request.m_sRequestId = "debug_spawn_petros_attack";
+		request.m_sPlacementType = HST_SpawnPlacementService.TYPE_PETROS_ATTACK_STAGING;
+		if (targetZone)
+		{
+			request.m_sTargetZoneId = targetZone.m_sZoneId;
+			request.m_vTargetPosition = targetZone.m_vPosition;
+		}
+		if (sourceZone)
+		{
+			request.m_sSourceZoneId = sourceZone.m_sZoneId;
+			request.m_vPreferredSourcePosition = sourceZone.m_vPosition;
+		}
+		request.m_bUseHQAsTarget = true;
+		request.m_bAvoidHQSafeRadius = true;
+		request.m_fMinStandoffMeters = HST_SpawnPlacementService.PETROS_ATTACK_MIN_STANDOFF_METERS + 140.0;
+		request.m_fMaxStandoffMeters = HST_SpawnPlacementService.PETROS_ATTACK_MIN_STANDOFF_METERS + 520.0;
+		request.m_bRequireDryGround = true;
+		request.m_sReason = "campaign debug petros attack placement";
+		request.m_bExplain = true;
+		return request;
+	}
+
+	protected HST_SpawnPlacementRequest BuildCampaignDebugConvoyPlacementRequest(HST_ZoneState targetZone, HST_ZoneState sourceZone)
+	{
+		vector sourcePosition;
+		vector targetPosition;
+		if (sourceZone)
+			sourcePosition = sourceZone.m_vPosition;
+		if (targetZone)
+			targetPosition = targetZone.m_vPosition;
+		return m_SpawnPlacements.BuildConvoyEndpointRequest("debug_spawn_convoy_source", sourcePosition, targetPosition, true);
+	}
+
+	protected HST_SpawnPlacementRequest BuildCampaignDebugInvalidPlacementRequest()
+	{
+		HST_SpawnPlacementRequest request = new HST_SpawnPlacementRequest();
+		request.m_sRequestId = "debug_spawn_invalid";
+		request.m_sPlacementType = HST_SpawnPlacementService.TYPE_QRF_STAGING;
+		request.m_bRequireDryGround = true;
+		request.m_bExplain = true;
+		request.m_sReason = "campaign debug invalid placement";
+		return request;
+	}
+
+	protected HST_ZoneState FindCampaignDebugSpawnPlacementOutpost()
+	{
+		if (!m_State)
+			return null;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (zone && zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST && (!m_Preset || zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey))
+				return zone;
+		}
+
+		return FindCampaignDebugForceCompositionZone();
+	}
+
+	protected HST_ZoneState FindCampaignDebugSpawnPlacementSourceZone(HST_ZoneState targetZone)
+	{
+		if (!m_State)
+			return null;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (zone && zone != targetZone && targetZone && zone.m_sOwnerFactionKey == targetZone.m_sOwnerFactionKey)
+				return zone;
+		}
+
+		return FindCampaignDebugForceCompositionZone();
+	}
+
+	protected string BuildCampaignDebugSpawnPlacementActual(HST_SpawnPlacementResult result)
+	{
+		if (!result)
+			return "missing";
+
+		return result.m_sDebugSummary;
+	}
+
 	protected void AddCampaignDebugGameMasterBudgetAssertions(HST_CampaignDebugCaseResult preflightCase)
 	{
 		if (!preflightCase)
@@ -4413,6 +4566,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugObservation("campaign end", RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugCase(BuildCampaignDebugForceCompositionCase());
 		RecordCampaignDebugObservation("force composition", RequestAdminForceCompositionReport(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugCase(BuildCampaignDebugSpawnPlacementCase());
+		RecordCampaignDebugObservation("spawn placement", RequestAdminSpawnPlacementReport(m_iCampaignDebugPlayerId));
 		string persistenceReport = BuildCampaignDebugBaselinePersistenceReport();
 		bool persistenceHealthy = IsCampaignDebugPersistenceReportHealthy(persistenceReport);
 		bool persistenceWarning = persistenceHealthy && IsCampaignDebugPersistenceReportWarning(persistenceReport);
@@ -20862,6 +21017,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string report = m_ForceCompositions.BuildCompositionReport(m_State, m_Preset);
 		HST_CampaignDebugCaseResult debugCase = BuildCampaignDebugForceCompositionCase();
+		if (debugCase)
+			report = report + string.Format("\ncontract case | status %1 | assertions %2", debugCase.m_sStatus, debugCase.m_aAssertions.Count());
+
+		return report;
+	}
+
+	string RequestAdminSpawnPlacementReport(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi spawn placement | admin required";
+
+		if (!m_SpawnPlacements)
+			return "h-istasi spawn placement | service not ready";
+
+		string report = m_SpawnPlacements.BuildPlacementReport(m_State, m_Preset);
+		HST_CampaignDebugCaseResult debugCase = BuildCampaignDebugSpawnPlacementCase();
 		if (debugCase)
 			report = report + string.Format("\ncontract case | status %1 | assertions %2", debugCase.m_sStatus, debugCase.m_aAssertions.Count());
 

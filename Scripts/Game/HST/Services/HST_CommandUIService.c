@@ -220,6 +220,7 @@ class HST_CommandUIService
 		BuildCommanderCommandList(actions);
 		actions.Insert("inspect_zone_composition");
 		actions.Insert("admin_force_composition_report");
+		actions.Insert("admin_spawn_placement_report");
 		actions.Insert("debug_mission_id <id>");
 		actions.Insert("capture_zone <zone>");
 		actions.Insert("progress_zone <zone>");
@@ -294,6 +295,7 @@ class HST_CommandUIService
 		required.Insert("member_promote_commander");
 		required.Insert("admin_force_self_commander");
 		required.Insert("admin_force_composition_report");
+		required.Insert("admin_spawn_placement_report");
 		required.Insert("admin_phase14_report");
 		required.Insert("admin_phase15_report");
 		required.Insert("admin_phase16_report");
@@ -360,6 +362,7 @@ class HST_CommandUIService
 		if (commandId == "member_promote_commander") return true;
 		if (commandId == "admin_force_self_commander") return true;
 		if (commandId == "admin_force_composition_report") return true;
+		if (commandId == "admin_spawn_placement_report") return true;
 		if (commandId == "admin_phase14_report") return true;
 		if (commandId == "admin_phase15_report") return true;
 		if (commandId == "admin_phase16_report") return true;
@@ -428,6 +431,7 @@ class HST_CommandUIService
 		if (commandId == "member_promote_commander") return true;
 		if (commandId == "admin_force_self_commander") return true;
 		if (commandId == "admin_force_composition_report") return true;
+		if (commandId == "admin_spawn_placement_report") return true;
 		if (commandId == "admin_phase14_report") return true;
 		if (commandId == "admin_phase15_report") return true;
 		if (commandId == "admin_phase16_report") return true;
@@ -950,6 +954,9 @@ class HST_CommandUIService
 
 		if (commandId == "admin_force_composition_report")
 			return coordinator.RequestAdminForceCompositionReport(playerId);
+
+		if (commandId == "admin_spawn_placement_report")
+			return coordinator.RequestAdminSpawnPlacementReport(playerId);
 
 		if (commandId == "new_campaign")
 			return BuildBoolResult("reset campaign", coordinator.RequestAdminNewCampaignReset(playerId), "admin required or reset precondition failed");
@@ -2408,6 +2415,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "admin_reports", "Admin Reports");
 		payload = AppendRow(payload, "admin_reports", "Persistence", "Use Persistence status / smoke report before validating a phase.", "neutral");
 		payload = AppendRow(payload, "admin_reports", "Force composition", "Request/result contract for runtime force planning.", "good");
+		payload = AppendRow(payload, "admin_reports", "Spawn placement", "Request/result contract for physical spawn placement.", "good");
 		payload = AppendRow(payload, "admin_reports", "Marker audit", "Phase 23 marker audit validates visible marker coverage.", "good");
 
 		payload = AppendSection(payload, "admin_missions", "Force Missions");
@@ -2599,6 +2607,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Cleanup Campaign Debug", "admin_campaign_debug_cleanup", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force myself commander", "admin_force_self_commander", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force Composition Report", "admin_force_composition_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Spawn Placement Report", "admin_spawn_placement_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Ammo convoy", "debug_mission_id", "convoy_ammo", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Armored convoy", "debug_mission_id", "convoy_armored", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Money convoy", "debug_mission_id", "convoy_money", canUseAdmin, "admin required");

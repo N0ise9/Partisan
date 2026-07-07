@@ -59,6 +59,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Physical spawn placement should go through an explainable request/result contract.
+  - Tactical systems should ask for source/target placement by intent, target
+    zone, preferred source, standoff, road preference, dry-ground requirement,
+    vehicle-safe requirement, and HQ standoff rule.
+  - Keep the placement result data-only: resolved spawn/target positions,
+    road forward vector, road/dry/vehicle-safe booleans, distance metrics, and
+    explicit failure reason. Runtime services can then decide whether to spawn,
+    fallback, or resolve abstractly.
+  - Current examples: `HST_SpawnPlacementService`,
+    `HST_SupportRequestService.ApplyActiveSupport()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugSpawnPlacementCase()`.
+
 - Force creation should start from a serializable request/result contract.
   - Tactical systems should ask for a force by intent, faction, war level,
     budget, manpower bounds, vehicle permissions, and reason, then consume a
