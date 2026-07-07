@@ -73,6 +73,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
     spawn behavior is judged.
   - Current examples: `HST_ForceCompositionService`,
     `HST_SupportRequestService.ApplyActiveSupport()`,
+    `HST_MissionRuntimeService.ComposeMissionGuardForce()`,
+    `HST_GarrisonService.ComposeGarrisonForce()`,
     `HST_EnemyCommanderService.SyncPhysicalizedOrder()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugForceCompositionCase()`.
 

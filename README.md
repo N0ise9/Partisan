@@ -67,7 +67,7 @@ The repository contains a broad-alpha campaign foundation:
 - Enemy commander orders and support requests that can physicalize near players
   or resolve abstractly off-screen while preserving runtime status and outcome
   diagnostics
-- Request-driven force composition for support and debug probes, with
+- Request-driven force composition for support, mission, garrison, and debug probes, with
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records
 - Civilian town support plus undercover eligibility, request/application,

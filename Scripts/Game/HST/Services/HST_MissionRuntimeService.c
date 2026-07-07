@@ -94,6 +94,7 @@ class HST_MissionRuntimeService
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 
+	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
 	protected ref array<string> m_aRuntimeEntityIds = {};
 	protected ref array<IEntity> m_aRuntimeEntities = {};
 	protected ref array<IEntity> m_aMissionVehicleScanEntities = {};
@@ -101,6 +102,12 @@ class HST_MissionRuntimeService
 	protected ref array<string> m_aCaptiveFollowWaypointAssetIds = {};
 	protected ref array<int> m_aCaptiveFollowWaypointSeconds = {};
 	protected bool m_bDebugLoggingEnabled;
+
+	void SetForceCompositionService(HST_ForceCompositionService forceCompositions)
+	{
+		if (forceCompositions)
+			m_ForceCompositions = forceCompositions;
+	}
 
 	void SetDebugLoggingEnabled(bool enabled)
 	{
@@ -6435,23 +6442,80 @@ class HST_MissionRuntimeService
 		if (factionKey.IsEmpty() || factionKey == preset.m_sResistanceFactionKey)
 			factionKey = preset.m_sOccupierFactionKey;
 
+		HST_ForceCompositionResult composition = ComposeMissionGuardForce(state, preset, definition, mission);
+		HST_GroupSpawnPlan groupPlan;
+		if (composition)
+			groupPlan = composition.GetPrimaryGroup();
+
 		HST_ActiveGroupState group = new HST_ActiveGroupState();
 		vector guardPosition = ResolveMissionGuardPosition(state, mission);
 		group.m_sGroupId = groupId;
 		group.m_sZoneId = zone.m_sZoneId;
 		group.m_sFactionKey = factionKey;
-		group.m_sPrefab = SelectMissionGroupPrefab(state, zone, factionKey, definition);
+		if (composition)
+			m_ForceCompositions.ApplyCompositionToActiveGroup(group, composition);
+		if (composition && composition.m_bSuccess && groupPlan)
+			group.m_sPrefab = groupPlan.m_sPrefab;
+		else
+			group.m_sPrefab = SelectMissionGroupPrefab(state, zone, factionKey, definition);
 		group.m_sRouteId = "";
 		group.m_vSourcePosition = guardPosition;
 		group.m_vTargetPosition = guardPosition;
 		group.m_vPosition = HST_WorldPositionService.ResolveSafeGroundPosition(guardPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 4.0);
 		group.m_sRuntimeStatus = "mission_guard";
-		group.m_iInfantryCount = ResolveMissionGuardInfantryCount(state, definition);
-		group.m_iVehicleCount = ResolveMissionGuardVehicleCount(definition);
+		if (groupPlan)
+			group.m_iInfantryCount = Math.Max(1, groupPlan.m_iManpower);
+		else
+			group.m_iInfantryCount = ResolveMissionGuardInfantryCount(state, definition);
+		if (composition && composition.m_bSuccess)
+			group.m_iVehicleCount = composition.m_iVehicleCount;
+		else
+			group.m_iVehicleCount = ResolveMissionGuardVehicleCount(definition);
 		group.m_iLastSeenAliveCount = group.m_iInfantryCount + group.m_iVehicleCount;
 		group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
 		group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
 		state.m_aActiveGroups.Insert(group);
+	}
+
+	HST_ForceCompositionResult ComposeMissionGuardForce(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState mission)
+	{
+		if (!m_ForceCompositions)
+			m_ForceCompositions = new HST_ForceCompositionService();
+
+		return m_ForceCompositions.Compose(state, preset, BuildMissionGuardForceRequest(state, preset, definition, mission));
+	}
+
+	protected HST_ForceRequest BuildMissionGuardForceRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState mission)
+	{
+		HST_ForceRequest request = new HST_ForceRequest();
+		if (!state || !preset || !definition || !mission)
+			return request;
+
+		HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
+		string factionKey = preset.m_sOccupierFactionKey;
+		if (zone && !zone.m_sOwnerFactionKey.IsEmpty() && zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+			factionKey = zone.m_sOwnerFactionKey;
+
+		request.m_sRequestId = "mission_guard_" + mission.m_sInstanceId;
+		request.m_sFactionKey = factionKey;
+		request.m_sIntentId = HST_ForceCompositionService.INTENT_GARRISON;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			request.m_sIntentId = HST_ForceCompositionService.INTENT_CONVOY_GUARDS;
+		else if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			request.m_sIntentId = HST_ForceCompositionService.INTENT_CHECKPOINT;
+		request.m_sTargetZoneId = mission.m_sTargetZoneId;
+		request.m_vTargetPosition = ResolveMissionGuardPosition(state, mission);
+		request.m_iWarLevel = Math.Max(1, state.m_iWarLevel);
+		request.m_iMinManpower = 2;
+		request.m_iMaxManpower = ResolveMissionGuardInfantryCount(state, definition);
+		request.m_iBudget = Math.Max(24, 24 + state.m_iWarLevel * 6 + ResolveMissionGuardVehicleCount(definition) * 14);
+		request.m_bAllowInfantry = true;
+		request.m_bAllowVehicles = ResolveMissionGuardVehicleCount(definition) > 0;
+		request.m_bAllowArmedVehicles = request.m_bAllowVehicles && state.m_iWarLevel >= 5;
+		request.m_bAllowLightArmor = request.m_bAllowVehicles && definition.m_sMissionId.Contains("armor");
+		request.m_bExplain = true;
+		request.m_sReason = "mission guard";
+		return request;
 	}
 
 	protected vector ResolveMissionGuardPosition(HST_CampaignState state, HST_ActiveMissionState mission)

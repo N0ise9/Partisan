@@ -307,6 +307,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Content = new HST_GeneratedContentService();
 		m_Objectives = new HST_MissionObjectiveService();
 		m_MissionRuntime = new HST_MissionRuntimeService();
+		if (m_MissionRuntime)
+			m_MissionRuntime.SetForceCompositionService(m_ForceCompositions);
 		if (m_MissionRuntime && m_Settings && m_Settings.m_Debug)
 			m_MissionRuntime.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_ConvoyOutcomes = new HST_ConvoyOutcomeService();
@@ -3711,14 +3713,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_ForceCompositionResult usWar1 = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("US", HST_ForceCompositionService.INTENT_QRF_REGULAR, 1, true, true));
 		HST_ForceCompositionResult usWar5 = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("US", HST_ForceCompositionService.INTENT_QRF_REGULAR, 5, true, true));
+		HST_ForceCompositionResult ussrWar5 = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("USSR", HST_ForceCompositionService.INTENT_COUNTERATTACK, 5, true, true));
+		HST_ForceCompositionResult fiaWar2 = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("FIA", HST_ForceCompositionService.INTENT_GARRISON, 2, true, false));
 		HST_ForceCompositionResult usNoVehicles = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("US", HST_ForceCompositionService.INTENT_QRF_REGULAR, 5, true, false));
 		HST_ForceCompositionResult invalidOnly = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugInvalidForceRequest());
 		HST_ForceCompositionResult unsupportedHelicopter = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugUnsupportedHelicopterForceRequest());
 		HST_ForceCompositionResult unsupportedArtillery = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugUnsupportedArtilleryForceRequest());
 
+		HST_ZoneState consumerZone = FindCampaignDebugForceCompositionZone();
 		HST_SupportRequestState supportRequest = BuildCampaignDebugSyntheticSupportRequest("force_composition_contract");
 		HST_ForceCompositionResult supportComposition = m_ForceCompositions.Compose(m_State, m_Preset, m_ForceCompositions.BuildSupportForceRequest(m_State, m_Preset, supportRequest));
 		m_ForceCompositions.ApplyCompositionToSupportRequest(supportRequest, supportComposition);
+		HST_ForceCompositionResult missionComposition;
+		HST_MissionDefinition missionDefinition = BuildCampaignDebugSyntheticMissionDefinition();
+		HST_ActiveMissionState missionState = BuildCampaignDebugSyntheticMission(consumerZone);
+		if (m_MissionRuntime)
+			missionComposition = m_MissionRuntime.ComposeMissionGuardForce(m_State, m_Preset, missionDefinition, missionState);
+		HST_ForceCompositionResult garrisonComposition;
+		HST_GarrisonState syntheticGarrison = BuildCampaignDebugSyntheticGarrison(consumerZone);
+		if (m_Garrisons)
+			garrisonComposition = m_Garrisons.ComposeGarrisonForce(m_State, m_Preset, consumerZone, syntheticGarrison, m_ForceCompositions);
 		HST_EnemyOrderState syntheticOrder = new HST_EnemyOrderState();
 		if (supportComposition)
 		{
@@ -3741,11 +3755,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(usWar1));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(usWar5));
+		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(ussrWar5));
+		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(fiaWar2));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(usNoVehicles));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(invalidOnly));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(unsupportedHelicopter));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(unsupportedArtillery));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(supportComposition));
+		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(missionComposition));
+		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(garrisonComposition));
 
 		AddCampaignDebugMetric(forceCase, "force_composition.us_wl1.cost", string.Format("%1", SafeForceCompositionCost(usWar1)), "cost");
 		AddCampaignDebugMetric(forceCase, "force_composition.us_wl5.cost", string.Format("%1", SafeForceCompositionCost(usWar5)), "cost");
@@ -3755,11 +3773,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		AddCampaignDebugAssertion(forceCase, "force_composition.us_wl1.success", "US regular QRF at war level 1 succeeds", BuildCampaignDebugForceCompositionActual(usWar1), CampaignDebugStatus(usWar1 && usWar1.m_bSuccess), "war-level 1 QRF composition failed");
 		AddCampaignDebugAssertion(forceCase, "force_composition.us_wl5.success", "US regular QRF at war level 5 succeeds", BuildCampaignDebugForceCompositionActual(usWar5), CampaignDebugStatus(usWar5 && usWar5.m_bSuccess), "war-level 5 QRF composition failed");
+		AddCampaignDebugAssertion(forceCase, "force_composition.faction_coverage", "debug composition requests work for US, FIA, and USSR", string.Format("US %1 | FIA %2 | USSR %3", BuildCampaignDebugForceCompositionActual(usWar1), BuildCampaignDebugForceCompositionActual(fiaWar2), BuildCampaignDebugForceCompositionActual(ussrWar5)), CampaignDebugStatus(usWar1 && usWar1.m_bSuccess && fiaWar2 && fiaWar2.m_bSuccess && ussrWar5 && ussrWar5.m_bSuccess), "one or more faction composition probes failed");
 		AddCampaignDebugAssertion(forceCase, "force_composition.war_level_scaling", "war level 5 output is stronger than war level 1", BuildCampaignDebugForceScalingActual(usWar1, usWar5), CampaignDebugStatus(usWar1 && usWar5 && usWar5.m_bSuccess && usWar5.m_iTotalCost > usWar1.m_iTotalCost && usWar5.m_iManpower >= usWar1.m_iManpower && usWar5.m_iVehicleCount >= usWar1.m_iVehicleCount), "war-level scaling did not increase force weight");
 		AddCampaignDebugAssertion(forceCase, "force_composition.vehicle_disabled", "allowVehicles=false returns no vehicles", BuildCampaignDebugForceCompositionActual(usNoVehicles), CampaignDebugStatus(usNoVehicles && usNoVehicles.m_bSuccess && usNoVehicles.m_iVehicleCount == 0), "vehicle-disabled force request returned a vehicle");
 		AddCampaignDebugAssertion(forceCase, "force_composition.invalid_prefab_failure", "invalid forced prefab reports failure and skipped prefab count", BuildCampaignDebugForceCompositionActual(invalidOnly), CampaignDebugStatus(invalidOnly && !invalidOnly.m_bSuccess && invalidOnly.m_iSkippedPrefabCount > 0 && invalidOnly.m_sFailureReason.Contains("invalid")), "invalid prefab request did not produce an explicit skipped-prefab failure");
 		AddCampaignDebugAssertion(forceCase, "force_composition.unsupported_helicopter", "unsupported helicopter request reports disabled capability", BuildCampaignDebugForceCompositionActual(unsupportedHelicopter), CampaignDebugStatus(unsupportedHelicopter && !unsupportedHelicopter.m_bSuccess && unsupportedHelicopter.m_sFailureReason.Contains("helicopter")), "unsupported helicopter request did not produce an explicit capability failure");
 		AddCampaignDebugAssertion(forceCase, "force_composition.unsupported_artillery", "unsupported artillery request reports disabled capability", BuildCampaignDebugForceCompositionActual(unsupportedArtillery), CampaignDebugStatus(unsupportedArtillery && !unsupportedArtillery.m_bSuccess && unsupportedArtillery.m_sFailureReason.Contains("artillery")), "unsupported artillery request did not produce an explicit capability failure");
+		AddCampaignDebugAssertion(forceCase, "force_composition.mission_consumer", "mission runtime can consume a force composition result", BuildCampaignDebugForceCompositionActual(missionComposition), CampaignDebugStatus(missionComposition && missionComposition.m_bSuccess && missionComposition.GetPrimaryGroup()), "mission runtime force composition consumer failed");
+		AddCampaignDebugAssertion(forceCase, "force_composition.garrison_consumer", "garrison service can consume a force composition result", BuildCampaignDebugForceCompositionActual(garrisonComposition), CampaignDebugStatus(garrisonComposition && garrisonComposition.m_bSuccess && garrisonComposition.GetPrimaryGroup()), "garrison force composition consumer failed");
 		bool supportSerialized = supportRequest && supportComposition && supportComposition.m_bSuccess && supportRequest.m_sCompositionIntentId == supportComposition.m_sIntentId && supportRequest.m_iCompositionManpower == supportComposition.m_iManpower && supportRequest.m_iCompositionCost == supportComposition.m_iTotalCost && !supportRequest.m_sCompositionSummary.IsEmpty();
 		bool activeGroupSerialized = syntheticGroup && supportComposition && supportComposition.m_bSuccess && syntheticGroup.m_sCompositionIntentId == supportComposition.m_sIntentId && syntheticGroup.m_iCompositionManpower == supportComposition.m_iManpower && !syntheticGroup.m_sCompositionSummary.IsEmpty();
 		bool orderSerialized = syntheticOrder && supportComposition && supportComposition.m_bSuccess && syntheticOrder.m_sCompositionIntentId == supportComposition.m_sIntentId && syntheticOrder.m_iCompositionManpower == supportComposition.m_iManpower && syntheticOrder.m_iCompositionCost == supportComposition.m_iTotalCost && !syntheticOrder.m_sCompositionSummary.IsEmpty();
@@ -3832,6 +3853,64 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		request.m_sTargetZoneId = "debug_force_composition";
 		request.m_sSourceZoneId = "debug_force_composition_source";
 		return request;
+	}
+
+	protected HST_ZoneState FindCampaignDebugForceCompositionZone()
+	{
+		if (!m_State)
+			return null;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (zone && m_Preset && zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+				return zone;
+		}
+
+		foreach (HST_ZoneState fallbackZone : m_State.m_aZones)
+		{
+			if (fallbackZone)
+				return fallbackZone;
+		}
+
+		return null;
+	}
+
+	protected HST_MissionDefinition BuildCampaignDebugSyntheticMissionDefinition()
+	{
+		HST_MissionDefinition definition = new HST_MissionDefinition();
+		definition.m_sMissionId = "debug_force_composition_mission";
+		definition.m_sDisplayName = "Force Composition Debug Mission";
+		definition.m_eCategory = HST_EMissionCategory.HST_MISSION_CONQUEST;
+		return definition;
+	}
+
+	protected HST_ActiveMissionState BuildCampaignDebugSyntheticMission(HST_ZoneState zone)
+	{
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = "force_composition_contract_mission";
+		mission.m_sMissionId = "debug_force_composition_mission";
+		mission.m_sRuntimePrimitive = "clear_area";
+		if (zone)
+		{
+			mission.m_sTargetZoneId = zone.m_sZoneId;
+			mission.m_vTargetPosition = zone.m_vPosition;
+		}
+		return mission;
+	}
+
+	protected HST_GarrisonState BuildCampaignDebugSyntheticGarrison(HST_ZoneState zone)
+	{
+		if (!zone)
+			return null;
+
+		HST_GarrisonState garrison = new HST_GarrisonState();
+		garrison.m_sZoneId = zone.m_sZoneId;
+		garrison.m_sFactionKey = zone.m_sOwnerFactionKey;
+		if (garrison.m_sFactionKey.IsEmpty() && m_Preset)
+			garrison.m_sFactionKey = m_Preset.m_sOccupierFactionKey;
+		garrison.m_iInfantryCount = Math.Max(4, m_State.m_iWarLevel + 3);
+		garrison.m_iVehicleCount = 1;
+		return garrison;
 	}
 
 	protected string BuildCampaignDebugForceCompositionActual(HST_ForceCompositionResult result)
