@@ -5,8 +5,8 @@ class HST_MapMarkerService
 	static const float MARKER_DECONFLICT_RADIUS_METERS = 14.0;
 	static const float MARKER_DECONFLICT_STEP_METERS = 22.0;
 	static const int MARKER_DECONFLICT_ATTEMPTS = 12;
-	static const int MAX_NATIVE_MARKERS = 96;
-	static const int MAX_NATIVE_TACTICAL_MARKERS = 16;
+	static const int MAX_NATIVE_MARKERS = 192;
+	static const int MAX_NATIVE_TACTICAL_MARKERS = 48;
 	static const int NATIVE_OWNERSHIP_SYNC_INTERVAL_SECONDS = 30;
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 

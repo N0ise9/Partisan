@@ -2310,7 +2310,9 @@ foreach ($requiredRuntimeMarkerEntry in @(
 		"RemoveStaticMarker",
 		"GetStaticMarkerByID",
 		"POINT_SPECIAL",
-		"OBSERVATION_POST"
+		"OBSERVATION_POST",
+		"MAX_NATIVE_MARKERS = 192",
+		"MAX_NATIVE_TACTICAL_MARKERS = 48"
 	)) {
 	if ($runtimeMarkerPipelineText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry)) {
 		throw "Missing runtime campaign marker service entry: $requiredRuntimeMarkerEntry"
@@ -8248,16 +8250,19 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"TryFlushPendingNativeGroupSpawnImmediately",
 		"SpawnAllImmediately",
 		"nativeImmediate %4",
+		"CampaignDebugResolveActiveGroupRouteAssignment",
+		"campaign debug route assignment",
+		"Assigned infantry route waypoint chain %1 via campaign debug route resolver",
 		"ResolveActiveGroupPrimarySpawnMode",
 		"IsSupportRequestActiveGroup",
 		"CountCampaignDebugDirectFallbackActiveGroups",
 		"direct fallback groups %2 | terminal fallback groups %3"
 	)) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
-		throw "Active AIGroup population must prove controlled native group spawning and tagged direct fallback detection: $requiredActiveGroupPopulationRuntimeEntry"
+		throw "Active AIGroup population must prove controlled native group spawning, route-proof recovery, and tagged direct fallback detection: $requiredActiveGroupPopulationRuntimeEntry"
 	}
 }
-$campaignDebugPopulationResolverMatch = [regex]::Match($physicalWarServiceText, "bool CampaignDebugResolvePendingActiveGroupPopulation[\s\S]*?protected bool TryKickPendingNativeGroupSpawn")
+$campaignDebugPopulationResolverMatch = [regex]::Match($physicalWarServiceText, "bool CampaignDebugResolvePendingActiveGroupPopulation[\s\S]*?bool CampaignDebugResolveActiveGroupRouteAssignment")
 if (!$campaignDebugPopulationResolverMatch.Success) {
 	throw "Could not locate campaign-debug active-group population resolver"
 }
@@ -8269,6 +8274,22 @@ if ($campaignDebugPopulationResolverMatch.Value -notmatch [regex]::Escape("direc
 }
 if ($campaignDebugPopulationResolverMatch.Value -notmatch [regex]::Escape("TryFlushPendingNativeGroupSpawnImmediately")) {
 	throw "Campaign-debug pre-route population resolver must force-drain the native delayed queue before judging route proof"
+}
+$campaignDebugRouteResolverMatch = [regex]::Match($physicalWarServiceText, "bool CampaignDebugResolveActiveGroupRouteAssignment[\s\S]*?protected bool TryKickPendingNativeGroupSpawn")
+if (!$campaignDebugRouteResolverMatch.Success) {
+	throw "Could not locate campaign-debug route assignment resolver"
+}
+foreach ($requiredRouteResolverEntry in @(
+		"CampaignDebugResolvePendingActiveGroupPopulation",
+		'TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "campaign debug route assignment", true)',
+		"UpdateRoutedActiveGroupsNow(state, preset, true)",
+		"AssignActiveGroupInfantryRouteWaypoints",
+		"infantry_waypoints",
+		"infantry_sweep"
+	)) {
+	if ($campaignDebugRouteResolverMatch.Value -notmatch [regex]::Escape($requiredRouteResolverEntry)) {
+		throw "Campaign-debug route resolver must force population recovery and prove real move/sweep waypoint assignment: $requiredRouteResolverEntry"
+	}
 }
 $controlledStockGroupSpawnMatch = [regex]::Match($physicalWarServiceText, "protected GenericEntity SpawnControlledNativeActiveGroupPrefab[\s\S]*?protected void StabilizeRuntimeAIGroupRoot")
 if (!$controlledStockGroupSpawnMatch.Success) {

@@ -1,7 +1,7 @@
 class HST_CampaignMapMarkerDirector
 {
-	static const int MAX_NATIVE_MARKERS = 96;
-	static const int MAX_NATIVE_TACTICAL_MARKERS = 16;
+	static const int MAX_NATIVE_MARKERS = 192;
+	static const int MAX_NATIVE_TACTICAL_MARKERS = 48;
 
 	protected int m_iLastEligibleCount;
 	protected int m_iLastSkippedCount;

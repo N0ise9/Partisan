@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r72-unclaimed-runtime-vehicles";
-	static const string BUILD_UTC = "2026-07-08T00:05:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r72-unclaimed-runtime-vehicles";
+	static const string BUILD_SHA = "r73-route-marker-proof";
+	static const string BUILD_UTC = "2026-07-08T00:45:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r73-route-marker-proof";
 
 	static string BuildSummary()
 	{

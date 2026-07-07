@@ -8055,6 +8055,73 @@ class HST_PhysicalWarService
 		return resolved;
 	}
 
+	bool CampaignDebugResolveActiveGroupRouteAssignment(HST_ActiveGroupState activeGroup, HST_CampaignState state, HST_CampaignPreset preset, string requestedStatus, out string evidence)
+	{
+		evidence = "missing group or state";
+		if (!activeGroup || !state)
+			return false;
+
+		string beforeStatus = activeGroup.m_sRuntimeStatus;
+		string beforeMode = activeGroup.m_sSpawnFallbackMode;
+		int beforeWaypoints = activeGroup.m_iAssignedWaypointCount;
+		string populationEvidence = "not pending";
+		bool populationResolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents";
+		bool directFallbackResolved;
+		bool routeUpdateChanged;
+		bool manualRouteAssigned;
+		bool assignedFinalSweepWaypoint;
+		int manualAssignedWaypoints;
+
+		if (!populationResolved)
+		{
+			populationResolved = CampaignDebugResolvePendingActiveGroupPopulation(activeGroup, state, requestedStatus, populationEvidence);
+			if (!populationResolved && activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
+			{
+				directFallbackResolved = TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "campaign debug route assignment", true);
+				populationResolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents" && CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId) > 0;
+			}
+		}
+
+		if (populationResolved)
+		{
+			routeUpdateChanged = UpdateRoutedActiveGroupsNow(state, preset, true);
+			if (!IsActiveGroupInfantryWaypointAssigned(activeGroup) && activeGroup.m_bSpawnedEntity && activeGroup.m_iInfantryCount > 0 && !IsMissionConvoyGroup(activeGroup) && (activeGroup.m_sRuntimeStatus == "routing" || activeGroup.m_sRuntimeStatus == "support_active"))
+			{
+				ref array<vector> routePositions = BuildActiveGroupRoutePositions(ResolveActiveGroupGeneratedRoute(state, activeGroup), activeGroup);
+				manualAssignedWaypoints = AssignActiveGroupInfantryRouteWaypoints(activeGroup, routePositions, assignedFinalSweepWaypoint);
+				if (manualAssignedWaypoints > 1)
+				{
+					activeGroup.m_iAssignedWaypointCount = manualAssignedWaypoints;
+					activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "infantry_waypoints");
+					if (assignedFinalSweepWaypoint)
+						activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "infantry_sweep");
+					activeGroup.m_sSpawnFailureReason = string.Format("Assigned infantry route waypoint chain %1 via campaign debug route resolver | final sweep %2.", manualAssignedWaypoints, ReportBool(assignedFinalSweepWaypoint));
+					manualRouteAssigned = true;
+					routeUpdateChanged = true;
+				}
+			}
+		}
+
+		bool routeAssigned = IsActiveGroupInfantryWaypointAssigned(activeGroup) && activeGroup.m_sSpawnFallbackMode.Contains("infantry_sweep");
+		evidence = string.Format("status %1 -> %2 | mode %3 -> %4 | waypoints %5 -> %6",
+			ReportText(beforeStatus),
+			ReportText(activeGroup.m_sRuntimeStatus),
+			ReportText(beforeMode),
+			ReportText(activeGroup.m_sSpawnFallbackMode),
+			beforeWaypoints,
+			activeGroup.m_iAssignedWaypointCount);
+		evidence = evidence + string.Format(" | population %1 | directFallback %2 | routeUpdate %3",
+			ReportBool(populationResolved),
+			ReportBool(directFallbackResolved),
+			ReportBool(routeUpdateChanged));
+		evidence = evidence + string.Format(" | manualRoute %1/%2 finalSweep %3 | %4",
+			ReportBool(manualRouteAssigned),
+			manualAssignedWaypoints,
+			ReportBool(assignedFinalSweepWaypoint),
+			ReportText(populationEvidence));
+		return routeAssigned;
+	}
+
 	protected bool TryKickPendingNativeGroupSpawn(HST_ActiveGroupState activeGroup, string source)
 	{
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")

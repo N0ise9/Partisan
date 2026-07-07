@@ -83,7 +83,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Stable zone IDs | All strategic state anchors to durable IDs. | Implemented Foundation | Curated Everon location-plan IDs are upserted on top of the existing extras; continue validating route/site coverage during runtime playtests. | High |
 | Zone type model | Towns, outposts, resources, factories, radio towers, airfields, seaports, banks, police, hideouts, and mission sites matter. | Broad Alpha | Full Campaign Debug preflight now asserts curated minimum counts and known-ID categories; next add richer economy/support effects per strategic type. | High |
 | Generated mission sites | Mission targets are generated from stable anchors and category/site rules. | Broad Alpha | Replace fallback sites with authored or validated site sets. | High |
-| Generated routes | Convoys, QRFs, patrols, roadblocks, and mission movement use route-aware paths. | Broad Alpha | Support/QRF deployments now use generated route chains and assign routed infantry move/sweep waypoint chains; extend this into richer garrison behavior and roadblock/patrol-specific waypoint types. | Highest |
+| Generated routes | Convoys, QRFs, patrols, roadblocks, and mission movement use route-aware paths. | Broad Alpha | Support/QRF deployments now use generated route chains and assign routed infantry move/sweep waypoint chains after delayed group population is resolved; extend this into richer garrison behavior and roadblock/patrol-specific waypoint types. | Highest |
 | Physical activation bubble | Near-player zones physicalize and off-screen forces stay abstract. | Broad Alpha | Tune activation/deactivation by performance, player count, and objective type. | High |
 
 ### Factions And Relations
@@ -170,8 +170,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Keep mission starts category-based and improve disabled reasons. | High |
-| Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned; continue owner-client visual proof and marker/backing consistency checks. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, curated location taxonomy preflight, and runtime vehicle-unclaimed audits; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
+| Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned, and native publication budgets cover the current curated marker set; continue owner-client visual proof and marker/backing consistency checks. | High |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, curated location taxonomy preflight, runtime vehicle-unclaimed audits, delayed route-assignment proof, and expanded native marker publication checks; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build. | Implemented Foundation | Bump synchronized build markers for every runtime-proof behavior change. | Keep |
 
