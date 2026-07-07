@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r56-active-group-source-links";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r57-enemy-order-resolution-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4343,6 +4343,205 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("faction %1 | pool %2/%3 | %4 | %5 | cooldown %6 | max %7", EmptyCampaignDebugField(factionKey), attackResources, supportResources, BuildCampaignDebugEnemySupportLedgerActual(ledger), BuildCampaignDebugEnemyOrderSpendActual(order), EmptyCampaignDebugField(cooldownReason), EmptyCampaignDebugField(maxReason));
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugEnemyOrderResolutionCase()
+	{
+		HST_CampaignDebugCaseResult orderCase = CreateCampaignDebugCase("enemy_order_resolution.contract.runtime", "enemy_commander", "abstract_order_resolution", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_EnemyDirector != null && m_EnemyCommander != null && m_Garrisons != null;
+		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.prerequisite", "state, preset, enemy director, enemy commander, and garrison service ready", string.Format("state %1 | preset %2 | director %3 | commander %4 | garrisons %5", m_State != null, m_Preset != null, m_EnemyDirector != null, m_EnemyCommander != null, m_Garrisons != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "enemy order resolution prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(orderCase);
+			return orderCase;
+		}
+
+		string factionKey = ResolveCampaignDebugEnemySupportFactionKey();
+		HST_FactionPoolState pool = m_State.FindFactionPool(factionKey);
+		bool poolReady = pool != null && !factionKey.IsEmpty();
+		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.pool", "enemy faction pool exists for abstract order proof", EmptyCampaignDebugField(factionKey), CampaignDebugStatus(poolReady, "BLOCKED"), "enemy faction pool missing");
+		if (!poolReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(orderCase);
+			return orderCase;
+		}
+
+		string rebuildZoneId = "debug_enemy_order_rebuild_zone";
+		string roadblockZoneId = "debug_enemy_order_roadblock_zone";
+		CleanupCampaignDebugEnemyOrderResolutionRecords(rebuildZoneId, roadblockZoneId);
+
+		int attackBefore = pool.m_iAttackResources;
+		int supportBefore = pool.m_iSupportResources;
+		int zoneCountBefore = m_State.m_aZones.Count();
+		int orderCountBefore = m_State.m_aEnemyOrders.Count();
+		int ledgerCountBefore = m_State.m_aEnemySupportLedgers.Count();
+		int garrisonCountBefore = m_State.m_aGarrisons.Count();
+		int civilianZoneCountBefore = m_State.m_aCivilianZones.Count();
+
+		vector basePosition = m_State.m_vHQPosition;
+		if (IsZeroVector(basePosition))
+			basePosition = "1000 0 1000";
+		HST_ZoneState rebuildZone = BuildCampaignDebugEnemyOrderResolutionZone(rebuildZoneId, "Enemy Order Rebuild Debug Zone", HST_EZoneType.HST_ZONE_OUTPOST, factionKey, basePosition + "320 0 0");
+		HST_ZoneState roadblockZone = BuildCampaignDebugEnemyOrderResolutionZone(roadblockZoneId, "Enemy Order Roadblock Debug Town", HST_EZoneType.HST_ZONE_TOWN, factionKey, basePosition + "420 0 80");
+		m_State.m_aZones.Insert(rebuildZone);
+		m_State.m_aZones.Insert(roadblockZone);
+
+		HST_GarrisonState rebuildGarrison = m_Garrisons.FindOrCreate(m_State, rebuildZoneId, factionKey);
+		if (rebuildGarrison)
+		{
+			rebuildGarrison.m_iInfantryCount = 1;
+			rebuildGarrison.m_iVehicleCount = 0;
+		}
+		HST_CivilianZoneState roadblockTown = new HST_CivilianZoneState();
+		roadblockTown.m_sZoneId = roadblockZoneId;
+		roadblockTown.m_iFIASupport = 35;
+		roadblockTown.m_iOccupierSupport = 55;
+		roadblockTown.m_iRoadblockPresence = 0;
+		roadblockTown.m_iPolicePresence = 1;
+		roadblockTown.m_iPopulationRemaining = 75;
+		m_State.m_aCivilianZones.Insert(roadblockTown);
+
+		HST_EnemyOrderState rebuildOrder = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, rebuildZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON);
+		HST_EnemyOrderState roadblockOrder = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, roadblockZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK);
+		bool ordersCreated = rebuildOrder && roadblockOrder && rebuildOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE && roadblockOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
+		AddCampaignDebugMetric(orderCase, "enemy_order_resolution.orders_before", string.Format("%1", orderCountBefore), "count");
+		AddCampaignDebugMetric(orderCase, "enemy_order_resolution.ledgers_before", string.Format("%1", ledgerCountBefore), "count");
+		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.targets_seeded", "debug outpost and town targets are inserted as isolated order fixtures", string.Format("zones %1 -> %2 | rebuild %3 | roadblock %4", zoneCountBefore, m_State.m_aZones.Count(), ResolveZoneLabel(rebuildZone), ResolveZoneLabel(roadblockZone)), CampaignDebugStatus(m_State.FindZone(rebuildZoneId) != null && m_State.FindZone(roadblockZoneId) != null), "enemy order resolution targets were not seeded");
+		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.orders_created", "rebuild and roadblock orders queue through the enemy commander spend path", BuildCampaignDebugEnemyOrderResolutionActual(rebuildOrder, roadblockOrder, rebuildGarrison, roadblockTown), CampaignDebugStatus(ordersCreated), "enemy commander did not create both abstract order fixtures");
+
+		bool rebuildResolved;
+		bool roadblockResolved;
+		if (rebuildOrder)
+			rebuildResolved = m_EnemyCommander.DebugResolveOrderNow(m_State, m_Preset, m_Garrisons, rebuildOrder.m_sOrderId);
+		if (roadblockOrder)
+			roadblockResolved = m_EnemyCommander.DebugResolveOrderNow(m_State, m_Preset, m_Garrisons, roadblockOrder.m_sOrderId);
+
+		HST_GarrisonState resolvedGarrison = m_State.FindGarrison(rebuildZoneId, factionKey);
+		HST_CivilianZoneState resolvedTown = m_State.FindCivilianZone(roadblockZoneId);
+		int expectedRebuildInfantry = Math.Min(rebuildZone.m_iGarrisonSlots, 1 + 2 + m_State.m_iWarLevel);
+		bool rebuildOutcome = rebuildResolved && rebuildOrder && rebuildOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && rebuildOrder.m_bAbstractResolved && rebuildOrder.m_bOutcomeApplied && rebuildOrder.m_sResolutionKind == "abstract_rebuild_garrison" && resolvedGarrison && resolvedGarrison.m_iInfantryCount == expectedRebuildInfantry;
+		bool roadblockOutcome = roadblockResolved && roadblockOrder && roadblockOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && roadblockOrder.m_bAbstractResolved && roadblockOrder.m_bOutcomeApplied && roadblockOrder.m_sResolutionKind == "abstract_roadblock" && resolvedTown && resolvedTown.m_iRoadblockPresence == 1;
+		orderCase.m_aEvidence.Insert(BuildCampaignDebugEnemyOrderResolutionActual(rebuildOrder, roadblockOrder, resolvedGarrison, resolvedTown));
+		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.rebuild_outcome", "abstract rebuild order resolves and reinforces the target garrison", BuildCampaignDebugGarrisonActual(resolvedGarrison), CampaignDebugStatus(rebuildOutcome), "rebuild order did not apply expected garrison reinforcement", "", "", rebuildZoneId);
+		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.roadblock_outcome", "abstract roadblock order resolves and increases town roadblock pressure", BuildCampaignDebugTownInfluenceActual(resolvedTown, roadblockZone), CampaignDebugStatus(roadblockOutcome), "roadblock order did not apply expected town security pressure", "", "", roadblockZoneId);
+
+		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
+		roundTripSaveData.Capture(m_State);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		roundTripSaveData.ApplyTo(restoredState);
+		HST_EnemyOrderState restoredRebuildOrder = FindEnemyOrderInState(restoredState, rebuildOrder);
+		HST_EnemyOrderState restoredRoadblockOrder = FindEnemyOrderInState(restoredState, roadblockOrder);
+		HST_GarrisonState restoredGarrison = restoredState.FindGarrison(rebuildZoneId, factionKey);
+		HST_CivilianZoneState restoredTown = restoredState.FindCivilianZone(roadblockZoneId);
+		bool roundTripExpected = restoredRebuildOrder && restoredRoadblockOrder && restoredGarrison && restoredTown
+			&& restoredRebuildOrder.m_sResolutionKind == "abstract_rebuild_garrison"
+			&& restoredRoadblockOrder.m_sResolutionKind == "abstract_roadblock"
+			&& restoredGarrison.m_iInfantryCount == expectedRebuildInfantry
+			&& restoredTown.m_iRoadblockPresence == 1;
+		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.save_roundtrip", "save-data roundtrip preserves resolved abstract order outcomes", BuildCampaignDebugEnemyOrderResolutionActual(restoredRebuildOrder, restoredRoadblockOrder, restoredGarrison, restoredTown), CampaignDebugStatus(roundTripExpected), "resolved abstract order outcomes did not survive save-data copy");
+
+		pool.m_iAttackResources = attackBefore;
+		pool.m_iSupportResources = supportBefore;
+		CleanupCampaignDebugEnemyOrderResolutionRecords(rebuildZoneId, roadblockZoneId);
+		bool cleanupExpected = m_State.FindZone(rebuildZoneId) == null
+			&& m_State.FindZone(roadblockZoneId) == null
+			&& m_State.FindGarrison(rebuildZoneId, factionKey) == null
+			&& m_State.FindCivilianZone(roadblockZoneId) == null
+			&& m_State.m_aZones.Count() == zoneCountBefore
+			&& m_State.m_aEnemyOrders.Count() == orderCountBefore
+			&& m_State.m_aEnemySupportLedgers.Count() == ledgerCountBefore
+			&& m_State.m_aGarrisons.Count() == garrisonCountBefore
+			&& m_State.m_aCivilianZones.Count() == civilianZoneCountBefore
+			&& pool.m_iAttackResources == attackBefore
+			&& pool.m_iSupportResources == supportBefore;
+		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.cleanup", "debug order fixtures and resource pool changes are restored", string.Format("zones %1 | orders %2 | ledgers %3 | garrisons %4 | towns %5 | pool %6/%7", m_State.m_aZones.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aEnemySupportLedgers.Count(), m_State.m_aGarrisons.Count(), m_State.m_aCivilianZones.Count(), pool.m_iAttackResources, pool.m_iSupportResources), CampaignDebugStatus(cleanupExpected), "enemy order resolution cleanup did not restore original state");
+
+		FinalizeCampaignDebugCaseFromAssertions(orderCase);
+		return orderCase;
+	}
+
+	protected HST_ZoneState BuildCampaignDebugEnemyOrderResolutionZone(string zoneId, string displayName, HST_EZoneType zoneType, string factionKey, vector position)
+	{
+		HST_ZoneState zone = new HST_ZoneState();
+		zone.m_sZoneId = zoneId;
+		zone.m_sDisplayName = displayName;
+		zone.m_sOwnerFactionKey = factionKey;
+		zone.m_eType = zoneType;
+		zone.m_vPosition = position;
+		zone.m_iPriority = 30;
+		zone.m_iGarrisonSlots = 32;
+		zone.m_iActivationRadiusMeters = 250;
+		zone.m_iCaptureRadiusMeters = 90;
+		zone.m_bActive = false;
+		return zone;
+	}
+
+	protected string BuildCampaignDebugEnemyOrderResolutionActual(HST_EnemyOrderState rebuildOrder, HST_EnemyOrderState roadblockOrder, HST_GarrisonState rebuildGarrison, HST_CivilianZoneState roadblockTown)
+	{
+		return string.Format("rebuild [%1] | roadblock [%2] | garrison [%3] | town [%4]", BuildCampaignDebugEnemyOrderActual(rebuildOrder), BuildCampaignDebugEnemyOrderActual(roadblockOrder), BuildCampaignDebugGarrisonActual(rebuildGarrison), BuildCampaignDebugRoadblockTownActual(roadblockTown));
+	}
+
+	protected string BuildCampaignDebugRoadblockTownActual(HST_CivilianZoneState town)
+	{
+		if (!town)
+			return "missing";
+
+		return string.Format("zone %1 | FIA %2 | occupier %3 | police %4 | roadblocks %5 | population %6", EmptyCampaignDebugField(town.m_sZoneId), town.m_iFIASupport, town.m_iOccupierSupport, town.m_iPolicePresence, town.m_iRoadblockPresence, town.m_iPopulationRemaining);
+	}
+
+	protected HST_EnemyOrderState FindEnemyOrderInState(HST_CampaignState state, HST_EnemyOrderState sourceOrder)
+	{
+		if (!state || !sourceOrder)
+			return null;
+
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (order && order.m_sOrderId == sourceOrder.m_sOrderId)
+				return order;
+		}
+
+		return null;
+	}
+
+	protected void CleanupCampaignDebugEnemyOrderResolutionRecords(string rebuildZoneId, string roadblockZoneId)
+	{
+		if (!m_State)
+			return;
+
+		for (int orderIndex = m_State.m_aEnemyOrders.Count() - 1; orderIndex >= 0; orderIndex--)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[orderIndex];
+			if (order && (order.m_sTargetZoneId == rebuildZoneId || order.m_sTargetZoneId == roadblockZoneId))
+				m_State.m_aEnemyOrders.Remove(orderIndex);
+		}
+
+		for (int ledgerIndex = m_State.m_aEnemySupportLedgers.Count() - 1; ledgerIndex >= 0; ledgerIndex--)
+		{
+			HST_EnemySupportLedgerState ledger = m_State.m_aEnemySupportLedgers[ledgerIndex];
+			if (ledger && (ledger.m_sZoneId == rebuildZoneId || ledger.m_sZoneId == roadblockZoneId))
+				m_State.m_aEnemySupportLedgers.Remove(ledgerIndex);
+		}
+
+		for (int garrisonIndex = m_State.m_aGarrisons.Count() - 1; garrisonIndex >= 0; garrisonIndex--)
+		{
+			HST_GarrisonState garrison = m_State.m_aGarrisons[garrisonIndex];
+			if (garrison && (garrison.m_sZoneId == rebuildZoneId || garrison.m_sZoneId == roadblockZoneId))
+				m_State.m_aGarrisons.Remove(garrisonIndex);
+		}
+
+		for (int civilianIndex = m_State.m_aCivilianZones.Count() - 1; civilianIndex >= 0; civilianIndex--)
+		{
+			HST_CivilianZoneState civilianZone = m_State.m_aCivilianZones[civilianIndex];
+			if (civilianZone && (civilianZone.m_sZoneId == rebuildZoneId || civilianZone.m_sZoneId == roadblockZoneId))
+				m_State.m_aCivilianZones.Remove(civilianIndex);
+		}
+
+		for (int zoneIndex = m_State.m_aZones.Count() - 1; zoneIndex >= 0; zoneIndex--)
+		{
+			HST_ZoneState zone = m_State.m_aZones[zoneIndex];
+			if (zone && (zone.m_sZoneId == rebuildZoneId || zone.m_sZoneId == roadblockZoneId))
+				m_State.m_aZones.Remove(zoneIndex);
+		}
+	}
+
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhysicalResponseFoldbackCase()
 	{
 		HST_CampaignDebugCaseResult responseCase = CreateCampaignDebugCase("enemy_physical_response.foldback.runtime", "enemy_commander", "physical_response", "baseline");
@@ -5771,6 +5970,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugSpawnPlacementCase());
 		RecordCampaignDebugObservation("spawn placement", RequestAdminSpawnPlacementReport(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugCase(BuildCampaignDebugEnemySupportSpendCase());
+		RecordCampaignDebugCase(BuildCampaignDebugEnemyOrderResolutionCase());
 		if (m_EnemyDirector)
 			RecordCampaignDebugObservation("enemy resources", m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance));
 		RecordCampaignDebugCase(BuildCampaignDebugPhysicalResponseFoldbackCase());

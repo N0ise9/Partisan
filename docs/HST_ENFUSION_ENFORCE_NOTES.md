@@ -59,6 +59,19 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Enemy abstract orders should be resolved as named, auditable outcomes.
+  - Strategic enemy actions that do not need live AI still need the same
+    durable order lifecycle as physical orders: spend resources, store target
+    source/position, resolve through commander code, stamp resolution kind, and
+    persist the resulting garrison/town/support pressure.
+  - Debug helpers should resolve a specific order id when proving a fixture.
+    Resolving every due active order can mutate unrelated live campaign state
+    and makes one-click evidence harder to trust.
+  - Current examples:
+    `HST_EnemyCommanderService.DebugResolveOrderNow()`,
+    `HST_EnemyCommanderService.ApplyResolvedOrder()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugEnemyOrderResolutionCase()`.
+
 - Active force rows need durable source ownership and baseline force counts.
   - Live manpower is mutable: groups can be queued, spawned, damaged, folded,
     deleted, or represented abstractly while the owning gameplay source still

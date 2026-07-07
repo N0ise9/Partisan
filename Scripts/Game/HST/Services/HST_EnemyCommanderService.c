@@ -277,6 +277,19 @@ class HST_EnemyCommanderService
 		return resolved;
 	}
 
+	bool DebugResolveOrderNow(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, string orderId)
+	{
+		HST_EnemyOrderState order = FindOrderForDebug(state, orderId);
+		if (!order || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+			return false;
+
+		order.m_iResolveAtSecond = state.m_iElapsedSeconds;
+		if (order.m_bPhysicalized)
+			order.m_iResolveAtSecond = Math.Max(0, state.m_iElapsedSeconds - PHYSICAL_ORDER_TIMEOUT_SECONDS);
+
+		return ResolveOrderNow(state, preset, garrisons, order);
+	}
+
 	bool DebugApplySurvivorRefund(HST_CampaignState state, HST_EnemyDirectorService enemyDirector, HST_EnemyOrderState order, HST_ActiveGroupState group)
 	{
 		return ApplySurvivorRefund(state, enemyDirector, order, group);
@@ -596,26 +609,34 @@ class HST_EnemyCommanderService
 			if (order.m_bPhysicalized && !IsPhysicalizedOrderTimedOut(state, order))
 				continue;
 
-			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
-			order.m_iResolvedAtSecond = state.m_iElapsedSeconds;
-
-			if (order.m_bPhysicalized)
-			{
-				order.m_sResolutionKind = "physical_timeout";
-				order.m_sRuntimeStatus = "resolved_physical_timeout";
-			}
-			else
-			{
-				order.m_bAbstractResolved = true;
-				order.m_sResolutionKind = "abstract";
-				order.m_sRuntimeStatus = "resolved_abstract";
-				ApplyResolvedOrder(state, preset, garrisons, order);
-			}
-
-			changed = true;
+			changed = ResolveOrderNow(state, preset, garrisons, order) || changed;
 		}
 
 		return changed;
+	}
+
+	protected bool ResolveOrderNow(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_EnemyOrderState order)
+	{
+		if (!state || !order || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+			return false;
+
+		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
+		order.m_iResolvedAtSecond = state.m_iElapsedSeconds;
+
+		if (order.m_bPhysicalized)
+		{
+			order.m_sResolutionKind = "physical_timeout";
+			order.m_sRuntimeStatus = "resolved_physical_timeout";
+		}
+		else
+		{
+			order.m_bAbstractResolved = true;
+			order.m_sResolutionKind = "abstract";
+			order.m_sRuntimeStatus = "resolved_abstract";
+			ApplyResolvedOrder(state, preset, garrisons, order);
+		}
+
+		return true;
 	}
 
 	protected bool IsPhysicalizedOrderTimedOut(HST_CampaignState state, HST_EnemyOrderState order)
@@ -1146,5 +1167,19 @@ class HST_EnemyCommanderService
 		}
 
 		return false;
+	}
+
+	protected HST_EnemyOrderState FindOrderForDebug(HST_CampaignState state, string orderId)
+	{
+		if (!state || orderId.IsEmpty())
+			return null;
+
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (order && order.m_sOrderId == orderId)
+				return order;
+		}
+
+		return null;
 	}
 }
