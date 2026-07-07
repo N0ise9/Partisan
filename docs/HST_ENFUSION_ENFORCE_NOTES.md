@@ -59,6 +59,22 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Civilian ambience should use the randomized CIV character prefab by default.
+  - The runtime only needs generic civilian identity (`CIV_CHARACTER` / `CIV`)
+    for town population, movement probes, heat, aid, and undercover systems.
+    Explicit clothing-variant prefab lists create maintenance surface without
+    adding current gameplay value.
+  - Civilian vehicles should come from the CIV faction entity catalog at
+    runtime. Keep the balance/config vehicle pool available as an override
+    surface, but leave the default pool empty so catalog updates can flow into
+    ambience without maintaining local prefab lists.
+  - If the default catalog/config uses only `Character_CIV_Randomized.et`,
+    keep `HST_CivilianService.MIN_CIVILIAN_CHARACTER_PREFABS` at `1`; otherwise
+    civilian character spawning will self-block before runtime probes.
+  - Current examples:
+    `HST_DefaultCatalog.EnsureCivilianPools()` and
+    `HST_CivilianService.SelectCivilianCharacterPrefab()`.
+
 - Planning/checklist docs should be first-party h-istasi documents.
   - When converting external planning material, keep feature status, gaps,
     priorities, implementation contracts, and acceptance tests.

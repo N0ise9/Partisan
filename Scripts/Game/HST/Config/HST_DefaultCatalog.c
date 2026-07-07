@@ -38,24 +38,9 @@ class HST_DefaultCatalog
 		if (balance.m_aCivilianCharacterPrefabs.Count() == 0)
 		{
 			balance.m_aCivilianCharacterPrefabs.Insert("{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{8C7093AF368F496A}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_1.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{DF7F8D5C05CC1AF6}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_2.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{408B8BD5E3F09FF3}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_3.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{035F8F1CEF3B187F}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_4.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{E6C3C3E5E3DE8F14}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_5.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{8A97F7055F1A003A}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_6.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{11EB9A0D2A5899EA}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_DenimJacket_1.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{3AE3C1A509298D9D}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_DenimJacket_2.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{C943F3CC53D187B6}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Turtleneck_1.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{1FFE2B88BEF51840}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Turtleneck_2.et");
-			balance.m_aCivilianCharacterPrefabs.Insert("{3A2FBAD5B929AC4B}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Turtleneck_3.et");
 		}
 
-		if (balance.m_aCivilianVehiclePrefabs.Count() == 0)
-		{
-			balance.m_aCivilianVehiclePrefabs.Insert("{DA79E34823120087}Prefabs/Vehicles/Wheeled/S105/S105_base.et");
-			balance.m_aCivilianVehiclePrefabs.Insert("{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et");
-		}
+		// Civilian vehicles are resolved from the CIV runtime entity catalog.
 	}
 
 	static HST_PrefabPoolEntry NewPrefabPoolEntry(string prefab, int weight, string tag = "")

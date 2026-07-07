@@ -766,8 +766,18 @@ if ($balanceConfigTextEarly -match '"Prefabs/Characters/Factions/CIV/Character_C
 	throw "Civilian character pools must not contain path-only Character_CIV resources"
 }
 $civilianCharacterPoolEntriesEarly = [regex]::Matches($balanceConfigTextEarly + "`n" + $defaultCatalogEarly, '"\{[0-9A-F]{16}\}Prefabs/Characters/Factions/CIV/[^"]+Character_CIV_[^"]+\.et"')
-if ($civilianCharacterPoolEntriesEarly.Count -lt 6) {
-	throw "Civilian character pools must contain at least 6 GUID-qualified stock CIV character resources"
+if ($civilianCharacterPoolEntriesEarly.Count -lt 2) {
+	throw "Civilian character pools must expose the randomized GUID-qualified stock CIV character resource in config and runtime defaults"
+}
+if ($balanceConfigTextEarly -notmatch "Character_CIV_Randomized.et" -or $defaultCatalogEarly -notmatch "Character_CIV_Randomized.et") {
+	throw "Civilian character pools must use the randomized CIV character resource"
+}
+if ($balanceConfigTextEarly -match "Character_CIV_CottonShirt|Character_CIV_DenimJacket|Character_CIV_Turtleneck" -or $defaultCatalogEarly -match "Character_CIV_CottonShirt|Character_CIV_DenimJacket|Character_CIV_Turtleneck") {
+	throw "Civilian character pools must not list explicit clothing variants; use Character_CIV_Randomized.et only"
+}
+$civilianServiceTextEarly = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
+if ($civilianServiceTextEarly -notmatch "MIN_CIVILIAN_CHARACTER_PREFABS = 1") {
+	throw "Civilian character prefab minimum must stay at 1 for randomized-only civilian spawning"
 }
 Write-Host "Civilian character runtime resource surface OK"
 
@@ -8396,8 +8406,14 @@ if ($civilianRuntimeServiceText -match '"Prefabs/Characters/Factions/CIV/Charact
 	throw "Civilian character runtime must not use path-only Character_CIV resources"
 }
 $civilianCharacterPoolEntries = [regex]::Matches($configResourceText + "`n" + $defaultCatalog, '"\{[0-9A-F]{16}\}Prefabs/Characters/Factions/CIV/[^"]+Character_CIV_[^"]+\.et"')
-if ($civilianCharacterPoolEntries.Count -lt 6) {
-	throw "Civilian character runtime must ship at least 6 GUID-qualified default CIV character resources"
+if ($civilianCharacterPoolEntries.Count -lt 2) {
+	throw "Civilian character runtime must ship the randomized GUID-qualified default CIV character resource in config and runtime defaults"
+}
+if ($configResourceText -notmatch "Character_CIV_Randomized.et" -or $defaultCatalog -notmatch "Character_CIV_Randomized.et") {
+	throw "Civilian character runtime must use the randomized default CIV character resource"
+}
+if ($configResourceText -match "Character_CIV_CottonShirt|Character_CIV_DenimJacket|Character_CIV_Turtleneck" -or $defaultCatalog -match "Character_CIV_CottonShirt|Character_CIV_DenimJacket|Character_CIV_Turtleneck") {
+	throw "Civilian character runtime must not ship explicit clothing-variant CIV character resources"
 }
 if ($civilianRuntimeServiceText -match 'DoSpawn\(prefab, position, "0 0 0"\)') {
 	throw "Ambient civilian/military runtime spawns must pass deterministic angles instead of hard-coded zero angles"
@@ -8524,13 +8540,27 @@ foreach ($requiredTownVehicleEntry in @(
 }
 $balanceConfigText = Get-Content -Raw "Configs/HST/Balance/HST_CE311_Balance.conf"
 $civilianPoolDefaultText = [regex]::Match($defaultCatalog, "EnsureCivilianPools[\s\S]*?static HST_PrefabPoolEntry").Value
-foreach ($requiredCivilianVehiclePoolResource in @(
-		"Prefabs/Vehicles/Wheeled/S105/S105_base.et",
-		"Prefabs/Vehicles/Wheeled/S1203/S1203_base.et"
+foreach ($requiredCivilianVehicleCatalogEntry in @(
+		"CIVILIAN_VEHICLE_ENTITY_CATALOG",
+		"AppendRuntimeCivilianVehicleCatalogPrefabs",
+		"SCR_EntityCatalogManagerComponent.GetInstance",
+		"GetAllFactionEntityCatalogs",
+		"entry.GetPrefab()",
+		"configured/internal civilian vehicle fallback pool"
 	)) {
-	if ($configResourceText -notmatch [regex]::Escape($requiredCivilianVehiclePoolResource) -and $scriptText -notmatch [regex]::Escape($requiredCivilianVehiclePoolResource)) {
-		throw "Civilian vehicle pool must include stock civilian ground vehicle resource: $requiredCivilianVehiclePoolResource"
+	if ($civilianRuntimeServiceText -notmatch [regex]::Escape($requiredCivilianVehicleCatalogEntry)) {
+		throw "Civilian vehicle runtime must keep CIV entity-catalog discovery entry: $requiredCivilianVehicleCatalogEntry"
 	}
+}
+if ($civilianPoolDefaultText -match "m_aCivilianVehiclePrefabs.Insert") {
+	throw "Default civilian vehicle pool must use the CIV entity catalog instead of named prefab fallbacks"
+}
+$civilianVehicleConfigBlock = [regex]::Match($balanceConfigText, 'm_aCivilianVehiclePrefabs\s*\{([\s\S]*?)\n\s*\}')
+if (-not $civilianVehicleConfigBlock.Success) {
+	throw "Balance config must still expose an overrideable civilian vehicle prefab pool block"
+}
+if ($civilianVehicleConfigBlock.Groups[1].Value -match "Prefabs/Vehicles/") {
+	throw "Default balance config civilian vehicle pool must remain empty so CIV entity catalogs drive vehicle selection"
 }
 foreach ($forbiddenCivilianSpawnResource in @(
 		"Prefabs/Vehicles/Wheeled/M151A2/M151A2.et"

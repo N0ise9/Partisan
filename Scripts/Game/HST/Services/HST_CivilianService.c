@@ -66,7 +66,7 @@ class HST_UndercoverEnforcementResult
 
 class HST_CivilianService
 {
-	static const int MIN_CIVILIAN_CHARACTER_PREFABS = 6;
+	static const int MIN_CIVILIAN_CHARACTER_PREFABS = 1;
 
 	static const int HEAT_DECAY_SECONDS = 300;
 	static const int VEHICLE_HEAT_DECAY_SECONDS = 300;
@@ -2388,7 +2388,7 @@ class HST_CivilianService
 		int catalogCount = AppendRuntimeCivilianVehicleCatalogPrefabs(candidates);
 		if (catalogCount <= 0 && !m_bWarnedMissingCivilianVehicleCatalog)
 		{
-			Print(string.Format("h-istasi civilians | CIV vehicle catalog unavailable or empty (%1); using configured civilian vehicle fallback pool", CIVILIAN_VEHICLE_ENTITY_CATALOG), LogLevel.WARNING);
+			Print(string.Format("h-istasi civilians | CIV vehicle catalog unavailable or empty (%1); using configured/internal civilian vehicle fallback pool", CIVILIAN_VEHICLE_ENTITY_CATALOG), LogLevel.WARNING);
 			m_bWarnedMissingCivilianVehicleCatalog = true;
 		}
 

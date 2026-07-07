@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r70-enforce-upsert-arg-cap";
-	static const string BUILD_UTC = "2026-07-07T23:35:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r70-enforce-upsert-arg-cap";
+	static const string BUILD_SHA = "r71-randomized-civilian-pool";
+	static const string BUILD_UTC = "2026-07-07T23:50:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r71-randomized-civilian-pool";
 
 	static string BuildSummary()
 	{

@@ -122,7 +122,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Town support ledger | Events change support, reputation, heat, security, and population with explainable history. | Broad Alpha | Add more event types, expiry/reversal, actor/target faction, and radio influence. | Highest |
 | Political town flips | Town ownership changes by support majority with hysteresis, not only direct combat. | Broad Alpha | Tune majority thresholds and prevent flicker. | High |
 | Population state | Population remaining/killed affects support, income, victory, and loss. | Broad Alpha / Needs Soak | Tune support-population math, expand event coverage, and soak save/restart terminal states. | Highest |
-| Civilian runtime population | Town civilians spawn and move within safe, bounded runtime probes. | Broad Alpha | Soak with active combat, cleanup, and persistence. | High |
+| Civilian runtime population | Town civilians spawn from the randomized CIV character prefab; civilian vehicles resolve from the CIV entity catalog; probes stay bounded. | Broad Alpha | Soak with active combat, cleanup, and persistence. | High |
 | Police and roadblocks | Security systems create scan pressure and town-state consequences. | Partial | Tie police/roadblock density to support, heat, and enemy strategy. | High |
 
 ### Undercover And Wanted Enforcement
