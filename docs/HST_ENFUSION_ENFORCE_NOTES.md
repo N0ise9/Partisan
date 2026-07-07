@@ -59,6 +59,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Mission completion rewards should be proved through the coordinator wrapper,
+  not by directly setting mission status.
+  - `CompleteMission()` does more than call `HST_MissionService.Complete()`: it
+    progresses objectives, applies configured money/HR rewards, applies
+    category-specific outcomes such as town support or capture progress,
+    refreshes mission/capture notifications, and marks a major campaign change.
+  - Debug proofs that seed a mission fixture should snapshot and restore the
+    mission row, economy totals, target-zone owner/support, and marker state
+    after the save-data roundtrip check.
+  - Current example:
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugMissionCompletionRewardCase()`.
+
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.
   - Track reported/hot vehicle state on `HST_RuntimeVehicleState`: reported

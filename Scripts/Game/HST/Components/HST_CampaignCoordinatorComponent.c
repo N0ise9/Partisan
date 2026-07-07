@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r53-garrison-foldback-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r54-mission-completion-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4751,6 +4751,154 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("had original %1 | groups %2 -> %3 | garrison [%4]", hadOriginalGarrison, groupsBefore, groupsAfter, BuildCampaignDebugGarrisonActual(garrison));
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCompletionRewardCase()
+	{
+		HST_CampaignDebugCaseResult missionCase = CreateCampaignDebugCase("mission_completion.reward.contract.runtime", "missions", "completion", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_Missions != null && m_Economy != null && m_Towns != null;
+		AddCampaignDebugAssertion(missionCase, "mission_completion.prerequisite", "state, preset, mission, economy, and town services ready", string.Format("state %1 | preset %2 | missions %3 | economy %4 | towns %5", m_State != null, m_Preset != null, m_Missions != null, m_Economy != null, m_Towns != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "mission completion prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(missionCase);
+			return missionCase;
+		}
+
+		HST_MissionDefinition definition = m_Missions.FindDefinition("support_city_supplies");
+		string targetZoneId = SelectHQCivilianTownZoneId();
+		HST_ZoneState targetZone = m_State.FindZone(targetZoneId);
+		bool targetReady = definition != null && targetZone != null && targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && !targetZone.m_sZoneId.IsEmpty();
+		AddCampaignDebugAssertion(missionCase, "mission_completion.target", "support-delivery mission definition and town target available", BuildCampaignDebugMissionCompletionTargetActual(definition, targetZone), CampaignDebugStatus(targetReady, "BLOCKED"), "mission completion target definition or town missing", "", "", targetZoneId);
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(missionCase);
+			return missionCase;
+		}
+
+		string instanceId = ResolveCampaignDebugCleanupPrefix() + "_mission_completion_reward";
+		RemoveCampaignDebugMissionRecord(instanceId);
+		int activeMissionCountBefore = m_State.m_aActiveMissions.Count();
+		int moneyBefore = m_State.m_iFactionMoney;
+		int hrBefore = m_State.m_iHR;
+		string ownerBefore = targetZone.m_sOwnerFactionKey;
+		int supportBefore = targetZone.m_iSupport;
+		int proofSupportBefore = 40;
+		targetZone.m_sOwnerFactionKey = ResolveCampaignDebugResistanceFactionKey();
+		targetZone.m_iSupport = proofSupportBefore;
+
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = instanceId;
+		mission.m_sMissionId = definition.m_sMissionId;
+		mission.m_sDisplayName = definition.m_sDisplayName;
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
+		mission.m_iRemainingSeconds = definition.m_iDurationSeconds;
+		mission.m_sTargetZoneId = targetZone.m_sZoneId;
+		mission.m_vTargetPosition = targetZone.m_vPosition;
+		mission.m_sMarkerId = "hst_mission_" + instanceId;
+		mission.m_sRuntimeType = definition.m_sRuntimeType;
+		mission.m_sRuntimePrimitive = "support_delivery";
+		mission.m_sRuntimePhase = "created";
+		mission.m_iStartedAtSecond = m_State.m_iElapsedSeconds;
+		mission.m_iActiveUntilSecond = m_State.m_iElapsedSeconds + definition.m_iDurationSeconds;
+		mission.m_iRequiredCargoCount = Math.Max(0, definition.m_iCargoCount);
+		mission.m_bRequested = true;
+		mission.m_bDynamic = false;
+		m_State.m_aActiveMissions.Insert(mission);
+
+		AddCampaignDebugMetric(missionCase, "mission_completion.active_before", string.Format("%1", activeMissionCountBefore), "count");
+		AddCampaignDebugMetric(missionCase, "mission_completion.money_before", string.Format("%1", moneyBefore), "money");
+		AddCampaignDebugMetric(missionCase, "mission_completion.hr_before", string.Format("%1", hrBefore), "hr");
+		AddCampaignDebugMetric(missionCase, "mission_completion.support_before", string.Format("%1", proofSupportBefore), "support");
+		AddCampaignDebugAssertion(missionCase, "mission_completion.seed", "debug active mission record is inserted before completion", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(m_State.FindActiveMission(instanceId) != null && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "debug mission record was not seeded active", "", instanceId, targetZone.m_sZoneId);
+
+		bool completed = CompleteMission(instanceId);
+		HST_ActiveMissionState completedMission = m_State.FindActiveMission(instanceId);
+		int moneyAfter = m_State.m_iFactionMoney;
+		int hrAfter = m_State.m_iHR;
+		int supportAfter = targetZone.m_iSupport;
+		int expectedMoneyAfter = moneyBefore + definition.m_iRewardMoney;
+		int expectedHRAfter = hrBefore + definition.m_iRewardHR;
+		int expectedSupportAfter = Math.Min(100, proofSupportBefore + 25);
+		string rewardActual = string.Format("money %1 -> %2 expected %3 | HR %4 -> %5 expected %6", moneyBefore, moneyAfter, expectedMoneyAfter, hrBefore, hrAfter, expectedHRAfter);
+		string supportActual = string.Format("support %1 -> %2 expected %3 | owner %4", proofSupportBefore, supportAfter, expectedSupportAfter, EmptyCampaignDebugField(targetZone.m_sOwnerFactionKey));
+		AddCampaignDebugAssertion(missionCase, "mission_completion.command_result", "completion runs through the coordinator mission-complete wrapper", BuildCampaignDebugPrimitiveMissionActual(completedMission), CampaignDebugStatus(completed && completedMission && completedMission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED && completedMission.m_sRuntimePhase == "completed"), "mission completion wrapper did not set succeeded/completed status", "", instanceId, targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(missionCase, "mission_completion.rewards", "completion applies exact configured money and HR rewards once", rewardActual, CampaignDebugStatus(moneyAfter == expectedMoneyAfter && hrAfter == expectedHRAfter), "mission completion did not apply exact configured rewards", "", instanceId, targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(missionCase, "mission_completion.town_support", "support mission completion applies deterministic town support outcome", supportActual, CampaignDebugStatus(supportAfter == expectedSupportAfter), "support mission completion did not apply expected town support", "", instanceId, targetZone.m_sZoneId);
+
+		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
+		roundTripSaveData.Capture(m_State);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		roundTripSaveData.ApplyTo(restoredState);
+		HST_ActiveMissionState restoredMission = restoredState.FindActiveMission(instanceId);
+		HST_ZoneState restoredZone = restoredState.FindZone(targetZone.m_sZoneId);
+		bool roundTripExpected = restoredMission && restoredZone
+			&& restoredMission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED
+			&& restoredMission.m_sRuntimePhase == "completed"
+			&& restoredState.m_iFactionMoney == moneyAfter
+			&& restoredState.m_iHR == hrAfter
+			&& restoredZone.m_iSupport == supportAfter;
+		AddCampaignDebugAssertion(missionCase, "mission_completion.save_roundtrip", "save-data roundtrip preserves completed mission, rewards, and town support", BuildCampaignDebugMissionCompletionRoundTripActual(restoredState, restoredMission, restoredZone), CampaignDebugStatus(roundTripExpected), "completed mission reward/support state did not survive save-data copy", "", instanceId, targetZone.m_sZoneId);
+
+		RemoveCampaignDebugMissionRecord(instanceId);
+		m_State.m_iFactionMoney = moneyBefore;
+		m_State.m_iHR = hrBefore;
+		targetZone.m_sOwnerFactionKey = ownerBefore;
+		targetZone.m_iSupport = supportBefore;
+		RefreshCampaignMarkers();
+		bool cleanupExpected = m_State.FindActiveMission(instanceId) == null
+			&& m_State.m_aActiveMissions.Count() == activeMissionCountBefore
+			&& m_State.m_iFactionMoney == moneyBefore
+			&& m_State.m_iHR == hrBefore
+			&& targetZone.m_sOwnerFactionKey == ownerBefore
+			&& targetZone.m_iSupport == supportBefore;
+		AddCampaignDebugAssertion(missionCase, "mission_completion.cleanup", "debug mission row and mutated campaign totals are restored", BuildCampaignDebugMissionCompletionCleanupActual(activeMissionCountBefore, m_State.m_aActiveMissions.Count(), targetZone, moneyBefore, m_State.m_iFactionMoney, hrBefore, m_State.m_iHR), CampaignDebugStatus(cleanupExpected), "mission completion debug cleanup did not restore original state", "", instanceId, targetZone.m_sZoneId);
+
+		FinalizeCampaignDebugCaseFromAssertions(missionCase);
+		return missionCase;
+	}
+
+	protected string BuildCampaignDebugMissionCompletionTargetActual(HST_MissionDefinition definition, HST_ZoneState targetZone)
+	{
+		string definitionActual = BuildCampaignDebugMissionDefinitionActual(definition);
+		string zoneActual = ResolveZoneLabel(targetZone);
+		if (targetZone)
+			zoneActual = string.Format("%1 | support %2 | owner %3", ResolveZoneLabel(targetZone), targetZone.m_iSupport, EmptyCampaignDebugField(targetZone.m_sOwnerFactionKey));
+
+		return string.Format("definition [%1] | zone [%2]", definitionActual, zoneActual);
+	}
+
+	protected string BuildCampaignDebugMissionCompletionRoundTripActual(HST_CampaignState state, HST_ActiveMissionState mission, HST_ZoneState targetZone)
+	{
+		if (!state)
+			return "missing";
+
+		return string.Format("money %1 | HR %2 | mission [%3] | zone [%4]", state.m_iFactionMoney, state.m_iHR, BuildCampaignDebugPrimitiveMissionActual(mission), BuildCampaignDebugMissionCompletionZoneActual(targetZone));
+	}
+
+	protected string BuildCampaignDebugMissionCompletionCleanupActual(int missionsBefore, int missionsAfter, HST_ZoneState targetZone, int moneyBefore, int moneyAfter, int hrBefore, int hrAfter)
+	{
+		return string.Format("missions %1 -> %2 | money %3 -> %4 | HR %5 -> %6 | zone [%7]", missionsBefore, missionsAfter, moneyBefore, moneyAfter, hrBefore, hrAfter, BuildCampaignDebugMissionCompletionZoneActual(targetZone));
+	}
+
+	protected string BuildCampaignDebugMissionCompletionZoneActual(HST_ZoneState targetZone)
+	{
+		if (!targetZone)
+			return "missing";
+
+		return string.Format("zone %1 | owner %2 | support %3", EmptyCampaignDebugField(targetZone.m_sZoneId), EmptyCampaignDebugField(targetZone.m_sOwnerFactionKey), targetZone.m_iSupport);
+	}
+
+	protected void RemoveCampaignDebugMissionRecord(string instanceId)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return;
+
+		for (int missionIndex = m_State.m_aActiveMissions.Count() - 1; missionIndex >= 0; missionIndex--)
+		{
+			HST_ActiveMissionState mission = m_State.m_aActiveMissions[missionIndex];
+			if (mission && mission.m_sInstanceId == instanceId)
+				m_State.m_aActiveMissions.Remove(missionIndex);
+		}
+	}
+
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugTownInfluenceLedgerCase()
 	{
 		HST_CampaignDebugCaseResult influenceCase = CreateCampaignDebugCase("town_influence.ledger.runtime", "civilians", "town_influence", "baseline");
@@ -5482,6 +5630,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugGarrisonFoldbackCase());
 		RecordCampaignDebugCase(BuildCampaignDebugTownInfluenceLedgerCase());
 		RecordCampaignDebugCase(BuildCampaignDebugVehicleHeatCase());
+		RecordCampaignDebugCase(BuildCampaignDebugMissionCompletionRewardCase());
 		if (m_Civilians)
 		{
 			RecordCampaignDebugObservation("town influence", m_Civilians.BuildTownInfluenceReport(m_State));
