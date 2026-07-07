@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r41-native-population-route-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r42-infinite-stamina-setting";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -555,6 +555,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool canUseAdmin = player && player.m_bAdmin;
 		DebugLog(string.Format("menu payload access | player=%1 identity=%2 tab=%3 member=%4 commander=%5 admin=%6", playerId, EmptyCampaignDebugField(identityId), selectedTabId, canUseMember, canUseCommander, canUseAdmin));
 		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, playerId, selectedTabId, lastResult, canUseMember, canUseCommander, canUseAdmin, m_ZoneCompositions, m_ZoneCapture);
+	}
+
+	bool IsInfiniteStaminaEnabled()
+	{
+		return m_Settings && m_Settings.m_Features && m_Settings.m_Features.m_bInfiniteStaminaEnabled;
 	}
 
 	string RequestVisibleMenuCommand(int playerId, string selectedTabId, string commandId, string argument = "")

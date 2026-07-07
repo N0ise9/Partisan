@@ -491,6 +491,10 @@ class HST_CommandUIService
 			payload = payload + string.Format("\nDEBUG|%1|%2", settings.m_Debug.m_bDebugLoggingEnabled, m_bBuildDebugMenuEnabled);
 		else
 			payload = payload + "\nDEBUG|0|0";
+		if (settings && settings.m_Features)
+			payload = payload + string.Format("\nFEATURE|infiniteStamina|%1", settings.m_Features.m_bInfiniteStaminaEnabled);
+		else
+			payload = payload + "\nFEATURE|infiniteStamina|0";
 		payload = payload + "\nTAB|setup|Setup|1";
 		payload = payload + "\nTAB|overview|Overview|1";
 		payload = payload + "\nTAB|petros|HQ/Petros|1";

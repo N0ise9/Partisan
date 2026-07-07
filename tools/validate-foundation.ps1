@@ -4196,6 +4196,7 @@ foreach ($requiredSettingsEntry in @(
 		"aggressionDecayIntervalSeconds",
 		"aggressionDecayAmount",
 		"showPlayerMapMarkers",
+		"infiniteStaminaEnabled",
 		"MigrateSettings",
 		"ApplyTo"
 	)) {
@@ -4203,14 +4204,17 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 12") {
-	throw "Runtime settings schema must be bumped to 12 for player map marker configuration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 13") {
+	throw "Runtime settings schema must be bumped to 13 for infinite stamina configuration"
 }
 if ($scriptText -notmatch "m_bGameMasterBudgetsEnabled" -or $scriptText -notmatch '\\"gameMasterBudgetsEnabled\\": %1') {
 	throw "Runtime settings must expose gameMasterBudgetsEnabled"
 }
 if ($scriptText -notmatch "m_bShowPlayerMapMarkers" -or $scriptText -notmatch '\\"showPlayerMapMarkers\\": %1') {
 	throw "Runtime settings must expose showPlayerMapMarkers"
+}
+if ($scriptText -notmatch "m_bInfiniteStaminaEnabled" -or $scriptText -notmatch '\\"infiniteStaminaEnabled\\": %1') {
+	throw "Runtime settings must expose infiniteStaminaEnabled"
 }
 if ($scriptText -notmatch "settings.m_Features.m_bGameMasterBudgetsEnabled = false") {
 	throw "Runtime settings migration must default Game Master budgets to disabled"
@@ -4254,6 +4258,24 @@ foreach ($requiredGameMasterBudgetShimEntry in @(
 }
 if ($scriptText -notmatch "settings.m_Features.m_bShowPlayerMapMarkers = true") {
 	throw "Runtime settings migration must default player map markers to enabled"
+}
+if ($scriptText -notmatch "settings.m_Features.m_bInfiniteStaminaEnabled = true") {
+	throw "Runtime settings migration must default infinite stamina to enabled"
+}
+foreach ($requiredInfiniteStaminaEntry in @(
+		"FEATURE|infiniteStamina|%1",
+		"RpcAsk_RequestRuntimeFeatureSettings",
+		"RpcDo_ReceiveRuntimeFeatureSettings",
+		"CharacterStaminaComponent.Cast",
+		"stamina.AddStamina",
+		"SetHistasiInfiniteStaminaVisualSuppressed",
+		"modded class SCR_StaminaBlurEffect",
+		"ClearHistasiStaminaVisuals",
+		"super.DisplayOnSuspended"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredInfiniteStaminaEntry)) {
+		throw "Infinite stamina runtime path must expose refill and sprint-vignette suppression: $requiredInfiniteStaminaEntry"
+	}
 }
 if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 18") {
 	throw "Runtime/balance defaults must set arsenal unlock threshold to 18"

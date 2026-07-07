@@ -31,7 +31,7 @@
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
   `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
-- Runtime settings remain schema `12` and are migrated separately by
+- Runtime settings remain schema `13` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, the current same-container data can be
@@ -44,6 +44,9 @@
 Player roster display names.
 
 - `HST_CampaignState.SCHEMA_VERSION` is `27`.
+- Runtime settings schema `13` adds `features.infiniteStaminaEnabled`,
+  defaulting to `true` for generated and migrated settings. This is not a
+  campaign-save migration.
 - `HST_PlayerState` now persists `m_sDisplayName`, refreshed from the connected
   player manager when a player registers or is seen during menu/permission
   checks.

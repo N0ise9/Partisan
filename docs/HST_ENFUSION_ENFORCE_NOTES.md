@@ -22,6 +22,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - If this is too strict, client input listeners such as the command menu `I` key never run because the component keeps returning before input polling.
   - Current examples: `HST_CommandMenuComponent.IsLocalOwner()` and `HST_CommandMenuRequestComponent.IsLocalOwner()`.
 
+## Player Stamina And Screen Effects
+
+- Player stamina writes must run on the owning client.
+  - `CharacterStaminaComponent.GetStamina()` is readable from script, but `AddStamina()` must run on the owner. Server-only refill logic is unreliable on a dedicated server.
+  - Use the player-owned request bridge to receive the authoritative `features.infiniteStaminaEnabled` setting and refill the local controlled entity's `CharacterStaminaComponent`.
+  - The dark sprint overlay is `SCR_StaminaBlurEffect`, which drives `SuppressionVignette` and radial blur from the character `Exhaustion` signal. Suppress that effect with a modded class while infinite stamina is enabled instead of disabling unrelated damage/bleeding/drowning/poison/optic vignettes.
+  - Current examples: `HST_CommandMenuRequestComponent.TickInfiniteStamina()` and `HST_StaminaBlurEffectPatch.c`.
+
 ## UI Layouts
 
 - Top-level UI layouts should be created with the workspace as the parent when they are meant to exist above game/map UI:

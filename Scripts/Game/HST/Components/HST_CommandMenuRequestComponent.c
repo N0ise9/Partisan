@@ -7,6 +7,9 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 {
 	static const int CLIENT_MAP_MARKER_REFRESH_MAX_RETRIES = 10;
 	static const int CLIENT_MAP_MARKER_REFRESH_RETRY_MS = 250;
+	static const float RUNTIME_FEATURE_SETTINGS_RETRY_SECONDS = 0.5;
+	static const float INFINITE_STAMINA_REFILL_INTERVAL_SECONDS = 0.1;
+	static const float INFINITE_STAMINA_TARGET = 0.98;
 	static const ResourceName PLAYER_MARKER_CONFIG = "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf";
 
 	protected static HST_CommandMenuRequestComponent s_LocalOwner;
@@ -19,8 +22,13 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected bool m_bNativeMapMarkerRefreshBound;
 	protected bool m_bNativeMapMarkerRefreshQueued;
 	protected bool m_bDebugLoggingEnabled;
+	protected bool m_bRuntimeFeatureSettingsSynced;
+	protected bool m_bInfiniteStaminaEnabled;
 	protected float m_fOwnerRetryAccumulator;
+	protected float m_fRuntimeFeatureSettingsRetryAccumulator;
+	protected float m_fInfiniteStaminaAccumulator;
 	protected int m_iNativeMapMarkerRefreshRetries;
+	protected int m_iInfiniteStaminaRefillCount;
 	protected ref array<string> m_aRecentLocalNotificationKeys = {};
 
 	override void OnPostInit(IEntity owner)
@@ -40,7 +48,10 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	override void OnDelete(IEntity owner)
 	{
 		if (m_bIsLocalOwner)
+		{
 			UnbindNativeMapMarkerRefresh();
+			SCR_StaminaBlurEffect.SetHistasiInfiniteStaminaVisualSuppressed(false);
+		}
 
 		if (s_LocalOwner == this)
 			s_LocalOwner = null;
@@ -58,7 +69,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
 		if (m_bIsLocalOwner)
+		{
+			TickRuntimeFeatureSettingsRequest(timeSlice);
+			TickInfiniteStamina(timeSlice);
 			return;
+		}
 
 		m_fOwnerRetryAccumulator += timeSlice;
 		if (m_fOwnerRetryAccumulator < 0.25)
@@ -83,6 +98,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		s_LocalOwner = this;
 		BindNativeMapMarkerRefresh();
+		RequestRuntimeFeatureSettingsNow("local owner");
 	}
 
 	protected static void RecoverLocalOwnerFromController(string reason)
@@ -287,6 +303,15 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 
 		m_bDebugLoggingEnabled = ParsePayloadBool(ExtractPipeField(debugLine, 1));
+	}
+
+	protected void ApplyRuntimeFeatureSettingsFromMenuPayload(string payload)
+	{
+		string featureLine = ExtractPayloadLine(payload, "FEATURE|infiniteStamina|");
+		if (featureLine.IsEmpty())
+			return;
+
+		ApplyInfiniteStaminaSetting(ParsePayloadBool(ExtractPipeField(featureLine, 2)), "menu payload");
 	}
 
 	protected string ExtractPayloadLine(string payload, string prefix)
@@ -502,6 +527,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_RequestSnapshot, selectedTabId, lastResult, clientPlayerId);
 	}
 
+	void RequestRuntimeFeatureSettings()
+	{
+		RequestRuntimeFeatureSettingsNow("manual request");
+	}
+
 	void RequestAction(string selectedTabId, string commandId, string argument = "")
 	{
 		int clientPlayerId = ResolveLocalPlayerId();
@@ -605,6 +635,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_RequestRuntimeFeatureSettings(int clientPlayerId)
+	{
+		SendRuntimeFeatureSettingsToOwner(clientPlayerId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_RequestAction(string selectedTabId, string commandId, string argument, int clientPlayerId)
 	{
 		SendActionResultToOwner(selectedTabId, commandId, argument, clientPlayerId);
@@ -658,10 +694,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		m_sLastSnapshot = payload;
 		m_sLastResult = lastResult;
 		ApplyDebugLoggingFromMenuPayload(payload);
+		ApplyRuntimeFeatureSettingsFromMenuPayload(payload);
 
 		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
 		if (menu)
 			menu.OnServerSnapshot(payload, lastResult);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ReceiveRuntimeFeatureSettings(bool infiniteStaminaEnabled, string source)
+	{
+		ApplyInfiniteStaminaSetting(infiniteStaminaEnabled, source);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -791,6 +834,16 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		DebugLog(string.Format("snapshot request | selected=%1 ownerPlayer=%2 clientHint=%3", selectedTabId, playerId, clientPlayerId));
 		string payload = coordinator.BuildVisibleMenuPayload(playerId, selectedTabId, lastResult);
 		DeliverSnapshot(payload, lastResult);
+	}
+
+	protected void SendRuntimeFeatureSettingsToOwner(int clientPlayerId = 0)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return;
+
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "runtime feature settings");
+		DeliverRuntimeFeatureSettings(coordinator.IsInfiniteStaminaEnabled(), string.Format("server settings player %1", playerId));
 	}
 
 	protected void BroadcastMissionEvent_I(string payload, string summary)
@@ -952,6 +1005,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		Rpc(RpcDo_ReceiveSnapshot, payload, lastResult);
+	}
+
+	protected void DeliverRuntimeFeatureSettings(bool infiniteStaminaEnabled, string source)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_ReceiveRuntimeFeatureSettings(infiniteStaminaEnabled, source);
+			return;
+		}
+
+		Rpc(RpcDo_ReceiveRuntimeFeatureSettings, infiniteStaminaEnabled, source);
 	}
 
 	protected void DeliverLoadoutEditorPayload(string payload, string lastResult)
@@ -1126,6 +1190,76 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return text.Substring(0, maxCharacters);
 
 		return text.Substring(0, maxCharacters - 3) + "...";
+	}
+
+	protected void TickRuntimeFeatureSettingsRequest(float timeSlice)
+	{
+		if (m_bRuntimeFeatureSettingsSynced)
+			return;
+
+		m_fRuntimeFeatureSettingsRetryAccumulator += timeSlice;
+		if (m_fRuntimeFeatureSettingsRetryAccumulator < RUNTIME_FEATURE_SETTINGS_RETRY_SECONDS)
+			return;
+
+		m_fRuntimeFeatureSettingsRetryAccumulator = 0;
+		RequestRuntimeFeatureSettingsNow("retry");
+	}
+
+	protected void RequestRuntimeFeatureSettingsNow(string reason)
+	{
+		if (!m_bIsLocalOwner)
+			return;
+
+		int clientPlayerId = ResolveLocalPlayerId();
+		if (Replication.IsServer())
+		{
+			SendRuntimeFeatureSettingsToOwner(clientPlayerId);
+			return;
+		}
+
+		Rpc(RpcAsk_RequestRuntimeFeatureSettings, clientPlayerId);
+		DebugLog(string.Format("runtime feature settings requested | reason %1 | player %2", reason, clientPlayerId));
+	}
+
+	protected void ApplyInfiniteStaminaSetting(bool enabled, string source)
+	{
+		bool changed = !m_bRuntimeFeatureSettingsSynced || m_bInfiniteStaminaEnabled != enabled;
+		m_bRuntimeFeatureSettingsSynced = true;
+		m_bInfiniteStaminaEnabled = enabled;
+		m_fRuntimeFeatureSettingsRetryAccumulator = 0;
+		SCR_StaminaBlurEffect.SetHistasiInfiniteStaminaVisualSuppressed(enabled);
+		if (changed)
+			Print(string.Format("h-istasi stamina | owner setting sync | infinite stamina %1 | sprint vignette suppressed %2 | source %3 | player %4", enabled, enabled, source, ResolveLocalPlayerId()));
+	}
+
+	protected void TickInfiniteStamina(float timeSlice)
+	{
+		SCR_StaminaBlurEffect.SetHistasiInfiniteStaminaVisualSuppressed(m_bRuntimeFeatureSettingsSynced && m_bInfiniteStaminaEnabled);
+		if (!m_bRuntimeFeatureSettingsSynced || !m_bInfiniteStaminaEnabled)
+			return;
+
+		m_fInfiniteStaminaAccumulator += timeSlice;
+		if (m_fInfiniteStaminaAccumulator < INFINITE_STAMINA_REFILL_INTERVAL_SECONDS)
+			return;
+
+		m_fInfiniteStaminaAccumulator = 0;
+		int localPlayerId = ResolveLocalPlayerId();
+		IEntity playerEntity = ResolveLocalControlledEntity(localPlayerId);
+		if (!playerEntity)
+			return;
+
+		CharacterStaminaComponent stamina = CharacterStaminaComponent.Cast(playerEntity.FindComponent(CharacterStaminaComponent));
+		if (!stamina)
+			return;
+
+		float currentStamina = stamina.GetStamina();
+		if (currentStamina >= INFINITE_STAMINA_TARGET)
+			return;
+
+		stamina.AddStamina(1.0 - currentStamina);
+		m_iInfiniteStaminaRefillCount++;
+		if (m_bDebugLoggingEnabled && (m_iInfiniteStaminaRefillCount <= 3 || (m_iInfiniteStaminaRefillCount % 50) == 0))
+			DebugLog(string.Format("infinite stamina refill | player %1 | before %2 | count %3", localPlayerId, currentStamina, m_iInfiniteStaminaRefillCount));
 	}
 
 	protected void RefreshLocalOwner(IEntity owner)
