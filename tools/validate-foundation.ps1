@@ -4368,11 +4368,23 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 17") {
-	throw "Runtime settings schema must be bumped to 17 for generated settings hideout-key removal"
+if ($scriptText -notmatch "SCHEMA_VERSION = 18") {
+	throw "Runtime settings schema must be bumped to 18 for generated settings comments"
 }
 if ($scriptText -match "m_sDefaultHideoutId" -or $scriptText -match '"defaultHideoutId"') {
 	throw "Runtime settings JSON must not expose defaultHideoutId after map-based HQ selection"
+}
+foreach ($requiredSettingsComment in @(
+		'\\"_comment\\":',
+		'\\"_comment_schemaVersion\\":',
+		'\\"_comment_startingFactionMoney\\":',
+		'\\"_comment_adminIdentityIds\\":',
+		'\\"_comment_debugLoggingEnabled\\":',
+		'\\"_comment_trackResistanceSupportGroupsOnMap\\":'
+	)) {
+	if ($scriptText -notmatch $requiredSettingsComment) {
+		throw "Runtime settings generated JSON must include explanatory comment field: $requiredSettingsComment"
+	}
 }
 if ($scriptText -notmatch "m_bGameMasterBudgetsEnabled" -or $scriptText -notmatch '\\"gameMasterBudgetsEnabled\\": %1') {
 	throw "Runtime settings must expose gameMasterBudgetsEnabled"

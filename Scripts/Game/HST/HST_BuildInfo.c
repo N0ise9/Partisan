@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r93-hq-knowledge-response-counts";
-	static const string BUILD_UTC = "2026-07-08T14:35:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r93-hq-knowledge-response-counts";
+	static const string BUILD_SHA = "r94-settings-comments";
+	static const string BUILD_UTC = "2026-07-08T15:10:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r94-settings-comments";
 
 	static string BuildSummary()
 	{

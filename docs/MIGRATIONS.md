@@ -65,13 +65,24 @@
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
   `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
-- Runtime settings are schema `17` and are migrated separately by
+- Runtime settings are schema `18` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, the current same-container data can be
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Runtime Settings Schema 18
+
+Generated settings comments.
+
+- `HST_RuntimeSettings.SCHEMA_VERSION` is `18`.
+- Generated settings now include JSON-safe `_comment` and `_comment_*` string
+  fields that explain nearby settings. The runtime loader ignores these fields
+  and still reads only the scalar gameplay keys.
+- Existing settings migrate by rewriting the generated profile with comments
+  while preserving known gameplay values.
 
 ## Runtime Settings Schema 17
 

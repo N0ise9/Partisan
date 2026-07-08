@@ -137,8 +137,9 @@ effective server config and lets the commander choose the first HQ hideout
 before the campaign enters the active phase. `$profile:h-istasi/HST_Settings.json`
 remains the source of truth for defaults that apply to newly created
 campaigns, but initial HQ placement is selected through the setup map flow and
-the generated runtime settings no longer expose a default hideout id. The same
-settings file also controls h-istasi's Game Master budget
+the generated runtime settings no longer expose a default hideout id. The file
+uses JSON-safe `_comment` fields to explain settings because raw JSON comments
+are not supported. The same settings file also controls h-istasi's Game Master budget
 policy through `features.gameMasterBudgetsEnabled`, which defaults to `false`
 so GM placement budgets are disabled automatically on game start.
 `features.infiniteStaminaEnabled` defaults to `true`; when enabled, local
