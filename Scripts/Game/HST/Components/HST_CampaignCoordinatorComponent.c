@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r94-settings-comments";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r95-zone-capture-strategic-event";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -173,6 +173,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugPhase17ProgressAfter;
 	protected int m_iCampaignDebugPhase17OrderCountBefore;
 	protected int m_iCampaignDebugPhase17OrderCountAfter;
+	protected int m_iCampaignDebugPhase17StrategicEventCountBefore;
+	protected int m_iCampaignDebugPhase17StrategicEventCountAfter;
 	protected int m_iCampaignDebugPhase17CounterattackOrderCountBefore;
 	protected int m_iCampaignDebugPhase17CounterattackOrderCountAfter;
 	protected int m_iCampaignDebugPhase17CounterattackAttackBefore;
@@ -214,6 +216,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugPhase17OwnerBefore;
 	protected string m_sCampaignDebugPhase17OwnerAfter;
 	protected string m_sCampaignDebugPhase17CounterattackOrderId;
+	protected string m_sCampaignDebugPhase17StrategicEventId;
 	protected string m_sCampaignDebugBackgroundWarResistanceZoneId;
 	protected string m_sCampaignDebugBackgroundWarOccupierZoneId;
 	protected string m_sCampaignDebugBackgroundWarInvaderZoneId;
@@ -17870,12 +17873,53 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (phase17Zone)
 			resistanceGarrison = m_State.FindGarrison(phase17Zone.m_sZoneId, m_Preset.m_sResistanceFactionKey);
 		int orderDelta = m_iCampaignDebugPhase17OrderCountAfter - m_iCampaignDebugPhase17OrderCountBefore;
+		int strategicEventDelta = m_iCampaignDebugPhase17StrategicEventCountAfter - m_iCampaignDebugPhase17StrategicEventCountBefore;
+		int requiredProgress = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
+		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
+			requiredProgress = m_Balance.m_iCaptureProgressRequired;
+		HST_StrategicEventState strategicEvent = FindCampaignDebugStrategicEventById(m_sCampaignDebugPhase17StrategicEventId);
 		AddCampaignDebugMetric(captureCase, "phase17.capture.order_delta", string.Format("%1", orderDelta), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.capture.strategic_event_delta", string.Format("%1", strategicEventDelta), "count");
 		AddCampaignDebugAssertion(captureCase, "phase17.capture.owner_before", "capture starts from enemy-owned zone", EmptyCampaignDebugField(m_sCampaignDebugPhase17OwnerBefore), CampaignDebugStatus(!m_sCampaignDebugPhase17OwnerBefore.IsEmpty() && m_sCampaignDebugPhase17OwnerBefore != m_Preset.m_sResistanceFactionKey), "Phase 17 capture did not start from an enemy-owned zone", "", "", progressZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.capture.owner_after", "force progress captures zone for resistance", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && phase17Zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && m_sCampaignDebugPhase17OwnerAfter == m_Preset.m_sResistanceFactionKey), "Phase 17 force progress did not capture the zone for resistance", "", "", progressZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.capture.progress_reset", "capture progress resets after ownership flip", string.Format("%1 -> %2", m_iCampaignDebugPhase17ProgressBefore, m_iCampaignDebugPhase17ProgressAfter), CampaignDebugStatus(m_iCampaignDebugPhase17ProgressAfter == 0), "Phase 17 capture did not reset progress after ownership flip", "", "", progressZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.capture.resistance_garrison", "captured zone has starter resistance garrison", BuildCampaignDebugGarrisonActual(resistanceGarrison), CampaignDebugStatus(resistanceGarrison && resistanceGarrison.m_iInfantryCount > 0), "Phase 17 capture did not seed a resistance garrison", "", "", progressZoneId);
 		AddCampaignDebugAssertion(captureCase, "phase17.capture.counterattack_evaluated", "capture path evaluated counterattack queue possibility", string.Format("orders %1 -> %2 | prefixed order %3", m_iCampaignDebugPhase17OrderCountBefore, m_iCampaignDebugPhase17OrderCountAfter, EmptyCampaignDebugField(m_sCampaignDebugPhase17CounterattackOrderId)), CampaignDebugStatus(orderDelta >= 0), "Phase 17 capture order counts could not be evaluated", "", "", progressZoneId);
+		bool strategicEventExpected = strategicEvent
+			&& strategicEventDelta == 1
+			&& strategicEvent.m_sKind == "zone_captured"
+			&& strategicEvent.m_sSourceType == "zone_capture"
+			&& strategicEvent.m_bApplied
+			&& strategicEvent.m_sTargetZoneId == progressZoneId
+			&& strategicEvent.m_sTargetFactionKey == m_sCampaignDebugPhase17OwnerBefore
+			&& strategicEvent.m_sOwnerBefore == m_sCampaignDebugPhase17OwnerBefore
+			&& strategicEvent.m_sOwnerAfter == m_Preset.m_sResistanceFactionKey
+			&& strategicEvent.m_iCaptureProgressBefore == requiredProgress
+			&& strategicEvent.m_iCaptureProgressAfter == 0
+			&& strategicEvent.m_iCaptureProgressDelta == -requiredProgress
+			&& strategicEvent.m_iAggressionDelta > 0;
+		AddCampaignDebugAssertion(captureCase, "phase17.capture.strategic_event", "zone capture records one applied strategic event with owner, progress, and aggression deltas", BuildCampaignDebugStrategicEventActual(strategicEvent), CampaignDebugStatus(strategicEventExpected), "Phase 17 capture did not record the expected zone-captured strategic event", "", "", progressZoneId);
+		string strategicEventSourceActual = "missing";
+		if (strategicEvent)
+			strategicEventSourceActual = EmptyCampaignDebugField(strategicEvent.m_sSourceId);
+		AddCampaignDebugAssertion(captureCase, "phase17.capture.strategic_event_prefix", "zone-capture strategic event source carries current debug prefix for cleanup", strategicEventSourceActual, CampaignDebugStatus(strategicEvent && (!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(strategicEvent.m_sSourceId, m_sCampaignDebugMarkerPrefix))), "Phase 17 zone-capture strategic event is not tagged for debug cleanup", "", "", progressZoneId);
+
+		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
+		roundTripSaveData.Capture(m_State);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		roundTripSaveData.ApplyTo(restoredState);
+		HST_StrategicEventState restoredStrategicEvent;
+		if (strategicEvent)
+			restoredStrategicEvent = restoredState.FindStrategicEvent(strategicEvent.m_sEventId);
+		bool roundTripExpected = restoredStrategicEvent
+			&& strategicEvent
+			&& restoredStrategicEvent.m_sKind == strategicEvent.m_sKind
+			&& restoredStrategicEvent.m_sTargetZoneId == strategicEvent.m_sTargetZoneId
+			&& restoredStrategicEvent.m_sOwnerBefore == strategicEvent.m_sOwnerBefore
+			&& restoredStrategicEvent.m_sOwnerAfter == strategicEvent.m_sOwnerAfter
+			&& restoredStrategicEvent.m_iCaptureProgressDelta == strategicEvent.m_iCaptureProgressDelta
+			&& restoredStrategicEvent.m_iAggressionDelta == strategicEvent.m_iAggressionDelta;
+		AddCampaignDebugAssertion(captureCase, "phase17.capture.strategic_event_save_roundtrip", "save-data roundtrip preserves zone-capture strategic event", "restored event [" + BuildCampaignDebugStrategicEventActual(restoredStrategicEvent) + "]", CampaignDebugStatus(roundTripExpected), "Phase 17 zone-capture strategic event did not survive save-data copy", "", "", progressZoneId);
 	}
 
 	protected void AddCampaignDebugPhase17CounterattackAssertions(HST_CampaignDebugCaseResult captureCase, HST_ZoneState phase17Zone)
@@ -18295,10 +18339,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugPhase17OwnerBefore = "";
 		m_sCampaignDebugPhase17OwnerAfter = "";
 		m_sCampaignDebugPhase17CounterattackOrderId = "";
+		m_sCampaignDebugPhase17StrategicEventId = "";
 		m_iCampaignDebugPhase17ProgressBefore = 0;
 		m_iCampaignDebugPhase17ProgressAfter = 0;
 		m_iCampaignDebugPhase17OrderCountBefore = 0;
 		m_iCampaignDebugPhase17OrderCountAfter = 0;
+		m_iCampaignDebugPhase17StrategicEventCountBefore = 0;
+		m_iCampaignDebugPhase17StrategicEventCountAfter = 0;
 		m_iCampaignDebugPhase17CounterattackOrderCountBefore = 0;
 		m_iCampaignDebugPhase17CounterattackOrderCountAfter = 0;
 		m_iCampaignDebugPhase17CounterattackAttackBefore = 0;
@@ -21381,6 +21428,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugPhase17OwnerBefore = zone.m_sOwnerFactionKey;
 		m_iCampaignDebugPhase17ProgressBefore = zone.m_iResistanceCaptureProgress;
 		m_iCampaignDebugPhase17OrderCountBefore = m_State.m_aEnemyOrders.Count();
+		m_iCampaignDebugPhase17StrategicEventCountBefore = m_State.m_aStrategicEvents.Count();
 
 		bool changed = m_ZoneCapture.AddResistanceCaptureProgress(
 			m_State,
@@ -21394,12 +21442,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Garrisons,
 			m_EnemyCommander,
 			m_EnemyDirector,
-			m_SupportRequests
+			m_SupportRequests,
+			ResolveCampaignDebugCleanupPrefix() + "_phase17_zone_capture"
 		);
 		m_sCampaignDebugPhase17OwnerAfter = zone.m_sOwnerFactionKey;
 		m_iCampaignDebugPhase17ProgressAfter = zone.m_iResistanceCaptureProgress;
 		m_iCampaignDebugPhase17OrderCountAfter = m_State.m_aEnemyOrders.Count();
+		m_iCampaignDebugPhase17StrategicEventCountAfter = m_State.m_aStrategicEvents.Count();
 		ApplyCampaignDebugPhase17NewCounterattackPrefix(m_iCampaignDebugPhase17OrderCountBefore, "phase17_capture_counterattack", zone.m_sZoneId);
+		CaptureCampaignDebugPhase17StrategicEvent(zone.m_sZoneId);
 
 		bool markerChanged;
 		if (changed)
@@ -23527,6 +23578,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 	}
 
+	protected void CaptureCampaignDebugPhase17StrategicEvent(string targetZoneId)
+	{
+		m_sCampaignDebugPhase17StrategicEventId = "";
+		if (!m_State || targetZoneId.IsEmpty())
+			return;
+
+		for (int eventIndex = m_State.m_aStrategicEvents.Count() - 1; eventIndex >= m_iCampaignDebugPhase17StrategicEventCountBefore; eventIndex--)
+		{
+			HST_StrategicEventState eventState = m_State.m_aStrategicEvents[eventIndex];
+			if (!eventState || eventState.m_sKind != "zone_captured" || eventState.m_sTargetZoneId != targetZoneId)
+				continue;
+
+			m_sCampaignDebugPhase17StrategicEventId = eventState.m_sEventId;
+			return;
+		}
+	}
+
 	protected void CaptureCampaignDebugPhase17CounterattackOrder(string targetZoneId, string factionKey)
 	{
 		if (!m_sCampaignDebugPhase17CounterattackOrderId.IsEmpty())
@@ -23550,6 +23618,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_EnemyOrderState existingOrder = FindLatestCampaignDebugCounterattackOrderForZone(targetZoneId, factionKey);
 		if (existingOrder)
 			m_sCampaignDebugPhase17CounterattackOrderId = existingOrder.m_sOrderId;
+	}
+
+	protected HST_StrategicEventState FindCampaignDebugStrategicEventById(string eventId)
+	{
+		if (!m_State || eventId.IsEmpty())
+			return null;
+
+		return m_State.FindStrategicEvent(eventId);
 	}
 
 	protected HST_EnemyOrderState FindLatestCampaignDebugCounterattackOrderForZone(string targetZoneId, string factionKey)

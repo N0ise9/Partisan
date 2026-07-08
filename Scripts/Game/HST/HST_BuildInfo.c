@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r94-settings-comments";
-	static const string BUILD_UTC = "2026-07-08T15:10:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r94-settings-comments";
+	static const string BUILD_SHA = "r95-zone-capture-strategic-event";
+	static const string BUILD_UTC = "2026-07-08T15:40:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r95-zone-capture-strategic-event";
 
 	static string BuildSummary()
 	{

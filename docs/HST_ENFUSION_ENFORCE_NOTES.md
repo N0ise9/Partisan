@@ -263,9 +263,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
     gameplay consequence.
   - Current examples:
     `HST_StrategicService.ApplyMissionOutcomeEvent()`,
+    `HST_StrategicService.BeginZoneCaptureEvent()`,
     `HST_StrategicService.BuildStrategicEventReport()`,
     and the mission completion/failure strategic-event assertions in
     `HST_CampaignCoordinatorComponent`.
+  - Zone capture should bracket the real capture path with a strategic event:
+    begin before owner change, complete after garrison seed, aggression,
+    counterattack evaluation, and linked town support. Full Campaign Debug
+    Phase 17 should assert the `zone_captured` row and save-data roundtrip, not
+    just the final owner field.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.

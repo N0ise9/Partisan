@@ -153,7 +153,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Category mission selection | Commander chooses mission category; mission and valid target are selected server-side. | Broad Alpha | Tune category candidate rules and player-facing disabled reasons. | High |
 | Mission runtime primitives | HVT, destroy, hold/clear, rescue, cargo, convoy, and support primitives have physical action paths. | Broad Alpha | Active non-convoy primitives force their target zone, assets, and mission guard group to physicalize outside the player bubble; replace MVP primitives with mission-specific props, interactions, and consequences. | Highest |
 | Mission persistence | Active missions, objectives, assets, runtime entities, and markers survive restart. | Broad Alpha / Needs Soak | Add active mission restart route to the full soak suite. | Highest |
-| Strategic mission effects | Missions affect money, HR, town support, aggression, HQ knowledge, enemy pools, and unlocks. | Broad Alpha | Mission success/failure now records durable strategic-event rows with before/after deltas and owns the existing reward, support, capture, aggression, enemy-resource, and HQ-knowledge side effects through `HST_StrategicService`; next route mission expiry, convoy outcome branches, zone capture, vehicle reports, support-near-HQ, and town influence through the same ledger. | High |
+| Strategic mission effects | Missions affect money, HR, town support, aggression, HQ knowledge, enemy pools, and unlocks. | Broad Alpha | Mission success/failure and resistance zone captures now record durable strategic-event rows with before/after deltas; next route mission expiry, convoy outcome branches, vehicle reports, support-near-HQ, and town influence through the same ledger. | High |
 | Mission reports | Reports explain active objective, target, assets, runtime phase, and failure blockers. | Implemented Foundation | Expand per-family detail as missions get unique content. | Keep |
 
 ### Arsenal, Garage, Loadout, And Logistics
@@ -197,7 +197,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 4. Deepen town influence events into the primary political control layer.
 5. Add player-facing garrison management, training effects, static defenses,
    and arsenal-driven AI loadout improvements.
-6. Route mission expiry, convoy outcome branches, zone capture, vehicle reports,
+6. Route mission expiry, convoy outcome branches, vehicle reports,
    support-near-HQ, and town influence through the strategic-event ledger.
 7. Replace MVP mission primitives with mission-specific physical content and
    strategic outcomes.

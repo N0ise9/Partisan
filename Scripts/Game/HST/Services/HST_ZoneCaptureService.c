@@ -47,7 +47,7 @@ class HST_ZoneCaptureService
 		return strategic.SetZoneOwner(state, economy, balance, zoneId, factionKey, resistanceFactionKey);
 	}
 
-	bool CaptureForResistance(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, int supportReward, HST_GarrisonService garrisons = null, HST_EnemyCommanderService enemyCommander = null, HST_EnemyDirectorService enemyDirector = null, HST_SupportRequestService support = null)
+	bool CaptureForResistance(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, int supportReward, HST_GarrisonService garrisons = null, HST_EnemyCommanderService enemyCommander = null, HST_EnemyDirectorService enemyDirector = null, HST_SupportRequestService support = null, string eventSourceId = "")
 	{
 		if (!state || !preset || !strategic || !economy || !balance)
 			return false;
@@ -57,8 +57,15 @@ class HST_ZoneCaptureService
 			return false;
 
 		string oldOwner = zone.m_sOwnerFactionKey;
-		if (!CaptureZone(state, strategic, economy, balance, zoneId, preset.m_sResistanceFactionKey, preset.m_sResistanceFactionKey))
+		if (oldOwner == preset.m_sResistanceFactionKey)
 			return false;
+
+		HST_StrategicEventApplyResult captureEvent = strategic.BeginZoneCaptureEvent(state, zoneId, oldOwner, preset.m_sResistanceFactionKey, eventSourceId);
+		if (!CaptureZone(state, strategic, economy, balance, zoneId, preset.m_sResistanceFactionKey, preset.m_sResistanceFactionKey))
+		{
+			strategic.DiscardStrategicEvent(state, captureEvent);
+			return false;
+		}
 
 		EnsureCapturedZoneResistanceGarrison(state, preset, garrisons, zone);
 
@@ -70,12 +77,13 @@ class HST_ZoneCaptureService
 		}
 
 		ApplyLinkedTownSupport(state, zone, supportReward);
+		strategic.CompleteStrategicEvent(state, captureEvent, true, true);
 		QueueNotification("secured", zone, "success", CaptureTitle(zone, "secured"), string.Format("%1 secured by FIA.", ZoneLabel(zone)));
 		Print(string.Format("h-istasi capture | secured %1 | previous owner %2 | support reward %3", zone.m_sZoneId, oldOwner, supportReward));
 		return true;
 	}
 
-	bool AddResistanceCaptureProgress(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, int amount, int supportReward = 10, HST_GarrisonService garrisons = null, HST_EnemyCommanderService enemyCommander = null, HST_EnemyDirectorService enemyDirector = null, HST_SupportRequestService support = null)
+	bool AddResistanceCaptureProgress(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, int amount, int supportReward = 10, HST_GarrisonService garrisons = null, HST_EnemyCommanderService enemyCommander = null, HST_EnemyDirectorService enemyDirector = null, HST_SupportRequestService support = null, string eventSourceId = "")
 	{
 		if (!state || !preset || amount <= 0)
 			return false;
@@ -96,7 +104,7 @@ class HST_ZoneCaptureService
 		if (zone.m_iResistanceCaptureProgress < required)
 			return true;
 
-		return CaptureForResistance(state, preset, strategic, economy, balance, zoneId, supportReward, garrisons, enemyCommander, enemyDirector, support);
+		return CaptureForResistance(state, preset, strategic, economy, balance, zoneId, supportReward, garrisons, enemyCommander, enemyDirector, support, eventSourceId);
 	}
 
 	bool TickContestedCapture(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, HST_GarrisonService garrisons, HST_EnemyCommanderService enemyCommander, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, int elapsedSeconds)

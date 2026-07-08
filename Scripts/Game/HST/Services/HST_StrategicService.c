@@ -64,6 +64,81 @@ class HST_CampaignOutcomeResult
 
 class HST_StrategicService
 {
+	HST_StrategicEventApplyResult BeginZoneCaptureEvent(HST_CampaignState state, string zoneId, string previousOwner, string newOwner, string sourceId = "")
+	{
+		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
+		if (!state || zoneId.IsEmpty())
+		{
+			result.m_sReason = "state or zone id not ready";
+			return result;
+		}
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
+		{
+			result.m_sReason = "zone not found";
+			return result;
+		}
+
+		HST_StrategicEventState eventState = new HST_StrategicEventState();
+		eventState.m_sKind = "zone_captured";
+		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		eventState.m_sSourceType = "zone_capture";
+		if (sourceId.IsEmpty())
+			eventState.m_sSourceId = zoneId;
+		else
+			eventState.m_sSourceId = sourceId;
+		eventState.m_sTargetZoneId = zoneId;
+		if (previousOwner.IsEmpty())
+			eventState.m_sTargetFactionKey = zone.m_sOwnerFactionKey;
+		else
+			eventState.m_sTargetFactionKey = previousOwner;
+		eventState.m_sReason = string.Format("zone captured by %1", EmptyReportField(newOwner));
+		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
+
+		result.m_Event = eventState;
+		result.m_sEventId = eventState.m_sEventId;
+		result.m_bRecorded = true;
+		state.m_aStrategicEvents.Insert(eventState);
+		CaptureStrategicEventBefore(state, eventState);
+		return result;
+	}
+
+	void CompleteStrategicEvent(HST_CampaignState state, HST_StrategicEventApplyResult result, bool applied, bool changed)
+	{
+		if (!state || !result || !result.m_Event)
+			return;
+
+		HST_StrategicEventState eventState = result.m_Event;
+		RefreshStrategicEventAfter(state, eventState);
+		eventState.m_bApplied = applied;
+		eventState.m_sSummary = BuildStrategicEventSummary(eventState);
+		result.m_bApplied = applied;
+		result.m_bChanged = changed || HasStrategicEventDelta(eventState);
+		result.m_sSummary = eventState.m_sSummary;
+	}
+
+	void DiscardStrategicEvent(HST_CampaignState state, HST_StrategicEventApplyResult result)
+	{
+		if (!state || !result || !result.m_Event)
+			return;
+
+		for (int i = state.m_aStrategicEvents.Count() - 1; i >= 0; i--)
+		{
+			HST_StrategicEventState eventState = state.m_aStrategicEvents[i];
+			if (eventState && eventState.m_sEventId == result.m_Event.m_sEventId)
+			{
+				state.m_aStrategicEvents.Remove(i);
+				break;
+			}
+		}
+
+		result.m_bRecorded = false;
+		result.m_bApplied = false;
+		result.m_bChanged = false;
+		result.m_sReason = "discarded";
+	}
+
 	HST_StrategicEventApplyResult ApplyMissionOutcomeEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_BalanceConfig balance, HST_TownService towns, HST_ZoneCaptureService zoneCapture, HST_GarrisonService garrisons, HST_EnemyCommanderService enemyCommander, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService supportRequests, HST_HQService hq, HST_MissionDefinition definition, HST_ActiveMissionState activeMission, bool succeeded, bool applyDefinitionRewards = true)
 	{
 		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();

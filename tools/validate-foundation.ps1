@@ -3273,6 +3273,22 @@ foreach ($requiredCoordinatorEntry in @(
 }
 Write-Host "Antistasi framework service spine OK"
 
+foreach ($requiredStrategicEventZoneCaptureEntry in @(
+		"BeginZoneCaptureEvent",
+		"CompleteStrategicEvent",
+		"DiscardStrategicEvent",
+		'"zone_captured"',
+		"eventSourceId",
+		"_phase17_zone_capture",
+		"phase17.capture.strategic_event",
+		"phase17.capture.strategic_event_save_roundtrip"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredStrategicEventZoneCaptureEntry)) {
+		throw "Strategic event zone-capture proof is missing: $requiredStrategicEventZoneCaptureEntry"
+	}
+}
+Write-Host "Strategic event zone-capture proof OK"
+
 foreach ($requiredCampaignDebugBuildEntry in @(
 		"HST_BuildInfo",
 		"BUILD_SHA",
