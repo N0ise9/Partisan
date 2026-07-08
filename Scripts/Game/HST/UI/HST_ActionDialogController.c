@@ -139,7 +139,8 @@ class HST_ActionDialogController
 class HST_ActionChoiceDialogController
 {
 	static const ResourceName ACTION_CHOICE_DIALOG_LAYOUT = "{E27B4D993F1A6C00}UI/layouts/HST_CommandChoiceDialog.layout";
-	static const int MAX_CHOICES = 6;
+	static const ResourceName ACTION_CHOICE_ROW_LAYOUT = "{A7B8C9D001237100}UI/layouts/HST/Rows/HST_CommandChoiceRow.layout";
+	static const int MAX_CHOICES = 128;
 
 	static Widget Render(WorkspaceWidget workspace, HST_ActionChoiceDialogData data, ScriptedWidgetEventHandler handler)
 	{
@@ -167,13 +168,35 @@ class HST_ActionChoiceDialogController
 			return null;
 		}
 
-		HST_UIDebug.LogExpectedWidgetsCsv(data.m_sDebugOwner, root, "HST_CommandChoiceDialogRoot|Dialog|Title|Message|CancelButton|CancelLabel|ChoiceButton0|ChoiceLabel0|ChoiceButton1|ChoiceLabel1|ChoiceButton2|ChoiceLabel2|ChoiceButton3|ChoiceLabel3|ChoiceButton4|ChoiceLabel4|ChoiceButton5|ChoiceLabel5");
+		HST_UIDebug.LogExpectedWidgetsCsv(data.m_sDebugOwner, root, "HST_CommandChoiceDialogRoot|Dialog|Title|Message|ChoiceScrollHost|ChoiceItems|CancelButton|CancelLabel|ChoiceButton0|ChoiceLabel0|ChoiceButton1|ChoiceLabel1|ChoiceButton2|ChoiceLabel2|ChoiceButton3|ChoiceLabel3|ChoiceButton4|ChoiceLabel4|ChoiceButton5|ChoiceLabel5");
 		HST_UIDebug.LogPopulation(data.m_sDebugOwner, string.Format("owner=%1 title=%2 choices=%3 cancelId=%4 choiceBase=%5", data.m_sOwner, ShortenText(data.m_sTitle, 64), data.m_aChoiceLabels.Count(), data.m_iCancelWidgetId, data.m_iChoiceWidgetIdBase));
 
 		SetText(root, "Title", data.m_sTitle, 0xFFF7E6BE, HST_UIWorkspaceMetrics.ScaleFont(24, scale), true, false);
 		SetText(root, "Message", data.m_sMessage, 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(15, scale), false, true);
 		SetText(root, "CancelLabel", data.m_sCancelLabel, 0xFFF2F4F0, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
 		BindClick(data.m_sDebugOwner, root, "CancelButton", data.m_iCancelWidgetId, handler);
+
+		Widget choiceItems = root.FindAnyWidget("ChoiceItems");
+		if (choiceItems)
+		{
+			for (int fixedIndex = 0; fixedIndex < 6; fixedIndex++)
+				SetChoiceVisible(root, fixedIndex, false);
+
+			int rowCount = Math.Min(MAX_CHOICES, data.m_aChoiceLabels.Count());
+			for (int rowIndex = 0; rowIndex < rowCount; rowIndex++)
+			{
+				Widget row = workspace.CreateWidgets(ACTION_CHOICE_ROW_LAYOUT, choiceItems);
+				if (!row)
+					continue;
+
+				SetText(row, "Label", data.m_aChoiceLabels[rowIndex], 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(14, scale), true, true);
+				BindChoiceRowClick(data.m_sDebugOwner, row, data.m_iChoiceWidgetIdBase + rowIndex, handler);
+				HST_UIDebug.LogWidgetBound(data.m_sDebugOwner, row, "HST_CommandChoiceRow", data.m_iChoiceWidgetIdBase + rowIndex);
+			}
+
+			QueueReadyGeometry(root, data.m_sDebugOwner);
+			return root;
+		}
 
 		for (int i = 0; i < MAX_CHOICES; i++)
 		{
@@ -219,6 +242,16 @@ class HST_ActionChoiceDialogController
 		HST_UIDebug.LogWidgetBound(debugOwner, root, widgetName, userId);
 	}
 
+	protected static void BindChoiceRowClick(string debugOwner, Widget row, int userId, ScriptedWidgetEventHandler handler)
+	{
+		if (!row || userId <= 0)
+			return;
+
+		row.SetUserID(userId);
+		if (handler)
+			row.AddHandler(handler);
+	}
+
 	protected static void QueueReadyGeometry(Widget root, string debugOwner)
 	{
 		if (!root)
@@ -233,8 +266,8 @@ class HST_ActionChoiceDialogController
 		if (!root || !root.IsVisibleInHierarchy())
 			return;
 
-		HST_UIDebug.LogWidgetGeometryCsv(debugOwner + "_ready", root, "HST_CommandChoiceDialogRoot|Dialog|Title|Message|CancelButton|CancelLabel|ChoiceButton0|ChoiceLabel0|ChoiceButton1|ChoiceLabel1|ChoiceButton2|ChoiceLabel2|ChoiceButton3|ChoiceLabel3|ChoiceButton4|ChoiceLabel4|ChoiceButton5|ChoiceLabel5");
-		HST_UIDebug.LogReadyWidgetsCsv(debugOwner + "_ready", root, "HST_CommandChoiceDialogRoot|Dialog|Title|Message|CancelButton|CancelLabel|ChoiceButton0|ChoiceLabel0|ChoiceButton1|ChoiceLabel1|ChoiceButton2|ChoiceLabel2|ChoiceButton3|ChoiceLabel3|ChoiceButton4|ChoiceLabel4|ChoiceButton5|ChoiceLabel5");
+		HST_UIDebug.LogWidgetGeometryCsv(debugOwner + "_ready", root, "HST_CommandChoiceDialogRoot|Dialog|Title|Message|ChoiceScrollHost|ChoiceItems|CancelButton|CancelLabel|ChoiceButton0|ChoiceLabel0|ChoiceButton1|ChoiceLabel1|ChoiceButton2|ChoiceLabel2|ChoiceButton3|ChoiceLabel3|ChoiceButton4|ChoiceLabel4|ChoiceButton5|ChoiceLabel5");
+		HST_UIDebug.LogReadyWidgetsCsv(debugOwner + "_ready", root, "HST_CommandChoiceDialogRoot|Dialog|Title|Message|ChoiceScrollHost|ChoiceItems|CancelButton|CancelLabel|ChoiceButton0|ChoiceLabel0|ChoiceButton1|ChoiceLabel1|ChoiceButton2|ChoiceLabel2|ChoiceButton3|ChoiceLabel3|ChoiceButton4|ChoiceLabel4|ChoiceButton5|ChoiceLabel5");
 	}
 
 	protected static void SetText(Widget root, string widgetName, string text, int color, int fontSize, bool bold, bool wrap)

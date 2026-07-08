@@ -80,7 +80,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const int ACTION_MODAL_CANCEL_WIDGET_ID = 90010;
 	static const int ACTION_MODAL_CONFIRM_WIDGET_ID = 90011;
 	static const int ACTION_CHOICE_WIDGET_ID_BASE = 90100;
-	static const int ACTION_CHOICE_WIDGET_ID_LIMIT = 90106;
+	static const int ACTION_CHOICE_WIDGET_ID_LIMIT = 90228;
 	static const int MAP_TARGET_PROMPT_Z = 2300;
 	static const int MAP_TARGET_CURSOR_LINE_LONG = 30;
 	static const int MAP_TARGET_CURSOR_LINE_SHORT = 3;
@@ -677,6 +677,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (commandId == "member_promote_commander_choose")
 		{
 			ShowCommanderTransferChoiceDialog(label, argument);
+			return;
+		}
+		if (commandId == "support_recall_choose")
+		{
+			ShowSupportRecallChoiceDialog(label, argument);
 			return;
 		}
 
@@ -1406,6 +1411,11 @@ class HST_CommandMenuComponent : ScriptComponent
 			ShowCommanderTransferChoiceDialog(m_aActionLabels[actionIndex], m_aActionArguments[actionIndex]);
 			return;
 		}
+		if (m_aActionCommands[actionIndex] == "support_recall_choose")
+		{
+			ShowSupportRecallChoiceDialog(m_aActionLabels[actionIndex], m_aActionArguments[actionIndex]);
+			return;
+		}
 
 		if (ShouldSelectMapTarget(m_aActionCommands[actionIndex]))
 		{
@@ -1502,7 +1512,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return true;
 		if (commandId == "mission_asset_deliver" || commandId == "mission_asset_sabotage" || commandId == "mission_vehicle_capture" || commandId == "mission_captive_extract")
 			return true;
-		if (commandId == "remove_garrison" || commandId == "cancel_support" || commandId == "civilian_aid")
+		if (commandId == "remove_garrison" || commandId == "cancel_support" || commandId == "support_recall" || commandId == "civilian_aid")
 			return true;
 		if (commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
 			return true;
@@ -2345,6 +2355,63 @@ class HST_CommandMenuComponent : ScriptComponent
 		HST_UIDebug.LogPopulation("command_transfer_commander_dialog", string.Format("label=%1 choices=%2 argument=%3", ShortenText(label, 64), m_aPendingChoiceLabels.Count(), ShortenText(argument, 160)));
 	}
 
+	protected void ShowSupportRecallChoiceDialog(string label, string argument)
+	{
+		ParseSupportRecallChoiceArgument(argument);
+		if (m_aPendingChoiceArguments.Count() == 0)
+		{
+			m_sLastActionName = label;
+			m_sLastResult = "h-istasi command | recall support | no deployed support teams";
+			ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+			if (m_bMenuOpen)
+				RenderMenu();
+			return;
+		}
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+		{
+			m_sLastActionName = label;
+			m_sLastResult = "h-istasi command | recall support | selection UI unavailable";
+			RequestSnapshot();
+			return;
+		}
+
+		ClearActionDialog();
+		ParseSupportRecallChoiceArgument(argument);
+		if (!m_WidgetHandler)
+		{
+			m_WidgetHandler = new HST_CommandMenuWidgetHandler();
+			m_WidgetHandler.Bind(this);
+		}
+
+		HST_ActionChoiceDialogData data = new HST_ActionChoiceDialogData();
+		data.m_sOwner = ACTION_DIALOG_OWNER;
+		data.m_sDebugOwner = "command_support_recall_dialog";
+		data.m_iCancelWidgetId = ACTION_MODAL_CANCEL_WIDGET_ID;
+		data.m_iChoiceWidgetIdBase = ACTION_CHOICE_WIDGET_ID_BASE;
+		data.m_sTitle = "Recall Support Team";
+		data.m_sMessage = "Select the deployed team to recall.";
+		data.m_sCancelLabel = "Cancel";
+		foreach (string choiceLabel : m_aPendingChoiceLabels)
+			data.m_aChoiceLabels.Insert(choiceLabel);
+
+		Widget root = HST_ActionChoiceDialogController.Render(workspace, data, m_WidgetHandler);
+		if (!root)
+		{
+			m_aPendingChoiceLabels.Clear();
+			m_aPendingChoiceArguments.Clear();
+			return;
+		}
+
+		m_wActionDialogRoot = root;
+		m_bActionDialogOpen = true;
+		m_sPendingActionLabel = label;
+		m_sPendingActionCommand = "support_recall";
+		m_sPendingActionArgument = "";
+		HST_UIDebug.LogPopulation("command_support_recall_dialog", string.Format("label=%1 choices=%2 argument=%3", ShortenText(label, 64), m_aPendingChoiceLabels.Count(), ShortenText(argument, 220)));
+	}
+
 	protected void ParseCommanderTransferChoiceArgument(string argument)
 	{
 		m_aPendingChoiceLabels.Clear();
@@ -2373,6 +2440,34 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 	}
 
+	protected void ParseSupportRecallChoiceArgument(string argument)
+	{
+		m_aPendingChoiceLabels.Clear();
+		m_aPendingChoiceArguments.Clear();
+
+		if (argument.IsEmpty())
+			return;
+
+		array<string> choices = {};
+		argument.Split(";", choices, true);
+		foreach (string choice : choices)
+		{
+			int separator = choice.IndexOf("~");
+			if (separator <= 0)
+				continue;
+
+			string requestId = choice.Substring(0, separator);
+			string choiceLabel = choice.Substring(separator + 1, choice.Length() - separator - 1);
+			if (requestId.IsEmpty() || choiceLabel.IsEmpty())
+				continue;
+
+			m_aPendingChoiceArguments.Insert(requestId);
+			m_aPendingChoiceLabels.Insert(ShortenText(choiceLabel, 96));
+			if (m_aPendingChoiceArguments.Count() >= HST_ActionChoiceDialogController.MAX_CHOICES)
+				break;
+		}
+	}
+
 	protected void SelectPendingActionChoice(int choiceIndex)
 	{
 		if (choiceIndex < 0 || choiceIndex >= m_aPendingChoiceArguments.Count())
@@ -2391,6 +2486,18 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_sMapTargetStatusText = string.Format("Garrison count %1 selected. Confirm or choose again.", count);
 			RefreshCommandMapTargetPrompt();
 			ShowCommandMapTargetConfirmDialog();
+			return;
+		}
+
+		if (commandId == "support_recall")
+		{
+			string recallLabel = "Recall support";
+			if (choiceIndex < m_aPendingChoiceLabels.Count())
+				recallLabel = recallLabel + ": " + m_aPendingChoiceLabels[choiceIndex];
+
+			string recallArgument = m_aPendingChoiceArguments[choiceIndex];
+			ClearActionDialog();
+			ShowActionConfirmDialog(recallLabel, commandId, recallArgument);
 			return;
 		}
 
@@ -2428,6 +2535,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			return "This will request campaign support at the selected target.";
 		if (commandId == "cancel_support")
 			return "This will cancel the active player support request.";
+		if (commandId == "support_recall")
+			return "This will order the selected support team to break contact and leave the area. Surviving FIA who exit are refunded as HR.";
 		if (commandId == "civilian_aid")
 			return "This will deliver civilian aid to the nearest eligible town.";
 		if (commandId == "member_promote_commander")

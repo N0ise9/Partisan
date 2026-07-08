@@ -1,0 +1,80 @@
+ButtonWidgetClass "{A7B8C9D001237100}" {
+ Name "HST_CommandChoiceRow"
+ Slot AlignableSlot "{A7B8C9D001237101}" {
+  HorizontalAlign 0
+  VerticalAlign 0
+  Padding 0 0 0 8
+ }
+ Color 1 1 1 0
+ "Is Visible" 1
+ {
+  SizeLayoutWidgetClass "{A7B8C9D001237102}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{A7B8C9D001237103}" {
+   }
+   AllowWidthOverride 1
+   WidthOverride 580
+   AllowHeightOverride 1
+   HeightOverride 64
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 580
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 64
+   AllowMaxDesiredWidth 1
+   MaxDesiredWidth 580
+   AllowMaxDesiredHeight 1
+   MaxDesiredHeight 64
+   {
+    OverlayWidgetClass "{A7B8C9D001237104}" {
+     Name "Overlay"
+     Slot AlignableSlot "{A7B8C9D001237105}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     "Ignore Cursor" 1
+     {
+      FrameWidgetClass "{A7B8C9D001237106}" {
+       Name "Body"
+       Slot OverlayWidgetSlot "{A7B8C9D001237107}" {
+        HorizontalAlign 3
+        VerticalAlign 3
+       }
+       "Ignore Cursor" 1
+       {
+        PanelWidgetClass "{A7B8C9D001237108}" {
+         Name "Background"
+         Slot FrameWidgetSlot "{A7B8C9D001237109}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         Color 0.18 0.24 0.28 1
+         style full
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
+        TextWidgetClass "{A7B8C9D00123710A}" {
+         Name "Label"
+         Slot FrameWidgetSlot "{A7B8C9D00123710B}" {
+          Anchor 0 0 1 1
+          OffsetLeft 14
+          OffsetTop 7
+          OffsetRight 14
+          OffsetBottom 7
+         }
+         "Is Visible" 1
+         "No Localization" 1
+         "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

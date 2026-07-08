@@ -242,6 +242,36 @@ class HST_PhysicalWarService
 		return missionCleanupChanged || runtimeEntityChanged || survivorChanged || routeChanged || combatProbeChanged;
 	}
 
+	bool RecallActiveSupportGroup(HST_CampaignState state, string groupId, vector exitPosition)
+	{
+		if (!state || groupId.IsEmpty() || IsZeroVector(exitPosition))
+			return false;
+
+		HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
+		if (!activeGroup || activeGroup.m_sSupportRequestId.IsEmpty())
+			return false;
+		if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			return false;
+
+		vector sourcePosition = activeGroup.m_vPosition;
+		if (IsZeroVector(sourcePosition))
+			sourcePosition = activeGroup.m_vTargetPosition;
+		if (IsZeroVector(sourcePosition))
+			sourcePosition = activeGroup.m_vSourcePosition;
+
+		DeleteRuntimeGroupWaypoints(groupId);
+		activeGroup.m_vSourcePosition = sourcePosition;
+		activeGroup.m_vTargetPosition = exitPosition;
+		activeGroup.m_sRouteId = "";
+		activeGroup.m_sRuntimeStatus = "support_recalling";
+		activeGroup.m_sSpawnFallbackMode = "support_recall";
+		activeGroup.m_iAssignedWaypointCount = 0;
+		activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+		activeGroup.m_sSpawnFailureReason = "Support recall ordered; moving to exit point.";
+		m_bMarkerRefreshNeeded = true;
+		return true;
+	}
+
 	int CountRuntimeGroupHandlesForMission(HST_CampaignState state, string missionInstanceId)
 	{
 		if (!state || missionInstanceId.IsEmpty())
@@ -6978,7 +7008,7 @@ class HST_PhysicalWarService
 		bool changed;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || (activeGroup.m_sRuntimeStatus != "routing" && activeGroup.m_sRuntimeStatus != "support_active"))
+			if (!activeGroup || (activeGroup.m_sRuntimeStatus != "routing" && activeGroup.m_sRuntimeStatus != "support_active" && activeGroup.m_sRuntimeStatus != "support_recalling"))
 				continue;
 
 			ref array<vector> routePositions = BuildActiveGroupRoutePositions(ResolveActiveGroupGeneratedRoute(state, activeGroup), activeGroup);
@@ -7053,6 +7083,12 @@ class HST_PhysicalWarService
 		if (!activeGroup)
 			return QRF_ETA_SECONDS;
 
+		if (state && activeGroup.m_sRuntimeStatus == "support_recalling")
+		{
+			float recallDistance = Math.Sqrt(DistanceSq2D(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition));
+			return Math.Max(45, Math.Round(recallDistance / 8.0));
+		}
+
 		if (state && activeGroup.m_sRuntimeStatus == "support_active")
 		{
 			HST_SupportRequestState request = FindSupportRequestByGroupId(state, activeGroup.m_sGroupId);
@@ -7077,6 +7113,8 @@ class HST_PhysicalWarService
 	{
 		if (activeGroup && activeGroup.m_sRuntimeStatus == "support_active")
 			return "support_arrived";
+		if (activeGroup && activeGroup.m_sRuntimeStatus == "support_recalling")
+			return "support_recall_exited";
 
 		return "arrived";
 	}
@@ -10794,7 +10832,7 @@ class HST_PhysicalWarService
 			return;
 		if (IsSupportRequestActiveGroup(activeGroup))
 			return;
-		if (activeGroup.m_sRuntimeStatus == "routing" || activeGroup.m_sRuntimeStatus == "support_active")
+		if (activeGroup.m_sRuntimeStatus == "routing" || activeGroup.m_sRuntimeStatus == "support_active" || activeGroup.m_sRuntimeStatus == "support_recalling")
 			return;
 		if (activeGroup.m_sRouteId.IsEmpty())
 			return;

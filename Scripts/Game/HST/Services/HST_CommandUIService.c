@@ -41,6 +41,11 @@ class HST_CommandUIService
 	static const float MISSION_DELIVERY_RADIUS_METERS = 45.0;
 	static const float MISSION_VEHICLE_CARRIER_RADIUS_METERS = 10.0;
 	static const int MAX_MISSION_VEHICLE_SCAN_ENTITIES = 96;
+	static const int COMMAND_CHOICE_LIMIT = 128;
+	static const int TRAIN_TROOPS_MONEY_COST = 250;
+	static const int RECRUIT_GARRISON_MONEY_COST = 100;
+	static const int RECRUIT_GARRISON_HR_COST = 1;
+	static const int CIVILIAN_AID_MONEY_COST = 100;
 
 	protected ref array<IEntity> m_aMissionVehicleScanEntities = {};
 	protected bool m_bBuildDebugMenuEnabled = true;
@@ -209,6 +214,8 @@ class HST_CommandUIService
 		actions.Insert("support_umpk");
 		actions.Insert("support_kh55");
 		actions.Insert("cancel_support");
+		actions.Insert("support_recall_choose");
+		actions.Insert("support_recall");
 		actions.Insert("civilian_aid");
 	}
 
@@ -292,6 +299,8 @@ class HST_CommandUIService
 		required.Insert("member_promote_commander_choose");
 		required.Insert("member_promote_commander");
 		required.Insert("admin_force_self_commander");
+		required.Insert("support_recall_choose");
+		required.Insert("support_recall");
 		required.Insert("admin_force_composition_report");
 		required.Insert("admin_spawn_placement_report");
 		required.Insert("admin_phase14_report");
@@ -360,6 +369,8 @@ class HST_CommandUIService
 		if (commandId == "member_promote_commander_choose") return true;
 		if (commandId == "member_promote_commander") return true;
 		if (commandId == "admin_force_self_commander") return true;
+		if (commandId == "support_recall_choose") return true;
+		if (commandId == "support_recall") return true;
 		if (commandId == "admin_force_composition_report") return true;
 		if (commandId == "admin_spawn_placement_report") return true;
 		if (commandId == "admin_phase14_report") return true;
@@ -430,6 +441,8 @@ class HST_CommandUIService
 		if (commandId == "member_promote_commander_choose") return true;
 		if (commandId == "member_promote_commander") return true;
 		if (commandId == "admin_force_self_commander") return true;
+		if (commandId == "support_recall_choose") return true;
+		if (commandId == "support_recall") return true;
 		if (commandId == "admin_force_composition_report") return true;
 		if (commandId == "admin_spawn_placement_report") return true;
 		if (commandId == "admin_phase14_report") return true;
@@ -833,6 +846,12 @@ class HST_CommandUIService
 		if (commandId == "cancel_support")
 			return coordinator.RequestCommanderCancelSupportReport(playerId, argument);
 
+		if (commandId == "support_recall_choose")
+			return "h-istasi support recall | chooser is client-side";
+
+		if (commandId == "support_recall")
+			return coordinator.RequestCommanderRecallSupportReport(playerId, argument);
+
 		if (commandId == "civilian_aid")
 			return coordinator.RequestCommanderAidNearestTownReport(playerId);
 
@@ -1067,7 +1086,7 @@ class HST_CommandUIService
 			return false;
 		if (commandId == "admin_campaign_debug_status" || commandId == "admin_campaign_debug_cancel" || commandId == "admin_campaign_debug_cleanup")
 			return false;
-		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant" || commandId == "member_promote_commander_choose" || commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
+		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant" || commandId == "member_promote_commander_choose" || commandId == "member_promote_commander" || commandId == "admin_force_self_commander" || commandId == "support_recall_choose")
 			return false;
 		if (commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
 			return false;
@@ -1383,6 +1402,12 @@ class HST_CommandUIService
 
 		if (commandId == "cancel_support")
 			return coordinator.RequestCommanderCancelSupport(playerId, argument);
+
+		if (commandId == "support_recall_choose")
+			return true;
+
+		if (commandId == "support_recall")
+			return coordinator.RequestCommanderRecallSupport(playerId, argument);
 
 		if (commandId == "civilian_aid")
 			return coordinator.RequestCommanderAidNearestTown(playerId);
@@ -2562,6 +2587,15 @@ class HST_CommandUIService
 		string memberIdentityId = SelectFirstMemberIdentity(state);
 		bool airSupportReady = HasResistanceAirSupportCapability(state);
 		string firstGarageVehicleId = SelectFirstGarageVehicleId(state);
+		int qrfMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_QRF);
+		int qrfHRCost = HST_SupportRequestService.EstimatePlayerSupportHRCost(HST_ESupportRequestType.HST_SUPPORT_QRF, ResolveWarLevelForCosts(state));
+		int supplyMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP);
+		int fireMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
+		int searchMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
+		int searchHRCost = HST_SupportRequestService.EstimatePlayerSupportHRCost(HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, ResolveWarLevelForCosts(state));
+		int gbuMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU);
+		int umpkMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK);
+		int kh55MoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55);
 		if (selectedTabId == TAB_SETUP)
 		{
 			AddMenuAction(actions, TAB_SETUP, "Persistence status", "inspect_persistence", "", canUseMember, "membership required");
@@ -2620,20 +2654,23 @@ class HST_CommandUIService
 			bool canUseMapTarget = canUseCommander && playerHasMap;
 			bool hasRecruitTarget = HasAnyRecruitableResistanceZone(state, preset);
 			bool hasRemovableGarrison = HasAnyRemovableResistanceGarrison(state, preset);
+			string recallChoiceArgument = BuildSupportRecallChoiceArgument(state, preset);
+			int recallableSupportCount = CountRecallableSupportRequests(state, preset);
 			AddMenuAction(actions, TAB_FORCES, "Recruitment report", "inspect_recruitment", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_FORCES, "Recruit FIA at map location", "recruit_zone", "", canUseMapTarget && hasRecruitTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, hasRecruitTarget, "no recruit target"));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Train FIA troops", TRAIN_TROOPS_MONEY_COST, 0, 0), "train_troops", "", canUseCommander && HasResourcesForCost(state, TRAIN_TROOPS_MONEY_COST, 0), PaidActionDisabledReason(canUseCommander, state, TRAIN_TROOPS_MONEY_COST, 0, "commander required"));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Recruit FIA at map location", RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST, 0), "recruit_zone", "", canUseMapTarget && hasRecruitTarget && HasResourcesForCost(state, RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST), MapTargetCostDisabledReason(canUseCommander, playerHasMap, hasRecruitTarget, "no recruit target", state, RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST));
 			AddMenuAction(actions, TAB_FORCES, "Remove FIA garrison at map location", "remove_garrison", "", canUseMapTarget && hasRemovableGarrison, MapTargetDisabledReason(canUseCommander, playerHasMap, hasRemovableGarrison, "no garrison target"));
 			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_FORCES, "Request supply drop at map location", "call_supply", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
-			AddMenuAction(actions, TAB_FORCES, "Request QRF reserve at map location", "support_qrf", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
-			AddMenuAction(actions, TAB_FORCES, "Request suppressive fire at map location", "support_fire", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
-			AddMenuAction(actions, TAB_FORCES, "Request search and destroy at map location", "support_search", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
-			AddMenuAction(actions, TAB_FORCES, "Request GBU air strike at map location", "support_gbu", "", canUseMapTarget && airSupportReady, MapTargetDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady)));
-			AddMenuAction(actions, TAB_FORCES, "Request UMPK air strike at map location", "support_umpk", "", canUseMapTarget && airSupportReady, MapTargetDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady)));
-			AddMenuAction(actions, TAB_FORCES, "Request Kh55 strike at map location", "support_kh55", "", canUseMapTarget && airSupportReady, MapTargetDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady)));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request supply drop at map location", supplyMoneyCost, 0, 0), "call_supply", "", canUseMapTarget && HasResourcesForCost(state, supplyMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, supplyMoneyCost, 0));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request QRF reserve at map location", qrfMoneyCost, qrfHRCost, qrfHRCost), "support_qrf", "", canUseMapTarget && HasResourcesForCost(state, qrfMoneyCost, qrfHRCost), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, qrfMoneyCost, qrfHRCost));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request suppressive fire at map location", fireMoneyCost, 0, 0), "support_fire", "", canUseMapTarget && HasResourcesForCost(state, fireMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, fireMoneyCost, 0));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request search and destroy at map location", searchMoneyCost, searchHRCost, searchHRCost), "support_search", "", canUseMapTarget && HasResourcesForCost(state, searchMoneyCost, searchHRCost), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, searchMoneyCost, searchHRCost));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request GBU air strike at map location", gbuMoneyCost, 0, 0), "support_gbu", "", canUseMapTarget && airSupportReady && HasResourcesForCost(state, gbuMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady), state, gbuMoneyCost, 0));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request UMPK air strike at map location", umpkMoneyCost, 0, 0), "support_umpk", "", canUseMapTarget && airSupportReady && HasResourcesForCost(state, umpkMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady), state, umpkMoneyCost, 0));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request Kh55 strike at map location", kh55MoneyCost, 0, 0), "support_kh55", "", canUseMapTarget && airSupportReady && HasResourcesForCost(state, kh55MoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady), state, kh55MoneyCost, 0));
 			AddMenuAction(actions, TAB_FORCES, "Cancel player support", "cancel_support", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_FORCES, "Deliver civilian aid", "civilian_aid", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Recall support team", "support_recall_choose", recallChoiceArgument, canUseCommander && recallableSupportCount > 0, SupportRecallDisabledReason(state, preset, canUseCommander));
+			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Deliver civilian aid", CIVILIAN_AID_MONEY_COST, 0, 0), "civilian_aid", "", canUseCommander && HasResourcesForCost(state, CIVILIAN_AID_MONEY_COST, 0), PaidActionDisabledReason(canUseCommander, state, CIVILIAN_AID_MONEY_COST, 0, "commander required"));
 			return;
 		}
 
@@ -2814,9 +2851,9 @@ class HST_CommandUIService
 				if (!choiceArgument.IsEmpty())
 					choiceArgument = choiceArgument + ";";
 
-				choiceArgument = choiceArgument + SanitizeCommanderTransferChoiceField(player.m_sIdentityId) + "~" + SanitizeCommanderTransferChoiceField(BuildPlayerRosterName(player));
+				choiceArgument = choiceArgument + SanitizeCommandChoiceField(player.m_sIdentityId) + "~" + SanitizeCommandChoiceField(BuildPlayerRosterName(player));
 				targetCount++;
-				if (targetCount >= 6)
+				if (targetCount >= COMMAND_CHOICE_LIMIT)
 					break;
 			}
 		}
@@ -2826,6 +2863,11 @@ class HST_CommandUIService
 	}
 
 	protected string SanitizeCommanderTransferChoiceField(string value)
+	{
+		return SanitizeCommandChoiceField(value);
+	}
+
+	protected string SanitizeCommandChoiceField(string value)
 	{
 		value.Replace(";", " ");
 		value.Replace("~", " ");
@@ -2902,6 +2944,339 @@ class HST_CommandUIService
 		action.m_bEnabled = enabled;
 		action.m_sDisabledReason = disabledReason;
 		actions.Insert(action);
+	}
+
+	protected int ResolveWarLevelForCosts(HST_CampaignState state)
+	{
+		if (!state)
+			return 1;
+
+		return Math.Max(1, state.m_iWarLevel);
+	}
+
+	protected string BuildPaidActionLabel(string label, int moneyCost, int hrCost, int plannedFIA)
+	{
+		string costLabel = BuildCostLabel(moneyCost, hrCost, plannedFIA);
+		if (costLabel.IsEmpty())
+			return label;
+
+		return label + " (" + costLabel + ")";
+	}
+
+	protected string BuildCostLabel(int moneyCost, int hrCost, int plannedFIA)
+	{
+		moneyCost = Math.Max(0, moneyCost);
+		hrCost = Math.Max(0, hrCost);
+		plannedFIA = Math.Max(0, plannedFIA);
+
+		string label = "";
+		if (moneyCost > 0)
+			label = string.Format("$%1", moneyCost);
+		if (hrCost > 0)
+		{
+			if (!label.IsEmpty())
+				label = label + ", ";
+			label = label + string.Format("HR %1", hrCost);
+		}
+		if (plannedFIA > 0)
+		{
+			if (!label.IsEmpty())
+				label = label + ", ";
+			label = label + string.Format("%1 FIA", plannedFIA);
+		}
+
+		return label;
+	}
+
+	protected bool HasResourcesForCost(HST_CampaignState state, int moneyCost, int hrCost)
+	{
+		if (!state)
+			return false;
+
+		if (state.m_iFactionMoney < Math.Max(0, moneyCost))
+			return false;
+		if (state.m_iHR < Math.Max(0, hrCost))
+			return false;
+
+		return true;
+	}
+
+	protected string PaidActionDisabledReason(bool canUseCommander, HST_CampaignState state, int moneyCost, int hrCost, string roleReason)
+	{
+		if (!canUseCommander)
+			return roleReason;
+		if (!state)
+			return "campaign state not ready";
+
+		string resourceReason = ResourceCostDisabledReason(state, moneyCost, hrCost);
+		if (!resourceReason.IsEmpty())
+			return resourceReason;
+
+		return "";
+	}
+
+	protected string MapTargetCostDisabledReason(bool canUseCommander, bool playerHasMap, bool targetReady, string targetReason, HST_CampaignState state, int moneyCost, int hrCost)
+	{
+		string baseReason = MapTargetDisabledReason(canUseCommander, playerHasMap, targetReady, targetReason);
+		if (!baseReason.IsEmpty())
+			return baseReason;
+
+		return ResourceCostDisabledReason(state, moneyCost, hrCost);
+	}
+
+	protected string ResourceCostDisabledReason(HST_CampaignState state, int moneyCost, int hrCost)
+	{
+		if (!state)
+			return "campaign state not ready";
+
+		if (state.m_iFactionMoney < Math.Max(0, moneyCost))
+			return string.Format("need $%1, have $%2", moneyCost, state.m_iFactionMoney);
+		if (state.m_iHR < Math.Max(0, hrCost))
+			return string.Format("need %1 HR, have %2", hrCost, state.m_iHR);
+
+		return "";
+	}
+
+	protected string BuildSupportRecallChoiceArgument(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return "";
+
+		string argument = "";
+		int emitted;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!IsRecallableSupportRequestForMenu(state, preset, request))
+				continue;
+
+			if (!argument.IsEmpty())
+				argument = argument + ";";
+
+			argument = argument + SanitizeCommandChoiceField(request.m_sRequestId) + "~" + SanitizeCommandChoiceField(BuildSupportRecallChoiceLabel(state, request));
+			emitted++;
+			if (emitted >= COMMAND_CHOICE_LIMIT)
+				break;
+		}
+
+		return argument;
+	}
+
+	protected int CountRecallableSupportRequests(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (IsRecallableSupportRequestForMenu(state, preset, request))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool IsRecallableSupportRequestForMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
+	{
+		if (!state || !request || !request.m_bPlayerRequested || request.m_bRecallRequested)
+			return false;
+		if (!IsRecallableGroundSupportTypeForMenu(request.m_eType))
+			return false;
+		if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_QUEUED && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+			return false;
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty() && request.m_sFactionKey != preset.m_sResistanceFactionKey)
+			return false;
+		if (request.m_iHRCost <= 0 && request.m_iPlannedInfantryCount <= 0)
+			return false;
+
+		if (!request.m_sGroupId.IsEmpty())
+		{
+			HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
+			if (group && (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "spawn_failed" || group.m_sRuntimeStatus == "folded"))
+				return false;
+		}
+
+		return true;
+	}
+
+	protected bool IsRecallableGroundSupportTypeForMenu(HST_ESupportRequestType supportType)
+	{
+		return supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+	}
+
+	protected string BuildSupportRecallChoiceLabel(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return "support team unavailable";
+
+		HST_ActiveGroupState group = null;
+		if (!request.m_sGroupId.IsEmpty())
+			group = state.FindActiveGroup(request.m_sGroupId);
+
+		string groupLabel = request.m_sGroupId;
+		if (groupLabel.IsEmpty())
+			groupLabel = "pending squad";
+
+		int members = ResolveSupportTeamMemberCount(request, group);
+		string location = BuildSupportRelativeLocation(state, request, group);
+		return string.Format("%1 | %2 | %3 members | %4", SupportRequestTypeLabel(request.m_eType), groupLabel, members, location);
+	}
+
+	protected int ResolveSupportTeamMemberCount(HST_SupportRequestState request, HST_ActiveGroupState group)
+	{
+		int members;
+		if (group)
+		{
+			members = Math.Max(members, group.m_iLastSeenAliveCount);
+			members = Math.Max(members, group.m_iSpawnedAgentCount);
+			members = Math.Max(members, group.m_iSurvivorInfantryCount);
+			members = Math.Max(members, group.m_iInfantryCount);
+		}
+
+		if (request)
+		{
+			members = Math.Max(members, request.m_iPlannedInfantryCount);
+			members = Math.Max(members, request.m_iHRCost);
+			members = Math.Max(members, request.m_iCompositionManpower);
+		}
+
+		return Math.Max(0, members);
+	}
+
+	protected string BuildSupportRelativeLocation(HST_CampaignState state, HST_SupportRequestState request, HST_ActiveGroupState group)
+	{
+		vector position = "0 0 0";
+		if (group && !IsZeroVector(group.m_vPosition))
+			position = group.m_vPosition;
+		else if (request && !IsZeroVector(request.m_vTargetPosition))
+			position = request.m_vTargetPosition;
+		else if (request && !IsZeroVector(request.m_vSourcePosition))
+			position = request.m_vSourcePosition;
+
+		if (IsZeroVector(position))
+			return "location unknown";
+
+		vector anchorPosition = "0 0 0";
+		string anchor = "";
+		if (state && state.m_bHQDeployed && !IsZeroVector(state.m_vHQPosition))
+		{
+			anchorPosition = state.m_vHQPosition;
+			anchor = "HQ";
+		}
+		else
+		{
+			HST_ZoneState nearestZone = FindNearestZoneToPosition(state, position);
+			if (nearestZone)
+			{
+				anchorPosition = nearestZone.m_vPosition;
+				anchor = DisplayZoneName(nearestZone);
+			}
+		}
+
+		if (anchor.IsEmpty() || IsZeroVector(anchorPosition))
+			return string.Format("grid %1/%2", Math.Round(position[0]), Math.Round(position[2]));
+
+		float distance = Math.Sqrt(DistanceSq2D(anchorPosition, position));
+		string direction = DirectionFromTo(anchorPosition, position);
+		if (distance >= 1000.0)
+			return string.Format("%1km %2 of %3", Math.Round(distance / 100.0) / 10.0, direction, anchor);
+
+		return string.Format("%1m %2 of %3", Math.Round(distance), direction, anchor);
+	}
+
+	protected HST_ZoneState FindNearestZoneToPosition(HST_CampaignState state, vector position)
+	{
+		if (!state)
+			return null;
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			float distanceSq = DistanceSq2D(position, zone.m_vPosition);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestDistanceSq = distanceSq;
+				bestZone = zone;
+			}
+		}
+
+		return bestZone;
+	}
+
+	protected string DirectionFromTo(vector anchorPosition, vector position)
+	{
+		float dx = position[0] - anchorPosition[0];
+		float dz = position[2] - anchorPosition[2];
+		float absX = AbsFloat(dx);
+		float absZ = AbsFloat(dz);
+		if (absX < 1.0 && absZ < 1.0)
+			return "at";
+
+		if (absX < absZ * 0.35)
+		{
+			if (dz >= 0.0)
+				return "N";
+			return "S";
+		}
+		if (absZ < absX * 0.35)
+		{
+			if (dx >= 0.0)
+				return "E";
+			return "W";
+		}
+
+		if (dz >= 0.0 && dx >= 0.0)
+			return "NE";
+		if (dz >= 0.0 && dx < 0.0)
+			return "NW";
+		if (dz < 0.0 && dx >= 0.0)
+			return "SE";
+
+		return "SW";
+	}
+
+	protected float AbsFloat(float value)
+	{
+		if (value < 0.0)
+			return -value;
+
+		return value;
+	}
+
+	protected string SupportRequestTypeLabel(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return "QRF";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return "Search and destroy";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
+			return "Suppressive fire";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
+			return "Supply drop";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
+			return "GBU strike";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
+			return "UMPK strike";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
+			return "Kh55 strike";
+
+		return "Support";
+	}
+
+	protected string SupportRecallDisabledReason(HST_CampaignState state, HST_CampaignPreset preset, bool canUseCommander)
+	{
+		if (!canUseCommander)
+			return "commander required";
+		if (!state)
+			return "campaign state not ready";
+		if (CountRecallableSupportRequests(state, preset) <= 0)
+			return "no recallable support teams";
+
+		return "";
 	}
 
 	protected string MissionStartDisabledReason(HST_CampaignState state, string zoneId, bool canUseCommander)
@@ -3256,7 +3631,7 @@ class HST_CommandUIService
 		if (!vehicle)
 			return "Redeploy stored vehicle";
 
-		return "Redeploy: " + ShortGarageVehicleLabel(vehicle, 22);
+		return string.Format("Redeploy: %1 ($%2)", ShortGarageVehicleLabel(vehicle, 22), Math.Max(0, vehicle.m_iRedeployCost));
 	}
 
 	protected string GarageVehicleLabel(HST_GarageVehicleState vehicle)

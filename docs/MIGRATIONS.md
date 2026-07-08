@@ -2,8 +2,12 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `38`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `39`.
 
+- Schema 39 extends support request rows with player-support HR cost,
+  planned infantry count, refunded HR, recall request timing, recall exit
+  position, and recall-requested state so support recall/refund behavior
+  survives save-data copies and active support rows remain inspectable.
 - Schema 38 extends strategic-event rows with vehicle report before/after
   fields so runtime vehicle reports preserve vehicle runtime id, heat
   before/after/delta, reported before/after, and report-expiry deltas across
@@ -70,13 +74,25 @@
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
   `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
-- Runtime settings are schema `18` and are migrated separately by
+- Runtime settings are schema `19` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, the current same-container data can be
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Runtime Settings Schema 19
+
+Ambient civilian traffic and generated settings comments.
+
+- `HST_RuntimeSettings.SCHEMA_VERSION` is `19`.
+- Generated settings include JSON-safe `_comment` and `_comment_*` string
+  fields that explain nearby settings.
+- `civilianDrivingVehicleCountPerTown` controls how many civilian-driven
+  ambient traffic vehicles can be active per active town.
+- Existing settings migrate by rewriting the generated profile with comments
+  and the traffic cap while preserving known gameplay values.
 
 ## Runtime Settings Schema 18
 
@@ -109,6 +125,18 @@ Resistance support group marker tracking.
 - Existing settings migrate the feature on so spawned player-requested
   resistance support groups keep live map markers until they are terminal or
   despawned.
+
+## Schema 39
+
+Support request HR costs and recall/refund state.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `39`.
+- `HST_SupportRequestState` now persists HR cost, planned infantry count,
+  refunded HR, recall request timing, recall exit position, and whether recall
+  has been requested.
+- Existing schema-38 and older support rows load with recall disabled, zero
+  refunded HR, and zero HR cost unless force-composition metadata can backfill
+  a planned infantry count for inspection.
 
 ## Schema 38
 

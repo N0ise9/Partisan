@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r100-civilian-traffic-mission-ui";
-	static const string BUILD_UTC = "2026-07-08T18:45:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r100-civilian-traffic-mission-ui";
+	static const string BUILD_SHA = "r101-support-recall-costs";
+	static const string BUILD_UTC = "2026-07-08T19:30:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r101-support-recall-costs";
 
 	static string BuildSummary()
 	{

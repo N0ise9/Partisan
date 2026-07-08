@@ -567,6 +567,9 @@ class HST_SupportRequestState
 	int m_iAttackCost;
 	int m_iSupportCost;
 	int m_iMoneyCost;
+	int m_iHRCost;
+	int m_iPlannedInfantryCount;
+	int m_iRefundedHR;
 	int m_iCompositionCost;
 	int m_iCompositionManpower;
 	int m_iCompositionVehicleCount;
@@ -578,8 +581,11 @@ class HST_SupportRequestState
 	int m_iActivatedAtSecond;
 	int m_iPhysicalizedAtSecond;
 	int m_iResolvedAtSecond;
+	int m_iRecallRequestedAtSecond;
+	vector m_vRecallExitPosition;
 	bool m_bHelicopterStyle;
 	bool m_bPlayerRequested;
+	bool m_bRecallRequested;
 	bool m_bPhysicalStrikeSpawned;
 	bool m_bDeploymentRoadResolved;
 	bool m_bDeploymentVehicleSafe;
@@ -787,7 +793,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 38;
+	static const int SCHEMA_VERSION = 39;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

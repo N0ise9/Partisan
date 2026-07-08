@@ -88,6 +88,7 @@ class HST_CampaignDebugSupportProbeContext
 	string m_sCommandResult;
 	int m_iCountBefore;
 	int m_iMoneyBefore;
+	int m_iHRBefore;
 	HST_SupportRequestState m_Request;
 	bool m_bMarkerVisibleAfterRequest;
 	string m_sMarkerActualAfterRequest;
@@ -175,6 +176,51 @@ class HST_CampaignDebugSupportCancelProbeContext
 	string m_sRuntimeStatusAfterCleanup;
 	string m_sResolutionKindAfterCleanup;
 	int m_iCooldownAfterCleanup;
+}
+
+class HST_CampaignDebugSupportRecallProbeContext
+{
+	string m_sSeedResult;
+	string m_sRecallResult;
+	string m_sRequestId;
+	string m_sGroupId;
+	int m_iCountBefore;
+	int m_iPendingBeforeClear;
+	int m_iPendingAfterPreClear;
+	int m_iPendingAfterSeed;
+	int m_iPendingAfterRecall;
+	int m_iPendingAfterExit;
+	int m_iPendingAfterCleanup;
+	int m_iMoneyBefore;
+	int m_iMoneyAfterSeed;
+	int m_iHRBefore;
+	int m_iHRAfterSeed;
+	int m_iHRAfterRecall;
+	int m_iHRAfterExit;
+	int m_iHRCost;
+	int m_iPlannedInfantryCount;
+	int m_iRefundedHR;
+	int m_iSurvivorsBeforeRecall;
+	int m_iRecallSecond;
+	int m_iRecallRouteAdvanceSeconds;
+	bool m_bRequestCreated;
+	bool m_bGroupCreated;
+	bool m_bRecallCommandAccepted;
+	bool m_bRecallRequestedAfterRecall;
+	bool m_bRouteTickChanged;
+	bool m_bExitTickChanged;
+	bool m_bCleanupRan;
+	HST_ESupportRequestStatus m_eStatusAfterRecall = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+	HST_ESupportRequestStatus m_eStatusAfterExit = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+	string m_sRuntimeStatusAfterRecall;
+	string m_sRuntimeStatusAfterExit;
+	string m_sGroupStatusBeforeRecall;
+	string m_sGroupStatusAfterRecall;
+	string m_sGroupStatusAfterExit;
+	string m_sResolutionKindAfterExit;
+	vector m_vExitPosition;
+	string m_sSupportReportAfterRecall;
+	string m_sSupportReportAfterExit;
 }
 
 class HST_CampaignDebugIncomeProbeContext

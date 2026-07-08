@@ -1142,6 +1142,9 @@ class HST_CampaignSaveData
 		target.m_iAttackCost = source.m_iAttackCost;
 		target.m_iSupportCost = source.m_iSupportCost;
 		target.m_iMoneyCost = source.m_iMoneyCost;
+		target.m_iHRCost = source.m_iHRCost;
+		target.m_iPlannedInfantryCount = source.m_iPlannedInfantryCount;
+		target.m_iRefundedHR = source.m_iRefundedHR;
 		target.m_iCompositionCost = source.m_iCompositionCost;
 		target.m_iCompositionManpower = source.m_iCompositionManpower;
 		target.m_iCompositionVehicleCount = source.m_iCompositionVehicleCount;
@@ -1163,8 +1166,11 @@ class HST_CampaignSaveData
 		target.m_iActivatedAtSecond = source.m_iActivatedAtSecond;
 		target.m_iPhysicalizedAtSecond = source.m_iPhysicalizedAtSecond;
 		target.m_iResolvedAtSecond = source.m_iResolvedAtSecond;
+		target.m_iRecallRequestedAtSecond = source.m_iRecallRequestedAtSecond;
+		target.m_vRecallExitPosition = source.m_vRecallExitPosition;
 		target.m_bPhysicalized = source.m_bPhysicalized;
 		target.m_bOutcomeApplied = source.m_bOutcomeApplied;
+		target.m_bRecallRequested = source.m_bRecallRequested;
 		target.m_sFailureReason = source.m_sFailureReason;
 		return target;
 	}
@@ -1590,6 +1596,14 @@ class HST_CampaignSaveData
 			request.m_sStrikeConfigResource = "";
 			if (request.m_sRuntimeEntityId.IsEmpty() && !request.m_sStrikeKind.IsEmpty())
 				request.m_sRuntimeEntityId = "abstract_strike";
+			if (request.m_iPlannedInfantryCount <= 0 && request.m_iCompositionManpower > 0)
+				request.m_iPlannedInfantryCount = request.m_iCompositionManpower;
+			if (request.m_iHRCost < 0)
+				request.m_iHRCost = 0;
+			if (request.m_iRefundedHR < 0)
+				request.m_iRefundedHR = 0;
+			if (request.m_iRefundedHR > request.m_iHRCost && request.m_iHRCost > 0)
+				request.m_iRefundedHR = request.m_iHRCost;
 
 			if (request.m_sRuntimeStatus.IsEmpty())
 			{

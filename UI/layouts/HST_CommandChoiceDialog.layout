@@ -89,6 +89,42 @@ FrameWidgetClass "{E27B4D993F1A6C00}" {
      "No Localization" 1
      "Ignore Cursor" 1
     }
+    OverlayWidgetClass "{E27B4D993F1A6D00}" {
+     Name "ChoiceScrollHost"
+     Slot FrameWidgetSlot "{E27B4D993F1A6D01}" {
+      Anchor 0 0 0 0
+      PositionX 48
+      OffsetLeft 48
+      PositionY 132
+      OffsetTop 132
+      SizeX 604
+      OffsetRight -652
+      SizeY 318
+      OffsetBottom -450
+     }
+     "Ignore Cursor" 0
+     {
+      ScrollLayoutWidgetClass "{E27B4D993F1A6D02}" {
+       Name "ChoiceScroll"
+       Slot OverlayWidgetSlot "{E27B4D993F1A6D03}" {
+        HorizontalAlign 3
+        VerticalAlign 3
+        Padding 0 0 0 0
+       }
+       "Scrollbar Always Visible" 1
+       {
+        VerticalLayoutWidgetClass "{E27B4D993F1A6D04}" {
+         Name "ChoiceItems"
+         Slot AlignableSlot "{E27B4D993F1A6D05}" {
+          HorizontalAlign 3
+          VerticalAlign 0
+          Padding 0 0 0 0
+         }
+        }
+       }
+      }
+     }
+    }
     ButtonWidgetClass "{E27B4D993F1A6C10}" {
      Name "ChoiceButton0"
      Slot FrameWidgetSlot "{E27B4D993F1A6C11}" {
