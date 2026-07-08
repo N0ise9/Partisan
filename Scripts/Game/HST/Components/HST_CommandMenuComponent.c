@@ -2171,6 +2171,10 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		if (commandId == "move_hq_here")
 			return "Move base to my position";
+		if (commandId == "petros_relocate_hq")
+			return "Relocate HQ";
+		if (commandId == "petros_deploy_hq_here")
+			return "Deploy HQ Here";
 		if (commandId == "vehicle_collect_loot")
 			return "Load loot to vehicle";
 		if (commandId == "vehicle_unload_loot")

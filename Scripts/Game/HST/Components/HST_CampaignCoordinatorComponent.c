@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r85-hide-hq-move-menu-actions";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r86-petros-relocation-flow";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -107,6 +107,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iStableSpawnSweepCount;
 	protected bool m_bDeferredMarkerRefresh;
 	protected bool m_bPersistentFieldVehicleRestoreChecked;
+	protected bool m_bPetrosRelocationActive;
+	protected int m_iPetrosRelocationPlayerId;
+	protected string m_sPetrosRelocationIdentityId;
+	protected string m_sPetrosRelocationPlayerName;
 	protected bool m_bCampaignDebugRunning;
 	protected bool m_bCampaignDebugCompleted;
 	protected bool m_bCampaignDebugPhysicalBlocked;
@@ -458,6 +462,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool undercoverEnforcementChanged = TickUndercoverEnforcement();
 		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
+		bool petrosRelocationChanged = TickPetrosRelocation();
 		bool hqThreatChanged = m_HQ.TickHQThreat(m_State, m_Preset);
 		bool petrosDefenseChanged = TickDefendPetros();
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
@@ -480,14 +485,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0;
 		anyStateChanged = anyStateChanged || enemyResourcesChanged || aggressionChanged || civilianChanged;
 		anyStateChanged = anyStateChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged;
-		anyStateChanged = anyStateChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
+		anyStateChanged = anyStateChanged || petrosRelocationChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
 		anyStateChanged = anyStateChanged || physicalWarChanged || captureChanged || campaignOutcomeChanged;
 		anyStateChanged = anyStateChanged || civilianRuntimeChanged;
 
 		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged;
 		markerStateChanged = markerStateChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged;
 		markerStateChanged = markerStateChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged;
-		markerStateChanged = markerStateChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
+		markerStateChanged = markerStateChanged || petrosRelocationChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
 		markerStateChanged = markerStateChanged || captureMarkerChanged || campaignOutcomeChanged || physicalWarMarkerChanged;
 		bool forceImmediateMarkerRefresh = missionChanged || hqRuntimeChanged || petrosDefenseChanged;
 		markerStateChanged = ResolveThrottledMarkerRefresh(markerStateChanged, forceImmediateMarkerRefresh);
@@ -1220,6 +1225,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return false;
 
+		if (m_bPetrosRelocationActive)
+			ClearPetrosRelocationState(true);
+
 		bool changed = m_HQ.MoveHQ(m_State, hideoutId);
 		if (changed)
 		{
@@ -1239,6 +1247,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!playerEntity)
 			return false;
 
+		if (m_bPetrosRelocationActive)
+			ClearPetrosRelocationState(true);
+
 		vector hqPosition = HST_WorldPositionService.ResolveGroundPosition(playerEntity.GetOrigin(), HST_WorldPositionService.HQ_GROUND_OFFSET, true);
 		bool changed = m_HQ.MoveHQToPosition(m_State, hqPosition, "field_hq");
 		if (changed)
@@ -1255,6 +1266,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return;
 
+		ClearPetrosRelocationState(true);
 		m_HQ.OnPetrosKilled(m_State, m_Economy, 250, 5);
 		if (m_State.m_bDefendPetrosActive)
 			FailDefendPetrosMission("Petros killed");
@@ -1401,6 +1413,109 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return string.Format("h-istasi HQ | failed: could not move HQ to player | Petros alive %1 | phase %2", m_State.m_bPetrosAlive, m_State.m_ePhase);
 
 		return string.Format("h-istasi HQ | moved to player position | HQ %1 | knowledge %2", m_State.m_vHQPosition, m_State.m_iHQKnowledge);
+	}
+
+	string RequestCommanderStartPetrosRelocationReport(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi HQ relocation | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi HQ relocation | failed: commander required";
+		if (!m_State || m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || !m_State.m_bHQDeployed)
+			return "h-istasi HQ relocation | failed: campaign HQ is not deployed";
+		if (!m_State.m_bPetrosAlive)
+			return "h-istasi HQ relocation | failed: Petros is down";
+		if (!m_HQ)
+			return "h-istasi HQ relocation | failed: HQ service not ready";
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity || !IsLivingEntity(playerEntity))
+			return "h-istasi HQ relocation | failed: player entity not found";
+
+		IEntity petrosEntity = ResolvePetrosRelocationEntity();
+		if (!petrosEntity)
+			return "h-istasi HQ relocation | failed: Petros entity not found";
+
+		if (m_bPetrosRelocationActive)
+		{
+			if (IsPetrosRelocationOwnedByPlayer(playerId))
+			{
+				HST_CommandMenuRequestComponent.SendPetrosRelocationStateOwner(playerId, true);
+				return "h-istasi HQ relocation | Petros is already following you";
+			}
+
+			return "h-istasi HQ relocation | failed: Petros is already following " + ResolvePetrosRelocationPlayerName();
+		}
+
+		HST_MissionCaptiveFollowComponent follow = HST_MissionCaptiveFollowComponent.Cast(petrosEntity.FindComponent(HST_MissionCaptiveFollowComponent));
+		if (!follow)
+			return "h-istasi HQ relocation | failed: Petros follow component missing";
+
+		string playerName = ResolvePlayerDisplayNameForPetrosRelocation(playerId);
+		string identityId = ResolveTrustedIdentityId(playerId);
+		m_bPetrosRelocationActive = true;
+		m_iPetrosRelocationPlayerId = playerId;
+		m_sPetrosRelocationIdentityId = identityId;
+		m_sPetrosRelocationPlayerName = playerName;
+		if (m_HQ)
+			m_HQ.SetPetrosRelocationInProgress(true);
+
+		follow.SetGroupFactionKey("FIA");
+		follow.SetFollowLogLabel("Petros relocation follow");
+		follow.SetStationaryWhenStopped(true);
+		follow.StartFollowing(playerEntity);
+		HST_CommandMenuRequestComponent.SendPetrosRelocationStateOwner(playerId, true);
+
+		string publicMessage = string.Format("Petros is following %1", playerName);
+		string publicPayload = BuildPetrosRelocationNotificationPayload("petros_relocation_start_" + playerId + "_" + m_State.m_iElapsedSeconds, "info", "Petros", publicMessage, petrosEntity.GetOrigin(), 6.0);
+		HST_CommandMenuRequestComponent.BroadcastNotification(publicPayload, publicMessage);
+		SendPetrosRelocationOwnerHint(playerId, petrosEntity.GetOrigin());
+		return "h-istasi HQ relocation | " + publicMessage;
+	}
+
+	string RequestCommanderDeployPetrosRelocationReport(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi HQ relocation | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi HQ relocation | failed: commander required";
+		if (!m_bPetrosRelocationActive)
+			return "h-istasi HQ relocation | failed: Petros is not following you";
+		if (!IsPetrosRelocationOwnedByPlayer(playerId))
+			return "h-istasi HQ relocation | failed: Petros is following " + ResolvePetrosRelocationPlayerName();
+		if (!m_State || m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || !m_State.m_bHQDeployed)
+			return "h-istasi HQ relocation | failed: campaign HQ is not deployed";
+		if (!m_State.m_bPetrosAlive)
+			return "h-istasi HQ relocation | failed: Petros is down";
+		if (!m_HQ)
+			return "h-istasi HQ relocation | failed: HQ service not ready";
+
+		IEntity petrosEntity = ResolvePetrosRelocationEntity();
+		if (!petrosEntity)
+			return "h-istasi HQ relocation | failed: Petros entity not found";
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(petrosEntity.FindComponent(SCR_CompartmentAccessComponent));
+		if (access && access.IsInCompartment())
+			return "h-istasi HQ relocation | failed: Petros must be on foot before deploying HQ";
+
+		vector deployPosition;
+		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(petrosEntity.GetOrigin(), HST_WorldPositionService.HQ_GROUND_OFFSET, deployPosition, true, 6.0))
+			return "h-istasi HQ relocation | failed: Petros is not standing on dry ground";
+
+		StopPetrosRelocationFollow();
+		if (m_HQ)
+			m_HQ.SetPetrosRelocationInProgress(false);
+
+		bool changed = m_HQ.MoveHQToPosition(m_State, deployPosition, "field_hq", true);
+		ClearPetrosRelocationState(true);
+		if (!changed)
+			return string.Format("h-istasi HQ relocation | failed: could not deploy HQ at Petros position | Petros alive %1 | phase %2", m_State.m_bPetrosAlive, m_State.m_ePhase);
+
+		m_HQ.EnsureRuntimeObjects(m_State);
+		m_HQ.ReduceHQKnowledge(m_State, 50, "HQ relocated with Petros");
+		MarkMajorCampaignChange();
+		BroadcastNotification("petros_relocation_deploy_" + playerId + "_" + m_State.m_iElapsedSeconds, "hq", "success", "HQ Relocated", "HQ deployed at Petros' position.", "", "", deployPosition, 6.0);
+		return string.Format("h-istasi HQ relocation | deployed HQ at Petros position | HQ %1 | Petros %2 | knowledge %3", m_State.m_vHQPosition, m_State.m_vPetrosPosition, m_State.m_iHQKnowledge);
 	}
 
 	string RequestCommanderRebuildHQAssetsReport(int playerId)
@@ -1611,6 +1726,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return MoveHQToPlayer(playerId);
 	}
 
+	bool RequestCommanderStartPetrosRelocation(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return !RequestCommanderStartPetrosRelocationReport(playerId).Contains("failed");
+	}
+
+	bool RequestCommanderDeployPetrosRelocation(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return !RequestCommanderDeployPetrosRelocationReport(playerId).Contains("failed");
+	}
+
 	bool RequestCommanderRebuildHQAssets(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
@@ -1625,6 +1756,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_BuildModePlacement placement = m_BuildMode.ResolveHQRebuildPlacement(m_State, playerId);
 		if (!placement || !placement.m_bValid)
 			return false;
+
+		if (m_bPetrosRelocationActive)
+			ClearPetrosRelocationState(true);
 
 		bool changed = m_HQ.RebuildRuntimeObjects(m_State);
 		if (changed)
@@ -6978,6 +7112,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (playerEntity && !m_HQ.IsLoadoutEditorFirstArsenalSelectableAction(playerEntity))
 				loadoutFirstStatus = "FAIL";
 			AddCampaignDebugAssertion(hqCase, "hq.arsenal.loadout_editor_first", "Loadout Editor is the first selectable HQ arsenal action", ShortCampaignDebugLine(arsenalActionReport, 260), loadoutFirstStatus, "HQ arsenal action order does not expose Loadout Editor as the first selectable option");
+			string petrosActionReport = m_HQ.BuildPetrosActionSurfaceReport(playerEntity);
+			hqCase.m_aEvidence.Insert(petrosActionReport);
+			string petrosRelocateLastStatus = CampaignDebugStatus(playerEntity != null && m_HQ.IsRelocateHQLastPetrosSelectableAction(playerEntity), "BLOCKED");
+			if (playerEntity && !m_HQ.IsRelocateHQLastPetrosSelectableAction(playerEntity))
+				petrosRelocateLastStatus = "FAIL";
+			AddCampaignDebugAssertion(hqCase, "hq.petros.relocate_action_last", "Petros relocation action is the last selectable Petros context option", ShortCampaignDebugLine(petrosActionReport, 260), petrosRelocateLastStatus, "Petros action order does not expose Relocate HQ as the final selectable option");
 		}
 		else
 		{
@@ -24881,6 +25021,137 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return changed;
 	}
+
+	protected bool TickPetrosRelocation()
+	{
+		if (!m_bPetrosRelocationActive)
+			return false;
+
+		if (!m_State || m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || !m_State.m_bPetrosAlive)
+		{
+			ClearPetrosRelocationState(true);
+			return false;
+		}
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iPetrosRelocationPlayerId);
+		if (!playerEntity || !IsLivingEntity(playerEntity))
+		{
+			ClearPetrosRelocationState(true);
+			return false;
+		}
+
+		IEntity petrosEntity = ResolvePetrosRelocationEntity();
+		if (!petrosEntity)
+		{
+			ClearPetrosRelocationState(true);
+			return false;
+		}
+
+		HST_MissionCaptiveFollowComponent follow = HST_MissionCaptiveFollowComponent.Cast(petrosEntity.FindComponent(HST_MissionCaptiveFollowComponent));
+		if (follow && !follow.IsFollowing())
+		{
+			follow.SetGroupFactionKey("FIA");
+			follow.SetFollowLogLabel("Petros relocation follow");
+			follow.SetStationaryWhenStopped(true);
+			follow.StartFollowing(playerEntity);
+		}
+
+		if (m_HQ)
+			m_HQ.SetPetrosRelocationInProgress(true);
+
+		return false;
+	}
+
+	protected IEntity ResolvePetrosRelocationEntity()
+	{
+		if (!m_HQ)
+			return null;
+
+		IEntity petrosEntity = m_HQ.GetPetrosRuntimeEntity();
+		if (!petrosEntity || !IsLivingEntity(petrosEntity))
+			return null;
+
+		return petrosEntity;
+	}
+
+	protected bool IsPetrosRelocationOwnedByPlayer(int playerId)
+	{
+		if (!m_bPetrosRelocationActive || playerId <= 0)
+			return false;
+
+		string identityId = ResolveTrustedIdentityId(playerId);
+		if (!identityId.IsEmpty() && !m_sPetrosRelocationIdentityId.IsEmpty())
+			return identityId == m_sPetrosRelocationIdentityId;
+
+		return playerId == m_iPetrosRelocationPlayerId;
+	}
+
+	protected string ResolvePlayerDisplayNameForPetrosRelocation(int playerId)
+	{
+		HST_PlayerState player = RefreshRuntimePlayerAuthority(playerId, "Petros relocation");
+		if (player && !player.m_sDisplayName.IsEmpty())
+			return player.m_sDisplayName;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (playerManager && playerId > 0)
+		{
+			string playerName = playerManager.GetPlayerName(playerId);
+			if (!playerName.IsEmpty())
+				return playerName;
+		}
+
+		return string.Format("player %1", playerId);
+	}
+
+	protected string ResolvePetrosRelocationPlayerName()
+	{
+		if (!m_sPetrosRelocationPlayerName.IsEmpty())
+			return m_sPetrosRelocationPlayerName;
+
+		if (m_iPetrosRelocationPlayerId > 0)
+			return ResolvePlayerDisplayNameForPetrosRelocation(m_iPetrosRelocationPlayerId);
+
+		return "another player";
+	}
+
+	protected void SendPetrosRelocationOwnerHint(int playerId, vector position)
+	{
+		string message = "Petros is following you. Take Petros to where you'd like to setup the new HQ position.";
+		string payload = BuildPetrosRelocationNotificationPayload("petros_relocation_hint", "info", "Petros", message, position, 8.0);
+		HST_CommandMenuRequestComponent.SendOwnerNotification(playerId, payload, message);
+	}
+
+	protected string BuildPetrosRelocationNotificationPayload(string eventId, string severity, string title, string message, vector position, float durationSeconds)
+	{
+		return string.Format("HST_NOTIFICATION|%1|hq|%2|%3|%4|||%5|%6", eventId, severity, PayloadText(title), PayloadText(message), position, durationSeconds);
+	}
+
+	protected void StopPetrosRelocationFollow()
+	{
+		IEntity petrosEntity = ResolvePetrosRelocationEntity();
+		if (!petrosEntity)
+			return;
+
+		HST_MissionCaptiveFollowComponent follow = HST_MissionCaptiveFollowComponent.Cast(petrosEntity.FindComponent(HST_MissionCaptiveFollowComponent));
+		if (follow)
+			follow.StopFollowing();
+	}
+
+	protected void ClearPetrosRelocationState(bool updateOwner)
+	{
+		int ownerPlayerId = m_iPetrosRelocationPlayerId;
+		StopPetrosRelocationFollow();
+		if (m_HQ)
+			m_HQ.SetPetrosRelocationInProgress(false);
+
+		m_bPetrosRelocationActive = false;
+		m_iPetrosRelocationPlayerId = 0;
+		m_sPetrosRelocationIdentityId = "";
+		m_sPetrosRelocationPlayerName = "";
+		if (updateOwner && ownerPlayerId > 0)
+			HST_CommandMenuRequestComponent.SendPetrosRelocationStateOwner(ownerPlayerId, false);
+	}
+
 	protected string SelectFirstAdminZoneId()
 	{
 		if (!m_State || m_State.m_aZones.Count() == 0)

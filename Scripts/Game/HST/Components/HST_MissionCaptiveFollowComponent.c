@@ -19,6 +19,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 	static const float STUCK_RECOVERY_MIN_MOVE_METERS = 0.75;
 	static const float DIRECT_CATCHUP_MIN_DISTANCE_METERS = 12.0;
 	static const float DIRECT_CATCHUP_STEP_METERS = 8.0;
+	static const float VEHICLE_EXIT_OFFSET_METERS = 2.0;
 	static const int STUCK_RECOVERY_TICKS = 6;
 	static const int FOLLOW_UPDATE_MS = 500;
 
@@ -40,12 +41,37 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 	protected bool m_bLoggedWaypointFailed;
 	protected bool m_bLoggedStuckRecovery;
 	protected bool m_bLoggedDirectCatchup;
+	protected bool m_bLoggedVehicleBoardingFailed;
+	protected bool m_bStationaryWhenStopped;
 	protected bool m_bDirectFollowUnavailable;
 	protected int m_iNoProgressTicks;
+	protected string m_sGroupFactionKey = "CIV";
+	protected string m_sFollowLogLabel = "mission captive follow";
 
 	bool IsFollowing()
 	{
 		return m_bFollowing && m_FollowTarget != null;
+	}
+
+	void SetGroupFactionKey(string factionKey)
+	{
+		if (factionKey.IsEmpty())
+			return;
+
+		m_sGroupFactionKey = factionKey;
+	}
+
+	void SetFollowLogLabel(string label)
+	{
+		if (label.IsEmpty())
+			return;
+
+		m_sFollowLogLabel = label;
+	}
+
+	void SetStationaryWhenStopped(bool enabled)
+	{
+		m_bStationaryWhenStopped = enabled;
 	}
 
 	void StartFollowing(IEntity target)
@@ -78,7 +104,9 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		m_bLoggedWaypointFailed = false;
 		m_bLoggedStuckRecovery = false;
 		m_bLoggedDirectCatchup = false;
+		m_bLoggedVehicleBoardingFailed = false;
 		m_bDirectFollowUnavailable = false;
+		SetOwnerMovementLocked(owner, false);
 
 		FollowTick();
 		ScriptCallQueue queue = GetGame().GetCallqueue();
@@ -94,6 +122,8 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		ClearFollowWaypoint(ResolveParentAIGroup(GetOwner()));
 		m_bFollowing = false;
 		m_FollowTarget = null;
+		if (m_bStationaryWhenStopped)
+			SetOwnerMovementLocked(GetOwner(), true);
 
 		ScriptCallQueue queue = GetGame().GetCallqueue();
 		if (queue)
@@ -120,6 +150,9 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 
 		vector ownerPosition = owner.GetOrigin();
 		vector targetPosition = m_FollowTarget.GetOrigin();
+		if (SyncVehicleStateWithTarget(owner, targetPosition))
+			return;
+
 		float targetStepDistance = ResolveTargetStepDistance(targetPosition);
 		vector followPosition = BuildResponsiveFollowPosition(targetPosition, targetStepDistance);
 		bool forceWaypointRefresh = UpdateFollowProgressState(ownerPosition, targetPosition);
@@ -134,7 +167,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		{
 			if (!m_bLoggedMissingMovement)
 			{
-				Print(string.Format("h-istasi mission captive follow | no AI movement component for %1", owner.GetName()), LogLevel.WARNING);
+				Print(string.Format("h-istasi %1 | no AI movement component for %2", m_sFollowLogLabel, owner.GetName()), LogLevel.WARNING);
 				m_bLoggedMissingMovement = true;
 			}
 			return;
@@ -146,7 +179,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			return;
 		if (forceWaypointRefresh && !m_bLoggedStuckRecovery)
 		{
-			Print(string.Format("h-istasi mission captive follow | direct follow stalled, refreshing waypoint | owner %1 | target %2", owner.GetOrigin(), m_FollowTarget.GetOrigin()), LogLevel.WARNING);
+			Print(string.Format("h-istasi %1 | direct follow stalled, refreshing waypoint | owner %2 | target %3", m_sFollowLogLabel, owner.GetOrigin(), m_FollowTarget.GetOrigin()), LogLevel.WARNING);
 			m_bLoggedStuckRecovery = true;
 		}
 
@@ -154,7 +187,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		{
 			if (!m_bLoggedRequestFailed)
 			{
-				Print(string.Format("h-istasi mission captive follow | RequestFollowPathOfEntity failed for %1 | group %2 | owner %3 | target %4", owner.GetName(), HasParentAIGroup(owner), owner.GetOrigin(), m_FollowTarget.GetOrigin()), LogLevel.WARNING);
+				Print(string.Format("h-istasi %1 | RequestFollowPathOfEntity failed for %2 | group %3 | owner %4 | target %5", m_sFollowLogLabel, owner.GetName(), HasParentAIGroup(owner), owner.GetOrigin(), m_FollowTarget.GetOrigin()), LogLevel.WARNING);
 				m_bLoggedRequestFailed = true;
 			}
 			m_bDirectFollowUnavailable = true;
@@ -208,7 +241,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		m_iNoProgressTicks = 0;
 		if (!m_bLoggedDirectCatchup)
 		{
-			Print(string.Format("h-istasi mission captive follow | direct catch-up after stalled follow | owner %1 -> %2 | target %3 | distance %4m", ownerPosition, catchupPosition, followPosition, Math.Round(distance)), LogLevel.WARNING);
+			Print(string.Format("h-istasi %1 | direct catch-up after stalled follow | owner %2 -> %3 | target %4 | distance %5m", m_sFollowLogLabel, ownerPosition, catchupPosition, followPosition, Math.Round(distance)), LogLevel.WARNING);
 			m_bLoggedDirectCatchup = true;
 		}
 
@@ -296,7 +329,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		m_WaypointPosition = waypointPosition;
 		if (!m_bLoggedWaypointFallback)
 		{
-			Print(string.Format("h-istasi mission captive follow | using entity follow waypoint fallback | target %1", targetEntity.GetName()));
+			Print(string.Format("h-istasi %1 | using entity follow waypoint fallback | target %2", m_sFollowLogLabel, targetEntity.GetName()));
 			m_bLoggedWaypointFallback = true;
 		}
 		return true;
@@ -315,7 +348,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
 			if (!m_bLoggedWaypointFailed)
 			{
-				Print("h-istasi mission captive follow | failed to create follow waypoint", LogLevel.WARNING);
+				Print(string.Format("h-istasi %1 | failed to create follow waypoint", m_sFollowLogLabel), LogLevel.WARNING);
 				m_bLoggedWaypointFailed = true;
 			}
 			return false;
@@ -329,7 +362,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		m_WaypointPosition = waypointPosition;
 		if (!m_bLoggedWaypointFallback)
 		{
-			Print(string.Format("h-istasi mission captive follow | using refreshed waypoint fallback | target %1", waypointPosition));
+			Print(string.Format("h-istasi %1 | using refreshed waypoint fallback | target %2", m_sFollowLogLabel, waypointPosition));
 			m_bLoggedWaypointFallback = true;
 		}
 		return true;
@@ -372,7 +405,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			{
 				if (!m_bLoggedGroupFailed)
 				{
-					Print("h-istasi mission captive follow | failed to create captive AI group", LogLevel.WARNING);
+					Print(string.Format("h-istasi %1 | failed to create follower AI group", m_sFollowLogLabel), LogLevel.WARNING);
 					m_bLoggedGroupFailed = true;
 				}
 				return null;
@@ -380,7 +413,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 
 			SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
 			if (scrGroup)
-				scrGroup.InitFactionKey("CIV");
+				scrGroup.InitFactionKey(m_sGroupFactionKey);
 		}
 
 		SCR_AIGroup captiveGroup = SCR_AIGroup.Cast(group);
@@ -397,10 +430,189 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		agent.ActivateAI();
 		if (!m_bLoggedGroupCreated)
 		{
-			Print(string.Format("h-istasi mission captive follow | attached captive to AI group | group agents %1", group.GetAgentsCount()));
+			Print(string.Format("h-istasi %1 | attached follower to AI group | group agents %2", m_sFollowLogLabel, group.GetAgentsCount()));
 			m_bLoggedGroupCreated = true;
 		}
 		return group;
+	}
+
+	protected bool SyncVehicleStateWithTarget(IEntity owner, vector targetPosition)
+	{
+		if (!owner || !m_FollowTarget)
+			return false;
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(owner.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access)
+			return false;
+
+		IEntity targetVehicle = CompartmentAccessComponent.GetVehicleIn(m_FollowTarget);
+		if (targetVehicle)
+		{
+			string reason;
+			if (TryMoveFollowerIntoVehicle(owner, targetVehicle, reason))
+				return true;
+
+			if (!m_bLoggedVehicleBoardingFailed)
+			{
+				Print(string.Format("h-istasi %1 | vehicle boarding failed: %2", m_sFollowLogLabel, reason), LogLevel.WARNING);
+				m_bLoggedVehicleBoardingFailed = true;
+			}
+			return false;
+		}
+
+		if (!access.IsInCompartment())
+			return false;
+
+		if (access.IsGettingOut())
+			return true;
+
+		vector exitPosition = ResolveFollowerVehicleExitPosition(owner, targetPosition);
+		vector exitTransform[4];
+		Math3D.MatrixIdentity4(exitTransform);
+		exitTransform[3] = exitPosition;
+		if (access.GetOutVehicle_NoDoor(exitTransform, false, true, true))
+			return true;
+
+		if (access.GetOutVehicle(EGetOutType.TELEPORT, -1, ECloseDoorAfterActions.INVALID, true, true))
+			return true;
+
+		access.AskOwnerToGetOutFromVehicle(EGetOutType.TELEPORT, -1, ECloseDoorAfterActions.INVALID, true, true);
+		return true;
+	}
+
+	protected bool TryMoveFollowerIntoVehicle(IEntity followerEntity, IEntity vehicleEntity, out string reason)
+	{
+		reason = "";
+		if (!followerEntity || !vehicleEntity)
+		{
+			reason = "follower or vehicle missing";
+			return false;
+		}
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(followerEntity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access)
+		{
+			reason = "follower has no compartment access component";
+			return false;
+		}
+		if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
+		{
+			reason = "follower already seated";
+			return true;
+		}
+		if (access.IsGettingIn())
+		{
+			reason = "follower already boarding";
+			return true;
+		}
+
+		BaseCompartmentManagerComponent compartmentManager = ResolveCompartmentManager(vehicleEntity);
+		if (!compartmentManager)
+		{
+			reason = "vehicle has no compartment manager";
+			return false;
+		}
+
+		array<BaseCompartmentSlot> slots = {};
+		compartmentManager.GetCompartments(slots);
+		BaseCompartmentSlot slot = FindAvailableFollowerSeat(slots, followerEntity);
+		if (!slot)
+		{
+			reason = "vehicle has no accessible cargo seat";
+			return false;
+		}
+
+		IEntity slotOwner = slot.GetOwner();
+		if (!slotOwner)
+			slotOwner = vehicleEntity;
+		if (access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+		{
+			reason = "server-authoritative cargo move-in completed";
+			return true;
+		}
+
+		if (!access.MoveInVehicle(vehicleEntity, ECompartmentType.CARGO, true, slot))
+		{
+			reason = "vehicle boarding order rejected";
+			return false;
+		}
+
+		reason = "animated vehicle boarding order issued";
+		return true;
+	}
+
+	protected BaseCompartmentManagerComponent ResolveCompartmentManager(IEntity vehicleEntity)
+	{
+		if (!vehicleEntity)
+			return null;
+
+		SCR_BaseCompartmentManagerComponent scrManager = SCR_BaseCompartmentManagerComponent.Cast(vehicleEntity.FindComponent(SCR_BaseCompartmentManagerComponent));
+		if (scrManager)
+			return scrManager;
+
+		return BaseCompartmentManagerComponent.Cast(vehicleEntity.FindComponent(BaseCompartmentManagerComponent));
+	}
+
+	protected BaseCompartmentSlot FindAvailableFollowerSeat(array<BaseCompartmentSlot> slots, IEntity followerEntity)
+	{
+		if (!slots || !followerEntity)
+			return null;
+
+		foreach (BaseCompartmentSlot slot : slots)
+		{
+			if (!slot)
+				continue;
+			if (slot.GetType() != ECompartmentType.CARGO)
+				continue;
+			if (!slot.IsCompartmentAccessible())
+				continue;
+			if (slot.IsOccupied())
+				continue;
+			if (slot.IsReserved() && !slot.IsReservedBy(followerEntity))
+				continue;
+			if (slot.IsGetInLockedFor(followerEntity))
+				continue;
+
+			return slot;
+		}
+
+		return null;
+	}
+
+	protected vector ResolveFollowerVehicleExitPosition(IEntity owner, vector targetPosition)
+	{
+		vector exitPosition = targetPosition;
+		vector ownerPosition = owner.GetOrigin();
+		float dx = ownerPosition[0] - targetPosition[0];
+		float dz = ownerPosition[2] - targetPosition[2];
+		float length = Math.Sqrt(dx * dx + dz * dz);
+		if (length <= 0.01)
+		{
+			exitPosition[0] = exitPosition[0] + VEHICLE_EXIT_OFFSET_METERS;
+		}
+		else
+		{
+			exitPosition[0] = exitPosition[0] + (dx / length) * VEHICLE_EXIT_OFFSET_METERS;
+			exitPosition[2] = exitPosition[2] + (dz / length) * VEHICLE_EXIT_OFFSET_METERS;
+		}
+
+		return HST_WorldPositionService.ResolveSafeGroundPosition(exitPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 1.0);
+	}
+
+	protected void SetOwnerMovementLocked(IEntity owner, bool locked)
+	{
+		ChimeraCharacter character = ChimeraCharacter.Cast(owner);
+		if (!character)
+			return;
+
+		CharacterControllerComponent controller = character.GetCharacterController();
+		if (!controller)
+			return;
+
+		if (locked)
+			controller.SetMovement(0, vector.Zero);
+		controller.SetDisableMovementControls(locked);
+		controller.SetDisableWeaponControls(true);
 	}
 
 	protected void TryForceFollowSpeed(IEntity owner, EMovementType movementType)

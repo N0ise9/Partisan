@@ -14,6 +14,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	protected static HST_CommandMenuRequestComponent s_LocalOwner;
 	protected static HST_CommandMenuRequestComponent s_ServerBroadcaster;
+	protected static bool s_bLocalPetrosRelocationActive;
 
 	protected IEntity m_OwnerEntity;
 	protected string m_sLastSnapshot;
@@ -89,6 +90,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			RecoverLocalOwnerFromController("static lookup");
 
 		return s_LocalOwner;
+	}
+
+	static bool IsLocalPetrosRelocationActive()
+	{
+		return s_bLocalPetrosRelocationActive;
 	}
 
 	protected void BecomeLocalOwner()
@@ -382,6 +388,60 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		s_ServerBroadcaster.BroadcastNotification_I(payload, summary);
+	}
+
+	static bool SendOwnerNotification(int playerId, string payload, string summary = "")
+	{
+		if (!Replication.IsServer() || playerId <= 0)
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		PlayerController controller = playerManager.GetPlayerController(playerId);
+		if (!controller)
+		{
+			Print(string.Format("h-istasi notification | owner RPC unavailable: player controller missing player=%1", playerId), LogLevel.WARNING);
+			return false;
+		}
+
+		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
+		if (!request)
+		{
+			Print(string.Format("h-istasi notification | owner RPC unavailable: request bridge missing player=%1", playerId), LogLevel.WARNING);
+			return false;
+		}
+
+		request.DeliverNotificationOwner(payload, summary);
+		return true;
+	}
+
+	static bool SendPetrosRelocationStateOwner(int playerId, bool active)
+	{
+		if (!Replication.IsServer() || playerId <= 0)
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		PlayerController controller = playerManager.GetPlayerController(playerId);
+		if (!controller)
+		{
+			Print(string.Format("h-istasi Petros relocation | owner state RPC unavailable: player controller missing player=%1 active=%2", playerId, active), LogLevel.WARNING);
+			return false;
+		}
+
+		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
+		if (!request)
+		{
+			Print(string.Format("h-istasi Petros relocation | owner state RPC unavailable: request bridge missing player=%1 active=%2", playerId, active), LogLevel.WARNING);
+			return false;
+		}
+
+		request.DeliverPetrosRelocationState(active);
+		return true;
 	}
 
 	static void BroadcastMissionIntel(string payload)
@@ -732,6 +792,18 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ReceiveNotificationOwner(string payload, string summary)
+	{
+		DeliverNotificationLocal(payload, summary);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_PetrosRelocationStateOwner(bool active)
+	{
+		s_bLocalPetrosRelocationActive = active;
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
 	protected void RpcDo_ReceiveMissionIntelOwner(string payload)
 	{
 		HST_MissionClientComponent missionClient = HST_MissionClientComponent.GetLocalInstance();
@@ -855,6 +927,28 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	{
 		DeliverNotificationLocal(payload, summary);
 		Rpc(RpcDo_ReceiveNotification, payload, summary);
+	}
+
+	protected void DeliverNotificationOwner(string payload, string summary)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_ReceiveNotificationOwner(payload, summary);
+			return;
+		}
+
+		Rpc(RpcDo_ReceiveNotificationOwner, payload, summary);
+	}
+
+	protected void DeliverPetrosRelocationState(bool active)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_PetrosRelocationStateOwner(active);
+			return;
+		}
+
+		Rpc(RpcDo_PetrosRelocationStateOwner, active);
 	}
 
 	protected void BroadcastMissionIntel_I(string payload)

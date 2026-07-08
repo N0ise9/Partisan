@@ -34,6 +34,7 @@ class HST_HQService
 	protected bool m_bLoggedTentSpawned;
 	protected bool m_bLoggedSpawnPointSpawned;
 	protected bool m_bDebugLoggingEnabled;
+	protected bool m_bPetrosRelocationInProgress;
 	protected int m_iPetrosMissingSinceSecond = -1;
 	protected int m_iPetrosLastSpawnSecond = -999999;
 	protected int m_iPetrosSpawnCount;
@@ -42,6 +43,11 @@ class HST_HQService
 	void SetDebugLoggingEnabled(bool enabled)
 	{
 		m_bDebugLoggingEnabled = enabled;
+	}
+
+	void SetPetrosRelocationInProgress(bool active)
+	{
+		m_bPetrosRelocationInProgress = active;
 	}
 
 	bool BootstrapInitialHideout(HST_CampaignState state, string hideoutId)
@@ -192,7 +198,7 @@ class HST_HQService
 		return true;
 	}
 
-	bool MoveHQToPosition(HST_CampaignState state, vector hqPosition, string hideoutId = "field_hq")
+	bool MoveHQToPosition(HST_CampaignState state, vector hqPosition, string hideoutId = "field_hq", bool keepPetrosAtHQPosition = false)
 	{
 		if (!state || state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || !state.m_bPetrosAlive)
 			return false;
@@ -205,6 +211,8 @@ class HST_HQService
 		}
 
 		SetHQPosition(state, hideoutId, resolvedPosition);
+		if (keepPetrosAtHQPosition)
+			state.m_vPetrosPosition = ResolveHQObjectPosition(resolvedPosition, "0 0 0", HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
 		return true;
 	}
 
@@ -267,7 +275,10 @@ class HST_HQService
 		}
 		else if (m_PetrosEntity)
 		{
-			PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
+			if (m_bPetrosRelocationInProgress)
+				PreparePetrosRelocationEntity(m_PetrosEntity);
+			else
+				PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
 			m_iPetrosMissingSinceSecond = -1;
 			m_sPetrosStableRuntimeKey = BuildRuntimeEntityKey("petros", m_PetrosEntity);
 			if (!IsPetrosAIGroupTracked() && !EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "runtime refresh"))
@@ -598,6 +609,11 @@ class HST_HQService
 		return IsLivingRuntimeEntity(m_PetrosEntity);
 	}
 
+	IEntity GetPetrosRuntimeEntity()
+	{
+		return ResolvePetrosRuntimeEntity();
+	}
+
 	bool HasCacheRuntimeEntity()
 	{
 		return m_CacheEntity != null;
@@ -629,6 +645,15 @@ class HST_HQService
 		string firstActionName;
 		int firstActionIndex;
 		return ResolveFirstArsenalSelectableAction(userEntity, firstActionKind, firstActionName, firstActionIndex) && firstActionKind == "loadout_editor";
+	}
+
+	bool IsRelocateHQLastPetrosSelectableAction(IEntity userEntity)
+	{
+		EnsurePetrosActionFilterApplied();
+		string lastActionKind;
+		string lastActionName;
+		int lastActionIndex;
+		return ResolveLastPetrosSelectableAction(userEntity, lastActionKind, lastActionName, lastActionIndex) && lastActionKind == "relocate_hq";
 	}
 
 	string BuildArsenalActionSurfaceReport(IEntity userEntity)
@@ -683,6 +708,74 @@ class HST_HQService
 			firstSummary = string.Format("#%1 %2 | %3", firstActionIndex, firstActionName, firstActionKind);
 
 		return string.Format("h-istasi HQ arsenal actions | count %1 | disabled %2 | shown %3 | selectable %4 | first selectable %5 | loadout index %6 | HQ menu index %7%8", actionCount, disabledCount, shownCount, selectableCount, firstSummary, loadoutIndex, hqMenuIndex, rows);
+	}
+
+	string BuildPetrosActionSurfaceReport(IEntity userEntity)
+	{
+		if (!m_PetrosEntity)
+			return "h-istasi Petros actions | entity missing";
+
+		EnsurePetrosActionFilterApplied();
+		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(m_PetrosEntity.FindComponent(ActionsManagerComponent));
+		if (!actionsManager)
+			return "h-istasi Petros actions | actions manager missing";
+
+		array<BaseUserAction> actions = {};
+		int actionCount = actionsManager.GetActionsList(actions);
+		string lastActionKind;
+		string lastActionName;
+		int lastActionIndex;
+		bool lastResolved = ResolveLastPetrosSelectableAction(userEntity, lastActionKind, lastActionName, lastActionIndex);
+
+		int menuIndex = -1;
+		int arsenalIndex = -1;
+		int relocateIndex = -1;
+		int disabledCount;
+		int shownCount;
+		int selectableCount;
+		string rows;
+		for (int i = 0; i < actions.Count(); i++)
+		{
+			BaseUserAction action = actions[i];
+			if (!action)
+				continue;
+
+			string kind = ResolvePetrosActionKind(action);
+			if (kind == "hq_menu")
+				menuIndex = i;
+			else if (kind == "arsenal_menu")
+				arsenalIndex = i;
+			else if (kind == "relocate_hq")
+				relocateIndex = i;
+
+			bool disabled = action.WasDisabledByServer();
+			bool shown = IsActionShown(action, userEntity);
+			bool selectable = IsActionSelectable(action, userEntity);
+			if (disabled)
+				disabledCount++;
+			if (shown)
+				shownCount++;
+			if (selectable)
+				selectableCount++;
+
+			rows = rows + string.Format("\n  #%1 %2 | %3 | disabled %4 | shown %5 | selectable %6", i, ResolveActionName(action), kind, disabled, shown, selectable);
+		}
+
+		string lastSummary = "none";
+		if (lastResolved)
+			lastSummary = string.Format("#%1 %2 | %3", lastActionIndex, lastActionName, lastActionKind);
+
+		return string.Format("h-istasi Petros actions | count %1 | disabled %2 | shown %3 | selectable %4 | last selectable %5 | HQ menu index %6 | arsenal index %7 | relocate index %8%9", actionCount, disabledCount, shownCount, selectableCount, lastSummary, menuIndex, arsenalIndex, relocateIndex, rows);
+	}
+
+	protected void EnsurePetrosActionFilterApplied()
+	{
+		if (!m_PetrosEntity)
+			return;
+
+		HST_PetrosActionFilterComponent filter = HST_PetrosActionFilterComponent.Cast(m_PetrosEntity.FindComponent(HST_PetrosActionFilterComponent));
+		if (filter)
+			filter.EnsureFilteredNow();
 	}
 
 	vector GetPetrosRuntimeEntityPosition()
@@ -1285,6 +1378,27 @@ class HST_HQService
 		controller.SetDisableWeaponControls(true);
 	}
 
+	protected void PreparePetrosRelocationEntity(IEntity petros)
+	{
+		if (!petros)
+			return;
+
+		petros.SetName("HST_Petros");
+		petros.SetFlags(EntityFlags.VISIBLE | EntityFlags.TRACEABLE | EntityFlags.ACTIVE, true);
+		ApplyFaction(petros);
+
+		ChimeraCharacter character = ChimeraCharacter.Cast(petros);
+		if (!character)
+			return;
+
+		CharacterControllerComponent controller = character.GetCharacterController();
+		if (!controller)
+			return;
+
+		controller.SetDisableMovementControls(false);
+		controller.SetDisableWeaponControls(true);
+	}
+
 	protected bool EnsurePetrosAIGroup(IEntity petros, vector position, string source)
 	{
 		if (!petros)
@@ -1498,7 +1612,40 @@ class HST_HQService
 		return false;
 	}
 
+	protected bool ResolveLastPetrosSelectableAction(IEntity userEntity, out string actionKind, out string actionName, out int actionIndex)
+	{
+		actionKind = "";
+		actionName = "";
+		actionIndex = -1;
+		if (!m_PetrosEntity)
+			return false;
+
+		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(m_PetrosEntity.FindComponent(ActionsManagerComponent));
+		if (!actionsManager)
+			return false;
+
+		array<BaseUserAction> actions = {};
+		actionsManager.GetActionsList(actions);
+		for (int i = 0; i < actions.Count(); i++)
+		{
+			BaseUserAction action = actions[i];
+			if (!action || !IsActionSelectable(action, userEntity))
+				continue;
+
+			actionKind = ResolvePetrosActionKind(action);
+			actionName = ResolveActionName(action);
+			actionIndex = i;
+		}
+
+		return actionIndex >= 0;
+	}
+
 	protected bool IsArsenalActionShown(BaseUserAction action, IEntity userEntity)
+	{
+		return IsActionShown(action, userEntity);
+	}
+
+	protected bool IsActionShown(BaseUserAction action, IEntity userEntity)
 	{
 		if (!action || action.WasDisabledByServer())
 			return false;
@@ -1511,13 +1658,35 @@ class HST_HQService
 
 	protected bool IsArsenalActionSelectable(BaseUserAction action, IEntity userEntity)
 	{
-		if (!IsArsenalActionShown(action, userEntity))
+		return IsActionSelectable(action, userEntity);
+	}
+
+	protected bool IsActionSelectable(BaseUserAction action, IEntity userEntity)
+	{
+		if (!IsActionShown(action, userEntity))
 			return false;
 
 		if (!userEntity)
 			return true;
 
 		return action.CanBePerformed(userEntity);
+	}
+
+	protected string ResolvePetrosActionKind(BaseUserAction action)
+	{
+		if (HST_PetrosCommandMenuAction.Cast(action))
+			return "hq_menu";
+
+		if (HST_PetrosArsenalMenuAction.Cast(action))
+			return "arsenal_menu";
+
+		if (HST_PetrosMoveBaseHereAction.Cast(action))
+			return "relocate_hq";
+
+		if (action && action.WasDisabledByServer())
+			return "disabled_inherited";
+
+		return "other";
 	}
 
 	protected string ResolveArsenalActionKind(BaseUserAction action)
@@ -1608,7 +1777,11 @@ class HST_HQService
 		if (!state)
 			return false;
 
-		return CountPetrosWorldRuntimeEntities(state) == 1
+		bool petrosWorldProven = CountPetrosWorldRuntimeEntities(state) == 1;
+		if (m_bPetrosRelocationInProgress)
+			petrosWorldProven = IsLivingRuntimeEntity(m_PetrosEntity);
+
+		return petrosWorldProven
 			&& CountCacheWorldRuntimeEntities(state) == 1
 			&& CountArsenalWorldRuntimeEntities(state) == 1
 			&& CountTentWorldRuntimeEntities(state) == 1
@@ -1617,6 +1790,9 @@ class HST_HQService
 
 	protected bool IsPetrosRuntimeTracked(HST_CampaignState state = null)
 	{
+		if (m_bPetrosRelocationInProgress && IsLivingRuntimeEntity(m_PetrosEntity))
+			return true;
+
 		if (!state)
 			return IsLivingRuntimeEntity(m_PetrosEntity);
 
@@ -1959,6 +2135,7 @@ class HST_HQService
 		m_bLoggedSpawnPointSpawned = false;
 		m_bWarnedPetrosRemovalRetry = false;
 		m_bWarnedPetrosAIGroupFallback = false;
+		m_bPetrosRelocationInProgress = false;
 		ResetPetrosRespawnState();
 
 		if (state)

@@ -714,6 +714,12 @@ class HST_CommandUIService
 		if (commandId == "move_hq_here")
 			return coordinator.RequestCommanderMoveHQToPlayerReport(playerId);
 
+		if (commandId == "petros_relocate_hq")
+			return coordinator.RequestCommanderStartPetrosRelocationReport(playerId);
+
+		if (commandId == "petros_deploy_hq_here")
+			return coordinator.RequestCommanderDeployPetrosRelocationReport(playerId);
+
 		if (commandId == "rebuild_hq_assets")
 			return coordinator.RequestCommanderRebuildHQAssetsReport(playerId);
 
@@ -1283,6 +1289,12 @@ class HST_CommandUIService
 
 		if (commandId == "move_hq_here")
 			return coordinator.RequestCommanderMoveHQToPlayer(playerId);
+
+		if (commandId == "petros_relocate_hq")
+			return coordinator.RequestCommanderStartPetrosRelocation(playerId);
+
+		if (commandId == "petros_deploy_hq_here")
+			return coordinator.RequestCommanderDeployPetrosRelocation(playerId);
 
 		if (commandId == "rebuild_hq_assets")
 			return coordinator.RequestCommanderRebuildHQAssets(playerId);

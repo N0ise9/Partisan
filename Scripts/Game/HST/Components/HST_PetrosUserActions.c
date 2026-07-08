@@ -171,6 +171,83 @@ class HST_HQArsenalActionFilterComponent : ScriptComponent
 	}
 }
 
+[ComponentEditorProps(category: "h-istasi", description: "Keeps Petros context actions focused on HQ, arsenal, and relocation")]
+class HST_PetrosActionFilterComponentClass : ScriptComponentClass
+{
+}
+
+class HST_PetrosActionFilterComponent : ScriptComponent
+{
+	protected bool m_bActionsFiltered;
+	protected int m_iFilterFrames;
+
+	void EnsureFilteredNow()
+	{
+		FilterActions(GetOwner());
+	}
+
+	override void OnPostInit(IEntity owner)
+	{
+		super.OnPostInit(owner);
+		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
+	}
+
+	override void EOnInit(IEntity owner)
+	{
+		FilterActions(owner);
+	}
+
+	override void EOnFrame(IEntity owner, float timeSlice)
+	{
+		if (m_bActionsFiltered && m_iFilterFrames > 90)
+			return;
+
+		FilterActions(owner);
+	}
+
+	protected void FilterActions(IEntity owner)
+	{
+		if (!owner)
+			return;
+
+		if (HST_MissionAssetComponent.Cast(owner.FindComponent(HST_MissionAssetComponent)))
+		{
+			m_bActionsFiltered = true;
+			return;
+		}
+
+		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(owner.FindComponent(ActionsManagerComponent));
+		if (!actionsManager)
+			return;
+
+		array<BaseUserAction> actions = {};
+		actionsManager.GetActionsList(actions);
+		int actionCount = actions.Count();
+		if (actionCount <= 0)
+			return;
+
+		int keptActions;
+		foreach (BaseUserAction action : actions)
+		{
+			if (!action)
+				continue;
+
+			if (HST_PetrosCommandMenuAction.Cast(action) || HST_PetrosArsenalMenuAction.Cast(action) || HST_PetrosMoveBaseHereAction.Cast(action))
+			{
+				keptActions++;
+				continue;
+			}
+
+			action.SetActionEnabled_S(false);
+		}
+
+		m_bActionsFiltered = true;
+		m_iFilterFrames++;
+		if (m_iFilterFrames == 1 || m_iFilterFrames == 90)
+			Print(string.Format("h-istasi Petros | filtered %1 inherited action(s); HQ, arsenal, and relocation actions remain authoritative", Math.Max(0, actionCount - keptActions)));
+	}
+}
+
 class HST_PetrosUserActionBase : HST_ContextualUserActionBase
 {
 }
@@ -193,12 +270,18 @@ class HST_PetrosMoveBaseHereAction : HST_PetrosUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
-		RunMenuCommand("petros", "move_hq_here", "", pUserEntity);
+		if (HST_CommandMenuRequestComponent.IsLocalPetrosRelocationActive())
+			RunMenuCommand("petros", "petros_deploy_hq_here", "", pUserEntity);
+		else
+			RunMenuCommand("petros", "petros_relocate_hq", "", pUserEntity);
 	}
 
 	override bool GetActionNameScript(out string outName)
 	{
-		outName = "Move h-istasi base here";
+		if (HST_CommandMenuRequestComponent.IsLocalPetrosRelocationActive())
+			outName = "Deploy HQ Here";
+		else
+			outName = "Relocate HQ";
 		return true;
 	}
 }
