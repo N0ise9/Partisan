@@ -114,6 +114,42 @@ class HST_MissionRuntimeService
 		m_bDebugLoggingEnabled = enabled;
 	}
 
+	int CountRuntimeEntityHandlesForMission(HST_CampaignState state, string missionInstanceId)
+	{
+		if (!state || missionInstanceId.IsEmpty())
+			return 0;
+
+		int count;
+		array<string> countedIds = {};
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
+		{
+			if (!runtimeEntity || runtimeEntity.m_sMissionInstanceId != missionInstanceId || runtimeEntity.m_sRuntimeEntityId.IsEmpty())
+				continue;
+			if (countedIds.Contains(runtimeEntity.m_sRuntimeEntityId))
+				continue;
+			if (!GetRuntimeEntity(runtimeEntity.m_sRuntimeEntityId))
+				continue;
+
+			countedIds.Insert(runtimeEntity.m_sRuntimeEntityId);
+			count++;
+		}
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != missionInstanceId || asset.m_sEntityId.IsEmpty())
+				continue;
+			if (countedIds.Contains(asset.m_sEntityId))
+				continue;
+			if (!GetRuntimeEntity(asset.m_sEntityId))
+				continue;
+
+			countedIds.Insert(asset.m_sEntityId);
+			count++;
+		}
+
+		return count;
+	}
+
 	HST_CampaignDebugCaseResult BuildCampaignDebugCaptiveBoardingProbe(HST_CampaignState state, HST_ActiveMissionState mission, string carrierPrefab, string debugPrefix, bool physicalBlocked)
 	{
 		HST_CampaignDebugCaseResult probe = CreateCaptiveBoardingDebugProbeCase(state, mission);

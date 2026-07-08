@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r88-map-target-cursor-layer";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r90-mission-target-force-physical";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -5587,13 +5587,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int activeGroupCountBefore = m_State.m_aActiveGroups.Count();
 		HST_GarrisonState originalGarrison = m_State.FindGarrison(zoneId, factionKey);
 		bool hadOriginalGarrison = originalGarrison != null;
-		int originalInfantry = 0;
-		int originalVehicles = 0;
+		int restoreInfantry = 0;
+		int restoreVehicles = 0;
 		if (originalGarrison)
 		{
-			originalInfantry = originalGarrison.m_iInfantryCount;
-			originalVehicles = originalGarrison.m_iVehicleCount;
+			restoreInfantry = originalGarrison.m_iInfantryCount;
+			restoreVehicles = originalGarrison.m_iVehicleCount;
 		}
+		int originalInfantry = restoreInfantry;
+		int originalVehicles = restoreVehicles;
 		int garrisonSlotCap = targetZone.m_iGarrisonSlots;
 		if (garrisonSlotCap > 0)
 		{
@@ -5601,9 +5603,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (seededOriginalGarrison)
 			{
 				originalInfantry = Math.Max(0, garrisonSlotCap - 1);
+				originalVehicles = restoreVehicles;
 				seededOriginalGarrison.m_iInfantryCount = originalInfantry;
 				seededOriginalGarrison.m_iVehicleCount = originalVehicles;
 			}
+		}
+
+		bool addCapResult = false;
+		int addCapStartInfantry = originalInfantry;
+		int addCapAfterInfantry = originalInfantry;
+		int addCapRequestedInfantry = Math.Max(1, garrisonSlotCap + 3);
+		HST_GarrisonState addCapGarrison = m_State.FindGarrison(zoneId, factionKey);
+		if (addCapGarrison && garrisonSlotCap > 0)
+		{
+			addCapGarrison.m_iInfantryCount = Math.Max(0, garrisonSlotCap - 1);
+			addCapGarrison.m_iVehicleCount = originalVehicles;
+			addCapStartInfantry = addCapGarrison.m_iInfantryCount;
+			addCapResult = m_Garrisons.AddAbstractForces(m_State, zoneId, factionKey, addCapRequestedInfantry, 0);
+			addCapAfterInfantry = addCapGarrison.m_iInfantryCount;
+			addCapGarrison.m_iInfantryCount = originalInfantry;
+			addCapGarrison.m_iVehicleCount = originalVehicles;
 		}
 
 		int survivorInfantry = 3;
@@ -5636,6 +5655,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.vehicles_before", string.Format("%1", originalVehicles), "vehicles");
 		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.survivor_infantry", string.Format("%1", survivorInfantry), "infantry");
 		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.survivor_vehicles", string.Format("%1", survivorVehicles), "vehicles");
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.add_abstract_capacity", "direct abstract garrison adds clamp infantry to zone slots before fold-back", string.Format("cap %1 | before %2 | request +%3 | after %4 | result %5", garrisonSlotCap, addCapStartInfantry, addCapRequestedInfantry, addCapAfterInfantry, addCapResult), CampaignDebugStatus(garrisonSlotCap > 0 && addCapResult && addCapAfterInfantry == garrisonSlotCap), "direct abstract garrison add exceeded or failed to reach zone capacity", "", "", zoneId);
 		bool seedExpected = m_State.FindActiveGroup(groupId) != null
 			&& seededGroup.m_sGarrisonZoneId == zoneId
 			&& seededGroup.m_iOriginalInfantryCount == seededGroup.m_iInfantryCount
@@ -5688,8 +5708,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			HST_GarrisonState cleanupGarrison = m_State.FindGarrison(zoneId, factionKey);
 			if (cleanupGarrison)
 			{
-				cleanupGarrison.m_iInfantryCount = originalInfantry;
-				cleanupGarrison.m_iVehicleCount = originalVehicles;
+				cleanupGarrison.m_iInfantryCount = restoreInfantry;
+				cleanupGarrison.m_iVehicleCount = restoreVehicles;
 			}
 		}
 		else
@@ -5700,10 +5720,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_GarrisonState cleanupResultGarrison = m_State.FindGarrison(zoneId, factionKey);
 		bool cleanupExpected = m_State.FindActiveGroup(groupId) == null && m_State.m_aActiveGroups.Count() == activeGroupCountBefore;
 		if (hadOriginalGarrison)
-			cleanupExpected = cleanupExpected && cleanupResultGarrison && cleanupResultGarrison.m_iInfantryCount == originalInfantry && cleanupResultGarrison.m_iVehicleCount == originalVehicles;
+			cleanupExpected = cleanupExpected && cleanupResultGarrison && cleanupResultGarrison.m_iInfantryCount == restoreInfantry && cleanupResultGarrison.m_iVehicleCount == restoreVehicles;
 		else
 			cleanupExpected = cleanupExpected && cleanupResultGarrison == null;
-		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.cleanup", "debug active group is removed and original garrison counts are restored", BuildCampaignDebugGarrisonFoldbackCleanupActual(cleanupResultGarrison, activeGroupCountBefore, m_State.m_aActiveGroups.Count(), hadOriginalGarrison), CampaignDebugStatus(cleanupExpected), "garrison fold-back debug cleanup did not restore original state", groupId, "", zoneId);
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.cleanup", "debug active group is removed and original garrison counts are restored", BuildCampaignDebugGarrisonFoldbackCleanupActual(cleanupResultGarrison, activeGroupCountBefore, m_State.m_aActiveGroups.Count(), hadOriginalGarrison, restoreInfantry, restoreVehicles), CampaignDebugStatus(cleanupExpected), "garrison fold-back debug cleanup did not restore original state", groupId, "", zoneId);
 
 		FinalizeCampaignDebugCaseFromAssertions(foldbackCase);
 		return foldbackCase;
@@ -5719,9 +5739,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("garrison [%1] | group [%2]", BuildCampaignDebugGarrisonActual(garrison), BuildCampaignDebugActiveGroupActual(activeGroup));
 	}
 
-	protected string BuildCampaignDebugGarrisonFoldbackCleanupActual(HST_GarrisonState garrison, int groupsBefore, int groupsAfter, bool hadOriginalGarrison)
+	protected string BuildCampaignDebugGarrisonFoldbackCleanupActual(HST_GarrisonState garrison, int groupsBefore, int groupsAfter, bool hadOriginalGarrison, int restoreInfantry, int restoreVehicles)
 	{
-		return string.Format("had original %1 | groups %2 -> %3 | garrison [%4]", hadOriginalGarrison, groupsBefore, groupsAfter, BuildCampaignDebugGarrisonActual(garrison));
+		return string.Format("had original %1 | restore %2/%3 | groups %4 -> %5 | garrison [%6]", hadOriginalGarrison, restoreInfantry, restoreVehicles, groupsBefore, groupsAfter, BuildCampaignDebugGarrisonActual(garrison));
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCompletionRewardCase()
@@ -13835,6 +13855,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return runtimeEntityCount;
 	}
 
+	protected int CountCampaignDebugMissionSpawnedAssets(string instanceId)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return 0;
+
+		int assetCount;
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != instanceId)
+				continue;
+			if (asset.m_bSpawned && !asset.m_bDestroyed && !asset.m_bDelivered)
+				assetCount++;
+		}
+
+		return assetCount;
+	}
+
+	protected int CountCampaignDebugMissionOwnedActiveGroups(string instanceId)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return 0;
+
+		int groupCount;
+		foreach (HST_ActiveGroupState activeGroup : m_State.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sMissionInstanceId != instanceId)
+				continue;
+			if (IsCampaignDebugTerminalGroup(activeGroup))
+				continue;
+
+			groupCount++;
+		}
+
+		return groupCount;
+	}
+
 	protected bool AreCampaignDebugMissionObjectivesComplete(string instanceId)
 	{
 		if (!m_State || !m_Objectives || instanceId.IsEmpty())
@@ -13870,6 +13926,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return string.Format("complete %1/%2 | failed %3 | first incomplete %4", objectiveComplete, objectiveTotal, objectiveFailed, EmptyCampaignDebugField(firstIncomplete));
+	}
+
+	protected string BuildCampaignDebugMissionTargetForceActual(HST_ActiveMissionState mission, HST_ZoneState zone, int assetCount, int assetHandleCount, int missionGroupCount, int missionGroupHandleCount, int zoneGroupCount)
+	{
+		string missionActual = BuildCampaignDebugPrimitiveMissionActual(mission);
+		string zoneActual = BuildCampaignDebugRenderBubbleZoneActual(zone, zoneGroupCount, 0, 0);
+		return string.Format("mission [%1] | zone [%2] | assets %3 handles %4 | mission groups %5 handles %6", missionActual, zoneActual, assetCount, assetHandleCount, missionGroupCount, missionGroupHandleCount);
 	}
 
 	protected string BuildCampaignDebugPrimitiveMissionActual(HST_ActiveMissionState mission)
@@ -14058,7 +14121,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		for (int i = m_State.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState group = m_State.m_aActiveGroups[i];
-			if (!group || !group.m_sGroupId.Contains(instanceId))
+			if (!group || (group.m_sMissionInstanceId != instanceId && !group.m_sGroupId.Contains(instanceId)))
 				continue;
 
 			if (m_PhysicalWar && m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(group.m_sGroupId))
@@ -14074,11 +14137,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		HST_CampaignDebugCaseResult renderCase = BuildCampaignDebugRenderBubbleZoneCase();
 		RecordCampaignDebugCase(renderCase);
+		HST_CampaignDebugCaseResult missionTargetCase = BuildCampaignDebugRenderBubbleMissionTargetCase();
+		RecordCampaignDebugCase(missionTargetCase);
 		HST_CampaignDebugCaseResult missionAssetCase = BuildCampaignDebugRenderBubbleMissionAssetCase();
 		RecordCampaignDebugCase(missionAssetCase);
 		HST_CampaignDebugCaseResult convoyCase = BuildCampaignDebugRenderBubbleConvoyCase();
 		RecordCampaignDebugCase(convoyCase);
-		return string.Format("h-istasi campaign debug | render bubble zone activation | %1 | %2 | mission asset bubble %3 | convoy bubble %4", renderCase.m_sStatus, renderCase.m_sReason, missionAssetCase.m_sStatus, convoyCase.m_sStatus);
+		return string.Format("h-istasi campaign debug | render bubble zone activation | %1 | %2 | mission target bubble %3 | mission asset bubble %4 | convoy bubble %5", renderCase.m_sStatus, renderCase.m_sReason, missionTargetCase.m_sStatus, missionAssetCase.m_sStatus, convoyCase.m_sStatus);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionAssetCase()
@@ -14090,6 +14155,136 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(missionAssetCase, "render_bubble.mission_asset.service", "mission runtime service ready", "missing", "BLOCKED", "mission asset bubble probe requires mission runtime service");
 		FinalizeCampaignDebugCaseFromAssertions(missionAssetCase);
 		return missionAssetCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionTargetCase()
+	{
+		HST_CampaignDebugCaseResult missionCase = CreateCampaignDebugCase("render_bubble.mission_target.force_physical", "physical_war", "render_bubble", "early_mechanics");
+		bool servicesReady = m_State != null && m_Missions != null && m_Objectives != null && m_MissionRuntime != null && m_PhysicalWar != null && m_Balance != null && m_Preset != null;
+		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.prerequisite.services", "state, mission, objective, runtime, physical-war, balance, and preset services ready", string.Format("%1", servicesReady), CampaignDebugStatus(servicesReady, "BLOCKED"), "mission target render-bubble probe service prerequisite missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(missionCase);
+			return missionCase;
+		}
+
+		if (m_Settings && m_Settings.m_Features && !m_Settings.m_Features.m_bPhysicalWarEnabled)
+		{
+			AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.prerequisite.enabled", "physical war enabled", "disabled", "SKIPPED", "physical war feature disabled in settings");
+			FinalizeCampaignDebugCaseFromAssertions(missionCase);
+			return missionCase;
+		}
+
+		bool playerReady = !m_bCampaignDebugPhysicalBlocked && EnsureCampaignDebugLivingPlayer("mission target render bubble prerequisite");
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!playerReady || !IsLivingEntity(playerEntity))
+		{
+			AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.prerequisite.player", "living controlled player entity available", BuildCampaignDebugPlayerEntityActual(playerEntity), "BLOCKED", "mission target render-bubble probe requires a controlled player entity");
+			FinalizeCampaignDebugCaseFromAssertions(missionCase);
+			return missionCase;
+		}
+
+		HST_MissionDefinition definition = m_Missions.FindDefinition("rescue_pows");
+		HST_ZoneState zone = SelectCampaignDebugRenderBubbleZone();
+		bool targetReady = definition != null && zone != null;
+		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.target", "rescue mission definition and far inactive target zone available", BuildCampaignDebugMissionTargetForceActual(null, zone, 0, 0, 0, 0, 0), CampaignDebugStatus(targetReady, "BLOCKED"), "mission target render-bubble probe target unavailable");
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(missionCase);
+			return missionCase;
+		}
+
+		bool originalActive = zone.m_bActive;
+		int originalActiveInfantry = zone.m_iActiveInfantryCount;
+		int originalActiveVehicles = zone.m_iActiveVehicleCount;
+		HST_GarrisonState originalGarrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+		bool hadOriginalGarrison = originalGarrison != null;
+		int originalGarrisonInfantry;
+		int originalGarrisonVehicles;
+		if (originalGarrison)
+		{
+			originalGarrisonInfantry = originalGarrison.m_iInfantryCount;
+			originalGarrisonVehicles = originalGarrison.m_iVehicleCount;
+		}
+
+		float activationRadius = ResolveCampaignDebugActivationRadius(zone);
+		vector farPosition = m_State.m_vHQPosition + "6 0 6";
+		HST_EnemyDirectorService noEnemyDirector = null;
+		bool farTeleport = TeleportCampaignDebugPlayer(farPosition, "mission target render bubble far");
+		bool farChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, noEnemyDirector, m_ZoneCompositions);
+		float farDistance = Math.Sqrt(DistanceSq2D(farPosition, zone.m_vPosition));
+		bool farInactive = !zone.m_bActive && CountCampaignDebugZoneActiveGroups(zone.m_sZoneId) == 0;
+		missionCase.m_aEvidence.Insert(string.Format("far before mission | teleport %1 | changed %2 | distance %3m | zone %4", farTeleport, farChanged, Math.Round(farDistance), BuildCampaignDebugRenderBubbleZoneActual(zone, CountCampaignDebugZoneActiveGroups(zone.m_sZoneId), CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId), CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId))));
+
+		bool started = StartMission_S(definition.m_sMissionId, zone.m_sZoneId, true);
+		string instanceId = FindLatestCampaignDebugMissionInstance(definition.m_sMissionId);
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		bool routedChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
+		bool forcedChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, noEnemyDirector, m_ZoneCompositions);
+		mission = m_State.FindActiveMission(instanceId);
+		int missionAssetCount = m_State.CountMissionAssets(instanceId);
+		int missionSpawnedAssetCount = CountCampaignDebugMissionSpawnedAssets(instanceId);
+		int missionRuntimeEntityCount = CountCampaignDebugMissionRuntimeEntities(instanceId);
+		int missionRuntimeHandleCount = m_MissionRuntime.CountRuntimeEntityHandlesForMission(m_State, instanceId);
+		int missionGroupCount = CountCampaignDebugMissionOwnedActiveGroups(instanceId);
+		int missionGroupHandleCount = m_PhysicalWar.CountRuntimeGroupHandlesForMission(m_State, instanceId);
+		int zoneGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		int zoneSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
+		int zonePendingGroupCount = CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId);
+		string forcedActual = BuildCampaignDebugMissionTargetForceActual(mission, zone, missionAssetCount, missionRuntimeHandleCount, missionGroupCount, missionGroupHandleCount, zoneGroupCount);
+		missionCase.m_aEvidence.Insert(string.Format("forced mission target | started %1 | instance %2 | routed %3 | activation %4 | %5", started, EmptyCampaignDebugField(instanceId), routedChanged, forcedChanged, forcedActual));
+
+		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.distance", string.Format("%1", Math.Round(farDistance)), "m");
+		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.activation_radius", string.Format("%1", Math.Round(activationRadius)), "m");
+		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.assets", string.Format("%1", missionAssetCount), "count");
+		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.asset_handles", string.Format("%1", missionRuntimeHandleCount), "count");
+		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.mission_groups", string.Format("%1", missionGroupCount), "count");
+		AddCampaignDebugMetric(missionCase, "render_bubble.mission_target.group_handles", string.Format("%1", missionGroupHandleCount), "count");
+		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.far_player", "player remains outside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m | inactive before mission %4", farTeleport, Math.Round(farDistance), Math.Round(activationRadius), farInactive), CampaignDebugStatus(farTeleport && farDistance > activationRadius && farInactive), "mission target probe did not start with the player outside an inactive target bubble", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.start", "debug mission starts against the selected far zone", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(started && mission && mission.m_sTargetZoneId == zone.m_sZoneId && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "mission target probe did not create an active mission at the selected zone", "", instanceId, zone.m_sZoneId);
+		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.zone_forced_active", "active physical mission target forces zone activation outside the player bubble", BuildCampaignDebugRenderBubbleZoneActual(zone, zoneGroupCount, zoneSpawnedGroupCount, zonePendingGroupCount), CampaignDebugStatus(zone.m_bActive && farDistance > activationRadius), "active mission target zone was not forced active outside the player bubble", "", instanceId, zone.m_sZoneId);
+		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.assets_spawned", "mission assets have spawned runtime handles outside the player bubble", string.Format("assets %1 spawned %2 runtime rows %3 handles %4", missionAssetCount, missionSpawnedAssetCount, missionRuntimeEntityCount, missionRuntimeHandleCount), CampaignDebugStatus(missionAssetCount > 0 && missionSpawnedAssetCount > 0 && missionRuntimeHandleCount > 0), "mission assets were not physically present for the far active mission", "", instanceId, zone.m_sZoneId);
+		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.guards_spawned", "mission-owned guard AI group has a runtime handle outside the player bubble", string.Format("mission groups %1 | handles %2 | zone groups %3/%4 pending %5", missionGroupCount, missionGroupHandleCount, zoneGroupCount, zoneSpawnedGroupCount, zonePendingGroupCount), CampaignDebugStatus(missionGroupCount > 0 && missionGroupHandleCount > 0), "mission guard AI did not physicalize for the far active mission", "", instanceId, zone.m_sZoneId);
+
+		string completionStatus;
+		bool completed = CompleteCampaignDebugMissionInstance(instanceId, completionStatus);
+		bool runtimeCleanupChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, 1);
+		bool groupCleanupChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
+		bool zoneCleanupChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, noEnemyDirector, m_ZoneCompositions);
+		int removedGroupRuntimeCount;
+		int removedGroupRecordCount = CleanupCampaignDebugMissionOwnedGroups(instanceId, removedGroupRuntimeCount);
+		int removedMissionCount = RemoveCampaignDebugPrefixedMissions(instanceId);
+		int removedObjectiveCount = RemoveCampaignDebugPrefixedObjectives(instanceId);
+		int removedRuntimeEntityCount = RemoveCampaignDebugPrefixedRuntimeEntities(instanceId);
+		int removedAssetCount = RemoveCampaignDebugPrefixedMissionAssets(instanceId);
+		int removedRuntimeVehicleCount = RemoveCampaignDebugPrefixedRuntimeVehicles(instanceId);
+		int removedMarkerCount = RemoveCampaignDebugPrefixedMarkers(instanceId);
+		if (hadOriginalGarrison)
+		{
+			HST_GarrisonState cleanupGarrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+			if (cleanupGarrison)
+			{
+				cleanupGarrison.m_iInfantryCount = originalGarrisonInfantry;
+				cleanupGarrison.m_iVehicleCount = originalGarrisonVehicles;
+			}
+		}
+		zone.m_bActive = originalActive;
+		zone.m_iActiveInfantryCount = originalActiveInfantry;
+		zone.m_iActiveVehicleCount = originalActiveVehicles;
+		int remainingMissionGroups = CountCampaignDebugMissionOwnedActiveGroups(instanceId);
+		int remainingRuntimeEntities = CountCampaignDebugMissionRuntimeEntities(instanceId);
+		int remainingMissionAssets;
+		if (!instanceId.IsEmpty())
+			remainingMissionAssets = m_State.CountMissionAssets(instanceId);
+		bool cleanupExpected = m_State.FindActiveMission(instanceId) == null && remainingMissionGroups == 0 && remainingRuntimeEntities == 0 && remainingMissionAssets == 0 && zone.m_bActive == originalActive && zone.m_iActiveInfantryCount == originalActiveInfantry && zone.m_iActiveVehicleCount == originalActiveVehicles;
+		string removedActual = string.Format("%1/%2/%3/%4/%5", removedMissionCount, removedObjectiveCount, removedRuntimeEntityCount, removedAssetCount, removedGroupRecordCount);
+		removedActual = removedActual + string.Format("/%1/%2", removedRuntimeVehicleCount, removedMarkerCount);
+		missionCase.m_aEvidence.Insert(string.Format("cleanup | completed %1 | %2 | runtime %3 group %4 zone %5 | removed mission/objective/runtime/asset/group/vehicle/marker %6", completed, completionStatus, runtimeCleanupChanged, groupCleanupChanged, zoneCleanupChanged, removedActual));
+		AddCampaignDebugAssertion(missionCase, "render_bubble.mission_target.cleanup", "debug mission, assets, runtime entities, mission-owned groups, and zone snapshot are cleaned up", string.Format("remaining groups %1 | runtime entities %2 | assets %3 | zone %4", remainingMissionGroups, remainingRuntimeEntities, remainingMissionAssets, BuildCampaignDebugRenderBubbleZoneActual(zone, CountCampaignDebugZoneActiveGroups(zone.m_sZoneId), CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId), CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId))), CampaignDebugStatus(cleanupExpected), "mission target render-bubble probe left debug state behind", "", instanceId, zone.m_sZoneId);
+
+		FinalizeCampaignDebugCaseFromAssertions(missionCase);
+		MarkMajorCampaignChange(true);
+		return missionCase;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleConvoyCase()
@@ -24112,7 +24307,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!mission || mission.m_sTargetZoneId.IsEmpty())
 			return false;
 
-		return mission.m_sRuntimePrimitive == "clear_area" || mission.m_sRuntimePrimitive == "hold_area";
+		if (mission.m_sRuntimePrimitive.IsEmpty())
+			return false;
+		if (mission.m_sRuntimePrimitive == "abstract_fallback")
+			return false;
+		if (mission.m_sRuntimePrimitive == "convoy_intercept")
+			return false;
+
+		return true;
 	}
 
 	protected string ResolvePhase24EnemyFactionKey()

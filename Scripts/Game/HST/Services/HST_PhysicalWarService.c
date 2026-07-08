@@ -234,11 +234,29 @@ class HST_PhysicalWarService
 		if (!state)
 			return false;
 
+		bool missionCleanupChanged = CleanupInactiveMissionOwnedActiveGroups(state);
 		EnsureRuntimeGroupEntities(state, preset);
 		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
 		bool routeChanged = UpdateActiveGroupRoutes(state, forceRouteUpdate);
 		bool combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
-		return survivorChanged || routeChanged || combatProbeChanged;
+		return missionCleanupChanged || survivorChanged || routeChanged || combatProbeChanged;
+	}
+
+	int CountRuntimeGroupHandlesForMission(HST_CampaignState state, string missionInstanceId)
+	{
+		if (!state || missionInstanceId.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sMissionInstanceId != missionInstanceId)
+				continue;
+			if (GetRuntimeGroupEntity(activeGroup.m_sGroupId))
+				count++;
+		}
+
+		return count;
 	}
 
 	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset = null, HST_EnemyDirectorService enemyDirector = null, HST_ZoneCompositionService compositions = null)
@@ -334,11 +352,23 @@ class HST_PhysicalWarService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sTargetZoneId != zone.m_sZoneId)
 				continue;
-			if (mission.m_sRuntimePrimitive == MISSION_PRIMITIVE_CLEAR_AREA || mission.m_sRuntimePrimitive == MISSION_PRIMITIVE_HOLD_AREA)
+			if (ShouldForceMissionTargetZonePhysical(mission))
 				return true;
 		}
 
 		return false;
+	}
+
+	protected bool ShouldForceMissionTargetZonePhysical(HST_ActiveMissionState mission)
+	{
+		if (!mission || mission.m_sRuntimePrimitive.IsEmpty())
+			return false;
+		if (mission.m_sRuntimePrimitive == "abstract_fallback")
+			return false;
+		if (mission.m_sRuntimePrimitive == MISSION_CONVOY_PRIMITIVE)
+			return false;
+
+		return true;
 	}
 
 	bool ConsumeMarkerRefreshNeeded()
@@ -5036,6 +5066,11 @@ class HST_PhysicalWarService
 		return activeGroup && activeGroup.m_sGroupId.Contains(MISSION_CONVOY_GROUP_PREFIX);
 	}
 
+	protected bool IsMissionOwnedActiveGroup(HST_ActiveGroupState activeGroup)
+	{
+		return activeGroup && !activeGroup.m_sMissionInstanceId.IsEmpty();
+	}
+
 	protected bool IsTerminalMissionConvoyPhase(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -6185,7 +6220,7 @@ class HST_PhysicalWarService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
+			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup))
 				continue;
 
 			if (TryDetachPlayerUsedActiveVehicleFromZoneCleanup(state, zone, activeGroup))
@@ -10506,6 +10541,31 @@ class HST_PhysicalWarService
 		}
 	}
 
+	protected bool CleanupInactiveMissionOwnedActiveGroups(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		bool changed;
+		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
+			if (!activeGroup || activeGroup.m_sMissionInstanceId.IsEmpty() || IsMissionConvoyGroup(activeGroup))
+				continue;
+
+			HST_ActiveMissionState mission = state.FindActiveMission(activeGroup.m_sMissionInstanceId);
+			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+
+			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+			state.m_aActiveGroups.Remove(i);
+			changed = true;
+			DebugLog(string.Format("mission-owned active group %1 cleaned after mission %2 stopped being active", activeGroup.m_sGroupId, activeGroup.m_sMissionInstanceId));
+		}
+
+		return changed;
+	}
+
 	protected void NormalizeStaticActiveGroupRoute(HST_ActiveGroupState activeGroup)
 	{
 		if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
@@ -10910,7 +10970,7 @@ class HST_PhysicalWarService
 	{
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_sFactionKey != zone.m_sOwnerFactionKey)
+			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_sFactionKey != zone.m_sOwnerFactionKey)
 				continue;
 			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
 				continue;
@@ -10928,7 +10988,7 @@ class HST_PhysicalWarService
 		int vehicleCount;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
+			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
 				continue;
 
 			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
@@ -10950,7 +11010,7 @@ class HST_PhysicalWarService
 		int infantryCount;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
+			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
 				continue;
 			if (activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 				continue;
@@ -10969,7 +11029,7 @@ class HST_PhysicalWarService
 		int groupCount;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
+			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
 				continue;
 			if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
 				groupCount++;
@@ -11013,7 +11073,8 @@ class HST_PhysicalWarService
 		int returnedVehicles = Math.Max(0, survivorVehicles);
 		garrison.m_iInfantryCount += returnedInfantry;
 		garrison.m_iVehicleCount += returnedVehicles;
-		DebugLog(string.Format("folded active group %1 | zone %2 | status %3 | returned infantry %4/%5 requested %6 vehicles %7/%8 | last alive %9 | spawned agents %10", activeGroup.m_sGroupId, activeGroup.m_sZoneId, previousStatus, returnedInfantry, activeGroup.m_iInfantryCount, survivorInfantry, returnedVehicles, activeGroup.m_iVehicleCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount));
+		string foldedCounts = string.Format("returned infantry %1/%2 requested %3 vehicles %4/%5 | last alive %6 | spawned agents %7", returnedInfantry, activeGroup.m_iInfantryCount, survivorInfantry, returnedVehicles, activeGroup.m_iVehicleCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount);
+		DebugLog(string.Format("folded active group %1 | zone %2 | status %3 | %4", activeGroup.m_sGroupId, activeGroup.m_sZoneId, previousStatus, foldedCounts));
 	}
 
 	protected string ResolveGroupRouteId(HST_ZoneState zone, bool qrf)

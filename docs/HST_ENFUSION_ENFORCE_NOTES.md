@@ -122,6 +122,22 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `EnsureMissionConvoyCrewSeating()`, and
     `TrySnapMissionConvoyVehicleToRoute()`.
 
+- Active mission target zones are physical objectives, not ordinary render-bubble zones.
+  - If an active mission has a target zone and a real runtime primitive, the
+    physical-war service should keep that zone active even when no player is
+    near it. Exclude state-only `abstract_fallback` missions and convoy
+    primitives, because those have separate runtime controllers.
+  - Mission-owned active groups identified by `m_sMissionInstanceId` are mission
+    projections, not abstract garrison population. Exclude them from garrison
+    accounting, survivor fold-back, and normal zone deactivation cleanup.
+    Non-convoy mission groups should be deleted after the owning mission is no
+    longer active; convoy groups stay under the convoy runtime path.
+  - Current examples:
+    `HST_PhysicalWarService.ShouldForceMissionTargetZonePhysical()`,
+    `HST_PhysicalWarService.IsMissionOwnedActiveGroup()`,
+    `HST_PhysicalWarService.CleanupInactiveMissionOwnedActiveGroups()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugRenderBubbleMissionTargetCase()`.
+
 - Planning/checklist docs should be first-party h-istasi documents.
   - When converting external planning material, keep feature status, gaps,
     priorities, implementation contracts, and acceptance tests.

@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r88-map-target-cursor-layer";
-	static const string BUILD_UTC = "2026-07-08T08:05:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r88-map-target-cursor-layer";
+	static const string BUILD_SHA = "r90-mission-target-force-physical";
+	static const string BUILD_UTC = "2026-07-08T09:10:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r90-mission-target-force-physical";
 
 	static string BuildSummary()
 	{
