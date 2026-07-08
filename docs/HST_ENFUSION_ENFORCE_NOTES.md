@@ -164,19 +164,6 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_PhysicalWarService.CleanupInactiveMissionOwnedActiveGroups()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugRenderBubbleMissionTargetCase()`.
 
-- Enemy town-police groups should be size-specific stock `SCR_AIGroup` prefabs.
-  - Keep town-police selection in the catalog instead of scattering prefab ids
-    through the physical-war and composition services. `HST_DefaultCatalog`
-    owns the size 2/3/4/5 mapping, while force composition and active town
-    activation both resolve through that helper.
-  - Populate these HST group prefabs with the owning enemy faction's randomized
-    soldier character prefab. This keeps the current physical police slice
-    faction-correct without maintaining role-specific police loadout lists.
-  - Current examples:
-    `HST_DefaultCatalog.ResolveTownPoliceGroupPrefab()`,
-    `HST_ForceCompositionService.TryBuildTownPoliceGroupPlan()`, and
-    `HST_PhysicalWarService.SelectGroupPrefab()`.
-
 - Time-limited shop missions should be state-first and delivery-owned.
   - The seller and delivery vehicle are mission assets, not generic cargo or
     capturable loot. Mark the seller as a stationary civilian interaction asset

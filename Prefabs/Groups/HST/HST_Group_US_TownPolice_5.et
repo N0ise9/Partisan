@@ -1,9 +1,0 @@
-SCR_AIGroup HST_Group_US_TownPolice_5 : "{EACD97CF4A702FAE}Prefabs/Groups/BLUFOR/Group_US_Base.et" {
- ID "7A310C0111304231"
- m_bSpawnImmediately 0
- m_bDeleteWhenEmpty 0
- m_faction "US"
- m_aUnitPrefabSlots {
-  "{5EFC243926EE6808}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Randomized.et" "{5EFC243926EE6808}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Randomized.et" "{5EFC243926EE6808}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Randomized.et" "{5EFC243926EE6808}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Randomized.et" "{5EFC243926EE6808}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Randomized.et"
- }
-}

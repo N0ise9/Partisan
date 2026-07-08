@@ -1,9 +1,0 @@
-SCR_AIGroup HST_Group_USSR_TownPolice_4 : "{8DE0C0830FE0C33D}Prefabs/Groups/OPFOR/Group_USSR_Base.et" {
- ID "7A310C0111304321"
- m_bSpawnImmediately 0
- m_bDeleteWhenEmpty 0
- m_faction "USSR"
- m_aUnitPrefabSlots {
-  "{7DE1CBA32A0225EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Randomized.et" "{7DE1CBA32A0225EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Randomized.et" "{7DE1CBA32A0225EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Randomized.et" "{7DE1CBA32A0225EB}Prefabs/Characters/Factions/OPFOR/USSR_Army/Character_USSR_Randomized.et"
- }
-}

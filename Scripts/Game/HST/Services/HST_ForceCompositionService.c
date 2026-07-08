@@ -172,8 +172,6 @@ class HST_ForceCompositionService
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "US", INTENT_QRF_REGULAR, 5, true, true)).m_sDebugSummary;
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "USSR", INTENT_COUNTERATTACK, 5, true, true)).m_sDebugSummary;
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "FIA", INTENT_GARRISON, 2, true, false)).m_sDebugSummary;
-		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "US", INTENT_TOWN_POLICE, 1, true, false)).m_sDebugSummary;
-		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "USSR", INTENT_TOWN_POLICE, 6, true, false)).m_sDebugSummary;
 		return report;
 	}
 
@@ -335,9 +333,6 @@ class HST_ForceCompositionService
 
 	protected void BuildGroupPlans(HST_FactionTemplate faction, HST_ForceRequest request, HST_ForceCompositionResult result, int minManpower, int maxManpower, int desiredManpower)
 	{
-		if (result.m_sIntentId == INTENT_TOWN_POLICE && TryBuildTownPoliceGroupPlan(result, minManpower, maxManpower, desiredManpower))
-			return;
-
 		array<ref HST_PrefabPoolEntry> candidates = {};
 		AppendForcedGroupCandidates(candidates, request);
 		if (!request.m_bRestrictToForcedPrefabs)
@@ -433,18 +428,6 @@ class HST_ForceCompositionService
 			return;
 		}
 
-		if (intentId == INTENT_TOWN_POLICE)
-		{
-			array<string> policePrefabs = {};
-			HST_DefaultCatalog.AppendTownPoliceGroupPrefabs(policePrefabs, faction.m_sFactionKey);
-			AppendArray(candidates, policePrefabs, 5);
-			AppendPool(candidates, faction.m_aPatrolGroupPool);
-			AppendPool(candidates, faction.m_aGroupPool);
-			AppendArray(candidates, faction.m_aPatrolGroupPrefabs, 1);
-			AppendArray(candidates, faction.m_aGroupPrefabs, 1);
-			return;
-		}
-
 		if (intentId == INTENT_PATROL || intentId == INTENT_SEARCH_PATROL || intentId == INTENT_TOWN_POLICE || intentId == INTENT_ROADBLOCK)
 		{
 			AppendPool(candidates, faction.m_aPatrolGroupPool);
@@ -458,32 +441,6 @@ class HST_ForceCompositionService
 		AppendArray(candidates, faction.m_aGroupPrefabs, 1);
 		AppendPool(candidates, faction.m_aPatrolGroupPool);
 		AppendArray(candidates, faction.m_aPatrolGroupPrefabs, 1);
-	}
-
-	protected bool TryBuildTownPoliceGroupPlan(HST_ForceCompositionResult result, int minManpower, int maxManpower, int desiredManpower)
-	{
-		if (!result)
-			return false;
-
-		int requestedManpower = Math.Max(minManpower, Math.Min(maxManpower, desiredManpower));
-		string prefab = HST_DefaultCatalog.ResolveTownPoliceGroupPrefab(result.m_sFactionKey, requestedManpower);
-		if (prefab.IsEmpty())
-			return false;
-
-		HST_GroupSpawnPlan plan = BuildGroupPlan(prefab, 5, result.m_sIntentId, result.m_sSelectedTier);
-		if (!IsPrefabResourceValid(plan.m_sPrefab))
-		{
-			plan.m_bSkipped = true;
-			plan.m_sFailureReason = "invalid town police group prefab resource";
-			result.m_iSkippedPrefabCount++;
-			result.m_aGroups.Insert(plan);
-			return false;
-		}
-
-		result.m_aGroups.Insert(plan);
-		result.m_iManpower += plan.m_iManpower;
-		result.m_iTotalCost += plan.m_iCost;
-		return true;
 	}
 
 	protected void AppendForcedVehicleCandidates(array<ref HST_PrefabPoolEntry> candidates, HST_ForceRequest request)
@@ -655,14 +612,6 @@ class HST_ForceCompositionService
 			return 8;
 		if (value.Contains("squad"))
 			return 8;
-		if (value.Contains("townpolice_2"))
-			return 2;
-		if (value.Contains("townpolice_3"))
-			return 3;
-		if (value.Contains("townpolice_4"))
-			return 4;
-		if (value.Contains("townpolice_5"))
-			return 5;
 		if (value.Contains("fireteam") || value.Contains("fire_group") || value.Contains("firegroup"))
 			return 4;
 		if (value.Contains("machinegunteam") || value.Contains("machinegun_team"))

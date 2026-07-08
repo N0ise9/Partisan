@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r111-town-police-prefabs";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r110-town-security-pressure";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4464,8 +4464,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ForceCompositionResult ussrWar5 = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("USSR", HST_ForceCompositionService.INTENT_COUNTERATTACK, 5, true, true));
 		HST_ForceCompositionResult fiaWar2 = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("FIA", HST_ForceCompositionService.INTENT_GARRISON, 2, true, false));
 		HST_ForceCompositionResult usNoVehicles = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("US", HST_ForceCompositionService.INTENT_QRF_REGULAR, 5, true, false));
-		HST_ForceCompositionResult usPolice2 = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("US", HST_ForceCompositionService.INTENT_TOWN_POLICE, 1, true, false));
-		HST_ForceCompositionResult ussrPolice5 = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugForceRequest("USSR", HST_ForceCompositionService.INTENT_TOWN_POLICE, 6, true, false));
 		HST_ForceCompositionResult invalidOnly = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugInvalidForceRequest());
 		HST_ForceCompositionResult unsupportedHelicopter = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugUnsupportedHelicopterForceRequest());
 		HST_ForceCompositionResult unsupportedArtillery = m_ForceCompositions.Compose(m_State, m_Preset, BuildCampaignDebugUnsupportedArtilleryForceRequest());
@@ -4508,8 +4506,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(ussrWar5));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(fiaWar2));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(usNoVehicles));
-		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(usPolice2));
-		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(ussrPolice5));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(invalidOnly));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(unsupportedHelicopter));
 		forceCase.m_aEvidence.Insert(BuildCampaignDebugForceCompositionActual(unsupportedArtillery));
@@ -4523,18 +4519,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(forceCase, "force_composition.us_wl5.manpower", string.Format("%1", SafeForceCompositionManpower(usWar5)), "count");
 		AddCampaignDebugMetric(forceCase, "force_composition.us_wl5.vehicles", string.Format("%1", SafeForceCompositionVehicles(usWar5)), "count");
 
-		HST_GroupSpawnPlan usPoliceGroup;
-		if (usPolice2)
-			usPoliceGroup = usPolice2.GetPrimaryGroup();
-		HST_GroupSpawnPlan ussrPoliceGroup;
-		if (ussrPolice5)
-			ussrPoliceGroup = ussrPolice5.GetPrimaryGroup();
-		bool usPoliceExpected = usPolice2 && usPolice2.m_bSuccess && usPoliceGroup && usPoliceGroup.m_iManpower == 2 && usPoliceGroup.m_sPrefab.Contains("HST_Group_US_TownPolice_2");
-		bool ussrPoliceExpected = ussrPolice5 && ussrPolice5.m_bSuccess && ussrPoliceGroup && ussrPoliceGroup.m_iManpower == 5 && ussrPoliceGroup.m_sPrefab.Contains("HST_Group_USSR_TownPolice_5");
 		AddCampaignDebugAssertion(forceCase, "force_composition.us_wl1.success", "US regular QRF at war level 1 succeeds", BuildCampaignDebugForceCompositionActual(usWar1), CampaignDebugStatus(usWar1 && usWar1.m_bSuccess), "war-level 1 QRF composition failed");
 		AddCampaignDebugAssertion(forceCase, "force_composition.us_wl5.success", "US regular QRF at war level 5 succeeds", BuildCampaignDebugForceCompositionActual(usWar5), CampaignDebugStatus(usWar5 && usWar5.m_bSuccess), "war-level 5 QRF composition failed");
 		AddCampaignDebugAssertion(forceCase, "force_composition.faction_coverage", "debug composition requests work for US, FIA, and USSR", string.Format("US %1 | FIA %2 | USSR %3", BuildCampaignDebugForceCompositionActual(usWar1), BuildCampaignDebugForceCompositionActual(fiaWar2), BuildCampaignDebugForceCompositionActual(ussrWar5)), CampaignDebugStatus(usWar1 && usWar1.m_bSuccess && fiaWar2 && fiaWar2.m_bSuccess && ussrWar5 && ussrWar5.m_bSuccess), "one or more faction composition probes failed");
-		AddCampaignDebugAssertion(forceCase, "force_composition.town_police_prefabs", "enemy town-police requests use dedicated size-specific HST group prefabs", string.Format("US %1 | USSR %2", BuildCampaignDebugForceCompositionActual(usPolice2), BuildCampaignDebugForceCompositionActual(ussrPolice5)), CampaignDebugStatus(usPoliceExpected && ussrPoliceExpected), "town-police composition did not select the expected dedicated police group prefab");
 		AddCampaignDebugAssertion(forceCase, "force_composition.war_level_scaling", "war level 5 output is stronger than war level 1", BuildCampaignDebugForceScalingActual(usWar1, usWar5), CampaignDebugStatus(usWar1 && usWar5 && usWar5.m_bSuccess && usWar5.m_iTotalCost > usWar1.m_iTotalCost && usWar5.m_iManpower >= usWar1.m_iManpower && usWar5.m_iVehicleCount >= usWar1.m_iVehicleCount), "war-level scaling did not increase force weight");
 		AddCampaignDebugAssertion(forceCase, "force_composition.vehicle_disabled", "allowVehicles=false returns no vehicles", BuildCampaignDebugForceCompositionActual(usNoVehicles), CampaignDebugStatus(usNoVehicles && usNoVehicles.m_bSuccess && usNoVehicles.m_iVehicleCount == 0), "vehicle-disabled force request returned a vehicle");
 		AddCampaignDebugAssertion(forceCase, "force_composition.invalid_prefab_failure", "invalid forced prefab reports failure and skipped prefab count", BuildCampaignDebugForceCompositionActual(invalidOnly), CampaignDebugStatus(invalidOnly && !invalidOnly.m_bSuccess && invalidOnly.m_iSkippedPrefabCount > 0 && invalidOnly.m_sFailureReason.Contains("invalid")), "invalid prefab request did not produce an explicit skipped-prefab failure");

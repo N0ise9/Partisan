@@ -7493,7 +7493,7 @@ class HST_PhysicalWarService
 		activeGroup.m_sFactionKey = factionKey;
 		if (!qrf)
 			activeGroup.m_sGarrisonZoneId = zone.m_sZoneId;
-		activeGroup.m_sPrefab = SelectGroupPrefab(state, zone, factionKey, qrf, preset, infantryCount);
+		activeGroup.m_sPrefab = SelectGroupPrefab(state, zone, factionKey, qrf, preset);
 		activeGroup.m_sRouteId = ResolveGroupRouteId(zone, qrf);
 		activeGroup.m_vSourcePosition = ResolveGroupSourcePosition(state, zone, activeGroup.m_sRouteId, qrf);
 		activeGroup.m_vTargetPosition = ResolveGroupTargetPosition(state, zone, activeGroup.m_sRouteId, qrf);
@@ -7547,14 +7547,11 @@ class HST_PhysicalWarService
 		return SelectValidGroupPrefabFromList(candidates, seed, faction.m_sFactionKey, "trained FIA garrison");
 	}
 
-	protected string SelectGroupPrefab(HST_CampaignState state, HST_ZoneState zone, string factionKey, bool qrf, HST_CampaignPreset preset = null, int requestedInfantryCount = 0)
+	protected string SelectGroupPrefab(HST_CampaignState state, HST_ZoneState zone, string factionKey, bool qrf, HST_CampaignPreset preset = null)
 	{
 		string role = "garrison";
 		if (qrf)
 			role = "qrf";
-		else if (zone && zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && requestedInfantryCount > 0 && HST_FactionRelationService.IsEnemyFaction(preset, factionKey))
-			role = "town_police";
-
 		HST_FactionRuntimeSpawnSpec spec = HST_DefaultCatalog.ResolveRuntimeSpawnSpec(preset, factionKey, role, "physical war group selection");
 		if (!spec)
 			return "";
@@ -7573,13 +7570,6 @@ class HST_PhysicalWarService
 			string trainedPrefab = SelectTrainedResistanceGroupPrefab(state, zone, faction, seed);
 			if (!trainedPrefab.IsEmpty())
 				return trainedPrefab;
-		}
-
-		if (role == "town_police")
-		{
-			string townPolicePrefab = HST_DefaultCatalog.ResolveTownPoliceGroupPrefab(factionKey, requestedInfantryCount);
-			if (!townPolicePrefab.IsEmpty() && IsValidGroupPrefabResource(townPolicePrefab, factionKey))
-				return townPolicePrefab;
 		}
 
 		AppendUniqueGroupPrefabs(candidates, spec.m_aGroupPrefabs);

@@ -154,59 +154,6 @@ class HST_DefaultCatalog
 		return null;
 	}
 
-	static int ResolveTownPoliceGroupSize(int requestedManpower)
-	{
-		if (requestedManpower <= 2)
-			return 2;
-		if (requestedManpower == 3)
-			return 3;
-		if (requestedManpower == 4)
-			return 4;
-
-		return 5;
-	}
-
-	static string ResolveTownPoliceGroupPrefab(string factionKey, int requestedManpower)
-	{
-		int size = ResolveTownPoliceGroupSize(requestedManpower);
-		if (factionKey == "US")
-		{
-			if (size == 2)
-				return "{7A310C0111304200}Prefabs/Groups/HST/HST_Group_US_TownPolice_2.et";
-			if (size == 3)
-				return "{7A310C0111304210}Prefabs/Groups/HST/HST_Group_US_TownPolice_3.et";
-			if (size == 4)
-				return "{7A310C0111304220}Prefabs/Groups/HST/HST_Group_US_TownPolice_4.et";
-			return "{7A310C0111304230}Prefabs/Groups/HST/HST_Group_US_TownPolice_5.et";
-		}
-
-		if (factionKey == "USSR")
-		{
-			if (size == 2)
-				return "{7A310C0111304300}Prefabs/Groups/HST/HST_Group_USSR_TownPolice_2.et";
-			if (size == 3)
-				return "{7A310C0111304310}Prefabs/Groups/HST/HST_Group_USSR_TownPolice_3.et";
-			if (size == 4)
-				return "{7A310C0111304320}Prefabs/Groups/HST/HST_Group_USSR_TownPolice_4.et";
-			return "{7A310C0111304330}Prefabs/Groups/HST/HST_Group_USSR_TownPolice_5.et";
-		}
-
-		return "";
-	}
-
-	static void AppendTownPoliceGroupPrefabs(array<string> target, string factionKey)
-	{
-		if (!target)
-			return;
-
-		for (int size = 2; size <= 5; size++)
-		{
-			string prefab = ResolveTownPoliceGroupPrefab(factionKey, size);
-			if (!prefab.IsEmpty() && !target.Contains(prefab))
-				target.Insert(prefab);
-		}
-	}
-
 	static HST_FactionRuntimeSpawnSpec ResolveRuntimeSpawnSpec(HST_CampaignPreset preset, string factionKey, string role, string sourceContext)
 	{
 		HST_FactionTemplate faction = CreateFactionTemplate(factionKey);
@@ -224,12 +171,6 @@ class HST_DefaultCatalog
 		if (role == "qrf")
 		{
 			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aQRFGroupPrefabs);
-			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aGroupPrefabs);
-		}
-		else if (role == "town_police")
-		{
-			AppendTownPoliceGroupPrefabs(spec.m_aGroupPrefabs, factionKey);
-			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aPatrolGroupPrefabs);
 			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aGroupPrefabs);
 		}
 		else if (role == "patrol")
