@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r101-support-recall-costs";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r100-civilian-traffic-mission-ui";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -467,7 +467,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool civilianChanged = m_Civilians.Tick(m_State, elapsedSeconds);
 		bool undercoverEnforcementChanged = TickUndercoverEnforcement();
-		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar, m_Strategic, m_HQ, m_Economy);
+		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar, m_Strategic, m_HQ);
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
 		bool petrosRelocationChanged = TickPetrosRelocation();
 		bool hqThreatChanged = m_HQ.TickHQThreat(m_State, m_Preset);
@@ -1729,29 +1729,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return "h-istasi support | cancelled " + target + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 	}
 
-	string RequestCommanderRecallSupportReport(int playerId, string requestId = "")
-	{
-		if (!Replication.IsServer())
-			return "h-istasi support recall | failed: server required";
-		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi support recall | failed: commander required";
-		if (!m_SupportRequests)
-			return "h-istasi support recall | failed: support service not ready";
-		if (!m_State || !m_Preset)
-			return "h-istasi support recall | failed: campaign state or preset not ready";
-
-		string report = m_SupportRequests.RecallSupportRequestReport(m_State, m_Preset, m_Economy, m_PhysicalWar, requestId, true);
-		if (!report.Contains("failed"))
-		{
-			MarkMajorCampaignChange(true);
-			m_SupportRequests.ConsumeMarkerRefreshNeeded();
-		}
-
-		report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
-		report = report + "\n" + m_SupportRequests.BuildSupportCooldownReport(m_State);
-		return report;
-	}
-
 	string RequestCommanderAidNearestTownReport(int playerId)
 	{
 		if (!Replication.IsServer())
@@ -2233,12 +2210,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
 		return changed;
-	}
-
-	bool RequestCommanderRecallSupport(int playerId, string requestId = "")
-	{
-		string result = RequestCommanderRecallSupportReport(playerId, requestId);
-		return !result.Contains("failed");
 	}
 
 	bool RequestCommanderAidNearestTown(int playerId)
@@ -8368,7 +8339,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			probeContext.m_iCountBefore = m_State.m_aSupportRequests.Count();
 			probeContext.m_iMoneyBefore = m_State.m_iFactionMoney;
-			probeContext.m_iHRBefore = m_State.m_iHR;
 		}
 
 		if (supplyDrop)
@@ -8441,15 +8411,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			markerActual = "current | " + BuildCampaignDebugMarkerActual(linkedMarkerState);
 		}
 		int moneyDelta = 0;
-		int hrDelta = 0;
 		if (m_State)
-		{
 			moneyDelta = m_State.m_iFactionMoney - probeContext.m_iMoneyBefore;
-			hrDelta = m_State.m_iHR - probeContext.m_iHRBefore;
-		}
 
 		AddCampaignDebugMetric(supportCase, "support.money_delta", string.Format("%1", moneyDelta), "money");
-		AddCampaignDebugMetric(supportCase, "support.hr_delta", string.Format("%1", hrDelta), "hr");
 		AddCampaignDebugMetric(supportCase, "support.eta", string.Format("%1", observedSupportRequest.m_iETASeconds), "seconds");
 		AddCampaignDebugMetric(supportCase, "support.eta_remaining_before_probe", string.Format("%1", probeContext.m_iEtaRemainingBefore), "seconds");
 		AddCampaignDebugMetric(supportCase, "support.eta_remaining_after_probe", string.Format("%1", probeContext.m_iEtaRemainingAfter), "seconds");
@@ -8467,11 +8432,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(supportCase, "support.target_position", "target position not zero", string.Format("%1", observedSupportRequest.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(observedSupportRequest.m_vTargetPosition)), "support target position is zero", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugAssertion(supportCase, "support.eta", "ETA seconds > 0", string.Format("%1", observedSupportRequest.m_iETASeconds), CampaignDebugStatus(observedSupportRequest.m_iETASeconds > 0), "support request ETA is not positive", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugAssertion(supportCase, "support.money_cost", "money delta equals request money cost", string.Format("%1 | request cost %2", moneyDelta, observedSupportRequest.m_iMoneyCost), CampaignDebugStatus(moneyDelta == -observedSupportRequest.m_iMoneyCost), "support request money cost was not applied exactly", observedSupportRequest.m_sRequestId);
-		AddCampaignDebugAssertion(supportCase, "support.hr_cost", "HR delta equals request HR cost", string.Format("%1 | request HR %2 | planned FIA %3", hrDelta, observedSupportRequest.m_iHRCost, observedSupportRequest.m_iPlannedInfantryCount), CampaignDebugStatus(hrDelta == -observedSupportRequest.m_iHRCost), "support request HR cost was not applied exactly", observedSupportRequest.m_sRequestId);
-		if (IsCampaignDebugPhysicalGroundSupportType(observedSupportRequest.m_eType))
-			AddCampaignDebugAssertion(supportCase, "support.hr_planned_fia", "ground support HR cost matches planned FIA soldiers", string.Format("HR %1 | planned FIA %2 | composition manpower %3", observedSupportRequest.m_iHRCost, observedSupportRequest.m_iPlannedInfantryCount, observedSupportRequest.m_iCompositionManpower), CampaignDebugStatus(observedSupportRequest.m_iHRCost > 0 && observedSupportRequest.m_iHRCost == observedSupportRequest.m_iPlannedInfantryCount), "ground support HR cost does not match planned FIA count", observedSupportRequest.m_sRequestId);
-		else
-			AddCampaignDebugAssertion(supportCase, "support.hr_non_ground_zero", "non-ground support has no HR cost", string.Format("HR %1 | planned FIA %2", observedSupportRequest.m_iHRCost, observedSupportRequest.m_iPlannedInfantryCount), CampaignDebugStatus(observedSupportRequest.m_iHRCost == 0), "non-ground support unexpectedly spent HR", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published immediately after request before runtime resolution", markerActual, CampaignDebugStatus(markerVisible, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest);
 	}
@@ -9048,7 +9008,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_iCampaignDebugWaitSeconds = ResolveCampaignDebugConvoyMovementWaitSeconds();
 		else if (m_iCampaignDebugEarlyPhaseIndex == 7)
 			m_iCampaignDebugWaitSeconds = 2;
-		else if (m_iCampaignDebugEarlyPhaseIndex == 19)
+		else if (m_iCampaignDebugEarlyPhaseIndex == 18)
 			m_iCampaignDebugWaitSeconds = HST_PhysicalWarService.CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS + 1;
 		else
 			m_iCampaignDebugWaitSeconds = 1;
@@ -12126,7 +12086,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected int GetCampaignDebugEarlyPhaseStepCount()
 	{
-		return 21;
+		return 20;
 	}
 
 	protected bool IsCampaignDebugEarlyPhaseReportStep(int index)
@@ -12140,9 +12100,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 6:
 			case 8:
 			case 11:
+			case 16:
 			case 17:
-			case 18:
-			case 20:
+			case 19:
 				return true;
 		}
 
@@ -12163,8 +12123,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 15:
 			case 16:
 			case 17:
-			case 18:
-			case 20:
+			case 19:
 				return true;
 		}
 
@@ -12191,11 +12150,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 13: return "mechanic garrison recruit/remove";
 			case 14: return "mechanic civilian aid";
 			case 15: return "mechanic support cancellation";
-			case 16: return "mechanic support recall/refund";
-			case 17: return "mechanic garage/vehicle/loadout reports";
-			case 18: return "mechanic command UI coverage";
-			case 19: return "mechanic physical AI combat/contact start";
-			case 20: return "mechanic physical AI combat/contact result";
+			case 16: return "mechanic garage/vehicle/loadout reports";
+			case 17: return "mechanic command UI coverage";
+			case 18: return "mechanic physical AI combat/contact start";
+			case 19: return "mechanic physical AI combat/contact result";
 		}
 
 		return "phase 0-13 mechanic step " + string.Format("%1", index);
@@ -12221,11 +12179,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 13: return RunCampaignDebugGarrisonRecruitRemove();
 			case 14: return RunCampaignDebugCivilianAidTyped();
 			case 15: return RunCampaignDebugSupportCancelTyped();
-			case 16: return RunCampaignDebugSupportRecallTyped();
-			case 17: return BuildCampaignDebugVehicleAndLoadoutReport();
-			case 18: return RunCampaignDebugCommandUICoverageTyped();
-			case 19: return StartCampaignDebugPhysicalCombatProbeTyped();
-			case 20: return FinishCampaignDebugPhysicalCombatProbeTyped();
+			case 16: return BuildCampaignDebugVehicleAndLoadoutReport();
+			case 17: return RunCampaignDebugCommandUICoverageTyped();
+			case 18: return StartCampaignDebugPhysicalCombatProbeTyped();
+			case 19: return FinishCampaignDebugPhysicalCombatProbeTyped();
 		}
 
 		return "h-istasi campaign debug | failed: unknown phase 0-13 mechanic step";
@@ -15932,179 +15889,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(cancelCase, "support.cancel.cleanup_cooldown", "cleanup clears player support cooldown for follow-on support probes", string.Format("cooldown %1 -> %2 | runtime %3", cancelContext.m_iCooldownAfterCancel, cancelContext.m_iCooldownAfterCleanup, EmptyCampaignDebugField(cancelContext.m_sRuntimeStatusAfterCleanup)), CampaignDebugStatus(!cancelContext.m_bRequestCreated || cancelContext.m_iCooldownAfterCleanup == 0), "support cancellation cleanup left player support cooldown set", cancelContext.m_sRequestId);
 		FinalizeCampaignDebugCaseFromAssertions(cancelCase);
 		return cancelCase;
-	}
-
-	protected string RunCampaignDebugSupportRecallTyped()
-	{
-		HST_CampaignDebugSupportRecallProbeContext recallContext = new HST_CampaignDebugSupportRecallProbeContext();
-		recallContext.m_iPendingBeforeClear = CountCampaignDebugPendingPlayerSupportRequests();
-		ClearCampaignDebugPlayerSupportRequests("before support recall probe");
-		recallContext.m_iPendingAfterPreClear = CountCampaignDebugPendingPlayerSupportRequests();
-		int requestedAtSecond = GetCampaignDebugElapsedSecond();
-		if (m_State)
-		{
-			recallContext.m_iCountBefore = m_State.m_aSupportRequests.Count();
-			recallContext.m_iMoneyBefore = m_State.m_iFactionMoney;
-			recallContext.m_iHRBefore = m_State.m_iHR;
-		}
-
-		recallContext.m_sSeedResult = RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, HST_ESupportRequestType.HST_SUPPORT_QRF);
-		if (m_State)
-		{
-			recallContext.m_iMoneyAfterSeed = m_State.m_iFactionMoney;
-			recallContext.m_iHRAfterSeed = m_State.m_iHR;
-		}
-
-		HST_SupportRequestState supportRequest = FindLatestCampaignDebugSupportRequest(HST_ESupportRequestType.HST_SUPPORT_QRF, recallContext.m_iCountBefore, requestedAtSecond);
-		recallContext.m_iPendingAfterSeed = CountCampaignDebugPendingPlayerSupportRequests();
-		HST_ZoneState targetZone = null;
-		bool restoreTargetActive = false;
-		bool targetWasActive = false;
-		if (supportRequest)
-		{
-			recallContext.m_bRequestCreated = true;
-			recallContext.m_sRequestId = supportRequest.m_sRequestId;
-			recallContext.m_iHRCost = supportRequest.m_iHRCost;
-			recallContext.m_iPlannedInfantryCount = supportRequest.m_iPlannedInfantryCount;
-			if (m_State)
-				targetZone = m_State.FindZone(supportRequest.m_sTargetZoneId);
-			if (targetZone)
-			{
-				targetWasActive = targetZone.m_bActive;
-				targetZone.m_bActive = true;
-				restoreTargetActive = true;
-			}
-
-			PhysicalizeCampaignDebugRecallSupport(supportRequest);
-			HST_ActiveGroupState group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
-			if (group)
-			{
-				recallContext.m_bGroupCreated = true;
-				recallContext.m_sGroupId = group.m_sGroupId;
-				recallContext.m_sGroupStatusBeforeRecall = group.m_sRuntimeStatus;
-				recallContext.m_iSurvivorsBeforeRecall = Math.Max(Math.Max(group.m_iSurvivorInfantryCount, group.m_iLastSeenAliveCount), group.m_iSpawnedAgentCount);
-				if (recallContext.m_iSurvivorsBeforeRecall <= 0)
-					recallContext.m_iSurvivorsBeforeRecall = Math.Max(1, Math.Min(Math.Max(1, supportRequest.m_iHRCost), Math.Max(1, supportRequest.m_iPlannedInfantryCount)));
-				group.m_iSurvivorInfantryCount = Math.Max(group.m_iSurvivorInfantryCount, recallContext.m_iSurvivorsBeforeRecall);
-				group.m_iLastSeenAliveCount = Math.Max(group.m_iLastSeenAliveCount, recallContext.m_iSurvivorsBeforeRecall);
-				group.m_iSpawnedAgentCount = Math.Max(group.m_iSpawnedAgentCount, recallContext.m_iSurvivorsBeforeRecall);
-			}
-
-			recallContext.m_sRecallResult = RequestCommanderRecallSupportReport(m_iCampaignDebugPlayerId, supportRequest.m_sRequestId);
-			recallContext.m_bRecallCommandAccepted = IsCampaignDebugResultSuccessful(recallContext.m_sRecallResult);
-			recallContext.m_iRecallSecond = GetCampaignDebugElapsedSecond();
-			recallContext.m_iPendingAfterRecall = CountCampaignDebugPendingPlayerSupportRequests();
-			if (m_State)
-				recallContext.m_iHRAfterRecall = m_State.m_iHR;
-			recallContext.m_eStatusAfterRecall = supportRequest.m_eStatus;
-			recallContext.m_sRuntimeStatusAfterRecall = supportRequest.m_sRuntimeStatus;
-			recallContext.m_bRecallRequestedAfterRecall = supportRequest.m_bRecallRequested;
-			recallContext.m_vExitPosition = supportRequest.m_vRecallExitPosition;
-			group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
-			if (group)
-			{
-				recallContext.m_sGroupStatusAfterRecall = group.m_sRuntimeStatus;
-				ForceCampaignDebugSupportRecallExit(group, recallContext);
-				recallContext.m_bExitTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar, m_Strategic, m_HQ, m_Economy);
-				group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
-				if (group)
-					recallContext.m_sGroupStatusAfterExit = group.m_sRuntimeStatus;
-			}
-			if (m_State)
-				recallContext.m_iHRAfterExit = m_State.m_iHR;
-			recallContext.m_iPendingAfterExit = CountCampaignDebugPendingPlayerSupportRequests();
-			recallContext.m_eStatusAfterExit = supportRequest.m_eStatus;
-			recallContext.m_sRuntimeStatusAfterExit = supportRequest.m_sRuntimeStatus;
-			recallContext.m_sResolutionKindAfterExit = supportRequest.m_sResolutionKind;
-			recallContext.m_iRefundedHR = supportRequest.m_iRefundedHR;
-			recallContext.m_sSupportReportAfterExit = m_SupportRequests.BuildSupportReport(m_State);
-		}
-		else
-		{
-			recallContext.m_sRecallResult = RequestCommanderRecallSupportReport(m_iCampaignDebugPlayerId);
-		}
-
-		if (restoreTargetActive && targetZone)
-			targetZone.m_bActive = targetWasActive;
-		CleanupCampaignDebugSupportRuntimeProbe(supportRequest);
-		ClearCampaignDebugPlayerSupportRequests("after support recall probe");
-		recallContext.m_bCleanupRan = true;
-		recallContext.m_iPendingAfterCleanup = CountCampaignDebugPendingPlayerSupportRequests();
-		RecordCampaignDebugCase(BuildCampaignDebugSupportRecallCase(recallContext));
-		return recallContext.m_sSeedResult + "\n" + recallContext.m_sRecallResult;
-	}
-
-	protected void PhysicalizeCampaignDebugRecallSupport(HST_SupportRequestState supportRequest)
-	{
-		if (!m_State || !m_Preset || !m_SupportRequests || !supportRequest)
-			return;
-
-		int desiredRemaining = ResolveCampaignDebugSupportInboundLeadSeconds(supportRequest);
-		if (supportRequest.m_iETASeconds > desiredRemaining)
-			supportRequest.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, supportRequest.m_iETASeconds - desiredRemaining);
-
-		m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar, m_Strategic, m_HQ, m_Economy);
-		if (m_PhysicalWar)
-			m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
-
-		HST_ActiveGroupState group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
-		if (group && group.m_sRuntimeStatus == "spawn_pending_agents" && m_PhysicalWar)
-		{
-			string pendingPopulationEvidence;
-			m_PhysicalWar.CampaignDebugResolvePendingActiveGroupPopulation(group, m_State, "support_active", pendingPopulationEvidence);
-		}
-	}
-
-	protected void ForceCampaignDebugSupportRecallExit(HST_ActiveGroupState group, HST_CampaignDebugSupportRecallProbeContext recallContext)
-	{
-		if (!m_State || !m_PhysicalWar || !group || !recallContext)
-			return;
-
-		int routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - (m_State.m_iElapsedSeconds % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS);
-		if (routeAdvanceSeconds <= 0)
-			routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
-		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + routeAdvanceSeconds;
-		recallContext.m_iRecallRouteAdvanceSeconds = routeAdvanceSeconds;
-		group.m_iSpawnedAtSecond = m_State.m_iElapsedSeconds - 10000;
-		recallContext.m_bRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
-	}
-
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportRecallCase(HST_CampaignDebugSupportRecallProbeContext recallContext)
-	{
-		HST_CampaignDebugCaseResult recallCase = CreateCampaignDebugCase("support.recall.player_request", "support", "player_support", "early_mechanics");
-		if (!recallContext)
-		{
-			AddCampaignDebugAssertion(recallCase, "support.recall.context", "support recall context exists", "missing", "BLOCKED", "support recall context missing");
-			FinalizeCampaignDebugCaseFromAssertions(recallCase);
-			return recallCase;
-		}
-
-		recallCase.m_aEvidence.Insert(recallContext.m_sSeedResult);
-		recallCase.m_aEvidence.Insert(recallContext.m_sRecallResult);
-		if (!recallContext.m_sSupportReportAfterExit.IsEmpty())
-			recallCase.m_aEvidence.Insert("after recall exit | " + ShortCampaignDebugLine(recallContext.m_sSupportReportAfterExit, 260));
-
-		int moneyDelta = recallContext.m_iMoneyAfterSeed - recallContext.m_iMoneyBefore;
-		int hrSeedDelta = recallContext.m_iHRAfterSeed - recallContext.m_iHRBefore;
-		int hrRecallDelta = recallContext.m_iHRAfterRecall - recallContext.m_iHRAfterSeed;
-		int hrExitDelta = recallContext.m_iHRAfterExit - recallContext.m_iHRAfterSeed;
-		int expectedRefund = Math.Min(Math.Max(0, recallContext.m_iHRCost), Math.Max(0, recallContext.m_iSurvivorsBeforeRecall));
-		AddCampaignDebugMetric(recallCase, "support.recall.money_delta", string.Format("%1", moneyDelta), "money");
-		AddCampaignDebugMetric(recallCase, "support.recall.hr_seed_delta", string.Format("%1", hrSeedDelta), "hr");
-		AddCampaignDebugMetric(recallCase, "support.recall.hr_exit_delta", string.Format("%1", hrExitDelta), "hr");
-		AddCampaignDebugMetric(recallCase, "support.recall.refunded_hr", string.Format("%1", recallContext.m_iRefundedHR), "hr");
-		AddCampaignDebugAssertion(recallCase, "support.recall.preclear", "pre-existing queued/active player support cleared before probe", string.Format("%1 -> %2", recallContext.m_iPendingBeforeClear, recallContext.m_iPendingAfterPreClear), CampaignDebugStatus(recallContext.m_iPendingAfterPreClear == 0), "pre-existing player support requests remained open before recall probe");
-		AddCampaignDebugAssertion(recallCase, "support.recall.seed", "recall probe creates a physical player QRF request", ShortCampaignDebugLine(recallContext.m_sSeedResult, 220), CampaignDebugStatus(recallContext.m_bRequestCreated && recallContext.m_bGroupCreated && IsCampaignDebugResultSuccessful(recallContext.m_sSeedResult)), "support recall probe could not seed a physical QRF request", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.hr_cost", "seeded QRF spends HR equal to planned FIA", string.Format("HR %1 -> %2 (delta %3) | cost %4 | planned %5", recallContext.m_iHRBefore, recallContext.m_iHRAfterSeed, hrSeedDelta, recallContext.m_iHRCost, recallContext.m_iPlannedInfantryCount), CampaignDebugStatus(recallContext.m_iHRCost > 0 && hrSeedDelta == -recallContext.m_iHRCost && recallContext.m_iHRCost == recallContext.m_iPlannedInfantryCount), "support recall probe QRF did not spend HR equal to planned FIA", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.command_result", "recall command accepted", ShortCampaignDebugLine(recallContext.m_sRecallResult, 220), CampaignDebugStatus(recallContext.m_bRecallCommandAccepted), "support recall command returned failure text", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.ordered", "request is marked recalled and routed to an exit", string.Format("requested %1 | status %2 | runtime %3 | group %4 -> %5 | exit %6", recallContext.m_bRecallRequestedAfterRecall, recallContext.m_eStatusAfterRecall, EmptyCampaignDebugField(recallContext.m_sRuntimeStatusAfterRecall), EmptyCampaignDebugField(recallContext.m_sGroupStatusBeforeRecall), EmptyCampaignDebugField(recallContext.m_sGroupStatusAfterRecall), recallContext.m_vExitPosition), CampaignDebugStatus(recallContext.m_bRecallRequestedAfterRecall && !IsZeroVector(recallContext.m_vExitPosition) && recallContext.m_sGroupStatusAfterRecall == "support_recalling"), "support recall did not mark the request and group as routing out", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.no_immediate_refund", "recall does not refund HR until the group exits", string.Format("HR after seed %1 | after recall %2 | delta %3", recallContext.m_iHRAfterSeed, recallContext.m_iHRAfterRecall, hrRecallDelta), CampaignDebugStatus(hrRecallDelta == 0), "support recall refunded HR before the team exited", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.exit_route", "route update moves recalled group to exit status", string.Format("route tick %1 | advance %2s | group %3", recallContext.m_bRouteTickChanged, recallContext.m_iRecallRouteAdvanceSeconds, EmptyCampaignDebugField(recallContext.m_sGroupStatusAfterExit)), CampaignDebugStatus(recallContext.m_bRouteTickChanged && recallContext.m_sGroupStatusAfterExit == "folded"), "recalled support group did not exit and fold through the route/tick path", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.refund", "surviving recalled FIA refund HR after exiting", string.Format("survivors %1 | refunded %2/%3 | HR %4 -> %5 -> %6 | expected refund %7", recallContext.m_iSurvivorsBeforeRecall, recallContext.m_iRefundedHR, recallContext.m_iHRCost, recallContext.m_iHRBefore, recallContext.m_iHRAfterSeed, recallContext.m_iHRAfterExit, expectedRefund), CampaignDebugStatus(recallContext.m_iRefundedHR == expectedRefund && hrExitDelta == expectedRefund), "support recall HR refund did not match surviving FIA count", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.resolution", "request resolves through recalled_refund_hr", string.Format("status %1 | runtime %2 | resolution %3 | pending %4", recallContext.m_eStatusAfterExit, EmptyCampaignDebugField(recallContext.m_sRuntimeStatusAfterExit), EmptyCampaignDebugField(recallContext.m_sResolutionKindAfterExit), recallContext.m_iPendingAfterExit), CampaignDebugStatus(recallContext.m_eStatusAfterExit == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && recallContext.m_sResolutionKindAfterExit == "recalled_refund_hr"), "support recall did not resolve through the refund path", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.cleanup_open_requests", "no queued/active player support requests remain after cleanup", string.Format("pending %1", recallContext.m_iPendingAfterCleanup), CampaignDebugStatus(recallContext.m_iPendingAfterCleanup == 0), "support recall cleanup left queued or active player support requests", recallContext.m_sRequestId);
-		FinalizeCampaignDebugCaseFromAssertions(recallCase);
-		return recallCase;
 	}
 
 	protected string BuildCampaignDebugVehicleAndLoadoutReport()
@@ -20592,17 +20376,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string membersPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "members", "");
 		string forcesWithMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
 		string forcesNoMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, false, m_ZoneCompositions, m_ZoneCapture);
-		string forcesRecallPayload = BuildCampaignDebugPhase23SupportRecallPayload();
 		bool commanderTransferChooserVisible = membersPayload.Contains("|Transfer commander|member_promote_commander_choose|");
 		bool commanderTransferSingleButton = commanderTransferChooserVisible && !membersPayload.Contains("Make commander:") && !membersPayload.Contains("|member_promote_commander|");
 		bool memberPayloadHidesBackendIds = CampaignDebugMembersPayloadHidesIdentityTokens(membersPayload);
 		bool adminForceCommanderVisible = adminPayload.Contains("|Force myself commander|admin_force_self_commander|");
-		bool mapTargetSupportVisible = forcesWithMapPayload.Contains("|support_qrf||true|") && forcesWithMapPayload.Contains("|call_supply||true|") && forcesWithMapPayload.Contains("|support_search||true|");
-		bool mapTargetGarrisonVisible = forcesWithMapPayload.Contains("|recruit_zone||true|") && forcesWithMapPayload.Contains("|remove_garrison||true|");
-		bool noMapSupportDisabled = forcesNoMapPayload.Contains("|support_qrf||false|map required") && forcesNoMapPayload.Contains("|call_supply||false|map required");
-		bool noMapGarrisonDisabled = forcesNoMapPayload.Contains("|recruit_zone||false|map required") || forcesNoMapPayload.Contains("|remove_garrison||false|map required");
-		bool paidActionCostsVisible = forcesWithMapPayload.Contains("Train FIA troops ($250)") && forcesWithMapPayload.Contains("Recruit FIA at map location ($100, HR 1)") && forcesWithMapPayload.Contains("Request QRF reserve at map location ($") && forcesWithMapPayload.Contains("Request search and destroy at map location ($") && forcesWithMapPayload.Contains("Deliver civilian aid ($100)");
-		bool supportRecallChooserVisible = forcesRecallPayload.Contains("|Recall support team|support_recall_choose|") && forcesRecallPayload.Contains("QRF") && forcesRecallPayload.Contains("members") && forcesRecallPayload.Contains("HQ");
+		bool mapTargetSupportVisible = forcesWithMapPayload.Contains("|Request QRF reserve at map location|support_qrf||true|") && forcesWithMapPayload.Contains("|Request supply drop at map location|call_supply||true|") && forcesWithMapPayload.Contains("|Request search and destroy at map location|support_search||true|");
+		bool mapTargetGarrisonVisible = forcesWithMapPayload.Contains("|Recruit FIA at map location|recruit_zone|") && forcesWithMapPayload.Contains("|Remove FIA garrison at map location|remove_garrison|");
+		bool noMapSupportDisabled = forcesNoMapPayload.Contains("|Request QRF reserve at map location|support_qrf||false|map required") && forcesNoMapPayload.Contains("|Request supply drop at map location|call_supply||false|map required");
+		bool noMapGarrisonDisabled = forcesNoMapPayload.Contains("|Recruit FIA at map location|recruit_zone||false|map required") || forcesNoMapPayload.Contains("|Remove FIA garrison at map location|remove_garrison||false|map required");
 		bool petrosHidesHQMoveActions = !petrosPayload.Contains("|Move base to my position|move_hq_here|") && !petrosPayload.Contains("|Move HQ:") && !petrosPayload.Contains("|move_hq|");
 		bool mapTargetCursorLayered = HST_UIConstants.Z_MAP_TARGET_CURSOR > HST_UIConstants.Z_ACTION_DIALOG;
 		string compactMissionPayload = BuildCampaignDebugPhase23CompactMissionPayload();
@@ -20615,7 +20396,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		phaseCase.m_aEvidence.Insert("members payload | " + ShortCampaignDebugLine(membersPayload, 260));
 		phaseCase.m_aEvidence.Insert("forces map payload | " + ShortCampaignDebugLine(forcesWithMapPayload, 260));
 		phaseCase.m_aEvidence.Insert("forces no-map payload | " + ShortCampaignDebugLine(forcesNoMapPayload, 260));
-		phaseCase.m_aEvidence.Insert("forces recall payload | " + ShortCampaignDebugLine(forcesRecallPayload, 260));
 		phaseCase.m_aEvidence.Insert("missions compact payload | " + ShortCampaignDebugLine(compactMissionPayload, 260));
 		AddCampaignDebugMetric(phaseCase, "phase23.ui.active_mission_rows", string.Format("%1", compactMissionRows), "count");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.report_header", "coverage report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi UI coverage")), "Phase 23 UI coverage report header missing");
@@ -20630,8 +20410,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_support_actions", "Forces support actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetSupportVisible), "Phase 23 Forces payload is missing map-target support actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_garrison_actions", "Forces garrison actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetGarrisonVisible), "Phase 23 Forces payload is missing map-target garrison actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_required_gate", "map-target actions are disabled without a map gadget", ShortCampaignDebugLine(forcesNoMapPayload, 220), CampaignDebugStatus(noMapSupportDisabled && noMapGarrisonDisabled), "Phase 23 Forces payload allows map-target actions when the player has no map");
-		AddCampaignDebugAssertion(phaseCase, "phase23.ui.paid_action_costs", "paid Forces actions show money and HR costs in labels", ShortCampaignDebugLine(forcesWithMapPayload, 260), CampaignDebugStatus(paidActionCostsVisible), "Phase 23 Forces payload is missing paid action cost labels");
-		AddCampaignDebugAssertion(phaseCase, "phase23.ui.support_recall_chooser", "Forces payload exposes recall chooser with support type, squad id, members, and relative location", ShortCampaignDebugLine(forcesRecallPayload, 260), CampaignDebugStatus(supportRecallChooserVisible), "Phase 23 Forces payload is missing support recall chooser detail");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_cursor_layer", "selected map-target cursor layer renders above action dialogs", string.Format("cursor z %1 | dialog z %2", HST_UIConstants.Z_MAP_TARGET_CURSOR, HST_UIConstants.Z_ACTION_DIALOG), CampaignDebugStatus(mapTargetCursorLayered), "Phase 23 map-target cursor layer is not above the action dialog layer");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_hq_move_menu_actions", "Petros menu hides HQ relocation actions", ShortCampaignDebugLine(petrosPayload, 220), CampaignDebugStatus(petrosHidesHQMoveActions), "Phase 23 Petros payload still exposes HQ move actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_compact_rows", "missions tab renders one compact active-mission row per mission", string.Format("rows %1 | titles %2 | payload %3", compactMissionRows, compactMissionTitles, ShortCampaignDebugLine(compactMissionPayload, 180)), CampaignDebugStatus(compactMissionRows == 2 && compactMissionTitles), "Phase 23 Missions payload did not render compact rows for the synthetic active missions");
@@ -20658,85 +20436,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		compactState.m_aActiveMissions.Insert(BuildCampaignDebugPhase23Mission("phase23_compact_convoy", "Phase23 Convoy Probe", "convoy_intercept", "convoy_moving", 1180, "phase23_zone_a", "1200 0 1200"));
 		compactState.m_aActiveMissions.Insert(BuildCampaignDebugPhase23Mission("phase23_compact_hold", "Phase23 Hold Probe", "hold_area", "active", 640, "phase23_zone_b", "1250 0 1180"));
 		return m_CommandUI.BuildVisibleMenuPayload(compactState, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "missions", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
-	}
-
-	protected string BuildCampaignDebugPhase23SupportRecallPayload()
-	{
-		if (!m_State || !m_Preset || !m_CommandUI)
-			return "";
-
-		string requestId = ResolveCampaignDebugCleanupPrefix() + "_phase23_recall_ui";
-		string groupId = requestId + "_group";
-		HST_SupportRequestState request = new HST_SupportRequestState();
-		request.m_sRequestId = requestId;
-		request.m_sFactionKey = m_Preset.m_sResistanceFactionKey;
-		request.m_eType = HST_ESupportRequestType.HST_SUPPORT_QRF;
-		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE;
-		request.m_sRuntimeStatus = "support_active";
-		request.m_bPlayerRequested = true;
-		request.m_iHRCost = 5;
-		request.m_iPlannedInfantryCount = 5;
-		request.m_sGroupId = groupId;
-		request.m_sTargetZoneId = SelectHQSupportZoneId();
-		request.m_vTargetPosition = m_State.m_vHQPosition + "180 0 120";
-		request.m_vSourcePosition = m_State.m_vHQPosition + "450 0 450";
-
-		HST_ActiveGroupState group = new HST_ActiveGroupState();
-		group.m_sGroupId = groupId;
-		group.m_sSupportRequestId = requestId;
-		group.m_sFactionKey = m_Preset.m_sResistanceFactionKey;
-		group.m_sZoneId = request.m_sTargetZoneId;
-		group.m_sRuntimeStatus = "support_active";
-		group.m_iInfantryCount = 5;
-		group.m_iSurvivorInfantryCount = 5;
-		group.m_iLastSeenAliveCount = 5;
-		group.m_iSpawnedAgentCount = 5;
-		group.m_vPosition = m_State.m_vHQPosition + "120 0 80";
-		group.m_vSourcePosition = request.m_vSourcePosition;
-		group.m_vTargetPosition = request.m_vTargetPosition;
-
-		m_State.m_aSupportRequests.Insert(request);
-		m_State.m_aActiveGroups.Insert(group);
-		string payload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
-		RemoveCampaignDebugSupportRequestRecord(requestId);
-		RemoveCampaignDebugActiveGroupRecord(groupId);
-		return payload;
-	}
-
-	protected bool RemoveCampaignDebugSupportRequestRecord(string requestId)
-	{
-		if (!m_State || requestId.IsEmpty())
-			return false;
-
-		for (int i = m_State.m_aSupportRequests.Count() - 1; i >= 0; i--)
-		{
-			HST_SupportRequestState request = m_State.m_aSupportRequests[i];
-			if (request && request.m_sRequestId == requestId)
-			{
-				m_State.m_aSupportRequests.Remove(i);
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	protected bool RemoveCampaignDebugActiveGroupRecord(string groupId)
-	{
-		if (!m_State || groupId.IsEmpty())
-			return false;
-
-		for (int i = m_State.m_aActiveGroups.Count() - 1; i >= 0; i--)
-		{
-			HST_ActiveGroupState group = m_State.m_aActiveGroups[i];
-			if (group && group.m_sGroupId == groupId)
-			{
-				m_State.m_aActiveGroups.Remove(i);
-				return true;
-			}
-		}
-
-		return false;
 	}
 
 	protected HST_ActiveMissionState BuildCampaignDebugPhase23Mission(string instanceId, string displayName, string primitive, string runtimePhase, int remainingSeconds, string zoneId, vector position)

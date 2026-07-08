@@ -13,15 +13,13 @@ class HST_SupportRequestResult
 			return "h-istasi support | failed: request missing after success";
 
 		return string.Format(
-			"h-istasi support | requested %1 | %2 | target %3 at %4 | eta %5s | cost $%6 HR %7 planned FIA %8 enemy %9/%10 | cooldown %11",
+			"h-istasi support | requested %1 | %2 | target %3 at %4 | eta %5s | cost $%6 enemy %7/%8 | cooldown %9",
 			m_Request.m_sRequestId,
 			m_Request.m_eType,
 			m_Request.m_sTargetZoneId,
 			m_Request.m_vTargetPosition,
 			m_Request.m_iETASeconds,
 			m_Request.m_iMoneyCost,
-			m_Request.m_iHRCost,
-			m_Request.m_iPlannedInfantryCount,
 			m_Request.m_iAttackCost,
 			m_Request.m_iSupportCost,
 			m_Request.m_iCooldownUntilSecond
@@ -48,7 +46,6 @@ class HST_SupportRequestService
 	static const float HQ_SAFE_RADIUS_METERS = 900.0;
 	static const float SUPPORT_NEAR_HQ_STRATEGIC_RADIUS_METERS = 700.0;
 	static const int SUPPORT_NEAR_HQ_KNOWLEDGE_GAIN = 4;
-	static const float SUPPORT_RECALL_EXIT_DISTANCE_METERS = 2100.0;
 
 	protected bool m_bMarkerRefreshNeeded;
 	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
@@ -119,23 +116,7 @@ class HST_SupportRequestService
 		int supportCost;
 		ResolveCosts(supportType, attackCost, supportCost);
 
-		string sourceZoneId = FindSourceZoneId(state, preset, factionKey, targetZone.m_sZoneId);
 		int moneyCost = ResolvePlayerMoneyCost(supportType);
-		HST_SupportRequestState request = BuildSupportRequestRecord(
-			state,
-			preset,
-			factionKey,
-			supportType,
-			targetZone,
-			resolvedTargetPosition,
-			ResolveSourcePosition(state, sourceZoneId, resolvedTargetPosition),
-			playerRequested,
-			moneyCost,
-			attackCost,
-			supportCost,
-			playerCooldownSeconds
-		);
-
 		if (factionKey == preset.m_sResistanceFactionKey)
 		{
 			string cooldownReason;
@@ -151,40 +132,15 @@ class HST_SupportRequestService
 				return result;
 			}
 
-			string hrFailureReason;
-			int hrCost = ResolvePlayerHRCost(state, preset, request, hrFailureReason);
-			if (!hrFailureReason.IsEmpty())
-			{
-				result.m_sFailureReason = hrFailureReason;
-				return result;
-			}
-
-			request.m_iHRCost = hrCost;
-			if (request.m_iPlannedInfantryCount <= 0 && hrCost > 0)
-				request.m_iPlannedInfantryCount = hrCost;
-
 			if (state.m_iFactionMoney < moneyCost)
 			{
 				result.m_sFailureReason = string.Format("need $%1, have $%2", moneyCost, state.m_iFactionMoney);
 				return result;
 			}
 
-			if (state.m_iHR < hrCost)
-			{
-				result.m_sFailureReason = string.Format("need %1 HR, have %2", hrCost, state.m_iHR);
-				return result;
-			}
-
 			if (!economy.SpendFactionMoney(state, moneyCost))
 			{
 				result.m_sFailureReason = "money spend failed";
-				return result;
-			}
-
-			if (!economy.SpendHR(state, hrCost))
-			{
-				economy.AddFactionMoney(state, moneyCost);
-				result.m_sFailureReason = "HR spend failed";
 				return result;
 			}
 		}
@@ -210,6 +166,22 @@ class HST_SupportRequestService
 				return result;
 			}
 		}
+
+		string sourceZoneId = FindSourceZoneId(state, preset, factionKey, targetZone.m_sZoneId);
+		HST_SupportRequestState request = BuildSupportRequestRecord(
+			state,
+			preset,
+			factionKey,
+			supportType,
+			targetZone,
+			resolvedTargetPosition,
+			ResolveSourcePosition(state, sourceZoneId, resolvedTargetPosition),
+			playerRequested,
+			moneyCost,
+			attackCost,
+			supportCost,
+			playerCooldownSeconds
+		);
 
 		state.m_aSupportRequests.Insert(request);
 		m_bMarkerRefreshNeeded = true;
@@ -272,8 +244,6 @@ class HST_SupportRequestService
 		request.m_iAttackCost = attackCost;
 		request.m_iSupportCost = supportCost;
 		request.m_iMoneyCost = moneyCost;
-		request.m_iHRCost = 0;
-		request.m_iPlannedInfantryCount = EstimatePlayerSupportHRCost(supportType, state.m_iWarLevel);
 		if (factionKey == preset.m_sResistanceFactionKey && playerCooldownSeconds > 0)
 			request.m_iCooldownUntilSecond = state.m_iElapsedSeconds + Math.Max(60, playerCooldownSeconds);
 		request.m_bHelicopterStyle = IsHelicopterStyle(supportType);
@@ -295,7 +265,7 @@ class HST_SupportRequestService
 		return result;
 	}
 
-	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar = null, HST_StrategicService strategic = null, HST_HQService hq = null, HST_EconomyService economy = null)
+	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar = null, HST_StrategicService strategic = null, HST_HQService hq = null)
 	{
 		if (!state || !preset)
 			return false;
@@ -312,7 +282,7 @@ class HST_SupportRequestService
 			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
 				continue;
 
-			changed = TickActiveSupportRequest(state, preset, garrisons, physicalWar, request, strategic, hq, economy) || changed;
+			changed = TickActiveSupportRequest(state, preset, garrisons, physicalWar, request, strategic, hq) || changed;
 		}
 
 		return changed;
@@ -340,13 +310,13 @@ class HST_SupportRequestService
 		return true;
 	}
 
-	protected bool TickActiveSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request, HST_StrategicService strategic = null, HST_HQService hq = null, HST_EconomyService economy = null)
+	protected bool TickActiveSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request, HST_StrategicService strategic = null, HST_HQService hq = null)
 	{
 		if (!state || !request)
 			return false;
 
 		if (IsPhysicalGroundSupport(request))
-			return TickPhysicalGroundSupport(state, preset, garrisons, physicalWar, request, strategic, hq, economy);
+			return TickPhysicalGroundSupport(state, preset, garrisons, physicalWar, request, strategic, hq);
 
 		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
 		if (state.m_iElapsedSeconds < arrivalAtSecond)
@@ -355,13 +325,10 @@ class HST_SupportRequestService
 		return ResolveSupport(state, preset, garrisons, request, strategic, hq);
 	}
 
-	protected bool TickPhysicalGroundSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request, HST_StrategicService strategic = null, HST_HQService hq = null, HST_EconomyService economy = null)
+	protected bool TickPhysicalGroundSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request, HST_StrategicService strategic = null, HST_HQService hq = null)
 	{
 		if (!state || !request)
 			return false;
-
-		if (request.m_bRecallRequested)
-			return TickRecalledPhysicalGroundSupport(state, economy, request);
 
 		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
 		int spawnAtSecond = arrivalAtSecond - ResolveInboundSpawnLeadSeconds(request);
@@ -424,74 +391,6 @@ class HST_SupportRequestService
 		}
 
 		return ResolveSupport(state, preset, garrisons, request);
-	}
-
-	protected bool TickRecalledPhysicalGroundSupport(HST_CampaignState state, HST_EconomyService economy, HST_SupportRequestState request)
-	{
-		if (!state || !request)
-			return false;
-
-		if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_QUEUED)
-			return false;
-
-		if (request.m_sGroupId.IsEmpty())
-		{
-			int fullRefund = ApplySupportRecallHRRefund(state, economy, request, Math.Max(0, request.m_iHRCost - request.m_iRefundedHR));
-			request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-			request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
-			request.m_sResolutionKind = "recalled_before_deploy";
-			request.m_sRuntimeStatus = "resolved_recalled_before_deploy";
-			request.m_sFailureReason = string.Format("recalled before deployment; refunded HR %1", fullRefund);
-			m_bMarkerRefreshNeeded = true;
-			return true;
-		}
-
-		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
-		if (!group)
-		{
-			request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-			request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
-			request.m_sResolutionKind = "recalled_missing_group";
-			request.m_sRuntimeStatus = "resolved_recalled_missing_group";
-			request.m_sFailureReason = "recalled group missing";
-			m_bMarkerRefreshNeeded = true;
-			return true;
-		}
-
-		if (group.m_sRuntimeStatus == "support_recalling")
-		{
-			request.m_sRuntimeStatus = "recall_routing";
-			return false;
-		}
-
-		if (group.m_sRuntimeStatus == "support_recall_exited" || group.m_sRuntimeStatus == "folded")
-		{
-			int survivorInfantry = Math.Max(0, group.m_iSurvivorInfantryCount);
-			if (!group.m_bSpawnedEntity && survivorInfantry <= 0 && group.m_iInfantryCount > 0)
-				survivorInfantry = group.m_iInfantryCount;
-			int refunded = ApplySupportRecallHRRefund(state, economy, request, survivorInfantry);
-			group.m_sRuntimeStatus = "folded";
-			request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-			request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
-			request.m_sResolutionKind = "recalled_refund_hr";
-			request.m_sRuntimeStatus = "resolved_recalled";
-			request.m_sFailureReason = string.Format("recalled survivors refunded HR %1/%2", refunded, request.m_iHRCost);
-			m_bMarkerRefreshNeeded = true;
-			return true;
-		}
-
-		if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "spawn_failed")
-		{
-			request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-			request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
-			request.m_sResolutionKind = "recalled_group_lost";
-			request.m_sRuntimeStatus = "resolved_recalled_group_lost";
-			request.m_sFailureReason = "recalled group terminal: " + group.m_sRuntimeStatus;
-			m_bMarkerRefreshNeeded = true;
-			return true;
-		}
-
-		return false;
 	}
 
 	protected bool FoldPhysicalSupportOutsideBubble(HST_CampaignState state, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
@@ -594,8 +493,6 @@ class HST_SupportRequestService
 				detail = detail + " | fail " + request.m_sFailureReason;
 			if (request.m_bOutcomeApplied)
 				detail = detail + " | outcome applied";
-			if (request.m_bRecallRequested)
-				detail = detail + string.Format(" | recall at %1 exit %2 refund HR %3/%4", request.m_iRecallRequestedAtSecond, request.m_vRecallExitPosition, request.m_iRefundedHR, request.m_iHRCost);
 
 			string compositionDetail = "";
 			if (!request.m_sCompositionIntentId.IsEmpty() || request.m_iCompositionManpower > 0 || request.m_iCompositionVehicleCount > 0)
@@ -616,7 +513,7 @@ class HST_SupportRequestService
 				request.m_iPhysicalizedAtSecond
 			);
 			line = line + string.Format(" | resolved %1 | asset %2 | group %3 | mode %4 | result %5", request.m_iResolvedAtSecond, request.m_sAssetProfileId, request.m_sGroupId, request.m_sPhysicalizationMode, request.m_sResolutionKind);
-			line = line + string.Format(" | cost $%1 HR %2 planned FIA %3 refunded HR %4 | abstract %5 | physicalStrike %6%7%8", request.m_iMoneyCost, request.m_iHRCost, request.m_iPlannedInfantryCount, request.m_iRefundedHR, request.m_bAbstractResolved, request.m_bPhysicalStrikeSpawned, compositionDetail, detail);
+			line = line + string.Format(" | abstract %1 | physicalStrike %2%3%4", request.m_bAbstractResolved, request.m_bPhysicalStrikeSpawned, compositionDetail, detail);
 			report = report + line;
 		}
 
@@ -666,83 +563,6 @@ class HST_SupportRequestService
 		request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
 		m_bMarkerRefreshNeeded = true;
 		return true;
-	}
-
-	string RecallSupportRequestReport(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_PhysicalWarService physicalWar, string requestId, bool playerRequestedOnly = true)
-	{
-		if (!state || !preset)
-			return "h-istasi support recall | failed: campaign state or preset not ready";
-
-		HST_SupportRequestState request = ResolveRecallableRequest(state, requestId, playerRequestedOnly);
-		if (!request)
-			return "h-istasi support recall | failed: no recallable support team";
-
-		if (request.m_bRecallRequested)
-			return "h-istasi support recall | failed: recall already ordered for " + request.m_sRequestId;
-
-		request.m_bRecallRequested = true;
-		request.m_iRecallRequestedAtSecond = state.m_iElapsedSeconds;
-		request.m_sRuntimeStatus = "recall_ordered";
-
-		if (request.m_sGroupId.IsEmpty())
-		{
-			int refunded = ApplySupportRecallHRRefund(state, economy, request, Math.Max(0, request.m_iHRCost - request.m_iRefundedHR));
-			request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-			request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
-			request.m_sRuntimeStatus = "resolved_recalled_before_deploy";
-			request.m_sResolutionKind = "recalled_before_deploy";
-			m_bMarkerRefreshNeeded = true;
-			return string.Format("h-istasi support recall | %1 recalled before deployment | refunded HR %2/%3", request.m_sRequestId, refunded, request.m_iHRCost);
-		}
-
-		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
-		if (!group)
-		{
-			request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-			request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
-			request.m_sRuntimeStatus = "resolved_recalled_missing_group";
-			request.m_sResolutionKind = "recalled_missing_group";
-			request.m_sFailureReason = "recall group missing";
-			m_bMarkerRefreshNeeded = true;
-			return string.Format("h-istasi support recall | %1 resolved: group missing | refunded HR 0/%2", request.m_sRequestId, request.m_iHRCost);
-		}
-
-		if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "spawn_failed")
-		{
-			request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-			request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
-			request.m_sRuntimeStatus = "resolved_recalled_group_lost";
-			request.m_sResolutionKind = "recalled_group_lost";
-			request.m_sFailureReason = "recall group terminal: " + group.m_sRuntimeStatus;
-			m_bMarkerRefreshNeeded = true;
-			return string.Format("h-istasi support recall | %1 could not recall %2 | group %3 | refunded HR 0/%4", request.m_sRequestId, group.m_sGroupId, group.m_sRuntimeStatus, request.m_iHRCost);
-		}
-
-		vector exitPosition = ResolveSupportRecallExitPosition(state, request, group);
-		request.m_vRecallExitPosition = exitPosition;
-		bool routed;
-		if (physicalWar)
-			routed = physicalWar.RecallActiveSupportGroup(state, group.m_sGroupId, exitPosition);
-		if (!routed)
-			routed = ApplySupportRecallRouteDataOnly(state, request, group, exitPosition);
-
-		m_bMarkerRefreshNeeded = true;
-		if (!routed)
-		{
-			request.m_bRecallRequested = false;
-			request.m_iRecallRequestedAtSecond = 0;
-			request.m_sRuntimeStatus = "active_recall_route_failed";
-			request.m_sFailureReason = "recall route failed";
-			return string.Format("h-istasi support recall | failed: could not route %1 out of area", request.m_sRequestId);
-		}
-
-		return string.Format("h-istasi support recall | ordered %1 | group %2 | survivors %3/%4 | exit %5 | HR refund pending", request.m_sRequestId, group.m_sGroupId, Math.Max(0, group.m_iSurvivorInfantryCount), request.m_iHRCost, exitPosition);
-	}
-
-	bool RecallSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_PhysicalWarService physicalWar, string requestId, bool playerRequestedOnly = true)
-	{
-		string report = RecallSupportRequestReport(state, preset, economy, physicalWar, requestId, playerRequestedOnly);
-		return !report.Contains("failed");
 	}
 
 	protected bool ApplyActiveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request, bool arrivedAtTarget = false)
@@ -1239,11 +1059,6 @@ class HST_SupportRequestService
 
 	protected int ResolvePlayerMoneyCost(HST_ESupportRequestType supportType)
 	{
-		return GetPlayerMoneyCost(supportType);
-	}
-
-	static int GetPlayerMoneyCost(HST_ESupportRequestType supportType)
-	{
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
 			return PLAYER_QRF_COST;
 
@@ -1259,47 +1074,6 @@ class HST_SupportRequestService
 		return PLAYER_SUPPLY_COST;
 	}
 
-	static int EstimatePlayerSupportHRCost(HST_ESupportRequestType supportType, int warLevel)
-	{
-		warLevel = Math.Max(1, warLevel);
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
-			return Math.Max(3, Math.Min(12 + warLevel, 4 + warLevel));
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
-			return Math.Max(3, Math.Min(12 + warLevel, 3 + warLevel));
-
-		return 0;
-	}
-
-	protected int ResolvePlayerHRCost(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request, out string failureReason)
-	{
-		failureReason = "";
-		if (!state || !preset || !request)
-			return 0;
-		if (!IsPhysicalGroundSupport(request))
-			return 0;
-
-		if (!m_ForceCompositions)
-			m_ForceCompositions = new HST_ForceCompositionService();
-
-		HST_ForceRequest forceRequest = m_ForceCompositions.BuildSupportForceRequest(state, preset, request);
-		HST_ForceCompositionResult composition = m_ForceCompositions.Compose(state, preset, forceRequest);
-		m_ForceCompositions.ApplyCompositionToSupportRequest(request, composition);
-		HST_GroupSpawnPlan groupPlan;
-		if (composition)
-			groupPlan = composition.GetPrimaryGroup();
-
-		if (!composition || !composition.m_bSuccess || !groupPlan)
-		{
-			failureReason = "force composition failed for support HR cost";
-			if (composition && !composition.m_sFailureReason.IsEmpty())
-				failureReason = composition.m_sFailureReason;
-			return 0;
-		}
-
-		request.m_iPlannedInfantryCount = Math.Max(1, groupPlan.m_iManpower);
-		return request.m_iPlannedInfantryCount;
-	}
-
 	protected bool HasActivePlayerRequestDetailed(HST_CampaignState state, HST_ESupportRequestType supportType, out string reason)
 	{
 		reason = "";
@@ -1313,6 +1087,12 @@ class HST_SupportRequestService
 		{
 			if (!request || !request.m_bPlayerRequested || request.m_eType != supportType)
 				continue;
+
+			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+			{
+				reason = string.Format("support type %1 already has active request %2", supportType, request.m_sRequestId);
+				return true;
+			}
 
 			if (state.m_iElapsedSeconds < request.m_iCooldownUntilSecond)
 			{
@@ -1352,120 +1132,6 @@ class HST_SupportRequestService
 		}
 
 		return fallback;
-	}
-
-	protected HST_SupportRequestState ResolveRecallableRequest(HST_CampaignState state, string requestId, bool playerRequestedOnly)
-	{
-		if (!state)
-			return null;
-
-		HST_SupportRequestState fallback;
-		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
-		{
-			if (!request)
-				continue;
-			if (playerRequestedOnly && !request.m_bPlayerRequested)
-				continue;
-			if (!IsRecallableSupportRequest(state, request))
-				continue;
-
-			if (!requestId.IsEmpty() && request.m_sRequestId == requestId)
-				return request;
-
-			if (requestId.IsEmpty() && !fallback)
-				fallback = request;
-		}
-
-		return fallback;
-	}
-
-	protected bool IsRecallableSupportRequest(HST_CampaignState state, HST_SupportRequestState request)
-	{
-		if (!state || !request || request.m_bRecallRequested)
-			return false;
-		if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_QUEUED && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
-			return false;
-		if (request.m_iHRCost <= 0 && request.m_sGroupId.IsEmpty())
-			return false;
-		if (!IsPhysicalGroundSupport(request))
-			return false;
-
-		return true;
-	}
-
-	protected bool ApplySupportRecallRouteDataOnly(HST_CampaignState state, HST_SupportRequestState request, HST_ActiveGroupState group, vector exitPosition)
-	{
-		if (!state || !request || !group || IsZeroVector(exitPosition))
-			return false;
-
-		group.m_vSourcePosition = group.m_vPosition;
-		if (IsZeroVector(group.m_vSourcePosition))
-			group.m_vSourcePosition = request.m_vTargetPosition;
-		group.m_vTargetPosition = exitPosition;
-		group.m_sRouteId = "";
-		group.m_sRuntimeStatus = "support_recalling";
-		group.m_sSpawnFallbackMode = "support_recall";
-		group.m_iAssignedWaypointCount = 0;
-		group.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
-		group.m_sSpawnFailureReason = "Support recall ordered; moving to exit point.";
-		request.m_sRuntimeStatus = "recall_routing";
-		return true;
-	}
-
-	protected vector ResolveSupportRecallExitPosition(HST_CampaignState state, HST_SupportRequestState request, HST_ActiveGroupState group)
-	{
-		vector currentPosition = group.m_vPosition;
-		if (IsZeroVector(currentPosition))
-			currentPosition = request.m_vTargetPosition;
-		if (IsZeroVector(currentPosition))
-			currentPosition = request.m_vSourcePosition;
-
-		vector sourcePosition = group.m_vSourcePosition;
-		if (IsZeroVector(sourcePosition))
-			sourcePosition = request.m_vSourcePosition;
-
-		vector targetPosition = request.m_vTargetPosition;
-		if (IsZeroVector(targetPosition))
-			targetPosition = currentPosition;
-
-		float dx = sourcePosition[0] - targetPosition[0];
-		float dz = sourcePosition[2] - targetPosition[2];
-		float length = Math.Sqrt(dx * dx + dz * dz);
-		if (length <= 1.0)
-		{
-			dx = currentPosition[0] - targetPosition[0];
-			dz = currentPosition[2] - targetPosition[2];
-			length = Math.Sqrt(dx * dx + dz * dz);
-		}
-		if (length <= 1.0)
-		{
-			dx = 1.0;
-			dz = 0.0;
-			length = 1.0;
-		}
-
-		vector exitPosition = currentPosition;
-		exitPosition[0] = currentPosition[0] + dx / length * SUPPORT_RECALL_EXIT_DISTANCE_METERS;
-		exitPosition[2] = currentPosition[2] + dz / length * SUPPORT_RECALL_EXIT_DISTANCE_METERS;
-		return HST_WorldPositionService.ResolveSafeGroundPosition(exitPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 12.0);
-	}
-
-	protected int ApplySupportRecallHRRefund(HST_CampaignState state, HST_EconomyService economy, HST_SupportRequestState request, int survivorInfantry)
-	{
-		if (!state || !request)
-			return 0;
-
-		int remainingRefund = Math.Max(0, request.m_iHRCost - request.m_iRefundedHR);
-		int refund = Math.Min(remainingRefund, Math.Max(0, survivorInfantry));
-		if (refund <= 0)
-			return 0;
-
-		if (economy)
-			economy.AddHR(state, refund);
-		else
-			state.m_iHR = Math.Max(0, state.m_iHR + refund);
-		request.m_iRefundedHR += refund;
-		return refund;
 	}
 
 	protected string CapabilityForSupport(HST_ESupportRequestType supportType)
