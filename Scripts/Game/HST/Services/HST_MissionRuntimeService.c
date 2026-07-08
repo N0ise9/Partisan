@@ -1,3 +1,12 @@
+class HST_GunShopCatalogCandidate
+{
+	string m_sPrefab;
+	string m_sDisplayName;
+	string m_sCategory;
+	string m_sFactionKey;
+	int m_iSupplyCost;
+}
+
 class HST_MissionRuntimeService
 {
 	static const string PRIMITIVE_KILL_HVT = "kill_hvt";
@@ -8,6 +17,7 @@ class HST_MissionRuntimeService
 	static const string PRIMITIVE_RESCUE_EXTRACT = "rescue_extract";
 	static const string PRIMITIVE_DELIVER_SUPPLIES = "deliver_supplies";
 	static const string PRIMITIVE_CONVOY_INTERCEPT = "convoy_intercept";
+	static const string PRIMITIVE_GUN_SHOP = "gun_shop";
 	static const string PRIMITIVE_ABSTRACT_FALLBACK = "abstract_fallback";
 	static const string PHASE_CREATED = "created";
 	static const string PHASE_ACTIVE = "active";
@@ -38,6 +48,9 @@ class HST_MissionRuntimeService
 	static const string PROP_BANK_MONEY = "{6985327711303770}Prefabs/Objects/HST/HST_MissionProp_BankMoney.et";
 	static const string PROP_RESOURCE_CACHE = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string PROP_CONVOY_VEHICLE = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
+	static const string PROP_GUN_SHOP_SELLER = "{6985327711303860}Prefabs/Characters/HST/Character_HST_GunShopCivilian.et";
+	static const string PROP_GUN_SHOP_DELIVERY_DRIVER = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
+	static const string PROP_RUNTIME_EMPTY_GROUP = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string ASSET_KIND_CHARACTER = "character";
 	static const string ASSET_KIND_CARGO = "cargo";
 	static const string ASSET_KIND_CAPTIVE = "captive";
@@ -53,6 +66,9 @@ class HST_MissionRuntimeService
 	static const string ROLE_CONVOY_VEHICLE = "convoy_vehicle";
 	static const string ROLE_CONVOY_PAYLOAD = "convoy_payload";
 	static const string ROLE_CONVOY_CAPTIVE = "convoy_captive";
+	static const string ROLE_GUN_SHOP_SELLER = "gun_shop_seller";
+	static const string ROLE_GUN_SHOP_DELIVERY_DRIVER = "gun_shop_delivery_driver";
+	static const string ROLE_GUN_SHOP_DELIVERY_VEHICLE = "gun_shop_delivery_vehicle";
 	static const float PLAYER_OBJECTIVE_RADIUS_METERS = 35.0;
 	static const float PLAYER_ASSET_RADIUS_METERS = 18.0;
 	static const float PLAYER_DELIVERY_RADIUS_METERS = 45.0;
@@ -82,6 +98,16 @@ class HST_MissionRuntimeService
 	static const int MAX_CONVOY_VEHICLES = 6;
 	static const int MIN_CONVOY_IDLE_SECONDS = 300;
 	static const int MAX_CONVOY_IDLE_SECONDS = 600;
+	static const int GUN_SHOP_MIN_WEAPON_TYPES = 5;
+	static const int GUN_SHOP_MAX_WEAPON_TYPES = 20;
+	static const int GUN_SHOP_MIN_CLOTHING_TYPES = 5;
+	static const int GUN_SHOP_MAX_CLOTHING_TYPES = 20;
+	static const int GUN_SHOP_MAX_EXPEDITED_SECONDS = 900;
+	static const float GUN_SHOP_DELIVERY_ARRIVAL_RADIUS_METERS = 45.0;
+	static const float GUN_SHOP_DELIVERY_SPEED_METERS_PER_SECOND = 16.0;
+	static const float GUN_SHOP_DELIVERY_ROAD_SEARCH_RADIUS_METERS = 450.0;
+	static const float GUN_SHOP_DELIVERY_SPAWN_EDGE_MARGIN_METERS = 120.0;
+	static const int GUN_SHOP_SELLER_INTERACTION_RADIUS_METERS = 22;
 	static const float CAPTIVE_FOLLOW_NEAR_DISTANCE_METERS = 5.0;
 	static const float CAPTIVE_FOLLOW_BREAK_DISTANCE_METERS = 100.0;
 	static const float CAPTIVE_DISEMBARK_RADIUS_METERS = 35.0;
@@ -101,12 +127,24 @@ class HST_MissionRuntimeService
 	protected ref array<string> m_aRestoredMissionCarrierRestoreMissionIds = {};
 	protected ref array<string> m_aCaptiveFollowWaypointAssetIds = {};
 	protected ref array<int> m_aCaptiveFollowWaypointSeconds = {};
+	protected ref HST_ArsenalService m_Arsenal;
+	protected ref HST_BalanceConfig m_Balance;
 	protected bool m_bDebugLoggingEnabled;
 
 	void SetForceCompositionService(HST_ForceCompositionService forceCompositions)
 	{
 		if (forceCompositions)
 			m_ForceCompositions = forceCompositions;
+	}
+
+	void SetArsenalService(HST_ArsenalService arsenal)
+	{
+		m_Arsenal = arsenal;
+	}
+
+	void SetBalanceConfig(HST_BalanceConfig balance)
+	{
+		m_Balance = balance;
 	}
 
 	void SetDebugLoggingEnabled(bool enabled)
@@ -871,6 +909,14 @@ class HST_MissionRuntimeService
 			mission.m_iRequiredCargoCount = 0;
 			mission.m_iRequiredCaptiveCount = 0;
 		}
+		else if (primitive == PRIMITIVE_GUN_SHOP)
+		{
+			mission.m_sRuntimePhase = PHASE_ACTIVE;
+			mission.m_iRequiredCargoCount = 0;
+			mission.m_iRequiredCaptiveCount = 0;
+			mission.m_iRequiredVehicleCount = 0;
+			EnsureGunShopStockGenerated(state, preset, mission);
+		}
 
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
@@ -893,7 +939,8 @@ class HST_MissionRuntimeService
 		if (!mission.m_bRuntimeSpawned)
 		{
 			bool convoyWithoutVehicleAssets = primitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0;
-			if (!convoyWithoutVehicleAssets)
+			bool suppressFallbackProp = primitive == PRIMITIVE_GUN_SHOP;
+			if (!convoyWithoutVehicleAssets && !suppressFallbackProp)
 			{
 				mission.m_bRuntimeSpawned = TrySpawnMissionRuntimeProp(state, mission);
 				mission.m_bRuntimeFallback = true;
@@ -927,6 +974,12 @@ class HST_MissionRuntimeService
 
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 			{
+				if (ShouldContinueGunShopRuntime(state, mission))
+				{
+					changed = TickGunShopDeliveryRuntime(state, preset, mission, elapsedSeconds) || changed;
+					continue;
+				}
+
 				if (ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission))
 				{
 					changed = TickExpiredPlayerBoundMissionRuntime(state, preset, mission, elapsedSeconds) || changed;
@@ -938,6 +991,7 @@ class HST_MissionRuntimeService
 			}
 
 			changed = RepairActiveMissionRuntimeAfterRestore(state, preset, mission) || changed;
+			changed = TickGunShopOpenRuntime(state, preset, mission) || changed;
 			if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0)
 				changed = EnsureConvoyMissionAssetsInitialized(state, mission, null) || changed;
 			if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
@@ -945,7 +999,8 @@ class HST_MissionRuntimeService
 				changed = EnsureConvoyMissionSpecificAssets(state, mission) || changed;
 				changed = SyncConvoyPayloadAssetPositions(state, mission) || changed;
 			}
-			changed = EnsureMissionRuntimeProp(state, mission) || changed;
+			if (mission.m_sRuntimePrimitive != PRIMITIVE_GUN_SHOP)
+				changed = EnsureMissionRuntimeProp(state, mission) || changed;
 			EnsureMissionCaptivesNeutralized(state, mission);
 			changed = UpdateFollowingCaptives(state, mission) || changed;
 			changed = SyncMissionAssetRuntimePositions(state, mission) || changed;
@@ -1051,6 +1106,8 @@ class HST_MissionRuntimeService
 			return false;
 
 		if (ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission))
+			return true;
+		if (IsGunShopDeliveryComplete(state, mission))
 			return true;
 
 		return AreRuntimeObjectivesComplete(state, mission.m_sInstanceId) && HasDeliveredPlayerBoundMissionAssetAfterExpiry(state, mission);
@@ -1252,6 +1309,20 @@ class HST_MissionRuntimeService
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_KILL_HVT)
 		{
 			changed = AddMissionAsset(state, mission, ASSET_KIND_CHARACTER, ROLE_HVT, PROP_HVT, targetPosition, targetPosition, 0) || changed;
+			return changed;
+		}
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_GUN_SHOP)
+		{
+			vector sellerPosition = targetPosition;
+			if (!IsZeroVector(mission.m_vGunShopSellerPosition))
+				sellerPosition = mission.m_vGunShopSellerPosition;
+			else
+				mission.m_vGunShopSellerPosition = sellerPosition;
+			mission.m_vTargetPosition = sellerPosition;
+			if (mission.m_sGunShopSellerAssetId.IsEmpty())
+				mission.m_sGunShopSellerAssetId = string.Format("asset_%1_%2_%3", mission.m_sInstanceId, ROLE_GUN_SHOP_SELLER, 0);
+			changed = AddMissionAsset(state, mission, ASSET_KIND_CHARACTER, ROLE_GUN_SHOP_SELLER, PROP_GUN_SHOP_SELLER, sellerPosition, sellerPosition, 0) || changed;
 			return changed;
 		}
 
@@ -1507,7 +1578,7 @@ class HST_MissionRuntimeService
 		asset.m_sKind = kind;
 		asset.m_sRole = role;
 		asset.m_sPrefab = prefab;
-		if (role == ROLE_CONVOY_VEHICLE)
+		if (role == ROLE_CONVOY_VEHICLE || role == ROLE_GUN_SHOP_SELLER || role == ROLE_GUN_SHOP_DELIVERY_VEHICLE || role == ROLE_GUN_SHOP_DELIVERY_DRIVER)
 			asset.m_vSourcePosition = sourcePosition;
 		else
 			asset.m_vSourcePosition = OffsetMissionAssetPosition(sourcePosition, index);
@@ -1530,7 +1601,7 @@ class HST_MissionRuntimeService
 
 		bool changed;
 		vector resolvedSourcePosition;
-		if (role == ROLE_CONVOY_VEHICLE)
+		if (role == ROLE_CONVOY_VEHICLE || role == ROLE_GUN_SHOP_SELLER || role == ROLE_GUN_SHOP_DELIVERY_VEHICLE || role == ROLE_GUN_SHOP_DELIVERY_DRIVER)
 			resolvedSourcePosition = sourcePosition;
 		else
 			resolvedSourcePosition = OffsetMissionAssetPosition(sourcePosition, index);
@@ -1878,8 +1949,10 @@ class HST_MissionRuntimeService
 		}
 
 		vehicle.m_sPrefab = asset.m_sPrefab;
-		vehicle.m_sDisplayName = asset.m_sRole;
+		vehicle.m_sDisplayName = HST_DisplayNameService.ResolveVehicleDisplayName(asset.m_sPrefab, asset.m_sRole);
 		vehicle.m_sRuntimeKind = asset.m_sRole;
+		if (asset.m_sRole == ROLE_GUN_SHOP_DELIVERY_VEHICLE)
+			vehicle.m_sDisplayName = "Gun Shop Purchases Delivery";
 		vehicle.m_vPosition = position;
 		vehicle.m_vAngles = angles;
 		vehicle.m_bDeleted = asset.m_bDestroyed || asset.m_bDelivered;
@@ -1889,6 +1962,15 @@ class HST_MissionRuntimeService
 	{
 		if (!entity || !asset)
 			return;
+		if (asset.m_sRole == ROLE_GUN_SHOP_SELLER || asset.m_sRole == ROLE_GUN_SHOP_DELIVERY_DRIVER)
+		{
+			FactionAffiliationComponent civilianFactionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+			if (civilianFactionComponent)
+				civilianFactionComponent.SetAffiliatedFactionByKey("CIV");
+			if (asset.m_sRole == ROLE_GUN_SHOP_SELLER)
+				StripMissionCaptiveWeapons(entity);
+			return;
+		}
 		if (asset.m_sKind != ASSET_KIND_CAPTIVE && asset.m_sRole != ROLE_CAPTIVE && asset.m_sRole != ROLE_CONVOY_CAPTIVE)
 			return;
 
@@ -2366,7 +2448,12 @@ class HST_MissionRuntimeService
 			return asset.m_sKind == ASSET_KIND_CAPTIVE && asset.m_bPickedUp && !asset.m_bDelivered && !asset.m_bDestroyed;
 
 		if (commandId == "mission_vehicle_capture")
+		{
+			if (asset.m_sRole == ROLE_GUN_SHOP_DELIVERY_VEHICLE)
+				return false;
+
 			return asset.m_sKind == ASSET_KIND_VEHICLE && !asset.m_bDestroyed;
+		}
 
 		if (commandId == "mission_asset_sabotage")
 			return (asset.m_sKind == ASSET_KIND_CHARACTER || asset.m_sKind == ASSET_KIND_VEHICLE) && !asset.m_bDestroyed;
@@ -4215,6 +4302,8 @@ class HST_MissionRuntimeService
 			return ROLE_LOGISTICS_CARGO;
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
 			return ROLE_CONVOY_VEHICLE;
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_GUN_SHOP)
+			return ROLE_GUN_SHOP_SELLER;
 
 		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET)
 			return ROLE_HVT;
@@ -5568,6 +5657,9 @@ class HST_MissionRuntimeService
 
 	string PrimitiveForMissionId(string missionId, HST_EMissionCategory category)
 	{
+		if (missionId == "dynamic_gun_shop")
+			return PRIMITIVE_GUN_SHOP;
+
 		if (missionId == "assassinate_officer" || missionId == "assassinate_traitor" || missionId == "assassinate_specops")
 			return PRIMITIVE_KILL_HVT;
 
@@ -5577,7 +5669,7 @@ class HST_MissionRuntimeService
 		if (missionId == "destroy_radio_tower" || missionId == "destroy_downed_helicopter" || missionId == "destroy_outpost_cache" || missionId == "destroy_factory_asset" || missionId == "destroy_airfield_asset" || missionId == "destroy_seaport_asset" || missionId == "destroy_or_steal_armor" || missionId == "dynamic_stop_tower_rebuild")
 			return PRIMITIVE_DESTROY_TARGET;
 
-		if (missionId == "logistics_bank" || missionId == "logistics_resource_cache" || missionId == "logistics_factory_supplies" || missionId == "logistics_airfield_intel" || missionId == "logistics_seaport_supplies" || missionId == "logistics_support_cache" || missionId == "logistics_salvage_supplies" || missionId == "logistics_ammo_truck" || missionId == "logistics_weapons_truck" || missionId == "dynamic_gun_shop")
+		if (missionId == "logistics_bank" || missionId == "logistics_resource_cache" || missionId == "logistics_factory_supplies" || missionId == "logistics_airfield_intel" || missionId == "logistics_seaport_supplies" || missionId == "logistics_support_cache" || missionId == "logistics_salvage_supplies" || missionId == "logistics_ammo_truck" || missionId == "logistics_weapons_truck")
 			return PRIMITIVE_RECOVER_CARGO;
 
 		if (missionId == "rescue_pows" || missionId == "rescue_refugees")
@@ -5612,6 +5704,9 @@ class HST_MissionRuntimeService
 
 	protected bool PollObjective(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionObjectiveState objective, int elapsedSeconds)
 	{
+		if (mission && mission.m_sRuntimePrimitive == PRIMITIVE_GUN_SHOP)
+			return false;
+
 		return PollPrimitiveObjective(state, preset, mission, objective, elapsedSeconds);
 	}
 
@@ -6008,6 +6103,982 @@ class HST_MissionRuntimeService
 		return true;
 	}
 
+	protected bool TickGunShopOpenRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sRuntimePrimitive != PRIMITIVE_GUN_SHOP || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+
+		bool changed = EnsureGunShopStockGenerated(state, preset, mission);
+		changed = EnsureGunShopSellerAsset(state, mission) || changed;
+		if (mission.m_bGunShopPurchaseMade && mission.m_iRemainingSeconds > GUN_SHOP_MAX_EXPEDITED_SECONDS)
+		{
+			mission.m_iRemainingSeconds = GUN_SHOP_MAX_EXPEDITED_SECONDS;
+			mission.m_iActiveUntilSecond = state.m_iElapsedSeconds + GUN_SHOP_MAX_EXPEDITED_SECONDS;
+			mission.m_sRuntimePhase = "shop_reserved";
+			UpdateGunShopAssetDeadlines(state, mission);
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	protected bool ShouldContinueGunShopRuntime(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sRuntimePrimitive != PRIMITIVE_GUN_SHOP)
+			return false;
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return false;
+		if (mission.m_bGunShopDeliveryArrived)
+			return false;
+
+		return CountGunShopPurchasedItems(mission) > 0;
+	}
+
+	protected bool TickGunShopDeliveryRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, int elapsedSeconds)
+	{
+		if (!ShouldContinueGunShopRuntime(state, mission))
+			return false;
+
+		bool changed = MarkGunShopSellerDeparted(state, mission);
+		changed = EnsureGunShopDeliveryAssets(state, mission) || changed;
+		changed = TrySpawnMissionRuntimeAssets(state, mission) || changed;
+		changed = TrySeatGunShopDeliveryDriver(state, mission) || changed;
+		changed = IssueGunShopDeliveryWaypoint(state, mission) || changed;
+		changed = AdvanceGunShopDeliveryVehicle(state, mission, elapsedSeconds) || changed;
+		return changed;
+	}
+
+	protected bool IsGunShopDeliveryComplete(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		return mission && mission.m_sRuntimePrimitive == PRIMITIVE_GUN_SHOP && mission.m_bGunShopDeliveryArrived;
+	}
+
+	protected bool EnsureGunShopStockGenerated(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sRuntimePrimitive != PRIMITIVE_GUN_SHOP)
+			return false;
+		if (mission.m_bGunShopStockGenerated)
+			return false;
+
+		if (!mission.m_aGunShopItems)
+			mission.m_aGunShopItems = {};
+		mission.m_aGunShopItems.Clear();
+
+		array<ref HST_GunShopCatalogCandidate> weapons = {};
+		array<ref HST_GunShopCatalogCandidate> attachments = {};
+		array<ref HST_GunShopCatalogCandidate> clothing = {};
+		BuildGunShopCatalogCandidates(state, weapons, attachments, clothing);
+
+		int seed = BuildGunShopSeed(state, mission, 101);
+		int weaponCount = ResolveGunShopTypeCount(weapons.Count(), GUN_SHOP_MIN_WEAPON_TYPES, GUN_SHOP_MAX_WEAPON_TYPES, seed);
+		int clothingCount = ResolveGunShopTypeCount(clothing.Count(), GUN_SHOP_MIN_CLOTHING_TYPES, GUN_SHOP_MAX_CLOTHING_TYPES, seed + 331);
+		int attachmentCount;
+		if (attachments.Count() > 0 && weaponCount > 0)
+		{
+			int desiredAttachmentMin = Math.Max(1, weaponCount);
+			int desiredAttachmentMax = Math.Max(desiredAttachmentMin, weaponCount * 3);
+			attachmentCount = ResolveGunShopTypeCount(attachments.Count(), desiredAttachmentMin, desiredAttachmentMax, seed + 719);
+		}
+
+		AppendGunShopStockItems(mission, weapons, weaponCount, seed + 17);
+		AppendGunShopStockItems(mission, attachments, attachmentCount, seed + 41);
+		AppendGunShopStockItems(mission, clothing, clothingCount, seed + 83);
+
+		mission.m_bGunShopStockGenerated = true;
+		mission.m_iGunShopPurchasedTotal = CountGunShopPurchasedItems(mission);
+		return true;
+	}
+
+	protected void BuildGunShopCatalogCandidates(HST_CampaignState state, array<ref HST_GunShopCatalogCandidate> weapons, array<ref HST_GunShopCatalogCandidate> attachments, array<ref HST_GunShopCatalogCandidate> clothing)
+	{
+		SCR_EntityCatalogManagerComponent catalogManager = SCR_EntityCatalogManagerComponent.GetInstance();
+		if (catalogManager)
+		{
+			array<SCR_ArsenalItem> arsenalItems = {};
+			catalogManager.GetAllArsenalItems(arsenalItems);
+			foreach (SCR_ArsenalItem arsenalItem : arsenalItems)
+			{
+				if (!arsenalItem)
+					continue;
+
+				string prefab = arsenalItem.GetItemResourceName();
+				string category = ResolveGunShopCatalogCategory(arsenalItem, prefab);
+				if (category.IsEmpty())
+					continue;
+
+				AppendGunShopCandidateToCategory(state, weapons, attachments, clothing, prefab, HST_DisplayNameService.ResolveItemDisplayName(null, prefab), category, "", arsenalItem.GetSupplyCost(SCR_EArsenalSupplyCostType.DEFAULT, false));
+			}
+		}
+
+		AppendGunShopArsenalFallbackCandidates(state, weapons, attachments, clothing);
+	}
+
+	protected void AppendGunShopArsenalFallbackCandidates(HST_CampaignState state, array<ref HST_GunShopCatalogCandidate> weapons, array<ref HST_GunShopCatalogCandidate> attachments, array<ref HST_GunShopCatalogCandidate> clothing)
+	{
+		if (!state)
+			return;
+
+		foreach (HST_ArsenalItemState item : state.m_aArsenalItems)
+		{
+			if (!item || item.m_sPrefab.IsEmpty())
+				continue;
+			if (item.m_sCategory.IsEmpty())
+				continue;
+			if (item.m_sCategory == "magazine" || item.m_sCategory == "explosive" || item.m_sCategory == "medical")
+				continue;
+
+			string category = NormalizeGunShopCategory(item.m_sCategory, item.m_sPrefab);
+			if (category.IsEmpty())
+				continue;
+
+			AppendGunShopCandidateToCategory(state, weapons, attachments, clothing, item.m_sPrefab, item.m_sDisplayName, category, "", 0);
+		}
+	}
+
+	protected void AppendGunShopCandidateToCategory(HST_CampaignState state, array<ref HST_GunShopCatalogCandidate> weapons, array<ref HST_GunShopCatalogCandidate> attachments, array<ref HST_GunShopCatalogCandidate> clothing, string prefab, string displayName, string category, string factionKey, int supplyCost)
+	{
+		if (category == "attachment")
+		{
+			AppendGunShopCandidate(state, attachments, prefab, displayName, category, factionKey, supplyCost);
+			return;
+		}
+		if (IsGunShopClothingCategory(category))
+		{
+			AppendGunShopCandidate(state, clothing, prefab, displayName, category, factionKey, supplyCost);
+			return;
+		}
+
+		AppendGunShopCandidate(state, weapons, prefab, displayName, category, factionKey, supplyCost);
+	}
+
+	protected void AppendGunShopCandidate(HST_CampaignState state, array<ref HST_GunShopCatalogCandidate> candidates, string prefab, string displayName, string category, string factionKey, int supplyCost)
+	{
+		if (!candidates || prefab.IsEmpty() || category.IsEmpty())
+			return;
+		if (HasGunShopCandidatePrefab(candidates, prefab))
+			return;
+
+		Resource loaded = Resource.Load(prefab);
+		if (!loaded || !loaded.IsValid())
+			return;
+
+		string depositReason;
+		if (m_Arsenal && !m_Arsenal.CanDepositItem(m_Balance, prefab, category, false, depositReason, displayName))
+			return;
+
+		HST_GunShopCatalogCandidate candidate = new HST_GunShopCatalogCandidate();
+		candidate.m_sPrefab = prefab;
+		candidate.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, prefab, displayName);
+		candidate.m_sCategory = category;
+		candidate.m_sFactionKey = factionKey;
+		candidate.m_iSupplyCost = supplyCost;
+		candidates.Insert(candidate);
+	}
+
+	protected bool HasGunShopCandidatePrefab(array<ref HST_GunShopCatalogCandidate> candidates, string prefab)
+	{
+		if (!candidates || prefab.IsEmpty())
+			return false;
+
+		foreach (HST_GunShopCatalogCandidate candidate : candidates)
+		{
+			if (candidate && candidate.m_sPrefab == prefab)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected string ResolveGunShopCatalogCategory(SCR_ArsenalItem arsenalItem, string prefab)
+	{
+		if (!arsenalItem || prefab.IsEmpty())
+			return "";
+
+		SCR_EArsenalItemType type = arsenalItem.GetItemType();
+		SCR_EArsenalItemMode mode = arsenalItem.GetItemMode();
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.WEAPON_ATTACHMENT) || SCR_Enum.HasPartialFlag(mode, SCR_EArsenalItemMode.ATTACHMENT))
+			return "attachment";
+		if (SCR_Enum.HasPartialFlag(mode, SCR_EArsenalItemMode.AMMUNITION) || SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.EXPLOSIVES) || SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.LETHAL_THROWABLE) || SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.NON_LETHAL_THROWABLE))
+			return "";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.RIFLE) || SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.MACHINE_GUN) || SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.SNIPER_RIFLE) || SCR_Enum.HasPartialFlag(mode, SCR_EArsenalItemMode.WEAPON) || SCR_Enum.HasPartialFlag(mode, SCR_EArsenalItemMode.WEAPON_VARIANTS))
+			return "weapon";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.PISTOL))
+			return "sidearm";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.ROCKET_LAUNCHER))
+			return "launcher";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.HEADWEAR))
+			return "headgear";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.TORSO))
+			return "clothing";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.VEST_AND_WAIST))
+			return "vest";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.LEGS))
+			return "pants";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.FOOTWEAR))
+			return "boots";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.HANDWEAR))
+			return "handwear";
+		if (SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.BACKPACK) || SCR_Enum.HasPartialFlag(type, SCR_EArsenalItemType.RADIO_BACKPACK))
+			return "backpack";
+
+		return NormalizeGunShopCategory("", prefab);
+	}
+
+	protected string NormalizeGunShopCategory(string category, string prefab)
+	{
+		if (category == "weapon" || category == "sidearm" || category == "launcher" || category == "attachment")
+			return category;
+		if (IsGunShopClothingCategory(category))
+			return category;
+
+		string lower = prefab;
+		lower.ToLower();
+		if (lower.Contains("attachment") || lower.Contains("optic") || lower.Contains("sight") || lower.Contains("scope") || lower.Contains("muzzle") || lower.Contains("suppressor") || lower.Contains("bipod") || lower.Contains("grip") || lower.Contains("handguard") || lower.Contains("stock"))
+			return "attachment";
+		if (lower.Contains("/weapons/") || lower.Contains("rifle") || lower.Contains("weapon_"))
+			return "weapon";
+		if (lower.Contains("headgear") || lower.Contains("helmet") || lower.Contains("cap_"))
+			return "headgear";
+		if (lower.Contains("vest") || lower.Contains("webbing"))
+			return "vest";
+		if (lower.Contains("backpack"))
+			return "backpack";
+		if (lower.Contains("pants") || lower.Contains("trousers"))
+			return "pants";
+		if (lower.Contains("boots"))
+			return "boots";
+		if (lower.Contains("gloves") || lower.Contains("handwear"))
+			return "handwear";
+		if (lower.Contains("/characters/") || lower.Contains("/uniforms/") || lower.Contains("jacket") || lower.Contains("shirt"))
+			return "clothing";
+
+		return "";
+	}
+
+	protected bool IsGunShopClothingCategory(string category)
+	{
+		return category == "headgear" || category == "clothing" || category == "vest" || category == "webbing" || category == "pants" || category == "boots" || category == "handwear" || category == "backpack";
+	}
+
+	protected int ResolveGunShopTypeCount(int available, int minCount, int maxCount, int seed)
+	{
+		if (available <= 0)
+			return 0;
+
+		int low = Math.Min(available, Math.Max(1, minCount));
+		int high = Math.Min(available, Math.Max(low, maxCount));
+		if (high <= low)
+			return low;
+
+		return low + HST_DefaultCatalog.PositiveMod(seed, high - low + 1);
+	}
+
+	protected void AppendGunShopStockItems(HST_ActiveMissionState mission, array<ref HST_GunShopCatalogCandidate> candidates, int count, int seed)
+	{
+		if (!mission || !candidates || count <= 0 || candidates.Count() <= 0)
+			return;
+
+		int startIndex = HST_DefaultCatalog.PositiveMod(seed, candidates.Count());
+		int emitted;
+		for (int i = 0; i < candidates.Count() && emitted < count; i++)
+		{
+			int index = HST_DefaultCatalog.PositiveMod(startIndex + i * 7, candidates.Count());
+			HST_GunShopCatalogCandidate candidate = candidates[index];
+			if (!candidate || HasGunShopStockPrefab(mission, candidate.m_sPrefab))
+				continue;
+
+			HST_GunShopItemState item = new HST_GunShopItemState();
+			item.m_sItemId = string.Format("shop_%1_%2", mission.m_sInstanceId, mission.m_aGunShopItems.Count());
+			item.m_sPrefab = candidate.m_sPrefab;
+			item.m_sDisplayName = candidate.m_sDisplayName;
+			item.m_sCategory = candidate.m_sCategory;
+			item.m_sFactionKey = candidate.m_sFactionKey;
+			item.m_iAvailableCount = ResolveGunShopStockQuantity(candidate, seed + i * 53);
+			item.m_iBuyCost = ResolveGunShopBuyCost(candidate, seed + i * 97);
+			item.m_iSellCost = Math.Max(1, item.m_iBuyCost * (10 + HST_DefaultCatalog.PositiveMod(seed + i * 131, 21)) / 100);
+			item.m_bCanSell = true;
+			mission.m_aGunShopItems.Insert(item);
+			emitted++;
+		}
+	}
+
+	protected bool HasGunShopStockPrefab(HST_ActiveMissionState mission, string prefab)
+	{
+		if (!mission || !mission.m_aGunShopItems || prefab.IsEmpty())
+			return false;
+
+		foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
+		{
+			if (item && item.m_sPrefab == prefab)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected int ResolveGunShopStockQuantity(HST_GunShopCatalogCandidate candidate, int seed)
+	{
+		if (!candidate)
+			return 1;
+
+		HST_ArsenalItemState synthetic = new HST_ArsenalItemState();
+		synthetic.m_sPrefab = candidate.m_sPrefab;
+		synthetic.m_sCategory = candidate.m_sCategory;
+
+		int threshold = -1;
+		if (m_Arsenal)
+			threshold = m_Arsenal.ResolveUnlockThreshold(synthetic, m_Balance);
+		if (threshold <= 0 && m_Balance)
+			threshold = Math.Max(1, m_Balance.m_iArsenalUnlockThreshold);
+		if (threshold <= 0)
+			threshold = 18;
+
+		int cap = Math.Max(1, threshold * 75 / 100);
+		return 1 + HST_DefaultCatalog.PositiveMod(seed, cap);
+	}
+
+	protected int ResolveGunShopBuyCost(HST_GunShopCatalogCandidate candidate, int seed)
+	{
+		if (!candidate)
+			return 25;
+
+		int baseCost = candidate.m_iSupplyCost;
+		if (baseCost <= 0)
+		{
+			if (candidate.m_sCategory == "weapon")
+				baseCost = 160;
+			else if (candidate.m_sCategory == "launcher")
+				baseCost = 260;
+			else if (candidate.m_sCategory == "sidearm")
+				baseCost = 80;
+			else if (candidate.m_sCategory == "attachment")
+				baseCost = 55;
+			else
+				baseCost = 35;
+		}
+
+		int variationPercent = 80 + HST_DefaultCatalog.PositiveMod(seed, 61);
+		return Math.Max(5, baseCost * variationPercent / 100);
+	}
+
+	protected int CountGunShopPurchasedItems(HST_ActiveMissionState mission)
+	{
+		if (!mission || !mission.m_aGunShopItems)
+			return 0;
+
+		int count;
+		foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
+		{
+			if (item)
+				count += Math.Max(0, item.m_iPurchasedCount);
+		}
+
+		return count;
+	}
+
+	protected bool EnsureGunShopSellerAsset(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+
+		vector sellerPosition = mission.m_vGunShopSellerPosition;
+		if (IsZeroVector(sellerPosition))
+			sellerPosition = ResolveRuntimePropPosition(state, mission);
+		sellerPosition = HST_WorldPositionService.ResolveSafeGroundPosition(sellerPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 2.0);
+		mission.m_vGunShopSellerPosition = sellerPosition;
+		mission.m_vTargetPosition = sellerPosition;
+		if (mission.m_sGunShopSellerAssetId.IsEmpty())
+			mission.m_sGunShopSellerAssetId = string.Format("asset_%1_%2_%3", mission.m_sInstanceId, ROLE_GUN_SHOP_SELLER, 0);
+
+		bool changed = AddMissionAsset(state, mission, ASSET_KIND_CHARACTER, ROLE_GUN_SHOP_SELLER, PROP_GUN_SHOP_SELLER, sellerPosition, sellerPosition, 0);
+		HST_MissionAssetState seller = state.FindMissionAsset(mission.m_sGunShopSellerAssetId);
+		if (seller && seller.m_iInteractionRadiusMeters != GUN_SHOP_SELLER_INTERACTION_RADIUS_METERS)
+		{
+			seller.m_iInteractionRadiusMeters = GUN_SHOP_SELLER_INTERACTION_RADIUS_METERS;
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	protected bool MarkGunShopSellerDeparted(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sGunShopSellerAssetId.IsEmpty())
+			return false;
+
+		HST_MissionAssetState seller = state.FindMissionAsset(mission.m_sGunShopSellerAssetId);
+		if (!seller || seller.m_bDestroyed || seller.m_bDelivered)
+			return false;
+
+		seller.m_bDestroyed = true;
+		seller.m_bAlive = false;
+		seller.m_sLastInteraction = "shop_closed";
+		DeleteRuntimeEntity(seller.m_sEntityId);
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(seller.m_sEntityId);
+		if (runtimeEntity)
+			runtimeEntity.m_bDestroyed = true;
+
+		return true;
+	}
+
+	protected bool EnsureGunShopDeliveryAssets(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_bGunShopDeliverySpawned)
+			return false;
+
+		vector deliveryStart = mission.m_vGunShopDeliveryPosition;
+		if (IsZeroVector(deliveryStart))
+			deliveryStart = ResolveGunShopDeliveryStartPosition(state, mission);
+		mission.m_vGunShopDeliveryPosition = deliveryStart;
+
+		string vehiclePrefab = SelectGunShopDeliveryVehiclePrefab(state, mission);
+		bool changed = AddMissionAsset(state, mission, ASSET_KIND_VEHICLE, ROLE_GUN_SHOP_DELIVERY_VEHICLE, vehiclePrefab, deliveryStart, state.m_vHQPosition, 0);
+		changed = AddMissionAsset(state, mission, ASSET_KIND_CHARACTER, ROLE_GUN_SHOP_DELIVERY_DRIVER, PROP_GUN_SHOP_DELIVERY_DRIVER, OffsetGunShopDriverPosition(deliveryStart), state.m_vHQPosition, 0) || changed;
+		mission.m_sGunShopDeliveryVehicleAssetId = string.Format("asset_%1_%2_%3", mission.m_sInstanceId, ROLE_GUN_SHOP_DELIVERY_VEHICLE, 0);
+		mission.m_sGunShopDeliveryDriverAssetId = string.Format("asset_%1_%2_%3", mission.m_sInstanceId, ROLE_GUN_SHOP_DELIVERY_DRIVER, 0);
+		mission.m_bGunShopDeliverySpawned = true;
+		mission.m_iGunShopDeliveryStartedAtSecond = state.m_iElapsedSeconds;
+		mission.m_sRuntimePhase = "delivery_en_route";
+		return true;
+	}
+
+	protected vector OffsetGunShopDriverPosition(vector position)
+	{
+		vector driverPosition = position;
+		driverPosition[0] = driverPosition[0] + 2.0;
+		return HST_WorldPositionService.ResolveSafeGroundPosition(driverPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 2.0);
+	}
+
+	protected vector ResolveGunShopDeliveryStartPosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		vector hqPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true);
+		vector anchor = ResolveClosestLivingPlayerPositionTo(hqPosition);
+		if (IsZeroVector(anchor))
+			anchor = hqPosition;
+
+		float radius = Math.Max(450.0, HST_WorldPositionService.GetPlayerEventBubbleRadiusMeters() - GUN_SHOP_DELIVERY_SPAWN_EDGE_MARGIN_METERS);
+		vector preferred = BuildGunShopEdgePosition(anchor, hqPosition, radius);
+		vector roadPosition;
+		vector roadForward;
+		float roadWidth;
+		float roadDistance;
+		string roadReason;
+		if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, GUN_SHOP_DELIVERY_ROAD_SEARCH_RADIUS_METERS, hqPosition, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
+			return roadPosition;
+
+		vector resolved;
+		if (HST_WorldPositionService.TryResolveVehicleSpawnPosition(preferred, resolved, true))
+			return resolved;
+
+		return HST_WorldPositionService.ResolveSafeGroundPosition(preferred, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 8.0);
+	}
+
+	protected vector BuildGunShopEdgePosition(vector anchor, vector target, float radius)
+	{
+		float dx = anchor[0] - target[0];
+		float dz = anchor[2] - target[2];
+		float length = Math.Sqrt(dx * dx + dz * dz);
+		if (length <= 1.0)
+		{
+			dx = 1.0;
+			dz = 0.0;
+			length = 1.0;
+		}
+
+		vector result = anchor;
+		result[0] = anchor[0] + dx / length * radius;
+		result[2] = anchor[2] + dz / length * radius;
+		return result;
+	}
+
+	protected vector ResolveClosestLivingPlayerPositionTo(vector target)
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return "0 0 0";
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		bool found;
+		float bestDistanceSq = 999999999.0;
+		vector bestPosition;
+		foreach (int playerId : playerIds)
+		{
+			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+			if (!IsLivingPlayerEntity(playerEntity))
+				continue;
+
+			float distanceSq = DistanceSq2D(playerEntity.GetOrigin(), target);
+			if (found && distanceSq >= bestDistanceSq)
+				continue;
+
+			found = true;
+			bestDistanceSq = distanceSq;
+			bestPosition = playerEntity.GetOrigin();
+		}
+
+		if (!found)
+			return "0 0 0";
+
+		return bestPosition;
+	}
+
+	protected string SelectGunShopDeliveryVehiclePrefab(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		int seed = BuildGunShopSeed(state, mission, 1709);
+		if (m_Balance)
+		{
+			for (int i = 0; i < m_Balance.m_aCivilianVehiclePrefabs.Count(); i++)
+			{
+				string candidate = m_Balance.m_aCivilianVehiclePrefabs[HST_DefaultCatalog.PositiveMod(seed + i, m_Balance.m_aCivilianVehiclePrefabs.Count())];
+				if (IsGunShopDeliveryVehiclePrefab(candidate))
+					return candidate;
+			}
+		}
+
+		SCR_EntityCatalogManagerComponent catalogManager = SCR_EntityCatalogManagerComponent.GetInstance();
+		if (catalogManager)
+		{
+			array<SCR_EntityCatalog> catalogs = {};
+			FactionKey key = "CIV";
+			if (catalogManager.GetAllFactionEntityCatalogs(catalogs, key) > 0)
+			{
+				foreach (SCR_EntityCatalog catalog : catalogs)
+				{
+					if (!catalog)
+						continue;
+
+					array<SCR_EntityCatalogEntry> entries = {};
+					catalog.GetEntityList(entries);
+					for (int i = 0; i < entries.Count(); i++)
+					{
+						SCR_EntityCatalogEntry entry = entries[HST_DefaultCatalog.PositiveMod(seed + i, entries.Count())];
+						if (entry && IsGunShopDeliveryVehiclePrefab(entry.GetPrefab()))
+							return entry.GetPrefab();
+					}
+				}
+			}
+		}
+
+		return PROP_CONVOY_VEHICLE;
+	}
+
+	protected bool IsGunShopDeliveryVehiclePrefab(string prefab)
+	{
+		if (prefab.IsEmpty() || !prefab.Contains("Prefabs/Vehicles/"))
+			return false;
+		if (prefab.Contains("Aircraft") || prefab.Contains("Airplane") || prefab.Contains("Plane") || prefab.Contains("Helicopter"))
+			return false;
+
+		Resource loaded = Resource.Load(prefab);
+		return loaded && loaded.IsValid();
+	}
+
+	protected bool TrySeatGunShopDeliveryDriver(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sGunShopDeliveryDriverAssetId.IsEmpty() || mission.m_sGunShopDeliveryVehicleAssetId.IsEmpty())
+			return false;
+
+		HST_MissionAssetState driverAsset = state.FindMissionAsset(mission.m_sGunShopDeliveryDriverAssetId);
+		HST_MissionAssetState vehicleAsset = state.FindMissionAsset(mission.m_sGunShopDeliveryVehicleAssetId);
+		if (!driverAsset || !vehicleAsset)
+			return false;
+		if (driverAsset.m_bAttachedToCarrier && driverAsset.m_sCarriedByVehicleId == vehicleAsset.m_sEntityId && driverAsset.m_sLastInteraction == "driving")
+			return false;
+
+		IEntity driverEntity = GetRuntimeEntity(driverAsset.m_sEntityId);
+		IEntity vehicleEntity = GetRuntimeEntity(vehicleAsset.m_sEntityId);
+		if (!driverEntity || !vehicleEntity)
+			return false;
+
+		string reason;
+		if (!TryMoveGunShopDriverIntoVehicle(driverEntity, vehicleEntity, reason))
+			return false;
+
+		driverAsset.m_sCarriedByVehicleId = vehicleAsset.m_sEntityId;
+		driverAsset.m_bAttachedToCarrier = true;
+		driverAsset.m_sLastInteraction = "driving";
+		return true;
+	}
+
+	protected bool TryMoveGunShopDriverIntoVehicle(IEntity driverEntity, IEntity vehicleEntity, out string reason)
+	{
+		reason = "";
+		if (!driverEntity || !vehicleEntity)
+		{
+			reason = "driver or vehicle missing";
+			return false;
+		}
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(driverEntity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access)
+		{
+			reason = "driver has no compartment access";
+			return false;
+		}
+		if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
+		{
+			reason = "driver already seated";
+			return true;
+		}
+		if (access.IsGettingIn())
+		{
+			reason = "driver already boarding";
+			return true;
+		}
+
+		BaseCompartmentManagerComponent compartmentManager = ResolveCompartmentManager(vehicleEntity);
+		if (!compartmentManager)
+		{
+			reason = "vehicle has no compartment manager";
+			return false;
+		}
+
+		array<BaseCompartmentSlot> slots = {};
+		compartmentManager.GetCompartments(slots);
+		BaseCompartmentSlot slot = FindAvailableDriverSlot(slots, driverEntity);
+		if (!slot)
+		{
+			reason = "vehicle has no available driver slot";
+			return false;
+		}
+
+		if (access.MoveInVehicle(vehicleEntity, ECompartmentType.PILOT, true, slot))
+		{
+			reason = "driver moved into pilot slot";
+			return true;
+		}
+
+		IEntity slotOwner = slot.GetOwner();
+		if (!slotOwner)
+			slotOwner = vehicleEntity;
+		if (access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+		{
+			reason = "driver get-in order accepted";
+			return true;
+		}
+
+		reason = "driver seating request rejected";
+		return false;
+	}
+
+	protected BaseCompartmentSlot FindAvailableDriverSlot(array<BaseCompartmentSlot> slots, IEntity driverEntity)
+	{
+		if (!slots || !driverEntity)
+			return null;
+
+		foreach (BaseCompartmentSlot slot : slots)
+		{
+			if (!slot)
+				continue;
+			if (slot.GetType() != ECompartmentType.PILOT)
+				continue;
+			if (!slot.IsCompartmentAccessible())
+				continue;
+			if (slot.IsOccupied())
+				continue;
+			if (slot.IsGetInLockedFor(driverEntity))
+				continue;
+
+			return slot;
+		}
+
+		return null;
+	}
+
+	protected bool IssueGunShopDeliveryWaypoint(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sGunShopDeliveryDriverAssetId.IsEmpty())
+			return false;
+		if (mission.m_sRuntimePhase == "delivery_waypointed" || mission.m_sRuntimePhase == "delivered")
+			return false;
+
+		HST_MissionAssetState driverAsset = state.FindMissionAsset(mission.m_sGunShopDeliveryDriverAssetId);
+		HST_MissionAssetState vehicleAsset = state.FindMissionAsset(mission.m_sGunShopDeliveryVehicleAssetId);
+		if (!driverAsset || !vehicleAsset)
+			return false;
+
+		IEntity driverEntity = GetRuntimeEntity(driverAsset.m_sEntityId);
+		IEntity vehicleEntity = GetRuntimeEntity(vehicleAsset.m_sEntityId);
+		if (!driverEntity || !vehicleEntity)
+			return false;
+
+		AIGroup group = ResolveGunShopDeliveryAIGroup(driverEntity, state.m_vHQPosition);
+		if (!group)
+			return false;
+
+		SCR_AIGroupUtilityComponent utility = SCR_AIGroupUtilityComponent.Cast(group.FindComponent(SCR_AIGroupUtilityComponent));
+		if (utility)
+		{
+			IEntity usageOwner = vehicleEntity;
+			SCR_AIVehicleUsageComponent vehicleUsage = SCR_AIVehicleUsageComponent.FindOnNearestParent(vehicleEntity, usageOwner);
+			if (vehicleUsage && vehicleUsage.IsVehicleTypeValid() && vehicleUsage.CanBePiloted())
+				utility.AddUsableVehicle(vehicleUsage);
+		}
+
+		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CAPTIVE_MOVE_WAYPOINT_PREFAB, state.m_vHQPosition, "0 0 0");
+		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
+		if (!waypoint)
+		{
+			if (waypointEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+			return false;
+		}
+
+		waypoint.SetCompletionRadius(GUN_SHOP_DELIVERY_ARRIVAL_RADIUS_METERS);
+		group.AddWaypoint(waypoint);
+		mission.m_sRuntimePhase = "delivery_waypointed";
+		return true;
+	}
+
+	protected AIGroup ResolveGunShopDeliveryAIGroup(IEntity driverEntity, vector position)
+	{
+		if (!driverEntity)
+			return null;
+
+		AIControlComponent control = AIControlComponent.Cast(driverEntity.FindComponent(AIControlComponent));
+		if (!control)
+			return null;
+
+		control.ActivateAI();
+		AIAgent agent = control.GetControlAIAgent();
+		if (!agent)
+			return null;
+
+		AIGroup group = agent.GetParentGroup();
+		if (group)
+		{
+			group.ActivateAllMembers();
+			return group;
+		}
+
+		GenericEntity groupEntity = HST_WorldPositionService.SpawnPrefab(PROP_RUNTIME_EMPTY_GROUP, position, "0 0 0");
+		group = AIGroup.Cast(groupEntity);
+		if (!group)
+			return null;
+
+		SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
+		if (scrGroup)
+			scrGroup.InitFactionKey("CIV");
+		group.AddAgent(agent);
+		group.ActivateAllMembers();
+		return group;
+	}
+
+	protected bool AdvanceGunShopDeliveryVehicle(HST_CampaignState state, HST_ActiveMissionState mission, int elapsedSeconds)
+	{
+		if (!state || !mission || mission.m_sGunShopDeliveryVehicleAssetId.IsEmpty())
+			return false;
+
+		HST_MissionAssetState vehicleAsset = state.FindMissionAsset(mission.m_sGunShopDeliveryVehicleAssetId);
+		if (!vehicleAsset || vehicleAsset.m_bDelivered || vehicleAsset.m_bDestroyed)
+			return false;
+
+		vector current = vehicleAsset.m_vCurrentPosition;
+		IEntity vehicleEntity = GetRuntimeEntity(vehicleAsset.m_sEntityId);
+		if (vehicleEntity)
+			current = vehicleEntity.GetOrigin();
+		if (IsZeroVector(current))
+			current = mission.m_vGunShopDeliveryPosition;
+
+		vector hqPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true);
+		float distanceSq = DistanceSq2D(current, hqPosition);
+		if (distanceSq <= GUN_SHOP_DELIVERY_ARRIVAL_RADIUS_METERS * GUN_SHOP_DELIVERY_ARRIVAL_RADIUS_METERS)
+			return CompleteGunShopDelivery(state, mission, hqPosition);
+
+		float distance = Math.Sqrt(distanceSq);
+		float step = Math.Max(1.0, elapsedSeconds) * GUN_SHOP_DELIVERY_SPEED_METERS_PER_SECOND;
+		float t = Math.Min(1.0, step / distance);
+		vector next = InterpolatePosition(current, hqPosition, t);
+		vector resolved;
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(next, resolved, true))
+			resolved = HST_WorldPositionService.ResolveGroundPosition(next, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true);
+
+		vector angles = BuildVehicleAnglesToward(resolved, hqPosition);
+		vehicleAsset.m_vCurrentPosition = resolved;
+		vehicleAsset.m_vLastKnownPosition = resolved;
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(vehicleAsset.m_sEntityId);
+		if (runtimeEntity)
+		{
+			runtimeEntity.m_vPosition = resolved;
+			runtimeEntity.m_vAngles = angles;
+		}
+
+		HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(vehicleAsset.m_sEntityId);
+		if (runtimeVehicle)
+		{
+			runtimeVehicle.m_vPosition = resolved;
+			runtimeVehicle.m_vAngles = angles;
+		}
+
+		if (vehicleEntity)
+			HST_WorldPositionService.ApplyUprightEntityTransform(vehicleEntity, resolved, angles);
+		UpdateGunShopDriverPosition(state, mission, resolved);
+
+		if (DistanceSq2D(resolved, hqPosition) <= GUN_SHOP_DELIVERY_ARRIVAL_RADIUS_METERS * GUN_SHOP_DELIVERY_ARRIVAL_RADIUS_METERS)
+		{
+			CompleteGunShopDelivery(state, mission, hqPosition);
+			return true;
+		}
+
+		return true;
+	}
+
+	protected void UpdateGunShopDriverPosition(HST_CampaignState state, HST_ActiveMissionState mission, vector position)
+	{
+		if (!state || !mission || mission.m_sGunShopDeliveryDriverAssetId.IsEmpty())
+			return;
+
+		HST_MissionAssetState driverAsset = state.FindMissionAsset(mission.m_sGunShopDeliveryDriverAssetId);
+		if (!driverAsset)
+			return;
+
+		driverAsset.m_vCurrentPosition = position;
+		driverAsset.m_vLastKnownPosition = position;
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(driverAsset.m_sEntityId);
+		if (runtimeEntity)
+			runtimeEntity.m_vPosition = position;
+	}
+
+	protected bool CompleteGunShopDelivery(HST_CampaignState state, HST_ActiveMissionState mission, vector position)
+	{
+		if (!state || !mission || mission.m_bGunShopDeliveryArrived)
+			return false;
+
+		DepositGunShopPurchases(state, mission);
+		CompleteGunShopObjectives(state, mission);
+		MarkGunShopDeliveryAssetComplete(state, mission, mission.m_sGunShopDeliveryDriverAssetId, position);
+		MarkGunShopDeliveryAssetComplete(state, mission, mission.m_sGunShopDeliveryVehicleAssetId, position);
+		mission.m_bGunShopDeliveryArrived = true;
+		mission.m_sRuntimePhase = "delivered";
+		return true;
+	}
+
+	protected void DepositGunShopPurchases(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || !mission.m_aGunShopItems)
+			return;
+
+		foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
+		{
+			if (!item || item.m_iPurchasedCount <= 0 || item.m_sPrefab.IsEmpty())
+				continue;
+
+			if (m_Arsenal)
+			{
+				m_Arsenal.DepositItem(state, m_Balance, item.m_sPrefab, item.m_iPurchasedCount, item.m_sCategory, item.m_sDisplayName);
+				continue;
+			}
+
+			HST_ArsenalItemState arsenalItem = state.FindArsenalItem(item.m_sPrefab);
+			if (!arsenalItem)
+			{
+				arsenalItem = new HST_ArsenalItemState();
+				arsenalItem.m_sPrefab = item.m_sPrefab;
+				state.m_aArsenalItems.Insert(arsenalItem);
+			}
+			arsenalItem.m_sCategory = item.m_sCategory;
+			arsenalItem.m_sDisplayName = item.m_sDisplayName;
+			arsenalItem.m_iCount += item.m_iPurchasedCount;
+		}
+	}
+
+	protected void CompleteGunShopObjectives(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return;
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			objective.m_iCurrentProgress = objective.m_iRequiredProgress;
+			objective.m_iCurrentCount = Math.Max(1, objective.m_iRequiredCount);
+			objective.m_bComplete = true;
+			objective.m_bFailed = false;
+		}
+	}
+
+	protected void MarkGunShopDeliveryAssetComplete(HST_CampaignState state, HST_ActiveMissionState mission, string assetId, vector position)
+	{
+		if (!state || !mission || assetId.IsEmpty())
+			return;
+
+		HST_MissionAssetState asset = state.FindMissionAsset(assetId);
+		if (!asset)
+			return;
+
+		asset.m_bDelivered = true;
+		asset.m_bDestroyed = false;
+		asset.m_bPickedUp = true;
+		asset.m_vCurrentPosition = position;
+		asset.m_vLastKnownPosition = position;
+		asset.m_sLastInteraction = "delivered";
+		DeleteRuntimeEntity(asset.m_sEntityId);
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
+		if (runtimeEntity)
+		{
+			runtimeEntity.m_bRecovered = true;
+			runtimeEntity.m_vPosition = position;
+		}
+		HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(asset.m_sEntityId);
+		if (runtimeVehicle)
+		{
+			runtimeVehicle.m_bDeleted = true;
+			runtimeVehicle.m_vPosition = position;
+		}
+	}
+
+	protected void UpdateGunShopAssetDeadlines(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (asset && asset.m_sMissionInstanceId == mission.m_sInstanceId)
+				asset.m_iDeadlineSecond = mission.m_iActiveUntilSecond;
+		}
+	}
+
+	protected vector BuildVehicleAnglesToward(vector sourcePosition, vector targetPosition)
+	{
+		float dx = targetPosition[0] - sourcePosition[0];
+		float dz = targetPosition[2] - sourcePosition[2];
+		float yaw;
+		float absDx = dx;
+		if (absDx < 0)
+			absDx = -absDx;
+		float absDz = dz;
+		if (absDz < 0)
+			absDz = -absDz;
+		if (absDx > absDz)
+		{
+			if (dx >= 0)
+				yaw = 90;
+			else
+				yaw = 270;
+		}
+		else if (dz < 0)
+		{
+			yaw = 180;
+		}
+
+		return HST_WorldPositionService.BuildUprightAngles(yaw);
+	}
+
+	protected int BuildGunShopSeed(HST_CampaignState state, HST_ActiveMissionState mission, int salt)
+	{
+		int seed = salt;
+		if (state)
+			seed += state.m_iCampaignSeed * 31 + state.m_iElapsedSeconds * 7;
+		if (mission)
+			seed += mission.m_sInstanceId.Length() * 97 + mission.m_sMissionId.Length() * 53 + mission.m_sTargetZoneId.Length() * 17;
+
+		return seed;
+	}
+
 	protected bool RepairActiveMissionRuntimeAfterRestore(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
@@ -6168,6 +7239,19 @@ class HST_MissionRuntimeService
 
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_KILL_HVT)
 			return AddMissionAsset(state, mission, ASSET_KIND_CHARACTER, ROLE_HVT, PROP_HVT, targetPosition, targetPosition, 0);
+
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_GUN_SHOP)
+		{
+			vector sellerPosition = targetPosition;
+			if (!IsZeroVector(mission.m_vGunShopSellerPosition))
+				sellerPosition = mission.m_vGunShopSellerPosition;
+			else
+				mission.m_vGunShopSellerPosition = sellerPosition;
+			mission.m_vTargetPosition = sellerPosition;
+			if (mission.m_sGunShopSellerAssetId.IsEmpty())
+				mission.m_sGunShopSellerAssetId = string.Format("asset_%1_%2_%3", mission.m_sInstanceId, ROLE_GUN_SHOP_SELLER, 0);
+			return AddMissionAsset(state, mission, ASSET_KIND_CHARACTER, ROLE_GUN_SHOP_SELLER, PROP_GUN_SHOP_SELLER, sellerPosition, sellerPosition, 0);
+		}
 
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_DESTROY_TARGET)
 		{

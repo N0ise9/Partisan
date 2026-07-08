@@ -1,0 +1,21 @@
+SCR_ChimeraCharacter Character_HST_GunShopCivilian : "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et" {
+ ID "6985327711303860"
+ components {
+  HST_MissionAssetComponent "{6985327711303861}" {
+  }
+  HST_MissionActionFilterComponent "{6985327711303862}" {
+  }
+  ActionsManagerComponent "{520EA1D2F659CE02}" {
+   additionalActions {
+    HST_GunShopOpenAction "{6985327711303863}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303864}" {
+      Name "Open Gun Shop"
+     }
+    }
+   }
+  }
+ }
+}

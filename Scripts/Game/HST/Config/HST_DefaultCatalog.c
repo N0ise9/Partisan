@@ -511,7 +511,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		missions.Insert(NewMission("dynamic_stop_tower_rebuild", "Stop Tower Rebuild", HST_EMissionCategory.HST_MISSION_DYNAMIC, 2400, 350, 3));
 		missions.Insert(NewMission("dynamic_minor_city_task", "Minor City Task", HST_EMissionCategory.HST_MISSION_DYNAMIC, 1800, 250, 1));
 		missions.Insert(NewMission("dynamic_city_flip_battle", "City Flip Battle", HST_EMissionCategory.HST_MISSION_DYNAMIC, 3600, 500, 4));
-		missions.Insert(NewMission("dynamic_gun_shop", "Gun Shop", HST_EMissionCategory.HST_MISSION_DYNAMIC, 3600, 350, 2));
+		missions.Insert(NewMission("dynamic_gun_shop", "Gun Shop", HST_EMissionCategory.HST_MISSION_DYNAMIC, 3600, 0, 0));
 		missions.Insert(NewMission("support_city_supplies", "Deliver City Supplies", HST_EMissionCategory.HST_MISSION_SUPPORT, 3600, 300, 1));
 		return missions;
 	}
@@ -1122,7 +1122,10 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		mission.m_iRewardSupport = RewardSupportForMission(mission);
 		mission.m_iRewardCaptureProgress = RewardCaptureProgressForMission(mission);
 		mission.m_sRewardText = RewardTextForMission(mission);
-		mission.m_sFailurePenaltyText = string.Format("Failure increases enemy aggression by %1 and may improve hostile support near the objective.", mission.m_iFailureAggression);
+		if (mission.m_iFailureAggression > 0)
+			mission.m_sFailurePenaltyText = string.Format("Failure increases enemy aggression by %1 and may improve hostile support near the objective.", mission.m_iFailureAggression);
+		else
+			mission.m_sFailurePenaltyText = "No penalty on expiry.";
 		mission.m_iRequiredWarLevel = RequiredWarLevelForMission(mission);
 		ConfigureMissionTargetRules(mission);
 	}
@@ -1187,7 +1190,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (mission.m_sMissionId == "dynamic_city_flip_battle")
 			return "dynamic_city_battle";
 		if (mission.m_sMissionId == "dynamic_gun_shop")
-			return "dynamic_gun_shop";
+			return "gun_shop";
 
 		return "dynamic_minor_task";
 	}
@@ -1220,6 +1223,8 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			return "Find the captives, make contact, and escort them alive to HQ or a friendly zone.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
 			return "Move FIA supplies from the staging point to the target town to improve local support.";
+		if (mission.m_sMissionId == "dynamic_gun_shop")
+			return "A civilian trader is available for a limited time. Purchases are delivered to HQ after the shop closes.";
 
 		return "A dynamic opportunity has appeared. Resolve the objective before the timer expires.";
 	}
@@ -1242,6 +1247,8 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			return "Extract all captives alive.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
 			return "Deliver supplies to the target town.";
+		if (mission.m_sMissionId == "dynamic_gun_shop")
+			return "Visit the marked trader before the shop closes. Purchased items are delivered to HQ afterward.";
 
 		return "Complete all displayed objectives.";
 	}
@@ -1254,12 +1261,17 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			return "The convoy reaches its destination with living crew.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
 			return "Captives are lost or the extraction timer expires.";
+		if (mission.m_sMissionId == "dynamic_gun_shop")
+			return "The shop closes.";
 
 		return "Timer expires or the required mission asset is lost.";
 	}
 
 	private static string RewardTextForMission(HST_MissionDefinition mission)
 	{
+		if (mission.m_sMissionId == "dynamic_gun_shop")
+			return "Purchased items are delivered to HQ after the shop closes.";
+
 		string reward = string.Format("$%1 FIA funds", mission.m_iRewardMoney);
 		if (mission.m_iRewardHR > 0)
 			reward = reward + string.Format(", %1 HR", mission.m_iRewardHR);

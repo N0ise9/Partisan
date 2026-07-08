@@ -173,3 +173,26 @@ class HST_MissionCargoDeliverAction : HST_MissionUserActionBase
 		return true;
 	}
 }
+
+class HST_GunShopOpenAction : HST_MissionUserActionBase
+{
+	override bool CanShowForMissionAsset(IEntity owner)
+	{
+		HST_MissionAssetState asset = ResolveMissionAssetState(owner);
+		if (!asset)
+			return true;
+
+		return asset.m_sRole == "gun_shop_seller" && !asset.m_bDelivered && !asset.m_bDestroyed;
+	}
+
+	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
+	{
+		RunMissionCommand(pOwnerEntity, pUserEntity, "gun_shop_open");
+	}
+
+	override bool GetActionNameScript(out string outName)
+	{
+		outName = "Open Gun Shop";
+		return true;
+	}
+}

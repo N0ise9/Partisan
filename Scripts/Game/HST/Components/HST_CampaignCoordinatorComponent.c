@@ -7,6 +7,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 {
 	protected static HST_CampaignCoordinatorComponent s_Instance;
 	static const int MARKER_REFRESH_THROTTLE_SECONDS = 10;
+	static const int GUN_SHOP_EXPEDITED_SECONDS = 900;
+	static const float GUN_SHOP_INTERACTION_RADIUS_METERS = 25.0;
 	static const float SETUP_MAP_WORLD_MIN_X = 0.0;
 	static const float SETUP_MAP_WORLD_MIN_Z = 0.0;
 	static const float SETUP_MAP_WORLD_MAX_X = 12800.0;
@@ -48,8 +50,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_BANK_MONEY_PREFAB = "{6985327711303770}Prefabs/Objects/HST/HST_MissionProp_BankMoney.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_SELLER_PREFAB = "{6985327711303860}Prefabs/Characters/HST/Character_HST_GunShopCivilian.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r102-player-facing-command-menu";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r103-gun-shop-delivery";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -322,7 +327,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Objectives = new HST_MissionObjectiveService();
 		m_MissionRuntime = new HST_MissionRuntimeService();
 		if (m_MissionRuntime)
+		{
 			m_MissionRuntime.SetForceCompositionService(m_ForceCompositions);
+			m_MissionRuntime.SetArsenalService(m_Arsenal);
+			m_MissionRuntime.SetBalanceConfig(m_Balance);
+		}
 		if (m_MissionRuntime && m_Settings && m_Settings.m_Debug)
 			m_MissionRuntime.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_ConvoyOutcomes = new HST_ConvoyOutcomeService();
@@ -452,6 +461,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			BroadcastPendingMissionOutcomeEvents();
 		bool objectiveChanged = m_Objectives.Tick(m_State);
 		bool missionRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, elapsedSeconds);
+		missionRuntimeChanged = BroadcastGunShopRuntimeNotifications() || missionRuntimeChanged;
 		bool convoyRuntimeChanged = m_PhysicalWar.UpdateMissionConvoys(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool convoyOutcomeChanged = ApplyConvoyOutcomesNow();
 		if (convoyRuntimeChanged)
@@ -1250,6 +1260,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!activeMission || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
 			return false;
 		if (activeMission.m_sMissionId == "dynamic_defend_petros")
+			return false;
+		if (activeMission.m_sMissionId == "dynamic_gun_shop")
 			return false;
 
 		HST_MissionDefinition definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
@@ -2946,6 +2958,275 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		BroadcastPendingMissionOutcomeEvents();
 		MarkMajorCampaignChange();
 		return result;
+	}
+
+	string RequestMemberOpenGunShopReport(int playerId, string argument)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi gun shop | membership required";
+
+		HST_ActiveMissionState mission = ResolveGunShopMissionFromArgument(argument);
+		if (!IsGunShopMissionOpen(mission))
+			return "h-istasi gun shop | failed: no open gun shop nearby";
+		if (!IsPlayerNearGunShopSeller(playerId, mission))
+			return "h-istasi gun shop | failed: stand near the gun shop civilian";
+
+		return BuildGunShopOpenReport(mission);
+	}
+
+	string RequestMemberBuyGunShopItemReport(int playerId, string argument)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi gun shop | membership required";
+		if (!m_State || !m_Economy)
+			return "h-istasi gun shop | failed: service not ready";
+
+		HST_ActiveMissionState mission;
+		HST_GunShopItemState item;
+		string parseFailure;
+		if (!TryResolveGunShopItemArgument(argument, mission, item, parseFailure))
+			return "h-istasi gun shop | failed: " + parseFailure;
+		if (!IsGunShopMissionOpen(mission))
+			return "h-istasi gun shop | failed: shop is not open";
+		if (!IsPlayerNearGunShopSeller(playerId, mission))
+			return "h-istasi gun shop | failed: stand near the gun shop civilian";
+		if (item.m_iAvailableCount <= 0)
+			return "h-istasi gun shop | failed: item is sold out";
+		if (m_State.m_iFactionMoney < item.m_iBuyCost)
+			return string.Format("h-istasi gun shop | failed: need $%1", item.m_iBuyCost);
+		if (!m_Economy.SpendFactionMoney(m_State, item.m_iBuyCost))
+			return string.Format("h-istasi gun shop | failed: need $%1", item.m_iBuyCost);
+
+		item.m_iAvailableCount--;
+		item.m_iPurchasedCount++;
+		mission.m_bGunShopPurchaseMade = true;
+		mission.m_bGunShopPurchaseNoticeSent = true;
+		mission.m_iGunShopPurchasedTotal = CountGunShopPurchasedItems(mission);
+		if (mission.m_iRemainingSeconds > GUN_SHOP_EXPEDITED_SECONDS)
+		{
+			mission.m_iRemainingSeconds = GUN_SHOP_EXPEDITED_SECONDS;
+			mission.m_iActiveUntilSecond = m_State.m_iElapsedSeconds + GUN_SHOP_EXPEDITED_SECONDS;
+			mission.m_sRuntimePhase = "shop_reserved";
+		}
+
+		BroadcastNotification("gun_shop_purchase_" + mission.m_sInstanceId + "_" + item.m_sItemId + "_" + m_State.m_iElapsedSeconds, "mission", "success", "Gun Shop", "Your purchases will arrive at your HQ after the Gun Shop expires.", mission.m_sTargetZoneId, mission.m_sInstanceId, ResolveGunShopSellerPosition(mission), 6.0);
+		MarkMajorCampaignChange();
+		return string.Format("h-istasi gun shop | purchased %1 for $%2 | reserved %3 item(s)", HST_DisplayNameService.ResolveShortItemDisplayName(item.m_sDisplayName, item.m_sPrefab), item.m_iBuyCost, mission.m_iGunShopPurchasedTotal);
+	}
+
+	string RequestMemberSellGunShopItemReport(int playerId, string argument)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi gun shop | membership required";
+		if (!m_State || !m_Economy)
+			return "h-istasi gun shop | failed: service not ready";
+
+		HST_ActiveMissionState mission;
+		HST_GunShopItemState item;
+		string parseFailure;
+		if (!TryResolveGunShopItemArgument(argument, mission, item, parseFailure))
+			return "h-istasi gun shop | failed: " + parseFailure;
+		if (!IsGunShopMissionOpen(mission))
+			return "h-istasi gun shop | failed: shop is not open";
+		if (!IsPlayerNearGunShopSeller(playerId, mission))
+			return "h-istasi gun shop | failed: stand near the gun shop civilian";
+		if (!item.m_bCanSell || item.m_iPurchasedCount <= 0)
+			return "h-istasi gun shop | failed: no reserved purchase to sell back";
+
+		item.m_iPurchasedCount--;
+		item.m_iAvailableCount++;
+		m_Economy.AddFactionMoney(m_State, item.m_iSellCost);
+		mission.m_iGunShopPurchasedTotal = CountGunShopPurchasedItems(mission);
+		if (mission.m_iGunShopPurchasedTotal <= 0)
+			mission.m_bGunShopPurchaseMade = false;
+
+		MarkMajorCampaignChange();
+		return string.Format("h-istasi gun shop | sold back %1 for $%2 | reserved %3 item(s)", HST_DisplayNameService.ResolveShortItemDisplayName(item.m_sDisplayName, item.m_sPrefab), item.m_iSellCost, mission.m_iGunShopPurchasedTotal);
+	}
+
+	protected bool TryResolveGunShopItemArgument(string argument, out HST_ActiveMissionState mission, out HST_GunShopItemState item, out string failureReason)
+	{
+		mission = null;
+		item = null;
+		failureReason = "";
+		if (argument.IsEmpty())
+		{
+			failureReason = "item argument missing";
+			return false;
+		}
+
+		array<string> parts = {};
+		argument.Split("~", parts, false);
+		if (parts.Count() < 2)
+		{
+			failureReason = "item argument invalid";
+			return false;
+		}
+
+		mission = m_State.FindActiveMission(parts[0]);
+		if (!mission)
+		{
+			failureReason = "shop mission missing";
+			return false;
+		}
+
+		item = FindGunShopItem(mission, parts[1]);
+		if (!item)
+		{
+			failureReason = "shop item missing";
+			return false;
+		}
+
+		return true;
+	}
+
+	protected HST_ActiveMissionState ResolveGunShopMissionFromArgument(string argument)
+	{
+		if (!m_State)
+			return null;
+
+		string missionId = argument;
+		if (argument.Contains("~"))
+		{
+			array<string> parts = {};
+			argument.Split("~", parts, false);
+			if (parts.Count() > 0)
+				missionId = parts[0];
+		}
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(missionId);
+		if (IsGunShopMissionOpen(mission))
+			return mission;
+
+		HST_MissionAssetState asset = m_State.FindMissionAsset(argument);
+		if (asset && asset.m_sRole == "gun_shop_seller")
+		{
+			mission = m_State.FindActiveMission(asset.m_sMissionInstanceId);
+			if (IsGunShopMissionOpen(mission))
+				return mission;
+		}
+
+		foreach (HST_ActiveMissionState candidate : m_State.m_aActiveMissions)
+		{
+			if (IsGunShopMissionOpen(candidate))
+				return candidate;
+		}
+
+		return null;
+	}
+
+	protected HST_GunShopItemState FindGunShopItem(HST_ActiveMissionState mission, string itemId)
+	{
+		if (!mission || !mission.m_aGunShopItems || itemId.IsEmpty())
+			return null;
+
+		foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
+		{
+			if (item && item.m_sItemId == itemId)
+				return item;
+		}
+
+		return null;
+	}
+
+	protected bool IsGunShopMissionOpen(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+		if (mission.m_sMissionId != "dynamic_gun_shop" && mission.m_sRuntimePrimitive != "gun_shop")
+			return false;
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+
+		HST_MissionAssetState seller = FindGunShopSellerAsset(mission);
+		return !seller || (!seller.m_bDestroyed && !seller.m_bDelivered);
+	}
+
+	protected bool IsPlayerNearGunShopSeller(int playerId, HST_ActiveMissionState mission)
+	{
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity || !IsLivingEntity(playerEntity))
+			return false;
+
+		vector sellerPosition = ResolveGunShopSellerPosition(mission);
+		if (IsZeroVector(sellerPosition))
+			return false;
+
+		return DistanceSq2D(playerEntity.GetOrigin(), sellerPosition) <= GUN_SHOP_INTERACTION_RADIUS_METERS * GUN_SHOP_INTERACTION_RADIUS_METERS;
+	}
+
+	protected HST_MissionAssetState FindGunShopSellerAsset(HST_ActiveMissionState mission)
+	{
+		if (!m_State || !mission)
+			return null;
+
+		if (!mission.m_sGunShopSellerAssetId.IsEmpty())
+		{
+			HST_MissionAssetState seller = m_State.FindMissionAsset(mission.m_sGunShopSellerAssetId);
+			if (seller)
+				return seller;
+		}
+
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (asset && asset.m_sMissionInstanceId == mission.m_sInstanceId && asset.m_sRole == "gun_shop_seller")
+				return asset;
+		}
+
+		return null;
+	}
+
+	protected vector ResolveGunShopSellerPosition(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "0 0 0";
+
+		HST_MissionAssetState seller = FindGunShopSellerAsset(mission);
+		if (seller)
+		{
+			if (!IsZeroVector(seller.m_vCurrentPosition))
+				return seller.m_vCurrentPosition;
+			if (!IsZeroVector(seller.m_vSourcePosition))
+				return seller.m_vSourcePosition;
+		}
+		if (!IsZeroVector(mission.m_vGunShopSellerPosition))
+			return mission.m_vGunShopSellerPosition;
+
+		return mission.m_vTargetPosition;
+	}
+
+	protected int CountGunShopPurchasedItems(HST_ActiveMissionState mission)
+	{
+		if (!mission || !mission.m_aGunShopItems)
+			return 0;
+
+		int count;
+		foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
+		{
+			if (item)
+				count += Math.Max(0, item.m_iPurchasedCount);
+		}
+
+		return count;
+	}
+
+	protected string BuildGunShopOpenReport(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "h-istasi gun shop | unavailable";
+
+		string report = string.Format("h-istasi gun shop | %1 | %2s remaining | reserved %3 item(s)", mission.m_sDisplayName, Math.Max(0, mission.m_iRemainingSeconds), CountGunShopPurchasedItems(mission));
+		int emitted;
+		foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
+		{
+			if (!item || emitted >= 18)
+				continue;
+
+			report = report + string.Format("\n%1 | %2 | stock %3 | buy $%4 | sell $%5 | reserved %6", item.m_sItemId, HST_DisplayNameService.ResolveShortItemDisplayName(item.m_sDisplayName, item.m_sPrefab), item.m_iAvailableCount, item.m_iBuyCost, item.m_iSellCost, item.m_iPurchasedCount);
+			emitted++;
+		}
+
+		return report;
 	}
 
 	string RequestServerMissionAssetDestroyed(string assetId, vector position)
@@ -7458,6 +7739,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_BANK_MONEY_PREFAB);
 		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB);
 		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_SELLER_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB);
 		AppendUniqueCampaignDebugPrefab(prefabs, PHASE15_SMOKE_CARGO_PREFAB);
 		AppendUniqueCampaignDebugPrefab(prefabs, PHASE15_SMOKE_VEHICLE_PREFAB);
 		AppendUniqueCampaignDebugPrefab(prefabs, PHASE14_FINITE_PREFAB);
@@ -13965,6 +14249,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugTransportPrimitiveAssertions(primitiveCase, definition, mission, "logistics_cargo", "recover_cargo");
 		else if (primitiveName == "deliver_supplies")
 			AddCampaignDebugTransportPrimitiveAssertions(primitiveCase, definition, mission, "city_supplies", "deliver_supplies");
+		else if (primitiveName == "gun_shop")
+			AddCampaignDebugGunShopPrimitiveAssertions(primitiveCase, definition, mission);
 		else if (primitiveName == "hold_area" || primitiveName == "clear_area")
 			AddCampaignDebugAreaPrimitiveAssertions(primitiveCase, definition, mission);
 		else
@@ -13972,6 +14258,159 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(primitiveCase);
 		return primitiveCase;
+	}
+
+	protected void AddCampaignDebugGunShopPrimitiveAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission)
+	{
+		if (!primitiveCase || !mission || !m_State)
+			return;
+
+		string instanceId = mission.m_sInstanceId;
+		HST_MissionAssetState sellerAsset = FindCampaignDebugMissionAsset(instanceId, "gun_shop_seller");
+		HST_GunShopItemState selectedItem = SelectCampaignDebugGunShopItem(mission);
+		int stockCount = CountCampaignDebugGunShopStockItems(mission);
+		int purchasedBefore = CountGunShopPurchasedItems(mission);
+		bool noDeliveryBeforePurchase = !mission.m_bGunShopDeliverySpawned && purchasedBefore == 0;
+		AddCampaignDebugMetric(primitiveCase, "primitive.gun_shop.stock_items", string.Format("%1", stockCount), "count");
+		AddCampaignDebugMetric(primitiveCase, "primitive.gun_shop.purchased_before", string.Format("%1", purchasedBefore), "count");
+		AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.no_delivery_before_purchase", "shop has no delivery runtime before a purchase is made", string.Format("purchased %1 | delivery spawned %2", purchasedBefore, mission.m_bGunShopDeliverySpawned), CampaignDebugStatus(noDeliveryBeforePurchase), "gun shop spawned delivery before any purchase", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.stock", "runtime generated purchasable stock", string.Format("stock items %1 | selected %2", stockCount, selectedItem != null), CampaignDebugStatus(stockCount > 0 && selectedItem != null), "gun shop generated no purchasable stock", "", instanceId, mission.m_sTargetZoneId);
+		if (sellerAsset)
+			AddCampaignDebugMissionAssetReadinessAssertions(primitiveCase, mission, sellerAsset, "primitive.gun_shop.seller");
+		else
+			AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.seller", "stationary seller mission asset exists", "missing", "BLOCKED", "gun shop primitive has no seller asset", "", instanceId, mission.m_sTargetZoneId);
+		if (!sellerAsset || !selectedItem)
+			return;
+
+		vector sellerPosition = ResolveCampaignDebugMissionAssetProbePosition(sellerAsset, mission);
+		bool sellerTeleport = TeleportCampaignDebugPlayer(sellerPosition + "2 0 2", "gun shop seller");
+		string openReport = RequestMemberOpenGunShopReport(m_iCampaignDebugPlayerId, mission.m_sInstanceId);
+		bool openAccepted = IsCampaignDebugResultSuccessful(openReport) && openReport.Contains("h-istasi gun shop");
+		AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.open_command", "open action works near the seller", ShortCampaignDebugLine(openReport, 220), CampaignDebugStatus(sellerTeleport && openAccepted), "gun shop open command failed near seller", sellerAsset.m_sAssetId, instanceId, mission.m_sTargetZoneId);
+
+		int originalMoney = m_State.m_iFactionMoney;
+		bool moneyBoosted = false;
+		if (m_State.m_iFactionMoney < selectedItem.m_iBuyCost)
+		{
+			m_State.m_iFactionMoney = selectedItem.m_iBuyCost + 100;
+			moneyBoosted = true;
+		}
+
+		int remainingBefore = mission.m_iRemainingSeconds;
+		int itemStockBefore = selectedItem.m_iAvailableCount;
+		int itemPurchasedBefore = selectedItem.m_iPurchasedCount;
+		HST_ArsenalItemState arsenalItemBefore = m_State.FindArsenalItem(selectedItem.m_sPrefab);
+		bool arsenalItemExistedBefore = arsenalItemBefore != null;
+		int arsenalCountBefore = 0;
+		if (arsenalItemBefore)
+			arsenalCountBefore = arsenalItemBefore.m_iCount;
+		string buyArgument = mission.m_sInstanceId + "~" + selectedItem.m_sItemId;
+		string buyResult = RequestMemberBuyGunShopItemReport(m_iCampaignDebugPlayerId, buyArgument);
+		int remainingAfter = mission.m_iRemainingSeconds;
+		bool buyAccepted = IsCampaignDebugResultSuccessful(buyResult) && selectedItem.m_iPurchasedCount == itemPurchasedBefore + 1 && selectedItem.m_iAvailableCount == itemStockBefore - 1;
+		bool expediteOk = (remainingBefore > GUN_SHOP_EXPEDITED_SECONDS && remainingAfter == GUN_SHOP_EXPEDITED_SECONDS) || (remainingBefore <= GUN_SHOP_EXPEDITED_SECONDS && remainingAfter == remainingBefore);
+		AddCampaignDebugMetric(primitiveCase, "primitive.gun_shop.money_boosted", string.Format("%1", moneyBoosted), "bool");
+		AddCampaignDebugMetric(primitiveCase, "primitive.gun_shop.remaining_before", string.Format("%1", remainingBefore), "seconds");
+		AddCampaignDebugMetric(primitiveCase, "primitive.gun_shop.remaining_after_buy", string.Format("%1", remainingAfter), "seconds");
+		AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.buy_command", "buy action reserves one item and decrements shop stock", ShortCampaignDebugLine(buyResult, 220), CampaignDebugStatus(buyAccepted), "gun shop buy command did not reserve exactly one item", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.expedite_timer", "first purchase caps remaining shop time at fifteen minutes when above that window", string.Format("%1 -> %2 | cap %3", remainingBefore, remainingAfter, GUN_SHOP_EXPEDITED_SECONDS), CampaignDebugStatus(expediteOk), "gun shop purchase did not apply the fifteen-minute remaining-time cap", "", instanceId, mission.m_sTargetZoneId);
+		if (!buyAccepted)
+		{
+			m_State.m_iFactionMoney = originalMoney;
+			return;
+		}
+
+		int moneyAfterPurchase = m_State.m_iFactionMoney;
+		int hrAfterPurchase = m_State.m_iHR;
+		int purchasedCount = selectedItem.m_iPurchasedCount;
+		mission.m_iRemainingSeconds = 0;
+		mission.m_iActiveUntilSecond = m_State.m_iElapsedSeconds;
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
+		mission.m_sRuntimePhase = "expired";
+
+		bool deliveryTicked = false;
+		for (int i = 0; i < 80; i++)
+		{
+			deliveryTicked = RefreshCampaignDebugPrimitiveRuntime(mission, 10) || deliveryTicked;
+			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED || mission.m_bGunShopDeliveryArrived)
+				break;
+		}
+
+		HST_MissionAssetState deliveryAsset = m_State.FindMissionAsset(mission.m_sGunShopDeliveryVehicleAssetId);
+		HST_ArsenalItemState deliveredArsenalItem = m_State.FindArsenalItem(selectedItem.m_sPrefab);
+		bool deliverySpawned = mission.m_bGunShopDeliverySpawned && deliveryAsset != null;
+		bool deliveryArrived = mission.m_bGunShopDeliveryArrived;
+		bool itemDeposited = deliveredArsenalItem && deliveredArsenalItem.m_iCount >= arsenalCountBefore + purchasedCount;
+		int deliveredArsenalCount = 0;
+		if (deliveredArsenalItem)
+			deliveredArsenalCount = deliveredArsenalItem.m_iCount;
+		AddCampaignDebugMetric(primitiveCase, "primitive.gun_shop.delivery_ticked", string.Format("%1", deliveryTicked), "bool");
+		AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.delivery_spawned", "expired purchased shop spawns a delivery vehicle", BuildCampaignDebugMissionAssetActual(deliveryAsset), CampaignDebugStatus(deliverySpawned), "gun shop did not spawn a delivery vehicle after purchase expiry", mission.m_sGunShopDeliveryVehicleAssetId, instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.delivery_arrived", "delivery reaches HQ and marks the delivery complete", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(deliveryArrived), "gun shop delivery did not arrive at HQ inside bounded runtime ticks", mission.m_sGunShopDeliveryVehicleAssetId, instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.arsenal_deposit", "purchased item quantity is deposited into the arsenal", string.Format("item %1 | purchased %2 | arsenal %3 -> %4", EmptyCampaignDebugField(selectedItem.m_sPrefab), purchasedCount, arsenalCountBefore, deliveredArsenalCount), CampaignDebugStatus(itemDeposited), "gun shop delivery did not deposit the purchased item into the arsenal", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugPrimitiveCompletionAssertions(primitiveCase, definition, mission, moneyAfterPurchase, hrAfterPurchase, "gun_shop");
+		RestoreCampaignDebugGunShopArsenalItem(selectedItem.m_sPrefab, arsenalItemExistedBefore, arsenalCountBefore);
+		m_State.m_iFactionMoney = originalMoney;
+	}
+
+	protected void RestoreCampaignDebugGunShopArsenalItem(string prefab, bool existedBefore, int countBefore)
+	{
+		if (!m_State || prefab.IsEmpty())
+			return;
+
+		HST_ArsenalItemState item = m_State.FindArsenalItem(prefab);
+		if (!item)
+			return;
+
+		if (existedBefore)
+		{
+			item.m_iCount = countBefore;
+			return;
+		}
+
+		for (int itemIndex = m_State.m_aArsenalItems.Count() - 1; itemIndex >= 0; itemIndex--)
+		{
+			HST_ArsenalItemState candidate = m_State.m_aArsenalItems[itemIndex];
+			if (candidate && candidate.m_sPrefab == prefab)
+			{
+				m_State.m_aArsenalItems.Remove(itemIndex);
+				return;
+			}
+		}
+	}
+
+	protected HST_GunShopItemState SelectCampaignDebugGunShopItem(HST_ActiveMissionState mission)
+	{
+		if (!mission || !mission.m_aGunShopItems)
+			return null;
+
+		HST_GunShopItemState fallback;
+		foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
+		{
+			if (!item)
+				continue;
+			if (!fallback)
+				fallback = item;
+			if (item.m_iAvailableCount > 0 && item.m_iBuyCost > 0)
+				return item;
+		}
+
+		return fallback;
+	}
+
+	protected int CountCampaignDebugGunShopStockItems(HST_ActiveMissionState mission)
+	{
+		if (!mission || !mission.m_aGunShopItems)
+			return 0;
+
+		int count;
+		foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
+		{
+			if (item && item.m_iAvailableCount > 0)
+				count++;
+		}
+
+		return count;
 	}
 
 	protected void AddCampaignDebugKillTargetPrimitiveAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission)
@@ -25896,6 +26335,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CommandMenuRequestComponent.BroadcastMissionIntel(BuildMissionIntelPayload());
 	}
 
+	protected bool BroadcastGunShopRuntimeNotifications()
+	{
+		if (!m_State)
+			return false;
+
+		bool changed;
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (!mission || mission.m_sMissionId != "dynamic_gun_shop")
+				continue;
+
+			if (mission.m_bGunShopDeliverySpawned && !mission.m_bGunShopExpiryNoticeSent)
+			{
+				mission.m_bGunShopExpiryNoticeSent = true;
+				BroadcastNotification("gun_shop_delivery_started_" + mission.m_sInstanceId, "mission", "info", "Gun Shop", "Your Gun Shop purchases are on the way.", mission.m_sTargetZoneId, mission.m_sInstanceId, ResolveGunShopSellerPosition(mission), 6.0);
+				changed = true;
+			}
+
+			if (mission.m_bGunShopDeliveryArrived && !mission.m_bGunShopDeliveryNoticeSent)
+			{
+				mission.m_bGunShopDeliveryNoticeSent = true;
+				BroadcastNotification("gun_shop_delivery_arrived_" + mission.m_sInstanceId, "mission", "success", "Gun Shop", "Your Gun Shop purchases were delivered.", mission.m_sTargetZoneId, mission.m_sInstanceId, m_State.m_vHQPosition, 6.0);
+				changed = true;
+			}
+		}
+
+		return changed;
+	}
+
 	protected void BroadcastSupportChangeNotifications()
 	{
 		if (!m_State)
@@ -27548,6 +28016,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (definition.m_sMissionId == "dynamic_defend_petros")
 			return false;
+		if (definition.m_sMissionId == "dynamic_gun_shop" && !IsGunShopCategoryCandidateRoll(zone))
+			return false;
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
 			return false;
 		if (!m_Missions.CanStart(m_State, m_Preset, definition.m_sMissionId, zone.m_sZoneId))
@@ -27568,6 +28038,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return true;
+	}
+
+	protected bool IsGunShopCategoryCandidateRoll(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+
+		int seed = 17;
+		if (m_State)
+			seed += m_State.m_iCampaignSeed;
+		seed += zone.m_sZoneId.Length() * 31 + Math.Round(zone.m_vPosition[0]) * 3 + Math.Round(zone.m_vPosition[2]) * 5;
+		return HST_DefaultCatalog.PositiveMod(seed, 3) != 0;
 	}
 
 	protected int BuildMissionCategorySelectionSeed(int playerId, string categoryKey, vector origin, int candidateCount)
@@ -27688,6 +28170,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			score += 8;
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
 			score += 10;
+		if (definition.m_sMissionId == "dynamic_gun_shop")
+			score -= 8;
 
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && definition.m_sMissionId.Contains("town"))
 			score += 35;

@@ -2,8 +2,12 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `39`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `40`.
 
+- Schema 40 adds durable gun shop mission state: generated shop item rows,
+  seller/delivery asset ids, seller/delivery positions, purchase totals,
+  purchase/delivery notice flags, and delivery runtime timing so purchased
+  stock and delivery progress survive save-data copies.
 - Schema 39 extends support request rows with player-support HR cost,
   planned infantry count, refunded HR, recall request timing, recall exit
   position, and recall-requested state so support recall/refund behavior
@@ -93,6 +97,18 @@ Ambient civilian traffic and generated settings comments.
   ambient traffic vehicles can be active per active town.
 - Existing settings migrate by rewriting the generated profile with comments
   and the traffic cap while preserving known gameplay values.
+
+## Schema 40
+
+Gun shop mission stock and delivery runtime state.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `40`.
+- `HST_ActiveMissionState` now stores generated gun shop item rows, seller and
+  delivery asset ids, seller and delivery positions, purchase totals,
+  delivery notice flags, and delivery start timing.
+- Existing schema-39 and older active missions load with empty gun shop state;
+  newly generated gun shop missions build their stock from the runtime arsenal
+  item catalog and only start delivery after at least one purchase.
 
 ## Runtime Settings Schema 18
 

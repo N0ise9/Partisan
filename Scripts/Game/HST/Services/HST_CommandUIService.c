@@ -40,6 +40,7 @@ class HST_CommandUIService
 	static const float MISSION_ASSET_ACTION_RADIUS_METERS = 18.0;
 	static const float MISSION_DELIVERY_RADIUS_METERS = 45.0;
 	static const float MISSION_VEHICLE_CARRIER_RADIUS_METERS = 10.0;
+	static const float GUN_SHOP_ACTION_RADIUS_METERS = 25.0;
 	static const int MAX_MISSION_VEHICLE_SCAN_ENTITIES = 96;
 	static const int COMMAND_CHOICE_LIMIT = 128;
 	static const int TRAIN_TROOPS_MONEY_COST = 250;
@@ -289,6 +290,9 @@ class HST_CommandUIService
 		required.Insert("inspect_active_missions");
 		required.Insert("inspect_mission_runtime");
 		required.Insert("inspect_convoy_runtime");
+		required.Insert("gun_shop_open");
+		required.Insert("gun_shop_buy");
+		required.Insert("gun_shop_sell");
 		required.Insert("mission_category");
 		required.Insert("inspect_balance");
 		required.Insert("inspect_campaign_end");
@@ -359,6 +363,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_active_missions") return true;
 		if (commandId == "inspect_mission_runtime") return true;
 		if (commandId == "inspect_convoy_runtime") return true;
+		if (commandId == "gun_shop_open") return true;
+		if (commandId == "gun_shop_buy") return true;
+		if (commandId == "gun_shop_sell") return true;
 		if (commandId == "mission_category") return true;
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
@@ -431,6 +438,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_active_missions") return true;
 		if (commandId == "inspect_mission_runtime") return true;
 		if (commandId == "inspect_convoy_runtime") return true;
+		if (commandId == "gun_shop_open") return true;
+		if (commandId == "gun_shop_buy") return true;
+		if (commandId == "gun_shop_sell") return true;
 		if (commandId == "mission_category") return true;
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
@@ -799,6 +809,12 @@ class HST_CommandUIService
 
 		if (commandId == "mission_asset_load" || commandId == "mission_asset_unload" || commandId == "mission_asset_deliver" || commandId == "mission_captive_extract" || commandId == "mission_captive_follow" || commandId == "mission_vehicle_capture" || commandId == "mission_asset_sabotage")
 			return coordinator.RequestMemberMissionInteraction(playerId, commandId, argument);
+		if (commandId == "gun_shop_open")
+			return coordinator.RequestMemberOpenGunShopReport(playerId, argument);
+		if (commandId == "gun_shop_buy")
+			return coordinator.RequestMemberBuyGunShopItemReport(playerId, argument);
+		if (commandId == "gun_shop_sell")
+			return coordinator.RequestMemberSellGunShopItemReport(playerId, argument);
 		if (commandId == "call_supply")
 		{
 			if (IsMapTargetArgument(argument))
@@ -1087,6 +1103,8 @@ class HST_CommandUIService
 		if (commandId == "admin_campaign_debug_status" || commandId == "admin_campaign_debug_cancel" || commandId == "admin_campaign_debug_cleanup")
 			return false;
 		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant" || commandId == "member_promote_commander_choose" || commandId == "member_promote_commander" || commandId == "admin_force_self_commander" || commandId == "support_recall_choose")
+			return false;
+		if (commandId == "gun_shop_open")
 			return false;
 		if (commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
 			return false;
@@ -2626,6 +2644,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_MISSIONS, "Start Rescue mission", "mission_category", "rescue", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_MISSIONS, "Start Dynamic mission", "mission_category", "dynamic", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_MISSIONS, "Start Support mission", "mission_category", "support", canUseCommander, "commander required");
+			AddGunShopActions(state, actions, playerId, canUseMember, "membership required");
 			AddMissionNextStepActions(state, actions, playerId, canUseMember, "membership required");
 			return;
 		}
@@ -4876,6 +4895,124 @@ class HST_CommandUIService
 
 			return string.Format("hold %1/%2s", objective.m_iHoldSeconds, objective.m_iRequiredHoldSeconds);
 		}
+
+		return "";
+	}
+
+	protected void AddGunShopActions(HST_CampaignState state, notnull array<ref HST_CommandMenuAction> actions, int playerId, bool canUseMember, string disabledReason)
+	{
+		if (!state)
+			return;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		vector playerPosition;
+		if (playerEntity)
+			playerPosition = playerEntity.GetOrigin();
+
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!IsOpenGunShopMission(mission))
+				continue;
+
+			bool nearSeller = playerEntity && IsPlayerNearGunShopSeller(state, mission, playerPosition);
+			string openDisabledReason = disabledReason;
+			if (canUseMember && !nearSeller)
+				openDisabledReason = "stand near gun shop civilian";
+
+			AddMenuAction(actions, TAB_MISSIONS, "Open Gun Shop", "gun_shop_open", mission.m_sInstanceId, canUseMember && nearSeller, openDisabledReason);
+			if (!nearSeller)
+				continue;
+
+			int emitted;
+			foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
+			{
+				if (!item || emitted >= 18)
+					continue;
+
+				string argument = BuildGunShopActionArgument(mission, item);
+				bool canBuy = canUseMember && item.m_iAvailableCount > 0 && state.m_iFactionMoney >= item.m_iBuyCost;
+				AddMenuAction(actions, TAB_MISSIONS, BuildGunShopBuyActionLabel(item), "gun_shop_buy", argument, canBuy, BuildGunShopBuyDisabledReason(canUseMember, state, item));
+				emitted++;
+
+				if (item.m_iPurchasedCount > 0 && emitted < 18)
+				{
+					AddMenuAction(actions, TAB_MISSIONS, BuildGunShopSellActionLabel(item), "gun_shop_sell", argument, canUseMember && item.m_bCanSell, disabledReason);
+					emitted++;
+				}
+			}
+		}
+	}
+
+	protected bool IsOpenGunShopMission(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+		if (mission.m_sMissionId != "dynamic_gun_shop" && mission.m_sRuntimePrimitive != "gun_shop")
+			return false;
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+
+		return true;
+	}
+
+	protected bool IsPlayerNearGunShopSeller(HST_CampaignState state, HST_ActiveMissionState mission, vector playerPosition)
+	{
+		vector sellerPosition = ResolveGunShopSellerPosition(state, mission);
+		if (IsZeroVector(sellerPosition))
+			return false;
+
+		return DistanceSq2D(playerPosition, sellerPosition) <= GUN_SHOP_ACTION_RADIUS_METERS * GUN_SHOP_ACTION_RADIUS_METERS;
+	}
+
+	protected vector ResolveGunShopSellerPosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "0 0 0";
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "gun_shop_seller")
+				continue;
+			if (asset.m_bDestroyed || asset.m_bDelivered)
+				return "0 0 0";
+			if (!IsZeroVector(asset.m_vCurrentPosition))
+				return asset.m_vCurrentPosition;
+			if (!IsZeroVector(asset.m_vSourcePosition))
+				return asset.m_vSourcePosition;
+		}
+
+		if (!IsZeroVector(mission.m_vGunShopSellerPosition))
+			return mission.m_vGunShopSellerPosition;
+
+		return mission.m_vTargetPosition;
+	}
+
+	protected string BuildGunShopActionArgument(HST_ActiveMissionState mission, HST_GunShopItemState item)
+	{
+		if (!mission || !item)
+			return "";
+
+		return mission.m_sInstanceId + "~" + item.m_sItemId;
+	}
+
+	protected string BuildGunShopBuyActionLabel(HST_GunShopItemState item)
+	{
+		return string.Format("Buy %1 ($%2, stock %3)", HST_DisplayNameService.ResolveShortItemDisplayName(item.m_sDisplayName, item.m_sPrefab), item.m_iBuyCost, item.m_iAvailableCount);
+	}
+
+	protected string BuildGunShopSellActionLabel(HST_GunShopItemState item)
+	{
+		return string.Format("Sell %1 (+$%2, reserved %3)", HST_DisplayNameService.ResolveShortItemDisplayName(item.m_sDisplayName, item.m_sPrefab), item.m_iSellCost, item.m_iPurchasedCount);
+	}
+
+	protected string BuildGunShopBuyDisabledReason(bool canUseMember, HST_CampaignState state, HST_GunShopItemState item)
+	{
+		if (!canUseMember)
+			return "membership required";
+		if (!item || item.m_iAvailableCount <= 0)
+			return "sold out";
+		if (state && state.m_iFactionMoney < item.m_iBuyCost)
+			return string.Format("need $%1", item.m_iBuyCost);
 
 		return "";
 	}

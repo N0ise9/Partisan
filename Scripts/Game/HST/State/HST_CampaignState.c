@@ -356,6 +356,21 @@ class HST_AmmoPointState
 }
 
 [BaseContainerProps()]
+class HST_GunShopItemState
+{
+	string m_sItemId;
+	string m_sPrefab;
+	string m_sDisplayName;
+	string m_sCategory;
+	string m_sFactionKey;
+	int m_iAvailableCount;
+	int m_iPurchasedCount;
+	int m_iBuyCost;
+	int m_iSellCost;
+	bool m_bCanSell;
+}
+
+[BaseContainerProps()]
 class HST_ActiveMissionState
 {
 	string m_sInstanceId;
@@ -407,6 +422,22 @@ class HST_ActiveMissionState
 	bool m_bConvoyCargoDeliveredOutcomeApplied;
 	bool m_bConvoyExpiredOutcomeApplied;
 	string m_sConvoyOutcomeSummary;
+	ref array<ref HST_GunShopItemState> m_aGunShopItems = {};
+	string m_sGunShopSellerAssetId;
+	string m_sGunShopDeliveryDriverAssetId;
+	string m_sGunShopDeliveryVehicleAssetId;
+	string m_sGunShopDeliveryMarkerId;
+	vector m_vGunShopSellerPosition;
+	vector m_vGunShopDeliveryPosition;
+	bool m_bGunShopStockGenerated;
+	bool m_bGunShopPurchaseMade;
+	bool m_bGunShopPurchaseNoticeSent;
+	bool m_bGunShopExpiryNoticeSent;
+	bool m_bGunShopDeliverySpawned;
+	bool m_bGunShopDeliveryNoticeSent;
+	bool m_bGunShopDeliveryArrived;
+	int m_iGunShopPurchasedTotal;
+	int m_iGunShopDeliveryStartedAtSecond;
 }
 
 [BaseContainerProps()]
@@ -793,7 +824,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 39;
+	static const int SCHEMA_VERSION = 40;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

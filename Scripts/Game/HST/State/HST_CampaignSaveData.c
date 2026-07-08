@@ -895,6 +895,42 @@ class HST_CampaignSaveData
 		target.m_bConvoyCargoDeliveredOutcomeApplied = source.m_bConvoyCargoDeliveredOutcomeApplied;
 		target.m_bConvoyExpiredOutcomeApplied = source.m_bConvoyExpiredOutcomeApplied;
 		target.m_sConvoyOutcomeSummary = source.m_sConvoyOutcomeSummary;
+		foreach (HST_GunShopItemState shopItem : source.m_aGunShopItems)
+			target.m_aGunShopItems.Insert(CopyGunShopItem(shopItem));
+		target.m_sGunShopSellerAssetId = source.m_sGunShopSellerAssetId;
+		target.m_sGunShopDeliveryDriverAssetId = source.m_sGunShopDeliveryDriverAssetId;
+		target.m_sGunShopDeliveryVehicleAssetId = source.m_sGunShopDeliveryVehicleAssetId;
+		target.m_sGunShopDeliveryMarkerId = source.m_sGunShopDeliveryMarkerId;
+		target.m_vGunShopSellerPosition = source.m_vGunShopSellerPosition;
+		target.m_vGunShopDeliveryPosition = source.m_vGunShopDeliveryPosition;
+		target.m_bGunShopStockGenerated = source.m_bGunShopStockGenerated;
+		target.m_bGunShopPurchaseMade = source.m_bGunShopPurchaseMade;
+		target.m_bGunShopPurchaseNoticeSent = source.m_bGunShopPurchaseNoticeSent;
+		target.m_bGunShopExpiryNoticeSent = source.m_bGunShopExpiryNoticeSent;
+		target.m_bGunShopDeliverySpawned = source.m_bGunShopDeliverySpawned;
+		target.m_bGunShopDeliveryNoticeSent = source.m_bGunShopDeliveryNoticeSent;
+		target.m_bGunShopDeliveryArrived = source.m_bGunShopDeliveryArrived;
+		target.m_iGunShopPurchasedTotal = source.m_iGunShopPurchasedTotal;
+		target.m_iGunShopDeliveryStartedAtSecond = source.m_iGunShopDeliveryStartedAtSecond;
+		return target;
+	}
+
+	protected HST_GunShopItemState CopyGunShopItem(HST_GunShopItemState source)
+	{
+		HST_GunShopItemState target = new HST_GunShopItemState();
+		if (!source)
+			return target;
+
+		target.m_sItemId = source.m_sItemId;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sCategory = source.m_sCategory;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_iAvailableCount = source.m_iAvailableCount;
+		target.m_iPurchasedCount = source.m_iPurchasedCount;
+		target.m_iBuyCost = source.m_iBuyCost;
+		target.m_iSellCost = source.m_iSellCost;
+		target.m_bCanSell = source.m_bCanSell;
 		return target;
 	}
 

@@ -158,6 +158,24 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_PhysicalWarService.CleanupInactiveMissionOwnedActiveGroups()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugRenderBubbleMissionTargetCase()`.
 
+- Time-limited shop missions should be state-first and delivery-owned.
+  - The seller and delivery vehicle are mission assets, not generic cargo or
+    capturable loot. Mark the seller as a stationary civilian interaction asset
+    and mark the delivery vehicle with a dedicated runtime kind so the garage
+    capture path can reject it cleanly.
+  - Use the runtime/catalog arsenal item set to build stock instead of keeping a
+    hardcoded item list. Persist generated stock and purchased counts on the
+    active mission so expiry, save/load, command-menu rows, and delivery can all
+    agree on the same reserved purchase state.
+  - After a purchase, cap remaining shop time only when it is above the desired
+    window. If the shop expires with no purchases, do not spawn delivery or
+    apply a penalty; if purchases exist, keep the expired mission alive until
+    delivery deposits the items and marks objectives complete.
+  - Current examples:
+    `HST_MissionRuntimeService.EnsureGunShopStockGenerated()`,
+    `HST_CampaignCoordinatorComponent.RequestMemberBuyGunShopItemReport()`,
+    and `HST_LootService.CaptureNearbyVehicleToGarage()`.
+
 - Planning/checklist docs should be first-party h-istasi documents.
   - When converting external planning material, keep feature status, gaps,
     priorities, implementation contracts, and acceptance tests.

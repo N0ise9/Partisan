@@ -228,7 +228,11 @@ class HST_LootService
 		string selectedVehicleRuntimeId = ResolveVehicleRuntimeIdFromScan(selectedVehicle, scan);
 		HST_RuntimeVehicleState runtimeVehicle = EnsureRuntimeVehicleRecord(state, selectedVehicle, scan.m_RuntimeVehicle, vehicle.m_sPrefab);
 		if (runtimeVehicle)
+		{
+			if (runtimeVehicle.m_sRuntimeKind == "gun_shop_delivery_vehicle")
+				return "h-istasi garage | failed: Gun Shop delivery vehicle cannot be captured";
 			selectedVehicleRuntimeId = runtimeVehicle.m_sVehicleRuntimeId;
+		}
 
 		vehicle.m_sDisplayName = BuildVehicleDisplayNameFromScan(selectedVehicle, vehicle.m_sPrefab, scan);
 		vehicle.m_sSourceZoneId = FindNearestZoneId(state, selectedVehicle.GetOrigin());
