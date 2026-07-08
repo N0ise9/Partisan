@@ -6085,15 +6085,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!eventState)
 			return "missing";
 
-		return string.Format(
-			"id %1 | kind %2 | mission %3/%4 | zone %5 | faction %6 | applied %7 | money %8 | HR %9 | support %10 | capture %11 | aggression %12 | resources %13/%14 | HQ %15 | owner %16 -> %17",
+		string actual = string.Format(
+			"id %1 | kind %2 | mission %3/%4 | zone %5 | faction %6 | applied %7",
 			EmptyCampaignDebugField(eventState.m_sEventId),
 			EmptyCampaignDebugField(eventState.m_sKind),
 			EmptyCampaignDebugField(eventState.m_sMissionId),
 			EmptyCampaignDebugField(eventState.m_sMissionInstanceId),
 			EmptyCampaignDebugField(eventState.m_sTargetZoneId),
 			EmptyCampaignDebugField(eventState.m_sTargetFactionKey),
-			eventState.m_bApplied,
+			eventState.m_bApplied
+		);
+		actual = actual + string.Format(
+			" | money %1 | HR %2 | support %3 | capture %4 | aggression %5 | resources %6/%7 | HQ %8",
 			eventState.m_iFactionMoneyDelta,
 			eventState.m_iHRDelta,
 			eventState.m_iTownSupportDelta,
@@ -6101,10 +6104,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			eventState.m_iAggressionDelta,
 			eventState.m_iAttackResourceDelta,
 			eventState.m_iSupportResourceDelta,
-			eventState.m_iHQKnowledgeDelta,
+			eventState.m_iHQKnowledgeDelta
+		);
+		actual = actual + string.Format(
+			" | owner %1 -> %2",
 			EmptyCampaignDebugField(eventState.m_sOwnerBefore),
 			EmptyCampaignDebugField(eventState.m_sOwnerAfter)
 		);
+		return actual;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugTownInfluenceLedgerCase()

@@ -13,25 +13,32 @@ class HST_StrategicEventApplyResult
 		if (!m_Event)
 			return "h-istasi strategic event | missing event";
 
-		return string.Format(
-			"h-istasi strategic event | id %1 | kind %2 | mission %3 | zone %4 | faction %5 | applied %6 | changed %7 | money %8 | HR %9 | support %10 | capture %11 | aggression %12 | attack %13 | supportRes %14 | HQ knowledge %15 | %16",
+		string report = string.Format(
+			"h-istasi strategic event | id %1 | kind %2 | mission %3 | zone %4 | faction %5",
 			m_Event.m_sEventId,
 			m_Event.m_sKind,
 			m_Event.m_sMissionId,
 			m_Event.m_sTargetZoneId,
-			m_Event.m_sTargetFactionKey,
+			m_Event.m_sTargetFactionKey
+		);
+		report = report + string.Format(
+			" | applied %1 | changed %2 | money %3 | HR %4 | support %5 | capture %6",
 			m_bApplied,
 			m_bChanged,
 			m_Event.m_iFactionMoneyDelta,
 			m_Event.m_iHRDelta,
 			m_Event.m_iTownSupportDelta,
-			m_Event.m_iCaptureProgressDelta,
+			m_Event.m_iCaptureProgressDelta
+		);
+		report = report + string.Format(
+			" | aggression %1 | attack %2 | supportRes %3 | HQ knowledge %4 | %5",
 			m_Event.m_iAggressionDelta,
 			m_Event.m_iAttackResourceDelta,
 			m_Event.m_iSupportResourceDelta,
 			m_Event.m_iHQKnowledgeDelta,
 			m_Event.m_sSummary
 		);
+		return report;
 	}
 }
 
@@ -400,20 +407,24 @@ class HST_StrategicService
 		if (!eventState)
 			return "";
 
-		return string.Format(
-			"%1 | money %2 HR %3 | support %4 | capture %5 | aggression %6 | resources %7/%8 | HQ %9 | owner %10 -> %11",
+		string summary = string.Format(
+			"%1 | money %2 HR %3 | support %4 | capture %5 | aggression %6",
 			eventState.m_sReason,
 			eventState.m_iFactionMoneyDelta,
 			eventState.m_iHRDelta,
 			eventState.m_iTownSupportDelta,
 			eventState.m_iCaptureProgressDelta,
-			eventState.m_iAggressionDelta,
+			eventState.m_iAggressionDelta
+		);
+		summary = summary + string.Format(
+			" | resources %1/%2 | HQ %3 | owner %4 -> %5",
 			eventState.m_iAttackResourceDelta,
 			eventState.m_iSupportResourceDelta,
 			eventState.m_iHQKnowledgeDelta,
 			EmptyReportField(eventState.m_sOwnerBefore),
 			EmptyReportField(eventState.m_sOwnerAfter)
 		);
+		return summary;
 	}
 
 	string BuildStrategicEventReport(HST_CampaignState state, int maxRows = 20)
@@ -432,25 +443,32 @@ class HST_StrategicService
 			if (!eventState)
 				continue;
 
-			report = report + string.Format(
-				"\n%1 | %2 | mission %3/%4 | zone %5 | faction %6 | applied %7 | money %8 HR %9 support %10 capture %11 aggression %12 resources %13/%14 HQ %15 | %16",
+			string row = string.Format(
+				"\n%1 | %2 | mission %3/%4 | zone %5 | faction %6 | applied %7",
 				eventState.m_sEventId,
 				eventState.m_sKind,
 				EmptyReportField(eventState.m_sMissionId),
 				EmptyReportField(eventState.m_sMissionInstanceId),
 				EmptyReportField(eventState.m_sTargetZoneId),
 				EmptyReportField(eventState.m_sTargetFactionKey),
-				eventState.m_bApplied,
+				eventState.m_bApplied
+			);
+			row = row + string.Format(
+				" | money %1 HR %2 support %3 capture %4 aggression %5",
 				eventState.m_iFactionMoneyDelta,
 				eventState.m_iHRDelta,
 				eventState.m_iTownSupportDelta,
 				eventState.m_iCaptureProgressDelta,
-				eventState.m_iAggressionDelta,
+				eventState.m_iAggressionDelta
+			);
+			row = row + string.Format(
+				" resources %1/%2 HQ %3 | %4",
 				eventState.m_iAttackResourceDelta,
 				eventState.m_iSupportResourceDelta,
 				eventState.m_iHQKnowledgeDelta,
 				eventState.m_sSummary
 			);
+			report = report + row;
 			emitted++;
 		}
 
