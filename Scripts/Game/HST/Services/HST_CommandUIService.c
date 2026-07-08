@@ -1661,15 +1661,15 @@ class HST_CommandUIService
 			return "h-istasi command | campaign state not ready";
 
 		if (selectedTabId == TAB_OVERVIEW)
-			return string.Format("Overview | %1 | warnings Petros %2 / HQ threat %3 | next %4", BuildStrategicOrder(state, preset), BuildPetrosLabel(state), state.m_iHQThreatLevel, BuildNextBestAction(state, preset));
+			return string.Format("Overview | %1 | HQ pressure %2 | next: %3", BuildStrategicOrder(state, preset), BuildHQPressureSummary(state), BuildNextBestAction(state, preset));
 
 		if (selectedTabId == TAB_PETROS)
 		{
 			string defend = "";
 			if (state.m_bDefendPetrosActive)
-				defend = " | DEFEND PETROS ACTIVE";
+				defend = " | base defense active";
 
-			return string.Format("HQ/Petros | Petros %1 | knowledge %2/100 | threat %3/100%4", BuildPetrosLabel(state), state.m_iHQKnowledge, state.m_iHQThreatLevel, defend);
+			return string.Format("HQ/Petros | Petros %1 | enemy awareness %2 | threat %3%4", BuildPetrosLabel(state), BuildHQKnowledgeLabel(state), BuildHQThreatLabel(state), defend);
 		}
 
 		if (selectedTabId == TAB_MISSIONS)
@@ -1682,16 +1682,16 @@ class HST_CommandUIService
 		}
 
 		if (selectedTabId == TAB_MAP)
-			return string.Format("Map/War | FIA zones %1 | hostile zones %2 | active zones %3 | markers %4", CountResistanceZones(state, preset), CountEnemyZones(state, preset), CountActiveZones(state), state.m_aMapMarkers.Count());
+			return string.Format("Map/War | %1 friendly zones | %2 hostile zones | %3 active combat area(s)", CountResistanceZones(state, preset), CountEnemyZones(state, preset), CountActiveZones(state));
 
 		if (selectedTabId == TAB_FORCES)
-			return string.Format("Forces | HR %1 | training %2 | garrisons %3/%4 | support %5 | QRF %6", state.m_iHR, state.m_iTrainingLevel, CountGarrisonInfantry(state), CountGarrisonVehicles(state), state.m_aSupportRequests.Count(), CountActiveQRFs(state));
+			return string.Format("Forces | %1 HR available | training level %2 | %3 FIA defenders | %4 support team(s) active", state.m_iHR, state.m_iTrainingLevel, CountGarrisonInfantry(state), CountActivePlayerSupportRequests(state));
 
 		if (selectedTabId == TAB_ARSENAL)
 			return string.Format("Arsenal/Loot | unlocked %1/%2 | vehicle cargo %3 item(s) | HQ arsenal %4", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state), CountVehicleCargoItems(state), BuildArsenalRuntimeStatus(state));
 
 		if (selectedTabId == TAB_GARAGE)
-			return string.Format("Garage/Build | stored %1 | cargo entries %2 | build mode %3 | last failure %4", state.m_aGarageVehicles.Count(), CountVehicleCargoEntries(state), BuildModeStatusLabel(state), EmptyLabel(state.m_sLastBuildModeFailure));
+			return string.Format("Garage/Build | %1 vehicle(s) stored | %2 cargo item(s) | build mode %3", state.m_aGarageVehicles.Count(), CountVehicleCargoItems(state), BuildModeStatusLabel(state));
 
 		if (selectedTabId == TAB_MEMBERS)
 			return string.Format("Members | known %1 | commander %2 | undercover %3", state.m_aPlayers.Count(), BuildCommanderName(state), BuildUndercoverCompactSummary(state));
@@ -1703,7 +1703,7 @@ class HST_CommandUIService
 			if (!canUseAdmin)
 				return "Admin | debug only | admin role required";
 
-			return string.Format("Admin | debug only | schema %1 | phase %2 | marker records %3", state.m_iSchemaVersion, CampaignPhaseLabel(state.m_ePhase), state.m_aMapMarkers.Count());
+			return string.Format("Admin | debug only | campaign %1 | markers %2", CampaignPhaseLabel(state.m_ePhase), state.m_aMapMarkers.Count());
 		}
 
 		return string.Format("h-istasi command | %1", BuildNextBestAction(state, preset));
@@ -1712,10 +1712,10 @@ class HST_CommandUIService
 	{
 		string status = "h-istasi setup | choose an initial HQ hideout to start the campaign";
 		if (state)
-			status = status + string.Format("\ncampaign | schema %1 | preset %2 | phase %3 | seed %4 | HQ %5", state.m_iSchemaVersion, state.m_sPresetId, state.m_ePhase, state.m_iCampaignSeed, BuildHQLabel(state));
+			status = status + string.Format("\ncampaign | %1 | HQ %2", CampaignPhaseLabel(state.m_ePhase), BuildHQLabel(state));
 
 		if (settings)
-			status = status + "\n" + settings.BuildSummary();
+			status = status + "\nsettings | loaded";
 		else
 			status = status + "\nsettings | built-in defaults active";
 
@@ -1731,7 +1731,7 @@ class HST_CommandUIService
 		if (canUseCommander)
 			role = "commander controls available";
 
-		return string.Format("h-istasi Petros/HQ | hideout %1 | HQ %2 | Petros alive %3 | arsenal %4 | %5", state.m_sHQHideoutId, state.m_vHQPosition, state.m_bPetrosAlive, state.m_vArsenalPosition, role);
+		return string.Format("h-istasi Petros/HQ | HQ %1 | Petros %2 | arsenal %3 | %4", BuildHQLabel(state), BuildPetrosLabel(state), BuildArsenalRuntimeStatus(state), role);
 	}
 
 	protected string BuildMembersStatus(HST_CampaignState state, bool canUseCommander)
@@ -1809,25 +1809,21 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "setup", "Campaign Setup");
 		if (state)
 		{
-			payload = AppendRow(payload, "setup", "Schema", string.Format("%1", state.m_iSchemaVersion), "neutral");
-			payload = AppendRow(payload, "setup", "Preset", state.m_sPresetId, "neutral");
-			payload = AppendRow(payload, "setup", "Phase", CampaignPhaseLabel(state.m_ePhase), "neutral");
-			payload = AppendRow(payload, "setup", "Seed", string.Format("%1", state.m_iCampaignSeed), "neutral");
+			payload = AppendRow(payload, "setup", "Campaign", CampaignPhaseLabel(state.m_ePhase), "neutral");
 			payload = AppendRow(payload, "setup", "HQ", BuildHQLabel(state), BuildRuntimeObjectTone(state));
-			payload = AppendRow(payload, "setup", "Persistence", state.m_sLastPersistenceStatus, "neutral");
+			payload = AppendRow(payload, "setup", "Save status", BuildPersistencePlayerLabel(state.m_sLastPersistenceStatus), "neutral");
 		}
 
 		payload = AppendSection(payload, "hideouts", "Initial Hideout");
 		payload = AppendRow(payload, "hideouts", "North Forest", "Woodland start near the northern road net.", "neutral");
-		payload = AppendRow(payload, "hideouts", "Central Hills", "Balanced central start for Workbench smoke tests.", "good");
+		payload = AppendRow(payload, "hideouts", "Central Hills", "Balanced central start with several nearby routes.", "good");
 		payload = AppendRow(payload, "hideouts", "South Woods", "Southern staging area closer to invader pressure.", "neutral");
 
-		payload = AppendSection(payload, "source", "Source Of Truth");
-		payload = AppendRow(payload, "source", "Config file", "$profile:h-istasi/HST_Settings.json", "good");
+		payload = AppendSection(payload, "source", "Campaign Options");
 		if (settings)
 		{
-			payload = AppendRow(payload, "source", "Membership", string.Format("enabled %1 / guests menu %2", settings.m_Membership.m_bMembershipEnabled, settings.m_Membership.m_bGuestsCanOpenMenu), "neutral");
-			payload = AppendRow(payload, "source", "Area loot", string.Format("enabled %1 / radius %2m", settings.m_Features.m_bAreaLootEnabled, settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
+			payload = AppendRow(payload, "source", "Membership", BuildEnabledLabel(settings.m_Membership.m_bMembershipEnabled), "neutral");
+			payload = AppendRow(payload, "source", "Area loot", string.Format("%1 within %2m", BuildEnabledLabel(settings.m_Features.m_bAreaLootEnabled), settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
 		}
 
 		return payload;
@@ -1867,7 +1863,7 @@ class HST_CommandUIService
 			if (!pool || (preset && !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey)))
 				continue;
 
-			payload = AppendRow(payload, "pressure", pool.m_sFactionKey, string.Format("attack %1 / support %2 / aggression %3", pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression), "bad");
+			payload = AppendRow(payload, "pressure", FactionPlayerDisplayLabel(pool.m_sFactionKey), string.Format("attack %1 / support %2 / aggression %3", pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression), "bad");
 		}
 
 		payload = AppendSection(payload, "active", "Active Front");
@@ -1875,11 +1871,11 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "active", "Missions", string.Format("%1 active", CountActiveMissions(state)), "warn");
 		payload = AppendRow(payload, "active", "QRFs", string.Format("%1 unresolved", CountActiveQRFs(state)), "bad");
 		payload = AppendRow(payload, "active", "Arsenal unlocks", string.Format("%1 of %2", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
-		payload = AppendRow(payload, "active", "Support calls", string.Format("%1 tracked", state.m_aSupportRequests.Count()), "warn");
-		payload = AppendRow(payload, "active", "Civilian network", string.Format("%1 towns", state.m_aCivilianZones.Count()), "neutral");
+		payload = AppendRow(payload, "active", "Support calls", string.Format("%1 active / %2 total", CountActivePlayerSupportRequests(state), CountPlayerSupportRequests(state)), "warn");
+		payload = AppendRow(payload, "active", "Civilian network", string.Format("%1 town(s)", state.m_aCivilianZones.Count()), "neutral");
 
 		payload = AppendSection(payload, "civilian_summary", "Civilian Support");
-		payload = AppendRow(payload, "civilian_summary", "Town report", string.Format("%1 records", state.m_aCivilianZones.Count()), "neutral");
+		payload = AppendRow(payload, "civilian_summary", "Towns", string.Format("%1 town(s)", state.m_aCivilianZones.Count()), "neutral");
 		payload = AppendRow(payload, "civilian_summary", "Wanted heat", string.Format("%1 total", CountCivilianHeat(state)), CivilianHeatTone(state));
 		payload = AppendRow(payload, "civilian_summary", "Roadblocks", string.Format("%1 total", CountCivilianRoadblocks(state)), "warn");
 		payload = AppendRow(payload, "civilian_summary", "Undercover", BuildUndercoverCompactSummary(state), UndercoverTone(state));
@@ -1925,11 +1921,11 @@ class HST_CommandUIService
 		if (!state.m_bPetrosAlive)
 			return "Petros state controls HQ safety and several commander actions.";
 		if (state.m_bDefendPetrosActive)
-			return string.Format("Defense active | attackers %1/%2 | status %3", state.m_iDefendPetrosAliveAttackerCount, state.m_iDefendPetrosAttackerCount, state.m_sDefendPetrosStatus);
+			return string.Format("Defense active | attackers %1/%2 | %3", state.m_iDefendPetrosAliveAttackerCount, state.m_iDefendPetrosAttackerCount, BuildDefendPetrosStatusLabel(state));
 
 		HST_ActiveMissionState urgent = SelectMostUrgentActiveMission(state);
 		if (urgent)
-			return string.Format("%1 has %2s remaining and phase %3.", BuildMissionDisplayTitle(urgent), urgent.m_iRemainingSeconds, urgent.m_sRuntimePhase);
+			return string.Format("%1 has %2s remaining and is %3.", BuildMissionDisplayTitle(urgent), urgent.m_iRemainingSeconds, MissionPhaseLabel(urgent.m_sRuntimePhase));
 
 		if (state.m_iHQKnowledge >= 80 || state.m_iHQThreatLevel >= 80)
 			return string.Format("HQ knowledge %1 and threat %2 are high.", state.m_iHQKnowledge, state.m_iHQThreatLevel);
@@ -1974,32 +1970,20 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "petros", "Petros");
 		payload = AppendRow(payload, "petros", "Status", BuildPetrosLabel(state), BuildPetrosTone(state));
 		payload = AppendRow(payload, "petros", "Deaths", string.Format("%1", state.m_iPetrosDeaths), "warn");
-		payload = AppendRow(payload, "petros", "Prefab", state.m_sPetrosPrefab, "neutral");
 		payload = AppendRow(payload, "petros", "Authority", CommanderGateLabel(canUseCommander), CommanderGateTone(canUseCommander));
 
 		payload = AppendSection(payload, "hq", "HQ Assets");
 		payload = AppendRow(payload, "hq", "Hideout", BuildHQLabel(state), "good");
-		payload = AppendRow(payload, "hq", "HQ position", string.Format("%1", state.m_vHQPosition), "neutral");
-		payload = AppendRow(payload, "hq", "Petros position", string.Format("%1", state.m_vPetrosPosition), "neutral");
-		payload = AppendRow(payload, "hq", "Arsenal position", string.Format("%1", state.m_vArsenalPosition), "neutral");
-		payload = AppendRow(payload, "hq", "Cache position", string.Format("%1", state.m_vHQCachePosition), "neutral");
-		payload = AppendRow(payload, "hq", "Spawn point position", string.Format("%1", state.m_vHQSpawnPointPosition), "neutral");
-		payload = AppendRow(payload, "hq", "Arsenal prefab", state.m_sArsenalPrefab, "neutral");
-		payload = AppendRow(payload, "hq", "Spawn point prefab", state.m_sHQSpawnPointPrefab, "neutral");
 		payload = AppendRow(payload, "hq", "Arsenal status", BuildArsenalRuntimeStatus(state), BuildArsenalRuntimeTone(state));
 		if (!state.m_sLastHQArsenalFailure.IsEmpty())
-			payload = AppendRow(payload, "hq", "Arsenal failure", state.m_sLastHQArsenalFailure, "bad");
-		payload = AppendRow(payload, "hq", "Runtime objects", BuildRuntimeObjectLabel(state), BuildRuntimeObjectTone(state));
+			payload = AppendRow(payload, "hq", "Arsenal issue", BuildPlayerFailureLabel(state.m_sLastHQArsenalFailure), "bad");
+		payload = AppendRow(payload, "hq", "HQ assets", BuildRuntimeObjectLabel(state), BuildRuntimeObjectTone(state));
 		payload = AppendRow(payload, "hq", "HQ radius", BuildHQRadiusStatus(state, settings, playerId), BuildHQRadiusTone(state, settings, playerId));
-		payload = AppendRow(payload, "hq", "Enemy knowledge", string.Format("%1/100", state.m_iHQKnowledge), HQKnowledgeTone(state));
-		payload = AppendRow(payload, "hq", "HQ threat", string.Format("%1/100", state.m_iHQThreatLevel), HQThreatTone(state));
-		payload = AppendRow(payload, "hq", "Knowledge reason", state.m_sLastHQKnowledgeReason, "neutral");
-		payload = AppendRow(payload, "hq", "Threat scan", state.m_sLastHQThreatReason, HQThreatTone(state));
-		payload = AppendRow(payload, "hq", "Defense status", BuildDefendPetrosStatusLabel(state), DefendPetrosTone(state));
-		payload = AppendRow(payload, "hq", "Defense mission", state.m_sDefendPetrosMissionId, DefendPetrosTone(state));
-		payload = AppendRow(payload, "hq", "Attack order", state.m_sDefendPetrosOrderId, DefendPetrosTone(state));
-		payload = AppendRow(payload, "hq", "Support request", state.m_sDefendPetrosSupportRequestId, DefendPetrosTone(state));
-		payload = AppendRow(payload, "hq", "Attacker group", state.m_sDefendPetrosAttackerGroupId, DefendPetrosTone(state));
+		payload = AppendRow(payload, "hq", "Enemy awareness", BuildHQKnowledgeLabel(state), HQKnowledgeTone(state));
+		payload = AppendRow(payload, "hq", "Base threat", BuildHQThreatLabel(state), HQThreatTone(state));
+		payload = AppendRow(payload, "hq", "Awareness source", BuildPlayerReasonLabel(state.m_sLastHQKnowledgeReason), "neutral");
+		payload = AppendRow(payload, "hq", "Threat source", BuildPlayerReasonLabel(state.m_sLastHQThreatReason), HQThreatTone(state));
+		payload = AppendRow(payload, "hq", "Defense", BuildDefendPetrosStatusLabel(state), DefendPetrosTone(state));
 		payload = AppendRow(payload, "hq", "Attackers", string.Format("%1 total / %2 alive / %3 killed", state.m_iDefendPetrosAttackerCount, state.m_iDefendPetrosAliveAttackerCount, state.m_iDefendPetrosKilledCount), DefendPetrosTone(state));
 		payload = AppendRow(payload, "hq", "Build mode", BuildModeStatusLabel(state), BuildModeTone(state));
 
@@ -2059,12 +2043,12 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "war_map", "Enemy", string.Format("%1 hostile zones", CountEnemyZones(state, preset)), "bad");
 		payload = AppendRow(payload, "war_map", "Active combat", string.Format("%1 zones physically active", CountActiveZones(state)), "warn");
 		payload = AppendRow(payload, "war_map", "Income", string.Format("$%1 per tick from FIA zones", CountResistanceIncome(state, preset)), "good");
-		payload = AppendRow(payload, "war_map", "Generated world", string.Format("%1 sites / %2 routes", state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count()), "neutral");
+		payload = AppendRow(payload, "war_map", "Points of interest", string.Format("%1 site(s) / %2 route(s) charted", state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count()), "neutral");
 
 		payload = AppendSection(payload, "capture_status", "Capture Status");
 		if (!capture)
 		{
-			payload = AppendRow(payload, "capture_status", "Diagnostics", "Capture service unavailable.", "bad");
+			payload = AppendRow(payload, "capture_status", "Capture status", "Capture tracking unavailable.", "bad");
 		}
 		else
 		{
@@ -2085,7 +2069,7 @@ class HST_CommandUIService
 				continue;
 
 			string label = ShortText(DisplayZoneName(zone.m_sZoneId), 22);
-			string value = string.Format("%1 | %2 | support %3 | capture %4 | %5", zone.m_sOwnerFactionKey, ZoneTypeLabel(zone.m_eType), zone.m_iSupport, zone.m_iResistanceCaptureProgress, ActiveZoneLabel(zone.m_bActive));
+			string value = string.Format("%1 | %2 | support %3 | capture %4 | %5", ZoneOwnerPlayerLabel(zone, preset), ZoneTypeLabel(zone.m_eType), zone.m_iSupport, zone.m_iResistanceCaptureProgress, ActiveZoneLabel(zone.m_bActive));
 			payload = AppendRow(payload, "zones", label, value, ZoneTone(zone, preset));
 			emitted++;
 			if (emitted >= 6)
@@ -2118,14 +2102,14 @@ class HST_CommandUIService
 			if (fallbackHighPriority && captureZone.m_iPriority < 5)
 				continue;
 
-			payload = AppendRow(payload, "capture_status", ShortText(status.m_sZoneName, 18), BuildCompactCaptureStatusValue(status), CaptureStatusTone(status, preset));
+			payload = AppendRow(payload, "capture_status", ShortText(status.m_sZoneName, 18), BuildCompactCaptureStatusValue(status, preset), CaptureStatusTone(status, preset));
 			captureRows++;
 		}
 
 		return payload;
 	}
 
-	protected string BuildCompactCaptureStatusValue(HST_ZoneCaptureStatus status)
+	protected string BuildCompactCaptureStatusValue(HST_ZoneCaptureStatus status, HST_CampaignPreset preset)
 	{
 		if (!status)
 			return "status unavailable";
@@ -2139,9 +2123,10 @@ class HST_CommandUIService
 			blockedReason = "holding";
 		blockedReason = CompactCaptureReason(blockedReason);
 
-		string value = string.Format("%1 | %2 | r%3m", status.m_sOwnerFactionKey, contested, status.m_iCaptureRadiusMeters);
-		value = value + string.Format(" | P%1 AI%2 V%3 | E%4 EV%5", status.m_iPlayerCountNearby, status.m_iFriendlyInfantryCountNearby, status.m_iFriendlyVehicleCountNearby, status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby);
-		return value + string.Format(" | %1 percent | %2", status.m_iProgressPercent, blockedReason);
+		string value = string.Format("%1 | %2 | %3 percent", CaptureOwnerPlayerLabel(status.m_sOwnerFactionKey, preset), contested, status.m_iProgressPercent);
+		value = value + string.Format(" | FIA nearby %1 infantry / %2 vehicle(s)", status.m_iFriendlyInfantryCountNearby + status.m_iPlayerCountNearby, status.m_iFriendlyVehicleCountNearby);
+		value = value + string.Format(" | enemy nearby %1 infantry / %2 vehicle(s)", status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby);
+		return value + string.Format(" | %1", blockedReason);
 	}
 
 	protected string CompactCaptureReason(string reason)
@@ -2178,11 +2163,10 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "fia", "Recruit focus", "Town support turns HR into abstract garrisons.", "neutral");
 
 		payload = AppendSection(payload, "garrisons", "Garrisons And Patrols");
-		payload = AppendRow(payload, "garrisons", "Abstract infantry", string.Format("%1", CountGarrisonInfantry(state)), "neutral");
-		payload = AppendRow(payload, "garrisons", "Abstract vehicles", string.Format("%1", CountGarrisonVehicles(state)), "neutral");
-		payload = AppendRow(payload, "garrisons", "Active groups", string.Format("%1", CountVisibleActiveGroups(state)), "warn");
-		payload = AppendRow(payload, "garrisons", "Spawn diagnostics", BuildActiveGroupSpawnSummary(state), ActiveGroupSpawnTone(state));
-		payload = AppendRow(payload, "garrisons", "Last spawn failure", BuildLastActiveGroupFailure(state), LastActiveGroupFailureTone(state));
+		payload = AppendRow(payload, "garrisons", "Reserve infantry", string.Format("%1", CountGarrisonInfantry(state)), "neutral");
+		payload = AppendRow(payload, "garrisons", "Reserve vehicles", string.Format("%1", CountGarrisonVehicles(state)), "neutral");
+		payload = AppendRow(payload, "garrisons", "Field teams", BuildActiveGroupSpawnSummary(state), ActiveGroupSpawnTone(state));
+		payload = AppendRow(payload, "garrisons", "Deployment issues", BuildLastActiveGroupFailure(state), LastActiveGroupFailureTone(state));
 		payload = AppendRow(payload, "garrisons", "QRFs", string.Format("%1 unresolved", CountActiveQRFs(state)), "bad");
 		payload = AppendSection(payload, "friendly_garrisons", "FIA Garrisons");
 		int emittedFriendlyGarrisons;
@@ -2206,7 +2190,7 @@ class HST_CommandUIService
 			{
 				if (!zone.m_sDisplayName.IsEmpty())
 					label = zone.m_sDisplayName;
-				owner = zone.m_sOwnerFactionKey;
+				owner = ZoneOwnerPlayerLabel(zone, preset);
 				activeInfantry = Math.Max(0, zone.m_iActiveInfantryCount);
 				activeVehicles = Math.Max(0, zone.m_iActiveVehicleCount);
 				slots = zone.m_iGarrisonSlots;
@@ -2220,7 +2204,7 @@ class HST_CommandUIService
 				payload,
 				"friendly_garrisons",
 				ShortText(label, 22),
-				string.Format("owner %1 | abstract %2/%3 | active %4/%5 | cap %6", owner, garrison.m_iInfantryCount, garrison.m_iVehicleCount, activeInfantry, activeVehicles, capacity),
+				string.Format("%1 | reserves %2 infantry / %3 vehicle(s) | fielded %4/%5 | capacity %6", owner, garrison.m_iInfantryCount, garrison.m_iVehicleCount, activeInfantry, activeVehicles, capacity),
 				"good"
 			);
 
@@ -2237,17 +2221,17 @@ class HST_CommandUIService
 			if (!pool || (preset && !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey)))
 				continue;
 
-			payload = AppendRow(payload, "enemy", pool.m_sFactionKey, string.Format("attack %1 / support %2 / aggression %3", pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression), "bad");
+			payload = AppendRow(payload, "enemy", FactionPlayerDisplayLabel(pool.m_sFactionKey), string.Format("attack %1 / support %2 / aggression %3", pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression), "bad");
 		}
 
 		payload = AppendSection(payload, "support", "Support And Orders");
-		payload = AppendRow(payload, "support", "Support requests", string.Format("%1 tracked", state.m_aSupportRequests.Count()), "warn");
-		payload = AppendRow(payload, "support", "Enemy orders", string.Format("%1 tracked", state.m_aEnemyOrders.Count()), "bad");
-		payload = AppendRow(payload, "support", "Cooldown/cancel", "Player support requests can be cancelled while queued or active.", "neutral");
+		payload = AppendRow(payload, "support", "Friendly support", string.Format("%1 active / %2 total", CountActivePlayerSupportRequests(state), CountPlayerSupportRequests(state)), "warn");
+		payload = AppendRow(payload, "support", "Enemy activity", string.Format("%1 active operation(s)", CountActiveEnemyOrders(state)), "bad");
+		payload = AppendRow(payload, "support", "Recall", "Active FIA support can be ordered to break contact and leave the area.", "neutral");
 		payload = AppendRow(payload, "support", "Air capability", AirSupportCapabilityLabel(state), AirSupportCapabilityTone(state));
 
 		payload = AppendSection(payload, "civilian_summary", "Civilian Support");
-		payload = AppendRow(payload, "civilian_summary", "Town report", string.Format("%1 records", state.m_aCivilianZones.Count()), "neutral");
+		payload = AppendRow(payload, "civilian_summary", "Towns", string.Format("%1 town(s)", state.m_aCivilianZones.Count()), "neutral");
 		payload = AppendRow(payload, "civilian_summary", "Wanted heat", string.Format("%1 total", CountCivilianHeat(state)), CivilianHeatTone(state));
 		payload = AppendRow(payload, "civilian_summary", "Roadblocks", string.Format("%1 total", CountCivilianRoadblocks(state)), "warn");
 		payload = AppendRow(payload, "civilian_summary", "Undercover", BuildUndercoverCompactSummary(state), UndercoverTone(state));
@@ -2257,14 +2241,25 @@ class HST_CommandUIService
 
 	protected string BuildActiveGroupSpawnSummary(HST_CampaignState state)
 	{
+		int activeGroups = CountVisibleActiveGroups(state);
+		if (activeGroups <= 0)
+			return "no field teams deployed";
+
 		HST_ActiveGroupState activeGroup = FindLatestActiveGroup(state);
 		if (!activeGroup)
-			return "no active groups";
+			return string.Format("%1 field team(s) deployed", activeGroups);
+
+		string location = "in the field";
+		HST_ZoneState zone = null;
+		if (state && !activeGroup.m_sZoneId.IsEmpty())
+			zone = state.FindZone(activeGroup.m_sZoneId);
+		if (zone)
+			location = "near " + DisplayZoneName(zone);
 
 		int plannedMembers = Math.Max(0, activeGroup.m_iInfantryCount) + Math.Max(0, activeGroup.m_iVehicleCount);
 		int survivorMembers = Math.Max(0, activeGroup.m_iSurvivorInfantryCount) + Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
 		int knownMembers = Math.Max(activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount);
-		return string.Format("%1 / %2 / known %3/%4 / survivors %5 / spawned %6 / status %7", activeGroup.m_sZoneId, activeGroup.m_sSpawnFallbackMode, knownMembers, plannedMembers, survivorMembers, activeGroup.m_iSpawnedAgentCount, activeGroup.m_sRuntimeStatus);
+		return string.Format("%1 field team(s); latest %2 with %3/%4 known active, %5 survivor(s)", activeGroups, location, knownMembers, plannedMembers, survivorMembers);
 	}
 
 	protected string ActiveGroupSpawnTone(HST_CampaignState state)
@@ -2287,7 +2282,7 @@ class HST_CommandUIService
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
 			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup) && !activeGroup.m_sSpawnFailureReason.IsEmpty())
-				return string.Format("%1: %2", activeGroup.m_sZoneId, activeGroup.m_sSpawnFailureReason);
+				return BuildPlayerFailureLabel(activeGroup.m_sSpawnFailureReason);
 		}
 
 		return "none";
@@ -2336,8 +2331,8 @@ class HST_CommandUIService
 		if (!state)
 			return payload;
 
-		payload = AppendSection(payload, "arsenal", "h-istasi Arsenal");
-		payload = AppendRow(payload, "arsenal", "Tracked items", string.Format("%1", CountTrackedArsenalItems(state)), "neutral");
+		payload = AppendSection(payload, "arsenal", "Resistance Arsenal");
+		payload = AppendRow(payload, "arsenal", "Known items", string.Format("%1", CountTrackedArsenalItems(state)), "neutral");
 		payload = AppendRow(payload, "arsenal", "Unlocked items", string.Format("%1", CountUnlockedArsenalItems(state)), "good");
 		payload = AppendRow(payload, "arsenal", "Garage vehicles", string.Format("%1", state.m_aGarageVehicles.Count()), "neutral");
 		payload = AppendRow(payload, "arsenal", "Vehicle cargo", string.Format("%1 entries / %2 item(s)", CountVehicleCargoEntries(state), CountVehicleCargoItems(state)), "warn");
@@ -2348,13 +2343,13 @@ class HST_CommandUIService
 			payload = AppendRow(payload, "arsenal", "Loot radius", string.Format("%1m", settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
 			payload = AppendRow(payload, "arsenal", "HQ action radius", string.Format("%1m", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters), "good");
 			payload = AppendRow(payload, "arsenal", "HQ radius status", BuildHQRadiusStatus(state, settings, playerId), BuildHQRadiusTone(state, settings, playerId));
-			payload = AppendRow(payload, "arsenal", "Vehicle loot", string.Format("%1 / rear %2m / max %3", settings.m_VehicleLoot.m_bEnabled, settings.m_VehicleLoot.m_iRadiusMeters, settings.m_VehicleLoot.m_iMaxItemsPerAction), "neutral");
-			payload = AppendRow(payload, "arsenal", "Unlock threshold", string.Format("%1 / magazines x%2", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold, settings.m_ArsenalLoot.m_iMagazineUnlockMultiplier), "neutral");
-			payload = AppendRow(payload, "arsenal", "Loot rule", string.Format("locked only %1 / remove source %2", settings.m_ArsenalLoot.m_bLootOnlyLockedItems, settings.m_ArsenalLoot.m_bRemoveLootedItems), "warn");
+			payload = AppendRow(payload, "arsenal", "Vehicle loot", string.Format("%1 within %2m", BuildEnabledLabel(settings.m_VehicleLoot.m_bEnabled), settings.m_VehicleLoot.m_iRadiusMeters), "neutral");
+			payload = AppendRow(payload, "arsenal", "Unlock threshold", string.Format("%1 copies to unlock", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold), "neutral");
+			payload = AppendRow(payload, "arsenal", "Loot cleanup", BuildEnabledLabel(settings.m_ArsenalLoot.m_bRemoveLootedItems), "warn");
 		}
 
 		payload = AppendRow(payload, "arsenal", "Vehicle target", BuildVehicleTargetStatus(state), BuildVehicleTargetTone(state));
-		payload = AppendRow(payload, "arsenal", "Target reason", state.m_sLastVehicleTargetReason, BuildVehicleTargetTone(state));
+		payload = AppendRow(payload, "arsenal", "Target status", BuildPlayerReasonLabel(state.m_sLastVehicleTargetReason), BuildVehicleTargetTone(state));
 		payload = AppendRow(payload, "arsenal", "Vehicle cargo target", string.Format("%1 entries", state.m_iLastVehicleTargetCargoEntries), "warn");
 
 		payload = AppendSection(payload, "items", "Recovered Equipment");
@@ -2409,21 +2404,19 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "garage", "Ammo points", string.Format("%1", state.m_aAmmoPoints.Count()), "neutral");
 		payload = AppendRow(payload, "garage", "Active civilians", string.Format("%1 characters / %2 vehicles", state.m_iRuntimeCivilianCharacterCount, state.m_iRuntimeCivilianVehicleCount), RuntimeSpawnTone(state));
 		payload = AppendRow(payload, "garage", "Active military vehicles", string.Format("%1 physical / %2 abstract", state.m_iRuntimeMilitaryVehicleCount, CountGarrisonVehicles(state)), "neutral");
-		payload = AppendRow(payload, "garage", "Spawn failures", string.Format("%1", state.m_iRuntimeSpawnFailureCount), RuntimeSpawnTone(state));
-		if (!state.m_sLastRuntimeSpawnFailurePrefab.IsEmpty())
-			payload = AppendRow(payload, "garage", "Last failed prefab", state.m_sLastRuntimeSpawnFailurePrefab, "bad");
+		payload = AppendRow(payload, "garage", "Vehicle spawn issues", BuildRuntimeSpawnIssueLabel(state), RuntimeSpawnTone(state));
 		if (settings)
 		{
 			payload = AppendRow(payload, "garage", "HQ action radius", string.Format("%1m", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters), "good");
 			payload = AppendRow(payload, "garage", "HQ radius status", BuildHQRadiusStatus(state, settings, playerId), BuildHQRadiusTone(state, settings, playerId));
 		}
 		payload = AppendRow(payload, "garage", "Nearest vehicle", BuildVehicleTargetStatus(state), BuildVehicleTargetTone(state));
-		payload = AppendRow(payload, "garage", "Vehicle reject", state.m_sLastVehicleTargetReason, BuildVehicleTargetTone(state));
+		payload = AppendRow(payload, "garage", "Vehicle status", BuildPlayerReasonLabel(state.m_sLastVehicleTargetReason), BuildVehicleTargetTone(state));
 		payload = AppendRow(payload, "garage", "Target cargo", string.Format("%1 entries", state.m_iLastVehicleTargetCargoEntries), "warn");
 		payload = AppendRow(payload, "garage", "Build mode", BuildModeStatusLabel(state), BuildModeTone(state));
-		payload = AppendRow(payload, "garage", "Build position", string.Format("%1 / yaw %2", state.m_vLastBuildModePosition, state.m_fLastBuildModeYaw), BuildModeTone(state));
+		payload = AppendRow(payload, "garage", "Build position", BuildPositionPlayerLabel(state), BuildModeTone(state));
 		if (!state.m_sLastBuildModeFailure.IsEmpty())
-			payload = AppendRow(payload, "garage", "Build failure", state.m_sLastBuildModeFailure, "bad");
+			payload = AppendRow(payload, "garage", "Build issue", BuildPlayerFailureLabel(state.m_sLastBuildModeFailure), "bad");
 
 		payload = AppendSection(payload, "stored_vehicles", "Stored Vehicles");
 		if (state.m_aGarageVehicles.Count() == 0)
@@ -2444,7 +2437,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "garage_actions", "Capture And Redeploy");
 		payload = AppendRow(payload, "garage_actions", "Capture nearest", "Stores a safe root vehicle and despawns only that vehicle.", "good");
 		payload = AppendRow(payload, "garage_actions", "Build redeploy", "Each stored vehicle resolves a Build Mode placement before spawning.", GarageTone(state));
-		payload = AppendRow(payload, "garage_actions", "Vehicle target", string.Format("Candidates %1 / %2", state.m_iLastVehicleTargetCandidates, state.m_sLastVehicleTargetReason), BuildVehicleTargetTone(state));
+		payload = AppendRow(payload, "garage_actions", "Vehicle target", BuildVehicleTargetActionLabel(state), BuildVehicleTargetTone(state));
 		payload = AppendRow(payload, "garage_actions", "Cargo unload", "Nearest vehicle cargo can be moved into the h-istasi arsenal at HQ.", "warn");
 
 		return payload;
@@ -2486,7 +2479,7 @@ class HST_CommandUIService
 			if (state.m_sCommanderIdentityId == player.m_sIdentityId)
 				suffix = " / commander";
 
-			payload = AppendRow(payload, "members", BuildPlayerRosterName(player), string.Format("%1 / money %2 / spawns %3%4", role, player.m_iMoney, player.m_iSpawnCount, suffix), tone);
+			payload = AppendRow(payload, "members", BuildPlayerRosterName(player), string.Format("%1 / money %2%3", role, player.m_iMoney, suffix), tone);
 		}
 
 		return payload;
@@ -2505,7 +2498,7 @@ class HST_CommandUIService
 			value = value + " | next: " + ShortText(nextStep, 72);
 
 		if (!mission.m_sRuntimeFailureReason.IsEmpty())
-			value = value + " | issue: " + ShortText(mission.m_sRuntimeFailureReason, 48);
+			value = value + " | issue: " + ShortText(BuildPlayerFailureLabel(mission.m_sRuntimeFailureReason), 48);
 
 		return value;
 	}
@@ -2522,24 +2515,21 @@ class HST_CommandUIService
 		if (!state)
 			return payload;
 
-		payload = AppendRow(payload, "admin", "Phase", CampaignPhaseLabel(state.m_ePhase), "neutral");
-		payload = AppendRow(payload, "admin", "Schema", string.Format("%1", state.m_iSchemaVersion), "neutral");
-		payload = AppendRow(payload, "admin", "Seed", string.Format("%1", state.m_iCampaignSeed), "neutral");
-		payload = AppendRow(payload, "admin", "Enemy accumulator", string.Format("%1s", state.m_iEnemyResourceAccumulatorSeconds), "bad");
-		payload = AppendRow(payload, "admin", "Native markers", string.Format("%1 tracked", state.m_aMapMarkers.Count()), "neutral");
+		payload = AppendRow(payload, "admin", "Campaign", CampaignPhaseLabel(state.m_ePhase), "neutral");
+		payload = AppendRow(payload, "admin", "Enemy planning", string.Format("next check in %1s", state.m_iEnemyResourceAccumulatorSeconds), "bad");
+		payload = AppendRow(payload, "admin", "Map records", string.Format("%1 tracked", state.m_aMapMarkers.Count()), "neutral");
 		if (compositions)
 		{
-			payload = AppendRow(payload, "admin", "Composition zones", string.Format("%1 active / %2 props", compositions.GetActiveRuntimeZoneCount(), compositions.GetRuntimePropCount()), "neutral");
-			payload = AppendRow(payload, "admin", "Composition spawned", string.Format("%1", compositions.GetLastSpawnedCount()), "good");
-			payload = AppendRow(payload, "admin", "Skipped prefabs", string.Format("%1", compositions.GetLastSkippedPrefabCount()), RuntimeSpawnTone(state));
-			payload = AppendRow(payload, "admin", "Last failed prefab", EmptyLabel(compositions.GetLastFailedPrefab()), "bad");
-			payload = AppendRow(payload, "admin", "Last slot reason", EmptyLabel(compositions.GetLastFailedSlotReason()), "warn");
+			payload = AppendRow(payload, "admin", "Active scenery", string.Format("%1 area(s) / %2 object(s)", compositions.GetActiveRuntimeZoneCount(), compositions.GetRuntimePropCount()), "neutral");
+			payload = AppendRow(payload, "admin", "Placed scenery", string.Format("%1", compositions.GetLastSpawnedCount()), "good");
+			payload = AppendRow(payload, "admin", "Skipped scenery", string.Format("%1", compositions.GetLastSkippedPrefabCount()), RuntimeSpawnTone(state));
+			payload = AppendRow(payload, "admin", "Placement issue", BuildPlayerFailureLabel(compositions.GetLastFailedSlotReason()), "warn");
 		}
 		payload = AppendSection(payload, "admin_reports", "Admin Reports");
 		payload = AppendRow(payload, "admin_reports", "Persistence", "Use Persistence status / smoke report before validating a phase.", "neutral");
-		payload = AppendRow(payload, "admin_reports", "Force composition", "Request/result contract for runtime force planning.", "good");
-		payload = AppendRow(payload, "admin_reports", "Spawn placement", "Request/result contract for physical spawn placement.", "good");
-		payload = AppendRow(payload, "admin_reports", "Marker audit", "Phase 23 marker audit validates visible marker coverage.", "good");
+		payload = AppendRow(payload, "admin_reports", "Force planning", "Detailed force-planning report.", "good");
+		payload = AppendRow(payload, "admin_reports", "Spawn placement", "Detailed spawn-placement report.", "good");
+		payload = AppendRow(payload, "admin_reports", "Marker audit", "Phase 23 marker coverage report.", "good");
 
 		payload = AppendSection(payload, "admin_missions", "Force Missions");
 		payload = AppendRow(payload, "admin_missions", "Force mission", "Debug mission creation only; not normal gameplay.", "warn");
@@ -2552,7 +2542,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "debug_zone", "Debug Targets");
 		HST_ZoneState morton = state.FindZone("town_morton");
 		if (morton)
-			payload = AppendRow(payload, "debug_zone", "Morton", string.Format("owner %1 / support %2 / capture %3", morton.m_sOwnerFactionKey, morton.m_iSupport, morton.m_iResistanceCaptureProgress), ZoneTone(morton, preset));
+			payload = AppendRow(payload, "debug_zone", "Morton", string.Format("%1 / support %2 / capture %3", ZoneOwnerPlayerLabel(morton, preset), morton.m_iSupport, morton.m_iResistanceCaptureProgress), ZoneTone(morton, preset));
 
 		return payload;
 	}
@@ -2567,9 +2557,9 @@ class HST_CommandUIService
 
 		payload = AppendFeed(payload, string.Format("Briefing: %1", BuildStrategicOrder(state, preset)), "warn");
 		payload = AppendFeed(payload, string.Format("HQ: %1, Petros %2.", BuildHQLabel(state), BuildPetrosLabel(state)), BuildPetrosTone(state));
-		payload = AppendFeed(payload, string.Format("Arsenal: %1 unlocked items from %2 tracked entries.", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
-		payload = AppendFeed(payload, string.Format("Operations: %1 active missions, %2 QRFs, %3 active zones.", CountActiveMissions(state), CountActiveQRFs(state), CountActiveZones(state)), "neutral");
-		payload = AppendFeed(payload, string.Format("Alpha systems: %1 generated sites, %2 support calls, %3 enemy orders.", state.m_aGeneratedSites.Count(), state.m_aSupportRequests.Count(), state.m_aEnemyOrders.Count()), "warn");
+		payload = AppendFeed(payload, string.Format("Arsenal: %1 unlocked item(s) from %2 known item(s).", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
+		payload = AppendFeed(payload, string.Format("Operations: %1 active missions, %2 QRFs, %3 active combat area(s).", CountActiveMissions(state), CountActiveQRFs(state), CountActiveZones(state)), "neutral");
+		payload = AppendFeed(payload, string.Format("Support: %1 friendly team(s) active, %2 enemy operation(s) active.", CountActivePlayerSupportRequests(state), CountActiveEnemyOrders(state)), "warn");
 		return payload;
 	}
 
@@ -3052,7 +3042,7 @@ class HST_CommandUIService
 			if (!argument.IsEmpty())
 				argument = argument + ";";
 
-			argument = argument + SanitizeCommandChoiceField(request.m_sRequestId) + "~" + SanitizeCommandChoiceField(BuildSupportRecallChoiceLabel(state, request));
+			argument = argument + SanitizeCommandChoiceField(request.m_sRequestId) + "~" + SanitizeCommandChoiceField(BuildSupportRecallChoiceLabel(state, request, emitted + 1));
 			emitted++;
 			if (emitted >= COMMAND_CHOICE_LIMIT)
 				break;
@@ -3104,7 +3094,7 @@ class HST_CommandUIService
 		return supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
 	}
 
-	protected string BuildSupportRecallChoiceLabel(HST_CampaignState state, HST_SupportRequestState request)
+	protected string BuildSupportRecallChoiceLabel(HST_CampaignState state, HST_SupportRequestState request, int teamNumber = 0)
 	{
 		if (!state || !request)
 			return "support team unavailable";
@@ -3113,13 +3103,47 @@ class HST_CommandUIService
 		if (!request.m_sGroupId.IsEmpty())
 			group = state.FindActiveGroup(request.m_sGroupId);
 
-		string groupLabel = request.m_sGroupId;
-		if (groupLabel.IsEmpty())
-			groupLabel = "pending squad";
-
 		int members = ResolveSupportTeamMemberCount(request, group);
 		string location = BuildSupportRelativeLocation(state, request, group);
-		return string.Format("%1 | %2 | %3 members | %4", SupportRequestTypeLabel(request.m_eType), groupLabel, members, location);
+		string teamLabel = SupportRequestTypeLabel(request.m_eType);
+		if (teamNumber > 0)
+			teamLabel = string.Format("%1 team %2", teamLabel, teamNumber);
+
+		return string.Format("%1 | %2 FIA | %3 | %4", teamLabel, members, SupportDeploymentPlayerLabel(request, group), location);
+	}
+
+	protected string SupportDeploymentPlayerLabel(HST_SupportRequestState request, HST_ActiveGroupState group)
+	{
+		if (!request)
+			return "unknown";
+
+		if (request.m_bRecallRequested)
+			return "recall ordered";
+
+		if (group)
+		{
+			if (group.m_sRuntimeStatus == "support_recalling")
+				return "withdrawing";
+			if (group.m_sRuntimeStatus == "support_active" || group.m_sRuntimeStatus == "routing")
+				return "moving";
+			if (group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "support_recall_exited")
+				return "withdrawn";
+			if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "spawn_failed")
+				return "lost";
+			if (group.m_bSpawnedEntity)
+				return "deployed";
+		}
+
+		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED)
+			return "waiting to deploy";
+		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+			return "deployed";
+		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
+			return "resolved";
+		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+			return "cancelled";
+
+		return "unknown";
 	}
 
 	protected int ResolveSupportTeamMemberCount(HST_SupportRequestState request, HST_ActiveGroupState group)
@@ -3651,8 +3675,35 @@ class HST_CommandUIService
 		if (!vehicle)
 			return "missing";
 
-		string value = string.Format("%1 | cost $%2 | cargo %3 | %4 | A%5 R%6 F%7", vehicle.m_sVehicleId, vehicle.m_iRedeployCost, CountStoredVehicleCargoItems(vehicle), vehicle.m_sSourceVehicleKind, vehicle.m_bAmmoSource, vehicle.m_bRepairSource, vehicle.m_bFuelSource);
-		return value + string.Format(" | heat %1 reported %2 cover %3", vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_bCanProvideUndercover);
+		string roles = "";
+		if (vehicle.m_bArmed)
+			roles = AppendCommaLabel(roles, "armed");
+		if (vehicle.m_bAmmoSource)
+			roles = AppendCommaLabel(roles, "ammo");
+		if (vehicle.m_bRepairSource)
+			roles = AppendCommaLabel(roles, "repair");
+		if (vehicle.m_bFuelSource)
+			roles = AppendCommaLabel(roles, "fuel");
+		if (roles.IsEmpty())
+			roles = "utility";
+
+		string cover = "civilian cover unavailable";
+		if (vehicle.m_bCanProvideUndercover && !vehicle.m_bReported)
+			cover = "civilian cover available";
+		else if (vehicle.m_bReported)
+			cover = "reported";
+
+		return string.Format("cost $%1 | cargo %2 item(s) | %3 | heat %4 | %5", vehicle.m_iRedeployCost, CountStoredVehicleCargoItems(vehicle), roles, vehicle.m_iVehicleHeat, cover);
+	}
+
+	protected string AppendCommaLabel(string current, string addition)
+	{
+		if (addition.IsEmpty())
+			return current;
+		if (current.IsEmpty())
+			return addition;
+
+		return current + ", " + addition;
 	}
 
 	protected int CountStoredVehicleCargoItems(HST_GarageVehicleState vehicle)
@@ -3687,6 +3738,28 @@ class HST_CommandUIService
 			return "good";
 
 		return "warn";
+	}
+
+	protected string BuildRuntimeSpawnIssueLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+		if (state.m_iRuntimeSpawnFailureCount <= 0)
+			return "none";
+
+		return string.Format("%1 recent issue(s); see Garage report for details", state.m_iRuntimeSpawnFailureCount);
+	}
+
+	protected string BuildVehicleTargetActionLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+		if (!state.m_sLastVehicleTargetPrefab.IsEmpty())
+			return BuildVehicleTargetStatus(state);
+		if (state.m_iLastVehicleTargetCandidates > 0)
+			return "Nearest vehicle is not eligible: " + BuildPlayerReasonLabel(state.m_sLastVehicleTargetReason);
+
+		return "No eligible vehicle nearby";
 	}
 
 	protected int CountCivilianHeat(HST_CampaignState state)
@@ -4015,9 +4088,9 @@ class HST_CommandUIService
 			return "unknown";
 
 		if (state.m_bHQRuntimeObjectsSpawned)
-			return "spawned";
+			return "ready";
 
-		return "pending";
+		return "not ready";
 	}
 
 	protected string BuildRuntimeObjectTone(HST_CampaignState state)
@@ -4028,13 +4101,109 @@ class HST_CommandUIService
 		return "warn";
 	}
 
+	protected string BuildHQPressureSummary(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+
+		return string.Format("awareness %1, threat %2", BuildHQKnowledgeLabel(state), BuildHQThreatLabel(state));
+	}
+
+	protected string BuildHQKnowledgeLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+
+		int value = Math.Max(0, state.m_iHQKnowledge);
+		if (value <= 0)
+			return "unknown";
+		if (value < 25)
+			return string.Format("low (%1/100)", value);
+		if (value < 60)
+			return string.Format("noticed (%1/100)", value);
+		if (value < 85)
+			return string.Format("high (%1/100)", value);
+
+		return string.Format("critical (%1/100)", value);
+	}
+
+	protected string BuildHQThreatLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+
+		int value = Math.Max(0, state.m_iHQThreatLevel);
+		if (value <= 0)
+			return "quiet";
+		if (value < 35)
+			return string.Format("low (%1/100)", value);
+		if (value < 70)
+			return string.Format("rising (%1/100)", value);
+
+		return string.Format("dangerous (%1/100)", value);
+	}
+
+	protected string BuildEnabledLabel(bool enabled)
+	{
+		if (enabled)
+			return "enabled";
+
+		return "disabled";
+	}
+
+	protected string BuildPersistencePlayerLabel(string status)
+	{
+		if (status.IsEmpty())
+			return "not saved yet";
+		if (status.Contains("saved") || status.Contains("checkpoint") || status.Contains("captured"))
+			return "saved";
+		if (status.Contains("fallback"))
+			return "saved with profile fallback";
+		if (status.Contains("failed") || status.Contains("error"))
+			return "save issue";
+
+		return BuildPlayerReasonLabel(status);
+	}
+
+	protected string BuildPlayerReasonLabel(string reason)
+	{
+		if (reason.IsEmpty())
+			return "none";
+
+		string label = reason;
+		label.Replace("_", " ");
+		label.Replace("runtime", "field");
+		label.Replace("physicalize", "deploy");
+		label.Replace("physicalization", "deployment");
+		label.Replace("spawn", "deploy");
+		label.Replace("prefab", "asset");
+		label.Replace("entity", "object");
+		label.Replace("diagnostic", "status");
+		return ShortText(label, 72);
+	}
+
+	protected string BuildPlayerFailureLabel(string reason)
+	{
+		if (reason.IsEmpty())
+			return "none";
+
+		return BuildPlayerReasonLabel(reason);
+	}
+
 	protected string BuildArsenalRuntimeStatus(HST_CampaignState state)
 	{
 		if (!state)
 			return "unknown";
 
 		if (!state.m_sHQArsenalRuntimeStatus.IsEmpty())
-			return state.m_sHQArsenalRuntimeStatus;
+		{
+			if (state.m_sHQArsenalRuntimeStatus.Contains("ready"))
+				return "ready";
+			if (state.m_sHQArsenalRuntimeStatus.Contains("failed"))
+				return "needs rebuild";
+
+			return BuildPlayerReasonLabel(state.m_sHQArsenalRuntimeStatus);
+		}
 
 		if (state.m_bHQRuntimeObjectsSpawned)
 			return "ready";
@@ -4067,6 +4236,8 @@ class HST_CommandUIService
 		string target = state.m_sLastVehicleTargetStatus;
 		if (target.IsEmpty())
 			target = "not scanned";
+		else
+			target = BuildPlayerReasonLabel(target);
 
 		if (!state.m_sLastVehicleTargetPrefab.IsEmpty())
 			target = target + string.Format(" | %1 | %2m", HST_DisplayNameService.ResolveVehicleDisplayName(state.m_sLastVehicleTargetPrefab), state.m_fLastVehicleTargetDistanceMeters);
@@ -4094,9 +4265,27 @@ class HST_CommandUIService
 			return "unknown";
 
 		if (!state.m_sBuildModeStatus.IsEmpty())
-			return state.m_sBuildModeStatus;
+		{
+			if (state.m_sBuildModeStatus.Contains("ready"))
+				return "ready";
+			if (state.m_sBuildModeStatus.Contains("active"))
+				return "active";
+
+			return BuildPlayerReasonLabel(state.m_sBuildModeStatus);
+		}
 
 		return "not active";
+	}
+
+	protected string BuildPositionPlayerLabel(HST_CampaignState state)
+	{
+		if (!state || IsZeroVector(state.m_vLastBuildModePosition))
+			return "no placement selected";
+
+		if (!state.m_sBuildModeStatus.IsEmpty() && state.m_sBuildModeStatus.Contains("ready"))
+			return "placement selected";
+
+		return "placement pending";
 	}
 
 	protected string BuildModeTone(HST_CampaignState state)
@@ -4176,10 +4365,18 @@ class HST_CommandUIService
 		string status = state.m_sDefendPetrosStatus;
 		if (status.IsEmpty())
 			status = "inactive";
+		else if (status.Contains("succeeded"))
+			status = "defended";
+		else if (status.Contains("failed"))
+			status = "failed";
+		else if (state.m_bDefendPetrosActive)
+			status = "under attack";
+		else
+			status = BuildPlayerReasonLabel(status);
 		if (state.m_bDefendPetrosActive)
 			status = status + " | active";
 		if (!state.m_sDefendPetrosFailureReason.IsEmpty())
-			status = status + " | " + state.m_sDefendPetrosFailureReason;
+			status = status + " | " + BuildPlayerFailureLabel(state.m_sDefendPetrosFailureReason);
 		return status;
 	}
 
@@ -4373,6 +4570,42 @@ class HST_CommandUIService
 			return "warn";
 
 		return "bad";
+	}
+
+	protected string ZoneOwnerPlayerLabel(HST_ZoneState zone, HST_CampaignPreset preset)
+	{
+		if (!zone || zone.m_sOwnerFactionKey.IsEmpty())
+			return "unclaimed";
+
+		return CaptureOwnerPlayerLabel(zone.m_sOwnerFactionKey, preset);
+	}
+
+	protected string CaptureOwnerPlayerLabel(string ownerFactionKey, HST_CampaignPreset preset)
+	{
+		if (ownerFactionKey.IsEmpty())
+			return "unclaimed";
+		if (preset && ownerFactionKey == preset.m_sResistanceFactionKey)
+			return "Resistance";
+		if (preset && HST_FactionRelationService.IsEnemyFaction(preset, ownerFactionKey))
+			return "Hostile";
+		if (ownerFactionKey == "FIA")
+			return "Resistance";
+
+		return "Neutral";
+	}
+
+	protected string FactionPlayerDisplayLabel(string factionKey)
+	{
+		if (factionKey.IsEmpty())
+			return "Unknown force";
+		if (factionKey == "FIA")
+			return "FIA Resistance";
+		if (factionKey == "US")
+			return "US Occupiers";
+		if (factionKey == "USSR")
+			return "USSR Invaders";
+
+		return factionKey;
 	}
 
 	protected string CaptureStatusTone(HST_ZoneCaptureStatus status, HST_CampaignPreset preset)
@@ -5534,6 +5767,55 @@ class HST_CommandUIService
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
 			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountPlayerSupportRequests(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (request && request.m_bPlayerRequested)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountActivePlayerSupportRequests(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!request || !request.m_bPlayerRequested)
+				continue;
+			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountActiveEnemyOrders(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (!order)
+				continue;
+			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
 				count++;
 		}
 
