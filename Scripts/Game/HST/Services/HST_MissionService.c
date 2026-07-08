@@ -3,11 +3,13 @@ class HST_MissionService
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 
 	protected ref array<ref HST_MissionDefinition> m_aDefinitions;
+	protected ref array<string> m_aLastExpiredMissionIds;
 	protected int m_iNextInstanceId = 1;
 
 	void HST_MissionService()
 	{
 		m_aDefinitions = HST_DefaultCatalog.CreateMissionRegistry();
+		m_aLastExpiredMissionIds = {};
 	}
 
 	HST_MissionDefinition FindDefinition(string missionId)
@@ -24,6 +26,11 @@ class HST_MissionService
 	array<ref HST_MissionDefinition> GetDefinitions()
 	{
 		return m_aDefinitions;
+	}
+
+	array<string> GetLastExpiredMissionIds()
+	{
+		return m_aLastExpiredMissionIds;
 	}
 
 	void SyncNextInstanceIdFromState(HST_CampaignState state)
@@ -208,6 +215,7 @@ class HST_MissionService
 	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, int elapsedSeconds)
 	{
 		bool changed;
+		m_aLastExpiredMissionIds.Clear();
 		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
 		{
 			if (activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
@@ -225,8 +233,7 @@ class HST_MissionService
 			if (definition)
 				activeMission.m_sRuntimeFailureReason = definition.m_sFailureText;
 			changed = true;
-			if (definition)
-				economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
+			m_aLastExpiredMissionIds.Insert(activeMission.m_sInstanceId);
 		}
 
 		return changed;

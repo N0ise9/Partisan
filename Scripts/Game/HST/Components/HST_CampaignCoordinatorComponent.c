@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r95-zone-capture-strategic-event";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r96-mission-expiry-strategic-event";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -445,7 +445,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State.m_iElapsedSeconds += elapsedSeconds;
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
-		if (missionChanged)
+		bool missionExpiryChanged = ApplyPendingMissionExpiryEvents();
+		if (missionChanged || missionExpiryChanged)
 			BroadcastPendingMissionOutcomeEvents();
 		bool objectiveChanged = m_Objectives.Tick(m_State);
 		bool missionRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, elapsedSeconds);
@@ -485,7 +486,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool physicalWarMarkerChanged = false;
 		if (physicalWarChanged && m_PhysicalWar)
 			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
-		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged;
+		bool anyStateChanged = missionChanged || missionExpiryChanged || objectiveChanged || missionRuntimeChanged;
 		anyStateChanged = anyStateChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0;
 		anyStateChanged = anyStateChanged || enemyResourcesChanged || aggressionChanged || civilianChanged;
 		anyStateChanged = anyStateChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged;
@@ -1222,6 +1223,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (changed)
 			MarkMajorCampaignChange();
 		return changed;
+	}
+
+	protected bool ApplyPendingMissionExpiryEvents()
+	{
+		if (!m_State || !m_Missions)
+			return false;
+
+		bool changed;
+		array<string> expiredMissionIds = m_Missions.GetLastExpiredMissionIds();
+		foreach (string expiredMissionId : expiredMissionIds)
+		{
+			HST_ActiveMissionState activeMission = m_State.FindActiveMission(expiredMissionId);
+			changed = ApplyMissionExpiryEventForMission(activeMission) || changed;
+		}
+
+		return changed;
+	}
+
+	protected bool ApplyMissionExpiryEventForMission(HST_ActiveMissionState activeMission)
+	{
+		if (!m_State || !m_Preset || !m_Missions || !m_Strategic || !m_Economy)
+			return false;
+		if (!activeMission || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return false;
+		if (activeMission.m_sMissionId == "dynamic_defend_petros")
+			return false;
+
+		HST_MissionDefinition definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
+		if (!definition)
+			return false;
+
+		HST_StrategicEventApplyResult result = m_Strategic.ApplyMissionExpiryEvent(m_State, m_Preset, m_Economy, definition, activeMission);
+		return result.m_bApplied || result.m_bChanged;
 	}
 
 	bool MoveHQ(string hideoutId)
@@ -6015,6 +6049,157 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return missionCase;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionExpiryPenaltyCase()
+	{
+		HST_CampaignDebugCaseResult missionCase = CreateCampaignDebugCase("mission_expiry.penalty.contract.runtime", "missions", "expiry", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_Missions != null && m_Economy != null && m_Strategic != null;
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.prerequisite", "state, preset, mission, economy, and strategic services ready", string.Format("state %1 | preset %2 | missions %3 | economy %4 | strategic %5", m_State != null, m_Preset != null, m_Missions != null, m_Economy != null, m_Strategic != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "mission expiry prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(missionCase);
+			return missionCase;
+		}
+
+		HST_CampaignSaveData proofSaveData = new HST_CampaignSaveData();
+		proofSaveData.Capture(m_State);
+		HST_CampaignState proofState = new HST_CampaignState();
+		proofSaveData.ApplyTo(proofState);
+
+		HST_MissionDefinition definition = m_Missions.FindDefinition("support_city_supplies");
+		string targetZoneId = SelectHQCivilianTownZoneId();
+		HST_ZoneState targetZone = proofState.FindZone(targetZoneId);
+		HST_FactionPoolState occupierPool = proofState.FindFactionPool(m_Preset.m_sOccupierFactionKey);
+		bool targetReady = definition != null && targetZone != null && targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && occupierPool != null && !m_Preset.m_sOccupierFactionKey.IsEmpty();
+		string targetActual = BuildCampaignDebugMissionCompletionTargetActual(definition, targetZone) + " | pool [" + BuildCampaignDebugMissionFailurePoolActual(occupierPool) + "]";
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.target", "support-delivery mission, town target, and occupier pool available in isolated proof state", targetActual, CampaignDebugStatus(targetReady, "BLOCKED"), "mission expiry target definition, town, or occupier pool missing", "", "", targetZoneId);
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(missionCase);
+			return missionCase;
+		}
+
+		string instanceId = ResolveCampaignDebugCleanupPrefix() + "_mission_expiry_penalty";
+		for (int staleMissionIndex = proofState.m_aActiveMissions.Count() - 1; staleMissionIndex >= 0; staleMissionIndex--)
+		{
+			HST_ActiveMissionState staleMission = proofState.m_aActiveMissions[staleMissionIndex];
+			if (staleMission && staleMission.m_sInstanceId == instanceId)
+				proofState.m_aActiveMissions.Remove(staleMissionIndex);
+		}
+		for (int staleEventIndex = proofState.m_aStrategicEvents.Count() - 1; staleEventIndex >= 0; staleEventIndex--)
+		{
+			HST_StrategicEventState staleEvent = proofState.m_aStrategicEvents[staleEventIndex];
+			if (staleEvent && staleEvent.m_sMissionInstanceId == instanceId)
+				proofState.m_aStrategicEvents.Remove(staleEventIndex);
+		}
+
+		int activeMissionCountBefore = proofState.m_aActiveMissions.Count();
+		int strategicEventCountBefore = proofState.m_aStrategicEvents.Count();
+		int moneyBefore = proofState.m_iFactionMoney;
+		int hrBefore = proofState.m_iHR;
+		string ownerBefore = targetZone.m_sOwnerFactionKey;
+		int supportBefore = targetZone.m_iSupport;
+		int aggressionBefore = occupierPool.m_iAggression;
+		int proofSupportBefore = 40;
+		targetZone.m_iSupport = proofSupportBefore;
+
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = instanceId;
+		mission.m_sMissionId = definition.m_sMissionId;
+		mission.m_sDisplayName = definition.m_sDisplayName;
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
+		mission.m_iRemainingSeconds = 1;
+		mission.m_sTargetZoneId = targetZone.m_sZoneId;
+		mission.m_vTargetPosition = targetZone.m_vPosition;
+		mission.m_sMarkerId = "hst_mission_" + instanceId;
+		mission.m_sRuntimeType = definition.m_sRuntimeType;
+		mission.m_sRuntimePrimitive = "support_delivery";
+		mission.m_sRuntimePhase = "created";
+		mission.m_iStartedAtSecond = proofState.m_iElapsedSeconds;
+		mission.m_iActiveUntilSecond = proofState.m_iElapsedSeconds + 1;
+		mission.m_iRequiredCargoCount = Math.Max(0, definition.m_iCargoCount);
+		mission.m_bRequested = true;
+		mission.m_bDynamic = false;
+		proofState.m_aActiveMissions.Insert(mission);
+
+		AddCampaignDebugMetric(missionCase, "mission_expiry.active_before", string.Format("%1", activeMissionCountBefore), "count");
+		AddCampaignDebugMetric(missionCase, "mission_expiry.aggression_before", string.Format("%1", aggressionBefore), "aggression");
+		AddCampaignDebugMetric(missionCase, "mission_expiry.support_before", string.Format("%1", proofSupportBefore), "support");
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.seed", "debug active mission record is inserted before expiry tick", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(proofState.FindActiveMission(instanceId) != null && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "debug mission record was not seeded active for expiry proof", "", instanceId, targetZone.m_sZoneId);
+
+		bool ticked = m_Missions.Tick(proofState, m_Preset, m_Economy, 1);
+		HST_ActiveMissionState expiredMission = proofState.FindActiveMission(instanceId);
+		HST_StrategicEventApplyResult expiryResult = m_Strategic.ApplyMissionExpiryEvent(proofState, m_Preset, m_Economy, definition, expiredMission);
+		HST_StrategicEventState strategicEvent = expiryResult.m_Event;
+		int moneyAfter = proofState.m_iFactionMoney;
+		int hrAfter = proofState.m_iHR;
+		int supportAfter = targetZone.m_iSupport;
+		int aggressionAfter = occupierPool.m_iAggression;
+		int expectedAggressionAfter = aggressionBefore + definition.m_iFailureAggression;
+		string penaltyActual = string.Format("support %1 -> %2 expected %3 | aggression %4 -> %5 expected %6", proofSupportBefore, supportAfter, proofSupportBefore, aggressionBefore, aggressionAfter, expectedAggressionAfter);
+		string noRewardActual = string.Format("money %1 -> %2 | HR %3 -> %4", moneyBefore, moneyAfter, hrBefore, hrAfter);
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.tick_result", "mission service tick expires the mission before strategic expiry is applied", BuildCampaignDebugPrimitiveMissionActual(expiredMission), CampaignDebugStatus(ticked && expiredMission && expiredMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && expiredMission.m_sRuntimePhase == "expired"), "mission tick did not set expired status", "", instanceId, targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.penalties", "mission expiry applies configured aggression without town-support loss", penaltyActual, CampaignDebugStatus(supportAfter == proofSupportBefore && aggressionAfter == expectedAggressionAfter), "mission expiry did not apply expected aggression-only penalty", "", instanceId, targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.no_rewards", "mission expiry does not pay completion rewards", noRewardActual, CampaignDebugStatus(moneyAfter == moneyBefore && hrAfter == hrBefore), "mission expiry changed money or HR rewards", "", instanceId, targetZone.m_sZoneId);
+		bool strategicEventExpected = strategicEvent
+			&& proofState.m_aStrategicEvents.Count() == strategicEventCountBefore + 1
+			&& strategicEvent.m_bApplied
+			&& strategicEvent.m_sKind == "mission_expired"
+			&& strategicEvent.m_iFactionMoneyDelta == 0
+			&& strategicEvent.m_iHRDelta == 0
+			&& strategicEvent.m_iTownSupportDelta == 0
+			&& strategicEvent.m_iAggressionDelta == definition.m_iFailureAggression
+			&& strategicEvent.m_sTargetZoneId == targetZone.m_sZoneId
+			&& strategicEvent.m_sTargetFactionKey == m_Preset.m_sOccupierFactionKey;
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.strategic_event", "mission expiry records one applied strategic event with the aggression delta", BuildCampaignDebugStrategicEventActual(strategicEvent), CampaignDebugStatus(strategicEventExpected), "mission expiry did not record the expected strategic event", "", instanceId, targetZone.m_sZoneId);
+
+		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
+		roundTripSaveData.Capture(proofState);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		roundTripSaveData.ApplyTo(restoredState);
+		HST_ActiveMissionState restoredMission = restoredState.FindActiveMission(instanceId);
+		HST_ZoneState restoredZone = restoredState.FindZone(targetZone.m_sZoneId);
+		HST_FactionPoolState restoredPool = restoredState.FindFactionPool(m_Preset.m_sOccupierFactionKey);
+		HST_StrategicEventState restoredStrategicEvent;
+		if (strategicEvent)
+			restoredStrategicEvent = restoredState.FindStrategicEvent(strategicEvent.m_sEventId);
+		bool roundTripExpected = restoredMission && restoredZone && restoredPool
+			&& restoredStrategicEvent
+			&& restoredMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED
+			&& restoredMission.m_sRuntimePhase == "expired"
+			&& restoredState.m_iFactionMoney == moneyAfter
+			&& restoredState.m_iHR == hrAfter
+			&& restoredZone.m_iSupport == supportAfter
+			&& restoredPool.m_iAggression == aggressionAfter
+			&& restoredStrategicEvent.m_iAggressionDelta == strategicEvent.m_iAggressionDelta;
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.save_roundtrip", "save-data roundtrip preserves expired mission, no-reward economy state, aggression penalty, and strategic event", BuildCampaignDebugMissionFailureRoundTripActual(restoredState, restoredMission, restoredZone, restoredPool) + " | event [" + BuildCampaignDebugStrategicEventActual(restoredStrategicEvent) + "]", CampaignDebugStatus(roundTripExpected), "expired mission penalty/event state did not survive save-data copy", "", instanceId, targetZone.m_sZoneId);
+
+		for (int missionIndex = proofState.m_aActiveMissions.Count() - 1; missionIndex >= 0; missionIndex--)
+		{
+			HST_ActiveMissionState cleanupMission = proofState.m_aActiveMissions[missionIndex];
+			if (cleanupMission && cleanupMission.m_sInstanceId == instanceId)
+				proofState.m_aActiveMissions.Remove(missionIndex);
+		}
+		while (proofState.m_aStrategicEvents.Count() > strategicEventCountBefore)
+			proofState.m_aStrategicEvents.Remove(proofState.m_aStrategicEvents.Count() - 1);
+		proofState.m_iFactionMoney = moneyBefore;
+		proofState.m_iHR = hrBefore;
+		targetZone.m_sOwnerFactionKey = ownerBefore;
+		targetZone.m_iSupport = supportBefore;
+		occupierPool.m_iAggression = aggressionBefore;
+		bool cleanupExpected = proofState.FindActiveMission(instanceId) == null
+			&& proofState.m_aActiveMissions.Count() == activeMissionCountBefore
+			&& proofState.m_aStrategicEvents.Count() == strategicEventCountBefore
+			&& proofState.m_iFactionMoney == moneyBefore
+			&& proofState.m_iHR == hrBefore
+			&& targetZone.m_sOwnerFactionKey == ownerBefore
+			&& targetZone.m_iSupport == supportBefore
+			&& occupierPool.m_iAggression == aggressionBefore;
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.cleanup", "isolated proof state removes the debug mission row and restores mutated penalty state", BuildCampaignDebugMissionFailureCleanupActual(activeMissionCountBefore, proofState.m_aActiveMissions.Count(), targetZone, occupierPool, aggressionBefore, moneyBefore, proofState.m_iFactionMoney, hrBefore, proofState.m_iHR), CampaignDebugStatus(cleanupExpected), "mission expiry debug cleanup did not restore proof state", "", instanceId, targetZone.m_sZoneId);
+
+		FinalizeCampaignDebugCaseFromAssertions(missionCase);
+		return missionCase;
+	}
+
 	protected string BuildCampaignDebugMissionCompletionTargetActual(HST_MissionDefinition definition, HST_ZoneState targetZone)
 	{
 		string definitionActual = BuildCampaignDebugMissionDefinitionActual(definition);
@@ -6922,6 +7107,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCategorySelectionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCompletionRewardCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionFailurePenaltyCase());
+		RecordCampaignDebugCase(BuildCampaignDebugMissionExpiryPenaltyCase());
 		if (m_Strategic)
 			RecordCampaignDebugObservation("strategic events", m_Strategic.BuildStrategicEventReport(m_State));
 		if (m_Civilians)
