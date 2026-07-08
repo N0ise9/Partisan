@@ -145,7 +145,6 @@ class HST_PhysicalWarService
 	static const string CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
 	static const string ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
-	static const string TOWN_POLICE_PATROL_CYCLE_WAYPOINT_PREFAB = "{35BD6541CBB8AC08}Prefabs/AI/Waypoints/AIWaypoint_Cycle.et";
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45;
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT = 4;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_PLAYER_OFFSET_METERS = 90.0;
@@ -154,8 +153,6 @@ class HST_PhysicalWarService
 	static const float CAMPAIGN_DEBUG_COMBAT_WAYPOINT_RADIUS_METERS = 18.0;
 	static const float ACTIVE_GROUP_ROUTE_WAYPOINT_RADIUS_METERS = 35.0;
 	static const float ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_RADIUS_METERS = 55.0;
-	static const float TOWN_POLICE_PATROL_WAYPOINT_RADIUS_METERS = 12.0;
-	static const float TOWN_POLICE_PATROL_FALLBACK_RADIUS_METERS = 75.0;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
@@ -240,10 +237,9 @@ class HST_PhysicalWarService
 		bool missionCleanupChanged = CleanupInactiveMissionOwnedActiveGroups(state);
 		bool runtimeEntityChanged = EnsureRuntimeGroupEntities(state, preset);
 		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
-		bool townPolicePatrolChanged = UpdateTownPolicePatrols(state, preset);
 		bool routeChanged = UpdateActiveGroupRoutes(state, forceRouteUpdate);
 		bool combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
-		return missionCleanupChanged || runtimeEntityChanged || survivorChanged || townPolicePatrolChanged || routeChanged || combatProbeChanged;
+		return missionCleanupChanged || runtimeEntityChanged || survivorChanged || routeChanged || combatProbeChanged;
 	}
 
 	bool RecallActiveSupportGroup(HST_CampaignState state, string groupId, vector exitPosition)
@@ -7224,272 +7220,6 @@ class HST_PhysicalWarService
 		return activeGroup && activeGroup.m_iAssignedWaypointCount > 1 && activeGroup.m_sSpawnFallbackMode.Contains("infantry_waypoints");
 	}
 
-	protected bool UpdateTownPolicePatrols(HST_CampaignState state, HST_CampaignPreset preset)
-	{
-		if (!state)
-			return false;
-
-		bool changed;
-		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
-		{
-			if (!ShouldAssignTownPolicePatrol(state, preset, activeGroup))
-				continue;
-
-			string reason;
-			if (AssignTownPolicePatrolWaypoints(state, activeGroup, reason) > 1)
-			{
-				activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "town_police_patrol");
-				activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "patrol_cycle");
-				activeGroup.m_sSpawnFailureReason = reason;
-				changed = true;
-			}
-			else if (!reason.IsEmpty())
-			{
-				AppendActiveGroupSpawnFailureNote(activeGroup, reason);
-				changed = true;
-			}
-		}
-
-		return changed;
-	}
-
-	protected bool ShouldAssignTownPolicePatrol(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup)
-	{
-		if (!IsTownPoliceActiveGroup(state, preset, activeGroup))
-			return false;
-		if (!activeGroup.m_bSpawnedEntity || activeGroup.m_iInfantryCount <= 0)
-			return false;
-		if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
-			return false;
-		if (IsTownPolicePatrolAssigned(activeGroup))
-			return false;
-		if (CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId) <= 0)
-			return false;
-
-		return true;
-	}
-
-	protected bool IsTownPoliceActiveGroup(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup)
-	{
-		if (!state || !activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup) || IsSupportRequestActiveGroup(activeGroup))
-			return false;
-		if (activeGroup.m_iInfantryCount <= 0 || activeGroup.m_iVehicleCount > 0)
-			return false;
-
-		HST_ZoneState zone = state.FindZone(activeGroup.m_sZoneId);
-		if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
-			return false;
-		if (!HST_FactionRelationService.IsEnemyFaction(preset, activeGroup.m_sFactionKey))
-			return false;
-
-		string prefab = activeGroup.m_sPrefab;
-		prefab.ToLower();
-		return prefab.Contains("townpolice") || prefab.Contains("town_police");
-	}
-
-	protected bool IsTownPolicePatrolAssigned(HST_ActiveGroupState activeGroup)
-	{
-		return activeGroup && activeGroup.m_iAssignedWaypointCount > 1 && activeGroup.m_sSpawnFallbackMode.Contains("town_police_patrol") && activeGroup.m_sSpawnFallbackMode.Contains("patrol_cycle");
-	}
-
-	protected int AssignTownPolicePatrolWaypoints(HST_CampaignState state, HST_ActiveGroupState activeGroup, out string reason)
-	{
-		reason = "";
-		if (!state || !activeGroup)
-			return 0;
-
-		AIGroup group = AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId));
-		if (!group)
-		{
-			reason = "Town police patrol pending: runtime AI group missing.";
-			return 0;
-		}
-
-		ResourceName waypointResource = ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB;
-		Resource loaded = Resource.Load(waypointResource);
-		if (!loaded || !loaded.IsValid())
-		{
-			reason = "Town police patrol unavailable: patrol waypoint prefab missing.";
-			return 0;
-		}
-
-		ResourceName cycleResource = TOWN_POLICE_PATROL_CYCLE_WAYPOINT_PREFAB;
-		Resource cycleLoaded = Resource.Load(cycleResource);
-		if (!cycleLoaded || !cycleLoaded.IsValid())
-		{
-			reason = "Town police patrol unavailable: cycle waypoint prefab missing.";
-			return 0;
-		}
-
-		ref array<vector> patrolPositions = BuildTownPolicePatrolPositions(state, activeGroup);
-		if (!patrolPositions || patrolPositions.Count() < 2)
-		{
-			reason = "Town police patrol unavailable: no patrol positions.";
-			return 0;
-		}
-
-		DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);
-
-		array<IEntity> spawnedEntities = {};
-		array<AIWaypoint> waypoints = {};
-		for (int i = 0; i < patrolPositions.Count(); i++)
-		{
-			vector waypointPosition = HST_WorldPositionService.ResolveSafeGroundPosition(patrolPositions[i], HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 6.0);
-			GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
-			AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
-			if (!waypoint)
-			{
-				if (waypointEntity)
-					SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
-				DeleteTownPolicePatrolSpawnedEntities(spawnedEntities);
-				reason = "Town police patrol failed while creating patrol waypoint.";
-				return 0;
-			}
-
-			ApplyCampaignDebugEntityName(waypointEntity, string.Format("town_police_patrol_%1", i + 1), activeGroup.m_sGroupId);
-			waypoint.SetCompletionRadius(TOWN_POLICE_PATROL_WAYPOINT_RADIUS_METERS);
-			waypoints.Insert(waypoint);
-			spawnedEntities.Insert(waypointEntity);
-		}
-
-		GenericEntity cycleEntity = HST_WorldPositionService.SpawnPrefab(TOWN_POLICE_PATROL_CYCLE_WAYPOINT_PREFAB, patrolPositions[0], "0 0 0");
-		AIWaypointCycle waypointCycle = AIWaypointCycle.Cast(cycleEntity);
-		if (!waypointCycle)
-		{
-			if (cycleEntity)
-				SCR_EntityHelper.DeleteEntityAndChildren(cycleEntity);
-			DeleteTownPolicePatrolSpawnedEntities(spawnedEntities);
-			reason = "Town police patrol failed while creating cycle waypoint.";
-			return 0;
-		}
-
-		ApplyCampaignDebugEntityName(cycleEntity, "town_police_patrol_cycle", activeGroup.m_sGroupId);
-		waypointCycle.SetWaypoints(waypoints);
-		foreach (IEntity spawnedEntity : spawnedEntities)
-		{
-			m_aRuntimeGroupWaypointIds.Insert(activeGroup.m_sGroupId);
-			m_aRuntimeGroupWaypointEntities.Insert(spawnedEntity);
-		}
-		m_aRuntimeGroupWaypointIds.Insert(activeGroup.m_sGroupId);
-		m_aRuntimeGroupWaypointEntities.Insert(cycleEntity);
-		group.AddWaypoint(waypointCycle);
-		group.ActivateAllMembers();
-		activeGroup.m_iAssignedWaypointCount = waypoints.Count();
-		reason = string.Format("Assigned town police patrol cycle waypoints %1.", waypoints.Count());
-		return waypoints.Count();
-	}
-
-	protected void DeleteTownPolicePatrolSpawnedEntities(array<IEntity> spawnedEntities)
-	{
-		if (!spawnedEntities)
-			return;
-
-		foreach (IEntity spawnedEntity : spawnedEntities)
-		{
-			if (spawnedEntity)
-				SCR_EntityHelper.DeleteEntityAndChildren(spawnedEntity);
-		}
-	}
-
-	protected ref array<vector> BuildTownPolicePatrolPositions(HST_CampaignState state, HST_ActiveGroupState activeGroup)
-	{
-		ref array<vector> positions = {};
-		if (!state || !activeGroup)
-			return positions;
-
-		HST_ZoneState zone = state.FindZone(activeGroup.m_sZoneId);
-		if (!zone)
-			return positions;
-
-		HST_GeneratedRouteState route = ResolveTownPolicePatrolRoute(state, zone, activeGroup);
-		if (route)
-		{
-			AppendTownPolicePatrolPosition(positions, activeGroup.m_vPosition);
-			int lastIndex = -1000000;
-			while (true)
-			{
-				HST_RouteWaypointState selectedWaypoint;
-				int selectedIndex = 1000000;
-				foreach (HST_RouteWaypointState waypoint : route.m_aWaypoints)
-				{
-					if (!waypoint)
-						continue;
-					if (waypoint.m_iIndex <= lastIndex)
-						continue;
-					if (waypoint.m_iIndex >= selectedIndex)
-						continue;
-
-					selectedWaypoint = waypoint;
-					selectedIndex = waypoint.m_iIndex;
-				}
-
-				if (!selectedWaypoint)
-					break;
-
-				AppendTownPolicePatrolPosition(positions, selectedWaypoint.m_vPosition);
-				lastIndex = selectedWaypoint.m_iIndex;
-			}
-		}
-
-		if (positions.Count() >= 3)
-			return positions;
-
-		positions.Clear();
-		BuildFallbackTownPolicePatrolPositions(zone, activeGroup, positions);
-		return positions;
-	}
-
-	protected HST_GeneratedRouteState ResolveTownPolicePatrolRoute(HST_CampaignState state, HST_ZoneState zone, HST_ActiveGroupState activeGroup)
-	{
-		if (!state || !zone || !activeGroup)
-			return null;
-
-		if (!activeGroup.m_sRouteId.IsEmpty())
-		{
-			HST_GeneratedRouteState activeRoute = state.FindGeneratedRoute(activeGroup.m_sRouteId);
-			if (activeRoute && activeRoute.m_aWaypoints.Count() >= 2)
-				return activeRoute;
-		}
-
-		if (!zone.m_sPatrolRouteId.IsEmpty())
-		{
-			HST_GeneratedRouteState patrolRoute = state.FindGeneratedRoute(zone.m_sPatrolRouteId);
-			if (patrolRoute && patrolRoute.m_aWaypoints.Count() >= 2)
-				return patrolRoute;
-		}
-
-		return null;
-	}
-
-	protected void BuildFallbackTownPolicePatrolPositions(HST_ZoneState zone, HST_ActiveGroupState activeGroup, array<vector> positions)
-	{
-		if (!zone || !activeGroup || !positions)
-			return;
-
-		int seed = zone.m_sZoneId.Length() * 37 + activeGroup.m_sGroupId.Length() * 13 + Math.Round(activeGroup.m_vPosition[0]) + Math.Round(activeGroup.m_vPosition[2]);
-		for (int i = 0; i < 4; i++)
-		{
-			float angle = (seed + i * 89) * 0.0174533;
-			float radius = TOWN_POLICE_PATROL_FALLBACK_RADIUS_METERS + (i % 2) * 20.0;
-			vector offset = "0 0 0";
-			offset[0] = Math.Sin(angle) * radius;
-			offset[2] = Math.Cos(angle) * radius;
-			AppendTownPolicePatrolPosition(positions, zone.m_vPosition + offset);
-		}
-	}
-
-	protected void AppendTownPolicePatrolPosition(array<vector> positions, vector position)
-	{
-		if (!positions || IsZeroVector(position))
-			return;
-
-		vector resolved = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 6.0);
-		if (positions.Count() > 0 && DistanceSq2D(positions[positions.Count() - 1], resolved) < 25.0)
-			return;
-
-		positions.Insert(resolved);
-	}
-
 	protected bool ApplyResponseGroupMovementSpeed(HST_ActiveGroupState activeGroup, AIGroup group)
 	{
 		if (!ShouldUseResponseMovementSpeed(activeGroup))
@@ -7765,8 +7495,6 @@ class HST_PhysicalWarService
 			activeGroup.m_sGarrisonZoneId = zone.m_sZoneId;
 		activeGroup.m_sPrefab = SelectGroupPrefab(state, zone, factionKey, qrf, preset, infantryCount);
 		activeGroup.m_sRouteId = ResolveGroupRouteId(zone, qrf);
-		if (!qrf && zone && zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && infantryCount > 0 && HST_FactionRelationService.IsEnemyFaction(preset, factionKey) && !zone.m_sPatrolRouteId.IsEmpty())
-			activeGroup.m_sRouteId = ResolveTownPoliceGroupRouteId(zone, activeGroup.m_sRouteId);
 		activeGroup.m_vSourcePosition = ResolveGroupSourcePosition(state, zone, activeGroup.m_sRouteId, qrf);
 		activeGroup.m_vTargetPosition = ResolveGroupTargetPosition(state, zone, activeGroup.m_sRouteId, qrf);
 		activeGroup.m_vPosition = HST_WorldPositionService.ResolveSafeGroundPosition(activeGroup.m_vSourcePosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
@@ -8674,8 +8402,6 @@ class HST_PhysicalWarService
 		if (!activeGroup || !state)
 			return false;
 
-		if (requestedStatus.IsEmpty() || requestedStatus == "spawn_pending_agents")
-			requestedStatus = ResolvePendingActiveGroupRequestedStatus(activeGroup, "guard_center");
 		string beforeStatus = activeGroup.m_sRuntimeStatus;
 		string beforeMode = activeGroup.m_sSpawnFallbackMode;
 		int beforeWaypoints = activeGroup.m_iAssignedWaypointCount;
@@ -8735,70 +8461,6 @@ class HST_PhysicalWarService
 			ReportBool(assignedFinalSweepWaypoint),
 			ReportText(populationEvidence));
 		return routeAssigned;
-	}
-
-	bool CampaignDebugResolveTownPolicePatrolAssignment(HST_ActiveGroupState activeGroup, HST_CampaignState state, HST_CampaignPreset preset, string requestedStatus, out string evidence)
-	{
-		evidence = "missing group or state";
-		if (!activeGroup || !state)
-			return false;
-
-		string beforeStatus = activeGroup.m_sRuntimeStatus;
-		string beforeMode = activeGroup.m_sSpawnFallbackMode;
-		int beforeWaypoints = activeGroup.m_iAssignedWaypointCount;
-		string populationEvidence = "not pending";
-		bool populationResolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents";
-		bool directFallbackResolved;
-		bool updateChanged;
-		bool manualPatrolAssigned;
-		int manualAssignedWaypoints;
-		string manualReason;
-
-		if (!populationResolved)
-		{
-			populationResolved = CampaignDebugResolvePendingActiveGroupPopulation(activeGroup, state, requestedStatus, populationEvidence);
-			if (!populationResolved && activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
-			{
-				directFallbackResolved = TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "campaign debug town police patrol", true);
-				populationResolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents" && CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId) > 0;
-			}
-		}
-
-		if (populationResolved)
-		{
-			updateChanged = UpdateTownPolicePatrols(state, preset);
-			if (!IsTownPolicePatrolAssigned(activeGroup) && ShouldAssignTownPolicePatrol(state, preset, activeGroup))
-			{
-				manualAssignedWaypoints = AssignTownPolicePatrolWaypoints(state, activeGroup, manualReason);
-				if (manualAssignedWaypoints > 1)
-				{
-					activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "town_police_patrol");
-					activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "patrol_cycle");
-					activeGroup.m_sSpawnFailureReason = manualReason;
-					manualPatrolAssigned = true;
-					updateChanged = true;
-				}
-			}
-		}
-
-		bool patrolAssigned = IsTownPolicePatrolAssigned(activeGroup);
-		evidence = string.Format("status %1 -> %2 | mode %3 -> %4 | waypoints %5 -> %6",
-			ReportText(beforeStatus),
-			ReportText(activeGroup.m_sRuntimeStatus),
-			ReportText(beforeMode),
-			ReportText(activeGroup.m_sSpawnFallbackMode),
-			beforeWaypoints,
-			activeGroup.m_iAssignedWaypointCount);
-		evidence = evidence + string.Format(" | population %1 | directFallback %2 | patrolUpdate %3",
-			ReportBool(populationResolved),
-			ReportBool(directFallbackResolved),
-			ReportBool(updateChanged));
-		evidence = evidence + string.Format(" | manualPatrol %1/%2 | reason %3 | %4",
-			ReportBool(manualPatrolAssigned),
-			manualAssignedWaypoints,
-			ReportText(manualReason),
-			ReportText(populationEvidence));
-		return patrolAssigned;
 	}
 
 	bool CampaignDebugIsActiveGroupResponseRunMovement(HST_ActiveGroupState activeGroup, out string actual)
@@ -11053,7 +10715,7 @@ class HST_PhysicalWarService
 			if (!activeGroup)
 				continue;
 
-			NormalizeStaticActiveGroupRoute(state, preset, activeGroup);
+			NormalizeStaticActiveGroupRoute(activeGroup);
 
 			if (IsMissionConvoyGroup(activeGroup))
 			{
@@ -11185,13 +10847,11 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
-	protected void NormalizeStaticActiveGroupRoute(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup)
+	protected void NormalizeStaticActiveGroupRoute(HST_ActiveGroupState activeGroup)
 	{
 		if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
 			return;
 		if (IsSupportRequestActiveGroup(activeGroup))
-			return;
-		if (IsTownPoliceActiveGroup(state, preset, activeGroup))
 			return;
 		if (activeGroup.m_sRuntimeStatus == "routing" || activeGroup.m_sRuntimeStatus == "support_active" || activeGroup.m_sRuntimeStatus == "support_recalling")
 			return;
@@ -11709,14 +11369,6 @@ class HST_PhysicalWarService
 			return zone.m_sQRFRouteId;
 
 		return "";
-	}
-
-	protected string ResolveTownPoliceGroupRouteId(HST_ZoneState zone, string fallbackRouteId)
-	{
-		if (zone && !zone.m_sPatrolRouteId.IsEmpty())
-			return zone.m_sPatrolRouteId;
-
-		return fallbackRouteId;
 	}
 
 	protected vector ResolveGroupSourcePosition(HST_CampaignState state, HST_ZoneState zone, string routeId, bool qrf)
