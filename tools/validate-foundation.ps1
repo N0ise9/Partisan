@@ -3307,6 +3307,27 @@ foreach ($requiredStrategicEventMissionExpiryEntry in @(
 }
 Write-Host "Strategic event mission-expiry proof OK"
 
+foreach ($requiredStrategicEventConvoyOutcomeEntry in @(
+		"BeginConvoyOutcomeEvent",
+		"BeginConvoyStrategicEvent",
+		"CompleteConvoyStrategicEvent",
+		"ResolveConvoyOutcomeTargetZoneId",
+		'"convoy_cargo_delivered"',
+		'"convoy_vehicle_captured"',
+		'"convoy_arrived"',
+		'"convoy_crew_eliminated"',
+		'"convoy_expired"',
+		"BuildCampaignDebugConvoyOutcomeStrategicEventCase",
+		"convoy_outcome.strategic_event.contract.runtime",
+		"convoy_outcome.strategic_event",
+		"convoy_outcome.save_roundtrip"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredStrategicEventConvoyOutcomeEntry)) {
+		throw "Strategic event convoy-outcome proof is missing: $requiredStrategicEventConvoyOutcomeEntry"
+	}
+}
+Write-Host "Strategic event convoy-outcome proof OK"
+
 foreach ($requiredCampaignDebugBuildEntry in @(
 		"HST_BuildInfo",
 		"BUILD_SHA",

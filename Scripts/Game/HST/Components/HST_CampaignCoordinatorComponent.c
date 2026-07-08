@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r96-mission-expiry-strategic-event";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r97-convoy-outcome-strategic-event";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -6200,6 +6200,160 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return missionCase;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugConvoyOutcomeStrategicEventCase()
+	{
+		HST_CampaignDebugCaseResult convoyCase = CreateCampaignDebugCase("convoy_outcome.strategic_event.contract.runtime", "missions", "convoy_outcome", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_Missions != null && m_ConvoyOutcomes != null && m_Economy != null && m_Towns != null && m_Strategic != null;
+		AddCampaignDebugAssertion(convoyCase, "convoy_outcome.prerequisite", "state, preset, mission, convoy, economy, town, and strategic services ready", string.Format("state %1 | preset %2 | missions %3 | convoys %4 | economy %5 | towns %6 | strategic %7", m_State != null, m_Preset != null, m_Missions != null, m_ConvoyOutcomes != null, m_Economy != null, m_Towns != null, m_Strategic != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "convoy outcome prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(convoyCase);
+			return convoyCase;
+		}
+
+		HST_CampaignSaveData proofSaveData = new HST_CampaignSaveData();
+		proofSaveData.Capture(m_State);
+		HST_CampaignState proofState = new HST_CampaignState();
+		proofSaveData.ApplyTo(proofState);
+
+		HST_MissionDefinition definition = m_Missions.FindDefinition("convoy_prisoners");
+		string targetZoneId = SelectHQCivilianTownZoneId();
+		HST_ZoneState targetZone = proofState.FindZone(targetZoneId);
+		bool targetReady = definition != null && targetZone != null && targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && !m_Preset.m_sResistanceFactionKey.IsEmpty();
+		AddCampaignDebugAssertion(convoyCase, "convoy_outcome.target", "prisoner convoy mission and town support target available in isolated proof state", BuildCampaignDebugMissionCompletionTargetActual(definition, targetZone), CampaignDebugStatus(targetReady, "BLOCKED"), "convoy outcome target definition or town missing", "", "", targetZoneId);
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(convoyCase);
+			return convoyCase;
+		}
+
+		string instanceId = ResolveCampaignDebugCleanupPrefix() + "_convoy_outcome_prisoner";
+		string assetId = instanceId + "_convoy_captive";
+		RemoveCampaignDebugMissionRecordFromState(proofState, instanceId);
+		RemoveCampaignDebugMissionAssetsFromState(proofState, instanceId);
+		RemoveCampaignDebugStrategicEventsForMissionFromState(proofState, instanceId);
+		int activeMissionCountBefore = proofState.m_aActiveMissions.Count();
+		int missionAssetCountBefore = proofState.m_aMissionAssets.Count();
+		int strategicEventCountBefore = proofState.m_aStrategicEvents.Count();
+		int moneyBefore = proofState.m_iFactionMoney;
+		int hrBefore = proofState.m_iHR;
+		string ownerBefore = targetZone.m_sOwnerFactionKey;
+		int supportBefore = targetZone.m_iSupport;
+		int proofSupportBefore = 40;
+		targetZone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
+		targetZone.m_iSupport = proofSupportBefore;
+
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = instanceId;
+		mission.m_sMissionId = definition.m_sMissionId;
+		mission.m_sDisplayName = definition.m_sDisplayName;
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
+		mission.m_iRemainingSeconds = definition.m_iDurationSeconds;
+		mission.m_sTargetZoneId = targetZone.m_sZoneId;
+		mission.m_vTargetPosition = targetZone.m_vPosition;
+		mission.m_sMarkerId = "hst_mission_" + instanceId;
+		mission.m_sRuntimeType = definition.m_sRuntimeType;
+		mission.m_sRuntimePrimitive = "convoy_intercept";
+		mission.m_sRuntimePhase = "convoy_eliminated";
+		mission.m_iStartedAtSecond = proofState.m_iElapsedSeconds;
+		mission.m_iActiveUntilSecond = proofState.m_iElapsedSeconds + definition.m_iDurationSeconds;
+		mission.m_iRequiredCaptiveCount = 1;
+		mission.m_bRequested = true;
+		mission.m_bDynamic = true;
+		proofState.m_aActiveMissions.Insert(mission);
+
+		HST_MissionAssetState asset = new HST_MissionAssetState();
+		asset.m_sAssetId = assetId;
+		asset.m_sMissionInstanceId = instanceId;
+		asset.m_sKind = "captive";
+		asset.m_sRole = "convoy_captive";
+		asset.m_sPrefab = "campaign_debug_convoy_captive";
+		asset.m_bPickedUp = true;
+		asset.m_bDelivered = true;
+		asset.m_bAlive = true;
+		asset.m_vSourcePosition = targetZone.m_vPosition;
+		asset.m_vTargetPosition = targetZone.m_vPosition;
+		asset.m_vCurrentPosition = targetZone.m_vPosition;
+		asset.m_vLastKnownPosition = targetZone.m_vPosition;
+		proofState.m_aMissionAssets.Insert(asset);
+
+		AddCampaignDebugMetric(convoyCase, "convoy_outcome.active_before", string.Format("%1", activeMissionCountBefore), "count");
+		AddCampaignDebugMetric(convoyCase, "convoy_outcome.assets_before", string.Format("%1", missionAssetCountBefore), "count");
+		AddCampaignDebugMetric(convoyCase, "convoy_outcome.support_before", string.Format("%1", proofSupportBefore), "support");
+		AddCampaignDebugAssertion(convoyCase, "convoy_outcome.seed", "debug prisoner convoy mission and delivered captive asset are inserted before outcome tick", BuildCampaignDebugPrimitiveMissionActual(mission) + " | asset [" + BuildCampaignDebugMissionAssetActual(asset) + "]", CampaignDebugStatus(proofState.FindActiveMission(instanceId) != null && proofState.FindMissionAsset(assetId) != null && asset.m_bDelivered && asset.m_sRole == "convoy_captive"), "convoy outcome fixture was not seeded", assetId, instanceId, targetZone.m_sZoneId);
+
+		bool outcomeChanged = m_ConvoyOutcomes.TickConvoyOutcomes(proofState, m_Preset, m_Balance, m_Economy, m_Arsenal, m_Garrisons, m_Towns, m_Strategic);
+		HST_ActiveMissionState outcomeMission = proofState.FindActiveMission(instanceId);
+		HST_MissionAssetState outcomeAsset = proofState.FindMissionAsset(assetId);
+		HST_StrategicEventState strategicEvent = FindCampaignDebugStrategicEventForMissionInState(proofState, instanceId, "convoy_cargo_delivered");
+		int moneyAfter = proofState.m_iFactionMoney;
+		int hrAfter = proofState.m_iHR;
+		int supportAfter = targetZone.m_iSupport;
+		int expectedHRReward = 5;
+		int expectedSupportReward = 10;
+		int expectedHRAfter = hrBefore + expectedHRReward;
+		int expectedSupportAfter = Math.Min(100, proofSupportBefore + expectedSupportReward);
+		string rewardActual = string.Format("money %1 -> %2 | HR %3 -> %4 expected %5 | support %6 -> %7 expected %8", moneyBefore, moneyAfter, hrBefore, hrAfter, expectedHRAfter, proofSupportBefore, supportAfter, expectedSupportAfter);
+		AddCampaignDebugAssertion(convoyCase, "convoy_outcome.command_result", "convoy outcome service applies prisoner extraction from a delivered captive asset", BuildCampaignDebugPrimitiveMissionActual(outcomeMission) + " | asset [" + BuildCampaignDebugMissionAssetActual(outcomeAsset) + "]", CampaignDebugStatus(outcomeChanged && outcomeMission && outcomeAsset && outcomeMission.m_bConvoyCargoDeliveredOutcomeApplied && outcomeAsset.m_bOutcomeApplied && outcomeAsset.m_sOutcomeKind == "prisoners_extracted"), "convoy outcome service did not apply the prisoner extraction branch", assetId, instanceId, targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(convoyCase, "convoy_outcome.rewards", "prisoner convoy delivery applies HR and town-support rewards without money payout", rewardActual, CampaignDebugStatus(moneyAfter == moneyBefore && hrAfter == expectedHRAfter && supportAfter == expectedSupportAfter), "convoy prisoner delivery rewards did not match the configured outcome", assetId, instanceId, targetZone.m_sZoneId);
+		bool strategicEventExpected = strategicEvent
+			&& proofState.m_aStrategicEvents.Count() == strategicEventCountBefore + 1
+			&& strategicEvent.m_bApplied
+			&& strategicEvent.m_sKind == "convoy_cargo_delivered"
+			&& strategicEvent.m_sSourceType == "convoy_outcome"
+			&& strategicEvent.m_sSourceId == assetId
+			&& strategicEvent.m_iFactionMoneyDelta == 0
+			&& strategicEvent.m_iHRDelta == expectedHRReward
+			&& strategicEvent.m_iTownSupportDelta == expectedSupportReward
+			&& strategicEvent.m_sTargetZoneId == targetZone.m_sZoneId
+			&& strategicEvent.m_sTargetFactionKey == m_Preset.m_sResistanceFactionKey;
+		AddCampaignDebugAssertion(convoyCase, "convoy_outcome.strategic_event", "convoy cargo delivery records one applied strategic event with HR and support deltas", BuildCampaignDebugStrategicEventActual(strategicEvent), CampaignDebugStatus(strategicEventExpected), "convoy outcome did not record the expected strategic event", assetId, instanceId, targetZone.m_sZoneId);
+
+		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
+		roundTripSaveData.Capture(proofState);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		roundTripSaveData.ApplyTo(restoredState);
+		HST_ActiveMissionState restoredMission = restoredState.FindActiveMission(instanceId);
+		HST_MissionAssetState restoredAsset = restoredState.FindMissionAsset(assetId);
+		HST_ZoneState restoredZone = restoredState.FindZone(targetZone.m_sZoneId);
+		HST_StrategicEventState restoredStrategicEvent;
+		if (strategicEvent)
+			restoredStrategicEvent = restoredState.FindStrategicEvent(strategicEvent.m_sEventId);
+		bool roundTripExpected = restoredMission && restoredAsset && restoredZone && restoredStrategicEvent
+			&& restoredMission.m_bConvoyCargoDeliveredOutcomeApplied
+			&& restoredAsset.m_bOutcomeApplied
+			&& restoredAsset.m_sOutcomeKind == "prisoners_extracted"
+			&& restoredState.m_iFactionMoney == moneyAfter
+			&& restoredState.m_iHR == hrAfter
+			&& restoredZone.m_iSupport == supportAfter
+			&& restoredStrategicEvent.m_iHRDelta == strategicEvent.m_iHRDelta
+			&& restoredStrategicEvent.m_iTownSupportDelta == strategicEvent.m_iTownSupportDelta;
+		AddCampaignDebugAssertion(convoyCase, "convoy_outcome.save_roundtrip", "save-data roundtrip preserves convoy outcome flags, rewards, support, and strategic event", BuildCampaignDebugMissionCompletionRoundTripActual(restoredState, restoredMission, restoredZone) + " | asset [" + BuildCampaignDebugMissionAssetActual(restoredAsset) + "] | event [" + BuildCampaignDebugStrategicEventActual(restoredStrategicEvent) + "]", CampaignDebugStatus(roundTripExpected), "convoy outcome event state did not survive save-data copy", assetId, instanceId, targetZone.m_sZoneId);
+
+		RemoveCampaignDebugMissionRecordFromState(proofState, instanceId);
+		RemoveCampaignDebugMissionAssetsFromState(proofState, instanceId);
+		RemoveCampaignDebugStrategicEventsForMissionFromState(proofState, instanceId);
+		proofState.m_iFactionMoney = moneyBefore;
+		proofState.m_iHR = hrBefore;
+		targetZone.m_sOwnerFactionKey = ownerBefore;
+		targetZone.m_iSupport = supportBefore;
+		bool cleanupExpected = proofState.FindActiveMission(instanceId) == null
+			&& proofState.FindMissionAsset(assetId) == null
+			&& proofState.m_aActiveMissions.Count() == activeMissionCountBefore
+			&& proofState.m_aMissionAssets.Count() == missionAssetCountBefore
+			&& proofState.m_aStrategicEvents.Count() == strategicEventCountBefore
+			&& proofState.m_iFactionMoney == moneyBefore
+			&& proofState.m_iHR == hrBefore
+			&& targetZone.m_sOwnerFactionKey == ownerBefore
+			&& targetZone.m_iSupport == supportBefore;
+		string cleanupActual = string.Format("missions %1 -> %2 | assets %3 -> %4 | events %5 -> %6", activeMissionCountBefore, proofState.m_aActiveMissions.Count(), missionAssetCountBefore, proofState.m_aMissionAssets.Count(), strategicEventCountBefore, proofState.m_aStrategicEvents.Count());
+		cleanupActual = cleanupActual + string.Format(" | money %1 -> %2 | HR %3 -> %4 | zone [%5]", moneyBefore, proofState.m_iFactionMoney, hrBefore, proofState.m_iHR, BuildCampaignDebugMissionCompletionZoneActual(targetZone));
+		AddCampaignDebugAssertion(convoyCase, "convoy_outcome.cleanup", "isolated proof state removes convoy fixture rows and restores mutated totals/support", cleanupActual, CampaignDebugStatus(cleanupExpected), "convoy outcome debug cleanup did not restore proof state", assetId, instanceId, targetZone.m_sZoneId);
+
+		FinalizeCampaignDebugCaseFromAssertions(convoyCase);
+		return convoyCase;
+	}
+
 	protected string BuildCampaignDebugMissionCompletionTargetActual(HST_MissionDefinition definition, HST_ZoneState targetZone)
 	{
 		string definitionActual = BuildCampaignDebugMissionDefinitionActual(definition);
@@ -6255,25 +6409,61 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void RemoveCampaignDebugMissionRecord(string instanceId)
 	{
-		if (!m_State || instanceId.IsEmpty())
+		RemoveCampaignDebugMissionRecordFromState(m_State, instanceId);
+	}
+
+	protected void RemoveCampaignDebugMissionRecordFromState(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
 			return;
 
-		for (int missionIndex = m_State.m_aActiveMissions.Count() - 1; missionIndex >= 0; missionIndex--)
+		for (int missionIndex = state.m_aActiveMissions.Count() - 1; missionIndex >= 0; missionIndex--)
 		{
-			HST_ActiveMissionState mission = m_State.m_aActiveMissions[missionIndex];
+			HST_ActiveMissionState mission = state.m_aActiveMissions[missionIndex];
 			if (mission && mission.m_sInstanceId == instanceId)
-				m_State.m_aActiveMissions.Remove(missionIndex);
+				state.m_aActiveMissions.Remove(missionIndex);
+		}
+	}
+
+	protected void RemoveCampaignDebugMissionAssetsFromState(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return;
+
+		for (int assetIndex = state.m_aMissionAssets.Count() - 1; assetIndex >= 0; assetIndex--)
+		{
+			HST_MissionAssetState asset = state.m_aMissionAssets[assetIndex];
+			if (asset && asset.m_sMissionInstanceId == instanceId)
+				state.m_aMissionAssets.Remove(assetIndex);
+		}
+	}
+
+	protected void RemoveCampaignDebugStrategicEventsForMissionFromState(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return;
+
+		for (int eventIndex = state.m_aStrategicEvents.Count() - 1; eventIndex >= 0; eventIndex--)
+		{
+			HST_StrategicEventState eventState = state.m_aStrategicEvents[eventIndex];
+			if (eventState && eventState.m_sMissionInstanceId == instanceId)
+				state.m_aStrategicEvents.Remove(eventIndex);
 		}
 	}
 
 	protected HST_StrategicEventState FindCampaignDebugStrategicEventForMission(string instanceId, string kind)
 	{
-		if (!m_State || instanceId.IsEmpty())
+		return FindCampaignDebugStrategicEventForMissionInState(m_State, instanceId, kind);
+	}
+
+	protected HST_StrategicEventState FindCampaignDebugStrategicEventForMissionInState(HST_CampaignState state, string instanceId, string kind)
+	{
+		if (!state || instanceId.IsEmpty())
 			return null;
 
-		for (int i = m_State.m_aStrategicEvents.Count() - 1; i >= 0; i--)
+		for (int i = state.m_aStrategicEvents.Count() - 1; i >= 0; i--)
 		{
-			HST_StrategicEventState eventState = m_State.m_aStrategicEvents[i];
+			HST_StrategicEventState eventState = state.m_aStrategicEvents[i];
 			if (!eventState || eventState.m_sMissionInstanceId != instanceId)
 				continue;
 			if (!kind.IsEmpty() && eventState.m_sKind != kind)
@@ -7108,6 +7298,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCompletionRewardCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionFailurePenaltyCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionExpiryPenaltyCase());
+		RecordCampaignDebugCase(BuildCampaignDebugConvoyOutcomeStrategicEventCase());
 		if (m_Strategic)
 			RecordCampaignDebugObservation("strategic events", m_Strategic.BuildStrategicEventReport(m_State));
 		if (m_Civilians)

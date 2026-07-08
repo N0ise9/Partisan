@@ -279,6 +279,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
     counterattack evaluation, and linked town support. Full Campaign Debug
     Phase 17 should assert the `zone_captured` row and save-data roundtrip, not
     just the final owner field.
+  - Convoy outcome branches should bracket their existing reward/penalty code
+    with `HST_StrategicService.BeginConvoyOutcomeEvent()` and
+    `CompleteStrategicEvent()`. Use the mission instance as the event's mission
+    identity, the convoy asset id as the source id when an asset caused the
+    outcome, and the actual support town as the target zone when town support
+    changes. Full Campaign Debug should keep an isolated convoy delivery proof
+    that asserts the asset flag, HR/support deltas, strategic-event row, save
+    roundtrip, and cleanup.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.

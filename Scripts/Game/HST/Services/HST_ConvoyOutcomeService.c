@@ -32,9 +32,9 @@ class HST_ConvoyOutcomeService
 
 			string result;
 			if (ShouldApplyConvoyArrivalOutcome(mission))
-				changed = OnConvoyArrived(state, preset, balance, mission, garrisons, towns, result) || changed;
+				changed = OnConvoyArrived(state, preset, balance, mission, garrisons, towns, strategic, result) || changed;
 			if (ShouldApplyConvoyCrewEliminatedOutcome(state, mission))
-				changed = OnConvoyCrewEliminated(state, preset, balance, mission, economy, result) || changed;
+				changed = OnConvoyCrewEliminated(state, preset, balance, mission, economy, strategic, result) || changed;
 
 			foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 			{
@@ -43,43 +43,52 @@ class HST_ConvoyOutcomeService
 
 				if (asset.m_sRole == ROLE_CONVOY_VEHICLE && IsAssetCaptured(asset))
 				{
-					changed = OnConvoyVehicleCaptured(state, preset, balance, mission, asset, arsenal, result) || changed;
+					changed = OnConvoyVehicleCaptured(state, preset, balance, mission, asset, arsenal, strategic, result) || changed;
 					continue;
 				}
 
 				if ((asset.m_sRole == ROLE_CONVOY_PAYLOAD || asset.m_sRole == ROLE_CONVOY_CAPTIVE) && asset.m_bDelivered)
-					changed = OnConvoyCargoDelivered(state, preset, balance, mission, asset, economy, towns, result) || changed;
+					changed = OnConvoyCargoDelivered(state, preset, balance, mission, asset, economy, towns, strategic, result) || changed;
 			}
 
 			if (ShouldApplyConvoyExpiredOutcome(mission))
-				changed = OnConvoyMissionExpired(state, preset, balance, mission, garrisons, towns, result) || changed;
+				changed = OnConvoyMissionExpired(state, preset, balance, mission, garrisons, towns, strategic, result) || changed;
 		}
 
 		return changed;
 	}
 
-	bool OnConvoyArrived(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_GarrisonService garrisons, HST_TownService towns, out string result)
+	bool OnConvoyArrived(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_GarrisonService garrisons, HST_TownService towns, HST_StrategicService strategic, out string result)
 	{
 		result = "";
 		if (!state || !mission || mission.m_bConvoyArrivalOutcomeApplied)
 			return false;
 
+		string targetZoneId = ResolveConvoyOutcomeTargetZoneId(state, mission, "convoy_arrived");
+		HST_StrategicEventApplyResult strategicEvent = BeginConvoyStrategicEvent(state, preset, strategic, mission, "convoy_arrived", targetZoneId, mission.m_sInstanceId, ResolveConvoyArrivalTargetFactionKey(preset, mission));
+		bool applied;
 		if (IsReinforcementConvoy(mission))
-			return ApplyReinforcementArrival(state, preset, mission, garrisons, result);
-		if (IsSupplyConvoy(mission))
-			return ApplySupplyArrival(state, mission, towns, result);
+			applied = ApplyReinforcementArrival(state, preset, mission, garrisons, result);
+		else if (IsSupplyConvoy(mission))
+			applied = ApplySupplyArrival(state, mission, towns, result);
+		else
+		{
+			mission.m_bConvoyArrivalOutcomeApplied = true;
+			result = string.Format("%1 | arrived | no mission-specific arrival outcome", ConvoyLabel(mission));
+			SetMissionOutcomeSummary(mission, result);
+			applied = true;
+		}
 
-		mission.m_bConvoyArrivalOutcomeApplied = true;
-		result = string.Format("%1 | arrived | no mission-specific arrival outcome", ConvoyLabel(mission));
-		SetMissionOutcomeSummary(mission, result);
-		return true;
+		return CompleteConvoyStrategicEvent(state, strategic, strategicEvent, applied, result);
 	}
 
-	bool OnConvoyCrewEliminated(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_EconomyService economy, out string result)
+	bool OnConvoyCrewEliminated(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_EconomyService economy, HST_StrategicService strategic, out string result)
 	{
 		result = "";
 		if (!state || !mission || mission.m_bConvoyCrewEliminatedOutcomeApplied)
 			return false;
+
+		HST_StrategicEventApplyResult strategicEvent = BeginConvoyStrategicEvent(state, preset, strategic, mission, "convoy_crew_eliminated", mission.m_sTargetZoneId, mission.m_sInstanceId, ResolveResistanceFactionKey(preset));
 
 		mission.m_bConvoyCrewEliminatedOutcomeApplied = true;
 		if (IsMoneyConvoy(mission))
@@ -90,63 +99,143 @@ class HST_ConvoyOutcomeService
 			result = "reinforcement convoy | intercepted | target garrison not reinforced";
 		else if (IsSupplyConvoy(mission))
 			result = "supply convoy | intercepted | occupier support delivery prevented";
-		else
+		else if (result.IsEmpty())
 			result = string.Format("%1 | crew eliminated", ConvoyLabel(mission));
 
 		SetMissionOutcomeSummary(mission, result);
-		return true;
+		return CompleteConvoyStrategicEvent(state, strategic, strategicEvent, true, result);
 	}
 
-	bool OnConvoyVehicleCaptured(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_MissionAssetState vehicleAsset, HST_ArsenalService arsenal, out string result)
+	bool OnConvoyVehicleCaptured(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_MissionAssetState vehicleAsset, HST_ArsenalService arsenal, HST_StrategicService strategic, out string result)
 	{
 		result = "";
 		if (!state || !mission || !vehicleAsset || vehicleAsset.m_bOutcomeApplied)
 			return false;
 
-		if (IsAmmoConvoy(mission))
-			return ApplyAmmoVehicleCapture(state, mission, vehicleAsset, result);
-		if (IsArmoredConvoy(mission))
-			return ApplyArmoredVehicleCapture(mission, vehicleAsset, result);
+		HST_StrategicEventApplyResult strategicEvent = BeginConvoyStrategicEvent(state, preset, strategic, mission, "convoy_vehicle_captured", mission.m_sTargetZoneId, vehicleAsset.m_sAssetId, ResolveResistanceFactionKey(preset));
 
-		vehicleAsset.m_bOutcomeApplied = true;
-		vehicleAsset.m_sOutcomeKind = "convoy_vehicle_captured";
-		mission.m_bConvoyVehicleCapturedOutcomeApplied = true;
-		result = string.Format("%1 | vehicle captured", ConvoyLabel(mission));
-		SetMissionOutcomeSummary(mission, result);
-		return true;
+		bool applied;
+		if (IsAmmoConvoy(mission))
+			applied = ApplyAmmoVehicleCapture(state, mission, vehicleAsset, result);
+		else if (IsArmoredConvoy(mission))
+			applied = ApplyArmoredVehicleCapture(mission, vehicleAsset, result);
+		else
+		{
+			vehicleAsset.m_bOutcomeApplied = true;
+			vehicleAsset.m_sOutcomeKind = "convoy_vehicle_captured";
+			mission.m_bConvoyVehicleCapturedOutcomeApplied = true;
+			result = string.Format("%1 | vehicle captured", ConvoyLabel(mission));
+			SetMissionOutcomeSummary(mission, result);
+			applied = true;
+		}
+
+		return CompleteConvoyStrategicEvent(state, strategic, strategicEvent, applied, result);
 	}
 
-	bool OnConvoyCargoDelivered(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_MissionAssetState cargoAsset, HST_EconomyService economy, HST_TownService towns, out string result)
+	bool OnConvoyCargoDelivered(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_MissionAssetState cargoAsset, HST_EconomyService economy, HST_TownService towns, HST_StrategicService strategic, out string result)
 	{
 		result = "";
 		if (!state || !mission || !cargoAsset || cargoAsset.m_bOutcomeApplied)
 			return false;
 
-		if (IsMoneyConvoy(mission))
-			return ApplyMoneyDelivery(state, mission, cargoAsset, economy, result);
-		if (IsPrisonerConvoy(mission))
-			return ApplyPrisonerExtraction(state, mission, cargoAsset, economy, towns, result);
-		if (IsSupplyConvoy(mission))
-			return ApplySupplyDelivery(state, mission, cargoAsset, towns, result);
+		string targetZoneId = ResolveConvoyOutcomeTargetZoneId(state, mission, "convoy_cargo_delivered");
+		HST_StrategicEventApplyResult strategicEvent = BeginConvoyStrategicEvent(state, preset, strategic, mission, "convoy_cargo_delivered", targetZoneId, cargoAsset.m_sAssetId, ResolveResistanceFactionKey(preset));
 
-		cargoAsset.m_bOutcomeApplied = true;
-		cargoAsset.m_sOutcomeKind = "convoy_cargo_delivered";
-		mission.m_bConvoyCargoDeliveredOutcomeApplied = true;
-		result = string.Format("%1 | cargo delivered", ConvoyLabel(mission));
-		SetMissionOutcomeSummary(mission, result);
-		return true;
+		bool applied;
+		if (IsMoneyConvoy(mission))
+			applied = ApplyMoneyDelivery(state, mission, cargoAsset, economy, result);
+		else if (IsPrisonerConvoy(mission))
+			applied = ApplyPrisonerExtraction(state, mission, cargoAsset, economy, towns, result);
+		else if (IsSupplyConvoy(mission))
+			applied = ApplySupplyDelivery(state, mission, cargoAsset, towns, result);
+		else
+		{
+			cargoAsset.m_bOutcomeApplied = true;
+			cargoAsset.m_sOutcomeKind = "convoy_cargo_delivered";
+			mission.m_bConvoyCargoDeliveredOutcomeApplied = true;
+			result = string.Format("%1 | cargo delivered", ConvoyLabel(mission));
+			SetMissionOutcomeSummary(mission, result);
+			applied = true;
+		}
+
+		return CompleteConvoyStrategicEvent(state, strategic, strategicEvent, applied, result);
 	}
 
-	bool OnConvoyMissionExpired(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_GarrisonService garrisons, HST_TownService towns, out string result)
+	bool OnConvoyMissionExpired(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ActiveMissionState mission, HST_GarrisonService garrisons, HST_TownService towns, HST_StrategicService strategic, out string result)
 	{
 		result = "";
 		if (!state || !mission || mission.m_bConvoyExpiredOutcomeApplied)
 			return false;
 
+		HST_StrategicEventApplyResult strategicEvent = BeginConvoyStrategicEvent(state, preset, strategic, mission, "convoy_expired", mission.m_sTargetZoneId, mission.m_sInstanceId, ResolveOccupierFactionKey(preset));
 		mission.m_bConvoyExpiredOutcomeApplied = true;
 		result = string.Format("%1 | expired | no mission-specific reward applied", ConvoyLabel(mission));
 		SetMissionOutcomeSummary(mission, result);
+		return CompleteConvoyStrategicEvent(state, strategic, strategicEvent, true, result);
+	}
+
+	protected HST_StrategicEventApplyResult BeginConvoyStrategicEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_ActiveMissionState mission, string kind, string targetZoneId, string sourceId, string targetFactionKey)
+	{
+		if (!strategic)
+			return null;
+
+		return strategic.BeginConvoyOutcomeEvent(state, preset, mission, kind, targetZoneId, sourceId, targetFactionKey);
+	}
+
+	protected bool CompleteConvoyStrategicEvent(HST_CampaignState state, HST_StrategicService strategic, HST_StrategicEventApplyResult strategicEvent, bool applied, string result)
+	{
+		if (!strategic || !strategicEvent)
+			return applied;
+
+		if (!applied)
+		{
+			strategic.DiscardStrategicEvent(state, strategicEvent);
+			return false;
+		}
+
+		if (strategicEvent.m_Event && !result.IsEmpty())
+			strategicEvent.m_Event.m_sReason = result;
+		strategic.CompleteStrategicEvent(state, strategicEvent, true, true);
 		return true;
+	}
+
+	protected string ResolveConvoyOutcomeTargetZoneId(HST_CampaignState state, HST_ActiveMissionState mission, string kind)
+	{
+		if (!state || !mission)
+			return "";
+
+		if (kind == "convoy_cargo_delivered" || (kind == "convoy_arrived" && IsSupplyConvoy(mission)))
+		{
+			HST_ZoneState supportTown = ResolveSupportTown(state, mission);
+			if (supportTown)
+				return supportTown.m_sZoneId;
+		}
+
+		return mission.m_sTargetZoneId;
+	}
+
+	protected string ResolveConvoyArrivalTargetFactionKey(HST_CampaignPreset preset, HST_ActiveMissionState mission)
+	{
+		if (IsSupplyConvoy(mission) || IsReinforcementConvoy(mission))
+			return ResolveOccupierFactionKey(preset);
+
+		return ResolveResistanceFactionKey(preset);
+	}
+
+	protected string ResolveResistanceFactionKey(HST_CampaignPreset preset)
+	{
+		if (preset)
+			return preset.m_sResistanceFactionKey;
+
+		return "";
+	}
+
+	protected string ResolveOccupierFactionKey(HST_CampaignPreset preset)
+	{
+		if (preset)
+			return preset.m_sOccupierFactionKey;
+
+		return "";
 	}
 
 	protected bool ApplyAmmoVehicleCapture(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState vehicleAsset, out string result)

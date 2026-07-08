@@ -5,7 +5,7 @@
 `HST_CampaignState.SCHEMA_VERSION` is currently `37`.
 
 - Schema 37 adds the durable strategic-event ledger so mission success/failure,
-  mission-expiry, and zone-capture consequence rows preserve source identity, target
+  mission-expiry, convoy-outcome, and zone-capture consequence rows preserve source identity, target
   zone/faction, applied status, before/after owner fields, and money/HR/support/
   capture/aggression/resource/HQ-knowledge deltas across save-data roundtrips.
 - Schema 36 adds the selected active-group vehicle prefab so mixed

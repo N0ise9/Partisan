@@ -214,6 +214,44 @@ class HST_StrategicService
 		return result;
 	}
 
+	HST_StrategicEventApplyResult BeginConvoyOutcomeEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, string kind, string targetZoneId = "", string sourceId = "", string targetFactionKey = "")
+	{
+		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
+		if (!state || !mission)
+		{
+			result.m_sReason = "state or convoy mission not ready";
+			return result;
+		}
+
+		HST_StrategicEventState eventState = new HST_StrategicEventState();
+		if (kind.IsEmpty())
+			eventState.m_sKind = "convoy_outcome";
+		else
+			eventState.m_sKind = kind;
+		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		eventState.m_sSourceType = "convoy_outcome";
+		if (sourceId.IsEmpty())
+			eventState.m_sSourceId = mission.m_sInstanceId;
+		else
+			eventState.m_sSourceId = sourceId;
+		eventState.m_sMissionId = mission.m_sMissionId;
+		eventState.m_sMissionInstanceId = mission.m_sInstanceId;
+		if (targetZoneId.IsEmpty())
+			eventState.m_sTargetZoneId = mission.m_sTargetZoneId;
+		else
+			eventState.m_sTargetZoneId = targetZoneId;
+		eventState.m_sTargetFactionKey = ResolveStrategicEventTargetFactionForZone(state, preset, eventState.m_sTargetZoneId, targetFactionKey);
+		eventState.m_sReason = eventState.m_sKind + ": " + mission.m_sMissionId;
+		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
+
+		result.m_Event = eventState;
+		result.m_sEventId = eventState.m_sEventId;
+		result.m_bRecorded = true;
+		state.m_aStrategicEvents.Insert(eventState);
+		CaptureStrategicEventBefore(state, eventState);
+		return result;
+	}
+
 	bool SetZoneOwner(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, string factionKey, string resistanceFactionKey = "FIA")
 	{
 		HST_ZoneState zone = state.FindZone(zoneId);
@@ -464,6 +502,24 @@ class HST_StrategicService
 		HST_ZoneState zone = state.FindZone(activeMission.m_sTargetZoneId);
 		if (zone)
 			return zone.m_sOwnerFactionKey;
+
+		if (preset)
+			return preset.m_sResistanceFactionKey;
+
+		return "";
+	}
+
+	protected string ResolveStrategicEventTargetFactionForZone(HST_CampaignState state, HST_CampaignPreset preset, string zoneId, string targetFactionKey)
+	{
+		if (!targetFactionKey.IsEmpty())
+			return targetFactionKey;
+
+		if (state)
+		{
+			HST_ZoneState zone = state.FindZone(zoneId);
+			if (zone && !zone.m_sOwnerFactionKey.IsEmpty())
+				return zone.m_sOwnerFactionKey;
+		}
 
 		if (preset)
 			return preset.m_sResistanceFactionKey;
