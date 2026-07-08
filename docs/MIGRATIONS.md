@@ -2,8 +2,12 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `40`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `41`.
 
+- Schema 41 extends strategic-event rows with town influence before/after/delta
+  fields so support, reputation, heat, population, killed-population, police,
+  and roadblock pressure from town influence events survive save-data
+  roundtrips and remain visible in strategic reports.
 - Schema 40 adds durable gun shop mission state: generated shop item rows,
   seller/delivery asset ids, seller/delivery positions, purchase totals,
   purchase/delivery notice flags, and delivery runtime timing so purchased
@@ -97,6 +101,21 @@ Ambient civilian traffic and generated settings comments.
   ambient traffic vehicles can be active per active town.
 - Existing settings migrate by rewriting the generated profile with comments
   and the traffic cap while preserving known gameplay values.
+
+## Schema 41
+
+Town influence strategic-event state.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `41`.
+- `HST_StrategicEventState` now stores the linked town influence event id/kind,
+  FIA and occupier support before/after/delta, reputation before/after/delta,
+  wanted heat before/after/delta, population before/after/delta,
+  killed-population before/after/delta, and police/roadblock
+  before/after/delta fields.
+- Existing schema-40 and older strategic-event rows load with empty town
+  influence fields. Newly registered town influence events create matching
+  strategic-event rows before applying their town mutations and complete those
+  rows after derived support and ownership policy have updated.
 
 ## Schema 40
 

@@ -769,6 +769,32 @@ class HST_StrategicEventState
 	int m_iVehicleReportedUntilBefore;
 	int m_iVehicleReportedUntilAfter;
 	int m_iVehicleReportedUntilDelta;
+	string m_sTownInfluenceEventId;
+	string m_sTownInfluenceKind;
+	int m_iTownFIASupportBefore;
+	int m_iTownFIASupportAfter;
+	int m_iTownFIASupportDelta;
+	int m_iTownOccupierSupportBefore;
+	int m_iTownOccupierSupportAfter;
+	int m_iTownOccupierSupportDelta;
+	int m_iTownReputationBefore;
+	int m_iTownReputationAfter;
+	int m_iTownReputationDelta;
+	int m_iTownHeatBefore;
+	int m_iTownHeatAfter;
+	int m_iTownHeatDelta;
+	int m_iTownPopulationBefore;
+	int m_iTownPopulationAfter;
+	int m_iTownPopulationDelta;
+	int m_iTownKilledBefore;
+	int m_iTownKilledAfter;
+	int m_iTownKilledDelta;
+	int m_iTownPoliceBefore;
+	int m_iTownPoliceAfter;
+	int m_iTownPoliceDelta;
+	int m_iTownRoadblocksBefore;
+	int m_iTownRoadblocksAfter;
+	int m_iTownRoadblocksDelta;
 	bool m_bApplied;
 }
 
@@ -824,7 +850,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 40;
+	static const int SCHEMA_VERSION = 41;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

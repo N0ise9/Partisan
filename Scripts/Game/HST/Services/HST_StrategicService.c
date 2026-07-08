@@ -31,12 +31,17 @@ class HST_StrategicEventApplyResult
 			m_Event.m_iCaptureProgressDelta
 		);
 		report = report + string.Format(
-			" | aggression %1 | attack %2 | supportRes %3 | HQ knowledge %4 | vehicle heat %5 | %6",
+			" | aggression %1 | attack %2 | supportRes %3 | HQ knowledge %4",
 			m_Event.m_iAggressionDelta,
 			m_Event.m_iAttackResourceDelta,
 			m_Event.m_iSupportResourceDelta,
-			m_Event.m_iHQKnowledgeDelta,
+			m_Event.m_iHQKnowledgeDelta
+		);
+		report = report + string.Format(
+			" | vehicle heat %1 | town heat %2 | town pop %3 | %4",
 			m_Event.m_iVehicleHeatDelta,
+			m_Event.m_iTownHeatDelta,
+			m_Event.m_iTownPopulationDelta,
 			m_Event.m_sSummary
 		);
 		return report;
@@ -301,6 +306,54 @@ class HST_StrategicService
 			eventState.m_sTargetZoneId = zoneId;
 		eventState.m_sTargetFactionKey = vehicle.m_sFactionKey;
 		eventState.m_sReason = "vehicle reported: " + reason;
+		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
+
+		result.m_Event = eventState;
+		result.m_sEventId = eventState.m_sEventId;
+		result.m_bRecorded = true;
+		state.m_aStrategicEvents.Insert(eventState);
+		CaptureStrategicEventBefore(state, eventState);
+		return result;
+	}
+
+	HST_StrategicEventApplyResult BeginTownInfluenceEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_TownInfluenceEventState influenceEvent)
+	{
+		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
+		if (!state)
+		{
+			result.m_sReason = "state or town influence event not ready";
+			return result;
+		}
+		if (!influenceEvent)
+		{
+			result.m_sReason = "state or town influence event not ready";
+			return result;
+		}
+		if (influenceEvent.m_sEventId.IsEmpty() || influenceEvent.m_sZoneId.IsEmpty())
+		{
+			result.m_sReason = "state or town influence event not ready";
+			return result;
+		}
+
+		HST_CivilianZoneState town = state.FindCivilianZone(influenceEvent.m_sZoneId);
+		if (!town)
+		{
+			result.m_sReason = "town not found";
+			return result;
+		}
+
+		HST_StrategicEventState eventState = new HST_StrategicEventState();
+		eventState.m_sKind = "town_influence";
+		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		eventState.m_sSourceType = "town_influence";
+		eventState.m_sSourceId = influenceEvent.m_sEventId;
+		eventState.m_sTownInfluenceEventId = influenceEvent.m_sEventId;
+		eventState.m_sTownInfluenceKind = influenceEvent.m_sKind;
+		eventState.m_sTargetZoneId = influenceEvent.m_sZoneId;
+		eventState.m_sTargetFactionKey = ResolveTownInfluenceTargetFaction(state, preset, influenceEvent);
+		eventState.m_sReason = "town influence: " + influenceEvent.m_sKind;
+		if (!influenceEvent.m_sReason.IsEmpty())
+			eventState.m_sReason = eventState.m_sReason + " - " + influenceEvent.m_sReason;
 		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
 
 		result.m_Event = eventState;
@@ -586,6 +639,28 @@ class HST_StrategicService
 		return "";
 	}
 
+	protected string ResolveTownInfluenceTargetFaction(HST_CampaignState state, HST_CampaignPreset preset, HST_TownInfluenceEventState influenceEvent)
+	{
+		if (!influenceEvent)
+			return "";
+
+		string targetFactionKey = "";
+		if (preset)
+		{
+			int resistancePressure = influenceEvent.m_iFIASupportDelta + Math.Max(0, influenceEvent.m_iReputationDelta);
+			int occupierPressure = influenceEvent.m_iOccupierSupportDelta;
+			occupierPressure += Math.Max(0, influenceEvent.m_iHeatDelta);
+			occupierPressure += Math.Max(0, influenceEvent.m_iPoliceDelta);
+			occupierPressure += Math.Max(0, influenceEvent.m_iRoadblockDelta);
+			if (resistancePressure >= occupierPressure)
+				targetFactionKey = preset.m_sResistanceFactionKey;
+			else
+				targetFactionKey = preset.m_sOccupierFactionKey;
+		}
+
+		return ResolveStrategicEventTargetFactionForZone(state, preset, influenceEvent.m_sZoneId, targetFactionKey);
+	}
+
 	protected HST_StrategicEventState FindMissionStrategicEvent(HST_CampaignState state, string missionInstanceId, string kind)
 	{
 		if (!state || missionInstanceId.IsEmpty())
@@ -635,6 +710,7 @@ class HST_StrategicService
 		}
 
 		CaptureStrategicEventVehicleBefore(state, eventState);
+		CaptureStrategicEventTownBefore(state, eventState);
 	}
 
 	protected void RefreshStrategicEventAfter(HST_CampaignState state, HST_StrategicEventState eventState)
@@ -666,6 +742,7 @@ class HST_StrategicService
 		}
 
 		RefreshStrategicEventVehicleAfter(state, eventState);
+		RefreshStrategicEventTownAfter(state, eventState);
 	}
 
 	protected void CaptureStrategicEventVehicleBefore(HST_CampaignState state, HST_StrategicEventState eventState)
@@ -705,23 +782,127 @@ class HST_StrategicService
 		eventState.m_iVehicleReportedUntilDelta += vehicle.m_iReportedUntilSecond;
 	}
 
+	protected void CaptureStrategicEventTownBefore(HST_CampaignState state, HST_StrategicEventState eventState)
+	{
+		if (!state)
+			return;
+		if (!eventState)
+			return;
+		if (eventState.m_sSourceType != "town_influence")
+			return;
+		if (eventState.m_sTargetZoneId.IsEmpty())
+			return;
+
+		HST_CivilianZoneState town = state.FindCivilianZone(eventState.m_sTargetZoneId);
+		if (!town)
+			return;
+
+		eventState.m_iTownFIASupportBefore = town.m_iFIASupport;
+		eventState.m_iTownFIASupportAfter = town.m_iFIASupport;
+		eventState.m_iTownFIASupportDelta = -town.m_iFIASupport;
+		eventState.m_iTownOccupierSupportBefore = town.m_iOccupierSupport;
+		eventState.m_iTownOccupierSupportAfter = town.m_iOccupierSupport;
+		eventState.m_iTownOccupierSupportDelta = -town.m_iOccupierSupport;
+		eventState.m_iTownReputationBefore = town.m_iReputation;
+		eventState.m_iTownReputationAfter = town.m_iReputation;
+		eventState.m_iTownReputationDelta = -town.m_iReputation;
+		eventState.m_iTownHeatBefore = town.m_iWantedHeat;
+		eventState.m_iTownHeatAfter = town.m_iWantedHeat;
+		eventState.m_iTownHeatDelta = -town.m_iWantedHeat;
+		eventState.m_iTownPopulationBefore = town.m_iPopulationRemaining;
+		eventState.m_iTownPopulationAfter = town.m_iPopulationRemaining;
+		eventState.m_iTownPopulationDelta = -town.m_iPopulationRemaining;
+		eventState.m_iTownKilledBefore = town.m_iPopulationKilled;
+		eventState.m_iTownKilledAfter = town.m_iPopulationKilled;
+		eventState.m_iTownKilledDelta = -town.m_iPopulationKilled;
+		eventState.m_iTownPoliceBefore = town.m_iPolicePresence;
+		eventState.m_iTownPoliceAfter = town.m_iPolicePresence;
+		eventState.m_iTownPoliceDelta = -town.m_iPolicePresence;
+		eventState.m_iTownRoadblocksBefore = town.m_iRoadblockPresence;
+		eventState.m_iTownRoadblocksAfter = town.m_iRoadblockPresence;
+		eventState.m_iTownRoadblocksDelta = -town.m_iRoadblockPresence;
+	}
+
+	protected void RefreshStrategicEventTownAfter(HST_CampaignState state, HST_StrategicEventState eventState)
+	{
+		if (!state)
+			return;
+		if (!eventState)
+			return;
+		if (eventState.m_sSourceType != "town_influence")
+			return;
+		if (eventState.m_sTargetZoneId.IsEmpty())
+			return;
+
+		HST_CivilianZoneState town = state.FindCivilianZone(eventState.m_sTargetZoneId);
+		if (!town)
+			return;
+
+		eventState.m_iTownFIASupportAfter = town.m_iFIASupport;
+		eventState.m_iTownFIASupportDelta += town.m_iFIASupport;
+		eventState.m_iTownOccupierSupportAfter = town.m_iOccupierSupport;
+		eventState.m_iTownOccupierSupportDelta += town.m_iOccupierSupport;
+		eventState.m_iTownReputationAfter = town.m_iReputation;
+		eventState.m_iTownReputationDelta += town.m_iReputation;
+		eventState.m_iTownHeatAfter = town.m_iWantedHeat;
+		eventState.m_iTownHeatDelta += town.m_iWantedHeat;
+		eventState.m_iTownPopulationAfter = town.m_iPopulationRemaining;
+		eventState.m_iTownPopulationDelta += town.m_iPopulationRemaining;
+		eventState.m_iTownKilledAfter = town.m_iPopulationKilled;
+		eventState.m_iTownKilledDelta += town.m_iPopulationKilled;
+		eventState.m_iTownPoliceAfter = town.m_iPolicePresence;
+		eventState.m_iTownPoliceDelta += town.m_iPolicePresence;
+		eventState.m_iTownRoadblocksAfter = town.m_iRoadblockPresence;
+		eventState.m_iTownRoadblocksDelta += town.m_iRoadblockPresence;
+	}
+
 	protected bool HasStrategicEventDelta(HST_StrategicEventState eventState)
 	{
 		if (!eventState)
 			return false;
 
-		return eventState.m_iFactionMoneyDelta != 0
-			|| eventState.m_iHRDelta != 0
-			|| eventState.m_iAggressionDelta != 0
-			|| eventState.m_iAttackResourceDelta != 0
-			|| eventState.m_iSupportResourceDelta != 0
-			|| eventState.m_iTownSupportDelta != 0
-			|| eventState.m_iCaptureProgressDelta != 0
-			|| eventState.m_iHQKnowledgeDelta != 0
-			|| eventState.m_iVehicleHeatDelta != 0
-			|| eventState.m_iVehicleReportedUntilDelta != 0
-			|| eventState.m_bVehicleReportedBefore != eventState.m_bVehicleReportedAfter
-			|| eventState.m_sOwnerBefore != eventState.m_sOwnerAfter;
+		if (eventState.m_iFactionMoneyDelta != 0)
+			return true;
+		if (eventState.m_iHRDelta != 0)
+			return true;
+		if (eventState.m_iAggressionDelta != 0)
+			return true;
+		if (eventState.m_iAttackResourceDelta != 0)
+			return true;
+		if (eventState.m_iSupportResourceDelta != 0)
+			return true;
+		if (eventState.m_iTownSupportDelta != 0)
+			return true;
+		if (eventState.m_iCaptureProgressDelta != 0)
+			return true;
+		if (eventState.m_iHQKnowledgeDelta != 0)
+			return true;
+		if (eventState.m_iVehicleHeatDelta != 0)
+			return true;
+		if (eventState.m_iVehicleReportedUntilDelta != 0)
+			return true;
+		if (eventState.m_iTownFIASupportDelta != 0)
+			return true;
+		if (eventState.m_iTownOccupierSupportDelta != 0)
+			return true;
+		if (eventState.m_iTownReputationDelta != 0)
+			return true;
+		if (eventState.m_iTownHeatDelta != 0)
+			return true;
+		if (eventState.m_iTownPopulationDelta != 0)
+			return true;
+		if (eventState.m_iTownKilledDelta != 0)
+			return true;
+		if (eventState.m_iTownPoliceDelta != 0)
+			return true;
+		if (eventState.m_iTownRoadblocksDelta != 0)
+			return true;
+		if (eventState.m_bVehicleReportedBefore != eventState.m_bVehicleReportedAfter)
+			return true;
+		if (eventState.m_sOwnerBefore != eventState.m_sOwnerAfter)
+			return true;
+
+		return false;
 	}
 
 	protected string BuildStrategicEventSummary(HST_StrategicEventState eventState)
@@ -750,6 +931,20 @@ class HST_StrategicService
 			eventState.m_bVehicleReportedBefore,
 			eventState.m_bVehicleReportedAfter,
 			eventState.m_iVehicleReportedUntilDelta
+		);
+		summary = summary + string.Format(
+			" | town FIA %1 occupier %2 rep %3 heat %4 pop %5",
+			eventState.m_iTownFIASupportDelta,
+			eventState.m_iTownOccupierSupportDelta,
+			eventState.m_iTownReputationDelta,
+			eventState.m_iTownHeatDelta,
+			eventState.m_iTownPopulationDelta
+		);
+		summary = summary + string.Format(
+			" killed %1 police %2 roadblocks %3",
+			eventState.m_iTownKilledDelta,
+			eventState.m_iTownPoliceDelta,
+			eventState.m_iTownRoadblocksDelta
 		);
 		summary = summary + string.Format(
 			" | owner %1 -> %2",
@@ -805,6 +1000,22 @@ class HST_StrategicService
 				eventState.m_iVehicleHeatDelta,
 				eventState.m_bVehicleReportedBefore,
 				eventState.m_bVehicleReportedAfter
+			);
+			row = row + string.Format(
+				" town %1/%2 FIA %3 occupier %4 rep %5",
+				EmptyReportField(eventState.m_sTownInfluenceEventId),
+				EmptyReportField(eventState.m_sTownInfluenceKind),
+				eventState.m_iTownFIASupportDelta,
+				eventState.m_iTownOccupierSupportDelta,
+				eventState.m_iTownReputationDelta
+			);
+			row = row + string.Format(
+				" heat %1 pop %2 killed %3 police %4 roadblocks %5",
+				eventState.m_iTownHeatDelta,
+				eventState.m_iTownPopulationDelta,
+				eventState.m_iTownKilledDelta,
+				eventState.m_iTownPoliceDelta,
+				eventState.m_iTownRoadblocksDelta
 			);
 			report = report + row + " | " + eventState.m_sSummary;
 			emitted++;

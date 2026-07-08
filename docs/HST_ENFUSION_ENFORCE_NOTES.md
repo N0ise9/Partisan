@@ -338,6 +338,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
     and report-expiry delta. Full Campaign Debug should prove both the direct
     report and passenger-exposure report branches plus save-data roundtrip and
     cleanup.
+  - Town influence should use
+    `HST_StrategicService.BeginTownInfluenceEvent()` before applying
+    `HST_CivilianService.RegisterInfluenceEvent()` deltas, then complete the
+    event after support, reputation, heat, population, police, roadblock, and
+    owner fields are updated. Schema 41 strategic rows preserve the linked town
+    influence event id/kind plus town before/after/delta fields, so strategic
+    reports can explain political support movement without reading the separate
+    influence ledger. Full Campaign Debug should keep
+    `town_influence.ledger.runtime` proving aid, casualty, and security
+    influence rows, strategic-event deltas, save-data roundtrip, and cleanup.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.
