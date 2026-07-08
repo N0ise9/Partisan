@@ -163,6 +163,50 @@ class HST_StrategicService
 		return result;
 	}
 
+	HST_StrategicEventApplyResult ApplyMissionExpiryEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
+	{
+		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
+		if (!state || !preset || !economy || !definition || !activeMission)
+		{
+			result.m_sReason = "state/preset/economy/mission not ready";
+			return result;
+		}
+
+		if (definition.m_sMissionId == "dynamic_defend_petros")
+		{
+			result.m_sReason = "defense expiry resolves as success";
+			return result;
+		}
+
+		HST_StrategicEventState existingEvent = FindMissionStrategicEvent(state, activeMission.m_sInstanceId, "mission_expired");
+		if (existingEvent)
+		{
+			result.m_Event = existingEvent;
+			result.m_sEventId = existingEvent.m_sEventId;
+			result.m_bRecorded = true;
+			result.m_sReason = "mission expiry already recorded";
+			result.m_sSummary = existingEvent.m_sSummary;
+			return result;
+		}
+
+		HST_StrategicEventState eventState = CreateMissionExpiryEvent(state, preset, definition, activeMission);
+		result.m_Event = eventState;
+		result.m_sEventId = eventState.m_sEventId;
+		result.m_bRecorded = true;
+		state.m_aStrategicEvents.Insert(eventState);
+		CaptureStrategicEventBefore(state, eventState);
+
+		bool changed = ApplyMissionExpiryConsequences(state, preset, economy, definition);
+
+		RefreshStrategicEventAfter(state, eventState);
+		eventState.m_bApplied = true;
+		eventState.m_sSummary = BuildStrategicEventSummary(eventState);
+		result.m_bApplied = true;
+		result.m_bChanged = changed || HasStrategicEventDelta(eventState);
+		result.m_sSummary = eventState.m_sSummary;
+		return result;
+	}
+
 	bool SetZoneOwner(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, string factionKey, string resistanceFactionKey = "FIA")
 	{
 		HST_ZoneState zone = state.FindZone(zoneId);
@@ -357,6 +401,16 @@ class HST_StrategicService
 		return changed;
 	}
 
+	protected bool ApplyMissionExpiryConsequences(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_MissionDefinition definition)
+	{
+		if (definition.m_sMissionId == "dynamic_defend_petros")
+			return false;
+
+		int occupierAggressionBefore = ResolveFactionAggression(state, preset.m_sOccupierFactionKey);
+		economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
+		return ResolveFactionAggression(state, preset.m_sOccupierFactionKey) != occupierAggressionBefore;
+	}
+
 	protected HST_StrategicEventState CreateMissionOutcomeEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState activeMission, bool succeeded)
 	{
 		HST_StrategicEventState eventState = new HST_StrategicEventState();
@@ -371,6 +425,22 @@ class HST_StrategicService
 		eventState.m_sMissionInstanceId = activeMission.m_sInstanceId;
 		eventState.m_sTargetZoneId = activeMission.m_sTargetZoneId;
 		eventState.m_sTargetFactionKey = ResolveStrategicEventTargetFaction(state, preset, activeMission, succeeded);
+		eventState.m_sReason = eventState.m_sKind + ": " + definition.m_sMissionId;
+		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
+		return eventState;
+	}
+
+	protected HST_StrategicEventState CreateMissionExpiryEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
+	{
+		HST_StrategicEventState eventState = new HST_StrategicEventState();
+		eventState.m_sKind = "mission_expired";
+		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		eventState.m_sSourceType = "mission";
+		eventState.m_sSourceId = activeMission.m_sInstanceId;
+		eventState.m_sMissionId = definition.m_sMissionId;
+		eventState.m_sMissionInstanceId = activeMission.m_sInstanceId;
+		eventState.m_sTargetZoneId = activeMission.m_sTargetZoneId;
+		eventState.m_sTargetFactionKey = preset.m_sOccupierFactionKey;
 		eventState.m_sReason = eventState.m_sKind + ": " + definition.m_sMissionId;
 		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
 		return eventState;
@@ -392,6 +462,24 @@ class HST_StrategicService
 			return preset.m_sResistanceFactionKey;
 
 		return "";
+	}
+
+	protected HST_StrategicEventState FindMissionStrategicEvent(HST_CampaignState state, string missionInstanceId, string kind)
+	{
+		if (!state || missionInstanceId.IsEmpty())
+			return null;
+
+		foreach (HST_StrategicEventState eventState : state.m_aStrategicEvents)
+		{
+			if (!eventState || eventState.m_sMissionInstanceId != missionInstanceId)
+				continue;
+			if (!kind.IsEmpty() && eventState.m_sKind != kind)
+				continue;
+
+			return eventState;
+		}
+
+		return null;
 	}
 
 	protected void CaptureStrategicEventBefore(HST_CampaignState state, HST_StrategicEventState eventState)

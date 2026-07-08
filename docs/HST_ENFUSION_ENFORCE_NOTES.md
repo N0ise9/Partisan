@@ -241,6 +241,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
     mission-service aggression write directly, then routes configured failure
     aggression, town-support loss, HQ-knowledge changes, and linked objective
     failure through the coordinator wrapper plus strategic-event service.
+  - `HST_MissionService.Tick()` should only transition active missions into
+    expired state and expose ids that expired during that tick. The coordinator
+    sweep then calls
+    `HST_StrategicService.ApplyMissionExpiryEvent()` so expiry aggression is
+    recorded as a durable `mission_expired` row. Skip the generic expiry
+    penalty for the HQ defense mission because its timer expiry is a success
+    condition handled by the defense outcome path.
   - Debug proofs that seed a mission fixture should snapshot and restore the
     mission row, strategic-event rows, economy totals, target-zone
     owner/support, relevant enemy resource/aggression pools, and marker state
