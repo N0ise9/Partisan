@@ -14,7 +14,7 @@ class HST_StrategicEventApplyResult
 			return "h-istasi strategic event | missing event";
 
 		return string.Format(
-			"h-istasi strategic event | id %1 | kind %2 | mission %3 | zone %4 | faction %5 | applied %6 | changed %7 | money %8 | HR %9 | support %10 | capture %11 | aggression %12 | attack %13 | supportRes %14 | HQ knowledge %15 | vehicle heat %16 | %17",
+			"h-istasi strategic event | id %1 | kind %2 | mission %3 | zone %4 | faction %5 | applied %6 | changed %7 | money %8 | HR %9 | support %10 | capture %11 | aggression %12 | attack %13 | supportRes %14 | HQ knowledge %15 | %16",
 			m_Event.m_sEventId,
 			m_Event.m_sKind,
 			m_Event.m_sMissionId,
@@ -30,7 +30,6 @@ class HST_StrategicEventApplyResult
 			m_Event.m_iAttackResourceDelta,
 			m_Event.m_iSupportResourceDelta,
 			m_Event.m_iHQKnowledgeDelta,
-			m_Event.m_iVehicleHeatDelta,
 			m_Event.m_sSummary
 		);
 	}
@@ -263,37 +262,6 @@ class HST_StrategicService
 		eventState.m_sTargetZoneId = request.m_sTargetZoneId;
 		eventState.m_sTargetFactionKey = request.m_sFactionKey;
 		eventState.m_sReason = "hostile support near HQ: " + request.m_sRequestId;
-		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
-
-		result.m_Event = eventState;
-		result.m_sEventId = eventState.m_sEventId;
-		result.m_bRecorded = true;
-		state.m_aStrategicEvents.Insert(eventState);
-		CaptureStrategicEventBefore(state, eventState);
-		return result;
-	}
-
-	HST_StrategicEventApplyResult BeginVehicleReportEvent(HST_CampaignState state, HST_RuntimeVehicleState vehicle, string zoneId, string reason)
-	{
-		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
-		if (!state || !vehicle || vehicle.m_sVehicleRuntimeId.IsEmpty())
-		{
-			result.m_sReason = "state or runtime vehicle not ready";
-			return result;
-		}
-
-		HST_StrategicEventState eventState = new HST_StrategicEventState();
-		eventState.m_sKind = "vehicle_reported";
-		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
-		eventState.m_sSourceType = "runtime_vehicle";
-		eventState.m_sSourceId = vehicle.m_sVehicleRuntimeId;
-		eventState.m_sVehicleRuntimeId = vehicle.m_sVehicleRuntimeId;
-		if (zoneId.IsEmpty())
-			eventState.m_sTargetZoneId = vehicle.m_sZoneId;
-		else
-			eventState.m_sTargetZoneId = zoneId;
-		eventState.m_sTargetFactionKey = vehicle.m_sFactionKey;
-		eventState.m_sReason = "vehicle reported: " + reason;
 		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
 
 		result.m_Event = eventState;
@@ -626,8 +594,6 @@ class HST_StrategicService
 			eventState.m_iAttackResourceDelta = -pool.m_iAttackResources;
 			eventState.m_iSupportResourceDelta = -pool.m_iSupportResources;
 		}
-
-		CaptureStrategicEventVehicleBefore(state, eventState);
 	}
 
 	protected void RefreshStrategicEventAfter(HST_CampaignState state, HST_StrategicEventState eventState)
@@ -657,45 +623,6 @@ class HST_StrategicService
 			eventState.m_iAttackResourceDelta += pool.m_iAttackResources;
 			eventState.m_iSupportResourceDelta += pool.m_iSupportResources;
 		}
-
-		RefreshStrategicEventVehicleAfter(state, eventState);
-	}
-
-	protected void CaptureStrategicEventVehicleBefore(HST_CampaignState state, HST_StrategicEventState eventState)
-	{
-		if (!state || !eventState || eventState.m_sSourceType != "runtime_vehicle" || eventState.m_sSourceId.IsEmpty())
-			return;
-
-		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(eventState.m_sSourceId);
-		if (!vehicle)
-			return;
-
-		eventState.m_sVehicleRuntimeId = vehicle.m_sVehicleRuntimeId;
-		eventState.m_iVehicleHeatBefore = vehicle.m_iVehicleHeat;
-		eventState.m_iVehicleHeatAfter = vehicle.m_iVehicleHeat;
-		eventState.m_iVehicleHeatDelta = -vehicle.m_iVehicleHeat;
-		eventState.m_bVehicleReportedBefore = vehicle.m_bReported;
-		eventState.m_bVehicleReportedAfter = vehicle.m_bReported;
-		eventState.m_iVehicleReportedUntilBefore = vehicle.m_iReportedUntilSecond;
-		eventState.m_iVehicleReportedUntilAfter = vehicle.m_iReportedUntilSecond;
-		eventState.m_iVehicleReportedUntilDelta = -vehicle.m_iReportedUntilSecond;
-	}
-
-	protected void RefreshStrategicEventVehicleAfter(HST_CampaignState state, HST_StrategicEventState eventState)
-	{
-		if (!state || !eventState || eventState.m_sSourceType != "runtime_vehicle" || eventState.m_sSourceId.IsEmpty())
-			return;
-
-		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(eventState.m_sSourceId);
-		if (!vehicle)
-			return;
-
-		eventState.m_sVehicleRuntimeId = vehicle.m_sVehicleRuntimeId;
-		eventState.m_iVehicleHeatAfter = vehicle.m_iVehicleHeat;
-		eventState.m_iVehicleHeatDelta += vehicle.m_iVehicleHeat;
-		eventState.m_bVehicleReportedAfter = vehicle.m_bReported;
-		eventState.m_iVehicleReportedUntilAfter = vehicle.m_iReportedUntilSecond;
-		eventState.m_iVehicleReportedUntilDelta += vehicle.m_iReportedUntilSecond;
 	}
 
 	protected bool HasStrategicEventDelta(HST_StrategicEventState eventState)
@@ -711,9 +638,6 @@ class HST_StrategicService
 			|| eventState.m_iTownSupportDelta != 0
 			|| eventState.m_iCaptureProgressDelta != 0
 			|| eventState.m_iHQKnowledgeDelta != 0
-			|| eventState.m_iVehicleHeatDelta != 0
-			|| eventState.m_iVehicleReportedUntilDelta != 0
-			|| eventState.m_bVehicleReportedBefore != eventState.m_bVehicleReportedAfter
 			|| eventState.m_sOwnerBefore != eventState.m_sOwnerAfter;
 	}
 
@@ -723,7 +647,7 @@ class HST_StrategicService
 			return "";
 
 		return string.Format(
-			"%1 | money %2 HR %3 | support %4 | capture %5 | aggression %6 | resources %7/%8 | HQ %9 | vehicle heat %10 report %11->%12 until %13 | owner %14 -> %15",
+			"%1 | money %2 HR %3 | support %4 | capture %5 | aggression %6 | resources %7/%8 | HQ %9 | owner %10 -> %11",
 			eventState.m_sReason,
 			eventState.m_iFactionMoneyDelta,
 			eventState.m_iHRDelta,
@@ -733,10 +657,6 @@ class HST_StrategicService
 			eventState.m_iAttackResourceDelta,
 			eventState.m_iSupportResourceDelta,
 			eventState.m_iHQKnowledgeDelta,
-			eventState.m_iVehicleHeatDelta,
-			eventState.m_bVehicleReportedBefore,
-			eventState.m_bVehicleReportedAfter,
-			eventState.m_iVehicleReportedUntilDelta,
 			EmptyReportField(eventState.m_sOwnerBefore),
 			EmptyReportField(eventState.m_sOwnerAfter)
 		);
@@ -758,8 +678,8 @@ class HST_StrategicService
 			if (!eventState)
 				continue;
 
-			string eventReport = string.Format(
-				"\n%1 | %2 | mission %3/%4 | zone %5 | faction %6 | applied %7 | money %8 HR %9 support %10 capture %11 aggression %12 resources %13/%14 HQ %15",
+			report = report + string.Format(
+				"\n%1 | %2 | mission %3/%4 | zone %5 | faction %6 | applied %7 | money %8 HR %9 support %10 capture %11 aggression %12 resources %13/%14 HQ %15 | %16",
 				eventState.m_sEventId,
 				eventState.m_sKind,
 				EmptyReportField(eventState.m_sMissionId),
@@ -774,10 +694,9 @@ class HST_StrategicService
 				eventState.m_iAggressionDelta,
 				eventState.m_iAttackResourceDelta,
 				eventState.m_iSupportResourceDelta,
-				eventState.m_iHQKnowledgeDelta
+				eventState.m_iHQKnowledgeDelta,
+				eventState.m_sSummary
 			);
-			eventReport = eventReport + string.Format(" vehicle %1 heat %2 report %3->%4", EmptyReportField(eventState.m_sVehicleRuntimeId), eventState.m_iVehicleHeatDelta, eventState.m_bVehicleReportedBefore, eventState.m_bVehicleReportedAfter);
-			report = report + eventReport + " | " + eventState.m_sSummary;
 			emitted++;
 		}
 

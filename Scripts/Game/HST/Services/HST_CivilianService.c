@@ -100,12 +100,6 @@ class HST_CivilianService
 	protected string m_sLastRuntimeSpawnFailurePrefab;
 	protected bool m_bWarnedMissingCivilianCharacterPool;
 	protected bool m_bWarnedMissingCivilianVehicleCatalog;
-	protected HST_StrategicService m_Strategic;
-
-	void SetStrategicService(HST_StrategicService strategic)
-	{
-		m_Strategic = strategic;
-	}
 
 	bool EnsureCivilianZones(HST_CampaignState state)
 	{
@@ -1049,7 +1043,7 @@ class HST_CivilianService
 	}
 
 
-	string RegisterUndercoverVehicleExposure(HST_CampaignState state, string identityId, string zoneId, string reason, string vehicleRuntimeId = "", HST_StrategicService strategic = null)
+	string RegisterUndercoverVehicleExposure(HST_CampaignState state, string identityId, string zoneId, string reason, string vehicleRuntimeId = "")
 	{
 		if (!state || identityId.IsEmpty())
 			return "h-istasi undercover | failed: state or identity missing";
@@ -1060,7 +1054,7 @@ class HST_CivilianService
 
 		string vehicleReport;
 		if (!vehicleRuntimeId.IsEmpty())
-			vehicleReport = RegisterVehiclePassengerCompromise(state, vehicleRuntimeId, identityId, zoneId, reason, strategic);
+			vehicleReport = RegisterVehiclePassengerCompromise(state, vehicleRuntimeId, identityId, zoneId, reason);
 
 		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zoneId);
 		CompromiseUndercover(state, undercover, civilianZone, zoneId, reason, "vehicle", 90);
@@ -1070,7 +1064,7 @@ class HST_CivilianService
 		return "h-istasi undercover | compromised: " + reason;
 	}
 
-	string RegisterVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string zoneId, int heatDelta, int durationSeconds, string reason, bool reported = true, HST_StrategicService strategic = null)
+	string RegisterVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string zoneId, int heatDelta, int durationSeconds, string reason, bool reported = true)
 	{
 		if (!state || vehicleRuntimeId.IsEmpty())
 			return "h-istasi vehicle heat | failed: state or runtime vehicle id missing";
@@ -1080,15 +1074,6 @@ class HST_CivilianService
 			return "h-istasi vehicle heat | failed: runtime vehicle not tracked";
 
 		int oldHeat = vehicle.m_iVehicleHeat;
-		bool reportedBefore = vehicle.m_bReported;
-		int reportedUntilBefore = vehicle.m_iReportedUntilSecond;
-		HST_StrategicService eventStrategic = strategic;
-		if (!eventStrategic)
-			eventStrategic = m_Strategic;
-		HST_StrategicEventApplyResult eventResult;
-		if (eventStrategic && reported)
-			eventResult = eventStrategic.BeginVehicleReportEvent(state, vehicle, zoneId, reason);
-
 		int appliedDelta = Math.Max(0, heatDelta);
 		vehicle.m_iVehicleHeat = Math.Max(0, Math.Min(10, vehicle.m_iVehicleHeat + appliedDelta));
 		vehicle.m_iLastVehicleHeatChangedSecond = state.m_iElapsedSeconds;
@@ -1117,17 +1102,11 @@ class HST_CivilianService
 			civilianZone.m_sLastSecurityReason = "vehicle reported: " + reason;
 		}
 
-		if (eventResult && eventResult.m_Event)
-		{
-			bool changed = oldHeat != vehicle.m_iVehicleHeat || reportedBefore != vehicle.m_bReported || reportedUntilBefore != vehicle.m_iReportedUntilSecond;
-			eventStrategic.CompleteStrategicEvent(state, eventResult, true, changed);
-		}
-
 		string report = string.Format("h-istasi vehicle heat | %1 | heat %2 -> %3 | reported %4 | until %5", vehicleRuntimeId, oldHeat, vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_iReportedUntilSecond);
 		return report + string.Format(" | zone %1 | reason %2", EmptyRuntimeField(zoneId), EmptyRuntimeField(reason));
 	}
 
-	string RegisterVehiclePassengerCompromise(HST_CampaignState state, string vehicleRuntimeId, string identityId, string zoneId, string reason, HST_StrategicService strategic = null)
+	string RegisterVehiclePassengerCompromise(HST_CampaignState state, string vehicleRuntimeId, string identityId, string zoneId, string reason)
 	{
 		if (!state || vehicleRuntimeId.IsEmpty())
 			return "h-istasi vehicle heat | failed: state or runtime vehicle id missing";
@@ -1137,7 +1116,7 @@ class HST_CivilianService
 			return "h-istasi vehicle heat | failed: runtime vehicle not tracked";
 
 		vehicle.m_iPassengerCompromiseCount = vehicle.m_iPassengerCompromiseCount + 1;
-		string report = RegisterVehicleHeat(state, vehicleRuntimeId, zoneId, 4, VEHICLE_REPORT_DEFAULT_SECONDS, reason, true, strategic);
+		string report = RegisterVehicleHeat(state, vehicleRuntimeId, zoneId, 4, VEHICLE_REPORT_DEFAULT_SECONDS, reason, true);
 		return report + string.Format(" | passenger compromises %1 | identity %2", vehicle.m_iPassengerCompromiseCount, EmptyRuntimeField(identityId));
 	}
 

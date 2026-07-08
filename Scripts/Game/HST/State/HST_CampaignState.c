@@ -723,15 +723,6 @@ class HST_StrategicEventState
 	int m_iCaptureProgressAfter;
 	int m_iHQKnowledgeBefore;
 	int m_iHQKnowledgeAfter;
-	string m_sVehicleRuntimeId;
-	int m_iVehicleHeatBefore;
-	int m_iVehicleHeatAfter;
-	int m_iVehicleHeatDelta;
-	bool m_bVehicleReportedBefore;
-	bool m_bVehicleReportedAfter;
-	int m_iVehicleReportedUntilBefore;
-	int m_iVehicleReportedUntilAfter;
-	int m_iVehicleReportedUntilDelta;
 	bool m_bApplied;
 }
 
@@ -787,7 +778,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 38;
+	static const int SCHEMA_VERSION = 37;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
