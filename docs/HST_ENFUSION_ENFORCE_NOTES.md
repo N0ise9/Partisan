@@ -263,7 +263,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - `HST_StrategicEventState` captures the event kind, mission/source identity,
     target zone/faction, applied status, before/after owner fields, and numeric
     deltas for money, HR, town support, capture progress, aggression,
-    attack/support resources, and HQ knowledge.
+    attack/support resources, HQ knowledge, and vehicle report heat.
   - Use the service report and Full Campaign Debug assertions to prove both the
     durable event row and the actual campaign mutation. A report row without a
     matching state delta is evidence only; it should not be counted as a
@@ -296,6 +296,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `support_near_hq.strategic_event.contract.runtime` proof that asserts support
     resolution, garrison outcome, HQ-knowledge delta, strategic-event row, save
     roundtrip, and cleanup.
+  - Runtime vehicle reports should use
+    `HST_StrategicService.BeginVehicleReportEvent()` before applying the heat
+    mutation in `HST_CivilianService.RegisterVehicleHeat()`, then complete the
+    event after the vehicle report fields are updated. The strategic row should
+    preserve vehicle runtime id, heat before/after/delta, reported before/after,
+    and report-expiry delta. Full Campaign Debug should prove both the direct
+    report and passenger-exposure report branches plus save-data roundtrip and
+    cleanup.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.
@@ -308,6 +316,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Current examples: `HST_CivilianService.RegisterVehicleHeat()`,
     `ResolveRuntimeVehicleUndercoverReason()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugVehicleHeatCase()`.
+  - Vehicle heat reports are also strategic-event rows under schema 38, so keep
+    the vehicle-cover block, the report output, and the `vehicle_reported`
+    strategic event in sync.
 
 - Physical spawn placement should go through an explainable request/result contract.
   - Tactical systems should ask for source/target placement by intent, target

@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r98-support-near-hq-strategic-event";
-	static const string BUILD_UTC = "2026-07-08T17:00:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r98-support-near-hq-strategic-event";
+	static const string BUILD_SHA = "r99-vehicle-report-strategic-event";
+	static const string BUILD_UTC = "2026-07-08T17:30:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r99-vehicle-report-strategic-event";
 
 	static string BuildSummary()
 	{

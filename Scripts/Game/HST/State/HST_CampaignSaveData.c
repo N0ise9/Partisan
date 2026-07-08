@@ -1306,6 +1306,15 @@ class HST_CampaignSaveData
 		target.m_iCaptureProgressAfter = source.m_iCaptureProgressAfter;
 		target.m_iHQKnowledgeBefore = source.m_iHQKnowledgeBefore;
 		target.m_iHQKnowledgeAfter = source.m_iHQKnowledgeAfter;
+		target.m_sVehicleRuntimeId = source.m_sVehicleRuntimeId;
+		target.m_iVehicleHeatBefore = source.m_iVehicleHeatBefore;
+		target.m_iVehicleHeatAfter = source.m_iVehicleHeatAfter;
+		target.m_iVehicleHeatDelta = source.m_iVehicleHeatDelta;
+		target.m_bVehicleReportedBefore = source.m_bVehicleReportedBefore;
+		target.m_bVehicleReportedAfter = source.m_bVehicleReportedAfter;
+		target.m_iVehicleReportedUntilBefore = source.m_iVehicleReportedUntilBefore;
+		target.m_iVehicleReportedUntilAfter = source.m_iVehicleReportedUntilAfter;
+		target.m_iVehicleReportedUntilDelta = source.m_iVehicleReportedUntilDelta;
 		target.m_bApplied = source.m_bApplied;
 		return target;
 	}

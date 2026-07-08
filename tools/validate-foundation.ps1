@@ -3345,6 +3345,25 @@ foreach ($requiredStrategicEventSupportNearHQEntry in @(
 }
 Write-Host "Strategic event support-near-HQ proof OK"
 
+foreach ($requiredStrategicEventVehicleReportEntry in @(
+		"BeginVehicleReportEvent",
+		"SetStrategicService",
+		"RegisterVehicleHeat",
+		'"vehicle_reported"',
+		"m_iVehicleHeatDelta",
+		"m_bVehicleReportedBefore",
+		"m_bVehicleReportedAfter",
+		"m_iVehicleReportedUntilDelta",
+		"vehicle_heat.strategic_event",
+		"vehicle_heat.passenger_strategic_event",
+		"vehicle_heat.strategic_report_surface"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredStrategicEventVehicleReportEntry)) {
+		throw "Strategic event vehicle-report proof is missing: $requiredStrategicEventVehicleReportEntry"
+	}
+}
+Write-Host "Strategic event vehicle-report proof OK"
+
 foreach ($requiredCampaignDebugBuildEntry in @(
 		"HST_BuildInfo",
 		"BUILD_SHA",

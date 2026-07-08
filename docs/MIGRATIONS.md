@@ -2,8 +2,12 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `37`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `38`.
 
+- Schema 38 extends strategic-event rows with vehicle report before/after
+  fields so runtime vehicle reports preserve vehicle runtime id, heat
+  before/after/delta, reported before/after, and report-expiry deltas across
+  save-data roundtrips.
 - Schema 37 adds the durable strategic-event ledger so mission success/failure,
   mission-expiry, convoy-outcome, zone-capture, and support-near-HQ consequence
   rows preserve source identity, target zone/faction, applied status,
@@ -105,6 +109,17 @@ Resistance support group marker tracking.
 - Existing settings migrate the feature on so spawned player-requested
   resistance support groups keep live map markers until they are terminal or
   despawned.
+
+## Schema 38
+
+Vehicle-report strategic events.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `38`.
+- `HST_StrategicEventState` now persists vehicle report fields: vehicle runtime
+  id, heat before/after/delta, reported before/after, and report-expiry delta.
+- Existing schema-37 and older strategic-event rows load with empty vehicle
+  fields; new `vehicle_reported` events append rows when runtime vehicle heat is
+  reported.
 
 ## Schema 37
 
