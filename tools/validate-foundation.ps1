@@ -3571,8 +3571,6 @@ foreach ($requiredCommandMenuEntry in @(
 		'TAB_GARAGE',
 		'AppendGarageSections',
 		'Redeploy: ',
-		'move_hq',
-		'move_hq_here',
 		'PlayerHasMapInInventory',
 		'GetGadgetByType(EGadgetType.MAP)',
 		'MAP_TARGET_OVERLAY_OWNER',
@@ -3599,6 +3597,7 @@ foreach ($requiredCommandMenuEntry in @(
 		'phase23.ui.map_required_gate',
 		'phase23.ui.map_target_support_actions',
 		'phase23.ui.map_target_garrison_actions',
+		'phase23.ui.no_hq_move_menu_actions',
 		'capture_zone',
 		'award_small',
 		'new_campaign',
@@ -3650,6 +3649,9 @@ if ($commandMenuComponentText -match "CreateWidgetInWorkspace\(WidgetType\.Canva
 }
 if ($commandMenuComponentText -match [regex]::Escape("m_Menu.OnWidgetClicked(w.GetUserID());")) {
 	throw "Command menu widget handler must pass button state through the duplicate-activation guard"
+}
+if ($commandUiText -match [regex]::Escape('"Move base to my position"') -or $commandUiText -match [regex]::Escape('"Move HQ:')) {
+	throw "Normal command menu must not expose HQ relocation actions after setup-map HQ placement"
 }
 if ($commandMenuComponentText -match [regex]::Escape('RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", null')) {
 	throw "Command menu must not register as open before its layout root exists"

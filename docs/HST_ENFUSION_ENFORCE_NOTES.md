@@ -517,6 +517,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - `ExecuteVisibleCommand()` should also reject debug/report command ids when the debug menu is disabled so manually submitted visible-menu ids cannot bypass hidden UI.
   - If a normal gameplay action previously used a `*_report` command id, expose a non-report gameplay id for the regular menu path so turning off the debug menu does not remove real gameplay controls.
   - Current examples: Overview undercover request/clear stays visible, Admin is omitted when debug menu is disabled, and Forces training uses `train_troops` instead of `train_troops_report`.
+  - Petros/HQ should not expose the old hardcoded HQ relocation buttons in the normal command menu. Setup-map HQ placement owns initial placement, and `phase23.ui.no_hq_move_menu_actions` plus foundation validation should catch accidental reintroduction of visible `Move HQ` rows.
   - Campaign-debug rendered UI proof should be owner-client reported instead of inferred from server payloads. Dispatch through the player-owned request bridge, open the command menu on the owner client, wait for post-snapshot layout, count expected visible non-zero widgets, and send the report back to the coordinator as a `CLIENT_RENDERED` assertion.
 
 - HQ arsenal user-action order must be proved from the runtime action manager.

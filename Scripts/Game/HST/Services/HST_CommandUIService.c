@@ -193,8 +193,6 @@ class HST_CommandUIService
 	protected void BuildCommanderCommandList(notnull array<string> actions)
 	{
 		BuildMemberCommandList(actions);
-		actions.Insert("move_hq_here");
-		actions.Insert("move_hq <hideout>");
 		actions.Insert("rebuild_hq_assets");
 		actions.Insert("income_now");
 		actions.Insert("train_troops_report");
@@ -1934,12 +1932,8 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "hq", "Attackers", string.Format("%1 total / %2 alive / %3 killed", state.m_iDefendPetrosAttackerCount, state.m_iDefendPetrosAliveAttackerCount, state.m_iDefendPetrosKilledCount), DefendPetrosTone(state));
 		payload = AppendRow(payload, "hq", "Build mode", BuildModeStatusLabel(state), BuildModeTone(state));
 
-		payload = AppendSection(payload, "moves", "Move Base");
-		payload = AppendRow(payload, "moves", "Move here", "Uses your current position as the new HQ.", CommanderGateTone(canUseCommander));
-		payload = AppendRow(payload, "moves", "Rebuild assets", "Respawns Petros, cache, arsenal, and tent without resetting campaign state.", BuildHQRadiusTone(state, settings, playerId));
-		payload = AppendRow(payload, "moves", "North Forest", "Low-profile woodland staging area.", "neutral");
-		payload = AppendRow(payload, "moves", "Central Hills", "Central hideout near main roads.", "neutral");
-		payload = AppendRow(payload, "moves", "South Woods", "Fallback hideout for southern operations.", "neutral");
+		payload = AppendSection(payload, "maintenance", "HQ Maintenance");
+		payload = AppendRow(payload, "maintenance", "Rebuild assets", "Respawns Petros, cache, arsenal, and tent without resetting campaign state.", BuildHQRadiusTone(state, settings, playerId));
 		return payload;
 	}
 
@@ -2532,10 +2526,6 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_PETROS)
 		{
 			AddMenuAction(actions, TAB_PETROS, "HQ threat report", "inspect_hq_threat", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_PETROS, "Move base to my position", "move_hq_here", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_PETROS, "Move HQ: north forest", "move_hq", "hideout_north_forest", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_PETROS, "Move HQ: central hills", "move_hq", "hideout_central_hills", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_PETROS, "Move HQ: south woods", "move_hq", "hideout_south_woods", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Rebuild HQ assets", "rebuild_hq_assets", "", canUseCommander, "commander required");
 			return;
 		}
