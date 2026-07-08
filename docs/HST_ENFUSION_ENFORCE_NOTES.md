@@ -396,24 +396,6 @@ This file is for practical engine/script behavior, not project planning. Keep en
     the vehicle-cover block, the report output, and the `vehicle_reported`
     strategic event in sync.
 
-- Undercover appearance and weapon eligibility should prefer live equipment
-  components, then fall back to identity strings.
-  - Equipped clothing can be inspected through
-    `SCR_CharacterInventoryStorageComponent` slots; weapon exposure can be
-    inspected through `BaseWeaponManagerComponent.GetCurrentWeapon()` and
-    `GetWeaponsList()`. Carried inventory should be recursively scanned through
-    `SCR_InventoryStorageManagerComponent.GetItems()` plus nested
-    `BaseInventoryStorageComponent` slots so weapons inside containers are not
-    missed.
-  - Keep every block as a reason string (`BLOCK live weapon/equipment`,
-    `BLOCK live military clothing/equipment`, or the fallback identity reason)
-    so request denial, enforcement scoring, and Full Campaign Debug evidence
-    stay explainable.
-  - Current examples:
-    `HST_CivilianService.ResolveClothingEligibilityReason()`,
-    `ResolveWeaponEligibilityReason()`, and
-    `HST_CampaignCoordinatorComponent.BuildCampaignDebugUndercoverIdentityGateCase()`.
-
 - Physical spawn placement should go through an explainable request/result contract.
   - Tactical systems should ask for source/target placement by intent, target
     zone, preferred source, standoff, road preference, dry-ground requirement,

@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r114-undercover-live-equipment-gates";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r113-enemy-local-front-gate";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -7856,47 +7856,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return heatCase;
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugUndercoverIdentityGateCase()
-	{
-		HST_CampaignDebugCaseResult identityCase = CreateCampaignDebugCase("undercover_identity_gate.contract.runtime", "civilians", "undercover_identity_gate", "baseline");
-		bool servicesReady = m_Civilians != null;
-		AddCampaignDebugAssertion(identityCase, "undercover_identity.prerequisite", "civilian service ready for undercover identity proof", string.Format("civilians %1", m_Civilians != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "undercover identity prerequisites missing");
-		if (!servicesReady)
-		{
-			FinalizeCampaignDebugCaseFromAssertions(identityCase);
-			return identityCase;
-		}
-
-		string civilianClothingReason;
-		string civilianWeaponReason;
-		bool civilianEligible = m_Civilians.DebugResolveUndercoverIdentityEligibility(CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB, civilianClothingReason, civilianWeaponReason);
-
-		string soldierClothingReason;
-		string soldierWeaponReason;
-		bool soldierEligible = m_Civilians.DebugResolveUndercoverIdentityEligibility("Prefabs/Characters/Factions/US/US_Army/Character_US_Rifleman.et", soldierClothingReason, soldierWeaponReason);
-
-		string weaponClothingReason;
-		string weaponWeaponReason;
-		bool weaponEligible = m_Civilians.DebugResolveUndercoverIdentityEligibility("Prefabs/Weapons/Rifles/M16/Weapon_M16A2.et", weaponClothingReason, weaponWeaponReason);
-
-		string gearClothingReason;
-		string gearWeaponReason;
-		bool gearEligible = m_Civilians.DebugResolveUndercoverIdentityEligibility("Prefabs/Items/Equipment/Vests/Vest_US_ALICE.et", gearClothingReason, gearWeaponReason);
-
-		identityCase.m_aEvidence.Insert(string.Format("civilian | eligible %1 | clothing %2 | weapon %3", civilianEligible, civilianClothingReason, civilianWeaponReason));
-		identityCase.m_aEvidence.Insert(string.Format("soldier | eligible %1 | clothing %2 | weapon %3", soldierEligible, soldierClothingReason, soldierWeaponReason));
-		identityCase.m_aEvidence.Insert(string.Format("weapon item | eligible %1 | clothing %2 | weapon %3", weaponEligible, weaponClothingReason, weaponWeaponReason));
-		identityCase.m_aEvidence.Insert(string.Format("military gear | eligible %1 | clothing %2 | weapon %3", gearEligible, gearClothingReason, gearWeaponReason));
-
-		AddCampaignDebugAssertion(identityCase, "undercover_identity.civilian_allows", "civilian identity remains eligible for cover", string.Format("eligible %1 | clothing %2 | weapon %3", civilianEligible, civilianClothingReason, civilianWeaponReason), CampaignDebugStatus(civilianEligible && civilianClothingReason.Contains("OK") && civilianWeaponReason.Contains("OK")), "civilian identity was not eligible for undercover");
-		AddCampaignDebugAssertion(identityCase, "undercover_identity.soldier_blocks", "military character identity blocks clothing and issued weapon checks", string.Format("eligible %1 | clothing %2 | weapon %3", soldierEligible, soldierClothingReason, soldierWeaponReason), CampaignDebugStatus(!soldierEligible && soldierClothingReason.Contains("BLOCK") && soldierWeaponReason.Contains("BLOCK")), "military character identity did not block undercover");
-		AddCampaignDebugAssertion(identityCase, "undercover_identity.weapon_blocks", "weapon prefab identity blocks undercover weapon eligibility", string.Format("eligible %1 | clothing %2 | weapon %3", weaponEligible, weaponClothingReason, weaponWeaponReason), CampaignDebugStatus(!weaponEligible && weaponWeaponReason.Contains("BLOCK weapon identity")), "weapon identity did not block undercover weapon eligibility");
-		AddCampaignDebugAssertion(identityCase, "undercover_identity.gear_blocks", "military equipment identity blocks clothing eligibility", string.Format("eligible %1 | clothing %2 | weapon %3", gearEligible, gearClothingReason, gearWeaponReason), CampaignDebugStatus(!gearEligible && gearClothingReason.Contains("BLOCK military")), "military equipment identity did not block undercover clothing eligibility");
-
-		FinalizeCampaignDebugCaseFromAssertions(identityCase);
-		return identityCase;
-	}
-
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCategorySelectionCase()
 	{
 		HST_CampaignDebugCaseResult selectionCase = CreateCampaignDebugCase("mission_category_selection.contract.runtime", "missions", "category_selection", "baseline");
@@ -8518,7 +8477,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugRadioTownInfluenceCase());
 		RecordCampaignDebugCase(BuildCampaignDebugSecurityPressureCase());
 		RecordCampaignDebugCase(BuildCampaignDebugVehicleHeatCase());
-		RecordCampaignDebugCase(BuildCampaignDebugUndercoverIdentityGateCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCategorySelectionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionNotificationCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCompletionRewardCase());
