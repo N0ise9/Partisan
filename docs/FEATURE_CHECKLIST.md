@@ -130,7 +130,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Undercover request/apply | Players can request and hold cover only when state and appearance allow it. | Broad Alpha | Finish equipment/clothing/weapon checks from live inventory. | Highest |
+| Undercover request/apply | Players can request and hold cover only when state and appearance allow it. | Broad Alpha | Live clothing slots, weapon manager state, and carried inventory now feed eligibility; next soak real multiplayer clothing swaps and expand any concealed-weapon nuance if needed. | Highest |
 | Vehicle cover and heat | Civilian vehicles provide cover until reported, heated, or compromised. | Broad Alpha | Continue proving report/clear/garage/redeploy handoff in runtime runs. | High |
 | Passenger compromise | Reported vehicles and compromised passengers affect player cover. | Broad Alpha | Expand to multi-passenger and roadblock/police scans. | High |
 | Off-road and security scans | Driving behavior, visible gear, police, and roadblocks can compromise cover. | Partial | Implement real scan chance by war, heat, aggression, and town security. | High |

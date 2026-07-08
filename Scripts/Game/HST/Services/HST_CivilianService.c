@@ -1530,31 +1530,407 @@ class HST_CivilianService
 		return reason.Contains("BLOCK");
 	}
 
+	bool DebugResolveUndercoverIdentityEligibility(string identity, out string clothingReason, out string weaponReason)
+	{
+		clothingReason = ResolveClothingEligibilityReasonFromIdentity(identity);
+		weaponReason = ResolveWeaponEligibilityReasonFromIdentity(identity);
+		return !IsBlockingReason(clothingReason) && !IsBlockingReason(weaponReason);
+	}
+
 	protected string ResolveClothingEligibilityReason(IEntity playerEntity)
 	{
-		string identity = ResolveEntityIdentity(playerEntity);
+		string blockingEvidence;
+		string civilianEvidence;
+		int scannedWearables;
+		if (TryResolveLiveClothingEligibilityEvidence(playerEntity, blockingEvidence, civilianEvidence, scannedWearables))
+			return "BLOCK live military clothing/equipment: " + blockingEvidence;
+
+		if (scannedWearables > 0)
+		{
+			if (!civilianEvidence.IsEmpty())
+				return "OK live civilian clothing: " + civilianEvidence;
+
+			return string.Format("WARN live clothing not recognized | scanned %1", scannedWearables);
+		}
+
+		return ResolveClothingEligibilityReasonFromIdentity(ResolveEntityIdentity(playerEntity));
+	}
+
+	protected string ResolveClothingEligibilityReasonFromIdentity(string identity)
+	{
 		if (identity.IsEmpty())
 			return "WARN unknown clothing/entity identity";
 
-		if (identity.Contains("CIV") || identity.Contains("Civilian") || identity.Contains("GenericCivilians"))
+		string normalized = NormalizeUndercoverIdentity(identity);
+		if (IsUndercoverCivilianIdentity(normalized))
 			return "OK civilian clothing";
 
-		if (identity.Contains("US_Army") || identity.Contains("USSR") || identity.Contains("BLUFOR") || identity.Contains("OPFOR") || identity.Contains("Rifleman") || identity.Contains("MG") || identity.Contains("LAT"))
-			return "BLOCK military character/equipment identity";
+		if (IsUndercoverResistanceIdentity(normalized))
+			return "WARN resistance clothing is not civilian";
 
-		if (identity.Contains("FIA"))
-			return "WARN FIA clothing is not civilian";
+		if (IsUndercoverMilitaryClothingIdentity(normalized) || IsUndercoverMilitaryRoleIdentity(normalized))
+			return "BLOCK military character/equipment identity";
 
 		return "WARN clothing not recognized";
 	}
 
 	protected string ResolveWeaponEligibilityReason(IEntity playerEntity)
 	{
-		string identity = ResolveEntityIdentity(playerEntity);
-		if (identity.Contains("Rifleman") || identity.Contains("MG") || identity.Contains("LAT") || identity.Contains("GL") || identity.Contains("MachineGun"))
-			return "BLOCK military role implies visible/issued weapon";
+		string evidence;
+		if (TryResolveLiveWeaponEvidence(playerEntity, evidence))
+			return "BLOCK live weapon/equipment: " + evidence;
 
-		return "OK no visible military weapon detected by Phase 20 heuristic";
+		return ResolveWeaponEligibilityReasonFromIdentity(ResolveEntityIdentity(playerEntity));
+	}
+
+	protected string ResolveWeaponEligibilityReasonFromIdentity(string identity)
+	{
+		if (identity.IsEmpty())
+			return "WARN unknown weapon/entity identity";
+
+		string normalized = NormalizeUndercoverIdentity(identity);
+		if (IsUndercoverMilitaryRoleIdentity(normalized))
+			return "BLOCK military role implies visible/issued weapon";
+		if (IsUndercoverWeaponIdentity(normalized))
+			return "BLOCK weapon identity detected";
+
+		return "OK no live weapon detected";
+	}
+
+	protected bool TryResolveLiveClothingEligibilityEvidence(IEntity playerEntity, out string blockingEvidence, out string civilianEvidence, out int scannedWearables)
+	{
+		blockingEvidence = "";
+		civilianEvidence = "";
+		scannedWearables = 0;
+		if (!playerEntity)
+			return false;
+
+		SCR_CharacterInventoryStorageComponent characterStorage = SCR_CharacterInventoryStorageComponent.Cast(playerEntity.FindComponent(SCR_CharacterInventoryStorageComponent));
+		if (!characterStorage)
+			return false;
+
+		int slotCount = characterStorage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = characterStorage.GetSlot(slotIndex);
+			if (!slot)
+				continue;
+
+			IEntity attachedEntity = slot.GetAttachedEntity();
+			if (!attachedEntity)
+				continue;
+
+			string itemIdentity = ResolveUndercoverItemIdentity(attachedEntity);
+			string normalized = NormalizeUndercoverIdentity(itemIdentity);
+			string category = ResolveUndercoverWearableCategory(attachedEntity, itemIdentity);
+			if (category.IsEmpty() && !BaseLoadoutClothComponent.Cast(attachedEntity.FindComponent(BaseLoadoutClothComponent)) && !IsUndercoverClothingLikeIdentity(normalized))
+				continue;
+
+			scannedWearables++;
+			if (IsUndercoverMilitaryClothingIdentity(normalized))
+			{
+				blockingEvidence = BuildUndercoverItemEvidence(attachedEntity, itemIdentity);
+				return true;
+			}
+
+			if (civilianEvidence.IsEmpty() && IsUndercoverCivilianIdentity(normalized))
+				civilianEvidence = BuildUndercoverItemEvidence(attachedEntity, itemIdentity);
+		}
+
+		return false;
+	}
+
+	protected bool TryResolveLiveWeaponEvidence(IEntity playerEntity, out string evidence)
+	{
+		evidence = "";
+		if (!playerEntity)
+			return false;
+
+		BaseWeaponManagerComponent weaponManager = BaseWeaponManagerComponent.Cast(playerEntity.FindComponent(BaseWeaponManagerComponent));
+		if (weaponManager)
+		{
+			BaseWeaponComponent currentWeapon = weaponManager.GetCurrentWeapon();
+			if (currentWeapon && IsUndercoverBlockingWeaponItem(currentWeapon.GetOwner()))
+			{
+				evidence = "current " + BuildUndercoverItemEvidence(currentWeapon.GetOwner());
+				return true;
+			}
+
+			array<IEntity> weaponEntities = {};
+			weaponManager.GetWeaponsList(weaponEntities);
+			foreach (IEntity weaponEntity : weaponEntities)
+			{
+				if (!IsUndercoverBlockingWeaponItem(weaponEntity))
+					continue;
+
+				evidence = "equipped " + BuildUndercoverItemEvidence(weaponEntity);
+				return true;
+			}
+		}
+
+		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(playerEntity.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (!inventory)
+			return false;
+
+		array<IEntity> items = {};
+		array<IEntity> visited = {};
+		GatherUndercoverInventoryItemsRecursive(inventory, items, visited, 0);
+		foreach (IEntity item : items)
+		{
+			if (!IsUndercoverBlockingWeaponItem(item))
+				continue;
+
+			evidence = "inventory " + BuildUndercoverItemEvidence(item);
+			return true;
+		}
+
+		return false;
+	}
+
+	protected void GatherUndercoverInventoryItemsRecursive(SCR_InventoryStorageManagerComponent inventory, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
+	{
+		if (!inventory || depth > 8)
+			return;
+
+		array<IEntity> directItems = {};
+		inventory.GetItems(directItems, EStoragePurpose.PURPOSE_ANY);
+		foreach (IEntity item : directItems)
+			GatherUndercoverInventoryItemRecursive(item, outItems, visited, depth);
+	}
+
+	protected void GatherUndercoverStorageItemsRecursive(BaseInventoryStorageComponent storage, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
+	{
+		if (!storage || depth > 8)
+			return;
+
+		array<InventoryItemComponent> itemComponents = {};
+		storage.GetOwnedItems(itemComponents);
+		foreach (InventoryItemComponent itemComponent : itemComponents)
+		{
+			if (!itemComponent)
+				continue;
+
+			InventoryStorageSlot parentSlot = itemComponent.GetParentSlot();
+			if (parentSlot)
+				GatherUndercoverInventoryItemRecursive(parentSlot.GetAttachedEntity(), outItems, visited, depth);
+		}
+
+		int slotCount = storage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+			if (!slot)
+				continue;
+
+			GatherUndercoverInventoryItemRecursive(slot.GetAttachedEntity(), outItems, visited, depth);
+		}
+	}
+
+	protected void GatherUndercoverInventoryItemRecursive(IEntity item, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
+	{
+		if (!item || depth > 8 || visited.Find(item) >= 0)
+			return;
+
+		visited.Insert(item);
+
+		SCR_InventoryStorageManagerComponent childInventory = SCR_InventoryStorageManagerComponent.Cast(item.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (childInventory)
+			GatherUndercoverInventoryItemsRecursive(childInventory, outItems, visited, depth + 1);
+
+		InventoryItemComponent itemComponent = InventoryItemComponent.Cast(item.FindComponent(InventoryItemComponent));
+		BaseInventoryStorageComponent itemStorage = BaseInventoryStorageComponent.Cast(itemComponent);
+		if (itemStorage)
+			GatherUndercoverStorageItemsRecursive(itemStorage, outItems, visited, depth + 1);
+
+		outItems.Insert(item);
+	}
+
+	protected bool IsUndercoverBlockingWeaponItem(IEntity item)
+	{
+		if (!item)
+			return false;
+
+		if (BaseWeaponComponent.Cast(item.FindComponent(BaseWeaponComponent)))
+			return true;
+
+		if (GrenadeMoveComponent.Cast(item.FindComponent(GrenadeMoveComponent)))
+			return true;
+
+		string itemIdentity = ResolveUndercoverItemIdentity(item);
+		if (BaseLoadoutClothComponent.Cast(item.FindComponent(BaseLoadoutClothComponent)) || !ResolveUndercoverWearableCategory(item, itemIdentity).IsEmpty())
+			return false;
+
+		return IsUndercoverWeaponIdentity(NormalizeUndercoverIdentity(itemIdentity));
+	}
+
+	protected string ResolveUndercoverItemIdentity(IEntity item)
+	{
+		if (!item)
+			return "";
+
+		string prefab = ResolveEntityIdentity(item);
+		string displayName = ResolveUndercoverItemDisplayName(item, prefab);
+		if (!displayName.IsEmpty() && displayName != prefab)
+			return prefab + " " + displayName;
+
+		return prefab;
+	}
+
+	protected string ResolveUndercoverItemDisplayName(IEntity item, string prefab = "")
+	{
+		string displayName;
+		if (item)
+		{
+			InventoryItemComponent itemComponent = InventoryItemComponent.Cast(item.FindComponent(InventoryItemComponent));
+			if (itemComponent && itemComponent.GetUIInfo())
+				displayName = itemComponent.GetUIInfo().GetName();
+		}
+
+		return HST_DisplayNameService.ResolveItemDisplayName(item, prefab, displayName);
+	}
+
+	protected string BuildUndercoverItemEvidence(IEntity item, string identity = "")
+	{
+		string displayName = ResolveUndercoverItemDisplayName(item, ResolveEntityIdentity(item));
+		if (!displayName.IsEmpty())
+			return ShortenUndercoverEvidence(displayName);
+
+		if (identity.IsEmpty())
+			identity = ResolveEntityIdentity(item);
+
+		return ShortenUndercoverEvidence(identity);
+	}
+
+	protected string ResolveUndercoverWearableCategory(IEntity item, string identity)
+	{
+		string prefab = ResolveEntityIdentity(item);
+		string displayName = ResolveUndercoverItemDisplayName(item, prefab);
+		string category = HST_ArsenalItemFilter.ResolveWearableCategory(prefab, displayName);
+		if (!category.IsEmpty())
+			return category;
+
+		return HST_ArsenalItemFilter.ResolveWearableCategory(identity, displayName);
+	}
+
+	protected string NormalizeUndercoverIdentity(string value)
+	{
+		string normalized = value;
+		normalized.ToLower();
+		normalized.Replace(" ", "_");
+		return normalized;
+	}
+
+	protected string ShortenUndercoverEvidence(string value)
+	{
+		if (value.Length() <= 96)
+			return value;
+
+		return value.Substring(0, 93) + "...";
+	}
+
+	protected bool IsUndercoverCivilianIdentity(string normalized)
+	{
+		return normalized.Contains("/civ/") || normalized.Contains("civilian") || normalized.Contains("genericcivilians") || normalized.Contains("citizen");
+	}
+
+	protected bool IsUndercoverResistanceIdentity(string normalized)
+	{
+		return normalized.Contains("/fia/") || normalized.Contains("fia_") || normalized.Contains("_fia") || normalized.Contains("resistance");
+	}
+
+	protected bool IsUndercoverMilitaryClothingIdentity(string normalized)
+	{
+		if (IsUndercoverCivilianIdentity(normalized) || IsUndercoverResistanceIdentity(normalized))
+			return false;
+
+		return normalized.Contains("us_army")
+			|| normalized.Contains("/factions/us/")
+			|| normalized.Contains("/factions/ussr/")
+			|| normalized.Contains("ussr")
+			|| normalized.Contains("soviet")
+			|| normalized.Contains("blufor")
+			|| normalized.Contains("opfor")
+			|| normalized.Contains("military")
+			|| normalized.Contains("uniform")
+			|| normalized.Contains("helmet")
+			|| normalized.Contains("bodyarmor")
+			|| normalized.Contains("body_armor")
+			|| normalized.Contains("armorvest")
+			|| normalized.Contains("armor_vest")
+			|| normalized.Contains("platecarrier")
+			|| normalized.Contains("plate_carrier")
+			|| normalized.Contains("tactical")
+			|| normalized.Contains("webbing")
+			|| normalized.Contains("chestrig")
+			|| normalized.Contains("chest_rig")
+			|| normalized.Contains("chest-rig")
+			|| normalized.Contains("lbe")
+			|| normalized.Contains("alice")
+			|| normalized.Contains("loadbearing")
+			|| normalized.Contains("load_bearing")
+			|| normalized.Contains("camo")
+			|| normalized.Contains("camouflage");
+	}
+
+	protected bool IsUndercoverClothingLikeIdentity(string normalized)
+	{
+		return normalized.Contains("clothing")
+			|| normalized.Contains("headgear")
+			|| normalized.Contains("helmet")
+			|| normalized.Contains("hat")
+			|| normalized.Contains("vest")
+			|| normalized.Contains("webbing")
+			|| normalized.Contains("backpack")
+			|| normalized.Contains("pants")
+			|| normalized.Contains("trouser")
+			|| normalized.Contains("boot")
+			|| normalized.Contains("glove")
+			|| normalized.Contains("uniform")
+			|| normalized.Contains("jacket")
+			|| normalized.Contains("shirt");
+	}
+
+	protected bool IsUndercoverMilitaryRoleIdentity(string normalized)
+	{
+		return normalized.Contains("rifleman")
+			|| normalized.Contains("autorifleman")
+			|| normalized.Contains("machinegun")
+			|| normalized.Contains("machine_gun")
+			|| normalized.Contains("grenadier")
+			|| normalized.Contains("marksman")
+			|| normalized.Contains("sniper")
+			|| normalized.Contains("squadleader")
+			|| normalized.Contains("squad_leader")
+			|| normalized.Contains("teamleader")
+			|| normalized.Contains("team_leader")
+			|| normalized.Contains("officer")
+			|| normalized.Contains("_lat")
+			|| normalized.Contains("/lat")
+			|| normalized.Contains("_mg")
+			|| normalized.Contains("/mg");
+	}
+
+	protected bool IsUndercoverWeaponIdentity(string normalized)
+	{
+		if (normalized.Contains("magazine") || normalized.Contains("/attachments/") || normalized.Contains("attachment_"))
+			return false;
+
+		return normalized.Contains("/weapons/")
+			|| normalized.Contains("weapon_")
+			|| normalized.Contains("/rifles/")
+			|| normalized.Contains("rifle")
+			|| normalized.Contains("carbine")
+			|| normalized.Contains("machinegun")
+			|| normalized.Contains("machine_gun")
+			|| normalized.Contains("pistol")
+			|| normalized.Contains("handgun")
+			|| normalized.Contains("sidearm")
+			|| normalized.Contains("launcher")
+			|| normalized.Contains("rpg")
+			|| normalized.Contains("m72")
+			|| normalized.Contains("grenade")
+			|| normalized.Contains("mine")
+			|| normalized.Contains("explosive");
 	}
 
 	protected string ResolveVehicleEligibilityReason(HST_CampaignState state, IEntity playerEntity)
