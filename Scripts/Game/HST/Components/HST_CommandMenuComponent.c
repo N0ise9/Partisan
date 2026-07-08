@@ -53,7 +53,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string COMMAND_MENU_INPUT_CONTEXT = "HST_CommandMenuContext";
 	static const string COMMAND_MENU_NATIVE_I_CONTEXT = "PlayerMenuContext";
-	static const string COMMAND_MENU_BUILD = "2026-07-08-menu-input-r17-map-target-cursor-layer";
+	static const string COMMAND_MENU_BUILD = "2026-07-08-menu-input-r18-native-map-open-gate";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
@@ -986,6 +986,12 @@ class HST_CommandMenuComponent : ScriptComponent
 			return false;
 		}
 
+		if (!m_bMenuOpen && IsNativeMapOpen())
+		{
+			DebugCommandMenuToggleRefused(source, "map open");
+			return false;
+		}
+
 		if (m_fCommandMenuDebounceRemaining > 0)
 		{
 			DebugCommandMenuToggleRefused(source, "debounce");
@@ -1014,6 +1020,12 @@ class HST_CommandMenuComponent : ScriptComponent
 		Print(string.Format("h-istasi menu | input toggle source=%1 menuOpen=%2 localOwner=%3 inputRegistered=%4 customBinding=%5", source, m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady));
 		ToggleMenu(source);
 		return true;
+	}
+
+	protected bool IsNativeMapOpen()
+	{
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		return mapEntity && mapEntity.IsOpen();
 	}
 
 	protected void DebugCommandMenuToggleRefused(string source, string reason)
@@ -1293,6 +1305,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			DebugLog("open refused while setup is still blocking via " + source);
 			Print(string.Format("h-istasi menu | open refused by setup blocking source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
+			m_fCommandMenuDebounceRemaining = 0;
+			return;
+		}
+
+		if (IsNativeMapOpen())
+		{
+			DebugLog("open refused while native map is open via " + source);
+			Print(string.Format("h-istasi menu | open refused by native map source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 			m_fCommandMenuDebounceRemaining = 0;
 			return;
 		}
