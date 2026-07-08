@@ -22,6 +22,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected bool m_bIsLocalOwner;
 	protected bool m_bNativeMapMarkerRefreshBound;
 	protected bool m_bNativeMapMarkerRefreshQueued;
+	protected bool m_bCampaignDebugMapProofOpenedMap;
 	protected bool m_bDebugLoggingEnabled;
 	protected bool m_bRuntimeFeatureSettingsSynced;
 	protected bool m_bInfiniteStaminaEnabled;
@@ -645,6 +646,33 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return true;
 	}
 
+	static bool SendCampaignDebugCommandMenuMapOpenGateProofOwner(int playerId, string requestId)
+	{
+		if (!Replication.IsServer() || playerId <= 0 || requestId.IsEmpty())
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		PlayerController controller = playerManager.GetPlayerController(playerId);
+		if (!controller)
+		{
+			Print(string.Format("h-istasi campaign debug command menu map gate | owner RPC unavailable: player controller missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			return false;
+		}
+
+		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
+		if (!request)
+		{
+			Print(string.Format("h-istasi campaign debug command menu map gate | owner RPC unavailable: request bridge missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			return false;
+		}
+
+		request.DeliverCampaignDebugCommandMenuMapOpenGateProof(requestId);
+		return true;
+	}
+
 	static bool SendCampaignDebugMapProofOwner(int playerId, string requestId)
 	{
 		if (!Replication.IsServer() || playerId <= 0 || requestId.IsEmpty())
@@ -807,6 +835,18 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_ReportCampaignDebugCommandMenuProof, requestId, report, clientPlayerId);
 	}
 
+	void ReportCampaignDebugCommandMenuMapOpenGateProof(string requestId, string report)
+	{
+		int clientPlayerId = ResolveLocalPlayerId();
+		if (Replication.IsServer())
+		{
+			ReceiveCampaignDebugCommandMenuMapOpenGateProofReport(requestId, report, clientPlayerId);
+			return;
+		}
+
+		Rpc(RpcAsk_ReportCampaignDebugCommandMenuMapOpenGateProof, requestId, report, clientPlayerId);
+	}
+
 	void ReportCampaignDebugMapProof(string requestId, string report)
 	{
 		int clientPlayerId = ResolveLocalPlayerId();
@@ -871,6 +911,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void RpcAsk_ReportCampaignDebugCommandMenuProof(string requestId, string report, int clientPlayerId)
 	{
 		ReceiveCampaignDebugCommandMenuProofReport(requestId, report, clientPlayerId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_ReportCampaignDebugCommandMenuMapOpenGateProof(string requestId, string report, int clientPlayerId)
+	{
+		ReceiveCampaignDebugCommandMenuMapOpenGateProofReport(requestId, report, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
@@ -1026,6 +1072,19 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		menu.RunCampaignDebugRenderedProof(requestId, selectedTabId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_CampaignDebugCommandMenuMapOpenGateProof(string requestId)
+	{
+		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
+		if (!menu)
+		{
+			ReportCampaignDebugCommandMenuMapOpenGateProof(requestId, string.Format("request %1 | player %2 | menu component missing", requestId, ResolveLocalPlayerId()));
+			return;
+		}
+
+		menu.RunCampaignDebugMapOpenGateProof(requestId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -1330,6 +1389,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcDo_CampaignDebugCommandMenuProof, requestId, selectedTabId);
 	}
 
+	protected void DeliverCampaignDebugCommandMenuMapOpenGateProof(string requestId)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_CampaignDebugCommandMenuMapOpenGateProof(requestId);
+			return;
+		}
+
+		Rpc(RpcDo_CampaignDebugCommandMenuMapOpenGateProof, requestId);
+	}
+
 	protected void DeliverCampaignDebugMapProof(string requestId)
 	{
 		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
@@ -1351,6 +1421,16 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		coordinator.ReceiveCampaignDebugCommandMenuProofReport(playerId, requestId, report);
 	}
 
+	protected void ReceiveCampaignDebugCommandMenuMapOpenGateProofReport(string requestId, string report, int clientPlayerId = 0)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return;
+
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "command menu map-open gate proof");
+		coordinator.ReceiveCampaignDebugCommandMenuMapOpenGateProofReport(playerId, requestId, report);
+	}
+
 	protected void ReceiveCampaignDebugMapProofReport(string requestId, string report, int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
@@ -1366,6 +1446,18 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (requestId.IsEmpty())
 			return;
 
+		m_bCampaignDebugMapProofOpenedMap = false;
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		if (!mapEntity || !mapEntity.IsOpen())
+		{
+			MenuManager menuManager = GetGame().GetMenuManager();
+			if (menuManager)
+			{
+				menuManager.OpenMenu(ChimeraMenuPreset.MapMenu);
+				m_bCampaignDebugMapProofOpenedMap = true;
+			}
+		}
+
 		GetGame().GetCallqueue().CallLater(DispatchCampaignDebugMapProofReport, 120, false, requestId, 0);
 		GetGame().GetCallqueue().CallLater(DispatchCampaignDebugMapProofReport, 650, false, requestId, 1);
 	}
@@ -1375,6 +1467,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		string report = BuildCampaignDebugMapProofReport(requestId, passIndex);
 		ReportCampaignDebugMapProof(requestId, report);
 		Print("h-istasi map | campaign debug rendered proof | " + report);
+		if (passIndex > 0 && m_bCampaignDebugMapProofOpenedMap)
+		{
+			MenuManager menuManager = GetGame().GetMenuManager();
+			if (menuManager)
+				menuManager.CloseMenuByPreset(ChimeraMenuPreset.MapMenu);
+
+			m_bCampaignDebugMapProofOpenedMap = false;
+		}
 	}
 
 	protected string BuildCampaignDebugMapProofReport(string requestId, int passIndex)
@@ -1422,6 +1522,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		string report = string.Format("request %1 | player %2 | pass %3 | mapOpen %4 | root %5 | frame %6 | markerUI %7 | markersReady %8 | playerReady %9", requestId, ResolveLocalPlayerId(), passIndex, mapOpen, rootVisible, hasFrame, markerUI, markersReady, playerReady);
 		report = report + string.Format(" | static %1 | dynamic %2 | playerMarkers %3/%4", staticMarkers, dynamicMarkers, readyPlayerMarkers, playerMarkers);
 		report = report + string.Format(" | toolMenuUI %1 | toolInteractionUI %2 | toolMenuWidget %3 | toolMenuBarWidget %4", toolMenuUI, toolInteractionUI, toolMenuWidget, toolMenuBarWidget);
+		report = report + string.Format(" | openedByProof %1", m_bCampaignDebugMapProofOpenedMap);
 		report = report + " | rootSummary " + ShortenText(rootSummary, 140);
 		return report;
 	}
