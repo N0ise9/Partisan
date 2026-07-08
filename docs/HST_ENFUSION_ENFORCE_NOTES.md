@@ -255,7 +255,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - `HST_SpawnPlacementResult` is the source of truth for route-aware support
     staging evidence: placement type, selected spawn/target positions,
     target/road/HQ distances, road resolution, dry-ground and vehicle-safe
-    checks, and debug summary.
+    checks, player/active-AI clearance checks, and debug summary.
   - Copy the deployment route id and placement proof onto
     `HST_SupportRequestState`, then copy the same route and force counts onto
     the linked `HST_ActiveGroupState`. `HST_CampaignSaveData` should roundtrip
@@ -263,6 +263,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `IEntity` references.
   - If a vehicle-capable support composition cannot find vehicle-safe staging,
     downgrade to infantry-only deployment instead of losing the whole response.
+  - Player-selected support destinations should remain the support request and
+    active-group target. Resolve the physical spawn as an offset staging point
+    around that destination, reject candidates near living players or nonterminal
+    active groups, and route the spawned group toward the selected destination
+    instead of replacing the destination with the spawn point.
   - Current examples: `HST_SupportRequestService.ApplyActiveSupport()` and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
 
@@ -553,6 +558,23 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Setup can use a minimal map config with setup selection behavior and optional setup overlays.
   - Gameplay should inherit/preserve vanilla `MapFullscreen.conf` tools and marker UI.
   - Setup-only components must not pollute normal map behavior after HQ placement.
+
+- Gameplay command targeting should open the normal map, not the setup map.
+  - Use `MenuManager.OpenMenu(ChimeraMenuPreset.MapMenu)` for player-facing
+    command targeting so the player sees the same marker/tool stack as a normal
+    map open.
+  - Bind `SCR_MapEntity.GetOnSelection()` after opening, wait for
+    `GetOnMapOpenComplete()`, convert clicks with `ScreenToWorld()`, and manage
+    selection state through `SCR_MapCursorModule.ToggleLocationSelection()`.
+  - A confirmation modal over the normal map should use
+    `SCR_MapCursorModule.HandleDialog(true/false)` and temporarily disable
+    location selection instead of activating extra dialog input contexts.
+  - If an action requires map targeting, gate the visible action by
+    `SCR_GadgetManagerComponent.GetGadgetByType(EGadgetType.MAP)` and revalidate
+    the map on the server before executing the command. The client menu state is
+    presentation, not authority.
+  - Current examples: `HST_CommandMenuComponent.BeginCommandMapTargetSelection()`
+    and `HST_CampaignCoordinatorComponent.PlayerHasMapInInventory()`.
 
 - Campaign markers should use native map marker systems.
   - Let `SCR_MapMarkerManagerComponent` handle projection and pan/zoom.
@@ -995,6 +1017,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - For QRF/search player support certification, push the debug-created request to the inbound physicalization window and tick `HST_SupportRequestService` instead of calling abstract completion directly. Assert remaining ETA decreases, runtime status advances, `m_bPhysicalized` flips, `m_sGroupId` is populated, and the linked active group has a support runtime status. Then sample `HST_PhysicalWarService.UpdateRoutedActiveGroupsNow()` across repeated route windows and report sample count, movement count, distance-closure count, max movement, max distance closed, and last-observed/stall history. After controlled arrival, a debug-owned support group can be moved to a terminal runtime status to prove `physical_group_terminal` resolution through the real support tick; keep natural support contact/combat as a separate gap until sampled without forcing the terminal state. Remove/cancel the debug support group/request before the post-case leak probe.
   - Snapshot the linked support marker immediately after the support command and marker rebuild, before the controlled runtime probe advances the request to resolved. Resolved support requests are intentionally omitted by `AddSupportRequestMarkers()`, so sampling marker state only after terminal resolution creates a false WARN even when the marker was published at request time.
   - Route-based physical probes should distinguish missing samples from sampled stalls. If a ground support or enemy-order group is sampled through the controlled route window and shows no movement, no distance closure, and no arrival status, record a `*.physical_stall_timeout` FAIL with timeout seconds, last-observed status, and sample history. Missing or insufficient samples can remain WARN/BLOCKED depending on prerequisite state, but a fully sampled no-progress window is a real failure.
+  - Map-target support probes should assert the clicked/requested destination
+    remains on `HST_SupportRequestState.m_vTargetPosition`, the linked active
+    group keeps that same `m_vTargetPosition`, and deployment summary proves
+    offset staging plus player/active-AI clearance before movement samples are
+    judged.
   - Route-based physical probes should not fail movement or stall-timeout assertions when the sampled group is already within the target-distance tolerance. Distance closure is only meaningful while the group is still away from its objective; `distance_after <= 25m` is non-stall evidence even if the runtime status has not yet flipped to arrived.
   - Do not classify `spawn_pending_agents` or `convoy_seating_pending` as a route stall just because the debug runner advanced campaign seconds. Those states depend on real engine/callqueue population or animated boarding; keep them as WARN/pending evidence until the pending state clears, then fail only fully sampled no-progress windows.
   - Civilian aid debug probes should assert the exact clamped `RegisterIncident` result, not only direction. For the current aid command this means money -100, FIA support +12 clamped to 100, occupier support -6 clamped to 0, reputation +12 clamped to 100, wanted heat -2 floored at 0, and zone support clamped to the FIA-minus-occupier difference.

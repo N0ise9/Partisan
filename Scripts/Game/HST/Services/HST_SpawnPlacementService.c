@@ -8,6 +8,8 @@ class HST_SpawnPlacementService
 	static const float PETROS_ATTACK_MIN_STANDOFF_METERS = 950.0;
 	static const float DEFAULT_MIN_STANDOFF_METERS = 220.0;
 	static const float DEFAULT_MAX_STANDOFF_METERS = 650.0;
+	static const float SUPPORT_MIN_PLAYER_CLEARANCE_METERS = 180.0;
+	static const float SUPPORT_MIN_ACTIVE_GROUP_CLEARANCE_METERS = 90.0;
 
 	HST_SpawnPlacementResult ResolvePlacement(HST_CampaignState state, HST_CampaignPreset preset, HST_SpawnPlacementRequest request)
 	{
@@ -39,6 +41,7 @@ class HST_SpawnPlacementService
 		}
 
 		result.m_vSpawnPosition = selected;
+		ApplyClearanceMetrics(state, request, result, selected);
 		result.m_bDryGround = HST_WorldPositionService.IsDryGroundPosition(selected);
 		result.m_bVehicleSafe = !request.m_bRequireVehicleSafe || HST_WorldPositionService.IsVehicleFootprintStableForTravel(selected, result.m_vTargetPosition);
 		result.m_fTargetDistanceMeters = Distance2D(selected, result.m_vTargetPosition);
@@ -91,6 +94,10 @@ class HST_SpawnPlacementService
 		request.m_bRequireRoadSource = false;
 		request.m_bExplain = true;
 		request.m_sReason = "support physicalization";
+		request.m_bAvoidLivingPlayers = true;
+		request.m_bAvoidActiveGroups = true;
+		request.m_fMinPlayerDistanceMeters = SUPPORT_MIN_PLAYER_CLEARANCE_METERS;
+		request.m_fMinActiveGroupDistanceMeters = SUPPORT_MIN_ACTIVE_GROUP_CLEARANCE_METERS;
 		return request;
 	}
 
@@ -108,6 +115,8 @@ class HST_SpawnPlacementService
 		request.m_bPreferRoadTarget = !sourceEndpoint;
 		request.m_bRequireRoadTarget = !sourceEndpoint;
 		request.m_fRoadSearchRadiusMeters = 350.0;
+		request.m_bAvoidLivingPlayers = true;
+		request.m_fMinPlayerDistanceMeters = SUPPORT_MIN_PLAYER_CLEARANCE_METERS;
 		request.m_bExplain = true;
 		request.m_sReason = "convoy endpoint";
 		return request;
@@ -223,6 +232,10 @@ class HST_SpawnPlacementService
 			return false;
 		}
 
+		vector accepted = resolved;
+		bool acceptedRoadResolved = false;
+		vector acceptedRoadForward = "0 0 0";
+		float acceptedRoadDistance = 0.0;
 		if (request.m_bPreferRoadSource || request.m_bRequireRoadSource)
 		{
 			vector roadPosition;
@@ -232,20 +245,43 @@ class HST_SpawnPlacementService
 			string roadReason;
 			if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(resolved, Math.Max(1.0, request.m_fRoadSearchRadiusMeters), result.m_vTargetPosition, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
 			{
-				selected = roadPosition;
-				result.m_bRoadResolved = true;
-				result.m_vRoadForward = roadForward;
-				result.m_fRoadDistanceMeters = roadDistance;
-				return true;
+				accepted = roadPosition;
+				acceptedRoadResolved = true;
+				acceptedRoadForward = roadForward;
+				acceptedRoadDistance = roadDistance;
 			}
-			if (request.m_bRequireRoadSource)
+			else if (request.m_bRequireRoadSource)
 			{
 				failureReason = "candidate road resolution failed: " + roadReason;
 				return false;
 			}
 		}
 
-		selected = resolved;
+		if (!IsWithinStandoff(request, result.m_vTargetPosition, accepted))
+		{
+			failureReason = "candidate outside standoff range after road adjustment";
+			return false;
+		}
+		if (!IsHQStandoffSatisfied(state, request, accepted))
+		{
+			failureReason = "candidate violates HQ standoff after road adjustment";
+			return false;
+		}
+		if (!IsClearOfLivingPlayers(request, accepted, result))
+		{
+			failureReason = "candidate too close to living player";
+			return false;
+		}
+		if (!IsClearOfActiveGroups(state, request, accepted, result))
+		{
+			failureReason = "candidate too close to active AI group";
+			return false;
+		}
+
+		selected = accepted;
+		result.m_bRoadResolved = acceptedRoadResolved;
+		result.m_vRoadForward = acceptedRoadForward;
+		result.m_fRoadDistanceMeters = acceptedRoadDistance;
 		return true;
 	}
 
@@ -288,6 +324,13 @@ class HST_SpawnPlacementService
 			result.m_bRoadResolved,
 			Math.Round(result.m_fRoadDistanceMeters),
 			result.m_bHQStandoffSatisfied
+		);
+		summary = summary + string.Format(
+			" | playerClear %1 nearestPlayer %2m | activeGroupClear %3 nearestGroup %4m",
+			result.m_bPlayerClearanceSatisfied,
+			Math.Round(result.m_fNearestPlayerDistanceMeters),
+			result.m_bActiveGroupClearanceSatisfied,
+			Math.Round(result.m_fNearestActiveGroupDistanceMeters)
 		);
 		if (!result.m_sFailureReason.IsEmpty())
 			summary = summary + " | failure " + result.m_sFailureReason;
@@ -366,6 +409,135 @@ class HST_SpawnPlacementService
 			return true;
 
 		return Distance2D(state.m_vHQPosition, position) >= HQ_SAFE_RADIUS_METERS;
+	}
+
+	protected void ApplyClearanceMetrics(HST_CampaignState state, HST_SpawnPlacementRequest request, HST_SpawnPlacementResult result, vector position)
+	{
+		if (!result)
+			return;
+
+		result.m_fNearestPlayerDistanceMeters = ResolveNearestLivingPlayerDistanceMeters(position);
+		result.m_fNearestActiveGroupDistanceMeters = ResolveNearestActiveGroupDistanceMeters(state, position);
+		result.m_bPlayerClearanceSatisfied = IsClearOfLivingPlayers(request, position, result);
+		result.m_bActiveGroupClearanceSatisfied = IsClearOfActiveGroups(state, request, position, result);
+	}
+
+	protected bool IsClearOfLivingPlayers(HST_SpawnPlacementRequest request, vector position, HST_SpawnPlacementResult result = null)
+	{
+		if (!request || !request.m_bAvoidLivingPlayers)
+			return true;
+
+		float minDistance = Math.Max(1.0, request.m_fMinPlayerDistanceMeters);
+		float nearest = ResolveNearestLivingPlayerDistanceMeters(position);
+		if (result)
+		{
+			result.m_fNearestPlayerDistanceMeters = nearest;
+			result.m_bPlayerClearanceSatisfied = nearest < 0 || nearest >= minDistance;
+		}
+
+		return nearest < 0 || nearest >= minDistance;
+	}
+
+	protected bool IsClearOfActiveGroups(HST_CampaignState state, HST_SpawnPlacementRequest request, vector position, HST_SpawnPlacementResult result = null)
+	{
+		if (!request || !request.m_bAvoidActiveGroups)
+			return true;
+
+		float minDistance = Math.Max(1.0, request.m_fMinActiveGroupDistanceMeters);
+		float nearest = ResolveNearestActiveGroupDistanceMeters(state, position);
+		if (result)
+		{
+			result.m_fNearestActiveGroupDistanceMeters = nearest;
+			result.m_bActiveGroupClearanceSatisfied = nearest < 0 || nearest >= minDistance;
+		}
+
+		return nearest < 0 || nearest >= minDistance;
+	}
+
+	protected float ResolveNearestLivingPlayerDistanceMeters(vector position)
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return -1.0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		float nearest = -1.0;
+		foreach (int playerId : playerIds)
+		{
+			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+			if (!IsLivingPlayerEntity(playerEntity))
+				continue;
+
+			float distance = Distance2D(playerEntity.GetOrigin(), position);
+			if (nearest < 0 || distance < nearest)
+				nearest = distance;
+		}
+
+		return nearest;
+	}
+
+	protected float ResolveNearestActiveGroupDistanceMeters(HST_CampaignState state, vector position)
+	{
+		if (!state)
+			return -1.0;
+
+		float nearest = -1.0;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || IsTerminalActiveGroupStatus(activeGroup))
+				continue;
+
+			vector groupPosition = ResolveActiveGroupClearancePosition(activeGroup);
+			if (IsZeroVector(groupPosition))
+				continue;
+
+			float distance = Distance2D(groupPosition, position);
+			if (nearest < 0 || distance < nearest)
+				nearest = distance;
+		}
+
+		return nearest;
+	}
+
+	protected vector ResolveActiveGroupClearancePosition(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return "0 0 0";
+		if (!IsZeroVector(activeGroup.m_vPosition))
+			return activeGroup.m_vPosition;
+		if (!IsZeroVector(activeGroup.m_vSourcePosition))
+			return activeGroup.m_vSourcePosition;
+		return activeGroup.m_vTargetPosition;
+	}
+
+	protected bool IsTerminalActiveGroupStatus(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return true;
+
+		return activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed";
+	}
+
+	protected IEntity GetBestPlayerEntity(PlayerManager playerManager, int playerId)
+	{
+		if (!playerManager || playerId <= 0)
+			return null;
+
+		IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
+		if (controlledEntity)
+			return controlledEntity;
+
+		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+	}
+
+	protected bool IsLivingPlayerEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
+		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
 	}
 
 	protected vector BuildApproachCandidate(vector target, vector source, int seed, int attempt, float minStandoff, float maxStandoff)

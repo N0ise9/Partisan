@@ -488,7 +488,12 @@ class HST_CommandUIService
 		return false;
 	}
 
-	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
+	protected bool IsMapTargetArgument(string argument)
+	{
+		return !argument.IsEmpty() && argument.StartsWith("map_target:");
+	}
+
+	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, bool playerHasMap, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
 	{
 		selectedTabId = NormalizeTabId(selectedTabId);
 		m_bBuildDebugMenuEnabled = IsDebugMenuEnabled(settings);
@@ -525,7 +530,7 @@ class HST_CommandUIService
 			payload = payload + "\nRESULT|" + lastResult;
 
 		array<ref HST_CommandMenuAction> actions = {};
-		BuildTabActions(state, preset, selectedTabId, playerId, actions, canUseMember, canUseCommander, canUseDebugAdmin);
+		BuildTabActions(state, preset, selectedTabId, playerId, actions, canUseMember, canUseCommander, canUseDebugAdmin, playerHasMap);
 		foreach (HST_CommandMenuAction action : actions)
 			payload = payload + "\n" + action.ToPayloadLine();
 
@@ -723,9 +728,17 @@ class HST_CommandUIService
 			return coordinator.RequestCommanderTrainTroopsReport(playerId);
 
 		if (commandId == "recruit_zone")
+		{
+			if (IsMapTargetArgument(argument))
+				return coordinator.RequestCommanderRecruitGarrisonAtMapTargetReport(playerId, argument, 2, 0, 100, 1);
 			return coordinator.RequestCommanderRecruitGarrisonReport(playerId, argument, 2, 0, 100, 1);
+		}
 		if (commandId == "remove_garrison")
+		{
+			if (IsMapTargetArgument(argument))
+				return coordinator.RequestCommanderRemoveGarrisonAtMapTargetReport(playerId, argument, 1, 0);
 			return coordinator.RequestCommanderRemoveGarrisonReport(playerId, argument, 1, 0);
+		}
 
 		if (commandId == "mission_zone")
 			return coordinator.RequestCommanderStartZoneMissionReport(playerId, argument);
@@ -744,20 +757,48 @@ class HST_CommandUIService
 		if (commandId == "mission_asset_load" || commandId == "mission_asset_unload" || commandId == "mission_asset_deliver" || commandId == "mission_captive_extract" || commandId == "mission_captive_follow" || commandId == "mission_vehicle_capture" || commandId == "mission_asset_sabotage")
 			return coordinator.RequestMemberMissionInteraction(playerId, commandId, argument);
 		if (commandId == "call_supply")
+		{
+			if (IsMapTargetArgument(argument))
+				return coordinator.RequestCommanderCallSupplyDropAtMapTargetReport(playerId, argument);
 			return coordinator.RequestCommanderCallSupplyDropReport(playerId);
+		}
 		if (commandId == "support_qrf")
+		{
+			if (IsMapTargetArgument(argument))
+				return coordinator.RequestCommanderCallPlayerSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_QRF, argument);
 			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_QRF);
+		}
 		if (commandId == "support_fire")
+		{
+			if (IsMapTargetArgument(argument))
+				return coordinator.RequestCommanderCallPlayerSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE, argument);
 			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
+		}
 
 		if (commandId == "support_search")
+		{
+			if (IsMapTargetArgument(argument))
+				return coordinator.RequestCommanderCallPlayerSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, argument);
 			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
+		}
 		if (commandId == "support_gbu")
+		{
+			if (IsMapTargetArgument(argument))
+				return coordinator.RequestCommanderCallPlayerSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU, argument);
 			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU);
+		}
 		if (commandId == "support_umpk")
+		{
+			if (IsMapTargetArgument(argument))
+				return coordinator.RequestCommanderCallPlayerSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK, argument);
 			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK);
+		}
 		if (commandId == "support_kh55")
+		{
+			if (IsMapTargetArgument(argument))
+				return coordinator.RequestCommanderCallPlayerSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55, argument);
 			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55);
+		}
 
 		if (commandId == "cancel_support")
 			return coordinator.RequestCommanderCancelSupportReport(playerId, argument);
@@ -2456,7 +2497,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected void BuildTabActions(HST_CampaignState state, HST_CampaignPreset preset, string selectedTabId, int playerId, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, bool canUseCommander, bool canUseAdmin)
+	protected void BuildTabActions(HST_CampaignState state, HST_CampaignPreset preset, string selectedTabId, int playerId, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, bool canUseCommander, bool canUseAdmin, bool playerHasMap)
 	{
 		actions.Clear();
 		selectedTabId = NormalizeTabId(selectedTabId);
@@ -2529,18 +2570,21 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_FORCES)
 		{
+			bool canUseMapTarget = canUseCommander && playerHasMap;
+			bool hasRecruitTarget = HasAnyRecruitableResistanceZone(state, preset);
+			bool hasRemovableGarrison = HasAnyRemovableResistanceGarrison(state, preset);
 			AddMenuAction(actions, TAB_FORCES, "Recruitment report", "inspect_recruitment", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Recruit FIA", state, recruitTargetId), "recruit_zone", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no recruit target");
-			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Remove FIA garrison", state, recruitTargetId), "remove_garrison", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no garrison target");
+			AddMenuAction(actions, TAB_FORCES, "Recruit FIA at map location", "recruit_zone", "", canUseMapTarget && hasRecruitTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, hasRecruitTarget, "no recruit target"));
+			AddMenuAction(actions, TAB_FORCES, "Remove FIA garrison at map location", "remove_garrison", "", canUseMapTarget && hasRemovableGarrison, MapTargetDisabledReason(canUseCommander, playerHasMap, hasRemovableGarrison, "no garrison target"));
 			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_FORCES, "Request supply drop", "call_supply", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_FORCES, "Request QRF reserve", "support_qrf", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_FORCES, "Request suppressive fire", "support_fire", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_FORCES, "Request search and destroy", "support_search", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_FORCES, "Request GBU air strike", "support_gbu", "", canUseCommander && airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady));
-			AddMenuAction(actions, TAB_FORCES, "Request UMPK air strike", "support_umpk", "", canUseCommander && airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady));
-			AddMenuAction(actions, TAB_FORCES, "Request Kh55 strike", "support_kh55", "", canUseCommander && airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady));
+			AddMenuAction(actions, TAB_FORCES, "Request supply drop at map location", "call_supply", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
+			AddMenuAction(actions, TAB_FORCES, "Request QRF reserve at map location", "support_qrf", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
+			AddMenuAction(actions, TAB_FORCES, "Request suppressive fire at map location", "support_fire", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
+			AddMenuAction(actions, TAB_FORCES, "Request search and destroy at map location", "support_search", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
+			AddMenuAction(actions, TAB_FORCES, "Request GBU air strike at map location", "support_gbu", "", canUseMapTarget && airSupportReady, MapTargetDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady)));
+			AddMenuAction(actions, TAB_FORCES, "Request UMPK air strike at map location", "support_umpk", "", canUseMapTarget && airSupportReady, MapTargetDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady)));
+			AddMenuAction(actions, TAB_FORCES, "Request Kh55 strike at map location", "support_kh55", "", canUseMapTarget && airSupportReady, MapTargetDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady)));
 			AddMenuAction(actions, TAB_FORCES, "Cancel player support", "cancel_support", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Deliver civilian aid", "civilian_aid", "", canUseCommander, "commander required");
 			return;
@@ -2825,6 +2869,22 @@ class HST_CommandUIService
 		return "";
 	}
 
+	protected string MapTargetDisabledReason(bool canUseCommander, bool playerHasMap, bool targetReady, string targetReason)
+	{
+		if (!canUseCommander)
+			return "commander required";
+		if (!playerHasMap)
+			return "map required";
+		if (!targetReady)
+		{
+			if (!targetReason.IsEmpty())
+				return targetReason;
+			return "target unavailable";
+		}
+
+		return "";
+	}
+
 	protected string GarageRedeployDisabledReason(HST_CampaignState state, HST_GarageVehicleState vehicle, bool canUseMember)
 	{
 		if (!canUseMember)
@@ -2922,6 +2982,44 @@ class HST_CommandUIService
 		}
 
 		return "";
+	}
+
+	protected bool HasAnyRecruitableResistanceZone(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return false;
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (IsRecruitableResistanceZone(state, preset, zone))
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasAnyRemovableResistanceGarrison(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return false;
+
+		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
+		{
+			if (!garrison || garrison.m_sFactionKey != preset.m_sResistanceFactionKey)
+				continue;
+			if (garrison.m_iInfantryCount <= 0 && garrison.m_iVehicleCount <= 0)
+				continue;
+
+			HST_ZoneState zone = state.FindZone(garrison.m_sZoneId);
+			if (!zone)
+				continue;
+			if (zone.m_bActive || zone.m_iActiveInfantryCount > 0 || zone.m_iActiveVehicleCount > 0)
+				continue;
+
+			return true;
+		}
+
+		return false;
 	}
 
 	protected bool IsRecruitableResistanceZone(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState zone)

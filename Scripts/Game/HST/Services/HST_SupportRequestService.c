@@ -13,10 +13,11 @@ class HST_SupportRequestResult
 			return "h-istasi support | failed: request missing after success";
 
 		return string.Format(
-			"h-istasi support | requested %1 | %2 | target %3 | eta %4s | cost $%5 enemy %6/%7 | cooldown %8",
+			"h-istasi support | requested %1 | %2 | target %3 at %4 | eta %5s | cost $%6 enemy %7/%8 | cooldown %9",
 			m_Request.m_sRequestId,
 			m_Request.m_eType,
 			m_Request.m_sTargetZoneId,
+			m_Request.m_vTargetPosition,
 			m_Request.m_iETASeconds,
 			m_Request.m_iMoneyCost,
 			m_Request.m_iAttackCost,
@@ -70,6 +71,16 @@ class HST_SupportRequestService
 
 	HST_SupportRequestResult RequestSupportDetailed(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
 	{
+		return RequestSupportDetailedInternal(state, preset, economy, enemyDirector, factionKey, supportType, targetZoneId, "0 0 0", false, playerRequested, playerCooldownSeconds);
+	}
+
+	HST_SupportRequestResult RequestSupportAtPositionDetailed(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, vector targetPosition, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
+	{
+		return RequestSupportDetailedInternal(state, preset, economy, enemyDirector, factionKey, supportType, targetZoneId, targetPosition, true, playerRequested, playerCooldownSeconds);
+	}
+
+	protected HST_SupportRequestResult RequestSupportDetailedInternal(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, vector targetPosition, bool useExplicitTargetPosition, bool playerRequested, int playerCooldownSeconds)
+	{
 		HST_SupportRequestResult result = new HST_SupportRequestResult();
 
 		if (!state || !preset)
@@ -93,6 +104,10 @@ class HST_SupportRequestService
 			result.m_sFailureReason = "target zone not found";
 			return result;
 		}
+
+		vector resolvedTargetPosition = targetZone.m_vPosition;
+		if (useExplicitTargetPosition && !IsZeroVector(targetPosition))
+			resolvedTargetPosition = HST_WorldPositionService.ResolveGroundPosition(targetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 
 		int attackCost;
 		int supportCost;
@@ -156,8 +171,8 @@ class HST_SupportRequestService
 			factionKey,
 			supportType,
 			targetZone,
-			targetZone.m_vPosition,
-			ResolveSourcePosition(state, sourceZoneId, targetZone.m_vPosition),
+			resolvedTargetPosition,
+			ResolveSourcePosition(state, sourceZoneId, resolvedTargetPosition),
 			playerRequested,
 			moneyCost,
 			attackCost,
@@ -170,7 +185,7 @@ class HST_SupportRequestService
 		result.m_Request = request;
 		result.m_bSuccess = true;
 
-		Print(string.Format("h-istasi | support request %1 queued for %2 at %3", request.m_sRequestId, factionKey, targetZone.m_sZoneId));
+		Print(string.Format("h-istasi | support request %1 queued for %2 at %3 target %4", request.m_sRequestId, factionKey, targetZone.m_sZoneId, resolvedTargetPosition));
 		return result;
 	}
 

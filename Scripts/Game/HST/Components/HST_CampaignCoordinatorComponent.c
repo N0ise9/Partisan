@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r82-location-qrf-marker-deconflict";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r83-map-target-support-deploy";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -568,8 +568,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool canUseMember = IsRuntimeMember(player);
 		bool canUseCommander = !identityId.IsEmpty() && m_State && m_State.m_sCommanderIdentityId == identityId;
 		bool canUseAdmin = player && player.m_bAdmin;
-		DebugLog(string.Format("menu payload access | player=%1 identity=%2 tab=%3 member=%4 commander=%5 admin=%6", playerId, EmptyCampaignDebugField(identityId), selectedTabId, canUseMember, canUseCommander, canUseAdmin));
-		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, playerId, selectedTabId, lastResult, canUseMember, canUseCommander, canUseAdmin, m_ZoneCompositions, m_ZoneCapture);
+		bool playerHasMap = PlayerHasMapInInventory(playerId);
+		DebugLog(string.Format("menu payload access | player=%1 identity=%2 tab=%3 member=%4 commander=%5 admin=%6 map=%7", playerId, EmptyCampaignDebugField(identityId), selectedTabId, canUseMember, canUseCommander, canUseAdmin, playerHasMap));
+		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, playerId, selectedTabId, lastResult, canUseMember, canUseCommander, canUseAdmin, playerHasMap, m_ZoneCompositions, m_ZoneCapture);
 	}
 
 	bool IsInfiniteStaminaEnabled()
@@ -1669,6 +1670,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
 	}
 
+	string RequestCommanderRecruitGarrisonAtMapTargetReport(int playerId, string targetArgument, int infantryCount = 2, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi recruitment | failed: server authority unavailable";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi recruitment | failed: commander permission required";
+		if (!PlayerHasMapInInventory(playerId))
+			return "h-istasi recruitment | failed: map required";
+
+		vector targetPosition;
+		string failureReason;
+		if (!TryParseCommandMapTargetArgument(targetArgument, targetPosition, failureReason))
+			return "h-istasi recruitment | failed: " + failureReason;
+
+		HST_ZoneState zone = ResolveRecruitGarrisonMapTargetZone(targetPosition);
+		if (!zone)
+			return string.Format("h-istasi recruitment | failed: no eligible resistance garrison zone at selected map target %1", targetPosition);
+
+		string report = RequestCommanderRecruitGarrisonReport(playerId, zone.m_sZoneId, infantryCount, vehicleCount, moneyCost, hrCost);
+		return report + string.Format("\nmap target | selected %1 | zone %2", targetPosition, ResolveZoneLabel(zone));
+	}
+
 	bool RequestCommanderTrainTroops(int playerId, int moneyCost = 250)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
@@ -1742,6 +1765,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			beforeVehicles,
 			garrison.m_iVehicleCount
 		);
+	}
+
+	string RequestCommanderRemoveGarrisonAtMapTargetReport(int playerId, string targetArgument, int infantryCount = 1, int vehicleCount = 0)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi garrison | failed: server authority unavailable";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi garrison | failed: commander permission required";
+		if (!PlayerHasMapInInventory(playerId))
+			return "h-istasi garrison | failed: map required";
+
+		vector targetPosition;
+		string failureReason;
+		if (!TryParseCommandMapTargetArgument(targetArgument, targetPosition, failureReason))
+			return "h-istasi garrison | failed: " + failureReason;
+
+		HST_ZoneState zone = ResolveRemoveGarrisonMapTargetZone(targetPosition);
+		if (!zone)
+			return string.Format("h-istasi garrison | failed: no removable FIA garrison at selected map target %1", targetPosition);
+
+		string report = RequestCommanderRemoveGarrisonReport(playerId, zone.m_sZoneId, infantryCount, vehicleCount);
+		return report + string.Format("\nmap target | selected %1 | zone %2", targetPosition, ResolveZoneLabel(zone));
 	}
 
 	bool RequestCommanderApplyIncomeNow(int playerId)
@@ -1895,6 +1940,78 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		string report = result.BuildSummary();
+		report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		report = report + "\n" + m_SupportRequests.BuildSupportCooldownReport(m_State);
+		return report;
+	}
+
+	string RequestCommanderCallSupplyDropAtMapTargetReport(int playerId, string targetArgument)
+	{
+		return RequestCommanderCallSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP, targetArgument);
+	}
+
+	string RequestCommanderCallPlayerSupportAtMapTargetReport(int playerId, HST_ESupportRequestType supportType, string targetArgument)
+	{
+		return RequestCommanderCallSupportAtMapTargetReport(playerId, supportType, targetArgument);
+	}
+
+	protected string RequestCommanderCallSupportAtMapTargetReport(int playerId, HST_ESupportRequestType supportType, string targetArgument)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi support | failed: server required";
+
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi support | failed: commander permission required";
+
+		if (!PlayerHasMapInInventory(playerId))
+			return "h-istasi support | failed: map required";
+
+		if (!m_SupportRequests)
+			return "h-istasi support | failed: service not ready";
+		if (!m_State || !m_Preset)
+			return "h-istasi support | failed: campaign state or preset not ready";
+
+		if (IsAirSupportType(supportType))
+		{
+			if (!m_Balance.m_bAirSupportEnabled || !HasResistanceAirSupportCapability())
+				return "h-istasi support | failed: air support capability unavailable";
+		}
+
+		vector targetPosition;
+		string failureReason;
+		if (!TryParseCommandMapTargetArgument(targetArgument, targetPosition, failureReason))
+			return "h-istasi support | failed: " + failureReason;
+
+		HST_ZoneState targetZone = ResolveSupportMapTargetZone(targetPosition);
+		if (!targetZone)
+			return string.Format("h-istasi support | failed: no campaign location could back selected map target %1", targetPosition);
+
+		int cooldownSeconds = HST_SupportRequestService.PLAYER_SUPPORT_COOLDOWN_SECONDS;
+		if (IsAirSupportType(supportType))
+			cooldownSeconds = m_Balance.m_iAirSupportCooldownSeconds;
+
+		HST_SupportRequestResult result = m_SupportRequests.RequestSupportAtPositionDetailed(
+			m_State,
+			m_Preset,
+			m_Economy,
+			m_EnemyDirector,
+			m_Preset.m_sResistanceFactionKey,
+			supportType,
+			targetZone.m_sZoneId,
+			targetPosition,
+			true,
+			cooldownSeconds
+		);
+
+		if (result && result.m_bSuccess)
+		{
+			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "player_support");
+			MarkMajorCampaignChange(true);
+			m_SupportRequests.ConsumeMarkerRefreshNeeded();
+		}
+
+		string report = result.BuildSummary();
+		report = report + string.Format("\nmap target | selected %1 | backing zone %2", targetPosition, ResolveZoneLabel(targetZone));
 		report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 		report = report + "\n" + m_SupportRequests.BuildSupportCooldownReport(m_State);
 		return report;
@@ -4110,16 +4227,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ZoneState targetZone = FindCampaignDebugSpawnPlacementOutpost();
 		HST_ZoneState sourceZone = FindCampaignDebugSpawnPlacementSourceZone(targetZone);
 		HST_SpawnPlacementResult qrfPlacement = m_SpawnPlacements.ResolvePlacement(m_State, m_Preset, BuildCampaignDebugQRFPlacementRequest(targetZone, sourceZone));
+		HST_SpawnPlacementResult supportPlacement = m_SpawnPlacements.ResolvePlacement(m_State, m_Preset, BuildCampaignDebugSupportPlacementRequest(targetZone, sourceZone));
 		HST_SpawnPlacementResult petrosPlacement = m_SpawnPlacements.ResolvePlacement(m_State, m_Preset, BuildCampaignDebugPetrosPlacementRequest(targetZone, sourceZone));
 		HST_SpawnPlacementResult convoyPlacement = m_SpawnPlacements.ResolvePlacement(m_State, m_Preset, BuildCampaignDebugConvoyPlacementRequest(targetZone, sourceZone));
 		HST_SpawnPlacementResult failurePlacement = m_SpawnPlacements.ResolvePlacement(m_State, m_Preset, BuildCampaignDebugInvalidPlacementRequest());
 
 		placementCase.m_aEvidence.Insert(BuildCampaignDebugSpawnPlacementActual(qrfPlacement));
+		placementCase.m_aEvidence.Insert(BuildCampaignDebugSpawnPlacementActual(supportPlacement));
 		placementCase.m_aEvidence.Insert(BuildCampaignDebugSpawnPlacementActual(petrosPlacement));
 		placementCase.m_aEvidence.Insert(BuildCampaignDebugSpawnPlacementActual(convoyPlacement));
 		placementCase.m_aEvidence.Insert(BuildCampaignDebugSpawnPlacementActual(failurePlacement));
 
 		AddCampaignDebugAssertion(placementCase, "spawn_placement.qrf_road_safe", "QRF staging can find a dry road-safe source near an outpost", BuildCampaignDebugSpawnPlacementActual(qrfPlacement), CampaignDebugStatus(qrfPlacement && qrfPlacement.m_bSuccess && qrfPlacement.m_bDryGround && qrfPlacement.m_bRoadResolved), "QRF placement did not resolve a dry road-safe source");
+		bool supportClearOffset = supportPlacement && supportPlacement.m_bSuccess && supportPlacement.m_bDryGround && supportPlacement.m_fTargetDistanceMeters >= 180 && supportPlacement.m_bPlayerClearanceSatisfied && supportPlacement.m_bActiveGroupClearanceSatisfied;
+		AddCampaignDebugAssertion(placementCase, "spawn_placement.support_clear_offset", "support staging spawns offset from target and clear of players/active AI", BuildCampaignDebugSpawnPlacementActual(supportPlacement), CampaignDebugStatus(supportClearOffset), "support placement did not prove offset staging with player/AI clearance");
 		bool petrosTargetReady = m_State.m_bHQDeployed;
 		bool petrosSafe = petrosPlacement && petrosPlacement.m_bSuccess && petrosPlacement.m_bHQStandoffSatisfied && petrosPlacement.m_fHQDistanceMeters >= HST_SpawnPlacementService.HQ_SAFE_RADIUS_METERS;
 		string petrosStatus = "FAIL";
@@ -4158,6 +4279,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		request.m_sReason = "campaign debug qrf placement";
 		request.m_bExplain = true;
 		return request;
+	}
+
+	protected HST_SpawnPlacementRequest BuildCampaignDebugSupportPlacementRequest(HST_ZoneState targetZone, HST_ZoneState sourceZone)
+	{
+		HST_SupportRequestState supportRequest = new HST_SupportRequestState();
+		supportRequest.m_sRequestId = "debug_support_place";
+		supportRequest.m_eType = HST_ESupportRequestType.HST_SUPPORT_QRF;
+		if (targetZone)
+		{
+			supportRequest.m_sTargetZoneId = targetZone.m_sZoneId;
+			supportRequest.m_vTargetPosition = targetZone.m_vPosition;
+		}
+		if (sourceZone)
+		{
+			supportRequest.m_sSourceZoneId = sourceZone.m_sZoneId;
+			supportRequest.m_vSourcePosition = sourceZone.m_vPosition;
+		}
+
+		return m_SpawnPlacements.BuildSupportPlacementRequest(m_State, m_Preset, supportRequest, false, false);
 	}
 
 	protected HST_SpawnPlacementRequest BuildCampaignDebugPetrosPlacementRequest(HST_ZoneState targetZone, HST_ZoneState sourceZone)
@@ -7306,6 +7446,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (liveGroupTrackingEnabled)
 				liveMarkerStatus = CampaignDebugStatus(probeContext.m_bLiveGroupMarkerVisibleAfterPopulation, "WARN");
 			AddCampaignDebugAssertion(supportCase, "support.physical_live_marker", "spawned resistance support group has a persistent live map marker while it exists", probeContext.m_sLiveGroupMarkerActualAfterPopulation, liveMarkerStatus, "spawned resistance support group did not publish a live map marker", observedSupportRequest.m_sRequestId);
+			HST_ActiveGroupState supportGroup = null;
+			if (m_State && !observedSupportRequest.m_sGroupId.IsEmpty())
+				supportGroup = m_State.FindActiveGroup(observedSupportRequest.m_sGroupId);
+			string deploymentActual = string.Format("summary %1 | targetDistance %2m | groupTarget %3 | requestTarget %4", EmptyCampaignDebugField(observedSupportRequest.m_sDeploymentSummary), observedSupportRequest.m_iDeploymentTargetDistanceMeters, supportGroup != null, observedSupportRequest.m_vTargetPosition);
+			bool deploymentTargetedToRequest = supportGroup && DistanceSq2D(supportGroup.m_vTargetPosition, observedSupportRequest.m_vTargetPosition) <= 9.0;
+			bool deploymentOffset = observedSupportRequest.m_iDeploymentTargetDistanceMeters >= 180;
+			bool deploymentClearance = observedSupportRequest.m_sDeploymentSummary.Contains("playerClear true") && observedSupportRequest.m_sDeploymentSummary.Contains("activeGroupClear true");
+			AddCampaignDebugAssertion(supportCase, "support.physical_map_destination", "ground support group routes to the requested support destination", deploymentActual, CampaignDebugStatus(deploymentTargetedToRequest), "ground support active group target does not match the support request target position", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_offset", "ground support spawns offset from the selected destination", deploymentActual, CampaignDebugStatus(deploymentOffset), "ground support staging was not offset from the selected destination", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_clearance", "ground support spawn placement records player and AI clearance", deploymentActual, CampaignDebugStatus(deploymentClearance), "ground support staging did not prove clearance from players and active AI groups", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_before", string.Format("%1", Math.Round(probeContext.m_fDistanceBefore)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_after", string.Format("%1", Math.Round(probeContext.m_fDistanceAfter)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_arrival", string.Format("%1", Math.Round(probeContext.m_fDistanceAtArrival)), "meters");
@@ -18899,13 +19049,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string adminMenu = m_CommandUI.BuildAdminMenu(m_State, m_Preset, m_MapMarkers);
 		string adminPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "admin", "");
 		string membersPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "members", "");
+		string forcesWithMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
+		string forcesNoMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, false, m_ZoneCompositions, m_ZoneCapture);
 		bool commanderTransferChooserVisible = membersPayload.Contains("|Transfer commander|member_promote_commander_choose|");
 		bool commanderTransferSingleButton = commanderTransferChooserVisible && !membersPayload.Contains("Make commander:") && !membersPayload.Contains("|member_promote_commander|");
 		bool memberPayloadHidesBackendIds = CampaignDebugMembersPayloadHidesIdentityTokens(membersPayload);
 		bool adminForceCommanderVisible = adminPayload.Contains("|Force myself commander|admin_force_self_commander|");
+		bool mapTargetSupportVisible = forcesWithMapPayload.Contains("|Request QRF reserve at map location|support_qrf||true|") && forcesWithMapPayload.Contains("|Request supply drop at map location|call_supply||true|") && forcesWithMapPayload.Contains("|Request search and destroy at map location|support_search||true|");
+		bool mapTargetGarrisonVisible = forcesWithMapPayload.Contains("|Recruit FIA at map location|recruit_zone|") && forcesWithMapPayload.Contains("|Remove FIA garrison at map location|remove_garrison|");
+		bool noMapSupportDisabled = forcesNoMapPayload.Contains("|Request QRF reserve at map location|support_qrf||false|map required") && forcesNoMapPayload.Contains("|Request supply drop at map location|call_supply||false|map required");
+		bool noMapGarrisonDisabled = forcesNoMapPayload.Contains("|Recruit FIA at map location|recruit_zone||false|map required") || forcesNoMapPayload.Contains("|Remove FIA garrison at map location|remove_garrison||false|map required");
 		phaseCase.m_aEvidence.Insert("admin menu | " + ShortCampaignDebugLine(adminMenu, 260));
 		phaseCase.m_aEvidence.Insert("admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
 		phaseCase.m_aEvidence.Insert("members payload | " + ShortCampaignDebugLine(membersPayload, 260));
+		phaseCase.m_aEvidence.Insert("forces map payload | " + ShortCampaignDebugLine(forcesWithMapPayload, 260));
+		phaseCase.m_aEvidence.Insert("forces no-map payload | " + ShortCampaignDebugLine(forcesNoMapPayload, 260));
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.report_header", "coverage report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi UI coverage")), "Phase 23 UI coverage report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_visible", "no missing visible command detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing visible command:")), "Phase 23 UI coverage found missing visible commands");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_dispatch", "no missing dispatch detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing dispatch:")), "Phase 23 UI coverage found missing dispatch handlers");
@@ -18915,6 +19073,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.member_transfer_chooser", "members menu exposes one selectable commander-transfer chooser action", string.Format("chooser %1 | single %2", commanderTransferChooserVisible, commanderTransferSingleButton), CampaignDebugStatus(commanderTransferChooserVisible && commanderTransferSingleButton), "Phase 23 members payload is missing the commander-transfer chooser or still exposes direct per-target transfer rows");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.admin_force_commander", "admin menu exposes force-self commander action", string.Format("%1", adminForceCommanderVisible), CampaignDebugStatus(adminForceCommanderVisible), "Phase 23 admin payload is missing force-self commander action");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.phase23_controls", "admin menu exposes Phase 23 marker/UI controls", ShortCampaignDebugLine(adminMenu, 220), CampaignDebugStatus(adminMenu.Contains("admin_phase23_ui_coverage") && adminMenu.Contains("admin_phase23_marker_audit") && adminMenu.Contains("admin_marker_native_report") && adminMenu.Contains("admin_purge_hst_native_markers") && adminMenu.Contains("admin_phase23_failed_action_sample")), "Phase 23 admin menu is missing Phase 23 controls");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_support_actions", "Forces support actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetSupportVisible), "Phase 23 Forces payload is missing map-target support actions");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_garrison_actions", "Forces garrison actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetGarrisonVisible), "Phase 23 Forces payload is missing map-target garrison actions");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_required_gate", "map-target actions are disabled without a map gadget", ShortCampaignDebugLine(forcesNoMapPayload, 220), CampaignDebugStatus(noMapSupportDisabled && noMapGarrisonDisabled), "Phase 23 Forces payload allows map-target actions when the player has no map");
 	}
 
 	protected void AddCampaignDebugPhase23MarkerAuditAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
@@ -25020,6 +25181,189 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return controlledEntity;
 
 		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+	}
+
+	bool PlayerHasMapInInventory(int playerId)
+	{
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+			return false;
+
+		SCR_GadgetManagerComponent gadgetManager = SCR_GadgetManagerComponent.GetGadgetManager(playerEntity);
+		if (!gadgetManager)
+			return false;
+
+		return gadgetManager.GetGadgetByType(EGadgetType.MAP) != null;
+	}
+
+	protected bool TryParseCommandMapTargetArgument(string argument, out vector targetPosition, out string failureReason)
+	{
+		targetPosition = "0 0 0";
+		failureReason = "";
+
+		if (argument.IsEmpty() || !argument.StartsWith("map_target:"))
+		{
+			failureReason = "map target missing";
+			return false;
+		}
+
+		array<string> parts = {};
+		argument.Split(":", parts, true);
+		if (parts.Count() < 3)
+		{
+			failureReason = "map target malformed";
+			return false;
+		}
+
+		float worldX = parts[1].ToFloat();
+		float worldZ = parts[2].ToFloat();
+		if (worldX < SETUP_MAP_WORLD_MIN_X || worldX > SETUP_MAP_WORLD_MAX_X || worldZ < SETUP_MAP_WORLD_MIN_Z || worldZ > SETUP_MAP_WORLD_MAX_Z)
+		{
+			failureReason = string.Format("map target outside world bounds %1 %2", worldX, worldZ);
+			return false;
+		}
+
+		targetPosition[0] = worldX;
+		targetPosition[2] = worldZ;
+		targetPosition = HST_WorldPositionService.ResolveGroundPosition(targetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+		return true;
+	}
+
+	protected HST_ZoneState ResolveSupportMapTargetZone(vector targetPosition)
+	{
+		HST_ZoneState bestZone = FindNearestMapTargetZone(targetPosition, false);
+		if (bestZone)
+			return bestZone;
+
+		return FindNearestMapTargetZone(targetPosition, true);
+	}
+
+	protected HST_ZoneState ResolveRecruitGarrisonMapTargetZone(vector targetPosition)
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!IsRecruitableResistanceMapZone(zone))
+				continue;
+			if (!IsInsideMapTargetZone(zone, targetPosition))
+				continue;
+
+			float distanceSq = DistanceSq2D(targetPosition, zone.m_vPosition);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestDistanceSq = distanceSq;
+				bestZone = zone;
+			}
+		}
+
+		return bestZone;
+	}
+
+	protected HST_ZoneState ResolveRemoveGarrisonMapTargetZone(vector targetPosition)
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!IsRemovableResistanceGarrisonMapZone(zone))
+				continue;
+			if (!IsInsideMapTargetZone(zone, targetPosition))
+				continue;
+
+			float distanceSq = DistanceSq2D(targetPosition, zone.m_vPosition);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestDistanceSq = distanceSq;
+				bestZone = zone;
+			}
+		}
+
+		return bestZone;
+	}
+
+	protected HST_ZoneState FindNearestMapTargetZone(vector targetPosition, bool includeBookkeepingZones)
+	{
+		if (!m_State)
+			return null;
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+			if (!includeBookkeepingZones && IsBookkeepingMapTargetZone(zone))
+				continue;
+
+			float distanceSq = DistanceSq2D(targetPosition, zone.m_vPosition);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestDistanceSq = distanceSq;
+				bestZone = zone;
+			}
+		}
+
+		return bestZone;
+	}
+
+	protected bool IsBookkeepingMapTargetZone(HST_ZoneState zone)
+	{
+		if (!zone)
+			return true;
+
+		return zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE;
+	}
+
+	protected bool IsRecruitableResistanceMapZone(HST_ZoneState zone)
+	{
+		if (!zone || !m_Preset || !m_State)
+			return false;
+
+		if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+			return false;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+			return false;
+
+		if (zone.m_iGarrisonSlots <= 0)
+			return true;
+
+		int currentInfantry;
+		HST_GarrisonState garrison = m_State.FindGarrison(zone.m_sZoneId, m_Preset.m_sResistanceFactionKey);
+		if (garrison)
+			currentInfantry = garrison.m_iInfantryCount;
+		currentInfantry += Math.Max(0, zone.m_iActiveInfantryCount);
+		return currentInfantry < zone.m_iGarrisonSlots;
+	}
+
+	protected bool IsRemovableResistanceGarrisonMapZone(HST_ZoneState zone)
+	{
+		if (!zone || !m_Preset || !m_State)
+			return false;
+
+		if (zone.m_bActive || zone.m_iActiveInfantryCount > 0 || zone.m_iActiveVehicleCount > 0)
+			return false;
+
+		HST_GarrisonState garrison = m_State.FindGarrison(zone.m_sZoneId, m_Preset.m_sResistanceFactionKey);
+		return garrison && (garrison.m_iInfantryCount > 0 || garrison.m_iVehicleCount > 0);
+	}
+
+	protected bool IsInsideMapTargetZone(HST_ZoneState zone, vector targetPosition)
+	{
+		if (!zone)
+			return false;
+
+		float radius = Math.Max(150.0, zone.m_iCaptureRadiusMeters);
+		if (zone.m_iActivationRadiusMeters > 0)
+			radius = Math.Max(radius, Math.Min(600.0, zone.m_iActivationRadiusMeters));
+
+		return DistanceSq2D(targetPosition, zone.m_vPosition) <= radius * radius;
 	}
 
 	protected bool IsLivingEntity(IEntity entity)

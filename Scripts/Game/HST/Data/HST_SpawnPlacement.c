@@ -18,6 +18,10 @@ class HST_SpawnPlacementRequest
 	bool m_bPreferRoadTarget;
 	bool m_bRequireRoadTarget;
 	bool m_bAvoidHQSafeRadius;
+	bool m_bAvoidLivingPlayers;
+	bool m_bAvoidActiveGroups;
+	float m_fMinPlayerDistanceMeters;
+	float m_fMinActiveGroupDistanceMeters;
 	bool m_bExplain;
 	string m_sReason;
 }
@@ -37,9 +41,13 @@ class HST_SpawnPlacementResult
 	float m_fTargetDistanceMeters;
 	float m_fHQDistanceMeters;
 	float m_fRoadDistanceMeters;
+	float m_fNearestPlayerDistanceMeters = -1.0;
+	float m_fNearestActiveGroupDistanceMeters = -1.0;
 	bool m_bDryGround;
 	bool m_bVehicleSafe;
 	bool m_bRoadResolved;
 	bool m_bHQStandoffSatisfied;
+	bool m_bPlayerClearanceSatisfied = true;
+	bool m_bActiveGroupClearanceSatisfied = true;
 	string m_sDebugSummary;
 }

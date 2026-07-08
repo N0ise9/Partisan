@@ -80,7 +80,8 @@ The repository contains a broad-alpha campaign foundation:
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records
 - Request-driven spawn placement for physical support and debug probes, with
-  road/dry-ground/vehicle-safe validation and visible placement failure reasons
+  road/dry-ground/vehicle-safe validation, player/active-AI clearance checks,
+  and visible placement failure reasons
 - Enemy support-spend ledgers for QRF/support damage pressure, same-zone
   cooldowns, max defense spend caps, survivor refunds, reportable denial
   reasons, and separated proactive attack versus reactive support spending
@@ -165,7 +166,9 @@ reporting, vehicle cargo, garage capture/redeploy, nearby loot collection,
 loadout editor status/application, generated content reports, HQ asset rebuilds,
 command coverage and failed-action smoke reports, roster admin helpers,
 campaign reset, one-button campaign debug verification, and small debug
-resource awards.
+resource awards. Commander support and garrison call-ins use the normal in-game
+map for target selection with a confirmation dialog, and those actions are
+disabled when the commander has no map gadget in inventory.
 Multiplayer clients use a player-owned request/RPC component;
 the server resolves the caller from ownership instead of trusting a client
 provided player ID. Petros opens this same menu path through contextual
@@ -191,9 +194,9 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-07-runtime-proof-r82-location-qrf-marker-deconflict`
+`h-istasi boot | authority build 2026-07-08-runtime-proof-r83-map-target-support-deploy`
 and the client log must contain
-`build=2026-07-06-menu-input-r14-ui-render-proof` on the local command-menu ready
+`build=2026-07-08-menu-input-r15-map-target-selection` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged
 addon under `ArmaReforger/addons`, even if the repository has newer commits.
 
