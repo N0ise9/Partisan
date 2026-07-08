@@ -2245,10 +2245,7 @@ class HST_CommandUIService
 		if (!activeGroup)
 			return "no active groups";
 
-		int plannedMembers = Math.Max(0, activeGroup.m_iInfantryCount) + Math.Max(0, activeGroup.m_iVehicleCount);
-		int survivorMembers = Math.Max(0, activeGroup.m_iSurvivorInfantryCount) + Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
-		int knownMembers = Math.Max(activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount);
-		return string.Format("%1 / %2 / known %3/%4 / survivors %5 / spawned %6 / status %7", activeGroup.m_sZoneId, activeGroup.m_sSpawnFallbackMode, knownMembers, plannedMembers, survivorMembers, activeGroup.m_iSpawnedAgentCount, activeGroup.m_sRuntimeStatus);
+		return string.Format("%1 / %2 / agents %3 / status %4", activeGroup.m_sZoneId, activeGroup.m_sSpawnFallbackMode, activeGroup.m_iSpawnedAgentCount, activeGroup.m_sRuntimeStatus);
 	}
 
 	protected string ActiveGroupSpawnTone(HST_CampaignState state)

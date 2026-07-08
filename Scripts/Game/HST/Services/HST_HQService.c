@@ -10,14 +10,12 @@ class HST_HQService
 	static const float ARSENAL_POSITION_TOLERANCE_METERS = 4.0;
 	static const float PETROS_REATTACH_RADIUS_METERS = 8.0;
 	static const float PETROS_WORLD_UNIQUE_RADIUS_METERS = 10.0;
-	static const float HQ_ENEMY_ACTIVITY_AWARENESS_RADIUS_METERS = 850.0;
-	static const float HQ_CIVILIAN_HEAT_AWARENESS_RADIUS_METERS = 1050.0;
-	static const float HQ_PASSIVE_KNOWLEDGE_ENEMY_RADIUS_METERS = 700.0;
-	static const float HQ_PASSIVE_KNOWLEDGE_CIVILIAN_RADIUS_METERS = 850.0;
+	static const float HQ_ENEMY_ACTIVITY_AWARENESS_RADIUS_METERS = 1000.0;
+	static const float HQ_CIVILIAN_HEAT_AWARENESS_RADIUS_METERS = 1250.0;
 	static const int HQ_THREAT_SCAN_SECONDS = 30;
-	static const int HQ_PASSIVE_KNOWLEDGE_SCAN_SECONDS = 300;
-	static const int HQ_PASSIVE_KNOWLEDGE_THREAT_THRESHOLD = 45;
-	static const int HQ_PASSIVE_KNOWLEDGE_MAX_GAIN = 1;
+	static const int HQ_PASSIVE_KNOWLEDGE_SCAN_SECONDS = 180;
+	static const int HQ_PASSIVE_KNOWLEDGE_THREAT_THRESHOLD = 35;
+	static const int HQ_PASSIVE_KNOWLEDGE_MAX_GAIN = 2;
 	static const int PETROS_RESPAWN_DEBOUNCE_SECONDS = 10;
 	static const int PETROS_STABILITY_SAMPLE_SECONDS = 15;
 	static const string CUSTOM_SETUP_HQ_ID = "custom_setup_hq";
@@ -536,15 +534,10 @@ class HST_HQService
 		string enemyReason;
 		string aggressionReason;
 		string civilianReason;
-		int enemyThreat = ResolveEnemyActivityThreatNearHQ(state, preset, HQ_ENEMY_ACTIVITY_AWARENESS_RADIUS_METERS, enemyReason);
+		int enemyThreat = ResolveEnemyActivityThreatNearHQ(state, preset, enemyReason);
 		int aggressionThreat = ResolveAggressionThreat(state, preset, aggressionReason);
-		int civilianThreat = ResolveCivilianHeatThreatNearHQ(state, HQ_CIVILIAN_HEAT_AWARENESS_RADIUS_METERS, civilianReason);
-		string enemyKnowledgeReason;
-		string civilianKnowledgeReason;
-		int enemyKnowledgeThreat = ResolveEnemyActivityThreatNearHQ(state, preset, HQ_PASSIVE_KNOWLEDGE_ENEMY_RADIUS_METERS, enemyKnowledgeReason);
-		int civilianKnowledgeThreat = ResolveCivilianHeatThreatNearHQ(state, HQ_PASSIVE_KNOWLEDGE_CIVILIAN_RADIUS_METERS, civilianKnowledgeReason);
+		int civilianThreat = ResolveCivilianHeatThreatNearHQ(state, civilianReason);
 		int localThreat = enemyThreat + civilianThreat;
-		int localKnowledgeThreat = enemyKnowledgeThreat + civilianKnowledgeThreat;
 		int threat = localThreat + aggressionThreat;
 
 		string reason = AppendThreatReason("", enemyReason);
@@ -553,8 +546,8 @@ class HST_HQService
 		if (reason.IsEmpty())
 			reason = "quiet";
 
-		string localReason = AppendThreatReason("", enemyKnowledgeReason);
-		localReason = AppendThreatReason(localReason, civilianKnowledgeReason);
+		string localReason = AppendThreatReason("", enemyReason);
+		localReason = AppendThreatReason(localReason, civilianReason);
 		if (localReason.IsEmpty())
 			localReason = "local activity quiet";
 
@@ -566,9 +559,9 @@ class HST_HQService
 
 		bool knowledgeChanged;
 		bool passiveKnowledgeWindow = state.m_iHQKnowledgeLastChangedSecond <= 0 || state.m_iElapsedSeconds >= state.m_iHQKnowledgeLastChangedSecond + HQ_PASSIVE_KNOWLEDGE_SCAN_SECONDS;
-		if (localKnowledgeThreat >= HQ_PASSIVE_KNOWLEDGE_THREAT_THRESHOLD && passiveKnowledgeWindow)
+		if (localThreat >= HQ_PASSIVE_KNOWLEDGE_THREAT_THRESHOLD && passiveKnowledgeWindow)
 		{
-			int knowledgeGain = Math.Min(HQ_PASSIVE_KNOWLEDGE_MAX_GAIN, Math.Max(1, localKnowledgeThreat / 50));
+			int knowledgeGain = Math.Min(HQ_PASSIVE_KNOWLEDGE_MAX_GAIN, Math.Max(1, localThreat / 40));
 			knowledgeChanged = AddHQKnowledge(state, knowledgeGain, "HQ local activity scan: " + localReason);
 		}
 
@@ -942,14 +935,14 @@ class HST_HQService
 		return string.Format("petros %1 | cache %2 | arsenal %3 | tent %4 | spawn_point %5", CountPetrosWorldRuntimeEntities(state), CountCacheWorldRuntimeEntities(state), CountArsenalWorldRuntimeEntities(state), CountTentWorldRuntimeEntities(state), CountSpawnPointWorldRuntimeEntities(state));
 	}
 
-	protected int ResolveEnemyActivityThreatNearHQ(HST_CampaignState state, HST_CampaignPreset preset, float radiusMeters, out string reason)
+	protected int ResolveEnemyActivityThreatNearHQ(HST_CampaignState state, HST_CampaignPreset preset, out string reason)
 	{
 		reason = "no enemy activity near HQ";
 		if (!state || !preset || !state.m_bHQDeployed)
 			return 0;
 
 		int threat;
-		float scanRadiusSq = radiusMeters * radiusMeters;
+		float scanRadiusSq = HQ_ENEMY_ACTIVITY_AWARENESS_RADIUS_METERS * HQ_ENEMY_ACTIVITY_AWARENESS_RADIUS_METERS;
 		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
 		{
 			if (!group)
@@ -989,7 +982,7 @@ class HST_HQService
 		return threat;
 	}
 
-	protected int ResolveCivilianHeatThreatNearHQ(HST_CampaignState state, float radiusMeters, out string reason)
+	protected int ResolveCivilianHeatThreatNearHQ(HST_CampaignState state, out string reason)
 	{
 		reason = "civilian heat quiet";
 		if (!state)
@@ -1004,7 +997,7 @@ class HST_HQService
 			HST_ZoneState zone = state.FindZone(town.m_sZoneId);
 			if (!zone)
 				continue;
-			if (DistanceSq2D(zone.m_vPosition, state.m_vHQPosition) > radiusMeters * radiusMeters)
+			if (DistanceSq2D(zone.m_vPosition, state.m_vHQPosition) > HQ_CIVILIAN_HEAT_AWARENESS_RADIUS_METERS * HQ_CIVILIAN_HEAT_AWARENESS_RADIUS_METERS)
 				continue;
 
 			threat += Math.Min(15, town.m_iWantedHeat * 3);

@@ -47,16 +47,6 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - `SCR_EditableGroupComponent.OnAgentAdded()` normally calls `SetParentEntity()` on each member; custom/manual population should reconcile that editable parent relationship and ensure the group has a living AI leader with `SetNewLeader()` if needed.
   - Current examples: `HST_PhysicalWarService.ReconcileRuntimeGroupEditableMembership()` and `BuildEditableGroupRuntimeEvidence()`.
 
-- Active group state counts should be reconciled from live runtime agents after spawn.
-  - A group root can exist with delayed native members while `m_iSpawnedAgentCount` and `m_iLastSeenAliveCount` are still zero, especially before the delayed-population callback or survivor update runs.
-  - On routed/runtime updates, count living agents from the registered runtime group, finalize pending groups once agents are durable, update spawned/live/survivor counts, and rerun editable-membership reconciliation. This keeps command-menu summaries, markers, debug assertions, and Game Master group Size aligned with the visible soldiers.
-  - Current examples: `HST_PhysicalWarService.ReconcileActiveGroupRuntimeMemberCounts()` and `HST_CommandUIService.BuildActiveGroupSpawnSummary()`.
-
-- Response infantry speed should be enforced at the group and agent level.
-  - `AIGroupMovementComponent.SetGroupCharactersWantedMovementType(EMovementType.RUN)` is the correct group-level control, but delayed-populated members can still appear after the first waypoint assignment.
-  - Reapply response speed during routed updates, set tight formation displacement, and also set each live `AICharacterMovementComponent.SetMovementTypeWanted(EMovementType.RUN)` so support/QRF/Petros attack forces do not inherit a walking default.
-  - Current examples: `HST_PhysicalWarService.ApplyResponseGroupMovementSpeed()` and `CampaignDebugIsActiveGroupResponseRunMovement()`.
-
 - Non-deleting `SCR_AIGroup` roots need explicit terminal cleanup.
   - HST keeps active group roots from auto-deleting while delayed native member population is pending. Once every controlled member is dead, the group root should be unregistered/deleted so Game Master does not retain an active Size 0 group icon.
   - Delete the group root and HST runtime handles, but preserve dead character entities/corpses when they are not children of the group root.

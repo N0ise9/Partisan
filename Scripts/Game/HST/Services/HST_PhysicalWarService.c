@@ -235,11 +235,11 @@ class HST_PhysicalWarService
 			return false;
 
 		bool missionCleanupChanged = CleanupInactiveMissionOwnedActiveGroups(state);
-		bool runtimeEntityChanged = EnsureRuntimeGroupEntities(state, preset);
+		EnsureRuntimeGroupEntities(state, preset);
 		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
 		bool routeChanged = UpdateActiveGroupRoutes(state, forceRouteUpdate);
 		bool combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
-		return missionCleanupChanged || runtimeEntityChanged || survivorChanged || routeChanged || combatProbeChanged;
+		return missionCleanupChanged || survivorChanged || routeChanged || combatProbeChanged;
 	}
 
 	int CountRuntimeGroupHandlesForMission(HST_CampaignState state, string missionInstanceId)
@@ -2249,12 +2249,8 @@ class HST_PhysicalWarService
 
 		if (!fallbackStatus.IsEmpty())
 			return fallbackStatus;
-		if (!activeGroup.m_sSupportRequestId.IsEmpty())
-			return "support_active";
-		if (activeGroup.m_bQRF || !activeGroup.m_sQRFInstanceId.IsEmpty())
+		if (activeGroup.m_bQRF)
 			return "routing";
-		if (!activeGroup.m_sMissionInstanceId.IsEmpty())
-			return "active";
 
 		return "active";
 	}
@@ -7000,16 +6996,6 @@ class HST_PhysicalWarService
 			if (!activeGroup.m_bSpawnedEntity)
 				continue;
 
-			if (ApplyResponseGroupMovementSpeed(activeGroup, AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId))))
-			{
-				string responseRunMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "response_run");
-				if (activeGroup.m_sSpawnFallbackMode != responseRunMode)
-				{
-					activeGroup.m_sSpawnFallbackMode = responseRunMode;
-					changed = true;
-				}
-			}
-
 			int duration = ResolveRouteDurationSeconds(state, activeGroup);
 			int elapsed = state.m_iElapsedSeconds - activeGroup.m_iSpawnedAtSecond;
 			if (elapsed < 0)
@@ -7184,58 +7170,17 @@ class HST_PhysicalWarService
 
 	protected bool ApplyResponseGroupMovementSpeed(HST_ActiveGroupState activeGroup, AIGroup group)
 	{
-		if (!ShouldUseResponseMovementSpeed(activeGroup))
+		if (!ShouldUseResponseMovementSpeed(activeGroup) || !group)
 			return false;
 
-		bool applied;
+		AIGroupMovementComponent groupMovement = AIGroupMovementComponent.Cast(group.GetMovementComponent());
+		if (!groupMovement)
+			groupMovement = AIGroupMovementComponent.Cast(group.FindComponent(AIGroupMovementComponent));
+		if (!groupMovement)
+			return false;
 
-		if (group)
-		{
-			AIGroupMovementComponent groupMovement = AIGroupMovementComponent.Cast(group.GetMovementComponent());
-			if (!groupMovement)
-				groupMovement = AIGroupMovementComponent.Cast(group.FindComponent(AIGroupMovementComponent));
-			if (groupMovement)
-			{
-				groupMovement.SetGroupCharactersWantedMovementType(EMovementType.RUN);
-				groupMovement.SetFormationDisplacement(1);
-				applied = true;
-			}
-		}
-
-		int agentAppliedCount = ApplyResponseAgentMovementSpeed(activeGroup.m_sGroupId);
-		return applied || agentAppliedCount > 0;
-	}
-
-	protected int ApplyResponseAgentMovementSpeed(string groupId)
-	{
-		if (groupId.IsEmpty())
-			return 0;
-
-		int appliedCount;
-		array<IEntity> livingEntities = {};
-		CollectLivingRuntimeGroupEntities(groupId, livingEntities);
-		foreach (IEntity entity : livingEntities)
-		{
-			if (!entity)
-				continue;
-
-			AIControlComponent control = AIControlComponent.Cast(entity.FindComponent(AIControlComponent));
-			if (!control)
-				continue;
-
-			AIAgent agent = control.GetControlAIAgent();
-			if (!agent)
-				continue;
-
-			AICharacterMovementComponent movement = AICharacterMovementComponent.Cast(agent.GetMovementComponent());
-			if (!movement)
-				continue;
-
-			movement.SetMovementTypeWanted(EMovementType.RUN);
-			appliedCount++;
-		}
-
-		return appliedCount;
+		groupMovement.SetGroupCharactersWantedMovementType(EMovementType.RUN);
+		return true;
 	}
 
 	protected bool ShouldUseResponseMovementSpeed(HST_ActiveGroupState activeGroup)
@@ -8402,60 +8347,6 @@ class HST_PhysicalWarService
 			ReportBool(assignedFinalSweepWaypoint),
 			ReportText(populationEvidence));
 		return routeAssigned;
-	}
-
-	bool CampaignDebugIsActiveGroupResponseRunMovement(HST_ActiveGroupState activeGroup, out string actual)
-	{
-		actual = "group missing";
-		if (!activeGroup)
-			return false;
-
-		bool responseRunToken = activeGroup.m_sSpawnFallbackMode.Contains("response_run");
-		bool groupRun;
-		int liveAgentCount;
-		int runAgentCount;
-		string groupWanted = "none";
-		AIGroup group = AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId));
-		if (group)
-		{
-			AIGroupMovementComponent groupMovement = AIGroupMovementComponent.Cast(group.GetMovementComponent());
-			if (!groupMovement)
-				groupMovement = AIGroupMovementComponent.Cast(group.FindComponent(AIGroupMovementComponent));
-			if (groupMovement)
-			{
-				EMovementType wanted = groupMovement.GetGroupCharactersMovementTypeWanted();
-				groupRun = wanted == EMovementType.RUN;
-				groupWanted = typename.EnumToString(EMovementType, wanted);
-			}
-		}
-
-		array<IEntity> livingEntities = {};
-		CollectLivingRuntimeGroupEntities(activeGroup.m_sGroupId, livingEntities);
-		foreach (IEntity entity : livingEntities)
-		{
-			if (!entity)
-				continue;
-
-			AIControlComponent control = AIControlComponent.Cast(entity.FindComponent(AIControlComponent));
-			if (!control)
-				continue;
-
-			AIAgent agent = control.GetControlAIAgent();
-			if (!agent)
-				continue;
-
-			AICharacterMovementComponent movement = AICharacterMovementComponent.Cast(agent.GetMovementComponent());
-			if (!movement)
-				continue;
-
-			liveAgentCount++;
-			if (movement.GetMovementTypeWanted() == EMovementType.RUN)
-				runAgentCount++;
-		}
-
-		bool agentRun = liveAgentCount > 0 && runAgentCount >= liveAgentCount;
-		actual = string.Format("response_run %1 | group wanted %2 | groupRun %3 | agents run %4/%5", responseRunToken, groupWanted, groupRun, runAgentCount, liveAgentCount);
-		return responseRunToken && (groupRun || agentRun);
 	}
 
 	protected bool TryKickPendingNativeGroupSpawn(HST_ActiveGroupState activeGroup, string source)
@@ -10645,12 +10536,8 @@ class HST_PhysicalWarService
 		return removedHandles;
 	}
 
-	protected bool EnsureRuntimeGroupEntities(HST_CampaignState state, HST_CampaignPreset preset = null)
+	protected void EnsureRuntimeGroupEntities(HST_CampaignState state, HST_CampaignPreset preset = null)
 	{
-		if (!state)
-			return false;
-
-		bool changed;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
 			if (!activeGroup)
@@ -10664,103 +10551,27 @@ class HST_PhysicalWarService
 				HST_MissionAssetState asset = FindMissionConvoyAssetForGroup(state, mission, activeGroup);
 				if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
 				{
-					changed = CleanupTerminalActiveGroupRuntimeCrew(activeGroup, "ensure runtime") || changed;
+					CleanupTerminalActiveGroupRuntimeCrew(activeGroup, "ensure runtime");
 					continue;
 				}
 				if (mission && asset && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
-					changed = TrySpawnMissionConvoyGroup(state, preset, mission, asset, activeGroup, ResolveMissionConvoyGroupIndex(mission, activeGroup.m_sGroupId)) || changed;
+					TrySpawnMissionConvoyGroup(state, preset, mission, asset, activeGroup, ResolveMissionConvoyGroupIndex(mission, activeGroup.m_sGroupId));
 				continue;
 			}
 
 			if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
 			{
-				changed = CleanupTerminalActiveGroupRuntimeCrew(activeGroup, "ensure runtime") || changed;
+				CleanupTerminalActiveGroupRuntimeCrew(activeGroup, "ensure runtime");
 				continue;
 			}
-
-			changed = ReconcileActiveGroupRuntimeMemberCounts(state, activeGroup, "ensure runtime") || changed;
 			if (HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 				continue;
 
 			if (activeGroup.m_iVehicleCount > 0 && activeGroup.m_iInfantryCount <= 0)
-				changed = TrySpawnActiveVehicle(activeGroup, state) || changed;
+				TrySpawnActiveVehicle(activeGroup, state);
 			else
-				changed = TrySpawnActiveGroup(activeGroup, state, preset) || changed;
+				TrySpawnActiveGroup(activeGroup, state, preset);
 		}
-
-		return changed;
-	}
-
-	protected bool ReconcileActiveGroupRuntimeMemberCounts(HST_CampaignState state, HST_ActiveGroupState activeGroup, string source)
-	{
-		if (!state || !activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup))
-			return false;
-		if (!HasRuntimeGroupEntity(activeGroup.m_sGroupId))
-			return false;
-
-		if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
-		{
-			string requestedStatus = ResolvePendingActiveGroupRequestedStatus(activeGroup, "");
-			if (TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " count reconcile"))
-				return true;
-		}
-
-		int liveInfantry = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
-		int liveTotal = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
-		if (liveTotal <= 0)
-			return false;
-
-		bool changed;
-		SCR_AIGroup group = SCR_AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId));
-		if (group)
-			ReconcileRuntimeGroupEditableMembership(group, activeGroup, source + " count reconcile");
-
-		if (!activeGroup.m_bSpawnedEntity)
-		{
-			activeGroup.m_bSpawnedEntity = true;
-			activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
-			if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
-				activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, ResolvePendingActiveGroupRequestedStatus(activeGroup, ""));
-			changed = true;
-		}
-
-		if (liveInfantry > activeGroup.m_iSpawnedAgentCount)
-		{
-			activeGroup.m_iSpawnedAgentCount = liveInfantry;
-			changed = true;
-		}
-
-		if (activeGroup.m_iLastSeenAliveCount != liveTotal)
-		{
-			activeGroup.m_iLastSeenAliveCount = liveTotal;
-			changed = true;
-		}
-
-		int survivorInfantry = Math.Min(Math.Max(0, activeGroup.m_iInfantryCount), liveInfantry);
-		int survivorVehicles = 0;
-		if (activeGroup.m_iVehicleCount > 0 && activeGroup.m_iInfantryCount <= 0)
-			survivorVehicles = Math.Min(activeGroup.m_iVehicleCount, liveTotal);
-		else if (activeGroup.m_iVehicleCount > 0)
-			survivorVehicles = Math.Max(0, Math.Min(activeGroup.m_iVehicleCount, liveTotal - liveInfantry));
-
-		if (activeGroup.m_iSurvivorInfantryCount != survivorInfantry)
-		{
-			activeGroup.m_iSurvivorInfantryCount = survivorInfantry;
-			changed = true;
-		}
-		if (activeGroup.m_iSurvivorVehicleCount != survivorVehicles)
-		{
-			activeGroup.m_iSurvivorVehicleCount = survivorVehicles;
-			changed = true;
-		}
-
-		if (changed)
-		{
-			RefreshActiveGroupZoneCounts(state, activeGroup);
-			DebugLog(string.Format("active group count reconcile %1 via %2 | infantry live %3/%4 | total live %5 | spawned %6 | status %7", activeGroup.m_sGroupId, ReportText(source), liveInfantry, activeGroup.m_iInfantryCount, liveTotal, activeGroup.m_iSpawnedAgentCount, activeGroup.m_sRuntimeStatus));
-		}
-
-		return changed;
 	}
 
 	protected bool CleanupInactiveMissionOwnedActiveGroups(HST_CampaignState state)

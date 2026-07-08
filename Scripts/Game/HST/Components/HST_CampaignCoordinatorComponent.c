@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r93-hq-knowledge-response-counts";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r92-hq-pressure-response-pacing";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -6963,29 +6963,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string globalActual = string.Format("changed %1 | knowledge %2 | threat %3 | activity %4 | reason %5", globalChanged, globalAggressionState.m_iHQKnowledge, globalAggressionState.m_iHQThreatLevel, globalAggressionState.m_iLastHQActivitySecond, EmptyCampaignDebugField(globalAggressionState.m_sLastHQThreatReason));
 		AddCampaignDebugAssertion(hqCase, "hq.passive_knowledge.global_aggression_no_leak", "global enemy aggression does not increase HQ knowledge without local HQ exposure", globalActual, CampaignDebugStatus(globalKnowledgeStable && globalThreatReported && globalNoLocalActivity), "global aggression leaked into HQ knowledge or local HQ activity state");
 
-		HST_CampaignState outerExposureState = BuildCampaignDebugHQThreatFixtureState(basePosition);
-		HST_ActiveGroupState outerEnemyGroup = new HST_ActiveGroupState();
-		outerEnemyGroup.m_sGroupId = "debug_hq_outer_enemy_activity";
-		outerEnemyGroup.m_sFactionKey = enemyFactionKey;
-		outerEnemyGroup.m_sRuntimeStatus = "routing";
-		outerEnemyGroup.m_vPosition = basePosition + "780 0 0";
-		outerEnemyGroup.m_iSurvivorInfantryCount = 18;
-		outerExposureState.m_aActiveGroups.Insert(outerEnemyGroup);
-
-		bool outerChanged = m_HQ.TickHQThreat(outerExposureState, m_Preset);
-		bool outerKnowledgeStable = outerExposureState.m_iHQKnowledge == 0;
-		bool outerThreatReported = outerExposureState.m_iHQThreatLevel > 0 && outerExposureState.m_sLastHQThreatReason.Contains("enemy active group");
-		bool outerActivityRecorded = outerExposureState.m_iLastHQActivitySecond == outerExposureState.m_iElapsedSeconds;
-		string outerActual = string.Format("changed %1 | knowledge %2 | threat %3 | activity %4/%5 | reason %6", outerChanged, outerExposureState.m_iHQKnowledge, outerExposureState.m_iHQThreatLevel, outerExposureState.m_iLastHQActivitySecond, outerExposureState.m_iElapsedSeconds, EmptyCampaignDebugField(outerExposureState.m_sLastHQThreatReason));
-		AddCampaignDebugAssertion(hqCase, "hq.passive_knowledge.outer_activity_no_reveal", "outer-radius enemy activity reports HQ threat without increasing HQ knowledge", outerActual, CampaignDebugStatus(outerKnowledgeStable && outerThreatReported && outerActivityRecorded), "outer-radius activity revealed HQ knowledge instead of remaining threat-only");
-
 		HST_CampaignState localExposureState = BuildCampaignDebugHQThreatFixtureState(basePosition);
 		HST_ActiveGroupState localEnemyGroup = new HST_ActiveGroupState();
 		localEnemyGroup.m_sGroupId = "debug_hq_local_enemy_activity";
 		localEnemyGroup.m_sFactionKey = enemyFactionKey;
 		localEnemyGroup.m_sRuntimeStatus = "routing";
-		localEnemyGroup.m_vPosition = basePosition + "420 0 0";
-		localEnemyGroup.m_iSurvivorInfantryCount = 16;
+		localEnemyGroup.m_vPosition = basePosition + "500 0 0";
+		localEnemyGroup.m_iSurvivorInfantryCount = 12;
 		localExposureState.m_aActiveGroups.Insert(localEnemyGroup);
 
 		bool localChanged = m_HQ.TickHQThreat(localExposureState, m_Preset);
@@ -7852,13 +7836,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(supportCase, "support.physical_map_destination", "ground support group routes to the requested support destination", deploymentActual, CampaignDebugStatus(deploymentTargetedToRequest), "ground support active group target does not match the support request target position", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_offset", "ground support spawns offset from the selected destination", deploymentActual, CampaignDebugStatus(deploymentOffset), "ground support staging was not offset from the selected destination", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_clearance", "ground support spawn placement records player and AI clearance", deploymentActual, CampaignDebugStatus(deploymentClearance), "ground support staging did not prove clearance from players and active AI groups", observedSupportRequest.m_sRequestId);
-			bool memberCountsVisible = supportGroup && supportGroup.m_iSpawnedAgentCount > 0 && supportGroup.m_iLastSeenAliveCount > 0;
-			AddCampaignDebugAssertion(supportCase, "support.physical_runtime_member_counts", "spawned ground support group records nonzero runtime member counts", BuildCampaignDebugActiveGroupActual(supportGroup), CampaignDebugStatus(memberCountsVisible), "ground support active group still reports zero spawned/live members after population", observedSupportRequest.m_sRequestId);
-			string responseRunActual = BuildCampaignDebugActiveGroupActual(supportGroup);
-			bool responseRun;
-			if (m_PhysicalWar)
-				responseRun = m_PhysicalWar.CampaignDebugIsActiveGroupResponseRunMovement(supportGroup, responseRunActual);
-			AddCampaignDebugAssertion(supportCase, "support.physical_response_run", "ground support active group has native RUN movement for routed response", responseRunActual, CampaignDebugStatus(responseRun), "ground support active group did not apply native response RUN movement", observedSupportRequest.m_sRequestId);
+			bool responseRun = supportGroup && supportGroup.m_sSpawnFallbackMode.Contains("response_run");
+			AddCampaignDebugAssertion(supportCase, "support.physical_response_run", "ground support active group receives RUN movement for routed response", BuildCampaignDebugActiveGroupActual(supportGroup), CampaignDebugStatus(responseRun), "ground support active group did not record response RUN movement", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_before", string.Format("%1", Math.Round(probeContext.m_fDistanceBefore)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_after", string.Format("%1", Math.Round(probeContext.m_fDistanceAfter)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_arrival", string.Format("%1", Math.Round(probeContext.m_fDistanceAtArrival)), "meters");
@@ -19261,13 +19240,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			float attackerHQDistance = Math.Sqrt(DistanceSq2D(physicalGroup.m_vSourcePosition, m_State.m_vHQPosition));
 			bool attackerStagingBand = attackerHQDistance >= HST_SupportRequestService.PETROS_ATTACK_MIN_STANDOFF_METERS && attackerHQDistance <= HST_SupportRequestService.PETROS_ATTACK_MAX_STAGING_METERS;
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_staging_band", "Petros attacker group stages in the closer dedicated HQ attack band", string.Format("%1m | source %2 | HQ %3", Math.Round(attackerHQDistance), physicalGroup.m_vSourcePosition, m_State.m_vHQPosition), CampaignDebugStatus(attackerStagingBand), "Phase 22 Petros attacker group staged too close or too far from HQ", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
-			bool attackerMemberCountsVisible = physicalGroup.m_iSpawnedAgentCount > 0 && physicalGroup.m_iLastSeenAliveCount > 0;
-			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_runtime_member_counts", "Petros attacker group records nonzero runtime member counts after population", groupActual, CampaignDebugStatus(attackerMemberCountsVisible), "Phase 22 Petros attacker group still reports zero spawned/live members after population", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
-			string attackerRunActual = groupActual;
-			bool attackerRun;
-			if (m_PhysicalWar)
-				attackerRun = m_PhysicalWar.CampaignDebugIsActiveGroupResponseRunMovement(physicalGroup, attackerRunActual);
-			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_response_run", "Petros attacker group has native RUN movement for routed response", attackerRunActual, CampaignDebugStatus(attackerRun), "Phase 22 Petros attacker group did not apply native response RUN movement", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
+			bool attackerRun = physicalGroup.m_sSpawnFallbackMode.Contains("response_run");
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_response_run", "Petros attacker group receives RUN movement for routed response", groupActual, CampaignDebugStatus(attackerRun), "Phase 22 Petros attacker group did not record response RUN movement", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
 		}
 		else
 		{
