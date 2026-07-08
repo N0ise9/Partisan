@@ -370,6 +370,9 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	static void BroadcastMissionEvent(string payload, string summary)
 	{
+		if (BroadcastMissionEventToConnectedOwners(payload, summary) > 0)
+			return;
+
 		if (!s_ServerBroadcaster)
 		{
 			Print("h-istasi mission event | no server broadcaster ready", LogLevel.WARNING);
@@ -381,6 +384,9 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	static void BroadcastNotification(string payload, string summary = "")
 	{
+		if (BroadcastNotificationToConnectedOwners(payload, summary) > 0)
+			return;
+
 		if (!s_ServerBroadcaster)
 		{
 			Print("h-istasi notification | no server broadcaster ready", LogLevel.WARNING);
@@ -417,6 +423,41 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return true;
 	}
 
+	static int CountConnectedPlayers()
+	{
+		if (!Replication.IsServer())
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		return playerIds.Count();
+	}
+
+	static int CountConnectedRequestBridges()
+	{
+		if (!Replication.IsServer())
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		int bridgeCount;
+		foreach (int playerId : playerIds)
+		{
+			if (ResolvePlayerRequestBridge(playerManager, playerId))
+				bridgeCount++;
+		}
+
+		return bridgeCount;
+	}
+
 	static bool SendPetrosRelocationStateOwner(int playerId, bool active)
 	{
 		if (!Replication.IsServer() || playerId <= 0)
@@ -446,10 +487,100 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	static void BroadcastMissionIntel(string payload)
 	{
+		if (BroadcastMissionIntelToConnectedOwners(payload) > 0)
+			return;
+
 		if (!s_ServerBroadcaster)
 			return;
 
 		s_ServerBroadcaster.BroadcastMissionIntel_I(payload);
+	}
+
+	protected static int BroadcastMissionEventToConnectedOwners(string payload, string summary)
+	{
+		if (!Replication.IsServer())
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		int delivered;
+		foreach (int playerId : playerIds)
+		{
+			HST_CommandMenuRequestComponent request = ResolvePlayerRequestBridge(playerManager, playerId);
+			if (!request)
+				continue;
+
+			request.DeliverMissionEventOwner(payload, summary);
+			delivered++;
+		}
+
+		return delivered;
+	}
+
+	protected static int BroadcastNotificationToConnectedOwners(string payload, string summary)
+	{
+		if (!Replication.IsServer())
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		int delivered;
+		foreach (int playerId : playerIds)
+		{
+			HST_CommandMenuRequestComponent request = ResolvePlayerRequestBridge(playerManager, playerId);
+			if (!request)
+				continue;
+
+			request.DeliverNotificationOwner(payload, summary);
+			delivered++;
+		}
+
+		return delivered;
+	}
+
+	protected static int BroadcastMissionIntelToConnectedOwners(string payload)
+	{
+		if (!Replication.IsServer())
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		int delivered;
+		foreach (int playerId : playerIds)
+		{
+			HST_CommandMenuRequestComponent request = ResolvePlayerRequestBridge(playerManager, playerId);
+			if (!request)
+				continue;
+
+			request.DeliverMissionIntel(payload);
+			delivered++;
+		}
+
+		return delivered;
+	}
+
+	protected static HST_CommandMenuRequestComponent ResolvePlayerRequestBridge(PlayerManager playerManager, int playerId)
+	{
+		if (!playerManager || playerId <= 0)
+			return null;
+
+		PlayerController controller = playerManager.GetPlayerController(playerId);
+		if (!controller)
+			return null;
+
+		return HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
 	}
 
 	static void BroadcastSetupRefresh()
@@ -785,6 +916,16 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			Print("h-istasi mission event | " + summary);
 	}
 
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ReceiveMissionEventOwner(string payload, string summary)
+	{
+		HST_MissionClientComponent missionClient = HST_MissionClientComponent.GetLocalInstance();
+		if (missionClient)
+			missionClient.OnServerMissionEvent(payload, summary);
+		else
+			Print("h-istasi mission event | " + summary);
+	}
+
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
 	protected void RpcDo_ReceiveNotification(string payload, string summary)
 	{
@@ -921,6 +1062,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void BroadcastMissionEvent_I(string payload, string summary)
 	{
 		Rpc(RpcDo_ReceiveMissionEvent, payload, summary);
+	}
+
+	protected void DeliverMissionEventOwner(string payload, string summary)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_ReceiveMissionEventOwner(payload, summary);
+			return;
+		}
+
+		Rpc(RpcDo_ReceiveMissionEventOwner, payload, summary);
 	}
 
 	protected void BroadcastNotification_I(string payload, string summary)

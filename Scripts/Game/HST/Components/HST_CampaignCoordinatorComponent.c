@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r103-gun-shop-delivery";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r104-global-mission-notifications";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -7366,6 +7366,103 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return selectionCase;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionNotificationCase()
+	{
+		HST_CampaignDebugCaseResult notificationCase = CreateCampaignDebugCase("mission_notifications.global.contract.runtime", "missions", "notifications", "baseline");
+		bool servicesReady = m_State != null && m_Missions != null;
+		AddCampaignDebugAssertion(notificationCase, "mission_notifications.prerequisite", "state and mission service ready", string.Format("state %1 | missions %2", m_State != null, m_Missions != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "mission notification prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(notificationCase);
+			return notificationCase;
+		}
+
+		int connectedPlayers = HST_CommandMenuRequestComponent.CountConnectedPlayers();
+		int requestBridges = HST_CommandMenuRequestComponent.CountConnectedRequestBridges();
+		AddCampaignDebugMetric(notificationCase, "mission_notifications.connected_players", string.Format("%1", connectedPlayers), "count");
+		AddCampaignDebugMetric(notificationCase, "mission_notifications.request_bridges", string.Format("%1", requestBridges), "count");
+		AddCampaignDebugAssertion(notificationCase, "mission_notifications.owner_targets", "every connected player has an owner request bridge for global notification fanout", string.Format("players %1 | request bridges %2", connectedPlayers, requestBridges), CampaignDebugStatus(connectedPlayers > 0 && requestBridges == connectedPlayers, "WARN"), "one or more connected players cannot receive owner-targeted mission notifications");
+
+		HST_MissionDefinition supportDefinition = m_Missions.FindDefinition("support_city_supplies");
+		HST_MissionDefinition convoyDefinition = m_Missions.FindDefinition("convoy_supplies");
+		string targetZoneId = SelectHQCivilianTownZoneId();
+		HST_ZoneState targetZone = m_State.FindZone(targetZoneId);
+		bool targetReady = supportDefinition != null && convoyDefinition != null && targetZone != null;
+		AddCampaignDebugAssertion(notificationCase, "mission_notifications.target", "support and convoy mission definitions plus a target zone are available", string.Format("support %1 | convoy %2 | zone %3", BuildCampaignDebugMissionDefinitionActual(supportDefinition), BuildCampaignDebugMissionDefinitionActual(convoyDefinition), BuildCampaignDebugMissionCompletionZoneActual(targetZone)), CampaignDebugStatus(targetReady, "BLOCKED"), "mission notification target fixtures unavailable", "", "", targetZoneId);
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(notificationCase);
+			return notificationCase;
+		}
+
+		string prefix = ResolveCampaignDebugCleanupPrefix() + "_mission_notification";
+		array<string> instanceIds = {};
+		instanceIds.Insert(prefix + "_created");
+		instanceIds.Insert(prefix + "_convoy");
+		instanceIds.Insert(prefix + "_completed");
+		instanceIds.Insert(prefix + "_failed");
+		instanceIds.Insert(prefix + "_expired");
+		foreach (string instanceId : instanceIds)
+			RemoveCampaignDebugMissionRecord(instanceId);
+
+		int activeMissionCountBefore = m_State.m_aActiveMissions.Count();
+
+		HST_ActiveMissionState createdMission = CreateCampaignDebugNotificationMission(supportDefinition, instanceIds[0], targetZone, HST_EMissionStatus.HST_MISSION_ACTIVE, "created", "support_delivery");
+		m_State.m_aActiveMissions.Insert(createdMission);
+		BroadcastMissionEvent("created", createdMission, supportDefinition);
+		AddCampaignDebugAssertion(notificationCase, "mission_notifications.created", "created mission event marks its notification as sent", BuildCampaignDebugPrimitiveMissionActual(createdMission), CampaignDebugStatus(createdMission.m_bCreatedNotificationSent), "mission-created event did not mark the created notification flag", "", createdMission.m_sInstanceId, targetZone.m_sZoneId);
+
+		HST_ActiveMissionState convoyMission = CreateCampaignDebugNotificationMission(convoyDefinition, instanceIds[1], targetZone, HST_EMissionStatus.HST_MISSION_ACTIVE, "convoy_moving", "convoy_intercept");
+		convoyMission.m_sLastRuntimeEventKey = "convoy_moving_pending";
+		m_State.m_aActiveMissions.Insert(convoyMission);
+		BroadcastPendingMissionRuntimeEvents();
+		AddCampaignDebugAssertion(notificationCase, "mission_notifications.convoy_moving", "pending convoy movement event broadcasts and is marked sent", BuildCampaignDebugPrimitiveMissionActual(convoyMission) + " | event " + EmptyCampaignDebugField(convoyMission.m_sLastRuntimeEventKey), CampaignDebugStatus(convoyMission.m_sLastRuntimeEventKey == "convoy_moving_sent"), "convoy movement event did not flow through mission runtime notification broadcast", "", convoyMission.m_sInstanceId, targetZone.m_sZoneId);
+
+		HST_ActiveMissionState completedMission = CreateCampaignDebugNotificationMission(supportDefinition, instanceIds[2], targetZone, HST_EMissionStatus.HST_MISSION_SUCCEEDED, "completed", "support_delivery");
+		m_State.m_aActiveMissions.Insert(completedMission);
+		HST_ActiveMissionState failedMission = CreateCampaignDebugNotificationMission(supportDefinition, instanceIds[3], targetZone, HST_EMissionStatus.HST_MISSION_FAILED, "failed", "support_delivery");
+		m_State.m_aActiveMissions.Insert(failedMission);
+		HST_ActiveMissionState expiredMission = CreateCampaignDebugNotificationMission(supportDefinition, instanceIds[4], targetZone, HST_EMissionStatus.HST_MISSION_EXPIRED, "expired", "support_delivery");
+		m_State.m_aActiveMissions.Insert(expiredMission);
+		BroadcastPendingMissionOutcomeEvents();
+		AddCampaignDebugAssertion(notificationCase, "mission_notifications.completed", "completed mission event marks its notification as sent", BuildCampaignDebugPrimitiveMissionActual(completedMission), CampaignDebugStatus(completedMission.m_bCompletedNotificationSent), "mission-completed event did not mark the completed notification flag", "", completedMission.m_sInstanceId, targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(notificationCase, "mission_notifications.failed", "failed mission event marks its notification as sent", BuildCampaignDebugPrimitiveMissionActual(failedMission), CampaignDebugStatus(failedMission.m_bFailedNotificationSent), "mission-failed event did not mark the failed notification flag", "", failedMission.m_sInstanceId, targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(notificationCase, "mission_notifications.expired", "expired mission event marks its notification as sent", BuildCampaignDebugPrimitiveMissionActual(expiredMission), CampaignDebugStatus(expiredMission.m_bExpiredNotificationSent), "mission-expired event did not mark the expired notification flag", "", expiredMission.m_sInstanceId, targetZone.m_sZoneId);
+
+		foreach (string cleanupId : instanceIds)
+			RemoveCampaignDebugMissionRecord(cleanupId);
+		RefreshCampaignMarkers();
+		bool cleanupExpected = m_State.m_aActiveMissions.Count() == activeMissionCountBefore;
+		AddCampaignDebugAssertion(notificationCase, "mission_notifications.cleanup", "temporary notification proof missions are removed", string.Format("active missions %1 -> %2", activeMissionCountBefore, m_State.m_aActiveMissions.Count()), CampaignDebugStatus(cleanupExpected), "mission notification proof leaked active missions");
+
+		FinalizeCampaignDebugCaseFromAssertions(notificationCase);
+		return notificationCase;
+	}
+
+	protected HST_ActiveMissionState CreateCampaignDebugNotificationMission(HST_MissionDefinition definition, string instanceId, HST_ZoneState targetZone, HST_EMissionStatus status, string phase, string primitive)
+	{
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		if (!definition || !targetZone)
+			return mission;
+
+		mission.m_sInstanceId = instanceId;
+		mission.m_sMissionId = definition.m_sMissionId;
+		mission.m_sDisplayName = definition.m_sDisplayName;
+		mission.m_eStatus = status;
+		mission.m_iRemainingSeconds = Math.Max(0, definition.m_iDurationSeconds);
+		mission.m_sTargetZoneId = targetZone.m_sZoneId;
+		mission.m_vTargetPosition = targetZone.m_vPosition;
+		mission.m_sMarkerId = "hst_mission_" + instanceId;
+		mission.m_sRuntimeType = definition.m_sRuntimeType;
+		mission.m_sRuntimePrimitive = primitive;
+		mission.m_sRuntimePhase = phase;
+		mission.m_iStartedAtSecond = m_State.m_iElapsedSeconds;
+		mission.m_iActiveUntilSecond = m_State.m_iElapsedSeconds + mission.m_iRemainingSeconds;
+		mission.m_bRequested = true;
+		mission.m_bDynamic = false;
+		return mission;
+	}
+
 	protected string BuildCampaignDebugMissionCategoryTargetActual(HST_MissionCategorySelectionResult selection, HST_ZoneState zone)
 	{
 		if (!selection)
@@ -7851,6 +7948,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugTownInfluenceLedgerCase());
 		RecordCampaignDebugCase(BuildCampaignDebugVehicleHeatCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCategorySelectionCase());
+		RecordCampaignDebugCase(BuildCampaignDebugMissionNotificationCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCompletionRewardCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionFailurePenaltyCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionExpiryPenaltyCase());
