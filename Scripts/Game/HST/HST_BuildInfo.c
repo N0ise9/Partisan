@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r102-player-facing-command-menu";
-	static const string BUILD_UTC = "2026-07-08T20:10:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r102-player-facing-command-menu";
+	static const string BUILD_SHA = "r106-map-open-gate-proof";
+	static const string BUILD_UTC = "2026-07-08T23:30:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r106-map-open-gate-proof";
 
 	static string BuildSummary()
 	{

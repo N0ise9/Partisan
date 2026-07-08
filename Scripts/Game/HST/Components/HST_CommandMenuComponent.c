@@ -53,7 +53,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string COMMAND_MENU_INPUT_CONTEXT = "HST_CommandMenuContext";
 	static const string COMMAND_MENU_NATIVE_I_CONTEXT = "PlayerMenuContext";
-	static const string COMMAND_MENU_BUILD = "2026-07-08-menu-input-r18-native-map-open-gate";
+	static const string COMMAND_MENU_BUILD = "2026-07-08-menu-input-r19-map-open-gate-proof";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
@@ -179,6 +179,11 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bMapTargetSelectionSuppressedForModal;
 	protected bool m_bMapTargetCompleting;
 	protected bool m_bMapTargetPromptRefreshQueued;
+	protected bool m_bCampaignDebugMapOpenGateMapOpenBeforeAttempt;
+	protected bool m_bCampaignDebugMapOpenGateToggleAttempted;
+	protected bool m_bCampaignDebugMapOpenGateToggleAccepted;
+	protected bool m_bCampaignDebugMapOpenGateDirectAttempted;
+	protected bool m_bCampaignDebugMapOpenGateOpenedMap;
 	protected string m_sMapTargetLabel;
 	protected string m_sMapTargetCommand;
 	protected string m_sMapTargetArgument;
@@ -386,6 +391,87 @@ class HST_CommandMenuComponent : ScriptComponent
 		OpenMenuToTab(selectedTabId, "campaign debug rendered proof");
 		GetGame().GetCallqueue().CallLater(ReportCampaignDebugRenderedProof, 120, false, requestId, selectedTabId, 0);
 		GetGame().GetCallqueue().CallLater(ReportCampaignDebugRenderedProof, 550, false, requestId, selectedTabId, 1);
+	}
+
+	void RunCampaignDebugMapOpenGateProof(string requestId)
+	{
+		if (requestId.IsEmpty())
+			return;
+
+		m_bCampaignDebugMapOpenGateMapOpenBeforeAttempt = false;
+		m_bCampaignDebugMapOpenGateToggleAttempted = false;
+		m_bCampaignDebugMapOpenGateToggleAccepted = false;
+		m_bCampaignDebugMapOpenGateDirectAttempted = false;
+		m_bCampaignDebugMapOpenGateOpenedMap = false;
+
+		if (m_bMenuOpen)
+			CloseMenu("campaign debug map-open gate preflight");
+
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		if (!mapEntity || !mapEntity.IsOpen())
+		{
+			MenuManager menuManager = GetGame().GetMenuManager();
+			if (menuManager)
+			{
+				menuManager.OpenMenu(ChimeraMenuPreset.MapMenu);
+				m_bCampaignDebugMapOpenGateOpenedMap = true;
+			}
+		}
+
+		GetGame().GetCallqueue().CallLater(AttemptCampaignDebugMapOpenGateProof, 220, false, requestId);
+		GetGame().GetCallqueue().CallLater(ReportCampaignDebugMapOpenGateProof, 620, false, requestId);
+	}
+
+	protected void AttemptCampaignDebugMapOpenGateProof(string requestId)
+	{
+		m_bCampaignDebugMapOpenGateMapOpenBeforeAttempt = IsNativeMapOpen();
+		m_bCampaignDebugMapOpenGateToggleAttempted = true;
+		m_bCampaignDebugMapOpenGateToggleAccepted = TryToggleCommandMenu("campaign debug map-open gate input");
+		m_bCampaignDebugMapOpenGateDirectAttempted = true;
+		OpenMenuToTab("admin", "campaign debug map-open gate direct");
+	}
+
+	protected void ReportCampaignDebugMapOpenGateProof(string requestId)
+	{
+		string report = BuildCampaignDebugMapOpenGateProofReport(requestId);
+		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.GetLocalOwner();
+		if (request)
+			request.ReportCampaignDebugCommandMenuMapOpenGateProof(requestId, report);
+		else
+			Print("h-istasi menu | campaign debug map-open gate proof request bridge missing | " + report, LogLevel.WARNING);
+
+		Print("h-istasi menu | campaign debug map-open gate proof | " + report);
+		if (m_bMenuOpen)
+			CloseMenu("campaign debug map-open gate cleanup");
+
+		if (m_bCampaignDebugMapOpenGateOpenedMap)
+			CloseCampaignDebugMapOpenGateNativeMap();
+	}
+
+	protected string BuildCampaignDebugMapOpenGateProofReport(string requestId)
+	{
+		SCR_MapEntity mapEntity = SCR_MapEntity.GetMapInstance();
+		bool mapOpenAfterAttempt = mapEntity && mapEntity.IsOpen();
+		Widget root = m_wMenuRoot;
+		bool rootVisible = root && root.IsVisibleInHierarchy();
+		string rootSummary = "none";
+		if (root)
+			rootSummary = HST_UIDebug.WidgetSummary(root);
+
+		string report = string.Format("request %1 | player %2 | localOwner %3 | mapOpenBeforeAttempt %4 | toggleAttempted %5 | toggleAccepted %6 | directAttempted %7 | mapOpenAfterAttempt %8 | menuOpenAfterAttempt %9", requestId, ResolveLocalPlayerId(), m_bIsLocalOwner, m_bCampaignDebugMapOpenGateMapOpenBeforeAttempt, m_bCampaignDebugMapOpenGateToggleAttempted, m_bCampaignDebugMapOpenGateToggleAccepted, m_bCampaignDebugMapOpenGateDirectAttempted, mapOpenAfterAttempt, m_bMenuOpen);
+		report = report + string.Format(" | rootAfterAttempt %1", rootVisible);
+		report = report + string.Format(" | openedMapForProof %1 | top %2 | build %3", m_bCampaignDebugMapOpenGateOpenedMap, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), COMMAND_MENU_BUILD);
+		report = report + " | rootSummary " + ShortenText(rootSummary, 140);
+		return report;
+	}
+
+	protected void CloseCampaignDebugMapOpenGateNativeMap()
+	{
+		MenuManager menuManager = GetGame().GetMenuManager();
+		if (menuManager)
+			menuManager.CloseMenuByPreset(ChimeraMenuPreset.MapMenu);
+
+		m_bCampaignDebugMapOpenGateOpenedMap = false;
 	}
 
 	protected void ReportCampaignDebugRenderedProof(string requestId, string selectedTabId, int passIndex)

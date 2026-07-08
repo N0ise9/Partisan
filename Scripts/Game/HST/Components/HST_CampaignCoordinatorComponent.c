@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r104-global-mission-notifications";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r106-map-open-gate-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -231,10 +231,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugClientMenuProofReport;
 	protected string m_sCampaignDebugClientMapProofRequestId;
 	protected string m_sCampaignDebugClientMapProofReport;
+	protected string m_sCampaignDebugClientMapOpenGateProofRequestId;
+	protected string m_sCampaignDebugClientMapOpenGateProofReport;
 	protected bool m_bCampaignDebugClientMenuProofRequestDispatched;
 	protected bool m_bCampaignDebugClientMapProofRequestDispatched;
+	protected bool m_bCampaignDebugClientMapOpenGateProofRequestDispatched;
 	protected int m_iCampaignDebugClientMenuProofPlayerId;
 	protected int m_iCampaignDebugClientMapProofPlayerId;
+	protected int m_iCampaignDebugClientMapOpenGateProofPlayerId;
 	protected int m_iCampaignDebugBackgroundWarUnexpectedPetrosOrders;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
@@ -3823,6 +3827,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugPreviousCommanderIdentityId = "";
 		ResetCampaignDebugClientMenuProof();
 		ResetCampaignDebugClientMapProof();
+		ResetCampaignDebugClientMapOpenGateProof();
 		if (m_State)
 			m_sCampaignDebugPreviousCommanderIdentityId = m_State.m_sCommanderIdentityId;
 		ResetCampaignDebugPhase16Observations();
@@ -3897,9 +3902,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (m_iCampaignDebugStepIndex == 5)
 		{
+			if (!ShouldCampaignDebugRunCommandMenuMapOpenGateStage())
+			{
+				SkipCampaignDebugStageForProfile("command menu map-open gate proof", 6);
+				return;
+			}
+
+			RunCampaignDebugCommandMenuMapOpenGateProbeStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 6)
+		{
 			if (!ShouldCampaignDebugRunEconomyForceStage())
 			{
-				SkipCampaignDebugStageForProfile("economy force", 6);
+				SkipCampaignDebugStageForProfile("economy force", 7);
 				return;
 			}
 
@@ -3907,11 +3924,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 6)
+		if (m_iCampaignDebugStepIndex == 7)
 		{
 			if (!ShouldCampaignDebugRunEarlyPhaseStage())
 			{
-				SkipCampaignDebugStageForProfile("early mechanics, mission sweep, and phase smoke", 9);
+				SkipCampaignDebugStageForProfile("early mechanics, mission sweep, and phase smoke", 10);
 				return;
 			}
 
@@ -3919,11 +3936,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 7)
+		if (m_iCampaignDebugStepIndex == 8)
 		{
 			if (!ShouldCampaignDebugRunMissionSweepStage())
 			{
-				SkipCampaignDebugStageForProfile("mission sweep", 8);
+				SkipCampaignDebugStageForProfile("mission sweep", 9);
 				return;
 			}
 
@@ -3931,11 +3948,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 8)
+		if (m_iCampaignDebugStepIndex == 9)
 		{
 			if (!ShouldCampaignDebugRunPhaseSmokeStage())
 			{
-				SkipCampaignDebugStageForProfile("phase smoke", 9);
+				SkipCampaignDebugStageForProfile("phase smoke", 10);
 				return;
 			}
 
@@ -3943,7 +3960,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 9)
+		if (m_iCampaignDebugStepIndex == 10)
 		{
 			RunCampaignDebugFinalReportStep();
 			return;
@@ -4069,6 +4086,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	}
 
 	protected bool ShouldCampaignDebugRunRenderedMapStage()
+	{
+		return !IsCampaignDebugExternalProfile();
+	}
+
+	protected bool ShouldCampaignDebugRunCommandMenuMapOpenGateStage()
 	{
 		return !IsCampaignDebugExternalProfile();
 	}
@@ -8165,6 +8187,32 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AdvanceCampaignDebugStep("Rendered map marker proof complete.");
 	}
 
+	protected void RunCampaignDebugCommandMenuMapOpenGateProbeStep()
+	{
+		if (m_sCampaignDebugClientMapOpenGateProofRequestId.IsEmpty())
+		{
+			ResetCampaignDebugClientMapOpenGateProof();
+			m_sCampaignDebugClientMapOpenGateProofRequestId = "command_menu_map_gate_" + SafeCampaignDebugToken(m_sCampaignDebugRunId);
+			m_iCampaignDebugClientMapOpenGateProofPlayerId = m_iCampaignDebugPlayerId;
+			m_bCampaignDebugClientMapOpenGateProofRequestDispatched = HST_CommandMenuRequestComponent.SendCampaignDebugCommandMenuMapOpenGateProofOwner(m_iCampaignDebugPlayerId, m_sCampaignDebugClientMapOpenGateProofRequestId);
+			AppendCampaignDebugLog("INFO", "command menu map-open gate proof request", string.Format("request %1 | player %2 | dispatched %3", m_sCampaignDebugClientMapOpenGateProofRequestId, m_iCampaignDebugPlayerId, m_bCampaignDebugClientMapOpenGateProofRequestDispatched));
+			if (!m_bCampaignDebugClientMapOpenGateProofRequestDispatched)
+			{
+				RecordCampaignDebugCase(BuildCampaignDebugCommandMenuMapOpenGateCase());
+				ResetCampaignDebugClientMapOpenGateProof();
+				AdvanceCampaignDebugStep("Command menu map-open gate proof blocked.");
+				return;
+			}
+
+			m_iCampaignDebugWaitSeconds = 2;
+			return;
+		}
+
+		RecordCampaignDebugCase(BuildCampaignDebugCommandMenuMapOpenGateCase());
+		ResetCampaignDebugClientMapOpenGateProof();
+		AdvanceCampaignDebugStep("Command menu map-open gate proof complete.");
+	}
+
 	protected void ResetCampaignDebugClientMenuProof()
 	{
 		m_sCampaignDebugClientMenuProofRequestId = "";
@@ -8179,6 +8227,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugClientMapProofReport = "";
 		m_bCampaignDebugClientMapProofRequestDispatched = false;
 		m_iCampaignDebugClientMapProofPlayerId = 0;
+	}
+
+	protected void ResetCampaignDebugClientMapOpenGateProof()
+	{
+		m_sCampaignDebugClientMapOpenGateProofRequestId = "";
+		m_sCampaignDebugClientMapOpenGateProofReport = "";
+		m_bCampaignDebugClientMapOpenGateProofRequestDispatched = false;
+		m_iCampaignDebugClientMapOpenGateProofPlayerId = 0;
 	}
 
 	void ReceiveCampaignDebugCommandMenuProofReport(int playerId, string requestId, string report)
@@ -8196,6 +8252,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugClientMenuProofPlayerId = playerId;
 		m_sCampaignDebugClientMenuProofReport = report;
 		AppendCampaignDebugLog("INFO", "command menu rendered proof report", ShortCampaignDebugLine(report, 260));
+	}
+
+	void ReceiveCampaignDebugCommandMenuMapOpenGateProofReport(int playerId, string requestId, string report)
+	{
+		if (!Replication.IsServer())
+			return;
+		if (requestId.IsEmpty())
+			return;
+		if (requestId != m_sCampaignDebugClientMapOpenGateProofRequestId)
+		{
+			Print(string.Format("h-istasi campaign debug | stale command menu map-open gate proof report ignored request=%1 expected=%2 player=%3", requestId, EmptyCampaignDebugField(m_sCampaignDebugClientMapOpenGateProofRequestId), playerId), LogLevel.WARNING);
+			return;
+		}
+
+		m_iCampaignDebugClientMapOpenGateProofPlayerId = playerId;
+		m_sCampaignDebugClientMapOpenGateProofReport = report;
+		AppendCampaignDebugLog("INFO", "command menu map-open gate proof report", ShortCampaignDebugLine(report, 260));
 	}
 
 	void ReceiveCampaignDebugMapProofReport(int playerId, string requestId, string report)
@@ -8291,6 +8364,47 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_player_marker_widget", "HST player marker widgets are ready when player markers exist", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && playerReady, markerUiFailureStatus), "owner client did not prove rendered HST player marker widgets");
 		FinalizeCampaignDebugCaseFromAssertions(mapCase);
 		return mapCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugCommandMenuMapOpenGateCase()
+	{
+		HST_CampaignDebugCaseResult gateCase = CreateCampaignDebugCase("command_ui.map_open_gate", "ui", "command_ui", "owner_client_input");
+		string report = m_sCampaignDebugClientMapOpenGateProofReport;
+		if (report.IsEmpty())
+			report = "missing client report";
+
+		gateCase.m_aEvidence.Insert("request " + EmptyCampaignDebugField(m_sCampaignDebugClientMapOpenGateProofRequestId));
+		gateCase.m_aEvidence.Insert("client report | " + ShortCampaignDebugLine(report, 360));
+
+		bool requestValid = !m_sCampaignDebugClientMapOpenGateProofRequestId.IsEmpty();
+		bool reportMatched = requestValid && report.Contains("request " + m_sCampaignDebugClientMapOpenGateProofRequestId);
+		bool playerMatched = m_iCampaignDebugClientMapOpenGateProofPlayerId == m_iCampaignDebugPlayerId;
+		bool localOwner = CampaignDebugReportBool(report, "localOwner");
+		bool mapOpenBeforeAttempt = CampaignDebugReportBool(report, "mapOpenBeforeAttempt");
+		bool toggleAttempted = CampaignDebugReportBool(report, "toggleAttempted");
+		bool toggleAccepted = CampaignDebugReportBool(report, "toggleAccepted");
+		bool directAttempted = CampaignDebugReportBool(report, "directAttempted");
+		bool mapOpenAfterAttempt = CampaignDebugReportBool(report, "mapOpenAfterAttempt");
+		bool menuOpenAfterAttempt = CampaignDebugReportBool(report, "menuOpenAfterAttempt");
+		bool rootAfterAttempt = CampaignDebugReportBool(report, "rootAfterAttempt");
+		bool blockedOpen = mapOpenBeforeAttempt && toggleAttempted && !toggleAccepted && directAttempted && mapOpenAfterAttempt && !menuOpenAfterAttempt && !rootAfterAttempt;
+
+		string dispatchStatus = "PASS";
+		if (!m_bCampaignDebugClientMapOpenGateProofRequestDispatched)
+			dispatchStatus = "BLOCKED";
+		string clientProofFailureStatus = "FAIL";
+		if (!m_bCampaignDebugClientMapOpenGateProofRequestDispatched)
+			clientProofFailureStatus = "BLOCKED";
+		string mapGateFailureStatus = clientProofFailureStatus;
+		if (m_bCampaignDebugClientMapOpenGateProofRequestDispatched && reportMatched && !mapOpenBeforeAttempt)
+			mapGateFailureStatus = "BLOCKED";
+
+		AddCampaignDebugAssertion(gateCase, "command_ui.map_open_gate.owner_rpc", "server dispatches an owner-client command-menu map-open gate proof request", string.Format("request %1 | player %2 | dispatched %3", EmptyCampaignDebugField(m_sCampaignDebugClientMapOpenGateProofRequestId), m_iCampaignDebugPlayerId, m_bCampaignDebugClientMapOpenGateProofRequestDispatched), dispatchStatus, "owner request bridge unavailable for command-menu map-open gate proof");
+		AddCampaignDebugAssertion(gateCase, "command_ui.map_open_gate.client_report", "owner client returns matching command-menu map-open gate report", report, CampaignDebugStatus(m_bCampaignDebugClientMapOpenGateProofRequestDispatched && reportMatched && playerMatched && localOwner, clientProofFailureStatus), "owner client did not return a matching local-owner map-open gate report");
+		AddCampaignDebugAssertion(gateCase, "command_ui.map_open_gate.native_map_open", "native map is open before command-menu open attempts", report, CampaignDebugStatus(m_bCampaignDebugClientMapOpenGateProofRequestDispatched && reportMatched && mapOpenBeforeAttempt, mapGateFailureStatus), "native map was not open for command-menu map-open gate proof");
+		AddCampaignDebugAssertion(gateCase, "command_ui.map_open_gate.blocked", "input toggle and direct command-menu open are blocked while native map is open", report, CampaignDebugStatus(m_bCampaignDebugClientMapOpenGateProofRequestDispatched && reportMatched && blockedOpen, mapGateFailureStatus), "command menu opened or accepted an input toggle while the native map was open");
+		FinalizeCampaignDebugCaseFromAssertions(gateCase);
+		return gateCase;
 	}
 
 	protected bool CampaignDebugReportBool(string report, string fieldName)
