@@ -19,6 +19,7 @@ class HST_EnemyTargetScoreCandidate
 	int m_iGarrisonScore;
 	int m_iDamageScore;
 	int m_iIncomeScore;
+	string m_sLocalityReason;
 	string m_sReason;
 }
 
@@ -35,8 +36,10 @@ class HST_EnemyTargetScoreResult
 	int m_iBestScore;
 	int m_iCandidateCount;
 	int m_iEligibleCount;
+	int m_iLocalityRejectedCount;
 	int m_iTotalWeight;
 	int m_iRoll;
+	string m_sLocalityRejectedReason;
 	ref array<ref HST_EnemyTargetScoreCandidate> m_aCandidates = {};
 }
 
@@ -47,6 +50,7 @@ class HST_EnemyCommanderService
 	static const int PHYSICAL_ORDER_TIMEOUT_SECONDS = 300;
 	static const float HQ_PRESSURE_ZONE_RADIUS_METERS = 1000.0;
 	static const int HQ_PRESSURE_MIN_KNOWLEDGE_FOR_OPPORTUNITY_ATTACK = 25;
+	static const float LOCAL_OPERATION_FRONT_RADIUS_METERS = 3000.0;
 	static const string SPEND_MODE_PROACTIVE_ATTACK = "proactive_attack";
 	static const string SPEND_MODE_REACTIVE_DEFENSE = "reactive_defense";
 	protected int m_iOrderAccumulatorSeconds;
@@ -236,6 +240,15 @@ class HST_EnemyCommanderService
 			if (!IsEligibleTargetZone(zone, ineligibleReason))
 				continue;
 
+			string localityReason;
+			if (!IsLocalOperationTargetAllowed(state, preset, factionKey, zone, localityReason))
+			{
+				result.m_iLocalityRejectedCount++;
+				if (result.m_sLocalityRejectedReason.IsEmpty())
+					result.m_sLocalityRejectedReason = string.Format("%1: %2", zone.m_sZoneId, localityReason);
+				continue;
+			}
+
 			HST_EnemyTargetScoreCandidate candidate = BuildTargetScoreCandidate(state, preset, zone, factionKey);
 			if (!candidate)
 				continue;
@@ -307,10 +320,10 @@ class HST_EnemyCommanderService
 		if (!result)
 			return string.Format("h-istasi enemy target scoring | failed | faction %1 | reason scorer unavailable", ReportText(factionKey));
 		if (!result.m_bSuccess)
-			return string.Format("h-istasi enemy target scoring | failed | faction %1 | reason %2", ReportText(factionKey), ReportText(result.m_sFailureReason));
+			return string.Format("h-istasi enemy target scoring | failed | faction %1 | reason %2 | local rejects %3 | first %4", ReportText(factionKey), ReportText(result.m_sFailureReason), result.m_iLocalityRejectedCount, ReportText(result.m_sLocalityRejectedReason));
 
 		string report = string.Format(
-			"h-istasi enemy target scoring | faction %1 | selected %2 score %3 | best %4 score %5 | eligible %6/%7 | mode %8",
+			"h-istasi enemy target scoring | faction %1 | selected %2 score %3 | best %4 score %5 | eligible %6/%7 | local rejects %8 | mode %9",
 			ReportText(factionKey),
 			ReportText(result.m_sSelectedZoneId),
 			result.m_iSelectedScore,
@@ -318,9 +331,12 @@ class HST_EnemyCommanderService
 			result.m_iBestScore,
 			result.m_iEligibleCount,
 			result.m_iCandidateCount,
+			result.m_iLocalityRejectedCount,
 			ReportText(result.m_sSelectionMode)
 		);
 		report = report + string.Format(" | weight %1 roll %2 | reason %3", result.m_iTotalWeight, result.m_iRoll, ReportText(result.m_sReason));
+		if (result.m_iLocalityRejectedCount > 0)
+			report = report + string.Format(" | first local reject %1", ReportText(result.m_sLocalityRejectedReason));
 
 		int emitted;
 		int topBandFloor = result.m_iBestScore - 12;
@@ -330,7 +346,7 @@ class HST_EnemyCommanderService
 				continue;
 
 			report = report + string.Format("\n%1 | score %2 | weight %3 | owner %4 | relation %5", ReportText(candidate.m_sZoneId), candidate.m_iScore, candidate.m_iWeight, ReportText(candidate.m_sOwnerFactionKey), ReportText(candidate.m_sOwnerRelation));
-			report = report + string.Format(" | type %1 | reason %2", candidate.m_eType, ReportText(candidate.m_sReason));
+			report = report + string.Format(" | type %1 | local %2 | reason %3", candidate.m_eType, ReportText(candidate.m_sLocalityReason), ReportText(candidate.m_sReason));
 			emitted++;
 			if (emitted >= 8)
 				break;
@@ -342,6 +358,53 @@ class HST_EnemyCommanderService
 	HST_EEnemyOrderType ResolveOrderTypeForDebug(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone, HST_FactionPoolState pool)
 	{
 		return SelectOrderType(state, preset, targetZone, pool);
+	}
+
+	bool IsLocalOperationTargetAllowed(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone, out string reason)
+	{
+		reason = "";
+		if (!state || !preset || factionKey.IsEmpty() || !targetZone)
+		{
+			reason = "missing locality context";
+			return false;
+		}
+
+		string ownerRelation = HST_FactionRelationService.ResolveRelation(preset, factionKey, targetZone.m_sOwnerFactionKey);
+		if (HST_FactionRelationService.IsSameFaction(ownerRelation))
+		{
+			reason = "own holding";
+			return true;
+		}
+
+		if (HST_FactionRelationService.IsResistanceEnemy(ownerRelation))
+		{
+			reason = "resistance-held exception";
+			return true;
+		}
+
+		float nearestDistanceSq;
+		HST_ZoneState nearestFoothold = FindNearestLocalOperationFoothold(state, factionKey, targetZone, nearestDistanceSq);
+		if (!nearestFoothold)
+		{
+			reason = "no local faction foothold";
+			return false;
+		}
+
+		if (AreOperationalZonesLinked(nearestFoothold, targetZone))
+		{
+			reason = "linked foothold " + nearestFoothold.m_sZoneId;
+			return true;
+		}
+
+		float frontRadiusSq = LOCAL_OPERATION_FRONT_RADIUS_METERS * LOCAL_OPERATION_FRONT_RADIUS_METERS;
+		if (nearestDistanceSq <= frontRadiusSq)
+		{
+			reason = string.Format("local foothold %1 %2m", nearestFoothold.m_sZoneId, Math.Round(Math.Sqrt(nearestDistanceSq)));
+			return true;
+		}
+
+		reason = string.Format("disconnected target; nearest foothold %1 is %2m away", nearestFoothold.m_sZoneId, Math.Round(Math.Sqrt(nearestDistanceSq)));
+		return false;
 	}
 
 	bool TryQueueImmediateCounterattack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState capturedZone, int chancePercent)
@@ -477,6 +540,13 @@ class HST_EnemyCommanderService
 	{
 		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
 			return false;
+
+		string localityReason;
+		if (!IsLocalOperationTargetAllowed(state, preset, factionKey, targetZone, localityReason))
+		{
+			Print(string.Format("h-istasi enemy commander | order skipped for %1 at %2 type %3 | local front blocked: %4", factionKey, targetZone.m_sZoneId, orderType, localityReason));
+			return false;
+		}
 
 		string resolvedSpendMode = ResolveOrderSpendMode(state, preset, targetZone, orderType, spendMode);
 		int attackCost;
@@ -1108,12 +1178,17 @@ class HST_EnemyCommanderService
 		if (!IsEligibleTargetZone(zone, ineligibleReason))
 			return null;
 
+		string localityReason;
+		if (!IsLocalOperationTargetAllowed(state, preset, factionKey, zone, localityReason))
+			return null;
+
 		HST_EnemyTargetScoreCandidate candidate = new HST_EnemyTargetScoreCandidate();
 		candidate.m_sZoneId = zone.m_sZoneId;
 		candidate.m_sDisplayName = zone.m_sDisplayName;
 		candidate.m_sOwnerFactionKey = zone.m_sOwnerFactionKey;
 		candidate.m_sOwnerRelation = HST_FactionRelationService.ResolveRelation(preset, factionKey, zone.m_sOwnerFactionKey);
 		candidate.m_eType = zone.m_eType;
+		candidate.m_sLocalityReason = localityReason;
 
 		if (HST_FactionRelationService.IsResistanceEnemy(candidate.m_sOwnerRelation))
 		{
@@ -1239,6 +1314,48 @@ class HST_EnemyCommanderService
 		}
 
 		return true;
+	}
+
+	protected HST_ZoneState FindNearestLocalOperationFoothold(HST_CampaignState state, string factionKey, HST_ZoneState targetZone, out float nearestDistanceSq)
+	{
+		nearestDistanceSq = 999999999.0;
+		if (!state || factionKey.IsEmpty() || !targetZone)
+			return null;
+
+		HST_ZoneState nearestFoothold;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_sZoneId == targetZone.m_sZoneId)
+				continue;
+			if (zone.m_sOwnerFactionKey != factionKey)
+				continue;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+
+			float distanceSq = DistanceSq2D(zone.m_vPosition, targetZone.m_vPosition);
+			if (!nearestFoothold || distanceSq < nearestDistanceSq)
+			{
+				nearestFoothold = zone;
+				nearestDistanceSq = distanceSq;
+			}
+		}
+
+		return nearestFoothold;
+	}
+
+	protected bool AreOperationalZonesLinked(HST_ZoneState firstZone, HST_ZoneState secondZone)
+	{
+		if (!firstZone || !secondZone)
+			return false;
+		if (firstZone.m_sZoneId.IsEmpty() || secondZone.m_sZoneId.IsEmpty())
+			return false;
+
+		if (firstZone.m_aLinkedZoneIds && firstZone.m_aLinkedZoneIds.Contains(secondZone.m_sZoneId))
+			return true;
+		if (secondZone.m_aLinkedZoneIds && secondZone.m_aLinkedZoneIds.Contains(firstZone.m_sZoneId))
+			return true;
+
+		return false;
 	}
 
 	protected int StrategicTargetTypeScore(HST_EZoneType zoneType)

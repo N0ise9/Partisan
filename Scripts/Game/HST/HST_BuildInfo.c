@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r112-roadblock-support-handoff";
-	static const string BUILD_UTC = "2026-07-08T19:12:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r112-roadblock-support-handoff";
+	static const string BUILD_SHA = "r113-enemy-local-front-gate";
+	static const string BUILD_UTC = "2026-07-08T19:18:04Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r113-enemy-local-front-gate";
 
 	static string BuildSummary()
 	{

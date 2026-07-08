@@ -519,6 +519,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
     counterattack, same-faction QRF/rebuild/roadblock, and rival-held support
     call behavior.
 
+- Live enemy commander orders need a local front for non-resistance targets.
+  - Same-faction defensive targets are valid because they are already the acting faction's holdings.
+  - Resistance-held targets are the explicit exception and may be attacked even when they are not near the acting faction's current holdings.
+  - Rival or neutral targets should be admitted only when the acting faction has a same-faction foothold within the local-front radius or an explicit linked-zone relationship. Otherwise the conflict should remain background pressure instead of creating visible live supports or capture attempts in disconnected territory.
+  - Apply the same locality gate in both target scoring and direct order queueing so debug/admin entry points do not bypass normal commander behavior.
+  - Current examples: `HST_EnemyCommanderService.IsLocalOperationTargetAllowed()` and the `enemy_target_scoring.local_front_gate` Full Campaign Debug assertion.
+
 - Town political support should be event-ledger backed.
   - Directly changing FIA/occupier support, reputation, heat, population, or
     police/roadblock pressure hides why a town flipped and makes save/reload
