@@ -5,9 +5,7 @@ class HST_SpawnPlacementService
 	static const string TYPE_PETROS_ATTACK_STAGING = "petros_attack_staging";
 	static const string TYPE_CONVOY_ENDPOINT = "convoy_endpoint";
 	static const float HQ_SAFE_RADIUS_METERS = 900.0;
-	static const float PETROS_ATTACK_MIN_STANDOFF_METERS = 760.0;
-	static const float PETROS_ATTACK_STAGING_MARGIN_METERS = 90.0;
-	static const float PETROS_ATTACK_MAX_STANDOFF_METERS = 1120.0;
+	static const float PETROS_ATTACK_MIN_STANDOFF_METERS = 950.0;
 	static const float DEFAULT_MIN_STANDOFF_METERS = 220.0;
 	static const float DEFAULT_MAX_STANDOFF_METERS = 650.0;
 	static const float SUPPORT_MIN_PLAYER_CLEARANCE_METERS = 180.0;
@@ -82,10 +80,10 @@ class HST_SpawnPlacementService
 		{
 			request.m_bUseHQAsTarget = true;
 			request.m_bAvoidHQSafeRadius = true;
-			request.m_fMinStandoffMeters = PETROS_ATTACK_MIN_STANDOFF_METERS + PETROS_ATTACK_STAGING_MARGIN_METERS;
-			request.m_fMaxStandoffMeters = PETROS_ATTACK_MAX_STANDOFF_METERS;
+			request.m_fMinStandoffMeters = PETROS_ATTACK_MIN_STANDOFF_METERS + 140.0;
+			request.m_fMaxStandoffMeters = PETROS_ATTACK_MIN_STANDOFF_METERS + 450.0;
 		}
-		if (arrivedAtTarget && request.m_sPlacementType != TYPE_PETROS_ATTACK_STAGING)
+		if (arrivedAtTarget)
 		{
 			request.m_fMinStandoffMeters = Math.Max(80.0, request.m_fMinStandoffMeters * 0.35);
 			request.m_fMaxStandoffMeters = Math.Max(request.m_fMinStandoffMeters + 30.0, request.m_fMaxStandoffMeters * 0.55);
@@ -151,8 +149,7 @@ class HST_SpawnPlacementService
 		petros.m_vPreferredSourcePosition = ResolveDebugSourcePosition(state, preset, zone);
 		petros.m_bUseHQAsTarget = true;
 		petros.m_bAvoidHQSafeRadius = true;
-		petros.m_fMinStandoffMeters = PETROS_ATTACK_MIN_STANDOFF_METERS + PETROS_ATTACK_STAGING_MARGIN_METERS;
-		petros.m_fMaxStandoffMeters = PETROS_ATTACK_MAX_STANDOFF_METERS;
+		petros.m_fMinStandoffMeters = PETROS_ATTACK_MIN_STANDOFF_METERS + 140.0;
 		petros.m_bRequireDryGround = true;
 		petros.m_sReason = "debug petros attack";
 		petros.m_bExplain = true;
@@ -385,7 +382,7 @@ class HST_SpawnPlacementService
 		if (request && request.m_fMinStandoffMeters > 0)
 			return request.m_fMinStandoffMeters;
 		if (request && request.m_sPlacementType == TYPE_PETROS_ATTACK_STAGING)
-			return PETROS_ATTACK_MIN_STANDOFF_METERS + PETROS_ATTACK_STAGING_MARGIN_METERS;
+			return PETROS_ATTACK_MIN_STANDOFF_METERS + 140.0;
 
 		return DEFAULT_MIN_STANDOFF_METERS;
 	}
@@ -410,9 +407,6 @@ class HST_SpawnPlacementService
 	{
 		if (!request || !request.m_bAvoidHQSafeRadius || !state || !state.m_bHQDeployed)
 			return true;
-
-		if (request.m_sPlacementType == TYPE_PETROS_ATTACK_STAGING)
-			return Distance2D(state.m_vHQPosition, position) >= PETROS_ATTACK_MIN_STANDOFF_METERS;
 
 		return Distance2D(state.m_vHQPosition, position) >= HQ_SAFE_RADIUS_METERS;
 	}

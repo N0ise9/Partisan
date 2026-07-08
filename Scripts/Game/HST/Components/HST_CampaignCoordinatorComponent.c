@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r92-hq-pressure-response-pacing";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r91-strategic-event-pipeline";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4378,11 +4378,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool supportClearOffset = supportPlacement && supportPlacement.m_bSuccess && supportPlacement.m_bDryGround && supportPlacement.m_fTargetDistanceMeters >= 180 && supportPlacement.m_bPlayerClearanceSatisfied && supportPlacement.m_bActiveGroupClearanceSatisfied;
 		AddCampaignDebugAssertion(placementCase, "spawn_placement.support_clear_offset", "support staging spawns offset from target and clear of players/active AI", BuildCampaignDebugSpawnPlacementActual(supportPlacement), CampaignDebugStatus(supportClearOffset), "support placement did not prove offset staging with player/AI clearance");
 		bool petrosTargetReady = m_State.m_bHQDeployed;
-		bool petrosSafe = petrosPlacement && petrosPlacement.m_bSuccess && petrosPlacement.m_bHQStandoffSatisfied && petrosPlacement.m_fHQDistanceMeters >= HST_SpawnPlacementService.PETROS_ATTACK_MIN_STANDOFF_METERS && petrosPlacement.m_fHQDistanceMeters <= HST_SpawnPlacementService.PETROS_ATTACK_MAX_STANDOFF_METERS;
+		bool petrosSafe = petrosPlacement && petrosPlacement.m_bSuccess && petrosPlacement.m_bHQStandoffSatisfied && petrosPlacement.m_fHQDistanceMeters >= HST_SpawnPlacementService.HQ_SAFE_RADIUS_METERS;
 		string petrosStatus = "FAIL";
 		if (!petrosTargetReady)
 			petrosStatus = "BLOCKED";
-		AddCampaignDebugAssertion(placementCase, "spawn_placement.petros_hq_standoff", "Petros attackers use the closer dedicated HQ staging band while targeting HQ area", BuildCampaignDebugSpawnPlacementActual(petrosPlacement), CampaignDebugStatus(petrosTargetReady && petrosSafe, petrosStatus), "Petros attack placement did not preserve the dedicated HQ staging band");
+		AddCampaignDebugAssertion(placementCase, "spawn_placement.petros_hq_standoff", "Petros attackers avoid HQ safe radius while targeting HQ area", BuildCampaignDebugSpawnPlacementActual(petrosPlacement), CampaignDebugStatus(petrosTargetReady && petrosSafe, petrosStatus), "Petros attack placement did not preserve HQ standoff");
 		bool convoyReported = convoyPlacement && !convoyPlacement.m_sDebugSummary.IsEmpty() && (convoyPlacement.m_sDebugSummary.Contains("dry") || convoyPlacement.m_sDebugSummary.Contains("failure"));
 		AddCampaignDebugAssertion(placementCase, "spawn_placement.convoy_dry_ground_report", "convoy source/destination placement reports road and dry-ground validation", BuildCampaignDebugSpawnPlacementActual(convoyPlacement), CampaignDebugStatus(convoyReported), "convoy placement did not report road/dry validation");
 		AddCampaignDebugAssertion(placementCase, "spawn_placement.failure_reason", "placement failure reports an explicit reason", BuildCampaignDebugSpawnPlacementActual(failurePlacement), CampaignDebugStatus(failurePlacement && !failurePlacement.m_bSuccess && !failurePlacement.m_sFailureReason.IsEmpty()), "invalid placement request did not produce a visible failure reason");
@@ -4453,8 +4453,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		request.m_bUseHQAsTarget = true;
 		request.m_bAvoidHQSafeRadius = true;
-		request.m_fMinStandoffMeters = HST_SpawnPlacementService.PETROS_ATTACK_MIN_STANDOFF_METERS + HST_SpawnPlacementService.PETROS_ATTACK_STAGING_MARGIN_METERS;
-		request.m_fMaxStandoffMeters = HST_SpawnPlacementService.PETROS_ATTACK_MAX_STANDOFF_METERS;
+		request.m_fMinStandoffMeters = HST_SpawnPlacementService.PETROS_ATTACK_MIN_STANDOFF_METERS + 140.0;
+		request.m_fMaxStandoffMeters = HST_SpawnPlacementService.PETROS_ATTACK_MIN_STANDOFF_METERS + 520.0;
 		request.m_bRequireDryGround = true;
 		request.m_sReason = "campaign debug petros attack placement";
 		request.m_bExplain = true;
@@ -4889,23 +4889,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& roadblockOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK
 			&& rivalOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL;
 		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.relation_order_types", "order-type resolver distinguishes resistance-held, same-faction defensive, and rival enemy targets", relationOrderActual, CampaignDebugStatus(relationOrderTypesExpected), "enemy order type relation resolver selected an incorrect branch");
-
-		HST_CampaignState zeroKnowledgeHQState = new HST_CampaignState();
-		zeroKnowledgeHQState.m_iCampaignSeed = scoringState.m_iCampaignSeed;
-		zeroKnowledgeHQState.m_iElapsedSeconds = Math.Max(3600, scoringState.m_iElapsedSeconds);
-		zeroKnowledgeHQState.m_iWarLevel = 4;
-		zeroKnowledgeHQState.m_iHQKnowledge = 0;
-		zeroKnowledgeHQState.m_bHQDeployed = true;
-		zeroKnowledgeHQState.m_vHQPosition = basePosition;
-		HST_ZoneState zeroKnowledgeHQZone = BuildCampaignDebugEnemyOrderResolutionZone("debug_enemy_order_zero_knowledge_hq_gate", "Enemy Zero Knowledge HQ Gate Zone", HST_EZoneType.HST_ZONE_OUTPOST, resistanceFactionKey, basePosition + "520 0 0");
-		zeroKnowledgeHQState.m_aZones.Insert(zeroKnowledgeHQZone);
-		HST_FactionPoolState zeroKnowledgeHQPool = new HST_FactionPoolState();
-		zeroKnowledgeHQPool.m_sFactionKey = factionKey;
-		zeroKnowledgeHQPool.m_iAttackResources = 30;
-		zeroKnowledgeHQPool.m_iSupportResources = 30;
-		HST_EEnemyOrderType zeroKnowledgeHQType = m_EnemyCommander.ResolveOrderTypeForDebug(zeroKnowledgeHQState, m_Preset, zeroKnowledgeHQZone, zeroKnowledgeHQPool);
-		string zeroKnowledgeHQActual = string.Format("knowledge %1 | war %2 | attack %3 | distance %4m | type %5", zeroKnowledgeHQState.m_iHQKnowledge, zeroKnowledgeHQState.m_iWarLevel, zeroKnowledgeHQPool.m_iAttackResources, Math.Round(Math.Sqrt(DistanceSq2D(zeroKnowledgeHQState.m_vHQPosition, zeroKnowledgeHQZone.m_vPosition))), EnemyOrderTypeLabel(zeroKnowledgeHQType));
-		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.zero_knowledge_no_petros", "HQ-near target with zero HQ knowledge does not become an opportunistic Petros attack", zeroKnowledgeHQActual, CampaignDebugStatus(zeroKnowledgeHQType != HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK), "enemy order resolver selected Petros attack without HQ knowledge");
 		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.explainable_score", "selected target exposes component-score reasoning and beats the low-value owned town", actual, CampaignDebugStatus(highCandidate && lowCandidate && highCandidate.m_iScore > lowCandidate.m_iScore && !highCandidate.m_sReason.IsEmpty() && highCandidate.m_sReason.Contains("resistance_control")), "enemy target scoring did not expose a clear winning reason");
 
 		FinalizeCampaignDebugCaseFromAssertions(scoreCase);
@@ -6895,7 +6878,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugObservation("campaign overview", RequestMemberInspectCampaign(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("balance pacing", RequestMemberInspectBalancePacing(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("campaign end", RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId));
-		RecordCampaignDebugCase(BuildCampaignDebugHQPassiveKnowledgeCase());
 		RecordCampaignDebugCase(BuildCampaignDebugForceCompositionCase());
 		RecordCampaignDebugObservation("force composition", RequestAdminForceCompositionReport(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugCase(BuildCampaignDebugSpawnPlacementCase());
@@ -6926,79 +6908,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugObservation("markers", RequestMemberInspectMarkers(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("zone composition", RequestAdminInspectZoneComposition(m_iCampaignDebugPlayerId));
 		AdvanceCampaignDebugStep("Baseline reports complete.");
-	}
-
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugHQPassiveKnowledgeCase()
-	{
-		HST_CampaignDebugCaseResult hqCase = CreateCampaignDebugCase("hq.passive_knowledge.contract.runtime", "hq", "hq_threat", "baseline");
-		bool servicesReady = m_HQ != null && m_Preset != null;
-		AddCampaignDebugAssertion(hqCase, "hq.passive_knowledge.prerequisite", "HQ service and preset ready", string.Format("hq %1 | preset %2", m_HQ != null, m_Preset != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "HQ passive-knowledge fixture prerequisites missing");
-		if (!servicesReady)
-		{
-			FinalizeCampaignDebugCaseFromAssertions(hqCase);
-			return hqCase;
-		}
-
-		vector basePosition = "1000 0 1000";
-		if (m_State && !IsZeroVector(m_State.m_vHQPosition))
-			basePosition = m_State.m_vHQPosition;
-		string enemyFactionKey = ResolveCampaignDebugEnemySupportFactionKey();
-		if (enemyFactionKey.IsEmpty())
-			enemyFactionKey = m_Preset.m_sOccupierFactionKey;
-
-		HST_CampaignState globalAggressionState = BuildCampaignDebugHQThreatFixtureState(basePosition);
-		HST_FactionPoolState occupierPool = new HST_FactionPoolState();
-		occupierPool.m_sFactionKey = m_Preset.m_sOccupierFactionKey;
-		occupierPool.m_iAggression = 160;
-		globalAggressionState.m_aFactionPools.Insert(occupierPool);
-		HST_FactionPoolState invaderPool = new HST_FactionPoolState();
-		invaderPool.m_sFactionKey = m_Preset.m_sInvaderFactionKey;
-		invaderPool.m_iAggression = 160;
-		globalAggressionState.m_aFactionPools.Insert(invaderPool);
-
-		bool globalChanged = m_HQ.TickHQThreat(globalAggressionState, m_Preset);
-		bool globalKnowledgeStable = globalAggressionState.m_iHQKnowledge == 0;
-		bool globalThreatReported = globalAggressionState.m_iHQThreatLevel >= 50 && globalAggressionState.m_sLastHQThreatReason.Contains("aggression");
-		bool globalNoLocalActivity = globalAggressionState.m_iLastHQActivitySecond == 0;
-		string globalActual = string.Format("changed %1 | knowledge %2 | threat %3 | activity %4 | reason %5", globalChanged, globalAggressionState.m_iHQKnowledge, globalAggressionState.m_iHQThreatLevel, globalAggressionState.m_iLastHQActivitySecond, EmptyCampaignDebugField(globalAggressionState.m_sLastHQThreatReason));
-		AddCampaignDebugAssertion(hqCase, "hq.passive_knowledge.global_aggression_no_leak", "global enemy aggression does not increase HQ knowledge without local HQ exposure", globalActual, CampaignDebugStatus(globalKnowledgeStable && globalThreatReported && globalNoLocalActivity), "global aggression leaked into HQ knowledge or local HQ activity state");
-
-		HST_CampaignState localExposureState = BuildCampaignDebugHQThreatFixtureState(basePosition);
-		HST_ActiveGroupState localEnemyGroup = new HST_ActiveGroupState();
-		localEnemyGroup.m_sGroupId = "debug_hq_local_enemy_activity";
-		localEnemyGroup.m_sFactionKey = enemyFactionKey;
-		localEnemyGroup.m_sRuntimeStatus = "routing";
-		localEnemyGroup.m_vPosition = basePosition + "500 0 0";
-		localEnemyGroup.m_iSurvivorInfantryCount = 12;
-		localExposureState.m_aActiveGroups.Insert(localEnemyGroup);
-
-		bool localChanged = m_HQ.TickHQThreat(localExposureState, m_Preset);
-		bool localKnowledgeSmall = localExposureState.m_iHQKnowledge > 0 && localExposureState.m_iHQKnowledge <= HST_HQService.HQ_PASSIVE_KNOWLEDGE_MAX_GAIN;
-		bool localActivityRecorded = localExposureState.m_iLastHQActivitySecond == localExposureState.m_iElapsedSeconds;
-		string localActual = string.Format("changed %1 | knowledge %2 | threat %3 | activity %4/%5 | reason %6", localChanged, localExposureState.m_iHQKnowledge, localExposureState.m_iHQThreatLevel, localExposureState.m_iLastHQActivitySecond, localExposureState.m_iElapsedSeconds, EmptyCampaignDebugField(localExposureState.m_sLastHQKnowledgeReason));
-		AddCampaignDebugAssertion(hqCase, "hq.passive_knowledge.local_activity_throttled", "local enemy activity can increase HQ knowledge only by the throttled passive amount", localActual, CampaignDebugStatus(localKnowledgeSmall && localActivityRecorded), "local HQ activity did not produce the expected small passive knowledge gain");
-
-		FinalizeCampaignDebugCaseFromAssertions(hqCase);
-		return hqCase;
-	}
-
-	protected HST_CampaignState BuildCampaignDebugHQThreatFixtureState(vector basePosition)
-	{
-		HST_CampaignState fixtureState = new HST_CampaignState();
-		if (m_State)
-			fixtureState.m_iCampaignSeed = Math.Max(1, m_State.m_iCampaignSeed);
-		else
-			fixtureState.m_iCampaignSeed = 1;
-		fixtureState.m_iElapsedSeconds = 3600;
-		fixtureState.m_bHQDeployed = true;
-		fixtureState.m_bPetrosAlive = true;
-		fixtureState.m_vHQPosition = basePosition;
-		fixtureState.m_iHQKnowledge = 0;
-		fixtureState.m_iHQThreatLevel = 0;
-		fixtureState.m_iHQKnowledgeLastChangedSecond = 0;
-		fixtureState.m_iLastHQActivitySecond = 0;
-		fixtureState.m_iLastHQThreatScanSecond = 0;
-		return fixtureState;
 	}
 
 	protected void RunCampaignDebugHQSpawnStep()
@@ -7836,8 +7745,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(supportCase, "support.physical_map_destination", "ground support group routes to the requested support destination", deploymentActual, CampaignDebugStatus(deploymentTargetedToRequest), "ground support active group target does not match the support request target position", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_offset", "ground support spawns offset from the selected destination", deploymentActual, CampaignDebugStatus(deploymentOffset), "ground support staging was not offset from the selected destination", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_clearance", "ground support spawn placement records player and AI clearance", deploymentActual, CampaignDebugStatus(deploymentClearance), "ground support staging did not prove clearance from players and active AI groups", observedSupportRequest.m_sRequestId);
-			bool responseRun = supportGroup && supportGroup.m_sSpawnFallbackMode.Contains("response_run");
-			AddCampaignDebugAssertion(supportCase, "support.physical_response_run", "ground support active group receives RUN movement for routed response", BuildCampaignDebugActiveGroupActual(supportGroup), CampaignDebugStatus(responseRun), "ground support active group did not record response RUN movement", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_before", string.Format("%1", Math.Round(probeContext.m_fDistanceBefore)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_after", string.Format("%1", Math.Round(probeContext.m_fDistanceAfter)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_arrival", string.Format("%1", Math.Round(probeContext.m_fDistanceAtArrival)), "meters");
@@ -18219,7 +18126,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string actual = string.Format("group %1 | zone %2 | faction %3 | spawned %4 | agents %5/%6 | status %7 | route %8 | pos %9", EmptyCampaignDebugField(activeGroup.m_sGroupId), EmptyCampaignDebugField(activeGroup.m_sZoneId), EmptyCampaignDebugField(activeGroup.m_sFactionKey), activeGroup.m_bSpawnedEntity, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, EmptyCampaignDebugField(activeGroup.m_sRuntimeStatus), EmptyCampaignDebugField(activeGroup.m_sRouteId), activeGroup.m_vPosition);
 		actual = actual + string.Format(" | source mission %1 support %2 garrison %3 qrf %4 | original %5/%6 | force %7/%8 | waypoints %9", EmptyCampaignDebugField(activeGroup.m_sMissionInstanceId), EmptyCampaignDebugField(activeGroup.m_sSupportRequestId), EmptyCampaignDebugField(activeGroup.m_sGarrisonZoneId), EmptyCampaignDebugField(activeGroup.m_sQRFInstanceId), activeGroup.m_iOriginalInfantryCount, activeGroup.m_iOriginalVehicleCount, activeGroup.m_iInfantryCount, activeGroup.m_iVehicleCount, activeGroup.m_iAssignedWaypointCount);
-		actual = actual + string.Format(" | mode %1", EmptyCampaignDebugField(activeGroup.m_sSpawnFallbackMode));
 		actual = actual + string.Format(" | vehiclePrefab %1", EmptyCampaignDebugField(activeGroup.m_sVehiclePrefab));
 		return actual;
 	}
@@ -19237,11 +19143,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_spawned", "linked Petros attacker group exists and spawned runtime entities", groupActual, CampaignDebugStatus(groupExpected, groupSpawnedStatus), "Phase 22 Petros attacker group did not spawn runtime entities", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_prefix", "linked Petros attacker group carries current debug prefix", EmptyCampaignDebugField(physicalGroup.m_sGroupId), CampaignDebugStatus(groupPrefixed), "Phase 22 Petros attacker group was not prefixed for cleanup", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_target_base_position", "linked Petros attacker group routes toward HQ/Petros base, not the bookkeeping zone center", BuildCampaignDebugPhase22TargetActual(physicalGroup.m_vTargetPosition, physicalGroup.m_sZoneId), CampaignDebugStatus(IsCampaignDebugPhase22TargetAtBase(physicalGroup.m_vTargetPosition)), "Phase 22 Petros attacker group target points at the nearby zone instead of the base", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
-			float attackerHQDistance = Math.Sqrt(DistanceSq2D(physicalGroup.m_vSourcePosition, m_State.m_vHQPosition));
-			bool attackerStagingBand = attackerHQDistance >= HST_SupportRequestService.PETROS_ATTACK_MIN_STANDOFF_METERS && attackerHQDistance <= HST_SupportRequestService.PETROS_ATTACK_MAX_STAGING_METERS;
-			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_staging_band", "Petros attacker group stages in the closer dedicated HQ attack band", string.Format("%1m | source %2 | HQ %3", Math.Round(attackerHQDistance), physicalGroup.m_vSourcePosition, m_State.m_vHQPosition), CampaignDebugStatus(attackerStagingBand), "Phase 22 Petros attacker group staged too close or too far from HQ", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
-			bool attackerRun = physicalGroup.m_sSpawnFallbackMode.Contains("response_run");
-			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_response_run", "Petros attacker group receives RUN movement for routed response", groupActual, CampaignDebugStatus(attackerRun), "Phase 22 Petros attacker group did not record response RUN movement", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
 		}
 		else
 		{
@@ -23861,8 +23762,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!zone || !m_State || IsZeroVector(m_State.m_vHQPosition))
 			return true;
 
-		float radius = HST_EnemyCommanderService.HQ_PRESSURE_ZONE_RADIUS_METERS;
-		return DistanceSq2D(m_State.m_vHQPosition, zone.m_vPosition) > radius * radius;
+		return DistanceSq2D(m_State.m_vHQPosition, zone.m_vPosition) > 1440000.0;
 	}
 
 	protected bool IsCampaignDebugExpectedBackgroundWarOrderType(HST_EnemyOrderState order, HST_ZoneState targetZone)
@@ -23889,8 +23789,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
 			return true;
 
-		float radius = HST_EnemyCommanderService.HQ_PRESSURE_ZONE_RADIUS_METERS;
-		return DistanceSq2D(m_State.m_vHQPosition, targetZone.m_vPosition) > radius * radius;
+		return DistanceSq2D(m_State.m_vHQPosition, targetZone.m_vPosition) > 1440000.0;
 	}
 
 	protected int CountCampaignDebugOpenOrdersForFactionZone(string factionKey, string zoneId)

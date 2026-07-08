@@ -40,9 +40,8 @@ class HST_SupportRequestService
 	static const float PHYSICAL_SUPPORT_MIN_STANDOFF_METERS = 220.0;
 	static const float PHYSICAL_SUPPORT_EXTRA_STANDOFF_METERS = 140.0;
 	static const float PHYSICAL_SUPPORT_MAX_STANDOFF_METERS = 650.0;
-	static const float PETROS_ATTACK_MIN_STANDOFF_METERS = 760.0;
-	static const float PETROS_ATTACK_STAGING_MARGIN_METERS = 90.0;
-	static const float PETROS_ATTACK_MAX_STAGING_METERS = 1120.0;
+	static const float PETROS_ATTACK_MIN_STANDOFF_METERS = 950.0;
+	static const float PETROS_ATTACK_STAGING_MARGIN_METERS = 140.0;
 	static const float HQ_SAFE_RADIUS_METERS = 900.0;
 
 	protected bool m_bMarkerRefreshNeeded;
@@ -1296,7 +1295,7 @@ class HST_SupportRequestService
 		if (TryResolvePetrosAttackStagingPosition(state, request, fallback))
 			return fallback;
 
-		return ResolvePhysicalSupportFallbackPosition(state, request, target);
+		return HST_WorldPositionService.ResolveSafeGroundPosition(target, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
 	}
 
 	protected float ResolvePhysicalSupportStagingDistanceMeters(HST_ZoneState targetZone, HST_SupportRequestState request = null)
@@ -1335,7 +1334,7 @@ class HST_SupportRequestService
 		if (TryResolvePetrosAttackStagingPosition(state, request, fallback))
 			return fallback;
 
-		return ResolvePhysicalSupportFallbackPosition(state, request, target);
+		return HST_WorldPositionService.ResolveSafeGroundPosition(target, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
 	}
 
 	protected bool TryResolvePetrosAttackStagingPosition(HST_CampaignState state, HST_SupportRequestState request, out vector resolved)
@@ -1353,8 +1352,6 @@ class HST_SupportRequestService
 				continue;
 			if (IsInsidePetrosAttackStandoff(state, resolved))
 				continue;
-			if (IsOutsidePetrosAttackMaxStaging(state, resolved))
-				continue;
 
 			return true;
 		}
@@ -1362,33 +1359,12 @@ class HST_SupportRequestService
 		return false;
 	}
 
-	protected vector ResolvePhysicalSupportFallbackPosition(HST_CampaignState state, HST_SupportRequestState request, vector target)
-	{
-		if (!IsPetrosAttackSupport(request) || !state || !state.m_bHQDeployed)
-			return HST_WorldPositionService.ResolveSafeGroundPosition(target, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
-
-		float standoff = PETROS_ATTACK_MIN_STANDOFF_METERS + PETROS_ATTACK_STAGING_MARGIN_METERS;
-		vector candidate = BuildSupportApproachCandidate(state.m_vHQPosition, request.m_vSourcePosition, BuildSupportGroupSeed(state, request) + 2909, 0, standoff);
-		vector resolved = HST_WorldPositionService.ResolveSafeGroundPosition(candidate, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
-		if (IsSupportStagingPositionAllowed(state, request, resolved))
-			return resolved;
-
-		return HST_WorldPositionService.ResolveGroundPosition(candidate, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
-	}
-
 	protected bool IsSupportStagingPositionAllowed(HST_CampaignState state, HST_SupportRequestState request, vector position)
 	{
-		if (IsPetrosAttackSupport(request))
-		{
-			if (IsInsidePetrosAttackStandoff(state, position))
-				return false;
-			if (IsOutsidePetrosAttackMaxStaging(state, position))
-				return false;
-		}
-		else if (IsInsideHQSafeRadius(state, position))
-		{
+		if (IsInsideHQSafeRadius(state, position))
 			return false;
-		}
+		if (IsPetrosAttackSupport(request) && IsInsidePetrosAttackStandoff(state, position))
+			return false;
 
 		return true;
 	}
@@ -1479,14 +1455,6 @@ class HST_SupportRequestService
 			return false;
 
 		return DistanceSq2D(state.m_vHQPosition, position) < PETROS_ATTACK_MIN_STANDOFF_METERS * PETROS_ATTACK_MIN_STANDOFF_METERS;
-	}
-
-	protected bool IsOutsidePetrosAttackMaxStaging(HST_CampaignState state, vector position)
-	{
-		if (!state || !state.m_bHQDeployed)
-			return false;
-
-		return DistanceSq2D(state.m_vHQPosition, position) > PETROS_ATTACK_MAX_STAGING_METERS * PETROS_ATTACK_MAX_STAGING_METERS;
 	}
 
 	protected bool IsZeroVector(vector value)

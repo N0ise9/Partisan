@@ -7130,9 +7130,6 @@ class HST_PhysicalWarService
 			return 0;
 		}
 
-		if (ApplyResponseGroupMovementSpeed(activeGroup, group))
-			activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "response_run");
-
 		return assignedCount;
 	}
 
@@ -7166,36 +7163,6 @@ class HST_PhysicalWarService
 	protected bool IsActiveGroupInfantryWaypointAssigned(HST_ActiveGroupState activeGroup)
 	{
 		return activeGroup && activeGroup.m_iAssignedWaypointCount > 1 && activeGroup.m_sSpawnFallbackMode.Contains("infantry_waypoints");
-	}
-
-	protected bool ApplyResponseGroupMovementSpeed(HST_ActiveGroupState activeGroup, AIGroup group)
-	{
-		if (!ShouldUseResponseMovementSpeed(activeGroup) || !group)
-			return false;
-
-		AIGroupMovementComponent groupMovement = AIGroupMovementComponent.Cast(group.GetMovementComponent());
-		if (!groupMovement)
-			groupMovement = AIGroupMovementComponent.Cast(group.FindComponent(AIGroupMovementComponent));
-		if (!groupMovement)
-			return false;
-
-		groupMovement.SetGroupCharactersWantedMovementType(EMovementType.RUN);
-		return true;
-	}
-
-	protected bool ShouldUseResponseMovementSpeed(HST_ActiveGroupState activeGroup)
-	{
-		if (!activeGroup)
-			return false;
-
-		if (!activeGroup.m_sSupportRequestId.IsEmpty())
-			return true;
-		if (!activeGroup.m_sQRFInstanceId.IsEmpty() || activeGroup.m_bQRF)
-			return true;
-		if (activeGroup.m_sSpawnFallbackMode.Contains("petros_attack_support"))
-			return true;
-
-		return false;
 	}
 
 	protected string AppendActiveGroupSpawnModeToken(string mode, string token)
