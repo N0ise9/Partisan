@@ -221,21 +221,41 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Mission completion rewards and failure penalties should be proved through the
   coordinator wrappers, not by directly setting mission status.
-  - `CompleteMission()` does more than call `HST_MissionService.Complete()`: it
-    progresses objectives, applies configured money/HR rewards, applies
-    category-specific outcomes such as town support or capture progress,
-    refreshes mission/capture notifications, and marks a major campaign change.
-  - `FailMission()` similarly routes through `HST_MissionService.Fail()`,
-    applies configured aggression penalties, applies category-specific failure
-    outcomes such as town-support loss or HQ-knowledge changes, fails linked
-    objectives, and marks a major campaign change.
+  - `CompleteMission()` progresses objectives, transitions mission status, then
+    routes configured rewards and category-specific outcomes through
+    `HST_StrategicService.ApplyMissionOutcomeEvent()`. This service records a
+    durable `HST_StrategicEventState` row and applies mission money/HR, town
+    support, capture progress, aggression, enemy-resource, and HQ-knowledge
+    consequences from one path.
+  - `FailMission()` similarly transitions mission status without applying the
+    mission-service aggression write directly, then routes configured failure
+    aggression, town-support loss, HQ-knowledge changes, and linked objective
+    failure through the coordinator wrapper plus strategic-event service.
   - Debug proofs that seed a mission fixture should snapshot and restore the
-    mission row, economy totals, target-zone owner/support, relevant enemy
-    resource/aggression pools, and marker state after the save-data roundtrip
-    check.
+    mission row, strategic-event rows, economy totals, target-zone
+    owner/support, relevant enemy resource/aggression pools, and marker state
+    after the save-data roundtrip check. Prefixed debug cleanup must remove
+    strategic events linked by event id, source id, mission instance id, target
+    zone id, reason, or summary so one-button runs do not accumulate stale
+    proof rows.
   - Current example:
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugMissionCompletionRewardCase()`
     and `HST_CampaignCoordinatorComponent.BuildCampaignDebugMissionFailurePenaltyCase()`.
+
+- Durable strategic-event rows should store deltas, not replay-only prose.
+  - `HST_StrategicEventState` captures the event kind, mission/source identity,
+    target zone/faction, applied status, before/after owner fields, and numeric
+    deltas for money, HR, town support, capture progress, aggression,
+    attack/support resources, and HQ knowledge.
+  - Use the service report and Full Campaign Debug assertions to prove both the
+    durable event row and the actual campaign mutation. A report row without a
+    matching state delta is evidence only; it should not be counted as a
+    gameplay consequence.
+  - Current examples:
+    `HST_StrategicService.ApplyMissionOutcomeEvent()`,
+    `HST_StrategicService.BuildStrategicEventReport()`,
+    and the mission completion/failure strategic-event assertions in
+    `HST_CampaignCoordinatorComponent`.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.

@@ -1488,13 +1488,11 @@ class HST_MapMarkerService
 			if (zone.m_sMarkerStyle == "resource" || zone.m_sMarkerStyle == "depot")
 				return "MINE_SINGLE";
 			if (zone.m_sMarkerStyle == "town")
-				return "POINT_OF_INTEREST2";
+				return "POINT_OF_INTEREST";
 			if (zone.m_sMarkerStyle == "radio")
 				return "RECON_OUTPOST";
-			if (zone.m_sMarkerStyle == "stronghold")
-				return "FORTIFICATION2";
-			if (zone.m_sMarkerStyle == "enemy_base")
-				return "FORTIFICATION";
+			if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")
+				return "OBSERVATION_POST";
 			if (zone.m_sMarkerStyle == "mission_site")
 				return "POINT_SPECIAL";
 			if (zone.m_sMarkerStyle == "support")

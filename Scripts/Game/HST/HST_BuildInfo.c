@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r90-mission-target-force-physical";
-	static const string BUILD_UTC = "2026-07-08T09:10:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r90-mission-target-force-physical";
+	static const string BUILD_SHA = "r91-strategic-event-pipeline-proof";
+	static const string BUILD_UTC = "2026-07-08T12:55:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r91-strategic-event-pipeline";
 
 	static string BuildSummary()
 	{

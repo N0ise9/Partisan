@@ -100,6 +100,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
+	ref array<ref HST_StrategicEventState> m_aStrategicEvents = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
@@ -284,6 +285,10 @@ class HST_CampaignSaveData
 		m_aTownInfluenceEvents.Clear();
 		foreach (HST_TownInfluenceEventState influenceEvent : state.m_aTownInfluenceEvents)
 			m_aTownInfluenceEvents.Insert(CopyTownInfluenceEvent(influenceEvent));
+
+		m_aStrategicEvents.Clear();
+		foreach (HST_StrategicEventState strategicEvent : state.m_aStrategicEvents)
+			m_aStrategicEvents.Insert(CopyStrategicEvent(strategicEvent));
 
 		m_aUndercoverPlayers.Clear();
 		foreach (HST_PlayerUndercoverState undercover : state.m_aUndercoverPlayers)
@@ -484,6 +489,10 @@ class HST_CampaignSaveData
 		state.m_aTownInfluenceEvents.Clear();
 		foreach (HST_TownInfluenceEventState influenceEvent : m_aTownInfluenceEvents)
 			state.m_aTownInfluenceEvents.Insert(CopyTownInfluenceEvent(influenceEvent));
+
+		state.m_aStrategicEvents.Clear();
+		foreach (HST_StrategicEventState strategicEvent : m_aStrategicEvents)
+			state.m_aStrategicEvents.Insert(CopyStrategicEvent(strategicEvent));
 
 		state.m_aUndercoverPlayers.Clear();
 		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)
@@ -1263,6 +1272,40 @@ class HST_CampaignSaveData
 		target.m_iPopulationDelta = source.m_iPopulationDelta;
 		target.m_iPoliceDelta = source.m_iPoliceDelta;
 		target.m_iRoadblockDelta = source.m_iRoadblockDelta;
+		target.m_bApplied = source.m_bApplied;
+		return target;
+	}
+
+	protected HST_StrategicEventState CopyStrategicEvent(HST_StrategicEventState source)
+	{
+		HST_StrategicEventState target = new HST_StrategicEventState();
+		target.m_sEventId = source.m_sEventId;
+		target.m_sKind = source.m_sKind;
+		target.m_sSourceType = source.m_sSourceType;
+		target.m_sSourceId = source.m_sSourceId;
+		target.m_sMissionId = source.m_sMissionId;
+		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
+		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sTargetFactionKey = source.m_sTargetFactionKey;
+		target.m_sReason = source.m_sReason;
+		target.m_sSummary = source.m_sSummary;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iFactionMoneyDelta = source.m_iFactionMoneyDelta;
+		target.m_iHRDelta = source.m_iHRDelta;
+		target.m_iAggressionDelta = source.m_iAggressionDelta;
+		target.m_iAttackResourceDelta = source.m_iAttackResourceDelta;
+		target.m_iSupportResourceDelta = source.m_iSupportResourceDelta;
+		target.m_iTownSupportDelta = source.m_iTownSupportDelta;
+		target.m_iCaptureProgressDelta = source.m_iCaptureProgressDelta;
+		target.m_iHQKnowledgeDelta = source.m_iHQKnowledgeDelta;
+		target.m_sOwnerBefore = source.m_sOwnerBefore;
+		target.m_sOwnerAfter = source.m_sOwnerAfter;
+		target.m_iSupportBefore = source.m_iSupportBefore;
+		target.m_iSupportAfter = source.m_iSupportAfter;
+		target.m_iCaptureProgressBefore = source.m_iCaptureProgressBefore;
+		target.m_iCaptureProgressAfter = source.m_iCaptureProgressAfter;
+		target.m_iHQKnowledgeBefore = source.m_iHQKnowledgeBefore;
+		target.m_iHQKnowledgeAfter = source.m_iHQKnowledgeAfter;
 		target.m_bApplied = source.m_bApplied;
 		return target;
 	}

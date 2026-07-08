@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r90-mission-target-force-physical";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r91-strategic-event-pipeline";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -145,6 +145,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugStartGarageVehicles;
 	protected int m_iCampaignDebugStartArsenalItems;
 	protected int m_iCampaignDebugStartCivilianZones;
+	protected int m_iCampaignDebugStartStrategicEvents;
 	protected int m_iCampaignDebugStartUndercoverRecords;
 	protected int m_iCampaignDebugBackgroundWarOrderCountBefore;
 	protected int m_iCampaignDebugBackgroundWarOrderCountAfter;
@@ -1172,9 +1173,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool applyDefinitionRewards = !ShouldSuppressDefinitionRewardForConvoyCompletion(activeMission);
 		bool allowExpiredCompletion = activeMission && activeMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && m_MissionRuntime && m_MissionRuntime.CanCompleteExpiredPlayerBoundMission(m_State, activeMission);
-		bool changed = m_Missions.Complete(m_State, m_Economy, instanceId, applyDefinitionRewards, allowExpiredCompletion);
-		if (changed && ApplyCompletedMissionOutcome(definition, activeMission))
-			changed = true;
+		bool changed = m_Missions.Complete(m_State, m_Economy, instanceId, false, allowExpiredCompletion);
+		if (changed && m_Strategic)
+			m_Strategic.ApplyMissionOutcomeEvent(m_State, m_Preset, m_Economy, m_Balance, m_Towns, m_ZoneCapture, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, m_HQ, definition, activeMission, true, applyDefinitionRewards);
 
 		if (changed)
 		{
@@ -1210,9 +1211,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (activeMission)
 			definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
 
-		bool changed = m_Missions.Fail(m_State, m_Preset, m_Economy, instanceId);
-		if (changed)
-			ApplyFailedMissionOutcome(definition, activeMission);
+		bool changed = m_Missions.Fail(m_State, m_Preset, m_Economy, instanceId, false);
+		if (changed && m_Strategic)
+			m_Strategic.ApplyMissionOutcomeEvent(m_State, m_Preset, m_Economy, m_Balance, m_Towns, m_ZoneCapture, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, m_HQ, definition, activeMission, false);
 		if (changed && m_Objectives)
 			m_Objectives.FailMissionObjectives(m_State, instanceId);
 		if (changed)
@@ -5769,6 +5770,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string instanceId = ResolveCampaignDebugCleanupPrefix() + "_mission_completion_reward";
 		RemoveCampaignDebugMissionRecord(instanceId);
 		int activeMissionCountBefore = m_State.m_aActiveMissions.Count();
+		int strategicEventCountBefore = m_State.m_aStrategicEvents.Count();
 		int moneyBefore = m_State.m_iFactionMoney;
 		int hrBefore = m_State.m_iHR;
 		string ownerBefore = targetZone.m_sOwnerFactionKey;
@@ -5804,6 +5806,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool completed = CompleteMission(instanceId);
 		HST_ActiveMissionState completedMission = m_State.FindActiveMission(instanceId);
+		HST_StrategicEventState strategicEvent = FindCampaignDebugStrategicEventForMission(instanceId, "mission_success");
 		int moneyAfter = m_State.m_iFactionMoney;
 		int hrAfter = m_State.m_iHR;
 		int supportAfter = targetZone.m_iSupport;
@@ -5815,6 +5818,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(missionCase, "mission_completion.command_result", "completion runs through the coordinator mission-complete wrapper", BuildCampaignDebugPrimitiveMissionActual(completedMission), CampaignDebugStatus(completed && completedMission && completedMission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED && completedMission.m_sRuntimePhase == "completed"), "mission completion wrapper did not set succeeded/completed status", "", instanceId, targetZone.m_sZoneId);
 		AddCampaignDebugAssertion(missionCase, "mission_completion.rewards", "completion applies exact configured money and HR rewards once", rewardActual, CampaignDebugStatus(moneyAfter == expectedMoneyAfter && hrAfter == expectedHRAfter), "mission completion did not apply exact configured rewards", "", instanceId, targetZone.m_sZoneId);
 		AddCampaignDebugAssertion(missionCase, "mission_completion.town_support", "support mission completion applies deterministic town support outcome", supportActual, CampaignDebugStatus(supportAfter == expectedSupportAfter), "support mission completion did not apply expected town support", "", instanceId, targetZone.m_sZoneId);
+		bool strategicEventExpected = strategicEvent
+			&& m_State.m_aStrategicEvents.Count() == strategicEventCountBefore + 1
+			&& strategicEvent.m_bApplied
+			&& strategicEvent.m_iFactionMoneyDelta == definition.m_iRewardMoney
+			&& strategicEvent.m_iHRDelta == definition.m_iRewardHR
+			&& strategicEvent.m_iTownSupportDelta == 25
+			&& strategicEvent.m_sTargetZoneId == targetZone.m_sZoneId;
+		AddCampaignDebugAssertion(missionCase, "mission_completion.strategic_event", "mission completion records one applied strategic event with reward and support deltas", BuildCampaignDebugStrategicEventActual(strategicEvent), CampaignDebugStatus(strategicEventExpected), "mission completion did not record the expected strategic event", "", instanceId, targetZone.m_sZoneId);
 
 		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
 		roundTripSaveData.Capture(m_State);
@@ -5822,15 +5833,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		roundTripSaveData.ApplyTo(restoredState);
 		HST_ActiveMissionState restoredMission = restoredState.FindActiveMission(instanceId);
 		HST_ZoneState restoredZone = restoredState.FindZone(targetZone.m_sZoneId);
+		HST_StrategicEventState restoredStrategicEvent;
+		if (strategicEvent)
+			restoredStrategicEvent = restoredState.FindStrategicEvent(strategicEvent.m_sEventId);
 		bool roundTripExpected = restoredMission && restoredZone
+			&& restoredStrategicEvent
 			&& restoredMission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED
 			&& restoredMission.m_sRuntimePhase == "completed"
 			&& restoredState.m_iFactionMoney == moneyAfter
 			&& restoredState.m_iHR == hrAfter
-			&& restoredZone.m_iSupport == supportAfter;
-		AddCampaignDebugAssertion(missionCase, "mission_completion.save_roundtrip", "save-data roundtrip preserves completed mission, rewards, and town support", BuildCampaignDebugMissionCompletionRoundTripActual(restoredState, restoredMission, restoredZone), CampaignDebugStatus(roundTripExpected), "completed mission reward/support state did not survive save-data copy", "", instanceId, targetZone.m_sZoneId);
+			&& restoredZone.m_iSupport == supportAfter
+			&& restoredStrategicEvent.m_iTownSupportDelta == strategicEvent.m_iTownSupportDelta;
+		AddCampaignDebugAssertion(missionCase, "mission_completion.save_roundtrip", "save-data roundtrip preserves completed mission, rewards, town support, and strategic event", BuildCampaignDebugMissionCompletionRoundTripActual(restoredState, restoredMission, restoredZone) + " | event [" + BuildCampaignDebugStrategicEventActual(restoredStrategicEvent) + "]", CampaignDebugStatus(roundTripExpected), "completed mission reward/support/event state did not survive save-data copy", "", instanceId, targetZone.m_sZoneId);
 
 		RemoveCampaignDebugMissionRecord(instanceId);
+		while (m_State.m_aStrategicEvents.Count() > strategicEventCountBefore)
+			m_State.m_aStrategicEvents.Remove(m_State.m_aStrategicEvents.Count() - 1);
 		m_State.m_iFactionMoney = moneyBefore;
 		m_State.m_iHR = hrBefore;
 		targetZone.m_sOwnerFactionKey = ownerBefore;
@@ -5838,6 +5856,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RefreshCampaignMarkers();
 		bool cleanupExpected = m_State.FindActiveMission(instanceId) == null
 			&& m_State.m_aActiveMissions.Count() == activeMissionCountBefore
+			&& m_State.m_aStrategicEvents.Count() == strategicEventCountBefore
 			&& m_State.m_iFactionMoney == moneyBefore
 			&& m_State.m_iHR == hrBefore
 			&& targetZone.m_sOwnerFactionKey == ownerBefore
@@ -5875,6 +5894,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string instanceId = ResolveCampaignDebugCleanupPrefix() + "_mission_failure_penalty";
 		RemoveCampaignDebugMissionRecord(instanceId);
 		int activeMissionCountBefore = m_State.m_aActiveMissions.Count();
+		int strategicEventCountBefore = m_State.m_aStrategicEvents.Count();
 		int moneyBefore = m_State.m_iFactionMoney;
 		int hrBefore = m_State.m_iHR;
 		string ownerBefore = targetZone.m_sOwnerFactionKey;
@@ -5909,6 +5929,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool failed = FailMission(instanceId);
 		HST_ActiveMissionState failedMission = m_State.FindActiveMission(instanceId);
+		HST_StrategicEventState strategicEvent = FindCampaignDebugStrategicEventForMission(instanceId, "mission_failure");
 		int moneyAfter = m_State.m_iFactionMoney;
 		int hrAfter = m_State.m_iHR;
 		int supportAfter = targetZone.m_iSupport;
@@ -5920,6 +5941,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(missionCase, "mission_failure.command_result", "failure runs through the coordinator mission-fail wrapper", BuildCampaignDebugPrimitiveMissionActual(failedMission), CampaignDebugStatus(failed && failedMission && failedMission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED && failedMission.m_sRuntimePhase == "failed"), "mission failure wrapper did not set failed status", "", instanceId, targetZone.m_sZoneId);
 		AddCampaignDebugAssertion(missionCase, "mission_failure.penalties", "mission failure applies configured aggression plus support penalty", penaltyActual, CampaignDebugStatus(supportAfter == expectedSupportAfter && aggressionAfter == expectedAggressionAfter), "mission failure did not apply expected support/aggression penalties", "", instanceId, targetZone.m_sZoneId);
 		AddCampaignDebugAssertion(missionCase, "mission_failure.no_rewards", "mission failure does not pay completion rewards", noRewardActual, CampaignDebugStatus(moneyAfter == moneyBefore && hrAfter == hrBefore), "mission failure changed money or HR rewards", "", instanceId, targetZone.m_sZoneId);
+		bool strategicEventExpected = strategicEvent
+			&& m_State.m_aStrategicEvents.Count() == strategicEventCountBefore + 1
+			&& strategicEvent.m_bApplied
+			&& strategicEvent.m_iFactionMoneyDelta == 0
+			&& strategicEvent.m_iHRDelta == 0
+			&& strategicEvent.m_iTownSupportDelta == -10
+			&& strategicEvent.m_iAggressionDelta == definition.m_iFailureAggression
+			&& strategicEvent.m_sTargetZoneId == targetZone.m_sZoneId;
+		AddCampaignDebugAssertion(missionCase, "mission_failure.strategic_event", "mission failure records one applied strategic event with support and aggression deltas", BuildCampaignDebugStrategicEventActual(strategicEvent), CampaignDebugStatus(strategicEventExpected), "mission failure did not record the expected strategic event", "", instanceId, targetZone.m_sZoneId);
 
 		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
 		roundTripSaveData.Capture(m_State);
@@ -5928,16 +5958,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ActiveMissionState restoredMission = restoredState.FindActiveMission(instanceId);
 		HST_ZoneState restoredZone = restoredState.FindZone(targetZone.m_sZoneId);
 		HST_FactionPoolState restoredPool = restoredState.FindFactionPool(m_Preset.m_sOccupierFactionKey);
+		HST_StrategicEventState restoredStrategicEvent;
+		if (strategicEvent)
+			restoredStrategicEvent = restoredState.FindStrategicEvent(strategicEvent.m_sEventId);
 		bool roundTripExpected = restoredMission && restoredZone && restoredPool
+			&& restoredStrategicEvent
 			&& restoredMission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED
 			&& restoredMission.m_sRuntimePhase == "failed"
 			&& restoredState.m_iFactionMoney == moneyAfter
 			&& restoredState.m_iHR == hrAfter
 			&& restoredZone.m_iSupport == supportAfter
-			&& restoredPool.m_iAggression == aggressionAfter;
-		AddCampaignDebugAssertion(missionCase, "mission_failure.save_roundtrip", "save-data roundtrip preserves failed mission, penalties, and no-reward economy state", BuildCampaignDebugMissionFailureRoundTripActual(restoredState, restoredMission, restoredZone, restoredPool), CampaignDebugStatus(roundTripExpected), "failed mission penalty state did not survive save-data copy", "", instanceId, targetZone.m_sZoneId);
+			&& restoredPool.m_iAggression == aggressionAfter
+			&& restoredStrategicEvent.m_iAggressionDelta == strategicEvent.m_iAggressionDelta;
+		AddCampaignDebugAssertion(missionCase, "mission_failure.save_roundtrip", "save-data roundtrip preserves failed mission, penalties, no-reward economy state, and strategic event", BuildCampaignDebugMissionFailureRoundTripActual(restoredState, restoredMission, restoredZone, restoredPool) + " | event [" + BuildCampaignDebugStrategicEventActual(restoredStrategicEvent) + "]", CampaignDebugStatus(roundTripExpected), "failed mission penalty/event state did not survive save-data copy", "", instanceId, targetZone.m_sZoneId);
 
 		RemoveCampaignDebugMissionRecord(instanceId);
+		while (m_State.m_aStrategicEvents.Count() > strategicEventCountBefore)
+			m_State.m_aStrategicEvents.Remove(m_State.m_aStrategicEvents.Count() - 1);
 		m_State.m_iFactionMoney = moneyBefore;
 		m_State.m_iHR = hrBefore;
 		targetZone.m_sOwnerFactionKey = ownerBefore;
@@ -5946,6 +5983,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RefreshCampaignMarkers();
 		bool cleanupExpected = m_State.FindActiveMission(instanceId) == null
 			&& m_State.m_aActiveMissions.Count() == activeMissionCountBefore
+			&& m_State.m_aStrategicEvents.Count() == strategicEventCountBefore
 			&& m_State.m_iFactionMoney == moneyBefore
 			&& m_State.m_iHR == hrBefore
 			&& targetZone.m_sOwnerFactionKey == ownerBefore
@@ -6021,6 +6059,52 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (mission && mission.m_sInstanceId == instanceId)
 				m_State.m_aActiveMissions.Remove(missionIndex);
 		}
+	}
+
+	protected HST_StrategicEventState FindCampaignDebugStrategicEventForMission(string instanceId, string kind)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return null;
+
+		for (int i = m_State.m_aStrategicEvents.Count() - 1; i >= 0; i--)
+		{
+			HST_StrategicEventState eventState = m_State.m_aStrategicEvents[i];
+			if (!eventState || eventState.m_sMissionInstanceId != instanceId)
+				continue;
+			if (!kind.IsEmpty() && eventState.m_sKind != kind)
+				continue;
+
+			return eventState;
+		}
+
+		return null;
+	}
+
+	protected string BuildCampaignDebugStrategicEventActual(HST_StrategicEventState eventState)
+	{
+		if (!eventState)
+			return "missing";
+
+		return string.Format(
+			"id %1 | kind %2 | mission %3/%4 | zone %5 | faction %6 | applied %7 | money %8 | HR %9 | support %10 | capture %11 | aggression %12 | resources %13/%14 | HQ %15 | owner %16 -> %17",
+			EmptyCampaignDebugField(eventState.m_sEventId),
+			EmptyCampaignDebugField(eventState.m_sKind),
+			EmptyCampaignDebugField(eventState.m_sMissionId),
+			EmptyCampaignDebugField(eventState.m_sMissionInstanceId),
+			EmptyCampaignDebugField(eventState.m_sTargetZoneId),
+			EmptyCampaignDebugField(eventState.m_sTargetFactionKey),
+			eventState.m_bApplied,
+			eventState.m_iFactionMoneyDelta,
+			eventState.m_iHRDelta,
+			eventState.m_iTownSupportDelta,
+			eventState.m_iCaptureProgressDelta,
+			eventState.m_iAggressionDelta,
+			eventState.m_iAttackResourceDelta,
+			eventState.m_iSupportResourceDelta,
+			eventState.m_iHQKnowledgeDelta,
+			EmptyCampaignDebugField(eventState.m_sOwnerBefore),
+			EmptyCampaignDebugField(eventState.m_sOwnerAfter)
+		);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugTownInfluenceLedgerCase()
@@ -6810,6 +6894,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCategorySelectionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCompletionRewardCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionFailurePenaltyCase());
+		if (m_Strategic)
+			RecordCampaignDebugObservation("strategic events", m_Strategic.BuildStrategicEventReport(m_State));
 		if (m_Civilians)
 		{
 			RecordCampaignDebugObservation("town influence", m_Civilians.BuildTownInfluenceReport(m_State));
@@ -8441,6 +8527,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugRunMetric("state.garage_vehicles.start", string.Format("%1", m_iCampaignDebugStartGarageVehicles), "count");
 			AddCampaignDebugRunMetric("state.arsenal_items.start", string.Format("%1", m_iCampaignDebugStartArsenalItems), "count");
 			AddCampaignDebugRunMetric("state.civilian_zones.start", string.Format("%1", m_iCampaignDebugStartCivilianZones), "count");
+			AddCampaignDebugRunMetric("state.strategic_events.start", string.Format("%1", m_iCampaignDebugStartStrategicEvents), "count");
 			AddCampaignDebugRunMetric("state.undercover_records.start", string.Format("%1", m_iCampaignDebugStartUndercoverRecords), "count");
 		}
 		else
@@ -8467,6 +8554,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugStartGarageVehicles = 0;
 		m_iCampaignDebugStartArsenalItems = 0;
 		m_iCampaignDebugStartCivilianZones = 0;
+		m_iCampaignDebugStartStrategicEvents = 0;
 		m_iCampaignDebugStartUndercoverRecords = 0;
 		if (!m_State)
 			return;
@@ -8487,6 +8575,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugStartGarageVehicles = m_State.m_aGarageVehicles.Count();
 		m_iCampaignDebugStartArsenalItems = m_State.m_aArsenalItems.Count();
 		m_iCampaignDebugStartCivilianZones = m_State.m_aCivilianZones.Count();
+		m_iCampaignDebugStartStrategicEvents = m_State.m_aStrategicEvents.Count();
 		m_iCampaignDebugStartUndercoverRecords = m_State.m_aUndercoverPlayers.Count();
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
@@ -9631,6 +9720,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		lines.Insert(string.Format("garage vehicles %1 -> %2 | delta %3", m_iCampaignDebugStartGarageVehicles, m_State.m_aGarageVehicles.Count(), m_State.m_aGarageVehicles.Count() - m_iCampaignDebugStartGarageVehicles));
 		lines.Insert(string.Format("arsenal items %1 -> %2 | delta %3", m_iCampaignDebugStartArsenalItems, m_State.m_aArsenalItems.Count(), m_State.m_aArsenalItems.Count() - m_iCampaignDebugStartArsenalItems));
 		lines.Insert(string.Format("civilian zones %1 -> %2 | delta %3", m_iCampaignDebugStartCivilianZones, m_State.m_aCivilianZones.Count(), m_State.m_aCivilianZones.Count() - m_iCampaignDebugStartCivilianZones));
+		lines.Insert(string.Format("strategic events %1 -> %2 | delta %3", m_iCampaignDebugStartStrategicEvents, m_State.m_aStrategicEvents.Count(), m_State.m_aStrategicEvents.Count() - m_iCampaignDebugStartStrategicEvents));
 		lines.Insert(string.Format("undercover records %1 -> %2 | delta %3", m_iCampaignDebugStartUndercoverRecords, m_State.m_aUndercoverPlayers.Count(), m_State.m_aUndercoverPlayers.Count() - m_iCampaignDebugStartUndercoverRecords));
 		lines.Insert("current mission " + EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId));
 		lines.Insert("early mission " + EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId));
@@ -10220,6 +10310,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int qrfCount = RemoveCampaignDebugPrefixedQRFs(prefix);
 		int supportCount = RemoveCampaignDebugPrefixedSupportRequests(prefix);
 		int enemyOrderCount = RemoveCampaignDebugPrefixedEnemyOrders(prefix);
+		int strategicEventCount = RemoveCampaignDebugPrefixedStrategicEvents(prefix);
 		int taskCount = RemoveCampaignDebugPrefixedCampaignTasks(prefix);
 		int markerCount = RemoveCampaignDebugPrefixedMarkers(prefix);
 		string taggedWorldBeforeExample;
@@ -10261,6 +10352,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.qrfs_removed", string.Format("%1", qrfCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.support_requests_removed", string.Format("%1", supportCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.enemy_orders_removed", string.Format("%1", enemyOrderCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.strategic_events_removed", string.Format("%1", strategicEventCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tasks_removed", string.Format("%1", taskCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.markers_removed", string.Format("%1", markerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.defend_petros_state_cleared", string.Format("%1", defendPetrosCount), "count");
@@ -10580,6 +10672,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					example = "enemy order " + order.m_sOrderId;
 			}
 		}
+		foreach (HST_StrategicEventState strategicEvent : m_State.m_aStrategicEvents)
+		{
+			if (CampaignDebugStrategicEventMatchesPrefix(strategicEvent, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "strategic event " + strategicEvent.m_sEventId;
+			}
+		}
 		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
 		{
 			if (CampaignDebugMarkerMatchesPrefix(marker, prefix))
@@ -10761,6 +10862,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (CampaignDebugEnemyOrderMatchesPrefix(order, prefix))
 			{
 				m_State.m_aEnemyOrders.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedStrategicEvents(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aStrategicEvents.Count() - 1; i >= 0; i--)
+		{
+			HST_StrategicEventState strategicEvent = m_State.m_aStrategicEvents[i];
+			if (CampaignDebugStrategicEventMatchesPrefix(strategicEvent, prefix))
+			{
+				m_State.m_aStrategicEvents.Remove(i);
 				removed++;
 			}
 		}
@@ -10963,6 +11080,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return MissionValueHasCampaignDebugPrefix(order.m_sOrderId, prefix)
 			|| MissionValueHasCampaignDebugPrefix(order.m_sSupportRequestId, prefix)
 			|| MissionValueHasCampaignDebugPrefix(order.m_sGroupId, prefix);
+	}
+
+	protected bool CampaignDebugStrategicEventMatchesPrefix(HST_StrategicEventState strategicEvent, string prefix)
+	{
+		if (!strategicEvent)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(strategicEvent.m_sEventId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(strategicEvent.m_sSourceId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(strategicEvent.m_sMissionInstanceId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(strategicEvent.m_sTargetZoneId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(strategicEvent.m_sReason, prefix)
+			|| MissionValueHasCampaignDebugPrefix(strategicEvent.m_sSummary, prefix);
 	}
 
 	protected bool CampaignDebugMarkerMatchesPrefix(HST_MapMarkerState marker, string prefix)
@@ -25964,128 +26094,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			radius = 50;
 
 		return string.Format("%1: must be within %2m of FIA HQ", prefix, radius);
-	}
-
-	protected bool ApplyCompletedMissionOutcome(HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
-	{
-		if (!definition || !activeMission || activeMission.m_sTargetZoneId.IsEmpty())
-			return false;
-
-		if (definition.m_sMissionId == "dynamic_defend_petros")
-			return false;
-
-		HST_ZoneState zone = m_State.FindZone(activeMission.m_sTargetZoneId);
-		if (!zone)
-			return false;
-
-		if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
-			m_Economy.AddAggression(m_State, zone.m_sOwnerFactionKey, ResolveMissionSuccessAggression(definition));
-
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
-			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 60, 15, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
-
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
-			return m_Towns.AddSupport(m_State, zone.m_sZoneId, 25);
-
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
-		{
-			m_EnemyDirector.AddResources(m_State, zone.m_sOwnerFactionKey, -12, -6);
-			if (definition.m_sMissionId == "destroy_radio_tower" || definition.m_sMissionId == "dynamic_stop_tower_rebuild")
-				m_HQ.ReduceHQKnowledge(m_State, 20, "mission success: " + definition.m_sMissionId);
-			if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
-				m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 35, 10, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
-			return true;
-		}
-
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
-		{
-			if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-				AwardFactionResources(150, 1);
-			m_EnemyDirector.AddResources(m_State, zone.m_sOwnerFactionKey, -8, -4);
-			return true;
-		}
-
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC)
-		{
-			if (definition.m_sMissionId == "dynamic_city_flip_battle")
-			{
-				if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
-					return m_Towns.AddSupport(m_State, zone.m_sZoneId, 25);
-
-				return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 50, 10, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
-			}
-
-			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
-				return m_Towns.AddSupport(m_State, zone.m_sZoneId, 10);
-
-			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 20, 5, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
-		}
-
-		return false;
-	}
-
-	protected bool ApplyFailedMissionOutcome(HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
-	{
-		if (!definition || !activeMission)
-			return false;
-
-		bool changed;
-		if (definition.m_sMissionId == "assassinate_traitor")
-			changed = m_HQ.AddHQKnowledge(m_State, 35, "traitor escaped / failed assassination") || changed;
-
-		if (definition.m_sMissionId == "dynamic_defend_petros")
-		{
-			if (!m_State.m_bDefendPetrosOutcomeApplied)
-				changed = m_HQ.AddHQKnowledge(m_State, 25, "Defend Petros failed") || changed;
-			if (m_State.m_iLastHQAttackSecond != m_State.m_iElapsedSeconds)
-			{
-				m_State.m_iLastHQAttackSecond = m_State.m_iElapsedSeconds;
-				changed = true;
-			}
-			return changed;
-		}
-
-		if (definition.m_iFailureAggression >= 4)
-			changed = m_HQ.AddHQKnowledge(m_State, 8 + definition.m_iFailureAggression, "high aggression mission failure: " + definition.m_sMissionId) || changed;
-
-		if (changed)
-			return true;
-
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT && !activeMission.m_sTargetZoneId.IsEmpty())
-		{
-			HST_ZoneState zone = m_State.FindZone(activeMission.m_sTargetZoneId);
-			if (zone)
-				return m_Towns.AddSupport(m_State, zone.m_sZoneId, -10);
-		}
-
-		if (!activeMission.m_sTargetZoneId.IsEmpty())
-		{
-			HST_ZoneState targetZone = m_State.FindZone(activeMission.m_sTargetZoneId);
-			if (targetZone && targetZone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
-			{
-				m_Economy.AddAggression(m_State, targetZone.m_sOwnerFactionKey, Math.Max(1, definition.m_iFailureAggression / 2));
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	protected int ResolveMissionSuccessAggression(HST_MissionDefinition definition)
-	{
-		if (!definition)
-			return 1;
-
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
-			return 8;
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
-			return 6;
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return 5;
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC)
-			return 4;
-
-		return 2;
 	}
 
 	protected HST_MissionCategorySelectionResult SelectCategoryMissionCandidate(int playerId, string categoryKey)

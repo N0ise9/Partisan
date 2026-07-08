@@ -1,3 +1,40 @@
+class HST_StrategicEventApplyResult
+{
+	bool m_bRecorded;
+	bool m_bApplied;
+	bool m_bChanged;
+	string m_sEventId;
+	string m_sReason;
+	string m_sSummary;
+	ref HST_StrategicEventState m_Event;
+
+	string BuildReport()
+	{
+		if (!m_Event)
+			return "h-istasi strategic event | missing event";
+
+		return string.Format(
+			"h-istasi strategic event | id %1 | kind %2 | mission %3 | zone %4 | faction %5 | applied %6 | changed %7 | money %8 | HR %9 | support %10 | capture %11 | aggression %12 | attack %13 | supportRes %14 | HQ knowledge %15 | %16",
+			m_Event.m_sEventId,
+			m_Event.m_sKind,
+			m_Event.m_sMissionId,
+			m_Event.m_sTargetZoneId,
+			m_Event.m_sTargetFactionKey,
+			m_bApplied,
+			m_bChanged,
+			m_Event.m_iFactionMoneyDelta,
+			m_Event.m_iHRDelta,
+			m_Event.m_iTownSupportDelta,
+			m_Event.m_iCaptureProgressDelta,
+			m_Event.m_iAggressionDelta,
+			m_Event.m_iAttackResourceDelta,
+			m_Event.m_iSupportResourceDelta,
+			m_Event.m_iHQKnowledgeDelta,
+			m_Event.m_sSummary
+		);
+	}
+}
+
 class HST_CampaignOutcomeResult
 {
 	bool m_bEnded;
@@ -20,6 +57,37 @@ class HST_CampaignOutcomeResult
 
 class HST_StrategicService
 {
+	HST_StrategicEventApplyResult ApplyMissionOutcomeEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_BalanceConfig balance, HST_TownService towns, HST_ZoneCaptureService zoneCapture, HST_GarrisonService garrisons, HST_EnemyCommanderService enemyCommander, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService supportRequests, HST_HQService hq, HST_MissionDefinition definition, HST_ActiveMissionState activeMission, bool succeeded, bool applyDefinitionRewards = true)
+	{
+		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
+		if (!state || !preset || !economy || !definition || !activeMission)
+		{
+			result.m_sReason = "state/preset/economy/mission not ready";
+			return result;
+		}
+
+		HST_StrategicEventState eventState = CreateMissionOutcomeEvent(state, preset, definition, activeMission, succeeded);
+		result.m_Event = eventState;
+		result.m_sEventId = eventState.m_sEventId;
+		result.m_bRecorded = true;
+		state.m_aStrategicEvents.Insert(eventState);
+		CaptureStrategicEventBefore(state, eventState);
+
+		bool changed;
+		if (succeeded)
+			changed = ApplyMissionSuccessEvent(state, preset, economy, balance, towns, zoneCapture, garrisons, enemyCommander, enemyDirector, supportRequests, hq, definition, activeMission, applyDefinitionRewards);
+		else
+			changed = ApplyMissionFailureEvent(state, preset, economy, towns, hq, definition, activeMission);
+
+		RefreshStrategicEventAfter(state, eventState);
+		eventState.m_bApplied = true;
+		eventState.m_sSummary = BuildStrategicEventSummary(eventState);
+		result.m_bApplied = true;
+		result.m_bChanged = changed || HasStrategicEventDelta(eventState);
+		result.m_sSummary = eventState.m_sSummary;
+		return result;
+	}
+
 	bool SetZoneOwner(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, string factionKey, string resistanceFactionKey = "FIA")
 	{
 		HST_ZoneState zone = state.FindZone(zoneId);
@@ -62,6 +130,369 @@ class HST_StrategicService
 		state.m_bPetrosAlive = false;
 		state.m_iFactionMoney = Math.Max(0, state.m_iFactionMoney / 2);
 		state.m_iHR = Math.Max(0, state.m_iHR / 2);
+	}
+
+	protected bool ApplyMissionSuccessEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_BalanceConfig balance, HST_TownService towns, HST_ZoneCaptureService zoneCapture, HST_GarrisonService garrisons, HST_EnemyCommanderService enemyCommander, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService supportRequests, HST_HQService hq, HST_MissionDefinition definition, HST_ActiveMissionState activeMission, bool applyDefinitionRewards)
+	{
+		bool changed;
+		if (applyDefinitionRewards)
+		{
+			int moneyBefore = state.m_iFactionMoney;
+			int hrBefore = state.m_iHR;
+			economy.AddFactionMoney(state, definition.m_iRewardMoney);
+			economy.AddHR(state, definition.m_iRewardHR);
+			changed = changed || state.m_iFactionMoney != moneyBefore || state.m_iHR != hrBefore;
+		}
+
+		if (activeMission.m_sTargetZoneId.IsEmpty())
+			return changed;
+
+		if (definition.m_sMissionId == "dynamic_defend_petros")
+			return changed;
+
+		HST_ZoneState zone = state.FindZone(activeMission.m_sTargetZoneId);
+		if (!zone)
+			return changed;
+
+		if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+		{
+			int aggressionBefore = ResolveFactionAggression(state, zone.m_sOwnerFactionKey);
+			economy.AddAggression(state, zone.m_sOwnerFactionKey, ResolveMissionSuccessAggression(definition));
+			changed = changed || ResolveFactionAggression(state, zone.m_sOwnerFactionKey) != aggressionBefore;
+		}
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+		{
+			if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 60, 15, garrisons, enemyCommander, enemyDirector, supportRequests))
+				changed = true;
+			return changed;
+		}
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+		{
+			if (towns && towns.AddSupport(state, zone.m_sZoneId, 25))
+				changed = true;
+			return changed;
+		}
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+		{
+			if (enemyDirector)
+				enemyDirector.AddResources(state, zone.m_sOwnerFactionKey, -12, -6);
+			if ((definition.m_sMissionId == "destroy_radio_tower" || definition.m_sMissionId == "dynamic_stop_tower_rebuild") && hq)
+				changed = hq.ReduceHQKnowledge(state, 20, "mission success: " + definition.m_sMissionId) || changed;
+			if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey && zoneCapture)
+				changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 35, 10, garrisons, enemyCommander, enemyDirector, supportRequests) || changed;
+			return true;
+		}
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+		{
+			if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			{
+				economy.AddFactionMoney(state, 150);
+				economy.AddHR(state, 1);
+			}
+			if (enemyDirector)
+				enemyDirector.AddResources(state, zone.m_sOwnerFactionKey, -8, -4);
+			return true;
+		}
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC)
+		{
+			if (definition.m_sMissionId == "dynamic_city_flip_battle")
+			{
+				if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+				{
+					if (towns && towns.AddSupport(state, zone.m_sZoneId, 25))
+						changed = true;
+					return changed;
+				}
+
+				if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 50, 10, garrisons, enemyCommander, enemyDirector, supportRequests))
+					changed = true;
+				return changed;
+			}
+
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+			{
+				if (towns && towns.AddSupport(state, zone.m_sZoneId, 10))
+					changed = true;
+				return changed;
+			}
+
+			if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 20, 5, garrisons, enemyCommander, enemyDirector, supportRequests))
+				changed = true;
+			return changed;
+		}
+
+		return changed;
+	}
+
+	protected bool ApplyMissionFailureEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_TownService towns, HST_HQService hq, HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
+	{
+		bool changed;
+		int occupierAggressionBefore = ResolveFactionAggression(state, preset.m_sOccupierFactionKey);
+		economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
+		changed = changed || ResolveFactionAggression(state, preset.m_sOccupierFactionKey) != occupierAggressionBefore;
+
+		if (definition.m_sMissionId == "assassinate_traitor" && hq)
+			changed = hq.AddHQKnowledge(state, 35, "traitor escaped / failed assassination") || changed;
+
+		if (definition.m_sMissionId == "dynamic_defend_petros")
+		{
+			if (!state.m_bDefendPetrosOutcomeApplied && hq)
+				changed = hq.AddHQKnowledge(state, 25, "Defend Petros failed") || changed;
+			if (state.m_iLastHQAttackSecond != state.m_iElapsedSeconds)
+			{
+				state.m_iLastHQAttackSecond = state.m_iElapsedSeconds;
+				changed = true;
+			}
+			return changed;
+		}
+
+		if (definition.m_iFailureAggression >= 4 && hq)
+			changed = hq.AddHQKnowledge(state, 8 + definition.m_iFailureAggression, "high aggression mission failure: " + definition.m_sMissionId) || changed;
+
+		if (changed && definition.m_iFailureAggression >= 4)
+			return true;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT && !activeMission.m_sTargetZoneId.IsEmpty())
+		{
+			HST_ZoneState zone = state.FindZone(activeMission.m_sTargetZoneId);
+			if (zone && towns)
+			{
+				if (towns.AddSupport(state, zone.m_sZoneId, -10))
+					changed = true;
+				return changed;
+			}
+		}
+
+		if (!activeMission.m_sTargetZoneId.IsEmpty())
+		{
+			HST_ZoneState targetZone = state.FindZone(activeMission.m_sTargetZoneId);
+			if (targetZone && targetZone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+			{
+				int targetAggressionBefore = ResolveFactionAggression(state, targetZone.m_sOwnerFactionKey);
+				economy.AddAggression(state, targetZone.m_sOwnerFactionKey, Math.Max(1, definition.m_iFailureAggression / 2));
+				return ResolveFactionAggression(state, targetZone.m_sOwnerFactionKey) != targetAggressionBefore || changed;
+			}
+		}
+
+		return changed;
+	}
+
+	protected HST_StrategicEventState CreateMissionOutcomeEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState activeMission, bool succeeded)
+	{
+		HST_StrategicEventState eventState = new HST_StrategicEventState();
+		if (succeeded)
+			eventState.m_sKind = "mission_success";
+		else
+			eventState.m_sKind = "mission_failure";
+		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		eventState.m_sSourceType = "mission";
+		eventState.m_sSourceId = activeMission.m_sInstanceId;
+		eventState.m_sMissionId = definition.m_sMissionId;
+		eventState.m_sMissionInstanceId = activeMission.m_sInstanceId;
+		eventState.m_sTargetZoneId = activeMission.m_sTargetZoneId;
+		eventState.m_sTargetFactionKey = ResolveStrategicEventTargetFaction(state, preset, activeMission, succeeded);
+		eventState.m_sReason = eventState.m_sKind + ": " + definition.m_sMissionId;
+		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
+		return eventState;
+	}
+
+	protected string ResolveStrategicEventTargetFaction(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState activeMission, bool succeeded)
+	{
+		if (!state || !activeMission)
+			return "";
+
+		if (!succeeded && preset)
+			return preset.m_sOccupierFactionKey;
+
+		HST_ZoneState zone = state.FindZone(activeMission.m_sTargetZoneId);
+		if (zone)
+			return zone.m_sOwnerFactionKey;
+
+		if (preset)
+			return preset.m_sResistanceFactionKey;
+
+		return "";
+	}
+
+	protected void CaptureStrategicEventBefore(HST_CampaignState state, HST_StrategicEventState eventState)
+	{
+		if (!state || !eventState)
+			return;
+
+		eventState.m_iFactionMoneyDelta = -state.m_iFactionMoney;
+		eventState.m_iHRDelta = -state.m_iHR;
+		eventState.m_iHQKnowledgeBefore = state.m_iHQKnowledge;
+		eventState.m_iHQKnowledgeDelta = -state.m_iHQKnowledge;
+
+		HST_ZoneState zone = state.FindZone(eventState.m_sTargetZoneId);
+		if (zone)
+		{
+			eventState.m_sOwnerBefore = zone.m_sOwnerFactionKey;
+			eventState.m_iSupportBefore = zone.m_iSupport;
+			eventState.m_iSupportAfter = zone.m_iSupport;
+			eventState.m_iTownSupportDelta = -zone.m_iSupport;
+			eventState.m_iCaptureProgressBefore = zone.m_iResistanceCaptureProgress;
+			eventState.m_iCaptureProgressAfter = zone.m_iResistanceCaptureProgress;
+			eventState.m_iCaptureProgressDelta = -zone.m_iResistanceCaptureProgress;
+		}
+
+		HST_FactionPoolState pool = state.FindFactionPool(eventState.m_sTargetFactionKey);
+		if (pool)
+		{
+			eventState.m_iAggressionDelta = -pool.m_iAggression;
+			eventState.m_iAttackResourceDelta = -pool.m_iAttackResources;
+			eventState.m_iSupportResourceDelta = -pool.m_iSupportResources;
+		}
+	}
+
+	protected void RefreshStrategicEventAfter(HST_CampaignState state, HST_StrategicEventState eventState)
+	{
+		if (!state || !eventState)
+			return;
+
+		eventState.m_iFactionMoneyDelta += state.m_iFactionMoney;
+		eventState.m_iHRDelta += state.m_iHR;
+		eventState.m_iHQKnowledgeAfter = state.m_iHQKnowledge;
+		eventState.m_iHQKnowledgeDelta += state.m_iHQKnowledge;
+
+		HST_ZoneState zone = state.FindZone(eventState.m_sTargetZoneId);
+		if (zone)
+		{
+			eventState.m_sOwnerAfter = zone.m_sOwnerFactionKey;
+			eventState.m_iSupportAfter = zone.m_iSupport;
+			eventState.m_iTownSupportDelta += zone.m_iSupport;
+			eventState.m_iCaptureProgressAfter = zone.m_iResistanceCaptureProgress;
+			eventState.m_iCaptureProgressDelta += zone.m_iResistanceCaptureProgress;
+		}
+
+		HST_FactionPoolState pool = state.FindFactionPool(eventState.m_sTargetFactionKey);
+		if (pool)
+		{
+			eventState.m_iAggressionDelta += pool.m_iAggression;
+			eventState.m_iAttackResourceDelta += pool.m_iAttackResources;
+			eventState.m_iSupportResourceDelta += pool.m_iSupportResources;
+		}
+	}
+
+	protected bool HasStrategicEventDelta(HST_StrategicEventState eventState)
+	{
+		if (!eventState)
+			return false;
+
+		return eventState.m_iFactionMoneyDelta != 0
+			|| eventState.m_iHRDelta != 0
+			|| eventState.m_iAggressionDelta != 0
+			|| eventState.m_iAttackResourceDelta != 0
+			|| eventState.m_iSupportResourceDelta != 0
+			|| eventState.m_iTownSupportDelta != 0
+			|| eventState.m_iCaptureProgressDelta != 0
+			|| eventState.m_iHQKnowledgeDelta != 0
+			|| eventState.m_sOwnerBefore != eventState.m_sOwnerAfter;
+	}
+
+	protected string BuildStrategicEventSummary(HST_StrategicEventState eventState)
+	{
+		if (!eventState)
+			return "";
+
+		return string.Format(
+			"%1 | money %2 HR %3 | support %4 | capture %5 | aggression %6 | resources %7/%8 | HQ %9 | owner %10 -> %11",
+			eventState.m_sReason,
+			eventState.m_iFactionMoneyDelta,
+			eventState.m_iHRDelta,
+			eventState.m_iTownSupportDelta,
+			eventState.m_iCaptureProgressDelta,
+			eventState.m_iAggressionDelta,
+			eventState.m_iAttackResourceDelta,
+			eventState.m_iSupportResourceDelta,
+			eventState.m_iHQKnowledgeDelta,
+			EmptyReportField(eventState.m_sOwnerBefore),
+			EmptyReportField(eventState.m_sOwnerAfter)
+		);
+	}
+
+	string BuildStrategicEventReport(HST_CampaignState state, int maxRows = 20)
+	{
+		if (!state)
+			return "h-istasi strategic events | state not ready";
+
+		string report = string.Format("h-istasi strategic events | total %1 | showing %2", state.m_aStrategicEvents.Count(), maxRows);
+		int emitted;
+		for (int i = state.m_aStrategicEvents.Count() - 1; i >= 0; i--)
+		{
+			if (emitted >= maxRows)
+				break;
+
+			HST_StrategicEventState eventState = state.m_aStrategicEvents[i];
+			if (!eventState)
+				continue;
+
+			report = report + string.Format(
+				"\n%1 | %2 | mission %3/%4 | zone %5 | faction %6 | applied %7 | money %8 HR %9 support %10 capture %11 aggression %12 resources %13/%14 HQ %15 | %16",
+				eventState.m_sEventId,
+				eventState.m_sKind,
+				EmptyReportField(eventState.m_sMissionId),
+				EmptyReportField(eventState.m_sMissionInstanceId),
+				EmptyReportField(eventState.m_sTargetZoneId),
+				EmptyReportField(eventState.m_sTargetFactionKey),
+				eventState.m_bApplied,
+				eventState.m_iFactionMoneyDelta,
+				eventState.m_iHRDelta,
+				eventState.m_iTownSupportDelta,
+				eventState.m_iCaptureProgressDelta,
+				eventState.m_iAggressionDelta,
+				eventState.m_iAttackResourceDelta,
+				eventState.m_iSupportResourceDelta,
+				eventState.m_iHQKnowledgeDelta,
+				eventState.m_sSummary
+			);
+			emitted++;
+		}
+
+		return report;
+	}
+
+	protected string BuildStrategicEventId(HST_CampaignState state, string kind)
+	{
+		string safeKind = kind;
+		if (safeKind.IsEmpty())
+			safeKind = "event";
+
+		return string.Format("strategic_%1_%2_%3", safeKind, state.m_iElapsedSeconds, state.m_aStrategicEvents.Count());
+	}
+
+	protected int ResolveFactionAggression(HST_CampaignState state, string factionKey)
+	{
+		if (!state || factionKey.IsEmpty())
+			return 0;
+
+		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
+		if (!pool)
+			return 0;
+
+		return pool.m_iAggression;
+	}
+
+	protected int ResolveMissionSuccessAggression(HST_MissionDefinition definition)
+	{
+		if (!definition)
+			return 1;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return 8;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return 6;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return 5;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC)
+			return 4;
+
+		return 2;
 	}
 
 	HST_CampaignOutcomeResult EvaluateCampaignOutcomeDetailed(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, string resistanceFactionKey)

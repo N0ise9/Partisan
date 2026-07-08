@@ -694,6 +694,39 @@ class HST_TownInfluenceEventState
 }
 
 [BaseContainerProps()]
+class HST_StrategicEventState
+{
+	string m_sEventId;
+	string m_sKind;
+	string m_sSourceType;
+	string m_sSourceId;
+	string m_sMissionId;
+	string m_sMissionInstanceId;
+	string m_sTargetZoneId;
+	string m_sTargetFactionKey;
+	string m_sReason;
+	string m_sSummary;
+	int m_iCreatedAtSecond;
+	int m_iFactionMoneyDelta;
+	int m_iHRDelta;
+	int m_iAggressionDelta;
+	int m_iAttackResourceDelta;
+	int m_iSupportResourceDelta;
+	int m_iTownSupportDelta;
+	int m_iCaptureProgressDelta;
+	int m_iHQKnowledgeDelta;
+	string m_sOwnerBefore;
+	string m_sOwnerAfter;
+	int m_iSupportBefore;
+	int m_iSupportAfter;
+	int m_iCaptureProgressBefore;
+	int m_iCaptureProgressAfter;
+	int m_iHQKnowledgeBefore;
+	int m_iHQKnowledgeAfter;
+	bool m_bApplied;
+}
+
+[BaseContainerProps()]
 class HST_PlayerUndercoverState
 {
 	string m_sIdentityId;
@@ -745,7 +778,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 36;
+	static const int SCHEMA_VERSION = 37;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -867,6 +900,7 @@ class HST_CampaignState
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
+	ref array<ref HST_StrategicEventState> m_aStrategicEvents = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
@@ -1140,6 +1174,17 @@ class HST_CampaignState
 	HST_TownInfluenceEventState FindTownInfluenceEvent(string eventId)
 	{
 		foreach (HST_TownInfluenceEventState eventState : m_aTownInfluenceEvents)
+		{
+			if (eventState && eventState.m_sEventId == eventId)
+				return eventState;
+		}
+
+		return null;
+	}
+
+	HST_StrategicEventState FindStrategicEvent(string eventId)
+	{
+		foreach (HST_StrategicEventState eventState : m_aStrategicEvents)
 		{
 			if (eventState && eventState.m_sEventId == eventId)
 				return eventState;

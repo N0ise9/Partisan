@@ -153,7 +153,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Category mission selection | Commander chooses mission category; mission and valid target are selected server-side. | Broad Alpha | Tune category candidate rules and player-facing disabled reasons. | High |
 | Mission runtime primitives | HVT, destroy, hold/clear, rescue, cargo, convoy, and support primitives have physical action paths. | Broad Alpha | Active non-convoy primitives force their target zone, assets, and mission guard group to physicalize outside the player bubble; replace MVP primitives with mission-specific props, interactions, and consequences. | Highest |
 | Mission persistence | Active missions, objectives, assets, runtime entities, and markers survive restart. | Broad Alpha / Needs Soak | Add active mission restart route to the full soak suite. | Highest |
-| Strategic mission effects | Missions affect money, HR, town support, aggression, HQ knowledge, enemy pools, and unlocks. | Partial | Route all outcomes through a shared strategic-event pipeline. | High |
+| Strategic mission effects | Missions affect money, HR, town support, aggression, HQ knowledge, enemy pools, and unlocks. | Broad Alpha | Mission success/failure now records durable strategic-event rows with before/after deltas and owns the existing reward, support, capture, aggression, enemy-resource, and HQ-knowledge side effects through `HST_StrategicService`; next route mission expiry, convoy outcome branches, zone capture, vehicle reports, support-near-HQ, and town influence through the same ledger. | High |
 | Mission reports | Reports explain active objective, target, assets, runtime phase, and failure blockers. | Implemented Foundation | Expand per-family detail as missions get unique content. | Keep |
 
 ### Arsenal, Garage, Loadout, And Logistics
@@ -172,7 +172,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Support, supply, recruit, and garrison-removal actions now open the normal map for target selection, require a map gadget, confirm before dispatch, keep a passive selected-target cursor visible above the confirmation dialog, and return to the Forces menu; garrison recruitment prompts for FIA count before final target confirmation; Petros' final context action handles Relocate/Deploy HQ follow flow. | High |
 | Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned and update from actual runtime entity positions; terminal support groups force marker refresh; towns, bases, radar/radio sites, and QRFs use distinct native icons while resource nodes stay unchanged; continue owner-client visual proof and marker/backing consistency checks. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, marker icon deconflict proof, recursive runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, a threshold-length convoy movement window before contact, relation-aware enemy target-scoring proof, relation-order decision proof, map-target command gating/cursor-layer proof, support spawn offset/player-AI clearance proof, Petros relocate-action ordering proof, QRF-no-garrison order resolution proof, capped garrison fold-back proof, and mission-target forced-physicalization proof; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, marker icon deconflict proof, recursive runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, a threshold-length convoy movement window before contact, relation-aware enemy target-scoring proof, relation-order decision proof, map-target command gating/cursor-layer proof, support spawn offset/player-AI clearance proof, Petros relocate-action ordering proof, QRF-no-garrison order resolution proof, capped garrison fold-back proof, mission-target forced-physicalization proof, and mission success/failure strategic-event ledger proof; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build. | Implemented Foundation | Bump synchronized build markers for every runtime-proof behavior change. | Keep |
 
@@ -187,7 +187,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Repack and rerun the dedicated server proof on the r90 mission-target force-physical build,
+1. Repack and rerun the dedicated server proof on the r91 strategic-event pipeline build,
    then compare the two hard failures and runtime-faction cleanup blocks against
    the latest debug artifact.
 2. Extend routed response infantry into richer counterattack/HQ-pressure
@@ -198,14 +198,16 @@ projections of campaign state and must be restorable, foldable, or disposable.
 4. Deepen town influence events into the primary political control layer.
 5. Add player-facing garrison management, training effects, static defenses,
    and arsenal-driven AI loadout improvements.
-6. Replace MVP mission primitives with mission-specific physical content and
+6. Route mission expiry, convoy outcome branches, zone capture, vehicle reports,
+   support-near-HQ, and town influence through the strategic-event ledger.
+7. Replace MVP mission primitives with mission-specific physical content and
    strategic outcomes.
-7. Soak attack/support spend separation and population-based victory/loss
+8. Soak attack/support spend separation and population-based victory/loss
    through real restart, background-war, campaign-end restore, and
    civilian-event mission paths.
-8. Run repeated save/load and multiplayer soak across missions, support,
+9. Run repeated save/load and multiplayer soak across missions, support,
    orders, garage, undercover, and campaign end states.
-9. Tune economy, war level, aggression, support pressure, and mission pacing
+10. Tune economy, war level, aggression, support pressure, and mission pacing
     through repeated real campaign runs.
 
 ## Definition Of Done For The Final Campaign Loop
