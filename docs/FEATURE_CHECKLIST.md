@@ -72,7 +72,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Versioned save state | Durable campaign facts survive restarts and schema migration. | Implemented Foundation | Keep migration discipline for every durable field addition. | Keep |
-| Runtime settings migration | Generated profile settings migrate forward without keeping obsolete setup knobs. | Implemented Foundation | Schema 18 rewrites generated settings with JSON-safe explanatory comment fields while preserving known gameplay values. | Keep |
+| Runtime settings migration | Generated profile settings migrate forward without keeping obsolete setup knobs. | Implemented Foundation | Schema 19 rewrites generated settings with JSON-safe explanatory comment fields, preserves known gameplay values, and adds the configurable active civilian traffic cap. | Keep |
 | Profile fallback saves | Scripted saves work when native persistence is unavailable. | Implemented Foundation / Needs Soak | Repeat restart tests before promising long-campaign safety. | High |
 | Active runtime restore | Active missions, support, enemy orders, groups, vehicles, garage records, and undercover state restore without duplication. | Broad Alpha / Needs Soak | Build one repeatable restart route that touches all active record types. | Highest |
 | Terminal campaign restore | Won/lost campaign state stays ended and does not resume normal services after load. | Broad Alpha | Continue proving terminal-frame HQ/runtime object behavior. | High |
@@ -123,7 +123,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Town support ledger | Events change support, reputation, heat, security, and population with explainable history. | Broad Alpha | Add more event types, expiry/reversal, actor/target faction, and radio influence. | Highest |
 | Political town flips | Town ownership changes by support majority with hysteresis, not only direct combat. | Broad Alpha | Tune majority thresholds and prevent flicker. | High |
 | Population state | Population remaining/killed affects support, income, victory, and loss. | Broad Alpha / Needs Soak | Tune support-population math, expand event coverage, and soak save/restart terminal states. | Highest |
-| Civilian runtime population | Town civilians spawn from the randomized CIV character prefab; civilian vehicles resolve from the CIV entity catalog; probes stay bounded. | Broad Alpha | Soak with active combat, cleanup, and persistence. | High |
+| Civilian runtime population | Town civilians spawn from the randomized CIV character prefab, receive CIV AI wander helpers, civilian vehicles resolve from the CIV entity catalog, and configured civilian traffic spawns with drivers/routes that despawn outside the render bubble. | Broad Alpha | Soak pedestrian/traffic behavior with active combat, cleanup, persistence, and multiclient render-bubble movement. | High |
 | Police and roadblocks | Security systems create scan pressure and town-state consequences. | Partial | Tie police/roadblock density to support, heat, and enemy strategy. | High |
 
 ### Undercover And Wanted Enforcement
@@ -154,7 +154,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Mission runtime primitives | HVT, destroy, hold/clear, rescue, cargo, convoy, and support primitives have physical action paths. | Broad Alpha | Active non-convoy primitives force their target zone, assets, and mission guard group to physicalize outside the player bubble; replace MVP primitives with mission-specific props, interactions, and consequences. | Highest |
 | Mission persistence | Active missions, objectives, assets, runtime entities, and markers survive restart. | Broad Alpha / Needs Soak | Add active mission restart route to the full soak suite. | Highest |
 | Strategic mission effects | Missions affect money, HR, town support, aggression, HQ knowledge, enemy pools, and unlocks. | Broad Alpha | Mission success/failure, mission expiry, convoy outcomes, resistance zone captures, hostile support resolved near HQ, and vehicle reports now record durable strategic-event rows with before/after deltas; next route town influence through the same ledger. | High |
-| Mission reports | Reports explain active objective, target, assets, runtime phase, and failure blockers. | Implemented Foundation | Expand per-family detail as missions get unique content. | Keep |
+| Mission reports | Reports explain active objective, target, assets, runtime phase, and failure blockers. | Implemented Foundation | Missions-tab active rows are compact one-row summaries; keep detailed inspection in mission reports and expand per-family detail as missions get unique content. | Keep |
 
 ### Arsenal, Garage, Loadout, And Logistics
 

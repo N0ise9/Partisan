@@ -125,6 +125,9 @@ class HST_BalanceConfig
 	[Attribute(defvalue: "5", uiwidget: UIWidgets.EditBox, desc: "Maximum civilian vehicles per town.", category: "HST Civilians")]
 	int m_iCivilianVehicleMaxPerTown = 5;
 
+	[Attribute(defvalue: "2", uiwidget: UIWidgets.EditBox, desc: "Number of active civilian-driven ambient traffic vehicles per active town.", category: "HST Civilians")]
+	int m_iCivilianDrivingVehicleCountPerTown = 2;
+
 	[Attribute(defvalue: "0", uiwidget: UIWidgets.EditBox, desc: "Minimum occupier vehicles per town.", category: "HST Civilians")]
 	int m_iOccupierVehicleMinPerTown;
 

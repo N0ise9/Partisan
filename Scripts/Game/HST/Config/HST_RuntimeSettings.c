@@ -106,6 +106,7 @@ class HST_RuntimeSettingsCivilians
 	int m_iMaxActivePerTown = 12;
 	int m_iCivilianVehicleMinPerTown = 1;
 	int m_iCivilianVehicleMaxPerTown = 5;
+	int m_iCivilianDrivingVehicleCountPerTown = 2;
 	int m_iOccupierVehicleMinPerTown;
 	int m_iOccupierVehicleMaxPerTown = 2;
 }
@@ -135,7 +136,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 18;
+	static const int SCHEMA_VERSION = 19;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -212,6 +213,7 @@ class HST_RuntimeSettings
 		m_Civilians.m_iMaxActivePerTown = Math.Max(0, m_Civilians.m_iMaxActivePerTown);
 		m_Civilians.m_iCivilianVehicleMinPerTown = Math.Max(0, m_Civilians.m_iCivilianVehicleMinPerTown);
 		m_Civilians.m_iCivilianVehicleMaxPerTown = Math.Max(m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown);
+		m_Civilians.m_iCivilianDrivingVehicleCountPerTown = Math.Max(0, Math.Min(8, m_Civilians.m_iCivilianDrivingVehicleCountPerTown));
 		m_Civilians.m_iOccupierVehicleMinPerTown = Math.Max(0, m_Civilians.m_iOccupierVehicleMinPerTown);
 		m_Civilians.m_iOccupierVehicleMaxPerTown = Math.Max(m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
 		m_Persistence.m_iAutosaveIntervalSeconds = Math.Max(60, m_Persistence.m_iAutosaveIntervalSeconds);
@@ -266,6 +268,7 @@ class HST_RuntimeSettings
 		balance.m_iCivilianMaxActivePerTown = m_Civilians.m_iMaxActivePerTown;
 		balance.m_iCivilianVehicleMinPerTown = m_Civilians.m_iCivilianVehicleMinPerTown;
 		balance.m_iCivilianVehicleMaxPerTown = m_Civilians.m_iCivilianVehicleMaxPerTown;
+		balance.m_iCivilianDrivingVehicleCountPerTown = m_Civilians.m_iCivilianDrivingVehicleCountPerTown;
 		balance.m_iOccupierVehicleMinPerTown = m_Civilians.m_iOccupierVehicleMinPerTown;
 		balance.m_iOccupierVehicleMaxPerTown = m_Civilians.m_iOccupierVehicleMaxPerTown;
 		balance.m_iWarLevelMaximum = m_Economy.m_iWarLevelMaximum;
@@ -308,7 +311,7 @@ class HST_RuntimeSettings
 		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | HQ radius %3m | loot radius %4m | locked only %5 | remove source %6", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iHQInteractionRadiusMeters, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootOnlyLockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
 		string vehicleLoot = string.Format("\nvehicle loot | enabled %1 | radius %2m | locked only %3 | remove source %4 | max %5", m_VehicleLoot.m_bEnabled, m_VehicleLoot.m_iRadiusMeters, m_VehicleLoot.m_bOnlyLockedItems, m_VehicleLoot.m_bRemoveSourceItems, m_VehicleLoot.m_iMaxItemsPerAction);
 		string airSupport = string.Format("\nair support | enabled %1 | cooldown %2s", m_AirSupport.m_bEnabled, m_AirSupport.m_iCooldownSeconds);
-		string civilians = string.Format("\ncivilians | enabled %1 | max %2 per town | civ vehicles %3-%4 | occupier vehicles %5-%6", m_Civilians.m_bEnabled, m_Civilians.m_iMaxActivePerTown, m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown, m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
+		string civilians = string.Format("\ncivilians | enabled %1 | max %2 per town | parked civ vehicles %3-%4 | driving civ vehicles %5 | occupier vehicles %6-%7", m_Civilians.m_bEnabled, m_Civilians.m_iMaxActivePerTown, m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown, m_Civilians.m_iCivilianDrivingVehicleCountPerTown, m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
 		string persistence = string.Format("\npersistence | autosave %1s | debounce %2s", m_Persistence.m_iAutosaveIntervalSeconds, m_Persistence.m_iMajorChangeDebounceSeconds);
 		string features = string.Format("\nfeatures | physical war %1 | area loot %2 | setup read only %3 | GM budgets %4 | player markers %5 | infinite stamina %6 | resistance support tracking %7", m_Features.m_bPhysicalWarEnabled, m_Features.m_bAreaLootEnabled, m_Features.m_bSetupUiReadOnly, m_Features.m_bGameMasterBudgetsEnabled, m_Features.m_bShowPlayerMapMarkers, m_Features.m_bInfiniteStaminaEnabled, m_Features.m_bTrackResistanceSupportGroupsOnMap);
 		return campaign + factions + economy + pacing + loss + capture + world + loot + vehicleLoot + airSupport + civilians + persistence + features + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";

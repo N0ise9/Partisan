@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r99-vehicle-report-strategic-event";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r100-civilian-traffic-mission-ui";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -19625,6 +19625,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int civilianCharacterAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_CHARACTER");
 		int civilianVehicles = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_VEHICLE", "CIV");
 		int civilianVehicleAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_VEHICLE");
+		int civilianTrafficVehicles = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_TRAFFIC_VEHICLE", "CIV");
+		int civilianTrafficVehicleAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_TRAFFIC_VEHICLE");
+		int pedestrianBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_CHARACTER", "CIV", 3);
+		int trafficBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_TRAFFIC_VEHICLE", "CIV", 5);
 		int militaryVehicles = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "MILITARY_VEHICLE");
 		int totalRuntime = m_Civilians.CountRuntimeEntitiesForZone(zoneId);
 		bool runtimeZoneActive = m_Civilians.HasRuntimeTownZone(zoneId);
@@ -19634,6 +19638,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int spawnFailuresAfter = m_State.m_iRuntimeSpawnFailureCount;
 		string populationActual = m_Civilians.BuildRuntimeTownPopulationReport(m_State, zoneId);
 		populationActual = populationActual + string.Format(" | update changed %1 | runtime zone %2", runtimeChanged, runtimeZoneActive);
+		string behaviorActual = m_Civilians.BuildRuntimeBehaviorReport(zoneId);
 		float movementThresholdMeters = 1.0;
 		int movementSampleSeconds = 5;
 		int movementSampleTargetCount = 6;
@@ -19690,15 +19695,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool vehicleConfigured = m_Balance.m_iCivilianVehicleMaxPerTown > 0;
 		bool vehicleCountOk = !vehicleConfigured || (civilianVehicles >= m_Balance.m_iCivilianVehicleMinPerTown && civilianVehicles <= m_Balance.m_iCivilianVehicleMaxPerTown);
-		bool knownRuntimeKinds = totalRuntime == civilianCharacterAnyFaction + civilianVehicleAnyFaction + militaryVehicles;
-		bool civilianFactionOk = civilianCharacters == civilianCharacterAnyFaction && civilianVehicles == civilianVehicleAnyFaction;
+		bool trafficConfigured = m_Balance.m_iCivilianDrivingVehicleCountPerTown > 0;
+		bool trafficCountOk = !trafficConfigured || civilianTrafficVehicles == m_Balance.m_iCivilianDrivingVehicleCountPerTown;
+		bool pedestrianBehaviorOk = civilianCharacters > 0 && pedestrianBehavior == civilianCharacters;
+		bool trafficBehaviorOk = !trafficConfigured || (civilianTrafficVehicles > 0 && trafficBehavior == civilianTrafficVehicles);
+		bool knownRuntimeKinds = totalRuntime == civilianCharacterAnyFaction + civilianVehicleAnyFaction + civilianTrafficVehicleAnyFaction + militaryVehicles;
+		bool civilianFactionOk = civilianCharacters == civilianCharacterAnyFaction && civilianVehicles == civilianVehicleAnyFaction && civilianTrafficVehicles == civilianTrafficVehicleAnyFaction;
 		bool runtimePopulationActive = runtimeZoneActive && totalRuntime > 0 && civilianCharacters > 0;
 
 		phaseCase.m_aEvidence.Insert("civilian population | " + populationActual);
+		phaseCase.m_aEvidence.Insert("civilian behavior | " + behaviorActual);
 		phaseCase.m_aEvidence.Insert("civilian movement samples | " + ShortCampaignDebugLine(movementSampleHistory, 260));
 		phaseCase.m_aEvidence.Insert(string.Format("civilian population cleanup | changed %1 | runtime left %2 | vehicle records removed %3", cleanupChanged, cleanupRuntime, removedRuntimeVehicles));
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.characters", string.Format("%1", civilianCharacters), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.vehicles", string.Format("%1", civilianVehicles), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.traffic_vehicles", string.Format("%1", civilianTrafficVehicles), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.pedestrian_behavior", string.Format("%1", pedestrianBehavior), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.traffic_behavior", string.Format("%1", trafficBehavior), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.outside_radius", string.Format("%1", outsideRadius), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.movement_window_seconds", string.Format("%1", movementWindowSeconds), "seconds");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.moved_characters", string.Format("%1", bestMovedCharacters), "count");
@@ -19708,6 +19721,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.runtime_zone", "civilian service marks town as runtime-active with population", populationActual, CampaignDebugStatus(runtimePopulationActive), "civilian runtime update did not leave an active populated town runtime", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.character_count", "CIV character count equals capped town presence", populationActual, CampaignDebugStatus(civilianCharacters == expectedCharacters && civilianCharacters > 0), "civilian character runtime count does not match configured town presence/cap", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.vehicle_count", "civilian vehicles spawn when configured and stay within configured bounds", populationActual, CampaignDebugStatus(vehicleCountOk), "civilian vehicle runtime count outside configured bounds", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.traffic_count", "ambient civilian traffic vehicles match configured active-town count", populationActual, CampaignDebugStatus(trafficCountOk), "civilian traffic vehicle runtime count does not match configured count", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.pedestrian_behavior", "spawned civilian pedestrians receive AI group and cyclic wander helpers", behaviorActual, CampaignDebugStatus(pedestrianBehaviorOk), "civilian pedestrians spawned without behavior helpers", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.traffic_behavior", "spawned civilian traffic receives driver, AI group, and route helpers", behaviorActual, CampaignDebugStatus(trafficBehaviorOk), "civilian traffic vehicles spawned without driver/route helpers", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.civ_faction", "civilian characters/vehicles are tagged CIV and runtime kinds are known", populationActual, CampaignDebugStatus(civilianFactionOk && knownRuntimeKinds), "civilian runtime entities missing CIV faction tag or unknown runtime kind", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.positions", "runtime civilian entities stay inside town bubble radius", string.Format("outside %1/%2 | radius %3m", outsideRadius, totalRuntime, Math.Round(populationRadius)), CampaignDebugStatus(totalRuntime > 0 && outsideRadius == 0), "civilian runtime entities spawned outside the town bubble", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.movement_samples", "bounded civilian movement window records repeated samples and timeout evidence", movementActual + " | history " + ShortCampaignDebugLine(movementSampleHistory, 180), CampaignDebugStatus(movementActualSampleCount == movementSampleTargetCount && !movementSampleHistory.IsEmpty()), "civilian movement sample window did not record repeated sample evidence", "", "", zoneId);
@@ -20370,12 +20386,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool noMapGarrisonDisabled = forcesNoMapPayload.Contains("|Recruit FIA at map location|recruit_zone||false|map required") || forcesNoMapPayload.Contains("|Remove FIA garrison at map location|remove_garrison||false|map required");
 		bool petrosHidesHQMoveActions = !petrosPayload.Contains("|Move base to my position|move_hq_here|") && !petrosPayload.Contains("|Move HQ:") && !petrosPayload.Contains("|move_hq|");
 		bool mapTargetCursorLayered = HST_UIConstants.Z_MAP_TARGET_CURSOR > HST_UIConstants.Z_ACTION_DIALOG;
+		string compactMissionPayload = BuildCampaignDebugPhase23CompactMissionPayload();
+		int compactMissionRows = CountCampaignDebugPayloadToken(compactMissionPayload, "\nROW|active_missions|");
+		bool compactMissionTitles = compactMissionPayload.Contains("Phase23 Convoy Probe") && compactMissionPayload.Contains("Phase23 Hold Probe");
+		bool compactMissionNoDetailRows = !compactMissionPayload.Contains("\nROW|active_missions|Where|") && !compactMissionPayload.Contains("\nROW|active_missions|Timer|") && !compactMissionPayload.Contains("\nROW|active_missions|Marker|") && !compactMissionPayload.Contains("\nROW|active_missions|Runtime|") && !compactMissionPayload.Contains("\nROW|active_missions|Objective|") && !compactMissionPayload.Contains("\nROW|active_missions|Status|") && !compactMissionPayload.Contains("\nROW|active_missions|Next action|") && !compactMissionPayload.Contains("\nROW|active_missions|Failure|");
 		phaseCase.m_aEvidence.Insert("admin menu | " + ShortCampaignDebugLine(adminMenu, 260));
 		phaseCase.m_aEvidence.Insert("admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
 		phaseCase.m_aEvidence.Insert("petros payload | " + ShortCampaignDebugLine(petrosPayload, 260));
 		phaseCase.m_aEvidence.Insert("members payload | " + ShortCampaignDebugLine(membersPayload, 260));
 		phaseCase.m_aEvidence.Insert("forces map payload | " + ShortCampaignDebugLine(forcesWithMapPayload, 260));
 		phaseCase.m_aEvidence.Insert("forces no-map payload | " + ShortCampaignDebugLine(forcesNoMapPayload, 260));
+		phaseCase.m_aEvidence.Insert("missions compact payload | " + ShortCampaignDebugLine(compactMissionPayload, 260));
+		AddCampaignDebugMetric(phaseCase, "phase23.ui.active_mission_rows", string.Format("%1", compactMissionRows), "count");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.report_header", "coverage report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi UI coverage")), "Phase 23 UI coverage report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_visible", "no missing visible command detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing visible command:")), "Phase 23 UI coverage found missing visible commands");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_dispatch", "no missing dispatch detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing dispatch:")), "Phase 23 UI coverage found missing dispatch handlers");
@@ -20390,6 +20412,63 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_required_gate", "map-target actions are disabled without a map gadget", ShortCampaignDebugLine(forcesNoMapPayload, 220), CampaignDebugStatus(noMapSupportDisabled && noMapGarrisonDisabled), "Phase 23 Forces payload allows map-target actions when the player has no map");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_cursor_layer", "selected map-target cursor layer renders above action dialogs", string.Format("cursor z %1 | dialog z %2", HST_UIConstants.Z_MAP_TARGET_CURSOR, HST_UIConstants.Z_ACTION_DIALOG), CampaignDebugStatus(mapTargetCursorLayered), "Phase 23 map-target cursor layer is not above the action dialog layer");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_hq_move_menu_actions", "Petros menu hides HQ relocation actions", ShortCampaignDebugLine(petrosPayload, 220), CampaignDebugStatus(petrosHidesHQMoveActions), "Phase 23 Petros payload still exposes HQ move actions");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_compact_rows", "missions tab renders one compact active-mission row per mission", string.Format("rows %1 | titles %2 | payload %3", compactMissionRows, compactMissionTitles, ShortCampaignDebugLine(compactMissionPayload, 180)), CampaignDebugStatus(compactMissionRows == 2 && compactMissionTitles), "Phase 23 Missions payload did not render compact rows for the synthetic active missions");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_no_detail_rows", "missions tab active section omits expanded per-mission detail rows", ShortCampaignDebugLine(compactMissionPayload, 220), CampaignDebugStatus(compactMissionNoDetailRows), "Phase 23 Missions payload still includes expanded active-mission detail labels");
+	}
+
+	protected string BuildCampaignDebugPhase23CompactMissionPayload()
+	{
+		if (!m_CommandUI)
+			return "";
+
+		HST_CampaignState compactState = new HST_CampaignState();
+		compactState.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		compactState.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		compactState.m_sPresetId = "vanilla_everon";
+		compactState.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		compactState.m_bHQDeployed = true;
+		compactState.m_vHQPosition = "1000 0 1000";
+		compactState.m_vPetrosPosition = compactState.m_vHQPosition;
+		compactState.m_iFactionMoney = 1000;
+		compactState.m_iHR = 20;
+		compactState.m_iWarLevel = 2;
+		compactState.m_iTrainingLevel = 2;
+		compactState.m_aActiveMissions.Insert(BuildCampaignDebugPhase23Mission("phase23_compact_convoy", "Phase23 Convoy Probe", "convoy_intercept", "convoy_moving", 1180, "phase23_zone_a", "1200 0 1200"));
+		compactState.m_aActiveMissions.Insert(BuildCampaignDebugPhase23Mission("phase23_compact_hold", "Phase23 Hold Probe", "hold_area", "active", 640, "phase23_zone_b", "1250 0 1180"));
+		return m_CommandUI.BuildVisibleMenuPayload(compactState, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "missions", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
+	}
+
+	protected HST_ActiveMissionState BuildCampaignDebugPhase23Mission(string instanceId, string displayName, string primitive, string runtimePhase, int remainingSeconds, string zoneId, vector position)
+	{
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = instanceId;
+		mission.m_sMissionId = instanceId;
+		mission.m_sDisplayName = displayName;
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
+		mission.m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_STATE_MACHINE;
+		mission.m_sRuntimePrimitive = primitive;
+		mission.m_sRuntimePhase = runtimePhase;
+		mission.m_sRuntimeType = primitive;
+		mission.m_iRemainingSeconds = remainingSeconds;
+		mission.m_iStartedAtSecond = 10;
+		mission.m_iActiveUntilSecond = 10 + remainingSeconds;
+		mission.m_iRuntimeStartedAtSecond = 10;
+		mission.m_sTargetZoneId = zoneId;
+		mission.m_sSiteId = zoneId;
+		mission.m_sMarkerId = "hst_mission_" + instanceId;
+		mission.m_vTargetPosition = position;
+		mission.m_iRuntimeETASeconds = 180;
+		return mission;
+	}
+
+	protected int CountCampaignDebugPayloadToken(string payload, string token)
+	{
+		if (payload.IsEmpty() || token.IsEmpty())
+			return 0;
+
+		array<string> parts = {};
+		payload.Split(token, parts, false);
+		return Math.Max(0, parts.Count() - 1);
 	}
 
 	protected void AddCampaignDebugPhase23MarkerAuditAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
@@ -27750,12 +27829,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
-			DebugLog(string.Format("spawn sweep setup bootstrap reason=%1 hqDeployed=%2 commander=%3 players=%4", reason, m_State.m_bHQDeployed, m_State.m_sCommanderIdentityId, m_State.m_aPlayers.Count()));
 			int setupSpawnRequests;
 			int registrations = m_PlayerSpawn.PrepareSetupConnectedPlayers(m_State, m_Authorization, m_PlayerLifecycle, setupSpawnRequests, diagnostics);
+			if (diagnostics || registrations > 0 || setupSpawnRequests > 0)
+				DebugLog(string.Format("spawn sweep setup bootstrap reason=%1 hqDeployed=%2 commander=%3 players=%4 registrations=%5 requests=%6", reason, m_State.m_bHQDeployed, m_State.m_sCommanderIdentityId, m_State.m_aPlayers.Count(), registrations, setupSpawnRequests));
 			if (registrations > 0)
 				MarkMajorCampaignChange(false);
-			if (setupSpawnRequests > 0)
+			if (diagnostics && setupSpawnRequests > 0)
 				DebugLog(string.Format("setup bootstrap spawn requests=%1", setupSpawnRequests));
 			if (diagnostics && m_iSpawnDiagnosticsRemaining > 0)
 				m_iSpawnDiagnosticsRemaining--;
@@ -27765,7 +27845,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		int spawnRequests = m_PlayerSpawn.SpawnMissingConnectedPlayers(m_State, m_Authorization, m_PlayerLifecycle, diagnostics);
-		DebugLog(string.Format("spawn sweep active reason=%1 requested=%2 hq=%3 deployed=%4", reason, spawnRequests, m_State.m_vHQPosition, m_State.m_bHQDeployed));
+		if (diagnostics || spawnRequests > 0)
+			DebugLog(string.Format("spawn sweep active reason=%1 requested=%2 hq=%3 deployed=%4", reason, spawnRequests, m_State.m_vHQPosition, m_State.m_bHQDeployed));
 		if (diagnostics && m_iSpawnDiagnosticsRemaining > 0)
 			m_iSpawnDiagnosticsRemaining--;
 

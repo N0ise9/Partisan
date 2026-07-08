@@ -156,6 +156,7 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "civilianMaxActivePerTown", settings.m_Civilians.m_iMaxActivePerTown);
 			ApplyInt(line, "civilianVehicleMinPerTown", settings.m_Civilians.m_iCivilianVehicleMinPerTown);
 			ApplyInt(line, "civilianVehicleMaxPerTown", settings.m_Civilians.m_iCivilianVehicleMaxPerTown);
+			ApplyInt(line, "civilianDrivingVehicleCountPerTown", settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown);
 			ApplyInt(line, "occupierVehicleMinPerTown", settings.m_Civilians.m_iOccupierVehicleMinPerTown);
 			ApplyInt(line, "occupierVehicleMaxPerTown", settings.m_Civilians.m_iOccupierVehicleMaxPerTown);
 			ApplyInt(line, "autosaveIntervalSeconds", settings.m_Persistence.m_iAutosaveIntervalSeconds);
@@ -311,6 +312,13 @@ class HST_RuntimeSettingsService
 
 		if (settings.m_iSchemaVersion < 18)
 		{
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 19)
+		{
+			if (settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown <= 0)
+				settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown = 2;
 			changed = true;
 		}
 
@@ -628,6 +636,8 @@ class HST_RuntimeSettingsService
 		lines.Insert(string.Format("    \"civilianVehicleMinPerTown\": %1,", settings.m_Civilians.m_iCivilianVehicleMinPerTown));
 		lines.Insert("    \"_comment_civilianVehicleMaxPerTown\": \"Maximum civilian vehicles spawned or tracked per active town.\",");
 		lines.Insert(string.Format("    \"civilianVehicleMaxPerTown\": %1,", settings.m_Civilians.m_iCivilianVehicleMaxPerTown));
+		lines.Insert("    \"_comment_civilianDrivingVehicleCountPerTown\": \"Number of active civilian-driven traffic vehicles per active town. These vehicles despawn with their drivers after leaving the player render bubble.\",");
+		lines.Insert(string.Format("    \"civilianDrivingVehicleCountPerTown\": %1,", settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown));
 		lines.Insert("    \"_comment_occupierVehicleMinPerTown\": \"Minimum occupier security vehicles associated with active towns.\",");
 		lines.Insert(string.Format("    \"occupierVehicleMinPerTown\": %1,", settings.m_Civilians.m_iOccupierVehicleMinPerTown));
 		lines.Insert("    \"_comment_occupierVehicleMaxPerTown\": \"Maximum occupier security vehicles associated with active towns.\",");

@@ -4447,6 +4447,7 @@ foreach ($requiredSettingsEntry in @(
 		"showPlayerMapMarkers",
 		"infiniteStaminaEnabled",
 		"trackResistanceSupportGroupsOnMap",
+		"civilianDrivingVehicleCountPerTown",
 		"SetPlayerEventBubbleRadiusMeters",
 		"mission_category",
 		"populationOutcomeEnabled",
@@ -4459,8 +4460,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 18") {
-	throw "Runtime settings schema must be bumped to 18 for generated settings comments"
+if ($scriptText -notmatch "SCHEMA_VERSION = 19") {
+	throw "Runtime settings schema must be bumped to 19 for generated settings comments and civilian traffic settings"
 }
 if ($scriptText -match "m_sDefaultHideoutId" -or $scriptText -match '"defaultHideoutId"') {
 	throw "Runtime settings JSON must not expose defaultHideoutId after map-based HQ selection"
@@ -4470,6 +4471,7 @@ foreach ($requiredSettingsComment in @(
 		'\\"_comment_schemaVersion\\":',
 		'\\"_comment_startingFactionMoney\\":',
 		'\\"_comment_adminIdentityIds\\":',
+		'\\"_comment_civilianDrivingVehicleCountPerTown\\":',
 		'\\"_comment_debugLoggingEnabled\\":',
 		'\\"_comment_trackResistanceSupportGroupsOnMap\\":'
 	)) {

@@ -2008,16 +2008,7 @@ class HST_CommandUIService
 			if (AreMissionObjectivesComplete(state, mission))
 				continue;
 
-			string missionTitle = BuildMissionDisplayTitle(mission);
-			payload = AppendRow(payload, "active_missions", missionTitle, string.Format("%1 - %2", BuildMissionLocationLabel(state, mission), BuildMissionTimeLabel(mission)), MissionTone(mission));
-			payload = AppendRow(payload, "active_missions", "Where", BuildMissionLocationLabel(state, mission), "neutral");
-			payload = AppendRow(payload, "active_missions", "Timer", BuildMissionTimeLabel(mission), MissionTone(mission));
-			payload = AppendRow(payload, "active_missions", "Marker", ResolveMissionMarkerId(mission), "neutral");
-			payload = AppendRow(payload, "active_missions", "Runtime", string.Format("%1 / %2", mission.m_sRuntimePrimitive, mission.m_sRuntimePhase), "warn");
-			payload = AppendRow(payload, "active_missions", "Objective", BuildMissionInstruction(mission), "good");
-			payload = AppendRow(payload, "active_missions", "Status", BuildMissionProgressText(state, mission), MissionTone(mission));
-			payload = AppendRow(payload, "active_missions", "Next action", BuildMissionNextStepText(state, mission), "warn");
-			payload = AppendRow(payload, "active_missions", "Failure", EmptyLabel(mission.m_sRuntimeFailureReason), MissionFailureTone(mission));
+			payload = AppendRow(payload, "active_missions", ShortText(BuildMissionDisplayTitle(mission), 30), BuildCompactMissionRowText(state, mission), MissionTone(mission));
 		}
 		payload = AppendSection(payload, "objectives", "Objective State");
 		payload = AppendRow(payload, "objectives", "Active missions", string.Format("%1 visible", activeMissionCount), "warn");
@@ -2474,6 +2465,24 @@ class HST_CommandUIService
 		}
 
 		return payload;
+	}
+
+	protected string BuildCompactMissionRowText(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return "mission unavailable";
+
+		string value = string.Format("%1 | %2", BuildMissionLocationLabel(state, mission), BuildMissionTimeLabel(mission));
+		value = value + " | " + ShortText(BuildMissionProgressText(state, mission), 72);
+
+		string nextStep = BuildMissionNextStepText(state, mission);
+		if (!nextStep.IsEmpty())
+			value = value + " | next: " + ShortText(nextStep, 72);
+
+		if (!mission.m_sRuntimeFailureReason.IsEmpty())
+			value = value + " | issue: " + ShortText(mission.m_sRuntimeFailureReason, 48);
+
+		return value;
 	}
 
 	protected string AppendAdminSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, bool canUseAdmin, HST_ZoneCompositionService compositions = null)
