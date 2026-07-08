@@ -348,15 +348,6 @@ This file is for practical engine/script behavior, not project planning. Keep en
     influence ledger. Full Campaign Debug should keep
     `town_influence.ledger.runtime` proving aid, casualty, and security
     influence rows, strategic-event deltas, save-data roundtrip, and cleanup.
-  - Radio tower support drift should run from `HST_TownService` on the normal
-    income/resource cadence, not from a per-second civilian tick. Pick only the
-    nearest eligible owned radio tower per town in the bounded influence radius,
-    skip saturated rows that would not change support/reputation/heat, and route
-    the result through `HST_CivilianService.RegisterInfluenceEvent()` as
-    `radio_broadcast` so the same town influence and strategic-event ledgers
-    explain friendly and hostile broadcasts. Full Campaign Debug should keep
-    `town_influence.radio.runtime` proving cadence, both drift directions,
-    report visibility, save-data roundtrip, and isolated fixture cleanup.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.

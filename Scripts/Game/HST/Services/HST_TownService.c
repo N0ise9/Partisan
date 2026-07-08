@@ -1,20 +1,7 @@
 class HST_TownService
 {
-	static const float RADIO_TOWN_INFLUENCE_RADIUS_METERS = 1800.0;
-	static const int RADIO_RESISTANCE_FIA_SUPPORT_DELTA = 2;
-	static const int RADIO_RESISTANCE_OCCUPIER_SUPPORT_DELTA = -1;
-	static const int RADIO_RESISTANCE_REPUTATION_DELTA = 1;
-	static const int RADIO_RESISTANCE_HEAT_DELTA = -1;
-	static const int RADIO_ENEMY_FIA_SUPPORT_DELTA = -1;
-	static const int RADIO_ENEMY_OCCUPIER_SUPPORT_DELTA = 2;
-	static const int RADIO_ENEMY_REPUTATION_DELTA = -1;
-	static const int RADIO_ENEMY_HEAT_DELTA = 1;
-
-	protected bool m_bLastRadioInfluenceChanged;
-
-	int TickIncome(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, HST_CampaignPreset preset, int elapsedSeconds, HST_CivilianService civilians = null)
+	int TickIncome(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, HST_CampaignPreset preset, int elapsedSeconds)
 	{
-		m_bLastRadioInfluenceChanged = false;
 		if (!state || !economy || !balance || !preset || elapsedSeconds <= 0)
 			return 0;
 
@@ -26,28 +13,18 @@ class HST_TownService
 		int income = CalculateResistanceIncome(state, preset.m_sResistanceFactionKey);
 		economy.AddFactionMoney(state, income);
 		economy.AddHR(state, CalculateResistanceHRIncome(state, preset.m_sResistanceFactionKey));
-		m_bLastRadioInfluenceChanged = ApplyRadioTowerInfluence(state, preset, civilians);
 		return income;
 	}
 
-	int ApplyIncomeNow(HST_CampaignState state, HST_EconomyService economy, HST_CampaignPreset preset, HST_CivilianService civilians = null)
+	int ApplyIncomeNow(HST_CampaignState state, HST_EconomyService economy, HST_CampaignPreset preset)
 	{
-		m_bLastRadioInfluenceChanged = false;
 		if (!state || !economy || !preset)
 			return 0;
 
 		int income = CalculateResistanceIncome(state, preset.m_sResistanceFactionKey);
 		economy.AddFactionMoney(state, income);
 		economy.AddHR(state, CalculateResistanceHRIncome(state, preset.m_sResistanceFactionKey));
-		m_bLastRadioInfluenceChanged = ApplyRadioTowerInfluence(state, preset, civilians);
 		return income;
-	}
-
-	bool ConsumeRadioInfluenceChanged()
-	{
-		bool changed = m_bLastRadioInfluenceChanged;
-		m_bLastRadioInfluenceChanged = false;
-		return changed;
 	}
 
 	bool AddSupport(HST_CampaignState state, string zoneId, int amount)
@@ -87,27 +64,6 @@ class HST_TownService
 				ResolveZoneHRIncome(zone)
 			);
 		}
-
-		report = report + string.Format("\nradio influence | radius %1m | one nearest owned tower per town per income tick", Math.Round(RADIO_TOWN_INFLUENCE_RADIUS_METERS));
-		int radioRows;
-		foreach (HST_ZoneState townZone : state.m_aZones)
-		{
-			if (!townZone || townZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
-				continue;
-
-			HST_ZoneState radioZone = FindNearestEligibleRadioTower(state, preset, townZone);
-			if (!radioZone)
-				continue;
-
-			radioRows++;
-			string effect = "enemy pressure";
-			if (HST_FactionRelationService.IsResistanceFaction(preset, radioZone.m_sOwnerFactionKey))
-				effect = "resistance support";
-			report = report + string.Format("\n%1 <- %2 | owner %3 | %4", townZone.m_sZoneId, radioZone.m_sZoneId, radioZone.m_sOwnerFactionKey, effect);
-		}
-
-		if (radioRows == 0)
-			report = report + "\nno towns in radio influence range";
 
 		return report;
 	}
@@ -170,117 +126,5 @@ class HST_TownService
 			income += 50;
 
 		return income;
-	}
-
-	protected bool ApplyRadioTowerInfluence(HST_CampaignState state, HST_CampaignPreset preset, HST_CivilianService civilians)
-	{
-		if (!state || !preset || !civilians)
-			return false;
-
-		civilians.EnsureCivilianZones(state);
-		bool changed;
-		foreach (HST_ZoneState townZone : state.m_aZones)
-		{
-			if (!townZone || townZone.m_eType != HST_EZoneType.HST_ZONE_TOWN || townZone.m_sZoneId.IsEmpty())
-				continue;
-
-			HST_CivilianZoneState civilianZone = state.FindCivilianZone(townZone.m_sZoneId);
-			if (!civilianZone)
-				continue;
-
-			HST_ZoneState radioZone = FindNearestEligibleRadioTower(state, preset, townZone);
-			if (!radioZone)
-				continue;
-
-			int fiaDelta;
-			int occupierDelta;
-			int reputationDelta;
-			int heatDelta;
-			string reason;
-			if (HST_FactionRelationService.IsResistanceFaction(preset, radioZone.m_sOwnerFactionKey))
-			{
-				fiaDelta = RADIO_RESISTANCE_FIA_SUPPORT_DELTA;
-				occupierDelta = RADIO_RESISTANCE_OCCUPIER_SUPPORT_DELTA;
-				reputationDelta = RADIO_RESISTANCE_REPUTATION_DELTA;
-				heatDelta = RADIO_RESISTANCE_HEAT_DELTA;
-				reason = "resistance broadcast from " + ResolveRadioInfluenceLabel(radioZone);
-			}
-			else if (HST_FactionRelationService.IsEnemyFaction(preset, radioZone.m_sOwnerFactionKey))
-			{
-				fiaDelta = RADIO_ENEMY_FIA_SUPPORT_DELTA;
-				occupierDelta = RADIO_ENEMY_OCCUPIER_SUPPORT_DELTA;
-				reputationDelta = RADIO_ENEMY_REPUTATION_DELTA;
-				heatDelta = RADIO_ENEMY_HEAT_DELTA;
-				reason = "enemy broadcast from " + ResolveRadioInfluenceLabel(radioZone);
-			}
-			else
-			{
-				continue;
-			}
-
-			if (!WouldRadioInfluenceChange(civilianZone, fiaDelta, occupierDelta, reputationDelta, heatDelta))
-				continue;
-
-			if (civilians.RegisterInfluenceEvent(state, townZone.m_sZoneId, "radio_broadcast", fiaDelta, occupierDelta, reputationDelta, heatDelta, 0, 0, 0, reason, preset, 0, radioZone.m_sZoneId))
-				changed = true;
-		}
-
-		return changed;
-	}
-
-	protected HST_ZoneState FindNearestEligibleRadioTower(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState townZone)
-	{
-		if (!state || !preset || !townZone)
-			return null;
-
-		float radiusSq = RADIO_TOWN_INFLUENCE_RADIUS_METERS * RADIO_TOWN_INFLUENCE_RADIUS_METERS;
-		float bestSq = radiusSq + 1.0;
-		HST_ZoneState bestRadio;
-		foreach (HST_ZoneState radioZone : state.m_aZones)
-		{
-			if (!radioZone || radioZone.m_eType != HST_EZoneType.HST_ZONE_RADIO_TOWER)
-				continue;
-			if (!HST_FactionRelationService.IsResistanceFaction(preset, radioZone.m_sOwnerFactionKey) && !HST_FactionRelationService.IsEnemyFaction(preset, radioZone.m_sOwnerFactionKey))
-				continue;
-
-			float distanceSq = DistanceSq2D(townZone.m_vPosition, radioZone.m_vPosition);
-			if (distanceSq > radiusSq || distanceSq >= bestSq)
-				continue;
-
-			bestSq = distanceSq;
-			bestRadio = radioZone;
-		}
-
-		return bestRadio;
-	}
-
-	protected bool WouldRadioInfluenceChange(HST_CivilianZoneState civilianZone, int fiaDelta, int occupierDelta, int reputationDelta, int heatDelta)
-	{
-		if (!civilianZone)
-			return false;
-
-		int nextFIA = Math.Max(0, Math.Min(100, civilianZone.m_iFIASupport + fiaDelta));
-		int nextOccupier = Math.Max(0, Math.Min(100, civilianZone.m_iOccupierSupport + occupierDelta));
-		int nextReputation = Math.Max(0, Math.Min(100, civilianZone.m_iReputation + reputationDelta));
-		int nextHeat = Math.Max(0, civilianZone.m_iWantedHeat + heatDelta);
-		return nextFIA != civilianZone.m_iFIASupport || nextOccupier != civilianZone.m_iOccupierSupport || nextReputation != civilianZone.m_iReputation || nextHeat != civilianZone.m_iWantedHeat;
-	}
-
-	protected string ResolveRadioInfluenceLabel(HST_ZoneState radioZone)
-	{
-		if (!radioZone)
-			return "radio tower";
-		if (!radioZone.m_sDisplayName.IsEmpty())
-			return radioZone.m_sDisplayName;
-		if (!radioZone.m_sZoneId.IsEmpty())
-			return radioZone.m_sZoneId;
-		return "radio tower";
-	}
-
-	protected float DistanceSq2D(vector first, vector second)
-	{
-		float dx = first[0] - second[0];
-		float dz = first[2] - second[2];
-		return dx * dx + dz * dz;
 	}
 }
