@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r106-map-open-gate-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r107-transfer-choice-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -8582,16 +8582,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool cleanupVisible = adminPayload.Contains("|admin_campaign_debug_cleanup|");
 		bool commanderTransferChooserVisible = membersPayload.Contains("|Transfer commander|member_promote_commander_choose|");
 		bool commanderTransferSingleButton = commanderTransferChooserVisible && !membersPayload.Contains("Make commander:") && !membersPayload.Contains("|member_promote_commander|");
+		string transferStressPayload = BuildCampaignDebugPhase23CommanderTransferStressPayload();
+		string transferStressArgument = ExtractCampaignDebugCommanderTransferChoiceArgument(transferStressPayload);
+		int transferStressChoiceCount = CountCampaignDebugChoiceArgumentEntries(transferStressArgument);
+		bool transferStressSingleButton = transferStressPayload.Contains("|Transfer commander|member_promote_commander_choose|") && !transferStressPayload.Contains("Make commander:") && !transferStressPayload.Contains("|member_promote_commander|");
 		bool memberPayloadHidesBackendIds = CampaignDebugMembersPayloadHidesIdentityTokens(membersPayload);
 		bool adminForceCommanderVisible = adminPayload.Contains("|Force myself commander|admin_force_self_commander|");
 		bool coverageComplete = !coverageReport.Contains("missing visible command: admin_run_campaign_debug") && !coverageReport.Contains("missing dispatch: admin_run_campaign_debug") && !coverageReport.Contains("missing visible command: admin_campaign_debug_status") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_status") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cancel") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cancel") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cleanup") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cleanup") && !coverageReport.Contains("missing visible command: member_promote_commander_choose") && !coverageReport.Contains("missing dispatch: member_promote_commander_choose") && !coverageReport.Contains("missing visible command: member_promote_commander") && !coverageReport.Contains("missing dispatch: member_promote_commander") && !coverageReport.Contains("missing visible command: admin_force_self_commander") && !coverageReport.Contains("missing dispatch: admin_force_self_commander");
 
 		hqCase.m_aEvidence.Insert("command UI admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
 		hqCase.m_aEvidence.Insert("command UI members payload | " + ShortCampaignDebugLine(membersPayload, 260));
+		hqCase.m_aEvidence.Insert("command UI members transfer stress payload | " + ShortCampaignDebugLine(transferStressPayload, 260));
 		hqCase.m_aEvidence.Insert("command UI coverage | " + ShortCampaignDebugLine(coverageReport, 260));
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.admin_payload", "admin menu exposes campaign debug start/status/cancel/cleanup while run is active", string.Format("run %1 | status %2 | cancel %3 | cleanup %4", runVisible, statusVisible, cancelVisible, cleanupVisible), CampaignDebugStatus(runVisible && statusVisible && cancelVisible && cleanupVisible), "campaign debug controls are missing from the active admin menu payload");
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.member_names", "members menu uses player names and hides backend identity tokens", ShortCampaignDebugLine(membersPayload, 220), CampaignDebugStatus(memberPayloadHidesBackendIds), "members menu payload still exposes backend identity tokens");
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.member_transfer_chooser", "members menu exposes one selectable commander-transfer chooser action", string.Format("chooser %1 | single %2", commanderTransferChooserVisible, commanderTransferSingleButton), CampaignDebugStatus(commanderTransferChooserVisible && commanderTransferSingleButton), "members menu is missing the commander-transfer chooser or still exposes direct per-target transfer rows");
+		AddCampaignDebugAssertion(hqCase, "hq.command_menu.member_transfer_choice_count", "commander-transfer chooser carries more than six selectable member choices", string.Format("choices %1 | single %2 | argument %3", transferStressChoiceCount, transferStressSingleButton, ShortCampaignDebugLine(transferStressArgument, 180)), CampaignDebugStatus(transferStressChoiceCount >= 8 && transferStressSingleButton), "commander-transfer chooser is capped at six choices or fell back to direct per-target rows");
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.admin_force_commander", "admin menu exposes force-self commander action", string.Format("%1", adminForceCommanderVisible), CampaignDebugStatus(adminForceCommanderVisible), "admin menu is missing force-self commander action");
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.coverage", "campaign debug visible commands have dispatch coverage", ShortCampaignDebugLine(coverageReport, 220), CampaignDebugStatus(m_CommandUI != null && coverageComplete), "campaign debug command coverage is missing visible command or dispatch entries");
 	}
@@ -21246,6 +21252,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string forcesRecallPayload = BuildCampaignDebugPhase23SupportRecallPayload();
 		bool commanderTransferChooserVisible = membersPayload.Contains("|Transfer commander|member_promote_commander_choose|");
 		bool commanderTransferSingleButton = commanderTransferChooserVisible && !membersPayload.Contains("Make commander:") && !membersPayload.Contains("|member_promote_commander|");
+		string transferStressPayload = BuildCampaignDebugPhase23CommanderTransferStressPayload();
+		string transferStressArgument = ExtractCampaignDebugCommanderTransferChoiceArgument(transferStressPayload);
+		int transferStressChoiceCount = CountCampaignDebugChoiceArgumentEntries(transferStressArgument);
+		bool transferStressSingleButton = transferStressPayload.Contains("|Transfer commander|member_promote_commander_choose|") && !transferStressPayload.Contains("Make commander:") && !transferStressPayload.Contains("|member_promote_commander|");
 		bool memberPayloadHidesBackendIds = CampaignDebugMembersPayloadHidesIdentityTokens(membersPayload);
 		bool adminForceCommanderVisible = adminPayload.Contains("|Force myself commander|admin_force_self_commander|");
 		bool mapTargetSupportVisible = forcesWithMapPayload.Contains("|support_qrf||true|") && forcesWithMapPayload.Contains("|call_supply||true|") && forcesWithMapPayload.Contains("|support_search||true|");
@@ -21266,6 +21276,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		phaseCase.m_aEvidence.Insert("admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
 		phaseCase.m_aEvidence.Insert("petros payload | " + ShortCampaignDebugLine(petrosPayload, 260));
 		phaseCase.m_aEvidence.Insert("members payload | " + ShortCampaignDebugLine(membersPayload, 260));
+		phaseCase.m_aEvidence.Insert("members transfer stress payload | " + ShortCampaignDebugLine(transferStressPayload, 320));
 		phaseCase.m_aEvidence.Insert("forces map payload | " + ShortCampaignDebugLine(forcesWithMapPayload, 260));
 		phaseCase.m_aEvidence.Insert("forces no-map payload | " + ShortCampaignDebugLine(forcesNoMapPayload, 260));
 		phaseCase.m_aEvidence.Insert("forces recall payload | " + ShortCampaignDebugLine(forcesRecallPayload, 260));
@@ -21278,6 +21289,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.debug_controls", "admin menu exposes campaign debug run/status/cancel/cleanup", ShortCampaignDebugLine(adminMenu, 220), CampaignDebugStatus(adminMenu.Contains("admin_run_campaign_debug") && adminMenu.Contains("admin_campaign_debug_status") && adminMenu.Contains("admin_campaign_debug_cancel") && adminMenu.Contains("admin_campaign_debug_cleanup")), "Phase 23 admin menu is missing campaign debug controls");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.member_names", "members menu uses player names and hides backend identity tokens", ShortCampaignDebugLine(membersPayload, 220), CampaignDebugStatus(memberPayloadHidesBackendIds), "Phase 23 members payload still exposes backend identity tokens");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.member_transfer_chooser", "members menu exposes one selectable commander-transfer chooser action", string.Format("chooser %1 | single %2", commanderTransferChooserVisible, commanderTransferSingleButton), CampaignDebugStatus(commanderTransferChooserVisible && commanderTransferSingleButton), "Phase 23 members payload is missing the commander-transfer chooser or still exposes direct per-target transfer rows");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.member_transfer_choice_count", "commander-transfer chooser carries more than six selectable member choices", string.Format("choices %1 | single %2 | argument %3", transferStressChoiceCount, transferStressSingleButton, ShortCampaignDebugLine(transferStressArgument, 180)), CampaignDebugStatus(transferStressChoiceCount >= 8 && transferStressSingleButton), "Phase 23 commander-transfer chooser is capped at six choices or fell back to direct per-target rows");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.admin_force_commander", "admin menu exposes force-self commander action", string.Format("%1", adminForceCommanderVisible), CampaignDebugStatus(adminForceCommanderVisible), "Phase 23 admin payload is missing force-self commander action");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.phase23_controls", "admin menu exposes Phase 23 marker/UI controls", ShortCampaignDebugLine(adminMenu, 220), CampaignDebugStatus(adminMenu.Contains("admin_phase23_ui_coverage") && adminMenu.Contains("admin_phase23_marker_audit") && adminMenu.Contains("admin_marker_native_report") && adminMenu.Contains("admin_purge_hst_native_markers") && adminMenu.Contains("admin_phase23_failed_action_sample")), "Phase 23 admin menu is missing Phase 23 controls");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_support_actions", "Forces support actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetSupportVisible), "Phase 23 Forces payload is missing map-target support actions");
@@ -21290,6 +21302,82 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_hq_move_menu_actions", "Petros menu hides HQ relocation actions", ShortCampaignDebugLine(petrosPayload, 220), CampaignDebugStatus(petrosHidesHQMoveActions), "Phase 23 Petros payload still exposes HQ move actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_compact_rows", "missions tab renders one compact active-mission row per mission", string.Format("rows %1 | titles %2 | payload %3", compactMissionRows, compactMissionTitles, ShortCampaignDebugLine(compactMissionPayload, 180)), CampaignDebugStatus(compactMissionRows == 2 && compactMissionTitles), "Phase 23 Missions payload did not render compact rows for the synthetic active missions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_no_detail_rows", "missions tab active section omits expanded per-mission detail rows", ShortCampaignDebugLine(compactMissionPayload, 220), CampaignDebugStatus(compactMissionNoDetailRows), "Phase 23 Missions payload still includes expanded active-mission detail labels");
+	}
+
+	protected string BuildCampaignDebugPhase23CommanderTransferStressPayload()
+	{
+		if (!m_CommandUI)
+			return "";
+
+		HST_CampaignState transferState = new HST_CampaignState();
+		transferState.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		transferState.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		transferState.m_sPresetId = "vanilla_everon";
+		transferState.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		transferState.m_bHQDeployed = true;
+		transferState.m_vHQPosition = "1000 0 1000";
+		transferState.m_vPetrosPosition = transferState.m_vHQPosition;
+		transferState.m_iFactionMoney = 1000;
+		transferState.m_iHR = 20;
+		transferState.m_iWarLevel = 2;
+		transferState.m_iTrainingLevel = 2;
+		transferState.m_sCommanderIdentityId = "phase23_commander";
+		transferState.m_aPlayers.Insert(BuildCampaignDebugPhase23TransferPlayer("phase23_commander", "Debug Commander", m_iCampaignDebugPlayerId, true, true));
+		for (int i = 1; i <= 8; i++)
+			transferState.m_aPlayers.Insert(BuildCampaignDebugPhase23TransferPlayer(string.Format("phase23_transfer_target_%1", i), string.Format("Debug Member %1", i), 9000 + i, true, false));
+
+		return m_CommandUI.BuildVisibleMenuPayload(transferState, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "members", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
+	}
+
+	protected HST_PlayerState BuildCampaignDebugPhase23TransferPlayer(string identityId, string displayName, int playerId, bool member, bool admin)
+	{
+		HST_PlayerState player = new HST_PlayerState();
+		player.m_sIdentityId = identityId;
+		player.m_sDisplayName = displayName;
+		player.m_sFactionKey = "FIA";
+		player.m_bMember = member;
+		player.m_bAdmin = admin;
+		player.m_bGuest = !member;
+		player.m_iLastSeenPlayerId = playerId;
+		return player;
+	}
+
+	protected string ExtractCampaignDebugCommanderTransferChoiceArgument(string payload)
+	{
+		if (payload.IsEmpty())
+			return "";
+
+		array<string> lines = {};
+		payload.Split("\n", lines, false);
+		foreach (string line : lines)
+		{
+			if (!line.StartsWith("ACTION|members|Transfer commander|member_promote_commander_choose|"))
+				continue;
+
+			array<string> fields = {};
+			line.Split("|", fields, false);
+			if (fields.Count() > 4)
+				return fields[4];
+		}
+
+		return "";
+	}
+
+	protected int CountCampaignDebugChoiceArgumentEntries(string argument)
+	{
+		if (argument.IsEmpty())
+			return 0;
+
+		array<string> choices = {};
+		argument.Split(";", choices, true);
+		int count;
+		foreach (string choice : choices)
+		{
+			if (choice.Contains("~"))
+				count++;
+		}
+
+		return count;
 	}
 
 	protected string BuildCampaignDebugPhase23CompactMissionPayload()
