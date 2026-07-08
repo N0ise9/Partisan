@@ -252,6 +252,33 @@ class HST_StrategicService
 		return result;
 	}
 
+	HST_StrategicEventApplyResult BeginSupportNearHQEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
+	{
+		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
+		if (!state || !request)
+		{
+			result.m_sReason = "state or support request not ready";
+			return result;
+		}
+
+		HST_StrategicEventState eventState = new HST_StrategicEventState();
+		eventState.m_sKind = "support_near_hq";
+		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		eventState.m_sSourceType = "support_request";
+		eventState.m_sSourceId = request.m_sRequestId;
+		eventState.m_sTargetZoneId = request.m_sTargetZoneId;
+		eventState.m_sTargetFactionKey = request.m_sFactionKey;
+		eventState.m_sReason = "hostile support near HQ: " + request.m_sRequestId;
+		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
+
+		result.m_Event = eventState;
+		result.m_sEventId = eventState.m_sEventId;
+		result.m_bRecorded = true;
+		state.m_aStrategicEvents.Insert(eventState);
+		CaptureStrategicEventBefore(state, eventState);
+		return result;
+	}
+
 	bool SetZoneOwner(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, string factionKey, string resistanceFactionKey = "FIA")
 	{
 		HST_ZoneState zone = state.FindZone(zoneId);

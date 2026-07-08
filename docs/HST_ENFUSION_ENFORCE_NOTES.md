@@ -287,6 +287,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
     changes. Full Campaign Debug should keep an isolated convoy delivery proof
     that asserts the asset flag, HR/support deltas, strategic-event row, save
     roundtrip, and cleanup.
+  - Hostile support resolved near HQ should use
+    `HST_StrategicService.BeginSupportNearHQEvent()` before applying the HQ
+    knowledge gain, then complete the event after `HST_HQService.AddHQKnowledge()`.
+    Keep the radius modest at 700m and the default knowledge gain at 4 so support
+    activity near HQ is explainable without making every nearby support action a
+    fast Defend Petros trigger. Full Campaign Debug should keep an isolated
+    `support_near_hq.strategic_event.contract.runtime` proof that asserts support
+    resolution, garrison outcome, HQ-knowledge delta, strategic-event row, save
+    roundtrip, and cleanup.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.

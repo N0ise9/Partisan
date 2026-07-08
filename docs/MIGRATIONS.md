@@ -5,9 +5,10 @@
 `HST_CampaignState.SCHEMA_VERSION` is currently `37`.
 
 - Schema 37 adds the durable strategic-event ledger so mission success/failure,
-  mission-expiry, convoy-outcome, and zone-capture consequence rows preserve source identity, target
-  zone/faction, applied status, before/after owner fields, and money/HR/support/
-  capture/aggression/resource/HQ-knowledge deltas across save-data roundtrips.
+  mission-expiry, convoy-outcome, zone-capture, and support-near-HQ consequence
+  rows preserve source identity, target zone/faction, applied status,
+  before/after owner fields, and money/HR/support/capture/aggression/resource/
+  HQ-knowledge deltas across save-data roundtrips.
 - Schema 36 adds the selected active-group vehicle prefab so mixed
   infantry/vehicle response groups can respawn the same vehicle choice after a
   save/load roundtrip.
@@ -110,14 +111,15 @@ Resistance support group marker tracking.
 Strategic event ledger.
 
 - `HST_CampaignState.SCHEMA_VERSION` is `37`.
-- `HST_StrategicEventState` records durable mission outcome and zone-capture
-  consequences with event kind, source/mission ids, target zone/faction,
-  applied status, summary, before/after owner fields, and deltas for money, HR,
-  town support, capture progress, aggression, attack/support resources, and HQ
-  knowledge.
+- `HST_StrategicEventState` records durable mission outcome, convoy outcome,
+  zone-capture, and support-near-HQ consequences with event kind,
+  source/mission ids, target zone/faction, applied status, summary,
+  before/after owner fields, and deltas for money, HR, town support, capture
+  progress, aggression, attack/support resources, and HQ knowledge.
 - Existing schema-36 and older saves load with an empty strategic-event ledger;
-  new mission success/failure outcomes and resistance zone captures append rows
-  when they are applied.
+  new mission success/failure outcomes, mission expiry, convoy outcomes,
+  resistance zone captures, and hostile support-near-HQ knowledge changes append
+  rows when they are applied.
 
 ## Schema 36
 

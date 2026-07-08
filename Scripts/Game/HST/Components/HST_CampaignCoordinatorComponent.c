@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r97-convoy-outcome-strategic-event";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r98-support-near-hq-strategic-event";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -465,7 +465,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool civilianChanged = m_Civilians.Tick(m_State, elapsedSeconds);
 		bool undercoverEnforcementChanged = TickUndercoverEnforcement();
-		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
+		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar, m_Strategic, m_HQ);
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
 		bool petrosRelocationChanged = TickPetrosRelocation();
 		bool hqThreatChanged = m_HQ.TickHQThreat(m_State, m_Preset);
@@ -6354,6 +6354,147 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return convoyCase;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportNearHQStrategicEventCase()
+	{
+		HST_CampaignDebugCaseResult supportCase = CreateCampaignDebugCase("support_near_hq.strategic_event.contract.runtime", "support", "support_near_hq", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_SupportRequests != null && m_Strategic != null && m_HQ != null && m_Garrisons != null;
+		AddCampaignDebugAssertion(supportCase, "support_near_hq.prerequisite", "state, preset, support, strategic, HQ, and garrison services ready", string.Format("state %1 | preset %2 | support %3 | strategic %4 | HQ %5 | garrisons %6", m_State != null, m_Preset != null, m_SupportRequests != null, m_Strategic != null, m_HQ != null, m_Garrisons != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "support-near-HQ prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(supportCase);
+			return supportCase;
+		}
+
+		HST_CampaignSaveData proofSaveData = new HST_CampaignSaveData();
+		proofSaveData.Capture(m_State);
+		HST_CampaignState proofState = new HST_CampaignState();
+		proofSaveData.ApplyTo(proofState);
+
+		string factionKey = ResolveCampaignDebugEnemySupportFactionKey();
+		bool targetReady = !factionKey.IsEmpty() && !m_Preset.m_sResistanceFactionKey.IsEmpty() && !IsZeroVector(proofState.m_vHQPosition);
+		AddCampaignDebugAssertion(supportCase, "support_near_hq.target", "enemy faction and deployed HQ position available in isolated proof state", string.Format("faction %1 | HQ %2 | resistance %3", EmptyCampaignDebugField(factionKey), proofState.m_vHQPosition, EmptyCampaignDebugField(m_Preset.m_sResistanceFactionKey)), CampaignDebugStatus(targetReady, "BLOCKED"), "support-near-HQ target setup missing");
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(supportCase);
+			return supportCase;
+		}
+
+		string requestId = ResolveCampaignDebugCleanupPrefix() + "_support_near_hq";
+		string zoneId = ResolveCampaignDebugCleanupPrefix() + "_support_near_hq_zone";
+		RemoveCampaignDebugSupportRequestFromState(proofState, requestId);
+		RemoveCampaignDebugGarrisonsForZoneFromState(proofState, zoneId);
+		RemoveCampaignDebugZoneFromState(proofState, zoneId);
+		RemoveCampaignDebugStrategicEventsForSourceFromState(proofState, requestId);
+
+		int supportCountBefore = proofState.m_aSupportRequests.Count();
+		int zoneCountBefore = proofState.m_aZones.Count();
+		int garrisonCountBefore = proofState.m_aGarrisons.Count();
+		int strategicEventCountBefore = proofState.m_aStrategicEvents.Count();
+		int knowledgeBefore = 0;
+		int threatBefore = 0;
+		int originalKnowledge = proofState.m_iHQKnowledge;
+		int originalThreat = proofState.m_iHQThreatLevel;
+		int originalKnowledgeChangedSecond = proofState.m_iHQKnowledgeLastChangedSecond;
+		string originalKnowledgeReason = proofState.m_sLastHQKnowledgeReason;
+		proofState.m_iHQKnowledge = knowledgeBefore;
+		proofState.m_iHQThreatLevel = threatBefore;
+		proofState.m_iHQKnowledgeLastChangedSecond = 0;
+		proofState.m_sLastHQKnowledgeReason = "";
+
+		vector targetPosition = proofState.m_vHQPosition;
+		targetPosition[0] = targetPosition[0] + 420.0;
+		HST_ZoneState targetZone = new HST_ZoneState();
+		targetZone.m_sZoneId = zoneId;
+		targetZone.m_sDisplayName = "Support Near HQ Debug Zone";
+		targetZone.m_sOwnerFactionKey = factionKey;
+		targetZone.m_eType = HST_EZoneType.HST_ZONE_OUTPOST;
+		targetZone.m_vPosition = targetPosition;
+		targetZone.m_iGarrisonSlots = 12;
+		targetZone.m_iActivationRadiusMeters = 250;
+		targetZone.m_iCaptureRadiusMeters = 90;
+		targetZone.m_bActive = false;
+		proofState.m_aZones.Insert(targetZone);
+
+		HST_SupportRequestState request = new HST_SupportRequestState();
+		request.m_sRequestId = requestId;
+		request.m_sFactionKey = factionKey;
+		request.m_eType = HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP;
+		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+		request.m_sSourceZoneId = zoneId;
+		request.m_sTargetZoneId = zoneId;
+		request.m_vSourcePosition = targetPosition;
+		request.m_vTargetPosition = targetPosition;
+		request.m_iRequestedAtSecond = proofState.m_iElapsedSeconds - 120;
+		request.m_iETASeconds = 120;
+		request.m_sRuntimeStatus = "queued";
+		proofState.m_aSupportRequests.Insert(request);
+
+		AddCampaignDebugMetric(supportCase, "support_near_hq.support_before", string.Format("%1", supportCountBefore), "count");
+		AddCampaignDebugMetric(supportCase, "support_near_hq.events_before", string.Format("%1", strategicEventCountBefore), "count");
+		AddCampaignDebugAssertion(supportCase, "support_near_hq.seed", "debug hostile support request targets inside the HQ knowledge radius", BuildCampaignDebugSupportRequestActual(request), CampaignDebugStatus(proofState.FindSupportRequest(requestId) != null && DistanceSq2D(proofState.m_vHQPosition, targetPosition) <= 700.0 * 700.0), "support-near-HQ fixture was not seeded near HQ", requestId, "", zoneId);
+
+		bool tickChanged = m_SupportRequests.Tick(proofState, m_Preset, m_Garrisons, m_PhysicalWar, m_Strategic, m_HQ);
+		HST_SupportRequestState resolvedRequest = proofState.FindSupportRequest(requestId);
+		HST_GarrisonState targetGarrison = proofState.FindGarrison(zoneId, factionKey);
+		HST_StrategicEventState strategicEvent = FindCampaignDebugStrategicEventForSourceInState(proofState, requestId, "support_near_hq");
+		int expectedKnowledgeAfter = knowledgeBefore + 4;
+		string knowledgeActual = string.Format("tick %1 | knowledge %2 -> %3 expected %4 | threat %5 -> %6 | reason %7", tickChanged, knowledgeBefore, proofState.m_iHQKnowledge, expectedKnowledgeAfter, threatBefore, proofState.m_iHQThreatLevel, EmptyCampaignDebugField(proofState.m_sLastHQKnowledgeReason));
+		AddCampaignDebugAssertion(supportCase, "support_near_hq.resolution", "hostile support resolves through the real support service", BuildCampaignDebugSupportRequestActual(resolvedRequest) + " | garrison [" + BuildCampaignDebugGarrisonActual(targetGarrison) + "]", CampaignDebugStatus(tickChanged && resolvedRequest && resolvedRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && resolvedRequest.m_bOutcomeApplied && resolvedRequest.m_sResolutionKind == "abstract_enemy_supply" && targetGarrison && targetGarrison.m_iInfantryCount >= 1), "support-near-HQ request did not resolve through the enemy supply branch", requestId, "", zoneId);
+		AddCampaignDebugAssertion(supportCase, "support_near_hq.knowledge", "hostile support near HQ applies a modest HQ knowledge gain", knowledgeActual, CampaignDebugStatus(proofState.m_iHQKnowledge == expectedKnowledgeAfter && proofState.m_iHQThreatLevel >= expectedKnowledgeAfter && proofState.m_sLastHQKnowledgeReason.Contains(requestId)), "support near HQ did not apply expected HQ knowledge", requestId, "", zoneId);
+		bool strategicEventExpected = strategicEvent
+			&& proofState.m_aStrategicEvents.Count() == strategicEventCountBefore + 1
+			&& strategicEvent.m_bApplied
+			&& strategicEvent.m_sKind == "support_near_hq"
+			&& strategicEvent.m_sSourceType == "support_request"
+			&& strategicEvent.m_sSourceId == requestId
+			&& strategicEvent.m_iHQKnowledgeDelta == 4
+			&& strategicEvent.m_sTargetZoneId == zoneId
+			&& strategicEvent.m_sTargetFactionKey == factionKey;
+		AddCampaignDebugAssertion(supportCase, "support_near_hq.strategic_event", "support near HQ records one applied strategic event with the HQ knowledge delta", BuildCampaignDebugStrategicEventActual(strategicEvent), CampaignDebugStatus(strategicEventExpected), "support near HQ did not record the expected strategic event", requestId, "", zoneId);
+
+		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
+		roundTripSaveData.Capture(proofState);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		roundTripSaveData.ApplyTo(restoredState);
+		HST_SupportRequestState restoredRequest = restoredState.FindSupportRequest(requestId);
+		HST_GarrisonState restoredGarrison = restoredState.FindGarrison(zoneId, factionKey);
+		HST_StrategicEventState restoredStrategicEvent;
+		if (strategicEvent)
+			restoredStrategicEvent = restoredState.FindStrategicEvent(strategicEvent.m_sEventId);
+		bool roundTripExpected = restoredRequest && restoredGarrison && restoredStrategicEvent
+			&& restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+			&& restoredRequest.m_bOutcomeApplied
+			&& restoredState.m_iHQKnowledge == proofState.m_iHQKnowledge
+			&& restoredState.m_iHQThreatLevel == proofState.m_iHQThreatLevel
+			&& restoredStrategicEvent.m_iHQKnowledgeDelta == strategicEvent.m_iHQKnowledgeDelta;
+		AddCampaignDebugAssertion(supportCase, "support_near_hq.save_roundtrip", "save-data roundtrip preserves resolved support, garrison outcome, HQ knowledge, and strategic event", BuildCampaignDebugSupportRequestActual(restoredRequest) + " | garrison [" + BuildCampaignDebugGarrisonActual(restoredGarrison) + "] | event [" + BuildCampaignDebugStrategicEventActual(restoredStrategicEvent) + "]", CampaignDebugStatus(roundTripExpected), "support near HQ event state did not survive save-data copy", requestId, "", zoneId);
+
+		RemoveCampaignDebugSupportRequestFromState(proofState, requestId);
+		RemoveCampaignDebugGarrisonsForZoneFromState(proofState, zoneId);
+		RemoveCampaignDebugZoneFromState(proofState, zoneId);
+		RemoveCampaignDebugStrategicEventsForSourceFromState(proofState, requestId);
+		proofState.m_iHQKnowledge = originalKnowledge;
+		proofState.m_iHQThreatLevel = originalThreat;
+		proofState.m_iHQKnowledgeLastChangedSecond = originalKnowledgeChangedSecond;
+		proofState.m_sLastHQKnowledgeReason = originalKnowledgeReason;
+		bool cleanupExpected = proofState.FindSupportRequest(requestId) == null
+			&& proofState.FindZone(zoneId) == null
+			&& proofState.FindGarrison(zoneId, factionKey) == null
+			&& FindCampaignDebugStrategicEventForSourceInState(proofState, requestId, "support_near_hq") == null
+			&& proofState.m_aSupportRequests.Count() == supportCountBefore
+			&& proofState.m_aZones.Count() == zoneCountBefore
+			&& proofState.m_aGarrisons.Count() == garrisonCountBefore
+			&& proofState.m_aStrategicEvents.Count() == strategicEventCountBefore
+			&& proofState.m_iHQKnowledge == originalKnowledge
+			&& proofState.m_iHQThreatLevel == originalThreat;
+		string cleanupActual = string.Format("support %1 -> %2 | zones %3 -> %4 | garrisons %5 -> %6", supportCountBefore, proofState.m_aSupportRequests.Count(), zoneCountBefore, proofState.m_aZones.Count(), garrisonCountBefore, proofState.m_aGarrisons.Count());
+		cleanupActual = cleanupActual + string.Format(" | events %1 -> %2 | knowledge %3", strategicEventCountBefore, proofState.m_aStrategicEvents.Count(), proofState.m_iHQKnowledge);
+		AddCampaignDebugAssertion(supportCase, "support_near_hq.cleanup", "isolated proof state removes support-near-HQ fixture rows and restores HQ knowledge", cleanupActual, CampaignDebugStatus(cleanupExpected), "support near HQ debug cleanup did not restore proof state", requestId, "", zoneId);
+
+		FinalizeCampaignDebugCaseFromAssertions(supportCase);
+		return supportCase;
+	}
+
 	protected string BuildCampaignDebugMissionCompletionTargetActual(HST_MissionDefinition definition, HST_ZoneState targetZone)
 	{
 		string definitionActual = BuildCampaignDebugMissionDefinitionActual(definition);
@@ -6438,6 +6579,45 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 	}
 
+	protected void RemoveCampaignDebugSupportRequestFromState(HST_CampaignState state, string requestId)
+	{
+		if (!state || requestId.IsEmpty())
+			return;
+
+		for (int requestIndex = state.m_aSupportRequests.Count() - 1; requestIndex >= 0; requestIndex--)
+		{
+			HST_SupportRequestState request = state.m_aSupportRequests[requestIndex];
+			if (request && request.m_sRequestId == requestId)
+				state.m_aSupportRequests.Remove(requestIndex);
+		}
+	}
+
+	protected void RemoveCampaignDebugGarrisonsForZoneFromState(HST_CampaignState state, string zoneId)
+	{
+		if (!state || zoneId.IsEmpty())
+			return;
+
+		for (int garrisonIndex = state.m_aGarrisons.Count() - 1; garrisonIndex >= 0; garrisonIndex--)
+		{
+			HST_GarrisonState garrison = state.m_aGarrisons[garrisonIndex];
+			if (garrison && garrison.m_sZoneId == zoneId)
+				state.m_aGarrisons.Remove(garrisonIndex);
+		}
+	}
+
+	protected void RemoveCampaignDebugZoneFromState(HST_CampaignState state, string zoneId)
+	{
+		if (!state || zoneId.IsEmpty())
+			return;
+
+		for (int zoneIndex = state.m_aZones.Count() - 1; zoneIndex >= 0; zoneIndex--)
+		{
+			HST_ZoneState zone = state.m_aZones[zoneIndex];
+			if (zone && zone.m_sZoneId == zoneId)
+				state.m_aZones.Remove(zoneIndex);
+		}
+	}
+
 	protected void RemoveCampaignDebugStrategicEventsForMissionFromState(HST_CampaignState state, string instanceId)
 	{
 		if (!state || instanceId.IsEmpty())
@@ -6447,6 +6627,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			HST_StrategicEventState eventState = state.m_aStrategicEvents[eventIndex];
 			if (eventState && eventState.m_sMissionInstanceId == instanceId)
+				state.m_aStrategicEvents.Remove(eventIndex);
+		}
+	}
+
+	protected void RemoveCampaignDebugStrategicEventsForSourceFromState(HST_CampaignState state, string sourceId)
+	{
+		if (!state || sourceId.IsEmpty())
+			return;
+
+		for (int eventIndex = state.m_aStrategicEvents.Count() - 1; eventIndex >= 0; eventIndex--)
+		{
+			HST_StrategicEventState eventState = state.m_aStrategicEvents[eventIndex];
+			if (eventState && eventState.m_sSourceId == sourceId)
 				state.m_aStrategicEvents.Remove(eventIndex);
 		}
 	}
@@ -6465,6 +6658,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			HST_StrategicEventState eventState = state.m_aStrategicEvents[i];
 			if (!eventState || eventState.m_sMissionInstanceId != instanceId)
+				continue;
+			if (!kind.IsEmpty() && eventState.m_sKind != kind)
+				continue;
+
+			return eventState;
+		}
+
+		return null;
+	}
+
+	protected HST_StrategicEventState FindCampaignDebugStrategicEventForSourceInState(HST_CampaignState state, string sourceId, string kind)
+	{
+		if (!state || sourceId.IsEmpty())
+			return null;
+
+		for (int i = state.m_aStrategicEvents.Count() - 1; i >= 0; i--)
+		{
+			HST_StrategicEventState eventState = state.m_aStrategicEvents[i];
+			if (!eventState || eventState.m_sSourceId != sourceId)
 				continue;
 			if (!kind.IsEmpty() && eventState.m_sKind != kind)
 				continue;
@@ -7299,6 +7511,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugMissionFailurePenaltyCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionExpiryPenaltyCase());
 		RecordCampaignDebugCase(BuildCampaignDebugConvoyOutcomeStrategicEventCase());
+		RecordCampaignDebugCase(BuildCampaignDebugSupportNearHQStrategicEventCase());
 		if (m_Strategic)
 			RecordCampaignDebugObservation("strategic events", m_Strategic.BuildStrategicEventReport(m_State));
 		if (m_Civilians)

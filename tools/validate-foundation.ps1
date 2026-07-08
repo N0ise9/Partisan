@@ -3328,6 +3328,23 @@ foreach ($requiredStrategicEventConvoyOutcomeEntry in @(
 }
 Write-Host "Strategic event convoy-outcome proof OK"
 
+foreach ($requiredStrategicEventSupportNearHQEntry in @(
+		"BeginSupportNearHQEvent",
+		"ApplySupportNearHQStrategicEvent",
+		"IsSupportRequestNearHQ",
+		'"support_near_hq"',
+		"SUPPORT_NEAR_HQ_KNOWLEDGE_GAIN",
+		"BuildCampaignDebugSupportNearHQStrategicEventCase",
+		"support_near_hq.strategic_event.contract.runtime",
+		"support_near_hq.strategic_event",
+		"support_near_hq.save_roundtrip"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredStrategicEventSupportNearHQEntry)) {
+		throw "Strategic event support-near-HQ proof is missing: $requiredStrategicEventSupportNearHQEntry"
+	}
+}
+Write-Host "Strategic event support-near-HQ proof OK"
+
 foreach ($requiredCampaignDebugBuildEntry in @(
 		"HST_BuildInfo",
 		"BUILD_SHA",

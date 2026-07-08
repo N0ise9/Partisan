@@ -44,6 +44,8 @@ class HST_SupportRequestService
 	static const float PETROS_ATTACK_STAGING_MARGIN_METERS = 90.0;
 	static const float PETROS_ATTACK_MAX_STAGING_METERS = 1120.0;
 	static const float HQ_SAFE_RADIUS_METERS = 900.0;
+	static const float SUPPORT_NEAR_HQ_STRATEGIC_RADIUS_METERS = 700.0;
+	static const int SUPPORT_NEAR_HQ_KNOWLEDGE_GAIN = 4;
 
 	protected bool m_bMarkerRefreshNeeded;
 	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
@@ -263,7 +265,7 @@ class HST_SupportRequestService
 		return result;
 	}
 
-	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar = null)
+	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar = null, HST_StrategicService strategic = null, HST_HQService hq = null)
 	{
 		if (!state || !preset)
 			return false;
@@ -280,7 +282,7 @@ class HST_SupportRequestService
 			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
 				continue;
 
-			changed = TickActiveSupportRequest(state, preset, garrisons, physicalWar, request) || changed;
+			changed = TickActiveSupportRequest(state, preset, garrisons, physicalWar, request, strategic, hq) || changed;
 		}
 
 		return changed;
@@ -308,22 +310,22 @@ class HST_SupportRequestService
 		return true;
 	}
 
-	protected bool TickActiveSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
+	protected bool TickActiveSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request, HST_StrategicService strategic = null, HST_HQService hq = null)
 	{
 		if (!state || !request)
 			return false;
 
 		if (IsPhysicalGroundSupport(request))
-			return TickPhysicalGroundSupport(state, preset, garrisons, physicalWar, request);
+			return TickPhysicalGroundSupport(state, preset, garrisons, physicalWar, request, strategic, hq);
 
 		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
 		if (state.m_iElapsedSeconds < arrivalAtSecond)
 			return false;
 
-		return ResolveSupport(state, preset, garrisons, request);
+		return ResolveSupport(state, preset, garrisons, request, strategic, hq);
 	}
 
-	protected bool TickPhysicalGroundSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
+	protected bool TickPhysicalGroundSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request, HST_StrategicService strategic = null, HST_HQService hq = null)
 	{
 		if (!state || !request)
 			return false;
@@ -358,7 +360,7 @@ class HST_SupportRequestService
 						return ResolveSupportAsPhysicalComplete(state, request);
 
 					request.m_sRuntimeStatus = "active_waiting_abstract_eta";
-					return ResolveSupport(state, preset, garrisons, request);
+					return ResolveSupport(state, preset, garrisons, request, strategic, hq);
 				}
 
 				request.m_bAbstractResolved = true;
@@ -772,13 +774,16 @@ class HST_SupportRequestService
 			group.m_sRuntimeStatus = "support_arrived";
 	}
 
-	protected bool ResolveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
+	protected bool ResolveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request, HST_StrategicService strategic = null, HST_HQService hq = null)
 	{
 		if (!state || !preset || !request || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
 			return false;
 
 		if (!request.m_bOutcomeApplied)
+		{
 			ApplySupportOutcome(state, preset, garrisons, request);
+			ApplySupportNearHQStrategicEvent(state, preset, strategic, hq, request);
+		}
 
 		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
 		request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
@@ -838,6 +843,58 @@ class HST_SupportRequestService
 
 		request.m_sResolutionKind = "abstract_no_effect";
 		request.m_bOutcomeApplied = true;
+	}
+
+	protected bool ApplySupportNearHQStrategicEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_HQService hq, HST_SupportRequestState request)
+	{
+		if (!state || !preset || !strategic || !hq || !request)
+			return false;
+		if (request.m_sFactionKey == preset.m_sResistanceFactionKey)
+			return false;
+		if (!IsSupportRequestNearHQ(state, request))
+			return false;
+
+		HST_StrategicEventApplyResult result = strategic.BeginSupportNearHQEvent(state, preset, request);
+		bool changed = hq.AddHQKnowledge(state, SUPPORT_NEAR_HQ_KNOWLEDGE_GAIN, "hostile support near HQ: " + request.m_sRequestId);
+		if (result && result.m_Event)
+		{
+			result.m_Event.m_sReason = string.Format("hostile support near HQ: %1 | %2", request.m_sRequestId, request.m_sResolutionKind);
+			strategic.CompleteStrategicEvent(state, result, true, changed);
+			return result.m_bChanged || changed;
+		}
+
+		return changed;
+	}
+
+	protected bool IsSupportRequestNearHQ(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return false;
+
+		vector targetPosition = ResolveSupportNearHQPosition(state, request);
+		if (IsZeroVector(targetPosition))
+			return false;
+
+		return DistanceSq2D(state.m_vHQPosition, targetPosition) <= SUPPORT_NEAR_HQ_STRATEGIC_RADIUS_METERS * SUPPORT_NEAR_HQ_STRATEGIC_RADIUS_METERS;
+	}
+
+	protected vector ResolveSupportNearHQPosition(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return "0 0 0";
+
+		if (!IsZeroVector(request.m_vTargetPosition))
+			return request.m_vTargetPosition;
+
+		HST_ZoneState targetZone = state.FindZone(request.m_sTargetZoneId);
+		if (targetZone)
+			return targetZone.m_vPosition;
+
+		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
+		if (group)
+			return group.m_vTargetPosition;
+
+		return "0 0 0";
 	}
 
 	protected string ResolveAbstractPhysicalizationMode(HST_SupportRequestState request)
