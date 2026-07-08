@@ -22,6 +22,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - If this is too strict, client input listeners such as the command menu `I` key never run because the component keeps returning before input polling.
   - Current examples: `HST_CommandMenuComponent.IsLocalOwner()` and `HST_CommandMenuRequestComponent.IsLocalOwner()`.
 
+- Global player-facing notifications should fan out through each connected player's owner request bridge.
+  - A single server-side/player-owned component is not a reliable broadcast origin for UI toasts and mission events in multiplayer, because replication visibility and owner routing can vary by component owner.
+  - On the server, enumerate `PlayerManager.GetPlayers()`, resolve each player's `HST_CommandMenuRequestComponent` from their `PlayerController`, and call an owner-targeted RPC for mission events, mission intel, and global notification payloads.
+  - Keep `RplRcver.Broadcast` fallback only as a degraded path when no owner bridges are available.
+  - Current example: `HST_CommandMenuRequestComponent.BroadcastMissionEventToConnectedOwners()`, `BroadcastNotificationToConnectedOwners()`, and `BroadcastMissionIntelToConnectedOwners()`.
+
 ## Player Stamina And Screen Effects
 
 - Player stamina writes must run on the owning client.
