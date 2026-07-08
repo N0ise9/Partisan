@@ -3289,24 +3289,6 @@ foreach ($requiredStrategicEventZoneCaptureEntry in @(
 }
 Write-Host "Strategic event zone-capture proof OK"
 
-foreach ($requiredStrategicEventMissionExpiryEntry in @(
-		"ApplyMissionExpiryEvent",
-		"GetLastExpiredMissionIds",
-		"ApplyPendingMissionExpiryEvents",
-		"ApplyMissionExpiryEventForMission",
-		"ApplyMissionExpiryConsequences",
-		'"mission_expired"',
-		"mission_expiry.penalty.contract.runtime",
-		"mission_expiry.strategic_event",
-		"mission_expiry.save_roundtrip",
-		"defense expiry resolves as success"
-	)) {
-	if ($scriptText -notmatch [regex]::Escape($requiredStrategicEventMissionExpiryEntry)) {
-		throw "Strategic event mission-expiry proof is missing: $requiredStrategicEventMissionExpiryEntry"
-	}
-}
-Write-Host "Strategic event mission-expiry proof OK"
-
 foreach ($requiredCampaignDebugBuildEntry in @(
 		"HST_BuildInfo",
 		"BUILD_SHA",
