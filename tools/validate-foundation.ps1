@@ -1652,8 +1652,7 @@ if ($missionRuntimeServiceText -match [regex]::Escape('CaptiveBoardingDebugStatu
 foreach ($requiredExpiredMissionCompletionEntry in @(
 		"allowExpired = false",
 		"CanCompleteExpiredPlayerBoundMission(m_State, activeMission)",
-		"m_Missions.Complete(m_State, m_Economy, instanceId, false, allowExpiredCompletion)",
-		"ApplyMissionOutcomeEvent(m_State, m_Preset, m_Economy, m_Balance, m_Towns, m_ZoneCapture, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, m_HQ, definition, activeMission, true, applyDefinitionRewards)",
+		"m_Missions.Complete(m_State, m_Economy, instanceId, applyDefinitionRewards, allowExpiredCompletion)",
 		"IsExpiredPlayerBoundMissionActionCandidate",
 		"SelectExpiredPlayerBoundMissionAsset",
 		"IsExpiredPlayerBoundMissionAsset"

@@ -182,7 +182,7 @@ class HST_MissionService
 		return false;
 	}
 
-	bool Fail(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, string instanceId, bool applyFailureAggression = true)
+	bool Fail(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, string instanceId)
 	{
 		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
 		{
@@ -197,8 +197,7 @@ class HST_MissionService
 			activeMission.m_sRuntimePhase = "failed";
 			if (activeMission.m_sRuntimeFailureReason.IsEmpty())
 				activeMission.m_sRuntimeFailureReason = definition.m_sFailureText;
-			if (applyFailureAggression)
-				economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
+			economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
 			return true;
 		}
 
