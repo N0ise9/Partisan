@@ -172,10 +172,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Populate these HST group prefabs with the owning enemy faction's randomized
     soldier character prefab. This keeps the current physical police slice
     faction-correct without maintaining role-specific police loadout lists.
+  - Town-police active groups are the exception to generic static-garrison route
+    cleanup. Assign their town patrol route through a dedicated resolver, then
+    attach `AIWaypointCycle` patrol helpers after runtime agents exist. Register
+    those helper entities in the runtime group waypoint arrays so normal group
+    cleanup removes them with the spawned police group.
   - Current examples:
     `HST_DefaultCatalog.ResolveTownPoliceGroupPrefab()`,
     `HST_ForceCompositionService.TryBuildTownPoliceGroupPlan()`, and
-    `HST_PhysicalWarService.SelectGroupPrefab()`.
+    `HST_PhysicalWarService.UpdateTownPolicePatrols()`.
 
 - Time-limited shop missions should be state-first and delivery-owned.
   - The seller and delivery vehicle are mission assets, not generic cargo or
