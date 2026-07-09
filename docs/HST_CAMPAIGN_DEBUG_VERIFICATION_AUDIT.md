@@ -11,11 +11,11 @@ be read as proof that a later change was executed or certified.
 - **201 failures were cascading contamination from a defense mission that leaked
   beyond its owning probe.** Fixing that isolation defect is required before the
   remaining case totals can be interpreted as independent feature failures.
-- Full Campaign Debug is currently destructive to the loaded campaign. The run
+- The inspected Full Campaign Debug revision was destructive to the loaded campaign. The run
   forced a terminal loss, reduced faction money and HR to zero, created many
   durable rows, and autosaved the mutated state. Do not run the full profile
-  against a valuable campaign until complete snapshot/restore or an enforced
-  disposable-profile gate exists.
+  against a valuable campaign. The post-audit guard described below has not yet
+  been runtime-proven.
 - Client evidence contains **6,806 static campaign-marker update VM exceptions**
   where the marker widget root is null. Marker state creation and native
   publication counters therefore do not prove a render-ready marker. The proof
@@ -33,6 +33,15 @@ be read as proof that a later change was executed or certified.
 - Campaign schema 42 and the authority-foundation slice have passed foundation
   checks and Workbench script validation. They have not yet been runtime
   certified by this suite.
+
+Post-audit safety follow-up: the in-process runner now fails closed outside
+`HST_Dev`, blocks external/soak profiles, persists the live baseline, runs
+against a deep-cloned campaign state, diverts checkpoint calls to isolated
+memory, and swaps the untouched live state back on completion or cancellation.
+Foundation checks and Workbench script validation pass for this boundary. It has
+not yet been runtime-proven, and a development-session restart remains required
+because world entities, player inventory/health, delayed callbacks, and service
+caches are not campaign-save fields.
 
 Certification is blocked until the runner is isolated, the cascading mission is
 contained, known assertion defects are corrected, marker widget readiness is

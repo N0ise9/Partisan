@@ -4637,6 +4637,30 @@ foreach ($requiredAuthorityFoundationEntry in @(
 	}
 }
 Write-Host "Campaign authority foundation contract OK"
+foreach ($requiredDebugIsolationEntry in @(
+		"PrepareCampaignDebugIsolation",
+		"CaptureIsolatedCampaignDebugState",
+		"RestoreTrackedStateAfterCampaignDebug",
+		"m_bCampaignDebugIsolationActive",
+		"m_CampaignDebugLiveState",
+		"m_CampaignDebugStateSnapshot",
+		'worldFile.Contains("worlds/hst_dev/hst_dev.ent")',
+		'normalizedProfile == "persistence_restart_external" || normalizedProfile == "background_soak" || normalizedProfile == "external_required"',
+		"BeginCampaignDebugStateIsolation",
+		"BuildCampaignDebugStateIsolationStartCase",
+		"preflight.state_isolation",
+		"RestoreCampaignDebugStateSnapshot",
+		'CaptureIsolatedCampaignDebugState(m_State, "isolated manual checkpoint")',
+		'RecordCampaignDebugCase(RestoreCampaignDebugStateSnapshot("run cancellation"))',
+		'RecordCampaignDebugCase(RestoreCampaignDebugStateSnapshot("run completion"))',
+		"isolation.world_scope",
+		"development session restart required"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredDebugIsolationEntry)) {
+		throw "Campaign debug state-isolation contract missing: $requiredDebugIsolationEntry"
+	}
+}
+Write-Host "Campaign debug state-isolation contract OK"
 if ($scriptText -match "m_sDefaultHideoutId" -or $scriptText -match '"defaultHideoutId"') {
 	throw "Runtime settings JSON must not expose defaultHideoutId after map-based HQ selection"
 }

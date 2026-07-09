@@ -90,7 +90,7 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. |
+| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. In-process diagnostics now use a development-world-only cloned-state boundary; runtime proof and session-restart cleanliness remain open. |
 | CRI-1: Campaign authority foundation | In progress | Schema 42, persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts, the resource transaction ledger, and the bounded event log are implemented. Static validation and Workbench script compilation pass; isolated runtime and save/load certification remain pending. |
 | CRI-2: Exact force manifests | Next | Catalog resolution produces one immutable, fully priced manifest with stable force and unit IDs; invalid or unaffordable requests create nothing. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | Planned | Runtime forces realize manifests exactly, retain operation links through virtual/physical transitions, and prove route progress, contact, arrival, and fold-back without duplication. |

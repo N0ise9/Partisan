@@ -123,6 +123,16 @@ Until those target columns are closed, domain services remain authoritative for
 their existing behavior, but they must not be described as uniformly
 idempotent, ledger-backed, or exact-manifest driven.
 
+Campaign-debug state isolation is fail-closed. Every in-process profile is
+restricted to the development world. The persistence service first durably
+captures the live campaign, the coordinator runs the suite against a deep-cloned
+`HST_CampaignState`, checkpoints only isolated in-memory save data, and swaps the
+untouched live state back on completion or cancellation. External/soak profiles
+cannot enter this runner. This protects authoritative campaign persistence, but
+does not roll back world entities, player inventory/health, delayed callbacks,
+or service caches, so a development-session restart remains part of the safety
+boundary.
+
 ## Authoring Contracts
 
 The addon keeps authoring data separate from runtime state:

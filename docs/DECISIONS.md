@@ -70,7 +70,14 @@ Consequences:
 
 - Do not run a destructive certification suite against a campaign save that a
   player or later test intends to keep.
+- In-process profiles fail closed outside the development world. The live state
+  is persisted and retained untouched while a deep clone owns the run; complete
+  and cancel both restore the original reference and persistence tracking.
+- External, restart, and soak workflows require a separately managed disposable
+  profile and launcher instead of entering the shared in-process bootstrap.
 - Certification evidence must identify its build, scenario, isolation method,
   save/migration boundary, and result.
 - If isolation or restoration cannot be proven, the runtime certification gate
   remains open rather than risking persistent state.
+- Campaign-state swapping does not restore world/player/service runtime state,
+  so the development session must still be restarted after a run.

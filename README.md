@@ -186,11 +186,13 @@ raw 17-digit SteamID64 to `membership.adminIdentityIds` in
 h-istasi admin tokens.
 
 The Admin tab exposes `Run Full Campaign Debug` as a one-button diagnostic
-harness. It is not runtime certification by itself, and the full profile must
-remain isolated from live campaign state until its snapshot/restore boundary is
-proven. Scoped `Debug ... Profile` buttons are for faster diagnosis of a smaller
-area, and external/restart/soak profiles are for cases that require a real
-restart, reconnect, or long window. Results are written under
+harness. It is not runtime certification by itself. In-process debug profiles
+are restricted to `HST_Dev`, run against a cloned campaign state, suspend real
+campaign checkpoints, and restore the untouched live state on completion or
+cancel. A development-session restart is still required because world entities,
+player state, and service caches are outside campaign save data. External,
+restart, and soak profiles require a separately managed disposable profile and
+launcher instead of starting through the in-process runner. Results are written under
 `$profile:h-istasi/debug` as structured JSON, summary text, and state-diff text.
 A valid admin grant should be visible in logs as a
 `settings SteamID64` runtime grant, and command-menu input diagnostics log the

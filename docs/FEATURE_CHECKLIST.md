@@ -50,7 +50,7 @@ isolated runtime run with no unresolved hard failures or required external gaps.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete | Complete for this checkpoint | Repository inventory, foundation validator, Workbench script validation, and latest runtime-evidence audit complete | No | Code, configuration, documentation, and runtime evidence now agree on schema 42 and one build-identity source. A clean isolated runtime baseline is still blocked because the current full runner can overwrite live campaign state. |
+| CRI-0 Truth and baseline | Complete | Complete for this checkpoint | Repository inventory, foundation validator, Workbench script validation, and latest runtime-evidence audit complete | No | Code, configuration, documentation, and runtime evidence now agree on schema 42 and one build-identity source. Debug profiles now fail closed outside the development world and use cloned campaign state, but a fresh runtime proof of completion, cancellation, crash recovery, and restart cleanliness is still required. |
 | CRI-1 Authority foundation | Complete | Training vertical slice | Static contract checks and Workbench script validation pass | No | Persisted monotonic IDs, typed command receipts, bounded campaign events, and reserve/commit/cancel/refund resource transactions are integrated through paid training. The isolated authority debug case is implemented but has not yet supplied fresh runtime evidence. Support and garrison costs remain outside this exact-quote/ledger path. |
 | CRI-2 Force manifests | Drafted | Not started | Not run | No | Exact priced force manifests must precede migration of support and garrison purchases into the shared ledger. |
 
@@ -190,7 +190,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Paid rows show money/HR costs; support recall and commander-transfer use the shared scrollable choice modal; main tab rows use player-facing labels instead of prefab, raw position, request-id, or group-id noise, while explicit reports keep diagnostics; support, supply, recruit, and garrison-removal actions open the normal map for target selection, require a map gadget, confirm before dispatch, keep the passive selected-target cursor below confirmation dialogs, consume ESC to cancel/close the targeting map, and return to the Forces menu; opening the command menu is blocked while the native in-game map is already open and now has an owner-client runtime proof; garrison recruitment prompts for FIA count before final target confirmation and location selection is single-click guarded. | High |
 | Map markers | HQ, zones, missions, support, QRFs, orders, and active deliveries publish linked markers with cleanup proof. | Broad Alpha / Runtime Failure Open | State-backed publication is broad, but the latest client evidence contains 6,806 static campaign-marker update exceptions caused by a null widget root. A published marker object is not proof that its rendered widget is ready; fix delayed/root readiness and add owner-client inspection before claiming marker certification. | Highest |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Broad Alpha / Unsafe On Live State | The latest full run produced 663 cases: 367 PASS, 61 WARN, 218 FAIL, and 17 BLOCKED. The runner forced terminal loss, depleted money/HR, created many records, autosaved those mutations, and leaked a defense mission that caused 201 cascading failures. Snapshot/restore or disposable-profile gating is required before any rerun on valuable state. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Broad Alpha / Needs Runtime Proof | The latest full run produced 663 cases: 367 PASS, 61 WARN, 218 FAIL, and 17 BLOCKED; it predated isolation and contaminated its save. The runner now rejects every profile outside `HST_Dev`, blocks external/soak profiles, saves the live baseline, runs against a deep clone, diverts checkpoints, and restores the untouched state on complete or cancel. Static and Workbench validation pass; runtime proof and a mandatory session restart remain open because world/player/service state is not rolled back. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -205,10 +205,10 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Make Full Campaign Debug non-destructive through complete snapshot/restore or
-   disposable-profile gating. Do not rerun the full profile against live campaign
-   state until autosaves, terminal outcomes, resources, spawned records, and
-   active missions are isolated or restored.
+1. Prove the new campaign-debug isolation boundary in `HST_Dev`: reject a
+   non-development-world request, exercise completion and cancellation, verify
+   the live campaign reference and both persistence channels remain unchanged,
+   simulate interrupted-run recovery, then restart the development session.
 2. Fix static campaign-marker widget readiness and add a delayed owner-client
    rendered-root assertion; publication/model counts alone cannot certify the UI.
 3. Repair the known harness false negatives: boolean `1` versus `true`, marker

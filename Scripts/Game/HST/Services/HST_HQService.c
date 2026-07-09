@@ -498,6 +498,11 @@ class HST_HQService
 		return EnsureRuntimeObjects(state);
 	}
 
+	void ClearRuntimeObjectsForStateRestore(HST_CampaignState state)
+	{
+		ClearRuntimeObjects(state, "campaign debug state restore");
+	}
+
 	bool AddHQKnowledge(HST_CampaignState state, int amount, string reason)
 	{
 		if (!state || amount <= 0)

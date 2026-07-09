@@ -6,21 +6,34 @@ class HST_PersistenceService
 	protected float m_fAutosaveElapsed;
 	protected float m_fMajorChangeElapsed;
 	protected bool m_bMajorChangePending;
+	protected bool m_bCampaignDebugIsolationActive;
 	protected ref HST_CampaignSaveData m_LastCapturedSave;
 	protected ref HST_CampaignSaveData m_TrackedCampaignSave;
 	protected ref HST_CampaignSaveData m_RestoredCampaignSave;
+	protected ref HST_CampaignSaveData m_IsolatedCapturedSave;
 	protected bool m_bProfileFallbackSaved;
 	protected bool m_bProfileFallbackLoaded;
 	protected string m_sProfileFallbackStatus = "profile fallback idle";
 
 	void MarkMajorChange()
 	{
+		if (m_bCampaignDebugIsolationActive)
+			return;
+
 		m_bMajorChangePending = true;
 		m_fMajorChangeElapsed = 0;
 	}
 
+	bool IsCampaignDebugIsolationActive()
+	{
+		return m_bCampaignDebugIsolationActive;
+	}
+
 	void Tick(HST_CampaignState state, float timeSlice, int autosaveIntervalSeconds, int majorChangeDebounceSeconds)
 	{
+		if (m_bCampaignDebugIsolationActive)
+			return;
+
 		m_fAutosaveElapsed += timeSlice;
 
 		if (m_bMajorChangePending)
@@ -42,6 +55,9 @@ class HST_PersistenceService
 
 	bool RequestCheckpoint(string displayName, HST_CampaignState state = null)
 	{
+		if (m_bCampaignDebugIsolationActive)
+			return CaptureIsolatedCampaignDebugState(state, "isolated checkpoint: " + displayName);
+
 		if (state)
 			CaptureAndTrackState(state, "captured before checkpoint");
 
@@ -75,13 +91,80 @@ class HST_PersistenceService
 
 	void CaptureState(HST_CampaignState state)
 	{
+		if (m_bCampaignDebugIsolationActive)
+		{
+			CaptureIsolatedCampaignDebugState(state);
+			return;
+		}
+
 		CaptureAndTrackState(state);
+	}
+
+	bool PrepareCampaignDebugIsolation(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		if (!m_TrackedCampaignSave)
+			m_TrackedCampaignSave = new HST_CampaignSaveData();
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		m_TrackedCampaignSave.Capture(state);
+		m_LastCapturedSave = m_TrackedCampaignSave;
+		TrackCampaignSaveData(m_TrackedCampaignSave);
+		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
+		bool profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);
+		m_bMajorChangePending = false;
+		m_fMajorChangeElapsed = 0;
+		m_fAutosaveElapsed = 0;
+		m_bCampaignDebugIsolationActive = scriptedStateSaved || profileFallbackSaved;
+		return m_bCampaignDebugIsolationActive;
+	}
+
+	bool CaptureIsolatedCampaignDebugState(HST_CampaignState state, string persistenceStatus = "isolated campaign debug checkpoint")
+	{
+		if (!state)
+			return false;
+
+		m_IsolatedCapturedSave = new HST_CampaignSaveData();
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_iLastSaveSecond = state.m_iElapsedSeconds;
+		if (!persistenceStatus.IsEmpty())
+			state.m_sLastPersistenceStatus = persistenceStatus;
+		m_IsolatedCapturedSave.Capture(state);
+		m_LastCapturedSave = m_IsolatedCapturedSave;
+		return true;
+	}
+
+	bool RestoreTrackedStateAfterCampaignDebug(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+		m_bCampaignDebugIsolationActive = false;
+
+		if (!m_TrackedCampaignSave)
+			m_TrackedCampaignSave = new HST_CampaignSaveData();
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		m_TrackedCampaignSave.Capture(state);
+		m_LastCapturedSave = m_TrackedCampaignSave;
+		m_IsolatedCapturedSave = null;
+		TrackCampaignSaveData(m_TrackedCampaignSave);
+		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
+		bool profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);
+		m_bMajorChangePending = false;
+		m_fMajorChangeElapsed = 0;
+		m_fAutosaveElapsed = 0;
+		return scriptedStateSaved || profileFallbackSaved;
 	}
 
 	HST_CampaignSaveData CaptureAndTrackState(HST_CampaignState state, string persistenceStatus = "captured and tracked")
 	{
 		if (!state)
 			return null;
+		if (m_bCampaignDebugIsolationActive)
+		{
+			CaptureIsolatedCampaignDebugState(state, persistenceStatus);
+			return m_IsolatedCapturedSave;
+		}
 
 		if (!m_LastCapturedSave)
 			m_LastCapturedSave = new HST_CampaignSaveData();

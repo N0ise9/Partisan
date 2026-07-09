@@ -120,6 +120,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sPetrosRelocationPlayerName;
 	protected bool m_bCampaignDebugRunning;
 	protected bool m_bCampaignDebugCompleted;
+	protected bool m_bCampaignDebugStateIsolationActive;
 	protected bool m_bCampaignDebugPhysicalBlocked;
 	protected bool m_bCampaignDebugConvoyPhaseChainRecorded;
 	protected int m_iCampaignDebugPlayerId;
@@ -218,6 +219,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugMissionPrefix;
 	protected string m_sCampaignDebugEntityTag;
 	protected string m_sCampaignDebugPreviousCommanderIdentityId;
+	protected string m_sCampaignDebugIsolationStatus;
 	protected string m_sCampaignDebugPhase16ZoneId;
 	protected string m_sCampaignDebugPhase17ZoneId;
 	protected string m_sCampaignDebugPhase17OwnerBefore;
@@ -248,6 +250,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref array<IEntity> m_aCampaignDebugWorldCleanupEntities = {};
 	protected ref array<int> m_aAdminIdentityDiagnosticPlayerIds = {};
 	protected ref HST_CampaignDebugRunResult m_CampaignDebugRunResult;
+	protected ref HST_CampaignState m_CampaignDebugLiveState;
+	protected ref HST_CampaignSaveData m_CampaignDebugStateSnapshot;
 	protected string m_sCampaignDebugWorldCleanupPrefix;
 	protected string m_sCampaignDebugWorldCleanupExample;
 	protected int m_iCampaignDebugWorldCleanupScannedCount;
@@ -446,7 +450,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			ProcessPlayerSpawnSweep("frame");
 		}
 
-		m_Persistence.Tick(m_State, timeSlice, m_Balance.m_iAutosaveIntervalSeconds, m_Balance.m_iMajorChangeDebounceSeconds);
+		if (!m_bCampaignDebugStateIsolationActive)
+			m_Persistence.Tick(m_State, timeSlice, m_Balance.m_iAutosaveIntervalSeconds, m_Balance.m_iMajorChangeDebounceSeconds);
 		m_fSecondAccumulator += timeSlice;
 		if (m_fSecondAccumulator < 1)
 			return;
@@ -789,7 +794,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_HQ.EnsureRuntimeObjects(m_State);
 		RefreshCampaignMarkers();
 		if (m_Persistence)
-			m_Persistence.RequestCheckpoint("h-istasi setup HQ placed", m_State);
+		{
+			if (m_bCampaignDebugStateIsolationActive)
+				m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated setup HQ checkpoint");
+			else
+				m_Persistence.RequestCheckpoint("h-istasi setup HQ placed", m_State);
+		}
 		ArmPlayerSpawnSweep(6);
 		MarkMajorCampaignChange(true);
 		HST_CommandMenuRequestComponent.BroadcastSetupRefresh();
@@ -1200,6 +1210,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (snapshottedFieldVehicles > 0)
 				m_State.m_sLastVehicleTargetStatus = string.Format("persistent field vehicle snapshot %1", snapshottedFieldVehicles);
 		}
+
+		if (m_bCampaignDebugStateIsolationActive)
+			return m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated manual checkpoint");
 
 		return m_Persistence.RequestCheckpoint("h-istasi manual checkpoint", m_State);
 	}
@@ -3806,11 +3819,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string normalizedProfile = NormalizeCampaignDebugProfile(profile);
 		if (normalizedProfile.IsEmpty())
 			return "h-istasi campaign debug | failed: invalid profile, use smoke, admin_smoke, foundation, faction, faction_physical, physical, support_physical, mission_matrix_state, mission_matrix_physical, civilian_undercover, arsenal_garage_build, persistence_inprocess, full, full_certification, post_restart_verify, persistence_restart_external, background_soak, or external_required";
+		if (normalizedProfile == "persistence_restart_external" || normalizedProfile == "background_soak" || normalizedProfile == "external_required")
+			return "h-istasi campaign debug | failed: external profiles require an externally managed disposable campaign profile and launcher";
+		if (RequiresDisposableCampaignDebugWorld(normalizedProfile) && !IsDisposableCampaignDebugWorld())
+			return "h-istasi campaign debug | failed: runtime debug profiles are restricted to the disposable development world";
 
 		if (m_bCampaignDebugRunning)
 			return "h-istasi campaign debug | already running\n" + BuildCampaignDebugStatusReport();
 
-		StartCampaignDebugRun(playerId, normalizedProfile);
+		if (!StartCampaignDebugRun(playerId, normalizedProfile))
+			return "h-istasi campaign debug | failed: " + m_sCampaignDebugIsolationStatus;
 		return "h-istasi campaign debug | started " + normalizedProfile + " sequenced run\n" + BuildCampaignDebugStatusReport();
 	}
 
@@ -3834,8 +3852,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi campaign debug | not running\n" + BuildCampaignDebugStatusReport();
 
 		RestoreCampaignDebugActorCommandAccess();
+		ClearCampaignDebugPlayerSupportRequests("run cancellation");
+		RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(ResolveCampaignDebugCleanupPrefix(), "run cancellation"), false);
+		if (!ShouldCampaignDebugPreservePersistenceSmokeState())
+			RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(PERSISTENCE_SMOKE_PREFIX, "run cancellation persistence smoke cleanup"), false);
+		m_sCampaignDebugCurrentMissionInstanceId = "";
+		m_sCampaignDebugEarlyMissionInstanceId = "";
+		RefreshCampaignMarkers();
+		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
+		RecordCampaignDebugCase(BuildCampaignDebugPlayerMarkerCompletionCase());
+		RecordCampaignDebugCase(BuildCampaignDebugRunCleanupSnapshotCase());
 		m_bCampaignDebugRunning = false;
 		m_bCampaignDebugCompleted = true;
+		RecordCampaignDebugCase(RestoreCampaignDebugStateSnapshot("run cancellation"));
+		RepublishExistingCampaignMarkersAfterDebugRestore("campaign debug cancellation restored live state");
+		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
 		m_sCampaignDebugLastResult = string.Format("cancelled | run %1 | step %2 | mission %3", m_sCampaignDebugRunId, m_iCampaignDebugStepIndex, m_sCampaignDebugCurrentMissionInstanceId);
 		AppendCampaignDebugLog("WARN", "cancel", m_sCampaignDebugLastResult);
 		string artifactStatus = SaveCampaignDebugRunArtifacts();
@@ -3877,8 +3908,56 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report;
 	}
 
-	protected void StartCampaignDebugRun(int playerId, string profile)
+	protected bool RequiresDisposableCampaignDebugWorld(string profile)
 	{
+		return !profile.IsEmpty();
+	}
+
+	protected bool IsDisposableCampaignDebugWorld()
+	{
+		string worldFile = GetGame().GetWorldFile();
+		worldFile.ToLower();
+		return worldFile.Contains("worlds/hst_dev/hst_dev.ent");
+	}
+
+	protected bool BeginCampaignDebugStateIsolation(string profile)
+	{
+		m_bCampaignDebugStateIsolationActive = false;
+		m_CampaignDebugLiveState = null;
+		m_CampaignDebugStateSnapshot = null;
+		m_sCampaignDebugIsolationStatus = "state isolation unavailable";
+		if (!m_State || !m_Persistence)
+			return false;
+
+		if (!m_Persistence.PrepareCampaignDebugIsolation(m_State))
+		{
+			m_sCampaignDebugIsolationStatus = "could not persist the pre-run campaign snapshot";
+			return false;
+		}
+
+		m_CampaignDebugStateSnapshot = new HST_CampaignSaveData();
+		m_CampaignDebugStateSnapshot.Capture(m_State);
+		HST_CampaignState isolatedState = m_CampaignDebugStateSnapshot.Restore();
+		if (!isolatedState)
+		{
+			m_Persistence.RestoreTrackedStateAfterCampaignDebug(m_State);
+			m_CampaignDebugStateSnapshot = null;
+			m_sCampaignDebugIsolationStatus = "could not create the isolated campaign-state clone";
+			return false;
+		}
+
+		m_CampaignDebugLiveState = m_State;
+		m_State = isolatedState;
+		m_bCampaignDebugStateIsolationActive = true;
+		m_sCampaignDebugIsolationStatus = "active | cloned campaign state | autosave suspended | isolated checkpoints enabled | pre-run state persisted | profile " + profile;
+		return true;
+	}
+
+	protected bool StartCampaignDebugRun(int playerId, string profile)
+	{
+		if (!BeginCampaignDebugStateIsolation(profile))
+			return false;
+
 		m_bCampaignDebugRunning = true;
 		m_bCampaignDebugCompleted = false;
 		m_bCampaignDebugPhysicalBlocked = false;
@@ -3921,12 +4000,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
 		m_aCampaignDebugPrimitiveProofReleasedMissionIds.Clear();
-		HST_CampaignDebugCaseResult staleCleanupCase = CleanupCampaignDebugPrefixedState(CAMPAIGN_DEBUG_PREFIX_ROOT, "start preflight");
 		InitializeCampaignDebugRunResult(playerId);
+		RecordCampaignDebugCase(BuildCampaignDebugStateIsolationStartCase());
+		HST_CampaignDebugCaseResult staleCleanupCase = CleanupCampaignDebugPrefixedState(CAMPAIGN_DEBUG_PREFIX_ROOT, "start preflight");
 		RecordCampaignDebugCase(staleCleanupCase, false);
 		EnsureCampaignDebugActorCommandAccess("start");
 		AppendCampaignDebugLog("INFO", "start", string.Format("run %1 | player %2 | profile %3 started campaign debug run", m_sCampaignDebugRunId, playerId, m_sCampaignDebugProfile));
+		AppendCampaignDebugLog("INFO", "state isolation", m_sCampaignDebugIsolationStatus);
 		BroadcastCampaignDebugNotification("campaign_debug_started", "info", "Campaign Debug", "Started " + m_sCampaignDebugProfile + " campaign debug sequence.");
+		return true;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugStateIsolationStartCase()
+	{
+		HST_CampaignDebugCaseResult isolationCase = CreateCampaignDebugCase("preflight.state_isolation", "preflight", "campaign_debug", "state_isolation");
+		HST_CampaignState expectedState;
+		if (m_CampaignDebugStateSnapshot)
+			expectedState = m_CampaignDebugStateSnapshot.Restore();
+		bool distinctClone = m_State && m_CampaignDebugLiveState && m_State != m_CampaignDebugLiveState;
+		bool stateMatches = CampaignDebugIsolationStatesMatch(expectedState, m_State);
+		bool persistenceIsolated = m_Persistence && m_Persistence.IsCampaignDebugIsolationActive();
+		string actual = string.Format("development world %1 | clone distinct %2 | state match %3 | persistence isolated %4", IsDisposableCampaignDebugWorld(), distinctClone, stateMatches, persistenceIsolated);
+		isolationCase.m_aEvidence.Insert(actual);
+		AddCampaignDebugAssertion(isolationCase, "isolation.development_world", "in-process campaign debug runs only in the exact development world", actual, CampaignDebugStatus(IsDisposableCampaignDebugWorld()), "campaign debug started outside the disposable development world");
+		AddCampaignDebugAssertion(isolationCase, "isolation.distinct_state", "debug mutations target a distinct cloned campaign state", actual, CampaignDebugStatus(distinctClone && stateMatches), "campaign debug did not start from a matching distinct state clone");
+		AddCampaignDebugAssertion(isolationCase, "isolation.persistence_suspended", "real persistence is suspended while isolated checkpoints remain available", actual, CampaignDebugStatus(persistenceIsolated), "persistence service did not enter campaign debug isolation");
+		FinalizeCampaignDebugCaseFromAssertions(isolationCase);
+		return isolationCase;
 	}
 
 	protected void TickCampaignDebugRunner(int elapsedSeconds)
@@ -12219,6 +12319,167 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return gapCase;
 	}
 
+	protected HST_CampaignDebugCaseResult RestoreCampaignDebugStateSnapshot(string reason)
+	{
+		HST_CampaignDebugCaseResult isolationCase = CreateCampaignDebugCase("cleanup.state_isolation_restore", "cleanup", "campaign_debug", "state_restore");
+		if (m_CampaignDebugRunResult && m_State && m_CampaignDebugRunResult.m_iEndedAtSecond <= 0)
+			m_CampaignDebugRunResult.m_iEndedAtSecond = m_State.m_iElapsedSeconds;
+		bool snapshotReady = m_bCampaignDebugStateIsolationActive && m_CampaignDebugStateSnapshot && m_CampaignDebugLiveState && m_State && m_State != m_CampaignDebugLiveState;
+		if (!snapshotReady)
+		{
+			if (m_CampaignDebugLiveState)
+			{
+				m_State = m_CampaignDebugLiveState;
+				if (m_Persistence)
+					m_Persistence.RestoreTrackedStateAfterCampaignDebug(m_State);
+			}
+			m_bCampaignDebugStateIsolationActive = false;
+			m_CampaignDebugLiveState = null;
+			m_CampaignDebugStateSnapshot = null;
+			m_sCampaignDebugIsolationStatus = "restore failed | state snapshot unavailable";
+			AddCampaignDebugAssertion(isolationCase, "isolation.snapshot", "pre-run campaign snapshot exists", m_sCampaignDebugIsolationStatus, "FAIL", "campaign debug state snapshot was unavailable");
+			FinalizeCampaignDebugCaseFromAssertions(isolationCase);
+			return isolationCase;
+		}
+
+		HST_CampaignState expectedState = m_CampaignDebugStateSnapshot.Restore();
+		int runtimeCleanupCount = CleanupCampaignDebugRuntimeDeltaBeforeStateRestore(m_CampaignDebugLiveState);
+		m_State = m_CampaignDebugLiveState;
+		bool stateRestored = CampaignDebugIsolationStatesMatch(expectedState, m_State);
+		bool persistenceRestored = m_Persistence && m_Persistence.RestoreTrackedStateAfterCampaignDebug(m_State);
+		if (m_Missions)
+			m_Missions.SyncNextInstanceIdFromState(m_State);
+		m_bCampaignDebugStateIsolationActive = false;
+		m_CampaignDebugLiveState = null;
+		m_CampaignDebugStateSnapshot = null;
+		m_sCampaignDebugIsolationStatus = string.Format("restored | reason %1 | state %2 | persistence %3 | runtime delta cleanup %4 | development session restart required", reason, stateRestored, persistenceRestored, runtimeCleanupCount);
+		AddCampaignDebugMetric(isolationCase, "isolation.runtime_delta_cleanup", string.Format("%1", runtimeCleanupCount), "count");
+		AddCampaignDebugAssertion(isolationCase, "isolation.snapshot", "pre-run campaign snapshot exists", "available", "PASS", "campaign debug state snapshot was unavailable");
+		AddCampaignDebugAssertion(isolationCase, "isolation.state_restore", "authoritative campaign state matches the pre-run snapshot", BuildCampaignDebugIsolationStateActual(expectedState, m_State), CampaignDebugStatus(stateRestored), "campaign state did not match the pre-run snapshot after restore");
+		AddCampaignDebugAssertion(isolationCase, "isolation.persistence_restore", "restored campaign state replaces tracked and profile-fallback save data", m_sCampaignDebugIsolationStatus, CampaignDebugStatus(persistenceRestored), "restored campaign state could not be persisted");
+		AddCampaignDebugAssertion(isolationCase, "isolation.world_scope", "runtime certification remains scoped to the disposable development session", "world runtime, player inventory, health, and service caches require session restart", "BLOCKED", "restart the disposable development session before another certification run");
+		FinalizeCampaignDebugCaseFromAssertions(isolationCase);
+		return isolationCase;
+	}
+
+	protected int CleanupCampaignDebugRuntimeDeltaBeforeStateRestore(HST_CampaignState expectedState)
+	{
+		if (!m_State || !expectedState)
+			return 0;
+
+		int cleaned;
+		if (m_PhysicalWar)
+		{
+			foreach (HST_ActiveGroupState activeGroup : m_State.m_aActiveGroups)
+			{
+				if (!activeGroup || expectedState.FindActiveGroup(activeGroup.m_sGroupId))
+					continue;
+				if (m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(activeGroup.m_sGroupId))
+					cleaned++;
+			}
+		}
+
+		if (m_MissionRuntime)
+		{
+			array<string> cleanedRuntimeIds = {};
+			foreach (HST_MissionRuntimeEntityState runtimeEntity : m_State.m_aMissionRuntimeEntities)
+			{
+				if (!runtimeEntity || runtimeEntity.m_sRuntimeEntityId.IsEmpty() || expectedState.FindMissionRuntimeEntity(runtimeEntity.m_sRuntimeEntityId))
+					continue;
+				m_MissionRuntime.CleanupRuntimeEntityForStateRestore(runtimeEntity.m_sRuntimeEntityId);
+				cleanedRuntimeIds.Insert(runtimeEntity.m_sRuntimeEntityId);
+				cleaned++;
+			}
+
+			foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+			{
+				if (!asset || asset.m_sEntityId.IsEmpty() || expectedState.FindMissionAsset(asset.m_sAssetId))
+					continue;
+				if (cleanedRuntimeIds.Find(asset.m_sEntityId) >= 0)
+					continue;
+				m_MissionRuntime.CleanupRuntimeEntityForStateRestore(asset.m_sEntityId);
+				cleanedRuntimeIds.Insert(asset.m_sEntityId);
+				cleaned++;
+			}
+		}
+
+		if (m_HQ)
+		{
+			m_HQ.ClearRuntimeObjectsForStateRestore(m_State);
+			cleaned++;
+		}
+		return cleaned;
+	}
+
+	protected bool CampaignDebugIsolationStatesMatch(HST_CampaignState expectedState, HST_CampaignState actualState)
+	{
+		if (!expectedState || !actualState)
+			return false;
+
+		bool metadataMatches = expectedState.m_iSchemaVersion == actualState.m_iSchemaVersion
+			&& expectedState.m_iCampaignSeed == actualState.m_iCampaignSeed
+			&& expectedState.m_iElapsedSeconds == actualState.m_iElapsedSeconds
+			&& expectedState.m_ePhase == actualState.m_ePhase
+			&& expectedState.m_sCommanderIdentityId == actualState.m_sCommanderIdentityId
+			&& expectedState.m_sHQHideoutId == actualState.m_sHQHideoutId;
+		if (!metadataMatches)
+			return false;
+
+		bool resourceMatches = expectedState.m_iFactionMoney == actualState.m_iFactionMoney
+			&& expectedState.m_iHR == actualState.m_iHR
+			&& expectedState.m_iTrainingLevel == actualState.m_iTrainingLevel
+			&& expectedState.m_iWarLevel == actualState.m_iWarLevel
+			&& expectedState.m_iNextAuthoritySequence == actualState.m_iNextAuthoritySequence
+			&& expectedState.m_sCampaignEndReason == actualState.m_sCampaignEndReason;
+		if (!resourceMatches)
+			return false;
+
+		if (expectedState.m_aZones.Count() != actualState.m_aZones.Count())
+			return false;
+		if (expectedState.m_aActiveMissions.Count() != actualState.m_aActiveMissions.Count())
+			return false;
+		if (expectedState.m_aMissionObjectives.Count() != actualState.m_aMissionObjectives.Count())
+			return false;
+		if (expectedState.m_aMissionRuntimeEntities.Count() != actualState.m_aMissionRuntimeEntities.Count())
+			return false;
+		if (expectedState.m_aMissionAssets.Count() != actualState.m_aMissionAssets.Count())
+			return false;
+		if (expectedState.m_aActiveGroups.Count() != actualState.m_aActiveGroups.Count())
+			return false;
+		if (expectedState.m_aSupportRequests.Count() != actualState.m_aSupportRequests.Count())
+			return false;
+		if (expectedState.m_aEnemyOrders.Count() != actualState.m_aEnemyOrders.Count())
+			return false;
+		if (expectedState.m_aRuntimeVehicles.Count() != actualState.m_aRuntimeVehicles.Count())
+			return false;
+		if (expectedState.m_aGarageVehicles.Count() != actualState.m_aGarageVehicles.Count())
+			return false;
+		if (expectedState.m_aArsenalItems.Count() != actualState.m_aArsenalItems.Count())
+			return false;
+		if (expectedState.m_aCivilianZones.Count() != actualState.m_aCivilianZones.Count())
+			return false;
+		if (expectedState.m_aStrategicEvents.Count() != actualState.m_aStrategicEvents.Count())
+			return false;
+		if (expectedState.m_aCommandReceipts.Count() != actualState.m_aCommandReceipts.Count())
+			return false;
+		if (expectedState.m_aResourceTransactions.Count() != actualState.m_aResourceTransactions.Count())
+			return false;
+		if (expectedState.m_aCampaignEvents.Count() != actualState.m_aCampaignEvents.Count())
+			return false;
+		return true;
+	}
+
+	protected string BuildCampaignDebugIsolationStateActual(HST_CampaignState expectedState, HST_CampaignState actualState)
+	{
+		if (!expectedState || !actualState)
+			return "expected or actual state unavailable";
+
+		string actual = string.Format("phase %1/%2 | elapsed %3/%4 | money %5/%6 | HR %7/%8", expectedState.m_ePhase, actualState.m_ePhase, expectedState.m_iElapsedSeconds, actualState.m_iElapsedSeconds, expectedState.m_iFactionMoney, actualState.m_iFactionMoney, expectedState.m_iHR, actualState.m_iHR);
+		actual = actual + string.Format(" | training %1/%2 | missions %3/%4 | groups %5/%6 | support %7/%8 | orders %9", expectedState.m_iTrainingLevel, actualState.m_iTrainingLevel, expectedState.m_aActiveMissions.Count(), actualState.m_aActiveMissions.Count(), expectedState.m_aActiveGroups.Count(), actualState.m_aActiveGroups.Count(), expectedState.m_aSupportRequests.Count(), actualState.m_aSupportRequests.Count(), expectedState.m_aEnemyOrders.Count());
+		actual = actual + string.Format("/%1", actualState.m_aEnemyOrders.Count());
+		return actual;
+	}
+
 	protected void CompleteCampaignDebugRun()
 	{
 		RestoreCampaignDebugActorCommandAccess();
@@ -12241,10 +12502,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(PERSISTENCE_SMOKE_PREFIX, "run completion persistence smoke cleanup"), false);
 		RefreshCampaignMarkers();
 		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
-		m_bCampaignDebugRunning = false;
-		m_bCampaignDebugCompleted = true;
 		RecordCampaignDebugCase(BuildCampaignDebugPlayerMarkerCompletionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugRunCleanupSnapshotCase());
+		m_bCampaignDebugRunning = false;
+		RecordCampaignDebugCase(RestoreCampaignDebugStateSnapshot("run completion"));
+		RepublishExistingCampaignMarkersAfterDebugRestore("campaign debug completion restored live state");
+		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
+		m_bCampaignDebugCompleted = true;
 		m_sCampaignDebugLastResult = string.Format("complete | run %1 | pass %2 | warn %3 | fail %4 | blocked %5 | skipped %6", m_sCampaignDebugRunId, m_iCampaignDebugPassCount, m_iCampaignDebugWarnCount, m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount);
 		AppendCampaignDebugLog("DONE", "complete", m_sCampaignDebugLastResult);
 		string artifactStatus = SaveCampaignDebugRunArtifacts();
@@ -13452,7 +13716,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_CampaignDebugRunResult)
 			return;
 
-		if (m_State)
+		if (m_State && m_CampaignDebugRunResult.m_iEndedAtSecond <= 0)
 			m_CampaignDebugRunResult.m_iEndedAtSecond = m_State.m_iElapsedSeconds;
 		m_CampaignDebugRunResult.m_iPassCount = m_iCampaignDebugPassCount;
 		m_CampaignDebugRunResult.m_iWarnCount = m_iCampaignDebugWarnCount;
@@ -25482,6 +25746,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		status = status + string.Format(" | warn %1", m_iCampaignDebugWarnCount);
 		status = status + string.Format(" | fail %1 | blocked %2 | skipped %3", m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount);
 		status = status + string.Format(" | early %1/%2", m_iCampaignDebugEarlyPhaseIndex, GetCampaignDebugEarlyPhaseStepCount());
+		status = status + string.Format("\nstate isolation | active %1 | %2", m_bCampaignDebugStateIsolationActive, EmptyCampaignDebugField(m_sCampaignDebugIsolationStatus));
 		if (!m_sCampaignDebugReportPath.IsEmpty())
 			status = status + "\nreport | " + m_sCampaignDebugReportPath;
 		if (!m_sCampaignDebugSummaryPath.IsEmpty())
@@ -28893,7 +29158,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		EvaluateCampaignOutcomeNow();
 		m_Missions.SyncNextInstanceIdFromState(m_State);
 		if (m_Persistence)
-			m_Persistence.CaptureAndTrackState(m_State);
+		{
+			if (m_bCampaignDebugStateIsolationActive)
+				m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated new-campaign reset checkpoint");
+			else
+				m_Persistence.CaptureAndTrackState(m_State);
+		}
 		RefreshCampaignMarkers();
 		ArmPlayerSpawnSweep(4);
 		MarkMajorCampaignChange(false);
@@ -29267,7 +29537,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RefreshCampaignMarkers();
 		}
 
-		if (m_Persistence)
+		if (m_Persistence && !m_bCampaignDebugStateIsolationActive)
 			m_Persistence.MarkMajorChange();
 
 		PublishMissionIntelToPlayers();
@@ -29312,6 +29582,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_MapMarkers.ForceNativeRepublish(m_State, m_Preset);
 		DebugLog("campaign marker native republish requested: " + reason);
+	}
+
+	protected void RepublishExistingCampaignMarkersAfterDebugRestore(string reason)
+	{
+		if (!m_MapMarkers || !m_State || !m_Preset)
+			return;
+
+		m_MapMarkers.ForceNativeRepublishExistingState(m_State, m_Preset);
+		DebugLog("existing campaign markers republished after debug restore: " + reason);
 	}
 
 	protected void BroadcastMissionEvent(string eventType, HST_ActiveMissionState mission, HST_MissionDefinition definition)

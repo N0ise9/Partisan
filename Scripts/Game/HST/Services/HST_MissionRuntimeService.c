@@ -152,6 +152,11 @@ class HST_MissionRuntimeService
 		m_bDebugLoggingEnabled = enabled;
 	}
 
+	void CleanupRuntimeEntityForStateRestore(string runtimeEntityId)
+	{
+		DeleteRuntimeEntity(runtimeEntityId);
+	}
+
 	int CountRuntimeEntityHandlesForMission(HST_CampaignState state, string missionInstanceId)
 	{
 		if (!state || missionInstanceId.IsEmpty())

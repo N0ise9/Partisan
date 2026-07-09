@@ -97,8 +97,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Use explicit reserve, commit, cancel, and refund transitions. Restore reconciliation must cancel/refund any open reservation before normal service ticks resume, and transaction/event history must be bounded.
   - Training is the first production consumer. Defer paid support and garrison integration until the force-manifest layer can provide one exact, immutable quote for affordability, deduction, spawn, persistence, and refund behavior.
 
-- Full Campaign Debug is currently destructive to live campaign state.
-  - It can force terminal outcomes, mutate resources and campaign rows, and trigger autosaves. Do not rerun it against a live profile until the runner either snapshot-restores the full durable and projected runtime boundary or is hard-gated to a disposable development profile.
+- Full Campaign Debug must fail closed outside an isolated development session.
+  - It can force terminal outcomes, mutate resources and campaign rows, and create world/player side effects. Persist the live campaign first, retain its original `HST_CampaignState` reference, run the sequencer against a deep save-data clone, divert persistence `Tick`, `MarkMajorChange`, checkpoint, capture, profile-fallback, and save-point paths, then swap the untouched reference back on both completion and cancellation. Applying a save snapshot into the mutated object is weaker because transient state can be omitted.
+  - External/restart/soak profiles require a separately managed disposable profile and launcher; do not let their labels enter the common in-process bootstrap/HQ/checkpoint steps.
+  - Campaign-state swapping does not restore actor position, health, inventory, world entities, AI groups, vehicles, waypoints, service caches, or delayed callbacks. Keep the exact development-world gate and require a session restart before treating the runtime as clean.
 
 - Campaign marker publication is not proof that its visual widget is ready.
   - A published model or native/static marker handle can exist while the delayed map widget root is still null. Visual proof must open the map, wait through widget construction, inspect static campaign-marker root readiness, and surface any update-time VM exception; model and handle counts alone are insufficient.
