@@ -9,6 +9,7 @@ class HST_ForceRequest
 	vector m_vSourcePosition;
 	vector m_vTargetPosition;
 	int m_iWarLevel;
+	int m_iTrainingLevel;
 	int m_iBudget;
 	int m_iMinManpower;
 	int m_iMaxManpower;
@@ -80,9 +81,12 @@ class HST_ForceCompositionResult
 	string m_sSourceZoneId;
 	string m_sTargetZoneId;
 	int m_iWarLevel;
+	int m_iTrainingLevel;
+	int m_iTrainingQualityBonusPercent;
 	int m_iBudget;
 	int m_iTotalCost;
 	int m_iManpower;
+	int m_iEffectiveManpower;
 	int m_iVehicleCount;
 	int m_iArmedVehicleCount;
 	int m_iSkippedPrefabCount;

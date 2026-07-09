@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r121-training-war-cap";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r122-training-quality";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -10715,6 +10715,149 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return state;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugTrainingQualityCase()
+	{
+		HST_CampaignDebugCaseResult trainingCase = CreateCampaignDebugCase("recruitment.training_quality.contract.runtime", "economy", "training", "economy_force");
+		bool servicesReady = m_Recruitment != null && m_ForceCompositions != null && m_ZoneCapture != null && m_Preset != null && m_Balance != null;
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.quality.prerequisite",
+			"recruitment, force composition, capture, preset, and balance services ready",
+			string.Format("recruitment %1 | composition %2 | capture %3 | preset %4 | balance %5", m_Recruitment != null, m_ForceCompositions != null, m_ZoneCapture != null, m_Preset != null, m_Balance != null),
+			CampaignDebugStatus(servicesReady, "BLOCKED"),
+			"training quality prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(trainingCase);
+			return trainingCase;
+		}
+
+		HST_CampaignState lowState = BuildCampaignDebugTrainingQualityState(1);
+		HST_CampaignState highState = BuildCampaignDebugTrainingQualityState(6);
+		HST_ZoneState lowZone = lowState.FindZone("debug_training_quality_zone");
+		HST_ZoneState highZone = highState.FindZone("debug_training_quality_zone");
+		HST_ZoneCaptureStatus lowStatus = m_ZoneCapture.BuildCaptureStatus(lowState, m_Preset, m_Balance, lowZone);
+		HST_ZoneCaptureStatus highStatus = m_ZoneCapture.BuildCaptureStatus(highState, m_Preset, m_Balance, highZone);
+		HST_ForceCompositionResult lowComposition = m_ForceCompositions.Compose(lowState, m_Preset, BuildCampaignDebugTrainingQualityForceRequest(lowState));
+		HST_ForceCompositionResult highComposition = m_ForceCompositions.Compose(highState, m_Preset, BuildCampaignDebugTrainingQualityForceRequest(highState));
+		string lowReport = m_Recruitment.BuildRecruitmentReport(lowState, m_Preset, m_Arsenal);
+		string highReport = m_Recruitment.BuildRecruitmentReport(highState, m_Preset, m_Arsenal);
+
+		int lowBonus = m_Recruitment.ResolveTrainingQualityBonusPercent(lowState);
+		int highBonus = m_Recruitment.ResolveTrainingQualityBonusPercent(highState);
+		int lowStrength = m_Recruitment.ResolveTrainingEffectiveInfantryStrength(lowState, 4);
+		int highStrength = m_Recruitment.ResolveTrainingEffectiveInfantryStrength(highState, 4);
+		string actual = string.Format(
+			"low training %1 bonus %2 strength %3 | high training %4 bonus %5 strength %6",
+			lowState.m_iTrainingLevel,
+			lowBonus,
+			lowStrength,
+			highState.m_iTrainingLevel,
+			highBonus,
+			highStrength);
+		actual = actual + string.Format(
+			" | capture low AI %1 strength %2 FIA %3 | high AI %4 strength %5 FIA %6",
+			lowStatus.m_iFriendlyInfantryCountNearby,
+			lowStatus.m_iFriendlyInfantryStrengthNearby,
+			lowStatus.m_iFIACountNearby,
+			highStatus.m_iFriendlyInfantryCountNearby,
+			highStatus.m_iFriendlyInfantryStrengthNearby,
+			highStatus.m_iFIACountNearby);
+		trainingCase.m_aEvidence.Insert(actual);
+		trainingCase.m_aEvidence.Insert("low composition | " + ShortCampaignDebugLine(BuildCampaignDebugForceCompositionActual(lowComposition), 220));
+		trainingCase.m_aEvidence.Insert("high composition | " + ShortCampaignDebugLine(BuildCampaignDebugForceCompositionActual(highComposition), 220));
+		trainingCase.m_aEvidence.Insert("high report | " + ShortCampaignDebugLine(highReport, 220));
+		AddCampaignDebugMetric(trainingCase, "training.quality.low_bonus", string.Format("%1", lowBonus), "pct");
+		AddCampaignDebugMetric(trainingCase, "training.quality.high_bonus", string.Format("%1", highBonus), "pct");
+		AddCampaignDebugMetric(trainingCase, "training.quality.low_strength", string.Format("%1", lowStrength), "strength");
+		AddCampaignDebugMetric(trainingCase, "training.quality.high_strength", string.Format("%1", highStrength), "strength");
+
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.quality.scaling",
+			"higher training increases derived FIA infantry quality",
+			actual,
+			CampaignDebugStatus(lowBonus == 0 && highBonus == 25 && lowStrength == 4 && highStrength == 5),
+			"training quality did not scale from training level");
+		bool captureStrengthExpected = lowStatus.m_iFriendlyInfantryCountNearby == 4 && highStatus.m_iFriendlyInfantryCountNearby == 4;
+		captureStrengthExpected = captureStrengthExpected && lowStatus.m_iFriendlyInfantryStrengthNearby == 4 && highStatus.m_iFriendlyInfantryStrengthNearby == 5;
+		captureStrengthExpected = captureStrengthExpected && highStatus.m_iFIACountNearby > lowStatus.m_iFIACountNearby;
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.quality.capture_strength",
+			"capture status keeps raw FIA headcount but uses trained effective strength",
+			actual,
+			CampaignDebugStatus(captureStrengthExpected),
+			"capture status did not apply training-derived FIA strength");
+		bool compositionExpected = false;
+		if (highComposition)
+		{
+			compositionExpected = highComposition.m_bSuccess && highComposition.m_iTrainingLevel == 6;
+			compositionExpected = compositionExpected && highComposition.m_iTrainingQualityBonusPercent == 25;
+			compositionExpected = compositionExpected && highComposition.m_iEffectiveManpower > highComposition.m_iManpower;
+			compositionExpected = compositionExpected && highComposition.m_sDebugSummary.Contains("training 6 quality +25 pct");
+		}
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.quality.force_composition",
+			"force composition exposes training level, quality bonus, and effective manpower for FIA forces",
+			BuildCampaignDebugForceCompositionActual(highComposition),
+			CampaignDebugStatus(compositionExpected),
+			"FIA force composition did not expose training quality");
+		bool reportExpected = lowReport.Contains("quality +0 pct") && highReport.Contains("quality +25 pct");
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.quality.report",
+			"recruitment report exposes training quality bonus",
+			ShortCampaignDebugLine(lowReport + " | " + highReport, 300),
+			CampaignDebugStatus(reportExpected),
+			"recruitment report did not expose training quality");
+
+		FinalizeCampaignDebugCaseFromAssertions(trainingCase);
+		return trainingCase;
+	}
+
+	protected HST_CampaignState BuildCampaignDebugTrainingQualityState(int trainingLevel)
+	{
+		HST_CampaignState state = BuildCampaignDebugTrainingCapState(8, trainingLevel, 1000);
+		HST_ZoneState zone = new HST_ZoneState();
+		zone.m_sZoneId = "debug_training_quality_zone";
+		zone.m_sDisplayName = "Training Quality Proof";
+		zone.m_sOwnerFactionKey = m_Preset.m_sOccupierFactionKey;
+		zone.m_eType = HST_EZoneType.HST_ZONE_OUTPOST;
+		zone.m_vPosition[0] = 1000;
+		zone.m_vPosition[1] = 0;
+		zone.m_vPosition[2] = 1000;
+		zone.m_iCaptureRadiusMeters = 500;
+		zone.m_iGarrisonSlots = 8;
+		state.m_aZones.Insert(zone);
+
+		HST_ActiveGroupState group = new HST_ActiveGroupState();
+		group.m_sGroupId = "debug_training_quality_group";
+		group.m_sZoneId = zone.m_sZoneId;
+		group.m_sFactionKey = ResolveCampaignDebugResistanceFactionKey();
+		group.m_vPosition = zone.m_vPosition;
+		group.m_sRuntimeStatus = "training_quality_probe";
+		group.m_iInfantryCount = 4;
+		group.m_iOriginalInfantryCount = 4;
+		group.m_iLastSeenAliveCount = 4;
+		group.m_iSurvivorInfantryCount = 4;
+		state.m_aActiveGroups.Insert(group);
+		return state;
+	}
+
+	protected HST_ForceRequest BuildCampaignDebugTrainingQualityForceRequest(HST_CampaignState state)
+	{
+		string resistanceFactionKey = ResolveCampaignDebugResistanceFactionKey();
+		HST_ForceRequest request = BuildCampaignDebugForceRequest(resistanceFactionKey, HST_ForceCompositionService.INTENT_GARRISON, 3, true, false);
+		if (state)
+			request.m_iTrainingLevel = state.m_iTrainingLevel;
+		request.m_sRequestId = string.Format("debug_training_quality_%1", request.m_iTrainingLevel);
+		request.m_sTargetZoneId = "debug_training_quality_zone";
+		request.m_sReason = "training quality proof";
+		return request;
+	}
+
 	protected void RunCampaignDebugSupportRequestCase(string label, HST_ESupportRequestType requestedSupportType, bool supplyDrop)
 	{
 		ClearCampaignDebugPlayerSupportRequests("before " + label);
@@ -11632,6 +11775,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugAction("train troops", trainResult);
 		RecordCampaignDebugCase(BuildCampaignDebugTrainingCase(moneyBeforeTraining, trainingBefore, m_State.m_iFactionMoney, m_State.m_iTrainingLevel, trainResult));
 		RecordCampaignDebugCase(BuildCampaignDebugTrainingWarLevelCapCase());
+		RecordCampaignDebugCase(BuildCampaignDebugTrainingQualityCase());
 		RecordCampaignDebugObservation("recruitment report", RequestMemberInspectRecruitment(m_iCampaignDebugPlayerId));
 		RunCampaignDebugSupportRequestCase("supply drop", HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP, true);
 		RunCampaignDebugSupportRequestCase("QRF support", HST_ESupportRequestType.HST_SUPPORT_QRF, false);
@@ -31238,7 +31382,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string blockedReason = status.m_sBlockedReason;
 			if (blockedReason.IsEmpty())
 				blockedReason = "clear";
-			captureSummary = captureSummary + string.Format(" | radius %1m | players %2 | FIA AI %3 | FIA veh %4", status.m_iCaptureRadiusMeters, status.m_iPlayerCountNearby, status.m_iFriendlyInfantryCountNearby, status.m_iFriendlyVehicleCountNearby);
+			captureSummary = captureSummary + string.Format(" | radius %1m | players %2 | FIA AI %3 strength %4 | FIA veh %5", status.m_iCaptureRadiusMeters, status.m_iPlayerCountNearby, status.m_iFriendlyInfantryCountNearby, status.m_iFriendlyInfantryStrengthNearby, status.m_iFriendlyVehicleCountNearby);
 			captureSummary = captureSummary + string.Format(" | enemies %1+%2v | %3", status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby, blockedReason);
 		}
 		string forceSummary = string.Format(" | garrison %1 infantry/%2 vehicles | active %3/%4", infantry, vehicles, zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount);

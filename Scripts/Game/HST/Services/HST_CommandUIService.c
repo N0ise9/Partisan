@@ -56,7 +56,7 @@ class HST_CommandUIService
 		if (!state)
 			return "h-istasi command | campaign state not ready";
 
-		string header = string.Format("h-istasi command | money %1 | HR %2 | war level %3 | training %4", state.m_iFactionMoney, state.m_iHR, state.m_iWarLevel, state.m_iTrainingLevel);
+		string header = string.Format("h-istasi command | money %1 | HR %2 | war level %3 | training %4", state.m_iFactionMoney, state.m_iHR, state.m_iWarLevel, BuildTrainingQualityShortLabel(state));
 		string hq = string.Format("\nHQ: %1 at %2 | Petros alive %3", state.m_sHQHideoutId, state.m_vHQPosition, state.m_bPetrosAlive);
 		string markerSummary;
 		if (markers)
@@ -1713,7 +1713,7 @@ class HST_CommandUIService
 			return string.Format("Map/War | %1 friendly zones | %2 hostile zones | %3 active combat area(s)", CountResistanceZones(state, preset), CountEnemyZones(state, preset), CountActiveZones(state));
 
 		if (selectedTabId == TAB_FORCES)
-			return string.Format("Forces | %1 HR available | training level %2 | %3 FIA defenders | %4 support team(s) active", state.m_iHR, state.m_iTrainingLevel, CountGarrisonInfantry(state), CountActivePlayerSupportRequests(state));
+			return string.Format("Forces | %1 HR available | %2 | %3 FIA defenders | %4 support team(s) active", state.m_iHR, BuildTrainingQualityLabel(state), CountGarrisonInfantry(state), CountActivePlayerSupportRequests(state));
 
 		if (selectedTabId == TAB_ARSENAL)
 			return string.Format("Arsenal/Loot | unlocked %1/%2 | vehicle cargo %3 item(s) | HQ arsenal %4", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state), CountVehicleCargoItems(state), BuildArsenalRuntimeStatus(state));
@@ -1785,8 +1785,32 @@ class HST_CommandUIService
 		payload = AppendStat(payload, "FIA Money", string.Format("$%1", state.m_iFactionMoney), "good");
 		payload = AppendStat(payload, "HR", string.Format("%1", state.m_iHR), "good");
 		payload = AppendStat(payload, "War Level", string.Format("%1", state.m_iWarLevel), "warn");
-		payload = AppendStat(payload, "Training", string.Format("%1", state.m_iTrainingLevel), "good");
+		payload = AppendStat(payload, "Training", BuildTrainingQualityShortLabel(state), "good");
 		return payload;
+	}
+
+	protected string BuildTrainingQualityLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "training unavailable";
+
+		int qualityBonus = HST_RecruitmentService.ResolveTrainingQualityBonusPercentForLevel(state.m_iTrainingLevel);
+		if (qualityBonus <= 0)
+			return string.Format("training level %1 | base quality", state.m_iTrainingLevel);
+
+		return string.Format("training level %1 | +%2 pct quality", state.m_iTrainingLevel, qualityBonus);
+	}
+
+	protected string BuildTrainingQualityShortLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "offline";
+
+		int qualityBonus = HST_RecruitmentService.ResolveTrainingQualityBonusPercentForLevel(state.m_iTrainingLevel);
+		if (qualityBonus <= 0)
+			return string.Format("L%1", state.m_iTrainingLevel);
+
+		return string.Format("L%1 +%2", state.m_iTrainingLevel, qualityBonus);
 	}
 
 	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, string selectedTabId, int playerId, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
@@ -1882,7 +1906,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "resources", "Resistance Logistics");
 		payload = AppendRow(payload, "resources", "FIA money", string.Format("$%1", state.m_iFactionMoney), "good");
 		payload = AppendRow(payload, "resources", "HR pool", string.Format("%1 recruits", state.m_iHR), "good");
-		payload = AppendRow(payload, "resources", "Training", string.Format("level %1", state.m_iTrainingLevel), "good");
+		payload = AppendRow(payload, "resources", "Training", BuildTrainingQualityLabel(state), "good");
 		payload = AppendRow(payload, "resources", "Income timer", string.Format("%1s accumulated", state.m_iIncomeAccumulatorSeconds), "neutral");
 
 		payload = AppendSection(payload, "pressure", "Enemy Pressure");
@@ -2153,6 +2177,8 @@ class HST_CommandUIService
 
 		string value = string.Format("%1 | %2 | %3 percent", CaptureOwnerPlayerLabel(status.m_sOwnerFactionKey, preset), contested, status.m_iProgressPercent);
 		value = value + string.Format(" | FIA nearby %1 infantry / %2 vehicle(s)", status.m_iFriendlyInfantryCountNearby + status.m_iPlayerCountNearby, status.m_iFriendlyVehicleCountNearby);
+		if (status.m_iFriendlyInfantryStrengthNearby > status.m_iFriendlyInfantryCountNearby)
+			value = value + string.Format(" | strength %1", status.m_iFriendlyInfantryStrengthNearby + status.m_iPlayerCountNearby);
 		value = value + string.Format(" | enemy nearby %1 infantry / %2 vehicle(s)", status.m_iEnemyCountNearby, status.m_iEnemyVehicleCountNearby);
 		return value + string.Format(" | %1", blockedReason);
 	}
@@ -2181,7 +2207,7 @@ class HST_CommandUIService
 			return payload;
 
 		payload = AppendSection(payload, "fia", "FIA Forces");
-		payload = AppendRow(payload, "fia", "Training level", string.Format("%1", state.m_iTrainingLevel), "good");
+		payload = AppendRow(payload, "fia", "Training", BuildTrainingQualityLabel(state), "good");
 		payload = AppendRow(payload, "fia", "Available HR", string.Format("%1", state.m_iHR), "good");
 		string equipmentTier = "unknown";
 		if (recruitment)

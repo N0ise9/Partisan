@@ -36,6 +36,8 @@ class HST_ForceCompositionService
 			return Fail(result, "faction template missing for " + result.m_sFactionKey);
 
 		result.m_iWarLevel = ResolveWarLevel(state, request);
+		result.m_iTrainingLevel = ResolveTrainingLevel(state, preset, request, result.m_sFactionKey);
+		result.m_iTrainingQualityBonusPercent = ResolveTrainingQualityBonusPercent(state, preset, request, result.m_sFactionKey);
 		result.m_iBudget = ResolveBudget(request, result.m_iWarLevel);
 		result.m_sSelectedTier = ResolveTier(result.m_iWarLevel);
 
@@ -64,6 +66,7 @@ class HST_ForceCompositionService
 		if (!allowInfantry && request.m_bAllowVehicles && !hasVehicle)
 			return Fail(result, BuildNoVehicleFailure(result));
 
+		result.m_iEffectiveManpower = ResolveEffectiveManpower(result.m_iManpower, result.m_iTrainingQualityBonusPercent);
 		result.m_bSuccess = true;
 		result.m_sDebugSummary = BuildDebugSummary(request, result);
 		return result;
@@ -83,6 +86,7 @@ class HST_ForceCompositionService
 		request.m_vSourcePosition = supportRequest.m_vSourcePosition;
 		request.m_vTargetPosition = supportRequest.m_vTargetPosition;
 		request.m_iWarLevel = ResolveWarLevel(state, null);
+		request.m_iTrainingLevel = ResolveTrainingLevel(state, preset, null, supportRequest.m_sFactionKey);
 		request.m_iBudget = Math.Max(10 + request.m_iWarLevel * 4, supportRequest.m_iAttackCost + supportRequest.m_iSupportCost);
 		request.m_iMinManpower = 3;
 		request.m_iMaxManpower = 12 + request.m_iWarLevel;
@@ -194,6 +198,8 @@ class HST_ForceCompositionService
 		request.m_sFactionKey = factionKey;
 		request.m_sIntentId = intentId;
 		request.m_iWarLevel = warLevel;
+		if (state)
+			request.m_iTrainingLevel = state.m_iTrainingLevel;
 		request.m_iBudget = 60 + warLevel * 8;
 		request.m_iMinManpower = 2;
 		request.m_iMaxManpower = 16;
@@ -253,6 +259,52 @@ class HST_ForceCompositionService
 			return Math.Max(1, state.m_iWarLevel);
 
 		return 1;
+	}
+
+	protected string ResolveResistanceFactionKey(HST_CampaignPreset preset)
+	{
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			return preset.m_sResistanceFactionKey;
+
+		return "FIA";
+	}
+
+	protected bool IsResistanceForce(HST_CampaignPreset preset, string factionKey)
+	{
+		if (factionKey.IsEmpty())
+			return false;
+
+		return factionKey == ResolveResistanceFactionKey(preset);
+	}
+
+	protected int ResolveTrainingLevel(HST_CampaignState state, HST_CampaignPreset preset, HST_ForceRequest request, string factionKey)
+	{
+		if (!IsResistanceForce(preset, factionKey))
+			return 0;
+		if (request && request.m_iTrainingLevel > 0)
+			return Math.Max(1, request.m_iTrainingLevel);
+		if (state)
+			return Math.Max(1, state.m_iTrainingLevel);
+
+		return 1;
+	}
+
+	protected int ResolveTrainingQualityBonusPercent(HST_CampaignState state, HST_CampaignPreset preset, HST_ForceRequest request, string factionKey)
+	{
+		int trainingLevel = ResolveTrainingLevel(state, preset, request, factionKey);
+		if (trainingLevel <= 0)
+			return 0;
+
+		return HST_RecruitmentService.ResolveTrainingQualityBonusPercentForLevel(trainingLevel);
+	}
+
+	protected int ResolveEffectiveManpower(int manpower, int trainingQualityBonusPercent)
+	{
+		int actualManpower = Math.Max(0, manpower);
+		if (actualManpower <= 0)
+			return 0;
+
+		return Math.Max(actualManpower, actualManpower * (100 + Math.Max(0, trainingQualityBonusPercent)) / 100);
 	}
 
 	protected int ResolveBudget(HST_ForceRequest request, int warLevel)
@@ -768,11 +820,14 @@ class HST_ForceCompositionService
 			result.m_iManpower
 		);
 		summary = summary + string.Format(
-			" | vehicles %1 armed %2 | skipped %3",
+			" | effective manpower %1 | vehicles %2 armed %3 | skipped %4",
+			result.m_iEffectiveManpower,
 			result.m_iVehicleCount,
 			result.m_iArmedVehicleCount,
 			result.m_iSkippedPrefabCount
 		);
+		if (result.m_iTrainingLevel > 0)
+			summary = summary + string.Format(" | training %1 quality +%2 pct", result.m_iTrainingLevel, result.m_iTrainingQualityBonusPercent);
 
 		if (!result.m_sFailureReason.IsEmpty())
 			summary = summary + " | failure " + result.m_sFailureReason;

@@ -3426,6 +3426,29 @@ foreach ($requiredTrainingWarCapEntry in @(
 }
 Write-Host "Training war-level cap proof OK"
 
+foreach ($requiredTrainingQualityEntry in @(
+		"ResolveTrainingQualityBonusPercentForLevel",
+		"ResolveTrainingEffectiveInfantryStrengthForLevel",
+		"m_iEffectiveManpower",
+		"m_iFriendlyInfantryStrengthNearby",
+		"ApplyTrainingQualitySummaryToActiveGroup",
+		"BuildTrainingQualityLabel",
+		"quality +%3 pct",
+		"effective manpower",
+		"training quality +%1 pct",
+		"recruitment.training_quality.contract.runtime",
+		"training.quality.scaling",
+		"training.quality.capture_strength",
+		"training.quality.force_composition",
+		"training.quality.report",
+		"RecordCampaignDebugCase(BuildCampaignDebugTrainingQualityCase())"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredTrainingQualityEntry)) {
+		throw "Training quality proof is missing: $requiredTrainingQualityEntry"
+	}
+}
+Write-Host "Training quality proof OK"
+
 foreach ($requiredUndercoverSecurityScanEntry in @(
 		"UNDERCOVER_ROADBLOCK_SCAN_COOLDOWN_SECONDS",
 		"UNDERCOVER_POLICE_SCAN_COOLDOWN_SECONDS",

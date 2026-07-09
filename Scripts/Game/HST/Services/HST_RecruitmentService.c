@@ -59,6 +59,9 @@ class HST_TrainingResult
 
 class HST_RecruitmentService
 {
+	static const int TRAINING_QUALITY_BONUS_PER_LEVEL = 5;
+	static const int TRAINING_QUALITY_BONUS_MAX = 45;
+
 	int ResolveTrainingCap(HST_CampaignState state)
 	{
 		if (!state)
@@ -66,6 +69,50 @@ class HST_RecruitmentService
 
 		int warLevel = Math.Max(1, state.m_iWarLevel);
 		return Math.Max(1, Math.Min(10, warLevel + 2));
+	}
+
+	static int ResolveTrainingQualityBonusPercentForLevel(int trainingLevel)
+	{
+		int normalizedTraining = Math.Max(1, trainingLevel);
+		return Math.Min(TRAINING_QUALITY_BONUS_MAX, Math.Max(0, normalizedTraining - 1) * TRAINING_QUALITY_BONUS_PER_LEVEL);
+	}
+
+	int ResolveTrainingQualityBonusPercent(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		return ResolveTrainingQualityBonusPercentForLevel(state.m_iTrainingLevel);
+	}
+
+	static int ResolveTrainingEffectiveInfantryStrengthForLevel(int infantryCount, int trainingLevel)
+	{
+		int actualInfantry = Math.Max(0, infantryCount);
+		if (actualInfantry <= 0)
+			return 0;
+
+		int bonusPercent = ResolveTrainingQualityBonusPercentForLevel(trainingLevel);
+		return Math.Max(actualInfantry, actualInfantry * (100 + bonusPercent) / 100);
+	}
+
+	int ResolveTrainingEffectiveInfantryStrength(HST_CampaignState state, int infantryCount)
+	{
+		if (!state)
+			return Math.Max(0, infantryCount);
+
+		return ResolveTrainingEffectiveInfantryStrengthForLevel(infantryCount, state.m_iTrainingLevel);
+	}
+
+	string BuildTrainingQualitySummary(HST_CampaignState state)
+	{
+		if (!state)
+			return "training quality unknown";
+
+		return string.Format(
+			"training quality +%1 pct | 4 FIA count as %2 strength",
+			ResolveTrainingQualityBonusPercent(state),
+			ResolveTrainingEffectiveInfantryStrength(state, 4)
+		);
 	}
 
 	HST_TrainingResult TrainTroopsDetailed(HST_CampaignState state, HST_EconomyService economy, int moneyCost)
@@ -249,9 +296,10 @@ class HST_RecruitmentService
 		}
 
 		string report = string.Format(
-			"h-istasi recruitment | training %1/%2 | money $%3 | HR %4 | equipment %5 | unlocks %6",
+			"h-istasi recruitment | training %1/%2 | quality +%3 pct | money $%4 | HR %5 | equipment %6 | unlocks %7",
 			state.m_iTrainingLevel,
 			ResolveTrainingCap(state),
+			ResolveTrainingQualityBonusPercent(state),
 			state.m_iFactionMoney,
 			state.m_iHR,
 			ResolveRecruitEquipmentTier(state, arsenal),

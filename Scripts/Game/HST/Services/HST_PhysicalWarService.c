@@ -8046,7 +8046,33 @@ class HST_PhysicalWarService
 		activeGroup.m_iSurvivorInfantryCount = infantryCount;
 		activeGroup.m_iSurvivorVehicleCount = vehicleCount;
 		activeGroup.m_bQRF = qrf;
+		ApplyTrainingQualitySummaryToActiveGroup(activeGroup, state, preset);
 		return activeGroup;
+	}
+
+	protected void ApplyTrainingQualitySummaryToActiveGroup(HST_ActiveGroupState activeGroup, HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!activeGroup || !state)
+			return;
+
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+		if (activeGroup.m_sFactionKey != resistanceFactionKey)
+			return;
+
+		int qualityBonus = HST_RecruitmentService.ResolveTrainingQualityBonusPercentForLevel(state.m_iTrainingLevel);
+		int effectiveInfantry = HST_RecruitmentService.ResolveTrainingEffectiveInfantryStrengthForLevel(activeGroup.m_iInfantryCount, state.m_iTrainingLevel);
+		activeGroup.m_iCompositionManpower = Math.Max(activeGroup.m_iCompositionManpower, activeGroup.m_iInfantryCount);
+		if (activeGroup.m_sCompositionIntentId.IsEmpty())
+			activeGroup.m_sCompositionIntentId = HST_ForceCompositionService.INTENT_GARRISON;
+		if (activeGroup.m_sCompositionTier.IsEmpty())
+			activeGroup.m_sCompositionTier = string.Format("training_%1", Math.Max(1, state.m_iTrainingLevel));
+		string trainingSummary = string.Format("training %1 | quality +%2 pct | effective infantry %3/%4", Math.Max(1, state.m_iTrainingLevel), qualityBonus, effectiveInfantry, Math.Max(0, activeGroup.m_iInfantryCount));
+		if (activeGroup.m_sCompositionSummary.IsEmpty())
+			activeGroup.m_sCompositionSummary = trainingSummary;
+		else if (!activeGroup.m_sCompositionSummary.Contains("quality"))
+			activeGroup.m_sCompositionSummary = activeGroup.m_sCompositionSummary + " | " + trainingSummary;
 	}
 
 	protected string BuildGroupId(HST_CampaignState state, HST_ZoneState zone, string factionKey, bool qrf)

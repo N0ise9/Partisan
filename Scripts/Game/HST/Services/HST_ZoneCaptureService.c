@@ -9,9 +9,11 @@ class HST_ZoneCaptureStatus
 	int m_iFIACountNearby;
 	int m_iPlayerCountNearby;
 	int m_iFriendlyInfantryCountNearby;
+	int m_iFriendlyInfantryStrengthNearby;
 	int m_iFriendlyVehicleCountNearby;
 	int m_iEnemyCountNearby;
 	int m_iEnemyVehicleCountNearby;
+	int m_iTrainingQualityBonusPercent;
 	int m_iRequiredProgress;
 	int m_iRawProgress;
 	int m_iProgressPercent;
@@ -193,11 +195,15 @@ class HST_ZoneCaptureService
 
 		status.m_iPlayerCountNearby = CountLivingPlayersInCaptureRadius(zone, balance);
 		int friendlyInfantry;
+		int friendlyInfantryStrength;
 		int friendlyVehicles;
-		CountFriendlyForcesInCaptureRadius(state, zone, balance, resistanceFactionKey, friendlyInfantry, friendlyVehicles);
+		CountFriendlyForcesInCaptureRadius(state, zone, balance, resistanceFactionKey, friendlyInfantry, friendlyInfantryStrength, friendlyVehicles);
 		status.m_iFriendlyInfantryCountNearby = friendlyInfantry;
+		status.m_iFriendlyInfantryStrengthNearby = friendlyInfantryStrength;
 		status.m_iFriendlyVehicleCountNearby = friendlyVehicles;
-		status.m_iFIACountNearby = status.m_iPlayerCountNearby + status.m_iFriendlyInfantryCountNearby;
+		if (state)
+			status.m_iTrainingQualityBonusPercent = HST_RecruitmentService.ResolveTrainingQualityBonusPercentForLevel(state.m_iTrainingLevel);
+		status.m_iFIACountNearby = status.m_iPlayerCountNearby + status.m_iFriendlyInfantryStrengthNearby;
 		int enemyInfantry;
 		int enemyVehicles;
 		CountHostilesInCaptureRadius(state, zone, balance, resistanceFactionKey, enemyInfantry, enemyVehicles);
@@ -255,13 +261,16 @@ class HST_ZoneCaptureService
 				status.m_iCaptureRadiusMeters
 			);
 			row = row + string.Format(
-				" | players %1 | FIA AI %2 | FIA veh %3 | enemy %4 | enemy veh %5",
+				" | players %1 | FIA AI %2 strength %3 | FIA veh %4 | enemy %5 | enemy veh %6",
 				status.m_iPlayerCountNearby,
 				status.m_iFriendlyInfantryCountNearby,
+				status.m_iFriendlyInfantryStrengthNearby,
 				status.m_iFriendlyVehicleCountNearby,
 				status.m_iEnemyCountNearby,
 				status.m_iEnemyVehicleCountNearby
 			);
+			if (status.m_iTrainingQualityBonusPercent > 0)
+				row = row + string.Format(" | training quality +%1 pct", status.m_iTrainingQualityBonusPercent);
 			row = row + string.Format(
 				" | progress %1/%2 (%3 percent) | %4",
 				status.m_iRawProgress,
@@ -425,9 +434,10 @@ class HST_ZoneCaptureService
 		return count;
 	}
 
-	protected void CountFriendlyForcesInCaptureRadius(HST_CampaignState state, HST_ZoneState zone, HST_BalanceConfig balance, string resistanceFactionKey, out int friendlyInfantry, out int friendlyVehicles)
+	protected void CountFriendlyForcesInCaptureRadius(HST_CampaignState state, HST_ZoneState zone, HST_BalanceConfig balance, string resistanceFactionKey, out int friendlyInfantry, out int friendlyInfantryStrength, out int friendlyVehicles)
 	{
 		friendlyInfantry = 0;
+		friendlyInfantryStrength = 0;
 		friendlyVehicles = 0;
 		if (!state || !zone || resistanceFactionKey.IsEmpty())
 			return;
@@ -443,7 +453,9 @@ class HST_ZoneCaptureService
 			if (DistanceSq2D(activeGroup.m_vPosition, zone.m_vPosition) > radiusSq)
 				continue;
 
-			friendlyInfantry += Math.Max(0, activeGroup.m_iSurvivorInfantryCount);
+			int survivorInfantry = Math.Max(0, activeGroup.m_iSurvivorInfantryCount);
+			friendlyInfantry += survivorInfantry;
+			friendlyInfantryStrength += HST_RecruitmentService.ResolveTrainingEffectiveInfantryStrengthForLevel(survivorInfantry, state.m_iTrainingLevel);
 			friendlyVehicles += Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
 		}
 	}
