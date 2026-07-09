@@ -233,6 +233,7 @@ class HST_CampaignDebugIncomeProbeContext
 {
 	string m_sSeedResult;
 	string m_sCommandResult;
+	string m_sEconomyReport;
 	string m_sSeedZoneId;
 	int m_iMoneyBefore;
 	int m_iMoneyAfter;

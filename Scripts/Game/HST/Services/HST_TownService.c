@@ -74,6 +74,7 @@ class HST_TownService
 			CalculateResistanceIncome(state, preset.m_sResistanceFactionKey),
 			CalculateResistanceHRIncome(state, preset.m_sResistanceFactionKey)
 		);
+		report = report + "\n" + BuildIncomeSourceBreakdown(state, preset);
 
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
@@ -145,6 +146,94 @@ class HST_TownService
 		if (securityRows == 0)
 			report = report + "\nsecurity pressure already settled";
 
+		return report;
+	}
+
+	string BuildIncomeSourceBreakdown(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return "income sources | state/preset not ready";
+
+		int townMoney;
+		int townHR;
+		int townZones;
+		int resourceMoney;
+		int resourceHR;
+		int resourceZones;
+		int factoryMoney;
+		int factoryHR;
+		int factoryZones;
+		int seaportMoney;
+		int seaportHR;
+		int seaportZones;
+		int airfieldMoney;
+		int airfieldHR;
+		int airfieldZones;
+		int bankMoney;
+		int bankHR;
+		int bankZones;
+		int otherMoney;
+		int otherHR;
+		int otherZones;
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+				continue;
+
+			int money = CalculateZoneMoneyIncome(zone);
+			int hr = ResolveZoneHRIncome(zone);
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+			{
+				townMoney += money;
+				townHR += hr;
+				townZones++;
+			}
+			else if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
+			{
+				resourceMoney += money;
+				resourceHR += hr;
+				resourceZones++;
+			}
+			else if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+			{
+				factoryMoney += money;
+				factoryHR += hr;
+				factoryZones++;
+			}
+			else if (zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+			{
+				seaportMoney += money;
+				seaportHR += hr;
+				seaportZones++;
+			}
+			else if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD)
+			{
+				airfieldMoney += money;
+				airfieldHR += hr;
+				airfieldZones++;
+			}
+			else if (zone.m_eType == HST_EZoneType.HST_ZONE_BANK)
+			{
+				bankMoney += money;
+				bankHR += hr;
+				bankZones++;
+			}
+			else
+			{
+				otherMoney += money;
+				otherHR += hr;
+				otherZones++;
+			}
+		}
+
+		string report = string.Format("income sources | towns money %1 HR %2 zones %3", townMoney, townHR, townZones);
+		report = report + string.Format(" | resources money %1 HR %2 zones %3", resourceMoney, resourceHR, resourceZones);
+		report = report + string.Format(" | factories money %1 HR %2 zones %3", factoryMoney, factoryHR, factoryZones);
+		report = report + string.Format(" | seaports money %1 HR %2 zones %3", seaportMoney, seaportHR, seaportZones);
+		report = report + string.Format(" | airfields money %1 HR %2 zones %3", airfieldMoney, airfieldHR, airfieldZones);
+		report = report + string.Format(" | banks money %1 HR %2 zones %3", bankMoney, bankHR, bankZones);
+		report = report + string.Format(" | other money %1 HR %2 zones %3", otherMoney, otherHR, otherZones);
 		return report;
 	}
 

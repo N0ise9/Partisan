@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r118-undercover-security-scan-scaling";
-	static const string BUILD_UTC = "2026-07-09T02:56:13Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r118-undercover-security-scan-scaling";
+	static const string BUILD_SHA = "r119-economy-income-source-report";
+	static const string BUILD_UTC = "2026-07-09T03:12:34Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r119-economy-income-source-report";
 
 	static string BuildSummary()
 	{

@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r118-undercover-security-scan-scaling";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r119-economy-income-source-report";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -2447,7 +2447,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_CommandUI)
 			return "";
 
-		return m_CommandUI.BuildEconomyReport(m_State);
+		string report = m_CommandUI.BuildEconomyReport(m_State);
+		if (m_Towns)
+			report = report + "\n" + m_Towns.BuildIncomeReport(m_State, m_Preset, m_Balance);
+		return report;
 	}
 
 	string RequestMemberInspectRecruitment(int playerId)
@@ -10388,6 +10391,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			incomeContext.m_iHRAfter = m_State.m_iHR;
 			incomeContext.m_iTimerAfter = m_State.m_iIncomeAccumulatorSeconds;
 		}
+		incomeContext.m_sEconomyReport = RequestMemberInspectEconomy(m_iCampaignDebugPlayerId);
 
 		return incomeContext;
 	}
@@ -10404,6 +10408,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		incomeCase.m_aEvidence.Insert(incomeContext.m_sSeedResult);
 		incomeCase.m_aEvidence.Insert(incomeContext.m_sCommandResult);
+		incomeCase.m_aEvidence.Insert("economy report | " + ShortCampaignDebugLine(incomeContext.m_sEconomyReport, 360));
 		HST_ZoneState seededIncomeZone = null;
 		if (m_State && !incomeContext.m_sSeedZoneId.IsEmpty())
 			seededIncomeZone = m_State.FindZone(incomeContext.m_sSeedZoneId);
@@ -10418,6 +10423,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(incomeCase, "economy.income.enemy_money_excluded", string.Format("%1", incomeContext.m_iEnemyMoneyIncome), "money");
 		AddCampaignDebugMetric(incomeCase, "economy.income.resistance_income_zones", string.Format("%1", incomeContext.m_iResistanceIncomeZoneCount), "count");
 
+		string expectedReportMoney = string.Format("next money %1", incomeContext.m_iExpectedMoneyIncome);
+		string expectedReportHR = string.Format("next HR %1", incomeContext.m_iExpectedHRIncome);
+		bool reportBreakdownExpected = incomeContext.m_sEconomyReport.Contains("income sources | towns money");
+		reportBreakdownExpected = reportBreakdownExpected && incomeContext.m_sEconomyReport.Contains("resources money");
+		reportBreakdownExpected = reportBreakdownExpected && incomeContext.m_sEconomyReport.Contains("factories money");
+		reportBreakdownExpected = reportBreakdownExpected && incomeContext.m_sEconomyReport.Contains("seaports money");
+		reportBreakdownExpected = reportBreakdownExpected && incomeContext.m_sEconomyReport.Contains(expectedReportMoney);
+		reportBreakdownExpected = reportBreakdownExpected && incomeContext.m_sEconomyReport.Contains(expectedReportHR);
+
 		bool seedAccepted = IsCampaignDebugResultSuccessful(incomeContext.m_sSeedResult);
 		AddCampaignDebugAssertion(incomeCase, "economy.income.seed_command", "income-producing zone seeded or already resistance-owned", ShortCampaignDebugLine(incomeContext.m_sSeedResult, 220), CampaignDebugStatus(seedAccepted), "income zone seed command returned failure text", "", "", incomeContext.m_sSeedZoneId);
 		string seedZoneActual = BuildCampaignDebugIncomeZoneActual(seededIncomeZone);
@@ -10427,6 +10441,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(incomeCase, "economy.income.command_result", "income command accepted and reports applied income", ShortCampaignDebugLine(incomeContext.m_sCommandResult, 220), CampaignDebugStatus(commandAccepted), "income command returned failure text");
 		AddCampaignDebugAssertion(incomeCase, "economy.income.money_delta", "money delta equals calculated resistance income", string.Format("%1 -> %2 (delta %3) | expected %4", incomeContext.m_iMoneyBefore, incomeContext.m_iMoneyAfter, moneyDelta, incomeContext.m_iExpectedMoneyIncome), CampaignDebugStatus(moneyDelta == incomeContext.m_iExpectedMoneyIncome && incomeContext.m_iExpectedMoneyIncome > 0), "income tick did not apply the exact resistance money formula");
 		AddCampaignDebugAssertion(incomeCase, "economy.income.hr_delta", "HR delta equals calculated resistance HR income", string.Format("%1 -> %2 (delta %3) | expected %4", incomeContext.m_iHRBefore, incomeContext.m_iHRAfter, hrDelta, incomeContext.m_iExpectedHRIncome), CampaignDebugStatus(hrDelta == incomeContext.m_iExpectedHRIncome), "income tick did not apply the exact resistance HR formula");
+		AddCampaignDebugAssertion(incomeCase, "economy.income.report_breakdown", "economy inspection exposes category source totals and next income from the same formula", ShortCampaignDebugLine(incomeContext.m_sEconomyReport, 360), CampaignDebugStatus(reportBreakdownExpected), "economy inspection report did not expose source-category income totals or matching next income values");
 		bool enemyIncomeExcluded = moneyDelta == incomeContext.m_iExpectedMoneyIncome && (incomeContext.m_iEnemyMoneyIncome <= 0 || moneyDelta < incomeContext.m_iExpectedMoneyIncome + incomeContext.m_iEnemyMoneyIncome);
 		AddCampaignDebugAssertion(incomeCase, "economy.income.enemy_excluded", "enemy-owned income is not included in player income delta", string.Format("delta %1 | resistance expected %2 | enemy potential %3", moneyDelta, incomeContext.m_iExpectedMoneyIncome, incomeContext.m_iEnemyMoneyIncome), CampaignDebugStatus(enemyIncomeExcluded), "income tick appears to include non-resistance income");
 		AddCampaignDebugAssertion(incomeCase, "economy.income.timer_preserved", "force income command does not mutate the accumulated timer", string.Format("%1 -> %2 (delta %3)", incomeContext.m_iTimerBefore, incomeContext.m_iTimerAfter, timerDelta), CampaignDebugStatus(timerDelta == 0, "WARN"), "force income command changed the passive income accumulator unexpectedly");

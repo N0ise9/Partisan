@@ -3378,6 +3378,26 @@ foreach ($requiredStrategicEventVehicleReportEntry in @(
 }
 Write-Host "Strategic event vehicle-report proof OK"
 
+foreach ($requiredEconomyIncomeSourceEntry in @(
+		"BuildIncomeSourceBreakdown",
+		"income sources | towns money",
+		"resources money",
+		"factories money",
+		"seaports money",
+		"airfields money",
+		"banks money",
+		"m_sEconomyReport",
+		"RequestMemberInspectEconomy",
+		"economy.income.report_breakdown",
+		"expectedReportMoney",
+		"expectedReportHR"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredEconomyIncomeSourceEntry)) {
+		throw "Economy income source-report proof is missing: $requiredEconomyIncomeSourceEntry"
+	}
+}
+Write-Host "Economy income source-report proof OK"
+
 foreach ($requiredUndercoverSecurityScanEntry in @(
 		"UNDERCOVER_ROADBLOCK_SCAN_COOLDOWN_SECONDS",
 		"UNDERCOVER_POLICE_SCAN_COOLDOWN_SECONDS",

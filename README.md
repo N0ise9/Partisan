@@ -197,7 +197,7 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-09-runtime-proof-r118-undercover-security-scan-scaling`
+`h-istasi boot | authority build 2026-07-09-runtime-proof-r119-economy-income-source-report`
 and the client log must contain
 `build=2026-07-08-menu-input-r19-map-open-gate-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged

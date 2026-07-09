@@ -80,6 +80,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Player-facing economy reports should consume the same service-owned income math as the tick path.
+  - If the Command Menu repeats income formulas locally, report totals can drift from actual money/HR mutation as town support, resource types, factories, seaports, airfields, or bank effects change.
+  - Keep category/source breakdowns in the town service, then have member inspection append that report so next-income totals, source totals, and per-zone rows are all derived from `CalculateResistanceIncome()`, `CalculateResistanceHRIncome()`, `CalculateZoneMoneyIncome()`, and `ResolveZoneHRIncome()`.
+  - Current examples:
+    `HST_TownService.BuildIncomeSourceBreakdown()`,
+    `HST_TownService.BuildIncomeReport()`, and
+    `HST_CampaignCoordinatorComponent.RequestMemberInspectEconomy()`.
+
 - Civilian ambience should use the randomized CIV character prefab by default.
   - The runtime only needs generic civilian identity (`CIV_CHARACTER` / `CIV`)
     for town population, movement probes, heat, aid, and undercover systems.
