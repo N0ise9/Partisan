@@ -177,6 +177,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
     attach `AIWaypointCycle` patrol helpers after runtime agents exist. Register
     those helper entities in the runtime group waypoint arrays so normal group
     cleanup removes them with the spawned police group.
+  - Civilian town `policePresence` can create a runtime-only town-police
+    projection even when the town has no abstract garrison. Tag these groups
+    with `town_security_police`, exclude them from active-garrison and pending
+    population checks, and delete them during deactivation/ownership cleanup
+    instead of folding them into `HST_GarrisonState`.
   - Current examples:
     `HST_DefaultCatalog.ResolveTownPoliceGroupPrefab()`,
     `HST_ForceCompositionService.TryBuildTownPoliceGroupPlan()`, and
