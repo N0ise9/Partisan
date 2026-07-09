@@ -26,6 +26,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected bool m_bDebugLoggingEnabled;
 	protected bool m_bRuntimeFeatureSettingsSynced;
 	protected bool m_bInfiniteStaminaEnabled;
+	protected bool m_bPlayerMarkerConfigUnavailable;
 	protected float m_fOwnerRetryAccumulator;
 	protected float m_fRuntimeFeatureSettingsRetryAccumulator;
 	protected float m_fInfiniteStaminaAccumulator;
@@ -231,7 +232,9 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (!markerManager)
 			return true;
 
-		markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+		if (!EnsureClientPlayerMarkerConfig())
+			return true;
+
 		array<SCR_MapMarkerEntity> dynamicMarkers = markerManager.GetDynamicMarkers();
 		int playerMarkers;
 		int readyMarkers;
@@ -255,6 +258,27 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			DebugLog(string.Format("player marker widget refresh | ready %1/%2 retry %3", readyMarkers, playerMarkers, m_iNativeMapMarkerRefreshRetries));
 
 		return readyMarkers >= playerMarkers;
+	}
+
+	protected bool EnsureClientPlayerMarkerConfig()
+	{
+		if (m_bPlayerMarkerConfigUnavailable)
+			return false;
+
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+			return false;
+
+		SCR_MapMarkerConfig markerConfig = markerManager.GetMarkerConfig();
+		if (markerConfig && markerConfig.GetMarkerEntryConfigByType(SCR_EMapMarkerType.HST_PLAYER))
+			return true;
+
+		if (markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG))
+			return true;
+
+		m_bPlayerMarkerConfigUnavailable = true;
+		DebugLog("player marker config unavailable; skipping player marker widget refresh");
+		return false;
 	}
 
 	protected bool RetryClientNativeMapMarkerRefresh()
@@ -1508,7 +1532,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 					continue;
 
 				playerMarkers++;
-				if (mapOpen && marker.EnsureHSTPlayerMarkerWidget())
+				if (mapOpen && !m_bPlayerMarkerConfigUnavailable && marker.EnsureHSTPlayerMarkerWidget())
 					readyPlayerMarkers++;
 			}
 		}

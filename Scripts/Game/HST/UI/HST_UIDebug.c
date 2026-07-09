@@ -1,10 +1,10 @@
 class HST_UIDebug
 {
-	static const bool LAYOUT_DEBUG_ENABLED = true;
-	static const bool LAYOUT_WIDGET_DEBUG_ENABLED = true;
-	static const bool LAYOUT_GEOMETRY_DEBUG_ENABLED = true;
-	static const bool LAYOUT_POPULATION_DEBUG_ENABLED = true;
-	static const bool LAYOUT_ROW_SAMPLE_DEBUG_ENABLED = true;
+	static const bool LAYOUT_DEBUG_ENABLED = false;
+	static const bool LAYOUT_WIDGET_DEBUG_ENABLED = false;
+	static const bool LAYOUT_GEOMETRY_DEBUG_ENABLED = false;
+	static const bool LAYOUT_POPULATION_DEBUG_ENABLED = false;
+	static const bool LAYOUT_ROW_SAMPLE_DEBUG_ENABLED = false;
 	static const int LAYOUT_ROW_SAMPLE_LIMIT = 8;
 	protected static bool s_bRuntimeDebugLoaded;
 	protected static bool s_bRuntimeDebugEnabled;

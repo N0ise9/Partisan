@@ -1,6 +1,7 @@
 modded class SCR_MapMarkerEntity
 {
 	static const ResourceName PLAYER_MARKER_CONFIG = "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf";
+	protected static bool s_bHSTPlayerMarkerConfigUnavailable;
 
 	override protected void EOnInit(IEntity owner)
 	{
@@ -28,10 +29,9 @@ modded class SCR_MapMarkerEntity
 	{
 		if (GetType() == SCR_EMapMarkerType.HST_PLAYER)
 		{
-			bool configReady = false;
-			SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
-			if (markerManager)
-				configReady = markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+			bool configReady = HST_EnsurePlayerMarkerConfig();
+			if (!configReady)
+				return;
 
 			Print(string.Format("h-istasi player map marker debug | create marker widget requested player=%1 configReady=%2", GetMarkerConfigID(), configReady));
 		}
@@ -47,9 +47,8 @@ modded class SCR_MapMarkerEntity
 		if (GetType() != SCR_EMapMarkerType.HST_PLAYER)
 			return false;
 
-		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
-		if (markerManager)
-			markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+		if (!HST_EnsurePlayerMarkerConfig())
+			return false;
 
 		SetLocalVisible(true);
 		if (m_wRoot && !m_wRoot.GetParent())
@@ -71,5 +70,25 @@ modded class SCR_MapMarkerEntity
 		OnUpdate();
 
 		return m_wRoot != null && m_MarkerWidgetComp != null;
+	}
+
+	bool HST_EnsurePlayerMarkerConfig()
+	{
+		if (s_bHSTPlayerMarkerConfigUnavailable)
+			return false;
+
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+			return false;
+
+		SCR_MapMarkerConfig markerConfig = markerManager.GetMarkerConfig();
+		if (markerConfig && markerConfig.GetMarkerEntryConfigByType(SCR_EMapMarkerType.HST_PLAYER))
+			return true;
+
+		if (markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG))
+			return true;
+
+		s_bHSTPlayerMarkerConfigUnavailable = true;
+		return false;
 	}
 }

@@ -9,6 +9,7 @@ class HST_PlayerMapMarkerService
 	protected bool m_bEnabled = true;
 	protected bool m_bRefreshRequested = true;
 	protected bool m_bDebugLoggingEnabled;
+	protected bool m_bConfigUnavailable;
 	protected float m_fRefreshAccumulator = REFRESH_INTERVAL_SECONDS;
 	protected string m_sLastSignature;
 	protected string m_sLastFailureReportSignature;
@@ -78,11 +79,16 @@ class HST_PlayerMapMarkerService
 
 	bool IsPlayerMarkerEntryReady()
 	{
+		if (m_bConfigUnavailable)
+			return false;
+
 		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
 		if (!markerManager)
 			return false;
 
-		markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+		if (!EnsurePlayerMarkerConfig())
+			return false;
+
 		SCR_MapMarkerConfig markerConfig = markerManager.GetMarkerConfig();
 		if (!markerConfig)
 			return false;
@@ -170,7 +176,8 @@ class HST_PlayerMapMarkerService
 		if (markerManager)
 		{
 			managerReady = true;
-			markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+			if (!m_bConfigUnavailable)
+				EnsurePlayerMarkerConfig();
 			nativeDynamic = markerManager.GetDynamicMarkers().Count();
 			SCR_MapMarkerConfig markerConfig = markerManager.GetMarkerConfig();
 			if (markerConfig && markerConfig.GetMarkerEntryConfigByType(SCR_EMapMarkerType.HST_PLAYER))
@@ -237,7 +244,7 @@ class HST_PlayerMapMarkerService
 		if (!EnsurePlayerMarkerConfig())
 		{
 			ReportMissingMarkerConfig(signature);
-			m_bRefreshRequested = true;
+			ClearAll();
 			return false;
 		}
 
@@ -276,11 +283,18 @@ class HST_PlayerMapMarkerService
 
 	protected bool EnsurePlayerMarkerConfig()
 	{
+		if (m_bConfigUnavailable)
+			return false;
+
 		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
 		if (!markerManager)
 			return false;
 
-		return markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+		bool ready = markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+		if (!ready)
+			m_bConfigUnavailable = true;
+
+		return ready;
 	}
 
 	protected void ReportMissingMarkerConfig(string signature)
@@ -290,7 +304,7 @@ class HST_PlayerMapMarkerService
 			return;
 
 		m_sLastFailureReportSignature = reportSignature;
-		Print("h-istasi player map marker | marker manager is not using HST_PlayerMapMarkerConfig; player markers cannot render until the HST_PLAYER entry is loaded", LogLevel.WARNING);
+		Print("h-istasi player map marker | player tracking markers disabled for this session because the marker config entry was not available", LogLevel.WARNING);
 	}
 
 	protected HST_MapMarkerRecord BuildPlayerRecord(int playerId, IEntity entity, string playerName, string factionKey, HST_CampaignState state)

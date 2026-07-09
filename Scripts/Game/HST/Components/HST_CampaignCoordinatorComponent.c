@@ -394,6 +394,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		super.OnPlayerConnected(playerId);
 		ArmPlayerSpawnSweep(4);
 		ProcessPlayerSpawnSweep(string.Format("player-connected-%1", playerId), true);
+		ForceCampaignMarkerRepublishForClient("player connected");
 		if (m_PlayerMapMarkers)
 			m_PlayerMapMarkers.RequestRefresh(string.Format("player connected %1", playerId));
 	}
@@ -1083,6 +1084,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_LoadoutEditor && previousSpawnCount > 0 && !identityId.IsEmpty())
 				m_LoadoutEditor.MarkIssuedLoadoutLostOnDeath(m_State, identityId);
 			MarkMajorCampaignChange();
+			ForceCampaignMarkerRepublishForClient("player spawned");
 			if (m_PlayerMapMarkers)
 				m_PlayerMapMarkers.RequestRefresh(string.Format("player spawned %1", playerId));
 		}
@@ -29185,6 +29187,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (m_MapMarkers)
 			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
+	}
+
+	protected void ForceCampaignMarkerRepublishForClient(string reason)
+	{
+		if (!m_MapMarkers || !m_State || !m_Preset)
+			return;
+
+		m_MapMarkers.ForceNativeRepublish(m_State, m_Preset);
+		DebugLog("campaign marker native republish requested: " + reason);
 	}
 
 	protected void BroadcastMissionEvent(string eventType, HST_ActiveMissionState mission, HST_MissionDefinition definition)

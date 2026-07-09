@@ -163,6 +163,21 @@ class HST_MapMarkerService
 		return RebuildAllMarkers(state, preset);
 	}
 
+	bool ForceNativeRepublish(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
+		if (m_NativeReconciler)
+			m_NativeReconciler.Clear(markerManager);
+		m_mDesiredNativeMarkers.Clear();
+		m_iLastNativeEligibleCount = 0;
+		m_iLastNativePublishedCount = 0;
+		m_iLastNativeSkippedCount = 0;
+		m_iLastReportedMarkerRecordCount = -1;
+		m_bNativePublishPending = true;
+		m_fNativePublishRetrySeconds = 0;
+		return RebuildAllMarkers(state, preset);
+	}
+
 	void CleanupMarkers(HST_CampaignState state)
 	{
 		ClearRuntimeNativeMarkers();

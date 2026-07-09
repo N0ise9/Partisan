@@ -176,6 +176,8 @@ class HST_PhysicalWarService
 	protected ref array<string> m_aRestoredMissionConvoyRebuildGroupIds = {};
 	protected ref array<string> m_aVehicleSpawnBlockedZoneIds = {};
 	protected ref array<string> m_aVehicleSpawnBlockedReasons = {};
+	protected ref array<string> m_aDebugThrottleKeys = {};
+	protected ref array<int> m_aDebugThrottleTicks = {};
 	protected ref HST_ConvoyVehicleControlAdapter m_ConvoyVehicleControl;
 	protected bool m_bMarkerRefreshNeeded;
 	protected bool m_bDebugLoggingEnabled;
@@ -9712,17 +9714,21 @@ class HST_PhysicalWarService
 			leaderChanged = true;
 		}
 
-		bool suspicious = editableGroup.GetSize() != playerAndAgentCount || playerAndAgentCount <= 0 || parentedAfter < editableCount || repairedParents > 0 || failedParents > 0 || missingEditable > 0 || missingControlled > 0 || leaderChanged;
+		int finalRawCount = group.GetAgentsCount();
+		int finalPlayerAndAgentCount = group.GetPlayerAndAgentCount();
+		int finalEditableSize = editableGroup.GetSize();
+		bool recoveredMembership = livingCount > 0 && (finalRawCount > 0 || finalPlayerAndAgentCount > 0 || finalEditableSize > 0);
+		bool suspicious = (!recoveredMembership && finalPlayerAndAgentCount <= 0) || failedParents > 0 || missingEditable > 0 || missingControlled > 0 || leaderChanged;
 		if (suspicious)
 		{
 			string report = string.Format("h-istasi | active group editable membership reconciled | group %1 | source %2 | raw %3 server %4 playerAgents %5 living %6 | editableSize %7",
 				activeGroup.m_sGroupId,
 				ReportText(source),
-				rawCount,
-				serverCount,
-				playerAndAgentCount,
+				finalRawCount,
+				group.GetServerAgentsCount(),
+				finalPlayerAndAgentCount,
 				livingCount,
-				editableGroup.GetSize());
+				finalEditableSize);
 			report = report + string.Format(" | parented %1 -> %2/%3 repaired %4 failed %5 | missingEditable %6 missingControlled %7 deadControlled %8",
 				parentedBefore,
 				parentedAfter,
@@ -9737,11 +9743,11 @@ class HST_PhysicalWarService
 				ReportText(BuildRuntimeEntityVisualEvidence(group)));
 			if (trackedLiving > 0 || trackedReattached > 0 || trackedParented > 0)
 				report = report + string.Format(" | trackedFallback living %1 reattached %2 parented %3", trackedLiving, trackedReattached, trackedParented);
-			Print(report);
+			PrintThrottled("membership_warn_" + activeGroup.m_sGroupId, report, 30000);
 		}
 		else
 		{
-			DebugLog(string.Format("active group editable membership verified %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildRuntimeEntityVisualEvidence(group)));
+			DebugLogThrottled("membership_ok_" + activeGroup.m_sGroupId, string.Format("active group editable membership verified %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildRuntimeEntityVisualEvidence(group)), 30000);
 		}
 	}
 
@@ -9782,8 +9788,7 @@ class HST_PhysicalWarService
 		}
 
 		int expectedHandles = ResolveActiveGroupExpectedRuntimeMemberHandles(activeGroup);
-		bool needsWorldScan = CountTrackedRuntimeMemberHandles(activeGroup.m_sGroupId) < expectedHandles;
-		needsWorldScan = needsWorldScan || group.GetAgentsCount() <= 0 || group.GetPlayerAndAgentCount() <= 0;
+		bool needsWorldScan = false;
 		if (needsWorldScan)
 		{
 			BaseWorld world = GetGame().GetWorld();
@@ -9828,7 +9833,7 @@ class HST_PhysicalWarService
 		{
 			group.ActivateAllMembers();
 			group.ActivateAI();
-			DebugLog(string.Format("active group member handles discovered %1 via %2 | valid %3 registered %4 attached %5 parented %6 dead %7 living %8/%9", activeGroup.m_sGroupId, source, valid, registered, attached, parented, deadRegistered, living, expectedHandles));
+			DebugLogThrottled("member_handles_" + activeGroup.m_sGroupId, string.Format("active group member handles discovered %1 via %2 | valid %3 registered %4 attached %5 parented %6 dead %7 living %8/%9", activeGroup.m_sGroupId, source, valid, registered, attached, parented, deadRegistered, living, expectedHandles), 30000);
 		}
 
 		return living;
@@ -10080,7 +10085,8 @@ class HST_PhysicalWarService
 		{
 			group.ActivateAllMembers();
 			group.ActivateAI();
-			DebugLog(string.Format("active group tracked member reconcile %1 via %2 | living %3 | reattached %4 | parented %5", activeGroup.m_sGroupId, source, living, reattached, parented));
+			if (reattached > 0 || parented > 0)
+				DebugLogThrottled("tracked_reconcile_" + activeGroup.m_sGroupId, string.Format("active group tracked member reconcile %1 via %2 | living %3 | reattached %4 | parented %5", activeGroup.m_sGroupId, source, living, reattached, parented), 30000);
 		}
 
 		return living;
@@ -12948,5 +12954,39 @@ class HST_PhysicalWarService
 			return;
 
 		Print("h-istasi physical war debug | " + message);
+	}
+
+	protected void DebugLogThrottled(string key, string message, int throttleMs)
+	{
+		if (!m_bDebugLoggingEnabled)
+			return;
+
+		PrintThrottled("debug_" + key, "h-istasi physical war debug | " + message, throttleMs);
+	}
+
+	protected void PrintThrottled(string key, string message, int throttleMs)
+	{
+		if (key.IsEmpty())
+		{
+			Print(message);
+			return;
+		}
+
+		int now = System.GetTickCount();
+		int index = m_aDebugThrottleKeys.Find(key);
+		if (index >= 0)
+		{
+			int lastTick = m_aDebugThrottleTicks[index];
+			if (now - lastTick < throttleMs)
+				return;
+
+			m_aDebugThrottleTicks[index] = now;
+			Print(message);
+			return;
+		}
+
+		m_aDebugThrottleKeys.Insert(key);
+		m_aDebugThrottleTicks.Insert(now);
+		Print(message);
 	}
 }
