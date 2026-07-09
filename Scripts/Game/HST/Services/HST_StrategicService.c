@@ -311,6 +311,45 @@ class HST_StrategicService
 		return result;
 	}
 
+	HST_StrategicEventApplyResult BeginTownInfluenceEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_TownInfluenceEventState influenceEvent)
+	{
+		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
+		if (!state || !influenceEvent)
+		{
+			result.m_sReason = "state or town influence event not ready";
+			return result;
+		}
+		if (influenceEvent.m_sEventId.IsEmpty() || influenceEvent.m_sZoneId.IsEmpty())
+		{
+			result.m_sReason = "town influence event id or zone not ready";
+			return result;
+		}
+
+		HST_ZoneState zone = state.FindZone(influenceEvent.m_sZoneId);
+		if (!zone)
+		{
+			result.m_sReason = "town influence zone not found";
+			return result;
+		}
+
+		HST_StrategicEventState eventState = new HST_StrategicEventState();
+		eventState.m_sKind = "town_influence";
+		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		eventState.m_sSourceType = "town_influence";
+		eventState.m_sSourceId = influenceEvent.m_sEventId;
+		eventState.m_sTargetZoneId = influenceEvent.m_sZoneId;
+		eventState.m_sTargetFactionKey = ResolveTownInfluenceTargetFaction(state, preset, influenceEvent);
+		eventState.m_sReason = BuildTownInfluenceReason(influenceEvent);
+		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
+
+		result.m_Event = eventState;
+		result.m_sEventId = eventState.m_sEventId;
+		result.m_bRecorded = true;
+		state.m_aStrategicEvents.Insert(eventState);
+		CaptureStrategicEventBefore(state, eventState);
+		return result;
+	}
+
 	bool SetZoneOwner(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, string factionKey, string resistanceFactionKey = "FIA")
 	{
 		HST_ZoneState zone = state.FindZone(zoneId);
@@ -584,6 +623,52 @@ class HST_StrategicService
 			return preset.m_sResistanceFactionKey;
 
 		return "";
+	}
+
+	protected string ResolveTownInfluenceTargetFaction(HST_CampaignState state, HST_CampaignPreset preset, HST_TownInfluenceEventState influenceEvent)
+	{
+		if (!influenceEvent)
+			return "";
+
+		string targetFactionKey = "";
+		if (preset)
+		{
+			int resistancePressure = influenceEvent.m_iFIASupportDelta + Math.Max(0, influenceEvent.m_iReputationDelta);
+			int occupierPressure = influenceEvent.m_iOccupierSupportDelta;
+			occupierPressure += Math.Max(0, influenceEvent.m_iHeatDelta);
+			occupierPressure += Math.Max(0, influenceEvent.m_iPoliceDelta);
+			occupierPressure += Math.Max(0, influenceEvent.m_iRoadblockDelta);
+			if (resistancePressure >= occupierPressure)
+				targetFactionKey = preset.m_sResistanceFactionKey;
+			else
+				targetFactionKey = preset.m_sOccupierFactionKey;
+		}
+
+		return ResolveStrategicEventTargetFactionForZone(state, preset, influenceEvent.m_sZoneId, targetFactionKey);
+	}
+
+	protected string BuildTownInfluenceReason(HST_TownInfluenceEventState influenceEvent)
+	{
+		if (!influenceEvent)
+			return "town influence";
+
+		string reason = string.Format(
+			"town influence %1 | FIA %2 occupier %3 rep %4 heat %5",
+			EmptyReportField(influenceEvent.m_sKind),
+			influenceEvent.m_iFIASupportDelta,
+			influenceEvent.m_iOccupierSupportDelta,
+			influenceEvent.m_iReputationDelta,
+			influenceEvent.m_iHeatDelta
+		);
+		reason = reason + string.Format(
+			" pop %1 police %2 roadblocks %3",
+			influenceEvent.m_iPopulationDelta,
+			influenceEvent.m_iPoliceDelta,
+			influenceEvent.m_iRoadblockDelta
+		);
+		if (!influenceEvent.m_sReason.IsEmpty())
+			reason = reason + " | " + influenceEvent.m_sReason;
+		return reason;
 	}
 
 	protected HST_StrategicEventState FindMissionStrategicEvent(HST_CampaignState state, string missionInstanceId, string kind)

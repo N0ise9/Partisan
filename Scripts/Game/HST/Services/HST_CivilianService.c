@@ -319,8 +319,17 @@ class HST_CivilianService
 		influenceEvent.m_iRoadblockDelta = roadblockDelta;
 		state.m_aTownInfluenceEvents.Insert(influenceEvent);
 
+		HST_StrategicEventApplyResult strategicEvent;
+		if (m_Strategic)
+			strategicEvent = m_Strategic.BeginTownInfluenceEvent(state, preset, influenceEvent);
+
 		ApplyInfluenceEvent(state, civilianZone, influenceEvent, preset);
 		RefreshTownInfluenceAggregatesForZone(state, civilianZone);
+		if (m_Strategic)
+		{
+			if (strategicEvent && strategicEvent.m_Event)
+				m_Strategic.CompleteStrategicEvent(state, strategicEvent, true, true);
+		}
 		return true;
 	}
 
