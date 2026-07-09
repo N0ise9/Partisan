@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r109-radio-town-influence";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r110-town-security-pressure";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -477,7 +477,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!failedRuntimeMissionId.IsEmpty())
 			missionRuntimeChanged = FailMission(failedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged;
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds, m_Civilians);
-		bool radioInfluenceChanged = m_Towns.ConsumeRadioInfluenceChanged();
+		bool periodicTownInfluenceChanged = m_Towns.ConsumePeriodicTownInfluenceChanged();
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool civilianChanged = m_Civilians.Tick(m_State, elapsedSeconds);
@@ -507,7 +507,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || convoyRuntimeChanged;
 		anyStateChanged = anyStateChanged || convoyOutcomeChanged;
 		anyStateChanged = anyStateChanged || income > 0;
-		anyStateChanged = anyStateChanged || radioInfluenceChanged;
+		anyStateChanged = anyStateChanged || periodicTownInfluenceChanged;
 		anyStateChanged = anyStateChanged || enemyResourcesChanged || aggressionChanged || civilianChanged;
 		anyStateChanged = anyStateChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged;
 		anyStateChanged = anyStateChanged || petrosRelocationChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
@@ -517,7 +517,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged;
 		markerStateChanged = markerStateChanged || convoyOutcomeChanged;
 		markerStateChanged = markerStateChanged || income > 0;
-		markerStateChanged = markerStateChanged || radioInfluenceChanged;
+		markerStateChanged = markerStateChanged || periodicTownInfluenceChanged;
 		markerStateChanged = markerStateChanged || enemyResourcesChanged;
 		markerStateChanged = markerStateChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged;
 		markerStateChanged = markerStateChanged || petrosRelocationChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
@@ -1353,8 +1353,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return 0;
 
 		int income = m_Towns.ApplyIncomeNow(m_State, m_Economy, m_Preset, m_Civilians);
-		bool radioInfluenceChanged = m_Towns.ConsumeRadioInfluenceChanged();
-		if (income > 0 || radioInfluenceChanged)
+		bool periodicTownInfluenceChanged = m_Towns.ConsumePeriodicTownInfluenceChanged();
+		if (income > 0 || periodicTownInfluenceChanged)
 			MarkMajorCampaignChange();
 		return income;
 	}
@@ -7295,6 +7295,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		proofState.m_aCivilianZones.Clear();
 		proofState.m_aTownInfluenceEvents.Clear();
 		proofState.m_aStrategicEvents.Clear();
+		proofState.m_iWarLevel = 1;
 
 		string supportTownId = CAMPAIGN_DEBUG_PREFIX_ROOT + "radio_support_town";
 		string supportRadioId = CAMPAIGN_DEBUG_PREFIX_ROOT + "radio_support_tower";
@@ -7324,6 +7325,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_CivilianZoneState supportTownState = BuildCampaignDebugRadioCivilianTown(supportTownId, 45, 55, 50, 5);
 		HST_CivilianZoneState pressureTownState = BuildCampaignDebugRadioCivilianTown(pressureTownId, 55, 45, 60, 2);
+		supportTownState.m_iRoadblockPresence = 1;
+		pressureTownState.m_iPolicePresence = 0;
+		pressureTownState.m_iRoadblockPresence = 0;
 		proofState.m_aCivilianZones.Insert(supportTownState);
 		proofState.m_aCivilianZones.Insert(pressureTownState);
 		supportTown.m_iSupport = Math.Max(-100, Math.Min(100, supportTownState.m_iFIASupport - supportTownState.m_iOccupierSupport));
@@ -7334,7 +7338,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int intervalSeconds = Math.Max(1, m_Balance.m_iZoneIncomeIntervalSeconds);
 		proofState.m_iIncomeAccumulatorSeconds = intervalSeconds - 1;
 		int income = m_Towns.TickIncome(proofState, m_Economy, m_Balance, m_Preset, 1, m_Civilians);
-		bool radioChanged = m_Towns.ConsumeRadioInfluenceChanged();
+		bool radioChanged = m_Towns.ConsumePeriodicTownInfluenceChanged();
 		string supportInfluenceEventId = supportTownState.m_sLastInfluenceEventId;
 		string pressureInfluenceEventId = pressureTownState.m_sLastInfluenceEventId;
 		HST_StrategicEventState supportStrategicEvent = FindCampaignDebugStrategicEventForSourceInState(proofState, supportInfluenceEventId, "town_influence");
@@ -7449,6 +7453,216 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(radioCase);
 		return radioCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugSecurityPressureCase()
+	{
+		HST_CampaignDebugCaseResult securityCase = CreateCampaignDebugCase("town_influence.security_pressure.runtime", "civilians", "security_pressure", "baseline");
+		bool servicesReady = m_State != null;
+		servicesReady = servicesReady && m_Preset != null;
+		servicesReady = servicesReady && m_Balance != null;
+		servicesReady = servicesReady && m_Economy != null;
+		servicesReady = servicesReady && m_Towns != null;
+		servicesReady = servicesReady && m_Civilians != null;
+		servicesReady = servicesReady && m_Strategic != null;
+		string servicesActual = string.Format("state %1 | preset %2 | balance %3", m_State != null, m_Preset != null, m_Balance != null);
+		servicesActual = servicesActual + string.Format(" | economy %1 | towns %2", m_Economy != null, m_Towns != null);
+		servicesActual = servicesActual + string.Format(" | civilians %1 | strategic %2", m_Civilians != null, m_Strategic != null);
+		AddCampaignDebugAssertion(
+			securityCase,
+			"town_influence.security.prerequisite",
+			"state, preset, balance, economy, town, civilian, and strategic services ready",
+			servicesActual,
+			CampaignDebugStatus(servicesReady, "BLOCKED"),
+			"security pressure prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(securityCase);
+			return securityCase;
+		}
+
+		HST_CampaignSaveData baselineData = new HST_CampaignSaveData();
+		baselineData.Capture(m_State);
+		HST_CampaignState proofState = new HST_CampaignState();
+		baselineData.ApplyTo(proofState);
+		proofState.m_aZones.Clear();
+		proofState.m_aCivilianZones.Clear();
+		proofState.m_aTownInfluenceEvents.Clear();
+		proofState.m_aStrategicEvents.Clear();
+		proofState.m_iWarLevel = Math.Max(6, proofState.m_iWarLevel);
+
+		string pressureTownId = CAMPAIGN_DEBUG_PREFIX_ROOT + "security_pressure_town";
+		string reliefTownId = CAMPAIGN_DEBUG_PREFIX_ROOT + "security_relief_town";
+		HST_ZoneState pressureTown = BuildCampaignDebugEnemyOrderResolutionZone(pressureTownId, "Security Pressure Proof Town", HST_EZoneType.HST_ZONE_TOWN, m_Preset.m_sOccupierFactionKey, "30000 0 30000");
+		HST_ZoneState reliefTown = BuildCampaignDebugEnemyOrderResolutionZone(reliefTownId, "Security Relief Proof Town", HST_EZoneType.HST_ZONE_TOWN, m_Preset.m_sResistanceFactionKey, "32000 0 30000");
+		pressureTown.m_iIncomeValue = 10;
+		reliefTown.m_iIncomeValue = 10;
+		proofState.m_aZones.Insert(pressureTown);
+		proofState.m_aZones.Insert(reliefTown);
+
+		HST_CivilianZoneState pressureTownState = BuildCampaignDebugRadioCivilianTown(pressureTownId, 35, 70, 45, 12);
+		pressureTownState.m_iPolicePresence = 1;
+		pressureTownState.m_iRoadblockPresence = 0;
+		HST_CivilianZoneState reliefTownState = BuildCampaignDebugRadioCivilianTown(reliefTownId, 70, 25, 70, 2);
+		reliefTownState.m_iPolicePresence = 2;
+		reliefTownState.m_iRoadblockPresence = 2;
+		proofState.m_aCivilianZones.Insert(pressureTownState);
+		proofState.m_aCivilianZones.Insert(reliefTownState);
+		pressureTown.m_iSupport = Math.Max(-100, Math.Min(100, pressureTownState.m_iFIASupport - pressureTownState.m_iOccupierSupport));
+		reliefTown.m_iSupport = Math.Max(-100, Math.Min(100, reliefTownState.m_iFIASupport - reliefTownState.m_iOccupierSupport));
+
+		int strategicEventCountBefore = proofState.m_aStrategicEvents.Count();
+		int influenceEventCountBefore = proofState.m_aTownInfluenceEvents.Count();
+		int intervalSeconds = Math.Max(1, m_Balance.m_iZoneIncomeIntervalSeconds);
+		proofState.m_iIncomeAccumulatorSeconds = intervalSeconds - 1;
+		int income = m_Towns.TickIncome(proofState, m_Economy, m_Balance, m_Preset, 1, m_Civilians);
+		bool securityChanged = m_Towns.ConsumePeriodicTownInfluenceChanged();
+		string pressureInfluenceEventId = pressureTownState.m_sLastInfluenceEventId;
+		string reliefInfluenceEventId = reliefTownState.m_sLastInfluenceEventId;
+		HST_StrategicEventState pressureStrategicEvent = FindCampaignDebugStrategicEventForSourceInState(proofState, pressureInfluenceEventId, "town_influence");
+		HST_StrategicEventState reliefStrategicEvent = FindCampaignDebugStrategicEventForSourceInState(proofState, reliefInfluenceEventId, "town_influence");
+		string strategicReport = m_Strategic.BuildStrategicEventReport(proofState, 8);
+		string influenceReport = m_Civilians.BuildTownInfluenceReport(proofState, 8);
+		string incomeReport = m_Towns.BuildIncomeReport(proofState, m_Preset, m_Balance);
+
+		HST_CampaignSaveData proofSaveData = new HST_CampaignSaveData();
+		proofSaveData.Capture(proofState);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		proofSaveData.ApplyTo(restoredState);
+		HST_CivilianZoneState restoredPressureTownState = restoredState.FindCivilianZone(pressureTownId);
+		HST_ZoneState restoredPressureTown = restoredState.FindZone(pressureTownId);
+		HST_CivilianZoneState restoredReliefTownState = restoredState.FindCivilianZone(reliefTownId);
+		HST_ZoneState restoredReliefTown = restoredState.FindZone(reliefTownId);
+		HST_StrategicEventState restoredPressureStrategicEvent;
+		HST_StrategicEventState restoredReliefStrategicEvent;
+		if (pressureStrategicEvent)
+			restoredPressureStrategicEvent = restoredState.FindStrategicEvent(pressureStrategicEvent.m_sEventId);
+		if (reliefStrategicEvent)
+			restoredReliefStrategicEvent = restoredState.FindStrategicEvent(reliefStrategicEvent.m_sEventId);
+
+		securityCase.m_aEvidence.Insert("income | " + ShortCampaignDebugLine(incomeReport, 300));
+		securityCase.m_aEvidence.Insert("town influence | " + ShortCampaignDebugLine(influenceReport, 300));
+		securityCase.m_aEvidence.Insert("strategic events | " + ShortCampaignDebugLine(strategicReport, 360));
+		securityCase.m_aEvidence.Insert("pressure event | " + BuildCampaignDebugStrategicEventActual(pressureStrategicEvent));
+		securityCase.m_aEvidence.Insert("relief event | " + BuildCampaignDebugStrategicEventActual(reliefStrategicEvent));
+		AddCampaignDebugMetric(securityCase, "town_influence.security.income", string.Format("%1", income), "money");
+		AddCampaignDebugMetric(securityCase, "town_influence.security.influence_events_before", string.Format("%1", influenceEventCountBefore), "count");
+		AddCampaignDebugMetric(securityCase, "town_influence.security.influence_events_after", string.Format("%1", proofState.m_aTownInfluenceEvents.Count()), "count");
+		AddCampaignDebugMetric(securityCase, "town_influence.security.strategic_events_before", string.Format("%1", strategicEventCountBefore), "count");
+		AddCampaignDebugMetric(securityCase, "town_influence.security.strategic_events_after", string.Format("%1", proofState.m_aStrategicEvents.Count()), "count");
+
+		bool cadenceExpected = securityChanged;
+		cadenceExpected = cadenceExpected && proofState.m_iIncomeAccumulatorSeconds == 0;
+		cadenceExpected = cadenceExpected && proofState.m_aTownInfluenceEvents.Count() == influenceEventCountBefore + 2;
+		string cadenceActual = string.Format("changed %1 | accumulator %2", securityChanged, proofState.m_iIncomeAccumulatorSeconds);
+		cadenceActual = cadenceActual + string.Format(" | events %1 -> %2", influenceEventCountBefore, proofState.m_aTownInfluenceEvents.Count());
+		AddCampaignDebugAssertion(
+			securityCase,
+			"town_influence.security.cadence",
+			"security pressure runs once on the normal income cadence",
+			cadenceActual,
+			CampaignDebugStatus(cadenceExpected),
+			"security pressure did not run on the income cadence");
+		bool pressureExpected = pressureTownState.m_iPolicePresence == 2;
+		pressureExpected = pressureExpected && pressureTownState.m_iRoadblockPresence == 1;
+		pressureExpected = pressureExpected && pressureTownState.m_sLastInfluenceKind == "security_pressure";
+		AddCampaignDebugAssertion(
+			securityCase,
+			"town_influence.security.enemy_pressure",
+			"hot enemy-held town gains one step of police and roadblock pressure",
+			BuildCampaignDebugTownInfluenceActual(pressureTownState, pressureTown),
+			CampaignDebugStatus(pressureExpected),
+			"enemy-held town did not gain expected security pressure");
+		bool reliefExpected = reliefTownState.m_iPolicePresence == 1;
+		reliefExpected = reliefExpected && reliefTownState.m_iRoadblockPresence == 1;
+		reliefExpected = reliefExpected && reliefTownState.m_sLastInfluenceKind == "security_pressure";
+		AddCampaignDebugAssertion(
+			securityCase,
+			"town_influence.security.resistance_relief",
+			"resistance-held town sheds one step of police and roadblock pressure",
+			BuildCampaignDebugTownInfluenceActual(reliefTownState, reliefTown),
+			CampaignDebugStatus(reliefExpected),
+			"resistance-held town did not reduce expected security pressure");
+		bool strategicEventsRecorded = pressureStrategicEvent != null;
+		strategicEventsRecorded = strategicEventsRecorded && reliefStrategicEvent != null;
+		strategicEventsRecorded = strategicEventsRecorded && proofState.m_aStrategicEvents.Count() == strategicEventCountBefore + 2;
+		string strategicEventsActual = string.Format("before %1 | after %2", strategicEventCountBefore, proofState.m_aStrategicEvents.Count());
+		strategicEventsActual = strategicEventsActual + " | pressure " + BuildCampaignDebugStrategicEventActual(pressureStrategicEvent);
+		strategicEventsActual = strategicEventsActual + " | relief " + BuildCampaignDebugStrategicEventActual(reliefStrategicEvent);
+		AddCampaignDebugAssertion(
+			securityCase,
+			"town_influence.security.strategic_events_recorded",
+			"security pressure records matching compact strategic-event rows",
+			strategicEventsActual,
+			CampaignDebugStatus(strategicEventsRecorded),
+			"security pressure did not record matching strategic-event rows");
+		bool pressureStrategicExpected = pressureStrategicEvent != null;
+		pressureStrategicExpected = pressureStrategicExpected && pressureStrategicEvent.m_bApplied;
+		pressureStrategicExpected = pressureStrategicExpected && pressureStrategicEvent.m_sTargetZoneId == pressureTownId;
+		pressureStrategicExpected = pressureStrategicExpected && pressureStrategicEvent.m_sSourceId == pressureInfluenceEventId;
+		pressureStrategicExpected = pressureStrategicExpected && pressureStrategicEvent.m_iTownSupportDelta == 0;
+		pressureStrategicExpected = pressureStrategicExpected && pressureStrategicEvent.m_sSummary.Contains("security_pressure");
+		pressureStrategicExpected = pressureStrategicExpected && pressureStrategicEvent.m_sSummary.Contains("police 1");
+		pressureStrategicExpected = pressureStrategicExpected && pressureStrategicEvent.m_sSummary.Contains("roadblocks 1");
+		AddCampaignDebugAssertion(
+			securityCase,
+			"town_influence.security.enemy_strategic_event",
+			"enemy pressure strategic event captures compact source and pressure summary",
+			BuildCampaignDebugStrategicEventActual(pressureStrategicEvent),
+			CampaignDebugStatus(pressureStrategicExpected),
+			"enemy security pressure strategic event did not capture expected compact row");
+		bool reliefStrategicExpected = reliefStrategicEvent != null;
+		reliefStrategicExpected = reliefStrategicExpected && reliefStrategicEvent.m_bApplied;
+		reliefStrategicExpected = reliefStrategicExpected && reliefStrategicEvent.m_sTargetZoneId == reliefTownId;
+		reliefStrategicExpected = reliefStrategicExpected && reliefStrategicEvent.m_sSourceId == reliefInfluenceEventId;
+		reliefStrategicExpected = reliefStrategicExpected && reliefStrategicEvent.m_iTownSupportDelta == 0;
+		reliefStrategicExpected = reliefStrategicExpected && reliefStrategicEvent.m_sSummary.Contains("security_pressure");
+		reliefStrategicExpected = reliefStrategicExpected && reliefStrategicEvent.m_sSummary.Contains("police -1");
+		reliefStrategicExpected = reliefStrategicExpected && reliefStrategicEvent.m_sSummary.Contains("roadblocks -1");
+		AddCampaignDebugAssertion(
+			securityCase,
+			"town_influence.security.relief_strategic_event",
+			"resistance relief strategic event captures compact source and pressure summary",
+			BuildCampaignDebugStrategicEventActual(reliefStrategicEvent),
+			CampaignDebugStatus(reliefStrategicExpected),
+			"resistance security relief strategic event did not capture expected compact row");
+		bool reportsExpected = strategicReport.Contains("security_pressure");
+		reportsExpected = reportsExpected && strategicReport.Contains("police 1");
+		reportsExpected = reportsExpected && strategicReport.Contains("roadblocks 1");
+		reportsExpected = reportsExpected && influenceReport.Contains("security_pressure");
+		reportsExpected = reportsExpected && incomeReport.Contains("security pressure");
+		string reportsActual = ShortCampaignDebugLine(strategicReport + " | " + influenceReport + " | " + incomeReport, 360);
+		AddCampaignDebugAssertion(
+			securityCase,
+			"town_influence.security.reports",
+			"income, town influence, and strategic reports surface security pressure",
+			reportsActual,
+			CampaignDebugStatus(reportsExpected),
+			"security pressure was not visible in the expected reports");
+		bool roundTripExpected = restoredPressureTownState != null;
+		roundTripExpected = roundTripExpected && restoredPressureTown != null;
+		roundTripExpected = roundTripExpected && restoredReliefTownState != null;
+		roundTripExpected = roundTripExpected && restoredReliefTown != null;
+		roundTripExpected = roundTripExpected && restoredPressureStrategicEvent != null;
+		roundTripExpected = roundTripExpected && restoredReliefStrategicEvent != null;
+		roundTripExpected = roundTripExpected && restoredPressureTownState.m_iPolicePresence == pressureTownState.m_iPolicePresence;
+		roundTripExpected = roundTripExpected && restoredPressureTownState.m_iRoadblockPresence == pressureTownState.m_iRoadblockPresence;
+		roundTripExpected = roundTripExpected && restoredReliefTownState.m_iPolicePresence == reliefTownState.m_iPolicePresence;
+		roundTripExpected = roundTripExpected && restoredReliefTownState.m_iRoadblockPresence == reliefTownState.m_iRoadblockPresence;
+		roundTripExpected = roundTripExpected && restoredPressureStrategicEvent.m_sSourceId == pressureInfluenceEventId;
+		roundTripExpected = roundTripExpected && restoredReliefStrategicEvent.m_sSourceId == reliefInfluenceEventId;
+		string roundTripActual = BuildCampaignDebugTownInfluenceActual(restoredPressureTownState, restoredPressureTown);
+		roundTripActual = roundTripActual + " | " + BuildCampaignDebugTownInfluenceActual(restoredReliefTownState, restoredReliefTown);
+		AddCampaignDebugAssertion(
+			securityCase,
+			"town_influence.security.save_roundtrip",
+			"save-data roundtrip preserves security pressure town and strategic-event state",
+			roundTripActual,
+			CampaignDebugStatus(roundTripExpected),
+			"security pressure town or strategic event state did not survive save-data copy");
+
+		FinalizeCampaignDebugCaseFromAssertions(securityCase);
+		return securityCase;
 	}
 
 	protected HST_CivilianZoneState BuildCampaignDebugRadioCivilianTown(string zoneId, int fiaSupport, int occupierSupport, int reputation, int heat)
@@ -8250,6 +8464,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugGarrisonFoldbackCase());
 		RecordCampaignDebugCase(BuildCampaignDebugTownInfluenceLedgerCase());
 		RecordCampaignDebugCase(BuildCampaignDebugRadioTownInfluenceCase());
+		RecordCampaignDebugCase(BuildCampaignDebugSecurityPressureCase());
 		RecordCampaignDebugCase(BuildCampaignDebugVehicleHeatCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCategorySelectionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionNotificationCase());

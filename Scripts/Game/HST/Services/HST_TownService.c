@@ -9,12 +9,14 @@ class HST_TownService
 	static const int RADIO_ENEMY_OCCUPIER_SUPPORT_DELTA = 2;
 	static const int RADIO_ENEMY_REPUTATION_DELTA = -1;
 	static const int RADIO_ENEMY_HEAT_DELTA = 1;
+	static const int SECURITY_PRESSURE_MAX_POLICE = 5;
+	static const int SECURITY_PRESSURE_MAX_ROADBLOCKS = 4;
 
-	protected bool m_bLastRadioInfluenceChanged;
+	protected bool m_bLastPeriodicInfluenceChanged;
 
 	int TickIncome(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, HST_CampaignPreset preset, int elapsedSeconds, HST_CivilianService civilians = null)
 	{
-		m_bLastRadioInfluenceChanged = false;
+		m_bLastPeriodicInfluenceChanged = false;
 		if (!state || !economy || !balance || !preset || elapsedSeconds <= 0)
 			return 0;
 
@@ -26,27 +28,27 @@ class HST_TownService
 		int income = CalculateResistanceIncome(state, preset.m_sResistanceFactionKey);
 		economy.AddFactionMoney(state, income);
 		economy.AddHR(state, CalculateResistanceHRIncome(state, preset.m_sResistanceFactionKey));
-		m_bLastRadioInfluenceChanged = ApplyRadioTowerInfluence(state, preset, civilians);
+		m_bLastPeriodicInfluenceChanged = ApplyPeriodicTownInfluence(state, preset, civilians);
 		return income;
 	}
 
 	int ApplyIncomeNow(HST_CampaignState state, HST_EconomyService economy, HST_CampaignPreset preset, HST_CivilianService civilians = null)
 	{
-		m_bLastRadioInfluenceChanged = false;
+		m_bLastPeriodicInfluenceChanged = false;
 		if (!state || !economy || !preset)
 			return 0;
 
 		int income = CalculateResistanceIncome(state, preset.m_sResistanceFactionKey);
 		economy.AddFactionMoney(state, income);
 		economy.AddHR(state, CalculateResistanceHRIncome(state, preset.m_sResistanceFactionKey));
-		m_bLastRadioInfluenceChanged = ApplyRadioTowerInfluence(state, preset, civilians);
+		m_bLastPeriodicInfluenceChanged = ApplyPeriodicTownInfluence(state, preset, civilians);
 		return income;
 	}
 
-	bool ConsumeRadioInfluenceChanged()
+	bool ConsumePeriodicTownInfluenceChanged()
 	{
-		bool changed = m_bLastRadioInfluenceChanged;
-		m_bLastRadioInfluenceChanged = false;
+		bool changed = m_bLastPeriodicInfluenceChanged;
+		m_bLastPeriodicInfluenceChanged = false;
 		return changed;
 	}
 
@@ -108,6 +110,40 @@ class HST_TownService
 
 		if (radioRows == 0)
 			report = report + "\nno towns in radio influence range";
+
+		report = report + string.Format(
+			"\nsecurity pressure | max police %1 | max roadblocks %2 | one-step drift per income tick",
+			SECURITY_PRESSURE_MAX_POLICE,
+			SECURITY_PRESSURE_MAX_ROADBLOCKS
+		);
+		int securityRows;
+		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
+		{
+			if (!civilianZone)
+				continue;
+
+			HST_ZoneState town = state.FindZone(civilianZone.m_sZoneId);
+			if (!town || town.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+				continue;
+
+			int targetPolice = ResolveTargetPolicePresence(state, preset, town, civilianZone);
+			int targetRoadblocks = ResolveTargetRoadblockPresence(state, preset, town, civilianZone);
+			if (targetPolice == civilianZone.m_iPolicePresence && targetRoadblocks == civilianZone.m_iRoadblockPresence)
+				continue;
+
+			securityRows++;
+			report = report + string.Format(
+				"\n%1 | police %2 -> %3 | roadblocks %4 -> %5",
+				town.m_sZoneId,
+				civilianZone.m_iPolicePresence,
+				targetPolice,
+				civilianZone.m_iRoadblockPresence,
+				targetRoadblocks
+			);
+		}
+
+		if (securityRows == 0)
+			report = report + "\nsecurity pressure already settled";
 
 		return report;
 	}
@@ -172,7 +208,7 @@ class HST_TownService
 		return income;
 	}
 
-	protected bool ApplyRadioTowerInfluence(HST_CampaignState state, HST_CampaignPreset preset, HST_CivilianService civilians)
+	protected bool ApplyPeriodicTownInfluence(HST_CampaignState state, HST_CampaignPreset preset, HST_CivilianService civilians)
 	{
 		if (!state)
 			return false;
@@ -182,6 +218,20 @@ class HST_TownService
 			return false;
 
 		civilians.EnsureCivilianZones(state);
+		bool radioChanged = ApplyRadioTowerInfluence(state, preset, civilians);
+		bool securityChanged = ApplyTownSecurityPressure(state, preset, civilians);
+		return radioChanged || securityChanged;
+	}
+
+	protected bool ApplyRadioTowerInfluence(HST_CampaignState state, HST_CampaignPreset preset, HST_CivilianService civilians)
+	{
+		if (!state)
+			return false;
+		if (!preset)
+			return false;
+		if (!civilians)
+			return false;
+
 		bool changed;
 		foreach (HST_ZoneState townZone : state.m_aZones)
 		{
@@ -236,6 +286,40 @@ class HST_TownService
 		return changed;
 	}
 
+	protected bool ApplyTownSecurityPressure(HST_CampaignState state, HST_CampaignPreset preset, HST_CivilianService civilians)
+	{
+		if (!state)
+			return false;
+		if (!preset)
+			return false;
+		if (!civilians)
+			return false;
+
+		bool changed;
+		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
+		{
+			if (!civilianZone || civilianZone.m_sZoneId.IsEmpty())
+				continue;
+
+			HST_ZoneState townZone = state.FindZone(civilianZone.m_sZoneId);
+			if (!townZone || townZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+				continue;
+
+			int targetPolice = ResolveTargetPolicePresence(state, preset, townZone, civilianZone);
+			int targetRoadblocks = ResolveTargetRoadblockPresence(state, preset, townZone, civilianZone);
+			int policeDelta = ClampOneStepDelta(targetPolice - civilianZone.m_iPolicePresence);
+			int roadblockDelta = ClampOneStepDelta(targetRoadblocks - civilianZone.m_iRoadblockPresence);
+			if (policeDelta == 0 && roadblockDelta == 0)
+				continue;
+
+			string reason = BuildSecurityPressureReason(townZone, civilianZone, targetPolice, targetRoadblocks);
+			if (civilians.RegisterInfluenceEvent(state, townZone.m_sZoneId, "security_pressure", 0, 0, 0, 0, 0, policeDelta, roadblockDelta, reason, preset, 0, townZone.m_sZoneId))
+				changed = true;
+		}
+
+		return changed;
+	}
+
 	protected HST_ZoneState FindNearestEligibleRadioTower(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState townZone)
 	{
 		if (!state)
@@ -284,6 +368,101 @@ class HST_TownService
 		if (nextHeat != civilianZone.m_iWantedHeat)
 			return true;
 		return false;
+	}
+
+	protected int ResolveTargetPolicePresence(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState townZone, HST_CivilianZoneState civilianZone)
+	{
+		if (!state)
+			return 0;
+		if (!preset)
+			return 0;
+		if (!townZone)
+			return 0;
+		if (!civilianZone)
+			return 0;
+
+		if (HST_FactionRelationService.IsResistanceFaction(preset, townZone.m_sOwnerFactionKey))
+		{
+			if (civilianZone.m_iWantedHeat >= 12)
+				return 1;
+			return 0;
+		}
+
+		if (!HST_FactionRelationService.IsEnemyFaction(preset, townZone.m_sOwnerFactionKey))
+			return Math.Max(0, Math.Min(SECURITY_PRESSURE_MAX_POLICE, civilianZone.m_iPolicePresence));
+
+		int target = 1;
+		target += Math.Min(2, Math.Max(0, civilianZone.m_iWantedHeat / 6));
+		int occupierMargin = civilianZone.m_iOccupierSupport - civilianZone.m_iFIASupport;
+		if (occupierMargin >= 20)
+			target++;
+		if (state.m_iWarLevel >= 4)
+			target++;
+		if (state.m_iWarLevel >= 7 && civilianZone.m_iWantedHeat >= 6)
+			target++;
+		return Math.Max(0, Math.Min(SECURITY_PRESSURE_MAX_POLICE, target));
+	}
+
+	protected int ResolveTargetRoadblockPresence(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState townZone, HST_CivilianZoneState civilianZone)
+	{
+		if (!state)
+			return 0;
+		if (!preset)
+			return 0;
+		if (!townZone)
+			return 0;
+		if (!civilianZone)
+			return 0;
+
+		if (HST_FactionRelationService.IsResistanceFaction(preset, townZone.m_sOwnerFactionKey))
+		{
+			if (civilianZone.m_iWantedHeat >= 15)
+				return 1;
+			return 0;
+		}
+
+		if (!HST_FactionRelationService.IsEnemyFaction(preset, townZone.m_sOwnerFactionKey))
+			return Math.Max(0, Math.Min(SECURITY_PRESSURE_MAX_ROADBLOCKS, civilianZone.m_iRoadblockPresence));
+
+		int target;
+		if (civilianZone.m_iWantedHeat >= 4)
+			target++;
+		if (civilianZone.m_iWantedHeat >= 12)
+			target++;
+		int occupierMargin = civilianZone.m_iOccupierSupport - civilianZone.m_iFIASupport;
+		if (occupierMargin >= 25)
+			target++;
+		if (state.m_iWarLevel >= 5 && civilianZone.m_iWantedHeat >= 6)
+			target++;
+		return Math.Max(0, Math.Min(SECURITY_PRESSURE_MAX_ROADBLOCKS, target));
+	}
+
+	protected int ClampOneStepDelta(int delta)
+	{
+		if (delta > 0)
+			return 1;
+		if (delta < 0)
+			return -1;
+		return 0;
+	}
+
+	protected string BuildSecurityPressureReason(HST_ZoneState townZone, HST_CivilianZoneState civilianZone, int targetPolice, int targetRoadblocks)
+	{
+		string label = "town";
+		if (townZone && !townZone.m_sZoneId.IsEmpty())
+			label = townZone.m_sZoneId;
+		if (townZone && !townZone.m_sDisplayName.IsEmpty())
+			label = townZone.m_sDisplayName;
+
+		return string.Format(
+			"security pressure in %1 | heat %2 | FIA %3 | occupier %4 | target police %5 roadblocks %6",
+			label,
+			civilianZone.m_iWantedHeat,
+			civilianZone.m_iFIASupport,
+			civilianZone.m_iOccupierSupport,
+			targetPolice,
+			targetRoadblocks
+		);
 	}
 
 	protected string ResolveRadioInfluenceLabel(HST_ZoneState radioZone)

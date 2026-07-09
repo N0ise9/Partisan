@@ -353,6 +353,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
     explain friendly and hostile broadcasts. Full Campaign Debug should keep
     `town_influence.radio.runtime` proving cadence, both drift directions,
     compact strategic rows, and report visibility.
+  - Police and roadblock security pressure should also run from
+    `HST_TownService` on the income/resource cadence. Derive target pressure from
+    town owner relation, wanted heat, occupier-vs-FIA support margin, and war
+    level, then move only one police/roadblock step per tick through
+    `HST_CivilianService.RegisterInfluenceEvent()` as `security_pressure`.
+    Resistance-held towns should shed enemy security pressure unless heat is
+    extreme. Full Campaign Debug should keep
+    `town_influence.security_pressure.runtime` proving enemy pressure growth,
+    resistance relief, compact strategic rows, report visibility, and save-data
+    preservation.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.
