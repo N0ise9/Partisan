@@ -1687,6 +1687,7 @@ class HST_PhysicalWarService
 	{
 		HST_ActiveGroupState activeGroup = new HST_ActiveGroupState();
 		activeGroup.m_sGroupId = BuildMissionConvoyGroupId(mission, index);
+		activeGroup.m_sOperationId = HST_StableIdService.BuildOperationId("mission", mission.m_sInstanceId);
 		activeGroup.m_sFactionKey = "USSR";
 		activeGroup.m_sPrefab = "campaign_debug_convoy_crew";
 		activeGroup.m_vPosition = asset.m_vCurrentPosition;
@@ -1901,6 +1902,7 @@ class HST_PhysicalWarService
 	{
 		HST_ActiveGroupState activeGroup = new HST_ActiveGroupState();
 		activeGroup.m_sGroupId = BuildMissionConvoyGroupId(mission, 0);
+		activeGroup.m_sOperationId = HST_StableIdService.BuildOperationId("mission", mission.m_sInstanceId);
 		activeGroup.m_sFactionKey = "USSR";
 		activeGroup.m_sPrefab = CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB;
 		activeGroup.m_vPosition = position;
@@ -3197,6 +3199,7 @@ class HST_PhysicalWarService
 		string factionKey = ResolveMissionConvoyFactionKey(state, preset, mission, targetZone);
 		HST_ActiveGroupState activeGroup = new HST_ActiveGroupState();
 		activeGroup.m_sGroupId = BuildMissionConvoyGroupId(mission, index);
+		activeGroup.m_sOperationId = HST_StableIdService.BuildOperationId("mission", mission.m_sInstanceId);
 		activeGroup.m_sZoneId = targetZone.m_sZoneId;
 		activeGroup.m_sFactionKey = factionKey;
 		activeGroup.m_sMissionInstanceId = mission.m_sInstanceId;
@@ -8174,6 +8177,10 @@ class HST_PhysicalWarService
 	{
 		HST_ActiveGroupState activeGroup = new HST_ActiveGroupState();
 		activeGroup.m_sGroupId = BuildGroupId(state, zone, factionKey, qrf);
+		if (qrf)
+			activeGroup.m_sOperationId = HST_StableIdService.BuildOperationId("qrf", activeGroup.m_sGroupId);
+		else
+			activeGroup.m_sOperationId = HST_StableIdService.BuildOperationId("garrison", zone.m_sZoneId);
 		activeGroup.m_sZoneId = zone.m_sZoneId;
 		activeGroup.m_sFactionKey = factionKey;
 		if (!qrf)

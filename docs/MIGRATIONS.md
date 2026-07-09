@@ -2,8 +2,16 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `41`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `42`.
 
+- Schema 42 adds the campaign authority foundation: a persisted monotonic ID
+  sequence, stable operation links, bounded command receipts, resource
+  transactions, and bounded campaign transition events. Legacy support,
+  enemy-order, and active-group rows receive deterministic operation IDs from
+  their existing durable IDs. Legacy resource changes are not retroactively
+  invented as transactions. Any restored open reservation is cancelled and
+  refunded once by `HST_ResourceLedgerService` before the restored state is
+  tracked again.
 - Schema 41 extends support request rows with selected roadblock garage vehicle
   id, prefab, display name, and consumed-state fields so established roadblock
   support survives save-data roundtrips with its consumed HQ vehicle evidence.
@@ -81,13 +89,55 @@
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
   `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
-- Runtime settings are schema `19` and are migrated separately by
+- Runtime settings are schema `21` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, the current same-container data can be
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 42
+
+Campaign command authority and resource transaction foundation.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `42`.
+- `m_iNextAuthoritySequence` allocates server-owned event and fallback request
+  IDs without relying on elapsed time plus array length.
+- `HST_CommandReceiptState` stores the request, actor, command, argument,
+  typed terminal status, result, aggregate link, and receive/complete time.
+- `HST_ResourceTransactionState` stores reservation/commit/refund/cancel
+  status, exact amount, refunded amount, operation, command, actor, and stable
+  settlement identity.
+- `HST_CampaignEventState` records bounded command and resource transitions.
+- Support requests, enemy orders, and active groups now carry a stable
+  operation ID. Existing rows backfill that ID from their durable source ID.
+- The first production ledger consumer is resistance training. Replaying one
+  command request or transaction ID cannot spend money or increase training a
+  second time.
+- Save capture/restore deep-copies receipts, transactions, events, allocator
+  state, and operation links. Restored reservations that never reached a
+  terminal state are cancelled and refunded before normal campaign ticking.
+
+## Runtime Settings Schema 21
+
+Loot-setting key cleanup.
+
+- `HST_RuntimeSettings.SCHEMA_VERSION` is `21`.
+- Generated settings keep `lootSkipUnlockedItems` and
+  `vehicleLootSkipUnlockedItems` as the canonical keys.
+- Obsolete `lootOnlyLockedItems` and `vehicleLootOnlyLockedItems` aliases are
+  no longer generated or read.
+- Existing known gameplay values are preserved while the normalized settings
+  file is rewritten.
+
+## Runtime Settings Schema 20
+
+Loot unlock defaults.
+
+- `HST_RuntimeSettings.SCHEMA_VERSION` was `20`.
+- Area and vehicle loot default to skipping already-unlimited items.
+- Explosive and guided-launcher threshold unlocks default to enabled.
 
 ## Runtime Settings Schema 19
 

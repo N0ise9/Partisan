@@ -595,6 +595,7 @@ class HST_EnemyCommanderService
 
 		HST_EnemyOrderState order = new HST_EnemyOrderState();
 		order.m_sOrderId = string.Format("order_%1_%2_%3", factionKey, state.m_iElapsedSeconds, state.m_aEnemyOrders.Count());
+		order.m_sOperationId = HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId);
 		order.m_sFactionKey = factionKey;
 		order.m_eType = orderType;
 		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;

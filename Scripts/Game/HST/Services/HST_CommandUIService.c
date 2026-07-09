@@ -586,7 +586,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	string ExecuteVisibleCommand(HST_CampaignCoordinatorComponent coordinator, int playerId, string commandId, string argument = "")
+	string ExecuteVisibleCommand(HST_CampaignCoordinatorComponent coordinator, int playerId, string commandId, string argument = "", string requestId = "")
 	{
 		if (!coordinator || commandId.IsEmpty())
 			return "h-istasi command | invalid request";
@@ -777,9 +777,9 @@ class HST_CommandUIService
 			return coordinator.RequestCommanderApplyIncomeNowReport(playerId);
 
 		if (commandId == "train_troops")
-			return BuildBoolResult("train FIA troops", coordinator.RequestCommanderTrainTroops(playerId));
+			return coordinator.RequestCommanderTrainTroopsReport(playerId, requestId);
 		if (commandId == "train_troops_report")
-			return coordinator.RequestCommanderTrainTroopsReport(playerId);
+			return coordinator.RequestCommanderTrainTroopsReport(playerId, requestId);
 
 		if (commandId == "recruit_zone")
 		{

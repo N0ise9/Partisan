@@ -1,16 +1,16 @@
-# Antistasi Community Edition 3.11.1 Parity Map
+# h-istasi Capability Map
 
 ## Implemented Foundation
 
 - Typed versioned campaign state
 - Fixed FIA versus US versus USSR preset
-- CE-style resource pools, HR, money, support, aggression, and war-level
+- Campaign resource pools, HR, money, support, aggression, and war-level
   service surface
 - Persistent member, guest, admin, commander-vacancy, player lifecycle,
   town-support, income, arsenal, vehicle-cargo, saved-loadout, issued-item,
   garage-record, runtime-vehicle, abstract-garrison, recruitment, and
   enemy-pool service surfaces
-- Common mission lifecycle and CE 3.11.1 mission-registry baseline
+- Common mission lifecycle and configured mission-registry baseline
 - Native Reforger manual and periodic checkpoint requests with
   `PersistenceSystem` tracking for the scripted campaign save container
 - Original Everon world shell and stable strategic-zone IDs
@@ -39,7 +39,7 @@
   Arsenal/Loot tab, opening the custom loadout editor, and depositing nearby
   loot into campaign arsenal state; inherited stock arsenal actions are
   filtered from the h-istasi HQ arsenal surface
-- Procedural Antistasi-style HQ menu with resource stats, overview, HQ/Petros,
+- Procedural h-istasi HQ menu with resource stats, overview, HQ/Petros,
   mission board, map/war, forces, arsenal/loot, garage/build, member, admin,
   action, and activity/result panels
 - Broad-alpha persistent state for generated sites/routes, mission objectives,
@@ -56,10 +56,12 @@
 - Mission objective/task service that attaches rough objectives to started
   missions and lets the no-admin commander flow progress them into normal
   mission completion rewards and strategic outcomes
-- Mission runtime service that maps all 26 registry IDs into physical MVP
+- Mission runtime service that maps all 39 configured registry IDs into physical MVP
   primitives: kill HVT, hold/clear area, destroy target, recover cargo,
-  rescue/extract, deliver supplies, and convoy intercept
-- Stateful support request service inspired by DarcMissions/DarcChopper pacing:
+  rescue/extract, deliver supplies, and convoy intercept. This establishes
+  configured breadth, not behavioral parity or runtime certification for every
+  mission family.
+- Stateful support request service with queued deployment pacing:
   FIA/enemy support has ETA/status/cooldown reporting, physical ground-group
   activation when players are nearby, and abstract resolution when off-screen or
   unsupported by base-game assets

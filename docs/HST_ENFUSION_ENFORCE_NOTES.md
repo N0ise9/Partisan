@@ -89,6 +89,23 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Owner-bridge command RPCs need caller-generated request identity.
+  - Carry the same request ID from the player-owned request component through the server RPC and coordinator dispatch. Persist a bounded command receipt for each ID so an exact replay returns the prior result without mutation, while reuse with a different command or payload is rejected as a conflict.
+  - Treat the receipt as campaign state, not transient UI state; save/load must preserve idempotency across reconnects and restarts.
+
+- Paid campaign mutations need a transaction ledger, not inline balance edits.
+  - Use explicit reserve, commit, cancel, and refund transitions. Restore reconciliation must cancel/refund any open reservation before normal service ticks resume, and transaction/event history must be bounded.
+  - Training is the first production consumer. Defer paid support and garrison integration until the force-manifest layer can provide one exact, immutable quote for affordability, deduction, spawn, persistence, and refund behavior.
+
+- Full Campaign Debug is currently destructive to live campaign state.
+  - It can force terminal outcomes, mutate resources and campaign rows, and trigger autosaves. Do not rerun it against a live profile until the runner either snapshot-restores the full durable and projected runtime boundary or is hard-gated to a disposable development profile.
+
+- Campaign marker publication is not proof that its visual widget is ready.
+  - A published model or native/static marker handle can exist while the delayed map widget root is still null. Visual proof must open the map, wait through widget construction, inspect static campaign-marker root readiness, and surface any update-time VM exception; model and handle counts alone are insufficient.
+
+- Headless Workbench script validation needs the project and Script Editor run mode explicitly.
+  - Use the generic parameter shape `-gproj <project> -wbModule=ScriptEditor -run -validate PC -wbsilent -exitAfterInit`; an invocation that only initializes Workbench is not compile/validation evidence.
+
 - Player-facing economy reports should consume the same service-owned income math as the tick path.
   - If the Command Menu repeats income formulas locally, report totals can drift from actual money/HR mutation as town support, resource types, factories, seaports, airfields, or bank effects change.
   - Keep category/source breakdowns in the town service, then have member inspection append that report so next-income totals, source totals, and per-zone rows are all derived from `CalculateResistanceIncome()`, `CalculateResistanceHRIncome()`, `CalculateZoneMoneyIncome()`, and `ResolveZoneHRIncome()`.
@@ -1575,7 +1592,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Direct faction-infantry fallback should be visibly tagged as degraded runtime behavior. Post-case and final certification should fail any active-group row whose spawn mode contains `direct_infantry_fallback`, including terminal rows, because any fallback row means the primary stock group/member-slot path failed earlier.
   - Runtime faction spawning should route group, direct-infantry, and vehicle selection through a single spawn-spec resolver before calling native spawn APIs. Keeping the requested faction key, expected native faction key, role, and catalog source together makes later runtime faction proof explain which catalog path produced each group or vehicle.
 - Build provenance must be single-source and visible in both boot logs and structured debug output.
-  - `HST_BuildInfo` owns the structured build sha/utc/label used in campaign-debug JSON and summaries, while the coordinator's authority boot/admin string is what a server operator sees first in logs. Keep them synchronized every time runtime proof behavior changes; mismatched build strings make post-test logs impossible to trust.
+  - `HST_BuildInfo` is the only owner of build SHA, UTC time, label, and schema identity. Boot logs, admin reports, command-menu readiness, and campaign-debug artifacts must call its runtime-summary helpers instead of defining synchronized component-local constants; mismatched identities make post-test logs impossible to trust.
   - Campaign-debug physical probes should assert the reconciliation result, not only log it. Convoy and physical-combat cases should fail when checkable crew/group/vehicle runtime entities still expose a faction different from `HST_ActiveGroupState.m_sFactionKey`; pending/uncheckable entities can remain WARN while the spawn grace owns them.
   - When direct fallback members are tracked beside their parent `AIGroup`, counting must not double-count or mask a broken native group. Count unique living native-agent members and direct tracked members for faction proof, and keep separate assertions for systems that require the parent `AIGroup` itself to own durable agents.
   - Prefer faction infantry character prefabs from `HST_DefaultCatalog.CreateFactionTemplate(factionKey)` for fallback members. Do not reuse group prefabs or generic FIA defaults for all sides, or server runs can appear to invert/flatten faction composition compared with Workbench expectations.

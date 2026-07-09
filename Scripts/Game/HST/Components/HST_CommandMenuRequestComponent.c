@@ -32,6 +32,10 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected float m_fInfiniteStaminaAccumulator;
 	protected int m_iNativeMapMarkerRefreshRetries;
 	protected int m_iInfiniteStaminaRefillCount;
+	protected int m_iActionRequestSequence;
+	protected int m_iLastActionRequestTick;
+	protected string m_sLastActionRequestSignature;
+	protected string m_sLastActionRequestId;
 	protected ref array<string> m_aRecentLocalNotificationKeys = {};
 
 	override void OnPostInit(IEntity owner)
@@ -775,16 +779,32 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		RequestRuntimeFeatureSettingsNow("manual request");
 	}
 
-	void RequestAction(string selectedTabId, string commandId, string argument = "")
+	void RequestAction(string selectedTabId, string commandId, string argument = "", string requestId = "")
 	{
 		int clientPlayerId = ResolveLocalPlayerId();
+		if (requestId.IsEmpty())
+			requestId = ResolveActionRequestId(selectedTabId, commandId, argument, clientPlayerId);
 		if (Replication.IsServer())
 		{
-			SendActionResultToOwner(selectedTabId, commandId, argument, clientPlayerId);
+			SendActionResultToOwner(selectedTabId, commandId, argument, requestId, clientPlayerId);
 			return;
 		}
 
-		Rpc(RpcAsk_RequestAction, selectedTabId, commandId, argument, clientPlayerId);
+		Rpc(RpcAsk_RequestAction, selectedTabId, commandId, argument, requestId, clientPlayerId);
+	}
+
+	protected string ResolveActionRequestId(string selectedTabId, string commandId, string argument, int clientPlayerId)
+	{
+		int nowTick = System.GetTickCount();
+		string signature = selectedTabId + "|" + commandId + "|" + argument;
+		if (signature == m_sLastActionRequestSignature && !m_sLastActionRequestId.IsEmpty() && nowTick - m_iLastActionRequestTick <= 1500)
+			return m_sLastActionRequestId;
+
+		m_iActionRequestSequence++;
+		m_iLastActionRequestTick = nowTick;
+		m_sLastActionRequestSignature = signature;
+		m_sLastActionRequestId = string.Format("client_command_%1_%2_%3_%4", System.GetUnixTime(), nowTick, clientPlayerId, m_iActionRequestSequence);
+		return m_sLastActionRequestId;
 	}
 
 	void RequestLoadoutEditorAction(string commandId, string argument = "")
@@ -896,9 +916,9 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
-	protected void RpcAsk_RequestAction(string selectedTabId, string commandId, string argument, int clientPlayerId)
+	protected void RpcAsk_RequestAction(string selectedTabId, string commandId, string argument, string requestId, int clientPlayerId)
 	{
-		SendActionResultToOwner(selectedTabId, commandId, argument, clientPlayerId);
+		SendActionResultToOwner(selectedTabId, commandId, argument, requestId, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
@@ -1235,7 +1255,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return false;
 	}
 
-	protected void SendActionResultToOwner(string selectedTabId, string commandId, string argument, int clientPlayerId = 0)
+	protected void SendActionResultToOwner(string selectedTabId, string commandId, string argument, string requestId, int clientPlayerId = 0)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
@@ -1246,7 +1266,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "action");
 		DebugLog(string.Format("action request | command=%1 ownerPlayer=%2 clientHint=%3", commandId, playerId, clientPlayerId));
-		string result = coordinator.RequestVisibleMenuCommand(playerId, selectedTabId, commandId, argument);
+		string result = coordinator.RequestVisibleMenuCommand(playerId, selectedTabId, commandId, argument, requestId);
 		string payload = coordinator.BuildVisibleMenuPayload(playerId, selectedTabId, result);
 		DeliverSnapshot(payload, result);
 	}

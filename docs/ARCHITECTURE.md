@@ -3,7 +3,22 @@
 ## Runtime Ownership
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
-single `HST_CampaignState` and delegates to small services:
+single `HST_CampaignState` and delegates to small services. The schema-42
+campaign-authority foundation adds four cross-cutting services before existing
+feature services are migrated onto the contract:
+
+- `HST_StableIdService`: allocates persisted, monotonic IDs for generated
+  commands and events, and builds deterministic operation/transaction links.
+- `HST_CampaignCommandService`: validates typed command envelopes and keeps a
+  bounded persisted receipt history so replaying the same request ID cannot
+  apply the same mutation twice.
+- `HST_ResourceLedgerService`: records reserve, commit, cancel, and refund
+  transitions for resource mutations. Troop training is the first production
+  command routed through this ledger.
+- `HST_CampaignEventLogService`: appends bounded persisted campaign events for
+  authority decisions and resource transitions.
+
+The remaining domain services are:
 
 - `HST_EconomyService`: HR, faction money, support, aggression, war level,
   strategic score/control percentage, pacing recommendations, victory readiness,
@@ -90,6 +105,24 @@ ownership-resolved coordinator methods, so the server resolves the trusted
 identity and enforces member, commander, and admin permissions instead of
 trusting client-provided player IDs.
 
+## Campaign Authority Boundary
+
+Schema 42 is the first campaign-authority foundation, not a claim that every
+existing broad-alpha mutation already uses the new boundary.
+
+| Concern | Current implementation | Target architecture |
+| --- | --- | --- |
+| Stable identity | A persisted monotonic allocator creates authority IDs, and selected support, order, and active-group records carry operation links. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
+| Command idempotency | Visible command requests carry a request ID; bounded receipts make the migrated troop-training path replay-safe. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
+| Resource integrity | Troop training reserves and commits faction money through the ledger; legacy consumers still mutate resources through their existing services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
+| Force exactness | Existing force-planning and physical-war services remain broad-alpha consumers with partial operation links. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
+| Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
+| Certification | Static validation and Workbench script compilation cover the schema-42 foundation. | Isolated runtime, save/load, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+
+Until those target columns are closed, domain services remain authoritative for
+their existing behavior, but they must not be described as uniformly
+idempotent, ledger-backed, or exact-manifest driven.
+
 ## Authoring Contracts
 
 The addon keeps authoring data separate from runtime state:
@@ -97,7 +130,7 @@ The addon keeps authoring data separate from runtime state:
 - `HST_CampaignPreset`: fixed scenario roles and capability switches.
 - `HST_FactionTemplate`: faction identity and capability declarations.
 - `HST_MapDefinition`: stable IDs for zones and hideout candidates.
-- `HST_BalanceConfig`: Community Edition-derived initial values.
+- `HST_BalanceConfig`: campaign balance and progression values.
 - `HST_MissionRegistryConfig`: mission definitions and deferred capabilities.
 
 The checked-in `.conf` resources are the intended data source and are validated
@@ -115,8 +148,10 @@ service also writes `$profile:h-istasi/HST_CampaignSaveData.json` as a profile
 fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. The
 state model is versioned from day one. `HST_CampaignSaveData` is the deep-copy
-save container for current campaign fields and nested runtime arrays, including
-campaign metadata, resources, schema-36 save fields including campaign-end
+save container for current campaign fields and nested runtime arrays. Schema 42
+persists the monotonic authority sequence, bounded command receipts, resource
+transactions, campaign events, and stable operation links alongside campaign
+metadata, resources, campaign-end
 reason/summary/elapsed second/control/war/zone-count fields, outcome-mode,
 population/support, airfield metadata, support deployment proof, active-group
 vehicle prefab, active-group route waypoint counts, runtime infantry waypoint assignment and final-sweep state,
@@ -177,14 +212,14 @@ FIA cache fallback is only used if the custom object cannot spawn.
 The alpha HQ menu is procedural rather than layout-resource loaded. The server
 keeps the existing `HST_MENU`, `TAB`, `STATUS`, `RESULT`, and `ACTION` payload
 lines while adding optional `STAT`, `SECTION`, `ROW`, and `FEED` lines for the
-Antistasi-style overview, HQ/Petros, missions, map/war, forces, arsenal/loot,
+h-istasi overview, HQ/Petros, missions, map/war, forces, arsenal/loot,
 garage/build, members, and admin panels. The custom loadout editor has its own
 `HST_LOADOUT_EDITOR` and `HST_LOADOUT_CANDIDATES` payloads but still routes
 mutations through the same server-authoritative request bridge. Contextual
 Petros, HQ arsenal, and vehicle cargo actions call the same bridge as menu
 clicks so local hosts and MP clients follow one command path.
 
-## Antistasi Framework Spine
+## Campaign Framework Spine
 
 The first campaign loop is now connected as a physical/abstract hybrid. Zones
 carry type, position, income, support, activation radius, route IDs, mission

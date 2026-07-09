@@ -34,7 +34,11 @@ class HST_RecruitmentResult
 class HST_TrainingResult
 {
 	bool m_bSuccess;
+	bool m_bAlreadyApplied;
 	string m_sFailureReason;
+	string m_sCommandRequestId;
+	string m_sOperationId;
+	string m_sTransactionId;
 	int m_iOldTrainingLevel;
 	int m_iNewTrainingLevel;
 	int m_iMoneySpent;
@@ -45,8 +49,10 @@ class HST_TrainingResult
 	{
 		if (!m_bSuccess)
 			return "h-istasi training | failed: " + m_sFailureReason;
+		if (m_bAlreadyApplied)
+			return string.Format("h-istasi training | already applied | request %1 | level %2", m_sCommandRequestId, m_iNewTrainingLevel);
 
-		return string.Format(
+		string summary = string.Format(
 			"h-istasi training | complete | level %1 -> %2 | spent $%3 | war level %4 | cap %5",
 			m_iOldTrainingLevel,
 			m_iNewTrainingLevel,
@@ -54,6 +60,9 @@ class HST_TrainingResult
 			m_iWarLevel,
 			m_iTrainingCap
 		);
+		if (!m_sTransactionId.IsEmpty())
+			summary = summary + " | transaction " + m_sTransactionId;
+		return summary;
 	}
 }
 
@@ -115,7 +124,7 @@ class HST_RecruitmentService
 		);
 	}
 
-	HST_TrainingResult TrainTroopsDetailed(HST_CampaignState state, HST_EconomyService economy, int moneyCost)
+	HST_TrainingResult TrainTroopsDetailed(HST_CampaignState state, HST_EconomyService economy, int moneyCost, HST_ResourceLedgerService resourceLedger = null, string commandRequestId = "", string actorIdentityId = "")
 	{
 		HST_TrainingResult result = new HST_TrainingResult();
 
@@ -148,13 +157,44 @@ class HST_RecruitmentService
 			return result;
 		}
 
-		if (!economy.SpendFactionMoney(state, moneyCost))
+		result.m_sCommandRequestId = commandRequestId;
+		if (resourceLedger)
+		{
+			if (commandRequestId.IsEmpty())
+				commandRequestId = HST_StableIdService.NextId(state, "training_command");
+			result.m_sCommandRequestId = commandRequestId;
+			result.m_sOperationId = HST_StableIdService.BuildOperationId("training", commandRequestId);
+			result.m_sTransactionId = HST_StableIdService.BuildTransactionId(result.m_sOperationId, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY);
+			HST_ResourceTransactionResult reservation = resourceLedger.ReserveCost(state, economy, result.m_sTransactionId, commandRequestId, result.m_sOperationId, actorIdentityId, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, moneyCost, "resistance training purchase");
+			if (!reservation || !reservation.m_bSuccess)
+			{
+				result.m_sFailureReason = "money reservation failed";
+				if (reservation && !reservation.m_sFailureReason.IsEmpty())
+					result.m_sFailureReason = reservation.m_sFailureReason;
+				return result;
+			}
+			if (reservation.m_bAlreadyApplied)
+			{
+				result.m_bSuccess = true;
+				result.m_bAlreadyApplied = true;
+				result.m_iNewTrainingLevel = state.m_iTrainingLevel;
+				return result;
+			}
+		}
+		else if (!economy.SpendFactionMoney(state, moneyCost))
 		{
 			result.m_sFailureReason = "money spend failed";
 			return result;
 		}
 
 		state.m_iTrainingLevel++;
+		if (resourceLedger && !resourceLedger.CommitReserved(state, result.m_sTransactionId))
+		{
+			state.m_iTrainingLevel = result.m_iOldTrainingLevel;
+			resourceLedger.CancelReservation(state, economy, result.m_sTransactionId, "training_commit_failed_" + commandRequestId, "training mutation could not commit");
+			result.m_sFailureReason = "resource transaction commit failed";
+			return result;
+		}
 		result.m_bSuccess = true;
 		result.m_iNewTrainingLevel = state.m_iTrainingLevel;
 		result.m_iMoneySpent = moneyCost;

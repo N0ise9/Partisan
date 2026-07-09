@@ -1,8 +1,7 @@
 # h-istasi
 
-h-istasi is an original Arma Reforger implementation of the Antistasi
-resistance-campaign concept. The first preset targets Everon with a three-way
-war:
+h-istasi is an original Arma Reforger resistance-campaign implementation. The
+first preset targets Everon with a three-way war:
 
 - FIA: player resistance
 - US: occupying force
@@ -21,12 +20,12 @@ The repository contains a broad-alpha campaign foundation:
   campaign-end, and persistence metadata
 - Server-authoritative campaign, economy, mission, persistence, arsenal, loot,
   loadout-editor, garage/build, and native-checkpoint services
-- A Community Edition 3.11.1 mission registry baseline
+- A 39-entry configured mission-registry baseline
 - Custom FIA HQ player spawn path for direct Workbench Play mode
 - FIA spawnpoint/loadout authoring metadata for authored hideout candidates
 - Setup-phase HQ selection, HQ movement, and Petros state hooks for the first
   playable resistance-campaign slice
-- Abstract Antistasi systems for player lifecycle, town income/support, zone
+- Abstract campaign systems for player lifecycle, town income/support, zone
   capture, garrisons, recruitment/training, and mission rewards/penalties
 - Native respawn-request bootstrap with pending spawn tracking to avoid
   Workbench duplicate-spawn loops
@@ -46,7 +45,7 @@ The repository contains a broad-alpha campaign foundation:
   five fixed personal loadout slots under `$profile:h-istasi/loadouts/v2`,
   finite/INF accounting, atomic apply/rollback, and an issued-item ledger owned
   by campaign state
-- Procedural Antistasi-style `I` key HQ menu mounted on both development
+- Procedural h-istasi `I` key HQ menu mounted on both development
   worlds with Setup, Overview, HQ/Petros, Missions, Map/War, Forces,
   Arsenal/Loot, Garage/Build, Members, and Admin tabs
 - First-load server settings generation at `$profile:h-istasi/HST_Settings.json`
@@ -106,7 +105,7 @@ The repository contains a broad-alpha campaign foundation:
 - Admin-only campaign debug controls expose one-button smoke, physical, and
   full runtime verification profiles with status, cancel, cleanup, structured
   result artifacts, and bootstrap identity/admin evidence
-- Persistent campaign win/loss state with schema-36 end reason, summary,
+- Persistent campaign win/loss state with schema-42 end reason, summary,
   elapsed time, strategic control, war level, FIA/enemy zone counts,
   population/support, airfield, outcome-mode, support deployment proof, and
   report generation metadata
@@ -131,7 +130,7 @@ still need to be connected incrementally.
 
 Press `I` in `HST_Dev` or `HST_Everon` to open the h-istasi alpha command
 menu. The menu is a client widget driven by server-built snapshots and renders
-an Antistasi-style HQ interface with a resource bar, navigation, campaign
+a campaign HQ interface with a resource bar, navigation, campaign
 cards, action list, and activity/result feed. The Setup tab displays the
 effective server config and lets the commander choose the first HQ hideout
 before the campaign enters the active phase. `$profile:h-istasi/HST_Settings.json`
@@ -186,22 +185,23 @@ raw 17-digit SteamID64 to `membership.adminIdentityIds` in
 `workbench_player_N` aliases, and per-session player IDs are not durable
 h-istasi admin tokens.
 
-The Admin tab exposes `Run Full Campaign Debug` as the primary one-button
-in-process runtime certification run. Scoped `Debug ... Profile` buttons are
-for faster diagnosis of a smaller area, and external/restart/soak profiles are
-for cases that require a real restart, reconnect, or long window. Results are
-written under `$profile:h-istasi/debug` as structured JSON, summary text, and
-state-diff text. A valid admin grant should be visible in logs as a
+The Admin tab exposes `Run Full Campaign Debug` as a one-button diagnostic
+harness. It is not runtime certification by itself, and the full profile must
+remain isolated from live campaign state until its snapshot/restore boundary is
+proven. Scoped `Debug ... Profile` buttons are for faster diagnosis of a smaller
+area, and external/restart/soak profiles are for cases that require a real
+restart, reconnect, or long window. Results are written under
+`$profile:h-istasi/debug` as structured JSON, summary text, and state-diff text.
+A valid admin grant should be visible in logs as a
 `settings SteamID64` runtime grant, and command-menu input diagnostics log the
 local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
-the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-09-runtime-proof-r123-marker-group-civilian-fixes`
-and the client log must contain
-`build=2026-07-08-menu-input-r19-map-open-gate-proof` on the local command-menu ready
-line. If either line is missing, the server/client is running a stale packaged
-addon under `ArmaReforger/addons`, even if the repository has newer commits.
+the dedicated server. Server boot, admin diagnostics, command-menu readiness,
+and structured debug artifacts must report the same runtime identity from
+`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 42, and
+runtime-settings schema. Missing or mismatched identity means the packaged
+server/client runtime is stale or mixed, even if the repository is newer.
 
 ## Design Rules
 

@@ -32,6 +32,7 @@ class HST_CampaignSaveData
 	int m_iIncomeAccumulatorSeconds;
 	int m_iEnemyResourceAccumulatorSeconds;
 	int m_iAggressionAccumulatorSeconds;
+	int m_iNextAuthoritySequence;
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
@@ -101,6 +102,9 @@ class HST_CampaignSaveData
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
 	ref array<ref HST_StrategicEventState> m_aStrategicEvents = {};
+	ref array<ref HST_CommandReceiptState> m_aCommandReceipts = {};
+	ref array<ref HST_ResourceTransactionState> m_aResourceTransactions = {};
+	ref array<ref HST_CampaignEventState> m_aCampaignEvents = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
@@ -140,6 +144,7 @@ class HST_CampaignSaveData
 		m_iIncomeAccumulatorSeconds = state.m_iIncomeAccumulatorSeconds;
 		m_iEnemyResourceAccumulatorSeconds = state.m_iEnemyResourceAccumulatorSeconds;
 		m_iAggressionAccumulatorSeconds = state.m_iAggressionAccumulatorSeconds;
+		m_iNextAuthoritySequence = state.m_iNextAuthoritySequence;
 		m_sCommanderIdentityId = state.m_sCommanderIdentityId;
 		m_sHQHideoutId = state.m_sHQHideoutId;
 		m_vHQPosition = state.m_vHQPosition;
@@ -290,6 +295,18 @@ class HST_CampaignSaveData
 		foreach (HST_StrategicEventState strategicEvent : state.m_aStrategicEvents)
 			m_aStrategicEvents.Insert(CopyStrategicEvent(strategicEvent));
 
+		m_aCommandReceipts.Clear();
+		foreach (HST_CommandReceiptState receipt : state.m_aCommandReceipts)
+			m_aCommandReceipts.Insert(CopyCommandReceipt(receipt));
+
+		m_aResourceTransactions.Clear();
+		foreach (HST_ResourceTransactionState transaction : state.m_aResourceTransactions)
+			m_aResourceTransactions.Insert(CopyResourceTransaction(transaction));
+
+		m_aCampaignEvents.Clear();
+		foreach (HST_CampaignEventState eventState : state.m_aCampaignEvents)
+			m_aCampaignEvents.Insert(CopyCampaignEvent(eventState));
+
 		m_aUndercoverPlayers.Clear();
 		foreach (HST_PlayerUndercoverState undercover : state.m_aUndercoverPlayers)
 			m_aUndercoverPlayers.Insert(CopyUndercoverPlayer(undercover));
@@ -344,6 +361,7 @@ class HST_CampaignSaveData
 		state.m_iIncomeAccumulatorSeconds = m_iIncomeAccumulatorSeconds;
 		state.m_iEnemyResourceAccumulatorSeconds = m_iEnemyResourceAccumulatorSeconds;
 		state.m_iAggressionAccumulatorSeconds = m_iAggressionAccumulatorSeconds;
+		state.m_iNextAuthoritySequence = m_iNextAuthoritySequence;
 		state.m_sCommanderIdentityId = m_sCommanderIdentityId;
 		state.m_sHQHideoutId = m_sHQHideoutId;
 		state.m_vHQPosition = m_vHQPosition;
@@ -494,6 +512,18 @@ class HST_CampaignSaveData
 		foreach (HST_StrategicEventState strategicEvent : m_aStrategicEvents)
 			state.m_aStrategicEvents.Insert(CopyStrategicEvent(strategicEvent));
 
+		state.m_aCommandReceipts.Clear();
+		foreach (HST_CommandReceiptState receipt : m_aCommandReceipts)
+			state.m_aCommandReceipts.Insert(CopyCommandReceipt(receipt));
+
+		state.m_aResourceTransactions.Clear();
+		foreach (HST_ResourceTransactionState transaction : m_aResourceTransactions)
+			state.m_aResourceTransactions.Insert(CopyResourceTransaction(transaction));
+
+		state.m_aCampaignEvents.Clear();
+		foreach (HST_CampaignEventState eventState : m_aCampaignEvents)
+			state.m_aCampaignEvents.Insert(CopyCampaignEvent(eventState));
+
 		state.m_aUndercoverPlayers.Clear();
 		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)
 			state.m_aUndercoverPlayers.Insert(CopyUndercoverPlayer(undercover));
@@ -583,6 +613,7 @@ class HST_CampaignSaveData
 	{
 		HST_ActiveGroupState target = new HST_ActiveGroupState();
 		target.m_sGroupId = source.m_sGroupId;
+		target.m_sOperationId = source.m_sOperationId;
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
@@ -1152,6 +1183,10 @@ class HST_CampaignSaveData
 	{
 		HST_SupportRequestState target = new HST_SupportRequestState();
 		target.m_sRequestId = source.m_sRequestId;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sCommandRequestId = source.m_sCommandRequestId;
+		target.m_sMoneyTransactionId = source.m_sMoneyTransactionId;
+		target.m_sHRTransactionId = source.m_sHRTransactionId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sCapabilityId = source.m_sCapabilityId;
 		target.m_sAssetProfileId = source.m_sAssetProfileId;
@@ -1219,6 +1254,7 @@ class HST_CampaignSaveData
 	{
 		HST_EnemyOrderState target = new HST_EnemyOrderState();
 		target.m_sOrderId = source.m_sOrderId;
+		target.m_sOperationId = source.m_sOperationId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_eType = source.m_eType;
 		target.m_eStatus = source.m_eStatus;
@@ -1365,6 +1401,53 @@ class HST_CampaignSaveData
 		return target;
 	}
 
+	protected HST_CommandReceiptState CopyCommandReceipt(HST_CommandReceiptState source)
+	{
+		HST_CommandReceiptState target = new HST_CommandReceiptState();
+		target.m_sRequestId = source.m_sRequestId;
+		target.m_sActorIdentityId = source.m_sActorIdentityId;
+		target.m_sCommandId = source.m_sCommandId;
+		target.m_sArgument = source.m_sArgument;
+		target.m_sResult = source.m_sResult;
+		target.m_sAggregateId = source.m_sAggregateId;
+		target.m_eStatus = source.m_eStatus;
+		target.m_iReceivedAtSecond = source.m_iReceivedAtSecond;
+		target.m_iCompletedAtSecond = source.m_iCompletedAtSecond;
+		return target;
+	}
+
+	protected HST_ResourceTransactionState CopyResourceTransaction(HST_ResourceTransactionState source)
+	{
+		HST_ResourceTransactionState target = new HST_ResourceTransactionState();
+		target.m_sTransactionId = source.m_sTransactionId;
+		target.m_sCommandRequestId = source.m_sCommandRequestId;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sActorIdentityId = source.m_sActorIdentityId;
+		target.m_sResourceType = source.m_sResourceType;
+		target.m_sReason = source.m_sReason;
+		target.m_sLastSettlementId = source.m_sLastSettlementId;
+		target.m_eStatus = source.m_eStatus;
+		target.m_iAmount = source.m_iAmount;
+		target.m_iRefundedAmount = source.m_iRefundedAmount;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iSettledAtSecond = source.m_iSettledAtSecond;
+		return target;
+	}
+
+	protected HST_CampaignEventState CopyCampaignEvent(HST_CampaignEventState source)
+	{
+		HST_CampaignEventState target = new HST_CampaignEventState();
+		target.m_sEventId = source.m_sEventId;
+		target.m_sCategory = source.m_sCategory;
+		target.m_sAggregateType = source.m_sAggregateType;
+		target.m_sAggregateId = source.m_sAggregateId;
+		target.m_sCommandRequestId = source.m_sCommandRequestId;
+		target.m_sTransition = source.m_sTransition;
+		target.m_sReason = source.m_sReason;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		return target;
+	}
+
 	protected HST_PlayerUndercoverState CopyUndercoverPlayer(HST_PlayerUndercoverState source)
 	{
 		HST_PlayerUndercoverState target = new HST_PlayerUndercoverState();
@@ -1424,6 +1507,8 @@ class HST_CampaignSaveData
 
 		m_iLastLoadedSchemaVersion = restoredSchemaVersion;
 		m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		if (m_iNextAuthoritySequence <= 0)
+			m_iNextAuthoritySequence = 1;
 		if (m_sLastPersistenceStatus.IsEmpty())
 			m_sLastPersistenceStatus = "migrated local save data";
 		m_iHQKnowledge = Math.Max(0, Math.Min(100, m_iHQKnowledge));
@@ -1558,6 +1643,19 @@ class HST_CampaignSaveData
 
 			if (group.m_sRuntimeStatus.IsEmpty())
 				group.m_sRuntimeStatus = "restored";
+			if (group.m_sOperationId.IsEmpty())
+			{
+				if (!group.m_sSupportRequestId.IsEmpty())
+					group.m_sOperationId = HST_StableIdService.BuildOperationId("support", group.m_sSupportRequestId);
+				else if (!group.m_sMissionInstanceId.IsEmpty())
+					group.m_sOperationId = HST_StableIdService.BuildOperationId("mission", group.m_sMissionInstanceId);
+				else if (!group.m_sQRFInstanceId.IsEmpty())
+					group.m_sOperationId = HST_StableIdService.BuildOperationId("qrf", group.m_sQRFInstanceId);
+				else if (!group.m_sGarrisonZoneId.IsEmpty())
+					group.m_sOperationId = HST_StableIdService.BuildOperationId("garrison", group.m_sGarrisonZoneId);
+				else
+					group.m_sOperationId = HST_StableIdService.BuildOperationId("group", group.m_sGroupId);
+			}
 			if (IsZeroVector(group.m_vSourcePosition))
 				group.m_vSourcePosition = group.m_vPosition;
 			if (IsZeroVector(group.m_vTargetPosition))
@@ -1633,6 +1731,8 @@ class HST_CampaignSaveData
 
 			if (request.m_sStrikeKind.IsEmpty())
 				request.m_sStrikeKind = StrikeKindFromType(request.m_eType);
+			if (request.m_sOperationId.IsEmpty())
+				request.m_sOperationId = HST_StableIdService.BuildOperationId("support", request.m_sRequestId);
 			request.m_sStrikeConfigResource = "";
 			if (request.m_sRuntimeEntityId.IsEmpty() && !request.m_sStrikeKind.IsEmpty())
 				request.m_sRuntimeEntityId = "abstract_strike";
@@ -1689,6 +1789,8 @@ class HST_CampaignSaveData
 				else
 					order.m_sRuntimeStatus = "active_legacy";
 			}
+			if (order.m_sOperationId.IsEmpty())
+				order.m_sOperationId = HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId);
 
 			if (order.m_iResolvedAtSecond <= 0 && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED)
 				order.m_iResolvedAtSecond = order.m_iResolveAtSecond;
@@ -1697,6 +1799,10 @@ class HST_CampaignSaveData
 				order.m_bPhysicalized = true;
 		}
 		NormalizeActiveGroupSourceLinks();
+		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
+			m_aCommandReceipts.Remove(0);
+		while (m_aCampaignEvents.Count() > HST_CampaignEventLogService.MAX_EVENT_ROWS)
+			m_aCampaignEvents.Remove(0);
 
 		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
 		{

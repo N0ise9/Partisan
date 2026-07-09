@@ -3,7 +3,9 @@
 This document tracks the feature-complete campaign target for h-istasi. It is
 implementation-focused: every row should eventually map to state fields,
 service ownership, server actions, reports, persistence, and a Full Campaign
-Debug proof.
+Debug proof. Implemented, verified, and certified are deliberately separate:
+code presence is not runtime evidence, and runtime evidence is not certification
+when the proof mutates the campaign it is meant to inspect.
 
 ## Final Target
 
@@ -36,6 +38,21 @@ honest about unavailable base-game assets
 | Missing | Required for the final campaign target and not meaningfully implemented yet. |
 | Deferred | Intentionally disabled until Reforger/base-game asset support exists. |
 | Needs Soak | Implemented enough to test, but needs repeated save/load/MP/long-run validation. |
+| Needs Runtime Proof | Static and compile validation pass, but the named production path has not run in a fresh isolated runtime proof. |
+| Unsafe On Live State | A debug or migration path can persist destructive test mutations and must be isolated before use on valuable state. |
+
+## Current Delivery Gate — Campaign Runtime Integrity
+
+`Designed` means the contract and dependency order are recorded. `Implemented`
+means the named production slice exists. `Verified` means an appropriate proof
+has actually run against that slice. `Certified` additionally requires a safe,
+isolated runtime run with no unresolved hard failures or required external gaps.
+
+| Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
+| --- | --- | --- | --- | --- | --- |
+| CRI-0 Truth and baseline | Complete | Complete for this checkpoint | Repository inventory, foundation validator, Workbench script validation, and latest runtime-evidence audit complete | No | Code, configuration, documentation, and runtime evidence now agree on schema 42 and one build-identity source. A clean isolated runtime baseline is still blocked because the current full runner can overwrite live campaign state. |
+| CRI-1 Authority foundation | Complete | Training vertical slice | Static contract checks and Workbench script validation pass | No | Persisted monotonic IDs, typed command receipts, bounded campaign events, and reserve/commit/cancel/refund resource transactions are integrated through paid training. The isolated authority debug case is implemented but has not yet supplied fresh runtime evidence. Support and garrison costs remain outside this exact-quote/ledger path. |
+| CRI-2 Force manifests | Drafted | Not started | Not run | No | Exact priced force manifests must precede migration of support and garrison purchases into the shared ledger. |
 
 ## Implementation Contract
 
@@ -50,7 +67,7 @@ physical behavior near players/events
 abstract behavior off-screen
 report/debug command
 save migration if durable state changes
-Full Campaign Debug or scoped HST_Dev proof
+safe isolated Full Campaign Debug or scoped HST_Dev proof
 ```
 
 Avoid adding durable truth to runtime entity handles. Physical entities are
@@ -63,15 +80,16 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Server-owned coordinator | One server-side component owns lifecycle and delegates domain logic. | Implemented Foundation | Keep moving feature logic from coordinator into services when it becomes reusable. | Keep |
-| Domain services | Economy, missions, persistence, HQ, arsenal, loot, support, enemies, civilians, markers, garrisons, and physical war have service owners. | Implemented Foundation | Audit coordinator-heavy flows and extract service-level request/result contracts. | High |
-| Server-authoritative actions | Clients request actions; server resolves identity, permissions, phase, costs, targets, and mutation. | Implemented Foundation | Expand disabled-action reasons instead of hiding actions. | High |
+| Domain services | Economy, missions, persistence, HQ, arsenal, loot, support, enemies, civilians, markers, garrisons, and physical war have broad service owners. | Implemented Foundation | Ownership is not yet uniformly enforced through typed request/result contracts; continue extracting coordinator-heavy mutations behind explicit service boundaries. | High |
+| Server-authoritative actions | Clients request actions; the server resolves identity, permissions, phase, costs, targets, and mutation. | Broad Alpha | Visible training now carries a request ID through the owner bridge and records a durable receipt. Extend idempotent typed-command handling to other mutating actions after their exact input and pricing contracts exist. | Highest |
+| Stable authority IDs and receipts | Server mutations use persisted monotonic IDs, bounded receipts, and replay-safe results. | Implemented Foundation / Needs Runtime Proof | Schema 42 persists the allocator, command receipts, resource transactions, campaign events, and stable operation links. Fresh isolated runtime and restart evidence is still required. | Highest |
 | Runtime diagnostics | Every major system has report/debug visibility. | Implemented Foundation | Enemy target scoring now has scored-candidate reporting plus relation-order branch proof; support placement now reports player/active-AI clearance; active-group reconciliation and UI layout diagnostics are throttled/off by default so server logs stay usable; add deeper decision reports for town influence and long-run support pressure. | High |
 
 ### Persistence And Restart Safety
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Versioned save state | Durable campaign facts survive restarts and schema migration. | Implemented Foundation | Campaign schema 41 persists roadblock support selected-garage-vehicle metadata and consumption state; keep migration discipline for every durable field addition. | Keep |
+| Versioned save state | Durable campaign facts survive restarts and schema migration. | Implemented Foundation | Campaign schema 42 persists the authority allocator, command receipts, resource transactions, campaign events, stable operation links, and prior roadblock metadata. Workbench validation passes, but schema-42 process-restart proof is still open. | Highest |
 | Runtime settings migration | Generated profile settings migrate forward without keeping obsolete setup knobs. | Implemented Foundation | Schema 21 rewrites generated settings without the old loot alias keys, keeps JSON-safe explanatory comment fields, and preserves known gameplay values. | Keep |
 | Profile fallback saves | Scripted saves work when native persistence is unavailable. | Implemented Foundation / Needs Soak | Repeat restart tests before promising long-campaign safety. | High |
 | Active runtime restore | Active missions, support, enemy orders, groups, vehicles, garage records, and undercover state restore without duplication. | Broad Alpha / Needs Soak | Build one repeatable restart route that touches all active record types. | Highest |
@@ -100,7 +118,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| HR and faction money | Recruitment, support, training, garrisons, HQ movement, and logistics spend durable resources. | Implemented Foundation | Paid command actions now display money/HR costs, player QRF/search/roadblock support spends HR equal to planned FIA count, roadblock support consumes a stored HQ vehicle, and recall refunds surviving FIA; keep expanding per-source reports. | High |
+| HR and faction money | Recruitment, support, training, garrisons, HQ movement, and logistics spend durable resources through exact, auditable transactions. | Broad Alpha | Paid training is the first production consumer of the schema-42 resource ledger. Support pricing still depends on planned rather than committed force counts, and garrison recruitment still needs exact per-unit quoting instead of its current flat HR behavior; migrate both only after force manifests exist. | Highest |
 | Personal money | Player rewards and personal purchases are distinct from faction money. | Partial | Add clear transfer and reward routing. | Medium |
 | Town/resource income | Income scales from town support/population and captured resources. | Broad Alpha | Economy inspection now includes next income plus source-category totals for towns, resources, factories, seaports, airfields, banks, and other owned zones. Town money income is now multiplied by surviving civilian population share, town HR income requires enough surviving population, and Full Campaign Debug proves both the math and report evidence; next make resource-specific effects more visible. | High |
 | War level | Strategic control and escalation drive enemy quality, support, missions, detection, and training caps. | Implemented Foundation | Resistance training cap now resolves from war level plus two, maxing at 10, with runtime proof; next tie war level consistently into AI skill/equipment, composition, garage limits, and airfield gates. | Highest |
@@ -140,9 +158,9 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Garrison state | Captured zones store abstract defender manpower and vehicles. | Implemented Foundation | Garrison add/remove actions now use normal-map target selection with confirmation, map-in-inventory gating, zone confirmation, count selection for FIA recruitment, and zone-slot caps for add/fold-back; add player-facing management polish and costs. | High |
-| Recruitment and HR costs | Commander spends HR/money to recruit forces. | Broad Alpha | Recruitment now selects the destination and FIA count from the normal gameplay map, revalidates eligible resistance zones server-side, and returns to the Forces menu after dispatch; add arsenal/equipment requirements and clearer UI. | High |
-| Training | Training improves resistance AI quality and caps by war level. | Broad Alpha | Training now reports current/cap and quality, blocks without spending money when capped by war level, feeds FIA force-composition effective manpower, annotates garrison active-group projections, and increases resistance effective infantry strength in abstract capture pressure with Full Campaign Debug proof; next tie training level to physical AI skill and arsenal-driven equipment. | High |
+| Garrison state | Captured zones store abstract defender manpower and vehicles. | Implemented Foundation | Garrison add/remove actions use normal-map target selection, confirmation, server revalidation, and capacity checks. Exact force manifests and per-unit transactional pricing are still required before this is an authority-complete purchase path. | Highest |
+| Recruitment and HR costs | Commander spends an exact, quoted amount of HR/money to recruit a committed force manifest. | Broad Alpha | Recruitment selects destination and FIA count and revalidates the zone server-side, but the current garrison HR charge is not yet an exact per-unit ledger transaction. Add manifest quoting, arsenal/equipment requirements, and replay-safe receipts. | Highest |
+| Training | Training improves resistance AI quality and caps by war level. | Broad Alpha / Needs Runtime Proof | Training now uses the shared request ID, durable command receipt, and reserve/commit resource transaction path. Existing quality/capture behavior remains implemented, but the schema-42 authority path has only static and Workbench validation until an isolated runtime case runs. | Highest |
 | Static defenses | Players can assign static weapons or emplacements to garrisons. | Missing | Add durable state, placement, capture, and spawn/fold behavior. | Medium |
 | Garrison physicalization | Active zones spawn defenders from garrison and composition services. | Broad Alpha | Add route/position variety, vehicle plans, and survivor fold-back proof. | High |
 
@@ -171,10 +189,10 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Paid rows show money/HR costs; support recall and commander-transfer use the shared scrollable choice modal; main tab rows use player-facing labels instead of prefab, raw position, request-id, or group-id noise, while explicit reports keep diagnostics; support, supply, recruit, and garrison-removal actions open the normal map for target selection, require a map gadget, confirm before dispatch, keep the passive selected-target cursor below confirmation dialogs, consume ESC to cancel/close the targeting map, and return to the Forces menu; opening the command menu is blocked while the native in-game map is already open and now has an owner-client runtime proof; garrison recruitment prompts for FIA count before final target confirmation and location selection is single-click guarded. | High |
-| Map markers | HQ, zones, missions, support, QRFs, orders, and active deliveries publish linked markers with cleanup proof. | Broad Alpha | Gun Shop seller markers now sit on the interactable civilian and purchased delivery markers follow the delivery vehicle; player-requested resistance support groups publish one live `DOT` group marker from the group state, including simulated off-bubble route positions before runtime entities spawn; terminal support groups force marker refresh; late player connect/spawn now forces a native campaign-marker republish, while the optional player-tracking marker config fails closed if unavailable. Western Heights/Regina2 and the two airport-side radio towers are included while fuel-station campaign zones/markers are removed; towns use `OBJECTIVE_MARKER2`, military installations use `FORTIFICATION`, radio towers use native `radio-signal`, roadblocks use `JOIN3`, destroy/rescue/gun-shop mission markers use family-specific icons, Defend Petros temporarily switches the HQ marker to `DEFEND`, and non-convoy mission hovers are trimmed to mission name plus remaining time; continue owner-client visual proof and marker/backing consistency checks. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added simulated support physicalization proof, live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, marker icon deconflict proof for radio/radar/search support icons, undercover security scan scaling proof, economy source-breakdown report proof, population-income scaling proof, training war-level cap proof, training quality/capture-strength proof, recursive runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, rendered map proof that opens the native map when needed, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, a threshold-length convoy movement window before contact, relation-aware enemy target-scoring proof, global-aggression no-HQ-knowledge leak proof, outer-radius threat-without-HQ-reveal proof, zero-knowledge no-Petros gate proof, relation-order decision proof, map-target command gating/cursor-layer proof, command-menu map-open gate proof, commander-transfer >6 choice proof, commander-disconnect handoff proof, support spawn offset/player-AI clearance proof, roadblock support garage-consumption/established-marker proof, all-faction roadblock marker proof, Petros attack staging-band proof, native response-run proof, runtime/tracked/editable member-count proof, terminal group cleanup preserving dead bodies, support HR-cost and recall/refund proof, paid-action/recall chooser UI proof, player-facing main-section/no technical-leak UI proof, gun-shop stock/purchase/timer/delivery/deposit proof, mission notification owner-bridge/created/update/outcome proof, Petros relocate-action ordering proof, QRF-no-garrison order resolution proof, capped garrison fold-back proof, mission-target forced-physicalization proof, civilian actual CIV faction and dedicated CIV group-root proof, town-police size-specific prefab composition, patrol-cycle runtime proof, and police-presence projection proof, plus mission success/failure/expiry, convoy outcome, support-near-HQ, vehicle-report, town-influence strategic-event ledger, radio-town influence cadence, and town-security pressure proof; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
+| Map markers | HQ, zones, missions, support, QRFs, orders, and active deliveries publish linked markers with cleanup proof. | Broad Alpha / Runtime Failure Open | State-backed publication is broad, but the latest client evidence contains 6,806 static campaign-marker update exceptions caused by a null widget root. A published marker object is not proof that its rendered widget is ready; fix delayed/root readiness and add owner-client inspection before claiming marker certification. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Broad Alpha / Unsafe On Live State | The latest full run produced 663 cases: 367 PASS, 61 WARN, 218 FAIL, and 17 BLOCKED. The runner forced terminal loss, depleted money/HR, created many records, autosaved those mutations, and leaked a defense mission that caused 201 cascading failures. Snapshot/restore or disposable-profile gating is required before any rerun on valuable state. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
-| Build provenance | Runtime logs and artifacts identify the exact code build. | Implemented Foundation | Bump synchronized build markers for every runtime-proof behavior change. | Keep |
+| Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
 ### Campaign End And Long-Run Soak
 
@@ -187,35 +205,32 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Repack and rerun the dedicated server proof on the current marker/QRF/civilian
-   build, then compare training current/cap/quality reports, war-level cap blocks,
-   force-composition effective manpower, capture-strength evidence, economy source
-   breakdowns, population income scaling, icon deconflicts, Western Heights and
-   airport radio tower placement, fuel-zone removal, support costs, HR
-   spending/refunds, recall routing, passive HQ knowledge gain, reactive QRF
-   gating, simulated support physicalization, response movement speed, live group counts, terminal group cleanup,
-   civilian CIV faction classification/randomized appearance, civilian traffic,
-   police/garrison patrol movement, command menu row clarity, map-target ESC/layer
-   behavior, radio support drift, and security-pressure drift against playtest
-   notes.
-2. Extend routed response infantry into richer counterattack/HQ-pressure
-   behavior after the current native response-run and recall/refund proof
-   confirms support/attack pacing.
-3. Finish undercover enforcement from live equipment, vehicle state, off-road
-   behavior, and security scans.
-4. Deepen town influence events into the primary political control layer with reversal, longer-run radio/security balance, and mission-family effects.
-5. Add player-facing garrison management, physical AI skill from training, static defenses,
-   and arsenal-driven AI loadout improvements.
-6. Route mission-family consequences through the town influence and strategic-event ledgers.
-7. Replace MVP mission primitives with mission-specific physical content and
-   strategic outcomes.
-8. Soak attack/support spend separation and population-based victory/loss
-   through real restart, background-war, campaign-end restore, and
-   civilian-event mission paths.
-9. Run repeated save/load and multiplayer soak across missions, support,
-   orders, garage, undercover, and campaign end states.
+1. Make Full Campaign Debug non-destructive through complete snapshot/restore or
+   disposable-profile gating. Do not rerun the full profile against live campaign
+   state until autosaves, terminal outcomes, resources, spawned records, and
+   active missions are isolated or restored.
+2. Fix static campaign-marker widget readiness and add a delayed owner-client
+   rendered-root assertion; publication/model counts alone cannot certify the UI.
+3. Repair the known harness false negatives: boolean `1` versus `true`, marker
+   teardown timing, pre-tick versus post-tick economy comparison, the intentional
+   12-site registry count, WARN masking later FAIL, and support sampling after
+   group fold.
+4. Reproduce and resolve the genuine convoy movement/seating, support route, and
+   physical response failures with scoped disposable debug profiles before
+   interpreting the remaining cascade.
+5. Run the isolated schema-42 authority case and a real save/restart replay test
+   proving one request ID produces one training mutation and one committed debit.
+6. Implement exact force manifests and quotes, then migrate support and garrison
+   purchases into the shared command/transaction ledger without partial spend or
+   count drift.
+7. Extend stable operation IDs and typed command results through missions,
+   support, garrisons, enemy orders, and physical projections.
+8. Resume mission, civilian, undercover, and town-influence depth only after the
+   authority and certification foundations can produce trustworthy evidence.
+9. Run repeated packaged multiplayer reconnect/restart soak across active
+   missions, support, orders, garage, undercover, and terminal campaign states.
 10. Tune economy, war level, aggression, support pressure, and mission pacing
-    through repeated real campaign runs.
+    only after runtime correctness failures are separated from harness defects.
 
 ## Definition Of Done For The Final Campaign Loop
 

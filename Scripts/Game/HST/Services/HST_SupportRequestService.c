@@ -422,6 +422,7 @@ class HST_SupportRequestService
 	{
 		HST_SupportRequestState request = new HST_SupportRequestState();
 		request.m_sRequestId = BuildRequestId(state, factionKey, supportType);
+		request.m_sOperationId = HST_StableIdService.BuildOperationId("support", request.m_sRequestId);
 		request.m_sFactionKey = factionKey;
 		request.m_sCapabilityId = CapabilityForSupport(supportType);
 		request.m_sAssetProfileId = AssetProfileForSupport(factionKey, supportType, factionKey == preset.m_sResistanceFactionKey);
@@ -1066,6 +1067,7 @@ class HST_SupportRequestService
 
 		HST_ActiveGroupState group = new HST_ActiveGroupState();
 		group.m_sGroupId = string.Format("support_%1", request.m_sRequestId);
+		group.m_sOperationId = request.m_sOperationId;
 		group.m_sZoneId = request.m_sTargetZoneId;
 		group.m_sFactionKey = request.m_sFactionKey;
 		group.m_sSupportRequestId = request.m_sRequestId;

@@ -53,7 +53,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string COMMAND_MENU_INPUT_CONTEXT = "HST_CommandMenuContext";
 	static const string COMMAND_MENU_NATIVE_I_CONTEXT = "PlayerMenuContext";
-	static const string COMMAND_MENU_BUILD = "2026-07-08-menu-input-r19-map-open-gate-proof";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
@@ -469,7 +468,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		string report = string.Format("request %1 | player %2 | localOwner %3 | mapOpenBeforeAttempt %4 | toggleAttempted %5 | toggleAccepted %6 | directAttempted %7 | mapOpenAfterAttempt %8 | menuOpenAfterAttempt %9", requestId, ResolveLocalPlayerId(), m_bIsLocalOwner, m_bCampaignDebugMapOpenGateMapOpenBeforeAttempt, m_bCampaignDebugMapOpenGateToggleAttempted, m_bCampaignDebugMapOpenGateToggleAccepted, m_bCampaignDebugMapOpenGateDirectAttempted, mapOpenAfterAttempt, m_bMenuOpen);
 		report = report + string.Format(" | rootAfterAttempt %1", rootVisible);
-		report = report + string.Format(" | openedMapForProof %1 | top %2 | build %3", m_bCampaignDebugMapOpenGateOpenedMap, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), COMMAND_MENU_BUILD);
+		report = report + string.Format(" | openedMapForProof %1 | top %2 | build %3", m_bCampaignDebugMapOpenGateOpenedMap, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_BuildInfo.BuildRuntimeSummary());
 		report = report + " | rootSummary " + ShortenText(rootSummary, 140);
 		return report;
 	}
@@ -1235,7 +1234,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		m_bLoggedLocalReadyPrinted = true;
-		Print(string.Format("h-istasi menu | local command menu component ready via %1 | localPlayer=%2 ownerPlayer=%3 inputRegistered=%4 customBinding=%5 | build=%6", reason, SCR_PlayerController.GetLocalPlayerId(), ResolveOwnerPlayerId(m_OwnerEntity), m_bInputRegistered, m_bCustomBindingReady, COMMAND_MENU_BUILD));
+		Print(string.Format("h-istasi menu | local command menu component ready via %1 | localPlayer=%2 ownerPlayer=%3 inputRegistered=%4 customBinding=%5 | build=%6", reason, SCR_PlayerController.GetLocalPlayerId(), ResolveOwnerPlayerId(m_OwnerEntity), m_bInputRegistered, m_bCustomBindingReady, HST_BuildInfo.BuildRuntimeSummary()));
 	}
 
 	protected void RefreshLocalOwnership(IEntity owner)

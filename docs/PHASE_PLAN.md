@@ -30,13 +30,13 @@ explicitly says otherwise, completion means:
 
 ## Current Baseline
 
-h-istasi is already past the blank-project stage. The repository has a CE
-3.11.1 mission-registry baseline, server-side campaign/economy/mission/
+h-istasi is already past the blank-project stage. The repository has a
+versioned mission-registry baseline, server-side campaign/economy/mission/
 persistence/checkpoint services, player/HQ/Petros setup, custom arsenal, loot,
 vehicle cargo, virtual garage/build scaffolding, loadout editor code, generated
 Everon sites/routes, mission objectives, physical mission primitives, support
 requests, enemy commander orders, civilian/undercover state, and an
-Antistasi-style command menu.
+h-istasi command menu.
 
 The current server runtime is centered on
 `HST_CampaignCoordinatorComponent`. It instantiates services, restores or
@@ -46,7 +46,7 @@ convoy runtime/outcomes, income, enemy resources, aggression decay, civilians,
 support requests, enemy orders, HQ runtime objects, physical zone activation,
 zone capture, and civilian population.
 
-The state model already has the right Antistasi save-game spine:
+The state model already has the right campaign save-game spine:
 
 - faction pools
 - players
@@ -74,9 +74,34 @@ The state model already has the right Antistasi save-game spine:
 - civilian zone state
 - undercover records
 - campaign tasks
+- monotonic authority sequence
+- bounded command receipts
+- resource transactions
+- bounded campaign events
 
 The plan should harden each existing service into a playable, testable vertical
 slice. It should not rebuild the foundation.
+
+## Campaign Runtime Integrity Program
+
+Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
+It supersedes feature-order implications in the legacy numbered roadmap below;
+that roadmap remains useful for feature history and acceptance detail.
+
+| Stage | Status | Exit condition |
+| --- | --- | --- |
+| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. |
+| CRI-1: Campaign authority foundation | In progress | Schema 42, persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts, the resource transaction ledger, and the bounded event log are implemented. Static validation and Workbench script compilation pass; isolated runtime and save/load certification remain pending. |
+| CRI-2: Exact force manifests | Next | Catalog resolution produces one immutable, fully priced manifest with stable force and unit IDs; invalid or unaffordable requests create nothing. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | Planned | Runtime forces realize manifests exactly, retain operation links through virtual/physical transitions, and prove route progress, contact, arrival, and fold-back without duplication. |
+| CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Planned | UI/markers/JIP consume authoritative events and snapshots; control changes use explicit rules; civilian systems produce durable strategic consequences. |
+| CRI-9 through CRI-11: Enemy commander, missions, and progression | Planned | Higher-level systems issue typed operations and resource transactions instead of bypassing the authority boundary. |
+| CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
+
+CRI-1 is intentionally a narrow vertical slice. Troop training is the first
+production ledger consumer and visible command replay proof. Other command and
+cost paths remain on their legacy service contracts until their dependency
+stage supplies the required exact quote, manifest, or operation model.
 
 ## Current Implementation Baseline
 
@@ -222,7 +247,7 @@ undercover restriction.
 
 ## Progression Model
 
-h-istasi should use the Antistasi progression axes as campaign-facing state:
+h-istasi should use these progression axes as campaign-facing state:
 
 - HR: recruitment capacity.
 - Faction money: commander spending, training, vehicles, and support.
@@ -440,7 +465,7 @@ Acceptance pattern:
 | 20 | Civilians, town support, and undercover reports | In progress - town influence/civilian/undercover broad alpha |
 | 21 | Undercover enforcement and police/roadblocks | In progress - enforcement broad alpha |
 | 22 | HQ threat and Defend Petros | In progress - HQ threat and defense broad alpha |
-| 23 | UI and map marker polish | Planned |
+| 23 | UI and map marker polish | In progress - broad-alpha UI/marker paths exist; client projection certification pending |
 | 24 | Balance, campaign pacing, and victory/loss | In progress - population outcome default |
 | 25 | Full-campaign soak testing | Planned |
 
@@ -468,7 +493,7 @@ save/load cycles.
 ## System Roadmap
 
 These system notes are cross-cutting guidance for the phase list. They describe
-where each major Antistasi subsystem is headed and what a future phase should
+where each major campaign subsystem is headed and what a future phase should
 protect while implementing it.
 
 ### Setup And Campaign Phase
@@ -1790,7 +1815,7 @@ vehicle cargo, and field-vehicle save/load restore have passed HST_Dev smoke.
 The loadout editor implementation is present in code, but the phase remains
 open until the end-to-end Workbench path is exercised.
 
-Goal: complete the Antistasi loot-to-unlock progression loop.
+Goal: complete the h-istasi loot-to-unlock progression loop.
 
 Implementation:
 
@@ -2055,7 +2080,9 @@ Acceptance criteria:
 
 ## Phase 23 - UI And Map Marker Polish
 
-Status: Planned
+Status: In progress - broad-alpha command-menu and marker paths exist. Reliable
+client widget readiness, event-driven projection, reconnect, and JIP proof remain
+open under CRI-6.
 
 Goal: make the campaign understandable without reading logs.
 
@@ -2178,208 +2205,9 @@ Acceptance criteria:
 - Soak report records tested build or commit, scenario, duration, active systems,
   failures, and follow-up issues.
 
-## Master Checklist
+## Authoritative Feature Checklist
 
-Use this as the high-level progress tracker for the whole mode. Individual
-phase acceptance criteria are more specific; this checklist is meant for broad
-campaign readiness. Unchecked items here do not necessarily mean earlier
-diagnostic phases are incomplete; they mean the full campaign feature still
-needs to prove that capability before the project is considered broadly ready.
-
-### Campaign Foundation
-
-- [ ] setup phase
-- [ ] active phase
-- [ ] end phase
-- [ ] server-authoritative commands
-- [ ] save/load
-- [ ] schema migration
-
-### Map Strategy
-
-- [ ] zones
-- [ ] towns
-- [ ] resources
-- [ ] factories
-- [ ] seaports
-- [ ] airfields
-- [ ] radio towers
-- [ ] banks/police nodes
-- [ ] hideouts
-- [ ] generated sites
-- [ ] generated routes
-- [ ] map markers
-
-### Economy And Progression
-
-- [ ] HR
-- [ ] personal money
-- [ ] faction money
-- [ ] war level
-- [ ] training level
-- [ ] aggression
-- [ ] enemy attack/support pools
-- [ ] town support
-- [ ] HQ knowledge
-
-### HQ
-
-- [ ] Petros
-- [ ] arsenal/cache
-- [ ] garage
-- [ ] tent
-- [ ] map/whiteboard
-- [ ] flag/recruitment
-- [ ] move HQ
-- [ ] defend HQ
-- [ ] Petros death penalty
-
-### Players And Permissions
-
-- [ ] identity
-- [ ] members
-- [ ] guests
-- [ ] admins
-- [ ] commander
-- [ ] elections/eligibility
-- [ ] permission-gated actions
-
-### Arsenal, Loot, And Loadouts
-
-- [ ] area loot
-- [ ] vehicle loot
-- [ ] loot boxes
-- [ ] finite counts
-- [ ] unlock thresholds
-- [ ] blocked items
-- [ ] infinite unlocked items
-- [ ] saved loadouts
-- [ ] issued-item ledger
-- [ ] AI loadout selection
-
-### Garage And Vehicles
-
-- [ ] capture vehicle
-- [ ] delete physical after garage
-- [ ] preserve cargo
-- [ ] redeploy vehicle
-- [ ] ammo source
-- [ ] repair source
-- [ ] fuel source
-- [ ] vehicle locks
-- [ ] vehicle sell/buy
-
-### Missions
-
-- [ ] mission registry
-- [ ] eligibility
-- [ ] target selection
-- [ ] objective creation
-- [ ] runtime primitive init
-- [ ] markers/tasks
-- [ ] success/failure/timeout
-- [ ] cleanup
-- [ ] persistence restore
-
-### Mission Primitives
-
-- [ ] kill HVT
-- [ ] clear/hold area
-- [ ] destroy target
-- [ ] recover cargo
-- [ ] rescue/extract
-- [ ] deliver supplies
-- [ ] convoy intercept
-- [ ] defend Petros
-
-### Convoys
-
-- [ ] route selection
-- [ ] route waypoints
-- [ ] vehicle composition
-- [ ] crew spawn
-- [ ] driver/gunner/passenger assignment
-- [ ] movement orders
-- [ ] progress tracking
-- [ ] stuck detection
-- [ ] contact behavior
-- [ ] destination arrival
-- [ ] crew elimination
-- [ ] vehicle capture
-- [ ] mission-specific outcomes
-- [ ] save/load restore
-
-### Garrisons And Physical War
-
-- [ ] abstract garrisons
-- [ ] zone activation
-- [ ] group spawn
-- [ ] patrol routes
-- [ ] survivor fold-back
-- [ ] QRF
-- [ ] counterattack
-- [ ] rebuild garrison
-- [ ] roadblocks
-- [ ] active group cleanup
-
-### Enemy Commander
-
-- [ ] resource income
-- [x] target scoring
-- [ ] patrol orders
-- [ ] QRF orders
-- [ ] counterattack orders
-- [ ] support calls
-- [ ] Petros attacks
-- [ ] roadblock orders
-- [ ] rebuild orders
-- [ ] order reports
-
-### Civilians And Undercover
-
-- [ ] civilian population
-- [ ] police presence
-- [ ] wanted heat
-- [ ] town reputation
-- [ ] undercover eligibility
-- [ ] detection
-- [ ] reported vehicles
-- [ ] roadblock checks
-- [ ] civilian casualties
-- [ ] aid actions
-
-### Support
-
-- [ ] FIA support requests
-- [ ] enemy support requests
-- [ ] ground support
-- [ ] supply drops
-- [ ] abstract helicopter-style support
-- [ ] cooldowns
-- [ ] costs
-- [ ] support markers
-
-### UI/UX
-
-- [ ] overview
-- [ ] HQ/Petros
-- [ ] missions
-- [ ] map/war
-- [ ] forces
-- [ ] arsenal/loot
-- [ ] members
-- [ ] admin
-- [ ] event feed
-- [ ] action results
-- [ ] marker refresh
-
-### Testing
-
-- [ ] `HST_Dev` mission smoke tests
-- [ ] save/load smoke tests
-- [ ] convoy movement tests
-- [ ] garage/loot tests
-- [ ] zone capture tests
-- [ ] enemy order tests
-- [ ] undercover tests
-- [ ] full Everon soak
+The duplicate master checklist formerly stored here is retired. Use
+[`FEATURE_CHECKLIST.md`](FEATURE_CHECKLIST.md) as the single feature-status and delivery-gate
+tracker. Keep this phase plan focused on sequencing, architectural constraints,
+and phase-specific acceptance criteria.

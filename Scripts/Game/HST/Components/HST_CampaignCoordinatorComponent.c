@@ -54,7 +54,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r123-marker-group-civilian-fixes";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -70,6 +69,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_RuntimeSettingsService m_SettingsService;
 	protected ref HST_RuntimeSettings m_Settings;
 	protected ref HST_EconomyService m_Economy;
+	protected ref HST_CampaignEventLogService m_CampaignEvents;
+	protected ref HST_CampaignCommandService m_CampaignCommands;
+	protected ref HST_ResourceLedgerService m_ResourceLedger;
 	protected ref HST_MissionService m_Missions;
 	protected ref HST_PersistenceService m_Persistence;
 	protected ref HST_PersistenceSmokeTestService m_PersistenceSmokeTest;
@@ -263,8 +265,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
-		Print(string.Format("h-istasi boot | authority build %1 | server coordinator loaded", RUNTIME_AUTHORITY_BUILD));
-		Print("h-istasi | build | " + HST_BuildInfo.BuildSummary());
+		Print("h-istasi boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
 		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
 		m_SettingsService = new HST_RuntimeSettingsService();
@@ -279,7 +280,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_Settings.m_Membership)
 			{
 				DebugLog(string.Format("settings membership adminIdentityIds count=%1", m_Settings.m_Membership.m_aAdminIdentityIds.Count()));
-				Print(string.Format("h-istasi admin | authority build %1 | settings path %2 | membership enabled %3 | configured admin SteamID64 %4", RUNTIME_AUTHORITY_BUILD, m_SettingsService.GetSettingsFilePath(), m_Settings.m_Membership.m_bMembershipEnabled, BuildRuntimeAdminSettingsSummary()));
+				Print(string.Format("h-istasi admin | authority build %1 | settings path %2 | membership enabled %3 | configured admin SteamID64 %4", HST_BuildInfo.BuildRuntimeSummary(), m_SettingsService.GetSettingsFilePath(), m_Settings.m_Membership.m_bMembershipEnabled, BuildRuntimeAdminSettingsSummary()));
 			}
 
 			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
@@ -288,6 +289,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		m_Economy = new HST_EconomyService();
+		m_CampaignEvents = new HST_CampaignEventLogService();
+		m_CampaignCommands = new HST_CampaignCommandService();
+		m_CampaignCommands.SetEventLogService(m_CampaignEvents);
+		m_ResourceLedger = new HST_ResourceLedgerService();
+		m_ResourceLedger.SetEventLogService(m_CampaignEvents);
 		m_Missions = new HST_MissionService();
 		m_Persistence = new HST_PersistenceService();
 		m_PersistenceSmokeTest = new HST_PersistenceSmokeTestService();
@@ -351,6 +357,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_EnemyCommander = new HST_EnemyCommanderService();
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
+		if (m_ResourceLedger)
+			m_ResourceLedger.ReconcileOpenReservations(m_State, m_Economy);
 		EnsureCampaignFoundation();
 		EvaluateCampaignOutcomeNow();
 		m_Missions.SyncNextInstanceIdFromState(m_State);
@@ -613,15 +621,47 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_Settings && m_Settings.m_Features && m_Settings.m_Features.m_bInfiniteStaminaEnabled;
 	}
 
-	string RequestVisibleMenuCommand(int playerId, string selectedTabId, string commandId, string argument = "")
+	string RequestVisibleMenuCommand(int playerId, string selectedTabId, string commandId, string argument = "", string requestId = "")
 	{
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "h-istasi command | server coordinator not ready";
 
 		EnsureSetupRegisteredPlayer(playerId);
-		string result = m_CommandUI.ExecuteVisibleCommand(this, playerId, commandId, argument);
+		HST_CampaignCommandEnvelope envelope;
+		if (m_CampaignCommands)
+		{
+			envelope = m_CampaignCommands.BuildEnvelope(m_State, requestId, ResolveTrustedIdentityId(playerId), selectedTabId, commandId, argument);
+			HST_CampaignCommandResult beginResult = m_CampaignCommands.Begin(m_State, envelope);
+			if (!beginResult.m_bShouldExecute)
+			{
+				string duplicateResult = beginResult.BuildMessage();
+				LogVisibleMenuCommandResult(playerId, selectedTabId, commandId, argument, duplicateResult);
+				return duplicateResult;
+			}
+			requestId = envelope.m_sRequestId;
+		}
+
+		string result = m_CommandUI.ExecuteVisibleCommand(this, playerId, commandId, argument, requestId);
+		if (m_CampaignCommands && envelope)
+		{
+			HST_CampaignCommandResult completedResult = m_CampaignCommands.Complete(m_State, envelope, result, ResolveCommandAggregateId(requestId));
+			result = completedResult.BuildMessage();
+		}
 		LogVisibleMenuCommandResult(playerId, selectedTabId, commandId, argument, result);
 		return result;
+	}
+
+	protected string ResolveCommandAggregateId(string requestId)
+	{
+		if (!m_State || requestId.IsEmpty())
+			return "";
+
+		foreach (HST_ResourceTransactionState transaction : m_State.m_aResourceTransactions)
+		{
+			if (transaction && transaction.m_sCommandRequestId == requestId)
+				return transaction.m_sOperationId;
+		}
+		return "";
 	}
 
 	string BuildSetupMapPayload(int playerId, string lastResult = "")
@@ -1389,8 +1429,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_Recruitment)
 			return false;
 
-		HST_TrainingResult result = m_Recruitment.TrainTroopsDetailed(m_State, m_Economy, moneyCost);
-		if (result && result.m_bSuccess)
+		string requestId = HST_StableIdService.NextId(m_State, "training_command");
+		HST_TrainingResult result = m_Recruitment.TrainTroopsDetailed(m_State, m_Economy, moneyCost, m_ResourceLedger, requestId, "server");
+		if (result && result.m_bSuccess && !result.m_bAlreadyApplied)
 			MarkMajorCampaignChange();
 		return result && result.m_bSuccess;
 	}
@@ -1925,7 +1966,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return TrainTroops(moneyCost);
 	}
 
-	string RequestCommanderTrainTroopsReport(int playerId, int moneyCost = 250)
+	string RequestCommanderTrainTroopsReport(int playerId, string requestId = "", int moneyCost = 250)
 	{
 		if (!Replication.IsServer())
 			return "h-istasi training | failed: server authority unavailable";
@@ -1936,8 +1977,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_Recruitment)
 			return "h-istasi training | failed: recruitment service not ready";
 
-		HST_TrainingResult result = m_Recruitment.TrainTroopsDetailed(m_State, m_Economy, moneyCost);
-		if (result && result.m_bSuccess)
+		HST_TrainingResult result = m_Recruitment.TrainTroopsDetailed(m_State, m_Economy, moneyCost, m_ResourceLedger, requestId, ResolveTrustedIdentityId(playerId));
+		if (result && result.m_bSuccess && !result.m_bAlreadyApplied)
 			MarkMajorCampaignChange();
 
 		string summary = "h-istasi training | failed: no result";
@@ -4227,7 +4268,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.hq", "HQ service non-null", string.Format("%1", m_HQ != null), CampaignDebugStatus(m_HQ != null), "HQ service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.map_markers", "map marker service non-null", string.Format("%1", m_MapMarkers != null), CampaignDebugStatus(m_MapMarkers != null), "map marker service missing");
 		bool buildProvenancePresent = !HST_BuildInfo.BUILD_SHA.IsEmpty() && !HST_BuildInfo.BUILD_UTC.IsEmpty() && !HST_BuildInfo.BUILD_LABEL.IsEmpty();
-		AddCampaignDebugAssertion(preflightCase, "preflight.build_provenance", "server build sha, utc, and label are non-empty", HST_BuildInfo.BuildSummary(), CampaignDebugStatus(buildProvenancePresent), "build provenance is missing from this server build");
+		AddCampaignDebugAssertion(preflightCase, "preflight.build_provenance", "server build sha, utc, label, and schemas are single-source", HST_BuildInfo.BuildRuntimeSummary(), CampaignDebugStatus(buildProvenancePresent), "build provenance is missing from this server build");
 		if (IsCampaignDebugExternalProfile())
 			AddCampaignDebugAssertion(preflightCase, "preflight.external_required", "real restart, reconnect, long soak, and external restart profiles are not claimed by the in-process runner", "external launcher/client orchestration required for profile " + m_sCampaignDebugProfile, "BLOCKED", "run post_restart_verify after an actual server restart and client reconnect");
 		else if (m_sCampaignDebugProfile == "post_restart_verify")
@@ -13475,7 +13516,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_CampaignDebugRunResult)
 		{
 			lines.Insert("world " + m_CampaignDebugRunResult.m_sWorldName);
-			lines.Insert("build " + HST_BuildInfo.BuildSummary());
+			lines.Insert("build " + HST_BuildInfo.BuildRuntimeSummary());
 			lines.Insert("campaign seed " + m_CampaignDebugRunResult.m_sCampaignSeed);
 			lines.Insert("player " + m_CampaignDebugRunResult.m_sPlayerIdentityId);
 			lines.Insert(string.Format("started %1 | ended %2", m_CampaignDebugRunResult.m_iStartedAtSecond, m_CampaignDebugRunResult.m_iEndedAtSecond));
@@ -15283,7 +15324,82 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		report = report + "\n" + foundationReport;
 		report = report + "\n" + checkpointReport;
 		RecordCampaignDebugCase(BuildCampaignDebugFoundationCheckpointCase(foundationReport, checkpointReport, lastSaveSecondBefore, activeMissionsBefore, activeGroupsBefore));
+		RecordCampaignDebugCase(BuildCampaignDebugAuthorityFoundationCase());
 		return report;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugAuthorityFoundationCase()
+	{
+		HST_CampaignDebugCaseResult authorityCase = CreateCampaignDebugCase("early_mechanics.authority_foundation", "early_mechanics", "campaign_authority", "early_mechanics");
+		HST_CampaignState proofState = new HST_CampaignState();
+		proofState.m_iCampaignSeed = 4242;
+		proofState.m_iElapsedSeconds = 120;
+		proofState.m_iFactionMoney = 1000;
+		proofState.m_iHR = 20;
+		proofState.m_iTrainingLevel = 1;
+		proofState.m_iWarLevel = 5;
+
+		HST_EconomyService proofEconomy = new HST_EconomyService();
+		HST_CampaignEventLogService proofEvents = new HST_CampaignEventLogService();
+		HST_CampaignCommandService proofCommands = new HST_CampaignCommandService();
+		proofCommands.SetEventLogService(proofEvents);
+		HST_ResourceLedgerService proofLedger = new HST_ResourceLedgerService();
+		proofLedger.SetEventLogService(proofEvents);
+		HST_RecruitmentService proofRecruitment = new HST_RecruitmentService();
+
+		string requestId = "campaign_debug_authority_training";
+		HST_CampaignCommandEnvelope envelope = proofCommands.BuildEnvelope(proofState, requestId, "campaign_debug_actor", "forces", "train_troops", "");
+		HST_CampaignCommandResult beginResult = proofCommands.Begin(proofState, envelope);
+		HST_TrainingResult firstTraining = proofRecruitment.TrainTroopsDetailed(proofState, proofEconomy, 250, proofLedger, requestId, "campaign_debug_actor");
+		HST_CampaignCommandResult completeResult = proofCommands.Complete(proofState, envelope, firstTraining.BuildSummary(), firstTraining.m_sOperationId);
+		int moneyAfterFirst = proofState.m_iFactionMoney;
+		int trainingAfterFirst = proofState.m_iTrainingLevel;
+		HST_CampaignCommandResult duplicateCommand = proofCommands.Begin(proofState, envelope);
+		HST_TrainingResult duplicateLedger = proofRecruitment.TrainTroopsDetailed(proofState, proofEconomy, 250, proofLedger, requestId, "campaign_debug_actor");
+
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(proofState);
+		HST_CampaignState restoredState = saveData.Restore();
+		HST_CommandReceiptState restoredReceipt;
+		HST_ResourceTransactionState restoredTransaction;
+		int restoredSchema;
+		int restoredEventCount;
+		int restoredAuthoritySequence;
+		if (restoredState)
+		{
+			restoredReceipt = restoredState.FindCommandReceipt(requestId);
+			restoredTransaction = restoredState.FindResourceTransaction(firstTraining.m_sTransactionId);
+			restoredSchema = restoredState.m_iSchemaVersion;
+			restoredEventCount = restoredState.m_aCampaignEvents.Count();
+			restoredAuthoritySequence = restoredState.m_iNextAuthoritySequence;
+		}
+
+		string commandActual = string.Format("begin execute %1 | complete %2 | duplicate %3 execute %4 | receipts %5", beginResult.m_bShouldExecute, completeResult.m_eStatus, duplicateCommand.m_eStatus, duplicateCommand.m_bShouldExecute, proofState.m_aCommandReceipts.Count());
+		string ledgerActual = string.Format("money 1000 -> %1 -> %2 | training 1 -> %3 -> %4 | tx %5 | duplicate %6", moneyAfterFirst, proofState.m_iFactionMoney, trainingAfterFirst, proofState.m_iTrainingLevel, firstTraining.m_sTransactionId, duplicateLedger.m_bAlreadyApplied);
+		string restoreActual = string.Format("schema %1 | receipt %2 | transaction %3 | events %4 | sequence %5", restoredSchema, restoredReceipt != null, restoredTransaction != null, restoredEventCount, restoredAuthoritySequence);
+		authorityCase.m_aEvidence.Insert(commandActual);
+		authorityCase.m_aEvidence.Insert(ledgerActual);
+		authorityCase.m_aEvidence.Insert(restoreActual);
+
+		bool firstCommandAccepted = beginResult.m_bShouldExecute && completeResult.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_APPLIED;
+		bool duplicateCommandBlocked = !duplicateCommand.m_bShouldExecute && duplicateCommand.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_ALREADY_APPLIED;
+		bool oneCharge = firstTraining.m_bSuccess && moneyAfterFirst == 750 && proofState.m_iFactionMoney == 750;
+		bool oneTrainingIncrease = trainingAfterFirst == 2 && proofState.m_iTrainingLevel == 2 && duplicateLedger.m_bAlreadyApplied;
+		bool oneCommittedTransaction = proofState.m_aResourceTransactions.Count() == 1;
+		if (oneCommittedTransaction)
+			oneCommittedTransaction = proofState.m_aResourceTransactions[0].m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
+		bool saveRoundtrip = restoredState != null && restoredReceipt != null && restoredTransaction != null;
+		if (saveRoundtrip)
+			saveRoundtrip = restoredReceipt.m_sAggregateId == firstTraining.m_sOperationId && restoredTransaction.m_sOperationId == firstTraining.m_sOperationId && restoredState.m_iNextAuthoritySequence == proofState.m_iNextAuthoritySequence;
+
+		AddCampaignDebugAssertion(authorityCase, "authority.command.first_apply", "typed command envelope executes once and records APPLIED", commandActual, CampaignDebugStatus(firstCommandAccepted), "first typed command did not apply");
+		AddCampaignDebugAssertion(authorityCase, "authority.command.duplicate", "same request id returns ALREADY_APPLIED without execution", commandActual, CampaignDebugStatus(duplicateCommandBlocked), "duplicate command was not blocked idempotently");
+		AddCampaignDebugAssertion(authorityCase, "authority.ledger.single_charge", "same training transaction debits faction money exactly once", ledgerActual, CampaignDebugStatus(oneCharge), "training transaction charged more than once or wrong amount");
+		AddCampaignDebugAssertion(authorityCase, "authority.training.single_transition", "same training transaction advances training exactly once", ledgerActual, CampaignDebugStatus(oneTrainingIncrease), "duplicate transaction advanced training twice");
+		AddCampaignDebugAssertion(authorityCase, "authority.ledger.committed", "training produces one committed resource transaction", ledgerActual, CampaignDebugStatus(oneCommittedTransaction), "training ledger did not retain one committed transaction");
+		AddCampaignDebugAssertion(authorityCase, "authority.persistence.roundtrip", "command receipt, transaction, operation link, event sequence, and allocator survive save roundtrip", restoreActual, CampaignDebugStatus(saveRoundtrip), "authority foundation state did not survive save roundtrip");
+		FinalizeCampaignDebugCaseFromAssertions(authorityCase);
+		return authorityCase;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugFoundationCheckpointCase(string foundationReport, string checkpointReport, int lastSaveSecondBefore, int activeMissionsBefore, int activeGroupsBefore)
@@ -29953,7 +30069,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string grantLabel = adminGrantReason;
 			if (grantLabel.IsEmpty())
 				grantLabel = "none";
-			DebugLog(string.Format("player authority refresh | build=%1 reason=%2 player=%3 identity=%4 steam64=%5 member=%6 admin=%7 commander=%8 grant=%9", RUNTIME_AUTHORITY_BUILD, reason, playerId, player.m_sIdentityId, EmptyCampaignDebugField(ResolvePlayerSteamId64(playerId)), player.m_bMember, player.m_bAdmin, m_State.m_sCommanderIdentityId == player.m_sIdentityId, grantLabel));
+			DebugLog(string.Format("player authority refresh | build=%1 reason=%2 player=%3 identity=%4 steam64=%5 member=%6 admin=%7 commander=%8 grant=%9", HST_BuildInfo.BuildRuntimeSummary(), reason, playerId, player.m_sIdentityId, EmptyCampaignDebugField(ResolvePlayerSteamId64(playerId)), player.m_bMember, player.m_bAdmin, m_State.m_sCommanderIdentityId == player.m_sIdentityId, grantLabel));
 		}
 
 		return player;
@@ -31520,9 +31636,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			persistence = "none";
 
 		string report = string.Format("h-istasi foundation | phase %1 | schema %2/%3", m_State.m_ePhase, m_State.m_iSchemaVersion, HST_CampaignState.SCHEMA_VERSION);
+		report = report + " | build " + HST_BuildInfo.BuildRuntimeSummary();
 		report = report + string.Format(" | HQ hideout %1 | deployed %2 | Petros alive %3 | runtime objects %4", hqHideout, m_State.m_bHQDeployed, m_State.m_bPetrosAlive, m_State.m_bHQRuntimeObjectsSpawned);
 		report = report + string.Format(" | active missions %1 | active groups %2", CountFoundationActiveMissions(), CountVisibleActiveGroups());
 		report = report + " | persistence " + persistence;
+		if (m_CampaignCommands)
+			report = report + "\n" + m_CampaignCommands.BuildReport(m_State);
+		if (m_ResourceLedger)
+			report = report + "\n" + m_ResourceLedger.BuildReport(m_State);
+		if (m_CampaignEvents)
+			report = report + "\n" + m_CampaignEvents.BuildReport(m_State);
 		return report;
 	}
 

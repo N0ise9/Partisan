@@ -73,6 +73,7 @@ class HST_GarrisonState
 class HST_ActiveGroupState
 {
 	string m_sGroupId;
+	string m_sOperationId;
 	string m_sZoneId;
 	string m_sFactionKey;
 	string m_sMissionInstanceId;
@@ -569,6 +570,10 @@ class HST_MissionAssetState
 class HST_SupportRequestState
 {
 	string m_sRequestId;
+	string m_sOperationId;
+	string m_sCommandRequestId;
+	string m_sMoneyTransactionId;
+	string m_sHRTransactionId;
 	string m_sFactionKey;
 	string m_sCapabilityId;
 	string m_sAssetProfileId;
@@ -635,6 +640,7 @@ class HST_SupportRequestState
 class HST_EnemyOrderState
 {
 	string m_sOrderId;
+	string m_sOperationId;
 	string m_sFactionKey;
 	HST_EEnemyOrderType m_eType;
 	HST_EEnemyOrderStatus m_eStatus;
@@ -777,6 +783,50 @@ class HST_StrategicEventState
 }
 
 [BaseContainerProps()]
+class HST_CommandReceiptState
+{
+	string m_sRequestId;
+	string m_sActorIdentityId;
+	string m_sCommandId;
+	string m_sArgument;
+	string m_sResult;
+	string m_sAggregateId;
+	HST_ECampaignCommandStatus m_eStatus = HST_ECampaignCommandStatus.HST_COMMAND_PENDING;
+	int m_iReceivedAtSecond;
+	int m_iCompletedAtSecond;
+}
+
+[BaseContainerProps()]
+class HST_ResourceTransactionState
+{
+	string m_sTransactionId;
+	string m_sCommandRequestId;
+	string m_sOperationId;
+	string m_sActorIdentityId;
+	string m_sResourceType;
+	string m_sReason;
+	string m_sLastSettlementId;
+	HST_EResourceTransactionStatus m_eStatus = HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED;
+	int m_iAmount;
+	int m_iRefundedAmount;
+	int m_iCreatedAtSecond;
+	int m_iSettledAtSecond;
+}
+
+[BaseContainerProps()]
+class HST_CampaignEventState
+{
+	string m_sEventId;
+	string m_sCategory;
+	string m_sAggregateType;
+	string m_sAggregateId;
+	string m_sCommandRequestId;
+	string m_sTransition;
+	string m_sReason;
+	int m_iCreatedAtSecond;
+}
+
+[BaseContainerProps()]
 class HST_PlayerUndercoverState
 {
 	string m_sIdentityId;
@@ -828,7 +878,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 41;
+	static const int SCHEMA_VERSION = 42;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -861,6 +911,7 @@ class HST_CampaignState
 	int m_iIncomeAccumulatorSeconds;
 	int m_iEnemyResourceAccumulatorSeconds;
 	int m_iAggressionAccumulatorSeconds;
+	int m_iNextAuthoritySequence = 1;
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
@@ -951,6 +1002,9 @@ class HST_CampaignState
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
 	ref array<ref HST_StrategicEventState> m_aStrategicEvents = {};
+	ref array<ref HST_CommandReceiptState> m_aCommandReceipts = {};
+	ref array<ref HST_ResourceTransactionState> m_aResourceTransactions = {};
+	ref array<ref HST_CampaignEventState> m_aCampaignEvents = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
@@ -1238,6 +1292,28 @@ class HST_CampaignState
 		{
 			if (eventState && eventState.m_sEventId == eventId)
 				return eventState;
+		}
+
+		return null;
+	}
+
+	HST_CommandReceiptState FindCommandReceipt(string requestId)
+	{
+		foreach (HST_CommandReceiptState receipt : m_aCommandReceipts)
+		{
+			if (receipt && receipt.m_sRequestId == requestId)
+				return receipt;
+		}
+
+		return null;
+	}
+
+	HST_ResourceTransactionState FindResourceTransaction(string transactionId)
+	{
+		foreach (HST_ResourceTransactionState transaction : m_aResourceTransactions)
+		{
+			if (transaction && transaction.m_sTransactionId == transactionId)
+				return transaction;
 		}
 
 		return null;

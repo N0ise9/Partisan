@@ -1828,7 +1828,7 @@ foreach ($requiredMissionExpansionEntry in @(
 		"RewardTextForMission"
 	)) {
 	if ($defaultCatalog -notmatch [regex]::Escape($requiredMissionExpansionEntry) -and $missionConfigResourceText -notmatch [regex]::Escape($requiredMissionExpansionEntry)) {
-		throw "Mission definitions are missing expanded Antistasi metadata contract: $requiredMissionExpansionEntry"
+		throw "Mission definitions are missing expanded campaign metadata contract: $requiredMissionExpansionEntry"
 	}
 }
 foreach ($requiredExpandedMissionId in @(
@@ -1876,7 +1876,7 @@ foreach ($requiredMissionStateMachineEntry in @(
 		"mission_guard"
 	)) {
 	if ($missionExpansionScriptText -notmatch [regex]::Escape($requiredMissionStateMachineEntry)) {
-		throw "Mission runtime is missing full Antistasi state-machine entry: $requiredMissionStateMachineEntry"
+		throw "Mission runtime is missing full campaign state-machine entry: $requiredMissionStateMachineEntry"
 	}
 }
 $missionRequestBridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
@@ -1904,7 +1904,7 @@ $playerControllerPrefabText = Get-Content -Raw "Prefabs/Characters/HST/HST_Playe
 if ($playerControllerPrefabText -notmatch "HST_MissionClientComponent") {
 	throw "HST player controller prefab is missing mission client notification/detail component"
 }
-Write-Host "Full Antistasi mission expansion contracts OK"
+Write-Host "Full campaign mission expansion contracts OK"
 
 $runtimeZones = @([regex]::Matches($defaultCatalog, 'NewZoneState\("([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 $configZones = @([regex]::Matches($mapConfig, 'm_sZoneId "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
@@ -3019,7 +3019,7 @@ foreach ($requiredService in @(
 		"HST_LoadoutEditorComponent"
 	)) {
 	if ($requiredService -notin $definedSymbols) {
-		throw "Missing Antistasi framework service: $requiredService"
+		throw "Missing campaign framework service: $requiredService"
 	}
 }
 
@@ -3312,7 +3312,7 @@ foreach ($requiredCoordinatorEntry in @(
 		throw "Missing coordinator dev/framework entry point: $requiredCoordinatorEntry"
 	}
 }
-Write-Host "Antistasi framework service spine OK"
+Write-Host "Campaign framework service spine OK"
 
 foreach ($requiredStrategicEventZoneCaptureEntry in @(
 		"BeginZoneCaptureEvent",
@@ -3511,8 +3511,8 @@ foreach ($requiredCampaignDebugBuildEntry in @(
 		"m_sBuildUtc",
 		"m_sBuildLabel",
 		"run.build.sha",
-		"BuildSummary()",
-		'lines.Insert("build " + HST_BuildInfo.BuildSummary())'
+		"BuildRuntimeSummary()",
+		'lines.Insert("build " + HST_BuildInfo.BuildRuntimeSummary())'
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugBuildEntry)) {
 		throw "Campaign debug build provenance contract missing: $requiredCampaignDebugBuildEntry"
@@ -4600,6 +4600,43 @@ foreach ($requiredSettingsEntry in @(
 if ($scriptText -notmatch "SCHEMA_VERSION = 21") {
 	throw "Runtime settings schema must be bumped to 21 for removed loot alias settings"
 }
+if ($scriptText -notmatch 'BUILD_SHA\s*=\s*"[0-9a-f]{40}"') {
+	throw "HST_BuildInfo.BUILD_SHA must be a full lowercase Git revision"
+}
+if ($scriptText -match "RUNTIME_AUTHORITY_BUILD" -or $scriptText -match "COMMAND_MENU_BUILD") {
+	throw "Runtime provenance must use HST_BuildInfo instead of component-local build constants"
+}
+foreach ($requiredAuthorityFoundationEntry in @(
+		"HST_StableIdService",
+		"m_iNextAuthoritySequence",
+		"HST_CampaignCommandEnvelope",
+		"HST_CampaignCommandResult",
+		"HST_COMMAND_ALREADY_APPLIED",
+		"HST_CommandReceiptState",
+		"m_aCommandReceipts",
+		"HST_ResourceTransactionState",
+		"m_aResourceTransactions",
+		"HST_CampaignEventState",
+		"m_aCampaignEvents",
+		"CopyCommandReceipt",
+		"CopyResourceTransaction",
+		"CopyCampaignEvent",
+		"ReserveCost",
+		"CommitReserved",
+		"ReconcileOpenReservations",
+		"RpcAsk_RequestAction(string selectedTabId, string commandId, string argument, string requestId, int clientPlayerId)",
+		"ExecuteVisibleCommand(this, playerId, commandId, argument, requestId)",
+		"TrainTroopsDetailed(m_State, m_Economy, moneyCost, m_ResourceLedger, requestId",
+		"BuildCampaignDebugAuthorityFoundationCase",
+		"authority.command.duplicate",
+		"authority.ledger.single_charge",
+		"authority.persistence.roundtrip"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredAuthorityFoundationEntry)) {
+		throw "Campaign authority foundation contract missing: $requiredAuthorityFoundationEntry"
+	}
+}
+Write-Host "Campaign authority foundation contract OK"
 if ($scriptText -match "m_sDefaultHideoutId" -or $scriptText -match '"defaultHideoutId"') {
 	throw "Runtime settings JSON must not expose defaultHideoutId after map-based HQ selection"
 }

@@ -7633,6 +7633,7 @@ class HST_MissionRuntimeService
 		HST_ActiveGroupState group = new HST_ActiveGroupState();
 		vector guardPosition = ResolveMissionGuardPosition(state, mission);
 		group.m_sGroupId = groupId;
+		group.m_sOperationId = HST_StableIdService.BuildOperationId("mission", mission.m_sInstanceId);
 		group.m_sZoneId = zone.m_sZoneId;
 		group.m_sFactionKey = factionKey;
 		group.m_sMissionInstanceId = mission.m_sInstanceId;

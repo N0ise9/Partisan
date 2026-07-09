@@ -1,5 +1,44 @@
 # HST Campaign Debug Verification Audit
 
+## Current Runtime Evidence
+
+This section is the authoritative summary of the latest inspected full runtime
+run. The revision diary below is historical implementation context and must not
+be read as proof that a later change was executed or certified.
+
+- The run recorded **663 cases: 367 PASS, 61 WARN, 218 FAIL, and 17 BLOCKED**.
+  It is not a passing certification result.
+- **201 failures were cascading contamination from a defense mission that leaked
+  beyond its owning probe.** Fixing that isolation defect is required before the
+  remaining case totals can be interpreted as independent feature failures.
+- Full Campaign Debug is currently destructive to the loaded campaign. The run
+  forced a terminal loss, reduced faction money and HR to zero, created many
+  durable rows, and autosaved the mutated state. Do not run the full profile
+  against a valuable campaign until complete snapshot/restore or an enforced
+  disposable-profile gate exists.
+- Client evidence contains **6,806 static campaign-marker update VM exceptions**
+  where the marker widget root is null. Marker state creation and native
+  publication counters therefore do not prove a render-ready marker. The proof
+  must inspect delayed widget-root readiness on the owning client.
+- Not every hard failure is a cascade. Convoy movement/seating, support routing,
+  and physical response behavior retain genuine runtime failures that need
+  scoped reproduction after debug isolation is fixed.
+- Several red rows are known harness false negatives: support clearance expects
+  `true` while the runtime reports boolean `1`; search-marker evidence is checked
+  after teardown instead of at the captured observation point; the economy delta
+  compares a pre-tick expectation with a post-tick report; the generated-site
+  assertion expects 13 where the registry intentionally contains 12; the case
+  headline can preserve an earlier WARN while hiding a later FAIL; and support
+  movement/formation evidence can be sampled after the group has already folded.
+- Campaign schema 42 and the authority-foundation slice have passed foundation
+  checks and Workbench script validation. They have not yet been runtime
+  certified by this suite.
+
+Certification is blocked until the runner is isolated, the cascading mission is
+contained, known assertion defects are corrected, marker widget readiness is
+fixed, and the genuine physical failures are rerun through scoped disposable
+profiles.
+
 Latest support simulated-physicalization follow-up: search/QRF/roadblock-style ground support now creates the durable support request and linked active-group state even when the target is outside the player event bubble, but runtime group/vehicle spawning is deferred until the simulated group position enters the bubble. Off-bubble support groups can advance through the active-group route simulation without being marked spawn-failed, folded, or resolved, and player-requested resistance support group markers can follow the simulated group state before entities exist. Full Campaign Debug adds `support.simulated_physicalization`, proving an off-bubble search support keeps active campaign state and marker coverage with no runtime entity, then physicalizes after the simulated group is moved inside the player event bubble. A fresh run should show `h-istasi-live-runtime-proof-support-simulated-physicalization`.
 
 Latest marker/QRF/civilian server-test follow-up: AI factions no longer emit town QRF/roadblock support from mere active-zone pressure; reactive QRF/support/roadblock/counterattack orders now require both recent threat evidence and positive faction aggression, then pass a deterministic chance roll before spending support. Captures, mission success, mission failure, and mission expiry now record short-lived support threat signals when they raise faction aggression, while low garrison strength can still trigger rebuild-garrison decisions. The Everon map restores the second Regina tower as `Western Heights Radio Tower`, adds the two airport-side radio towers, and removes fuel-station zones/markers from campaign coverage. Marker taxonomy now matches the requested user-facing set: towns `OBJECTIVE_MARKER2`, military installations `FORTIFICATION`, radio towers native `radio-signal`, roadblocks `JOIN3`, live resistance support groups `DOT`, gun-shop seller/delivery `MARK_QUESTION`/`MARK_EXCLAMATION`, destroy `DESTROY2`, rescue `HELP`, and Defend Petros temporarily changes the HQ marker to `DEFEND`. Mission marker hover text is trimmed to mission name plus remaining time, with convoy staging/destination markers showing staged seconds until departure and then expiry minutes. Active groups now run a wider member-handle repair pass and non-police zone garrisons can receive patrol-cycle waypoints so visible AI groups are less likely to remain Size 0 or stand idle. Civilian defaults use randomized CIV archetypes, and schema 21 removes the old loot alias keys so generated settings only expose `lootSkipUnlockedItems` / `vehicleLootSkipUnlockedItems`. Local foundation validation passes with these contracts.
@@ -26,7 +65,7 @@ Latest r114 undercover live-equipment follow-up: undercover clothing and weapon 
 
 Latest r113 enemy local-front follow-up: enemy commander target scoring now filters rival or neutral targets that are not operationally connected to the acting faction. Same-faction defensive targets remain valid, resistance-held targets remain valid as the explicit exception, and rival/neutral targets need either a linked zone or a same-faction foothold within the local-front radius before they can become live support/capture orders. Direct enemy order queueing uses the same gate, and target scoring reports local-front reject counts plus the first rejection reason. Full Campaign Debug extends `enemy_target_scoring.contract.runtime` with `enemy_target_scoring.local_front_gate`, proving a far disconnected rival target is rejected while a far resistance-held target remains eligible. A fresh run should show `h-istasi-live-runtime-proof-r113-enemy-local-front-gate`.
 
-Latest r112 roadblock support and commander handoff follow-up: player roadblock support now uses the map-target support flow, requires a selected stored HQ vehicle, consumes that garage vehicle, spends HR from the planned FIA crew size, and establishes a vehicle-safe road checkpoint instead of routing like a QRF. Enemy roadblock orders physicalize through the support request path, and established roadblocks for resistance, occupier, and invader factions publish visible map markers with player-facing labels. Commander vacancy handling now prefers connected members when the commander disconnects. Campaign schema 42 persists selected roadblock garage-vehicle metadata on support requests. Full Campaign Debug adds `support.request.roadblock_support`, `roadblock.markers.all_factions.runtime`, `authorization.commander_disconnect_handoff.runtime`, and Phase 23 UI proofs for stored-vehicle roadblock gating. A fresh run should show `h-istasi-live-runtime-proof-r112-roadblock-support-handoff`.
+Latest r112 roadblock support and commander handoff follow-up: player roadblock support now uses the map-target support flow, requires a selected stored HQ vehicle, consumes that garage vehicle, spends HR from the planned FIA crew size, and establishes a vehicle-safe road checkpoint instead of routing like a QRF. Enemy roadblock orders physicalize through the support request path, and established roadblocks for resistance, occupier, and invader factions publish visible map markers with player-facing labels. Commander vacancy handling now prefers connected members when the commander disconnects. Campaign schema 41 persists selected roadblock garage-vehicle metadata on support requests. Full Campaign Debug adds `support.request.roadblock_support`, `roadblock.markers.all_factions.runtime`, `authorization.commander_disconnect_handoff.runtime`, and Phase 23 UI proofs for stored-vehicle roadblock gating. A fresh run should show `h-istasi-live-runtime-proof-r112-roadblock-support-handoff`.
 
 Latest r111 town-police prefab follow-up: enemy-owned town garrison activation now resolves town-police groups through dedicated HST group prefabs for sizes 2, 3, 4, and 5. The US and USSR variants inherit their normal faction group bases and populate their slots with randomized soldiers from the owning enemy faction, so active town security no longer falls back to generic patrol/fireteam groups for this role. Full Campaign Debug extends `force_composition.contract.runtime` with `force_composition.town_police_prefabs`, proving size-specific US and USSR town-police composition selection. A fresh run should show `h-istasi-live-runtime-proof-r111-town-police-prefabs`.
 
@@ -235,9 +274,16 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 
 ## Completion Verification Snapshot
 
-Source contract rechecked: the pasted `Run Campaign Debug: full in-game suite contract`, using current repository state after the 2026-07-04 14:09 campaign-debug follow-up fixes.
+Source contract rechecked against the current campaign-runtime-integrity delivery
+gate. Historical checkpoint details remain below for diagnosis, but the Current
+Runtime Evidence section above supersedes their totals.
 
-Current verification result: **not complete**. The code proves that the admin controls, `smoke`/`physical`/`full` profiles, typed case/assertion/metric result layer, JSON/summary/state-diff artifacts, deterministic debug prefixes, prefixed cleanup, post-case leak probes, physical convoy/captive/support samples, controlled convoy staging/moving/contact/eliminated transition helpers, a timed physical AI contact/casualty probe, seeded field-vehicle save-data roundtrip coverage, physical loadout inventory/live-draft reflection and restore checks, strict Phase 23 failed-action rejection/no-mutation checks, and the render-bubble zone/mission-asset/expired-convoy policy probes are implemented. A full-profile checkpoint run completed without script compile/crash errors, but it still reported failing runtime cases and manual/external gaps. The full contract also requires natural or long-window physical behavior that the current runner still marks as `WARN`, partial, or external/manual.
+Current verification result: **not complete and not safe to rerun on live state**.
+The admin controls, profiles, typed result layer, structured artifacts, prefixed
+cleanup, and many scoped probes are implemented. The latest run nevertheless
+ended at 367 PASS, 61 WARN, 218 FAIL, and 17 BLOCKED; 201 failures cascaded from
+one leaked defense mission, while marker-root exceptions and genuine physical
+failures remain. Implementation breadth must not be reported as certification.
 
 Evidence checked in code:
 
@@ -279,7 +325,7 @@ Evidence checked in code:
 - Latest convoy post-completion proof follow-up: reward application already required state-backed live-crew history, but mission-runtime post-completion interactions and command UI follow-up actions could still trust convoy completion event tokens alone. Current code now passes campaign state into those helpers and preserves/reopens convoy payload, captive, and vehicle interactions only when the guarded crew-eliminated outcome is applied or matching `mission_convoy_` groups are eliminated with live-crew history. This is static-validated only until a fresh dedicated server/client run proves the r9 build line and convoy post-completion rows.
 - Latest runtime faction audit follow-up: the July 5 full debug JSON showed `physical_combat.*_runtime_faction` failing with `mismatches 0` but `live members 0`, while the same case's population evidence proved direct fallback created four living members per side before combat killed both groups. Current code now counts unique living direct fallback member entities alongside native `AIGroup` agents for faction/live-member proof, checks direct member faction components even when a group root is also tracked, and lets the physical-combat faction assertion use live-member evidence observed during the sample window instead of requiring survivors at the final result tick. This is static-validated only until a fresh dedicated server/client run proves the r10 build line and removes the stale runtime-faction BLOCKED rows.
 
-Checkpoint runtime result:
+Historical checkpoint runtime result (superseded by Current Runtime Evidence):
 
 - Full profile completed and wrote campaign-debug artifacts. Final counts were `PASS 374`, `WARN 168`, `FAIL 42`, `BLOCKED 7`, `SKIPPED 0`.
 - Script validation/startup stayed clean for this checkpoint; the only script warnings found were stock obsolete backend callback warnings from base-game ban command scripts.
@@ -296,6 +342,9 @@ Unproven or incomplete against the pasted contract:
 
 ## Behavior Safety
 
+- Admin-only is not state-safe. The current full profile can drive campaign-end
+  evaluation, spend resources, create durable runtime records, and trigger
+  autosaves. Treat it as destructive until isolation and restoration are proven.
 - Recent runner changes are debug-only/admin-only unless noted otherwise: typed result cases, action/observation wrappers, phase-smoke persistence cases, marker/native-marker assertions, reports, artifacts, cleanup probes, and audit text only run from campaign debug/admin commands.
 - The known gameplay-touching implementation is town support ownership policy in the civilian/town incident path. That was treated as intended gameplay because the contract requires support-driven allegiance/support changes in both directions. If town ownership is not supposed to change during normal play, that policy should be gated or revised before publishing.
 - The audit does not count a case as fully implemented just because a debug command returns text. Physical behavior remains open until the runner observes world state, movement/progression, cleanup, and failure evidence.
@@ -314,7 +363,7 @@ Unproven or incomplete against the pasted contract:
 | Convoys | Asset/entity/crew/driver/mobile/route/waypoint/readiness/progress/stall/recovery/contact evidence with no-progress failures, sampled travel/contact-or-terminal/terminal phase-chain assertions, plus a separate controlled state-machine probe that proves staging -> moving -> contact -> eliminated on temporary debug records through the real physical-war helpers. | Natural live staging -> moving -> contact -> arrival/elimination phase history is still WARN unless every phase is actually observed for the convoy under test; the controlled probe does not prove physical driving or the arrival failure path. |
 | POW/captives | Free/follow/extract state, repeated follow samples, alive/extracted counts, exact reward deltas, and a debug-only temporary captive boarding/transport compartment probe. | Natural player-driven POW transport over a real route remains open. |
 | Phase 17/22 enemy response | Counterattack/Petros attack orders, support physicalization, linked active groups, routed movement samples, stall evidence, and Phase 22 base-position assertions proving Defend Petros targets HQ/Petros rather than the nearby bookkeeping zone. | Multi-wave/contact/arrival/resolution behavior remains open. |
-| Markers/UI/native markers | Command coverage, menu controls, zone/HQ/mission/support/QRF model markers, owner/color/style/position, native publication counters, handle liveness, purge reporting, and strict failed-action rejection/no-mutation assertions. | Rendered map widget inspection remains open. |
+| Markers/UI/native markers | Command coverage, menu controls, zone/HQ/mission/support/QRF model markers, owner/color/style/position, native publication counters, handle liveness, purge reporting, and strict failed-action rejection/no-mutation assertions. | The latest client run emitted 6,806 null-widget-root update exceptions for static campaign markers. Fix delayed root readiness and prove rendered owner-client widgets; publication counters alone are insufficient. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. | Rendered inspection and multiple zone-type windows remain open. |
 | Persistence | Baseline persistence typed, seeded smoke roundtrip through `HST_CampaignSaveData`, active mission/convoy/primitive/garage/support/order/civilian/undercover sentinel checks, and a restore-eligible `field_vehicle` runtime sentinel that survives the in-memory save-data roundtrip exactly once. | Real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore are still external/manual gaps. |
