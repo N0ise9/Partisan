@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r117-marker-group-civilian-cleanup";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r118-undercover-security-scan-scaling";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -8746,6 +8746,146 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return identityCase;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugUndercoverSecurityScanScalingCase()
+	{
+		HST_CampaignDebugCaseResult scanCase = CreateCampaignDebugCase("undercover_security_scan_scaling.contract.runtime", "civilians", "undercover_security_scans", "baseline");
+		bool servicesReady = m_Civilians != null && m_Preset != null;
+		AddCampaignDebugAssertion(
+			scanCase,
+			"undercover_security_scan.prerequisite",
+			"civilian service and preset ready for security scan proof",
+			string.Format("civilians %1 | preset %2", m_Civilians != null, m_Preset != null),
+			CampaignDebugStatus(servicesReady, "BLOCKED"),
+			"undercover security scan prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(scanCase);
+			return scanCase;
+		}
+
+		HST_CampaignState lowState = BuildCampaignDebugUndercoverScanState(1, 0, 1, 1, 0);
+		HST_CampaignState highState = BuildCampaignDebugUndercoverScanState(6, 140, 4, 4, 4);
+		HST_CivilianZoneState lowTown = lowState.FindCivilianZone("debug_undercover_scan_town");
+		HST_CivilianZoneState highTown = highState.FindCivilianZone("debug_undercover_scan_town");
+		HST_PlayerUndercoverState lowUndercover = BuildCampaignDebugUndercoverScanPlayer("debug_undercover_scan_low", 0);
+		HST_PlayerUndercoverState highUndercover = BuildCampaignDebugUndercoverScanPlayer("debug_undercover_scan_high", 3);
+		HST_UndercoverEligibilityResult cleanEligibility = BuildCampaignDebugUndercoverScanEligibility(true);
+		HST_UndercoverEligibilityResult blockedVehicleEligibility = BuildCampaignDebugUndercoverScanEligibility(false);
+
+		int lowRoadblockChance = m_Civilians.DebugCalculateRoadblockScanChance(lowState, m_Preset, lowUndercover, lowTown, cleanEligibility);
+		int highRoadblockChance = m_Civilians.DebugCalculateRoadblockScanChance(highState, m_Preset, highUndercover, highTown, cleanEligibility);
+		int blockedRoadblockChance = m_Civilians.DebugCalculateRoadblockScanChance(highState, m_Preset, highUndercover, highTown, blockedVehicleEligibility);
+		int lowPoliceChance = m_Civilians.DebugCalculatePoliceScanChance(lowState, m_Preset, lowUndercover, lowTown, cleanEligibility);
+		int highPoliceChance = m_Civilians.DebugCalculatePoliceScanChance(highState, m_Preset, highUndercover, highTown, cleanEligibility);
+		int blockedPoliceChance = m_Civilians.DebugCalculatePoliceScanChance(highState, m_Preset, highUndercover, highTown, blockedVehicleEligibility);
+		HST_FactionPoolState highPool = highState.FindFactionPool(m_Preset.m_sOccupierFactionKey);
+		int highAggression = 0;
+		if (highPool)
+			highAggression = highPool.m_iAggression;
+		int highHeat = 0;
+		if (highTown)
+			highHeat = highTown.m_iWantedHeat;
+
+		string actual = string.Format(
+			"roadblock low %1 high %2 blocked %3 | police low %4 high %5 blocked %6 | high war %7 aggression %8 heat %9",
+			lowRoadblockChance,
+			highRoadblockChance,
+			blockedRoadblockChance,
+			lowPoliceChance,
+			highPoliceChance,
+			blockedPoliceChance,
+			highState.m_iWarLevel,
+			highAggression,
+			highHeat);
+		scanCase.m_aEvidence.Insert(actual);
+		AddCampaignDebugMetric(scanCase, "undercover_security_scan.roadblock_low", string.Format("%1", lowRoadblockChance), "chance");
+		AddCampaignDebugMetric(scanCase, "undercover_security_scan.roadblock_high", string.Format("%1", highRoadblockChance), "chance");
+		AddCampaignDebugMetric(scanCase, "undercover_security_scan.police_low", string.Format("%1", lowPoliceChance), "chance");
+		AddCampaignDebugMetric(scanCase, "undercover_security_scan.police_high", string.Format("%1", highPoliceChance), "chance");
+
+		AddCampaignDebugAssertion(
+			scanCase,
+			"undercover_security_scan.roadblock_scaling",
+			"roadblock scan chance scales up with security density, heat, war level, and enemy aggression",
+			actual,
+			CampaignDebugStatus(highRoadblockChance > lowRoadblockChance && highRoadblockChance <= 100),
+			"roadblock scan chance did not scale up from low-risk to high-risk fixture");
+		AddCampaignDebugAssertion(
+			scanCase,
+			"undercover_security_scan.police_scaling",
+			"police scan chance scales up with security density, heat, war level, and enemy aggression",
+			actual,
+			CampaignDebugStatus(highPoliceChance > lowPoliceChance && highPoliceChance <= 100),
+			"police scan chance did not scale up from low-risk to high-risk fixture");
+		AddCampaignDebugAssertion(
+			scanCase,
+			"undercover_security_scan.blocked_vehicle_pressure",
+			"blocked vehicle eligibility increases both police and roadblock scan risk",
+			actual,
+			CampaignDebugStatus(blockedRoadblockChance >= highRoadblockChance && blockedPoliceChance >= highPoliceChance),
+			"blocked vehicle eligibility did not increase security scan risk");
+
+		FinalizeCampaignDebugCaseFromAssertions(scanCase);
+		return scanCase;
+	}
+
+	protected HST_CampaignState BuildCampaignDebugUndercoverScanState(int warLevel, int aggression, int policePresence, int roadblockPresence, int townHeat)
+	{
+		HST_CampaignState state = new HST_CampaignState();
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_iWarLevel = warLevel;
+		state.m_iElapsedSeconds = 900;
+
+		HST_FactionPoolState pool = new HST_FactionPoolState();
+		pool.m_sFactionKey = m_Preset.m_sOccupierFactionKey;
+		pool.m_iAggression = aggression;
+		state.m_aFactionPools.Insert(pool);
+
+		HST_ZoneState zone = new HST_ZoneState();
+		zone.m_sZoneId = "debug_undercover_scan_town";
+		zone.m_sDisplayName = "Debug Undercover Scan Town";
+		zone.m_eType = HST_EZoneType.HST_ZONE_TOWN;
+		zone.m_sOwnerFactionKey = m_Preset.m_sOccupierFactionKey;
+		zone.m_vPosition = "1000 0 1000";
+		state.m_aZones.Insert(zone);
+
+		HST_CivilianZoneState town = new HST_CivilianZoneState();
+		town.m_sZoneId = zone.m_sZoneId;
+		town.m_iPolicePresence = policePresence;
+		town.m_iRoadblockPresence = roadblockPresence;
+		town.m_iWantedHeat = townHeat;
+		state.m_aCivilianZones.Insert(town);
+		return state;
+	}
+
+	protected HST_PlayerUndercoverState BuildCampaignDebugUndercoverScanPlayer(string identityId, int heat)
+	{
+		HST_PlayerUndercoverState undercover = new HST_PlayerUndercoverState();
+		undercover.m_sIdentityId = identityId;
+		undercover.m_bUndercoverRequested = true;
+		undercover.m_bUndercoverApplied = true;
+		undercover.m_bEnforcementEnabled = true;
+		undercover.m_iWantedHeat = heat;
+		return undercover;
+	}
+
+	protected HST_UndercoverEligibilityResult BuildCampaignDebugUndercoverScanEligibility(bool cleanVehicle)
+	{
+		HST_UndercoverEligibilityResult eligibility = new HST_UndercoverEligibilityResult();
+		eligibility.m_bEligible = cleanVehicle;
+		eligibility.m_sClothingReason = "OK civilian clothing";
+		eligibility.m_sWeaponReason = "OK no visible military weapon";
+		if (cleanVehicle)
+			eligibility.m_sVehicleReason = "OK civilian vehicle";
+		else
+			eligibility.m_sVehicleReason = "BLOCK military vehicle";
+		eligibility.m_sOffroadReason = "OK road behavior";
+		eligibility.m_sEnemyProximityReason = "OK no nearby enemy active group";
+		eligibility.m_sWantedHeatReason = "OK wanted heat clear";
+		return eligibility;
+	}
+
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCategorySelectionCase()
 	{
 		HST_CampaignDebugCaseResult selectionCase = CreateCampaignDebugCase("mission_category_selection.contract.runtime", "missions", "category_selection", "baseline");
@@ -9370,6 +9510,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugSecurityPressureCase());
 		RecordCampaignDebugCase(BuildCampaignDebugVehicleHeatCase());
 		RecordCampaignDebugCase(BuildCampaignDebugUndercoverIdentityGateCase());
+		RecordCampaignDebugCase(BuildCampaignDebugUndercoverSecurityScanScalingCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCategorySelectionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionNotificationCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCompletionRewardCase());
@@ -22498,11 +22639,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		else if (index == 35)
 		{
-			AddCampaignDebugAssertion(undercoverCase, "phase21.roadblock.scan", "roadblock scan ran and failed", BuildCampaignDebugUndercoverActual(undercover), CampaignDebugStatus(undercover && undercover.m_iRoadblockScanCount > 0 && undercover.m_bLastRoadblockScanFailed && undercover.m_sLastDetectionSource == "roadblock"), "roadblock scan did not record a failed roadblock detection");
+			bool roadblockScanExpected = undercover && undercover.m_iRoadblockScanCount > 0 && undercover.m_bLastRoadblockScanFailed && undercover.m_sLastDetectionSource == "roadblock";
+			roadblockScanExpected = roadblockScanExpected && undercover.m_sLastReason.Contains("chance") && undercover.m_sLastReason.Contains("war") && undercover.m_sLastReason.Contains("aggression");
+			AddCampaignDebugAssertion(undercoverCase, "phase21.roadblock.scan", "roadblock scan ran and failed with chance, war, and aggression factors", BuildCampaignDebugUndercoverActual(undercover), CampaignDebugStatus(roadblockScanExpected), "roadblock scan did not record a failed chance-based roadblock detection");
 		}
 		else if (index == 36)
 		{
-			AddCampaignDebugAssertion(undercoverCase, "phase21.police.scan", "police scan ran and failed", BuildCampaignDebugUndercoverActual(undercover), CampaignDebugStatus(undercover && undercover.m_iPoliceScanCount > 0 && undercover.m_bLastPoliceScanFailed && undercover.m_sLastDetectionSource == "police"), "police scan did not record a failed police detection");
+			bool policeScanExpected = undercover && undercover.m_iPoliceScanCount > 0 && undercover.m_bLastPoliceScanFailed && undercover.m_sLastDetectionSource == "police";
+			policeScanExpected = policeScanExpected && undercover.m_sLastReason.Contains("chance") && undercover.m_sLastReason.Contains("war") && undercover.m_sLastReason.Contains("aggression");
+			AddCampaignDebugAssertion(undercoverCase, "phase21.police.scan", "police scan ran and failed with chance, war, and aggression factors", BuildCampaignDebugUndercoverActual(undercover), CampaignDebugStatus(policeScanExpected), "police scan did not record a failed chance-based police detection");
 		}
 		else if (index == 37)
 		{
@@ -25831,8 +25976,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi phase 21 smoke | failed: no civilian town";
 
 		PreparePhase21SmokeUndercover(identityId);
-		town.m_iRoadblockPresence = Math.Max(3, town.m_iRoadblockPresence);
-		town.m_iWantedHeat = Math.Max(2, town.m_iWantedHeat);
+		town.m_iRoadblockPresence = Math.Max(5, town.m_iRoadblockPresence);
+		town.m_iWantedHeat = Math.Max(4, town.m_iWantedHeat);
 		town.m_iLastRoadblockScanSecond = m_State.m_iElapsedSeconds - 60;
 		town.m_sLastSecurityReason = "phase21 roadblock smoke";
 
@@ -25857,8 +26002,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi phase 21 smoke | failed: no civilian town";
 
 		PreparePhase21SmokeUndercover(identityId);
-		town.m_iPolicePresence = Math.Max(4, town.m_iPolicePresence);
-		town.m_iWantedHeat = Math.Max(3, town.m_iWantedHeat);
+		town.m_iPolicePresence = Math.Max(5, town.m_iPolicePresence);
+		town.m_iWantedHeat = Math.Max(4, town.m_iWantedHeat);
 		town.m_iLastPoliceScanSecond = m_State.m_iElapsedSeconds - 60;
 		town.m_sLastSecurityReason = "phase21 police smoke";
 

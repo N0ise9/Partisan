@@ -3378,6 +3378,31 @@ foreach ($requiredStrategicEventVehicleReportEntry in @(
 }
 Write-Host "Strategic event vehicle-report proof OK"
 
+foreach ($requiredUndercoverSecurityScanEntry in @(
+		"UNDERCOVER_ROADBLOCK_SCAN_COOLDOWN_SECONDS",
+		"UNDERCOVER_POLICE_SCAN_COOLDOWN_SECONDS",
+		"CalculateRoadblockScanChance",
+		"CalculatePoliceScanChance",
+		"ResolveUndercoverSecurityWarLevel",
+		"ResolveUndercoverSecurityAggression",
+		"BuildUndercoverSecurityScanRoll",
+		"BuildUndercoverSecurityScanReason",
+		"DebugCalculateRoadblockScanChance",
+		"DebugCalculatePoliceScanChance",
+		"undercover_security_scan_scaling.contract.runtime",
+		"undercover_security_scan.roadblock_scaling",
+		"undercover_security_scan.police_scaling",
+		"undercover_security_scan.blocked_vehicle_pressure",
+		'undercover.m_sLastReason.Contains("chance")',
+		'undercover.m_sLastReason.Contains("war")',
+		'undercover.m_sLastReason.Contains("aggression")'
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredUndercoverSecurityScanEntry)) {
+		throw "Undercover security scan scaling contract missing: $requiredUndercoverSecurityScanEntry"
+	}
+}
+Write-Host "Undercover security scan scaling proof OK"
+
 foreach ($requiredCampaignDebugBuildEntry in @(
 		"HST_BuildInfo",
 		"BUILD_SHA",

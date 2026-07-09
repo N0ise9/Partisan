@@ -429,6 +429,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `ResolveWeaponEligibilityReason()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugUndercoverIdentityGateCase()`.
 
+- Police and roadblock undercover scans should be factorized and explainable.
+  - Use a deterministic chance/roll model instead of a hidden random or fixed threshold so server logs, reports, and Full Campaign Debug can reproduce the same outcome. The chance should scale from local security presence, town/player heat, war level, enemy aggression, and blocking eligibility evidence such as a military vehicle or visible weapon.
+  - Failure/pass reasons should include chance, roll, war, aggression, presence, town heat, and player heat. This makes a compromise actionable to the player and keeps debug evidence tied to campaign state instead of just saying a scan failed.
+  - Current examples: `HST_CivilianService.CalculateRoadblockScanChance()`, `CalculatePoliceScanChance()`, `BuildUndercoverSecurityScanReason()`, and `HST_CampaignCoordinatorComponent.BuildCampaignDebugUndercoverSecurityScanScalingCase()`.
+
 - Physical spawn placement should go through an explainable request/result contract.
   - Tactical systems should ask for source/target placement by intent, target
     zone, preferred source, standoff, road preference, dry-ground requirement,

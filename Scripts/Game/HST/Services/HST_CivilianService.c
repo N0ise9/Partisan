@@ -72,6 +72,8 @@ class HST_CivilianService
 	static const int VEHICLE_HEAT_DECAY_SECONDS = 300;
 	static const int VEHICLE_REPORT_DEFAULT_SECONDS = 300;
 	static const int UNDERCOVER_RECHECK_SECONDS = 20;
+	static const int UNDERCOVER_ROADBLOCK_SCAN_COOLDOWN_SECONDS = 30;
+	static const int UNDERCOVER_POLICE_SCAN_COOLDOWN_SECONDS = 45;
 	static const float PLAYER_USED_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
 	static const float TOWN_VEHICLE_ROAD_SEARCH_RADIUS_METERS = 140.0;
 	static const float TOWN_VEHICLE_ROAD_FORWARD_TARGET_METERS = 25.0;
@@ -988,7 +990,7 @@ class HST_CivilianService
 
 		string compromiseReason;
 		string detectionSource;
-		int score = BuildUndercoverDetectionScore(state, undercover, civilianZone, eligibility, playerEntity, compromiseReason, detectionSource);
+		int score = BuildUndercoverDetectionScore(state, preset, undercover, civilianZone, eligibility, playerEntity, compromiseReason, detectionSource);
 		result.m_iDetectionScore = score;
 		result.m_sReason = compromiseReason;
 		result.m_sDetectionSource = detectionSource;
@@ -998,7 +1000,7 @@ class HST_CivilianService
 		undercover.m_sLastEnforcementZoneId = zoneId;
 
 		string scanReason;
-		if (TryRoadblockScan(state, undercover, civilianZone, eligibility, scanReason))
+		if (TryRoadblockScan(state, preset, undercover, civilianZone, eligibility, scanReason))
 		{
 			CompromiseUndercover(state, undercover, civilianZone, zoneId, scanReason, "roadblock", score);
 			result.m_bChanged = true;
@@ -1011,7 +1013,7 @@ class HST_CivilianService
 			return result;
 		}
 
-		if (TryPoliceScan(state, undercover, civilianZone, eligibility, scanReason))
+		if (TryPoliceScan(state, preset, undercover, civilianZone, eligibility, scanReason))
 		{
 			CompromiseUndercover(state, undercover, civilianZone, zoneId, scanReason, "police", score);
 			result.m_bChanged = true;
@@ -1244,11 +1246,13 @@ class HST_CivilianService
 		return report;
 	}
 
-	protected int BuildUndercoverDetectionScore(HST_CampaignState state, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility, IEntity playerEntity, out string reason, out string source)
+	protected int BuildUndercoverDetectionScore(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility, IEntity playerEntity, out string reason, out string source)
 	{
 		int score;
 		reason = "clear";
 		source = "none";
+		int warLevel = ResolveUndercoverSecurityWarLevel(state);
+		int aggression = ResolveUndercoverSecurityAggression(state, preset, civilianZone);
 
 		if (!eligibility || !eligibility.m_bEligible)
 		{
@@ -1300,6 +1304,8 @@ class HST_CivilianService
 			score += Math.Max(0, civilianZone.m_iWantedHeat) * 10;
 			score += Math.Max(0, civilianZone.m_iPolicePresence) * 6;
 			score += Math.Max(0, civilianZone.m_iRoadblockPresence) * 8;
+			score += Math.Max(0, warLevel) * 2;
+			score += Math.Max(0, aggression) / 20;
 
 			if (civilianZone.m_bUndercoverRestricted)
 			{
@@ -1419,78 +1425,195 @@ class HST_CivilianService
 		}
 	}
 
-	protected bool TryRoadblockScan(HST_CampaignState state, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility, out string reason)
+	protected bool TryRoadblockScan(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility, out string reason)
 	{
 		reason = "";
 
 		if (!state || !undercover || !civilianZone || civilianZone.m_iRoadblockPresence <= 0)
 			return false;
 
-		if (state.m_iElapsedSeconds < civilianZone.m_iLastRoadblockScanSecond + 30)
+		if (state.m_iElapsedSeconds < civilianZone.m_iLastRoadblockScanSecond + UNDERCOVER_ROADBLOCK_SCAN_COOLDOWN_SECONDS)
 			return false;
 
-		int score = 20 + civilianZone.m_iRoadblockPresence * 15 + undercover.m_iWantedHeat * 10;
-		if (eligibility)
-		{
-			if (eligibility.m_sVehicleReason.Contains("BLOCK"))
-				score += 40;
-			if (eligibility.m_sWeaponReason.Contains("BLOCK"))
-				score += 40;
-			if (eligibility.m_sClothingReason.Contains("WARN"))
-				score += 10;
-		}
+		int chance = CalculateRoadblockScanChance(state, preset, undercover, civilianZone, eligibility);
+		int roll = BuildUndercoverSecurityScanRoll(state, undercover, civilianZone, "roadblock", undercover.m_iRoadblockScanCount);
+		int warLevel = ResolveUndercoverSecurityWarLevel(state);
+		int aggression = ResolveUndercoverSecurityAggression(state, preset, civilianZone);
 
 		civilianZone.m_iLastRoadblockScanSecond = state.m_iElapsedSeconds;
 		undercover.m_iRoadblockScanCount++;
 
-		if (score >= 55)
+		if (roll < chance)
 		{
-			reason = string.Format("roadblock scan failed score %1", score);
+			reason = BuildUndercoverSecurityScanReason("roadblock", true, chance, roll, warLevel, aggression, civilianZone.m_iRoadblockPresence, civilianZone.m_iWantedHeat, undercover.m_iWantedHeat);
 			civilianZone.m_sLastSecurityReason = reason;
 			undercover.m_bLastRoadblockScanFailed = true;
 			return true;
 		}
 
-		reason = string.Format("roadblock scan passed score %1", score);
+		reason = BuildUndercoverSecurityScanReason("roadblock", false, chance, roll, warLevel, aggression, civilianZone.m_iRoadblockPresence, civilianZone.m_iWantedHeat, undercover.m_iWantedHeat);
 		civilianZone.m_sLastSecurityReason = reason;
 		undercover.m_bLastRoadblockScanFailed = false;
 		return false;
 	}
 
-	protected bool TryPoliceScan(HST_CampaignState state, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility, out string reason)
+	protected bool TryPoliceScan(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility, out string reason)
 	{
 		reason = "";
 
 		if (!state || !undercover || !civilianZone || civilianZone.m_iPolicePresence <= 0)
 			return false;
 
-		if (state.m_iElapsedSeconds < civilianZone.m_iLastPoliceScanSecond + 45)
+		if (state.m_iElapsedSeconds < civilianZone.m_iLastPoliceScanSecond + UNDERCOVER_POLICE_SCAN_COOLDOWN_SECONDS)
 			return false;
 
-		int score = 10 + civilianZone.m_iPolicePresence * 12 + civilianZone.m_iWantedHeat * 8 + undercover.m_iWantedHeat * 10;
-		if (eligibility)
-		{
-			if (eligibility.m_sWeaponReason.Contains("BLOCK"))
-				score += 35;
-			if (eligibility.m_sVehicleReason.Contains("BLOCK"))
-				score += 30;
-		}
+		int chance = CalculatePoliceScanChance(state, preset, undercover, civilianZone, eligibility);
+		int roll = BuildUndercoverSecurityScanRoll(state, undercover, civilianZone, "police", undercover.m_iPoliceScanCount);
+		int warLevel = ResolveUndercoverSecurityWarLevel(state);
+		int aggression = ResolveUndercoverSecurityAggression(state, preset, civilianZone);
 
 		civilianZone.m_iLastPoliceScanSecond = state.m_iElapsedSeconds;
 		undercover.m_iPoliceScanCount++;
 
-		if (score >= 65)
+		if (roll < chance)
 		{
-			reason = string.Format("police scan failed score %1", score);
+			reason = BuildUndercoverSecurityScanReason("police", true, chance, roll, warLevel, aggression, civilianZone.m_iPolicePresence, civilianZone.m_iWantedHeat, undercover.m_iWantedHeat);
 			civilianZone.m_sLastSecurityReason = reason;
 			undercover.m_bLastPoliceScanFailed = true;
 			return true;
 		}
 
-		reason = string.Format("police scan passed score %1", score);
+		reason = BuildUndercoverSecurityScanReason("police", false, chance, roll, warLevel, aggression, civilianZone.m_iPolicePresence, civilianZone.m_iWantedHeat, undercover.m_iWantedHeat);
 		civilianZone.m_sLastSecurityReason = reason;
 		undercover.m_bLastPoliceScanFailed = false;
 		return false;
+	}
+
+	int DebugCalculateRoadblockScanChance(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility)
+	{
+		return CalculateRoadblockScanChance(state, preset, undercover, civilianZone, eligibility);
+	}
+
+	int DebugCalculatePoliceScanChance(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility)
+	{
+		return CalculatePoliceScanChance(state, preset, undercover, civilianZone, eligibility);
+	}
+
+	protected int CalculateRoadblockScanChance(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility)
+	{
+		if (!state || !civilianZone)
+			return 0;
+
+		int chance = 20;
+		chance += Math.Max(0, civilianZone.m_iRoadblockPresence) * 14;
+		chance += Math.Max(0, civilianZone.m_iWantedHeat) * 6;
+		chance += ResolveUndercoverSecurityWarLevel(state) * 4;
+		chance += ResolveUndercoverSecurityAggression(state, preset, civilianZone) / 8;
+		if (undercover)
+			chance += Math.Max(0, undercover.m_iWantedHeat) * 10;
+		if (eligibility)
+		{
+			if (eligibility.m_sVehicleReason.Contains("BLOCK"))
+				chance += 30;
+			if (eligibility.m_sWeaponReason.Contains("BLOCK"))
+				chance += 30;
+			if (eligibility.m_sClothingReason.Contains("WARN"))
+				chance += 10;
+			if (eligibility.m_sOffroadReason.Contains("BLOCK") || eligibility.m_sOffroadReason.Contains("WARN"))
+				chance += 15;
+		}
+
+		return Math.Max(0, Math.Min(100, chance));
+	}
+
+	protected int CalculatePoliceScanChance(HST_CampaignState state, HST_CampaignPreset preset, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility)
+	{
+		if (!state || !civilianZone)
+			return 0;
+
+		int chance = 12;
+		chance += Math.Max(0, civilianZone.m_iPolicePresence) * 11;
+		chance += Math.Max(0, civilianZone.m_iWantedHeat) * 7;
+		chance += ResolveUndercoverSecurityWarLevel(state) * 3;
+		chance += ResolveUndercoverSecurityAggression(state, preset, civilianZone) / 10;
+		if (undercover)
+			chance += Math.Max(0, undercover.m_iWantedHeat) * 10;
+		if (eligibility)
+		{
+			if (eligibility.m_sWeaponReason.Contains("BLOCK"))
+				chance += 30;
+			if (eligibility.m_sVehicleReason.Contains("BLOCK"))
+				chance += 25;
+			if (eligibility.m_sClothingReason.Contains("WARN"))
+				chance += 8;
+		}
+
+		return Math.Max(0, Math.Min(100, chance));
+	}
+
+	protected int ResolveUndercoverSecurityWarLevel(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		return Math.Max(0, state.m_iWarLevel);
+	}
+
+	protected int ResolveUndercoverSecurityAggression(HST_CampaignState state, HST_CampaignPreset preset, HST_CivilianZoneState civilianZone)
+	{
+		if (!state)
+			return 0;
+
+		HST_ZoneState zone;
+		if (civilianZone)
+			zone = state.FindZone(civilianZone.m_sZoneId);
+		if (zone && !zone.m_sOwnerFactionKey.IsEmpty() && (!preset || zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey))
+		{
+			HST_FactionPoolState ownerPool = state.FindFactionPool(zone.m_sOwnerFactionKey);
+			if (ownerPool)
+				return Math.Max(0, ownerPool.m_iAggression);
+		}
+
+		int aggression;
+		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
+		{
+			if (!pool)
+				continue;
+			if (preset && pool.m_sFactionKey == preset.m_sResistanceFactionKey)
+				continue;
+			if (pool.m_sFactionKey == "CIV")
+				continue;
+
+			aggression = Math.Max(aggression, pool.m_iAggression);
+		}
+
+		return Math.Max(0, aggression);
+	}
+
+	protected int BuildUndercoverSecurityScanRoll(HST_CampaignState state, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, string source, int salt)
+	{
+		int seed = salt * 37;
+		if (state)
+			seed += state.m_iElapsedSeconds;
+		if (undercover)
+			seed += undercover.m_sIdentityId.Length() * 17 + undercover.m_iRoadblockScanCount * 11 + undercover.m_iPoliceScanCount * 13;
+		if (civilianZone)
+			seed += civilianZone.m_sZoneId.Length() * 19 + civilianZone.m_iWantedHeat * 5 + civilianZone.m_iPolicePresence * 3 + civilianZone.m_iRoadblockPresence * 7;
+		if (source == "police")
+			seed += 29;
+
+		if (seed < 0)
+			seed = -seed;
+		return seed % 100;
+	}
+
+	protected string BuildUndercoverSecurityScanReason(string source, bool failed, int chance, int roll, int warLevel, int aggression, int presence, int townHeat, int playerHeat)
+	{
+		string result = "passed";
+		if (failed)
+			result = "failed";
+
+		return string.Format("%1 scan %2 chance %3 roll %4 | war %5 aggression %6 | presence %7 town heat %8 player heat %9", source, result, chance, roll, warLevel, aggression, presence, townHeat, playerHeat);
 	}
 
 	protected bool IsLikelyOffroadNearSecurity(HST_CampaignState state, HST_CivilianZoneState civilianZone, IEntity playerEntity, out string reason)
