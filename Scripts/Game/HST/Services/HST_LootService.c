@@ -1048,9 +1048,9 @@ class HST_LootService
 
 		bool onlyLockedItems;
 		if (vehicleLoot)
-			onlyLockedItems = balance.m_bVehicleLootOnlyLockedItems;
+			onlyLockedItems = balance.m_bVehicleLootSkipUnlockedItems;
 		else
-			onlyLockedItems = balance.m_bLootOnlyLockedItems;
+			onlyLockedItems = balance.m_bLootSkipUnlockedItems;
 
 		if (onlyLockedItems && state && arsenal.IsItemUnlocked(state, prefab))
 		{

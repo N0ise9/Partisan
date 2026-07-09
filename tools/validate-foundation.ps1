@@ -4545,12 +4545,10 @@ foreach ($requiredSettingsEntry in @(
 		"magazineUnlockMultiplier",
 		"lootRadiusMeters",
 		"lootSkipUnlockedItems",
-		"lootOnlyLockedItems",
 		"removeLootedItems",
 		"vehicleLootEnabled",
 		"vehicleLootRadiusMeters",
 		"vehicleLootSkipUnlockedItems",
-		"vehicleLootOnlyLockedItems",
 		"vehicleLootRemoveSourceItems",
 		"vehicleLootMaxItemsPerAction",
 		"hqInteractionRadiusMeters",
@@ -4599,8 +4597,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 20") {
-	throw "Runtime settings schema must be bumped to 20 for clarified loot defaults"
+if ($scriptText -notmatch "SCHEMA_VERSION = 21") {
+	throw "Runtime settings schema must be bumped to 21 for removed loot alias settings"
 }
 if ($scriptText -match "m_sDefaultHideoutId" -or $scriptText -match '"defaultHideoutId"') {
 	throw "Runtime settings JSON must not expose defaultHideoutId after map-based HQ selection"
@@ -4732,10 +4730,10 @@ foreach ($requiredCaptureDefault in @(
 		throw "Balance config must set capture default: $requiredCaptureDefault"
 	}
 }
-if ($configResourceText -notmatch "m_bLootOnlyLockedItems 1" -or $configResourceText -notmatch "m_bVehicleLootOnlyLockedItems 1") {
+if ($configResourceText -notmatch "m_bLootSkipUnlockedItems 1" -or $configResourceText -notmatch "m_bVehicleLootSkipUnlockedItems 1") {
 	throw "Loot defaults must skip items already unlimited in the arsenal"
 }
-if ($scriptText -notmatch "settings.m_ArsenalLoot.m_bLootOnlyLockedItems = true" -or $scriptText -notmatch "settings.m_VehicleLoot.m_bOnlyLockedItems = true") {
+if ($scriptText -notmatch "settings.m_ArsenalLoot.m_bLootSkipUnlockedItems = true" -or $scriptText -notmatch "settings.m_VehicleLoot.m_bSkipUnlockedItems = true") {
 	throw "Runtime settings migration must switch old profiles to skip-unlocked loot defaults"
 }
 if ($configResourceText -notmatch "m_bAllowExplosiveUnlocks 1" -or $configResourceText -notmatch "m_bAllowGuidedLauncherUnlocks 1") {
@@ -4864,8 +4862,8 @@ foreach ($requiredPhase14LootEntry in @(
 		".fbx",
 		".txo",
 		"vehicleLoot",
-		"m_bVehicleLootOnlyLockedItems",
-		"m_bLootOnlyLockedItems",
+		"m_bVehicleLootSkipUnlockedItems",
+		"m_bLootSkipUnlockedItems",
 		"arsenal.CanDepositItem"
 	)) {
 	if ($lootServiceText -notmatch [regex]::Escape($requiredPhase14LootEntry)) {
@@ -5043,14 +5041,14 @@ foreach ($requiredLootEntry in @(
 		"TryDeleteItem",
 		"TryRemoveItemFromStorage",
 		"IsGuidedLauncher",
-		"m_bLootOnlyLockedItems",
+		"m_bLootSkipUnlockedItems",
 		"m_bRemoveLootedItems",
 		"m_bAllowExplosiveUnlocks",
 		"m_bAllowGuidedLauncherUnlocks",
 		"m_iMagazineUnlockMultiplier",
 		"m_bVehicleLootEnabled",
 		"m_iVehicleLootRadiusMeters",
-		"m_bVehicleLootOnlyLockedItems",
+		"m_bVehicleLootSkipUnlockedItems",
 		"m_bVehicleLootRemoveSource",
 		"m_iVehicleLootMaxItemsPerAction",
 		"HST_VehicleCollectLootAction",

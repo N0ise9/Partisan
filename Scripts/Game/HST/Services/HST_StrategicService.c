@@ -160,7 +160,7 @@ class HST_StrategicService
 		if (succeeded)
 			changed = ApplyMissionSuccessEvent(state, preset, economy, balance, towns, zoneCapture, garrisons, enemyCommander, enemyDirector, supportRequests, hq, definition, activeMission, applyDefinitionRewards);
 		else
-			changed = ApplyMissionFailureEvent(state, preset, economy, towns, hq, definition, activeMission);
+			changed = ApplyMissionFailureEvent(state, preset, economy, towns, hq, enemyDirector, definition, activeMission);
 
 		RefreshStrategicEventAfter(state, eventState);
 		eventState.m_bApplied = true;
@@ -171,7 +171,7 @@ class HST_StrategicService
 		return result;
 	}
 
-	HST_StrategicEventApplyResult ApplyMissionExpiryEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
+	HST_StrategicEventApplyResult ApplyMissionExpiryEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_MissionDefinition definition, HST_ActiveMissionState activeMission, HST_EnemyDirectorService enemyDirector = null)
 	{
 		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
 		if (!state || !preset || !economy || !definition || !activeMission)
@@ -204,7 +204,7 @@ class HST_StrategicService
 		state.m_aStrategicEvents.Insert(eventState);
 		CaptureStrategicEventBefore(state, eventState);
 
-		bool changed = ApplyMissionExpiryConsequences(state, preset, economy, definition);
+		bool changed = ApplyMissionExpiryConsequences(state, preset, economy, definition, activeMission, enemyDirector);
 
 		RefreshStrategicEventAfter(state, eventState);
 		eventState.m_bApplied = true;
@@ -418,8 +418,11 @@ class HST_StrategicService
 
 		if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
 		{
-			int aggressionBefore = ResolveFactionAggression(state, zone.m_sOwnerFactionKey);
-			economy.AddAggression(state, zone.m_sOwnerFactionKey, ResolveMissionSuccessAggression(definition));
+			string targetFactionKey = zone.m_sOwnerFactionKey;
+			int aggressionBefore = ResolveFactionAggression(state, targetFactionKey);
+			int aggressionDelta = ResolveMissionSuccessAggression(definition);
+			economy.AddAggression(state, targetFactionKey, aggressionDelta);
+			RecordEnemySupportThreat(state, enemyDirector, targetFactionKey, zone, Math.Max(3, aggressionDelta), "mission success pressure: " + definition.m_sMissionId);
 			changed = changed || ResolveFactionAggression(state, zone.m_sOwnerFactionKey) != aggressionBefore;
 		}
 
@@ -491,12 +494,17 @@ class HST_StrategicService
 		return changed;
 	}
 
-	protected bool ApplyMissionFailureEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_TownService towns, HST_HQService hq, HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
+	protected bool ApplyMissionFailureEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_TownService towns, HST_HQService hq, HST_EnemyDirectorService enemyDirector, HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
 	{
 		bool changed;
 		int occupierAggressionBefore = ResolveFactionAggression(state, preset.m_sOccupierFactionKey);
 		economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
 		changed = changed || ResolveFactionAggression(state, preset.m_sOccupierFactionKey) != occupierAggressionBefore;
+		HST_ZoneState failureZone = null;
+		if (!activeMission.m_sTargetZoneId.IsEmpty())
+			failureZone = state.FindZone(activeMission.m_sTargetZoneId);
+		if (failureZone && definition.m_iFailureAggression > 0)
+			RecordEnemySupportThreat(state, enemyDirector, preset.m_sOccupierFactionKey, failureZone, Math.Max(2, definition.m_iFailureAggression), "mission failure pressure: " + definition.m_sMissionId);
 
 		if (definition.m_sMissionId == "assassinate_traitor" && hq)
 			changed = hq.AddHQKnowledge(state, 35, "traitor escaped / failed assassination") || changed;
@@ -536,7 +544,9 @@ class HST_StrategicService
 			if (targetZone && targetZone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
 			{
 				int targetAggressionBefore = ResolveFactionAggression(state, targetZone.m_sOwnerFactionKey);
-				economy.AddAggression(state, targetZone.m_sOwnerFactionKey, Math.Max(1, definition.m_iFailureAggression / 2));
+				int targetAggressionDelta = Math.Max(1, definition.m_iFailureAggression / 2);
+				economy.AddAggression(state, targetZone.m_sOwnerFactionKey, targetAggressionDelta);
+				RecordEnemySupportThreat(state, enemyDirector, targetZone.m_sOwnerFactionKey, targetZone, Math.Max(2, targetAggressionDelta), "mission failure local pressure: " + definition.m_sMissionId);
 				return ResolveFactionAggression(state, targetZone.m_sOwnerFactionKey) != targetAggressionBefore || changed;
 			}
 		}
@@ -544,14 +554,28 @@ class HST_StrategicService
 		return changed;
 	}
 
-	protected bool ApplyMissionExpiryConsequences(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_MissionDefinition definition)
+	protected bool ApplyMissionExpiryConsequences(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_MissionDefinition definition, HST_ActiveMissionState activeMission, HST_EnemyDirectorService enemyDirector = null)
 	{
 		if (definition.m_sMissionId == "dynamic_defend_petros")
 			return false;
 
 		int occupierAggressionBefore = ResolveFactionAggression(state, preset.m_sOccupierFactionKey);
 		economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
+		if (definition.m_iFailureAggression > 0 && activeMission && !activeMission.m_sTargetZoneId.IsEmpty())
+		{
+			HST_ZoneState targetZone = state.FindZone(activeMission.m_sTargetZoneId);
+			if (targetZone)
+				RecordEnemySupportThreat(state, enemyDirector, preset.m_sOccupierFactionKey, targetZone, Math.Max(2, definition.m_iFailureAggression), "mission expiry pressure: " + definition.m_sMissionId);
+		}
 		return ResolveFactionAggression(state, preset.m_sOccupierFactionKey) != occupierAggressionBefore;
+	}
+
+	protected void RecordEnemySupportThreat(HST_CampaignState state, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone, int threatScore, string reason)
+	{
+		if (!state || !enemyDirector || factionKey.IsEmpty() || !targetZone || threatScore <= 0)
+			return;
+
+		enemyDirector.RecordZoneDamageSignal(state, factionKey, targetZone, threatScore, reason);
 	}
 
 	protected HST_StrategicEventState CreateMissionOutcomeEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState activeMission, bool succeeded)

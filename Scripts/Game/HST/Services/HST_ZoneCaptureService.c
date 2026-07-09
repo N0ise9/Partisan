@@ -75,6 +75,8 @@ class HST_ZoneCaptureService
 		{
 			int aggression = ResolveCaptureAggression(balance, zone);
 			economy.AddAggression(state, oldOwner, aggression);
+			if (enemyDirector)
+				enemyDirector.RecordZoneDamageSignal(state, oldOwner, zone, Math.Max(8, aggression), "zone captured by resistance");
 			TryQueueCounterattack(state, preset, balance, enemyCommander, enemyDirector, support, oldOwner, zone);
 		}
 

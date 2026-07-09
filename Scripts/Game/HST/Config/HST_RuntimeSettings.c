@@ -79,7 +79,7 @@ class HST_RuntimeSettingsArsenalLoot
 	int m_iMagazineUnlockMultiplier = 3;
 	int m_iHQInteractionRadiusMeters = 50;
 	int m_iLootRadiusMeters = 15;
-	bool m_bLootOnlyLockedItems = true;
+	bool m_bLootSkipUnlockedItems = true;
 	bool m_bRemoveLootedItems = true;
 	bool m_bAllowExplosiveUnlocks = true;
 	bool m_bAllowGuidedLauncherUnlocks = true;
@@ -89,7 +89,7 @@ class HST_RuntimeSettingsVehicleLoot
 {
 	bool m_bEnabled = true;
 	int m_iRadiusMeters = 20;
-	bool m_bOnlyLockedItems = true;
+	bool m_bSkipUnlockedItems = true;
 	bool m_bRemoveSourceItems = true;
 	int m_iMaxItemsPerAction = 48;
 }
@@ -136,7 +136,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 20;
+	static const int SCHEMA_VERSION = 21;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -253,13 +253,13 @@ class HST_RuntimeSettings
 		balance.m_iMagazineUnlockMultiplier = m_ArsenalLoot.m_iMagazineUnlockMultiplier;
 		balance.m_iHQInteractionRadiusMeters = m_ArsenalLoot.m_iHQInteractionRadiusMeters;
 		balance.m_iLootRadiusMeters = m_ArsenalLoot.m_iLootRadiusMeters;
-		balance.m_bLootOnlyLockedItems = m_ArsenalLoot.m_bLootOnlyLockedItems;
+		balance.m_bLootSkipUnlockedItems = m_ArsenalLoot.m_bLootSkipUnlockedItems;
 		balance.m_bRemoveLootedItems = m_ArsenalLoot.m_bRemoveLootedItems;
 		balance.m_bAllowExplosiveUnlocks = m_ArsenalLoot.m_bAllowExplosiveUnlocks;
 		balance.m_bAllowGuidedLauncherUnlocks = m_ArsenalLoot.m_bAllowGuidedLauncherUnlocks;
 		balance.m_bVehicleLootEnabled = m_VehicleLoot.m_bEnabled;
 		balance.m_iVehicleLootRadiusMeters = m_VehicleLoot.m_iRadiusMeters;
-		balance.m_bVehicleLootOnlyLockedItems = m_VehicleLoot.m_bOnlyLockedItems;
+		balance.m_bVehicleLootSkipUnlockedItems = m_VehicleLoot.m_bSkipUnlockedItems;
 		balance.m_bVehicleLootRemoveSource = m_VehicleLoot.m_bRemoveSourceItems;
 		balance.m_iVehicleLootMaxItemsPerAction = m_VehicleLoot.m_iMaxItemsPerAction;
 		balance.m_bAirSupportEnabled = m_AirSupport.m_bEnabled;
@@ -308,8 +308,8 @@ class HST_RuntimeSettings
 		string loss = string.Format("\nloss | enabled %1 | population catastrophe when more than one third killed | HR %2 | money %3 | Petros deaths %4 | grace %5s", m_Economy.m_bLossConditionEnabled, m_Economy.m_iLossHRThreshold, m_Economy.m_iLossMoneyThreshold, m_Economy.m_iLossPetrosDeathLimit, m_Economy.m_iLossGraceSeconds);
 		string capture = string.Format("\ncapture | required %1 | progress %2/s | decay %3/s | aggression %4 | counterattack %5 pct", m_Capture.m_iProgressRequired, m_Capture.m_iProgressPerSecond, m_Capture.m_iDecayPerSecond, m_Capture.m_iAggressionBase, m_Capture.m_iCounterattackChancePercent);
 		string world = string.Format("\nworld | activation %1m | deactivation %2m | render bubble %3m | mission selection %4m | mission duration %5s", m_World.m_iActivationRadiusMeters, m_World.m_iDeactivationRadiusMeters, m_World.m_iPlayerRenderBubbleRadiusMeters, m_World.m_iMissionSelectionRadiusMeters, m_World.m_iMissionDefaultDurationSeconds);
-		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | HQ radius %3m | loot radius %4m | skip unlocked %5 | remove source %6", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iHQInteractionRadiusMeters, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootOnlyLockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
-		string vehicleLoot = string.Format("\nvehicle loot | enabled %1 | radius %2m | skip unlocked %3 | remove source %4 | max %5", m_VehicleLoot.m_bEnabled, m_VehicleLoot.m_iRadiusMeters, m_VehicleLoot.m_bOnlyLockedItems, m_VehicleLoot.m_bRemoveSourceItems, m_VehicleLoot.m_iMaxItemsPerAction);
+		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | HQ radius %3m | loot radius %4m | skip unlocked %5 | remove source %6", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iHQInteractionRadiusMeters, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootSkipUnlockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
+		string vehicleLoot = string.Format("\nvehicle loot | enabled %1 | radius %2m | skip unlocked %3 | remove source %4 | max %5", m_VehicleLoot.m_bEnabled, m_VehicleLoot.m_iRadiusMeters, m_VehicleLoot.m_bSkipUnlockedItems, m_VehicleLoot.m_bRemoveSourceItems, m_VehicleLoot.m_iMaxItemsPerAction);
 		string airSupport = string.Format("\nair support | enabled %1 | cooldown %2s", m_AirSupport.m_bEnabled, m_AirSupport.m_iCooldownSeconds);
 		string civilians = string.Format("\ncivilians | enabled %1 | max %2 per town | parked civ vehicles %3-%4 | driving civ vehicles %5 | occupier vehicles %6-%7", m_Civilians.m_bEnabled, m_Civilians.m_iMaxActivePerTown, m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown, m_Civilians.m_iCivilianDrivingVehicleCountPerTown, m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
 		string persistence = string.Format("\npersistence | autosave %1s | debounce %2s", m_Persistence.m_iAutosaveIntervalSeconds, m_Persistence.m_iMajorChangeDebounceSeconds);

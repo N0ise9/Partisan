@@ -1282,7 +1282,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!definition)
 			return false;
 
-		HST_StrategicEventApplyResult result = m_Strategic.ApplyMissionExpiryEvent(m_State, m_Preset, m_Economy, definition, activeMission);
+		HST_StrategicEventApplyResult result = m_Strategic.ApplyMissionExpiryEvent(m_State, m_Preset, m_Economy, definition, activeMission, m_EnemyDirector);
 		return result.m_bApplied || result.m_bChanged;
 	}
 

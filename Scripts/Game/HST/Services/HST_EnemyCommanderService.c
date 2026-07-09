@@ -52,6 +52,7 @@ class HST_EnemyCommanderService
 	static const int HQ_PRESSURE_MIN_KNOWLEDGE_FOR_OPPORTUNITY_ATTACK = 25;
 	static const float LOCAL_OPERATION_FRONT_RADIUS_METERS = 3000.0;
 	static const int TOWN_SUPPORT_QRF_RESPONSE_THRESHOLD = 30;
+	static const int RECENT_THREAT_WINDOW_SECONDS = 900;
 	static const string SPEND_MODE_PROACTIVE_ATTACK = "proactive_attack";
 	static const string SPEND_MODE_REACTIVE_DEFENSE = "reactive_defense";
 	protected int m_iOrderAccumulatorSeconds;
@@ -1136,29 +1137,24 @@ class HST_EnemyCommanderService
 		if (state.m_iHQKnowledge >= HQ_PRESSURE_MIN_KNOWLEDGE_FOR_OPPORTUNITY_ATTACK && hqThreatZone && pool.m_iAttackResources >= 25 && state.m_iWarLevel >= 4)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 
-		if (targetOwnedByResistance)
+		int recentThreatScore = ResolveRecentThreatScore(state, pool.m_sFactionKey, targetZone);
+		string retaliationReason;
+		if (targetOwnedByResistance && ShouldRetaliateWithSupport(state, targetZone, pool, HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK, recentThreatScore, retaliationReason))
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK;
-		if (targetOwnedByRival && pool.m_iAttackResources >= 18)
+		if (targetOwnedByRival && pool.m_iAttackResources >= 18 && ShouldRetaliateWithSupport(state, targetZone, pool, HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL, recentThreatScore, retaliationReason))
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL;
 
-		int recentDamageScore;
-		if (targetOwnedByFaction && state && pool)
-		{
-			HST_EnemySupportLedgerState ledger = state.FindEnemySupportLedger(pool.m_sFactionKey, targetZone.m_sZoneId);
-			if (ledger)
-				recentDamageScore = ledger.m_iRecentDamageScore;
-		}
-		if (targetOwnedByFaction && HasReactiveDefenseSignal(state, preset, pool.m_sFactionKey, targetZone, recentDamageScore))
+		if (targetOwnedByFaction && HasReactiveDefenseSignal(state, preset, pool.m_sFactionKey, targetZone, recentThreatScore) && ShouldRetaliateWithSupport(state, targetZone, pool, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF, recentThreatScore, retaliationReason))
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF;
 
 		HST_GarrisonState garrison = state.FindGarrison(targetZone.m_sZoneId, pool.m_sFactionKey);
 		if (targetOwnedByFaction && (!garrison || garrison.m_iInfantryCount < Math.Max(2, state.m_iWarLevel)) && pool.m_iSupportResources >= 10)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON;
 
-		if (targetOwnedByFaction && targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && pool.m_iSupportResources >= 12 && HasTownRoadblockDefenseSignal(state, preset, pool.m_sFactionKey, targetZone))
+		if (targetOwnedByFaction && targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && pool.m_iSupportResources >= 12 && HasTownRoadblockDefenseSignal(state, preset, pool.m_sFactionKey, targetZone) && ShouldRetaliateWithSupport(state, targetZone, pool, HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK, recentThreatScore, retaliationReason))
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK;
 
-		if (pool.m_iAttackResources >= 20 && state.m_iWarLevel >= 3)
+		if (pool.m_iAttackResources >= 20 && state.m_iWarLevel >= 3 && ShouldRetaliateWithSupport(state, targetZone, pool, HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL, recentThreatScore, retaliationReason))
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL;
 
 		return HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL;
@@ -1233,6 +1229,111 @@ class HST_EnemyCommanderService
 			return false;
 
 		return targetZone.m_iSupport >= TOWN_SUPPORT_QRF_RESPONSE_THRESHOLD;
+	}
+
+	protected bool ShouldRetaliateWithSupport(HST_CampaignState state, HST_ZoneState targetZone, HST_FactionPoolState pool, HST_EEnemyOrderType orderType, int baseThreatScore, out string reason)
+	{
+		reason = "";
+		if (!state || !targetZone || !pool)
+		{
+			reason = "retaliation context missing";
+			return false;
+		}
+
+		int aggression = Math.Max(0, pool.m_iAggression);
+		if (aggression <= 0)
+		{
+			reason = "no faction aggression";
+			return false;
+		}
+
+		int threatScore = ResolveRecentThreatScore(state, pool.m_sFactionKey, targetZone, baseThreatScore);
+		if (threatScore <= 0)
+		{
+			reason = "no recent threat signal";
+			return false;
+		}
+
+		int chance = ResolveRetaliationChance(state, targetZone, aggression, threatScore, orderType);
+		int roll = ResolveRetaliationRoll(state, targetZone, pool.m_sFactionKey, orderType);
+		if (roll >= chance)
+		{
+			reason = string.Format("retaliation skipped | roll %1 chance %2 aggression %3 threat %4", roll, chance, aggression, threatScore);
+			return false;
+		}
+
+		reason = string.Format("retaliation accepted | roll %1 chance %2 aggression %3 threat %4", roll, chance, aggression, threatScore);
+		return true;
+	}
+
+	protected int ResolveRecentThreatScore(HST_CampaignState state, string factionKey, HST_ZoneState targetZone, int baseThreatScore = 0)
+	{
+		int threatScore = Math.Max(0, baseThreatScore);
+		if (!state || factionKey.IsEmpty() || !targetZone)
+			return threatScore;
+
+		HST_EnemySupportLedgerState ledger = state.FindEnemySupportLedger(factionKey, targetZone.m_sZoneId);
+		if (!ledger || ledger.m_iRecentDamageScore <= 0)
+			return threatScore;
+
+		int recentDamage = ledger.m_iRecentDamageScore;
+		int age = state.m_iElapsedSeconds - ledger.m_iLastDamageSecond;
+		if (age >= RECENT_THREAT_WINDOW_SECONDS)
+			recentDamage = 0;
+		else if (age > 0)
+		{
+			int remainingPercent = Math.Max(0, 100 - Math.Round(age * 100.0 / RECENT_THREAT_WINDOW_SECONDS));
+			recentDamage = Math.Max(0, Math.Round(ledger.m_iRecentDamageScore * remainingPercent / 100.0));
+		}
+
+		return Math.Max(threatScore, recentDamage);
+	}
+
+	protected int ResolveRetaliationChance(HST_CampaignState state, HST_ZoneState targetZone, int aggression, int threatScore, HST_EEnemyOrderType orderType)
+	{
+		int chance = 8;
+		chance += Math.Min(35, Math.Max(0, aggression / 2));
+		chance += Math.Min(25, Math.Max(0, threatScore * 3));
+		if (state)
+			chance += Math.Max(0, state.m_iWarLevel - 1) * 3;
+		if (targetZone)
+			chance += Math.Min(10, Math.Max(0, targetZone.m_iPriority / 4));
+
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+			chance += 8;
+		else if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK)
+			chance -= 8;
+		else if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL)
+			chance -= 4;
+
+		return Math.Max(5, Math.Min(85, chance));
+	}
+
+	protected int ResolveRetaliationRoll(HST_CampaignState state, HST_ZoneState targetZone, string factionKey, HST_EEnemyOrderType orderType)
+	{
+		if (!state)
+			return 99;
+
+		int orderBucket = Math.Max(0, state.m_iElapsedSeconds / ORDER_TICK_SECONDS);
+		int seed = state.m_iCampaignSeed + orderBucket * 157 + state.m_iWarLevel * 19 + state.m_aEnemyOrders.Count() * 31;
+		if (targetZone)
+			seed += targetZone.m_sZoneId.Length() * 101 + targetZone.m_sDisplayName.Length() * 37 + targetZone.m_iPriority * 23 + Math.Round(targetZone.m_vPosition[0]) + Math.Round(targetZone.m_vPosition[2]);
+		seed += factionKey.Length() * 43 + RetaliationOrderTypeScore(orderType) * 59;
+		return HST_DefaultCatalog.PositiveMod(seed, 100);
+	}
+
+	protected int RetaliationOrderTypeScore(HST_EEnemyOrderType orderType)
+	{
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF)
+			return 3;
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+			return 5;
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK)
+			return 7;
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL)
+			return 11;
+
+		return 1;
 	}
 
 	protected int ScoreTargetZone(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState zone, string factionKey)

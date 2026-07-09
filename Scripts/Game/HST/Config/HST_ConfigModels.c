@@ -81,7 +81,7 @@ class HST_BalanceConfig
 	int m_iLootRadiusMeters = 15;
 
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Skip area-loot items that are already unlimited in the arsenal.", params: "", category: "HST Loot")]
-	bool m_bLootOnlyLockedItems = true;
+	bool m_bLootSkipUnlockedItems = true;
 
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Remove collected area loot from the source.", params: "", category: "HST Loot")]
 	bool m_bRemoveLootedItems = true;
@@ -99,7 +99,7 @@ class HST_BalanceConfig
 	int m_iVehicleLootRadiusMeters = 20;
 
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Skip vehicle-loot items that are already unlimited in the arsenal.", params: "", category: "HST Vehicle Loot")]
-	bool m_bVehicleLootOnlyLockedItems = true;
+	bool m_bVehicleLootSkipUnlockedItems = true;
 
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Remove collected vehicle loot from the source.", params: "", category: "HST Vehicle Loot")]
 	bool m_bVehicleLootRemoveSource = true;

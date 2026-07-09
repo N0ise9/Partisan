@@ -72,6 +72,7 @@ class HST_PhysicalWarService
 	static const int QRF_ETA_SECONDS = 180;
 	static const int QRF_INBOUND_SPAWN_SECONDS = 30;
 	static const int QRF_COOLDOWN_SECONDS = 900;
+	static const int QRF_CHANCE_REJECT_COOLDOWN_SECONDS = 300;
 	static const int ROUTE_STATE_UPDATE_SECONDS = 5;
 	static const float HQ_SAFE_RADIUS_METERS = 900;
 	static const float QRF_MIN_STANDOFF_METERS = 220.0;
@@ -6885,6 +6886,15 @@ class HST_PhysicalWarService
 			if (state.FindActiveQRF(zone.m_sZoneId, zone.m_sOwnerFactionKey))
 				continue;
 
+			string qrfDecisionReason;
+			bool cooldownOnSkip;
+			if (!ShouldDispatchLegacyQRF(state, zone, enemyDirector, qrfDecisionReason, cooldownOnSkip))
+			{
+				if (cooldownOnSkip)
+					zone.m_iQrfCooldownUntilSecond = state.m_iElapsedSeconds + QRF_CHANCE_REJECT_COOLDOWN_SECONDS;
+				continue;
+			}
+
 			string qrfSpendReason;
 			if (!enemyDirector.TrySpendDefense(state, zone, zone.m_sOwnerFactionKey, QRF_ATTACK_RESOURCE_COST, QRF_SUPPORT_RESOURCE_COST, qrfSpendReason))
 				continue;
@@ -6905,6 +6915,69 @@ class HST_PhysicalWarService
 		}
 
 		return changed;
+	}
+
+	protected bool ShouldDispatchLegacyQRF(HST_CampaignState state, HST_ZoneState zone, HST_EnemyDirectorService enemyDirector, out string reason, out bool cooldownOnSkip)
+	{
+		reason = "";
+		cooldownOnSkip = false;
+		if (!state || !zone || !enemyDirector)
+		{
+			reason = "qrf context missing";
+			return false;
+		}
+
+		HST_FactionPoolState pool = state.FindFactionPool(zone.m_sOwnerFactionKey);
+		if (!pool || pool.m_iAggression <= 0)
+		{
+			reason = "no faction aggression";
+			return false;
+		}
+
+		int threatScore = enemyDirector.GetRecentDamageScore(state, zone.m_sOwnerFactionKey, zone.m_sZoneId);
+		if (threatScore <= 0)
+		{
+			reason = "no recent threat signal";
+			return false;
+		}
+
+		int chance = ResolveLegacyQRFChance(state, zone, pool.m_iAggression, threatScore);
+		int roll = ResolveLegacyQRFRoll(state, zone);
+		if (roll >= chance)
+		{
+			reason = string.Format("qrf chance rejected | roll %1 chance %2 aggression %3 threat %4", roll, chance, pool.m_iAggression, threatScore);
+			cooldownOnSkip = true;
+			return false;
+		}
+
+		reason = string.Format("qrf chance accepted | roll %1 chance %2 aggression %3 threat %4", roll, chance, pool.m_iAggression, threatScore);
+		return true;
+	}
+
+	protected int ResolveLegacyQRFChance(HST_CampaignState state, HST_ZoneState zone, int aggression, int threatScore)
+	{
+		int chance = 10;
+		chance += Math.Min(35, Math.Max(0, aggression / 2));
+		chance += Math.Min(25, Math.Max(0, threatScore * 3));
+		if (state)
+			chance += Math.Max(0, state.m_iWarLevel - 1) * 3;
+		if (zone)
+			chance += Math.Min(10, Math.Max(0, zone.m_iPriority / 4));
+
+		return Math.Max(5, Math.Min(85, chance));
+	}
+
+	protected int ResolveLegacyQRFRoll(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state)
+			return 99;
+
+		int qrfBucket = Math.Max(0, state.m_iElapsedSeconds / QRF_CHANCE_REJECT_COOLDOWN_SECONDS);
+		int seed = state.m_iCampaignSeed + qrfBucket * 173 + state.m_iWarLevel * 19 + state.m_aQRFs.Count() * 29;
+		if (zone)
+			seed += zone.m_sZoneId.Length() * 103 + zone.m_sDisplayName.Length() * 41 + zone.m_iPriority * 23 + Math.Round(zone.m_vPosition[0]) + Math.Round(zone.m_vPosition[2]);
+
+		return HST_DefaultCatalog.PositiveMod(seed, 100);
 	}
 
 	protected bool SpawnPendingQRFs(HST_CampaignState state, HST_CampaignPreset preset = null)
