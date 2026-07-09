@@ -948,9 +948,10 @@ class HST_MapMarkerService
 			string color = FactionToMarkerColor(request.m_sFactionKey, preset);
 			string label = BuildSupportMarkerLabel(state, request);
 			bool runtimeNative = ShouldPublishNativeSupportMarker(request) && ShouldPublishNativeTacticalMarkerInPlayerBubble(state, request.m_sTargetZoneId, position);
+			string iconHint = SupportRequestToIncomingMarkerIcon(request);
 			if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK && !request.m_sGroupId.IsEmpty())
 				runtimeNative = true;
-			AddMarker(state, "hst_support_" + request.m_sRequestId, request.m_sRequestId, label, "", "support", request.m_sFactionKey, "POINT_OF_INTEREST", color, position, true, FactionToMarkerTextColor(request.m_sFactionKey, preset), "support_incoming", true, runtimeNative);
+			AddMarker(state, "hst_support_" + request.m_sRequestId, request.m_sRequestId, label, "", "support", request.m_sFactionKey, iconHint, color, position, true, FactionToMarkerTextColor(request.m_sFactionKey, preset), "support_incoming", true, runtimeNative);
 		}
 	}
 
@@ -968,8 +969,25 @@ class HST_MapMarkerService
 			vector position = ResolveResistanceSupportGroupMarkerPosition(request, group);
 			string color = FactionToMarkerColor(group.m_sFactionKey, preset);
 			string label = BuildResistanceSupportGroupMarkerLabel(state, request, group);
-			AddMarker(state, "hst_support_group_" + group.m_sGroupId, group.m_sGroupId, label, "", "support", group.m_sFactionKey, "POINT_SPECIAL", color, position, true, FactionToMarkerTextColor(group.m_sFactionKey, preset), "support_group_live", true, true);
+			string iconHint = SupportRequestToLiveMarkerIcon(request);
+			AddMarker(state, "hst_support_group_" + group.m_sGroupId, group.m_sGroupId, label, "", "support", group.m_sFactionKey, iconHint, color, position, true, FactionToMarkerTextColor(group.m_sFactionKey, preset), "support_group_live", true, true);
 		}
+	}
+
+	protected string SupportRequestToIncomingMarkerIcon(HST_SupportRequestState request)
+	{
+		if (request && request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return "SEARCH_AREA";
+
+		return "POINT_OF_INTEREST";
+	}
+
+	protected string SupportRequestToLiveMarkerIcon(HST_SupportRequestState request)
+	{
+		if (request && request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return "SEARCH_AREA";
+
+		return "POINT_SPECIAL";
 	}
 
 	bool ShouldShowResistanceSupportGroupMarker(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState group)
@@ -1319,11 +1337,23 @@ class HST_MapMarkerService
 		if (iconHint == "RECON_OUTPOST2")
 			return SCR_EScenarioFrameworkMarkerCustom.RECON_OUTPOST2;
 
+		if (iconHint == "FLAG")
+			return SCR_EScenarioFrameworkMarkerCustom.FLAG;
+
+		if (iconHint == "RECONNAISSANCE")
+			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
+
+		if (iconHint == "SEARCH_AREA")
+			return SCR_EScenarioFrameworkMarkerCustom.SEARCH_AREA;
+
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "town" || category == "town"))
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST2;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base"))
 			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
+
+		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "radar" || category == "radar"))
+			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "mission_site" || category == "mission_site"))
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
@@ -1338,7 +1368,10 @@ class HST_MapMarkerService
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST2;
 
 		if (styleHint == "radio" || category == "radio")
-			return SCR_EScenarioFrameworkMarkerCustom.RECON_OUTPOST;
+			return SCR_EScenarioFrameworkMarkerCustom.FLAG;
+
+		if (styleHint == "radar" || category == "radar")
+			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
 
 		if (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base")
 			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
@@ -1517,11 +1550,17 @@ class HST_MapMarkerService
 			if (zone.m_sMarkerStyle == "town")
 				return "POINT_OF_INTEREST";
 			if (zone.m_sMarkerStyle == "radio")
-				return "RECON_OUTPOST";
+				return "FLAG";
+			if (zone.m_sMarkerStyle == "radar")
+				return "RECONNAISSANCE";
 			if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")
 				return "OBSERVATION_POST";
 			if (zone.m_sMarkerStyle == "mission_site")
+			{
+				if (IsRadarSiteZone(zone))
+					return "RECONNAISSANCE";
 				return "POINT_SPECIAL";
+			}
 			if (zone.m_sMarkerStyle == "support")
 				return "PICK_UP2";
 		}
@@ -1531,7 +1570,7 @@ class HST_MapMarkerService
 			return "MINE_SINGLE";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
-			return "RECON_OUTPOST";
+			return "FLAG";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_HIDEOUT)
 			return "PICK_UP2";
@@ -1540,12 +1579,37 @@ class HST_MapMarkerService
 			return "POINT_OF_INTEREST2";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+		{
+			if (IsRadarSiteZone(zone))
+				return "RECONNAISSANCE";
 			return "POINT_SPECIAL";
+		}
 
 		if (zoneType == HST_EZoneType.HST_ZONE_AIRFIELD || zoneType == HST_EZoneType.HST_ZONE_SEAPORT || zoneType == HST_EZoneType.HST_ZONE_OUTPOST)
 			return "FORTIFICATION";
 
 		return "OBJECTIVE_MARKER";
+	}
+
+	protected bool IsRadarSiteZone(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+
+		if (zone.m_sResourceKind == "radar")
+			return true;
+		if (zone.m_sZoneId.Contains("radar"))
+			return true;
+		if (zone.m_sDisplayName.Contains("Radar"))
+			return true;
+		if (zone.m_sDisplayName.Contains("radar"))
+			return true;
+		if (zone.m_sSourceLayoutId.Contains("Radar"))
+			return true;
+		if (zone.m_sSourceLayoutId.Contains("radar"))
+			return true;
+
+		return false;
 	}
 
 	protected string BuildZoneMarkerLabel(HST_ZoneState zone)

@@ -58,6 +58,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - On routed/runtime updates, count living agents from the registered runtime group, finalize pending groups once agents are durable, update spawned/live/survivor counts, and rerun editable-membership reconciliation. This keeps command-menu summaries, markers, debug assertions, and Game Master group Size aligned with the visible soldiers.
   - Current examples: `HST_PhysicalWarService.ReconcileActiveGroupRuntimeMemberCounts()` and `HST_CommandUIService.BuildActiveGroupSpawnSummary()`.
 
+- Tracked runtime members can be the only reliable repair source when Game Master shows a live group as Size 0.
+  - Dedicated-server population can leave HST with valid controlled member handles while the native `SCR_AIGroup` still reports no agents or the member editable components are not parented under the group editable component.
+  - Reconcile from HST's tracked runtime member arrays as a fallback: re-add each living member's `AIAgent` or controlled entity to the `SCR_AIGroup`, activate the group/agent pair, and reparent member editable components under the group root. Do not treat a Size 0 card as terminal while tracked live members still exist.
+  - Current examples: `HST_PhysicalWarService.ReconcileTrackedRuntimeMembersWithAIGroup()`, `ReconcileRuntimeGroupEditableMembership()`, and `AttachFactionInfantryMemberToRuntimeGroup()`.
+
 - Response infantry speed should be enforced at the group and agent level.
   - `AIGroupMovementComponent.SetGroupCharactersWantedMovementType(EMovementType.RUN)` is the correct group-level control, but delayed-populated members can still appear after the first waypoint assignment.
   - Reapply response speed during routed updates, set tight formation displacement, and also set each live `AICharacterMovementComponent.SetMovementTypeWanted(EMovementType.RUN)` so support/QRF/Petros attack forces do not inherit a walking default.
@@ -65,8 +70,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Non-deleting `SCR_AIGroup` roots need explicit terminal cleanup.
   - HST keeps active group roots from auto-deleting while delayed native member population is pending. Once every controlled member is dead, the group root should be unregistered/deleted so Game Master does not retain an active Size 0 group icon.
-  - Delete the group root and HST runtime handles, but preserve dead character entities/corpses when they are not children of the group root.
-  - Current example: `HST_PhysicalWarService.CleanupTerminalActiveGroupRuntimeCrew()`.
+  - `SCR_EntityHelper.DeleteEntityAndChildren()` deletes the entity tree. If dead controlled members were editable-parented below the group root, detach their editable parent before deleting the group root so bodies and loot can remain while the stale group icon disappears.
+  - Current examples: `HST_PhysicalWarService.DetachDeadRuntimeMembersFromGroupRoot()`, `CleanupTerminalActiveGroupRuntimeCrew()`, and `UnregisterRuntimeCrewHandlesForRespawn()`.
 
 - Persistence smoke convoy rows are state-only restart sentinels.
   - They should not trigger physical convoy crew repair, stock-slot population, or direct fallback, because that contaminates primary-spawn certification with fake smoke groups.
@@ -95,10 +100,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Spawned town pedestrians should be attached to a CIV `SCR_AIGroup` and given real cyclic waypoint helpers. The civilian runtime owns those group/waypoint helpers by the spawned character so town cleanup deletes the helpers with the pedestrian.
   - Ambient civilian traffic uses runtime kind `CIV_TRAFFIC_VEHICLE`: spawn an unclaimed civilian vehicle, spawn a CIV driver helper, seat the driver in the pilot slot, register the vehicle with the driver's AI group utility component, and assign cyclic road-biased waypoints.
   - Traffic cars are disposable ambience. If a traffic vehicle leaves the configured player render bubble, delete the vehicle and every driver/group/waypoint helper owned by it instead of keeping an abstract traffic record alive.
-  - Full Campaign Debug Phase 20 should assert not just spawned counts, but pedestrian helper coverage, traffic vehicle count, traffic helper coverage, and cleanup of all runtime entities.
+  - Civilian character prefabs can arrive with an existing parent AI group or inherited faction affiliation. Force both the spawned member and any existing/new civilian AI group to `CIV`, and audit the actual `FactionAffiliationComponent` rather than trusting only HST runtime kind bookkeeping.
+  - Full Campaign Debug Phase 20 should assert not just spawned counts, but pedestrian helper coverage, traffic vehicle count, traffic helper coverage, actual CIV faction-component matches, and cleanup of all runtime entities.
   - Current examples:
     `HST_CivilianService.AssignCivilianPedestrianBehavior()`,
-    `AssignCivilianTrafficBehavior()`, and
+    `AssignCivilianTrafficBehavior()`,
+    `ResolveRuntimeEntityFactionKey()`,
+    `ApplyCivilianAIGroupFaction()`,
+    `CountRuntimeEntityFactionMismatchesForZone()`, and
     `PruneAmbientTrafficOutsideRenderBubble()`.
 
 - HST-spawned vehicles should be source-catalog selected, but unclaimed.

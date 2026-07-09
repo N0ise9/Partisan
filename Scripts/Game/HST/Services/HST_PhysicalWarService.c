@@ -9570,6 +9570,18 @@ class HST_PhysicalWarService
 			}
 		}
 
+		int trackedLiving;
+		int trackedReattached;
+		int trackedParented;
+		if (rawCount <= 0 || playerAndAgentCount <= 0 || livingCount <= 0 || parentedAfter < editableCount)
+		{
+			trackedLiving = ReconcileTrackedRuntimeMembersWithAIGroup(group, activeGroup, editableGroup, source, trackedReattached, trackedParented);
+			if (trackedLiving > livingCount)
+				livingCount = trackedLiving;
+			parentedAfter += trackedParented;
+			repairedParents += trackedParented;
+		}
+
 		bool leaderChanged;
 		AIAgent currentLeader = group.GetLeaderAgent();
 		bool leaderLiving;
@@ -9604,12 +9616,72 @@ class HST_PhysicalWarService
 			report = report + string.Format(" | leaderChanged %1 | visual %2",
 				ReportBool(leaderChanged),
 				ReportText(BuildRuntimeEntityVisualEvidence(group)));
+			if (trackedLiving > 0 || trackedReattached > 0 || trackedParented > 0)
+				report = report + string.Format(" | trackedFallback living %1 reattached %2 parented %3", trackedLiving, trackedReattached, trackedParented);
 			Print(report);
 		}
 		else
 		{
 			DebugLog(string.Format("active group editable membership verified %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildRuntimeEntityVisualEvidence(group)));
 		}
+	}
+
+	protected int ReconcileTrackedRuntimeMembersWithAIGroup(SCR_AIGroup group, HST_ActiveGroupState activeGroup, SCR_EditableGroupComponent editableGroup, string source, out int reattached, out int parented)
+	{
+		reattached = 0;
+		parented = 0;
+		if (!group || !activeGroup)
+			return 0;
+
+		int living;
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != activeGroup.m_sGroupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (!entity || AIGroup.Cast(entity))
+				continue;
+			if (!IsLivingEntity(entity))
+				continue;
+
+			living++;
+			AIAgent agent = ResolveRuntimeMemberAIAgent(entity);
+			if (agent && agent.GetParentGroup() != group)
+			{
+				group.AddAgentFromControlledEntity(entity);
+				if (agent.GetParentGroup() != group)
+				{
+					if (!group.AddAIEntityToGroup(entity))
+						group.AddAgent(agent);
+				}
+				if (agent.GetParentGroup() == group)
+					reattached++;
+			}
+
+			if (agent)
+				agent.ActivateAI();
+
+			if (!editableGroup)
+				continue;
+
+			SCR_EditableEntityComponent editableMember = SCR_EditableEntityComponent.GetEditableEntity(entity);
+			if (editableMember && editableMember.GetParentEntity() != editableGroup)
+			{
+				editableMember.SetParentEntity(editableGroup);
+				if (editableMember.GetParentEntity() == editableGroup)
+					parented++;
+			}
+		}
+
+		if (living > 0)
+		{
+			group.ActivateAllMembers();
+			group.ActivateAI();
+			DebugLog(string.Format("active group tracked member reconcile %1 via %2 | living %3 | reattached %4 | parented %5", activeGroup.m_sGroupId, source, living, reattached, parented));
+		}
+
+		return living;
 	}
 
 	protected bool TryPopulatePendingActiveGroupFromNativeSlots(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
@@ -9965,14 +10037,14 @@ class HST_PhysicalWarService
 			return false;
 		}
 
-		if (agent.GetParentGroup() == group)
-			return true;
-
-		group.AddAgentFromControlledEntity(member);
 		if (agent.GetParentGroup() != group)
 		{
-			if (!group.AddAIEntityToGroup(member))
-				group.AddAgent(agent);
+			group.AddAgentFromControlledEntity(member);
+			if (agent.GetParentGroup() != group)
+			{
+				if (!group.AddAIEntityToGroup(member))
+					group.AddAgent(agent);
+			}
 		}
 
 		if (agent.GetParentGroup() != group)
@@ -9982,6 +10054,14 @@ class HST_PhysicalWarService
 		}
 
 		agent.ActivateAI();
+		group.ActivateAllMembers();
+		group.ActivateAI();
+
+		SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(group.FindComponent(SCR_EditableGroupComponent));
+		SCR_EditableEntityComponent editableMember = SCR_EditableEntityComponent.GetEditableEntity(member);
+		if (editableGroup && editableMember && editableMember.GetParentEntity() != editableGroup)
+			editableMember.SetParentEntity(editableGroup);
+
 		return true;
 	}
 
@@ -11293,6 +11373,8 @@ class HST_PhysicalWarService
 			SCR_AIGroup group = SCR_AIGroup.Cast(entity);
 			if (group)
 			{
+				SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(group.FindComponent(SCR_EditableGroupComponent));
+				preservedDeadMembers += DetachDeadRuntimeMembersFromGroupRoot(activeGroup.m_sGroupId, editableGroup);
 				SCR_EntityHelper.DeleteEntityAndChildren(entity);
 				deletedGroupRoots++;
 			}
@@ -11344,6 +11426,8 @@ class HST_PhysicalWarService
 			SCR_AIGroup group = SCR_AIGroup.Cast(entity);
 			if (group)
 			{
+				SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(group.FindComponent(SCR_EditableGroupComponent));
+				preservedDeadMembers += DetachDeadRuntimeMembersFromGroupRoot(groupId, editableGroup);
 				SCR_EntityHelper.DeleteEntityAndChildren(entity);
 				deletedGroupRoots++;
 			}
@@ -11366,6 +11450,32 @@ class HST_PhysicalWarService
 		if (removedHandles > 0)
 			DebugLog(string.Format("active group respawn crew handle cleanup %1 | removed handles %2 | deleted roots %3 | deleted living %4 | preserved dead %5 | source %6", groupId, removedHandles, deletedGroupRoots, deletedLivingMembers, preservedDeadMembers, source));
 		return removedHandles;
+	}
+
+	protected int DetachDeadRuntimeMembersFromGroupRoot(string groupId, SCR_EditableGroupComponent editableGroup)
+	{
+		if (groupId.IsEmpty() || !editableGroup)
+			return 0;
+
+		int detached;
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (!entity || AIGroup.Cast(entity))
+				continue;
+			if (IsLivingEntity(entity))
+				continue;
+
+			SCR_EditableEntityComponent editableMember = SCR_EditableEntityComponent.GetEditableEntity(entity);
+			if (editableMember && editableMember.GetParentEntity() == editableGroup)
+				editableMember.SetParentEntity(null);
+			detached++;
+		}
+
+		return detached;
 	}
 
 	protected bool EnsureRuntimeGroupEntities(HST_CampaignState state, HST_CampaignPreset preset = null)
@@ -11595,7 +11705,8 @@ class HST_PhysicalWarService
 				DebugLog(string.Format("active group live-count grace %1 | zone %2 | spawned agents %3 | last alive %4 | status %5", activeGroup.m_sGroupId, activeGroup.m_sZoneId, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_sRuntimeStatus));
 				continue;
 			}
-			if (aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && (!missionConvoyGroup || activeGroup.m_iLastSeenAliveCount <= 0))
+			int deadTrackedMembers = CountDeadTrackedRuntimeGroupMembers(activeGroup.m_sGroupId);
+			if (aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && activeGroup.m_iLastSeenAliveCount <= 0 && deadTrackedMembers <= 0)
 				continue;
 			if (missionConvoyGroup && aliveCount <= 0 && !HasMissionConvoyExplicitEliminationContext(state, activeGroup))
 			{
@@ -11805,6 +11916,27 @@ class HST_PhysicalWarService
 			return false;
 
 		return state.m_iElapsedSeconds < activeGroup.m_iSpawnedAtSecond + ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS;
+	}
+
+	protected int CountDeadTrackedRuntimeGroupMembers(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return 0;
+
+		int deadCount;
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (!entity || AIGroup.Cast(entity))
+				continue;
+			if (!IsLivingEntity(entity))
+				deadCount++;
+		}
+
+		return deadCount;
 	}
 
 	protected int CountAliveRuntimeGroupAgents(string groupId)

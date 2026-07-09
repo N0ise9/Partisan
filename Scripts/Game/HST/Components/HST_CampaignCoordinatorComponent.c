@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r116-police-presence-projections";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r117-marker-group-civilian-cleanup";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -10556,11 +10556,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ZoneState targetZoneState = null;
 		if (m_State)
 			targetZoneState = m_State.FindZone(observedSupportRequest.m_sTargetZoneId);
+		HST_MapMarkerState linkedMarkerState = FindCampaignDebugMarkerLinkedTo(observedSupportRequest.m_sRequestId);
 		bool markerVisible = probeContext.m_bMarkerVisibleAfterRequest;
 		string markerActual = probeContext.m_sMarkerActualAfterRequest;
 		if (markerActual.IsEmpty())
 		{
-			HST_MapMarkerState linkedMarkerState = FindCampaignDebugMarkerLinkedTo(observedSupportRequest.m_sRequestId);
 			markerVisible = linkedMarkerState != null;
 			markerActual = "current | " + BuildCampaignDebugMarkerActual(linkedMarkerState);
 		}
@@ -10618,6 +10618,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				observedSupportRequest.m_sRequestId);
 		}
 		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published immediately after request before runtime resolution", markerActual, CampaignDebugStatus(markerVisible, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
+		if (observedSupportRequest.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			AddCampaignDebugAssertion(supportCase, "support.search_marker_icon", "search support marker uses the dedicated search-area icon", markerActual, CampaignDebugStatus(linkedMarkerState && linkedMarkerState.m_sIconHint == "SEARCH_AREA"), "search support marker did not use SEARCH_AREA", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest);
 	}
 
@@ -12478,6 +12480,70 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return count;
+	}
+
+	protected int CountCampaignDebugZoneIconMismatchesForMarkerStyle(string markerStyle, string expectedIcon, out string example)
+	{
+		example = "";
+		if (!m_State || markerStyle.IsEmpty() || expectedIcon.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone || zone.m_sMarkerStyle != markerStyle)
+				continue;
+
+			HST_MapMarkerState marker = m_State.FindMapMarker("hst_zone_" + zone.m_sZoneId);
+			if (marker && marker.m_sIconHint == expectedIcon)
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "icon");
+		}
+
+		return count;
+	}
+
+	protected int CountCampaignDebugRadarZoneIconMismatches(out string example)
+	{
+		example = "";
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!IsCampaignDebugRadarZone(zone))
+				continue;
+
+			HST_MapMarkerState marker = m_State.FindMapMarker("hst_zone_" + zone.m_sZoneId);
+			if (marker && marker.m_sIconHint == "RECONNAISSANCE")
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "radar_icon");
+		}
+
+		return count;
+	}
+
+	protected bool IsCampaignDebugRadarZone(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+		if (zone.m_sResourceKind == "radar")
+			return true;
+		if (zone.m_sZoneId.Contains("radar"))
+			return true;
+		if (zone.m_sDisplayName.Contains("Radar"))
+			return true;
+		if (zone.m_sSourceLayoutId.Contains("Radar"))
+			return true;
+
+		return false;
 	}
 
 	protected bool IsCampaignDebugStaticLocationMarkerCategory(HST_MapMarkerState marker)
@@ -22268,6 +22334,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int civilianTrafficVehicleAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_TRAFFIC_VEHICLE");
 		int pedestrianBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_CHARACTER", "CIV", 3);
 		int trafficBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_TRAFFIC_VEHICLE", "CIV", 5);
+		int civilianFactionMismatches = m_Civilians.CountRuntimeEntityFactionMismatchesForZone(zoneId, "CIV_CHARACTER", "CIV");
 		int militaryVehicles = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "MILITARY_VEHICLE");
 		int totalRuntime = m_Civilians.CountRuntimeEntitiesForZone(zoneId);
 		bool runtimeZoneActive = m_Civilians.HasRuntimeTownZone(zoneId);
@@ -22340,6 +22407,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool trafficBehaviorOk = !trafficConfigured || (civilianTrafficVehicles > 0 && trafficBehavior == civilianTrafficVehicles);
 		bool knownRuntimeKinds = totalRuntime == civilianCharacterAnyFaction + civilianVehicleAnyFaction + civilianTrafficVehicleAnyFaction + militaryVehicles;
 		bool civilianFactionOk = civilianCharacters == civilianCharacterAnyFaction && civilianVehicles == civilianVehicleAnyFaction && civilianTrafficVehicles == civilianTrafficVehicleAnyFaction;
+		bool civilianActualFactionOk = civilianFactionMismatches == 0;
 		bool runtimePopulationActive = runtimeZoneActive && totalRuntime > 0 && civilianCharacters > 0;
 
 		phaseCase.m_aEvidence.Insert("civilian population | " + populationActual);
@@ -22351,6 +22419,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.traffic_vehicles", string.Format("%1", civilianTrafficVehicles), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.pedestrian_behavior", string.Format("%1", pedestrianBehavior), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.traffic_behavior", string.Format("%1", trafficBehavior), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.civ_faction_mismatches", string.Format("%1", civilianFactionMismatches), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.outside_radius", string.Format("%1", outsideRadius), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.movement_window_seconds", string.Format("%1", movementWindowSeconds), "seconds");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.moved_characters", string.Format("%1", bestMovedCharacters), "count");
@@ -22363,7 +22432,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.traffic_count", "ambient civilian traffic vehicles match configured active-town count", populationActual, CampaignDebugStatus(trafficCountOk), "civilian traffic vehicle runtime count does not match configured count", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.pedestrian_behavior", "spawned civilian pedestrians receive AI group and cyclic wander helpers", behaviorActual, CampaignDebugStatus(pedestrianBehaviorOk), "civilian pedestrians spawned without behavior helpers", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.traffic_behavior", "spawned civilian traffic receives driver, AI group, and route helpers", behaviorActual, CampaignDebugStatus(trafficBehaviorOk), "civilian traffic vehicles spawned without driver/route helpers", "", "", zoneId);
-		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.civ_faction", "civilian characters/vehicles are tagged CIV and runtime kinds are known", populationActual, CampaignDebugStatus(civilianFactionOk && knownRuntimeKinds), "civilian runtime entities missing CIV faction tag or unknown runtime kind", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.civ_faction", "civilian characters/vehicles are tagged CIV and runtime kinds are known", populationActual, CampaignDebugStatus(civilianFactionOk && civilianActualFactionOk && knownRuntimeKinds), "civilian runtime entities missing CIV faction tag or unknown runtime kind", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.positions", "runtime civilian entities stay inside town bubble radius", string.Format("outside %1/%2 | radius %3m", outsideRadius, totalRuntime, Math.Round(populationRadius)), CampaignDebugStatus(totalRuntime > 0 && outsideRadius == 0), "civilian runtime entities spawned outside the town bubble", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.movement_samples", "bounded civilian movement window records repeated samples and timeout evidence", movementActual + " | history " + ShortCampaignDebugLine(movementSampleHistory, 180), CampaignDebugStatus(movementActualSampleCount == movementSampleTargetCount && !movementSampleHistory.IsEmpty()), "civilian movement sample window did not record repeated sample evidence", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.movement_observed", "civilian character position changes by at least 1m during sample window, or current static behavior is reported", movementActual, CampaignDebugStatus(civilianCharacters > 0 && movementObserved, "WARN"), "current civilian runtime did not move any character from spawn during the sample window", "", "", zoneId);
@@ -23394,6 +23463,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string zoneMarkerActual = BuildCampaignDebugZoneMarkerAuditActual(expectedZoneMarkers, missingZoneMarkers, linkOwnerZoneMarkerMismatches, presentationZoneMarkerMismatches, positionZoneMarkerMismatches, zoneMarkerExample);
 		string locationIconCollisionExample;
 		int locationIconCollisionCount = CountCampaignDebugStaticLocationQRFIconCollisions(locationIconCollisionExample);
+		string radioIconExample;
+		string radarIconExample;
+		int radioIconMismatches = CountCampaignDebugZoneIconMismatchesForMarkerStyle("radio", "FLAG", radioIconExample);
+		int radarIconMismatches = CountCampaignDebugRadarZoneIconMismatches(radarIconExample);
 		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
 		HST_MapMarkerState petrosMarker = m_State.FindMapMarker("hst_petros");
 		HST_MapMarkerState defendMarker = m_State.FindMapMarker("hst_defend_petros");
@@ -23412,12 +23485,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.position_mismatch", string.Format("%1", positionZoneMarkerMismatches), "count");
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.mismatch_total", string.Format("%1", zoneMarkerMismatches), "count");
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.location_qrf_icon_collision", string.Format("%1", locationIconCollisionCount), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.radio_icon_mismatch", string.Format("%1", radioIconMismatches), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.radar_icon_mismatch", string.Format("%1", radarIconMismatches), "count");
 
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.report_header", "marker audit report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi phase 23 marker audit")), "Phase 23 marker audit report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.records", "marker model has records", string.Format("%1", totalMarkers), CampaignDebugStatus(totalMarkers > 0), "Phase 23 marker model has no records");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.coverage", "every campaign zone has a visible marker model entry", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && missingZoneMarkers == 0), "Phase 23 marker audit found zones without visible marker model records");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.state", "zone marker linked id, owner, color, style, and position match zone state", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && zoneMarkerMismatches == 0), "Phase 23 marker audit found zone marker state mismatches");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.location_qrf_icon_deconflict", "static location markers use icons distinct from QRF tactical markers", BuildCampaignDebugCountExample(locationIconCollisionCount, locationIconCollisionExample), CampaignDebugStatus(locationIconCollisionCount == 0), "Phase 23 found static location markers reusing the QRF tactical icon");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radio_icon", "radio tower zone markers use the dedicated radio icon", BuildCampaignDebugCountExample(radioIconMismatches, radioIconExample), CampaignDebugStatus(radioIconMismatches == 0), "Phase 23 found radio tower markers without FLAG icon");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radar_icon", "radar site zone markers use the dedicated radar icon", BuildCampaignDebugCountExample(radarIconMismatches, radarIconExample), CampaignDebugStatus(radarIconMismatches == 0), "Phase 23 found radar site markers without RECONNAISSANCE icon");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.hq", "HQ marker exists when HQ is deployed", BuildCampaignDebugMarkerActual(hqMarker), CampaignDebugStatus(!m_State.m_bHQDeployed || hqMarker != null), "Phase 23 marker audit did not find the HQ marker");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.defense_markers", "Petros/defense markers exist while Defend Petros is active", string.Format("active %1 | Petros %2 | defend %3", m_State.m_bDefendPetrosActive, petrosMarker != null, defendMarker != null), CampaignDebugStatus(!m_State.m_bDefendPetrosActive || (petrosMarker != null && defendMarker != null)), "Phase 23 marker audit did not find active Defend Petros markers");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.missions", "active missions have mission/objective/asset marker coverage", string.Format("markers %1 | active %2", missionMarkers, activeMissions), CampaignDebugStatus(activeMissions <= 0 || missionMarkers > 0), "Phase 23 active missions have no mission marker coverage");

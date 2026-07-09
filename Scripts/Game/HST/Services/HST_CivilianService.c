@@ -2401,6 +2401,8 @@ class HST_CivilianService
 		AIGroup group = agent.GetParentGroup();
 		if (group)
 		{
+			ApplyFaction(memberEntity, CIVILIAN_FACTION_KEY, "CIV_CHARACTER");
+			ApplyCivilianAIGroupFaction(group, CIVILIAN_FACTION_KEY);
 			group.ActivateAllMembers();
 			agent.ActivateAI();
 			return group;
@@ -2418,7 +2420,7 @@ class HST_CivilianService
 		SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
 		if (scrGroup)
 		{
-			scrGroup.InitFactionKey(factionKey);
+			scrGroup.InitFactionKey(CIVILIAN_FACTION_KEY);
 			scrGroup.AddAgentFromControlledEntity(memberEntity);
 		}
 		else
@@ -2426,10 +2428,55 @@ class HST_CivilianService
 			group.AddAgent(agent);
 		}
 
+		ApplyFaction(memberEntity, CIVILIAN_FACTION_KEY, "CIV_CHARACTER");
+		ApplyCivilianAIGroupFaction(group, CIVILIAN_FACTION_KEY);
 		group.ActivateAllMembers();
 		agent.ActivateAI();
 		RegisterRuntimeHelper(helperOwner, groupEntity);
 		return group;
+	}
+
+	protected string ResolveRuntimeEntityFactionKey(string factionKey, string runtimeKind)
+	{
+		if (runtimeKind == "CIV_CHARACTER" || runtimeKind == "CIV_VEHICLE" || runtimeKind == CIVILIAN_TRAFFIC_RUNTIME_KIND)
+			return CIVILIAN_FACTION_KEY;
+
+		return factionKey;
+	}
+
+	protected void ApplyCivilianAIGroupFaction(AIGroup group, string factionKey)
+	{
+		if (!group || factionKey.IsEmpty())
+			return;
+
+		SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
+		if (scrGroup)
+		{
+			if (scrGroup.GetFactionName().IsEmpty())
+				scrGroup.InitFactionKey(factionKey);
+			if (scrGroup.GetFactionName() != factionKey)
+			{
+				Faction faction = ResolveRuntimeFaction(factionKey);
+				if (faction)
+					scrGroup.SetFaction(faction);
+			}
+		}
+
+		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(group.FindComponent(FactionAffiliationComponent));
+		if (factionComponent)
+			factionComponent.SetAffiliatedFactionByKey(factionKey);
+	}
+
+	protected Faction ResolveRuntimeFaction(string factionKey)
+	{
+		if (factionKey.IsEmpty())
+			return null;
+
+		FactionManager factionManager = GetGame().GetFactionManager();
+		if (!factionManager)
+			return null;
+
+		return factionManager.GetFactionByKey(factionKey);
 	}
 
 	protected AIAgent ResolveCivilianAgent(IEntity entity)
@@ -2802,14 +2849,15 @@ class HST_CivilianService
 		if (IsRuntimeVehicle(runtimeKind))
 			HST_WorldPositionService.ApplyUprightEntityTransform(entity, position, angles);
 
-		ApplyFaction(entity, factionKey, runtimeKind);
+		string runtimeFactionKey = ResolveRuntimeEntityFactionKey(factionKey, runtimeKind);
+		ApplyFaction(entity, runtimeFactionKey, runtimeKind);
 		m_aRuntimeEntityZoneIds.Insert(zoneId);
 		m_aRuntimeEntityKinds.Insert(runtimeKind);
-		m_aRuntimeEntityFactionKeys.Insert(factionKey);
+		m_aRuntimeEntityFactionKeys.Insert(runtimeFactionKey);
 		m_aRuntimeEntitySpawnPositions.Insert(position);
 		m_aRuntimeEntities.Insert(entity);
-		RegisterRuntimeVehicle(state, entity, zoneId, prefab, position, angles, factionKey, runtimeKind);
-		Print(string.Format("h-istasi civilians | spawn ok | zone %1 | kind %2 | faction %3 | prefab %4 | pos %5 | yaw %6", zoneId, runtimeKind, factionKey, prefab, position, angles[0]));
+		RegisterRuntimeVehicle(state, entity, zoneId, prefab, position, angles, runtimeFactionKey, runtimeKind);
+		Print(string.Format("h-istasi civilians | spawn ok | zone %1 | kind %2 | faction %3 | prefab %4 | pos %5 | yaw %6", zoneId, runtimeKind, runtimeFactionKey, prefab, position, angles[0]));
 		return true;
 	}
 
@@ -3064,6 +3112,29 @@ class HST_CivilianService
 		return count;
 	}
 
+	int CountRuntimeEntityFactionMismatchesForZone(string zoneId, string runtimeKind, string expectedFactionKey)
+	{
+		if (zoneId.IsEmpty() || expectedFactionKey.IsEmpty())
+			return 0;
+
+		int count;
+		for (int i = 0; i < m_aRuntimeEntities.Count(); i++)
+		{
+			if (!MatchesRuntimeEntityFilter(i, zoneId, runtimeKind, expectedFactionKey))
+				continue;
+
+			IEntity entity = m_aRuntimeEntities[i];
+			if (!entity)
+				continue;
+
+			FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+			if (!factionComponent || factionComponent.GetAffiliatedFactionKey() != expectedFactionKey)
+				count++;
+		}
+
+		return count;
+	}
+
 	int CountRuntimeEntitiesForZoneWithHelpers(string zoneId, string runtimeKind = "", string factionKey = "", int minHelperCount = 1)
 	{
 		if (zoneId.IsEmpty())
@@ -3228,8 +3299,10 @@ class HST_CivilianService
 		int civilianVehicles = CountRuntimeEntitiesForZone(zoneId, "CIV_VEHICLE", "CIV");
 		int civilianTrafficVehicles = CountRuntimeEntitiesForZone(zoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND, "CIV");
 		int militaryVehicles = CountRuntimeEntitiesForZone(zoneId, "MILITARY_VEHICLE");
+		int civilianFactionMismatches = CountRuntimeEntityFactionMismatchesForZone(zoneId, "CIV_CHARACTER", "CIV");
 		int total = CountRuntimeEntitiesForZone(zoneId);
 		string report = string.Format("runtime town %1 | active %2 | total %3 | civ chars %4 | parked civ vehicles %5 | traffic vehicles %6 | military vehicles %7", EmptyRuntimeField(zoneId), HasRuntimeZone(zoneId), total, civilianCharacters, civilianVehicles, civilianTrafficVehicles, militaryVehicles);
+		report = report + string.Format(" | civ character faction mismatches %1", civilianFactionMismatches);
 		if (state)
 			report = report + string.Format(" | global civ chars %1 | civ vehicles %2 | failures %3 | last failure %4", state.m_iRuntimeCivilianCharacterCount, state.m_iRuntimeCivilianVehicleCount, state.m_iRuntimeSpawnFailureCount, EmptyRuntimeField(state.m_sLastRuntimeSpawnFailurePrefab));
 

@@ -196,9 +196,6 @@ GenericEntity HST_ZoneAnchor_town_crag_point : "{C72F956E4AC6A6E7}Prefabs/System
 GenericEntity HST_ZoneAnchor_town_skua_point : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 9628.168 16.323 5379.435
 }
-GenericEntity HST_ZoneAnchor_outpost_western_heights : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 7712.864 341.226 3068.306
-}
 GenericEntity HST_ZoneAnchor_radio_pins_tower : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 1553.824 21.747 11227.977
 }

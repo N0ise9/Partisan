@@ -1982,6 +1982,14 @@ foreach ($requiredMarkerIconDeconflictEntry in @(
 		'return "OBSERVATION_POST";',
 		'if (zone.m_sMarkerStyle == "mission_site")',
 		'return "POINT_SPECIAL";',
+		'return "FLAG";',
+		'return "RECONNAISSANCE";',
+		'return "SEARCH_AREA";',
+		'support.search_marker_icon',
+		'phase23.marker.radio_icon',
+		'phase23.marker.radar_icon',
+		'CountCampaignDebugZoneIconMismatchesForMarkerStyle',
+		'CountCampaignDebugRadarZoneIconMismatches',
 		'phase23.marker.location_qrf_icon_deconflict',
 		'CountCampaignDebugStaticLocationQRFIconCollisions'
 	)) {
@@ -1990,8 +1998,8 @@ foreach ($requiredMarkerIconDeconflictEntry in @(
 	}
 }
 
-if ($configZones.Count -ne 79 -or $runtimeZones.Count -ne 79) {
-	throw "Everon campaign catalog must contain 79 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
+if ($configZones.Count -ne 78 -or $runtimeZones.Count -ne 78) {
+	throw "Everon campaign catalog must contain 78 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
 }
 
 $campaignBaseBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sSourceLayerName "Bases\.layer"' })
@@ -2001,8 +2009,8 @@ $campaignCallsigns = @($zoneBlocks | ForEach-Object {
 			$Matches[1]
 		}
 	} | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
-if ($campaignBaseBlocks.Count -ne 71) {
-	throw "Expected 71 Everon Bases.layer nodes, found $($campaignBaseBlocks.Count)"
+if ($campaignBaseBlocks.Count -ne 70) {
+	throw "Expected 70 Everon Bases.layer nodes, found $($campaignBaseBlocks.Count)"
 }
 if ($campaignDepotBlocks.Count -ne 8) {
 	throw "Expected 8 Everon SupplyDepots.layer nodes, found $($campaignDepotBlocks.Count)"
@@ -2336,6 +2344,9 @@ foreach ($requiredRuntimeMarkerEntry in @(
 		"GetStaticMarkerByID",
 		"POINT_SPECIAL",
 		"OBSERVATION_POST",
+		"SEARCH_AREA",
+		"RECONNAISSANCE",
+		"FLAG",
 		"MAX_NATIVE_MARKERS = 192",
 		"MAX_NATIVE_TACTICAL_MARKERS = 48"
 	)) {
@@ -2909,6 +2920,9 @@ foreach ($requiredNativeMarkerPublishContract in @(
 		"SCR_EScenarioFrameworkMarkerCustom.PICK_UP2",
 		"SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL",
 		"SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST",
+		"SCR_EScenarioFrameworkMarkerCustom.FLAG",
+		"SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE",
+		"SCR_EScenarioFrameworkMarkerCustom.SEARCH_AREA",
 		"SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER",
 		"manager.InsertStaticMarker(nativeMarker, record.m_bLocalOnly, record.m_bServerMarker)",
 		"manager.RemoveStaticMarker(marker)"
@@ -8309,7 +8323,10 @@ foreach ($requiredPhase9RuntimeEntry in @(
 		"IsMissionConvoyGroupAssetTerminal",
 		"asset.m_bDestroyed || asset.m_bDelivered",
 		"activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED",
-		"aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && (!missionConvoyGroup || activeGroup.m_iLastSeenAliveCount <= 0)",
+		"CountDeadTrackedRuntimeGroupMembers",
+		"deadTrackedMembers <= 0",
+		"DetachDeadRuntimeMembersFromGroupRoot",
+		"ReconcileTrackedRuntimeMembersWithAIGroup",
 		"HasMissionConvoyCrewEverBeenObservedAlive",
 		"HasMissionConvoyExplicitEliminationContext",
 		"TryRepairMissionConvoyCrewPopulation",
@@ -8676,6 +8693,10 @@ foreach ($requiredCivilianRuntimeEntry in @(
 		"m_aRuntimeEntityKinds",
 		"m_aRuntimeEntitySpawnPositions",
 		'SetAffiliatedFactionByKey("CIV")',
+		"ResolveRuntimeEntityFactionKey",
+		"ApplyCivilianAIGroupFaction",
+		"CountRuntimeEntityFactionMismatchesForZone",
+		"phase20.civilian_population.civ_faction_mismatches",
 		"m_bCivilianPopulationEnabled",
 		"m_iCivilianMaxActivePerTown",
 		"m_iCivilianVehicleMinPerTown",

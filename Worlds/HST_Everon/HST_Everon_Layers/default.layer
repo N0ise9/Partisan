@@ -1857,32 +1857,6 @@ $grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_Conflic
   }
   coords 9628.168 16.323 5379.435
  }
- HST_ConflictMapMarker_outpost_western_heights {
-  components {
-   SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "US"
-   }
-   SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
-    m_fBuildingRadius 240
-   }
-   SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
-    Enabled 0
-    m_iRadius 240
-   }
-   SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
-    m_iRadius 240
-    m_bIsControlPoint 1
-    m_sBaseName "Western Heights"
-    m_sBaseNameUpper "WESTERN HEIGHTS"
-   }
-   SCR_CampaignSuppliesComponent "{5C6696724F524DA2}" {
-    m_iSupplies 0
-    m_iSuppliesMax 0
-    m_fOperationalRadius 50
-   }
-  }
-  coords 7712.864 341.226 3068.306
- }
  HST_ConflictMapMarker_radio_pins_tower {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {

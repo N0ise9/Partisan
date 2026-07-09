@@ -344,7 +344,6 @@ class HST_DefaultCatalog
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("factory_power_plant", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_FACTORY, "5848.77 5.245 9654.499", 110, 14, "route_factory_power_plant", "qrf_factory_power_plant", "site_factory_power_plant"), "Power Plant", "tonka:base:64:SmallBasePowerPlant", "Bases.layer", "industry", 240, 17, "", "gold", "resource", "comp_factory_power_plant", "spawn_factory_garrison"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_crag_point", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_TOWN, "11667.637 12.049 1446.685", 30, 8, "route_town_crag_point", "qrf_town_crag_point", "site_town_crag_point"), "Crag Point", "tonka:base:65:SmallBaseCragPoint", "Bases.layer", "population", 220, 3, "", "black", "town", "comp_town_crag_point", "spawn_town_patrols"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_skua_point", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "9628.168 16.323 5379.435", 30, 8, "route_town_skua_point", "qrf_town_skua_point", "site_town_skua_point"), "Skua Point", "tonka:base:66:SmallBaseSkuaPoint", "Bases.layer", "population", 220, 3, "", "black", "town", "comp_town_skua_point", "spawn_town_patrols"));
-		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("outpost_western_heights", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "7712.864 341.226 3068.306", 50, 16, "route_outpost_western_heights", "qrf_outpost_western_heights", "site_outpost_western_heights"), "Western Heights", "tonka:base:67:SmallBaseWesternHeights", "Bases.layer", "security", 240, 8, "", "red", "enemy_base", "comp_outpost_western_heights", "spawn_outpost_garrison"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_pins_tower", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "1553.824 21.747 11227.977", 25, 8, "route_radio_pins_tower", "qrf_radio_pins_tower", "site_radio_pins_tower"), "Pins Tower", "tonka:base:68:RelayPins", "Bases.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_pins_tower", "spawn_radio_patrol"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_eastern_sea_relay", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "9215.885 27.552 9351.145", 25, 8, "route_radio_eastern_sea_relay", "qrf_radio_eastern_sea_relay", "site_radio_eastern_sea_relay"), "Eastern Sea Relay", "tonka:base:69:RelayEasternSea", "Bases.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_eastern_sea_relay", "spawn_radio_patrol"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_estrapade_tower", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "3402.537 21.509 1621.985", 25, 8, "route_radio_estrapade_tower", "qrf_radio_estrapade_tower", "site_radio_estrapade_tower"), "Estrapade Tower", "tonka:base:70:RelayEstrapade", "Bases.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_estrapade_tower", "spawn_radio_patrol"));
@@ -774,8 +773,6 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			return "Crag Point";
 		if (zoneId == "town_skua_point")
 			return "Skua Point";
-		if (zoneId == "outpost_western_heights")
-			return "Western Heights";
 		if (zoneId == "radio_pins_tower")
 			return "Pins Tower";
 		if (zoneId == "radio_eastern_sea_relay")
@@ -883,7 +880,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "airfield_airbase_saint_philippe")
 			AddZoneLinks(zone, "town_les_creux", "outpost_north_hq", "town_maidens_bay");
 		if (zone.m_sZoneId == "outpost_levie_base")
-			AddZoneLinks(zone, "town_levie", "depot_levie_supply_depot", "outpost_western_heights");
+			AddZoneLinks(zone, "town_levie", "depot_levie_supply_depot", "town_laruns");
 		if (zone.m_sZoneId == "outpost_calvary_hill")
 			AddZoneLinks(zone, "depot_sawmill_supply_depot", "town_villeneuve", "town_le_moule");
 		if (zone.m_sZoneId == "outpost_military_hospital")
@@ -921,7 +918,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "radio_andres_beacon")
 			AddZoneLinks(zone, "outpost_firing_range", "town_benac", "town_scythe");
 		if (zone.m_sZoneId == "town_goat_bay")
-			AddZoneLinks(zone, "depot_regina_supply_depot", "town_regina", "outpost_western_heights");
+			AddZoneLinks(zone, "depot_regina_supply_depot", "town_regina", "radio_regina2_tower");
 		if (zone.m_sZoneId == "town_chotain")
 			AddZoneLinks(zone, "town_laruns", "seaport_coastal_base_chotain", "depot_industrial_supply_depot");
 		if (zone.m_sZoneId == "town_durras")
@@ -943,7 +940,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "town_provins")
 			AddZoneLinks(zone, "town_figari", "depot_figari_supply_depot", "depot_industrial_supply_depot");
 		if (zone.m_sZoneId == "town_regina")
-			AddZoneLinks(zone, "depot_regina_supply_depot", "outpost_western_heights", "outpost_pennants_pass");
+			AddZoneLinks(zone, "depot_regina_supply_depot", "radio_regina2_tower", "outpost_pennants_pass");
 		if (zone.m_sZoneId == "town_tyrone")
 			AddZoneLinks(zone, "town_meaux", "resource_etoupe_gas_station", "depot_farm_supply_depot");
 		if (zone.m_sZoneId == "town_vernon")
@@ -1012,8 +1009,6 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			AddZoneLinks(zone, "town_ghost_town", "town_lancre", "outpost_cave");
 		if (zone.m_sZoneId == "town_skua_point")
 			AddZoneLinks(zone, "town_perelle", "resource_quarry", "town_laruns");
-		if (zone.m_sZoneId == "outpost_western_heights")
-			AddZoneLinks(zone, "depot_green_valley_supply_depot", "town_regina", "outpost_pennants_pass");
 		if (zone.m_sZoneId == "radio_pins_tower")
 			AddZoneLinks(zone, "town_pins", "radio_st_phillipe_relay", "outpost_north_hq");
 		if (zone.m_sZoneId == "radio_eastern_sea_relay")
@@ -1023,7 +1018,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "radio_st_phillipe_relay")
 			AddZoneLinks(zone, "outpost_north_hq", "factory_saint_philippe", "depot_farm_supply_depot");
 		if (zone.m_sZoneId == "depot_green_valley_supply_depot")
-			AddZoneLinks(zone, "town_durras", "resource_quarry", "outpost_western_heights");
+			AddZoneLinks(zone, "town_durras", "resource_quarry", "outpost_pennants_pass");
 		if (zone.m_sZoneId == "depot_levie_supply_depot")
 			AddZoneLinks(zone, "town_levie", "outpost_levie_base", "town_simons_wood");
 		if (zone.m_sZoneId == "depot_figari_supply_depot")
@@ -1037,7 +1032,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "depot_sawmill_supply_depot")
 			AddZoneLinks(zone, "town_le_moule", "outpost_calvary_hill", "outpost_shepherds_pond");
 		if (zone.m_sZoneId == "depot_regina_supply_depot")
-			AddZoneLinks(zone, "town_regina", "town_goat_bay", "outpost_western_heights");
+			AddZoneLinks(zone, "town_regina", "town_goat_bay", "radio_regina2_tower");
 	}
 
 	private static void AddZoneLinks(HST_ZoneState zone, string first, string second = "", string third = "")

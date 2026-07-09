@@ -175,11 +175,23 @@ class HST_CampaignMapMarkerDirector
 		if (iconHint == "OBSERVATION_POST")
 			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
 
+		if (iconHint == "FLAG")
+			return SCR_EScenarioFrameworkMarkerCustom.FLAG;
+
+		if (iconHint == "RECONNAISSANCE")
+			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
+
+		if (iconHint == "SEARCH_AREA")
+			return SCR_EScenarioFrameworkMarkerCustom.SEARCH_AREA;
+
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "town" || category == "town"))
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base"))
 			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+
+		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "radar" || category == "radar"))
+			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "mission_site" || category == "mission_site"))
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
@@ -195,6 +207,12 @@ class HST_CampaignMapMarkerDirector
 
 		if (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base")
 			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+
+		if (styleHint == "radio" || category == "radio")
+			return SCR_EScenarioFrameworkMarkerCustom.FLAG;
+
+		if (styleHint == "radar" || category == "radar")
+			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
 
 		if (styleHint == "mission_site" || category == "mission_site")
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
