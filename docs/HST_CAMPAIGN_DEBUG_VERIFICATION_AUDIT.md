@@ -230,9 +230,15 @@ its virtual cargo instead of downgrading it to session-only state. The
 `active_group_lifecycle.*` deterministic cases cover eligibility guards,
 terminal replay, capture pressure, unresolved marker ordering, current-schema
 roundtrip, folded-survivor preservation, session-record pruning, durable-record
-preservation, living-mixed control, and vehicle-only control. Foundation validation and headless
-Workbench Game compile/create pass at 5,741 files/11,481 classes with pre-stamp
-CRC `cb898269`. This is source, deterministic in-process, and compilation
+preservation, living-mixed control, and vehicle-only control. The final build
+stamped implementation SHA `3157ca28b066630ffb87cac292f74e20ce243efd`.
+Foundation validation and headless Workbench Game compile/create pass at 5,741
+files/11,481 classes with CRC `077afac2` in
+`logs_2026-07-10_14-47-34`. A correctly quoted normal WorldEditor open created
+the game with the same CRC, remained responsive at all ten two-second samples,
+and stopped only exact test PID 41400 after 20 seconds;
+`logs_2026-07-10_14-49-06` contains no new project script-error or crash
+signature. This is source, deterministic in-process, compilation, and bounded startup
 evidence—not physical entity detachment, player salvage, dedicated replication,
 ownership-flip cleanup, or process-restart runtime proof.
 

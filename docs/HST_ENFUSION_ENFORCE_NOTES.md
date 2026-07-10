@@ -1947,9 +1947,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
   queue-owned, convoy, unobserved, delayed-population, and live-grace controls.
   It also covers linked QRF failure, capture-pressure removal, marker ordering,
   replay idempotence, current-schema roundtrip, folded-survivor preservation,
-  session-salvage pruning, living-mixed control, and vehicle-only control. It is deterministic in-process proof; real entity
-  detachment, player salvage, replication, and process restart still require a
-  disposable packaged runtime run.
+  session-salvage pruning, living-mixed control, and vehicle-only control. It is
+  deterministic in-process proof; real entity detachment, player salvage,
+  replication, and process restart still require a disposable packaged runtime
+  run.
+- The final stamped lifecycle build identifies implementation SHA
+  `3157ca28b066630ffb87cac292f74e20ce243efd`, loads 5,741 files/11,481 classes,
+  creates the game with CRC `077afac2`, and survives a correctly quoted normal
+  WorldEditor open through ten responsive two-second samples. These gates prove
+  compilation/startup only, not the real entity/salvage behavior above.
 
 ## Campaign Debug Observation Timing
 
