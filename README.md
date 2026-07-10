@@ -178,21 +178,24 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-1. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
+1. Prove the editor role-change reentry guard in a packaged dedicated-server
+   connect with late admin assignment and zero recursive invoker exceptions.
+2. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
    replace the historical Full Campaign Debug artifact with corrected evidence.
-2. Runtime-prove exact paid-QRF creation, casualty cleanup, survivor
+3. Runtime-prove exact paid-QRF creation, casualty cleanup, survivor
    reprojection, settlement archival/replay, and once-only accounting.
-3. Reproduce and fix genuine convoy seating/movement, support routing, arrival,
+4. Reproduce and fix genuine convoy seating/movement, support routing, arrival,
    return, recall, and physical-response failures in scoped disposable profiles.
-4. Prove static marker widget readiness plus authoritative host/client/late-join
+5. Prove static marker widget readiness plus authoritative host/client/late-join
    projection before treating marker publication as player-visible truth.
-5. Resume deeper mission, civilian, undercover, commander, logistics, and
+6. Resume deeper mission, civilian, undercover, commander, logistics, and
    balance expansion only after those integrity gates produce reliable evidence.
 
 The repository currently passes foundation validation and schema-48 Workbench
-Game compilation/creation at 5,739 files and 11,472 classes. A separate normal
-WorldEditor project open survived the bounded 20-second crash gate. Those are
-compile/startup results, not dedicated-server or gameplay certification.
+Game compilation/creation at 5,740 files and 11,473 classes. A normal
+WorldEditor project open produced no new crash signature during the bounded
+survival gate. The editor role-change guard still needs a fresh packaged
+dedicated-server connect before it counts as runtime proof.
 
 For documentation authority, `docs/FEATURE_CHECKLIST.md` owns current feature
 status and next tasks; `docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md` owns the

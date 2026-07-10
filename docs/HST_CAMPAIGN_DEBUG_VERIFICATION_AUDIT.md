@@ -87,6 +87,23 @@ PID was stopped; the crash did not reproduce. The physical HST_Dev and paid-QRF
 proofs still require fresh runtime execution before this audit can treat either
 as engine-proven.
 
+Post-audit current-build server smoke follow-up: a short normal-campaign run
+loaded the stamped schema-48 build, completed setup/player authority, opened the
+command menu, rejected Full Campaign Debug outside `HST_Dev`, populated active
+zones, and folded them back after the player intentionally disconnected. The
+server remained live after the engine wrote `crash.log`; the later disconnect
+and shutdown were intentional and must not be mislabeled as the crash. The log
+still contains a genuine recoverable VM exception during late admin-role
+assignment: the player-role invoker entered editor mode repair, `AddMode()`
+called `UpdateLimited()`, and the synchronous Game Master role grant attempted
+to invoke the same role-change dispatcher recursively. The current tree defers
+only `SCR_EditorManagerCore.OnPlayerRoleChange()` onto the next frame while
+leaving stock mode updates, teardown, and role ownership intact. Foundation validation passes, the Game
+module compiles and creates at 5,740 files/11,473 classes, and a normal
+WorldEditor open produced no new crash signature during the bounded survival
+gate. A fresh dedicated-server connect/admin-role run is still required before
+the recursive-invoker defect is closed by runtime evidence.
+
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue
 rejects manifests without an executable required group root, orders priority/

@@ -96,7 +96,7 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. The schema-48 Game module loads 5,739 files/11,472 classes and creates the game; a separate normal WorldEditor open remained responsive at every two-second sample through 20 seconds and did not reproduce the crash. In-process diagnostics use a development-world-only cloned-state boundary; fresh runtime proof and session-restart cleanliness remain open. |
+| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. The guarded schema-48 Game module loads 5,740 files/11,473 classes and creates the game; a normal WorldEditor open produced no new crash signature during the bounded survival gate. A current-build dedicated smoke remained live until intentional disconnect but recorded a recoverable recursive player-role invoker exception during editor-mode repair. The one-frame editor-listener guard is compile-proven and preserves stock mode updates, teardown, and role ownership; fresh packaged runtime proof remains open. In-process diagnostics use a development-world-only cloned-state boundary; fresh runtime proof and session-restart cleanliness remain open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 48 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts/events, the resource ledger, and accepted-settlement replay tombstones. Paid training, visible garrison confirmation, and player-QRF confirmation/settlement are migrated. Static/Workbench validation is required on the final tree; isolated runtime and save/load certification remain pending. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | Immutable persisted manifests, expiring quotes, exact catalog validation, durable per-projection SpawnQueue authority, the first engine-facing infantry adapter, exact member lifecycle, and bounded accepted-settlement archives are implemented. Schema 48 compacts only terminal backlink-free garrison/QRF rows after 600 seconds, retains compact replay for at least 86,400 seconds, hard-bounds planning history, and production-runs pin-aware queue maintenance. Bounded proofs cover paid-QRF, force-runtime, archive persistence/replay, backlink protection, capacity, and migration but are not runtime-executed. Vehicle/asset/multi-root execution, exact garrison realization, and other paid-support migrations remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; first exact infantry lifecycle landed | Exact paid-QRF infantry now retains operation/manifest links, reconciles slot-specific casualties, retires the last-death root, and reprojects durable survivors after restore. Runtime proof, event-driven death subscription, vehicle/asset lifecycle, virtual/physical transfer, route progress, arrival, recall, and fold-back remain open. |
@@ -222,20 +222,22 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Runtime-prove campaign-debug isolation, the six repaired observations, and a
+1. Runtime-prove the editor role-change reentry guard during packaged late admin
+   assignment with expected editor access and no recursive invoker exception.
+2. Runtime-prove campaign-debug isolation, the six repaired observations, and a
    clean development-session restart before interpreting a new full artifact.
-2. Prove the schema-43 through schema-48 authority chain across exact training,
+3. Prove the schema-43 through schema-48 authority chain across exact training,
    garrison, paid-QRF, SpawnQueue, casualty/reprojection, archive replay, and
    save/restart boundaries.
-3. Reproduce and repair genuine convoy seating/movement, support routing,
+4. Reproduce and repair genuine convoy seating/movement, support routing,
    physical response, arrival, contact, return, and recall failures in scoped
    disposable profiles.
-4. Prove static marker widget readiness and build authoritative host/client/JIP
+5. Prove static marker widget readiness and build authoritative host/client/JIP
    snapshot-and-delta reconciliation for the One Campaign View milestone.
-5. Add the durable operation duty/assignment/engagement/materialization model,
+6. Add the durable operation duty/assignment/engagement/materialization model,
    then extend exact lifecycle authority to vehicles, assets, garrisons, and
    remaining paid support consumers.
-6. Only after the integrity gates are trustworthy, deepen ownership/town
+7. Only after the integrity gates are trustworthy, deepen ownership/town
    politics, civilian behavior, enemy strategy, mission families, progression,
    and balance before dedicated multiplayer/restart/long-soak certification.
 

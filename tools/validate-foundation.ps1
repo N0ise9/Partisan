@@ -2643,6 +2643,30 @@ $scriptText = ($scriptFiles | ForEach-Object { Get-Content -Raw $_.FullName }) -
 $commandMenuComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"
 $commandUiText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
 
+$editorRoleGuardPath = "Scripts/Game/HST/Patches/HST_EditorRoleChangeReentryGuard.c"
+if (!(Test-Path $editorRoleGuardPath)) {
+	throw "Missing editor player-role reentry guard: $editorRoleGuardPath"
+}
+$editorRoleGuardText = Get-Content -Raw $editorRoleGuardPath
+foreach ($requiredEditorRoleGuardEntry in @(
+		"modded class SCR_EditorManagerCore",
+		"override protected void OnPlayerRoleChange(int playerId, EPlayerRole roleFlags)",
+		"m_bHSTApplyDeferredPlayerRoleChange",
+		"GetGame().GetCallqueue().Call(HST_ApplyDeferredPlayerRoleChange, playerId, roleFlags)",
+		"super.OnPlayerRoleChange(playerId, roleFlags)"
+	)) {
+	if ($editorRoleGuardText -notmatch [regex]::Escape($requiredEditorRoleGuardEntry)) {
+		throw "Editor player-role reentry guard is missing: $requiredEditorRoleGuardEntry"
+	}
+}
+if ($editorRoleGuardText -match "GivePlayerRole" -or $editorRoleGuardText -match "ClearPlayerRole") {
+	throw "Editor player-role reentry guard must defer stock role synchronization rather than own player roles"
+}
+if ($editorRoleGuardText -match "modded class SCR_EditorManagerEntity" -or $editorRoleGuardText -match "override protected void UpdateLimited") {
+	throw "Editor player-role reentry guard must not defer every mode update or editor-manager teardown"
+}
+Write-Host "Editor player-role reentry guard OK"
+
 foreach ($requiredNotificationControllerEntry in @(
 		"class HST_NotificationToastController",
 		'NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout"',

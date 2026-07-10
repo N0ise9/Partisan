@@ -68,6 +68,25 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## AI Groups And Game Master
 
+- Editor-mode repair must not change player roles from inside the player-role
+  callback that initiated the repair.
+  - `SCR_BaseGameMode.OnPlayerRoleChange()` invokes its listeners synchronously.
+    The editor listener can repair role-provided modes, whose `AddMode()` calls
+    `SCR_EditorManagerEntity.UpdateLimited()`. The base limited-state update can
+    then grant `EPlayerRole.GAME_MASTER`, re-entering the same `ScriptInvoker`
+    before its first invocation has returned. Enfusion reports this as
+    `ScriptInvoker: Recursive call of Invoke!`.
+  - Defer only the editor subsystem's role-change listener through the game call
+    queue. Its next-frame mode repair can use the stock limited-state update
+    after the original invoker has returned. Do not defer every `UpdateLimited()`
+    call: editor-manager teardown removes modes through that path and must not
+    leave callbacks queued against a deleting entity. Let the stock methods keep
+    ownership of limited-state calculation and role grant/clear behavior.
+  - A recoverable VM exception can still create `crash.log` while the dedicated
+    server continues running, so distinguish the exception timestamp from the
+    later intentional disconnect/shutdown before classifying the whole run.
+  - Current example: `HST_EditorRoleChangeReentryGuard.c`.
+
 - Use stock `SCR_AIGroup` population as the primary proof path for spawned squads.
   - Working AI-heavy mods follow the vanilla pattern: spawn an `SCR_AIGroup` prefab, configure max members when needed, call `SpawnUnits()` if the group does not spawn immediately, and use `GetAgentsCount()`/agent removal events for lifecycle decisions.
   - Direct character spawning plus manual attachment can be a recovery path, but it is not equivalent primary proof unless the attached characters become real `AIAgent` members of the displayed group.

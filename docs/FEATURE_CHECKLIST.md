@@ -50,7 +50,7 @@ isolated runtime run with no unresolved hard failures or required external gaps.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete | Complete for this checkpoint | Repository inventory, foundation validator, latest schema-48 Workbench Game compile/create/script validation, normal project-open survival, and runtime-evidence audit complete | No | Current code and documentation agree on schema 48 and one build-identity source. A native Workbench heap crash was bisected to one oversized force-authority proof and fixed by extracting and splitting it. The latest schema-48 Game-module run loaded 5,739 files/11,472 classes and created the game; a separate normal WorldEditor project open remained responsive at every two-second sample through 20 seconds and did not reproduce the crash. The latest gameplay runtime artifact predates schema 43 exact-force authority, schema 44 queue authority, schema 45 physical adapter, schema 46 paid-QRF cutover, schema 47 force-runtime lifecycle, and schema 48 settlement archives. Debug profiles fail closed outside the development world and use cloned campaign state, but a fresh runtime proof of completion, cancellation, casualty cleanup, archive replay, crash recovery, and restart cleanliness is still required. |
+| CRI-0 Truth and baseline | Complete | Complete for this checkpoint | Repository inventory, foundation validator, latest schema-48 Workbench Game compile/create/script validation, normal project-open survival, and runtime-evidence audit complete | No | Current code and documentation agree on schema 48 and one build-identity source. A native Workbench heap crash was bisected to one oversized force-authority proof and fixed by extracting and splitting it. The current guarded tree loads 5,740 files/11,473 classes and creates the game; a normal WorldEditor project open produced no new crash signature during the bounded survival gate. A later current-build dedicated smoke remained live until intentional disconnect, but recorded a recoverable recursive player-role `ScriptInvoker` exception during editor-mode repair. The source now defers only the editor subsystem's role-change listener by one frame while leaving stock mode updates, teardown, and player-role ownership intact; fresh dedicated connect/admin-role proof remains open. The latest Full Campaign Debug artifact predates schema 43 exact-force authority, schema 44 queue authority, schema 45 physical adapter, schema 46 paid-QRF cutover, schema 47 force-runtime lifecycle, and schema 48 settlement archives. Debug profiles fail closed outside the development world and use cloned campaign state, but a fresh runtime proof of completion, cancellation, casualty cleanup, archive replay, crash recovery, and restart cleanliness is still required. |
 | CRI-1 Authority foundation | Complete | Training, garrison-purchase, and player-QRF vertical slices | Static contract checks and Workbench script validation pass | No | Persisted monotonic IDs, typed command receipts, bounded campaign events, and reserve/commit/cancel/refund resource transactions cover paid training, exact garrison confirmation, and exact player-QRF confirmation/settlement. The bounded paid-QRF proof is implemented but has not supplied fresh runtime evidence. Other paid support types still use legacy contracts. |
 | CRI-2 Force manifests | Complete for foundation | Garrison quote/confirm slice, durable SpawnQueue kernel, first exact infantry adapter, exact player-QRF consumer, first exact force-runtime lifecycle, and bounded accepted-settlement archive | Foundation validator and latest schema-48 Game-module compile/create pass; physical HST_Dev runtime proof pending | No | Schema 48 retains immutable manifest/quote and durable per-projection queue authority, explicit active-group force/projection identity, Game Master verification evidence, exact casualty/survivor state, and bounded accepted planning history. Terminal backlink-free garrison/QRF settlements compact after 600 seconds into at most 256 replay tombstones with an 86,400-second minimum window; full quotes plus tombstones fail closed at 320 rows. Issue, confirmation, and committed-ledger replay consult the archive before mutation. Player QRF still charges $250 plus one HR per authored member and submits the same single-group manifest unchanged to SpawnQueue. The adapter supports only one infantry root plus members. Vehicle, asset, and multi-root execution, executable garrison manifests, event-driven death subscription, lifecycle authority for other consumers, and other paid-support migrations remain open. The bounded proofs are not engine runtime evidence until a fresh isolated HST_Dev run executes them. |
 
@@ -229,23 +229,26 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Prove the new campaign-debug isolation boundary in `HST_Dev`: reject a
+1. Re-run a packaged dedicated-server connect with late admin-role assignment
+   and require zero recursive player-role `ScriptInvoker` exceptions while the
+   player retains the expected admin and Game Master editor access.
+2. Prove the new campaign-debug isolation boundary in `HST_Dev`: reject a
    non-development-world request, exercise completion and cancellation, verify
    the live campaign reference and both persistence channels remain unchanged,
    simulate interrupted-run recovery, then restart the development session.
-2. Run a fresh owner-client map-open proof for the static-marker lifecycle guard.
+3. Run a fresh owner-client map-open proof for the static-marker lifecycle guard.
    Require every active static marker to have a root and widget component on the
    delayed pass, at least one visible root, and zero update-time exceptions.
-3. Runtime-prove the repaired harness observations: boolean `1` versus `true`,
+4. Runtime-prove the repaired harness observations: boolean `1` versus `true`,
    marker teardown timing, pre-tick economy comparison, the intentional 12-site
    registry count, FAIL-over-WARN headline severity, and support observation
    before group fold. Static validation, Game script compilation, and the normal
    20-second WorldEditor project-open gate pass; a fresh isolated debug artifact
    must replace the historical red rows.
-4. Reproduce and resolve the genuine convoy movement/seating, support route, and
+5. Reproduce and resolve the genuine convoy movement/seating, support route, and
    physical response failures with scoped disposable debug profiles before
    interpreting the remaining cascade.
-5. Run the isolated schema-43 planning, schema-44 queue authority, schema-45
+6. Run the isolated schema-43 planning, schema-44 queue authority, schema-45
    adapter, schema-46 paid-QRF, schema-47 force-runtime, and schema-48 archive cases. Pair them with real save/restart replay
    proof that one request
    ID produces one training mutation and one committed debit, one garrison quote
@@ -254,26 +257,26 @@ projections of campaign state and must be restorable, foldable, or disposable.
    queue work reconciles once without duplicate registration. The physical case
    must prove exact group/member registration and cleanup in an actual runtime;
    code presence alone does not satisfy it.
-6. Extend exact paid support beyond the completed infantry-QRF slice only after
+7. Extend exact paid support beyond the completed infantry-QRF slice only after
    vehicle/asset manifests and their settlement policies exist; supply, search,
    roadblock, fire, and air support remain legacy.
-7. Runtime-prove bounded settlement archival: a terminal backlink-free garrison
+8. Runtime-prove bounded settlement archival: a terminal backlink-free garrison
    and paid QRF must compact once, survive restart, replay issue/confirmation/
    committed-ledger identity without mutation, reject conflicts, and retain every
    active projection pin. Drive enough disposable rows to prove both capacity
    admission and post-window eviction behavior.
-8. Runtime-prove schema-47 paid-QRF survivor reprojection and exact-member death:
+9. Runtime-prove schema-47 paid-QRF survivor reprojection and exact-member death:
    native/GM/strategic living counts must agree, each corpse must detach without
    deletion, and the last death must remove the root and marker within five
    seconds. Then replace bounded life-state polling with event subscription and
    generalize the lifecycle to vehicle/assets and every exact force consumer.
-9. Extend stable operation IDs and typed command results through missions,
+10. Extend stable operation IDs and typed command results through missions,
    support, garrisons, enemy orders, and physical projections.
-10. Resume mission, civilian, undercover, and town-influence depth only after the
+11. Resume mission, civilian, undercover, and town-influence depth only after the
    authority and certification foundations can produce trustworthy evidence.
-11. Run repeated packaged multiplayer reconnect/restart soak across active
+12. Run repeated packaged multiplayer reconnect/restart soak across active
    missions, support, orders, garage, undercover, and terminal campaign states.
-12. Tune economy, war level, aggression, support pressure, and mission pacing
+13. Tune economy, war level, aggression, support pressure, and mission pacing
     only after runtime correctness failures are separated from harness defects.
 
 ## Definition Of Done For The Final Campaign Loop

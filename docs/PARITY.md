@@ -117,9 +117,14 @@
 ## Current Verification Boundary
 
 - Foundation validation and schema-48 Workbench Game compilation/creation pass
-  at 5,739 files and 11,472 classes.
-- A separate normal WorldEditor project open survived the bounded 20-second
-  crash gate without a script-error or crash signature.
+  at 5,740 files and 11,473 classes.
+- A normal WorldEditor project open produced no new crash signature during the
+  bounded startup-survival gate.
+- A current-build dedicated smoke remained live until intentional disconnect,
+  but recorded a recoverable recursive player-role invoker exception during
+  editor-mode repair. The one-frame editor-listener guard preserves stock mode
+  updates and role ownership; it still needs a fresh packaged server connect for
+  runtime proof.
 - The latest inspected Full Campaign Debug artifact predates schemas 43-48,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
@@ -130,6 +135,8 @@
 
 ## Current Delivery Priorities
 
+- Prove the editor role-change reentry guard during a packaged late-admin
+  connect while retaining the expected editor access.
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
