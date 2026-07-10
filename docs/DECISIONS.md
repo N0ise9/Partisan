@@ -86,6 +86,7 @@ Consequences:
 
 - Status: Accepted
 - Date: 2026-07-09
+- Settlement-retention consequence superseded by CRI-005 on 2026-07-10.
 
 Context: The quantity chooser previously charged one flat HR after silently
 clamping the requested quantity to remaining capacity. That made the displayed
@@ -112,3 +113,37 @@ Consequences:
   remains an explicit later extension rather than an implied hidden charge.
 - Concurrent open quotes are bounded. Accepted settlement history remains
   durable and un-compacted until a replay-safe archive/tombstone policy exists.
+
+## CRI-005 - Bound Accepted Force-Settlement History Without Losing Replay
+
+- Status: Accepted
+- Date: 2026-07-10
+
+Context: Exact garrison and paid-QRF quotes, manifests, and ledger rows provide
+replay safety, but retaining every settled aggregate in full eventually makes
+planning history unbounded. Deleting those rows without a replacement would
+reopen duplicate issue, confirmation, debit, refund, and conflict handling after
+restart.
+
+Decision: Retain accepted rows in full for at least 600 campaign seconds and
+while any active-group, enemy-order, or force-spawn backlink remains. A paid QRF
+also requires one unique terminal support settlement. Only a provably terminal,
+unambiguous aggregate may compact atomically into a persisted replay tombstone.
+Tombstones retain issue/confirmation/actor/
+operation/manifest/hash/cost/transaction/settlement identity for at least
+86,400 campaign seconds, cap at 256 rows, and share a hard 320-row planning
+history bound with full quotes. Admission fails closed when protected history
+cannot safely make room.
+
+Consequences:
+
+- Issue, confirmation, transaction commit, and conflict replay consult the
+  compact archive before any mutation or debit.
+- Live or ambiguous backlinks preserve full history; compaction never infers a
+  terminal result from missing runtime handles.
+- Production queue compaction must receive explicit pins so terminal queue rows
+  do not permanently block planning or disappear while still referenced.
+- Pre-schema-48 migration retains accepted history in full and creates no
+  invented settlement tombstones.
+- Runtime archive/restart/capacity evidence remains required before this policy
+  is certified beyond static and Workbench validation.

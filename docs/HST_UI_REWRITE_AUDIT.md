@@ -1,8 +1,15 @@
 # h-istasi UI Rewrite Audit
 
-Date: 2026-06-25
+Original audit: 2026-06-25
+
+Current-state synchronization: 2026-07-10
 
 This audit tracks the current UI rewrite state against the layout-driven Enfusion UI goal. Classifications use the requested buckets: Allowed, Needs conversion helper, Should move to layout file, and Should be deleted.
+
+This file owns UI-layout and input-lifecycle findings, not whole-campaign
+certification. Current feature priority comes from `FEATURE_CHECKLIST.md`; the
+latest executed runtime evidence comes from
+`HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md`.
 
 ## Coordinate Policy
 
@@ -112,6 +119,13 @@ Current state:
 ## Remaining Acceptance Gaps
 
 - Runtime-QA still needs in-game proof of root service input blocking across setup, command menu, loadout, mission dialogs, and notifications.
+- The static-marker update guard and delayed owner-client census still need a
+  fresh map-open run proving every active marker has a root/widget component,
+  at least one visible root, and zero update-time null-root exceptions.
+- Campaign marker state/native publication is not yet authoritative client/JIP
+  projection. Snapshot watermark, ordered revision/delete deltas,
+  acknowledgement/gap detection, reconnect resync, and host/client/late-join
+  equality remain open under the One Campaign View milestone.
 - Re-test command menu and loadout editor delayed ready logs for any remaining `negative=` or offscreen panel entries after the slot sign correction.
 - Continue reducing any future mission action/admin areas without reintroducing command/loadout row geometry or bypassing `HST_ActionDialogController` for state-changing commands.
 - Run in-game/Workbench QA at 1920x1080, 2560x1440 with 1920x1080 layout size, and ultrawide.

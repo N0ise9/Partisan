@@ -9,6 +9,12 @@ Status legend:
 - In progress: current active slice.
 - Planned: accepted direction, not implemented yet.
 
+Current-state authority in this document is intentionally narrow: the CRI table,
+Blueprint Milestone Snapshot, Current Implementation Baseline, and Next
+Engineering Milestones are current. The numbered phase sections preserve
+acceptance detail and implementation history; they do not override
+`FEATURE_CHECKLIST.md` or the runtime-evidence audit.
+
 ## Definition Of Done For Every Phase
 
 Every phase should leave the project in a state that can be tested by a human
@@ -94,9 +100,25 @@ that roadmap remains useful for feature history and acceptance detail.
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 48 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts/events, the resource ledger, and accepted-settlement replay tombstones. Paid training, visible garrison confirmation, and player-QRF confirmation/settlement are migrated. Static/Workbench validation is required on the final tree; isolated runtime and save/load certification remain pending. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | Immutable persisted manifests, expiring quotes, exact catalog validation, durable per-projection SpawnQueue authority, the first engine-facing infantry adapter, exact member lifecycle, and bounded accepted-settlement archives are implemented. Schema 48 compacts only terminal backlink-free garrison/QRF rows after 600 seconds, retains compact replay for at least 86,400 seconds, hard-bounds planning history, and production-runs pin-aware queue maintenance. Bounded proofs cover paid-QRF, force-runtime, archive persistence/replay, backlink protection, capacity, and migration but are not runtime-executed. Vehicle/asset/multi-root execution, exact garrison realization, and other paid-support migrations remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; first exact infantry lifecycle landed | Exact paid-QRF infantry now retains operation/manifest links, reconciles slot-specific casualties, retires the last-death root, and reprojects durable survivors after restore. Runtime proof, event-driven death subscription, vehicle/asset lifecycle, virtual/physical transfer, route progress, arrival, recall, and fold-back remain open. |
-| CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Planned; marker readiness guard landed early | UI/markers/JIP consume authoritative events and snapshots; control changes use explicit rules; civilian systems produce durable strategic consequences. Static-marker root guarding and delayed owner-client census are implemented but await fresh runtime proof. |
-| CRI-9 through CRI-11: Enemy commander, missions, and progression | Planned | Higher-level systems issue typed operations and resource transactions instead of bypassing the authority boundary. |
+| CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Broad-alpha foundations implemented; authority/JIP proof pending | UI, marker, ownership, town-influence, civilian, and undercover paths exist. Static-marker root guarding and delayed owner-client census are implemented, but snapshot/delta/JIP authority, canonical ownership side effects, rendered-client proof, and deeper political consequences remain open. |
+| CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; exact cutovers and parity pending | Enemy orders, 39 configured mission definitions with MVP primitives, arsenal/garage/training/undercover/HQ/end-state systems, and typed debug cases exist. Reliable operation duty/return behavior, exact resource/force cutovers, mission-family depth, progression tuning, and dedicated runtime proof remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
+
+### Blueprint Milestone Snapshot
+
+| Player-visible milestone | Current state | Next proof boundary |
+| --- | --- | --- |
+| Exact Forces | Implemented foundation | Execute exact training, garrison, paid-QRF, queue, and settlement replay cases across save/restart. |
+| Clean Forces | First exact infantry-QRF lifecycle implemented | Prove native/GM/strategic living counts, corpse detachment, last-death cleanup, and survivor reprojection. |
+| Living War | Broad-alpha virtual/physical support, response, and convoy paths | Reproduce and fix genuine off-bubble progress, seating, route, arrival, and contact failures. |
+| Reliable Orders | Broad-alpha enemy/support order state exists | Add durable duty/assignment/engagement/return states and prove recall/return without duplicate settlement. |
+| One Campaign View | Menu and marker projections exist; static-root guard implemented | Prove authoritative host/client/late-join snapshots, revisions, deletes, and modal map ownership. |
+| Political Map | Town influence, capture, ownership, security, and heat foundations exist | Canonicalize ownership side effects and deepen political control/mission outputs. |
+| Living Towns | Civilian pedestrians, traffic, population, and enforcement foundations exist | Prove behavior-ready actors, movement watchdogs, budgets, recycle, and strategic consequences. |
+| Enemy Commander | Resource pools, scoring, orders, and physical/abstract outcomes exist | Prove coherent pressure, duty selection, resource settlement, and long-window behavior. |
+| Mission Parity | All 39 configured IDs map to MVP primitives | Replace shortcuts with distinctive family behavior and certify each enabled mission. |
+| Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
+| Campaign Certification | Static and Workbench startup gates pass | Pass isolated dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -146,11 +168,13 @@ treated as future work:
   request cancellation for every nonterminal batch and drain dependency-ordered
   cleanup with a monotonic runtime-only clock that does not advance campaign
   elapsed time. Restoring `READY_FOR_HANDOFF` requeues exact realization, but
-  successful terminal runtime restore/reprojection and durable casualty/living-
-  force/retirement settlement remain open. Paid support is still on its previous
-  production path, and current garrison purchase manifests have no executable
-  group root and remain nondeployable. The physical HST_Dev proof service exists
-  but has not yet been executed in a fresh isolated runtime.
+  schema-47 successful paid-QRF history now requeues one root plus only durable
+  survivors and retains exact casualty/retirement evidence. Player-paid infantry
+  QRF uses this exact production path; supply, search, roadblock, fire, and air
+  support remain legacy. Current garrison purchase manifests have no executable
+  group root and remain nondeployable. Event-driven casualty subscription,
+  vehicle/asset lifecycle, other force consumers, and the physical HST_Dev proof
+  remain runtime-open.
 - `HST_SpawnPlacementService` owns request/result placement for QRF staging, HQ
   attack standoff, convoy endpoints, dry-ground checks, vehicle-safe placement,
   road preference, and HQ standoff.
@@ -198,18 +222,22 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Extend routed response infantry into richer counterattack/HQ-pressure target
-   behavior plus sustained vehicle seating/movement/contact proof.
-2. Finish live undercover equipment/clothing/off-road/security-scan
-   enforcement.
-3. Deepen town influence into the primary political control and mission-output
-   layer.
-4. Add player-facing garrison management, training effects, static defenses,
-   and arsenal-driven AI loadouts.
-5. Replace mission MVP primitives with mission-family runtime modules and
-   mission-specific assets/consequences.
-6. Soak population campaign-end, active missions, support, orders, garage,
-   undercover, and terminal saves across real restart and multiplayer profiles.
+1. Runtime-prove campaign-debug isolation, the six repaired observations, and a
+   clean development-session restart before interpreting a new full artifact.
+2. Prove the schema-43 through schema-48 authority chain across exact training,
+   garrison, paid-QRF, SpawnQueue, casualty/reprojection, archive replay, and
+   save/restart boundaries.
+3. Reproduce and repair genuine convoy seating/movement, support routing,
+   physical response, arrival, contact, return, and recall failures in scoped
+   disposable profiles.
+4. Prove static marker widget readiness and build authoritative host/client/JIP
+   snapshot-and-delta reconciliation for the One Campaign View milestone.
+5. Add the durable operation duty/assignment/engagement/materialization model,
+   then extend exact lifecycle authority to vehicles, assets, garrisons, and
+   remaining paid support consumers.
+6. Only after the integrity gates are trustworthy, deepen ownership/town
+   politics, civilian behavior, enemy strategy, mission families, progression,
+   and balance before dedicated multiplayer/restart/long-soak certification.
 
 ## Game-Mode Target
 
@@ -1896,10 +1924,11 @@ Checkpoint notes:
 
 ## Phase 15 - Garage And Vehicle Persistence
 
-Status: Planned - early scaffold exists through Phase 14 garage/build work.
-Capture, cargo preservation, dry-ground redeploy placement, field-vehicle
-snapshot/restore, and reports exist; full progression rules and source-vehicle
-behavior remain planned.
+Status: In progress - broad-alpha garage/source-vehicle foundation exists.
+Capture, cargo preservation, dry-ground redeploy, field-vehicle snapshot/
+restore, runtime/source metadata, and typed reports/probes exist. Exact
+anti-duplication transactions, repair/rearm/refuel rules, progression limits,
+and restart/multiplayer soak remain open.
 
 Goal: make captured vehicles a reliable campaign progression system.
 
@@ -1926,7 +1955,10 @@ Acceptance criteria:
 
 ## Phase 16 - Recruitment, Training, And Garrisons
 
-Status: Planned
+Status: In progress - recruitment, training, abstract garrisons, exact visible
+garrison quotes, and typed smoke coverage exist. Executable exact garrison
+manifests, arsenal-driven AI loadouts, static defenses, broader typed command
+cutovers, and runtime/restart proof remain open.
 
 Goal: connect HR, money, training, arsenal unlocks, and abstract garrisons.
 
@@ -1952,7 +1984,10 @@ Acceptance criteria:
 
 ## Phase 17 - Zone Capture And Ownership
 
-Status: Planned
+Status: In progress - capture progress, ownership flips, starter garrisons,
+counterattack triggers, markers/reports, and typed smoke coverage exist.
+Canonical all-side-effect ownership transitions, political town control,
+facility/logistics consequences, JIP projection, and soak remain open.
 
 Goal: make the map conquest loop work.
 
@@ -1980,7 +2015,10 @@ Acceptance criteria:
 
 ## Phase 18 - Enemy Commander Physical Responses
 
-Status: Planned
+Status: In progress - resource-limited order selection, proactive/reactive pool
+separation, physical/abstract response, target scoring, and typed smoke coverage
+exist. Durable operation duty/return state, sustained movement/contact, exact
+force cutovers, and long-window behavior remain open.
 
 Goal: turn enemy orders into visible war activity.
 
@@ -2016,7 +2054,10 @@ Acceptance criteria:
 
 ## Phase 19 - Support Requests
 
-Status: Planned
+Status: In progress - queued state, ETA, cooldown, reports, physical/abstract
+resolution, cancellation/recall scaffolding, and typed smoke coverage exist.
+Player-paid infantry QRF is the first exact support consumer; other support
+types remain legacy and still need reliable travel/arrival/return/settlement.
 
 Goal: make FIA and enemy support requests stateful and testable.
 
@@ -2041,7 +2082,10 @@ Acceptance criteria:
 
 ## Phase 20 - Civilians, Town Support, And Undercover Reports
 
-Status: Planned
+Status: In progress - town influence/population ledgers, aid, ownership
+consequences, civilian projection, undercover eligibility, and typed reports/
+smoke coverage exist. Political mission outputs, natural behavior soak, and
+canonical ownership integration remain open.
 
 Goal: make the civilian layer visible and start enforcing undercover rules
 gradually.
@@ -2066,7 +2110,10 @@ Acceptance criteria:
 
 ## Phase 21 - Undercover Enforcement And Police/Roadblocks
 
-Status: Planned
+Status: In progress - undercover apply/clear, wanted and vehicle heat,
+weapon/vehicle compromise, police/roadblock scans, and typed smoke coverage
+exist. Live equipment/clothing/off-road enforcement, behavior-ready security
+actors, multiplayer feedback, and soak remain open.
 
 Goal: move from reports to actual undercover gameplay.
 
@@ -2092,7 +2139,10 @@ Acceptance criteria:
 
 ## Phase 22 - HQ Threat And Defend Petros
 
-Status: Planned
+Status: In progress - HQ knowledge/threat, Petros attack orders, linked support/
+group/mission/objective/task state, campaign consequences, and typed smoke
+coverage exist. Natural contact/arrival, multi-wave defense, recovery policy,
+restart, and multiplayer proof remain open.
 
 Goal: implement the signature enemy punishment loop around HQ knowledge and
 Petros.

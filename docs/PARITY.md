@@ -24,6 +24,15 @@
   Petros-loss penalties, HQ knowledge/threat, and Defend Petros state
 - Versioned campaign save container for current state fields and nested arrays,
   with schema migration and restored-state application helpers
+- Schema-48 campaign authority foundation with persisted monotonic IDs, typed
+  command receipts, resource transactions, exact force quotes/manifests,
+  durable per-projection SpawnQueue state, exact paid-infantry-QRF runtime
+  lifecycle, and bounded accepted-settlement replay tombstones
+- Exact visible garrison recruitment quotes and exact player-paid infantry-QRF
+  quotes. Garrison confirmation mutates purchase-time strategic state; paid QRF
+  submits the same accepted one-group/member manifest unchanged to the engine
+  adapter. Vehicle/asset/multi-root realization and remaining paid supports are
+  not yet migrated.
 - Everon alpha anchors for strategic zones, towns, hideouts, routes, and
   mission sites
 - Physical-war activation scaffold that marks nearby zones active, moves
@@ -105,11 +114,39 @@
   summary, elapsed time, control percent, war level, FIA/enemy zone counts, and
   campaign-end report generation state
 
-## Next Playable Increment
+## Current Verification Boundary
 
-- Phase 25 soak testing across HST_Dev and HST_Everon with repeated campaign
-  loops through setup, missions, support, enemy orders, HQ threat, undercover,
-  garage, persistence, and campaign-end reports
+- Foundation validation and schema-48 Workbench Game compilation/creation pass
+  at 5,739 files and 11,472 classes.
+- A separate normal WorldEditor project open survived the bounded 20-second
+  crash gate without a script-error or crash signature.
+- The latest inspected Full Campaign Debug artifact predates schemas 43-48,
+  contains a destructive save contamination and a large defense-probe cascade,
+  and is not current certification evidence.
+- The in-process runner now fails closed outside `HST_Dev`, clones campaign
+  state, diverts checkpoints, and restores the original reference. Six known
+  false-negative observations are repaired, but neither isolation nor those
+  repaired rows have run in a fresh isolated artifact.
+
+## Current Delivery Priorities
+
+- Prove campaign-debug isolation through completion, cancellation, interrupted
+  recovery, and development-session restart, then replace the historical full
+  artifact with corrected evidence.
+- Runtime-prove the schema-43 through schema-48 authority chain: exact training,
+  garrison, paid-QRF, queue/handoff, exact casualties, survivor reprojection,
+  settlement archive replay, capacity, and save/restart idempotency.
+- Reproduce and repair genuine convoy seating/movement, support routing,
+  physical response, arrival/contact, return, and recall failures with scoped
+  disposable debug profiles.
+- Prove static marker widget readiness and implement authoritative host/client/
+  late-join snapshot, revision, delete, acknowledgement, and resync behavior.
+- Add durable operation assignment/duty/engagement/materialization state before
+  extending exact runtime authority to vehicles, assets, garrisons, and other
+  support consumers.
+
+## Next Playable Expansion
+
 - Restart/migration testing for `HST_CampaignSaveData` under native Reforger
   save/load, including active support/order/Defend Petros and won/lost saves
 - HST_Dev end-to-end smoke and UX polish for the custom loadout editor,
@@ -125,6 +162,8 @@
 - Tune Phase 24 starting training, war-level thresholds, enemy income scaling,
   aggression decay, victory/loss thresholds, and pacing recommendations through
   repeated runs
+- Phase 25 repeated campaign loops and long-soak testing across HST_Dev and
+  HST_Everon begin only after the Runtime Integrity evidence above is reliable
 
 ## Later Alpha Increments
 
@@ -136,6 +175,11 @@
 - Deeper town, factory, resource, radio tower, police, and city-flip behavior
   beyond the current broad-alpha support/enforcement layer
 - Mission-specific world logic and unique content for every registry entry
+- Explicit dispositions and implementations for intelligence/reveal,
+  interrogation/informants, respawn/revive, fast travel, construction/
+  fortifications, radio/intelligence networks, player squads/high command, and
+  medical/logistical recovery; dependent actions and missions stay disabled
+  when a system is intentionally deferred
 - Larger multiplayer and long-duration campaign soak, including 16-player runs
 
 ## Deferred Capabilities

@@ -1599,6 +1599,51 @@ if ($migrationsText -notmatch "(?im)^##\s+Schema\s+$campaignSchemaVersion\b") {
 }
 Write-Host "Campaign save migration note OK: schema $campaignSchemaVersion"
 
+$currentStateDocPaths = @(
+	"README.md",
+	"docs/ARCHITECTURE.md",
+	"docs/FEATURE_CHECKLIST.md",
+	"docs/PARITY.md",
+	"docs/PHASE_PLAN.md"
+)
+foreach ($currentStateDocPath in $currentStateDocPaths) {
+	$currentStateDocText = Get-Content -Raw $currentStateDocPath
+	if ($currentStateDocText -notmatch "(?i)schema[- ]$campaignSchemaVersion\b") {
+		throw "$currentStateDocPath must identify current campaign schema $campaignSchemaVersion"
+	}
+	if ($currentStateDocText -match '(?im)[A-Za-z]:\\|/home/|/Users/|file://') {
+		throw "$currentStateDocPath must not contain local filesystem paths"
+	}
+}
+$featureChecklistText = Get-Content -Raw "docs/FEATURE_CHECKLIST.md"
+$phasePlanText = Get-Content -Raw "docs/PHASE_PLAN.md"
+$parityText = Get-Content -Raw "docs/PARITY.md"
+$currentDocumentationText = $featureChecklistText + "`n" + $phasePlanText + "`n" + $parityText + "`n" + (Get-Content -Raw "README.md")
+foreach ($requiredCurrentDocumentationEntry in @(
+	'## Current Delivery Priorities',
+	'## Highest-Impact Next Tasks',
+	'### Blueprint Milestone Snapshot',
+	'## Current Verification Boundary'
+)) {
+	if ($currentDocumentationText -notmatch [regex]::Escape($requiredCurrentDocumentationEntry)) {
+		throw "Current documentation is missing authority/status anchor: $requiredCurrentDocumentationEntry"
+	}
+}
+foreach ($implementedBroadAlphaPhase in 15..22) {
+	if ($phasePlanText -match "(?s)## Phase $implementedBroadAlphaPhase\b.{0,500}?Status:\s*Planned") {
+		throw "Phase $implementedBroadAlphaPhase is implemented broad-alpha work and must not be documented as Planned"
+	}
+}
+foreach ($staleCurrentClaim in @(
+	'Paid support is still on its previous production path',
+	'Support pricing still depends on planned rather than committed force counts'
+)) {
+	if ($featureChecklistText -match [regex]::Escape($staleCurrentClaim) -or $phasePlanText -match [regex]::Escape($staleCurrentClaim)) {
+		throw "Current documentation retains superseded claim: $staleCurrentClaim"
+	}
+}
+Write-Host "Current documentation schema, authority, and roadmap truth OK"
+
 $runtimeMissions = @([regex]::Matches($defaultCatalog, 'NewMission\("([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 $configMissions = @([regex]::Matches($missionConfig, 'm_sMissionId "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 Assert-EqualSet "Mission registries" $runtimeMissions $configMissions
