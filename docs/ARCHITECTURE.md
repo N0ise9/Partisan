@@ -10,7 +10,10 @@ schema-42 through schema-48 authority services are:
   commands and events, and builds deterministic operation/transaction links.
 - `HST_CampaignCommandService`: validates typed command envelopes and keeps a
   bounded persisted receipt history so replaying the same request ID cannot
-  apply the same mutation twice.
+  apply the same mutation twice. `CompleteExplicit` records an authoritative
+  applied/rejected status supplied by a migrated command result; `Complete`
+  remains a presentation-text compatibility classifier for unmigrated visible
+  commands.
 - `HST_ResourceLedgerService`: records reserve, commit, cancel, and refund
   transitions for resource mutations. Troop training, exact garrison
   confirmation, and exact player-QRF confirmation/settlement consume it.
@@ -110,7 +113,11 @@ The remaining domain services are:
   elimination, and linked ledger settlement policies. ETA is only the earliest
   physical-arrival observation; spawned requests do not become
   `physical_arrived` or complete recall until physical war confirms current
-  living-member distance.
+  living-member distance. Recall mutation returns `HST_SupportRecallResult`
+  with explicit accepted/already-applied/state-changed/terminal flags,
+  disposition, failure, request, and operation identity. Exact paired full
+  refunds validate both linked transactions and their settlement eligibility
+  before either refund begins.
 - `HST_CivilianService`: town reputation/support, wanted heat,
   police/roadblock presence and scans, aid incidents, undercover eligibility,
   request/application, enforcement, compromise, clear-state records, and
@@ -170,12 +177,12 @@ production caller for pin-aware terminal SpawnQueue maintenance.
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
 | Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
-| Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and quote/confirm commands. Full accepted state and schema-48 settlement tombstones prevent later duplicate issue/confirmation/ledger replay from charging again, including after QRF settlement. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
-| Resource integrity | Troop training, visible garrison confirmation, and player-QRF confirmation/terminal settlement use the ledger. Other support consumers still mutate resources through legacy services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
+| Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and quote/confirm commands. Support recall is the first production visible command to map a typed domain result into explicit receipt status and operation identity; its presentation sentence cannot turn an accepted terminal outcome into a rejection. Other visible commands still use the compatibility classifier. Full accepted state and schema-48 settlement tombstones prevent later duplicate issue/confirmation/ledger replay from charging again, including after QRF settlement. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
+| Resource integrity | Troop training, visible garrison confirmation, and player-QRF confirmation/terminal settlement use the ledger. Exact QRF full-refund paths preflight the paired money/HR identities, coherent state, settleability, and deterministic settlement IDs before either mutation; this is a bounded paired preflight, not a general transactional rollback layer. Other support consumers still mutate resources through legacy services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
 | Force exactness | Visible garrison recruitment freezes an exact priced purchase-provenance manifest. Player QRF freezes one executable authored group root plus every ordered member slot, charges flat $250 plus one HR per member, and never recomposes after issue. Garrison activation still does not consume its purchase manifest. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
 | Force realization | SpawnQueue accepts only frozen, hash-valid, all-required executable manifests with a group root. The active-phase coordinator drives an engine adapter once per second; player QRF creates one queue-owned active-group projection and submits its accepted manifest unchanged. All verified slots produce durable nonterminal `READY_FOR_HANDOFF`; physical war finalizes before queue `SUCCEEDED`, and only then does the support request become physical. Schema 47 retires confirmed-dead member slots idempotently, detaches their corpses, removes an ever-populated root at zero living members, and requeues one root plus only durable survivors after restart. Initial failure/cancel performs full linked settlement; failure after a prior handoff retains money and refunds survivors only. Vehicle, asset, and multi-root manifests remain unsupported; garrison manifests remain nondeployable. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | Static validation and Workbench compilation/game creation/script validation cover the compiled authority surface. The guarded tree loads 5,740 files/11,476 classes, and the bounded normal WorldEditor startup check produced no new crash signature. A current-build dedicated smoke exposed a recoverable recursive player-role invoker exception; the one-frame editor-listener guard preserves stock mode updates, teardown, and role ownership but still awaits packaged runtime proof. Bounded paid-QRF, force-runtime, settlement-archive, and physical-adapter proofs are implemented but are not runtime evidence until executed in an isolated development run. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Static validation and Workbench compilation/game creation/script validation cover the compiled authority surface. The guarded tree loads 5,740 files/11,477 classes, and the bounded normal WorldEditor startup check produced no new crash signature. A current-build dedicated smoke exposed a recoverable recursive player-role invoker exception; the one-frame editor-listener guard preserves stock mode updates, teardown, and role ownership but still awaits packaged runtime proof. Bounded paid-QRF typed-recall, force-runtime, settlement-archive, and physical-adapter proofs are implemented but are not runtime evidence until executed in an isolated development run. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit

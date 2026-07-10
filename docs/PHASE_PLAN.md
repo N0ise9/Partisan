@@ -96,8 +96,8 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. The guarded schema-48 Game module loads 5,740 files/11,476 classes and creates the game; a normal WorldEditor open produced no new crash signature during the bounded survival gate. A current-build dedicated smoke remained live until intentional disconnect but recorded a recoverable recursive player-role invoker exception during editor-mode repair. The one-frame editor-listener guard is compile-proven and preserves stock mode updates, teardown, and role ownership; fresh packaged runtime proof remains open. The same smoke mapped 20 unregistered group-member RPCs exactly to 14 pedestrians plus 6 traffic drivers. The dedicated civilian root now inherits the stock behavior/replication base and uses the initial-AI attach path, but fresh zero-RPC and actual-movement proof remains open. In-process diagnostics use a development-world-only cloned-state boundary; fresh runtime proof and session-restart cleanliness remain open. |
-| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 48 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts/events, the resource ledger, and accepted-settlement replay tombstones. Paid training, visible garrison confirmation, and player-QRF confirmation/settlement are migrated. Static/Workbench validation is required on the final tree; isolated runtime and save/load certification remain pending. |
+| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. The guarded schema-48 Game module loads 5,740 files/11,477 classes and creates the game; a normal WorldEditor open produced no new crash signature during the bounded survival gate. A current-build dedicated smoke remained live until intentional disconnect but recorded a recoverable recursive player-role invoker exception during editor-mode repair. The one-frame editor-listener guard is compile-proven and preserves stock mode updates, teardown, and role ownership; fresh packaged runtime proof remains open. The same smoke mapped 20 unregistered group-member RPCs exactly to 14 pedestrians plus 6 traffic drivers. The dedicated civilian root now inherits the stock behavior/replication base and uses the initial-AI attach path, but fresh zero-RPC and actual-movement proof remains open. In-process diagnostics use a development-world-only cloned-state boundary; fresh runtime proof and session-restart cleanliness remain open. |
+| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 48 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts/events, the resource ledger, and accepted-settlement replay tombstones. Paid training, visible garrison confirmation, player-QRF confirmation/settlement, and visible support-recall completion are migrated. Recall is the first visible command whose receipt status comes from a typed domain result; paired exact full refunds preflight both ledger legs. Static/Workbench validation passes on the current tree; isolated runtime and save/load certification remain pending. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | Immutable persisted manifests, expiring quotes, exact catalog validation, durable per-projection SpawnQueue authority, the first engine-facing infantry adapter, exact member lifecycle, and bounded accepted-settlement archives are implemented. Schema 48 compacts only terminal backlink-free garrison/QRF rows after 600 seconds, retains compact replay for at least 86,400 seconds, hard-bounds planning history, and production-runs pin-aware queue maintenance. Bounded proofs cover paid-QRF, force-runtime, archive persistence/replay, backlink protection, capacity, and migration but are not runtime-executed. Vehicle/asset/multi-root execution, exact garrison realization, and other paid-support migrations remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; first exact infantry lifecycle landed | Exact paid-QRF infantry now retains operation/manifest links, reconciles slot-specific casualties, retires the last-death root, and reprojects durable survivors after restore. Convoy binding registers usable vehicles before seating and prefers authority-local forced pilot entry. Spawned support now retains its live member centroid, treats ETA as an earliest check only, requires two distinct-time samples within 75m for normal arrival/recall exit, normalizes exact QRF handoff to `support_active`, and uses transactional direct target/exit waypoint chains with a three-attempt consecutive-stall budget reset by an 8m new-best distance improvement. Pre-repair restored arrival/exit rows receive one current live-distance revalidation. Runtime proof, event-driven death subscription, vehicle/asset lifecycle, virtual/physical transfer, actual movement/arrival/recall, and fold-back remain open. |
 | CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Broad-alpha foundations implemented; authority/JIP proof pending | UI, marker, ownership, town-influence, civilian, and undercover paths exist. Static-marker root guarding and delayed owner-client census are implemented. Civilian ambient roots now carry the stock behavior, pathfinding, utility, editable, and replication stack and use the native initial-AI attach path. Snapshot/delta/JIP authority, canonical ownership side effects, rendered-client proof, zero-RPC civilian projection, actual civilian movement, and deeper political consequences remain open. |
@@ -108,7 +108,7 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Player-visible milestone | Current state | Next proof boundary |
 | --- | --- | --- |
-| Exact Forces | Implemented foundation | Execute exact training, garrison, paid-QRF, queue, and settlement replay cases across save/restart. |
+| Exact Forces | Implemented foundation | Execute exact training, garrison, paid-QRF, queue, typed recall receipt/conflict, and settlement replay cases across save/restart. |
 | Clean Forces | First exact infantry-QRF lifecycle implemented | Prove native/GM/strategic living counts, corpse detachment, last-death cleanup, and survivor reprojection. |
 | Living War | Broad-alpha virtual/physical support, response, and convoy paths; convoy seating order and spawned-support route truth are repaired in source | Prove 3/3 living pilot occupants and retained vehicle registration, then prove actual support movement, two-sample arrival, recall exit, bounded route reissue, contact, and fold-back. |
 | Reliable Orders | Broad-alpha enemy/support order state exists | Add durable duty/assignment/engagement/return states and prove recall/return without duplicate settlement. |
@@ -123,7 +123,9 @@ that roadmap remains useful for feature history and acceptance detail.
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
 confirmation is the second, and exact player QRF is the first paid executable
-support consumer. Other command and cost paths remain on their legacy service
+support consumer. Support recall is the first visible command to map a typed
+domain result into explicit durable receipt status and aggregate identity;
+other visible commands still use the compatibility classifier. Other command and cost paths remain on their legacy service
 contracts until their dependency stage supplies the required exact quote,
 manifest, or operation model. Schema 47 retains the bounded runtime scheduler
 and native adapter for one exact infantry group root plus exact members, feeds it
@@ -234,8 +236,9 @@ treated as future work:
 3. Runtime-prove campaign-debug isolation, the six repaired observations, and a
    clean development-session restart before interpreting a new full artifact.
 4. Prove the schema-43 through schema-48 authority chain across exact training,
-   garrison, paid-QRF, SpawnQueue, casualty/reprojection, archive replay, and
-   save/restart boundaries.
+   garrison, paid-QRF, SpawnQueue, casualty/reprojection, archive replay, typed
+   recall receipt status, paired-settlement rejection, and save/restart
+   boundaries.
 5. Prove 3/3 convoy drivers after the pre-seat vehicle-registration and local-
    authority entry repair. In scoped disposable profiles, also prove actual
    support movement, two consecutive live arrival samples within 75m, physical
@@ -2075,7 +2078,8 @@ Acceptance criteria:
 ## Phase 19 - Support Requests
 
 Status: In progress - queued state, ETA, cooldown, reports, physical/abstract
-resolution, cancellation/recall scaffolding, and typed smoke coverage exist.
+resolution, cancellation/recall scaffolding, a typed recall result/explicit
+visible-command receipt path, and typed smoke coverage exist.
 Player-paid infantry QRF is the first exact support consumer; other support
 types remain legacy. Spawned support now treats ETA as an earliest check and
 requires two live samples from distinct elapsed seconds within 75m for arrival
@@ -2096,6 +2100,9 @@ Implementation:
   current target or recall exit. Service-owned waypoint replacement is
   transactional and stalled chains have a maximum of three consecutive reissues
   until an observed 8m new-best distance improvement resets the stall budget.
+- Recall exposes accepted/already-applied/state-changed/terminal disposition and
+  operation identity. Presentation wording never decides receipt authority;
+  exact full refunds prevalidate both linked ledger legs before either changes.
 
 Acceptance criteria:
 

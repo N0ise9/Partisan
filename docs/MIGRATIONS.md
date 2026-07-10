@@ -32,6 +32,15 @@
   and legacy rows already stuck in unspawned `support_recalling` recover through
   the same once-only HR settlement when no root or adapter handles remain.
 
+- The typed support-recall command repair also requires no save-format bump.
+  `HST_SupportRecallResult` is transient; the existing support request,
+  operation ID, command receipt, and ledger rows already persist the durable
+  facts. New recall receipts derive applied/rejected status from the typed
+  result and schedule persistence explicitly. Existing historical receipts are
+  not reclassified. Exact paired full refunds now prevalidate both linked
+  transaction identities, coherent refund state, settleability, and
+  deterministic settlement IDs before either transaction mutates.
+
 - Schema 47 adds the first durable exact-force runtime lifecycle for the paid
   infantry QRF path. Each successfully handed-off member slot now preserves
   ever-alive, casualty, retirement, timestamp, and revision evidence. The
@@ -376,6 +385,9 @@ authority.
   success refund money and HR once, remove an unhanded active-group projection,
   and let a replacement quote bypass the historical cooldown. Pre-success recall refunds HR only;
   post-success recall settles verified survivors through the HR transaction.
+  The current no-schema-bump typed recall layer checks every settlement result,
+  rejects lost-group or terminal-failure settlement conflicts explicitly, and
+  preflights both legs of a full refund before either leg changes.
 - Setup and terminal campaign frames continue queue cancellation/cleanup and run
   exact-support settlement even though campaign elapsed time is frozen.
 - A restored `SUCCEEDED` QRF without a recoverable live projection is removed

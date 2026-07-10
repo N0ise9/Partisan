@@ -181,6 +181,28 @@ project open remained responsive at every two-second sample through 20 seconds
 with no script-error or new crash signature. This proves compilation and startup
 survival, not physical support movement or arrival/recall runtime success.
 
+Post-audit typed support-recall follow-up: recall mutation now returns an
+explicit accepted/already-applied/state-changed/terminal disposition with
+request and operation identity. Visible `support_recall` maps that result to an
+explicit durable command receipt; report text is presentation only, so an
+accepted terminal outcome can describe a failed deployment without being
+recorded as rejected. Exact paired full refunds prevalidate both money and HR
+identity, refund-state coherence, settleability, and deterministic settlement
+replay before either transaction changes. Lost-group settlement checks its
+result rather than reporting success after a rejected refund. Bounded cases
+`authority.command.explicit_status`,
+`force_authority.paid_qrf_recall_typed_text`,
+`force_authority.paid_qrf_recall_settlement_failure`, and
+`force_authority.paid_qrf_recall_lost_group` cover presentation-independent
+receipt status/replay, identity and eligibility rejection, and valid/conflicting
+lost-group settlement. Foundation validation and headless Workbench Game
+compile/create pass at 5,740 files/11,477 classes with CRC `1e21855a`. A separate
+normal WorldEditor project open created the game and remained responsive at all
+ten two-second samples before the exact test process was stopped, with no new
+script-error or crash signature. These are in-process authority and bounded
+startup proofs, not production RPC, ledger/save restart, or physical recall-exit
+runtime evidence.
+
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue
 rejects manifests without an executable required group root, orders priority/
@@ -223,12 +245,15 @@ request becomes physical only after queue `SUCCEEDED`. Terminal deployment
 failure and pre-success commander cancellation refund both transactions once,
 remove unhanded group state, and permit a replacement quote without erasing the
 historical cooldown; recall uses the
-linked HR settlement policy. Restore reconciliation rolls back interrupted
+linked HR settlement policy. The current typed recall layer supplies explicit
+receipt status/operation identity, checks lost-group settlement results, and
+prevalidates both legs before a full refund. Restore reconciliation rolls back interrupted
 confirmations before the generic reservation sweep. Schema 47 supersedes the
 temporary restored-success full-refund fallback with survivor-only
 reprojection. The bounded
 `force_authority.paid_qrf_*` cases cover issue/confirm, post-admission replay,
-current-schema roundtrip, failure/cancel/pre-success-recall settlement, and pre-schema-46 ledger
+current-schema roundtrip, failure/cancel/pre-success-recall settlement, typed
+receipt replay/conflict handling, lost-group settlement, and pre-schema-46 ledger
 import, but none is runtime evidence until a fresh isolated run records it.
 
 Post-audit schema-47 force-runtime follow-up: successful exact infantry handoff
@@ -589,10 +614,10 @@ Unproven or incomplete against the pasted contract:
 
 | Area | Closed Evidence | Remaining Gap |
 | --- | --- | --- |
-| Typed harness and artifacts | Typed run/case/assertion/metric data, run IDs, JSON/summary/state-diff artifacts, status/cancel/cleanup commands, action/observation typed wrappers. | Generic action/observation rows are still classifier-backed evidence, not feature-specific physical probes. |
+| Typed harness and artifacts | Typed run/case/assertion/metric data, run IDs, JSON/summary/state-diff artifacts, status/cancel/cleanup commands, action/observation typed wrappers, and explicit typed completion/receipt mapping for support recall. | Generic action/observation rows and unmigrated visible commands are still classifier-backed evidence, not feature-specific physical probes. |
 | Phase smoke wrapping | Valid phase-smoke indexes 0-62 now emit typed cases instead of duplicate legacy result rows; phase persistence seed/run/report steps are typed. | Physical depth inside some phases remains partial. |
 | Bootstrap/preflight/HQ | Server/admin/member/commander, phase repair, HQ/Petros/player presence, service/registry/prefab/zone graph checks, HQ runtime and duplicate scans. | Command-menu visual opening remains inferred through service/menu data, not rendered UI. |
-| Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route-state samples, an ETA no-false-arrival assertion, a terminal-resolution assertion conditional on prior live arrival, civilian population/movement samples, controlled wanted-heat decay, and undercover compromise/clear paths. | Real-frame support movement, two-sample arrival/recall exit, unconditional terminal-resolution execution, natural support contact/combat, and broader civilian reaction behavior beyond heat/population are not proven. |
+| Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route-state samples, typed recall receipt and paired-settlement conflict cases, an ETA no-false-arrival assertion, a terminal-resolution assertion conditional on prior live arrival, civilian population/movement samples, controlled wanted-heat decay, and undercover compromise/clear paths. | Production RPC/save-restart recall replay, real-frame support movement, two-sample arrival/recall exit, unconditional terminal-resolution execution, natural support contact/combat, and broader civilian reaction behavior beyond heat/population are not proven. |
 | Physical AI combat | Timed `physical_combat.ai_contact` probe spawns temporary resistance/enemy active groups in the player render bubble, proves native faction hostility, assigns opposing search-and-destroy waypoints, samples live counts/distance through the normal physical-war tick, requires live-count loss during the hostile-contact window, and cleans all temporary groups/waypoints. | This does not yet prove support-arrival combat, primitive area-clearing combat, or multi-wave Petros/counterattack resolution. |
 | Missions and primitives | All-mission start/runtime/cleanup cases, primitive-specific probes for kill/destroy/recover/deliver/rescue/hold/clear, exact reward assertions, mission cleanup checks, and explicit admin-cleanup WARN classification. | Natural player driving/path travel, mission-owned hostile combat/area clearing, and true runtime completion for every mission remain partial. |
 | Garage/loadout | Real garage store/redeploy/capture/cargo restoration plus loadout open/close session checks, valid saved-loadout apply through the real command path, finite arsenal withdrawal, issued-ledger creation, invalid apply no-mutation, non-serialized physical inventory insertion, server-side live-draft slot model reflection/restoration, serialized restore, and restoration of transient debug state. | Direct rendered/editor UI interaction and exact visual equipment-slot inspection for the seeded finite loadout item remain open. |

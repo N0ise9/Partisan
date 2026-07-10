@@ -598,6 +598,25 @@ class HST_CommandUIService
 
 	string ExecuteVisibleCommand(HST_CampaignCoordinatorComponent coordinator, int playerId, string commandId, string argument = "", string requestId = "")
 	{
+		bool hasExplicitCommandStatus;
+		HST_ECampaignCommandStatus explicitCommandStatus;
+		string explicitAggregateId;
+		return ExecuteVisibleCommandDetailed(coordinator, playerId, commandId, argument, requestId, hasExplicitCommandStatus, explicitCommandStatus, explicitAggregateId);
+	}
+
+	string ExecuteVisibleCommandDetailed(
+		HST_CampaignCoordinatorComponent coordinator,
+		int playerId,
+		string commandId,
+		string argument,
+		string requestId,
+		out bool hasExplicitCommandStatus,
+		out HST_ECampaignCommandStatus explicitCommandStatus,
+		out string explicitAggregateId)
+	{
+		hasExplicitCommandStatus = commandId == "support_recall";
+		explicitCommandStatus = HST_ECampaignCommandStatus.HST_COMMAND_REJECTED;
+		explicitAggregateId = "";
 		if (!coordinator || commandId.IsEmpty())
 			return "h-istasi command | invalid request";
 
@@ -891,7 +910,15 @@ class HST_CommandUIService
 			return "h-istasi support recall | chooser is client-side";
 
 		if (commandId == "support_recall")
-			return coordinator.RequestCommanderRecallSupportReport(playerId, argument);
+		{
+			HST_SupportRecallResult recallResult = coordinator.RequestCommanderRecallSupportDetailed(playerId, argument);
+			if (recallResult)
+			{
+				explicitCommandStatus = recallResult.ResolveCommandStatus();
+				explicitAggregateId = recallResult.m_sOperationId;
+			}
+			return coordinator.BuildCommanderRecallSupportReport(recallResult);
+		}
 
 		if (commandId == "civilian_aid")
 			return coordinator.RequestCommanderAidNearestTownReport(playerId);

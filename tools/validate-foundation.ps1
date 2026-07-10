@@ -4746,10 +4746,12 @@ foreach ($requiredAuthorityFoundationEntry in @(
 		"CommitReserved",
 		"ReconcileOpenReservations",
 		"RpcAsk_RequestAction(string selectedTabId, string commandId, string argument, string requestId, int clientPlayerId)",
-		"ExecuteVisibleCommand(this, playerId, commandId, argument, requestId)",
+		"ExecuteVisibleCommandDetailed(this, playerId, commandId, argument, requestId",
+		"CompleteExplicit(m_State, envelope, explicitCommandStatus",
 		"TrainTroopsDetailed(m_State, m_Economy, moneyCost, m_ResourceLedger, requestId",
 		"BuildCampaignDebugAuthorityFoundationCase",
 		"authority.command.duplicate",
+		"authority.command.explicit_status",
 		"authority.ledger.single_charge",
 		"authority.persistence.roundtrip"
 	)) {
@@ -8414,6 +8416,8 @@ Write-Host "Campaign-debug faction catalog preflight proof OK"
 
 $physicalWarServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
 $supportRequestServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_SupportRequestService.c"
+$paidSupportAuthorityProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PaidSupportAuthorityProofService.c"
+$campaignCommandServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CampaignCommandService.c"
 $convoyOutcomeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ConvoyOutcomeService.c"
 foreach ($requiredActiveVehicleDetachEntry in @(
 		"PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS",
@@ -9434,8 +9438,8 @@ $supportExactTickMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprote
 $supportExactRecallTickMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool TickRecalledExactPlayerSupport\(.*?(?=\r?\n\tprotected bool TickRecalledPhysicalGroundSupport\()')
 $supportArrivalConfirmMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool ConfirmPhysicalSupportArrival\(.*?(?=\r?\n\tprotected bool ConfirmPhysicalSupportRecallExit\()')
 $supportRecallConfirmMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool ConfirmPhysicalSupportRecallExit\(.*?(?=\r?\n\tprotected bool ResolveSupport\()')
-$supportNormalRecallMatch = [regex]::Match($supportRequestServiceText, '(?s)\tstring RecallSupportRequestReport\(.*?(?=\r?\n\tbool RecallSupportRequest\()')
-$supportExactRecallMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected string BeginExactPlayerSupportRecall\(.*?(?=\r?\n\tprotected bool ApplyActiveSupport\()')
+$supportNormalRecallMatch = [regex]::Match($supportRequestServiceText, '(?s)\tHST_SupportRecallResult RecallSupportRequestDetailed\(.*?(?=\r?\n\tstring RecallSupportRequestReport\()')
+$supportExactRecallMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected HST_SupportRecallResult BeginExactPlayerSupportRecall\(.*?(?=\r?\n\tprotected HST_SupportRecallResult BuildSupportRecallResult\()')
 foreach ($supportRouteBoundary in @(
 		[pscustomobject]@{ Name = "active-group route update"; Match = $supportRouteUpdateMatch },
 		[pscustomobject]@{ Name = "physical support route update"; Match = $supportPhysicalRouteMatch },
@@ -9461,6 +9465,176 @@ foreach ($supportRouteBoundary in @(
 		throw "Could not isolate $($supportRouteBoundary.Name) for the physical support route contract"
 	}
 }
+
+foreach ($requiredTypedRecallResultEntry in @(
+	"class HST_SupportRecallResult",
+	"bool m_bAccepted;",
+	"bool m_bAlreadyApplied;",
+	"bool m_bStateChanged;",
+	"bool m_bTerminal;",
+	"string m_sDisposition;",
+	"string m_sFailureReason;",
+	"string m_sRequestId;",
+	"string m_sOperationId;",
+	"string m_sDisplayMessage;",
+	"ref HST_SupportRequestState m_Request;",
+	"HST_ECampaignCommandStatus ResolveCommandStatus()",
+	"string BuildSummary()"
+)) {
+	if ($supportRequestServiceText -notmatch [regex]::Escape($requiredTypedRecallResultEntry)) {
+		throw "Typed support-recall result contract is missing: $requiredTypedRecallResultEntry"
+	}
+}
+
+$supportRecallReportAdapterMatch = [regex]::Match($supportRequestServiceText, '(?s)\tstring RecallSupportRequestReport\(.*?(?=\r?\n\tbool RecallSupportRequest\()')
+$supportRecallBoolAdapterMatch = [regex]::Match($supportRequestServiceText, '(?s)\tbool RecallSupportRequest\(.*?(?=\r?\n\tprotected HST_SupportRecallResult BeginExactPlayerSupportRecall\()')
+$coordinatorRecallDetailedMatch = [regex]::Match($coordinatorText, '(?s)\tHST_SupportRecallResult RequestCommanderRecallSupportDetailed\(.*?(?=\r?\n\tstring BuildCommanderRecallSupportReport\()')
+$coordinatorRecallReportMatch = [regex]::Match($coordinatorText, '(?s)\tstring BuildCommanderRecallSupportReport\(.*?(?=\r?\n\tprotected HST_SupportRecallResult BuildRejectedSupportRecallResult\()')
+$coordinatorRecallBoolMatch = [regex]::Match($coordinatorText, '(?s)\tbool RequestCommanderRecallSupport\(.*?(?=\r?\n\tbool RequestCommanderAidNearestTown\()')
+$exactFullRefundMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool SettleExactPlayerSupportFullRefund\(.*?(?=\r?\n\tprotected bool SettleExactPlayerSupportHRRefund\()')
+$visibleCommandExplicitPrefixMatch = [regex]::Match($commandUIServiceText, '(?s)\tstring ExecuteVisibleCommandDetailed\(.*?(?=\r?\n\t\tif \(!coordinator \|\| commandId\.IsEmpty\(\)\))')
+$visibleRecallDispatchMatch = [regex]::Match($commandUIServiceText, '(?s)\t\tif \(commandId == "support_recall"\)\s*\{.*?\r?\n\t\t\}')
+$commandCompleteExplicitMatch = [regex]::Match($campaignCommandServiceText, '(?s)\tHST_CampaignCommandResult CompleteExplicit\(.*?(?=\r?\n\tstring BuildReport\()')
+$visibleCommandCoordinatorMatch = [regex]::Match($coordinatorText, '(?s)\tstring RequestVisibleMenuCommand\(.*?(?=\r?\n\tprotected string ResolveCommandAggregateId\()')
+$exactSettlementEligibilityMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool CanSettleExactSupportTransaction\(.*?(?=\r?\n\tprotected bool RetireExactSupportProjectionRuntime\()')
+foreach ($typedRecallBoundary in @(
+	[pscustomobject]@{ Name = "support recall report adapter"; Match = $supportRecallReportAdapterMatch },
+	[pscustomobject]@{ Name = "support recall bool adapter"; Match = $supportRecallBoolAdapterMatch },
+	[pscustomobject]@{ Name = "coordinator recall typed entry"; Match = $coordinatorRecallDetailedMatch },
+	[pscustomobject]@{ Name = "coordinator recall report adapter"; Match = $coordinatorRecallReportMatch },
+	[pscustomobject]@{ Name = "coordinator recall bool adapter"; Match = $coordinatorRecallBoolMatch },
+	[pscustomobject]@{ Name = "exact full-refund transaction"; Match = $exactFullRefundMatch },
+	[pscustomobject]@{ Name = "visible-command explicit-status prefix"; Match = $visibleCommandExplicitPrefixMatch },
+	[pscustomobject]@{ Name = "visible recall explicit dispatch"; Match = $visibleRecallDispatchMatch },
+	[pscustomobject]@{ Name = "explicit command completion"; Match = $commandCompleteExplicitMatch },
+	[pscustomobject]@{ Name = "visible command coordinator completion"; Match = $visibleCommandCoordinatorMatch },
+	[pscustomobject]@{ Name = "exact transaction settlement eligibility"; Match = $exactSettlementEligibilityMatch }
+)) {
+	if (!$typedRecallBoundary.Match.Success) {
+		throw "Could not isolate $($typedRecallBoundary.Name) for the typed support-recall contract"
+	}
+}
+
+foreach ($typedRecallAuthorityBlock in @(
+	[pscustomobject]@{ Name = "support typed entry"; Text = $supportNormalRecallMatch.Value },
+	[pscustomobject]@{ Name = "support exact typed helper"; Text = $supportExactRecallMatch.Value },
+	[pscustomobject]@{ Name = "support report adapter"; Text = $supportRecallReportAdapterMatch.Value },
+	[pscustomobject]@{ Name = "support bool adapter"; Text = $supportRecallBoolAdapterMatch.Value },
+	[pscustomobject]@{ Name = "coordinator typed entry"; Text = $coordinatorRecallDetailedMatch.Value },
+	[pscustomobject]@{ Name = "coordinator report adapter"; Text = $coordinatorRecallReportMatch.Value },
+	[pscustomobject]@{ Name = "coordinator bool adapter"; Text = $coordinatorRecallBoolMatch.Value },
+	[pscustomobject]@{ Name = "visible recall dispatch"; Text = $visibleRecallDispatchMatch.Value }
+)) {
+	if ($typedRecallAuthorityBlock.Text -match [regex]::Escape('Contains("failed")')) {
+		throw "$($typedRecallAuthorityBlock.Name) must not infer recall authority from presentation wording"
+	}
+}
+
+foreach ($requiredTypedRecallAdapterEntry in @(
+	"RecallSupportRequestDetailed(state, preset, economy, physicalWar, requestId, playerRequestedOnly)",
+	"return result.BuildSummary();",
+	"return result && result.m_bAccepted;"
+)) {
+	if ($supportRecallReportAdapterMatch.Value -notmatch [regex]::Escape($requiredTypedRecallAdapterEntry) -and $supportRecallBoolAdapterMatch.Value -notmatch [regex]::Escape($requiredTypedRecallAdapterEntry)) {
+		throw "Support recall compatibility adapters must delegate to the typed outcome: $requiredTypedRecallAdapterEntry"
+	}
+}
+foreach ($requiredCoordinatorRecallEntry in @(
+	"m_SupportRequests.RecallSupportRequestDetailed",
+	"result.m_bStateChanged",
+	"MarkMajorCampaignChange(true);",
+	"BuildCommanderRecallSupportReport(RequestCommanderRecallSupportDetailed",
+	"return result && result.m_bAccepted;"
+)) {
+	if ($coordinatorText -notmatch [regex]::Escape($requiredCoordinatorRecallEntry)) {
+		throw "Coordinator support recall must checkpoint and classify the typed result explicitly: $requiredCoordinatorRecallEntry"
+	}
+}
+foreach ($requiredVisibleRecallStatusEntry in @(
+	'hasExplicitCommandStatus = commandId == "support_recall";',
+	"explicitCommandStatus = HST_ECampaignCommandStatus.HST_COMMAND_REJECTED;",
+	"explicitCommandStatus = recallResult.ResolveCommandStatus();",
+	"explicitAggregateId = recallResult.m_sOperationId;"
+)) {
+	if ($visibleCommandExplicitPrefixMatch.Value -notmatch [regex]::Escape($requiredVisibleRecallStatusEntry) -and $visibleRecallDispatchMatch.Value -notmatch [regex]::Escape($requiredVisibleRecallStatusEntry)) {
+		throw "Visible support recall must publish explicit command status and operation identity: $requiredVisibleRecallStatusEntry"
+	}
+}
+foreach ($requiredCommandCompletionEntry in @(
+	"receipt.m_eStatus = completionStatus;",
+	"completionStatus != HST_ECampaignCommandStatus.HST_COMMAND_APPLIED"
+)) {
+	if ($commandCompleteExplicitMatch.Value -notmatch [regex]::Escape($requiredCommandCompletionEntry)) {
+		throw "Typed recall command completion contract is missing: $requiredCommandCompletionEntry"
+	}
+}
+foreach ($requiredVisibleCommandCompletionEntry in @(
+	"CompleteExplicit(m_State, envelope, explicitCommandStatus, result, aggregateId)",
+	"completedResult.m_Receipt && m_Persistence && !m_bCampaignDebugStateIsolationActive",
+	"m_Persistence.MarkMajorChange();"
+)) {
+	if ($visibleCommandCoordinatorMatch.Value -notmatch [regex]::Escape($requiredVisibleCommandCompletionEntry)) {
+		throw "Visible command receipts must use explicit status when supplied and schedule durable persistence: $requiredVisibleCommandCompletionEntry"
+	}
+}
+if ($coordinatorText -notmatch [regex]::Escape("authority.command.explicit_status")) {
+	throw "Explicit command-status proof assertion is missing"
+}
+
+if ($supportExactRecallMatch.Value -match '(?m)^\s*SettleExactPlayerSupport(?:DeploymentTerminal|HRRefund)\(') {
+	throw "Exact support recall must inspect every settlement result instead of ignoring a mutation outcome"
+}
+foreach ($requiredLostGroupSettlementEntry in @(
+	"bool lostSettled = SettleExactPlayerSupportHRRefund",
+	"if (!lostSettled)",
+	'"lost_group_settlement_failed"'
+)) {
+	if ($supportExactRecallMatch.Value -notmatch [regex]::Escape($requiredLostGroupSettlementEntry)) {
+		throw "Exact lost-group recall must fail closed on settlement result: $requiredLostGroupSettlementEntry"
+	}
+}
+$fullRefundMoneyValidationIndex = $exactFullRefundMatch.Value.IndexOf("ValidateExactSupportTransactionIdentity(moneyTransaction")
+$fullRefundHRValidationIndex = $exactFullRefundMatch.Value.IndexOf("ValidateExactSupportTransactionIdentity(hrTransaction")
+$fullRefundMoneyEligibilityIndex = $exactFullRefundMatch.Value.IndexOf("CanSettleExactSupportTransaction(moneyTransaction")
+$fullRefundHREligibilityIndex = $exactFullRefundMatch.Value.IndexOf("CanSettleExactSupportTransaction(hrTransaction")
+$fullRefundMutationIndex = $exactFullRefundMatch.Value.IndexOf("SettleExactSupportTransaction(state, request")
+if ($fullRefundMoneyValidationIndex -lt 0 -or $fullRefundHRValidationIndex -lt 0 -or $fullRefundMoneyEligibilityIndex -lt 0 -or $fullRefundHREligibilityIndex -lt 0 -or $fullRefundMutationIndex -lt 0 -or
+	$fullRefundMoneyValidationIndex -gt $fullRefundMutationIndex -or $fullRefundHRValidationIndex -gt $fullRefundMutationIndex -or $fullRefundMoneyEligibilityIndex -gt $fullRefundMutationIndex -or $fullRefundHREligibilityIndex -gt $fullRefundMutationIndex) {
+	throw "Exact full refund must prevalidate money and HR identity/settlement eligibility before mutating either transaction"
+}
+foreach ($requiredSettlementEligibilityEntry in @(
+	"transaction.m_iRefundedAmount < 0",
+	"transaction.m_iRefundedAmount > transaction.m_iAmount",
+	"transaction.m_sLastSettlementId == settlementId",
+	"HST_TRANSACTION_PARTIALLY_REFUNDED",
+	"HST_TRANSACTION_CANCELLED"
+)) {
+	if ($exactSettlementEligibilityMatch.Value -notmatch [regex]::Escape($requiredSettlementEligibilityEntry)) {
+		throw "Exact transaction settlement preflight must reject incoherent or deterministic-replay state: $requiredSettlementEligibilityEntry"
+	}
+}
+foreach ($requiredTypedRecallProofEntry in @(
+	"m_bRecallTypedTextExact",
+	"m_bRecallSettlementFailureExact",
+	"m_bRecallLostGroupExact",
+	'recallResult.m_bAccepted && recallResult.m_bStateChanged && recallResult.m_bTerminal && recallResult.m_sDisplayMessage.Contains("failed")',
+	"commands.CompleteExplicit",
+	"HST_COMMAND_ALREADY_APPLIED",
+	'hr.m_sOperationId = "corrupt_recall_settlement_operation";',
+	"eligibilityHR.m_eStatus = HST_EResourceTransactionStatus.HST_TRANSACTION_CANCELLED;",
+	"money.m_iRefundedAmount == 0 && hr.m_iRefundedAmount == 0",
+	"PrepareLostGroupRecallFixture",
+	'validRecall.m_sDisposition == "recalled_group_lost"',
+	'invalidRecall.m_sDisposition == "lost_group_settlement_failed"',
+	"force_authority.paid_qrf_recall_typed_text",
+	"force_authority.paid_qrf_recall_settlement_failure",
+	"force_authority.paid_qrf_recall_lost_group"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredTypedRecallProofEntry)) {
+		throw "Typed support-recall deterministic proof is missing: $requiredTypedRecallProofEntry"
+	}
+}
+Write-Host "Typed fail-closed support recall and explicit command-result contract OK"
 
 $supportRouteUpdateText = $supportRouteUpdateMatch.Value
 foreach ($requiredPhysicalSupportBranchEntry in @(

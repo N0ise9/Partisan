@@ -109,6 +109,12 @@ The repository contains a broad-alpha campaign foundation:
   the accepted one-group manifest is submitted unchanged to SpawnQueue. Failure
   and pre-success cancellation refund both transactions once; recall settles
   eligible HR through the same ledger.
+- Support recall now returns a typed acceptance, mutation, terminal,
+  disposition, request, and operation result. It is the first production
+  visible command whose durable receipt status comes from that result instead
+  of presentation wording. Exact full-refund settlement prevalidates both
+  linked money and HR transaction identity, state, and deterministic settlement
+  replay before refunding either transaction.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -195,7 +201,9 @@ authority, runtime projection, persistence, and client evidence trustworthy:
 3. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
    replace the historical Full Campaign Debug artifact with corrected evidence.
 4. Runtime-prove exact paid-QRF creation, casualty cleanup, survivor
-   reprojection, settlement archival/replay, and once-only accounting.
+   reprojection, settlement archival/replay, typed terminal-recall completion,
+   rejected settlement conflicts, durable receipt replay, and once-only
+   accounting across save/restart.
 5. Runtime-prove the convoy pre-seat vehicle registration and authority-local
    pilot entry repair with 3/3 seated living drivers, then prove the repaired
    support route-truth boundary through actual movement, two-sample arrival,
@@ -207,7 +215,7 @@ authority, runtime projection, persistence, and client evidence trustworthy:
    balance expansion only after those integrity gates produce reliable evidence.
 
 The repository currently passes foundation validation and schema-48 Workbench
-Game compilation/creation at 5,740 files and 11,476 classes. A normal
+Game compilation/creation at 5,740 files and 11,477 classes. A normal
 WorldEditor project open produced no new crash signature during the bounded
 survival gate. The editor role-change guard still needs a fresh packaged
 dedicated-server connect before it counts as runtime proof. The same inspected

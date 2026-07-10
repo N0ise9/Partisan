@@ -100,6 +100,14 @@ class HST_CampaignCommandService
 
 	HST_CampaignCommandResult Complete(HST_CampaignState state, HST_CampaignCommandEnvelope envelope, string message, string aggregateId = "")
 	{
+		HST_ECampaignCommandStatus completionStatus = HST_ECampaignCommandStatus.HST_COMMAND_APPLIED;
+		if (IsFailureMessage(message))
+			completionStatus = HST_ECampaignCommandStatus.HST_COMMAND_REJECTED;
+		return CompleteExplicit(state, envelope, completionStatus, message, aggregateId);
+	}
+
+	HST_CampaignCommandResult CompleteExplicit(HST_CampaignState state, HST_CampaignCommandEnvelope envelope, HST_ECampaignCommandStatus completionStatus, string message, string aggregateId = "")
+	{
 		HST_CampaignCommandResult result = new HST_CampaignCommandResult();
 		if (!state || !envelope || envelope.m_sRequestId.IsEmpty())
 		{
@@ -111,6 +119,12 @@ class HST_CampaignCommandService
 		HST_CommandReceiptState existing = state.FindCommandReceipt(envelope.m_sRequestId);
 		if (existing)
 			return Begin(state, envelope);
+		if (completionStatus != HST_ECampaignCommandStatus.HST_COMMAND_APPLIED && completionStatus != HST_ECampaignCommandStatus.HST_COMMAND_REJECTED)
+		{
+			result.m_eStatus = HST_ECampaignCommandStatus.HST_COMMAND_REJECTED;
+			result.m_sMessage = "h-istasi command | invalid explicit completion status";
+			return result;
+		}
 
 		HST_CommandReceiptState receipt = new HST_CommandReceiptState();
 		receipt.m_sRequestId = envelope.m_sRequestId;
@@ -121,10 +135,7 @@ class HST_CampaignCommandService
 		receipt.m_sAggregateId = aggregateId;
 		receipt.m_iReceivedAtSecond = envelope.m_iReceivedAtSecond;
 		receipt.m_iCompletedAtSecond = state.m_iElapsedSeconds;
-		if (IsFailureMessage(message))
-			receipt.m_eStatus = HST_ECampaignCommandStatus.HST_COMMAND_REJECTED;
-		else
-			receipt.m_eStatus = HST_ECampaignCommandStatus.HST_COMMAND_APPLIED;
+		receipt.m_eStatus = completionStatus;
 
 		state.m_aCommandReceipts.Insert(receipt);
 		while (state.m_aCommandReceipts.Count() > MAX_RECEIPT_ROWS)

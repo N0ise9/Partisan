@@ -6,6 +6,9 @@ class HST_PaidSupportAuthorityProofReport
 	string m_sFailureRefundEvidence;
 	string m_sCancelRefundEvidence;
 	string m_sRecallRefundEvidence;
+	string m_sRecallTypedTextEvidence;
+	string m_sRecallSettlementFailureEvidence;
+	string m_sRecallLostGroupEvidence;
 	string m_sTerminalRefundEvidence;
 	string m_sMigrationEvidence;
 	bool m_bIssueConfirmExact;
@@ -14,6 +17,9 @@ class HST_PaidSupportAuthorityProofReport
 	bool m_bFailureRefundExact;
 	bool m_bCancelRefundExact;
 	bool m_bRecallRefundExact;
+	bool m_bRecallTypedTextExact;
+	bool m_bRecallSettlementFailureExact;
+	bool m_bRecallLostGroupExact;
 	bool m_bTerminalRefundExact;
 	bool m_bMigrationExact;
 }
@@ -55,6 +61,9 @@ class HST_PaidSupportAuthorityProofService
 		}
 		ProveCancelRefund(report);
 		ProveRecallRefund(report);
+		ProveRecallTypedText(report);
+		ProveRecallSettlementFailure(report);
+		ProveRecallLostGroupSettlement(report);
 		ProveTerminalRefund(report);
 		ProveLegacyMigration(report);
 		return report;
@@ -314,7 +323,7 @@ class HST_PaidSupportAuthorityProofService
 			fixture.m_Request,
 			"1200 20 1200",
 			"1600 20 1600");
-		string recallReport = fixture.m_Support.RecallSupportRequestReport(
+		HST_SupportRecallResult recallResult = fixture.m_Support.RecallSupportRequestDetailed(
 			fixture.m_State,
 			fixture.m_Preset,
 			fixture.m_Economy,
@@ -324,7 +333,9 @@ class HST_PaidSupportAuthorityProofService
 		fixture.m_Support.TickExactPlayerSupportSettlements(fixture.m_State);
 		HST_ResourceTransactionState money = fixture.m_State.FindResourceTransaction(fixture.m_Request.m_sMoneyTransactionId);
 		HST_ResourceTransactionState hr = fixture.m_State.FindResourceTransaction(fixture.m_Request.m_sHRTransactionId);
-		bool exact = fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess && !recallReport.Contains("failed");
+		bool exact = fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess && recallResult && recallResult.m_bAccepted && recallResult.m_bStateChanged;
+		if (exact)
+			exact = recallResult.m_sDisposition == "predeployment_cleanup_pending" && recallResult.m_sOperationId == fixture.m_Request.m_sOperationId;
 		if (exact)
 			exact = fixture.m_Request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && fixture.m_Request.m_sResolutionKind == "recalled_before_deploy";
 		if (exact)
@@ -334,7 +345,260 @@ class HST_PaidSupportAuthorityProofService
 		if (exact)
 			exact = hr && hr.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED && hr.m_iRefundedAmount == hr.m_iAmount && fixture.m_Request.m_sGroupId.IsEmpty();
 		report.m_bRecallRefundExact = exact;
-		report.m_sRecallRefundEvidence = string.Format("enqueue %1 | recall %2 | status %3 | money retained %4 | HR restored %5 | money tx committed %6 | HR tx refunded %7 | group removed %8", fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess, !recallReport.Contains("failed"), fixture.m_Request.m_eStatus, fixture.m_State.m_iFactionMoney, fixture.m_State.m_iHR, money && money.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED, hr && hr.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED, fixture.m_Request.m_sGroupId.IsEmpty());
+		report.m_sRecallRefundEvidence = string.Format("enqueue %1 | recall accepted %2 changed %3 disposition %4 | status %5 | money retained %6 | HR restored %7 | money tx committed %8 | HR tx refunded %9", fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess, recallResult && recallResult.m_bAccepted, recallResult && recallResult.m_bStateChanged, recallResult && recallResult.m_sDisposition, fixture.m_Request.m_eStatus, fixture.m_State.m_iFactionMoney, fixture.m_State.m_iHR, money && money.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED, hr && hr.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED);
+		report.m_sRecallRefundEvidence = report.m_sRecallRefundEvidence + string.Format(" | group removed %1", fixture.m_Request.m_sGroupId.IsEmpty());
+	}
+
+	protected void ProveRecallTypedText(HST_PaidSupportAuthorityProofReport report)
+	{
+		HST_PaidSupportAuthorityProofReport fixtureReport = new HST_PaidSupportAuthorityProofReport();
+		HST_PaidSupportAuthorityProofFixture fixture = BuildAcceptedFixture(fixtureReport);
+		if (!fixture)
+		{
+			report.m_sRecallTypedTextEvidence = "accepted typed-text fixture missing: " + fixtureReport.m_sIssueConfirmEvidence;
+			return;
+		}
+		fixture.m_Enqueue = fixture.m_Support.EnqueueAcceptedExactPlayerSupportProjection(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_Request,
+			"1200 20 1200",
+			"1600 20 1600");
+		HST_ForceSpawnResultState batch;
+		if (fixture.m_Enqueue)
+			batch = fixture.m_Enqueue.m_Batch;
+		if (batch)
+		{
+			batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
+			batch.m_sTerminalReason = "typed recall proof failed before deployment";
+		}
+		HST_SupportRecallResult recallResult = fixture.m_Support.RecallSupportRequestDetailed(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_Economy,
+			null,
+			fixture.m_Request.m_sRequestId,
+			true);
+		HST_ResourceTransactionState money = fixture.m_State.FindResourceTransaction(fixture.m_Request.m_sMoneyTransactionId);
+		HST_ResourceTransactionState hr = fixture.m_State.FindResourceTransaction(fixture.m_Request.m_sHRTransactionId);
+		HST_CampaignEventLogService commandEvents = new HST_CampaignEventLogService();
+		HST_CampaignCommandService commands = new HST_CampaignCommandService();
+		commands.SetEventLogService(commandEvents);
+		HST_CampaignCommandEnvelope envelope = commands.BuildEnvelope(fixture.m_State, "paid_support_proof_typed_recall_command", "paid_support_proof_actor", "forces", "support_recall", fixture.m_Request.m_sRequestId);
+		HST_CampaignCommandResult commandBegin = commands.Begin(fixture.m_State, envelope);
+		HST_CampaignCommandResult commandComplete;
+		if (recallResult)
+			commandComplete = commands.CompleteExplicit(fixture.m_State, envelope, recallResult.ResolveCommandStatus(), recallResult.BuildSummary(), recallResult.m_sOperationId);
+		int moneyRefundBeforeReplay;
+		int hrRefundBeforeReplay;
+		if (money)
+			moneyRefundBeforeReplay = money.m_iRefundedAmount;
+		if (hr)
+			hrRefundBeforeReplay = hr.m_iRefundedAmount;
+		HST_CampaignCommandResult commandReplay = commands.Begin(fixture.m_State, envelope);
+		HST_CommandReceiptState recallReceipt = fixture.m_State.FindCommandReceipt(envelope.m_sRequestId);
+		bool exact = fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess && batch && recallResult;
+		if (exact)
+			exact = recallResult.m_bAccepted && recallResult.m_bStateChanged && recallResult.m_bTerminal && recallResult.m_sDisplayMessage.Contains("failed");
+		if (exact)
+			exact = recallResult.m_sFailureReason.IsEmpty() && recallResult.m_sDisposition == "deployment_failed_settled" && recallResult.m_sOperationId == fixture.m_Request.m_sOperationId && recallResult.m_Request == fixture.m_Request;
+		if (exact)
+			exact = fixture.m_Request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && fixture.m_Request.m_sResolutionKind == "exact_deployment_failed_refunded";
+		if (exact)
+			exact = fixture.m_State.m_iFactionMoney == fixture.m_iInitialMoney && fixture.m_State.m_iHR == fixture.m_iInitialHR;
+		if (exact)
+			exact = money && hr && money.m_iRefundedAmount == money.m_iAmount && hr.m_iRefundedAmount == hr.m_iAmount && fixture.m_Request.m_sGroupId.IsEmpty();
+		if (exact)
+			exact = commandBegin && commandBegin.m_bShouldExecute && commandComplete && commandComplete.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_APPLIED && recallReceipt && recallReceipt.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_APPLIED && recallReceipt.m_sAggregateId == recallResult.m_sOperationId;
+		if (exact)
+			exact = commandReplay && !commandReplay.m_bShouldExecute && commandReplay.m_eStatus == HST_ECampaignCommandStatus.HST_COMMAND_ALREADY_APPLIED && money.m_iRefundedAmount == moneyRefundBeforeReplay && hr.m_iRefundedAmount == hrRefundBeforeReplay;
+		report.m_bRecallTypedTextExact = exact;
+		report.m_sRecallTypedTextEvidence = string.Format("accepted %1 | changed %2 | terminal %3 | disposition %4 | display contains failed %5 | status %6 | money refund %7/%8 | HR refund %9", recallResult && recallResult.m_bAccepted, recallResult && recallResult.m_bStateChanged, recallResult && recallResult.m_bTerminal, recallResult && recallResult.m_sDisposition, recallResult && recallResult.m_sDisplayMessage.Contains("failed"), fixture.m_Request.m_eStatus, money && money.m_iRefundedAmount, fixture.m_Request.m_iMoneyCost, hr && hr.m_iRefundedAmount);
+		report.m_sRecallTypedTextEvidence = report.m_sRecallTypedTextEvidence + string.Format("/%1", fixture.m_Request.m_iHRCost);
+		report.m_sRecallTypedTextEvidence = report.m_sRecallTypedTextEvidence + string.Format(" | receipt %1 aggregate %2 | replay %3", recallReceipt && recallReceipt.m_eStatus, recallReceipt && recallReceipt.m_sAggregateId, commandReplay && commandReplay.m_eStatus);
+	}
+
+	protected void ProveRecallSettlementFailure(HST_PaidSupportAuthorityProofReport report)
+	{
+		HST_PaidSupportAuthorityProofReport fixtureReport = new HST_PaidSupportAuthorityProofReport();
+		HST_PaidSupportAuthorityProofFixture fixture = BuildAcceptedFixture(fixtureReport);
+		if (!fixture)
+		{
+			report.m_sRecallSettlementFailureEvidence = "accepted settlement-failure fixture missing: " + fixtureReport.m_sIssueConfirmEvidence;
+			return;
+		}
+		fixture.m_Enqueue = fixture.m_Support.EnqueueAcceptedExactPlayerSupportProjection(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_Request,
+			"1200 20 1200",
+			"1600 20 1600");
+		HST_ForceSpawnResultState batch;
+		if (fixture.m_Enqueue)
+			batch = fixture.m_Enqueue.m_Batch;
+		if (batch)
+		{
+			batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
+			batch.m_sTerminalReason = "typed settlement failure proof";
+		}
+		HST_ResourceTransactionState money = fixture.m_State.FindResourceTransaction(fixture.m_Request.m_sMoneyTransactionId);
+		HST_ResourceTransactionState hr = fixture.m_State.FindResourceTransaction(fixture.m_Request.m_sHRTransactionId);
+		if (hr)
+			hr.m_sOperationId = "corrupt_recall_settlement_operation";
+		int moneyBefore = fixture.m_State.m_iFactionMoney;
+		int hrBefore = fixture.m_State.m_iHR;
+		HST_SupportRecallResult recallResult = fixture.m_Support.RecallSupportRequestDetailed(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_Economy,
+			null,
+			fixture.m_Request.m_sRequestId,
+			true);
+		bool exact = fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess && batch && money && hr && recallResult;
+		if (exact)
+			exact = !recallResult.m_bAccepted && !recallResult.m_bStateChanged && !recallResult.m_sFailureReason.IsEmpty() && recallResult.m_sDisposition == "deployment_failure_settlement_failed";
+		if (exact)
+			exact = money.m_iRefundedAmount == 0 && hr.m_iRefundedAmount == 0 && money.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED && hr.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
+		if (exact)
+			exact = fixture.m_State.m_iFactionMoney == moneyBefore && fixture.m_State.m_iHR == hrBefore;
+		if (exact)
+			exact = fixture.m_Request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && fixture.m_Request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED && fixture.m_Request.m_sResolutionKind.IsEmpty() && fixture.m_Request.m_iRefundedHR == 0 && !fixture.m_Request.m_sGroupId.IsEmpty();
+
+		HST_PaidSupportAuthorityProofReport eligibilityFixtureReport = new HST_PaidSupportAuthorityProofReport();
+		HST_PaidSupportAuthorityProofFixture eligibilityFixture = BuildAcceptedFixture(eligibilityFixtureReport);
+		HST_ForceSpawnResultState eligibilityBatch;
+		HST_ResourceTransactionState eligibilityMoney;
+		HST_ResourceTransactionState eligibilityHR;
+		HST_SupportRecallResult eligibilityRecall;
+		int eligibilityMoneyBefore;
+		int eligibilityHRBefore;
+		if (eligibilityFixture)
+		{
+			eligibilityFixture.m_Enqueue = eligibilityFixture.m_Support.EnqueueAcceptedExactPlayerSupportProjection(
+				eligibilityFixture.m_State,
+				eligibilityFixture.m_Preset,
+				eligibilityFixture.m_Request,
+				"1200 20 1200",
+				"1600 20 1600");
+			if (eligibilityFixture.m_Enqueue)
+				eligibilityBatch = eligibilityFixture.m_Enqueue.m_Batch;
+			if (eligibilityBatch)
+			{
+				eligibilityBatch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
+				eligibilityBatch.m_sTerminalReason = "typed settlement eligibility proof";
+			}
+			eligibilityMoney = eligibilityFixture.m_State.FindResourceTransaction(eligibilityFixture.m_Request.m_sMoneyTransactionId);
+			eligibilityHR = eligibilityFixture.m_State.FindResourceTransaction(eligibilityFixture.m_Request.m_sHRTransactionId);
+			if (eligibilityHR)
+				eligibilityHR.m_eStatus = HST_EResourceTransactionStatus.HST_TRANSACTION_CANCELLED;
+			eligibilityMoneyBefore = eligibilityFixture.m_State.m_iFactionMoney;
+			eligibilityHRBefore = eligibilityFixture.m_State.m_iHR;
+			eligibilityRecall = eligibilityFixture.m_Support.RecallSupportRequestDetailed(
+				eligibilityFixture.m_State,
+				eligibilityFixture.m_Preset,
+				eligibilityFixture.m_Economy,
+				null,
+				eligibilityFixture.m_Request.m_sRequestId,
+				true);
+		}
+		bool eligibilityExact = eligibilityFixture && eligibilityFixture.m_Enqueue && eligibilityFixture.m_Enqueue.m_bSuccess && eligibilityBatch && eligibilityMoney && eligibilityHR && eligibilityRecall;
+		if (eligibilityExact)
+			eligibilityExact = !eligibilityRecall.m_bAccepted && !eligibilityRecall.m_bStateChanged && eligibilityRecall.m_sDisposition == "deployment_failure_settlement_failed";
+		if (eligibilityExact)
+			eligibilityExact = eligibilityMoney.m_iRefundedAmount == 0 && eligibilityHR.m_iRefundedAmount == 0 && eligibilityFixture.m_State.m_iFactionMoney == eligibilityMoneyBefore && eligibilityFixture.m_State.m_iHR == eligibilityHRBefore;
+		if (eligibilityExact)
+			eligibilityExact = eligibilityFixture.m_Request.m_sResolutionKind.IsEmpty() && !eligibilityFixture.m_Request.m_sGroupId.IsEmpty();
+		exact = exact && eligibilityExact;
+		report.m_bRecallSettlementFailureExact = exact;
+		report.m_sRecallSettlementFailureEvidence = string.Format("accepted %1 | changed %2 | disposition %3 | failure %4 | money refund %5 | HR refund %6 | balances %7/%8 | status %9", recallResult && recallResult.m_bAccepted, recallResult && recallResult.m_bStateChanged, recallResult && recallResult.m_sDisposition, recallResult && recallResult.m_sFailureReason, money && money.m_iRefundedAmount, hr && hr.m_iRefundedAmount, fixture.m_State.m_iFactionMoney, fixture.m_State.m_iHR, fixture.m_Request.m_eStatus);
+		report.m_sRecallSettlementFailureEvidence = report.m_sRecallSettlementFailureEvidence + string.Format(" | group linked %1", !fixture.m_Request.m_sGroupId.IsEmpty());
+		report.m_sRecallSettlementFailureEvidence = report.m_sRecallSettlementFailureEvidence + string.Format(" | eligibility rejected %1 | refunds %2/%3 | balances %4/%5", eligibilityRecall && !eligibilityRecall.m_bAccepted, eligibilityMoney && eligibilityMoney.m_iRefundedAmount, eligibilityHR && eligibilityHR.m_iRefundedAmount, eligibilityFixture && eligibilityFixture.m_State.m_iFactionMoney, eligibilityFixture && eligibilityFixture.m_State.m_iHR);
+	}
+
+	protected void ProveRecallLostGroupSettlement(HST_PaidSupportAuthorityProofReport report)
+	{
+		HST_PaidSupportAuthorityProofReport validFixtureReport = new HST_PaidSupportAuthorityProofReport();
+		HST_PaidSupportAuthorityProofFixture validFixture = BuildAcceptedFixture(validFixtureReport);
+		HST_PaidSupportAuthorityProofReport invalidFixtureReport = new HST_PaidSupportAuthorityProofReport();
+		HST_PaidSupportAuthorityProofFixture invalidFixture = BuildAcceptedFixture(invalidFixtureReport);
+		if (!validFixture || !invalidFixture)
+		{
+			report.m_sRecallLostGroupEvidence = "accepted lost-group fixture missing";
+			return;
+		}
+
+		HST_ActiveGroupState validGroup = PrepareLostGroupRecallFixture(validFixture);
+		HST_ResourceTransactionState validMoney = validFixture.m_State.FindResourceTransaction(validFixture.m_Request.m_sMoneyTransactionId);
+		HST_ResourceTransactionState validHR = validFixture.m_State.FindResourceTransaction(validFixture.m_Request.m_sHRTransactionId);
+		HST_SupportRecallResult validRecall = validFixture.m_Support.RecallSupportRequestDetailed(
+			validFixture.m_State,
+			validFixture.m_Preset,
+			validFixture.m_Economy,
+			null,
+			validFixture.m_Request.m_sRequestId,
+			true);
+
+		HST_ActiveGroupState invalidGroup = PrepareLostGroupRecallFixture(invalidFixture);
+		HST_ResourceTransactionState invalidMoney = invalidFixture.m_State.FindResourceTransaction(invalidFixture.m_Request.m_sMoneyTransactionId);
+		HST_ResourceTransactionState invalidHR = invalidFixture.m_State.FindResourceTransaction(invalidFixture.m_Request.m_sHRTransactionId);
+		if (invalidHR)
+			invalidHR.m_sOperationId = "corrupt_lost_group_recall_operation";
+		int invalidMoneyBefore = invalidFixture.m_State.m_iFactionMoney;
+		int invalidHRBefore = invalidFixture.m_State.m_iHR;
+		HST_SupportRecallResult invalidRecall = invalidFixture.m_Support.RecallSupportRequestDetailed(
+			invalidFixture.m_State,
+			invalidFixture.m_Preset,
+			invalidFixture.m_Economy,
+			null,
+			invalidFixture.m_Request.m_sRequestId,
+			true);
+
+		bool validExact = validGroup && validMoney && validHR && validRecall && validRecall.m_bAccepted && validRecall.m_bStateChanged && validRecall.m_bTerminal;
+		if (validExact)
+			validExact = validRecall.m_sDisposition == "recalled_group_lost" && validRecall.m_sDisplayMessage.Contains("spawn_failed") && validFixture.m_Request.m_sResolutionKind == "recalled_group_lost";
+		if (validExact)
+			validExact = validMoney.m_iRefundedAmount == 0 && validMoney.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED && validHR.m_iRefundedAmount > 0 && validFixture.m_Request.m_sGroupId.IsEmpty();
+
+		bool invalidExact = invalidGroup && invalidMoney && invalidHR && invalidRecall && !invalidRecall.m_bAccepted && !invalidRecall.m_bStateChanged;
+		if (invalidExact)
+			invalidExact = invalidRecall.m_sDisposition == "lost_group_settlement_failed" && !invalidRecall.m_sFailureReason.IsEmpty() && invalidMoney.m_iRefundedAmount == 0 && invalidHR.m_iRefundedAmount == 0;
+		if (invalidExact)
+			invalidExact = invalidFixture.m_State.m_iFactionMoney == invalidMoneyBefore && invalidFixture.m_State.m_iHR == invalidHRBefore && invalidFixture.m_Request.m_sResolutionKind.IsEmpty() && !invalidFixture.m_Request.m_sGroupId.IsEmpty();
+
+		report.m_bRecallLostGroupExact = validExact && invalidExact;
+		report.m_sRecallLostGroupEvidence = string.Format("valid accepted %1 changed %2 terminal %3 disposition %4 | money refund %5 | HR refund %6 | invalid accepted %7 changed %8 disposition %9", validRecall && validRecall.m_bAccepted, validRecall && validRecall.m_bStateChanged, validRecall && validRecall.m_bTerminal, validRecall && validRecall.m_sDisposition, validMoney && validMoney.m_iRefundedAmount, validHR && validHR.m_iRefundedAmount, invalidRecall && invalidRecall.m_bAccepted, invalidRecall && invalidRecall.m_bStateChanged, invalidRecall && invalidRecall.m_sDisposition);
+		report.m_sRecallLostGroupEvidence = report.m_sRecallLostGroupEvidence + string.Format(" | invalid money/HR refunds %1/%2 | group linked %3", invalidMoney && invalidMoney.m_iRefundedAmount, invalidHR && invalidHR.m_iRefundedAmount, !invalidFixture.m_Request.m_sGroupId.IsEmpty());
+	}
+
+	protected HST_ActiveGroupState PrepareLostGroupRecallFixture(HST_PaidSupportAuthorityProofFixture fixture)
+	{
+		if (!fixture)
+			return null;
+		fixture.m_Enqueue = fixture.m_Support.EnqueueAcceptedExactPlayerSupportProjection(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_Request,
+			"1200 20 1200",
+			"1600 20 1600");
+		HST_ForceSpawnResultState batch;
+		if (fixture.m_Enqueue)
+			batch = fixture.m_Enqueue.m_Batch;
+		if (!batch)
+			return null;
+		batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED;
+		batch.m_iSuccessfulHandoffCount = 1;
+		foreach (HST_ForceSpawnSlotResultState slotResult : batch.m_aSlotResults)
+		{
+			if (!slotResult || slotResult.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_MEMBER)
+				continue;
+			slotResult.m_bEverAlive = true;
+			slotResult.m_bAliveVerified = true;
+			slotResult.m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED;
+		}
+		HST_ActiveGroupState group = fixture.m_State.FindActiveGroup(fixture.m_Request.m_sGroupId);
+		if (group)
+			group.m_sRuntimeStatus = "spawn_failed";
+		return group;
 	}
 
 	protected void ProveTerminalRefund(HST_PaidSupportAuthorityProofReport report)

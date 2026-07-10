@@ -220,6 +220,7 @@ class HST_CampaignDebugSupportRecallProbeContext
 	bool m_bRequestCreated;
 	bool m_bGroupCreated;
 	bool m_bRecallCommandAccepted;
+	bool m_bRecallCommandStateChanged;
 	bool m_bRecallRequestedAfterRecall;
 	bool m_bRouteTickChanged;
 	bool m_bExitTickChanged;
@@ -227,6 +228,9 @@ class HST_CampaignDebugSupportRecallProbeContext
 	HST_ESupportRequestStatus m_eStatusAfterRecall = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
 	HST_ESupportRequestStatus m_eStatusAfterExit = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
 	string m_sRuntimeStatusAfterRecall;
+	string m_sRecallDisposition;
+	string m_sRecallFailureReason;
+	string m_sRecallOperationId;
 	string m_sRuntimeStatusAfterExit;
 	string m_sGroupStatusBeforeRecall;
 	string m_sGroupStatusAfterRecall;

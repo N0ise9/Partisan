@@ -141,6 +141,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Owner-bridge command RPCs need caller-generated request identity.
   - Carry the same request ID from the player-owned request component through the server RPC and coordinator dispatch. Persist a bounded command receipt for each ID so an exact replay returns the prior result without mutation, while reuse with a different command or payload is rejected as a conflict.
   - Treat the receipt as campaign state, not transient UI state; save/load must preserve idempotency across reconnects and restarts.
+  - Once a command has a typed domain result, derive `APPLIED`/`REJECTED` and
+    aggregate identity from that result. Never search user-facing prose for a
+    word such as `failed`; an accepted terminal outcome can legitimately
+    describe the deployment failure it settled. Keep the text classifier only
+    as an explicit compatibility path for commands not yet migrated, and mark a
+    newly inserted receipt as a persistence change even when the domain result
+    itself was unchanged or rejected.
 
 - Paid campaign mutations need a transaction ledger, not inline balance edits.
   - Use explicit reserve, commit, cancel, and refund transitions. Restore reconciliation must cancel/refund any open reservation before normal service ticks resume. Campaign events and command receipts are bounded; schema 48 also bounds accepted garrison/QRF quote, manifest, and linked transaction history.
@@ -1428,6 +1435,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - When a debug suite intentionally tests several support types in one run, clear/cancel the previous player support request before each support-type probe. Then assert the newly created `HST_SupportRequestState` fields (`m_eType`, `m_sFactionKey`, target zone/position, ETA, money cost, queued/active status) instead of relying on the command text.
   - Player-requested QRF/search support should spend HR equal to the planned FIA infantry count. The request state owns `m_iHRCost` and `m_iPlannedInfantryCount`; debug probes should assert the HR delta, money delta, planned count, and composition-derived count before physical routing.
   - Support recall is a command path, not just cleanup. Mark `m_bRecallRequested`, set a recall exit position, route the linked active group through `support_recalling`, and refund HR only after the group reaches `support_recall_exited`, a spawned group passes current live-distance confirmation, and the support tick resolves `recalled_refund_hr`. Refunds are capped by original HR cost and surviving infantry.
+  - Return recall authority through `HST_SupportRecallResult`: accepted,
+    already-applied, state-changed, terminal, disposition, failure, request, and
+    operation identity are independent of `BuildSummary()`. Delay the recall
+    flag until routing, cancellation, or settlement is actually accepted. A
+    successful physical route must also stamp the request `recall_routing`;
+    route failure remains a typed rejection, while a scoped already-ordered
+    player request is an idempotent accepted/no-change result.
   - Support cancellation probes should capture the cancellation status/resolution before cleanup, then run player-support cleanup and assert no queued/active player support or cooldown remains. A cancelled row can remain as history, but it must not poison later support requests in the same debug run.
   - For QRF/search player support certification, push the debug-created request to the inbound physicalization window and tick `HST_SupportRequestService` instead of calling abstract completion directly. Assert remaining ETA decreases, runtime status advances, `m_bPhysicalized` flips, `m_sGroupId` is populated, and the linked active group has a support runtime status. Then sample `HST_PhysicalWarService.UpdateRoutedActiveGroupsNow()` across repeated campaign-clock route-state windows and report sample count, movement count, distance-closure count, max movement, max distance closed, and last-observed/stall history. A synchronous campaign-clock jump can prove only that ETA does not create false arrival; actual arrival remains WARN/non-certifying until two distinct-time live samples are observed within 75m during real elapsed time. The existing terminal-injection assertion is conditional on prior live arrival and remains WARN when that prerequisite is absent; only then can it prove `physical_group_terminal` resolution through the real support tick. Keep natural support contact/combat as a separate gap until sampled without forcing the terminal state. Remove/cancel the debug support group/request before the post-case leak probe.
   - Snapshot the linked support marker immediately after the support command and marker rebuild, before the controlled runtime probe advances the request to resolved. Resolved support requests are intentionally omitted by `AddSupportRequestMarkers()`, so sampling marker state only after terminal resolution creates a false WARN even when the marker was published at request time.
@@ -1755,6 +1769,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   cooldown gating without rewriting its accepted quote history. A failed-final batch
   takes precedence over a simultaneously requested recall; otherwise recall
   could under-refund a deployment that had already failed.
+- A two-resource full refund needs paired preflight before its first mutation.
+  Validate both transaction identities, refund bounds/status coherence,
+  settleability, and the deterministic settlement-ID replay guard. Otherwise
+  money can refund before an invalid or replay-blocked HR leg is discovered.
+  This is a bounded paired-settlement rule, not a general rollback mechanism.
+  Every exact recall terminal/lost-group branch must inspect settlement success
+  separately from diagnostic state change.
 - Pre-success recall is distinct from cancellation: it refunds eligible HR, not
   the committed support money. Post-success recall retires the exact runtime
   projection before settling verified survivor HR. The coordinator must pass the
@@ -1856,6 +1877,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
     the game. A separate normal WorldEditor open remained responsive at every
     two-second sample through 20 seconds and did not reproduce the earlier crash.
     This is compile/startup evidence, not archive replay or restart evidence.
+  - The typed support-recall follow-up keeps schema 48, loads 5,740 files/11,477
+    classes with CRC `1e21855a`, and creates the game under headless Workbench validation. Its
+    deterministic proofs cover explicit receipt status, paired preflight
+    rejection, and lost-group settlement; they are not packaged RPC,
+    save/restart, or physical recall-exit evidence. A separate normal
+    WorldEditor open remained responsive through ten two-second samples with no
+    new script-error or crash signature.
 
 ## Campaign Debug Observation Timing
 

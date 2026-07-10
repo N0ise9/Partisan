@@ -28,6 +28,11 @@
   command receipts, resource transactions, exact force quotes/manifests,
   durable per-projection SpawnQueue state, exact paid-infantry-QRF runtime
   lifecycle, and bounded accepted-settlement replay tombstones
+- Typed support-recall completion across service, coordinator, visible-command
+  dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
+  be reclassified by presentation text; exact paired full refunds prevalidate
+  both ledger legs before either changes. Other visible commands still retain
+  the compatibility text classifier.
 - Exact visible garrison recruitment quotes and exact player-paid infantry-QRF
   quotes. Garrison confirmation mutates purchase-time strategic state; paid QRF
   submits the same accepted one-group/member manifest unchanged to the engine
@@ -124,7 +129,7 @@
 ## Current Verification Boundary
 
 - Foundation validation and schema-48 Workbench Game compilation/creation pass
-  at 5,740 files and 11,476 classes.
+  at 5,740 files and 11,477 classes.
 - A normal WorldEditor project open produced no new crash signature during the
   bounded startup-survival gate.
 - A current-build dedicated smoke remained live until intentional disconnect,
@@ -170,7 +175,8 @@
   artifact with corrected evidence.
 - Runtime-prove the schema-43 through schema-48 authority chain: exact training,
   garrison, paid-QRF, queue/handoff, exact casualties, survivor reprojection,
-  settlement archive replay, capacity, and save/restart idempotency.
+  settlement archive replay, typed recall receipt status, rejected paired-
+  settlement conflicts, capacity, and save/restart idempotency.
 - Runtime-prove 3/3 convoy drivers after the pre-seat registration and local-
   authority entry repair. Then use scoped disposable profiles to prove actual
   support movement, two-sample arrival within 75m, physical recall exit, and
