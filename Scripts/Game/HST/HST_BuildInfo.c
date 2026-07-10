@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "456c73524200b45ce933cca783900813be510dbf";
-	static const string BUILD_UTC = "2026-07-10T17:01:02Z";
-	static const string BUILD_LABEL = "schema48-physical-support-route-truth";
+	static const string BUILD_SHA = "f375a8a4961e1dc0574ef93c6fae564659197f58";
+	static const string BUILD_UTC = "2026-07-10T17:41:30Z";
+	static const string BUILD_LABEL = "schema48-typed-support-recall-authority";
 
 	static string BuildSummary()
 	{

@@ -1878,7 +1878,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     two-second sample through 20 seconds and did not reproduce the earlier crash.
     This is compile/startup evidence, not archive replay or restart evidence.
   - The typed support-recall follow-up keeps schema 48, loads 5,740 files/11,477
-    classes with CRC `1e21855a`, and creates the game under headless Workbench validation. Its
+    classes with CRC `34f7b92b`, and creates the game under headless Workbench validation. Its
     deterministic proofs cover explicit receipt status, paired preflight
     rejection, and lost-group settlement; they are not packaged RPC,
     save/restart, or physical recall-exit evidence. A separate normal

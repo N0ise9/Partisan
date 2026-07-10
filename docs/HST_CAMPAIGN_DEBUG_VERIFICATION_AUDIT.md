@@ -196,7 +196,7 @@ result rather than reporting success after a rejected refund. Bounded cases
 `force_authority.paid_qrf_recall_lost_group` cover presentation-independent
 receipt status/replay, identity and eligibility rejection, and valid/conflicting
 lost-group settlement. Foundation validation and headless Workbench Game
-compile/create pass at 5,740 files/11,477 classes with CRC `1e21855a`. A separate
+compile/create pass at 5,740 files/11,477 classes with CRC `34f7b92b`. A separate
 normal WorldEditor project open created the game and remained responsive at all
 ten two-second samples before the exact test process was stopped, with no new
 script-error or crash signature. These are in-process authority and bounded
