@@ -31,7 +31,8 @@ be read as proof that a later change was executed or certified.
   headline can preserve an earlier WARN while hiding a later FAIL; and support
   movement/formation evidence can be sampled after the group has already folded.
 - The inspected gameplay artifact predates campaign schema 43 exact-force
-  authority, schema 44 SpawnQueue authority, and the schema 45 engine adapter.
+  authority, schema 44 SpawnQueue authority, the schema 45 engine adapter, and
+  the schema 46 exact player-QRF cutover.
   The schema-45 authority baseline passed foundation checks and a headless
   Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
   an HR reservation-conflict rollback, and five partial confirmation save/
@@ -62,11 +63,13 @@ runtime evidence until a fresh map-open run proves the guard and census.
 
 Post-audit compiler follow-up: the native Workbench heap crash was isolated to
 one oversized force-authority proof, which was extracted into bounded service
-methods. The latest combined schema-45 Game-module compile created the game and
-completed script validation successfully. A correctly launched normal project
-open also remained responsive through the bounded survival check without
-reproducing the crash. The physical HST_Dev proof still requires its own fresh
-runtime execution before the audit can treat the adapter as engine-proven.
+methods. The latest schema-46 Game-module run loaded 5,736 files/11,460 classes,
+created the game, and completed script validation successfully. A separately
+launched normal WorldEditor project open created the game and remained
+responsive at every two-second check through 20 seconds before the verified test
+PID was stopped; the crash did not reproduce. The physical HST_Dev and paid-QRF
+proofs still require fresh runtime execution before this audit can treat either
+as engine-proven.
 
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue
@@ -87,7 +90,7 @@ native-group, projection, and applicable seat evidence. The production
   interrupted handoff. During setup or after a won/lost outcome, the coordinator
   cancels every nonterminal batch and drains cleanup using a monotonic runtime-only
   clock without advancing campaign elapsed time. Vehicle/asset/multi-root
-  execution, paid support migration, successful terminal runtime restore/
+  execution, other paid-support migrations, successful terminal runtime restore/
   reprojection, and a durable casualty/living-force/retirement ledger remain open.
   Current purchase-only garrison manifests are nondeployable, and accepted quote/
   manifest/ledger history remains unbounded. Terminal queue evidence is historical,
@@ -95,12 +98,33 @@ native-group, projection, and applicable seat evidence. The production
   physical HST_Dev proof is implemented but has not been runtime-executed; compile,
   script-validation, and project-open evidence do not substitute for that run.
 
+Post-audit schema-46 paid-QRF follow-up: selecting `support_qrf` with a map
+target now issues a server quote without debit. The quote freezes one authored
+infantry group execution root plus every ordered member slot, a flat $250 money
+cost, one HR per member, 120-second ETA, and 600-second cooldown. A separate
+Forces action confirms only the quote ID; server revalidation reserves money and
+HR, registers one linked support request, commits both transactions, and marks
+the quote accepted last. At inbound staging the request creates one stable
+queue-owned active-group projection and submits the accepted manifest without
+calling the broad composition service or prefab-name manpower estimation. The
+request becomes physical only after queue `SUCCEEDED`. Terminal deployment
+failure and pre-success commander cancellation refund both transactions once,
+remove unhanded group state, and permit a replacement quote without erasing the
+historical cooldown; recall uses the
+linked HR settlement policy. Restore reconciliation rolls back interrupted
+confirmations before the generic reservation sweep. A restored successful QRF
+without a provable live runtime root currently fails closed with one full refund
+rather than inventing reprojection. The bounded
+`force_authority.paid_qrf_*` cases cover issue/confirm, post-admission replay,
+current-schema roundtrip, failure/cancel/pre-success-recall settlement, and pre-schema-46 ledger
+import, but none is runtime evidence until a fresh isolated run records it.
+
 Certification is blocked until the debug-isolation boundary and marker guard are
 runtime-proven, the cascading mission is contained, known assertion defects are
 corrected, and the genuine physical failures are rerun through scoped disposable
 profiles.
 
-Latest support simulated-physicalization follow-up: search/QRF/roadblock-style ground support now creates the durable support request and linked active-group state even when the target is outside the player event bubble, but runtime group/vehicle spawning is deferred until the simulated group position enters the bubble. Off-bubble support groups can advance through the active-group route simulation without being marked spawn-failed, folded, or resolved, and player-requested resistance support group markers can follow the simulated group state before entities exist. Full Campaign Debug adds `support.simulated_physicalization`, proving an off-bubble search support keeps active campaign state and marker coverage with no runtime entity, then physicalizes after the simulated group is moved inside the player event bubble. A fresh run should show `h-istasi-live-runtime-proof-support-simulated-physicalization`.
+Latest support simulated-physicalization follow-up: legacy search/roadblock and debug-only QRF lifecycle paths create durable support request and linked active-group state even when the target is outside the player event bubble, but runtime group/vehicle spawning is deferred until the simulated group position enters the bubble. Off-bubble legacy support groups can advance through active-group route simulation without being marked spawn-failed, folded, or resolved, and resistance support markers can follow simulated group state before entities exist. Full Campaign Debug adds `support.simulated_physicalization`, proving an off-bubble search support keeps active campaign state and marker coverage with no runtime entity, then physicalizes after the simulated group is moved inside the player event bubble. This is not evidence for the schema-46 exact paid-QRF queue path. A fresh run should show `h-istasi-live-runtime-proof-support-simulated-physicalization`.
 
 Latest marker/QRF/civilian server-test follow-up: AI factions no longer emit town QRF/roadblock support from mere active-zone pressure; reactive QRF/support/roadblock/counterattack orders now require both recent threat evidence and positive faction aggression, then pass a deterministic chance roll before spending support. Captures, mission success, mission failure, and mission expiry now record short-lived support threat signals when they raise faction aggression, while low garrison strength can still trigger rebuild-garrison decisions. The Everon map restores the second Regina tower as `Western Heights Radio Tower`, adds the two airport-side radio towers, and removes fuel-station zones/markers from campaign coverage. Marker taxonomy now matches the requested user-facing set: towns `OBJECTIVE_MARKER2`, military installations `FORTIFICATION`, radio towers native `radio-signal`, roadblocks `JOIN3`, live resistance support groups `DOT`, gun-shop seller/delivery `MARK_QUESTION`/`MARK_EXCLAMATION`, destroy `DESTROY2`, rescue `HELP`, and Defend Petros temporarily changes the HQ marker to `DEFEND`. Mission marker hover text is trimmed to mission name plus remaining time, with convoy staging/destination markers showing staged seconds until departure and then expiry minutes. Active groups now run a wider member-handle repair pass and non-police zone garrisons can receive patrol-cycle waypoints so visible AI groups are less likely to remain Size 0 or stand idle. Civilian defaults use randomized CIV archetypes, and schema 21 removes the old loot alias keys so generated settings only expose `lootSkipUnlockedItems` / `vehicleLootSkipUnlockedItems`. Local foundation validation passes with these contracts.
 

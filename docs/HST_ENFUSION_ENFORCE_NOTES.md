@@ -1687,6 +1687,66 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - After adding a follow waypoint, apply `AIGroupMovementComponent.SetFormationDisplacement(1)` so the follower stays close to the target instead of regrouping at a loose formation offset.
   - A direct `AIBaseMovementComponent.RequestFollowPathOfEntity()` or entity-follow waypoint can accept without producing movement. Track owner progress while the target is outside the close-follow distance; after repeated no-progress ticks, skip direct follow for that update and force a refreshed static waypoint at the responsive follow position. Keep the entity-follow waypoint as the preferred path when it is making progress.
 
+## Schema 46 Exact Paid-QRF Authority
+
+- A paid support request needs two durable phases: quote and confirmation.
+  `support_qrf` with a map target issues an immutable server quote without
+  debiting resources; the confirmation command sends only the quote ID. The
+  server revalidates actor, phase, source/target, cooldown, war level, catalog,
+  and resources before reserving and committing money/HR.
+- The first executable support slice is intentionally one infantry group root
+  plus every explicit ordered slot from `HST_ForceCatalogService`. Freeze the
+  execution prefab and member prefabs in the manifest. Do not call
+  `HST_ForceCompositionService.Compose()` or infer manpower from prefab names
+  after quote issue.
+- Keep canonical quote/request positions immutable. Queue staging belongs on the
+  linked active-group projection and deployment evidence. Overwriting the
+  support request's quoted source with a resolved spawn position breaks accepted
+  confirmation replay after queue admission because the aggregate no longer
+  matches the accepted quote.
+- Accepted confirmation is the idempotency anchor. Mark the quote accepted only
+  after both resource transactions commit and exactly one support request is
+  verified. Replay validation must accept committed, partially refunded, and
+  refunded transactions so later failure/recall settlement cannot turn a valid
+  accepted replay into an authority conflict.
+- Terminal placement/admission/spawn failure and commander cancellation before
+  success refund the linked money and HR transactions once, remove an unhanded
+  queue-owned active-group row, and let a fully refunded terminal request bypass
+  cooldown gating without rewriting its accepted quote history. A failed-final batch
+  takes precedence over a simultaneously requested recall; otherwise recall
+  could under-refund a deployment that had already failed.
+- Pre-success recall is distinct from cancellation: it refunds eligible HR, not
+  the committed support money. Post-success recall retires the exact runtime
+  projection before settling verified survivor HR. The coordinator must pass the
+  force-spawn adapter into the normal support tick or retirement can remain
+  permanently pending.
+- Setup and won/lost frames do not run the normal support lifecycle, so they must
+  explicitly inspect exact-support terminal queue state after queue cleanup.
+  Settlement is transaction-idempotent and can run while persisted campaign time
+  is frozen.
+- A durable `SUCCEEDED` queue row is historical evidence, not a live entity
+  handle. Until successful reprojection exists, restoring an accepted paid QRF
+  with no provable local root/adapter binding must fail closed, remove the stale
+  projection, and fully refund once. Do not claim this temporary policy as
+  successful restore support.
+- Legacy player-QRF rows with positive stored cost prove a historical charge but
+  not an exact roster. Schema migration may create committed/partially refunded
+  transaction history without changing balances; it must not invent a quote,
+  manifest, new debit, or refund. Conflicting transaction identity stays
+  preserved with one bounded warning.
+- Campaign-debug QRF lifecycle probes that still need broad-alpha behavior must
+  use an explicitly named debug-only legacy wrapper and state that they are not
+  exact-authority proof. Production resistance QRF requests fail closed unless
+  they enter through an accepted server quote.
+- Headless Workbench validation needs all addon roots explicitly discoverable.
+  Use `-addonsDir` with the base-game, Workbench, and user addon directories in
+  addition to the quoted `-gproj` argument; otherwise the project may appear to
+  fail because its base-game dependency cannot be found before scripts compile.
+- The schema-46 Game module loaded 5,736 files/11,460 classes, created the game,
+  and completed script validation. A separate normal WorldEditor open stayed
+  responsive through 20 seconds and did not reproduce the earlier Workbench
+  crash. These are compile/startup checks, not physical paid-QRF runtime proof.
+
 ## Native Reference Sources
 
 - Native map config reference: `Configs/Map/MapFullscreen.conf`.

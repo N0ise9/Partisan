@@ -4,7 +4,7 @@
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through schema-45 authority services are:
+schema-42 through schema-46 authority services are:
 
 - `HST_StableIdService`: allocates persisted, monotonic IDs for generated
   commands and events, and builds deterministic operation/transaction links.
@@ -12,15 +12,16 @@ schema-42 through schema-45 authority services are:
   bounded persisted receipt history so replaying the same request ID cannot
   apply the same mutation twice.
 - `HST_ResourceLedgerService`: records reserve, commit, cancel, and refund
-  transitions for resource mutations. Troop training is the first production
-  command routed through this ledger.
+  transitions for resource mutations. Troop training, exact garrison
+  confirmation, and exact player-QRF confirmation/settlement consume it.
 - `HST_CampaignEventLogService`: appends bounded persisted campaign events for
   authority decisions and resource transitions.
 - `HST_ForceCatalogService`: owns the versioned exact group templates and
   validates their ordered execution-prefab slots.
 - `HST_ForcePlanningService` and `HST_ForcePlanningIntegrityService`: issue and
-  reconcile immutable force manifests/quotes and own deterministic hashing and
-  validation shared by queue admission.
+  reconcile immutable garrison/player-QRF manifests and quotes, own
+  deterministic hashing/catalog validation shared by queue admission, and keep
+  accepted confirmation replay idempotent across later settlement.
 - `HST_ForceSpawnQueueService`: owns schema-44 durable per-projection spawn
   batches, bounded priority/FIFO work acquisition, verified callbacks,
   retry/deadline/cancellation cleanup, pin-aware terminal retention, reporting,
@@ -93,8 +94,9 @@ The remaining domain services are:
 - `HST_MissionRuntimeService`: physical MVP mission primitives, world-condition
   objective polling, runtime inspection, and cleanup state.
 - `HST_SupportRequestService`: stateful FIA/enemy support calls,
-  ETA/status/cooldown reports, native-safe ground support activation, and
-  physical or abstract resolution records.
+  ETA/status/cooldown reports, native-safe ground support activation, physical
+  or abstract resolution records, and the schema-46 exact paid-QRF bridge from
+  accepted manifest to queue-owned projection and linked ledger settlement.
 - `HST_CivilianService`: town reputation/support, wanted heat,
   police/roadblock presence and scans, aid incidents, undercover eligibility,
   request/application, enforcement, compromise, and clear-state records.
@@ -134,25 +136,27 @@ Schema 43 extends the first campaign-authority foundation with exact force
 planning. Schema 44 adds durable bounded SpawnQueue authority for executable
 manifest projections. Schema 45 adds explicit force/projection identity on
 active groups, durable Game Master registration evidence, dependency-ordered
-cleanup, and the first engine-facing exact infantry adapter. None of these
+cleanup, and the first engine-facing exact infantry adapter. Schema 46 makes
+player-paid resistance QRF the first support consumer of the complete quote →
+ledger → executable manifest → SpawnQueue → settlement path. None of these
 schemas is a claim that every existing broad-alpha mutation uses the boundary.
 
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
 | Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
-| Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and garrison quote/confirm commands, while accepted quote state prevents a later duplicate confirmation from charging again. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
-| Resource integrity | Troop training and visible garrison confirmation reserve and commit through the ledger; legacy consumers still mutate resources through existing services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
-| Force exactness | Visible garrison recruitment freezes an exact priced manifest and all-or-nothing quote, then verifies the exact purchase-time aggregate increment. This is acceptance provenance, not a durable living roster: physical activation still uses the broad-alpha composition path. A versioned core group catalog validates ordered execution-prefab slots without spawning. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
-| Force realization | SpawnQueue accepts only frozen, hash-valid, all-required executable manifests with a group root. Each request/result/projection identity is unique and active groups persist matching force/projection IDs. The active-phase coordinator drives an engine adapter once per second; its first slice realizes one exact infantry group root and all exact members, requires Game Master and native-group evidence, cleans dependencies before roots, and holds legacy duplicate paths. All verified slots produce durable nonterminal `READY_FOR_HANDOFF`; physical war must finalize the exact projection before `CompleteProjectionHandoff` records `SUCCEEDED`. Setup and won/lost phases cancel nonterminal work and drain cleanup on a monotonic runtime clock without advancing campaign time. Vehicle, asset, and multi-root manifests are unsupported. Current purchase-only garrison manifests have no executable group root and are nondeployable. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
+| Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and quote/confirm commands. Accepted garrison and player-QRF quote state prevents later duplicate confirmation from charging again, including after QRF queue admission or refund. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
+| Resource integrity | Troop training, visible garrison confirmation, and player-QRF confirmation/terminal settlement use the ledger. Other support consumers still mutate resources through legacy services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
+| Force exactness | Visible garrison recruitment freezes an exact priced purchase-provenance manifest. Player QRF freezes one executable authored group root plus every ordered member slot, charges flat $250 plus one HR per member, and never recomposes after issue. Garrison activation still does not consume its purchase manifest. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
+| Force realization | SpawnQueue accepts only frozen, hash-valid, all-required executable manifests with a group root. The active-phase coordinator drives an engine adapter once per second; player QRF now creates one queue-owned active-group projection and submits its accepted manifest unchanged. All verified slots produce durable nonterminal `READY_FOR_HANDOFF`; physical war finalizes before queue `SUCCEEDED`, and only then does the support request become physical. Failure/cancel performs linked settlement, while setup/won/lost frames keep cleanup and settlement moving on a runtime clock. Vehicle, asset, and multi-root manifests remain unsupported; garrison manifests remain nondeployable. Restored QRF success without a proven runtime root temporarily fails closed and refunds rather than reprojecting. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | Static validation, the latest schema-45 Game-module compilation/game creation/script validation, and a normal project-open survival check cover the authority foundation, garrison purchase slice, queue kernel, and compiled adapter surface without reproducing the Workbench crash. The implemented physical HST_Dev adapter proof is not runtime evidence until executed. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Static validation, the latest schema-46 Game-module compilation/game creation/script validation, and a 20-second normal WorldEditor project-open survival check cover the compiled authority surface without reproducing the Workbench crash. Bounded paid-QRF and physical adapter proofs are implemented but are not runtime evidence until executed in an isolated development run. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit
 backlink pins, a 600-second minimum retention window, and a 128-row admission
 bound. Accepted quotes, manifests, ledger rows, and acceptance-provenance IDs do
 not yet have archive/tombstone compaction. That remains an explicit CRI-2
-long-campaign gap; schema 45 must not be described as having fully bounded
+long-campaign gap; schema 46 must not be described as having fully bounded
 force-authority history.
 
 Until those target columns are closed, domain services remain authoritative for
@@ -189,7 +193,9 @@ Schema-44 queue admission consumes the frozen execution-prefab slots directly;
 manifest identity binds the input but never substitutes for a projection or
 idempotency key. Schema 45 keeps the group root and member entities as runtime
 projections while persisting their force/projection links and registration
-evidence. The current adapter deliberately rejects vehicle, asset, and multi-root
+evidence. Schema 46 selects one authored player-QRF group, freezes all ordered
+slots, and submits that exact manifest without invoking the broad composition
+service. The current adapter deliberately rejects vehicle, asset, and multi-root
 manifests instead of shortening them or falling back to broad composition.
 
 ## Persistence
@@ -202,11 +208,12 @@ service also writes `$profile:h-istasi/HST_CampaignSaveData.json` as a profile
 fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. The
 state model is versioned from day one. `HST_CampaignSaveData` is the deep-copy
-save container for current campaign fields and nested runtime arrays. Schema 45
+save container for current campaign fields and nested runtime arrays. Schema 46
 persists the monotonic authority sequence, bounded command receipts, resource
 transactions, campaign events, stable operation/garrison links, immutable force
 manifests, expiring quotes, durable per-projection spawn batches/slot evidence,
 Game Master registration evidence, explicit active-group force/projection IDs,
+support quote/capability/schedule fields, linked exact-QRF aggregate identities,
 and the queue restore/reconciliation epochs alongside campaign
 metadata, resources, campaign-end
 reason/summary/elapsed second/control/war/zone-count fields, outcome-mode,
@@ -221,8 +228,10 @@ Loadout editor sessions remain runtime/editor state, while durable saved
 loadouts and issued-item ledgers are copied into the save container. Save compatibility
 still needs broader Workbench restart/load soak testing before it is promised
 to players. An actual persisted restore increments its epoch once, then the
-coordinator reconciles the queue before garrison confirmation and open-resource
-reservations. Nonterminal rows clear process-local entity evidence and resume or
+coordinator reconciles the queue before garrison/player-QRF confirmation and
+open-resource reservations. Accepted successful QRFs without a recoverable
+runtime projection use the documented temporary full-refund policy. Nonterminal
+rows clear process-local entity evidence and resume or
 settle from durable state. `READY_FOR_HANDOFF` is nonterminal: restore clears its
 transient entity/group evidence, advances generation, and requeues every exact
 slot for realization because an interrupted physical handoff is not success.
@@ -238,9 +247,10 @@ without advancing campaign elapsed time. Successful terminal runtime restore/
 reprojection is not implemented: durable `SUCCEEDED` remains historical evidence
 and cannot reacquire a living entity by ID. The adapter can retire its exact live
 bindings, but a durable casualty/living-force/retirement ledger that reconciles
-those outcomes into ForceRuntime authority is still open. Paid support has not
-migrated to this path, and current garrison purchase manifests remain
-nondeployable.
+those outcomes into ForceRuntime authority is still open. Paid support is only
+partially migrated to this path: player QRF is exact, while supply, search,
+roadblock, fire, and air support remain legacy. Current garrison purchase
+manifests remain nondeployable.
 
 ## World Layout
 

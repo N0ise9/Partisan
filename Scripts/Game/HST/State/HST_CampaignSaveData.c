@@ -1645,6 +1645,9 @@ class HST_CampaignSaveData
 		target.m_sConfirmationRequestId = source.m_sConfirmationRequestId;
 		target.m_sActorIdentityId = source.m_sActorIdentityId;
 		target.m_sQuoteKind = source.m_sQuoteKind;
+		target.m_sSupportRequestId = source.m_sSupportRequestId;
+		target.m_sCapabilityId = source.m_sCapabilityId;
+		target.m_sAssetProfileId = source.m_sAssetProfileId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sSourceZoneId = source.m_sSourceZoneId;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
@@ -1658,6 +1661,7 @@ class HST_CampaignSaveData
 		target.m_sRejectionReason = source.m_sRejectionReason;
 		target.m_vSourcePosition = source.m_vSourcePosition;
 		target.m_vTargetPosition = source.m_vTargetPosition;
+		target.m_eSupportType = source.m_eSupportType;
 		target.m_eStatus = source.m_eStatus;
 		target.m_iRequestedMemberCount = source.m_iRequestedMemberCount;
 		target.m_iAcceptedMemberCount = source.m_iAcceptedMemberCount;
@@ -1672,6 +1676,9 @@ class HST_CampaignSaveData
 		target.m_iExpiresAtSecond = source.m_iExpiresAtSecond;
 		target.m_iAcceptedAtSecond = source.m_iAcceptedAtSecond;
 		target.m_iRevision = source.m_iRevision;
+		target.m_iETASeconds = source.m_iETASeconds;
+		target.m_iCooldownSeconds = source.m_iCooldownSeconds;
+		target.m_iExpectedWarLevel = source.m_iExpectedWarLevel;
 		target.m_iExpectedGarrisonSlots = source.m_iExpectedGarrisonSlots;
 		target.m_iExpectedAbstractInfantry = source.m_iExpectedAbstractInfantry;
 		target.m_iExpectedActiveInfantry = source.m_iExpectedActiveInfantry;
@@ -2056,9 +2063,14 @@ class HST_CampaignSaveData
 
 			if (!request.m_sGroupId.IsEmpty())
 			{
-				request.m_bPhysicalized = true;
+				request.m_bPhysicalized = request.m_sSpawnResultId.IsEmpty();
 				if (request.m_sPhysicalizationMode.IsEmpty())
-					request.m_sPhysicalizationMode = "ground_group_legacy";
+				{
+					if (request.m_sSpawnResultId.IsEmpty())
+						request.m_sPhysicalizationMode = "ground_group_legacy";
+					else
+						request.m_sPhysicalizationMode = "exact_spawn_restore_pending";
+				}
 			}
 
 			if (!request.m_sRuntimeEntityId.IsEmpty() && request.m_sRuntimeEntityId == "abstract_strike")
@@ -2287,6 +2299,7 @@ class HST_CampaignSaveData
 
 		int duplicateSpawnRows = FinalizeDuplicateForceSpawnQueueIdentity(restoredSchemaVersion, migrationSecond);
 		MigrateActiveGroupProjectionIdentity(restoredSchemaVersion, migrationSecond);
+		MigrateLegacyPlayerQRFTransactions(restoredSchemaVersion, migrationSecond);
 
 		if (migratedLegacySpawnQueue && !HasCampaignEventId("migration_schema44_spawn_queue"))
 		{
@@ -2326,6 +2339,162 @@ class HST_CampaignSaveData
 		migrationEvent.m_sReason = "legacy force counts preserved without inventing exact manifests, costs, or refunds";
 		migrationEvent.m_iCreatedAtSecond = m_iElapsedSeconds;
 		m_aCampaignEvents.Insert(migrationEvent);
+	}
+
+	protected void MigrateLegacyPlayerQRFTransactions(int restoredSchemaVersion, int migrationSecond)
+	{
+		if (restoredSchemaVersion >= 46)
+			return;
+
+		int importedCount;
+		int ambiguousCount;
+		foreach (HST_SupportRequestState request : m_aSupportRequests)
+		{
+			if (!IsLegacyPaidPlayerQRF(request))
+				continue;
+
+			string moneyTransactionId;
+			bool moneyImported = MigrateLegacyPlayerQRFTransaction(
+				request,
+				HST_ResourceLedgerService.RESOURCE_FACTION_MONEY,
+				Math.Max(0, request.m_iMoneyCost),
+				0,
+				moneyTransactionId);
+			string hrTransactionId;
+			bool hrImported = MigrateLegacyPlayerQRFTransaction(
+				request,
+				HST_ResourceLedgerService.RESOURCE_HR,
+				Math.Max(0, request.m_iHRCost),
+				Math.Max(0, request.m_iRefundedHR),
+				hrTransactionId);
+			if (moneyImported && !moneyTransactionId.IsEmpty())
+				request.m_sMoneyTransactionId = moneyTransactionId;
+			if (hrImported && !hrTransactionId.IsEmpty())
+				request.m_sHRTransactionId = hrTransactionId;
+
+			if (moneyImported && hrImported)
+				importedCount++;
+			else
+				ambiguousCount++;
+		}
+
+		RecordLegacyPlayerQRFMigrationEvent(importedCount, ambiguousCount, migrationSecond);
+	}
+
+	protected bool IsLegacyPaidPlayerQRF(HST_SupportRequestState request)
+	{
+		if (!request || !request.m_bPlayerRequested || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return false;
+		if (!request.m_sQuoteId.IsEmpty() || !request.m_sManifestId.IsEmpty())
+			return false;
+		return request.m_iMoneyCost > 0 || request.m_iHRCost > 0;
+	}
+
+	protected bool MigrateLegacyPlayerQRFTransaction(
+		HST_SupportRequestState request,
+		string resourceType,
+		int amount,
+		int refundedAmount,
+		out string transactionId)
+	{
+		transactionId = "";
+		if (!request)
+			return false;
+		if (amount <= 0)
+			return true;
+
+		string expectedId = HST_StableIdService.BuildTransactionId(request.m_sOperationId, resourceType);
+		if (expectedId.IsEmpty())
+			return false;
+		HST_ResourceTransactionState existing = FindResourceTransactionForMigration(expectedId);
+		if (existing)
+		{
+			if (!LegacyPlayerQRFTransactionMatches(existing, request, resourceType, amount))
+				return false;
+			transactionId = existing.m_sTransactionId;
+			return true;
+		}
+
+		HST_ResourceTransactionState transaction = new HST_ResourceTransactionState();
+		transaction.m_sTransactionId = expectedId;
+		transaction.m_sCommandRequestId = request.m_sCommandRequestId;
+		if (transaction.m_sCommandRequestId.IsEmpty())
+			transaction.m_sCommandRequestId = "migration_schema46_" + request.m_sRequestId;
+		transaction.m_sOperationId = request.m_sOperationId;
+		transaction.m_sActorIdentityId = "legacy_player_support_unattributed";
+		transaction.m_sResourceType = resourceType;
+		transaction.m_sReason = "schema 46 imported a proven historical player QRF charge without changing balances";
+		transaction.m_iAmount = amount;
+		transaction.m_iRefundedAmount = Math.Min(amount, Math.Max(0, refundedAmount));
+		transaction.m_iCreatedAtSecond = Math.Max(0, request.m_iRequestedAtSecond);
+		transaction.m_iSettledAtSecond = Math.Max(transaction.m_iCreatedAtSecond, request.m_iResolvedAtSecond);
+		transaction.m_eStatus = HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
+		if (transaction.m_iRefundedAmount >= transaction.m_iAmount)
+			transaction.m_eStatus = HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED;
+		else if (transaction.m_iRefundedAmount > 0)
+			transaction.m_eStatus = HST_EResourceTransactionStatus.HST_TRANSACTION_PARTIALLY_REFUNDED;
+		m_aResourceTransactions.Insert(transaction);
+		transactionId = transaction.m_sTransactionId;
+		return true;
+	}
+
+	protected HST_ResourceTransactionState FindResourceTransactionForMigration(string transactionId)
+	{
+		if (transactionId.IsEmpty())
+			return null;
+		foreach (HST_ResourceTransactionState transaction : m_aResourceTransactions)
+		{
+			if (transaction && transaction.m_sTransactionId == transactionId)
+				return transaction;
+		}
+		return null;
+	}
+
+	protected bool LegacyPlayerQRFTransactionMatches(
+		HST_ResourceTransactionState transaction,
+		HST_SupportRequestState request,
+		string resourceType,
+		int amount)
+	{
+		if (!transaction || !request)
+			return false;
+		if (transaction.m_sOperationId != request.m_sOperationId || transaction.m_sResourceType != resourceType)
+			return false;
+		if (transaction.m_iAmount != amount || !transaction.m_sQuoteId.IsEmpty() || !transaction.m_sManifestId.IsEmpty())
+			return false;
+		if (transaction.m_iRefundedAmount < 0 || transaction.m_iRefundedAmount > transaction.m_iAmount)
+			return false;
+		return transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED
+			|| transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_PARTIALLY_REFUNDED
+			|| transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED;
+	}
+
+	protected void RecordLegacyPlayerQRFMigrationEvent(int importedCount, int ambiguousCount, int migrationSecond)
+	{
+		if (importedCount > 0 && !HasCampaignEventId("migration_schema46_player_qrf_ledger_imported"))
+		{
+			HST_CampaignEventState importedEvent = new HST_CampaignEventState();
+			importedEvent.m_sEventId = "migration_schema46_player_qrf_ledger_imported";
+			importedEvent.m_sCategory = "migration";
+			importedEvent.m_sAggregateType = "player_support";
+			importedEvent.m_sAggregateId = "schema46";
+			importedEvent.m_sTransition = "legacy_qrf_charges_imported";
+			importedEvent.m_sReason = string.Format("imported %1 historical player QRF charges into linked ledger rows without changing balances or inventing manifests", importedCount);
+			importedEvent.m_iCreatedAtSecond = migrationSecond;
+			m_aCampaignEvents.Insert(importedEvent);
+		}
+
+		if (ambiguousCount <= 0 || HasCampaignEventId("migration_schema46_player_qrf_ledger_ambiguous"))
+			return;
+		HST_CampaignEventState ambiguousEvent = new HST_CampaignEventState();
+		ambiguousEvent.m_sEventId = "migration_schema46_player_qrf_ledger_ambiguous";
+		ambiguousEvent.m_sCategory = "migration";
+		ambiguousEvent.m_sAggregateType = "player_support";
+		ambiguousEvent.m_sAggregateId = "schema46";
+		ambiguousEvent.m_sTransition = "legacy_qrf_charge_ambiguous";
+		ambiguousEvent.m_sReason = string.Format("preserved %1 legacy player QRF records without inventing conflicting ledger rows, manifests, or refunds", ambiguousCount);
+		ambiguousEvent.m_iCreatedAtSecond = migrationSecond;
+		m_aCampaignEvents.Insert(ambiguousEvent);
 	}
 
 	protected void MigrateActiveGroupProjectionIdentity(int restoredSchemaVersion, int migrationSecond)

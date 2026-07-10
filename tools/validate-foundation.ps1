@@ -4638,7 +4638,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 45",
+		"SCHEMA_VERSION = 46",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -4684,6 +4684,55 @@ if ($scriptText -match '(?m)^\s*(?:bool|string)\s+RequestCommanderRecruitGarriso
 	throw "Legacy caller-priced garrison recruitment wrappers must not remain public authority surfaces"
 }
 Write-Host "Exact force manifest and garrison quote contract OK"
+foreach ($requiredPaidQRFExactEntry in @(
+		'QUOTE_KIND_PLAYER_SUPPORT_QRF = "player_support_qrf"',
+		'SUPPORT_QRF_POLICY_ID = "support_qrf_exact_infantry_1"',
+		'SUPPORT_QRF_MONEY_COST = 250',
+		'SUPPORT_QRF_ETA_SECONDS = 120',
+		'SUPPORT_QRF_COOLDOWN_SECONDS = 600',
+		'SUPPORT_QRF_CAPABILITY_ID = "qrf"',
+		'SUPPORT_QRF_ASSET_PROFILE_ID = "fia_qrf_reserve_alpha"',
+		'IssuePlayerSupportQuote',
+		'ConfirmPlayerSupportQuote',
+		'CancelPlayerSupportQuote',
+		'ReconcileInterruptedPlayerSupportConfirmations',
+		'FindIssuedPlayerSupportQuote',
+		'ValidateFrozenPlayerSupportQuote',
+		'RegisterAcceptedExactPlayerSupport',
+		'EnqueueAcceptedExactPlayerSupportProjection',
+		'TickExactPlayerSupportSettlements',
+		'ReconcileSuccessfulExactPlayerSupportRuntimeAfterRestore',
+		'IsFullyRefundedExactPlayerSupportRequest',
+		'exact player QRF requires an accepted server quote',
+		'RequestCampaignDebugLegacyPlayerSupportDetailed',
+		'confirm_support_quote',
+		'cancel_support_quote',
+		'Request exact QRF quote at map location',
+		'force_authority.paid_qrf_issue_confirm',
+		'force_authority.paid_qrf_queue_replay',
+		'force_authority.paid_qrf_failure_refund',
+		'force_authority.paid_qrf_cancel_refund',
+		'force_authority.paid_qrf_recall_refund',
+		'force_authority.paid_qrf_terminal_refund',
+		'force_authority.paid_qrf_legacy_migration',
+		'migration_schema46_player_qrf_ledger_imported'
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredPaidQRFExactEntry)) {
+		throw "Exact paid-QRF authority contract missing: $requiredPaidQRFExactEntry"
+	}
+}
+$paidQRFEnqueueBlock = [regex]::Match($scriptText, 'HST_ForceSpawnQueueEnqueueResult EnqueueAcceptedExactPlayerSupportProjection[\s\S]*?\r?\n\t}')
+if (!$paidQRFEnqueueBlock.Success -or $paidQRFEnqueueBlock.Value -match '\.Compose\(' -or $paidQRFEnqueueBlock.Value -match 'EstimatePlayerSupportHRCost') {
+	throw "Exact paid-QRF queue admission must consume the frozen manifest without composition or prefab-name manpower estimation"
+}
+$paidQRFIssueBlock = [regex]::Match($scriptText, 'HST_ForceQuoteResult IssuePlayerSupportQuote[\s\S]*?\r?\n\t}')
+if (!$paidQRFIssueBlock.Success -or $paidQRFIssueBlock.Value -match 'SpendFactionMoney' -or $paidQRFIssueBlock.Value -match 'SpendHR') {
+	throw "Exact paid-QRF issue must freeze a quote without directly debiting resources"
+}
+if ($scriptText -notmatch 'm_SupportRequests\.Tick\(m_State, m_Preset, m_Garrisons, m_PhysicalWar, m_Strategic, m_HQ, m_Economy, m_ForceSpawnAdapter\)') {
+	throw "Production support tick must receive the exact spawn adapter for retirement settlement"
+}
+Write-Host "Exact paid-QRF quote, ledger, manifest, queue, and settlement contract OK"
 $forceSpawnQueueServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
 if (!(Test-Path $forceSpawnQueueServicePath)) {
 	throw "Missing durable force spawn queue service: $forceSpawnQueueServicePath"

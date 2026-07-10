@@ -2,8 +2,24 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `45`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `46`.
 
+- Schema 46 adds the first exact player-paid support contract for resistance
+  QRFs. Force quotes now persist support request/capability/asset identity,
+  support type, ETA, cooldown, and expected war level beside the immutable
+  manifest and transaction links. Confirmation reserves and commits the exact
+  $250 money cost and one HR per authored catalog member, registers one linked
+  support request, and marks the quote accepted last. The request then admits
+  the same executable one-group manifest to SpawnQueue; terminal failure or
+  cancellation refunds both transactions once, while recall uses the linked HR
+  settlement policy. Successful terminal projections that cannot be restored
+  currently fail closed with a full refund instead of inventing live runtime
+  authority. Pre-schema-46 paid player-QRF rows keep their gameplay state and
+  balances. Positive stored costs import as historical committed ledger rows
+  without creating a quote, manifest, or new debit; stored HR refunds become
+  historical partial/full refunds. Conflicting legacy transaction identity is
+  preserved and summarized by a bounded migration warning rather than receiving
+  an invented refund.
 - Schema 45 adds explicit force and projection identity fields to every active
   physical-group row and makes Game Master/editable-hierarchy verification
   mandatory for new successful spawn slots. Pre-schema-45 active groups derive
@@ -229,6 +245,45 @@ Durable bounded spawn-queue state foundation.
 - Queue retention and active-work limits are enforced by the queue service.
   Migration never deletes valid terminal or settlement evidence merely to meet
   a cap.
+
+## Schema 46
+
+Exact player-paid QRF quote, ledger, executable manifest, and settlement
+authority.
+
+- `HST_ForceQuoteState` persists the exact support request, capability, asset
+  profile, support type, ETA, cooldown, and quoted war-level context. Save
+  capture/restore deep-copies every field.
+- Selecting `support_qrf` with a map target issues an expiring quote only. The
+  Forces tab exposes separate confirm/cancel actions; confirmation sends only
+  the quote ID and the server resolves actor, target, context, catalog, and
+  resources again.
+- The frozen manifest contains exactly one authored infantry group execution
+  root and every explicit ordered member slot. Money is a flat $250 and HR is
+  derived from the exact slot count. No prefab-name manpower estimate or
+  recomposition participates after issue.
+- Confirmation reserves money and HR, registers and verifies one linked support
+  request, commits both transactions, and changes the quote to `ACCEPTED` last.
+  Replays remain idempotent after queue admission and after terminal refunds.
+  Interrupted issued confirmations roll back linked aggregate and transaction
+  state during restore before the generic reservation sweep.
+- After ETA staging, the support service creates one queue-owned active-group
+  projection with stable force/projection/result identities and submits the
+  accepted manifest to SpawnQueue. The request is not physicalized until the
+  queue reaches `SUCCEEDED` after physical-war handoff.
+- Placement/admission/final spawn failure and commander cancellation before
+  success refund money and HR once, remove an unhanded active-group projection,
+  and let a replacement quote bypass the historical cooldown. Pre-success recall refunds HR only;
+  post-success recall settles verified survivors through the HR transaction.
+- Setup and terminal campaign frames continue queue cancellation/cleanup and run
+  exact-support settlement even though campaign elapsed time is frozen.
+- A restored `SUCCEEDED` QRF without a recoverable live projection is removed
+  and fully refunded. This is a temporary fail-closed policy; successful runtime
+  reprojection and the general living-force/casualty ledger remain open.
+- Legacy positive player-QRF cost fields are historical charge evidence only.
+  Migration creates linked transaction rows without changing balances and never
+  invents a quote or manifest. Ambiguous conflicts remain visible through one
+  bounded warning event.
 
 ## Schema 45
 

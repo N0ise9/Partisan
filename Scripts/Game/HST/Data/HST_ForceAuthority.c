@@ -115,6 +115,9 @@ class HST_ForceQuoteState
 	string m_sConfirmationRequestId;
 	string m_sActorIdentityId;
 	string m_sQuoteKind;
+	string m_sSupportRequestId;
+	string m_sCapabilityId;
+	string m_sAssetProfileId;
 	string m_sFactionKey;
 	string m_sSourceZoneId;
 	string m_sTargetZoneId;
@@ -128,6 +131,7 @@ class HST_ForceQuoteState
 	string m_sRejectionReason;
 	vector m_vSourcePosition;
 	vector m_vTargetPosition;
+	HST_ESupportRequestType m_eSupportType;
 	HST_EForceQuoteStatus m_eStatus = HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED;
 	int m_iRequestedMemberCount;
 	int m_iAcceptedMemberCount;
@@ -145,6 +149,9 @@ class HST_ForceQuoteState
 	int m_iExpectedGarrisonSlots;
 	int m_iExpectedAbstractInfantry;
 	int m_iExpectedActiveInfantry;
+	int m_iETASeconds;
+	int m_iCooldownSeconds;
+	int m_iExpectedWarLevel;
 	bool m_bAllOrNothing = true;
 }
 
@@ -222,6 +229,21 @@ class HST_ForceQuoteResult
 	{
 		if (!m_bSuccess || !m_Quote || !m_Manifest)
 			return "h-istasi force quote | failed: " + m_sFailureReason;
+		if (m_Quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF)
+		{
+			return string.Format(
+				"h-istasi QRF quote | %1 exact fighters from %2 to %3 | cost $%4 and %5 HR | ETA %6s | cooldown %7s | all-or-nothing | quote %8 | expires at campaign second %9",
+				m_Manifest.m_iAcceptedMemberCount,
+				m_Quote.m_sSourceZoneId,
+				m_Quote.m_sTargetZoneId,
+				m_Manifest.m_iMoneyCost,
+				m_Manifest.m_iHRCost,
+				m_Quote.m_iETASeconds,
+				m_Quote.m_iCooldownSeconds,
+				m_Quote.m_sQuoteId,
+				m_Quote.m_iExpiresAtSecond
+			);
+		}
 
 		return string.Format(
 			"h-istasi garrison quote | %1 fighters at %2 | exact cost $%3 and %4 HR | all-or-nothing | quote %5 | expires at campaign second %6",
@@ -243,15 +265,36 @@ class HST_ForceConfirmationResult
 	string m_sFailureReason;
 	ref HST_ForceQuoteState m_Quote;
 	ref HST_ForceManifestState m_Manifest;
+	ref HST_SupportRequestState m_SupportRequest;
 
 	string BuildSummary()
 	{
 		if (!m_bSuccess || !m_Quote || !m_Manifest)
-			return "h-istasi garrison confirmation | failed: " + m_sFailureReason;
+		{
+			if (m_Quote && m_Quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF)
+				return "h-istasi QRF confirmation | failed: " + m_sFailureReason;
+			return "h-istasi force confirmation | failed: " + m_sFailureReason;
+		}
 
 		string disposition = "accepted";
 		if (m_bAlreadyApplied)
 			disposition = "already accepted";
+		if (m_Quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF)
+		{
+			string supportRequestId = m_Quote.m_sSupportRequestId;
+			if (m_SupportRequest)
+				supportRequestId = m_SupportRequest.m_sRequestId;
+			return string.Format(
+				"h-istasi QRF confirmation | %1 | %2 exact fighters queued for %3 | charged $%4 and %5 HR | manifest %6 | support %7",
+				disposition,
+				m_Manifest.m_iAcceptedMemberCount,
+				m_Quote.m_sTargetZoneId,
+				m_Manifest.m_iMoneyCost,
+				m_Manifest.m_iHRCost,
+				m_Manifest.m_sManifestId,
+				supportRequestId
+			);
+		}
 		return string.Format(
 			"h-istasi garrison confirmation | %1 | %2 fighters registered at %3 | charged $%4 and %5 HR | manifest %6",
 			disposition,

@@ -1628,7 +1628,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			return true;
 		if (commandId == "remove_garrison" || commandId == "cancel_support" || commandId == "support_recall" || commandId == "civilian_aid")
 			return true;
-		if (commandId == "confirm_garrison_quote" || commandId == "cancel_garrison_quote")
+		if (commandId == "confirm_garrison_quote" || commandId == "cancel_garrison_quote"
+			|| commandId == "confirm_support_quote" || commandId == "cancel_support_quote")
 			return true;
 		if (commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
 			return true;
