@@ -8758,7 +8758,13 @@ foreach ($requiredPhase6SeatingEntry in @(
 		"RefreshSeatedCrewState",
 		"GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)",
 		"server-authoritative compartment move-in completed",
+		"RplComponent crewReplication",
+		"crewReplication.IsOwner()",
 		"MoveInVehicle(vehicleEntity, compartmentType, true, slot)",
+		"owner compartment move-in request accepted",
+		"Convoy adapter cannot bind crew before seating",
+		'" | pre-seat "',
+		"waiting for authoritative seat transition to confirm a driver",
 		"HasLivingDriver",
 		"AreLivingCrewMounted",
 		"CountLivingCrew",
@@ -8767,6 +8773,31 @@ foreach ($requiredPhase6SeatingEntry in @(
 	if ($convoyVehicleControlAdapterText -notmatch [regex]::Escape($requiredPhase6SeatingEntry)) {
 		throw "Missing Phase 6 convoy seating contract entry: $requiredPhase6SeatingEntry"
 	}
+}
+if ($convoyVehicleControlAdapterText -match [regex]::Escape("waiting for animated AI boarding to seat a driver")) {
+	throw "Convoy pending evidence must describe the authoritative seat transition rather than obsolete animated boarding"
+}
+$tryBindCrewStart = $convoyVehicleControlAdapterText.IndexOf("bool TryBindCrewToVehicle")
+$tryAssignRouteStart = $convoyVehicleControlAdapterText.IndexOf("bool TryAssignVehicleRoute")
+if ($tryBindCrewStart -lt 0 -or $tryAssignRouteStart -le $tryBindCrewStart) {
+	throw "Phase 6 convoy seating validator could not isolate TryBindCrewToVehicle"
+}
+$tryBindCrewText = $convoyVehicleControlAdapterText.Substring($tryBindCrewStart, $tryAssignRouteStart - $tryBindCrewStart)
+$preSeatRegistrationIndex = $tryBindCrewText.IndexOf("TryRegisterVehicleWithGroup")
+$seatBuildIndex = $tryBindCrewText.IndexOf("BuildCrewSeatingResult")
+if ($preSeatRegistrationIndex -lt 0 -or $seatBuildIndex -lt 0 -or $preSeatRegistrationIndex -gt $seatBuildIndex) {
+	throw "Convoy binding must register the usable vehicle before issuing any crew seating request"
+}
+$tryMoveCrewStart = $convoyVehicleControlAdapterText.IndexOf("protected bool TryMoveCrewIntoSlot")
+$isSlotTypeStart = $convoyVehicleControlAdapterText.IndexOf("protected bool IsSlotForCompartmentType")
+if ($tryMoveCrewStart -lt 0 -or $isSlotTypeStart -le $tryMoveCrewStart) {
+	throw "Phase 6 convoy seating validator could not isolate TryMoveCrewIntoSlot"
+}
+$tryMoveCrewText = $convoyVehicleControlAdapterText.Substring($tryMoveCrewStart, $isSlotTypeStart - $tryMoveCrewStart)
+$authorityLocalSeatIndex = $tryMoveCrewText.IndexOf("access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)")
+$ownerRpcSeatIndex = $tryMoveCrewText.IndexOf("access.MoveInVehicle(vehicleEntity, compartmentType, true, slot)")
+if ($authorityLocalSeatIndex -lt 0 -or $ownerRpcSeatIndex -lt 0 -or $authorityLocalSeatIndex -gt $ownerRpcSeatIndex) {
+	throw "Server-owned convoy AI must attempt authority-local forced seating before the owner-RPC fallback"
 }
 foreach ($requiredPhase6RuntimeEntry in @(
 		"EnsureMissionConvoyCrewSeating",
@@ -8822,7 +8853,9 @@ foreach ($requiredPhase7AdapterEntry in @(
 		"assignedWaypointCount++",
 		"Convoy adapter assigned route waypoint chain",
 		"TryRegisterVehicleWithGroup",
+		"IsVehicleRegisteredWithGroup",
 		"AddUsableVehicle",
+		"utility.IsUsableVehicle(vehicleUsage)",
 		"vehicle usage registered for group movement",
 		"m_iRemovedOverflowCrew",
 		"RemoveUnseatedOverflowCrew",
@@ -8832,6 +8865,21 @@ foreach ($requiredPhase7AdapterEntry in @(
 	)) {
 	if ($convoyVehicleControlAdapterText -notmatch [regex]::Escape($requiredPhase7AdapterEntry)) {
 		throw "Missing Phase 7 convoy adapter waypoint-chain entry: $requiredPhase7AdapterEntry"
+	}
+}
+$vehicleRegistrationProofStart = $convoyVehicleControlAdapterText.IndexOf("bool IsVehicleRegisteredWithGroup")
+$countLivingCrewStart = $convoyVehicleControlAdapterText.IndexOf("int CountLivingCrew")
+if ($vehicleRegistrationProofStart -lt 0 -or $countLivingCrewStart -le $vehicleRegistrationProofStart) {
+	throw "Phase 7 convoy validator could not isolate IsVehicleRegisteredWithGroup"
+}
+$vehicleRegistrationProofText = $convoyVehicleControlAdapterText.Substring($vehicleRegistrationProofStart, $countLivingCrewStart - $vehicleRegistrationProofStart)
+foreach ($requiredVehicleRegistrationProofEntry in @(
+		"vehicleUsage.IsVehicleTypeValid()",
+		"vehicleUsage.CanBePiloted()",
+		"utility.IsUsableVehicle(vehicleUsage)"
+	)) {
+	if ($vehicleRegistrationProofText -notmatch [regex]::Escape($requiredVehicleRegistrationProofEntry)) {
+		throw "Live convoy vehicle-registration proof must recheck pilotability and retained utility state: $requiredVehicleRegistrationProofEntry"
 	}
 }
 foreach ($requiredPhase7RuntimeEntry in @(
@@ -8869,6 +8917,7 @@ foreach ($requiredPhase7RuntimeEntry in @(
 		"Convoy movement interrupted because every moving convoy group lost vehicle control or waypoint assignment.",
 		"convoy.vehicle_usage.",
 		"AI vehicle usage registered for group movement",
+		"IsVehicleRegisteredWithGroup(crewEntity, vehicleEntity, vehicleUsageEvidence)",
 		"RefreshMissionConvoyCrewCount",
 		"return prefab.Contains(""SentryTeam"");"
 	)) {
@@ -9525,6 +9574,42 @@ foreach ($requiredCivilianInitialGroupAttachEntry in @(
 	if ($civilianRuntimeServiceText -notmatch [regex]::Escape($requiredCivilianInitialGroupAttachEntry)) {
 		throw "Civilian runtime must use the stock initial-AI group attach path with a direct fallback: $requiredCivilianInitialGroupAttachEntry"
 	}
+}
+foreach ($requiredCivilianTrafficSeatingEntry in @(
+		"protected bool AssignCivilianTrafficBehavior",
+		"if (!AssignCivilianTrafficBehavior(state, balance, zone, trafficVehicle, i, seed))",
+		"CleanupFailedCivilianTrafficRuntimeEntity(state, trafficVehicle, zone.m_sZoneId)",
+		"protected void CleanupFailedCivilianTrafficRuntimeEntity",
+		"DeleteRuntimeHelpersForOwner(vehicleEntity)",
+		"MarkRuntimeVehicleDeleted(state, vehicleEntity)",
+		"RemoveRuntimeEntityAt(runtimeIndex)",
+		"ambient traffic route assignment failed",
+		"if (!TryRegisterCivilianVehicleWithGroup(group, vehicleEntity))",
+		"ambient traffic vehicle registration failed",
+		"RplComponent driverReplication",
+		"driverReplication.IsOwner()",
+		"access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)",
+		"access.MoveInVehicle(vehicleEntity, ECompartmentType.PILOT, true, slot)",
+		"authority-local driver entry accepted",
+		"owner driver move-in request accepted"
+	)) {
+	if ($civilianRuntimeServiceText -notmatch [regex]::Escape($requiredCivilianTrafficSeatingEntry)) {
+		throw "Civilian traffic must register its vehicle and prefer authority-local driver seating: $requiredCivilianTrafficSeatingEntry"
+	}
+}
+$civilianTrafficSeatStart = $civilianRuntimeServiceText.IndexOf("protected bool TryMoveCivilianDriverIntoVehicle")
+$civilianCompartmentResolverStart = -1
+if ($civilianTrafficSeatStart -ge 0) {
+	$civilianCompartmentResolverStart = $civilianRuntimeServiceText.IndexOf("protected BaseCompartmentManagerComponent ResolveCompartmentManager", $civilianTrafficSeatStart)
+}
+if ($civilianTrafficSeatStart -lt 0 -or $civilianCompartmentResolverStart -le $civilianTrafficSeatStart) {
+	throw "Civilian traffic validator could not isolate TryMoveCivilianDriverIntoVehicle"
+}
+$civilianTrafficSeatText = $civilianRuntimeServiceText.Substring($civilianTrafficSeatStart, $civilianCompartmentResolverStart - $civilianTrafficSeatStart)
+$civilianLocalSeatIndex = $civilianTrafficSeatText.IndexOf("access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)")
+$civilianOwnerSeatIndex = $civilianTrafficSeatText.IndexOf("access.MoveInVehicle(vehicleEntity, ECompartmentType.PILOT, true, slot)")
+if ($civilianLocalSeatIndex -lt 0 -or $civilianOwnerSeatIndex -lt 0 -or $civilianLocalSeatIndex -gt $civilianOwnerSeatIndex) {
+	throw "Server-owned civilian drivers must attempt authority-local forced seating before the owner-RPC fallback"
 }
 if ($civilianRuntimeServiceText -match '"Prefabs/Characters/Factions/CIV/Character_CIV' -or $configResourceText -match '"Prefabs/Characters/Factions/CIV/Character_CIV' -or $defaultCatalog -match '"Prefabs/Characters/Factions/CIV/Character_CIV') {
 	throw "Civilian character runtime must not use path-only Character_CIV resources"

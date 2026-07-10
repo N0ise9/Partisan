@@ -2437,9 +2437,17 @@ class HST_CivilianService
 			if (!SpawnTownVehicleRuntimeEntity(state, zone, zone.m_sZoneId, vehiclePrefab, vehiclePosition, vehicleAngles, "CIV", CIVILIAN_TRAFFIC_RUNTIME_KIND, occupiedVehiclePositions, vehicleIndex, false))
 				continue;
 
+			if (beforeVehicleSpawn >= m_aRuntimeEntities.Count())
+				continue;
+
+			IEntity trafficVehicle = m_aRuntimeEntities[beforeVehicleSpawn];
+			if (!AssignCivilianTrafficBehavior(state, balance, zone, trafficVehicle, i, seed))
+			{
+				CleanupFailedCivilianTrafficRuntimeEntity(state, trafficVehicle, zone.m_sZoneId);
+				continue;
+			}
+
 			spawned++;
-			if (beforeVehicleSpawn < m_aRuntimeEntities.Count())
-				AssignCivilianTrafficBehavior(state, balance, zone, m_aRuntimeEntities[beforeVehicleSpawn], i, seed);
 		}
 
 		return spawned;
@@ -2461,30 +2469,54 @@ class HST_CivilianService
 		AssignCivilianCycleWaypoints(civilianEntity, group, waypoints, CIVILIAN_WANDER_COMPLETION_RADIUS_METERS, false);
 	}
 
-	protected void AssignCivilianTrafficBehavior(HST_CampaignState state, HST_BalanceConfig balance, HST_ZoneState zone, IEntity vehicleEntity, int index, int seed)
+	protected bool AssignCivilianTrafficBehavior(HST_CampaignState state, HST_BalanceConfig balance, HST_ZoneState zone, IEntity vehicleEntity, int index, int seed)
 	{
 		if (!state || !balance || !zone || !vehicleEntity)
-			return;
+			return false;
 
 		IEntity driverEntity = SpawnCivilianTrafficDriver(state, balance, zone, vehicleEntity, index, seed);
 		if (!driverEntity)
-			return;
+			return false;
 
 		AIGroup group = EnsureCivilianAIGroup(vehicleEntity, driverEntity, CIVILIAN_FACTION_KEY);
 		if (!group)
-			return;
+			return false;
 
-		TryRegisterCivilianVehicleWithGroup(group, vehicleEntity);
+		if (!TryRegisterCivilianVehicleWithGroup(group, vehicleEntity))
+		{
+			Print(string.Format("h-istasi civilians | ambient traffic vehicle registration failed for %1", zone.m_sZoneId), LogLevel.WARNING);
+			return false;
+		}
 		string seatingReason;
 		if (!TryMoveCivilianDriverIntoVehicle(driverEntity, vehicleEntity, seatingReason))
 		{
 			Print(string.Format("h-istasi civilians | ambient traffic driver seating failed for %1: %2", zone.m_sZoneId, seatingReason), LogLevel.WARNING);
-			return;
+			return false;
 		}
 
 		array<vector> routePositions = {};
 		BuildCivilianTrafficRoute(zone, vehicleEntity.GetOrigin(), index, seed, routePositions);
-		AssignCivilianCycleWaypoints(vehicleEntity, group, routePositions, CIVILIAN_TRAFFIC_WAYPOINT_RADIUS_METERS, true);
+		if (AssignCivilianCycleWaypoints(vehicleEntity, group, routePositions, CIVILIAN_TRAFFIC_WAYPOINT_RADIUS_METERS, true) < 2)
+		{
+			Print(string.Format("h-istasi civilians | ambient traffic route assignment failed for %1", zone.m_sZoneId), LogLevel.WARNING);
+			return false;
+		}
+
+		return true;
+	}
+
+	protected void CleanupFailedCivilianTrafficRuntimeEntity(HST_CampaignState state, IEntity vehicleEntity, string zoneId)
+	{
+		if (!vehicleEntity)
+			return;
+
+		int runtimeIndex = m_aRuntimeEntities.Find(vehicleEntity);
+		DeleteRuntimeHelpersForOwner(vehicleEntity);
+		MarkRuntimeVehicleDeleted(state, vehicleEntity);
+		SCR_EntityHelper.DeleteEntityAndChildren(vehicleEntity);
+		if (runtimeIndex >= 0)
+			RemoveRuntimeEntityAt(runtimeIndex);
+		Print(string.Format("h-istasi civilians | removed failed ambient traffic projection for %1", zoneId), LogLevel.WARNING);
 	}
 
 	protected IEntity SpawnCivilianTrafficDriver(HST_CampaignState state, HST_BalanceConfig balance, HST_ZoneState zone, IEntity vehicleEntity, int index, int seed)
@@ -2807,18 +2839,20 @@ class HST_CivilianService
 			return false;
 		}
 
-		if (access.MoveInVehicle(vehicleEntity, ECompartmentType.PILOT, true, slot))
-		{
-			reason = "driver moved into pilot slot";
-			return true;
-		}
-
 		IEntity slotOwner = slot.GetOwner();
 		if (!slotOwner)
 			slotOwner = vehicleEntity;
-		if (access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+
+		RplComponent driverReplication = RplComponent.Cast(driverEntity.FindComponent(RplComponent));
+		if ((!driverReplication || driverReplication.IsOwner()) && access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
 		{
-			reason = "driver get-in order accepted";
+			reason = "authority-local driver entry accepted";
+			return true;
+		}
+
+		if (access.MoveInVehicle(vehicleEntity, ECompartmentType.PILOT, true, slot))
+		{
+			reason = "owner driver move-in request accepted";
 			return true;
 		}
 

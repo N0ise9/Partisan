@@ -50,7 +50,7 @@ isolated runtime run with no unresolved hard failures or required external gaps.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete | Complete for this checkpoint | Repository inventory, foundation validator, latest schema-48 Workbench Game compile/create/script validation, normal project-open survival, and runtime-evidence audit complete | No | Current code and documentation agree on schema 48 and one build-identity source. A native Workbench heap crash was bisected to one oversized force-authority proof and fixed by extracting and splitting it. The current guarded tree loads 5,740 files/11,473 classes and creates the game; a normal WorldEditor project open produced no new crash signature during the bounded survival gate. A later current-build dedicated smoke remained live until intentional disconnect, but recorded a recoverable recursive player-role `ScriptInvoker` exception during editor-mode repair. The source now defers only the editor subsystem's role-change listener by one frame while leaving stock mode updates, teardown, and player-role ownership intact; fresh dedicated connect/admin-role proof remains open. That smoke also recorded exactly 20 unregistered civilian-group member RPCs for 14 pedestrians plus 6 traffic drivers. The dedicated civilian root was a bare group without the stock behavior or replication stack; current source inherits the stock group base and uses the native initial-AI attach path, but zero-RPC and actual-movement runtime proof remain open. The latest Full Campaign Debug artifact predates schema 43 exact-force authority, schema 44 queue authority, schema 45 physical adapter, schema 46 paid-QRF cutover, schema 47 force-runtime lifecycle, and schema 48 settlement archives. Debug profiles fail closed outside the development world and use cloned campaign state, but a fresh runtime proof of completion, cancellation, casualty cleanup, archive replay, crash recovery, and restart cleanliness is still required. |
+| CRI-0 Truth and baseline | Complete | Complete for this checkpoint | Repository inventory, foundation validator, latest schema-48 Workbench Game compile/create/script validation, normal project-open survival, and runtime-evidence audit complete | No | Current code and documentation agree on schema 48 and one build-identity source. A native Workbench heap crash was bisected to one oversized force-authority proof and fixed by extracting and splitting it. The current guarded tree loads 5,740 files/11,473 classes and creates the game; a normal WorldEditor project open produced no new crash signature during the bounded survival gate. A later current-build dedicated smoke remained live until intentional disconnect, but recorded a recoverable recursive player-role `ScriptInvoker` exception during editor-mode repair. The source now defers only the editor subsystem's role-change listener by one frame while leaving stock mode updates, teardown, and player-role ownership intact; fresh dedicated connect/admin-role proof remains open. That smoke also recorded exactly 20 unregistered civilian-group member RPCs for 14 pedestrians plus 6 traffic drivers. The dedicated civilian root was a bare group without the stock behavior or replication stack; current source inherits the stock group base and uses the native initial-AI attach path, but zero-RPC and actual-movement runtime proof remain open. A separate non-cascade convoy artifact populated all three crew groups but confirmed zero seated drivers through the full grace window. Current source registers pilotable vehicles before seating, prefers authority-local forced entry, and probes retained registration directly; 3/3 driver and movement proof remains open. The latest Full Campaign Debug artifact predates schema 43 exact-force authority, schema 44 queue authority, schema 45 physical adapter, schema 46 paid-QRF cutover, schema 47 force-runtime lifecycle, and schema 48 settlement archives. Debug profiles fail closed outside the development world and use cloned campaign state, but a fresh runtime proof of completion, cancellation, casualty cleanup, archive replay, crash recovery, and restart cleanliness is still required. |
 | CRI-1 Authority foundation | Complete | Training, garrison-purchase, and player-QRF vertical slices | Static contract checks and Workbench script validation pass | No | Persisted monotonic IDs, typed command receipts, bounded campaign events, and reserve/commit/cancel/refund resource transactions cover paid training, exact garrison confirmation, and exact player-QRF confirmation/settlement. The bounded paid-QRF proof is implemented but has not supplied fresh runtime evidence. Other paid support types still use legacy contracts. |
 | CRI-2 Force manifests | Complete for foundation | Garrison quote/confirm slice, durable SpawnQueue kernel, first exact infantry adapter, exact player-QRF consumer, first exact force-runtime lifecycle, and bounded accepted-settlement archive | Foundation validator and latest schema-48 Game-module compile/create pass; physical HST_Dev runtime proof pending | No | Schema 48 retains immutable manifest/quote and durable per-projection queue authority, explicit active-group force/projection identity, Game Master verification evidence, exact casualty/survivor state, and bounded accepted planning history. Terminal backlink-free garrison/QRF settlements compact after 600 seconds into at most 256 replay tombstones with an 86,400-second minimum window; full quotes plus tombstones fail closed at 320 rows. Issue, confirmation, and committed-ledger replay consult the archive before mutation. Player QRF still charges $250 plus one HR per authored member and submits the same single-group manifest unchanged to SpawnQueue. The adapter supports only one infantry root plus members. Vehicle, asset, and multi-root execution, executable garrison manifests, event-driven death subscription, lifecycle authority for other consumers, and other paid-support migrations remain open. The bounded proofs are not engine runtime evidence until a fresh isolated HST_Dev run executes them. |
 
@@ -150,7 +150,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Town support ledger | Events change support, reputation, heat, security, and population with explainable history. | Broad Alpha | Town influence now records durable compact strategic-event rows; radio towers apply bounded `radio_broadcast` support drift and town security applies `security_pressure` police/roadblock drift on income/resource ticks; add expiry/reversal and actor/target faction effects. | Highest |
 | Political town flips | Town ownership changes by support majority with hysteresis, not only direct combat. | Broad Alpha | Tune majority thresholds and prevent flicker. | High |
 | Population state | Population remaining/killed affects support, income, victory, and loss. | Broad Alpha / Needs Soak | Town income and town HR now scale/gate from remaining versus killed population, and income reports expose the population multiplier; next tune support-population math, expand event coverage, and soak save/restart terminal states. | Highest |
-| Civilian runtime population | Town civilians spawn from the randomized CIV character prefab, receive CIV AI wander helpers and forced CIV faction/group affiliation through a dedicated empty root that now inherits the stock behavior/pathfinding/utility/replication group base, civilian vehicles resolve from the CIV entity catalog, and configured civilian traffic spawns with drivers/routes that despawn outside the render bubble. Initial ambient members use the stock AI-composition attach path instead of the player-group member RPC path. | Broad Alpha | Freshly prove zero unregistered group-member RPCs plus real distance-over-time pedestrian/traffic movement, then soak active combat, cleanup, persistence, faction components, and multiclient render-bubble behavior. | High |
+| Civilian runtime population | Town civilians spawn from the randomized CIV character prefab, receive CIV AI wander helpers and forced CIV faction/group affiliation through a dedicated empty root that now inherits the stock behavior/pathfinding/utility/replication group base, civilian vehicles resolve from the CIV entity catalog, and configured civilian traffic spawns with drivers/routes that despawn outside the render bubble. Initial ambient members use the stock AI-composition attach path instead of the player-group member RPC path; traffic drivers register their vehicle before preferring authority-local pilot entry. | Broad Alpha | Freshly prove zero unregistered group-member RPCs plus real distance-over-time pedestrian/traffic movement, then soak active combat, cleanup, persistence, faction components, and multiclient render-bubble behavior. | High |
 | Police and roadblocks | Security systems create scan pressure and town-state consequences. | Broad Alpha | Police and roadblock density now drifts on income/resource ticks from town owner relation, wanted heat, occupier support margin, and war level; enemy-owned town garrisons select dedicated size-2/3/4/5 HST town-police group prefabs and live town-police groups receive cyclic patrol waypoints; enemy towns with civilian `policePresence` now also project a runtime-only town-police patrol even without abstract garrison manpower. Established roadblock support from any faction is visible on the map. Decide and document the liberated-town security policy, then add checkpoint-specific content and deeper scan behavior. | High |
 
 ### Undercover And Wanted Enforcement
@@ -232,23 +232,27 @@ projections of campaign state and must be restorable, foldable, or disposable.
 1. Re-run a packaged dedicated-server connect with late admin-role assignment
    and require zero recursive player-role `ScriptInvoker` exceptions while the
    player retains the expected admin and Game Master editor access.
-2. Prove the new campaign-debug isolation boundary in `HST_Dev`: reject a
+2. Re-run civilian town activation with the stock-based helper root and native
+   initial-AI attach path. Require zero unregistered group-member RPCs and real
+   distance-over-time pedestrian/traffic movement, not helper counts alone.
+3. Prove the new campaign-debug isolation boundary in `HST_Dev`: reject a
    non-development-world request, exercise completion and cancellation, verify
    the live campaign reference and both persistence channels remain unchanged,
    simulate interrupted-run recovery, then restart the development session.
-3. Run a fresh owner-client map-open proof for the static-marker lifecycle guard.
+4. Run a fresh owner-client map-open proof for the static-marker lifecycle guard.
    Require every active static marker to have a root and widget component on the
    delayed pass, at least one visible root, and zero update-time exceptions.
-4. Runtime-prove the repaired harness observations: boolean `1` versus `true`,
+5. Runtime-prove the repaired harness observations: boolean `1` versus `true`,
    marker teardown timing, pre-tick economy comparison, the intentional 12-site
    registry count, FAIL-over-WARN headline severity, and support observation
    before group fold. Static validation, Game script compilation, and the normal
    20-second WorldEditor project-open gate pass; a fresh isolated debug artifact
    must replace the historical red rows.
-5. Reproduce and resolve the genuine convoy movement/seating, support route, and
-   physical response failures with scoped disposable debug profiles before
-   interpreting the remaining cascade.
-6. Run the isolated schema-43 planning, schema-44 queue authority, schema-45
+6. Runtime-prove the convoy pre-seat vehicle registration and authority-local
+   pilot entry repair with 3/3 seated living drivers, then resolve any remaining
+   convoy movement, support-route, and physical-response failures with scoped
+   disposable profiles before interpreting the remaining cascade.
+7. Run the isolated schema-43 planning, schema-44 queue authority, schema-45
    adapter, schema-46 paid-QRF, schema-47 force-runtime, and schema-48 archive cases. Pair them with real save/restart replay
    proof that one request
    ID produces one training mutation and one committed debit, one garrison quote
@@ -257,26 +261,26 @@ projections of campaign state and must be restorable, foldable, or disposable.
    queue work reconciles once without duplicate registration. The physical case
    must prove exact group/member registration and cleanup in an actual runtime;
    code presence alone does not satisfy it.
-7. Extend exact paid support beyond the completed infantry-QRF slice only after
+8. Extend exact paid support beyond the completed infantry-QRF slice only after
    vehicle/asset manifests and their settlement policies exist; supply, search,
    roadblock, fire, and air support remain legacy.
-8. Runtime-prove bounded settlement archival: a terminal backlink-free garrison
+9. Runtime-prove bounded settlement archival: a terminal backlink-free garrison
    and paid QRF must compact once, survive restart, replay issue/confirmation/
    committed-ledger identity without mutation, reject conflicts, and retain every
    active projection pin. Drive enough disposable rows to prove both capacity
    admission and post-window eviction behavior.
-9. Runtime-prove schema-47 paid-QRF survivor reprojection and exact-member death:
+10. Runtime-prove schema-47 paid-QRF survivor reprojection and exact-member death:
    native/GM/strategic living counts must agree, each corpse must detach without
    deletion, and the last death must remove the root and marker within five
    seconds. Then replace bounded life-state polling with event subscription and
    generalize the lifecycle to vehicle/assets and every exact force consumer.
-10. Extend stable operation IDs and typed command results through missions,
+11. Extend stable operation IDs and typed command results through missions,
    support, garrisons, enemy orders, and physical projections.
-11. Resume mission, civilian, undercover, and town-influence depth only after the
+12. Resume mission, civilian, undercover, and town-influence depth only after the
    authority and certification foundations can produce trustworthy evidence.
-12. Run repeated packaged multiplayer reconnect/restart soak across active
+13. Run repeated packaged multiplayer reconnect/restart soak across active
    missions, support, orders, garage, undercover, and terminal campaign states.
-13. Tune economy, war level, aggression, support pressure, and mission pacing
+14. Tune economy, war level, aggression, support pressure, and mission pacing
     only after runtime correctness failures are separated from harness defects.
 
 ## Definition Of Done For The Final Campaign Loop

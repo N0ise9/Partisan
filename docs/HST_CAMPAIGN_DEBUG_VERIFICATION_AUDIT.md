@@ -115,13 +115,38 @@ components while helper cardinality could still make Phase 20 look behavior-
 ready. Current source makes the dedicated CIV root inherit the stock generic
 group base and attaches initial ambient AI through `AddAIEntityToGroup()` with
 a direct `AddAgent()` fallback, matching the engine's initial composition path
-without broadcasting the player-group member-state RPC. Foundation validation
-passes. The Game module compiles 5,740 files/11,473 classes with CRC
-`ca37b1c1` and creates the game, and a separate normal WorldEditor open remained
+without broadcasting the player-group member-state RPC. Civilian traffic also
+registers its vehicle first and now prefers forced authority-local driver entry,
+using the owner-RPC dispatch only as a fallback. Failed registration, seating,
+or route setup deletes the traffic projection and its owned helpers so an inert
+vehicle cannot consume the town target and suppress replacement. Foundation validation passes.
+The Game module compiles 5,740 files/11,473 classes with CRC
+`5d606f8c` and creates the game, and a separate normal WorldEditor open remained
 responsive at every two-second sample through 20 seconds with no script-error
 or new crash signature. A fresh packaged run must still prove zero
 unregistered-group RPCs and real distance-over-time pedestrian and traffic
 movement before this defect is closed by runtime evidence.
+
+Post-audit convoy seating follow-up: the non-cascade portion of the July 9
+`logs_2026-07-09_14-09-10` artifact contains a three-vehicle ammo convoy whose
+three native crew groups all populated 2/2 living agents, then remained in
+`convoy_seating_pending` for the full grace window. Production changed the
+mission to static contact because none of the three vehicles had a seated
+living driver; `convoy.crew.driver_seated` was the first hard assertion and the
+later waypoint failure was downstream. The adapter was unchanged after that
+artifact. Its vehicle-usage registration occurred only in route assignment,
+behind the seated-driver gate, and its first seating call treated a successful
+`MoveInVehicle()` owner-RPC dispatch as if the move itself had completed.
+Current source registers and verifies the pilotable vehicle with the crew-group
+utility before issuing any seat request, attempts forced `GetInVehicle()` first
+for locally authoritative convoy AI, retains `MoveInVehicle()` only as the
+fallback after direct rejection or for a non-local entity, and makes the physical probe query retained vehicle
+registration directly. Foundation validation passes. A fresh Game-module run
+compiled 5,740 files/11,473 classes with CRC `5d606f8c`
+and created the game; a separate normal WorldEditor open stayed responsive at
+every two-second sample through 20 seconds with no script-error or new crash
+signature. A fresh scoped convoy runtime must still prove 3/3 living pilot
+occupants, waypoint chains, movement, no static fallback, and exact cleanup.
 
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue

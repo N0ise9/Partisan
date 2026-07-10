@@ -1548,8 +1548,9 @@ class HST_PhysicalWarService
 				string vehicleUsageStatus = "FAIL";
 				if (readiness.m_bPendingGrace || activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending")
 					vehicleUsageStatus = "WARN";
-				bool vehicleUsageRegistered = activeGroup.m_iAssignedWaypointCount >= 2 && activeGroup.m_sSpawnFailureReason.Contains("vehicle usage registered");
-				AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_usage." + asset.m_sAssetId, "AI vehicle usage registered for group movement", string.Format("waypoints %1 | mode %2 | reason %3", activeGroup.m_iAssignedWaypointCount, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason)), ConvoyDebugStatus(vehicleUsageRegistered, vehicleUsageStatus), "convoy vehicle was not registered with the AI vehicle usage layer", groupId, mission.m_sInstanceId);
+				string vehicleUsageEvidence;
+				bool vehicleUsageRegistered = GetConvoyVehicleControlAdapter().IsVehicleRegisteredWithGroup(crewEntity, vehicleEntity, vehicleUsageEvidence);
+				AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_usage." + asset.m_sAssetId, "AI vehicle usage registered for group movement", string.Format("registered %1 | evidence %2 | waypoints %3 | mode %4 | reason %5", ReportBool(vehicleUsageRegistered), ReportText(vehicleUsageEvidence), activeGroup.m_iAssignedWaypointCount, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason)), ConvoyDebugStatus(vehicleUsageRegistered, vehicleUsageStatus), "convoy vehicle was not registered with the AI vehicle usage layer", groupId, mission.m_sInstanceId);
 				EnsureActiveGroupRuntimeFaction(activeGroup, "convoy physical probe");
 				string factionSample;
 				int factionMismatches = CountActiveGroupRuntimeFactionMismatches(activeGroup, factionSample);
@@ -4076,7 +4077,7 @@ class HST_PhysicalWarService
 			{
 				if (!preserveWaypointMode)
 				{
-					if (seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for animated AI boarding"))
+					if (seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for authoritative seat transition"))
 						activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
 					else
 						activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
@@ -4271,7 +4272,7 @@ class HST_PhysicalWarService
 			}
 			else
 			{
-				if (adapterBindReason.Contains("seating pending yes") || adapterBindReason.Contains("waiting for animated AI boarding"))
+				if (adapterBindReason.Contains("seating pending yes") || adapterBindReason.Contains("waiting for authoritative seat transition"))
 					activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
 				else
 					activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
@@ -4707,7 +4708,7 @@ class HST_PhysicalWarService
 
 		if (!preserveWaypointMode)
 		{
-			if (seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for animated AI boarding"))
+			if (seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for authoritative seat transition"))
 				activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
 			else
 				activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
@@ -4772,7 +4773,7 @@ class HST_PhysicalWarService
 		RefreshMissionConvoyCrewCount(activeGroup);
 		string mountedReason;
 		bool crewMounted = GetConvoyVehicleControlAdapter().AreLivingCrewMounted(crewEntity, vehicle, mountedReason);
-		bool seatingPending = seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for animated AI boarding") || mountedReason.Contains("seating pending yes") || mountedReason.Contains("waiting for animated AI boarding");
+		bool seatingPending = seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for authoritative seat transition") || mountedReason.Contains("seating pending yes") || mountedReason.Contains("waiting for authoritative seat transition");
 		if (!driverReady)
 		{
 			activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
@@ -12551,7 +12552,7 @@ class HST_PhysicalWarService
 			return true;
 		}
 
-		if (seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for animated AI boarding"))
+		if (seatingReason.Contains("seating pending yes") || seatingReason.Contains("waiting for authoritative seat transition"))
 			activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
 		else
 			activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";

@@ -99,7 +99,7 @@ that roadmap remains useful for feature history and acceptance detail.
 | CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. The guarded schema-48 Game module loads 5,740 files/11,473 classes and creates the game; a normal WorldEditor open produced no new crash signature during the bounded survival gate. A current-build dedicated smoke remained live until intentional disconnect but recorded a recoverable recursive player-role invoker exception during editor-mode repair. The one-frame editor-listener guard is compile-proven and preserves stock mode updates, teardown, and role ownership; fresh packaged runtime proof remains open. The same smoke mapped 20 unregistered group-member RPCs exactly to 14 pedestrians plus 6 traffic drivers. The dedicated civilian root now inherits the stock behavior/replication base and uses the initial-AI attach path, but fresh zero-RPC and actual-movement proof remains open. In-process diagnostics use a development-world-only cloned-state boundary; fresh runtime proof and session-restart cleanliness remain open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 48 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts/events, the resource ledger, and accepted-settlement replay tombstones. Paid training, visible garrison confirmation, and player-QRF confirmation/settlement are migrated. Static/Workbench validation is required on the final tree; isolated runtime and save/load certification remain pending. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | Immutable persisted manifests, expiring quotes, exact catalog validation, durable per-projection SpawnQueue authority, the first engine-facing infantry adapter, exact member lifecycle, and bounded accepted-settlement archives are implemented. Schema 48 compacts only terminal backlink-free garrison/QRF rows after 600 seconds, retains compact replay for at least 86,400 seconds, hard-bounds planning history, and production-runs pin-aware queue maintenance. Bounded proofs cover paid-QRF, force-runtime, archive persistence/replay, backlink protection, capacity, and migration but are not runtime-executed. Vehicle/asset/multi-root execution, exact garrison realization, and other paid-support migrations remain open. |
-| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; first exact infantry lifecycle landed | Exact paid-QRF infantry now retains operation/manifest links, reconciles slot-specific casualties, retires the last-death root, and reprojects durable survivors after restore. Runtime proof, event-driven death subscription, vehicle/asset lifecycle, virtual/physical transfer, route progress, arrival, recall, and fold-back remain open. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; first exact infantry lifecycle landed | Exact paid-QRF infantry now retains operation/manifest links, reconciles slot-specific casualties, retires the last-death root, and reprojects durable survivors after restore. Convoy binding now registers usable vehicles before seating, prefers authority-local forced pilot entry, and exposes direct retained-registration proof after the latest 0/3-driver artifact. Runtime proof, event-driven death subscription, vehicle/asset lifecycle, virtual/physical transfer, route progress, arrival, recall, and fold-back remain open. |
 | CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Broad-alpha foundations implemented; authority/JIP proof pending | UI, marker, ownership, town-influence, civilian, and undercover paths exist. Static-marker root guarding and delayed owner-client census are implemented. Civilian ambient roots now carry the stock behavior, pathfinding, utility, editable, and replication stack and use the native initial-AI attach path. Snapshot/delta/JIP authority, canonical ownership side effects, rendered-client proof, zero-RPC civilian projection, actual civilian movement, and deeper political consequences remain open. |
 | CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; exact cutovers and parity pending | Enemy orders, 39 configured mission definitions with MVP primitives, arsenal/garage/training/undercover/HQ/end-state systems, and typed debug cases exist. Reliable operation duty/return behavior, exact resource/force cutovers, mission-family depth, progression tuning, and dedicated runtime proof remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
@@ -110,7 +110,7 @@ that roadmap remains useful for feature history and acceptance detail.
 | --- | --- | --- |
 | Exact Forces | Implemented foundation | Execute exact training, garrison, paid-QRF, queue, and settlement replay cases across save/restart. |
 | Clean Forces | First exact infantry-QRF lifecycle implemented | Prove native/GM/strategic living counts, corpse detachment, last-death cleanup, and survivor reprojection. |
-| Living War | Broad-alpha virtual/physical support, response, and convoy paths | Reproduce and fix genuine off-bubble progress, seating, route, arrival, and contact failures. |
+| Living War | Broad-alpha virtual/physical support, response, and convoy paths; the current convoy seating-order defect is repaired in source | Prove 3/3 living pilot occupants and retained vehicle registration, then fix remaining off-bubble progress, route, arrival, and contact failures. |
 | Reliable Orders | Broad-alpha enemy/support order state exists | Add durable duty/assignment/engagement/return states and prove recall/return without duplicate settlement. |
 | One Campaign View | Menu and marker projections exist; static-root guard implemented | Prove authoritative host/client/late-join snapshots, revisions, deletes, and modal map ownership. |
 | Political Map | Town influence, capture, ownership, security, and heat foundations exist | Canonicalize ownership side effects and deepen political control/mission outputs. |
@@ -224,20 +224,23 @@ treated as future work:
 
 1. Runtime-prove the editor role-change reentry guard during packaged late admin
    assignment with expected editor access and no recursive invoker exception.
-2. Runtime-prove campaign-debug isolation, the six repaired observations, and a
+2. Runtime-prove the stock-based civilian helper root with zero unregistered
+   group RPCs and actual pedestrian/traffic movement.
+3. Runtime-prove campaign-debug isolation, the six repaired observations, and a
    clean development-session restart before interpreting a new full artifact.
-3. Prove the schema-43 through schema-48 authority chain across exact training,
+4. Prove the schema-43 through schema-48 authority chain across exact training,
    garrison, paid-QRF, SpawnQueue, casualty/reprojection, archive replay, and
    save/restart boundaries.
-4. Reproduce and repair genuine convoy seating/movement, support routing,
+5. Prove 3/3 convoy drivers after the pre-seat vehicle-registration and local-
+   authority entry repair, then fix remaining movement, support routing,
    physical response, arrival, contact, return, and recall failures in scoped
    disposable profiles.
-5. Prove static marker widget readiness and build authoritative host/client/JIP
+6. Prove static marker widget readiness and build authoritative host/client/JIP
    snapshot-and-delta reconciliation for the One Campaign View milestone.
-6. Add the durable operation duty/assignment/engagement/materialization model,
+7. Add the durable operation duty/assignment/engagement/materialization model,
    then extend exact lifecycle authority to vehicles, assets, garrisons, and
    remaining paid support consumers.
-7. Only after the integrity gates are trustworthy, deepen ownership/town
+8. Only after the integrity gates are trustworthy, deepen ownership/town
    politics, civilian behavior, enemy strategy, mission families, progression,
    and balance before dedicated multiplayer/restart/long-soak certification.
 
@@ -518,9 +521,9 @@ Acceptance pattern:
 | 3 | Convoy route state | Complete |
 | 4 | Convoy readiness gating | Complete |
 | 5 | Convoy vehicle-control adapter | Complete |
-| 6 | Real convoy crew seating | Complete |
-| 7 | Convoy waypoint-chain movement | Complete |
-| 8 | Convoy progress, stuck detection, and destination arrival | Complete |
+| 6 | Real convoy crew seating | In progress - pre-seat registration/local seating repair needs runtime proof |
+| 7 | Convoy waypoint-chain movement | In progress - live waypoint proof depends on repaired seating |
+| 8 | Convoy progress, stuck detection, and destination arrival | In progress - natural physical movement proof pending |
 | 9 | Convoy contact behavior | Complete |
 | 10 | Generic convoy completion | Complete |
 | 11 | Mission-specific convoy outcomes | Complete |
@@ -1432,9 +1435,12 @@ Acceptance criteria:
 
 ## Phase 6 - Real Convoy Crew Seating
 
-Status: Complete
+Status: In progress - current production repair is compile-proven; fresh scoped runtime proof pending.
 
-Implementation/static validation and HST_Dev smoke testing complete.
+The older implementation/static smoke did not survive the later dedicated
+runtime artifact: all three populated crews remained driverless through the
+grace window. Current source repairs the ordering and authority path, but this
+phase is not complete again until the scoped convoy proof passes.
 
 Goal: make convoy vehicles actually controllable by AI.
 
@@ -1442,8 +1448,11 @@ Implementation:
 
 - In `HST_ConvoyVehicleControlAdapter`, discover living group-controlled AI
   agents and vehicle compartments.
-- Assign the first suitable AI to the driver seat using animated compartment
-  access.
+- Register each valid pilotable vehicle with the crew-group utility before any
+  seating request, and verify retained registration directly.
+- Assign the first suitable server-owned AI to the driver seat through forced
+  authority-local compartment entry, with the owner RPC as fallback after a
+  direct rejection or for a non-local entity.
 - Assign the next suitable AI to gunner/turret seats if available.
 - Assign remaining AI to cargo/passenger seats.
 - Verify the driver is a living group-controlled occupant in a pilot slot.
@@ -1469,10 +1478,11 @@ Acceptance criteria:
 
 ## Phase 7 - Convoy Waypoint-Chain Movement
 
-Status: Complete
+Status: In progress - implemented; fresh live waypoint-chain proof pending after seating repair.
 
-Implementation/static validation and HST_Dev smoke testing have met the phase
-criteria. Follow-up reliability work now belongs to Phase 8.
+The waypoint-chain implementation and static contracts exist, but the latest
+driverless convoy artifact prevented a valid live chain. Fresh proof resumes
+only after Phase 6 confirms every vehicle has a living pilot occupant.
 
 Goal: replace single destination waypoint with an ordered route waypoint chain.
 
@@ -1497,7 +1507,7 @@ Acceptance criteria:
 
 ## Phase 8 - Convoy Progress, Stuck Detection, And Destination Arrival
 
-Status: Complete
+Status: In progress - implemented; natural physical progress/stall/arrival proof pending.
 
 Implementation/static validation target: Phase 8 now tracks transient convoy
 progress in `HST_PhysicalWarService` without adding campaign save fields. A

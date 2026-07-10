@@ -66,8 +66,15 @@ class HST_ConvoyVehicleControlAdapter
 			return false;
 		}
 
+		string vehicleRegistrationReason;
+		if (!TryRegisterVehicleWithGroup(groupEntity, vehicleEntity, vehicleRegistrationReason))
+		{
+			reason = "Convoy adapter cannot bind crew before seating: " + vehicleRegistrationReason + ".";
+			return false;
+		}
+
 		HST_ConvoyCrewSeatingResult seating = BuildCrewSeatingResult(groupEntity, vehicleEntity, true);
-		reason = seating.ToReportString();
+		reason = seating.ToReportString() + " | pre-seat " + vehicleRegistrationReason;
 		return seating.m_bDriverAssigned;
 	}
 
@@ -211,6 +218,49 @@ class HST_ConvoyVehicleControlAdapter
 		}
 
 		reason = "vehicle usage registered for group movement";
+		return true;
+	}
+
+	bool IsVehicleRegisteredWithGroup(IEntity groupEntity, IEntity vehicleEntity, out string reason)
+	{
+		reason = "";
+		if (!groupEntity || !vehicleEntity)
+		{
+			reason = "crew group or vehicle entity missing for AI vehicle registration proof";
+			return false;
+		}
+
+		SCR_AIGroupUtilityComponent utility = SCR_AIGroupUtilityComponent.Cast(groupEntity.FindComponent(SCR_AIGroupUtilityComponent));
+		if (!utility)
+		{
+			reason = "crew group has no AI group utility component";
+			return false;
+		}
+
+		IEntity vehicleUsageOwner = vehicleEntity;
+		SCR_AIVehicleUsageComponent vehicleUsage = SCR_AIVehicleUsageComponent.FindOnNearestParent(vehicleEntity, vehicleUsageOwner);
+		if (!vehicleUsage)
+		{
+			reason = "vehicle has no AI vehicle usage component";
+			return false;
+		}
+		if (!vehicleUsage.IsVehicleTypeValid())
+		{
+			reason = "vehicle AI usage component has no valid vehicle type";
+			return false;
+		}
+		if (!vehicleUsage.CanBePiloted())
+		{
+			reason = "vehicle AI usage component is not pilotable";
+			return false;
+		}
+		if (!utility.IsUsableVehicle(vehicleUsage))
+		{
+			reason = "vehicle usage is not retained by the crew group";
+			return false;
+		}
+
+		reason = "vehicle usage is retained by the crew group";
 		return true;
 	}
 
@@ -444,7 +494,7 @@ class HST_ConvoyVehicleControlAdapter
 		if (result.m_iDriverSlots <= 0)
 			result.m_sReason = "vehicle has no accessible driver compartment";
 		else if (!result.m_bDriverAssigned && result.m_iIssuedOrders > 0)
-			result.m_sReason = "waiting for animated AI boarding to seat a driver";
+			result.m_sReason = "waiting for authoritative seat transition to confirm a driver";
 		else if (!result.m_bDriverAssigned && !driverOrderReason.IsEmpty())
 			result.m_sReason = driverOrderReason;
 		else if (!result.m_bDriverAssigned && !orderReason.IsEmpty())
@@ -700,22 +750,27 @@ class HST_ConvoyVehicleControlAdapter
 			return false;
 		}
 
-		if (access.MoveInVehicle(vehicleEntity, compartmentType, true, slot))
-		{
-			if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
-				reason = "server-authoritative compartment move-in completed";
-			else
-				reason = "server-authoritative compartment move-in request accepted";
-			return true;
-		}
-
 		IEntity slotOwner = slot.GetOwner();
 		if (!slotOwner)
 			slotOwner = vehicleEntity;
 
-		if (access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+		// Convoy crews are server-owned AI. Apply the forced seat transition where
+		// the character is authoritative so success can be verified in this slice.
+		// The owner RPC remains a fallback when the direct local call is unavailable
+		// or rejected, including for any non-local controlled entity.
+		RplComponent crewReplication = RplComponent.Cast(crewEntity.FindComponent(RplComponent));
+		if ((!crewReplication || crewReplication.IsOwner()) && access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
 		{
-			reason = "animated compartment get-in order accepted";
+			if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
+				reason = "server-authoritative compartment move-in completed";
+			else
+				reason = "server-authoritative compartment move-in accepted";
+			return true;
+		}
+
+		if (access.MoveInVehicle(vehicleEntity, compartmentType, true, slot))
+		{
+			reason = "owner compartment move-in request accepted";
 			return true;
 		}
 

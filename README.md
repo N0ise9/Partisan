@@ -187,8 +187,10 @@ authority, runtime projection, persistence, and client evidence trustworthy:
    replace the historical Full Campaign Debug artifact with corrected evidence.
 4. Runtime-prove exact paid-QRF creation, casualty cleanup, survivor
    reprojection, settlement archival/replay, and once-only accounting.
-5. Reproduce and fix genuine convoy seating/movement, support routing, arrival,
-   return, recall, and physical-response failures in scoped disposable profiles.
+5. Runtime-prove the convoy pre-seat vehicle registration and authority-local
+   pilot entry repair with 3/3 seated living drivers, then fix any remaining
+   convoy movement, support routing, arrival, return, recall, and physical-
+   response failures in scoped disposable profiles.
 6. Prove static marker widget readiness plus authoritative host/client/late-join
    projection before treating marker publication as player-visible truth.
 7. Resume deeper mission, civilian, undercover, commander, logistics, and
@@ -202,8 +204,10 @@ dedicated-server connect before it counts as runtime proof. The same inspected
 server smoke tied 20 unregistered group-member RPCs one-for-one to 14 ambient
 pedestrians and 6 traffic drivers. The civilian group root now inherits the
 stock behavior/pathfinding/utility/replication base and initial members use the
-native AI-composition attach path. Foundation validation, Workbench Game
-compilation/creation, and a 20-second normal project-open survival gate all pass.
+native AI-composition attach path; traffic drivers also register their vehicle
+before preferring authority-local pilot entry. Foundation validation, Workbench
+Game compilation/creation, and a 20-second normal project-open survival gate
+all pass.
 Fresh packaged zero-RPC and distance-over-time movement proof remains required.
 
 For documentation authority, `docs/FEATURE_CHECKLIST.md` owns current feature

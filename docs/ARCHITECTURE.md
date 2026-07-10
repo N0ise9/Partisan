@@ -132,7 +132,10 @@ Static helper services keep repeated low-level behavior out of the coordinator:
 `HST_VehicleRootPolicy` centralizes safe vehicle-root eligibility,
 `HST_VehicleCapabilityPolicy` classifies captured/source vehicles as ammo,
 repair, fuel, armed, or transport sources, and
-`HST_ConvoyVehicleControlAdapter` wraps native vehicle movement/seating calls.
+`HST_ConvoyVehicleControlAdapter` wraps native vehicle movement/seating calls,
+registers valid pilotable vehicles with the crew utility before seating,
+prefers forced authority-local entry for server-owned AI, and exposes a direct
+retained-registration query for runtime proof.
 
 The coordinator currently exposes server-only mutation methods that check
 campaign phase, known IDs, and mission eligibility before changing state.

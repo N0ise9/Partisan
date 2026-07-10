@@ -130,6 +130,12 @@
   the stock behavior/replication group base and uses the native initial-AI
   attach path; foundation validation, Game compile/create, and normal project-
   open survival pass, but zero-RPC and real movement runtime proof remains open.
+- The non-cascade convoy artifact populated all three crew groups 2/2 but
+  confirmed zero seated drivers through the full grace window. Current source
+  registers each usable vehicle before seating, tries authority-local forced
+  entry before the owner-RPC fallback, and probes retained registration
+  directly; foundation and Game compile/create validation pass, while 3/3
+  driver and movement proof remains open.
 - The latest inspected Full Campaign Debug artifact predates schemas 43-48,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
@@ -151,7 +157,8 @@
 - Runtime-prove the schema-43 through schema-48 authority chain: exact training,
   garrison, paid-QRF, queue/handoff, exact casualties, survivor reprojection,
   settlement archive replay, capacity, and save/restart idempotency.
-- Reproduce and repair genuine convoy seating/movement, support routing,
+- Runtime-prove 3/3 convoy drivers after the pre-seat registration and local-
+  authority entry repair, then repair any remaining movement, support routing,
   physical response, arrival/contact, return, and recall failures with scoped
   disposable debug profiles.
 - Prove static marker widget readiness and implement authoritative host/client/
