@@ -81,3 +81,34 @@ Consequences:
   remains open rather than risking persistent state.
 - Campaign-state swapping does not restore world/player/service runtime state,
   so the development session must still be restarted after a run.
+
+## CRI-004 - Make Player Garrison Recruitment All-Or-Nothing
+
+- Status: Accepted
+- Date: 2026-07-09
+
+Context: The quantity chooser previously charged one flat HR after silently
+clamping the requested quantity to remaining capacity. That made the displayed
+quantity, accepted roster, and charged basis disagree.
+
+Decision: Player-visible garrison recruitment uses an expiring server quote and
+an all-or-nothing capacity policy. Each accepted member costs $50 and one HR.
+The first action only creates the immutable quote/manifest; a later action
+confirms only the quote ID. No partial acceptance is allowed. Existing protected
+internal/debug aggregate helpers retain caller-supplied total costs for
+compatibility but are not the player purchase authority.
+
+Consequences:
+
+- A request for more members than remaining capacity fails without a manifest,
+  debit, or garrison change.
+- The exact UI confirmation row comes from the persisted quote, not the original
+  quantity button.
+- Confirmation creates two linked ledger rows, registers exactly the manifest
+  member-count increment, verifies one acceptance-provenance link, and then
+  commits. This is purchase-time strategic authority, not yet living-slot or
+  physicalization authority.
+- Equipment pricing/consumption is intentionally zero in this first policy and
+  remains an explicit later extension rather than an implied hidden charge.
+- Concurrent open quotes are bounded. Accepted settlement history remains
+  durable and un-compacted until a replay-safe archive/tombstone policy exists.

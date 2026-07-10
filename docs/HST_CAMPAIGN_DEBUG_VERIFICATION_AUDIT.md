@@ -30,9 +30,13 @@ be read as proof that a later change was executed or certified.
   assertion expects 13 where the registry intentionally contains 12; the case
   headline can preserve an earlier WARN while hiding a later FAIL; and support
   movement/formation evidence can be sampled after the group has already folded.
-- Campaign schema 42 and the authority-foundation slice have passed foundation
-  checks and Workbench script validation. They have not yet been runtime
-  certified by this suite.
+- Campaign schema 43, the authority foundation, and the exact garrison
+  quote/manifest slice have passed foundation checks and Workbench script
+  validation. The isolated state case now covers quantities 1/4/7/12, an HR
+  reservation-conflict rollback, and five partial confirmation save/restore
+  boundaries. It has not yet been executed or runtime-certified by this suite,
+  and it does not certify manifest-driven physicalization because that path is
+  not implemented yet.
 
 Post-audit safety follow-up: the in-process runner now fails closed outside
 `HST_Dev`, blocks external/soak profiles, persists the live baseline, runs

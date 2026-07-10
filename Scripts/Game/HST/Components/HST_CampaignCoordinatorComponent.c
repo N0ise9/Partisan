@@ -72,6 +72,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CampaignEventLogService m_CampaignEvents;
 	protected ref HST_CampaignCommandService m_CampaignCommands;
 	protected ref HST_ResourceLedgerService m_ResourceLedger;
+	protected ref HST_ForcePlanningService m_ForcePlanning;
 	protected ref HST_MissionService m_Missions;
 	protected ref HST_PersistenceService m_Persistence;
 	protected ref HST_PersistenceSmokeTestService m_PersistenceSmokeTest;
@@ -298,6 +299,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_CampaignCommands.SetEventLogService(m_CampaignEvents);
 		m_ResourceLedger = new HST_ResourceLedgerService();
 		m_ResourceLedger.SetEventLogService(m_CampaignEvents);
+		m_ForcePlanning = new HST_ForcePlanningService();
+		m_ForcePlanning.SetEventLogService(m_CampaignEvents);
 		m_Missions = new HST_MissionService();
 		m_Persistence = new HST_PersistenceService();
 		m_PersistenceSmokeTest = new HST_PersistenceSmokeTestService();
@@ -361,6 +364,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_EnemyCommander = new HST_EnemyCommanderService();
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
+		if (m_ForcePlanning && m_Garrisons && m_ResourceLedger)
+			m_ForcePlanning.ReconcileInterruptedGarrisonConfirmations(m_State, m_Economy, m_Garrisons, m_ResourceLedger);
 		if (m_ResourceLedger)
 			m_ResourceLedger.ReconcileOpenReservations(m_State, m_Economy);
 		EnsureCampaignFoundation();
@@ -665,6 +670,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (transaction && transaction.m_sCommandRequestId == requestId)
 				return transaction.m_sOperationId;
+		}
+		foreach (HST_ForceQuoteState quote : m_State.m_aForceQuotes)
+		{
+			if (quote && (quote.m_sCommandRequestId == requestId || quote.m_sConfirmationRequestId == requestId))
+				return quote.m_sOperationId;
 		}
 		return "";
 	}
@@ -1415,7 +1425,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return income;
 	}
 
-	bool AddAbstractGarrison(string zoneId, string factionKey, int infantryCount, int vehicleCount = 0)
+	protected bool AddAbstractGarrison(string zoneId, string factionKey, int infantryCount, int vehicleCount = 0)
 	{
 		if (!Replication.IsServer())
 			return false;
@@ -1449,7 +1459,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result && result.m_bSuccess;
 	}
 
-	bool RecruitResistanceGarrison(string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
+	protected bool RecruitResistanceGarrison(string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
 	{
 		if (!Replication.IsServer() || !m_Recruitment)
 			return false;
@@ -1918,7 +1928,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return StartMission(missionId, targetZoneId);
 	}
 
-	bool RequestCommanderRecruitGarrison(int playerId, string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
+	protected bool RequestCommanderRecruitGarrison(int playerId, string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
 			return false;
@@ -1926,7 +1936,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return RecruitResistanceGarrison(zoneId, infantryCount, vehicleCount, moneyCost, hrCost);
 	}
 
-	string RequestCommanderRecruitGarrisonReport(int playerId, string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
+	protected string RequestCommanderRecruitGarrisonReport(int playerId, string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
 	{
 		if (!Replication.IsServer())
 			return "h-istasi recruitment | failed: server authority unavailable";
@@ -1948,7 +1958,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
 	}
 
-	string RequestCommanderRecruitGarrisonAtMapTargetReport(int playerId, string targetArgument, int infantryCount = 2, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
+	protected string RequestCommanderRecruitGarrisonAtMapTargetReport(int playerId, string targetArgument, int infantryCount = 2, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
 	{
 		if (!Replication.IsServer())
 			return "h-istasi recruitment | failed: server authority unavailable";
@@ -1969,6 +1979,74 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		infantryCount = ResolveCommandMapTargetCountArgument(targetArgument, infantryCount);
 		string report = RequestCommanderRecruitGarrisonReport(playerId, zone.m_sZoneId, infantryCount, vehicleCount, moneyCost, hrCost);
 		return report + string.Format("\nmap target | selected %1 | zone %2", targetPosition, ResolveZoneLabel(zone));
+	}
+
+	string RequestCommanderQuoteGarrisonAtMapTargetReport(int playerId, string targetArgument, string commandRequestId = "")
+	{
+		if (!Replication.IsServer())
+			return "h-istasi force quote | failed: server authority unavailable";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi force quote | failed: commander permission required";
+		if (!PlayerHasMapInInventory(playerId))
+			return "h-istasi force quote | failed: map required";
+		if (!m_ForcePlanning)
+			return "h-istasi force quote | failed: planning service not ready";
+
+		vector targetPosition;
+		string failureReason;
+		if (!TryParseCommandMapTargetArgument(targetArgument, targetPosition, failureReason))
+			return "h-istasi force quote | failed: " + failureReason;
+
+		HST_ZoneState zone = ResolveRecruitGarrisonMapTargetZone(targetPosition);
+		if (!zone)
+			return string.Format("h-istasi force quote | failed: no eligible resistance garrison zone at selected map target %1", targetPosition);
+
+		int infantryCount = ResolveCommandMapTargetCountArgument(targetArgument, 2);
+		string actorIdentityId = ResolveTrustedIdentityId(playerId);
+		HST_ForceQuoteResult result = m_ForcePlanning.IssueGarrisonQuote(m_State, m_Preset, actorIdentityId, zone.m_sZoneId, infantryCount, commandRequestId);
+		if (!result)
+			return "h-istasi force quote | failed: no result";
+		if (result.m_bStateChanged)
+			MarkMajorCampaignChange();
+		if (!result.m_bSuccess || !result.m_Quote)
+			return result.BuildSummary();
+		if (result.m_Quote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ACCEPTED)
+			return result.BuildSummary() + "\nThis request was already accepted; no confirmation is pending.";
+		return result.BuildSummary() + string.Format("\nmap target | selected %1 | zone %2\nOpen Forces again and confirm only quote %3.", targetPosition, ResolveZoneLabel(zone), result.m_Quote.m_sQuoteId);
+	}
+
+	string RequestCommanderConfirmGarrisonQuoteReport(int playerId, string quoteId, string commandRequestId = "")
+	{
+		if (!Replication.IsServer())
+			return "h-istasi garrison confirmation | failed: server authority unavailable";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi garrison confirmation | failed: commander permission required";
+		if (!m_ForcePlanning || !m_ResourceLedger || !m_Garrisons || !m_Economy)
+			return "h-istasi garrison confirmation | failed: authority services not ready";
+
+		string actorIdentityId = ResolveTrustedIdentityId(playerId);
+		HST_ForceConfirmationResult result = m_ForcePlanning.ConfirmGarrisonQuote(m_State, m_Economy, m_Garrisons, m_ResourceLedger, actorIdentityId, quoteId, commandRequestId);
+		if (!result)
+			return "h-istasi garrison confirmation | failed: no result";
+		if (result.m_bStateChanged)
+			MarkMajorCampaignChange();
+		return result.BuildSummary() + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
+	}
+
+	string RequestCommanderCancelGarrisonQuoteReport(int playerId, string quoteId, string commandRequestId = "")
+	{
+		if (!Replication.IsServer())
+			return "h-istasi force quote | failed: server authority unavailable";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi force quote | failed: commander permission required";
+		if (!m_ForcePlanning)
+			return "h-istasi force quote | failed: planning service not ready";
+
+		bool cancelled = m_ForcePlanning.CancelGarrisonQuote(m_State, ResolveTrustedIdentityId(playerId), quoteId, "cancelled by actor", commandRequestId);
+		if (!cancelled)
+			return "h-istasi force quote | failed: quote is not open or is not owned by this commander";
+		MarkMajorCampaignChange();
+		return "h-istasi force quote | cancelled " + quoteId;
 	}
 
 	bool RequestCommanderTrainTroops(int playerId, int moneyCost = 250)
@@ -15592,6 +15670,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		report = report + "\n" + checkpointReport;
 		RecordCampaignDebugCase(BuildCampaignDebugFoundationCheckpointCase(foundationReport, checkpointReport, lastSaveSecondBefore, activeMissionsBefore, activeGroupsBefore));
 		RecordCampaignDebugCase(BuildCampaignDebugAuthorityFoundationCase());
+		RecordCampaignDebugCase(BuildCampaignDebugForceAuthorityCase());
 		return report;
 	}
 
@@ -15667,6 +15746,472 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(authorityCase, "authority.persistence.roundtrip", "command receipt, transaction, operation link, event sequence, and allocator survive save roundtrip", restoreActual, CampaignDebugStatus(saveRoundtrip), "authority foundation state did not survive save roundtrip");
 		FinalizeCampaignDebugCaseFromAssertions(authorityCase);
 		return authorityCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase()
+	{
+		HST_CampaignDebugCaseResult forceCase = CreateCampaignDebugCase("early_mechanics.force_authority", "early_mechanics", "force_authority", "early_mechanics");
+		HST_CampaignPreset proofPreset = HST_DefaultCatalog.CreateVanillaEveronPreset();
+		array<int> quantities = {1, 4, 7, 12};
+		bool allQuantitiesExact = true;
+		string quantityEvidence;
+		HST_CampaignState acceptedState;
+		HST_ForcePlanningService acceptedPlanning;
+		HST_EconomyService acceptedEconomy;
+		HST_GarrisonService acceptedGarrisons;
+		HST_ResourceLedgerService acceptedLedger;
+		HST_ForceQuoteResult acceptedQuote;
+		string deterministicHash;
+		string deterministicRoster;
+
+		foreach (int quantity : quantities)
+		{
+			HST_CampaignState proofState = CreateCampaignDebugForceAuthorityState(32);
+			HST_EconomyService proofEconomy = new HST_EconomyService();
+			HST_GarrisonService proofGarrisons = new HST_GarrisonService();
+			HST_CampaignEventLogService proofEvents = new HST_CampaignEventLogService();
+			HST_ResourceLedgerService proofLedger = new HST_ResourceLedgerService();
+			proofLedger.SetEventLogService(proofEvents);
+			HST_ForcePlanningService proofPlanning = new HST_ForcePlanningService();
+			proofPlanning.SetEventLogService(proofEvents);
+			string quoteRequestId = string.Format("force_proof_quote_%1", quantity);
+			string confirmRequestId = string.Format("force_proof_confirm_%1", quantity);
+			HST_ForceQuoteResult quoteResult = proofPlanning.IssueGarrisonQuote(proofState, proofPreset, "force_proof_actor", "force_proof_zone", quantity, quoteRequestId, false);
+			HST_ForceConfirmationResult confirmResult;
+			if (quoteResult && quoteResult.m_bSuccess)
+				confirmResult = proofPlanning.ConfirmGarrisonQuote(proofState, proofEconomy, proofGarrisons, proofLedger, "force_proof_actor", quoteResult.m_Quote.m_sQuoteId, confirmRequestId);
+
+			HST_GarrisonState garrison = proofState.FindGarrison("force_proof_zone", "FIA");
+			HST_ResourceTransactionState moneyTransaction;
+			HST_ResourceTransactionState hrTransaction;
+			if (quoteResult && quoteResult.m_Quote)
+			{
+				moneyTransaction = proofState.FindResourceTransaction(quoteResult.m_Quote.m_sMoneyTransactionId);
+				hrTransaction = proofState.FindResourceTransaction(quoteResult.m_Quote.m_sHRTransactionId);
+			}
+
+			bool exact = quoteResult && quoteResult.m_bSuccess && quoteResult.m_Manifest && quoteResult.m_Quote;
+			if (exact)
+				exact = quoteResult.m_Manifest.m_iRequestedMemberCount == quantity && quoteResult.m_Manifest.m_iAcceptedMemberCount == quantity && quoteResult.m_Manifest.m_aMembers.Count() == quantity;
+			if (exact)
+				exact = quoteResult.m_Manifest.m_iMoneyCost == quantity * 50 && quoteResult.m_Manifest.m_iHRCost == quantity && quoteResult.m_Quote.m_iMoneyCost == quantity * 50 && quoteResult.m_Quote.m_iHRCost == quantity;
+			if (exact)
+				exact = CampaignDebugForceManifestSlotsUnique(quoteResult.m_Manifest) && confirmResult && confirmResult.m_bSuccess && !confirmResult.m_bAlreadyApplied;
+			if (exact)
+				exact = garrison && garrison.m_iInfantryCount == quantity && CountCampaignDebugString(garrison.m_aAcceptedManifestIds, quoteResult.m_Manifest.m_sManifestId) == 1;
+			if (exact)
+				exact = proofState.m_iFactionMoney == 5000 - quantity * 50 && proofState.m_iHR == 100 - quantity && proofState.m_aResourceTransactions.Count() == 2;
+			if (exact)
+				exact = CampaignDebugForceTransactionMatches(moneyTransaction, quoteResult.m_Quote, quoteResult.m_Manifest, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quantity * 50) && CampaignDebugForceTransactionMatches(hrTransaction, quoteResult.m_Quote, quoteResult.m_Manifest, HST_ResourceLedgerService.RESOURCE_HR, quantity);
+
+			allQuantitiesExact = allQuantitiesExact && exact;
+			if (!quantityEvidence.IsEmpty())
+				quantityEvidence = quantityEvidence + " | ";
+			int evidenceGarrisonCount = -1;
+			if (garrison)
+				evidenceGarrisonCount = garrison.m_iInfantryCount;
+			quantityEvidence = quantityEvidence + string.Format("q%1 exact=%2 money=%3 HR=%4 roster=%5 tx=%6", quantity, exact, proofState.m_iFactionMoney, proofState.m_iHR, evidenceGarrisonCount, proofState.m_aResourceTransactions.Count());
+
+			if (quantity == 4)
+			{
+				acceptedState = proofState;
+				acceptedPlanning = proofPlanning;
+				acceptedEconomy = proofEconomy;
+				acceptedGarrisons = proofGarrisons;
+				acceptedLedger = proofLedger;
+				acceptedQuote = quoteResult;
+			}
+			if (quantity == 7 && quoteResult && quoteResult.m_bSuccess)
+			{
+				deterministicHash = quoteResult.m_Manifest.m_sManifestHash;
+				deterministicRoster = BuildCampaignDebugForceRoster(quoteResult.m_Manifest);
+			}
+		}
+
+		bool duplicateIdempotent;
+		string duplicateEvidence = "missing accepted fixture";
+		if (acceptedState && acceptedPlanning && acceptedQuote && acceptedQuote.m_Quote)
+		{
+			int moneyBeforeDuplicate = acceptedState.m_iFactionMoney;
+			int hrBeforeDuplicate = acceptedState.m_iHR;
+			int transactionsBeforeDuplicate = acceptedState.m_aResourceTransactions.Count();
+			HST_GarrisonState duplicateGarrison = acceptedState.FindGarrison("force_proof_zone", "FIA");
+			int infantryBeforeDuplicate;
+			int manifestLinksBeforeDuplicate;
+			if (duplicateGarrison)
+			{
+				infantryBeforeDuplicate = duplicateGarrison.m_iInfantryCount;
+				manifestLinksBeforeDuplicate = duplicateGarrison.m_aAcceptedManifestIds.Count();
+			}
+			HST_ForceConfirmationResult duplicateResult = acceptedPlanning.ConfirmGarrisonQuote(acceptedState, acceptedEconomy, acceptedGarrisons, acceptedLedger, "force_proof_actor", acceptedQuote.m_Quote.m_sQuoteId, "force_proof_confirm_4_duplicate");
+			duplicateGarrison = acceptedState.FindGarrison("force_proof_zone", "FIA");
+			duplicateIdempotent = duplicateResult && duplicateResult.m_bSuccess && duplicateResult.m_bAlreadyApplied;
+			duplicateIdempotent = duplicateIdempotent && acceptedState.m_iFactionMoney == moneyBeforeDuplicate && acceptedState.m_iHR == hrBeforeDuplicate && acceptedState.m_aResourceTransactions.Count() == transactionsBeforeDuplicate;
+			duplicateIdempotent = duplicateIdempotent && duplicateGarrison && duplicateGarrison.m_iInfantryCount == infantryBeforeDuplicate && duplicateGarrison.m_aAcceptedManifestIds.Count() == manifestLinksBeforeDuplicate;
+			int duplicateInfantryEvidence = -1;
+			if (duplicateGarrison)
+				duplicateInfantryEvidence = duplicateGarrison.m_iInfantryCount;
+			duplicateEvidence = string.Format("already %1 | money %2/%3 | HR %4/%5 | tx %6/%7 | infantry %8", duplicateResult && duplicateResult.m_bAlreadyApplied, moneyBeforeDuplicate, acceptedState.m_iFactionMoney, hrBeforeDuplicate, acceptedState.m_iHR, transactionsBeforeDuplicate, acceptedState.m_aResourceTransactions.Count(), duplicateInfantryEvidence);
+		}
+
+		HST_CampaignState deterministicState = CreateCampaignDebugForceAuthorityState(32);
+		HST_ForcePlanningService deterministicPlanning = new HST_ForcePlanningService();
+		HST_ForceQuoteResult deterministicQuote = deterministicPlanning.IssueGarrisonQuote(deterministicState, proofPreset, "force_proof_actor", "force_proof_zone", 7, "force_proof_quote_7", false);
+		bool deterministic = deterministicQuote && deterministicQuote.m_bSuccess && deterministicQuote.m_Manifest.m_sManifestHash == deterministicHash && BuildCampaignDebugForceRoster(deterministicQuote.m_Manifest) == deterministicRoster;
+		string deterministicActualHash = "missing";
+		bool deterministicRosterEqual;
+		if (deterministicQuote && deterministicQuote.m_Manifest)
+		{
+			deterministicActualHash = deterministicQuote.m_Manifest.m_sManifestHash;
+			deterministicRosterEqual = BuildCampaignDebugForceRoster(deterministicQuote.m_Manifest) == deterministicRoster;
+		}
+		string deterministicEvidence = string.Format("hash %1/%2 | roster equal %3", deterministicHash, deterministicActualHash, deterministicRosterEqual);
+
+		HST_CampaignState capacityState = CreateCampaignDebugForceAuthorityState(12);
+		HST_GarrisonState capacityGarrison = new HST_GarrisonState();
+		capacityGarrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId("force_proof_zone", "FIA");
+		capacityGarrison.m_sZoneId = "force_proof_zone";
+		capacityGarrison.m_sFactionKey = "FIA";
+		capacityGarrison.m_iInfantryCount = 10;
+		capacityState.m_aGarrisons.Insert(capacityGarrison);
+		HST_ForcePlanningService capacityPlanning = new HST_ForcePlanningService();
+		HST_ForceQuoteResult capacityQuote = capacityPlanning.IssueGarrisonQuote(capacityState, proofPreset, "force_proof_actor", "force_proof_zone", 4, "force_proof_capacity", false);
+		bool capacityRejected = capacityQuote && !capacityQuote.m_bSuccess && capacityQuote.m_sFailureReason.Contains("all-or-nothing capacity conflict") && capacityGarrison.m_iInfantryCount == 10 && capacityState.m_iFactionMoney == 5000 && capacityState.m_iHR == 100 && capacityState.m_aForceQuotes.Count() == 0 && capacityState.m_aForceManifests.Count() == 0 && capacityState.m_aResourceTransactions.Count() == 0;
+		string capacityReason = "missing";
+		if (capacityQuote)
+			capacityReason = capacityQuote.m_sFailureReason;
+		string capacityEvidence = string.Format("success %1 | reason %2 | infantry %3 | money %4 | HR %5 | manifests %6 quotes %7 tx %8", capacityQuote && capacityQuote.m_bSuccess, capacityReason, capacityGarrison.m_iInfantryCount, capacityState.m_iFactionMoney, capacityState.m_iHR, capacityState.m_aForceManifests.Count(), capacityState.m_aForceQuotes.Count(), capacityState.m_aResourceTransactions.Count());
+
+		HST_CampaignState staleState = CreateCampaignDebugForceAuthorityState(32);
+		HST_EconomyService staleEconomy = new HST_EconomyService();
+		HST_GarrisonService staleGarrisons = new HST_GarrisonService();
+		HST_ResourceLedgerService staleLedger = new HST_ResourceLedgerService();
+		HST_ForcePlanningService stalePlanning = new HST_ForcePlanningService();
+		HST_ForceQuoteResult staleQuote = stalePlanning.IssueGarrisonQuote(staleState, proofPreset, "force_proof_actor", "force_proof_zone", 4, "force_proof_stale", false);
+		staleState.FindZone("force_proof_zone").m_iActiveInfantryCount = 1;
+		HST_ForceConfirmationResult staleConfirm;
+		if (staleQuote && staleQuote.m_bSuccess)
+			staleConfirm = stalePlanning.ConfirmGarrisonQuote(staleState, staleEconomy, staleGarrisons, staleLedger, "force_proof_actor", staleQuote.m_Quote.m_sQuoteId, "force_proof_stale_confirm");
+		bool staleRejected = staleConfirm && !staleConfirm.m_bSuccess && staleConfirm.m_sFailureReason.Contains("context changed") && staleState.m_iFactionMoney == 5000 && staleState.m_iHR == 100 && staleState.m_aGarrisons.Count() == 0 && staleState.m_aResourceTransactions.Count() == 0;
+		string staleReason = "missing";
+		if (staleConfirm)
+			staleReason = staleConfirm.m_sFailureReason;
+		string staleEvidence = string.Format("success %1 | reason %2 | money %3 HR %4 | garrisons %5 tx %6", staleConfirm && staleConfirm.m_bSuccess, staleReason, staleState.m_iFactionMoney, staleState.m_iHR, staleState.m_aGarrisons.Count(), staleState.m_aResourceTransactions.Count());
+
+		HST_CampaignState reservationConflictState = CreateCampaignDebugForceAuthorityState(32);
+		HST_EconomyService reservationConflictEconomy = new HST_EconomyService();
+		HST_GarrisonService reservationConflictGarrisons = new HST_GarrisonService();
+		HST_ResourceLedgerService reservationConflictLedger = new HST_ResourceLedgerService();
+		HST_ForcePlanningService reservationConflictPlanning = new HST_ForcePlanningService();
+		HST_ForceQuoteResult reservationConflictQuote = reservationConflictPlanning.IssueGarrisonQuote(reservationConflictState, proofPreset, "force_proof_actor", "force_proof_zone", 4, "force_proof_reservation_conflict", false);
+		if (reservationConflictQuote && reservationConflictQuote.m_bSuccess)
+		{
+			HST_ResourceTransactionState conflictingHR = new HST_ResourceTransactionState();
+			conflictingHR.m_sTransactionId = reservationConflictQuote.m_Quote.m_sHRTransactionId;
+			conflictingHR.m_sCommandRequestId = "conflicting_request";
+			conflictingHR.m_sOperationId = "conflicting_operation";
+			conflictingHR.m_sResourceType = HST_ResourceLedgerService.RESOURCE_HR;
+			conflictingHR.m_iAmount = 999;
+			conflictingHR.m_eStatus = HST_EResourceTransactionStatus.HST_TRANSACTION_CANCELLED;
+			reservationConflictState.m_aResourceTransactions.Insert(conflictingHR);
+		}
+		HST_ForceConfirmationResult reservationConflictConfirm;
+		if (reservationConflictQuote && reservationConflictQuote.m_bSuccess)
+			reservationConflictConfirm = reservationConflictPlanning.ConfirmGarrisonQuote(reservationConflictState, reservationConflictEconomy, reservationConflictGarrisons, reservationConflictLedger, "force_proof_actor", reservationConflictQuote.m_Quote.m_sQuoteId, "force_proof_reservation_conflict_confirm");
+		HST_ResourceTransactionState rolledBackMoney;
+		if (reservationConflictQuote && reservationConflictQuote.m_Quote)
+			rolledBackMoney = reservationConflictState.FindResourceTransaction(reservationConflictQuote.m_Quote.m_sMoneyTransactionId);
+		bool reservationRollback = reservationConflictConfirm && !reservationConflictConfirm.m_bSuccess && reservationConflictConfirm.m_sFailureReason.Contains("HR reservation failed") && reservationConflictState.m_iFactionMoney == 5000 && reservationConflictState.m_iHR == 100 && reservationConflictState.m_aGarrisons.Count() == 0 && rolledBackMoney && rolledBackMoney.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_CANCELLED;
+		string reservationConflictEvidence = string.Format("success %1 | reason %2 | money %3 HR %4 | garrisons %5 | money terminal %6", reservationConflictConfirm && reservationConflictConfirm.m_bSuccess, reservationConflictConfirm != null, reservationConflictState.m_iFactionMoney, reservationConflictState.m_iHR, reservationConflictState.m_aGarrisons.Count(), rolledBackMoney && rolledBackMoney.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_CANCELLED);
+
+		bool roundtrip;
+		string roundtripEvidence = "missing accepted fixture";
+		if (acceptedState && acceptedQuote && acceptedQuote.m_Manifest && acceptedQuote.m_Quote)
+		{
+			HST_ForceSpawnResultState spawnResult = new HST_ForceSpawnResultState();
+			spawnResult.m_sResultId = "force_proof_spawn_result";
+			spawnResult.m_sManifestId = acceptedQuote.m_Manifest.m_sManifestId;
+			spawnResult.m_sOperationId = acceptedQuote.m_Manifest.m_sOperationId;
+			spawnResult.m_sForceId = "force_proof_force";
+			spawnResult.m_sNativeGroupId = "force_proof_native_group";
+			spawnResult.m_sProjectionId = "force_proof_projection";
+			spawnResult.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED;
+			spawnResult.m_iExpectedSlotCount = acceptedQuote.m_Manifest.m_aMembers.Count();
+			foreach (HST_ForceManifestMemberState member : acceptedQuote.m_Manifest.m_aMembers)
+			{
+				HST_ForceSpawnSlotResultState slotResult = new HST_ForceSpawnSlotResultState();
+				slotResult.m_sSlotId = member.m_sSlotId;
+				slotResult.m_sSlotKind = "member";
+				slotResult.m_sEntityId = "force_proof_entity_" + member.m_sSlotId;
+				slotResult.m_sNativeGroupId = spawnResult.m_sNativeGroupId;
+				slotResult.m_sProjectionId = spawnResult.m_sProjectionId;
+				slotResult.m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED;
+				slotResult.m_bFactionVerified = true;
+				slotResult.m_bGroupVerified = true;
+				slotResult.m_bProjectionVerified = true;
+				spawnResult.m_aSlotResults.Insert(slotResult);
+			}
+			acceptedState.m_aForceSpawnResults.Insert(spawnResult);
+			HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+			saveData.Capture(acceptedState);
+			HST_CampaignState restoredState = saveData.Restore();
+			HST_ForceManifestState restoredManifest;
+			HST_ForceQuoteState restoredQuote;
+			HST_ForceSpawnResultState restoredSpawn;
+			HST_GarrisonState restoredGarrison;
+			HST_ResourceTransactionState restoredMoneyTransaction;
+			HST_ResourceTransactionState restoredHRTransaction;
+			if (restoredState)
+			{
+				restoredManifest = restoredState.FindForceManifest(acceptedQuote.m_Manifest.m_sManifestId);
+				restoredQuote = restoredState.FindForceQuote(acceptedQuote.m_Quote.m_sQuoteId);
+				restoredSpawn = restoredState.FindForceSpawnResult("force_proof_spawn_result");
+				restoredGarrison = restoredState.FindGarrison("force_proof_zone", "FIA");
+				if (restoredQuote)
+				{
+					restoredMoneyTransaction = restoredState.FindResourceTransaction(restoredQuote.m_sMoneyTransactionId);
+					restoredHRTransaction = restoredState.FindResourceTransaction(restoredQuote.m_sHRTransactionId);
+				}
+			}
+			roundtrip = restoredState && restoredState.m_iSchemaVersion == 43 && restoredManifest && restoredQuote && restoredSpawn && restoredGarrison;
+			if (roundtrip)
+				roundtrip = restoredManifest != acceptedQuote.m_Manifest && restoredManifest.m_sManifestHash == acceptedQuote.m_Manifest.m_sManifestHash && restoredManifest.m_aMembers.Count() == 4 && restoredManifest.m_aMembers[0] != acceptedQuote.m_Manifest.m_aMembers[0];
+			if (roundtrip)
+				roundtrip = restoredQuote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ACCEPTED && restoredSpawn.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED && restoredSpawn.m_aSlotResults.Count() == 4 && CampaignDebugAllSpawnSlotsRegistered(restoredSpawn);
+			if (roundtrip)
+				roundtrip = CountCampaignDebugString(restoredGarrison.m_aAcceptedManifestIds, restoredManifest.m_sManifestId) == 1 && restoredMoneyTransaction && restoredHRTransaction && restoredMoneyTransaction.m_sManifestId == restoredManifest.m_sManifestId && restoredHRTransaction.m_sQuoteId == restoredQuote.m_sQuoteId;
+			int restoredSchemaEvidence = -1;
+			int restoredMemberEvidence = -1;
+			int restoredSlotEvidence = -1;
+			if (restoredState)
+				restoredSchemaEvidence = restoredState.m_iSchemaVersion;
+			if (restoredManifest)
+				restoredMemberEvidence = restoredManifest.m_aMembers.Count();
+			if (restoredSpawn)
+				restoredSlotEvidence = restoredSpawn.m_aSlotResults.Count();
+			roundtripEvidence = string.Format("schema %1 | manifest %2 members %3 | quote %4 | spawn %5 slots %6 | accepted garrison provenance %7", restoredSchemaEvidence, restoredManifest != null, restoredMemberEvidence, restoredQuote != null, restoredSpawn != null, restoredSlotEvidence, restoredGarrison && restoredManifest && restoredGarrison.m_aAcceptedManifestIds.Contains(restoredManifest.m_sManifestId));
+		}
+
+		HST_CampaignSaveData legacySave = new HST_CampaignSaveData();
+		legacySave.m_iSchemaVersion = 42;
+		legacySave.m_iCampaignSeed = 4343;
+		HST_GarrisonState legacyGarrison = new HST_GarrisonState();
+		legacyGarrison.m_sZoneId = "force_legacy_zone";
+		legacyGarrison.m_sFactionKey = "FIA";
+		legacyGarrison.m_iInfantryCount = 6;
+		legacySave.m_aGarrisons.Insert(legacyGarrison);
+		HST_CampaignState migratedState = legacySave.Restore();
+		HST_GarrisonState migratedGarrison;
+		bool migrationEventFound;
+		if (migratedState)
+		{
+			migratedGarrison = migratedState.FindGarrison("force_legacy_zone", "FIA");
+			foreach (HST_CampaignEventState eventState : migratedState.m_aCampaignEvents)
+			{
+				if (eventState && eventState.m_sEventId == "migration_schema43_force_authority")
+					migrationEventFound = true;
+			}
+		}
+		bool legacyMigration = migratedState && migratedState.m_iSchemaVersion == 43 && migratedGarrison && migratedGarrison.m_iInfantryCount == 6 && migratedGarrison.m_sGarrisonId == HST_StableIdService.BuildGarrisonId("force_legacy_zone", "FIA") && migratedState.m_aForceManifests.Count() == 0 && migrationEventFound;
+		int migratedSchemaEvidence = -1;
+		int migratedInfantryEvidence = -1;
+		int migratedManifestEvidence = -1;
+		string migratedIdEvidence = "missing";
+		if (migratedState)
+		{
+			migratedSchemaEvidence = migratedState.m_iSchemaVersion;
+			migratedManifestEvidence = migratedState.m_aForceManifests.Count();
+		}
+		if (migratedGarrison)
+		{
+			migratedInfantryEvidence = migratedGarrison.m_iInfantryCount;
+			migratedIdEvidence = migratedGarrison.m_sGarrisonId;
+		}
+		string migrationEvidence = string.Format("schema %1 | infantry %2 | id %3 | manifests %4 | warning %5", migratedSchemaEvidence, migratedInfantryEvidence, migratedIdEvidence, migratedManifestEvidence, migrationEventFound);
+
+		HST_ForceCatalogService proofCatalog = new HST_ForceCatalogService();
+		HST_ForceCatalogValidationResult fiaCatalog = proofCatalog.ValidateFactionCatalog("FIA", true);
+		HST_ForceCatalogValidationResult usCatalog = proofCatalog.ValidateFactionCatalog("US", true);
+		HST_ForceCatalogValidationResult ussrCatalog = proofCatalog.ValidateFactionCatalog("USSR", true);
+		bool catalogExact = fiaCatalog && fiaCatalog.m_bValid && fiaCatalog.m_iGroupEntryCount == 4 && fiaCatalog.m_iGroupSlotCount == 16;
+		catalogExact = catalogExact && usCatalog && usCatalog.m_bValid && usCatalog.m_iGroupEntryCount == 4 && usCatalog.m_iGroupSlotCount == 17;
+		catalogExact = catalogExact && ussrCatalog && ussrCatalog.m_bValid && ussrCatalog.m_iGroupEntryCount == 4 && ussrCatalog.m_iGroupSlotCount == 14;
+		string fiaCatalogEvidence = "missing";
+		string usCatalogEvidence = "missing";
+		string ussrCatalogEvidence = "missing";
+		if (fiaCatalog)
+			fiaCatalogEvidence = fiaCatalog.BuildSummary();
+		if (usCatalog)
+			usCatalogEvidence = usCatalog.BuildSummary();
+		if (ussrCatalog)
+			ussrCatalogEvidence = ussrCatalog.BuildSummary();
+		string catalogEvidence = "FIA " + fiaCatalogEvidence + " | US " + usCatalogEvidence + " | USSR " + ussrCatalogEvidence;
+		string reconciliationEvidence;
+		bool reconciliationExact = CampaignDebugProveInterruptedGarrisonReconciliation(proofPreset, reconciliationEvidence);
+
+		forceCase.m_aEvidence.Insert(quantityEvidence);
+		forceCase.m_aEvidence.Insert(duplicateEvidence);
+		forceCase.m_aEvidence.Insert(deterministicEvidence);
+		forceCase.m_aEvidence.Insert(capacityEvidence);
+		forceCase.m_aEvidence.Insert(staleEvidence);
+		forceCase.m_aEvidence.Insert(reservationConflictEvidence);
+		forceCase.m_aEvidence.Insert(roundtripEvidence);
+		forceCase.m_aEvidence.Insert(migrationEvidence);
+		forceCase.m_aEvidence.Insert(catalogEvidence);
+		forceCase.m_aEvidence.Insert(reconciliationEvidence);
+		AddCampaignDebugAssertion(forceCase, "force_authority.quantities", "quantities 1, 4, 7, and 12 quote, charge, and register exactly", quantityEvidence, CampaignDebugStatus(allQuantitiesExact), "one or more exact garrison quantity contracts failed");
+		AddCampaignDebugAssertion(forceCase, "force_authority.duplicate_confirmation", "duplicate quote confirmation cannot debit or register twice", duplicateEvidence, CampaignDebugStatus(duplicateIdempotent), "duplicate quote confirmation changed state");
+		AddCampaignDebugAssertion(forceCase, "force_authority.deterministic_manifest", "identical seed, request identity, catalog, and context produce the same hash and roster", deterministicEvidence, CampaignDebugStatus(deterministic), "force manifest planning was not deterministic");
+		AddCampaignDebugAssertion(forceCase, "force_authority.capacity_all_or_nothing", "insufficient capacity rejects the entire quote without mutation", capacityEvidence, CampaignDebugStatus(capacityRejected), "near-capacity recruitment partially accepted or changed resources");
+		AddCampaignDebugAssertion(forceCase, "force_authority.stale_context", "changed garrison context rejects confirmation before reservation or mutation", staleEvidence, CampaignDebugStatus(staleRejected), "stale quote confirmation mutated resources or garrison state");
+		AddCampaignDebugAssertion(forceCase, "force_authority.reservation_rollback", "HR reservation conflict cancels the money reservation and leaves no garrison delta", reservationConflictEvidence, CampaignDebugStatus(reservationRollback), "failed HR reservation did not roll back the confirmation exactly");
+		AddCampaignDebugAssertion(forceCase, "force_authority.persistence", "schema 43 deep-copies manifest, quote, typed slot results, transactions, and garrison link", roundtripEvidence, CampaignDebugStatus(roundtrip), "force authority state did not survive deep-copy roundtrip");
+		AddCampaignDebugAssertion(forceCase, "force_authority.legacy_migration", "schema 42 aggregate forces keep counts, receive stable IDs, and remain explicitly unverified", migrationEvidence, CampaignDebugStatus(legacyMigration), "legacy force migration invented or lost force authority state");
+		AddCampaignDebugAssertion(forceCase, "force_authority.catalog", "all configured core group execution prefabs match exact ordered catalog slots", catalogEvidence, CampaignDebugStatus(catalogExact), "force catalog does not match one or more authored execution-prefab rosters");
+		AddCampaignDebugAssertion(forceCase, "force_authority.restore_reconciliation", "every partial reserve, aggregate, and commit boundary rolls back exactly after restore", reconciliationEvidence, CampaignDebugStatus(reconciliationExact), "interrupted garrison confirmation did not reconcile exactly");
+		FinalizeCampaignDebugCaseFromAssertions(forceCase);
+		return forceCase;
+	}
+
+	protected bool CampaignDebugProveInterruptedGarrisonReconciliation(HST_CampaignPreset proofPreset, out string evidence)
+	{
+		evidence = "";
+		bool allExact = true;
+		for (int stage = 1; stage <= 5; stage++)
+		{
+			HST_CampaignState state = CreateCampaignDebugForceAuthorityState(32);
+			HST_EconomyService economy = new HST_EconomyService();
+			HST_GarrisonService garrisons = new HST_GarrisonService();
+			HST_ResourceLedgerService ledger = new HST_ResourceLedgerService();
+			HST_ForcePlanningService planning = new HST_ForcePlanningService();
+			string quoteRequestId = string.Format("force_reconcile_quote_%1", stage);
+			string confirmRequestId = string.Format("force_reconcile_confirm_%1", stage);
+			HST_ForceQuoteResult issued = planning.IssueGarrisonQuote(state, proofPreset, "force_reconcile_actor", "force_proof_zone", 4, quoteRequestId, false);
+			if (!issued || !issued.m_bSuccess || !issued.m_Quote || !issued.m_Manifest)
+			{
+				allExact = false;
+				evidence = evidence + string.Format("stage%1 issue_failed | ", stage);
+				continue;
+			}
+			HST_ForceQuoteState quote = issued.m_Quote;
+			ledger.ReserveCost(state, economy, quote.m_sMoneyTransactionId, confirmRequestId, quote.m_sOperationId, quote.m_sActorIdentityId, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost, "reconcile proof", quote.m_sQuoteId, quote.m_sManifestId);
+			if (stage >= 2)
+				ledger.ReserveCost(state, economy, quote.m_sHRTransactionId, confirmRequestId, quote.m_sOperationId, quote.m_sActorIdentityId, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost, "reconcile proof", quote.m_sQuoteId, quote.m_sManifestId);
+			if (stage >= 3)
+				garrisons.AddManifestForcesExact(state, quote.m_sTargetZoneId, quote.m_sFactionKey, issued.m_Manifest);
+			if (stage >= 4)
+				ledger.CommitReserved(state, quote.m_sMoneyTransactionId);
+			if (stage >= 5)
+				ledger.CommitReserved(state, quote.m_sHRTransactionId);
+
+			HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+			saveData.Capture(state);
+			HST_CampaignState restored = saveData.Restore();
+			if (!restored)
+			{
+				allExact = false;
+				evidence = evidence + string.Format("stage%1 restore_failed | ", stage);
+				continue;
+			}
+			HST_EconomyService restoredEconomy = new HST_EconomyService();
+			HST_GarrisonService restoredGarrisons = new HST_GarrisonService();
+			HST_ResourceLedgerService restoredLedger = new HST_ResourceLedgerService();
+			HST_ForcePlanningService restoredPlanning = new HST_ForcePlanningService();
+			int reconciled = restoredPlanning.ReconcileInterruptedGarrisonConfirmations(restored, restoredEconomy, restoredGarrisons, restoredLedger);
+			HST_ForceQuoteState restoredQuote = restored.FindForceQuote(quote.m_sQuoteId);
+			HST_GarrisonState restoredGarrison = restored.FindGarrison(quote.m_sTargetZoneId, quote.m_sFactionKey);
+			HST_ResourceTransactionState restoredMoney = restored.FindResourceTransaction(quote.m_sMoneyTransactionId);
+			HST_ResourceTransactionState restoredHR = restored.FindResourceTransaction(quote.m_sHRTransactionId);
+			bool noLink = !restoredGarrison || !restoredGarrison.m_aAcceptedManifestIds.Contains(quote.m_sManifestId);
+			bool moneyTerminal = restoredMoney && restoredMoney.m_eStatus != HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED && restoredMoney.m_eStatus != HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
+			bool hrTerminal = stage < 2 || (restoredHR && restoredHR.m_eStatus != HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED && restoredHR.m_eStatus != HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED);
+			bool exact = reconciled == 1 && restoredQuote && restoredQuote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_REJECTED && restored.m_iFactionMoney == 5000 && restored.m_iHR == 100 && noLink && moneyTerminal && hrTerminal;
+			allExact = allExact && exact;
+			if (!evidence.IsEmpty())
+				evidence = evidence + " | ";
+			evidence = evidence + string.Format("stage%1 exact=%2 money=%3 HR=%4 link=%5 reconciled=%6", stage, exact, restored.m_iFactionMoney, restored.m_iHR, !noLink, reconciled);
+		}
+		return allExact;
+	}
+
+	protected HST_CampaignState CreateCampaignDebugForceAuthorityState(int garrisonSlots)
+	{
+		HST_CampaignState state = new HST_CampaignState();
+		state.m_iCampaignSeed = 4343;
+		state.m_iElapsedSeconds = 200;
+		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		state.m_bHQDeployed = true;
+		state.m_iFactionMoney = 5000;
+		state.m_iHR = 100;
+		HST_FactionPoolState factionPool = new HST_FactionPoolState();
+		factionPool.m_sFactionKey = "FIA";
+		state.m_aFactionPools.Insert(factionPool);
+		HST_ZoneState zone = new HST_ZoneState();
+		zone.m_sZoneId = "force_proof_zone";
+		zone.m_sDisplayName = "Force Proof Zone";
+		zone.m_sOwnerFactionKey = "FIA";
+		zone.m_iGarrisonSlots = garrisonSlots;
+		zone.m_vPosition = "4000 20 4000";
+		state.m_aZones.Insert(zone);
+		return state;
+	}
+
+	protected bool CampaignDebugForceManifestSlotsUnique(HST_ForceManifestState manifest)
+	{
+		if (!manifest || manifest.m_aMembers.Count() != manifest.m_iAcceptedMemberCount)
+			return false;
+		array<string> slotIds = {};
+		foreach (HST_ForceManifestMemberState member : manifest.m_aMembers)
+		{
+			if (!member || member.m_sSlotId.IsEmpty() || member.m_sPrefab.IsEmpty() || member.m_sRole.IsEmpty() || slotIds.Contains(member.m_sSlotId))
+				return false;
+			slotIds.Insert(member.m_sSlotId);
+		}
+		return slotIds.Count() == manifest.m_iAcceptedMemberCount;
+	}
+
+	protected bool CampaignDebugForceTransactionMatches(HST_ResourceTransactionState transaction, HST_ForceQuoteState quote, HST_ForceManifestState manifest, string resourceType, int amount)
+	{
+		return transaction && quote && manifest && transaction.m_sQuoteId == quote.m_sQuoteId && transaction.m_sManifestId == manifest.m_sManifestId && transaction.m_sOperationId == manifest.m_sOperationId && transaction.m_sActorIdentityId == quote.m_sActorIdentityId && transaction.m_sCommandRequestId == quote.m_sConfirmationRequestId && transaction.m_sResourceType == resourceType && transaction.m_iAmount == amount && transaction.m_iRefundedAmount == 0 && transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
+	}
+
+	protected int CountCampaignDebugString(array<string> values, string expected)
+	{
+		int count;
+		foreach (string value : values)
+		{
+			if (value == expected)
+				count++;
+		}
+		return count;
+	}
+
+	protected string BuildCampaignDebugForceRoster(HST_ForceManifestState manifest)
+	{
+		if (!manifest)
+			return "";
+		string roster;
+		foreach (HST_ForceManifestMemberState member : manifest.m_aMembers)
+		{
+			if (!member)
+				continue;
+			if (!roster.IsEmpty())
+				roster = roster + "|";
+			roster = roster + member.m_sCatalogSlotId + ":" + member.m_sPrefab + ":" + member.m_sRole;
+		}
+		return roster;
+	}
+
+	protected bool CampaignDebugAllSpawnSlotsRegistered(HST_ForceSpawnResultState spawnResult)
+	{
+		if (!spawnResult || spawnResult.m_aSlotResults.Count() != spawnResult.m_iExpectedSlotCount)
+			return false;
+		foreach (HST_ForceSpawnSlotResultState slotResult : spawnResult.m_aSlotResults)
+		{
+			if (!slotResult || slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED || slotResult.m_sEntityId.IsEmpty() || !slotResult.m_bFactionVerified || !slotResult.m_bGroupVerified || !slotResult.m_bProjectionVerified)
+				return false;
+		}
+		return true;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugFoundationCheckpointCase(string foundationReport, string checkpointReport, int lastSaveSecondBefore, int activeMissionsBefore, int activeGroupsBefore)
@@ -24204,7 +24749,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool mapTargetGarrisonVisible = forcesWithMapPayload.Contains("|recruit_zone||true|") && forcesWithMapPayload.Contains("|remove_garrison||true|");
 		bool noMapSupportDisabled = forcesNoMapPayload.Contains("|support_qrf||false|map required") && forcesNoMapPayload.Contains("|call_supply||false|map required");
 		bool noMapGarrisonDisabled = forcesNoMapPayload.Contains("|recruit_zone||false|map required") || forcesNoMapPayload.Contains("|remove_garrison||false|map required");
-		bool paidActionCostsVisible = forcesWithMapPayload.Contains("Train FIA troops ($250)") && forcesWithMapPayload.Contains("Recruit FIA at map location ($100, HR 1)") && forcesWithMapPayload.Contains("Request QRF reserve at map location ($") && forcesWithMapPayload.Contains("Request search and destroy at map location ($") && forcesWithMapPayload.Contains("Deliver civilian aid ($100)");
+		bool paidActionCostsVisible = forcesWithMapPayload.Contains("Train FIA troops ($250)") && forcesWithMapPayload.Contains("Request exact FIA garrison quote at map location") && forcesWithMapPayload.Contains("Request QRF reserve at map location ($") && forcesWithMapPayload.Contains("Request search and destroy at map location ($") && forcesWithMapPayload.Contains("Deliver civilian aid ($100)");
 		bool roadblockActionEnabled = roadblockVehiclePayload.Contains("Establish roadblock at map location");
 		roadblockActionEnabled = roadblockActionEnabled && roadblockVehiclePayload.Contains("|support_roadblock|phase23_roadblock_vehicle~");
 		roadblockActionEnabled = roadblockActionEnabled && roadblockVehiclePayload.Contains("|true|");
@@ -24245,7 +24790,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_support_actions", "Forces support actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetSupportVisible), "Phase 23 Forces payload is missing map-target support actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_garrison_actions", "Forces garrison actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetGarrisonVisible), "Phase 23 Forces payload is missing map-target garrison actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_required_gate", "map-target actions are disabled without a map gadget", ShortCampaignDebugLine(forcesNoMapPayload, 220), CampaignDebugStatus(noMapSupportDisabled && noMapGarrisonDisabled), "Phase 23 Forces payload allows map-target actions when the player has no map");
-		AddCampaignDebugAssertion(phaseCase, "phase23.ui.paid_action_costs", "paid Forces actions show money and HR costs in labels", ShortCampaignDebugLine(forcesWithMapPayload, 260), CampaignDebugStatus(paidActionCostsVisible), "Phase 23 Forces payload is missing paid action cost labels");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.paid_action_costs", "paid Forces actions show costs while recruitment requests an exact server quote", ShortCampaignDebugLine(forcesWithMapPayload, 260), CampaignDebugStatus(paidActionCostsVisible), "Phase 23 Forces payload is missing paid action costs or the exact recruitment quote action");
 		AddCampaignDebugAssertion(
 			phaseCase,
 			"phase23.ui.roadblock_vehicle_choice",
@@ -29353,6 +29898,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 			if (garrison.m_sFactionKey != resistance && garrison.m_sFactionKey != occupier && garrison.m_sFactionKey != invader)
 				garrison.m_sFactionKey = occupier;
+			if (garrison.m_sGarrisonId.IsEmpty() && !garrison.m_sZoneId.IsEmpty() && !garrison.m_sFactionKey.IsEmpty())
+				garrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(garrison.m_sZoneId, garrison.m_sFactionKey);
 		}
 	}
 

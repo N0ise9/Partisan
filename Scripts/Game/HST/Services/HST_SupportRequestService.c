@@ -1359,6 +1359,7 @@ class HST_SupportRequestService
 		if (!enemyGarrison)
 		{
 			enemyGarrison = new HST_GarrisonState();
+			enemyGarrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(request.m_sTargetZoneId, request.m_sFactionKey);
 			enemyGarrison.m_sZoneId = request.m_sTargetZoneId;
 			enemyGarrison.m_sFactionKey = request.m_sFactionKey;
 			state.m_aGarrisons.Insert(enemyGarrison);

@@ -1628,6 +1628,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			return true;
 		if (commandId == "remove_garrison" || commandId == "cancel_support" || commandId == "support_recall" || commandId == "civilian_aid")
 			return true;
+		if (commandId == "confirm_garrison_quote" || commandId == "cancel_garrison_quote")
+			return true;
 		if (commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
 			return true;
 		if (IsGroundSupportMapTargetCommand(commandId))
@@ -1909,7 +1911,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		string locationLabel = ResolveMapTargetLocationLabelForConfirm();
 		if (locationLabel.IsEmpty())
 			locationLabel = string.Format("X %1 Z %2", Math.Round(m_vMapTargetPosition[0]), Math.Round(m_vMapTargetPosition[2]));
-		data.m_sMessage = "Select how many FIA to garrison at " + locationLabel + ".";
+		data.m_sMessage = "Select how many FIA to include in the exact server quote for " + locationLabel + ". This step does not charge resources.";
 		data.m_sCancelLabel = "Choose Again";
 		foreach (string choiceLabel : m_aPendingChoiceLabels)
 			data.m_aChoiceLabels.Insert(choiceLabel);
@@ -1943,7 +1945,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_aPendingChoiceArguments.Count() >= HST_ActionChoiceDialogController.MAX_CHOICES)
 			return;
 
-		m_aPendingChoiceLabels.Insert(string.Format("%1 FIA", count));
+		m_aPendingChoiceLabels.Insert(string.Format("%1 FIA - request exact quote", count));
 		m_aPendingChoiceArguments.Insert(count.ToString());
 	}
 
@@ -2151,7 +2153,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			int count = m_iMapTargetGarrisonCount;
 			if (count <= 0)
 				count = 2;
-			message = message + string.Format("\nGarrison: %1 FIA", count);
+			message = message + string.Format("\nGarrison quote request: %1 FIA\nNo resources are charged until you confirm the returned server quote.", count);
 		}
 		if (m_sMapTargetCommand == "support_roadblock")
 		{

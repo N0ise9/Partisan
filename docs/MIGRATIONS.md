@@ -2,16 +2,23 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `42`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `43`.
 
+- Schema 43 adds immutable force manifests, exact force quotes, typed spawn
+  results, stable garrison IDs, and quote/manifest links on resource
+  transactions and force-bearing aggregates. Legacy force counts remain
+  unchanged and are explicitly recorded as unverified instead of receiving
+  invented member slots, prices, or refunds. New visible garrison recruitment
+  uses an expiring all-or-nothing server quote and persists its exact member
+  slots and per-member money/HR cost before confirmation.
 - Schema 42 adds the campaign authority foundation: a persisted monotonic ID
   sequence, stable operation links, bounded command receipts, resource
   transactions, and bounded campaign transition events. Legacy support,
   enemy-order, and active-group rows receive deterministic operation IDs from
   their existing durable IDs. Legacy resource changes are not retroactively
-  invented as transactions. Any restored open reservation is cancelled and
-  refunded once by `HST_ResourceLedgerService` before the restored state is
-  tracked again.
+  invented as transactions. During coordinator initialization, any restored open
+  reservation is cancelled and refunded once before normal service ticks; the
+  reconciled state is then captured and tracked again.
 - Schema 41 extends support request rows with selected roadblock garage vehicle
   id, prefab, display name, and consumed-state fields so established roadblock
   support survives save-data roundtrips with its consumed HQ vehicle evidence.
@@ -84,7 +91,8 @@
   captured emplacements, ammo points, active missions, generated sites/routes,
   mission objectives/runtime entities/assets, support requests, enemy orders,
   enemy support ledgers, civilian state, town influence events, strategic
-  events, undercover state, and campaign tasks.
+  events, immutable force manifests, force quotes, typed spawn results,
+  undercover state, and campaign tasks.
 - `HST_LoadoutEditorSessionState` records are runtime/editor state and are not
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
@@ -118,6 +126,33 @@ Campaign command authority and resource transaction foundation.
 - Save capture/restore deep-copies receipts, transactions, events, allocator
   state, and operation links. Restored reservations that never reached a
   terminal state are cancelled and refunded before normal campaign ticking.
+
+## Schema 43
+
+Exact force-planning authority foundation.
+
+- `HST_ForceManifestState` freezes operation identity, faction, catalog and
+  policy versions, exact ordered member/group/vehicle/asset slots, deterministic
+  seed, and exact resource totals behind a stable hash.
+- `HST_ForceQuoteState` stores actor, target, context hash, expiry, exact costs,
+  all-or-nothing policy, status, and deterministic transaction links.
+- `HST_ForceSpawnResultState` and per-slot results can encode queued,
+  registered, deferred, retryable/final failure, and cancellation outcomes
+  without treating an empty group root as success. Production garrison
+  physicalization does not yet write or consume these queue results.
+- Visible garrison recruitment first issues an exact server quote. A separate
+  confirmation submits only the quote ID, revalidates the frozen context,
+  reserves money and HR, registers the exact purchase-time aggregate increment
+  plus acceptance provenance, verifies the delta, then commits both ledger rows.
+  Restore reconciliation rolls back any `ISSUED` quote found with partial linked
+  reservations, commits, or aggregate delivery.
+- Schema 43 does not claim a living-slot roster: broad-alpha garrison
+  physicalization does not yet consume the frozen member slots. Accepted
+  settlement history and typed spawn-result history also await explicit bounded
+  archive/retention policy.
+- Schema-42 and older garrisons receive deterministic IDs. Existing aggregate
+  force counts are preserved without synthetic manifests or retroactive
+  accounting, and one bounded migration event records that limitation.
 
 ## Runtime Settings Schema 21
 

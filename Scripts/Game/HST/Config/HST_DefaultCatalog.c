@@ -1122,6 +1122,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 	private static HST_GarrisonState NewGarrisonState(string zoneId, string factionKey, int infantryCount, int vehicleCount)
 	{
 		HST_GarrisonState garrison = new HST_GarrisonState();
+		garrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(zoneId, factionKey);
 		garrison.m_sZoneId = zoneId;
 		garrison.m_sFactionKey = factionKey;
 		garrison.m_iInfantryCount = infantryCount;

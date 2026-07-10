@@ -105,6 +105,9 @@ class HST_CampaignSaveData
 	ref array<ref HST_CommandReceiptState> m_aCommandReceipts = {};
 	ref array<ref HST_ResourceTransactionState> m_aResourceTransactions = {};
 	ref array<ref HST_CampaignEventState> m_aCampaignEvents = {};
+	ref array<ref HST_ForceManifestState> m_aForceManifests = {};
+	ref array<ref HST_ForceQuoteState> m_aForceQuotes = {};
+	ref array<ref HST_ForceSpawnResultState> m_aForceSpawnResults = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
@@ -307,6 +310,18 @@ class HST_CampaignSaveData
 		foreach (HST_CampaignEventState eventState : state.m_aCampaignEvents)
 			m_aCampaignEvents.Insert(CopyCampaignEvent(eventState));
 
+		m_aForceManifests.Clear();
+		foreach (HST_ForceManifestState manifest : state.m_aForceManifests)
+			m_aForceManifests.Insert(CopyForceManifest(manifest));
+
+		m_aForceQuotes.Clear();
+		foreach (HST_ForceQuoteState quote : state.m_aForceQuotes)
+			m_aForceQuotes.Insert(CopyForceQuote(quote));
+
+		m_aForceSpawnResults.Clear();
+		foreach (HST_ForceSpawnResultState spawnResult : state.m_aForceSpawnResults)
+			m_aForceSpawnResults.Insert(CopyForceSpawnResult(spawnResult));
+
 		m_aUndercoverPlayers.Clear();
 		foreach (HST_PlayerUndercoverState undercover : state.m_aUndercoverPlayers)
 			m_aUndercoverPlayers.Insert(CopyUndercoverPlayer(undercover));
@@ -320,16 +335,17 @@ class HST_CampaignSaveData
 	{
 		MigrateToCurrentSchema();
 		HST_CampaignState state = new HST_CampaignState();
-		ApplyTo(state);
+		ApplyTo(state, false);
 		return state;
 	}
 
-	void ApplyTo(HST_CampaignState state)
+	void ApplyTo(HST_CampaignState state, bool migrate = true)
 	{
 		if (!state)
 			return;
 
-		MigrateToCurrentSchema();
+		if (migrate)
+			MigrateToCurrentSchema();
 		state.m_iLastLoadedSchemaVersion = m_iLastLoadedSchemaVersion;
 		state.m_iSchemaVersion = m_iSchemaVersion;
 		state.m_sPresetId = m_sPresetId;
@@ -524,6 +540,18 @@ class HST_CampaignSaveData
 		foreach (HST_CampaignEventState eventState : m_aCampaignEvents)
 			state.m_aCampaignEvents.Insert(CopyCampaignEvent(eventState));
 
+		state.m_aForceManifests.Clear();
+		foreach (HST_ForceManifestState manifest : m_aForceManifests)
+			state.m_aForceManifests.Insert(CopyForceManifest(manifest));
+
+		state.m_aForceQuotes.Clear();
+		foreach (HST_ForceQuoteState quote : m_aForceQuotes)
+			state.m_aForceQuotes.Insert(CopyForceQuote(quote));
+
+		state.m_aForceSpawnResults.Clear();
+		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+			state.m_aForceSpawnResults.Insert(CopyForceSpawnResult(spawnResult));
+
 		state.m_aUndercoverPlayers.Clear();
 		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)
 			state.m_aUndercoverPlayers.Insert(CopyUndercoverPlayer(undercover));
@@ -602,10 +630,13 @@ class HST_CampaignSaveData
 	protected HST_GarrisonState CopyGarrison(HST_GarrisonState source)
 	{
 		HST_GarrisonState target = new HST_GarrisonState();
+		target.m_sGarrisonId = source.m_sGarrisonId;
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_iInfantryCount = source.m_iInfantryCount;
 		target.m_iVehicleCount = source.m_iVehicleCount;
+		foreach (string manifestId : source.m_aAcceptedManifestIds)
+			target.m_aAcceptedManifestIds.Insert(manifestId);
 		return target;
 	}
 
@@ -614,6 +645,8 @@ class HST_CampaignSaveData
 		HST_ActiveGroupState target = new HST_ActiveGroupState();
 		target.m_sGroupId = source.m_sGroupId;
 		target.m_sOperationId = source.m_sOperationId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sSpawnResultId = source.m_sSpawnResultId;
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
@@ -1184,6 +1217,9 @@ class HST_CampaignSaveData
 		HST_SupportRequestState target = new HST_SupportRequestState();
 		target.m_sRequestId = source.m_sRequestId;
 		target.m_sOperationId = source.m_sOperationId;
+		target.m_sQuoteId = source.m_sQuoteId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sSpawnResultId = source.m_sSpawnResultId;
 		target.m_sCommandRequestId = source.m_sCommandRequestId;
 		target.m_sMoneyTransactionId = source.m_sMoneyTransactionId;
 		target.m_sHRTransactionId = source.m_sHRTransactionId;
@@ -1255,6 +1291,8 @@ class HST_CampaignSaveData
 		HST_EnemyOrderState target = new HST_EnemyOrderState();
 		target.m_sOrderId = source.m_sOrderId;
 		target.m_sOperationId = source.m_sOperationId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sSpawnResultId = source.m_sSpawnResultId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_eType = source.m_eType;
 		target.m_eStatus = source.m_eStatus;
@@ -1422,6 +1460,8 @@ class HST_CampaignSaveData
 		target.m_sTransactionId = source.m_sTransactionId;
 		target.m_sCommandRequestId = source.m_sCommandRequestId;
 		target.m_sOperationId = source.m_sOperationId;
+		target.m_sQuoteId = source.m_sQuoteId;
+		target.m_sManifestId = source.m_sManifestId;
 		target.m_sActorIdentityId = source.m_sActorIdentityId;
 		target.m_sResourceType = source.m_sResourceType;
 		target.m_sReason = source.m_sReason;
@@ -1445,6 +1485,242 @@ class HST_CampaignSaveData
 		target.m_sTransition = source.m_sTransition;
 		target.m_sReason = source.m_sReason;
 		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		return target;
+	}
+
+	protected HST_ForceManifestMemberState CopyForceManifestMember(HST_ForceManifestMemberState source)
+	{
+		if (!source)
+			return null;
+
+		HST_ForceManifestMemberState target = new HST_ForceManifestMemberState();
+		target.m_sSlotId = source.m_sSlotId;
+		target.m_sCatalogSlotId = source.m_sCatalogSlotId;
+		target.m_sGroupElementId = source.m_sGroupElementId;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_sRole = source.m_sRole;
+		target.m_sAssignedVehicleSlotId = source.m_sAssignedVehicleSlotId;
+		target.m_sSeatRole = source.m_sSeatRole;
+		target.m_iSeatIndex = source.m_iSeatIndex;
+		target.m_iOrdinal = source.m_iOrdinal;
+		target.m_iMoneyCost = source.m_iMoneyCost;
+		target.m_iHRCost = source.m_iHRCost;
+		target.m_iEquipmentCost = source.m_iEquipmentCost;
+		target.m_bRequired = source.m_bRequired;
+		return target;
+	}
+
+	protected HST_ForceManifestGroupState CopyForceManifestGroup(HST_ForceManifestGroupState source)
+	{
+		if (!source)
+			return null;
+
+		HST_ForceManifestGroupState target = new HST_ForceManifestGroupState();
+		target.m_sElementId = source.m_sElementId;
+		target.m_sCatalogEntryId = source.m_sCatalogEntryId;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_sRole = source.m_sRole;
+		target.m_iOrdinal = source.m_iOrdinal;
+		target.m_iExpectedMemberCount = source.m_iExpectedMemberCount;
+		target.m_bRequired = source.m_bRequired;
+		return target;
+	}
+
+	protected HST_ForceManifestVehicleState CopyForceManifestVehicle(HST_ForceManifestVehicleState source)
+	{
+		if (!source)
+			return null;
+
+		HST_ForceManifestVehicleState target = new HST_ForceManifestVehicleState();
+		target.m_sSlotId = source.m_sSlotId;
+		target.m_sCatalogEntryId = source.m_sCatalogEntryId;
+		target.m_sGroupElementId = source.m_sGroupElementId;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_sRole = source.m_sRole;
+		target.m_iOrdinal = source.m_iOrdinal;
+		target.m_iMoneyCost = source.m_iMoneyCost;
+		target.m_iRequiredCrew = source.m_iRequiredCrew;
+		target.m_bArmed = source.m_bArmed;
+		target.m_bLightArmor = source.m_bLightArmor;
+		target.m_bHeavyArmor = source.m_bHeavyArmor;
+		target.m_bRequired = source.m_bRequired;
+		return target;
+	}
+
+	protected HST_ForceManifestAssetState CopyForceManifestAsset(HST_ForceManifestAssetState source)
+	{
+		if (!source)
+			return null;
+
+		HST_ForceManifestAssetState target = new HST_ForceManifestAssetState();
+		target.m_sSlotId = source.m_sSlotId;
+		target.m_sKind = source.m_sKind;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_sRole = source.m_sRole;
+		target.m_sAssignedVehicleSlotId = source.m_sAssignedVehicleSlotId;
+		target.m_iQuantity = source.m_iQuantity;
+		target.m_iOrdinal = source.m_iOrdinal;
+		target.m_bRequired = source.m_bRequired;
+		return target;
+	}
+
+	protected HST_ForceManifestState CopyForceManifest(HST_ForceManifestState source)
+	{
+		if (!source)
+			return null;
+
+		HST_ForceManifestState target = new HST_ForceManifestState();
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sManifestHash = source.m_sManifestHash;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sQuoteId = source.m_sQuoteId;
+		target.m_sCommandRequestId = source.m_sCommandRequestId;
+		target.m_sForceKind = source.m_sForceKind;
+		target.m_sFactionRole = source.m_sFactionRole;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sIntentId = source.m_sIntentId;
+		target.m_sSourceZoneId = source.m_sSourceZoneId;
+		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sGroupPrefab = source.m_sGroupPrefab;
+		target.m_sCatalogVersion = source.m_sCatalogVersion;
+		target.m_sPolicyId = source.m_sPolicyId;
+		target.m_iRequestedMemberCount = source.m_iRequestedMemberCount;
+		target.m_iAcceptedMemberCount = source.m_iAcceptedMemberCount;
+		target.m_iRequestedVehicleCount = source.m_iRequestedVehicleCount;
+		target.m_iAcceptedVehicleCount = source.m_iAcceptedVehicleCount;
+		target.m_iMoneyCost = source.m_iMoneyCost;
+		target.m_iHRCost = source.m_iHRCost;
+		target.m_iEquipmentCost = source.m_iEquipmentCost;
+		target.m_iAttackResourceCost = source.m_iAttackResourceCost;
+		target.m_iSupportResourceCost = source.m_iSupportResourceCost;
+		target.m_iDeterministicSeed = source.m_iDeterministicSeed;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_bFrozen = source.m_bFrozen;
+		foreach (HST_ForceManifestGroupState group : source.m_aGroups)
+		{
+			HST_ForceManifestGroupState groupCopy = CopyForceManifestGroup(group);
+			if (groupCopy)
+				target.m_aGroups.Insert(groupCopy);
+		}
+		foreach (HST_ForceManifestMemberState member : source.m_aMembers)
+		{
+			HST_ForceManifestMemberState memberCopy = CopyForceManifestMember(member);
+			if (memberCopy)
+				target.m_aMembers.Insert(memberCopy);
+		}
+		foreach (HST_ForceManifestVehicleState vehicle : source.m_aVehicles)
+		{
+			HST_ForceManifestVehicleState vehicleCopy = CopyForceManifestVehicle(vehicle);
+			if (vehicleCopy)
+				target.m_aVehicles.Insert(vehicleCopy);
+		}
+		foreach (HST_ForceManifestAssetState asset : source.m_aAssets)
+		{
+			HST_ForceManifestAssetState assetCopy = CopyForceManifestAsset(asset);
+			if (assetCopy)
+				target.m_aAssets.Insert(assetCopy);
+		}
+		return target;
+	}
+
+	protected HST_ForceQuoteState CopyForceQuote(HST_ForceQuoteState source)
+	{
+		if (!source)
+			return null;
+
+		HST_ForceQuoteState target = new HST_ForceQuoteState();
+		target.m_sQuoteId = source.m_sQuoteId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sManifestHash = source.m_sManifestHash;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sCommandRequestId = source.m_sCommandRequestId;
+		target.m_sConfirmationRequestId = source.m_sConfirmationRequestId;
+		target.m_sActorIdentityId = source.m_sActorIdentityId;
+		target.m_sQuoteKind = source.m_sQuoteKind;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sSourceZoneId = source.m_sSourceZoneId;
+		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sContextHash = source.m_sContextHash;
+		target.m_sCatalogVersion = source.m_sCatalogVersion;
+		target.m_sPolicyId = source.m_sPolicyId;
+		target.m_sMoneyTransactionId = source.m_sMoneyTransactionId;
+		target.m_sHRTransactionId = source.m_sHRTransactionId;
+		target.m_sAttackTransactionId = source.m_sAttackTransactionId;
+		target.m_sSupportTransactionId = source.m_sSupportTransactionId;
+		target.m_sRejectionReason = source.m_sRejectionReason;
+		target.m_vSourcePosition = source.m_vSourcePosition;
+		target.m_vTargetPosition = source.m_vTargetPosition;
+		target.m_eStatus = source.m_eStatus;
+		target.m_iRequestedMemberCount = source.m_iRequestedMemberCount;
+		target.m_iAcceptedMemberCount = source.m_iAcceptedMemberCount;
+		target.m_iRequestedVehicleCount = source.m_iRequestedVehicleCount;
+		target.m_iAcceptedVehicleCount = source.m_iAcceptedVehicleCount;
+		target.m_iMoneyCost = source.m_iMoneyCost;
+		target.m_iHRCost = source.m_iHRCost;
+		target.m_iEquipmentCost = source.m_iEquipmentCost;
+		target.m_iAttackResourceCost = source.m_iAttackResourceCost;
+		target.m_iSupportResourceCost = source.m_iSupportResourceCost;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iExpiresAtSecond = source.m_iExpiresAtSecond;
+		target.m_iAcceptedAtSecond = source.m_iAcceptedAtSecond;
+		target.m_iRevision = source.m_iRevision;
+		target.m_iExpectedGarrisonSlots = source.m_iExpectedGarrisonSlots;
+		target.m_iExpectedAbstractInfantry = source.m_iExpectedAbstractInfantry;
+		target.m_iExpectedActiveInfantry = source.m_iExpectedActiveInfantry;
+		target.m_bAllOrNothing = source.m_bAllOrNothing;
+		return target;
+	}
+
+	protected HST_ForceSpawnSlotResultState CopyForceSpawnSlotResult(HST_ForceSpawnSlotResultState source)
+	{
+		if (!source)
+			return null;
+
+		HST_ForceSpawnSlotResultState target = new HST_ForceSpawnSlotResultState();
+		target.m_sSlotId = source.m_sSlotId;
+		target.m_sSlotKind = source.m_sSlotKind;
+		target.m_sEntityId = source.m_sEntityId;
+		target.m_sAssignedVehicleEntityId = source.m_sAssignedVehicleEntityId;
+		target.m_sNativeGroupId = source.m_sNativeGroupId;
+		target.m_sProjectionId = source.m_sProjectionId;
+		target.m_sFailureReason = source.m_sFailureReason;
+		target.m_eStatus = source.m_eStatus;
+		target.m_iAttemptCount = source.m_iAttemptCount;
+		target.m_iUpdatedAtSecond = source.m_iUpdatedAtSecond;
+		target.m_bFactionVerified = source.m_bFactionVerified;
+		target.m_bGroupVerified = source.m_bGroupVerified;
+		target.m_bProjectionVerified = source.m_bProjectionVerified;
+		target.m_bSeatVerified = source.m_bSeatVerified;
+		return target;
+	}
+
+	protected HST_ForceSpawnResultState CopyForceSpawnResult(HST_ForceSpawnResultState source)
+	{
+		if (!source)
+			return null;
+
+		HST_ForceSpawnResultState target = new HST_ForceSpawnResultState();
+		target.m_sResultId = source.m_sResultId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sForceId = source.m_sForceId;
+		target.m_sNativeGroupId = source.m_sNativeGroupId;
+		target.m_sProjectionId = source.m_sProjectionId;
+		target.m_sTerminalReason = source.m_sTerminalReason;
+		target.m_eStatus = source.m_eStatus;
+		target.m_iPriority = source.m_iPriority;
+		target.m_iRetryCount = source.m_iRetryCount;
+		target.m_iMaxRetries = source.m_iMaxRetries;
+		target.m_iDeadlineSecond = source.m_iDeadlineSecond;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iCompletedAtSecond = source.m_iCompletedAtSecond;
+		target.m_iExpectedSlotCount = source.m_iExpectedSlotCount;
+		foreach (HST_ForceSpawnSlotResultState slotResult : source.m_aSlotResults)
+		{
+			HST_ForceSpawnSlotResultState slotCopy = CopyForceSpawnSlotResult(slotResult);
+			if (slotCopy)
+				target.m_aSlotResults.Insert(slotCopy);
+		}
 		return target;
 	}
 
@@ -1799,6 +2075,7 @@ class HST_CampaignSaveData
 				order.m_bPhysicalized = true;
 		}
 		NormalizeActiveGroupSourceLinks();
+		NormalizeForceAuthority(restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
 			m_aCommandReceipts.Remove(0);
 		while (m_aCampaignEvents.Count() > HST_CampaignEventLogService.MAX_EVENT_ROWS)
@@ -1889,6 +2166,113 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion < 23 && !undercover.m_bEnforcementEnabled)
 				undercover.m_bEnforcementEnabled = true;
 		}
+	}
+
+	protected void NormalizeForceAuthority(int restoredSchemaVersion)
+	{
+		foreach (HST_GarrisonState garrison : m_aGarrisons)
+		{
+			if (!garrison)
+				continue;
+			if (garrison.m_sGarrisonId.IsEmpty())
+				garrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(garrison.m_sZoneId, garrison.m_sFactionKey);
+		}
+
+		for (int manifestIndex = m_aForceManifests.Count() - 1; manifestIndex >= 0; manifestIndex--)
+		{
+			HST_ForceManifestState manifest = m_aForceManifests[manifestIndex];
+			if (!manifest)
+			{
+				m_aForceManifests.Remove(manifestIndex);
+				continue;
+			}
+			for (int groupIndex = manifest.m_aGroups.Count() - 1; groupIndex >= 0; groupIndex--)
+			{
+				if (!manifest.m_aGroups[groupIndex])
+					manifest.m_aGroups.Remove(groupIndex);
+			}
+			for (int memberIndex = manifest.m_aMembers.Count() - 1; memberIndex >= 0; memberIndex--)
+			{
+				if (!manifest.m_aMembers[memberIndex])
+					manifest.m_aMembers.Remove(memberIndex);
+			}
+			for (int vehicleIndex = manifest.m_aVehicles.Count() - 1; vehicleIndex >= 0; vehicleIndex--)
+			{
+				if (!manifest.m_aVehicles[vehicleIndex])
+					manifest.m_aVehicles.Remove(vehicleIndex);
+			}
+			for (int assetIndex = manifest.m_aAssets.Count() - 1; assetIndex >= 0; assetIndex--)
+			{
+				if (!manifest.m_aAssets[assetIndex])
+					manifest.m_aAssets.Remove(assetIndex);
+			}
+		}
+
+		for (int quoteIndex = m_aForceQuotes.Count() - 1; quoteIndex >= 0; quoteIndex--)
+		{
+			HST_ForceQuoteState quote = m_aForceQuotes[quoteIndex];
+			if (!quote)
+			{
+				m_aForceQuotes.Remove(quoteIndex);
+				continue;
+			}
+			quote.m_iRequestedMemberCount = Math.Max(0, quote.m_iRequestedMemberCount);
+			quote.m_iAcceptedMemberCount = Math.Max(0, quote.m_iAcceptedMemberCount);
+			quote.m_iRequestedVehicleCount = Math.Max(0, quote.m_iRequestedVehicleCount);
+			quote.m_iAcceptedVehicleCount = Math.Max(0, quote.m_iAcceptedVehicleCount);
+			quote.m_iRevision = Math.Max(1, quote.m_iRevision);
+		}
+
+		for (int spawnIndex = m_aForceSpawnResults.Count() - 1; spawnIndex >= 0; spawnIndex--)
+		{
+			HST_ForceSpawnResultState spawnResult = m_aForceSpawnResults[spawnIndex];
+			if (!spawnResult)
+			{
+				m_aForceSpawnResults.Remove(spawnIndex);
+				continue;
+			}
+			spawnResult.m_iRetryCount = Math.Max(0, spawnResult.m_iRetryCount);
+			spawnResult.m_iMaxRetries = Math.Max(0, spawnResult.m_iMaxRetries);
+			spawnResult.m_iExpectedSlotCount = Math.Max(0, spawnResult.m_iExpectedSlotCount);
+			for (int slotIndex = spawnResult.m_aSlotResults.Count() - 1; slotIndex >= 0; slotIndex--)
+			{
+				HST_ForceSpawnSlotResultState slotResult = spawnResult.m_aSlotResults[slotIndex];
+				if (!slotResult)
+				{
+					spawnResult.m_aSlotResults.Remove(slotIndex);
+					continue;
+				}
+				slotResult.m_iAttemptCount = Math.Max(0, slotResult.m_iAttemptCount);
+			}
+		}
+
+		if (restoredSchemaVersion >= 43 || !HasLegacyUnverifiedForces() || HasCampaignEventId("migration_schema43_force_authority"))
+			return;
+
+		HST_CampaignEventState migrationEvent = new HST_CampaignEventState();
+		migrationEvent.m_sEventId = "migration_schema43_force_authority";
+		migrationEvent.m_sCategory = "migration";
+		migrationEvent.m_sAggregateType = "force_authority";
+		migrationEvent.m_sAggregateId = "schema43";
+		migrationEvent.m_sTransition = "legacy_unverified";
+		migrationEvent.m_sReason = "legacy force counts preserved without inventing exact manifests, costs, or refunds";
+		migrationEvent.m_iCreatedAtSecond = m_iElapsedSeconds;
+		m_aCampaignEvents.Insert(migrationEvent);
+	}
+
+	protected bool HasLegacyUnverifiedForces()
+	{
+		return m_aGarrisons.Count() > 0 || m_aActiveGroups.Count() > 0 || m_aSupportRequests.Count() > 0 || m_aEnemyOrders.Count() > 0;
+	}
+
+	protected bool HasCampaignEventId(string eventId)
+	{
+		foreach (HST_CampaignEventState eventState : m_aCampaignEvents)
+		{
+			if (eventState && eventState.m_sEventId == eventId)
+				return true;
+		}
+		return false;
 	}
 
 	protected void NormalizeActiveGroupSourceLinks()

@@ -63,10 +63,12 @@ class HST_ZoneState
 [BaseContainerProps()]
 class HST_GarrisonState
 {
+	string m_sGarrisonId;
 	string m_sZoneId;
 	string m_sFactionKey;
 	int m_iInfantryCount;
 	int m_iVehicleCount;
+	ref array<string> m_aAcceptedManifestIds = {};
 }
 
 [BaseContainerProps()]
@@ -74,6 +76,8 @@ class HST_ActiveGroupState
 {
 	string m_sGroupId;
 	string m_sOperationId;
+	string m_sManifestId;
+	string m_sSpawnResultId;
 	string m_sZoneId;
 	string m_sFactionKey;
 	string m_sMissionInstanceId;
@@ -571,6 +575,9 @@ class HST_SupportRequestState
 {
 	string m_sRequestId;
 	string m_sOperationId;
+	string m_sQuoteId;
+	string m_sManifestId;
+	string m_sSpawnResultId;
 	string m_sCommandRequestId;
 	string m_sMoneyTransactionId;
 	string m_sHRTransactionId;
@@ -641,6 +648,8 @@ class HST_EnemyOrderState
 {
 	string m_sOrderId;
 	string m_sOperationId;
+	string m_sManifestId;
+	string m_sSpawnResultId;
 	string m_sFactionKey;
 	HST_EEnemyOrderType m_eType;
 	HST_EEnemyOrderStatus m_eStatus;
@@ -802,6 +811,8 @@ class HST_ResourceTransactionState
 	string m_sTransactionId;
 	string m_sCommandRequestId;
 	string m_sOperationId;
+	string m_sQuoteId;
+	string m_sManifestId;
 	string m_sActorIdentityId;
 	string m_sResourceType;
 	string m_sReason;
@@ -878,7 +889,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 42;
+	static const int SCHEMA_VERSION = 43;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1005,6 +1016,9 @@ class HST_CampaignState
 	ref array<ref HST_CommandReceiptState> m_aCommandReceipts = {};
 	ref array<ref HST_ResourceTransactionState> m_aResourceTransactions = {};
 	ref array<ref HST_CampaignEventState> m_aCampaignEvents = {};
+	ref array<ref HST_ForceManifestState> m_aForceManifests = {};
+	ref array<ref HST_ForceQuoteState> m_aForceQuotes = {};
+	ref array<ref HST_ForceSpawnResultState> m_aForceSpawnResults = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
@@ -1169,8 +1183,14 @@ class HST_CampaignState
 	{
 		foreach (HST_GarrisonState garrison : m_aGarrisons)
 		{
+			if (!garrison)
+				continue;
 			if (garrison.m_sZoneId == zoneId && garrison.m_sFactionKey == factionKey)
+			{
+				if (garrison.m_sGarrisonId.IsEmpty())
+					garrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(zoneId, factionKey);
 				return garrison;
+			}
 		}
 
 		return null;
@@ -1292,6 +1312,50 @@ class HST_CampaignState
 		{
 			if (eventState && eventState.m_sEventId == eventId)
 				return eventState;
+		}
+
+		return null;
+	}
+
+	HST_ForceManifestState FindForceManifest(string manifestId)
+	{
+		foreach (HST_ForceManifestState manifest : m_aForceManifests)
+		{
+			if (manifest && manifest.m_sManifestId == manifestId)
+				return manifest;
+		}
+
+		return null;
+	}
+
+	HST_ForceQuoteState FindForceQuote(string quoteId)
+	{
+		foreach (HST_ForceQuoteState quote : m_aForceQuotes)
+		{
+			if (quote && quote.m_sQuoteId == quoteId)
+				return quote;
+		}
+
+		return null;
+	}
+
+	HST_ForceSpawnResultState FindForceSpawnResult(string resultId)
+	{
+		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+		{
+			if (spawnResult && spawnResult.m_sResultId == resultId)
+				return spawnResult;
+		}
+
+		return null;
+	}
+
+	HST_ForceSpawnResultState FindForceSpawnResultByManifest(string manifestId)
+	{
+		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+		{
+			if (spawnResult && spawnResult.m_sManifestId == manifestId)
+				return spawnResult;
 		}
 
 		return null;

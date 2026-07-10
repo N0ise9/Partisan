@@ -448,6 +448,7 @@ class HST_ConvoyOutcomeService
 		if (!garrison)
 		{
 			garrison = new HST_GarrisonState();
+			garrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(zoneId, factionKey);
 			garrison.m_sZoneId = zoneId;
 			garrison.m_sFactionKey = factionKey;
 			state.m_aGarrisons.Insert(garrison);

@@ -26,7 +26,9 @@ class HST_ResourceLedgerService
 		string actorIdentityId,
 		string resourceType,
 		int amount,
-		string reason)
+		string reason,
+		string quoteId = "",
+		string manifestId = "")
 	{
 		HST_ResourceTransactionResult result = new HST_ResourceTransactionResult();
 		if (!state || !economy)
@@ -54,13 +56,13 @@ class HST_ResourceLedgerService
 		if (existing)
 		{
 			result.m_Transaction = existing;
-			if (existing.m_sCommandRequestId != commandRequestId || existing.m_sOperationId != operationId || existing.m_sActorIdentityId != actorIdentityId || existing.m_sResourceType != resourceType || existing.m_iAmount != amount)
+			if (existing.m_sCommandRequestId != commandRequestId || existing.m_sOperationId != operationId || existing.m_sActorIdentityId != actorIdentityId || existing.m_sResourceType != resourceType || existing.m_iAmount != amount || existing.m_sQuoteId != quoteId || existing.m_sManifestId != manifestId)
 			{
 				result.m_sFailureReason = "transaction id conflict";
 				return result;
 			}
 
-			result.m_bSuccess = existing.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED || existing.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED || existing.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_PARTIALLY_REFUNDED || existing.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED;
+			result.m_bSuccess = existing.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED || existing.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
 			result.m_bAlreadyApplied = result.m_bSuccess;
 			if (!result.m_bSuccess)
 				result.m_sFailureReason = "transaction already cancelled";
@@ -77,6 +79,8 @@ class HST_ResourceLedgerService
 		transaction.m_sTransactionId = transactionId;
 		transaction.m_sCommandRequestId = commandRequestId;
 		transaction.m_sOperationId = operationId;
+		transaction.m_sQuoteId = quoteId;
+		transaction.m_sManifestId = manifestId;
 		transaction.m_sActorIdentityId = actorIdentityId;
 		transaction.m_sResourceType = resourceType;
 		transaction.m_sReason = reason;
@@ -98,7 +102,7 @@ class HST_ResourceLedgerService
 		HST_ResourceTransactionState transaction = state.FindResourceTransaction(transactionId);
 		if (!transaction)
 			return false;
-		if (transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED || transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_PARTIALLY_REFUNDED || transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED)
+		if (transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED)
 			return true;
 		if (transaction.m_eStatus != HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED)
 			return false;

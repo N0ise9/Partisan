@@ -4637,6 +4637,53 @@ foreach ($requiredAuthorityFoundationEntry in @(
 	}
 }
 Write-Host "Campaign authority foundation contract OK"
+foreach ($requiredForceAuthorityEntry in @(
+		"SCHEMA_VERSION = 43",
+		"HST_ForceManifestState",
+		"HST_ForceQuoteState",
+		"HST_ForceSpawnResultState",
+		"m_aForceManifests",
+		"m_aForceQuotes",
+		"m_aForceSpawnResults",
+		"m_aAcceptedManifestIds",
+		"CopyForceManifest",
+		"CopyForceQuote",
+		"CopyForceSpawnResult",
+		"force_catalog_1",
+		"TryReadGroupSlots",
+		"ValidateMemberCatalog",
+		'member slot %1 resource is invalid',
+		"IssueGarrisonQuote",
+		"ConfirmGarrisonQuote",
+		"MAX_OPEN_GARRISON_QUOTES",
+		"ReconcileInterruptedGarrisonConfirmations",
+		"m_bStateChanged",
+		"AddManifestForcesExact",
+		"exact garrison recruitment",
+		"confirm_garrison_quote",
+		"cancel_garrison_quote",
+		"RequestCommanderQuoteGarrisonAtMapTargetReport",
+		"RequestCommanderConfirmGarrisonQuoteReport",
+		"force_authority.quantities",
+		"force_authority.duplicate_confirmation",
+		"force_authority.capacity_all_or_nothing",
+		"force_authority.stale_context",
+		"force_authority.reservation_rollback",
+		"force_authority.restore_reconciliation",
+		"force_authority.persistence",
+		"force_authority.catalog"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredForceAuthorityEntry)) {
+		throw "Exact force authority contract missing: $requiredForceAuthorityEntry"
+	}
+}
+if ($scriptText -notmatch 'array<int> quantities\s*=\s*\{1, 4, 7, 12\}') {
+	throw "Exact force authority proof must cover quantities 1, 4, 7, and 12"
+}
+if ($scriptText -match '(?m)^\s*(?:bool|string)\s+RequestCommanderRecruitGarrison(?:AtMapTarget)?(?:Report)?\s*\(') {
+	throw "Legacy caller-priced garrison recruitment wrappers must not remain public authority surfaces"
+}
+Write-Host "Exact force manifest and garrison quote contract OK"
 foreach ($requiredDebugIsolationEntry in @(
 		"PrepareCampaignDebugIsolation",
 		"CaptureIsolatedCampaignDebugState",

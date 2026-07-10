@@ -28,4 +28,12 @@ class HST_StableIdService
 
 		return "transaction_" + operationId + "_" + resourceType;
 	}
+
+	static string BuildGarrisonId(string zoneId, string factionKey)
+	{
+		if (zoneId.IsEmpty() || factionKey.IsEmpty())
+			return "";
+
+		return "garrison_" + zoneId + "_" + factionKey;
+	}
 }

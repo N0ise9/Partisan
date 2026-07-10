@@ -44,7 +44,7 @@ class HST_CommandUIService
 	static const int MAX_MISSION_VEHICLE_SCAN_ENTITIES = 96;
 	static const int COMMAND_CHOICE_LIMIT = 128;
 	static const int TRAIN_TROOPS_MONEY_COST = 250;
-	static const int RECRUIT_GARRISON_MONEY_COST = 100;
+	static const int RECRUIT_GARRISON_MONEY_COST = 50;
 	static const int RECRUIT_GARRISON_HR_COST = 1;
 	static const int CIVILIAN_AID_MONEY_COST = 100;
 
@@ -203,6 +203,8 @@ class HST_CommandUIService
 		actions.Insert("income_now");
 		actions.Insert("train_troops_report");
 		actions.Insert("recruit_zone <zone>");
+		actions.Insert("confirm_garrison_quote <quote>");
+		actions.Insert("cancel_garrison_quote <quote>");
 		actions.Insert("remove_garrison <zone>");
 		actions.Insert("mission_category <category>");
 		actions.Insert("progress_mission <id>");
@@ -784,9 +786,13 @@ class HST_CommandUIService
 		if (commandId == "recruit_zone")
 		{
 			if (IsMapTargetArgument(argument))
-				return coordinator.RequestCommanderRecruitGarrisonAtMapTargetReport(playerId, argument, ResolveMapTargetCountArgument(argument, 2), 0, 100, 1);
-			return coordinator.RequestCommanderRecruitGarrisonReport(playerId, argument, 2, 0, 100, 1);
+				return coordinator.RequestCommanderQuoteGarrisonAtMapTargetReport(playerId, argument, requestId);
+			return "h-istasi force quote | failed: map target required";
 		}
+		if (commandId == "confirm_garrison_quote")
+			return coordinator.RequestCommanderConfirmGarrisonQuoteReport(playerId, argument, requestId);
+		if (commandId == "cancel_garrison_quote")
+			return coordinator.RequestCommanderCancelGarrisonQuoteReport(playerId, argument, requestId);
 		if (commandId == "remove_garrison")
 		{
 			if (IsMapTargetArgument(argument))
@@ -1380,9 +1386,13 @@ class HST_CommandUIService
 		if (commandId == "recruit_zone")
 		{
 			if (IsMapTargetArgument(argument))
-				return !coordinator.RequestCommanderRecruitGarrisonAtMapTargetReport(playerId, argument, ResolveMapTargetCountArgument(argument, 2), 0, 100, 1).Contains("failed");
-			return coordinator.RequestCommanderRecruitGarrison(playerId, argument, 2, 0, 100, 1);
+				return !coordinator.RequestCommanderQuoteGarrisonAtMapTargetReport(playerId, argument).Contains("failed");
+			return false;
 		}
+		if (commandId == "confirm_garrison_quote")
+			return !coordinator.RequestCommanderConfirmGarrisonQuoteReport(playerId, argument).Contains("failed");
+		if (commandId == "cancel_garrison_quote")
+			return !coordinator.RequestCommanderCancelGarrisonQuoteReport(playerId, argument).Contains("failed");
 		if (commandId == "remove_garrison")
 		{
 			if (IsMapTargetArgument(argument))
@@ -2705,9 +2715,17 @@ class HST_CommandUIService
 			string roadblockVehicleChoices = BuildRoadblockVehicleChoiceArgument(state);
 			string recallChoiceArgument = BuildSupportRecallChoiceArgument(state, preset);
 			int recallableSupportCount = CountRecallableSupportRequests(state, preset);
+			HST_ForceQuoteState openGarrisonQuote = FindOpenCommanderGarrisonQuote(state);
 			AddMenuAction(actions, TAB_FORCES, "Recruitment report", "inspect_recruitment", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Train FIA troops", TRAIN_TROOPS_MONEY_COST, 0, 0), "train_troops", "", canUseCommander && HasResourcesForCost(state, TRAIN_TROOPS_MONEY_COST, 0), PaidActionDisabledReason(canUseCommander, state, TRAIN_TROOPS_MONEY_COST, 0, "commander required"));
-			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Recruit FIA at map location", RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST, 0), "recruit_zone", "", canUseMapTarget && hasRecruitTarget && HasResourcesForCost(state, RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST), MapTargetCostDisabledReason(canUseCommander, playerHasMap, hasRecruitTarget, "no recruit target", state, RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST));
+			AddMenuAction(actions, TAB_FORCES, "Request exact FIA garrison quote at map location", "recruit_zone", "", canUseMapTarget && hasRecruitTarget && HasResourcesForCost(state, RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST), MapTargetCostDisabledReason(canUseCommander, playerHasMap, hasRecruitTarget, "no recruit target", state, RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST));
+			if (openGarrisonQuote)
+			{
+				string quoteLabel = string.Format("Confirm exact garrison quote at %1", ResolveZoneName(state, openGarrisonQuote.m_sTargetZoneId));
+				quoteLabel = BuildPaidActionLabel(quoteLabel, openGarrisonQuote.m_iMoneyCost, openGarrisonQuote.m_iHRCost, openGarrisonQuote.m_iAcceptedMemberCount);
+				AddMenuAction(actions, TAB_FORCES, quoteLabel, "confirm_garrison_quote", openGarrisonQuote.m_sQuoteId, canUseCommander && HasResourcesForCost(state, openGarrisonQuote.m_iMoneyCost, openGarrisonQuote.m_iHRCost), PaidActionDisabledReason(canUseCommander, state, openGarrisonQuote.m_iMoneyCost, openGarrisonQuote.m_iHRCost, "commander required"));
+				AddMenuAction(actions, TAB_FORCES, "Cancel open garrison quote", "cancel_garrison_quote", openGarrisonQuote.m_sQuoteId, canUseCommander, "commander required");
+			}
 			AddMenuAction(actions, TAB_FORCES, "Remove FIA garrison at map location", "remove_garrison", "", canUseMapTarget && hasRemovableGarrison, MapTargetDisabledReason(canUseCommander, playerHasMap, hasRemovableGarrison, "no garrison target"));
 			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request supply drop at map location", supplyMoneyCost, 0, 0), "call_supply", "", canUseMapTarget && HasResourcesForCost(state, supplyMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, supplyMoneyCost, 0));
@@ -3606,6 +3624,34 @@ class HST_CommandUIService
 		}
 
 		return false;
+	}
+
+	protected HST_ForceQuoteState FindOpenCommanderGarrisonQuote(HST_CampaignState state)
+	{
+		if (!state || state.m_sCommanderIdentityId.IsEmpty())
+			return null;
+
+		for (int i = state.m_aForceQuotes.Count() - 1; i >= 0; i--)
+		{
+			HST_ForceQuoteState quote = state.m_aForceQuotes[i];
+			if (!quote || quote.m_sActorIdentityId != state.m_sCommanderIdentityId || quote.m_sQuoteKind != HST_ForcePlanningService.QUOTE_KIND_GARRISON)
+				continue;
+			if (quote.m_eStatus != HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED || state.m_iElapsedSeconds > quote.m_iExpiresAtSecond)
+				continue;
+			return quote;
+		}
+
+		return null;
+	}
+
+	protected string ResolveZoneName(HST_CampaignState state, string zoneId)
+	{
+		if (!state)
+			return zoneId;
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (zone && !zone.m_sDisplayName.IsEmpty())
+			return zone.m_sDisplayName;
+		return zoneId;
 	}
 
 	protected bool HasAnyRemovableResistanceGarrison(HST_CampaignState state, HST_CampaignPreset preset)

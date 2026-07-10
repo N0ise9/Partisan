@@ -207,7 +207,7 @@ class HST_PersistenceService
 			return false;
 
 		restoredSave.MigrateToCurrentSchema();
-		restoredSave.ApplyTo(targetState);
+		restoredSave.ApplyTo(targetState, false);
 		targetState.m_bRestoredFromPersistence = true;
 		targetState.m_iLastRestoreSecond = targetState.m_iElapsedSeconds;
 		targetState.m_sLastPersistenceStatus = string.Format("restored schema %1 -> %2", targetState.m_iLastLoadedSchemaVersion, targetState.m_iSchemaVersion);

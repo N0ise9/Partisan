@@ -113,17 +113,24 @@ trusting client-provided player IDs.
 
 ## Campaign Authority Boundary
 
-Schema 42 is the first campaign-authority foundation, not a claim that every
+Schema 43 extends the first campaign-authority foundation with exact force
+planning; it is not a claim that every
 existing broad-alpha mutation already uses the new boundary.
 
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
-| Stable identity | A persisted monotonic allocator creates authority IDs, and selected support, order, and active-group records carry operation links. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
-| Command idempotency | Visible command requests carry a request ID; bounded receipts make the migrated troop-training path replay-safe. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
-| Resource integrity | Troop training reserves and commits faction money through the ledger; legacy consumers still mutate resources through their existing services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
-| Force exactness | Existing force-planning and physical-war services remain broad-alpha consumers with partial operation links. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
+| Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
+| Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and garrison quote/confirm commands, while accepted quote state prevents a later duplicate confirmation from charging again. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
+| Resource integrity | Troop training and visible garrison confirmation reserve and commit through the ledger; legacy consumers still mutate resources through existing services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
+| Force exactness | Visible garrison recruitment freezes an exact priced manifest and all-or-nothing quote, then verifies the exact purchase-time aggregate increment. This is acceptance provenance, not a durable living roster: physical activation still uses the broad-alpha composition path. A versioned core group catalog validates ordered execution-prefab slots without spawning. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | Static validation and Workbench script compilation cover the schema-42 foundation. | Isolated runtime, save/load, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Static validation and Workbench script compilation cover the schema-43 foundation and garrison vertical slice. | Isolated runtime, save/load, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+
+Concurrent open garrison quotes are capped and expired/terminal unreferenced planning
+rows can be pruned. Accepted quotes, manifests, ledger rows, acceptance-provenance
+IDs, and typed spawn results do not yet have archive/tombstone compaction. That is
+an explicit CRI-2 long-campaign gap; the current schema must not be described as
+having bounded force-authority history.
 
 Until those target columns are closed, domain services remain authoritative for
 their existing behavior, but they must not be described as uniformly
@@ -149,10 +156,12 @@ The addon keeps authoring data separate from runtime state:
 - `HST_BalanceConfig`: campaign balance and progression values.
 - `HST_MissionRegistryConfig`: mission definitions and deferred capabilities.
 
-The checked-in `.conf` resources are the intended data source and are validated
-against the runtime fallback catalog. The current coordinator still uses the
-matching fallback catalog while Workbench-safe resource loading and serializer
-prefabs are connected.
+The current coordinator uses `HST_DefaultCatalog` as runtime authority. The
+checked-in faction `.conf` resources are not loaded by that path and are not
+guaranteed mirrors; they must not be cited as gameplay truth until one loader
+and startup validator replaces the duplicated declarations. Schema-43 exact
+force planning uses `HST_ForceCatalogService`, whose explicit catalog version
+and ordered slots are validated against effective prefab containers at runtime.
 
 ## Persistence
 
@@ -164,9 +173,10 @@ service also writes `$profile:h-istasi/HST_CampaignSaveData.json` as a profile
 fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. The
 state model is versioned from day one. `HST_CampaignSaveData` is the deep-copy
-save container for current campaign fields and nested runtime arrays. Schema 42
+save container for current campaign fields and nested runtime arrays. Schema 43
 persists the monotonic authority sequence, bounded command receipts, resource
-transactions, campaign events, and stable operation links alongside campaign
+transactions, campaign events, stable operation/garrison links, immutable force
+manifests, expiring quotes, and typed nested spawn results alongside campaign
 metadata, resources, campaign-end
 reason/summary/elapsed second/control/war/zone-count fields, outcome-mode,
 population/support, airfield metadata, support deployment proof, active-group

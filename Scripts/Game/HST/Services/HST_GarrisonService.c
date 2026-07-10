@@ -7,9 +7,14 @@ class HST_GarrisonService
 
 		HST_GarrisonState garrison = state.FindGarrison(zoneId, factionKey);
 		if (garrison)
+		{
+			if (garrison.m_sGarrisonId.IsEmpty())
+				garrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(zoneId, factionKey);
 			return garrison;
+		}
 
 		garrison = new HST_GarrisonState();
+		garrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(zoneId, factionKey);
 		garrison.m_sZoneId = zoneId;
 		garrison.m_sFactionKey = factionKey;
 		state.m_aGarrisons.Insert(garrison);
@@ -32,6 +37,63 @@ class HST_GarrisonService
 
 		garrison.m_iInfantryCount = nextInfantry;
 		garrison.m_iVehicleCount = Math.Max(0, garrison.m_iVehicleCount + vehicleCount);
+		return true;
+	}
+
+	bool AddManifestForcesExact(HST_CampaignState state, string zoneId, string factionKey, HST_ForceManifestState manifest)
+	{
+		if (!state || !manifest || zoneId.IsEmpty() || factionKey.IsEmpty())
+			return false;
+		if (!manifest.m_bFrozen || manifest.m_sManifestId.IsEmpty() || manifest.m_sFactionKey != factionKey || manifest.m_sTargetZoneId != zoneId)
+			return false;
+		if (manifest.m_iAcceptedMemberCount <= 0 || manifest.m_iAcceptedMemberCount != manifest.m_aMembers.Count())
+			return false;
+
+		HST_GarrisonState existing = state.FindGarrison(zoneId, factionKey);
+		if (existing && existing.m_aAcceptedManifestIds.Contains(manifest.m_sManifestId))
+			return true;
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
+			return false;
+
+		int beforeInfantry;
+		if (existing)
+			beforeInfantry = Math.Max(0, existing.m_iInfantryCount);
+		int activeInfantry = Math.Max(0, zone.m_iActiveInfantryCount);
+		if (zone.m_iGarrisonSlots > 0 && beforeInfantry + activeInfantry + manifest.m_iAcceptedMemberCount > zone.m_iGarrisonSlots)
+			return false;
+
+		HST_GarrisonState garrison = FindOrCreate(state, zoneId, factionKey);
+		if (!garrison)
+			return false;
+
+		garrison.m_iInfantryCount = beforeInfantry + manifest.m_iAcceptedMemberCount;
+		garrison.m_aAcceptedManifestIds.Insert(manifest.m_sManifestId);
+		return garrison.m_iInfantryCount - beforeInfantry == manifest.m_iAcceptedMemberCount;
+	}
+
+	bool RemoveManifestForcesExact(HST_CampaignState state, string zoneId, string factionKey, HST_ForceManifestState manifest)
+	{
+		if (!state || !manifest)
+			return false;
+
+		HST_GarrisonState garrison = state.FindGarrison(zoneId, factionKey);
+		if (!garrison)
+			return false;
+
+		int manifestIndex = garrison.m_aAcceptedManifestIds.Find(manifest.m_sManifestId);
+		if (manifestIndex < 0)
+			return false;
+
+		garrison.m_aAcceptedManifestIds.Remove(manifestIndex);
+		garrison.m_iInfantryCount = Math.Max(0, garrison.m_iInfantryCount - Math.Max(0, manifest.m_iAcceptedMemberCount));
+		if (garrison.m_iInfantryCount <= 0 && garrison.m_iVehicleCount <= 0 && garrison.m_aAcceptedManifestIds.Count() == 0)
+		{
+			int garrisonIndex = state.m_aGarrisons.Find(garrison);
+			if (garrisonIndex >= 0)
+				state.m_aGarrisons.Remove(garrisonIndex);
+		}
 		return true;
 	}
 
