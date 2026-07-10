@@ -690,7 +690,13 @@ class HST_CampaignSaveData
 		target.m_iSpawnedAgentCount = source.m_iSpawnedAgentCount;
 		target.m_iAssignedWaypointCount = source.m_iAssignedWaypointCount;
 		target.m_iMaxObservedCrewAlive = source.m_iMaxObservedCrewAlive;
+		target.m_iDurableLivingInfantryCount = source.m_iDurableLivingInfantryCount;
+		target.m_iLastCasualtySecond = source.m_iLastCasualtySecond;
+		target.m_iEliminatedAtSecond = source.m_iEliminatedAtSecond;
+		target.m_iLifecycleRevision = source.m_iLifecycleRevision;
 		target.m_bEverHadLivingCrew = source.m_bEverHadLivingCrew;
+		target.m_bEverPopulated = source.m_bEverPopulated;
+		target.m_bSpawnCompleted = source.m_bSpawnCompleted;
 		target.m_bCrewPopulationTerminallyFailed = source.m_bCrewPopulationTerminallyFailed;
 		target.m_sCrewPopulationFailureReason = source.m_sCrewPopulationFailureReason;
 		target.m_sConvoyRuntimeStage = source.m_sConvoyRuntimeStage;
@@ -1703,12 +1709,17 @@ class HST_CampaignSaveData
 		target.m_eStatus = source.m_eStatus;
 		target.m_iAttemptCount = source.m_iAttemptCount;
 		target.m_iUpdatedAtSecond = source.m_iUpdatedAtSecond;
+		target.m_iLifecycleRevision = source.m_iLifecycleRevision;
+		target.m_iCasualtyAtSecond = source.m_iCasualtyAtSecond;
+		target.m_sRetirementReason = source.m_sRetirementReason;
 		target.m_bFactionVerified = source.m_bFactionVerified;
 		target.m_bGroupVerified = source.m_bGroupVerified;
 		target.m_bGameMasterVerified = source.m_bGameMasterVerified;
 		target.m_bProjectionVerified = source.m_bProjectionVerified;
 		target.m_bSeatVerified = source.m_bSeatVerified;
 		target.m_bAliveVerified = source.m_bAliveVerified;
+		target.m_bEverAlive = source.m_bEverAlive;
+		target.m_bCasualtyConfirmed = source.m_bCasualtyConfirmed;
 		return target;
 	}
 
@@ -1740,6 +1751,10 @@ class HST_CampaignSaveData
 		target.m_iUpdatedAtSecond = source.m_iUpdatedAtSecond;
 		target.m_iCompletedAtSecond = source.m_iCompletedAtSecond;
 		target.m_iExpectedSlotCount = source.m_iExpectedSlotCount;
+		target.m_iSuccessfulHandoffCount = source.m_iSuccessfulHandoffCount;
+		target.m_iReprojectionCount = source.m_iReprojectionCount;
+		target.m_iLifecycleRevision = source.m_iLifecycleRevision;
+		target.m_iLastLifecycleSecond = source.m_iLastLifecycleSecond;
 		target.m_bCancelRequested = source.m_bCancelRequested;
 		foreach (HST_ForceSpawnSlotResultState slotResult : source.m_aSlotResults)
 		{
@@ -2278,6 +2293,10 @@ class HST_CampaignSaveData
 			spawnResult.m_iUpdatedAtSecond = Math.Max(0, spawnResult.m_iUpdatedAtSecond);
 			spawnResult.m_iCompletedAtSecond = Math.Max(0, spawnResult.m_iCompletedAtSecond);
 			spawnResult.m_iExpectedSlotCount = Math.Max(0, spawnResult.m_iExpectedSlotCount);
+			spawnResult.m_iSuccessfulHandoffCount = Math.Max(0, spawnResult.m_iSuccessfulHandoffCount);
+			spawnResult.m_iReprojectionCount = Math.Max(0, spawnResult.m_iReprojectionCount);
+			spawnResult.m_iLifecycleRevision = Math.Max(0, spawnResult.m_iLifecycleRevision);
+			spawnResult.m_iLastLifecycleSecond = Math.Max(0, spawnResult.m_iLastLifecycleSecond);
 			for (int slotIndex = spawnResult.m_aSlotResults.Count() - 1; slotIndex >= 0; slotIndex--)
 			{
 				HST_ForceSpawnSlotResultState slotResult = spawnResult.m_aSlotResults[slotIndex];
@@ -2288,6 +2307,8 @@ class HST_CampaignSaveData
 				}
 				slotResult.m_iAttemptCount = Math.Max(0, slotResult.m_iAttemptCount);
 				slotResult.m_iUpdatedAtSecond = Math.Max(0, slotResult.m_iUpdatedAtSecond);
+				slotResult.m_iLifecycleRevision = Math.Max(0, slotResult.m_iLifecycleRevision);
+				slotResult.m_iCasualtyAtSecond = Math.Max(0, slotResult.m_iCasualtyAtSecond);
 			}
 
 			if (restoredSchemaVersion >= 44 || IsForceSpawnBatchTerminal(spawnResult.m_eStatus))
@@ -2300,6 +2321,7 @@ class HST_CampaignSaveData
 		int duplicateSpawnRows = FinalizeDuplicateForceSpawnQueueIdentity(restoredSchemaVersion, migrationSecond);
 		MigrateActiveGroupProjectionIdentity(restoredSchemaVersion, migrationSecond);
 		MigrateLegacyPlayerQRFTransactions(restoredSchemaVersion, migrationSecond);
+		MigrateForceRuntimeLifecycle(restoredSchemaVersion, migrationSecond);
 
 		if (migratedLegacySpawnQueue && !HasCampaignEventId("migration_schema44_spawn_queue"))
 		{
@@ -2615,6 +2637,92 @@ class HST_CampaignSaveData
 		m_aCampaignEvents.Insert(unresolvedEvent);
 	}
 
+	protected void MigrateForceRuntimeLifecycle(int restoredSchemaVersion, int migrationSecond)
+	{
+		if (restoredSchemaVersion >= 47)
+			return;
+
+		int migratedBatchCount;
+		int migratedMemberCount;
+		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+		{
+			if (!spawnResult)
+				continue;
+			if (spawnResult.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+				&& spawnResult.m_iSuccessfulHandoffCount <= 0)
+			{
+				spawnResult.m_iSuccessfulHandoffCount = 1;
+				migratedBatchCount++;
+			}
+			spawnResult.m_iLifecycleRevision = Math.Max(spawnResult.m_iLifecycleRevision, spawnResult.m_iSuccessfulHandoffCount);
+			spawnResult.m_iLastLifecycleSecond = Math.Max(spawnResult.m_iLastLifecycleSecond, spawnResult.m_iCompletedAtSecond);
+
+			foreach (HST_ForceSpawnSlotResultState slotResult : spawnResult.m_aSlotResults)
+			{
+				if (!slotResult)
+					continue;
+				if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
+					&& slotResult.m_bAliveVerified)
+				{
+					slotResult.m_bEverAlive = true;
+					slotResult.m_iLifecycleRevision = Math.Max(1, slotResult.m_iLifecycleRevision);
+					if (slotResult.m_sSlotKind == HST_ForceSpawnQueueService.SLOT_KIND_MEMBER)
+						migratedMemberCount++;
+				}
+			}
+		}
+
+		int migratedGroupCount;
+		foreach (HST_ActiveGroupState group : m_aActiveGroups)
+		{
+			if (!group || group.m_sSpawnResultId.IsEmpty())
+				continue;
+			HST_ForceSpawnResultState linkedBatch = FindForceSpawnResultForMigration(group.m_sSpawnResultId);
+			if (!linkedBatch || linkedBatch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+				continue;
+
+			int livingMembers;
+			foreach (HST_ForceSpawnSlotResultState slotResult : linkedBatch.m_aSlotResults)
+			{
+				if (slotResult && slotResult.m_sSlotKind == HST_ForceSpawnQueueService.SLOT_KIND_MEMBER
+					&& slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
+					&& slotResult.m_bAliveVerified)
+					livingMembers++;
+			}
+			group.m_bSpawnCompleted = true;
+			group.m_bEverPopulated = livingMembers > 0;
+			group.m_iDurableLivingInfantryCount = livingMembers;
+			group.m_iLifecycleRevision = Math.Max(1, group.m_iLifecycleRevision);
+			migratedGroupCount++;
+		}
+
+		if (migratedBatchCount <= 0 && migratedMemberCount <= 0 && migratedGroupCount <= 0)
+			return;
+		if (HasCampaignEventId("migration_schema47_force_runtime_lifecycle"))
+			return;
+		HST_CampaignEventState eventState = new HST_CampaignEventState();
+		eventState.m_sEventId = "migration_schema47_force_runtime_lifecycle";
+		eventState.m_sCategory = "migration";
+		eventState.m_sAggregateType = "force_runtime";
+		eventState.m_sAggregateId = "schema47";
+		eventState.m_sTransition = "successful_projection_lifecycle_backfilled";
+		eventState.m_sReason = string.Format("backfilled lifecycle evidence for %1 successful batches, %2 registered members, and %3 exact active groups without inventing casualties", migratedBatchCount, migratedMemberCount, migratedGroupCount);
+		eventState.m_iCreatedAtSecond = migrationSecond;
+		m_aCampaignEvents.Insert(eventState);
+	}
+
+	protected HST_ForceSpawnResultState FindForceSpawnResultForMigration(string resultId)
+	{
+		if (resultId.IsEmpty())
+			return null;
+		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+		{
+			if (spawnResult && spawnResult.m_sResultId == resultId)
+				return spawnResult;
+		}
+		return null;
+	}
+
 	protected bool IsForceSpawnBatchTerminal(HST_EForceSpawnBatchStatus status)
 	{
 		return status == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
@@ -2637,6 +2745,16 @@ class HST_CampaignSaveData
 		{
 			if (!slotResult)
 				continue;
+			if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				&& slotResult.m_bCasualtyConfirmed)
+			{
+				slotResult.m_sEntityId = "";
+				slotResult.m_sAssignedVehicleEntityId = "";
+				slotResult.m_sNativeGroupId = "";
+				slotResult.m_bAliveVerified = false;
+				slotResult.m_iUpdatedAtSecond = completedAtSecond;
+				continue;
+			}
 
 			if (slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_FAILED_FINAL
 				&& slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CANCELLED)
@@ -2729,6 +2847,10 @@ class HST_CampaignSaveData
 				group.m_iOriginalInfantryCount = group.m_iInfantryCount;
 			if (group.m_iOriginalVehicleCount <= 0)
 				group.m_iOriginalVehicleCount = group.m_iVehicleCount;
+			group.m_iDurableLivingInfantryCount = Math.Max(0, group.m_iDurableLivingInfantryCount);
+			group.m_iLastCasualtySecond = Math.Max(0, group.m_iLastCasualtySecond);
+			group.m_iEliminatedAtSecond = Math.Max(0, group.m_iEliminatedAtSecond);
+			group.m_iLifecycleRevision = Math.Max(0, group.m_iLifecycleRevision);
 		}
 
 		foreach (HST_SupportRequestState request : m_aSupportRequests)

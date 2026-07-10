@@ -1725,10 +1725,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   Settlement is transaction-idempotent and can run while persisted campaign time
   is frozen.
 - A durable `SUCCEEDED` queue row is historical evidence, not a live entity
-  handle. Until successful reprojection exists, restoring an accepted paid QRF
-  with no provable local root/adapter binding must fail closed, remove the stale
-  projection, and fully refund once. Do not claim this temporary policy as
-  successful restore support.
+  handle. Schema 46 initially used a temporary full-refund fallback when an
+  accepted paid QRF had no provable local binding. Schema 47 supersedes that
+  policy with durable survivor reprojection; do not reintroduce entity-ID
+  reacquisition or the old full-refund shortcut.
 - Legacy player-QRF rows with positive stored cost prove a historical charge but
   not an exact roster. Schema migration may create committed/partially refunded
   transaction history without changing balances; it must not invent a quote,
@@ -1746,6 +1746,53 @@ This file is for practical engine/script behavior, not project planning. Keep en
   and completed script validation. A separate normal WorldEditor open stayed
   responsive through 20 seconds and did not reproduce the earlier Workbench
   crash. These are compile/startup checks, not physical paid-QRF runtime proof.
+
+## Schema 47 Exact Force-Runtime Lifecycle
+
+- Persist lifecycle facts separately from process-local physical evidence. An
+  exact member slot retains `everAlive`, casualty confirmation/time/reason, and
+  its lifecycle revision. The batch retains successful-handoff and reprojection
+  counts; the active group retains `everPopulated`, `spawnCompleted`, durable
+  living infantry, and elimination time.
+- Do not infer death from a missing or deleted entity. The adapter samples the
+  still-present, exact slot-mapped entity's authoritative character life state
+  before pruning deleted transient handles. A later event-driven subscription
+  can replace polling, but it must preserve the same slot identity and
+  idempotency contract.
+- A confirmed dead member transitions from `REGISTERED` to `RETIRED` exactly
+  once. Detach its native agent and Game Master parent and remove it from force
+  runtime ownership without deleting the corpse. This makes native/GM/strategic
+  living strength converge while leaving loot/salvage cleanup to its own policy.
+- Last-death cleanup is guarded by both `everPopulated` and `spawnCompleted`.
+  When durable living count reaches zero and no runtime member remains alive,
+  delete the exact root, clear its runtime handles/waypoints, mark the active
+  group eliminated, and let support settlement remove the active-group marker.
+  Money and dead HR remain committed.
+- Restore never reacquires a saved entity/native-group ID. Clear physical IDs,
+  retain `RETIRED` casualty tombstones, requeue the same root plus only member
+  slots with ever-alive and no confirmed casualty, then require a fresh exact
+  handoff. The immutable manifest stays unchanged; the queue's resolved-slot
+  check treats a valid retired member tombstone as complete but nonphysical.
+- An initial deployment failure has delivered no force and keeps the schema-46
+  full money/HR refund policy. A failure after `successfulHandoffCount > 0` is a
+  technical reprojection retirement: retain money and refund only durable
+  surviving HR. If durable queue authority is unavailable after a handoff,
+  settlement must wait rather than falling back to a full refund. This
+  distinction must survive save/restart.
+- Pre-schema-47 successful batches backfill one historical handoff and ever-
+  alive evidence from registered alive slots. Linked active groups receive
+  spawn-completed/ever-populated plus the exact registered living count. Do not
+  invent casualty slots from lower aggregate survivor fields.
+- The bounded `force_runtime.*` proof exercises casualty replay, lifecycle deep-
+  copy, retired-slot exclusion during survivor reprojection, second handoff,
+  final durable-zero roster, and schema-46 migration. It does not replace a live
+  runtime proof of corpse detachment, native/GM sizes, five-second root/marker
+  removal, or a real process restart.
+- The schema-47 Game module currently loads 5,737 files/11,462 classes, creates
+  the game, and completes script validation. A separate normal WorldEditor open
+  remained responsive at every two-second sample through 20 seconds and did not
+  reproduce the earlier crash. These remain compile/startup evidence until the
+  isolated physical and restart cases run.
 
 ## Native Reference Sources
 

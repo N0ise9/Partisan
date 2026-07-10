@@ -25,6 +25,8 @@ class HST_ForceSpawnAdapterTickResult
 	int m_iFailedCount;
 	int m_iHandedOffCount;
 	int m_iHandoffRefusedCount;
+	int m_iCasualtyCount;
+	int m_iEliminatedCount;
 	string m_sSummary;
 	ref array<string> m_aEvidence = {};
 }
@@ -44,6 +46,7 @@ class HST_ForceSpawnAdapterService
 	static const string UNSUPPORTED_MANIFEST_REASON = "physical adapter supports one exact infantry group without vehicle or asset slots";
 	static const int MAX_RECONCILE_BATCHES_PER_TICK = 4;
 	static const int MAX_HANDLE_RECONCILE_PER_TICK = 8;
+	static const int MAX_LIFECYCLE_HANDLES_PER_TICK = 16;
 
 	protected ref array<ref HST_ForceSpawnAdapterHandle> m_aHandles = {};
 	protected int m_iTickCount;
@@ -70,6 +73,8 @@ class HST_ForceSpawnAdapterService
 			return result;
 		}
 
+		ReconcileHandedOffMemberLifecycle(state, queue, physicalWar, nowSecond, result);
+		ReconcileZeroLivingProjectionCleanup(state, queue, physicalWar, nowSecond, result);
 		ReconcileDeletedStagedHandles(state, queue, nowSecond, result);
 		HST_ForceSpawnQueueTickResult acquired = queue.AcquireWork(state.m_aForceSpawnResults, state.m_aForceManifests, nowSecond);
 		if (!acquired)
@@ -79,7 +84,7 @@ class HST_ForceSpawnAdapterService
 		}
 
 		m_iTickCount++;
-		result.m_bStateChanged = acquired.m_bStateChanged;
+		result.m_bStateChanged = result.m_bStateChanged || acquired.m_bStateChanged;
 		result.m_iAcquiredBatchCount = acquired.m_iBatchesSelected;
 		result.m_iAcquiredActionCount = acquired.m_iSlotsSelected;
 		array<string> touchedResultIds = {};
@@ -91,6 +96,131 @@ class HST_ForceSpawnAdapterService
 		result.m_sSummary = BuildTickSummary(result);
 		m_sLastSummary = result.m_sSummary;
 		return result;
+	}
+
+	protected void ReconcileHandedOffMemberLifecycle(
+		HST_CampaignState state,
+		HST_ForceSpawnQueueService queue,
+		HST_PhysicalWarService physicalWar,
+		int nowSecond,
+		HST_ForceSpawnAdapterTickResult result)
+	{
+		if (!state || !queue || !physicalWar || !result)
+			return;
+		int inspected;
+		array<string> eliminatedProjectionIds = {};
+		array<ref HST_ForceSpawnAdapterHandle> detachedHandles = {};
+		foreach (HST_ForceSpawnAdapterHandle handle : m_aHandles)
+		{
+			if (inspected >= MAX_LIFECYCLE_HANDLES_PER_TICK)
+				break;
+			if (!handle || !handle.m_bHandedOff || handle.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_MEMBER)
+				continue;
+			inspected++;
+			if (!handle.m_Entity || handle.m_Entity.IsDeleted() || physicalWar.IsForceSpawnRuntimeMemberAlive(handle.m_Entity))
+				continue;
+
+			HST_ForceSpawnResultState batch = state.FindForceSpawnResult(handle.m_sResultId);
+			if (!batch || batch.m_sProjectionId != handle.m_sProjectionId
+				|| batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+				continue;
+			HST_ForceSpawnQueueCallbackResult casualty = queue.ConfirmRegisteredMemberCasualty(
+				state.m_aForceSpawnResults,
+				state.FindForceManifest(batch.m_sManifestId),
+				handle.m_sResultId,
+				handle.m_sProjectionId,
+				handle.m_sSlotId,
+				handle.m_sEntityId,
+				nowSecond,
+				"authoritative runtime life state confirmed exact member death");
+			if (!casualty || !casualty.m_bAccepted)
+			{
+				result.m_iFailedCount++;
+				result.m_aEvidence.Insert("exact member casualty callback rejected " + handle.m_sSlotId + ": " + ResolveCallbackFailure(casualty, "unknown casualty callback failure"));
+				continue;
+			}
+			HST_ActiveGroupState activeGroup = FindActiveGroupForBatch(state, batch);
+			if (!activeGroup)
+			{
+				result.m_iFailedCount++;
+				result.m_aEvidence.Insert("exact casualty has no canonical active-group projection " + handle.m_sProjectionId);
+				continue;
+			}
+			int livingMembers = queue.CountDurableLivingMemberSlots(batch);
+			activeGroup.m_iDurableLivingInfantryCount = livingMembers;
+			activeGroup.m_iSpawnedAgentCount = livingMembers;
+			activeGroup.m_iLastSeenAliveCount = livingMembers;
+			activeGroup.m_iSurvivorInfantryCount = livingMembers;
+			if (casualty.m_bStateChanged)
+			{
+				activeGroup.m_iLastCasualtySecond = nowSecond;
+				activeGroup.m_iLifecycleRevision++;
+				result.m_bStateChanged = true;
+				result.m_iCasualtyCount++;
+				result.m_aEvidence.Insert(string.Format("exact member casualty %1 | projection %2 | living %3", handle.m_sSlotId, handle.m_sProjectionId, livingMembers));
+			}
+			string detachmentFailure;
+			if (!physicalWar.DetachConfirmedDeadForceSpawnMember(state, activeGroup, handle.m_Entity, detachmentFailure))
+			{
+				result.m_iFailedCount++;
+				result.m_aEvidence.Insert("exact casualty corpse detachment refused " + handle.m_sSlotId + ": " + detachmentFailure);
+				continue;
+			}
+			if (livingMembers > 0 || eliminatedProjectionIds.Contains(handle.m_sProjectionId))
+			{
+				detachedHandles.Insert(handle);
+				continue;
+			}
+
+			string eliminationFailure;
+			if (!physicalWar.FinalizeEliminatedForceSpawnProjection(state, activeGroup, nowSecond, eliminationFailure))
+			{
+				result.m_iFailedCount++;
+				result.m_aEvidence.Insert("exact force terminal cleanup refused " + handle.m_sProjectionId + ": " + eliminationFailure);
+				continue;
+			}
+			eliminatedProjectionIds.Insert(handle.m_sProjectionId);
+			result.m_bRuntimeChanged = true;
+			result.m_iEliminatedCount++;
+			result.m_aEvidence.Insert("exact force eliminated and runtime root retired " + handle.m_sProjectionId);
+		}
+
+		foreach (string projectionId : eliminatedProjectionIds)
+			RemoveProjectionBindings(projectionId);
+		foreach (HST_ForceSpawnAdapterHandle detachedHandle : detachedHandles)
+			RemoveHandle(detachedHandle);
+	}
+
+	protected void ReconcileZeroLivingProjectionCleanup(
+		HST_CampaignState state,
+		HST_ForceSpawnQueueService queue,
+		HST_PhysicalWarService physicalWar,
+		int nowSecond,
+		HST_ForceSpawnAdapterTickResult result)
+	{
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sSpawnResultId.IsEmpty()
+				|| activeGroup.m_sRuntimeStatus == "eliminated"
+				|| !activeGroup.m_bEverPopulated || !activeGroup.m_bSpawnCompleted)
+				continue;
+			HST_ForceSpawnResultState batch = state.FindForceSpawnResult(activeGroup.m_sSpawnResultId);
+			if (!batch || batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+				|| queue.CountDurableLivingMemberSlots(batch) > 0)
+				continue;
+			string failure;
+			if (!physicalWar.FinalizeEliminatedForceSpawnProjection(state, activeGroup, nowSecond, failure))
+			{
+				result.m_iFailedCount++;
+				result.m_aEvidence.Insert("exact force zero-living cleanup pending " + activeGroup.m_sProjectionId + ": " + failure);
+				continue;
+			}
+			RemoveProjectionBindings(activeGroup.m_sProjectionId);
+			result.m_bStateChanged = true;
+			result.m_bRuntimeChanged = true;
+			result.m_iEliminatedCount++;
+			result.m_aEvidence.Insert("exact force zero-living cleanup completed " + activeGroup.m_sProjectionId);
+		}
 	}
 
 	protected void ExecuteCleanupPass(
@@ -576,6 +706,18 @@ class HST_ForceSpawnAdapterService
 				continue;
 			if (handle.m_bHandedOff)
 			{
+				HST_ForceSpawnResultState handedOffBatch = state.FindForceSpawnResult(handle.m_sResultId);
+				HST_ActiveGroupState handedOffGroup = FindActiveGroupForBatch(state, handedOffBatch);
+				if (handedOffGroup && handedOffGroup.m_sRuntimeStatus != "eliminated"
+					&& handedOffGroup.m_sRuntimeStatus != "folded")
+				{
+					handedOffGroup.m_sRuntimeStatus = "exact_runtime_binding_missing_unresolved";
+					handedOffGroup.m_sSpawnFailureReason = "handed-off exact runtime entity disappeared without confirmed casualty evidence";
+					handedOffGroup.m_iLifecycleRevision++;
+					result.m_bStateChanged = true;
+					result.m_iFailedCount++;
+					result.m_aEvidence.Insert("handed-off exact binding disappeared without casualty proof " + handle.m_sSlotId);
+				}
 				removableHandles.Insert(handle);
 				continue;
 			}
@@ -980,6 +1122,22 @@ class HST_ForceSpawnAdapterService
 			m_aHandles.Remove(index);
 	}
 
+	protected int RemoveProjectionBindings(string projectionId)
+	{
+		int removed;
+		if (projectionId.IsEmpty())
+			return removed;
+		for (int index = m_aHandles.Count() - 1; index >= 0; index--)
+		{
+			HST_ForceSpawnAdapterHandle handle = m_aHandles[index];
+			if (!handle || handle.m_sProjectionId != projectionId)
+				continue;
+			m_aHandles.Remove(index);
+			removed++;
+		}
+		return removed;
+	}
+
 	protected HST_ActiveGroupState FindActiveGroupForBatch(HST_CampaignState state, HST_ForceSpawnResultState batch)
 	{
 		if (!state || !batch)
@@ -1198,8 +1356,8 @@ class HST_ForceSpawnAdapterService
 
 	protected string BuildTickSummary(HST_ForceSpawnAdapterTickResult result)
 	{
-		return string.Format(
-			"force spawn adapter tick | batches %1 | actions %2 | spawned %3 | cleaned %4 | deferred %5 | failed %6 | handed off %7 | refused %8 | bindings %9",
+		string summary = string.Format(
+			"force spawn adapter tick | batches %1 | actions %2 | spawned %3 | cleaned %4 | deferred %5 | failed %6 | handed off %7 | refused %8",
 			result.m_iAcquiredBatchCount,
 			result.m_iAcquiredActionCount,
 			result.m_iSpawnedCount,
@@ -1207,7 +1365,11 @@ class HST_ForceSpawnAdapterService
 			result.m_iDeferredCount,
 			result.m_iFailedCount,
 			result.m_iHandedOffCount,
-			result.m_iHandoffRefusedCount,
+			result.m_iHandoffRefusedCount);
+		return summary + string.Format(
+			" | casualties %1 | eliminated %2 | bindings %3",
+			result.m_iCasualtyCount,
+			result.m_iEliminatedCount,
 			m_aHandles.Count());
 	}
 

@@ -78,7 +78,7 @@ The repository contains a broad-alpha campaign foundation:
 - Request-driven force composition for support, mission, garrison, and debug probes, with
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records
-- A schema-46 force-spawn authority boundary with durable per-projection results,
+- A schema-47 force-spawn authority boundary with durable per-projection results,
   explicit force/projection identity on active groups, exact required-slot
   admission, bounded priority/FIFO scheduling and retention, retry/deadline/
   cancellation handling, dependency-ordered cleanup, Game Master registration
@@ -95,6 +95,10 @@ The repository contains a broad-alpha campaign foundation:
   the accepted one-group manifest is submitted unchanged to SpawnQueue. Failure
   and pre-success cancellation refund both transactions once; recall settles
   eligible HR through the same ledger.
+- The first exact force-runtime lifecycle slice: handed-off member slots retain
+  durable ever-alive/casualty evidence, confirmed dead members detach from the
+  native and Game Master group without deleting their corpses, the last death
+  retires the exact root/marker, and restart reprojects only durable survivors.
 - Request-driven spawn placement for physical support and debug probes, with
   road/dry-ground/vehicle-safe validation, player/active-AI clearance checks,
   and visible placement failure reasons
@@ -141,17 +145,18 @@ coverage, and persist won/lost campaign outcomes. The systems are still rough:
 cache/tent polish, save/restart soak testing, final surveyed Everon
 coordinates, richer AI waypoints, full loadout-editor HST_Dev smoke, garage
 progression polish, balance tuning, and mission-specific interactable props
-still need to be connected incrementally. The schema-46 adapter currently
+still need to be connected incrementally. The schema-47 adapter currently
 supports exactly one infantry group root and its exact member slots; vehicle,
 asset, and multi-root manifests fail closed as unsupported. Player-paid QRF is
 the first support type migrated to this path; supply, search, roadblock, fire,
 and air-support purchases remain on their legacy contracts. Current garrison
 purchase manifests contain purchase provenance rather than an executable group
-root, so they remain intentionally nondeployable. Successful general runtime
-restore/reprojection and a durable casualty/living-force/retirement ledger are
-still open. A restored successful paid QRF whose runtime root cannot be proven
-currently fails closed, removes the projection, and refunds its exact money/HR
-transactions once. Normal spawn
+root, so they remain intentionally nondeployable. Successful paid-QRF restore
+now clears process-local IDs, retains confirmed casualty tombstones, and queues
+one new root plus only durable surviving member slots. Initial deployment
+failure still refunds money and HR; a technical reprojection failure retains the
+already-delivered money cost and refunds surviving HR only. General lifecycle
+authority for other force consumers remains open. Normal spawn
 acquisition runs once per active-campaign second. During setup or after a won/
 lost outcome, the coordinator cancels every nonterminal batch and drains its
 cleanup with a monotonic runtime-only clock without advancing campaign elapsed
@@ -239,7 +244,7 @@ local `I` key/action path when troubleshooting menu access.
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. Server boot, admin diagnostics, command-menu readiness,
 and structured debug artifacts must report the same runtime identity from
-`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 46, and
+`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 47, and
 runtime-settings schema. Missing or mismatched identity means the packaged
 server/client runtime is stale or mixed, even if the repository is newer.
 

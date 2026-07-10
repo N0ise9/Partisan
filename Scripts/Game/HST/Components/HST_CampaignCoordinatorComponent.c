@@ -16029,6 +16029,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.catalog", "all configured core group execution prefabs match exact ordered catalog slots", proof.m_sCatalogEvidence, CampaignDebugStatus(proof.m_bCatalogExact), "force catalog does not match one or more authored execution-prefab rosters");
 		AddCampaignDebugAssertion(forceCase, "force_authority.restore_reconciliation", "every partial reserve, aggregate, and commit boundary rolls back exactly after restore", proof.m_sReconciliationEvidence, CampaignDebugStatus(proof.m_bReconciliationExact), "interrupted garrison confirmation did not reconcile exactly");
 		AppendCampaignDebugPaidSupportAuthorityAssertions(forceCase);
+		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
 	}
@@ -16055,6 +16056,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_recall_refund", "pre-success recall cancels queue work, retains committed support money, refunds HR once, and removes the unhanded projection", proof.m_sRecallRefundEvidence, CampaignDebugStatus(proof.m_bRecallRefundExact), "paid QRF pre-success recall did not settle exactly");
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_terminal_refund", "setup/won/lost settlement cancels and fully refunds an accepted exact QRF that has no admitted batch", proof.m_sTerminalRefundEvidence, CampaignDebugStatus(proof.m_bTerminalRefundExact), "paid QRF terminal-phase settlement stranded an accepted request without queue work");
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_legacy_migration", "schema 45 paid QRF charges import as historical ledger evidence without balance mutation or invented quote/manifest", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bMigrationExact), "legacy paid QRF migration lost balances or invented authority state");
+	}
+
+	protected void AppendCampaignDebugForceRuntimeAuthorityAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_ForceRuntimeAuthorityProofService proofService = new HST_ForceRuntimeAuthorityProofService();
+		HST_ForceRuntimeAuthorityProofReport proof = proofService.Run();
+		forceCase.m_aEvidence.Insert(proof.m_sCasualtyEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sPersistenceEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sReprojectionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sTerminalEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMigrationEvidence);
+		AddCampaignDebugAssertion(forceCase, "force_runtime.casualty_idempotency", "an authoritative exact-member death retires one manifest slot once and preserves every other living slot", proof.m_sCasualtyEvidence, CampaignDebugStatus(proof.m_bCasualtyIdempotencyExact), "exact force casualty authority was not slot-specific or idempotent");
+		AddCampaignDebugAssertion(forceCase, "force_runtime.persistence", "successful handoff, member casualty, and active-group lifecycle evidence survive current-schema roundtrip", proof.m_sPersistenceEvidence, CampaignDebugStatus(proof.m_bPersistenceExact), "exact force lifecycle evidence did not survive persistence");
+		AddCampaignDebugAssertion(forceCase, "force_runtime.survivor_reprojection", "restore requeues one root plus only durable living member slots and completes a second exact handoff", proof.m_sReprojectionEvidence, CampaignDebugStatus(proof.m_bSurvivorReprojectionExact), "restore respawned a confirmed casualty or failed survivor-only handoff");
+		AddCampaignDebugAssertion(forceCase, "force_runtime.terminal_roster", "the final exact member death produces zero durable living slots and a fully retired roster", proof.m_sTerminalEvidence, CampaignDebugStatus(proof.m_bTerminalRosterExact), "last-death durable terminal predicate was not exact");
+		AddCampaignDebugAssertion(forceCase, "force_runtime.schema46_migration", "schema 46 successful projections gain handoff/ever-populated lifecycle evidence without invented casualties", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bSchema46MigrationExact), "schema 46 lifecycle migration lost success evidence or invented a casualty");
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugSpawnQueueCase()
@@ -17728,7 +17747,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		proofCase.m_aEvidence.Insert(retirementEvidence);
 		proofCase.m_aEvidence.Insert(failureEvidence);
 		proofCase.m_aEvidence.Insert(isolationEvidence);
-		AddCampaignDebugAssertion(proofCase, "spawn_adapter.prerequisite", "schema 46 isolated physical runtime with production queue, adapter, and physical bridge", prerequisite, CampaignDebugStatus(proofReport && proofReport.m_bPrerequisiteReady, "BLOCKED"), "exact spawn-adapter prerequisites were unavailable");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.prerequisite", "schema 47 isolated physical runtime with production queue, adapter, and physical bridge", prerequisite, CampaignDebugStatus(proofReport && proofReport.m_bPrerequisiteReady, "BLOCKED"), "exact spawn-adapter prerequisites were unavailable");
 		AddCampaignDebugAssertion(proofCase, "spawn_adapter.root_before_members", "real sentry group root registers one tick before either required member", cancelEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bRootBeforeMembers), "group root was not physically isolated ahead of both members");
 		AddCampaignDebugAssertion(proofCase, "spawn_adapter.cancel_cleanup", "root-only cancellation removes the root before reaching terminal CANCELLED and clears all slot identities", cancelEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bCancelCleanupExact), "root-only cancellation leaked runtime or durable slot evidence");
 		AddCampaignDebugAssertion(proofCase, "spawn_adapter.exact_prefabs", "registered root and both members match the frozen manifest prefabs exactly", durableEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bExactPrefabs), "runtime or durable prefab identity differed from the frozen manifest");

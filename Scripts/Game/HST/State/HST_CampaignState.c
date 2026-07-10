@@ -115,7 +115,13 @@ class HST_ActiveGroupState
 	int m_iSpawnedAgentCount;
 	int m_iAssignedWaypointCount;
 	int m_iMaxObservedCrewAlive;
+	int m_iDurableLivingInfantryCount;
+	int m_iLastCasualtySecond;
+	int m_iEliminatedAtSecond;
+	int m_iLifecycleRevision;
 	bool m_bEverHadLivingCrew;
+	bool m_bEverPopulated;
+	bool m_bSpawnCompleted;
 	bool m_bCrewPopulationTerminallyFailed;
 	string m_sCrewPopulationFailureReason;
 	string m_sConvoyRuntimeStage;
@@ -891,7 +897,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 46;
+	static const int SCHEMA_VERSION = 47;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

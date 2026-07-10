@@ -169,12 +169,17 @@ class HST_ForceSpawnSlotResultState
 	HST_EForceSpawnSlotStatus m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_QUEUED;
 	int m_iAttemptCount;
 	int m_iUpdatedAtSecond;
+	int m_iLifecycleRevision;
+	int m_iCasualtyAtSecond;
+	string m_sRetirementReason;
 	bool m_bFactionVerified;
 	bool m_bGroupVerified;
 	bool m_bGameMasterVerified;
 	bool m_bProjectionVerified;
 	bool m_bSeatVerified;
 	bool m_bAliveVerified;
+	bool m_bEverAlive;
+	bool m_bCasualtyConfirmed;
 }
 
 [BaseContainerProps()]
@@ -202,6 +207,10 @@ class HST_ForceSpawnResultState
 	int m_iUpdatedAtSecond;
 	int m_iCompletedAtSecond;
 	int m_iExpectedSlotCount;
+	int m_iSuccessfulHandoffCount;
+	int m_iReprojectionCount;
+	int m_iLifecycleRevision;
+	int m_iLastLifecycleSecond;
 	bool m_bCancelRequested;
 	ref array<ref HST_ForceSpawnSlotResultState> m_aSlotResults = {};
 

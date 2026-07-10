@@ -4638,7 +4638,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 46",
+		"SCHEMA_VERSION = 47",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -4733,6 +4733,53 @@ if ($scriptText -notmatch 'm_SupportRequests\.Tick\(m_State, m_Preset, m_Garriso
 	throw "Production support tick must receive the exact spawn adapter for retirement settlement"
 }
 Write-Host "Exact paid-QRF quote, ledger, manifest, queue, and settlement contract OK"
+foreach ($requiredForceRuntimeEntry in @(
+		'HST_FORCE_SLOT_RETIRED',
+		'm_bEverAlive',
+		'm_bCasualtyConfirmed',
+		'm_iSuccessfulHandoffCount',
+		'm_iReprojectionCount',
+		'm_iDurableLivingInfantryCount',
+		'm_bEverPopulated',
+		'm_bSpawnCompleted',
+		'ConfirmRegisteredMemberCasualty',
+		'RequeueSuccessfulProjectionAfterRestore',
+		'CountDurableLivingMemberSlots',
+		'exact_terminal_settlement_queue_unavailable',
+		'exact_recall_settlement_queue_unavailable',
+		'DetachConfirmedDeadForceSpawnMember',
+		'FinalizeEliminatedForceSpawnProjection',
+		'SettleEliminatedExactPlayerSupport',
+		'HST_ForceRuntimeAuthorityProofService',
+		'force_runtime.casualty_idempotency',
+		'force_runtime.persistence',
+		'force_runtime.survivor_reprojection',
+		'force_runtime.terminal_roster',
+		'force_runtime.schema46_migration',
+		'migration_schema47_force_runtime_lifecycle'
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredForceRuntimeEntry)) {
+		throw "Exact force-runtime lifecycle contract missing: $requiredForceRuntimeEntry"
+	}
+}
+if ($scriptText -match 'successful exact QRF projection could not be restored; temporary fail-closed refund') {
+	throw "Successful exact paid QRF restore must reproject durable survivors instead of applying the temporary full-refund fallback"
+}
+$forceRuntimeSettlementBlock = [regex]::Match($scriptText, 'protected bool SettleExactPlayerSupportDeploymentTerminal[\s\S]*?\r?\n\t}')
+$forceRuntimeSettlementValid = $forceRuntimeSettlementBlock.Success
+$forceRuntimeSettlementValid = $forceRuntimeSettlementValid -and $forceRuntimeSettlementBlock.Value -match 'm_iSuccessfulHandoffCount <= 0\)\s*return SettleExactPlayerSupportFullRefund'
+$forceRuntimeSettlementValid = $forceRuntimeSettlementValid -and $forceRuntimeSettlementBlock.Value -match '!m_ExactForceSpawnQueue\)\s*return SetExactSupportRuntimeStatus\(request, "exact_terminal_settlement_queue_unavailable"\)'
+if (!$forceRuntimeSettlementValid) {
+	throw "Exact force terminal settlement must permit a full refund only before any successful handoff and must wait when post-handoff queue authority is unavailable"
+}
+$forceRuntimeCleanupBlock = [regex]::Match($scriptText, 'bool FinalizeEliminatedForceSpawnProjection[\s\S]*?\r?\n\t}')
+if (!$forceRuntimeCleanupBlock.Success -or $forceRuntimeCleanupBlock.Value -notmatch 'DetachForceSpawnMember' -or $forceRuntimeCleanupBlock.Value -match 'DeleteEntityAndChildren\(member\)') {
+	throw "Exact force terminal cleanup must detach confirmed-dead members and preserve their entities before deleting the group root"
+}
+if ($scriptText -notmatch 'ReconcileHandedOffMemberLifecycle\(state, queue, physicalWar, nowSecond, result\);\s*ReconcileZeroLivingProjectionCleanup\(state, queue, physicalWar, nowSecond, result\);\s*ReconcileDeletedStagedHandles') {
+	throw "Exact force lifecycle reconciliation must sample authoritative life state and retry zero-living cleanup before pruning deleted transient handles"
+}
+Write-Host "Schema-47 exact force-runtime casualty, cleanup, and survivor-reprojection contract OK"
 $forceSpawnQueueServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
 if (!(Test-Path $forceSpawnQueueServicePath)) {
 	throw "Missing durable force spawn queue service: $forceSpawnQueueServicePath"

@@ -32,7 +32,8 @@ be read as proof that a later change was executed or certified.
   movement/formation evidence can be sampled after the group has already folded.
 - The inspected gameplay artifact predates campaign schema 43 exact-force
   authority, schema 44 SpawnQueue authority, the schema 45 engine adapter, and
-  the schema 46 exact player-QRF cutover.
+  the schema 46 exact player-QRF cutover, and schema 47 exact force-runtime
+  lifecycle authority.
   The schema-45 authority baseline passed foundation checks and a headless
   Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
   an HR reservation-conflict rollback, and five partial confirmation save/
@@ -63,7 +64,7 @@ runtime evidence until a fresh map-open run proves the guard and census.
 
 Post-audit compiler follow-up: the native Workbench heap crash was isolated to
 one oversized force-authority proof, which was extracted into bounded service
-methods. The latest schema-46 Game-module run loaded 5,736 files/11,460 classes,
+methods. The latest schema-47 Game-module run loaded 5,737 files/11,462 classes,
 created the game, and completed script validation successfully. A separately
 launched normal WorldEditor project open created the game and remained
 responsive at every two-second check through 20 seconds before the verified test
@@ -91,7 +92,9 @@ native-group, projection, and applicable seat evidence. The production
   cancels every nonterminal batch and drains cleanup using a monotonic runtime-only
   clock without advancing campaign elapsed time. Vehicle/asset/multi-root
   execution, other paid-support migrations, successful terminal runtime restore/
-  reprojection, and a durable casualty/living-force/retirement ledger remain open.
+  reprojection, and a durable casualty/living-force/retirement ledger were still
+  open at that schema-45 checkpoint and are superseded in part by the schema-47
+  follow-up below.
   Current purchase-only garrison manifests are nondeployable, and accepted quote/
   manifest/ledger history remains unbounded. Terminal queue evidence is historical,
   while process-local entity and native-group IDs are cleared on restore. The
@@ -112,12 +115,32 @@ failure and pre-success commander cancellation refund both transactions once,
 remove unhanded group state, and permit a replacement quote without erasing the
 historical cooldown; recall uses the
 linked HR settlement policy. Restore reconciliation rolls back interrupted
-confirmations before the generic reservation sweep. A restored successful QRF
-without a provable live runtime root currently fails closed with one full refund
-rather than inventing reprojection. The bounded
+confirmations before the generic reservation sweep. Schema 47 supersedes the
+temporary restored-success full-refund fallback with survivor-only
+reprojection. The bounded
 `force_authority.paid_qrf_*` cases cover issue/confirm, post-admission replay,
 current-schema roundtrip, failure/cancel/pre-success-recall settlement, and pre-schema-46 ledger
 import, but none is runtime evidence until a fresh isolated run records it.
+
+Post-audit schema-47 force-runtime follow-up: successful exact infantry handoff
+now increments durable handoff/lifecycle counters and marks the linked active
+group spawn-completed and ever-populated. The adapter samples each handed-off
+member's authoritative life state before pruning deleted transient handles. A
+confirmed death retires only that manifest slot, persists its casualty second
+and revision, detaches the corpse from native and Game Master group ownership
+without deleting it, and updates strategic living strength. Missing or deleted
+entities are not inferred as casualties. At zero durable living members,
+physical war removes the exact root and the support settlement removes the
+active-group marker without refunding dead HR or the already-delivered money
+cost. Restore clears process-local IDs and requeues one new root plus only
+durable survivors; a technical failure after a previous handoff retains money
+and refunds surviving HR only. Pre-schema-47 successful batches receive one
+historical handoff and ever-alive/ever-populated evidence without invented
+casualties. Bounded `force_runtime.*` cases cover casualty idempotency, current-
+schema lifecycle roundtrip, survivor-only reprojection, last-death roster state,
+and schema-46 migration. They do not prove live corpse detachment, native/GM
+counts, root/marker cleanup timing, or real process restart until an isolated
+runtime executes them.
 
 Certification is blocked until the debug-isolation boundary and marker guard are
 runtime-proven, the cascading mission is contained, known assertion defects are

@@ -1356,6 +1356,222 @@ class HST_ForceSpawnQueueService
 		return result;
 	}
 
+	HST_ForceSpawnQueueCallbackResult ConfirmRegisteredMemberCasualty(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		string slotId,
+		string entityId,
+		int nowSecond,
+		string reason)
+	{
+		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
+		if (!batches || !manifest || resultId.IsEmpty() || projectionId.IsEmpty() || slotId.IsEmpty() || entityId.IsEmpty())
+		{
+			result.m_sFailureReason = "force casualty callback identity is incomplete";
+			return result;
+		}
+		if (CountByResult(batches, resultId) != 1)
+		{
+			result.m_sFailureReason = "force casualty callback result identity is missing or ambiguous";
+			return result;
+		}
+
+		HST_ForceSpawnResultState batch = FindByResult(batches, resultId);
+		result.m_Batch = batch;
+		if (!BatchHasUniqueKeys(batches, batch) || batch.m_sProjectionId != projectionId)
+		{
+			result.m_sFailureReason = "force casualty callback projection identity conflicts with the queue";
+			return result;
+		}
+		HST_ForceSpawnQueueManifestValidation validation = ValidateManifest(manifest);
+		HST_ForceSpawnQueueManifestSlot descriptor = FindManifestSlot(validation.m_aSlots, slotId, SLOT_KIND_MEMBER);
+		if (!validation.m_bValid || !descriptor || !ValidateBatchManifest(batch, manifest).IsEmpty())
+		{
+			result.m_sFailureReason = "force casualty callback manifest integrity conflict";
+			return result;
+		}
+		HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(slotId);
+		if (!slotResult || slotResult.m_sSlotKind != SLOT_KIND_MEMBER)
+		{
+			result.m_sFailureReason = "force casualty callback does not resolve to an exact member slot";
+			return result;
+		}
+		if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+			&& slotResult.m_bCasualtyConfirmed)
+		{
+			if (slotResult.m_sEntityId != entityId)
+			{
+				result.m_sFailureReason = "force casualty replay conflicts with the retired slot entity";
+				return result;
+			}
+			result.m_bAccepted = true;
+			result.m_bAlreadyApplied = true;
+			return result;
+		}
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| batch.m_iSuccessfulHandoffCount <= 0)
+		{
+			result.m_sFailureReason = "force casualty callback requires a successfully handed-off projection";
+			return result;
+		}
+		if (slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
+			|| slotResult.m_sEntityId != entityId || !slotResult.m_bEverAlive)
+		{
+			result.m_sFailureReason = "force casualty callback conflicts with registered living-slot evidence";
+			return result;
+		}
+
+		if (reason.IsEmpty())
+			reason = "authoritative life state confirmed member death";
+		slotResult.m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED;
+		slotResult.m_bAliveVerified = false;
+		slotResult.m_bCasualtyConfirmed = true;
+		slotResult.m_iCasualtyAtSecond = Math.Max(0, nowSecond);
+		slotResult.m_iUpdatedAtSecond = Math.Max(0, nowSecond);
+		slotResult.m_iLifecycleRevision++;
+		slotResult.m_sRetirementReason = reason;
+		batch.m_iLifecycleRevision++;
+		batch.m_iLastLifecycleSecond = Math.Max(0, nowSecond);
+		batch.m_iUpdatedAtSecond = Math.Max(batch.m_iUpdatedAtSecond, nowSecond);
+		result.m_bAccepted = true;
+		result.m_bStateChanged = true;
+		return result;
+	}
+
+	HST_ForceSpawnQueueCallbackResult RequeueSuccessfulProjectionAfterRestore(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		int nowSecond,
+		int deadlineSecond)
+	{
+		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
+		if (!batches || !manifest || resultId.IsEmpty() || projectionId.IsEmpty())
+		{
+			result.m_sFailureReason = "force reprojection identity or manifest is missing";
+			return result;
+		}
+		if (CountByResult(batches, resultId) != 1)
+		{
+			result.m_sFailureReason = "force reprojection result identity is missing or ambiguous";
+			return result;
+		}
+		HST_ForceSpawnResultState batch = FindByResult(batches, resultId);
+		result.m_Batch = batch;
+		if (!BatchHasUniqueKeys(batches, batch) || batch.m_sProjectionId != projectionId)
+		{
+			result.m_sFailureReason = "force reprojection identity conflicts with the queue";
+			return result;
+		}
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| batch.m_iSuccessfulHandoffCount <= 0)
+		{
+			result.m_sFailureReason = "force reprojection requires a previously successful projection";
+			return result;
+		}
+		HST_ForceSpawnQueueManifestValidation validation = ValidateManifest(manifest);
+		if (!validation.m_bValid || !ValidateBatchManifest(batch, manifest).IsEmpty())
+		{
+			result.m_sFailureReason = "force reprojection manifest integrity conflict";
+			return result;
+		}
+		if (deadlineSecond <= nowSecond)
+		{
+			result.m_sFailureReason = "force reprojection deadline must be in the future";
+			return result;
+		}
+		if (CountNonterminalBatches(batches) >= MAX_NONTERMINAL_BATCHES
+			|| CountNonterminalSlots(batches) + batch.m_aSlotResults.Count() > MAX_TOTAL_SLOT_ROWS)
+		{
+			result.m_sFailureReason = "force reprojection would exceed nonterminal queue capacity";
+			return result;
+		}
+		if (CountDurableLivingMemberSlots(batch) <= 0)
+		{
+			result.m_sFailureReason = "force reprojection has no durable living member slots";
+			return result;
+		}
+		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
+		{
+			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
+			if (slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				&& !slotResult.m_bCasualtyConfirmed)
+				continue;
+			if (descriptor.m_sSlotKind != SLOT_KIND_MEMBER || !slotResult.m_bEverAlive
+				|| !slotResult.m_bCasualtyConfirmed
+				|| slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED)
+			{
+				result.m_sFailureReason = "force reprojection contains invalid retired-slot evidence";
+				return result;
+			}
+		}
+
+		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
+		{
+			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
+			if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				|| slotResult.m_bCasualtyConfirmed)
+			{
+				ClearSlotPhysicalEvidence(slotResult, nowSecond);
+				slotResult.m_sProjectionId = batch.m_sProjectionId;
+				slotResult.m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED;
+				continue;
+			}
+			ResetSlotForAttempt(slotResult, batch.m_sProjectionId, nowSecond);
+		}
+
+		batch.m_sNativeGroupId = "";
+		batch.m_sTerminalReason = "successful exact projection queued for survivor reprojection after restore";
+		batch.m_sLastFailureReason = "";
+		batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING;
+		batch.m_iRetryCount = 0;
+		batch.m_iDeadlineSecond = deadlineSecond;
+		batch.m_iLastAttemptSecond = 0;
+		batch.m_iNextAttemptSecond = nowSecond;
+		batch.m_iUpdatedAtSecond = nowSecond;
+		batch.m_iCompletedAtSecond = 0;
+		batch.m_iReprojectionCount++;
+		batch.m_iLifecycleRevision++;
+		batch.m_iLastLifecycleSecond = nowSecond;
+		batch.m_bCancelRequested = false;
+		result.m_bAccepted = true;
+		result.m_bStateChanged = true;
+		return result;
+	}
+
+	int CountDurableLivingMemberSlots(HST_ForceSpawnResultState batch)
+	{
+		int count;
+		if (!batch)
+			return count;
+		foreach (HST_ForceSpawnSlotResultState slotResult : batch.m_aSlotResults)
+		{
+			if (!slotResult || slotResult.m_sSlotKind != SLOT_KIND_MEMBER)
+				continue;
+			if (slotResult.m_bEverAlive && !slotResult.m_bCasualtyConfirmed)
+				count++;
+		}
+		return count;
+	}
+
+	int CountConfirmedCasualtyMemberSlots(HST_ForceSpawnResultState batch)
+	{
+		int count;
+		if (!batch)
+			return count;
+		foreach (HST_ForceSpawnSlotResultState slotResult : batch.m_aSlotResults)
+		{
+			if (slotResult && slotResult.m_sSlotKind == SLOT_KIND_MEMBER
+				&& slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				&& slotResult.m_bEverAlive && slotResult.m_bCasualtyConfirmed)
+				count++;
+		}
+		return count;
+	}
+
 	protected HST_ForceSpawnQueueCallbackResult ResolveRegisteredSuccessReplay(
 		HST_ForceSpawnQueueCallbackResult result,
 		array<ref HST_ForceSpawnResultState> batches,
@@ -1459,7 +1675,12 @@ class HST_ForceSpawnQueueService
 		slotResult.m_sProjectionId = projectionId;
 		slotResult.m_sFailureReason = "";
 		slotResult.m_iUpdatedAtSecond = nowSecond;
+		slotResult.m_iLifecycleRevision++;
 		slotResult.m_bAliveVerified = success.m_bAliveVerified;
+		slotResult.m_bEverAlive = slotResult.m_bEverAlive || success.m_bAliveVerified;
+		slotResult.m_bCasualtyConfirmed = false;
+		slotResult.m_iCasualtyAtSecond = 0;
+		slotResult.m_sRetirementReason = "";
 		slotResult.m_bFactionVerified = success.m_bFactionVerified;
 		slotResult.m_bGroupVerified = success.m_bGroupVerified;
 		slotResult.m_bGameMasterVerified = success.m_bGameMasterVerified;
@@ -2009,6 +2230,9 @@ class HST_ForceSpawnQueueService
 		{
 			if (!slotResult)
 				continue;
+			if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				&& slotResult.m_bCasualtyConfirmed)
+				continue;
 			if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
 				|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_SPAWNING
 				|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CLEANUP_PENDING)
@@ -2177,6 +2401,9 @@ class HST_ForceSpawnQueueService
 		batch.m_iNextAttemptSecond = 0;
 		batch.m_iUpdatedAtSecond = nowSecond;
 		batch.m_iCompletedAtSecond = nowSecond;
+		batch.m_iSuccessfulHandoffCount++;
+		batch.m_iLifecycleRevision++;
+		batch.m_iLastLifecycleSecond = nowSecond;
 		batch.m_bCancelRequested = false;
 	}
 
@@ -2205,9 +2432,17 @@ class HST_ForceSpawnQueueService
 			return false;
 		array<string> entityIds = {};
 		array<string> groupNativeIds = {};
+		int resolvedSlotCount;
 		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
 		{
 			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
+			if (slotResult && slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED)
+			{
+				if (!ValidateRetiredMemberSlot(batch, descriptor, slotResult))
+					return false;
+				resolvedSlotCount++;
+				continue;
+			}
 			if (!ValidateRegisteredSlot(batch, descriptor, slotResult, entityIds))
 				return false;
 			if (descriptor.m_sSlotKind == SLOT_KIND_GROUP)
@@ -2217,8 +2452,25 @@ class HST_ForceSpawnQueueService
 				groupNativeIds.Insert(slotResult.m_sNativeGroupId);
 			}
 			entityIds.Insert(slotResult.m_sEntityId);
+			resolvedSlotCount++;
 		}
-		return entityIds.Count() == batch.m_iExpectedSlotCount;
+		return resolvedSlotCount == batch.m_iExpectedSlotCount;
+	}
+
+	protected bool ValidateRetiredMemberSlot(
+		HST_ForceSpawnResultState batch,
+		HST_ForceSpawnQueueManifestSlot descriptor,
+		HST_ForceSpawnSlotResultState slotResult)
+	{
+		if (!batch || !descriptor || !slotResult || descriptor.m_sSlotKind != SLOT_KIND_MEMBER)
+			return false;
+		if (!slotResult.m_bEverAlive || !slotResult.m_bCasualtyConfirmed || slotResult.m_bAliveVerified)
+			return false;
+		if (slotResult.m_sProjectionId != batch.m_sProjectionId || slotResult.m_iLifecycleRevision <= 0)
+			return false;
+		return slotResult.m_sEntityId.IsEmpty()
+			&& slotResult.m_sAssignedVehicleEntityId.IsEmpty()
+			&& slotResult.m_sNativeGroupId.IsEmpty();
 	}
 
 	protected bool ValidateRegisteredSlot(
@@ -2421,6 +2673,9 @@ class HST_ForceSpawnQueueService
 				continue;
 			ClearSlotPhysicalEvidence(slotResult, nowSecond);
 			slotResult.m_sProjectionId = batch.m_sProjectionId;
+			if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				&& slotResult.m_bCasualtyConfirmed)
+				continue;
 			slotResult.m_eStatus = RestoredSlotStatus(restoredStatus, restoredDisposition);
 		}
 	}

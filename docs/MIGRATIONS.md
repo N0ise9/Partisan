@@ -2,7 +2,23 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `46`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `47`.
+
+- Schema 47 adds the first durable exact-force runtime lifecycle for the paid
+  infantry QRF path. Each successfully handed-off member slot now preserves
+  ever-alive, casualty, retirement, timestamp, and revision evidence. The
+  adapter samples authoritative life state before pruning transient handles,
+  retires each dead slot idempotently, detaches the corpse from native/Game
+  Master group ownership without deleting it, and updates the active group's
+  durable living count. Once an ever-populated, spawn-completed roster reaches
+  zero, the exact root and marker are retired and the support resolves without
+  refunding dead HR or the already-delivered money cost. Successful paid-QRF
+  restore clears process-local IDs and requeues one root plus only the durable
+  surviving member slots; confirmed casualties remain retired. Reprojection
+  failure retains the paid money and refunds only durable survivors. Pre-schema-
+  47 successful batches gain one historical handoff plus ever-populated/living
+  evidence from their registered slots. Migration never infers a casualty from
+  a missing entity or aggregate count.
 
 - Schema 46 adds the first exact player-paid support contract for resistance
   QRFs. Force quotes now persist support request/capability/asset identity,
@@ -12,14 +28,15 @@
   support request, and marks the quote accepted last. The request then admits
   the same executable one-group manifest to SpawnQueue; terminal failure or
   cancellation refunds both transactions once, while recall uses the linked HR
-  settlement policy. Successful terminal projections that cannot be restored
-  currently fail closed with a full refund instead of inventing live runtime
-  authority. Pre-schema-46 paid player-QRF rows keep their gameplay state and
+  settlement policy. In schema 46, successful terminal projections that could
+  not be restored failed closed with a full refund instead of inventing live
+  runtime authority. Pre-schema-46 paid player-QRF rows keep their gameplay state and
   balances. Positive stored costs import as historical committed ledger rows
   without creating a quote, manifest, or new debit; stored HR refunds become
   historical partial/full refunds. Conflicting legacy transaction identity is
   preserved and summarized by a bounded migration warning rather than receiving
-  an invented refund.
+  an invented refund. Schema 47 supersedes schema 46's temporary full-refund
+  fallback for successful paid-QRF restore with survivor-only reprojection.
 - Schema 45 adds explicit force and projection identity fields to every active
   physical-group row and makes Game Master/editable-hierarchy verification
   mandatory for new successful spawn slots. Pre-schema-45 active groups derive
@@ -245,6 +262,33 @@ Durable bounded spawn-queue state foundation.
 - Queue retention and active-work limits are enforced by the queue service.
   Migration never deletes valid terminal or settlement evidence merely to meet
   a cap.
+
+## Schema 47
+
+- `HST_CampaignState.SCHEMA_VERSION` is `47`.
+- `HST_ForceSpawnSlotResultState` persists lifecycle revision, ever-alive,
+  casualty-confirmed, casualty-second, and retirement-reason fields. The new
+  terminal slot state `HST_FORCE_SLOT_RETIRED` is valid only for a member that
+  was previously alive and has an explicitly confirmed casualty.
+- `HST_ForceSpawnResultState` persists successful-handoff, reprojection, and
+  lifecycle counters. A technical failure after at least one successful handoff
+  is therefore distinguishable from initial deployment failure and cannot
+  trigger an invented full refund.
+- `HST_ActiveGroupState` persists `everPopulated`, `spawnCompleted`, durable
+  living infantry, casualty/elimination seconds, and a lifecycle revision.
+- Restore never reacquires an entity by its saved process-local ID. A successful
+  paid-QRF batch clears those IDs, retains retired member tombstones, queues a
+  new root plus only durable survivors, and records another successful handoff
+  after exact verification. If no survivors remain, the support resolves as
+  eliminated instead of respawning or refunding casualties.
+- Runtime casualty polling accepts death only while the exact slot's entity is
+  still present and authoritative life state reports it dead. A deleted or
+  missing entity is not itself casualty evidence.
+- Pre-schema-47 successful spawn batches receive one historical handoff.
+  Registered alive slots receive ever-alive evidence, and uniquely linked
+  active groups receive spawn-completed/ever-populated plus a durable living
+  count. The bounded `migration_schema47_force_runtime_lifecycle` event records
+  the aggregate backfill; no casualty or refund is invented.
 
 ## Schema 46
 

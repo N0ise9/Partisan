@@ -609,6 +609,125 @@ class HST_PhysicalWarService
 		return removed;
 	}
 
+	bool IsForceSpawnRuntimeMemberAlive(IEntity member)
+	{
+		return member && !member.IsDeleted() && !SCR_AIGroup.Cast(member) && IsLivingEntity(member);
+	}
+
+	bool DetachConfirmedDeadForceSpawnMember(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup,
+		IEntity member,
+		out string reason)
+	{
+		reason = "";
+		HST_ForceSpawnResultState batch = ValidateForceSpawnProjectionIdentity(state, activeGroup, reason);
+		if (!batch || batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+		{
+			if (reason.IsEmpty())
+				reason = "force casualty detachment requires a successful exact projection";
+			return false;
+		}
+		if (member && !member.IsDeleted() && IsForceSpawnRuntimeMemberAlive(member))
+		{
+			reason = "force casualty detachment refused for a living member";
+			return false;
+		}
+		if (!AcquireForceSpawnRuntimeOwnership(activeGroup, reason))
+			return false;
+		bool detached = TryUnregisterForceSpawnGroupMember(activeGroup, member, false, reason);
+		ReleaseForceSpawnRuntimeOwnership(activeGroup);
+		if (detached)
+		{
+			RefreshActiveGroupZoneCounts(state, activeGroup);
+			m_bMarkerRefreshNeeded = true;
+		}
+		return detached;
+	}
+
+	bool FinalizeEliminatedForceSpawnProjection(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup,
+		int nowSecond,
+		out string reason)
+	{
+		reason = "";
+		HST_ForceSpawnResultState batch = ValidateForceSpawnProjectionIdentity(state, activeGroup, reason);
+		if (!batch)
+			return false;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| batch.m_iSuccessfulHandoffCount <= 0)
+		{
+			reason = "force elimination requires a successfully handed-off projection";
+			return false;
+		}
+		if (!activeGroup.m_bEverPopulated || !activeGroup.m_bSpawnCompleted)
+		{
+			reason = "force elimination requires ever-populated and spawn-completed evidence";
+			return false;
+		}
+
+		for (int preflightIndex = 0; preflightIndex < m_aRuntimeGroupEntities.Count(); preflightIndex++)
+		{
+			if (preflightIndex >= m_aRuntimeGroupIds.Count()
+				|| m_aRuntimeGroupIds[preflightIndex] != activeGroup.m_sGroupId)
+				continue;
+			IEntity runtimeEntity = m_aRuntimeGroupEntities[preflightIndex];
+			if (runtimeEntity && !SCR_AIGroup.Cast(runtimeEntity) && IsForceSpawnRuntimeMemberAlive(runtimeEntity))
+			{
+				reason = "force elimination refused while an exact runtime member is still alive";
+				return false;
+			}
+		}
+
+		if (!AcquireForceSpawnRuntimeOwnership(activeGroup, reason))
+			return false;
+		for (int memberIndex = m_aRuntimeGroupIds.Count() - 1; memberIndex >= 0; memberIndex--)
+		{
+			if (m_aRuntimeGroupIds[memberIndex] != activeGroup.m_sGroupId || memberIndex >= m_aRuntimeGroupEntities.Count())
+				continue;
+			IEntity member = m_aRuntimeGroupEntities[memberIndex];
+			if (SCR_AIGroup.Cast(member))
+				continue;
+			if (member && !member.IsDeleted())
+				DetachForceSpawnMember(activeGroup, member);
+			m_aRuntimeGroupEntities.Remove(memberIndex);
+			m_aRuntimeGroupIds.Remove(memberIndex);
+		}
+
+		for (int rootIndex = m_aRuntimeGroupIds.Count() - 1; rootIndex >= 0; rootIndex--)
+		{
+			if (m_aRuntimeGroupIds[rootIndex] != activeGroup.m_sGroupId || rootIndex >= m_aRuntimeGroupEntities.Count())
+				continue;
+			IEntity rootEntity = m_aRuntimeGroupEntities[rootIndex];
+			SCR_AIGroup root = SCR_AIGroup.Cast(rootEntity);
+			if (!root)
+				continue;
+			DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);
+			m_aRuntimeGroupEntities.Remove(rootIndex);
+			m_aRuntimeGroupIds.Remove(rootIndex);
+			if (!root.IsDeleted())
+				SCR_EntityHelper.DeleteEntityAndChildren(root);
+		}
+
+		ReleaseForceSpawnRuntimeOwnership(activeGroup);
+		activeGroup.m_bSpawnAttempted = true;
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_sRuntimeEntityId = "";
+		activeGroup.m_sRuntimeStatus = "eliminated";
+		activeGroup.m_sSpawnFailureReason = "all exact roster members are confirmed dead";
+		activeGroup.m_iSpawnedAgentCount = 0;
+		activeGroup.m_iLastSeenAliveCount = 0;
+		activeGroup.m_iSurvivorInfantryCount = 0;
+		activeGroup.m_iSurvivorVehicleCount = 0;
+		activeGroup.m_iDurableLivingInfantryCount = 0;
+		activeGroup.m_iEliminatedAtSecond = Math.Max(0, nowSecond);
+		activeGroup.m_iLifecycleRevision++;
+		RefreshActiveGroupZoneCounts(state, activeGroup);
+		m_bMarkerRefreshNeeded = true;
+		return true;
+	}
+
 	protected HST_ForceSpawnResultState ValidateForceSpawnProjectionIdentity(HST_CampaignState state, HST_ActiveGroupState activeGroup, out string reason)
 	{
 		reason = "";
@@ -1047,6 +1166,10 @@ class HST_PhysicalWarService
 		activeGroup.m_iLastSeenAliveCount = memberCount;
 		activeGroup.m_iSurvivorInfantryCount = Math.Min(Math.Max(0, activeGroup.m_iInfantryCount), memberCount);
 		activeGroup.m_iSurvivorVehicleCount = Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
+		activeGroup.m_iDurableLivingInfantryCount = memberCount;
+		activeGroup.m_bSpawnCompleted = true;
+		activeGroup.m_bEverPopulated = activeGroup.m_bEverPopulated || memberCount > 0;
+		activeGroup.m_iLifecycleRevision++;
 		if (state)
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 	}
