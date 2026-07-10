@@ -150,7 +150,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     itself was unchanged or rejected.
 
 - Paid campaign mutations need a transaction ledger, not inline balance edits.
-  - Use explicit reserve, commit, cancel, and refund transitions. Restore reconciliation must cancel/refund any open reservation before normal service ticks resume. Campaign events and command receipts are bounded; schema 48 also bounds accepted garrison/QRF quote, manifest, and linked transaction history.
+  - Use explicit reserve, commit, cancel, and refund transitions. Restore reconciliation must cancel/refund any open reservation before normal service ticks resume. Campaign events and command receipts are bounded; schema 48 introduced bounded accepted garrison/QRF quote, manifest, and linked transaction history, which schema 49 retains.
   - Training is the first production consumer; exact garrison confirmation is the second; exact player QRF is the first paid-support consumer of one frozen manifest across quote, charge, spawn, persistence, recall, and refund. Other paid support remains outside this contract.
 
 - A player-visible force purchase needs two server-authoritative commands.
@@ -1741,6 +1741,31 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - After adding a follow waypoint, apply `AIGroupMovementComponent.SetFormationDisplacement(1)` so the follower stays close to the target instead of regrouping at a loose formation offset.
   - A direct `AIBaseMovementComponent.RequestFollowPathOfEntity()` or entity-follow waypoint can accept without producing movement. Track owner progress while the target is outside the close-follow distance; after repeated no-progress ticks, skip direct follow for that update and force a refreshed static waypoint at the responsive follow position. Keep the entity-follow waypoint as the preferred path when it is making progress.
 
+## Config-Backed Modded Class Metadata
+
+- A `modded class` that is instantiated from config must retain the base class's
+  container attributes. Method inheritance alone is not enough: omitting the
+  declaration metadata can make existing native config entries report an unknown
+  type even though Enforce script compilation succeeds.
+- Preserve the exact base declarations on the current config-backed patches:
+  - `SCR_EditorManagerCore` requires `[BaseContainerProps(configRoot: true)]`.
+  - `SCR_EditableEntityCoreBudgetSetting` requires `[BaseContainerProps(),
+    SCR_BaseContainerCustomTitleEnum(EEditableEntityBudget, "m_BudgetType")]`.
+  - `SCR_MarkerIconEntry` requires `[BaseContainerProps(),
+    SCR_MapMarkerIconEntryTitle()]`.
+  - `SCR_MapMarkerEntryPlaced` requires `[BaseContainerProps(),
+    SCR_MapMarkerTitle()]`.
+- The missing attributes produced a coherent failure chain in a packaged client:
+  editor/budget/placed-marker config types failed to load, the editor manager was
+  null, and normal stock HUD/Game Master initialization failed. Player admin and
+  commander authority were present, so permission repair was not the primary
+  remedy.
+- Add static validation for the declaration itself. A headless Workbench compile
+  proves the attributes are accepted, but it does not prove the packaged config
+  graph deserializes or that HUD/editor ownership initializes. Require a
+  republished server/client check with zero unknown types, normal stock HUD, and
+  usable Game Master before closing the regression.
+
 ## Schema 46 Exact Paid-QRF Authority
 
 - A paid support request needs two durable phases: quote and confirmation.
@@ -1884,6 +1909,77 @@ This file is for practical engine/script behavior, not project planning. Keep en
     save/restart, or physical recall-exit evidence. A separate normal
     WorldEditor open remained responsive through ten two-second samples with no
     new script-error or crash signature.
+
+## Schema 49 Exact Paid-QRF Operation Authority
+
+- Operation identity may exist before an operation aggregate. Exact QRF quote
+  issue persists the stable operation ID in planning authority but must not
+  create an `HST_OperationRecordState`; a quote can expire or be cancelled
+  without ever becoming an operation. Register exactly one record only after the
+  exact support confirmation has successfully created and verified its accepted
+  request/quote/manifest authority.
+- Opt-in is explicit and versioned. New confirmed exact paid player infantry QRF
+  requests set operation contract version `1`. A request on contract `0` follows
+  its legacy behavior and must not be forced through operation validation merely
+  because it carries a historical operation ID.
+- Keep immutable assignment separate from mutable tactical intent. Origin and
+  `support_on_station` assignment come from the accepted quote and never change.
+  Arrival uses that assignment; recall changes only the tactical target toward
+  the exit/origin. This prevents an exit waypoint from rewriting why and where
+  the force was originally committed.
+- Treat duty, engagement, materialization, position authority, and settlement as
+  orthogonal state. Queue admission advances duty to `OUTBOUND` and
+  materialization to `MATERIALIZING`; successful handoff makes live physical
+  state authoritative; arrival advances duty to `ON_STATION`; recall records
+  request/exiting duty; settlement closes duty, materialization, engagement, and
+  terminal result together.
+- Lifecycle callbacks can replay late, so forward transitions need legal source-
+  state guards and link replacement checks. In particular, a duplicate outbound
+  materialization callback may replay while an operation is already physical or
+  on station; reject it without changing duty, position authority, revision, or
+  execution links instead of regressing the operation to strategic outbound.
+- Engagement is a domain API, not inferred prose. The legal cycle is
+  `CLEAR -> CONTACT -> ENGAGED -> DISENGAGING -> CLEAR`, with the current duty
+  copied into a resumable field when contact begins. Reject illegal or post-
+  settlement transitions without mutation. Schema 49 does not yet subscribe to
+  live combat contact/disengagement, so do not describe this API as natural
+  combat behavior.
+- Every terminal ledger path must preflight and then settle the operation with a
+  deterministic settlement ID and typed result. Exact replay of the same result/
+  ID is a no-op; a conflicting result or ID fails closed. Current results include
+  recalled, spawn failed, destroyed, cancelled, and invalidated. Operation
+  settlement complements resource settlement; neither one makes an unvalidated
+  mutation by itself.
+- Process-local physical authority never survives restore. Deep-copy every
+  operation field, but normalize an open saved `PHYSICAL` or `DEMATERIALIZING`
+  record to strategic `MATERIALIZING`, preserve duty and immutable assignment,
+  and wait for exact survivor reprojection before returning to live authority.
+- Schema-48 migration is conservative. Backfill only an accepted nonterminal
+  exact paid player QRF whose support request, accepted quote, immutable manifest,
+  unique committed money/HR transactions, and any optional spawn batch/active
+  group are mutually coherent.
+  Do not change economy, transactions, quote/request status, queue status, group
+  status, or balances. Pre-exact, terminal, tombstone-only, incomplete,
+  ambiguous, legacy/enemy, and other-support rows remain contract version `0`.
+- Bounded settlement archival owns terminal history. A contract-version-1 paid
+  QRF may compact only when its operation is coherently settled and all existing
+  backlink rules pass. Copy operation contract version, settlement ID, revision,
+  and typed terminal result into the tombstone, then remove the full settled
+  operation record with the other full aggregate rows. Tombstone replay must not
+  recreate a full operation.
+- Scope claims must stay narrow. Schema 49 does not provide strategic route
+  cursor/hysteresis, generalized virtual/physical transfer, vehicles/assets/
+  multi-root force operations, other paid support, garrisons, missions, enemy
+  orders, legacy `HST_QRFState` conversion, live engagement events, or client/JIP
+  operation projection. It is the first operation kernel, not full Phase 4.
+- The work-in-progress schema-49 Game module provisionally loads 5,743 files/
+  11,497 classes and creates the game with CRC `fb8cdf64`. This is a pre-final
+  compile checkpoint. `HST_OperationRecordProofService` contributes eight stable
+  `operation_record.*` assertions to the existing force-authority campaign-debug
+  case and covers issue/confirm, materialization, engagement, recall/settlement,
+  restore, migration, archive, and legacy-QRF isolation. The proof is implemented
+  and compiles, but packaged execution and real save/restart/migration/archive
+  replay are still required.
 
 ## Crewless Mixed Active-Group Lifecycle
 

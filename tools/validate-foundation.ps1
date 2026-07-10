@@ -2649,6 +2649,7 @@ if (!(Test-Path $editorRoleGuardPath)) {
 }
 $editorRoleGuardText = Get-Content -Raw $editorRoleGuardPath
 foreach ($requiredEditorRoleGuardEntry in @(
+		"[BaseContainerProps(configRoot: true)]",
 		"modded class SCR_EditorManagerCore",
 		"override protected void OnPlayerRoleChange(int playerId, EPlayerRole roleFlags)",
 		"m_bHSTApplyDeferredPlayerRoleChange",
@@ -2666,6 +2667,33 @@ if ($editorRoleGuardText -match "modded class SCR_EditorManagerEntity" -or $edit
 	throw "Editor player-role reentry guard must not defer every mode update or editor-manager teardown"
 }
 Write-Host "Editor player-role reentry guard OK"
+
+$gameMasterBudgetPatchText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GameMasterBudgetService.c"
+$mapMarkerConfigPatchText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MapMarkerManagerConfigPatch.c"
+foreach ($configBackedModdedClass in @(
+		@{
+			Text = $editorRoleGuardText
+			Declaration = '[BaseContainerProps(configRoot: true)]' + "`n" + 'modded class SCR_EditorManagerCore'
+		},
+		@{
+			Text = $gameMasterBudgetPatchText
+			Declaration = '[BaseContainerProps(), SCR_BaseContainerCustomTitleEnum(EEditableEntityBudget, "m_BudgetType")]' + "`n" + 'modded class SCR_EditableEntityCoreBudgetSetting'
+		},
+		@{
+			Text = $mapMarkerConfigPatchText
+			Declaration = '[BaseContainerProps(), SCR_MapMarkerIconEntryTitle()]' + "`n" + 'modded class SCR_MarkerIconEntry'
+		},
+		@{
+			Text = $mapMarkerConfigPatchText
+			Declaration = '[BaseContainerProps(), SCR_MapMarkerTitle()]' + "`n" + 'modded class SCR_MapMarkerEntryPlaced'
+		}
+	)) {
+	$normalizedConfigPatchText = $configBackedModdedClass.Text -replace "`r`n", "`n"
+	if ($normalizedConfigPatchText -notmatch [regex]::Escape($configBackedModdedClass.Declaration)) {
+		throw "Config-backed modded class lost its stock BaseContainer metadata: $($configBackedModdedClass.Declaration)"
+	}
+}
+Write-Host "Config-backed modded class metadata preservation OK"
 
 foreach ($requiredNotificationControllerEntry in @(
 		"class HST_NotificationToastController",
@@ -4761,7 +4789,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 48",
+		"SCHEMA_VERSION = 49",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -4954,6 +4982,371 @@ if ($scriptText -notmatch 'CompactTerminalRows\(\s*m_State\.m_aForceSpawnResults
 	throw "Production force-spawn runtime must invoke pin-aware terminal compaction so retained rows cannot deadlock admission or settlement archival"
 }
 Write-Host "Schema-48 bounded force settlement archive and replay contract OK"
+$operationTypesPath = "Scripts/Game/HST/HST_Types.c"
+$operationServicePath = "Scripts/Game/HST/Services/HST_OperationService.c"
+$operationProofPath = "Scripts/Game/HST/Services/HST_OperationRecordProofService.c"
+$operationSupportPath = "Scripts/Game/HST/Services/HST_SupportRequestService.c"
+$operationArchivePath = "Scripts/Game/HST/Services/HST_ForceSettlementArchiveService.c"
+$operationPlanningPath = "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
+foreach ($requiredOperationFile in @(
+		$operationTypesPath,
+		$operationServicePath,
+		$operationProofPath,
+		$operationSupportPath,
+		$operationArchivePath,
+		$operationPlanningPath
+	)) {
+	if (!(Test-Path $requiredOperationFile)) {
+		throw "Missing schema-49 exact-QRF operation authority file: $requiredOperationFile"
+	}
+}
+$operationTypesText = Get-Content -Raw $operationTypesPath
+$operationServiceText = Get-Content -Raw $operationServicePath
+$operationProofText = Get-Content -Raw $operationProofPath
+$operationSupportText = Get-Content -Raw $operationSupportPath
+$operationArchiveText = Get-Content -Raw $operationArchivePath
+$operationPlanningText = Get-Content -Raw $operationPlanningPath
+$forceAuthorityDataText = Get-Content -Raw "Scripts/Game/HST/Data/HST_ForceAuthority.c"
+$forceSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+
+foreach ($requiredOperationEnumEntry in @(
+		'enum HST_EOperationType',
+		'HST_OPERATION_TYPE_UNKNOWN',
+		'HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF',
+		'enum HST_EOperationDutyState',
+		'HST_OPERATION_DUTY_UNKNOWN',
+		'HST_OPERATION_DUTY_STAGING',
+		'HST_OPERATION_DUTY_OUTBOUND',
+		'HST_OPERATION_DUTY_ON_STATION',
+		'HST_OPERATION_DUTY_RECALL_REQUESTED',
+		'HST_OPERATION_DUTY_EXITING',
+		'HST_OPERATION_DUTY_SETTLED',
+		'enum HST_EOperationEngagementMode',
+		'HST_OPERATION_ENGAGEMENT_UNKNOWN',
+		'HST_OPERATION_ENGAGEMENT_CLEAR',
+		'HST_OPERATION_ENGAGEMENT_CONTACT',
+		'HST_OPERATION_ENGAGEMENT_ENGAGED',
+		'HST_OPERATION_ENGAGEMENT_DISENGAGING',
+		'enum HST_EOperationMaterializationState',
+		'HST_OPERATION_MATERIALIZATION_UNKNOWN',
+		'HST_OPERATION_MATERIALIZATION_VIRTUAL',
+		'HST_OPERATION_MATERIALIZATION_MATERIALIZING',
+		'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+		'HST_OPERATION_MATERIALIZATION_RETIRED',
+		'enum HST_EOperationPositionAuthority',
+		'HST_OPERATION_POSITION_UNKNOWN',
+		'HST_OPERATION_POSITION_STRATEGIC',
+		'HST_OPERATION_POSITION_LIVE',
+		'enum HST_EOperationSettlementState',
+		'HST_OPERATION_SETTLEMENT_UNKNOWN',
+		'HST_OPERATION_SETTLEMENT_OPEN',
+		'HST_OPERATION_SETTLEMENT_SETTLED',
+		'enum HST_EOperationTerminalResult',
+		'HST_OPERATION_TERMINAL_UNKNOWN',
+		'HST_OPERATION_TERMINAL_NONE',
+		'HST_OPERATION_TERMINAL_RECALLED',
+		'HST_OPERATION_TERMINAL_DESTROYED',
+		'HST_OPERATION_TERMINAL_CANCELLED',
+		'HST_OPERATION_TERMINAL_SPAWN_FAILED',
+		'HST_OPERATION_TERMINAL_INVALIDATED'
+	)) {
+	if ($operationTypesText -notmatch [regex]::Escape($requiredOperationEnumEntry)) {
+		throw "Schema-49 operation enum contract missing: $requiredOperationEnumEntry"
+	}
+}
+foreach ($operationEnumUnknownFirstPattern in @(
+		'enum HST_EOperationType\s*\{\s*HST_OPERATION_TYPE_UNKNOWN\s*,',
+		'enum HST_EOperationDutyState\s*\{\s*HST_OPERATION_DUTY_UNKNOWN\s*,',
+		'enum HST_EOperationEngagementMode\s*\{\s*HST_OPERATION_ENGAGEMENT_UNKNOWN\s*,',
+		'enum HST_EOperationMaterializationState\s*\{\s*HST_OPERATION_MATERIALIZATION_UNKNOWN\s*,',
+		'enum HST_EOperationPositionAuthority\s*\{\s*HST_OPERATION_POSITION_UNKNOWN\s*,',
+		'enum HST_EOperationSettlementState\s*\{\s*HST_OPERATION_SETTLEMENT_UNKNOWN\s*,',
+		'enum HST_EOperationTerminalResult\s*\{\s*HST_OPERATION_TERMINAL_UNKNOWN\s*,'
+	)) {
+	if ($operationTypesText -notmatch $operationEnumUnknownFirstPattern) {
+		throw "Schema-49 operation enum must reserve ordinal zero for UNKNOWN: $operationEnumUnknownFirstPattern"
+	}
+}
+
+$operationRecordBlock = [regex]::Match($campaignStateText, 'class HST_OperationRecordState\r?\n\{[\s\S]*?\r?\n\}')
+if (!$operationRecordBlock.Success) {
+	throw "Schema-49 OperationRecord state class is missing"
+}
+foreach ($requiredOperationStateEntry in @(
+		'm_sOperationId',
+		'm_eType',
+		'm_iContractVersion',
+		'm_sOwnerFactionKey',
+		'm_sActorIdentityId',
+		'm_sIssueRequestId',
+		'm_sConfirmationRequestId',
+		'm_sSupportRequestId',
+		'm_sQuoteId',
+		'm_sManifestId',
+		'm_sSpawnResultId',
+		'm_sForceId',
+		'm_sProjectionId',
+		'm_sGroupId',
+		'm_sOriginZoneId',
+		'm_vOriginPosition',
+		'm_sAssignmentKind',
+		'm_sAssignmentZoneId',
+		'm_vAssignmentPosition',
+		'm_sTacticalTargetZoneId',
+		'm_vTacticalTargetPosition',
+		'm_vStrategicPosition',
+		'm_sCurrentRouteId',
+		'm_sRecallPolicyId',
+		'm_sSettlementPolicyId',
+		'm_eDutyState',
+		'm_eResumeDutyState',
+		'm_eEngagementMode',
+		'm_eMaterializationState',
+		'm_ePositionAuthority',
+		'm_eSettlementState',
+		'm_eTerminalResult',
+		'm_sSettlementId',
+		'm_sTerminalReason',
+		'm_iDeterministicSeed',
+		'm_iCreatedAtSecond',
+		'm_iDutyStateEnteredAtSecond',
+		'm_iEngagementStateEnteredAtSecond',
+		'm_iMaterializationStateEnteredAtSecond',
+		'm_iLastContactAtSecond',
+		'm_iLastProgressAtSecond',
+		'm_iSettledAtSecond',
+		'm_iRevision'
+	)) {
+	if ($operationRecordBlock.Value -notmatch [regex]::Escape($requiredOperationStateEntry)) {
+		throw "Schema-49 OperationRecord state missing canonical field: $requiredOperationStateEntry"
+	}
+}
+foreach ($requiredOperationStateRootEntry in @(
+		'SCHEMA_VERSION = 49',
+		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
+		'HST_OperationRecordState FindOperation(string operationId)',
+		'int m_iOperationContractVersion;'
+	)) {
+	if ($campaignStateText -notmatch [regex]::Escape($requiredOperationStateRootEntry)) {
+		throw "Schema-49 operation state root missing: $requiredOperationStateRootEntry"
+	}
+}
+
+foreach ($requiredOperationServiceEntry in @(
+		'class HST_OperationTransitionResult',
+		'class HST_OperationService',
+		'EXACT_PLAYER_QRF_CONTRACT_VERSION = 1',
+		'EXACT_PLAYER_QRF_ASSIGNMENT_KIND = "support_on_station"',
+		'EXACT_PLAYER_QRF_RECALL_POLICY = "exit_then_refund_living_hr"',
+		'EXACT_PLAYER_QRF_SETTLEMENT_POLICY = "exact_paid_qrf_ledger"',
+		'RegisterExactPlayerQRF',
+		'RemoveUncommittedExactPlayerQRF',
+		'MarkOutboundMaterializing',
+		'MarkPhysical',
+		'MarkOnStation',
+		'MarkRestoreMaterializing',
+		'CanBeginRecall',
+		'BeginRecall',
+		'MarkRecallExiting',
+		'RecordEngagement',
+		'IsLegalEngagementTransition',
+		'CanSettleExactPlayerQRF',
+		'SettleExactPlayerQRF',
+		'ValidateExactPlayerQRF',
+		'RemoveArchivedOperation',
+		'operation.m_iSettledAtSecond < 0'
+	)) {
+	if ($operationServiceText -notmatch [regex]::Escape($requiredOperationServiceEntry)) {
+		throw "Schema-49 operation service contract missing: $requiredOperationServiceEntry"
+	}
+}
+if ($operationServiceText -notmatch 'HST_OPERATION_ENGAGEMENT_CLEAR[\s\S]*HST_OPERATION_ENGAGEMENT_CONTACT[\s\S]*HST_OPERATION_ENGAGEMENT_ENGAGED[\s\S]*HST_OPERATION_ENGAGEMENT_DISENGAGING[\s\S]*HST_OPERATION_ENGAGEMENT_CLEAR') {
+	throw "Operation engagement authority must enforce the clear/contact/engaged/disengaging/clear transition sequence"
+}
+if ($operationServiceText -notmatch 'operation\.m_sOriginZoneId != quote\.m_sSourceZoneId[\s\S]*operation\.m_sAssignmentZoneId != quote\.m_sTargetZoneId' -or
+	$operationServiceText -notmatch 'operation\.m_sRecallPolicyId != EXACT_PLAYER_QRF_RECALL_POLICY[\s\S]*operation\.m_sSettlementPolicyId != EXACT_PLAYER_QRF_SETTLEMENT_POLICY') {
+	throw "Operation validation must protect immutable origin, assignment, and policy authority"
+}
+
+$paidQRFIssueOperationBlock = [regex]::Match($operationPlanningText, 'HST_ForceQuoteResult IssuePlayerSupportQuote[\s\S]*?\r?\n\t\}')
+if (!$paidQRFIssueOperationBlock.Success -or $paidQRFIssueOperationBlock.Value -match 'RegisterExactPlayerQRF|m_aOperations') {
+	throw "Exact paid-QRF issue must allocate quote authority without creating an OperationRecord"
+}
+$operationRegistrationBlock = [regex]::Match($operationSupportText, 'bool RegisterAcceptedExactPlayerSupport[\s\S]*?\r?\n\t\}')
+if (!$operationRegistrationBlock.Success) {
+	throw "Exact paid-QRF accepted-support registration block is missing"
+}
+$operationContractIndex = $operationRegistrationBlock.Value.IndexOf('m_iOperationContractVersion = HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION')
+$operationRegisterIndex = $operationRegistrationBlock.Value.LastIndexOf('m_Operations.RegisterExactPlayerQRF')
+$operationRequestInsertIndex = $operationRegistrationBlock.Value.IndexOf('m_aSupportRequests.Insert(request)')
+if ($operationContractIndex -lt 0 -or $operationRegisterIndex -le $operationContractIndex -or $operationRequestInsertIndex -le $operationRegisterIndex) {
+	throw "Accepted exact paid-QRF confirmation must version and register one OperationRecord before exposing the support request"
+}
+if ($operationRegistrationBlock.Value -match 'm_aQRFs') {
+	throw "Exact paid player-QRF registration must not reuse legacy QRF state authority"
+}
+foreach ($requiredOperationReplayValidationEntry in @(
+		'protected bool PlayerSupportRequestMatchesQuote(HST_CampaignState state',
+		'HST_OperationService.RequiresOperation(request)',
+		'm_Operations.ValidateExactPlayerQRF(state, operation, request, quote, manifest)'
+	)) {
+	if ($operationPlanningText -notmatch [regex]::Escape($requiredOperationReplayValidationEntry)) {
+		throw "Accepted exact paid-QRF replay must validate versioned OperationRecord authority: $requiredOperationReplayValidationEntry"
+	}
+}
+foreach ($requiredOperationLifecycleHook in @(
+		'm_Operations.MarkOutboundMaterializing(state, request, activeGroup, result.m_Batch)',
+		'm_Operations.MarkPhysical(state, request, group, batch)',
+		'm_Operations.MarkOnStation(state, request, group)',
+		'm_Operations.MarkRestoreMaterializing(state, request, group)',
+		'm_Operations.CanBeginRecall(state, request)',
+		'm_Operations.MarkRecallExiting(state, request, group, exitPosition)',
+		'm_Operations.CanSettleExactPlayerQRF',
+		'm_Operations.SettleExactPlayerQRF'
+	)) {
+	if ($operationSupportText -notmatch [regex]::Escape($requiredOperationLifecycleHook)) {
+		throw "Exact paid-QRF production lifecycle is missing OperationRecord hook: $requiredOperationLifecycleHook"
+	}
+}
+foreach ($operationSettlementMethodPattern in @(
+		'protected bool SettleExactPlayerSupportFullRefund[\s\S]*?\r?\n\t\}',
+		'protected bool SettleExactPlayerSupportHRRefund[\s\S]*?\r?\n\t\}'
+	)) {
+	$operationSettlementBlock = [regex]::Match($operationSupportText, $operationSettlementMethodPattern)
+	if (!$operationSettlementBlock.Success) {
+		throw "Exact paid-QRF typed settlement block is missing: $operationSettlementMethodPattern"
+	}
+	$operationPreflightIndex = $operationSettlementBlock.Value.IndexOf('m_Operations.CanSettleExactPlayerQRF')
+	$operationLedgerIndex = $operationSettlementBlock.Value.IndexOf('SettleExactSupportTransaction')
+	$operationApplyIndex = $operationSettlementBlock.Value.IndexOf('m_Operations.SettleExactPlayerQRF')
+	if ($operationPreflightIndex -lt 0 -or $operationLedgerIndex -le $operationPreflightIndex -or $operationApplyIndex -le $operationLedgerIndex) {
+		throw "Exact paid-QRF settlement must preflight operation authority before ledger mutation and apply the typed terminal result afterward"
+	}
+}
+
+foreach ($requiredOperationPersistenceEntry in @(
+		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
+		'm_aOperations.Insert(CopyOperation(operation));',
+		'state.m_aOperations.Insert(CopyOperation(operation));',
+		'protected HST_OperationRecordState CopyOperation',
+		'NormalizeOperationAuthority(restoredSchemaVersion);',
+		'NormalizeRestoredOperationProjectionState();',
+		'migration_schema49_operation_record',
+		'migration_schema49_operation_record_conflict',
+		'BuildSchema49MigratedOperation',
+		'CountSchema49OperationIdentityMatches',
+		'CountSchema49TombstoneIdentityMatches'
+	)) {
+	if ($forceSaveDataText -notmatch [regex]::Escape($requiredOperationPersistenceEntry)) {
+		throw "Schema-49 OperationRecord persistence or migration contract missing: $requiredOperationPersistenceEntry"
+	}
+}
+$operationCopyBlock = [regex]::Match($forceSaveDataText, 'protected HST_OperationRecordState CopyOperation[\s\S]*?\r?\n\t\}')
+if (!$operationCopyBlock.Success) {
+	throw "Schema-49 OperationRecord deep-copy block is missing"
+}
+foreach ($requiredOperationCopyEntry in @(
+		'm_sOperationId',
+		'm_sOriginZoneId',
+		'm_vOriginPosition',
+		'm_sAssignmentKind',
+		'm_sAssignmentZoneId',
+		'm_vAssignmentPosition',
+		'm_sTacticalTargetZoneId',
+		'm_vTacticalTargetPosition',
+		'm_vStrategicPosition',
+		'm_eDutyState',
+		'm_eResumeDutyState',
+		'm_eEngagementMode',
+		'm_eMaterializationState',
+		'm_ePositionAuthority',
+		'm_eSettlementState',
+		'm_eTerminalResult',
+		'm_sSettlementId',
+		'm_iRevision'
+	)) {
+	if ($operationCopyBlock.Value -notmatch [regex]::Escape("target.$requiredOperationCopyEntry = source.$requiredOperationCopyEntry;")) {
+		throw "Schema-49 OperationRecord deep copy missing: $requiredOperationCopyEntry"
+	}
+}
+$operationMigrationBlock = [regex]::Match($forceSaveDataText, 'protected void NormalizeOperationAuthority[\s\S]*?\r?\n\t\}\r?\n\r?\n\tprotected void NormalizeRestoredOperationProjectionState')
+if (!$operationMigrationBlock.Success -or $operationMigrationBlock.Value -notmatch 'restoredSchemaVersion >= 49' -or
+	$operationMigrationBlock.Value -notmatch 'request\.m_iOperationContractVersion = 0' -or
+	$operationMigrationBlock.Value -notmatch 'IsSchema49OperationMigrationCandidate' -or
+	$operationMigrationBlock.Value -notmatch 'm_aOperations\.Insert\(operation\)') {
+	throw "Schema-49 migration must conservatively opt coherent pre-schema-49 exact paid QRFs into one OperationRecord"
+}
+$operationRestoreProjectionBlock = [regex]::Match($forceSaveDataText, 'protected void NormalizeRestoredOperationProjectionState[\s\S]*?\r?\n\t\}')
+if (!$operationRestoreProjectionBlock.Success -or
+	$operationRestoreProjectionBlock.Value -notmatch 'HST_OPERATION_MATERIALIZATION_PHYSICAL' -or
+	$operationRestoreProjectionBlock.Value -notmatch 'HST_OPERATION_MATERIALIZATION_DEMATERIALIZING' -or
+	$operationRestoreProjectionBlock.Value -notmatch 'HST_OPERATION_MATERIALIZATION_MATERIALIZING' -or
+	$operationRestoreProjectionBlock.Value -notmatch 'HST_OPERATION_POSITION_STRATEGIC' -or
+	$operationRestoreProjectionBlock.Value -notmatch 'm_iRevision\+\+') {
+	throw "Current-schema restore must return process-local physical OperationRecords to strategic materialization authority"
+}
+
+foreach ($requiredOperationArchiveEntry in @(
+		'm_sOperationSettlementId',
+		'm_iOperationContractVersion',
+		'm_iOperationRevision',
+		'm_eOperationTerminalResult'
+	)) {
+	if ($forceAuthorityDataText -notmatch [regex]::Escape($requiredOperationArchiveEntry) -or
+		$forceSaveDataText -notmatch [regex]::Escape("target.$requiredOperationArchiveEntry = source.$requiredOperationArchiveEntry;")) {
+		throw "Schema-49 operation settlement tombstone contract missing: $requiredOperationArchiveEntry"
+	}
+}
+foreach ($requiredOperationArchiveServiceEntry in @(
+		'HST_OperationRecordState operation',
+		'HST_OperationService.RequiresOperation(supportRequest)',
+		'm_Operations.ValidateExactPlayerQRF',
+		'HST_OPERATION_SETTLEMENT_SETTLED',
+		'HST_OperationService.BuildSettlementId',
+		'm_Operations.RemoveArchivedOperation(state, operation)',
+		'tombstone.m_sOperationSettlementId = operation.m_sSettlementId;',
+		'tombstone.m_iOperationContractVersion = operation.m_iContractVersion;',
+		'tombstone.m_iOperationRevision = operation.m_iRevision;',
+		'tombstone.m_eOperationTerminalResult = operation.m_eTerminalResult;'
+	)) {
+	if ($operationArchiveText -notmatch [regex]::Escape($requiredOperationArchiveServiceEntry)) {
+		throw "Schema-49 operation archive contract missing: $requiredOperationArchiveServiceEntry"
+	}
+}
+$operationArchiveMethodBlock = [regex]::Match($operationArchiveText, 'HST_ForceSettlementArchiveResult ArchiveSettledRecords[\s\S]*?\r?\n\t\}')
+if (!$operationArchiveMethodBlock.Success -or
+	$operationArchiveMethodBlock.Value.IndexOf('m_Operations.RemoveArchivedOperation') -lt 0 -or
+	$operationArchiveMethodBlock.Value.IndexOf('m_Operations.RemoveArchivedOperation') -gt $operationArchiveMethodBlock.Value.IndexOf('m_aForceSettlementTombstones.Insert(tombstone)')) {
+	throw "Schema-49 archive must retire the full settled OperationRecord into its validated tombstone"
+}
+
+foreach ($requiredOperationProofEntry in @(
+		'class HST_OperationRecordProofReport',
+		'class HST_OperationRecordProofService',
+		'HST_OperationRecordProofReport Run()',
+		'm_bIssueConfirmExact',
+		'm_bMaterializationExact',
+		'm_bEngagementExact',
+		'm_bRecallSettlementExact',
+		'm_bRestoreProjectionExact',
+		'm_bSchema48MigrationExact',
+		'm_bArchiveExact',
+		'm_bLegacyQRFIsolationExact',
+		'AppendCampaignDebugOperationRecordAssertions',
+		'operation_record.issue_confirm',
+		'operation_record.materialization',
+		'operation_record.engagement',
+		'operation_record.recall_settlement',
+		'operation_record.restore_projection',
+		'operation_record.schema48_migration',
+		'operation_record.archive',
+		'operation_record.legacy_qrf_isolation'
+	)) {
+	if (($operationProofText + "`n" + $scriptText) -notmatch [regex]::Escape($requiredOperationProofEntry)) {
+		throw "Schema-49 OperationRecord proof integration missing: $requiredOperationProofEntry"
+	}
+}
+Write-Host "Schema-49 exact paid-QRF OperationRecord authority, persistence, migration, archive, and proof contract OK"
 $forceSpawnQueueServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
 if (!(Test-Path $forceSpawnQueueServicePath)) {
 	throw "Missing durable force spawn queue service: $forceSpawnQueueServicePath"

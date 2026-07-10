@@ -1,3 +1,4 @@
+[BaseContainerProps(), SCR_MapMarkerIconEntryTitle()]
 modded class SCR_MarkerIconEntry
 {
 	void HST_SetIconResource(ResourceName imageset, ResourceName imagesetGlow, string imageQuad, string categoryIdentifier = "general")
@@ -9,6 +10,7 @@ modded class SCR_MarkerIconEntry
 	}
 }
 
+[BaseContainerProps(), SCR_MapMarkerTitle()]
 modded class SCR_MapMarkerEntryPlaced
 {
 	static const ResourceName HST_CONFLICT_ICON_IMAGESET = "{F7E8D4834A3AFF2F}UI/Imagesets/Conflict/conflict-icons-bw.imageset";

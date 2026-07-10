@@ -191,6 +191,7 @@ class HST_ForceSettlementTombstoneState
 	string m_sAttackTransactionId;
 	string m_sSupportTransactionId;
 	string m_sSettlementKind;
+	string m_sOperationSettlementId;
 	vector m_vSourcePosition;
 	vector m_vTargetPosition;
 	HST_ESupportRequestType m_eSupportType;
@@ -208,6 +209,9 @@ class HST_ForceSettlementTombstoneState
 	int m_iArchivedAtSecond;
 	int m_iETASeconds;
 	int m_iCooldownSeconds;
+	int m_iOperationContractVersion;
+	int m_iOperationRevision;
+	HST_EOperationTerminalResult m_eOperationTerminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN;
 	bool m_bAllOrNothing = true;
 	ref array<ref HST_ForceSettlementTransactionTombstoneState> m_aTransactions = {};
 

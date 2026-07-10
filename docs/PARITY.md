@@ -24,10 +24,21 @@
   Petros-loss penalties, HQ knowledge/threat, and Defend Petros state
 - Versioned campaign save container for current state fields and nested arrays,
   with schema migration and restored-state application helpers
-- Schema-48 campaign authority foundation with persisted monotonic IDs, typed
+- Schema-49 campaign authority foundation with persisted monotonic IDs, typed
   command receipts, resource transactions, exact force quotes/manifests,
   durable per-projection SpawnQueue state, exact paid-infantry-QRF runtime
-  lifecycle, and bounded accepted-settlement replay tombstones
+  lifecycle, bounded accepted-settlement replay tombstones, and the first
+  canonical operation aggregate
+- One versioned `OperationRecord` for each newly confirmed exact paid player
+  infantry QRF, plus conservative backfill for uniquely coherent accepted active
+  schema-48 rows. It separates immutable origin/assignment from tactical target
+  and persists typed duty, engagement, materialization, position, settlement,
+  policy, terminal, execution-link, timing, and revision authority. Queue,
+  handoff, arrival, restore, recall, terminal settlement, and archival transitions
+  are integrated. Live combat-contact wiring, strategic route cursor/hysteresis,
+  generalized virtualization, and every other operation family remain open.
+  Eight focused assertions are coordinator-integrated into the force-authority
+  debug case and compile, but have not run in a packaged runtime.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -134,8 +145,9 @@
 
 ## Current Verification Boundary
 
-- Foundation validation and schema-48 Workbench Game compilation/creation pass
-  at 5,741 files and 11,481 classes.
+- The schema-49 work-in-progress tree provisionally compiles/creates the
+  Workbench Game module at 5,743 files, 11,497 classes, and CRC `fb8cdf64`.
+  This is a pre-final compile checkpoint, not packaged runtime or restart proof.
 - A normal WorldEditor project open produced no new crash signature during the
   bounded startup-survival gate.
 - A current-build dedicated smoke remained live until intentional disconnect,
@@ -143,6 +155,12 @@
   editor-mode repair. The one-frame editor-listener guard preserves stock mode
   updates and role ownership; it still needs a fresh packaged server connect for
   runtime proof.
+- A newer packaged check of the stamped schema-48 build could not initialize
+  Game Master or normal stock HUD. Config logs showed the modded editor manager,
+  editable-budget setting, and placed-marker entry types were unknown, followed
+  by null editor-manager HUD initialization. Current source restores the base
+  container and custom-title metadata on those config-backed modded classes and
+  compiles, but only a republished server/client run can close the regression.
 - That smoke also emitted 20 unregistered civilian-group member RPCs, exactly
   matching 14 pedestrians and 6 traffic drivers. The civilian root now inherits
   the stock behavior/replication group base and uses the native initial-AI
@@ -168,7 +186,7 @@
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
-- The latest inspected Full Campaign Debug artifact predates schemas 43-48,
+- The latest inspected Full Campaign Debug artifact predates schemas 43-49,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
 - The in-process runner now fails closed outside `HST_Dev`, clones campaign
@@ -178,18 +196,21 @@
 
 ## Current Delivery Priorities
 
-- Prove the editor role-change reentry guard during a packaged late-admin
-  connect while retaining the expected editor access.
+- Publish and prove the config-container metadata repair in a packaged client/
+  server connect: normal stock HUD, working Game Master, no unknown editor/
+  budget/placed-marker config types, and no recursive role-change exception
+  during late admin assignment.
 - Re-run civilian town activation with the repaired group root and require zero
   unregistered member-state RPCs plus distance-over-time pedestrian and traffic
   movement.
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
-- Runtime-prove the schema-43 through schema-48 authority chain: exact training,
+- Runtime-prove the schema-43 through schema-49 authority chain: exact training,
   garrison, paid-QRF, queue/handoff, exact casualties, survivor reprojection,
-  settlement archive replay, typed recall receipt status, rejected paired-
-  settlement conflicts, capacity, and save/restart idempotency.
+  operation registration/transitions/migration, settlement archive replay, typed
+  recall receipt status, rejected paired-settlement conflicts, capacity, and
+  save/restart idempotency.
 - Runtime-prove 3/3 convoy drivers after the pre-seat registration and local-
   authority entry repair. Then use scoped disposable profiles to prove actual
   support movement, two-sample arrival within 75m, physical recall exit, and
@@ -198,10 +219,10 @@
   marker pressure, no duplicate record, and restart-stable terminal state.
 - Prove static marker widget readiness and implement authoritative host/client/
   late-join snapshot, revision, delete, acknowledgement, and resync behavior.
-- Add the schema-49 exact-QRF `OperationRecord` kernel for durable assignment,
-  duty, engagement, materialization, settlement, and replay identity before
-  extending exact runtime authority to vehicles, assets, garrisons, and other
-  support consumers.
+- Runtime-prove the schema-49 exact-QRF `OperationRecord` kernel, then connect
+  live contact/disengagement, strategic route progress/cursor/hysteresis, and
+  generalized virtualization before extending exact runtime authority to
+  vehicles, assets, garrisons, missions, enemy orders, or other supports.
 
 ## Next Playable Expansion
 

@@ -414,6 +414,7 @@ modded class SCR_BudgetEditorComponent
 	}
 }
 
+[BaseContainerProps(), SCR_BaseContainerCustomTitleEnum(EEditableEntityBudget, "m_BudgetType")]
 modded class SCR_EditableEntityCoreBudgetSetting
 {
 	override int SubtractFromBudget(SCR_EntityBudgetValue budgetCost = null)

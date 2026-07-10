@@ -17,6 +17,7 @@ class HST_ForcePlanningService
 	protected ref HST_ForceCatalogService m_Catalog = new HST_ForceCatalogService();
 	protected ref HST_ForcePlanningIntegrityService m_Integrity = new HST_ForcePlanningIntegrityService();
 	protected ref HST_ForceSettlementArchiveService m_SettlementArchive = new HST_ForceSettlementArchiveService();
+	protected ref HST_OperationService m_Operations = new HST_OperationService();
 	protected ref HST_CampaignEventLogService m_EventLog;
 
 	void SetEventLogService(HST_CampaignEventLogService eventLog)
@@ -106,7 +107,7 @@ class HST_ForcePlanningService
 					HST_SupportRequestState existingRequest = FindUniquePlayerSupportRequestForQuote(state, existingQuote, requestCount);
 					if (!m_Integrity.TransactionMatchesAcceptedPlayerSupportQuote(existingMoney, existingQuote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, existingQuote.m_iMoneyCost)
 						|| !m_Integrity.TransactionMatchesAcceptedPlayerSupportQuote(existingHR, existingQuote, HST_ResourceLedgerService.RESOURCE_HR, existingQuote.m_iHRCost)
-						|| requestCount != 1 || !PlayerSupportRequestMatchesQuote(existingRequest, existingQuote, existingManifest))
+						|| requestCount != 1 || !PlayerSupportRequestMatchesQuote(state, existingRequest, existingQuote, existingManifest))
 					{
 						result.m_sFailureReason = "existing accepted support quote authority conflict";
 						return result;
@@ -397,7 +398,7 @@ class HST_ForcePlanningService
 			HST_SupportRequestState acceptedRequest = FindUniquePlayerSupportRequestForQuote(state, quote, acceptedRequestCount);
 			if (!m_Integrity.TransactionMatchesAcceptedPlayerSupportQuote(acceptedMoney, quote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost)
 				|| !m_Integrity.TransactionMatchesAcceptedPlayerSupportQuote(acceptedHR, quote, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost)
-				|| acceptedRequestCount != 1 || !PlayerSupportRequestMatchesQuote(acceptedRequest, quote, manifest))
+				|| acceptedRequestCount != 1 || !PlayerSupportRequestMatchesQuote(state, acceptedRequest, quote, manifest))
 			{
 				result.m_sFailureReason = "accepted support quote authority conflict";
 				return result;
@@ -529,7 +530,7 @@ class HST_ForcePlanningService
 
 		int supportRequestCount;
 		HST_SupportRequestState supportRequest = FindUniquePlayerSupportRequestForQuote(state, quote, supportRequestCount);
-		if (supportRequestCount != 1 || !PlayerSupportRequestMatchesQuote(supportRequest, quote, manifest))
+		if (supportRequestCount != 1 || !PlayerSupportRequestMatchesQuote(state, supportRequest, quote, manifest))
 		{
 			supportRequests.RemoveAcceptedExactPlayerSupport(state, quote.m_sQuoteId, quote.m_sSupportRequestId);
 			RollbackConfirmationTransactions(state, economy, ledger, quote, "exact player QRF verification failed");
@@ -1322,9 +1323,9 @@ class HST_ForcePlanningService
 		return match;
 	}
 
-	protected bool PlayerSupportRequestMatchesQuote(HST_SupportRequestState request, HST_ForceQuoteState quote, HST_ForceManifestState manifest)
+	protected bool PlayerSupportRequestMatchesQuote(HST_CampaignState state, HST_SupportRequestState request, HST_ForceQuoteState quote, HST_ForceManifestState manifest)
 	{
-		if (!request || !quote || !manifest)
+		if (!state || !request || !quote || !manifest)
 			return false;
 		if (request.m_sRequestId != quote.m_sSupportRequestId || request.m_sOperationId != quote.m_sOperationId
 			|| request.m_sQuoteId != quote.m_sQuoteId || request.m_sManifestId != quote.m_sManifestId
@@ -1347,6 +1348,12 @@ class HST_ForcePlanningService
 			return false;
 		if (request.m_iCooldownUntilSecond - request.m_iRequestedAtSecond != quote.m_iCooldownSeconds)
 			return false;
+		if (HST_OperationService.RequiresOperation(request))
+		{
+			HST_OperationRecordState operation = state.FindOperation(request.m_sOperationId);
+			if (!m_Operations || !m_Operations.ValidateExactPlayerQRF(state, operation, request, quote, manifest).IsEmpty())
+				return false;
+		}
 		return request.m_bPlayerRequested;
 	}
 

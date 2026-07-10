@@ -76,6 +76,7 @@ The state model already has the right campaign save-game spine:
 - mission runtime entities
 - mission assets
 - support requests
+- canonical exact-QRF operation records
 - enemy orders
 - civilian zone state
 - undercover records
@@ -96,12 +97,12 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. The guarded schema-48 Game module loads 5,741 files/11,481 classes and creates the game; a normal WorldEditor open produced no new crash signature during the bounded survival gate. A current-build dedicated smoke remained live until intentional disconnect but recorded a recoverable recursive player-role invoker exception during editor-mode repair. The one-frame editor-listener guard is compile-proven and preserves stock mode updates, teardown, and role ownership; fresh packaged runtime proof remains open. The same smoke mapped 20 unregistered group-member RPCs exactly to 14 pedestrians plus 6 traffic drivers. The dedicated civilian root now inherits the stock behavior/replication base and uses the initial-AI attach path, but fresh zero-RPC and actual-movement proof remains open. In-process diagnostics use a development-world-only cloned-state boundary; fresh runtime proof and session-restart cleanliness remain open. |
-| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 48 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts/events, the resource ledger, and accepted-settlement replay tombstones. Paid training, visible garrison confirmation, player-QRF confirmation/settlement, and visible support-recall completion are migrated. Recall is the first visible command whose receipt status comes from a typed domain result; paired exact full refunds preflight both ledger legs. Static/Workbench validation passes on the current tree; isolated runtime and save/load certification remain pending. |
-| CRI-2: Exact force manifests | Foundation complete; expansion pending | Immutable persisted manifests, expiring quotes, exact catalog validation, durable per-projection SpawnQueue authority, the first engine-facing infantry adapter, exact member lifecycle, and bounded accepted-settlement archives are implemented. Schema 48 compacts only terminal backlink-free garrison/QRF rows after 600 seconds, retains compact replay for at least 86,400 seconds, hard-bounds planning history, and production-runs pin-aware queue maintenance. Bounded proofs cover paid-QRF, force-runtime, archive persistence/replay, backlink protection, capacity, and migration but are not runtime-executed. Vehicle/asset/multi-root execution, exact garrison realization, and other paid-support migrations remain open. |
-| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; exact infantry plus crewless mixed-group lifecycle landed | Exact paid-QRF infantry now retains operation/manifest links, reconciles slot-specific casualties, retires the last-death root, and reprojects durable survivors after restore. Legacy mixed personnel/vehicle groups now use living infantry as combat authority without changing vehicle-only projections: after prior population evidence and grace, zero personnel produces one terminal state, failed unresolved QRF, zero capture/marker pressure, neutral detached salvage, and restart-stable zero survivors. Existing durable field/cargo records remain durable; unadopted salvage is session-only. Convoy binding registers usable vehicles before seating and prefers authority-local forced pilot entry. Spawned support retains its live member centroid, treats ETA as an earliest check only, requires two distinct-time samples within 75m for normal arrival/recall exit, normalizes exact QRF handoff to `support_active`, and uses transactional direct target/exit waypoint chains with a three-attempt consecutive-stall budget reset by an 8m new-best distance improvement. Pre-repair restored arrival/exit rows receive one current live-distance revalidation. Runtime proof, the schema-49 exact-QRF OperationRecord kernel, event-driven death subscription, vehicle/asset lifecycle, virtual/physical transfer, actual movement/arrival/recall, and fold-back remain open. |
-| CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Broad-alpha foundations implemented; authority/JIP proof pending | UI, marker, ownership, town-influence, civilian, and undercover paths exist. Static-marker root guarding and delayed owner-client census are implemented. Civilian ambient roots now carry the stock behavior, pathfinding, utility, editable, and replication stack and use the native initial-AI attach path. Snapshot/delta/JIP authority, canonical ownership side effects, rendered-client proof, zero-RPC civilian projection, actual civilian movement, and deeper political consequences remain open. |
-| CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; exact cutovers and parity pending | Enemy orders, 39 configured mission definitions with MVP primitives, arsenal/garage/training/undercover/HQ/end-state systems, and typed debug cases exist. Reliable operation duty/return behavior, exact resource/force cutovers, mission-family depth, progression tuning, and dedicated runtime proof remain open. |
+| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating breadth as certification. The schema-49 work-in-progress Game module provisionally loads 5,743 files/11,497 classes and creates the game with CRC `fb8cdf64`; final checks remain part of this pass. The latest packaged schema-48 check exposed missing container/custom-title metadata on modded editor, budget, and placed-marker config classes, leaving Game Master and stock HUD unavailable. Matching attributes are restored in source, but published runtime verification is pending. The earlier role-change reentry, civilian projection, debug isolation, convoy, support movement, and restart gates also remain open. |
+| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 49 retains persisted monotonic IDs, typed command envelopes/results, bounded receipts/events, the resource ledger, accepted-settlement replay tombstones, and adds the first versioned canonical operation contract. Paid training, visible garrison confirmation, player-QRF confirmation/settlement, and visible support-recall completion are migrated. Recall receipt and paired-refund integrity remain narrow first slices; isolated runtime and save/load certification are pending. |
+| CRI-2: Exact force manifests | Foundation complete; expansion pending | Immutable manifests, expiring quotes, exact catalog validation, durable per-projection SpawnQueue authority, the first infantry adapter, exact member lifecycle, and bounded accepted-settlement archives are implemented. Schema 49 preserves schema-48 retention/capacity rules and adds exact-QRF operation terminal/revision evidence to eligible tombstones. Vehicle/asset/multi-root execution, exact garrison realization, other paid-support migrations, and packaged proofs remain open. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; exact infantry, first operation kernel, and crewless mixed-group lifecycle landed | Exact paid-QRF infantry retains slot casualties/survivors and now owns one canonical contract-version-1 operation after confirmation. Queue, physical handoff, arrival, restore, recall, terminal settlement, and archive advance typed duty/materialization/position/settlement state; a legal engagement API preserves resumable duty. Eight focused assertions are integrated into the force-authority debug case and compile but have not run in a packaged runtime. Legacy mixed groups retain their separate lifecycle repair. Live combat-contact wiring, strategic route cursor/hysteresis, generalized virtual/physical transfer, vehicle/asset lifecycle, other operation families, actual movement/arrival/recall, fold-back, and packaged runtime/restart proof remain open. |
+| CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Broad-alpha foundations implemented; authority/JIP proof pending | UI, marker, ownership, town-influence, civilian, and undercover paths exist. Static-marker root guarding, delayed owner-client census, and config-container metadata restoration are implemented in source. Snapshot/delta/JIP authority, canonical ownership side effects, republished stock-HUD/Game-Master proof, rendered-client proof, zero-RPC civilian projection, actual civilian movement, and deeper political consequences remain open. |
+| CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; exact cutovers and parity pending | Enemy orders, 39 configured mission definitions with MVP primitives, arsenal/garage/training/undercover/HQ/end-state systems, and typed debug cases exist. The reliable-operation kernel currently covers only exact paid player infantry QRF; enemy orders, missions, garrisons, and other forces still need canonical duty/return/settlement cutovers, mission depth, tuning, and runtime proof. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
 
 ### Blueprint Milestone Snapshot
@@ -111,14 +112,14 @@ that roadmap remains useful for feature history and acceptance detail.
 | Exact Forces | Implemented foundation | Execute exact training, garrison, paid-QRF, queue, typed recall receipt/conflict, and settlement replay cases across save/restart. |
 | Clean Forces | First exact infantry-QRF lifecycle plus legacy mixed-group personnel terminal repair implemented | Prove native/GM/strategic living counts, corpse detachment, last-death cleanup, survivor reprojection, and one crewless mixed-QRF salvage transition across restart. |
 | Living War | Broad-alpha virtual/physical support, response, and convoy paths; convoy seating, support-route truth, and crewless mixed-QRF cleanup are repaired in source | Prove 3/3 living pilot occupants and retained vehicle registration, then prove actual support movement, two-sample arrival, recall exit, bounded route reissue, mixed-QRF marker/capture retirement, contact, and fold-back. |
-| Reliable Orders | Broad-alpha enemy/support order state exists | Add durable duty/assignment/engagement/return states and prove recall/return without duplicate settlement. |
+| Reliable Orders | First canonical operation kernel is integrated for confirmed exact paid player infantry QRFs; other orders remain broad-alpha | Runtime-prove immutable assignment, duty/materialization/engagement/recall/settlement/restart behavior, add live contact and strategic movement progress, then extend the contract without claiming legacy families. |
 | One Campaign View | Menu and marker projections exist; static-root guard implemented | Prove authoritative host/client/late-join snapshots, revisions, deletes, and modal map ownership. |
 | Political Map | Town influence, capture, ownership, security, and heat foundations exist | Canonicalize ownership side effects and deepen political control/mission outputs. |
 | Living Towns | Civilian pedestrians, traffic, population, and enforcement foundations exist; the bare helper root and invalid initial member RPC path are repaired in source | Prove zero unregistered group RPCs, behavior-ready actors through real movement rather than helper counts, movement watchdogs, budgets, recycle, and strategic consequences. |
 | Enemy Commander | Resource pools, scoring, orders, and physical/abstract outcomes exist | Prove coherent pressure, duty selection, resource settlement, and long-window behavior. |
 | Mission Parity | All 39 configured IDs map to MVP primitives | Replace shortcuts with distinctive family behavior and certify each enabled mission. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Static and Workbench startup gates pass | Pass isolated dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. |
+| Campaign Certification | Provisional schema-49 compile passes; the latest packaged schema-48 check exposed Game Master/stock-HUD config metadata failure | Republish the metadata repair, restore editor/HUD runtime, then pass isolated dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -133,6 +134,9 @@ the accepted QRF manifest, and restores only durable survivors. Existing broad-a
 become exact merely because this first slice exists; only projections carrying
 the explicit queue-owned identity use it, and the legacy guards hold those
 specific projections rather than silently migrating unrelated groups.
+Schema 49 now supplies that operation model only for newly confirmed exact paid
+player infantry QRFs and uniquely coherent accepted nonterminal schema-48 rows.
+It does not migrate legacy/enemy QRFs or any other support/order family.
 
 ## Current Implementation Baseline
 
@@ -145,6 +149,12 @@ treated as future work:
 - `HST_ForceCatalogService`, `HST_ForcePlanningService`, and
   `HST_ForcePlanningIntegrityService` own versioned exact execution-prefab
   catalogs, immutable manifest/quote planning, and deterministic integrity.
+- `HST_OperationService` owns the schema-49 version-1 operation contract for
+  confirmed exact paid player infantry QRFs. It registers one record after
+  successful confirmation, preserves immutable origin/assignment separately
+  from tactical target, and validates queue/handoff/arrival/restore/recall,
+  engagement, terminal settlement, and replay transitions. Live combat does not
+  yet drive engagement, and no other operation family is opted in.
 - `HST_ForceSpawnQueueService` owns durable request/result/projection identity,
   exact required-slot admission, two-batch/eight-action tick acquisition,
   retry/deadline/cancellation cleanup, verified callbacks, 64-batch/512-slot
@@ -239,16 +249,18 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Runtime-prove the editor role-change reentry guard during packaged late admin
-   assignment with expected editor access and no recursive invoker exception.
+1. Publish and runtime-prove the restored config-container metadata: normal stock
+   HUD, working Game Master, and zero unknown editor/budget/placed-marker config
+   types. In the same packaged late-admin boundary, require expected editor
+   access and no recursive role-change invoker exception.
 2. Runtime-prove the stock-based civilian helper root with zero unregistered
    group RPCs and actual pedestrian/traffic movement.
 3. Runtime-prove campaign-debug isolation, the six repaired observations, and a
    clean development-session restart before interpreting a new full artifact.
-4. Prove the schema-43 through schema-48 authority chain across exact training,
+4. Prove the schema-43 through schema-49 authority chain across exact training,
    garrison, paid-QRF, SpawnQueue, casualty/reprojection, archive replay, typed
-   recall receipt status, paired-settlement rejection, and save/restart
-   boundaries.
+   recall receipt status, operation transitions/migration/settlement, paired-
+   settlement rejection, and save/restart boundaries.
 5. Prove 3/3 convoy drivers after the pre-seat vehicle-registration and local-
    authority entry repair. In scoped disposable profiles, also prove actual
    support movement, two consecutive live arrival samples within 75m, physical
@@ -258,10 +270,12 @@ treated as future work:
    restart-stable terminal state.
 6. Prove static marker widget readiness and build authoritative host/client/JIP
    snapshot-and-delta reconciliation for the One Campaign View milestone.
-7. Implement the schema-49 exact-QRF `OperationRecord` kernel for durable duty,
-   assignment, materialization, engagement, settlement, and replay identity;
-   then extend exact lifecycle authority to vehicles, assets, garrisons, and
-   remaining paid support consumers.
+7. Runtime-prove the schema-49 exact-QRF `OperationRecord` issue/confirmation,
+   queue/handoff/arrival, legal/rejected engagement, recall, settlement,
+   migration, restore, archive, and replay boundaries. Then connect live combat
+   contact, strategic route progress/cursor/hysteresis, generalized
+   virtualization, and only afterward extend lifecycle authority to vehicles,
+   assets, garrisons, and remaining support/order consumers.
 8. Only after the integrity gates are trustworthy, deepen ownership/town
    politics, civilian behavior, enemy strategy, mission families, progression,
    and balance before dedicated multiplayer/restart/long-soak certification.

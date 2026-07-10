@@ -100,6 +100,7 @@ class HST_SupportRequestService
 	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
 	protected ref HST_SpawnPlacementService m_SpawnPlacements = new HST_SpawnPlacementService();
 	protected ref HST_ForcePlanningIntegrityService m_ForceIntegrity = new HST_ForcePlanningIntegrityService();
+	protected ref HST_OperationService m_Operations = new HST_OperationService();
 	protected ref HST_ForceSpawnQueueService m_ExactForceSpawnQueue;
 	protected ref HST_ResourceLedgerService m_ExactResourceLedger;
 	protected ref HST_EconomyService m_ExactEconomy;
@@ -596,7 +597,22 @@ class HST_SupportRequestService
 		if (existing)
 		{
 			failure = ValidateExactPlayerSupportRequestLinks(existing, quote, manifest, false);
-			return failure.IsEmpty();
+			if (!failure.IsEmpty())
+				return false;
+			if (existing.m_iOperationContractVersion != HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION)
+			{
+				failure = "existing exact player QRF request lacks the current operation contract";
+				return false;
+			}
+			HST_OperationTransitionResult replayOperation = m_Operations.RegisterExactPlayerQRF(state, existing, quote, manifest);
+			if (!replayOperation || !replayOperation.m_bAccepted)
+			{
+				failure = "exact player QRF operation replay conflict";
+				if (replayOperation && !replayOperation.m_sFailureReason.IsEmpty())
+					failure = failure + ": " + replayOperation.m_sFailureReason;
+				return false;
+			}
+			return true;
 		}
 		if (state.FindSupportRequest(quote.m_sSupportRequestId))
 		{
@@ -644,10 +660,20 @@ class HST_SupportRequestService
 		request.m_iMoneyCost = manifest.m_iMoneyCost;
 		request.m_iHRCost = manifest.m_iHRCost;
 		request.m_iPlannedInfantryCount = manifest.m_iAcceptedMemberCount;
+		request.m_iOperationContractVersion = HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION;
 		request.m_iCompositionCost = manifest.m_iMoneyCost;
 		request.m_iCompositionManpower = manifest.m_iAcceptedMemberCount;
 		request.m_iCooldownUntilSecond = state.m_iElapsedSeconds + Math.Max(0, quote.m_iCooldownSeconds);
 		request.m_bPlayerRequested = true;
+
+		HST_OperationTransitionResult operationRegistration = m_Operations.RegisterExactPlayerQRF(state, request, quote, manifest);
+		if (!operationRegistration || !operationRegistration.m_bAccepted)
+		{
+			failure = "exact player QRF operation registration failed";
+			if (operationRegistration && !operationRegistration.m_sFailureReason.IsEmpty())
+				failure = failure + ": " + operationRegistration.m_sFailureReason;
+			return false;
+		}
 
 		state.m_aSupportRequests.Insert(request);
 		m_bMarkerRefreshNeeded = true;
@@ -665,6 +691,11 @@ class HST_SupportRequestService
 			if (!request || request.m_sRequestId != supportRequestId || request.m_sQuoteId != quoteId)
 				continue;
 			if (!request.m_sGroupId.IsEmpty() || FindExactSupportSpawnBatch(state, request))
+				return false;
+			HST_ForceQuoteState quote = state.FindForceQuote(request.m_sQuoteId);
+			HST_ForceManifestState manifest = state.FindForceManifest(request.m_sManifestId);
+			HST_OperationTransitionResult operationRemoval = m_Operations.RemoveUncommittedExactPlayerQRF(state, request, quote, manifest);
+			if (!operationRemoval || !operationRemoval.m_bAccepted)
 				return false;
 
 			state.m_aSupportRequests.Remove(index);
@@ -759,6 +790,19 @@ class HST_SupportRequestService
 
 		request.m_sGroupId = activeGroup.m_sGroupId;
 		request.m_sDeploymentRouteId = activeGroup.m_sRouteId;
+		HST_OperationTransitionResult operationMaterializing = m_Operations.MarkOutboundMaterializing(state, request, activeGroup, result.m_Batch);
+		if (!operationMaterializing || !operationMaterializing.m_bAccepted)
+		{
+			string operationFailure = "exact player QRF operation rejected spawn admission";
+			if (operationMaterializing && !operationMaterializing.m_sFailureReason.IsEmpty())
+				operationFailure = operationFailure + ": " + operationMaterializing.m_sFailureReason;
+			request.m_sRuntimeStatus = "exact_operation_conflict_cleanup_pending";
+			request.m_sFailureReason = operationFailure;
+			if (result.m_Batch)
+				m_ExactForceSpawnQueue.RequestCancel(state.m_aForceSpawnResults, result.m_Batch.m_sResultId, state.m_iElapsedSeconds, operationFailure);
+			m_bMarkerRefreshNeeded = true;
+			return result;
+		}
 		request.m_sRuntimeStatus = EXACT_PLAYER_SUPPORT_GROUP_STATUS;
 		request.m_sPhysicalizationMode = EXACT_PLAYER_SUPPORT_MODE;
 		m_bMarkerRefreshNeeded = true;
@@ -1050,6 +1094,15 @@ class HST_SupportRequestService
 			request.m_sFailureReason = "successful exact QRF has no live active-group projection";
 			return SetExactSupportRuntimeStatus(request, "exact_success_projection_missing");
 		}
+		HST_ForceSpawnResultState batch = FindExactSupportSpawnBatch(state, request);
+		HST_OperationTransitionResult operationPhysical = m_Operations.MarkPhysical(state, request, group, batch);
+		if (!operationPhysical || !operationPhysical.m_bAccepted)
+		{
+			request.m_sFailureReason = "successful exact QRF operation handoff conflict";
+			if (operationPhysical && !operationPhysical.m_sFailureReason.IsEmpty())
+				request.m_sFailureReason = request.m_sFailureReason + ": " + operationPhysical.m_sFailureReason;
+			return SetExactSupportRuntimeStatus(request, "exact_operation_handoff_conflict");
+		}
 
 		bool changed;
 		if (group.m_sRuntimeStatus == EXACT_PLAYER_SUPPORT_GROUP_STATUS)
@@ -1074,6 +1127,14 @@ class HST_SupportRequestService
 			}
 			else
 			{
+				HST_OperationTransitionResult restoredOnStation = m_Operations.MarkOnStation(state, request, group);
+				if (!restoredOnStation || !restoredOnStation.m_bAccepted)
+				{
+					request.m_sFailureReason = "restored exact QRF arrival conflicts with operation authority";
+					if (restoredOnStation && !restoredOnStation.m_sFailureReason.IsEmpty())
+						request.m_sFailureReason = request.m_sFailureReason + ": " + restoredOnStation.m_sFailureReason;
+					return SetExactSupportRuntimeStatus(request, "exact_operation_arrival_conflict");
+				}
 				request.m_sFailureReason = "Physical arrival confirmed: " + restoredArrivalEvidence;
 				request.m_sRuntimeStatus = "physical_arrived";
 				group.m_sSpawnFailureReason = "Physical support route completion confirmed during restored live-position revalidation: " + restoredArrivalEvidence;
@@ -1096,7 +1157,16 @@ class HST_SupportRequestService
 		}
 
 		if (IsPhysicalSupportFinished(state, request))
-			return ResolveSupportAsPhysicalComplete(state, request) || changed;
+		{
+			if (group.m_sRuntimeStatus == "eliminated")
+				return SettleEliminatedExactPlayerSupport(state, request, group) || changed;
+			if (!m_ExactForceSpawnQueue)
+				return SetExactSupportRuntimeStatus(request, "exact_terminal_settlement_queue_unavailable") || changed;
+			int terminalSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
+			if (group.m_sRuntimeStatus == "spawn_failed")
+				return SettleExactPlayerSupportHRRefund(state, request, terminalSurvivors, "successful exact QRF physical projection failed", "physical_projection_failed_survivors_refunded", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_SPAWN_FAILED) || changed;
+			return SettleExactPlayerSupportHRRefund(state, request, terminalSurvivors, "successful exact QRF physical projection became terminal", "physical_projection_invalidated_survivors_refunded", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED) || changed;
+		}
 
 		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
 		if (state.m_iElapsedSeconds >= arrivalAtSecond && !request.m_bAbstractResolved)
@@ -1104,6 +1174,14 @@ class HST_SupportRequestService
 			string arrivalEvidence;
 			if (ConfirmPhysicalSupportArrival(state, physicalWar, request, arrivalEvidence))
 			{
+				HST_OperationTransitionResult onStation = m_Operations.MarkOnStation(state, request, group);
+				if (!onStation || !onStation.m_bAccepted)
+				{
+					request.m_sFailureReason = "exact QRF arrival conflicts with operation authority";
+					if (onStation && !onStation.m_sFailureReason.IsEmpty())
+						request.m_sFailureReason = request.m_sFailureReason + ": " + onStation.m_sFailureReason;
+					return SetExactSupportRuntimeStatus(request, "exact_operation_arrival_conflict");
+				}
 				request.m_bAbstractResolved = true;
 				request.m_sRuntimeStatus = "physical_arrived";
 				request.m_sFailureReason = "Physical arrival confirmed: " + arrivalEvidence;
@@ -1153,7 +1231,7 @@ class HST_SupportRequestService
 					return SetExactSupportRuntimeStatus(request, "exact_recall_settlement_queue_unavailable");
 				eligibleInfantry = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
 			}
-			return SettleExactPlayerSupportHRRefund(state, request, eligibleInfantry, "exact QRF recalled before deployment", "recalled_before_deploy");
+			return SettleExactPlayerSupportHRRefund(state, request, eligibleInfantry, "exact QRF recalled before deployment", "recalled_before_deploy", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_RECALLED);
 		}
 
 		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
@@ -1167,7 +1245,7 @@ class HST_SupportRequestService
 			if (!m_ExactForceSpawnQueue)
 				return SetExactSupportRuntimeStatus(request, "exact_recall_settlement_queue_unavailable");
 			int lostSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
-			return SettleExactPlayerSupportHRRefund(state, request, lostSurvivors, "exact QRF recall group was lost", "recalled_group_lost");
+			return SettleExactPlayerSupportHRRefund(state, request, lostSurvivors, "exact QRF recall group was lost", "recalled_group_lost", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED);
 		}
 		bool restoredRecallWithoutSpawn = !group.m_bSpawnedEntity
 			&& (group.m_sRuntimeStatus == "exact_restore_waiting_queue_capacity" || group.m_sRuntimeStatus == "support_recalling");
@@ -1183,7 +1261,7 @@ class HST_SupportRequestService
 				if (!m_ExactForceSpawnQueue)
 					return SetExactSupportRuntimeStatus(request, "exact_recall_settlement_queue_unavailable");
 				int restoredSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
-				return SettleExactPlayerSupportHRRefund(state, request, restoredSurvivors, "exact QRF recall recovered while survivor reprojection had no live runtime", "recalled_restore_waiting_reprojection");
+				return SettleExactPlayerSupportHRRefund(state, request, restoredSurvivors, "exact QRF recall recovered while survivor reprojection had no live runtime", "recalled_restore_waiting_reprojection", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_RECALLED);
 			}
 		}
 		if (group.m_sRuntimeStatus == "support_recalling")
@@ -1206,7 +1284,7 @@ class HST_SupportRequestService
 		group.m_bSpawnedEntity = false;
 		group.m_sRuntimeEntityId = "";
 		group.m_sRuntimeStatus = "folded";
-		return SettleExactPlayerSupportHRRefund(state, request, survivorInfantry, "exact QRF recalled survivors", "recalled_refund_hr");
+		return SettleExactPlayerSupportHRRefund(state, request, survivorInfantry, "exact QRF recalled survivors", "recalled_refund_hr", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_RECALLED);
 	}
 
 	protected bool TickRecalledPhysicalGroundSupport(HST_CampaignState state, HST_EconomyService economy, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
@@ -1391,7 +1469,7 @@ class HST_SupportRequestService
 						group.m_sRuntimeEntityId = "";
 						group.m_sRuntimeStatus = "folded";
 					}
-					changed = SettleExactPlayerSupportHRRefund(state, request, terminalSurvivors, "successful exact QRF retired because campaign phase is no longer active", "terminal_phase_survivors_refunded") || changed;
+					changed = SettleExactPlayerSupportHRRefund(state, request, terminalSurvivors, "successful exact QRF retired because campaign phase is no longer active", "terminal_phase_survivors_refunded", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED) || changed;
 					continue;
 				}
 				if (group && group.m_bSpawnCompleted && group.m_bEverPopulated
@@ -1456,12 +1534,12 @@ class HST_SupportRequestService
 					group.m_sRuntimeEntityId = "";
 					group.m_sRuntimeStatus = "folded";
 				}
-				changed = SettleExactPlayerSupportHRRefund(state, request, livingMembers, "successful exact QRF retired because campaign phase is no longer active", "terminal_phase_survivors_refunded") || changed;
+				changed = SettleExactPlayerSupportHRRefund(state, request, livingMembers, "successful exact QRF retired because campaign phase is no longer active", "terminal_phase_survivors_refunded", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED) || changed;
 				continue;
 			}
 			if (!group)
 			{
-				changed = SettleExactPlayerSupportHRRefund(state, request, livingMembers, "successful exact QRF projection owner is missing after restore", "restore_owner_missing_survivors_refunded") || changed;
+				changed = SettleExactPlayerSupportHRRefund(state, request, livingMembers, "successful exact QRF projection owner is missing after restore", "restore_owner_missing_survivors_refunded", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED) || changed;
 				continue;
 			}
 
@@ -1489,7 +1567,22 @@ class HST_SupportRequestService
 					changed = true;
 					continue;
 				}
-				changed = SettleExactPlayerSupportHRRefund(state, request, livingMembers, failure, "restore_reprojection_failed_survivors_refunded") || changed;
+				changed = SettleExactPlayerSupportHRRefund(state, request, livingMembers, failure, "restore_reprojection_failed_survivors_refunded", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED) || changed;
+				continue;
+			}
+
+			HST_OperationTransitionResult restoreMaterializing = m_Operations.MarkRestoreMaterializing(state, request, group);
+			if (!restoreMaterializing || !restoreMaterializing.m_bAccepted)
+			{
+				group.m_bSpawnedEntity = false;
+				group.m_sRuntimeEntityId = "";
+				group.m_sRuntimeStatus = "exact_restore_operation_conflict";
+				request.m_bPhysicalized = false;
+				request.m_sRuntimeStatus = "exact_restore_operation_conflict";
+				request.m_sFailureReason = "exact QRF restore reprojection conflicts with operation authority";
+				if (restoreMaterializing && !restoreMaterializing.m_sFailureReason.IsEmpty())
+					request.m_sFailureReason = request.m_sFailureReason + ": " + restoreMaterializing.m_sFailureReason;
+				changed = true;
 				continue;
 			}
 
@@ -1560,6 +1653,13 @@ class HST_SupportRequestService
 		string linkFailure = ValidateExactPlayerSupportRequestLinks(request, quote, manifest, true);
 		if (!linkFailure.IsEmpty())
 			return linkFailure;
+		if (HST_OperationService.RequiresOperation(request))
+		{
+			HST_OperationRecordState operation = state.FindOperation(request.m_sOperationId);
+			string operationFailure = m_Operations.ValidateExactPlayerQRF(state, operation, request, quote, manifest);
+			if (!operationFailure.IsEmpty())
+				return "accepted exact support operation conflict: " + operationFailure;
+		}
 		string integrityFailure;
 		if (!m_ForceIntegrity.ValidateFrozenPlayerSupportQuote(manifest, quote, requireCurrentCatalog, integrityFailure))
 			return "accepted exact support integrity conflict: " + integrityFailure;
@@ -1827,7 +1927,10 @@ class HST_SupportRequestService
 		string resolutionKind = "reprojection_failed_survivors_refunded";
 		if (cancelled)
 			resolutionKind = "reprojection_cancelled_survivors_refunded";
-		return SettleExactPlayerSupportHRRefund(state, request, survivingInfantry, reason, resolutionKind);
+		HST_EOperationTerminalResult terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_SPAWN_FAILED;
+		if (cancelled)
+			terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
+		return SettleExactPlayerSupportHRRefund(state, request, survivingInfantry, reason, resolutionKind, terminalResult);
 	}
 
 	protected bool SettleEliminatedExactPlayerSupport(
@@ -1836,6 +1939,13 @@ class HST_SupportRequestService
 		HST_ActiveGroupState group)
 	{
 		if (!state || !request)
+			return false;
+		string settlementId = HST_OperationService.BuildSettlementId(request.m_sOperationId, "force_eliminated");
+		HST_OperationTransitionResult operationPreflight = m_Operations.CanSettleExactPlayerQRF(state, request, HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED, settlementId);
+		if (!operationPreflight || !operationPreflight.m_bAccepted)
+			return false;
+		HST_OperationTransitionResult operationSettlement = m_Operations.SettleExactPlayerQRF(state, request, HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED, settlementId, "all exact QRF roster members were confirmed dead");
+		if (!operationSettlement || !operationSettlement.m_bAccepted)
 			return false;
 		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
 		request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
@@ -1857,6 +1967,17 @@ class HST_SupportRequestService
 		string settlementPrefix = "exact_support_failure";
 		if (cancelled)
 			settlementPrefix = "exact_support_cancel";
+		HST_EOperationTerminalResult operationTerminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_SPAWN_FAILED;
+		string operationSettlementKind = "exact_deployment_failed_refunded";
+		if (cancelled)
+		{
+			operationTerminal = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
+			operationSettlementKind = "exact_cancelled_refunded";
+		}
+		string operationSettlementId = HST_OperationService.BuildSettlementId(request.m_sOperationId, operationSettlementKind);
+		HST_OperationTransitionResult operationPreflight = m_Operations.CanSettleExactPlayerQRF(state, request, operationTerminal, operationSettlementId);
+		if (!operationPreflight || !operationPreflight.m_bAccepted)
+			return false;
 		string moneySettlementId = settlementPrefix + "_money_" + request.m_sRequestId;
 		string hrSettlementId = settlementPrefix + "_hr_" + request.m_sRequestId;
 		HST_ResourceTransactionState moneyTransaction = state.FindResourceTransaction(request.m_sMoneyTransactionId);
@@ -1870,6 +1991,9 @@ class HST_SupportRequestService
 		bool moneySettled = SettleExactSupportTransaction(state, request, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, request.m_iMoneyCost, moneySettlementId, reason);
 		bool hrSettled = SettleExactSupportTransaction(state, request, HST_ResourceLedgerService.RESOURCE_HR, request.m_iHRCost, hrSettlementId, reason);
 		if (!moneySettled || !hrSettled)
+			return false;
+		HST_OperationTransitionResult operationSettlement = m_Operations.SettleExactPlayerQRF(state, request, operationTerminal, operationSettlementId, reason);
+		if (!operationSettlement || !operationSettlement.m_bAccepted)
 			return false;
 
 		if (hrTransaction)
@@ -1897,9 +2021,19 @@ class HST_SupportRequestService
 		return true;
 	}
 
-	protected bool SettleExactPlayerSupportHRRefund(HST_CampaignState state, HST_SupportRequestState request, int eligibleInfantry, string reason, string resolutionKind)
+	protected bool SettleExactPlayerSupportHRRefund(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		int eligibleInfantry,
+		string reason,
+		string resolutionKind,
+		HST_EOperationTerminalResult operationTerminal)
 	{
 		if (!state || !request || !m_ExactResourceLedger || !m_ExactEconomy)
+			return false;
+		string operationSettlementId = HST_OperationService.BuildSettlementId(request.m_sOperationId, resolutionKind);
+		HST_OperationTransitionResult operationPreflight = m_Operations.CanSettleExactPlayerQRF(state, request, operationTerminal, operationSettlementId);
+		if (!operationPreflight || !operationPreflight.m_bAccepted)
 			return false;
 		int targetRefund = Math.Min(request.m_iHRCost, Math.Max(0, eligibleInfantry));
 		if (!SettleExactSupportTransaction(state, request, HST_ResourceLedgerService.RESOURCE_HR, targetRefund, "exact_support_recall_hr_" + request.m_sRequestId, reason))
@@ -1907,6 +2041,9 @@ class HST_SupportRequestService
 		HST_ResourceTransactionState transaction = state.FindResourceTransaction(request.m_sHRTransactionId);
 		if (transaction)
 			request.m_iRefundedHR = Math.Min(request.m_iHRCost, Math.Max(0, transaction.m_iRefundedAmount));
+		HST_OperationTransitionResult operationSettlement = m_Operations.SettleExactPlayerQRF(state, request, operationTerminal, operationSettlementId, reason);
+		if (!operationSettlement || !operationSettlement.m_bAccepted)
+			return false;
 		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
 		request.m_iResolvedAtSecond = state.m_iElapsedSeconds;
 		request.m_sResolutionKind = resolutionKind;
@@ -2271,6 +2408,14 @@ class HST_SupportRequestService
 
 	protected HST_SupportRecallResult BeginExactPlayerSupportRecall(HST_CampaignState state, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
 	{
+		HST_OperationTransitionResult recallPreflight = m_Operations.CanBeginRecall(state, request);
+		if (!recallPreflight || !recallPreflight.m_bAccepted)
+		{
+			string operationFailure = "exact QRF operation rejected recall";
+			if (recallPreflight && !recallPreflight.m_sFailureReason.IsEmpty())
+				operationFailure = operationFailure + ": " + recallPreflight.m_sFailureReason;
+			return BuildSupportRecallResult(false, false, "operation_conflict", request, "h-istasi support recall | failed: " + operationFailure, operationFailure);
+		}
 		HST_ForceSpawnResultState batch = FindExactSupportSpawnBatch(state, request);
 		if (batch && batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL)
 		{
@@ -2292,6 +2437,9 @@ class HST_SupportRequestService
 				HST_ForceSpawnQueueCallbackResult cancel = m_ExactForceSpawnQueue.RequestCancel(state.m_aForceSpawnResults, batch.m_sResultId, state.m_iElapsedSeconds, "exact QRF recalled before deployment");
 				if (!cancel || !cancel.m_bAccepted)
 					return BuildSupportRecallResult(false, cancel && cancel.m_bStateChanged, "predeployment_cancellation_rejected", request, "h-istasi support recall | failed: exact predeployment cancellation was rejected", "exact predeployment cancellation was rejected");
+				HST_OperationTransitionResult recallOrdered = m_Operations.BeginRecall(state, request, request.m_vSourcePosition);
+				if (!recallOrdered || !recallOrdered.m_bAccepted)
+					return BuildSupportRecallResult(false, true, "operation_conflict_cleanup_pending", request, "h-istasi support recall | exact queue cancellation accepted but operation recall transition conflicted", "operation recall transition conflicted after queue cancellation");
 				MarkSupportRecallAccepted(state, request, "exact_recall_waiting_cleanup");
 				m_bMarkerRefreshNeeded = true;
 				return BuildSupportRecallResult(true, true, "predeployment_cleanup_pending", request, string.Format("h-istasi support recall | %1 cancellation ordered before deployment | HR refund pending exact cleanup", request.m_sRequestId));
@@ -2304,7 +2452,10 @@ class HST_SupportRequestService
 					return BuildSupportRecallResult(false, false, "settlement_queue_unavailable", request, "h-istasi support recall | failed: exact settlement queue is unavailable", "exact settlement queue is unavailable");
 				eligibleInfantry = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
 			}
-			bool settled = SettleExactPlayerSupportHRRefund(state, request, eligibleInfantry, "exact QRF recalled before deployment", "recalled_before_deploy");
+			HST_OperationTransitionResult virtualRecall = m_Operations.BeginRecall(state, request, request.m_vSourcePosition);
+			if (!virtualRecall || !virtualRecall.m_bAccepted)
+				return BuildSupportRecallResult(false, false, "operation_conflict", request, "h-istasi support recall | failed: exact virtual recall operation transition conflicted", "exact virtual recall operation transition conflicted");
+			bool settled = SettleExactPlayerSupportHRRefund(state, request, eligibleInfantry, "exact QRF recalled before deployment", "recalled_before_deploy", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_RECALLED);
 			if (!settled)
 				return BuildSupportRecallResult(false, false, "predeployment_settlement_failed", request, "h-istasi support recall | failed: exact predeployment HR refund could not settle", "exact predeployment HR refund could not settle");
 			MarkSupportRecallAccepted(state, request);
@@ -2323,7 +2474,7 @@ class HST_SupportRequestService
 			if (!m_ExactForceSpawnQueue)
 				return BuildSupportRecallResult(false, false, "settlement_queue_unavailable", request, "h-istasi support recall | failed: exact settlement queue is unavailable", "exact settlement queue is unavailable");
 			int lostSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
-			bool lostSettled = SettleExactPlayerSupportHRRefund(state, request, lostSurvivors, "exact QRF recall group was lost", "recalled_group_lost");
+			bool lostSettled = SettleExactPlayerSupportHRRefund(state, request, lostSurvivors, "exact QRF recall group was lost", "recalled_group_lost", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED);
 			if (!lostSettled)
 				return BuildSupportRecallResult(false, false, "lost_group_settlement_failed", request, "h-istasi support recall | failed: exact lost-group HR refund could not settle", "exact lost-group HR refund could not settle");
 			MarkSupportRecallAccepted(state, request);
@@ -2334,7 +2485,10 @@ class HST_SupportRequestService
 			if (!m_ExactForceSpawnQueue)
 				return BuildSupportRecallResult(false, false, "restore_settlement_queue_unavailable", request, "h-istasi support recall | failed: exact restore-recall settlement queue is unavailable", "exact restore-recall settlement queue is unavailable");
 			int restoredSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
-			bool restoredSettled = SettleExactPlayerSupportHRRefund(state, request, restoredSurvivors, "exact QRF recalled while survivor reprojection awaited queue capacity", "recalled_restore_waiting_reprojection");
+			HST_OperationTransitionResult restoredRecall = m_Operations.BeginRecall(state, request, request.m_vSourcePosition);
+			if (!restoredRecall || !restoredRecall.m_bAccepted)
+				return BuildSupportRecallResult(false, false, "operation_conflict", request, "h-istasi support recall | failed: restore-recall operation transition conflicted", "restore-recall operation transition conflicted");
+			bool restoredSettled = SettleExactPlayerSupportHRRefund(state, request, restoredSurvivors, "exact QRF recalled while survivor reprojection awaited queue capacity", "recalled_restore_waiting_reprojection", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_RECALLED);
 			if (!restoredSettled)
 				return BuildSupportRecallResult(false, false, "restore_settlement_failed", request, "h-istasi support recall | failed: exact restore-recall HR refund could not settle", "exact restore-recall HR refund could not settle");
 			MarkSupportRecallAccepted(state, request);
@@ -2356,6 +2510,15 @@ class HST_SupportRequestService
 			request.m_sRuntimeStatus = "exact_recall_route_failed";
 			request.m_sFailureReason = "exact recall route failed";
 			return BuildSupportRecallResult(false, true, "route_failed", request, string.Format("h-istasi support recall | failed: could not route exact QRF %1 out of area", request.m_sRequestId), "exact recall route failed");
+		}
+		HST_OperationTransitionResult recallExiting = m_Operations.MarkRecallExiting(state, request, group, exitPosition);
+		if (!recallExiting || !recallExiting.m_bAccepted)
+		{
+			request.m_sRuntimeStatus = "exact_recall_operation_conflict";
+			request.m_sFailureReason = "exact recall route accepted but operation transition conflicted";
+			if (recallExiting && !recallExiting.m_sFailureReason.IsEmpty())
+				request.m_sFailureReason = request.m_sFailureReason + ": " + recallExiting.m_sFailureReason;
+			return BuildSupportRecallResult(false, true, "operation_conflict", request, "h-istasi support recall | failed: " + request.m_sFailureReason, request.m_sFailureReason);
 		}
 
 		MarkSupportRecallAccepted(state, request, "recall_routing");

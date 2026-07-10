@@ -261,8 +261,8 @@ class HST_ForceSpawnAdapterProofService
 			return string.Format("production adapter has %1 pre-existing runtime binding(s)", adapter.CountBindings());
 		if (HasNonterminalSpawnBatch(state))
 			return "isolated state contains pre-existing nonterminal spawn work";
-		if (state.m_iSchemaVersion != HST_CampaignState.SCHEMA_VERSION || state.m_iSchemaVersion != 48)
-			return string.Format("schema 47 required, actual %1", state.m_iSchemaVersion);
+		if (state.m_iSchemaVersion != HST_CampaignState.SCHEMA_VERSION)
+			return string.Format("current campaign schema %1 required, actual %2", HST_CampaignState.SCHEMA_VERSION, state.m_iSchemaVersion);
 		if (debugPrefix.IsEmpty() || !debugPrefix.Contains("hst_debug_"))
 			return "run-specific campaign debug prefix missing";
 		if (IsZeroVector(state.m_vHQPosition))

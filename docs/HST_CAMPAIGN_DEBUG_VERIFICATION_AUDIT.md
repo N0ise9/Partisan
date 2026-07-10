@@ -20,6 +20,15 @@ be read as proof that a later change was executed or certified.
   where the marker widget root is null. Marker state creation and native
   publication counters therefore do not prove a render-ready marker. The proof
   must inspect delayed widget-root readiness on the owning client.
+- A newer short packaged check used the stamped schema-48 build
+  `3157ca28b066630ffb87cac292f74e20ce243efd` and exposed a broader client
+  initialization regression: the user had neither normal stock HUD nor usable
+  Game Master. Config loading rejected the modded editor-manager, editable-budget,
+  and placed-marker entry types before stock HUD initialization received a null
+  editor manager. Source audit found that those config-backed modded class
+  declarations had omitted the base class's container/custom-title metadata.
+  Current source restores the matching attributes and provisionally compiles,
+  but no published runtime has verified HUD/editor recovery.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -36,7 +45,8 @@ be read as proof that a later change was executed or certified.
 - The inspected gameplay artifact predates campaign schema 43 exact-force
   authority, schema 44 SpawnQueue authority, the schema 45 engine adapter, and
   the schema 46 exact player-QRF cutover, schema 47 exact force-runtime
-  lifecycle authority, and schema 48 accepted-settlement archive.
+  lifecycle authority, schema 48 accepted-settlement archive, and schema 49
+  exact-QRF operation authority.
   The schema-45 authority baseline passed foundation checks and a headless
   Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
   an HR reservation-conflict rollback, and five partial confirmation save/
@@ -247,6 +257,56 @@ vehicle class from its runtime-vehicle count. Its expected state comes from the
 persisted deep clone, while the untouched live campaign can still own the
 physical salvage entity; comparing raw counts would create an isolation false
 failure without proving a mutation.
+
+Post-audit Game Master/stock-HUD config follow-up: the latest packaged check was
+not blocked by player authorization. Server evidence recognized the user as the
+expected admin/member/commander, while client config loading reported unknown
+`SCR_EditorManagerCore`, repeated unknown
+`SCR_EditableEntityCoreBudgetSetting`, and unknown
+`SCR_MapMarkerEntryPlaced` types. Stock HUD initialization then cascaded from a
+null editor manager. These are recoverable VM/config failures rather than proof
+of an operating-system process crash. The affected modded declarations now repeat
+the base config contracts: config-root container metadata for the editor manager,
+the editable-budget custom enum title, and marker icon/placed-entry container
+plus custom-title attributes. A validator guard covers all four declarations.
+The schema-49 work-in-progress tree provisionally compiled and created the Game
+module at 5,743 files/11,497 classes with CRC `fb8cdf64`. This proves only source
+compatibility; a republished client/server run must show zero unknown types,
+normal stock HUD, and usable Game Master before the defect is closed.
+
+Post-audit schema-49 operation-authority follow-up: current source adds the first
+canonical `HST_OperationRecordState` only for confirmed exact paid player
+infantry QRFs. Quote issue keeps the stable operation identity but creates no
+record; successful confirmation registers exactly one contract-version-1 record
+with immutable origin/assignment, mutable tactical target, typed duty,
+engagement, materialization, position authority, settlement, terminal result,
+policy IDs, timestamps, execution links, and revision. Queue admission, physical
+handoff, arrival, restore reprojection, recall/exit, terminal ledger settlement,
+and accepted-settlement archival now advance or preserve that authority.
+Settlement replay is idempotent and conflicting terminal outcomes fail closed.
+The engagement API enforces the legal clear/contact/engaged/disengaging cycle and
+preserves resumable duty, but no live combat-contact path calls it yet.
+
+Schema-48 migration is deliberately conservative: only a uniquely coherent
+accepted nonterminal exact paid QRF with matching quote/manifest, unique
+committed money/HR transactions, and unique optional batch/group links receives
+a record. Economy, ledger, request, quote,
+manifest, queue, and group status are unchanged. Pre-exact, terminal,
+archived-only, ambiguous, legacy/enemy, and other-support rows remain contract
+version `0`. Restored open physical operations normalize to strategic
+materializing until survivor reprojection; terminal archive compaction keeps
+contract version, settlement ID, revision, and typed terminal result while
+removing the full operation row. This remains source/provisional-compile
+evidence. `HST_OperationRecordProofService.Run()` is integrated into the existing
+`early_mechanics.force_authority` case through eight stable assertions:
+`operation_record.issue_confirm`, `operation_record.materialization`,
+`operation_record.engagement`, `operation_record.recall_settlement`,
+`operation_record.restore_projection`, `operation_record.schema48_migration`,
+`operation_record.archive`, and `operation_record.legacy_qrf_isolation`. They
+compile but have not run in a packaged runtime.
+Real restart/migration and archive replay are pending, and schema 49 does not claim strategic route
+cursor/hysteresis, generalized virtualization, vehicle/assets/multi-root forces,
+or complete Phase 4 behavior.
 
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue
@@ -593,6 +653,11 @@ failures remain. Implementation breadth must not be reported as certification.
 
 Evidence checked in code:
 
+- Schema-49 operation authority: `HST_OperationService` and persisted
+  `HST_OperationRecordState` integrate exact paid-QRF confirmation, queue,
+  handoff, arrival, restore, recall, terminal settlement, migration, and archive
+  boundaries. This inspection is not a fresh Full Campaign Debug, packaged
+  runtime, or process-restart result.
 - Admin UI/dispatch: `admin_run_campaign_debug [smoke|physical|full]`, `admin_campaign_debug_status`, `admin_campaign_debug_cancel`, and `admin_campaign_debug_cleanup` are in command coverage, visible admin actions, and coordinator dispatch.
 - Result/artifact harness: `HST_CampaignDebugRunResult`, `HST_CampaignDebugCaseResult`, `HST_CampaignDebugAssertion`, and `HST_CampaignDebugMetric` exist and are used by `RecordCampaignDebugCase`; run artifacts are written as JSON, summary, and state-diff files.
 - Stage conversion: bootstrap, preflight, HQ runtime, economy/income/training, support, generated content, persistence smoke, mission start/runtime/cleanup, primitive probes, render bubbles, garrison, civilian aid, support cancel, garage/loadout, Phase 14-24, and cleanup leak checks emit typed cases.
@@ -662,7 +727,7 @@ Unproven or incomplete against the pasted contract:
 | Typed harness and artifacts | Typed run/case/assertion/metric data, run IDs, JSON/summary/state-diff artifacts, status/cancel/cleanup commands, action/observation typed wrappers, and explicit typed completion/receipt mapping for support recall. | Generic action/observation rows and unmigrated visible commands are still classifier-backed evidence, not feature-specific physical probes. |
 | Phase smoke wrapping | Valid phase-smoke indexes 0-62 now emit typed cases instead of duplicate legacy result rows; phase persistence seed/run/report steps are typed. | Physical depth inside some phases remains partial. |
 | Bootstrap/preflight/HQ | Server/admin/member/commander, phase repair, HQ/Petros/player presence, service/registry/prefab/zone graph checks, HQ runtime and duplicate scans. | Command-menu visual opening remains inferred through service/menu data, not rendered UI. |
-| Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route-state samples, typed recall receipt and paired-settlement conflict cases, an ETA no-false-arrival assertion, a terminal-resolution assertion conditional on prior live arrival, civilian population/movement samples, controlled wanted-heat decay, and undercover compromise/clear paths. | Production RPC/save-restart recall replay, real-frame support movement, two-sample arrival/recall exit, unconditional terminal-resolution execution, natural support contact/combat, and broader civilian reaction behavior beyond heat/population are not proven. |
+| Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route-state samples, typed recall receipt and paired-settlement conflict cases, eight coordinator-integrated schema-49 operation assertions, plus civilian/undercover probes. | Operation assertions still need packaged execution; production RPC/save-restart recall replay, real-frame support movement, two-sample arrival/recall exit, unconditional terminal resolution, natural support contact/combat, and broader civilian reaction behavior remain unproven. |
 | Active-group lifecycle | Deterministic `active_group_lifecycle.*` cases prove one mixed-QRF personnel-terminal transition, linked QRF failure, zero capture pressure, terminal-before-unresolved marker ordering, replay no-op, schema-48 roundtrip, and living-mixed/vehicle-only controls. | Physical neutral-salvage detachment, entity/handle cleanup, player capture, dedicated replication, ownership-flip behavior, and process restart remain external runtime gaps. |
 | Physical AI combat | Timed `physical_combat.ai_contact` probe spawns temporary resistance/enemy active groups in the player render bubble, proves native faction hostility, assigns opposing search-and-destroy waypoints, samples live counts/distance through the normal physical-war tick, requires live-count loss during the hostile-contact window, and cleans all temporary groups/waypoints. | This does not yet prove support-arrival combat, primitive area-clearing combat, or multi-wave Petros/counterattack resolution. |
 | Missions and primitives | All-mission start/runtime/cleanup cases, primitive-specific probes for kill/destroy/recover/deliver/rescue/hold/clear, exact reward assertions, mission cleanup checks, and explicit admin-cleanup WARN classification. | Natural player driving/path travel, mission-owned hostile combat/area clearing, and true runtime completion for every mission remain partial. |
@@ -670,10 +735,10 @@ Unproven or incomplete against the pasted contract:
 | Convoys | Asset/entity/crew/driver/mobile/route/waypoint/readiness/progress/stall/recovery/contact evidence with no-progress failures, sampled travel/contact-or-terminal/terminal phase-chain assertions, plus a separate controlled state-machine probe that proves staging -> moving -> contact -> eliminated on temporary debug records through the real physical-war helpers. | Natural live staging -> moving -> contact -> arrival/elimination phase history is still WARN unless every phase is actually observed for the convoy under test; the controlled probe does not prove physical driving or the arrival failure path. |
 | POW/captives | Free/follow/extract state, repeated follow samples, alive/extracted counts, exact reward deltas, and a debug-only temporary captive boarding/transport compartment probe. | Natural player-driven POW transport over a real route remains open. |
 | Phase 17/22 enemy response | Counterattack/Petros attack orders, support physicalization, linked active groups, routed movement samples, stall evidence, and Phase 22 base-position assertions proving Defend Petros targets HQ/Petros rather than the nearby bookkeeping zone. | Multi-wave/contact/arrival/resolution behavior remains open. |
-| Markers/UI/native markers | Command coverage, menu controls, zone/HQ/mission/support/QRF model markers, owner/color/style/position, native publication counters, handle liveness, purge reporting, and strict failed-action rejection/no-mutation assertions. | The latest client run emitted 6,806 null-widget-root update exceptions for static campaign markers. Fix delayed root readiness and prove rendered owner-client widgets; publication counters alone are insufficient. |
+| Markers/UI/native markers | Command coverage, menu controls, zone/HQ/mission/support/QRF model markers, owner/color/style/position, native publication counters, handle liveness, purge reporting, strict failed-action rejection/no-mutation assertions, and source restoration of config-container metadata. | Earlier evidence emitted 6,806 null-widget-root marker exceptions; the newer packaged client lost stock HUD/Game Master at config load. Republish and prove known config types, editor/HUD readiness, delayed marker roots, and rendered owner-client widgets. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. | Rendered inspection and multiple zone-type windows remain open. |
-| Persistence | Baseline persistence typed, seeded smoke roundtrip through `HST_CampaignSaveData`, active mission/convoy/primitive/garage/support/order/civilian/undercover sentinel checks, and a restore-eligible `field_vehicle` runtime sentinel that survives the in-memory save-data roundtrip exactly once. | Real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore are still external/manual gaps. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist; schema-49 source and focused assertions cover deep copy, conservative schema-48 migration, restored physical-authority normalization, and terminal archival evidence. | The new assertions need packaged execution; real process restart/migration/archive replay, multiclient reconnect/soak, and physical field-vehicle respawn remain external/manual gaps. |
 | Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, stall evidence for several physical categories. | Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence
@@ -741,6 +806,14 @@ Unproven or incomplete against the pasted contract:
   evidence but is not a substitute for those feature-specific flows.
 - Loadout editor rendered/visual proof is still partial: the debug runner now counts physical player-inventory reflection/restore and server-side live-draft slot model reflection/restore for a non-serialized saved loadout, but it does not inspect the rendered editor UI or visually prove the seeded finite debug item is equipped in a specific player slot.
 - Render/UI depth is still incomplete for rendered map widget inspection. Command-menu visual opening now has an owner-client rendered widget proof path, but the current audit has not yet seen a fresh runtime artifact with that report.
+- The latest packaged client could not initialize stock HUD or Game Master because
+  config-backed modded classes lost their base container metadata. Source now
+  restores the attributes, but only a republished run can prove the repair.
+- Schema-49 operation depth is limited to confirmed exact paid player infantry
+  QRFs. Live combat contact does not drive engagement; strategic route progress/
+  cursor/hysteresis, generalized virtualization, other force/order families,
+  packaged execution of the integrated assertions, and real restart/migration/
+  archive replay remain open.
 - Persistence depth is still incomplete for real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore.
 - Cleanup/stall coverage is not universal: untagged debug leftovers cannot be deterministically removed, cleanup depends on debug spawn paths naming physical entities, and some physical categories still lack stall evidence dumps.
 - Some rows are intentionally classifier-backed action/observation evidence rather than feature-specific physical probes; these should be replaced with narrower typed cases when they represent real mechanics rather than reports.

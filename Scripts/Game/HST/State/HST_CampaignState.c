@@ -145,6 +145,54 @@ class HST_QRFState
 }
 
 [BaseContainerProps()]
+class HST_OperationRecordState
+{
+	string m_sOperationId;
+	HST_EOperationType m_eType = HST_EOperationType.HST_OPERATION_TYPE_UNKNOWN;
+	int m_iContractVersion;
+	string m_sOwnerFactionKey;
+	string m_sActorIdentityId;
+	string m_sIssueRequestId;
+	string m_sConfirmationRequestId;
+	string m_sSupportRequestId;
+	string m_sQuoteId;
+	string m_sManifestId;
+	string m_sSpawnResultId;
+	string m_sForceId;
+	string m_sProjectionId;
+	string m_sGroupId;
+	string m_sOriginZoneId;
+	vector m_vOriginPosition;
+	string m_sAssignmentKind;
+	string m_sAssignmentZoneId;
+	vector m_vAssignmentPosition;
+	string m_sTacticalTargetZoneId;
+	vector m_vTacticalTargetPosition;
+	vector m_vStrategicPosition;
+	string m_sCurrentRouteId;
+	string m_sRecallPolicyId;
+	string m_sSettlementPolicyId;
+	HST_EOperationDutyState m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN;
+	HST_EOperationDutyState m_eResumeDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN;
+	HST_EOperationEngagementMode m_eEngagementMode = HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_UNKNOWN;
+	HST_EOperationMaterializationState m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_UNKNOWN;
+	HST_EOperationPositionAuthority m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_UNKNOWN;
+	HST_EOperationSettlementState m_eSettlementState = HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_UNKNOWN;
+	HST_EOperationTerminalResult m_eTerminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN;
+	string m_sSettlementId;
+	string m_sTerminalReason;
+	int m_iDeterministicSeed;
+	int m_iCreatedAtSecond;
+	int m_iDutyStateEnteredAtSecond;
+	int m_iEngagementStateEnteredAtSecond;
+	int m_iMaterializationStateEnteredAtSecond;
+	int m_iLastContactAtSecond;
+	int m_iLastProgressAtSecond;
+	int m_iSettledAtSecond;
+	int m_iRevision = 1;
+}
+
+[BaseContainerProps()]
 class HST_MapMarkerState
 {
 	string m_sMarkerId;
@@ -623,6 +671,7 @@ class HST_SupportRequestState
 	int m_iMoneyCost;
 	int m_iHRCost;
 	int m_iPlannedInfantryCount;
+	int m_iOperationContractVersion;
 	int m_iRefundedHR;
 	int m_iCompositionCost;
 	int m_iCompositionManpower;
@@ -897,7 +946,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 48;
+	static const int SCHEMA_VERSION = 49;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1001,6 +1050,7 @@ class HST_CampaignState
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
 	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
 	ref array<ref HST_QRFState> m_aQRFs = {};
+	ref array<ref HST_OperationRecordState> m_aOperations = {};
 	ref array<ref HST_MapMarkerState> m_aMapMarkers = {};
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
@@ -1323,6 +1373,20 @@ class HST_CampaignState
 		{
 			if (eventState && eventState.m_sEventId == eventId)
 				return eventState;
+		}
+
+		return null;
+	}
+
+	HST_OperationRecordState FindOperation(string operationId)
+	{
+		if (operationId.IsEmpty())
+			return null;
+
+		foreach (HST_OperationRecordState operation : m_aOperations)
+		{
+			if (operation && operation.m_sOperationId == operationId)
+				return operation;
 		}
 
 		return null;

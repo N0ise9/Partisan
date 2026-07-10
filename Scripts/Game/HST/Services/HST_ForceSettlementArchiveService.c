@@ -14,6 +14,7 @@ class HST_ForceSettlementArchiveService
 	static const int MAX_TOMBSTONE_ROWS = 256;
 	static const int MAX_TOTAL_PLANNING_AUTHORITY_ROWS = 320;
 	protected ref HST_ForcePlanningIntegrityService m_Integrity = new HST_ForcePlanningIntegrityService();
+	protected ref HST_OperationService m_Operations = new HST_OperationService();
 
 	HST_ForceSettlementArchiveResult ArchiveSettledRecords(HST_CampaignState state)
 	{
@@ -48,21 +49,27 @@ class HST_ForceSettlementArchiveService
 			array<ref HST_ResourceTransactionState> transactions = {};
 			HST_SupportRequestState supportRequest;
 			HST_GarrisonState garrison;
+			HST_OperationRecordState operation;
 			string settlementKind;
-			string failure = ValidateArchiveCandidate(state, quote, manifest, transactions, supportRequest, garrison, settlementKind);
+			string failure = ValidateArchiveCandidate(state, quote, manifest, transactions, supportRequest, garrison, operation, settlementKind);
 			if (!failure.IsEmpty())
 			{
 				result.m_iDeferredCount++;
 				continue;
 			}
 
-			HST_ForceSettlementTombstoneState tombstone = BuildTombstone(quote, manifest, transactions, settlementKind, state.m_iElapsedSeconds);
+			HST_ForceSettlementTombstoneState tombstone = BuildTombstone(quote, manifest, transactions, operation, settlementKind, state.m_iElapsedSeconds);
 			if (!IsReplayTombstoneValid(tombstone))
 			{
 				result.m_iDeferredCount++;
 				continue;
 			}
 
+			if (operation && !m_Operations.RemoveArchivedOperation(state, operation))
+			{
+				result.m_iDeferredCount++;
+				continue;
+			}
 			state.m_aForceSettlementTombstones.Insert(tombstone);
 			RemoveAcceptedGarrisonManifestLink(garrison, manifest.m_sManifestId);
 			RemoveArchivedTransactions(state, transactions);
@@ -189,6 +196,20 @@ class HST_ForceSettlementArchiveService
 			return false;
 		if (tombstone.m_iAcceptedMemberCount < 0 || tombstone.m_iAcceptedVehicleCount < 0)
 			return false;
+		if (tombstone.m_iOperationContractVersion > 0)
+		{
+			if (tombstone.m_iOperationContractVersion != HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION
+				|| tombstone.m_sQuoteKind != HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF
+				|| tombstone.m_eSupportType != HST_ESupportRequestType.HST_SUPPORT_QRF
+				|| tombstone.m_sOperationSettlementId.IsEmpty() || tombstone.m_iOperationRevision <= 0
+				|| tombstone.m_eOperationTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
+				|| tombstone.m_eOperationTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+				|| tombstone.m_sOperationSettlementId != HST_OperationService.BuildSettlementId(tombstone.m_sOperationId, tombstone.m_sSettlementKind))
+				return false;
+		}
+		else if (!tombstone.m_sOperationSettlementId.IsEmpty() || tombstone.m_iOperationRevision != 0
+			|| tombstone.m_eOperationTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN)
+			return false;
 		array<string> transactionIds = {};
 		foreach (HST_ForceSettlementTransactionTombstoneState transaction : tombstone.m_aTransactions)
 		{
@@ -210,11 +231,13 @@ class HST_ForceSettlementArchiveService
 		array<ref HST_ResourceTransactionState> transactions,
 		out HST_SupportRequestState supportRequest,
 		out HST_GarrisonState garrison,
+		out HST_OperationRecordState operation,
 		out string settlementKind)
 	{
 		manifest = null;
 		supportRequest = null;
 		garrison = null;
+		operation = null;
 		settlementKind = "";
 		if (!state || !quote || !transactions)
 			return "archive candidate authority is incomplete";
@@ -279,6 +302,18 @@ class HST_ForceSettlementArchiveService
 		settlementKind = supportRequest.m_sResolutionKind;
 		if (settlementKind.IsEmpty())
 			settlementKind = "terminal_support_settlement";
+		if (HST_OperationService.RequiresOperation(supportRequest))
+		{
+			operation = state.FindOperation(supportRequest.m_sOperationId);
+			string operationFailure = m_Operations.ValidateExactPlayerQRF(state, operation, supportRequest, quote, manifest);
+			if (!operationFailure.IsEmpty())
+				return "accepted support operation conflicts with archive identity: " + operationFailure;
+			if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+				|| operation.m_sSettlementId != HST_OperationService.BuildSettlementId(operation.m_sOperationId, settlementKind))
+				return "accepted support operation is not settled under the archived settlement identity";
+		}
+		else if (state.FindOperation(supportRequest.m_sOperationId))
+			return "pre-contract support unexpectedly owns an operation record";
 		return "";
 	}
 
@@ -341,6 +376,7 @@ class HST_ForceSettlementArchiveService
 		HST_ForceQuoteState quote,
 		HST_ForceManifestState manifest,
 		array<ref HST_ResourceTransactionState> transactions,
+		HST_OperationRecordState operation,
 		string settlementKind,
 		int archivedAtSecond)
 	{
@@ -366,6 +402,13 @@ class HST_ForceSettlementArchiveService
 		tombstone.m_sAttackTransactionId = quote.m_sAttackTransactionId;
 		tombstone.m_sSupportTransactionId = quote.m_sSupportTransactionId;
 		tombstone.m_sSettlementKind = settlementKind;
+		if (operation)
+		{
+			tombstone.m_sOperationSettlementId = operation.m_sSettlementId;
+			tombstone.m_iOperationContractVersion = operation.m_iContractVersion;
+			tombstone.m_iOperationRevision = operation.m_iRevision;
+			tombstone.m_eOperationTerminalResult = operation.m_eTerminalResult;
+		}
 		tombstone.m_vSourcePosition = quote.m_vSourcePosition;
 		tombstone.m_vTargetPosition = quote.m_vTargetPosition;
 		tombstone.m_eSupportType = quote.m_eSupportType;

@@ -16163,6 +16163,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.catalog", "all configured core group execution prefabs match exact ordered catalog slots", proof.m_sCatalogEvidence, CampaignDebugStatus(proof.m_bCatalogExact), "force catalog does not match one or more authored execution-prefab rosters");
 		AddCampaignDebugAssertion(forceCase, "force_authority.restore_reconciliation", "every partial reserve, aggregate, and commit boundary rolls back exactly after restore", proof.m_sReconciliationEvidence, CampaignDebugStatus(proof.m_bReconciliationExact), "interrupted garrison confirmation did not reconcile exactly");
 		AppendCampaignDebugPaidSupportAuthorityAssertions(forceCase);
+		AppendCampaignDebugOperationRecordAssertions(forceCase);
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
 		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
 		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
@@ -16198,6 +16199,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_recall_lost_group", "a terminal deployed group settles survivor HR only when its exact ledger remains valid, and rejects without mutation on conflict", proof.m_sRecallLostGroupEvidence, CampaignDebugStatus(proof.m_bRecallLostGroupExact), "paid QRF lost-group recall ignored or misclassified its settlement result");
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_terminal_refund", "setup/won/lost settlement cancels and fully refunds an accepted exact QRF that has no admitted batch", proof.m_sTerminalRefundEvidence, CampaignDebugStatus(proof.m_bTerminalRefundExact), "paid QRF terminal-phase settlement stranded an accepted request without queue work");
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_legacy_migration", "schema 45 paid QRF charges import as historical ledger evidence without balance mutation or invented quote/manifest", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bMigrationExact), "legacy paid QRF migration lost balances or invented authority state");
+	}
+
+	protected void AppendCampaignDebugOperationRecordAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_OperationRecordProofService proofService = new HST_OperationRecordProofService();
+		HST_OperationRecordProofReport proof = proofService.Run();
+		forceCase.m_aEvidence.Insert(proof.m_sIssueConfirmEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMaterializationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sEngagementEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRecallSettlementEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreProjectionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSchema48MigrationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sArchiveEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sLegacyQRFIsolationEvidence);
+		AddCampaignDebugAssertion(forceCase, "operation_record.issue_confirm", "issuing an exact paid infantry QRF allocates no operation or debit, while successful confirmation creates one immutable versioned operation and replay changes nothing", proof.m_sIssueConfirmEvidence, CampaignDebugStatus(proof.m_bIssueConfirmExact), "exact paid QRF issue, confirmation, or registration replay crossed the OperationRecord authority boundary incorrectly");
+		AddCampaignDebugAssertion(forceCase, "operation_record.materialization", "the exact QRF operation advances from virtual staging through linked materialization and physical handoff to on-station duty without changing its assignment", proof.m_sMaterializationEvidence, CampaignDebugStatus(proof.m_bMaterializationExact), "exact paid QRF materialization did not preserve linked operation authority");
+		AddCampaignDebugAssertion(forceCase, "operation_record.engagement", "only CLEAR to CONTACT to ENGAGED to DISENGAGING to CLEAR is accepted, while duty and resume duty remain orthogonal", proof.m_sEngagementEvidence, CampaignDebugStatus(proof.m_bEngagementExact), "OperationRecord engagement transitions were illegal or changed duty authority");
+		AddCampaignDebugAssertion(forceCase, "operation_record.recall_settlement", "recall changes the tactical target but not the immutable assignment, then one typed terminal result settles idempotently and rejects a conflicting result", proof.m_sRecallSettlementEvidence, CampaignDebugStatus(proof.m_bRecallSettlementExact), "OperationRecord recall or typed terminal settlement was not exact");
+		AddCampaignDebugAssertion(forceCase, "operation_record.restore_projection", "current-schema restore deep-copies physical operation authority as strategic MATERIALIZING state at the saved active-group position while preserving duty and assignment", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bRestoreProjectionExact), "physical OperationRecord restore did not transfer projection authority conservatively");
+		AddCampaignDebugAssertion(forceCase, "operation_record.schema48_migration", "schema 48 backfills only a unique coherent active exact QRF with committed ledger authority and leaves pre-exact, ambiguous, incomplete, and terminal rows on contract zero", proof.m_sSchema48MigrationEvidence, CampaignDebugStatus(proof.m_bSchema48MigrationExact), "schema 48 OperationRecord migration invented authority or skipped a coherent exact QRF");
+		AddCampaignDebugAssertion(forceCase, "operation_record.archive", "a settled contract operation compacts into a persistent typed tombstone, removes the full operation and planning rows, and retains confirmation replay", proof.m_sArchiveEvidence, CampaignDebugStatus(proof.m_bArchiveExact), "settled OperationRecord archive lost typed terminal or replay authority");
+		AddCampaignDebugAssertion(forceCase, "operation_record.legacy_qrf_isolation", "legacy enemy QRF rows remain independent and never acquire exact paid-support OperationRecords during schema 48 migration", proof.m_sLegacyQRFIsolationEvidence, CampaignDebugStatus(proof.m_bLegacyQRFIsolationExact), "schema 48 migration conflated legacy enemy QRF state with exact paid-support operations");
 	}
 
 	protected void AppendCampaignDebugForceRuntimeAuthorityAssertions(HST_CampaignDebugCaseResult forceCase)

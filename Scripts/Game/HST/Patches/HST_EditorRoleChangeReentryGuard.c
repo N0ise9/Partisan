@@ -1,3 +1,4 @@
+[BaseContainerProps(configRoot: true)]
 modded class SCR_EditorManagerCore
 {
 	protected bool m_bHSTApplyDeferredPlayerRoleChange;

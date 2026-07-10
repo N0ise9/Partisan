@@ -2,7 +2,38 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `48`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `49`.
+
+- Schema 49 adds the first canonical `HST_OperationRecordState` contract for one
+  already-exact consumer: confirmed player-paid resistance infantry QRFs. Quote
+  issue retains the stable operation identity without creating an operation
+  record. Successful confirmation creates exactly one version-1 record with
+  immutable origin and assignment, mutable tactical target, duty, engagement,
+  materialization, position-authority, settlement, terminal-result, policy,
+  timing, and revision fields. Queue admission, physical handoff, arrival,
+  restore reprojection, recall, and terminal settlement update that record
+  through `HST_OperationService`; settlement replay is idempotent and a
+  conflicting terminal result fails closed.
+
+- Schema-48 migration backfills only uniquely coherent, accepted, nonterminal
+  exact paid-QRF requests whose quote, manifest, and unique committed money/HR
+  transaction authority agree, with optional queue/group links required to be
+  unique and coherent when present. It changes
+  no balance, ledger amount/status, request status, quote status, or manifest.
+  Pre-exact requests, terminal history, ambiguous/incomplete rows, archived-only
+  rows, and legacy `HST_QRFState` records remain operation contract version `0`
+  rather than receiving invented authority. One bounded migration event records
+  the created count and one conflict event records preserved candidates.
+
+- Restored open operations never reacquire process-local physical authority.
+  Saved `PHYSICAL` or `DEMATERIALIZING` records normalize to
+  `MATERIALIZING` plus strategic position authority while retaining immutable
+  assignment, current duty, and revision history until the exact adapter
+  completes survivor reprojection. Once an accepted contract-version-1 QRF is
+  terminal and backlink-free, schema-48 settlement archival additionally copies
+  its operation contract version, settlement ID, revision, and typed terminal
+  result into the compact tombstone and removes the full settled operation row.
+  Packaged save/restart, migration, and archive replay remain runtime-unproven.
 
 - Schema 48 adds bounded settlement archives for accepted exact-force planning
   history. An accepted garrison purchase or terminal paid QRF remains in full
@@ -19,7 +50,7 @@
   preserve every accepted row in full and initialize an empty archive; migration
   never invents a terminal settlement.
 
-- The current schema-48 support route-truth repair requires no save-format bump,
+- The schema-48 support route-truth repair required no save-format bump,
   but it does reconcile pre-repair timer-derived states. An unspawned restored
   `support_arrived` row folds when it remains outside the player bubble or waits
   for physicalization inside it. A spawned arrived row without the new request-
@@ -202,7 +233,8 @@
   captured emplacements, ammo points, active missions, generated sites/routes,
   mission objectives/runtime entities/assets, support requests, enemy orders,
   enemy support ledgers, civilian state, town influence events, strategic
-  events, immutable force manifests, force quotes, typed spawn results,
+  events, canonical exact-QRF operation records, immutable force manifests,
+  force quotes, typed spawn results,
   undercover state, and campaign tasks.
 - `HST_LoadoutEditorSessionState` records are runtime/editor state and are not
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
@@ -300,6 +332,55 @@ Durable bounded spawn-queue state foundation.
 - Queue retention and active-work limits are enforced by the queue service.
   Migration never deletes valid terminal or settlement evidence merely to meet
   a cap.
+
+## Schema 49
+
+Canonical operation authority for the confirmed exact paid infantry-QRF slice.
+
+- `HST_CampaignState` and `HST_CampaignSaveData` persist
+  `HST_OperationRecordState` rows independently from legacy `HST_QRFState` rows.
+  Each record binds one stable operation to its support request, accepted quote,
+  immutable manifest, force-spawn result, projection, force, and active group as
+  those execution identities become available.
+- Quote issue allocates and persists operation identity in the existing planning
+  aggregate but creates no `OperationRecord`. Successful exact confirmation opts
+  the support request into operation contract version `1` and registers exactly
+  one open record. Confirmation rollback may remove only a still-virtual,
+  uncommitted record with no spawn/group authority.
+- Origin and assignment remain immutable confirmation facts. Recall changes the
+  tactical target toward the exit/origin without rewriting the assignment.
+  Duty, engagement, materialization, position authority, and settlement are
+  orthogonal typed states. Engagement exposes a legal
+  `CLEAR -> CONTACT -> ENGAGED -> DISENGAGING -> CLEAR` API and preserves the
+  resumable duty, but live combat-contact/disengagement detection is not wired in
+  this schema.
+- Queue admission records `OUTBOUND` plus `MATERIALIZING`; successful physical
+  handoff records live position authority; confirmed arrival records
+  `ON_STATION`; restore returns open physical records to strategic
+  `MATERIALIZING`; recall records request/exiting duty; terminal ledger paths
+  settle once with a typed recalled, spawn-failed, destroyed, cancelled, or
+  invalidated result.
+- Schema-48 and older saves receive a record only for a uniquely coherent,
+  accepted, nonterminal exact paid player QRF. Migration preserves all economy,
+  ledger, request, quote, manifest, queue, and group status. Every other family
+  remains contract version `0`, including pre-exact player requests, terminal or
+  archived-only history, ambiguous rows, enemy/legacy QRFs, and other support
+  types.
+- Schema-48 settlement archives remain the bounded historical container. A
+  terminal contract-version-1 QRF can compact only when its full operation is
+  coherently settled and existing backlink rules pass; its tombstone retains the
+  operation settlement identity, contract version, revision, and typed terminal
+  result while the full operation row is removed.
+- `HST_OperationRecordProofService` includes focused current-schema restore,
+  schema-48 coherent/ambiguous/incomplete/pre-exact/terminal migration, archive,
+  confirmation replay, and legacy-QRF isolation assertions in the coordinator's
+  force-authority debug case. They compile but have not yet run in a packaged
+  runtime.
+- This schema is not the complete operation/virtualization milestone. Strategic
+  route progress, cursor/hysteresis, generalized physical/virtual transfer,
+  vehicles/assets/multi-root forces, other support types, garrisons, missions,
+  enemy orders, live engagement events, and client/JIP operation projection are
+  still open. Packaged runtime and process-restart proof are also pending.
 
 ## Schema 48
 
