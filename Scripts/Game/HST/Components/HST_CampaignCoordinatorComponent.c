@@ -73,6 +73,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CampaignCommandService m_CampaignCommands;
 	protected ref HST_ResourceLedgerService m_ResourceLedger;
 	protected ref HST_ForcePlanningService m_ForcePlanning;
+	protected ref HST_ForceSpawnQueueService m_ForceSpawnQueue;
 	protected ref HST_MissionService m_Missions;
 	protected ref HST_PersistenceService m_Persistence;
 	protected ref HST_PersistenceSmokeTestService m_PersistenceSmokeTest;
@@ -301,6 +302,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ResourceLedger.SetEventLogService(m_CampaignEvents);
 		m_ForcePlanning = new HST_ForcePlanningService();
 		m_ForcePlanning.SetEventLogService(m_CampaignEvents);
+		m_ForceSpawnQueue = new HST_ForceSpawnQueueService();
 		m_Missions = new HST_MissionService();
 		m_Persistence = new HST_PersistenceService();
 		m_PersistenceSmokeTest = new HST_PersistenceSmokeTestService();
@@ -364,6 +366,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_EnemyCommander = new HST_EnemyCommanderService();
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
+		if (m_ForceSpawnQueue)
+			m_ForceSpawnQueue.ReconcileCampaignAfterRestore(m_State);
 		if (m_ForcePlanning && m_Garrisons && m_ResourceLedger)
 			m_ForcePlanning.ReconcileInterruptedGarrisonConfirmations(m_State, m_Economy, m_Garrisons, m_ResourceLedger);
 		if (m_ResourceLedger)
@@ -15671,6 +15675,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugFoundationCheckpointCase(foundationReport, checkpointReport, lastSaveSecondBefore, activeMissionsBefore, activeGroupsBefore));
 		RecordCampaignDebugCase(BuildCampaignDebugAuthorityFoundationCase());
 		RecordCampaignDebugCase(BuildCampaignDebugForceAuthorityCase());
+		RecordCampaignDebugCase(BuildCampaignDebugSpawnQueueCase());
 		return report;
 	}
 
@@ -15769,12 +15774,49 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.capacity_all_or_nothing", "insufficient capacity rejects the entire quote without mutation", proof.m_sCapacityEvidence, CampaignDebugStatus(proof.m_bCapacityRejected), "near-capacity recruitment partially accepted or changed resources");
 		AddCampaignDebugAssertion(forceCase, "force_authority.stale_context", "changed garrison context rejects confirmation before reservation or mutation", proof.m_sStaleEvidence, CampaignDebugStatus(proof.m_bStaleRejected), "stale quote confirmation mutated resources or garrison state");
 		AddCampaignDebugAssertion(forceCase, "force_authority.reservation_rollback", "HR reservation conflict cancels the money reservation and leaves no garrison delta", proof.m_sReservationConflictEvidence, CampaignDebugStatus(proof.m_bReservationRollback), "failed HR reservation did not roll back the confirmation exactly");
-		AddCampaignDebugAssertion(forceCase, "force_authority.persistence", "schema 43 deep-copies manifest, quote, typed slot results, transactions, and garrison link", proof.m_sRoundtripEvidence, CampaignDebugStatus(proof.m_bRoundtrip), "force authority state did not survive deep-copy roundtrip");
+		AddCampaignDebugAssertion(forceCase, "force_authority.persistence", "current schema deep-copies manifest, quote, typed slot results, transactions, and garrison link", proof.m_sRoundtripEvidence, CampaignDebugStatus(proof.m_bRoundtrip), "force authority state did not survive deep-copy roundtrip");
 		AddCampaignDebugAssertion(forceCase, "force_authority.legacy_migration", "schema 42 aggregate forces keep counts, receive stable IDs, and remain explicitly unverified", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bLegacyMigration), "legacy force migration invented or lost force authority state");
 		AddCampaignDebugAssertion(forceCase, "force_authority.catalog", "all configured core group execution prefabs match exact ordered catalog slots", proof.m_sCatalogEvidence, CampaignDebugStatus(proof.m_bCatalogExact), "force catalog does not match one or more authored execution-prefab rosters");
 		AddCampaignDebugAssertion(forceCase, "force_authority.restore_reconciliation", "every partial reserve, aggregate, and commit boundary rolls back exactly after restore", proof.m_sReconciliationEvidence, CampaignDebugStatus(proof.m_bReconciliationExact), "interrupted garrison confirmation did not reconcile exactly");
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugSpawnQueueCase()
+	{
+		HST_CampaignDebugCaseResult queueCase = CreateCampaignDebugCase("early_mechanics.spawn_queue", "early_mechanics", "spawn_queue", "early_mechanics");
+		HST_SpawnQueueProofService proofService = new HST_SpawnQueueProofService();
+		HST_SpawnQueueProofReport proof = proofService.BuildReport();
+		queueCase.m_aEvidence.Insert(proof.m_sAdmissionEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sDuplicateEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sIdentityEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sPriorityEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sFIFOEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sRetryEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sDeadlineEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sCancelEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sCapacityEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sPruningEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sInterruptedRestoreEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sTerminalRestoreEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sMigrationEvidence);
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.admission_required_slots", "all required group, vehicle, member, and asset slots admit exactly; missing group roots reject without mutation", proof.m_sAdmissionEvidence, CampaignDebugStatus(proof.m_bAdmissionExact), "spawn queue admission was partial or accepted a manifest without an executable group root");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.duplicate_request", "exact request replay remains idempotent after its deadline", proof.m_sDuplicateEvidence, CampaignDebugStatus(proof.m_bDuplicateIdempotent), "spawn queue replay created or changed a second durable batch");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.identity_conflict", "result, request, and projection conflicts reject while the same manifest may create a new projection", proof.m_sIdentityEvidence, CampaignDebugStatus(proof.m_bIdentityConflictRejected), "spawn queue durable identity conflict was accepted or manifest reuse was blocked");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.priority_order", "cleanup work precedes spawn work and higher priority spawn batches execute first", proof.m_sPriorityEvidence, CampaignDebugStatus(proof.m_bPriorityExact), "spawn queue priority or cleanup precedence was incorrect");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.fifo_order", "equal-priority spawn batches execute oldest first", proof.m_sFIFOEvidence, CampaignDebugStatus(proof.m_bFIFOExact), "spawn queue equal-priority order was not FIFO");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.retry_backoff", "retryable failure waits for the exact bounded backoff and advances generation", proof.m_sRetryEvidence, CampaignDebugStatus(proof.m_bRetryBackoffExact), "spawn queue retry backoff or generation was incorrect");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.retry_no_duplicate", "registered siblings remain authoritative and only the failed slot retries", proof.m_sRetryEvidence, CampaignDebugStatus(proof.m_bRetryNoDuplicate), "spawn queue retry duplicated or replaced a registered sibling");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.stale_generation", "stale generation callbacks reject without changing durable registration", proof.m_sRetryEvidence, CampaignDebugStatus(proof.m_bStaleGenerationRejected), "spawn queue accepted a stale callback generation");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.deadline_cleanup", "deadline expiry cleans registered physical evidence before final failure", proof.m_sDeadlineEvidence, CampaignDebugStatus(proof.m_bDeadlineCleanupExact), "spawn queue finalized deadline expiry before cleanup completed");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.cancel_idempotency", "accepted cancellation survives deadline crossing and cleanup/cancel replays are idempotent", proof.m_sCancelEvidence, CampaignDebugStatus(proof.m_bCancelIdempotent), "spawn queue cancellation changed disposition or applied twice");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.capacity_bounds", "per-request, total-slot, and nonterminal-batch limits reject before mutation", proof.m_sCapacityEvidence, CampaignDebugStatus(proof.m_bCapacityBounded), "spawn queue exceeded a durable admission bound");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.terminal_pruning", "terminal compaction requires explicit pins, preserves protected rows, and creates bounded admission room", proof.m_sPruningEvidence, CampaignDebugStatus(proof.m_bTerminalPruningExact), "spawn queue terminal retention pruned protected evidence or failed to create room");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.interrupted_restore", "one restore epoch reconciles interrupted work once and completes by idempotent callback", proof.m_sInterruptedRestoreEvidence, CampaignDebugStatus(proof.m_bInterruptedRestoreExact), "spawn queue interrupted restore reconciled more than once or did not resume exactly");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.terminal_restore", "terminal success keeps historical verification, clears process IDs, and never reopens", proof.m_sTerminalRestoreEvidence, CampaignDebugStatus(proof.m_bTerminalRestoreExact), "spawn queue terminal restore lost history or reacquired work");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.schema43_migration", "schema 43 nonterminal rows fail closed while terminal history remains unchanged", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bSchema43MigrationExact), "spawn queue schema 43 migration invented resumable work or destroyed terminal history");
+		FinalizeCampaignDebugCaseFromAssertions(queueCase);
+		return queueCase;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugFoundationCheckpointCase(string foundationReport, string checkpointReport, int lastSaveSecondBefore, int activeMissionsBefore, int activeGroupsBefore)
@@ -32036,6 +32078,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			report = report + "\n" + m_CampaignCommands.BuildReport(m_State);
 		if (m_ResourceLedger)
 			report = report + "\n" + m_ResourceLedger.BuildReport(m_State);
+		if (m_ForceSpawnQueue)
+			report = report + "\n" + m_ForceSpawnQueue.BuildReport(m_State.m_aForceSpawnResults, m_State.m_iElapsedSeconds);
 		if (m_CampaignEvents)
 			report = report + "\n" + m_CampaignEvents.BuildReport(m_State);
 		return report;

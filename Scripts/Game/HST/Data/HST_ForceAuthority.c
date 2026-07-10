@@ -153,6 +153,7 @@ class HST_ForceSpawnSlotResultState
 {
 	string m_sSlotId;
 	string m_sSlotKind;
+	string m_sSpawnedPrefab;
 	string m_sEntityId;
 	string m_sAssignedVehicleEntityId;
 	string m_sNativeGroupId;
@@ -165,26 +166,35 @@ class HST_ForceSpawnSlotResultState
 	bool m_bGroupVerified;
 	bool m_bProjectionVerified;
 	bool m_bSeatVerified;
+	bool m_bAliveVerified;
 }
 
 [BaseContainerProps()]
 class HST_ForceSpawnResultState
 {
 	string m_sResultId;
+	string m_sRequestId;
 	string m_sManifestId;
+	string m_sManifestHash;
 	string m_sOperationId;
 	string m_sForceId;
 	string m_sNativeGroupId;
 	string m_sProjectionId;
 	string m_sTerminalReason;
+	string m_sLastFailureReason;
 	HST_EForceSpawnBatchStatus m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING;
 	int m_iPriority;
 	int m_iRetryCount;
 	int m_iMaxRetries;
+	int m_iAttemptGeneration;
 	int m_iDeadlineSecond;
 	int m_iCreatedAtSecond;
+	int m_iLastAttemptSecond;
+	int m_iNextAttemptSecond;
+	int m_iUpdatedAtSecond;
 	int m_iCompletedAtSecond;
 	int m_iExpectedSlotCount;
+	bool m_bCancelRequested;
 	ref array<ref HST_ForceSpawnSlotResultState> m_aSlotResults = {};
 
 	HST_ForceSpawnSlotResultState FindSlotResult(string slotId)

@@ -78,6 +78,10 @@ The repository contains a broad-alpha campaign foundation:
 - Request-driven force composition for support, mission, garrison, and debug probes, with
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records
+- A schema-44 world-free force spawn-queue kernel with durable per-projection
+  results, exact required-slot admission, priority/FIFO scheduling, bounded work
+  and retention, retry/deadline/cancellation cleanup, callback verification, and
+  once-per-restore reconciliation before normal campaign authority resumes
 - Request-driven spawn placement for physical support and debug probes, with
   road/dry-ground/vehicle-safe validation, player/active-AI clearance checks,
   and visible placement failure reasons
@@ -124,7 +128,12 @@ coverage, and persist won/lost campaign outcomes. The systems are still rough:
 cache/tent polish, save/restart soak testing, final surveyed Everon
 coordinates, richer AI waypoints, full loadout-editor HST_Dev smoke, garage
 progression polish, balance tuning, and mission-specific interactable props
-still need to be connected incrementally.
+still need to be connected incrementally. The schema-44 queue is not yet ticked
+by a physical executor and does not yet create or register world entities. Paid
+support has not migrated to it, and current garrison purchase manifests contain
+purchase provenance rather than an executable group root, so queue admission
+treats them as nondeployable instead of silently materializing them through the
+older physicalization path.
 
 ## Alpha Command Menu
 
@@ -201,7 +210,7 @@ local `I` key/action path when troubleshooting menu access.
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. Server boot, admin diagnostics, command-menu readiness,
 and structured debug artifacts must report the same runtime identity from
-`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 43, and
+`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 44, and
 runtime-settings schema. Missing or mismatched identity means the packaged
 server/client runtime is stale or mixed, even if the repository is newer.
 

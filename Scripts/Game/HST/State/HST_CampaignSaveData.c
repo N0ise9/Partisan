@@ -9,6 +9,8 @@ class HST_CampaignSaveData
 	int m_iElapsedSeconds;
 	int m_iLastSaveSecond;
 	int m_iLastRestoreSecond;
+	int m_iPersistenceRestoreSequence;
+	int m_iForceSpawnQueueReconciledRestoreSequence;
 	int m_iWarLevel;
 	int m_iFactionMoney;
 	int m_iHR;
@@ -124,6 +126,8 @@ class HST_CampaignSaveData
 		m_iElapsedSeconds = state.m_iElapsedSeconds;
 		m_iLastSaveSecond = state.m_iLastSaveSecond;
 		m_iLastRestoreSecond = state.m_iLastRestoreSecond;
+		m_iPersistenceRestoreSequence = state.m_iPersistenceRestoreSequence;
+		m_iForceSpawnQueueReconciledRestoreSequence = state.m_iForceSpawnQueueReconciledRestoreSequence;
 		m_iWarLevel = state.m_iWarLevel;
 		m_iFactionMoney = state.m_iFactionMoney;
 		m_iHR = state.m_iHR;
@@ -354,6 +358,8 @@ class HST_CampaignSaveData
 		state.m_iElapsedSeconds = m_iElapsedSeconds;
 		state.m_iLastSaveSecond = m_iLastSaveSecond;
 		state.m_iLastRestoreSecond = m_iLastRestoreSecond;
+		state.m_iPersistenceRestoreSequence = m_iPersistenceRestoreSequence;
+		state.m_iForceSpawnQueueReconciledRestoreSequence = m_iForceSpawnQueueReconciledRestoreSequence;
 		state.m_iWarLevel = m_iWarLevel;
 		state.m_iFactionMoney = m_iFactionMoney;
 		state.m_iHR = m_iHR;
@@ -1679,6 +1685,7 @@ class HST_CampaignSaveData
 		HST_ForceSpawnSlotResultState target = new HST_ForceSpawnSlotResultState();
 		target.m_sSlotId = source.m_sSlotId;
 		target.m_sSlotKind = source.m_sSlotKind;
+		target.m_sSpawnedPrefab = source.m_sSpawnedPrefab;
 		target.m_sEntityId = source.m_sEntityId;
 		target.m_sAssignedVehicleEntityId = source.m_sAssignedVehicleEntityId;
 		target.m_sNativeGroupId = source.m_sNativeGroupId;
@@ -1691,6 +1698,7 @@ class HST_CampaignSaveData
 		target.m_bGroupVerified = source.m_bGroupVerified;
 		target.m_bProjectionVerified = source.m_bProjectionVerified;
 		target.m_bSeatVerified = source.m_bSeatVerified;
+		target.m_bAliveVerified = source.m_bAliveVerified;
 		return target;
 	}
 
@@ -1701,20 +1709,28 @@ class HST_CampaignSaveData
 
 		HST_ForceSpawnResultState target = new HST_ForceSpawnResultState();
 		target.m_sResultId = source.m_sResultId;
+		target.m_sRequestId = source.m_sRequestId;
 		target.m_sManifestId = source.m_sManifestId;
+		target.m_sManifestHash = source.m_sManifestHash;
 		target.m_sOperationId = source.m_sOperationId;
 		target.m_sForceId = source.m_sForceId;
 		target.m_sNativeGroupId = source.m_sNativeGroupId;
 		target.m_sProjectionId = source.m_sProjectionId;
 		target.m_sTerminalReason = source.m_sTerminalReason;
+		target.m_sLastFailureReason = source.m_sLastFailureReason;
 		target.m_eStatus = source.m_eStatus;
 		target.m_iPriority = source.m_iPriority;
 		target.m_iRetryCount = source.m_iRetryCount;
 		target.m_iMaxRetries = source.m_iMaxRetries;
+		target.m_iAttemptGeneration = source.m_iAttemptGeneration;
 		target.m_iDeadlineSecond = source.m_iDeadlineSecond;
 		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iLastAttemptSecond = source.m_iLastAttemptSecond;
+		target.m_iNextAttemptSecond = source.m_iNextAttemptSecond;
+		target.m_iUpdatedAtSecond = source.m_iUpdatedAtSecond;
 		target.m_iCompletedAtSecond = source.m_iCompletedAtSecond;
 		target.m_iExpectedSlotCount = source.m_iExpectedSlotCount;
+		target.m_bCancelRequested = source.m_bCancelRequested;
 		foreach (HST_ForceSpawnSlotResultState slotResult : source.m_aSlotResults)
 		{
 			HST_ForceSpawnSlotResultState slotCopy = CopyForceSpawnSlotResult(slotResult);
@@ -1783,6 +1799,8 @@ class HST_CampaignSaveData
 
 		m_iLastLoadedSchemaVersion = restoredSchemaVersion;
 		m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		m_iPersistenceRestoreSequence = Math.Max(0, m_iPersistenceRestoreSequence);
+		m_iForceSpawnQueueReconciledRestoreSequence = Math.Max(0, m_iForceSpawnQueueReconciledRestoreSequence);
 		if (m_iNextAuthoritySequence <= 0)
 			m_iNextAuthoritySequence = 1;
 		if (m_sLastPersistenceStatus.IsEmpty())
@@ -2170,6 +2188,10 @@ class HST_CampaignSaveData
 
 	protected void NormalizeForceAuthority(int restoredSchemaVersion)
 	{
+		bool migratedLegacySpawnQueue;
+		int migrationSecond = Math.Max(0, m_iElapsedSeconds);
+		string legacySpawnFailure = "schema 44 migration finalized pre-schema-44 nonterminal spawn evidence; legacy queue work cannot resume";
+
 		foreach (HST_GarrisonState garrison : m_aGarrisons)
 		{
 			if (!garrison)
@@ -2233,6 +2255,13 @@ class HST_CampaignSaveData
 			}
 			spawnResult.m_iRetryCount = Math.Max(0, spawnResult.m_iRetryCount);
 			spawnResult.m_iMaxRetries = Math.Max(0, spawnResult.m_iMaxRetries);
+			spawnResult.m_iAttemptGeneration = Math.Max(0, spawnResult.m_iAttemptGeneration);
+			spawnResult.m_iDeadlineSecond = Math.Max(0, spawnResult.m_iDeadlineSecond);
+			spawnResult.m_iCreatedAtSecond = Math.Max(0, spawnResult.m_iCreatedAtSecond);
+			spawnResult.m_iLastAttemptSecond = Math.Max(0, spawnResult.m_iLastAttemptSecond);
+			spawnResult.m_iNextAttemptSecond = Math.Max(0, spawnResult.m_iNextAttemptSecond);
+			spawnResult.m_iUpdatedAtSecond = Math.Max(0, spawnResult.m_iUpdatedAtSecond);
+			spawnResult.m_iCompletedAtSecond = Math.Max(0, spawnResult.m_iCompletedAtSecond);
 			spawnResult.m_iExpectedSlotCount = Math.Max(0, spawnResult.m_iExpectedSlotCount);
 			for (int slotIndex = spawnResult.m_aSlotResults.Count() - 1; slotIndex >= 0; slotIndex--)
 			{
@@ -2243,7 +2272,42 @@ class HST_CampaignSaveData
 					continue;
 				}
 				slotResult.m_iAttemptCount = Math.Max(0, slotResult.m_iAttemptCount);
+				slotResult.m_iUpdatedAtSecond = Math.Max(0, slotResult.m_iUpdatedAtSecond);
 			}
+
+			if (restoredSchemaVersion >= 44 || IsForceSpawnBatchTerminal(spawnResult.m_eStatus))
+				continue;
+
+			FinalizeForceSpawnBatchFailedClosed(spawnResult, legacySpawnFailure, migrationSecond);
+			migratedLegacySpawnQueue = true;
+		}
+
+		int duplicateSpawnRows = FinalizeDuplicateForceSpawnQueueIdentity(restoredSchemaVersion, migrationSecond);
+
+		if (migratedLegacySpawnQueue && !HasCampaignEventId("migration_schema44_spawn_queue"))
+		{
+			HST_CampaignEventState spawnMigrationEvent = new HST_CampaignEventState();
+			spawnMigrationEvent.m_sEventId = "migration_schema44_spawn_queue";
+			spawnMigrationEvent.m_sCategory = "migration";
+			spawnMigrationEvent.m_sAggregateType = "spawn_queue";
+			spawnMigrationEvent.m_sAggregateId = "schema44";
+			spawnMigrationEvent.m_sTransition = "legacy_nonterminal_finalized";
+			spawnMigrationEvent.m_sReason = "all pre-schema-44 nonterminal spawn rows were finalized without inventing resumable queue work";
+			spawnMigrationEvent.m_iCreatedAtSecond = migrationSecond;
+			m_aCampaignEvents.Insert(spawnMigrationEvent);
+		}
+
+		if (duplicateSpawnRows > 0 && !HasCampaignEventId("normalization_schema44_spawn_queue_identity_conflict"))
+		{
+			HST_CampaignEventState duplicateIdentityEvent = new HST_CampaignEventState();
+			duplicateIdentityEvent.m_sEventId = "normalization_schema44_spawn_queue_identity_conflict";
+			duplicateIdentityEvent.m_sCategory = "normalization";
+			duplicateIdentityEvent.m_sAggregateType = "spawn_queue";
+			duplicateIdentityEvent.m_sAggregateId = "schema44";
+			duplicateIdentityEvent.m_sTransition = "duplicate_identity_failed_closed";
+			duplicateIdentityEvent.m_sReason = string.Format("failed closed %1 nonterminal spawn rows with duplicate result, request, or projection identity", duplicateSpawnRows);
+			duplicateIdentityEvent.m_iCreatedAtSecond = migrationSecond;
+			m_aCampaignEvents.Insert(duplicateIdentityEvent);
 		}
 
 		if (restoredSchemaVersion >= 43 || !HasLegacyUnverifiedForces() || HasCampaignEventId("migration_schema43_force_authority"))
@@ -2258,6 +2322,93 @@ class HST_CampaignSaveData
 		migrationEvent.m_sReason = "legacy force counts preserved without inventing exact manifests, costs, or refunds";
 		migrationEvent.m_iCreatedAtSecond = m_iElapsedSeconds;
 		m_aCampaignEvents.Insert(migrationEvent);
+	}
+
+	protected bool IsForceSpawnBatchTerminal(HST_EForceSpawnBatchStatus status)
+	{
+		return status == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| status == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			|| status == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED;
+	}
+
+	protected void FinalizeForceSpawnBatchFailedClosed(HST_ForceSpawnResultState spawnResult, string failureReason, int completedAtSecond)
+	{
+		if (!spawnResult)
+			return;
+
+		spawnResult.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
+		spawnResult.m_sTerminalReason = failureReason;
+		spawnResult.m_sLastFailureReason = failureReason;
+		spawnResult.m_sNativeGroupId = "";
+		spawnResult.m_iCompletedAtSecond = completedAtSecond;
+		spawnResult.m_iUpdatedAtSecond = completedAtSecond;
+		foreach (HST_ForceSpawnSlotResultState slotResult : spawnResult.m_aSlotResults)
+		{
+			if (!slotResult)
+				continue;
+
+			if (slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_FAILED_FINAL
+				&& slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CANCELLED)
+			{
+				slotResult.m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_FAILED_FINAL;
+				slotResult.m_sFailureReason = failureReason;
+			}
+			slotResult.m_sSpawnedPrefab = "";
+			slotResult.m_sEntityId = "";
+			slotResult.m_sAssignedVehicleEntityId = "";
+			slotResult.m_sNativeGroupId = "";
+			slotResult.m_bFactionVerified = false;
+			slotResult.m_bGroupVerified = false;
+			slotResult.m_bProjectionVerified = false;
+			slotResult.m_bSeatVerified = false;
+			slotResult.m_bAliveVerified = false;
+			slotResult.m_iUpdatedAtSecond = completedAtSecond;
+		}
+	}
+
+	protected int FinalizeDuplicateForceSpawnQueueIdentity(int restoredSchemaVersion, int normalizationSecond)
+	{
+		if (restoredSchemaVersion < 44)
+			return 0;
+
+		array<int> conflictingIndexes = {};
+		for (int firstIndex = 0; firstIndex < m_aForceSpawnResults.Count(); firstIndex++)
+		{
+			HST_ForceSpawnResultState first = m_aForceSpawnResults[firstIndex];
+			if (!first || IsForceSpawnBatchTerminal(first.m_eStatus))
+				continue;
+
+			for (int secondIndex = 0; secondIndex < m_aForceSpawnResults.Count(); secondIndex++)
+			{
+				if (secondIndex == firstIndex)
+					continue;
+
+				HST_ForceSpawnResultState second = m_aForceSpawnResults[secondIndex];
+				if (!second)
+					continue;
+				if (!HasDuplicateForceSpawnQueueIdentity(first, second))
+					continue;
+
+				if (!conflictingIndexes.Contains(firstIndex))
+					conflictingIndexes.Insert(firstIndex);
+			}
+		}
+
+		string duplicateFailure = "schema 44 normalization failed closed duplicate nonterminal result, request, or projection identity";
+		foreach (int conflictingIndex : conflictingIndexes)
+			FinalizeForceSpawnBatchFailedClosed(m_aForceSpawnResults[conflictingIndex], duplicateFailure, normalizationSecond);
+
+		return conflictingIndexes.Count();
+	}
+
+	protected bool HasDuplicateForceSpawnQueueIdentity(HST_ForceSpawnResultState first, HST_ForceSpawnResultState second)
+	{
+		if (!first || !second)
+			return false;
+
+		return (!first.m_sResultId.IsEmpty() && first.m_sResultId == second.m_sResultId)
+			|| (!first.m_sRequestId.IsEmpty() && first.m_sRequestId == second.m_sRequestId)
+			|| (!first.m_sProjectionId.IsEmpty() && first.m_sProjectionId == second.m_sProjectionId);
 	}
 
 	protected bool HasLegacyUnverifiedForces()

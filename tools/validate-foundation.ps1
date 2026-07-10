@@ -4638,7 +4638,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 43",
+		"SCHEMA_VERSION = 44",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -4684,6 +4684,148 @@ if ($scriptText -match '(?m)^\s*(?:bool|string)\s+RequestCommanderRecruitGarriso
 	throw "Legacy caller-priced garrison recruitment wrappers must not remain public authority surfaces"
 }
 Write-Host "Exact force manifest and garrison quote contract OK"
+$forceSpawnQueueServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
+if (!(Test-Path $forceSpawnQueueServicePath)) {
+	throw "Missing durable force spawn queue service: $forceSpawnQueueServicePath"
+}
+$forceSpawnQueueServiceText = Get-Content -Raw $forceSpawnQueueServicePath
+$forceAuthorityDataText = Get-Content -Raw "Scripts/Game/HST/Data/HST_ForceAuthority.c"
+$forceSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$forcePersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+foreach ($requiredForceSpawnQueueStateEntry in @(
+		"HST_FORCE_SLOT_SPAWNING",
+		"HST_FORCE_SLOT_CLEANUP_PENDING",
+		"HST_FORCE_SPAWN_IN_PROGRESS",
+		"HST_FORCE_SPAWN_CLEANUP_PENDING",
+		"m_sRequestId",
+		"m_sManifestHash",
+		"m_sLastFailureReason",
+		"m_iAttemptGeneration",
+		"m_iLastAttemptSecond",
+		"m_iNextAttemptSecond",
+		"m_iUpdatedAtSecond",
+		"m_bCancelRequested",
+		"m_sSpawnedPrefab",
+		"m_bAliveVerified"
+	)) {
+	if ($forceAuthorityDataText -notmatch [regex]::Escape($requiredForceSpawnQueueStateEntry) -and $scriptText -notmatch [regex]::Escape($requiredForceSpawnQueueStateEntry)) {
+		throw "Schema-44 force spawn queue state is missing entry: $requiredForceSpawnQueueStateEntry"
+	}
+}
+foreach ($requiredForceSpawnQueueCopyEntry in @(
+		"target.m_sRequestId = source.m_sRequestId;",
+		"target.m_sManifestHash = source.m_sManifestHash;",
+		"target.m_sLastFailureReason = source.m_sLastFailureReason;",
+		"target.m_iAttemptGeneration = source.m_iAttemptGeneration;",
+		"target.m_iLastAttemptSecond = source.m_iLastAttemptSecond;",
+		"target.m_iNextAttemptSecond = source.m_iNextAttemptSecond;",
+		"target.m_iUpdatedAtSecond = source.m_iUpdatedAtSecond;",
+		"target.m_bCancelRequested = source.m_bCancelRequested;",
+		"target.m_sSpawnedPrefab = source.m_sSpawnedPrefab;",
+		"target.m_bAliveVerified = source.m_bAliveVerified;"
+	)) {
+	if ($forceSaveDataText -notmatch [regex]::Escape($requiredForceSpawnQueueCopyEntry)) {
+		throw "Schema-44 force spawn queue deep copy is missing entry: $requiredForceSpawnQueueCopyEntry"
+	}
+}
+foreach ($requiredForceSpawnQueueRestoreEntry in @(
+		"m_iPersistenceRestoreSequence",
+		"m_iForceSpawnQueueReconciledRestoreSequence",
+		"m_iPersistenceRestoreSequence = state.m_iPersistenceRestoreSequence;",
+		"m_iForceSpawnQueueReconciledRestoreSequence = state.m_iForceSpawnQueueReconciledRestoreSequence;",
+		"state.m_iPersistenceRestoreSequence = m_iPersistenceRestoreSequence;",
+		"state.m_iForceSpawnQueueReconciledRestoreSequence = m_iForceSpawnQueueReconciledRestoreSequence;",
+		"targetState.m_iPersistenceRestoreSequence = Math.Max(0, targetState.m_iPersistenceRestoreSequence) + 1;",
+		"ReconcileAfterRestore",
+		"ReconcileCampaignAfterRestore",
+		"ClearTerminalProcessIds",
+		"state.m_iForceSpawnQueueReconciledRestoreSequence = restoreSequence;"
+	)) {
+	if (($campaignStateText + "`n" + $forceSaveDataText + "`n" + $forcePersistenceText + "`n" + $forceSpawnQueueServiceText) -notmatch [regex]::Escape($requiredForceSpawnQueueRestoreEntry)) {
+		throw "Schema-44 force spawn queue restore contract is missing entry: $requiredForceSpawnQueueRestoreEntry"
+	}
+}
+if ($coordinatorText -notmatch 'RestoreOrCreateCampaignState[\s\S]*?ReconcileCampaignAfterRestore\(m_State\)[\s\S]*?ReconcileInterruptedGarrisonConfirmations[\s\S]*?ReconcileOpenReservations') {
+	throw "Coordinator must reconcile the durable force spawn queue immediately after campaign restore and before normal authority reconciliation"
+}
+foreach ($requiredForceSpawnQueueLimit in @(
+		"MAX_NONTERMINAL_BATCHES = 64",
+		"MAX_TOTAL_SLOT_ROWS = 512",
+		"MAX_SLOTS_PER_REQUEST = 64",
+		"MAX_TERMINAL_ROWS = 128",
+		"MAX_BATCHES_PER_TICK = 2",
+		"MAX_SLOTS_PER_TICK = 8",
+		"TERMINAL_RETENTION_SECONDS = 600"
+	)) {
+	if ($forceSpawnQueueServiceText -notmatch [regex]::Escape($requiredForceSpawnQueueLimit)) {
+		throw "Durable force spawn queue bound is missing: $requiredForceSpawnQueueLimit"
+	}
+}
+foreach ($requiredForceSpawnQueueApi in @(
+		"Enqueue(",
+		"AcquireWork(",
+		"CompleteSlotSuccess(",
+		"FailSlot(",
+		"DeferSlot(",
+		"RequestCancel(",
+		"CompleteCleanup(",
+		"CompactTerminalRows(",
+		"BuildReport("
+	)) {
+	if ($forceSpawnQueueServiceText -notmatch [regex]::Escape($requiredForceSpawnQueueApi)) {
+		throw "Durable force spawn queue API is missing: $requiredForceSpawnQueueApi"
+	}
+}
+foreach ($requiredForceSpawnQueueIdentityEntry in @(
+		"manifest has no executable group root",
+		"optional force manifest groups require a deployed-manifest policy",
+		"optional force manifest vehicles require a deployed-manifest policy",
+		"optional force manifest members require a deployed-manifest policy",
+		"optional force manifest assets require a deployed-manifest policy",
+		"caller-supplied durable result id missing",
+		"durable request id missing",
+		"projection id missing",
+		"CountByRequest",
+		"CountByProjection",
+		"CountByResult",
+		"BatchIdentityMatches",
+		"spawn queue idempotency key conflicts with existing payload",
+		"terminal compaction refused without explicit backlink retention pins"
+	)) {
+	if ($forceSpawnQueueServiceText -notmatch [regex]::Escape($requiredForceSpawnQueueIdentityEntry)) {
+		throw "Durable force spawn queue identity/admission contract is missing: $requiredForceSpawnQueueIdentityEntry"
+	}
+}
+$spawnQueueProofFiles = @(Get-ChildItem -File "Scripts/Game/HST/Services" -Filter "*SpawnQueue*Proof*.c")
+if ($spawnQueueProofFiles.Count -eq 0) {
+	throw "Schema-44 force spawn queue requires a standalone deterministic proof service"
+}
+$spawnQueueProofText = ($spawnQueueProofFiles | ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
+foreach ($requiredSpawnQueueProofEntry in @(
+		"BuildCampaignDebugSpawnQueueCase",
+		'RecordCampaignDebugCase(BuildCampaignDebugSpawnQueueCase());',
+		"early_mechanics.spawn_queue",
+		"spawn_queue.admission_required_slots",
+		"spawn_queue.duplicate_request",
+		"spawn_queue.identity_conflict",
+		"spawn_queue.priority_order",
+		"spawn_queue.fifo_order",
+		"spawn_queue.retry_backoff",
+		"spawn_queue.retry_no_duplicate",
+		"spawn_queue.stale_generation",
+		"spawn_queue.deadline_cleanup",
+		"spawn_queue.cancel_idempotency",
+		"spawn_queue.capacity_bounds",
+		"spawn_queue.terminal_pruning",
+		"spawn_queue.interrupted_restore",
+		"spawn_queue.terminal_restore",
+		"spawn_queue.schema43_migration"
+	)) {
+	if (($coordinatorText + "`n" + $spawnQueueProofText) -notmatch [regex]::Escape($requiredSpawnQueueProofEntry)) {
+		throw "Spawn queue deterministic proof is missing phase-0 entry: $requiredSpawnQueueProofEntry"
+	}
+}
+Write-Host "Schema-44 durable bounded force spawn queue contract OK"
 foreach ($requiredDebugIsolationEntry in @(
 		"PrepareCampaignDebugIsolation",
 		"CaptureIsolatedCampaignDebugState",

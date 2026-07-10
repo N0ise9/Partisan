@@ -91,8 +91,8 @@ that roadmap remains useful for feature history and acceptance detail.
 | Stage | Status | Exit condition |
 | --- | --- | --- |
 | CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. In-process diagnostics now use a development-world-only cloned-state boundary; runtime proof and session-restart cleanliness remain open. |
-| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 43 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts, the resource transaction ledger, and bounded event log. Paid training and visible garrison confirmation are migrated. Static validation and Workbench script compilation pass; isolated runtime and save/load certification remain pending. |
-| CRI-2: Exact force manifests | In progress | Immutable persisted manifests, expiring quotes, typed per-slot spawn results, exact catalog validation, and the visible garrison quote/confirm vertical slice are implemented. Deterministic proof covers 1/4/7/12, reservation rollback, and interrupted-confirmation restore boundaries. The exactness claim stops at the accepted purchase-time aggregate increment; physicalization does not yet consume those slots. Paid support, bounded physical spawn queue execution, runtime entity registration, and accepted settlement/spawn-result compaction remain open. |
+| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 44 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts, the resource transaction ledger, and bounded event log. Paid training and visible garrison confirmation are migrated. Static validation and Workbench script compilation pass; isolated runtime and save/load certification remain pending. |
+| CRI-2: Exact force manifests | In progress | Immutable persisted manifests, expiring quotes, exact catalog validation, the visible garrison quote/confirm slice, and a schema-44 world-free SpawnQueue kernel are implemented. The queue owns per-projection results, all-required executable-slot admission, bounded priority/FIFO work, retries, cleanup, restore reconciliation, and pin-aware terminal retention. Deterministic state/service proof is not physical execution evidence. The garrison exactness claim still stops at the accepted purchase-time aggregate increment: its purchase-only manifest has no executable group root and is intentionally nondeployable. Paid support, the engine-facing queue tick/adapter, runtime entity registration, and accepted settlement compaction remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | Planned | Runtime forces realize manifests exactly, retain operation links through virtual/physical transitions, and prove route progress, contact, arrival, and fold-back without duplication. |
 | CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Planned; marker readiness guard landed early | UI/markers/JIP consume authoritative events and snapshots; control changes use explicit rules; civilian systems produce durable strategic consequences. Static-marker root guarding and delayed owner-client census are implemented but await fresh runtime proof. |
 | CRI-9 through CRI-11: Enemy commander, missions, and progression | Planned | Higher-level systems issue typed operations and resource transactions instead of bypassing the authority boundary. |
@@ -102,7 +102,10 @@ CRI-1 and the first CRI-2 vertical slice remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
 confirmation is the second and uses an immutable quote/manifest. Other command
 and cost paths remain on their legacy service contracts until their dependency
-stage supplies the required exact quote, manifest, or operation model.
+stage supplies the required exact quote, manifest, or operation model. Schema 44
+adds queue authority but no runtime scheduling loop or native entity adapter, so
+existing broad-alpha physicalization paths do not become exact merely because
+the kernel exists.
 
 ## Current Implementation Baseline
 
@@ -112,6 +115,17 @@ treated as future work:
 - `HST_ForceCompositionService` owns request/result force planning for support,
   mission guards, garrison activation, QRFs, counterattacks, convoy guards, HQ
   attacks, and debug probes.
+- `HST_ForceCatalogService`, `HST_ForcePlanningService`, and
+  `HST_ForcePlanningIntegrityService` own versioned exact execution-prefab
+  catalogs, immutable manifest/quote planning, and deterministic integrity.
+- `HST_ForceSpawnQueueService` owns durable request/result/projection identity,
+  exact required-slot admission, two-batch/eight-action tick acquisition,
+  retry/deadline/cancellation cleanup, verified callbacks, 64-batch/512-slot
+  active bounds, 64 slots per request, 128 terminal rows with explicit pins and
+  a 600-second minimum retention window, production reporting, and once-per-
+  restore reconciliation. It has no engine-facing executor or coordinator tick
+  yet; terminal entity/native-group IDs are historical evidence cleared on
+  restore, not a living roster.
 - `HST_SpawnPlacementService` owns request/result placement for QRF staging, HQ
   attack standoff, convoy endpoints, dry-ground checks, vehicle-safe placement,
   road preference, and HQ standoff.

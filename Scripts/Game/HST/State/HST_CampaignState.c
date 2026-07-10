@@ -889,7 +889,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 43;
+	static const int SCHEMA_VERSION = 44;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -899,6 +899,8 @@ class HST_CampaignState
 	int m_iElapsedSeconds;
 	int m_iLastSaveSecond;
 	int m_iLastRestoreSecond;
+	int m_iPersistenceRestoreSequence;
+	int m_iForceSpawnQueueReconciledRestoreSequence;
 	int m_iWarLevel = 1;
 	int m_iFactionMoney = 1000;
 	int m_iHR = 20;
@@ -1352,9 +1354,60 @@ class HST_CampaignState
 
 	HST_ForceSpawnResultState FindForceSpawnResultByManifest(string manifestId)
 	{
+		if (manifestId.IsEmpty())
+			return null;
+
+		HST_ForceSpawnResultState match;
+		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+		{
+			if (!spawnResult || spawnResult.m_sManifestId != manifestId)
+				continue;
+			if (match)
+				return null;
+
+			match = spawnResult;
+		}
+
+		return match;
+	}
+
+	array<ref HST_ForceSpawnResultState> FindForceSpawnResultsByManifest(string manifestId)
+	{
+		array<ref HST_ForceSpawnResultState> matches = {};
+		if (manifestId.IsEmpty())
+			return matches;
+
 		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
 		{
 			if (spawnResult && spawnResult.m_sManifestId == manifestId)
+				matches.Insert(spawnResult);
+		}
+
+		return matches;
+	}
+
+	HST_ForceSpawnResultState FindForceSpawnResultByRequest(string requestId)
+	{
+		if (requestId.IsEmpty())
+			return null;
+
+		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+		{
+			if (spawnResult && spawnResult.m_sRequestId == requestId)
+				return spawnResult;
+		}
+
+		return null;
+	}
+
+	HST_ForceSpawnResultState FindForceSpawnResultByProjection(string projectionId)
+	{
+		if (projectionId.IsEmpty())
+			return null;
+
+		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+		{
+			if (spawnResult && spawnResult.m_sProjectionId == projectionId)
 				return spawnResult;
 		}
 

@@ -2,8 +2,29 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `43`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `44`.
 
+- Schema 44 turns typed force-spawn results into durable, per-projection queue
+  records. Each batch carries a unique request ID, immutable manifest-hash
+  binding, projection ID, attempt generation, retry/deadline timestamps,
+  cancellation intent, and explicit failure evidence. Each slot also preserves
+  its spawned prefab and alive verification. Runtime queue limits are 64
+  nonterminal batches, 512 nonterminal slots, 64 slots per request, and 128
+  terminal rows; terminal compaction requires explicit backlink pins and a
+  600-second minimum retention window. These queue bounds do not compact
+  accepted quote/manifest/ledger settlement history.
+  Pre-schema-44 nonterminal rows are never resumable, even if a partially
+  populated save happens to contain newer identity fields, so migration
+  finalizes them as explicit failures and records one migration event instead
+  of inventing work. Existing terminal batches remain unchanged as historical
+  evidence. A schema-44 nonterminal batch whose nonempty result, request, or
+  projection key collides with any other row fails closed and emits one bounded
+  normalization record. Campaign state also persists an actual-restore sequence
+  and the last queue-reconciled sequence. Coordinator initialization reconciles
+  once per actual restore before other authority recovery; nonterminal rows
+  clear process-local evidence and advance generation, while terminal status,
+  prefab, and verification history remain but entity/native-group IDs are
+  cleared rather than reacquired as living authority.
 - Schema 43 adds immutable force manifests, exact force quotes, typed spawn
   results, stable garrison IDs, and quote/manifest links on resource
   transactions and force-bearing aggregates. Legacy force counts remain
@@ -153,6 +174,42 @@ Exact force-planning authority foundation.
 - Schema-42 and older garrisons receive deterministic IDs. Existing aggregate
   force counts are preserved without synthetic manifests or retroactive
   accounting, and one bounded migration event records that limitation.
+
+## Schema 44
+
+Durable bounded spawn-queue state foundation.
+
+- Every materialization attempt is keyed by its own spawn request and projection
+  IDs. Manifest identity binds immutable input but is not the unique lookup or
+  idempotency key because one manifest may be projected more than once.
+- A batch persists the manifest hash, attempt generation, last/next attempt and
+  update times, deadline, cancellation request, last failure, cleanup-pending
+  state, and typed terminal result.
+- A slot persists spawning/cleanup-pending states, the prefab actually passed to
+  physical creation, its entity/group/projection links, and faction, group,
+  projection, seat, and alive verification evidence.
+- Save capture and restore deep-copy all queue fields and slot evidence.
+- Campaign state persists an actual-restore sequence and the last restore
+  sequence reconciled by the spawn queue. Applying a persisted campaign advances
+  the actual-restore sequence exactly once before coordinator reconciliation;
+  ordinary state normalization and new campaigns leave it at zero.
+- Pre-schema-44 terminal success, final-failure, and cancellation batches are
+  retained without synthetic request IDs or hashes. Every pre-schema-44 pending,
+  deferred, retryable, in-progress, or cleanup-pending batch becomes an explicit
+  final failure regardless of any partially populated newer identity fields.
+  Every slot in such a batch has stale runtime entity and verification evidence
+  cleared; existing final-failure and cancellation status/reason is preserved
+  while registered and every other status becomes a final failure. Batch and
+  slot migration timestamps are stamped with the exact migration second. One
+  migration event records the conversion only when at least one row changed.
+- On schema-44 restore, duplicate nonempty result, request, or projection keys
+  invalidate every nonterminal batch carrying a conflicting key, including when
+  the other key belongs to terminal history. Conflicting nonterminal rows fail
+  closed with runtime group/entity evidence cleared; terminal historical rows
+  remain unchanged. One stable event row provides bounded normalization evidence.
+- Queue retention and active-work limits are enforced by the queue service.
+  Migration never deletes valid terminal or settlement evidence merely to meet
+  a cap.
 
 ## Runtime Settings Schema 21
 

@@ -195,6 +195,8 @@ class HST_PersistenceService
 
 		fallbackState.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		fallbackState.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		fallbackState.m_iPersistenceRestoreSequence = 0;
+		fallbackState.m_iForceSpawnQueueReconciledRestoreSequence = 0;
 		fallbackState.m_bRestoredFromPersistence = false;
 		fallbackState.m_sLastPersistenceStatus = "new campaign state tracked";
 		CaptureAndTrackState(fallbackState, fallbackState.m_sLastPersistenceStatus);
@@ -208,6 +210,7 @@ class HST_PersistenceService
 
 		restoredSave.MigrateToCurrentSchema();
 		restoredSave.ApplyTo(targetState, false);
+		targetState.m_iPersistenceRestoreSequence = Math.Max(0, targetState.m_iPersistenceRestoreSequence) + 1;
 		targetState.m_bRestoredFromPersistence = true;
 		targetState.m_iLastRestoreSecond = targetState.m_iElapsedSeconds;
 		targetState.m_sLastPersistenceStatus = string.Format("restored schema %1 -> %2", targetState.m_iLastLoadedSchemaVersion, targetState.m_iSchemaVersion);

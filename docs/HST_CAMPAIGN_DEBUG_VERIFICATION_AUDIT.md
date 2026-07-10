@@ -30,13 +30,17 @@ be read as proof that a later change was executed or certified.
   assertion expects 13 where the registry intentionally contains 12; the case
   headline can preserve an earlier WARN while hiding a later FAIL; and support
   movement/formation evidence can be sampled after the group has already folded.
-- Campaign schema 43, the authority foundation, and the exact garrison
-  quote/manifest slice have passed foundation checks and Workbench script
-  validation. The isolated state case now covers quantities 1/4/7/12, an HR
-  reservation-conflict rollback, and five partial confirmation save/restore
-  boundaries. It has not yet been executed or runtime-certified by this suite,
-  and it does not certify manifest-driven physicalization because that path is
-  not implemented yet.
+- The inspected gameplay artifact predates both campaign schema 43 exact-force
+  authority and schema 44 SpawnQueue authority. The current authority/garrison
+  slice has passed foundation checks and Workbench script validation. Its
+  isolated state case covers quantities 1/4/7/12, an HR reservation-conflict
+  rollback, and five partial confirmation save/restore boundaries. Schema 44
+  adds the deterministic world-free `early_mechanics.spawn_queue` case for
+  admission, identity, scheduling, retry, cleanup, retention, migration, and
+  restore state. Neither case has been executed or runtime-certified by this
+  suite, and neither
+  certifies engine-backed manifest physicalization because no queue tick or
+  physical adapter is integrated.
 
 Post-audit safety follow-up: the in-process runner now fails closed outside
 `HST_Dev`, blocks external/soak profiles, persists the live baseline, runs
@@ -55,9 +59,22 @@ disabled-rootless counts, and bounded missing-marker identity samples. Static
 and Workbench validation pass; the prior 6,806 exceptions remain the latest
 runtime evidence until a fresh map-open run proves the guard and census.
 
-Certification is blocked until the runner is isolated, the cascading mission is
-contained, known assertion defects are corrected, marker widget readiness is
-fixed, and the genuine physical failures are rerun through scoped disposable
+Post-audit schema-44 queue follow-up: typed force-spawn results are now durable
+per-projection queue batches rather than manifest-only observations. The
+world-free kernel rejects manifests without an executable required group root,
+orders priority/FIFO work within two-batch/eight-action budgets, verifies exact
+callback identity/evidence, and handles retry, deadline, cancellation, cleanup,
+restore reconciliation, and pin-aware terminal retention. The coordinator runs
+restore reconciliation once per actual persisted restore before garrison and
+ledger reconciliation. Terminal status/prefab/verification data remains
+historical, while process-local entity and native-group IDs are cleared on
+restore. This does not make the older broad-alpha physicalization path an
+executor: paid support is not migrated, current garrison purchase-only manifests
+are nondeployable, and accepted quote/manifest/ledger history remains unbounded.
+
+Certification is blocked until the debug-isolation boundary and marker guard are
+runtime-proven, the cascading mission is contained, known assertion defects are
+corrected, and the genuine physical failures are rerun through scoped disposable
 profiles.
 
 Latest support simulated-physicalization follow-up: search/QRF/roadblock-style ground support now creates the durable support request and linked active-group state even when the target is outside the player event bubble, but runtime group/vehicle spawning is deferred until the simulated group position enters the bubble. Off-bubble support groups can advance through the active-group route simulation without being marked spawn-failed, folded, or resolved, and player-requested resistance support group markers can follow the simulated group state before entities exist. Full Campaign Debug adds `support.simulated_physicalization`, proving an off-bubble search support keeps active campaign state and marker coverage with no runtime entity, then physicalizes after the simulated group is moved inside the player event bubble. A fresh run should show `h-istasi-live-runtime-proof-support-simulated-physicalization`.

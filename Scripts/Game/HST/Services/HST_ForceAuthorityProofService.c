@@ -305,7 +305,7 @@ class HST_ForceAuthorityProofService
 					restoredHRTransaction = restoredState.FindResourceTransaction(restoredQuote.m_sHRTransactionId);
 				}
 			}
-			roundtrip = restoredState && restoredState.m_iSchemaVersion == 43 && restoredManifest && restoredQuote && restoredSpawn && restoredGarrison;
+			roundtrip = restoredState && restoredState.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION && restoredManifest && restoredQuote && restoredSpawn && restoredGarrison;
 			if (roundtrip)
 				roundtrip = restoredManifest != fixture.m_AcceptedQuote.m_Manifest && restoredManifest.m_sManifestHash == fixture.m_AcceptedQuote.m_Manifest.m_sManifestHash && restoredManifest.m_aMembers.Count() == 4 && restoredManifest.m_aMembers[0] != fixture.m_AcceptedQuote.m_Manifest.m_aMembers[0];
 			if (roundtrip)
@@ -350,7 +350,7 @@ class HST_ForceAuthorityProofService
 					migrationEventFound = true;
 			}
 		}
-		bool legacyMigration = migratedState && migratedState.m_iSchemaVersion == 43 && migratedGarrison && migratedGarrison.m_iInfantryCount == 6 && migratedGarrison.m_sGarrisonId == HST_StableIdService.BuildGarrisonId("force_legacy_zone", "FIA") && migratedState.m_aForceManifests.Count() == 0 && migrationEventFound;
+		bool legacyMigration = migratedState && migratedState.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION && migratedGarrison && migratedGarrison.m_iInfantryCount == 6 && migratedGarrison.m_sGarrisonId == HST_StableIdService.BuildGarrisonId("force_legacy_zone", "FIA") && migratedState.m_aForceManifests.Count() == 0 && migrationEventFound;
 		int migratedSchemaEvidence = -1;
 		int migratedInfantryEvidence = -1;
 		int migratedManifestEvidence = -1;
