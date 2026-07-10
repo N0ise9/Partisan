@@ -1885,6 +1885,72 @@ This file is for practical engine/script behavior, not project planning. Keep en
     WorldEditor open remained responsive through ten two-second samples with no
     new script-error or crash signature.
 
+## Crewless Mixed Active-Group Lifecycle
+
+- Keep personnel and vehicle liveness separate. `CountAliveRuntimeGroupAgents()`
+  remains the aggregate helper needed by intentional vehicle-only projections,
+  while `CountAliveRuntimeInfantryGroupAgents()` is the combat/terminal authority
+  for a group whose durable plan contains both infantry and vehicles. Do not fix
+  the mixed-QRF defect by globally treating every uncrewed vehicle projection as
+  dead.
+- A mixed group may become personnel-terminal only after it has positive prior
+  population evidence and both native delayed-population and live-count grace
+  have expired. This prevents a newly created empty `SCR_AIGroup` shell from
+  being mistaken for combat casualties. Queue-owned exact projections and
+  mission convoys retain their independent lifecycle authorities.
+- On confirmed zero living personnel, apply one terminal transition: set
+  `eliminated`, zero spawned/living/survivor/durable-strength counts, clear
+  runtime identity and waypoint count, stamp casualty/elimination time and
+  lifecycle revision, and fail any still-unresolved linked QRF. Replay must be a
+  no-op.
+- An intact attached vehicle is neutral disposable field salvage, not a living
+  enemy member, a garrison refund, or an automatic garage reward. Clear its
+  recursive faction claim, register it as `detached_active_vehicle` using
+  `m_sVehiclePrefab` before any group-prefab fallback, unregister the group-to-
+  vehicle handle without deleting the physical root, and require explicit
+  player garage capture for durable ownership. `m_bDetached = true` deliberately
+  prevents automatic field-vehicle restoration if the session ends first.
+  `HST_CampaignSaveData` excludes these session-only records and their virtual
+  cargo on capture and prunes legacy copies on migration, so they cannot become
+  unbounded stale runtime-ID aliases after restart. Campaign-debug isolation
+  comparisons intentionally ignore this same transient record class because
+  the persisted deep-clone boundary excludes it while the untouched live world
+  may still own its session salvage entity.
+- Do not downgrade a vehicle that was already adopted as durable
+  `loot_vehicle`, `field_vehicle`, or `garage_redeploy` state. Preserve that
+  record's kind, `m_bDetached = false`, cargo, and save/restore policy while
+  removing only its active-group combat ownership. Only a vehicle without an
+  existing persistent field record becomes session-only detached salvage.
+- Destroyed or missing attached vehicles are unregistered/deleted normally.
+  Terminal cleanup is idempotent and removes both runtime-vehicle arrays in
+  reverse order. The outside-bubble support fold calls the same crewless mixed-
+  group guard before it can abstract-return dead personnel or an abandoned
+  vehicle.
+- QRF marker eligibility must consult the linked group's terminal status before
+  the unresolved-QRF shortcut. Zone capture already ignores terminal groups, so
+  zeroing survivor vehicle strength removes both stale capture pressure and the
+  tactical marker without weakening a genuinely living QRF during an ownership
+  flip.
+- Save normalization must never backfill original infantry/vehicle counts into
+  an `eliminated`, `convoy_eliminated`, or `spawn_failed` row. Those terminal
+  rows restore with zero strategic survivors and no process-local runtime
+  identity. A `folded` row is different: it must retain the exact survivor
+  counts already credited to its abstract garrison. This repair changes no
+  persisted shape and therefore keeps schema 48.
+- Neutral salvage is gated by the explicit
+  `personnel_eliminated_vehicle_salvage` disposition. Generic `folded`,
+  `spawn_failed`, and other terminal cleanup must delete/unregister its vehicle
+  normally; preserving it after fold-back would duplicate the vehicle between
+  the abstract garrison and the world.
+- `HST_ActiveGroupLifecycleProofService` exercises the production state
+  eligibility predicate and terminal mutation, including living, pending,
+  queue-owned, convoy, unobserved, delayed-population, and live-grace controls.
+  It also covers linked QRF failure, capture-pressure removal, marker ordering,
+  replay idempotence, current-schema roundtrip, folded-survivor preservation,
+  session-salvage pruning, living-mixed control, and vehicle-only control. It is deterministic in-process proof; real entity
+  detachment, player salvage, replication, and process restart still require a
+  disposable packaged runtime run.
+
 ## Campaign Debug Observation Timing
 
 - A debug assertion must consume evidence captured at the state transition it

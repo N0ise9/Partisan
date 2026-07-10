@@ -70,6 +70,14 @@ The repository contains a broad-alpha campaign foundation:
   diagnostics
 - Physical enemy response fold-back for support/QRF groups that leave the event
   bubble, preserving survivor state while removing live runtime handles
+- Mixed personnel/vehicle active groups now use living personnel—not an intact
+  empty vehicle—as combat-effectiveness authority. Once previously observed
+  personnel reach zero outside population grace, the group becomes terminal,
+  contributes no capture pressure, retires its linked QRF marker, and preserves
+  an intact attached vehicle as neutral salvage. Unadopted vehicles are session-
+  only; an existing durable field record and cargo remain durable. Terminal zero-survivor
+  truth is retained across save normalization; the bounded lifecycle proof is
+  implemented, while real combat/salvage/restart observation remains open.
 - Physical support route truth that keeps spawned support state on the live
   member centroid, treats ETA as the earliest arrival observation rather than
   completion, requires two live samples from distinct elapsed seconds within
@@ -208,14 +216,22 @@ authority, runtime projection, persistence, and client evidence trustworthy:
    pilot entry repair with 3/3 seated living drivers, then prove the repaired
    support route-truth boundary through actual movement, two-sample arrival,
    recall exit, and bounded transactional waypoint reissue in scoped disposable
-   profiles.
+   profiles. In the same disposable boundary, reproduce the crewless mixed-QRF
+   case and prove one terminal transition, zero capture/marker pressure, one
+   neutral salvage detachment, no duplicate vehicle, and no survivor
+   resurrection after restart.
 6. Prove static marker widget readiness plus authoritative host/client/late-join
    projection before treating marker publication as player-visible truth.
 7. Resume deeper mission, civilian, undercover, commander, logistics, and
    balance expansion only after those integrity gates produce reliable evidence.
 
+The next implementation slice is the schema-49 exact-QRF `OperationRecord`
+kernel: durable assignment, materialization, engagement, settlement, and replay
+identity for one already-exact force consumer before broadening that model to
+other forces.
+
 The repository currently passes foundation validation and schema-48 Workbench
-Game compilation/creation at 5,740 files and 11,477 classes. A normal
+Game compilation/creation at 5,741 files and 11,481 classes. A normal
 WorldEditor project open produced no new crash signature during the bounded
 survival gate. The editor role-change guard still needs a fresh packaged
 dedicated-server connect before it counts as runtime proof. The same inspected

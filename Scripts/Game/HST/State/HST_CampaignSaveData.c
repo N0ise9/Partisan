@@ -231,13 +231,30 @@ class HST_CampaignSaveData
 		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
 			m_aGarageVehicles.Insert(CopyGarageVehicle(vehicle));
 
+		array<string> sessionOnlyDetachedVehicleIds = {};
+		foreach (HST_RuntimeVehicleState sessionRuntimeVehicle : state.m_aRuntimeVehicles)
+		{
+			if (!IsSessionOnlyDetachedActiveVehicle(sessionRuntimeVehicle) || sessionRuntimeVehicle.m_sVehicleRuntimeId.IsEmpty())
+				continue;
+			if (sessionOnlyDetachedVehicleIds.Find(sessionRuntimeVehicle.m_sVehicleRuntimeId) < 0)
+				sessionOnlyDetachedVehicleIds.Insert(sessionRuntimeVehicle.m_sVehicleRuntimeId);
+		}
+
 		m_aVehicleCargoItems.Clear();
 		foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
+		{
+			if (cargoItem && sessionOnlyDetachedVehicleIds.Find(cargoItem.m_sVehicleRuntimeId) >= 0)
+				continue;
 			m_aVehicleCargoItems.Insert(CopyVehicleCargoItem(cargoItem));
+		}
 
 		m_aRuntimeVehicles.Clear();
 		foreach (HST_RuntimeVehicleState runtimeVehicle : state.m_aRuntimeVehicles)
+		{
+			if (IsSessionOnlyDetachedActiveVehicle(runtimeVehicle))
+				continue;
 			m_aRuntimeVehicles.Insert(CopyRuntimeVehicle(runtimeVehicle));
+		}
 
 		m_aSavedLoadouts.Clear();
 		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
@@ -1893,6 +1910,39 @@ class HST_CampaignSaveData
 		return target;
 	}
 
+	protected bool IsSessionOnlyDetachedActiveVehicle(HST_RuntimeVehicleState vehicle)
+	{
+		return vehicle
+			&& vehicle.m_bDetached
+			&& vehicle.m_sRuntimeKind == "detached_active_vehicle";
+	}
+
+	protected void PruneSessionOnlyDetachedActiveVehicles()
+	{
+		array<string> removedRuntimeIds = {};
+		for (int vehicleIndex = m_aRuntimeVehicles.Count() - 1; vehicleIndex >= 0; vehicleIndex--)
+		{
+			HST_RuntimeVehicleState vehicle = m_aRuntimeVehicles[vehicleIndex];
+			if (!IsSessionOnlyDetachedActiveVehicle(vehicle))
+				continue;
+
+			if (!vehicle.m_sVehicleRuntimeId.IsEmpty() && removedRuntimeIds.Find(vehicle.m_sVehicleRuntimeId) < 0)
+				removedRuntimeIds.Insert(vehicle.m_sVehicleRuntimeId);
+			m_aRuntimeVehicles.Remove(vehicleIndex);
+		}
+
+		if (removedRuntimeIds.IsEmpty())
+			return;
+
+		for (int cargoIndex = m_aVehicleCargoItems.Count() - 1; cargoIndex >= 0; cargoIndex--)
+		{
+			HST_VehicleCargoItemState cargoItem = m_aVehicleCargoItems[cargoIndex];
+			if (!cargoItem || removedRuntimeIds.Find(cargoItem.m_sVehicleRuntimeId) < 0)
+				continue;
+			m_aVehicleCargoItems.Remove(cargoIndex);
+		}
+	}
+
 	void MigrateToCurrentSchema()
 	{
 		int restoredSchemaVersion = m_iSchemaVersion;
@@ -2056,12 +2106,26 @@ class HST_CampaignSaveData
 				group.m_vSourcePosition = group.m_vPosition;
 			if (IsZeroVector(group.m_vTargetPosition))
 				group.m_vTargetPosition = group.m_vPosition;
-			if (group.m_iLastSeenAliveCount <= 0)
-				group.m_iLastSeenAliveCount = group.m_iInfantryCount + group.m_iVehicleCount;
-			if (group.m_iSurvivorInfantryCount <= 0)
-				group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
-			if (group.m_iSurvivorVehicleCount <= 0)
-				group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
+			bool terminalGroup = group.m_sRuntimeStatus == "eliminated"
+				|| group.m_sRuntimeStatus == "convoy_eliminated"
+				|| group.m_sRuntimeStatus == "spawn_failed";
+			if (terminalGroup)
+			{
+				group.m_iLastSeenAliveCount = 0;
+				group.m_iSurvivorInfantryCount = 0;
+				group.m_iSurvivorVehicleCount = 0;
+				group.m_bSpawnedEntity = false;
+				group.m_sRuntimeEntityId = "";
+			}
+			else
+			{
+				if (group.m_iLastSeenAliveCount <= 0)
+					group.m_iLastSeenAliveCount = group.m_iInfantryCount + group.m_iVehicleCount;
+				if (group.m_iSurvivorInfantryCount <= 0)
+					group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
+				if (group.m_iSurvivorVehicleCount <= 0)
+					group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
+			}
 			if (group.m_iOriginalInfantryCount <= 0)
 				group.m_iOriginalInfantryCount = group.m_iInfantryCount;
 			if (group.m_iOriginalVehicleCount <= 0)
@@ -2082,6 +2146,8 @@ class HST_CampaignSaveData
 			if (cargoItem.m_sCategory.IsEmpty())
 				cargoItem.m_sCategory = "equipment";
 		}
+
+		PruneSessionOnlyDetachedActiveVehicles();
 
 
 		bool backfillVehicleCapabilities = restoredSchemaVersion < 19;

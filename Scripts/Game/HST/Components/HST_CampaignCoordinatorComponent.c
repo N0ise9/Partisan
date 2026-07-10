@@ -12881,7 +12881,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (expectedState.m_aEnemyOrders.Count() != actualState.m_aEnemyOrders.Count())
 			return false;
-		if (expectedState.m_aRuntimeVehicles.Count() != actualState.m_aRuntimeVehicles.Count())
+		if (CountCampaignDebugIsolationRuntimeVehicles(expectedState) != CountCampaignDebugIsolationRuntimeVehicles(actualState))
 			return false;
 		if (expectedState.m_aGarageVehicles.Count() != actualState.m_aGarageVehicles.Count())
 			return false;
@@ -12900,6 +12900,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (expectedState.m_aCampaignEvents.Count() != actualState.m_aCampaignEvents.Count())
 			return false;
 		return true;
+	}
+
+	protected int CountCampaignDebugIsolationRuntimeVehicles(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_RuntimeVehicleState vehicle : state.m_aRuntimeVehicles)
+		{
+			if (!vehicle)
+				continue;
+			if (vehicle.m_bDetached && vehicle.m_sRuntimeKind == "detached_active_vehicle")
+				continue;
+			count++;
+		}
+		return count;
 	}
 
 	protected string BuildCampaignDebugIsolationStateActual(HST_CampaignState expectedState, HST_CampaignState actualState)
@@ -16147,6 +16164,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.restore_reconciliation", "every partial reserve, aggregate, and commit boundary rolls back exactly after restore", proof.m_sReconciliationEvidence, CampaignDebugStatus(proof.m_bReconciliationExact), "interrupted garrison confirmation did not reconcile exactly");
 		AppendCampaignDebugPaidSupportAuthorityAssertions(forceCase);
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
+		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
 		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
@@ -16198,6 +16216,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_runtime.survivor_reprojection", "restore requeues one root plus only durable living member slots and completes a second exact handoff", proof.m_sReprojectionEvidence, CampaignDebugStatus(proof.m_bSurvivorReprojectionExact), "restore respawned a confirmed casualty or failed survivor-only handoff");
 		AddCampaignDebugAssertion(forceCase, "force_runtime.terminal_roster", "the final exact member death produces zero durable living slots and a fully retired roster", proof.m_sTerminalEvidence, CampaignDebugStatus(proof.m_bTerminalRosterExact), "last-death durable terminal predicate was not exact");
 		AddCampaignDebugAssertion(forceCase, "force_runtime.schema46_migration", "schema 46 successful projections gain handoff/ever-populated lifecycle evidence without invented casualties", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bSchema46MigrationExact), "schema 46 lifecycle migration lost success evidence or invented a casualty");
+	}
+
+	protected void AppendCampaignDebugActiveGroupLifecycleAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+
+		HST_ActiveGroupLifecycleProofService proofService = new HST_ActiveGroupLifecycleProofService();
+		HST_ActiveGroupLifecycleProofReport proof = proofService.Run();
+		forceCase.m_aEvidence.Insert(proof.m_sTerminalEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCaptureEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMarkerEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sPersistenceEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sControlEvidence);
+		AddCampaignDebugAssertion(forceCase, "active_group_lifecycle.qrf_uncrewed_noncombat", "a mixed QRF with observed personnel and no surviving personnel becomes terminal exactly once and fails any unresolved linked response", proof.m_sTerminalEvidence, CampaignDebugStatus(proof.m_bCrewlessMixedGroupTerminalExact), "crewless mixed QRF remained an active combat force or replay changed it twice");
+		AddCampaignDebugAssertion(forceCase, "active_group_lifecycle.capture_presence", "terminal mixed-group vehicles contribute zero hostile capture pressure", proof.m_sCaptureEvidence, CampaignDebugStatus(proof.m_bCapturePresenceCleared), "terminal mixed QRF vehicle still blocked capture");
+		AddCampaignDebugAssertion(forceCase, "active_group_lifecycle.qrf_marker_retired", "a terminal linked QRF is hidden even when its response row has not yet been resolved", proof.m_sMarkerEvidence, CampaignDebugStatus(proof.m_bQRFMarkerRetired), "terminal linked QRF marker remained visible");
+		AddCampaignDebugAssertion(forceCase, "active_group_lifecycle.persistence", "terminal zero-survivor truth and failed QRF disposition survive current-schema roundtrip without runtime-handle resurrection", proof.m_sPersistenceEvidence, CampaignDebugStatus(proof.m_bPersistenceExact), "save normalization resurrected terminal mixed-group survivor state");
+		AddCampaignDebugAssertion(forceCase, "active_group_lifecycle.controls", "living mixed groups remain effective, crewless mixed vehicles do not, and vehicle-only projections retain their established semantics", proof.m_sControlEvidence, CampaignDebugStatus(proof.m_bCombatControlsExact), "mixed-group personnel authority regressed a live or vehicle-only control");
 	}
 
 	protected void AppendCampaignDebugForceSettlementArchiveAssertions(HST_CampaignDebugCaseResult forceCase)

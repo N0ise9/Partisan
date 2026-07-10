@@ -203,6 +203,45 @@ script-error or crash signature. These are in-process authority and bounded
 startup proofs, not production RPC, ledger/save restart, or physical recall-exit
 runtime evidence.
 
+Post-audit crewless mixed-QRF follow-up: the independent normal-play portion of
+the July 9 `logs_2026-07-09_14-09-10` artifact materialized mixed response group
+`qrf_depot_figari_supply_depot_US_1009_13` with two observed living infantry and
+one linked vehicle. After both infantry died, native membership was zero and
+reconciliation repeatedly reported infantry `0/5`, total live `1`, and status
+`arrived`; the intact empty vehicle supplied that final aggregate count. The
+group continued reconciling after its target changed ownership because capture
+cleanup intentionally preserves QRFs. This is a genuine normal-play defect,
+not part of the Full Campaign Debug defense cascade.
+
+Current source separates living infantry from vehicle health for mixed-group
+combat authority while retaining existing vehicle-only semantics. After prior
+population evidence and the native/live-count grace windows, zero living
+personnel applies one terminal transition, zeros strategic strength, resolves
+an incomplete linked QRF as failed, removes capture and marker pressure, clears
+combat handles, and preserves an intact attached vehicle as neutral disposable
+session salvage. The vehicle record now uses the selected vehicle prefab rather
+than the infantry-group prefab. Eliminated/spawn-failed save normalization
+retains zero counts and clears process-local runtime identity instead of
+backfilling original force totals, while folded rows retain their credited
+survivor provenance. Session-only detached salvage records and their virtual
+cargo are excluded from save capture and pruned on migration. The
+vehicle disposition preserves any existing durable field/loot/garage record and
+its virtual cargo instead of downgrading it to session-only state. The
+`active_group_lifecycle.*` deterministic cases cover eligibility guards,
+terminal replay, capture pressure, unresolved marker ordering, current-schema
+roundtrip, folded-survivor preservation, session-record pruning, durable-record
+preservation, living-mixed control, and vehicle-only control. Foundation validation and headless
+Workbench Game compile/create pass at 5,741 files/11,481 classes with pre-stamp
+CRC `cb898269`. This is source, deterministic in-process, and compilation
+evidence—not physical entity detachment, player salvage, dedicated replication,
+ownership-flip cleanup, or process-restart runtime proof.
+
+The campaign-debug isolation comparator excludes the same session-only detached
+vehicle class from its runtime-vehicle count. Its expected state comes from the
+persisted deep clone, while the untouched live campaign can still own the
+physical salvage entity; comparing raw counts would create an isolation false
+failure without proving a mutation.
+
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue
 rejects manifests without an executable required group root, orders priority/
@@ -618,6 +657,7 @@ Unproven or incomplete against the pasted contract:
 | Phase smoke wrapping | Valid phase-smoke indexes 0-62 now emit typed cases instead of duplicate legacy result rows; phase persistence seed/run/report steps are typed. | Physical depth inside some phases remains partial. |
 | Bootstrap/preflight/HQ | Server/admin/member/commander, phase repair, HQ/Petros/player presence, service/registry/prefab/zone graph checks, HQ runtime and duplicate scans. | Command-menu visual opening remains inferred through service/menu data, not rendered UI. |
 | Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route-state samples, typed recall receipt and paired-settlement conflict cases, an ETA no-false-arrival assertion, a terminal-resolution assertion conditional on prior live arrival, civilian population/movement samples, controlled wanted-heat decay, and undercover compromise/clear paths. | Production RPC/save-restart recall replay, real-frame support movement, two-sample arrival/recall exit, unconditional terminal-resolution execution, natural support contact/combat, and broader civilian reaction behavior beyond heat/population are not proven. |
+| Active-group lifecycle | Deterministic `active_group_lifecycle.*` cases prove one mixed-QRF personnel-terminal transition, linked QRF failure, zero capture pressure, terminal-before-unresolved marker ordering, replay no-op, schema-48 roundtrip, and living-mixed/vehicle-only controls. | Physical neutral-salvage detachment, entity/handle cleanup, player capture, dedicated replication, ownership-flip behavior, and process restart remain external runtime gaps. |
 | Physical AI combat | Timed `physical_combat.ai_contact` probe spawns temporary resistance/enemy active groups in the player render bubble, proves native faction hostility, assigns opposing search-and-destroy waypoints, samples live counts/distance through the normal physical-war tick, requires live-count loss during the hostile-contact window, and cleans all temporary groups/waypoints. | This does not yet prove support-arrival combat, primitive area-clearing combat, or multi-wave Petros/counterattack resolution. |
 | Missions and primitives | All-mission start/runtime/cleanup cases, primitive-specific probes for kill/destroy/recover/deliver/rescue/hold/clear, exact reward assertions, mission cleanup checks, and explicit admin-cleanup WARN classification. | Natural player driving/path travel, mission-owned hostile combat/area clearing, and true runtime completion for every mission remain partial. |
 | Garage/loadout | Real garage store/redeploy/capture/cargo restoration plus loadout open/close session checks, valid saved-loadout apply through the real command path, finite arsenal withdrawal, issued-ledger creation, invalid apply no-mutation, non-serialized physical inventory insertion, server-side live-draft slot model reflection/restoration, serialized restore, and restoration of transient debug state. | Direct rendered/editor UI interaction and exact visual equipment-slot inspection for the seeded finite loadout item remain open. |

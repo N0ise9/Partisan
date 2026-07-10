@@ -8436,7 +8436,7 @@ foreach ($requiredActiveVehicleDetachEntry in @(
 		"detached_active_vehicle",
 		"vehicle spawn blocked",
 		"guard_distributed",
-		"m_bDetached = true",
+		"m_bDetached = !preservePersistentFieldRecord",
 		"m_bDeleted = false"
 	)) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveVehicleDetachEntry)) {
@@ -8453,6 +8453,93 @@ foreach ($forbiddenActiveGroupRouteEntry in @(
 	}
 }
 Write-Host "Physical active vehicle detach guard OK"
+
+$activeGroupLifecycleProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ActiveGroupLifecycleProofService.c"
+$activeGroupLifecycleSaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$activeGroupLifecycleCorpus = $physicalWarServiceText + "`n" + $mapMarkerServiceText + "`n" + $activeGroupLifecycleSaveText + "`n" + $activeGroupLifecycleProofText + "`n" + $coordinatorForPreflightText
+foreach ($requiredActiveGroupLifecycleEntry in @(
+	"TryEliminateCrewlessMixedActiveGroup",
+	"IsMixedPersonnelVehicleActiveGroup",
+	"CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId)",
+	"HasObservedActiveGroupPersonnel",
+	"ShouldApplyCrewlessMixedPersonnelElimination",
+	"IsActiveGroupNativeDelayedPopulationActive(activeGroup)",
+	"IsActiveGroupLiveCountGraceActive(state, activeGroup)",
+	"ApplyObservedPersonnelElimination",
+	"CleanupTerminalActiveGroupRuntime",
+	"personnel_eliminated_vehicle_salvage",
+	"RegisterDetachedActiveVehicle(state, zone, activeGroup, vehicle, source)",
+	"HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(vehicle)",
+	"DeleteRuntimeGroupEntity(activeGroup.m_sGroupId, false)",
+	"DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId)",
+	'activeGroup.m_sRuntimeStatus == "eliminated"',
+	'activeGroup.m_sSpawnFallbackMode.Contains("personnel_eliminated_vehicle_salvage")',
+	"string prefab = activeGroup.m_sVehiclePrefab",
+	"CountAliveRuntimeGroupVehicles",
+	"IsSessionOnlyDetachedActiveVehicle",
+	"PruneSessionOnlyDetachedActiveVehicles",
+	"sessionOnlyDetachedVehicleIds.Find(cargoItem.m_sVehicleRuntimeId)",
+	"CountCampaignDebugIsolationRuntimeVehicles",
+	"ShouldPreservePersistentDetachedVehicleRecord",
+	'runtimeVehicle.m_sRuntimeKind == "field_vehicle"',
+	"FailTerminalLinkedQRF",
+	"HST_ActiveGroupLifecycleProofService",
+	"active_group_lifecycle.qrf_uncrewed_noncombat",
+	"active_group_lifecycle.capture_presence",
+	"active_group_lifecycle.qrf_marker_retired",
+	"active_group_lifecycle.persistence",
+	"active_group_lifecycle.controls",
+	"terminalGroup",
+	'group.m_sRuntimeStatus == "eliminated"',
+	"group.m_iSurvivorVehicleCount = 0",
+	"group.m_bSpawnedEntity = false"
+)) {
+	if ($activeGroupLifecycleCorpus -notmatch [regex]::Escape($requiredActiveGroupLifecycleEntry)) {
+		throw "Mixed active-group personnel lifecycle authority is missing entry: $requiredActiveGroupLifecycleEntry"
+	}
+}
+
+$terminalSaveNormalization = [regex]::Match($activeGroupLifecycleSaveText, '(?s)bool terminalGroup = .*?;')
+if (!$terminalSaveNormalization.Success) {
+	throw "Could not locate terminal active-group save normalization"
+}
+if ($terminalSaveNormalization.Value -match [regex]::Escape('group.m_sRuntimeStatus == "folded"')) {
+	throw "Folded active groups must retain survivor provenance already credited to the abstract garrison"
+}
+
+$qrfMarkerPredicate = [regex]::Match($mapMarkerServiceText, '(?s)protected bool ShouldShowQRFMarker\(.*?\r?\n\t\}')
+if (!$qrfMarkerPredicate.Success) {
+	throw "Could not locate QRF marker visibility predicate for terminal-group ordering audit"
+}
+$qrfTerminalMarkerIndex = $qrfMarkerPredicate.Value.IndexOf('group.m_sRuntimeStatus == "eliminated"')
+$qrfUnresolvedMarkerIndex = $qrfMarkerPredicate.Value.IndexOf('if (!qrf.m_bResolved)')
+if ($qrfTerminalMarkerIndex -lt 0 -or $qrfUnresolvedMarkerIndex -lt 0 -or $qrfTerminalMarkerIndex -gt $qrfUnresolvedMarkerIndex) {
+	throw "QRF marker visibility must reject a linked terminal group before unresolved-QRF visibility"
+}
+
+$activeGroupCombatPredicate = [regex]::Match($physicalWarServiceText, '(?s)protected bool IsActiveGroupCombatEffective\(.*?\r?\n\t\}')
+if (!$activeGroupCombatPredicate.Success) {
+	throw "Could not locate active-group combat-effectiveness predicate"
+}
+foreach ($requiredCombatControlEntry in @(
+	"if (activeGroup.m_iInfantryCount > 0)",
+	"activeGroup.m_iSurvivorInfantryCount > 0",
+	"activeGroup.m_iSurvivorVehicleCount > 0"
+)) {
+	if ($activeGroupCombatPredicate.Value -notmatch [regex]::Escape($requiredCombatControlEntry)) {
+		throw "Active-group combat effectiveness is missing mixed/vehicle-only control entry: $requiredCombatControlEntry"
+	}
+}
+if ($activeGroupCombatPredicate.Value -match [regex]::Escape("activeGroup.m_iSurvivorInfantryCount > 0 || activeGroup.m_iSurvivorVehicleCount > 0")) {
+	throw "A mixed active group must not remain combat-effective from an intact crewless vehicle alone"
+}
+
+$mixedLifecycleUpdateIndex = $physicalWarServiceText.IndexOf('TryEliminateCrewlessMixedActiveGroup(state, activeGroup, "survivor update")')
+$mixedLifecycleGenericCountIndex = $physicalWarServiceText.IndexOf('else if (IsMixedPersonnelVehicleActiveGroup(activeGroup))', $mixedLifecycleUpdateIndex)
+if ($mixedLifecycleUpdateIndex -lt 0 -or $mixedLifecycleGenericCountIndex -lt 0 -or $mixedLifecycleUpdateIndex -gt $mixedLifecycleGenericCountIndex) {
+	throw "Mixed active-group personnel terminal decision must run before aggregate survivor handling"
+}
+Write-Host "Crewless mixed active-group terminal, salvage, marker, capture, and persistence contract OK"
 
 foreach ($requiredConvoyRuntimeReportEntry in @(
 		"BuildConvoyRuntimeReport(HST_CampaignState state, HST_ActiveMissionState mission)",

@@ -958,17 +958,24 @@ class HST_MapMarkerService
 		if (!state || !qrf)
 			return false;
 
+		HST_ActiveGroupState group;
+		if (!qrf.m_sGroupId.IsEmpty())
+		{
+			group = state.FindActiveGroup(qrf.m_sGroupId);
+			if (group && (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed"))
+				return false;
+		}
+
 		if (!qrf.m_bResolved)
 			return true;
 
 		if (qrf.m_sGroupId.IsEmpty())
 			return false;
 
-		HST_ActiveGroupState group = state.FindActiveGroup(qrf.m_sGroupId);
 		if (!group)
 			return false;
 
-		return group.m_sRuntimeStatus != "eliminated" && group.m_sRuntimeStatus != "folded" && group.m_sRuntimeStatus != "spawn_failed";
+		return true;
 	}
 
 	protected void AddSupportRequestMarkers(HST_CampaignState state, HST_CampaignPreset preset)

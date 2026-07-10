@@ -1307,6 +1307,14 @@ class HST_SupportRequestService
 			folded = true;
 		}
 
+		if (folded && (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "spawn_failed"))
+		{
+			request.m_sFailureReason = "physical support group became terminal outside event bubble: " + group.m_sRuntimeStatus;
+			request.m_sRuntimeStatus = "physical_group_terminal_outside_bubble";
+			request.m_sResolutionKind = "physical_group_terminal";
+			return true;
+		}
+
 		if (folded)
 		{
 			request.m_sFailureReason = "physical support folded after leaving event bubble";

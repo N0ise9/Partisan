@@ -99,6 +99,13 @@ The remaining domain services are:
   confirmation within 75m, direct current-to-target/exit chains, bounded route reissue, and
   transactional replacement of service-owned waypoint entities. Exact QRF
   handoff normalizes into `support_active` so this same route authority owns it.
+  For non-queue-managed mixed personnel/vehicle groups it owns a separate
+  personnel terminal predicate: vehicle health cannot substitute for living
+  infantry after prior population evidence and population grace. Terminal
+  cleanup zeros strategic strength, fails an unresolved linked QRF, unregisters
+  combat ownership, and releases an intact vehicle as neutral salvage. An
+  existing durable field/loot/garage record remains durable; otherwise the
+  salvage record is session-only.
 - `HST_GeneratedContentService`: generated Everon mission sites, roadblock,
   support, stash, crashsite, and route records derived from stable zone
   anchors.
@@ -130,7 +137,9 @@ The remaining domain services are:
   physical/abstract runtime state.
 - `HST_MapMarkerService`: native marker rebuild/publish behavior plus marker
   status/detail/audit reports for strategic zones, missions, objectives,
-  Defend Petros, support, QRFs, HQ, and convoy state.
+  Defend Petros, support, QRFs, HQ, and convoy state. Linked terminal-group
+  state is checked before unresolved-QRF visibility, preventing a dead response
+  from retaining a tactical marker.
 - `HST_ZoneCompositionService`: runtime alpha composition slots for zone and
   mission physicalization diagnostics.
 
@@ -182,7 +191,7 @@ production caller for pin-aware terminal SpawnQueue maintenance.
 | Force exactness | Visible garrison recruitment freezes an exact priced purchase-provenance manifest. Player QRF freezes one executable authored group root plus every ordered member slot, charges flat $250 plus one HR per member, and never recomposes after issue. Garrison activation still does not consume its purchase manifest. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
 | Force realization | SpawnQueue accepts only frozen, hash-valid, all-required executable manifests with a group root. The active-phase coordinator drives an engine adapter once per second; player QRF creates one queue-owned active-group projection and submits its accepted manifest unchanged. All verified slots produce durable nonterminal `READY_FOR_HANDOFF`; physical war finalizes before queue `SUCCEEDED`, and only then does the support request become physical. Schema 47 retires confirmed-dead member slots idempotently, detaches their corpses, removes an ever-populated root at zero living members, and requeues one root plus only durable survivors after restart. Initial failure/cancel performs full linked settlement; failure after a prior handoff retains money and refunds survivors only. Vehicle, asset, and multi-root manifests remain unsupported; garrison manifests remain nondeployable. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | Static validation and Workbench compilation/game creation/script validation cover the compiled authority surface. The guarded tree loads 5,740 files/11,477 classes, and the bounded normal WorldEditor startup check produced no new crash signature. A current-build dedicated smoke exposed a recoverable recursive player-role invoker exception; the one-frame editor-listener guard preserves stock mode updates, teardown, and role ownership but still awaits packaged runtime proof. Bounded paid-QRF typed-recall, force-runtime, settlement-archive, and physical-adapter proofs are implemented but are not runtime evidence until executed in an isolated development run. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Static validation and Workbench compilation/game creation/script validation cover the compiled authority surface. The guarded tree loads 5,741 files/11,481 classes, and the bounded normal WorldEditor startup check produced no new crash signature. A current-build dedicated smoke exposed a recoverable recursive player-role invoker exception; the one-frame editor-listener guard preserves stock mode updates, teardown, and role ownership but still awaits packaged runtime proof. Bounded paid-QRF typed-recall, force-runtime, settlement-archive, physical-adapter, and mixed active-group lifecycle proofs are implemented but are not runtime evidence until executed in an isolated development run. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit
@@ -357,7 +366,17 @@ site IDs, and garrison-slot data in `HST_CampaignState`; garrisons are stored
 as infantry and vehicle counts. The physical-war service marks zones active
 when players enter their activation radius, converts abstract garrison counts
 into route-aware active groups, and folds survivor counts back before
-deactivation. Broad-alpha services generate mission sites/routes, attach
+deactivation. A mixed group with previously observed personnel becomes terminal
+when its living infantry reaches zero after delayed-population and live-count
+grace, even if its attached vehicle remains intact. That vehicle becomes
+unclaimed, detached salvage and no longer contributes to garrison,
+capture, QRF, or marker strength; vehicle-only projections keep their existing
+separate semantics. Existing durable field ownership/cargo is preserved; an
+unadopted salvage record is session-only. Eliminated/spawn-failed save normalization preserves zero
+counts and clears process-local spawn identity rather than reconstructing
+original force totals; folded rows retain the survivor counts already returned
+to the abstract garrison.
+Broad-alpha services generate mission sites/routes, attach
 objectives/tasks to started missions, poll physical MVP mission primitives from
 world conditions, spend scaled enemy pools into orders/support calls, and let
 orders/support either physicalize near players or resolve abstractly off-screen.

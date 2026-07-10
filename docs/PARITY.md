@@ -43,6 +43,12 @@
 - Physical-war activation scaffold that marks nearby zones active, moves
   abstract garrison counts into route-aware active groups, and folds survivor
   counts back on deactivation
+- Personnel-authoritative lifecycle for non-queue-managed mixed groups: an
+  intact attached vehicle cannot keep a previously populated zero-infantry QRF
+  combat-effective. The terminal transition clears capture/marker pressure,
+  fails an incomplete linked QRF, preserves the intact vehicle as neutral
+  salvage, retains any prior durable field/cargo record, treats unadopted
+  salvage as session-only, and remains zero-survivor across schema-48 roundtrip.
 - Coordinator dev actions for zone capture, income ticks, mission
   success/failure, training, recruitment, and garrison fold-back
 - Dedicated Petros character prefab that inherits from FIA rifleman but can be
@@ -129,7 +135,7 @@
 ## Current Verification Boundary
 
 - Foundation validation and schema-48 Workbench Game compilation/creation pass
-  at 5,740 files and 11,477 classes.
+  at 5,741 files and 11,481 classes.
 - A normal WorldEditor project open produced no new crash signature during the
   bounded startup-survival gate.
 - A current-build dedicated smoke remained live until intentional disconnect,
@@ -155,6 +161,13 @@
   target/exit waypoint reissue. A Phase 22 group populated 9/9 without observed
   advance, but campaign-time-only samples are not physical-stall proof. Fresh
   packaged support movement, arrival, and recall proof remains open.
+- The same normal-play artifact independently showed a mixed QRF repeatedly
+  reconciling at zero living infantry because its intact empty vehicle supplied
+  the aggregate living count, including after the target changed ownership.
+  The deterministic lifecycle proof now covers terminal state, capture pressure,
+  QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
+  detachment, player salvage, replication, and restart still need a disposable
+  packaged runtime proof.
 - The latest inspected Full Campaign Debug artifact predates schemas 43-48,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
@@ -180,10 +193,13 @@
 - Runtime-prove 3/3 convoy drivers after the pre-seat registration and local-
   authority entry repair. Then use scoped disposable profiles to prove actual
   support movement, two-sample arrival within 75m, physical recall exit, and
-  transactional waypoint reissue within the three-attempt bound.
+  transactional waypoint reissue within the three-attempt bound. Include the
+  crewless mixed-QRF case and require one neutral salvage detach, zero capture/
+  marker pressure, no duplicate record, and restart-stable terminal state.
 - Prove static marker widget readiness and implement authoritative host/client/
   late-join snapshot, revision, delete, acknowledgement, and resync behavior.
-- Add durable operation assignment/duty/engagement/materialization state before
+- Add the schema-49 exact-QRF `OperationRecord` kernel for durable assignment,
+  duty, engagement, materialization, settlement, and replay identity before
   extending exact runtime authority to vehicles, assets, garrisons, and other
   support consumers.
 
