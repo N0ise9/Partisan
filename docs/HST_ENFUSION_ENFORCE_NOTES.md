@@ -2168,12 +2168,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
     for an open operation and must preserve `RESOLVED` plus its original terminal
     result across save/load after runtime cleanup.
   - Choose full-versus-survivor restore settlement from durable commitment
-    evidence, not from one flag alone. A strict reciprocal order/operation/
-    batch/group execution chain proves commitment even if the saved boolean is
-    corrupt; missing or ambiguous links never justify a full refund. Preserve
-    conflicting rows as evidence instead of deleting them to manufacture
-    uniqueness, and leave an already-settled operation with a missing or
-    conflicting resource receipt blocked rather than refunding or promoting it.
+    evidence, not from one flag alone. Any durable execution link that proves
+    work crossed the admission boundary forces conservative survivor-mode
+    settlement; only the coherent canonical aggregate may resume execution.
+    Missing or ambiguous links never justify a full refund. Preserve conflicting
+    rows as evidence instead of deleting them to manufacture uniqueness.
+  - Treat secondary order/operation/manifest/batch/group backlinks as ownership
+    evidence when counting ambiguity, even when a conflicting row has a different
+    primary ID. Do not normalize a conflicting backlink before validation.
+  - A partial resource receipt or a terminal operation settled under a different
+    receipt is quarantine evidence, not permission to overwrite the fields or
+    issue another refund. Leave that row blocked for diagnosis.
   - Reconcile only after campaign foundation has recreated faction resource
     pools. A restore-time refund cannot be applied safely against a missing pool,
     and postponing pool creation until after exact reconciliation can strand a
@@ -2214,12 +2219,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - `HST_EnemyQRFOperationProofService` contributes six deterministic
   `enemy_qrf.*` assertions: admission, legacy isolation, projection,
-  settlement, persistence, and rejection. Schema-51 implementation checkpoints
-  pass foundation validation. The closing pre-stamp Script Editor run loads
-  5,749 Game files/11,514 classes, creates the game with CRC `947bc5b4`, and
-  completes script validation. A normal WorldEditor open loads the same file and
-  class counts, creates the game with CRC `a8dad007`, and remains responsive for
-  all ten two-second samples. These source/startup gates do not prove
+  settlement, persistence, and rejection. Persistence and rejection now include
+  refund-only partial receipts, missing current-schema group backlinks, and
+  missing-canonical/shadow committed-replay claimants. The final stamped
+  schema-51 tree passes foundation validation; its headless Workbench run
+  compiles 5,749 Game files/11,516 classes and creates the game with CRC
+  `85ccf2e0` without a script error. The latest normal WorldEditor open belongs to schema 50;
+  it loaded the same file/class counts, created the game with CRC `a8dad007`, and
+  remained responsive for all ten two-second samples. These source/startup gates do not prove
   physical movement, AI casualties, marker rendering, packaged accounting, or a
   real process restart.
 

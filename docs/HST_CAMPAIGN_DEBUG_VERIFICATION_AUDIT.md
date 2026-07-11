@@ -73,12 +73,13 @@ be read as proof that a later change was executed or certified.
   only when no intact, damageable transmitter exists. These fixes are source-
   validated only and require the requested republished map/dialog/radio mission
   check.
-- Schema-51 implementation and hardening pass foundation validation. The closing
-  pre-stamp Script Editor run loads 5,749 Game files/11,514 classes, creates the
-  game with CRC `947bc5b4`, and completes script validation. A normal WorldEditor
-  open loads the same file/class counts, creates the game with CRC `a8dad007`,
-  and remains responsive for all ten two-second samples without a script error,
-  unknown class, or crash signature. During schema 50, the initial
+- Schema-51 implementation and hardening pass foundation validation. The final
+  stamped headless Workbench run compiles 5,749 Game files/11,516 classes,
+  creates the game with CRC `85ccf2e0`, and reports no script error. The most recent
+  normal WorldEditor open belongs to schema 50: it loaded the same file/class
+  counts, created the game with CRC `a8dad007`, and remained responsive for all
+  ten two-second samples without a script error, unknown class, or crash
+  signature. During schema 50, the initial
   correctly quoted Workbench attempts exposed a native compiler edge in the
   already-large Phase-20 civilian population debug method: adding five
   appearance/horn count locals caused `0xc0000374` before `Module: Game` without
@@ -923,9 +924,9 @@ Unproven or incomplete against the pasted contract:
 
 - `git diff --check` passes for the current documentation update.
 - `tools/validate-foundation.ps1` passes for the current schema-51 tree.
-- Schema-51 implementation checkpoints have passed headless Workbench source-
-  validation. The final stamped tree still receives a closing run; its exact
-  build identity belongs in the build stamp, not in this pre-stamp audit text.
+- The final stamped schema-51 tree passes a headless Workbench Game-module
+  compile/create pass at 5,749 files/11,516 classes with CRC `85ccf2e0`; its exact
+  implementation identity remains authoritative in `HST_BuildInfo`.
 - The separate bounded WorldEditor result belongs to schema 50 and is retained
   only as historical startup evidence. Source/compile gates are not packaged
   runtime certification.

@@ -209,11 +209,11 @@
   no operation, movement, fold, virtual-combat, or restart evidence for this
   slice. Schema 51 adds deterministic fixtures for exact enemy defensive-QRF
   admission, legacy isolation, projection, return/settlement, restore, and
-  rejection, but none has executed in a packaged runtime. Schema-51
-  implementation checkpoints have passed repository and Workbench source gates;
-  the final stamped tree still receives the closing validation run. The prior
-  schema-50 WorldEditor survival gate is historical startup evidence, not proof
-  of these schema-51 edits. Packaged behavior remains open.
+  rejection, but none has executed in a packaged runtime. The final stamped
+  schema-51 tree passes repository foundation validation and a headless Workbench
+  Game-module compile/create pass at 5,749 files/11,516 classes with CRC `85ccf2e0`.
+  The prior schema-50 WorldEditor survival gate is historical startup evidence,
+  not proof of these schema-51 edits. Packaged behavior remains open.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
