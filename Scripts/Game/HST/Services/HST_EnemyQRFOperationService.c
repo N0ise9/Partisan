@@ -2002,6 +2002,13 @@ class HST_EnemyQRFOperationService
 		out HST_ForceSpawnResultState batch,
 		out HST_ActiveGroupState group)
 	{
+		operation = null;
+		manifest = null;
+		batch = null;
+		group = null;
+		string ambiguity = FindAmbiguousAuthorityRows(state, order);
+		if (!ambiguity.IsEmpty())
+			return ambiguity;
 		operation = state.FindOperation(order.m_sOperationId);
 		manifest = state.FindForceManifest(order.m_sManifestId);
 		batch = state.FindForceSpawnResult(order.m_sSpawnResultId);
@@ -2165,13 +2172,17 @@ class HST_EnemyQRFOperationService
 	{
 		if (!state || !order)
 			return "exact enemy defensive QRF authority context is missing";
-		if (CountEnemyOrdersByAnyAuthorityIdentity(state, order) > 1)
+		if (state.FindEnemyOrder(order.m_sOrderId) != order
+			|| CountEnemyOrdersByAnyAuthorityIdentity(state, order) != 1)
 			return "exact enemy defensive QRF enemy-order identity is ambiguous";
-		if (CountOperationsByAnyAuthorityIdentity(state, order) > 1)
-			return "exact enemy defensive QRF operation identity is ambiguous";
-		if (CountForceManifestsByAnyAuthorityIdentity(state, order) > 1)
-			return "exact enemy defensive QRF manifest identity is ambiguous";
 		HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
+		int operationCount = CountOperationsByAnyAuthorityIdentity(state, order);
+		if ((operation && operationCount != 1) || (!operation && operationCount > 0))
+			return "exact enemy defensive QRF operation identity is ambiguous";
+		HST_ForceManifestState manifest = state.FindForceManifest(order.m_sManifestId);
+		int manifestCount = CountForceManifestsByAnyAuthorityIdentity(state, order);
+		if ((manifest && manifestCount != 1) || (!manifest && manifestCount > 0))
+			return "exact enemy defensive QRF manifest identity is ambiguous";
 		string resultId = order.m_sSpawnResultId;
 		string groupId = order.m_sGroupId;
 		if (operation)
@@ -2182,10 +2193,12 @@ class HST_EnemyQRFOperationService
 				groupId = operation.m_sGroupId;
 		}
 		HST_ForceSpawnResultState batch = state.FindForceSpawnResult(resultId);
-		if (batch && CountForceSpawnResultsByAnyAuthorityIdentity(state, order, operation, batch) > 1)
+		int batchCount = CountForceSpawnResultsByAnyAuthorityIdentity(state, order, operation, batch);
+		if ((batch && batchCount != 1) || (!batch && batchCount > 0))
 			return "exact enemy defensive QRF spawn-result identity is ambiguous";
 		HST_ActiveGroupState group = state.FindActiveGroup(groupId);
-		if (group && CountActiveGroupsByAnyAuthorityIdentity(state, order, operation, group) > 1)
+		int groupCount = CountActiveGroupsByAnyAuthorityIdentity(state, order, operation, group);
+		if ((group && groupCount != 1) || (!group && groupCount > 0))
 			return "exact enemy defensive QRF active-group identity is ambiguous";
 		return "";
 	}
@@ -2263,23 +2276,42 @@ class HST_EnemyQRFOperationService
 		HST_ForceSpawnResultState expected)
 	{
 		int count;
-		if (!state || !order || !expected)
+		if (!state || !order)
 			return count;
+		string resultId = order.m_sSpawnResultId;
+		string projectionId;
+		string forceId;
+		if (operation)
+		{
+			if (resultId.IsEmpty())
+				resultId = operation.m_sSpawnResultId;
+			projectionId = operation.m_sProjectionId;
+			forceId = operation.m_sForceId;
+		}
+		if (expected)
+		{
+			if (resultId.IsEmpty())
+				resultId = expected.m_sResultId;
+			if (projectionId.IsEmpty())
+				projectionId = expected.m_sProjectionId;
+			if (forceId.IsEmpty())
+				forceId = expected.m_sForceId;
+		}
 		foreach (HST_ForceSpawnResultState candidate : state.m_aForceSpawnResults)
 		{
 			if (!candidate)
 				continue;
-			bool matches = candidate.m_sResultId == expected.m_sResultId;
+			bool matches = !resultId.IsEmpty() && candidate.m_sResultId == resultId;
 			if (!matches && !order.m_sOrderId.IsEmpty())
 				matches = candidate.m_sRequestId == order.m_sOrderId;
 			if (!matches && !order.m_sOperationId.IsEmpty())
 				matches = candidate.m_sOperationId == order.m_sOperationId;
 			if (!matches && !order.m_sManifestId.IsEmpty())
 				matches = candidate.m_sManifestId == order.m_sManifestId;
-			if (!matches && !expected.m_sProjectionId.IsEmpty())
-				matches = candidate.m_sProjectionId == expected.m_sProjectionId;
-			if (!matches && !expected.m_sForceId.IsEmpty())
-				matches = candidate.m_sForceId == expected.m_sForceId;
+			if (!matches && !projectionId.IsEmpty())
+				matches = candidate.m_sProjectionId == projectionId;
+			if (!matches && !forceId.IsEmpty())
+				matches = candidate.m_sForceId == forceId;
 			if (matches)
 				count++;
 		}
@@ -2293,25 +2325,49 @@ class HST_EnemyQRFOperationService
 		HST_ActiveGroupState expected)
 	{
 		int count;
-		if (!state || !order || !expected)
+		if (!state || !order)
 			return count;
+		string groupId = order.m_sGroupId;
+		string resultId = order.m_sSpawnResultId;
+		string projectionId;
+		string forceId;
+		if (operation)
+		{
+			if (groupId.IsEmpty())
+				groupId = operation.m_sGroupId;
+			if (resultId.IsEmpty())
+				resultId = operation.m_sSpawnResultId;
+			projectionId = operation.m_sProjectionId;
+			forceId = operation.m_sForceId;
+		}
+		if (expected)
+		{
+			if (groupId.IsEmpty())
+				groupId = expected.m_sGroupId;
+			if (resultId.IsEmpty())
+				resultId = expected.m_sSpawnResultId;
+			if (projectionId.IsEmpty())
+				projectionId = expected.m_sProjectionId;
+			if (forceId.IsEmpty())
+				forceId = expected.m_sForceId;
+		}
 		foreach (HST_ActiveGroupState candidate : state.m_aActiveGroups)
 		{
 			if (!candidate)
 				continue;
-			bool matches = candidate.m_sGroupId == expected.m_sGroupId;
+			bool matches = !groupId.IsEmpty() && candidate.m_sGroupId == groupId;
 			if (!matches && !order.m_sOrderId.IsEmpty())
 				matches = candidate.m_sEnemyOrderId == order.m_sOrderId;
 			if (!matches && !order.m_sOperationId.IsEmpty())
 				matches = candidate.m_sOperationId == order.m_sOperationId;
 			if (!matches && !order.m_sManifestId.IsEmpty())
 				matches = candidate.m_sManifestId == order.m_sManifestId;
-			if (!matches && !expected.m_sSpawnResultId.IsEmpty())
-				matches = candidate.m_sSpawnResultId == expected.m_sSpawnResultId;
-			if (!matches && !expected.m_sProjectionId.IsEmpty())
-				matches = candidate.m_sProjectionId == expected.m_sProjectionId;
-			if (!matches && !expected.m_sForceId.IsEmpty())
-				matches = candidate.m_sForceId == expected.m_sForceId;
+			if (!matches && !resultId.IsEmpty())
+				matches = candidate.m_sSpawnResultId == resultId;
+			if (!matches && !projectionId.IsEmpty())
+				matches = candidate.m_sProjectionId == projectionId;
+			if (!matches && !forceId.IsEmpty())
+				matches = candidate.m_sForceId == forceId;
 			if (matches)
 				count++;
 		}

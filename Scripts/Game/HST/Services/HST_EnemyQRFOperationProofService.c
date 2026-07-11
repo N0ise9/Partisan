@@ -40,6 +40,20 @@ class HST_EnemyQRFOperationProofFixture
 	string m_sDebitReason;
 }
 
+class HST_EnemyQRFRestoreCorruptionProofSummary
+{
+	bool m_bPartialReceiptQuarantined;
+	bool m_bMissingBacklinkRejected;
+	string m_sEvidence;
+}
+
+class HST_EnemyQRFReplayAmbiguityProofSummary
+{
+	bool m_bMissingCanonicalRejected;
+	bool m_bShadowRejected;
+	string m_sEvidence;
+}
+
 class HST_EnemyQRFOperationProofService
 {
 	static const string PROOF_FACTION_KEY = "US";
@@ -496,8 +510,10 @@ class HST_EnemyQRFOperationProofService
 			&& restoredBatch
 			&& fixture.m_Queue.CountConfirmedCasualtyMemberSlots(restoredBatch) == 1;
 		bool legacyExact = restored && restored.m_aSupportRequests.Count() == 0 && restored.m_aQRFs.Count() == 0;
+		HST_EnemyQRFRestoreCorruptionProofSummary corruption = ProveRestoreCorruptionGuards();
 		report.m_bRestoreExact = schemaExact && restoreReconciled && recordsUnique
-			&& identityExact && authorityExact && routeExact && rosterExact && legacyExact;
+			&& identityExact && authorityExact && routeExact && rosterExact && legacyExact
+			&& corruption.m_bPartialReceiptQuarantined && corruption.m_bMissingBacklinkRejected;
 		report.m_sRestoreEvidence = string.Format(
 			"schema %1/%2 | records %3 | living %4/%5 | progress %6/%7",
 			restored && restored.m_iSchemaVersion,
@@ -514,6 +530,7 @@ class HST_EnemyQRFOperationProofService
 			identityExact,
 			authorityExact,
 			legacyExact);
+		report.m_sRestoreEvidence = report.m_sRestoreEvidence + " | corruption guards " + corruption.m_sEvidence;
 	}
 
 	protected void ProveRejection(HST_EnemyQRFOperationProofReport report)
@@ -600,7 +617,9 @@ class HST_EnemyQRFOperationProofService
 			&& !HST_OperationService.RequiresOperation(unsupported);
 		bool legacyCollisionRejected;
 		string legacyCollisionEvidence = ProveLegacyCollision(legacyCollisionRejected);
-		report.m_bRejectionExact = duplicateRejected && unsupportedRejected && legacyCollisionRejected;
+		HST_EnemyQRFReplayAmbiguityProofSummary replayAmbiguity = ProveCommittedReplayAmbiguity();
+		report.m_bRejectionExact = duplicateRejected && unsupportedRejected && legacyCollisionRejected
+			&& replayAmbiguity.m_bMissingCanonicalRejected && replayAmbiguity.m_bShadowRejected;
 		report.m_sRejectionEvidence = string.Format(
 			"duplicate preflight/spent/rejected/refunded %1/%2/%3/%4 | terminal receipt + exact row deltas %5/%6/%7/%8/%9",
 			preflightSideEffectFree,
@@ -618,6 +637,247 @@ class HST_EnemyQRFOperationProofService
 			duplicateAdmission && duplicateAdmission.m_sFailureReason,
 			unsupportedPlan && unsupportedPlan.m_sFailureReason);
 		report.m_sRejectionEvidence = report.m_sRejectionEvidence + " | " + legacyCollisionEvidence;
+		report.m_sRejectionEvidence = report.m_sRejectionEvidence + " | replay ambiguity " + replayAmbiguity.m_sEvidence;
+	}
+
+	protected HST_EnemyQRFRestoreCorruptionProofSummary ProveRestoreCorruptionGuards()
+	{
+		HST_EnemyQRFRestoreCorruptionProofSummary summary = new HST_EnemyQRFRestoreCorruptionProofSummary();
+		string partialEvidence;
+		string backlinkEvidence;
+		summary.m_bPartialReceiptQuarantined = ProvePartialReceiptRestoreQuarantine(partialEvidence);
+		summary.m_bMissingBacklinkRejected = ProveMissingGroupBacklinkRestore(backlinkEvidence);
+		summary.m_sEvidence = "partial " + partialEvidence + " | backlink " + backlinkEvidence;
+		return summary;
+	}
+
+	protected bool ProvePartialReceiptRestoreQuarantine(out string evidence)
+	{
+		HST_EnemyQRFOperationProofFixture fixture = BuildAdmittedFixture("restore_partial_receipt");
+		if (!Ready(fixture))
+		{
+			evidence = BuildFixtureFailure(fixture);
+			return false;
+		}
+		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(PROOF_FACTION_KEY);
+		fixture.m_EnemyDirector.RefundDefenseResources(
+			fixture.m_State,
+			fixture.m_Order.m_sFactionKey,
+			fixture.m_Order.m_sTargetZoneId,
+			1,
+			1,
+			"enemy QRF partial-receipt proof mutation");
+		fixture.m_Order.m_iRefundedAttackResources = 1;
+		fixture.m_Order.m_iRefundedSupportResources = 1;
+		HST_OperationService operationService = new HST_OperationService();
+		string directFailure = operationService.ValidateExactEnemyDefensiveQRF(
+			fixture.m_State,
+			fixture.m_Operation,
+			fixture.m_Order,
+			fixture.m_Manifest);
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		HST_CampaignState restored = saveData.Restore();
+		HST_EnemyOrderState restoredOrder;
+		HST_OperationRecordState restoredOperation;
+		HST_ForceSpawnResultState restoredBatch;
+		HST_ActiveGroupState restoredGroup;
+		HST_FactionPoolState restoredPool;
+		if (restored)
+		{
+			restoredOrder = FindOrder(restored, fixture.m_Order.m_sOrderId);
+			restoredOperation = restored.FindOperation(fixture.m_Operation.m_sOperationId);
+			restoredBatch = restored.FindForceSpawnResult(fixture.m_Batch.m_sResultId);
+			restoredGroup = restored.FindActiveGroup(fixture.m_Group.m_sGroupId);
+			restoredPool = restored.FindFactionPool(PROOF_FACTION_KEY);
+		}
+		int attackBeforeReconcile;
+		int supportBeforeReconcile;
+		if (restoredPool)
+		{
+			attackBeforeReconcile = restoredPool.m_iAttackResources;
+			supportBeforeReconcile = restoredPool.m_iSupportResources;
+		}
+		if (restored)
+		{
+			HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+			queue.ReconcileCampaignAfterRestore(restored);
+			HST_EnemyQRFOperationService exactQRF = new HST_EnemyQRFOperationService();
+			exactQRF.SetRuntimeServices(queue, new HST_ForceSpawnAdapterService(), new HST_PhysicalWarService());
+			exactQRF.ReconcileAfterRestore(restored, new HST_EnemyDirectorService());
+			exactQRF.ReconcileAfterRestore(restored, new HST_EnemyDirectorService());
+		}
+		bool exact = pool && restoredOrder && restoredOperation && restoredBatch && restoredGroup && restoredPool
+			&& directFailure.Contains("partial resource settlement authority")
+			&& restoredOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
+			&& restoredOrder.m_sRuntimeStatus == "exact_restore_settlement_conflict"
+			&& !restoredOrder.m_bResourceSettlementApplied
+			&& restoredOrder.m_iRefundedAttackResources == 1
+			&& restoredOrder.m_iRefundedSupportResources == 1
+			&& restoredPool.m_iAttackResources == attackBeforeReconcile
+			&& restoredPool.m_iSupportResources == supportBeforeReconcile
+			&& restoredOperation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+		evidence = string.Format(
+			"validator '%1' | status %2/%3 | refund %4/%5 | pool %6/%7 -> %8/%9",
+			directFailure,
+			restoredOrder && restoredOrder.m_eStatus,
+			restoredOrder && restoredOrder.m_sRuntimeStatus,
+			restoredOrder && restoredOrder.m_iRefundedAttackResources,
+			restoredOrder && restoredOrder.m_iRefundedSupportResources,
+			attackBeforeReconcile,
+			supportBeforeReconcile,
+			restoredPool && restoredPool.m_iAttackResources,
+			restoredPool && restoredPool.m_iSupportResources);
+		evidence = evidence + string.Format(
+			" | rows %1/%2/%3",
+			restoredOperation != null,
+			restoredBatch != null,
+			restoredGroup != null);
+		return exact;
+	}
+
+	protected bool ProveMissingGroupBacklinkRestore(out string evidence)
+	{
+		HST_EnemyQRFOperationProofFixture fixture = BuildAdmittedFixture("restore_missing_group_backlink");
+		if (!Ready(fixture))
+		{
+			evidence = BuildFixtureFailure(fixture);
+			return false;
+		}
+		fixture.m_Group.m_sEnemyOrderId = "";
+		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(PROOF_FACTION_KEY);
+		int attackBefore = pool.m_iAttackResources;
+		int supportBefore = pool.m_iSupportResources;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		HST_CampaignState restored = saveData.Restore();
+		HST_EnemyOrderState order;
+		HST_ActiveGroupState group;
+		HST_OperationRecordState operation;
+		HST_ForceSpawnResultState batch;
+		HST_FactionPoolState restoredPool;
+		if (restored)
+		{
+			order = FindOrder(restored, fixture.m_Order.m_sOrderId);
+			group = restored.FindActiveGroup(fixture.m_Group.m_sGroupId);
+			operation = restored.FindOperation(fixture.m_Operation.m_sOperationId);
+			batch = restored.FindForceSpawnResult(fixture.m_Batch.m_sResultId);
+			restoredPool = restored.FindFactionPool(PROOF_FACTION_KEY);
+		}
+		bool exact = order && group && operation && batch && restoredPool
+			&& group.m_sEnemyOrderId.IsEmpty()
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
+			&& order.m_sRuntimeStatus == "exact_operation_invalidated"
+			&& order.m_sFailureReason.Contains("runtime backlinks conflict")
+			&& !order.m_bResourceSettlementApplied
+			&& restoredPool.m_iAttackResources == attackBefore
+			&& restoredPool.m_iSupportResources == supportBefore
+			&& operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+		evidence = string.Format(
+			"backlink '%1' | status %2/%3 | reason '%4' | rows %5/%6/%7 | pool %8/%9",
+			group && group.m_sEnemyOrderId,
+			order && order.m_eStatus,
+			order && order.m_sRuntimeStatus,
+			order && order.m_sFailureReason,
+			operation != null,
+			batch != null,
+			group != null,
+			restoredPool && restoredPool.m_iAttackResources,
+			restoredPool && restoredPool.m_iSupportResources);
+		return exact;
+	}
+
+	protected HST_EnemyQRFReplayAmbiguityProofSummary ProveCommittedReplayAmbiguity()
+	{
+		HST_EnemyQRFReplayAmbiguityProofSummary summary = new HST_EnemyQRFReplayAmbiguityProofSummary();
+		string missingEvidence;
+		string shadowEvidence;
+		summary.m_bMissingCanonicalRejected = ProveMissingCanonicalReplayRejection(missingEvidence);
+		summary.m_bShadowRejected = ProveShadowReplayRejection(shadowEvidence);
+		summary.m_sEvidence = "missing " + missingEvidence + " | shadow " + shadowEvidence;
+		return summary;
+	}
+
+	protected bool ProveMissingCanonicalReplayRejection(out string evidence)
+	{
+		HST_EnemyQRFOperationProofFixture fixture = BuildAdmittedFixture("replay_missing_canonical");
+		if (!Ready(fixture))
+		{
+			evidence = BuildFixtureFailure(fixture);
+			return false;
+		}
+		int canonicalIndex = fixture.m_State.m_aOperations.Find(fixture.m_Operation);
+		if (canonicalIndex >= 0)
+			fixture.m_State.m_aOperations.Remove(canonicalIndex);
+		HST_OperationRecordState foreign = new HST_OperationRecordState();
+		foreign.m_sOperationId = fixture.m_Operation.m_sOperationId + "_foreign";
+		foreign.m_sEnemyOrderId = fixture.m_Order.m_sOrderId;
+		fixture.m_State.m_aOperations.Insert(foreign);
+		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(PROOF_FACTION_KEY);
+		int attackBefore = pool.m_iAttackResources;
+		int supportBefore = pool.m_iSupportResources;
+		HST_EnemyQRFAdmissionResult replay = fixture.m_ExactQRF.AdmitPreparedOrder(
+			fixture.m_State,
+			fixture.m_Order,
+			fixture.m_Manifest,
+			fixture.m_EnemyDirector);
+		bool exact = replay && !replay.m_bSuccess && !replay.m_bStateChanged
+			&& replay.m_sFailureReason.Contains("operation identity is ambiguous")
+			&& fixture.m_State.m_aOperations.Count() == 1
+			&& fixture.m_State.m_aOperations[0] == foreign
+			&& fixture.m_State.FindForceSpawnResult(fixture.m_Batch.m_sResultId) == fixture.m_Batch
+			&& fixture.m_State.FindActiveGroup(fixture.m_Group.m_sGroupId) == fixture.m_Group
+			&& pool.m_iAttackResources == attackBefore && pool.m_iSupportResources == supportBefore
+			&& !fixture.m_Order.m_bResourceSettlementApplied;
+		evidence = string.Format(
+			"accepted/changed %1/%2 | reason '%3' | rows %4 | pool %5/%6",
+			replay && replay.m_bSuccess,
+			replay && replay.m_bStateChanged,
+			replay && replay.m_sFailureReason,
+			fixture.m_State.m_aOperations.Count(),
+			pool && pool.m_iAttackResources,
+			pool && pool.m_iSupportResources);
+		return exact;
+	}
+
+	protected bool ProveShadowReplayRejection(out string evidence)
+	{
+		HST_EnemyQRFOperationProofFixture fixture = BuildAdmittedFixture("replay_shadow");
+		if (!Ready(fixture))
+		{
+			evidence = BuildFixtureFailure(fixture);
+			return false;
+		}
+		HST_OperationRecordState shadow = new HST_OperationRecordState();
+		shadow.m_sOperationId = fixture.m_Operation.m_sOperationId + "_shadow";
+		shadow.m_sEnemyOrderId = fixture.m_Order.m_sOrderId;
+		fixture.m_State.m_aOperations.Insert(shadow);
+		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(PROOF_FACTION_KEY);
+		int attackBefore = pool.m_iAttackResources;
+		int supportBefore = pool.m_iSupportResources;
+		HST_EnemyQRFAdmissionResult replay = fixture.m_ExactQRF.AdmitPreparedOrder(
+			fixture.m_State,
+			fixture.m_Order,
+			fixture.m_Manifest,
+			fixture.m_EnemyDirector);
+		bool exact = replay && !replay.m_bSuccess && !replay.m_bStateChanged
+			&& replay.m_sFailureReason.Contains("operation identity is ambiguous")
+			&& fixture.m_State.m_aOperations.Count() == 2
+			&& fixture.m_State.FindOperation(fixture.m_Operation.m_sOperationId) == fixture.m_Operation
+			&& fixture.m_State.m_aOperations.Find(shadow) >= 0
+			&& fixture.m_State.FindForceSpawnResult(fixture.m_Batch.m_sResultId) == fixture.m_Batch
+			&& fixture.m_State.FindActiveGroup(fixture.m_Group.m_sGroupId) == fixture.m_Group
+			&& pool.m_iAttackResources == attackBefore && pool.m_iSupportResources == supportBefore
+			&& !fixture.m_Order.m_bResourceSettlementApplied;
+		evidence = string.Format(
+			"accepted/changed %1/%2 | reason '%3' | rows %4 | pool %5/%6",
+			replay && replay.m_bSuccess,
+			replay && replay.m_bStateChanged,
+			replay && replay.m_sFailureReason,
+			fixture.m_State.m_aOperations.Count(),
+			pool && pool.m_iAttackResources,
+			pool && pool.m_iSupportResources);
+		return exact;
 	}
 
 	protected string ProveLegacyCollision(out bool rejectedExactly)

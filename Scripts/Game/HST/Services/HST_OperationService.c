@@ -1426,7 +1426,8 @@ class HST_OperationService
 				return "exact enemy defensive QRF resource refund amounts conflict with its survivor receipt";
 		}
 		else if (!order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
-			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0)
+			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0
+			|| order.m_iRefundedAttackResources != 0 || order.m_iRefundedSupportResources != 0)
 			return "unsettled exact enemy defensive QRF contains partial resource settlement authority";
 		if ((operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
 			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
@@ -1525,7 +1526,9 @@ class HST_OperationService
 		if (!order.m_sSpawnResultId.IsEmpty() || !order.m_sGroupId.IsEmpty() || !order.m_sSupportRequestId.IsEmpty()
 			|| order.m_bPhysicalized || order.m_bAbstractResolved || order.m_bStrategicServiceCommitted
 			|| order.m_bResourceSettlementApplied || order.m_bResourceRefundApplied
-			|| !order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty())
+			|| !order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
+			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0
+			|| order.m_iRefundedAttackResources != 0 || order.m_iRefundedSupportResources != 0)
 			return "exact enemy defensive QRF registration contains execution or settlement authority";
 		return ValidateExactEnemyDefensiveQRFManifest(order, manifest);
 	}

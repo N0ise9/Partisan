@@ -2363,7 +2363,7 @@ class HST_CampaignSaveData
 			if (!order.m_sSupportRequestId.IsEmpty())
 				order.m_bPhysicalized = true;
 		}
-		NormalizeActiveGroupSourceLinks();
+		NormalizeActiveGroupSourceLinks(restoredSchemaVersion);
 		NormalizeForceAuthority(restoredSchemaVersion);
 		NormalizeOperationAuthority(restoredSchemaVersion);
 		NormalizeOperationProjectionAuthority(restoredSchemaVersion);
@@ -2984,7 +2984,8 @@ class HST_CampaignSaveData
 				return "exact enemy defensive QRF restore refund amounts conflict with its survivor receipt";
 		}
 		else if (!order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
-			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0)
+			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0
+			|| order.m_iRefundedAttackResources != 0 || order.m_iRefundedSupportResources != 0)
 			return "unsettled exact enemy defensive QRF contains resource settlement authority";
 		if (operation.m_iProjectionContractVersion != HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
 			|| operation.m_iRouteVersion != HST_StrategicMovementService.DIRECT_ROUTE_VERSION
@@ -4228,7 +4229,7 @@ class HST_CampaignSaveData
 		return false;
 	}
 
-	protected void NormalizeActiveGroupSourceLinks()
+	protected void NormalizeActiveGroupSourceLinks(int restoredSchemaVersion)
 	{
 		foreach (HST_ActiveGroupState group : m_aActiveGroups)
 		{
@@ -4265,20 +4266,23 @@ class HST_CampaignSaveData
 				group.m_sQRFInstanceId = qrf.m_sInstanceId;
 		}
 
-		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
+		if (restoredSchemaVersion < 51)
 		{
-			if (!order || order.m_iOperationContractVersion != HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
-				|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF || order.m_sGroupId.IsEmpty())
-				continue;
-			HST_OperationRecordState operation = FindSchema51Operation(order.m_sOperationId);
-			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
-				|| operation.m_sEnemyOrderId != order.m_sOrderId || operation.m_sGroupId != order.m_sGroupId)
-				continue;
-			HST_ActiveGroupState group = FindActiveGroupForMigration(order.m_sGroupId);
-			if (!group || group.m_sOperationId != operation.m_sOperationId)
-				continue;
-			if (group.m_sEnemyOrderId.IsEmpty())
-				group.m_sEnemyOrderId = order.m_sOrderId;
+			foreach (HST_EnemyOrderState order : m_aEnemyOrders)
+			{
+				if (!order || order.m_iOperationContractVersion != HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+					|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF || order.m_sGroupId.IsEmpty())
+					continue;
+				HST_OperationRecordState operation = FindSchema51Operation(order.m_sOperationId);
+				if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+					|| operation.m_sEnemyOrderId != order.m_sOrderId || operation.m_sGroupId != order.m_sGroupId)
+					continue;
+				HST_ActiveGroupState group = FindActiveGroupForMigration(order.m_sGroupId);
+				if (!group || group.m_sOperationId != operation.m_sOperationId)
+					continue;
+				if (group.m_sEnemyOrderId.IsEmpty())
+					group.m_sEnemyOrderId = order.m_sOrderId;
+			}
 		}
 
 		foreach (HST_ActiveMissionState mission : m_aActiveMissions)

@@ -5644,7 +5644,10 @@ foreach ($requiredSchema51RuntimeEntry in @(
 		'ReconcileSettledRuntimeCleanup',
 		'ResolveRestoreSettlementSurvivors',
 		'ValidateAppliedResourceSettlement',
+		'HasPartialResourceSettlementAuthority',
 		'FindAmbiguousAuthorityRows',
+		'CountForceSpawnResultsByAnyAuthorityIdentity',
+		'CountActiveGroupsByAnyAuthorityIdentity',
 		'AbortAmbiguousAuthority'
 	)) {
 	if ($enemyQRFOperationText -notmatch [regex]::Escape($requiredSchema51RuntimeEntry)) {
@@ -5712,7 +5715,11 @@ foreach ($requiredSchema51ProofEntry in @(
 		'enemy_qrf.projection',
 		'enemy_qrf.settlement',
 		'enemy_qrf.persistence',
-		'enemy_qrf.rejection'
+		'enemy_qrf.rejection',
+		'ProvePartialReceiptRestoreQuarantine',
+		'ProveMissingGroupBacklinkRestore',
+		'ProveMissingCanonicalReplayRejection',
+		'ProveShadowReplayRejection'
 	)) {
 	if (($enemyQRFProofText + "`n" + $coordinatorText) -notmatch [regex]::Escape($requiredSchema51ProofEntry)) {
 		throw "Schema-51 enemy defensive-QRF proof integration missing: $requiredSchema51ProofEntry"
@@ -5726,6 +5733,61 @@ if ($restoreSettlementStart -lt 0 -or $restoreSettlementEnd -le $restoreSettleme
 $restoreSettlementBlock = $enemyQRFOperationText.Substring($restoreSettlementStart, $restoreSettlementEnd - $restoreSettlementStart)
 if ($restoreSettlementBlock -match 'm_aOperations\.Remove') {
 	throw "Schema-51 restore must preserve ambiguous operation evidence instead of deleting rows to manufacture uniqueness"
+}
+$schema51OperationValidationStart = $operationServiceText.IndexOf('string ValidateExactEnemyDefensiveQRF(')
+$schema51OperationValidationEnd = $operationServiceText.IndexOf('bool RemoveArchivedOperation', $schema51OperationValidationStart)
+$schema51SaveValidationStart = $forceSaveDataText.IndexOf('protected string ValidateSchema51EnemyDefensiveQRFRestore')
+$schema51SaveValidationEnd = $forceSaveDataText.IndexOf('protected HST_OperationRecordState FindSchema51Operation', $schema51SaveValidationStart)
+if ($schema51OperationValidationStart -lt 0 -or $schema51OperationValidationEnd -le $schema51OperationValidationStart -or
+	$schema51SaveValidationStart -lt 0 -or $schema51SaveValidationEnd -le $schema51SaveValidationStart) {
+	throw "Schema-51 partial-settlement validation blocks are missing"
+}
+$schema51OperationValidationBlock = $operationServiceText.Substring($schema51OperationValidationStart, $schema51OperationValidationEnd - $schema51OperationValidationStart)
+$schema51SaveValidationBlock = $forceSaveDataText.Substring($schema51SaveValidationStart, $schema51SaveValidationEnd - $schema51SaveValidationStart)
+foreach ($partialSettlementBlock in @($schema51OperationValidationBlock, $schema51SaveValidationBlock)) {
+	if ($partialSettlementBlock -notmatch [regex]::Escape('m_iRefundedAttackResources != 0') -or
+		$partialSettlementBlock -notmatch [regex]::Escape('m_iRefundedSupportResources != 0')) {
+		throw "Schema-51 unsettled validation must quarantine refund-only partial receipts"
+	}
+}
+$schema51RuntimeContextStart = $enemyQRFOperationText.IndexOf('protected string ResolveRuntimeContext')
+$schema51RuntimeContextEnd = $enemyQRFOperationText.IndexOf('protected HST_ActiveGroupState BuildActiveGroup', $schema51RuntimeContextStart)
+if ($schema51RuntimeContextStart -lt 0 -or $schema51RuntimeContextEnd -le $schema51RuntimeContextStart) {
+	throw "Schema-51 runtime-context authority block is missing"
+}
+$schema51RuntimeContextBlock = $enemyQRFOperationText.Substring($schema51RuntimeContextStart, $schema51RuntimeContextEnd - $schema51RuntimeContextStart)
+if ($schema51RuntimeContextBlock.IndexOf('FindAmbiguousAuthorityRows') -lt 0 -or
+	$schema51RuntimeContextBlock.IndexOf('FindAmbiguousAuthorityRows') -gt $schema51RuntimeContextBlock.IndexOf('state.FindOperation')) {
+	throw "Schema-51 runtime replay must reject cross-backlink ambiguity before canonical lookup"
+}
+$schema51AmbiguityStart = $enemyQRFOperationText.IndexOf('protected string FindAmbiguousAuthorityRows')
+$schema51AmbiguityEnd = $enemyQRFOperationText.IndexOf('protected int CountEnemyOrdersByAnyAuthorityIdentity', $schema51AmbiguityStart)
+if ($schema51AmbiguityStart -lt 0 -or $schema51AmbiguityEnd -le $schema51AmbiguityStart) {
+	throw "Schema-51 cross-backlink ambiguity block is missing"
+}
+$schema51AmbiguityBlock = $enemyQRFOperationText.Substring($schema51AmbiguityStart, $schema51AmbiguityEnd - $schema51AmbiguityStart)
+foreach ($requiredAmbiguityGuard in @(
+		'(operation && operationCount != 1)',
+		'(!operation && operationCount > 0)',
+		'(batch && batchCount != 1)',
+		'(!batch && batchCount > 0)',
+		'(group && groupCount != 1)',
+		'(!group && groupCount > 0)'
+	)) {
+	if ($schema51AmbiguityBlock -notmatch [regex]::Escape($requiredAmbiguityGuard)) {
+		throw "Schema-51 missing-canonical or shadow authority guard is missing: $requiredAmbiguityGuard"
+	}
+}
+$schema51SourceLinkStart = $forceSaveDataText.IndexOf('protected void NormalizeActiveGroupSourceLinks')
+$schema51SourceLinkEnd = $forceSaveDataText.IndexOf('protected HST_ActiveGroupState FindActiveGroupForMigration', $schema51SourceLinkStart)
+if ($schema51SourceLinkStart -lt 0 -or $schema51SourceLinkEnd -le $schema51SourceLinkStart) {
+	throw "Schema-51 active-group source-link normalization block is missing"
+}
+$schema51SourceLinkBlock = $forceSaveDataText.Substring($schema51SourceLinkStart, $schema51SourceLinkEnd - $schema51SourceLinkStart)
+if ($forceSaveDataText -notmatch [regex]::Escape('NormalizeActiveGroupSourceLinks(restoredSchemaVersion);') -or
+	$schema51SourceLinkBlock.IndexOf('restoredSchemaVersion < 51') -lt 0 -or
+	$schema51SourceLinkBlock.IndexOf('restoredSchemaVersion < 51') -gt $schema51SourceLinkBlock.IndexOf('group.m_sEnemyOrderId = order.m_sOrderId;')) {
+	throw "Schema-51 current-schema restore must not synthesize the required enemy-order group backlink"
 }
 Write-Host "Schema-51 exact enemy defensive-QRF admission, projection, settlement, persistence, marker, and proof contract OK"
 $forceSpawnQueueServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
