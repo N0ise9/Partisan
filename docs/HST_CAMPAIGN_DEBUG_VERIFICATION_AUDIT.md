@@ -73,10 +73,9 @@ be read as proof that a later change was executed or certified.
   only when no intact, damageable transmitter exists. These fixes are source-
   validated only and require the requested republished map/dialog/radio mission
   check.
-- The final stamped schema-52 tree identifies implementation
-  `fa5e7e45dbd8741269e614e60c51d4edee6bf223`. The current unstamped schema-53
-  development tree has provisional clean headless Game-module compile/create
-  evidence at 5,757 files/11,550 classes with CRC `acae965f`. This is source/
+- The final stamped schema-53 tree identifies implementation
+  `8ab694fdf61e56c6a5e343782f2225660d3aeeb7` and has clean headless Game-module compile/create
+  evidence at 5,757 files/11,550 classes with CRC `3232b15a`. This is source/
   compile evidence rather than packaged gameplay proof. A normal schema-53
   WorldEditor open also remained alive for all ten samples over 20 seconds with
   no crash signature. During schema 50, the initial
@@ -1002,11 +1001,10 @@ Unproven or incomplete against the pasted contract:
 
 - `git diff --check` passes for the current documentation update.
 - `tools/validate-foundation.ps1` passes for the current schema-53 source tree.
-- The final stamped schema-52 tree identifies implementation
-  `fa5e7e45dbd8741269e614e60c51d4edee6bf223` in `HST_BuildInfo`. The current
-  unstamped schema-53 development tree has provisional clean headless Workbench
+- The final stamped schema-53 tree identifies implementation
+  `8ab694fdf61e56c6a5e343782f2225660d3aeeb7` in `HST_BuildInfo` and has clean headless Workbench
   Game-module compile/create evidence at 5,757 files/11,550 classes with CRC
-  `acae965f`, and its normal WorldEditor open remained alive for ten samples over
+  `3232b15a`; its normal WorldEditor open remained alive for ten samples over
   20 seconds without a crash signature. It has not been packaged or executed as
   gameplay proof. Source/
   compile gates are not packaged runtime certification.

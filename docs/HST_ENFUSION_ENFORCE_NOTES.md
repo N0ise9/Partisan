@@ -2750,9 +2750,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
     restore normalization, reciprocal backlink quarantine, exact-mode orphan
     isolation, and same-target urgent-order priority. Native entity/waypoint/
     adapter-handle and real process-restart behavior remains packaged proof.
-  - The current unstamped schema-53 development tree has provisional clean
-    headless Game-module compile/create evidence at 5,757 files/11,550 classes
-    with CRC `acae965f`; a normal WorldEditor open remained alive for ten samples
+  - The final stamped schema-53 tree identifies implementation
+    `8ab694fdf61e56c6a5e343782f2225660d3aeeb7` and has clean headless Game-module
+    compile/create evidence at 5,757 files/11,550 classes with CRC `3232b15a`;
+    a normal WorldEditor open remained alive for ten samples
     over 20 seconds without a crash signature. It still needs packaged movement, contact, fold/
     reprojection, accounting, marker rendering/cleanup, and process-restart proof.
     After the schema-53 checkpoint, select the next source target from the

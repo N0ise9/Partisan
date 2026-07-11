@@ -78,8 +78,9 @@
   collision-safe replay/refund, route loop/return, queue/roster bookkeeping,
   contact transition, settlement, physical-shaped restore, backlink corruption,
   type/version/priority isolation, and marker lifecycle. These fixtures and the
-  provisional clean headless Workbench compile/create at 5,757 files/11,550
-  classes with CRC `acae965f`, plus a normal WorldEditor open that remained alive
+  final stamped implementation `8ab694fdf61e56c6a5e343782f2225660d3aeeb7`, clean headless Workbench
+  compile/create at 5,757 files/11,550 classes with CRC `3232b15a`, plus a normal
+  WorldEditor open that remained alive
   for ten samples over 20 seconds without a crash signature, are source/Workbench
   evidence only; packaged movement, contact, fold/reprojection, accounting,
   marker rendering, and process-restart proof remain open.

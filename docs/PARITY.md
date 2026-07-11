@@ -232,10 +232,9 @@
   slice. Schema 51 adds deterministic fixtures for exact enemy defensive-QRF
   admission, legacy isolation, projection, return/settlement, restore, and
   rejection, but none has executed in a packaged runtime. The final stamped
-  schema-52 tree identifies implementation `fa5e7e45dbd8741269e614e60c51d4edee6bf223`.
-  The current unstamped schema-53 development tree has provisional clean
+  schema-53 tree identifies implementation `8ab694fdf61e56c6a5e343782f2225660d3aeeb7` and has clean
   headless Game-module compile/create evidence at 5,757 files/11,550 classes with
-  CRC `acae965f`. This is current source/compile evidence, not packaged behavior
+  CRC `3232b15a`. This is current source/Workbench evidence, not packaged behavior
   proof.
 - Schema 52 adds the exact mission-convoy aggregate in source. No packaged run has yet proved its
   three physical vehicles/crews, virtual route movement, materialization/fold,

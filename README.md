@@ -421,11 +421,10 @@ The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also
 evidence for the newly reported marker, cursor, radio, classification,
 appearance, horn, and military/civilian activation defects—not proof of the
-schema-50 repairs. The final stamped schema-52 tree remains identified by
-implementation `fa5e7e45dbd8741269e614e60c51d4edee6bf223`. The current
-unstamped schema-53 development tree passes a provisional clean headless
+schema-50 repairs. The final stamped schema-53 tree identifies implementation
+`8ab694fdf61e56c6a5e343782f2225660d3aeeb7` and passes a clean headless
 Workbench Game-module compile/create at 5,757 files/11,550 classes with CRC
-`acae965f`; a normal WorldEditor open then remained alive for all ten samples over
+`3232b15a`; a normal WorldEditor open then remained alive for all ten samples over
 20 seconds with no crash signature. This is source/Workbench evidence, not
 packaged gameplay proof. A republished
 server/client test is still required before those repairs, either
