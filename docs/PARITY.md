@@ -196,7 +196,7 @@
   no operation, movement, fold, virtual-combat, or restart evidence for this
   slice. Repository foundation validation and current Workbench script
   validation pass; the Game module loads 5,747 files/11,508 classes with CRC
-  `edd1a720`, and the correctly launched WorldEditor remains responsive through
+  `16665f19`, and the correctly launched WorldEditor remains responsive through
   the bounded 20-second gate. Packaged behavior remains open.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source

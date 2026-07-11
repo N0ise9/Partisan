@@ -82,7 +82,7 @@ be read as proof that a later change was executed or certified.
   new counts in `HST_CivilianProjectionProofSummary` removes that method-local
   pressure without dropping assertions. The foundation validator passes;
   Workbench script validation loads 5,747 files/11,508 classes with CRC
-  `edd1a720`; and a correctly launched WorldEditor remains responsive for all
+  `16665f19`; and a correctly launched WorldEditor remains responsive for all
   ten samples over 20 seconds with no script-error, unknown-class, or crash
   signature. This is compile/startup evidence, not packaged-runtime proof.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
@@ -905,7 +905,7 @@ Unproven or incomplete against the pasted contract:
 - `git diff --check` passed for the current documentation update.
 - `tools/validate-foundation.ps1` passes for the current schema-50 source.
 - Correctly quoted headless Workbench validation exits successfully after
-  loading 5,747 Game files/11,508 classes with CRC `edd1a720` and reporting
+  loading 5,747 Game files/11,508 classes with CRC `16665f19` and reporting
   successful script validation. A separate normal WorldEditor project open
   remained responsive at every two-second sample through 20 seconds with no
   `SCRIPT (E)`, unknown-class, or crash signature. These are schema-50 source

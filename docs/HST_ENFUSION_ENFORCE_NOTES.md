@@ -190,7 +190,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     independently. Split the post-selection probe and aggregate related counts
     in one result object instead of shaving assertions. After that refactor,
     headless script validation exits successfully with 5,747 Game files/11,508
-    classes and CRC `edd1a720`, and a normal WorldEditor open remains responsive
+    classes and CRC `16665f19`, and a normal WorldEditor open remains responsive
     for all ten samples over 20 seconds. These are compile/startup gates, not a
     packaged-runtime certificate.
 
@@ -2066,7 +2066,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   replay idempotent.
 - The current schema-50 source passes foundation validation and Workbench script
   validation. The Game module loads 5,747 files/11,508 classes with CRC
-  `edd1a720`, and the correctly quoted normal WorldEditor project open remains
+  `16665f19`, and the correctly quoted normal WorldEditor project open remains
   responsive through ten two-second samples without a script-error,
   unknown-class, or crash signature. These gates prove source compile/startup,
   not packaged movement, projection, combat, or restart behavior.

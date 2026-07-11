@@ -279,7 +279,7 @@ evidence for the newly reported marker, cursor, radio, classification,
 appearance, horn, and military/civilian activation defects—not proof of the
 schema-50 repairs. Current schema-50 source and its focused debug assertions
 pass the repository foundation validator and Workbench script validation; the
-Game module loads 5,747 files/11,508 classes with CRC `edd1a720`, and a correctly
+Game module loads 5,747 files/11,508 classes with CRC `16665f19`, and a correctly
 launched WorldEditor remained responsive for all ten samples over 20 seconds.
 A republished server/client test is still required before those repairs or the
 exact-QRF projection path are called runtime-proven. The late-admin
