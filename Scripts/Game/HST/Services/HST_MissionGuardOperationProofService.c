@@ -394,9 +394,10 @@ class HST_MissionGuardOperationProofService
 		traitor.m_sInstanceId = "historical_traitor_contract_zero";
 		HST_ActiveMissionState specops = new HST_ActiveMissionState();
 		specops.m_sMissionId = "assassinate_specops";
+		specops.m_sInstanceId = "historical_pre57_specops_contract_zero";
 		bool isolationExact = !HST_MissionGuardOperationService.IsExactOrQuarantinedMission(historical)
 			&& !HST_MissionGuardOperationService.IsExactOrQuarantinedMission(traitor)
-			&& !fixture.m_Service.PrepareNewMissionContract(specops)
+			&& !HST_MissionGuardOperationService.IsExactOrQuarantinedMission(specops)
 			&& historical.m_iOperationContractVersion == 0
 			&& traitor.m_iOperationContractVersion == 0
 			&& specops.m_iOperationContractVersion == 0;

@@ -1,7 +1,7 @@
-// Schema-55/56 restore boundary for exact assassination-mission guard forces.
-// Historical officer and traitor missions and their aggregate mission_group_*
-// rows remain contract-zero. Exact authority is never inferred from a mission
-// id, a mission-instance backlink, or a projection id alone.
+// Schema-55/56/57 restore boundary for exact assassination-mission guard forces.
+// Historical officer, traitor, and spec-ops missions and their aggregate
+// mission_group_* rows remain contract-zero. Exact authority is never inferred
+// from a mission id, a mission-instance backlink, or a projection id alone.
 class HST_AssassinationGuardSaveValidationService
 {
 	protected HST_CampaignSaveData m_SaveData;
@@ -15,6 +15,8 @@ class HST_AssassinationGuardSaveValidationService
 			PreserveHistoricalMissionFamily(HST_MissionGuardOperationService.OFFICER_MISSION_ID, 55);
 		if (restoredSchemaVersion < 56)
 			PreserveHistoricalMissionFamily(HST_MissionGuardOperationService.TRAITOR_MISSION_ID, 56);
+		if (restoredSchemaVersion < 57)
+			PreserveHistoricalMissionFamily(HST_MissionGuardOperationService.SPECOPS_MISSION_ID, 57);
 		if (restoredSchemaVersion < 55)
 		{
 			m_SaveData = null;
@@ -24,14 +26,19 @@ class HST_AssassinationGuardSaveValidationService
 		array<string> handledOperationIds = {};
 		int validatedOfficerCount;
 		int validatedTraitorCount;
+		int validatedSpecOpsCount;
 		int quarantinedOfficerCount;
 		int quarantinedTraitorCount;
+		int quarantinedSpecOpsCount;
 		foreach (HST_ActiveMissionState mission : m_SaveData.m_aActiveMissions)
 		{
 			if (!mission || !HST_MissionGuardOperationService.IsExactMission(mission))
 				continue;
 			if (mission.m_sMissionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID
 				&& restoredSchemaVersion < 56)
+				continue;
+			if (mission.m_sMissionId == HST_MissionGuardOperationService.SPECOPS_MISSION_ID
+				&& restoredSchemaVersion < 57)
 				continue;
 
 			HST_OperationRecordState operation = FindUniqueOperation(mission.m_sOperationId);
@@ -63,7 +70,9 @@ class HST_AssassinationGuardSaveValidationService
 					group,
 					mission.m_sMissionId,
 					failure);
-				if (mission.m_sMissionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID)
+				if (mission.m_sMissionId == HST_MissionGuardOperationService.SPECOPS_MISSION_ID)
+					quarantinedSpecOpsCount++;
+				else if (mission.m_sMissionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID)
 					quarantinedTraitorCount++;
 				else
 					quarantinedOfficerCount++;
@@ -72,7 +81,9 @@ class HST_AssassinationGuardSaveValidationService
 
 			NormalizeValidAggregate(mission, operation, batch, group);
 			handledOperationIds.Insert(operation.m_sOperationId);
-			if (mission.m_sMissionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID)
+			if (mission.m_sMissionId == HST_MissionGuardOperationService.SPECOPS_MISSION_ID)
+				validatedSpecOpsCount++;
+			else if (mission.m_sMissionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID)
 				validatedTraitorCount++;
 			else
 				validatedOfficerCount++;
@@ -87,6 +98,12 @@ class HST_AssassinationGuardSaveValidationService
 				handledOperationIds,
 				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
 		}
+		if (restoredSchemaVersion >= 57)
+		{
+			quarantinedSpecOpsCount += PreserveOrphanClaimants(
+				handledOperationIds,
+				HST_MissionGuardOperationService.SPECOPS_MISSION_ID);
+		}
 		RecordNormalizationConflict(
 			HST_MissionGuardOperationService.OFFICER_MISSION_ID,
 			validatedOfficerCount,
@@ -98,6 +115,13 @@ class HST_AssassinationGuardSaveValidationService
 				validatedTraitorCount,
 				quarantinedTraitorCount);
 		}
+		if (restoredSchemaVersion >= 57)
+		{
+			RecordNormalizationConflict(
+				HST_MissionGuardOperationService.SPECOPS_MISSION_ID,
+				validatedSpecOpsCount,
+				quarantinedSpecOpsCount);
+		}
 		m_SaveData = null;
 	}
 
@@ -108,17 +132,23 @@ class HST_AssassinationGuardSaveValidationService
 	{
 		if (quarantinedCount <= 0)
 			return;
-		bool traitor = missionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
 		string eventId = "normalization_schema55_exact_mission_guard_conflict";
 		string aggregateId = "schema55";
 		string transition = "corrupt_exact_mission_guards_quarantined";
 		string familyLabel = "officer";
-		if (traitor)
+		if (missionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID)
 		{
 			eventId = "normalization_schema56_exact_traitor_guard_conflict";
 			aggregateId = "schema56";
 			transition = "corrupt_exact_traitor_guards_quarantined";
 			familyLabel = "traitor";
+		}
+		else if (missionId == HST_MissionGuardOperationService.SPECOPS_MISSION_ID)
+		{
+			eventId = "normalization_schema57_exact_specops_guard_conflict";
+			aggregateId = "schema57";
+			transition = "corrupt_exact_specops_guards_quarantined";
+			familyLabel = "specops";
 		}
 		if (HasEvent(eventId))
 			return;
@@ -156,6 +186,17 @@ class HST_AssassinationGuardSaveValidationService
 				saveData,
 				mission,
 				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
+	}
+
+	static bool IsSchema57MissionGuardMissionClaimant(
+		HST_CampaignSaveData saveData,
+		HST_ActiveMissionState mission)
+	{
+		return IsSchema56MissionGuardMissionClaimant(saveData, mission)
+			|| IsMissionGuardMissionClaimantForFamily(
+				saveData,
+				mission,
+				HST_MissionGuardOperationService.SPECOPS_MISSION_ID);
 	}
 
 	protected static bool IsMissionGuardMissionClaimantForFamily(
@@ -203,12 +244,19 @@ class HST_AssassinationGuardSaveValidationService
 			&& operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD;
 	}
 
+	static bool IsSchema57MissionGuardOperationClaimant(
+		HST_CampaignSaveData saveData,
+		HST_OperationRecordState operation)
+	{
+		return IsSchema56MissionGuardOperationClaimant(saveData, operation);
+	}
+
 	protected static bool IsMissionGuardOperationClaimantForFamily(
 		HST_CampaignSaveData saveData,
 		HST_OperationRecordState operation,
 		string missionId)
 	{
-		return IsSchema56MissionGuardOperationClaimant(saveData, operation)
+		return IsSchema57MissionGuardOperationClaimant(saveData, operation)
 			&& ResolveOperationFamily(saveData, operation) == missionId;
 	}
 
@@ -231,6 +279,17 @@ class HST_AssassinationGuardSaveValidationService
 				saveData,
 				manifest,
 				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
+	}
+
+	static bool IsSchema57MissionGuardManifestClaimant(
+		HST_CampaignSaveData saveData,
+		HST_ForceManifestState manifest)
+	{
+		return IsSchema56MissionGuardManifestClaimant(saveData, manifest)
+			|| IsMissionGuardManifestClaimantForFamily(
+				saveData,
+				manifest,
+				HST_MissionGuardOperationService.SPECOPS_MISSION_ID);
 	}
 
 	protected static bool IsMissionGuardManifestClaimantForFamily(
@@ -274,6 +333,17 @@ class HST_AssassinationGuardSaveValidationService
 				saveData,
 				batch,
 				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
+	}
+
+	static bool IsSchema57MissionGuardBatchClaimant(
+		HST_CampaignSaveData saveData,
+		HST_ForceSpawnResultState batch)
+	{
+		return IsSchema56MissionGuardBatchClaimant(saveData, batch)
+			|| IsMissionGuardBatchClaimantForFamily(
+				saveData,
+				batch,
+				HST_MissionGuardOperationService.SPECOPS_MISSION_ID);
 	}
 
 	protected static bool IsMissionGuardBatchClaimantForFamily(
@@ -329,6 +399,17 @@ class HST_AssassinationGuardSaveValidationService
 				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
 	}
 
+	static bool IsSchema57MissionGuardGroupClaimant(
+		HST_CampaignSaveData saveData,
+		HST_ActiveGroupState group)
+	{
+		return IsSchema56MissionGuardGroupClaimant(saveData, group)
+			|| IsMissionGuardGroupClaimantForFamily(
+				saveData,
+				group,
+				HST_MissionGuardOperationService.SPECOPS_MISSION_ID);
+	}
+
 	protected static bool IsMissionGuardGroupClaimantForFamily(
 		HST_CampaignSaveData saveData,
 		HST_ActiveGroupState group,
@@ -365,6 +446,9 @@ class HST_AssassinationGuardSaveValidationService
 		if (!saveData || !operation
 			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD)
 			return "";
+		if (operation.m_iContractVersion == HST_MissionGuardOperationService.SPECOPS_CONTRACT_VERSION
+			|| operation.m_iContractVersion == HST_MissionGuardOperationService.SPECOPS_QUARANTINED_CONTRACT_VERSION)
+			return HST_MissionGuardOperationService.SPECOPS_MISSION_ID;
 		if (operation.m_iContractVersion == HST_MissionGuardOperationService.TRAITOR_CONTRACT_VERSION
 			|| operation.m_iContractVersion == HST_MissionGuardOperationService.TRAITOR_QUARANTINED_CONTRACT_VERSION)
 			return HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
@@ -376,6 +460,8 @@ class HST_AssassinationGuardSaveValidationService
 			if (!manifest || manifest.m_sManifestId != operation.m_sManifestId
 				|| manifest.m_sOperationId != operation.m_sOperationId)
 				continue;
+			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.SPECOPS_POLICY_ID)
+				return HST_MissionGuardOperationService.SPECOPS_MISSION_ID;
 			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.TRAITOR_POLICY_ID)
 				return HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
 			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.OFFICER_POLICY_ID)
@@ -388,8 +474,8 @@ class HST_AssassinationGuardSaveValidationService
 				continue;
 			return mission.m_sMissionId;
 		}
-		// Typed operation authority predates the traitor contract; retain the
-		// Schema-55 officer quarantine default when no traitor evidence exists.
+		// Typed operation authority predates the later mission-family contracts;
+		// retain the Schema-55 officer quarantine default when no family evidence exists.
 		return HST_MissionGuardOperationService.OFFICER_MISSION_ID;
 	}
 
@@ -411,6 +497,8 @@ class HST_AssassinationGuardSaveValidationService
 			if (!manifest || manifest.m_sManifestId.IsEmpty()
 				|| group.m_sManifestId != manifest.m_sManifestId)
 				continue;
+			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.SPECOPS_POLICY_ID)
+				return HST_MissionGuardOperationService.SPECOPS_MISSION_ID;
 			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.TRAITOR_POLICY_ID)
 				return HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
 			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.OFFICER_POLICY_ID)
@@ -468,6 +556,13 @@ class HST_AssassinationGuardSaveValidationService
 			aggregateId = "schema56";
 			transition = "legacy_traitor_guards_preserved";
 			familyLabel = "traitor";
+		}
+		else if (missionId == HST_MissionGuardOperationService.SPECOPS_MISSION_ID)
+		{
+			eventId = "migration_schema57_exact_specops_guard";
+			aggregateId = "schema57";
+			transition = "legacy_specops_guards_preserved";
+			familyLabel = "specops";
 		}
 		if (HasEvent(eventId))
 			return;
@@ -1055,7 +1150,7 @@ class HST_AssassinationGuardSaveValidationService
 		operation.m_iVirtualCombatLastStepSecond = restoreSecond;
 		operation.m_iLastProgressAtSecond = restoreSecond;
 		operation.m_sLastProjectionReason = string.Format(
-			"schema-56 restore folded exact %1 guard into held strategic survivor authority",
+			"schema-57 restore folded exact %1 guard into held strategic survivor authority",
 			mission.m_sMissionId);
 		NormalizeBatchForStrategicHold(batch, restoreSecond);
 		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();

@@ -16489,6 +16489,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugGarrisonPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugMissionGuardOperationAssertions(forceCase);
 		AppendCampaignDebugTraitorGuardOperationAssertions(forceCase);
+		AppendCampaignDebugSpecOpsGuardOperationAssertions(forceCase);
 		AppendCampaignDebugMissionConvoyOperationAssertions(forceCase);
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
 		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
@@ -16676,6 +16677,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "traitor_guard.restore_migration", "current-schema restore keeps the contract-2 roster and compact destroyed receipt while pre-56 traitor missions remain contract zero with no invented authority", proof.m_sRestoreMigrationEvidence, CampaignDebugStatus(proof.m_bRestoreMigrationExact), "exact traitor-guard restore or pre-56 migration invented, lost, or resurrected authority");
 		AddCampaignDebugAssertion(forceCase, "traitor_guard.corruption_quarantine", "duplicate and illegal-HVT claimant corruption quarantines proven traitor authority at -56 without refund, fallback, guessed casualty, or HVT failure", proof.m_sCorruptionQuarantineEvidence, CampaignDebugStatus(proof.m_bCorruptionQuarantineExact), "exact traitor-guard corruption did not fail closed at the family authority boundary");
 		AddCampaignDebugAssertion(forceCase, "traitor_guard.marker_status", "the existing traitor HVT marker reports exact guard count, neutralization, or unavailable authority while historical traitor rows remain unsuffixed", proof.m_sMarkerStatusEvidence, CampaignDebugStatus(proof.m_bMarkerStatusExact), "traitor-guard status did not project through the existing HVT marker exactly");
+	}
+
+	protected void AppendCampaignDebugSpecOpsGuardOperationAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_SpecOpsGuardOperationProofService proofService = new HST_SpecOpsGuardOperationProofService();
+		HST_SpecOpsGuardOperationProofReport proof = proofService.RunSpecOps();
+		forceCase.m_aEvidence.Insert(proof.m_sAdmissionIsolationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sProjectionLifecycleEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSettlementEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreMigrationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCorruptionQuarantineEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMarkerStatusEvidence);
+		AddCampaignDebugAssertion(forceCase, "specops_guard.admission_isolation", "one newly started spec-ops assassination guard freezes the contract-3 policy and exact ordered roster while officer and traitor guards retain contracts 1 and 2 and historical spec-ops missions stay contract zero", proof.m_sAdmissionIsolationEvidence, CampaignDebugStatus(proof.m_bAdmissionIsolationExact), "exact spec-ops guard admission, replay, rollback, HVT isolation, or family coexistence was incorrect");
+		AddCampaignDebugAssertion(forceCase, "specops_guard.projection_lifecycle", "strategic hold, survivor projection, casualty fold and re-entry, and all-dead settlement preserve the spec-ops guard roster without virtual combat or HVT mutation", proof.m_sProjectionLifecycleEvidence, CampaignDebugStatus(proof.m_bProjectionLifecycleExact), "exact spec-ops guard projection or HVT-independent survivor lifecycle drifted");
+		AddCampaignDebugAssertion(forceCase, "specops_guard.settlement", "HVT success, mission failure or expiry, campaign stop, spawn failure, and guard elimination use fixed typed zero-refund outcomes", proof.m_sSettlementEvidence, CampaignDebugStatus(proof.m_bSettlementExact), "exact spec-ops guard terminal settlement was not independent or idempotent");
+		AddCampaignDebugAssertion(forceCase, "specops_guard.restore_migration", "current-schema restore keeps the contract-3 roster and compact destroyed receipt while pre-57 spec-ops missions remain contract zero with no invented authority", proof.m_sRestoreMigrationEvidence, CampaignDebugStatus(proof.m_bRestoreMigrationExact), "exact spec-ops guard restore or pre-57 migration invented, lost, or resurrected authority");
+		AddCampaignDebugAssertion(forceCase, "specops_guard.corruption_quarantine", "duplicate and illegal-HVT claimant corruption quarantines proven spec-ops authority at -57 without refund, fallback, guessed casualty, or HVT failure", proof.m_sCorruptionQuarantineEvidence, CampaignDebugStatus(proof.m_bCorruptionQuarantineExact), "exact spec-ops guard corruption did not fail closed at the family authority boundary");
+		AddCampaignDebugAssertion(forceCase, "specops_guard.marker_status", "the existing spec-ops HVT marker reports exact guard count, neutralization, or unavailable authority while historical spec-ops rows remain unsuffixed", proof.m_sMarkerStatusEvidence, CampaignDebugStatus(proof.m_bMarkerStatusExact), "spec-ops guard status did not project through the existing HVT marker exactly");
 	}
 
 	protected void AppendCampaignDebugMissionConvoyOperationAssertions(HST_CampaignDebugCaseResult forceCase)

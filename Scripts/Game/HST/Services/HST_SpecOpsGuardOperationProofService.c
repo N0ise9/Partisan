@@ -1,4 +1,4 @@
-class HST_TraitorGuardOperationProofReport
+class HST_SpecOpsGuardOperationProofReport
 {
 	bool m_bAdmissionIsolationExact;
 	bool m_bProjectionLifecycleExact;
@@ -14,14 +14,14 @@ class HST_TraitorGuardOperationProofReport
 	string m_sMarkerStatusEvidence;
 }
 
-// Source-only fixture factory for the Schema-56 traitor branch. It intentionally
+// Source-only fixture factory for the Schema-57 specops branch. It intentionally
 // reuses the same queue and operation seams as the officer proof; no world,
 // native entity, adapter-handle, or network substitute is installed here.
-class HST_TraitorGuardOperationProofFixtureFactory : HST_MissionGuardOperationProofFixtureFactory
+class HST_SpecOpsGuardOperationProofFixtureFactory : HST_MissionGuardOperationProofFixtureFactory
 {
-	static const string TRAITOR_PROOF_ZONE_PREFIX = "traitor_guard_proof_zone_";
-	static const string TRAITOR_PROOF_MISSION_PREFIX = "traitor_guard_proof_mission_";
-	static const string TRAITOR_PROOF_HVT_PREFAB = "{6985327711303700}Prefabs/Objects/HST/HST_MissionProp_HVT.et";
+	static const string SPECOPS_PROOF_ZONE_PREFIX = "specops_guard_proof_zone_";
+	static const string SPECOPS_PROOF_MISSION_PREFIX = "specops_guard_proof_mission_";
+	static const string SPECOPS_PROOF_HVT_PREFAB = "{6985327711303700}Prefabs/Objects/HST/HST_MissionProp_HVT.et";
 
 	override HST_MissionGuardOperationProofFixture BuildAdmittedFixture(string suffix)
 	{
@@ -37,7 +37,7 @@ class HST_TraitorGuardOperationProofFixtureFactory : HST_MissionGuardOperationPr
 			fixture.m_MissionRuntime);
 		if (!fixture.m_Admission || !fixture.m_Admission.m_bSuccess)
 		{
-			fixture.m_sFailureReason = "exact traitor guard proof admission failed";
+			fixture.m_sFailureReason = "exact specops guard proof admission failed";
 			if (fixture.m_Admission && !fixture.m_Admission.m_sFailureReason.IsEmpty())
 				fixture.m_sFailureReason = fixture.m_sFailureReason + ": " + fixture.m_Admission.m_sFailureReason;
 			return fixture;
@@ -56,19 +56,19 @@ class HST_TraitorGuardOperationProofFixtureFactory : HST_MissionGuardOperationPr
 		if (!fixture.m_Group && fixture.m_Operation)
 			fixture.m_Group = fixture.m_State.FindActiveGroup(fixture.m_Operation.m_sGroupId);
 		if (!Ready(fixture))
-			fixture.m_sFailureReason = "exact traitor guard proof committed graph is incomplete";
+			fixture.m_sFailureReason = "exact specops guard proof committed graph is incomplete";
 		return fixture;
 	}
 
 	override HST_MissionGuardOperationProofFixture BuildPreparedFixture(string suffix)
 	{
 		HST_MissionGuardOperationProofFixture fixture = new HST_MissionGuardOperationProofFixture();
-		fixture.m_State = BuildTraitorState(suffix);
+		fixture.m_State = BuildSpecOpsState(suffix);
 		fixture.m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
-		fixture.m_Definition = FindDefinition(HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
-		fixture.m_Mission = BuildTraitorMission(suffix);
-		fixture.m_Objective = BuildTraitorObjective(fixture.m_Mission);
-		fixture.m_HVT = BuildTraitorHVT(fixture.m_Mission);
+		fixture.m_Definition = FindDefinition(HST_MissionGuardOperationService.SPECOPS_MISSION_ID);
+		fixture.m_Mission = BuildSpecOpsMission(suffix);
+		fixture.m_Objective = BuildSpecOpsObjective(fixture.m_Mission);
+		fixture.m_HVT = BuildSpecOpsHVT(fixture.m_Mission);
 		fixture.m_MissionRuntime = new HST_MissionRuntimeService();
 		fixture.m_Queue = new HST_ForceSpawnQueueService();
 		fixture.m_Adapter = new HST_ForceSpawnAdapterService();
@@ -82,7 +82,7 @@ class HST_TraitorGuardOperationProofFixtureFactory : HST_MissionGuardOperationPr
 		fixture.m_bPreparedContract = fixture.m_Service.PrepareNewMissionContract(fixture.m_Mission);
 		if (!fixture.m_bPreparedContract || !fixture.m_Definition)
 		{
-			fixture.m_sFailureReason = "exact traitor guard proof preparation failed";
+			fixture.m_sFailureReason = "exact specops guard proof preparation failed";
 			return fixture;
 		}
 
@@ -121,27 +121,27 @@ class HST_TraitorGuardOperationProofFixtureFactory : HST_MissionGuardOperationPr
 		fixture.m_bPreflightReadOnly = fixture.m_bPreflightReadOnly && backlinksEmpty;
 		if (!fixture.m_bPreflightReadOnly)
 		{
-			fixture.m_sFailureReason = "exact traitor guard proof preflight was rejected or mutated state";
+			fixture.m_sFailureReason = "exact specops guard proof preflight was rejected or mutated state";
 			if (fixture.m_Preflight && !fixture.m_Preflight.m_sFailureReason.IsEmpty())
 				fixture.m_sFailureReason = fixture.m_sFailureReason + ": " + fixture.m_Preflight.m_sFailureReason;
 		}
 		return fixture;
 	}
 
-	protected HST_CampaignState BuildTraitorState(string suffix)
+	protected HST_CampaignState BuildSpecOpsState(string suffix)
 	{
 		HST_CampaignState state = new HST_CampaignState();
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		state.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
-		state.m_sPresetId = "traitor_guard_proof";
-		state.m_iCampaignSeed = 560056;
-		state.m_iElapsedSeconds = 560;
+		state.m_sPresetId = "specops_guard_proof";
+		state.m_iCampaignSeed = 570057;
+		state.m_iElapsedSeconds = 570;
 		state.m_iWarLevel = 4;
 		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 
 		HST_ZoneState zone = new HST_ZoneState();
-		zone.m_sZoneId = BuildTraitorZoneId(suffix);
-		zone.m_sDisplayName = "Traitor Guard Proof " + suffix;
+		zone.m_sZoneId = BuildSpecOpsZoneId(suffix);
+		zone.m_sDisplayName = "SpecOps Guard Proof " + suffix;
 		zone.m_sOwnerFactionKey = "US";
 		zone.m_eType = HST_EZoneType.HST_ZONE_TOWN;
 		zone.m_vPosition = "5200 20 5200";
@@ -152,15 +152,15 @@ class HST_TraitorGuardOperationProofFixtureFactory : HST_MissionGuardOperationPr
 		return state;
 	}
 
-	protected HST_ActiveMissionState BuildTraitorMission(string suffix)
+	protected HST_ActiveMissionState BuildSpecOpsMission(string suffix)
 	{
 		HST_ActiveMissionState mission = new HST_ActiveMissionState();
-		mission.m_sInstanceId = BuildTraitorMissionInstanceId(suffix);
-		mission.m_sMissionId = HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
-		mission.m_sDisplayName = "Assassinate Traitor";
+		mission.m_sInstanceId = BuildSpecOpsMissionInstanceId(suffix);
+		mission.m_sMissionId = HST_MissionGuardOperationService.SPECOPS_MISSION_ID;
+		mission.m_sDisplayName = "Assassinate SpecOps";
 		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
 		mission.m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_PHYSICAL_MVP;
-		mission.m_sTargetZoneId = BuildTraitorZoneId(suffix);
+		mission.m_sTargetZoneId = BuildSpecOpsZoneId(suffix);
 		mission.m_vTargetPosition = "5240 20 5240";
 		mission.m_sRuntimePrimitive = "kill_hvt";
 		mission.m_sRuntimeType = "kill_hvt";
@@ -171,13 +171,13 @@ class HST_TraitorGuardOperationProofFixtureFactory : HST_MissionGuardOperationPr
 		return mission;
 	}
 
-	protected HST_MissionObjectiveState BuildTraitorObjective(HST_ActiveMissionState mission)
+	protected HST_MissionObjectiveState BuildSpecOpsObjective(HST_ActiveMissionState mission)
 	{
 		HST_MissionObjectiveState objective = new HST_MissionObjectiveState();
-		objective.m_sObjectiveId = "traitor_guard_proof_hvt_objective_" + mission.m_sInstanceId;
+		objective.m_sObjectiveId = "specops_guard_proof_hvt_objective_" + mission.m_sInstanceId;
 		objective.m_sMissionInstanceId = mission.m_sInstanceId;
 		objective.m_eType = HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET;
-		objective.m_sLabel = "Eliminate the traitor";
+		objective.m_sLabel = "Eliminate the specops";
 		objective.m_sRequirementText = "Kill the HVT";
 		objective.m_sTargetId = "hvt";
 		objective.m_sTargetZoneId = mission.m_sTargetZoneId;
@@ -187,15 +187,15 @@ class HST_TraitorGuardOperationProofFixtureFactory : HST_MissionGuardOperationPr
 		return objective;
 	}
 
-	protected HST_MissionAssetState BuildTraitorHVT(HST_ActiveMissionState mission)
+	protected HST_MissionAssetState BuildSpecOpsHVT(HST_ActiveMissionState mission)
 	{
 		HST_MissionAssetState hvt = new HST_MissionAssetState();
-		hvt.m_sAssetId = "traitor_guard_proof_hvt_" + mission.m_sInstanceId;
+		hvt.m_sAssetId = "specops_guard_proof_hvt_" + mission.m_sInstanceId;
 		hvt.m_sMissionInstanceId = mission.m_sInstanceId;
 		hvt.m_sKind = "character";
 		hvt.m_sRole = "hvt";
-		hvt.m_sPrefab = TRAITOR_PROOF_HVT_PREFAB;
-		hvt.m_sEntityId = "traitor_guard_proof_hvt_runtime_" + mission.m_sInstanceId;
+		hvt.m_sPrefab = SPECOPS_PROOF_HVT_PREFAB;
+		hvt.m_sEntityId = "specops_guard_proof_hvt_runtime_" + mission.m_sInstanceId;
 		hvt.m_bSpawned = true;
 		hvt.m_bAlive = true;
 		hvt.m_vSourcePosition = mission.m_vTargetPosition;
@@ -205,25 +205,25 @@ class HST_TraitorGuardOperationProofFixtureFactory : HST_MissionGuardOperationPr
 		return hvt;
 	}
 
-	static string BuildTraitorZoneId(string suffix)
+	static string BuildSpecOpsZoneId(string suffix)
 	{
-		return TRAITOR_PROOF_ZONE_PREFIX + suffix;
+		return SPECOPS_PROOF_ZONE_PREFIX + suffix;
 	}
 
-	static string BuildTraitorMissionInstanceId(string suffix)
+	static string BuildSpecOpsMissionInstanceId(string suffix)
 	{
-		return TRAITOR_PROOF_MISSION_PREFIX + suffix;
+		return SPECOPS_PROOF_MISSION_PREFIX + suffix;
 	}
 }
 
-class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofService
+class HST_SpecOpsGuardOperationProofService : HST_MissionGuardOperationProofService
 {
 	static const string UNCLAIMED_GATES = "unclaimed engine/package gates: native entities, adapter handles and native casualties, actual save/restart, rendered UI, owner-change, campaign setup, packaged networking/reconnect/JIP";
-	protected ref HST_TraitorGuardOperationProofFixtureFactory m_TraitorFixtures = new HST_TraitorGuardOperationProofFixtureFactory();
+	protected ref HST_SpecOpsGuardOperationProofFixtureFactory m_SpecOpsFixtures = new HST_SpecOpsGuardOperationProofFixtureFactory();
 
-	HST_TraitorGuardOperationProofReport RunTraitor()
+	HST_SpecOpsGuardOperationProofReport RunSpecOps()
 	{
-		HST_TraitorGuardOperationProofReport report = new HST_TraitorGuardOperationProofReport();
+		HST_SpecOpsGuardOperationProofReport report = new HST_SpecOpsGuardOperationProofReport();
 		ProveAdmissionIsolation(report);
 		ProveProjectionLifecycle(report);
 		ProveSettlement(report);
@@ -233,79 +233,84 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		return report;
 	}
 
-	protected void ProveAdmissionIsolation(HST_TraitorGuardOperationProofReport report)
+	protected void ProveAdmissionIsolation(HST_SpecOpsGuardOperationProofReport report)
 	{
-		HST_MissionGuardOperationProofFixture traitor = m_TraitorFixtures.BuildAdmittedFixture("admission");
-		HST_MissionGuardOperationProofFixture rollback = m_TraitorFixtures.BuildAdmittedFixture("rollback");
+		HST_MissionGuardOperationProofFixture specops = m_SpecOpsFixtures.BuildAdmittedFixture("admission");
+		HST_MissionGuardOperationProofFixture rollback = m_SpecOpsFixtures.BuildAdmittedFixture("rollback");
 		HST_MissionGuardOperationProofFixtureFactory officerFixtures = new HST_MissionGuardOperationProofFixtureFactory();
-		HST_MissionGuardOperationProofFixture officer = officerFixtures.BuildAdmittedFixture("schema56_officer_coexistence");
-		bool traitorReady = m_TraitorFixtures.Ready(traitor);
-		bool rollbackReady = m_TraitorFixtures.Ready(rollback);
+		HST_MissionGuardOperationProofFixture officer = officerFixtures.BuildAdmittedFixture("schema57_officer_coexistence");
+		HST_TraitorGuardOperationProofFixtureFactory traitorFixtures = new HST_TraitorGuardOperationProofFixtureFactory();
+		HST_MissionGuardOperationProofFixture traitor = traitorFixtures.BuildAdmittedFixture("schema57_traitor_coexistence");
+		bool specopsReady = m_SpecOpsFixtures.Ready(specops);
+		bool rollbackReady = m_SpecOpsFixtures.Ready(rollback);
 		bool officerReady = officerFixtures.Ready(officer);
-		if (!traitorReady || !rollbackReady || !officerReady)
+		bool traitorReady = traitorFixtures.Ready(traitor);
+		if (!specopsReady || !rollbackReady || !officerReady || !traitorReady)
 		{
-			string unavailable = m_TraitorFixtures.Failure(traitor);
-			unavailable = unavailable + " | " + m_TraitorFixtures.Failure(rollback);
+			string unavailable = m_SpecOpsFixtures.Failure(specops);
+			unavailable = unavailable + " | " + m_SpecOpsFixtures.Failure(rollback);
 			unavailable = unavailable + " | " + officerFixtures.Failure(officer);
+			unavailable = unavailable + " | " + traitorFixtures.Failure(traitor);
 			report.m_sAdmissionIsolationEvidence = WithUnclaimedGates(unavailable);
 			return;
 		}
 
-		bool traitorContract = HST_MissionGuardOperationService.IsExactTraitorMission(traitor.m_Mission);
-		traitorContract = traitorContract
-			&& traitor.m_Mission.m_iOperationContractVersion == HST_MissionGuardOperationService.TRAITOR_CONTRACT_VERSION;
-		traitorContract = traitorContract
-			&& traitor.m_Operation.m_iContractVersion == HST_MissionGuardOperationService.TRAITOR_CONTRACT_VERSION;
-		bool traitorPolicy = traitor.m_Manifest.m_sPolicyId == HST_MissionGuardOperationService.TRAITOR_POLICY_ID;
-		traitorPolicy = traitorPolicy
-			&& traitor.m_Manifest.m_sIntentId == HST_MissionGuardOperationService.TRAITOR_INTENT_ID;
-		traitorPolicy = traitorPolicy && traitor.m_Manifest.m_sForceKind == HST_MissionGuardOperationService.EXACT_FORCE_KIND;
-		bool rootShape = traitor.m_Manifest.m_aGroups.Count() == 1;
+		bool specopsContract = HST_MissionGuardOperationService.IsExactSpecOpsMission(specops.m_Mission);
+		specopsContract = specopsContract
+			&& specops.m_Mission.m_iOperationContractVersion == HST_MissionGuardOperationService.SPECOPS_CONTRACT_VERSION;
+		specopsContract = specopsContract
+			&& specops.m_Operation.m_iContractVersion == HST_MissionGuardOperationService.SPECOPS_CONTRACT_VERSION;
+		bool specopsPolicy = specops.m_Manifest.m_sPolicyId == HST_MissionGuardOperationService.SPECOPS_POLICY_ID;
+		specopsPolicy = specopsPolicy
+			&& specops.m_Manifest.m_sIntentId == HST_MissionGuardOperationService.SPECOPS_INTENT_ID;
+		specopsPolicy = specopsPolicy && specops.m_Manifest.m_sForceKind == HST_MissionGuardOperationService.EXACT_FORCE_KIND;
+		bool rootShape = specops.m_Manifest.m_aGroups.Count() == 1;
 		HST_ForceManifestGroupState root;
 		if (rootShape)
-			root = traitor.m_Manifest.m_aGroups[0];
+			root = specops.m_Manifest.m_aGroups[0];
 		rootShape = rootShape && root && root.m_sPrefab.Contains("NotSpawned");
-		rootShape = rootShape && root.m_iExpectedMemberCount == traitor.m_Manifest.m_aMembers.Count();
-		bool memberShape = traitor.m_Manifest.m_aMembers.Count() > 0;
-		for (int memberIndex = 0; memberShape && memberIndex < traitor.m_Manifest.m_aMembers.Count(); memberIndex++)
+		rootShape = rootShape && root.m_iExpectedMemberCount == specops.m_Manifest.m_aMembers.Count();
+		bool memberShape = specops.m_Manifest.m_aMembers.Count() > 0;
+		for (int memberIndex = 0; memberShape && memberIndex < specops.m_Manifest.m_aMembers.Count(); memberIndex++)
 		{
-			HST_ForceManifestMemberState member = traitor.m_Manifest.m_aMembers[memberIndex];
+			HST_ForceManifestMemberState member = specops.m_Manifest.m_aMembers[memberIndex];
 			if (!member)
 			{
 				memberShape = false;
 				continue;
 			}
 			if (member.m_sSlotId != HST_MissionGuardOperationService.BuildMemberSlotId(
-				traitor.m_Mission.m_sInstanceId,
+				specops.m_Mission.m_sInstanceId,
 				memberIndex))
 				memberShape = false;
 			if (root && member.m_sGroupElementId != root.m_sElementId)
 				memberShape = false;
 		}
+		memberShape = memberShape && HasExactOrderedCatalogRoster(specops);
 
-		bool hvtLinksEmpty = traitor.m_HVT.m_sOperationId.IsEmpty();
-		hvtLinksEmpty = hvtLinksEmpty && traitor.m_HVT.m_sManifestId.IsEmpty();
-		hvtLinksEmpty = hvtLinksEmpty && traitor.m_HVT.m_sManifestSlotId.IsEmpty();
-		bool hvtOutsideManifest = traitor.m_Manifest.m_aAssets.Count() == 0;
-		hvtOutsideManifest = hvtOutsideManifest && traitor.m_Group.m_sMissionAssetId.IsEmpty();
+		bool hvtLinksEmpty = specops.m_HVT.m_sOperationId.IsEmpty();
+		hvtLinksEmpty = hvtLinksEmpty && specops.m_HVT.m_sManifestId.IsEmpty();
+		hvtLinksEmpty = hvtLinksEmpty && specops.m_HVT.m_sManifestSlotId.IsEmpty();
+		bool hvtOutsideManifest = specops.m_Manifest.m_aAssets.Count() == 0;
+		hvtOutsideManifest = hvtOutsideManifest && specops.m_Group.m_sMissionAssetId.IsEmpty();
 		bool hvtIsolation = hvtLinksEmpty && hvtOutsideManifest;
-		bool zeroCost = traitor.m_Manifest.m_iMoneyCost == 0;
-		zeroCost = zeroCost && traitor.m_Manifest.m_iHRCost == 0;
-		zeroCost = zeroCost && traitor.m_Manifest.m_iAttackResourceCost == 0;
-		zeroCost = zeroCost && traitor.m_Manifest.m_iSupportResourceCost == 0;
+		bool zeroCost = specops.m_Manifest.m_iMoneyCost == 0;
+		zeroCost = zeroCost && specops.m_Manifest.m_iHRCost == 0;
+		zeroCost = zeroCost && specops.m_Manifest.m_iAttackResourceCost == 0;
+		zeroCost = zeroCost && specops.m_Manifest.m_iSupportResourceCost == 0;
 
-		HST_MissionGuardAdmissionResult replay = traitor.m_Service.AdmitNewMission(
-			traitor.m_State,
-			traitor.m_Preset,
-			traitor.m_Definition,
-			traitor.m_Mission,
-			traitor.m_MissionRuntime);
+		HST_MissionGuardAdmissionResult replay = specops.m_Service.AdmitNewMission(
+			specops.m_State,
+			specops.m_Preset,
+			specops.m_Definition,
+			specops.m_Mission,
+			specops.m_MissionRuntime);
 		bool replayExact = replay && replay.m_bSuccess && replay.m_bAlreadyApplied;
-		replayExact = replayExact && replay.m_Operation == traitor.m_Operation;
-		replayExact = replayExact && CountOperation(traitor.m_State, traitor.m_Operation.m_sOperationId) == 1;
-		replayExact = replayExact && CountManifest(traitor.m_State, traitor.m_Manifest.m_sManifestId) == 1;
-		replayExact = replayExact && CountBatch(traitor.m_State, traitor.m_Batch.m_sResultId) == 1;
-		replayExact = replayExact && CountGroup(traitor.m_State, traitor.m_Group.m_sGroupId) == 1;
+		replayExact = replayExact && replay.m_Operation == specops.m_Operation;
+		replayExact = replayExact && CountOperation(specops.m_State, specops.m_Operation.m_sOperationId) == 1;
+		replayExact = replayExact && CountManifest(specops.m_State, specops.m_Manifest.m_sManifestId) == 1;
+		replayExact = replayExact && CountBatch(specops.m_State, specops.m_Batch.m_sResultId) == 1;
+		replayExact = replayExact && CountGroup(specops.m_State, specops.m_Group.m_sGroupId) == 1;
 
 		string rollbackOperationId = rollback.m_Operation.m_sOperationId;
 		string rollbackManifestId = rollback.m_Manifest.m_sManifestId;
@@ -318,7 +323,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 			rollback.m_Manifest,
 			rollback.m_Batch,
 			rollback.m_Group,
-			"deterministic Schema-56 traitor rollback");
+			"deterministic Schema-57 specops rollback");
 		bool rollbackRowsRemoved = CountOperation(rollback.m_State, rollbackOperationId) == 0;
 		rollbackRowsRemoved = rollbackRowsRemoved && CountManifest(rollback.m_State, rollbackManifestId) == 0;
 		rollbackRowsRemoved = rollbackRowsRemoved && CountBatch(rollback.m_State, rollbackBatchId) == 0;
@@ -327,7 +332,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		rollbackLinksCleared = rollbackLinksCleared && rollback.m_Mission.m_sManifestId.IsEmpty();
 		rollbackLinksCleared = rollbackLinksCleared && rollback.m_Mission.m_sSpawnResultId.IsEmpty();
 		rollbackLinksCleared = rollbackLinksCleared
-			&& HST_MissionGuardOperationService.IsQuarantinedTraitorMission(rollback.m_Mission);
+			&& HST_MissionGuardOperationService.IsQuarantinedSpecOpsMission(rollback.m_Mission);
 		bool rollbackExact = rollbackAccepted && rollbackRowsRemoved && rollbackLinksCleared;
 
 		bool officerContract = HST_MissionGuardOperationService.IsExactOfficerMission(officer.m_Mission);
@@ -335,56 +340,61 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 			&& officer.m_Mission.m_iOperationContractVersion == HST_MissionGuardOperationService.OFFICER_CONTRACT_VERSION;
 		officerContract = officerContract
 			&& officer.m_Manifest.m_sPolicyId == HST_MissionGuardOperationService.OFFICER_POLICY_ID;
-		HST_ActiveMissionState historicalTraitor = new HST_ActiveMissionState();
-		historicalTraitor.m_sMissionId = HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
-		historicalTraitor.m_sInstanceId = "historical_pre56_traitor_contract_zero";
-		HST_ActiveMissionState specops = new HST_ActiveMissionState();
-		specops.m_sMissionId = "assassinate_specops";
-		specops.m_sInstanceId = "historical_pre57_specops_contract_zero";
-		bool legacyIsolation = !HST_MissionGuardOperationService.IsExactOrQuarantinedMission(historicalTraitor);
-		legacyIsolation = legacyIsolation && historicalTraitor.m_iOperationContractVersion == 0;
-		legacyIsolation = legacyIsolation
-			&& !HST_MissionGuardOperationService.IsExactOrQuarantinedMission(specops);
-		legacyIsolation = legacyIsolation && specops.m_iOperationContractVersion == 0;
+		bool traitorContract = HST_MissionGuardOperationService.IsExactTraitorMission(traitor.m_Mission);
+		traitorContract = traitorContract
+			&& traitor.m_Mission.m_iOperationContractVersion == HST_MissionGuardOperationService.TRAITOR_CONTRACT_VERSION;
+		traitorContract = traitorContract
+			&& traitor.m_Manifest.m_sPolicyId == HST_MissionGuardOperationService.TRAITOR_POLICY_ID;
+		HST_ActiveMissionState historicalSpecOps = new HST_ActiveMissionState();
+		historicalSpecOps.m_sMissionId = HST_MissionGuardOperationService.SPECOPS_MISSION_ID;
+		historicalSpecOps.m_sInstanceId = "historical_pre57_specops_contract_zero";
+		HST_ActiveMissionState unsupported = new HST_ActiveMissionState();
+		unsupported.m_sMissionId = "rescue_pows";
+		unsupported.m_sInstanceId = "schema57_unsupported_contract_zero";
+		bool legacyIsolation = !HST_MissionGuardOperationService.IsExactOrQuarantinedMission(historicalSpecOps);
+		legacyIsolation = legacyIsolation && historicalSpecOps.m_iOperationContractVersion == 0;
+		legacyIsolation = legacyIsolation && !specops.m_Service.PrepareNewMissionContract(unsupported);
+		legacyIsolation = legacyIsolation && unsupported.m_iOperationContractVersion == 0;
 
-		bool admittedExact = traitorContract && traitorPolicy;
+		bool admittedExact = specopsContract && specopsPolicy;
 		admittedExact = admittedExact && rootShape && memberShape;
 		admittedExact = admittedExact && hvtIsolation && zeroCost;
-		bool coexistenceExact = officerContract && legacyIsolation;
-		report.m_bAdmissionIsolationExact = admittedExact && traitor.m_bPreflightReadOnly;
+		bool coexistenceExact = officerContract && traitorContract && legacyIsolation;
+		report.m_bAdmissionIsolationExact = admittedExact && specops.m_bPreflightReadOnly;
 		report.m_bAdmissionIsolationExact = report.m_bAdmissionIsolationExact && replayExact;
 		report.m_bAdmissionIsolationExact = report.m_bAdmissionIsolationExact && rollbackExact;
 		report.m_bAdmissionIsolationExact = report.m_bAdmissionIsolationExact && coexistenceExact;
 
 		string evidence = string.Format(
-			"traitor contract/policy/root/member/HVT/zero-cost %1/%2/%3/%4/%5/%6",
-			traitorContract,
-			traitorPolicy,
+			"specops contract/policy/root/member/HVT/zero-cost %1/%2/%3/%4/%5/%6",
+			specopsContract,
+			specopsPolicy,
 			rootShape,
 			memberShape,
 			hvtIsolation,
 			zeroCost);
 		evidence = evidence + string.Format(
-			" | preflight/replay/rollback %1/%2/%3 | officer1/historical-traitor0/historical-specops0 %4/%5/%6",
-			traitor.m_bPreflightReadOnly,
+			" | preflight/replay/rollback %1/%2/%3 | officer1/traitor2/historical-specops0/unsupported0 %4/%5/%6/%7",
+			specops.m_bPreflightReadOnly,
 			replayExact,
 			rollbackExact,
 			officerContract,
-			historicalTraitor.m_iOperationContractVersion,
-			specops.m_iOperationContractVersion);
+			traitorContract,
+			historicalSpecOps.m_iOperationContractVersion,
+			unsupported.m_iOperationContractVersion);
 		report.m_sAdmissionIsolationEvidence = WithUnclaimedGates(evidence);
 	}
 
-	protected void ProveProjectionLifecycle(HST_TraitorGuardOperationProofReport report)
+	protected void ProveProjectionLifecycle(HST_SpecOpsGuardOperationProofReport report)
 	{
-		HST_MissionGuardOperationProofFixture survivors = m_TraitorFixtures.BuildAdmittedFixture("projection_survivors");
-		HST_MissionGuardOperationProofFixture eliminated = m_TraitorFixtures.BuildAdmittedFixture("projection_all_dead");
-		bool survivorsReady = m_TraitorFixtures.Ready(survivors);
-		bool eliminatedReady = m_TraitorFixtures.Ready(eliminated);
+		HST_MissionGuardOperationProofFixture survivors = m_SpecOpsFixtures.BuildAdmittedFixture("projection_survivors");
+		HST_MissionGuardOperationProofFixture eliminated = m_SpecOpsFixtures.BuildAdmittedFixture("projection_all_dead");
+		bool survivorsReady = m_SpecOpsFixtures.Ready(survivors);
+		bool eliminatedReady = m_SpecOpsFixtures.Ready(eliminated);
 		if (!survivorsReady || !eliminatedReady)
 		{
-			string unavailable = m_TraitorFixtures.Failure(survivors);
-			unavailable = unavailable + " | " + m_TraitorFixtures.Failure(eliminated);
+			string unavailable = m_SpecOpsFixtures.Failure(survivors);
+			unavailable = unavailable + " | " + m_SpecOpsFixtures.Failure(eliminated);
 			report.m_sProjectionLifecycleEvidence = WithUnclaimedGates(unavailable);
 			return;
 		}
@@ -395,7 +405,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		int projectionSecond = survivors.m_State.m_iElapsedSeconds + 10;
 		bool released = ReleaseHeldProjection(survivors, projectionSecond);
 		bool firstProjection = released
-			&& CompleteProjection(survivors, projectionSecond + 1, "traitor_first");
+			&& CompleteProjection(survivors, projectionSecond + 1, "specops_first");
 		int expectedInitialLiving = survivors.m_Manifest.m_aMembers.Count();
 		bool firstRosterExact = CountRegisteredMemberSlots(survivors.m_Batch) == expectedInitialLiving;
 		firstProjection = firstProjection && firstRosterExact;
@@ -418,7 +428,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 				casualtyMember.m_sSlotId,
 				casualtyEntityId,
 				projectionSecond + 5,
-				"deterministic traitor-guard casualty");
+				"deterministic specops-guard casualty");
 		}
 		bool casualtyAccepted = casualty && casualty.m_bAccepted;
 		bool casualtyTombstone = casualtySlot
@@ -447,7 +457,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		heldExact = heldExact && casualtySlot.m_sEntityId.IsEmpty();
 		bool secondReleased = heldExact && ReleaseHeldProjection(survivors, foldSecond + 1);
 		bool secondProjection = secondReleased
-			&& CompleteProjection(survivors, foldSecond + 2, "traitor_second");
+			&& CompleteProjection(survivors, foldSecond + 2, "specops_second");
 		bool survivorProjectionExact = CountRegisteredMemberSlots(survivors.m_Batch) == expectedSurvivors;
 		survivorProjectionExact = survivorProjectionExact
 			&& survivors.m_Queue.CountConfirmedCasualtyMemberSlots(survivors.m_Batch) == 1;
@@ -493,7 +503,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		report.m_bProjectionLifecycleExact = report.m_bProjectionLifecycleExact && allDeadExact;
 
 		string evidence = string.Format(
-			"traitor held-release/first/casualty/fold/reprojection %1/%2/%3/%4/%5",
+			"specops held-release/first/casualty/fold/reprojection %1/%2/%3/%4/%5",
 			released,
 			firstProjection,
 			casualtyExact,
@@ -509,34 +519,34 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		report.m_sProjectionLifecycleEvidence = WithUnclaimedGates(evidence);
 	}
 
-	protected void ProveSettlement(HST_TraitorGuardOperationProofReport report)
+	protected void ProveSettlement(HST_SpecOpsGuardOperationProofReport report)
 	{
 		string successEvidence;
 		string failureEvidence;
 		string expiryEvidence;
 		string campaignStopEvidence;
 		string spawnFailureEvidence;
-		bool successExact = ProveTraitorSettlementScenario(
+		bool successExact = ProveSpecOpsSettlementScenario(
 			"settlement_success",
 			"success",
 			HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED,
 			successEvidence);
-		bool failureExact = ProveTraitorSettlementScenario(
+		bool failureExact = ProveSpecOpsSettlementScenario(
 			"settlement_failure",
 			"failure",
 			HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED,
 			failureEvidence);
-		bool expiryExact = ProveTraitorSettlementScenario(
+		bool expiryExact = ProveSpecOpsSettlementScenario(
 			"settlement_expiry",
 			"expiry",
 			HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED,
 			expiryEvidence);
-		bool campaignStopExact = ProveTraitorSettlementScenario(
+		bool campaignStopExact = ProveSpecOpsSettlementScenario(
 			"settlement_campaign_stop",
 			"campaign_stop",
 			HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED,
 			campaignStopEvidence);
-		bool spawnFailureExact = ProveTraitorSettlementScenario(
+		bool spawnFailureExact = ProveSpecOpsSettlementScenario(
 			"settlement_spawn_failure",
 			"spawn_failure",
 			HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_SPAWN_FAILED,
@@ -553,17 +563,17 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		report.m_sSettlementEvidence = WithUnclaimedGates(evidence);
 	}
 
-	protected bool ProveTraitorSettlementScenario(
+	protected bool ProveSpecOpsSettlementScenario(
 		string suffix,
 		string mode,
 		HST_EOperationTerminalResult expectedTerminal,
 		out string evidence)
 	{
-		evidence = mode + " traitor fixture unavailable";
-		HST_MissionGuardOperationProofFixture fixture = m_TraitorFixtures.BuildAdmittedFixture(suffix);
-		if (!m_TraitorFixtures.Ready(fixture))
+		evidence = mode + " specops fixture unavailable";
+		HST_MissionGuardOperationProofFixture fixture = m_SpecOpsFixtures.BuildAdmittedFixture(suffix);
+		if (!m_SpecOpsFixtures.Ready(fixture))
 		{
-			evidence = mode + " " + m_TraitorFixtures.Failure(fixture);
+			evidence = mode + " " + m_SpecOpsFixtures.Failure(fixture);
 			return false;
 		}
 
@@ -592,7 +602,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		{
 			firstChanged = fixture.m_Service.SettleOpenOperationsForCampaignStop(
 				fixture.m_State,
-				"deterministic Schema-56 campaign stop");
+				"deterministic Schema-57 campaign stop");
 		}
 		else if (mode == "spawn_failure")
 		{
@@ -601,7 +611,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 				fixture.m_Batch.m_sResultId,
 				fixture.m_Batch.m_sProjectionId,
 				fixture.m_State.m_iElapsedSeconds + 1,
-				"deterministic Schema-56 traitor spawn failure");
+				"deterministic Schema-57 specops spawn failure");
 			triggerAccepted = failed && failed.m_bAccepted;
 			triggerAccepted = triggerAccepted
 				&& fixture.m_Batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
@@ -623,7 +633,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		{
 			secondChanged = fixture.m_Service.SettleOpenOperationsForCampaignStop(
 				fixture.m_State,
-				"deterministic Schema-56 campaign stop");
+				"deterministic Schema-57 campaign stop");
 		}
 		else if (mode == "spawn_failure")
 		{
@@ -641,7 +651,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED;
 		terminalExact = terminalExact && fixture.m_Operation.m_eTerminalResult == expectedTerminal;
 		terminalExact = terminalExact
-			&& fixture.m_Operation.m_iContractVersion == HST_MissionGuardOperationService.TRAITOR_CONTRACT_VERSION;
+			&& fixture.m_Operation.m_iContractVersion == HST_MissionGuardOperationService.SPECOPS_CONTRACT_VERSION;
 		bool idempotent = !secondChanged && fixture.m_Operation.m_iRevision == revisionAfterFirst;
 		idempotent = idempotent && fixture.m_Operation.m_sSettlementId == receiptAfterFirst;
 		bool noRefund = fixture.m_State.m_aResourceTransactions.Count() == 0;
@@ -671,13 +681,13 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		return exact;
 	}
 
-	protected void ProveRestoreMigration(HST_TraitorGuardOperationProofReport report)
+	protected void ProveRestoreMigration(HST_SpecOpsGuardOperationProofReport report)
 	{
 		string casualtySlotId;
 		string missionInstanceId;
 		string hvtBefore;
 		string objectiveBefore;
-		HST_CampaignSaveData current = BuildTraitorPhysicalCasualtySave(
+		HST_CampaignSaveData current = BuildSpecOpsPhysicalCasualtySave(
 			"restore_current",
 			missionInstanceId,
 			casualtySlotId,
@@ -686,12 +696,12 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		if (!current)
 		{
 			report.m_sRestoreMigrationEvidence = WithUnclaimedGates(
-				"current Schema-56 traitor casualty fixture unavailable");
+				"current Schema-57 specops casualty fixture unavailable");
 			return;
 		}
 
 		HST_AssassinationGuardSaveValidationService validator = new HST_AssassinationGuardSaveValidationService();
-		validator.Normalize(current, 56);
+		validator.Normalize(current, 57);
 		HST_ActiveMissionState restoredMission = FindSaveMission(current, missionInstanceId);
 		HST_OperationRecordState restoredOperation;
 		HST_ForceManifestState restoredManifest;
@@ -708,17 +718,17 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		int revisionAfterFirst;
 		if (restoredOperation)
 			revisionAfterFirst = restoredOperation.m_iRevision;
-		validator.Normalize(current, 56);
+		validator.Normalize(current, 57);
 
 		bool rowsPresent = restoredMission && restoredOperation;
 		rowsPresent = rowsPresent && restoredManifest && restoredBatch;
 		rowsPresent = rowsPresent && restoredGroup;
 		bool contractExact = rowsPresent
-			&& HST_MissionGuardOperationService.IsExactTraitorMission(restoredMission);
+			&& HST_MissionGuardOperationService.IsExactSpecOpsMission(restoredMission);
 		contractExact = contractExact
-			&& restoredOperation.m_iContractVersion == HST_MissionGuardOperationService.TRAITOR_CONTRACT_VERSION;
+			&& restoredOperation.m_iContractVersion == HST_MissionGuardOperationService.SPECOPS_CONTRACT_VERSION;
 		contractExact = contractExact
-			&& restoredManifest.m_sPolicyId == HST_MissionGuardOperationService.TRAITOR_POLICY_ID;
+			&& restoredManifest.m_sPolicyId == HST_MissionGuardOperationService.SPECOPS_POLICY_ID;
 		bool heldExact = rowsPresent
 			&& restoredOperation.m_eMaterializationState
 				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
@@ -762,13 +772,13 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		currentExact = currentExact && currentIdempotent;
 
 		string destroyedEvidence;
-		bool destroyedActiveExact = ProveTraitorDestroyedActiveRestore(destroyedEvidence);
-		HST_CampaignSaveData legacy = BuildLegacyPre56TraitorSave();
-		validator.Normalize(legacy, 55);
-		validator.Normalize(legacy, 55);
+		bool destroyedActiveExact = ProveSpecOpsDestroyedActiveRestore(destroyedEvidence);
+		HST_CampaignSaveData legacy = BuildLegacyPre57SpecOpsSave();
+		validator.Normalize(legacy, 56);
+		validator.Normalize(legacy, 56);
 		HST_ActiveMissionState legacyMission = FindSaveMission(
 			legacy,
-			"traitor_guard_proof_legacy_pre56");
+			"specops_guard_proof_legacy_pre57");
 		bool legacyContractZero = legacyMission && legacyMission.m_iOperationContractVersion == 0;
 		legacyContractZero = legacyContractZero
 			&& !HST_MissionGuardOperationService.IsExactOrQuarantinedMission(legacyMission);
@@ -778,13 +788,13 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		noInventedAuthority = noInventedAuthority && legacy.m_aActiveGroups.Count() == 1;
 		bool migrationEventExact = CountEvent(
 			legacy,
-			"migration_schema56_exact_traitor_guard") == 1;
+			"migration_schema57_exact_specops_guard") == 1;
 		bool legacyExact = legacyContractZero && noInventedAuthority && migrationEventExact;
 
 		report.m_bRestoreMigrationExact = currentExact && destroyedActiveExact;
 		report.m_bRestoreMigrationExact = report.m_bRestoreMigrationExact && legacyExact;
 		string evidence = string.Format(
-			"current traitor contract/held/casualty/counts/process-clean/HVT/idempotent %1/%2/%3/%4/%5/%6/%7",
+			"current specops contract/held/casualty/counts/process-clean/HVT/idempotent %1/%2/%3/%4/%5/%6/%7",
 			contractExact,
 			heldExact,
 			casualtyPreserved,
@@ -794,14 +804,14 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 			currentIdempotent);
 		evidence = evidence + " | " + destroyedEvidence;
 		evidence = evidence + string.Format(
-			" | pre56 traitor contract0/no-invention/migration-once %1/%2/%3",
+			" | pre57 specops contract0/no-invention/migration-once %1/%2/%3",
 			legacyContractZero,
 			noInventedAuthority,
 			migrationEventExact);
 		report.m_sRestoreMigrationEvidence = WithUnclaimedGates(evidence);
 	}
 
-	protected HST_CampaignSaveData BuildTraitorPhysicalCasualtySave(
+	protected HST_CampaignSaveData BuildSpecOpsPhysicalCasualtySave(
 		string suffix,
 		out string missionInstanceId,
 		out string casualtySlotId,
@@ -812,13 +822,13 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		casualtySlotId = "";
 		hvtSnapshot = "";
 		objectiveSnapshot = "";
-		HST_MissionGuardOperationProofFixture fixture = m_TraitorFixtures.BuildAdmittedFixture(suffix);
-		if (!m_TraitorFixtures.Ready(fixture))
+		HST_MissionGuardOperationProofFixture fixture = m_SpecOpsFixtures.BuildAdmittedFixture(suffix);
+		if (!m_SpecOpsFixtures.Ready(fixture))
 			return null;
 		int nowSecond = fixture.m_State.m_iElapsedSeconds + 10;
 		if (!ReleaseHeldProjection(fixture, nowSecond))
 			return null;
-		if (!CompleteProjection(fixture, nowSecond + 1, "traitor_restore"))
+		if (!CompleteProjection(fixture, nowSecond + 1, "specops_restore"))
 			return null;
 
 		HST_ForceManifestMemberState member = fixture.m_Manifest.m_aMembers[0];
@@ -835,7 +845,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 			member.m_sSlotId,
 			slot.m_sEntityId,
 			nowSecond + 5,
-			"deterministic Schema-56 restore casualty");
+			"deterministic Schema-57 restore casualty");
 		if (!casualty || !casualty.m_bAccepted)
 			return null;
 
@@ -849,7 +859,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		fixture.m_Group.m_bSpawnAttempted = true;
 		fixture.m_Group.m_bSpawnedEntity = true;
 		fixture.m_Group.m_bSpawnCompleted = true;
-		fixture.m_Group.m_sRuntimeEntityId = "traitor_guard_proof_process_group";
+		fixture.m_Group.m_sRuntimeEntityId = "specops_guard_proof_process_group";
 		fixture.m_Group.m_sRuntimeStatus = "mission_guard_physical";
 		fixture.m_Group.m_iSpawnedAgentCount = living;
 		fixture.m_Group.m_iAssignedWaypointCount = 1;
@@ -867,17 +877,17 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		return save;
 	}
 
-	protected HST_CampaignSaveData BuildLegacyPre56TraitorSave()
+	protected HST_CampaignSaveData BuildLegacyPre57SpecOpsSave()
 	{
 		HST_CampaignSaveData save = new HST_CampaignSaveData();
-		save.m_iSchemaVersion = 55;
-		save.m_iLastLoadedSchemaVersion = 55;
+		save.m_iSchemaVersion = 56;
+		save.m_iLastLoadedSchemaVersion = 56;
 		save.m_iElapsedSeconds = 100;
 		HST_ActiveMissionState mission = new HST_ActiveMissionState();
-		mission.m_sInstanceId = "traitor_guard_proof_legacy_pre56";
-		mission.m_sMissionId = HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
+		mission.m_sInstanceId = "specops_guard_proof_legacy_pre57";
+		mission.m_sMissionId = HST_MissionGuardOperationService.SPECOPS_MISSION_ID;
 		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
-		mission.m_sTargetZoneId = "traitor_guard_proof_legacy_pre56_zone";
+		mission.m_sTargetZoneId = "specops_guard_proof_legacy_pre57_zone";
 		mission.m_sRuntimePrimitive = "kill_hvt";
 		mission.m_iOperationContractVersion = 0;
 		save.m_aActiveMissions.Insert(mission);
@@ -893,12 +903,12 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		return save;
 	}
 
-	protected bool ProveTraitorDestroyedActiveRestore(out string evidence)
+	protected bool ProveSpecOpsDestroyedActiveRestore(out string evidence)
 	{
-		evidence = "destroyed-active traitor restore fixture unavailable";
-		HST_MissionGuardOperationProofFixture fixture = m_TraitorFixtures.BuildAdmittedFixture(
+		evidence = "destroyed-active specops restore fixture unavailable";
+		HST_MissionGuardOperationProofFixture fixture = m_SpecOpsFixtures.BuildAdmittedFixture(
 			"restore_destroyed_active");
-		if (!m_TraitorFixtures.Ready(fixture))
+		if (!m_SpecOpsFixtures.Ready(fixture))
 			return false;
 		if (!ConfirmAllStrategicCasualties(fixture))
 			return false;
@@ -915,15 +925,15 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		HST_CampaignSaveData save = new HST_CampaignSaveData();
 		save.Capture(fixture.m_State);
 		HST_AssassinationGuardSaveValidationService validator = new HST_AssassinationGuardSaveValidationService();
-		validator.Normalize(save, 56);
-		validator.Normalize(save, 56);
+		validator.Normalize(save, 57);
+		validator.Normalize(save, 57);
 		HST_ActiveMissionState mission = FindSaveMission(save, fixture.m_Mission.m_sInstanceId);
 		HST_OperationRecordState operation;
 		if (mission)
 			operation = FindSaveOperation(save, mission.m_sOperationId);
 		bool rowsPresent = mission && operation;
 		bool activeDestroyed = rowsPresent
-			&& HST_MissionGuardOperationService.IsExactTraitorMission(mission);
+			&& HST_MissionGuardOperationService.IsExactSpecOpsMission(mission);
 		activeDestroyed = activeDestroyed && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
 		activeDestroyed = activeDestroyed
 			&& operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED;
@@ -946,23 +956,23 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		return exact;
 	}
 
-	protected void ProveCorruptionQuarantine(HST_TraitorGuardOperationProofReport report)
+	protected void ProveCorruptionQuarantine(HST_SpecOpsGuardOperationProofReport report)
 	{
 		string duplicateEvidence;
 		string hvtEvidence;
-		bool duplicateExact = ProveDuplicateTraitorCorruption(duplicateEvidence);
-		bool hvtExact = ProveTraitorHVTBacklinkCorruption(hvtEvidence);
+		bool duplicateExact = ProveDuplicateSpecOpsCorruption(duplicateEvidence);
+		bool hvtExact = ProveSpecOpsHVTBacklinkCorruption(hvtEvidence);
 		report.m_bCorruptionQuarantineExact = duplicateExact && hvtExact;
 		report.m_sCorruptionQuarantineEvidence = WithUnclaimedGates(
 			duplicateEvidence + " | " + hvtEvidence);
 	}
 
-	protected bool ProveDuplicateTraitorCorruption(out string evidence)
+	protected bool ProveDuplicateSpecOpsCorruption(out string evidence)
 	{
-		evidence = "duplicate traitor corruption fixture unavailable";
-		HST_MissionGuardOperationProofFixture fixture = m_TraitorFixtures.BuildAdmittedFixture(
+		evidence = "duplicate specops corruption fixture unavailable";
+		HST_MissionGuardOperationProofFixture fixture = m_SpecOpsFixtures.BuildAdmittedFixture(
 			"corruption_duplicate");
-		if (!m_TraitorFixtures.Ready(fixture))
+		if (!m_SpecOpsFixtures.Ready(fixture))
 			return false;
 		HST_CampaignSaveData save = new HST_CampaignSaveData();
 		HST_CampaignSaveData duplicateSource = new HST_CampaignSaveData();
@@ -974,7 +984,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		string hvtBefore = BuildHVTSnapshot(FindSaveHVT(save, fixture.m_Mission.m_sInstanceId));
 		int casualtiesBefore = CountSaveCasualties(FindSaveBatch(save, fixture.m_Batch.m_sResultId));
 		HST_AssassinationGuardSaveValidationService validator = new HST_AssassinationGuardSaveValidationService();
-		validator.Normalize(save, 56);
+		validator.Normalize(save, 57);
 		HST_ActiveMissionState mission = FindSaveMission(save, fixture.m_Mission.m_sInstanceId);
 		HST_ForceSpawnResultState batch = FindSaveBatch(save, fixture.m_Batch.m_sResultId);
 		HST_ActiveGroupState group = FindSaveGroup(save, fixture.m_Group.m_sGroupId);
@@ -982,11 +992,11 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		foreach (HST_OperationRecordState operation : save.m_aOperations)
 		{
 			if (!operation || operation.m_iContractVersion
-				!= HST_MissionGuardOperationService.TRAITOR_QUARANTINED_CONTRACT_VERSION)
+				!= HST_MissionGuardOperationService.SPECOPS_QUARANTINED_CONTRACT_VERSION)
 				operationQuarantine = false;
 		}
 		bool missionQuarantine = mission
-			&& HST_MissionGuardOperationService.IsQuarantinedTraitorMission(mission);
+			&& HST_MissionGuardOperationService.IsQuarantinedSpecOpsMission(mission);
 		bool runtimeHeld = batch && group;
 		runtimeHeld = runtimeHeld && batch.m_bStrategicProjectionHeld;
 		runtimeHeld = runtimeHeld && batch.m_bCancelRequested;
@@ -1000,12 +1010,12 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 			&& HasNoGuessedRefundOrFallback(save, mission.m_sInstanceId, 1);
 		bool eventExact = CountEvent(
 			save,
-			"normalization_schema56_exact_traitor_guard_conflict") == 1;
+			"normalization_schema57_exact_specops_guard_conflict") == 1;
 		bool exact = operationQuarantine && missionQuarantine;
 		exact = exact && runtimeHeld && boundaryHeld;
 		exact = exact && eventExact;
 		evidence = string.Format(
-			"duplicate traitor ops -> mission/op -56, runtime held, HVT/casualty/no-refund, event %1/%2/%3/%4",
+			"duplicate specops ops -> mission/op -57, runtime held, HVT/casualty/no-refund, event %1/%2/%3/%4",
 			missionQuarantine && operationQuarantine,
 			runtimeHeld,
 			boundaryHeld,
@@ -1013,12 +1023,12 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		return exact;
 	}
 
-	protected bool ProveTraitorHVTBacklinkCorruption(out string evidence)
+	protected bool ProveSpecOpsHVTBacklinkCorruption(out string evidence)
 	{
-		evidence = "traitor HVT-backlink corruption fixture unavailable";
-		HST_MissionGuardOperationProofFixture fixture = m_TraitorFixtures.BuildAdmittedFixture(
+		evidence = "specops HVT-backlink corruption fixture unavailable";
+		HST_MissionGuardOperationProofFixture fixture = m_SpecOpsFixtures.BuildAdmittedFixture(
 			"corruption_hvt_backlink");
-		if (!m_TraitorFixtures.Ready(fixture))
+		if (!m_SpecOpsFixtures.Ready(fixture))
 			return false;
 		HST_CampaignSaveData save = new HST_CampaignSaveData();
 		save.Capture(fixture.m_State);
@@ -1030,7 +1040,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		hvt.m_sManifestSlotId = fixture.m_Manifest.m_aMembers[0].m_sSlotId;
 		string hvtBefore = BuildHVTSnapshot(hvt);
 		HST_AssassinationGuardSaveValidationService validator = new HST_AssassinationGuardSaveValidationService();
-		validator.Normalize(save, 56);
+		validator.Normalize(save, 57);
 		HST_ActiveMissionState mission = FindSaveMission(save, fixture.m_Mission.m_sInstanceId);
 		HST_OperationRecordState operation = FindSaveOperation(save, fixture.m_Operation.m_sOperationId);
 		HST_ForceSpawnResultState batch = FindSaveBatch(save, fixture.m_Batch.m_sResultId);
@@ -1038,10 +1048,10 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		bool rowsPresent = mission && operation;
 		rowsPresent = rowsPresent && batch && group;
 		bool quarantineExact = rowsPresent
-			&& HST_MissionGuardOperationService.IsQuarantinedTraitorMission(mission);
+			&& HST_MissionGuardOperationService.IsQuarantinedSpecOpsMission(mission);
 		quarantineExact = quarantineExact
 			&& operation.m_iContractVersion
-				== HST_MissionGuardOperationService.TRAITOR_QUARANTINED_CONTRACT_VERSION;
+				== HST_MissionGuardOperationService.SPECOPS_QUARANTINED_CONTRACT_VERSION;
 		quarantineExact = quarantineExact
 			&& group.m_sRuntimeStatus == HST_MissionGuardOperationService.QUARANTINE_STATUS;
 		bool hvtUntouched = rowsPresent && BuildHVTSnapshot(hvt) == hvtBefore;
@@ -1051,27 +1061,27 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 			&& HasNoGuessedRefundOrFallback(save, mission.m_sInstanceId, 1);
 		bool exact = quarantineExact && hvtUntouched && noInventedOutcome;
 		evidence = string.Format(
-			"illegal traitor HVT backlinks quarantine guard at -56 while HVT/no-refund remain unchanged %1/%2/%3",
+			"illegal specops HVT backlinks quarantine guard at -57 while HVT/no-refund remain unchanged %1/%2/%3",
 			quarantineExact,
 			hvtUntouched,
 			noInventedOutcome);
 		return exact;
 	}
 
-	protected void ProveMarkerStatus(HST_TraitorGuardOperationProofReport report)
+	protected void ProveMarkerStatus(HST_SpecOpsGuardOperationProofReport report)
 	{
-		HST_MissionGuardOperationProofFixture active = m_TraitorFixtures.BuildAdmittedFixture("marker_active");
-		HST_MissionGuardOperationProofFixture casualty = m_TraitorFixtures.BuildAdmittedFixture("marker_casualty");
-		HST_MissionGuardOperationProofFixture neutralized = m_TraitorFixtures.BuildAdmittedFixture("marker_neutralized");
-		HST_MissionGuardOperationProofFixture quarantined = m_TraitorFixtures.BuildAdmittedFixture("marker_quarantined");
-		bool fixturesReady = m_TraitorFixtures.Ready(active);
-		fixturesReady = fixturesReady && m_TraitorFixtures.Ready(casualty);
-		fixturesReady = fixturesReady && m_TraitorFixtures.Ready(neutralized);
-		fixturesReady = fixturesReady && m_TraitorFixtures.Ready(quarantined);
+		HST_MissionGuardOperationProofFixture active = m_SpecOpsFixtures.BuildAdmittedFixture("marker_active");
+		HST_MissionGuardOperationProofFixture casualty = m_SpecOpsFixtures.BuildAdmittedFixture("marker_casualty");
+		HST_MissionGuardOperationProofFixture neutralized = m_SpecOpsFixtures.BuildAdmittedFixture("marker_neutralized");
+		HST_MissionGuardOperationProofFixture quarantined = m_SpecOpsFixtures.BuildAdmittedFixture("marker_quarantined");
+		bool fixturesReady = m_SpecOpsFixtures.Ready(active);
+		fixturesReady = fixturesReady && m_SpecOpsFixtures.Ready(casualty);
+		fixturesReady = fixturesReady && m_SpecOpsFixtures.Ready(neutralized);
+		fixturesReady = fixturesReady && m_SpecOpsFixtures.Ready(quarantined);
 		if (!fixturesReady)
 		{
 			report.m_sMarkerStatusEvidence = WithUnclaimedGates(
-				"Schema-56 traitor marker fixtures unavailable");
+				"Schema-57 specops marker fixtures unavailable");
 			return;
 		}
 
@@ -1100,7 +1110,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 				casualty.m_Batch.m_sProjectionId,
 				casualtyMember.m_sSlotId,
 				casualty.m_State.m_iElapsedSeconds + 1,
-				"Schema-56 marker casualty proof");
+				"Schema-57 marker casualty proof");
 		}
 		string casualtyStatus = HST_MissionGuardOperationService.BuildGuardStatusText(
 			casualty.m_State,
@@ -1142,7 +1152,7 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		bool quarantineTransition = quarantined.m_Service.QuarantineForProof(
 			quarantined.m_State,
 			quarantined.m_Operation,
-			"Schema-56 marker quarantine proof");
+			"Schema-57 marker quarantine proof");
 		string quarantineStatus = HST_MissionGuardOperationService.BuildGuardStatusText(
 			quarantined.m_State,
 			quarantined.m_Mission);
@@ -1151,16 +1161,16 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 			quarantined.m_Mission,
 			quarantined.m_HVT);
 		bool quarantineExact = quarantineTransition
-			&& HST_MissionGuardOperationService.IsQuarantinedTraitorMission(quarantined.m_Mission);
+			&& HST_MissionGuardOperationService.IsQuarantinedSpecOpsMission(quarantined.m_Mission);
 		quarantineExact = quarantineExact && quarantineStatus == "guard authority unavailable";
 		quarantineExact = quarantineExact
 			&& CountToken(quarantineLabel, " | " + quarantineStatus) == 1;
 
 		HST_CampaignState historicalState = new HST_CampaignState();
 		HST_ActiveMissionState historical = new HST_ActiveMissionState();
-		historical.m_sInstanceId = "traitor_guard_marker_historical_pre56";
-		historical.m_sMissionId = HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
-		historical.m_sDisplayName = "Assassinate Traitor";
+		historical.m_sInstanceId = "specops_guard_marker_historical_pre57";
+		historical.m_sMissionId = HST_MissionGuardOperationService.SPECOPS_MISSION_ID;
+		historical.m_sDisplayName = "Assassinate SpecOps";
 		historical.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
 		historical.m_iRemainingSeconds = 1200;
 		historical.m_iOperationContractVersion = 0;
@@ -1184,13 +1194,65 @@ class HST_TraitorGuardOperationProofService : HST_MissionGuardOperationProofServ
 		report.m_bMarkerStatusExact = report.m_bMarkerStatusExact && quarantineExact;
 		report.m_bMarkerStatusExact = report.m_bMarkerStatusExact && historicalExact;
 		string evidence = string.Format(
-			"existing traitor HVT-label suffix active/casualty/neutralized/-56/historical-empty %1/%2/%3/%4/%5",
+			"existing specops HVT-label suffix active/casualty/neutralized/-57/historical-empty %1/%2/%3/%4/%5",
 			activeExact,
 			casualtyExact,
 			neutralizedExact,
 			quarantineExact,
 			historicalExact);
 		report.m_sMarkerStatusEvidence = WithUnclaimedGates(evidence);
+	}
+
+	protected bool HasExactOrderedCatalogRoster(HST_MissionGuardOperationProofFixture fixture)
+	{
+		if (!fixture || !fixture.m_Manifest || fixture.m_Manifest.m_aGroups.Count() != 1)
+			return false;
+		HST_ForceManifestGroupState root = fixture.m_Manifest.m_aGroups[0];
+		if (!root)
+			return false;
+
+		HST_ForceCatalogService catalog = new HST_ForceCatalogService();
+		HST_ForceGroupCatalogEntry catalogGroup;
+		int matches;
+		foreach (HST_ForceGroupCatalogEntry candidate : catalog.BuildGroupCatalog(
+			fixture.m_Manifest.m_sFactionKey))
+		{
+			if (!candidate || candidate.m_sEntryId != root.m_sCatalogEntryId)
+				continue;
+			catalogGroup = candidate;
+			matches++;
+		}
+		if (matches != 1 || !catalogGroup)
+			return false;
+
+		int expectedCount = catalogGroup.m_aMemberSlots.Count();
+		if (fixture.m_Manifest.m_aMembers.Count() != expectedCount)
+			return false;
+		if (fixture.m_Manifest.m_iRequestedMemberCount != expectedCount)
+			return false;
+		if (fixture.m_Manifest.m_iAcceptedMemberCount != expectedCount)
+			return false;
+		if (root.m_iExpectedMemberCount != expectedCount)
+			return false;
+		if (root.m_sPrefab != catalogGroup.m_sExecutionPrefab)
+			return false;
+
+		for (int memberIndex = 0; memberIndex < expectedCount; memberIndex++)
+		{
+			HST_ForceGroupCatalogSlot catalogSlot = catalogGroup.m_aMemberSlots[memberIndex];
+			HST_ForceManifestMemberState member = fixture.m_Manifest.m_aMembers[memberIndex];
+			if (!catalogSlot || !member)
+				return false;
+			if (member.m_iOrdinal != memberIndex)
+				return false;
+			if (member.m_sCatalogSlotId != catalogGroup.m_sEntryId + "/" + catalogSlot.m_sSlotId)
+				return false;
+			if (member.m_sPrefab != catalogSlot.m_sPrefab || member.m_sRole != catalogSlot.m_sRole)
+				return false;
+			if (member.m_bRequired != catalogSlot.m_bRequired)
+				return false;
+		}
+		return true;
 	}
 
 	protected int CountEvent(HST_CampaignSaveData save, string eventId)

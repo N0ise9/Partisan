@@ -2629,7 +2629,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   monolithic. Extracting save validation and decomposing the proof into focused
   fixture methods restored the clean headless and normal-open gates without
   removing assertions; relocating a large body intact is not a sufficient fix.
-- Packaged schema-50 through schema-56 certification remains independently open.
+- Packaged schema-50 through schema-57 certification remains independently open.
 
 ## Schema 53 Exact Enemy-Patrol Authority
 
@@ -3074,8 +3074,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Schema 56 Exact Traitor-Mission Guard Authority
 
-- Campaign persistence schema is now `56`; this source slice is implemented but
-  is not yet stamped or Workbench-validated.
+- Schema 56 is the last stamped baseline. Its implementation is
+  `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
+  `03a65cd33bee69c6320389803cdd5a2ec8576fb0`, and label
+  `schema56-exact-traitor-guard`.
 
 - Extend exact guard authority through an explicit mission-kind/version cutover.
   - Only guard infantry created while starting a new `assassinate_traitor`
@@ -3153,9 +3155,53 @@ This file is for practical engine/script behavior, not project planning. Keep en
     latest log had no script-error/crash signature. These are source/Workbench
     gates only; the native/package obligations above remain open.
 
-- The next narrow blueprint target is guard infantry for newly started
-  `assassinate_specops` missions only. This is planned work, not an implementation
-  claim; all such missions remain contract version `0` until separately cut over.
+## Schema 57 Exact Spec-Ops-Mission Guard Authority
+
+- Campaign persistence schema is now `57`. This source slice is implemented but
+  unstamped; do not invent a final Schema-57 SHA, stamp, label, Workbench count/
+  CRC, or normal-open result.
+
+- Opt in only guards created while starting a new `assassinate_specops` mission.
+  Use `HST_OPERATION_TYPE_MISSION_GUARD` contract `3`, policy
+  `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and
+  quarantine `-57`. Officer `1`/`-55` and traitor `2`/`-56` remain unchanged.
+  Historical/pre-57 spec-ops and unsupported families remain contract `0`;
+  ordinary `mission_group_*` rows are not exact claimants.
+
+- Generic spec-ops composition may propose multiple groups. Contract `3`
+  deterministically selects the strongest executable group, keeps the stable
+  first group on ties, and freezes only that selected catalog roster beneath
+  the exact empty root. Discarded candidate groups must not create mission,
+  operation, manifest, batch, active-group, or persistence authority.
+
+- Reuse the exact route-less empty-root/member roster and keep the HVT outside
+  every guard-force backlink. Durable slots alone own guard strength through
+  materialization, mapped casualties, fold, restore, and survivor-only re-entry.
+  Do not create a route, virtual-combat clock, vehicle, projected asset, or
+  resource authority. Missing runtime without observed death remains unresolved.
+
+- Preserve typed HVT-independent settlement. All guards dead may settle
+  `DESTROYED` while the HVT mission remains active; the existing mission/owner/
+  spawn mappings still record one `exact_mission_guard_terminal` receipt with
+  zero refund and no legacy-force transfer. Status remains on the existing HVT
+  marker/UI row rather than a duplicate operation marker.
+
+- Pre-57 restore records `migration_schema57_exact_specops_guard` without
+  inventing authority. Malformed current graphs record
+  `normalization_schema57_exact_specops_guard_conflict` and retain diagnostic
+  evidence under `-57` without fallback, guessed casualty, HVT backlink/failure,
+  refund, or force transfer. Coherent physical rows normalize to held survivors;
+  compact settled rows retain the same accepted omissions as prior guard families.
+
+- Six `specops_guard.*` source-proof categories cover admission/family isolation,
+  survivor projection/HVT separation, typed zero-refund settlement, restore/
+  migration, corruption quarantine, and marker status. Native entities, adapter
+  casualties, actual save/restart, rendered UI, owner change, campaign setup,
+  packaged networking, reconnect, and JIP remain open.
+
+- Schema 57 exhausts the assassination-guard family. The next planned blueprint
+  target is a separately versioned rescue vertical slice beginning only with a
+  newly started `rescue_pows` mission. It is planned, not implemented.
 
 ## Native Reference Sources
 

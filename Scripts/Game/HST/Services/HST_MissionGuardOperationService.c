@@ -44,6 +44,11 @@ class HST_MissionGuardOperationService
 	static const string TRAITOR_MISSION_ID = "assassinate_traitor";
 	static const string TRAITOR_POLICY_ID = "exact_assassinate_traitor_guard_v1";
 	static const string TRAITOR_INTENT_ID = "assassinate_traitor_guard";
+	static const int SPECOPS_CONTRACT_VERSION = 3;
+	static const int SPECOPS_QUARANTINED_CONTRACT_VERSION = -57;
+	static const string SPECOPS_MISSION_ID = "assassinate_specops";
+	static const string SPECOPS_POLICY_ID = "exact_assassinate_specops_guard_v1";
+	static const string SPECOPS_INTENT_ID = "assassinate_specops_guard";
 	static const string EXACT_GROUP_MODE = "exact_mission_guard";
 	static const string ASSIGNMENT_KIND = "guard_mission_target";
 	static const string RECALL_POLICY_ID = "no_recall";
@@ -96,19 +101,22 @@ class HST_MissionGuardOperationService
 
 	static bool IsSupportedExactMissionId(string missionId)
 	{
-		return missionId == OFFICER_MISSION_ID || missionId == TRAITOR_MISSION_ID;
+		return missionId == OFFICER_MISSION_ID || missionId == TRAITOR_MISSION_ID
+			|| missionId == SPECOPS_MISSION_ID;
 	}
 
 	static bool IsSupportedExactContractVersion(int contractVersion)
 	{
 		return contractVersion == OFFICER_CONTRACT_VERSION
-			|| contractVersion == TRAITOR_CONTRACT_VERSION;
+			|| contractVersion == TRAITOR_CONTRACT_VERSION
+			|| contractVersion == SPECOPS_CONTRACT_VERSION;
 	}
 
 	static bool IsQuarantinedOperationContractVersion(int contractVersion)
 	{
 		return contractVersion == OFFICER_QUARANTINED_CONTRACT_VERSION
-			|| contractVersion == TRAITOR_QUARANTINED_CONTRACT_VERSION;
+			|| contractVersion == TRAITOR_QUARANTINED_CONTRACT_VERSION
+			|| contractVersion == SPECOPS_QUARANTINED_CONTRACT_VERSION;
 	}
 
 	static int ResolveExpectedContractVersion(string missionId)
@@ -117,6 +125,8 @@ class HST_MissionGuardOperationService
 			return OFFICER_CONTRACT_VERSION;
 		if (missionId == TRAITOR_MISSION_ID)
 			return TRAITOR_CONTRACT_VERSION;
+		if (missionId == SPECOPS_MISSION_ID)
+			return SPECOPS_CONTRACT_VERSION;
 		return 0;
 	}
 
@@ -126,6 +136,8 @@ class HST_MissionGuardOperationService
 			return OFFICER_POLICY_ID;
 		if (missionId == TRAITOR_MISSION_ID)
 			return TRAITOR_POLICY_ID;
+		if (missionId == SPECOPS_MISSION_ID)
+			return SPECOPS_POLICY_ID;
 		return "";
 	}
 
@@ -135,6 +147,8 @@ class HST_MissionGuardOperationService
 			return OFFICER_INTENT_ID;
 		if (missionId == TRAITOR_MISSION_ID)
 			return TRAITOR_INTENT_ID;
+		if (missionId == SPECOPS_MISSION_ID)
+			return SPECOPS_INTENT_ID;
 		return "";
 	}
 
@@ -144,6 +158,8 @@ class HST_MissionGuardOperationService
 			return OFFICER_QUARANTINED_CONTRACT_VERSION;
 		if (missionId == TRAITOR_MISSION_ID)
 			return TRAITOR_QUARANTINED_CONTRACT_VERSION;
+		if (missionId == SPECOPS_MISSION_ID)
+			return SPECOPS_QUARANTINED_CONTRACT_VERSION;
 		return 0;
 	}
 
@@ -158,6 +174,8 @@ class HST_MissionGuardOperationService
 			return OFFICER_QUARANTINED_CONTRACT_VERSION;
 		if (contractVersion == TRAITOR_CONTRACT_VERSION)
 			return TRAITOR_QUARANTINED_CONTRACT_VERSION;
+		if (contractVersion == SPECOPS_CONTRACT_VERSION)
+			return SPECOPS_QUARANTINED_CONTRACT_VERSION;
 		if (IsQuarantinedOperationContractVersion(contractVersion))
 			return contractVersion;
 		return 0;
@@ -185,6 +203,18 @@ class HST_MissionGuardOperationService
 	{
 		return mission && mission.m_sMissionId == TRAITOR_MISSION_ID
 			&& mission.m_iOperationContractVersion == TRAITOR_QUARANTINED_CONTRACT_VERSION;
+	}
+
+	static bool IsExactSpecOpsMission(HST_ActiveMissionState mission)
+	{
+		return mission && mission.m_sMissionId == SPECOPS_MISSION_ID
+			&& mission.m_iOperationContractVersion == SPECOPS_CONTRACT_VERSION;
+	}
+
+	static bool IsQuarantinedSpecOpsMission(HST_ActiveMissionState mission)
+	{
+		return mission && mission.m_sMissionId == SPECOPS_MISSION_ID
+			&& mission.m_iOperationContractVersion == SPECOPS_QUARANTINED_CONTRACT_VERSION;
 	}
 
 	static bool IsMissionGuardGroupClaimant(HST_CampaignState state, HST_ActiveGroupState group)
@@ -724,23 +754,11 @@ class HST_MissionGuardOperationService
 			preset,
 			definition,
 			mission);
-		HST_GroupSpawnPlan groupPlan;
-		if (composition)
-			groupPlan = composition.GetPrimaryGroup();
-		int executableGroupCount;
-		if (composition)
-		{
-			foreach (HST_GroupSpawnPlan candidatePlan : composition.m_aGroups)
-			{
-				if (candidatePlan && !candidatePlan.m_bSkipped && !candidatePlan.m_sPrefab.IsEmpty())
-					executableGroupCount++;
-			}
-		}
+		HST_GroupSpawnPlan groupPlan = SelectExactExecutionGroupPlan(composition);
 		if (!composition || !composition.m_bSuccess || !groupPlan || groupPlan.m_sPrefab.IsEmpty()
-			|| executableGroupCount != 1
 			|| composition.m_iVehicleCount != 0 || composition.m_aVehicles.Count() != 0
 			|| composition.m_aStatics.Count() != 0)
-			return "exact mission guard composition did not resolve to one route-less infantry group";
+			return "exact mission guard composition did not resolve a route-less infantry group";
 		if (composition.m_sFactionKey != zone.m_sOwnerFactionKey)
 			return "exact mission guard composition faction conflicts with target ownership";
 
@@ -782,6 +800,25 @@ class HST_MissionGuardOperationService
 		if (!plan.m_Manifest || !plan.m_Operation || !plan.m_Group)
 			return "exact mission guard detached authority construction failed";
 		return ValidateDetachedPlan(mission, zone, hvt, plan);
+	}
+
+	// The broad mission composer may satisfy a large guard request with several
+	// groups. Exact mission-guard projection is intentionally one-root, so freeze
+	// the strongest executable proposal and use source order as the stable tie
+	// breaker. Unselected proposals never become manifest or runtime authority.
+	protected HST_GroupSpawnPlan SelectExactExecutionGroupPlan(HST_ForceCompositionResult composition)
+	{
+		if (!composition)
+			return null;
+		HST_GroupSpawnPlan selected;
+		foreach (HST_GroupSpawnPlan candidate : composition.m_aGroups)
+		{
+			if (!candidate || candidate.m_bSkipped || candidate.m_sPrefab.IsEmpty())
+				continue;
+			if (!selected || candidate.m_iManpower > selected.m_iManpower)
+				selected = candidate;
+		}
+		return selected;
 	}
 
 	protected HST_ForceManifestState BuildManifest(
@@ -2650,9 +2687,11 @@ class HST_MissionGuardOperationService
 				return OFFICER_QUARANTINED_CONTRACT_VERSION;
 			if (manifest.m_sPolicyId == TRAITOR_POLICY_ID)
 				return TRAITOR_QUARANTINED_CONTRACT_VERSION;
+			if (manifest.m_sPolicyId == SPECOPS_POLICY_ID)
+				return SPECOPS_QUARANTINED_CONTRACT_VERSION;
 		}
-		// Typed mission-guard authority predates the traitor contract. If no
-		// traitor evidence survives, retain the Schema-55 officer quarantine
+		// Typed mission-guard authority originated with the Schema-55 officer
+		// contract. If no later-family evidence survives, retain that quarantine
 		// default instead of leaving an unsupported version live forever.
 		return OFFICER_QUARANTINED_CONTRACT_VERSION;
 	}

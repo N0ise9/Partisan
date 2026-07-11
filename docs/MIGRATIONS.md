@@ -2,7 +2,90 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `56`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `57`.
+
+## Schema 57
+
+- Schema 57 opts in only guard infantry belonging to a newly started
+  `assassinate_specops` mission. The mission and reciprocal
+  `HST_OPERATION_TYPE_MISSION_GUARD` operation use contract `3`; the frozen
+  manifest policy is `exact_assassinate_specops_guard_v1`, the mission-family
+  intent is `assassinate_specops_guard`, and malformed current authority uses
+  quarantine version `-57`. Newly started officer and traitor guards retain
+  contracts `1` and `2`, policies `exact_assassinate_officer_guard_v1` and
+  `exact_assassinate_traitor_guard_v1`, and quarantine versions `-55` and `-56`.
+  Historical or pre-schema-57 spec-ops missions and every unsupported mission
+  family remain contract `0` (contract zero).
+
+- Generic spec-ops composition may propose multiple groups. Contract `3`
+  deterministically selects the strongest executable group, keeps the stable
+  first group on ties, and freezes only that selected catalog roster. Discarded
+  candidate groups never become mission, operation, manifest, batch, active-
+  group, or restore authority.
+
+- The contract-3 spec-ops aggregate reuses the exact assassination-guard shape:
+  one catalog-backed `NotSpawned` empty execution root, exact ordered infantry
+  member slots, one held SpawnQueue batch, and one mission-owned active group.
+  It owns no route, generated cursor, vehicle, projected asset, virtual-combat
+  clock, or resource cost. The HVT stays separate mission-objective/runtime-
+  asset authority and is never a manifest member, operation asset, or group
+  backlink.
+
+- Durable member slots remain the sole guard-strength authority. Materialization
+  releases only living slots; mapped physical deaths retire those exact slots;
+  fold and re-entry preserve the same survivor set and last confirmed position.
+  There is no virtual guard combat or inferred casualty. Exact and quarantined
+  officer/traitor/spec-ops guard claimants are excluded from generic mission-
+  group, garrison, route, survivor-repair, captured-zone, and cleanup owners.
+  Ordinary historical `mission_group_*` rows are not exact claimants and gain no
+  authority merely from a mission ID or matching instance backlink.
+
+- Guard and HVT outcomes remain independent. All spec-ops guards dead settles
+  the guard operation `DESTROYED` while its HVT mission may remain active. HVT
+  success settles surviving guards `COMPLETED`; mission failure/expiry and
+  campaign stop/setup settle `CANCELLED`; target-owner change settles
+  `INVALIDATED`; coherent spawn/assignment failure settles `SPAWN_FAILED`.
+  Every terminal path terminalizes its typed queue authority, records
+  `exact_mission_guard_terminal` once, transfers no survivors, and applies a
+  zero refund.
+
+- Restores from schema 56 or earlier record
+  `migration_schema57_exact_specops_guard`. Migration preserves coherent
+  Schema-55 officer and Schema-56 traitor exact authority, while historical/
+  pre-57 spec-ops missions, HVTs, objectives, and ordinary `mission_group_*`
+  rows remain contract zero. It invents no manifest, roster, casualty,
+  operation, projection, settlement, or claimant identity from mission IDs or
+  aggregate counts.
+
+- Current-schema validation dispatches by mission family and contract. A valid
+  spec-ops graph requires unique reciprocal mission/operation/manifest/batch/
+  group identity, policy `exact_assassinate_specops_guard_v1`, intent
+  `assassinate_specops_guard`, exact empty-root/member bijection, offset
+  stationary assignment, zero route/vehicle/asset/resource authority, legal
+  projection state, separate HVT ownership, and the fixed terminal receipt.
+  Coherent physical rows normalize to held survivors; compact settled graphs may
+  omit their batch, group, and terminal HVT runtime rows.
+
+- Malformed current spec-ops authority becomes contract `-57` and records
+  `normalization_schema57_exact_specops_guard_conflict`. Quarantine is
+  diagnostic and non-operational: it creates no legacy fallback, guessed
+  casualty, HVT backlink, mission failure, refund, or force transfer. Existing
+  HVT marker/UI rows append roster-authoritative guard status instead of adding
+  a duplicate marker.
+
+- `HST_SpecOpsGuardOperationProofService` covers six source-proof categories:
+  admission/family isolation, survivor projection and HVT separation, typed
+  zero-refund settlement, restore/migration, corruption quarantine, and
+  existing-HVT marker status. Schema 57 is implemented but unstamped: no final
+  Schema-57 implementation SHA, build label, Workbench count/CRC, or normal-open
+  evidence is claimed. Native entities, adapter casualties, actual save/restart,
+  rendered UI, owner-change, campaign setup, packaged networking, reconnect,
+  and JIP remain open.
+
+- Schema 57 exhausts the assassination-guard family. The next planned blueprint
+  target is a separately versioned rescue vertical slice beginning only with a
+  newly started `rescue_pows` mission. That rescue slice is planned, not
+  implemented; no rescue or other unsupported family is opted in by Schema 57.
 
 ## Schema 56
 
@@ -78,10 +161,9 @@
   stayed alive for all ten samples over 20 seconds and the latest log had no
   script-error/crash signature. These are source/Workbench gates only.
 
-- The next planned narrow cutover is guard infantry
-  for newly started `assassinate_specops` missions only. This is not an
-  implementation claim. Every other mission family remains contract `0` until
-  separately versioned.
+- Schema 57 later opts in newly started spec-ops guards through contract `3`.
+  This Schema-56 section remains the stamped historical traitor-only boundary
+  and does not retroactively convert pre-57 spec-ops missions.
 
 ## Schema 55
 

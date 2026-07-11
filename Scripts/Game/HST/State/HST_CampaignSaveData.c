@@ -2187,7 +2187,7 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyMissionClaimant(this, mission))
 				continue;
 			if (restoredSchemaVersion >= 55
-				&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardMissionClaimant(this, mission))
+				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardMissionClaimant(this, mission))
 				continue;
 
 			if (mission.m_sRuntimePrimitive.IsEmpty())
@@ -2267,7 +2267,7 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				continue;
 			if (restoredSchemaVersion >= 55
-				&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardGroupClaimant(this, group))
+				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
 				continue;
 
 			if (group.m_sRuntimeStatus.IsEmpty())
@@ -2459,8 +2459,8 @@ class HST_CampaignSaveData
 		schema53EnemyPatrolValidation.Normalize(this, restoredSchemaVersion);
 		HST_GarrisonPatrolSaveValidationService schema54GarrisonPatrolValidation = new HST_GarrisonPatrolSaveValidationService();
 		schema54GarrisonPatrolValidation.Normalize(this, restoredSchemaVersion);
-		HST_AssassinationGuardSaveValidationService schema56MissionGuardValidation = new HST_AssassinationGuardSaveValidationService();
-		schema56MissionGuardValidation.Normalize(this, restoredSchemaVersion);
+		HST_AssassinationGuardSaveValidationService schema57MissionGuardValidation = new HST_AssassinationGuardSaveValidationService();
+		schema57MissionGuardValidation.Normalize(this, restoredSchemaVersion);
 		NormalizeRestoredOperationProjectionState();
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
@@ -2582,7 +2582,7 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolManifestClaimant(this, manifest))
 				continue;
 			if (restoredSchemaVersion >= 55
-				&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardManifestClaimant(this, manifest))
+				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardManifestClaimant(this, manifest))
 				continue;
 			for (int groupIndex = manifest.m_aGroups.Count() - 1; groupIndex >= 0; groupIndex--)
 			{
@@ -2659,7 +2659,7 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolBatchClaimant(this, spawnResult))
 				continue;
 			if (restoredSchemaVersion >= 55
-				&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardBatchClaimant(this, spawnResult))
+				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant(this, spawnResult))
 				continue;
 			spawnResult.m_iRetryCount = Math.Max(0, spawnResult.m_iRetryCount);
 			spawnResult.m_iMaxRetries = Math.Max(0, spawnResult.m_iMaxRetries);
@@ -4304,7 +4304,7 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolBatchClaimant(this, first))
 				continue;
 			if (restoredSchemaVersion >= 55
-				&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardBatchClaimant(this, first))
+				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant(this, first))
 				continue;
 
 			for (int secondIndex = 0; secondIndex < m_aForceSpawnResults.Count(); secondIndex++)
@@ -4320,7 +4320,7 @@ class HST_CampaignSaveData
 				if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolBatchClaimant(this, second))
 					continue;
 				if (restoredSchemaVersion >= 55
-					&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardBatchClaimant(this, second))
+					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant(this, second))
 					continue;
 				if (!HasDuplicateForceSpawnQueueIdentity(first, second))
 					continue;
@@ -4373,7 +4373,7 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				continue;
 			if (restoredSchemaVersion >= 55
-				&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardGroupClaimant(this, group))
+				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
 				continue;
 
 			if (group.m_iOriginalInfantryCount <= 0)
@@ -4396,7 +4396,7 @@ class HST_CampaignSaveData
 				&& !(restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 55
-					&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardGroupClaimant(this, group)))
+					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group)))
 				group.m_sSupportRequestId = request.m_sRequestId;
 		}
 
@@ -4410,7 +4410,7 @@ class HST_CampaignSaveData
 				&& !(restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 55
-					&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardGroupClaimant(this, group)))
+					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group)))
 				group.m_sQRFInstanceId = qrf.m_sInstanceId;
 		}
 
@@ -4449,7 +4449,7 @@ class HST_CampaignSaveData
 				if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 					continue;
 				if (restoredSchemaVersion >= 55
-					&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardGroupClaimant(this, group))
+					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
 					continue;
 				if (group.m_sGroupId == guardGroupId || group.m_sGroupId.Contains(convoyGroupToken))
 					group.m_sMissionInstanceId = mission.m_sInstanceId;
@@ -4465,7 +4465,7 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				continue;
 			if (restoredSchemaVersion >= 55
-				&& HST_AssassinationGuardSaveValidationService.IsSchema56MissionGuardGroupClaimant(this, group))
+				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
 				continue;
 			if (!group.m_sSupportRequestId.IsEmpty() || !group.m_sEnemyOrderId.IsEmpty()
 				|| !group.m_sMissionInstanceId.IsEmpty() || !group.m_sQRFInstanceId.IsEmpty())

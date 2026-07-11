@@ -285,6 +285,7 @@ The repository contains a broad-alpha campaign foundation:
   categories cover admission/isolation, projection lifecycle, settlement,
   restore/migration, quarantine, and marker status. The stamped Schema-56 tree
   identifies implementation `bab5748d817ba434dae701cfbb3b92805d463678`
+  and stamp `03a65cd33bee69c6320389803cdd5a2ec8576fb0`
   (`schema56-exact-traitor-guard`), passes the full foundation gate, and passes
   Workbench Game validation at 5,764 files/11,573 classes with CRC `a18c67a5`
   and `Script validation successful`. Its bounded hidden normal WorldEditor open
@@ -293,6 +294,27 @@ The repository contains a broad-alpha campaign foundation:
   behavior proof. Native entities/adapter casualties, real save/restart, rendered
   UI, owner-change, campaign setup, packaged networking, reconnect, and JIP remain
   unclaimed.
+- Schema 57 completes the assassination-guard family by opting in only guard
+  infantry created for a newly started `assassinate_specops` mission. Spec-ops
+  guards use contract `3`, manifest policy
+  `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and
+  quarantine version `-57`. Officer contract `1`/`-55` and traitor contract
+  `2`/`-56` remain exact and unchanged. Historical or pre-57 spec-ops missions,
+  ordinary `mission_group_*` rows, and every unsupported family remain contract
+  `0`. A generic spec-ops composition may propose multiple groups; contract `3`
+  deterministically selects the strongest executable group, keeps the stable
+  first group on ties, and freezes only that selected catalog roster. Discarded
+  groups gain no authority. The new family reuses the same route-less empty-root/member roster,
+  separate HVT authority, survivor-only materialize/fold/re-entry lifecycle,
+  no-virtual-combat rule, typed zero-refund settlement, compact restore, and
+  existing-HVT status. Migration records
+  `migration_schema57_exact_specops_guard`; malformed current rows record
+  `normalization_schema57_exact_specops_guard_conflict` and remain diagnostic at
+  `-57`. Six `specops_guard.*` source-proof categories cover the boundary.
+  Schema 57 is implemented but unstamped: no final Schema-57 SHA, build label,
+  Workbench count/CRC, or normal-open evidence is claimed. Native entities,
+  adapter casualties, actual save/restart, rendered UI, owner change, campaign
+  setup, packaged networking, reconnect, and JIP remain open.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -391,8 +413,10 @@ return-to-origin duty, exact survivor-proportional settlement, and one operation
   for guard infantry created with a newly started `assassinate_officer` mission;
   its HVT remains separate. Schema 56 adds a second consumer of that same type
   only for guard infantry created with a newly started `assassinate_traitor`
-  mission at contract `2`; historical/pre-56 traitor missions,
-  `assassinate_specops`, and all other mission families remain contract `0`.
+  mission at contract `2`. Schema 57 adds a third consumer only for guard
+  infantry created with a newly started `assassinate_specops` mission at
+  contract `3`; historical/pre-opt-in assassination missions and all other
+  mission families remain contract `0`.
   Newly started convoy missions
   use the schema-52 exact contract; restored historical convoy rows remain
   version zero.
@@ -418,8 +442,8 @@ on member slots, enumerates legal open duty and materialization/position pairs,
 and retains missionless or partially unlinked exact-looking rows as quarantine
   evidence rather than deleting them through generic cleanup. General lifecycle
   authority beyond the two exact infantry-QRF consumers, the exact enemy-patrol,
-  the exact purchased-garrison patrol, the exact officer- and traitor-mission
-  guards, and the narrow exact mission-convoy consumer remains open. Normal spawn
+  the exact purchased-garrison patrol, the three exact assassination-mission
+  guard families, and the narrow exact mission-convoy consumer remains open. Normal spawn
 acquisition runs once per active-campaign second. During setup or after a won/
 lost outcome, the coordinator cancels every nonterminal batch and drains its
 cleanup with a monotonic runtime-only clock without advancing campaign elapsed
@@ -437,18 +461,18 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-Schema 56 exact authority for guard infantry belonging to newly started
-`assassinate_traitor` missions is implemented in the current development tree on
-the stamped Schema-55 officer-guard foundation. New officer guards retain
-contract `1`; new traitor guards use contract `2`. Historical/pre-56 traitor
-missions, `assassinate_specops`, policy-v1 purchases, initial/enemy aggregate
-garrisons, and all other mission families remain legacy. Packaged schema-50
-through schema-56 certification gates remain independently open;
-beginning another source slice does not certify any earlier behavior.
-The next narrow source target is guard infantry for newly started
-`assassinate_specops` missions only. It is planned, not implemented;
-historical missions and every other mission family remain legacy until separately
-opted in.
+Schema 57 exact authority for guard infantry belonging to newly started
+`assassinate_specops` missions is implemented but unstamped. Officer guards
+retain contract `1`/quarantine `-55`, traitor guards retain contract `2`/`-56`,
+and new spec-ops guards use contract `3`/`-57` with policy
+`exact_assassinate_specops_guard_v1` and intent `assassinate_specops_guard`.
+Historical/pre-57 spec-ops missions, ordinary `mission_group_*` rows, policy-v1
+purchases, initial/enemy aggregate garrisons, and unsupported families remain
+legacy contract `0`. Packaged schema-50 through schema-57 certification gates
+remain independently open; beginning another source slice does not certify any
+earlier behavior. The assassination-guard family is exhausted. The next planned
+blueprint target is a separately versioned rescue vertical slice beginning with
+newly started `rescue_pows` missions only; it is planned, not implemented.
 
 1. After the schema-52 implementation is stamped, publish and test that build,
    including the schema-50 marker,
@@ -521,15 +545,25 @@ opted in.
     restore, existing-HVT status, and `-56` quarantine boundary without changing
     the Schema-55 officer contract. Cover native entities/adapter casualties,
     real save/restart, rendered UI, owner-change, setup, packaged networking,
-    reconnect, and JIP. Pre-56 traitor missions, `assassinate_specops`, and every
-    other mission family must remain contract `0`.
+    reconnect, and JIP. Pre-56 traitor missions remain contract `0`, and the
+    separately opted Schema-57 spec-ops path must not alter traitor contract `2`.
+12. Runtime-prove the schema-57 exact spec-ops-assassination guard: only a newly
+    started `assassinate_specops` mission may use contract `3`, policy
+    `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and
+    `-57` quarantine. Prove the same route-less exact roster, HVT separation,
+    survivor materialize/fold/re-entry, typed zero-refund outcomes, compact
+    restore, existing-HVT status, and no virtual combat while preserving officer
+    contract `1` and traitor contract `2`. Historical/pre-57 spec-ops, ordinary
+    `mission_group_*` rows, rescue missions, and unsupported families must remain
+    contract `0`. Cover every packaged/native/restart/UI/network gate still open.
 
 The schema-50 player exact-QRF projection slice, schema-51 enemy defensive-QRF
 slice, schema-52 exact mission-convoy slice, schema-53 exact enemy-patrol slice,
 schema-54 exact purchased-garrison patrol slice, and schema-55 exact officer-
 mission guard slice define six explicit operation types. Schema 56 adds the
 traitor guard as a seventh explicit family consumer of the mission-guard type,
-using its separate contract version and policy.
+using its separate contract version and policy. Schema 57 adds the spec-ops
+guard as an eighth explicit family consumer without adding an operation type.
 The infantry-QRF virtual routes use a conservative direct
 campaign cursor, materialization uses separate in/out distances, and the frozen
 manifest slots remain the living/dead roster across fold and restore. Player
@@ -544,7 +578,7 @@ cursor, holds route progress during physical contact, and settles the surviving
   proactive-attack fraction on return. The purchased-garrison patrol instead
   remains assigned to its zone, loops locally without a terminal lap count, and
   keeps its paid roster as the sole virtual/physical survivor authority with no
-  refund path. Both exact assassination guards remain route-less and on station;
+  refund path. All three exact assassination guards remain route-less and on station;
   each held exact roster virtualizes only observed survivor state, while its
   separate HVT keeps mission outcome authority. The convoy does not yet simulate off-screen
 combat; virtual convoy casualties change only
@@ -553,9 +587,9 @@ operations milestone: generalized live-contact authority, terrain and
   ammunition effects, broad legacy supports, historical/initial/enemy aggregate
   garrisons, garrison vehicles and multi-root forces, other mission forces,
   other enemy orders, historical patrols, and client/JIP projection remain
-  future slices. The next narrow blueprint target is guard infantry for newly
-  started `assassinate_specops` missions only. That cutover is not implemented;
-  every other mission family remains legacy until its own explicit cutover.
+  future slices. The assassination-guard family is exhausted after Schema 57.
+  The next planned blueprint target is a separately versioned rescue vertical
+  slice beginning with newly started `rescue_pows`; it is not implemented.
 
 The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also
@@ -563,7 +597,8 @@ evidence for the newly reported marker, cursor, radio, classification,
 appearance, horn, and military/civilian activation defects—not proof of the
 schema-50 repairs. The final stamped Schema-56 tree identifies implementation
 `bab5748d817ba434dae701cfbb3b92805d463678`, build label
-`schema56-exact-traitor-guard`, and passes the full foundation gate. Workbench
+`schema56-exact-traitor-guard`, stamp
+`03a65cd33bee69c6320389803cdd5a2ec8576fb0`, and passes the full foundation gate. Workbench
 Game validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and reported
 `Script validation successful`; the bounded hidden normal WorldEditor open stayed
 alive for all ten samples over 20 seconds, with no script-error/crash signature
@@ -571,7 +606,7 @@ in its latest log. This is source/Workbench evidence, not
 packaged gameplay proof. A republished server/client test is still required
 before those repairs, either exact-QRF projection path, or any source-validated
 schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/
-  schema-55 officer-guard/schema-56 traitor-guard paths
+  schema-55 officer-guard/schema-56 traitor-guard/schema-57 spec-ops-guard paths
 is called runtime-proven. The late-admin
 role-change guard, campaign-debug
 isolation, convoy seating, physical support movement/arrival/recall, and restart
