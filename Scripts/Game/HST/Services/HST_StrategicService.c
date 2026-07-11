@@ -463,6 +463,14 @@ class HST_StrategicService
 			return true;
 		}
 
+		if (HST_RescuePOWOperationService.IsExactMission(activeMission))
+		{
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && definition.m_iRewardSupport != 0
+				&& towns && towns.AddSupport(state, zone.m_sZoneId, definition.m_iRewardSupport))
+				changed = true;
+			return changed;
+		}
+
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC)
 		{
 			if (definition.m_sMissionId == "dynamic_city_flip_battle")

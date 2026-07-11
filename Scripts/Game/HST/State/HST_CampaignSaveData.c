@@ -1065,6 +1065,7 @@ class HST_CampaignSaveData
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
 		target.m_sSiteId = source.m_sSiteId;
 		target.m_vTargetPosition = source.m_vTargetPosition;
+		target.m_vRescueExtractionPosition = source.m_vRescueExtractionPosition;
 		target.m_sMarkerId = source.m_sMarkerId;
 		target.m_sRuntimePrimitive = source.m_sRuntimePrimitive;
 		target.m_sRuntimeType = source.m_sRuntimeType;
@@ -1084,6 +1085,7 @@ class HST_CampaignSaveData
 		target.m_iRecoveredCargoCount = source.m_iRecoveredCargoCount;
 		target.m_iRequiredCaptiveCount = source.m_iRequiredCaptiveCount;
 		target.m_iExtractedCaptiveCount = source.m_iExtractedCaptiveCount;
+		target.m_iRescueGraceUntilSecond = source.m_iRescueGraceUntilSecond;
 		target.m_iRequiredVehicleCount = source.m_iRequiredVehicleCount;
 		target.m_iCapturedVehicleCount = source.m_iCapturedVehicleCount;
 		target.m_iRuntimePickupCount = source.m_iRuntimePickupCount;
@@ -1095,6 +1097,7 @@ class HST_CampaignSaveData
 		target.m_bRuntimeSpawned = source.m_bRuntimeSpawned;
 		target.m_bRuntimeFallback = source.m_bRuntimeFallback;
 		target.m_bRuntimeCleanupComplete = source.m_bRuntimeCleanupComplete;
+		target.m_bRescueExtractionGrace = source.m_bRescueExtractionGrace;
 		target.m_bCreatedNotificationSent = source.m_bCreatedNotificationSent;
 		target.m_bCompletedNotificationSent = source.m_bCompletedNotificationSent;
 		target.m_bFailedNotificationSent = source.m_bFailedNotificationSent;
@@ -1353,6 +1356,11 @@ class HST_CampaignSaveData
 		target.m_bAttachedToCarrier = source.m_bAttachedToCarrier;
 		target.m_bOutcomeApplied = source.m_bOutcomeApplied;
 		target.m_sOutcomeKind = source.m_sOutcomeKind;
+		target.m_fDemolitionDamage = source.m_fDemolitionDamage;
+		target.m_fDemolitionRequiredDamage = source.m_fDemolitionRequiredDamage;
+		target.m_iDemolitionHits = source.m_iDemolitionHits;
+		target.m_sLastDemolitionSource = source.m_sLastDemolitionSource;
+		target.m_iLastDemolitionSecond = source.m_iLastDemolitionSecond;
 		target.m_vSourcePosition = source.m_vSourcePosition;
 		target.m_vTargetPosition = source.m_vTargetPosition;
 		target.m_vCurrentPosition = source.m_vCurrentPosition;
@@ -1360,6 +1368,37 @@ class HST_CampaignSaveData
 		target.m_iDeadlineSecond = source.m_iDeadlineSecond;
 		target.m_iCargoCapacityCost = source.m_iCargoCapacityCost;
 		target.m_iInteractionRadiusMeters = source.m_iInteractionRadiusMeters;
+		target.m_iRescueContractVersion = source.m_iRescueContractVersion;
+		target.m_iRescueOrdinal = source.m_iRescueOrdinal;
+		target.m_eRescueDisposition = source.m_eRescueDisposition;
+		target.m_sRescueEscortIdentityId = source.m_sRescueEscortIdentityId;
+		target.m_sRescueCarrierVehicleId = source.m_sRescueCarrierVehicleId;
+		target.m_sRescueCarrierSeatToken = source.m_sRescueCarrierSeatToken;
+		target.m_sRescueLastCommandRequestId = source.m_sRescueLastCommandRequestId;
+		target.m_sRescueLastCommandResult = source.m_sRescueLastCommandResult;
+		if (source.m_aRescueCommandReceipts)
+		{
+			foreach (HST_RescueCommandReceiptState sourceReceipt : source.m_aRescueCommandReceipts)
+			{
+				if (!sourceReceipt)
+					continue;
+				HST_RescueCommandReceiptState targetReceipt = new HST_RescueCommandReceiptState();
+				targetReceipt.m_sRequestId = sourceReceipt.m_sRequestId;
+				targetReceipt.m_sActorIdentityId = sourceReceipt.m_sActorIdentityId;
+				targetReceipt.m_sCommand = sourceReceipt.m_sCommand;
+				targetReceipt.m_sResult = sourceReceipt.m_sResult;
+				targetReceipt.m_iRecordedRevision = sourceReceipt.m_iRecordedRevision;
+				target.m_aRescueCommandReceipts.Insert(targetReceipt);
+			}
+		}
+		target.m_sRescueCasualtyReceiptId = source.m_sRescueCasualtyReceiptId;
+		target.m_sRescueExtractionReceiptId = source.m_sRescueExtractionReceiptId;
+		target.m_sRescueProjectionId = source.m_sRescueProjectionId;
+		target.m_iRescueTransitionSecond = source.m_iRescueTransitionSecond;
+		target.m_iRescueRevision = source.m_iRescueRevision;
+		target.m_iRescueProjectionGeneration = source.m_iRescueProjectionGeneration;
+		target.m_bRescueDeathObserved = source.m_bRescueDeathObserved;
+		target.m_bRescueExtractionObserved = source.m_bRescueExtractionObserved;
 		return target;
 	}
 
@@ -2011,6 +2050,7 @@ class HST_CampaignSaveData
 		target.m_iLastLifecycleSecond = source.m_iLastLifecycleSecond;
 		target.m_bCancelRequested = source.m_bCancelRequested;
 		target.m_bStrategicProjectionHeld = source.m_bStrategicProjectionHeld;
+		target.m_bExternalAssetAuthority = source.m_bExternalAssetAuthority;
 		foreach (HST_ForceSpawnSlotResultState slotResult : source.m_aSlotResults)
 		{
 			HST_ForceSpawnSlotResultState slotCopy = CopyForceSpawnSlotResult(slotResult);
@@ -2189,6 +2229,8 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 55
 				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardMissionClaimant(this, mission))
 				continue;
+			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWMissionClaimant(this, mission))
+				continue;
 
 			if (mission.m_sRuntimePrimitive.IsEmpty())
 				mission.m_sRuntimePrimitive = "abstract_fallback";
@@ -2230,6 +2272,8 @@ class HST_CampaignSaveData
 				continue;
 			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyAssetClaimant(this, asset))
 				continue;
+			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWAssetClaimant(this, asset))
+				continue;
 
 			if (asset.m_sAssetId.IsEmpty())
 				asset.m_sAssetId = asset.m_sEntityId;
@@ -2253,8 +2297,9 @@ class HST_CampaignSaveData
 				asset.m_bAttachedToCarrier = true;
 		}
 
-		bool mayMigrateRuntimeMissionAssets = restoredSchemaVersion < 52
-			|| !HST_MissionConvoySaveValidationService.HasSchema52MissionConvoyMissionClaimant(this);
+		bool mayMigrateRuntimeMissionAssets = (restoredSchemaVersion < 52
+			|| !HST_MissionConvoySaveValidationService.HasSchema52MissionConvoyMissionClaimant(this))
+			&& !HST_RescuePOWSaveValidationService.HasSchema58RescuePOWMissionClaimant(this);
 		if (mayMigrateRuntimeMissionAssets && m_aMissionAssets.Count() == 0 && m_aMissionRuntimeEntities.Count() > 0)
 			MigrateRuntimeEntitiesToMissionAssets();
 
@@ -2268,6 +2313,8 @@ class HST_CampaignSaveData
 				continue;
 			if (restoredSchemaVersion >= 55
 				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
+				continue;
+			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
 				continue;
 
 			if (group.m_sRuntimeStatus.IsEmpty())
@@ -2461,6 +2508,8 @@ class HST_CampaignSaveData
 		schema54GarrisonPatrolValidation.Normalize(this, restoredSchemaVersion);
 		HST_AssassinationGuardSaveValidationService schema57MissionGuardValidation = new HST_AssassinationGuardSaveValidationService();
 		schema57MissionGuardValidation.Normalize(this, restoredSchemaVersion);
+		HST_RescuePOWSaveValidationService schema58RescuePOWValidation = new HST_RescuePOWSaveValidationService();
+		schema58RescuePOWValidation.Normalize(this, restoredSchemaVersion);
 		NormalizeRestoredOperationProjectionState();
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
@@ -2584,6 +2633,8 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 55
 				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardManifestClaimant(this, manifest))
 				continue;
+			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWManifestClaimant(this, manifest))
+				continue;
 			for (int groupIndex = manifest.m_aGroups.Count() - 1; groupIndex >= 0; groupIndex--)
 			{
 				if (!manifest.m_aGroups[groupIndex])
@@ -2660,6 +2711,8 @@ class HST_CampaignSaveData
 				continue;
 			if (restoredSchemaVersion >= 55
 				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant(this, spawnResult))
+				continue;
+			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant(this, spawnResult))
 				continue;
 			spawnResult.m_iRetryCount = Math.Max(0, spawnResult.m_iRetryCount);
 			spawnResult.m_iMaxRetries = Math.Max(0, spawnResult.m_iMaxRetries);
@@ -2815,7 +2868,8 @@ class HST_CampaignSaveData
 			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
-				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD)
+				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
+				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE)
 				continue;
 			int savedArrivalConfirmationCount = operation.m_iArrivalConfirmationCount;
 			HST_EOperationMaterializationState savedMaterializationState = operation.m_eMaterializationState;
@@ -4306,6 +4360,8 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 55
 				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant(this, first))
 				continue;
+			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant(this, first))
+				continue;
 
 			for (int secondIndex = 0; secondIndex < m_aForceSpawnResults.Count(); secondIndex++)
 			{
@@ -4321,6 +4377,8 @@ class HST_CampaignSaveData
 					continue;
 				if (restoredSchemaVersion >= 55
 					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant(this, second))
+					continue;
+				if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant(this, second))
 					continue;
 				if (!HasDuplicateForceSpawnQueueIdentity(first, second))
 					continue;
@@ -4375,6 +4433,8 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion >= 55
 				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
 				continue;
+			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
+				continue;
 
 			if (group.m_iOriginalInfantryCount <= 0)
 				group.m_iOriginalInfantryCount = group.m_iInfantryCount;
@@ -4396,7 +4456,8 @@ class HST_CampaignSaveData
 				&& !(restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 55
-					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group)))
+					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
+				&& !HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
 				group.m_sSupportRequestId = request.m_sRequestId;
 		}
 
@@ -4410,7 +4471,8 @@ class HST_CampaignSaveData
 				&& !(restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 55
-					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group)))
+					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
+				&& !HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
 				group.m_sQRFInstanceId = qrf.m_sInstanceId;
 		}
 
@@ -4451,6 +4513,8 @@ class HST_CampaignSaveData
 				if (restoredSchemaVersion >= 55
 					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
 					continue;
+				if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
+					continue;
 				if (group.m_sGroupId == guardGroupId || group.m_sGroupId.Contains(convoyGroupToken))
 					group.m_sMissionInstanceId = mission.m_sInstanceId;
 			}
@@ -4466,6 +4530,8 @@ class HST_CampaignSaveData
 				continue;
 			if (restoredSchemaVersion >= 55
 				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
+				continue;
+			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
 				continue;
 			if (!group.m_sSupportRequestId.IsEmpty() || !group.m_sEnemyOrderId.IsEmpty()
 				|| !group.m_sMissionInstanceId.IsEmpty() || !group.m_sQRFInstanceId.IsEmpty())

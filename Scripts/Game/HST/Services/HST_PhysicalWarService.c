@@ -19656,6 +19656,8 @@ class HST_PhysicalWarService
 	{
 		if (HST_MissionGuardOperationService.IsMissionGuardGroupClaimant(state, activeGroup))
 			return true;
+		if (HST_RescuePOWOperationService.IsMissionRescueGroupClaimant(state, activeGroup))
+			return true;
 		if (!activeGroup)
 			return false;
 
@@ -19664,13 +19666,20 @@ class HST_PhysicalWarService
 		return activeGroup.m_sSpawnFallbackMode == HST_MissionGuardOperationService.EXACT_GROUP_MODE
 			|| activeGroup.m_sSpawnFallbackMode == HST_MissionGuardOperationService.QUARANTINE_STATUS
 			|| activeGroup.m_sRuntimeStatus.StartsWith("mission_guard_")
-			|| activeGroup.m_sRuntimeStatus == HST_MissionGuardOperationService.QUARANTINE_STATUS;
+			|| activeGroup.m_sRuntimeStatus == HST_MissionGuardOperationService.QUARANTINE_STATUS
+			|| activeGroup.m_sSpawnFallbackMode == HST_RescuePOWOperationService.EXACT_GROUP_MODE
+			|| activeGroup.m_sSpawnFallbackMode == HST_RescuePOWOperationService.QUARANTINE_STATUS
+			|| activeGroup.m_sRuntimeStatus.StartsWith("mission_rescue_")
+			|| activeGroup.m_sRuntimeStatus == HST_RescuePOWOperationService.QUARANTINE_STATUS;
 	}
 
 	protected bool HasOpenPhysicalMissionGuardRuntimeAuthority(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
-		if (!state || !activeGroup
-			|| !HST_MissionGuardOperationService.IsMissionGuardGroupClaimant(state, activeGroup))
+		if (!state || !activeGroup)
+			return false;
+		bool missionGuardClaim = HST_MissionGuardOperationService.IsMissionGuardGroupClaimant(state, activeGroup);
+		bool missionRescueClaim = HST_RescuePOWOperationService.IsMissionRescueGroupClaimant(state, activeGroup);
+		if (!missionGuardClaim && !missionRescueClaim)
 			return false;
 		if (activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_sManifestId.IsEmpty()
 			|| activeGroup.m_sSpawnResultId.IsEmpty() || activeGroup.m_sForceId.IsEmpty()
@@ -19678,14 +19687,21 @@ class HST_PhysicalWarService
 			|| state.FindActiveGroup(activeGroup.m_sGroupId) != activeGroup)
 			return false;
 		HST_ActiveMissionState mission = state.FindActiveMission(activeGroup.m_sMissionInstanceId);
-		if (!HST_MissionGuardOperationService.IsExactOrQuarantinedMission(mission)
+		bool missionAuthority = missionGuardClaim
+			&& HST_MissionGuardOperationService.IsExactOrQuarantinedMission(mission);
+		missionAuthority = missionAuthority || (missionRescueClaim
+			&& HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission));
+		if (!missionAuthority
 			|| mission.m_sOperationId != activeGroup.m_sOperationId
 			|| mission.m_sManifestId != activeGroup.m_sManifestId
 			|| mission.m_sSpawnResultId != activeGroup.m_sSpawnResultId)
 			return false;
 		HST_OperationRecordState operation = state.FindOperation(activeGroup.m_sOperationId);
-		return operation
-			&& operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
+		bool operationTypeMatches = operation && ((missionGuardClaim
+			&& operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD)
+			|| (missionRescueClaim
+				&& operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE));
+		return operationTypeMatches
 			&& operation.m_sOperationId == activeGroup.m_sOperationId
 			&& operation.m_sMissionInstanceId == mission.m_sInstanceId
 			&& operation.m_sManifestId == activeGroup.m_sManifestId
@@ -19703,7 +19719,9 @@ class HST_PhysicalWarService
 
 	protected bool IsExactMissionGuardActiveGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
-		if (!IsExactMissionGuardGroup(state, activeGroup))
+		bool exactStationaryMissionGroup = IsExactMissionGuardGroup(state, activeGroup)
+			|| HST_RescuePOWOperationService.IsExactMissionRescueGroup(state, activeGroup);
+		if (!exactStationaryMissionGroup)
 			return false;
 		HST_OperationRecordState operation = state.FindOperation(activeGroup.m_sOperationId);
 		HST_ActiveMissionState mission = state.FindActiveMission(activeGroup.m_sMissionInstanceId);

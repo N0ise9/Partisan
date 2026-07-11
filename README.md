@@ -321,6 +321,36 @@ The repository contains a broad-alpha campaign foundation:
   source/Workbench gates only. Native entities, adapter casualties, actual
   save/restart, rendered UI, owner change, campaign setup, packaged networking,
   reconnect, and JIP remain open.
+- Schema 58 adds a separate exact mission-rescue operation only for newly
+  started `rescue_pows`. Contract `1`, policy `exact_rescue_pows_v1`, intent
+  `rescue_pows_guard`, and quarantine `-58` own one frozen composite manifest:
+  one catalog-backed hostile guard root/member roster plus exactly three
+  externally projected captive slots. Captives use typed HELD/FREED/FOLLOWING/
+  BOARDING/BOARDED/EXTRACTED/KILLED state with stable escort, carrier, seat,
+  casualty, extraction, and projection evidence plus a bounded command
+  ledger keyed by request/actor/command/revision. Replays are resolved before
+  live proximity/HQ checks, cross-captive or changed-fingerprint reuse fails
+  closed, accepted and the bounded recent rejected results remain stable across
+  later disposition changes, rejection spam cannot block legal progression,
+  and one slot is reserved for terminal extraction. Unbound HELD/FREED
+  captives and the guard roster can fold outside the player bubble; custody
+  states remain projected, and missing runtime entities never imply death.
+  Outside grace a disconnected escort releases custody back to FREED without
+  inventing a casualty; during grace disconnect invalidates the frozen custody
+  set. Captive context actions use a replicated, fail-closed legality DTO so a
+  client or late joiner does not expose simultaneous illegal actions while its
+  local coordinator state is absent.
+  Guard elimination does not complete the rescue, any observed captive death
+  fails it, and exactly three HQ extraction receipts complete it through the
+  normal mission reward path. The HQ extraction position is frozen at admission
+  and blocks HQ relocation while open. A five-minute expiry grace opens only
+  when all three living captives were already in custody, uses the frozen base
+  deadline plus 300 seconds, and forbids new claims. Pre-58
+  POW missions and `rescue_refugees` remain contract `0`; malformed current
+  authority quarantines without invented captives, deaths, extractions, rewards,
+  or fallback. Source proof and Workbench evidence are recorded with the
+  Schema-58 stamp; packaged/native/restart/rendered-UI/network/JIP proof remains
+  open.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -421,8 +451,10 @@ return-to-origin duty, exact survivor-proportional settlement, and one operation
   only for guard infantry created with a newly started `assassinate_traitor`
   mission at contract `2`. Schema 57 adds a third consumer only for guard
   infantry created with a newly started `assassinate_specops` mission at
-  contract `3`; historical/pre-opt-in assassination missions and all other
-  mission families remain contract `0`.
+  contract `3`. Schema 58 adds the seventh explicit operation type for newly
+  started `rescue_pows`; historical/pre-opt-in assassination and POW missions,
+  `rescue_refugees`, and all other unsupported mission families remain contract
+  `0`.
   Newly started convoy missions
   use the schema-52 exact contract; restored historical convoy rows remain
   version zero.
@@ -467,22 +499,18 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-Schema 57 exact authority for guard infantry belonging to newly started
-`assassinate_specops` missions is stamped at implementation
-`514ebdcbeb1ddfb2a383b19590382517113e2ff6` with build label
-`schema57-exact-specops-guard`. Officer guards
-retain contract `1`/quarantine `-55`, traitor guards retain contract `2`/`-56`,
-and new spec-ops guards use contract `3`/`-57` with policy
-`exact_assassinate_specops_guard_v1` and intent `assassinate_specops_guard`.
-Historical/pre-57 spec-ops missions, ordinary `mission_group_*` rows, policy-v1
-purchases, initial/enemy aggregate garrisons, and unsupported families remain
-legacy contract `0`. Packaged schema-50 through schema-57 certification gates
-remain independently open; beginning another source slice does not certify any
-earlier behavior. The assassination-guard family is exhausted. The next planned
-blueprint target is a separately versioned rescue vertical slice beginning with
-newly started `rescue_pows` missions only; it is planned, not implemented.
+Schema 58 is the active exact-authority boundary. Only newly started
+`rescue_pows` opt into mission-rescue contract `1`; historical POW rows,
+`rescue_refugees`, ordinary `mission_group_*` rows, policy-v1 purchases,
+initial/enemy aggregate garrisons, and unsupported families remain contract `0`.
+The stamped Schema-57 assassination family remains unchanged. Schema 58 owns
+three typed captive identities and a separate guard roster, preserves them
+through render folding and save normalization, and settles through the normal
+mission success/failure pipeline. Packaged schema-50 through schema-58
+certification remains independently open; source or Workbench validation does
+not certify native entities, restart, rendered UI, networking, reconnect, or JIP.
 
-1. Publish and test the stamped Schema-57 build,
+1. Publish and test the stamped Schema-58 build,
    including the schema-50 marker,
    map-dialog, radio-site, and civilian repairs. Require valid-sized marker
    icons, `Location | Owner` labels, a
@@ -572,6 +600,8 @@ mission guard slice define six explicit operation types. Schema 56 adds the
 traitor guard as a seventh explicit family consumer of the mission-guard type,
 using its separate contract version and policy. Schema 57 adds the spec-ops
 guard as an eighth explicit family consumer without adding an operation type.
+Schema 58 adds mission rescue as a seventh explicit operation type and a ninth
+exact family consumer, limited to newly started `rescue_pows`.
 The infantry-QRF virtual routes use a conservative direct
 campaign cursor, materialization uses separate in/out distances, and the frozen
 manifest slots remain the living/dead roster across fold and restore. Player
@@ -595,9 +625,9 @@ operations milestone: generalized live-contact authority, terrain and
   ammunition effects, broad legacy supports, historical/initial/enemy aggregate
   garrisons, garrison vehicles and multi-root forces, other mission forces,
   other enemy orders, historical patrols, and client/JIP projection remain
-  future slices. The assassination-guard family is exhausted after Schema 57.
-  The next planned blueprint target is a separately versioned rescue vertical
-  slice beginning with newly started `rescue_pows`; it is not implemented.
+  future slices. The assassination-guard family is exhausted after Schema 57;
+  Schema 58 implements the first rescue vertical only. Further rescue families
+  and the next blueprint consumer still require their own explicit cutovers.
 
 The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also

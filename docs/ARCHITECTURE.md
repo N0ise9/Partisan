@@ -4,7 +4,7 @@
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through schema-57 authority services are:
+schema-42 through schema-58 authority services are:
 
 - `HST_StableIdService`: allocates persisted, monotonic IDs for generated
   commands and events, and builds deterministic operation/transaction links.
@@ -188,13 +188,61 @@ schema-42 through schema-57 authority services are:
   and historical spec-ops contract `0`. Schema 57 is stamped at implementation
   `514ebdcbeb1ddfb2a383b19590382517113e2ff6`; native/package/restart/render/
   network gates remain explicitly open.
+- `HST_RescuePOWOperationService`: owns Schema-58 contract-1 authority only for
+  newly started `rescue_pows`. One mission-rescue operation binds one frozen
+  composite manifest, one hostile catalog guard roster, one external-asset
+  SpawnQueue batch, and exactly three typed captive rows. It owns captive
+  transition/idempotency through a bounded typed command ledger, stable escort/
+  carrier/seat evidence, disconnect release before grace, unbound fold/re-entry,
+  damage-only casualty receipts, one frozen HQ extraction anchor, base-deadline
+  plus 300-second custody-only grace, and zero-resource typed settlement. It
+  releases surviving custody links before non-success settlement so historical
+  rows do not depend on mutable carrier vehicles. Guard elimination and captive
+  outcome authority stay independent.
+- `HST_RescuePOWExternalAssetPolicy`: is the sole permission boundary for
+  external manifest asset rows. Queue admission/replay/batch validation requires
+  the frozen hash-valid rescue policy/intent/kind, one deterministic guard root
+  and ordered members, no vehicles, and exactly three deterministic captive
+  slots. Adapter execution additionally requires a unique reciprocal active
+  contract-1 mission-rescue operation, batch, group, and all three typed captive
+  rows before it excludes those asset descriptors from generic work.
+- `HST_RescuePOWExternalAssetPolicy`: is the shared fail-closed exemption gate
+  for Schema-58 captive manifest descriptors. Queue admission, replay, and
+  durable-batch validation require the exact frozen/hash-valid shape; adapter
+  execution additionally requires a unique reciprocal active mission-rescue
+  contract-1 graph and exactly three matching durable captive rows before the
+  generic adapter may omit those descriptors. External rescue root registration
+  preserves the rescue mode discriminator used by runtime and restore checks.
+- `HST_RescuePOWSaveValidationService`: preserves historical POWs and refugees
+  at contract `0`, validates reciprocal site/mission/operation/manifest/batch/
+  group/captive authority, clears process bindings without erasing stable
+  escort/carrier/seat receipts, accepts compact terminal graphs, and quarantines
+  malformed current or strong pre-58 claimants at `-58`. It records
+  `migration_schema58_exact_rescue_pows` and
+  `normalization_schema58_exact_rescue_pows_conflict` without inventing a
+  captive, casualty, extraction, reward, fallback, or force transfer.
+- `HST_RescuePOWOperationProofService`: contributes six deterministic source
+  categories for admission isolation, composite/external authority, captive
+  transitions (including old accepted/rejected replay, request collisions,
+  terminal reserved capacity, and deep-copy preservation), guard independence,
+  hitch-stable outcome/grace and disconnect policy, and restore/quarantine. It
+  does not claim native entities, natural combat, vehicle seats, real process
+  restart, rendered UI, networking, reconnect, or JIP.
+- `HST_MissionAssetComponent` publishes a minimal replicated rescue-action DTO
+  (evaluated, exact contract, disposition, active, quarantine, revision).
+  `HST_MissionCaptiveActionPolicy` fails closed while that classification is
+  pending, then exposes only the legal action; unchanged values do not create a
+  replication bump. The server command/transition owner remains authoritative.
 - `HST_ForceSpawnQueueService`: owns schema-44 durable per-projection spawn
   batches, bounded priority/FIFO work acquisition, verified callbacks,
   retry/deadline/cancellation cleanup, pin-aware terminal retention, reporting,
   dependency-ordered cleanup, a durable nonterminal `READY_FOR_HANDOFF` state,
   explicit post-handoff completion, once-per-actual-restore reconciliation, and
   schema-50/51 strategic holds plus the schema-52 convoy, schema-54 garrison-
-  patrol, and schema-55/56/57 mission-guard roster holds. A held
+  patrol, schema-55/56/57 mission-guard roster holds, and the executable guard
+  subgraph of Schema-58 rescue. A rescue batch explicitly excludes its three
+  externally managed captive asset slots from queue result rows only after the
+  shared exact external-asset policy validates their complete frozen shape. A held
   batch performs no generic queue work and
   uses its frozen member slots as exact living/dead roster authority.
 - `HST_ForceSpawnAdapterService`: consumes eligible released queue work from the production
@@ -562,18 +610,28 @@ Schema-55/56/57 checks. Stamped Workbench Game validation loaded 5,765 files/
 bounded hidden normal WorldEditor open stayed alive for 10/10 samples over 20
 seconds, and its log had no script-error/crash signature. These source/Workbench
 gates leave every packaged/native/restart/UI/network gate open. The
-assassination-guard family is exhausted. The next planned blueprint
-target is a separately versioned rescue vertical slice beginning with only
-newly started `rescue_pows` missions; it is planned, not implemented.
+assassination-guard family is exhausted. Schema 58 is the later separate rescue
+cutover for newly started `rescue_pows` only; historical POWs,
+`rescue_refugees`, and further rescue families remain legacy until explicitly
+versioned.
+
+Schema 58 adds the ninth explicit family consumer and seventh operation type:
+only newly started `rescue_pows` use mission-rescue contract `1`, policy
+`exact_rescue_pows_v1`, intent `rescue_pows_guard`, and quarantine `-58`. One
+hash-valid composite manifest owns a separately executed exact guard roster and
+three policy-validated captive descriptors. Typed captive rows, the frozen HQ
+anchor, command receipts, custody/grace rules, damage-only death, exact
+extraction receipts, and mission-owned terminal mapping remain authoritative;
+historical POWs, refugees, and other mission families stay contract `0`.
 
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
-| Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. The two QRFs, exact convoy, exact enemy patrol, policy-v2 purchased-garrison patrol, and all three exact assassination-mission guard families bind versioned identity to one canonical operation and projection graph. The HVT deliberately remains separate objective/runtime-asset authority. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
-| Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and quote/confirm commands. Support recall is the first production visible command to map a typed domain result into explicit receipt status and operation identity; its presentation sentence cannot turn an accepted terminal outcome into a rejection. Other visible commands still use the compatibility classifier. Full accepted state and schema-48 settlement tombstones prevent later duplicate issue/confirmation/ledger replay from charging again, including after QRF settlement. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
+| Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. Schema 58 additionally binds the rescue operation/guard graph to three deterministic captive slots, one frozen extraction position, and stable escort, carrier, seat, command, casualty, extraction, and projection evidence. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
+| Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and quote/confirm commands. Support recall maps a typed result into explicit receipt status. Schema 58 additionally keeps accepted and rejected captive request/actor/command/result/revision rows, rejects cross-captive or changed-fingerprint reuse before live checks, and reserves one non-evicting terminal slot. Other visible commands still use the compatibility classifier. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
 | Resource integrity | Troop training, visible garrison confirmation, and player-QRF confirmation/terminal settlement use the resource ledger. Exact player-QRF paths own paired refunds; enemy QRF and enemy patrol own separate proportional settlements. Schema-54 garrison patrol and schema-55/56/57 mission-guard terminal paths record deterministic receipts with zero refund. Other support/order consumers still use legacy services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
-| Force exactness | A policy-v2 garrison quote freezes one non-self-populating executable root plus its arbitrary priced member slots; newly started officer, traitor, and spec-ops missions separately freeze catalog-backed empty roots plus ordered guard members, with no HVT, route, vehicles, assets, or resources in any manifest. The QRF, enemy-patrol, and convoy exact shapes remain unchanged. Historical/pre-opt-in assassination missions, other mission families, policy-v1/initial/enemy aggregate garrisons, and garrison vehicles/multi-root forces remain outside these cutovers. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
+| Force exactness | Existing exact infantry/convoy shapes remain unchanged. Schema 58 freezes one composite rescue manifest: one catalog-backed guard root/member roster and exactly three external captive asset slots; the shared external policy rejects foreign slot identity/semantics and the queue executes only the guard subgraph after validation. Historical POWs, other mission families, policy-v1/initial/enemy aggregate garrisons, and unsupported vehicle/multi-root policy remain outside these cutovers. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Both QRFs, exact enemy patrol, policy-v2 purchased-garrison patrol, and all three exact assassination guards begin held and release only durable living member slots; each empty root contributes no authored members. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Confirmed casualties remain retired across transfer/restore. Generic vehicle/asset/multi-root, historical mission guards, and historical aggregate-garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
-| Operation lifecycle | Schemas 50-56 retain player QRF, enemy QRF, exact convoy, enemy-patrol, purchased-garrison, officer-guard, and traitor-guard behavior. Schema 57 adds only contract-3 spec-ops guards with the same route-less on-station survivor lifecycle, HVT-independent `DESTROYED`, typed zero-refund mission/owner/spawn settlement, compact restore, existing-HVT status, and `-57` quarantine. Historical/pre-57 spec-ops and all unsupported mission families remain outside these contracts. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
+| Operation lifecycle | Schemas 50-57 retain their exact paths. Schema 58 adds the route-less mission-rescue type: guard survivors fold independently; HELD/FREED captives virtualize without simulated damage; custody stays projected; casualty and three-receipt HQ extraction decide failure/success; grace and terminal settlement are typed and replay-safe. Historical POWs and unsupported families remain outside the contract. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
 | Certification | Schema 57 is the current stamped source/Workbench baseline: implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6`, label `schema57-exact-specops-guard`, full foundation including Schema-55/56/57 checks, 5,765 files/11,576 classes, CRC `e0b8578e`, `Script validation successful`, and 10/10 normal-open samples over 20 seconds with no log script-error/crash signature. Native entities/adapter casualties, guard/HVT settlement, save/restart, rendered UI, owner-change, campaign-setup, networking, reconnect, and JIP remain open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 

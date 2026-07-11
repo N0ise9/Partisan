@@ -285,6 +285,7 @@ class HST_ForceSpawnResultState
 	int m_iLastLifecycleSecond;
 	bool m_bCancelRequested;
 	bool m_bStrategicProjectionHeld;
+	bool m_bExternalAssetAuthority;
 	ref array<ref HST_ForceSpawnSlotResultState> m_aSlotResults = {};
 
 	HST_ForceSpawnSlotResultState FindSlotResult(string slotId)

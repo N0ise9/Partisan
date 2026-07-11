@@ -106,6 +106,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_ConvoyOutcomeService m_ConvoyOutcomes;
 	protected ref HST_MissionConvoyOperationService m_MissionConvoyOperations;
 	protected ref HST_MissionGuardOperationService m_MissionGuardOperations;
+	protected ref HST_RescuePOWOperationService m_RescuePOWOperations;
 	protected ref HST_SupportRequestService m_SupportRequests;
 	protected ref HST_CivilianService m_Civilians;
 	protected ref HST_EnemyCommanderService m_EnemyCommander;
@@ -380,6 +381,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_Persistence)
 				m_Persistence.SetMissionGuardOperationService(m_MissionGuardOperations);
 		}
+		m_RescuePOWOperations = new HST_RescuePOWOperationService();
+		if (m_RescuePOWOperations)
+		{
+			m_RescuePOWOperations.SetRuntimeServices(
+				m_ForceSpawnQueue,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				m_MissionRuntime);
+			if (m_Persistence)
+				m_Persistence.SetRescuePOWOperationService(m_RescuePOWOperations);
+		}
 		m_SupportRequests = new HST_SupportRequestService();
 		if (m_SupportRequests)
 		{
@@ -431,6 +443,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_GarrisonPatrolOperations.ReconcileAfterRestore(m_State);
 		if (m_MissionGuardOperations)
 			m_MissionGuardOperations.ReconcileAfterRestore(m_State);
+		if (m_RescuePOWOperations)
+			m_RescuePOWOperations.ReconcileAfterRestore(m_State);
 		EvaluateCampaignOutcomeNow();
 		if (m_MissionConvoyOperations)
 			m_MissionConvoyOperations.ReconcileAfterRestore(m_State);
@@ -540,6 +554,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string terminalMissionGuardAuthorityFailure;
 			bool terminalMissionGuardAuthorityReady = !m_MissionGuardOperations
 				|| m_MissionGuardOperations.PrepareOpenPhysicalAuthorityForSettlement(m_State, terminalMissionGuardAuthorityFailure);
+			string terminalRescueAuthorityFailure;
+			bool terminalRescueAuthorityReady = !m_RescuePOWOperations
+				|| m_RescuePOWOperations.PrepareOpenPhysicalAuthorityForPersistence(m_State, terminalRescueAuthorityFailure);
 			bool terminalHQRuntimeChanged = EnsureTerminalCampaignRuntimeObjects();
 			bool terminalExactSupportSettlementChanged = m_SupportRequests && m_SupportRequests.TickExactPlayerSupportSettlements(m_State, m_PhysicalWar, m_ForceSpawnAdapter);
 			bool terminalExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign outcome is terminal");
@@ -549,16 +566,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				&& m_GarrisonPatrolOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign outcome is terminal");
 			bool terminalExactMissionGuardSettlementChanged = terminalMissionGuardAuthorityReady && m_MissionGuardOperations
 				&& m_MissionGuardOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign outcome is terminal");
+			bool terminalExactRescueSettlementChanged = terminalRescueAuthorityReady && m_RescuePOWOperations
+				&& m_RescuePOWOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign outcome is terminal");
 			bool terminalExactConvoySettlementChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign outcome is terminal");
 			bool terminalSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup(
 				"campaign outcome is terminal",
 				!terminalPatrolAuthorityReady,
 				!terminalGarrisonPatrolAuthorityReady,
-				!terminalMissionGuardAuthorityReady);
+				!terminalMissionGuardAuthorityReady,
+				!terminalRescueAuthorityReady);
 			bool terminalExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalExactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalExactGarrisonPatrolCleanupChanged = m_GarrisonPatrolOperations && m_GarrisonPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalExactMissionGuardCleanupChanged = m_MissionGuardOperations && m_MissionGuardOperations.ReconcileSettledRuntimeCleanup(m_State);
+			bool terminalExactRescueCleanupChanged = m_RescuePOWOperations && m_RescuePOWOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalExactConvoyCleanupChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalSpawnMarkerChanged = m_PhysicalWar && m_PhysicalWar.ConsumeMarkerRefreshNeeded();
 			bool terminalPatrolChanged = terminalExactEnemyPatrolSettlementChanged || terminalExactEnemyPatrolCleanupChanged;
@@ -566,11 +587,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				|| terminalExactGarrisonPatrolCleanupChanged;
 			bool terminalMissionGuardChanged = terminalExactMissionGuardSettlementChanged
 				|| terminalExactMissionGuardCleanupChanged;
+			bool terminalRescueChanged = terminalExactRescueSettlementChanged || terminalExactRescueCleanupChanged;
 			bool terminalCoreChanged = terminalHQRuntimeChanged || terminalSpawnCleanupChanged
 				|| terminalExactSupportSettlementChanged || terminalSpawnMarkerChanged;
 			bool terminalOperationChanged = terminalExactEnemyQRFSettlementChanged
 				|| terminalExactEnemyQRFCleanupChanged || terminalExactConvoySettlementChanged
-				|| terminalExactConvoyCleanupChanged || terminalMissionGuardChanged;
+				|| terminalExactConvoyCleanupChanged || terminalMissionGuardChanged || terminalRescueChanged;
 			if (terminalCoreChanged || terminalOperationChanged || terminalPatrolChanged || terminalGarrisonPatrolChanged)
 			{
 				bool terminalMajorChanged = terminalHQRuntimeChanged || terminalExactSupportSettlementChanged
@@ -593,6 +615,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string setupMissionGuardAuthorityFailure;
 			bool setupMissionGuardAuthorityReady = !m_MissionGuardOperations
 				|| m_MissionGuardOperations.PrepareOpenPhysicalAuthorityForSettlement(m_State, setupMissionGuardAuthorityFailure);
+			string setupRescueAuthorityFailure;
+			bool setupRescueAuthorityReady = !m_RescuePOWOperations
+				|| m_RescuePOWOperations.PrepareOpenPhysicalAuthorityForPersistence(m_State, setupRescueAuthorityFailure);
 			bool setupExactSupportSettlementChanged = m_SupportRequests && m_SupportRequests.TickExactPlayerSupportSettlements(m_State, m_PhysicalWar, m_ForceSpawnAdapter);
 			bool setupExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign is in setup");
 			bool setupExactEnemyPatrolSettlementChanged = setupPatrolAuthorityReady && m_EnemyPatrolOperations
@@ -601,16 +626,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				&& m_GarrisonPatrolOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign is in setup");
 			bool setupExactMissionGuardSettlementChanged = setupMissionGuardAuthorityReady && m_MissionGuardOperations
 				&& m_MissionGuardOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign is in setup");
+			bool setupExactRescueSettlementChanged = setupRescueAuthorityReady && m_RescuePOWOperations
+				&& m_RescuePOWOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign is in setup");
 			bool setupExactConvoySettlementChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign is in setup");
 			bool setupSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup(
 				"campaign is in setup",
 				!setupPatrolAuthorityReady,
 				!setupGarrisonPatrolAuthorityReady,
-				!setupMissionGuardAuthorityReady);
+				!setupMissionGuardAuthorityReady,
+				!setupRescueAuthorityReady);
 			bool setupExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupExactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupExactGarrisonPatrolCleanupChanged = m_GarrisonPatrolOperations && m_GarrisonPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupExactMissionGuardCleanupChanged = m_MissionGuardOperations && m_MissionGuardOperations.ReconcileSettledRuntimeCleanup(m_State);
+			bool setupExactRescueCleanupChanged = m_RescuePOWOperations && m_RescuePOWOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupExactConvoyCleanupChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupSpawnMarkerChanged = m_PhysicalWar && m_PhysicalWar.ConsumeMarkerRefreshNeeded();
 			bool setupPatrolChanged = setupExactEnemyPatrolSettlementChanged || setupExactEnemyPatrolCleanupChanged;
@@ -618,11 +647,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				|| setupExactGarrisonPatrolCleanupChanged;
 			bool setupMissionGuardChanged = setupExactMissionGuardSettlementChanged
 				|| setupExactMissionGuardCleanupChanged;
+			bool setupRescueChanged = setupExactRescueSettlementChanged || setupExactRescueCleanupChanged;
 			bool setupCoreChanged = setupSpawnCleanupChanged || setupExactSupportSettlementChanged
 				|| setupSpawnMarkerChanged;
 			bool setupOperationChanged = setupExactEnemyQRFSettlementChanged
 				|| setupExactEnemyQRFCleanupChanged || setupExactConvoySettlementChanged
-				|| setupExactConvoyCleanupChanged || setupMissionGuardChanged;
+				|| setupExactConvoyCleanupChanged || setupMissionGuardChanged || setupRescueChanged;
 			if (setupCoreChanged || setupOperationChanged || setupPatrolChanged || setupGarrisonPatrolChanged)
 			{
 				bool setupMajorChanged = setupExactSupportSettlementChanged || setupSpawnMarkerChanged
@@ -640,6 +670,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool exactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactGarrisonPatrolCleanupChanged = m_GarrisonPatrolOperations && m_GarrisonPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactMissionGuardCleanupChanged = m_MissionGuardOperations && m_MissionGuardOperations.ReconcileSettledRuntimeCleanup(m_State);
+		bool exactRescueCleanupChanged = m_RescuePOWOperations && m_RescuePOWOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactGarrisonPatrolChanged = m_GarrisonPatrolOperations && m_GarrisonPatrolOperations.Tick(m_State, m_Preset);
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		bool missionExpiryChanged = ApplyPendingMissionExpiryEvents();
@@ -648,8 +679,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		// Exact guard authority observes expiry before MissionRuntime and generic
 		// PhysicalWar cleanup can consume mission-owned runtime rows.
 		bool exactMissionGuardChanged = m_MissionGuardOperations && m_MissionGuardOperations.TickBeforePhysical(m_State, m_Preset);
+		bool exactRescueChanged = m_RescuePOWOperations && m_RescuePOWOperations.TickBeforeMissionRuntime(m_State, m_Preset);
 		bool objectiveChanged = m_Objectives.Tick(m_State);
 		bool missionRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, elapsedSeconds);
+		exactRescueChanged = (m_RescuePOWOperations && m_RescuePOWOperations.TickAfterMissionRuntime(m_State, m_Preset)) || exactRescueChanged;
+		string failedExactRescueMissionId;
+		if (m_RescuePOWOperations)
+			failedExactRescueMissionId = m_RescuePOWOperations.FindFailedActiveMissionId(m_State);
+		if (!failedExactRescueMissionId.IsEmpty())
+			exactRescueChanged = FailMission(failedExactRescueMissionId) || exactRescueChanged;
+		string completedExactRescueMissionId;
+		if (m_RescuePOWOperations)
+			completedExactRescueMissionId = m_RescuePOWOperations.FindCompletedActiveMissionId(m_State);
+		if (!completedExactRescueMissionId.IsEmpty())
+			exactRescueChanged = HandleRuntimeMissionCompletionCandidate(completedExactRescueMissionId) || exactRescueChanged;
 		missionRuntimeChanged = BroadcastGunShopRuntimeNotifications() || missionRuntimeChanged;
 		bool convoyOperationChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.TickBeforePhysical(m_State, m_Preset, elapsedSeconds);
 		bool convoyRuntimeChanged = m_PhysicalWar.UpdateMissionConvoys(m_State, m_Preset, m_Balance, elapsedSeconds);
@@ -668,6 +711,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			missionRuntimeChanged = FailMission(failedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged;
 		exactMissionGuardChanged = (m_MissionGuardOperations && m_MissionGuardOperations.ReconcileAfterMissionOutcomes(m_State)) || exactMissionGuardChanged;
 		exactMissionGuardCleanupChanged = (m_MissionGuardOperations && m_MissionGuardOperations.ReconcileSettledRuntimeCleanup(m_State)) || exactMissionGuardCleanupChanged;
+		exactRescueChanged = (m_RescuePOWOperations && m_RescuePOWOperations.ReconcileAfterMissionOutcomes(m_State)) || exactRescueChanged;
+		exactRescueCleanupChanged = (m_RescuePOWOperations && m_RescuePOWOperations.ReconcileSettledRuntimeCleanup(m_State)) || exactRescueCleanupChanged;
 		// Mission status/outcome owns whether neutralized convoy vehicles remain as
 		// salvage. Retire exact runtime only after the normal success/failure path
 		// has committed that status in this tick.
@@ -707,6 +752,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || exactGarrisonPatrolChanged;
 		anyStateChanged = anyStateChanged || exactMissionGuardCleanupChanged;
 		anyStateChanged = anyStateChanged || exactMissionGuardChanged;
+		anyStateChanged = anyStateChanged || exactRescueChanged || exactRescueCleanupChanged;
 		anyStateChanged = anyStateChanged || convoyRuntimeChanged;
 		anyStateChanged = anyStateChanged || convoyOperationChanged;
 		anyStateChanged = anyStateChanged || convoyOutcomeChanged;
@@ -724,6 +770,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		markerStateChanged = markerStateChanged || exactGarrisonPatrolChanged;
 		markerStateChanged = markerStateChanged || exactMissionGuardCleanupChanged;
 		markerStateChanged = markerStateChanged || exactMissionGuardChanged;
+		markerStateChanged = markerStateChanged || exactRescueChanged || exactRescueCleanupChanged;
 		markerStateChanged = markerStateChanged || convoyOutcomeChanged;
 		markerStateChanged = markerStateChanged || income > 0;
 		markerStateChanged = markerStateChanged || periodicTownInfluenceChanged;
@@ -769,7 +816,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string reason,
 		bool preserveOpenExactEnemyPatrol = false,
 		bool preserveOpenExactGarrisonPatrol = false,
-		bool preserveOpenExactMissionGuard = false)
+		bool preserveOpenExactMissionGuard = false,
+		bool preserveOpenExactRescue = false)
 	{
 		if (!m_State || !m_ForceSpawnQueue || !m_ForceSpawnAdapter || !m_PhysicalWar || m_bCampaignDebugStateIsolationActive)
 			return false;
@@ -790,6 +838,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (preserveOpenExactGarrisonPatrol && IsOpenExactGarrisonPatrolSpawnBatch(batch))
 				continue;
 			if (preserveOpenExactMissionGuard && IsOpenExactMissionGuardSpawnBatch(batch))
+				continue;
+			if (preserveOpenExactRescue && IsOpenExactRescueSpawnBatch(batch))
 				continue;
 			HST_ForceSpawnQueueCallbackResult cancel = m_ForceSpawnQueue.RequestCancel(
 				m_State.m_aForceSpawnResults,
@@ -863,6 +913,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				== HST_MissionGuardOperationService.ResolveExpectedPolicyId(mission.m_sMissionId);
 	}
 
+	protected bool IsOpenExactRescueSpawnBatch(HST_ForceSpawnResultState batch)
+	{
+		if (!m_State || !batch)
+			return false;
+		HST_OperationRecordState operation = m_State.FindOperation(batch.m_sOperationId);
+		if (!operation || operation.m_sSpawnResultId != batch.m_sResultId
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE
+			|| operation.m_iContractVersion != HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			return false;
+		HST_ActiveMissionState mission = m_State.FindActiveMission(operation.m_sMissionInstanceId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(batch.m_sManifestId);
+		return HST_RescuePOWOperationService.IsExactMission(mission)
+			&& manifest && manifest.m_sOperationId == operation.m_sOperationId
+			&& manifest.m_sPolicyId == HST_RescuePOWOperationService.EXACT_POLICY_ID;
+	}
+
 	protected bool CompactForceSpawnQueueTerminalHistory(int nowSecond)
 	{
 		if (!m_State || !m_ForceSpawnQueue)
@@ -914,6 +981,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddForceSpawnQueueRetentionPin(pins.m_aOperationIds, guardOperation.m_sOperationId);
 			AddForceSpawnQueueRetentionPin(pins.m_aForceIds, guardOperation.m_sForceId);
 			AddForceSpawnQueueRetentionPin(pins.m_aProjectionIds, guardOperation.m_sProjectionId);
+		}
+		foreach (HST_ActiveMissionState rescueMission : m_State.m_aActiveMissions)
+		{
+			if (!HST_RescuePOWOperationService.IsExactOrQuarantinedMission(rescueMission))
+				continue;
+			AddForceSpawnQueueRetentionPin(pins.m_aResultIds, rescueMission.m_sSpawnResultId);
+			AddForceSpawnQueueRetentionPin(pins.m_aManifestIds, rescueMission.m_sManifestId);
+			AddForceSpawnQueueRetentionPin(pins.m_aOperationIds, rescueMission.m_sOperationId);
+		}
+		foreach (HST_OperationRecordState rescueOperation : m_State.m_aOperations)
+		{
+			if (!rescueOperation || rescueOperation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE)
+				continue;
+			AddForceSpawnQueueRetentionPin(pins.m_aResultIds, rescueOperation.m_sSpawnResultId);
+			AddForceSpawnQueueRetentionPin(pins.m_aManifestIds, rescueOperation.m_sManifestId);
+			AddForceSpawnQueueRetentionPin(pins.m_aOperationIds, rescueOperation.m_sOperationId);
+			AddForceSpawnQueueRetentionPin(pins.m_aForceIds, rescueOperation.m_sForceId);
+			AddForceSpawnQueueRetentionPin(pins.m_aProjectionIds, rescueOperation.m_sProjectionId);
 		}
 		foreach (HST_ForceSpawnResultState convoyBatch : m_State.m_aForceSpawnResults)
 		{
@@ -1708,11 +1793,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		HST_ActiveMissionState activeMission = m_State.FindActiveMission(instanceId);
+		bool exactRescueAuthority = HST_RescuePOWOperationService.IsExactOrQuarantinedMission(activeMission);
+		if (exactRescueAuthority
+			&& !HST_RescuePOWOperationService.CanCompleteExactMission(m_State, activeMission))
+			return false;
 		HST_MissionDefinition definition;
 		if (activeMission)
 			definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
 
-		if (m_Objectives)
+		if (m_Objectives && !exactRescueAuthority)
 			m_Objectives.ProgressMission(m_State, instanceId, 999);
 
 		bool applyDefinitionRewards = !ShouldSuppressDefinitionRewardForConvoyCompletion(activeMission);
@@ -1722,6 +1811,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Strategic.ApplyMissionOutcomeEvent(m_State, m_Preset, m_Economy, m_Balance, m_Towns, m_ZoneCapture, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, m_HQ, definition, activeMission, true, applyDefinitionRewards);
 		if (changed && m_MissionGuardOperations)
 			m_MissionGuardOperations.ReconcileAfterMissionOutcomes(m_State);
+		if (changed && m_RescuePOWOperations)
+			m_RescuePOWOperations.ReconcileAfterMissionOutcomes(m_State);
 
 		if (changed)
 		{
@@ -1764,6 +1855,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Objectives.FailMissionObjectives(m_State, instanceId);
 		if (changed && m_MissionGuardOperations)
 			m_MissionGuardOperations.ReconcileAfterMissionOutcomes(m_State);
+		if (changed && m_RescuePOWOperations)
+			m_RescuePOWOperations.ReconcileAfterMissionOutcomes(m_State);
 		if (changed)
 			MarkMajorCampaignChange();
 		return changed;
@@ -1808,6 +1901,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer())
 			return false;
+		if (HasOpenFrozenHQExtractionAuthority())
+			return false;
 
 		if (m_bPetrosRelocationActive)
 			ClearPetrosRelocationState(true);
@@ -1825,6 +1920,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	bool MoveHQToPlayer(int playerId)
 	{
 		if (!Replication.IsServer() || !m_HQ || playerId <= 0)
+			return false;
+		if (HasOpenFrozenHQExtractionAuthority())
 			return false;
 
 		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
@@ -1977,6 +2074,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi HQ | failed: hideout id missing";
 		if (!HST_DefaultCatalog.IsKnownHideout(hideoutId))
 			return "h-istasi HQ | failed: unknown hideout " + hideoutId;
+		if (HasOpenFrozenHQExtractionAuthority())
+			return "h-istasi HQ | failed: finish the active POW rescue before moving its frozen HQ extraction point";
 
 		bool changed = MoveHQ(hideoutId);
 		if (!changed)
@@ -1993,6 +2092,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi HQ | failed: commander required";
 		if (!ResolveControlledPlayerEntity(playerId))
 			return "h-istasi HQ | failed: player entity not found";
+		if (HasOpenFrozenHQExtractionAuthority())
+			return "h-istasi HQ | failed: finish the active POW rescue before moving its frozen HQ extraction point";
 
 		bool changed = MoveHQToPlayer(playerId);
 		if (!changed)
@@ -2013,6 +2114,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi HQ relocation | failed: Petros is down";
 		if (!m_HQ)
 			return "h-istasi HQ relocation | failed: HQ service not ready";
+		if (HasOpenFrozenHQExtractionAuthority())
+			return "h-istasi HQ relocation | failed: finish the active POW rescue before moving its frozen HQ extraction point";
 
 		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
 		if (!playerEntity || !IsLivingEntity(playerEntity))
@@ -2075,6 +2178,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi HQ relocation | failed: Petros is down";
 		if (!m_HQ)
 			return "h-istasi HQ relocation | failed: HQ service not ready";
+		if (HasOpenFrozenHQExtractionAuthority())
+			return "h-istasi HQ relocation | failed: finish the active POW rescue before moving its frozen HQ extraction point";
 
 		IEntity petrosEntity = ResolvePetrosRelocationEntity();
 		if (!petrosEntity)
@@ -2677,6 +2782,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string resolvedInstanceId = ResolveMissionInstanceId(instanceId);
 		if (resolvedInstanceId.IsEmpty())
 			return false;
+		HST_ActiveMissionState mission = m_State.FindActiveMission(resolvedInstanceId);
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
 
 		bool changed = m_Objectives.ProgressMission(m_State, resolvedInstanceId, 1);
 		if (changed && m_Objectives.AreMissionObjectivesComplete(m_State, resolvedInstanceId))
@@ -2685,6 +2793,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange();
 
 		return changed;
+	}
+
+	protected bool HasOpenFrozenHQExtractionAuthority()
+	{
+		return HST_RescuePOWOperationService.HasOpenFrozenHQExtractionAuthority(m_State);
 	}
 
 	string RequestCommanderCallSupplyDropReport(int playerId)
@@ -3693,7 +3806,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report;
 	}
 
-	string RequestMemberMissionInteraction(int playerId, string commandId, string argument = "")
+	string RequestMemberMissionInteraction(int playerId, string commandId, string argument = "", string requestId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi mission | membership required";
@@ -3705,9 +3818,31 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string result;
 		string eventType;
 		string missionInstanceId;
-		bool changed = m_MissionRuntime.HandlePlayerMissionInteraction(m_State, m_Preset, m_Arsenal, playerId, playerEntity, commandId, argument, result, eventType, missionInstanceId);
+		bool exactHandled;
+		bool changed = TryHandleExactRescueMissionInteraction(
+			playerId,
+			playerEntity,
+			commandId,
+			argument,
+			requestId,
+			exactHandled,
+			result,
+			eventType,
+			missionInstanceId);
+		if (!exactHandled)
+			changed = m_MissionRuntime.HandlePlayerMissionInteraction(m_State, m_Preset, m_Arsenal, playerId, playerEntity, commandId, argument, result, eventType, missionInstanceId);
 		if (!changed)
 			return result;
+		if (exactHandled && m_RescuePOWOperations)
+		{
+			changed = m_RescuePOWOperations.TickAfterMissionRuntime(m_State, m_Preset) || changed;
+			string failedExactRescueMissionId = m_RescuePOWOperations.FindFailedActiveMissionId(m_State);
+			if (!failedExactRescueMissionId.IsEmpty())
+				changed = FailMission(failedExactRescueMissionId) || changed;
+			string completedExactRescueMissionId = m_RescuePOWOperations.FindCompletedActiveMissionId(m_State);
+			if (!completedExactRescueMissionId.IsEmpty())
+				changed = HandleRuntimeMissionCompletionCandidate(completedExactRescueMissionId) || changed;
+		}
 
 		HST_ActiveMissionState mission = m_State.FindActiveMission(missionInstanceId);
 		HST_MissionDefinition definition;
@@ -3730,6 +3865,168 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		BroadcastPendingMissionOutcomeEvents();
 		MarkMajorCampaignChange();
 		return result;
+	}
+
+	protected bool TryHandleExactRescueMissionInteraction(
+		int playerId,
+		IEntity playerEntity,
+		string commandId,
+		string assetId,
+		string requestId,
+		out bool handled,
+		out string result,
+		out string eventType,
+		out string missionInstanceId)
+	{
+		handled = false;
+		result = "h-istasi mission | no change";
+		eventType = "";
+		missionInstanceId = "";
+		if (!m_State || assetId.IsEmpty())
+			return false;
+		HST_MissionAssetState captive = m_State.FindMissionAsset(assetId);
+		if (!captive)
+			return false;
+		HST_ActiveMissionState mission = m_State.FindActiveMission(captive.m_sMissionInstanceId);
+		if (!mission || !HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
+		handled = true;
+		missionInstanceId = mission.m_sInstanceId;
+		if (!HST_RescuePOWOperationService.IsExactMission(mission)
+			|| captive.m_iRescueContractVersion != HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION)
+		{
+			result = "h-istasi mission | failed: exact rescue authority is quarantined";
+			return false;
+		}
+		if (commandId != "mission_captive_extract" && commandId != "mission_captive_follow"
+			&& commandId != "mission_captive_board")
+		{
+			result = "h-istasi mission | failed: unsupported exact rescue command";
+			return false;
+		}
+		string actorIdentityId = ResolveTrustedIdentityId(playerId);
+		if (actorIdentityId.IsEmpty() || requestId.IsEmpty())
+		{
+			result = "h-istasi mission | failed: stable actor or command request identity is unavailable";
+			return false;
+		}
+		if (!m_RescuePOWOperations)
+		{
+			result = "h-istasi mission | failed: exact rescue transition authority is unavailable";
+			return false;
+		}
+		HST_RescuePOWTransitionResult durableReplay;
+		if (m_RescuePOWOperations.TryReplayCaptiveCommandReceipt(
+			m_State,
+			captive,
+			actorIdentityId,
+			commandId,
+			requestId,
+			durableReplay))
+		{
+			if (durableReplay && durableReplay.m_bSuccess)
+				result = "h-istasi mission | POW transition " + durableReplay.m_sResult;
+			else if (durableReplay)
+				result = "h-istasi mission | failed: " + durableReplay.m_sFailureReason;
+			else
+				result = "h-istasi mission | failed: exact rescue durable replay returned no result";
+			return false;
+		}
+		if (captive.m_sRescueLastCommandRequestId == requestId)
+		{
+			HST_RescuePOWTransitionResult replay = m_RescuePOWOperations.HandleCaptiveCommand(
+				m_State,
+				mission,
+				captive,
+				commandId,
+				actorIdentityId,
+				requestId);
+			if (replay && replay.m_bSuccess)
+				result = "h-istasi mission | POW transition " + replay.m_sResult;
+			else if (replay)
+				result = "h-istasi mission | failed: " + replay.m_sFailureReason;
+			else
+				result = "h-istasi mission | failed: exact rescue replay returned no result";
+			return false;
+		}
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+		{
+			result = "h-istasi mission | failed: rescue mission is no longer active";
+			return false;
+		}
+		if (!playerEntity)
+		{
+			result = "h-istasi mission | failed: no controlled player entity";
+			return false;
+		}
+		SCR_DamageManagerComponent playerDamage = SCR_DamageManagerComponent.Cast(playerEntity.FindComponent(SCR_DamageManagerComponent));
+		if (playerDamage && playerDamage.GetState() == EDamageState.DESTROYED)
+		{
+			result = "h-istasi mission | failed: player is not alive";
+			return false;
+		}
+		if (m_MissionRuntime)
+			m_MissionRuntime.TickExactRescueCaptiveActuators(m_State, mission);
+		float interactionRadius = Math.Max(5.0, captive.m_iInteractionRadiusMeters);
+		vector playerPosition = playerEntity.GetOrigin();
+		vector validationPosition;
+		string interactionEvidence;
+		if (!m_MissionRuntime.TryResolveExactRescueCaptiveInteractionEvidence(
+			m_State, mission, captive, validationPosition, interactionEvidence))
+		{
+			result = "h-istasi mission | failed: live POW interaction evidence is unavailable";
+			return false;
+		}
+		captive.m_vCurrentPosition = validationPosition;
+		captive.m_vLastKnownPosition = validationPosition;
+		if (DistanceSq2D(playerPosition, validationPosition) > interactionRadius * interactionRadius)
+		{
+			result = string.Format("h-istasi mission | failed: move within %1m of POW %2", Math.Round(interactionRadius), captive.m_iRescueOrdinal + 1);
+			return false;
+		}
+		bool extractAttempt = commandId == "mission_captive_extract"
+			&& captive.m_eRescueDisposition != HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_HELD;
+		if (extractAttempt)
+		{
+			vector extractionPosition = captive.m_vTargetPosition;
+			if (IsZeroVector(extractionPosition)
+				|| IsZeroVector(mission.m_vRescueExtractionPosition)
+				|| DistanceSq2D(extractionPosition, mission.m_vRescueExtractionPosition) > 1.0
+				|| DistanceSq2D(m_State.m_vHQPosition, mission.m_vRescueExtractionPosition) > 1.0
+				|| DistanceSq2D(playerPosition, extractionPosition) > interactionRadius * interactionRadius)
+			{
+				result = "h-istasi mission | failed: bring the POW to the HQ extraction point";
+				return false;
+			}
+		}
+		HST_RescuePOWTransitionResult transition = m_RescuePOWOperations.HandleCaptiveCommand(
+			m_State,
+			mission,
+			captive,
+			commandId,
+			actorIdentityId,
+			requestId);
+		if (!transition)
+		{
+			result = "h-istasi mission | failed: exact rescue transition returned no result";
+			return false;
+		}
+		if (!transition.m_bSuccess)
+		{
+			result = "h-istasi mission | failed: " + transition.m_sFailureReason;
+			return transition.m_bStateChanged;
+		}
+		result = "h-istasi mission | POW transition " + transition.m_sResult;
+		if (captive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FREED)
+			eventType = "rescue_captive_freed";
+		else if (captive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING)
+			eventType = "rescue_captive_following";
+		else if (captive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+			|| captive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+			eventType = "rescue_captive_boarding";
+		else if (captive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED)
+			eventType = "rescue_captive_extracted";
+		return transition.m_bStateChanged;
 	}
 
 	string RequestMemberOpenGunShopReport(int playerId, string argument)
@@ -4008,6 +4305,51 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (!m_MissionRuntime)
 			return "h-istasi mission | service not ready";
+
+		HST_MissionAssetState exactRescueCaptive = m_State.FindMissionAsset(assetId);
+		HST_ActiveMissionState exactRescueMission;
+		if (exactRescueCaptive)
+			exactRescueMission = m_State.FindActiveMission(exactRescueCaptive.m_sMissionInstanceId);
+		if (exactRescueMission && HST_RescuePOWOperationService.IsExactOrQuarantinedMission(exactRescueMission))
+		{
+			if (!HST_RescuePOWOperationService.IsExactMission(exactRescueMission)
+				|| exactRescueCaptive.m_iRescueContractVersion != HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION)
+				return "h-istasi mission | failed: exact rescue casualty authority is quarantined";
+			if (exactRescueCaptive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED)
+				return "h-istasi mission | ignored stale casualty evidence for extracted POW";
+			if (exactRescueCaptive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED
+				&& exactRescueCaptive.m_bRescueDeathObserved
+				&& !exactRescueCaptive.m_sRescueCasualtyReceiptId.IsEmpty())
+				return "h-istasi mission | POW casualty already recorded";
+			if (exactRescueMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				return "h-istasi mission | ignored stale POW casualty evidence after mission settlement";
+			if (!IsZeroVector(position))
+			{
+				exactRescueCaptive.m_vCurrentPosition = position;
+				exactRescueCaptive.m_vLastKnownPosition = position;
+			}
+			if (!m_RescuePOWOperations || !m_RescuePOWOperations.MarkCaptiveDeathObserved(
+				m_State,
+				exactRescueMission,
+				exactRescueCaptive,
+				"authoritative runtime damage state"))
+				return "h-istasi mission | failed: exact rescue casualty receipt was not accepted";
+			m_MissionRuntime.FoldExactRescueCaptiveProjection(
+				m_State,
+				exactRescueMission,
+				exactRescueCaptive,
+				"authoritative captive casualty");
+			string failedExactRescueMissionId = m_RescuePOWOperations.FindFailedActiveMissionId(m_State);
+			if (!failedExactRescueMissionId.IsEmpty())
+				FailMission(failedExactRescueMissionId);
+			BroadcastMissionEvent(
+				"rescue_captive_killed",
+				exactRescueMission,
+				m_Missions.FindDefinition(exactRescueMission.m_sMissionId));
+			BroadcastPendingMissionOutcomeEvents();
+			MarkMajorCampaignChange();
+			return "h-istasi mission | exact rescue POW casualty recorded";
+		}
 
 		string result;
 		string eventType;
@@ -16490,6 +16832,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugMissionGuardOperationAssertions(forceCase);
 		AppendCampaignDebugTraitorGuardOperationAssertions(forceCase);
 		AppendCampaignDebugSpecOpsGuardOperationAssertions(forceCase);
+		AppendCampaignDebugRescuePOWOperationAssertions(forceCase);
 		AppendCampaignDebugMissionConvoyOperationAssertions(forceCase);
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
 		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
@@ -16697,6 +17040,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "specops_guard.restore_migration", "current-schema restore keeps the contract-3 roster and compact destroyed receipt while pre-57 spec-ops missions remain contract zero with no invented authority", proof.m_sRestoreMigrationEvidence, CampaignDebugStatus(proof.m_bRestoreMigrationExact), "exact spec-ops guard restore or pre-57 migration invented, lost, or resurrected authority");
 		AddCampaignDebugAssertion(forceCase, "specops_guard.corruption_quarantine", "duplicate and illegal-HVT claimant corruption quarantines proven spec-ops authority at -57 without refund, fallback, guessed casualty, or HVT failure", proof.m_sCorruptionQuarantineEvidence, CampaignDebugStatus(proof.m_bCorruptionQuarantineExact), "exact spec-ops guard corruption did not fail closed at the family authority boundary");
 		AddCampaignDebugAssertion(forceCase, "specops_guard.marker_status", "the existing spec-ops HVT marker reports exact guard count, neutralization, or unavailable authority while historical spec-ops rows remain unsuffixed", proof.m_sMarkerStatusEvidence, CampaignDebugStatus(proof.m_bMarkerStatusExact), "spec-ops guard status did not project through the existing HVT marker exactly");
+	}
+
+	protected void AppendCampaignDebugRescuePOWOperationAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_RescuePOWOperationProofService proofService = new HST_RescuePOWOperationProofService();
+		HST_RescuePOWOperationProofReport proof = proofService.Run();
+		forceCase.m_aEvidence.Insert(proof.m_sAdmissionIsolationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCompositeAuthorityEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCaptiveTransitionsEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sGuardIndependenceEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sOutcomeGraceEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreQuarantineEvidence);
+		AddCampaignDebugAssertion(forceCase, "rescue_pow.admission_isolation", "only newly started rescue_pows opt into the exact contract while historical POW and refugee missions remain contract zero", proof.m_sAdmissionIsolationEvidence, CampaignDebugStatus(proof.m_bAdmissionIsolationExact), "exact POW rescue admission, replay, rollback, or family isolation drifted");
+		AddCampaignDebugAssertion(forceCase, "rescue_pow.composite_authority", "one frozen guard roster and exactly three external captive slots retain reciprocal operation, queue, group, and asset authority", proof.m_sCompositeAuthorityEvidence, CampaignDebugStatus(proof.m_bCompositeAuthorityExact), "exact POW rescue composite manifest or external asset boundary drifted");
+		AddCampaignDebugAssertion(forceCase, "rescue_pow.captive_transitions", "typed free, follow, carrier, seat, extraction, casualty, and request replay evidence changes each captive only through legal transitions", proof.m_sCaptiveTransitionsEvidence, CampaignDebugStatus(proof.m_bCaptiveTransitionsExact), "exact POW captive transition, carrier, seat, or idempotency authority drifted");
+		AddCampaignDebugAssertion(forceCase, "rescue_pow.guard_independence", "guard survivor projection and all-dead state remain independent from captive outcome and never infer virtual combat or death", proof.m_sGuardIndependenceEvidence, CampaignDebugStatus(proof.m_bGuardIndependenceExact), "exact POW guard projection settled or mutated captive authority incorrectly");
+		AddCampaignDebugAssertion(forceCase, "rescue_pow.outcome_grace", "one captive casualty fails, three HQ extraction receipts succeed, and custody-only grace cannot create a second outcome or new claim", proof.m_sOutcomeGraceEvidence, CampaignDebugStatus(proof.m_bOutcomeGraceExact), "exact POW rescue casualty, extraction, reward-boundary, or grace outcome drifted");
+		AddCampaignDebugAssertion(forceCase, "rescue_pow.restore_quarantine", "current authority roundtrips without process handles, pre-58 rows stay contract zero, and malformed strong claimants quarantine without invention", proof.m_sRestoreQuarantineEvidence, CampaignDebugStatus(proof.m_bRestoreQuarantineExact), "exact POW rescue restore, migration, or quarantine authority drifted");
 	}
 
 	protected void AppendCampaignDebugMissionConvoyOperationAssertions(HST_CampaignDebugCaseResult forceCase)
@@ -17879,9 +18242,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.teleport", "player teleported to captive interaction radius", string.Format("%1 | target %2", teleported, captivePosition), CampaignDebugStatus(teleported, "WARN"), "could not teleport player to captive for interaction probe", captive.m_sAssetId, instanceId);
 
 		ReleaseCampaignDebugRuntimeCompletionHoldForPrimitiveProof(instanceId, captiveCase);
-		string freeResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", captive.m_sAssetId);
+		string freeResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", captive.m_sAssetId, "debug_rescue_free_" + captive.m_sAssetId);
 		string freePhase = captive.m_sLastInteraction;
-		string followResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_follow", captive.m_sAssetId);
+		string followResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_follow", captive.m_sAssetId, "debug_rescue_follow_" + captive.m_sAssetId);
 		captiveCase.m_aEvidence.Insert(freeResult);
 		captiveCase.m_aEvidence.Insert(followResult);
 		bool freed = captive.m_bPickedUp && (freePhase == "freed" || freeResult.Contains("freed"));
@@ -18041,14 +18404,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!prepAsset.m_bPickedUp)
 			{
 				bool prepFreeTeleport = TeleportCampaignDebugPlayer(prepPosition + "2 0 2", "rescue captive extraction free");
-				string prepFreeResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", prepAsset.m_sAssetId);
+				string prepFreeResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", prepAsset.m_sAssetId, "debug_rescue_prep_free_" + prepAsset.m_sAssetId);
 				captiveCase.m_aEvidence.Insert(string.Format("extract prep free | %1 | teleport %2 | %3", prepAsset.m_sAssetId, prepFreeTeleport, ShortCampaignDebugLine(prepFreeResult, 180)));
 			}
 
 			if (!prepAsset.m_bAttachedToCarrier || prepAsset.m_sCarriedByVehicleId.IsEmpty())
 			{
 				bool prepFollowTeleport = TeleportCampaignDebugPlayer(prepPosition + "2 0 2", "rescue captive extraction follow");
-				string prepFollowResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_follow", prepAsset.m_sAssetId);
+				string prepFollowResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_follow", prepAsset.m_sAssetId, "debug_rescue_prep_follow_" + prepAsset.m_sAssetId);
 				captiveCase.m_aEvidence.Insert(string.Format("extract prep follow | %1 | teleport %2 | %3", prepAsset.m_sAssetId, prepFollowTeleport, ShortCampaignDebugLine(prepFollowResult, 180)));
 			}
 		}
@@ -18056,13 +18419,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vector extractDeliveryPosition = ResolveCampaignDebugCaptiveDeliveryPosition(instanceId);
 		bool extractDeliveryTeleport = TeleportCampaignDebugPlayer(extractDeliveryPosition + "2 0 2", "rescue captive extraction delivery");
 		int extractCommandCount;
+		int extractProjectionMoveCount;
 		foreach (string deliverAssetId : captiveAssetIds)
 		{
 			HST_MissionAssetState deliverAsset = m_State.FindMissionAsset(deliverAssetId);
 			if (!deliverAsset || deliverAsset.m_bDelivered || deliverAsset.m_bDestroyed)
 				continue;
+			if (HST_RescuePOWOperationService.IsExactMission(mission) && m_MissionRuntime)
+			{
+				vector debugDeliveryPosition = extractDeliveryPosition
+					+ Vector((deliverAsset.m_iRescueOrdinal - 1) * 1.5, 0.0, 0.0);
+				bool projectionMoved = m_MissionRuntime.MoveExactRescueCaptiveProjectionForDebug(
+					m_State, mission, deliverAsset, debugDeliveryPosition);
+				if (projectionMoved)
+					extractProjectionMoveCount++;
+				captiveCase.m_aEvidence.Insert(string.Format(
+					"extract native projection setup | %1 | moved %2 | target %3",
+					deliverAsset.m_sAssetId, projectionMoved, debugDeliveryPosition));
+			}
 
-			string deliverResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", deliverAsset.m_sAssetId);
+			string deliverResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", deliverAsset.m_sAssetId, "debug_rescue_deliver_" + deliverAsset.m_sAssetId);
 			captiveCase.m_aEvidence.Insert(string.Format("extract deliver | %1 | %2", deliverAsset.m_sAssetId, ShortCampaignDebugLine(deliverResult, 180)));
 			extractCommandCount++;
 		}
@@ -18081,10 +18457,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool extractSucceeded = extractMissionAfter && extractMissionAfter.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED;
 
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.extract_commands", string.Format("%1", extractCommandCount), "count");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.extract_projection_moves", string.Format("%1", extractProjectionMoveCount), "count");
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.delivered_after", string.Format("%1", extractDeliveredAfter), "count");
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.money_delta", string.Format("%1", extractMoneyDelta), "money");
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.hr_delta", string.Format("%1", extractHRDelta), "hr");
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_delivery_teleport", "player teleported to captive delivery position", string.Format("%1 | target %2", extractDeliveryTeleport, extractDeliveryPosition), CampaignDebugStatus(extractDeliveryTeleport, "WARN"), "could not teleport player to captive delivery position", "", instanceId);
+		if (HST_RescuePOWOperationService.IsExactMission(mission))
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_native_projection_setup", "controlled debug setup moves every live POW projection to the frozen extraction point before invoking the real interaction path", string.Format("moved %1/%2", extractProjectionMoveCount, extractCommandCount), CampaignDebugStatus(extractProjectionMoveCount == extractCommandCount), "one or more exact rescue captive projections could not be positioned for the extraction interaction proof", "", instanceId);
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_alive", "captives remain alive and none are destroyed after extraction", string.Format("alive %1/%2 | destroyed %3", extractAliveAfter, captiveAssetIds.Count(), extractDestroyedAfter), CampaignDebugStatus(extractAliveAfter >= captiveAssetIds.Count() && extractDestroyedAfter == 0), "one or more captives were destroyed or marked not alive during extraction", "", instanceId);
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_delivered", "delivered captive count reaches required captive count", string.Format("delivered %1/%2 | commands %3", extractDeliveredAfter, extractRequiredCaptives, extractCommandCount), CampaignDebugStatus(extractDeliveredAfter >= extractRequiredCaptives), "captive extraction did not deliver all required captives", "", instanceId);
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_mission_completion", "real extraction path completes rescue mission", extractStatusActual, CampaignDebugStatus(extractSucceeded), "rescue mission did not complete through captive extraction interactions", "", instanceId);
@@ -30699,10 +31078,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (definition && HST_MissionGuardOperationService.IsSupportedExactMissionId(mission.m_sMissionId)
 			&& m_MissionGuardOperations)
 			m_MissionGuardOperations.PrepareNewMissionContract(mission);
+		if (definition && mission.m_sMissionId == HST_RescuePOWOperationService.EXACT_MISSION_ID
+			&& m_RescuePOWOperations)
+			m_RescuePOWOperations.PrepareNewMissionContract(mission);
 		if (m_Objectives)
 			m_Objectives.InitializeMission(m_State, m_Preset, definition, mission, m_Content);
 		if (m_MissionRuntime)
 			m_MissionRuntime.InitializeMissionRuntime(m_State, m_Preset, definition, mission, m_Content);
+		if (HST_RescuePOWOperationService.IsExactMission(mission) && m_RescuePOWOperations)
+		{
+			HST_RescuePOWAdmissionResult rescueAdmission = m_RescuePOWOperations.AdmitNewMission(
+				m_State,
+				m_Preset,
+				definition,
+				mission,
+				m_MissionRuntime);
+			if (!rescueAdmission || !rescueAdmission.m_bSuccess)
+			{
+				MarkMajorCampaignChange();
+				BroadcastMissionEvent("failed", mission, definition);
+				return false;
+			}
+		}
 		if (HST_MissionGuardOperationService.IsExactMission(mission) && m_MissionGuardOperations)
 		{
 			HST_MissionGuardAdmissionResult guardAdmission = m_MissionGuardOperations.AdmitNewMission(
@@ -30761,6 +31158,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (HST_MissionGuardOperationService.IsExactMission(mission)
 			|| HST_MissionGuardOperationService.IsQuarantinedMission(mission))
+			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return false;
 
 		return true;

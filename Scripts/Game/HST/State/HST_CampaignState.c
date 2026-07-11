@@ -479,6 +479,7 @@ class HST_ActiveMissionState
 	string m_sTargetZoneId;
 	string m_sSiteId;
 	vector m_vTargetPosition;
+	vector m_vRescueExtractionPosition;
 	string m_sMarkerId;
 	string m_sRuntimePrimitive;
 	string m_sRuntimeType;
@@ -498,6 +499,7 @@ class HST_ActiveMissionState
 	int m_iRecoveredCargoCount;
 	int m_iRequiredCaptiveCount = 1;
 	int m_iExtractedCaptiveCount;
+	int m_iRescueGraceUntilSecond;
 	int m_iRequiredVehicleCount = 1;
 	int m_iCapturedVehicleCount;
 	int m_iRuntimePickupCount;
@@ -509,6 +511,7 @@ class HST_ActiveMissionState
 	bool m_bRuntimeSpawned;
 	bool m_bRuntimeFallback;
 	bool m_bRuntimeCleanupComplete;
+	bool m_bRescueExtractionGrace;
 	bool m_bCreatedNotificationSent;
 	bool m_bCompletedNotificationSent;
 	bool m_bFailedNotificationSent;
@@ -630,6 +633,16 @@ class HST_MissionRuntimeEntityState
 }
 
 [BaseContainerProps()]
+class HST_RescueCommandReceiptState
+{
+	string m_sRequestId;
+	string m_sActorIdentityId;
+	string m_sCommand;
+	string m_sResult;
+	int m_iRecordedRevision;
+}
+
+[BaseContainerProps()]
 class HST_MissionAssetState
 {
 	string m_sAssetId;
@@ -665,6 +678,23 @@ class HST_MissionAssetState
 	int m_iDeadlineSecond;
 	int m_iCargoCapacityCost = 1;
 	int m_iInteractionRadiusMeters;
+	int m_iRescueContractVersion;
+	int m_iRescueOrdinal = -1;
+	HST_ERescueCaptiveDisposition m_eRescueDisposition = HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_UNKNOWN;
+	string m_sRescueEscortIdentityId;
+	string m_sRescueCarrierVehicleId;
+	string m_sRescueCarrierSeatToken;
+	string m_sRescueLastCommandRequestId;
+	string m_sRescueLastCommandResult;
+	ref array<ref HST_RescueCommandReceiptState> m_aRescueCommandReceipts = {};
+	string m_sRescueCasualtyReceiptId;
+	string m_sRescueExtractionReceiptId;
+	string m_sRescueProjectionId;
+	int m_iRescueTransitionSecond;
+	int m_iRescueRevision;
+	int m_iRescueProjectionGeneration;
+	bool m_bRescueDeathObserved;
+	bool m_bRescueExtractionObserved;
 }
 
 [BaseContainerProps()]
@@ -1026,7 +1056,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 57;
+	static const int SCHEMA_VERSION = 58;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

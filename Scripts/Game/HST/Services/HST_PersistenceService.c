@@ -18,6 +18,7 @@ class HST_PersistenceService
 	protected HST_ForceSpawnQueueService m_ForceSpawnQueue;
 	protected HST_ForceSpawnAdapterService m_ForceSpawnAdapter;
 	protected HST_MissionGuardOperationService m_MissionGuardOperations;
+	protected HST_RescuePOWOperationService m_RescuePOWOperations;
 
 	void SetPhysicalWarService(HST_PhysicalWarService physicalWar)
 	{
@@ -35,6 +36,11 @@ class HST_PersistenceService
 	void SetMissionGuardOperationService(HST_MissionGuardOperationService missionGuardOperations)
 	{
 		m_MissionGuardOperations = missionGuardOperations;
+	}
+
+	void SetRescuePOWOperationService(HST_RescuePOWOperationService rescuePOWOperations)
+	{
+		m_RescuePOWOperations = rescuePOWOperations;
 	}
 
 	void MarkMajorChange()
@@ -229,6 +235,29 @@ class HST_PersistenceService
 	{
 		if (!state)
 			return false;
+		bool hasExactRescueAuthority = HasExactRescuePOWAuthority(state);
+		if (hasExactRescueAuthority && !m_RescuePOWOperations)
+		{
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint deferred: exact rescue POW persistence authority is unavailable during %1",
+				context);
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
+		if (hasExactRescueAuthority)
+		{
+			string rescueFailure;
+			if (!m_RescuePOWOperations.PrepareQuarantinedAuthorityForPersistence(state, rescueFailure)
+				|| !m_RescuePOWOperations.PrepareOpenPhysicalAuthorityForPersistence(state, rescueFailure))
+			{
+				state.m_sLastPersistenceStatus = string.Format(
+					"checkpoint deferred: exact rescue POW authority reconciliation failed during %1 | %2",
+					context,
+					rescueFailure);
+				Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+				return false;
+			}
+		}
 		string quarantineFailure;
 		if (!NormalizeRetiredQuarantinedEnemyPatrolAuthority(state, quarantineFailure))
 		{
@@ -550,6 +579,23 @@ class HST_PersistenceService
 			}
 		}
 		return true;
+	}
+
+	protected bool HasExactRescuePOWAuthority(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+				return true;
+		}
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (operation && operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE)
+				return true;
+		}
+		return false;
 	}
 
 	protected bool QuarantinedMissionGuardBatchClaimsOperation(

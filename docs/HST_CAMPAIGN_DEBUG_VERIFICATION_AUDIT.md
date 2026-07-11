@@ -287,9 +287,26 @@ be read as proof that a later change was executed or certified.
   stayed alive for 10/10 samples over 20 seconds, and its log had no script-
   error/crash signature. Native entities/adapter casualties, real save/restart,
   rendered UI, owner change, campaign setup, packaged networking, reconnect,
-  and JIP remain open. The assassination-guard family is
-  exhausted; the next planned blueprint target is a separately versioned rescue
-  vertical slice beginning only with newly started `rescue_pows`, planned only.
+  and JIP remain open. The assassination-guard family is exhausted.
+- Campaign persistence Schema 58 implements the later separate rescue cutover
+  only for newly started `rescue_pows`. Contract `1`, policy
+  `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and quarantine `-58` bind
+  one guard roster plus three typed POW slots. The queue executes only the
+  guard root/member subgraph; external captive authority stores stable escort,
+  carrier, seat, request, casualty, extraction, and projection evidence.
+  HELD/FREED may fold outside the bubble, custody stays projected, and missing
+  entities do not imply death. Guard elimination does not settle rescue; one
+  casualty receipt fails, three HQ extraction receipts succeed, and the
+  300-second expiry grace opens only with all living POWs already in custody
+  and accepts no new claims. Pre-58 POWs and `rescue_refugees` remain contract
+  `0`. Restore records `migration_schema58_exact_rescue_pows`; conflicts record
+  `normalization_schema58_exact_rescue_pows_conflict` and remain diagnostic
+  without invented death, extraction, reward, fallback, or force transfer.
+  Six source-proof categories cover admission isolation, composite authority,
+  captive transitions, guard independence, outcome/grace, and restore/
+  quarantine. Native entities, natural guard combat and vehicle seats, actual
+  save/restart, rendered UI, owner change, setup, packaged networking,
+  reconnect, and JIP remain open until a fresh published runtime artifact.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.

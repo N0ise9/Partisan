@@ -613,7 +613,11 @@ class HST_ForceSpawnAdapterService
 			return;
 		}
 
-		string supportFailure = ValidateSupportedManifest(manifest);
+		string supportFailure = ValidateSupportedManifest(
+			state,
+			manifest,
+			state.FindForceSpawnResult(work.m_sResultId),
+			activeGroup);
 		if (!supportFailure.IsEmpty())
 		{
 			FailWork(state, queue, manifest, work, nowSecond, supportFailure, false, result);
@@ -723,7 +727,9 @@ class HST_ForceSpawnAdapterService
 		}
 
 		activeGroup.m_bSpawnAttempted = true;
-		activeGroup.m_sSpawnFallbackMode = AppendModeToken(activeGroup.m_sSpawnFallbackMode, ADAPTER_MODE);
+		HST_ForceSpawnResultState durableBatch = state.FindForceSpawnResult(work.m_sResultId);
+		if (!durableBatch || !durableBatch.m_bExternalAssetAuthority)
+			activeGroup.m_sSpawnFallbackMode = AppendModeToken(activeGroup.m_sSpawnFallbackMode, ADAPTER_MODE);
 		activeGroup.m_sSpawnFailureReason = "exact group root registered; awaiting required manifest members";
 		result.m_bStateChanged = true;
 		result.m_bRuntimeChanged = true;
@@ -1388,14 +1394,30 @@ class HST_ForceSpawnAdapterService
 		return "";
 	}
 
-	protected string ValidateSupportedManifest(HST_ForceManifestState manifest)
+	protected string ValidateSupportedManifest(
+		HST_CampaignState state,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState activeGroup)
 	{
 		if (!manifest)
 			return "physical adapter manifest missing";
 		if (manifest.m_aGroups.Count() != 1)
 			return UNSUPPORTED_MANIFEST_REASON + ": group roots must equal one";
-		if (manifest.m_aVehicles.Count() > 0 || manifest.m_aAssets.Count() > 0)
-			return UNSUPPORTED_MANIFEST_REASON + ": vehicle or asset slots present";
+		if (manifest.m_aVehicles.Count() > 0)
+			return UNSUPPORTED_MANIFEST_REASON + ": vehicle slots present";
+		if (batch && batch.m_bExternalAssetAuthority)
+		{
+			string externalAssetFailure = HST_RescuePOWExternalAssetPolicy.ValidateAdapterAuthorityGraph(
+				state,
+				manifest,
+				batch,
+				activeGroup);
+			if (!externalAssetFailure.IsEmpty())
+				return UNSUPPORTED_MANIFEST_REASON + ": " + externalAssetFailure;
+		}
+		else if (manifest.m_aAssets.Count() > 0)
+			return UNSUPPORTED_MANIFEST_REASON + ": asset slots present without exact rescue authority";
 		foreach (HST_ForceManifestMemberState member : manifest.m_aMembers)
 		{
 			if (member && !member.m_sAssignedVehicleSlotId.IsEmpty())

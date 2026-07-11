@@ -3204,9 +3204,147 @@ This file is for practical engine/script behavior, not project planning. Keep en
   casualties, actual save/restart, rendered UI, owner change, campaign setup,
   packaged networking, reconnect, and JIP remain open.
 
-- Schema 57 exhausts the assassination-guard family. The next planned blueprint
-  target is a separately versioned rescue vertical slice beginning only with a
-  newly started `rescue_pows` mission. It is planned, not implemented.
+- Schema 57 exhausts the assassination-guard family. Schema 58 is the later
+  separate cutover for newly started `rescue_pows` only.
+
+## Schema 58 Exact POW-Rescue Authority
+
+- Campaign persistence schema is now `58`. Use a separate
+  `HST_OPERATION_TYPE_MISSION_RESCUE`; do not extend the assassination-guard
+  owner. Only newly started `rescue_pows` use contract `1`, policy
+  `exact_rescue_pows_v1`, intent `rescue_pows_guard`, projection contract `1`,
+  and quarantine `-58`. Historical POWs, `rescue_refugees`, generic captive
+  rows, and ordinary `mission_group_*` rows remain contract `0`.
+
+- Freeze one composite manifest but split execution authority explicitly.
+  - The guard subgraph is one catalog-backed `NotSpawned` root plus its exact
+    ordered member slots. SpawnQueue and the infantry adapter execute only those
+    rows.
+  - The asset subgraph is exactly three required captive slots. Set the batch's
+    external-asset-authority flag and omit captive result rows from expected
+    queue cardinality, work acquisition, retry, retirement, and binding checks.
+    Treat that omission as a privileged exemption: one shared validator must
+    accept the frozen/hash-valid exact policy, intent, force kind, guard root,
+    zero-vehicle shape, and all three deterministic captive descriptors during
+    queue admission, replay, durable-batch validation, and adapter execution.
+    The adapter additionally requires one unique reciprocal mission-rescue
+    contract-1 mission/operation/batch/group graph and exactly three matching
+    durable captive rows before it ignores the asset descriptors.
+  - The rescue service creates exactly three deterministic mission-asset rows
+    and owns their lifecycle. Generic mission asset initialization, hostile-
+    group creation, repair, cleanup, and legacy action handlers must skip exact
+    and quarantined rescue claimants.
+  - Do not append the generic adapter-mode token to an exact-rescue external-
+    authority group. `m_sSpawnFallbackMode` is a durable rescue contract
+    discriminator used by runtime and restore validation; changing it after
+    root registration makes the otherwise valid root-to-member lifecycle
+    quarantine itself.
+
+- Treat captive state as durable typed authority, not compatibility booleans.
+  - Persist ordinal; HELD/FREED/FOLLOWING/BOARDING/BOARDED/EXTRACTED/KILLED;
+    stable escort identity; stable carrier ID; seat token; command request and
+    result; casualty/extraction receipts; projection ID/generation; transition
+    time; and revision.
+  - Derive old picked-up/delivered/destroyed/attached/interaction fields from
+    that typed state for existing UI only. Never use those projections to infer
+    a typed transition on restore.
+  - A missing `IEntity`, runtime row, or carrier projection is never evidence of
+    death. KILLED requires an observed authoritative damage component in the
+    destroyed state. The captive prefab's lifecycle component reports that
+    evidence to the coordinator, which routes it through the rescue service.
+
+- Keep player commands replay-safe at both presentation and domain boundaries.
+  - Context actions must resolve the live mission: exact contract-1 rows expose
+    only the next legal action, while quarantine is hidden and never falls
+    through to legacy booleans.
+  - Route visible commands with the stable player identity and command request
+    ID. Keep a bounded typed ledger of accepted and rejected request/actor/command/result/
+    revision rows and replay it before mutable distance, disposition, player-
+    projection, or HQ checks; otherwise a successful HELD-to-FREED request can
+    be misread as a later extraction request after state changes. Reject a
+    reused request ID if its actor/command fingerprint changes or if another
+    captive already owns it. Retain at most eight rejected domain rows; when
+    necessary, evict only the oldest rejection so rejection spam cannot block a
+    later legal transition. Never evict an accepted request identity. Stop
+    admitting nonterminal accepted rows at `MAX - 1` so the last slot remains
+    reserved for terminal extraction.
+  - Free requires HELD and records FREED without claiming an escort. Follow
+    requires FREED and records the stable escort. Extraction requires an
+    existing custody state, player/captive proximity, and the frozen HQ target.
+
+- Vehicle evidence must be durable and observed.
+  - FOLLOWING discovers a carrier only from its connected stable escort's
+    current occupied vehicle. Require a replication-backed/runtime-tracked ID;
+    reject the position-derived `vehicle_local_*` fallback.
+  - Register/update the durable runtime-vehicle row, transition to BOARDING,
+    actuate native compartment entry, and advance to BOARDED only after same-
+    carrier seat evidence. Persist the first seat token and rebind the saved
+    carrier token on restore instead of recomputing identity from the new
+    process entity.
+  - A temporarily absent carrier never implies captive death. Outside expiry
+    grace, a disconnected escort releases FOLLOWING/BOARDING/BOARDED authority
+    back to FREED, clears carrier/seat identity, and lets a connected player
+    explicitly claim the POW. During grace the escort set is frozen, so a
+    disconnect invalidates custody and fails the grace path instead of silently
+    transferring it.
+
+- Render folding must preserve mission semantics.
+  - HELD and FREED captives may delete their process projection outside the
+    player/event bubble and respawn at their last authoritative position.
+  - FOLLOWING, BOARDING, and BOARDED remain projected because they are bound to
+    an escort/carrier. Terminal captives fold and retain their typed receipt.
+  - The guard roster uses its exact stationary materialize/fold lifecycle. Do
+    not simulate virtual guard combat or casualties, and do not let all guards
+    dead settle the rescue mission.
+
+- Outcomes remain owned by the normal mission pipeline.
+  - Any one of the three casualty receipts yields the exact failure candidate.
+    Exactly three unique HQ extraction receipts yield the success candidate.
+    The coordinator calls the ordinary failure/completion path, so money, HR,
+    aggression, town support, tasks, notifications, and settlement remain
+    once-only and do not gain a parallel rescue reward owner.
+  - Apply the configured support reward only to an applicable target town.
+    Guard elimination alone changes only guard materialization state.
+  - Before a failed/expired/cancelled rescue settles, release any surviving
+    FOLLOWING/BOARDING/BOARDED row to FREED and clear escort/carrier/seat links.
+    Settled history must not depend forever on a mutable runtime vehicle that
+    can later be destroyed or removed for unrelated reasons.
+  - When the base timer reaches zero, grant a single 300-second extraction grace
+    only if all three living POWs are already FOLLOWING/BOARDING/BOARDED under
+    stable escort identities. Grace forbids new free/follow claims. Death still
+    fails, three extraction receipts still succeed, and the deadline must not
+    produce both expiry and success. Derive the grace deadline from the frozen
+    base deadline (`base + 300`), never from the late tick time, so a frame hitch
+    cannot create a save that quarantines on restore.
+
+- Replicate action legality as a small fail-closed DTO on each captive entity.
+  The server publishes evaluated/exact-contract/disposition/active/quarantine/
+  revision state; unchanged values do not bump replication. Clients and late
+  joiners hide all captive actions while classification is pending, show only
+  the single legal exact action after classification, and show none for inactive
+  or quarantined authority. Server transition validation remains authoritative.
+
+- Restore must fail closed without invention.
+  - Apply rescue strong-claimant exclusions before generic migration regardless
+    of the saved schema number. Otherwise a forged pre-58 exact-looking row can
+    be generically backfilled before the Schema-58 validator quarantines it.
+    Plain historical contract-zero rescue rows are not claimants and continue
+    through legacy normalization.
+  - Require a unique valid generated site on the target zone, exact site/target
+    position, reciprocal graph identity, frozen manifest hash and slot bijection,
+    legal typed transitions/receipts, and coherent grace/settlement. Clear only
+    process bindings; preserve stable escort/carrier/seat and outcome evidence.
+  - Record `migration_schema58_exact_rescue_pows` for pre-58 preservation and
+    `normalization_schema58_exact_rescue_pows_conflict` for malformed strong
+    claimants. Quarantine creates no fallback, captive, casualty, extraction,
+    reward, refund, or force transfer.
+
+- Current source gates: the full foundation suite passes. Workbench Game
+  validation loaded 5,769 files/11,590 classes with CRC `d553b006` and reported
+  `Script validation successful`. These are source/compiler gates only. Native
+  captive/guard behavior, natural vehicle seating, actual save/restart, rendered
+  marker/action state, owner change, setup, packaged networking, reconnect, and
+  JIP remain open until a fresh published runtime run.
 
 ## Native Reference Sources
 

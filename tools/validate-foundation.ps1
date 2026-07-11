@@ -4908,7 +4908,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 57",
+		"SCHEMA_VERSION = 58",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -5288,7 +5288,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 57',
+		'SCHEMA_VERSION = 58',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5860,7 +5860,7 @@ $physicalWarText = Get-Content -Raw $physicalWarPath
 $schema52SaveValidationCorpus = $forceSaveDataText + "`n" + $missionConvoySaveValidationText
 $schema52StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $schema52SaveValidationCorpus
 foreach ($requiredSchema52StateEntry in @(
-		'SCHEMA_VERSION = 57',
+		'SCHEMA_VERSION = 58',
 		'HST_OPERATION_TYPE_MISSION_CONVOY',
 		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
 		'class HST_ConvoyElementState',
@@ -13590,7 +13590,7 @@ $schema53CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema53StateCorpus = $schema53TypesText + "`n" + $schema53StateText + "`n" + $schema53SaveText
 foreach ($schema53StateEntry in @(
-		"SCHEMA_VERSION = 57",
+		"SCHEMA_VERSION = 58",
 		"HST_OPERATION_TYPE_ENEMY_PATROL",
 		"int m_iRouteWaypointIndex = -1;",
 		"int m_iRouteLapCount;",
@@ -13846,7 +13846,7 @@ $schema54CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema54StateCorpus = $schema54TypesText + "`n" + $schema54StateText + "`n" + $schema54SaveText
 foreach ($schema54StateEntry in @(
-		"SCHEMA_VERSION = 57",
+		"SCHEMA_VERSION = 58",
 		"HST_OPERATION_TYPE_GARRISON_PATROL",
 		"IsQuarantinedActiveGroup",
 		"HST_GarrisonPatrolSaveValidationService schema54GarrisonPatrolValidation",
@@ -14599,7 +14599,7 @@ $schema56PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Persi
 $schema56CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema56ProofText = Get-Content -Raw $schema56ProofPath
 
-if ($schema56StateText -notmatch 'SCHEMA_VERSION\s*=\s*(56|57)\s*;') {
+if ($schema56StateText -notmatch 'SCHEMA_VERSION\s*=\s*(56|57|58)\s*;') {
 	throw "Schema-56 campaign schema lineage is missing"
 }
 foreach ($schema56CoreEntry in @(
@@ -14802,7 +14802,7 @@ $schema57PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Persi
 $schema57CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema57ProofText = Get-Content -Raw $schema57ProofPath
 
-if ($schema57StateText -notmatch 'SCHEMA_VERSION\s*=\s*57\s*;') {
+if ($schema57StateText -notmatch 'SCHEMA_VERSION\s*=\s*(57|58)\s*;') {
 	throw "Schema-57 campaign schema is missing"
 }
 foreach ($schema57CoreEntry in @(
@@ -15017,5 +15017,348 @@ foreach ($schema57MigrationNote in @(
 	}
 }
 Write-Host "Schema-57 spec-ops-guard contract-3 admission, officer/traitor coexistence, HVT isolation, survivor projection, zero-refund settlement, migration/quarantine, marker/UI, and proof contract OK"
+
+# Schema 58: newly started rescue_pows missions opt into a separate exact
+# composite guard/captive authority without adopting historical POW/refugee rows.
+$schema58Paths = @(
+	"Scripts/Game/HST/Services/HST_RescuePOWOperationService.c",
+	"Scripts/Game/HST/Services/HST_RescuePOWSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_RescuePOWOperationProofService.c",
+	"Scripts/Game/HST/Components/HST_RescueCaptiveLifecycleComponent.c",
+	"Scripts/Game/HST/Services/HST_RescuePOWExternalAssetPolicy.c"
+)
+foreach ($schema58Path in $schema58Paths) {
+	if (!(Test-Path $schema58Path)) {
+		throw "Schema-58 exact POW-rescue source is missing: $schema58Path"
+	}
+}
+$schema58StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema58TypesText = Get-Content -Raw "Scripts/Game/HST/HST_Types.c"
+$schema58SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema58ForceAuthorityText = Get-Content -Raw "Scripts/Game/HST/Data/HST_ForceAuthority.c"
+$schema58OperationText = Get-Content -Raw $schema58Paths[0]
+$schema58ValidationText = Get-Content -Raw $schema58Paths[1]
+$schema58ProofText = Get-Content -Raw $schema58Paths[2]
+$schema58LifecycleText = Get-Content -Raw $schema58Paths[3]
+$schema58ExternalAssetPolicyText = Get-Content -Raw $schema58Paths[4]
+$schema58QueueText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
+$schema58AdapterText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSpawnAdapterService.c"
+$schema58RuntimeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
+$schema58PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$schema58CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema58MarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$schema58UIServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+$schema58MissionAssetComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionAssetComponent.c"
+$schema58CaptiveActionText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionCaptiveUserActions.c"
+$schema58MissionActionFilterText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionCargoUserActions.c"
+
+foreach ($schema58StateEntry in @(
+	'SCHEMA_VERSION = 58',
+	'HST_OPERATION_TYPE_MISSION_RESCUE',
+	'enum HST_ERescueCaptiveDisposition',
+	'int m_iRescueGraceUntilSecond;',
+	'bool m_bRescueExtractionGrace;',
+	'int m_iRescueContractVersion;',
+	'int m_iRescueOrdinal = -1;',
+	'HST_ERescueCaptiveDisposition m_eRescueDisposition',
+	'string m_sRescueEscortIdentityId;',
+	'string m_sRescueCarrierVehicleId;',
+	'string m_sRescueCarrierSeatToken;',
+	'string m_sRescueLastCommandRequestId;',
+	'string m_sRescueCasualtyReceiptId;',
+	'string m_sRescueExtractionReceiptId;',
+	'string m_sRescueProjectionId;',
+	'bool m_bExternalAssetAuthority;'
+)) {
+	if (($schema58StateText + "`n" + $schema58TypesText + "`n" + $schema58ForceAuthorityText) -notmatch [regex]::Escape($schema58StateEntry)) {
+		throw "Schema-58 rescue durable state is missing: $schema58StateEntry"
+	}
+}
+
+foreach ($schema58CoreEntry in @(
+	'EXACT_CONTRACT_VERSION = 1',
+	'QUARANTINED_CONTRACT_VERSION = -58',
+	'EXACT_CAPTIVE_COUNT = 3',
+	'EXTRACTION_GRACE_SECONDS = 300',
+	'EXACT_MISSION_ID = "rescue_pows"',
+	'EXACT_FORCE_KIND = "mission_rescue"',
+	'EXACT_POLICY_ID = "exact_rescue_pows_v1"',
+	'EXACT_INTENT_ID = "rescue_pows_guard"',
+	'PrepareNewMissionContract',
+	'CanAdmitNewMission',
+	'AdmitNewMission',
+	'HandleCaptiveCommand',
+	'MarkCaptiveDeathObserved',
+	'CanEnterExtractionGrace',
+	'TickBeforeMissionRuntime',
+	'TickAfterMissionRuntime',
+	'FindCompletedActiveMissionId',
+	'FindFailedActiveMissionId',
+	'ReconcileAfterMissionOutcomes',
+	'PrepareOpenPhysicalAuthorityForPersistence',
+	'PrepareQuarantinedAuthorityForPersistence'
+)) {
+	if ($schema58OperationText -notmatch [regex]::Escape($schema58CoreEntry)) {
+		throw "Schema-58 rescue operation contract is missing: $schema58CoreEntry"
+	}
+}
+
+foreach ($schema58ExecutionEntry in @(
+	'm_bExternalAssetAuthority',
+	'CountExecutableManifestSlots',
+	'IsExternallyManagedAssetDescriptor',
+	'external asset authority is reserved for the exact rescue contract',
+	'HST_RescuePOWExternalAssetPolicy.ValidateManifestShape(manifest)',
+	'HST_RescuePOWExternalAssetPolicy.ValidateAdapterAuthorityGraph(',
+	'if (!durableBatch || !durableBatch.m_bExternalAssetAuthority)',
+	'asset slots present without exact rescue authority'
+)) {
+	if (($schema58QueueText + "`n" + $schema58AdapterText + "`n" + $schema58ExternalAssetPolicyText) -notmatch [regex]::Escape($schema58ExecutionEntry)) {
+		throw "Schema-58 guard/external-captive execution boundary is missing: $schema58ExecutionEntry"
+	}
+}
+$schema58QueueExternalAssetShapeCallCount = ([regex]::Matches(
+	$schema58QueueText,
+	[regex]::Escape('HST_RescuePOWExternalAssetPolicy.ValidateManifestShape(manifest)'))).Count
+if ($schema58QueueExternalAssetShapeCallCount -lt 3) {
+	throw "Schema-58 queue admission, replay, and durable-batch validation must all enforce the shared external-asset manifest shape"
+}
+foreach ($schema58QueueShapeMethodSignature in @(
+	'protected string ValidateEnqueueRequest(',
+	'protected HST_ForceSpawnQueueEnqueueResult ResolveExistingEnqueue(',
+	'protected string ValidateBatchManifest('
+)) {
+	$schema58QueueShapeMethodBlock = Get-ScriptMethodBlock $schema58QueueText $schema58QueueShapeMethodSignature
+	if ([string]::IsNullOrEmpty($schema58QueueShapeMethodBlock) -or
+		$schema58QueueShapeMethodBlock.IndexOf('HST_RescuePOWExternalAssetPolicy.ValidateManifestShape(manifest)') -lt 0) {
+		throw "Schema-58 queue path does not enforce the shared external-asset manifest shape: $schema58QueueShapeMethodSignature"
+	}
+}
+$schema58AdapterSupportMethodBlock = Get-ScriptMethodBlock $schema58AdapterText 'protected string ValidateSupportedManifest('
+if ([string]::IsNullOrEmpty($schema58AdapterSupportMethodBlock) -or
+	$schema58AdapterSupportMethodBlock.IndexOf('HST_RescuePOWExternalAssetPolicy.ValidateAdapterAuthorityGraph(') -lt 0) {
+	throw "Schema-58 adapter validation does not enforce the state-aware external-asset authority graph"
+}
+$schema58AdapterRootMethodBlock = Get-ScriptMethodBlock $schema58AdapterText 'protected void SpawnGroupRoot('
+if ([string]::IsNullOrEmpty($schema58AdapterRootMethodBlock) -or
+	$schema58AdapterRootMethodBlock.IndexOf('if (!durableBatch || !durableBatch.m_bExternalAssetAuthority)') -lt 0) {
+	throw "Schema-58 adapter root registration must preserve the exact rescue durable mode discriminator"
+}
+foreach ($schema58ExternalAssetShapeEntry in @(
+	'class HST_RescuePOWExternalAssetPolicy',
+	'manifest.m_bFrozen',
+	'integrity.BuildManifestHash(manifest) != manifest.m_sManifestHash',
+	'manifest.m_sForceKind != HST_RescuePOWOperationService.EXACT_FORCE_KIND',
+	'manifest.m_sPolicyId != HST_RescuePOWOperationService.EXACT_POLICY_ID',
+	'manifest.m_sIntentId != HST_RescuePOWOperationService.EXACT_INTENT_ID',
+	'manifest.m_aGroups.Count() != 1',
+	'manifest.m_aVehicles.Count() != 0',
+	'manifest.m_aAssets.Count() != HST_RescuePOWOperationService.EXACT_CAPTIVE_COUNT',
+	'HST_RescuePOWOperationService.BuildCaptiveSlotId(missionInstanceId, ordinal)',
+	'asset.m_sKind != HST_RescuePOWOperationService.CAPTIVE_KIND',
+	'asset.m_sRole != HST_RescuePOWOperationService.CAPTIVE_ROLE',
+	'asset.m_sPrefab != HST_RescuePOWOperationService.CAPTIVE_PREFAB',
+	'asset.m_iOrdinal != ordinal',
+	'asset.m_iQuantity != 1',
+	'!asset.m_bRequired',
+	'!asset.m_sAssignedVehicleSlotId.IsEmpty()',
+	'foreign exact rescue asset-slot semantics rejected',
+	'HST_OPERATION_TYPE_MISSION_RESCUE',
+	'operation.m_iContractVersion != HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION',
+	'exact rescue external-asset operation/mission relationship is not reciprocal',
+	'ValidateCaptiveAuthorityRows(',
+	'state.m_aMissionAssets',
+	'HST_RescuePOWOperationService.IsExactRescueCaptiveAsset(state, asset)',
+	'asset.m_sRescueProjectionId == HST_RescuePOWOperationService.BuildCaptiveProjectionId(',
+	'!asset.m_sAssignedVehicleSlotId.IsEmpty()',
+	'!asset.m_sConvoyElementId.IsEmpty()',
+	'exact rescue external-asset durable captive authority requires exactly three rows',
+	'candidateOperation.m_sMissionInstanceId == mission.m_sInstanceId',
+	'candidateBatch.m_sManifestId == manifest.m_sManifestId',
+	'candidateGroup.m_sMissionInstanceId == mission.m_sInstanceId',
+	'HasUniqueAuthorityRows(state, mission, operation, manifest, batch, group)'
+)) {
+	if ($schema58ExternalAssetPolicyText -notmatch [regex]::Escape($schema58ExternalAssetShapeEntry)) {
+		throw "Schema-58 external-asset defense-in-depth is missing: $schema58ExternalAssetShapeEntry"
+	}
+}
+
+foreach ($schema58RuntimeEntry in @(
+	'TickExactRescueCaptiveActuators',
+	'EnsureExactRescueCaptiveProjection',
+	'FoldExactRescueCaptiveProjection',
+	'TryResolveExactRescueCaptiveDeathEvidence',
+	'RebindExactRescueEscortProjection',
+	'ResolveExactRescueEscortCarrierEvidence',
+	'ResolveExactRescueCarrierEvidence',
+	'exact rescue captive projection is absent; absence is not death evidence',
+	'vehicle_local_'
+)) {
+	if ($schema58RuntimeText -notmatch [regex]::Escape($schema58RuntimeEntry)) {
+		throw "Schema-58 captive projection/evidence boundary is missing: $schema58RuntimeEntry"
+	}
+}
+foreach ($schema58ClientActionProjectionEntry in @(
+	'[RplProp()]',
+	'm_bRescueActionProjectionEvaluated',
+	'm_bRescueActionProjectionConfigured',
+	'm_iRescueActionContractVersion',
+	'm_eRescueActionDisposition',
+	'm_bRescueActionMissionActive',
+	'm_bRescueActionAuthorityQuarantined',
+	'm_iRescueActionRevision',
+	'ConfigureRescueActionProjection',
+	'RefreshRescueActionProjectionFromAuthority',
+	'HasRescueActionProjection',
+	'IsRescueActionProjectionEvaluated',
+	'IsRescueActionMissionActive',
+	'IsRescueActionAuthorityQuarantined',
+	'missionAsset.RefreshRescueActionProjectionFromAuthority()',
+	'HST_MissionCaptiveActionPolicy.ResolveProjection(owner)',
+	'HST_MissionCaptiveActionPolicy.IsProjectionPending(projection)',
+	'projection.GetRescueActionDisposition()'
+)) {
+	if (($schema58MissionAssetComponentText + "`n" + $schema58CaptiveActionText + "`n" + $schema58MissionActionFilterText) -notmatch [regex]::Escape($schema58ClientActionProjectionEntry)) {
+		throw "Schema-58 client/JIP captive action projection is missing: $schema58ClientActionProjectionEntry"
+	}
+}
+$schema58ConfigureIdentityBlock = Get-ScriptMethodBlock $schema58MissionAssetComponentText 'void ConfigureMissionAsset('
+if ([string]::IsNullOrEmpty($schema58ConfigureIdentityBlock) -or
+	$schema58ConfigureIdentityBlock.IndexOf('m_sAssetId == assetId') -lt 0 -or
+	$schema58ConfigureIdentityBlock.IndexOf('return;') -lt 0 -or
+	$schema58ConfigureIdentityBlock.IndexOf('return;') -gt $schema58ConfigureIdentityBlock.IndexOf('Replication.BumpMe()')) {
+	throw "Schema-58 replicated mission-asset identity must avoid unchanged per-tick replication bumps"
+}
+$schema58CanExtractBlock = Get-ScriptMethodBlock $schema58CaptiveActionText 'static bool CanExtract('
+if ([string]::IsNullOrEmpty($schema58CanExtractBlock) -or
+	$schema58CanExtractBlock.IndexOf('HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING') -lt 0 -or
+	$schema58CanExtractBlock.IndexOf('HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED') -lt 0 -or
+	$schema58CanExtractBlock.IndexOf('HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING') -ge 0) {
+	throw "Schema-58 exact captive actions must hide extraction during the transient BOARDING state"
+}
+$schema58InteractionBlock = Get-ScriptMethodBlock $schema58CoordinatorText 'protected bool TryHandleExactRescueMissionInteraction('
+$schema58ReplayIndex = $schema58InteractionBlock.IndexOf('TryReplayCaptiveCommandReceipt(')
+$schema58InactiveIndex = $schema58InteractionBlock.IndexOf('rescue mission is no longer active')
+if ([string]::IsNullOrEmpty($schema58InteractionBlock) -or $schema58ReplayIndex -lt 0 -or
+	$schema58InactiveIndex -lt 0 -or $schema58ReplayIndex -gt $schema58InactiveIndex) {
+	throw "Schema-58 durable captive receipt replay must precede terminal mission-status rejection"
+}
+if ($schema58LifecycleText -notmatch [regex]::Escape('EDamageState.DESTROYED') -or
+	$schema58LifecycleText -notmatch [regex]::Escape('RequestServerMissionAssetDestroyed')) {
+	throw "Schema-58 captive lifecycle component lacks authoritative damage reporting"
+}
+
+foreach ($schema58ValidationEntry in @(
+	'class HST_RescuePOWSaveValidationService',
+	'SCHEMA_VERSION = 58',
+	'migration_schema58_exact_rescue_pows',
+	'normalization_schema58_exact_rescue_pows_conflict',
+	'IsSchema58RescuePOWMissionClaimant',
+	'IsSchema58RescuePOWOperationClaimant',
+	'IsSchema58RescuePOWManifestClaimant',
+	'IsSchema58RescuePOWBatchClaimant',
+	'IsSchema58RescuePOWGroupClaimant',
+	'IsSchema58RescuePOWAssetClaimant',
+	'ValidateCurrentAggregate',
+	'ValidateCompactAggregate',
+	'PreservePreSchema58Authority',
+	'ValidateLifecycle',
+	'QuarantineAggregate'
+)) {
+	if (($schema58ValidationText + "`n" + $schema58SaveText) -notmatch [regex]::Escape($schema58ValidationEntry)) {
+		throw "Schema-58 rescue migration/restore boundary is missing: $schema58ValidationEntry"
+	}
+}
+foreach ($schema58StrongSkip in @(
+	'IsSchema58RescuePOWMissionClaimant(this, mission)',
+	'IsSchema58RescuePOWAssetClaimant(this, asset)',
+	'IsSchema58RescuePOWManifestClaimant(this, manifest)',
+	'IsSchema58RescuePOWBatchClaimant(this, spawnResult)',
+	'IsSchema58RescuePOWGroupClaimant(this, group)',
+	'!HST_RescuePOWSaveValidationService.HasSchema58RescuePOWMissionClaimant(this)'
+)) {
+	if ($schema58SaveText -notmatch [regex]::Escape($schema58StrongSkip)) {
+		throw "Schema-58 pre-normalization strong-claimant isolation is missing: $schema58StrongSkip"
+	}
+}
+
+foreach ($schema58WiringEntry in @(
+	'm_RescuePOWOperations = new HST_RescuePOWOperationService()',
+	'SetRescuePOWOperationService',
+	'PrepareNewMissionContract(mission)',
+	'AdmitNewMission(',
+	'TryHandleExactRescueMissionInteraction',
+	'FindFailedActiveMissionId(m_State)',
+	'FindCompletedActiveMissionId(m_State)',
+	'AppendCampaignDebugRescuePOWOperationAssertions',
+	'rescue_pow.admission_isolation',
+	'rescue_pow.composite_authority',
+	'rescue_pow.captive_transitions',
+	'rescue_pow.guard_independence',
+	'rescue_pow.outcome_grace',
+	'rescue_pow.restore_quarantine'
+)) {
+	if (($schema58CoordinatorText + "`n" + $schema58PersistenceText) -notmatch [regex]::Escape($schema58WiringEntry)) {
+		throw "Schema-58 coordinator/persistence/proof wiring is missing: $schema58WiringEntry"
+	}
+}
+
+foreach ($schema58ProofEntry in @(
+	'class HST_RescuePOWOperationProofReport',
+	'class HST_RescuePOWOperationProofService',
+	'ProveAdmissionIsolation',
+	'ProveCompositeAuthority',
+	'ProveCaptiveTransitions',
+	'ProveGuardIndependence',
+	'ProveOutcomeGrace',
+	'ProveRestoreQuarantine',
+	'PACKAGED_GATES'
+)) {
+	if ($schema58ProofText -notmatch [regex]::Escape($schema58ProofEntry)) {
+		throw "Schema-58 rescue source proof is missing: $schema58ProofEntry"
+	}
+}
+
+if ($schema58MarkerText -notmatch [regex]::Escape('BuildExactRescueMissionMarkerLabel') -or
+	$schema58MarkerText -notmatch [regex]::Escape('POW Extraction | HQ') -or
+	$schema58UIServiceText -notmatch [regex]::Escape('BuildExactRescueNextStepText') -or
+	$schema58UIServiceText -notmatch [regex]::Escape('CountExactRescueCaptiveStates')) {
+	throw "Schema-58 state-derived rescue marker/UI projection is missing"
+}
+
+$schema58DocumentationPaths = @(
+	"README.md",
+	"docs/ARCHITECTURE.md",
+	"docs/FEATURE_CHECKLIST.md",
+	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
+	"docs/HST_ENFUSION_ENFORCE_NOTES.md",
+	"docs/MIGRATIONS.md",
+	"docs/PARITY.md",
+	"docs/PHASE_PLAN.md"
+)
+foreach ($schema58DocumentationPath in $schema58DocumentationPaths) {
+	$schema58DocumentationText = (Get-Content -Raw $schema58DocumentationPath).ToLowerInvariant()
+	$mentionsSchema58 = $schema58DocumentationText.Contains("schema 58") -or $schema58DocumentationText.Contains("schema-58")
+	if (!$mentionsSchema58 -or !$schema58DocumentationText.Contains("rescue_pows") -or
+		!$schema58DocumentationText.Contains("packaged")) {
+		throw "$schema58DocumentationPath must describe the Schema-58 POW-rescue and packaged-runtime boundary"
+	}
+}
+$schema58MigrationsText = (Get-Content -Raw "docs/MIGRATIONS.md").ToLowerInvariant()
+foreach ($schema58MigrationNote in @(
+	'migration_schema58_exact_rescue_pows',
+	'normalization_schema58_exact_rescue_pows_conflict',
+	'exact_rescue_pows_v1',
+	'rescue_pows_guard',
+	'contract `1`',
+	'version `-58`',
+	'contract `0`',
+	'packaged'
+)) {
+	if (!$schema58MigrationsText.Contains($schema58MigrationNote)) {
+		throw "Schema-58 migration documentation is missing: $schema58MigrationNote"
+	}
+}
+Write-Host "Schema-58 exact POW-rescue admission, composite guard/captive authority, transition/idempotency, fold/evidence, outcome/grace, migration/quarantine, UI/marker, and proof contract OK"
 
 Write-Host "h-istasi foundation validation passed"

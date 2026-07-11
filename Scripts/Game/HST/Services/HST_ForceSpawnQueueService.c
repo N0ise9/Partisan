@@ -7,6 +7,7 @@ class HST_ForceSpawnQueueRequest
 	int m_iPriority;
 	int m_iMaxRetries = 3;
 	int m_iDeadlineSecond;
+	bool m_bExternalAssetAuthority;
 }
 
 class HST_ForceSpawnQueueEnqueueResult
@@ -282,7 +283,8 @@ class HST_ForceSpawnQueueService
 			result.m_sFailureReason = validation.m_sFailureReason;
 			return result;
 		}
-		string capacityFailure = ValidateAdmissionCapacity(batches, validation.m_aSlots.Count());
+		int executableSlotCount = CountExecutableManifestSlots(validation.m_aSlots, request.m_bExternalAssetAuthority);
+		string capacityFailure = ValidateAdmissionCapacity(batches, executableSlotCount);
 		if (!capacityFailure.IsEmpty())
 		{
 			result.m_sFailureReason = capacityFailure;
@@ -315,6 +317,12 @@ class HST_ForceSpawnQueueService
 			return "force id missing";
 		if (request.m_iMaxRetries < 0)
 			return "max retries cannot be negative";
+		if (request.m_bExternalAssetAuthority)
+		{
+			string externalAssetFailure = HST_RescuePOWExternalAssetPolicy.ValidateManifestShape(manifest);
+			if (!externalAssetFailure.IsEmpty())
+				return "external asset authority is reserved for the exact rescue contract: " + externalAssetFailure;
+		}
 		return "";
 	}
 
@@ -329,6 +337,15 @@ class HST_ForceSpawnQueueService
 		{
 			result.m_sFailureReason = "spawn queue idempotency key conflicts with existing payload";
 			return result;
+		}
+		if (request.m_bExternalAssetAuthority)
+		{
+			string externalAssetFailure = HST_RescuePOWExternalAssetPolicy.ValidateManifestShape(manifest);
+			if (!externalAssetFailure.IsEmpty())
+			{
+				result.m_sFailureReason = "existing external-asset spawn batch conflicts with exact rescue policy: " + externalAssetFailure;
+				return result;
+			}
 		}
 		HST_ForceSpawnQueueManifestValidation validation = ValidateManifest(manifest);
 		if (!validation.m_bValid || !BatchSlotsMatchManifest(existing, validation.m_aSlots))
@@ -356,7 +373,9 @@ class HST_ForceSpawnQueueService
 			return false;
 		if (batch.m_sOperationId != manifest.m_sOperationId || batch.m_iPriority != request.m_iPriority)
 			return false;
-		return batch.m_iMaxRetries == request.m_iMaxRetries && batch.m_iDeadlineSecond == request.m_iDeadlineSecond;
+		return batch.m_iMaxRetries == request.m_iMaxRetries
+			&& batch.m_iDeadlineSecond == request.m_iDeadlineSecond
+			&& batch.m_bExternalAssetAuthority == request.m_bExternalAssetAuthority;
 	}
 
 	protected HST_ForceSpawnResultState ResolveExistingMatch(
@@ -416,11 +435,15 @@ class HST_ForceSpawnQueueService
 		batch.m_iPriority = request.m_iPriority;
 		batch.m_iMaxRetries = request.m_iMaxRetries;
 		batch.m_iDeadlineSecond = request.m_iDeadlineSecond;
+		batch.m_bExternalAssetAuthority = request.m_bExternalAssetAuthority;
 		batch.m_iCreatedAtSecond = nowSecond;
 		batch.m_iUpdatedAtSecond = nowSecond;
-		batch.m_iExpectedSlotCount = slots.Count();
+		batch.m_iExpectedSlotCount = CountExecutableManifestSlots(slots, request.m_bExternalAssetAuthority);
 		foreach (HST_ForceSpawnQueueManifestSlot descriptor : slots)
 		{
+			if (request.m_bExternalAssetAuthority && descriptor
+				&& descriptor.m_sSlotKind == SLOT_KIND_ASSET)
+				continue;
 			HST_ForceSpawnSlotResultState slotResult = new HST_ForceSpawnSlotResultState();
 			slotResult.m_sSlotId = descriptor.m_sSlotId;
 			slotResult.m_sSlotKind = descriptor.m_sSlotKind;
@@ -766,17 +789,48 @@ class HST_ForceSpawnQueueService
 		HST_ForceSpawnResultState batch,
 		array<ref HST_ForceSpawnQueueManifestSlot> descriptors)
 	{
-		if (!batch || !descriptors || batch.m_iExpectedSlotCount != descriptors.Count())
+		if (!batch || !descriptors)
 			return false;
-		if (!batch.m_aSlotResults || batch.m_aSlotResults.Count() != descriptors.Count())
+		int expectedCount = CountExecutableManifestSlots(descriptors, batch.m_bExternalAssetAuthority);
+		if (batch.m_iExpectedSlotCount != expectedCount)
+			return false;
+		if (!batch.m_aSlotResults || batch.m_aSlotResults.Count() != expectedCount)
 			return false;
 		foreach (HST_ForceSpawnQueueManifestSlot descriptor : descriptors)
 		{
+			if (IsExternallyManagedAssetDescriptor(batch, descriptor))
+				continue;
 			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
 			if (!slotResult || slotResult.m_sSlotKind != descriptor.m_sSlotKind)
 				return false;
 		}
 		return true;
+	}
+
+	protected int CountExecutableManifestSlots(
+		array<ref HST_ForceSpawnQueueManifestSlot> descriptors,
+		bool externalAssetAuthority)
+	{
+		int count;
+		if (!descriptors)
+			return count;
+		foreach (HST_ForceSpawnQueueManifestSlot descriptor : descriptors)
+		{
+			if (!descriptor)
+				continue;
+			if (externalAssetAuthority && descriptor.m_sSlotKind == SLOT_KIND_ASSET)
+				continue;
+			count++;
+		}
+		return count;
+	}
+
+	protected bool IsExternallyManagedAssetDescriptor(
+		HST_ForceSpawnResultState batch,
+		HST_ForceSpawnQueueManifestSlot descriptor)
+	{
+		return batch && batch.m_bExternalAssetAuthority && descriptor
+			&& descriptor.m_sSlotKind == SLOT_KIND_ASSET;
 	}
 
 	HST_ForceSpawnQueueTickResult AcquireWork(
@@ -999,6 +1053,8 @@ class HST_ForceSpawnQueueService
 		int added;
 		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
 		{
+			if (IsExternallyManagedAssetDescriptor(batch, descriptor))
+				continue;
 			if (added >= budget)
 				break;
 			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
@@ -1122,6 +1178,8 @@ class HST_ForceSpawnQueueService
 			return false;
 		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
 		{
+			if (IsExternallyManagedAssetDescriptor(batch, descriptor))
+				continue;
 			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
 			if (slotResult && slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_QUEUED
 				&& DependenciesRegistered(batch, descriptor))
@@ -1216,6 +1274,12 @@ class HST_ForceSpawnQueueService
 			return "manifest identity mismatch";
 		if (batch.m_sOperationId != manifest.m_sOperationId)
 			return "operation identity mismatch";
+		if (batch.m_bExternalAssetAuthority)
+		{
+			string externalAssetFailure = HST_RescuePOWExternalAssetPolicy.ValidateManifestShape(manifest);
+			if (!externalAssetFailure.IsEmpty())
+				return "external asset authority conflicts with exact rescue manifest: " + externalAssetFailure;
+		}
 		if (batch.m_sResultId.IsEmpty() || batch.m_sRequestId.IsEmpty() || batch.m_sProjectionId.IsEmpty() || batch.m_sForceId.IsEmpty())
 			return "durable batch identity incomplete";
 		HST_ForceSpawnQueueManifestValidation validation = ValidateManifest(manifest);
@@ -1703,6 +1767,8 @@ class HST_ForceSpawnQueueService
 
 		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
 		{
+			if (IsExternallyManagedAssetDescriptor(batch, descriptor))
+				continue;
 			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
 			if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
 				|| slotResult.m_bCasualtyConfirmed)
@@ -2055,6 +2121,8 @@ class HST_ForceSpawnQueueService
 		}
 		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
 		{
+			if (IsExternallyManagedAssetDescriptor(batch, descriptor))
+				continue;
 			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
 			if (slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
 				&& !slotResult.m_bCasualtyConfirmed)
@@ -2990,6 +3058,8 @@ class HST_ForceSpawnQueueService
 		int resolvedSlotCount;
 		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
 		{
+			if (IsExternallyManagedAssetDescriptor(batch, descriptor))
+				continue;
 			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
 			if (slotResult && slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED)
 			{

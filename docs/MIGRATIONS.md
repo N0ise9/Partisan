@@ -2,7 +2,87 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `57`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `58`.
+
+## Schema 58
+
+- Schema 58 opts in only a newly started `rescue_pows` mission. The mission and
+  reciprocal `HST_OPERATION_TYPE_MISSION_RESCUE` operation use contract `1`,
+  manifest policy `exact_rescue_pows_v1`, guard intent `rescue_pows_guard`,
+  projection contract `1`, and malformed-current quarantine version `-58`.
+  Historical/pre-58 `rescue_pows`, `rescue_refugees`, generic captive rows, and
+  every other unsupported family remain contract `0`.
+
+- One operation owns one frozen composite manifest. Its executable subgraph is
+  one catalog-backed hostile infantry root plus the exact ordered member slots.
+  Its externally managed asset subgraph is exactly three required `captive`
+  slots. The SpawnQueue batch records external asset authority and contains only
+  group/member result rows; the mission-rescue service owns the three typed
+  `HST_MissionAssetState` captive rows. No prefab-name manpower estimate,
+  generic mission guard, vehicle slot, route, resource debit, refund, or generic
+  asset-spawn result becomes authority.
+
+- Captives persist an ordinal and typed UNKNOWN/HELD/FREED/FOLLOWING/BOARDING/
+  BOARDED/EXTRACTED/KILLED disposition plus stable escort identity, carrier
+  vehicle identity, seat token, last command result, a bounded typed
+  command ledger (request, actor, command, result, and recorded revision),
+  casualty receipt, extraction receipt, projection identity, transition second,
+  revision, and projection generation. The mission and all three captives also
+  retain one frozen HQ extraction position and one common base deadline.
+  Process-local entity handles and compatibility carrier strings are cleared on
+  restore. A missing projection is never death evidence; only observed
+  authoritative damage state can record KILLED.
+
+- HELD and FREED captives can fold to durable state outside the player/render
+  bubble and reproject at their last authoritative position. FOLLOWING,
+  BOARDING, and BOARDED remain projected because they are bound to a stable
+  escort/carrier. Carrier discovery requires a connected stable escort and a
+  replication-backed/runtime-tracked vehicle identity; the position-derived
+  local fallback is rejected. Native seat evidence advances BOARDING to BOARDED.
+  Outside grace, a disconnected escort releases custody to FREED without death;
+  during grace it invalidates the frozen custody set. Terminal non-success
+  settlement likewise releases surviving custody rows to FREED, so historical
+  rescue validity never depends on a later mutable carrier-vehicle row.
+
+- Guard elimination does not settle the rescue. Any one of the three required
+  casualty receipts fails the mission; exactly three unique extraction receipts
+  at the frozen HQ extraction point complete it through the existing mission
+  outcome/reward path. The target town receives the configured support reward
+  once when applicable. Timer expiry grants exactly 300 seconds of extraction
+  grace only when all three living captives were already in stable custody; the
+  grace accepts no new release or escort claim and cannot produce both expiry
+  and success. Its end is always the frozen base deadline plus 300 seconds, so
+  delayed ticks do not change durable timing authority. HQ relocation is blocked
+  while that frozen extraction authority is open; settled history remains valid
+  after a later HQ move.
+
+- Restores from schema 57 or earlier record
+  `migration_schema58_exact_rescue_pows`. They preserve historical POW missions,
+  legacy `mission_group_*` guards, legacy captive actions, and rewards without
+  inventing an exact mission, operation, manifest, guard roster, captive
+  identity, carrier, seat, casualty, extraction, settlement, or reward receipt.
+
+- Current-schema validation requires unique reciprocal mission/operation/
+  manifest/batch/group identity, a valid generated mission site on the target
+  zone, exact target/site position, one hostile catalog roster, three captive
+  slot/row bijections, legal typed transitions, coherent grace and settlement,
+  and no foreign resource/order/quote links. Valid open rows normalize only
+  process bindings; command IDs are unique across exact captive rows,
+  actor/command fingerprints and recorded revisions must match, extraction rows
+  must be inside the frozen radius, and terminal mission/result combinations are
+  exact. Compact settled rows may omit their terminal batch and guard group.
+  Conflicts become `-58`, record
+  `normalization_schema58_exact_rescue_pows_conflict`, and remain diagnostic
+  without legacy fallback, guessed casualty, invented extraction, reward, or
+  force transfer.
+
+- Source proof covers exact admission/family isolation, composite manifest and
+  external asset execution, captive transition/idempotency and carrier/seat
+  evidence, render fold/re-entry, casualty/success/grace settlement, save
+  roundtrip/migration, corruption quarantine, and state-derived UI/marker text.
+  Native entity behavior, actual process restart, rendered UI, owner change,
+  campaign setup, packaged networking, reconnect, and JIP remain open until a
+  republished runtime run supplies those artifacts.
 
 ## Schema 57
 
@@ -86,10 +166,9 @@
   casualties, actual save/restart, rendered UI, owner-change, campaign setup,
   packaged networking, reconnect, and JIP remain open.
 
-- Schema 57 exhausts the assassination-guard family. The next planned blueprint
-  target is a separately versioned rescue vertical slice beginning only with a
-  newly started `rescue_pows` mission. That rescue slice is planned, not
-  implemented; no rescue or other unsupported family is opted in by Schema 57.
+- Schema 57 exhausts the assassination-guard family and opts in no rescue
+  authority. Schema 58, documented above, is the later separate cutover for
+  newly started `rescue_pows` only.
 
 ## Schema 56
 

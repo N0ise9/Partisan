@@ -818,7 +818,9 @@ class HST_MapMarkerService
 				continue;
 			if (mission.m_sRuntimePrimitive == "convoy_intercept" && objective.m_sTargetId == "convoy")
 				continue;
-			if (hasPhysicalAssetMarker && objective.m_sTargetId != "area" && objective.m_sRuntimePrimitive != "hold_area" && objective.m_sRuntimePrimitive != "clear_area")
+			bool exactRescueExtraction = HST_RescuePOWOperationService.IsExactMission(mission)
+				&& objective.m_sTargetId == "extract_captives";
+			if (hasPhysicalAssetMarker && !exactRescueExtraction && objective.m_sTargetId != "area" && objective.m_sRuntimePrimitive != "hold_area" && objective.m_sRuntimePrimitive != "clear_area")
 				continue;
 
 			HST_MissionAssetState linkedAsset = state.FindMissionAsset(objective.m_sLinkedRuntimeEntityId);
@@ -867,7 +869,9 @@ class HST_MapMarkerService
 			}
 			else if (asset.m_bPickedUp && !asset.m_bDelivered)
 			{
-				if (!IsZeroVector(asset.m_vTargetPosition))
+				if (IsExactRescueMarkerAsset(mission, asset))
+					position = ResolveMissionAssetMarkerPosition(asset);
+				else if (!IsZeroVector(asset.m_vTargetPosition))
 					position = asset.m_vTargetPosition;
 				else
 					position = ResolveMissionAssetMarkerPosition(asset);
@@ -2743,8 +2747,43 @@ class HST_MapMarkerService
 	{
 		if (!mission)
 			return "Mission";
+		if (HST_RescuePOWOperationService.IsExactMission(mission))
+			return BuildExactRescueMissionMarkerLabel(state, mission);
 
 		string title = MissionMarkerTitle(mission);
+		return BuildMissionMinutesLabel(mission, title);
+	}
+
+	protected string BuildExactRescueMissionMarkerLabel(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		int held;
+		int custody;
+		int extracted;
+		int killed;
+		if (state && mission)
+		{
+			foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+			{
+				if (!IsExactRescueMarkerAsset(mission, asset))
+					continue;
+				if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_HELD
+					|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FREED)
+					held++;
+				else if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING
+					|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+					|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+					custody++;
+				else if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED)
+					extracted++;
+				else if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED)
+					killed++;
+			}
+		}
+		string title = string.Format("POW Rescue | held %1 | custody %2 | extracted %3", held, custody, extracted);
+		if (killed > 0)
+			title = title + string.Format(" | lost %1", killed);
+		if (mission && mission.m_bRescueExtractionGrace)
+			title = title + " | extraction grace";
 		return BuildMissionMinutesLabel(mission, title);
 	}
 
@@ -2821,6 +2860,9 @@ class HST_MapMarkerService
 
 	protected string BuildMissionObjectiveMarkerLabel(HST_ActiveMissionState mission, HST_MissionObjectiveState objective)
 	{
+		if (HST_RescuePOWOperationService.IsExactMission(mission)
+			&& objective && objective.m_sTargetId == "extract_captives")
+			return BuildMissionMinutesLabel(mission, "POW Extraction | HQ");
 		return BuildMissionMinutesLabel(mission, MissionMarkerTitle(mission));
 	}
 
@@ -2833,6 +2875,11 @@ class HST_MapMarkerService
 			return BuildMissionMinutesLabel(mission, "Gun Shop");
 		if (asset.m_sRole == "gun_shop_delivery_vehicle")
 			return "Gun Shop Purchases Delivery";
+		if (IsExactRescueMarkerAsset(mission, asset))
+		{
+			string title = string.Format("POW %1 | %2", asset.m_iRescueOrdinal + 1, RescueCaptiveDispositionLabel(asset.m_eRescueDisposition));
+			return BuildMissionMinutesLabel(mission, title);
+		}
 
 		string verb = "Locate";
 		if (!asset.m_bPickedUp && (asset.m_sKind == "cargo" || asset.m_sKind == "captive"))
@@ -2864,6 +2911,34 @@ class HST_MapMarkerService
 		}
 
 		return BuildMissionMinutesLabel(mission, title);
+	}
+
+	protected bool IsExactRescueMarkerAsset(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		return HST_RescuePOWOperationService.IsExactMission(mission) && asset
+			&& asset.m_sMissionInstanceId == mission.m_sInstanceId
+			&& asset.m_iRescueContractVersion == HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION
+			&& asset.m_iRescueOrdinal >= 0
+			&& asset.m_iRescueOrdinal < HST_RescuePOWOperationService.EXACT_CAPTIVE_COUNT;
+	}
+
+	protected string RescueCaptiveDispositionLabel(HST_ERescueCaptiveDisposition disposition)
+	{
+		if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_HELD)
+			return "held";
+		if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FREED)
+			return "freed";
+		if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING)
+			return "following";
+		if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING)
+			return "boarding";
+		if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+			return "aboard";
+		if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED)
+			return "extracted";
+		if (disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED)
+			return "lost";
+		return "unknown";
 	}
 
 	protected bool AreMissionObjectivesComplete(HST_CampaignState state, HST_ActiveMissionState mission)

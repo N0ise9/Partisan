@@ -138,6 +138,20 @@
   hidden normal WorldEditor open stayed alive for 10/10 samples over 20 seconds,
   and its log had no script-error/crash signature. All packaged/native/restart/
   UI/network gates remain open.
+- Newly started `rescue_pows` is the ninth exact family consumer and introduces
+  `HST_OPERATION_TYPE_MISSION_RESCUE`. Schema-58 contract `1`, policy
+  `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and quarantine `-58` own
+  one guard roster plus exactly three typed captive slots. HELD/FREED captives
+  fold outside the bubble; FOLLOWING/BOARDING/BOARDED retain stable escort/
+  vehicle/seat evidence and stay projected. There is no virtual casualty or
+  guard-combat inference. Guard elimination does not settle rescue; any captive
+  casualty receipt fails, while three HQ extraction receipts succeed through
+  normal mission outcomes. A 300-second grace is custody-only and forbids new
+  claims. Historical POWs and `rescue_refugees` remain contract `0`. Migration/
+  conflict events are `migration_schema58_exact_rescue_pows` and
+  `normalization_schema58_exact_rescue_pows_conflict`. Source proof does not
+  claim packaged native entities, vehicle seats, restart, rendered UI, owner
+  change, setup, networking, reconnect, or JIP.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -389,6 +403,15 @@
   stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` under
   build label `schema57-exact-specops-guard`. Packaged/native/save-restart/
   rendered-UI/owner-change/setup/network/reconnect/JIP proof remains open.
+- Schema 58 adds exact rescue authority only for a newly started `rescue_pows`.
+  Six source categories cover admission/family isolation, composite guard-plus-
+  captive authority, replay-safe captive transitions, guard independence,
+  casualty/success/grace outcomes, and restore/quarantine. The queue executes
+  only group/member slots; the rescue service owns three captive rows. Missing
+  entities never imply death, HQ is the only extraction point, and configured
+  target-town support uses the normal once-only reward path. Native/packaged/
+  restart/rendered-UI/owner-change/setup/network/reconnect/JIP proof remains
+  open.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
@@ -503,10 +526,9 @@
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
 - Continue the implementation blueprint with one explicitly versioned mission-
-  force consumer at a time. Schema 57 exhausts the assassination-guard family;
-  the next narrow target is a separately versioned rescue vertical slice
-  starting with newly started `rescue_pows`, planned only. Other unsupported
-  mission families remain legacy. Packaged schema-50 through schema-57
+  force consumer at a time. Schema 57 exhausts assassination guards and Schema
+  58 implements only the first rescue slice. Other rescue and unsupported
+  mission families remain legacy. Packaged schema-50 through schema-58
   certification remains independently required.
 
 ## Next Playable Expansion

@@ -78,6 +78,11 @@ class HST_MissionActionFilterComponent : ScriptComponent
 		if (!owner)
 			return;
 
+		HST_MissionAssetComponent missionAsset = HST_MissionAssetComponent.Cast(
+			owner.FindComponent(HST_MissionAssetComponent));
+		if (missionAsset)
+			missionAsset.RefreshRescueActionProjectionFromAuthority();
+
 		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(owner.FindComponent(ActionsManagerComponent));
 		if (!actionsManager)
 			return;

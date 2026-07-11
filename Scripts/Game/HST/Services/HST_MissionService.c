@@ -223,9 +223,61 @@ class HST_MissionService
 			if (IsPersistenceSmokeMission(activeMission))
 				continue;
 
-			activeMission.m_iRemainingSeconds = Math.Max(0, activeMission.m_iRemainingSeconds - elapsedSeconds);
-			if (activeMission.m_iRemainingSeconds > 0)
-				continue;
+			bool exactRescueMission = HST_RescuePOWOperationService.IsExactMission(activeMission);
+			if (exactRescueMission && activeMission.m_bRescueExtractionGrace)
+			{
+				int graceRemaining = Math.Max(0,
+					activeMission.m_iRescueGraceUntilSecond - state.m_iElapsedSeconds);
+				if (activeMission.m_iRemainingSeconds != graceRemaining)
+				{
+					activeMission.m_iRemainingSeconds = graceRemaining;
+					changed = true;
+				}
+				if (graceRemaining > 0)
+					continue;
+			}
+			else if (exactRescueMission)
+			{
+				int baseRemaining = Math.Max(0,
+					activeMission.m_iActiveUntilSecond - state.m_iElapsedSeconds);
+				if (activeMission.m_iRemainingSeconds != baseRemaining)
+				{
+					activeMission.m_iRemainingSeconds = baseRemaining;
+					changed = true;
+				}
+				if (baseRemaining > 0)
+					continue;
+			}
+			else
+			{
+				activeMission.m_iRemainingSeconds = Math.Max(0,
+					activeMission.m_iRemainingSeconds - elapsedSeconds);
+				if (activeMission.m_iRemainingSeconds > 0)
+					continue;
+			}
+			if (exactRescueMission)
+			{
+				if (!activeMission.m_bRescueExtractionGrace
+					&& CanBeginExactRescueExtractionGrace(state, activeMission))
+				{
+					int baseDeadlineSecond = activeMission.m_iActiveUntilSecond;
+					int graceUntilSecond = baseDeadlineSecond
+						+ HST_RescuePOWOperationService.EXTRACTION_GRACE_SECONDS;
+					int graceRemaining = graceUntilSecond - state.m_iElapsedSeconds;
+					if (baseDeadlineSecond > 0
+						&& state.m_iElapsedSeconds >= baseDeadlineSecond
+						&& graceRemaining > 0)
+					{
+						activeMission.m_bRescueExtractionGrace = true;
+						activeMission.m_iRescueGraceUntilSecond = graceUntilSecond;
+						activeMission.m_iActiveUntilSecond = graceUntilSecond;
+						activeMission.m_iRemainingSeconds = graceRemaining;
+						activeMission.m_sRuntimePhase = HST_RescuePOWOperationService.RESCUE_GRACE_PHASE;
+						changed = true;
+						continue;
+					}
+				}
+			}
 
 			HST_MissionDefinition definition = FindDefinition(activeMission.m_sMissionId);
 			activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
@@ -237,6 +289,13 @@ class HST_MissionService
 		}
 
 		return changed;
+	}
+
+	protected bool CanBeginExactRescueExtractionGrace(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission)
+	{
+		return HST_RescuePOWOperationService.CanEnterExtractionGrace(state, mission);
 	}
 
 	string BuildMissionRewardBalanceReport(HST_CampaignState state)

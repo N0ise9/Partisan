@@ -846,7 +846,7 @@ class HST_CommandUIService
 			return coordinator.RequestCommanderCompleteMissionReport(playerId, argument);
 
 		if (commandId == "mission_asset_load" || commandId == "mission_asset_unload" || commandId == "mission_asset_deliver" || commandId == "mission_captive_extract" || commandId == "mission_captive_follow" || commandId == "mission_vehicle_capture" || commandId == "mission_asset_sabotage")
-			return coordinator.RequestMemberMissionInteraction(playerId, commandId, argument);
+			return coordinator.RequestMemberMissionInteraction(playerId, commandId, argument, requestId);
 		if (commandId == "gun_shop_open")
 			return coordinator.RequestMemberOpenGunShopReport(playerId, argument);
 		if (commandId == "gun_shop_buy")
@@ -5031,6 +5031,8 @@ class HST_CommandUIService
 	{
 		if (mission && mission.m_sRuntimePrimitive == "convoy_intercept")
 			return BuildConvoyNextStepText(state, mission);
+		if (HST_RescuePOWOperationService.IsExactMission(mission))
+			return BuildExactRescueNextStepText(state, mission);
 
 		if (AreMissionObjectivesComplete(state, mission))
 			return "Mission objectives complete. Rewards and cleanup will process on the next campaign tick.";
@@ -5104,6 +5106,31 @@ class HST_CommandUIService
 		return "Use the matching mission action near the marked asset.";
 	}
 
+	protected string BuildExactRescueNextStepText(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		int held;
+		int freed;
+		int custody;
+		int extracted;
+		int killed;
+		CountExactRescueCaptiveStates(state, mission, held, freed, custody, extracted, killed);
+		if (killed > 0)
+			return "A required POW was lost. Mission failure is pending authoritative settlement.";
+		if (extracted == HST_RescuePOWOperationService.EXACT_CAPTIVE_COUNT)
+			return "All three POWs have authoritative HQ extraction receipts. Mission success is pending settlement.";
+		if (held > 0)
+			return string.Format("Free the remaining %1 held POW(s), then assign each one a stable escort.", held);
+		if (freed > 0)
+			return string.Format("Order the remaining %1 freed POW(s) to follow.", freed);
+		if (custody > 0)
+		{
+			if (mission.m_bRescueExtractionGrace)
+				return "All living POWs are already in custody. Bring them to HQ before the extraction grace expires; no new escort claims are allowed.";
+			return "Escort or transport every POW to HQ, then use Extract captive. This exact contract does not accept friendly-zone extraction.";
+		}
+		return "Exact POW authority is waiting for its three captive records.";
+	}
+
 	protected string BuildMissionProgressText(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission)
@@ -5143,6 +5170,18 @@ class HST_CommandUIService
 			progress = progress + string.Format(" | cargo %1/%2", mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount);
 		if (mission.m_iRequiredCaptiveCount > 0)
 			progress = progress + string.Format(" | captives %1/%2", mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount);
+		if (HST_RescuePOWOperationService.IsExactMission(mission))
+		{
+			int held;
+			int freed;
+			int custody;
+			int extracted;
+			int killed;
+			CountExactRescueCaptiveStates(state, mission, held, freed, custody, extracted, killed);
+			progress = progress + string.Format(" | held %1 | freed %2 | custody %3 | extracted %4 | lost %5", held, freed, custody, extracted, killed);
+			if (mission.m_bRescueExtractionGrace)
+				progress = progress + string.Format(" | HQ extraction grace %1s", Math.Max(0, mission.m_iRescueGraceUntilSecond - state.m_iElapsedSeconds));
+		}
 		if (mission.m_iRequiredVehicleCount > 0 && mission.m_sMissionId == "destroy_or_steal_armor")
 			progress = progress + string.Format(" | vehicles %1/%2", mission.m_iCapturedVehicleCount, mission.m_iRequiredVehicleCount);
 		if (mission.m_iRuntimePickupCount > 0 || mission.m_iRuntimeDeliveryCount > 0 || mission.m_iRuntimeDestroyedCount > 0)
@@ -5154,6 +5193,42 @@ class HST_CommandUIService
 		if (!guardStatus.IsEmpty())
 			progress = progress + " | " + guardStatus;
 		return progress;
+	}
+
+	protected void CountExactRescueCaptiveStates(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		out int held,
+		out int freed,
+		out int custody,
+		out int extracted,
+		out int killed)
+	{
+		held = 0;
+		freed = 0;
+		custody = 0;
+		extracted = 0;
+		killed = 0;
+		if (!state || !HST_RescuePOWOperationService.IsExactMission(mission))
+			return;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId
+				|| asset.m_iRescueContractVersion != HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION)
+				continue;
+			if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_HELD)
+				held++;
+			else if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FREED)
+				freed++;
+			else if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING
+				|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+				|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+				custody++;
+			else if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED)
+				extracted++;
+			else if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED)
+				killed++;
+		}
 	}
 
 	protected string BuildMissionHoldProgressText(HST_CampaignState state, HST_ActiveMissionState mission)

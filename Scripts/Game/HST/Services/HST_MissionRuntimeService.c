@@ -950,6 +950,16 @@ class HST_MissionRuntimeService
 			objective.m_bAbstractFallback = mission.m_bRuntimeFallback;
 		}
 
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+		{
+			// Exact rescue authority creates and materializes its own captive aggregate.
+			// Initialization still establishes the shared primitive/objective envelope,
+			// but must not manufacture legacy captives, fallback props, or guard groups.
+			mission.m_bRuntimeSpawned = false;
+			mission.m_bRuntimeFallback = false;
+			return true;
+		}
+
 		EnsureMissionAssetsInitialized(state, definition, mission);
 		LinkObjectivesToMissionAssets(state, mission);
 		mission.m_bRuntimeSpawned = TrySpawnMissionRuntimeAssets(state, mission);
@@ -988,6 +998,12 @@ class HST_MissionRuntimeService
 				continue;
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+			if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			{
+				// Exact rescue owns active actuation, extraction grace, settlement, and
+				// process cleanup. Generic expired-runtime and cleanup paths stay isolated.
+				continue;
+			}
 
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 			{
@@ -1014,7 +1030,6 @@ class HST_MissionRuntimeService
 				// not manufacture or reposition evidence after exact authority failed.
 				continue;
 			}
-
 			changed = RepairActiveMissionRuntimeAfterRestore(state, preset, mission) || changed;
 			changed = TickGunShopOpenRuntime(state, preset, mission) || changed;
 			if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT
@@ -1045,6 +1060,693 @@ class HST_MissionRuntimeService
 		}
 
 		return changed;
+	}
+
+	bool TickExactRescueCaptiveActuators(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+		if (!HST_RescuePOWOperationService.IsExactMission(mission))
+			return false;
+
+		bool changed;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!IsExactRescueCaptiveAsset(mission, asset))
+				continue;
+
+			bool wasSpawned = asset.m_bSpawned;
+			vector previousPosition = asset.m_vCurrentPosition;
+			changed = HST_RescuePOWOperationService.ApplyCaptiveCompatibilityProjection(asset) || changed;
+
+			if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED
+				|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED)
+			{
+				bool hadProjection = HasExactRescueCaptiveProjection(asset);
+				FoldExactRescueCaptiveProjection(state, mission, asset, "terminal exact rescue disposition");
+				changed = hadProjection || changed;
+				continue;
+			}
+
+			if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING)
+			{
+				string escortEvidence;
+				RebindExactRescueEscortProjection(state, mission, asset, escortEvidence);
+			}
+			else if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+				|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+			{
+				EnsureExactRescueCaptiveProjection(state, mission, asset);
+				IEntity carrierEntity;
+				string seatToken;
+				vector carrierPosition;
+				string carrierEvidence;
+				if (ResolveExactRescueCarrierEvidence(state, mission, asset, carrierEntity, seatToken, carrierPosition, carrierEvidence))
+				{
+					IEntity captiveEntity = GetExactRescueCaptiveProjection(asset);
+					if (captiveEntity)
+					{
+						IEntity occupiedVehicle = ResolveEntityVehicle(captiveEntity);
+						if (!occupiedVehicle)
+						{
+							float boardingRadius = Math.Max(8.0,
+								asset.m_iInteractionRadiusMeters + 3.0);
+							if (DistanceSq2D(captiveEntity.GetOrigin(), carrierEntity.GetOrigin())
+								<= boardingRadius * boardingRadius)
+							{
+								string boardingReason;
+								TryMoveCaptiveIntoVehicle(captiveEntity, carrierEntity, boardingReason);
+							}
+						}
+						else if (occupiedVehicle == carrierEntity)
+						{
+							asset.m_vCurrentPosition = carrierPosition;
+							asset.m_vLastKnownPosition = carrierPosition;
+							RegisterAssetRuntimeEntityState(state, asset, carrierPosition, carrierEntity.GetYawPitchRoll());
+						}
+					}
+				}
+			}
+			else
+			{
+				IEntity projection = GetExactRescueCaptiveProjection(asset);
+				if (projection)
+					SyncExactRescueCaptiveProjectionState(state, asset, projection);
+			}
+
+			if (asset.m_bSpawned != wasSpawned || DistanceSq2D(previousPosition, asset.m_vCurrentPosition) > 0.5)
+				changed = true;
+		}
+
+		return changed;
+	}
+
+	bool EnsureExactRescueCaptiveProjection(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset)
+	{
+		if (!state || !mission || !IsExactRescueCaptiveAsset(mission, asset))
+			return false;
+		if (!HST_RescuePOWOperationService.IsExactMission(mission))
+			return false;
+		if (!IsExactRescueProjectableDisposition(asset.m_eRescueDisposition))
+			return false;
+
+		HST_RescuePOWOperationService.ApplyCaptiveCompatibilityProjection(asset);
+		if (!ResolveExactRescueProjectionIdentity(asset))
+			return false;
+
+		IEntity existing = GetExactRescueCaptiveProjection(asset);
+		if (existing)
+		{
+			ApplyMissionAssetIdentity(existing, asset);
+			SyncExactRescueCaptiveProjectionState(state, asset, existing);
+			return true;
+		}
+
+		if (asset.m_sPrefab.IsEmpty())
+			return false;
+		vector position = ResolveRestoredMissionAssetPosition(asset);
+		if (IsZeroVector(position))
+			position = mission.m_vTargetPosition;
+		if (IsZeroVector(position))
+			return false;
+
+		IEntity projection = SpawnCaptiveFollowerProjection(state, mission, asset, position, "0 0 0");
+		if (!projection)
+			return false;
+
+		asset.m_iRescueProjectionGeneration = Math.Max(0, asset.m_iRescueProjectionGeneration) + 1;
+		SyncExactRescueCaptiveProjectionState(state, asset, projection);
+		return true;
+	}
+
+	bool MoveExactRescueCaptiveProjectionForDebug(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		vector position)
+	{
+		if (!state || !mission || !asset || IsZeroVector(position)
+			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+			|| !HST_RescuePOWOperationService.IsExactMission(mission)
+			|| !IsExactRescueCaptiveAsset(mission, asset)
+			|| asset.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED
+			|| asset.m_eRescueDisposition
+				== HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED)
+			return false;
+		if (!EnsureExactRescueCaptiveProjection(state, mission, asset))
+			return false;
+		IEntity projection = GetExactRescueCaptiveProjection(asset);
+		if (!projection)
+			return false;
+		HST_WorldPositionService.ApplyUprightEntityTransform(
+			projection, position, projection.GetYawPitchRoll());
+		SyncExactRescueCaptiveProjectionState(state, asset, projection);
+		return DistanceSq2D(projection.GetOrigin(), position) <= 1.0;
+	}
+
+	bool FoldExactRescueCaptiveProjection(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		string reason = "")
+	{
+		if (!state || !mission || !IsExactRescueCaptiveAsset(mission, asset))
+			return false;
+		if (!HST_RescuePOWOperationService.IsExactMission(mission))
+			return false;
+		bool actuatedDisposition = asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING
+			|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+			|| asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED;
+		if (actuatedDisposition && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
+			&& state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+			return false;
+
+		HST_RescuePOWOperationService.ApplyCaptiveCompatibilityProjection(asset);
+		IEntity projection = GetExactRescueCaptiveProjection(asset);
+		if (projection)
+		{
+			SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(projection.FindComponent(SCR_DamageManagerComponent));
+			if (!damageManager || damageManager.GetState() != EDamageState.DESTROYED)
+			{
+				vector position = projection.GetOrigin();
+				if (!IsZeroVector(position))
+				{
+					asset.m_vCurrentPosition = position;
+					asset.m_vLastKnownPosition = position;
+				}
+			}
+			StopCaptiveFollowController(asset);
+			DeleteRuntimeEntity(asset.m_sEntityId);
+		}
+
+		asset.m_bSpawned = false;
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
+		if (runtimeEntity)
+		{
+			runtimeEntity.m_bSpawned = false;
+			runtimeEntity.m_bDestroyed = asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED;
+			runtimeEntity.m_bRecovered = asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED;
+			runtimeEntity.m_vPosition = asset.m_vCurrentPosition;
+		}
+
+		return !HasExactRescueCaptiveProjection(asset);
+	}
+
+	bool TryResolveExactRescueCaptiveDeathEvidence(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		out vector position,
+		out string evidence)
+	{
+		position = "0 0 0";
+		evidence = "exact rescue captive projection is absent; absence is not death evidence";
+		if (!state || !mission || !IsExactRescueCaptiveAsset(mission, asset))
+			return false;
+		if (!HST_RescuePOWOperationService.IsExactMission(mission))
+			return false;
+
+		IEntity projection = GetExactRescueCaptiveProjection(asset);
+		if (!projection)
+			return false;
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(projection.FindComponent(SCR_DamageManagerComponent));
+		if (!damageManager)
+		{
+			evidence = "exact rescue captive projection has no authoritative damage component";
+			return false;
+		}
+		if (damageManager.GetState() != EDamageState.DESTROYED)
+		{
+			evidence = "exact rescue captive projection is present and not destroyed";
+			return false;
+		}
+
+		position = projection.GetOrigin();
+		evidence = "exact rescue captive projection damage state is destroyed";
+		return true;
+	}
+
+	bool RebindExactRescueEscortProjection(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		out string evidence)
+	{
+		evidence = "exact rescue escort identity is unavailable";
+		if (!state || !mission || !IsExactRescueCaptiveAsset(mission, asset))
+			return false;
+		if (!HST_RescuePOWOperationService.IsExactMission(mission)
+			|| asset.m_eRescueDisposition != HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING
+			|| asset.m_sRescueEscortIdentityId.IsEmpty())
+			return false;
+
+		IEntity escortEntity = ResolveExactRescueEscortEntity(state, asset, evidence);
+		if (!escortEntity)
+			return false;
+		if (!EnsureExactRescueCaptiveProjection(state, mission, asset))
+		{
+			evidence = "exact rescue captive projection could not be restored for its escort";
+			return false;
+		}
+
+		IEntity projection = GetExactRescueCaptiveProjection(asset);
+		if (!projection)
+			return false;
+		bool actuated = StartCaptiveFollowController(asset, escortEntity);
+		if (!actuated)
+			actuated = TryIssueCaptiveFollowWaypoint(state, asset, projection, escortEntity.GetOrigin(), escortEntity);
+		if (!actuated)
+		{
+			evidence = "exact rescue captive projection could not accept its escort actuator";
+			return false;
+		}
+
+		SyncExactRescueCaptiveProjectionState(state, asset, projection);
+		evidence = "exact rescue captive projection rebound to durable escort identity";
+		return true;
+	}
+
+	bool ResolveExactRescueEscortCarrierEvidence(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		out IEntity carrierEntity,
+		out string carrierVehicleId,
+		out vector carrierPosition,
+		out string evidence)
+	{
+		carrierEntity = null;
+		carrierVehicleId = "";
+		carrierPosition = "0 0 0";
+		evidence = "exact rescue escort has no observed durable vehicle";
+		if (!state || !mission || !IsExactRescueCaptiveAsset(mission, asset))
+			return false;
+		if (!HST_RescuePOWOperationService.IsExactMission(mission)
+			|| asset.m_eRescueDisposition != HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING)
+			return false;
+
+		IEntity escortEntity = ResolveExactRescueEscortEntity(state, asset, evidence);
+		if (!escortEntity)
+			return false;
+
+		IEntity observedVehicle = ResolveEntityVehicle(escortEntity);
+		string prefab;
+		IEntity vehicleRoot;
+		if (observedVehicle)
+			vehicleRoot = ResolveMissionVehicleRoot(observedVehicle, prefab);
+		else
+			vehicleRoot = ResolveMissionVehicleRoot(escortEntity, prefab);
+		if (!vehicleRoot)
+		{
+			evidence = "exact rescue escort is not occupying a vehicle";
+			return false;
+		}
+		if (!IsExactRescueCarrierOperational(vehicleRoot))
+		{
+			evidence = "exact rescue escort vehicle is destroyed";
+			return false;
+		}
+		if (prefab.IsEmpty())
+		{
+			evidence = "exact rescue escort vehicle has no restorable prefab identity";
+			return false;
+		}
+
+		BaseRplComponent replication = BaseRplComponent.Cast(vehicleRoot.FindComponent(BaseRplComponent));
+		if (!replication)
+		{
+			evidence = "exact rescue escort vehicle has no replication-backed durable identity";
+			return false;
+		}
+		string observedVehicleId = ResolveEntityRuntimeId(vehicleRoot);
+		if (observedVehicleId.IsEmpty() || observedVehicleId.Contains("vehicle_local_"))
+		{
+			evidence = "exact rescue escort vehicle resolved only a process-local identity";
+			return false;
+		}
+		IEntity captiveProjection = GetExactRescueCaptiveProjection(asset);
+		float boardingRadius = Math.Max(8.0, asset.m_iInteractionRadiusMeters + 3.0);
+		if (!captiveProjection
+			|| DistanceSq2D(captiveProjection.GetOrigin(), vehicleRoot.GetOrigin())
+				> boardingRadius * boardingRadius)
+		{
+			evidence = "exact rescue escort vehicle is not within the observed captive boarding radius";
+			return false;
+		}
+
+		string vehicleName = HST_DisplayNameService.ResolveVehicleDisplayName(prefab, vehicleRoot.GetName());
+		EnsureMissionCarrierVehicleRecord(state, vehicleRoot, observedVehicleId, vehicleName);
+		HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(observedVehicleId);
+		if (!runtimeVehicle || runtimeVehicle.m_bDeleted || runtimeVehicle.m_sPrefab.IsEmpty()
+			|| runtimeVehicle.m_sRuntimeKind != "mission_carrier")
+		{
+			evidence = "exact rescue escort vehicle could not be registered as durable mission carrier";
+			return false;
+		}
+		carrierEntity = vehicleRoot;
+		carrierVehicleId = observedVehicleId;
+		carrierPosition = vehicleRoot.GetOrigin();
+		evidence = "exact rescue escort occupies a replication-backed durable mission carrier";
+		return true;
+	}
+
+	bool TryResolveExactRescueCaptiveInteractionEvidence(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		out vector interactionPosition,
+		out string evidence)
+	{
+		interactionPosition = "0 0 0";
+		evidence = "exact rescue captive has no live interaction projection";
+		if (!state || !mission || !IsExactRescueCaptiveAsset(mission, asset)
+			|| !HST_RescuePOWOperationService.IsExactMission(mission)
+			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+		IEntity projection = GetExactRescueCaptiveProjection(asset);
+		if (!projection)
+			return false;
+		SCR_DamageManagerComponent damage = SCR_DamageManagerComponent.Cast(
+			projection.FindComponent(SCR_DamageManagerComponent));
+		if (damage && damage.GetState() == EDamageState.DESTROYED)
+		{
+			evidence = "exact rescue captive projection is destroyed and cannot authorize an interaction";
+			return false;
+		}
+		if (asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED)
+		{
+			IEntity carrier;
+			string seatToken;
+			vector carrierPosition;
+			string carrierEvidence;
+			if (!ResolveExactRescueCarrierEvidence(
+				state, mission, asset, carrier, seatToken, carrierPosition, carrierEvidence)
+				|| !carrier || seatToken.IsEmpty())
+			{
+				evidence = "exact rescue boarded interaction lacks live carrier and seat evidence";
+				return false;
+			}
+			interactionPosition = carrierPosition;
+			evidence = "exact rescue captive interaction resolved from live carrier and seat evidence";
+			return true;
+		}
+		interactionPosition = projection.GetOrigin();
+		evidence = "exact rescue captive interaction resolved from its live projection";
+		return true;
+	}
+
+	bool IsExactRescueCaptiveProjectionAbsent(HST_MissionAssetState asset)
+	{
+		return !asset || GetExactRescueCaptiveProjection(asset) == null;
+	}
+
+	bool ResolveExactRescueCarrierEvidence(
+		HST_CampaignState state,
+		HST_ActiveMissionState mission,
+		HST_MissionAssetState asset,
+		out IEntity carrierEntity,
+		out string seatToken,
+		out vector carrierPosition,
+		out string evidence)
+	{
+		carrierEntity = null;
+		seatToken = "";
+		carrierPosition = "0 0 0";
+		evidence = "exact rescue carrier projection is absent";
+		if (!state || !mission || !IsExactRescueCaptiveAsset(mission, asset))
+			return false;
+		if (!HST_RescuePOWOperationService.IsExactMission(mission) || asset.m_sRescueCarrierVehicleId.IsEmpty())
+			return false;
+		HST_RescuePOWOperationService.ApplyCaptiveCompatibilityProjection(asset);
+
+		IEntity captiveEntity = GetExactRescueCaptiveProjection(asset);
+		IEntity occupiedVehicle;
+		SCR_CompartmentAccessComponent access;
+		bool usedDurableSeatToken;
+		if (captiveEntity)
+		{
+			access = SCR_CompartmentAccessComponent.Cast(captiveEntity.FindComponent(SCR_CompartmentAccessComponent));
+			if (access && access.IsInCompartment())
+				occupiedVehicle = access.GetVehicle();
+		}
+
+		if (occupiedVehicle && DoesExactRescueCarrierMatch(asset.m_sRescueCarrierVehicleId, occupiedVehicle))
+			carrierEntity = occupiedVehicle;
+		if (!carrierEntity)
+			carrierEntity = ResolveExactRescueCarrierEntity(state, asset);
+		if (!carrierEntity && state.m_bRestoredFromPersistence
+			&& asset.m_sCarriedByVehicleId == asset.m_sRescueCarrierVehicleId)
+		{
+			EnsureRestoredMissionCarrierVehicle(state, asset);
+			carrierEntity = ResolveExactRescueCarrierEntity(state, asset);
+		}
+		if (!carrierEntity)
+		{
+			evidence = "exact rescue carrier projection is absent; absence is not captive death evidence";
+			return false;
+		}
+		if (!IsExactRescueCarrierOperational(carrierEntity))
+		{
+			evidence = "exact rescue carrier projection is destroyed; this is not captive death evidence";
+			HST_RuntimeVehicleState destroyedCarrier = state.FindRuntimeVehicle(asset.m_sRescueCarrierVehicleId);
+			if (destroyedCarrier)
+			{
+				destroyedCarrier.m_vPosition = carrierEntity.GetOrigin();
+				destroyedCarrier.m_bDeleted = true;
+			}
+			carrierEntity = null;
+			return false;
+		}
+
+		carrierPosition = carrierEntity.GetOrigin();
+		UpdateExactRescueCarrierRecord(state, asset.m_sRescueCarrierVehicleId, carrierEntity);
+		if (occupiedVehicle && occupiedVehicle != carrierEntity)
+		{
+			evidence = "exact rescue captive occupies a different carrier than its durable carrier identity";
+			carrierEntity = null;
+			carrierPosition = "0 0 0";
+			return false;
+		}
+
+		if (access && access.IsInCompartment() && occupiedVehicle == carrierEntity)
+		{
+			BaseCompartmentSlot slot = access.GetCompartment();
+			if (!asset.m_sRescueCarrierSeatToken.IsEmpty())
+				seatToken = asset.m_sRescueCarrierSeatToken;
+			else if (slot)
+				seatToken = BuildExactRescueCarrierSeatToken(slot);
+		}
+		else if (!captiveEntity
+			&& asset.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED
+			&& !asset.m_sRescueCarrierSeatToken.IsEmpty())
+		{
+			// Durable boarded authority survives process restart. The exact actuator
+			// will reproject/reseat the captive; do not replace its saved seat token
+			// with a new session-derived observation while no captive handle exists.
+			seatToken = asset.m_sRescueCarrierSeatToken;
+			usedDurableSeatToken = true;
+		}
+
+		if (seatToken.IsEmpty())
+			evidence = "exact rescue carrier projection resolved; captive has no observed occupied seat";
+		else if (usedDurableSeatToken)
+			evidence = "exact rescue carrier restored with preserved durable boarded seat token";
+		else
+			evidence = "exact rescue carrier and occupied seat resolved from runtime evidence";
+		return true;
+	}
+
+	protected bool IsExactRescueCaptiveAsset(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		if (!mission || !asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+			return false;
+		if (!HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
+		if (asset.m_sKind != ASSET_KIND_CAPTIVE && asset.m_sRole != ROLE_CAPTIVE)
+			return false;
+		if (HST_RescuePOWOperationService.IsExactMission(mission))
+			return asset.m_iRescueContractVersion == HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION;
+
+		return asset.m_iRescueContractVersion != 0
+			|| asset.m_eRescueDisposition != HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_UNKNOWN;
+	}
+
+	protected bool IsExactRescueProjectableDisposition(HST_ERescueCaptiveDisposition disposition)
+	{
+		return disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_HELD
+			|| disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FREED
+			|| disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING
+			|| disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDING
+			|| disposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_BOARDED;
+	}
+
+	protected IEntity ResolveExactRescueEscortEntity(
+		HST_CampaignState state,
+		HST_MissionAssetState asset,
+		out string evidence)
+	{
+		evidence = "exact rescue escort identity is unavailable";
+		if (!state || !asset || asset.m_sRescueEscortIdentityId.IsEmpty())
+			return null;
+
+		HST_PlayerState escort = state.FindPlayer(asset.m_sRescueEscortIdentityId);
+		if (!escort || escort.m_iLastSeenPlayerId <= 0)
+			return null;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return null;
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		if (playerIds.Find(escort.m_iLastSeenPlayerId) < 0)
+		{
+			evidence = "exact rescue escort is disconnected; durable identity retained";
+			return null;
+		}
+
+		IEntity escortEntity = GetBestPlayerEntity(playerManager, escort.m_iLastSeenPlayerId);
+		if (!IsLivingPlayerEntity(escortEntity))
+		{
+			evidence = "exact rescue escort has no living projection; durable identity retained";
+			return null;
+		}
+
+		evidence = "exact rescue escort resolved from durable identity";
+		return escortEntity;
+	}
+
+	protected bool ResolveExactRescueProjectionIdentity(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return false;
+		if (asset.m_sRescueProjectionId.IsEmpty() && asset.m_sEntityId.IsEmpty())
+			return false;
+		if (asset.m_sRescueProjectionId.IsEmpty())
+			asset.m_sRescueProjectionId = asset.m_sEntityId;
+		else if (asset.m_sEntityId.IsEmpty())
+			asset.m_sEntityId = asset.m_sRescueProjectionId;
+
+		return asset.m_sEntityId == asset.m_sRescueProjectionId;
+	}
+
+	protected IEntity GetExactRescueCaptiveProjection(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return null;
+		if (!asset.m_sRescueProjectionId.IsEmpty())
+			return GetRuntimeEntity(asset.m_sRescueProjectionId);
+		return GetRuntimeEntity(asset.m_sEntityId);
+	}
+
+	protected bool HasExactRescueCaptiveProjection(HST_MissionAssetState asset)
+	{
+		return GetExactRescueCaptiveProjection(asset) != null;
+	}
+
+	protected void SyncExactRescueCaptiveProjectionState(
+		HST_CampaignState state,
+		HST_MissionAssetState asset,
+		IEntity projection)
+	{
+		if (!state || !asset || !projection)
+			return;
+
+		ApplyMissionAssetIdentity(projection, asset);
+		vector position = projection.GetOrigin();
+		asset.m_bSpawned = true;
+		if (!IsZeroVector(position))
+		{
+			asset.m_vCurrentPosition = position;
+			asset.m_vLastKnownPosition = position;
+		}
+		RegisterAssetRuntimeEntityState(state, asset, asset.m_vCurrentPosition, projection.GetYawPitchRoll());
+	}
+
+	protected IEntity ResolveExactRescueCarrierEntity(HST_CampaignState state, HST_MissionAssetState asset)
+	{
+		if (!state || !asset || asset.m_sRescueCarrierVehicleId.IsEmpty())
+			return null;
+
+		IEntity carrier = GetRuntimeEntity(asset.m_sRescueCarrierVehicleId);
+		if (carrier)
+			return carrier;
+
+		HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(asset.m_sRescueCarrierVehicleId);
+		if (runtimeVehicle && !runtimeVehicle.m_bDeleted)
+		{
+			carrier = FindMissionVehicleByRuntimeId(asset.m_sRescueCarrierVehicleId, runtimeVehicle.m_vPosition);
+			if (carrier)
+				return carrier;
+		}
+
+		string escortEvidence;
+		IEntity escortEntity = ResolveExactRescueEscortEntity(state, asset, escortEvidence);
+		if (escortEntity)
+		{
+			IEntity observedVehicle = ResolveEntityVehicle(escortEntity);
+			string observedPrefab;
+			IEntity observedRoot;
+			if (observedVehicle)
+				observedRoot = ResolveMissionVehicleRoot(observedVehicle, observedPrefab);
+			else
+				observedRoot = ResolveMissionVehicleRoot(escortEntity, observedPrefab);
+			if (observedRoot && DoesExactRescueCarrierMatch(asset.m_sRescueCarrierVehicleId, observedRoot))
+			{
+				UpdateExactRescueCarrierRecord(state, asset.m_sRescueCarrierVehicleId, observedRoot);
+				return observedRoot;
+			}
+		}
+
+		vector nearPosition = asset.m_vCurrentPosition;
+		if (IsZeroVector(nearPosition))
+			nearPosition = asset.m_vLastKnownPosition;
+		return FindMissionVehicleByRuntimeId(asset.m_sRescueCarrierVehicleId, nearPosition);
+	}
+
+	protected bool DoesExactRescueCarrierMatch(string carrierId, IEntity carrierEntity)
+	{
+		if (carrierId.IsEmpty() || !carrierEntity)
+			return false;
+		if (GetRuntimeEntity(carrierId) == carrierEntity)
+			return true;
+		return ResolveEntityRuntimeId(carrierEntity) == carrierId;
+	}
+
+	protected bool IsExactRescueCarrierOperational(IEntity carrierEntity)
+	{
+		if (!carrierEntity)
+			return false;
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
+			carrierEntity.FindComponent(SCR_DamageManagerComponent));
+		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
+	}
+
+	protected void UpdateExactRescueCarrierRecord(
+		HST_CampaignState state,
+		string carrierId,
+		IEntity carrierEntity)
+	{
+		if (!state || carrierId.IsEmpty() || !carrierEntity)
+			return;
+		HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(carrierId);
+		if (!runtimeVehicle)
+			return;
+		runtimeVehicle.m_vPosition = carrierEntity.GetOrigin();
+		runtimeVehicle.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(
+			carrierEntity.GetYawPitchRoll());
+		runtimeVehicle.m_bDeleted = false;
+	}
+
+	protected string BuildExactRescueCarrierSeatToken(BaseCompartmentSlot slot)
+	{
+		if (!slot)
+			return "";
+		return string.Format("seat_%1_%2", slot.GetCompartmentMgrID(), slot.GetCompartmentSlotID());
 	}
 
 	bool TickExactMissionConvoyCargoProjections(HST_CampaignState state, HST_PhysicalWarService physicalWar)
@@ -1307,6 +2009,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
 			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
 
 		bool changed;
 		if (ShouldRunRestoredMissionCarrierRestorePass(state, mission))
@@ -1331,6 +2035,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
 			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
 
 		if (ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission))
 			return true;
@@ -1343,6 +2049,8 @@ class HST_MissionRuntimeService
 	protected bool ShouldContinueExpiredPlayerBoundMissionRuntime(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED || mission.m_bRuntimeCleanupComplete)
+			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return false;
 
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
@@ -1359,6 +2067,8 @@ class HST_MissionRuntimeService
 	protected bool IsExpiredPlayerBoundMissionInteractionAllowed(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, string commandId)
 	{
 		if (!state || !mission || !asset || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return false;
 		if (asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bDelivered || asset.m_bDestroyed)
 			return false;
@@ -1474,6 +2184,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || mission.m_sRuntimeEntityId.IsEmpty())
 			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
 
 		bool spawned = TrySpawnMissionRuntimeAssets(state, mission);
 		bool convoyWithoutVehicleAssets = mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0;
@@ -1506,6 +2218,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission)
 			return;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return;
 
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
@@ -1525,6 +2239,8 @@ class HST_MissionRuntimeService
 	protected bool EnsureMissionAssetsInitialized(HST_CampaignState state, HST_MissionDefinition definition, HST_ActiveMissionState mission)
 	{
 		if (!state || !definition || !mission || mission.m_sRuntimePrimitive == PRIMITIVE_ABSTRACT_FALLBACK)
+			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return false;
 
 		vector targetPosition = ResolveRuntimePropPosition(state, mission);
@@ -2958,6 +3674,11 @@ class HST_MissionRuntimeService
 			result = "h-istasi mission | failed: mission is no longer active";
 			return false;
 		}
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+		{
+			result = "h-istasi mission | failed: exact rescue interaction requires operation authority";
+			return false;
+		}
 		if (AreMissionObjectivesComplete(state, mission) && !allowPostCompletionConvoyInteraction)
 		{
 			result = "h-istasi mission | failed: mission objectives are already complete";
@@ -3055,6 +3776,11 @@ class HST_MissionRuntimeService
 		}
 
 		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
+		if (mission && HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+		{
+			result = "h-istasi mission | failed: exact rescue casualty authority must use the coordinator receipt path";
+			return false;
+		}
 		bool allowPostCompletionConvoyVehicleDestruction = IsPreservedConvoyVehicleAfterCrewElimination(state, mission, asset);
 		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionConvoyVehicleDestruction))
 		{
@@ -4880,7 +5606,18 @@ class HST_MissionRuntimeService
 		ApplyMissionAssetIdentity(entity, asset);
 		HST_MissionAssetComponent assetComponent = HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent));
 		if (assetComponent)
+		{
 			assetComponent.ConfigureMissionAsset(asset.m_sAssetId, mission.m_sInstanceId, asset.m_sRole);
+			bool actionQuarantined = asset.m_iRescueContractVersion
+				== HST_RescuePOWOperationService.QUARANTINED_CONTRACT_VERSION
+				|| HST_RescuePOWOperationService.IsQuarantinedMission(mission);
+			assetComponent.ConfigureRescueActionProjection(true,
+				asset.m_iRescueContractVersion,
+				asset.m_eRescueDisposition,
+				mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !actionQuarantined,
+				actionQuarantined,
+				asset.m_iRescueRevision);
+		}
 
 		asset.m_bSpawned = true;
 		asset.m_vCurrentPosition = spawnPosition;
@@ -6204,6 +6941,8 @@ class HST_MissionRuntimeService
 		{
 			if (!mission)
 				continue;
+			if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+				continue;
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !CanCompleteExpiredPlayerBoundMission(state, mission))
 				continue;
 			if (IsPersistenceSmokeMission(mission))
@@ -6226,6 +6965,8 @@ class HST_MissionRuntimeService
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
 			if (IsPersistenceSmokeMission(mission))
+				continue;
+			if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 				continue;
 
 			if (mission.m_sRuntimePhase == PHASE_FAILED)
@@ -8080,6 +8821,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
 
 		bool changed;
 		string resolvedPrimitive = PrimitiveForMissionId(mission.m_sMissionId, HST_EMissionCategory.HST_MISSION_DYNAMIC);
@@ -8225,6 +8968,8 @@ class HST_MissionRuntimeService
 	protected bool EnsureRestoredMissionAssetsFromState(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission || mission.m_sRuntimePrimitive == PRIMITIVE_ABSTRACT_FALLBACK)
+			return false;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return false;
 
 		vector targetPosition = ResolveRuntimePropPosition(state, mission);
@@ -8493,6 +9238,8 @@ class HST_MissionRuntimeService
 				continue;
 			if (IsExactMissionConvoyDurableAuthorityAsset(state, mission, asset))
 				continue;
+			if (IsExactRescueDurableAuthorityAsset(mission, asset))
+				continue;
 
 			asset.m_bDestroyed = asset.m_bDestroyed || !asset.m_bDelivered;
 			state.m_aMissionAssets.Remove(i);
@@ -8525,6 +9272,17 @@ class HST_MissionRuntimeService
 			&& manifest.m_sOperationId == mission.m_sOperationId
 			&& batch.m_sOperationId == mission.m_sOperationId
 			&& batch.m_sManifestId == mission.m_sManifestId;
+	}
+
+	protected bool IsExactRescueDurableAuthorityAsset(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		if (!mission || !asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+			return false;
+		if (!HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
+
+		return asset.m_iRescueContractVersion != 0
+			|| asset.m_eRescueDisposition != HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_UNKNOWN;
 	}
 
 	protected HST_MissionAssetState FindMissionAssetByEntityId(HST_CampaignState state, string entityId)
@@ -8670,6 +9428,8 @@ class HST_MissionRuntimeService
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
 			return;
 		if (HST_MissionGuardOperationService.IsExactOrQuarantinedMission(mission))
+			return;
+		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return;
 
 		string groupId = "mission_group_" + mission.m_sInstanceId;

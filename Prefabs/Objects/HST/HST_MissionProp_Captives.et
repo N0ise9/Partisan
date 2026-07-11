@@ -7,6 +7,8 @@ SCR_ChimeraCharacter HST_MissionProp_Captives : "{6985327711303300}Prefabs/Chara
   }
   HST_MissionCaptiveFollowComponent "{6985327711303741}" {
   }
+  HST_RescueCaptiveLifecycleComponent "{6985327711303742}" {
+  }
   ActionsManagerComponent "{520EA1D2F659CE02}" {
    additionalActions {
     HST_MissionCaptiveFreeAction "{6985327711303734}" {

@@ -26,7 +26,12 @@ class HST_MissionObjectiveService
 		AddObjective(state, mission, PrimaryObjectiveForMission(definition), BuildObjectiveTarget(definition, mission), objectivePosition, RequiredProgressForMission(definition), LabelForMission(definition), definition.m_sRequirementText, RequiredCountForMission(definition));
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
-			AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES, "extract_captives", state.m_vHQPosition, 1, "Extract captives", "Escort the captives back to HQ or a friendly zone.", definition.m_iCaptiveCount);
+		{
+			string extractionRequirement = "Escort the captives back to HQ or a friendly zone.";
+			if (HST_RescuePOWOperationService.IsExactMission(mission))
+				extractionRequirement = "Escort all three POWs alive to HQ; friendly-zone extraction is not accepted by this contract.";
+			AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES, "extract_captives", state.m_vHQPosition, 1, "Extract captives", extractionRequirement, definition.m_iCaptiveCount);
+		}
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
 			AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_RECOVER_LOOT, "supply_pickup", state.m_vHQPosition, 1, "Pick up supplies", "Collect FIA supplies from HQ before delivery.", definition.m_iCargoCount);

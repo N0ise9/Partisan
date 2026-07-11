@@ -176,6 +176,27 @@ class HST_PlayerLifecycleService
 			if (session && session.m_sOwnerIdentityId == oldIdentityId)
 				session.m_sOwnerIdentityId = newIdentityId;
 		}
+
+		foreach (HST_CommandReceiptState commandReceipt : state.m_aCommandReceipts)
+		{
+			if (commandReceipt && commandReceipt.m_sActorIdentityId == oldIdentityId)
+				commandReceipt.m_sActorIdentityId = newIdentityId;
+		}
+
+		foreach (HST_MissionAssetState missionAsset : state.m_aMissionAssets)
+		{
+			if (!missionAsset)
+				continue;
+			if (missionAsset.m_sRescueEscortIdentityId == oldIdentityId)
+				missionAsset.m_sRescueEscortIdentityId = newIdentityId;
+			if (!missionAsset.m_aRescueCommandReceipts)
+				continue;
+			foreach (HST_RescueCommandReceiptState receipt : missionAsset.m_aRescueCommandReceipts)
+			{
+				if (receipt && receipt.m_sActorIdentityId == oldIdentityId)
+					receipt.m_sActorIdentityId = newIdentityId;
+			}
+		}
 	}
 
 	protected void RemovePlayerState(HST_CampaignState state, string identityId)

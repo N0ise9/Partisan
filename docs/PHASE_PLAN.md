@@ -93,36 +93,28 @@ slice. It should not rebuild the foundation.
 ## Campaign Runtime Integrity Program
 
 Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
-The active development contract is Schema 57: only guard infantry belonging to
-a newly started `assassinate_specops` mission gains contract `3`, policy
-`exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and a
-route-less exact authority boundary. Schema-55 officer contract `1` and
-Schema-56 traitor contract `2` remain exact. Historical/pre-57 spec-ops guards,
-ordinary `mission_group_*` rows, and every unsupported family remain contract
-`0`; conflicting exact spec-ops claimants quarantine at `-57`. Schema 57 is
-stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with
-build label `schema57-exact-specops-guard`. The full foundation gate passes,
-including Schema-55/56/57. Stamped Workbench Game validation loaded 5,765 files/
-11,576 classes with CRC `e0b8578e` and `Script validation successful`; the
-bounded hidden normal WorldEditor open stayed alive for 10/10 samples over 20
-seconds, and its log had no script-error/crash signature. The preceding stamped
-baseline is Schema 56: implementation
-`bab5748d817ba434dae701cfbb3b92805d463678`, stamp
-`03a65cd33bee69c6320389803cdd5a2ec8576fb0`, build label
-`schema56-exact-traitor-guard`, 5,764 files/11,573 classes, CRC `a18c67a5`, and
-10/10 normal-open samples over 20 seconds. Packaged/native/save-restart/
+The active development contract is Schema 58: only newly started `rescue_pows`
+gain mission-rescue contract `1`, policy `exact_rescue_pows_v1`, intent
+`rescue_pows_guard`, and quarantine `-58`. The aggregate owns one frozen guard
+roster and exactly three typed captive slots with stable escort/carrier/seat and
+casualty/extraction receipts. Historical POWs, `rescue_refugees`, ordinary
+`mission_group_*` rows, and every unsupported family remain contract `0`.
+Schema 57 remains the preceding stamped baseline at implementation
+`514ebdcbeb1ddfb2a383b19590382517113e2ff6`, build label
+`schema57-exact-specops-guard`, 5,765 files/11,576 classes, CRC `e0b8578e`, and
+10/10 bounded normal-open samples over 20 seconds. Packaged/native/save-restart/
 rendered-UI/owner-change/setup/network/reconnect/JIP gates remain open.
 It supersedes feature-order implications in the legacy numbered roadmap below;
 that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Schema 57 is the current stamped source/Workbench checkpoint | Campaign Schema 57 is stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` / label `schema57-exact-specops-guard`. The full foundation gate, including Schema-55/56/57, passes. Workbench loaded 5,765 files/11,576 classes with CRC `e0b8578e` and `Script validation successful`; the bounded hidden normal open passed 10/10 samples over 20 seconds with no log script-error/crash signature. Every packaged/native/save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gate remains open. |
-| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 57 adds only the spec-ops-guard contract-3 mission/operation/manifest/held-batch/group graph and preserves Schema-55 officer contract `1` and Schema-56 traitor contract `2`. All three keep HVT authority separate and settle typed outcomes with zero refund. Historical/pre-57 spec-ops, unsupported families, and ordinary `mission_group_*` rows remain contract `0`; malformed current exact spec-ops claimants quarantine at `-57` without fallback or HVT failure. |
-| CRI-2: Exact force manifests | Foundation complete; expansion pending | The generic SpawnQueue adapter remains one-root infantry-only and now serves two QRFs, enemy patrol, purchased-garrison patrol, officer guard, traitor guard, and spec-ops guard; the convoy retains its separate path. For contract `3`, a generic multi-group spec-ops proposal is reduced deterministically to the strongest executable group (stable first on ties); only its catalog roster is frozen and discarded groups gain no authority. All three assassination contracts use catalog-backed empty roots plus ordered members with no HVT/route/assets/resources. Historical mission/aggregate forces, vehicles/assets/multi-root execution, and packaged proofs remain open. |
-| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; eight exact family projections across six operation types implemented in source | Schemas 50-56 retain prior exact paths. Schema 57 adds only the contract-3 route-less spec-ops guard with the same HVT-independent all-dead result, survivor-only projection/fold/re-entry, casualty-stable restore, typed zero-refund settlement, compact restore, existing-HVT status, and no-virtual-combat boundary as the earlier exact guards. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
+| CRI-0: Repository truth and baseline | Schema 58 implementation and verification in progress; Schema 57 remains the stamped fallback | Stamp Schema 58 only after full foundation, Workbench Game validation, and bounded normal-open checks pass. Every packaged/native/save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gate remains independently open. |
+| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 58 adds only the new-POW mission/operation/composite-manifest/external-batch/guard/three-captive graph. Historical POWs, refugees, unsupported families, and ordinary mission-group rows remain contract `0`; malformed strong claimants quarantine at `-58` without fallback, guessed death/extraction, or reward. |
+| CRI-2: Exact force manifests | Foundation complete; expansion pending | SpawnQueue executes the Schema-58 guard root/member subgraph and explicitly excludes its three external captive slots. The mission-rescue service owns those typed asset rows. Existing QRF/patrol/guard/convoy shapes remain unchanged; generic vehicle/asset/multi-root execution and packaged proof remain open. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; nine exact family projections across seven operation types implemented in source | Schema 58 keeps guard and captive outcomes separate, folds unbound POWs without virtual damage, retains custody projections, preserves exact deaths/receipts through restore, and settles normal failure/success plus custody-only grace. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
 | CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Broad-alpha foundations implemented; source repairs await publish | The packaged schema-49 check proved stock HUD/Game Master recovery but exposed invalid radio icons, owner-only labels, pointer layering, duplicate transmitters, HQ-coupled civilian eligibility, repeated appearances, horns, and locality misclassification. Schema-50 source validates dynamic radio icons, labels location plus owner, fixes map-local layering, reuses authored towers, separates civilian eligibility, defaults true-town traffic to five, varies concrete actors, resets ambient horns, and treats the woodland locality as minor. Snapshot/delta/JIP authority, packaged repair proof, canonical ownership side effects, and deeper political consequences remain open. |
-| CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; two exact enemy orders, convoy, all three assassination-guard families, and one exact purchased-garrison policy source-complete | The enemy QRF/patrol, mission convoy, garrison patrol, and three versioned assassination-guard contracts retain narrow boundaries. Historical/pre-opt-in guards, ordinary mission-group rows, rescue and other unsupported missions, historical/aggregate forces, vehicle/multi-root policy, runtime proof, mission depth, and tuning remain open. |
+| CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; two exact enemy orders, convoy, all assassination guards, first rescue slice, and one exact purchased-garrison policy source-complete | Existing exact families retain narrow boundaries. Schema 58 adds only newly started `rescue_pows`; historical POWs, refugees, other rescue/mission families, aggregate forces, broader vehicle policy, runtime proof, mission depth, and tuning remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
 
 ### Blueprint Milestone Snapshot
@@ -131,15 +123,15 @@ that roadmap remains useful for feature history and acceptance detail.
 | --- | --- | --- |
 | Exact Forces | Implemented foundation plus policy-v2 purchased-garrison and officer-/traitor-/spec-ops-guard slices | Execute exact training, garrison/QRF/queue, all three assassination contracts, typed settlement, and replay cases across save/restart. |
 | Clean Forces | First exact infantry-QRF lifecycle plus legacy mixed-group personnel terminal repair implemented | Prove native/GM/strategic living counts, corpse detachment, last-death cleanup, survivor reprojection, and one crewless mixed-QRF salvage transition across restart. |
-| Living War | Broad-alpha paths plus eight exact family projections are in source | Prove all seven exact infantry-family rosters and the exact three-element convoy through materialization/fold/re-entry; separately prove QRF/patrol/garrison behavior, all three guard families' HVT independence and no-virtual-combat boundary, typed zero-refund outcomes, and convoy interception/outcome/restart. |
+| Living War | Broad-alpha paths plus nine exact family projections are in source | Prove all exact infantry rosters, the three-element convoy, and the three-POW rescue aggregate through materialization/fold/re-entry; separately prove casualty, carrier/seat, outcome, grace, and restart behavior. |
 | Reliable Orders | Exact player QRF, newly planned enemy defensive QRF, and newly queued enemy patrol have separate canonical operation policies; other orders remain broad-alpha | Runtime-prove immutable assignment, duty/materialization/engagement/return/settlement/restart behavior, type/version dispatch, and legacy isolation, then extend the contract one family at a time. |
 | One Campaign View | Menu and marker projections exist; schema-50 radio-icon, location/owner label, cursor-layer, and transmitter-reuse repairs are source-only | Prove the reported map/dialog/radio cases, then authoritative host/client/late-join snapshots, revisions, deletes, and modal map ownership. |
 | Political Map | Town influence, capture, ownership, security, and heat foundations exist | Canonicalize ownership side effects and deepen political control/mission outputs. |
 | Living Towns | Civilian pedestrians/traffic moved in packaged schema 49; schema-50 eligibility, taxonomy, diversity, five-car true-town default, and horn repairs are source-only | Prove Figari/Morton and minor-locality budgets, zero unregistered group RPCs, distinct actors, silent moving traffic, cleanup/recycle, and strategic consequences. |
 | Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF, and exact newly queued patrol operations exist | Prove each debit/roster/policy independently: QRF defensive arrival/return and patrol generated-route contact/lap/return, exact casualties, proportional settlement, marker cleanup, restart, and long-window behavior. |
-| Mission Parity | All 39 configured IDs map to MVP primitives; convoy plus newly started officer/traitor/spec-ops guard families use narrow exact contracts | Runtime-prove convoy and all three assassination guards. The assassination-guard family is exhausted; the next planned cutover is a separately versioned rescue slice starting with newly started `rescue_pows`. |
+| Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, and newly started `rescue_pows` use narrow exact contracts | Runtime-prove convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 57 now stamps schema-50 repairs and schema-50 through schema-57 exact projection source/Workbench truth | Publish the stamped Schema-57 build and prove marker/civilian/radio, both QRFs, convoy, patrols, garrison, and all three assassination guards before dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. The prior Schema-56 evidence remains historical. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 58 adds source authority but is not packaged proof | Stamp and publish Schema 58, then prove marker/civilian/radio, both QRFs, convoy, patrols, garrison, all assassination guards, and the three-POW rescue before dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -446,10 +438,10 @@ treated as future work:
     setup, packaged networking, reconnect, and JIP. Historical/pre-opt-in guards
     and every unsupported family remain contract `0`.
 11. Continue with one explicitly versioned mission-force consumer at a time.
-    Schema 57 exhausts the assassination-guard family. The next narrow target is
-    a separately versioned rescue vertical slice starting with newly started
-    `rescue_pows`, planned only; every unsupported mission family remains legacy
-    until its own cutover. Keep
+    Schema 57 exhausts assassination guards and Schema 58 implements the first
+    rescue vertical for newly started `rescue_pows`. Runtime-prove that slice
+    before selecting the next consumer; every other unsupported mission family
+    remains legacy until its own cutover. Keep
     ownership/town politics, civilian behavior, progression, balance, and
     packaged multiplayer/restart/long-soak certification on separate dependency
     tracks; a later source slice does not certify earlier behavior.
