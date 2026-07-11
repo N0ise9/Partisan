@@ -233,8 +233,11 @@ The repository contains a broad-alpha campaign foundation:
   Nine deterministic `garrison_patrol.*` assertions cover admission, replay/
   rollback, roster projection, route loop, projection/casualty hold, settlement,
   restore, corruption quarantine, and marker lifecycle. These are source
-  fixtures; Schema-54 Workbench compile/open gates are pending and, once run,
-  still provide source/Workbench proof only. Packaged native movement,
+  fixtures. The stamped Schema-54 tree identifies implementation
+  `09a1470a4c27dbef866e8cbdba182a7df65fa027` and passes clean headless Workbench
+  Game-module compile/create at 5,760 files/11,560 classes with CRC `c62de929`;
+  its normal WorldEditor open remained alive for all ten samples over 20 seconds.
+  Those gates provide source/Workbench proof only. Packaged native movement,
   casualty, fold/rematerialization, save/restart, marker rendering, networking,
   and JIP evidence remains open.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
@@ -469,17 +472,15 @@ The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also
 evidence for the newly reported marker, cursor, radio, classification,
 appearance, horn, and military/civilian activation defects—not proof of the
-schema-50 repairs. The final stamped schema-53 tree identifies implementation
-`8ab694fdf61e56c6a5e343782f2225660d3aeeb7` and passes a clean headless
-Workbench Game-module compile/create at 5,757 files/11,550 classes with CRC
-`3232b15a`; a normal WorldEditor open then remained alive for all ten samples over
+schema-50 repairs. The final stamped schema-54 tree identifies implementation
+`09a1470a4c27dbef866e8cbdba182a7df65fa027` and passes a clean headless
+Workbench Game-module compile/create at 5,760 files/11,560 classes with CRC
+`c62de929`; a normal WorldEditor open then remained alive for all ten samples over
 20 seconds with no crash signature. This is source/Workbench evidence, not
-packaged gameplay proof. A republished
-server/client test is still required before those repairs, either
-exact-QRF projection path,
-  or any source-validated schema-52 convoy/schema-53 enemy-patrol/schema-54
-  purchased-garrison-patrol path is called
-runtime-proven. The late-admin
+packaged gameplay proof. A republished server/client test is still required
+before those repairs, either exact-QRF projection path, or any source-validated
+schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol path
+is called runtime-proven. The late-admin
 role-change guard, campaign-debug
 isolation, convoy seating, physical support movement/arrival/recall, and restart
 boundaries remain open as separate gates.

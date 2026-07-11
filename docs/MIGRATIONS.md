@@ -76,9 +76,11 @@
   patrol infantry separately from legacy aggregate infantry. Nine deterministic
   `garrison_patrol.*` assertions cover admission, replay/rollback, roster
   projection, route loop, projection hold, settlement, restore, corruption, and
-  marker lifecycle. These fixtures are source evidence; the Schema-54 Workbench
-  compile/open gates are pending and will remain source evidence when run.
-  Packaged native waypoint movement,
+  marker lifecycle. These fixtures are source evidence. The stamped Schema-54
+  tree identifies implementation `09a1470a4c27dbef866e8cbdba182a7df65fa027`,
+  clean Workbench Game compile/create at 5,760 files/11,560 classes with CRC
+  `c62de929`, and a ten-sample/20-second normal WorldEditor open. Packaged native
+  waypoint movement,
   casualty observation, fold/rematerialization, save/restart, marker rendering,
   network replication, reconnect, and JIP proof remain open.
 

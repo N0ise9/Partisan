@@ -451,7 +451,7 @@ certification remains independently open.
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Both QRFs, exact enemy patrol, and policy-v2 purchased-garrison patrol begin held and release only durable living member slots; the garrison's `NotSpawned` root contributes no authored members. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Confirmed casualties remain retired across transfer/restore. Generic vehicle/asset/multi-root and historical aggregate garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Operation lifecycle | Schemas 50-53 retain player QRF, enemy QRF, exact convoy, and enemy-patrol behavior. Schema 54 adds an indefinitely on-station local garrison loop with virtual/physical survivor transfer, no-refund owner-change/all-dead/campaign-stop/setup or typed spawn/route-failure settlement, marker/UI projection, conservative restore, and `-54` quarantine. Historical purchase/aggregate garrisons and every other support/order/mission family remain outside these contracts. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | The last stamped checkpoint remains schema 53 with its recorded clean Workbench evidence. Schema 54 currently has deterministic source fixtures; its Workbench compile/open and stamp gates are pending, and neither can be treated as packaged execution. Both QRFs, convoy, enemy patrol, garrison patrol, marker/UI, native movement/casualty/fold, save/restart, and JIP behavior still need packaged proof. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | The stamped schema-54 tree identifies implementation `09a1470a4c27dbef866e8cbdba182a7df65fa027` and passes foundation, clean Workbench Game compile/create at 5,760 files/11,560 classes with CRC `c62de929`, and a ten-sample/20-second normal WorldEditor open. This remains source/Workbench evidence, not packaged execution. Both QRFs, convoy, enemy patrol, garrison patrol, marker/UI, native movement/casualty/fold, save/restart, and JIP behavior still need packaged proof. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit
@@ -632,9 +632,10 @@ on the same local loop. A malformed current graph is retained at quarantine
 version `-54` without refund, guessed death, or aggregate conversion. Physical
 and dematerializing rows join pre-capture root/member/PhysicalWar binding and
 live-position validation; capture defers during a partial materialization wave
-until its all-required handoff or terminal result is authoritative. This shape has deterministic source proof; Schema-54
-Workbench gates are pending, and native movement, fold, save/restart, networking,
-and JIP remain packaged-runtime-open.
+until its all-required handoff or terminal result is authoritative. This shape
+has deterministic source proof and passes the stamped Schema-54 Workbench
+compile/open gates. Native movement, fold, save/restart, networking, and JIP
+remain packaged-runtime-open.
 
 Normal adapter acquisition runs only after the campaign enters the active phase.
 During setup and won/lost phases, the coordinator requests cancellation for all

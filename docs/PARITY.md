@@ -248,13 +248,12 @@
   no operation, movement, fold, virtual-combat, or restart evidence for this
   slice. Schema 51 adds deterministic fixtures for exact enemy defensive-QRF
   admission, legacy isolation, projection, return/settlement, restore, and
-  rejection, but none has executed in a packaged runtime. The last stamped
-  schema-53 tree identifies implementation `8ab694fdf61e56c6a5e343782f2225660d3aeeb7` and has clean
-  headless Game-module compile/create evidence at 5,757 files/11,550 classes with
-  CRC `3232b15a`. This is the last stamped source/Workbench evidence, not packaged behavior
-  proof. Schema 54 adds deterministic source fixtures for the purchased-
-  garrison patrol cutover; its Workbench compile/open gates are pending and it
-  has no packaged behavior evidence.
+  rejection, but none has executed in a packaged runtime. The stamped schema-54
+  tree identifies implementation `09a1470a4c27dbef866e8cbdba182a7df65fa027` and
+  has clean headless Game-module compile/create evidence at 5,760 files/11,560
+  classes with CRC `c62de929`, plus a ten-sample/20-second normal WorldEditor
+  open. This is current source/Workbench evidence, not packaged behavior proof.
+  Schema 54 has no packaged behavior evidence.
 - Schema 52 adds the exact mission-convoy aggregate in source. No packaged run has yet proved its
   three physical vehicles/crews, virtual route movement, materialization/fold,
   exact casualty persistence, arrival/outcome settlement, marker cleanup, or
@@ -329,7 +328,7 @@
 
 ## Current Delivery Priorities
 
-- Complete and stamp the schema-54 checkpoint, then publish it and prove
+- Publish the stamped schema-54 checkpoint and prove
   the schema-50 marker/dialog/radio corrections while
   preserving the already restored stock HUD and Game Master behavior. Require
   valid-sized icons, location-plus-owner labels, pointer-over-dialog ordering,
@@ -376,9 +375,12 @@
   including physical/virtual transfer, marker cleanup, and restore for both.
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
-- After the schema-54 checkpoint, continue the implementation blueprint one
-  explicitly versioned consumer at a time. Packaged schema-50 through schema-54
-  certification remains independently required.
+- Continue the implementation blueprint with one explicitly versioned mission-
+  force consumer at a time. The next narrow target is newly started
+  `assassinate_officer` guard infantry only; historical missions, other
+  assassination variants, and every other mission family remain legacy.
+  Packaged schema-50 through schema-54 certification remains independently
+  required.
 
 ## Next Playable Expansion
 

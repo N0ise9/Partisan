@@ -73,9 +73,9 @@ be read as proof that a later change was executed or certified.
   only when no intact, damageable transmitter exists. These fixes are source-
   validated only and require the requested republished map/dialog/radio mission
   check.
-- The final stamped schema-53 tree identifies implementation
-  `8ab694fdf61e56c6a5e343782f2225660d3aeeb7` and has clean headless Game-module compile/create
-  evidence at 5,757 files/11,550 classes with CRC `3232b15a`. This is source/
+- The final stamped schema-54 tree identifies implementation
+  `09a1470a4c27dbef866e8cbdba182a7df65fa027` and has clean headless Game-module
+  compile/create evidence at 5,760 files/11,560 classes with CRC `c62de929`. This is source/
   compile evidence rather than packaged gameplay proof. A normal schema-53
   WorldEditor open also remained alive for all ten samples over 20 seconds with
   no crash signature. During schema 50, the initial
@@ -1030,16 +1030,15 @@ Unproven or incomplete against the pasted contract:
 
 ## Validation Run
 
-- `git diff --check` passes for the current documentation update.
-- `tools/validate-foundation.ps1` passes for the current schema-54 source tree,
+- `git diff --check` passes for the stamped schema-54 update.
+- `tools/validate-foundation.ps1` passes for the stamped schema-54 source tree,
   including all nine coordinator-integrated `garrison_patrol.*` fixtures and the
   ordered elapsed-time -> queue -> exact-garrison cleanup/tick -> mission-work
-  runtime contract. Schema-54 Workbench compile/open gates remain pending until
-  the in-progress source pass is finalized.
-- The final stamped schema-53 tree identifies implementation
-  `8ab694fdf61e56c6a5e343782f2225660d3aeeb7` in `HST_BuildInfo` and has clean headless Workbench
-  Game-module compile/create evidence at 5,757 files/11,550 classes with CRC
-  `3232b15a`; its normal WorldEditor open remained alive for ten samples over
-  20 seconds without a crash signature. That remains the last stamped checkpoint.
-  Schema 54 is not stamped yet and has not been packaged or executed as gameplay
-  proof. Source/compile gates are not packaged runtime certification.
+  runtime contract.
+- The final stamped schema-54 tree identifies implementation
+  `09a1470a4c27dbef866e8cbdba182a7df65fa027` in `HST_BuildInfo` and has clean
+  headless Workbench Game-module compile/create evidence at 5,760 files/11,560
+  classes with CRC `c62de929`; its normal WorldEditor open remained alive for ten
+  samples over 20 seconds without a crash signature. Schema 54 has not been
+  packaged or executed as gameplay proof. Source/compile/open gates are not
+  packaged runtime certification.

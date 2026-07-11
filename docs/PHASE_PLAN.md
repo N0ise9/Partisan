@@ -98,7 +98,7 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Complete for current source checkpoint | Campaign schema 54 is the current source contract. The last stamped checkpoint remains schema 53; schema 54 adds exact newly issued purchased-resistance-garrison patrol authority. Its verification boundary is source/Workbench only and has no packaged gameplay proof. Role-change reentry, debug isolation, both QRF paths, exact convoy/enemy-patrol/garrison-patrol behavior, broad support movement, and restart gates remain open. |
+| CRI-0: Repository truth and baseline | Complete for current source checkpoint | Campaign schema 54 is the current stamped source contract at implementation `09a1470a4c27dbef866e8cbdba182a7df65fa027`. Foundation, clean Workbench Game compile/create at 5,760 files/11,560 classes with CRC `c62de929`, and a ten-sample/20-second normal editor open pass. This is source/Workbench evidence only. Role-change reentry, debug isolation, both QRF paths, exact convoy/enemy-patrol/garrison-patrol behavior, broad support movement, packaged runtime, and restart gates remain open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 54 adds one reciprocal policy-v2 purchased-garrison quote/manifest/garrison/operation/route/held-batch/group graph with replay-safe no-refund settlement. Only newly issued resistance purchases opt in. Historical policy-v1, initial-map, and enemy aggregate garrisons remain legacy; malformed current rows quarantine at `-54` without guessed casualty/refund or legacy conversion. Isolated runtime and save/load certification are pending. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | The new garrison policy freezes one executable `NotSpawned` empty root and an arbitrary purchased member roster. The generic SpawnQueue adapter remains infantry-only and now serves two QRFs, enemy patrol, and purchased-garrison patrol; the convoy retains its separate path. Historical aggregate garrisons, vehicles/assets/multi-root execution, other migrations, and packaged proofs remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; five exact operation projections implemented in source | Schemas 50-53 retain the two QRF, convoy, and enemy-patrol paths. Schema 54 adds a held virtual infinite local garrison loop, survivor-only physical projection/fold, legacy PhysicalWar isolation, owner-change/all-dead/campaign-stop/setup or typed spawn/route-failure settlement with zero refund, restore normalization, and marker/UI projection. Generalized encounter/contact/vehicle realization, historical aggregate garrisons, other families, and packaged movement/fold/restart proof remain open. |
@@ -399,14 +399,17 @@ treated as future work:
    newly issued policy-v2 resistance purchase creates one exact arbitrary member
    roster under an empty root, virtual infinite local loop, survivor-only
    materialization/fold, exact marker/UI row, and owner-change/all-dead/campaign-
-   stop terminal receipt with zero refund. Save/restart and JIP must preserve
+   stop/setup or typed spawn/route-failure terminal receipt with zero refund.
+   Save/restart and JIP must preserve
    cursor/casualties. Historical policy-v1, initial/enemy aggregate, vehicle, and
    multi-root garrisons remain legacy.
-10. After the schema-54 checkpoint, continue the blueprint one explicitly
-    versioned consumer at a time. Keep ownership/town politics, civilian
-    behavior, progression, balance, and packaged multiplayer/restart/long-soak
-    certification on their separate dependency tracks; a later source slice
-    does not certify earlier behavior.
+10. Continue from the stamped schema-54 checkpoint with one explicitly versioned
+    mission-force consumer at a time. The next narrow target is only newly started
+    `assassinate_officer` guard infantry; historical missions, other assassination
+    variants, and all other mission families remain legacy until separately cut
+    over. Keep ownership/town politics, civilian behavior, progression, balance,
+    and packaged multiplayer/restart/long-soak certification on their separate
+    dependency tracks; a later source slice does not certify earlier behavior.
 
 ## Game-Mode Target
 

@@ -2928,8 +2928,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Nine deterministic `garrison_patrol.*` assertions cover admission, replay/
     rollback, roster projection, route loop, projection/casualty hold,
     settlement, restore, corruption quarantine, and marker lifecycle.
-    Deterministic fixtures are source evidence. The Schema-54 Workbench compile/
-    open gates are pending and remain source evidence when run. Packaged native
+    Deterministic fixtures are source evidence. The stamped Schema-54 tree
+    identifies implementation `09a1470a4c27dbef866e8cbdba182a7df65fa027` and
+    passes clean Workbench Game compile/create at 5,760 files/11,560 classes with
+    CRC `c62de929` plus a ten-sample/20-second normal WorldEditor open. These
+    remain source/Workbench gates. Packaged native
     waypoint movement, authoritative casualty
     observation, fold/rematerialization, save/restart, marker rendering,
     replication, reconnect, and JIP behavior remain open proof obligations.
