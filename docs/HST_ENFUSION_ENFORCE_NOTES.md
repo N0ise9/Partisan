@@ -181,7 +181,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `Module: Game` compile plus successful game creation. A missing-project or
     fallback validation can report success without loading the addon's complete
     class surface and is not evidence for opening the mod.
-  - Current schema-50 validation demonstrates why the completion boundary matters.
+  - The schema-50 validation run demonstrates why the completion boundary matters.
     The first correctly quoted launches reached Game script compilation but
     terminated with native `0xc0000374` before `Module: Game`. Isolation proved
     that the already-large Phase-20 civilian population debug method crossed a
@@ -2064,12 +2064,164 @@ This file is for practical engine/script behavior, not project planning. Keep en
   failure after `OUTBOUND`/`ON_STATION` retains the spent service money and refunds
   only the exact last virtual survivors' HR, with the normal settlement ID making
   replay idempotent.
-- The current schema-50 source passes foundation validation and Workbench script
+- The schema-50 source passed foundation validation and Workbench script
   validation. The Game module loads 5,747 files/11,508 classes with CRC
   `16665f19`, and the correctly quoted normal WorldEditor project open remains
   responsive through ten two-second samples without a script-error,
   unknown-class, or crash signature. These gates prove source compile/startup,
   not packaged movement, projection, combat, or restart behavior.
+
+## Schema 51 Exact Enemy Defensive-QRF Authority
+
+- Opt an enemy order into exact operation authority before any legacy runtime
+  path can see it.
+  - Only a newly planned `HST_ENEMY_ORDER_QRF` with operation contract version
+    `1` is eligible. Historical rows remain version `0`; migration must not
+    infer a source zone, roster, operation, service commitment, or refund from a
+    legacy order ID.
+  - `HST_EnemyCommanderService` delegates a versioned row to
+    `HST_EnemyQRFOperationService` during its active tick and excludes it from
+    the fixed resolve timer. `HST_PhysicalWarService` also declines to create a
+    spontaneous legacy QRF while an open exact operation owns the same faction/
+    target pair. Suppressing only one of those paths still permits duplicate
+    strategic or physical responses.
+
+- Freeze the infantry roster before committing the enemy debit, then make
+  post-debit admission all-or-nothing.
+  - Select a distinct same-faction source and build one deterministic manifest
+    containing exactly one supported group root and its authored member slots.
+    Link source, target, faction, costs, accepted count, and manifest hash back
+    to the order.
+  - Treat hideout and mission-site anchors as bookkeeping, not operational QRF
+    sources. Validate the responding faction through faction-relation authority
+    and require the defended target to remain owned by that same hostile faction,
+    so a neutral or resistance target cannot receive an exact defensive response.
+  - After the attack/support debit succeeds, admission must create exactly one
+    reciprocal order/operation/manifest/batch/group aggregate and place the
+    batch on strategic hold. Any later admission failure cancels partial queue
+    work, removes unpublished rows where safe, and applies one deterministic
+    full-refund settlement. A replay with different settlement evidence fails
+    closed.
+  - Run the queue's shared, read-only identity/manifest/capacity validator before
+    `TrySpendDefense()`. Repeating weaker checks in the caller is insufficient:
+    a rejection after spend restores resource totals but can otherwise consume
+    the enemy-support cooldown. `CanEnqueue()` and `Enqueue()` must share the
+    same validator, and a committed-order replay must return the persisted
+    frozen manifest instead of replanning from a later war level or timestamp.
+  - Current examples: `HST_ForcePlanningService.PlanExactEnemyDefensiveQRF()`,
+    `HST_EnemyQRFOperationService.AdmitPreparedOrder()`, and
+    `FailAdmissionAfterDebit()`.
+
+- A projection transfer is not a resource-settlement boundary.
+  - Outbound and return legs reuse the same persisted direct-route cursor,
+    strategic hold, materialize-in/out hysteresis, exact slot retirement, and
+    survivor requeue contract as the exact player infantry QRF.
+  - Folding physical entities outside the larger player radius changes only
+    position/roster authority. It must not apply either a full refund or a
+    survivor refund. Confirmed dead slots remain retired and only living slots
+    can rematerialize.
+  - On terminal completion or invalidation after service commitment, refund
+    `cost * survivors / acceptedMembers` for each enemy resource pool exactly
+    once. Admission failure before commitment refunds the full recorded debit;
+    destruction with zero survivors refunds zero.
+
+- Physical arrival needs durable observations but not durable process-local
+  confidence.
+  - Target arrival and return-to-origin require two in-radius live-position
+    confirmations from distinct campaign seconds. Reset the count whenever the
+    route leg changes so an outbound sample cannot satisfy the return leg.
+  - Persist the fields for save consistency, then clear them on restore. A
+    process-restart cannot replay a prior physical sample as current entity
+    evidence.
+  - Virtual arrival comes from the persisted strategic cursor and therefore
+    does not need physical live-position samples.
+  - Restore an already-virtual route without rebasing its start or zeroing its
+    progress. A saved physical leg may adopt the last live position, but an
+    endpoint reached with fewer than two confirmations must resume just outside
+    the arrival radius so one transient sample cannot become a virtual arrival.
+
+- Separate arrival outcome from terminal settlement.
+  - `m_bOutcomeApplied` makes the defensive capture-pressure reduction a
+    once-only target-arrival effect. If ownership changed before arrival, record
+    the no-pressure outcome instead of mutating the new owner's state.
+  - Arrival advances to `ON_STATION`, then rebases the tactical route to the
+    immutable origin and enters `RETURNING_TO_ORIGIN`. Only origin arrival
+    settles `COMPLETED`; a fixed elapsed-time resolution is not authoritative.
+
+- Restore exact enemy QRFs as one coherent virtual aggregate.
+  - Validate reciprocal order/operation/manifest/batch/group IDs, manifest hash,
+    faction, source, target, service commitment, and resource-settlement
+    evidence before normalizing anything. The active group's enemy-order
+    backlink keeps generic restore code from reclassifying the projection as a
+    garrison.
+  - Clear root/member/native-group handles and physical flags, retain route
+    progress and exact casualties, and normalize one nonterminal batch to held
+    virtual authority. Incomplete or conflicting versioned authority is
+    invalidated and settled through the exact owner; it must not fall back to a
+    legacy support request or legacy QRF row.
+  - Unknown committed survivor authority is zero, not the original accepted
+    roster. Validate the settlement kind, accepted/survivor counts, calculated
+    refund amounts, and matching operation receipt before reusing an applied
+    refund. Keep casualty rows while that validation is retryable.
+  - A settled operation is an archive receipt: its batch and active-group rows
+    may already be gone. Current-schema restore requires runtime backlinks only
+    for an open operation and must preserve `RESOLVED` plus its original terminal
+    result across save/load after runtime cleanup.
+  - Choose full-versus-survivor restore settlement from durable commitment
+    evidence, not from one flag alone. A strict reciprocal order/operation/
+    batch/group execution chain proves commitment even if the saved boolean is
+    corrupt; missing or ambiguous links never justify a full refund. Preserve
+    conflicting rows as evidence instead of deleting them to manufacture
+    uniqueness, and leave an already-settled operation with a missing or
+    conflicting resource receipt blocked rather than refunding or promoting it.
+  - Reconcile only after campaign foundation has recreated faction resource
+    pools. A restore-time refund cannot be applied safely against a missing pool,
+    and postponing pool creation until after exact reconciliation can strand a
+    terminal operation with unsettled resources.
+
+- Runtime failures must terminate through the exact owner rather than leave an
+  open operation stalled indefinitely.
+  - Route initialization, virtual advance, live-route restart, missing runtime
+    binding, and failed/non-successful physical batches need an explicit typed
+    failure settlement. Retire any physical handles first, preserve the last
+    provable survivor count, then settle once.
+  - Run a pure terminal-eligibility preflight first, then apply the canonical
+    enemy-resource settlement, then commit the operation terminal transition.
+    Restore/replay may encounter resources already settled but order backlinks
+    not finalized; finish cleanup idempotently instead of charging or refunding
+    again.
+  - Terminal row cleanup is complete only when adapter bindings, the owned
+    PhysicalWar root, and owned runtime members are all absent. If reciprocal
+    runtime links disagree, quarantine the order without reading that roster,
+    refunding it, or retiring the possibly foreign projection. Likewise, a
+    zero-slot roster becomes `DESTROYED` only after the physical elimination
+    finalizer confirms that no live exact member remains.
+  - A production exact row never downgrades to contract version `0`. If a debug
+    fixture needs the historical timer path, seed it through an explicitly named
+    debug-only legacy helper.
+
+- Operation markers should consume operation authority, not recreate it.
+  - Publish one marker for each open exact enemy defensive-QRF operation at the
+    strategic cursor while virtual and the live group centroid while physical.
+    The label can derive faction, living slot count, duty, the current outbound
+    or return leg, and ETA without creating a second QRF lifecycle record.
+  - The expected-marker census must use the same order/operation eligibility
+    predicate as publication. Counting an open operation whose order was already
+    invalidated creates a false coverage failure and can hide a real stale marker.
+  - An authoritative batch roster count of zero is still authoritative. Do not
+    replace it with stale positive active-group survivor fields merely because
+    zero was also used as the old "unknown" sentinel.
+
+- `HST_EnemyQRFOperationProofService` contributes six deterministic
+  `enemy_qrf.*` assertions: admission, legacy isolation, projection,
+  settlement, persistence, and rejection. Schema-51 implementation checkpoints
+  pass foundation validation. The closing pre-stamp Script Editor run loads
+  5,749 Game files/11,514 classes, creates the game with CRC `947bc5b4`, and
+  completes script validation. A normal WorldEditor open loads the same file and
+  class counts, creates the game with CRC `a8dad007`, and remains responsive for
+  all ten two-second samples. These source/startup gates do not prove
+  physical movement, AI casualties, marker rendering, packaged accounting, or a
+  real process restart.
 
 ## Crewless Mixed Active-Group Lifecycle
 

@@ -31,7 +31,18 @@ class HST_StrategicMovementService
 		HST_ForceManifestState manifest,
 		HST_ActiveGroupState group)
 	{
-		if (!state || !operation || !request || !manifest || !group)
+		if (!request)
+			return false;
+		return InitializeExactInfantryQRFRoute(state, operation, manifest, group);
+	}
+
+	bool InitializeExactInfantryQRFRoute(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ActiveGroupState group)
+	{
+		if (!state || !operation || !manifest || !group)
 			return false;
 		if (!IsSupportedExactInfantryManifest(manifest))
 			return false;

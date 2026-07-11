@@ -73,18 +73,34 @@ be read as proof that a later change was executed or certified.
   only when no intact, damageable transmitter exists. These fixes are source-
   validated only and require the requested republished map/dialog/radio mission
   check.
-- Current schema-50 source validation now passes its source gates. The initial
+- Schema-51 implementation and hardening pass foundation validation. The closing
+  pre-stamp Script Editor run loads 5,749 Game files/11,514 classes, creates the
+  game with CRC `947bc5b4`, and completes script validation. A normal WorldEditor
+  open loads the same file/class counts, creates the game with CRC `a8dad007`,
+  and remains responsive for all ten two-second samples without a script error,
+  unknown class, or crash signature. During schema 50, the initial
   correctly quoted Workbench attempts exposed a native compiler edge in the
   already-large Phase-20 civilian population debug method: adding five
   appearance/horn count locals caused `0xc0000374` before `Module: Game` without
   a script diagnostic, while the production civilian and strategic services
   compiled in isolation. Splitting the post-selection probe and aggregating the
   new counts in `HST_CivilianProjectionProofSummary` removes that method-local
-  pressure without dropping assertions. The foundation validator passes;
-  Workbench script validation loads 5,747 files/11,508 classes with CRC
-  `16665f19`; and a correctly launched WorldEditor remains responsive for all
-  ten samples over 20 seconds with no script-error, unknown-class, or crash
-  signature. This is compile/startup evidence, not packaged-runtime proof.
+  pressure without dropping assertions. The correctly launched schema-50
+  WorldEditor remained responsive
+  for all ten samples over 20 seconds with no script-error, unknown-class, or
+  crash signature, but that result predates schema 51. These are source/compile
+  gates, not packaged-runtime proof.
+- Schema 51 adds the first exact enemy-order consumer in source. A newly planned
+  infantry-only defensive QRF freezes one prepaid manifest from a distinct
+  same-faction source, creates one reciprocal order/operation/batch/group
+  aggregate, suppresses parallel legacy QRF/support authority, travels through
+  held/physical/folded projection states, applies defensive pressure once,
+  returns to origin, and settles the survivor fraction of attack/support costs
+  once. Six `enemy_qrf.*` fixtures cover admission, legacy isolation,
+  projection, settlement, current-schema restore, and rejection/refund. Their
+  integration, settlement/archive replay, and successful Workbench compile are
+  source evidence only; no packaged run has yet proved AI movement, physical arrival, casualties,
+  marker rendering, resource accounting, or process restart for this slice.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -101,8 +117,9 @@ be read as proof that a later change was executed or certified.
 - The inspected gameplay artifact predates campaign schema 43 exact-force
   authority, schema 44 SpawnQueue authority, the schema 45 engine adapter, and
   the schema 46 exact player-QRF cutover, schema 47 exact force-runtime
-  lifecycle authority, schema 48 accepted-settlement archive, and schema 49
-  exact-QRF operation authority.
+  lifecycle authority, schema 48 accepted-settlement archive, schema 49
+  exact-QRF operation authority, schema 50 strategic projection, and schema 51
+  exact enemy defensive-QRF authority.
   The schema-45 authority baseline passed foundation checks and a headless
   Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
   an HR reservation-conflict rollback, and five partial confirmation save/
@@ -883,12 +900,14 @@ Unproven or incomplete against the pasted contract:
 - Render/UI depth is still incomplete for rendered map widget inspection. Command-menu visual opening now has an owner-client rendered widget proof path, but the current audit has not yet seen a fresh runtime artifact with that report.
 - The later packaged schema-49 check confirmed that stock HUD and Game Master
   access were restored. The schema-50 marker, dialog, radio, civilian, and
-  strategic-projection follow-ups remain source-only until a new package is run.
-- Schema-50 strategic projection remains limited to one exact paid player
-  infantry QRF consumer. Live physical contact does not yet own engagement;
-  generalized virtualization, other force/order families, vehicles/assets,
-  packaged execution of the integrated assertions, and real restart/migration/
-  archive replay remain open.
+  player strategic-projection follow-ups plus the schema-51 enemy defensive-QRF
+  slice remain source-only until a new package is run.
+- Strategic projection is still limited to two explicit infantry-only
+  consumers: exact paid player QRF and newly planned enemy defensive QRF. Live
+  physical contact does not yet own player-operation engagement; generalized
+  virtualization, historical/other enemy orders, other supports, vehicles/
+  assets, packaged execution of the integrated assertions, and real restart/
+  migration/archive replay remain open.
 - Persistence depth is still incomplete for real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore.
 - Cleanup/stall coverage is not universal: untagged debug leftovers cannot be deterministically removed, cleanup depends on debug spawn paths naming physical entities, and some physical categories still lack stall evidence dumps.
 - Some rows are intentionally classifier-backed action/observation evidence rather than feature-specific physical probes; these should be replaced with narrower typed cases when they represent real mechanics rather than reports.
@@ -902,11 +921,11 @@ Unproven or incomplete against the pasted contract:
 
 ## Validation Run
 
-- `git diff --check` passed for the current documentation update.
-- `tools/validate-foundation.ps1` passes for the current schema-50 source.
-- Correctly quoted headless Workbench validation exits successfully after
-  loading 5,747 Game files/11,508 classes with CRC `16665f19` and reporting
-  successful script validation. A separate normal WorldEditor project open
-  remained responsive at every two-second sample through 20 seconds with no
-  `SCRIPT (E)`, unknown-class, or crash signature. These are schema-50 source
-  compile/startup gates, not packaged runtime certification.
+- `git diff --check` passes for the current documentation update.
+- `tools/validate-foundation.ps1` passes for the current schema-51 tree.
+- Schema-51 implementation checkpoints have passed headless Workbench source-
+  validation. The final stamped tree still receives a closing run; its exact
+  build identity belongs in the build stamp, not in this pre-stamp audit text.
+- The separate bounded WorldEditor result belongs to schema 50 and is retained
+  only as historical startup evidence. Source/compile gates are not packaged
+  runtime certification.

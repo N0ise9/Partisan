@@ -1,3 +1,10 @@
+class HST_EnemyDefensiveQRFManifestResult
+{
+	bool m_bSuccess;
+	string m_sFailureReason;
+	ref HST_ForceManifestState m_Manifest;
+}
+
 class HST_ForcePlanningService
 {
 	static const string QUOTE_KIND_GARRISON = "garrison_recruitment";
@@ -24,6 +31,160 @@ class HST_ForcePlanningService
 	void SetEventLogService(HST_CampaignEventLogService eventLog)
 	{
 		m_EventLog = eventLog;
+	}
+
+	HST_EnemyDefensiveQRFManifestResult PlanExactEnemyDefensiveQRF(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyOrderState order,
+		bool validateResources = true)
+	{
+		HST_EnemyDefensiveQRFManifestResult result = new HST_EnemyDefensiveQRFManifestResult();
+		if (!state || !preset || !order || !m_Catalog || !m_Integrity)
+		{
+			result.m_sFailureReason = "exact enemy defensive QRF planning context is missing";
+			return result;
+		}
+		if (order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			|| order.m_iOperationContractVersion != HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION)
+		{
+			result.m_sFailureReason = "enemy order did not opt into the exact defensive QRF contract";
+			return result;
+		}
+		if (order.m_sOrderId.IsEmpty() || order.m_sOperationId.IsEmpty()
+			|| order.m_sOperationId != HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId)
+			|| order.m_sFactionKey.IsEmpty() || order.m_sSourceZoneId.IsEmpty() || order.m_sTargetZoneId.IsEmpty()
+			|| IsZeroPosition(order.m_vSourcePosition) || IsZeroPosition(order.m_vTargetPosition))
+		{
+			result.m_sFailureReason = "exact enemy defensive QRF identity is incomplete";
+			return result;
+		}
+		if (!HST_FactionRelationService.IsEnemyFaction(preset, order.m_sFactionKey))
+		{
+			result.m_sFailureReason = "exact enemy defensive QRF requires a configured enemy faction";
+			return result;
+		}
+		if (!order.m_sManifestId.IsEmpty())
+		{
+			HST_ForceManifestState persisted = state.FindForceManifest(order.m_sManifestId);
+			if (!persisted || !persisted.m_bFrozen
+				|| persisted.m_sOperationId != order.m_sOperationId
+				|| persisted.m_sForceKind != HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND
+				|| persisted.m_sFactionKey != order.m_sFactionKey
+				|| persisted.m_sSourceZoneId != order.m_sSourceZoneId || persisted.m_sTargetZoneId != order.m_sTargetZoneId
+				|| persisted.m_iAttackResourceCost != order.m_iAttackCost || persisted.m_iSupportResourceCost != order.m_iSupportCost
+				|| persisted.m_sManifestHash.IsEmpty() || persisted.m_sManifestHash != order.m_sManifestHash
+				|| m_Integrity.BuildManifestHash(persisted) != persisted.m_sManifestHash)
+			{
+				result.m_sFailureReason = "persisted exact enemy defensive QRF manifest conflicts with its order";
+				return result;
+			}
+			result.m_bSuccess = true;
+			result.m_Manifest = persisted;
+			return result;
+		}
+		HST_ZoneState sourceZone = state.FindZone(order.m_sSourceZoneId);
+		HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+		if (!sourceZone || !targetZone || sourceZone.m_sZoneId == targetZone.m_sZoneId)
+		{
+			result.m_sFailureReason = "exact enemy defensive QRF requires distinct source and target zones";
+			return result;
+		}
+		if (sourceZone.m_sOwnerFactionKey != order.m_sFactionKey || targetZone.m_sOwnerFactionKey != order.m_sFactionKey)
+		{
+			result.m_sFailureReason = "exact enemy defensive QRF source and defended target must remain faction-owned";
+			return result;
+		}
+		if (!state.FindFactionPool(order.m_sFactionKey))
+		{
+			result.m_sFailureReason = "exact enemy defensive QRF faction pool is unavailable";
+			return result;
+		}
+
+		HST_ForceCatalogValidationResult catalogValidation = m_Catalog.ValidateFactionCatalog(order.m_sFactionKey, validateResources);
+		if (!catalogValidation || !catalogValidation.m_bValid)
+		{
+			result.m_sFailureReason = "enemy QRF group catalog is invalid";
+			if (catalogValidation && !catalogValidation.m_sFailureReason.IsEmpty())
+				result.m_sFailureReason = catalogValidation.m_sFailureReason;
+			return result;
+		}
+
+		int planningSeed = m_Integrity.BuildDeterministicSeed(
+			state,
+			order.m_sOrderId + "|enemy_defensive_qrf",
+			order.m_sTargetZoneId);
+		HST_ForceGroupCatalogEntry catalogGroup = m_Integrity.SelectPlayerSupportGroup(
+			m_Catalog.BuildGroupCatalog(order.m_sFactionKey),
+			planningSeed,
+			state.m_iWarLevel);
+		if (!catalogGroup || catalogGroup.m_sExecutionPrefab.IsEmpty() || catalogGroup.m_aMemberSlots.Count() <= 0)
+		{
+			result.m_sFailureReason = "deterministic exact enemy QRF group selection failed";
+			return result;
+		}
+
+		string manifestId = "manifest_" + order.m_sOperationId;
+		HST_ForceManifestState manifest = new HST_ForceManifestState();
+		manifest.m_sManifestId = manifestId;
+		manifest.m_sOperationId = order.m_sOperationId;
+		manifest.m_sForceKind = HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND;
+		manifest.m_sFactionRole = "enemy";
+		manifest.m_sFactionKey = order.m_sFactionKey;
+		manifest.m_sIntentId = "enemy_defensive_qrf";
+		manifest.m_sSourceZoneId = order.m_sSourceZoneId;
+		manifest.m_sTargetZoneId = order.m_sTargetZoneId;
+		manifest.m_sGroupPrefab = catalogGroup.m_sExecutionPrefab;
+		manifest.m_sCatalogVersion = HST_ForceCatalogService.CATALOG_VERSION;
+		manifest.m_sPolicyId = HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_POLICY_ID;
+		manifest.m_iRequestedMemberCount = catalogGroup.m_aMemberSlots.Count();
+		manifest.m_iAcceptedMemberCount = catalogGroup.m_aMemberSlots.Count();
+		manifest.m_iAttackResourceCost = Math.Max(0, order.m_iAttackCost);
+		manifest.m_iSupportResourceCost = Math.Max(0, order.m_iSupportCost);
+		manifest.m_iDeterministicSeed = planningSeed;
+		manifest.m_iCreatedAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+		manifest.m_bFrozen = true;
+
+		HST_ForceManifestGroupState groupElement = new HST_ForceManifestGroupState();
+		groupElement.m_sElementId = manifestId + "_group_1";
+		groupElement.m_sCatalogEntryId = catalogGroup.m_sEntryId;
+		groupElement.m_sPrefab = catalogGroup.m_sExecutionPrefab;
+		groupElement.m_sRole = catalogGroup.m_sRole;
+		groupElement.m_iOrdinal = 0;
+		groupElement.m_iExpectedMemberCount = catalogGroup.m_aMemberSlots.Count();
+		groupElement.m_bRequired = true;
+		manifest.m_aGroups.Insert(groupElement);
+
+		for (int memberIndex = 0; memberIndex < catalogGroup.m_aMemberSlots.Count(); memberIndex++)
+		{
+			HST_ForceGroupCatalogSlot catalogSlot = catalogGroup.m_aMemberSlots[memberIndex];
+			if (!catalogSlot || catalogSlot.m_sPrefab.IsEmpty())
+			{
+				result.m_sFailureReason = "selected enemy QRF group contains an invalid catalog slot";
+				return result;
+			}
+			HST_ForceManifestMemberState member = new HST_ForceManifestMemberState();
+			member.m_sSlotId = string.Format("%1_member_%2", manifestId, memberIndex + 1);
+			member.m_sCatalogSlotId = catalogGroup.m_sEntryId + "/" + catalogSlot.m_sSlotId;
+			member.m_sGroupElementId = groupElement.m_sElementId;
+			member.m_sPrefab = catalogSlot.m_sPrefab;
+			member.m_sRole = catalogSlot.m_sRole;
+			member.m_iOrdinal = memberIndex;
+			member.m_iHRCost = 0;
+			member.m_bRequired = true;
+			manifest.m_aMembers.Insert(member);
+		}
+
+		manifest.m_sManifestHash = m_Integrity.BuildManifestHash(manifest);
+		if (manifest.m_sManifestHash.IsEmpty())
+		{
+			result.m_sFailureReason = "exact enemy defensive QRF manifest hash failed";
+			return result;
+		}
+
+		result.m_bSuccess = true;
+		result.m_Manifest = manifest;
+		return result;
 	}
 
 	HST_ForceQuoteResult IssuePlayerSupportQuote(

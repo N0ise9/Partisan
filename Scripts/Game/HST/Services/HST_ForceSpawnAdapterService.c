@@ -935,10 +935,34 @@ class HST_ForceSpawnAdapterService
 			result.m_bRuntimeChanged = true;
 		}
 
-		physicalWar.ReleaseForceSpawnRuntimeOwnership(activeGroup);
-		result.m_bSuccess = CountHandlesForProjection(projectionId) == 0;
+		SCR_AIGroup remainingRoot = physicalWar.GetForceSpawnGroupRoot(activeGroup);
+		int remainingRuntimeMembers = physicalWar.CountForceSpawnRuntimeMembers(activeGroup);
+		if (remainingRoot && remainingRuntimeMembers <= 0)
+		{
+			if (!physicalWar.TryUnregisterForceSpawnGroupRoot(activeGroup, remainingRoot, true, failure))
+			{
+				result.m_sFailureReason = failure;
+				return result;
+			}
+			result.m_iRootCount++;
+			result.m_bRuntimeChanged = true;
+			remainingRoot = physicalWar.GetForceSpawnGroupRoot(activeGroup);
+		}
+
+		int remainingBindings = CountHandlesForProjection(projectionId);
+		remainingRuntimeMembers = physicalWar.CountForceSpawnRuntimeMembers(activeGroup);
+		result.m_bSuccess = remainingBindings == 0 && !remainingRoot && remainingRuntimeMembers == 0;
 		if (!result.m_bSuccess)
-			result.m_sFailureReason = "retirement left exact runtime bindings";
+		{
+			result.m_sFailureReason = string.Format(
+				"retirement left exact runtime authority: bindings %1 | root %2 | members %3",
+				remainingBindings,
+				remainingRoot != null,
+				remainingRuntimeMembers);
+			return result;
+		}
+
+		physicalWar.ReleaseForceSpawnRuntimeOwnership(activeGroup);
 		return result;
 	}
 

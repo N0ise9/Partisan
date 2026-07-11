@@ -4855,7 +4855,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 50",
+		"SCHEMA_VERSION = 51",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -5235,7 +5235,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 50',
+		'SCHEMA_VERSION = 51',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5533,6 +5533,201 @@ foreach ($requiredOperationProjectionEntry in @(
 	}
 }
 Write-Host "Schema-50 exact infantry-QRF strategic movement, hysteresis, roster transfer, virtual combat, restore, and proof contract OK"
+$enemyQRFOperationPath = "Scripts/Game/HST/Services/HST_EnemyQRFOperationService.c"
+$enemyQRFProofPath = "Scripts/Game/HST/Services/HST_EnemyQRFOperationProofService.c"
+$enemyCommanderPath = "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
+$forcePlanningPath = "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
+$physicalWarPath = "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+foreach ($schema51Path in @($enemyQRFOperationPath, $enemyQRFProofPath, $enemyCommanderPath, $forcePlanningPath, $physicalWarPath)) {
+	if (!(Test-Path $schema51Path)) {
+		throw "Schema-51 exact enemy defensive-QRF source is missing: $schema51Path"
+	}
+}
+$enemyQRFOperationText = Get-Content -Raw $enemyQRFOperationPath
+$enemyQRFProofText = Get-Content -Raw $enemyQRFProofPath
+$enemyCommanderText = Get-Content -Raw $enemyCommanderPath
+$forcePlanningText = Get-Content -Raw $forcePlanningPath
+$physicalWarText = Get-Content -Raw $physicalWarPath
+$schema51StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $forceSaveDataText
+foreach ($requiredSchema51StateEntry in @(
+		'HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF',
+		'HST_OPERATION_TERMINAL_COMPLETED',
+		'int m_iOperationContractVersion;',
+		'string m_sSourceZoneId;',
+		'string m_sManifestHash;',
+		'bool m_bStrategicServiceCommitted;',
+		'string m_sResourceSettlementId;',
+		'string m_sResourceSettlementKind;',
+		'int m_iSettlementAcceptedMemberCount;',
+		'int m_iSettlementSurvivorMemberCount;',
+		'bool m_bResourceSettlementApplied;',
+		'string m_sEnemyOrderId;',
+		'int m_iArrivalConfirmationCount;',
+		'int m_iLastArrivalConfirmationSecond;',
+		'NormalizeSchema51EnemyDefensiveQRFAuthority',
+		'ValidateSchema51EnemyDefensiveQRFRestore',
+		'FindSchema51EnemyOrder',
+		'FindSchema51ForceSpawnResult',
+		'FindSchema51ActiveGroup',
+		'migration_schema51_enemy_defensive_qrf_authority',
+		'legacy_enemy_orders_preserved_contract_zero'
+	)) {
+	if ($schema51StateCorpus -notmatch [regex]::Escape($requiredSchema51StateEntry)) {
+		throw "Schema-51 enemy defensive-QRF state/persistence contract missing: $requiredSchema51StateEntry"
+	}
+}
+foreach ($requiredSchema51CopyEntry in @(
+		'target.m_sEnemyOrderId = source.m_sEnemyOrderId;',
+		'target.m_sSourceZoneId = source.m_sSourceZoneId;',
+		'target.m_sManifestHash = source.m_sManifestHash;',
+		'target.m_bStrategicServiceCommitted = source.m_bStrategicServiceCommitted;',
+		'target.m_sResourceSettlementId = source.m_sResourceSettlementId;',
+		'target.m_sResourceSettlementKind = source.m_sResourceSettlementKind;',
+		'target.m_iSettlementAcceptedMemberCount = source.m_iSettlementAcceptedMemberCount;',
+		'target.m_iSettlementSurvivorMemberCount = source.m_iSettlementSurvivorMemberCount;',
+		'target.m_bResourceSettlementApplied = source.m_bResourceSettlementApplied;',
+		'target.m_iArrivalConfirmationCount = source.m_iArrivalConfirmationCount;',
+		'target.m_iLastArrivalConfirmationSecond = source.m_iLastArrivalConfirmationSecond;'
+	)) {
+	if ($forceSaveDataText -notmatch [regex]::Escape($requiredSchema51CopyEntry)) {
+		throw "Schema-51 enemy defensive-QRF deep copy missing: $requiredSchema51CopyEntry"
+	}
+}
+foreach ($requiredSchema51PlanningEntry in @(
+		'class HST_EnemyDefensiveQRFManifestResult',
+		'PlanExactEnemyDefensiveQRF',
+		'HST_FactionRelationService.IsEnemyFaction',
+		'source and defended target must remain faction-owned',
+		'EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND',
+		'EXACT_ENEMY_DEFENSIVE_QRF_POLICY_ID',
+		'manifest.m_aGroups.Insert(groupElement);',
+		'manifest.m_aMembers.Insert(member);',
+		'manifest.m_bFrozen = true;'
+	)) {
+	if ($forcePlanningText -notmatch [regex]::Escape($requiredSchema51PlanningEntry)) {
+		throw "Schema-51 enemy defensive-QRF planning contract missing: $requiredSchema51PlanningEntry"
+	}
+}
+foreach ($requiredSchema51OperationEntry in @(
+		'EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION = 1',
+		'EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND',
+		'EXACT_ENEMY_DEFENSIVE_QRF_RECALL_POLICY',
+		'EXACT_ENEMY_DEFENSIVE_QRF_SETTLEMENT_POLICY',
+		'RegisterExactEnemyDefensiveQRF',
+		'LinkExactEnemyDefensiveQRFOutboundVirtual',
+		'MarkExactEnemyDefensiveQRFMaterializingFromVirtual',
+		'MarkExactEnemyDefensiveQRFPhysical',
+		'ConfirmExactEnemyDefensiveQRFArrivalSample',
+		'MarkExactEnemyDefensiveQRFOnStation',
+		'BeginExactEnemyDefensiveQRFReturnToOrigin',
+		'CanPrepareExactEnemyDefensiveQRFSettlement',
+		'RecordExactEnemyDefensiveQRFResourceSettlement',
+		'SettleExactEnemyDefensiveQRF',
+		'ValidateExactEnemyDefensiveQRF',
+		'CountEnemyOrderId',
+		'CountForceManifestId'
+	)) {
+	if ($operationServiceText -notmatch [regex]::Escape($requiredSchema51OperationEntry)) {
+		throw "Schema-51 enemy defensive-QRF operation contract missing: $requiredSchema51OperationEntry"
+	}
+}
+foreach ($requiredSchema51RuntimeEntry in @(
+		'CanAdmitPreparedOrder',
+		'ResolveCommittedAdmissionReplay',
+		'AdmitPreparedOrder',
+		'InitializeExactInfantryQRFRoute',
+		'RestartExactEnemyQRFInfantryRoute',
+		'HST_OPERATION_TERMINAL_ROUTE_FAILED',
+		'RetireAndSettlePhysicalFailure',
+		'ApplyDefensiveArrivalOutcome',
+		'ReconcileAfterRestore',
+		'ReconcileSettledRuntimeCleanup',
+		'ResolveRestoreSettlementSurvivors',
+		'ValidateAppliedResourceSettlement',
+		'FindAmbiguousAuthorityRows',
+		'AbortAmbiguousAuthority'
+	)) {
+	if ($enemyQRFOperationText -notmatch [regex]::Escape($requiredSchema51RuntimeEntry)) {
+		throw "Schema-51 enemy defensive-QRF runtime contract missing: $requiredSchema51RuntimeEntry"
+	}
+}
+$schema51QueueOrderBlock = [regex]::Match($enemyCommanderText, 'protected bool QueueOrder[\s\S]*?\r?\n\t\}\r?\n\r?\n\tprotected bool TickActiveOrderRuntime')
+if (!$schema51QueueOrderBlock.Success) {
+	throw "Schema-51 enemy defensive-QRF production admission block is missing"
+}
+$schema51PlanIndex = $schema51QueueOrderBlock.Value.IndexOf('PlanExactEnemyDefensiveQRF')
+$schema51PreflightIndex = $schema51QueueOrderBlock.Value.IndexOf('CanAdmitPreparedOrder')
+$schema51DebitIndex = $schema51QueueOrderBlock.Value.IndexOf('TrySpendDefense')
+$schema51InsertIndex = $schema51QueueOrderBlock.Value.IndexOf('m_aEnemyOrders.Insert(order)')
+$schema51AdmitIndex = $schema51QueueOrderBlock.Value.IndexOf('m_ExactEnemyQRF.AdmitPreparedOrder')
+if ($schema51PlanIndex -lt 0 -or $schema51PreflightIndex -le $schema51PlanIndex -or
+	$schema51DebitIndex -le $schema51PreflightIndex -or $schema51InsertIndex -le $schema51DebitIndex -or
+	$schema51AdmitIndex -le $schema51InsertIndex) {
+	throw "Schema-51 enemy defensive-QRF production flow must plan and preflight before debit, then expose and admit one queued order"
+}
+foreach ($requiredSchema51CommanderEntry in @(
+		'SetExactEnemyQRFAuthorityServices',
+		'QueueDebugLegacyOrder',
+		'forceDebugLegacyQRF',
+		'HST_OperationService.RequiresOperation(order)',
+		'm_ExactEnemyQRF.TickOrder',
+		'HasActiveLegacyEnemyQRFSupport',
+		'HST_ZONE_HIDEOUT',
+		'HST_ZONE_MISSION_SITE'
+	)) {
+	if ($enemyCommanderText -notmatch [regex]::Escape($requiredSchema51CommanderEntry)) {
+		throw "Schema-51 enemy defensive-QRF commander isolation missing: $requiredSchema51CommanderEntry"
+	}
+}
+foreach ($requiredSchema51PhysicalEntry in @(
+		'RestartExactEnemyQRFInfantryRoute',
+		'IsLiveConfirmedOperationRouteGroup',
+		'HasOpenEnemyCommanderQRF',
+		'HST_ENEMY_ORDER_QUEUED',
+		'HST_ENEMY_ORDER_ACTIVE'
+	)) {
+	if (($physicalWarText + "`n" + $enemyQRFOperationText) -notmatch [regex]::Escape($requiredSchema51PhysicalEntry)) {
+		throw "Schema-51 enemy defensive-QRF physical/legacy isolation missing: $requiredSchema51PhysicalEntry"
+	}
+}
+foreach ($requiredSchema51MarkerEntry in @(
+		'AddExactEnemyQRFOperationMarkers',
+		'ShouldShowExactEnemyDefensiveQRFMarker',
+		'ResolveExactEnemyDefensiveQRFMarkerLiving',
+		'else if (!authoritative && group)',
+		'hst_exact_enemy_qrf_',
+		'enemy_response_exact',
+		'CountOpenExactEnemyDefensiveQRFs'
+	)) {
+	if ($markerServiceText -notmatch [regex]::Escape($requiredSchema51MarkerEntry)) {
+		throw "Schema-51 enemy defensive-QRF marker contract missing: $requiredSchema51MarkerEntry"
+	}
+}
+foreach ($requiredSchema51ProofEntry in @(
+		'class HST_EnemyQRFOperationProofService',
+		'HST_EnemyQRFOperationProofReport Run()',
+		'AppendCampaignDebugEnemyQRFOperationAssertions',
+		'enemy_qrf.admission',
+		'enemy_qrf.legacy_isolation',
+		'enemy_qrf.projection',
+		'enemy_qrf.settlement',
+		'enemy_qrf.persistence',
+		'enemy_qrf.rejection'
+	)) {
+	if (($enemyQRFProofText + "`n" + $coordinatorText) -notmatch [regex]::Escape($requiredSchema51ProofEntry)) {
+		throw "Schema-51 enemy defensive-QRF proof integration missing: $requiredSchema51ProofEntry"
+	}
+}
+$restoreSettlementStart = $enemyQRFOperationText.IndexOf('protected bool SettleInvalidatedRestoreAuthority')
+$restoreSettlementEnd = $enemyQRFOperationText.IndexOf('protected bool ForceSettleInvalidatedRestore')
+if ($restoreSettlementStart -lt 0 -or $restoreSettlementEnd -le $restoreSettlementStart) {
+	throw "Schema-51 restore settlement authority block is missing"
+}
+$restoreSettlementBlock = $enemyQRFOperationText.Substring($restoreSettlementStart, $restoreSettlementEnd - $restoreSettlementStart)
+if ($restoreSettlementBlock -match 'm_aOperations\.Remove') {
+	throw "Schema-51 restore must preserve ambiguous operation evidence instead of deleting rows to manufacture uniqueness"
+}
+Write-Host "Schema-51 exact enemy defensive-QRF admission, projection, settlement, persistence, marker, and proof contract OK"
 $forceSpawnQueueServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
 if (!(Test-Path $forceSpawnQueueServicePath)) {
 	throw "Missing durable force spawn queue service: $forceSpawnQueueServicePath"
@@ -10317,19 +10512,19 @@ Write-Host "Typed fail-closed support recall and explicit command-result contrac
 
 $supportRouteUpdateText = $supportRouteUpdateMatch.Value
 foreach ($requiredPhysicalSupportBranchEntry in @(
-		"bool physicalSupportRoute = activeGroup.m_bSpawnedEntity",
+		"bool physicalConfirmedRoute = activeGroup.m_bSpawnedEntity",
 		"&& activeGroup.m_iInfantryCount > 0",
 		"&& !IsMissionConvoyGroup(activeGroup)",
-		"&& IsSupportRequestActiveGroup(activeGroup);"
+		"&& IsLiveConfirmedOperationRouteGroup(activeGroup);"
 	)) {
 	if ($supportRouteUpdateText -notmatch [regex]::Escape($requiredPhysicalSupportBranchEntry)) {
 		throw "Spawned physical support must branch away from elapsed-time route simulation: $requiredPhysicalSupportBranchEntry"
 	}
 }
-if ($supportRouteUpdateText -notmatch '(?s)if \(physicalSupportRoute\)\s*\{\s*changed = UpdatePhysicalSupportActiveGroupRoute\(state, activeGroup, routePositions\) \|\| changed;\s*continue;\s*\}') {
+if ($supportRouteUpdateText -notmatch '(?s)if \(physicalConfirmedRoute\)\s*\{\s*changed = UpdatePhysicalSupportActiveGroupRoute\(state, activeGroup, routePositions\) \|\| changed;\s*continue;\s*\}') {
 	throw "Spawned physical support must continue after its live route update instead of entering interpolation"
 }
-$physicalSupportBranchIndex = $supportRouteUpdateText.IndexOf("bool physicalSupportRoute = activeGroup.m_bSpawnedEntity")
+$physicalSupportBranchIndex = $supportRouteUpdateText.IndexOf("bool physicalConfirmedRoute = activeGroup.m_bSpawnedEntity")
 foreach ($simulatedRouteWrite in @(
 		"float progress = Math.Min",
 		"vector position = ResolveActiveGroupRoutePosition",
@@ -10530,7 +10725,7 @@ foreach ($supportSettlementProof in @(
 }
 
 $supportBuildRouteText = $supportBuildRouteMatch.Value
-if ($supportBuildRouteText -notmatch '(?s)if \(IsSupportRequestActiveGroup\(activeGroup\)\)\s*return BuildDirectSupportRoutePositions\(activeGroup\);') {
+if ($supportBuildRouteText -notmatch '(?s)if \(IsLiveConfirmedOperationRouteGroup\(activeGroup\)\)\s*return BuildDirectSupportRoutePositions\(activeGroup\);') {
 	throw "Physical support must use a direct current-position route instead of a stale generated route"
 }
 $directSupportBranchIndex = $supportBuildRouteText.IndexOf("BuildDirectSupportRoutePositions(activeGroup)")

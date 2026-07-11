@@ -13,10 +13,23 @@ class HST_OperationService
 	static const string EXACT_PLAYER_QRF_ASSIGNMENT_KIND = "support_on_station";
 	static const string EXACT_PLAYER_QRF_RECALL_POLICY = "exit_then_refund_living_hr";
 	static const string EXACT_PLAYER_QRF_SETTLEMENT_POLICY = "exact_paid_qrf_ledger";
+	static const int EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION = 1;
+	static const string EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND = "enemy_defensive_qrf";
+	static const string EXACT_ENEMY_DEFENSIVE_QRF_POLICY_ID = "exact_enemy_defensive_qrf_v1";
+	static const string EXACT_ENEMY_DEFENSIVE_QRF_MANIFEST_INTENT = "enemy_defensive_qrf";
+	static const string EXACT_ENEMY_DEFENSIVE_QRF_ASSIGNMENT_KIND = "defend_zone";
+	static const string EXACT_ENEMY_DEFENSIVE_QRF_RECALL_POLICY = "return_to_origin_then_refund_survivors";
+	static const string EXACT_ENEMY_DEFENSIVE_QRF_SETTLEMENT_POLICY = "exact_enemy_defensive_qrf_ledger";
+	static const float EXACT_ENEMY_DEFENSIVE_QRF_ARRIVAL_RADIUS_METERS = 35.0;
 
 	static bool RequiresOperation(HST_SupportRequestState request)
 	{
 		return request && request.m_iOperationContractVersion >= EXACT_PLAYER_QRF_CONTRACT_VERSION;
+	}
+
+	static bool RequiresOperation(HST_EnemyOrderState order)
+	{
+		return order && order.m_iOperationContractVersion == EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION;
 	}
 
 	static string BuildSettlementId(string operationId, string settlementKind)
@@ -96,6 +109,577 @@ class HST_OperationService
 		return BuildAccepted(operation, true, false);
 	}
 
+	HST_OperationTransitionResult RegisterExactEnemyDefensiveQRF(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		string failure = ValidateEnemyDefensiveQRFRegistrationIdentity(state, order, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+
+		HST_OperationRecordState existing = state.FindOperation(order.m_sOperationId);
+		if (existing)
+		{
+			failure = ValidateExactEnemyDefensiveQRF(state, existing, order, manifest);
+			if (!failure.IsEmpty())
+				return BuildRejected(failure);
+			return BuildAccepted(existing, false, true);
+		}
+		if (CountEnemyOperationsByAnyIdentity(state, order.m_sOperationId, order.m_sOrderId, order.m_sManifestId) > 0)
+			return BuildRejected("exact enemy defensive QRF identity is already owned by another operation");
+
+		HST_OperationRecordState operation = new HST_OperationRecordState();
+		operation.m_sOperationId = order.m_sOperationId;
+		operation.m_eType = HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF;
+		operation.m_iContractVersion = EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION;
+		operation.m_sOwnerFactionKey = order.m_sFactionKey;
+		operation.m_sEnemyOrderId = order.m_sOrderId;
+		operation.m_sManifestId = manifest.m_sManifestId;
+		operation.m_sOriginZoneId = order.m_sSourceZoneId;
+		operation.m_vOriginPosition = order.m_vSourcePosition;
+		operation.m_sAssignmentKind = EXACT_ENEMY_DEFENSIVE_QRF_ASSIGNMENT_KIND;
+		operation.m_sAssignmentZoneId = order.m_sTargetZoneId;
+		operation.m_vAssignmentPosition = order.m_vTargetPosition;
+		operation.m_sTacticalTargetZoneId = order.m_sTargetZoneId;
+		operation.m_vTacticalTargetPosition = order.m_vTargetPosition;
+		operation.m_vStrategicPosition = order.m_vSourcePosition;
+		operation.m_iProjectionContractVersion = HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION;
+		operation.m_iRouteVersion = HST_StrategicMovementService.DIRECT_ROUTE_VERSION;
+		operation.m_vRouteStartPosition = order.m_vSourcePosition;
+		operation.m_vRouteEndPosition = order.m_vTargetPosition;
+		operation.m_fRouteTotalDistanceMeters = Distance2D(order.m_vSourcePosition, order.m_vTargetPosition);
+		operation.m_fStrategicSpeedMetersPerSecond = HST_StrategicMovementService.EXACT_PLAYER_QRF_SPEED_METERS_PER_SECOND;
+		operation.m_iStrategicLastUpdateSecond = Math.Max(0, state.m_iElapsedSeconds);
+		operation.m_iVirtualCombatLastStepSecond = Math.Max(0, state.m_iElapsedSeconds);
+		operation.m_iLastVirtualFriendlyCount = manifest.m_iAcceptedMemberCount;
+		operation.m_sRecallPolicyId = EXACT_ENEMY_DEFENSIVE_QRF_RECALL_POLICY;
+		operation.m_sSettlementPolicyId = EXACT_ENEMY_DEFENSIVE_QRF_SETTLEMENT_POLICY;
+		operation.m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
+		operation.m_eResumeDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
+		operation.m_eEngagementMode = HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
+		operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
+		operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
+		operation.m_eSettlementState = HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+		operation.m_eTerminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE;
+		operation.m_iDeterministicSeed = manifest.m_iDeterministicSeed;
+		operation.m_iCreatedAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+		operation.m_iDutyStateEnteredAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+		operation.m_iEngagementStateEnteredAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+		operation.m_iMaterializationStateEnteredAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+		operation.m_iLastProgressAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+		operation.m_iRevision = 1;
+		state.m_aOperations.Insert(operation);
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult RemoveUncommittedExactEnemyDefensiveQRF(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!RequiresOperation(order))
+			return BuildAccepted(null, false, true);
+		if (!state || !order)
+			return BuildRejected("exact enemy defensive QRF rollback context is missing");
+		HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
+		if (!operation)
+			return BuildAccepted(null, false, true);
+		string failure = ValidateExactEnemyDefensiveQRF(state, operation, order, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| !operation.m_sSpawnResultId.IsEmpty() || !operation.m_sGroupId.IsEmpty())
+			return BuildRejected("exact enemy defensive QRF has execution or settlement authority and cannot be rolled back");
+		int index = state.m_aOperations.Find(operation);
+		if (index < 0)
+			return BuildRejected("exact enemy defensive QRF rollback identity disappeared");
+		state.m_aOperations.Remove(index);
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult LinkExactEnemyDefensiveQRFOutboundVirtual(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		failure = ValidateEnemyDefensiveQRFProjectionLinks(operation, manifest, group, batch);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!batch.m_bStrategicProjectionHeld)
+			return BuildRejected("exact enemy defensive QRF outbound batch is not held for strategic projection");
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| (operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING
+				&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND)
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+			return BuildRejected("exact enemy defensive QRF cannot become virtual outbound from the current state");
+		if (!LinkMatchesOrEmpty(operation.m_sSpawnResultId, batch.m_sResultId)
+			|| !LinkMatchesOrEmpty(operation.m_sForceId, batch.m_sForceId)
+			|| !LinkMatchesOrEmpty(operation.m_sProjectionId, batch.m_sProjectionId)
+			|| !LinkMatchesOrEmpty(operation.m_sGroupId, group.m_sGroupId))
+			return BuildRejected("exact enemy defensive QRF outbound would replace authoritative projection links");
+
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		int living = queue.CountStrategicLivingMemberSlots(batch);
+		if (living <= 0 || living > manifest.m_iAcceptedMemberCount)
+			return BuildRejected("exact enemy defensive QRF outbound roster does not match the frozen manifest");
+
+		bool changed;
+		changed = AssignString(operation.m_sSpawnResultId, batch.m_sResultId) || changed;
+		changed = AssignString(operation.m_sForceId, batch.m_sForceId) || changed;
+		changed = AssignString(operation.m_sProjectionId, batch.m_sProjectionId) || changed;
+		changed = AssignString(operation.m_sGroupId, group.m_sGroupId) || changed;
+		changed = AssignString(operation.m_sCurrentRouteId, group.m_sRouteId) || changed;
+		changed = AssignString(order.m_sSpawnResultId, batch.m_sResultId) || changed;
+		changed = AssignString(order.m_sGroupId, group.m_sGroupId) || changed;
+		changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition) || changed;
+		if (operation.m_iLastVirtualFriendlyCount != living)
+		{
+			operation.m_iLastVirtualFriendlyCount = living;
+			changed = true;
+		}
+		changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND, state.m_iElapsedSeconds) || changed;
+		changed = SetResumeDuty(operation, operation.m_eDutyState) || changed;
+		changed = ResetArrivalConfirmation(operation) || changed;
+		order.m_bPhysicalized = false;
+		order.m_bAbstractResolved = false;
+		order.m_bStrategicServiceCommitted = true;
+		order.m_sRuntimeStatus = "exact_virtual_outbound";
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult MarkExactEnemyDefensiveQRFMaterializingFromVirtual(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		failure = ValidateEnemyDefensiveQRFProjectionLinks(operation, manifest, group, batch);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (batch.m_bStrategicProjectionHeld)
+			return BuildRejected("exact enemy defensive QRF materialization batch remains strategically held");
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+			return BuildRejected("exact enemy defensive QRF cannot materialize from the current projection state");
+		bool changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC, state.m_iElapsedSeconds);
+		changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition) || changed;
+		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
+		operation.m_iLastProjectionDecisionSecond = state.m_iElapsedSeconds;
+		order.m_sRuntimeStatus = "exact_materializing";
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult MarkExactEnemyDefensiveQRFPhysical(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		failure = ValidateEnemyDefensiveQRFProjectionLinks(operation, manifest, group, batch);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+			return BuildRejected("exact enemy defensive QRF physical batch has no successful handoff");
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+				&& operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL))
+			return BuildRejected("exact enemy defensive QRF cannot become physical from the current projection state");
+
+		bool changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE, state.m_iElapsedSeconds);
+		changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition) || changed;
+		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
+		operation.m_iLastProjectionDecisionSecond = state.m_iElapsedSeconds;
+		order.m_bPhysicalized = true;
+		order.m_iPhysicalizedAtSecond = Math.Max(order.m_iPhysicalizedAtSecond, state.m_iElapsedSeconds);
+		order.m_sRuntimeStatus = "exact_physical";
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult UpdateExactEnemyDefensiveQRFPhysicalPosition(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!EnemyDefensiveQRFGroupLinksMatch(operation, manifest, group)
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			return BuildRejected("exact enemy defensive QRF physical position does not own live authority");
+		bool changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition);
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult BeginExactEnemyDefensiveQRFDematerialization(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		string reason)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!EnemyDefensiveQRFGroupLinksMatch(operation, manifest, group)
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			return BuildRejected("exact enemy defensive QRF cannot dematerialize from the current projection state");
+		bool changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition);
+		changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE, state.m_iElapsedSeconds) || changed;
+		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
+		operation.m_iLastProjectionDecisionSecond = state.m_iElapsedSeconds;
+		order.m_sRuntimeStatus = "exact_dematerializing";
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult CompleteExactEnemyDefensiveQRFDematerialization(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		failure = ValidateEnemyDefensiveQRFProjectionLinks(operation, manifest, group, batch);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!batch.m_bStrategicProjectionHeld)
+			return BuildRejected("exact enemy defensive QRF dematerialization batch is not held");
+		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			return BuildRejected("exact enemy defensive QRF dematerialization completion is out of order");
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		int living = queue.CountStrategicLivingMemberSlots(batch);
+		bool changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition);
+		changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC, state.m_iElapsedSeconds) || changed;
+		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
+		if (operation.m_iLastVirtualFriendlyCount != living)
+		{
+			operation.m_iLastVirtualFriendlyCount = Math.Max(0, living);
+			changed = true;
+		}
+		operation.m_iStrategicLastUpdateSecond = state.m_iElapsedSeconds;
+		operation.m_iVirtualCombatLastStepSecond = state.m_iElapsedSeconds;
+		operation.m_iLastProjectionDecisionSecond = state.m_iElapsedSeconds;
+		operation.m_sLastVirtualCombatReason = "physical interval excluded from virtual combat catch-up";
+		order.m_bPhysicalized = false;
+		order.m_sRuntimeStatus = "exact_virtual";
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult ConfirmExactEnemyDefensiveQRFArrivalSample(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!EnemyDefensiveQRFGroupLinksMatch(operation, manifest, group)
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+			|| (operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND
+				&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN))
+			return BuildRejected("exact enemy defensive QRF arrival sample lacks live route authority");
+
+		bool changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition);
+		float arrivalDistance = Distance2D(group.m_vPosition, operation.m_vRouteEndPosition);
+		if (arrivalDistance > EXACT_ENEMY_DEFENSIVE_QRF_ARRIVAL_RADIUS_METERS)
+		{
+			changed = ResetArrivalConfirmation(operation) || changed;
+			return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+		}
+		if (operation.m_iLastArrivalConfirmationSecond == state.m_iElapsedSeconds)
+			return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+		if (operation.m_iArrivalConfirmationCount < 2)
+		{
+			operation.m_iArrivalConfirmationCount++;
+			changed = true;
+		}
+		operation.m_iLastArrivalConfirmationSecond = state.m_iElapsedSeconds;
+		return FinishTransition(operation, true, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult MarkExactEnemyDefensiveQRFOnStation(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!EnemyDefensiveQRFGroupLinksMatch(operation, manifest, group)
+			|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND)
+			return BuildRejected("exact enemy defensive QRF arrival conflicts with outbound authority");
+		if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+		{
+			if (operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+				|| operation.m_iArrivalConfirmationCount < 2)
+				return BuildRejected("exact enemy defensive QRF physical arrival requires two distinct-second confirmations");
+		}
+		else if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			|| Distance2D(operation.m_vStrategicPosition, operation.m_vRouteEndPosition) > HST_StrategicMovementService.ARRIVAL_EPSILON_METERS)
+			return BuildRejected("exact enemy defensive QRF virtual arrival has not reached the target");
+
+		bool changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION, state.m_iElapsedSeconds);
+		changed = SetResumeDuty(operation, operation.m_eDutyState) || changed;
+		changed = ResetArrivalConfirmation(operation) || changed;
+		operation.m_iVirtualCombatLastStepSecond = state.m_iElapsedSeconds;
+		order.m_bAbstractResolved = operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
+		if (order.m_bAbstractResolved)
+			order.m_sRuntimeStatus = "exact_virtual_on_station";
+		else
+			order.m_sRuntimeStatus = "exact_physical_on_station";
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult BeginExactEnemyDefensiveQRFReturnToOrigin(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!EnemyDefensiveQRFGroupLinksMatch(operation, manifest, group)
+			|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			return BuildRejected("exact enemy defensive QRF cannot begin return from the current state");
+
+		vector returnStart = operation.m_vStrategicPosition;
+		if (!IsZeroVector(group.m_vPosition))
+			returnStart = group.m_vPosition;
+		bool changed = AssignVector(operation.m_vStrategicPosition, returnStart);
+		changed = AssignVector(operation.m_vRouteStartPosition, returnStart) || changed;
+		changed = AssignVector(operation.m_vRouteEndPosition, operation.m_vOriginPosition) || changed;
+		float returnDistance = Distance2D(returnStart, operation.m_vOriginPosition);
+		if (operation.m_fRouteTotalDistanceMeters != returnDistance)
+		{
+			operation.m_fRouteTotalDistanceMeters = returnDistance;
+			changed = true;
+		}
+		if (operation.m_fRouteProgressMeters != 0)
+		{
+			operation.m_fRouteProgressMeters = 0;
+			changed = true;
+		}
+		changed = AssignString(operation.m_sCurrentRouteId, operation.m_sOperationId + "_return") || changed;
+		changed = AssignString(group.m_sRouteId, operation.m_sCurrentRouteId) || changed;
+		changed = AssignVector(group.m_vSourcePosition, returnStart) || changed;
+		changed = AssignVector(group.m_vTargetPosition, operation.m_vOriginPosition) || changed;
+		changed = AssignString(operation.m_sTacticalTargetZoneId, operation.m_sOriginZoneId) || changed;
+		changed = AssignVector(operation.m_vTacticalTargetPosition, operation.m_vOriginPosition) || changed;
+		changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN, state.m_iElapsedSeconds) || changed;
+		changed = SetResumeDuty(operation, operation.m_eDutyState) || changed;
+		changed = ResetArrivalConfirmation(operation) || changed;
+		operation.m_iStrategicLastUpdateSecond = state.m_iElapsedSeconds;
+		operation.m_iVirtualCombatLastStepSecond = state.m_iElapsedSeconds;
+		operation.m_sLastVirtualCombatReason = "return leg excludes completed defensive engagement";
+		order.m_bAbstractResolved = false;
+		if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+			order.m_sRuntimeStatus = "exact_physical_returning";
+		else
+			order.m_sRuntimeStatus = "exact_virtual_returning";
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult RecordExactEnemyDefensiveQRFEngagement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationEngagementMode nextMode)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| !IsActiveDuty(operation.m_eDutyState))
+			return BuildRejected("exact enemy defensive QRF cannot change engagement in the current state");
+		if (operation.m_eEngagementMode == nextMode)
+			return BuildAccepted(operation, false, true);
+		if (!IsLegalEngagementTransition(operation.m_eEngagementMode, nextMode))
+			return BuildRejected("illegal exact enemy defensive QRF engagement transition");
+		if (operation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR)
+			operation.m_eResumeDutyState = operation.m_eDutyState;
+		operation.m_eEngagementMode = nextMode;
+		operation.m_iEngagementStateEnteredAtSecond = state.m_iElapsedSeconds;
+		if (nextMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CONTACT
+			|| nextMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_ENGAGED)
+			operation.m_iLastContactAtSecond = state.m_iElapsedSeconds;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		operation.m_iRevision++;
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult CanPrepareExactEnemyDefensiveQRFSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!IsEnemyDefensiveQRFTerminalResult(terminalResult) || settlementId.IsEmpty())
+			return BuildRejected("exact enemy defensive QRF terminal result or settlement identity is invalid");
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			if (operation.m_eTerminalResult == terminalResult && operation.m_sSettlementId == settlementId)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("exact enemy defensive QRF is already settled with a conflicting result");
+		}
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+			return BuildRejected("exact enemy defensive QRF settlement state conflicts");
+		if (terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED)
+		{
+			if (operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN)
+				return BuildRejected("completed exact enemy defensive QRF has not begun its return leg");
+			if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+			{
+				if (operation.m_iArrivalConfirmationCount < 2)
+					return BuildRejected("completed exact enemy defensive QRF requires two physical return confirmations");
+			}
+			else if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+				|| Distance2D(operation.m_vStrategicPosition, operation.m_vOriginPosition) > HST_StrategicMovementService.ARRIVAL_EPSILON_METERS)
+				return BuildRejected("completed exact enemy defensive QRF has not reached its origin");
+		}
+		return BuildAccepted(operation, false, false);
+	}
+
+	HST_OperationTransitionResult CanSettleExactEnemyDefensiveQRF(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId)
+	{
+		HST_OperationTransitionResult prepared = CanPrepareExactEnemyDefensiveQRFSettlement(
+			state,
+			order,
+			terminalResult,
+			settlementId);
+		if (!prepared || !prepared.m_bAccepted)
+			return prepared;
+		if (!order.m_bResourceSettlementApplied || order.m_sResourceSettlementId.IsEmpty()
+			|| order.m_sResourceSettlementKind.IsEmpty()
+			|| order.m_sResourceSettlementId != BuildSettlementId(order.m_sOperationId, order.m_sResourceSettlementKind)
+			|| order.m_sResourceSettlementId != settlementId)
+			return BuildRejected("exact enemy defensive QRF resource settlement has not been applied for this terminal receipt");
+		return prepared;
+	}
+
+	HST_OperationTransitionResult RecordExactEnemyDefensiveQRFResourceSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		string settlementKind,
+		int acceptedMemberCount,
+		int survivorMemberCount)
+	{
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (settlementKind.IsEmpty() || acceptedMemberCount != manifest.m_iAcceptedMemberCount
+			|| survivorMemberCount < 0 || survivorMemberCount > acceptedMemberCount)
+			return BuildRejected("exact enemy defensive QRF resource settlement roster is invalid");
+		string settlementId = BuildSettlementId(operation.m_sOperationId, settlementKind);
+		if (settlementId.IsEmpty())
+			return BuildRejected("exact enemy defensive QRF resource settlement identity is invalid");
+		if (order.m_bResourceSettlementApplied)
+		{
+			if (order.m_sResourceSettlementId == settlementId
+				&& order.m_sResourceSettlementKind == settlementKind
+				&& order.m_iSettlementAcceptedMemberCount == acceptedMemberCount
+				&& order.m_iSettlementSurvivorMemberCount == survivorMemberCount)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("exact enemy defensive QRF resource settlement already conflicts");
+		}
+		if (!order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
+			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0)
+			return BuildRejected("exact enemy defensive QRF contains partial resource settlement authority");
+		order.m_sResourceSettlementId = settlementId;
+		order.m_sResourceSettlementKind = settlementKind;
+		order.m_iSettlementAcceptedMemberCount = acceptedMemberCount;
+		order.m_iSettlementSurvivorMemberCount = survivorMemberCount;
+		order.m_bResourceSettlementApplied = true;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		operation.m_iRevision++;
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult SettleExactEnemyDefensiveQRF(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		HST_OperationTransitionResult preflight = CanSettleExactEnemyDefensiveQRF(state, order, terminalResult, settlementId);
+		if (!preflight.m_bAccepted || !preflight.m_Operation || preflight.m_bAlreadyApplied)
+			return preflight;
+		HST_OperationRecordState operation = preflight.m_Operation;
+		operation.m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED;
+		operation.m_eEngagementMode = HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
+		operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED;
+		operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
+		operation.m_eSettlementState = HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED;
+		operation.m_eTerminalResult = terminalResult;
+		operation.m_sSettlementId = settlementId;
+		operation.m_sTerminalReason = reason;
+		operation.m_iDutyStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iEngagementStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iMaterializationStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		operation.m_iSettledAtSecond = state.m_iElapsedSeconds;
+		ResetArrivalConfirmation(operation);
+		operation.m_iRevision++;
+		order.m_bPhysicalized = false;
+		order.m_bAbstractResolved = false;
+		return BuildAccepted(operation, true, false);
+	}
+
 	HST_OperationTransitionResult LinkOutboundVirtual(
 		HST_CampaignState state,
 		HST_SupportRequestState request,
@@ -136,6 +720,7 @@ class HST_OperationService
 		changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition) || changed;
 		changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND, state.m_iElapsedSeconds) || changed;
 		changed = SetResumeDuty(operation, operation.m_eDutyState) || changed;
+		changed = ResetArrivalConfirmation(operation) || changed;
 		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
 	}
 
@@ -336,6 +921,7 @@ class HST_OperationService
 		changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND, state.m_iElapsedSeconds) || changed;
 		changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC, state.m_iElapsedSeconds) || changed;
 		changed = SetResumeDuty(operation, operation.m_eDutyState) || changed;
+		changed = ResetArrivalConfirmation(operation) || changed;
 		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
 	}
 
@@ -508,6 +1094,7 @@ class HST_OperationService
 			recallTarget = operation.m_vOriginPosition;
 		changed = AssignString(operation.m_sTacticalTargetZoneId, operation.m_sOriginZoneId) || changed;
 		changed = AssignVector(operation.m_vTacticalTargetPosition, recallTarget) || changed;
+		changed = ResetArrivalConfirmation(operation) || changed;
 		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
 	}
 
@@ -600,7 +1187,8 @@ class HST_OperationService
 		if (!operation)
 			return BuildAccepted(null, false, true);
 		if (terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
-			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE || settlementId.IsEmpty())
+			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED || settlementId.IsEmpty())
 			return BuildRejected("exact player QRF terminal result or settlement identity is invalid");
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 		{
@@ -719,6 +1307,7 @@ class HST_OperationService
 		{
 			if (operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
 				|| operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+				|| operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED
 				|| operation.m_sSettlementId.IsEmpty() || operation.m_iSettledAtSecond < 0
 				|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED
 				|| operation.m_eEngagementMode != HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR
@@ -730,6 +1319,145 @@ class HST_OperationService
 			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
 			|| !operation.m_sSettlementId.IsEmpty())
 			return "open exact player QRF operation contains terminal authority";
+		return "";
+	}
+
+	string ValidateExactEnemyDefensiveQRF(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!state || !operation || !order || !manifest)
+			return "exact enemy defensive QRF operation authority is incomplete";
+		if (CountOperationId(state, operation.m_sOperationId) != 1)
+			return "exact enemy defensive QRF operation identity is ambiguous";
+		if (CountEnemyOperationsByAnyIdentity(state, operation.m_sOperationId, order.m_sOrderId, manifest.m_sManifestId) != 1)
+			return "exact enemy defensive QRF operation ownership backlinks are ambiguous";
+		if (CountEnemyOrdersByAnyIdentity(state, order) != 1)
+			return "exact enemy defensive QRF enemy-order identity is ambiguous";
+		if (CountEnemyForceManifestsByAnyIdentity(state, manifest.m_sManifestId, operation.m_sOperationId) != 1)
+			return "exact enemy defensive QRF manifest identity is ambiguous";
+		if (operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+			|| operation.m_iContractVersion != EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+			|| order.m_iOperationContractVersion != EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+			|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF || operation.m_iRevision <= 0)
+			return "exact enemy defensive QRF operation contract conflicts";
+		if (operation.m_sOperationId != order.m_sOperationId
+			|| operation.m_sOperationId != HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId)
+			|| operation.m_sEnemyOrderId != order.m_sOrderId
+			|| operation.m_sManifestId != order.m_sManifestId || operation.m_sManifestId != manifest.m_sManifestId
+			|| manifest.m_sOperationId != operation.m_sOperationId)
+			return "exact enemy defensive QRF aggregate backlinks conflict";
+		if (!operation.m_sSupportRequestId.IsEmpty() || !operation.m_sQuoteId.IsEmpty()
+			|| !order.m_sSupportRequestId.IsEmpty() || !manifest.m_sQuoteId.IsEmpty())
+			return "exact enemy defensive QRF conflicts with the legacy support consumer";
+		if (operation.m_sOwnerFactionKey != order.m_sFactionKey || manifest.m_sFactionKey != order.m_sFactionKey)
+			return "exact enemy defensive QRF immutable source, target, or owner conflicts";
+		if (operation.m_sOriginZoneId != order.m_sSourceZoneId || manifest.m_sSourceZoneId != order.m_sSourceZoneId)
+			return "exact enemy defensive QRF immutable source, target, or owner conflicts";
+		if (operation.m_sAssignmentZoneId != order.m_sTargetZoneId || manifest.m_sTargetZoneId != order.m_sTargetZoneId)
+			return "exact enemy defensive QRF immutable source, target, or owner conflicts";
+		if (operation.m_vOriginPosition != order.m_vSourcePosition
+			|| operation.m_vAssignmentPosition != order.m_vTargetPosition)
+			return "exact enemy defensive QRF immutable source, target, or owner conflicts";
+		if (operation.m_sAssignmentKind != EXACT_ENEMY_DEFENSIVE_QRF_ASSIGNMENT_KIND)
+			return "exact enemy defensive QRF immutable source, target, or owner conflicts";
+		if (operation.m_sRecallPolicyId != EXACT_ENEMY_DEFENSIVE_QRF_RECALL_POLICY
+			|| operation.m_sSettlementPolicyId != EXACT_ENEMY_DEFENSIVE_QRF_SETTLEMENT_POLICY
+			|| operation.m_iDeterministicSeed != manifest.m_iDeterministicSeed)
+			return "exact enemy defensive QRF policy or deterministic seed conflicts";
+		string manifestFailure = ValidateExactEnemyDefensiveQRFManifest(order, manifest);
+		if (!manifestFailure.IsEmpty())
+			return manifestFailure;
+		if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN
+			|| operation.m_eResumeDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN
+			|| operation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_UNKNOWN
+			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_UNKNOWN
+			|| operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_UNKNOWN
+			|| operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_UNKNOWN)
+			return "exact enemy defensive QRF contains unknown state authority";
+		if (operation.m_iProjectionContractVersion != HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
+			|| operation.m_iRouteVersion != HST_StrategicMovementService.DIRECT_ROUTE_VERSION
+			|| operation.m_fRouteTotalDistanceMeters < 0 || operation.m_fRouteProgressMeters < 0
+			|| operation.m_fRouteProgressMeters > operation.m_fRouteTotalDistanceMeters + 1.0
+			|| operation.m_fStrategicSpeedMetersPerSecond != HST_StrategicMovementService.EXACT_PLAYER_QRF_SPEED_METERS_PER_SECOND)
+			return "exact enemy defensive QRF strategic route contract conflicts";
+		if (operation.m_iLastVirtualFriendlyCount < 0
+			|| operation.m_iLastVirtualFriendlyCount > manifest.m_iAcceptedMemberCount
+			|| operation.m_iArrivalConfirmationCount < 0 || operation.m_iArrivalConfirmationCount > 2
+			|| (operation.m_iArrivalConfirmationCount > 0 && operation.m_iLastArrivalConfirmationSecond < 0))
+			return "exact enemy defensive QRF roster or arrival confirmation authority conflicts";
+
+		bool hasExecutionLink = !operation.m_sSpawnResultId.IsEmpty() || !operation.m_sForceId.IsEmpty()
+			|| !operation.m_sProjectionId.IsEmpty() || !operation.m_sGroupId.IsEmpty();
+		if (order.m_bResourceRefundApplied)
+			return "exact enemy defensive QRF cannot use the legacy refund flag";
+		if (hasExecutionLink != order.m_bStrategicServiceCommitted)
+			return "exact enemy defensive QRF strategic service commit authority conflicts";
+		if (hasExecutionLink && (operation.m_sSpawnResultId.IsEmpty() || operation.m_sForceId.IsEmpty()
+			|| operation.m_sProjectionId.IsEmpty() || operation.m_sGroupId.IsEmpty()))
+			return "exact enemy defensive QRF execution links are incomplete";
+		if (hasExecutionLink && (operation.m_sSpawnResultId != order.m_sSpawnResultId
+			|| operation.m_sGroupId != order.m_sGroupId
+			|| operation.m_sForceId != "force_" + operation.m_sOperationId
+			|| operation.m_sProjectionId != "projection_" + operation.m_sOperationId
+			|| operation.m_sGroupId != operation.m_sProjectionId))
+			return "exact enemy defensive QRF execution backlinks conflict";
+		if (!hasExecutionLink && (!order.m_sSpawnResultId.IsEmpty() || !order.m_sGroupId.IsEmpty()))
+			return "exact enemy defensive QRF order contains unowned execution backlinks";
+		if (order.m_bResourceSettlementApplied)
+		{
+			if (order.m_sResourceSettlementId.IsEmpty() || order.m_sResourceSettlementKind.IsEmpty()
+				|| order.m_sResourceSettlementId != BuildSettlementId(operation.m_sOperationId, order.m_sResourceSettlementKind)
+				|| order.m_iSettlementAcceptedMemberCount != manifest.m_iAcceptedMemberCount
+				|| order.m_iSettlementSurvivorMemberCount < 0
+				|| order.m_iSettlementSurvivorMemberCount > order.m_iSettlementAcceptedMemberCount)
+				return "exact enemy defensive QRF resource settlement authority conflicts";
+			int expectedAttackRefund = Math.Max(0, order.m_iAttackCost) * order.m_iSettlementSurvivorMemberCount / order.m_iSettlementAcceptedMemberCount;
+			int expectedSupportRefund = Math.Max(0, order.m_iSupportCost) * order.m_iSettlementSurvivorMemberCount / order.m_iSettlementAcceptedMemberCount;
+			if (order.m_sResourceSettlementKind.Contains("_full"))
+			{
+				expectedAttackRefund = Math.Max(0, order.m_iAttackCost);
+				expectedSupportRefund = Math.Max(0, order.m_iSupportCost);
+			}
+			if (order.m_iRefundedAttackResources != expectedAttackRefund
+				|| order.m_iRefundedSupportResources != expectedSupportRefund)
+				return "exact enemy defensive QRF resource refund amounts conflict with its survivor receipt";
+		}
+		else if (!order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
+			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0)
+			return "unsettled exact enemy defensive QRF contains partial resource settlement authority";
+		if ((operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
+			&& !hasExecutionLink)
+			return "exact enemy defensive QRF materialization lacks execution authority";
+		if ((operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
+			&& operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			return "exact enemy defensive QRF live projection lacks live position authority";
+		if ((operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED)
+			&& operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+			return "exact enemy defensive QRF nonphysical projection lacks strategic position authority";
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			if (!IsEnemyDefensiveQRFTerminalResult(operation.m_eTerminalResult)
+				|| !order.m_bResourceSettlementApplied
+				|| operation.m_sSettlementId.IsEmpty() || operation.m_sSettlementId != order.m_sResourceSettlementId
+				|| operation.m_iSettledAtSecond < 0
+				|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED
+				|| operation.m_eEngagementMode != HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR
+				|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED
+				|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+				return "settled exact enemy defensive QRF lacks terminal authority";
+		}
+		else if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| !operation.m_sSettlementId.IsEmpty())
+			return "open exact enemy defensive QRF contains terminal authority";
 		return "";
 	}
 
@@ -769,6 +1497,126 @@ class HST_OperationService
 			|| quote.m_sFactionKey.IsEmpty() || quote.m_sTargetZoneId.IsEmpty())
 			return "exact player QRF operation immutable identity is incomplete";
 		return "";
+	}
+
+	protected string ValidateEnemyDefensiveQRFRegistrationIdentity(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!state || !order || !manifest)
+			return "exact enemy defensive QRF registration context is missing";
+		if (order.m_iOperationContractVersion != EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+			|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF)
+			return "enemy order does not opt into the exact defensive QRF contract";
+		if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
+			&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+			return "exact enemy defensive QRF registration requires an open order";
+		if (order.m_sOrderId.IsEmpty() || order.m_sOperationId.IsEmpty()
+			|| order.m_sOperationId != HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId)
+			|| order.m_sOperationId != manifest.m_sOperationId
+			|| order.m_sManifestId.IsEmpty() || order.m_sManifestId != manifest.m_sManifestId
+			|| order.m_sManifestHash.IsEmpty() || order.m_sManifestHash != manifest.m_sManifestHash)
+			return "exact enemy defensive QRF order or manifest identity conflicts";
+		if (order.m_sFactionKey.IsEmpty() || order.m_sSourceZoneId.IsEmpty() || order.m_sTargetZoneId.IsEmpty()
+			|| order.m_sSourceZoneId == order.m_sTargetZoneId || IsZeroVector(order.m_vSourcePosition)
+			|| IsZeroVector(order.m_vTargetPosition))
+			return "exact enemy defensive QRF source, target, or faction identity is incomplete";
+		if (!order.m_sSpawnResultId.IsEmpty() || !order.m_sGroupId.IsEmpty() || !order.m_sSupportRequestId.IsEmpty()
+			|| order.m_bPhysicalized || order.m_bAbstractResolved || order.m_bStrategicServiceCommitted
+			|| order.m_bResourceSettlementApplied || order.m_bResourceRefundApplied
+			|| !order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty())
+			return "exact enemy defensive QRF registration contains execution or settlement authority";
+		return ValidateExactEnemyDefensiveQRFManifest(order, manifest);
+	}
+
+	protected string ValidateExactEnemyDefensiveQRFManifest(
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!order || !manifest)
+			return "exact enemy defensive QRF manifest authority is missing";
+		HST_StrategicMovementService movement = new HST_StrategicMovementService();
+		HST_ForcePlanningIntegrityService integrity = new HST_ForcePlanningIntegrityService();
+		if (!manifest.m_bFrozen || !movement.IsSupportedExactInfantryManifest(manifest)
+			|| manifest.m_sManifestHash.IsEmpty() || integrity.BuildManifestHash(manifest) != manifest.m_sManifestHash)
+			return "exact enemy defensive QRF manifest is not a valid frozen infantry-only roster";
+		if (manifest.m_sForceKind != EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND
+			|| manifest.m_sPolicyId != EXACT_ENEMY_DEFENSIVE_QRF_POLICY_ID
+			|| manifest.m_sIntentId != EXACT_ENEMY_DEFENSIVE_QRF_MANIFEST_INTENT)
+			return "exact enemy defensive QRF manifest policy conflicts";
+		if (manifest.m_sOperationId != order.m_sOperationId || manifest.m_sManifestId != order.m_sManifestId
+			|| manifest.m_sManifestHash != order.m_sManifestHash || manifest.m_sFactionKey != order.m_sFactionKey
+			|| manifest.m_sSourceZoneId != order.m_sSourceZoneId || manifest.m_sTargetZoneId != order.m_sTargetZoneId)
+			return "exact enemy defensive QRF manifest backlinks conflict";
+		if (manifest.m_iRequestedMemberCount != manifest.m_iAcceptedMemberCount
+			|| manifest.m_iAcceptedMemberCount != order.m_iCompositionManpower
+			|| manifest.m_iAttackResourceCost != order.m_iAttackCost
+			|| manifest.m_iSupportResourceCost != order.m_iSupportCost
+			|| order.m_iCompositionVehicleCount != 0 || order.m_iCompositionArmedVehicleCount != 0)
+			return "exact enemy defensive QRF frozen roster or prepaid resource ledger conflicts";
+		return "";
+	}
+
+	protected string ResolveEnemyDefensiveQRFTransition(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		out HST_OperationRecordState operation,
+		out HST_ForceManifestState manifest)
+	{
+		operation = null;
+		manifest = null;
+		if (!state || !order)
+			return "exact enemy defensive QRF transition context is missing";
+		if (!RequiresOperation(order))
+			return "enemy order is not owned by the exact defensive QRF contract";
+		operation = state.FindOperation(order.m_sOperationId);
+		manifest = state.FindForceManifest(order.m_sManifestId);
+		return ValidateExactEnemyDefensiveQRF(state, operation, order, manifest);
+	}
+
+	protected string ValidateEnemyDefensiveQRFProjectionLinks(
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch)
+	{
+		if (!operation || !manifest || !group || !batch)
+			return "exact enemy defensive QRF projection authority is incomplete";
+		if (batch.m_sOperationId != operation.m_sOperationId || batch.m_sManifestId != manifest.m_sManifestId)
+			return "exact enemy defensive QRF projection backlinks conflict";
+		if (group.m_sOperationId != operation.m_sOperationId || group.m_sEnemyOrderId != operation.m_sEnemyOrderId)
+			return "exact enemy defensive QRF projection backlinks conflict";
+		if (group.m_sManifestId != manifest.m_sManifestId || group.m_sSpawnResultId != batch.m_sResultId)
+			return "exact enemy defensive QRF projection backlinks conflict";
+		if (group.m_sProjectionId != batch.m_sProjectionId || group.m_sForceId != batch.m_sForceId)
+			return "exact enemy defensive QRF projection backlinks conflict";
+		if (group.m_sGroupId != batch.m_sProjectionId)
+			return "exact enemy defensive QRF projection backlinks conflict";
+		if (!group.m_bQRF || group.m_iVehicleCount != 0 || group.m_iOriginalVehicleCount != 0
+			|| group.m_iCompositionVehicleCount != 0 || group.m_iCompositionArmedVehicleCount != 0
+			|| group.m_iOriginalInfantryCount != manifest.m_iAcceptedMemberCount)
+			return "exact enemy defensive QRF active group is not the frozen infantry-only roster";
+		if (batch.m_sForceId != "force_" + operation.m_sOperationId
+			|| batch.m_sProjectionId != "projection_" + operation.m_sOperationId)
+			return "exact enemy defensive QRF force or projection identity conflicts";
+		return "";
+	}
+
+	protected bool EnemyDefensiveQRFGroupLinksMatch(
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ActiveGroupState group)
+	{
+		if (!operation || !manifest || !group || operation.m_sGroupId.IsEmpty())
+			return false;
+		if (group.m_sGroupId != operation.m_sGroupId || group.m_sOperationId != operation.m_sOperationId)
+			return false;
+		if (group.m_sEnemyOrderId != operation.m_sEnemyOrderId || group.m_sManifestId != manifest.m_sManifestId)
+			return false;
+		if (group.m_sSpawnResultId != operation.m_sSpawnResultId || group.m_sForceId != operation.m_sForceId)
+			return false;
+		return group.m_sProjectionId == operation.m_sProjectionId;
 	}
 
 	protected string ResolveTransitionOperation(
@@ -837,6 +1685,25 @@ class HST_OperationService
 		return true;
 	}
 
+	protected bool ResetArrivalConfirmation(HST_OperationRecordState operation)
+	{
+		if (!operation || (operation.m_iArrivalConfirmationCount == 0 && operation.m_iLastArrivalConfirmationSecond == 0))
+			return false;
+		operation.m_iArrivalConfirmationCount = 0;
+		operation.m_iLastArrivalConfirmationSecond = 0;
+		return true;
+	}
+
+	protected bool IsEnemyDefensiveQRFTerminalResult(HST_EOperationTerminalResult terminalResult)
+	{
+		return terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED
+			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_SPAWN_FAILED
+			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_ROUTE_FAILED
+			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED
+			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED
+			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED;
+	}
+
 	protected bool SetMaterialization(
 		HST_OperationRecordState operation,
 		HST_EOperationMaterializationState materializationState,
@@ -900,6 +1767,77 @@ class HST_OperationService
 		return count;
 	}
 
+	protected int CountEnemyOrderId(HST_CampaignState state, string orderId)
+	{
+		int count;
+		if (!state || orderId.IsEmpty())
+			return count;
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (order && order.m_sOrderId == orderId)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountForceManifestId(HST_CampaignState state, string manifestId)
+	{
+		int count;
+		if (!state || manifestId.IsEmpty())
+			return count;
+		foreach (HST_ForceManifestState manifest : state.m_aForceManifests)
+		{
+			if (manifest && manifest.m_sManifestId == manifestId)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountEnemyOrdersByAnyIdentity(HST_CampaignState state, HST_EnemyOrderState expected)
+	{
+		int count;
+		if (!state || !expected)
+			return count;
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (!order)
+				continue;
+			bool matches = order.m_sOrderId == expected.m_sOrderId;
+			if (!matches && !expected.m_sOperationId.IsEmpty())
+				matches = order.m_sOperationId == expected.m_sOperationId;
+			if (!matches && !expected.m_sManifestId.IsEmpty())
+				matches = order.m_sManifestId == expected.m_sManifestId;
+			if (!matches && !expected.m_sSpawnResultId.IsEmpty())
+				matches = order.m_sSpawnResultId == expected.m_sSpawnResultId;
+			if (!matches && !expected.m_sGroupId.IsEmpty())
+				matches = order.m_sGroupId == expected.m_sGroupId;
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountEnemyForceManifestsByAnyIdentity(
+		HST_CampaignState state,
+		string manifestId,
+		string operationId)
+	{
+		int count;
+		if (!state)
+			return count;
+		foreach (HST_ForceManifestState manifest : state.m_aForceManifests)
+		{
+			if (!manifest)
+				continue;
+			bool matches = !manifestId.IsEmpty() && manifest.m_sManifestId == manifestId;
+			if (!matches && !operationId.IsEmpty())
+				matches = manifest.m_sOperationId == operationId;
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
 	protected int CountOperationsByAnyIdentity(HST_CampaignState state, string operationId, string supportRequestId, string quoteId, string manifestId)
 	{
 		int count;
@@ -911,6 +1849,23 @@ class HST_OperationService
 				continue;
 			if (operation.m_sOperationId == operationId || operation.m_sSupportRequestId == supportRequestId
 				|| operation.m_sQuoteId == quoteId || operation.m_sManifestId == manifestId)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountEnemyOperationsByAnyIdentity(HST_CampaignState state, string operationId, string enemyOrderId, string manifestId)
+	{
+		int count;
+		if (!state)
+			return count;
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation)
+				continue;
+			if ((!operationId.IsEmpty() && operation.m_sOperationId == operationId)
+				|| (!enemyOrderId.IsEmpty() && operation.m_sEnemyOrderId == enemyOrderId)
+				|| (!manifestId.IsEmpty() && operation.m_sManifestId == manifestId))
 				count++;
 		}
 		return count;

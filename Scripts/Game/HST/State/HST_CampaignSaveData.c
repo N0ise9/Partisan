@@ -694,6 +694,7 @@ class HST_CampaignSaveData
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
 		target.m_sSupportRequestId = source.m_sSupportRequestId;
+		target.m_sEnemyOrderId = source.m_sEnemyOrderId;
 		target.m_sGarrisonZoneId = source.m_sGarrisonZoneId;
 		target.m_sQRFInstanceId = source.m_sQRFInstanceId;
 		target.m_sPrefab = source.m_sPrefab;
@@ -770,6 +771,7 @@ class HST_CampaignSaveData
 		target.m_sIssueRequestId = source.m_sIssueRequestId;
 		target.m_sConfirmationRequestId = source.m_sConfirmationRequestId;
 		target.m_sSupportRequestId = source.m_sSupportRequestId;
+		target.m_sEnemyOrderId = source.m_sEnemyOrderId;
 		target.m_sQuoteId = source.m_sQuoteId;
 		target.m_sManifestId = source.m_sManifestId;
 		target.m_sSpawnResultId = source.m_sSpawnResultId;
@@ -800,6 +802,8 @@ class HST_CampaignSaveData
 		target.m_iVirtualCombatHostileDamageCarry = source.m_iVirtualCombatHostileDamageCarry;
 		target.m_iLastVirtualFriendlyCount = source.m_iLastVirtualFriendlyCount;
 		target.m_iLastVirtualHostileCount = source.m_iLastVirtualHostileCount;
+		target.m_iArrivalConfirmationCount = source.m_iArrivalConfirmationCount;
+		target.m_iLastArrivalConfirmationSecond = source.m_iLastArrivalConfirmationSecond;
 		target.m_sLastProjectionReason = source.m_sLastProjectionReason;
 		target.m_sLastVirtualCombatReason = source.m_sLastVirtualCombatReason;
 		target.m_sRecallPolicyId = source.m_sRecallPolicyId;
@@ -1410,11 +1414,14 @@ class HST_CampaignSaveData
 		HST_EnemyOrderState target = new HST_EnemyOrderState();
 		target.m_sOrderId = source.m_sOrderId;
 		target.m_sOperationId = source.m_sOperationId;
+		target.m_iOperationContractVersion = source.m_iOperationContractVersion;
 		target.m_sManifestId = source.m_sManifestId;
+		target.m_sManifestHash = source.m_sManifestHash;
 		target.m_sSpawnResultId = source.m_sSpawnResultId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_eType = source.m_eType;
 		target.m_eStatus = source.m_eStatus;
+		target.m_sSourceZoneId = source.m_sSourceZoneId;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
 		target.m_sCompositionRequestId = source.m_sCompositionRequestId;
 		target.m_sCompositionIntentId = source.m_sCompositionIntentId;
@@ -1440,6 +1447,12 @@ class HST_CampaignSaveData
 		target.m_iCompositionManpower = source.m_iCompositionManpower;
 		target.m_iCompositionVehicleCount = source.m_iCompositionVehicleCount;
 		target.m_iCompositionArmedVehicleCount = source.m_iCompositionArmedVehicleCount;
+		target.m_sResourceSettlementId = source.m_sResourceSettlementId;
+		target.m_sResourceSettlementKind = source.m_sResourceSettlementKind;
+		target.m_iSettlementAcceptedMemberCount = source.m_iSettlementAcceptedMemberCount;
+		target.m_iSettlementSurvivorMemberCount = source.m_iSettlementSurvivorMemberCount;
+		target.m_bStrategicServiceCommitted = source.m_bStrategicServiceCommitted;
+		target.m_bResourceSettlementApplied = source.m_bResourceSettlementApplied;
 		target.m_bPhysicalized = source.m_bPhysicalized;
 		target.m_bAbstractResolved = source.m_bAbstractResolved;
 		target.m_bOutcomeApplied = source.m_bOutcomeApplied;
@@ -2354,6 +2367,7 @@ class HST_CampaignSaveData
 		NormalizeForceAuthority(restoredSchemaVersion);
 		NormalizeOperationAuthority(restoredSchemaVersion);
 		NormalizeOperationProjectionAuthority(restoredSchemaVersion);
+		NormalizeSchema51EnemyDefensiveQRFAuthority(restoredSchemaVersion);
 		NormalizeRestoredOperationProjectionState();
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
@@ -2691,13 +2705,48 @@ class HST_CampaignSaveData
 		{
 			if (!operation || operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 				continue;
+			int savedArrivalConfirmationCount = operation.m_iArrivalConfirmationCount;
+			HST_EOperationMaterializationState savedMaterializationState = operation.m_eMaterializationState;
+			operation.m_iArrivalConfirmationCount = 0;
+			operation.m_iLastArrivalConfirmationSecond = 0;
+			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF)
+			{
+				HST_EnemyOrderState failedOrder = FindSchema51EnemyOrder(operation.m_sEnemyOrderId);
+				if (failedOrder && failedOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
+					&& failedOrder.m_sRuntimeStatus == "exact_operation_invalidated")
+					continue;
+			}
 			if (operation.m_iProjectionContractVersion == HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION)
 			{
 				HST_ActiveGroupState strategicGroup = FindActiveGroupForMigration(operation.m_sGroupId);
-				if (strategicGroup && strategicGroup.m_sOperationId == operation.m_sOperationId
+				bool savedPhysicalArrival = savedMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL;
+				bool savedDematerializing = savedMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING;
+				bool mayAdoptLivePosition = savedDematerializing || savedPhysicalArrival;
+				if (mayAdoptLivePosition && strategicGroup && strategicGroup.m_sOperationId == operation.m_sOperationId
 					&& strategicGroup.m_sProjectionId == operation.m_sProjectionId && !IsZeroVector(strategicGroup.m_vPosition))
-					operation.m_vStrategicPosition = strategicGroup.m_vPosition;
-				movement.SyncRouteProgressFromPosition(operation, operation.m_vStrategicPosition);
+				{
+					vector restoredLivePosition = strategicGroup.m_vPosition;
+					float endpointDistance = Math.Sqrt(DistanceSq2D(restoredLivePosition, operation.m_vRouteEndPosition));
+					if (savedPhysicalArrival && savedArrivalConfirmationCount < 2
+						&& endpointDistance <= HST_StrategicMovementService.ARRIVAL_EPSILON_METERS)
+					{
+						vector awayFromEndpoint = operation.m_vRouteStartPosition - operation.m_vRouteEndPosition;
+						float routeDirectionLength = Math.Sqrt(awayFromEndpoint[0] * awayFromEndpoint[0] + awayFromEndpoint[2] * awayFromEndpoint[2]);
+						if (routeDirectionLength > 0.01)
+						{
+							float safeDistance = HST_StrategicMovementService.ARRIVAL_EPSILON_METERS + 1.0;
+							restoredLivePosition = operation.m_vRouteEndPosition + awayFromEndpoint * (safeDistance / routeDirectionLength);
+						}
+					}
+					operation.m_vStrategicPosition = restoredLivePosition;
+					movement.SyncRouteProgressFromPosition(operation, operation.m_vStrategicPosition);
+				}
+				else
+				{
+					operation.m_vStrategicPosition = movement.ResolvePosition(operation);
+					if (strategicGroup)
+						strategicGroup.m_vPosition = operation.m_vStrategicPosition;
+				}
 				operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
 				operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
 				operation.m_iMaterializationStateEnteredAtSecond = restoreSecond;
@@ -2786,6 +2835,373 @@ class HST_CampaignSaveData
 		m_aCampaignEvents.Insert(eventState);
 	}
 
+	protected void NormalizeSchema51EnemyDefensiveQRFAuthority(int restoredSchemaVersion)
+	{
+		if (restoredSchemaVersion < 51)
+		{
+			int legacyOrderCount;
+			foreach (HST_EnemyOrderState legacyOrder : m_aEnemyOrders)
+			{
+				if (!legacyOrder)
+					continue;
+				legacyOrder.m_iOperationContractVersion = 0;
+				legacyOrder.m_sSourceZoneId = "";
+				legacyOrder.m_sManifestHash = "";
+				legacyOrder.m_bStrategicServiceCommitted = false;
+				legacyOrder.m_sResourceSettlementId = "";
+				legacyOrder.m_sResourceSettlementKind = "";
+				legacyOrder.m_iSettlementAcceptedMemberCount = 0;
+				legacyOrder.m_iSettlementSurvivorMemberCount = 0;
+				legacyOrder.m_bResourceSettlementApplied = false;
+				legacyOrderCount++;
+			}
+
+			if (!HasCampaignEventId("migration_schema51_enemy_defensive_qrf_authority"))
+			{
+				HST_CampaignEventState migrationEvent = new HST_CampaignEventState();
+				migrationEvent.m_sEventId = "migration_schema51_enemy_defensive_qrf_authority";
+				migrationEvent.m_sCategory = "migration";
+				migrationEvent.m_sAggregateType = "operation_record";
+				migrationEvent.m_sAggregateId = "schema51";
+				migrationEvent.m_sTransition = "legacy_enemy_orders_preserved_contract_zero";
+				migrationEvent.m_sReason = string.Format("preserved %1 legacy enemy orders at operation contract version 0; created no exact manifests, rosters, operations, source zones, or refunds", legacyOrderCount);
+				migrationEvent.m_iCreatedAtSecond = Math.Max(0, m_iElapsedSeconds);
+				m_aCampaignEvents.Insert(migrationEvent);
+			}
+			return;
+		}
+
+		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
+		{
+			if (!order || order.m_iOperationContractVersion <= 0)
+				continue;
+			HST_OperationRecordState operation = FindSchema51Operation(order.m_sOperationId);
+			HST_ForceManifestState manifest = FindForceManifestForProjectionMigration(order.m_sManifestId);
+			string failure = ValidateSchema51EnemyDefensiveQRFRestore(operation, order, manifest);
+			if (failure.IsEmpty())
+				continue;
+
+			// A current-schema versioned row must never fall back into the legacy
+			// timer/physicalization path. Preserve its evidence and stop execution;
+			// a runtime settlement owner can apply the appropriate one-time refund.
+			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
+			order.m_bPhysicalized = false;
+			order.m_sRuntimeStatus = "exact_operation_invalidated";
+			order.m_sFailureReason = failure;
+			HST_ForceSpawnResultState batch = FindForceSpawnResultForMigration(order.m_sSpawnResultId);
+			if (batch && batch.m_sOperationId == order.m_sOperationId)
+			{
+				batch.m_bCancelRequested = true;
+				batch.m_bStrategicProjectionHeld = true;
+			}
+		}
+	}
+
+	protected string ValidateSchema51EnemyDefensiveQRFRestore(
+		HST_OperationRecordState operation,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!operation || !order || !manifest)
+			return "exact enemy defensive QRF restore authority is incomplete or ambiguous";
+		if (CountSchema51EnemyOrdersByAnyIdentity(order) != 1)
+			return "exact enemy defensive QRF restore enemy-order identity is ambiguous";
+		if (CountSchema51OperationsByAnyIdentity(operation, order, manifest) != 1)
+			return "exact enemy defensive QRF restore operation identity is ambiguous";
+		if (CountSchema51ManifestsByAnyIdentity(manifest, order) != 1)
+			return "exact enemy defensive QRF restore manifest identity is ambiguous";
+		if (order.m_iOperationContractVersion != HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+			|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+			|| operation.m_iContractVersion != HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION)
+			return "exact enemy defensive QRF restore contract conflicts";
+		if (order.m_sOperationId.IsEmpty() || order.m_sOrderId.IsEmpty()
+			|| order.m_sOperationId != HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId)
+			|| operation.m_sOperationId != order.m_sOperationId || operation.m_sEnemyOrderId != order.m_sOrderId
+			|| operation.m_sManifestId != order.m_sManifestId || manifest.m_sOperationId != order.m_sOperationId
+			|| manifest.m_sManifestId != order.m_sManifestId)
+			return "exact enemy defensive QRF restore backlinks conflict";
+		if (order.m_sManifestHash != manifest.m_sManifestHash)
+			return "exact enemy defensive QRF restore manifest hash backlink conflicts";
+		if (order.m_sSourceZoneId.IsEmpty() || order.m_sTargetZoneId.IsEmpty()
+			|| operation.m_sOriginZoneId != order.m_sSourceZoneId
+			|| operation.m_sAssignmentZoneId != order.m_sTargetZoneId
+			|| manifest.m_sSourceZoneId != order.m_sSourceZoneId || manifest.m_sTargetZoneId != order.m_sTargetZoneId
+			|| operation.m_sOwnerFactionKey != order.m_sFactionKey || manifest.m_sFactionKey != order.m_sFactionKey)
+			return "exact enemy defensive QRF restore source, target, or faction conflicts";
+		HST_StrategicMovementService movement = new HST_StrategicMovementService();
+		HST_ForcePlanningIntegrityService integrity = new HST_ForcePlanningIntegrityService();
+		if (!manifest.m_bFrozen || !movement.IsSupportedExactInfantryManifest(manifest)
+			|| manifest.m_sManifestHash.IsEmpty() || integrity.BuildManifestHash(manifest) != manifest.m_sManifestHash
+			|| manifest.m_iAcceptedMemberCount != order.m_iCompositionManpower
+			|| manifest.m_iAttackResourceCost != order.m_iAttackCost
+			|| manifest.m_iSupportResourceCost != order.m_iSupportCost)
+			return "exact enemy defensive QRF restore manifest or prepaid ledger conflicts";
+		bool hasExecutionLink = !operation.m_sSpawnResultId.IsEmpty() || !operation.m_sGroupId.IsEmpty();
+		if (order.m_bResourceRefundApplied)
+			return "exact enemy defensive QRF restore uses the legacy refund flag";
+		if (hasExecutionLink != order.m_bStrategicServiceCommitted)
+			return "exact enemy defensive QRF restore service-commit authority conflicts";
+		if (order.m_bStrategicServiceCommitted
+			&& operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			HST_ForceSpawnResultState batch = FindSchema51ForceSpawnResult(order.m_sSpawnResultId);
+			HST_ActiveGroupState group = FindSchema51ActiveGroup(order.m_sGroupId);
+			if (!batch || !group)
+				return "exact enemy defensive QRF restore runtime identity is incomplete or ambiguous";
+			if (CountSchema51SpawnResultsByAnyIdentity(batch, order) != 1
+				|| CountSchema51ActiveGroupsByAnyIdentity(group, order) != 1)
+				return "exact enemy defensive QRF restore runtime ownership backlinks are ambiguous";
+			if (operation.m_sSpawnResultId != batch.m_sResultId || operation.m_sGroupId != group.m_sGroupId
+				|| operation.m_sForceId != batch.m_sForceId || operation.m_sProjectionId != batch.m_sProjectionId
+				|| operation.m_sForceId != group.m_sForceId || operation.m_sProjectionId != group.m_sProjectionId
+				|| group.m_sGroupId != group.m_sProjectionId)
+				return "exact enemy defensive QRF restore runtime backlinks conflict";
+			if (batch.m_sOperationId != operation.m_sOperationId || batch.m_sManifestId != manifest.m_sManifestId)
+				return "exact enemy defensive QRF restore runtime backlinks conflict";
+			if (group.m_sOperationId != operation.m_sOperationId || group.m_sEnemyOrderId != order.m_sOrderId)
+				return "exact enemy defensive QRF restore runtime backlinks conflict";
+			if (group.m_sManifestId != manifest.m_sManifestId || group.m_sSpawnResultId != batch.m_sResultId)
+				return "exact enemy defensive QRF restore runtime backlinks conflict";
+		}
+		if (order.m_bResourceSettlementApplied)
+		{
+			if (order.m_sResourceSettlementId.IsEmpty() || order.m_sResourceSettlementKind.IsEmpty()
+				|| order.m_sResourceSettlementId != HST_OperationService.BuildSettlementId(order.m_sOperationId, order.m_sResourceSettlementKind)
+				|| order.m_iSettlementAcceptedMemberCount != manifest.m_iAcceptedMemberCount
+				|| order.m_iSettlementSurvivorMemberCount < 0
+				|| order.m_iSettlementSurvivorMemberCount > order.m_iSettlementAcceptedMemberCount)
+				return "exact enemy defensive QRF restore resource settlement authority conflicts";
+			int expectedAttackRefund = Math.Max(0, order.m_iAttackCost) * order.m_iSettlementSurvivorMemberCount / order.m_iSettlementAcceptedMemberCount;
+			int expectedSupportRefund = Math.Max(0, order.m_iSupportCost) * order.m_iSettlementSurvivorMemberCount / order.m_iSettlementAcceptedMemberCount;
+			if (order.m_sResourceSettlementKind.Contains("_full"))
+			{
+				expectedAttackRefund = Math.Max(0, order.m_iAttackCost);
+				expectedSupportRefund = Math.Max(0, order.m_iSupportCost);
+			}
+			if (order.m_iRefundedAttackResources != expectedAttackRefund
+				|| order.m_iRefundedSupportResources != expectedSupportRefund)
+				return "exact enemy defensive QRF restore refund amounts conflict with its survivor receipt";
+		}
+		else if (!order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
+			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0)
+			return "unsettled exact enemy defensive QRF contains resource settlement authority";
+		if (operation.m_iProjectionContractVersion != HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
+			|| operation.m_iRouteVersion != HST_StrategicMovementService.DIRECT_ROUTE_VERSION
+			|| operation.m_fStrategicSpeedMetersPerSecond <= 0
+			|| operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN
+			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_UNKNOWN
+			|| operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_UNKNOWN
+			|| operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_UNKNOWN)
+			return "exact enemy defensive QRF restore projection state conflicts";
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			if (!order.m_bResourceSettlementApplied
+				|| operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
+				|| operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+				|| operation.m_sSettlementId.IsEmpty()
+				|| operation.m_sSettlementId != order.m_sResourceSettlementId
+				|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED
+				|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED)
+				return "settled exact enemy defensive QRF restore authority conflicts";
+			bool successfulTerminal = operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED
+				|| operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED;
+			if ((successfulTerminal && order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED)
+				|| (!successfulTerminal && order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED))
+				return "settled exact enemy defensive QRF restore order status conflicts with its terminal receipt";
+		}
+		else if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| !operation.m_sSettlementId.IsEmpty())
+			return "open exact enemy defensive QRF restore contains terminal authority";
+		return "";
+	}
+
+	protected HST_OperationRecordState FindSchema51Operation(string operationId)
+	{
+		HST_OperationRecordState match;
+		foreach (HST_OperationRecordState operation : m_aOperations)
+		{
+			if (!operation || operation.m_sOperationId != operationId)
+				continue;
+			if (match)
+				return null;
+			match = operation;
+		}
+		return match;
+	}
+
+	protected HST_EnemyOrderState FindSchema51EnemyOrder(string orderId)
+	{
+		HST_EnemyOrderState match;
+		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
+		{
+			if (!order || order.m_sOrderId != orderId)
+				continue;
+			if (match)
+				return null;
+			match = order;
+		}
+		return match;
+	}
+
+	protected int CountSchema51EnemyOrdersByAnyIdentity(HST_EnemyOrderState expected)
+	{
+		int count;
+		if (!expected)
+			return count;
+		foreach (HST_EnemyOrderState candidate : m_aEnemyOrders)
+		{
+			if (!candidate)
+				continue;
+			bool matches = candidate.m_sOrderId == expected.m_sOrderId;
+			if (!matches && !expected.m_sOperationId.IsEmpty())
+				matches = candidate.m_sOperationId == expected.m_sOperationId;
+			if (!matches && !expected.m_sManifestId.IsEmpty())
+				matches = candidate.m_sManifestId == expected.m_sManifestId;
+			if (!matches && !expected.m_sSpawnResultId.IsEmpty())
+				matches = candidate.m_sSpawnResultId == expected.m_sSpawnResultId;
+			if (!matches && !expected.m_sGroupId.IsEmpty())
+				matches = candidate.m_sGroupId == expected.m_sGroupId;
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountSchema51OperationsByAnyIdentity(
+		HST_OperationRecordState expected,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		int count;
+		if (!expected || !order || !manifest)
+			return count;
+		foreach (HST_OperationRecordState candidate : m_aOperations)
+		{
+			if (!candidate)
+				continue;
+			bool matches = candidate.m_sOperationId == expected.m_sOperationId;
+			if (!matches && !order.m_sOrderId.IsEmpty())
+				matches = candidate.m_sEnemyOrderId == order.m_sOrderId;
+			if (!matches && !manifest.m_sManifestId.IsEmpty())
+				matches = candidate.m_sManifestId == manifest.m_sManifestId;
+			if (!matches && !order.m_sSpawnResultId.IsEmpty())
+				matches = candidate.m_sSpawnResultId == order.m_sSpawnResultId;
+			if (!matches && !order.m_sGroupId.IsEmpty())
+				matches = candidate.m_sGroupId == order.m_sGroupId;
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountSchema51ManifestsByAnyIdentity(
+		HST_ForceManifestState expected,
+		HST_EnemyOrderState order)
+	{
+		int count;
+		if (!expected || !order)
+			return count;
+		foreach (HST_ForceManifestState candidate : m_aForceManifests)
+		{
+			if (!candidate)
+				continue;
+			bool matches = candidate.m_sManifestId == expected.m_sManifestId;
+			if (!matches && !order.m_sOperationId.IsEmpty())
+				matches = candidate.m_sOperationId == order.m_sOperationId;
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
+	protected HST_ForceSpawnResultState FindSchema51ForceSpawnResult(string resultId)
+	{
+		HST_ForceSpawnResultState match;
+		foreach (HST_ForceSpawnResultState batch : m_aForceSpawnResults)
+		{
+			if (!batch || batch.m_sResultId != resultId)
+				continue;
+			if (match)
+				return null;
+			match = batch;
+		}
+		return match;
+	}
+
+	protected HST_ActiveGroupState FindSchema51ActiveGroup(string groupId)
+	{
+		HST_ActiveGroupState match;
+		foreach (HST_ActiveGroupState group : m_aActiveGroups)
+		{
+			if (!group || group.m_sGroupId != groupId)
+				continue;
+			if (match)
+				return null;
+			match = group;
+		}
+		return match;
+	}
+
+	protected int CountSchema51SpawnResultsByAnyIdentity(
+		HST_ForceSpawnResultState expected,
+		HST_EnemyOrderState order)
+	{
+		int count;
+		if (!expected || !order)
+			return count;
+		foreach (HST_ForceSpawnResultState candidate : m_aForceSpawnResults)
+		{
+			if (!candidate)
+				continue;
+			bool matches = candidate.m_sResultId == expected.m_sResultId;
+			if (!matches && !order.m_sOrderId.IsEmpty())
+				matches = candidate.m_sRequestId == order.m_sOrderId;
+			if (!matches && !order.m_sOperationId.IsEmpty())
+				matches = candidate.m_sOperationId == order.m_sOperationId;
+			if (!matches && !order.m_sManifestId.IsEmpty())
+				matches = candidate.m_sManifestId == order.m_sManifestId;
+			if (!matches && !expected.m_sProjectionId.IsEmpty())
+				matches = candidate.m_sProjectionId == expected.m_sProjectionId;
+			if (!matches && !expected.m_sForceId.IsEmpty())
+				matches = candidate.m_sForceId == expected.m_sForceId;
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountSchema51ActiveGroupsByAnyIdentity(
+		HST_ActiveGroupState expected,
+		HST_EnemyOrderState order)
+	{
+		int count;
+		if (!expected || !order)
+			return count;
+		foreach (HST_ActiveGroupState candidate : m_aActiveGroups)
+		{
+			if (!candidate)
+				continue;
+			bool matches = candidate.m_sGroupId == expected.m_sGroupId;
+			if (!matches && !order.m_sOrderId.IsEmpty())
+				matches = candidate.m_sEnemyOrderId == order.m_sOrderId;
+			if (!matches && !order.m_sOperationId.IsEmpty())
+				matches = candidate.m_sOperationId == order.m_sOperationId;
+			if (!matches && !order.m_sManifestId.IsEmpty())
+				matches = candidate.m_sManifestId == order.m_sManifestId;
+			if (!matches && !expected.m_sSpawnResultId.IsEmpty())
+				matches = candidate.m_sSpawnResultId == expected.m_sSpawnResultId;
+			if (!matches && !expected.m_sProjectionId.IsEmpty())
+				matches = candidate.m_sProjectionId == expected.m_sProjectionId;
+			if (!matches && !expected.m_sForceId.IsEmpty())
+				matches = candidate.m_sForceId == expected.m_sForceId;
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
 	protected void NormalizeRestoredStrategicProjectionBatch(HST_OperationRecordState operation, HST_ActiveGroupState group, int restoreSecond)
 	{
 		if (!operation)
@@ -2804,6 +3220,14 @@ class HST_CampaignSaveData
 				request.m_bAbstractResolved = false;
 				request.m_sRuntimeStatus = "exact_restore_survivor_virtual";
 			}
+		}
+		HST_EnemyOrderState enemyOrder = FindSchema51EnemyOrder(operation.m_sEnemyOrderId);
+		if (enemyOrder && enemyOrder.m_sOperationId == operation.m_sOperationId
+			&& enemyOrder.m_iOperationContractVersion == HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION)
+		{
+			enemyOrder.m_bPhysicalized = false;
+			enemyOrder.m_bAbstractResolved = false;
+			enemyOrder.m_sRuntimeStatus = "exact_enemy_qrf_restore_virtual";
 		}
 		HST_ForceSpawnResultState batch = FindForceSpawnResultForMigration(operation.m_sSpawnResultId);
 		if (batch && batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
@@ -2847,7 +3271,10 @@ class HST_CampaignSaveData
 		group.m_bSpawnedEntity = false;
 		group.m_sRuntimeEntityId = "";
 		group.m_iSpawnedAgentCount = 0;
-		group.m_sRuntimeStatus = "support_virtual";
+		if (enemyOrder)
+			group.m_sRuntimeStatus = "enemy_qrf_virtual";
+		else
+			group.m_sRuntimeStatus = "support_virtual";
 		if (batch)
 		{
 			HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
@@ -3838,6 +4265,22 @@ class HST_CampaignSaveData
 				group.m_sQRFInstanceId = qrf.m_sInstanceId;
 		}
 
+		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
+		{
+			if (!order || order.m_iOperationContractVersion != HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+				|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF || order.m_sGroupId.IsEmpty())
+				continue;
+			HST_OperationRecordState operation = FindSchema51Operation(order.m_sOperationId);
+			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+				|| operation.m_sEnemyOrderId != order.m_sOrderId || operation.m_sGroupId != order.m_sGroupId)
+				continue;
+			HST_ActiveGroupState group = FindActiveGroupForMigration(order.m_sGroupId);
+			if (!group || group.m_sOperationId != operation.m_sOperationId)
+				continue;
+			if (group.m_sEnemyOrderId.IsEmpty())
+				group.m_sEnemyOrderId = order.m_sOrderId;
+		}
+
 		foreach (HST_ActiveMissionState mission : m_aActiveMissions)
 		{
 			if (!mission || mission.m_sInstanceId.IsEmpty())
@@ -3858,7 +4301,8 @@ class HST_CampaignSaveData
 		{
 			if (!group || group.m_sZoneId.IsEmpty())
 				continue;
-			if (!group.m_sSupportRequestId.IsEmpty() || !group.m_sMissionInstanceId.IsEmpty() || !group.m_sQRFInstanceId.IsEmpty())
+			if (!group.m_sSupportRequestId.IsEmpty() || !group.m_sEnemyOrderId.IsEmpty()
+				|| !group.m_sMissionInstanceId.IsEmpty() || !group.m_sQRFInstanceId.IsEmpty())
 				continue;
 			if (group.m_sGarrisonZoneId.IsEmpty())
 				group.m_sGarrisonZoneId = group.m_sZoneId;

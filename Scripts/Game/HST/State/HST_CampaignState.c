@@ -84,6 +84,7 @@ class HST_ActiveGroupState
 	string m_sFactionKey;
 	string m_sMissionInstanceId;
 	string m_sSupportRequestId;
+	string m_sEnemyOrderId;
 	string m_sGarrisonZoneId;
 	string m_sQRFInstanceId;
 	string m_sPrefab;
@@ -155,6 +156,7 @@ class HST_OperationRecordState
 	string m_sIssueRequestId;
 	string m_sConfirmationRequestId;
 	string m_sSupportRequestId;
+	string m_sEnemyOrderId;
 	string m_sQuoteId;
 	string m_sManifestId;
 	string m_sSpawnResultId;
@@ -185,6 +187,8 @@ class HST_OperationRecordState
 	int m_iVirtualCombatHostileDamageCarry;
 	int m_iLastVirtualFriendlyCount;
 	int m_iLastVirtualHostileCount;
+	int m_iArrivalConfirmationCount;
+	int m_iLastArrivalConfirmationSecond;
 	string m_sLastProjectionReason;
 	string m_sLastVirtualCombatReason;
 	string m_sRecallPolicyId;
@@ -722,11 +726,14 @@ class HST_EnemyOrderState
 {
 	string m_sOrderId;
 	string m_sOperationId;
+	int m_iOperationContractVersion;
 	string m_sManifestId;
+	string m_sManifestHash;
 	string m_sSpawnResultId;
 	string m_sFactionKey;
 	HST_EEnemyOrderType m_eType;
 	HST_EEnemyOrderStatus m_eStatus;
+	string m_sSourceZoneId;
 	string m_sTargetZoneId;
 	string m_sCompositionRequestId;
 	string m_sCompositionIntentId;
@@ -752,6 +759,12 @@ class HST_EnemyOrderState
 	int m_iCompositionManpower;
 	int m_iCompositionVehicleCount;
 	int m_iCompositionArmedVehicleCount;
+	string m_sResourceSettlementId;
+	string m_sResourceSettlementKind;
+	int m_iSettlementAcceptedMemberCount;
+	int m_iSettlementSurvivorMemberCount;
+	bool m_bStrategicServiceCommitted;
+	bool m_bResourceSettlementApplied;
 	bool m_bPhysicalized;
 	bool m_bAbstractResolved;
 	bool m_bOutcomeApplied;
@@ -963,7 +976,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 50;
+	static const int SCHEMA_VERSION = 51;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1404,6 +1417,20 @@ class HST_CampaignState
 		{
 			if (operation && operation.m_sOperationId == operationId)
 				return operation;
+		}
+
+		return null;
+	}
+
+	HST_EnemyOrderState FindEnemyOrder(string orderId)
+	{
+		if (orderId.IsEmpty())
+			return null;
+
+		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
+		{
+			if (order && order.m_sOrderId == orderId)
+				return order;
 		}
 
 		return null;

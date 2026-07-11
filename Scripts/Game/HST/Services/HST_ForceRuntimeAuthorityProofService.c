@@ -93,9 +93,59 @@ class HST_ForceRuntimeAuthorityProofService
 		if (restored && restoredBatch)
 		{
 			queue.ReconcileAfterRestore(restored.m_aForceSpawnResults, restored.m_aForceManifests, 106);
+			HST_ForceManifestState restoredManifest = restored.FindForceManifest(manifest.m_sManifestId);
+			HST_ForceSpawnSlotResultState restoredRetired = restoredBatch.FindSlotResult(firstMember.m_sSlotId);
+			int invalidBatchRevision = restoredBatch.m_iLifecycleRevision;
+			int invalidSlotRevision = restoredRetired.m_iLifecycleRevision;
+			int invalidReprojectionCount = restoredBatch.m_iReprojectionCount;
+			HST_EForceSpawnBatchStatus invalidBatchStatus = restoredBatch.m_eStatus;
+			HST_EForceSpawnSlotStatus invalidSlotStatus = restoredRetired.m_eStatus;
+			bool retiredEverAlive = restoredRetired.m_bEverAlive;
+			restoredRetired.m_bEverAlive = false;
+			HST_ForceSpawnQueueCallbackResult invalidPreflight = queue.CanRequeueSuccessfulProjectionForStrategicHold(
+				restored.m_aForceSpawnResults,
+				restoredManifest,
+				restoredBatch.m_sResultId,
+				restoredBatch.m_sProjectionId,
+				106,
+				300);
+			HST_ForceSpawnQueueCallbackResult invalidRequeue = queue.RequeueSuccessfulProjectionForStrategicHold(
+				restored.m_aForceSpawnResults,
+				restoredManifest,
+				restoredBatch.m_sResultId,
+				restoredBatch.m_sProjectionId,
+				106,
+				300);
+			bool invalidPreflightReadOnly = invalidPreflight && !invalidPreflight.m_bAccepted
+				&& invalidRequeue && !invalidRequeue.m_bAccepted
+				&& !invalidPreflight.m_sFailureReason.IsEmpty()
+				&& invalidPreflight.m_sFailureReason == invalidRequeue.m_sFailureReason
+				&& restoredBatch.m_eStatus == invalidBatchStatus
+				&& restoredBatch.m_iLifecycleRevision == invalidBatchRevision
+				&& restoredBatch.m_iReprojectionCount == invalidReprojectionCount
+				&& restoredRetired.m_eStatus == invalidSlotStatus
+				&& restoredRetired.m_iLifecycleRevision == invalidSlotRevision
+				&& !restoredRetired.m_bEverAlive;
+			restoredRetired.m_bEverAlive = retiredEverAlive;
+			int validBatchRevision = restoredBatch.m_iLifecycleRevision;
+			int validSlotRevision = restoredRetired.m_iLifecycleRevision;
+			HST_ForceSpawnQueueCallbackResult validPreflight = queue.CanRequeueSuccessfulProjectionForStrategicHold(
+				restored.m_aForceSpawnResults,
+				restoredManifest,
+				restoredBatch.m_sResultId,
+				restoredBatch.m_sProjectionId,
+				106,
+				300);
+			bool validPreflightReadOnly = validPreflight && validPreflight.m_bAccepted
+				&& restoredBatch.m_eStatus == invalidBatchStatus
+				&& restoredBatch.m_iLifecycleRevision == validBatchRevision
+				&& restoredBatch.m_iReprojectionCount == invalidReprojectionCount
+				&& restoredRetired.m_eStatus == invalidSlotStatus
+				&& restoredRetired.m_iLifecycleRevision == validSlotRevision
+				&& restoredRetired.m_bEverAlive == retiredEverAlive;
 			HST_ForceSpawnQueueCallbackResult requeue = queue.RequeueSuccessfulProjectionAfterRestore(
 				restored.m_aForceSpawnResults,
-				restored.FindForceManifest(manifest.m_sManifestId),
+				restoredManifest,
 				restoredBatch.m_sResultId,
 				restoredBatch.m_sProjectionId,
 				106,
@@ -115,7 +165,8 @@ class HST_ForceRuntimeAuthorityProofService
 				109);
 			HST_ForceSpawnSlotResultState retired = restoredBatch.FindSlotResult("runtime_member_0");
 			HST_ForceSpawnSlotResultState survivor = restoredBatch.FindSlotResult("runtime_member_1");
-			report.m_bSurvivorReprojectionExact = requeue && requeue.m_bAccepted && rootOnly && survivorOnly
+			report.m_bSurvivorReprojectionExact = invalidPreflightReadOnly && validPreflightReadOnly
+				&& requeue && requeue.m_bAccepted && rootOnly && survivorOnly
 				&& handoff && handoff.m_bAccepted
 				&& restoredBatch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
 				&& restoredBatch.m_iSuccessfulHandoffCount == 2 && restoredBatch.m_iReprojectionCount == 1
@@ -123,13 +174,17 @@ class HST_ForceRuntimeAuthorityProofService
 				&& survivor && survivor.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
 				&& queue.CountDurableLivingMemberSlots(restoredBatch) == 1;
 			report.m_sReprojectionEvidence = string.Format(
-				"requeue/root/survivor/handoff %1/%2/%3/%4 | handoffs/reprojections %5/%6 | living/dead %7/%8",
+				"preflight invalid/valid read-only %1/%2 | requeue/root/survivor/handoff %3/%4/%5/%6 | handoffs/reprojections %7/%8",
+				invalidPreflightReadOnly,
+				validPreflightReadOnly,
 				requeue && requeue.m_bAccepted,
 				rootOnly,
 				survivorOnly,
 				handoff && handoff.m_bAccepted,
 				restoredBatch.m_iSuccessfulHandoffCount,
-				restoredBatch.m_iReprojectionCount,
+				restoredBatch.m_iReprojectionCount);
+			report.m_sReprojectionEvidence = report.m_sReprojectionEvidence + string.Format(
+				" | living/dead %1/%2",
 				queue.CountDurableLivingMemberSlots(restoredBatch),
 				queue.CountConfirmedCasualtyMemberSlots(restoredBatch));
 
@@ -170,6 +225,11 @@ class HST_ForceRuntimeAuthorityProofService
 		request.m_iPriority = 100;
 		request.m_iMaxRetries = 2;
 		request.m_iDeadlineSecond = 300;
+		int batchCountBeforePreflight = state.m_aForceSpawnResults.Count();
+		HST_ForceSpawnQueueEnqueueResult preflight = queue.CanEnqueue(state.m_aForceSpawnResults, manifest, request, 100);
+		if (!preflight || !preflight.m_bSuccess || preflight.m_bStateChanged || preflight.m_Batch
+			|| state.m_aForceSpawnResults.Count() != batchCountBeforePreflight)
+			return null;
 		HST_ForceSpawnQueueEnqueueResult enqueue = queue.Enqueue(state.m_aForceSpawnResults, manifest, request, 100);
 		if (!enqueue || !enqueue.m_bSuccess)
 			return null;

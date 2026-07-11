@@ -120,6 +120,7 @@ class HST_MapMarkerService
 		AddZoneMarkers(state, preset);
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
+		AddExactEnemyQRFOperationMarkers(state, preset);
 		AddSupportRequestMarkers(state, preset);
 		AddResistanceSupportGroupMarkers(state, preset);
 		int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
@@ -283,6 +284,8 @@ class HST_MapMarkerService
 		int missionMarkers = CountMarkersByCategory(state, "mission") + CountMarkersByCategory(state, "mission_objective") + CountMarkersByCategory(state, "mission_asset");
 		int supportMarkers = CountMarkersByCategory(state, "support");
 		int qrfMarkers = CountMarkersByCategory(state, "qrf");
+		int openExactEnemyQRFs = CountOpenExactEnemyDefensiveQRFs(state);
+		int exactEnemyQRFMarkers = CountMarkersWithPrefix(state, "hst_exact_enemy_qrf_");
 		bool hqMarker = HasMarker(state, "hst_hq");
 		bool petrosMarker = HasMarker(state, "hst_petros");
 		bool defendMarker = HasMarker(state, "hst_defend_petros");
@@ -298,9 +301,12 @@ class HST_MapMarkerService
 			status = "WARN";
 		if (activeQRFs > 0 && qrfMarkers <= 0)
 			status = "WARN";
+		if (exactEnemyQRFMarkers != openExactEnemyQRFs)
+			status = "WARN";
 
 		string report = string.Format("h-istasi phase 23 marker audit | %1 | total %2 | native %3/%4 skipped %5", status, state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount);
 		report = report + string.Format("\ncoverage | HQ %1 | Petros %2 | defend %3 | missions %4/%5 | support %6/%7 | qrf %8/%9", hqMarker, petrosMarker, defendMarker, missionMarkers, activeMissions, supportMarkers, activeSupport, qrfMarkers, activeQRFs);
+		report = report + string.Format(" | exact enemy qrf %1/%2", exactEnemyQRFMarkers, openExactEnemyQRFs);
 		report = report + string.Format("\ncategories | hq %1 | town %2 | strategic %3 | mission %4 | objective %5 | asset %6 | support %7 | qrf %8", CountMarkersByCategory(state, "hq"), CountMarkersByCategory(state, "town"), CountMarkersByCategory(state, "strategic"), CountMarkersByCategory(state, "mission"), CountMarkersByCategory(state, "mission_objective"), CountMarkersByCategory(state, "mission_asset"), supportMarkers, qrfMarkers);
 		report = report + BuildMarkerRefreshDiagnostic(state);
 		return report + BuildMarkerDetailReport(state, 30);
@@ -604,6 +610,26 @@ class HST_MapMarkerService
 		foreach (HST_QRFState qrf : state.m_aQRFs)
 		{
 			if (ShouldShowQRFMarker(state, qrf))
+				count++;
+		}
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (ShouldShowExactEnemyDefensiveQRFMarker(state, operation))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountOpenExactEnemyDefensiveQRFs(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (ShouldShowExactEnemyDefensiveQRFMarker(state, operation))
 				count++;
 		}
 
@@ -950,6 +976,194 @@ class HST_MapMarkerService
 			bool runtimeNative = ShouldPublishNativeTacticalMarkerInPlayerBubble(state, targetZone.m_sZoneId, position);
 			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, label, "", "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), position, true, FactionToMarkerTextColor(qrf.m_sFactionKey, preset), "enemy_response", true, runtimeNative);
 		}
+	}
+
+	protected void AddExactEnemyQRFOperationMarkers(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return;
+
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!ShouldShowExactEnemyDefensiveQRFMarker(state, operation))
+				continue;
+
+			HST_EnemyOrderState order = state.FindEnemyOrder(operation.m_sEnemyOrderId);
+			HST_ActiveGroupState group = state.FindActiveGroup(operation.m_sGroupId);
+			HST_ForceSpawnResultState batch = state.FindForceSpawnResult(operation.m_sSpawnResultId);
+			vector position = ResolveExactEnemyDefensiveQRFMarkerPosition(operation, order, group);
+
+			bool rosterAuthoritative;
+			int living = ResolveExactEnemyDefensiveQRFMarkerLiving(state, operation, rosterAuthoritative);
+
+			string label = BuildExactEnemyQRFOperationLabel(state, operation, order, living, position);
+			AddMarker(state, "hst_exact_enemy_qrf_" + operation.m_sOperationId, operation.m_sOperationId, label, "", "qrf", operation.m_sOwnerFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(operation.m_sOwnerFactionKey, preset), position, true, FactionToMarkerTextColor(operation.m_sOwnerFactionKey, preset), "enemy_response_exact", false, true);
+		}
+	}
+
+	protected bool ShouldShowExactEnemyDefensiveQRFMarker(HST_CampaignState state, HST_OperationRecordState operation)
+	{
+		if (!state || !operation)
+			return false;
+		if (operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+			|| operation.m_iContractVersion != HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_sEnemyOrderId.IsEmpty())
+			return false;
+
+		HST_EnemyOrderState order = state.FindEnemyOrder(operation.m_sEnemyOrderId);
+		if (!order || order.m_sOperationId != operation.m_sOperationId
+			|| order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			|| order.m_iOperationContractVersion != HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION)
+			return false;
+
+		bool orderOpen = order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
+			|| order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
+		if (!orderOpen)
+			return false;
+		bool rosterAuthoritative;
+		return ResolveExactEnemyDefensiveQRFMarkerLiving(state, operation, rosterAuthoritative) > 0
+			&& rosterAuthoritative;
+	}
+
+	protected int ResolveExactEnemyDefensiveQRFMarkerLiving(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		out bool authoritative)
+	{
+		authoritative = false;
+		if (!state || !operation)
+			return 0;
+		int living = Math.Max(0, operation.m_iLastVirtualFriendlyCount);
+		HST_ForceSpawnResultState batch = state.FindForceSpawnResult(operation.m_sSpawnResultId);
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		if (batch)
+		{
+			if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+				|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
+			{
+				living = 0;
+				authoritative = true;
+			}
+			else if (batch.m_bStrategicProjectionHeld)
+			{
+				living = queue.CountStrategicLivingMemberSlots(batch);
+				authoritative = true;
+			}
+			else if (batch.m_iSuccessfulHandoffCount > 0)
+			{
+				living = queue.CountDurableLivingMemberSlots(batch);
+				authoritative = true;
+			}
+		}
+		HST_ActiveGroupState group = state.FindActiveGroup(operation.m_sGroupId);
+		if (group && IsTerminalActiveGroupStatus(group.m_sRuntimeStatus))
+		{
+			living = 0;
+			authoritative = true;
+		}
+		else if (!authoritative && group)
+		{
+			living = Math.Max(Math.Max(0, group.m_iDurableLivingInfantryCount), Math.Max(0, group.m_iSurvivorInfantryCount));
+			authoritative = true;
+		}
+		if (!authoritative)
+			authoritative = operation.m_iLastVirtualFriendlyCount >= 0;
+		HST_ForceManifestState manifest = state.FindForceManifest(operation.m_sManifestId);
+		if (manifest)
+			living = Math.Min(Math.Max(0, manifest.m_iAcceptedMemberCount), living);
+		return Math.Max(0, living);
+	}
+
+	protected vector ResolveExactEnemyDefensiveQRFMarkerPosition(
+		HST_OperationRecordState operation,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		if (!operation)
+			return "0 0 0";
+
+		if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			&& group && !IsZeroVector(group.m_vPosition))
+			return group.m_vPosition;
+		if (!IsZeroVector(operation.m_vStrategicPosition))
+			return operation.m_vStrategicPosition;
+		if (order && !IsZeroVector(order.m_vSourcePosition))
+			return order.m_vSourcePosition;
+		if (!IsZeroVector(operation.m_vOriginPosition))
+			return operation.m_vOriginPosition;
+		if (order && !IsZeroVector(order.m_vTargetPosition))
+			return order.m_vTargetPosition;
+
+		return operation.m_vAssignmentPosition;
+	}
+
+	protected string BuildExactEnemyQRFOperationLabel(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_EnemyOrderState order,
+		int living,
+		vector position)
+	{
+		string duty = ResolveExactEnemyQRFDutyLabel(operation.m_eDutyState);
+		int eta = ResolveExactEnemyQRFETASeconds(operation, position);
+		string legStartZoneId = operation.m_sOriginZoneId;
+		string legEndZoneId = operation.m_sAssignmentZoneId;
+		if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN)
+		{
+			legStartZoneId = operation.m_sAssignmentZoneId;
+			legEndZoneId = operation.m_sOriginZoneId;
+		}
+		return string.Format(
+			"%1 defensive QRF | %2 alive | %3 | %4 -> %5 | ETA %6s",
+			operation.m_sOwnerFactionKey,
+			living,
+			duty,
+			ResolveZoneDisplayNameById(state, legStartZoneId),
+			ResolveZoneDisplayNameById(state, legEndZoneId),
+			eta);
+	}
+
+	protected int ResolveExactEnemyQRFETASeconds(HST_OperationRecordState operation, vector position)
+	{
+		if (!operation || operation.m_fStrategicSpeedMetersPerSecond <= 0)
+			return 0;
+
+		float remainingMeters = Math.Max(0.0, operation.m_fRouteTotalDistanceMeters - operation.m_fRouteProgressMeters);
+		if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			&& !IsZeroVector(position) && !IsZeroVector(operation.m_vRouteEndPosition))
+		{
+			float dx = position[0] - operation.m_vRouteEndPosition[0];
+			float dz = position[2] - operation.m_vRouteEndPosition[2];
+			remainingMeters = Math.Sqrt(dx * dx + dz * dz);
+		}
+
+		return Math.Max(0, Math.Ceil(remainingMeters / operation.m_fStrategicSpeedMetersPerSecond));
+	}
+
+	protected string ResolveExactEnemyQRFDutyLabel(HST_EOperationDutyState duty)
+	{
+		if (duty == HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING)
+			return "staging";
+		if (duty == HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND)
+			return "outbound";
+		if (duty == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+			return "on station";
+		if (duty == HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT)
+			return "returning to assignment";
+		if (duty == HST_EOperationDutyState.HST_OPERATION_DUTY_RECALL_REQUESTED)
+			return "recall requested";
+		if (duty == HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN)
+			return "returning to origin";
+		if (duty == HST_EOperationDutyState.HST_OPERATION_DUTY_EXITING)
+			return "exiting";
+		if (duty == HST_EOperationDutyState.HST_OPERATION_DUTY_RETIRED)
+			return "retired";
+		if (duty == HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED)
+			return "settled";
+
+		return "pending";
 	}
 
 	protected bool ShouldShowQRFMarker(HST_CampaignState state, HST_QRFState qrf)

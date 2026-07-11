@@ -2,7 +2,38 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `50`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `51`.
+
+## Schema 51
+
+- Schema 51 adds the durable authority kernel for one additional consumer only:
+  newly admitted, exact infantry-only enemy defensive QRF orders of type
+  `HST_ENEMY_ORDER_QRF`. A versioned order stores its immutable source zone,
+  frozen manifest hash, operation/manifest/spawn/group backlinks, strategic
+  service commit boundary, and an idempotent resource-settlement identity with
+  accepted and surviving member counts. The reciprocal operation type and
+  enemy-order backlink are explicit; the reciprocal active-group enemy-order
+  backlink prevents restore normalization from reclassifying the projection as
+  a garrison.
+
+- The operation reuses schema 50's exact single-root infantry roster, direct
+  route, virtual/physical materialization, and strategic position contracts.
+  Enemy-QRF operation transitions add an on-station to return-origin success
+  leg and typed `COMPLETED` terminal result. Physical arrival and physical
+  return require two live-position confirmations from distinct campaign
+  seconds. Those counters persist, reset whenever the route leg changes, and
+  reset on restore so one process-local sample cannot be replayed after restart.
+  The player-paid QRF settlement contract does not accept `COMPLETED`.
+
+- Every pre-schema-51 enemy order is preserved at operation contract version
+  `0`. Migration creates no source-zone claim, frozen roster, operation record,
+  service commitment, resource settlement, or refund for legacy rows. It does
+  not opt counterattacks, Petros attacks, roadblocks, patrols, rebuild orders,
+  support calls, vehicle manifests, asset manifests, or multi-root forces into
+  the new contract. A current-schema versioned row with incomplete or
+  conflicting authority fails closed instead of falling back to the legacy
+  timer or physical-support consumer; its evidence remains available for the
+  runtime settlement owner.
 
 ## Schema 50
 

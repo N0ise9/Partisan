@@ -209,6 +209,41 @@ class HST_ForceSpawnQueueService
 		HST_ForceSpawnQueueRequest request,
 		int nowSecond)
 	{
+		HST_ForceSpawnQueueManifestValidation validation;
+		HST_ForceSpawnQueueEnqueueResult result = ValidateEnqueueAdmission(
+			batches,
+			manifest,
+			request,
+			nowSecond,
+			validation);
+		if (!result || !result.m_bSuccess || result.m_bAlreadyApplied)
+			return result;
+
+		HST_ForceSpawnResultState batch = BuildBatch(manifest, request, validation.m_aSlots, nowSecond);
+		batches.Insert(batch);
+		result.m_bStateChanged = true;
+		result.m_Batch = batch;
+		return result;
+	}
+
+	HST_ForceSpawnQueueEnqueueResult CanEnqueue(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnQueueRequest request,
+		int nowSecond)
+	{
+		HST_ForceSpawnQueueManifestValidation validation;
+		return ValidateEnqueueAdmission(batches, manifest, request, nowSecond, validation);
+	}
+
+	protected HST_ForceSpawnQueueEnqueueResult ValidateEnqueueAdmission(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnQueueRequest request,
+		int nowSecond,
+		out HST_ForceSpawnQueueManifestValidation validation)
+	{
+		validation = null;
 		HST_ForceSpawnQueueEnqueueResult result = new HST_ForceSpawnQueueEnqueueResult();
 		string requestFailure = ValidateEnqueueRequest(batches, manifest, request, nowSecond);
 		if (!requestFailure.IsEmpty())
@@ -241,7 +276,7 @@ class HST_ForceSpawnQueueService
 			return result;
 		}
 
-		HST_ForceSpawnQueueManifestValidation validation = ValidateManifest(manifest);
+		validation = ValidateManifest(manifest);
 		if (!validation.m_bValid)
 		{
 			result.m_sFailureReason = validation.m_sFailureReason;
@@ -254,11 +289,7 @@ class HST_ForceSpawnQueueService
 			return result;
 		}
 
-		HST_ForceSpawnResultState batch = BuildBatch(manifest, request, validation.m_aSlots, nowSecond);
-		batches.Insert(batch);
 		result.m_bSuccess = true;
-		result.m_bStateChanged = true;
-		result.m_Batch = batch;
 		return result;
 	}
 
@@ -1453,65 +1484,17 @@ class HST_ForceSpawnQueueService
 		int deadlineSecond)
 	{
 		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
-		if (!batches || !manifest || resultId.IsEmpty() || projectionId.IsEmpty())
-		{
-			result.m_sFailureReason = "force reprojection identity or manifest is missing";
+		HST_ForceSpawnQueueManifestValidation validation = ValidateSuccessfulProjectionRequeue(
+			batches,
+			manifest,
+			resultId,
+			projectionId,
+			nowSecond,
+			deadlineSecond,
+			result);
+		if (!validation)
 			return result;
-		}
-		if (CountByResult(batches, resultId) != 1)
-		{
-			result.m_sFailureReason = "force reprojection result identity is missing or ambiguous";
-			return result;
-		}
-		HST_ForceSpawnResultState batch = FindByResult(batches, resultId);
-		result.m_Batch = batch;
-		if (!BatchHasUniqueKeys(batches, batch) || batch.m_sProjectionId != projectionId)
-		{
-			result.m_sFailureReason = "force reprojection identity conflicts with the queue";
-			return result;
-		}
-		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
-			|| batch.m_iSuccessfulHandoffCount <= 0)
-		{
-			result.m_sFailureReason = "force reprojection requires a previously successful projection";
-			return result;
-		}
-		HST_ForceSpawnQueueManifestValidation validation = ValidateManifest(manifest);
-		if (!validation.m_bValid || !ValidateBatchManifest(batch, manifest).IsEmpty())
-		{
-			result.m_sFailureReason = "force reprojection manifest integrity conflict";
-			return result;
-		}
-		if (deadlineSecond <= nowSecond)
-		{
-			result.m_sFailureReason = "force reprojection deadline must be in the future";
-			return result;
-		}
-		if (CountNonterminalBatches(batches) >= MAX_NONTERMINAL_BATCHES
-			|| CountNonterminalSlots(batches) + batch.m_aSlotResults.Count() > MAX_TOTAL_SLOT_ROWS)
-		{
-			result.m_sFailureReason = "force reprojection would exceed nonterminal queue capacity";
-			return result;
-		}
-		if (CountDurableLivingMemberSlots(batch) <= 0)
-		{
-			result.m_sFailureReason = "force reprojection has no durable living member slots";
-			return result;
-		}
-		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
-		{
-			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
-			if (slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
-				&& !slotResult.m_bCasualtyConfirmed)
-				continue;
-			if (descriptor.m_sSlotKind != SLOT_KIND_MEMBER || !slotResult.m_bEverAlive
-				|| !slotResult.m_bCasualtyConfirmed
-				|| slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED)
-			{
-				result.m_sFailureReason = "force reprojection contains invalid retired-slot evidence";
-				return result;
-			}
-		}
+		HST_ForceSpawnResultState batch = result.m_Batch;
 
 		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
 		{
@@ -1655,31 +1638,16 @@ class HST_ForceSpawnQueueService
 		int deadlineSecond)
 	{
 		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
-		HST_ForceSpawnResultState batch = ResolveStrategicProjectionBatch(batches, manifest, resultId, projectionId, result);
-		if (!batch)
+		HST_ForceSpawnQueueManifestValidation validation = ValidateSuccessfulProjectionRequeue(
+			batches,
+			manifest,
+			resultId,
+			projectionId,
+			nowSecond,
+			deadlineSecond,
+			result);
+		if (!validation)
 			return result;
-		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
-			|| batch.m_iSuccessfulHandoffCount <= 0)
-		{
-			result.m_sFailureReason = "strategic fold requires a previously successful projection";
-			return result;
-		}
-		if (deadlineSecond <= nowSecond)
-		{
-			result.m_sFailureReason = "strategic fold reprojection deadline must be in the future";
-			return result;
-		}
-		if (CountNonterminalBatches(batches) >= MAX_NONTERMINAL_BATCHES
-			|| CountNonterminalSlots(batches) + batch.m_aSlotResults.Count() > MAX_TOTAL_SLOT_ROWS)
-		{
-			result.m_sFailureReason = "strategic fold would exceed nonterminal queue capacity";
-			return result;
-		}
-		if (CountDurableLivingMemberSlots(batch) <= 0)
-		{
-			result.m_sFailureReason = "strategic fold has no durable living member slots";
-			return result;
-		}
 		result.m_bAccepted = true;
 		return result;
 	}
@@ -1822,6 +1790,79 @@ class HST_ForceSpawnQueueService
 			currentIndex++;
 		}
 		return "";
+	}
+
+	protected HST_ForceSpawnQueueManifestValidation ValidateSuccessfulProjectionRequeue(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		int nowSecond,
+		int deadlineSecond,
+		HST_ForceSpawnQueueCallbackResult result)
+	{
+		if (!result)
+			return null;
+		if (!batches || !manifest || resultId.IsEmpty() || projectionId.IsEmpty())
+		{
+			result.m_sFailureReason = "force reprojection identity or manifest is missing";
+			return null;
+		}
+		if (CountByResult(batches, resultId) != 1)
+		{
+			result.m_sFailureReason = "force reprojection result identity is missing or ambiguous";
+			return null;
+		}
+		HST_ForceSpawnResultState batch = FindByResult(batches, resultId);
+		result.m_Batch = batch;
+		if (!BatchHasUniqueKeys(batches, batch) || batch.m_sProjectionId != projectionId)
+		{
+			result.m_sFailureReason = "force reprojection identity conflicts with the queue";
+			return null;
+		}
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| batch.m_iSuccessfulHandoffCount <= 0)
+		{
+			result.m_sFailureReason = "force reprojection requires a previously successful projection";
+			return null;
+		}
+		HST_ForceSpawnQueueManifestValidation validation = ValidateManifest(manifest);
+		if (!validation.m_bValid || !ValidateBatchManifest(batch, manifest).IsEmpty())
+		{
+			result.m_sFailureReason = "force reprojection manifest integrity conflict";
+			return null;
+		}
+		if (deadlineSecond <= nowSecond)
+		{
+			result.m_sFailureReason = "force reprojection deadline must be in the future";
+			return null;
+		}
+		if (CountNonterminalBatches(batches) >= MAX_NONTERMINAL_BATCHES
+			|| CountNonterminalSlots(batches) + batch.m_aSlotResults.Count() > MAX_TOTAL_SLOT_ROWS)
+		{
+			result.m_sFailureReason = "force reprojection would exceed nonterminal queue capacity";
+			return null;
+		}
+		if (CountDurableLivingMemberSlots(batch) <= 0)
+		{
+			result.m_sFailureReason = "force reprojection has no durable living member slots";
+			return null;
+		}
+		foreach (HST_ForceSpawnQueueManifestSlot descriptor : validation.m_aSlots)
+		{
+			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
+			if (slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				&& !slotResult.m_bCasualtyConfirmed)
+				continue;
+			if (descriptor.m_sSlotKind != SLOT_KIND_MEMBER || !slotResult.m_bEverAlive
+				|| !slotResult.m_bCasualtyConfirmed
+				|| slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED)
+			{
+				result.m_sFailureReason = "force reprojection contains invalid retired-slot evidence";
+				return null;
+			}
+		}
+		return validation;
 	}
 
 	protected HST_ForceSpawnResultState ResolveStrategicProjectionBatch(

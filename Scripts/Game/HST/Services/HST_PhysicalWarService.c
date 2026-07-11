@@ -1240,6 +1240,58 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
+	bool RestartExactEnemyQRFInfantryRoute(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup,
+		vector targetPosition,
+		string reason)
+	{
+		if (!state || !activeGroup || activeGroup.m_sEnemyOrderId.IsEmpty()
+			|| activeGroup.m_sOperationId.IsEmpty() || activeGroup.m_sProjectionId.IsEmpty()
+			|| !activeGroup.m_bSpawnedEntity || activeGroup.m_iInfantryCount <= 0
+			|| IsZeroVector(targetPosition) || IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			return false;
+
+		vector livePosition = ResolveActiveGroupLiveRuntimePosition(activeGroup, false);
+		if (IsZeroVector(livePosition))
+			livePosition = activeGroup.m_vPosition;
+		if (IsZeroVector(livePosition))
+			return false;
+
+		DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);
+		activeGroup.m_vPosition = livePosition;
+		activeGroup.m_vSourcePosition = livePosition;
+		activeGroup.m_vTargetPosition = targetPosition;
+		activeGroup.m_sRuntimeStatus = "routing";
+		activeGroup.m_iAssignedWaypointCount = 0;
+		activeGroup.m_iSpawnedAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+		activeGroup.m_sSpawnFailureReason = reason;
+		activeGroup.m_iLifecycleRevision++;
+		m_bMarkerRefreshNeeded = true;
+		return true;
+	}
+
+	bool IsExactEnemyQRFRouteRecoveryExhausted(HST_ActiveGroupState activeGroup, int nowSecond)
+	{
+		if (!IsExactEnemyQRFActiveGroup(activeGroup) || activeGroup.m_sGroupId.IsEmpty())
+			return false;
+		foreach (HST_ActiveGroupRouteProgressStatus progress : m_aActiveGroupRouteProgressStatuses)
+		{
+			if (!progress || progress.m_sGroupId != activeGroup.m_sGroupId)
+				continue;
+			if (progress.m_iRouteReissueAttemptCount < ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS)
+				return false;
+			if (progress.m_iLastProgressSecond < 0
+				|| nowSecond - progress.m_iLastProgressSecond < ACTIVE_GROUP_ROUTE_STALL_REISSUE_SECONDS)
+				return false;
+			if (progress.m_fLastDistanceToTargetMeters >= 0
+				&& progress.m_fLastDistanceToTargetMeters <= ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS)
+				return false;
+			return true;
+		}
+		return false;
+	}
+
 	bool RecallActiveSupportGroup(HST_CampaignState state, string groupId, vector exitPosition)
 	{
 		if (!state || groupId.IsEmpty() || IsZeroVector(exitPosition))
@@ -7976,6 +8028,9 @@ class HST_PhysicalWarService
 			if (state.FindActiveQRF(zone.m_sZoneId, zone.m_sOwnerFactionKey))
 				continue;
 
+			if (HasOpenEnemyCommanderQRF(state, zone.m_sZoneId, zone.m_sOwnerFactionKey))
+				continue;
+
 			string qrfDecisionReason;
 			bool cooldownOnSkip;
 			if (!ShouldDispatchLegacyQRF(state, zone, enemyDirector, qrfDecisionReason, cooldownOnSkip))
@@ -8005,6 +8060,25 @@ class HST_PhysicalWarService
 		}
 
 		return changed;
+	}
+
+	protected bool HasOpenEnemyCommanderQRF(HST_CampaignState state, string targetZoneId, string factionKey)
+	{
+		if (!state || targetZoneId.IsEmpty() || factionKey.IsEmpty())
+			return false;
+
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (!order || order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+				|| order.m_sTargetZoneId != targetZoneId || order.m_sFactionKey != factionKey)
+				continue;
+			if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
+				&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+				continue;
+			return true;
+		}
+
+		return false;
 	}
 
 	protected bool ShouldDispatchLegacyQRF(HST_CampaignState state, HST_ZoneState zone, HST_EnemyDirectorService enemyDirector, out string reason, out bool cooldownOnSkip)
@@ -8417,11 +8491,11 @@ class HST_PhysicalWarService
 
 			ref array<vector> routePositions = BuildActiveGroupRoutePositions(ResolveActiveGroupGeneratedRoute(state, activeGroup), activeGroup);
 			bool simulateUnspawnedRoute = CanSimulateUnspawnedActiveGroupRoute(activeGroup);
-			bool physicalSupportRoute = activeGroup.m_bSpawnedEntity
+			bool physicalConfirmedRoute = activeGroup.m_bSpawnedEntity
 				&& activeGroup.m_iInfantryCount > 0
 				&& !IsMissionConvoyGroup(activeGroup)
-				&& IsSupportRequestActiveGroup(activeGroup);
-			if (physicalSupportRoute)
+				&& IsLiveConfirmedOperationRouteGroup(activeGroup);
+			if (physicalConfirmedRoute)
 			{
 				changed = UpdatePhysicalSupportActiveGroupRoute(state, activeGroup, routePositions) || changed;
 				continue;
@@ -8653,8 +8727,9 @@ class HST_PhysicalWarService
 			HST_ActiveGroupState activeGroup;
 			if (state && progress)
 				activeGroup = state.FindActiveGroup(progress.m_sGroupId);
-			if (activeGroup && IsSupportRequestActiveGroup(activeGroup)
-				&& (activeGroup.m_sRuntimeStatus == "support_active" || activeGroup.m_sRuntimeStatus == "support_recalling"))
+			if (activeGroup && IsLiveConfirmedOperationRouteGroup(activeGroup)
+				&& (activeGroup.m_sRuntimeStatus == "support_active" || activeGroup.m_sRuntimeStatus == "support_recalling"
+					|| activeGroup.m_sRuntimeStatus == "routing"))
 				continue;
 			m_aActiveGroupRouteProgressStatuses.Remove(i);
 		}
@@ -9384,7 +9459,7 @@ class HST_PhysicalWarService
 		ref array<vector> positions = {};
 		if (!activeGroup)
 			return positions;
-		if (IsSupportRequestActiveGroup(activeGroup))
+		if (IsLiveConfirmedOperationRouteGroup(activeGroup))
 			return BuildDirectSupportRoutePositions(activeGroup);
 		if (!route)
 			return positions;
@@ -13791,6 +13866,17 @@ class HST_PhysicalWarService
 			return false;
 
 		return !activeGroup.m_sSupportRequestId.IsEmpty() || activeGroup.m_sSpawnFallbackMode.Contains("support");
+	}
+
+	protected bool IsExactEnemyQRFActiveGroup(HST_ActiveGroupState activeGroup)
+	{
+		return activeGroup && !activeGroup.m_sEnemyOrderId.IsEmpty()
+			&& !activeGroup.m_sOperationId.IsEmpty() && !activeGroup.m_sProjectionId.IsEmpty();
+	}
+
+	protected bool IsLiveConfirmedOperationRouteGroup(HST_ActiveGroupState activeGroup)
+	{
+		return IsSupportRequestActiveGroup(activeGroup) || IsExactEnemyQRFActiveGroup(activeGroup);
 	}
 
 	protected bool CanSimulateUnspawnedActiveGroupRoute(HST_ActiveGroupState activeGroup)

@@ -107,6 +107,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_SupportRequestService m_SupportRequests;
 	protected ref HST_CivilianService m_Civilians;
 	protected ref HST_EnemyCommanderService m_EnemyCommander;
+	protected ref HST_EnemyQRFOperationService m_EnemyQRFOperations;
 	protected float m_fSecondAccumulator;
 	protected float m_fSpawnSweepAccumulator;
 	protected int m_iForceSpawnQueueRuntimeClockSecond;
@@ -370,6 +371,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_Civilians)
 			m_Civilians.SetStrategicService(m_Strategic);
 		m_EnemyCommander = new HST_EnemyCommanderService();
+		m_EnemyQRFOperations = new HST_EnemyQRFOperationService();
+		if (m_EnemyQRFOperations)
+			m_EnemyQRFOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
+		if (m_EnemyCommander)
+			m_EnemyCommander.SetExactEnemyQRFAuthorityServices(m_ForcePlanning, m_EnemyQRFOperations);
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
 		if (m_ForceSpawnQueue)
@@ -385,6 +391,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_ResourceLedger)
 			m_ResourceLedger.ReconcileOpenReservations(m_State, m_Economy);
 		EnsureCampaignFoundation();
+		if (m_EnemyQRFOperations && m_EnemyDirector)
+			m_EnemyQRFOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		EvaluateCampaignOutcomeNow();
 		m_Missions.SyncNextInstanceIdFromState(m_State);
 		m_Persistence.CaptureAndTrackState(m_State);
@@ -484,22 +492,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
 		{
 			bool terminalHQRuntimeChanged = EnsureTerminalCampaignRuntimeObjects();
-			bool terminalSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup("campaign outcome is terminal");
 			bool terminalExactSupportSettlementChanged = m_SupportRequests && m_SupportRequests.TickExactPlayerSupportSettlements(m_State, m_PhysicalWar, m_ForceSpawnAdapter);
+			bool terminalExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign outcome is terminal");
+			bool terminalSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup("campaign outcome is terminal");
+			bool terminalExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalSpawnMarkerChanged = m_PhysicalWar && m_PhysicalWar.ConsumeMarkerRefreshNeeded();
-			if (terminalHQRuntimeChanged || terminalSpawnCleanupChanged || terminalExactSupportSettlementChanged || terminalSpawnMarkerChanged)
-				MarkMajorCampaignChange(terminalHQRuntimeChanged || terminalExactSupportSettlementChanged || terminalSpawnMarkerChanged);
+			if (terminalHQRuntimeChanged || terminalSpawnCleanupChanged || terminalExactSupportSettlementChanged || terminalExactEnemyQRFSettlementChanged || terminalExactEnemyQRFCleanupChanged || terminalSpawnMarkerChanged)
+				MarkMajorCampaignChange(terminalHQRuntimeChanged || terminalExactSupportSettlementChanged || terminalExactEnemyQRFSettlementChanged || terminalExactEnemyQRFCleanupChanged || terminalSpawnMarkerChanged);
 			TickCampaignDebugRunner(elapsedSeconds);
 			return;
 		}
 
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
-			bool setupSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup("campaign is in setup");
 			bool setupExactSupportSettlementChanged = m_SupportRequests && m_SupportRequests.TickExactPlayerSupportSettlements(m_State, m_PhysicalWar, m_ForceSpawnAdapter);
+			bool setupExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign is in setup");
+			bool setupSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup("campaign is in setup");
+			bool setupExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupSpawnMarkerChanged = m_PhysicalWar && m_PhysicalWar.ConsumeMarkerRefreshNeeded();
-			if (setupSpawnCleanupChanged || setupExactSupportSettlementChanged || setupSpawnMarkerChanged)
-				MarkMajorCampaignChange(setupExactSupportSettlementChanged || setupSpawnMarkerChanged);
+			if (setupSpawnCleanupChanged || setupExactSupportSettlementChanged || setupExactEnemyQRFSettlementChanged || setupExactEnemyQRFCleanupChanged || setupSpawnMarkerChanged)
+				MarkMajorCampaignChange(setupExactSupportSettlementChanged || setupExactEnemyQRFSettlementChanged || setupExactEnemyQRFCleanupChanged || setupSpawnMarkerChanged);
 			TickCampaignDebugRunner(elapsedSeconds);
 			return;
 		}
@@ -507,6 +519,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iElapsedSeconds += elapsedSeconds;
 		m_iForceSpawnQueueRuntimeClockSecond = m_State.m_iElapsedSeconds;
 		bool forceSpawnQueueChanged = TickForceSpawnQueueRuntime();
+		bool exactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		bool missionExpiryChanged = ApplyPendingMissionExpiryEvents();
 		if (missionChanged || missionExpiryChanged)
@@ -553,6 +566,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
 		bool anyStateChanged = missionChanged || missionExpiryChanged || objectiveChanged || missionRuntimeChanged;
 		anyStateChanged = anyStateChanged || forceSpawnQueueChanged;
+		anyStateChanged = anyStateChanged || exactEnemyQRFCleanupChanged;
 		anyStateChanged = anyStateChanged || convoyRuntimeChanged;
 		anyStateChanged = anyStateChanged || convoyOutcomeChanged;
 		anyStateChanged = anyStateChanged || income > 0;
@@ -5534,7 +5548,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_EnemySupportLedgerState ledger = m_State.FindEnemySupportLedger(factionKey, debugZoneId);
 		int recentDamage = m_EnemyDirector.GetRecentDamageScore(m_State, factionKey, debugZoneId);
 
-		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
+		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugLegacyOrder(m_State, m_Preset, m_EnemyDirector, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
 		ledger = m_State.FindEnemySupportLedger(factionKey, debugZoneId);
 		int attackAfterSpend = pool.m_iAttackResources;
 		int supportAfterSpend = pool.m_iSupportResources;
@@ -6127,7 +6141,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_EnemyOrderState rebuildOrder = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, rebuildZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON);
 		HST_EnemyOrderState roadblockOrder = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, roadblockZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK);
-		HST_EnemyOrderState qrfOrder = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, qrfZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
+		HST_EnemyOrderState qrfOrder = m_EnemyCommander.QueueDebugLegacyOrder(m_State, m_Preset, m_EnemyDirector, factionKey, qrfZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
 		bool ordersCreated = rebuildOrder && roadblockOrder && qrfOrder && rebuildOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE && roadblockOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE && qrfOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
 		AddCampaignDebugMetric(orderCase, "enemy_order_resolution.orders_before", string.Format("%1", orderCountBefore), "count");
 		AddCampaignDebugMetric(orderCase, "enemy_order_resolution.ledgers_before", string.Format("%1", ledgerCountBefore), "count");
@@ -6317,7 +6331,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_aZones.Insert(targetZone);
 		HST_GeneratedRouteState targetRoute = BuildCampaignDebugPhysicalResponseRoute(targetZone, baseZone);
 		m_State.m_aGeneratedRoutes.Insert(targetRoute);
-		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
+		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugLegacyOrder(m_State, m_Preset, m_EnemyDirector, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
 
 		bool physicalizeTickChanged;
 		HST_SupportRequestState request;
@@ -16184,6 +16198,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.restore_reconciliation", "every partial reserve, aggregate, and commit boundary rolls back exactly after restore", proof.m_sReconciliationEvidence, CampaignDebugStatus(proof.m_bReconciliationExact), "interrupted garrison confirmation did not reconcile exactly");
 		AppendCampaignDebugPaidSupportAuthorityAssertions(forceCase);
 		AppendCampaignDebugOperationRecordAssertions(forceCase);
+		AppendCampaignDebugEnemyQRFOperationAssertions(forceCase);
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
 		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
 		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
@@ -16256,6 +16271,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "operation_projection.hysteresis", "materialize-in and larger materialize-out distances retain a physical projection inside the hysteresis band", proof.m_sHysteresisEvidence, CampaignDebugStatus(proof.m_bHysteresisExact), "exact infantry-QRF materialization hysteresis is invalid");
 		AddCampaignDebugAssertion(forceCase, "operation_projection.roster_transfer", "virtual casualty, materialization, physical fold, and survivor reprojection preserve the exact living manifest slots without treating fold deletion as death", proof.m_sRosterTransferEvidence, CampaignDebugStatus(proof.m_bRosterTransferExact), "exact infantry-QRF roster authority drifted across projection modes");
 		AddCampaignDebugAssertion(forceCase, "operation_projection.combat_restore", "virtual combat processes bounded deterministic power steps and schema-50 restore resumes one held strategic projection with the same exact survivors", proof.m_sCombatRestoreEvidence, CampaignDebugStatus(proof.m_bCombatRestoreExact), "exact infantry-QRF virtual combat or restore duplicated or lost projection authority");
+	}
+
+	protected void AppendCampaignDebugEnemyQRFOperationAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_EnemyQRFOperationProofService proofService = new HST_EnemyQRFOperationProofService();
+		HST_EnemyQRFOperationProofReport proof = proofService.Run();
+		forceCase.m_aEvidence.Insert(proof.m_sAdmissionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sLegacyIsolationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sProjectionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSettlementEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRejectionEvidence);
+		AddCampaignDebugAssertion(forceCase, "enemy_qrf.admission", "one prepaid enemy defensive QRF freezes one exact infantry root, debits attack/support once, and creates one linked authority aggregate", proof.m_sAdmissionEvidence, CampaignDebugStatus(proof.m_bAdmissionExact), "exact enemy defensive-QRF admission or debit was not atomic");
+		AddCampaignDebugAssertion(forceCase, "enemy_qrf.legacy_isolation", "the exact operation owns its target without creating support-request or legacy-QRF rows", proof.m_sLegacyIsolationEvidence, CampaignDebugStatus(proof.m_bLegacyIsolationExact), "exact enemy defensive-QRF authority leaked into a legacy runtime path");
+		AddCampaignDebugAssertion(forceCase, "enemy_qrf.projection", "held strategic travel, hysteretic materialization, physical fold, and survivor authority preserve one exact roster without refund", proof.m_sProjectionEvidence, CampaignDebugStatus(proof.m_bProjectionExact), "exact enemy defensive-QRF projection changed roster or settlement authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_qrf.settlement", "on-station duty returns to origin and refunds proportional survivors exactly once before typed completion", proof.m_sSettlementEvidence, CampaignDebugStatus(proof.m_bSettlementExact), "exact enemy defensive-QRF return or survivor settlement was not idempotent");
+		AddCampaignDebugAssertion(forceCase, "enemy_qrf.persistence", "current-schema restore preserves every exact backlink, route cursor, casualty, and held virtual authority without legacy rows", proof.m_sRestoreEvidence, CampaignDebugStatus(proof.m_bRestoreExact), "exact enemy defensive-QRF restore duplicated or lost authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_qrf.rejection", "a duplicate target or unsupported contract fails closed, refunds any rejected prepaid debit once, and creates no additional authority rows", proof.m_sRejectionEvidence, CampaignDebugStatus(proof.m_bRejectionExact), "exact enemy defensive-QRF duplicate or legacy suppression failed closed");
 	}
 
 	protected void AppendCampaignDebugForceRuntimeAuthorityAssertions(HST_CampaignDebugCaseResult forceCase)
