@@ -312,17 +312,24 @@ class HST_ForceQuoteResult
 	{
 		if (!m_bSuccess || !m_Quote || !m_Manifest)
 			return "h-istasi force quote | failed: " + m_sFailureReason;
-		if (m_Quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF)
+		if (HST_ForcePlanningService.IsExactPlayerSupportQuoteKind(m_Quote.m_sQuoteKind))
 		{
-			return string.Format(
-				"h-istasi QRF quote | %1 exact fighters from %2 to %3 | cost $%4 and %5 HR | ETA %6s | cooldown %7s | all-or-nothing | quote %8 | expires at campaign second %9",
+			string supportKind = "QRF";
+			if (m_Quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY)
+				supportKind = "Search-and-Destroy";
+			string summary = string.Format(
+				"h-istasi %1 quote | %2 exact fighters from %3 to %4 | cost $%5 and %6 HR | ETA %7s | cooldown %8s",
+				supportKind,
 				m_Manifest.m_iAcceptedMemberCount,
 				m_Quote.m_sSourceZoneId,
 				m_Quote.m_sTargetZoneId,
 				m_Manifest.m_iMoneyCost,
 				m_Manifest.m_iHRCost,
 				m_Quote.m_iETASeconds,
-				m_Quote.m_iCooldownSeconds,
+				m_Quote.m_iCooldownSeconds
+			);
+			return summary + string.Format(
+				" | all-or-nothing | quote %1 | expires at campaign second %2",
 				m_Quote.m_sQuoteId,
 				m_Quote.m_iExpiresAtSecond
 			);
@@ -354,21 +361,25 @@ class HST_ForceConfirmationResult
 	{
 		if (!m_bSuccess || !m_Quote || !m_Manifest)
 		{
-			if (m_Quote && m_Quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF)
-				return "h-istasi QRF confirmation | failed: " + m_sFailureReason;
+			if (m_Quote && HST_ForcePlanningService.IsExactPlayerSupportQuoteKind(m_Quote.m_sQuoteKind))
+				return "h-istasi exact support confirmation | failed: " + m_sFailureReason;
 			return "h-istasi force confirmation | failed: " + m_sFailureReason;
 		}
 
 		string disposition = "accepted";
 		if (m_bAlreadyApplied)
 			disposition = "already accepted";
-		if (m_Quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF)
+		if (HST_ForcePlanningService.IsExactPlayerSupportQuoteKind(m_Quote.m_sQuoteKind))
 		{
+			string supportKind = "QRF";
+			if (m_Quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY)
+				supportKind = "Search-and-Destroy";
 			string supportRequestId = m_Quote.m_sSupportRequestId;
 			if (m_SupportRequest)
 				supportRequestId = m_SupportRequest.m_sRequestId;
 			return string.Format(
-				"h-istasi QRF confirmation | %1 | %2 exact fighters queued for %3 | charged $%4 and %5 HR | manifest %6 | support %7",
+				"h-istasi %1 confirmation | %2 | %3 exact fighters queued for %4 | charged $%5 and %6 HR | manifest %7 | support %8",
+				supportKind,
 				disposition,
 				m_Manifest.m_iAcceptedMemberCount,
 				m_Quote.m_sTargetZoneId,

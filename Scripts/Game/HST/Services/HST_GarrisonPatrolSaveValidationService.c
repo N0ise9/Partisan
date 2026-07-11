@@ -1327,7 +1327,19 @@ class HST_GarrisonPatrolSaveValidationService
 				return null;
 			match = zone;
 		}
-		return match;
+		if (match || !HST_MaidensBayLocationSaveValidationService.IsLegacyZoneId(zoneId))
+			return match;
+
+		HST_ZoneState canonicalMatch;
+		foreach (HST_ZoneState canonicalZone : m_SaveData.m_aZones)
+		{
+			if (!canonicalZone || canonicalZone.m_sZoneId != HST_MaidensBayLocationSaveValidationService.CANONICAL_ZONE_ID)
+				continue;
+			if (canonicalMatch)
+				return null;
+			canonicalMatch = canonicalZone;
+		}
+		return HST_MaidensBayLocationSaveValidationService.BuildFrozenHistoricalZoneView(canonicalMatch);
 	}
 
 	protected HST_ResourceTransactionState FindUniqueTransaction(string transactionId)

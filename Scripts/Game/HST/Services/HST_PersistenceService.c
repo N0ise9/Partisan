@@ -310,6 +310,7 @@ class HST_PersistenceService
 		bool hasPhysicalExactEnemyPatrol;
 		bool hasPhysicalExactGarrisonPatrol;
 		bool hasPhysicalExactMissionGuard;
+		bool hasPhysicalExactPlayerSupport;
 		bool hasMaterializingExactInfantry;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
@@ -333,7 +334,9 @@ class HST_PersistenceService
 			bool exactMissionGuard = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
 				&& HST_MissionGuardOperationService.IsSupportedExactContractVersion(
 					operation.m_iContractVersion);
-			if (!exactEnemyPatrol && !exactGarrisonPatrol && !exactMissionGuard)
+			bool exactPlayerSupport = HST_OperationService.IsExactPlayerSupportOperationType(operation.m_eType)
+				&& operation.m_iContractVersion != 0;
+			if (!exactEnemyPatrol && !exactGarrisonPatrol && !exactMissionGuard && !exactPlayerSupport)
 				continue;
 			if (operation.m_eMaterializationState
 				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
@@ -348,8 +351,10 @@ class HST_PersistenceService
 					hasPhysicalExactEnemyPatrol = true;
 				else if (exactGarrisonPatrol)
 					hasPhysicalExactGarrisonPatrol = true;
-				else
+				else if (exactMissionGuard)
 					hasPhysicalExactMissionGuard = true;
+				else
+					hasPhysicalExactPlayerSupport = true;
 			}
 		}
 		if (hasMaterializingExactInfantry)
@@ -363,7 +368,8 @@ class HST_PersistenceService
 		if (!m_PhysicalWar)
 		{
 			if (!hasExactMissionConvoy && !hasPhysicalExactEnemyPatrol
-				&& !hasPhysicalExactGarrisonPatrol && !hasPhysicalExactMissionGuard)
+				&& !hasPhysicalExactGarrisonPatrol && !hasPhysicalExactMissionGuard
+				&& !hasPhysicalExactPlayerSupport)
 				return true;
 			state.m_sLastPersistenceStatus = "checkpoint deferred: exact physical roster reconciler is unavailable";
 			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
@@ -395,7 +401,8 @@ class HST_PersistenceService
 				return false;
 			}
 		}
-		if (!hasPhysicalExactEnemyPatrol && !hasPhysicalExactGarrisonPatrol && !hasPhysicalExactMissionGuard)
+		if (!hasPhysicalExactEnemyPatrol && !hasPhysicalExactGarrisonPatrol
+			&& !hasPhysicalExactMissionGuard && !hasPhysicalExactPlayerSupport)
 			return true;
 		if (!m_ForceSpawnQueue || !m_ForceSpawnAdapter)
 		{
@@ -404,16 +411,16 @@ class HST_PersistenceService
 			return false;
 		}
 
-		HST_ForceSpawnAdapterTickResult patrolRoster = m_ForceSpawnAdapter.ReconcileExactInfantryAuthorityForPersistence(
+		HST_ForceSpawnAdapterTickResult exactInfantryRoster = m_ForceSpawnAdapter.ReconcileExactInfantryAuthorityForPersistence(
 			state,
 			m_ForceSpawnQueue,
 			m_PhysicalWar,
 			Math.Max(0, state.m_iElapsedSeconds));
-		if (!patrolRoster || patrolRoster.m_iFailedCount > 0)
+		if (!exactInfantryRoster || exactInfantryRoster.m_iFailedCount > 0)
 		{
 			string rosterEvidence = "missing adapter reconciliation result";
-			if (patrolRoster && !patrolRoster.m_sSummary.IsEmpty())
-				rosterEvidence = patrolRoster.m_sSummary;
+			if (exactInfantryRoster && !exactInfantryRoster.m_sSummary.IsEmpty())
+				rosterEvidence = exactInfantryRoster.m_sSummary;
 			state.m_sLastPersistenceStatus = string.Format(
 				"checkpoint deferred: exact infantry roster reconciliation failed during %1 | %2",
 				context,
@@ -425,7 +432,9 @@ class HST_PersistenceService
 			return false;
 		if (!ValidatePhysicalGarrisonPatrolSnapshots(state, context))
 			return false;
-		return ValidatePhysicalMissionGuardSnapshots(state, context);
+		if (!ValidatePhysicalMissionGuardSnapshots(state, context))
+			return false;
+		return ValidatePhysicalPlayerSupportBindings(state, context);
 	}
 
 	protected bool HasQuarantinedMissionGuardAuthority(HST_CampaignState state)
@@ -1117,6 +1126,309 @@ class HST_PersistenceService
 		return Math.AbsFloat(position[0]) > 0.01
 			|| Math.AbsFloat(position[1]) > 0.01
 			|| Math.AbsFloat(position[2]) > 0.01;
+	}
+
+	protected bool ValidatePhysicalPlayerSupportBindings(HST_CampaignState state, string context)
+	{
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation || !HST_OperationService.IsExactPlayerSupportOperationType(operation.m_eType)
+				|| operation.m_iContractVersion == 0
+				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+				|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+				continue;
+			if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+				&& operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
+				continue;
+
+			HST_SupportRequestState request = FindUniquePlayerSupportPersistenceRequest(state, operation.m_sSupportRequestId);
+			if (!request || CountPlayerSupportPersistenceRequests(state, operation) != 1)
+			{
+				return DeferPhysicalPlayerSupportBinding(
+					state,
+					context,
+					operation.m_sOperationId,
+					"reciprocal support request is missing or ambiguous");
+			}
+			if (!PlayerSupportPersistenceRequestLinksMatch(operation, request))
+			{
+				return DeferPhysicalPlayerSupportBinding(
+					state,
+					context,
+					operation.m_sOperationId,
+					"support request backlinks conflict");
+			}
+
+			HST_ForceSpawnResultState batch = FindUniquePlayerSupportPersistenceBatch(state, operation.m_sSpawnResultId);
+			if (!batch || CountPlayerSupportPersistenceBatches(state, operation, request, batch) != 1)
+			{
+				return DeferPhysicalPlayerSupportBinding(
+					state,
+					context,
+					operation.m_sOperationId,
+					"reciprocal exact-infantry batch is missing or ambiguous");
+			}
+			if (!PlayerSupportPersistenceBatchLinksMatch(operation, request, batch))
+			{
+				return DeferPhysicalPlayerSupportBinding(
+					state,
+					context,
+					operation.m_sOperationId,
+					"exact-infantry batch backlinks conflict");
+			}
+
+			HST_ActiveGroupState group = FindUniquePlayerSupportPersistenceGroup(state, operation.m_sGroupId);
+			if (!group || CountPlayerSupportPersistenceGroups(state, operation, request, group) != 1)
+			{
+				return DeferPhysicalPlayerSupportBinding(
+					state,
+					context,
+					operation.m_sOperationId,
+					"reciprocal active group is missing or ambiguous");
+			}
+			if (!PlayerSupportPersistenceGroupLinksMatch(operation, request, batch, group))
+			{
+				return DeferPhysicalPlayerSupportBinding(
+					state,
+					context,
+					operation.m_sOperationId,
+					"active-group backlinks conflict");
+			}
+
+			if (m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch) <= 0)
+				continue;
+
+			string bindingEvidence;
+			if (!m_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence(
+				state,
+				batch,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				bindingEvidence))
+			{
+				return DeferPhysicalPlayerSupportBinding(
+					state,
+					context,
+					operation.m_sOperationId,
+					bindingEvidence);
+			}
+
+			string livePositionEvidence;
+			if (!m_PhysicalWar.TryRefreshActiveSupportGroupLivePosition(group, livePositionEvidence))
+			{
+				return DeferPhysicalPlayerSupportBinding(
+					state,
+					context,
+					operation.m_sOperationId,
+					livePositionEvidence);
+			}
+		}
+		return true;
+	}
+
+	protected HST_SupportRequestState FindUniquePlayerSupportPersistenceRequest(
+		HST_CampaignState state,
+		string requestId)
+	{
+		HST_SupportRequestState match;
+		if (!state || requestId.IsEmpty())
+			return null;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!request || request.m_sRequestId != requestId)
+				continue;
+			if (match)
+				return null;
+			match = request;
+		}
+		return match;
+	}
+
+	protected HST_ForceSpawnResultState FindUniquePlayerSupportPersistenceBatch(
+		HST_CampaignState state,
+		string resultId)
+	{
+		HST_ForceSpawnResultState match;
+		if (!state || resultId.IsEmpty())
+			return null;
+		foreach (HST_ForceSpawnResultState batch : state.m_aForceSpawnResults)
+		{
+			if (!batch || batch.m_sResultId != resultId)
+				continue;
+			if (match)
+				return null;
+			match = batch;
+		}
+		return match;
+	}
+
+	protected HST_ActiveGroupState FindUniquePlayerSupportPersistenceGroup(
+		HST_CampaignState state,
+		string groupId)
+	{
+		HST_ActiveGroupState match;
+		if (!state || groupId.IsEmpty())
+			return null;
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (!group || group.m_sGroupId != groupId)
+				continue;
+			if (match)
+				return null;
+			match = group;
+		}
+		return match;
+	}
+
+	protected int CountPlayerSupportPersistenceRequests(
+		HST_CampaignState state,
+		HST_OperationRecordState operation)
+	{
+		int count;
+		if (!state || !operation)
+			return count;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!request)
+				continue;
+			bool matches = PersistenceIdentityMatches(request.m_sRequestId, operation.m_sSupportRequestId);
+			matches = matches || PersistenceIdentityMatches(request.m_sOperationId, operation.m_sOperationId);
+			matches = matches || PersistenceIdentityMatches(request.m_sQuoteId, operation.m_sQuoteId);
+			matches = matches || PersistenceIdentityMatches(request.m_sManifestId, operation.m_sManifestId);
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountPlayerSupportPersistenceBatches(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_SupportRequestState request,
+		HST_ForceSpawnResultState expected)
+	{
+		int count;
+		if (!state || !operation || !request || !expected)
+			return count;
+		foreach (HST_ForceSpawnResultState batch : state.m_aForceSpawnResults)
+		{
+			if (!batch)
+				continue;
+			bool matches = PersistenceIdentityMatches(batch.m_sResultId, expected.m_sResultId);
+			matches = matches || PersistenceIdentityMatches(batch.m_sRequestId, request.m_sRequestId);
+			matches = matches || PersistenceIdentityMatches(batch.m_sManifestId, operation.m_sManifestId);
+			matches = matches || PersistenceIdentityMatches(batch.m_sOperationId, operation.m_sOperationId);
+			matches = matches || PersistenceIdentityMatches(batch.m_sProjectionId, expected.m_sProjectionId);
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountPlayerSupportPersistenceGroups(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_SupportRequestState request,
+		HST_ActiveGroupState expected)
+	{
+		int count;
+		if (!state || !operation || !request || !expected)
+			return count;
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (!group)
+				continue;
+			bool matches = PersistenceIdentityMatches(group.m_sGroupId, expected.m_sGroupId);
+			matches = matches || PersistenceIdentityMatches(group.m_sSupportRequestId, request.m_sRequestId);
+			matches = matches || PersistenceIdentityMatches(group.m_sManifestId, operation.m_sManifestId);
+			matches = matches || PersistenceIdentityMatches(group.m_sOperationId, operation.m_sOperationId);
+			matches = matches || PersistenceIdentityMatches(group.m_sProjectionId, expected.m_sProjectionId);
+			if (matches)
+				count++;
+		}
+		return count;
+	}
+
+	protected bool PlayerSupportPersistenceRequestLinksMatch(
+		HST_OperationRecordState operation,
+		HST_SupportRequestState request)
+	{
+		if (!operation || !request || !HST_OperationService.IsExactPlayerSupportType(request.m_eType))
+			return false;
+		bool linksMatch = request.m_iOperationContractVersion != 0;
+		linksMatch = linksMatch && request.m_iOperationContractVersion == operation.m_iContractVersion;
+		linksMatch = linksMatch && HST_OperationService.ResolveExactPlayerSupportOperationType(request.m_eType) == operation.m_eType;
+		linksMatch = linksMatch && request.m_sRequestId == operation.m_sSupportRequestId;
+		linksMatch = linksMatch && request.m_sOperationId == operation.m_sOperationId;
+		linksMatch = linksMatch && request.m_sQuoteId == operation.m_sQuoteId;
+		linksMatch = linksMatch && request.m_sManifestId == operation.m_sManifestId;
+		linksMatch = linksMatch && request.m_sSpawnResultId == operation.m_sSpawnResultId;
+		linksMatch = linksMatch && request.m_sGroupId == operation.m_sGroupId;
+		return linksMatch;
+	}
+
+	protected bool PlayerSupportPersistenceBatchLinksMatch(
+		HST_OperationRecordState operation,
+		HST_SupportRequestState request,
+		HST_ForceSpawnResultState batch)
+	{
+		if (!operation || !request || !batch)
+			return false;
+		bool linksMatch = batch.m_sResultId == operation.m_sSpawnResultId;
+		linksMatch = linksMatch && batch.m_sRequestId == request.m_sRequestId;
+		linksMatch = linksMatch && batch.m_sManifestId == operation.m_sManifestId;
+		linksMatch = linksMatch && batch.m_sOperationId == operation.m_sOperationId;
+		linksMatch = linksMatch && batch.m_sForceId == operation.m_sForceId;
+		linksMatch = linksMatch && batch.m_sProjectionId == operation.m_sProjectionId;
+		return linksMatch;
+	}
+
+	protected bool PlayerSupportPersistenceGroupLinksMatch(
+		HST_OperationRecordState operation,
+		HST_SupportRequestState request,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!operation || !request || !batch || !group)
+			return false;
+		bool linksMatch = group.m_sGroupId == operation.m_sGroupId;
+		linksMatch = linksMatch && group.m_sSupportRequestId == request.m_sRequestId;
+		linksMatch = linksMatch && group.m_sManifestId == operation.m_sManifestId;
+		linksMatch = linksMatch && group.m_sOperationId == operation.m_sOperationId;
+		linksMatch = linksMatch && group.m_sSpawnResultId == batch.m_sResultId;
+		linksMatch = linksMatch && group.m_sForceId == batch.m_sForceId;
+		linksMatch = linksMatch && group.m_sProjectionId == batch.m_sProjectionId;
+		return linksMatch;
+	}
+
+	protected bool PersistenceIdentityMatches(string left, string right)
+	{
+		return !left.IsEmpty() && left == right;
+	}
+
+	protected bool DeferPhysicalPlayerSupportBinding(
+		HST_CampaignState state,
+		string context,
+		string operationId,
+		string evidence)
+	{
+		state.m_sLastPersistenceStatus = string.Format(
+			"checkpoint deferred: exact player support live roster failed during %1 | operation %2 | %3",
+			BoundPlayerSupportPersistenceStatusPart(context, 72),
+			BoundPlayerSupportPersistenceStatusPart(operationId, 72),
+			BoundPlayerSupportPersistenceStatusPart(evidence, 192));
+		Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+		return false;
+	}
+
+	protected string BoundPlayerSupportPersistenceStatusPart(string value, int maxCharacters)
+	{
+		if (value.IsEmpty())
+			return "unavailable";
+		maxCharacters = Math.Max(4, maxCharacters);
+		if (value.Length() <= maxCharacters)
+			return value;
+		return value.Substring(0, maxCharacters - 3) + "...";
 	}
 
 	protected bool ValidatePhysicalEnemyPatrolSnapshots(HST_CampaignState state, string context)

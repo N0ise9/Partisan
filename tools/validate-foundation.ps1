@@ -2102,6 +2102,780 @@ if ($defaultCatalog -notmatch 'NewZoneState\("town_morton"' -or $defaultCatalog 
 }
 Write-Host "Everon true-town/minor-locality taxonomy OK"
 
+$maidensBayLocationValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MaidensBayLocationSaveValidationService.c"
+$maidensBaySaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$maidensBayWarehouseBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sZoneId\s+"resource_logistics_warehouse"' })
+if ($maidensBayWarehouseBlocks.Count -ne 1) {
+	throw "Maiden's Bay map coverage must contain exactly one Logistics Warehouse resource zone"
+}
+foreach ($requiredWarehouseEntry in @(
+		'm_sDisplayName "Logistics Warehouse"',
+		'm_sSourceLayoutId "MBC_SaintPhillipe"',
+		'm_eType HST_ZONE_RESOURCE',
+		'm_vPosition 5347.874 43.617 10542.923',
+		'm_sResourceKind "supplies"',
+		'm_iGarrisonSlots 14',
+		'm_sSpawnProfileId "spawn_resource_guards"',
+		'm_sMarkerStyle "resource"'
+	)) {
+	if ($maidensBayWarehouseBlocks[0] -notmatch [regex]::Escape($requiredWarehouseEntry)) {
+		throw "Maiden's Bay Logistics Warehouse taxonomy is missing: $requiredWarehouseEntry"
+	}
+}
+if ($defaultCatalog -match 'NewZoneState\("town_maidens_bay"' -or $mapConfig -match '"town_maidens_bay"') {
+	throw "Legacy Maiden's Bay town must not remain in either fresh campaign zone registry"
+}
+if ($runtimeMarkerLayer -match 'HST_ConflictMapMarker_town_maidens_bay' -or $strategicZonesLayer -match 'HST_ZoneAnchor_town_maidens_bay') {
+	throw "Legacy Maiden's Bay town must not retain a native marker or strategic anchor"
+}
+foreach ($requiredWarehouseWorldEntry in @(
+		'HST_ConflictMapMarker_resource_logistics_warehouse',
+		'HST_ZoneAnchor_resource_logistics_warehouse',
+		'coords 5347.874 43.617 10542.923'
+	)) {
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredWarehouseWorldEntry) -and $strategicZonesLayer -notmatch [regex]::Escape($requiredWarehouseWorldEntry)) {
+		throw "Logistics Warehouse world projection is missing: $requiredWarehouseWorldEntry"
+	}
+}
+foreach ($requiredLocationMigrationEntry in @(
+		'HST_MaidensBayLocationSaveValidationService',
+		'migration_schema60_maidens_bay_location_merge',
+		'BuildLegacyCompatibilityZone',
+		'RemoveLegacyCivilianRows',
+		'RemoveLegacyTownInfluenceRows',
+		'RemoveLegacyZoneMarkers',
+		'NormalizeLegacyGarrisons'
+	)) {
+	if ($maidensBayLocationValidationText -notmatch [regex]::Escape($requiredLocationMigrationEntry)) {
+		throw "Schema-60 Maiden's Bay save cleanup is missing: $requiredLocationMigrationEntry"
+	}
+}
+if ($maidensBaySaveDataText -notmatch 'schema60MaidensBayLocationValidation\.Normalize\(this, restoredSchemaVersion\)') {
+	throw "Campaign restore must run the Schema-60 Maiden's Bay location cleanup"
+}
+if ($campaignStateText -notmatch 'HST_MaidensBayLocationSaveValidationService\.BuildLegacyCompatibilityZone') {
+	throw "Campaign state must resolve frozen legacy Maiden's Bay references through the non-enumerated warehouse alias"
+}
+
+$maidensBayGarrisonPatrolValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GarrisonPatrolSaveValidationService.c"
+$maidensBayGarrisonPatrolOperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GarrisonPatrolOperationService.c"
+$maidensBayMissionGuardOperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionGuardOperationService.c"
+$maidensBayRescuePOWOperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_RescuePOWOperationService.c"
+$maidensBayEnemyDirectorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyDirectorService.c"
+$maidensBayEnemyCommanderText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
+$maidensBayEnemyQRFOperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyQRFOperationService.c"
+$maidensBayEnemyPatrolOperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPatrolOperationService.c"
+$maidensBayMissionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionService.c"
+$maidensBayMissionRuntimeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
+$maidensBayPhysicalWarText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$maidensBayZoneCaptureText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCaptureService.c"
+$maidensBayMethodBlocks = [ordered]@{
+	Normalize = Get-ScriptMethodBlock $maidensBayLocationValidationText 'void Normalize('
+	AreEquivalentZoneIds = Get-ScriptMethodBlock $maidensBayLocationValidationText 'static bool AreEquivalentZoneIds('
+	ConfigureCanonicalWarehouse = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected void ConfigureCanonicalWarehouse('
+	NormalizeLiveZoneReferences = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected void NormalizeLiveZoneReferences('
+	IsDuplicateLegacyProjection = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool IsDuplicateLegacyProjection('
+	HasLiveLinkedAuthority = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool HasLiveLinkedAuthority('
+	HasTypedMissionClaimant = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool HasTypedMissionClaimant('
+	IsOpenFrozenTypedGroup = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool IsOpenFrozenTypedGroup('
+	HasTypedManifestAuthority = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool HasTypedManifestAuthority('
+	IsTypedManifestClaimant = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool IsTypedManifestClaimant('
+	HasTypedBatchAuthority = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool HasTypedBatchAuthority('
+	HasTypedTombstoneAuthority = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool HasTypedTombstoneAuthority('
+	IsOpenFrozenTypedGroupId = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool IsOpenFrozenTypedGroupId('
+	IsTypedOperationClaimant = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool IsTypedOperationClaimant('
+	IsTypedSupportRequestClaimant = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool IsTypedSupportRequestClaimant('
+	IsTypedEnemyOrderClaimant = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool IsTypedEnemyOrderClaimant('
+	IsTypedMissionClaimant = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool IsTypedMissionClaimant('
+	CollectOpenFrozenContentReferences = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected void CollectOpenFrozenContentReferences('
+	NormalizeGeneratedContent = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected int NormalizeGeneratedContent('
+	EnsureCanonicalGeneratedSiteClone = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected int EnsureCanonicalGeneratedSiteClone('
+	EnsureCanonicalGeneratedRouteClone = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected int EnsureCanonicalGeneratedRouteClone('
+	RekeyGeneratedSite = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected void RekeyGeneratedSite('
+	RekeyGeneratedRoute = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected void RekeyGeneratedRoute('
+	ShouldCanonicalizeObjectiveTargetId = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected bool ShouldCanonicalizeObjectiveTargetId('
+	NormalizeEnemySupportLedgers = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected int NormalizeEnemySupportLedgers('
+	MergeEnemySupportLedger = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected void MergeEnemySupportLedger('
+	ExpireStaleLedgerWindows = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected void ExpireStaleLedgerWindows('
+}
+foreach ($maidensBayMethodBlock in $maidensBayMethodBlocks.GetEnumerator()) {
+	if ([string]::IsNullOrWhiteSpace($maidensBayMethodBlock.Value)) {
+		throw "Schema-60 Maiden's Bay migration is missing method body: $($maidensBayMethodBlock.Key)"
+	}
+}
+
+$equivalentZoneIdsBlock = $maidensBayMethodBlocks.AreEquivalentZoneIds
+if ($equivalentZoneIdsBlock -notmatch '(?s)if\s*\(\s*leftZoneId\.IsEmpty\(\)\s*\|\|\s*rightZoneId\.IsEmpty\(\)\s*\)\s*return\s+leftZoneId\s*==\s*rightZoneId;\s*return\s+ResolveCanonicalZoneId\(leftZoneId\)\s*==\s*ResolveCanonicalZoneId\(rightZoneId\);') {
+	throw "Equivalent zone IDs must preserve empty-to-empty equality, reject one-sided empties, and canonicalize both nonempty IDs"
+}
+
+$maidensBayNormalizeBlock = $maidensBayMethodBlocks.Normalize
+$maidensBayNoAnchorGate = [regex]::Match(
+	$maidensBayNormalizeBlock,
+	'(?s)if\s*\(\s*canonicalZoneCount\s*==\s*0\s*&&\s*legacyZoneCountBeforeMigration\s*==\s*0\s*\)\s*\{\s*m_SaveData\s*=\s*null;\s*return;\s*\}')
+$maidensBayAmbiguousGate = [regex]::Match(
+	$maidensBayNormalizeBlock,
+	'(?s)if\s*\(\s*canonicalZoneCount\s*>\s*1\s*\|\|\s*\(\s*canonicalZoneCount\s*==\s*0\s*&&\s*legacyZoneCountBeforeMigration\s*>\s*1\s*\)\s*\)\s*\{\s*RecordAmbiguousCanonicalConflict\(restoredSchemaVersion\);\s*m_SaveData\s*=\s*null;\s*return;\s*\}')
+$maidensBayFirstRewriteIndex = $maidensBayNormalizeBlock.IndexOf('CaptureLegacyZoneLinks')
+if (!$maidensBayNoAnchorGate.Success -or !$maidensBayAmbiguousGate.Success -or
+	$maidensBayFirstRewriteIndex -lt 0 -or
+	$maidensBayNoAnchorGate.Index -gt $maidensBayAmbiguousGate.Index -or
+	$maidensBayAmbiguousGate.Index -gt $maidensBayFirstRewriteIndex) {
+	throw "Schema-60 Maiden's Bay migration must return byte-stable with no anchor and fail closed for duplicate canonical or multiple legacy-only authority before cleanup"
+}
+$maidensBayAmbiguousConflictBlock = Get-ScriptMethodBlock $maidensBayLocationValidationText 'protected void RecordAmbiguousCanonicalConflict('
+foreach ($requiredAmbiguousConflictEntry in @(
+	'MIGRATION_EVENT_ID + "_ambiguous_canonical"',
+	'ambiguous_location_authority_preserved_fail_closed',
+	'ambiguous Logistics Warehouse/Maiden''s Bay zone authority',
+	'no links, projections, ledgers, or generated content were rewritten'
+	)) {
+	if ($maidensBayAmbiguousConflictBlock -notmatch [regex]::Escape($requiredAmbiguousConflictEntry)) {
+		throw "Ambiguous Maiden's Bay canonical rows must retain an idempotent fail-closed audit: $requiredAmbiguousConflictEntry"
+	}
+}
+
+$configureWarehouseBlock = $maidensBayMethodBlocks.ConfigureCanonicalWarehouse
+$warehouseIncomeAssignments = @([regex]::Matches($configureWarehouseBlock, 'zone\.m_iIncomeValue\s*='))
+$warehouseSlotAssignments = @([regex]::Matches($configureWarehouseBlock, 'zone\.m_iGarrisonSlots\s*='))
+if ($warehouseIncomeAssignments.Count -ne 1 -or $warehouseSlotAssignments.Count -ne 1 -or
+	$configureWarehouseBlock -notmatch '(?s)if\s*\(\s*!preserveLegacyEconomy\s*\)\s*\{\s*if\s*\(\s*zone\.m_iIncomeValue\s*<=\s*0\s*\)\s*zone\.m_iIncomeValue\s*=\s*80;\s*if\s*\(\s*zone\.m_iGarrisonSlots\s*<=\s*0\s*\)\s*zone\.m_iGarrisonSlots\s*=\s*14;\s*\}') {
+	throw "Canonical warehouse configuration must preserve every nonzero income and garrison-slot value and default only absent canonical values"
+}
+foreach ($requiredConvertedWarehouseEntry in @(
+	'ConfigureCanonicalWarehouse(canonicalZone, true)',
+	'convertedLegacyZone = true',
+	'ConfigureCanonicalWarehouse(canonicalZone, convertedLegacyZone)'
+	)) {
+	if ($maidensBayNormalizeBlock -notmatch [regex]::Escape($requiredConvertedWarehouseEntry)) {
+		throw "Converted legacy warehouse economy must remain stable across the second and repeated normalization passes: $requiredConvertedWarehouseEntry"
+	}
+}
+
+$typedOperationClaimantBlock = $maidensBayMethodBlocks.IsTypedOperationClaimant
+if ($typedOperationClaimantBlock -notmatch '(?s)operation\.m_iContractVersion\s*==\s*0\s*\)\s*return\s+false;') {
+	throw "Maiden's Bay typed-operation preservation must classify every nonzero contract version, including negative quarantine values"
+}
+foreach ($typedClaimantContract in @(
+	@($maidensBayMethodBlocks.IsTypedSupportRequestClaimant, 'request'),
+	@($maidensBayMethodBlocks.IsTypedEnemyOrderClaimant, 'order'),
+	@($maidensBayMethodBlocks.IsTypedMissionClaimant, 'mission')
+	)) {
+	$claimantBlock = $typedClaimantContract[0]
+	$claimantVariable = $typedClaimantContract[1]
+	if ($claimantBlock -notmatch ("(?s)" + $claimantVariable + '\.m_iOperationContractVersion\s*!=\s*0\s*\)\s*return\s+true;')) {
+		throw "Maiden's Bay typed $claimantVariable preservation must classify every nonzero contract version, including malformed negative claimants"
+	}
+}
+foreach ($typedClaimantBlock in @(
+	$maidensBayMethodBlocks.IsTypedOperationClaimant,
+	$maidensBayMethodBlocks.IsTypedSupportRequestClaimant,
+	$maidensBayMethodBlocks.IsTypedEnemyOrderClaimant,
+	$maidensBayMethodBlocks.IsTypedMissionClaimant,
+	$maidensBayMethodBlocks.IsOpenFrozenTypedGroup
+	)) {
+	if ($typedClaimantBlock -match 'm_i(?:Operation)?ContractVersion\s*(?:>|>=)\s*0') {
+		throw "Maiden's Bay typed claimant detection must not exclude malformed or quarantined negative contract versions"
+	}
+}
+foreach ($requiredTypedGraphGuard in @(
+	'if (IsOpenFrozenTypedGroup(group))',
+	'if (!qrf || IsOpenFrozenTypedGroupId(qrf.m_sGroupId))',
+	'if (!request || IsTypedSupportRequestClaimant(request, false))',
+	'if (!order || IsTypedEnemyOrderClaimant(order, false))',
+	'if (!mission || IsTypedMissionClaimant(mission, false))',
+	'if (!operation || IsTypedOperationClaimant(operation, false))'
+	)) {
+	if ($maidensBayMethodBlocks.NormalizeLiveZoneReferences -notmatch [regex]::Escape($requiredTypedGraphGuard)) {
+		throw "Maiden's Bay mutable-reference normalization must preserve typed authority: $requiredTypedGraphGuard"
+	}
+}
+foreach ($requiredFrozenGroupClaimantEntry in @(
+	'request.m_iOperationContractVersion != 0',
+	'order.m_iOperationContractVersion != 0',
+	'mission.m_iOperationContractVersion != 0',
+	'IsTypedOperationClaimant(operation, false)',
+	'MatchesOperationGroupIdentity(operation, group)',
+	'HasTypedManifestAuthority(group)',
+	'HasTypedBatchAuthority(group)',
+	'HasTypedTombstoneAuthority(group)'
+	)) {
+	if ($maidensBayMethodBlocks.IsOpenFrozenTypedGroup -notmatch [regex]::Escape($requiredFrozenGroupClaimantEntry)) {
+		throw "Maiden's Bay group preservation must retain nonzero typed and linked operation claimants: $requiredFrozenGroupClaimantEntry"
+	}
+}
+$knownExactGroupClaimants = @(
+	'HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant',
+	'HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant',
+	'HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant',
+	'HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant',
+	'HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant'
+	)
+foreach ($knownExactGroupClaimant in $knownExactGroupClaimants) {
+	if ($maidensBayMethodBlocks.IsOpenFrozenTypedGroup -notmatch [regex]::Escape($knownExactGroupClaimant)) {
+		throw "Maiden's Bay group preservation must recognize known exact group claimant: $knownExactGroupClaimant"
+	}
+}
+foreach ($requiredGraphlessTypedMode in @(
+	'group.m_sSpawnFallbackMode == HST_EnemyQRFOperationService.EXACT_QRF_GROUP_MODE',
+	'group.m_sSpawnFallbackMode == HST_RescuePOWOperationService.EXACT_GROUP_MODE',
+	'group.m_sSpawnFallbackMode == HST_RescuePOWOperationService.QUARANTINE_STATUS',
+	'group.m_sRuntimeStatus == HST_RescuePOWOperationService.QUARANTINE_STATUS',
+	'group.m_sSpawnFallbackMode == HST_PlayerSearchDestroySaveValidationService.QUARANTINE_MODE',
+	'group.m_sRuntimeStatus == HST_PlayerSearchDestroySaveValidationService.QUARANTINE_STATUS',
+	'group.m_sSpawnFallbackMode == HST_SupportRequestService.EXACT_PLAYER_SUPPORT_MODE',
+	'group.m_sRuntimeStatus == HST_SupportRequestService.EXACT_PLAYER_SUPPORT_GROUP_STATUS',
+	'group.m_sSpawnFallbackMode == HST_EnemyPatrolOperationService.EXACT_GROUP_MODE',
+	'group.m_sSpawnFallbackMode.StartsWith(HST_EnemyPatrolOperationService.EXACT_GROUP_MODE + "_")',
+	'group.m_sRuntimeStatus == "exact_patrol_quarantined"',
+	'group.m_sRuntimeStatus == "exact_patrol_orphan_quarantined"',
+	'group.m_sRuntimeStatus == "exact_runtime_authority_quarantined"'
+	)) {
+	if ($maidensBayMethodBlocks.IsOpenFrozenTypedGroup -notmatch [regex]::Escape($requiredGraphlessTypedMode)) {
+		throw "Graphless exact or quarantined group authority must survive location migration: $requiredGraphlessTypedMode"
+	}
+}
+if ($maidensBayMethodBlocks.IsOpenFrozenTypedGroupId -notmatch '(?s)foreach\s*\(\s*HST_ActiveGroupState\s+group\s*:\s*m_SaveData\.m_aActiveGroups\s*\).*?group\.m_sGroupId\s*==\s*groupId\s*&&\s*IsOpenFrozenTypedGroup\(group\).*?return\s+true;' -or
+	$maidensBayMethodBlocks.IsOpenFrozenTypedGroupId -match 'return\s+IsOpenFrozenTypedGroup\(group\)') {
+	throw "Duplicate group-ID scans must inspect every matching row and preserve the ID when any duplicate is typed"
+}
+if ($maidensBayMethodBlocks.HasTypedMissionClaimant -notmatch '(?s)foreach\s*\(\s*HST_ActiveMissionState\s+mission\s*:\s*m_SaveData\.m_aActiveMissions\s*\).*?mission\.m_sInstanceId\s*==\s*missionInstanceId\s*&&\s*IsTypedMissionClaimant\(mission,\s*false\).*?return\s+true;' -or
+	$maidensBayMethodBlocks.HasTypedMissionClaimant -match 'return\s+IsTypedMissionClaimant') {
+	throw "Duplicate mission-ID scans must inspect every matching row and preserve the ID when any duplicate is typed"
+}
+$knownExactBatchClaimants = @(
+	'HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant',
+	'HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyBatchClaimant',
+	'HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolBatchClaimant',
+	'HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant',
+	'HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant'
+	)
+foreach ($knownExactBatchClaimant in $knownExactBatchClaimants) {
+	if ($maidensBayMethodBlocks.HasTypedBatchAuthority -notmatch [regex]::Escape($knownExactBatchClaimant)) {
+		throw "Maiden's Bay group preservation must recognize known exact batch claimant: $knownExactBatchClaimant"
+	}
+}
+foreach ($requiredTypedManifestEntry in @(
+	'policyId.Contains("exact")',
+	'IsTypedOperationClaimant(operation, false)',
+	'IsTypedSupportRequestClaimant(request, false)',
+	'IsTypedEnemyOrderClaimant(order, false)',
+	'IsTypedMissionClaimant(mission, false)',
+	'tombstone.m_iOperationContractVersion != 0'
+	)) {
+	if ($maidensBayMethodBlocks.IsTypedManifestClaimant -notmatch [regex]::Escape($requiredTypedManifestEntry)) {
+		throw "Maiden's Bay group preservation must recognize exact manifest authority: $requiredTypedManifestEntry"
+	}
+}
+foreach ($requiredTypedTombstoneEntry in @(
+	'tombstone.m_iOperationContractVersion == 0',
+	'group.m_sOperationId == tombstone.m_sOperationId',
+	'group.m_sManifestId == tombstone.m_sManifestId'
+	)) {
+	if ($maidensBayMethodBlocks.HasTypedTombstoneAuthority -notmatch [regex]::Escape($requiredTypedTombstoneEntry)) {
+		throw "Maiden's Bay group preservation must recognize nonzero exact tombstone authority: $requiredTypedTombstoneEntry"
+	}
+}
+$frozenTypedPreservationCorpus = $maidensBayMethodBlocks.IsOpenFrozenTypedGroup + "`n" +
+	$maidensBayMethodBlocks.IsTypedManifestClaimant + "`n" +
+	$maidensBayMethodBlocks.HasTypedBatchAuthority + "`n" +
+	$maidensBayMethodBlocks.HasTypedTombstoneAuthority + "`n" +
+	$maidensBayMethodBlocks.CollectOpenFrozenContentReferences
+if ($frozenTypedPreservationCorpus -match 'IsTypedOperationClaimant\(\s*operation\s*,\s*true\s*\)') {
+	throw "Maiden's Bay preservation must include settled nonzero operation graphs and may not require open lifecycle state"
+}
+foreach ($requiredFrozenContentEntry in @(
+	'IsTypedOperationClaimant(operation, false)',
+	'typedRequest.m_iOperationContractVersion != 0',
+	'typedMission.m_iOperationContractVersion != 0',
+	'AppendUniqueString(routeIds, operation.m_sCurrentRouteId)',
+	'AppendUniqueString(routeIds, typedGroup.m_sRouteId)',
+	'AppendUniqueString(routeIds, typedRequest.m_sDeploymentRouteId)',
+	'AppendUniqueString(siteIds, typedMission.m_sSiteId)',
+	'AppendUniqueString(routeIds, site.m_sRouteId)'
+	)) {
+	if ($maidensBayMethodBlocks.CollectOpenFrozenContentReferences -notmatch [regex]::Escape($requiredFrozenContentEntry)) {
+		throw "Maiden's Bay migration must collect every typed generated-content reference, including settled authority, before rekeying: $requiredFrozenContentEntry"
+	}
+}
+foreach ($requiredFrozenGeneratedGuard in @(
+	'frozenSiteIds.Contains(site.m_sSiteId)',
+	'frozenRouteIds.Contains(route.m_sRouteId)'
+	)) {
+	if ($maidensBayMethodBlocks.NormalizeGeneratedContent -notmatch [regex]::Escape($requiredFrozenGeneratedGuard)) {
+		throw "Maiden's Bay generated-content migration must leave frozen typed content byte-stable: $requiredFrozenGeneratedGuard"
+	}
+}
+$generatedContentBlock = $maidensBayMethodBlocks.NormalizeGeneratedContent
+if ($generatedContentBlock -notmatch '(?s)if\s*\(\s*frozenSiteIds\s*&&\s*frozenSiteIds\.Contains\(site\.m_sSiteId\)\s*\)\s*\{\s*changed\s*\+=\s*EnsureCanonicalGeneratedSiteClone\(site\);\s*continue;\s*\}' -or
+	$generatedContentBlock -notmatch '(?s)if\s*\(\s*frozenRouteIds\s*&&\s*frozenRouteIds\.Contains\(route\.m_sRouteId\)\s*\)\s*\{\s*changed\s*\+=\s*EnsureCanonicalGeneratedRouteClone\(route\);\s*continue;\s*\}') {
+	throw "Frozen old-ID generated content must retain its original row and only create a canonical deep clone"
+}
+$routeLoopIndex = $generatedContentBlock.IndexOf('for (int routeIndex')
+$frozenRouteSkipIndex = $generatedContentBlock.IndexOf('if (frozenRouteIds', $routeLoopIndex)
+$routeOwnershipIndex = $generatedContentBlock.IndexOf('bool legacyOwned', $routeLoopIndex)
+$routeSourceMutationIndex = $generatedContentBlock.IndexOf('route.m_sSourceZoneId = CANONICAL_ZONE_ID', $routeLoopIndex)
+$routeTargetMutationIndex = $generatedContentBlock.IndexOf('route.m_sTargetZoneId = CANONICAL_ZONE_ID', $routeLoopIndex)
+if ($routeLoopIndex -lt 0 -or $frozenRouteSkipIndex -le $routeLoopIndex -or
+	$routeOwnershipIndex -le $frozenRouteSkipIndex -or
+	$routeSourceMutationIndex -le $frozenRouteSkipIndex -or
+	$routeTargetMutationIndex -le $frozenRouteSkipIndex) {
+	throw "Frozen route detection and clone/continue must occur before any legacy ownership or endpoint mutation"
+}
+
+$normalizeLiveBlock = $maidensBayMethodBlocks.NormalizeLiveZoneReferences
+$typedGroupGuardIndex = $normalizeLiveBlock.IndexOf('if (IsOpenFrozenTypedGroup(group))')
+$duplicateProjectionIndex = $normalizeLiveBlock.IndexOf('if (IsDuplicateLegacyProjection(group))')
+$genericCanonicalizeIndex = $normalizeLiveBlock.IndexOf('if (group.m_sZoneId == LEGACY_ZONE_ID)', $duplicateProjectionIndex)
+if ($typedGroupGuardIndex -lt 0 -or $duplicateProjectionIndex -le $typedGroupGuardIndex -or
+	$genericCanonicalizeIndex -le $duplicateProjectionIndex) {
+	throw "Maiden's Bay active-group migration must preserve typed rows, retire unowned duplicate projections, then canonicalize linked generic rows"
+}
+if ($normalizeLiveBlock -notmatch '(?s)if\s*\(\s*IsDuplicateLegacyProjection\(group\)\s*\).*?m_SaveData\.m_aActiveGroups\.Remove\(groupIndex\);.*?continue;') {
+	throw "Unowned Maiden's Bay ambient/garrison projections must be retired directly from active state"
+}
+if ($maidensBayLocationValidationText -match '(?i)\b(?:Fold|Dematerialize)[A-Za-z0-9_]*\s*\(') {
+	throw "Maiden's Bay duplicate projections must retire without folding or crediting survivor manpower"
+}
+if ($normalizeLiveBlock -match 'm_i(?:Infantry|Vehicle)Count\s*(?:\+=|=)') {
+	throw "Maiden's Bay active-group cleanup must not write aggregate garrison manpower"
+}
+foreach ($requiredDuplicateProjectionEntry in @(
+	'if (HasLiveLinkedAuthority(group))',
+	'group.m_sGarrisonZoneId == LEGACY_ZONE_ID',
+	'projectionText.Contains("town_police")',
+	'projectionText.Contains("garrison")',
+	'return !group.m_bQRF'
+	)) {
+	if ($maidensBayMethodBlocks.IsDuplicateLegacyProjection -notmatch [regex]::Escape($requiredDuplicateProjectionEntry)) {
+		throw "Maiden's Bay duplicate-projection classifier is missing: $requiredDuplicateProjectionEntry"
+	}
+}
+foreach ($requiredLiveAuthorityEntry in @(
+	'FindMission(group.m_sMissionInstanceId)',
+	'FindSupportRequest(group.m_sSupportRequestId)',
+	'FindEnemyOrder(group.m_sEnemyOrderId)',
+	'FindQRF(group.m_sQRFInstanceId)',
+	'FindOperation(group.m_sOperationId)'
+	)) {
+	if ($maidensBayMethodBlocks.HasLiveLinkedAuthority -notmatch [regex]::Escape($requiredLiveAuthorityEntry)) {
+		throw "Linked generic Maiden's Bay groups must canonicalize instead of retiring: $requiredLiveAuthorityEntry"
+	}
+}
+
+$normalizeLedgersBlock = $maidensBayMethodBlocks.NormalizeEnemySupportLedgers
+foreach ($requiredLedgerNormalizationEntry in @(
+	'FindCanonicalLedger(ledger.m_sFactionKey)',
+	'MergeEnemySupportLedger(canonicalLedger, ledger)',
+	'm_SaveData.m_aEnemySupportLedgers.Remove(index)',
+	'ledger.m_sZoneId = CANONICAL_ZONE_ID'
+	)) {
+	if ($normalizeLedgersBlock -notmatch [regex]::Escape($requiredLedgerNormalizationEntry)) {
+		throw "Maiden's Bay defense-ledger normalization is missing: $requiredLedgerNormalizationEntry"
+	}
+}
+$mergeLedgerBlock = $maidensBayMethodBlocks.MergeEnemySupportLedger
+foreach ($additiveLedgerField in @(
+	'm_iAttackSpent',
+	'm_iSupportSpent',
+	'm_iRefundedAttackResources',
+	'm_iRefundedSupportResources'
+	)) {
+	$additiveLedgerPattern = '(?s)canonicalLedger\.' + $additiveLedgerField +
+		'\s*=\s*Math\.Max\(\s*0\s*,\s*canonicalLedger\.' + $additiveLedgerField +
+		'\s*\)\s*\+\s*Math\.Max\(\s*0\s*,\s*legacyLedger\.' + $additiveLedgerField + '\s*\)'
+	if ($mergeLedgerBlock -notmatch $additiveLedgerPattern) {
+		throw "Maiden's Bay defense-ledger merge must conservatively add $additiveLedgerField"
+	}
+}
+foreach ($maximumLedgerField in @(
+	'm_iLastDamageSecond',
+	'm_iLastSpendSecond',
+	'm_iCooldownUntilSecond'
+	)) {
+	$maximumLedgerPattern = '(?s)canonicalLedger\.' + $maximumLedgerField +
+		'\s*=\s*Math\.Max\(\s*canonicalLedger\.' + $maximumLedgerField +
+		'\s*,\s*legacyLedger\.' + $maximumLedgerField + '\s*\)'
+	if ($mergeLedgerBlock -notmatch $maximumLedgerPattern) {
+		throw "Maiden's Bay defense-ledger merge must retain the latest $maximumLedgerField"
+	}
+}
+foreach ($requiredLedgerMergeEntry in @(
+	'ExpireStaleLedgerWindows(canonicalLedger)',
+	'ExpireStaleLedgerWindows(legacyLedger)',
+	'canonicalLedger.m_iRecentDamageScore = Math.Min(100, Math.Max(',
+	'int canonicalDecisionSecond = Math.Max(canonicalLedger.m_iLastDamageSecond',
+	'Math.Max(canonicalLedger.m_iLastSpendSecond, canonicalLedger.m_iCooldownUntilSecond)',
+	'int legacyDecisionSecond = Math.Max(legacyLedger.m_iLastDamageSecond',
+	'Math.Max(legacyLedger.m_iLastSpendSecond, legacyLedger.m_iCooldownUntilSecond)',
+	'legacyDecisionSecond > canonicalDecisionSecond',
+	'canonicalLedger.m_sLastDecisionReason = legacyLedger.m_sLastDecisionReason'
+	)) {
+	if ($mergeLedgerBlock -notmatch [regex]::Escape($requiredLedgerMergeEntry)) {
+		throw "Maiden's Bay defense-ledger merge must retain bounded live-window evidence: $requiredLedgerMergeEntry"
+	}
+}
+if ($mergeLedgerBlock -notmatch '(?s)if\s*\(\s*!legacyLedger\.m_sLastDecisionReason\.IsEmpty\(\)\s*&&\s*\(\s*canonicalLedger\.m_sLastDecisionReason\.IsEmpty\(\)\s*\|\|\s*legacyDecisionSecond\s*>\s*canonicalDecisionSecond\s*\)\s*\)\s*canonicalLedger\.m_sLastDecisionReason\s*=\s*legacyLedger\.m_sLastDecisionReason;' -or
+	$mergeLedgerBlock -match 'retired location') {
+	throw "Maiden's Bay defense-ledger merge must select the newest nonempty decision reason without synthesizing concatenated history"
+}
+foreach ($requiredLedgerExpiryEntry in @(
+	'HST_EnemyDirectorService.SUPPORT_SPEND_WINDOW_SECONDS',
+	'HST_EnemyDirectorService.RECENT_DAMAGE_WINDOW_SECONDS',
+	'ledger.m_iAttackSpent = 0',
+	'ledger.m_iSupportSpent = 0',
+	'ledger.m_iRecentDamageScore = 0'
+	)) {
+	if ($maidensBayMethodBlocks.ExpireStaleLedgerWindows -notmatch [regex]::Escape($requiredLedgerExpiryEntry)) {
+		throw "Maiden's Bay defense-ledger merge must expire stale window evidence before combining it: $requiredLedgerExpiryEntry"
+	}
+}
+
+$campaignFindZoneBlock = Get-ScriptMethodBlock $campaignStateText 'HST_ZoneState FindZone('
+$campaignFrozenZoneBlock = Get-ScriptMethodBlock $campaignStateText 'HST_ZoneState FindFrozenHistoricalZoneView('
+$campaignFindGarrisonBlock = Get-ScriptMethodBlock $campaignStateText 'HST_GarrisonState FindGarrison('
+$campaignFindLedgerBlock = Get-ScriptMethodBlock $campaignStateText 'HST_EnemySupportLedgerState FindEnemySupportLedger('
+foreach ($requiredCampaignAliasBlock in @(
+	@('FindZone', $campaignFindZoneBlock),
+	@('FindFrozenHistoricalZoneView', $campaignFrozenZoneBlock),
+	@('FindGarrison', $campaignFindGarrisonBlock),
+	@('FindEnemySupportLedger', $campaignFindLedgerBlock)
+	)) {
+	if ([string]::IsNullOrWhiteSpace($requiredCampaignAliasBlock[1])) {
+		throw "Campaign state is missing Maiden's Bay alias method: $($requiredCampaignAliasBlock[0])"
+	}
+}
+foreach ($requiredMutableZoneAliasEntry in @(
+	'ResolveCanonicalZoneId(zoneId)',
+	'zone.m_sZoneId == canonicalZoneId',
+	'return zone'
+	)) {
+	if ($campaignFindZoneBlock -notmatch [regex]::Escape($requiredMutableZoneAliasEntry)) {
+		throw "Campaign state old-ID lookup must return the mutable canonical zone row: $requiredMutableZoneAliasEntry"
+	}
+}
+if ($campaignFindZoneBlock -match 'BuildLegacyCompatibilityZone|BuildFrozenHistoricalZoneView') {
+	throw "General CampaignState.FindZone lookup must never return a detached frozen Maiden's Bay view"
+}
+foreach ($requiredFrozenZoneAliasEntry in @(
+	'ResolveCanonicalZoneId(zoneId)',
+	'if (match)',
+	'if (canonicalZoneId != zoneId)',
+	'BuildLegacyCompatibilityZone(match)',
+	'return match'
+	)) {
+	if ($campaignFrozenZoneBlock -notmatch [regex]::Escape($requiredFrozenZoneAliasEntry)) {
+		throw "Campaign state frozen historical Maiden's Bay lookup is missing: $requiredFrozenZoneAliasEntry"
+	}
+}
+if ($campaignFrozenZoneBlock -notmatch '(?s)foreach\s*\(\s*HST_ZoneState\s+canonicalZone\s*:\s*m_aZones\s*\).*?if\s*\(\s*match\s*\)\s*return\s+null;.*?match\s*=\s*canonicalZone;') {
+	throw "Frozen historical zone lookup must reject duplicate canonical rows instead of choosing the first match"
+}
+foreach ($requiredGarrisonAliasEntry in @(
+	'ResolveCanonicalZoneId(zoneId)',
+	'if (canonicalZoneId != zoneId)',
+	'canonicalGarrison.m_sZoneId != canonicalZoneId',
+	'return canonicalGarrison'
+	)) {
+	if ($campaignFindGarrisonBlock -notmatch [regex]::Escape($requiredGarrisonAliasEntry)) {
+		throw "Campaign state old-ID garrison lookup must fall through to mutable canonical authority: $requiredGarrisonAliasEntry"
+	}
+}
+foreach ($requiredLedgerAliasEntry in @(
+	'ResolveCanonicalZoneId(zoneId)',
+	'ledger.m_sZoneId == canonicalZoneId',
+	'return ledger'
+	)) {
+	if ($campaignFindLedgerBlock -notmatch [regex]::Escape($requiredLedgerAliasEntry)) {
+		throw "Campaign state old-ID defense-ledger lookup must address canonical merged authority: $requiredLedgerAliasEntry"
+	}
+}
+
+$zoneEquivalenceBlocks = [ordered]@{
+	'QRF public duplicate check' = Get-ScriptMethodBlock $maidensBayEnemyQRFOperationText 'bool HasOpenExactEnemyDefensiveQRF('
+	'QRF admission duplicate predicate' = Get-ScriptMethodBlock $maidensBayEnemyQRFOperationText 'protected string ValidateAdmissionContext('
+	'patrol public duplicate check' = Get-ScriptMethodBlock $maidensBayEnemyPatrolOperationText 'bool HasOpenExactEnemyPatrol('
+	'patrol admission duplicate predicate' = Get-ScriptMethodBlock $maidensBayEnemyPatrolOperationText 'protected string ValidateAdmissionContext('
+	'mission start duplicate check' = Get-ScriptMethodBlock $maidensBayMissionServiceText 'bool CanStart('
+	'forced mission duplicate check' = Get-ScriptMethodBlock $maidensBayMissionServiceText 'bool CanForceStart('
+	'legacy QRF lookup' = Get-ScriptMethodBlock $campaignStateText 'HST_QRFState FindActiveQRF('
+	'commander active support check' = Get-ScriptMethodBlock $maidensBayEnemyCommanderText 'protected bool HasActiveLegacyEnemyQRFSupport('
+	'commander active order check' = Get-ScriptMethodBlock $maidensBayEnemyCommanderText 'protected bool HasActiveOrderForZone('
+	'coordinator mission count' = Get-ScriptMethodBlock $coordinatorMarkerText 'protected int CountActiveMissionsAtZone('
+	'force-mission activation' = Get-ScriptMethodBlock $maidensBayPhysicalWarText 'protected bool ShouldForceMissionZoneActive('
+	'conquest mission gate' = Get-ScriptMethodBlock $maidensBayZoneCaptureText 'protected bool HasIncompleteConquestMission('
+	'enemy active-mission proximity' = Get-ScriptMethodBlock $maidensBayEnemyCommanderText 'protected bool HasActiveMissionNearZone('
+	'enemy active-objective proximity' = Get-ScriptMethodBlock $maidensBayEnemyCommanderText 'protected bool HasActiveObjectiveNearZone('
+	'hostile-group zone presence' = Get-ScriptMethodBlock $maidensBayMissionRuntimeText 'protected bool HasHostileActiveGroupForZone('
+	'legacy physical-war QRF duplicate check' = Get-ScriptMethodBlock $maidensBayPhysicalWarText 'protected bool HasOpenEnemyCommanderQRF('
+}
+foreach ($zoneEquivalenceBlock in $zoneEquivalenceBlocks.GetEnumerator()) {
+	if ([string]::IsNullOrWhiteSpace($zoneEquivalenceBlock.Value)) {
+		throw "Equivalent-zone runtime boundary is missing method block: $($zoneEquivalenceBlock.Key)"
+	}
+}
+$zoneEquivalenceContracts = @(
+	[pscustomobject]@{ Label = 'QRF public duplicate check'; Pattern = 'AreEquivalentZoneIds\(\s*order\.m_sTargetZoneId\s*,\s*targetZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'QRF admission duplicate predicate'; Pattern = 'AreEquivalentZoneIds\(\s*other\.m_sTargetZoneId\s*,\s*order\.m_sTargetZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'patrol public duplicate check'; Pattern = 'AreEquivalentZoneIds\(\s*order\.m_sTargetZoneId\s*,\s*targetZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'patrol admission duplicate predicate'; Pattern = 'AreEquivalentZoneIds\(\s*other\.m_sTargetZoneId\s*,\s*order\.m_sTargetZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'patrol admission duplicate predicate'; Pattern = 'AreEquivalentZoneIds\(\s*route\.m_sTargetZoneId\s*,\s*order\.m_sTargetZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'mission start duplicate check'; Pattern = 'AreEquivalentZoneIds\(\s*activeMission\.m_sTargetZoneId\s*,\s*targetZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'forced mission duplicate check'; Pattern = 'AreEquivalentZoneIds\(\s*activeMission\.m_sTargetZoneId\s*,\s*targetZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'legacy QRF lookup'; Pattern = 'AreEquivalentZoneIds\(\s*qrf\.m_sTargetZoneId\s*,\s*targetZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'commander active support check'; Pattern = 'AreEquivalentZoneIds\(\s*request\.m_sTargetZoneId\s*,\s*targetZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'commander active order check'; Pattern = 'AreEquivalentZoneIds\(\s*order\.m_sTargetZoneId\s*,\s*zoneId\s*\)' },
+	[pscustomobject]@{ Label = 'coordinator mission count'; Pattern = 'AreEquivalentZoneIds\(\s*mission\.m_sTargetZoneId\s*,\s*zoneId\s*\)' },
+	[pscustomobject]@{ Label = 'force-mission activation'; Pattern = 'AreEquivalentZoneIds\(\s*mission\.m_sTargetZoneId\s*,\s*zone\.m_sZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'conquest mission gate'; Pattern = 'AreEquivalentZoneIds\(\s*mission\.m_sTargetZoneId\s*,\s*zone\.m_sZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'enemy active-mission proximity'; Pattern = 'AreEquivalentZoneIds\(\s*mission\.m_sTargetZoneId\s*,\s*zone\.m_sZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'enemy active-objective proximity'; Pattern = 'AreEquivalentZoneIds\(\s*objective\.m_sTargetZoneId\s*,\s*zone\.m_sZoneId\s*\)' },
+	[pscustomobject]@{ Label = 'hostile-group zone presence'; Pattern = 'AreEquivalentZoneIds\(\s*group\.m_sZoneId\s*,\s*zoneId\s*\)' },
+	[pscustomobject]@{ Label = 'legacy physical-war QRF duplicate check'; Pattern = 'AreEquivalentZoneIds\(\s*order\.m_sTargetZoneId\s*,\s*targetZoneId\s*\)' }
+)
+foreach ($zoneEquivalenceContract in $zoneEquivalenceContracts) {
+	$zoneEquivalenceBlockText = $zoneEquivalenceBlocks[$zoneEquivalenceContract.Label]
+	if ($zoneEquivalenceBlockText -notmatch $zoneEquivalenceContract.Pattern) {
+		throw "Runtime boundary must compare retired and canonical location IDs through AreEquivalentZoneIds: $($zoneEquivalenceContract.Label)"
+	}
+}
+$garrisonPatrolFrozenZoneBlock = Get-ScriptMethodBlock $maidensBayGarrisonPatrolValidationText 'protected HST_ZoneState FindUniqueZone('
+foreach ($requiredFrozenValidatorLookupEntry in @(
+	'HST_MaidensBayLocationSaveValidationService.IsLegacyZoneId(zoneId)',
+	'HST_MaidensBayLocationSaveValidationService.CANONICAL_ZONE_ID',
+	'if (canonicalMatch)',
+	'HST_MaidensBayLocationSaveValidationService.BuildFrozenHistoricalZoneView(canonicalMatch)'
+	)) {
+	if ($garrisonPatrolFrozenZoneBlock -notmatch [regex]::Escape($requiredFrozenValidatorLookupEntry)) {
+		throw "Exact restore validation must use a unique detached historical Maiden's Bay view: $requiredFrozenValidatorLookupEntry"
+	}
+}
+
+$garrisonPatrolRuntimeContextBlock = Get-ScriptMethodBlock $maidensBayGarrisonPatrolOperationText 'protected string ResolveRuntimeContext('
+$garrisonPatrolTickBlock = Get-ScriptMethodBlock $maidensBayGarrisonPatrolOperationText 'protected bool TickOperation('
+$missionGuardCommittedGraphBlock = Get-ScriptMethodBlock $maidensBayMissionGuardOperationText 'protected string ValidateCommittedGraph('
+$missionGuardRuntimeContextBlock = Get-ScriptMethodBlock $maidensBayMissionGuardOperationText 'protected string ResolveRuntimeContext('
+$missionGuardAdmissionBlock = Get-ScriptMethodBlock $maidensBayMissionGuardOperationText 'protected string BuildAdmissionPlan('
+$rescuePOWAdmissionBlock = Get-ScriptMethodBlock $maidensBayRescuePOWOperationText 'protected string BuildAdmissionPlan('
+$garrisonPatrolAdmissionBlock = Get-ScriptMethodBlock $maidensBayGarrisonPatrolOperationText 'protected string ValidateAdmissionContext('
+$enemyDirectorLedgerCreationBlock = Get-ScriptMethodBlock $maidensBayEnemyDirectorText 'protected HST_EnemySupportLedgerState FindOrCreateSupportLedger('
+foreach ($requiredImmutableRuntimeBlock in @(
+	@('garrison patrol runtime', $garrisonPatrolRuntimeContextBlock),
+	@('garrison patrol tick', $garrisonPatrolTickBlock),
+	@('mission guard committed graph', $missionGuardCommittedGraphBlock),
+	@('mission guard runtime', $missionGuardRuntimeContextBlock),
+	@('mission guard admission', $missionGuardAdmissionBlock),
+	@('rescue POW admission', $rescuePOWAdmissionBlock),
+	@('garrison patrol admission', $garrisonPatrolAdmissionBlock),
+	@('enemy ledger creation', $enemyDirectorLedgerCreationBlock)
+	)) {
+	if ([string]::IsNullOrWhiteSpace($requiredImmutableRuntimeBlock[1])) {
+		throw "Maiden's Bay immutable runtime coverage is missing method block: $($requiredImmutableRuntimeBlock[0])"
+	}
+}
+foreach ($requiredGarrisonRuntimeEntry in @(
+	'state.FindFrozenHistoricalZoneView(operation.m_sAssignmentZoneId)',
+	'PositionsMatch(operation.m_vOriginPosition, zone.m_vPosition)',
+	'PositionsMatch(operation.m_vAssignmentPosition, zone.m_vPosition)',
+	'PositionsMatch(operation.m_vTacticalTargetPosition, zone.m_vPosition)',
+	'PositionsMatch(quote.m_vTargetPosition, zone.m_vPosition)'
+	)) {
+	if ($garrisonPatrolRuntimeContextBlock -notmatch [regex]::Escape($requiredGarrisonRuntimeEntry)) {
+		throw "Exact garrison patrol runtime must validate its immutable historical assignment: $requiredGarrisonRuntimeEntry"
+	}
+}
+if ($garrisonPatrolRuntimeContextBlock -match 'state\.FindZone\(\s*operation\.m_sAssignmentZoneId\s*\)') {
+	throw "Exact garrison patrol runtime validation must not resolve frozen assignment identity through mutable FindZone"
+}
+if ($garrisonPatrolTickBlock -notmatch [regex]::Escape('state.FindFrozenHistoricalZoneView(operation.m_sAssignmentZoneId)')) {
+	throw "Exact garrison patrol ownership tick must read the immutable historical assignment view"
+}
+foreach ($requiredMissionGuardRuntimeEntry in @(
+	'state.FindFrozenHistoricalZoneView(operation.m_sAssignmentZoneId)',
+	'operation.m_sOriginZoneId != zone.m_sZoneId',
+	'operation.m_sTacticalTargetZoneId != zone.m_sZoneId',
+	'PositionsMatch(operation.m_vOriginPosition, operation.m_vAssignmentPosition)',
+	'ValidateCommittedGraph(state, mission, operation, manifest, batch, group, false)'
+	)) {
+	$missionGuardRuntimeCorpus = $missionGuardCommittedGraphBlock + "`n" + $missionGuardRuntimeContextBlock
+	if ($missionGuardRuntimeCorpus -notmatch [regex]::Escape($requiredMissionGuardRuntimeEntry)) {
+		throw "Exact mission guard runtime must validate its immutable historical assignment: $requiredMissionGuardRuntimeEntry"
+	}
+}
+if ($missionGuardCommittedGraphBlock -match 'state\.FindZone\(\s*operation\.m_sAssignmentZoneId\s*\)') {
+	throw "Exact mission guard committed runtime validation must not resolve frozen assignment identity through mutable FindZone"
+}
+foreach ($missionAdmissionContract in @(
+	@('mission guard', $missionGuardAdmissionBlock),
+	@('rescue POW', $rescuePOWAdmissionBlock)
+	)) {
+	$missionAdmissionLabel = $missionAdmissionContract[0]
+	$missionAdmissionBlock = $missionAdmissionContract[1]
+	if ($missionAdmissionBlock -notmatch [regex]::Escape('state.FindFrozenHistoricalZoneView(mission.m_sTargetZoneId)') -or
+		$missionAdmissionBlock -match 'state\.FindZone\(\s*mission\.m_sTargetZoneId\s*\)') {
+		throw "Exact $missionAdmissionLabel admission must preserve authored old-ID target identity through FindFrozenHistoricalZoneView"
+	}
+}
+$legacyGarrisonQuoteRejectIndex = $garrisonPatrolAdmissionBlock.IndexOf('HST_MaidensBayLocationSaveValidationService.IsLegacyZoneId(quote.m_sTargetZoneId)')
+$mutableGarrisonQuoteLookupIndex = $garrisonPatrolAdmissionBlock.IndexOf('state.FindZone(quote.m_sTargetZoneId)')
+if ($legacyGarrisonQuoteRejectIndex -lt 0 -or $mutableGarrisonQuoteLookupIndex -le $legacyGarrisonQuoteRejectIndex -or
+	$garrisonPatrolAdmissionBlock -notmatch [regex]::Escape('exact garrison patrol quote targets a retired location')) {
+	throw "New exact garrison patrol admission must reject old-location quotes before mutable canonical lookup"
+}
+$ledgerCanonicalizeIndex = $enemyDirectorLedgerCreationBlock.IndexOf('ResolveCanonicalZoneId(zoneId)')
+$ledgerLookupIndex = $enemyDirectorLedgerCreationBlock.IndexOf('state.FindEnemySupportLedger(factionKey, zoneId)')
+$ledgerCreateIndex = $enemyDirectorLedgerCreationBlock.IndexOf('ledger.m_sZoneId = zoneId')
+if ($ledgerCanonicalizeIndex -lt 0 -or $ledgerLookupIndex -le $ledgerCanonicalizeIndex -or
+	$ledgerCreateIndex -le $ledgerCanonicalizeIndex) {
+	throw "EnemyDirector ledger lookup and creation must canonicalize a retired Maiden's Bay zone ID before addressing durable authority"
+}
+
+foreach ($requiredGeneratedContentEntry in @(
+	'FindOtherGeneratedSite(canonicalSiteId, site)',
+	'if (!canonicalSite)',
+	'RekeyGeneratedSite(site, canonicalSiteId)',
+	'm_SaveData.m_aGeneratedSites.Remove(siteIndex)',
+	'FindOtherGeneratedRoute(canonicalRouteId, route)',
+	'if (!canonicalRoute)',
+	'RekeyGeneratedRoute(route, canonicalRouteId)',
+	'm_SaveData.m_aGeneratedRoutes.Remove(routeIndex)'
+	)) {
+	if ($generatedContentBlock -notmatch [regex]::Escape($requiredGeneratedContentEntry)) {
+		throw "Maiden's Bay generated site/route migration must rekey a unique old-only row and retire only collisions: $requiredGeneratedContentEntry"
+	}
+}
+$generatedSiteStateBlock = Get-ScriptMethodBlock $campaignStateText 'class HST_GeneratedSiteState'
+$generatedRouteStateBlock = Get-ScriptMethodBlock $campaignStateText 'class HST_GeneratedRouteState'
+$routeWaypointStateBlock = Get-ScriptMethodBlock $campaignStateText 'class HST_RouteWaypointState'
+$generatedSiteFields = @([regex]::Matches($generatedSiteStateBlock, '\b(m_[A-Za-z0-9_]+)\s*(?:=[^;]*)?;') |
+	ForEach-Object { $_.Groups[1].Value })
+$generatedRouteFields = @([regex]::Matches($generatedRouteStateBlock, '\b(m_[A-Za-z0-9_]+)\s*(?:=[^;]*)?;') |
+	ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne 'm_aWaypoints' })
+$routeWaypointFields = @([regex]::Matches($routeWaypointStateBlock, '\b(m_[A-Za-z0-9_]+)\s*(?:=[^;]*)?;') |
+	ForEach-Object { $_.Groups[1].Value })
+if ($generatedSiteFields.Count -eq 0 -or $generatedRouteFields.Count -eq 0 -or $routeWaypointFields.Count -eq 0) {
+	throw "Generated-content state fields could not be enumerated for Maiden's Bay deep-clone validation"
+}
+foreach ($generatedSiteField in $generatedSiteFields) {
+	$siteCloneAssignment = "clone.$generatedSiteField = source.$generatedSiteField"
+	if ($maidensBayMethodBlocks.EnsureCanonicalGeneratedSiteClone -notmatch [regex]::Escape($siteCloneAssignment)) {
+		throw "Frozen Maiden's Bay generated-site clone must copy field: $generatedSiteField"
+	}
+}
+foreach ($generatedRouteField in $generatedRouteFields) {
+	$routeCloneAssignment = "clone.$generatedRouteField = source.$generatedRouteField"
+	if ($maidensBayMethodBlocks.EnsureCanonicalGeneratedRouteClone -notmatch [regex]::Escape($routeCloneAssignment)) {
+		throw "Frozen Maiden's Bay generated-route clone must copy field: $generatedRouteField"
+	}
+}
+foreach ($routeWaypointField in $routeWaypointFields) {
+	$waypointCloneAssignment = "waypoint.$routeWaypointField = sourceWaypoint.$routeWaypointField"
+	if ($maidensBayMethodBlocks.EnsureCanonicalGeneratedRouteClone -notmatch [regex]::Escape($waypointCloneAssignment)) {
+		throw "Frozen Maiden's Bay generated-route clone must deep-copy waypoint field: $routeWaypointField"
+	}
+}
+foreach ($requiredSiteCloneLifecycleEntry in @(
+	'FindOtherGeneratedSite(canonicalSiteId, source)',
+	'HST_GeneratedSiteState clone = new HST_GeneratedSiteState()',
+	'RekeyGeneratedSite(clone, canonicalSiteId)',
+	'm_SaveData.m_aGeneratedSites.Insert(clone)',
+	'return 1'
+	)) {
+	if ($maidensBayMethodBlocks.EnsureCanonicalGeneratedSiteClone -notmatch [regex]::Escape($requiredSiteCloneLifecycleEntry)) {
+		throw "Frozen Maiden's Bay generated-site clone lifecycle is incomplete: $requiredSiteCloneLifecycleEntry"
+	}
+}
+foreach ($requiredRouteCloneLifecycleEntry in @(
+	'FindOtherGeneratedRoute(canonicalRouteId, source)',
+	'HST_GeneratedRouteState clone = new HST_GeneratedRouteState()',
+	'HST_RouteWaypointState waypoint = new HST_RouteWaypointState()',
+	'clone.m_aWaypoints.Insert(waypoint)',
+	'RekeyGeneratedRoute(clone, canonicalRouteId)',
+	'm_SaveData.m_aGeneratedRoutes.Insert(clone)',
+	'return 1'
+	)) {
+	if ($maidensBayMethodBlocks.EnsureCanonicalGeneratedRouteClone -notmatch [regex]::Escape($requiredRouteCloneLifecycleEntry)) {
+		throw "Frozen Maiden's Bay generated-route clone lifecycle is incomplete: $requiredRouteCloneLifecycleEntry"
+	}
+}
+if ($maidensBayMethodBlocks.EnsureCanonicalGeneratedRouteClone -match 'clone\.m_aWaypoints\s*=\s*source\.m_aWaypoints') {
+	throw "Frozen Maiden's Bay route waypoints must be deep-cloned rather than sharing the historical array"
+}
+foreach ($requiredGeneratedSiteRekeyEntry in @(
+	'site.m_sSiteId = canonicalSiteId',
+	'site.m_sZoneId = CANONICAL_ZONE_ID',
+	'site.m_sRouteId = CanonicalizeGeneratedRouteId(site.m_sRouteId)'
+	)) {
+	if ($maidensBayMethodBlocks.RekeyGeneratedSite -notmatch [regex]::Escape($requiredGeneratedSiteRekeyEntry)) {
+		throw "Old-only Maiden's Bay generated-site rekey is incomplete: $requiredGeneratedSiteRekeyEntry"
+	}
+}
+foreach ($requiredGeneratedRouteRekeyEntry in @(
+	'route.m_sRouteId = canonicalRouteId',
+	'route.m_sSourceZoneId = ResolveCanonicalZoneId(route.m_sSourceZoneId)',
+	'route.m_sTargetZoneId = ResolveCanonicalZoneId(route.m_sTargetZoneId)',
+	'foreach (HST_RouteWaypointState waypoint : route.m_aWaypoints)',
+	'waypoint.m_sRouteId = canonicalRouteId'
+	)) {
+	if ($maidensBayMethodBlocks.RekeyGeneratedRoute -notmatch [regex]::Escape($requiredGeneratedRouteRekeyEntry)) {
+		throw "Old-only Maiden's Bay generated-route rekey must keep every waypoint bound to the canonical route target: $requiredGeneratedRouteRekeyEntry"
+	}
+}
+foreach ($requiredGeneratedIdMappingEntry in @(
+	'"site_" + CANONICAL_ZONE_ID + suffix',
+	'"route_" + CANONICAL_ZONE_ID',
+	'"qrf_" + CANONICAL_ZONE_ID'
+	)) {
+	if ($maidensBayLocationValidationText -notmatch [regex]::Escape($requiredGeneratedIdMappingEntry)) {
+		throw "Maiden's Bay generated-content ID mapping is missing: $requiredGeneratedIdMappingEntry"
+	}
+}
+
+foreach ($requiredUndercoverNormalizationEntry in @(
+	'undercover.m_sLastEnforcementZoneId = CANONICAL_ZONE_ID',
+	'undercover.m_sLastZoneId = CANONICAL_ZONE_ID'
+	)) {
+	if ($normalizeLiveBlock -notmatch [regex]::Escape($requiredUndercoverNormalizationEntry)) {
+		throw "Maiden's Bay migration must canonicalize durable undercover location state: $requiredUndercoverNormalizationEntry"
+	}
+}
+$objectiveTargetBlock = $maidensBayMethodBlocks.ShouldCanonicalizeObjectiveTargetId
+if ($objectiveTargetBlock -notmatch 'objective\.m_sTargetId\s*!=\s*LEGACY_ZONE_ID') {
+	throw "Maiden's Bay objective target-ID normalization must be gated on the retired zone ID"
+}
+$objectiveZoneTargetTypes = @([regex]::Matches(
+	$objectiveTargetBlock,
+	'HST_EMissionObjectiveType\.(HST_OBJECTIVE_[A-Z_]+)') | ForEach-Object { $_.Groups[1].Value })
+Assert-EqualSet "Maiden's Bay zone-valued objective target types" @(
+	'HST_OBJECTIVE_CLEAR_AREA',
+	'HST_OBJECTIVE_RECOVER_LOOT',
+	'HST_OBJECTIVE_DELIVER_SUPPLIES',
+	'HST_OBJECTIVE_HOLD_AREA',
+	'HST_OBJECTIVE_FIND_SITE'
+	) $objectiveZoneTargetTypes
+foreach ($requiredObjectiveNormalizationEntry in @(
+	'if (HasTypedMissionClaimant(objective.m_sMissionInstanceId))',
+	'if (ShouldCanonicalizeObjectiveTargetId(objective))',
+	'objective.m_sTargetId = CANONICAL_ZONE_ID',
+	'objective.m_sTargetZoneId = CANONICAL_ZONE_ID'
+	)) {
+	if ($normalizeLiveBlock -notmatch [regex]::Escape($requiredObjectiveNormalizationEntry)) {
+		throw "Maiden's Bay objective migration must preserve typed authority and canonicalize only zone-valued generic targets: $requiredObjectiveNormalizationEntry"
+	}
+}
+if ($maidensBayMethodBlocks.HasTypedMissionClaimant -notmatch [regex]::Escape('IsTypedMissionClaimant(mission, false)')) {
+	throw "Maiden's Bay objective migration must preserve settled and malformed typed mission authority by durable mission identity"
+}
+
+$staleMaidensBayTownAnchors = @(Get-ChildItem -Path "Worlds/HST_Everon" -Recurse -File -Filter "*.layer" |
+	Select-String -SimpleMatch "HST_TownAnchor_maidens_bay")
+if ($staleMaidensBayTownAnchors.Count -gt 0) {
+	throw "Retired Maiden's Bay town anchor must not remain in the Everon world layers"
+}
+
+Write-Host "Maiden's Bay single Logistics Warehouse taxonomy and save cleanup OK"
+Write-Host "Maiden's Bay fail-closed migration, typed preservation, mutable aliases, ledger merge, and generated-content rekey OK"
+
 foreach ($requiredCuratedLocationEntry in @(
 		"ApplyEveronLocationPlanOverrides",
 		"UpsertEveronLocationPlanZone",
@@ -2207,14 +2981,14 @@ $campaignCallsigns = @($zoneBlocks | ForEach-Object {
 			$Matches[1]
 		}
 	} | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
-if ($campaignBaseBlocks.Count -ne 68) {
-	throw "Expected 68 Everon Bases.layer nodes, found $($campaignBaseBlocks.Count)"
+if ($campaignBaseBlocks.Count -ne 67) {
+	throw "Expected 67 legacy Everon Bases.layer nodes after retiring the duplicate Maiden's Bay town, found $($campaignBaseBlocks.Count)"
 }
 if ($campaignDepotBlocks.Count -ne 8) {
 	throw "Expected 8 Everon SupplyDepots.layer nodes, found $($campaignDepotBlocks.Count)"
 }
-if ($campaignCallsigns.Count -ne 56) {
-	throw "Expected 56 paired legacy callsigns, found $($campaignCallsigns.Count)"
+if ($campaignCallsigns.Count -ne 55) {
+	throw "Expected 55 paired legacy callsigns after retiring Maiden's Bay/DAYTON, found $($campaignCallsigns.Count)"
 }
 
 foreach ($group in @($campaignCallsigns | Group-Object | Where-Object Count -gt 1)) {
@@ -4933,7 +5707,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 59",
+		"SCHEMA_VERSION = 60",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -4998,7 +5772,7 @@ foreach ($requiredPaidQRFExactEntry in @(
 		'TickExactPlayerSupportSettlements',
 		'ReconcileSuccessfulExactPlayerSupportRuntimeAfterRestore',
 		'IsFullyRefundedExactPlayerSupportRequest',
-		'exact player QRF requires an accepted server quote',
+		'exact player ground support requires an accepted server quote',
 		'RequestCampaignDebugLegacyPlayerSupportDetailed',
 		'confirm_support_quote',
 		'cancel_support_quote',
@@ -5313,7 +6087,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 59',
+		'SCHEMA_VERSION = 60',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5355,7 +6129,7 @@ if ($operationServiceText -notmatch 'HST_OPERATION_ENGAGEMENT_CLEAR[\s\S]*HST_OP
 	throw "Operation engagement authority must enforce the clear/contact/engaged/disengaging/clear transition sequence"
 }
 if ($operationServiceText -notmatch 'operation\.m_sOriginZoneId != quote\.m_sSourceZoneId[\s\S]*operation\.m_sAssignmentZoneId != quote\.m_sTargetZoneId' -or
-	$operationServiceText -notmatch 'operation\.m_sRecallPolicyId != EXACT_PLAYER_QRF_RECALL_POLICY[\s\S]*operation\.m_sSettlementPolicyId != EXACT_PLAYER_QRF_SETTLEMENT_POLICY') {
+	$operationServiceText -notmatch 'operation\.m_sRecallPolicyId != expectedRecallPolicy[\s\S]*operation\.m_sSettlementPolicyId != expectedSettlementPolicy') {
 	throw "Operation validation must protect immutable origin, assignment, and policy authority"
 }
 
@@ -5367,8 +6141,8 @@ $operationRegistrationBlock = [regex]::Match($operationSupportText, 'bool Regist
 if (!$operationRegistrationBlock.Success) {
 	throw "Exact paid-QRF accepted-support registration block is missing"
 }
-$operationContractIndex = $operationRegistrationBlock.Value.IndexOf('m_iOperationContractVersion = HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION')
-$operationRegisterIndex = $operationRegistrationBlock.Value.LastIndexOf('m_Operations.RegisterExactPlayerQRF')
+$operationContractIndex = $operationRegistrationBlock.Value.IndexOf('m_iOperationContractVersion = HST_OperationService.ResolveExactPlayerSupportContractVersion(request.m_eType)')
+$operationRegisterIndex = $operationRegistrationBlock.Value.LastIndexOf('m_Operations.RegisterExactPlayerSupport')
 $operationRequestInsertIndex = $operationRegistrationBlock.Value.IndexOf('m_aSupportRequests.Insert(request)')
 if ($operationContractIndex -lt 0 -or $operationRegisterIndex -le $operationContractIndex -or $operationRequestInsertIndex -le $operationRegisterIndex) {
 	throw "Accepted exact paid-QRF confirmation must version and register one OperationRecord before exposing the support request"
@@ -5379,7 +6153,7 @@ if ($operationRegistrationBlock.Value -match 'm_aQRFs') {
 foreach ($requiredOperationReplayValidationEntry in @(
 		'protected bool PlayerSupportRequestMatchesQuote(HST_CampaignState state',
 		'HST_OperationService.RequiresOperation(request)',
-		'm_Operations.ValidateExactPlayerQRF(state, operation, request, quote, manifest)'
+		'm_Operations.ValidateExactPlayerSupport(state, operation, request, quote, manifest)'
 	)) {
 	if ($operationPlanningText -notmatch [regex]::Escape($requiredOperationReplayValidationEntry)) {
 		throw "Accepted exact paid-QRF replay must validate versioned OperationRecord authority: $requiredOperationReplayValidationEntry"
@@ -5394,8 +6168,8 @@ foreach ($requiredOperationLifecycleHook in @(
 		'm_Operations.CompleteDematerialization',
 		'm_Operations.CanBeginRecall(state, request)',
 		'm_Operations.MarkRecallExiting(state, request, group, exitPosition)',
-		'm_Operations.CanSettleExactPlayerQRF',
-		'm_Operations.SettleExactPlayerQRF'
+		'm_Operations.CanSettleExactPlayerSupport',
+		'm_Operations.SettleExactPlayerSupport'
 	)) {
 	if ($operationSupportText -notmatch [regex]::Escape($requiredOperationLifecycleHook)) {
 		throw "Exact paid-QRF production lifecycle is missing OperationRecord hook: $requiredOperationLifecycleHook"
@@ -5409,9 +6183,9 @@ foreach ($operationSettlementMethodPattern in @(
 	if (!$operationSettlementBlock.Success) {
 		throw "Exact paid-QRF typed settlement block is missing: $operationSettlementMethodPattern"
 	}
-	$operationPreflightIndex = $operationSettlementBlock.Value.IndexOf('m_Operations.CanSettleExactPlayerQRF')
+	$operationPreflightIndex = $operationSettlementBlock.Value.IndexOf('m_Operations.CanSettleExactPlayerSupport')
 	$operationLedgerIndex = $operationSettlementBlock.Value.IndexOf('SettleExactSupportTransaction')
-	$operationApplyIndex = $operationSettlementBlock.Value.IndexOf('m_Operations.SettleExactPlayerQRF')
+	$operationApplyIndex = $operationSettlementBlock.Value.IndexOf('m_Operations.SettleExactPlayerSupport')
 	if ($operationPreflightIndex -lt 0 -or $operationLedgerIndex -le $operationPreflightIndex -or $operationApplyIndex -le $operationLedgerIndex) {
 		throw "Exact paid-QRF settlement must preflight operation authority before ledger mutation and apply the typed terminal result afterward"
 	}
@@ -5515,7 +6289,7 @@ foreach ($requiredOperationArchiveEntry in @(
 foreach ($requiredOperationArchiveServiceEntry in @(
 		'HST_OperationRecordState operation',
 		'HST_OperationService.RequiresOperation(supportRequest)',
-		'm_Operations.ValidateExactPlayerQRF',
+		'm_Operations.ValidateExactPlayerSupport',
 		'HST_OPERATION_SETTLEMENT_SETTLED',
 		'HST_OperationService.BuildSettlementId',
 		'm_Operations.RemoveArchivedOperation(state, operation)',
@@ -5885,7 +6659,7 @@ $physicalWarText = Get-Content -Raw $physicalWarPath
 $schema52SaveValidationCorpus = $forceSaveDataText + "`n" + $missionConvoySaveValidationText
 $schema52StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $schema52SaveValidationCorpus
 foreach ($requiredSchema52StateEntry in @(
-		'SCHEMA_VERSION = 59',
+		'SCHEMA_VERSION = 60',
 		'HST_OPERATION_TYPE_MISSION_CONVOY',
 		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
 		'class HST_ConvoyElementState',
@@ -13062,7 +13836,7 @@ foreach ($requiredMissionCleanupGroupRemovalEntry in @(
 	}
 }
 $phase9ContactIndex = $physicalWarServiceText.IndexOf("changed = UpdateMissionConvoyContact(state, mission) || changed;")
-$phase9SurvivorIndex = $physicalWarServiceText.IndexOf("changed = UpdateRuntimeGroupSurvivors(state) || changed;")
+$phase9SurvivorIndex = $physicalWarServiceText.IndexOf("changed = UpdateRuntimeGroupSurvivors(state, true) || changed;", $phase9ContactIndex)
 if ($phase9ContactIndex -lt 0 -or $phase9SurvivorIndex -lt 0 -or $phase9ContactIndex -gt $phase9SurvivorIndex) {
 	throw "Phase 9 convoy contact must run before survivor counts are refreshed"
 }
@@ -13626,7 +14400,7 @@ $schema53CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema53StateCorpus = $schema53TypesText + "`n" + $schema53StateText + "`n" + $schema53SaveText
 foreach ($schema53StateEntry in @(
-		"SCHEMA_VERSION = 59",
+		"SCHEMA_VERSION = 60",
 		"HST_OPERATION_TYPE_ENEMY_PATROL",
 		"int m_iRouteWaypointIndex = -1;",
 		"int m_iRouteLapCount;",
@@ -13882,7 +14656,7 @@ $schema54CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema54StateCorpus = $schema54TypesText + "`n" + $schema54StateText + "`n" + $schema54SaveText
 foreach ($schema54StateEntry in @(
-		"SCHEMA_VERSION = 59",
+		"SCHEMA_VERSION = 60",
 		"HST_OPERATION_TYPE_GARRISON_PATROL",
 		"IsQuarantinedActiveGroup",
 		"HST_GarrisonPatrolSaveValidationService schema54GarrisonPatrolValidation",
@@ -14179,7 +14953,7 @@ if ([string]::IsNullOrEmpty($schema54GenericSurvivorBlock)) {
 	throw "Schema-54 generic survivor boundary is missing"
 }
 $schema54PatrolSurvivorSkipStart = $schema54GenericSurvivorBlock.IndexOf('if (IsExactEnemyPatrolGroup(state, activeGroup)')
-$schema54PatrolSurvivorSkipEnd = $schema54GenericSurvivorBlock.IndexOf('bool missionConvoyGroup', $schema54PatrolSurvivorSkipStart)
+$schema54PatrolSurvivorSkipEnd = $schema54GenericSurvivorBlock.IndexOf('if (missionConvoyGroup && ShouldSpawnMissionConvoyRuntime', $schema54PatrolSurvivorSkipStart)
 if ($schema54PatrolSurvivorSkipStart -lt 0 -or $schema54PatrolSurvivorSkipEnd -le $schema54PatrolSurvivorSkipStart) {
 	throw "Schema-54 exact patrol groups must be isolated before generic survivor mutation"
 }
@@ -14635,7 +15409,7 @@ $schema56PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Persi
 $schema56CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema56ProofText = Get-Content -Raw $schema56ProofPath
 
-if ($schema56StateText -notmatch 'SCHEMA_VERSION\s*=\s*(56|57|58|59)\s*;') {
+if ($schema56StateText -notmatch 'SCHEMA_VERSION\s*=\s*(56|57|58|59|60)\s*;') {
 	throw "Schema-56 campaign schema lineage is missing"
 }
 foreach ($schema56CoreEntry in @(
@@ -14838,7 +15612,7 @@ $schema57PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Persi
 $schema57CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema57ProofText = Get-Content -Raw $schema57ProofPath
 
-if ($schema57StateText -notmatch 'SCHEMA_VERSION\s*=\s*(57|58|59)\s*;') {
+if ($schema57StateText -notmatch 'SCHEMA_VERSION\s*=\s*(57|58|59|60)\s*;') {
 	throw "Schema-57 campaign schema is missing"
 }
 foreach ($schema57CoreEntry in @(
@@ -15031,7 +15805,8 @@ $schema57DocumentationPaths = @(
 foreach ($schema57DocumentationPath in $schema57DocumentationPaths) {
 	$schema57DocumentationText = (Get-Content -Raw $schema57DocumentationPath).ToLowerInvariant()
 	$mentionsSchema57 = $schema57DocumentationText.Contains("schema 57") -or $schema57DocumentationText.Contains("schema-57")
-	if (!$mentionsSchema57 -or !$schema57DocumentationText.Contains("spec-ops") -or
+	$mentionsSpecOps = $schema57DocumentationText.Contains("spec-ops") -or $schema57DocumentationText.Contains("spec ops") -or $schema57DocumentationText.Contains("specops")
+	if (!$mentionsSchema57 -or !$mentionsSpecOps -or
 		!$schema57DocumentationText.Contains("guard") -or
 		!$schema57DocumentationText.Contains("packaged")) {
 		throw "$schema57DocumentationPath must describe the Schema-57 spec-ops guard and packaged-runtime boundary"
@@ -15089,7 +15864,7 @@ $schema58CaptiveActionText = Get-Content -Raw "Scripts/Game/HST/Components/HST_M
 $schema58MissionActionFilterText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionCargoUserActions.c"
 
 foreach ($schema58StateEntry in @(
-	'SCHEMA_VERSION = 59',
+	'SCHEMA_VERSION = 60',
 	'HST_OPERATION_TYPE_MISSION_RESCUE',
 	'enum HST_ERescueCaptiveDisposition',
 	'int m_iRescueGraceUntilSecond;',
@@ -15435,7 +16210,7 @@ $schema59UIText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIServi
 $schema59StrategicText = Get-Content -Raw "Scripts/Game/HST/Services/HST_StrategicService.c"
 
 foreach ($schema59StateEntry in @(
-	'SCHEMA_VERSION = 59',
+	'SCHEMA_VERSION = 60',
 	'enum HST_ERadioSiteLifecycleState',
 	'HST_RADIO_SITE_LIFECYCLE_ONLINE',
 	'HST_RADIO_SITE_LIFECYCLE_DESTROYED',
@@ -16833,5 +17608,597 @@ foreach ($schema59MigrationNote in @(
 	}
 }
 Write-Host "Schema-59 durable radio-site identity/frozen provenance, typed destroy/rebuild transitions, exclusive projection ownership, bounded demolition evidence, admission/outcome isolation, migration/quarantine cleanup, influence suppression, marker/UI, and proof contract OK"
+
+$schema60TypesText = Get-Content -Raw "Scripts/Game/HST/HST_Types.c"
+$schema60PlanningText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
+$schema60PlanningIntegrityText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForcePlanningIntegrityService.c"
+$schema60ArchiveText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSettlementArchiveService.c"
+$schema60OperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OperationService.c"
+$schema60SupportText = Get-Content -Raw "Scripts/Game/HST/Services/HST_SupportRequestService.c"
+$schema60PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema60PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$schema60UIText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+$schema60SaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema60ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerSearchDestroySaveValidationService.c"
+$schema60ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerSearchDestroyOperationProofService.c"
+$schema60CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema60RadioText = Get-Content -Raw "Scripts/Game/HST/Services/HST_RadioSiteLifecycleService.c"
+
+foreach ($schema60TypeEntry in @(
+	'HST_OPERATION_TYPE_PLAYER_SUPPORT_SEARCH_DESTROY',
+	'HST_SUPPORT_SEARCH_AND_DESTROY'
+)) {
+	if ($schema60TypesText -notmatch [regex]::Escape($schema60TypeEntry)) {
+		throw "Schema-60 exact player Search-and-Destroy type authority is missing: $schema60TypeEntry"
+	}
+}
+
+foreach ($schema60PlanningEntry in @(
+	'QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY = "player_support_search_destroy"',
+	'SUPPORT_SEARCH_DESTROY_POLICY_ID = "support_search_destroy_exact_infantry_1"',
+	'SUPPORT_SEARCH_DESTROY_MONEY_COST = 350',
+	'SUPPORT_SEARCH_DESTROY_CAPABILITY_ID = "ground_support"',
+	'SUPPORT_SEARCH_DESTROY_ASSET_PROFILE_ID = "fia_ground_support"',
+	'return "hst_search_destroy_regular";',
+	'return "search_destroy";'
+)) {
+	if ($schema60PlanningText -notmatch [regex]::Escape($schema60PlanningEntry)) {
+		throw "Schema-60 Search-and-Destroy planning policy is missing: $schema60PlanningEntry"
+	}
+}
+$schema60ETAResolveBlock = Get-ScriptMethodBlock $schema60PlanningText 'static int ResolvePlayerSupportETASeconds('
+foreach ($schema60ETAEntry in @(
+	'if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)',
+	'return SUPPORT_QRF_ETA_SECONDS;',
+	'if (supportType != HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)',
+	'return HST_StrategicMovementService.ResolveExactPlayerQRFETASeconds(sourcePosition, targetPosition);'
+)) {
+	if ([string]::IsNullOrEmpty($schema60ETAResolveBlock) -or $schema60ETAResolveBlock.IndexOf($schema60ETAEntry) -lt 0) {
+		throw "Schema-60 route-derived Search-and-Destroy ETA or frozen QRF ETA compatibility is missing: $schema60ETAEntry"
+	}
+}
+if ($schema60PlanningText -notmatch 'SUPPORT_QRF_ETA_SECONDS\s*=\s*120\s*;') {
+	throw "Schema-60 planning must retain the contract-1 QRF ETA at 120 seconds"
+}
+$schema60GroupSelectionBlock = Get-ScriptMethodBlock $schema60PlanningIntegrityText 'HST_ForceGroupCatalogEntry SelectExactPlayerSupportGroup('
+foreach ($schema60GroupSelectionEntry in @(
+	'return SelectPlayerSupportGroup(catalog, seed, warLevel);',
+	'if (supportType != HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)',
+	'int desiredMemberCount = Math.Max(3, Math.Min(12, 3 + Math.Max(1, warLevel)));',
+	'return closest[PositiveModulo(seed, closest.Count())];'
+)) {
+	if ([string]::IsNullOrEmpty($schema60GroupSelectionBlock) -or $schema60GroupSelectionBlock.IndexOf($schema60GroupSelectionEntry) -lt 0) {
+		throw "Schema-60 deterministic Search-and-Destroy roster selection is missing: $schema60GroupSelectionEntry"
+	}
+}
+$schema60IssueBlock = Get-ScriptMethodBlock $schema60PlanningText 'HST_ForceQuoteResult IssuePlayerSupportQuote('
+foreach ($schema60IssueEntry in @(
+	'ResolvePlayerSupportPlanningSeedKind(supportType)',
+	'm_Integrity.SelectExactPlayerSupportGroup(',
+	'manifest.m_aGroups.Insert(groupElement);',
+	'member.m_iHRCost = 1;',
+	'quote.m_iETASeconds = ResolvePlayerSupportETASeconds(',
+	'quote.m_bAllOrNothing = true;',
+	'm_Integrity.ValidateFrozenPlayerSupportQuote(manifest, quote, false, integrityFailure)'
+)) {
+	if ([string]::IsNullOrEmpty($schema60IssueBlock) -or $schema60IssueBlock.IndexOf($schema60IssueEntry) -lt 0) {
+		throw "Schema-60 exact Search-and-Destroy quote construction is missing: $schema60IssueEntry"
+	}
+}
+$schema60ManifestValidationBlock = Get-ScriptMethodBlock $schema60PlanningIntegrityText 'bool ValidatePlayerSupportManifest('
+foreach ($schema60ManifestEntry in @(
+	'manifest.m_aGroups.Count() != 1',
+	'!member.m_sAssignedVehicleSlotId.IsEmpty()',
+	'!member.m_sSeatRole.IsEmpty()',
+	'member.m_iHRCost != 1',
+	'SelectExactPlayerSupportGroup(',
+	'quote.m_iETASeconds != expectedETASeconds'
+)) {
+	if ([string]::IsNullOrEmpty($schema60ManifestValidationBlock) -or $schema60ManifestValidationBlock.IndexOf($schema60ManifestEntry) -lt 0) {
+		throw "Schema-60 frozen infantry-only Search-and-Destroy manifest validation is missing: $schema60ManifestEntry"
+	}
+}
+
+$schema60MenuBlock = Get-ScriptMethodBlock $schema60UIText 'protected void BuildTabActions('
+foreach ($schema60UIEntry in @(
+	'FindOpenCommanderPlayerSupportQuote(state, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)',
+	'"Request exact search-and-destroy quote at map location"',
+	'"Confirm exact search-and-destroy to %1 | ETA %2s"',
+	'"Cancel exact search-and-destroy quote to %1"',
+	'"confirm_support_quote"',
+	'"cancel_support_quote"'
+)) {
+	if ([string]::IsNullOrEmpty($schema60MenuBlock) -or $schema60MenuBlock.IndexOf($schema60UIEntry) -lt 0) {
+		throw "Schema-60 Search-and-Destroy quote/confirm/cancel UI is missing: $schema60UIEntry"
+	}
+}
+$schema60UIQuoteKindBlock = Get-ScriptMethodBlock $schema60UIText 'protected bool IsExactPlayerSupportQuoteKindForType('
+if ([string]::IsNullOrEmpty($schema60UIQuoteKindBlock) -or
+	$schema60UIQuoteKindBlock.IndexOf('QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY') -lt 0) {
+	throw "Schema-60 Search-and-Destroy UI must bind confirmation to its exact quote family"
+}
+
+foreach ($schema60OperationEntry in @(
+	'EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION = 1',
+	'QUARANTINED_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION = -60',
+	'EXACT_PLAYER_SEARCH_DESTROY_ASSIGNMENT_KIND = "search_destroy_on_station"',
+	'EXACT_PLAYER_SEARCH_DESTROY_RECALL_POLICY = "exit_then_refund_living_hr"',
+	'EXACT_PLAYER_SEARCH_DESTROY_SETTLEMENT_POLICY = "exact_paid_search_destroy_ledger"',
+	'EXACT_PLAYER_SUPPORT_ASSIGNMENT_RETURN_RADIUS_METERS = 75.0'
+)) {
+	if ($schema60OperationText -notmatch [regex]::Escape($schema60OperationEntry)) {
+		throw "Schema-60 typed Search-and-Destroy operation contract is missing: $schema60OperationEntry"
+	}
+}
+$schema60RequiresOperationBlock = Get-ScriptMethodBlock $schema60OperationText 'static bool RequiresOperation(HST_SupportRequestState request)'
+if ([string]::IsNullOrEmpty($schema60RequiresOperationBlock) -or
+	$schema60RequiresOperationBlock.IndexOf('request.m_iOperationContractVersion != 0') -lt 0) {
+	throw "Schema-60 nonzero and quarantined player-support contracts must fail closed under typed operation authority"
+}
+$schema60RegistrationBlock = Get-ScriptMethodBlock $schema60OperationText 'HST_OperationTransitionResult RegisterExactPlayerSupport('
+foreach ($schema60RegistrationEntry in @(
+	'ResolveExactPlayerSupportOperationType(request.m_eType)',
+	'ResolveExactPlayerSupportContractVersion(request.m_eType)',
+	'ResolveExactPlayerSupportAssignmentKind(request.m_eType)',
+	'operation.m_vAssignmentPosition = quote.m_vTargetPosition;',
+	'operation.m_iProjectionContractVersion = HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION;',
+	'operation.m_iRouteVersion = HST_StrategicMovementService.DIRECT_ROUTE_VERSION;',
+	'ResolveExactPlayerSupportRecallPolicy(request.m_eType)',
+	'ResolveExactPlayerSupportSettlementPolicy(request.m_eType)'
+)) {
+	if ([string]::IsNullOrEmpty($schema60RegistrationBlock) -or $schema60RegistrationBlock.IndexOf($schema60RegistrationEntry) -lt 0) {
+		throw "Schema-60 Search-and-Destroy operation registration/route is missing: $schema60RegistrationEntry"
+	}
+}
+$schema60ReturnAssignmentBlock = Get-ScriptMethodBlock $schema60OperationText 'bool ApplyExactPlayerSupportReturnToAssignment('
+foreach ($schema60ReturnEntry in @(
+	'HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT',
+	'operation.m_sAssignmentZoneId',
+	'operation.m_vAssignmentPosition',
+	'AssignVector(operation.m_vRouteEndPosition, operation.m_vAssignmentPosition)',
+	'movement.SyncRouteProgressFromPosition(operation, group.m_vPosition)',
+	'group.m_vTargetPosition, operation.m_vAssignmentPosition'
+)) {
+	if ([string]::IsNullOrEmpty($schema60ReturnAssignmentBlock) -or $schema60ReturnAssignmentBlock.IndexOf($schema60ReturnEntry) -lt 0) {
+		throw "Schema-60 folded Search-and-Destroy return-to-assignment route is missing: $schema60ReturnEntry"
+	}
+}
+$schema60CompleteFoldBlock = Get-ScriptMethodBlock $schema60OperationText 'HST_OperationTransitionResult CompleteDematerialization('
+$schema60ApplyReturnIndex = $schema60CompleteFoldBlock.IndexOf('ApplyExactPlayerSupportReturnToAssignment(')
+$schema60StrategicAuthorityIndex = $schema60CompleteFoldBlock.IndexOf('HST_OPERATION_MATERIALIZATION_VIRTUAL, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC')
+if ([string]::IsNullOrEmpty($schema60CompleteFoldBlock) -or $schema60ApplyReturnIndex -lt 0 -or
+	$schema60StrategicAuthorityIndex -lt 0 -or $schema60ApplyReturnIndex -gt $schema60StrategicAuthorityIndex) {
+	throw "Schema-60 dematerialization must derive the assignment-return route before transferring to strategic authority"
+}
+$schema60OperationValidationBlock = Get-ScriptMethodBlock $schema60OperationText 'string ValidateExactPlayerSupport('
+foreach ($schema60OperationValidationEntry in @(
+	'ResolveExactPlayerSupportContractVersion(request.m_eType)',
+	'ResolveExactPlayerSupportOperationType(request.m_eType)',
+	'ResolveExactPlayerSupportAssignmentKind(request.m_eType)',
+	'operation.m_iProjectionContractVersion',
+	'HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION',
+	'operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE',
+	'operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC'
+)) {
+	if ([string]::IsNullOrEmpty($schema60OperationValidationBlock) -or $schema60OperationValidationBlock.IndexOf($schema60OperationValidationEntry) -lt 0) {
+		throw "Schema-60 exact Search-and-Destroy operation validation is missing: $schema60OperationValidationEntry"
+	}
+}
+
+$schema60DirectRequestBlock = Get-ScriptMethodBlock $schema60SupportText 'protected HST_SupportRequestResult RequestSupportDetailedInternal('
+if ([string]::IsNullOrEmpty($schema60DirectRequestBlock) -or
+	$schema60DirectRequestBlock.IndexOf('exact player ground support requires an accepted server quote') -lt 0) {
+	throw "Schema-60 direct player Search-and-Destroy requests must require an accepted server quote"
+}
+$schema60AuthorityIdentityBlock = Get-ScriptMethodBlock $schema60SupportText 'protected bool HasExactPlayerSupportAuthorityIdentity('
+foreach ($schema60LegacyEntry in @(
+	'request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY',
+	'return request.m_iOperationContractVersion != 0;'
+)) {
+	if ([string]::IsNullOrEmpty($schema60AuthorityIdentityBlock) -or $schema60AuthorityIdentityBlock.IndexOf($schema60LegacyEntry) -lt 0) {
+		throw "Schema-60 Search-and-Destroy contract-zero legacy isolation is missing: $schema60LegacyEntry"
+	}
+}
+$schema60RetirementPrepBlock = Get-ScriptMethodBlock $schema60SupportText 'protected bool PrepareExactSupportProjectionRetirement('
+$schema60ProjectionReconcileIndex = $schema60RetirementPrepBlock.IndexOf('ReconcileExactInfantryProjectionAuthority(')
+$schema60DurableCountIndex = $schema60RetirementPrepBlock.IndexOf('CountDurableLivingMemberSlots(batch)')
+$schema60BindingValidationIndex = $schema60RetirementPrepBlock.IndexOf('ValidateExactLivingProjectionBindingsForPersistence(')
+if ([string]::IsNullOrEmpty($schema60RetirementPrepBlock) -or $schema60ProjectionReconcileIndex -lt 0 -or
+	$schema60DurableCountIndex -lt 0 -or $schema60BindingValidationIndex -lt 0 -or
+	$schema60ProjectionReconcileIndex -gt $schema60DurableCountIndex -or
+	$schema60DurableCountIndex -gt $schema60BindingValidationIndex) {
+	throw "Schema-60 physical Search-and-Destroy retirement must reconcile its projection and validate living bindings before retirement/refund"
+}
+foreach ($schema60RetirementCaller in @(
+	@('protected bool TryDematerializeExactPlayerSupport(', 'PrepareExactSupportProjectionRetirement(', 'BeginDematerialization('),
+	@('protected bool ContinueDematerializeExactPlayerSupport(', 'PrepareExactSupportProjectionRetirement(', 'RetireExactSupportProjectionRuntime('),
+	@('protected bool TickRecalledExactPlayerSupport(', 'PrepareExactSupportProjectionRetirement(', 'RetireExactSupportProjectionRuntime(')
+)) {
+	$schema60RetirementCallerBlock = Get-ScriptMethodBlock $schema60SupportText $schema60RetirementCaller[0]
+	$schema60PrepareIndex = $schema60RetirementCallerBlock.IndexOf($schema60RetirementCaller[1])
+	$schema60MutationIndex = $schema60RetirementCallerBlock.IndexOf($schema60RetirementCaller[2], [Math]::Max(0, $schema60PrepareIndex))
+	if ([string]::IsNullOrEmpty($schema60RetirementCallerBlock) -or $schema60PrepareIndex -lt 0 -or
+		$schema60MutationIndex -lt 0 -or $schema60PrepareIndex -gt $schema60MutationIndex) {
+		throw "Schema-60 projection retirement/refund ordering is missing in $($schema60RetirementCaller[0])"
+	}
+}
+$schema60VirtualBlock = Get-ScriptMethodBlock $schema60SupportText 'protected bool TickVirtualExactPlayerSupport('
+foreach ($schema60VirtualEntry in @(
+	'CountStrategicLivingMemberSlots(batch)',
+	'm_StrategicMovement.AdvanceExactPlayerQRF(',
+	'm_VirtualCombat.TickExactPlayerQRF(',
+	'SettleVirtualExactPlayerSupportElimination('
+)) {
+	if ([string]::IsNullOrEmpty($schema60VirtualBlock) -or $schema60VirtualBlock.IndexOf($schema60VirtualEntry) -lt 0) {
+		throw "Schema-60 virtual Search-and-Destroy casualty/movement continuity is missing: $schema60VirtualEntry"
+	}
+}
+
+$schema60PrepareCaptureBlock = Get-ScriptMethodBlock $schema60PersistenceText 'protected bool PrepareStateForCapture('
+$schema60AdapterPreflightIndex = $schema60PrepareCaptureBlock.IndexOf('ReconcileExactInfantryAuthorityForPersistence(')
+$schema60BindingPreflightIndex = $schema60PrepareCaptureBlock.IndexOf('ValidatePhysicalPlayerSupportBindings(state, context)')
+if ([string]::IsNullOrEmpty($schema60PrepareCaptureBlock) -or $schema60AdapterPreflightIndex -lt 0 -or
+	$schema60BindingPreflightIndex -lt 0 -or $schema60AdapterPreflightIndex -gt $schema60BindingPreflightIndex) {
+	throw "Schema-60 persistence must reconcile exact infantry before the player-support live-binding preflight"
+}
+$schema60PersistenceBindingBlock = Get-ScriptMethodBlock $schema60PersistenceText 'protected bool ValidatePhysicalPlayerSupportBindings('
+foreach ($schema60PersistenceEntry in @(
+	'CountPlayerSupportPersistenceRequests(state, operation) != 1',
+	'PlayerSupportPersistenceRequestLinksMatch(operation, request)',
+	'CountPlayerSupportPersistenceBatches(state, operation, request, batch) != 1',
+	'PlayerSupportPersistenceBatchLinksMatch(operation, request, batch)',
+	'CountPlayerSupportPersistenceGroups(state, operation, request, group) != 1',
+	'PlayerSupportPersistenceGroupLinksMatch(operation, request, batch, group)',
+	'm_ForceSpawnQueue.CountDurableLivingMemberSlots(batch) <= 0',
+	'm_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence('
+)) {
+	if ([string]::IsNullOrEmpty($schema60PersistenceBindingBlock) -or $schema60PersistenceBindingBlock.IndexOf($schema60PersistenceEntry) -lt 0) {
+		throw "Schema-60 physical player-support persistence preflight is missing: $schema60PersistenceEntry"
+	}
+}
+
+foreach ($schema60ValidationEntry in @(
+	'class HST_PlayerSearchDestroySaveValidationService',
+	'SCHEMA_VERSION = 60',
+	'QUARANTINED_CONTRACT_VERSION = -60',
+	'migration_schema60_player_search_destroy',
+	'normalization_schema60_player_search_destroy_conflict',
+	'IsSchema60PlayerSearchDestroyRequestClaimant',
+	'IsSchema60PlayerSearchDestroyQuoteClaimant',
+	'IsSchema60PlayerSearchDestroyManifestClaimant',
+	'IsSchema60PlayerSearchDestroyOperationClaimant',
+	'IsSchema60PlayerSearchDestroyTransactionClaimant',
+	'IsSchema60PlayerSearchDestroyBatchClaimant',
+	'IsSchema60PlayerSearchDestroyGroupClaimant',
+	'IsSchema60PlayerSearchDestroyTombstoneClaimant',
+	'ValidateAcceptedAggregate',
+	'ValidateArchivedAggregate',
+	'QuarantineOrphanClaimants'
+)) {
+	if ($schema60ValidationText -notmatch [regex]::Escape($schema60ValidationEntry)) {
+		throw "Schema-60 Search-and-Destroy restore boundary is missing: $schema60ValidationEntry"
+	}
+}
+$schema60RestoreNormalizeBlock = Get-ScriptMethodBlock $schema60ValidationText 'void Normalize('
+foreach ($schema60RestoreEntry in @(
+	'request.m_iOperationContractVersion = 0;',
+	'pre-schema-60 save carried an unsupported exact Search-and-Destroy authority claim',
+	'ValidateAcceptedAggregate(',
+	'QuarantineLinkedGraph(',
+	'ValidateArchivedAggregate(',
+	'QuarantineOrphanClaimants(restoredSchemaVersion)'
+)) {
+	if ([string]::IsNullOrEmpty($schema60RestoreNormalizeBlock) -or $schema60RestoreNormalizeBlock.IndexOf($schema60RestoreEntry) -lt 0) {
+		throw "Schema-60 restore legacy/quarantine routing is missing: $schema60RestoreEntry"
+	}
+}
+$schema60AcceptedValidationBlock = Get-ScriptMethodBlock $schema60ValidationText 'protected string ValidateAcceptedAggregate('
+foreach ($schema60AcceptedEntry in @(
+	'ValidateFrozenPlanning(quote, manifest, true)',
+	'ValidateRequestLinks(request, quote, manifest, operation)',
+	'ValidateCommittedLedger(request, quote, operation)',
+	'operations.ValidateExactPlayerSearchDestroy(',
+	'ValidateExecutionGraph(request, quote, manifest, operation, batch, group, settled)'
+)) {
+	if ([string]::IsNullOrEmpty($schema60AcceptedValidationBlock) -or $schema60AcceptedValidationBlock.IndexOf($schema60AcceptedEntry) -lt 0) {
+		throw "Schema-60 current Search-and-Destroy aggregate validation is missing: $schema60AcceptedEntry"
+	}
+}
+$schema60ValidNormalizeBlock = Get-ScriptMethodBlock $schema60ValidationText 'protected void NormalizeValidAggregate('
+foreach ($schema60SettledCleanupEntry in @(
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'NormalizeValidTerminalRequest(request)',
+	'ClearBatchProcessBindings(batch)',
+	'ClearGroupProcessBindings(group, "retired")',
+	'ApplyExactPlayerSupportReturnToAssignment(',
+	'HST_OPERATION_MATERIALIZATION_VIRTUAL',
+	'HST_OPERATION_POSITION_STRATEGIC'
+)) {
+	if ([string]::IsNullOrEmpty($schema60ValidNormalizeBlock) -or $schema60ValidNormalizeBlock.IndexOf($schema60SettledCleanupEntry) -lt 0) {
+		throw "Schema-60 settled/physical-save Search-and-Destroy normalization is missing: $schema60SettledCleanupEntry"
+	}
+}
+$schema60QuarantineBlock = Get-ScriptMethodBlock $schema60ValidationText 'protected void QuarantineLinkedGraph('
+foreach ($schema60QuarantineEntry in @(
+	'QuarantineRequest(candidateRequest, reason)',
+	'QuarantineQuote(candidateQuote, reason)',
+	'QuarantineOperation(candidateOperation, reason)',
+	'QuarantineBatch(candidateBatch, reason)',
+	'QuarantineGroup(candidateGroup, reason)',
+	'candidateTombstone.m_iOperationContractVersion = QUARANTINED_CONTRACT_VERSION'
+)) {
+	if ([string]::IsNullOrEmpty($schema60QuarantineBlock) -or $schema60QuarantineBlock.IndexOf($schema60QuarantineEntry) -lt 0) {
+		throw "Schema-60 malformed current Search-and-Destroy quarantine graph is missing: $schema60QuarantineEntry"
+	}
+}
+if ($schema60QuarantineBlock -match 'm_iRefundedAmount\s*=|m_iFactionMoney\s*[+\-]?=|m_iHR\s*[+\-]?=') {
+	throw "Schema-60 restore quarantine must not invent a refund or alter campaign balances"
+}
+
+$schema60StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema60GlobalQuarantineBlock = Get-ScriptMethodBlock $schema60StateText 'bool IsQuarantinedActiveGroup('
+foreach ($schema60GlobalQuarantineEntry in @(
+	'HST_PlayerSearchDestroySaveValidationService.QUARANTINE_STATUS',
+	'HST_PlayerSearchDestroySaveValidationService.QUARANTINE_MODE'
+)) {
+	if ([string]::IsNullOrEmpty($schema60GlobalQuarantineBlock) -or
+		$schema60GlobalQuarantineBlock.IndexOf($schema60GlobalQuarantineEntry) -lt 0) {
+		throw "Schema-60 quarantined Search-and-Destroy groups must be globally non-operational: $schema60GlobalQuarantineEntry"
+	}
+}
+$schema60QuarantineProofBlock = Get-ScriptMethodBlock $schema60ProofText 'bool AssertMalformedCurrentContractQuarantined('
+foreach ($schema60QuarantineProofEntry in @(
+	'restored.IsQuarantinedActiveGroup(group)',
+	'!restored.IsOperationalActiveGroup(group)',
+	'!restored.IsCombatPresentActiveGroup(group)'
+)) {
+	if ([string]::IsNullOrEmpty($schema60QuarantineProofBlock) -or
+		$schema60QuarantineProofBlock.IndexOf($schema60QuarantineProofEntry) -lt 0) {
+		throw "Schema-60 quarantine proof must reject combat-present orphan groups: $schema60QuarantineProofEntry"
+	}
+}
+
+$schema60RestoreHook = 'schema60PlayerSearchDestroyValidation.Normalize(this, restoredSchemaVersion)'
+$schema60RestoreHookIndex = $schema60SaveDataText.IndexOf($schema60RestoreHook)
+$schema60GenericForceNormalizeIndex = $schema60SaveDataText.IndexOf('NormalizeForceAuthority(restoredSchemaVersion)', [Math]::Max(0, $schema60RestoreHookIndex))
+$schema60ProjectionNormalizeIndex = $schema60SaveDataText.IndexOf('NormalizeRestoredOperationProjectionState()', [Math]::Max(0, $schema60RestoreHookIndex))
+if ($schema60RestoreHookIndex -lt 0 -or $schema60GenericForceNormalizeIndex -lt 0 -or
+	$schema60ProjectionNormalizeIndex -lt 0 -or $schema60RestoreHookIndex -gt $schema60GenericForceNormalizeIndex -or
+	$schema60RestoreHookIndex -gt $schema60ProjectionNormalizeIndex) {
+	throw "Schema-60 Search-and-Destroy save validation must run before generic force/operation projection normalization"
+}
+$schema60ForceNormalizeBlock = Get-ScriptMethodBlock $schema60SaveDataText 'protected void NormalizeForceAuthority('
+foreach ($schema60ClaimantSkip in @(
+	'IsSchema60PlayerSearchDestroyManifestClaimant(this, manifest)',
+	'IsSchema60PlayerSearchDestroyQuoteClaimant(this, quote)',
+	'IsSchema60PlayerSearchDestroyTombstoneClaimant(this, tombstone)',
+	'IsSchema60PlayerSearchDestroyBatchClaimant(this, spawnResult)'
+)) {
+	if ([string]::IsNullOrEmpty($schema60ForceNormalizeBlock) -or $schema60ForceNormalizeBlock.IndexOf($schema60ClaimantSkip) -lt 0) {
+		throw "Schema-60 generic force restore must skip exact Search-and-Destroy authority: $schema60ClaimantSkip"
+	}
+}
+$schema60OperationNormalizeBlock = Get-ScriptMethodBlock $schema60SaveDataText 'protected void NormalizeOperationAuthority('
+if ([string]::IsNullOrEmpty($schema60OperationNormalizeBlock) -or
+	$schema60OperationNormalizeBlock.IndexOf('IsSchema60PlayerSearchDestroyRequestClaimant(this, request)') -lt 0) {
+	throw "Schema-60 generic operation migration must skip exact Search-and-Destroy requests"
+}
+$schema60SourceLinkBlock = Get-ScriptMethodBlock $schema60SaveDataText 'protected void NormalizeActiveGroupSourceLinks('
+if ([string]::IsNullOrEmpty($schema60SourceLinkBlock) -or
+	$schema60SourceLinkBlock.IndexOf('IsSchema60PlayerSearchDestroyGroupClaimant(this, group)') -lt 0 -or
+	$schema60SourceLinkBlock.IndexOf('IsSchema60PlayerSearchDestroyRequestClaimant(this, request)') -lt 0) {
+	throw "Schema-60 generic source-link migration must skip exact Search-and-Destroy request/group claimants"
+}
+
+$schema60ArchiveCandidateBlock = Get-ScriptMethodBlock $schema60ArchiveText 'protected string ValidateArchiveCandidate('
+foreach ($schema60ArchiveEntry in @(
+	'PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind)',
+	'QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY',
+	'accepted search-and-destroy quote lacks its exact operation contract',
+	'm_Integrity.ValidateFrozenPlayerSupportQuote(manifest, quote, false, planningFailure)',
+	'm_Operations.ValidateExactPlayerSupport(state, operation, supportRequest, quote, manifest)',
+	'operation.m_sSettlementId != HST_OperationService.BuildSettlementId(operation.m_sOperationId, settlementKind)'
+)) {
+	if ([string]::IsNullOrEmpty($schema60ArchiveCandidateBlock) -or $schema60ArchiveCandidateBlock.IndexOf($schema60ArchiveEntry) -lt 0) {
+		throw "Schema-60 exact Search-and-Destroy archive admission is missing: $schema60ArchiveEntry"
+	}
+}
+$schema60ArchivePruneBlock = Get-ScriptMethodBlock $schema60ArchiveText 'protected int PruneExpiredTombstones('
+$schema60ArchivePruneMatchBlock = Get-ScriptMethodBlock $schema60ArchiveText 'protected bool ArchivedSupportRequestMatchesTombstone('
+foreach ($schema60ArchivePruneEntry in @(
+	'CanPruneExpiredTombstoneDependents(state, tombstone)',
+	'RemoveExpiredTombstoneDependents(state, expired)',
+	'state.m_aSupportRequests.Remove(requestIndex)',
+	'IsReplayTombstoneValid(tombstone)',
+	'tombstone.m_iOperationContractVersion < 0',
+	'CountExpiredTombstoneIdentityClaimants(state, tombstone) != 1',
+	'HasLiveAuthorityForExpiredTombstone(state, tombstone)',
+	'IsExpiredSupportRequestIdentityClaimant(request, tombstone)',
+	'ArchivedTypedPlayerSupportReceiptMatchesTombstone(request, tombstone)',
+	'tombstone.m_iOperationContractVersion == 0',
+	'ResolvePlayerSupportIntentId(',
+	'request.m_iOperationContractVersion != tombstone.m_iOperationContractVersion',
+	'request.m_iRefundedHR != hr.m_iRefundedAmount'
+)) {
+	if (($schema60ArchiveText.IndexOf($schema60ArchivePruneEntry)) -lt 0) {
+		throw "Schema-60 expired archive eviction must retire its reciprocal terminal request: $schema60ArchivePruneEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema60ArchivePruneBlock) -or
+	$schema60ArchivePruneBlock.IndexOf('RemoveExpiredTombstoneDependents(state, expired)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema60ArchivePruneMatchBlock)) {
+	throw "Schema-60 tombstone capacity pruning must verify and remove the paired terminal support receipt"
+}
+$schema60ReplayValidationBlock = Get-ScriptMethodBlock $schema60ArchiveText 'bool IsReplayTombstoneValid('
+foreach ($schema60ReplayEntry in @(
+	'QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY',
+	'tombstone.m_iOperationContractVersion <= 0',
+	'HST_OperationService.EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION',
+	'HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY',
+	'ResolvePlayerSupportPolicyId(tombstone.m_eSupportType)',
+	'ResolvePlayerSupportMoneyCost(tombstone.m_eSupportType)'
+)) {
+	if ([string]::IsNullOrEmpty($schema60ReplayValidationBlock) -or $schema60ReplayValidationBlock.IndexOf($schema60ReplayEntry) -lt 0) {
+		throw "Schema-60 Search-and-Destroy replay tombstone validation is missing: $schema60ReplayEntry"
+	}
+}
+$schema60ReplayManifestBlock = Get-ScriptMethodBlock $schema60ArchiveText 'HST_ForceManifestState BuildReplayManifest('
+if ([string]::IsNullOrEmpty($schema60ReplayManifestBlock) -or
+	$schema60ReplayManifestBlock.IndexOf('ResolvePlayerSupportIntentId(tombstone.m_eSupportType)') -lt 0) {
+	throw "Schema-60 archived Search-and-Destroy replay must reconstruct its exact family intent"
+}
+
+foreach ($schema60ProofEntry in @(
+	'class HST_PlayerSearchDestroyOperationProofReport',
+	'class HST_PlayerSearchDestroyOperationProofService',
+	'm_bPlanningExact',
+	'm_bOperationRouteExact',
+	'm_bProjectionContinuityExact',
+	'm_bReturnToAssignmentExact',
+	'm_bRecallSettlementExact',
+	'm_bLegacyIsolationExact',
+	'm_bRestoreQuarantineExact',
+	'ProvePhysicalSaveAwayReturn',
+	'ProveExpiredArchivePairPruning',
+	'ProveQuarantinedArchiveRetention',
+	'AssertMalformedCurrentContractQuarantined',
+	'ArchiveSettledRecords',
+	'archiveConfirmationReplay',
+	'archiveIssueReplay'
+)) {
+	if ($schema60ProofText -notmatch [regex]::Escape($schema60ProofEntry)) {
+		throw "Schema-60 Search-and-Destroy source proof is missing: $schema60ProofEntry"
+	}
+}
+foreach ($schema60TypedQRFArchiveProofEntry in @(
+	'ProveTypedQRFArchiveMismatchRetention',
+	'request.m_iMoneyCost++',
+	'prune.m_iPrunedTombstoneCount == 1',
+	'state.FindForceSettlementTombstone(tombstone.m_sQuoteId) == tombstone',
+	'state.FindSupportRequest(request.m_sRequestId) == request'
+)) {
+	if ($operationProofText.IndexOf($schema60TypedQRFArchiveProofEntry) -lt 0) {
+		throw "Schema-60 archive hardening must retain contradictory typed-QRF receipts: $schema60TypedQRFArchiveProofEntry"
+	}
+}
+$schema60PhysicalSaveProofBlock = Get-ScriptMethodBlock $schema60ProofText 'protected bool ProvePhysicalSaveAwayReturn('
+foreach ($schema60PhysicalSaveEntry in @(
+	'MaterializeFixture(fixture, "search-destroy physical save-away proof")',
+	'fixture.m_Group.m_vPosition = awayPosition;',
+	'RestoreFixture(fixture)',
+	'HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT',
+	'HST_OPERATION_MATERIALIZATION_VIRTUAL',
+	'HST_OPERATION_POSITION_STRATEGIC',
+	'PositionsMatch(fixture.m_Operation.m_vRouteEndPosition, assignment)',
+	'fixture.m_Batch.m_bStrategicProjectionHeld'
+)) {
+	if ([string]::IsNullOrEmpty($schema60PhysicalSaveProofBlock) -or $schema60PhysicalSaveProofBlock.IndexOf($schema60PhysicalSaveEntry) -lt 0) {
+		throw "Schema-60 physical-save-away Search-and-Destroy proof is missing: $schema60PhysicalSaveEntry"
+	}
+}
+$schema60ForceDebugBlock = Get-ScriptMethodBlock $schema60CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase('
+$schema60AppendProofIndex = $schema60ForceDebugBlock.IndexOf('AppendCampaignDebugPlayerSearchDestroyOperationAssertions(forceCase)')
+$schema60FinalizeProofIndex = $schema60ForceDebugBlock.IndexOf('FinalizeCampaignDebugCaseFromAssertions(forceCase)')
+if ([string]::IsNullOrEmpty($schema60ForceDebugBlock) -or $schema60AppendProofIndex -lt 0 -or
+	$schema60FinalizeProofIndex -lt 0 -or $schema60AppendProofIndex -gt $schema60FinalizeProofIndex) {
+	throw "Schema-60 force-authority case must append Search-and-Destroy proof assertions before finalization"
+}
+$schema60CoordinatorProofBlock = Get-ScriptMethodBlock $schema60CoordinatorText 'protected void AppendCampaignDebugPlayerSearchDestroyOperationAssertions('
+foreach ($schema60AssertionEntry in @(
+	'new HST_PlayerSearchDestroyOperationProofService()',
+	'search_destroy.planning',
+	'search_destroy.operation_route',
+	'search_destroy.projection_continuity',
+	'search_destroy.return_assignment',
+	'search_destroy.recall_settlement',
+	'search_destroy.legacy_isolation',
+	'search_destroy.restore_quarantine'
+)) {
+	if ([string]::IsNullOrEmpty($schema60CoordinatorProofBlock) -or $schema60CoordinatorProofBlock.IndexOf($schema60AssertionEntry) -lt 0) {
+		throw "Schema-60 coordinator Search-and-Destroy proof assertion is missing: $schema60AssertionEntry"
+	}
+}
+
+$schema60RadioTickBlock = Get-ScriptMethodBlock $schema60RadioText 'bool TickBeforeMissionRuntime('
+$schema60RadioRoundRobinBlock = Get-ScriptMethodBlock $schema60RadioText 'protected bool ReconcileOneUnresolvedProjection('
+foreach ($schema60RadioEntry in @(
+	'm_iNextUnresolvedProjectionIndex',
+	'int siteIndex = (startIndex + offset) % siteCount;',
+	'm_iNextUnresolvedProjectionIndex = (siteIndex + 1) % siteCount;',
+	'return EnsureSiteProjection(state, site);'
+)) {
+	if ([string]::IsNullOrEmpty($schema60RadioRoundRobinBlock) -or $schema60RadioRoundRobinBlock.IndexOf($schema60RadioEntry) -lt 0) {
+		throw "Schema-60 unresolved radio-site discovery must remain one-site round-robin work: $schema60RadioEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema60RadioTickBlock) -or
+	$schema60RadioTickBlock.IndexOf('ReconcileOneUnresolvedProjection(state)') -lt 0) {
+	throw "Schema-60 radio runtime tick must use the amortized unresolved-site reconciler"
+}
+$schema60RadioReconcileBlock = Get-ScriptMethodBlock $schema60RadioText 'bool ReconcileProjections('
+if ([string]::IsNullOrEmpty($schema60RadioReconcileBlock) -or
+	$schema60RadioReconcileBlock.IndexOf('HST_RADIO_SITE_TARGET_UNRESOLVED') -lt 0 -or
+	$schema60RadioReconcileBlock.IndexOf('continue;') -lt 0) {
+	throw "Schema-60 full radio projection reconciliation must skip unresolved discovery work"
+}
+
+$schema60ConvoyTickBlock = Get-ScriptMethodBlock $schema60PhysicalText 'bool UpdateMissionConvoys('
+$schema60ConvoyGuardIndex = $schema60ConvoyTickBlock.IndexOf('if (hasActiveMissionConvoy)')
+$schema60ConvoySurvivorIndex = $schema60ConvoyTickBlock.IndexOf('UpdateRuntimeGroupSurvivors(state, true)', [Math]::Max(0, $schema60ConvoyGuardIndex))
+if ([string]::IsNullOrEmpty($schema60ConvoyTickBlock) -or $schema60ConvoyGuardIndex -lt 0 -or
+	$schema60ConvoySurvivorIndex -lt 0 -or $schema60ConvoyGuardIndex -gt $schema60ConvoySurvivorIndex) {
+	throw "Schema-60 convoy ticking must not run a whole-group survivor scan when no convoy is active"
+}
+$schema60EnsureRuntimeBlock = Get-ScriptMethodBlock $schema60PhysicalText 'protected bool EnsureRuntimeGroupEntities('
+if (![string]::IsNullOrEmpty($schema60EnsureRuntimeBlock) -and
+	$schema60EnsureRuntimeBlock.IndexOf('ReconcileActiveGroupRuntimeMemberCounts(') -ge 0) {
+	throw "Schema-60 runtime entity ensure must not duplicate the periodic survivor/member scan"
+}
+$schema60SurvivorBlock = Get-ScriptMethodBlock $schema60PhysicalText 'protected bool UpdateRuntimeGroupSurvivors('
+foreach ($schema60SurvivorEntry in @(
+	'bool missionConvoysOnly = false',
+	'if (missionConvoysOnly && !missionConvoyGroup)',
+	'activeGroup.m_iVehicleCount > 0 && activeGroup.m_iInfantryCount <= 0',
+	'aliveCount = CountAliveRuntimeGroupVehicles(activeGroup.m_sGroupId);',
+	'activeGroup.m_iSurvivorVehicleCount = Math.Min(activeGroup.m_iVehicleCount, CountAliveRuntimeGroupVehicles(activeGroup.m_sGroupId));'
+)) {
+	if ([string]::IsNullOrEmpty($schema60SurvivorBlock) -or $schema60SurvivorBlock.IndexOf($schema60SurvivorEntry) -lt 0) {
+		throw "Schema-60 survivor scan/pure-vehicle cardinality mitigation is missing: $schema60SurvivorEntry"
+	}
+}
+$schema60UndercoverBlock = Get-ScriptMethodBlock $schema60CoordinatorText 'protected bool TickUndercoverEnforcement('
+if ([string]::IsNullOrEmpty($schema60UndercoverBlock) -or
+	$schema60UndercoverBlock.IndexOf('FindPlayerByLastSeenPlayerId(playerId)') -lt 0 -or
+	$schema60UndercoverBlock.IndexOf('IsRuntimeMember(player)') -lt 0 -or
+	$schema60UndercoverBlock.IndexOf('CanPlayerUseMemberActions(') -ge 0 -or
+	$schema60UndercoverBlock.IndexOf('ResolveTrustedIdentityId(') -ge 0 -or
+	$schema60UndercoverBlock.IndexOf('m_PlayerLifecycle') -ge 0) {
+	throw "Schema-60 recurring undercover enforcement must consume durable player authority without a per-second platform lookup"
+}
+
+$schema60WheeledOverridePath = "Prefabs/Vehicles/Core/Wheeled_Base.et"
+$schema60WheeledMetaPath = "$schema60WheeledOverridePath.meta"
+if (!(Test-Path -LiteralPath $schema60WheeledOverridePath -PathType Leaf) -or
+	!(Test-Path -LiteralPath $schema60WheeledMetaPath -PathType Leaf)) {
+	throw "Schema-60 native wheeled horn suppression resource or metafile is missing"
+}
+$schema60WheeledText = Get-Content -Raw $schema60WheeledOverridePath
+$schema60WheeledMetaText = Get-Content -Raw $schema60WheeledMetaPath
+foreach ($schema60HornEntry in @(
+	'MinHornTimeS 0',
+	'MaxHornTimeS 0',
+	'MinHornPauseS 0',
+	'MaxHornPauseS 0',
+	'HornSoundPowerDb 0'
+)) {
+	if ($schema60WheeledText -notmatch [regex]::Escape($schema60HornEntry)) {
+		throw "Schema-60 native wheeled AI horn suppression is missing: $schema60HornEntry"
+	}
+}
+if ($schema60WheeledMetaText -notmatch 'Name\s+"\{62F416029692CE40\}Prefabs/Vehicles/Core/Wheeled_Base\.et"') {
+	throw "Schema-60 native wheeled override metafile must register the inherited Wheeled_Base resource GUID"
+}
+
+Write-Host "Schema-60 exact paid Search-and-Destroy planning/UI/type/route, legacy isolation, fail-close restore, durable projection/settlement/persistence/archive proofs, stutter mitigations, and registered native horn suppression OK"
 
 Write-Host "h-istasi foundation validation passed"

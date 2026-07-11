@@ -363,6 +363,7 @@ class HST_EnemyDirectorService
 	{
 		if (!state || factionKey.IsEmpty() || zoneId.IsEmpty())
 			return null;
+		zoneId = HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(zoneId);
 
 		HST_EnemySupportLedgerState ledger = state.FindEnemySupportLedger(factionKey, zoneId);
 		if (ledger)

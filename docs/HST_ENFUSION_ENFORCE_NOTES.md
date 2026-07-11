@@ -1366,7 +1366,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Stock `Character_CIV_*_Randomized.et` resources are editor-facing variant selectors with default randomization disabled. Direct runtime spawning therefore creates the base appearance repeatedly. Build the ambient pool from GUID-qualified concrete stock variants and select them with one zone appearance seed plus the stable actor slot; keep placement/angle seeds separate. Appearance-collision proof must count the complete projected civilian actor set for the locality, including pedestrians and traffic drivers; checking pedestrians alone can miss duplicates introduced by driver replacement.
   - Do not use the hostile-garrison `zone.m_bActive` bit as the sole civilian render condition. A nearby living player should still see town/locality ambience even when military projection is suppressed. Resolve civilian projection eligibility from locality classification plus player distance, while leaving military activation authoritative in the physical-war service.
   - Do not reuse one HQ radius for unrelated policies. The 900 m clearance belongs to hostile operation/QRF staging. Static location activation should be suppressed only when a legacy/emergency HQ lies inside that location's capture footprint (150 m fallback), matching setup placement rules. Composition slots need only an immediate 150 m HQ clearance. A 900 m location-activation exclusion silently erases otherwise valid nearby towns and bases.
-  - AI traffic can retain `CharacterInputContext.GetVehicleHorn() != 0` after forced seating/route control. Reset only HST-owned ambient driver inputs with `SetVehicleHorn(0)` after seating and during frame maintenance; do not patch global vehicle prefabs or unrelated AI.
+  - AI traffic can retain `CharacterInputContext.GetVehicleHorn() != 0` after forced seating/route control. Keep the scoped `SetVehicleHorn(0)` reset for HST-owned ambient drivers after seating and during maintenance. Schema 60 adds a separate resource override at the native wheeled-vehicle base: set the AI car movement horn duration/pause fields and vehicle horn sound power to zero so inherited AI-driven wheeled vehicles cannot enter the continuous-horn behavior. Do not mutate arbitrary runtime vehicles or player input to implement this policy; the prefab override plus scoped ambient reset are the two owned layers. Packaged audible proof remains required.
   - Location taxonomy is a gameplay contract, not just map decoration. Towns must remain town/support zones, resources and factories must not be promoted from settlement names, and radar/ferry/dynamic-site pools should be mission-site/bookkeeping targets without start garrisons. Extra zones are acceptable, but curated minimum counts and known IDs should be asserted by Full Campaign Debug preflight.
   - Static location marker icons should not reuse QRF/attacker tactical icons. Keep QRF-style response markers on `OBJECTIVE_MARKER`, publish towns as `OBJECTIVE_MARKER2`, military bases/installations as `FORTIFICATION`, radio towers as `RADIO_SIGNAL`, roadblocks as `JOIN3`, and mission-specific markers by mission family. Phase 23 should assert no static town/base/radio/mission marker has drifted back to a reused tactical icon.
   - Default campaign-end evaluation is population-first. Victory requires the FIA-supporting share of remaining town population to meet the configured threshold and all airfields to be resistance-owned. Loss requires killed population greater than one third of initial town population.
@@ -3251,11 +3251,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Schema 57 exhausts the assassination-guard family. Schema 58 is its separate
   successor cutover for newly started `rescue_pows` only; Schema 59 is the
-  current radio-site lifecycle boundary.
+  subsequent stamped radio-site lifecycle boundary, and Schema 60 later adds the
+  separately typed player Search-and-Destroy consumer.
 
 ## Schema 58 Exact POW-Rescue Authority
 
-- Campaign persistence schema `58` is the preceding stamped source/
+- Campaign persistence schema `58` is an earlier stamped source/
   Workbench baseline at implementation
   `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
   `schema58-exact-rescue-pows`. This is the ninth explicit family consumer across
@@ -3519,6 +3520,265 @@ This file is for practical engine/script behavior, not project planning. Keep en
   replacement, streaming re-entry, actual save/restart, rendered marker/UI
   behavior, campaign setup, packaged networking, reconnect, or JIP; all
   packaged verification gates remain open until they are executed.
+
+## Schema 60 Location Retirement And Frozen-ID Compatibility
+
+- When two catalog rows describe the same physical site, correct every fresh
+  registry and world projection together. Maiden's Bay previously had a town
+  and the Logistics Warehouse only 6.64 meters apart. The canonical row is now
+  `resource_logistics_warehouse`; the config registry, default catalog, native
+  Conflict marker, strategic anchor, and graph links must contain that ID once
+  and must not enumerate `town_maidens_bay`.
+
+- Removing a zone row from fresh defaults does not repair an existing save.
+  Restore cleanup must retire town-only civilians, influence modifiers, marker
+  state, and duplicate aggregate garrison counts without transferring them into
+  the resource site. Preserve the existing warehouse owner/economy when both
+  rows exist. If an old save has only the town, convert that one row in place
+  and preserve its prior economy and aggregate force counts rather than creating
+  a second resource or granting the new catalog values.
+
+- Select authority before touching auxiliary state. If neither location ID is
+  present, return without adding an event or changing any row: orphan references
+  alone are not authority to invent a zone. More than one canonical row, or
+  multiple legacy rows without one canonical row, is ambiguous. Preserve every
+  zone, link, projection, ledger, site, and route and append only one idempotent
+  normalization-conflict audit. A unique canonical row remains authoritative
+  even when several duplicate legacy rows exist.
+
+- Separate mutable generic state from frozen typed authority. Contract-0
+  support requests, enemy orders, missions/objectives, QRF rows, operations,
+  active groups, garage/runtime vehicles, undercover location fields, and safe
+  zone-valued target IDs may canonicalize. Duplicate ambient, garrison, police,
+  and civilian runtime projections retire directly; do not fold their counts or
+  credit manpower to the warehouse. Any nonzero typed claimant stays frozen,
+  including settled, malformed, negative/quarantined, and partially unlinked
+  rows. Also recognize graphless exact active groups by their family-specific
+  mode/status so generic cleanup cannot claim them merely because a reciprocal
+  row is missing. When duplicate group or mission IDs exist, scan every match;
+  one typed match makes the shared identity typed.
+
+- Frozen quotes, manifests, routes, operations, and receipts must not be
+  rewritten merely because a catalog alias is retired. Resolve those historical
+  references through a detached compatibility `HST_ZoneState` at the frozen old
+  position. Never insert that view into `m_aZones`: doing so would recreate a
+  marker, income source, civilian population, target candidate, or commander
+  order. Exact garrison-manifest backlinks may remain in a zero-manpower legacy
+  shell until their operation settles; ordinary legacy garrison counts are
+  removed when the canonical warehouse already exists.
+
+- Keep mutable lookup and historical lookup separate. `FindZone(oldId)` should
+  return the canonical warehouse so ordinary mutations cannot target a detached
+  object. `FindFrozenHistoricalZoneView(oldId)` may return a newly allocated
+  old-ID/old-position view only when exactly one canonical row exists; duplicate
+  canonical authority returns no view. Runtime duplicate/admission/target-
+  proximity boundaries that may compare a frozen assignment with current map
+  state should use `AreEquivalentZoneIds(oldId, canonicalId)` rather than
+  rewriting the frozen record.
+
+- Generated content follows the same split. Mutable generic sites and routes
+  rekey into the canonical namespace, rekey every route waypoint, and drop the
+  old row if its canonical identity already exists. A site or route referenced
+  by any typed/frozen claimant remains byte-stable. Create a deep canonical
+  clone instead, copying source metadata, positions, route validation fields,
+  and all waypoint fields before rekeying the clone. This keeps historical
+  execution identity intact while allowing current generation to use only the
+  canonical location.
+
+- Merge duplicate enemy-support ledgers conservatively. Expire stale spend and
+  recent-damage windows first; add spend/refund totals, take the bounded maximum
+  recent-damage score, retain maximum spend/damage/cooldown timestamps, and use
+  the decision reason from the newest applicable evidence. Canonicalize old-ID
+  ledger lookup at creation/use boundaries so later refunds cannot recreate a
+  second ledger.
+
+- `HST_MaidensBayLocationMigrationProofService` uses isolated in-memory both-
+  location and legacy-only fixtures, snapshots typed rows before/after, runs the
+  production normalizer twice, and checks retirement, generic-reference
+  canonicalization, frozen isolation, ledger/generated-content handling,
+  idempotency, and lookup/equivalence behavior. It is compiled and wired into
+  Campaign Debug as `location_taxonomy.maidens_bay_schema60`, but the Campaign
+  Debug assertion has not run. Never describe compilation or wiring as a passed
+  migration, serialization, restore, or packaged process-restart test.
+
+## Schema 60 Exact Player Search-And-Destroy
+
+- The active candidate build label is `schema60-exact-search-destroy`. Schema 59
+  remains the latest stamped source/Workbench checkpoint; never reuse its hash,
+  CRC, or passing gate as Schema-60 evidence.
+
+- Only a newly issued and confirmed
+  `HST_SUPPORT_SEARCH_AND_DESTROY` quote enters the exact contract. Use quote kind
+  `player_support_search_destroy`, policy
+  `support_search_destroy_exact_infantry_1`, intent
+  `hst_search_destroy_regular`, operation contract `1`, and operation type
+  `HST_OPERATION_TYPE_PLAYER_SUPPORT_SEARCH_DESTROY`. The quote is valid for 120
+  seconds, costs $350 plus one HR for every frozen member, and uses a 600-second
+  family cooldown. Select the closest executable catalog roster to `3 + war
+  level`, bounded to the supported 3-12 range; freeze the actual selected slots
+  as cost and survivor authority. Reject vehicles, assets, empty rosters, and
+  multi-root manifests instead of substituting a shorter shape.
+
+- Quote, manifest, paired ledger rows, request, operation, held SpawnQueue
+  result, and active group must form one reciprocal authority graph. Search-and-
+  Destroy has its own operation discriminator, assignment kind
+  `search_destroy_on_station`, recall policy `exit_then_refund_living_hr`, and
+  settlement policy `exact_paid_search_destroy_ledger`; do not infer family from
+  generic `m_bQRF` presentation state.
+
+- Reuse the exact infantry direct-route/projection mechanics, not the legacy
+  support timer. Virtual movement advances the persisted cursor. Materialization
+  releases one root plus only durable living slots; physical death must map back
+  to a frozen slot before it becomes durable. Clear-of-contact fold removes the
+  process entities and returns the observed survivor roster to strategic hold.
+  If an on-station physical group has moved more than 75 meters from its immutable
+  assignment when it folds, change duty/resume duty to
+  `RETURNING_TO_ASSIGNMENT`, route from the folded live position back to the
+  assignment, and resume `ON_STATION` only after virtual arrival. Never simulate
+  target combat from the displaced fold position.
+
+- Exact-support authority retirement must be exhaustive and projection scoped.
+  Before normal fold, physical recall exit, or campaign-stop retirement, call
+  the adapter's exhaustive reconciliation for that projection. Read the durable
+  living roster only after it succeeds. Zero living members may continue into
+  terminal cleanup; a nonzero roster must additionally prove one handed-off root,
+  exactly one unique live adapter binding per durable living member, matching
+  result/projection/slot keys, and equal PhysicalWar member cardinality. On any
+  mismatch, retain the runtime root and physical authority. A bounded generic
+  adapter tick is not sufficient at a retirement boundary, and PhysicalWar must
+  not independently retire exact player-support casualties first.
+
+- Persistence uses a wider version of the same rule. Defer capture while any
+  exact infantry operation is `MATERIALIZING`. Otherwise perform the exhaustive
+  global exact-infantry casualty reconciliation, then inspect every physical or
+  dematerializing exact player-support aggregate. Require exactly one reciprocal
+  request, operation, successful batch, and active group; for a nonzero living
+  roster require the root/member binding proof above, then refresh the group's
+  live physical position before copying state. Missing services, ambiguity,
+  cardinality failure, or position failure must defer the checkpoint before
+  tracked state is flushed or a savepoint is requested. Do not serialize a stale
+  assignment position as current physical truth.
+
+- Snapshot living strength before destructive queue cleanup. When a held exact-
+  support batch is cancelled for recall, write
+  `m_iLastVirtualFriendlyCount = CountStrategicLivingMemberSlots(batch)` before
+  `RequestCancel()` can remove the roster. Fold completion likewise records the
+  strategic living count before an immediate recall reads settlement authority.
+  This prevents a casualty-preserving fold followed by immediate recall from
+  refunding the original full HR cost.
+
+- Off-screen combat uses the existing deterministic 30-second infantry power
+  steps, capped at four catch-up steps per tick. Friendly casualties retire
+  deterministic living manifest slots; hostile casualties decrement the target
+  faction's abstract garrison. Missing entities are not casualty evidence. When
+  hostile infantry reaches zero, clear engagement but keep the operation
+  `ON_STATION`; only commander recall starts the exit and living-HR settlement.
+  Recall and archive replay must remain idempotent.
+
+- Save migration is no-invention. Every pre-60 Search-and-Destroy request stays
+  contract `0` and receives no backfilled quote, manifest, ledger, operation,
+  batch, group, route, casualty, or settlement. A malformed current exact strong
+  claimant uses contract `-60`, retains diagnostic evidence, terminalizes its
+  unsafe projection, never enters the legacy path, and never changes money/HR by
+  guess. Record `migration_schema60_player_search_destroy` and
+  `normalization_schema60_player_search_destroy_conflict` once.
+
+- Quarantine must be global, not just a family-service convention. Register the
+  Search-and-Destroy quarantine runtime status and spawn mode in
+  `HST_CampaignState.IsQuarantinedActiveGroup()`. Operational counts and every
+  consumer that asks `IsOperationalActiveGroup()` or
+  `IsCombatPresentActiveGroup()` must then exclude the retained group. Do not
+  let preserved corruption satisfy capture pressure, hostile presence, target
+  selection, simulation, or other live-force checks.
+
+- Archive capacity owns paired exact-support history. Full receipt reciprocity
+  applies to every positive typed player-support contract, including exact QRF
+  and Search-and-Destroy. After the minimum replay window, remove its tombstone
+  and retained terminal request together only when `IsReplayTombstoneValid()`
+  passes, exactly one tombstone
+  claims the aggregate identities, and no quote, manifest, operation,
+  transaction, spawn batch, or active group still links them. The request must
+  also be unique, terminal, and fully reciprocal with the tombstone: request/
+  quote/manifest/operation/ledger IDs, family/policy/capability/profile,
+  assignment positions, costs/roster, ETA/cooldown, settlement kind, confirmation
+  request, spawn-result identity, and refunded HR must agree. A negative contract
+  or any mismatch is evidence, not a capacity victim; retain both rows and seek
+  another eligible tombstone or fail admission closed. Contract-0 QRF predates
+  typed operation receipts and deliberately keeps only the historical minimal
+  identity/status match.
+
+- Focused source proof should cover quote/confirmation replay, exact roster and
+  resource cost, operation/route, virtual combat, physical/virtual survivor
+  continuity, displaced-fold return to assignment, recall/settlement, contract-
+  zero legacy isolation, and `-60` quarantine. It now also covers a valid
+  tombstone/request pair pruned under forced capacity and still absent after an
+  in-memory save/restore, plus a corrupted pair that becomes `-60` and remains
+  while another eligible tombstone is pruned. The service is compiled and wired,
+  but those Campaign Debug assertions have not run. The fold/immediate-recall
+  casualty case deliberately mutates synthetic queue-slot authority; it proves
+  snapshot and settlement bookkeeping, not live adapter casualty observation,
+  runtime-root retirement, or physical recall exit. Those remain packaged-
+  runtime gates alongside native AI movement, natural combat, actual save/
+  restart, rendered UI, networking, reconnect, and JIP.
+
+- The compiled/wired `HST_OperationRecordProofService` archive case now corrupts
+  a positive typed exact-QRF terminal request, forces archive capacity, and
+  requires both its tombstone and request to remain while another eligible row
+  leaves. This mismatch-retention assertion has not run in Campaign Debug.
+
+## One-Second Runtime Hot-Path Repair
+
+- A visible once-per-second stutter aligned with the coordinator's active-
+  campaign tick. The hot path repeatedly reconciled complete active-group
+  membership/survivors, refreshed stable player authority, and queried every
+  unresolved radio site. A pure vehicle group could also alternate between its
+  one durable vehicle and generic group-agent counts, making the tick report a
+  major change forever. Treat this as an observed runtime defect until a new
+  packaged run measures it gone.
+
+- Pure vehicle groups (`vehicleCount > 0`, `infantryCount <= 0`) must use
+  `CountAliveRuntimeGroupVehicles()` for living-count authority. Do not let
+  driver/crew/group children inflate the strategic count. `EnsureRuntimeGroupEntities`
+  should not run another full count reconciliation for an already-present
+  runtime group when the normal survivor pass follows. `UpdateMissionConvoys`
+  should not invoke a global survivor pass when no active convoy exists.
+
+- Build active-group visual/editable evidence only after the warning/debug
+  throttle decides a line will emit. Successful membership diagnostics remain
+  at the 30-second throttle rather than paying the world/entity scan every
+  second merely to discard the string.
+
+- Recurring undercover/maintenance authorization reads should use the already
+  registered player state. Keep full identity/membership refresh at connect,
+  setup registration, menu payload, and explicit action boundaries; do not
+  resolve and re-register an unchanged backend identity once per second.
+
+- Pre-59 migration can leave many ONLINE radio sites physically unresolved.
+  Perform at most one unresolved authored-transmitter discovery per active
+  campaign tick in round-robin order. The post-mission pass should skip unresolved
+  sites while still reconciling already-bound/generated projections immediately.
+  Forced admission, restore, and explicit lifecycle transitions retain their
+  fail-closed projection checks.
+
+- Verification remains packaged/server-side: run for several minutes with debug
+  logging enabled, compare freeze cadence, require stable pure-vehicle counts,
+  no once-per-second authority refresh line, no redundant no-convoy survivor
+  sweep, and no more than one periodic unresolved-radio discovery attempt per
+  tick. A clean source or Workbench compile alone does not close this defect.
+
+## Native Wheeled AI Horn Suppression
+
+- The inherited wheeled-vehicle base override sets AI car movement minimum/
+  maximum horn duration and pause to zero and sets vehicle horn sound power to
+  zero. This is a resource-level policy for AI-driven wheeled vehicles, not a
+  runtime mutation of individual vehicles or player controls. Keep the ambient-
+  service `SetVehicleHorn(0)` input reset as a second scoped defense for forced
+  civilian seating/route control.
+
+- The next published server check must listen around both ambient civilian
+  traffic and other AI-driven wheeled vehicles. Continuous horns were observed
+  in the prior run, so static resource resolution or Workbench creation is not
+  sufficient behavior proof.
 
 ## Native Reference Sources
 

@@ -1,0 +1,18 @@
+Vehicle : "{4085446E2B406849}Prefabs/Vehicles/Core/Vehicle_Base.et" {
+ ID "BBCBA43A9778AE21"
+ components {
+  ChimeraAIVehicleControlComponent "{61C2E46781A66E82}" {
+   components {
+    AICarMovementComponent "{61C2E46796C28D80}" {
+     MinHornTimeS 0
+     MaxHornTimeS 0
+     MinHornPauseS 0
+     MaxHornPauseS 0
+    }
+   }
+  }
+  SCR_VehiclePerceivableComponent "{566CD04B8A6107DD}" {
+   HornSoundPowerDb 0
+  }
+ }
+}

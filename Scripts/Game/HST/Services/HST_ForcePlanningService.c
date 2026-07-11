@@ -16,17 +16,23 @@ class HST_ForcePlanningService
 {
 	static const string QUOTE_KIND_GARRISON = "garrison_recruitment";
 	static const string QUOTE_KIND_PLAYER_SUPPORT_QRF = "player_support_qrf";
+	static const string QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY = "player_support_search_destroy";
 	static const string LEGACY_GARRISON_POLICY_ID = "garrison_exact_all_or_nothing_1";
 	static const string GARRISON_POLICY_ID = "garrison_exact_patrol_2";
 	static const string SUPPORT_QRF_POLICY_ID = "support_qrf_exact_infantry_1";
+	static const string SUPPORT_SEARCH_DESTROY_POLICY_ID = "support_search_destroy_exact_infantry_1";
 	static const int GARRISON_QUOTE_LIFETIME_SECONDS = 120;
 	static const int SUPPORT_QRF_QUOTE_LIFETIME_SECONDS = 120;
+	static const int SUPPORT_SEARCH_DESTROY_QUOTE_LIFETIME_SECONDS = 120;
 	static const int SUPPORT_QRF_MONEY_COST = 250;
-	// Retained for synthetic legacy fixtures; production quotes derive ETA from route distance and strategic speed.
+	static const int SUPPORT_SEARCH_DESTROY_MONEY_COST = 350;
 	static const int SUPPORT_QRF_ETA_SECONDS = 120;
 	static const int SUPPORT_QRF_COOLDOWN_SECONDS = 600;
+	static const int SUPPORT_SEARCH_DESTROY_COOLDOWN_SECONDS = 600;
 	static const string SUPPORT_QRF_CAPABILITY_ID = "qrf";
 	static const string SUPPORT_QRF_ASSET_PROFILE_ID = "fia_qrf_reserve_alpha";
+	static const string SUPPORT_SEARCH_DESTROY_CAPABILITY_ID = "ground_support";
+	static const string SUPPORT_SEARCH_DESTROY_ASSET_PROFILE_ID = "fia_ground_support";
 	static const int MAX_RECRUIT_MEMBER_COUNT = 32;
 	static const int MAX_OPEN_GARRISON_QUOTES = 64;
 	static const int TERMINAL_QUOTE_RETENTION_SECONDS = 600;
@@ -37,6 +43,129 @@ class HST_ForcePlanningService
 	protected ref HST_GarrisonService m_GarrisonReader = new HST_GarrisonService();
 	protected ref HST_GarrisonPatrolOperationService m_GarrisonPatrolOperations;
 	protected ref HST_CampaignEventLogService m_EventLog;
+
+	static bool IsExactPlayerSupportType(HST_ESupportRequestType supportType)
+	{
+		return supportType == HST_ESupportRequestType.HST_SUPPORT_QRF
+			|| supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+	}
+
+	static bool IsExactPlayerSupportQuoteKind(string quoteKind)
+	{
+		return quoteKind == QUOTE_KIND_PLAYER_SUPPORT_QRF
+			|| quoteKind == QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY;
+	}
+
+	static bool PlayerSupportTypeMatchesQuoteKind(HST_ESupportRequestType supportType, string quoteKind)
+	{
+		string expectedQuoteKind = ResolvePlayerSupportQuoteKind(supportType);
+		return !expectedQuoteKind.IsEmpty() && quoteKind == expectedQuoteKind;
+	}
+
+	static string ResolvePlayerSupportQuoteKind(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return QUOTE_KIND_PLAYER_SUPPORT_QRF;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY;
+		return "";
+	}
+
+	static string ResolvePlayerSupportPolicyId(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return SUPPORT_QRF_POLICY_ID;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return SUPPORT_SEARCH_DESTROY_POLICY_ID;
+		return "";
+	}
+
+	static string ResolvePlayerSupportIntentId(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return "hst_qrf_regular";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return "hst_search_destroy_regular";
+		return "";
+	}
+
+	static string ResolvePlayerSupportCapabilityId(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return SUPPORT_QRF_CAPABILITY_ID;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return SUPPORT_SEARCH_DESTROY_CAPABILITY_ID;
+		return "";
+	}
+
+	static string ResolvePlayerSupportAssetProfileId(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return SUPPORT_QRF_ASSET_PROFILE_ID;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return SUPPORT_SEARCH_DESTROY_ASSET_PROFILE_ID;
+		return "";
+	}
+
+	static int ResolvePlayerSupportMoneyCost(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return SUPPORT_QRF_MONEY_COST;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return SUPPORT_SEARCH_DESTROY_MONEY_COST;
+		return -1;
+	}
+
+	static int ResolvePlayerSupportQuoteLifetimeSeconds(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return SUPPORT_QRF_QUOTE_LIFETIME_SECONDS;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return SUPPORT_SEARCH_DESTROY_QUOTE_LIFETIME_SECONDS;
+		return 0;
+	}
+
+	static int ResolvePlayerSupportCooldownSeconds(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return SUPPORT_QRF_COOLDOWN_SECONDS;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return SUPPORT_SEARCH_DESTROY_COOLDOWN_SECONDS;
+		return 0;
+	}
+
+	static int ResolvePlayerSupportETASeconds(
+		HST_ESupportRequestType supportType,
+		vector sourcePosition,
+		vector targetPosition)
+	{
+		// QRF contract 1 predates route-derived quote scheduling and remains frozen
+		// at 120 seconds for save/replay compatibility. Schema-60
+		// Search-and-Destroy quotes derive their schedule from their exact route.
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return SUPPORT_QRF_ETA_SECONDS;
+		if (supportType != HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return 0;
+		return HST_StrategicMovementService.ResolveExactPlayerQRFETASeconds(sourcePosition, targetPosition);
+	}
+
+	static string ResolvePlayerSupportPlanningSeedKind(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return "qrf";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return "search_destroy";
+		return "";
+	}
+
+	static string ResolvePlayerSupportDisplayKind(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return "QRF";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return "search-and-destroy";
+		return "support";
+	}
 
 	void SetEventLogService(HST_CampaignEventLogService eventLog)
 	{
@@ -408,14 +537,23 @@ class HST_ForcePlanningService
 			result.m_sFailureReason = "actor identity missing";
 			return result;
 		}
-		if (supportType != HST_ESupportRequestType.HST_SUPPORT_QRF)
+		if (!IsExactPlayerSupportType(supportType))
 		{
-			result.m_sFailureReason = "exact paid support currently accepts QRF only";
+			result.m_sFailureReason = "support type has no exact paid infantry contract";
 			return result;
 		}
+		string supportQuoteKind = ResolvePlayerSupportQuoteKind(supportType);
+		string supportPolicyId = ResolvePlayerSupportPolicyId(supportType);
+		string supportIntentId = ResolvePlayerSupportIntentId(supportType);
+		string supportCapabilityId = ResolvePlayerSupportCapabilityId(supportType);
+		string supportAssetProfileId = ResolvePlayerSupportAssetProfileId(supportType);
+		string supportDisplayKind = ResolvePlayerSupportDisplayKind(supportType);
+		int supportMoneyCost = ResolvePlayerSupportMoneyCost(supportType);
+		int supportQuoteLifetimeSeconds = ResolvePlayerSupportQuoteLifetimeSeconds(supportType);
+		int supportCooldownSeconds = ResolvePlayerSupportCooldownSeconds(supportType);
 		if (state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || !state.m_bHQDeployed)
 		{
-			result.m_sFailureReason = "paid QRF support requires an active campaign and deployed HQ";
+			result.m_sFailureReason = string.Format("paid %1 support requires an active campaign and deployed HQ", supportDisplayKind);
 			return result;
 		}
 
@@ -438,7 +576,7 @@ class HST_ForcePlanningService
 			if (existingQuote)
 			{
 				if (existingQuote.m_sActorIdentityId != actorIdentityId
-					|| existingQuote.m_sQuoteKind != QUOTE_KIND_PLAYER_SUPPORT_QRF
+					|| existingQuote.m_sQuoteKind != supportQuoteKind
 					|| existingQuote.m_eSupportType != supportType
 					|| existingQuote.m_sTargetZoneId != targetZoneId
 					|| !PositionsMatch(existingQuote.m_vTargetPosition, targetPosition))
@@ -483,7 +621,7 @@ class HST_ForcePlanningService
 			HST_ForceSettlementTombstoneState archived = state.FindForceSettlementTombstoneByCommandRequest(commandRequestId);
 			if (archived)
 			{
-				if (archived.m_sActorIdentityId != actorIdentityId || archived.m_sQuoteKind != QUOTE_KIND_PLAYER_SUPPORT_QRF
+				if (archived.m_sActorIdentityId != actorIdentityId || archived.m_sQuoteKind != supportQuoteKind
 					|| archived.m_eSupportType != supportType || archived.m_sTargetZoneId != targetZoneId
 					|| !PositionsMatch(archived.m_vTargetPosition, targetPosition))
 				{
@@ -528,7 +666,7 @@ class HST_ForcePlanningService
 		HST_ZoneState sourceZone = ResolvePlayerSupportSourceZone(state, factionKey, targetZone);
 		if (!sourceZone)
 		{
-			result.m_sFailureReason = "no resistance-owned QRF source zone is available";
+			result.m_sFailureReason = string.Format("no resistance-owned %1 source zone is available", supportDisplayKind);
 			return result;
 		}
 
@@ -541,17 +679,24 @@ class HST_ForcePlanningService
 			return result;
 		}
 
-		int planningSeed = m_Integrity.BuildDeterministicSeed(state, actorIdentityId + "|" + commandRequestId + "|qrf", targetZoneId);
-		HST_ForceGroupCatalogEntry catalogGroup = m_Integrity.SelectPlayerSupportGroup(m_Catalog.BuildGroupCatalog(factionKey), planningSeed, state.m_iWarLevel);
+		int planningSeed = m_Integrity.BuildDeterministicSeed(
+			state,
+			actorIdentityId + "|" + commandRequestId + "|" + ResolvePlayerSupportPlanningSeedKind(supportType),
+			targetZoneId);
+		HST_ForceGroupCatalogEntry catalogGroup = m_Integrity.SelectExactPlayerSupportGroup(
+			m_Catalog.BuildGroupCatalog(factionKey),
+			planningSeed,
+			state.m_iWarLevel,
+			supportType);
 		if (!catalogGroup || catalogGroup.m_aMemberSlots.Count() <= 0)
 		{
-			result.m_sFailureReason = "deterministic exact QRF group selection failed";
+			result.m_sFailureReason = string.Format("deterministic exact %1 group selection failed", supportDisplayKind);
 			return result;
 		}
 		int exactMemberCount = catalogGroup.m_aMemberSlots.Count();
-		if (state.m_iFactionMoney < SUPPORT_QRF_MONEY_COST)
+		if (state.m_iFactionMoney < supportMoneyCost)
 		{
-			result.m_sFailureReason = string.Format("need $%1, have $%2", SUPPORT_QRF_MONEY_COST, state.m_iFactionMoney);
+			result.m_sFailureReason = string.Format("need $%1, have $%2", supportMoneyCost, state.m_iFactionMoney);
 			return result;
 		}
 		if (state.m_iHR < exactMemberCount)
@@ -579,15 +724,15 @@ class HST_ForcePlanningService
 		manifest.m_sForceKind = "player_support";
 		manifest.m_sFactionRole = "resistance";
 		manifest.m_sFactionKey = factionKey;
-		manifest.m_sIntentId = "hst_qrf_regular";
+		manifest.m_sIntentId = supportIntentId;
 		manifest.m_sSourceZoneId = sourceZone.m_sZoneId;
 		manifest.m_sTargetZoneId = targetZoneId;
 		manifest.m_sGroupPrefab = catalogGroup.m_sExecutionPrefab;
 		manifest.m_sCatalogVersion = HST_ForceCatalogService.CATALOG_VERSION;
-		manifest.m_sPolicyId = SUPPORT_QRF_POLICY_ID;
+		manifest.m_sPolicyId = supportPolicyId;
 		manifest.m_iRequestedMemberCount = exactMemberCount;
 		manifest.m_iAcceptedMemberCount = exactMemberCount;
-		manifest.m_iMoneyCost = SUPPORT_QRF_MONEY_COST;
+		manifest.m_iMoneyCost = supportMoneyCost;
 		manifest.m_iHRCost = exactMemberCount;
 		manifest.m_iDeterministicSeed = planningSeed;
 		manifest.m_iCreatedAtSecond = state.m_iElapsedSeconds;
@@ -608,7 +753,7 @@ class HST_ForcePlanningService
 			HST_ForceGroupCatalogSlot catalogSlot = catalogGroup.m_aMemberSlots[memberIndex];
 			if (!catalogSlot)
 			{
-				result.m_sFailureReason = "selected QRF group contains a missing catalog slot";
+				result.m_sFailureReason = string.Format("selected %1 group contains a missing catalog slot", supportDisplayKind);
 				return result;
 			}
 			HST_ForceManifestMemberState member = new HST_ForceManifestMemberState();
@@ -640,10 +785,10 @@ class HST_ForcePlanningService
 		quote.m_sOperationId = operationId;
 		quote.m_sCommandRequestId = commandRequestId;
 		quote.m_sActorIdentityId = actorIdentityId;
-		quote.m_sQuoteKind = QUOTE_KIND_PLAYER_SUPPORT_QRF;
+		quote.m_sQuoteKind = supportQuoteKind;
 		quote.m_sSupportRequestId = supportRequestId;
-		quote.m_sCapabilityId = SUPPORT_QRF_CAPABILITY_ID;
-		quote.m_sAssetProfileId = SUPPORT_QRF_ASSET_PROFILE_ID;
+		quote.m_sCapabilityId = supportCapabilityId;
+		quote.m_sAssetProfileId = supportAssetProfileId;
 		quote.m_sFactionKey = factionKey;
 		quote.m_sSourceZoneId = sourceZone.m_sZoneId;
 		quote.m_sTargetZoneId = targetZoneId;
@@ -659,9 +804,12 @@ class HST_ForcePlanningService
 		quote.m_iMoneyCost = manifest.m_iMoneyCost;
 		quote.m_iHRCost = manifest.m_iHRCost;
 		quote.m_iCreatedAtSecond = state.m_iElapsedSeconds;
-		quote.m_iExpiresAtSecond = state.m_iElapsedSeconds + SUPPORT_QRF_QUOTE_LIFETIME_SECONDS;
-		quote.m_iETASeconds = HST_StrategicMovementService.ResolveExactPlayerQRFETASeconds(quote.m_vSourcePosition, quote.m_vTargetPosition);
-		quote.m_iCooldownSeconds = SUPPORT_QRF_COOLDOWN_SECONDS;
+		quote.m_iExpiresAtSecond = state.m_iElapsedSeconds + supportQuoteLifetimeSeconds;
+		quote.m_iETASeconds = ResolvePlayerSupportETASeconds(
+			supportType,
+			quote.m_vSourcePosition,
+			quote.m_vTargetPosition);
+		quote.m_iCooldownSeconds = supportCooldownSeconds;
 		quote.m_iExpectedWarLevel = Math.Max(1, state.m_iWarLevel);
 		quote.m_bAllOrNothing = true;
 		quote.m_sContextHash = m_Integrity.BuildPlayerSupportContextHash(state, quote);
@@ -684,7 +832,7 @@ class HST_ForcePlanningService
 		result.m_bStateChanged = true;
 		result.m_Quote = quote;
 		result.m_Manifest = manifest;
-		AppendQuoteEvent(state, quote, "issued", "exact all-or-nothing player QRF quote issued");
+		AppendQuoteEvent(state, quote, "issued", string.Format("exact all-or-nothing player %1 quote issued", supportDisplayKind));
 		return result;
 	}
 
@@ -710,7 +858,8 @@ class HST_ForcePlanningService
 		if (!quote)
 		{
 			HST_ForceSettlementTombstoneState archived = state.FindForceSettlementTombstone(quoteId);
-			if (archived && archived.m_sQuoteKind == QUOTE_KIND_PLAYER_SUPPORT_QRF && archived.m_sActorIdentityId == actorIdentityId)
+			if (archived && PlayerSupportTypeMatchesQuoteKind(archived.m_eSupportType, archived.m_sQuoteKind)
+				&& archived.m_sActorIdentityId == actorIdentityId)
 			{
 				result.m_Quote = m_SettlementArchive.BuildReplayQuote(archived);
 				result.m_Manifest = m_SettlementArchive.BuildReplayManifest(archived);
@@ -722,7 +871,7 @@ class HST_ForcePlanningService
 				return result;
 			}
 		}
-		if (!quote || quote.m_sQuoteKind != QUOTE_KIND_PLAYER_SUPPORT_QRF)
+		if (!quote || !PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind))
 		{
 			result.m_sFailureReason = "player support quote not found";
 			return result;
@@ -732,6 +881,7 @@ class HST_ForcePlanningService
 			result.m_sFailureReason = "quote actor conflict";
 			return result;
 		}
+		string supportDisplayKind = ResolvePlayerSupportDisplayKind(quote.m_eSupportType);
 
 		HST_ForceManifestState manifest = state.FindForceManifest(quote.m_sManifestId);
 		result.m_Manifest = manifest;
@@ -839,14 +989,14 @@ class HST_ForcePlanningService
 			actorIdentityId,
 			HST_ResourceLedgerService.RESOURCE_FACTION_MONEY,
 			quote.m_iMoneyCost,
-			"exact player QRF support",
+			"exact player " + supportDisplayKind + " support",
 			quote.m_sQuoteId,
 			quote.m_sManifestId
 		);
 		if (!moneyReservation || !moneyReservation.m_bSuccess
 			|| !m_Integrity.ReservationMatchesQuote(moneyReservation.m_Transaction, quote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost, confirmationRequestId))
 		{
-			RollbackConfirmationTransactions(state, economy, ledger, quote, "player QRF money reservation integrity failure");
+			RollbackConfirmationTransactions(state, economy, ledger, quote, "player " + supportDisplayKind + " money reservation integrity failure");
 			RejectQuote(state, quote, "money reservation failed", confirmationRequestId);
 			result.m_bStateChanged = true;
 			result.m_sFailureReason = quote.m_sRejectionReason;
@@ -863,14 +1013,14 @@ class HST_ForcePlanningService
 			actorIdentityId,
 			HST_ResourceLedgerService.RESOURCE_HR,
 			quote.m_iHRCost,
-			"exact player QRF support",
+			"exact player " + supportDisplayKind + " support",
 			quote.m_sQuoteId,
 			quote.m_sManifestId
 		);
 		if (!hrReservation || !hrReservation.m_bSuccess
 			|| !m_Integrity.ReservationMatchesQuote(hrReservation.m_Transaction, quote, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost, confirmationRequestId))
 		{
-			CancelConfirmationReservations(state, economy, ledger, quote, "player QRF HR reservation failed");
+			CancelConfirmationReservations(state, economy, ledger, quote, "player " + supportDisplayKind + " HR reservation failed");
 			RejectQuote(state, quote, "HR reservation failed", confirmationRequestId);
 			result.m_bStateChanged = true;
 			result.m_sFailureReason = quote.m_sRejectionReason;
@@ -883,7 +1033,7 @@ class HST_ForcePlanningService
 		if (!supportRequests.RegisterAcceptedExactPlayerSupport(state, preset, quote, manifest, registrationFailure))
 		{
 			supportRequests.RemoveAcceptedExactPlayerSupport(state, quote.m_sQuoteId, quote.m_sSupportRequestId);
-			RollbackConfirmationTransactions(state, economy, ledger, quote, "exact player QRF registration failed");
+			RollbackConfirmationTransactions(state, economy, ledger, quote, "exact player " + supportDisplayKind + " registration failed");
 			RejectQuote(state, quote, "exact support registration failed: " + registrationFailure, confirmationRequestId);
 			result.m_bStateChanged = true;
 			result.m_sFailureReason = quote.m_sRejectionReason;
@@ -895,7 +1045,7 @@ class HST_ForcePlanningService
 		if (supportRequestCount != 1 || !PlayerSupportRequestMatchesQuote(state, supportRequest, quote, manifest))
 		{
 			supportRequests.RemoveAcceptedExactPlayerSupport(state, quote.m_sQuoteId, quote.m_sSupportRequestId);
-			RollbackConfirmationTransactions(state, economy, ledger, quote, "exact player QRF verification failed");
+			RollbackConfirmationTransactions(state, economy, ledger, quote, "exact player " + supportDisplayKind + " verification failed");
 			RejectQuote(state, quote, "exact support registration verification failed", confirmationRequestId);
 			result.m_bStateChanged = true;
 			result.m_sFailureReason = quote.m_sRejectionReason;
@@ -907,7 +1057,7 @@ class HST_ForcePlanningService
 		if (!moneyCommitted || !hrCommitted)
 		{
 			supportRequests.RemoveAcceptedExactPlayerSupport(state, quote.m_sQuoteId, quote.m_sSupportRequestId);
-			RollbackConfirmationTransactions(state, economy, ledger, quote, "player QRF ledger commit failed");
+			RollbackConfirmationTransactions(state, economy, ledger, quote, "player " + supportDisplayKind + " ledger commit failed");
 			RejectQuote(state, quote, "resource transaction commit failed", confirmationRequestId);
 			result.m_bStateChanged = true;
 			result.m_sFailureReason = quote.m_sRejectionReason;
@@ -920,7 +1070,7 @@ class HST_ForcePlanningService
 		result.m_bSuccess = true;
 		result.m_bStateChanged = true;
 		result.m_SupportRequest = supportRequest;
-		AppendQuoteEvent(state, quote, "accepted", "exact player QRF registered and resource transactions committed", confirmationRequestId);
+		AppendQuoteEvent(state, quote, "accepted", "exact player " + supportDisplayKind + " registered and resource transactions committed", confirmationRequestId);
 		return result;
 	}
 
@@ -937,7 +1087,8 @@ class HST_ForcePlanningService
 		if (!state || !economy || !supportRequests || !ledger)
 			return false;
 		HST_ForceQuoteState quote = state.FindForceQuote(quoteId);
-		if (!quote || quote.m_sActorIdentityId != actorIdentityId || quote.m_sQuoteKind != QUOTE_KIND_PLAYER_SUPPORT_QRF)
+		if (!quote || quote.m_sActorIdentityId != actorIdentityId
+			|| !PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind))
 			return false;
 		if (quote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_CANCELLED)
 			return true;
@@ -948,7 +1099,7 @@ class HST_ForcePlanningService
 		FindUniquePlayerSupportRequestForQuote(state, quote, supportRequestCount);
 		if (supportRequestCount > 0 && !supportRequests.RemoveAcceptedExactPlayerSupport(state, quote.m_sQuoteId, quote.m_sSupportRequestId))
 			return false;
-		RollbackConfirmationTransactions(state, economy, ledger, quote, "open player QRF quote cancelled");
+		RollbackConfirmationTransactions(state, economy, ledger, quote, "open exact player support quote cancelled");
 		quote.m_eStatus = HST_EForceQuoteStatus.HST_FORCE_QUOTE_CANCELLED;
 		quote.m_sRejectionReason = reason;
 		quote.m_iRevision++;
@@ -967,7 +1118,8 @@ class HST_ForcePlanningService
 		int reconciled;
 		foreach (HST_ForceQuoteState quote : state.m_aForceQuotes)
 		{
-			if (!quote || quote.m_sQuoteKind != QUOTE_KIND_PLAYER_SUPPORT_QRF || quote.m_eStatus != HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED)
+			if (!quote || !PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind)
+				|| quote.m_eStatus != HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED)
 				continue;
 			HST_ResourceTransactionState moneyTransaction = state.FindResourceTransaction(quote.m_sMoneyTransactionId);
 			HST_ResourceTransactionState hrTransaction = state.FindResourceTransaction(quote.m_sHRTransactionId);
@@ -991,9 +1143,9 @@ class HST_ForcePlanningService
 				continue;
 			}
 
-			RollbackConfirmationTransactions(state, economy, ledger, quote, "interrupted player QRF confirmation rolled back during restore");
+			RollbackConfirmationTransactions(state, economy, ledger, quote, "interrupted exact player support confirmation rolled back during restore");
 			quote.m_eStatus = HST_EForceQuoteStatus.HST_FORCE_QUOTE_REJECTED;
-			quote.m_sRejectionReason = "interrupted player QRF confirmation rolled back during restore";
+			quote.m_sRejectionReason = "interrupted exact player support confirmation rolled back during restore";
 			quote.m_iRevision++;
 			string causatingRequestId = quote.m_sConfirmationRequestId;
 			if (causatingRequestId.IsEmpty() && moneyLinked)
@@ -1013,7 +1165,8 @@ class HST_ForcePlanningService
 		for (int i = state.m_aForceQuotes.Count() - 1; i >= 0; i--)
 		{
 			HST_ForceQuoteState quote = state.m_aForceQuotes[i];
-			if (quote && quote.m_sActorIdentityId == actorIdentityId && quote.m_sQuoteKind == QUOTE_KIND_PLAYER_SUPPORT_QRF
+			if (quote && quote.m_sActorIdentityId == actorIdentityId
+				&& PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind)
 				&& quote.m_eSupportType == supportType && quote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED)
 				return quote;
 		}
@@ -1738,7 +1891,8 @@ class HST_ForcePlanningService
 		int count;
 		foreach (HST_ForceQuoteState quote : state.m_aForceQuotes)
 		{
-			if (quote && quote.m_sQuoteKind == QUOTE_KIND_PLAYER_SUPPORT_QRF && quote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED)
+			if (quote && PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind)
+				&& quote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED)
 				count++;
 		}
 		return count;
@@ -1758,14 +1912,14 @@ class HST_ForcePlanningService
 				continue;
 			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
 			{
-				reason = "another player QRF request is already queued or active";
+				reason = string.Format("another player %1 request is already queued or active", ResolvePlayerSupportDisplayKind(supportType));
 				return true;
 			}
 			if (IsFullyRefundedExactPlayerSupportRequest(request))
 				continue;
 			if (state.m_iElapsedSeconds < request.m_iCooldownUntilSecond)
 			{
-				reason = string.Format("QRF support cooldown active for %1s", request.m_iCooldownUntilSecond - state.m_iElapsedSeconds);
+				reason = string.Format("%1 support cooldown active for %2s", ResolvePlayerSupportDisplayKind(supportType), request.m_iCooldownUntilSecond - state.m_iElapsedSeconds);
 				return true;
 			}
 		}
@@ -1848,7 +2002,7 @@ class HST_ForcePlanningService
 		if (HST_OperationService.RequiresOperation(request))
 		{
 			HST_OperationRecordState operation = state.FindOperation(request.m_sOperationId);
-			if (!m_Operations || !m_Operations.ValidateExactPlayerQRF(state, operation, request, quote, manifest).IsEmpty())
+			if (!m_Operations || !m_Operations.ValidateExactPlayerSupport(state, operation, request, quote, manifest).IsEmpty())
 				return false;
 		}
 		return request.m_bPlayerRequested;
@@ -1858,11 +2012,12 @@ class HST_ForcePlanningService
 	{
 		foreach (HST_ForceQuoteState quote : state.m_aForceQuotes)
 		{
-			if (!quote || quote.m_sActorIdentityId != actorIdentityId || quote.m_sQuoteKind != QUOTE_KIND_PLAYER_SUPPORT_QRF
+			if (!quote || quote.m_sActorIdentityId != actorIdentityId
+				|| !PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind)
 				|| quote.m_eSupportType != supportType || quote.m_eStatus != HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED)
 				continue;
 			quote.m_eStatus = HST_EForceQuoteStatus.HST_FORCE_QUOTE_CANCELLED;
-			quote.m_sRejectionReason = "superseded by a newer player QRF quote";
+			quote.m_sRejectionReason = string.Format("superseded by a newer player %1 quote", ResolvePlayerSupportDisplayKind(supportType));
 			quote.m_iRevision++;
 			AppendQuoteEvent(state, quote, "cancelled", quote.m_sRejectionReason, causatingRequestId);
 		}

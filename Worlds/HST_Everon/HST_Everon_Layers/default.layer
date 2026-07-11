@@ -609,23 +609,23 @@ $grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_Conflic
   }
   coords 3789.583 59.781 6997.688
  }
- HST_ConflictMapMarker_town_maidens_bay {
+ HST_ConflictMapMarker_resource_logistics_warehouse {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
     "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
-    m_fBuildingRadius 260
+    m_fBuildingRadius 190
    }
    SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
     Enabled 0
-    m_iRadius 260
+    m_iRadius 190
    }
    SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
-    m_iRadius 260
+    m_iRadius 190
     m_bIsControlPoint 1
-    m_sBaseName "Maiden's Bay"
-    m_sBaseNameUpper "DAYTON"
+    m_sBaseName "Logistics Warehouse"
+    m_sBaseNameUpper "LOGISTICS WAREHOUSE"
    }
    SCR_CampaignSuppliesComponent "{5C6696724F524DA2}" {
     m_iSupplies 0
@@ -633,7 +633,7 @@ $grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_Conflic
     m_fOperationalRadius 50
    }
   }
-  coords 5345.855 43.594 10536.602
+  coords 5347.874 43.617 10542.923
  }
  HST_ConflictMapMarker_town_hornbeam_valley {
   components {

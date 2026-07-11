@@ -2227,6 +2227,8 @@ class HST_CampaignSaveData
 			m_sLastHQThreatReason = "legacy/backfilled";
 		if (!m_sDefendPetrosMissionId.IsEmpty())
 			m_bDefendPetrosActive = true;
+		HST_PlayerSearchDestroySaveValidationService schema60PlayerSearchDestroyValidation = new HST_PlayerSearchDestroySaveValidationService();
+		schema60PlayerSearchDestroyValidation.Normalize(this, restoredSchemaVersion);
 		if (restoredSchemaVersion < 26)
 		{
 			if (m_bHQDeployed && !IsZeroVector(m_vHQPosition))
@@ -2365,6 +2367,8 @@ class HST_CampaignSaveData
 		{
 			if (!group)
 				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
+				continue;
 			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				continue;
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
@@ -2478,6 +2482,8 @@ class HST_CampaignSaveData
 		{
 			if (!request)
 				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyRequestClaimant(this, request))
+				continue;
 
 			if (request.m_sStrikeKind.IsEmpty())
 				request.m_sStrikeKind = StrikeKindFromType(request.m_eType);
@@ -2572,6 +2578,8 @@ class HST_CampaignSaveData
 		schema59RadioSiteValidation.Normalize(this, restoredSchemaVersion);
 		NormalizeRestoredOperationProjectionState();
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
+		HST_MaidensBayLocationSaveValidationService schema60MaidensBayLocationValidation = new HST_MaidensBayLocationSaveValidationService();
+		schema60MaidensBayLocationValidation.Normalize(this, restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
 			m_aCommandReceipts.Remove(0);
 		while (m_aCampaignEvents.Count() > HST_CampaignEventLogService.MAX_EVENT_ROWS)
@@ -2695,6 +2703,8 @@ class HST_CampaignSaveData
 				continue;
 			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWManifestClaimant(this, manifest))
 				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyManifestClaimant(this, manifest))
+				continue;
 			for (int groupIndex = manifest.m_aGroups.Count() - 1; groupIndex >= 0; groupIndex--)
 			{
 				if (!manifest.m_aGroups[groupIndex])
@@ -2725,6 +2735,8 @@ class HST_CampaignSaveData
 				m_aForceQuotes.Remove(quoteIndex);
 				continue;
 			}
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyQuoteClaimant(this, quote))
+				continue;
 			quote.m_iRequestedMemberCount = Math.Max(0, quote.m_iRequestedMemberCount);
 			quote.m_iAcceptedMemberCount = Math.Max(0, quote.m_iAcceptedMemberCount);
 			quote.m_iRequestedVehicleCount = Math.Max(0, quote.m_iRequestedVehicleCount);
@@ -2735,6 +2747,8 @@ class HST_CampaignSaveData
 		for (int tombstoneIndex = m_aForceSettlementTombstones.Count() - 1; tombstoneIndex >= 0; tombstoneIndex--)
 		{
 			HST_ForceSettlementTombstoneState tombstone = m_aForceSettlementTombstones[tombstoneIndex];
+			if (tombstone && HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyTombstoneClaimant(this, tombstone))
+				continue;
 			if (!tombstone || tombstone.m_sQuoteId.IsEmpty() || tombstone.m_sManifestId.IsEmpty())
 			{
 				m_aForceSettlementTombstones.Remove(tombstoneIndex);
@@ -2773,6 +2787,8 @@ class HST_CampaignSaveData
 				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant(this, spawnResult))
 				continue;
 			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant(this, spawnResult))
+				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, spawnResult))
 				continue;
 			spawnResult.m_iRetryCount = Math.Max(0, spawnResult.m_iRetryCount);
 			spawnResult.m_iMaxRetries = Math.Max(0, spawnResult.m_iMaxRetries);
@@ -2866,6 +2882,8 @@ class HST_CampaignSaveData
 		{
 			if (!request)
 				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyRequestClaimant(this, request))
+				continue;
 
 			// Schema 48 and earlier never opted a request into OperationRecord authority.
 			request.m_iOperationContractVersion = 0;
@@ -2921,6 +2939,7 @@ class HST_CampaignSaveData
 	{
 		int restoreSecond = Math.Max(0, m_iElapsedSeconds);
 		HST_StrategicMovementService movement = new HST_StrategicMovementService();
+		HST_OperationService operationTransitions = new HST_OperationService();
 		foreach (HST_OperationRecordState operation : m_aOperations)
 		{
 			if (!operation || operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
@@ -2944,6 +2963,9 @@ class HST_CampaignSaveData
 			}
 			bool exactInfantryProjection = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF;
+			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_SEARCH_DESTROY
+				&& operation.m_iContractVersion == HST_OperationService.EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION)
+				exactInfantryProjection = true;
 			if (exactInfantryProjection
 				&& operation.m_iProjectionContractVersion == HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION)
 			{
@@ -2976,13 +2998,22 @@ class HST_CampaignSaveData
 					if (strategicGroup)
 						strategicGroup.m_vPosition = operation.m_vStrategicPosition;
 				}
+				bool returningToAssignment;
+				if (mayAdoptLivePosition && strategicGroup)
+					returningToAssignment = operationTransitions.ApplyExactPlayerSupportReturnToAssignment(
+						operation,
+						strategicGroup,
+						restoreSecond);
 				operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
 				operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
 				operation.m_iMaterializationStateEnteredAtSecond = restoreSecond;
 				operation.m_iStrategicLastUpdateSecond = restoreSecond;
 				operation.m_iVirtualCombatLastStepSecond = restoreSecond;
 				operation.m_iLastProgressAtSecond = restoreSecond;
-				operation.m_sLastProjectionReason = "restored as strategic authority without process-local entities";
+				if (returningToAssignment)
+					operation.m_sLastProjectionReason = "restored physical support away from assignment as a strategic return route";
+				else
+					operation.m_sLastProjectionReason = "restored as strategic authority without process-local entities";
 				NormalizeRestoredStrategicProjectionBatch(operation, strategicGroup, restoreSecond);
 				operation.m_iRevision++;
 				continue;
@@ -4141,11 +4172,15 @@ class HST_CampaignSaveData
 		{
 			if (!group || (!group.m_sForceId.IsEmpty() && !group.m_sProjectionId.IsEmpty()))
 				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
+				continue;
 
 			HST_ForceSpawnResultState linkedBatch;
 			int linkedCount;
 			foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
 			{
+				if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, spawnResult))
+					continue;
 				if (!IsActiveGroupSpawnIdentityCandidate(group, spawnResult))
 					continue;
 				linkedBatch = spawnResult;
@@ -4259,6 +4294,8 @@ class HST_CampaignSaveData
 		{
 			if (!spawnResult)
 				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, spawnResult))
+				continue;
 			if (spawnResult.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
 				&& spawnResult.m_iSuccessfulHandoffCount <= 0)
 			{
@@ -4287,6 +4324,8 @@ class HST_CampaignSaveData
 		foreach (HST_ActiveGroupState group : m_aActiveGroups)
 		{
 			if (!group || group.m_sSpawnResultId.IsEmpty())
+				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
 				continue;
 			HST_ForceSpawnResultState linkedBatch = FindForceSpawnResultForMigration(group.m_sSpawnResultId);
 			if (!linkedBatch || linkedBatch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
@@ -4422,6 +4461,8 @@ class HST_CampaignSaveData
 				continue;
 			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant(this, first))
 				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, first))
+				continue;
 
 			for (int secondIndex = 0; secondIndex < m_aForceSpawnResults.Count(); secondIndex++)
 			{
@@ -4439,6 +4480,8 @@ class HST_CampaignSaveData
 					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant(this, second))
 					continue;
 				if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant(this, second))
+					continue;
+				if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, second))
 					continue;
 				if (!HasDuplicateForceSpawnQueueIdentity(first, second))
 					continue;
@@ -4486,6 +4529,8 @@ class HST_CampaignSaveData
 		{
 			if (!group)
 				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
+				continue;
 			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				continue;
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
@@ -4510,6 +4555,8 @@ class HST_CampaignSaveData
 		{
 			if (!request || request.m_sGroupId.IsEmpty())
 				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyRequestClaimant(this, request))
+				continue;
 
 			HST_ActiveGroupState group = FindActiveGroupForMigration(request.m_sGroupId);
 			if (group
@@ -4517,7 +4564,8 @@ class HST_CampaignSaveData
 				&& !(restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 55
 					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
-				&& !HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
+				&& !HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group)
+				&& !HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
 				group.m_sSupportRequestId = request.m_sRequestId;
 		}
 
@@ -4532,7 +4580,8 @@ class HST_CampaignSaveData
 				&& !(restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 55
 					&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
-				&& !HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
+				&& !HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group)
+				&& !HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
 				group.m_sQRFInstanceId = qrf.m_sInstanceId;
 		}
 
@@ -4575,6 +4624,8 @@ class HST_CampaignSaveData
 					continue;
 				if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
 					continue;
+				if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
+					continue;
 				if (group.m_sGroupId == guardGroupId || group.m_sGroupId.Contains(convoyGroupToken))
 					group.m_sMissionInstanceId = mission.m_sInstanceId;
 			}
@@ -4592,6 +4643,8 @@ class HST_CampaignSaveData
 				&& HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(this, group))
 				continue;
 			if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(this, group))
+				continue;
+			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
 				continue;
 			if (!group.m_sSupportRequestId.IsEmpty() || !group.m_sEnemyOrderId.IsEmpty()
 				|| !group.m_sMissionInstanceId.IsEmpty() || !group.m_sQRFInstanceId.IsEmpty())

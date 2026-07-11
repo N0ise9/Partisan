@@ -2942,8 +2942,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi support | failed: service not ready";
 		if (!m_State || !m_Preset)
 			return "h-istasi support | failed: campaign state or preset not ready";
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
-			return "h-istasi QRF quote | failed: exact QRF requires a map target before a quote can be issued";
+		if (HST_OperationService.IsExactPlayerSupportType(supportType))
+			return "h-istasi exact support quote | failed: a map target is required before a quote can be issued";
 
 		if (IsAirSupportType(supportType))
 		{
@@ -3043,8 +3043,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi support | failed: service not ready";
 		if (!m_State || !m_Preset)
 			return "h-istasi support | failed: campaign state or preset not ready";
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF && !m_ForcePlanning)
-			return "h-istasi QRF quote | failed: planning service not ready";
+		if (HST_OperationService.IsExactPlayerSupportType(supportType) && !m_ForcePlanning)
+			return "h-istasi exact support quote | failed: planning service not ready";
 
 		if (IsAirSupportType(supportType))
 		{
@@ -3061,7 +3061,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!targetZone)
 			return string.Format("h-istasi support | failed: no campaign location could back selected map target %1", targetPosition);
 
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+		if (HST_OperationService.IsExactPlayerSupportType(supportType))
 		{
 			HST_ForceQuoteResult quoteResult = m_ForcePlanning.IssuePlayerSupportQuote(
 				m_State,
@@ -3073,7 +3073,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				commandRequestId
 			);
 			if (!quoteResult)
-				return "h-istasi QRF quote | failed: no result";
+				return "h-istasi exact support quote | failed: no result";
 			if (quoteResult.m_bStateChanged)
 				MarkMajorCampaignChange(false);
 			if (!quoteResult.m_bSuccess || !quoteResult.m_Quote)
@@ -3141,11 +3141,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderConfirmPlayerSupportQuoteReport(int playerId, string quoteId, string commandRequestId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi QRF confirmation | failed: server authority unavailable";
+			return "h-istasi exact support confirmation | failed: server authority unavailable";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi QRF confirmation | failed: commander permission required";
+			return "h-istasi exact support confirmation | failed: commander permission required";
 		if (!m_State || !m_Preset || !m_ForcePlanning || !m_ResourceLedger || !m_SupportRequests || !m_Economy)
-			return "h-istasi QRF confirmation | failed: authority services not ready";
+			return "h-istasi exact support confirmation | failed: authority services not ready";
 
 		HST_ForceConfirmationResult result = m_ForcePlanning.ConfirmPlayerSupportQuote(
 			m_State,
@@ -3158,7 +3158,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			commandRequestId
 		);
 		if (!result)
-			return "h-istasi QRF confirmation | failed: no result";
+			return "h-istasi exact support confirmation | failed: no result";
 		if (result.m_bStateChanged)
 		{
 			MarkMajorCampaignChange(true);
@@ -3171,11 +3171,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderCancelPlayerSupportQuoteReport(int playerId, string quoteId, string commandRequestId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi QRF quote | failed: server authority unavailable";
+			return "h-istasi exact support quote | failed: server authority unavailable";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi QRF quote | failed: commander permission required";
+			return "h-istasi exact support quote | failed: commander permission required";
 		if (!m_State || !m_ForcePlanning || !m_ResourceLedger || !m_SupportRequests || !m_Economy)
-			return "h-istasi QRF quote | failed: authority services not ready";
+			return "h-istasi exact support quote | failed: authority services not ready";
 
 		bool cancelled = m_ForcePlanning.CancelPlayerSupportQuote(
 			m_State,
@@ -3188,10 +3188,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			commandRequestId
 		);
 		if (!cancelled)
-			return "h-istasi QRF quote | failed: quote is not open or is not owned by this commander";
+			return "h-istasi exact support quote | failed: quote is not open or is not owned by this commander";
 
 		MarkMajorCampaignChange(false);
-		return "h-istasi QRF quote | cancelled " + quoteId;
+		return "h-istasi exact support quote | cancelled " + quoteId;
 	}
 
 	bool RequestCommanderCallPlayerSupport(int playerId, HST_ESupportRequestType supportType)
@@ -17001,6 +17001,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.restore_reconciliation", "every partial reserve, aggregate, and commit boundary rolls back exactly after restore", proof.m_sReconciliationEvidence, CampaignDebugStatus(proof.m_bReconciliationExact), "interrupted garrison confirmation did not reconcile exactly");
 		AppendCampaignDebugPaidSupportAuthorityAssertions(forceCase);
 		AppendCampaignDebugOperationRecordAssertions(forceCase);
+		AppendCampaignDebugPlayerSearchDestroyOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyQRFOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugGarrisonPatrolOperationAssertions(forceCase);
@@ -17013,8 +17014,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
 		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
 		AppendCampaignDebugRadioSiteLifecycleAssertions(forceCase);
+		AppendCampaignDebugMaidensBayLocationMigrationAssertion(forceCase);
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
+	}
+
+	protected void AppendCampaignDebugMaidensBayLocationMigrationAssertion(
+		HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+
+		HST_MaidensBayLocationMigrationProofService proofService
+			= new HST_MaidensBayLocationMigrationProofService();
+		HST_MaidensBayLocationMigrationProofReport proof = proofService.Run();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "location_taxonomy.maidens_bay_schema60", "source proof report exists", "missing", "BLOCKED", "schema-60 location migration source proof did not return a report");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.m_sEvidence);
+		AddCampaignDebugAssertion(
+			forceCase,
+			"location_taxonomy.maidens_bay_schema60",
+			"duplicate town authority retires without manpower folding while generic links migrate, typed authority stays frozen, old-only state converts once, and compatibility aliases remain safe",
+			proof.m_sEvidence,
+			CampaignDebugStatus(proof.m_bAllExact),
+			"schema-60 Maiden's Bay location migration, idempotency, or compatibility source proof failed");
 	}
 
 	protected void AppendCampaignDebugRadioSiteLifecycleAssertions(HST_CampaignDebugCaseResult forceCase)
@@ -17109,6 +17136,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "operation_projection.hysteresis", "materialize-in and larger materialize-out distances retain a physical projection inside the hysteresis band", proof.m_sHysteresisEvidence, CampaignDebugStatus(proof.m_bHysteresisExact), "exact infantry-QRF materialization hysteresis is invalid");
 		AddCampaignDebugAssertion(forceCase, "operation_projection.roster_transfer", "virtual casualty, materialization, physical fold, and survivor reprojection preserve the exact living manifest slots without treating fold deletion as death", proof.m_sRosterTransferEvidence, CampaignDebugStatus(proof.m_bRosterTransferExact), "exact infantry-QRF roster authority drifted across projection modes");
 		AddCampaignDebugAssertion(forceCase, "operation_projection.combat_restore", "virtual combat processes bounded deterministic power steps and schema-50 restore resumes one held strategic projection with the same exact survivors", proof.m_sCombatRestoreEvidence, CampaignDebugStatus(proof.m_bCombatRestoreExact), "exact infantry-QRF virtual combat or restore duplicated or lost projection authority");
+	}
+
+	protected void AppendCampaignDebugPlayerSearchDestroyOperationAssertions(
+		HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_PlayerSearchDestroyOperationProofService proofService
+			= new HST_PlayerSearchDestroyOperationProofService();
+		HST_PlayerSearchDestroyOperationProofReport proof = proofService.Run();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "search_destroy.planning", "source proof report exists", "missing", "BLOCKED", "exact player Search-and-Destroy source proof did not return a report");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.m_sPlanningEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sOperationRouteEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sProjectionContinuityEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sReturnToAssignmentEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRecallSettlementEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sLegacyIsolationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreQuarantineEvidence);
+		AddCampaignDebugAssertion(forceCase, "search_destroy.planning", "issue and confirmation freeze one deterministic infantry-only Search-and-Destroy roster, exact costs, and idempotent replay", proof.m_sPlanningEvidence, CampaignDebugStatus(proof.m_bPlanningExact), "exact player Search-and-Destroy planning or replay authority drifted");
+		AddCampaignDebugAssertion(forceCase, "search_destroy.operation_route", "confirmation owns one typed operation with an immutable assignment and a route-derived strategic schedule", proof.m_sOperationRouteEvidence, CampaignDebugStatus(proof.m_bOperationRouteExact), "exact player Search-and-Destroy operation or route authority drifted");
+		AddCampaignDebugAssertion(forceCase, "search_destroy.projection_continuity", "virtual combat plus a synthetic queue handoff, casualty, fold, save/restore, and re-entry retain one durable roster; live adapter retirement remains a packaged-runtime gate", proof.m_sProjectionContinuityEvidence, CampaignDebugStatus(proof.m_bProjectionContinuityExact), "exact player Search-and-Destroy source projection duplicated or resurrected roster authority");
+		AddCampaignDebugAssertion(forceCase, "search_destroy.return_assignment", "a group folded outside its assignment radius returns virtually to the immutable assignment with its surviving roster", proof.m_sReturnToAssignmentEvidence, CampaignDebugStatus(proof.m_bReturnToAssignmentExact), "exact player Search-and-Destroy return-to-assignment authority drifted");
+		AddCampaignDebugAssertion(forceCase, "search_destroy.recall_settlement", "predeployment and synthetic casualty-fold immediate recall retain support money, refund only eligible HR once, and settle the typed operation idempotently; live physical recall remains a packaged-runtime gate", proof.m_sRecallSettlementEvidence, CampaignDebugStatus(proof.m_bRecallSettlementExact), "exact player Search-and-Destroy source recall settlement was not exact");
+		AddCampaignDebugAssertion(forceCase, "search_destroy.legacy_isolation", "historical Search-and-Destroy requests remain contract zero without invented planning, ledger, or operation authority", proof.m_sLegacyIsolationEvidence, CampaignDebugStatus(proof.m_bLegacyIsolationExact), "historical Search-and-Destroy restore invented exact authority");
+		AddCampaignDebugAssertion(forceCase, "search_destroy.restore_quarantine", "a malformed current exact graph quarantines its linked request, operation, batch, and group without changing faction balances", proof.m_sRestoreQuarantineEvidence, CampaignDebugStatus(proof.m_bRestoreQuarantineExact), "malformed current Search-and-Destroy authority remained executable or changed balances");
 	}
 
 	protected void AppendCampaignDebugEnemyQRFOperationAssertions(HST_CampaignDebugCaseResult forceCase)
@@ -32427,10 +32484,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool changed;
 		foreach (int playerId : playerIds)
 		{
-			if (!CanPlayerUseMemberActions(playerId))
+			// Connected-player authority is refreshed at lifecycle and action
+			// boundaries. The recurring enforcement pass consumes that durable
+			// runtime row instead of resolving platform identity every second.
+			HST_PlayerState player = FindPlayerByLastSeenPlayerId(playerId);
+			if (!player || !IsRuntimeMember(player))
 				continue;
 
-			string identityId = ResolveTrustedIdentityId(playerId);
+			string identityId = player.m_sIdentityId;
 			IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
 			HST_UndercoverEnforcementResult result = m_Civilians.EnforceUndercoverForPlayer(m_State, m_Preset, identityId, playerEntity);
 			if (result && result.m_bChanged)
@@ -33714,7 +33775,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
 		{
-			if (mission && !IsPersistenceSmokeMission(mission) && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && mission.m_sTargetZoneId == zoneId)
+			if (mission && !IsPersistenceSmokeMission(mission)
+				&& mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
+				&& HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					mission.m_sTargetZoneId, zoneId))
 				count++;
 		}
 

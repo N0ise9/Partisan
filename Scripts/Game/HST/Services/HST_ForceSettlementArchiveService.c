@@ -160,6 +160,11 @@ class HST_ForceSettlementArchiveService
 		manifest.m_sFactionRole = "resistance";
 		manifest.m_sFactionKey = tombstone.m_sFactionKey;
 		manifest.m_sIntentId = tombstone.m_sQuoteKind;
+		if (HST_ForcePlanningService.PlayerSupportTypeMatchesQuoteKind(tombstone.m_eSupportType, tombstone.m_sQuoteKind))
+		{
+			manifest.m_sForceKind = "player_support";
+			manifest.m_sIntentId = HST_ForcePlanningService.ResolvePlayerSupportIntentId(tombstone.m_eSupportType);
+		}
 		manifest.m_sSourceZoneId = tombstone.m_sSourceZoneId;
 		manifest.m_sTargetZoneId = tombstone.m_sTargetZoneId;
 		manifest.m_sCatalogVersion = tombstone.m_sCatalogVersion;
@@ -186,30 +191,63 @@ class HST_ForceSettlementArchiveService
 			|| tombstone.m_sActorIdentityId.IsEmpty() || tombstone.m_sQuoteKind.IsEmpty())
 			return false;
 		if (tombstone.m_sQuoteKind != HST_ForcePlanningService.QUOTE_KIND_GARRISON
-			&& tombstone.m_sQuoteKind != HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF)
+			&& !HST_ForcePlanningService.IsExactPlayerSupportQuoteKind(tombstone.m_sQuoteKind))
 			return false;
 		if (tombstone.m_sTargetZoneId.IsEmpty() || tombstone.m_sFactionKey.IsEmpty()
 			|| tombstone.m_iAcceptedAtSecond <= 0 || tombstone.m_iArchivedAtSecond < tombstone.m_iAcceptedAtSecond)
 			return false;
-		if (tombstone.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF
-			&& (tombstone.m_sSupportRequestId.IsEmpty() || tombstone.m_eSupportType != HST_ESupportRequestType.HST_SUPPORT_QRF))
+		if (HST_ForcePlanningService.IsExactPlayerSupportQuoteKind(tombstone.m_sQuoteKind)
+			&& (tombstone.m_sSupportRequestId.IsEmpty()
+				|| !HST_ForcePlanningService.PlayerSupportTypeMatchesQuoteKind(tombstone.m_eSupportType, tombstone.m_sQuoteKind)))
+			return false;
+		if (tombstone.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY
+			&& tombstone.m_iOperationContractVersion <= 0)
 			return false;
 		if (tombstone.m_iAcceptedMemberCount < 0 || tombstone.m_iAcceptedVehicleCount < 0)
 			return false;
 		if (tombstone.m_iOperationContractVersion > 0)
 		{
-			bool exactPlayerQRF = tombstone.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF
+			bool exactPlayerSupport = tombstone.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF
 				&& tombstone.m_iOperationContractVersion == HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION
 				&& tombstone.m_eSupportType == HST_ESupportRequestType.HST_SUPPORT_QRF;
+			exactPlayerSupport = exactPlayerSupport
+				|| (tombstone.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY
+					&& tombstone.m_iOperationContractVersion == HST_OperationService.EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION
+					&& tombstone.m_eSupportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
 			bool exactGarrisonPatrol = tombstone.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_GARRISON
 				&& tombstone.m_iOperationContractVersion == HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION
 				&& tombstone.m_sSettlementKind == HST_GarrisonPatrolOperationService.SETTLEMENT_KIND;
-			if ((!exactPlayerQRF && !exactGarrisonPatrol)
+			if ((!exactPlayerSupport && !exactGarrisonPatrol)
 				|| tombstone.m_sOperationSettlementId.IsEmpty() || tombstone.m_iOperationRevision <= 0
 				|| tombstone.m_eOperationTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
 				|| tombstone.m_eOperationTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
 				|| tombstone.m_sOperationSettlementId != HST_OperationService.BuildSettlementId(tombstone.m_sOperationId, tombstone.m_sSettlementKind))
 				return false;
+			if (exactPlayerSupport)
+			{
+				if (tombstone.m_sSourceZoneId.IsEmpty() || tombstone.m_sCatalogVersion.IsEmpty()
+					|| tombstone.m_sSupportRequestId != "support_" + tombstone.m_sQuoteId)
+					return false;
+				if (tombstone.m_sOperationId != HST_StableIdService.BuildOperationId("support", tombstone.m_sSupportRequestId)
+					|| tombstone.m_sMoneyTransactionId != HST_StableIdService.BuildTransactionId(tombstone.m_sOperationId, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY)
+					|| tombstone.m_sHRTransactionId != HST_StableIdService.BuildTransactionId(tombstone.m_sOperationId, HST_ResourceLedgerService.RESOURCE_HR))
+					return false;
+				if (tombstone.m_sPolicyId != HST_ForcePlanningService.ResolvePlayerSupportPolicyId(tombstone.m_eSupportType)
+					|| tombstone.m_sCapabilityId != HST_ForcePlanningService.ResolvePlayerSupportCapabilityId(tombstone.m_eSupportType)
+					|| tombstone.m_sAssetProfileId != HST_ForcePlanningService.ResolvePlayerSupportAssetProfileId(tombstone.m_eSupportType))
+					return false;
+				if (tombstone.m_iMoneyCost != HST_ForcePlanningService.ResolvePlayerSupportMoneyCost(tombstone.m_eSupportType)
+					|| tombstone.m_iRequestedMemberCount <= 0
+					|| tombstone.m_iRequestedMemberCount != tombstone.m_iAcceptedMemberCount
+					|| tombstone.m_iHRCost != tombstone.m_iAcceptedMemberCount)
+					return false;
+				if (tombstone.m_iRequestedVehicleCount != 0 || tombstone.m_iAcceptedVehicleCount != 0
+					|| tombstone.m_iEquipmentCost != 0 || tombstone.m_iAttackResourceCost != 0
+					|| tombstone.m_iSupportResourceCost != 0 || tombstone.m_iETASeconds <= 0
+					|| tombstone.m_iCooldownSeconds != HST_ForcePlanningService.ResolvePlayerSupportCooldownSeconds(tombstone.m_eSupportType)
+					|| !tombstone.m_bAllOrNothing)
+					return false;
+			}
 		}
 		else if (!tombstone.m_sOperationSettlementId.IsEmpty() || tombstone.m_iOperationRevision != 0
 			|| tombstone.m_eOperationTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN)
@@ -323,7 +361,7 @@ class HST_ForceSettlementArchiveService
 			return "";
 		}
 
-		if (quote.m_sQuoteKind != HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF)
+		if (!HST_ForcePlanningService.PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind))
 			return "accepted quote kind has no archive settlement policy";
 		int requestCount;
 		foreach (HST_SupportRequestState candidateRequest : state.m_aSupportRequests)
@@ -337,16 +375,23 @@ class HST_ForceSettlementArchiveService
 			|| supportRequest.m_sManifestId != quote.m_sManifestId || supportRequest.m_sMoneyTransactionId != quote.m_sMoneyTransactionId
 			|| supportRequest.m_sHRTransactionId != quote.m_sHRTransactionId)
 			return "accepted support settlement provenance is missing or ambiguous";
+		bool requiresExactOperation = HST_OperationService.RequiresOperation(supportRequest);
+		if (quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY
+			&& !requiresExactOperation)
+			return "accepted search-and-destroy quote lacks its exact operation contract";
 		if (supportRequest.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
 			&& supportRequest.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
 			return "accepted support operation is not terminal";
 		settlementKind = supportRequest.m_sResolutionKind;
 		if (settlementKind.IsEmpty())
 			settlementKind = "terminal_support_settlement";
-		if (HST_OperationService.RequiresOperation(supportRequest))
+		if (requiresExactOperation)
 		{
+			string planningFailure;
+			if (!m_Integrity.ValidateFrozenPlayerSupportQuote(manifest, quote, false, planningFailure))
+				return "accepted support planning authority conflicts with archive identity: " + planningFailure;
 			operation = state.FindOperation(supportRequest.m_sOperationId);
-			string operationFailure = m_Operations.ValidateExactPlayerQRF(state, operation, supportRequest, quote, manifest);
+			string operationFailure = m_Operations.ValidateExactPlayerSupport(state, operation, supportRequest, quote, manifest);
 			if (!operationFailure.IsEmpty())
 				return "accepted support operation conflicts with archive identity: " + operationFailure;
 			if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
@@ -492,6 +537,9 @@ class HST_ForceSettlementArchiveService
 			int oldestIndex = FindOldestExpiredTombstoneIndex(state);
 			if (oldestIndex < 0)
 				break;
+			HST_ForceSettlementTombstoneState expired = state.m_aForceSettlementTombstones[oldestIndex];
+			if (!RemoveExpiredTombstoneDependents(state, expired))
+				break;
 			state.m_aForceSettlementTombstones.Remove(oldestIndex);
 			removed++;
 		}
@@ -509,6 +557,8 @@ class HST_ForceSettlementArchiveService
 				return index;
 			if (state.m_iElapsedSeconds - tombstone.m_iArchivedAtSecond < MIN_TOMBSTONE_RETENTION_SECONDS)
 				continue;
+			if (!CanPruneExpiredTombstoneDependents(state, tombstone))
+				continue;
 			if (tombstone.m_iArchivedAtSecond < selectedSecond)
 			{
 				selectedSecond = tombstone.m_iArchivedAtSecond;
@@ -516,6 +566,238 @@ class HST_ForceSettlementArchiveService
 			}
 		}
 		return selectedIndex;
+	}
+
+	protected bool CanPruneExpiredTombstoneDependents(
+		HST_CampaignState state,
+		HST_ForceSettlementTombstoneState tombstone)
+	{
+		if (!state || !tombstone)
+			return true;
+		if (!HST_ForcePlanningService.IsExactPlayerSupportQuoteKind(tombstone.m_sQuoteKind))
+			return true;
+		if (tombstone.m_iOperationContractVersion < 0 || !IsReplayTombstoneValid(tombstone)
+			|| CountExpiredTombstoneIdentityClaimants(state, tombstone) != 1
+			|| HasLiveAuthorityForExpiredTombstone(state, tombstone))
+			return false;
+
+		HST_SupportRequestState match;
+		int matchCount;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!IsExpiredSupportRequestIdentityClaimant(request, tombstone))
+				continue;
+			match = request;
+			matchCount++;
+		}
+		if (matchCount == 0)
+			return true;
+		return matchCount == 1 && ArchivedSupportRequestMatchesTombstone(match, tombstone);
+	}
+
+	protected bool RemoveExpiredTombstoneDependents(
+		HST_CampaignState state,
+		HST_ForceSettlementTombstoneState tombstone)
+	{
+		if (!CanPruneExpiredTombstoneDependents(state, tombstone))
+			return false;
+		if (!state || !tombstone
+			|| !HST_ForcePlanningService.IsExactPlayerSupportQuoteKind(tombstone.m_sQuoteKind)
+			|| tombstone.m_sSupportRequestId.IsEmpty())
+			return true;
+
+		for (int requestIndex = state.m_aSupportRequests.Count() - 1; requestIndex >= 0; requestIndex--)
+		{
+			HST_SupportRequestState request = state.m_aSupportRequests[requestIndex];
+			if (!IsExpiredSupportRequestIdentityClaimant(request, tombstone))
+				continue;
+			if (!ArchivedSupportRequestMatchesTombstone(request, tombstone))
+				return false;
+			state.m_aSupportRequests.Remove(requestIndex);
+			return true;
+		}
+		return true;
+	}
+
+	protected bool ArchivedSupportRequestMatchesTombstone(
+		HST_SupportRequestState request,
+		HST_ForceSettlementTombstoneState tombstone)
+	{
+		if (!request || !tombstone
+			|| request.m_eType != tombstone.m_eSupportType
+			|| !HST_ForcePlanningService.PlayerSupportTypeMatchesQuoteKind(request.m_eType, tombstone.m_sQuoteKind))
+			return false;
+		if (tombstone.m_iOperationContractVersion < 0
+			|| request.m_iOperationContractVersion != tombstone.m_iOperationContractVersion)
+			return false;
+		if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+			&& request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+			return false;
+		return request.m_sRequestId == tombstone.m_sSupportRequestId
+			&& request.m_sQuoteId == tombstone.m_sQuoteId
+			&& request.m_sManifestId == tombstone.m_sManifestId
+			&& request.m_sOperationId == tombstone.m_sOperationId
+			&& request.m_sMoneyTransactionId == tombstone.m_sMoneyTransactionId
+			&& request.m_sHRTransactionId == tombstone.m_sHRTransactionId
+			&& ArchivedTypedPlayerSupportReceiptMatchesTombstone(request, tombstone);
+	}
+
+	protected bool ArchivedTypedPlayerSupportReceiptMatchesTombstone(
+		HST_SupportRequestState request,
+		HST_ForceSettlementTombstoneState tombstone)
+	{
+		if (!request || !tombstone)
+			return false;
+		// Contract-zero QRF archives predate typed operation receipts. Preserve
+		// their historical minimal match while requiring every positive exact
+		// player-support contract to prove the full terminal receipt below.
+		if (tombstone.m_iOperationContractVersion == 0)
+			return true;
+		string expectedIntentId = HST_ForcePlanningService.ResolvePlayerSupportIntentId(
+			request.m_eType);
+		if (expectedIntentId.IsEmpty())
+			return false;
+		HST_ForceSettlementTransactionTombstoneState hr = tombstone.FindTransaction(
+			tombstone.m_sHRTransactionId);
+		if (!hr || request.m_iRefundedHR != hr.m_iRefundedAmount)
+			return false;
+		bool identityMatches = request.m_bPlayerRequested
+			&& request.m_sResolutionKind == tombstone.m_sSettlementKind
+			&& request.m_sCommandRequestId == tombstone.m_sConfirmationRequestId
+			&& request.m_sSpawnResultId == "spawn_" + request.m_sRequestId
+			&& request.m_sFactionKey == tombstone.m_sFactionKey
+			&& request.m_sCapabilityId == tombstone.m_sCapabilityId
+			&& request.m_sAssetProfileId == tombstone.m_sAssetProfileId;
+		if (!identityMatches)
+			return false;
+		bool assignmentMatches = request.m_sSourceZoneId == tombstone.m_sSourceZoneId
+			&& request.m_sTargetZoneId == tombstone.m_sTargetZoneId
+			&& request.m_vSourcePosition == tombstone.m_vSourcePosition
+			&& request.m_vTargetPosition == tombstone.m_vTargetPosition
+			&& request.m_sCompositionRequestId == tombstone.m_sManifestId
+			&& request.m_sCompositionIntentId == expectedIntentId
+			&& request.m_sCompositionTier == "exact"
+			&& request.m_sPhysicalizationMode == HST_SupportRequestService.EXACT_PLAYER_SUPPORT_MODE;
+		if (!assignmentMatches)
+			return false;
+		bool costMatches = request.m_iRequestedAtSecond == tombstone.m_iAcceptedAtSecond
+			&& request.m_iMoneyCost == tombstone.m_iMoneyCost
+			&& request.m_iHRCost == tombstone.m_iHRCost
+			&& request.m_iPlannedInfantryCount == tombstone.m_iAcceptedMemberCount
+			&& request.m_iCompositionCost == tombstone.m_iMoneyCost
+			&& request.m_iCompositionManpower == tombstone.m_iAcceptedMemberCount
+			&& request.m_iCompositionVehicleCount == 0
+			&& request.m_iCompositionArmedVehicleCount == 0;
+		if (!costMatches)
+			return false;
+		return request.m_iAttackCost == 0
+			&& request.m_iSupportCost == 0
+			&& request.m_iETASeconds == tombstone.m_iETASeconds
+			&& request.m_iCooldownUntilSecond - request.m_iRequestedAtSecond
+				== tombstone.m_iCooldownSeconds
+			&& !request.m_bHelicopterStyle && !request.m_bPhysicalStrikeSpawned
+			&& !request.m_bGarageVehicleConsumed
+			&& request.m_sSelectedGarageVehicleId.IsEmpty()
+			&& request.m_sSelectedGarageVehiclePrefab.IsEmpty();
+	}
+
+	protected bool IsExpiredSupportRequestIdentityClaimant(
+		HST_SupportRequestState request,
+		HST_ForceSettlementTombstoneState tombstone)
+	{
+		if (!request || !tombstone)
+			return false;
+		return (!tombstone.m_sSupportRequestId.IsEmpty()
+				&& request.m_sRequestId == tombstone.m_sSupportRequestId)
+			|| (!tombstone.m_sQuoteId.IsEmpty() && request.m_sQuoteId == tombstone.m_sQuoteId)
+			|| (!tombstone.m_sManifestId.IsEmpty()
+				&& request.m_sManifestId == tombstone.m_sManifestId)
+			|| (!tombstone.m_sOperationId.IsEmpty()
+				&& request.m_sOperationId == tombstone.m_sOperationId);
+	}
+
+	protected bool HasLiveAuthorityForExpiredTombstone(
+		HST_CampaignState state,
+		HST_ForceSettlementTombstoneState tombstone)
+	{
+		if (!state || !tombstone)
+			return true;
+		foreach (HST_ForceQuoteState quote : state.m_aForceQuotes)
+		{
+			if (quote && (quote.m_sQuoteId == tombstone.m_sQuoteId
+				|| quote.m_sManifestId == tombstone.m_sManifestId
+				|| quote.m_sOperationId == tombstone.m_sOperationId))
+				return true;
+		}
+		foreach (HST_ForceManifestState manifest : state.m_aForceManifests)
+		{
+			if (manifest && (manifest.m_sManifestId == tombstone.m_sManifestId
+				|| manifest.m_sQuoteId == tombstone.m_sQuoteId
+				|| manifest.m_sOperationId == tombstone.m_sOperationId))
+				return true;
+		}
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (operation && (operation.m_sOperationId == tombstone.m_sOperationId
+				|| operation.m_sQuoteId == tombstone.m_sQuoteId
+				|| operation.m_sManifestId == tombstone.m_sManifestId))
+				return true;
+		}
+		foreach (HST_ResourceTransactionState transaction : state.m_aResourceTransactions)
+		{
+			if (transaction && (transaction.m_sQuoteId == tombstone.m_sQuoteId
+				|| transaction.m_sManifestId == tombstone.m_sManifestId
+				|| transaction.m_sOperationId == tombstone.m_sOperationId
+				|| transaction.m_sTransactionId == tombstone.m_sMoneyTransactionId
+				|| transaction.m_sTransactionId == tombstone.m_sHRTransactionId
+				|| transaction.m_sTransactionId == tombstone.m_sAttackTransactionId
+				|| transaction.m_sTransactionId == tombstone.m_sSupportTransactionId))
+				return true;
+		}
+		foreach (HST_ForceSpawnResultState batch : state.m_aForceSpawnResults)
+		{
+			if (batch && (batch.m_sRequestId == tombstone.m_sSupportRequestId
+				|| batch.m_sManifestId == tombstone.m_sManifestId
+				|| batch.m_sOperationId == tombstone.m_sOperationId))
+				return true;
+		}
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (group && (group.m_sSupportRequestId == tombstone.m_sSupportRequestId
+				|| group.m_sManifestId == tombstone.m_sManifestId
+				|| group.m_sOperationId == tombstone.m_sOperationId))
+				return true;
+		}
+		return false;
+	}
+
+	protected int CountExpiredTombstoneIdentityClaimants(
+		HST_CampaignState state,
+		HST_ForceSettlementTombstoneState expected)
+	{
+		if (!state || !expected)
+			return 0;
+		int count;
+		foreach (HST_ForceSettlementTombstoneState candidate : state.m_aForceSettlementTombstones)
+		{
+			if (!candidate)
+				continue;
+			bool matches = candidate == expected
+				|| (!expected.m_sSupportRequestId.IsEmpty()
+					&& candidate.m_sSupportRequestId == expected.m_sSupportRequestId)
+				|| (!expected.m_sQuoteId.IsEmpty() && candidate.m_sQuoteId == expected.m_sQuoteId)
+				|| (!expected.m_sManifestId.IsEmpty()
+					&& candidate.m_sManifestId == expected.m_sManifestId)
+				|| (!expected.m_sOperationId.IsEmpty()
+					&& candidate.m_sOperationId == expected.m_sOperationId)
+				|| (!expected.m_sMoneyTransactionId.IsEmpty()
+					&& candidate.m_sMoneyTransactionId == expected.m_sMoneyTransactionId)
+				|| (!expected.m_sHRTransactionId.IsEmpty()
+					&& candidate.m_sHRTransactionId == expected.m_sHRTransactionId);
+			if (matches)
+				count++;
+		}
+		return count;
 	}
 
 	protected bool HasProjectionBacklink(HST_CampaignState state, string manifestId, string quoteId)

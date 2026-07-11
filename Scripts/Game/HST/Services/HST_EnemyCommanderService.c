@@ -1975,7 +1975,8 @@ class HST_EnemyCommanderService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
-			if (mission.m_sTargetZoneId == zone.m_sZoneId)
+			if (HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+				mission.m_sTargetZoneId, zone.m_sZoneId))
 				return true;
 			if (DistanceSq2D(mission.m_vTargetPosition, zone.m_vPosition) < 450000)
 				return true;
@@ -1998,7 +1999,8 @@ class HST_EnemyCommanderService
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
 
-			if (objective.m_sTargetZoneId == zone.m_sZoneId)
+			if (HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+				objective.m_sTargetZoneId, zone.m_sZoneId))
 				return true;
 			if (DistanceSq2D(objective.m_vPosition, zone.m_vPosition) < 450000)
 				return true;
@@ -2093,7 +2095,9 @@ class HST_EnemyCommanderService
 		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
 		{
 			if (!request || request.m_bPlayerRequested || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_QRF
-				|| request.m_sFactionKey != factionKey || request.m_sTargetZoneId != targetZoneId)
+				|| request.m_sFactionKey != factionKey
+				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					request.m_sTargetZoneId, targetZoneId))
 				continue;
 			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED
 				|| request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
@@ -2227,7 +2231,9 @@ class HST_EnemyCommanderService
 	{
 		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
 		{
-			if (!order || order.m_sFactionKey != factionKey || order.m_sTargetZoneId != zoneId)
+			if (!order || order.m_sFactionKey != factionKey
+				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					order.m_sTargetZoneId, zoneId))
 				continue;
 			if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
 				&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)

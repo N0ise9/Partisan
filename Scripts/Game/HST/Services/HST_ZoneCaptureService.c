@@ -491,7 +491,9 @@ class HST_ZoneCaptureService
 
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sTargetZoneId != zone.m_sZoneId)
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					mission.m_sTargetZoneId, zone.m_sZoneId))
 				continue;
 			if (!IsConquestMissionId(mission.m_sMissionId))
 				continue;

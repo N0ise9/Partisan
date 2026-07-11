@@ -2,7 +2,7 @@
 
 Original audit: 2026-06-25
 
-Current-state synchronization: 2026-07-10
+Current-state synchronization: 2026-07-11
 
 This audit tracks the current UI rewrite state against the layout-driven Enfusion UI goal. Classifications use the requested buckets: Allowed, Needs conversion helper, Should move to layout file, and Should be deleted.
 
@@ -27,6 +27,12 @@ Current state:
 - Main UI entry points now call the debug helper for setup map, command menu, shared notification toast, mission report dialogs, and loadout editor.
 - `HST_UIDebug` logs created layout roots, expected widget presence, expected widget screen bounds, z-order, opacity, flags, row samples, and data population summaries so runtime test logs can identify hidden, zero-sized, off-screen, or mis-stacked layout widgets.
 - `HST_UIRootService` owns current-screen, modal-screen, notification, topmost ownership, and modal-aware open/refresh arbitration so blocking screens cannot open underneath unrelated modals and keyboard input can ignore screens hidden under a modal. It logs every open, close, refused open, ignored close, and notification depth change with current/modal/topmost state and root widget geometry.
+- The Schema-60 player Search-and-Destroy candidate uses the existing map-target
+  selection and shared confirmation modal rather than adding a new screen. Its
+  first command requests an exact server quote; the confirmation row displays
+  the frozen roster, $350, exact HR, and ETA, and confirms only the quote ID.
+  Candidate label `schema60-exact-search-destroy` is source state only; rendered
+  pointer/modal ordering and action replay still need the next packaged check.
 
 ## File Audit
 
@@ -126,6 +132,10 @@ Current state:
   projection. Snapshot watermark, ordered revision/delete deltas,
   acknowledgement/gap detection, reconnect resync, and host/client/late-join
   equality remain open under the One Campaign View milestone.
+- Re-test both exact QRF and exact Search-and-Destroy map-target flows through
+  Selecting -> Confirming -> Submitting/Closing. The native pointer must remain
+  above the confirmation modal, Choose Again must re-arm selection once, and
+  duplicate confirmation must not create a second quote, debit, or operation.
 - Re-test command menu and loadout editor delayed ready logs for any remaining `negative=` or offscreen panel entries after the slot sign correction.
 - Continue reducing any future mission action/admin areas without reintroducing command/loadout row geometry or bypassing `HST_ActionDialogController` for state-changing commands.
 - Run in-game/Workbench QA at 1920x1080, 2560x1440 with 1920x1080 layout size, and ultrawide.

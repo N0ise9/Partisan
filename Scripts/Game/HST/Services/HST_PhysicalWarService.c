@@ -1962,7 +1962,9 @@ class HST_PhysicalWarService
 
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sTargetZoneId != zone.m_sZoneId)
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					mission.m_sTargetZoneId, zone.m_sZoneId))
 				continue;
 			if (ShouldForceMissionTargetZonePhysical(mission))
 				return true;
@@ -3956,6 +3958,7 @@ class HST_PhysicalWarService
 		bool changed = ReconcileExactMissionConvoyOutboundProjectionTransactions(state);
 		changed = ReconcileExactMissionConvoyAbandonedVehiclePublication(state) || changed;
 		changed = CleanupInactiveMissionConvoyRuntime(state) || changed;
+		bool hasActiveMissionConvoy;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
@@ -3965,13 +3968,15 @@ class HST_PhysicalWarService
 			if (IsTerminalMissionConvoyPhase(mission) && !IsExactMissionConvoyRecoveryHold(mission))
 				continue;
 
+			hasActiveMissionConvoy = true;
 			changed = NormalizeRestoredMissionConvoyRuntime(state, preset, mission) || changed;
 			changed = EnsureMissionConvoyRuntime(state, preset, mission) || changed;
 			changed = ReconcileExactMissionConvoyDestroyedVehicleRuntime(state, mission) || changed;
 			changed = UpdateMissionConvoyContact(state, mission) || changed;
 		}
 
-		changed = UpdateRuntimeGroupSurvivors(state) || changed;
+		if (hasActiveMissionConvoy)
+			changed = UpdateRuntimeGroupSurvivors(state, true) || changed;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
@@ -4007,7 +4012,7 @@ class HST_PhysicalWarService
 		changed = NormalizeRestoredMissionConvoyRuntime(state, preset, mission) || changed;
 		changed = EnsureMissionConvoyRuntime(state, preset, mission) || changed;
 		changed = ReconcileExactMissionConvoyDestroyedVehicleRuntime(state, mission) || changed;
-		changed = UpdateRuntimeGroupSurvivors(state) || changed;
+		changed = UpdateRuntimeGroupSurvivors(state, true) || changed;
 		changed = EnsureMissionConvoyCrewSeating(state, mission) || changed;
 		changed = UpdateMissionConvoyContact(state, mission) || changed;
 		changed = UpdateMissionConvoyPhase(state, mission, state.m_iElapsedSeconds) || changed;
@@ -12649,6 +12654,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup))
 				continue;
+			if (IsExactPlayerSupportActiveGroup(state, activeGroup))
+				continue;
 			if (activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
 				continue;
 			if (IsTownSecurityPoliceProjection(activeGroup))
@@ -12694,6 +12701,8 @@ class HST_PhysicalWarService
 			return false;
 		if (IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup))
 			return false;
+		if (IsExactPlayerSupportActiveGroup(state, activeGroup))
+			return false;
 		if (ShouldHoldForceSpawnProjection(state, activeGroup))
 			return false;
 
@@ -12717,7 +12726,8 @@ class HST_PhysicalWarService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup))
+			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup)
+				|| IsExactPlayerSupportActiveGroup(state, activeGroup))
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
@@ -13427,7 +13437,9 @@ class HST_PhysicalWarService
 		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
 		{
 			if (!order || order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
-				|| order.m_sTargetZoneId != targetZoneId || order.m_sFactionKey != factionKey)
+				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					order.m_sTargetZoneId, targetZoneId)
+				|| order.m_sFactionKey != factionKey)
 				continue;
 			if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
 				&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
@@ -16892,6 +16904,9 @@ class HST_PhysicalWarService
 		bool suspicious = (!recoveredMembership && finalPlayerAndAgentCount <= 0) || failedParents > 0 || missingEditable > 0 || missingControlled > 0 || leaderChanged;
 		if (suspicious)
 		{
+			string throttleKey = "membership_warn_" + activeGroup.m_sGroupId;
+			if (!ShouldEmitThrottled(throttleKey, 30000))
+				return;
 			string report = string.Format("h-istasi | active group editable membership reconciled | group %1 | source %2 | raw %3 server %4 playerAgents %5 living %6 | editableSize %7",
 				activeGroup.m_sGroupId,
 				ReportText(source),
@@ -16914,11 +16929,14 @@ class HST_PhysicalWarService
 				ReportText(BuildRuntimeEntityVisualEvidence(group)));
 			if (trackedLiving > 0 || trackedReattached > 0 || trackedParented > 0)
 				report = report + string.Format(" | trackedFallback living %1 reattached %2 parented %3", trackedLiving, trackedReattached, trackedParented);
-			PrintThrottled("membership_warn_" + activeGroup.m_sGroupId, report, 30000);
+			Print(report);
 		}
-		else
+		else if (m_bDebugLoggingEnabled)
 		{
-			DebugLogThrottled("membership_ok_" + activeGroup.m_sGroupId, string.Format("active group editable membership verified %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildRuntimeEntityVisualEvidence(group)), 30000);
+			string debugThrottleKey = "debug_membership_ok_" + activeGroup.m_sGroupId;
+			if (!ShouldEmitThrottled(debugThrottleKey, 30000))
+				return;
+			Print("h-istasi physical war debug | " + string.Format("active group editable membership verified %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildRuntimeEntityVisualEvidence(group)));
 		}
 	}
 
@@ -18657,7 +18675,8 @@ class HST_PhysicalWarService
 
 	protected void RefreshActiveGroupZoneCounts(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
-		if (activeGroup && (activeGroup.m_bQRF || IsExactEnemyPatrolGroup(state, activeGroup)
+		if (activeGroup && (activeGroup.m_bQRF || IsExactPlayerSupportActiveGroup(state, activeGroup)
+			|| IsExactEnemyPatrolGroup(state, activeGroup)
 			|| IsExactGarrisonPatrolGroup(state, activeGroup)
 			|| IsExactOrQuarantinedMissionGuardGroup(state, activeGroup)))
 			m_bMarkerRefreshNeeded = true;
@@ -18668,6 +18687,8 @@ class HST_PhysicalWarService
 		if (ShouldHoldForceSpawnProjection(state, activeGroup))
 			return;
 		if (IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup))
+			return;
+		if (IsExactPlayerSupportActiveGroup(state, activeGroup))
 			return;
 
 		HST_ZoneState zone = state.FindZone(activeGroup.m_sZoneId);
@@ -19379,7 +19400,6 @@ class HST_PhysicalWarService
 				continue;
 			}
 
-			changed = ReconcileActiveGroupRuntimeMemberCounts(state, activeGroup, "ensure runtime") || changed;
 			if (HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 				continue;
 
@@ -19546,6 +19566,17 @@ class HST_PhysicalWarService
 			return false;
 
 		return !activeGroup.m_sSupportRequestId.IsEmpty() || activeGroup.m_sSpawnFallbackMode.Contains("support");
+	}
+
+	protected bool IsExactPlayerSupportActiveGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup || activeGroup.m_sSupportRequestId.IsEmpty())
+			return false;
+		HST_SupportRequestState request = state.FindSupportRequest(activeGroup.m_sSupportRequestId);
+		if (!request || request.m_sGroupId != activeGroup.m_sGroupId)
+			return false;
+		return HST_OperationService.RequiresOperation(request)
+			&& HST_OperationService.IsExactPlayerSupportType(request.m_eType);
 	}
 
 	protected bool IsExactEnemyOperationGroup(
@@ -19909,7 +19940,7 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
-	protected bool UpdateRuntimeGroupSurvivors(HST_CampaignState state)
+	protected bool UpdateRuntimeGroupSurvivors(HST_CampaignState state, bool missionConvoysOnly = false)
 	{
 		if (!state)
 			return false;
@@ -19921,6 +19952,9 @@ class HST_PhysicalWarService
 			if (!activeGroup || !state.IsOperationalActiveGroup(activeGroup) || !activeGroup.m_bSpawnedEntity
 				|| activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed")
 				continue;
+			bool missionConvoyGroup = IsMissionConvoyGroup(activeGroup);
+			if (missionConvoysOnly && !missionConvoyGroup)
+				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
 			if (ShouldHoldForceSpawnProjection(state, activeGroup))
@@ -19928,7 +19962,11 @@ class HST_PhysicalWarService
 			if (IsExactEnemyPatrolGroup(state, activeGroup)
 				|| IsExactGarrisonPatrolGroup(state, activeGroup))
 				continue;
-			bool missionConvoyGroup = IsMissionConvoyGroup(activeGroup);
+			// Exact player support casualties and terminal cleanup are owned by the
+			// slot-mapped force adapter. Generic aggregate counting can otherwise
+			// delete the root before a dead member is durably retired.
+			if (IsExactPlayerSupportActiveGroup(state, activeGroup))
+				continue;
 			if (missionConvoyGroup && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
 				continue;
 
@@ -19966,6 +20004,8 @@ class HST_PhysicalWarService
 			int aliveCount;
 			if (missionConvoyGroup)
 				aliveCount = CountAliveRuntimeCrewAgents(activeGroup);
+			else if (activeGroup.m_iVehicleCount > 0 && activeGroup.m_iInfantryCount <= 0)
+				aliveCount = CountAliveRuntimeGroupVehicles(activeGroup.m_sGroupId);
 			else if (IsMixedPersonnelVehicleActiveGroup(activeGroup))
 				aliveCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
 			else
@@ -20372,6 +20412,8 @@ class HST_PhysicalWarService
 				continue;
 			if (activeGroup.m_bQRF)
 				continue;
+			if (IsExactPlayerSupportActiveGroup(state, activeGroup))
+				continue;
 			if (IsMissionOwnedActiveGroup(activeGroup))
 				continue;
 			if (IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup))
@@ -20409,7 +20451,8 @@ class HST_PhysicalWarService
 
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup))
+			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup)
+				|| IsExactPlayerSupportActiveGroup(state, activeGroup))
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
@@ -20430,7 +20473,8 @@ class HST_PhysicalWarService
 		int vehicleCount;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
+			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId
+				|| IsExactPlayerSupportActiveGroup(state, activeGroup))
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
@@ -20465,6 +20509,8 @@ class HST_PhysicalWarService
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
 			if (activeGroup.m_bQRF)
+				continue;
+			if (IsExactPlayerSupportActiveGroup(state, activeGroup))
 				continue;
 			if (IsMissionOwnedActiveGroup(activeGroup))
 				continue;
@@ -20501,6 +20547,8 @@ class HST_PhysicalWarService
 				continue;
 			if (activeGroup.m_bQRF)
 				continue;
+			if (IsExactPlayerSupportActiveGroup(state, activeGroup))
+				continue;
 			if (IsMissionOwnedActiveGroup(activeGroup))
 				continue;
 			if (IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup))
@@ -20523,7 +20571,8 @@ class HST_PhysicalWarService
 		if (!state || !activeGroup || ShouldHoldForceSpawnProjection(state, activeGroup)
 			|| IsExactOrQuarantinedMissionGuardGroup(state, activeGroup)
 			|| IsExactEnemyPatrolGroup(state, activeGroup)
-			|| IsExactGarrisonPatrolGroup(state, activeGroup))
+			|| IsExactGarrisonPatrolGroup(state, activeGroup)
+			|| IsExactPlayerSupportActiveGroup(state, activeGroup))
 			return;
 
 		HST_GarrisonState garrison = state.FindGarrison(activeGroup.m_sZoneId, activeGroup.m_sFactionKey);
@@ -20853,11 +20902,15 @@ class HST_PhysicalWarService
 
 	protected void PrintThrottled(string key, string message, int throttleMs)
 	{
-		if (key.IsEmpty())
-		{
-			Print(message);
+		if (!ShouldEmitThrottled(key, throttleMs))
 			return;
-		}
+		Print(message);
+	}
+
+	protected bool ShouldEmitThrottled(string key, int throttleMs)
+	{
+		if (key.IsEmpty())
+			return true;
 
 		int now = System.GetTickCount();
 		int index = m_aDebugThrottleKeys.Find(key);
@@ -20865,15 +20918,14 @@ class HST_PhysicalWarService
 		{
 			int lastTick = m_aDebugThrottleTicks[index];
 			if (now - lastTick < throttleMs)
-				return;
+				return false;
 
 			m_aDebugThrottleTicks[index] = now;
-			Print(message);
-			return;
+			return true;
 		}
 
 		m_aDebugThrottleKeys.Insert(key);
 		m_aDebugThrottleTicks.Insert(now);
-		Print(message);
+		return true;
 	}
 }

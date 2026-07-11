@@ -63,7 +63,8 @@ class HST_EnemyPatrolOperationService
 		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
 		{
 			if (!IsExactEnemyPatrol(order) || order.m_sFactionKey != factionKey
-				|| order.m_sTargetZoneId != targetZoneId)
+				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					order.m_sTargetZoneId, targetZoneId))
 				continue;
 			if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
 				&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
@@ -248,7 +249,9 @@ class HST_EnemyPatrolOperationService
 		ref array<vector> positions = HST_OperationRouteCursorService.BuildOrderedRoutePositions(route);
 		if (positions.Count() < 2
 			|| HST_OperationRouteCursorService.BuildRouteContractHash(route, positions).IsEmpty()
-			|| route.m_sRouteId.IsEmpty() || route.m_sTargetZoneId != order.m_sTargetZoneId
+			|| route.m_sRouteId.IsEmpty()
+			|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+				route.m_sTargetZoneId, order.m_sTargetZoneId)
 			|| state.FindGeneratedRoute(route.m_sRouteId) != route)
 			return "exact enemy patrol generated route contract is invalid";
 		if (CountGeneratedRouteId(state, route.m_sRouteId) != 1)
@@ -261,7 +264,8 @@ class HST_EnemyPatrolOperationService
 				|| other.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
 			if (other.m_sOperationId == order.m_sOperationId || (open
 				&& IsExactEnemyPatrol(other) && other.m_sFactionKey == order.m_sFactionKey
-				&& other.m_sTargetZoneId == order.m_sTargetZoneId))
+				&& HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					other.m_sTargetZoneId, order.m_sTargetZoneId)))
 				return "another exact enemy patrol already owns this identity or target";
 		}
 		return "";

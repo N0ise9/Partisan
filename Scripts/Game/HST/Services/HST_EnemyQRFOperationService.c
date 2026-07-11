@@ -49,7 +49,8 @@ class HST_EnemyQRFOperationService
 		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
 		{
 			if (!IsExactEnemyDefensiveQRF(order) || order.m_sFactionKey != factionKey
-				|| order.m_sTargetZoneId != targetZoneId)
+				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					order.m_sTargetZoneId, targetZoneId))
 				continue;
 			if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
 				&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
@@ -1988,7 +1989,9 @@ class HST_EnemyQRFOperationService
 			bool otherOpen = other.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
 				|| other.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
 			if (other.m_sOperationId == order.m_sOperationId || (otherOpen
-				&& other.m_sFactionKey == order.m_sFactionKey && other.m_sTargetZoneId == order.m_sTargetZoneId))
+				&& other.m_sFactionKey == order.m_sFactionKey
+				&& HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					other.m_sTargetZoneId, order.m_sTargetZoneId)))
 				return "another enemy QRF already owns this identity or target";
 		}
 		return "";

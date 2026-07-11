@@ -725,7 +725,7 @@ class HST_MissionGuardOperationService
 			|| CountMissionIdentity(state, mission) != 1)
 			return "exact mission guard mission identity is ambiguous";
 
-		HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
+		HST_ZoneState zone = state.FindFrozenHistoricalZoneView(mission.m_sTargetZoneId);
 		if (!zone || zone.m_sOwnerFactionKey.IsEmpty())
 			return "exact mission guard target zone is unavailable";
 		if (!HST_FactionRelationService.IsEnemyFaction(preset, zone.m_sOwnerFactionKey))
@@ -1224,7 +1224,9 @@ class HST_MissionGuardOperationService
 		if (operation.m_fStrategicSpeedMetersPerSecond != 0.0)
 			return "exact mission guard operation unexpectedly owns route authority";
 
-		HST_ZoneState zone = state.FindZone(operation.m_sAssignmentZoneId);
+		// Guard assignment identity is frozen even when its strategic location is
+		// later merged into a different enumerable taxonomy row.
+		HST_ZoneState zone = state.FindFrozenHistoricalZoneView(operation.m_sAssignmentZoneId);
 		if (!zone || operation.m_sOriginZoneId != zone.m_sZoneId
 			|| operation.m_sTacticalTargetZoneId != zone.m_sZoneId
 			|| operation.m_sOwnerFactionKey != manifest.m_sFactionKey

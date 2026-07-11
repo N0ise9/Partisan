@@ -753,7 +753,10 @@ class HST_OperationRecordProofService
 			&& restoredTombstone.m_iOperationRevision == settledRevision
 			&& restoredTombstone.m_eOperationTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_RECALLED
 			&& confirmationReplay && confirmationReplay.m_bSuccess && confirmationReplay.m_bAlreadyApplied;
-		report.m_bArchiveExact = compacted && persisted;
+		bool mismatchRetained = ProveTypedQRFArchiveMismatchRetention(
+			restored,
+			restoredTombstone);
+		report.m_bArchiveExact = compacted && persisted && mismatchRetained;
 		report.m_sArchiveEvidence = string.Format(
 			"settled %1 | archived %2 | operations/full rows %3/%4/%5/%6 | tombstone contract/revision %7/%8",
 			settled && settled.m_bStateChanged,
@@ -765,10 +768,43 @@ class HST_OperationRecordProofService
 			tombstone && tombstone.m_iOperationContractVersion,
 			tombstone && tombstone.m_iOperationRevision);
 		report.m_sArchiveEvidence = report.m_sArchiveEvidence + string.Format(
-			" result %1 | restored %2 replay %3",
+			" result %1 | restored %2 replay %3 | mismatch retained %4",
 			tombstone && tombstone.m_eOperationTerminalResult,
 			restoredTombstone != null,
-			confirmationReplay && confirmationReplay.m_bAlreadyApplied);
+			confirmationReplay && confirmationReplay.m_bAlreadyApplied,
+			mismatchRetained);
+	}
+
+	protected bool ProveTypedQRFArchiveMismatchRetention(
+		HST_CampaignState state,
+		HST_ForceSettlementTombstoneState tombstone)
+	{
+		if (!state || !tombstone)
+			return false;
+		HST_SupportRequestState request = state.FindSupportRequest(
+			tombstone.m_sSupportRequestId);
+		if (!request || request.m_iOperationContractVersion
+			!= HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION)
+			return false;
+		request.m_iMoneyCost++;
+		int archiveSecond = tombstone.m_iArchivedAtSecond;
+		int index = state.m_aForceSettlementTombstones.Count();
+		while (index < HST_ForceSettlementArchiveService.MAX_TOMBSTONE_ROWS)
+		{
+			HST_ForceSettlementTombstoneState retained = new HST_ForceSettlementTombstoneState();
+			retained.m_sQuoteId = string.Format("typed_qrf_retained_archive_%1", index);
+			retained.m_iArchivedAtSecond = archiveSecond + index + 1;
+			state.m_aForceSettlementTombstones.Insert(retained);
+			index++;
+		}
+		state.m_iElapsedSeconds = archiveSecond
+			+ HST_ForceSettlementArchiveService.MIN_TOMBSTONE_RETENTION_SECONDS
+			+ HST_ForceSettlementArchiveService.MAX_TOMBSTONE_ROWS + 1;
+		HST_ForceSettlementArchiveService archive = new HST_ForceSettlementArchiveService();
+		HST_ForceSettlementArchiveResult prune = archive.ArchiveSettledRecords(state);
+		return prune && prune.m_iPrunedTombstoneCount == 1
+			&& state.FindForceSettlementTombstone(tombstone.m_sQuoteId) == tombstone
+			&& state.FindSupportRequest(request.m_sRequestId) == request;
 	}
 
 	protected HST_CampaignState CreateProofState()

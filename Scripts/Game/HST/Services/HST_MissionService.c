@@ -89,7 +89,9 @@ class HST_MissionService
 
 			HST_MissionDefinition activeDefinition = FindDefinition(activeMission.m_sMissionId);
 			bool sameFamily = activeDefinition && activeDefinition.m_eCategory == definition.m_eCategory;
-			bool sameTarget = !targetZoneId.IsEmpty() && activeMission.m_sTargetZoneId == targetZoneId;
+			bool sameTarget = !targetZoneId.IsEmpty()
+				&& HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					activeMission.m_sTargetZoneId, targetZoneId);
 			bool sameUntargetedMission = targetZoneId.IsEmpty() && activeMission.m_sMissionId == missionId;
 			if ((sameFamily && sameTarget) || sameUntargetedMission)
 				return false;
@@ -136,7 +138,9 @@ class HST_MissionService
 			if (IsPersistenceSmokeMission(activeMission))
 				continue;
 
-			if (activeMission.m_sMissionId == missionId && activeMission.m_sTargetZoneId == targetZoneId)
+			if (activeMission.m_sMissionId == missionId
+				&& HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					activeMission.m_sTargetZoneId, targetZoneId))
 				return false;
 		}
 

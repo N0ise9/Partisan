@@ -147,3 +147,97 @@ Consequences:
   invented settlement tombstones.
 - Runtime archive/restart/capacity evidence remains required before this policy
   is certified beyond static and Workbench validation.
+
+## CRI-006 - Exactify New Player Search-and-Destroy Without Rewriting History
+
+- Status: Accepted
+- Date: 2026-07-11
+
+Context: Player Search-and-Destroy is a moving paid infantry support family that
+must continue its mission while outside the player render bubble. Letting the
+legacy request infer casualties, respawn a full group, or complete from a timer
+would violate the exact force and operation boundaries already established for
+paid QRFs.
+
+Decision: Schema 60 opts in only newly quoted and confirmed Search-and-Destroy
+requests. One infantry-only catalog manifest, $350 plus HR-per-member ledger,
+support request, separately typed operation, held SpawnQueue batch, and active
+group remain one reciprocal aggregate. Physical projection is disposable;
+frozen slots and the operation cursor are durable. A displaced fold returns to
+the immutable assignment virtually, hostile clearance leaves the force on
+station, and commander recall owns exit plus eligible living-HR settlement.
+
+Consequences:
+
+- Pre-60 Search-and-Destroy stays contract `0`; migration does not auto-upgrade
+  or infer an exact roster, transaction, casualty, or settlement.
+- Malformed current exact claimants quarantine at `-60` and cannot fall through
+  to legacy execution or receive a guessed balance correction. Quarantined
+  groups are globally non-operational and do not satisfy combat-presence checks.
+- Vehicles, assets, empty rosters, and multi-root substitution are outside this
+  cutover and fail closed.
+- Fold, physical recall exit, and campaign-stop retirement first exhaustively
+  reconcile the affected projection. A nonzero roster must prove one root plus
+  exactly one unique live adapter and PhysicalWar binding per durable survivor;
+  failure preserves physical authority instead of guessing a casualty or
+  retiring the root.
+- Persistence runs the exhaustive exact-infantry reconciliation before capture,
+  validates each exact-support reciprocal graph and live binding cardinality,
+  and refreshes its physical position. Held-batch cancellation snapshots the
+  strategic living roster before cleanup so immediate recall settlement cannot
+  use stale pre-casualty strength.
+- Expired exact-support archive capacity applies full terminal-receipt
+  reciprocity to every positive typed player-support contract, including exact
+  QRF, before removing its paired tombstone/request. Replay validity, aggregate
+  identity uniqueness, and absence of live backlinks must also pass. Historical
+  contract-0 QRF retains minimal compatibility; malformed or quarantined typed
+  pairs remain durable evidence.
+- The candidate label is `schema60-exact-search-destroy`. Schema 59 remains the
+  latest stamped checkpoint until the Schema-60 gates and final stamp complete.
+- The compiled/wired Campaign Debug proof also covers valid paired capacity
+  prune/restore and corrupt quarantine retention, but none of its Schema-60
+  assertions has run. The casualty/fold/immediate-recall case mutates synthetic
+  queue slots; it is not live adapter retirement or physical recall-exit
+  evidence. Those remain packaged-runtime gates alongside movement/combat, real
+  restart, rendered UI, reconnect, and JIP.
+
+## CRI-007 - Retire Duplicate Strategic Locations Without Rewriting Frozen IDs
+
+- Status: Accepted
+- Date: 2026-07-11
+
+Context: Maiden's Bay had two strategic rows a few meters apart: a town and the
+Logistics Warehouse. Keeping both creates duplicate markers, civilians,
+garrisons, income, and target candidates; blindly renaming historical rows would
+instead corrupt frozen operation evidence.
+
+Decision: The Logistics Warehouse is the sole enumerable strategic location.
+Fresh defaults and world projection remove the town. Restore cleanup preserves
+the warehouse's existing owner/economy, retires duplicate town-only state, and
+uses a detached compatibility lookup for frozen old-ID references rather than
+reinserting the retired town into the zone registry.
+
+Consequences:
+
+- No anchor means no mutation. Duplicate canonical authorities, or multiple
+  legacy authorities without one canonical row, fail closed before rewrites and
+  record only an idempotent conflict audit.
+- No new resources, owner change, aggregate force transfer, mission outcome, or
+  receipt is invented during cleanup. Duplicate ambient/garrison/police
+  projections retire without fold-back or manpower credit.
+- A save containing only the legacy town converts that row in place; a save
+  containing both keeps the warehouse authoritative.
+- Mutable generic references canonicalize. Nonzero typed authority remains
+  frozen even when settled, quarantined, malformed, or recognizable only from
+  an exact group mode/status; generic cleanup must not reinterpret it.
+- Exact historical references may resolve a detached old-ID/old-position view
+  until settlement, while ordinary mutable lookup resolves the canonical row.
+  Runtime admission and duplicate checks treat those IDs as equivalent, but the
+  detached view cannot create income, civilians, markers, or new orders.
+- Mutable generated sites/routes rekey to the canonical namespace. Frozen
+  typed site/route rows stay unchanged and receive deep canonical clones so new
+  generation does not depend on rewriting historical identity.
+- The deterministic migration fixture is compiled and wired into Campaign
+  Debug, but has not been executed there. A source fixture cannot replace a
+  packaged pre-update save/restart test.
+- A packaged pre-update-save test must prove the duplicate does not return.

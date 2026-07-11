@@ -1471,7 +1471,11 @@ class HST_CommandUIService
 			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
 
 		if (commandId == "support_search")
-			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
+		{
+			if (IsMapTargetArgument(argument))
+				return !coordinator.RequestCommanderCallPlayerSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, argument).Contains("failed");
+			return false;
+		}
 
 		if (commandId == "support_roadblock")
 			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK);
@@ -2691,8 +2695,6 @@ class HST_CommandUIService
 		string firstGarageVehicleId = SelectFirstGarageVehicleId(state);
 		int supplyMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP);
 		int fireMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
-		int searchMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
-		int searchHRCost = HST_SupportRequestService.EstimatePlayerSupportHRCost(HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, ResolveWarLevelForCosts(state));
 		int roadblockMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK);
 		int roadblockHRCost = HST_SupportRequestService.EstimatePlayerSupportHRCost(HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK, ResolveWarLevelForCosts(state));
 		int gbuMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU);
@@ -2762,7 +2764,8 @@ class HST_CommandUIService
 			string recallChoiceArgument = BuildSupportRecallChoiceArgument(state, preset);
 			int recallableSupportCount = CountRecallableSupportRequests(state, preset);
 			HST_ForceQuoteState openGarrisonQuote = FindOpenCommanderGarrisonQuote(state);
-			HST_ForceQuoteState openSupportQuote = FindOpenCommanderPlayerSupportQuote(state, HST_ESupportRequestType.HST_SUPPORT_QRF);
+			HST_ForceQuoteState openQRFQuote = FindOpenCommanderPlayerSupportQuote(state, HST_ESupportRequestType.HST_SUPPORT_QRF);
+			HST_ForceQuoteState openSearchQuote = FindOpenCommanderPlayerSupportQuote(state, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
 			AddMenuAction(actions, TAB_FORCES, "Recruitment report", "inspect_recruitment", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Train FIA troops", TRAIN_TROOPS_MONEY_COST, 0, 0), "train_troops", "", canUseCommander && HasResourcesForCost(state, TRAIN_TROOPS_MONEY_COST, 0), PaidActionDisabledReason(canUseCommander, state, TRAIN_TROOPS_MONEY_COST, 0, "commander required"));
 			AddMenuAction(actions, TAB_FORCES, "Request exact FIA garrison quote at map location", "recruit_zone", "", canUseMapTarget && hasRecruitTarget && HasResourcesForCost(state, RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST), MapTargetCostDisabledReason(canUseCommander, playerHasMap, hasRecruitTarget, "no recruit target", state, RECRUIT_GARRISON_MONEY_COST, RECRUIT_GARRISON_HR_COST));
@@ -2777,15 +2780,22 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request supply drop at map location", supplyMoneyCost, 0, 0), "call_supply", "", canUseMapTarget && HasResourcesForCost(state, supplyMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, supplyMoneyCost, 0));
 			AddMenuAction(actions, TAB_FORCES, "Request exact QRF quote at map location", "support_qrf", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
-			if (openSupportQuote)
+			if (openQRFQuote)
 			{
-				string supportQuoteLabel = string.Format("Confirm exact QRF to %1 | ETA %2s", ResolveZoneName(state, openSupportQuote.m_sTargetZoneId), openSupportQuote.m_iETASeconds);
-				supportQuoteLabel = BuildPaidActionLabel(supportQuoteLabel, openSupportQuote.m_iMoneyCost, openSupportQuote.m_iHRCost, openSupportQuote.m_iAcceptedMemberCount);
-				AddMenuAction(actions, TAB_FORCES, supportQuoteLabel, "confirm_support_quote", openSupportQuote.m_sQuoteId, canUseCommander && HasResourcesForCost(state, openSupportQuote.m_iMoneyCost, openSupportQuote.m_iHRCost), PaidActionDisabledReason(canUseCommander, state, openSupportQuote.m_iMoneyCost, openSupportQuote.m_iHRCost, "commander required"));
-				AddMenuAction(actions, TAB_FORCES, string.Format("Cancel exact QRF quote to %1", ResolveZoneName(state, openSupportQuote.m_sTargetZoneId)), "cancel_support_quote", openSupportQuote.m_sQuoteId, canUseCommander, "commander required");
+				string supportQuoteLabel = string.Format("Confirm exact QRF to %1 | ETA %2s", ResolveZoneName(state, openQRFQuote.m_sTargetZoneId), openQRFQuote.m_iETASeconds);
+				supportQuoteLabel = BuildPaidActionLabel(supportQuoteLabel, openQRFQuote.m_iMoneyCost, openQRFQuote.m_iHRCost, openQRFQuote.m_iAcceptedMemberCount);
+				AddMenuAction(actions, TAB_FORCES, supportQuoteLabel, "confirm_support_quote", openQRFQuote.m_sQuoteId, canUseCommander && HasResourcesForCost(state, openQRFQuote.m_iMoneyCost, openQRFQuote.m_iHRCost), PaidActionDisabledReason(canUseCommander, state, openQRFQuote.m_iMoneyCost, openQRFQuote.m_iHRCost, "commander required"));
+				AddMenuAction(actions, TAB_FORCES, string.Format("Cancel exact QRF quote to %1", ResolveZoneName(state, openQRFQuote.m_sTargetZoneId)), "cancel_support_quote", openQRFQuote.m_sQuoteId, canUseCommander, "commander required");
 			}
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request suppressive fire at map location", fireMoneyCost, 0, 0), "support_fire", "", canUseMapTarget && HasResourcesForCost(state, fireMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, fireMoneyCost, 0));
-			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request search and destroy at map location", searchMoneyCost, searchHRCost, searchHRCost), "support_search", "", canUseMapTarget && HasResourcesForCost(state, searchMoneyCost, searchHRCost), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, searchMoneyCost, searchHRCost));
+			AddMenuAction(actions, TAB_FORCES, "Request exact search-and-destroy quote at map location", "support_search", "", canUseMapTarget, MapTargetDisabledReason(canUseCommander, playerHasMap, true, ""));
+			if (openSearchQuote)
+			{
+				string searchQuoteLabel = string.Format("Confirm exact search-and-destroy to %1 | ETA %2s", ResolveZoneName(state, openSearchQuote.m_sTargetZoneId), openSearchQuote.m_iETASeconds);
+				searchQuoteLabel = BuildPaidActionLabel(searchQuoteLabel, openSearchQuote.m_iMoneyCost, openSearchQuote.m_iHRCost, openSearchQuote.m_iAcceptedMemberCount);
+				AddMenuAction(actions, TAB_FORCES, searchQuoteLabel, "confirm_support_quote", openSearchQuote.m_sQuoteId, canUseCommander && HasResourcesForCost(state, openSearchQuote.m_iMoneyCost, openSearchQuote.m_iHRCost), PaidActionDisabledReason(canUseCommander, state, openSearchQuote.m_iMoneyCost, openSearchQuote.m_iHRCost, "commander required"));
+				AddMenuAction(actions, TAB_FORCES, string.Format("Cancel exact search-and-destroy quote to %1", ResolveZoneName(state, openSearchQuote.m_sTargetZoneId)), "cancel_support_quote", openSearchQuote.m_sQuoteId, canUseCommander, "commander required");
+			}
 			string roadblockActionLabel = BuildPaidActionLabel(
 				"Establish roadblock at map location (uses garage vehicle)",
 				roadblockMoneyCost,
@@ -3706,9 +3716,9 @@ class HST_CommandUIService
 		for (int i = state.m_aForceQuotes.Count() - 1; i >= 0; i--)
 		{
 			HST_ForceQuoteState quote = state.m_aForceQuotes[i];
-			if (!quote || quote.m_sActorIdentityId != state.m_sCommanderIdentityId || quote.m_sQuoteKind != HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF)
+			if (!quote || quote.m_sActorIdentityId != state.m_sCommanderIdentityId)
 				continue;
-			if (quote.m_eSupportType != supportType)
+			if (quote.m_eSupportType != supportType || !IsExactPlayerSupportQuoteKindForType(quote, supportType))
 				continue;
 			if (quote.m_eStatus != HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED || state.m_iElapsedSeconds > quote.m_iExpiresAtSecond)
 				continue;
@@ -3716,6 +3726,17 @@ class HST_CommandUIService
 		}
 
 		return null;
+	}
+
+	protected bool IsExactPlayerSupportQuoteKindForType(HST_ForceQuoteState quote, HST_ESupportRequestType supportType)
+	{
+		if (!quote)
+			return false;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY;
+		return false;
 	}
 
 	protected string ResolveZoneName(HST_CampaignState state, string zoneId)

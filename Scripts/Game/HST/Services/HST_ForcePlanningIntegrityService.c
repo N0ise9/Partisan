@@ -3,7 +3,9 @@ class HST_ForcePlanningIntegrityService
 	static const string LEGACY_GARRISON_POLICY_ID = "garrison_exact_all_or_nothing_1";
 	static const string GARRISON_POLICY_ID = "garrison_exact_patrol_2";
 	static const string SUPPORT_QRF_POLICY_ID = "support_qrf_exact_infantry_1";
+	static const string SUPPORT_SEARCH_DESTROY_POLICY_ID = "support_search_destroy_exact_infantry_1";
 	static const int SUPPORT_QRF_MONEY_COST = 250;
+	static const int SUPPORT_SEARCH_DESTROY_MONEY_COST = 350;
 	protected ref HST_ForceCatalogService m_Catalog = new HST_ForceCatalogService();
 
 	string BuildManifestHash(HST_ForceManifestState manifest)
@@ -174,6 +176,44 @@ class HST_ForcePlanningIntegrityService
 		return closest[PositiveModulo(seed, closest.Count())];
 	}
 
+	HST_ForceGroupCatalogEntry SelectExactPlayerSupportGroup(
+		array<ref HST_ForceGroupCatalogEntry> catalog,
+		int seed,
+		int warLevel,
+		HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return SelectPlayerSupportGroup(catalog, seed, warLevel);
+		if (supportType != HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return null;
+		if (!catalog || catalog.Count() == 0)
+			return null;
+
+		int desiredMemberCount = Math.Max(3, Math.Min(12, 3 + Math.Max(1, warLevel)));
+		int closestDistance = 999999;
+		array<ref HST_ForceGroupCatalogEntry> closest = {};
+		foreach (HST_ForceGroupCatalogEntry entry : catalog)
+		{
+			if (!entry || entry.m_sEntryId.IsEmpty() || entry.m_sExecutionPrefab.IsEmpty() || entry.m_aMemberSlots.Count() == 0)
+				continue;
+			int distance = AbsInt(entry.m_aMemberSlots.Count() - desiredMemberCount);
+			if (distance < closestDistance)
+			{
+				closestDistance = distance;
+				closest.Clear();
+				closest.Insert(entry);
+			}
+			else if (distance == closestDistance)
+			{
+				closest.Insert(entry);
+			}
+		}
+
+		if (closest.Count() == 0)
+			return null;
+		return closest[PositiveModulo(seed, closest.Count())];
+	}
+
 	HST_ForceMemberCatalogEntry SelectGarrisonMember(array<ref HST_ForceMemberCatalogEntry> catalog, int seed, int memberIndex)
 	{
 		if (!catalog || catalog.Count() == 0)
@@ -305,16 +345,20 @@ class HST_ForcePlanningIntegrityService
 			failure = "quote or manifest missing";
 			return false;
 		}
-		if (!ValidateManifestIdentity(manifest, quote) || manifest.m_sSourceZoneId != quote.m_sSourceZoneId)
+		if (!ValidateManifestIdentity(manifest, quote) || manifest.m_sSourceZoneId != quote.m_sSourceZoneId
+			|| quote.m_sQuoteId.IsEmpty() || quote.m_sCommandRequestId.IsEmpty() || quote.m_sActorIdentityId.IsEmpty()
+			|| quote.m_sFactionKey.IsEmpty() || quote.m_sSourceZoneId.IsEmpty() || quote.m_sTargetZoneId.IsEmpty()
+			|| quote.m_sContextHash.IsEmpty())
 		{
 			failure = "support quote and manifest identity conflict";
 			return false;
 		}
-		if (quote.m_sQuoteKind != HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF
-			|| quote.m_eSupportType != HST_ESupportRequestType.HST_SUPPORT_QRF
+		if (!HST_ForcePlanningService.IsExactPlayerSupportType(quote.m_eSupportType)
+			|| !HST_ForcePlanningService.PlayerSupportTypeMatchesQuoteKind(quote.m_eSupportType, quote.m_sQuoteKind)
 			|| manifest.m_sForceKind != "player_support"
-			|| manifest.m_sIntentId != "hst_qrf_regular"
-			|| manifest.m_sPolicyId != SUPPORT_QRF_POLICY_ID
+			|| manifest.m_sFactionRole != "resistance"
+			|| manifest.m_sIntentId != HST_ForcePlanningService.ResolvePlayerSupportIntentId(quote.m_eSupportType)
+			|| manifest.m_sPolicyId != HST_ForcePlanningService.ResolvePlayerSupportPolicyId(quote.m_eSupportType)
 			|| quote.m_sPolicyId != manifest.m_sPolicyId
 			|| quote.m_sCatalogVersion != manifest.m_sCatalogVersion
 			|| !quote.m_bAllOrNothing)
@@ -323,8 +367,8 @@ class HST_ForcePlanningIntegrityService
 			return false;
 		}
 		if (quote.m_sSupportRequestId != "support_" + quote.m_sQuoteId
-			|| quote.m_sCapabilityId != HST_ForcePlanningService.SUPPORT_QRF_CAPABILITY_ID
-			|| quote.m_sAssetProfileId != HST_ForcePlanningService.SUPPORT_QRF_ASSET_PROFILE_ID)
+			|| quote.m_sCapabilityId != HST_ForcePlanningService.ResolvePlayerSupportCapabilityId(quote.m_eSupportType)
+			|| quote.m_sAssetProfileId != HST_ForcePlanningService.ResolvePlayerSupportAssetProfileId(quote.m_eSupportType))
 		{
 			failure = "support execution identity incomplete";
 			return false;
@@ -336,7 +380,14 @@ class HST_ForcePlanningIntegrityService
 			failure = "support operation or transaction identity conflict";
 			return false;
 		}
-		if (quote.m_iETASeconds != 120 || quote.m_iCooldownSeconds != 600 || quote.m_iExpectedWarLevel <= 0)
+		int expectedETASeconds = HST_ForcePlanningService.ResolvePlayerSupportETASeconds(
+			quote.m_eSupportType,
+			quote.m_vSourcePosition,
+			quote.m_vTargetPosition);
+		if (quote.m_iETASeconds != expectedETASeconds
+			|| quote.m_iCooldownSeconds != HST_ForcePlanningService.ResolvePlayerSupportCooldownSeconds(quote.m_eSupportType)
+			|| quote.m_iExpiresAtSecond - quote.m_iCreatedAtSecond != HST_ForcePlanningService.ResolvePlayerSupportQuoteLifetimeSeconds(quote.m_eSupportType)
+			|| quote.m_iExpectedWarLevel <= 0)
 		{
 			failure = "support schedule policy conflict";
 			return false;
@@ -353,7 +404,7 @@ class HST_ForcePlanningIntegrityService
 		}
 
 		HST_ForceManifestGroupState group = manifest.m_aGroups[0];
-		if (group.m_sElementId.IsEmpty() || group.m_sCatalogEntryId.IsEmpty() || group.m_sPrefab.IsEmpty()
+		if (group.m_sElementId.IsEmpty() || group.m_sCatalogEntryId.IsEmpty() || group.m_sPrefab.IsEmpty() || group.m_sRole.IsEmpty()
 			|| group.m_sPrefab != manifest.m_sGroupPrefab || group.m_iOrdinal != 0 || !group.m_bRequired
 			|| group.m_iExpectedMemberCount != manifest.m_iAcceptedMemberCount)
 		{
@@ -364,9 +415,16 @@ class HST_ForcePlanningIntegrityService
 		HST_ForceGroupCatalogEntry catalogGroup;
 		if (requireCurrentCatalog)
 		{
-			catalogGroup = FindGroupCatalogEntry(m_Catalog.BuildGroupCatalog(manifest.m_sFactionKey), group.m_sCatalogEntryId);
+			array<ref HST_ForceGroupCatalogEntry> groupCatalog = m_Catalog.BuildGroupCatalog(manifest.m_sFactionKey);
+			catalogGroup = FindGroupCatalogEntry(groupCatalog, group.m_sCatalogEntryId);
+			HST_ForceGroupCatalogEntry selectedGroup = SelectExactPlayerSupportGroup(
+				groupCatalog,
+				manifest.m_iDeterministicSeed,
+				quote.m_iExpectedWarLevel,
+				quote.m_eSupportType);
 			if (!catalogGroup || catalogGroup.m_sFactionKey != manifest.m_sFactionKey || catalogGroup.m_sExecutionPrefab != group.m_sPrefab
-				|| catalogGroup.m_sRole != group.m_sRole || catalogGroup.m_aMemberSlots.Count() != manifest.m_aMembers.Count())
+				|| catalogGroup.m_sRole != group.m_sRole || catalogGroup.m_aMemberSlots.Count() != manifest.m_aMembers.Count()
+				|| !selectedGroup || selectedGroup.m_sEntryId != catalogGroup.m_sEntryId)
 			{
 				failure = "support group catalog conflict";
 				return false;
@@ -378,10 +436,11 @@ class HST_ForcePlanningIntegrityService
 		for (int memberIndex = 0; memberIndex < manifest.m_aMembers.Count(); memberIndex++)
 		{
 			HST_ForceManifestMemberState member = manifest.m_aMembers[memberIndex];
-			if (!member || member.m_sSlotId.IsEmpty() || memberIds.Contains(member.m_sSlotId)
+			if (!member || member.m_sSlotId.IsEmpty() || member.m_sCatalogSlotId.IsEmpty() || memberIds.Contains(member.m_sSlotId)
 				|| member.m_sGroupElementId != group.m_sElementId || member.m_iOrdinal != memberIndex
 				|| member.m_sPrefab.IsEmpty() || member.m_sRole.IsEmpty() || !member.m_bRequired
-				|| !member.m_sAssignedVehicleSlotId.IsEmpty() || member.m_iMoneyCost != 0
+				|| !member.m_sAssignedVehicleSlotId.IsEmpty() || !member.m_sSeatRole.IsEmpty() || member.m_iSeatIndex != -1
+				|| member.m_iMoneyCost != 0
 				|| member.m_iHRCost != 1 || member.m_iEquipmentCost != 0)
 			{
 				failure = "support member slot conflict";
@@ -409,7 +468,8 @@ class HST_ForcePlanningIntegrityService
 			}
 		}
 
-		if (manifest.m_iMoneyCost != SUPPORT_QRF_MONEY_COST || quote.m_iMoneyCost != manifest.m_iMoneyCost
+		if (manifest.m_iMoneyCost != HST_ForcePlanningService.ResolvePlayerSupportMoneyCost(quote.m_eSupportType)
+			|| quote.m_iMoneyCost != manifest.m_iMoneyCost
 			|| manifest.m_iHRCost != hrCost || quote.m_iHRCost != hrCost
 			|| manifest.m_iEquipmentCost != 0 || quote.m_iEquipmentCost != 0
 			|| manifest.m_iAttackResourceCost != 0 || quote.m_iAttackResourceCost != 0

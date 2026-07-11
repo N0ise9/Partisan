@@ -640,7 +640,7 @@ class HST_RescuePOWOperationService
 			return "mission did not opt into a new active exact rescue contract";
 		if (state.FindActiveMission(mission.m_sInstanceId) != mission || CountMissionIdentity(state, mission) != 1)
 			return "exact rescue mission identity is ambiguous";
-		HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
+		HST_ZoneState zone = state.FindFrozenHistoricalZoneView(mission.m_sTargetZoneId);
 		if (!zone || zone.m_sOwnerFactionKey.IsEmpty()
 			|| !HST_FactionRelationService.IsEnemyFaction(preset, zone.m_sOwnerFactionKey))
 			return "exact rescue target zone is unavailable or not enemy-owned";

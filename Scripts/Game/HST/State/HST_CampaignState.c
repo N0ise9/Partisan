@@ -1100,7 +1100,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 59;
+	static const int SCHEMA_VERSION = 60;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1252,13 +1252,35 @@ class HST_CampaignState
 
 	HST_ZoneState FindZone(string zoneId)
 	{
+		string canonicalZoneId = HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(zoneId);
 		foreach (HST_ZoneState zone : m_aZones)
 		{
-			if (zone.m_sZoneId == zoneId)
+			if (zone && zone.m_sZoneId == canonicalZoneId)
 				return zone;
 		}
 
 		return null;
+	}
+
+	// Exact typed restore validators may need the pre-merge authored position.
+	// General gameplay must use FindZone so every mutation reaches m_aZones.
+	HST_ZoneState FindFrozenHistoricalZoneView(string zoneId)
+	{
+		string canonicalZoneId = HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(zoneId);
+		HST_ZoneState match;
+		foreach (HST_ZoneState canonicalZone : m_aZones)
+		{
+			if (!canonicalZone || canonicalZone.m_sZoneId != canonicalZoneId)
+				continue;
+			if (match)
+				return null;
+			match = canonicalZone;
+		}
+		if (!match)
+			return null;
+		if (canonicalZoneId != zoneId)
+			return HST_MaidensBayLocationSaveValidationService.BuildLegacyCompatibilityZone(match);
+		return match;
 	}
 
 	HST_PlayerState FindPlayer(string identityId)
@@ -1407,6 +1429,19 @@ class HST_CampaignState
 				if (garrison.m_sGarrisonId.IsEmpty())
 					garrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(zoneId, factionKey);
 				return garrison;
+			}
+		}
+		string canonicalZoneId = HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(zoneId);
+		if (canonicalZoneId != zoneId)
+		{
+			foreach (HST_GarrisonState canonicalGarrison : m_aGarrisons)
+			{
+				if (!canonicalGarrison || canonicalGarrison.m_sZoneId != canonicalZoneId
+					|| canonicalGarrison.m_sFactionKey != factionKey)
+					continue;
+				if (canonicalGarrison.m_sGarrisonId.IsEmpty())
+					canonicalGarrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(canonicalZoneId, factionKey);
+				return canonicalGarrison;
 			}
 		}
 
@@ -1585,11 +1620,13 @@ class HST_CampaignState
 			|| group.m_sRuntimeStatus == "exact_garrison_patrol_quarantined"
 			|| group.m_sRuntimeStatus == "exact_patrol_quarantined"
 			|| group.m_sRuntimeStatus == "exact_patrol_orphan_quarantined"
+			|| group.m_sRuntimeStatus == HST_PlayerSearchDestroySaveValidationService.QUARANTINE_STATUS
 			|| group.m_sRuntimeStatus == "exact_runtime_authority_quarantined")
 			return true;
 		return group.m_sSpawnFallbackMode == HST_MissionGuardOperationService.QUARANTINE_STATUS
 			|| group.m_sSpawnFallbackMode == "exact_garrison_patrol_quarantined"
-			|| group.m_sSpawnFallbackMode == "exact_enemy_patrol_quarantined";
+			|| group.m_sSpawnFallbackMode == "exact_enemy_patrol_quarantined"
+			|| group.m_sSpawnFallbackMode == HST_PlayerSearchDestroySaveValidationService.QUARANTINE_MODE;
 	}
 
 	int CountOperationalActiveGroups()
@@ -1622,7 +1659,9 @@ class HST_CampaignState
 	{
 		foreach (HST_QRFState qrf : m_aQRFs)
 		{
-			if (!qrf.m_bResolved && qrf.m_sTargetZoneId == targetZoneId && qrf.m_sFactionKey == factionKey)
+			if (!qrf.m_bResolved && qrf.m_sFactionKey == factionKey
+				&& HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					qrf.m_sTargetZoneId, targetZoneId))
 				return qrf;
 		}
 
@@ -1686,9 +1725,12 @@ class HST_CampaignState
 
 	HST_EnemySupportLedgerState FindEnemySupportLedger(string factionKey, string zoneId)
 	{
+		// Old exact orders may settle after the location merge. Their refunds must
+		// debit the merged canonical spend window instead of creating an orphan row.
+		string canonicalZoneId = HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(zoneId);
 		foreach (HST_EnemySupportLedgerState ledger : m_aEnemySupportLedgers)
 		{
-			if (ledger && ledger.m_sFactionKey == factionKey && ledger.m_sZoneId == zoneId)
+			if (ledger && ledger.m_sFactionKey == factionKey && ledger.m_sZoneId == canonicalZoneId)
 				return ledger;
 		}
 

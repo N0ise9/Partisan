@@ -50,6 +50,10 @@ class HST_RadioSiteLifecycleService
 	protected ref array<bool> m_aProjectionBorrowed = {};
 	protected ref array<IEntity> m_aTransmitterCandidates = {};
 	protected string m_sCandidateExpectedSiteId;
+	// Authored transmitter discovery is intentionally amortized. A campaign can
+	// contain many unresolved logical sites, and each discovery attempt performs
+	// a bounded world query around the zone.
+	protected int m_iNextUnresolvedProjectionIndex;
 
 	static string BuildSiteId(string zoneId)
 	{
@@ -321,6 +325,11 @@ class HST_RadioSiteLifecycleService
 		{
 			if (!site || site.m_iContractVersion != EXACT_CONTRACT_VERSION)
 				continue;
+			// Periodic authored-world discovery is owned by the round-robin budget in
+			// TickBeforeMissionRuntime. This post-mission pass still reconciles every
+			// already-bound or campaign-generated projection immediately.
+			if (site.m_eTargetOwnership == HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_UNRESOLVED)
+				continue;
 			changed = EnsureSiteProjection(state, site) || changed;
 		}
 		return changed;
@@ -532,11 +541,13 @@ class HST_RadioSiteLifecycleService
 			return false;
 
 		bool changed = EnsureSites(state);
+		changed = ReconcileOneUnresolvedProjection(state) || changed;
 		foreach (HST_RadioSiteState site : state.m_aRadioSites)
 		{
 			if (!site || site.m_iContractVersion != EXACT_CONTRACT_VERSION)
 				continue;
-			changed = EnsureSiteProjection(state, site) || changed;
+			if (site.m_eTargetOwnership != HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_UNRESOLVED)
+				changed = EnsureSiteProjection(state, site) || changed;
 			if (site.m_iContractVersion != EXACT_CONTRACT_VERSION)
 				continue;
 			if (site.m_sActiveMissionInstanceId.IsEmpty())
@@ -582,6 +593,31 @@ class HST_RadioSiteLifecycleService
 			}
 		}
 		return changed;
+	}
+
+	protected bool ReconcileOneUnresolvedProjection(HST_CampaignState state)
+	{
+		if (!state || state.m_aRadioSites.IsEmpty())
+			return false;
+
+		int siteCount = state.m_aRadioSites.Count();
+		int startIndex = m_iNextUnresolvedProjectionIndex;
+		if (startIndex < 0 || startIndex >= siteCount)
+			startIndex = 0;
+		for (int offset = 0; offset < siteCount; offset++)
+		{
+			int siteIndex = (startIndex + offset) % siteCount;
+			HST_RadioSiteState site = state.m_aRadioSites[siteIndex];
+			if (!site || site.m_iContractVersion != EXACT_CONTRACT_VERSION
+				|| site.m_eTargetOwnership != HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_UNRESOLVED)
+				continue;
+
+			m_iNextUnresolvedProjectionIndex = (siteIndex + 1) % siteCount;
+			return EnsureSiteProjection(state, site);
+		}
+
+		m_iNextUnresolvedProjectionIndex = 0;
+		return false;
 	}
 
 	string FindCompletedActiveMissionId(HST_CampaignState state)

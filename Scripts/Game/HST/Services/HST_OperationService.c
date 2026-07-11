@@ -13,6 +13,12 @@ class HST_OperationService
 	static const string EXACT_PLAYER_QRF_ASSIGNMENT_KIND = "support_on_station";
 	static const string EXACT_PLAYER_QRF_RECALL_POLICY = "exit_then_refund_living_hr";
 	static const string EXACT_PLAYER_QRF_SETTLEMENT_POLICY = "exact_paid_qrf_ledger";
+	static const int EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION = 1;
+	static const int QUARANTINED_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION = -60;
+	static const string EXACT_PLAYER_SEARCH_DESTROY_ASSIGNMENT_KIND = "search_destroy_on_station";
+	static const string EXACT_PLAYER_SEARCH_DESTROY_RECALL_POLICY = "exit_then_refund_living_hr";
+	static const string EXACT_PLAYER_SEARCH_DESTROY_SETTLEMENT_POLICY = "exact_paid_search_destroy_ledger";
+	static const float EXACT_PLAYER_SUPPORT_ASSIGNMENT_RETURN_RADIUS_METERS = 75.0;
 	static const int EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION = 1;
 	static const string EXACT_ENEMY_DEFENSIVE_QRF_FORCE_KIND = "enemy_defensive_qrf";
 	static const string EXACT_ENEMY_DEFENSIVE_QRF_POLICY_ID = "exact_enemy_defensive_qrf_v1";
@@ -24,7 +30,76 @@ class HST_OperationService
 
 	static bool RequiresOperation(HST_SupportRequestState request)
 	{
-		return request && request.m_iOperationContractVersion >= EXACT_PLAYER_QRF_CONTRACT_VERSION;
+		// Any nonzero player-support contract is owned by typed operation authority.
+		// Negative versions are quarantine sentinels and must never fall through to
+		// legacy support timers, composition, folding, or guessed refunds.
+		return request && request.m_iOperationContractVersion != 0;
+	}
+
+	static bool IsExactPlayerSupportType(HST_ESupportRequestType supportType)
+	{
+		return supportType == HST_ESupportRequestType.HST_SUPPORT_QRF
+			|| supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+	}
+
+	static bool IsExactPlayerSupportOperationType(HST_EOperationType operationType)
+	{
+		return operationType == HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF
+			|| operationType == HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_SEARCH_DESTROY;
+	}
+
+	static int ResolveExactPlayerSupportContractVersion(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return EXACT_PLAYER_QRF_CONTRACT_VERSION;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION;
+		return 0;
+	}
+
+	static int ResolveExactPlayerSupportOperationContractVersion(HST_EOperationType operationType)
+	{
+		if (operationType == HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF)
+			return EXACT_PLAYER_QRF_CONTRACT_VERSION;
+		if (operationType == HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_SEARCH_DESTROY)
+			return EXACT_PLAYER_SEARCH_DESTROY_CONTRACT_VERSION;
+		return 0;
+	}
+
+	static HST_EOperationType ResolveExactPlayerSupportOperationType(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_SEARCH_DESTROY;
+		return HST_EOperationType.HST_OPERATION_TYPE_UNKNOWN;
+	}
+
+	static string ResolveExactPlayerSupportAssignmentKind(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return EXACT_PLAYER_QRF_ASSIGNMENT_KIND;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return EXACT_PLAYER_SEARCH_DESTROY_ASSIGNMENT_KIND;
+		return "";
+	}
+
+	static string ResolveExactPlayerSupportRecallPolicy(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return EXACT_PLAYER_QRF_RECALL_POLICY;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return EXACT_PLAYER_SEARCH_DESTROY_RECALL_POLICY;
+		return "";
+	}
+
+	static string ResolveExactPlayerSupportSettlementPolicy(HST_ESupportRequestType supportType)
+	{
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return EXACT_PLAYER_QRF_SETTLEMENT_POLICY;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return EXACT_PLAYER_SEARCH_DESTROY_SETTLEMENT_POLICY;
+		return "";
 	}
 
 	static bool RequiresOperation(HST_EnemyOrderState order)
@@ -60,6 +135,28 @@ class HST_OperationService
 		HST_ForceQuoteState quote,
 		HST_ForceManifestState manifest)
 	{
+		if (!request || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return BuildRejected("exact player support registration received another support family");
+		return RegisterExactPlayerSupport(state, request, quote, manifest);
+	}
+
+	HST_OperationTransitionResult RegisterExactPlayerSearchDestroy(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ForceQuoteState quote,
+		HST_ForceManifestState manifest)
+	{
+		if (!request || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return BuildRejected("exact player search-and-destroy registration received another support family");
+		return RegisterExactPlayerSupport(state, request, quote, manifest);
+	}
+
+	HST_OperationTransitionResult RegisterExactPlayerSupport(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ForceQuoteState quote,
+		HST_ForceManifestState manifest)
+	{
 		string failure = ValidateRegistrationIdentity(state, request, quote, manifest);
 		if (!failure.IsEmpty())
 			return BuildRejected(failure);
@@ -67,19 +164,19 @@ class HST_OperationService
 		HST_OperationRecordState existing = state.FindOperation(request.m_sOperationId);
 		if (existing)
 		{
-			failure = ValidateExactPlayerQRF(state, existing, request, quote, manifest);
+			failure = ValidateExactPlayerSupport(state, existing, request, quote, manifest);
 			if (!failure.IsEmpty())
 				return BuildRejected(failure);
 			return BuildAccepted(existing, false, true);
 		}
 
 		if (CountOperationsByAnyIdentity(state, request.m_sOperationId, request.m_sRequestId, request.m_sQuoteId, request.m_sManifestId) > 0)
-			return BuildRejected("exact player QRF operation identity is already owned by another record");
+			return BuildRejected("exact player support operation identity is already owned by another record");
 
 		HST_OperationRecordState operation = new HST_OperationRecordState();
 		operation.m_sOperationId = request.m_sOperationId;
-		operation.m_eType = HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF;
-		operation.m_iContractVersion = EXACT_PLAYER_QRF_CONTRACT_VERSION;
+		operation.m_eType = ResolveExactPlayerSupportOperationType(request.m_eType);
+		operation.m_iContractVersion = ResolveExactPlayerSupportContractVersion(request.m_eType);
 		operation.m_sOwnerFactionKey = quote.m_sFactionKey;
 		operation.m_sActorIdentityId = quote.m_sActorIdentityId;
 		operation.m_sIssueRequestId = quote.m_sCommandRequestId;
@@ -89,7 +186,7 @@ class HST_OperationService
 		operation.m_sManifestId = manifest.m_sManifestId;
 		operation.m_sOriginZoneId = quote.m_sSourceZoneId;
 		operation.m_vOriginPosition = quote.m_vSourcePosition;
-		operation.m_sAssignmentKind = EXACT_PLAYER_QRF_ASSIGNMENT_KIND;
+		operation.m_sAssignmentKind = ResolveExactPlayerSupportAssignmentKind(request.m_eType);
 		operation.m_sAssignmentZoneId = quote.m_sTargetZoneId;
 		operation.m_vAssignmentPosition = quote.m_vTargetPosition;
 		operation.m_sTacticalTargetZoneId = quote.m_sTargetZoneId;
@@ -104,8 +201,8 @@ class HST_OperationService
 		operation.m_iStrategicLastUpdateSecond = state.m_iElapsedSeconds;
 		operation.m_iVirtualCombatLastStepSecond = state.m_iElapsedSeconds;
 		operation.m_iLastVirtualFriendlyCount = manifest.m_iAcceptedMemberCount;
-		operation.m_sRecallPolicyId = EXACT_PLAYER_QRF_RECALL_POLICY;
-		operation.m_sSettlementPolicyId = EXACT_PLAYER_QRF_SETTLEMENT_POLICY;
+		operation.m_sRecallPolicyId = ResolveExactPlayerSupportRecallPolicy(request.m_eType);
+		operation.m_sSettlementPolicyId = ResolveExactPlayerSupportSettlementPolicy(request.m_eType);
 		operation.m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
 		operation.m_eResumeDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
 		operation.m_eEngagementMode = HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
@@ -712,19 +809,19 @@ class HST_OperationService
 			|| batch.m_sManifestId != operation.m_sManifestId || group.m_sSpawnResultId != batch.m_sResultId
 			|| group.m_sProjectionId != batch.m_sProjectionId || group.m_sForceId != batch.m_sForceId
 			|| !batch.m_bStrategicProjectionHeld)
-			return BuildRejected("exact player QRF virtual projection links conflict with operation authority");
+			return BuildRejected("exact player support virtual projection links conflict with operation authority");
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
-			return BuildRejected("settled exact player QRF operation cannot become virtual outbound");
+			return BuildRejected("settled exact player support operation cannot become virtual outbound");
 		if ((operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING
 			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND)
 			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
-			return BuildRejected("exact player QRF virtual outbound transition is illegal from the current operation state");
+			return BuildRejected("exact player support virtual outbound transition is illegal from the current operation state");
 		if (!LinkMatchesOrEmpty(operation.m_sSpawnResultId, batch.m_sResultId)
 			|| !LinkMatchesOrEmpty(operation.m_sForceId, batch.m_sForceId)
 			|| !LinkMatchesOrEmpty(operation.m_sProjectionId, batch.m_sProjectionId)
 			|| !LinkMatchesOrEmpty(operation.m_sGroupId, group.m_sGroupId))
-			return BuildRejected("exact player QRF virtual outbound would replace an authoritative projection link");
+			return BuildRejected("exact player support virtual outbound would replace an authoritative projection link");
 
 		bool changed;
 		changed = AssignString(operation.m_sSpawnResultId, batch.m_sResultId) || changed;
@@ -755,11 +852,11 @@ class HST_OperationService
 		if (!group || !batch || batch.m_bStrategicProjectionHeld
 			|| operation.m_sSpawnResultId != batch.m_sResultId || operation.m_sGroupId != group.m_sGroupId
 			|| group.m_sOperationId != operation.m_sOperationId || group.m_sProjectionId != operation.m_sProjectionId)
-			return BuildRejected("exact player QRF materialization release conflicts with virtual authority");
+			return BuildRejected("exact player support materialization release conflicts with virtual authority");
 		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
 			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
-			return BuildRejected("exact player QRF cannot materialize from the current projection state");
+			return BuildRejected("exact player support cannot materialize from the current projection state");
 		bool changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC, state.m_iElapsedSeconds);
 		changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition) || changed;
 		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
@@ -804,7 +901,7 @@ class HST_OperationService
 		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
 			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
-			return BuildRejected("exact player QRF cannot dematerialize from the current projection state");
+			return BuildRejected("exact player support cannot dematerialize from the current projection state");
 		bool changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition);
 		changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE, state.m_iElapsedSeconds) || changed;
 		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
@@ -830,8 +927,19 @@ class HST_OperationService
 			return BuildRejected("dematerialization completion lacks held exact projection authority");
 		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING
 			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
-			return BuildRejected("exact player QRF dematerialization completion is out of order");
+			return BuildRejected("exact player support dematerialization completion is out of order");
 		bool changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition);
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		int strategicLiving = queue.CountStrategicLivingMemberSlots(batch);
+		if (operation.m_iLastVirtualFriendlyCount != strategicLiving)
+		{
+			operation.m_iLastVirtualFriendlyCount = strategicLiving;
+			changed = true;
+		}
+		changed = ApplyExactPlayerSupportReturnToAssignment(
+			operation,
+			group,
+			state.m_iElapsedSeconds) || changed;
 		changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC, state.m_iElapsedSeconds) || changed;
 		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
 		operation.m_iStrategicLastUpdateSecond = state.m_iElapsedSeconds;
@@ -839,6 +947,37 @@ class HST_OperationService
 		operation.m_sLastVirtualCombatReason = "physical interval excluded from virtual combat catch-up";
 		operation.m_iLastProjectionDecisionSecond = state.m_iElapsedSeconds;
 		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	bool ApplyExactPlayerSupportReturnToAssignment(
+		HST_OperationRecordState operation,
+		HST_ActiveGroupState group,
+		int nowSecond)
+	{
+		if (!operation || !group || !IsExactPlayerSupportOperationType(operation.m_eType)
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
+			|| Distance2D(group.m_vPosition, operation.m_vAssignmentPosition)
+				<= EXACT_PLAYER_SUPPORT_ASSIGNMENT_RETURN_RADIUS_METERS)
+			return false;
+
+		bool changed = SetDuty(
+			operation,
+			HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT,
+			nowSecond);
+		changed = SetResumeDuty(
+			operation,
+			HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT) || changed;
+		changed = AssignString(operation.m_sTacticalTargetZoneId, operation.m_sAssignmentZoneId) || changed;
+		changed = AssignVector(operation.m_vTacticalTargetPosition, operation.m_vAssignmentPosition) || changed;
+		changed = AssignVector(operation.m_vRouteEndPosition, operation.m_vAssignmentPosition) || changed;
+		HST_StrategicMovementService movement = new HST_StrategicMovementService();
+		changed = movement.SyncRouteProgressFromPosition(operation, group.m_vPosition) || changed;
+		changed = AssignString(operation.m_sCurrentRouteId, operation.m_sOperationId + "_assignment_return") || changed;
+		changed = AssignString(group.m_sRouteId, operation.m_sCurrentRouteId) || changed;
+		changed = AssignVector(group.m_vSourcePosition, group.m_vPosition) || changed;
+		changed = AssignVector(group.m_vTargetPosition, operation.m_vAssignmentPosition) || changed;
+		return changed;
 	}
 
 	HST_OperationTransitionResult MarkVirtualOnStation(
@@ -855,11 +994,11 @@ class HST_OperationService
 		if (!group || group.m_sGroupId != operation.m_sGroupId || group.m_sOperationId != operation.m_sOperationId
 			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
-			return BuildRejected("exact player QRF virtual arrival conflicts with strategic authority");
+			return BuildRejected("exact player support virtual arrival conflicts with strategic authority");
 		if (operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND
 			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT
 			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
-			return BuildRejected("exact player QRF virtual arrival transition is illegal from the current duty state");
+			return BuildRejected("exact player support virtual arrival transition is illegal from the current duty state");
 		bool changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION, state.m_iElapsedSeconds);
 		changed = AssignVector(operation.m_vStrategicPosition, operation.m_vRouteEndPosition) || changed;
 		changed = AssignVector(group.m_vPosition, operation.m_vStrategicPosition) || changed;
@@ -874,23 +1013,34 @@ class HST_OperationService
 		HST_ForceQuoteState quote,
 		HST_ForceManifestState manifest)
 	{
+		if (!request || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return BuildRejected("exact player support rollback received another support family");
+		return RemoveUncommittedExactPlayerSupport(state, request, quote, manifest);
+	}
+
+	HST_OperationTransitionResult RemoveUncommittedExactPlayerSupport(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ForceQuoteState quote,
+		HST_ForceManifestState manifest)
+	{
 		if (!RequiresOperation(request))
 			return BuildAccepted(null, false, true);
 		if (!state || !request)
-			return BuildRejected("exact player QRF operation rollback context is missing");
+			return BuildRejected("exact player support operation rollback context is missing");
 		HST_OperationRecordState operation = state.FindOperation(request.m_sOperationId);
 		if (!operation)
 			return BuildAccepted(null, false, true);
-		string failure = ValidateExactPlayerQRF(state, operation, request, quote, manifest);
+		string failure = ValidateExactPlayerSupport(state, operation, request, quote, manifest);
 		if (!failure.IsEmpty())
 			return BuildRejected(failure);
 		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 			|| !operation.m_sSpawnResultId.IsEmpty() || !operation.m_sGroupId.IsEmpty())
-			return BuildRejected("exact player QRF operation has execution or settlement authority and cannot be rolled back");
+			return BuildRejected("exact player support operation has execution or settlement authority and cannot be rolled back");
 		int index = state.m_aOperations.Find(operation);
 		if (index < 0)
-			return BuildRejected("exact player QRF operation rollback identity disappeared");
+			return BuildRejected("exact player support operation rollback identity disappeared");
 		state.m_aOperations.Remove(index);
 		return BuildAccepted(operation, true, false);
 	}
@@ -911,20 +1061,20 @@ class HST_OperationService
 			|| group.m_sOperationId != operation.m_sOperationId || group.m_sManifestId != operation.m_sManifestId
 			|| batch.m_sManifestId != operation.m_sManifestId || group.m_sSpawnResultId != batch.m_sResultId
 			|| group.m_sProjectionId != batch.m_sProjectionId || group.m_sForceId != batch.m_sForceId)
-			return BuildRejected("exact player QRF materialization links conflict with operation authority");
+			return BuildRejected("exact player support materialization links conflict with operation authority");
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
-			return BuildRejected("settled exact player QRF operation cannot materialize");
+			return BuildRejected("settled exact player support operation cannot materialize");
 		if ((operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING
 			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND)
 			|| (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 				&& operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
 			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
-			return BuildRejected("exact player QRF outbound materialization transition is illegal from the current operation state");
+			return BuildRejected("exact player support outbound materialization transition is illegal from the current operation state");
 		if (!LinkMatchesOrEmpty(operation.m_sSpawnResultId, batch.m_sResultId)
 			|| !LinkMatchesOrEmpty(operation.m_sForceId, batch.m_sForceId)
 			|| !LinkMatchesOrEmpty(operation.m_sProjectionId, batch.m_sProjectionId)
 			|| !LinkMatchesOrEmpty(operation.m_sGroupId, group.m_sGroupId))
-			return BuildRejected("exact player QRF outbound materialization would replace an authoritative projection link");
+			return BuildRejected("exact player support outbound materialization would replace an authoritative projection link");
 
 		bool changed;
 		changed = AssignString(operation.m_sSpawnResultId, batch.m_sResultId) || changed;
@@ -957,17 +1107,17 @@ class HST_OperationService
 			|| batch.m_sManifestId != operation.m_sManifestId || group.m_sManifestId != operation.m_sManifestId
 			|| group.m_sSpawnResultId != batch.m_sResultId || group.m_sProjectionId != batch.m_sProjectionId
 			|| group.m_sForceId != batch.m_sForceId)
-			return BuildRejected("exact player QRF physical handoff conflicts with operation authority");
+			return BuildRejected("exact player support physical handoff conflicts with operation authority");
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
-			return BuildRejected("settled exact player QRF operation cannot become physical");
+			return BuildRejected("settled exact player support operation cannot become physical");
 		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
 			&& operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
-			return BuildRejected("exact player QRF physical handoff transition is illegal from the current materialization state");
+			return BuildRejected("exact player support physical handoff transition is illegal from the current materialization state");
 		if (!LinkMatchesOrEmpty(operation.m_sSpawnResultId, batch.m_sResultId)
 			|| !LinkMatchesOrEmpty(operation.m_sForceId, batch.m_sForceId)
 			|| !LinkMatchesOrEmpty(operation.m_sProjectionId, batch.m_sProjectionId)
 			|| !LinkMatchesOrEmpty(operation.m_sGroupId, group.m_sGroupId))
-			return BuildRejected("exact player QRF physical handoff would replace an authoritative projection link");
+			return BuildRejected("exact player support physical handoff would replace an authoritative projection link");
 
 		bool completingPhysicalHandoff = operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING;
 		bool changed;
@@ -982,7 +1132,7 @@ class HST_OperationService
 		{
 			HST_OperationTransitionResult engagementHandoff = NormalizeAbstractEngagementForPhysicalHandoff(state, operation);
 			if (!engagementHandoff || !engagementHandoff.m_bAccepted)
-				return BuildRejected("exact player QRF abstract engagement could not hand off to physical authority");
+				return BuildRejected("exact player support abstract engagement could not hand off to physical authority");
 			changed = engagementHandoff.m_bStateChanged || changed;
 			operation.m_sLastVirtualCombatReason = "abstract engagement handed off clear to physical projection";
 		}
@@ -1041,13 +1191,13 @@ class HST_OperationService
 			|| group.m_sManifestId != operation.m_sManifestId || group.m_sSpawnResultId != operation.m_sSpawnResultId
 			|| group.m_sForceId != operation.m_sForceId || group.m_sProjectionId != operation.m_sProjectionId
 			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
-			return BuildRejected("exact player QRF arrival conflicts with physical operation authority");
+			return BuildRejected("exact player support arrival conflicts with physical operation authority");
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
-			return BuildRejected("settled exact player QRF operation cannot arrive on station");
+			return BuildRejected("settled exact player support operation cannot arrive on station");
 		if (operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND
 			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT
 			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
-			return BuildRejected("exact player QRF arrival transition is illegal from the current duty state");
+			return BuildRejected("exact player support arrival transition is illegal from the current duty state");
 
 		bool changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION, state.m_iElapsedSeconds);
 		changed = AssignString(operation.m_sTacticalTargetZoneId, operation.m_sAssignmentZoneId) || changed;
@@ -1070,12 +1220,12 @@ class HST_OperationService
 		if (!group || group.m_sOperationId != operation.m_sOperationId || group.m_sGroupId != operation.m_sGroupId
 			|| group.m_sManifestId != operation.m_sManifestId || group.m_sSpawnResultId != operation.m_sSpawnResultId
 			|| group.m_sForceId != operation.m_sForceId || group.m_sProjectionId != operation.m_sProjectionId)
-			return BuildRejected("exact player QRF restore projection conflicts with operation authority");
+			return BuildRejected("exact player support restore projection conflicts with operation authority");
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
-			return BuildRejected("settled exact player QRF operation cannot reproject");
+			return BuildRejected("settled exact player support operation cannot reproject");
 		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
 			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
-			return BuildRejected("exact player QRF restore projection is not in persisted materialization authority");
+			return BuildRejected("exact player support restore projection is not in persisted materialization authority");
 		bool changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC, state.m_iElapsedSeconds);
 		changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition) || changed;
 		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
@@ -1093,9 +1243,9 @@ class HST_OperationService
 		if (!operation)
 			return BuildAccepted(null, false, true);
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
-			return BuildRejected("settled exact player QRF operation cannot be recalled");
+			return BuildRejected("settled exact player support operation cannot be recalled");
 		if (!IsActiveDuty(operation.m_eDutyState))
-			return BuildRejected("exact player QRF operation cannot be recalled from the current duty state");
+			return BuildRejected("exact player support operation cannot be recalled from the current duty state");
 		bool alreadyRecall = operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_RECALL_REQUESTED
 			|| operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_EXITING
 			|| operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN;
@@ -1123,9 +1273,9 @@ class HST_OperationService
 			return BuildAccepted(null, false, true);
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
 			|| operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED)
-			return BuildRejected("settled exact player QRF operation cannot be recalled");
+			return BuildRejected("settled exact player support operation cannot be recalled");
 		if (!IsActiveDuty(operation.m_eDutyState))
-			return BuildRejected("exact player QRF operation cannot be recalled from the current duty state");
+			return BuildRejected("exact player support operation cannot be recalled from the current duty state");
 		return BuildAccepted(operation, false, operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_RECALL_REQUESTED
 			|| operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_EXITING
 			|| operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN);
@@ -1146,7 +1296,7 @@ class HST_OperationService
 		if (!group || group.m_sOperationId != operation.m_sOperationId || group.m_sGroupId != operation.m_sGroupId
 			|| group.m_sManifestId != operation.m_sManifestId || group.m_sSpawnResultId != operation.m_sSpawnResultId
 			|| group.m_sForceId != operation.m_sForceId || group.m_sProjectionId != operation.m_sProjectionId)
-			return BuildRejected("exact player QRF recall route conflicts with operation authority");
+			return BuildRejected("exact player support recall route conflicts with operation authority");
 
 		HST_OperationTransitionResult begun = BeginRecall(state, request, exitPosition);
 		if (!begun.m_bAccepted || !begun.m_Operation)
@@ -1166,17 +1316,20 @@ class HST_OperationService
 		if (!state || operationId.IsEmpty())
 			return BuildRejected("operation engagement context is missing");
 		HST_OperationRecordState operation = state.FindOperation(operationId);
-		if (!operation || operation.m_iContractVersion != EXACT_PLAYER_QRF_CONTRACT_VERSION
-			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF)
-			return BuildRejected("exact player QRF operation is missing for engagement transition");
+		int expectedContractVersion;
+		if (operation)
+			expectedContractVersion = ResolveExactPlayerSupportOperationContractVersion(operation.m_eType);
+		if (!operation || expectedContractVersion == 0
+			|| operation.m_iContractVersion != expectedContractVersion)
+			return BuildRejected("exact player support operation is missing for engagement transition");
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 			return BuildRejected("settled operation cannot change engagement mode");
 		if (!IsActiveDuty(operation.m_eDutyState))
-			return BuildRejected("exact player QRF operation duty state cannot accept engagement transitions");
+			return BuildRejected("exact player support operation duty state cannot accept engagement transitions");
 		if (operation.m_eEngagementMode == nextMode)
 			return BuildAccepted(operation, false, true);
 		if (!IsLegalEngagementTransition(operation.m_eEngagementMode, nextMode))
-			return BuildRejected("illegal exact player QRF engagement transition");
+			return BuildRejected("illegal exact player support engagement transition");
 		if (operation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR)
 			operation.m_eResumeDutyState = operation.m_eDutyState;
 		operation.m_eEngagementMode = nextMode;
@@ -1195,6 +1348,17 @@ class HST_OperationService
 		HST_EOperationTerminalResult terminalResult,
 		string settlementId)
 	{
+		if (!request || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return BuildRejected("exact player support settlement received another support family");
+		return CanSettleExactPlayerSupport(state, request, terminalResult, settlementId);
+	}
+
+	HST_OperationTransitionResult CanSettleExactPlayerSupport(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId)
+	{
 		HST_OperationRecordState operation;
 		string failure = ResolveTransitionOperation(state, request, operation);
 		if (!failure.IsEmpty())
@@ -1204,16 +1368,16 @@ class HST_OperationService
 		if (terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
 			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
 			|| terminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED || settlementId.IsEmpty())
-			return BuildRejected("exact player QRF terminal result or settlement identity is invalid");
+			return BuildRejected("exact player support terminal result or settlement identity is invalid");
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 		{
 			if (operation.m_eTerminalResult == terminalResult && operation.m_sSettlementId == settlementId)
 				return BuildAccepted(operation, false, true);
-			return BuildRejected("exact player QRF operation is already settled with a conflicting result");
+			return BuildRejected("exact player support operation is already settled with a conflicting result");
 		}
 		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
-			return BuildRejected("exact player QRF operation settlement state conflicts");
+			return BuildRejected("exact player support operation settlement state conflicts");
 		return BuildAccepted(operation, false, false);
 	}
 
@@ -1224,7 +1388,19 @@ class HST_OperationService
 		string settlementId,
 		string reason)
 	{
-		HST_OperationTransitionResult preflight = CanSettleExactPlayerQRF(state, request, terminalResult, settlementId);
+		if (!request || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return BuildRejected("exact player support settlement received another support family");
+		return SettleExactPlayerSupport(state, request, terminalResult, settlementId, reason);
+	}
+
+	HST_OperationTransitionResult SettleExactPlayerSupport(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		HST_OperationTransitionResult preflight = CanSettleExactPlayerSupport(state, request, terminalResult, settlementId);
 		if (!preflight.m_bAccepted || !preflight.m_Operation || preflight.m_bAlreadyApplied)
 			return preflight;
 		HST_OperationRecordState operation = preflight.m_Operation;
@@ -1252,72 +1428,106 @@ class HST_OperationService
 		HST_ForceQuoteState quote,
 		HST_ForceManifestState manifest)
 	{
+		if (!request || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return "exact player support validation received another support family";
+		return ValidateExactPlayerSupport(state, operation, request, quote, manifest);
+	}
+
+	string ValidateExactPlayerSearchDestroy(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_SupportRequestState request,
+		HST_ForceQuoteState quote,
+		HST_ForceManifestState manifest)
+	{
+		if (!request || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return "exact player search-and-destroy validation received another support family";
+		return ValidateExactPlayerSupport(state, operation, request, quote, manifest);
+	}
+
+	string ValidateExactPlayerSupport(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_SupportRequestState request,
+		HST_ForceQuoteState quote,
+		HST_ForceManifestState manifest)
+	{
 		if (!state || !operation || !request || !quote || !manifest)
-			return "exact player QRF operation authority is incomplete";
+			return "exact player support operation authority is incomplete";
+		if (!IsExactPlayerSupportType(request.m_eType) || quote.m_eSupportType != request.m_eType)
+			return "exact player support family identity conflicts";
+		string expectedQuoteKind = HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF;
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			expectedQuoteKind = HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY;
+		if (quote.m_sQuoteKind != expectedQuoteKind)
+			return "exact player support quote family identity conflicts";
+		int expectedContractVersion = ResolveExactPlayerSupportContractVersion(request.m_eType);
+		HST_EOperationType expectedOperationType = ResolveExactPlayerSupportOperationType(request.m_eType);
+		string expectedAssignmentKind = ResolveExactPlayerSupportAssignmentKind(request.m_eType);
+		string expectedRecallPolicy = ResolveExactPlayerSupportRecallPolicy(request.m_eType);
+		string expectedSettlementPolicy = ResolveExactPlayerSupportSettlementPolicy(request.m_eType);
 		if (CountOperationId(state, operation.m_sOperationId) != 1)
-			return "exact player QRF operation identity is ambiguous";
-		if (operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF
-			|| operation.m_iContractVersion != EXACT_PLAYER_QRF_CONTRACT_VERSION
-			|| request.m_iOperationContractVersion != EXACT_PLAYER_QRF_CONTRACT_VERSION
+			return "exact player support operation identity is ambiguous";
+		if (operation.m_eType != expectedOperationType
+			|| operation.m_iContractVersion != expectedContractVersion
+			|| request.m_iOperationContractVersion != expectedContractVersion
 			|| operation.m_iRevision <= 0)
-			return "exact player QRF operation contract version conflicts";
+			return "exact player support operation contract version conflicts";
 		if (operation.m_sOperationId != request.m_sOperationId || operation.m_sOperationId != quote.m_sOperationId
 			|| operation.m_sOperationId != manifest.m_sOperationId || operation.m_sSupportRequestId != request.m_sRequestId
 			|| operation.m_sQuoteId != quote.m_sQuoteId || operation.m_sManifestId != manifest.m_sManifestId)
-			return "exact player QRF operation aggregate links conflict";
+			return "exact player support operation aggregate links conflict";
 		if (operation.m_sOwnerFactionKey != quote.m_sFactionKey || operation.m_sActorIdentityId != quote.m_sActorIdentityId
 			|| operation.m_sIssueRequestId != quote.m_sCommandRequestId
 			|| operation.m_sConfirmationRequestId != quote.m_sConfirmationRequestId)
-			return "exact player QRF operation owner or command identity conflicts";
+			return "exact player support operation owner or command identity conflicts";
 		if (operation.m_sOriginZoneId != quote.m_sSourceZoneId || operation.m_vOriginPosition != quote.m_vSourcePosition
-			|| operation.m_sAssignmentKind != EXACT_PLAYER_QRF_ASSIGNMENT_KIND
+			|| operation.m_sAssignmentKind != expectedAssignmentKind
 			|| operation.m_sAssignmentZoneId != quote.m_sTargetZoneId || operation.m_vAssignmentPosition != quote.m_vTargetPosition)
-			return "exact player QRF immutable origin or assignment conflicts";
-		if (operation.m_sRecallPolicyId != EXACT_PLAYER_QRF_RECALL_POLICY
-			|| operation.m_sSettlementPolicyId != EXACT_PLAYER_QRF_SETTLEMENT_POLICY
+			return "exact player support immutable origin or assignment conflicts";
+		if (operation.m_sRecallPolicyId != expectedRecallPolicy
+			|| operation.m_sSettlementPolicyId != expectedSettlementPolicy
 			|| operation.m_iDeterministicSeed != manifest.m_iDeterministicSeed)
-			return "exact player QRF operation policy or deterministic seed conflicts";
+			return "exact player support operation policy or deterministic seed conflicts";
 		if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN
 			|| operation.m_eResumeDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN
 			|| operation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_UNKNOWN
 			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_UNKNOWN
 			|| operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_UNKNOWN
 			|| operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_UNKNOWN)
-			return "exact player QRF operation contains unknown state authority";
+			return "exact player support operation contains unknown state authority";
 		bool hasExecutionLink = !operation.m_sSpawnResultId.IsEmpty() || !operation.m_sForceId.IsEmpty()
 			|| !operation.m_sProjectionId.IsEmpty() || !operation.m_sGroupId.IsEmpty();
 		if (hasExecutionLink && (operation.m_sSpawnResultId.IsEmpty() || operation.m_sForceId.IsEmpty()
 			|| operation.m_sProjectionId.IsEmpty() || operation.m_sGroupId.IsEmpty()))
-			return "exact player QRF operation execution links are incomplete";
+			return "exact player support operation execution links are incomplete";
 		if (hasExecutionLink && (operation.m_sSpawnResultId != request.m_sSpawnResultId
 			|| operation.m_sForceId != "force_" + operation.m_sOperationId
 			|| operation.m_sProjectionId != "projection_" + operation.m_sOperationId
 			|| operation.m_sGroupId != operation.m_sProjectionId))
-			return "exact player QRF operation execution links conflict";
+			return "exact player support operation execution links conflict";
 		if ((operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
 			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
 			&& !hasExecutionLink)
-			return "exact player QRF operation materialization lacks execution authority";
+			return "exact player support operation materialization lacks execution authority";
 		if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 			&& operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
-			return "physical exact player QRF operation does not own live position authority";
+			return "physical exact player support operation does not own live position authority";
 		if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING
 			&& operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
-			return "dematerializing exact player QRF operation does not retain live position authority";
+			return "dematerializing exact player support operation does not retain live position authority";
 		if ((operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
 			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED)
 			&& operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
-			return "nonphysical exact player QRF operation does not own strategic position authority";
-		if (operation.m_iProjectionContractVersion > 0)
-		{
-			if (operation.m_iProjectionContractVersion != HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
-				|| operation.m_iRouteVersion != HST_StrategicMovementService.DIRECT_ROUTE_VERSION
-				|| operation.m_fRouteTotalDistanceMeters < 0 || operation.m_fRouteProgressMeters < 0
-				|| operation.m_fRouteProgressMeters > operation.m_fRouteTotalDistanceMeters + 1.0
-				|| operation.m_fStrategicSpeedMetersPerSecond <= 0)
-				return "exact player QRF strategic projection contract conflicts";
-		}
+			return "nonphysical exact player support operation does not own strategic position authority";
+		if (operation.m_iProjectionContractVersion
+				!= HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
+			|| operation.m_iRouteVersion != HST_StrategicMovementService.DIRECT_ROUTE_VERSION
+			|| operation.m_fRouteTotalDistanceMeters < 0 || operation.m_fRouteProgressMeters < 0
+			|| operation.m_fRouteProgressMeters > operation.m_fRouteTotalDistanceMeters + 1.0
+			|| operation.m_fStrategicSpeedMetersPerSecond <= 0)
+			return "exact player support strategic projection contract conflicts";
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 		{
 			if (operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
@@ -1328,12 +1538,12 @@ class HST_OperationService
 				|| operation.m_eEngagementMode != HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR
 				|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED
 				|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
-				return "settled exact player QRF operation lacks terminal authority";
+				return "settled exact player support operation lacks terminal authority";
 		}
 		else if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
 			|| !operation.m_sSettlementId.IsEmpty())
-			return "open exact player QRF operation contains terminal authority";
+			return "open exact player support operation contains terminal authority";
 		return "";
 	}
 
@@ -1495,23 +1705,26 @@ class HST_OperationService
 		HST_ForceManifestState manifest)
 	{
 		if (!state || !request || !quote || !manifest)
-			return "exact player QRF operation registration context is missing";
-		if (request.m_iOperationContractVersion != EXACT_PLAYER_QRF_CONTRACT_VERSION)
-			return "exact player QRF request does not opt into the operation contract";
-		if (!request.m_bPlayerRequested || request.m_eType != HST_ESupportRequestType.HST_SUPPORT_QRF
-			|| quote.m_sQuoteKind != HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF
-			|| quote.m_eSupportType != HST_ESupportRequestType.HST_SUPPORT_QRF)
-			return "operation registration is not an exact paid player QRF";
+			return "exact player support operation registration context is missing";
+		if (!IsExactPlayerSupportType(request.m_eType)
+			|| request.m_iOperationContractVersion != ResolveExactPlayerSupportContractVersion(request.m_eType))
+			return "exact player support request does not opt into its typed operation contract";
+		string expectedQuoteKind = HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF;
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			expectedQuoteKind = HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY;
+		if (!request.m_bPlayerRequested || quote.m_sQuoteKind != expectedQuoteKind
+			|| quote.m_eSupportType != request.m_eType)
+			return "operation registration is not an exact paid player support family";
 		if (request.m_sOperationId.IsEmpty() || request.m_sOperationId != HST_StableIdService.BuildOperationId("support", request.m_sRequestId)
 			|| request.m_sOperationId != quote.m_sOperationId || request.m_sOperationId != manifest.m_sOperationId)
-			return "exact player QRF operation identity conflicts";
+			return "exact player support operation identity conflicts";
 		if (request.m_sRequestId != quote.m_sSupportRequestId || request.m_sQuoteId != quote.m_sQuoteId
 			|| request.m_sManifestId != quote.m_sManifestId || request.m_sManifestId != manifest.m_sManifestId
 			|| request.m_sCommandRequestId != quote.m_sConfirmationRequestId)
-			return "exact player QRF request, quote, or manifest links conflict";
+			return "exact player support request, quote, or manifest links conflict";
 		if (quote.m_sActorIdentityId.IsEmpty() || quote.m_sCommandRequestId.IsEmpty() || quote.m_sConfirmationRequestId.IsEmpty()
 			|| quote.m_sFactionKey.IsEmpty() || quote.m_sTargetZoneId.IsEmpty())
-			return "exact player QRF operation immutable identity is incomplete";
+			return "exact player support operation immutable identity is incomplete";
 		return "";
 	}
 
@@ -1644,17 +1857,17 @@ class HST_OperationService
 	{
 		operation = null;
 		if (!request)
-			return "exact player QRF operation request is missing";
+			return "exact player support operation request is missing";
 		if (!RequiresOperation(request))
 			return "";
 		if (!state)
-			return "exact player QRF operation state is missing";
+			return "exact player support operation state is missing";
 		operation = state.FindOperation(request.m_sOperationId);
 		if (!operation)
-			return "versioned exact player QRF operation record is missing";
+			return "versioned exact player support operation record is missing";
 		HST_ForceQuoteState quote = state.FindForceQuote(request.m_sQuoteId);
 		HST_ForceManifestState manifest = state.FindForceManifest(request.m_sManifestId);
-		return ValidateExactPlayerQRF(state, operation, request, quote, manifest);
+		return ValidateExactPlayerSupport(state, operation, request, quote, manifest);
 	}
 
 	protected bool IsLegalEngagementTransition(HST_EOperationEngagementMode currentMode, HST_EOperationEngagementMode nextMode)

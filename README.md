@@ -16,9 +16,9 @@ The repository contains a broad-alpha campaign foundation:
 - Original Everon and compact development scenario shells
 - Data contracts for presets, factions, maps, zones, balance, and missions
 - A versioned campaign-state model with arsenal, vehicle cargo, garage,
-  saved-loadout, issued-item, mission-runtime, active-group, support, canonical
-  exact-QRF and mission-convoy operations, build-mode, campaign-end, and
-  persistence metadata
+  saved-loadout, issued-item, mission-runtime, active-group, support, exact
+  infantry/convoy/rescue operations, radio-site lifecycle, build-mode,
+  campaign-end, and persistence metadata
 - Server-authoritative campaign, economy, mission, persistence, arsenal, loot,
   loadout-editor, garage/build, and native-checkpoint services
 - A 39-entry configured mission-registry baseline
@@ -107,7 +107,13 @@ The repository contains a broad-alpha campaign foundation:
   manifest, and linked ledger rows only after terminal aggregate proof and all
   physical/queue backlinks are gone. Compact rows preserve issue, confirmation,
   and committed-ledger replay for at least 86,400 campaign seconds; new planning
-  fails closed when the shared history bound cannot safely make room.
+  fails closed when the shared history bound cannot safely make room. Capacity
+  eviction applies full receipt reciprocity to every positive typed player-
+  support contract, including exact QRF and Search-and-Destroy, and removes its
+  tombstone/terminal-request pair only when replay validity, unique aggregate
+  identity, and absence of live backlinks also pass. Historical contract-0 QRF
+  keeps its minimal compatibility match; corrupt or quarantined typed pairs
+  remain as evidence.
 - An engine-facing force-spawn adapter driven by the production coordinator once
   per active-campaign second. Its first exact slice creates one infantry group
   root plus every frozen member slot, records a durable nonterminal
@@ -348,7 +354,7 @@ The repository contains a broad-alpha campaign foundation:
   deadline plus 300 seconds, and forbids new claims. Pre-58
   POW missions and `rescue_refugees` remain contract `0`; malformed current
   authority quarantines without invented captives, deaths, extractions, rewards,
-  or fallback. Schema 58 is the preceding stamped source/Workbench baseline at
+  or fallback. Schema 58 is an earlier stamped source/Workbench baseline at
   implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
   `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-
   tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
@@ -415,6 +421,54 @@ The repository contains a broad-alpha campaign foundation:
   WorldEditor open stayed alive and responsive for 10/10 samples over 20 seconds
   with no script-compile or crash signature. Its one Steamworks stats-request
   error was nonfatal. Packaged gameplay proof remains independently open.
+- Schema 60 is the current source/Workbench candidate under build label
+  `schema60-exact-search-destroy` and leaves Schema 59 as the preceding stamped
+  checkpoint. Only newly quoted and confirmed player
+  Search-and-Destroy support enters its separate contract-1 operation type. One
+  immutable infantry-only manifest, $350 charge, HR-per-frozen-member ledger,
+  held SpawnQueue batch, support request, operation, and active group remain one
+  replay-safe aggregate. The direct strategic route continues off-screen;
+  near-player projection realizes only durable survivors; fold returns those
+  survivors to virtual authority; and deterministic 30-second infantry combat
+  updates both frozen friendly slots and the hostile abstract garrison. A group
+  folded away from its immutable assignment first travels back virtually. It
+  stays on station after the hostile garrison clears until commander recall,
+  whose typed exit/settlement path refunds only eligible living HR. Before fold,
+  physical recall exit, or campaign-stop retirement, exact player
+  support exhaustively reconciles that projection's mapped casualties; any
+  surviving projection must then prove one root and exactly one unique live
+  adapter/PhysicalWar binding per durable living slot before its runtime root is
+  retired. Persistence performs the corresponding exhaustive pass across all
+  physical exact infantry, validates each exact-support reciprocal graph and
+  live binding cardinality, and refreshes a still-living support group's
+  physical position before capture. A failed proof defers the authority transfer
+  or checkpoint. Held-batch cancellation snapshots the strategic living roster
+  before cleanup so an immediate recall cannot refund a stale full roster.
+  Historical Search-and-Destroy requests remain contract `0`; malformed
+  current exact claimants quarantine at `-60` without legacy fallback or
+  guessed balances. A quarantined group is globally non-operational and absent
+  from combat-presence checks. Expired archive capacity can remove a valid
+  tombstone/terminal-request pair only after replay, unique-identity, no-live-
+  backlink, and full receipt-reciprocity checks; malformed/quarantined pairs are
+  retained. The compiled/wired Campaign Debug proof covers valid pair prune plus
+  restore and corrupt quarantine retention, but those assertions have not run.
+  The same candidate removes the overlapping Maiden's Bay town while preserving
+  the Logistics Warehouse and conservative frozen-ID save compatibility. A
+  no-anchor save is untouched; ambiguous duplicate authorities fail closed;
+  mutable generic references canonicalize; and settled, quarantined, malformed,
+  or graphless exact typed authority remains frozen. Frozen generated sites and
+  routes receive deep canonical clones while keeping their historical rows,
+  ordinary lookup resolves the warehouse, and exact validators may use a
+  detached old-ID/old-position view with runtime old/canonical equivalence. The
+  deterministic in-memory migration proof is compiled and wired into Campaign
+  Debug but has not run there, and packaged save/restart proof remains open. It
+  also removes known one-second tick multipliers (pure-vehicle count
+  oscillation, redundant/no-convoy scans, repeated authority resolution,
+  unbounded unresolved-radio queries, and eager expensive debug evidence) and
+  disables AI horn behavior at the native wheeled-vehicle base while retaining
+  the scoped ambient-driver input clear. None of these Schema-60 changes is
+  packaged/runtime-certified yet; final Workbench/startup gates also remain to be run
+  for the final candidate.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -472,13 +526,17 @@ The repository contains a broad-alpha campaign foundation:
   checkpoint requests when saving is possible, with a profile JSON fallback at
   `$profile:h-istasi/HST_CampaignSaveData.json`. Before every real capture,
   persistence synchronously reconciles mapped physical exact-convoy, exact-
-  enemy-patrol, exact-garrison-patrol, and exact-mission-guard members so a newly
-  dead soldier cannot be serialized as alive
-  between physical-war ticks. An open publication transaction, missing/
-  conflicting mapping, unverifiable live patrol position, or nonphysical
-  operation retaining member mappings defers the checkpoint before any older
-  tracked state is flushed or an engine savepoint is requested; the pending
-  intent is retained and retried on the bounded debounce.
+  enemy-patrol, exact-garrison-patrol, exact-mission-guard, and exact player-
+  support members so a newly dead soldier cannot be serialized as alive between
+  physical-war ticks. Physical exact player support additionally requires one
+  reciprocal request/operation/batch/group graph, one root plus exactly one
+  unique live binding and PhysicalWar member per durable survivor, and a fresh
+  physical group position before capture. An open publication transaction,
+  materializing exact-infantry handoff, missing/conflicting or aliased mapping,
+  invalid live cardinality, unverifiable live position, or nonphysical operation
+  retaining member mappings defers the checkpoint before any older tracked state
+  is flushed or an engine savepoint is requested; the pending intent is retained
+  and retried on the bounded debounce.
 
 This is a broad-alpha campaign foundation, not a public alpha. Petros and the
 HQ arsenal have live contextual-action prefabs for the alpha menu path, while
@@ -543,10 +601,11 @@ materialization bubble. Current-schema restore accepts casualty tombstones only
 on member slots, enumerates legal open duty and materialization/position pairs,
 and retains missionless or partially unlinked exact-looking rows as quarantine
   evidence rather than deleting them through generic cleanup. General lifecycle
-  authority beyond the two exact infantry-QRF consumers, the exact enemy-patrol,
-  the exact purchased-garrison patrol, the three exact assassination-mission
-  guard families, the narrow exact mission-convoy consumer, and the exact
-  `rescue_pows` guard-plus-captive consumer remains open. Normal spawn
+  authority beyond the two exact infantry-QRF consumers, the exact player
+  Search-and-Destroy consumer, the exact enemy-patrol, the exact purchased-
+  garrison patrol, the three exact assassination-mission guard families, the
+  narrow exact mission-convoy consumer, and the exact `rescue_pows` guard-plus-
+  captive consumer remains open. Normal spawn
 acquisition runs once per active-campaign second. During setup or after a won/
 lost outcome, the coordinator cancels every nonterminal batch and drains its
 cleanup with a monotonic runtime-only clock without advancing campaign elapsed
@@ -564,41 +623,48 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-Schema 59 is the active exact-authority boundary. Schema 58's exact
-`rescue_pows` operation remains unchanged; Schema 59 separately opts newly
-started radio destruction/rebuild missions into durable radio-site contract `1`
-and quarantine `-59`. Historical terminal radio missions remain contract `0`,
-and active legacy radio missions fail closed rather than guessing a destroyed
-or rebuilt transmitter. Packaged schema-50 through schema-59 certification
-remains independently open; source or Workbench validation does not certify
-native entities, actual restart, rendered UI, networking, reconnect, or JIP.
+Schema 60 is the active development boundary and is not yet a stamped or
+runtime-proven checkpoint. It adds only the new exact player Search-and-Destroy
+contract plus the conservative Maiden's Bay retirement and focused stutter/horn
+repairs described above. The Maiden's Bay migration fixture is compiled and
+wired into Campaign Debug, but the assertion has not run and no packaged save/
+restart has exercised it. Schema 59 remains the latest stamped source/Workbench
+checkpoint and its exact radio-site lifecycle is unchanged. Packaged schema-50
+through schema-60 certification remains independently open; source or Workbench
+validation does not certify native entities, actual restart, rendered UI,
+networking, reconnect, or JIP.
 
-1. Publish and test the stamped Schema-59 build,
-   including the schema-50 marker,
+1. Finish and stamp the Schema-60 source/Workbench candidate, then publish that
+   exact package for the next server check. Preserve Schema 59 as the known
+   preceding checkpoint instead of copying its hashes or pass results forward.
+2. In that published check, cover the schema-50 marker,
    map-dialog, radio-site, and civilian repairs. Require valid-sized marker
    icons, `Location | Owner` labels, a
    visible pointer over the support confirmation dialog, one authored radio
    tower per existing site, and correct destroy-target binding. The already
    restored stock HUD and Game Master access must remain intact.
-2. Prove civilian projection in a fresh packaged run: zero unregistered group-
+3. Prove civilian projection in a fresh packaged run: zero unregistered group-
    member RPCs, varied concrete appearances, five driven vehicles per true
    town, two pedestrians at the known minor woodland locality, no stuck horns,
    and actual distance-over-time movement. Figari and Morton must project
-   civilians and eligible military garrisons near a player; the separate
-   900 m hostile-operation staging clearance must not erase either location.
-3. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
+   civilians and eligible military garrisons near a player; Maiden's Bay must
+   show only the Logistics Warehouse; and the separate 900 m hostile-operation
+   staging clearance must not erase either location. Confirm that the observed
+   once-per-second stutter and continuous AI horns are gone; source inspection
+   alone does not close either runtime defect.
+4. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
    replace the historical Full Campaign Debug artifact with corrected evidence.
-4. Runtime-prove exact paid-QRF creation and the schema-50 operation path:
+5. Runtime-prove exact paid-QRF creation and the schema-50 operation path:
    strategic travel from the direct-route cursor, bounded catch-up, proximity
    materialization/fold hysteresis, exact casualty/survivor transfer, on-station
    virtual combat, recall/settlement, archive replay, and once-only accounting
    across save/restart.
-5. Runtime-prove the schema-51 exact infantry-only enemy defensive QRF: one
+6. Runtime-prove the schema-51 exact infantry-only enemy defensive QRF: one
    prepaid frozen roster, no duplicate legacy response, strategic outbound and
    return travel, materialization/fold hysteresis, exact casualties, two-sample
    physical arrival, once-only defensive pressure, proportional survivor
    settlement, marker movement/cleanup, and save/restart replay.
-6. Runtime-prove the schema-52 exact mission convoy: one frozen generated road
+7. Runtime-prove the schema-52 exact mission convoy: one frozen generated road
    route, exactly three linked vehicles and three crew groups, cargo/captive
    assignment to vehicle zero, virtual travel without timer arrival,
    materialization with 3/3 seated living drivers, physical interception,
@@ -614,14 +680,26 @@ native entities, actual restart, rendered UI, networking, reconnect, or JIP.
    case and prove one terminal transition, zero capture/marker pressure, one
    neutral salvage detachment, no duplicate vehicle, and no survivor
    resurrection after restart.
-7. Prove static marker widget readiness plus authoritative host/client/late-join
+8. Runtime-prove the Schema-60 exact infantry-only player Search-and-Destroy
+   operation: immutable quote/manifest/ledger identity, $350 plus exact roster
+   HR, no vehicle/asset/multi-root substitution, direct-route travel, virtual-
+   to-physical-to-virtual survivor continuity, mapped casualties, off-screen
+   combat, virtual return to assignment after a displaced fold, commander
+   recall, living-HR settlement, archive replay, contract-0 legacy isolation,
+   `-60` quarantine, safe paired archive-capacity eviction, corrupt-pair
+   retention, and real save/restart. Require live adapter-observed
+   casualties, cardinality-checked root retirement during fold, and the physical
+   recall-exit path; the deterministic queue casualty/fold fixture is source
+   bookkeeping evidence only. Clearing hostile infantry must leave the group on
+   station until recalled.
+9. Prove static marker widget readiness plus authoritative host/client/late-join
    projection before treating marker publication as player-visible truth.
-8. Runtime-prove the schema-53 exact newly queued enemy-patrol slice: one frozen
+10. Runtime-prove the schema-53 exact newly queued enemy-patrol slice: one frozen
    infantry roster, once-only proactive attack debit, outbound virtual travel,
    materialization/fold with mapped casualties, physical contact hold, one
    closed patrol lap, return, survivor-proportional refund, marker cleanup, and
    save/restart. Historical patrols must remain contract version `0`.
-9. Runtime-prove the schema-54 exact purchased-garrison patrol: a newly issued
+11. Runtime-prove the schema-54 exact purchased-garrison patrol: a newly issued
    policy-v2 resistance purchase must hold one exact arbitrary member roster,
    loop locally while virtual, materialize its empty root plus living slots,
    retain mapped casualties across fold/re-entry, publish and clean up its
@@ -629,7 +707,7 @@ native entities, actual restart, rendered UI, networking, reconnect, or JIP.
    stop. Save/restart and late join must preserve the same roster and cursor.
    Historical policy-v1, initial-map, enemy aggregate, vehicle, and multi-root
    garrisons must remain isolated on their legacy paths.
-10. Runtime-prove the schema-55 exact officer-assassination guard: only a newly
+12. Runtime-prove the schema-55 exact officer-assassination guard: only a newly
     started `assassinate_officer` mission may admit one route-less empty-root/
     member roster. Prove native materialization, mapped casualties, fold/re-entry,
     all-guards-dead independence from the HVT objective, every typed zero-refund
@@ -637,7 +715,7 @@ native entities, actual restart, rendered UI, networking, reconnect, or JIP.
     existing-HVT marker/UI status, save/restart, owner change, campaign setup,
     reconnect, and JIP. Historical officer missions, other assassination
     variants, and every other mission family must remain contract `0`.
-11. Runtime-prove the schema-56 exact traitor-assassination guard: only a newly
+13. Runtime-prove the schema-56 exact traitor-assassination guard: only a newly
     started `assassinate_traitor` mission may use contract `2` and
     `exact_assassinate_traitor_guard_v1`. Prove the same route-less exact roster,
     HVT separation, survivor projection/fold, typed zero-refund outcomes, compact
@@ -646,7 +724,7 @@ native entities, actual restart, rendered UI, networking, reconnect, or JIP.
     real save/restart, rendered UI, owner-change, setup, packaged networking,
     reconnect, and JIP. Pre-56 traitor missions remain contract `0`, and the
     separately opted Schema-57 spec-ops path must not alter traitor contract `2`.
-12. Runtime-prove the schema-57 exact spec-ops-assassination guard: only a newly
+14. Runtime-prove the schema-57 exact spec-ops-assassination guard: only a newly
     started `assassinate_specops` mission may use contract `3`, policy
     `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and
     `-57` quarantine. Prove the same route-less exact roster, HVT separation,
@@ -655,7 +733,7 @@ native entities, actual restart, rendered UI, networking, reconnect, or JIP.
     contract `1` and traitor contract `2`. Historical/pre-57 spec-ops, ordinary
     `mission_group_*` rows, rescue missions, and unsupported families must remain
     contract `0`. Cover every packaged/native/restart/UI/network gate still open.
-13. Runtime-prove the schema-58 exact POW rescue: only newly started
+15. Runtime-prove the schema-58 exact POW rescue: only newly started
     `rescue_pows` may use mission-rescue contract `1`, policy
     `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and `-58` quarantine.
     Prove one exact guard roster plus three captive identities, rendered action
@@ -674,11 +752,15 @@ using its separate contract version and policy. Schema 57 adds the spec-ops
 guard as an eighth explicit family consumer without adding an operation type.
 Schema 58 adds mission rescue as a seventh explicit operation type and a ninth
 exact family consumer, limited to newly started `rescue_pows`.
-The infantry-QRF virtual routes use a conservative direct
+Schema 60 adds player Search-and-Destroy as an eighth explicit operation type
+and a tenth exact family consumer. The infantry-QRF and Search-and-Destroy
+virtual routes use a conservative direct
 campaign cursor, materialization uses separate in/out distances, and the frozen
 manifest slots remain the living/dead roster across fold and restore. Player
-virtual combat is deliberately limited to its on-station infantry QRF against
-abstract target-garrison infantry. The enemy defensive policy instead applies
+virtual combat is deliberately limited to on-station exact infantry QRF and
+Search-and-Destroy operations against abstract target-garrison infantry. Search-
+and-Destroy remains on station after hostile clearance until commander recall;
+the enemy defensive policy instead applies
 bounded capture-pressure relief once, returns to origin, and settles surviving
 resources. The convoy instead advances a persisted generated road-route cursor
 at convoy speed, owns three durable vehicle/crew elements, projects physically
@@ -699,26 +781,27 @@ operations milestone: generalized live-contact authority, terrain and
   other enemy orders, historical patrols, and client/JIP projection remain
   future slices. The assassination-guard family is exhausted after Schema 57;
   Schema 58 implements the first rescue vertical only. Schema 59 separately
-  implements the exact radio-site lifecycle; further rescue families and the
-  next blueprint consumer still require their own explicit cutovers.
+  implements the exact radio-site lifecycle. Schema 60 adds only the new player
+  Search-and-Destroy force consumer; further rescue and unsupported mission/
+  support families still require their own explicit cutovers.
 
 The last published schema-49 server/client check is runtime evidence that stock
-HUD, Game Master, map markers, and civilian traffic initialize again. It is also
-evidence for the newly reported marker, cursor, radio, classification,
-appearance, horn, and military/civilian activation defects—not proof of the
-schema-50 repairs. The preceding stamped Schema-58 tree identifies implementation
-`f0ba07ff2bc295d12542a3ea34b4c913e99b1869`, build label
-`schema58-exact-rescue-pows`, and passes the full foundation gate through the
-exact rescue authority checks. Final stamped-tree Workbench Game validation
-loaded 5,770 files/11,594 classes with CRC `aa73883a` and reported
-`Script validation successful`; the bounded hidden normal WorldEditor open stayed
-responsive for 10/10 samples over 20 seconds with zero crash/error matches. This
-is source/Workbench evidence, not
-packaged gameplay proof. A republished server/client test is still required
+HUD, Game Master, map markers, and civilian traffic initialize again. It also
+records the marker, cursor, radio, classification, appearance, horn, and
+military/civilian activation defects, not proof of later source repairs. A newer
+user server check additionally observed a pronounced once-per-second stutter,
+continuous AI horns, and overlapping Maiden's Bay town/warehouse markers. Those
+observations are the runtime baseline for the Schema-60 performance, horn, and
+location fixes. Schema 59 remains the latest stamped source/Workbench checkpoint
+at implementation `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21`, build label
+`schema59-radio-site-lifecycle`, and the gate results recorded above. Schema 60
+has no inherited stamp, CRC, or passing gate. A republished server/client test is
+still required
 before those repairs, either exact-QRF projection path, or any source-validated
 schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/
   schema-55 officer-guard/schema-56 traitor-guard/schema-57 spec-ops-guard/
-  schema-58 exact POW-rescue paths
+  schema-58 exact POW-rescue/Schema-59 radio-site/Schema-60 exact Search-and-
+  Destroy paths
 is called runtime-proven. The late-admin
 role-change guard, campaign-debug
 isolation, convoy seating, physical support movement/arrival/recall, and restart

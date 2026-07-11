@@ -913,7 +913,10 @@ class HST_GarrisonPatrolOperationService
 		if (!failure.IsEmpty())
 			return QuarantineOperationAuthority(state, operation, failure);
 
-		HST_ZoneState zone = state.FindZone(operation.m_sAssignmentZoneId);
+		// Exact patrol positions remain immutable across location-taxonomy merges.
+		// The historical view keeps the frozen ID/position while reflecting the
+		// canonical row's current owner.
+		HST_ZoneState zone = state.FindFrozenHistoricalZoneView(operation.m_sAssignmentZoneId);
 		if (zone.m_sOwnerFactionKey != operation.m_sOwnerFactionKey)
 		{
 			return RetireAndSettle(
@@ -2143,7 +2146,7 @@ class HST_GarrisonPatrolOperationService
 		if (!strategicPair && !livePair)
 			return "exact garrison patrol materialization and position authority conflict";
 
-		HST_ZoneState zone = state.FindZone(operation.m_sAssignmentZoneId);
+		HST_ZoneState zone = state.FindFrozenHistoricalZoneView(operation.m_sAssignmentZoneId);
 		if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT
 			|| zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE
 			|| IsZeroVector(zone.m_vPosition))
@@ -2844,6 +2847,8 @@ class HST_GarrisonPatrolOperationService
 		string integrityFailure;
 		if (!m_Integrity.ValidateFrozenGarrisonQuote(manifest, quote, true, integrityFailure))
 			return "exact garrison patrol frozen manifest conflicts: " + integrityFailure;
+		if (HST_MaidensBayLocationSaveValidationService.IsLegacyZoneId(quote.m_sTargetZoneId))
+			return "exact garrison patrol quote targets a retired location; cancel or let the quote expire and issue a new warehouse quote";
 
 		HST_ZoneState zone = state.FindZone(quote.m_sTargetZoneId);
 		if (!zone || zone.m_sOwnerFactionKey != quote.m_sFactionKey

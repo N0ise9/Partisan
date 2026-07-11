@@ -52,8 +52,8 @@ GenericEntity HST_ZoneAnchor_outpost_pinewood_lake : "{C72F956E4AC6A6E7}Prefabs/
 GenericEntity HST_ZoneAnchor_town_tillers_find : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 3789.583 59.781 6997.688
 }
-GenericEntity HST_ZoneAnchor_town_maidens_bay : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 5345.855 43.594 10536.602
+GenericEntity HST_ZoneAnchor_resource_logistics_warehouse : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5347.874 43.617 10542.923
 }
 GenericEntity HST_ZoneAnchor_town_hornbeam_valley : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 5491.385 75.196 7952.735

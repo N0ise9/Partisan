@@ -2,7 +2,7 @@ class HST_BuildInfo
 {
 	static const string BUILD_SHA = "37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21";
 	static const string BUILD_UTC = "2026-07-11T20:01:02Z";
-	static const string BUILD_LABEL = "schema59-radio-site-lifecycle";
+	static const string BUILD_LABEL = "schema60-exact-search-destroy";
 
 	static string BuildSummary()
 	{

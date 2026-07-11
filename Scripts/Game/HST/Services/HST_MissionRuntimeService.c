@@ -9826,7 +9826,9 @@ class HST_MissionRuntimeService
 
 		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
 		{
-			if (!group || !state.IsCombatPresentActiveGroup(group) || group.m_bQRF || group.m_sZoneId != zoneId || group.m_sFactionKey == resistanceFactionKey)
+			if (!group || !state.IsCombatPresentActiveGroup(group) || group.m_bQRF
+				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(group.m_sZoneId, zoneId)
+				|| group.m_sFactionKey == resistanceFactionKey)
 				continue;
 			if (group.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX))
 				continue;
