@@ -448,7 +448,7 @@ class HST_ZoneCaptureService
 		float radiusSq = radius * radius;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || activeGroup.m_sFactionKey != resistanceFactionKey)
+			if (!activeGroup || !state.IsCombatPresentActiveGroup(activeGroup) || activeGroup.m_sFactionKey != resistanceFactionKey)
 				continue;
 			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
 				continue;
@@ -472,7 +472,7 @@ class HST_ZoneCaptureService
 		float radiusSq = ResolveCaptureRadius(zone, balance) * ResolveCaptureRadius(zone, balance);
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || activeGroup.m_sFactionKey == resistanceFactionKey)
+			if (!activeGroup || !state.IsCombatPresentActiveGroup(activeGroup) || activeGroup.m_sFactionKey == resistanceFactionKey)
 				continue;
 			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
 				continue;

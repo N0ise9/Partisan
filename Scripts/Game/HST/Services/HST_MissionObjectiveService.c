@@ -143,7 +143,7 @@ class HST_MissionObjectiveService
 		if (mission.m_sMissionId == "convoy_money")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
 		if (mission.m_sMissionId == "convoy_supplies")
-			return !mission.m_bConvoyCrewEliminatedOutcomeApplied && HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
+			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
 		if (mission.m_sMissionId == "convoy_prisoners")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_captive");
 		if (mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored")
@@ -159,7 +159,7 @@ class HST_MissionObjectiveService
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role)
 				continue;
 
-			if (!asset.m_bDelivered || !asset.m_bOutcomeApplied)
+			if (!asset.m_bDestroyed && (!asset.m_bDelivered || !asset.m_bOutcomeApplied))
 				return true;
 		}
 

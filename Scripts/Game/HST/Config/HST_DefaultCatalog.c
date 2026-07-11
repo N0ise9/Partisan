@@ -1391,8 +1391,18 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			return "Kill the HVT before the timer expires.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
 			return "Clear defenders, stay inside the objective area, and complete the hold timer.";
+		if (mission.m_sMissionId == "convoy_ammo")
+			return "Kill all convoy soldiers before the convoy reaches its destination, then capture a surviving vehicle to establish the ammo point.";
+		if (mission.m_sMissionId == "convoy_armored")
+			return "Kill all convoy soldiers before the convoy reaches its destination, then capture a surviving vehicle for the garage.";
+		if (mission.m_sMissionId == "convoy_money")
+			return "Kill all convoy soldiers before the convoy reaches its destination, then recover and deliver the money payload to HQ.";
+		if (mission.m_sMissionId == "convoy_prisoners")
+			return "Kill all convoy soldiers before the convoy reaches its destination, then free and extract the prisoners.";
+		if (mission.m_sMissionId == "convoy_supplies")
+			return "Kill all convoy soldiers before the convoy reaches its destination, then recover and deliver the supplies.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return "Kill all convoy soldiers before the convoy reaches its destination. Capturing surviving vehicles is optional.";
+			return "Kill all convoy soldiers before the convoy reaches its destination.";
 		if (mission.m_sMissionId == "destroy_or_steal_armor")
 			return "Destroy the armor or capture and garage it at HQ.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)

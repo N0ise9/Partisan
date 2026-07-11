@@ -154,6 +154,58 @@ function Get-BraceCountsOutsideStrings {
 	}
 }
 
+function Get-ScriptMethodBlock {
+	param(
+		[string] $Text,
+		[string] $SignatureToken
+	)
+
+	$start = $Text.IndexOf($SignatureToken)
+	if ($start -lt 0) {
+		return ""
+	}
+
+	$braceStart = $Text.IndexOf("{", $start)
+	if ($braceStart -lt 0) {
+		return ""
+	}
+
+	$depth = 0
+	$inString = $false
+	$escaped = $false
+	for ($i = $braceStart; $i -lt $Text.Length; $i++) {
+		$char = $Text[$i]
+		if ($inString) {
+			if ($escaped) {
+				$escaped = $false
+			}
+			elseif ($char -eq "\") {
+				$escaped = $true
+			}
+			elseif ($char -eq '"') {
+				$inString = $false
+			}
+			continue
+		}
+
+		if ($char -eq '"') {
+			$inString = $true
+			continue
+		}
+		if ($char -eq "{") {
+			$depth++
+		}
+		elseif ($char -eq "}") {
+			$depth--
+			if ($depth -eq 0) {
+				return $Text.Substring($start, $i - $start + 1)
+			}
+		}
+	}
+
+	return ""
+}
+
 $project = Get-Content -Raw "addon.gproj"
 foreach ($requiredProjectDependency in @(
 		'"58D0FB3206B6F859"'
@@ -503,6 +555,7 @@ foreach ($requiredCivilianRuntimeEmptyGroupEntry in @(
 		throw "CIV runtime empty AIGroup prefab must inherit the stock behavior/replication base, remain empty and non-deleting, and be CIV-tagged: $requiredCivilianRuntimeEmptyGroupEntry"
 	}
 }
+
 if ($civilianRuntimeEmptyGroupText -notmatch 'm_aUnitPrefabSlots\s*\{\s*\}') {
 	throw "CIV runtime empty AIGroup prefab must explicitly start with no unit slots"
 }
@@ -4855,7 +4908,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 51",
+		"SCHEMA_VERSION = 52",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -5235,7 +5288,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 51',
+		'SCHEMA_VERSION = 52',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5790,6 +5843,1977 @@ if ($forceSaveDataText -notmatch [regex]::Escape('NormalizeActiveGroupSourceLink
 	throw "Schema-51 current-schema restore must not synthesize the required enemy-order group backlink"
 }
 Write-Host "Schema-51 exact enemy defensive-QRF admission, projection, settlement, persistence, marker, and proof contract OK"
+$missionConvoyOperationPath = "Scripts/Game/HST/Services/HST_MissionConvoyOperationService.c"
+$missionConvoyProofPath = "Scripts/Game/HST/Services/HST_MissionConvoyOperationProofService.c"
+$missionConvoySaveValidationPath = "Scripts/Game/HST/Services/HST_MissionConvoySaveValidationService.c"
+$missionConvoyP1PolicyPath = "Scripts/Game/HST/Services/HST_MissionConvoyP1Policy.c"
+foreach ($schema52Path in @($missionConvoyOperationPath, $missionConvoyProofPath, $missionConvoySaveValidationPath, $missionConvoyP1PolicyPath, $physicalWarPath)) {
+	if (!(Test-Path $schema52Path)) {
+		throw "Schema-52 exact mission-convoy source is missing: $schema52Path"
+	}
+}
+$missionConvoyOperationText = Get-Content -Raw $missionConvoyOperationPath
+$missionConvoyProofText = Get-Content -Raw $missionConvoyProofPath
+$missionConvoySaveValidationText = Get-Content -Raw $missionConvoySaveValidationPath
+$missionConvoyP1PolicyText = Get-Content -Raw $missionConvoyP1PolicyPath
+$physicalWarText = Get-Content -Raw $physicalWarPath
+$schema52SaveValidationCorpus = $forceSaveDataText + "`n" + $missionConvoySaveValidationText
+$schema52StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $schema52SaveValidationCorpus
+foreach ($requiredSchema52StateEntry in @(
+		'SCHEMA_VERSION = 52',
+		'HST_OPERATION_TYPE_MISSION_CONVOY',
+		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
+		'class HST_ConvoyElementState',
+		'int m_iLastNormalizedRestoreSequence = -1;',
+		'string m_sAssignedVehicleSlotId;',
+		'string m_sConvoyElementId;',
+		'ref array<ref HST_ConvoyElementState> m_aConvoyElements = {};',
+		'HST_ConvoyElementState FindConvoyElement(string elementId)',
+		'class HST_MissionConvoySaveValidationService',
+		'NormalizeSchema52MissionConvoyAuthority(restoredSchemaVersion);',
+		'ValidateSchema52MissionConvoyRestore',
+		'NormalizeSchema52MissionConvoyDerivedGroupSurvivors',
+		'QuarantineSchema52MissionConvoy',
+		'CountSchema52MissionConvoyMissionsByAnyIdentity',
+		'CountSchema52MissionConvoyOperationsByAnyIdentity',
+		'CountSchema52MissionConvoyManifestsByAnyIdentity',
+		'CountSchema52MissionConvoyBatchesByAnyIdentity',
+		'migration_schema52_mission_convoy_authority',
+		'legacy_mission_convoys_preserved_contract_zero',
+		'normalization_schema52_mission_convoy_authority_conflict'
+	)) {
+	if ($schema52StateCorpus -notmatch [regex]::Escape($requiredSchema52StateEntry)) {
+		throw "Schema-52 mission-convoy state, migration, or restore contract missing: $requiredSchema52StateEntry"
+	}
+}
+$schema52SaveValidationDelegatePattern = 'HST_MissionConvoySaveValidationService\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*new\s+HST_MissionConvoySaveValidationService\s*\(\s*\)\s*;\s*\1\.Normalize\s*\(\s*this\s*,\s*restoredSchemaVersion\s*\)\s*;'
+$schema52SaveValidationDelegateMatch = [regex]::Match($forceSaveDataText, $schema52SaveValidationDelegatePattern)
+if (!$schema52SaveValidationDelegateMatch.Success) {
+	throw "Schema-52 campaign-save migration must delegate exact mission-convoy normalization to HST_MissionConvoySaveValidationService"
+}
+foreach ($requiredSchema52CopyEntry in @(
+		'target.m_iLastNormalizedRestoreSequence = source.m_iLastNormalizedRestoreSequence;',
+		'target.m_sOperationId = source.m_sOperationId;',
+		'target.m_sManifestId = source.m_sManifestId;',
+		'target.m_sSpawnResultId = source.m_sSpawnResultId;',
+		'target.m_iOperationContractVersion = source.m_iOperationContractVersion;',
+		'target.m_sAssignedVehicleSlotId = source.m_sAssignedVehicleSlotId;',
+		'target.m_sConvoyElementId = source.m_sConvoyElementId;',
+		'protected HST_ConvoyElementState CopyConvoyElement',
+		'target.m_iSurvivingCrewCount = source.m_iSurvivingCrewCount;',
+		'target.m_fVehicleDamageFraction = source.m_fVehicleDamageFraction;',
+		'target.m_fFuelFraction = source.m_fFuelFraction;',
+		'target.m_fAmmoFraction = source.m_fAmmoFraction;',
+		'target.m_eDisposition = source.m_eDisposition;',
+		'target.m_bPhysicalized = source.m_bPhysicalized;',
+		'target.m_bMobile = source.m_bMobile;'
+	)) {
+	if ($forceSaveDataText -notmatch [regex]::Escape($requiredSchema52CopyEntry)) {
+		throw "Schema-52 mission-convoy deep copy missing exact authority: $requiredSchema52CopyEntry"
+	}
+}
+$schema52MigrationStart = $missionConvoySaveValidationText.IndexOf('protected void NormalizeSchema52MissionConvoyAuthority')
+$schema52MigrationEnd = $missionConvoySaveValidationText.IndexOf('static bool IsSchema52MissionConvoyMissionClaimant', $schema52MigrationStart)
+if ($schema52MigrationStart -lt 0 -or $schema52MigrationEnd -le $schema52MigrationStart) {
+	throw "Schema-52 mission-convoy migration and current-schema validation block is missing"
+}
+$schema52MigrationBlock = $missionConvoySaveValidationText.Substring($schema52MigrationStart, $schema52MigrationEnd - $schema52MigrationStart)
+foreach ($requiredSchema52MigrationEntry in @(
+		'restoredSchemaVersion < 52',
+		'legacyMission.m_iOperationContractVersion = 0;',
+		'legacyMission.m_sOperationId = "";',
+		'legacyMission.m_sManifestId = "";',
+		'legacyMission.m_sSpawnResultId = "";',
+		'ValidateSchema52MissionConvoyRestore',
+		'NormalizeSchema52MissionConvoyDerivedGroupSurvivors',
+		'QuarantineSchema52MissionConvoy'
+	)) {
+	if ($schema52MigrationBlock -notmatch [regex]::Escape($requiredSchema52MigrationEntry)) {
+		throw "Schema-52 migration must preserve pre-exact convoys at contract zero and validate current exact authority: $requiredSchema52MigrationEntry"
+	}
+}
+$schema52RestoreValidateIndex = $schema52MigrationBlock.IndexOf('ValidateSchema52MissionConvoyRestore')
+$schema52DerivedNormalizeIndex = $schema52MigrationBlock.IndexOf('NormalizeSchema52MissionConvoyDerivedGroupSurvivors', $schema52RestoreValidateIndex)
+$schema52RestoreQuarantineIndex = $schema52MigrationBlock.IndexOf('QuarantineSchema52MissionConvoy', $schema52RestoreValidateIndex)
+if ($schema52RestoreValidateIndex -lt 0 -or $schema52DerivedNormalizeIndex -le $schema52RestoreValidateIndex -or
+	$schema52RestoreQuarantineIndex -le $schema52DerivedNormalizeIndex) {
+	throw "Schema-52 restore must validate exact authority before normalizing derivative group survivors and quarantine only invalid claimants"
+}
+$schema52ValidateElementsStart = $missionConvoySaveValidationText.IndexOf('protected string ValidateSchema52MissionConvoyElements')
+$schema52ValidateElementsEnd = $missionConvoySaveValidationText.IndexOf('protected string ValidateSchema52MissionConvoyCargo', $schema52ValidateElementsStart)
+if ($schema52ValidateElementsStart -lt 0 -or $schema52ValidateElementsEnd -le $schema52ValidateElementsStart) {
+	throw "Schema-52 exact mission-convoy element restore validator is missing"
+}
+$schema52ValidateElementsBlock = $missionConvoySaveValidationText.Substring($schema52ValidateElementsStart, $schema52ValidateElementsEnd - $schema52ValidateElementsStart)
+if ($schema52ValidateElementsBlock -notmatch [regex]::Escape('CountSchema52LivingMemberSlotsForGroup') -or
+	$schema52ValidateElementsBlock -match 'group\.m_i(?:InfantryCount|LastSeenAliveCount|SurvivorInfantryCount|DurableLivingInfantryCount)\s*!=\s*element\.m_iSurvivingCrewCount') {
+	throw "Schema-52 restore must validate casualties from exact member slots plus convoy elements, then normalize stale derivative group counters"
+}
+$schema52ManifestRestoreBlock = Get-ScriptMethodBlock $missionConvoySaveValidationText 'protected string ValidateSchema52MissionConvoyManifest('
+if ([string]::IsNullOrEmpty($schema52ManifestRestoreBlock)) {
+	throw "Schema-52 exact mission-convoy frozen manifest restore validator is missing"
+}
+foreach ($requiredSchema52ManifestRestoreEntry in @(
+		'BuildMemberSlotId(mission, ordinal, seatIndex)',
+		'memberSlot.m_iOrdinal == expectedMemberOrdinal',
+		'memberSlot.m_iSeatIndex == seatIndex',
+		'seatIndex == 0 && memberSlot.m_sSeatRole != "driver"',
+		'seatIndex > 0 && memberSlot.m_sSeatRole != "passenger"'
+	)) {
+	if ($schema52ManifestRestoreBlock -notmatch [regex]::Escape($requiredSchema52ManifestRestoreEntry)) {
+		throw "Schema-52 restore must validate deterministic member-slot, ordinal, and seat identity after verifying the hash: $requiredSchema52ManifestRestoreEntry"
+	}
+}
+$schema52SettlementRestoreBlock = Get-ScriptMethodBlock $missionConvoySaveValidationText 'protected string ValidateSchema52MissionConvoySettlement('
+$schema52ArrivalEvidenceBlock = Get-ScriptMethodBlock $missionConvoySaveValidationText 'protected bool HasSchema52SettledArrivalEvidence('
+if ([string]::IsNullOrEmpty($schema52SettlementRestoreBlock) -or [string]::IsNullOrEmpty($schema52ArrivalEvidenceBlock)) {
+	throw "Schema-52 settled-arrival restore evidence validator is missing"
+}
+foreach ($requiredSchema52ArrivalRestoreEntry in @(
+		'SCHEMA52_CONVOY_FAILURE_PHASE',
+		'SCHEMA52_CONVOY_FAILURE_EVENT',
+		'Convoy reached its destination:',
+		'operation.m_vRouteEndPosition',
+		'HST_CONVOY_ELEMENT_DISPOSITION_ARRIVED'
+	)) {
+	if ($schema52ArrivalEvidenceBlock -notmatch [regex]::Escape($requiredSchema52ArrivalRestoreEntry)) {
+		throw "Schema-52 completed-arrival restore must require durable phase/event/reason/route/element evidence: $requiredSchema52ArrivalRestoreEntry"
+	}
+}
+if ($schema52SettlementRestoreBlock -notmatch [regex]::Escape('HasSchema52SettledArrivalEvidence(mission, operation)')) {
+	throw "Schema-52 completed settlement restore must invoke the durable arrival-evidence validator"
+}
+$schema52ProjectionRestoreBlock = Get-ScriptMethodBlock $missionConvoySaveValidationText 'protected string ValidateSchema52MissionConvoyProjection('
+$schema52BatchRestoreBlock = Get-ScriptMethodBlock $missionConvoySaveValidationText 'protected string ValidateSchema52MissionConvoyBatch('
+if ([string]::IsNullOrEmpty($schema52ProjectionRestoreBlock) -or [string]::IsNullOrEmpty($schema52BatchRestoreBlock)) {
+	throw "Schema-52 exact mission-convoy projection or roster restore validator is missing"
+}
+foreach ($requiredSchema52OpenStateEntry in @(
+		'HST_MissionConvoyP1Policy.IsOpenDutyPair',
+		'HST_MissionConvoyP1Policy.IsProjectionPair',
+		'HST_OPERATION_DUTY_STAGING',
+		'HST_OPERATION_DUTY_OUTBOUND',
+		'HST_OPERATION_DUTY_ON_STATION',
+		'HST_OPERATION_MATERIALIZATION_RETIRING',
+		'HST_OPERATION_MATERIALIZATION_RETIRED'
+	)) {
+	if (($missionConvoyP1PolicyText + "`n" + $schema52ProjectionRestoreBlock + "`n" + $schema52SettlementRestoreBlock) -notmatch [regex]::Escape($requiredSchema52OpenStateEntry)) {
+		throw "Schema-52 OPEN convoy restore must enumerate legal duty/resume and projection cross-products: $requiredSchema52OpenStateEntry"
+	}
+}
+foreach ($requiredSchema52RootRosterEntry in @(
+		'non-member root contains casualty authority',
+		'root is retired or unregistered',
+		'slot.m_sSlotKind == "group"',
+		'slot.m_sSlotKind == "vehicle" || slot.m_sSlotKind == "asset"',
+		'!slot.m_bAliveVerified || !slot.m_bEverAlive'
+	)) {
+	if ($schema52BatchRestoreBlock -notmatch [regex]::Escape($requiredSchema52RootRosterEntry)) {
+		throw "Schema-52 OPEN convoy restore must reserve casualty tombstones for member slots and validate live roots: $requiredSchema52RootRosterEntry"
+	}
+}
+$schema52GenericRestoreBlock = Get-ScriptMethodBlock $forceSaveDataText 'protected void NormalizeRestoredOperationProjectionState('
+if ([string]::IsNullOrEmpty($schema52GenericRestoreBlock)) {
+	throw "Schema-52 generic projection restore block is missing"
+}
+$schema52MissionConvoySkipIndex = $schema52GenericRestoreBlock.IndexOf('operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY')
+$schema52GenericArrivalResetIndex = $schema52GenericRestoreBlock.IndexOf('operation.m_iArrivalConfirmationCount = 0;')
+if ($schema52MissionConvoySkipIndex -lt 0 -or $schema52GenericArrivalResetIndex -lt 0 -or $schema52MissionConvoySkipIndex -gt $schema52GenericArrivalResetIndex) {
+	throw "Schema-52 exact mission convoys must bypass the single-root generic projection restore normalizer"
+}
+
+foreach ($requiredSchema52OperationEntry in @(
+		'class HST_MissionConvoyOperationService',
+		'EXACT_CONTRACT_VERSION = 1',
+		'QUARANTINED_CONTRACT_VERSION = -52',
+		'EXACT_VEHICLE_COUNT = 3',
+		'EXACT_MATERIALIZE_IN_RADIUS_METERS',
+		'EXACT_MATERIALIZE_OUT_RADIUS_METERS',
+		'EXACT_ARRIVAL_RADIUS_METERS',
+		'PrepareNewMissionContract',
+		'AdmitNewMission',
+		'HST_MissionConvoyP1Policy.ValidateAdmissionCargo(state, mission)',
+		'TickBeforePhysical',
+		'TickAfterPhysical',
+		'TickAfterOutcomes',
+		'ReconcileAfterRestore',
+		'ReconcileSettledRuntimeCleanup',
+		'NormalizeRestoredProjection',
+		'ResolveAuthority',
+		'QuarantineAmbiguousAuthority',
+		'CountOperationClaimants',
+		'CountManifestClaimants',
+		'CountBatchClaimants',
+		'CountElementClaimants',
+		'CountElementIdentityClaimants',
+		'CountAssetIdentityClaimants',
+		'CountGroupIdentityClaimants',
+		'CountCargoIdentityClaimants',
+		'authority quarantined without mutating ambiguous operation, manifest, batch, group, asset, or element rows',
+		'IsArrivalPositionConfirmed',
+		'EnterRecoveryHold',
+		'HasPendingRecoveryOutcome'
+	)) {
+	if ($missionConvoyOperationText -notmatch [regex]::Escape($requiredSchema52OperationEntry)) {
+		throw "Schema-52 exact mission-convoy operation authority missing: $requiredSchema52OperationEntry"
+	}
+}
+$schema52AdmissionCargoBlock = Get-ScriptMethodBlock $missionConvoyP1PolicyText 'static string ValidateAdmissionCargo('
+$schema52CargoContractBlock = Get-ScriptMethodBlock $missionConvoyP1PolicyText 'static string ValidateCargoContract('
+$schema52ExpectedCargoContractBlock = Get-ScriptMethodBlock $missionConvoyP1PolicyText 'protected static int ResolveExpectedCargoContract('
+$schema52CargoPrefabContractBlock = Get-ScriptMethodBlock $missionConvoyP1PolicyText 'protected static string ValidateCargoPrefabContract('
+if ([string]::IsNullOrEmpty($schema52AdmissionCargoBlock) -or
+	[string]::IsNullOrEmpty($schema52CargoContractBlock) -or
+	[string]::IsNullOrEmpty($schema52ExpectedCargoContractBlock) -or
+	[string]::IsNullOrEmpty($schema52CargoPrefabContractBlock)) {
+	throw "Schema-52 exact mission-convoy cargo admission validator is missing"
+}
+foreach ($requiredSchema52AdmissionDelegateEntry in @(
+		'asset.m_sRole == HST_MissionConvoyOperationService.VEHICLE_ROLE',
+		'return ValidateCargoContract(mission, cargo, cargoRowCount);'
+	)) {
+	if ($schema52AdmissionCargoBlock -notmatch [regex]::Escape($requiredSchema52AdmissionDelegateEntry)) {
+		throw "Schema-52 exact mission-convoy admission must enumerate cargo rows and delegate to the complete cargo contract: $requiredSchema52AdmissionDelegateEntry"
+	}
+}
+$schema52CargoPolicyCorpus = $schema52CargoContractBlock + "`n" + $schema52ExpectedCargoContractBlock + "`n" + $schema52CargoPrefabContractBlock
+foreach ($requiredSchema52CargoContractEntry in @(
+		'mission.m_sRuntimeType != HST_MissionConvoyOperationService.EXACT_RUNTIME_TYPE',
+		'cargoRowCount > 1',
+		'ResolveExpectedCargoContract(mission.m_sMissionId, expectedRole, expectedKind)',
+		'cargo.m_sRole != expectedRole || cargo.m_sKind != expectedKind',
+		'missionId == "convoy_money" || missionId == "convoy_supplies"',
+		'missionId == "convoy_prisoners"',
+		'missionId == "convoy_ammo" || missionId == "convoy_armored"',
+		'missionId == "convoy_reinforcements"',
+		'expectedRole = HST_MissionConvoyOperationService.PAYLOAD_ROLE',
+		'expectedKind = HST_MissionConvoyOperationService.CARGO_KIND',
+		'expectedRole = HST_MissionConvoyOperationService.CAPTIVE_ROLE',
+		'expectedKind = HST_MissionConvoyOperationService.CAPTIVE_KIND',
+		'Resource.Load(cargoResourceName)',
+		'SCR_BaseContainerTools.FindEntitySource(cargoResource)',
+		'cargoSource.GetClassName().ToType()',
+		'SCR_BaseContainerTools.FindComponentSource(cargoSource, HST_MissionAssetComponent)',
+		'cargoType.IsInherited(SCR_ChimeraCharacter)',
+		'SCR_BaseContainerTools.FindComponentSource(cargoSource, SCR_CompartmentAccessComponent)',
+		'expectedRole == HST_MissionConvoyOperationService.CAPTIVE_ROLE',
+		'exact mission convoy payload prefab must be a non-character mission-asset entity'
+	)) {
+	if ($schema52CargoPolicyCorpus -notmatch [regex]::Escape($requiredSchema52CargoContractEntry)) {
+		throw "Schema-52 exact mission-convoy admission/restore cargo contract is incomplete: $requiredSchema52CargoContractEntry"
+	}
+}
+$schema52CaptiveBoardingBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool TryMoveCaptiveIntoVehicle('
+if ([string]::IsNullOrEmpty($schema52CaptiveBoardingBlock) -or
+	$schema52CaptiveBoardingBlock -notmatch [regex]::Escape('captiveEntity.FindComponent(SCR_CompartmentAccessComponent)')) {
+	throw "Schema-52 captive cargo policy must match the runtime boarding component contract"
+}
+$schema52RestoreCargoContractBlock = Get-ScriptMethodBlock $missionConvoySaveValidationText 'protected string ValidateSchema52MissionConvoyCargo('
+if ([string]::IsNullOrEmpty($schema52RestoreCargoContractBlock)) {
+	throw "Schema-52 exact mission-convoy restore cargo validator is missing"
+}
+$schema52RestoreCargoPolicyCorpus = $schema52RestoreCargoContractBlock + "`n" + $schema52ManifestRestoreBlock
+foreach ($requiredSchema52RestoreCargoContractEntry in @(
+		'candidate.m_sRole == HST_MissionConvoyOperationService.VEHICLE_ROLE',
+		'HST_MissionConvoyP1Policy.ValidateCargoContract(',
+		'cargoAsset != contractCargo',
+		'cargoAsset.m_sKind != assetSlot.m_sKind',
+		'assetSlot.m_sKind == HST_MissionConvoyOperationService.CARGO_KIND',
+		'assetSlot.m_sKind == HST_MissionConvoyOperationService.CAPTIVE_KIND'
+	)) {
+	if ($schema52RestoreCargoPolicyCorpus -notmatch [regex]::Escape($requiredSchema52RestoreCargoContractEntry)) {
+		throw "Schema-52 restore must reapply the complete mission cargo contract before accepting durable backlinks: $requiredSchema52RestoreCargoContractEntry"
+	}
+}
+$schema52OperationalGroupBlock = Get-ScriptMethodBlock $campaignStateText 'bool IsOperationalActiveGroup('
+$schema52CombatGroupBlock = Get-ScriptMethodBlock $campaignStateText 'bool IsCombatPresentActiveGroup('
+if ([string]::IsNullOrEmpty($schema52OperationalGroupBlock) -or [string]::IsNullOrEmpty($schema52CombatGroupBlock)) {
+	throw "Schema-52 exact-convoy operational/archive group policy is missing"
+}
+foreach ($requiredSchema52OperationalGroupEntry in @(
+		'missionClaimants != 1',
+		'operationClaimants != 1',
+		'groupClaimants != 1',
+		'elementClaimants != 1',
+		'HST_OPERATION_SETTLEMENT_OPEN',
+		'HST_OPERATION_TERMINAL_NONE',
+		'mission.m_iOperationContractVersion == 1',
+		'operation.m_iContractVersion == 1'
+	)) {
+	if ($schema52OperationalGroupBlock -notmatch [regex]::Escape($requiredSchema52OperationalGroupEntry)) {
+		throw "Schema-52 operational group policy must reject settled, quarantined, legacy, and ambiguous exact roots: $requiredSchema52OperationalGroupEntry"
+	}
+}
+foreach ($requiredSchema52CombatGroupEntry in @(
+		'IsOperationalActiveGroup(group)',
+		'element.m_iSurvivingCrewCount > 0',
+		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
+		'HST_CONVOY_ELEMENT_DISPOSITION_RETIRED'
+	)) {
+	if ($schema52CombatGroupBlock -notmatch [regex]::Escape($requiredSchema52CombatGroupEntry)) {
+		throw "Schema-52 combat-presence policy must exclude settled/quarantined and crewless recovery archives: $requiredSchema52CombatGroupEntry"
+	}
+}
+$schema52OperationalConsumerContracts = @{
+	"Scripts/Game/HST/Services/HST_ZoneCaptureService.c" = 'state.IsCombatPresentActiveGroup(activeGroup)'
+	"Scripts/Game/HST/Services/HST_CivilianService.c" = 'state.IsCombatPresentActiveGroup(group)'
+	"Scripts/Game/HST/Services/HST_HQService.c" = 'state.IsCombatPresentActiveGroup(group)'
+	"Scripts/Game/HST/Services/HST_SpawnPlacementService.c" = 'state.IsOperationalActiveGroup(activeGroup)'
+	"Scripts/Game/HST/Services/HST_MissionRuntimeService.c" = 'state.IsCombatPresentActiveGroup(group)'
+	"Scripts/Game/HST/Services/HST_CommandUIService.c" = 'state.IsOperationalActiveGroup(activeGroup)'
+	"Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c" = 'm_State.IsOperationalActiveGroup(activeGroup)'
+}
+foreach ($schema52OperationalConsumerPath in $schema52OperationalConsumerContracts.Keys) {
+	$schema52OperationalConsumerText = Get-Content -Raw $schema52OperationalConsumerPath
+	$schema52OperationalConsumerToken = $schema52OperationalConsumerContracts[$schema52OperationalConsumerPath]
+	if ($schema52OperationalConsumerText -notmatch [regex]::Escape($schema52OperationalConsumerToken)) {
+		throw "Schema-52 generic consumer must use the exact operational/archive policy: $schema52OperationalConsumerPath -> $schema52OperationalConsumerToken"
+	}
+}
+$schema52RestoreStart = $missionConvoyOperationText.IndexOf('protected bool NormalizeRestoredProjection')
+$schema52RestoreEnd = $missionConvoyOperationText.IndexOf('protected bool AdvanceVirtualRoute', $schema52RestoreStart)
+if ($schema52RestoreStart -lt 0 -or $schema52RestoreEnd -le $schema52RestoreStart) {
+	throw "Schema-52 exact mission-convoy restore projection block is missing"
+}
+$schema52RestoreBlock = $missionConvoyOperationText.Substring($schema52RestoreStart, $schema52RestoreEnd - $schema52RestoreStart)
+foreach ($requiredSchema52RestoreEntry in @(
+		'm_iPersistenceRestoreSequence',
+		'm_iLastNormalizedRestoreSequence',
+		'NormalizeExactMissionConvoyRuntimeForRestore',
+		'HST_OPERATION_MATERIALIZATION_VIRTUAL',
+		'HST_OPERATION_POSITION_STRATEGIC',
+		'SetElementsPhysicalized(state, mission, false)',
+		'ProjectStrategicState'
+	)) {
+	if ($schema52RestoreBlock -notmatch [regex]::Escape($requiredSchema52RestoreEntry)) {
+		throw "Schema-52 restore must normalize exact convoy runtime once while preserving strategic authority: $requiredSchema52RestoreEntry"
+	}
+}
+$schema52PhysicalRestoreStart = $physicalWarText.IndexOf('bool NormalizeExactMissionConvoyRuntimeForRestore')
+$schema52PhysicalRestoreEnd = $physicalWarText.IndexOf('bool FoldExactMissionConvoyRuntime', $schema52PhysicalRestoreStart)
+if ($schema52PhysicalRestoreStart -lt 0 -or $schema52PhysicalRestoreEnd -le $schema52PhysicalRestoreStart) {
+	throw "Schema-52 exact mission-convoy physical restore normalizer is missing"
+}
+$schema52PhysicalRestoreBlock = $physicalWarText.Substring($schema52PhysicalRestoreStart, $schema52PhysicalRestoreEnd - $schema52PhysicalRestoreStart)
+foreach ($requiredSchema52PhysicalRestoreEntry in @(
+		'IsExactMissionConvoyRecoveryHold',
+		'element.m_iSurvivingCrewCount',
+		'activeGroup.m_iInfantryCount',
+		'activeGroup.m_iSurvivorInfantryCount',
+		'activeGroup.m_iDurableLivingInfantryCount',
+		'asset.m_bSpawned = false;',
+		'element.m_bPhysicalized = false;'
+	)) {
+	if ($schema52PhysicalRestoreBlock -notmatch [regex]::Escape($requiredSchema52PhysicalRestoreEntry)) {
+		throw "Schema-52 physical restore must rebind groups from durable element survivors without resurrecting process-local handles: $requiredSchema52PhysicalRestoreEntry"
+	}
+}
+$schema52PendingArrivalRestoreBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool IsValidatedExactMissionConvoyPendingArrivalRestore('
+if ([string]::IsNullOrEmpty($schema52PendingArrivalRestoreBlock)) {
+	throw "Schema-52 pending-arrival restore evidence classifier is missing"
+}
+foreach ($requiredSchema52PendingArrivalRestoreEntry in @(
+		'MISSION_CONVOY_FAILED',
+		'CONVOY_FAIL_EVENT_KEY',
+		'Convoy reached its destination:',
+		'HST_OPERATION_SETTLEMENT_OPEN',
+		'operation.m_fRouteTotalDistanceMeters <= 0.0',
+		'IsZeroVector(operation.m_vRouteEndPosition)',
+		'HST_MissionConvoyOperationService.EXACT_ARRIVAL_RADIUS_METERS',
+		'HST_CONVOY_ELEMENT_DISPOSITION_ARRIVED'
+	)) {
+	if ($schema52PendingArrivalRestoreBlock -notmatch [regex]::Escape($requiredSchema52PendingArrivalRestoreEntry)) {
+		throw "Schema-52 pending-arrival restore must require exact durable arrival evidence: $requiredSchema52PendingArrivalRestoreEntry"
+	}
+}
+foreach ($requiredSchema52RawRestoreCleanupEntry in @(
+		'EXACT_MISSION_CONVOY_VEHICLE_COUNT',
+		'RemoveExactMissionConvoyOutboundProjectionTransaction',
+		'ClearPendingActiveGroupPopulation',
+		'DeleteRuntimeGroupEntity',
+		'CountExactMissionConvoyMemberMappings(mission.m_sInstanceId) != 0',
+		'GetRuntimeCrewGroupEntity(verifyGroup.m_sGroupId)',
+		'GetRuntimeVehicleEntity(verifyGroup.m_sGroupId)'
+	)) {
+	if ($schema52PhysicalRestoreBlock -notmatch [regex]::Escape($requiredSchema52RawRestoreCleanupEntry)) {
+		throw "Schema-52 physical restore must clear and verify every process-local exact root before durable normalization: $requiredSchema52RawRestoreCleanupEntry"
+	}
+}
+$schema52RestoreDeleteIndex = $schema52PhysicalRestoreBlock.IndexOf('DeleteRuntimeGroupEntity(cleanupGroup.m_sGroupId)')
+$schema52RestoreRawVerifyIndex = $schema52PhysicalRestoreBlock.IndexOf('GetRuntimeCrewGroupEntity(verifyGroup.m_sGroupId)', $schema52RestoreDeleteIndex)
+$schema52RestoreDurableRewriteIndex = $schema52PhysicalRestoreBlock.IndexOf('activeGroup.m_iOriginalInfantryCount', $schema52RestoreRawVerifyIndex)
+if ($schema52RestoreDeleteIndex -lt 0 -or $schema52RestoreRawVerifyIndex -le $schema52RestoreDeleteIndex -or
+	$schema52RestoreDurableRewriteIndex -le $schema52RestoreRawVerifyIndex) {
+	throw "Schema-52 restore must prove raw runtime absence before rewriting durable process flags"
+}
+
+$schema52DocumentationPaths = @(
+	"README.md",
+	"docs/ARCHITECTURE.md",
+	"docs/FEATURE_CHECKLIST.md",
+	"docs/MIGRATIONS.md",
+	"docs/PARITY.md",
+	"docs/PHASE_PLAN.md",
+	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
+	"docs/HST_ENFUSION_ENFORCE_NOTES.md"
+)
+foreach ($schema52DocumentationPath in $schema52DocumentationPaths) {
+	$schema52DocumentationText = Get-Content -Raw $schema52DocumentationPath
+	if ($schema52DocumentationText -notmatch '(?is)(?:schema[- ]52.{0,500}(?:mission[- ]convoy|convoy[- ]mission)|(?:mission[- ]convoy|convoy[- ]mission).{0,500}schema[- ]52)') {
+		throw "$schema52DocumentationPath must describe the current schema-52 mission-convoy boundary"
+	}
+}
+if ($migrationsText -notmatch '(?is)##\s+Schema\s+52\b[\s\S]*?(?:pre-schema-52|historical\s+convoy)[\s\S]*?contract\s+version\s+`?0`?' -or
+	$migrationsText -notmatch '(?is)##\s+Schema\s+52\b[\s\S]*?(?:does not|never|no)\s+(?:invent|infer|create)[\s\S]{0,240}(?:operation|authority|manifest|element)') {
+	throw "Schema-52 migration notes must state that historical convoys remain contract version 0 without invented exact authority"
+}
+
+$schema52ManifestBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected HST_ForceManifestState BuildManifest('
+if ([string]::IsNullOrEmpty($schema52ManifestBlock)) {
+	throw "Schema-52 exact mission-convoy manifest builder is missing"
+}
+foreach ($requiredSchema52ManifestEntry in @(
+		'manifest.m_bFrozen = true;',
+		'manifest.m_iRequestedVehicleCount = EXACT_VEHICLE_COUNT;',
+		'manifest.m_iAcceptedVehicleCount = EXACT_VEHICLE_COUNT;',
+		'catalogGroup.m_aMemberSlots',
+		'member.m_sCatalogSlotId = catalogMember.m_sSlotId;',
+		'member.m_sPrefab = catalogMember.m_sPrefab;',
+		'member.m_sRole = catalogMember.m_sRole;',
+		'member.m_sAssignedVehicleSlotId = vehicleSlot.m_sSlotId;',
+		'manifest.m_aMembers.Insert(member);',
+		'assetSlot.m_sAssignedVehicleSlotId = BuildVehicleSlotId(mission, 0);',
+		'manifest.m_sManifestHash = m_Integrity.BuildManifestHash(manifest);'
+	)) {
+	if ($schema52ManifestBlock -notmatch [regex]::Escape($requiredSchema52ManifestEntry)) {
+		throw "Schema-52 exact mission-convoy frozen manifest/member-slot contract missing: $requiredSchema52ManifestEntry"
+	}
+}
+if ($schema52ManifestBlock -match '\.Compose\s*\(' -or $schema52ManifestBlock -match 'SelectMissionConvoyVehiclePrefab\s*\(') {
+	throw "Schema-52 exact mission-convoy admission must freeze planned vehicle/member slots without runtime recomposition or vehicle reselection"
+}
+foreach ($requiredSchema52RouteContractEntry in @(
+		'string m_sRouteContractHash;',
+		'target.m_sRouteContractHash = source.m_sRouteContractHash;',
+		'operation.m_sRouteContractHash = BuildRouteContractHash(route, routePositions);',
+		'static string BuildRouteContractHash(HST_GeneratedRouteState route, array<vector> positions)',
+		'operation.m_sRouteContractHash != expectedRouteHash'
+	)) {
+	if (($campaignStateText + "`n" + $schema52SaveValidationCorpus + "`n" + $missionConvoyOperationText) -notmatch [regex]::Escape($requiredSchema52RouteContractEntry)) {
+		throw "Schema-52 exact mission-convoy frozen route contract missing: $requiredSchema52RouteContractEntry"
+	}
+}
+
+$schema52FrozenPrefabResolverBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TryResolveExactMissionConvoyFrozenVehiclePrefab('
+$schema52ConvoySpawnBlock = Get-ScriptMethodBlock $physicalWarText 'protected GenericEntity SpawnMissionConvoyVehicle('
+if ([string]::IsNullOrEmpty($schema52FrozenPrefabResolverBlock) -or [string]::IsNullOrEmpty($schema52ConvoySpawnBlock)) {
+	throw "Schema-52 frozen vehicle-prefab resolver or spawn boundary is missing"
+}
+foreach ($requiredSchema52FrozenPrefabEntry in @(
+		'manifest.m_bFrozen',
+		'vehicle.m_sSlotId != element.m_sVehicleSlotId',
+		'matches != 1',
+		'frozenVehicle.m_sPrefab != element.m_sVehiclePrefab',
+		'frozenVehicle.m_sPrefab != asset.m_sPrefab',
+		'prefab = frozenVehicle.m_sPrefab;'
+	)) {
+	if ($schema52FrozenPrefabResolverBlock -notmatch [regex]::Escape($requiredSchema52FrozenPrefabEntry)) {
+		throw "Schema-52 exact mission-convoy frozen vehicle-prefab authority missing: $requiredSchema52FrozenPrefabEntry"
+	}
+}
+if ($schema52ConvoySpawnBlock -notmatch '(?s)if\s*\(exactContract\).*?TryResolveExactMissionConvoyFrozenVehiclePrefab.*?frozenPrefab\s*!=\s*vehiclePrefab.*?vehiclePrefab\s*=\s*frozenPrefab;.*?else\s*\{.*?SelectMissionConvoyVehiclePrefab') {
+	throw "Schema-52 exact mission convoys must spawn the frozen manifest prefab; runtime vehicle selection is legacy-only"
+}
+if ($schema52ConvoySpawnBlock -notmatch '(?s)if\s*\(!exactContract\)\s*asset\.m_sPrefab\s*=\s*vehiclePrefab;') {
+	throw "Schema-52 exact mission-convoy physicalization must not rewrite the frozen vehicle prefab"
+}
+
+$schema52RemainingRouteBlock = Get-ScriptMethodBlock $physicalWarText 'protected ref array<vector> BuildRemainingMissionConvoyRouteWaypoints('
+$schema52GroupWaypointsBlock = Get-ScriptMethodBlock $physicalWarText 'protected ref array<vector> BuildMissionConvoyGroupWaypointPositions('
+if ([string]::IsNullOrEmpty($schema52RemainingRouteBlock) -or [string]::IsNullOrEmpty($schema52GroupWaypointsBlock)) {
+	throw "Schema-52 forward/current-cursor convoy waypoint builder is missing"
+}
+foreach ($requiredSchema52ForwardRouteEntry in @(
+		'ClosestPointOnSegment2D(routeWaypoints[index - 1], routeWaypoints[index], currentPosition)',
+		'int firstForwardIndex = 1;',
+		'for (int forwardIndex = firstForwardIndex; forwardIndex < routeWaypoints.Count(); forwardIndex++)',
+		'remaining.Insert(routeWaypoints[forwardIndex]);'
+	)) {
+	if ($schema52RemainingRouteBlock -notmatch [regex]::Escape($requiredSchema52ForwardRouteEntry)) {
+		throw "Schema-52 convoy route must resume from the current route cursor: $requiredSchema52ForwardRouteEntry"
+	}
+}
+foreach ($requiredSchema52CurrentCursorEntry in @(
+		'currentPosition = vehicleEntity.GetOrigin();',
+		'BuildRemainingMissionConvoyRouteWaypoints(currentPosition, routeWaypoints)',
+		'AppendConvoyLeadInWaypoints(result, currentPosition, remainingRouteWaypoints[0]'
+	)) {
+	if ($schema52GroupWaypointsBlock -notmatch [regex]::Escape($requiredSchema52CurrentCursorEntry)) {
+		throw "Schema-52 physical route assignment must begin at the current live cursor: $requiredSchema52CurrentCursorEntry"
+	}
+}
+if ($schema52GroupWaypointsBlock -match 'AppendConvoyLeadInWaypoints\s*\(\s*result\s*,\s*activeGroup\.m_vSourcePosition') {
+	throw "Schema-52 physical route assignment must not send a folded/restored convoy back to its original source"
+}
+
+$schema52RecoveryMaterializationBlock = Get-ScriptMethodBlock $physicalWarText 'bool MaterializeExactMissionConvoyRecoveryVehicles('
+$schema52RecoveryEligibilityBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool IsExactMissionConvoyRecoveryVehicleEligible('
+$schema52CrewEliminationBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected bool MarkAllCrewsEliminated('
+if ([string]::IsNullOrEmpty($schema52RecoveryMaterializationBlock) -or [string]::IsNullOrEmpty($schema52RecoveryEligibilityBlock) -or [string]::IsNullOrEmpty($schema52CrewEliminationBlock)) {
+	throw "Schema-52 crewless recovery/no-resurrection boundary is missing"
+}
+foreach ($requiredSchema52RecoveryEntry in @(
+		'IsExactMissionConvoyRecoveryHold(mission)',
+		'TryResolveExactMissionConvoyFrozenVehiclePrefab',
+		'GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId)',
+		'activeGroup.m_iSpawnedAgentCount = 0;',
+		'activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED;',
+		'element.m_bMobile = false;',
+		'materialized %1 exact crewless abandoned vehicles'
+	)) {
+	if ($schema52RecoveryMaterializationBlock -notmatch [regex]::Escape($requiredSchema52RecoveryEntry)) {
+		throw "Schema-52 exact mission-convoy crewless recovery contract missing: $requiredSchema52RecoveryEntry"
+	}
+}
+if ($schema52RecoveryMaterializationBlock -match 'TrySpawnActiveGroup\s*\(' -or
+	$schema52RecoveryMaterializationBlock -match '\.SpawnUnits\s*\(' -or
+	$schema52RecoveryMaterializationBlock -match 'm_iSurvivingCrewCount\s*=') {
+	throw "Schema-52 recovery materialization must not create crew or rewrite durable survivor authority"
+}
+foreach ($requiredSchema52AbandonedEntry in @(
+		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
+		'element.m_iSurvivingCrewCount > 0',
+		'element.m_bMobile',
+		'element.m_fVehicleDamageFraction >= 0.0',
+		'element.m_fVehicleDamageFraction < 1.0'
+	)) {
+	if ($schema52RecoveryEligibilityBlock -notmatch [regex]::Escape($requiredSchema52AbandonedEntry)) {
+		throw "Schema-52 recovery must expose only intact, immobile, zero-crew ABANDONED elements: $requiredSchema52AbandonedEntry"
+	}
+}
+foreach ($requiredSchema52NoResurrectionEntry in @(
+		'element.m_iSurvivingCrewCount = 0;',
+		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
+		'group.m_iInfantryCount = 0;',
+		'group.m_iLastSeenAliveCount = 0;',
+		'group.m_iSurvivorInfantryCount = 0;',
+		'group.m_iDurableLivingInfantryCount = 0;'
+	)) {
+	if ($schema52CrewEliminationBlock -notmatch [regex]::Escape($requiredSchema52NoResurrectionEntry)) {
+		throw "Schema-52 crew elimination must persist zero survivors and ABANDONED vehicle roots: $requiredSchema52NoResurrectionEntry"
+	}
+}
+foreach ($requiredSchema52VehicleConditionEntry in @(
+		'ApplyExactMissionConvoyVehicleRuntimeState',
+		'SampleExactMissionConvoyVehicleRuntimeState',
+		'TrySampleMissionConvoyVehicleDamageFraction',
+		'TrySampleMissionConvoyVehicleFuelFraction',
+		'TrySampleMissionConvoyVehicleAmmoFraction',
+		'ApplyMissionConvoyVehicleAmmoFraction'
+	)) {
+	if ($physicalWarText -notmatch [regex]::Escape($requiredSchema52VehicleConditionEntry)) {
+		throw "Schema-52 exact convoy must preserve vehicle damage/fuel/ammo state across projection: $requiredSchema52VehicleConditionEntry"
+	}
+}
+
+$schema52RestoreCallIndex = $schema52SaveValidationDelegateMatch.Index
+$schema52ActiveGroupNormalizeCallIndex = $forceSaveDataText.IndexOf('NormalizeActiveGroupSourceLinks(restoredSchemaVersion);')
+$schema52ForceNormalizeCallIndex = $forceSaveDataText.IndexOf('NormalizeForceAuthority(restoredSchemaVersion);')
+$schema52GenericProjectionCallIndex = $forceSaveDataText.IndexOf('NormalizeRestoredOperationProjectionState();')
+if ($schema52RestoreCallIndex -lt 0 -or $schema52ActiveGroupNormalizeCallIndex -le $schema52RestoreCallIndex -or
+	$schema52ForceNormalizeCallIndex -le $schema52RestoreCallIndex -or $schema52GenericProjectionCallIndex -le $schema52RestoreCallIndex) {
+	throw "Schema-52 exact mission-convoy validation/quarantine must run before generic restore normalization"
+}
+foreach ($requiredSchema52RestoreTypeGate in @(
+		'HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyMissionClaimant(this, mission)',
+		'HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyRouteClaimant(this, route)',
+		'HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyAssetClaimant(this, asset)',
+		'HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group)',
+		'HST_MissionConvoySaveValidationService.HasSchema52MissionConvoyMissionClaimant(this)',
+		'HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyManifestClaimant(this, manifest)',
+		'HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyBatchClaimant(this, spawnResult)',
+		'operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY'
+	)) {
+	if ($forceSaveDataText -notmatch [regex]::Escape($requiredSchema52RestoreTypeGate)) {
+		throw "Schema-52 generic restore normalization is missing an exact mission-convoy type/claimant gate: $requiredSchema52RestoreTypeGate"
+	}
+}
+$schema52RuntimeQuarantineBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected bool QuarantineAmbiguousAuthority('
+$schema52RestoreQuarantineBlock = Get-ScriptMethodBlock $missionConvoySaveValidationText 'protected void QuarantineSchema52MissionConvoy('
+if ([string]::IsNullOrEmpty($schema52RuntimeQuarantineBlock) -or [string]::IsNullOrEmpty($schema52RestoreQuarantineBlock)) {
+	throw "Schema-52 mission-only authority quarantine boundary is missing"
+}
+foreach ($schema52QuarantineBlock in @($schema52RuntimeQuarantineBlock, $schema52RestoreQuarantineBlock)) {
+	if ($schema52QuarantineBlock -notmatch 'mission\.m_iOperationContractVersion\s*=\s*(?:QUARANTINED_CONTRACT_VERSION|HST_MissionConvoyOperationService\.QUARANTINED_CONTRACT_VERSION)') {
+		throw "Schema-52 authority corruption must quarantine the mission contract"
+	}
+	if ($schema52QuarantineBlock -match '\b(?:state|operation|manifest|batch|group|asset|element|route)\.(?:m_|Find|Settle|Remove|Insert)') {
+		throw "Schema-52 authority quarantine must not mutate ambiguous foreign authority rows"
+	}
+}
+
+$schema52VirtualArrivalStart = $missionConvoyOperationText.IndexOf('protected bool AdvanceVirtualRoute')
+$schema52VirtualArrivalEnd = $missionConvoyOperationText.IndexOf('protected bool ProjectStrategicState', $schema52VirtualArrivalStart)
+$schema52PhysicalArrivalStart = $missionConvoyOperationText.IndexOf('protected bool TryConfirmPhysicalArrival')
+$schema52PhysicalArrivalEnd = $missionConvoyOperationText.IndexOf('protected bool MarkConvoyArrived', $schema52PhysicalArrivalStart)
+$schema52ArrivalPositionStart = $missionConvoyOperationText.IndexOf('protected bool IsArrivalPositionConfirmed')
+$schema52ArrivalPositionEnd = $missionConvoyOperationText.IndexOf('protected bool SettleOperation', $schema52ArrivalPositionStart)
+if ($schema52VirtualArrivalStart -lt 0 -or $schema52VirtualArrivalEnd -le $schema52VirtualArrivalStart -or
+	$schema52PhysicalArrivalStart -lt 0 -or $schema52PhysicalArrivalEnd -le $schema52PhysicalArrivalStart -or
+	$schema52ArrivalPositionStart -lt 0 -or $schema52ArrivalPositionEnd -le $schema52ArrivalPositionStart) {
+	throw "Schema-52 exact mission-convoy endpoint confirmation blocks are missing"
+}
+$schema52VirtualArrivalBlock = $missionConvoyOperationText.Substring($schema52VirtualArrivalStart, $schema52VirtualArrivalEnd - $schema52VirtualArrivalStart)
+$schema52PhysicalArrivalBlock = $missionConvoyOperationText.Substring($schema52PhysicalArrivalStart, $schema52PhysicalArrivalEnd - $schema52PhysicalArrivalStart)
+$schema52ArrivalPositionBlock = $missionConvoyOperationText.Substring($schema52ArrivalPositionStart, $schema52ArrivalPositionEnd - $schema52ArrivalPositionStart)
+if ($schema52VirtualArrivalBlock -notmatch [regex]::Escape('IsArrivalPositionConfirmed(state, mission, operation)') -or
+	$schema52PhysicalArrivalBlock -notmatch [regex]::Escape('IsArrivalPositionConfirmed(state, mission, operation)') -or
+	$schema52ArrivalPositionBlock -notmatch [regex]::Escape('operation.m_vRouteEndPosition') -or
+	$schema52ArrivalPositionBlock -notmatch [regex]::Escape('DistanceSq2D(carrierPosition, operation.m_vRouteEndPosition)')) {
+	throw "Schema-52 exact mission-convoy arrival must require an authoritative carrier position inside the actual route endpoint radius"
+}
+
+$schema52SettleOperationBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected bool SettleOperation('
+if ([string]::IsNullOrEmpty($schema52SettleOperationBlock) -or
+	$schema52SettleOperationBlock -notmatch '(?s)if\s*\(hasPhysicalRuntime\)\s*\{\s*operation\.m_eMaterializationState\s*=\s*HST_EOperationMaterializationState\.HST_OPERATION_MATERIALIZATION_RETIRING\s*;\s*operation\.m_ePositionAuthority\s*=\s*HST_EOperationPositionAuthority\.HST_OPERATION_POSITION_LIVE\s*;') {
+	throw "Schema-52 exact mission-convoy settlement must pair retiring runtime with live position authority"
+}
+
+foreach ($requiredSchema52RecoveryEntry in @(
+		'MaterializeExactMissionConvoyRecoveryVehicles',
+		'IsExactMissionConvoyRecoveryProjectionReady',
+		'ValidateExactMissionConvoyRecoveryCarrierAvailability',
+		'SyncExactMissionConvoyRecoveryCarrierAssets',
+		'IsExactMissionConvoyRecoveryHold',
+		'FoldExactMissionConvoyRuntime',
+		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
+		'RECOVERY_VEHICLE',
+		'STRANDED_VIRTUAL'
+	)) {
+	if (($physicalWarText + "`n" + $missionConvoyOperationText) -notmatch [regex]::Escape($requiredSchema52RecoveryEntry)) {
+		throw "Schema-52 crewless convoy recovery projection missing: $requiredSchema52RecoveryEntry"
+	}
+}
+$schema52ElementTerminalStart = $physicalWarText.IndexOf('protected bool IsExactMissionConvoyElementTerminal')
+$schema52ElementTerminalEnd = $physicalWarText.IndexOf('protected void RemoveRestoredMissionConvoyRuntimeRebuildAttempt', $schema52ElementTerminalStart)
+if ($schema52ElementTerminalStart -lt 0 -or $schema52ElementTerminalEnd -le $schema52ElementTerminalStart) {
+	throw "Schema-52 exact convoy element terminal classifier is missing"
+}
+$schema52ElementTerminalBlock = $physicalWarText.Substring($schema52ElementTerminalStart, $schema52ElementTerminalEnd - $schema52ElementTerminalStart)
+if ($schema52ElementTerminalBlock -notmatch [regex]::Escape('HST_CONVOY_ELEMENT_DISPOSITION_ACTIVE') -or
+	$schema52ElementTerminalBlock -notmatch [regex]::Escape('HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED')) {
+	throw "Schema-52 ABANDONED convoy elements must remain recoverable rather than terminal"
+}
+$schema52RecoveryMaterializeStart = $physicalWarText.IndexOf('bool MaterializeExactMissionConvoyRecoveryVehicles')
+$schema52RecoveryMaterializeEnd = $physicalWarText.IndexOf('bool IsExactMissionConvoyRecoveryProjectionReady', $schema52RecoveryMaterializeStart)
+if ($schema52RecoveryMaterializeStart -lt 0 -or $schema52RecoveryMaterializeEnd -le $schema52RecoveryMaterializeStart) {
+	throw "Schema-52 crewless recovery materialization block is missing"
+}
+$schema52RecoveryMaterializeBlock = $physicalWarText.Substring($schema52RecoveryMaterializeStart, $schema52RecoveryMaterializeEnd - $schema52RecoveryMaterializeStart)
+foreach ($requiredSchema52RecoveryMaterializeEntry in @(
+		'TryResolveExactMissionConvoyFrozenVehiclePrefab',
+		'SpawnMissionConvoyVehicle',
+		'RollbackExactMissionConvoyRecoveryVehicles',
+		'm_aRuntimeVehicleGroupIds.Insert',
+		'm_aRuntimeVehicleEntities.Insert',
+		'activeGroup.m_iSpawnedAgentCount = 0;',
+		'element.m_bPhysicalized = true;',
+		'SyncExactMissionConvoyRecoveryCarrierAssets'
+	)) {
+	if ($schema52RecoveryMaterializeBlock -notmatch [regex]::Escape($requiredSchema52RecoveryMaterializeEntry)) {
+		throw "Schema-52 crewless recovery must rematerialize the frozen vehicle roots atomically without inventing crew: $requiredSchema52RecoveryMaterializeEntry"
+	}
+}
+$schema52FoldStart = $physicalWarText.IndexOf('bool FoldExactMissionConvoyRuntime')
+$schema52FoldEnd = $physicalWarText.IndexOf('bool ReconcileInactiveMissionConvoyRuntime', $schema52FoldStart)
+if ($schema52FoldStart -lt 0 -or $schema52FoldEnd -le $schema52FoldStart) {
+	throw "Schema-52 exact mission-convoy fold block is missing"
+}
+$schema52FoldBlock = $physicalWarText.Substring($schema52FoldStart, $schema52FoldEnd - $schema52FoldStart)
+foreach ($requiredSchema52FoldEntry in @(
+		'IsExactMissionConvoyRecoveryHold',
+		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
+		'activeGroup.m_iSurvivorVehicleCount = 1;',
+		'element.m_bPhysicalized = false;',
+		'element.m_bMobile = false;',
+		'SyncExactMissionConvoyRecoveryCarrierAssets'
+	)) {
+	if ($schema52FoldBlock -notmatch [regex]::Escape($requiredSchema52FoldEntry)) {
+		throw "Schema-52 exact convoy fold must preserve crewless vehicles and assigned cargo as recoverable virtual authority: $requiredSchema52FoldEntry"
+	}
+}
+if ($schema52FoldBlock -match 'element\.m_eDisposition\s*=\s*HST_EConvoyElementDisposition\.HST_CONVOY_ELEMENT_DISPOSITION_RETIRED') {
+	throw "Schema-52 exact convoy fold must not retire an unresolved crewless vehicle or its recovery authority"
+}
+$schema52AssetPositionStart = $physicalWarText.IndexOf('protected void UpdateMissionConvoyAssetPosition')
+$schema52AssetPositionEnd = $physicalWarText.IndexOf('protected bool ApplyMissionConvoyObjectiveProgress', $schema52AssetPositionStart)
+if ($schema52AssetPositionStart -lt 0 -or $schema52AssetPositionEnd -le $schema52AssetPositionStart) {
+	throw "Schema-52 convoy cargo-position synchronization block is missing"
+}
+$schema52AssetPositionBlock = $physicalWarText.Substring($schema52AssetPositionStart, $schema52AssetPositionEnd - $schema52AssetPositionStart)
+if ($schema52AssetPositionBlock -notmatch [regex]::Escape('assignedVehicleSlotId = asset.m_sManifestSlotId') -or
+	$schema52AssetPositionBlock -notmatch [regex]::Escape('asset.m_sAssignedVehicleSlotId != assignedVehicleSlotId')) {
+	throw "Schema-52 exact convoy cargo must follow only its frozen assigned vehicle slot"
+}
+
+foreach ($requiredSchema52ContactClearEntry in @(
+		'EXACT_CONVOY_CONTACT_CLEAR_SECONDS = 30',
+		'CONVOY_CONTACT_CLEAR_EVENT_KEY = "convoy_contact_cleared"',
+		'TryClearExactMissionConvoyContact',
+		'operation.m_iLastContactAtSecond',
+		'SetMissionConvoyMoving',
+		'AssignMissionConvoyWaypoints'
+	)) {
+	if ($physicalWarText -notmatch [regex]::Escape($requiredSchema52ContactClearEntry)) {
+		throw "Schema-52 exact convoy contact-clear contract missing: $requiredSchema52ContactClearEntry"
+	}
+}
+$schema52ContactUpdateStart = $physicalWarText.IndexOf('protected bool UpdateMissionConvoyContact')
+$schema52ContactUpdateEnd = $physicalWarText.IndexOf('protected bool TryResolveMissionConvoyContactReason', $schema52ContactUpdateStart)
+if ($schema52ContactUpdateStart -lt 0 -or $schema52ContactUpdateEnd -le $schema52ContactUpdateStart) {
+	throw "Schema-52 exact convoy contact update/clear block is missing"
+}
+$schema52ContactUpdateBlock = $physicalWarText.Substring($schema52ContactUpdateStart, $schema52ContactUpdateEnd - $schema52ContactUpdateStart)
+foreach ($requiredSchema52ContactClearGuard in @(
+		'TryResolveMissionConvoyContactReasonForUpdate',
+		'TryClearExactMissionConvoyContact',
+		'operation.m_iLastContactAtSecond + EXACT_CONVOY_CONTACT_CLEAR_SECONDS',
+		'IsAnyPlayerInVehicle',
+		'IsConvoyCrewPopulationPending',
+		'IsConvoyCrewControlPending',
+		'CONVOY_CONTACT_CLEAR_EVENT_KEY'
+	)) {
+	if ($schema52ContactUpdateBlock -notmatch [regex]::Escape($requiredSchema52ContactClearGuard)) {
+		throw "Schema-52 exact convoy contact may clear only after a quiet grace period with no player or lifecycle ownership conflict: $requiredSchema52ContactClearGuard"
+	}
+}
+$schema52SetContactStart = $physicalWarText.IndexOf('protected bool SetMissionConvoyContact')
+$schema52SetContactEnd = $physicalWarText.IndexOf('protected void MarkMissionConvoyVehicleDestroyed', $schema52SetContactStart)
+if ($schema52SetContactStart -lt 0 -or $schema52SetContactEnd -le $schema52SetContactStart) {
+	throw "Schema-52 exact convoy contact evidence timestamp block is missing"
+}
+$schema52SetContactBlock = $physicalWarText.Substring($schema52SetContactStart, $schema52SetContactEnd - $schema52SetContactStart)
+if ($schema52SetContactBlock -notmatch [regex]::Escape('operation.m_iLastContactAtSecond = state.m_iElapsedSeconds;')) {
+	throw "Schema-52 each new exact convoy contact sample must refresh the durable quiet-period clock"
+}
+
+$schema52AdmissionStart = $coordinatorText.IndexOf('m_MissionConvoyOperations.PrepareNewMissionContract(mission)')
+$schema52RuntimeInitializeIndex = $coordinatorText.IndexOf('m_MissionRuntime.InitializeMissionRuntime', $schema52AdmissionStart)
+$schema52AdmitIndex = $coordinatorText.IndexOf('m_MissionConvoyOperations.AdmitNewMission', $schema52AdmissionStart)
+if ($schema52AdmissionStart -lt 0 -or $schema52RuntimeInitializeIndex -le $schema52AdmissionStart -or $schema52AdmitIndex -le $schema52RuntimeInitializeIndex) {
+	throw "Schema-52 convoy creation must declare the exact contract before runtime assets are planned and admit authority only after those assets exist"
+}
+foreach ($requiredSchema52CoordinatorEntry in @(
+		'protected ref HST_MissionConvoyOperationService m_MissionConvoyOperations;',
+		'm_MissionConvoyOperations = new HST_MissionConvoyOperationService();',
+		'm_MissionConvoyOperations.SetRuntimeServices(m_PhysicalWar, m_MissionRuntime);',
+		'm_MissionConvoyOperations.ReconcileAfterRestore(m_State);',
+		'm_MissionConvoyOperations.TickBeforePhysical',
+		'm_MissionConvoyOperations.TickAfterPhysical',
+		'm_MissionConvoyOperations.TickAfterOutcomes',
+		'm_MissionConvoyOperations.ReconcileSettledRuntimeCleanup',
+		'AppendCampaignDebugMissionConvoyOperationAssertions'
+	)) {
+	if ($coordinatorText -notmatch [regex]::Escape($requiredSchema52CoordinatorEntry)) {
+		throw "Schema-52 exact mission-convoy coordinator integration missing: $requiredSchema52CoordinatorEntry"
+	}
+}
+$schema52BeforePhysicalIndex = $coordinatorText.IndexOf('m_MissionConvoyOperations.TickBeforePhysical')
+$schema52PhysicalTickIndex = $coordinatorText.IndexOf('m_PhysicalWar.UpdateMissionConvoys', $schema52BeforePhysicalIndex)
+$schema52AfterPhysicalIndex = $coordinatorText.IndexOf('m_MissionConvoyOperations.TickAfterPhysical', $schema52BeforePhysicalIndex)
+$schema52OutcomeIndex = $coordinatorText.IndexOf('ApplyConvoyOutcomesNow', $schema52BeforePhysicalIndex)
+$schema52AfterOutcomeIndex = $coordinatorText.IndexOf('m_MissionConvoyOperations.TickAfterOutcomes', $schema52BeforePhysicalIndex)
+if ($schema52BeforePhysicalIndex -lt 0 -or $schema52PhysicalTickIndex -le $schema52BeforePhysicalIndex -or
+	$schema52AfterPhysicalIndex -le $schema52PhysicalTickIndex -or $schema52OutcomeIndex -le $schema52AfterPhysicalIndex -or
+	$schema52AfterOutcomeIndex -le $schema52OutcomeIndex) {
+	throw "Schema-52 exact mission-convoy coordinator tick order must bracket physical runtime and consume outcomes afterward"
+}
+
+$schema52AggregateMarkerBlock = Get-ScriptMethodBlock $mapMarkerServiceText 'protected void AddMissionConvoyMarkers('
+$schema52MarkerLabelBlock = Get-ScriptMethodBlock $mapMarkerServiceText 'protected string BuildConvoyCurrentMarkerLabel('
+$schema52IndividualMarkerBlock = Get-ScriptMethodBlock $mapMarkerServiceText 'protected bool ShouldShowIndividualConvoyVehicleMarkers('
+if ([string]::IsNullOrEmpty($schema52AggregateMarkerBlock) -or [string]::IsNullOrEmpty($schema52MarkerLabelBlock) -or [string]::IsNullOrEmpty($schema52IndividualMarkerBlock)) {
+	throw "Schema-52 aggregate mission-convoy marker boundary is missing"
+}
+foreach ($requiredSchema52AggregateMarkerEntry in @(
+		'BuildConvoyCurrentMarkerLabel(state, mission, title)',
+		'"hst_mission_convoy_current_" + mission.m_sInstanceId',
+		'BuildConvoyDestinationMarkerLabel(mission, title, destinationName)',
+		'element.m_iSurvivingCrewCount',
+		'vehicle && !vehicle.m_bDestroyed && !vehicle.m_bDelivered',
+		'%2 vehicles | %3 crew'
+	)) {
+	if (($schema52AggregateMarkerBlock + "`n" + $schema52MarkerLabelBlock) -notmatch [regex]::Escape($requiredSchema52AggregateMarkerEntry)) {
+		throw "Schema-52 exact mission-convoy aggregate marker/count contract missing: $requiredSchema52AggregateMarkerEntry"
+	}
+}
+if ($schema52IndividualMarkerBlock -notmatch '(?s)m_iOperationContractVersion\s*==\s*HST_MissionConvoyOperationService\.EXACT_CONTRACT_VERSION\s*\)\s*return false;') {
+	throw "Schema-52 exact mission convoy must publish one aggregate marker instead of three per-vehicle markers"
+}
+
+$schema52CargoAccessBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool TryResolveConvoyAssetAccessPosition('
+if ([string]::IsNullOrEmpty($schema52CargoAccessBlock)) {
+	throw "Schema-52 convoy cargo access resolver is missing"
+}
+$schema52ExactCargoAccessStart = $schema52CargoAccessBlock.IndexOf('mission.m_iOperationContractVersion == HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION')
+$schema52LegacyCargoAccessStart = $schema52CargoAccessBlock.IndexOf('bool found;', $schema52ExactCargoAccessStart)
+if ($schema52ExactCargoAccessStart -lt 0 -or $schema52LegacyCargoAccessStart -le $schema52ExactCargoAccessStart) {
+	throw "Schema-52 assigned-carrier cargo access branch is missing"
+}
+$schema52ExactCargoAccessBlock = $schema52CargoAccessBlock.Substring($schema52ExactCargoAccessStart, $schema52LegacyCargoAccessStart - $schema52ExactCargoAccessStart)
+foreach ($requiredSchema52AssignedCarrierEntry in @(
+		'asset.m_sAssignedVehicleSlotId.IsEmpty()',
+		'assignedVehicle.m_sManifestSlotId != asset.m_sAssignedVehicleSlotId',
+		'accessPosition = assignedVehicle.m_vCurrentPosition;',
+		'accessPosition = assignedVehicle.m_vLastKnownPosition;',
+		'accessPosition = assignedVehicle.m_vSourcePosition;'
+	)) {
+	if ($schema52ExactCargoAccessBlock -notmatch [regex]::Escape($requiredSchema52AssignedCarrierEntry)) {
+		throw "Schema-52 exact convoy cargo access must resolve only its assigned vehicle slot: $requiredSchema52AssignedCarrierEntry"
+	}
+}
+if ($schema52ExactCargoAccessBlock -match 'DistanceSq2D\s*\(\s*playerPosition' -or $schema52ExactCargoAccessBlock -match 'bestDistance') {
+	throw "Schema-52 exact convoy cargo access must not migrate to the nearest surviving vehicle"
+}
+
+$schema52CargoProjectionBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'bool TickExactMissionConvoyCargoProjections('
+if ([string]::IsNullOrEmpty($schema52CargoProjectionBlock)) {
+	throw "Schema-52 assigned-carrier cargo/captive runtime projection tick is missing"
+}
+$schema52CargoProjectionCorpus = $schema52CargoProjectionBlock
+foreach ($schema52CargoHelperToken in @(
+		'protected bool IsExactMissionConvoyCargoProjectionPlayerBoundOrResolved(',
+		'protected bool ProjectExactMissionConvoyCargoAtCarrier(',
+		'protected bool ProjectExactMissionConvoyCargoAtDurablePosition(',
+		'protected IEntity EnsureExactMissionConvoyCargoProjectionEntity(',
+		'protected bool DematerializeExactMissionConvoyCargoProjection('
+	)) {
+	$schema52CargoHelperBlock = Get-ScriptMethodBlock $missionRuntimeServiceText $schema52CargoHelperToken
+	if ([string]::IsNullOrEmpty($schema52CargoHelperBlock)) {
+		throw "Schema-52 assigned-carrier cargo/captive helper is missing: $schema52CargoHelperToken"
+	}
+	$schema52CargoProjectionCorpus = $schema52CargoProjectionCorpus + "`n" + $schema52CargoHelperBlock
+}
+foreach ($requiredSchema52CargoProjectionEntry in @(
+		'HST_MissionConvoyOperationService.IsExactMission(mission)',
+		'asset.m_sAssignedVehicleSlotId',
+		'physicalWar.GetExactMissionConvoyVehicleRuntimeEntity',
+		'RegisterAssetRuntimeEntityState',
+		'TryMoveCaptiveIntoVehicle',
+		'DeleteRuntimeEntity',
+		'asset.m_bPickedUp',
+		'asset.m_bDelivered'
+	)) {
+	if ($schema52CargoProjectionCorpus -notmatch [regex]::Escape($requiredSchema52CargoProjectionEntry)) {
+		throw "Schema-52 assigned-carrier cargo/captive runtime projection missing: $requiredSchema52CargoProjectionEntry"
+	}
+}
+$schema52CargoReadinessBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'bool IsExactMissionConvoyCargoProjectionReady('
+$schema52CargoCarrierProjectionBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool ProjectExactMissionConvoyCargoAtCarrier('
+$schema52CargoEnsureBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected IEntity EnsureExactMissionConvoyCargoProjectionEntity('
+$schema52CargoPublishBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool SetExactMissionConvoyCargoProjectionPublished('
+$schema52OperationCargoReadyBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected bool IsCargoProjectionReady('
+if ([string]::IsNullOrEmpty($schema52CargoReadinessBlock) -or [string]::IsNullOrEmpty($schema52CargoCarrierProjectionBlock) -or
+	[string]::IsNullOrEmpty($schema52CargoEnsureBlock) -or [string]::IsNullOrEmpty($schema52CargoPublishBlock) -or
+	[string]::IsNullOrEmpty($schema52OperationCargoReadyBlock)) {
+	throw "Schema-52 frozen cargo process-readiness or publication helpers are missing"
+}
+foreach ($requiredSchema52CargoReadinessEntry in @(
+		'cargoEntity.GetPrefabData().GetPrefabName() != cargo.m_sPrefab',
+		'runtimeEntity.m_sPrefab != cargo.m_sPrefab',
+		'cargo.m_sCarriedByVehicleId != carrierAsset.m_sAssetId',
+		'ResolveEntityVehicle(cargoEntity) == carrierEntity',
+		'cargoEntity.GetParent() == carrierEntity'
+	)) {
+	if ($schema52CargoReadinessBlock -notmatch [regex]::Escape($requiredSchema52CargoReadinessEntry)) {
+		throw "Schema-52 cargo readiness must verify the frozen prefab and real carrier relationship: $requiredSchema52CargoReadinessEntry"
+	}
+}
+foreach ($requiredSchema52CargoCarrierEntry in @(
+		'TryMoveCaptiveIntoVehicle(entity, carrierEntity',
+		'ResolveEntityVehicle(entity) != carrierEntity',
+		'carrierEntity.AddChild(entity',
+		'entity.GetParent() != carrierEntity'
+	)) {
+	if ($schema52CargoCarrierProjectionBlock -notmatch [regex]::Escape($requiredSchema52CargoCarrierEntry)) {
+		throw "Schema-52 cargo projection must establish a real captive compartment or payload parent: $requiredSchema52CargoCarrierEntry"
+	}
+}
+if ($schema52CargoEnsureBlock -match 'SpawnPrefab\s*\(\s*PROP_CAPTIVES' -or
+	$schema52CargoEnsureBlock -notmatch [regex]::Escape('entity.GetPrefabData().GetPrefabName() != asset.m_sPrefab')) {
+	throw "Schema-52 exact cargo projection must spawn and verify only the frozen manifest prefab without a generic captive fallback"
+}
+foreach ($requiredSchema52CargoPublishEntry in @(
+		'EntityFlags.ACTIVE',
+		'EntityFlags.VISIBLE',
+		'EntityFlags.TRACEABLE'
+	)) {
+	if ($schema52CargoPublishBlock -notmatch [regex]::Escape($requiredSchema52CargoPublishEntry)) {
+		throw "Schema-52 staged cargo publication must control recursive active/visible/traceable state: $requiredSchema52CargoPublishEntry"
+	}
+}
+if ($schema52OperationCargoReadyBlock -notmatch [regex]::Escape('m_MissionRuntime.IsExactMissionConvoyCargoProjectionReady(state, mission, m_PhysicalWar)') -or
+	$coordinatorText -notmatch [regex]::Escape('m_MissionConvoyOperations.SetRuntimeServices(m_PhysicalWar, m_MissionRuntime)') -or
+	$schema52CargoProjectionBlock -notmatch [regex]::Escape('!physicalWar.IsExactMissionConvoyOutboundProjectionTransactionOpen(mission)')) {
+	throw "Schema-52 operation readiness and cargo publication must share verified process state and wait for outbound transaction commit"
+}
+$schema52CargoProjectionTickIndex = $coordinatorText.IndexOf('m_MissionRuntime.TickExactMissionConvoyCargoProjections', $schema52AfterPhysicalIndex)
+if ($schema52CargoProjectionTickIndex -le $schema52AfterPhysicalIndex -or $schema52CargoProjectionTickIndex -ge $schema52OutcomeIndex) {
+	throw "Schema-52 cargo/captive projection must synchronize after physical convoy authority and before mission outcomes"
+}
+
+$schema52RouteReissueMatch = [regex]::Match($physicalWarText, 'CONVOY_ROUTE_REISSUE_THRESHOLD_SECONDS\s*=\s*(\d+)')
+$schema52HardStuckMatch = [regex]::Match($physicalWarText, 'CONVOY_HARD_STUCK_THRESHOLD_SECONDS\s*=\s*(\d+)')
+$schema52TerminalStuckMatch = [regex]::Match($physicalWarText, 'CONVOY_TERMINAL_STUCK_THRESHOLD_SECONDS\s*=\s*(\d+)')
+if (!$schema52RouteReissueMatch.Success -or !$schema52HardStuckMatch.Success -or !$schema52TerminalStuckMatch.Success) {
+	throw "Schema-52 mission-convoy route watchdog thresholds are missing"
+}
+$schema52RouteReissueSeconds = [int] $schema52RouteReissueMatch.Groups[1].Value
+$schema52HardStuckSeconds = [int] $schema52HardStuckMatch.Groups[1].Value
+$schema52TerminalStuckSeconds = [int] $schema52TerminalStuckMatch.Groups[1].Value
+if ($schema52RouteReissueSeconds -le 0 -or $schema52HardStuckSeconds -le $schema52RouteReissueSeconds -or $schema52TerminalStuckSeconds -le $schema52HardStuckSeconds) {
+	throw "Schema-52 mission-convoy route watchdog must escalate from reissue to hard-stuck to bounded terminal failure"
+}
+$schema52ProgressWatchdogBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool UpdateConvoyVehicleProgressStatus('
+if ([string]::IsNullOrEmpty($schema52ProgressWatchdogBlock)) {
+	throw "Schema-52 mission-convoy route watchdog method is missing"
+}
+$schema52ReissueIndex = $schema52ProgressWatchdogBlock.IndexOf('TryReissueMissionConvoyRouteForProgress')
+$schema52SnapIndex = $schema52ProgressWatchdogBlock.IndexOf('TrySnapMissionConvoyVehicleToRoute')
+$schema52TerminalIndex = $schema52ProgressWatchdogBlock.IndexOf('CONVOY_TERMINAL_STUCK_THRESHOLD_SECONDS')
+$schema52WatchdogFailureIndex = $schema52ProgressWatchdogBlock.IndexOf('Convoy route watchdog exhausted recovery')
+if ($schema52ReissueIndex -lt 0 -or $schema52SnapIndex -le $schema52ReissueIndex -or
+	$schema52TerminalIndex -le $schema52SnapIndex -or $schema52WatchdogFailureIndex -le $schema52TerminalIndex) {
+	throw "Schema-52 mission-convoy route watchdog must attempt bounded route recovery before terminal failure"
+}
+foreach ($requiredSchema52CampaignCleanupEntry in @(
+		'SettleOpenOperationsForCampaignStop',
+		'ReconcileSettledRuntimeCleanup',
+		'ReconcileInactiveMissionConvoyRuntime',
+		'RetireExactMissionConvoyRuntime',
+		'HST_OPERATION_TERMINAL_CANCELLED',
+		'campaign outcome is terminal',
+		'campaign is in setup'
+	)) {
+	if (($missionConvoyOperationText + "`n" + $physicalWarText + "`n" + $coordinatorText) -notmatch [regex]::Escape($requiredSchema52CampaignCleanupEntry)) {
+		throw "Schema-52 exact mission-convoy terminal/campaign cleanup contract missing: $requiredSchema52CampaignCleanupEntry"
+	}
+}
+
+$schema52SurvivorProjectionReadyBlock = Get-ScriptMethodBlock $physicalWarText 'bool IsExactMissionConvoySurvivorProjectionReady('
+$schema52TerminalCrewClassifierBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool IsExactMissionConvoyTerminalSurvivingCrew('
+$schema52CrewProjectionAuthorityBlock = Get-ScriptMethodBlock $physicalWarText 'protected string ValidateExactMissionConvoyCrewProjectionAuthority('
+$schema52FrozenCrewMatchBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool ExactMissionConvoyRuntimeCrewMatchesFrozenSurvivorSlots('
+if ([string]::IsNullOrEmpty($schema52SurvivorProjectionReadyBlock) -or
+	[string]::IsNullOrEmpty($schema52TerminalCrewClassifierBlock) -or
+	[string]::IsNullOrEmpty($schema52CrewProjectionAuthorityBlock) -or
+	[string]::IsNullOrEmpty($schema52FrozenCrewMatchBlock)) {
+	throw "Schema-52 exact convoy survivor projection authority helpers are missing"
+}
+foreach ($requiredSchema52SurvivorProjectionEntry in @(
+		'EXACT_MISSION_CONVOY_VEHICLE_COUNT',
+		'ValidateExactMissionConvoyCrewProjectionAuthority',
+		'CountAliveRuntimeCrewAgents',
+		'ExactMissionConvoyRuntimeCrewMatchesFrozenSurvivorSlots',
+		'HST_CONVOY_ELEMENT_DISPOSITION_ACTIVE',
+		'IsExactMissionConvoyTerminalSurvivingCrew',
+		'HasRuntimeVehicleRegistration',
+		'observedTerminalTransition'
+	)) {
+	if ($schema52SurvivorProjectionReadyBlock -notmatch [regex]::Escape($requiredSchema52SurvivorProjectionEntry)) {
+		throw "Schema-52 survivor projection readiness must validate every living exact root and its frozen crew authority: $requiredSchema52SurvivorProjectionEntry"
+	}
+}
+foreach ($requiredSchema52TerminalCrewClassifierEntry in @(
+		'IsMissionConvoyVehicleAssetResolved',
+		'element.m_iSurvivingCrewCount <= 0',
+		'element.m_bMobile',
+		'HST_CONVOY_ELEMENT_DISPOSITION_DESTROYED',
+		'HST_CONVOY_ELEMENT_DISPOSITION_CAPTURED'
+	)) {
+	if ($schema52TerminalCrewClassifierBlock -notmatch [regex]::Escape($requiredSchema52TerminalCrewClassifierEntry)) {
+		throw "Schema-52 terminal exact convoy crew eligibility must be limited to immobile destroyed/captured vehicles with living crew: $requiredSchema52TerminalCrewClassifierEntry"
+	}
+}
+foreach ($requiredSchema52CrewAuthorityEntry in @(
+		'manifest.m_bFrozen',
+		'groupClaimants != 1',
+		'groupSlot.m_iExpectedMemberCount != element.m_iOriginalCrewCount',
+		'ResolveExactMissionConvoyManifestMemberForSeat',
+		'resultClaimants != 1',
+		'memberResult.m_bCasualtyConfirmed',
+		'livingMemberCount != element.m_iSurvivingCrewCount'
+	)) {
+	if (($schema52CrewProjectionAuthorityBlock + "`n" + $schema52FrozenCrewMatchBlock) -notmatch [regex]::Escape($requiredSchema52CrewAuthorityEntry)) {
+		throw "Schema-52 crew-only reprojection must derive its exact living roster from the frozen member slots: $requiredSchema52CrewAuthorityEntry"
+	}
+}
+$schema52TrySpawnActiveGroupBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TrySpawnActiveGroup('
+$schema52FrozenCrewSpawnBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TrySpawnExactMissionConvoyFrozenCrewGroup('
+$schema52RegisterMappedMemberBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool RegisterExactMissionConvoyMemberEntity('
+$schema52MappedCrewMatchBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool ExactMissionConvoyRuntimeCrewMatchesFrozenSurvivorSlots('
+$schema52ExplicitMemberDeathBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool HasExplicitExactMissionConvoyMemberDeathEvidence('
+if ([string]::IsNullOrEmpty($schema52TrySpawnActiveGroupBlock) -or [string]::IsNullOrEmpty($schema52FrozenCrewSpawnBlock) -or
+	[string]::IsNullOrEmpty($schema52RegisterMappedMemberBlock) -or [string]::IsNullOrEmpty($schema52MappedCrewMatchBlock) -or
+	[string]::IsNullOrEmpty($schema52ExplicitMemberDeathBlock)) {
+	throw "Schema-52 frozen exact-member spawn or identity-bijection helper is missing"
+}
+foreach ($requiredSchema52MemberIdentityEntry in @(
+		'm_aExactMissionConvoyMemberMissionIds',
+		'm_aExactMissionConvoyMemberGroupIds',
+		'm_aExactMissionConvoyMemberSlotIds',
+		'm_aExactMissionConvoyMemberEntities',
+		'TryGetExactMissionConvoyMappedMemberEntity',
+		'ClearExactMissionConvoyMemberMappingsForGroup',
+		'ClearExactMissionConvoyMemberMappingsForMission',
+		'RemoveExactMissionConvoyMemberMapping'
+	)) {
+	if ($physicalWarText -notmatch [regex]::Escape($requiredSchema52MemberIdentityEntry)) {
+		throw "Schema-52 exact convoy member-slot/entity identity surface is missing: $requiredSchema52MemberIdentityEntry"
+	}
+}
+$schema52ExactSpawnDispatchIndex = $schema52TrySpawnActiveGroupBlock.IndexOf('return TrySpawnExactMissionConvoyFrozenCrewGroup(state, exactMission, activeGroup);')
+$schema52GenericSpawnDispatchIndex = $schema52TrySpawnActiveGroupBlock.IndexOf('ShouldDeferActiveGroupRuntimePhysicalization', $schema52ExactSpawnDispatchIndex)
+if ($schema52ExactSpawnDispatchIndex -lt 0 -or $schema52GenericSpawnDispatchIndex -le $schema52ExactSpawnDispatchIndex) {
+	throw "Schema-52 exact convoy crew must dispatch synchronously from frozen slots before any generic group-spawn path"
+}
+foreach ($requiredSchema52FrozenCrewSpawnEntry in @(
+		'SCR_AIGroup.IgnoreSpawning(true)',
+		'ResolveExactMissionConvoyManifestMemberForSeat',
+		'SpawnFallbackInfantryCharacter(member.m_sPrefab',
+		'ResolveEntityPrefabName(memberEntity) != member.m_sPrefab',
+		'AttachFactionInfantryMemberToRuntimeGroup',
+		'RegisterExactMissionConvoyMemberEntity',
+		'CountExactMissionConvoyMemberMappings',
+		'CountAliveRuntimeCrewAgents'
+	)) {
+	if ($schema52FrozenCrewSpawnBlock -notmatch [regex]::Escape($requiredSchema52FrozenCrewSpawnEntry)) {
+		throw "Schema-52 exact convoy crew projection must synchronously project each frozen living slot: $requiredSchema52FrozenCrewSpawnEntry"
+	}
+}
+foreach ($requiredSchema52MemberBijectionEntry in @(
+		'ValidateForceSpawnGroupMember',
+		'bool sameSlot',
+		'bool sameEntity',
+		'return sameSlot && sameEntity;',
+		'm_aExactMissionConvoyMemberSlotIds.Insert(member.m_sSlotId)',
+		'm_aExactMissionConvoyMemberEntities.Insert(entity)'
+	)) {
+	if ($schema52RegisterMappedMemberBlock -notmatch [regex]::Escape($requiredSchema52MemberBijectionEntry)) {
+		throw "Schema-52 exact convoy member registration must preserve a validated slot/entity bijection: $requiredSchema52MemberBijectionEntry"
+	}
+}
+foreach ($requiredSchema52MappedCrewReadinessEntry in @(
+		'TryGetExactMissionConvoyMappedMemberEntity',
+		'IsRuntimeEntityRegisteredExactlyOnceForGroup',
+		'ValidateForceSpawnGroupMember',
+		'mappedEntities.Contains(mappedEntity)',
+		'CountExactMissionConvoyMemberMappings'
+	)) {
+	if ($schema52MappedCrewMatchBlock -notmatch [regex]::Escape($requiredSchema52MappedCrewReadinessEntry)) {
+		throw "Schema-52 exact convoy readiness must prove every frozen living slot against one mapped native/editable member: $requiredSchema52MappedCrewReadinessEntry"
+	}
+}
+if ($schema52ExplicitMemberDeathBlock -notmatch [regex]::Escape('ECharacterLifeState.DEAD') -or
+	$schema52ExplicitMemberDeathBlock -notmatch [regex]::Escape('EDamageState.DESTROYED') -or
+	$schema52ExplicitMemberDeathBlock -notmatch [regex]::Escape('if (!entity || entity.IsDeleted())') -or
+	$schema52ExplicitMemberDeathBlock -notmatch 'entity\.IsDeleted\(\)\)\s*\r?\n\s*return false;') {
+	throw "Schema-52 casualties must require an extant mapped entity with explicit DEAD/DESTROYED evidence"
+}
+
+$schema52SpawnConvoyGroupBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TrySpawnMissionConvoyGroup('
+$schema52SpawnTerminalCrewBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TrySpawnExactMissionConvoyTerminalSurvivingCrew('
+$schema52ShouldSpawnConvoyBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool ShouldSpawnMissionConvoyRuntime('
+if ([string]::IsNullOrEmpty($schema52SpawnConvoyGroupBlock) -or
+	[string]::IsNullOrEmpty($schema52SpawnTerminalCrewBlock) -or
+	[string]::IsNullOrEmpty($schema52ShouldSpawnConvoyBlock)) {
+	throw "Schema-52 exact convoy terminal surviving-crew spawn boundary is missing"
+}
+$schema52TerminalEligibilityIndex = $schema52SpawnConvoyGroupBlock.IndexOf('IsExactMissionConvoyTerminalSurvivingCrew')
+$schema52TerminalCrewRouteIndex = $schema52SpawnConvoyGroupBlock.IndexOf('TrySpawnExactMissionConvoyTerminalSurvivingCrew', $schema52TerminalEligibilityIndex)
+$schema52ResolvedVehicleRejectIndex = $schema52SpawnConvoyGroupBlock.IndexOf('IsMissionConvoyVehicleAssetResolved(asset)', $schema52TerminalCrewRouteIndex)
+if ($schema52TerminalEligibilityIndex -lt 0 -or $schema52TerminalCrewRouteIndex -le $schema52TerminalEligibilityIndex -or
+	$schema52ResolvedVehicleRejectIndex -le $schema52TerminalCrewRouteIndex) {
+	throw "Schema-52 destroyed/captured convoy survivors must route to crew-only reprojection before the resolved-vehicle rejection"
+}
+foreach ($requiredSchema52TerminalCrewSpawnEntry in @(
+		'ValidateExactMissionConvoyCrewProjectionAuthority',
+		'GetRuntimeVehicleEntity',
+		'HasRuntimeVehicleRegistration',
+		'ExactMissionConvoyRuntimeCrewMatchesFrozenSurvivorSlots',
+		'activeGroup.m_iInfantryCount = element.m_iSurvivingCrewCount;',
+		'activeGroup.m_iSurvivorVehicleCount = 0;',
+		'asset.m_bSpawned = false;',
+		'element.m_bPhysicalized = false;',
+		'element.m_bMobile = false;',
+		'runtimeEntity.m_bSpawned = false;',
+		'TrySpawnActiveGroup',
+		'TERMINAL_VEHICLE_RESURRECTION_REJECTED',
+		'TERMINAL_CREW_ROSTER_REJECTED',
+		'DISMOUNTED_SURVIVORS'
+	)) {
+	if ($schema52SpawnTerminalCrewBlock -notmatch [regex]::Escape($requiredSchema52TerminalCrewSpawnEntry)) {
+		throw "Schema-52 terminal surviving-crew materialization must remain an exact crew-only projection: $requiredSchema52TerminalCrewSpawnEntry"
+	}
+}
+foreach ($forbiddenSchema52TerminalCrewVehicleSpawnEntry in @(
+		'SpawnMissionConvoyVehicle',
+		'm_aRuntimeVehicleGroupIds.Insert',
+		'm_aRuntimeVehicleEntities.Insert'
+	)) {
+	if ($schema52SpawnTerminalCrewBlock -match [regex]::Escape($forbiddenSchema52TerminalCrewVehicleSpawnEntry)) {
+		throw "Schema-52 terminal surviving-crew materialization must not resurrect or register a vehicle: $forbiddenSchema52TerminalCrewVehicleSpawnEntry"
+	}
+}
+$schema52TerminalCrewNativeSpawnIndex = $schema52SpawnTerminalCrewBlock.IndexOf('TrySpawnActiveGroup')
+$schema52TerminalCrewVehiclePreflightIndex = $schema52SpawnTerminalCrewBlock.IndexOf('GetRuntimeVehicleEntity')
+$schema52TerminalCrewRegistrationPreflightIndex = $schema52SpawnTerminalCrewBlock.IndexOf('HasRuntimeVehicleRegistration')
+$schema52TerminalCrewVehiclePostflightIndex = $schema52SpawnTerminalCrewBlock.IndexOf('GetRuntimeVehicleEntity', $schema52TerminalCrewNativeSpawnIndex)
+$schema52TerminalCrewRegistrationPostflightIndex = $schema52SpawnTerminalCrewBlock.IndexOf('HasRuntimeVehicleRegistration', $schema52TerminalCrewNativeSpawnIndex)
+if ($schema52TerminalCrewNativeSpawnIndex -lt 0 -or
+	$schema52TerminalCrewVehiclePreflightIndex -lt 0 -or $schema52TerminalCrewVehiclePreflightIndex -ge $schema52TerminalCrewNativeSpawnIndex -or
+	$schema52TerminalCrewRegistrationPreflightIndex -lt 0 -or $schema52TerminalCrewRegistrationPreflightIndex -ge $schema52TerminalCrewNativeSpawnIndex -or
+	$schema52TerminalCrewVehiclePostflightIndex -le $schema52TerminalCrewNativeSpawnIndex -or
+	$schema52TerminalCrewRegistrationPostflightIndex -le $schema52TerminalCrewNativeSpawnIndex) {
+	throw "Schema-52 terminal crew-only reprojection must reject vehicle handles and registrations both before and after native crew spawn"
+}
+foreach ($requiredSchema52ShouldSpawnTerminalEntry in @(
+		'IsExactMissionConvoyTerminalSurvivingCrew',
+		'GetRuntimeVehicleEntity',
+		'HasRuntimeVehicleRegistration',
+		'GetRuntimeCrewGroupEntity',
+		'WasRestoredMissionConvoyRuntimeRebuildAttempted'
+	)) {
+	if ($schema52ShouldSpawnConvoyBlock -notmatch [regex]::Escape($requiredSchema52ShouldSpawnTerminalEntry)) {
+		throw "Schema-52 convoy runtime admission must permit terminal living crew only without a vehicle runtime: $requiredSchema52ShouldSpawnTerminalEntry"
+	}
+}
+
+$schema52PhysicalProjectionReadyBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected bool IsPhysicalProjectionReady('
+if ([string]::IsNullOrEmpty($schema52PhysicalProjectionReadyBlock) -or
+	$schema52PhysicalProjectionReadyBlock -notmatch [regex]::Escape('IsExactMissionConvoySurvivorProjectionReady') -or
+	$schema52PhysicalProjectionReadyBlock -notmatch [regex]::Escape('IsCargoProjectionReady')) {
+	throw "Schema-52 outbound materialization readiness must combine exact survivor-root and cargo-root readiness"
+}
+$schema52OutboundBeginBlock = Get-ScriptMethodBlock $physicalWarText 'protected HST_ExactMissionConvoyOutboundProjectionTransaction BeginExactMissionConvoyOutboundProjectionTransaction('
+$schema52OutboundRollbackBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool RollbackExactMissionConvoyOutboundProjectionTransaction('
+$schema52OutboundCompleteBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool CompleteExactMissionConvoyOutboundProjectionTransaction('
+$schema52OutboundPublishBlock = Get-ScriptMethodBlock $physicalWarText 'protected void SetExactMissionConvoyProjectionEntityPublished('
+$schema52OutboundReconcileBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool ReconcileExactMissionConvoyOutboundProjectionTransactions('
+$schema52OutboundParticipantCommitBlock = Get-ScriptMethodBlock $physicalWarText 'bool CommitExactMissionConvoyOutboundProjectionTransaction('
+$schema52OutboundVisibilityBlock = Get-ScriptMethodBlock $physicalWarText 'protected void SetExactMissionConvoyOutboundProjectionTransactionVisible('
+$schema52CargoParticipantPublicationBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'bool SetExactMissionConvoyCargoProjectionPublication('
+if ($physicalWarText -notmatch [regex]::Escape('class HST_ExactMissionConvoyOutboundProjectionTransaction') -or
+	[string]::IsNullOrEmpty($schema52OutboundBeginBlock) -or [string]::IsNullOrEmpty($schema52OutboundRollbackBlock) -or
+	[string]::IsNullOrEmpty($schema52OutboundCompleteBlock) -or [string]::IsNullOrEmpty($schema52OutboundPublishBlock) -or
+	[string]::IsNullOrEmpty($schema52OutboundReconcileBlock) -or [string]::IsNullOrEmpty($schema52OutboundParticipantCommitBlock) -or
+	[string]::IsNullOrEmpty($schema52OutboundVisibilityBlock) -or [string]::IsNullOrEmpty($schema52CargoParticipantPublicationBlock)) {
+	throw "Schema-52 all-root outbound publication transaction is missing"
+}
+foreach ($requiredSchema52OutboundBeginEntry in @(
+		'HST_OPERATION_MATERIALIZATION_MATERIALIZING',
+		'CountExactMissionConvoyMemberMappings(mission.m_sInstanceId) != 0',
+		'EXACT_MISSION_CONVOY_VEHICLE_COUNT',
+		'FindPendingActiveGroupPopulationIndex',
+		'm_aExactMissionConvoyOutboundProjectionTransactions.Insert(transaction)'
+	)) {
+	if ($schema52OutboundBeginBlock -notmatch [regex]::Escape($requiredSchema52OutboundBeginEntry)) {
+		throw "Schema-52 outbound transaction must preflight and snapshot every exact root before staging: $requiredSchema52OutboundBeginEntry"
+	}
+}
+foreach ($requiredSchema52OutboundPublicationEntry in @(
+		'EntityFlags.ACTIVE',
+		'EntityFlags.VISIBLE',
+		'EntityFlags.TRACEABLE',
+		'entity.SetFlags(publicationFlags, true)',
+		'entity.ClearFlags(publicationFlags, true)'
+	)) {
+	if ($schema52OutboundPublishBlock -notmatch [regex]::Escape($requiredSchema52OutboundPublicationEntry)) {
+		throw "Schema-52 staged exact roots must recursively control active/visible/traceable publication: $requiredSchema52OutboundPublicationEntry"
+	}
+}
+foreach ($requiredSchema52OutboundTerminalRollbackEntry in @(
+		'HST_OPERATION_MATERIALIZATION_VIRTUAL',
+		'HST_OPERATION_POSITION_STRATEGIC',
+		'SetMissionConvoyFailure',
+		'RemoveExactMissionConvoyOutboundProjectionTransaction(transaction)'
+	)) {
+	if ($schema52OutboundRollbackBlock -notmatch [regex]::Escape($requiredSchema52OutboundTerminalRollbackEntry)) {
+		throw "Schema-52 terminal outbound failure must return to durable virtual/strategic authority and close the transaction: $requiredSchema52OutboundTerminalRollbackEntry"
+	}
+}
+$schema52OutboundPhysicalIndex = $schema52OutboundParticipantCommitBlock.IndexOf('HST_OPERATION_MATERIALIZATION_PHYSICAL')
+$schema52OutboundReadyIndex = $schema52OutboundParticipantCommitBlock.IndexOf('IsExactMissionConvoySurvivorProjectionReady', $schema52OutboundPhysicalIndex)
+$schema52OutboundCargoReadyIndex = $schema52OutboundParticipantCommitBlock.IndexOf('IsExactMissionConvoyCargoProjectionReady', $schema52OutboundReadyIndex)
+$schema52OutboundCargoPublishIndex = $schema52OutboundParticipantCommitBlock.IndexOf('SetExactMissionConvoyCargoProjectionPublication', $schema52OutboundCargoReadyIndex)
+$schema52OutboundCommitIndex = $schema52OutboundParticipantCommitBlock.IndexOf('CompleteExactMissionConvoyOutboundProjectionTransaction', $schema52OutboundCargoPublishIndex)
+if ($schema52OutboundPhysicalIndex -lt 0 -or $schema52OutboundReadyIndex -le $schema52OutboundPhysicalIndex -or
+	$schema52OutboundCargoReadyIndex -le $schema52OutboundReadyIndex -or $schema52OutboundCargoPublishIndex -le $schema52OutboundCargoReadyIndex -or
+	$schema52OutboundCommitIndex -le $schema52OutboundCargoPublishIndex -or
+	$schema52OutboundCompleteBlock -notmatch [regex]::Escape('IsExactMissionConvoyOutboundProjectionTransactionPublished(transaction, true)') -or
+	$schema52OutboundCompleteBlock -notmatch [regex]::Escape('SetExactMissionConvoyOutboundProjectionTransactionVisible(transaction, true)')) {
+	throw "Schema-52 outbound exact roots and cargo may publish only through one revalidated PHYSICAL participant commit"
+}
+foreach ($requiredSchema52MappedMemberPublicationEntry in @(
+		'm_aExactMissionConvoyMemberMissionIds[memberIndex] != transaction.m_sMissionInstanceId',
+		'SetExactMissionConvoyProjectionEntityPublished(m_aExactMissionConvoyMemberEntities[memberIndex], visible)'
+	)) {
+	if ($schema52OutboundVisibilityBlock -notmatch [regex]::Escape($requiredSchema52MappedMemberPublicationEntry)) {
+		throw "Schema-52 outbound publication must include every individually staged exact member: $requiredSchema52MappedMemberPublicationEntry"
+	}
+}
+if ($schema52OutboundReconcileBlock -match [regex]::Escape('CompleteExactMissionConvoyOutboundProjectionTransaction') -or
+	$missionConvoyOperationText -notmatch [regex]::Escape('CommitExactMissionConvoyOutboundProjectionTransaction(state, mission, m_MissionRuntime, publicationFailure)')) {
+	throw "Schema-52 PhysicalWar may not close outbound publication without the operation-layer cargo participant seam"
+}
+$schema52NearestConvoyPlayerBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected float ResolveNearestLivingPlayerDistanceForConvoy('
+$schema52AbandonedBubbleRootBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'static bool IsRecoverableAbandonedVehicleRoot('
+$schema52BeginMaterializationBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected bool TryBeginMaterialization('
+$schema52TickAfterPhysicalBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'bool TickAfterPhysical('
+if ([string]::IsNullOrEmpty($schema52NearestConvoyPlayerBlock) -or [string]::IsNullOrEmpty($schema52AbandonedBubbleRootBlock) -or
+	[string]::IsNullOrEmpty($schema52BeginMaterializationBlock) -or
+	[string]::IsNullOrEmpty($schema52TickAfterPhysicalBlock)) {
+	throw "Schema-52 mixed-root convoy materialization bubble methods are missing"
+}
+foreach ($requiredSchema52MixedBubbleEntry in @(
+		'operation.m_vStrategicPosition',
+		'EXACT_VEHICLE_COUNT',
+		'element.m_iSurvivingCrewCount > 0',
+		'element.m_vCurrentPosition',
+		'IsRecoverableAbandonedVehicleRoot(vehicle, element)',
+		'cargo.m_bPickedUp',
+		'cargo.m_bDelivered',
+		'cargo.m_bDestroyed',
+		'cargo.m_bOutcomeApplied',
+		'cargo.m_vCurrentPosition'
+	)) {
+	if ($schema52NearestConvoyPlayerBlock -notmatch [regex]::Escape($requiredSchema52MixedBubbleEntry)) {
+		throw "Schema-52 player-bubble ownership must measure every separated living/recovery convoy root: $requiredSchema52MixedBubbleEntry"
+	}
+}
+foreach ($requiredSchema52AbandonedBubbleRootEntry in @(
+		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
+		'element.m_iSurvivingCrewCount <= 0',
+		'!element.m_bMobile',
+		'element.m_fVehicleDamageFraction >= 0.0',
+		'element.m_fVehicleDamageFraction < 1.0'
+	)) {
+	if ($schema52AbandonedBubbleRootBlock -notmatch [regex]::Escape($requiredSchema52AbandonedBubbleRootEntry)) {
+		throw "Schema-52 separated abandoned-vehicle bubble classifier is incomplete: $requiredSchema52AbandonedBubbleRootEntry"
+	}
+}
+if ($schema52NearestConvoyPlayerBlock -match '\brecoveryHold\b' -or $schema52NearestConvoyPlayerBlock -match 'if\s*\(\s*IsRecoveryHold') {
+	throw "Schema-52 player-bubble ownership must not gate separated abandoned vehicles or unresolved cargo on global recovery hold"
+}
+$schema52BeginBubbleIndex = $schema52BeginMaterializationBlock.IndexOf('ResolveNearestLivingPlayerDistanceForConvoy')
+$schema52BeginRadiusIndex = $schema52BeginMaterializationBlock.IndexOf('EXACT_MATERIALIZE_IN_RADIUS_METERS', $schema52BeginBubbleIndex)
+$schema52FoldBubbleIndex = $schema52TickAfterPhysicalBlock.IndexOf('ResolveNearestLivingPlayerDistanceForConvoy')
+$schema52FoldRadiusIndex = $schema52TickAfterPhysicalBlock.IndexOf('EXACT_MATERIALIZE_OUT_RADIUS_METERS', $schema52FoldBubbleIndex)
+if ($schema52BeginBubbleIndex -lt 0 -or $schema52BeginRadiusIndex -le $schema52BeginBubbleIndex -or
+	$schema52FoldBubbleIndex -lt 0 -or $schema52FoldRadiusIndex -le $schema52FoldBubbleIndex) {
+	throw "Schema-52 materialize/fold decisions must use the nearest separated convoy root before applying bubble thresholds"
+}
+
+foreach ($requiredSchema52AtomicFoldEntry in @(
+		'terminalAssets',
+		'terminalElements',
+		'terminalGroups',
+		'preserveTerminalVehicles',
+		'crewlessAssets',
+		'crewlessElements',
+		'crewlessGroups',
+		'sampledCrewlessPositions',
+		'sampledCrewlessSurvivors',
+		'sampledTerminalPositions',
+		'sampledTerminalSurvivors',
+		'sampledPositions',
+		'sampledSurvivors',
+		'allRosterElements',
+		'allRosterSurvivors',
+		'BuildExactMissionConvoyRosterMutationPlan',
+		'ApplyExactMissionConvoyRosterMutationPlan'
+	)) {
+	if ($schema52FoldBlock -notmatch [regex]::Escape($requiredSchema52AtomicFoldEntry)) {
+		throw "Schema-52 exact convoy fold must sample active, terminal, and crewless roots in one atomic preflight: $requiredSchema52AtomicFoldEntry"
+	}
+}
+$schema52RosterPlanBlock = Get-ScriptMethodBlock $physicalWarText 'protected string BuildExactMissionConvoyRosterMutationPlan('
+$schema52RosterApplyBlock = Get-ScriptMethodBlock $physicalWarText 'protected void ApplyExactMissionConvoyRosterMutationPlan('
+if ([string]::IsNullOrEmpty($schema52RosterPlanBlock) -or [string]::IsNullOrEmpty($schema52RosterApplyBlock)) {
+	throw "Schema-52 exact convoy mapped-member roster plan/apply helpers are missing"
+}
+foreach ($requiredSchema52RosterPlanEntry in @(
+		'elements.Count() != sampledSurvivors.Count()',
+		'IsExactMissionConvoyOutboundProjectionTransactionOpen(mission)',
+		'manifest.m_bFrozen',
+		'ResolveExactMissionConvoyManifestMemberForSeat',
+		'TryGetExactMissionConvoyMappedMemberEntity',
+		'ValidateForceSpawnGroupMember',
+		'HasExplicitExactMissionConvoyMemberDeathEvidence',
+		'result.m_aNewCasualtySlots.Insert(memberResult)',
+		'memberResult.m_bCasualtyConfirmed',
+		'mappingCount != currentLivingSlots',
+		'desiredSurvivors != observedLivingSlots'
+	)) {
+	if ($schema52RosterPlanBlock -notmatch [regex]::Escape($requiredSchema52RosterPlanEntry)) {
+		throw "Schema-52 fold preflight must map each frozen living slot to explicit entity/death evidence: $requiredSchema52RosterPlanEntry"
+	}
+}
+foreach ($requiredSchema52RosterApplyEntry in @(
+		'casualtySlot.m_bCasualtyConfirmed = true;',
+		'casualtySlot.m_bAliveVerified = false;',
+		'HST_FORCE_SLOT_RETIRED',
+		'casualtySlot.m_iCasualtyAtSecond',
+		'RemoveExactMissionConvoyMemberMapping',
+		'exact mission convoy explicitly mapped physical casualty'
+	)) {
+	if ($schema52RosterApplyBlock -notmatch [regex]::Escape($requiredSchema52RosterApplyEntry)) {
+		throw "Schema-52 roster commit must retire only the explicitly mapped dead slot: $requiredSchema52RosterApplyEntry"
+	}
+}
+$schema52RosterPlanIndex = $schema52FoldBlock.IndexOf('BuildExactMissionConvoyRosterMutationPlan(state, mission, allRosterElements, allRosterSurvivors, rosterPlan)')
+$schema52RosterApplyIndex = $schema52FoldBlock.IndexOf('ApplyExactMissionConvoyRosterMutationPlan(rosterPlan)', $schema52RosterPlanIndex)
+$schema52FirstFoldDurableWriteMatch = [regex]::Match(
+	$schema52FoldBlock,
+	'(?:crewlessGroup|crewlessAsset|crewlessElement|activeGroup|asset|element|terminalGroup|terminalAsset|terminalElement)\.m_(?:vPosition|vSourcePosition|vCurrentPosition|iInfantryCount|iSurvivingCrewCount)\s*='
+)
+$schema52FirstFoldDurableWriteIndex = $schema52FirstFoldDurableWriteMatch.Index
+if (!$schema52FirstFoldDurableWriteMatch.Success) {
+	$schema52FirstFoldDurableWriteIndex = -1
+}
+$schema52FirstFoldDeleteIndex = $schema52FoldBlock.IndexOf('DeleteRuntimeGroupEntity')
+if ($schema52RosterPlanIndex -lt 0 -or $schema52RosterApplyIndex -le $schema52RosterPlanIndex -or
+	$schema52FirstFoldDurableWriteIndex -le $schema52RosterApplyIndex -or $schema52FirstFoldDeleteIndex -le $schema52RosterApplyIndex) {
+	throw "Schema-52 exact convoy fold must build one all-root member plan before applying it, durable writes, or runtime deletion"
+}
+$schema52FoldPostCommitBlock = $schema52FoldBlock.Substring($schema52RosterApplyIndex)
+if ($schema52FoldBlock -match 'UpdateRuntimeGroupSurvivors\s*\(\s*state\s*\)' -or
+	$schema52FoldPostCommitBlock -match 'return\s+false\s*;') {
+	throw "Schema-52 exact convoy fold must not invoke global survivor mutation or fail after its durable commit begins"
+}
+$schema52RetireBlock = Get-ScriptMethodBlock $physicalWarText 'bool RetireExactMissionConvoyRuntime('
+if ([string]::IsNullOrEmpty($schema52RetireBlock)) {
+	throw "Schema-52 exact convoy runtime retirement method is missing"
+}
+$schema52RetirePlanIndex = $schema52RetireBlock.IndexOf('BuildExactMissionConvoyRosterMutationPlan')
+$schema52RetireApplyIndex = $schema52RetireBlock.IndexOf('ApplyExactMissionConvoyRosterMutationPlan', $schema52RetirePlanIndex)
+if ($schema52RetirePlanIndex -lt 0 -or $schema52RetireApplyIndex -le $schema52RetirePlanIndex) {
+	throw "Schema-52 exact convoy retirement must preflight one mapped-member mutation plan before commit"
+}
+$schema52RetirePostCommitBlock = $schema52RetireBlock.Substring($schema52RetireApplyIndex)
+if ($schema52RetireBlock -match 'UpdateRuntimeGroupSurvivors\s*\(\s*state\s*\)' -or
+	$schema52RetirePostCommitBlock -match 'return\s+false\s*;') {
+	throw "Schema-52 exact convoy retirement must not invoke aggregate survivor mutation or fail after commit begins"
+}
+
+$schema52FoldPayloadRoleIndex = $schema52FoldBlock.IndexOf('missionAsset.m_sRole != MISSION_CONVOY_PAYLOAD_ROLE')
+$schema52FoldCaptiveRoleIndex = $schema52FoldBlock.IndexOf('missionAsset.m_sRole != MISSION_CONVOY_CAPTIVE_ROLE', $schema52FoldPayloadRoleIndex)
+$schema52FoldCargoSafetyIndex = $schema52FoldBlock.IndexOf('HasUnsafeExactMissionConvoyCargoCarrierClaim', $schema52FoldCaptiveRoleIndex)
+if ($schema52FoldPayloadRoleIndex -lt 0 -or $schema52FoldCaptiveRoleIndex -le $schema52FoldPayloadRoleIndex -or
+	$schema52FoldCargoSafetyIndex -le $schema52FoldCaptiveRoleIndex) {
+	throw "Schema-52 fold interaction guards must select only payload/captive roots before validating carrier ownership"
+}
+foreach ($requiredSchema52CapturedVehicleFoldEntry in @(
+		'HST_CONVOY_ELEMENT_DISPOSITION_CAPTURED',
+		'IsLivingEntity(terminalVehicleEntity)',
+		'preserveTerminalVehicles.Insert',
+		'HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive',
+		'DeleteRuntimeGroupEntity(terminalGroup.m_sGroupId, !preserveTerminalVehicle)'
+	)) {
+	if ($schema52FoldBlock -notmatch [regex]::Escape($requiredSchema52CapturedVehicleFoldEntry)) {
+		throw "Schema-52 captured vehicle fold must preserve and neutralize a living captured root without treating it as carried cargo: $requiredSchema52CapturedVehicleFoldEntry"
+	}
+}
+
+$schema52ContactClearBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TryClearExactMissionConvoyContact('
+$schema52ContactReasonBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TryResolveMissionConvoyContactReasonInternal('
+if ([string]::IsNullOrEmpty($schema52ContactClearBlock) -or [string]::IsNullOrEmpty($schema52ContactReasonBlock)) {
+	throw "Schema-52 role-aware exact convoy contact methods are missing"
+}
+$schema52ContactPayloadRoleIndex = $schema52ContactClearBlock.IndexOf('missionAsset.m_sRole != MISSION_CONVOY_PAYLOAD_ROLE')
+$schema52ContactCaptiveRoleIndex = $schema52ContactClearBlock.IndexOf('missionAsset.m_sRole != MISSION_CONVOY_CAPTIVE_ROLE', $schema52ContactPayloadRoleIndex)
+$schema52ContactCargoSafetyIndex = $schema52ContactClearBlock.IndexOf('HasUnsafeExactMissionConvoyCargoCarrierClaim', $schema52ContactCaptiveRoleIndex)
+if ($schema52ContactPayloadRoleIndex -lt 0 -or $schema52ContactCaptiveRoleIndex -le $schema52ContactPayloadRoleIndex -or
+	$schema52ContactCargoSafetyIndex -le $schema52ContactCaptiveRoleIndex) {
+	throw "Schema-52 contact clear must select only payload/captive roots before evaluating carrier safety"
+}
+foreach ($requiredSchema52TerminalContactEntry in @(
+		'IsExactMissionConvoyTerminalSurvivingCrew',
+		'HST_CONVOY_ELEMENT_DISPOSITION_ACTIVE',
+		'asset.m_bDelivered && !terminalSurvivingCrew',
+		'asset.m_bDestroyed && !terminalSurvivingCrew',
+		'ResolveActiveGroupLiveRuntimePosition(activeGroup, true)',
+		'from dismounted crew',
+		'if (terminalSurvivingCrew)',
+		'GetRuntimeVehicleEntity'
+	)) {
+	if ($schema52ContactReasonBlock -notmatch [regex]::Escape($requiredSchema52TerminalContactEntry)) {
+		throw "Schema-52 contact detection must keep destroyed/captured living crew as a dismounted root and ignore their resolved carrier: $requiredSchema52TerminalContactEntry"
+	}
+}
+$schema52TerminalContactSkipIndex = $schema52ContactReasonBlock.IndexOf('if (terminalSurvivingCrew)')
+$schema52TerminalContactVehicleIndex = $schema52ContactReasonBlock.IndexOf('GetRuntimeVehicleEntity', $schema52TerminalContactSkipIndex)
+if ($schema52TerminalContactSkipIndex -lt 0 -or $schema52TerminalContactVehicleIndex -le $schema52TerminalContactSkipIndex) {
+	throw "Schema-52 terminal surviving-crew contact must finish crew evidence handling before vehicle mobility checks"
+}
+
+$schema52RecoveryCarrierAvailabilityBlock = Get-ScriptMethodBlock $physicalWarText 'protected string ValidateExactMissionConvoyRecoveryCarrierAvailability('
+$schema52UnresolvedRecoveryCargoBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool IsExactMissionConvoyUnresolvedRecoveryCargo('
+$schema52RecoveryCarrierElementBlock = Get-ScriptMethodBlock $physicalWarText 'protected HST_ConvoyElementState ResolveExactMissionConvoyRecoveryCarrierElement('
+$schema52TerminalRecoveryCarrierBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool IsExactMissionConvoyTerminalRecoveryCarrier('
+$schema52FreezeTerminalCargoBlock = Get-ScriptMethodBlock $physicalWarText 'protected void FreezeExactMissionConvoyTerminalRecoveryCargo('
+$schema52SyncRecoveryCarrierAssetsBlock = Get-ScriptMethodBlock $physicalWarText 'protected void SyncExactMissionConvoyRecoveryCarrierAssets('
+if ([string]::IsNullOrEmpty($schema52RecoveryCarrierAvailabilityBlock) -or
+	[string]::IsNullOrEmpty($schema52UnresolvedRecoveryCargoBlock) -or
+	[string]::IsNullOrEmpty($schema52RecoveryCarrierElementBlock) -or
+	[string]::IsNullOrEmpty($schema52TerminalRecoveryCarrierBlock) -or
+	[string]::IsNullOrEmpty($schema52FreezeTerminalCargoBlock) -or
+	[string]::IsNullOrEmpty($schema52SyncRecoveryCarrierAssetsBlock)) {
+	throw "Schema-52 destroyed/captured carrier ground-cargo authority helpers are missing"
+}
+foreach ($requiredSchema52RecoveryCarrierEntry in @(
+		'ResolveExactMissionConvoyRecoveryCarrierElement',
+		'IsExactMissionConvoyRecoveryVehicleEligible',
+		'IsExactMissionConvoyTerminalRecoveryCarrier',
+		'terminal carrier has no durable ground position'
+	)) {
+	if ($schema52RecoveryCarrierAvailabilityBlock -notmatch [regex]::Escape($requiredSchema52RecoveryCarrierEntry)) {
+		throw "Schema-52 recovery materialization must preflight unresolved cargo against its frozen carrier root: $requiredSchema52RecoveryCarrierEntry"
+	}
+}
+foreach ($requiredSchema52RecoveryCarrierIdentityEntry in @(
+		'candidate.m_sOperationId != mission.m_sOperationId',
+		'candidate.m_sMissionInstanceId != mission.m_sInstanceId',
+		'candidate.m_sVehicleSlotId != vehicleSlotId',
+		'carrierClaimants != 1'
+	)) {
+	if ($schema52RecoveryCarrierElementBlock -notmatch [regex]::Escape($requiredSchema52RecoveryCarrierIdentityEntry)) {
+		throw "Schema-52 recovery cargo must resolve exactly one frozen operation/mission/vehicle-slot carrier: $requiredSchema52RecoveryCarrierIdentityEntry"
+	}
+}
+foreach ($requiredSchema52TerminalCarrierEntry in @(
+		'IsMissionConvoyVehicleAssetResolved',
+		'carrierElement.m_iSurvivingCrewCount > 0',
+		'carrierElement.m_bMobile',
+		'HST_CONVOY_ELEMENT_DISPOSITION_DESTROYED',
+		'carrierAsset.m_bDestroyed',
+		'HST_CONVOY_ELEMENT_DISPOSITION_CAPTURED',
+		'carrierAsset.m_bDelivered',
+		'carrierAsset.m_sLastInteraction == "captured"'
+	)) {
+	if ($schema52TerminalRecoveryCarrierBlock -notmatch [regex]::Escape($requiredSchema52TerminalCarrierEntry)) {
+		throw "Schema-52 ground cargo may detach only from a resolved, crewless, immobile destroyed/captured frozen carrier: $requiredSchema52TerminalCarrierEntry"
+	}
+}
+foreach ($requiredSchema52FrozenGroundCargoEntry in @(
+		'IsExactMissionConvoyUnresolvedRecoveryCargo',
+		'ResolveExactMissionConvoyRecoveryCarrierElement',
+		'IsExactMissionConvoyTerminalRecoveryCarrier',
+		'cargo.m_vCurrentPosition = position;',
+		'cargo.m_vLastKnownPosition = position;',
+		'cargo.m_bAttachedToCarrier = false;',
+		'cargo.m_sCarriedByVehicleId = "";'
+	)) {
+	if ($schema52FreezeTerminalCargoBlock -notmatch [regex]::Escape($requiredSchema52FrozenGroundCargoEntry)) {
+		throw "Schema-52 terminal frozen-carrier cargo must become detached ground authority at the durable carrier position: $requiredSchema52FrozenGroundCargoEntry"
+	}
+}
+foreach ($requiredSchema52CarrierSyncEntry in @(
+		'IsMissionConvoyVehicleAssetResolved(carrierAsset)',
+		'HST_CONVOY_ELEMENT_DISPOSITION_DESTROYED',
+		'HST_CONVOY_ELEMENT_DISPOSITION_CAPTURED',
+		'cargo.m_sAssignedVehicleSlotId != carrier.m_sVehicleSlotId',
+		'cargo.m_bAttachedToCarrier = !terminalResolvedCarrier;',
+		'cargo.m_sCarriedByVehicleId = "";',
+		'cargo.m_sCarriedByVehicleId = carrier.m_sVehicleAssetId;'
+	)) {
+	if ($schema52SyncRecoveryCarrierAssetsBlock -notmatch [regex]::Escape($requiredSchema52CarrierSyncEntry)) {
+		throw "Schema-52 recovery carrier sync must preserve frozen slot ownership while detaching terminal-carrier cargo: $requiredSchema52CarrierSyncEntry"
+	}
+}
+$schema52RecoveryFreezeIndex = $schema52RecoveryMaterializeBlock.IndexOf('FreezeExactMissionConvoyTerminalRecoveryCargo')
+$schema52RecoveryPlanningIndex = $schema52RecoveryMaterializeBlock.IndexOf('ref array<ref HST_MissionAssetState> assets')
+$schema52RecoveryVehicleSpawnIndex = $schema52RecoveryMaterializeBlock.IndexOf('SpawnMissionConvoyVehicle')
+if ($schema52RecoveryFreezeIndex -lt 0 -or $schema52RecoveryPlanningIndex -le $schema52RecoveryFreezeIndex -or
+	$schema52RecoveryVehicleSpawnIndex -le $schema52RecoveryPlanningIndex) {
+	throw "Schema-52 recovery materialization must freeze terminal-carrier cargo on the ground before planning or spawning vehicle roots"
+}
+
+$schema52RuntimeCarrierAuthorityBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool ResolveExactMissionConvoyCargoCarrierAuthority('
+$schema52RuntimeTerminalCarrierBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool IsExactMissionConvoyTerminalCarrierGroundRecovery('
+$schema52RuntimeGroundCargoBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool ProjectExactMissionConvoyCargoAtDurablePosition('
+if ([string]::IsNullOrEmpty($schema52RuntimeCarrierAuthorityBlock) -or
+	[string]::IsNullOrEmpty($schema52RuntimeTerminalCarrierBlock) -or
+	[string]::IsNullOrEmpty($schema52RuntimeGroundCargoBlock)) {
+	throw "Schema-52 standalone terminal-carrier cargo projection helpers are missing"
+}
+foreach ($requiredSchema52RuntimeCarrierAuthorityEntry in @(
+		'cargo.m_sAssignedVehicleSlotId',
+		'carrierAssetClaimants != 1',
+		'carrierElementClaimants != 1',
+		'candidateAsset.m_sManifestSlotId != cargo.m_sAssignedVehicleSlotId',
+		'candidateElement.m_sVehicleSlotId != cargo.m_sAssignedVehicleSlotId',
+		'cargo.m_sConvoyElementId == carrierElement.m_sElementId'
+	)) {
+	if ($schema52RuntimeCarrierAuthorityBlock -notmatch [regex]::Escape($requiredSchema52RuntimeCarrierAuthorityEntry)) {
+		throw "Schema-52 standalone cargo projection must use one exact frozen carrier asset/element authority: $requiredSchema52RuntimeCarrierAuthorityEntry"
+	}
+}
+foreach ($requiredSchema52RuntimeTerminalCarrierEntry in @(
+		'mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE',
+		'carrierElement.m_bMobile',
+		'HST_CONVOY_ELEMENT_DISPOSITION_DESTROYED',
+		'carrierAsset.m_bDestroyed',
+		'HST_CONVOY_ELEMENT_DISPOSITION_CAPTURED',
+		'carrierAsset.m_sLastInteraction == "captured"'
+	)) {
+	if ($schema52RuntimeTerminalCarrierBlock -notmatch [regex]::Escape($requiredSchema52RuntimeTerminalCarrierEntry)) {
+		throw "Schema-52 standalone ground projection must remain active only for unresolved destroyed/captured carrier recovery: $requiredSchema52RuntimeTerminalCarrierEntry"
+	}
+}
+foreach ($requiredSchema52RuntimeGroundCargoEntry in @(
+		'ResolveExactMissionConvoyStandaloneRecoveryPosition',
+		'HST_WorldPositionService.ResolveSafeGroundPosition',
+		'EnsureExactMissionConvoyCargoProjectionEntity',
+		'asset.m_bAttachedToCarrier = false;',
+		'asset.m_sCarriedByVehicleId = "";',
+		'RegisterAssetRuntimeEntityState'
+	)) {
+	if ($schema52RuntimeGroundCargoBlock -notmatch [regex]::Escape($requiredSchema52RuntimeGroundCargoEntry)) {
+		throw "Schema-52 terminal-carrier cargo must project as a safe standalone ground entity: $requiredSchema52RuntimeGroundCargoEntry"
+	}
+}
+foreach ($requiredSchema52CargoTickGroundEntry in @(
+		'ResolveExactMissionConvoyCargoCarrierAuthority',
+		'GetExactMissionConvoyVehicleRuntimeEntity',
+		'IsExactMissionConvoyTerminalCarrierGroundRecovery',
+		'operationProjectionActive',
+		'ProjectExactMissionConvoyCargoAtDurablePosition',
+		'DematerializeExactMissionConvoyCargoProjection'
+	)) {
+	if ($schema52CargoProjectionBlock -notmatch [regex]::Escape($requiredSchema52CargoTickGroundEntry)) {
+		throw "Schema-52 cargo projection tick must independently switch between attached, standalone salvage, and virtual roots: $requiredSchema52CargoTickGroundEntry"
+	}
+}
+
+$schema52CargoRestoreStart = $schema52PhysicalRestoreBlock.IndexOf('foreach (HST_MissionAssetState cargo')
+if ($schema52CargoRestoreStart -lt 0) {
+	throw "Schema-52 physical restore must include an exact cargo/captive runtime reset pass"
+}
+$schema52CargoRestoreBlock = $schema52PhysicalRestoreBlock.Substring($schema52CargoRestoreStart)
+foreach ($requiredSchema52CargoRestoreEntry in @(
+		'cargo.m_sAssignedVehicleSlotId.IsEmpty()',
+		'MISSION_CONVOY_PAYLOAD_ROLE',
+		'MISSION_CONVOY_CAPTIVE_ROLE',
+		'cargo.m_bPickedUp',
+		'cargo.m_bDelivered',
+		'cargo.m_bDestroyed',
+		'cargo.m_bOutcomeApplied',
+		'cargo.m_bSpawned = false;',
+		'cargo.m_bAttachedToCarrier = false;',
+		'cargo.m_sCarriedByVehicleId = "";',
+		'state.FindMissionRuntimeEntity(cargo.m_sEntityId)',
+		'cargoRuntimeEntity.m_bSpawned = false;'
+	)) {
+	if ($schema52CargoRestoreBlock -notmatch [regex]::Escape($requiredSchema52CargoRestoreEntry)) {
+		throw "Schema-52 restore must clear stale spawned/attached/runtime flags for unresolved exact cargo: $requiredSchema52CargoRestoreEntry"
+	}
+}
+
+$schema52InactiveCleanupBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool CleanupInactiveMissionConvoyRuntime('
+$schema52SettledCleanupBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'bool ReconcileSettledRuntimeCleanup('
+$schema52DurableClaimantBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool IsCurrentSchemaExactMissionConvoyDurableClaimant('
+if ([string]::IsNullOrEmpty($schema52InactiveCleanupBlock) -or [string]::IsNullOrEmpty($schema52SettledCleanupBlock) -or
+	[string]::IsNullOrEmpty($schema52DurableClaimantBlock)) {
+	throw "Schema-52 settled exact convoy cleanup deferral methods are missing"
+}
+foreach ($requiredSchema52DurableClaimantEntry in @(
+		'deterministicGroupId',
+		'deterministicPrefixAnchor',
+		'deterministicAuthorityIdAnchor',
+		'elementIdentityAnchor',
+		'operation_mission_convoy_',
+		'manifest_mission_convoy_',
+		'HST_OPERATION_TYPE_MISSION_CONVOY',
+		'HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION',
+		'HST_MissionConvoyOperationService.EXACT_FORCE_KIND',
+		'HST_MissionConvoyOperationService.EXACT_POLICY_ID',
+		'convoy_element_',
+		'MISSION_CONVOY_VEHICLE_ROLE'
+	)) {
+	if ($schema52DurableClaimantBlock -notmatch [regex]::Escape($requiredSchema52DurableClaimantEntry)) {
+		throw "Schema-52 orphan cleanup must recognize current exact durable evidence and fail closed: $requiredSchema52DurableClaimantEntry"
+	}
+}
+$schema52OrphanCleanupIndex = $schema52InactiveCleanupBlock.IndexOf('IsCurrentSchemaExactMissionConvoyDurableClaimant')
+$schema52OrphanGenericFilterIndex = $schema52InactiveCleanupBlock.IndexOf('if (!IsMissionConvoyGroup(activeGroup) && !durableExactClaimant)', $schema52OrphanCleanupIndex)
+$schema52OrphanContinueIndex = $schema52InactiveCleanupBlock.IndexOf('continue;', $schema52OrphanCleanupIndex)
+if ($schema52OrphanCleanupIndex -lt 0 -or $schema52OrphanGenericFilterIndex -le $schema52OrphanCleanupIndex -or
+	$schema52OrphanContinueIndex -le $schema52OrphanGenericFilterIndex) {
+	throw "Schema-52 orphan exact rows must retain durable authority after process-local cleanup"
+}
+$schema52OrphanCleanupBlock = $schema52InactiveCleanupBlock.Substring($schema52OrphanCleanupIndex, $schema52OrphanContinueIndex - $schema52OrphanCleanupIndex)
+if ($schema52OrphanCleanupBlock -match 'm_aActiveGroups\.Remove|m_aMissionAssets\.Remove|m_aConvoyElements\.Remove') {
+	throw "Schema-52 orphan cleanup must never delete ambiguous durable group, asset, or element evidence"
+}
+foreach ($requiredSchema52InactiveCleanupEntry in @(
+		'IsProtectedExactMissionConvoyAuthority',
+		'HST_OPERATION_SETTLEMENT_SETTLED',
+		'protectedMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE',
+		'RetireExactMissionConvoyRuntime',
+		'continue;'
+	)) {
+	if ($schema52InactiveCleanupBlock -notmatch [regex]::Escape($requiredSchema52InactiveCleanupEntry)) {
+		throw "Schema-52 generic inactive cleanup must defer active settled mission salvage authority: $requiredSchema52InactiveCleanupEntry"
+	}
+}
+$schema52InactiveSettledIndex = $schema52InactiveCleanupBlock.IndexOf('HST_OPERATION_SETTLEMENT_SETTLED')
+$schema52InactiveMissionStatusIndex = $schema52InactiveCleanupBlock.IndexOf('protectedMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE', $schema52InactiveSettledIndex)
+$schema52InactiveRetireIndex = $schema52InactiveCleanupBlock.IndexOf('RetireExactMissionConvoyRuntime', $schema52InactiveSettledIndex)
+if ($schema52InactiveSettledIndex -lt 0 -or $schema52InactiveMissionStatusIndex -le $schema52InactiveSettledIndex -or
+	$schema52InactiveRetireIndex -le $schema52InactiveMissionStatusIndex) {
+	throw "Schema-52 physical cleanup may retire settled exact runtime only after the mission leaves ACTIVE status"
+}
+$schema52SettledActiveGuardIndex = $schema52SettledCleanupBlock.IndexOf('mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE')
+$schema52SettledResolveIndex = $schema52SettledCleanupBlock.IndexOf('ResolveAuthority', $schema52SettledActiveGuardIndex)
+$schema52SettledRetireStateIndex = $schema52SettledCleanupBlock.IndexOf('HST_OPERATION_MATERIALIZATION_RETIRED', $schema52SettledResolveIndex)
+if ($schema52SettledActiveGuardIndex -lt 0 -or $schema52SettledResolveIndex -le $schema52SettledActiveGuardIndex -or
+	$schema52SettledRetireStateIndex -le $schema52SettledResolveIndex) {
+	throw "Schema-52 settled cleanup reconciliation must skip active missions before resolving or retiring salvage runtime"
+}
+
+$schema52MaterializingRecoveryGuardIndex = $schema52TickAfterPhysicalBlock.IndexOf('&& !IsRecoveryHold(mission)')
+$schema52MaterializingRuntimeIndex = $schema52TickAfterPhysicalBlock.IndexOf('m_PhysicalWar.HasExactMissionConvoyRuntime(mission)', $schema52MaterializingRecoveryGuardIndex)
+$schema52MaterializingSyncIndex = $schema52TickAfterPhysicalBlock.IndexOf('SyncPhysicalProjection(state, mission, operation)', $schema52MaterializingRuntimeIndex)
+$schema52MaterializingReadyIndex = $schema52TickAfterPhysicalBlock.IndexOf('IsPhysicalProjectionReady(state, mission)', $schema52MaterializingSyncIndex)
+if ($schema52MaterializingRecoveryGuardIndex -lt 0 -or $schema52MaterializingRuntimeIndex -le $schema52MaterializingRecoveryGuardIndex -or
+	$schema52MaterializingSyncIndex -le $schema52MaterializingRuntimeIndex -or $schema52MaterializingReadyIndex -le $schema52MaterializingSyncIndex) {
+	throw "Schema-52 partial materialization must reconcile published casualty/terminal evidence before readiness evaluation"
+}
+$schema52SyncPhysicalProjectionBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected bool SyncPhysicalProjection('
+if ([string]::IsNullOrEmpty($schema52SyncPhysicalProjectionBlock)) {
+	throw "Schema-52 materializing casualty reconciliation method is missing"
+}
+foreach ($requiredSchema52MaterializingCasualtyEntry in @(
+		'asset.m_bDestroyed',
+		'HST_CONVOY_ELEMENT_DISPOSITION_DESTROYED',
+		'asset.m_bDelivered',
+		'asset.m_sLastInteraction == "captured"',
+		'HST_CONVOY_ELEMENT_DISPOSITION_CAPTURED',
+		'element.m_iSurvivingCrewCount',
+		'SynchronizeElementSurvivorsFromMemberSlots'
+	)) {
+	if ($schema52SyncPhysicalProjectionBlock -notmatch [regex]::Escape($requiredSchema52MaterializingCasualtyEntry)) {
+		throw "Schema-52 physical sync must reconcile partial-spawn casualties and terminal transitions into exact member authority: $requiredSchema52MaterializingCasualtyEntry"
+	}
+}
+
+$schema52RosterDerivationBlock = Get-ScriptMethodBlock $missionConvoyOperationText 'protected bool SynchronizeElementSurvivorsFromMemberSlots('
+if ([string]::IsNullOrEmpty($schema52RosterDerivationBlock)) {
+	throw "Schema-52 operation-layer member-slot survivor derivation is missing"
+}
+foreach ($requiredSchema52RosterDerivationEntry in @(
+		'manifest.FindMemberSlot(memberSlotId)',
+		'batch.FindSlotResult(memberSlotId)',
+		'slot.m_bCasualtyConfirmed',
+		'element.m_iSurvivingCrewCount = livingSlots;'
+	)) {
+	if ($schema52RosterDerivationBlock -notmatch [regex]::Escape($requiredSchema52RosterDerivationEntry)) {
+		throw "Schema-52 operation-layer survivor derivation must consume frozen member tombstones: $requiredSchema52RosterDerivationEntry"
+	}
+}
+if ($schema52RosterDerivationBlock -match 'm_bCasualtyConfirmed\s*=\s*true' -or
+	$schema52RosterDerivationBlock -match 'm_sRetirementReason\s*=' -or
+	$schema52RosterDerivationBlock -match 'group\.m_i(?:LastSeenAliveCount|SurvivorInfantryCount)') {
+	throw "Schema-52 operation-layer synchronization must never infer or write casualties from aggregate group counts"
+}
+$schema52GenericSurvivorUpdateBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool UpdateRuntimeGroupSurvivors('
+if ([string]::IsNullOrEmpty($schema52GenericSurvivorUpdateBlock)) {
+	throw "Schema-52 generic survivor reconciliation exclusion boundary is missing"
+}
+$schema52ExactSurvivorBranchStart = $schema52GenericSurvivorUpdateBlock.IndexOf('if (IsExactMissionConvoyContract(convoyMission))')
+$schema52ExactSurvivorBranchEnd = $schema52GenericSurvivorUpdateBlock.IndexOf('if (missionConvoyGroup)', $schema52ExactSurvivorBranchStart)
+if ($schema52ExactSurvivorBranchStart -lt 0 -or $schema52ExactSurvivorBranchEnd -le $schema52ExactSurvivorBranchStart) {
+	throw "Schema-52 generic survivor updater must isolate exact convoys before legacy repair"
+}
+$schema52ExactSurvivorBranch = $schema52GenericSurvivorUpdateBlock.Substring($schema52ExactSurvivorBranchStart, $schema52ExactSurvivorBranchEnd - $schema52ExactSurvivorBranchStart)
+if ($schema52ExactSurvivorBranch -notmatch [regex]::Escape('ReconcileExactMissionConvoyMappedSurvivors') -or
+	$schema52ExactSurvivorBranch -notmatch 'continue\s*;' -or
+	$schema52ExactSurvivorBranch -match 'TryRepairMissionConvoyCrewPopulation|TryRepairEmptyRuntimeGroupPopulation|ReconcileActiveGroupRuntimeMemberCounts') {
+	throw "Schema-52 exact convoys must bypass all generic member repair and aggregate survivor mutation paths"
+}
+
+$schema52PersistenceText = Get-Content -Raw 'Scripts/Game/HST/Services/HST_PersistenceService.c'
+$schema52PreSaveAuthorityBlock = Get-ScriptMethodBlock $physicalWarText 'bool PrepareExactMissionConvoyAuthorityForPersistence('
+$schema52PreSaveReconcileBlock = Get-ScriptMethodBlock $physicalWarText 'protected bool TryReconcileExactMissionConvoyMappedSurvivors('
+$schema52PrepareCaptureBlock = Get-ScriptMethodBlock $schema52PersistenceText 'protected bool PrepareStateForCapture('
+$schema52RequestCheckpointBlock = Get-ScriptMethodBlock $schema52PersistenceText 'bool RequestCheckpoint('
+$schema52PersistenceTickBlock = Get-ScriptMethodBlock $schema52PersistenceText 'void Tick('
+if ([string]::IsNullOrEmpty($schema52PreSaveAuthorityBlock) -or [string]::IsNullOrEmpty($schema52PreSaveReconcileBlock) -or
+	[string]::IsNullOrEmpty($schema52PrepareCaptureBlock) -or [string]::IsNullOrEmpty($schema52RequestCheckpointBlock) -or
+	[string]::IsNullOrEmpty($schema52PersistenceTickBlock)) {
+	throw "Schema-52 fail-closed persistence roster boundary is missing"
+}
+foreach ($requiredSchema52PreSaveAuthorityEntry in @(
+		'HasConsistentExactMissionConvoyMemberIdentityArrays',
+		'CountExactMissionConvoyMemberMappings',
+		'IsExactMissionConvoyOutboundProjectionTransactionOpen',
+		'without open PHYSICAL authority',
+		'TryReconcileExactMissionConvoyMappedSurvivors'
+	)) {
+	if ($schema52PreSaveAuthorityBlock -notmatch [regex]::Escape($requiredSchema52PreSaveAuthorityEntry)) {
+		throw "Schema-52 pre-save boundary must reconcile or reject every process-local exact roster: $requiredSchema52PreSaveAuthorityEntry"
+	}
+}
+foreach ($requiredSchema52PreSaveReconcileEntry in @(
+		'TrySampleExactMissionConvoyMappedSurvivors',
+		'BuildExactMissionConvoyRosterMutationPlan',
+		'ApplyExactMissionConvoyRosterMutationPlan',
+		'out bool changed',
+		'out string reason'
+	)) {
+	if ($schema52PreSaveReconcileBlock -notmatch [regex]::Escape($requiredSchema52PreSaveReconcileEntry)) {
+		throw "Schema-52 pre-save roster reconciliation must separate acceptance from mutation: $requiredSchema52PreSaveReconcileEntry"
+	}
+}
+foreach ($requiredSchema52PersistenceBoundaryEntry in @(
+		'SetPhysicalWarService',
+		'PrepareExactMissionConvoyAuthorityForPersistence',
+		'checkpoint deferred: exact convoy roster',
+		'PrepareStateForCapture(state, "campaign debug isolation baseline")',
+		'PrepareStateForCapture(state, persistenceStatus)',
+		'PrepareStateForCapture(state, "campaign debug tracked-state restore")'
+	)) {
+	if ($schema52PersistenceText -notmatch [regex]::Escape($requiredSchema52PersistenceBoundaryEntry)) {
+		throw "Schema-52 production persistence must gate every real capture on exact roster reconciliation: $requiredSchema52PersistenceBoundaryEntry"
+	}
+}
+$schema52CaptureAndTrackBlock = Get-ScriptMethodBlock $schema52PersistenceText 'HST_CampaignSaveData CaptureAndTrackState('
+if ([string]::IsNullOrEmpty($schema52CaptureAndTrackBlock) -or
+	$schema52CaptureAndTrackBlock.IndexOf('PrepareStateForCapture(state, persistenceStatus)') -lt 0 -or
+	$schema52CaptureAndTrackBlock.IndexOf('PrepareStateForCapture(state, persistenceStatus)') -gt $schema52CaptureAndTrackBlock.IndexOf('m_LastCapturedSave.Capture(state)')) {
+	throw "Schema-52 tracked capture must reconcile exact rosters before mutating or serializing the save"
+}
+if ($schema52RequestCheckpointBlock -notmatch [regex]::Escape('state && !CaptureAndTrackState(state, "captured before checkpoint")')) {
+	throw "Schema-52 checkpoint requests must stop before flushing stale data when exact-roster capture is deferred"
+}
+foreach ($requiredSchema52PersistenceRetryEntry in @(
+		'bool majorCheckpointSaved = RequestCheckpoint',
+		'if (majorCheckpointSaved)',
+		'if (RequestCheckpoint("h-istasi autosave", state))',
+		'retrySeconds'
+	)) {
+	if ($schema52PersistenceTickBlock -notmatch [regex]::Escape($requiredSchema52PersistenceRetryEntry)) {
+		throw "Schema-52 deferred checkpoints must retain intent and retry on a bounded cadence: $requiredSchema52PersistenceRetryEntry"
+	}
+}
+if ($coordinatorText -notmatch [regex]::Escape('m_Persistence.SetPhysicalWarService(m_PhysicalWar)')) {
+	throw "Schema-52 coordinator must inject PhysicalWar into persistence before campaign restore/capture"
+}
+
+$schema52QueueText = $operationProjectionQueueText
+$schema52QueueAcquireBlock = Get-ScriptMethodBlock $schema52QueueText 'HST_ForceSpawnQueueTickResult AcquireWork('
+$schema52QueueSelectBlock = Get-ScriptMethodBlock $schema52QueueText 'protected HST_ForceSpawnResultState SelectNextWorkBatch('
+$schema52QueueRestoreBlock = Get-ScriptMethodBlock $schema52QueueText 'HST_ForceSpawnQueueMaintenanceResult ReconcileAfterRestore('
+$schema52QueueDuplicateBlock = Get-ScriptMethodBlock $schema52QueueText 'protected bool FailClosedDuplicateNonterminalKeys('
+$schema52QueueCollisionBlock = Get-ScriptMethodBlock $schema52QueueText 'protected bool CollidesWithExternallyManagedMissionConvoyBatch('
+$schema52QueueExternalOwnerBlock = Get-ScriptMethodBlock $schema52QueueText 'protected bool IsExternallyManagedMissionConvoyBatch('
+if ([string]::IsNullOrEmpty($schema52QueueAcquireBlock) -or [string]::IsNullOrEmpty($schema52QueueSelectBlock) -or
+	[string]::IsNullOrEmpty($schema52QueueRestoreBlock) -or [string]::IsNullOrEmpty($schema52QueueDuplicateBlock) -or
+	[string]::IsNullOrEmpty($schema52QueueCollisionBlock) -or [string]::IsNullOrEmpty($schema52QueueExternalOwnerBlock)) {
+	throw "Schema-52 generic spawn-queue collision hold methods are missing"
+}
+$schema52QueueAcquireExternalIndex = $schema52QueueAcquireBlock.IndexOf('IsExternallyManagedMissionConvoyBatch')
+$schema52QueueAcquireCollisionIndex = $schema52QueueAcquireBlock.IndexOf('CollidesWithExternallyManagedMissionConvoyBatch', $schema52QueueAcquireExternalIndex)
+$schema52QueueAcquirePrepareIndex = $schema52QueueAcquireBlock.IndexOf('PrepareBatchForTick', $schema52QueueAcquireCollisionIndex)
+if ($schema52QueueAcquireExternalIndex -lt 0 -or $schema52QueueAcquireCollisionIndex -le $schema52QueueAcquireExternalIndex -or
+	$schema52QueueAcquirePrepareIndex -le $schema52QueueAcquireCollisionIndex) {
+	throw "Schema-52 generic queue acquisition must hold external and identity-colliding exact convoy batches before preparation"
+}
+$schema52QueueSelectExternalIndex = $schema52QueueSelectBlock.IndexOf('IsExternallyManagedMissionConvoyBatch')
+$schema52QueueSelectCollisionIndex = $schema52QueueSelectBlock.IndexOf('CollidesWithExternallyManagedMissionConvoyBatch', $schema52QueueSelectExternalIndex)
+$schema52QueueSelectEligibilityIndex = $schema52QueueSelectBlock.IndexOf('IsWorkEligible', $schema52QueueSelectCollisionIndex)
+if ($schema52QueueSelectExternalIndex -lt 0 -or $schema52QueueSelectCollisionIndex -le $schema52QueueSelectExternalIndex -or
+	$schema52QueueSelectEligibilityIndex -le $schema52QueueSelectCollisionIndex) {
+	throw "Schema-52 generic queue selection must hold external and identity-colliding exact convoy batches before eligibility"
+}
+$schema52QueueRestoreExternalIndex = $schema52QueueRestoreBlock.IndexOf('IsExternallyManagedMissionConvoyBatch')
+$schema52QueueRestoreCollisionIndex = $schema52QueueRestoreBlock.IndexOf('CollidesWithExternallyManagedMissionConvoyBatch', $schema52QueueRestoreExternalIndex)
+$schema52QueueRestoreTerminalIndex = $schema52QueueRestoreBlock.IndexOf('IsTerminalBatch', $schema52QueueRestoreCollisionIndex)
+$schema52QueueRestoreReconcileIndex = $schema52QueueRestoreBlock.IndexOf('ReconcileRestoredBatch', $schema52QueueRestoreCollisionIndex)
+if ($schema52QueueRestoreExternalIndex -lt 0 -or $schema52QueueRestoreCollisionIndex -le $schema52QueueRestoreExternalIndex -or
+	$schema52QueueRestoreTerminalIndex -le $schema52QueueRestoreCollisionIndex -or $schema52QueueRestoreReconcileIndex -le $schema52QueueRestoreCollisionIndex) {
+	throw "Schema-52 generic restore reconciliation must hold identity-colliding exact convoy evidence before any terminal or mutable reconciliation"
+}
+$schema52QueueDuplicateExternalIndex = $schema52QueueDuplicateBlock.IndexOf('IsExternallyManagedMissionConvoyBatch')
+$schema52QueueDuplicateCollisionIndex = $schema52QueueDuplicateBlock.IndexOf('CollidesWithExternallyManagedMissionConvoyBatch', $schema52QueueDuplicateExternalIndex)
+$schema52QueueDuplicateMutationIndex = $schema52QueueDuplicateBlock.IndexOf('BeginCleanup', $schema52QueueDuplicateCollisionIndex)
+if ($schema52QueueDuplicateExternalIndex -lt 0 -or $schema52QueueDuplicateCollisionIndex -le $schema52QueueDuplicateExternalIndex -or
+	$schema52QueueDuplicateMutationIndex -le $schema52QueueDuplicateCollisionIndex) {
+	throw "Schema-52 duplicate-key fail-closed logic must preserve externally owned and colliding mission-convoy evidence"
+}
+foreach ($requiredSchema52QueueCollisionEntry in @(
+		'IsTerminalBatch(batch)',
+		'IsExternallyManagedMissionConvoyBatch(batch, manifests)',
+		'IsTerminalBatch(externalBatch)',
+		'IsExternallyManagedMissionConvoyBatch(externalBatch, manifests)',
+		'batch.m_sResultId == externalBatch.m_sResultId',
+		'batch.m_sRequestId == externalBatch.m_sRequestId',
+		'batch.m_sProjectionId == externalBatch.m_sProjectionId'
+	)) {
+	if ($schema52QueueCollisionBlock -notmatch [regex]::Escape($requiredSchema52QueueCollisionEntry)) {
+		throw "Schema-52 generic queue collision hold must compare every nonterminal durable identity against externally managed convoy evidence: $requiredSchema52QueueCollisionEntry"
+	}
+}
+foreach ($requiredSchema52QueueOwnerEntry in @(
+		'HST_MissionConvoyOperationService.EXACT_FORCE_KIND',
+		'HST_MissionConvoyOperationService.EXACT_POLICY_ID',
+		'spawn_mission_convoy_',
+		'manifest_mission_convoy_',
+		'operation_mission_convoy_',
+		'force_mission_convoy_',
+		'projection_mission_convoy_'
+	)) {
+	if ($schema52QueueExternalOwnerBlock -notmatch [regex]::Escape($requiredSchema52QueueOwnerEntry)) {
+		throw "Schema-52 generic queue must recognize exact mission-convoy ownership even when manifest evidence is missing or conflicting: $requiredSchema52QueueOwnerEntry"
+	}
+}
+
+foreach ($requiredSchema52ProofEntry in @(
+		'class HST_MissionConvoyOperationProofReport',
+		'class HST_MissionConvoyOperationProofService',
+		'HST_MissionConvoyOperationProofReport Run()',
+		'm_bAdmissionExact',
+		'm_bAdmissionRollbackExact',
+		'm_bProjectionExact',
+		'm_bCasualtyRestoreExact',
+		'm_bSettlementExact',
+		'm_bRestoreExact',
+		'm_bCorruptionRejected',
+		'm_bMarkerExact',
+		'm_bWatchdogExact',
+		'ProveAdmissionRollback',
+		'ProveRestore',
+		'ProveMarkers',
+		'ProveWatchdog',
+		'staleGroupSnapshotPrepared',
+		'cursorOnlyRejected',
+		'ProveRecoveryRestore',
+		'missingRejected',
+		'AppendCampaignDebugMissionConvoyOperationAssertions',
+		'mission_convoy.admission',
+		'mission_convoy.admission_rollback',
+		'mission_convoy.projection',
+		'mission_convoy.casualty_restore',
+		'mission_convoy.settlement',
+		'mission_convoy.restore',
+		'mission_convoy.corruption_rejection',
+		'mission_convoy.marker',
+		'mission_convoy.watchdog',
+		'ProveRestoreForeignAuthorityCorruption',
+		'ProveRestoreSeatTopologyCorruption',
+		'ProveRestoreArrivalReceiptCorruption',
+		'restore duplicate seat rejected',
+		'forged arrival receipt rejected',
+		'restoredCanonical.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN',
+		'restoredBatch.m_bStrategicProjectionHeld',
+		'ProveMissionlessDurableClaimantPreservation',
+		'missionless prefix/element claimant survived restore/cleanup',
+		'ReconcileInactiveMissionConvoyRuntime',
+		'ProveInvalidCargoAdmission',
+		'ProveInvalidCargoSourceAdmission',
+		'cargo admission rejected captive-object/payload-character source types',
+		'ProveRestoreMissingRequiredCargo',
+		'coherent restore without required payload rejected',
+		'requires exactly one compatible cargo row',
+		'manifest.m_aAssets.Remove(assetSlotIndex)',
+		'saveData.m_aMissionAssets.Remove(cargoIndex)',
+		'batch.m_iExpectedSlotCount = batch.m_aSlotResults.Count()',
+		'ProveRestoreCaptiveSourceTypeCorruption',
+		'coherent restore with non-character captive rejected',
+		'not a boardable character with compartment access',
+		'batchSlot.m_sSpawnedPrefab = PROOF_CARGO_PREFAB',
+		'batch.m_sManifestHash = manifest.m_sManifestHash',
+		'integrity.BuildManifestHash(restoredManifest) == restoredManifest.m_sManifestHash',
+		'ProveRestoreLifecycleGuards',
+		'restore rejected casualty group/vehicle/asset'
+	)) {
+	if (($missionConvoyProofText + "`n" + $coordinatorText) -notmatch [regex]::Escape($requiredSchema52ProofEntry)) {
+		throw "Schema-52 exact mission-convoy proof integration missing: $requiredSchema52ProofEntry"
+	}
+}
+
+foreach ($requiredSchema52MissionRequirement in @(
+	'Kill all convoy soldiers before the convoy reaches its destination, then capture a surviving vehicle to establish the ammo point.',
+	'Kill all convoy soldiers before the convoy reaches its destination, then capture a surviving vehicle for the garage.',
+	'Kill all convoy soldiers before the convoy reaches its destination, then recover and deliver the money payload to HQ.',
+	'Kill all convoy soldiers before the convoy reaches its destination, then free and extract the prisoners.',
+	'Kill all convoy soldiers before the convoy reaches its destination, then recover and deliver the supplies.'
+)) {
+	if ($missionConfig -notmatch [regex]::Escape($requiredSchema52MissionRequirement) -or
+		$defaultCatalog -notmatch [regex]::Escape($requiredSchema52MissionRequirement)) {
+		throw "Schema-52 convoy requirement text must describe its actual required recovery outcome: $requiredSchema52MissionRequirement"
+	}
+}
+if (($missionConfig + "`n" + $defaultCatalog + "`n" + $commandUIServiceText) -match [regex]::Escape('Capturing surviving vehicles is optional.')) {
+	throw "Schema-52 convoy player text must not describe required ammo/armor recovery as optional"
+}
+
+$schema52ConvoyOutcomeOwnershipText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ConvoyOutcomeService.c"
+foreach ($schema52GroupOwnershipText in @($schema52ConvoyOutcomeOwnershipText, $missionRuntimeServiceText, $commandUIServiceText)) {
+	$schema52GroupOwnershipBlock = Get-ScriptMethodBlock $schema52GroupOwnershipText 'protected bool IsConvoyGroupOwnedByMission('
+	if ([string]::IsNullOrEmpty($schema52GroupOwnershipBlock)) {
+		throw "Schema-52 convoy consumer is missing deterministic group-prefix ownership validation"
+	}
+	foreach ($requiredSchema52GroupOwnershipEntry in @(
+		'activeGroup.m_sGroupId.StartsWith(groupPrefix)',
+		'activeGroup.m_sMissionInstanceId == mission.m_sInstanceId',
+		'activeGroup.m_sOperationId == mission.m_sOperationId',
+		'!activeGroup.m_sConvoyElementId.IsEmpty()'
+	)) {
+		if ($schema52GroupOwnershipBlock -notmatch [regex]::Escape($requiredSchema52GroupOwnershipEntry)) {
+			throw "Schema-52 convoy group ownership must use an anchored ID plus reciprocal exact authority: $requiredSchema52GroupOwnershipEntry"
+		}
+	}
+	if ($schema52GroupOwnershipText -match [regex]::Escape('.m_sGroupId.Contains(groupPrefix)')) {
+		throw "Schema-52 convoy group consumers must not accept substring ID collisions"
+	}
+}
+
+$schema52ExactCaptureBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool ApplyExactMissionConvoyVehicleCaptureInteraction('
+$schema52CargoHandoffValidateBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool ValidateExactMissionConvoyCarrierCargoForVehicleHandoff('
+$schema52CargoHandoffCommitBlock = Get-ScriptMethodBlock $missionRuntimeServiceText 'protected bool CommitExactMissionConvoyCarrierCargoForVehicleHandoff('
+if ([string]::IsNullOrEmpty($schema52ExactCaptureBlock) -or [string]::IsNullOrEmpty($schema52CargoHandoffValidateBlock) -or
+	[string]::IsNullOrEmpty($schema52CargoHandoffCommitBlock)) {
+	throw "Schema-52 exact vehicle capture cargo transaction helpers are missing"
+}
+if ($schema52CargoHandoffValidateBlock -match 'DeleteRuntimeEntity\s*\(' -or
+	$schema52CargoHandoffValidateBlock -match 'cargo\.m_(?:bSpawned|bAttachedToCarrier|sCarriedByVehicleId|vCurrentPosition|vLastKnownPosition)\s*=') {
+	throw "Schema-52 exact capture cargo validation must be read-only"
+}
+foreach ($requiredSchema52CargoHandoffCommitEntry in @(
+	'DeleteRuntimeEntity(cargo.m_sEntityId)',
+	'cargo.m_bSpawned = false;',
+	'cargo.m_bAttachedToCarrier = false;',
+	'cargo.m_sCarriedByVehicleId = "";',
+	'runtimeCargo.m_bSpawned = false;'
+)) {
+	if ($schema52CargoHandoffCommitBlock -notmatch [regex]::Escape($requiredSchema52CargoHandoffCommitEntry)) {
+		throw "Schema-52 exact capture cargo commit is incomplete: $requiredSchema52CargoHandoffCommitEntry"
+	}
+}
+$schema52CargoValidateIndex = $schema52ExactCaptureBlock.IndexOf('ValidateExactMissionConvoyCarrierCargoForVehicleHandoff')
+$schema52GarageReserveIndex = $schema52ExactCaptureBlock.IndexOf('arsenal.StoreVehicle', $schema52CargoValidateIndex)
+$schema52PhysicalHandoffIndex = $schema52ExactCaptureBlock.IndexOf('TryHandoffExactMissionConvoyVehicleCapture', $schema52GarageReserveIndex)
+$schema52CargoCommitIndex = $schema52ExactCaptureBlock.IndexOf('CommitExactMissionConvoyCarrierCargoForVehicleHandoff', $schema52PhysicalHandoffIndex)
+$schema52CargoProjectionIndex = $schema52ExactCaptureBlock.IndexOf('TickExactMissionConvoyCargoProjections', $schema52CargoCommitIndex)
+$schema52CarrierDeleteIndex = $schema52ExactCaptureBlock.IndexOf('SCR_EntityHelper.DeleteEntityAndChildren(handedOffVehicle)', $schema52CargoProjectionIndex)
+if ($schema52CargoValidateIndex -lt 0 -or $schema52GarageReserveIndex -le $schema52CargoValidateIndex -or
+	$schema52PhysicalHandoffIndex -le $schema52GarageReserveIndex -or $schema52CargoCommitIndex -le $schema52PhysicalHandoffIndex -or
+	$schema52CargoProjectionIndex -le $schema52CargoCommitIndex -or $schema52CarrierDeleteIndex -le $schema52CargoProjectionIndex) {
+	throw "Schema-52 exact capture must validate cargo, reserve the garage, hand off authority, commit/project cargo, then delete the carrier"
+}
+Write-Host "Schema-52 exact mission-convoy authority, persistence, projection, arrival, recovery, and proof contract OK"
 $forceSpawnQueueServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
 if (!(Test-Path $forceSpawnQueueServicePath)) {
 	throw "Missing durable force spawn queue service: $forceSpawnQueueServicePath"
@@ -9837,13 +11861,14 @@ foreach ($requiredPhase7RuntimeEntry in @(
 		"selectedWaypoint",
 		"AppendConvoyRoadWaypoint(waypoints, route.m_vEndPosition, route.m_vEndPosition)",
 		"BuildMissionConvoyGroupWaypointPositions",
+		"BuildRemainingMissionConvoyRouteWaypoints",
 		"AppendConvoyLeadInWaypoints",
-		"activeGroup.m_vSourcePosition, routeWaypoints[0]",
+		"AppendConvoyLeadInWaypoints(result, currentPosition, remainingRouteWaypoints[0]",
 		"CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3",
 		"CONVOY_RUNTIME_WAYPOINT_MAX_COUNT = 5",
 		"AppendSparseConvoyRouteWaypoints",
 		"AppendResolvedConvoyWaypoint",
-		"desiredWaypointCount = Math.Max(CONVOY_RUNTIME_WAYPOINT_MIN_COUNT, Math.Min(CONVOY_RUNTIME_WAYPOINT_MAX_COUNT, routeWaypoints.Count() + 2))",
+		"desiredWaypointCount = Math.Max(CONVOY_RUNTIME_WAYPOINT_MIN_COUNT, Math.Min(CONVOY_RUNTIME_WAYPOINT_MAX_COUNT, remainingRouteWaypoints.Count() + 2))",
 		"if (result.Count() >= CONVOY_RUNTIME_WAYPOINT_MAX_COUNT)",
 		"segmentCount = Math.Min(segmentCount, CONVOY_RUNTIME_WAYPOINT_MAX_COUNT)",
 		"TryAssignVehicleRoute(activeGroup, crewEntity, vehicle, groupWaypoints, assignedWaypointCount, adapterReason)",

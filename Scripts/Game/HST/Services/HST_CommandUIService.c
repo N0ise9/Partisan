@@ -2392,7 +2392,7 @@ class HST_CommandUIService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup) && !activeGroup.m_sSpawnFailureReason.IsEmpty())
+			if (activeGroup && state.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup) && !activeGroup.m_sSpawnFailureReason.IsEmpty())
 				return BuildPlayerFailureLabel(activeGroup.m_sSpawnFailureReason);
 		}
 
@@ -2415,7 +2415,7 @@ class HST_CommandUIService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup) && !activeGroup.m_sSpawnFailureReason.IsEmpty())
+			if (activeGroup && state.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup) && !activeGroup.m_sSpawnFailureReason.IsEmpty())
 				return "bad";
 		}
 
@@ -2430,7 +2430,7 @@ class HST_CommandUIService
 		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
-			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup))
+			if (activeGroup && state.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup))
 				return activeGroup;
 		}
 
@@ -5088,7 +5088,14 @@ class HST_CommandUIService
 			return string.Format("At the HVT marker, kill the officer. If needed, use Confirm HVT neutralized near the body.");
 
 		if (asset.m_sKind == "vehicle")
-			return string.Format("Neutralize the convoy crew. Capturing surviving vehicles is optional.");
+		{
+			if (mission && mission.m_sMissionId == "convoy_ammo")
+				return "Neutralize the convoy crew, then capture a surviving vehicle to establish the ammo point.";
+			if (mission && mission.m_sMissionId == "convoy_armored")
+				return "Neutralize the convoy crew, then capture a surviving vehicle for the garage.";
+
+			return "Neutralize the convoy crew before it reaches its destination.";
+		}
 
 		if (asset.m_sKind == "area")
 			return string.Format("Stay inside the objective area until the hold or clear objective completes.");
@@ -5620,7 +5627,7 @@ class HST_CommandUIService
 		int eliminatedGroups;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || !activeGroup.m_sGroupId.Contains(groupPrefix))
+			if (!IsConvoyGroupOwnedByMission(activeGroup, mission, groupPrefix))
 				continue;
 
 			convoyGroups++;
@@ -5633,6 +5640,19 @@ class HST_CommandUIService
 		}
 
 		return convoyGroups > 0 && eliminatedGroups == convoyGroups;
+	}
+
+	protected bool IsConvoyGroupOwnedByMission(HST_ActiveGroupState activeGroup, HST_ActiveMissionState mission, string groupPrefix)
+	{
+		if (!activeGroup || !mission || groupPrefix.IsEmpty() || !activeGroup.m_sGroupId.StartsWith(groupPrefix))
+			return false;
+		if (!activeGroup.m_sMissionInstanceId.IsEmpty() && activeGroup.m_sMissionInstanceId != mission.m_sInstanceId)
+			return false;
+		if (!HST_MissionConvoyOperationService.IsExactMission(mission))
+			return true;
+		return activeGroup.m_sMissionInstanceId == mission.m_sInstanceId
+			&& activeGroup.m_sOperationId == mission.m_sOperationId
+			&& !activeGroup.m_sConvoyElementId.IsEmpty();
 	}
 
 	protected bool HasConvoyCrewLiveHistory(HST_ActiveGroupState activeGroup)
@@ -6167,7 +6187,7 @@ class HST_CommandUIService
 		int count;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup))
+			if (activeGroup && state.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup))
 				count++;
 		}
 
@@ -6288,7 +6308,7 @@ class HST_CommandUIService
 		if (mission.m_sMissionId == "convoy_money")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
 		if (mission.m_sMissionId == "convoy_supplies")
-			return !mission.m_bConvoyCrewEliminatedOutcomeApplied && HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
+			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
 		if (mission.m_sMissionId == "convoy_prisoners")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_captive");
 		if (mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored")
@@ -6304,7 +6324,7 @@ class HST_CommandUIService
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role)
 				continue;
 
-			if (!asset.m_bDelivered || !asset.m_bOutcomeApplied)
+			if (!asset.m_bDestroyed && (!asset.m_bDelivered || !asset.m_bOutcomeApplied))
 				return true;
 		}
 

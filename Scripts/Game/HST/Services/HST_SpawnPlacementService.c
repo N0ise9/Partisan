@@ -587,7 +587,7 @@ class HST_SpawnPlacementService
 		float nearest = -1.0;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || IsTerminalActiveGroupStatus(activeGroup))
+			if (!activeGroup || !state.IsOperationalActiveGroup(activeGroup) || IsTerminalActiveGroupStatus(activeGroup))
 				continue;
 
 			vector groupPosition = ResolveActiveGroupClearancePosition(activeGroup);

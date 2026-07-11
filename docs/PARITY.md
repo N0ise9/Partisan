@@ -24,12 +24,12 @@
   Petros-loss penalties, HQ knowledge/threat, and Defend Petros state
 - Versioned campaign save container for current state fields and nested arrays,
   with schema migration and restored-state application helpers
-- Schema-51 campaign authority foundation with persisted monotonic IDs, typed
+- Schema-52 campaign authority foundation with persisted monotonic IDs, typed
   command receipts, resource transactions, exact force quotes/manifests,
   durable per-projection SpawnQueue state, exact paid-infantry-QRF runtime
   lifecycle, bounded accepted-settlement replay tombstones, and the first
-  two canonical infantry-QRF operation aggregates with persistent strategic
-  projection
+  two canonical infantry-QRF operation aggregates plus the first exact mission-
+  convoy operation with persistent strategic projection
 - One versioned `OperationRecord` for each newly confirmed exact paid player
   infantry QRF, plus conservative backfill for uniquely coherent accepted active
   schema-48 rows. It separates immutable origin/assignment from tactical target
@@ -52,6 +52,25 @@
   `enemy_qrf.*` assertions cover admission, legacy isolation, projection,
   settlement, restore, and rejection in source. Existing enemy orders and every
   other enemy order type remain contract version `0`.
+- Newly started convoy missions are the third explicit version-1 operation type
+  and the first narrow exact vehicle/multi-group consumer. One persisted
+  generated road route, exactly three vehicle slots, three crew groups and
+  ordered crew slots, plus optional cargo/captive assigned to vehicle zero stay
+  linked through virtual travel, proximity materialization, physical
+  interception, clear-contact fold, casualty-preserving rematerialization,
+  route-authoritative arrival, and existing once-only convoy outcomes.
+  Frozen slot/entity identity retains the exact member that died rather than
+  choosing casualties from a count.
+  Destroyed/captured vehicle survivors continue as exact stationary crew-only
+  roots without vehicle resurrection, and bubble ownership considers separated
+  living/recoverable roots. Frozen-carrier cargo remains at that terminal
+  carrier's durable ground position rather than changing vehicle slots.
+  Crew elimination leaves a recovery-dependent mission open in an on-station
+  hold so unresolved cargo, captives, or vehicles can virtualize and
+  rematerialize until their mission-specific outcome is resolved, including a
+  cargo-only terminal-carrier root when no intact vehicle remains.
+  Historical restored convoys remain contract version `0`; off-screen convoy
+  combat and generalized vehicle/asset realization remain open.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -185,7 +204,7 @@
 
 - The prior stamped schema-49 source passed its foundation, Workbench Game
   creation, script-validation, and bounded project-open gates. Those results are
-  historical source evidence, not certification of current schema-51 edits.
+  historical source evidence, not certification of current schema-52 edits.
 - A published schema-49 server/client check verified that normal stock HUD, Game
   Master access, map publication, and civilian traffic initialize again. This
   closes the earlier missing-config-metadata regression. The late-admin recursive
@@ -212,14 +231,36 @@
   rejection, but none has executed in a packaged runtime. The final stamped
   schema-51 tree passes repository foundation validation and a headless Workbench
   Game-module compile/create pass at 5,749 files/11,516 classes with CRC `85ccf2e0`.
-  The prior schema-50 WorldEditor survival gate is historical startup evidence,
-  not proof of these schema-51 edits. Packaged behavior remains open.
+  The current unstamped schema-52 implementation passes foundation validation
+  and a clean headless Game-module compile/create at 5,753 files/11,537 classes
+  with CRC `fc0449bd`; a normal WorldEditor open created the same Game module and
+  remained responsive for all 10 bounded samples without a script-error or
+  native-crash signature. Its build identity remains schema 51 until stamping.
+  This is current source/startup evidence, not packaged behavior proof.
+- Schema 52 adds the exact mission-convoy aggregate in source. No packaged run has yet proved its
+  three physical vehicles/crews, virtual route movement, materialization/fold,
+  exact casualty persistence, arrival/outcome settlement, marker cleanup, or
+  real process restart. The latest packaged convoy artifact predates this
+  contract and therefore cannot certify it.
+  Nine deterministic `mission_convoy.*` assertions cover admission and
+  rollback, projection/fold gating, casualty-stable restore, settlement,
+  open/settled/recovery restore, aggregate-marker cleanup, and the
+  materialization watchdog. Admission/corruption subfixtures reject invalid
+  cargo, foreign authority, invalid seat topology, forged arrival receipts,
+  illegal lifecycle pairs, and non-member casualty roots while preserving
+  missionless exact-looking durable claimants; they are not
+  engine-backed proof.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
   entry before the owner-RPC fallback, and probes retained registration
-  directly. Current schema-51 compile validation passes as described
+  directly. Current schema-52 source validation passes as described
   above, while 3/3 driver and movement proof remains open.
+- Every real persistence capture now reconciles mapped physical exact-convoy
+  members first. An open outbound publication transaction or ambiguous mapping
+  defers capture without flushing stale state or requesting a savepoint, retains
+  intent, and retries on the bounded debounce. Real death-between-ticks,
+  deferred-save retry, restore, and rematerialization still need packaged proof.
 - Normal-play support evidence marked three groups `physical_arrived` while its
   logged targets and deterministic recall-exit vectors imply nominal current
   positions approximately 434m, 455m, and 505m away. Current source removes ETA-only completion, uses the living-member
@@ -234,7 +275,7 @@
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
-- The latest inspected Full Campaign Debug artifact predates schemas 43-51,
+- The latest inspected Full Campaign Debug artifact predates schemas 43-52,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
 - The in-process runner now fails closed outside `HST_Dev`, clones campaign
@@ -244,7 +285,8 @@
 
 ## Current Delivery Priorities
 
-- Publish the current schema-51 build and prove the schema-50 marker/dialog/radio corrections while
+- Commit and stamp the clean schema-52 implementation, then publish it and prove
+  the schema-50 marker/dialog/radio corrections while
   preserving the already restored stock HUD and Game Master behavior. Require
   valid-sized icons, location-plus-owner labels, pointer-over-dialog ordering,
   one transmitter at authored sites, and correct radio destroy-target binding.
@@ -255,14 +297,18 @@
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
-- Runtime-prove the schema-43 through schema-51 authority chain: exact training,
+- Runtime-prove the schema-43 through schema-52 authority chain: exact training,
   garrison, paid-QRF, queue/handoff, strategic travel, materialization/fold
   hysteresis, exact casualty/survivor transfer, bounded virtual combat,
   operation migration, settlement archive replay, typed recall receipt status,
   rejected paired-settlement conflicts, enemy defensive-QRF admission/legacy
   isolation/return/resource settlement, capacity, and save/restart idempotency.
-- Runtime-prove 3/3 convoy drivers after the pre-seat registration and local-
-  authority entry repair. Then use scoped disposable profiles to prove actual
+- Runtime-prove the schema-52 exact convoy's frozen route, three vehicle/crew
+  elements, vehicle-zero cargo/captive assignment, virtual travel, 3/3 drivers,
+  physical interception, contact-to-clear transition, casualty-preserving fold/
+  rematerialization, two-sample
+  arrival, once-only outcome settlement, aggregate marker cleanup, and restart.
+  Then use scoped disposable profiles to prove actual
   support movement, two-sample arrival within 75m, physical recall exit, and
   transactional waypoint reissue within the three-attempt bound. Include the
   crewless mixed-QRF case and require one neutral salvage detach, zero capture/
@@ -273,8 +319,12 @@
   recall/archive and enemy defensive arrival/return/proportional settlement,
   including physical/virtual transfer, marker cleanup, and restore for both.
   Then connect live physical contact/disengagement and deepen encounter
-  simulation before extending exact runtime authority to vehicles, assets,
-  garrisons, missions, other enemy orders, or supports.
+  simulation without treating source implementation as packaged proof.
+- Continue the implementation blueprint with schema 53 exact newly queued enemy
+  patrol operations after the schema-52 stamp: one frozen infantry roster,
+  outbound travel, an on-station patrol loop, return, and once-only settlement.
+  Historical patrol rows remain legacy, and the packaged schema-50 through
+  schema-52 certification work above remains independently required.
 
 ## Next Playable Expansion
 

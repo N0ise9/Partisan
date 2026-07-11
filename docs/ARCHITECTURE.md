@@ -4,7 +4,7 @@
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through schema-51 authority services are:
+schema-42 through schema-52 authority services are:
 
 - `HST_StableIdService`: allocates persisted, monotonic IDs for generated
   commands and events, and builds deterministic operation/transaction links.
@@ -33,9 +33,10 @@ schema-42 through schema-51 authority services are:
   operations, compaction additionally requires a coherently settled record,
   copies its typed terminal/revision/settlement evidence, and removes the full
   record with the other accepted aggregate rows.
-- `HST_OperationService`: owns the version-1 canonical operation contract for
-  two explicit infantry-only consumers: confirmed exact paid player QRFs and
-  newly admitted exact enemy defensive-QRF orders. It preserves immutable
+- `HST_OperationService`: owns the version-1 canonical operation transition
+  contract for confirmed exact paid player QRFs and newly admitted exact enemy
+  defensive-QRF orders, and supplies shared deterministic settlement identity
+  to the schema-52 mission-convoy owner. For the QRF consumers it preserves immutable
   origin/assignment separately from the mutable tactical target; validates
   duty, materialization, engagement, return, and settlement transitions; and
   rejects identity or terminal replay conflicts. Schema 50 added strategic-
@@ -73,12 +74,50 @@ schema-42 through schema-51 authority services are:
   projection transfer, survivor settlement, current-schema restore, and
   rejection/refund behavior. They are deterministic in-process fixtures, not
   packaged-runtime evidence.
+- `HST_MissionConvoyOperationService`: owns schema 52 admission and runtime
+  authority for newly started convoy missions. It freezes one persisted
+  generated road route, exactly three vehicle slots, exactly three linked crew
+  groups and their member slots, plus mission-kind-compatible cargo/captive
+  authority assigned to vehicle zero. It advances the column virtually at 9 m/s,
+  materializes
+  within 1,800 m of a living player, folds beyond 2,200 m only when clear of
+  contact, player occupancy, and unresolved interaction state, preserves exact
+  crew casualties by frozen slot/entity identity and per-element vehicle state,
+  confirms physical arrival
+  from two distinct route-end samples, and settles only after the existing
+  mission-convoy outcome owner has applied its once-only result. Historical
+  restored convoy rows remain contract version `0` on the legacy timer/runtime
+  path. Crew elimination can place unresolved money/prisoner/ammo/armored or
+  other recoverable mission assets into an on-station recovery hold, keeping
+  the exact operation open and reprojectable until the mission-specific outcome
+  is actually resolved.
+- `HST_MissionConvoyP1Policy`: supplies the small shared fail-closed policy
+  surface for exact-convoy admission and restore. It enforces mission-specific
+  cargo cardinality, role/kind, and loadable mission-asset entity requirements.
+  Captives must be boardable characters with compartment access, while ordinary
+  payloads must be non-character entities. The policy also owns
+  the legal duty/resume and settlement/materialization/position pairs.
+- `HST_MissionConvoySaveValidationService`: owns conservative schema-52
+  migration, current-schema claimant validation, quarantine, derived-survivor
+  normalization, and process-local restore cleanup. `HST_CampaignSaveData`
+  delegates this boundary instead of carrying one compiler-heavy validator.
+- `HST_MissionConvoyOperationProofService`: contributes nine focused
+  `mission_convoy.*` assertions for atomic admission and rollback,
+  virtual/projection and fold gating, casualty-stable restore, idempotent
+  arrival/settlement, open/settled/recovery restore, aggregate-marker cleanup,
+  and the materialization watchdog. Admission/corruption subfixtures reject
+  invalid cargo, duplicate/hash/foreign authority, invalid seat topology,
+  forged arrival receipts, illegal lifecycle pairs, and casualty authority on
+  non-member roots, and preserve missionless exact-looking durable claimants.
+  They are deterministic in-process fixtures, not packaged movement, rendering,
+  or restart evidence.
 - `HST_ForceSpawnQueueService`: owns schema-44 durable per-projection spawn
   batches, bounded priority/FIFO work acquisition, verified callbacks,
   retry/deadline/cancellation cleanup, pin-aware terminal retention, reporting,
   dependency-ordered cleanup, a durable nonterminal `READY_FOR_HANDOFF` state,
   explicit post-handoff completion, once-per-actual-restore reconciliation, and
-  schema-50/51 strategic holds. A held batch performs no physical queue work and
+  schema-50/51 strategic holds plus the schema-52 convoy roster hold. A held
+  batch performs no generic queue work and
   uses its frozen member slots as exact living/dead roster authority.
 - `HST_ForceSpawnAdapterService`: consumes eligible released queue work from the production
   one-second active-campaign coordinator tick. The first engine-facing slice
@@ -98,7 +137,10 @@ The remaining domain services are:
   completion rewards.
 - `HST_PersistenceService`: campaign save-data migration/tracking, native
   Reforger checkpoint requests, autosave debouncing, and profile JSON fallback
-  saves.
+  saves. Every real capture first reconciles mapped physical exact-convoy
+  members; ambiguous authority defers the capture and retains its checkpoint
+  intent for bounded retry without flushing stale state or requesting a
+  savepoint.
 - `HST_PersistenceSmokeTestService`: deterministic persistence fixture seeding
   and restore verification reports.
 - `HST_RuntimeSettingsService`: `$profile:h-istasi/HST_Settings.json`
@@ -155,14 +197,28 @@ The remaining domain services are:
   the hostile operation-staging exclusion, but whole-location activation is
   blocked only inside the location capture footprint (at least 150m for legacy
   records). Zone composition uses its own 150m immediate-clearance guard. This
-  split is implemented in source and awaits packaged behavior proof.
+  split is implemented in source and awaits packaged behavior proof. For a
+  schema-52 exact mission convoy, PhysicalWar is also the sole engine projection
+  adapter: it realizes the durable mobile crewed elements plus any separated
+  intact crewless asset roots during outbound travel and recovery hold, samples current
+  position/survivors/damage/fuel back into those elements, and folds owned
+  vehicle/group handles without inventing casualties or applying a mission
+  outcome. Materializing roots remain unpublished until the complete projection
+  is physical. Commit revalidates and publishes every vehicle, group, mapped
+  member, and cargo participant atomically before closing the outbound
+  transaction; terminal ground cargo can be the only required recovery root, and
+  clean player-bound cargo no longer pins the column during delivery.
 - `HST_GeneratedContentService`: generated Everon mission sites, roadblock,
   support, stash, crashsite, and route records derived from stable zone
   anchors.
 - `HST_MissionObjectiveService`: rough mission objectives, campaign task state,
   and no-admin objective progress hooks for broad-alpha mission families.
 - `HST_MissionRuntimeService`: physical MVP mission primitives, world-condition
-  objective polling, runtime inspection, and cleanup state.
+  objective polling, runtime inspection, and cleanup state. For a schema-52
+  exact convoy it plans the three vehicle assets and optional cargo/captive
+  before admission, then defers travel, arrival, and cargo-position authority
+  to the mission-convoy operation instead of regenerating missing assets or
+  resolving arrival from its legacy timer.
 - `HST_SupportRequestService`: stateful FIA/enemy support calls,
   ETA/status/cooldown reports, native-safe ground support activation, physical
   or abstract resolution records, the schema-46 exact paid-QRF bridge from
@@ -217,7 +273,11 @@ The remaining domain services are:
   location and owner and reports virtual exact player-QRF travel/on-station
   state. Schema 51 publishes one marker for every open exact enemy defensive-QRF
   operation at its strategic or live cursor with faction, living count, duty,
-  immutable source/assignment, and ETA.
+  immutable source/assignment, and ETA. Schema 52 publishes one aggregate
+  marker for an open exact mission convoy at the operation's strategic/live
+  position and suppresses the three misleading per-vehicle convoy markers.
+  Recovery retains the same aggregate current and destination marker pair for
+  cargo and vehicle outcomes; it never revives legacy per-vehicle/outcome IDs.
 - `HST_ZoneCompositionService`: runtime alpha composition slots for zone and
   mission physicalization diagnostics. Radio-site composition now retains a
   nearby intact authored transmitter instead of spawning a parallel tower; the mission
@@ -293,17 +353,36 @@ attack/support resources in proportion to exact survivors once. Pre-schema-51
 orders, counterattacks, patrols, roadblocks, support calls, Petros attacks,
 vehicles, garrisons, missions, and other force families remain contract version
 `0` on their prior paths.
+Schema 52 adds a third typed operation consumer and the first narrow exact
+vehicle/multi-group aggregate: only a newly started `convoy_intercept` mission
+is admitted with contract version `1`. Its frozen manifest contains exactly
+three vehicle slots, one crew group per vehicle, ordered durable crew slots, and
+an optional cargo/captive asset assigned to vehicle zero. Three durable convoy
+element rows own per-vehicle position, survivor count, damage/fuel/ammunition
+snapshot, disposition, and reciprocal mission/operation/manifest/runtime links.
+  The operation owns generated-route progress, virtual movement, proximity
+  materialization/fold, arrival, restore normalization, and terminal receipt;
+  existing mission-outcome code remains the once-only reward/penalty owner.
+  When crew elimination leaves cargo/captive/vehicle recovery unresolved, the
+  operation remains open in an on-station recovery hold and may virtualize and
+  rematerialize those assets instead of settling early.
+Pre-schema-52 convoy rows remain contract version `0`, receive no invented
+manifest/operation/element identity, and continue on the legacy path.
+After the schema-52 source checkpoint is stamped, the next planned source
+consumer is schema 53 exact authority for newly queued enemy patrol orders;
+historical patrol rows remain legacy and packaged schema-50 through schema-52
+certification remains independently open.
 
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
-| Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. Contract-version-1 exact player and enemy defensive QRFs bind that identity to one canonical operation row and projection state, with reciprocal support-request or enemy-order backlinks. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
+| Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. Contract-version-1 exact player/enemy defensive QRFs and newly started exact mission convoys bind that identity to one canonical operation row and projection state, with reciprocal support-request, enemy-order, or mission/element backlinks. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
 | Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and quote/confirm commands. Support recall is the first production visible command to map a typed domain result into explicit receipt status and operation identity; its presentation sentence cannot turn an accepted terminal outcome into a rejection. Other visible commands still use the compatibility classifier. Full accepted state and schema-48 settlement tombstones prevent later duplicate issue/confirmation/ledger replay from charging again, including after QRF settlement. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
 | Resource integrity | Troop training, visible garrison confirmation, and player-QRF confirmation/terminal settlement use the resource ledger. Exact player-QRF full-refund paths preflight paired money/HR identity. The schema-51 enemy defensive QRF keeps its existing enemy attack/support spend ledger but adds one deterministic operation settlement: admission failure refunds the full prepaid debit, while committed completion/failure refunds only the exact survivor fraction. Other support/order consumers still mutate resources through legacy services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
-| Force exactness | Visible garrison recruitment freezes an exact priced purchase-provenance manifest. Player QRF freezes one executable authored group root plus every ordered member slot and never recomposes after issue. A newly planned enemy defensive QRF now freezes the same supported infantry shape before its debit is admitted, with source, target, faction, costs, member count, and hash linked back to the order. Garrison activation still does not consume its purchase manifest. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
-| Force realization | SpawnQueue accepts only frozen, hash-valid, all-required executable manifests with a group root. Either supported exact infantry QRF begins as one held virtual batch whose member slots are the roster. Entering the materialize-in radius releases exactly the living slots to the adapter; all verified slots reach `READY_FOR_HANDOFF`, physical war finalizes them, and then the queue records `SUCCEEDED`. Leaving the materialize-out radius while clear of contact samples the live roster and position, retires disposable entities, and returns the exact survivors to strategic hold. Confirmed casualties remain retired across every transfer and restore. Vehicle, asset, and multi-root manifests remain unsupported; garrison manifests remain nondeployable. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
-| Operation lifecycle | Schema 50 gives exact paid player QRFs strategic travel, physical/virtual transfer, on-station virtual infantry combat, recall, terminal settlement, and archive. Schema 51 gives newly planned exact enemy defensive QRFs outbound/return duty, live or strategic position authority, two-distinct-second physical arrival confirmation, once-only defensive pressure, survivor-proportional resource settlement, and typed completion. Legacy QRF rows and every other support/order family remain outside these contracts. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
+| Force exactness | Visible garrison recruitment freezes an exact priced purchase-provenance manifest. Player QRF freezes one executable authored group root plus every ordered member slot and never recomposes after issue. A newly planned enemy defensive QRF freezes the same supported infantry shape before its debit is admitted. A newly started exact mission convoy freezes exactly three vehicles, three linked crew groups with ordered members, and optional cargo/captive assigned to vehicle zero. Garrison activation still does not consume its purchase manifest. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
+| Force realization | SpawnQueue accepts only frozen, hash-valid, all-required executable manifests with a group root. Either supported exact infantry QRF begins as one held virtual batch whose member slots are the roster. Entering the materialize-in radius releases exactly the living slots to the adapter; all verified slots reach `READY_FOR_HANDOFF`, physical war finalizes them, and then the queue records `SUCCEEDED`. The schema-52 convoy also keeps a held roster batch, but its separate PhysicalWar adapter projects the three vehicle/crew elements and folds them back to durable element/member state. A destroyed/captured vehicle with surviving dismounted crew projects that exact crew root without recreating the terminal vehicle. Confirmed casualties remain retired across every transfer and restore. Generic SpawnQueue vehicle/asset/multi-root execution and garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
+| Operation lifecycle | Schema 50 gives exact paid player QRFs strategic travel, physical/virtual transfer, on-station virtual infantry combat, recall, terminal settlement, and archive. Schema 51 gives newly planned exact enemy defensive QRFs outbound/return duty, two-sample physical arrival, defensive pressure, survivor settlement, and typed completion. Schema 52 gives newly started exact convoy missions generated-route virtual travel, three-element physical interception/fold, casualty persistence, separated-root bubble ownership, terminal-vehicle crew-only continuation, route-authoritative arrival, and once-only mission-outcome settlement. Historical convoy rows, legacy QRF rows, and every other support/order/mission family remain outside these contracts. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | The final stamped schema-51 tree passes repository foundation validation and a headless Workbench Game-module compile/create pass at 5,749 files/11,516 classes with CRC `85ccf2e0`. A packaged schema-49 check verified restored stock HUD and Game Master startup, then exposed marker and civilian defects repaired in later source. The player and enemy exact-QRF fixtures, marker/cursor/radio corrections, civilian classification/diversity/traffic/horn corrections, late-admin guard, physical projection, and save/restart behavior still need packaged execution. Workbench validation is compile/source evidence, not packaged-runtime certification. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | The final stamped schema-51 tree passes repository foundation validation and a headless Workbench Game-module compile/create pass at 5,749 files/11,516 classes with CRC `85ccf2e0`. The current unstamped schema-52 implementation passes foundation validation and a clean headless Game-module compile/create at 5,753 files/11,537 classes with CRC `fc0449bd`; a normal WorldEditor open created the same Game module and remained responsive for all 10 bounded samples with no script-error or native-crash signature. This is source/startup evidence only, its build identity remains schema 51 until stamping, and it has no packaged execution evidence. A packaged schema-49 check verified restored stock HUD and Game Master startup, then exposed marker and civilian defects repaired in later source. Both exact-QRF paths, the exact mission convoy, marker/cursor/radio corrections, civilian corrections, physical projection, and save/restart behavior still need packaged execution. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit
@@ -366,7 +445,14 @@ service also writes `$profile:h-istasi/HST_CampaignSaveData.json` as a profile
 fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. The state model is
 versioned from day one. `HST_CampaignSaveData` is the deep-copy save container
-for current campaign fields and nested runtime arrays. Schema 51 persists the
+for current campaign fields and nested runtime arrays. Before autosave, major-
+change, manual-checkpoint, or campaign-debug baseline capture, schema 52
+synchronously reconciles every mapped physical exact-convoy member. An open
+outbound publication transaction, missing/conflicting mapping, or nonphysical
+operation retaining process-local member mappings defers capture before an
+older tracked snapshot is flushed or an engine savepoint is requested. The
+pending checkpoint intent remains set and retries on the bounded debounce.
+Schema 52 persists the
 monotonic authority sequence, bounded command receipts, resource transactions,
 campaign events, stable operation/garrison links, immutable force manifests,
 expiring quotes, durable per-projection spawn batches/slot evidence,
@@ -383,7 +469,10 @@ distance, strategic speed/update clock, projection decisions, virtual-combat
 clock/damage carries, exact virtual force counts, strategic batch holds, enemy-
 order source/manifest/service-commit/resource-settlement authority, reciprocal
 enemy-order/operation/group backlinks, and distinct-second physical-arrival
-confirmation state,
+confirmation state, plus exact mission-convoy operation/manifest/spawn/
+settlement links, three durable convoy elements, per-element vehicle/crew/cargo
+identity and state, mission-asset vehicle-slot assignment, generated-route
+cursor, and exact convoy arrival/settlement authority,
 alongside campaign
 metadata, resources, campaign-end
 reason/summary/elapsed second/control/war/zone-count fields, outcome-mode,
@@ -399,7 +488,8 @@ loadouts and issued-item ledgers are copied into the save container. Save compat
 still needs broader Workbench restart/load soak testing before it is promised
 to players. An actual persisted restore increments its epoch once, then the
 coordinator reconciles the queue before garrison/player-QRF confirmation,
-schema-51 enemy-QRF authority, and open-resource reservations. Accepted exact
+schema-51 enemy-QRF authority, schema-52 mission-convoy normalization, and
+open-resource reservations. Accepted exact
 QRFs never reacquire saved entity IDs. Schema 50 clears process-local root/
 member/native-group evidence and keeps one nonterminal batch in strategic hold;
 schema 51 applies that same one-owner restore rule to its opted-in enemy QRF and
@@ -434,6 +524,21 @@ discarded, its exact casualty roster and route cursor remain durable, and its
 projection resumes as one held virtual batch. Deterministic roundtrip fixtures
 cover this shape in source; a real process restart remains unproven.
 
+Schema-52 migration never opts a historical active convoy into exact authority.
+Every pre-schema-52 convoy remains operation contract version `0`; migration
+does not invent a route, manifest, vehicle slot, crew roster, cargo carrier,
+convoy element, or settlement receipt. A current-schema open exact convoy must
+restore as one coherent mission/operation/manifest/held-batch/three-element
+aggregate or fail closed. Restore discards process-local vehicle/group handles
+and physical arrival samples while retaining route progress, element positions,
+vehicle state, cargo assignment, and confirmed crew casualties, then resumes
+the operation virtually. Only member slots may carry casualty tombstones, open
+authority must use an enumerated legal duty/resume and materialization/position
+pair, and missionless or partially unlinked exact-looking rows remain durable
+quarantine evidence instead of being deleted by generic cleanup. This shape is
+source-validated; physical
+rematerialization and real process restart remain packaged-runtime-open.
+
 Normal adapter acquisition runs only after the campaign enters the active phase.
 During setup and won/lost phases, the coordinator requests cancellation for all
 nonterminal batches and keeps draining dependency-ordered cleanup with a
@@ -446,9 +551,14 @@ casualty evidence. Schema 50 adds virtual roster transfer, direct strategic
 movement, materialization hysteresis, and narrow virtual combat for that same
 consumer. Schema 51 reuses the exact infantry projection and casualty boundary
 for newly planned enemy defensive QRFs, but not the player-QRF virtual-combat
-policy. Event-driven physical life-state subscription, vehicle/asset rosters,
-generalized folding, live physical engagement events, and generalization to
-every force consumer remain open. Paid support is only partially migrated to
+policy. Schema 52 adds a separate exact three-vehicle mission-convoy projection
+and atomic fold path. Terminal destroyed/captured vehicle roots retain any
+living crew as stationary crew-only projections without vehicle resurrection,
+and proximity ownership takes the nearest separated living/recoverable root;
+it does not generalize the SpawnQueue adapter or simulate off-screen combat.
+Event-driven physical life-state subscription, generalized
+vehicle/asset rosters, generalized folding, live physical engagement events,
+and generalization to every force consumer remain open. Paid support is only partially migrated to
 this path: player QRF is exact, while supply, search, roadblock, fire, and air
 support remain on legacy services. Current garrison purchase manifests remain
 nondeployable.
@@ -534,9 +644,11 @@ single operation and frozen member roster move continuously through virtual,
 materializing, physical, dematerializing, and virtual states rather than using a
 one-shot abstract outcome. Schema 51 applies the same projection ownership to
 new infantry-only enemy defensive-QRF orders, with a distinct source/target,
-arrival-pressure, return, and resource-settlement policy. Both paths remain
-intentionally isolated from vehicles, convoys, garrisons, missions, broad legacy
-support, and every other enemy order family.
+arrival-pressure, return, and resource-settlement policy. Schema 52 gives only
+new mission convoys their own generated-route virtual cursor and exact
+three-element physical projection; it does not opt historical convoys or other
+missions in. All three paths remain intentionally isolated from garrisons,
+broad legacy support, non-convoy missions, and every other enemy order family.
 HQ knowledge feeds HQ threat, Defend Petros, markers, and campaign-end pressure;
 civilian town support and undercover enforcement feed wanted heat, roadblock and
 police scans, and HQ exposure. Civilian render eligibility is separate from the

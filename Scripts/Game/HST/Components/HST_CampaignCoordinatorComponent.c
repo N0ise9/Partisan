@@ -104,6 +104,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_MissionObjectiveService m_Objectives;
 	protected ref HST_MissionRuntimeService m_MissionRuntime;
 	protected ref HST_ConvoyOutcomeService m_ConvoyOutcomes;
+	protected ref HST_MissionConvoyOperationService m_MissionConvoyOperations;
 	protected ref HST_SupportRequestService m_SupportRequests;
 	protected ref HST_CivilianService m_Civilians;
 	protected ref HST_EnemyCommanderService m_EnemyCommander;
@@ -326,6 +327,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ZoneCapture = new HST_ZoneCaptureService();
 		m_PlayerSpawn = new HST_PlayerSpawnService();
 		m_PhysicalWar = new HST_PhysicalWarService();
+		if (m_Persistence)
+			m_Persistence.SetPhysicalWarService(m_PhysicalWar);
 		if (m_PhysicalWar && m_Settings && m_Settings.m_Debug)
 			m_PhysicalWar.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_ZoneCompositions = new HST_ZoneCompositionService();
@@ -356,10 +359,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_MissionRuntime.SetForceCompositionService(m_ForceCompositions);
 			m_MissionRuntime.SetArsenalService(m_Arsenal);
 			m_MissionRuntime.SetBalanceConfig(m_Balance);
+			m_MissionRuntime.SetPhysicalWarService(m_PhysicalWar);
 		}
 		if (m_MissionRuntime && m_Settings && m_Settings.m_Debug)
 			m_MissionRuntime.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_ConvoyOutcomes = new HST_ConvoyOutcomeService();
+		m_MissionConvoyOperations = new HST_MissionConvoyOperationService();
+		if (m_MissionConvoyOperations)
+			m_MissionConvoyOperations.SetRuntimeServices(m_PhysicalWar, m_MissionRuntime);
 		m_SupportRequests = new HST_SupportRequestService();
 		if (m_SupportRequests)
 		{
@@ -394,6 +401,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_EnemyQRFOperations && m_EnemyDirector)
 			m_EnemyQRFOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		EvaluateCampaignOutcomeNow();
+		if (m_MissionConvoyOperations)
+			m_MissionConvoyOperations.ReconcileAfterRestore(m_State);
 		m_Missions.SyncNextInstanceIdFromState(m_State);
 		m_Persistence.CaptureAndTrackState(m_State);
 		RefreshCampaignMarkers();
@@ -494,11 +503,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool terminalHQRuntimeChanged = EnsureTerminalCampaignRuntimeObjects();
 			bool terminalExactSupportSettlementChanged = m_SupportRequests && m_SupportRequests.TickExactPlayerSupportSettlements(m_State, m_PhysicalWar, m_ForceSpawnAdapter);
 			bool terminalExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign outcome is terminal");
+			bool terminalExactConvoySettlementChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign outcome is terminal");
 			bool terminalSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup("campaign outcome is terminal");
 			bool terminalExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
+			bool terminalExactConvoyCleanupChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalSpawnMarkerChanged = m_PhysicalWar && m_PhysicalWar.ConsumeMarkerRefreshNeeded();
-			if (terminalHQRuntimeChanged || terminalSpawnCleanupChanged || terminalExactSupportSettlementChanged || terminalExactEnemyQRFSettlementChanged || terminalExactEnemyQRFCleanupChanged || terminalSpawnMarkerChanged)
-				MarkMajorCampaignChange(terminalHQRuntimeChanged || terminalExactSupportSettlementChanged || terminalExactEnemyQRFSettlementChanged || terminalExactEnemyQRFCleanupChanged || terminalSpawnMarkerChanged);
+			if (terminalHQRuntimeChanged || terminalSpawnCleanupChanged || terminalExactSupportSettlementChanged || terminalExactEnemyQRFSettlementChanged || terminalExactEnemyQRFCleanupChanged || terminalExactConvoySettlementChanged || terminalExactConvoyCleanupChanged || terminalSpawnMarkerChanged)
+				MarkMajorCampaignChange(terminalHQRuntimeChanged || terminalExactSupportSettlementChanged || terminalExactEnemyQRFSettlementChanged || terminalExactEnemyQRFCleanupChanged || terminalExactConvoySettlementChanged || terminalExactConvoyCleanupChanged || terminalSpawnMarkerChanged);
 			TickCampaignDebugRunner(elapsedSeconds);
 			return;
 		}
@@ -507,11 +518,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			bool setupExactSupportSettlementChanged = m_SupportRequests && m_SupportRequests.TickExactPlayerSupportSettlements(m_State, m_PhysicalWar, m_ForceSpawnAdapter);
 			bool setupExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign is in setup");
+			bool setupExactConvoySettlementChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.SettleOpenOperationsForCampaignStop(m_State, "campaign is in setup");
 			bool setupSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup("campaign is in setup");
 			bool setupExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
+			bool setupExactConvoyCleanupChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupSpawnMarkerChanged = m_PhysicalWar && m_PhysicalWar.ConsumeMarkerRefreshNeeded();
-			if (setupSpawnCleanupChanged || setupExactSupportSettlementChanged || setupExactEnemyQRFSettlementChanged || setupExactEnemyQRFCleanupChanged || setupSpawnMarkerChanged)
-				MarkMajorCampaignChange(setupExactSupportSettlementChanged || setupExactEnemyQRFSettlementChanged || setupExactEnemyQRFCleanupChanged || setupSpawnMarkerChanged);
+			if (setupSpawnCleanupChanged || setupExactSupportSettlementChanged || setupExactEnemyQRFSettlementChanged || setupExactEnemyQRFCleanupChanged || setupExactConvoySettlementChanged || setupExactConvoyCleanupChanged || setupSpawnMarkerChanged)
+				MarkMajorCampaignChange(setupExactSupportSettlementChanged || setupExactEnemyQRFSettlementChanged || setupExactEnemyQRFCleanupChanged || setupExactConvoySettlementChanged || setupExactConvoyCleanupChanged || setupSpawnMarkerChanged);
 			TickCampaignDebugRunner(elapsedSeconds);
 			return;
 		}
@@ -527,8 +540,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool objectiveChanged = m_Objectives.Tick(m_State);
 		bool missionRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, elapsedSeconds);
 		missionRuntimeChanged = BroadcastGunShopRuntimeNotifications() || missionRuntimeChanged;
+		bool convoyOperationChanged = m_MissionConvoyOperations && m_MissionConvoyOperations.TickBeforePhysical(m_State, m_Preset, elapsedSeconds);
 		bool convoyRuntimeChanged = m_PhysicalWar.UpdateMissionConvoys(m_State, m_Preset, m_Balance, elapsedSeconds);
+		missionRuntimeChanged = (m_MissionRuntime && m_MissionRuntime.TickExactMissionConvoyCargoProjections(m_State, m_PhysicalWar)) || missionRuntimeChanged;
+		convoyOperationChanged = (m_MissionConvoyOperations && m_MissionConvoyOperations.TickAfterPhysical(m_State)) || convoyOperationChanged;
+		missionRuntimeChanged = (m_MissionRuntime && m_MissionRuntime.TickExactMissionConvoyCargoProjections(m_State, m_PhysicalWar)) || missionRuntimeChanged;
 		bool convoyOutcomeChanged = ApplyConvoyOutcomesNow();
+		convoyOperationChanged = (m_MissionConvoyOperations && m_MissionConvoyOperations.TickAfterOutcomes(m_State)) || convoyOperationChanged;
 		if (convoyRuntimeChanged)
 			BroadcastPendingMissionRuntimeEvents();
 		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
@@ -537,6 +555,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
 		if (!failedRuntimeMissionId.IsEmpty())
 			missionRuntimeChanged = FailMission(failedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged;
+		// Mission status/outcome owns whether neutralized convoy vehicles remain as
+		// salvage. Retire exact runtime only after the normal success/failure path
+		// has committed that status in this tick.
+		convoyOperationChanged = (m_MissionConvoyOperations && m_MissionConvoyOperations.ReconcileSettledRuntimeCleanup(m_State)) || convoyOperationChanged;
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds, m_Civilians);
 		bool periodicTownInfluenceChanged = m_Towns.ConsumePeriodicTownInfluenceChanged();
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, elapsedSeconds);
@@ -568,6 +590,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || forceSpawnQueueChanged;
 		anyStateChanged = anyStateChanged || exactEnemyQRFCleanupChanged;
 		anyStateChanged = anyStateChanged || convoyRuntimeChanged;
+		anyStateChanged = anyStateChanged || convoyOperationChanged;
 		anyStateChanged = anyStateChanged || convoyOutcomeChanged;
 		anyStateChanged = anyStateChanged || income > 0;
 		anyStateChanged = anyStateChanged || periodicTownInfluenceChanged;
@@ -577,7 +600,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || physicalWarChanged || captureChanged || campaignOutcomeChanged;
 		anyStateChanged = anyStateChanged || civilianRuntimeChanged;
 
-		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || forceSpawnQueueChanged;
+		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOperationChanged || forceSpawnQueueChanged;
 		markerStateChanged = markerStateChanged || convoyOutcomeChanged;
 		markerStateChanged = markerStateChanged || income > 0;
 		markerStateChanged = markerStateChanged || periodicTownInfluenceChanged;
@@ -633,6 +656,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!batch || IsTerminalForceSpawnBatch(batch)
 				|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING)
 				continue;
+			if (IsProtectedMissionConvoySpawnBatch(batch))
+				continue;
 			HST_ForceSpawnQueueCallbackResult cancel = m_ForceSpawnQueue.RequestCancel(
 				m_State.m_aForceSpawnResults,
 				batch.m_sResultId,
@@ -684,11 +709,59 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddForceSpawnQueueRetentionPin(pins.m_aManifestIds, order.m_sManifestId);
 			AddForceSpawnQueueRetentionPin(pins.m_aOperationIds, order.m_sOperationId);
 		}
+		foreach (HST_ForceSpawnResultState convoyBatch : m_State.m_aForceSpawnResults)
+		{
+			if (!IsProtectedMissionConvoySpawnBatch(convoyBatch))
+				continue;
+			AddForceSpawnQueueRetentionPin(pins.m_aResultIds, convoyBatch.m_sResultId);
+			AddForceSpawnQueueRetentionPin(pins.m_aManifestIds, convoyBatch.m_sManifestId);
+			AddForceSpawnQueueRetentionPin(pins.m_aOperationIds, convoyBatch.m_sOperationId);
+			AddForceSpawnQueueRetentionPin(pins.m_aForceIds, convoyBatch.m_sForceId);
+			AddForceSpawnQueueRetentionPin(pins.m_aProjectionIds, convoyBatch.m_sProjectionId);
+		}
 		HST_ForceSpawnQueueMaintenanceResult maintenance = m_ForceSpawnQueue.CompactTerminalRows(
 			m_State.m_aForceSpawnResults,
 			pins,
 			nowSecond);
 		return maintenance && maintenance.m_bStateChanged;
+	}
+
+	protected bool IsProtectedMissionConvoySpawnBatch(HST_ForceSpawnResultState batch)
+	{
+		if (!m_State || !batch)
+			return false;
+		if (batch.m_sResultId.StartsWith("spawn_mission_convoy_")
+			|| batch.m_sManifestId.StartsWith("manifest_mission_convoy_")
+			|| batch.m_sOperationId.StartsWith("operation_mission_convoy_")
+			|| batch.m_sForceId.StartsWith("force_mission_convoy_")
+			|| batch.m_sProjectionId.StartsWith("projection_mission_convoy_"))
+			return true;
+		HST_ForceManifestState manifest = m_State.FindForceManifest(batch.m_sManifestId);
+		if (manifest && (manifest.m_sForceKind == HST_MissionConvoyOperationService.EXACT_FORCE_KIND
+			|| manifest.m_sPolicyId == HST_MissionConvoyOperationService.EXACT_POLICY_ID))
+			return true;
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (!mission || mission.m_sRuntimePrimitive != HST_MissionConvoyOperationService.CONVOY_PRIMITIVE)
+				continue;
+			if (mission.m_iOperationContractVersion != HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION
+				&& mission.m_iOperationContractVersion != HST_MissionConvoyOperationService.QUARANTINED_CONTRACT_VERSION)
+				continue;
+			if ((!mission.m_sSpawnResultId.IsEmpty() && mission.m_sSpawnResultId == batch.m_sResultId)
+				|| (!mission.m_sManifestId.IsEmpty() && mission.m_sManifestId == batch.m_sManifestId)
+				|| (!mission.m_sOperationId.IsEmpty() && mission.m_sOperationId == batch.m_sOperationId))
+				return true;
+		}
+		foreach (HST_OperationRecordState operation : m_State.m_aOperations)
+		{
+			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY)
+				continue;
+			if (operation.m_sSpawnResultId == batch.m_sResultId || operation.m_sManifestId == batch.m_sManifestId
+				|| operation.m_sOperationId == batch.m_sOperationId || operation.m_sForceId == batch.m_sForceId
+				|| operation.m_sProjectionId == batch.m_sProjectionId)
+				return true;
+		}
+		return false;
 	}
 
 	protected void AddForceSpawnQueueRetentionPin(array<string> values, string value)
@@ -4628,6 +4701,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool HandleRuntimeMissionCompletionCandidate(string instanceId)
 	{
 		if (instanceId.IsEmpty())
+			return false;
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		if (m_MissionConvoyOperations && m_MissionConvoyOperations.ShouldDeferGenericMissionCompletion(m_State, mission))
 			return false;
 
 		if (ShouldCampaignDebugHoldRuntimeCompletion(instanceId))
@@ -16199,6 +16275,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugPaidSupportAuthorityAssertions(forceCase);
 		AppendCampaignDebugOperationRecordAssertions(forceCase);
 		AppendCampaignDebugEnemyQRFOperationAssertions(forceCase);
+		AppendCampaignDebugMissionConvoyOperationAssertions(forceCase);
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
 		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
 		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
@@ -16291,6 +16368,32 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "enemy_qrf.settlement", "on-station duty returns to origin and refunds proportional survivors exactly once before typed completion", proof.m_sSettlementEvidence, CampaignDebugStatus(proof.m_bSettlementExact), "exact enemy defensive-QRF return or survivor settlement was not idempotent");
 		AddCampaignDebugAssertion(forceCase, "enemy_qrf.persistence", "current-schema restore preserves every exact backlink, route cursor, casualty, and held virtual authority without legacy rows", proof.m_sRestoreEvidence, CampaignDebugStatus(proof.m_bRestoreExact), "exact enemy defensive-QRF restore duplicated or lost authority");
 		AddCampaignDebugAssertion(forceCase, "enemy_qrf.rejection", "a duplicate target or unsupported contract fails closed, refunds any rejected prepaid debit once, and creates no additional authority rows", proof.m_sRejectionEvidence, CampaignDebugStatus(proof.m_bRejectionExact), "exact enemy defensive-QRF duplicate or legacy suppression failed closed");
+	}
+
+	protected void AppendCampaignDebugMissionConvoyOperationAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_MissionConvoyOperationProofService proofService = new HST_MissionConvoyOperationProofService();
+		HST_MissionConvoyOperationProofReport proof = proofService.Run();
+		forceCase.m_aEvidence.Insert(proof.m_sAdmissionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sAdmissionRollbackEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sProjectionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCasualtyRestoreEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSettlementEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCorruptionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMarkerEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sWatchdogEvidence);
+		AddCampaignDebugAssertion(forceCase, "mission_convoy.admission", "one new convoy mission freezes exactly three vehicle/crew roots plus its lead cargo assignment under reciprocal operation authority", proof.m_sAdmissionEvidence, CampaignDebugStatus(proof.m_bAdmissionExact), "exact mission-convoy admission, deterministic identity, manifest, or backlinks were not atomic");
+		AddCampaignDebugAssertion(forceCase, "mission_convoy.admission_rollback", "an invalid generated route rolls back every prepared exact-convoy row and asset backlink before failing the mission contract", proof.m_sAdmissionRollbackEvidence, CampaignDebugStatus(proof.m_bAdmissionRollbackExact), "failed exact mission-convoy admission left partial authority or backlinks behind");
+		AddCampaignDebugAssertion(forceCase, "mission_convoy.projection", "the exact convoy advances virtually with route ETA and spacing, requires all surviving roots before physical authority, and rejects an incomplete fold without mutation", proof.m_sProjectionEvidence, CampaignDebugStatus(proof.m_bProjectionExact), "exact mission-convoy projection or all-or-nothing handoff drifted");
+		AddCampaignDebugAssertion(forceCase, "mission_convoy.casualty_restore", "a confirmed crew casualty survives save/restore and virtual normalization without roster or group resurrection", proof.m_sCasualtyRestoreEvidence, CampaignDebugStatus(proof.m_bCasualtyRestoreExact), "exact mission-convoy restore resurrected or lost a durable crew slot");
+		AddCampaignDebugAssertion(forceCase, "mission_convoy.settlement", "virtual destination arrival applies one typed terminal settlement and current-schema roundtrip preserves its receipt", proof.m_sSettlementEvidence, CampaignDebugStatus(proof.m_bSettlementExact), "exact mission-convoy arrival or terminal settlement was not idempotent");
+		AddCampaignDebugAssertion(forceCase, "mission_convoy.restore", "open, settled, and crewless-recovery exact convoys retain one reciprocal aggregate and normalize to quiescent strategic authority after restore", proof.m_sRestoreEvidence, CampaignDebugStatus(proof.m_bRestoreExact), "exact mission-convoy restore duplicated, lost, or replayed durable authority");
+		AddCampaignDebugAssertion(forceCase, "mission_convoy.corruption_rejection", "duplicate authority rows and a changed frozen manifest hash fail closed without creating a second operation", proof.m_sCorruptionEvidence, CampaignDebugStatus(proof.m_bCorruptionRejected), "exact mission-convoy corruption was accepted or duplicated authority");
+		AddCampaignDebugAssertion(forceCase, "mission_convoy.marker", "one aggregate operation marker and one destination marker replace per-vehicle exact-convoy markers and clean up by mission link", proof.m_sMarkerEvidence, CampaignDebugStatus(proof.m_bMarkerExact), "exact mission-convoy marker projection duplicated or survived cleanup");
+		AddCampaignDebugAssertion(forceCase, "mission_convoy.watchdog", "an incomplete materialization times out fail-closed, settles once, retires held authority, and remains quiescent on replay", proof.m_sWatchdogEvidence, CampaignDebugStatus(proof.m_bWatchdogExact), "exact mission-convoy materialization watchdog or terminal replay was not deterministic");
 	}
 
 	protected void AppendCampaignDebugForceRuntimeAuthorityAssertions(HST_CampaignDebugCaseResult forceCase)
@@ -30253,10 +30356,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_MissionDefinition definition = m_Missions.FindDefinition(missionId);
 		if (forceDebug && m_bCampaignDebugRunning)
 			ApplyCampaignDebugMissionPrefix(mission);
+		if (definition && definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY && m_MissionConvoyOperations)
+			m_MissionConvoyOperations.PrepareNewMissionContract(mission);
 		if (m_Objectives)
 			m_Objectives.InitializeMission(m_State, m_Preset, definition, mission, m_Content);
 		if (m_MissionRuntime)
 			m_MissionRuntime.InitializeMissionRuntime(m_State, m_Preset, definition, mission, m_Content);
+		if (HST_MissionConvoyOperationService.IsExactMission(mission) && m_MissionConvoyOperations)
+		{
+			HST_MissionConvoyAdmissionResult convoyAdmission = m_MissionConvoyOperations.AdmitNewMission(m_State, m_Preset, mission);
+			if (!convoyAdmission || !convoyAdmission.m_bSuccess)
+			{
+				MarkMajorCampaignChange();
+				BroadcastMissionEvent("failed", mission, definition);
+				return false;
+			}
+		}
 		if (m_PhysicalWar && ShouldForceMissionTargetZoneActive(mission))
 			m_PhysicalWar.EnsureMissionTargetZoneActive(m_State, mission.m_sTargetZoneId, m_Preset, m_ZoneCompositions);
 
@@ -32809,7 +32924,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_ActiveGroupState activeGroup : m_State.m_aActiveGroups)
 		{
-			if (activeGroup && !IsPersistenceSmokeGroup(activeGroup))
+			if (activeGroup && m_State.IsOperationalActiveGroup(activeGroup) && !IsPersistenceSmokeGroup(activeGroup))
 				count++;
 		}
 

@@ -791,10 +791,14 @@ class HST_ForceSpawnQueueService
 			return tick;
 		}
 
-		if (FailClosedDuplicateNonterminalKeys(batches, nowSecond))
+		if (FailClosedDuplicateNonterminalKeys(batches, manifests, nowSecond))
 			tick.m_bStateChanged = true;
 		foreach (HST_ForceSpawnResultState batch : batches)
 		{
+			if (IsExternallyManagedMissionConvoyBatch(batch, manifests))
+				continue;
+			if (CollidesWithExternallyManagedMissionConvoyBatch(batch, batches, manifests))
+				continue;
 			if (PrepareBatchForTick(batch, manifests, nowSecond))
 				tick.m_bStateChanged = true;
 			if (batch && (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_DEFERRED
@@ -931,6 +935,10 @@ class HST_ForceSpawnQueueService
 		foreach (HST_ForceSpawnResultState candidate : batches)
 		{
 			if (!candidate || excludedResultIds.Contains(candidate.m_sResultId))
+				continue;
+			if (IsExternallyManagedMissionConvoyBatch(candidate, manifests))
+				continue;
+			if (CollidesWithExternallyManagedMissionConvoyBatch(candidate, batches, manifests))
 				continue;
 			HST_ForceManifestState manifest = FindManifest(manifests, candidate.m_sManifestId);
 			if (!IsWorkEligible(candidate, manifest, nowSecond))
@@ -2862,13 +2870,17 @@ class HST_ForceSpawnQueueService
 			result.m_aEvidence.Insert("restore reconciliation unavailable: batches or manifests missing");
 			return result;
 		}
-		if (FailClosedDuplicateNonterminalKeys(batches, nowSecond))
+		if (FailClosedDuplicateNonterminalKeys(batches, manifests, nowSecond))
 			result.m_bStateChanged = true;
 		foreach (HST_ForceSpawnResultState batch : batches)
 		{
 			if (!batch)
 				continue;
 			result.m_iInspectedBatchCount++;
+			if (IsExternallyManagedMissionConvoyBatch(batch, manifests))
+				continue;
+			if (CollidesWithExternallyManagedMissionConvoyBatch(batch, batches, manifests))
+				continue;
 			if (IsTerminalBatch(batch))
 			{
 				if (ClearTerminalProcessIds(batch))
@@ -3271,12 +3283,19 @@ class HST_ForceSpawnQueueService
 		);
 	}
 
-	protected bool FailClosedDuplicateNonterminalKeys(array<ref HST_ForceSpawnResultState> batches, int nowSecond)
+	protected bool FailClosedDuplicateNonterminalKeys(
+		array<ref HST_ForceSpawnResultState> batches,
+		array<ref HST_ForceManifestState> manifests,
+		int nowSecond)
 	{
 		bool changed;
 		foreach (HST_ForceSpawnResultState batch : batches)
 		{
 			if (!batch || IsTerminalBatch(batch))
+				continue;
+			if (IsExternallyManagedMissionConvoyBatch(batch, manifests))
+				continue;
+			if (CollidesWithExternallyManagedMissionConvoyBatch(batch, batches, manifests))
 				continue;
 			bool duplicate = batch.m_sResultId.IsEmpty() || batch.m_sRequestId.IsEmpty() || batch.m_sProjectionId.IsEmpty();
 			if (!duplicate && CountByResult(batches, batch.m_sResultId) > 1)
@@ -3291,6 +3310,48 @@ class HST_ForceSpawnQueueService
 			changed = true;
 		}
 		return changed;
+	}
+
+	protected bool CollidesWithExternallyManagedMissionConvoyBatch(
+		HST_ForceSpawnResultState batch,
+		array<ref HST_ForceSpawnResultState> batches,
+		array<ref HST_ForceManifestState> manifests)
+	{
+		if (!batch || !batches || IsTerminalBatch(batch)
+			|| IsExternallyManagedMissionConvoyBatch(batch, manifests))
+			return false;
+		foreach (HST_ForceSpawnResultState externalBatch : batches)
+		{
+			if (!externalBatch || externalBatch == batch || IsTerminalBatch(externalBatch)
+				|| !IsExternallyManagedMissionConvoyBatch(externalBatch, manifests))
+				continue;
+			if ((!batch.m_sResultId.IsEmpty() && batch.m_sResultId == externalBatch.m_sResultId)
+				|| (!batch.m_sRequestId.IsEmpty() && batch.m_sRequestId == externalBatch.m_sRequestId)
+				|| (!batch.m_sProjectionId.IsEmpty() && batch.m_sProjectionId == externalBatch.m_sProjectionId))
+				return true;
+		}
+		return false;
+	}
+
+	protected bool IsExternallyManagedMissionConvoyBatch(
+		HST_ForceSpawnResultState batch,
+		array<ref HST_ForceManifestState> manifests)
+	{
+		if (!batch)
+			return false;
+		HST_ForceManifestState manifest = FindManifest(manifests, batch.m_sManifestId);
+		if (manifest && (manifest.m_sForceKind == HST_MissionConvoyOperationService.EXACT_FORCE_KIND
+			|| manifest.m_sPolicyId == HST_MissionConvoyOperationService.EXACT_POLICY_ID))
+			return true;
+
+		// Missing or conflicting manifests belong to the mission-convoy authority
+		// validator when their deterministic IDs claim that namespace.  The generic
+		// queue must not mutate those rows before mission-only quarantine runs.
+		return batch.m_sResultId.StartsWith("spawn_mission_convoy_")
+			|| batch.m_sManifestId.StartsWith("manifest_mission_convoy_")
+			|| batch.m_sOperationId.StartsWith("operation_mission_convoy_")
+			|| batch.m_sForceId.StartsWith("force_mission_convoy_")
+			|| batch.m_sProjectionId.StartsWith("projection_mission_convoy_");
 	}
 
 	protected HST_ForceSpawnResultState FindByResult(array<ref HST_ForceSpawnResultState> batches, string resultId)

@@ -99,6 +99,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_MissionObjectiveState> m_aMissionObjectives = {};
 	ref array<ref HST_MissionRuntimeEntityState> m_aMissionRuntimeEntities = {};
 	ref array<ref HST_MissionAssetState> m_aMissionAssets = {};
+	ref array<ref HST_ConvoyElementState> m_aConvoyElements = {};
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
@@ -300,6 +301,10 @@ class HST_CampaignSaveData
 		m_aMissionAssets.Clear();
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 			m_aMissionAssets.Insert(CopyMissionAsset(asset));
+
+		m_aConvoyElements.Clear();
+		foreach (HST_ConvoyElementState element : state.m_aConvoyElements)
+			m_aConvoyElements.Insert(CopyConvoyElement(element));
 
 		m_aSupportRequests.Clear();
 		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
@@ -541,6 +546,10 @@ class HST_CampaignSaveData
 		foreach (HST_MissionAssetState asset : m_aMissionAssets)
 			state.m_aMissionAssets.Insert(CopyMissionAsset(asset));
 
+		state.m_aConvoyElements.Clear();
+		foreach (HST_ConvoyElementState element : m_aConvoyElements)
+			state.m_aConvoyElements.Insert(CopyConvoyElement(element));
+
 		state.m_aSupportRequests.Clear();
 		foreach (HST_SupportRequestState request : m_aSupportRequests)
 			state.m_aSupportRequests.Insert(CopySupportRequest(request));
@@ -695,6 +704,8 @@ class HST_CampaignSaveData
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
 		target.m_sSupportRequestId = source.m_sSupportRequestId;
 		target.m_sEnemyOrderId = source.m_sEnemyOrderId;
+		target.m_sConvoyElementId = source.m_sConvoyElementId;
+		target.m_sMissionAssetId = source.m_sMissionAssetId;
 		target.m_sGarrisonZoneId = source.m_sGarrisonZoneId;
 		target.m_sQRFInstanceId = source.m_sQRFInstanceId;
 		target.m_sPrefab = source.m_sPrefab;
@@ -772,6 +783,7 @@ class HST_CampaignSaveData
 		target.m_sConfirmationRequestId = source.m_sConfirmationRequestId;
 		target.m_sSupportRequestId = source.m_sSupportRequestId;
 		target.m_sEnemyOrderId = source.m_sEnemyOrderId;
+		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
 		target.m_sQuoteId = source.m_sQuoteId;
 		target.m_sManifestId = source.m_sManifestId;
 		target.m_sSpawnResultId = source.m_sSpawnResultId;
@@ -787,6 +799,7 @@ class HST_CampaignSaveData
 		target.m_vTacticalTargetPosition = source.m_vTacticalTargetPosition;
 		target.m_vStrategicPosition = source.m_vStrategicPosition;
 		target.m_sCurrentRouteId = source.m_sCurrentRouteId;
+		target.m_sRouteContractHash = source.m_sRouteContractHash;
 		target.m_iProjectionContractVersion = source.m_iProjectionContractVersion;
 		target.m_iRouteVersion = source.m_iRouteVersion;
 		target.m_vRouteStartPosition = source.m_vRouteStartPosition;
@@ -796,6 +809,7 @@ class HST_CampaignSaveData
 		target.m_fStrategicSpeedMetersPerSecond = source.m_fStrategicSpeedMetersPerSecond;
 		target.m_iStrategicLastUpdateSecond = source.m_iStrategicLastUpdateSecond;
 		target.m_iLastProjectionDecisionSecond = source.m_iLastProjectionDecisionSecond;
+		target.m_iLastNormalizedRestoreSequence = source.m_iLastNormalizedRestoreSequence;
 		target.m_iVirtualCombatLastStepSecond = source.m_iVirtualCombatLastStepSecond;
 		target.m_iVirtualCombatStepIndex = source.m_iVirtualCombatStepIndex;
 		target.m_iVirtualCombatFriendlyDamageCarry = source.m_iVirtualCombatFriendlyDamageCarry;
@@ -1035,6 +1049,11 @@ class HST_CampaignSaveData
 		target.m_sInstanceId = source.m_sInstanceId;
 		target.m_sMissionId = source.m_sMissionId;
 		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sSpawnResultId = source.m_sSpawnResultId;
+		target.m_sSettlementId = source.m_sSettlementId;
+		target.m_iOperationContractVersion = source.m_iOperationContractVersion;
 		target.m_eStatus = source.m_eStatus;
 		target.m_eRuntimeMode = source.m_eRuntimeMode;
 		target.m_iRemainingSeconds = source.m_iRemainingSeconds;
@@ -1310,6 +1329,11 @@ class HST_CampaignSaveData
 
 		target.m_sAssetId = source.m_sAssetId;
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sManifestSlotId = source.m_sManifestSlotId;
+		target.m_sAssignedVehicleSlotId = source.m_sAssignedVehicleSlotId;
+		target.m_sConvoyElementId = source.m_sConvoyElementId;
 		target.m_sKind = source.m_sKind;
 		target.m_sRole = source.m_sRole;
 		target.m_sPrefab = source.m_sPrefab;
@@ -1331,6 +1355,40 @@ class HST_CampaignSaveData
 		target.m_iDeadlineSecond = source.m_iDeadlineSecond;
 		target.m_iCargoCapacityCost = source.m_iCargoCapacityCost;
 		target.m_iInteractionRadiusMeters = source.m_iInteractionRadiusMeters;
+		return target;
+	}
+
+	protected HST_ConvoyElementState CopyConvoyElement(HST_ConvoyElementState source)
+	{
+		if (!source)
+			return null;
+
+		HST_ConvoyElementState target = new HST_ConvoyElementState();
+		target.m_sElementId = source.m_sElementId;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sVehicleSlotId = source.m_sVehicleSlotId;
+		target.m_sCrewGroupElementId = source.m_sCrewGroupElementId;
+		target.m_sVehicleAssetId = source.m_sVehicleAssetId;
+		target.m_sGroupId = source.m_sGroupId;
+		target.m_sCargoAssetId = source.m_sCargoAssetId;
+		target.m_sVehiclePrefab = source.m_sVehiclePrefab;
+		target.m_sCrewGroupPrefab = source.m_sCrewGroupPrefab;
+		target.m_sTerminalReason = source.m_sTerminalReason;
+		target.m_vFormationOffset = source.m_vFormationOffset;
+		target.m_vCurrentPosition = source.m_vCurrentPosition;
+		target.m_iOrdinal = source.m_iOrdinal;
+		target.m_iOriginalCrewCount = source.m_iOriginalCrewCount;
+		target.m_iSurvivingCrewCount = source.m_iSurvivingCrewCount;
+		target.m_iLastUpdatedSecond = source.m_iLastUpdatedSecond;
+		target.m_iRevision = source.m_iRevision;
+		target.m_fVehicleDamageFraction = source.m_fVehicleDamageFraction;
+		target.m_fFuelFraction = source.m_fFuelFraction;
+		target.m_fAmmoFraction = source.m_fAmmoFraction;
+		target.m_eDisposition = source.m_eDisposition;
+		target.m_bPhysicalized = source.m_bPhysicalized;
+		target.m_bMobile = source.m_bMobile;
 		return target;
 	}
 
@@ -2121,6 +2179,8 @@ class HST_CampaignSaveData
 		{
 			if (!mission)
 				continue;
+			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyMissionClaimant(this, mission))
+				continue;
 
 			if (mission.m_sRuntimePrimitive.IsEmpty())
 				mission.m_sRuntimePrimitive = "abstract_fallback";
@@ -2135,7 +2195,11 @@ class HST_CampaignSaveData
 		}
 
 		foreach (HST_GeneratedRouteState route : m_aGeneratedRoutes)
+		{
+			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyRouteClaimant(this, route))
+				continue;
 			BackfillGeneratedRouteWaypoints(route);
+		}
 
 		foreach (HST_MissionObjectiveState objective : m_aMissionObjectives)
 		{
@@ -2153,6 +2217,8 @@ class HST_CampaignSaveData
 		foreach (HST_MissionAssetState asset : m_aMissionAssets)
 		{
 			if (!asset)
+				continue;
+			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyAssetClaimant(this, asset))
 				continue;
 
 			if (asset.m_sAssetId.IsEmpty())
@@ -2177,12 +2243,16 @@ class HST_CampaignSaveData
 				asset.m_bAttachedToCarrier = true;
 		}
 
-		if (m_aMissionAssets.Count() == 0 && m_aMissionRuntimeEntities.Count() > 0)
+		bool mayMigrateRuntimeMissionAssets = restoredSchemaVersion < 52
+			|| !HST_MissionConvoySaveValidationService.HasSchema52MissionConvoyMissionClaimant(this);
+		if (mayMigrateRuntimeMissionAssets && m_aMissionAssets.Count() == 0 && m_aMissionRuntimeEntities.Count() > 0)
 			MigrateRuntimeEntitiesToMissionAssets();
 
 		foreach (HST_ActiveGroupState group : m_aActiveGroups)
 		{
 			if (!group)
+				continue;
+			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				continue;
 
 			if (group.m_sRuntimeStatus.IsEmpty())
@@ -2363,6 +2433,8 @@ class HST_CampaignSaveData
 			if (!order.m_sSupportRequestId.IsEmpty())
 				order.m_bPhysicalized = true;
 		}
+		HST_MissionConvoySaveValidationService schema52MissionConvoyValidation = new HST_MissionConvoySaveValidationService();
+		schema52MissionConvoyValidation.Normalize(this, restoredSchemaVersion);
 		NormalizeActiveGroupSourceLinks(restoredSchemaVersion);
 		NormalizeForceAuthority(restoredSchemaVersion);
 		NormalizeOperationAuthority(restoredSchemaVersion);
@@ -2484,6 +2556,8 @@ class HST_CampaignSaveData
 				m_aForceManifests.Remove(manifestIndex);
 				continue;
 			}
+			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyManifestClaimant(this, manifest))
+				continue;
 			for (int groupIndex = manifest.m_aGroups.Count() - 1; groupIndex >= 0; groupIndex--)
 			{
 				if (!manifest.m_aGroups[groupIndex])
@@ -2554,6 +2628,8 @@ class HST_CampaignSaveData
 				m_aForceSpawnResults.Remove(spawnIndex);
 				continue;
 			}
+			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyBatchClaimant(this, spawnResult))
+				continue;
 			spawnResult.m_iRetryCount = Math.Max(0, spawnResult.m_iRetryCount);
 			spawnResult.m_iMaxRetries = Math.Max(0, spawnResult.m_iMaxRetries);
 			spawnResult.m_iAttemptGeneration = Math.Max(0, spawnResult.m_iAttemptGeneration);
@@ -2705,6 +2781,8 @@ class HST_CampaignSaveData
 		{
 			if (!operation || operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 				continue;
+			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY)
+				continue;
 			int savedArrivalConfirmationCount = operation.m_iArrivalConfirmationCount;
 			HST_EOperationMaterializationState savedMaterializationState = operation.m_eMaterializationState;
 			operation.m_iArrivalConfirmationCount = 0;
@@ -2716,7 +2794,10 @@ class HST_CampaignSaveData
 					&& failedOrder.m_sRuntimeStatus == "exact_operation_invalidated")
 					continue;
 			}
-			if (operation.m_iProjectionContractVersion == HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION)
+			bool exactInfantryProjection = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF
+				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF;
+			if (exactInfantryProjection
+				&& operation.m_iProjectionContractVersion == HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION)
 			{
 				HST_ActiveGroupState strategicGroup = FindActiveGroupForMigration(operation.m_sGroupId);
 				bool savedPhysicalArrival = savedMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL;
@@ -2776,6 +2857,7 @@ class HST_CampaignSaveData
 			operation.m_iRevision++;
 		}
 	}
+
 
 	protected void NormalizeOperationProjectionAuthority(int restoredSchemaVersion)
 	{
@@ -4180,6 +4262,8 @@ class HST_CampaignSaveData
 			HST_ForceSpawnResultState first = m_aForceSpawnResults[firstIndex];
 			if (!first || IsForceSpawnBatchTerminal(first.m_eStatus))
 				continue;
+			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyBatchClaimant(this, first))
+				continue;
 
 			for (int secondIndex = 0; secondIndex < m_aForceSpawnResults.Count(); secondIndex++)
 			{
@@ -4188,6 +4272,8 @@ class HST_CampaignSaveData
 
 				HST_ForceSpawnResultState second = m_aForceSpawnResults[secondIndex];
 				if (!second)
+					continue;
+				if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyBatchClaimant(this, second))
 					continue;
 				if (!HasDuplicateForceSpawnQueueIdentity(first, second))
 					continue;
@@ -4235,6 +4321,8 @@ class HST_CampaignSaveData
 		{
 			if (!group)
 				continue;
+			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
+				continue;
 
 			if (group.m_iOriginalInfantryCount <= 0)
 				group.m_iOriginalInfantryCount = group.m_iInfantryCount;
@@ -4252,7 +4340,7 @@ class HST_CampaignSaveData
 				continue;
 
 			HST_ActiveGroupState group = FindActiveGroupForMigration(request.m_sGroupId);
-			if (group)
+			if (group && !(restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group)))
 				group.m_sSupportRequestId = request.m_sRequestId;
 		}
 
@@ -4262,7 +4350,7 @@ class HST_CampaignSaveData
 				continue;
 
 			HST_ActiveGroupState group = FindActiveGroupForMigration(qrf.m_sGroupId);
-			if (group)
+			if (group && !(restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group)))
 				group.m_sQRFInstanceId = qrf.m_sInstanceId;
 		}
 
@@ -4296,6 +4384,8 @@ class HST_CampaignSaveData
 			{
 				if (!group)
 					continue;
+				if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
+					continue;
 				if (group.m_sGroupId == guardGroupId || group.m_sGroupId.Contains(convoyGroupToken))
 					group.m_sMissionInstanceId = mission.m_sInstanceId;
 			}
@@ -4304,6 +4394,8 @@ class HST_CampaignSaveData
 		foreach (HST_ActiveGroupState group : m_aActiveGroups)
 		{
 			if (!group || group.m_sZoneId.IsEmpty())
+				continue;
+			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				continue;
 			if (!group.m_sSupportRequestId.IsEmpty() || !group.m_sEnemyOrderId.IsEmpty()
 				|| !group.m_sMissionInstanceId.IsEmpty() || !group.m_sQRFInstanceId.IsEmpty())

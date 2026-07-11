@@ -2,7 +2,148 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `51`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `52`.
+
+## Schema 52
+
+- Schema 52 adds one new canonical operation consumer only: a convoy mission
+  newly started under the current schema. Its `HST_ActiveMissionState` stores
+  operation contract version `1` plus reciprocal operation, manifest, held
+  spawn-result, and settlement IDs. The linked operation has type
+  `HST_OPERATION_TYPE_MISSION_CONVOY` and keeps immutable mission/source/target
+  identity, a persisted generated-road-route cursor, strategic/live position
+  authority, materialization state, arrival samples, and terminal settlement.
+
+- Admission is all-or-nothing. It freezes exactly three vehicle slots, three
+  linked crew-group slots, every ordered crew-member slot, and at most one
+  mission cargo/captive asset assigned to vehicle slot zero. A held roster
+  batch preserves stable living/casualty slots while the convoy is virtual; it
+  is not generic SpawnQueue permission to realize arbitrary vehicle or
+  multi-root manifests.
+  Failed admission resets its uncommitted contract and matching asset links;
+  only a complete reciprocal version-1 authority graph is retained. Generic
+  queue restore, cancellation, duplicate handling, and compaction exclude this
+  held exact roster.
+  Money and supplies require exactly one cargo row, prisoners require exactly
+  one captive row, and ammo, armored, and reinforcement convoys forbid a
+  separate cargo row. Admission rejects duplicate or incompatible role/kind
+  rows and prefabs that do not resolve to a loadable mission-asset entity
+  source. Captives must be boardable character prefabs with compartment access;
+  ordinary payloads must be non-character entities. Current-schema restore
+  reapplies this same contract and quarantines older malformed exact rows.
+
+- Three `HST_ConvoyElementState` rows are the durable per-vehicle authority.
+  Each row links the operation, mission, manifest vehicle slot, crew group,
+  mission vehicle asset, optional cargo asset, and active-group ID. It preserves
+  formation/current position, original and surviving crew count, vehicle
+  damage/fuel/ammunition snapshot, physical/mobile flags, disposition, terminal
+  reason, update time, and revision. Active groups and mission assets receive
+  reciprocal convoy-element/vehicle-slot/assigned-carrier links so array order
+  is no longer identity.
+
+- The exact convoy advances virtually along its generated route, materializes
+  near a player through the convoy-specific PhysicalWar path, and folds back
+  only when clear of contact, player occupancy, cargo interaction, and pending
+  population/seating work. Folding samples the latest provable route position,
+  per-element state, and crew survivors without applying a casualty or mission
+  outcome. The transfer preflights every root before mutating any of them.
+  Confirmed dead member slots never return on rematerialization: exact slot-to-
+  entity mappings retain a dead early seat while later seats and their frozen
+  prefabs survive, instead of inferring casualties from an aggregate suffix. If a destroyed
+  or captured vehicle still has living dismounted crew, only those exact crew
+  slots reproject at the element position; the terminal vehicle stays absent.
+  Bubble distance uses every separated living/recoverable root. Native
+  population/defer zeros are not casualties; roster reduction requires a
+  completed physical sample or durable elimination. A last-crew death during
+  fold reclassifies the root crewless, and a terminal damage sample commits
+  destruction instead of leaving an unusable abandoned vehicle.
+
+- Arrival is no longer resolved by the legacy convoy timer for contract-version-
+  1 missions. Virtual arrival follows the persisted route cursor; physical
+  arrival requires two samples from distinct campaign seconds within the route-
+  end radius. Existing mission-convoy outcome logic remains the once-only owner
+  of reward/penalty/capture/delivery consequences, after which the operation
+  records one typed settlement and retires its held roster.
+
+- Crew elimination does not close an exact operation while its mission still
+  owns unresolved recoverable cargo, captives, or vehicles. The operation enters
+  an on-station recovery hold at the durable asset anchor, remains eligible for
+  virtual fold/rematerialization, and settles only after the mission-specific
+  delivery/capture/extraction outcome or another terminal mission result.
+
+- Intact crewless vehicles persist as `ABANDONED` elements and can materialize
+  or be captured without recreating crew while other convoy roots remain active.
+  Their runtime entities stay unpublished until the whole projection becomes
+  physical. Cargo/captives keep their frozen assigned-vehicle
+  slot; a destroyed or captured carrier leaves the unresolved asset at its
+  durable ground position for MissionRuntime recovery rather than reassigning
+  it to another vehicle. Recovery proximity also considers secondary abandoned
+  vehicles and detached cargo, not only one aggregate anchor. Exact vehicle
+  capture reserves one garage row, unregisters the authoritative PhysicalWar
+  vehicle handle, first detaches any frozen cargo/captive child, and deletes that
+  handed-off world entity so a garage copy cannot coexist with the captured
+  runtime root. Terminal ground cargo alone can materialize a recovery hold when
+  no intact vehicle remains. Clean player-bound cargo no longer pins the convoy
+  physical during delivery.
+
+- Restore clears process-local vehicle/group handles and physical arrival
+  samples, retains route progress, convoy-element state, cargo assignment, and
+  exact crew casualty tombstones, then normalizes a coherent open operation to
+  one virtual projection. Member-slot tombstones plus convoy-element survivors
+  are canonical; derived active-group survivor counters are rebound only after
+  the aggregate validates uniquely. Conflicting or incomplete current-schema
+  authority fails closed instead of regenerating a partial convoy or falling
+  back to the legacy timer. Disposition must agree with linked vehicle terminal
+  facts. Quarantined version `-52` rows bypass generic convoy asset creation and
+  repositioning until failed-mission cleanup, preserving corruption evidence.
+  Casualty tombstones are legal only on member slots; open group, vehicle, and
+  cargo roots remain registered noncasualty lifecycle authority. Open records
+  must use an enumerated duty/resume and materialization/position pair.
+  Missionless or partially unlinked exact-looking rows remain durable quarantine
+  evidence after process-local cleanup instead of being deleted as generic
+  inactive groups.
+  Settled exact rows remain durable after runtime retirement, but one shared
+  operational/combat-presence policy excludes settled and quarantined roots
+  from generic spawning, survivor polling, zone pressure, threat, undercover,
+  clear-area, spawn-placement, deterministic gameplay counts, and current-group
+  UI. Stale process flags clear once after restore and do not churn revisions on
+  later ticks.
+
+- The route cursor owns outbound ETA both virtually and physically; legacy
+  counter C remains disabled for exact convoys after staging. Exact recovery
+  retains the aggregate current marker and suppresses legacy per-vehicle and
+  separate outcome-marker identities while keeping one truthful aggregate
+  destination for cargo or vehicle recovery. Supply cargo remains pending after
+  crew elimination until its delivery/destruction outcome resolves.
+
+- Every historical convoy mission restored from schema 51 or earlier remains
+  operation contract version `0`. Migration deliberately does not invent a
+  route, operation, manifest, held batch, vehicle slot, crew roster, cargo
+  carrier, element row, or settlement receipt for it; the prior convoy runtime
+  path continues to own those records.
+
+- Before any real save-data capture, persistence synchronously reconciles each
+  mapped physical exact-convoy member. An open outbound publication transaction,
+  missing/conflicting mapping, or nonphysical operation retaining member
+  mappings defers capture before an older snapshot is flushed or an engine
+  savepoint is requested. Autosave/major-change intent remains pending and
+  retries on the bounded debounce.
+
+- The current unstamped schema-52 implementation passes repository validation
+  and a clean headless Workbench Game-module compile/create gate at 5,753 files/
+  11,537 classes with CRC `fc0449bd`. A normal WorldEditor open created the same
+  Game module and remained responsive for all 10 bounded samples without a
+  script-error or native-crash signature. Its build identity remains schema 51
+  until stamping. That is source/startup evidence, not packaged-runtime evidence.
+  A republished server/client run must still prove three physical vehicles and
+  crews, virtual travel, interception,
+  casualty-preserving fold/rematerialization, arrival/outcome settlement,
+  marker cleanup, and real process restart.
+
+- After schema 52 is committed and stamped, schema 53 exact authority for newly
+  queued enemy patrol operations is the next planned source migration. Until it
+  is implemented, historical and current patrol rows remain on their existing
+  contract; this future target does not alter schema-52 restore behavior.
 
 ## Schema 51
 

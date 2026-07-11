@@ -85,6 +85,8 @@ class HST_ActiveGroupState
 	string m_sMissionInstanceId;
 	string m_sSupportRequestId;
 	string m_sEnemyOrderId;
+	string m_sConvoyElementId;
+	string m_sMissionAssetId;
 	string m_sGarrisonZoneId;
 	string m_sQRFInstanceId;
 	string m_sPrefab;
@@ -157,6 +159,7 @@ class HST_OperationRecordState
 	string m_sConfirmationRequestId;
 	string m_sSupportRequestId;
 	string m_sEnemyOrderId;
+	string m_sMissionInstanceId;
 	string m_sQuoteId;
 	string m_sManifestId;
 	string m_sSpawnResultId;
@@ -172,6 +175,7 @@ class HST_OperationRecordState
 	vector m_vTacticalTargetPosition;
 	vector m_vStrategicPosition;
 	string m_sCurrentRouteId;
+	string m_sRouteContractHash;
 	int m_iProjectionContractVersion;
 	int m_iRouteVersion;
 	vector m_vRouteStartPosition;
@@ -181,6 +185,7 @@ class HST_OperationRecordState
 	float m_fStrategicSpeedMetersPerSecond;
 	int m_iStrategicLastUpdateSecond;
 	int m_iLastProjectionDecisionSecond;
+	int m_iLastNormalizedRestoreSequence = -1;
 	int m_iVirtualCombatLastStepSecond;
 	int m_iVirtualCombatStepIndex;
 	int m_iVirtualCombatFriendlyDamageCarry;
@@ -458,6 +463,11 @@ class HST_ActiveMissionState
 	string m_sInstanceId;
 	string m_sMissionId;
 	string m_sDisplayName;
+	string m_sOperationId;
+	string m_sManifestId;
+	string m_sSpawnResultId;
+	string m_sSettlementId;
+	int m_iOperationContractVersion;
 	HST_EMissionStatus m_eStatus;
 	HST_EMissionRuntimeMode m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_ABSTRACT;
 	int m_iRemainingSeconds;
@@ -619,6 +629,11 @@ class HST_MissionAssetState
 {
 	string m_sAssetId;
 	string m_sMissionInstanceId;
+	string m_sOperationId;
+	string m_sManifestId;
+	string m_sManifestSlotId;
+	string m_sAssignedVehicleSlotId;
+	string m_sConvoyElementId;
 	string m_sKind;
 	string m_sRole;
 	string m_sPrefab;
@@ -645,6 +660,36 @@ class HST_MissionAssetState
 	int m_iDeadlineSecond;
 	int m_iCargoCapacityCost = 1;
 	int m_iInteractionRadiusMeters;
+}
+
+[BaseContainerProps()]
+class HST_ConvoyElementState
+{
+	string m_sElementId;
+	string m_sOperationId;
+	string m_sMissionInstanceId;
+	string m_sManifestId;
+	string m_sVehicleSlotId;
+	string m_sCrewGroupElementId;
+	string m_sVehicleAssetId;
+	string m_sGroupId;
+	string m_sCargoAssetId;
+	string m_sVehiclePrefab;
+	string m_sCrewGroupPrefab;
+	string m_sTerminalReason;
+	vector m_vFormationOffset;
+	vector m_vCurrentPosition;
+	int m_iOrdinal;
+	int m_iOriginalCrewCount;
+	int m_iSurvivingCrewCount;
+	int m_iLastUpdatedSecond;
+	int m_iRevision = 1;
+	float m_fVehicleDamageFraction;
+	float m_fFuelFraction = 1.0;
+	float m_fAmmoFraction = 1.0;
+	HST_EConvoyElementDisposition m_eDisposition = HST_EConvoyElementDisposition.HST_CONVOY_ELEMENT_DISPOSITION_ACTIVE;
+	bool m_bPhysicalized;
+	bool m_bMobile = true;
 }
 
 [BaseContainerProps()]
@@ -976,7 +1021,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 51;
+	static const int SCHEMA_VERSION = 52;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1097,6 +1142,7 @@ class HST_CampaignState
 	ref array<ref HST_MissionObjectiveState> m_aMissionObjectives = {};
 	ref array<ref HST_MissionRuntimeEntityState> m_aMissionRuntimeEntities = {};
 	ref array<ref HST_MissionAssetState> m_aMissionAssets = {};
+	ref array<ref HST_ConvoyElementState> m_aConvoyElements = {};
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
@@ -1296,6 +1342,110 @@ class HST_CampaignState
 		}
 
 		return null;
+	}
+
+	bool IsOperationalActiveGroup(HST_ActiveGroupState group)
+	{
+		if (!group)
+			return false;
+		HST_ActiveMissionState mission;
+		if (!group.m_sMissionInstanceId.IsEmpty())
+			mission = FindActiveMission(group.m_sMissionInstanceId);
+		HST_OperationRecordState operation;
+		if (!group.m_sOperationId.IsEmpty())
+			operation = FindOperation(group.m_sOperationId);
+		bool exactMissionClaim = mission && mission.m_sRuntimePrimitive == "convoy_intercept"
+			&& mission.m_iOperationContractVersion != 0;
+		bool exactOperationClaim = operation && operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY;
+		bool exactElementClaim = !group.m_sConvoyElementId.IsEmpty();
+		bool convoyIdClaim = group.m_sGroupId.StartsWith("mission_convoy_");
+		if (!exactMissionClaim && !exactOperationClaim && !exactElementClaim)
+		{
+			if (!convoyIdClaim)
+				return true;
+			return mission && mission.m_sRuntimePrimitive == "convoy_intercept"
+				&& mission.m_iOperationContractVersion == 0
+				&& mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
+		}
+
+		int missionClaimants;
+		foreach (HST_ActiveMissionState candidateMission : m_aActiveMissions)
+		{
+			if (candidateMission && candidateMission.m_sInstanceId == group.m_sMissionInstanceId)
+				missionClaimants++;
+		}
+		int operationClaimants;
+		foreach (HST_OperationRecordState candidateOperation : m_aOperations)
+		{
+			if (!candidateOperation || candidateOperation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY)
+				continue;
+			if (candidateOperation.m_sOperationId == group.m_sOperationId
+				|| candidateOperation.m_sMissionInstanceId == group.m_sMissionInstanceId)
+				operationClaimants++;
+		}
+		int groupClaimants;
+		foreach (HST_ActiveGroupState candidateGroup : m_aActiveGroups)
+		{
+			if (!candidateGroup)
+				continue;
+			if (candidateGroup.m_sGroupId == group.m_sGroupId
+				|| (!group.m_sConvoyElementId.IsEmpty() && candidateGroup.m_sConvoyElementId == group.m_sConvoyElementId))
+				groupClaimants++;
+		}
+		HST_ConvoyElementState element;
+		int elementClaimants;
+		foreach (HST_ConvoyElementState candidateElement : m_aConvoyElements)
+		{
+			if (!candidateElement)
+				continue;
+			if (candidateElement.m_sElementId == group.m_sConvoyElementId
+				|| candidateElement.m_sGroupId == group.m_sGroupId)
+			{
+				element = candidateElement;
+				elementClaimants++;
+			}
+		}
+
+		if (missionClaimants != 1 || operationClaimants != 1 || groupClaimants != 1 || elementClaimants != 1
+			|| !element || element.m_sOperationId != group.m_sOperationId
+			|| element.m_sMissionInstanceId != group.m_sMissionInstanceId || element.m_sGroupId != group.m_sGroupId
+			|| !operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
+			|| operation.m_sMissionInstanceId != group.m_sMissionInstanceId
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+			return false;
+		return mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
+			&& mission.m_sRuntimePrimitive == "convoy_intercept"
+			&& mission.m_sOperationId == operation.m_sOperationId
+			&& mission.m_iOperationContractVersion == 1
+			&& operation.m_iContractVersion == 1
+			&& !group.m_sConvoyElementId.IsEmpty();
+	}
+
+	int CountOperationalActiveGroups()
+	{
+		int count;
+		foreach (HST_ActiveGroupState group : m_aActiveGroups)
+		{
+			if (IsOperationalActiveGroup(group))
+				count++;
+		}
+		return count;
+	}
+
+	bool IsCombatPresentActiveGroup(HST_ActiveGroupState group)
+	{
+		if (!IsOperationalActiveGroup(group))
+			return false;
+		if (group.m_sConvoyElementId.IsEmpty())
+			return true;
+		HST_OperationRecordState operation = FindOperation(group.m_sOperationId);
+		if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY)
+			return true;
+		HST_ConvoyElementState element = FindConvoyElement(group.m_sConvoyElementId);
+		return element && element.m_iSurvivingCrewCount > 0
+			&& element.m_eDisposition != HST_EConvoyElementDisposition.HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED
+			&& element.m_eDisposition != HST_EConvoyElementDisposition.HST_CONVOY_ELEMENT_DISPOSITION_RETIRED;
 	}
 
 	HST_QRFState FindActiveQRF(string targetZoneId, string factionKey)
@@ -1639,6 +1789,17 @@ class HST_CampaignState
 		{
 			if (asset && asset.m_sAssetId == assetId)
 				return asset;
+		}
+
+		return null;
+	}
+
+	HST_ConvoyElementState FindConvoyElement(string elementId)
+	{
+		foreach (HST_ConvoyElementState element : m_aConvoyElements)
+		{
+			if (element && element.m_sElementId == elementId)
+				return element;
 		}
 
 		return null;

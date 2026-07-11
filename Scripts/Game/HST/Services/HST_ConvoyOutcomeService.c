@@ -528,7 +528,7 @@ class HST_ConvoyOutcomeService
 		int eliminatedGroups = 0;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || !activeGroup.m_sGroupId.Contains(groupPrefix))
+			if (!IsConvoyGroupOwnedByMission(activeGroup, mission, groupPrefix))
 				continue;
 
 			convoyGroups++;
@@ -541,6 +541,19 @@ class HST_ConvoyOutcomeService
 		}
 
 		return convoyGroups > 0 && eliminatedGroups == convoyGroups;
+	}
+
+	protected bool IsConvoyGroupOwnedByMission(HST_ActiveGroupState activeGroup, HST_ActiveMissionState mission, string groupPrefix)
+	{
+		if (!activeGroup || !mission || groupPrefix.IsEmpty() || !activeGroup.m_sGroupId.StartsWith(groupPrefix))
+			return false;
+		if (!activeGroup.m_sMissionInstanceId.IsEmpty() && activeGroup.m_sMissionInstanceId != mission.m_sInstanceId)
+			return false;
+		if (!HST_MissionConvoyOperationService.IsExactMission(mission))
+			return true;
+		return activeGroup.m_sMissionInstanceId == mission.m_sInstanceId
+			&& activeGroup.m_sOperationId == mission.m_sOperationId
+			&& !activeGroup.m_sConvoyElementId.IsEmpty();
 	}
 
 	protected bool HasConvoyCrewLiveHistory(HST_ActiveGroupState activeGroup)

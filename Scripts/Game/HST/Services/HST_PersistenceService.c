@@ -14,6 +14,12 @@ class HST_PersistenceService
 	protected bool m_bProfileFallbackSaved;
 	protected bool m_bProfileFallbackLoaded;
 	protected string m_sProfileFallbackStatus = "profile fallback idle";
+	protected HST_PhysicalWarService m_PhysicalWar;
+
+	void SetPhysicalWarService(HST_PhysicalWarService physicalWar)
+	{
+		m_PhysicalWar = physicalWar;
+	}
 
 	void MarkMajorChange()
 	{
@@ -41,16 +47,32 @@ class HST_PersistenceService
 			m_fMajorChangeElapsed += timeSlice;
 			if (m_fMajorChangeElapsed >= majorChangeDebounceSeconds)
 			{
-				RequestCheckpoint("h-istasi major change", state);
-				m_bMajorChangePending = false;
+				bool majorCheckpointSaved = RequestCheckpoint("h-istasi major change", state);
+				m_fMajorChangeElapsed = 0;
+				if (majorCheckpointSaved)
+				{
+					m_bMajorChangePending = false;
+					m_fAutosaveElapsed = 0;
+				}
+				else
+				{
+					int retrySeconds = Math.Max(1, majorChangeDebounceSeconds);
+					m_fAutosaveElapsed = Math.Min(m_fAutosaveElapsed, Math.Max(0, autosaveIntervalSeconds - retrySeconds));
+				}
+				return;
 			}
 		}
 
 		if (m_fAutosaveElapsed < autosaveIntervalSeconds)
 			return;
 
-		RequestCheckpoint("h-istasi autosave", state);
-		m_fAutosaveElapsed = 0;
+		if (RequestCheckpoint("h-istasi autosave", state))
+			m_fAutosaveElapsed = 0;
+		else
+		{
+			int retrySeconds = Math.Max(1, majorChangeDebounceSeconds);
+			m_fAutosaveElapsed = Math.Max(0, autosaveIntervalSeconds - retrySeconds);
+		}
 	}
 
 	bool RequestCheckpoint(string displayName, HST_CampaignState state = null)
@@ -58,8 +80,8 @@ class HST_PersistenceService
 		if (m_bCampaignDebugIsolationActive)
 			return CaptureIsolatedCampaignDebugState(state, "isolated checkpoint: " + displayName);
 
-		if (state)
-			CaptureAndTrackState(state, "captured before checkpoint");
+		if (state && !CaptureAndTrackState(state, "captured before checkpoint"))
+			return false;
 
 		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
 		bool profileFallbackSaved;
@@ -104,6 +126,8 @@ class HST_PersistenceService
 	{
 		if (!state)
 			return false;
+		if (!PrepareStateForCapture(state, "campaign debug isolation baseline"))
+			return false;
 
 		if (!m_TrackedCampaignSave)
 			m_TrackedCampaignSave = new HST_CampaignSaveData();
@@ -124,6 +148,8 @@ class HST_PersistenceService
 	{
 		if (!state)
 			return false;
+		if (!PrepareStateForCapture(state, persistenceStatus))
+			return false;
 
 		m_IsolatedCapturedSave = new HST_CampaignSaveData();
 		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
@@ -138,6 +164,8 @@ class HST_PersistenceService
 	bool RestoreTrackedStateAfterCampaignDebug(HST_CampaignState state)
 	{
 		if (!state)
+			return false;
+		if (!PrepareStateForCapture(state, "campaign debug tracked-state restore"))
 			return false;
 		m_bCampaignDebugIsolationActive = false;
 
@@ -165,6 +193,8 @@ class HST_PersistenceService
 			CaptureIsolatedCampaignDebugState(state, persistenceStatus);
 			return m_IsolatedCapturedSave;
 		}
+		if (!PrepareStateForCapture(state, persistenceStatus))
+			return null;
 
 		if (!m_LastCapturedSave)
 			m_LastCapturedSave = new HST_CampaignSaveData();
@@ -177,6 +207,37 @@ class HST_PersistenceService
 		m_TrackedCampaignSave = m_LastCapturedSave;
 		TrackCampaignSaveData(m_TrackedCampaignSave);
 		return m_LastCapturedSave;
+	}
+
+	protected bool PrepareStateForCapture(HST_CampaignState state, string context)
+	{
+		if (!state)
+			return false;
+		bool hasExactMissionConvoy;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (mission && mission.m_sRuntimePrimitive == "convoy_intercept"
+				&& mission.m_iOperationContractVersion == HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION)
+			{
+				hasExactMissionConvoy = true;
+				break;
+			}
+		}
+		if (!m_PhysicalWar)
+		{
+			if (!hasExactMissionConvoy)
+				return true;
+			state.m_sLastPersistenceStatus = "checkpoint deferred: exact convoy roster reconciler is unavailable";
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
+
+		string reconcileFailure;
+		if (m_PhysicalWar.PrepareExactMissionConvoyAuthorityForPersistence(state, reconcileFailure))
+			return true;
+		state.m_sLastPersistenceStatus = string.Format("checkpoint deferred: exact convoy roster reconciliation failed during %1 | %2", context, reconcileFailure);
+		Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+		return false;
 	}
 
 	HST_CampaignState RestoreOrCreateCampaignState(HST_CampaignState fallbackState)

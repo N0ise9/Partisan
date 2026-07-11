@@ -840,6 +840,13 @@ class HST_MapMarkerService
 	{
 		if (!state || !preset || !mission)
 			return;
+		if (mission.m_iOperationContractVersion == HST_MissionConvoyOperationService.QUARANTINED_CONTRACT_VERSION)
+			return;
+		if (mission.m_iOperationContractVersion == HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION)
+		{
+			AddExactMissionConvoyMarkers(state, preset, mission);
+			return;
+		}
 
 		HST_MissionAssetState outcomeAsset;
 		if (ShouldShowConvoyOutcomeMarkers(mission))
@@ -866,14 +873,91 @@ class HST_MapMarkerService
 			if (ShouldShowIndividualConvoyVehicleMarkers(mission))
 				AddMissionConvoyVehicleMarkers(state, preset, mission, title);
 			else
-				AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, BuildConvoyCurrentMarkerLabel(mission, title), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+				AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, BuildConvoyCurrentMarkerLabel(state, mission, title), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
 		}
 		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, BuildConvoyDestinationMarkerLabel(mission, title, destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
+	}
+
+	protected void AddExactMissionConvoyMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
+	{
+		HST_OperationRecordState operation = state.FindOperation(mission.m_sOperationId);
+		if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
+			|| operation.m_iContractVersion != HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION
+			|| operation.m_sMissionInstanceId != mission.m_sInstanceId
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			return;
+
+		HST_MissionAssetState outcomeAsset;
+		if (ShouldShowConvoyOutcomeMarkers(mission))
+			outcomeAsset = SelectPendingConvoyOutcomeAsset(state, mission);
+		string title = MissionMarkerTitle(mission);
+		string currentLabel = BuildConvoyCurrentMarkerLabel(state, mission, title);
+		if (outcomeAsset)
+			currentLabel = BuildConvoyOutcomeMarkerLabel(mission, outcomeAsset);
+		vector currentPosition = operation.m_vStrategicPosition;
+		if (IsZeroVector(currentPosition))
+			currentPosition = ResolveMissionConvoyAggregatePosition(state, mission);
+		AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, currentLabel, "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), currentPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+
+		vector destinationPosition = ResolveMissionConvoyDestinationPosition(state, mission);
+		string destinationName = ResolveZoneDisplayNameById(state, mission.m_sTargetZoneId);
+		if (outcomeAsset)
+		{
+			destinationPosition = ResolveExactConvoyOutcomeDestinationPosition(outcomeAsset, destinationPosition);
+			destinationName = ResolveExactConvoyOutcomeDestinationName(state, outcomeAsset, destinationPosition);
+		}
+		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, BuildConvoyDestinationMarkerLabel(mission, title, destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
+	}
+
+	protected vector ResolveExactConvoyOutcomeDestinationPosition(HST_MissionAssetState outcomeAsset, vector fallback)
+	{
+		if (!outcomeAsset)
+			return fallback;
+		if (outcomeAsset.m_sRole == "convoy_vehicle")
+		{
+			if (!IsZeroVector(outcomeAsset.m_vCurrentPosition))
+				return outcomeAsset.m_vCurrentPosition;
+			if (!IsZeroVector(outcomeAsset.m_vLastKnownPosition))
+				return outcomeAsset.m_vLastKnownPosition;
+			if (!IsZeroVector(outcomeAsset.m_vSourcePosition))
+				return outcomeAsset.m_vSourcePosition;
+		}
+		if (!IsZeroVector(outcomeAsset.m_vTargetPosition))
+			return outcomeAsset.m_vTargetPosition;
+		return fallback;
+	}
+
+	protected string ResolveExactConvoyOutcomeDestinationName(HST_CampaignState state, HST_MissionAssetState outcomeAsset, vector destinationPosition)
+	{
+		if (!state || !outcomeAsset)
+			return "recovery destination";
+		if (outcomeAsset.m_sRole == "convoy_vehicle")
+			return "vehicle recovery";
+		if (!IsZeroVector(state.m_vHQPosition) && DistanceSq2D(state.m_vHQPosition, destinationPosition) <= 100.0 * 100.0)
+			return "HQ";
+
+		HST_ZoneState nearest;
+		float nearestDistanceSq = 250.0 * 250.0;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+			float distanceSq = DistanceSq2D(zone.m_vPosition, destinationPosition);
+			if (distanceSq > nearestDistanceSq)
+				continue;
+			nearest = zone;
+			nearestDistanceSq = distanceSq;
+		}
+		if (nearest)
+			return ResolveZoneDisplayName(nearest);
+		return "recovery destination";
 	}
 
 	protected bool ShouldShowIndividualConvoyVehicleMarkers(HST_ActiveMissionState mission)
 	{
 		if (!mission)
+			return false;
+		if (mission.m_iOperationContractVersion == HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION)
 			return false;
 
 		return mission.m_sRuntimePhase == "convoy_moving" || mission.m_sRuntimePhase == "convoy_contact" || mission.m_sRuntimePhase == "convoy_eliminated";
@@ -918,6 +1002,13 @@ class HST_MapMarkerService
 
 	protected vector ResolveMissionConvoyAggregatePosition(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
+		if (state && mission && mission.m_iOperationContractVersion == HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION)
+		{
+			HST_OperationRecordState operation = state.FindOperation(mission.m_sOperationId);
+			if (operation && operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY && !IsZeroVector(operation.m_vStrategicPosition))
+				return operation.m_vStrategicPosition;
+		}
+
 		vector aggregate;
 		int count;
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
@@ -2355,10 +2446,26 @@ class HST_MapMarkerService
 		return string.Format("%1 | %2 Minutes", title, minutes);
 	}
 
-	protected string BuildConvoyCurrentMarkerLabel(HST_ActiveMissionState mission, string title)
+	protected string BuildConvoyCurrentMarkerLabel(HST_CampaignState state, HST_ActiveMissionState mission, string title)
 	{
 		if (IsConvoyStagingPhase(mission))
 			return string.Format("%1 | %2 Seconds", title, ResolveConvoyStartSeconds(mission));
+		if (state && mission && mission.m_iOperationContractVersion == HST_MissionConvoyOperationService.EXACT_CONTRACT_VERSION)
+		{
+			int vehicles;
+			int crew;
+			foreach (HST_ConvoyElementState element : state.m_aConvoyElements)
+			{
+				if (!element || element.m_sMissionInstanceId != mission.m_sInstanceId)
+					continue;
+				crew += Math.Max(0, element.m_iSurvivingCrewCount);
+				HST_MissionAssetState vehicle = state.FindMissionAsset(element.m_sVehicleAssetId);
+				if (vehicle && !vehicle.m_bDestroyed && !vehicle.m_bDelivered)
+					vehicles++;
+			}
+			int minutes = (Math.Max(0, mission.m_iRemainingSeconds) + 59) / 60;
+			return string.Format("%1 | %2 vehicles | %3 crew | %4 Minutes", title, vehicles, crew, minutes);
+		}
 
 		return BuildMissionMinutesLabel(mission, title);
 	}
@@ -2366,7 +2473,13 @@ class HST_MapMarkerService
 	protected string BuildConvoyDestinationMarkerLabel(HST_ActiveMissionState mission, string title, string destinationName)
 	{
 		if (IsConvoyStagingPhase(mission))
+		{
+			if (!destinationName.IsEmpty())
+				return string.Format("%1 to %2 | %3 Seconds", title, destinationName, ResolveConvoyStartSeconds(mission));
 			return string.Format("%1 | %2 Seconds", title, ResolveConvoyStartSeconds(mission));
+		}
+		if (!destinationName.IsEmpty())
+			return BuildMissionMinutesLabel(mission, title + " destination: " + destinationName);
 
 		return BuildMissionMinutesLabel(mission, title);
 	}
@@ -2461,7 +2574,7 @@ class HST_MapMarkerService
 		if (mission.m_sMissionId == "convoy_money")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
 		if (mission.m_sMissionId == "convoy_supplies")
-			return !mission.m_bConvoyCrewEliminatedOutcomeApplied && HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
+			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
 		if (mission.m_sMissionId == "convoy_prisoners")
 			return HasPendingConvoyAssetOutcome(state, mission, "convoy_captive");
 		if (mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored")
@@ -2477,7 +2590,7 @@ class HST_MapMarkerService
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role)
 				continue;
 
-			if (!asset.m_bDelivered || !asset.m_bOutcomeApplied)
+			if (!asset.m_bDestroyed && (!asset.m_bDelivered || !asset.m_bOutcomeApplied))
 				return true;
 		}
 

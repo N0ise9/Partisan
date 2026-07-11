@@ -2428,7 +2428,7 @@ class HST_CivilianService
 		float dangerRadiusSq = 180 * 180;
 		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
 		{
-			if (!group)
+			if (!group || !state.IsCombatPresentActiveGroup(group))
 				continue;
 			if (group.m_sFactionKey == "FIA" || group.m_sFactionKey == "CIV")
 				continue;

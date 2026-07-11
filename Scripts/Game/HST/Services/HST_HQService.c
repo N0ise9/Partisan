@@ -957,7 +957,7 @@ class HST_HQService
 		float scanRadiusSq = radiusMeters * radiusMeters;
 		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
 		{
-			if (!group)
+			if (!group || !state.IsCombatPresentActiveGroup(group))
 				continue;
 			if (!HST_FactionRelationService.IsEnemyFaction(preset, group.m_sFactionKey))
 				continue;
