@@ -110,8 +110,13 @@
   `normalization_schema56_exact_traitor_guard_conflict`. Six source-proof
   categories cover the boundary; native entities/adapter casualties, actual
   save/restart, rendered UI, owner-change, setup, packaged networking, reconnect,
-  and JIP are unclaimed. The stamped Schema-55 evidence above does not verify
-  Schema 56, which has no final SHA/CRC/open evidence recorded yet.
+  and JIP are unclaimed. The stamped Schema-56 tree identifies implementation
+  `bab5748d817ba434dae701cfbb3b92805d463678` / label
+  `schema56-exact-traitor-guard`, passes foundation, and passes Workbench Game
+  validation at 5,764 files/11,573 classes with CRC `a18c67a5` and
+  `Script validation successful`. Its bounded hidden normal WorldEditor open
+  stayed alive for ten samples over 20 seconds; the latest log had no script-
+  error/crash signature. This is not packaged behavior proof.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -278,13 +283,13 @@
   no operation, movement, fold, virtual-combat, or restart evidence for this
   slice. Schema 51 adds deterministic fixtures for exact enemy defensive-QRF
   admission, legacy isolation, projection, return/settlement, restore, and
-  rejection, but none has executed in a packaged runtime. The stamped schema-55
-  tree identifies implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`
-  and has clean headless Game-module validation evidence at 5,763 files/11,570
-  classes with CRC `0ec8950e`, plus a ten-sample/20-second normal WorldEditor
-  open. This is stamped Schema-55 source/Workbench evidence, not packaged behavior
-  proof or Schema-56 validation. Schemas 54 and 55 have no packaged behavior
-  evidence, and Schema 56 has no final stamp/CRC/open evidence yet.
+  rejection, but none has executed in a packaged runtime. The stamped Schema-56
+  tree identifies implementation `bab5748d817ba434dae701cfbb3b92805d463678`
+  / label `schema56-exact-traitor-guard`; foundation passes, Workbench Game
+  validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and
+  `Script validation successful`, and its bounded hidden normal WorldEditor open
+  stayed alive for ten samples over 20 seconds without a latest-log script-error/
+  crash signature. This is source/Workbench evidence, not packaged behavior proof.
 - Schema 52 adds the exact mission-convoy aggregate in source. No packaged run has yet proved its
   three physical vehicles/crews, virtual route movement, materialization/fold,
   exact casualty persistence, arrival/outcome settlement, marker cleanup, or
@@ -342,7 +347,8 @@
   historical/pre-56 traitor, spec-ops, and all other unsupported missions remain
   contract `0`. No packaged run has proved native entities, adapter casualties,
   actual save/restart, rendered UI, owner-change, setup, networking, reconnect,
-  or JIP, and no final Schema-56 SHA/CRC/open evidence is claimed.
+  or JIP. The stamped implementation/Workbench evidence is recorded above and
+  does not close those behavior gates.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
@@ -379,9 +385,8 @@
 
 ## Current Delivery Priorities
 
-- Preserve the stamped Schema-55 checkpoint as the current compile/open baseline
-  while Schema 56 remains unstamped, then publish and test the next stamped build
-  with both officer- and traitor-guard diagnostics while proving the schema-50
+- Publish and test the stamped Schema-56 build with both officer- and traitor-
+  guard diagnostics while proving the schema-50
   marker/dialog/radio corrections and
   preserving the already restored stock HUD and Game Master behavior. Require
   valid-sized icons, location-plus-owner labels, pointer-over-dialog ordering,
@@ -445,7 +450,7 @@
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
 - Continue the implementation blueprint with one explicitly versioned mission-
-  force consumer at a time. After Schema 56 is stamped, the next narrow target is
+  force consumer at a time. The next narrow target is
   guard infantry for newly started `assassinate_specops` missions only. This is
   planned, not implemented; every other mission family remains legacy. Packaged
   schema-50 through schema-56 certification remains independently required.

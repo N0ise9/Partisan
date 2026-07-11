@@ -97,15 +97,16 @@ The active development contract is Schema 56: only guard infantry belonging to a
 newly started `assassinate_traitor` mission gains contract-2 route-less exact
 authority. Schema-55 officer guards remain contract `1`; historical/pre-56
 traitor missions, `assassinate_specops`, and every other unsupported family
-remain contract `0`. Schema 56 is implemented but unstamped. The stamped
-Schema-55 source/foundation/Workbench evidence remains the latest verified
-baseline, and all Schema-56 compile/open and packaged gates are pending.
+remain contract `0`. The stamped Schema-56 implementation is
+`bab5748d817ba434dae701cfbb3b92805d463678`
+with build label `schema56-exact-traitor-guard`. Foundation and Workbench
+compile/open gates pass; packaged behavior gates remain pending.
 It supersedes feature-order implications in the legacy numbered roadmap below;
 that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Complete for current source checkpoint | Campaign schema 56 is current in source but has no final SHA/CRC/open evidence. The last stamped contract is Schema 55 implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`, with foundation, clean Workbench Game validation at 5,763 files/11,570 classes/CRC `0ec8950e`, and a ten-sample/20-second normal editor open. This is historical source/Workbench evidence only; every packaged/runtime/restart gate remains open. |
+| CRI-0: Repository truth and baseline | Complete for current stamped source checkpoint | Campaign Schema 56 is stamped at implementation `bab5748d817ba434dae701cfbb3b92805d463678` / label `schema56-exact-traitor-guard`. The full foundation gate passes. Workbench Game validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and `Script validation successful`; the bounded hidden normal WorldEditor open stayed alive for ten samples over 20 seconds and its latest log had no script-error/crash signature. This is source/Workbench evidence only; every packaged/native/save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gate remains open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 56 adds only the traitor-guard contract-2 mission/operation/manifest/held-batch/group graph and preserves Schema-55 officer contract `1`. Both keep HVT authority separate and settle typed outcomes with zero refund. Pre-56 traitor, spec-ops, and unsupported families remain contract `0`; malformed traitor rows quarantine at `-56` without fallback or HVT failure. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | The generic SpawnQueue adapter remains one-root infantry-only and now serves two QRFs, enemy patrol, purchased-garrison patrol, officer guard, and traitor guard; the convoy retains its separate path. Both assassination contracts use catalog-backed empty roots plus ordered members with no HVT/route/assets/resources. Historical mission/aggregate forces, vehicles/assets/multi-root execution, and packaged proofs remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; seven exact family projections across six operation types implemented in source | Schemas 50-55 retain prior exact paths. Schema 56 adds only the contract-2 route-less traitor guard with the same HVT-independent all-dead result, survivor-only projection/fold, typed zero-refund settlement, compact restore, and existing-HVT status as the officer guard. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
@@ -422,7 +423,7 @@ treated as future work:
     entities/adapter casualties, actual save/restart, rendered UI, owner-change,
     setup, packaged networking, reconnect, and JIP. Pre-56 traitor and every
     unsupported family remain contract `0`.
-11. After Schema 56 is stamped, continue with one explicitly versioned mission-
+11. Continue with one explicitly versioned mission-
     force consumer at a time. The next narrow target is guard infantry for newly
     started `assassinate_specops` missions only. This is planned, not implemented;
     every other mission family remains legacy until its own cutover. Keep

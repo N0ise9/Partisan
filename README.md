@@ -283,10 +283,16 @@ The repository contains a broad-alpha campaign foundation:
   `normalization_schema56_exact_traitor_guard_conflict` and remain diagnostic
   under `-56` without fallback or HVT failure. Six focused source-proof
   categories cover admission/isolation, projection lifecycle, settlement,
-  restore/migration, quarantine, and marker status. Schema-56 native entity/
-  adapter/casualty behavior, real save/restart, rendered UI, owner-change,
-  campaign-setup, packaged networking, reconnect, and JIP remain unclaimed. The
-  stamped Schema-55 evidence above is not Schema-56 compile/open evidence.
+  restore/migration, quarantine, and marker status. The stamped Schema-56 tree
+  identifies implementation `bab5748d817ba434dae701cfbb3b92805d463678`
+  (`schema56-exact-traitor-guard`), passes the full foundation gate, and passes
+  Workbench Game validation at 5,764 files/11,573 classes with CRC `a18c67a5`
+  and `Script validation successful`. Its bounded hidden normal WorldEditor open
+  stayed alive for all ten samples over 20 seconds, and the latest log had no
+  script-error or crash signature. These are source/Workbench gates, not packaged
+  behavior proof. Native entities/adapter casualties, real save/restart, rendered
+  UI, owner-change, campaign setup, packaged networking, reconnect, and JIP remain
+  unclaimed.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -439,8 +445,8 @@ missions, `assassinate_specops`, policy-v1 purchases, initial/enemy aggregate
 garrisons, and all other mission families remain legacy. Packaged schema-50
 through schema-56 certification gates remain independently open;
 beginning another source slice does not certify any earlier behavior.
-After Schema 56 is stamped, the next narrow source target is guard infantry for
-newly started `assassinate_specops` missions only. It is planned, not implemented;
+The next narrow source target is guard infantry for newly started
+`assassinate_specops` missions only. It is planned, not implemented;
 historical missions and every other mission family remain legacy until separately
 opted in.
 
@@ -555,11 +561,13 @@ The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also
 evidence for the newly reported marker, cursor, radio, classification,
 appearance, horn, and military/civilian activation defects—not proof of the
-schema-50 repairs. The final stamped schema-55 tree identifies implementation
-`552c2c4ff5ac7608fa248c614480a254769b61a4` and passes a clean headless
-Workbench Game-module compile/create at 5,763 files/11,570 classes with CRC
-`0ec8950e`; a normal WorldEditor open then remained alive for all ten samples over
-20 seconds with no crash signature. This is source/Workbench evidence, not
+schema-50 repairs. The final stamped Schema-56 tree identifies implementation
+`bab5748d817ba434dae701cfbb3b92805d463678`, build label
+`schema56-exact-traitor-guard`, and passes the full foundation gate. Workbench
+Game validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and reported
+`Script validation successful`; the bounded hidden normal WorldEditor open stayed
+alive for all ten samples over 20 seconds, with no script-error/crash signature
+in its latest log. This is source/Workbench evidence, not
 packaged gameplay proof. A republished server/client test is still required
 before those repairs, either exact-QRF projection path, or any source-validated
 schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/

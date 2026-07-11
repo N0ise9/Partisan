@@ -48,21 +48,22 @@ means the named production slice exists. `Verified` means an appropriate proof
 has actually run against that slice. `Certified` additionally requires a safe,
 isolated runtime run with no unresolved hard failures or required external gaps.
 
-The current development save contract is Schema 56. Its unstamped source
+The current development save contract is Schema 56. Its stamped source
 implementation adds contract-2 exact authority only for guard infantry belonging
 to newly started `assassinate_traitor` missions. Schema-55 officer guards remain
 exact at contract `1`; historical/pre-56 traitor missions, `assassinate_specops`,
-and every other unsupported family remain contract `0`. The stamped Schema-55
-source/Workbench gates remain the latest verified baseline. Schema-56 compile/
-open and every packaged behavior gate remain open.
+and every other unsupported family remain contract `0`. Implementation
+`bab5748d817ba434dae701cfbb3b92805d463678` / label
+`schema56-exact-traitor-guard` passes foundation and Workbench validation;
+packaged behavior gates remain open.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete | Complete for the current Schema-56 source tree | Stamped Schema-55 source/Workbench checkpoint verified; Schema-56 gates pending | No | Schema 56 is implemented but has no final SHA/CRC/open evidence yet. The last stamped baseline is Schema 55 implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`, which passes foundation, clean Workbench Game validation at 5,763 files/11,570 classes with CRC `0ec8950e`, and a ten-sample/20-second normal editor open. The latest Full Campaign Debug artifact predates schemas 43-56 and is not current certification evidence. |
-| CRI-1 Authority foundation | Complete | Prior vertical slices plus Schema-55 officer and Schema-56 traitor mission-guard authority | Schema-55 stamped; Schema-56 Workbench/package gates pending | No | New officer guards retain reciprocal contract-1 authority. Only a newly started `assassinate_traitor` guard gains contract `2`/policy `exact_assassinate_traitor_guard_v1`; its HVT stays separate. Pre-56/historical traitor, spec-ops, and all unsupported families remain contract `0`. Typed outcomes refund zero; malformed traitor rows use `-56` quarantine without fallback or HVT failure. |
-| CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, six exact infantry-family consumers, and exact three-element mission convoy | Schema-55 stamped; Schema-56 native projection/restart pending | No | Schema 56 freezes one catalog-backed empty root plus ordered traitor-guard members, with no HVT, route, vehicle, asset, or resource entry, reusing the officer-guard shape under a distinct policy/contract. The generic adapter remains one-root infantry-only; the convoy retains its separate path. Historical mission guards, vehicles/assets, generic multi-root execution, and other consumers remain open. |
-| CRI-3 Force runtime | Complete in source for six exact infantry-family consumers, one exact mission convoy, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, patrol and both mission-guard folds, convoy-element fold/rematerialization, and mixed-group cleanup | Schema-55 stamped; Schema-56 native/package gates pending | No | Officer and traitor guards are route-less held rosters whose mapped casualties persist across fold/re-entry; all guards dead can settle independently of the HVT. Exact/quarantined guard claimants are isolated from generic mutation. Native entities, adapter casualties, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP remain unproven for Schema 56. |
-| CRI-4 Operation records | Complete for six operation types and seven explicit family consumers | Mission-guard contract `1`/`2` dispatch plus typed materialization/position/settlement state, durable roster linkage, restore normalization, and fail-closed isolation | Six Schema-56 source-proof categories exist; Workbench/package gates pending | No | Schema 56 adds only traitor guards as contract `2` on `HST_OPERATION_TYPE_MISSION_GUARD`, preserving officer contract `1`. It reuses route-less survivor state, HVT-independent `DESTROYED`, typed zero-refund outcomes, compact restore, existing-HVT status, and uses `-56` quarantine. Pre-56 traitor, spec-ops, and other families remain contract `0`. |
+| CRI-0 Truth and baseline | Complete | Complete for the stamped Schema-56 source tree | Foundation, Workbench validation, and bounded normal-open gate verified; packaged runtime pending | No | Implementation `bab5748d817ba434dae701cfbb3b92805d463678` / label `schema56-exact-traitor-guard` passes the full foundation gate. Workbench Game validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and `Script validation successful`; the bounded hidden normal WorldEditor open stayed alive for ten samples over 20 seconds and its latest log had no script-error/crash signature. The latest Full Campaign Debug artifact predates schemas 43-56 and is not certification evidence. |
+| CRI-1 Authority foundation | Complete | Prior vertical slices plus Schema-55 officer and Schema-56 traitor mission-guard authority | Schema-56 source/Workbench gates pass; packaged runtime pending | No | New officer guards retain reciprocal contract-1 authority. Only a newly started `assassinate_traitor` guard gains contract `2`/policy `exact_assassinate_traitor_guard_v1`; its HVT stays separate. Pre-56/historical traitor, spec-ops, and unsupported families remain contract `0`. Typed outcomes refund zero; malformed traitor rows use `-56` quarantine without fallback or HVT failure. |
+| CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, six exact infantry-family consumers, and exact three-element mission convoy | Schema-56 source/Workbench gates pass; native projection/restart pending | No | Schema 56 freezes one catalog-backed empty root plus ordered traitor-guard members, with no HVT, route, vehicle, asset, or resource entry, reusing the officer-guard shape under a distinct policy/contract. The generic adapter remains one-root infantry-only; the convoy retains its separate path. Historical mission guards, vehicles/assets, generic multi-root execution, and other consumers remain open. |
+| CRI-3 Force runtime | Complete in source for six exact infantry-family consumers, one exact mission convoy, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, patrol and both mission-guard folds, convoy-element fold/rematerialization, and mixed-group cleanup | Schema-56 source/Workbench gates pass; native/package gates pending | No | Officer and traitor guards are route-less held rosters whose mapped casualties persist across fold/re-entry; all guards dead can settle independently of the HVT. Exact/quarantined guard claimants are isolated from generic mutation. Native entities, adapter casualties, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP remain unproven. |
+| CRI-4 Operation records | Complete for six operation types and seven explicit family consumers | Mission-guard contract `1`/`2` dispatch plus typed materialization/position/settlement state, durable roster linkage, restore normalization, and fail-closed isolation | Six Schema-56 source-proof categories and Workbench gates pass; not packaged proof | No | Schema 56 adds only traitor guards as contract `2` on `HST_OPERATION_TYPE_MISSION_GUARD`, preserving officer contract `1`. It reuses route-less survivor state, HVT-independent `DESTROYED`, typed zero-refund outcomes, compact restore, existing-HVT status, and uses `-56` quarantine. Pre-56 traitor, spec-ops, and other families remain contract `0`. |
 
 ## Implementation Contract
 
@@ -239,9 +240,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Preserve the stamped Schema-55 source/Workbench baseline while Schema 56 is
-   unstamped, then publish the next stamped build and run a focused client/server
-   feedback pass. Confirm that
+1. Publish the stamped Schema-56 build and run a focused client/server feedback
+   pass. Confirm that
    the stock HUD/Game Master recovery already observed in packaged schema 49 is
    preserved, then require normal-sized radio icons, location-plus-owner labels,
    pointer-over-dialog ordering, one intact tower per radio site, and correct
@@ -305,7 +305,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
     client, reconnect, and late-join equality with revisions and tombstones.
 12. Introduce one idempotent ownership-transition service before adding virtual
     capture outcomes or wider encounter simulation.
-13. After Schema 56 is stamped, continue with one explicitly versioned mission-
+13. Continue with one explicitly versioned mission-
     force consumer at a time. The next narrow target is guard infantry for newly
     started `assassinate_specops` missions only. This is planned, not implemented;
     every other mission family remains legacy until its own cutover.

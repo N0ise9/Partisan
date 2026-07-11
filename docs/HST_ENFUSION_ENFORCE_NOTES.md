@@ -3144,12 +3144,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
     marker status. These fixtures do not prove native entities, actual adapter
     bindings or casualties, real save/restart, rendered UI, owner change,
     campaign setup, packaged networking, reconnect, or JIP.
-  - Schema 56 is implemented in current source but has not been stamped. Do not
-    invent or reuse an implementation SHA, Workbench CRC/file/class count, or
-    normal-open result for it. The latest stamped evidence remains Schema 55:
-    implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`, 5,763 files/
-    11,570 classes, CRC `0ec8950e`, and the recorded ten-sample/20-second normal
-    WorldEditor open.
+  - The stamped Schema-56 tree identifies implementation
+    `bab5748d817ba434dae701cfbb3b92805d463678` and build label
+    `schema56-exact-traitor-guard`. The full foundation gate passes. Workbench
+    Game validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and
+    reported `Script validation successful`. Its bounded hidden normal
+    WorldEditor open stayed alive for all ten samples over 20 seconds, and the
+    latest log had no script-error/crash signature. These are source/Workbench
+    gates only; the native/package obligations above remain open.
 
 - The next narrow blueprint target is guard infantry for newly started
   `assassinate_specops` missions only. This is planned work, not an implementation

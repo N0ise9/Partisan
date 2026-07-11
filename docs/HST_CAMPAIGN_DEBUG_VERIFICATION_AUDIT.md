@@ -229,9 +229,8 @@ be read as proof that a later change was executed or certified.
   real adapter bindings/casualties, actual save/restart, rendered marker/UI,
   owner-change, campaign-setup, packaged networking, reconnect, and JIP remain
   open proof gates.
-- Campaign persistence schema 56 is implemented in current source, but is not
-  yet stamped. It opts in
-  only guard infantry belonging to a newly started `assassinate_traitor`
+- Campaign persistence Schema 56 is stamped. It opts in only guard infantry
+  belonging to a newly started `assassinate_traitor`
   mission, using contract version `2`, manifest policy
   `exact_assassinate_traitor_guard_v1`, and malformed-current quarantine version
   `-56`. Schema-55 officer guards remain exact under contract `1`/quarantine
@@ -250,9 +249,14 @@ be read as proof that a later change was executed or certified.
   `normalization_schema56_exact_traitor_guard_conflict` and remains quarantined
   without legacy fallback. Six focused source-proof categories cover admission/
   isolation, projection lifecycle, settlement, restore/migration, corruption
-  quarantine, and marker status. They are source fixtures only: Schema 56 has no
-  new implementation SHA, Workbench CRC/file/class result, or normal-open
-  evidence yet. Native entities, adapter casualty observation, real save/restart,
+  quarantine, and marker status. The stamped tree identifies implementation
+  `bab5748d817ba434dae701cfbb3b92805d463678`, build label
+  `schema56-exact-traitor-guard`, and passes the full foundation gate. Workbench
+  Game validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and
+  `Script validation successful`. Its bounded hidden normal WorldEditor open
+  stayed alive for all ten samples over 20 seconds; the latest log had no script-
+  error/crash signature. These source/Workbench gates are not packaged runtime
+  proof. Native entities, adapter casualty observation, real save/restart,
   rendered UI, owner change, campaign setup, packaged networking, reconnect, and
   JIP remain unclaimed. The next planned narrow cutover is newly started
   `assassinate_specops` guards only; it is not implemented.
@@ -1114,7 +1118,12 @@ Unproven or incomplete against the pasted contract:
   casualty behavior, real save/restart, rendered HVT guard status, owner-change,
   campaign-setup, packaged networking, reconnect, and JIP remain mandatory
   packaged gates.
-- Campaign persistence schema 56 and its newly started traitor-guard contract are
-  implemented in source but are not yet stamped. No Schema-56 implementation
-  SHA, Workbench file/class/CRC result, or normal-open result is claimed; the
-  Schema-55 evidence immediately above remains the latest completed gate.
+- The stamped Schema-56 tree identifies implementation
+  `bab5748d817ba434dae701cfbb3b92805d463678` and build label
+  `schema56-exact-traitor-guard`. The full foundation gate passes. Workbench Game
+  validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and reported
+  `Script validation successful`; a bounded hidden normal WorldEditor open stayed
+  alive for all ten samples over 20 seconds, and its latest log had no script-
+  error/crash signature. Native entities/adapter casualties, real save/restart,
+  rendered UI, owner-change, campaign setup, packaged networking, reconnect, and
+  JIP remain open.

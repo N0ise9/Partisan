@@ -70,13 +70,15 @@
   also checks officer contract-1 coexistence and legacy traitor/spec-ops
   isolation. Native entities, real adapter handles/casualties, actual save/
   restart, rendered UI, owner-change, campaign setup, packaged networking,
-  reconnect, and JIP remain unclaimed. The stamped Schema-55 implementation
-  `552c2c4ff5ac7608fa248c614480a254769b61a4`, 5,763-file/11,570-class Workbench
-  validation with CRC `0ec8950e`, and bounded normal-open evidence are historical
-  foundation only; no final Schema-56 SHA, CRC, file/class count, or normal-open
-  evidence is claimed here.
+  reconnect, and JIP remain unclaimed. The stamped Schema-56 implementation is
+  `bab5748d817ba434dae701cfbb3b92805d463678`, build label
+  `schema56-exact-traitor-guard`. It passes the full foundation gate; Workbench
+  Game validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and
+  `Script validation successful`. Its bounded hidden normal WorldEditor open
+  stayed alive for all ten samples over 20 seconds and the latest log had no
+  script-error/crash signature. These are source/Workbench gates only.
 
-- After Schema 56 is stamped, the next planned narrow cutover is guard infantry
+- The next planned narrow cutover is guard infantry
   for newly started `assassinate_specops` missions only. This is not an
   implementation claim. Every other mission family remains contract `0` until
   separately versioned.
