@@ -15,10 +15,20 @@ class HST_PersistenceService
 	protected bool m_bProfileFallbackLoaded;
 	protected string m_sProfileFallbackStatus = "profile fallback idle";
 	protected HST_PhysicalWarService m_PhysicalWar;
+	protected HST_ForceSpawnQueueService m_ForceSpawnQueue;
+	protected HST_ForceSpawnAdapterService m_ForceSpawnAdapter;
 
 	void SetPhysicalWarService(HST_PhysicalWarService physicalWar)
 	{
 		m_PhysicalWar = physicalWar;
+	}
+
+	void SetExactInfantryAuthorityServices(
+		HST_ForceSpawnQueueService forceSpawnQueue,
+		HST_ForceSpawnAdapterService forceSpawnAdapter)
+	{
+		m_ForceSpawnQueue = forceSpawnQueue;
+		m_ForceSpawnAdapter = forceSpawnAdapter;
 	}
 
 	void MarkMajorChange()
@@ -213,7 +223,18 @@ class HST_PersistenceService
 	{
 		if (!state)
 			return false;
+		string quarantineFailure;
+		if (!NormalizeRetiredQuarantinedEnemyPatrolAuthority(state, quarantineFailure))
+		{
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint deferred: exact patrol quarantine cleanup is incomplete during %1 | %2",
+				context,
+				quarantineFailure);
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
 		bool hasExactMissionConvoy;
+		bool hasPhysicalExactEnemyPatrol;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (mission && mission.m_sRuntimePrimitive == "convoy_intercept"
@@ -223,19 +244,361 @@ class HST_PersistenceService
 				break;
 			}
 		}
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
+				|| operation.m_iContractVersion != HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION
+				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+				|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+				continue;
+			if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+				|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
+			{
+				hasPhysicalExactEnemyPatrol = true;
+				break;
+			}
+		}
 		if (!m_PhysicalWar)
 		{
-			if (!hasExactMissionConvoy)
+			if (!hasExactMissionConvoy && !hasPhysicalExactEnemyPatrol)
 				return true;
-			state.m_sLastPersistenceStatus = "checkpoint deferred: exact convoy roster reconciler is unavailable";
+			state.m_sLastPersistenceStatus = "checkpoint deferred: exact physical roster reconciler is unavailable";
 			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 
 		string reconcileFailure;
-		if (m_PhysicalWar.PrepareExactMissionConvoyAuthorityForPersistence(state, reconcileFailure))
+		if (!m_PhysicalWar.PrepareExactMissionConvoyAuthorityForPersistence(state, reconcileFailure))
+		{
+			state.m_sLastPersistenceStatus = string.Format("checkpoint deferred: exact convoy roster reconciliation failed during %1 | %2", context, reconcileFailure);
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
+		if (!hasPhysicalExactEnemyPatrol)
 			return true;
-		state.m_sLastPersistenceStatus = string.Format("checkpoint deferred: exact convoy roster reconciliation failed during %1 | %2", context, reconcileFailure);
+		if (!m_ForceSpawnQueue || !m_ForceSpawnAdapter)
+		{
+			state.m_sLastPersistenceStatus = "checkpoint deferred: exact patrol roster authority is unavailable";
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
+
+		HST_ForceSpawnAdapterTickResult patrolRoster = m_ForceSpawnAdapter.ReconcileExactInfantryAuthorityForPersistence(
+			state,
+			m_ForceSpawnQueue,
+			m_PhysicalWar,
+			Math.Max(0, state.m_iElapsedSeconds));
+		if (!patrolRoster || patrolRoster.m_iFailedCount > 0)
+		{
+			string rosterEvidence = "missing adapter reconciliation result";
+			if (patrolRoster && !patrolRoster.m_sSummary.IsEmpty())
+				rosterEvidence = patrolRoster.m_sSummary;
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint deferred: exact patrol roster reconciliation failed during %1 | %2",
+				context,
+				rosterEvidence);
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
+		return ValidatePhysicalEnemyPatrolSnapshots(state, context);
+	}
+
+	protected bool NormalizeRetiredQuarantinedEnemyPatrolAuthority(
+		HST_CampaignState state,
+		out string failure)
+	{
+		failure = "";
+		if (!state)
+		{
+			failure = "campaign state is unavailable";
+			return false;
+		}
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (!order
+				|| order.m_iOperationContractVersion != HST_EnemyPatrolOperationService.QUARANTINED_CONTRACT_VERSION)
+				continue;
+			HST_OperationRecordState operation;
+			int operationMatches;
+			foreach (HST_OperationRecordState candidateOperation : state.m_aOperations)
+			{
+				if (!QuarantinedOperationClaimsOrder(candidateOperation, order))
+					continue;
+				operationMatches++;
+				operation = candidateOperation;
+			}
+			if (operationMatches <= 0)
+			{
+				bool orphanClaimant;
+				foreach (HST_ActiveGroupState orphanGroup : state.m_aActiveGroups)
+				{
+					if (QuarantinedGroupClaimsOrder(orphanGroup, order, null))
+					{
+						orphanClaimant = true;
+						break;
+					}
+				}
+				if (!orphanClaimant)
+				{
+					foreach (HST_ForceSpawnResultState orphanBatch : state.m_aForceSpawnResults)
+					{
+						if (QuarantinedBatchClaimsOrder(orphanBatch, order, null, null))
+						{
+							orphanClaimant = true;
+							break;
+						}
+					}
+				}
+				if (!orphanClaimant && m_ForceSpawnAdapter)
+				{
+					int orphanHandleCount;
+					if (!order.m_sGroupId.IsEmpty())
+						orphanHandleCount = m_ForceSpawnAdapter.CountHandlesForProjection(order.m_sGroupId);
+					if (!order.m_sSpawnResultId.IsEmpty())
+						orphanHandleCount += m_ForceSpawnAdapter.CountHandlesForResultId(order.m_sSpawnResultId);
+					orphanClaimant = orphanHandleCount > 0;
+				}
+				if (orphanClaimant)
+				{
+					failure = "quarantined patrol claimant has no recognized exact operation " + order.m_sOrderId;
+					return false;
+				}
+				continue;
+			}
+			if (operationMatches != 1 || !operation)
+			{
+				failure = "quarantined exact patrol operation authority is ambiguous " + order.m_sOrderId;
+				return false;
+			}
+			bool openOperation = operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+			HST_ActiveGroupState group;
+			int groupMatches;
+			foreach (HST_ActiveGroupState candidateGroup : state.m_aActiveGroups)
+			{
+				if (!QuarantinedGroupClaimsOrder(candidateGroup, order, operation))
+					continue;
+				groupMatches++;
+				group = candidateGroup;
+			}
+			if (groupMatches > 1)
+			{
+				failure = "quarantined exact patrol group authority is ambiguous " + order.m_sOrderId;
+				return false;
+			}
+			HST_ForceSpawnResultState batch;
+			int batchMatches;
+			foreach (HST_ForceSpawnResultState candidateBatch : state.m_aForceSpawnResults)
+			{
+				if (!QuarantinedBatchClaimsOrder(candidateBatch, order, operation, group))
+					continue;
+				batchMatches++;
+				batch = candidateBatch;
+			}
+			if (batchMatches > 1)
+			{
+				failure = "quarantined exact patrol spawn authority is ambiguous " + order.m_sOrderId;
+				return false;
+			}
+			string projectionId = operation.m_sProjectionId;
+			if (projectionId.IsEmpty() && group)
+				projectionId = group.m_sProjectionId;
+			if (projectionId.IsEmpty() && batch)
+				projectionId = batch.m_sProjectionId;
+			int handleCount;
+			if (m_ForceSpawnAdapter && !projectionId.IsEmpty())
+				handleCount = m_ForceSpawnAdapter.CountHandlesForProjection(projectionId);
+			bool physicalRegistryOwned;
+			if (m_PhysicalWar && group)
+				physicalRegistryOwned = m_PhysicalWar.GetForceSpawnGroupRoot(group)
+					|| m_PhysicalWar.CountForceSpawnRuntimeMembers(group) > 0;
+			bool liveAuthority = operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+				|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+				|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING
+				|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+				|| (group && (group.m_bSpawnedEntity || !group.m_sRuntimeEntityId.IsEmpty()))
+				|| (batch && !batch.m_sNativeGroupId.IsEmpty())
+				|| handleCount > 0 || physicalRegistryOwned;
+			if (!liveAuthority)
+				continue;
+			if (!m_ForceSpawnAdapter || projectionId.IsEmpty())
+			{
+				failure = "quarantined exact patrol runtime binding authority is unavailable " + order.m_sOrderId;
+				return false;
+			}
+			if (handleCount > 0)
+			{
+				failure = string.Format("quarantined exact patrol still owns %1 runtime bindings %2", handleCount, order.m_sOrderId);
+				return false;
+			}
+			if (openOperation && group
+				&& (group.m_bSpawnedEntity || !group.m_sRuntimeEntityId.IsEmpty()))
+			{
+				failure = "quarantined exact patrol still reports a process-local group " + order.m_sOrderId;
+				return false;
+			}
+			if (!m_PhysicalWar || !group)
+			{
+				failure = "quarantined exact patrol physical registry cannot be proven empty " + order.m_sOrderId;
+				return false;
+			}
+			if (m_PhysicalWar.GetForceSpawnGroupRoot(group)
+				|| m_PhysicalWar.CountForceSpawnRuntimeMembers(group) > 0)
+			{
+				failure = "quarantined exact patrol still owns PhysicalWar runtime entities " + order.m_sOrderId;
+				return false;
+			}
+			if (!openOperation)
+			{
+				if (batch)
+					batch.m_sNativeGroupId = "";
+				if (group)
+				{
+					group.m_bSpawnedEntity = false;
+					group.m_sRuntimeEntityId = "";
+					group.m_iSpawnedAgentCount = 0;
+					group.m_iAssignedWaypointCount = 0;
+					group.m_iLifecycleRevision++;
+				}
+				continue;
+			}
+			if (group && HasNonZeroPosition(group.m_vPosition))
+				operation.m_vStrategicPosition = group.m_vPosition;
+			operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
+			operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
+			operation.m_iMaterializationStateEnteredAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+			operation.m_iLastProgressAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+			operation.m_iRevision++;
+			if (batch)
+			{
+				batch.m_sNativeGroupId = "";
+				batch.m_bStrategicProjectionHeld = true;
+			}
+			if (group)
+			{
+				group.m_bSpawnedEntity = false;
+				group.m_sRuntimeEntityId = "";
+				group.m_iSpawnedAgentCount = 0;
+				group.m_iAssignedWaypointCount = 0;
+				group.m_sRuntimeStatus = "exact_patrol_quarantined";
+				group.m_iLifecycleRevision++;
+			}
+		}
+		return true;
+	}
+
+	protected bool QuarantinedOperationClaimsOrder(
+		HST_OperationRecordState operation,
+		HST_EnemyOrderState order)
+	{
+		if (!operation || !order
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
+			|| operation.m_iContractVersion != HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION)
+			return false;
+		if (!order.m_sOrderId.IsEmpty() && operation.m_sEnemyOrderId == order.m_sOrderId)
+			return true;
+		if (!order.m_sOperationId.IsEmpty() && operation.m_sOperationId == order.m_sOperationId)
+			return true;
+		if (!order.m_sManifestId.IsEmpty() && operation.m_sManifestId == order.m_sManifestId)
+			return true;
+		if (!order.m_sSpawnResultId.IsEmpty() && operation.m_sSpawnResultId == order.m_sSpawnResultId)
+			return true;
+		return !order.m_sGroupId.IsEmpty() && operation.m_sGroupId == order.m_sGroupId;
+	}
+
+	protected bool QuarantinedGroupClaimsOrder(
+		HST_ActiveGroupState group,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation)
+	{
+		if (!group || !order)
+			return false;
+		if (!order.m_sOrderId.IsEmpty() && group.m_sEnemyOrderId == order.m_sOrderId)
+			return true;
+		if (!order.m_sGroupId.IsEmpty() && group.m_sGroupId == order.m_sGroupId)
+			return true;
+		if (!order.m_sOperationId.IsEmpty() && group.m_sOperationId == order.m_sOperationId)
+			return true;
+		if (!order.m_sManifestId.IsEmpty() && group.m_sManifestId == order.m_sManifestId)
+			return true;
+		if (!order.m_sSpawnResultId.IsEmpty() && group.m_sSpawnResultId == order.m_sSpawnResultId)
+			return true;
+		return operation && !operation.m_sGroupId.IsEmpty()
+			&& group.m_sGroupId == operation.m_sGroupId;
+	}
+
+	protected bool QuarantinedBatchClaimsOrder(
+		HST_ForceSpawnResultState batch,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ActiveGroupState group)
+	{
+		if (!batch || !order)
+			return false;
+		if (!order.m_sOrderId.IsEmpty() && batch.m_sRequestId == order.m_sOrderId)
+			return true;
+		if (!order.m_sSpawnResultId.IsEmpty() && batch.m_sResultId == order.m_sSpawnResultId)
+			return true;
+		if (!order.m_sOperationId.IsEmpty() && batch.m_sOperationId == order.m_sOperationId)
+			return true;
+		if (!order.m_sManifestId.IsEmpty() && batch.m_sManifestId == order.m_sManifestId)
+			return true;
+		if (operation && !operation.m_sSpawnResultId.IsEmpty()
+			&& batch.m_sResultId == operation.m_sSpawnResultId)
+			return true;
+		return group && !group.m_sSpawnResultId.IsEmpty()
+			&& batch.m_sResultId == group.m_sSpawnResultId;
+	}
+
+	protected bool HasNonZeroPosition(vector position)
+	{
+		return Math.AbsFloat(position[0]) > 0.01
+			|| Math.AbsFloat(position[1]) > 0.01
+			|| Math.AbsFloat(position[2]) > 0.01;
+	}
+
+	protected bool ValidatePhysicalEnemyPatrolSnapshots(HST_CampaignState state, string context)
+	{
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
+				|| operation.m_iContractVersion != HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION
+				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+				|| (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+					&& operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING))
+				continue;
+			HST_ActiveGroupState group = state.FindActiveGroup(operation.m_sGroupId);
+			HST_ForceSpawnResultState batch = state.FindForceSpawnResult(operation.m_sSpawnResultId);
+			if (!group || !batch || m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch) <= 0)
+				return DeferPhysicalEnemyPatrolSnapshot(state, context, operation.m_sOperationId, "durable living roster is unavailable");
+			string bindingEvidence;
+			if (!m_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence(
+				state,
+				batch,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				bindingEvidence))
+			{
+				return DeferPhysicalEnemyPatrolSnapshot(state, context, operation.m_sOperationId, bindingEvidence);
+			}
+			vector livePosition;
+			string liveEvidence;
+			if (!m_PhysicalWar.TryResolveExactEnemyPatrolLivePosition(state, group, livePosition, liveEvidence))
+				return DeferPhysicalEnemyPatrolSnapshot(state, context, operation.m_sOperationId, liveEvidence);
+		}
+		return true;
+	}
+
+	protected bool DeferPhysicalEnemyPatrolSnapshot(
+		HST_CampaignState state,
+		string context,
+		string operationId,
+		string evidence)
+	{
+		state.m_sLastPersistenceStatus = string.Format(
+			"checkpoint deferred: exact patrol live snapshot failed during %1 | operation %2 | %3",
+			context,
+			operationId,
+			evidence);
 		Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 		return false;
 	}

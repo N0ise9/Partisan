@@ -5,6 +5,13 @@ class HST_EnemyDefensiveQRFManifestResult
 	ref HST_ForceManifestState m_Manifest;
 }
 
+class HST_EnemyPatrolManifestResult
+{
+	bool m_bSuccess;
+	string m_sFailureReason;
+	ref HST_ForceManifestState m_Manifest;
+}
+
 class HST_ForcePlanningService
 {
 	static const string QUOTE_KIND_GARRISON = "garrison_recruitment";
@@ -185,6 +192,191 @@ class HST_ForcePlanningService
 		result.m_bSuccess = true;
 		result.m_Manifest = manifest;
 		return result;
+	}
+
+	HST_EnemyPatrolManifestResult PlanExactEnemyPatrol(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyOrderState order,
+		bool validateResources = true)
+	{
+		HST_EnemyPatrolManifestResult result = new HST_EnemyPatrolManifestResult();
+		string failure = ValidateExactEnemyPatrolPlanningContext(state, preset, order);
+		if (!failure.IsEmpty())
+		{
+			result.m_sFailureReason = failure;
+			return result;
+		}
+		if (!order.m_sManifestId.IsEmpty())
+			return ResolvePersistedExactEnemyPatrolManifest(state, order);
+
+		HST_ZoneState sourceZone = state.FindZone(order.m_sSourceZoneId);
+		HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+		if (!sourceZone || !targetZone || sourceZone.m_sZoneId == targetZone.m_sZoneId)
+		{
+			result.m_sFailureReason = "exact enemy patrol requires distinct source and target zones";
+			return result;
+		}
+		if (sourceZone.m_sOwnerFactionKey != order.m_sFactionKey)
+		{
+			result.m_sFailureReason = "exact enemy patrol source must remain faction-owned";
+			return result;
+		}
+		if (!state.FindFactionPool(order.m_sFactionKey))
+		{
+			result.m_sFailureReason = "exact enemy patrol faction pool is unavailable";
+			return result;
+		}
+
+		HST_ForceCatalogValidationResult catalogValidation = m_Catalog.ValidateFactionCatalog(
+			order.m_sFactionKey,
+			validateResources);
+		if (!catalogValidation || !catalogValidation.m_bValid)
+		{
+			result.m_sFailureReason = "enemy patrol group catalog is invalid";
+			if (catalogValidation && !catalogValidation.m_sFailureReason.IsEmpty())
+				result.m_sFailureReason = catalogValidation.m_sFailureReason;
+			return result;
+		}
+
+		int planningSeed = m_Integrity.BuildDeterministicSeed(
+			state,
+			order.m_sOrderId + "|enemy_patrol",
+			order.m_sTargetZoneId);
+		HST_ForceGroupCatalogEntry catalogGroup = m_Integrity.SelectPlayerSupportGroup(
+			m_Catalog.BuildGroupCatalog(order.m_sFactionKey),
+			planningSeed,
+			state.m_iWarLevel);
+		if (!catalogGroup || catalogGroup.m_sExecutionPrefab.IsEmpty()
+			|| catalogGroup.m_aMemberSlots.Count() <= 0)
+		{
+			result.m_sFailureReason = "deterministic exact enemy patrol group selection failed";
+			return result;
+		}
+
+		HST_ForceManifestState manifest = BuildExactEnemyPatrolManifest(state, order, catalogGroup, planningSeed);
+		if (!manifest)
+		{
+			result.m_sFailureReason = "selected enemy patrol group contains an invalid catalog slot";
+			return result;
+		}
+		manifest.m_sManifestHash = m_Integrity.BuildManifestHash(manifest);
+		if (manifest.m_sManifestHash.IsEmpty())
+		{
+			result.m_sFailureReason = "exact enemy patrol manifest hash failed";
+			return result;
+		}
+
+		result.m_bSuccess = true;
+		result.m_Manifest = manifest;
+		return result;
+	}
+
+	protected string ValidateExactEnemyPatrolPlanningContext(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !preset || !order || !m_Catalog || !m_Integrity)
+			return "exact enemy patrol planning context is missing";
+		if (order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL
+			|| order.m_iOperationContractVersion != HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION)
+			return "enemy order did not opt into the exact patrol contract";
+		if (order.m_sOrderId.IsEmpty() || order.m_sOperationId.IsEmpty()
+			|| order.m_sOperationId != HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId)
+			|| order.m_sFactionKey.IsEmpty() || order.m_sSourceZoneId.IsEmpty()
+			|| order.m_sTargetZoneId.IsEmpty() || IsZeroPosition(order.m_vSourcePosition)
+			|| IsZeroPosition(order.m_vTargetPosition))
+			return "exact enemy patrol identity is incomplete";
+		if (!HST_FactionRelationService.IsEnemyFaction(preset, order.m_sFactionKey))
+			return "exact enemy patrol requires a configured enemy faction";
+		if (order.m_iAttackCost < 0 || order.m_iSupportCost != 0)
+			return "exact enemy patrol proactive resource cost is invalid";
+		return "";
+	}
+
+	protected HST_EnemyPatrolManifestResult ResolvePersistedExactEnemyPatrolManifest(
+		HST_CampaignState state,
+		HST_EnemyOrderState order)
+	{
+		HST_EnemyPatrolManifestResult result = new HST_EnemyPatrolManifestResult();
+		HST_ForceManifestState manifest = state.FindForceManifest(order.m_sManifestId);
+		if (!manifest || !manifest.m_bFrozen || manifest.m_sOperationId != order.m_sOperationId
+			|| manifest.m_sForceKind != HST_EnemyPatrolOperationService.EXACT_FORCE_KIND
+			|| manifest.m_sPolicyId != HST_EnemyPatrolOperationService.EXACT_POLICY_ID
+			|| manifest.m_sIntentId != HST_EnemyPatrolOperationService.EXACT_MANIFEST_INTENT
+			|| manifest.m_sFactionKey != order.m_sFactionKey
+			|| manifest.m_sSourceZoneId != order.m_sSourceZoneId
+			|| manifest.m_sTargetZoneId != order.m_sTargetZoneId
+			|| manifest.m_iAttackResourceCost != order.m_iAttackCost
+			|| manifest.m_iSupportResourceCost != order.m_iSupportCost
+			|| manifest.m_sManifestHash.IsEmpty() || manifest.m_sManifestHash != order.m_sManifestHash
+			|| m_Integrity.BuildManifestHash(manifest) != manifest.m_sManifestHash)
+		{
+			result.m_sFailureReason = "persisted exact enemy patrol manifest conflicts with its order";
+			return result;
+		}
+		result.m_bSuccess = true;
+		result.m_Manifest = manifest;
+		return result;
+	}
+
+	protected HST_ForceManifestState BuildExactEnemyPatrolManifest(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceGroupCatalogEntry catalogGroup,
+		int planningSeed)
+	{
+		if (!state || !order || !catalogGroup)
+			return null;
+		string manifestId = "manifest_" + order.m_sOperationId;
+		HST_ForceManifestState manifest = new HST_ForceManifestState();
+		manifest.m_sManifestId = manifestId;
+		manifest.m_sOperationId = order.m_sOperationId;
+		manifest.m_sForceKind = HST_EnemyPatrolOperationService.EXACT_FORCE_KIND;
+		manifest.m_sFactionRole = "enemy";
+		manifest.m_sFactionKey = order.m_sFactionKey;
+		manifest.m_sIntentId = HST_EnemyPatrolOperationService.EXACT_MANIFEST_INTENT;
+		manifest.m_sSourceZoneId = order.m_sSourceZoneId;
+		manifest.m_sTargetZoneId = order.m_sTargetZoneId;
+		manifest.m_sGroupPrefab = catalogGroup.m_sExecutionPrefab;
+		manifest.m_sCatalogVersion = HST_ForceCatalogService.CATALOG_VERSION;
+		manifest.m_sPolicyId = HST_EnemyPatrolOperationService.EXACT_POLICY_ID;
+		manifest.m_iRequestedMemberCount = catalogGroup.m_aMemberSlots.Count();
+		manifest.m_iAcceptedMemberCount = catalogGroup.m_aMemberSlots.Count();
+		manifest.m_iAttackResourceCost = Math.Max(0, order.m_iAttackCost);
+		manifest.m_iSupportResourceCost = 0;
+		manifest.m_iDeterministicSeed = planningSeed;
+		manifest.m_iCreatedAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+		manifest.m_bFrozen = true;
+
+		HST_ForceManifestGroupState groupElement = new HST_ForceManifestGroupState();
+		groupElement.m_sElementId = manifestId + "_group_1";
+		groupElement.m_sCatalogEntryId = catalogGroup.m_sEntryId;
+		groupElement.m_sPrefab = catalogGroup.m_sExecutionPrefab;
+		groupElement.m_sRole = catalogGroup.m_sRole;
+		groupElement.m_iOrdinal = 0;
+		groupElement.m_iExpectedMemberCount = catalogGroup.m_aMemberSlots.Count();
+		groupElement.m_bRequired = true;
+		manifest.m_aGroups.Insert(groupElement);
+
+		for (int memberIndex = 0; memberIndex < catalogGroup.m_aMemberSlots.Count(); memberIndex++)
+		{
+			HST_ForceGroupCatalogSlot catalogSlot = catalogGroup.m_aMemberSlots[memberIndex];
+			if (!catalogSlot || catalogSlot.m_sPrefab.IsEmpty())
+				return null;
+			HST_ForceManifestMemberState member = new HST_ForceManifestMemberState();
+			member.m_sSlotId = string.Format("%1_member_%2", manifestId, memberIndex + 1);
+			member.m_sCatalogSlotId = catalogGroup.m_sEntryId + "/" + catalogSlot.m_sSlotId;
+			member.m_sGroupElementId = groupElement.m_sElementId;
+			member.m_sPrefab = catalogSlot.m_sPrefab;
+			member.m_sRole = catalogSlot.m_sRole;
+			member.m_iOrdinal = memberIndex;
+			member.m_iHRCost = 0;
+			member.m_bRequired = true;
+			manifest.m_aMembers.Insert(member);
+		}
+		return manifest;
 	}
 
 	HST_ForceQuoteResult IssuePlayerSupportQuote(

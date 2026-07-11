@@ -178,6 +178,11 @@ class HST_OperationRecordState
 	string m_sRouteContractHash;
 	int m_iProjectionContractVersion;
 	int m_iRouteVersion;
+	int m_iRouteWaypointIndex = -1;
+	int m_iRouteLapCount;
+	int m_iRouteLegSequence;
+	int m_iRouteLoopStartedAtSecond;
+	int m_iRouteLoopCompletedAtSecond;
 	vector m_vRouteStartPosition;
 	vector m_vRouteEndPosition;
 	float m_fRouteTotalDistanceMeters;
@@ -1021,7 +1026,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 52;
+	static const int SCHEMA_VERSION = 53;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

@@ -153,7 +153,10 @@
   runtime state and outcome application. Schema 51 routes only newly planned
   infantry-only defensive QRFs through exact operation authority, suppressing a
   parallel legacy response at the same target and bypassing the fixed legacy
-  resolution timer.
+  resolution timer. Schema 53 routes only newly queued patrols through a separate
+  type-plus-version exact owner with one proactive debit, one frozen infantry
+  root, generated-route loop/return, contact hold, fold/reprojection, and exact
+  survivor settlement. Historical patrols remain legacy.
 - Civilian/undercover service with town support/reputation, wanted heat, police
   and roadblock presence/scans, aid effects, undercover eligibility,
   request/application, enforcement, compromise, and clear-state records.
@@ -204,7 +207,7 @@
 
 - The prior stamped schema-49 source passed its foundation, Workbench Game
   creation, script-validation, and bounded project-open gates. Those results are
-  historical source evidence, not certification of current schema-52 edits.
+  historical source evidence, not certification of current schema-53 edits.
 - A published schema-49 server/client check verified that normal stock HUD, Game
   Master access, map publication, and civilian traffic initialize again. This
   closes the earlier missing-config-metadata regression. The late-admin recursive
@@ -229,13 +232,11 @@
   slice. Schema 51 adds deterministic fixtures for exact enemy defensive-QRF
   admission, legacy isolation, projection, return/settlement, restore, and
   rejection, but none has executed in a packaged runtime. The final stamped
-  schema-52 tree identifies implementation `fa5e7e45dbd8741269e614e60c51d4edee6bf223`,
-  passes foundation validation, and passes a clean headless Game-module
-  compile/create at 5,753 files/11,537 classes with CRC `e868739b`; a normal
-  WorldEditor open created the same Game module and
-  remained responsive for all 10 bounded samples without a script-error or
-  native-crash signature. This is current source/startup evidence, not packaged
-  behavior proof.
+  schema-52 tree identifies implementation `fa5e7e45dbd8741269e614e60c51d4edee6bf223`.
+  The current unstamped schema-53 development tree has provisional clean
+  headless Game-module compile/create evidence at 5,757 files/11,550 classes with
+  CRC `acae965f`. This is current source/compile evidence, not packaged behavior
+  proof.
 - Schema 52 adds the exact mission-convoy aggregate in source. No packaged run has yet proved its
   three physical vehicles/crews, virtual route movement, materialization/fold,
   exact casualty persistence, arrival/outcome settlement, marker cleanup, or
@@ -249,17 +250,31 @@
   illegal lifecycle pairs, and non-member casualty roots while preserving
   missionless exact-looking durable claimants; they are not
   engine-backed proof.
+- Schema 53 adds the exact enemy-patrol aggregate in source. No packaged run has
+  proved proactive debit/refund, virtual outbound travel, physical
+  materialization/fold, mapped casualty persistence, contact hold, one closed
+  route lap, return, marker cleanup, or real process restart. Ten deterministic
+  `enemy_patrol.*` assertions cover admission, collision-safe replay/refund,
+  route loop, queue/roster bookkeeping, contact transition, settlement,
+  physical-shaped restore, corruption, dispatch/priority isolation, and marker
+  lifecycle. Production source additionally requires an exact root/member/
+  PhysicalWar binding graph before movement, fold, save, or settlement; deleted
+  bindings without observed death remain unresolved. Historical patrol rows remain contract
+  version `0`; malformed current rows retain quarantine version `-53` without
+  cross-owner fallback, guessed refund, or save while runtime ownership remains.
+  These are source fixtures rather than engine-backed proof.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
   entry before the owner-RPC fallback, and probes retained registration
   directly. Current schema-52 source validation passes as described
   above, while 3/3 driver and movement proof remains open.
-- Every real persistence capture now reconciles mapped physical exact-convoy
-  members first. An open outbound publication transaction or ambiguous mapping
-  defers capture without flushing stale state or requesting a savepoint, retains
-  intent, and retries on the bounded debounce. Real death-between-ticks,
-  deferred-save retry, restore, and rematerialization still need packaged proof.
+- Every real persistence capture now reconciles mapped physical exact-convoy and
+  exact-patrol members first. An open outbound publication transaction,
+  ambiguous mapping, or unverifiable live patrol position defers capture without
+  flushing stale state or requesting a savepoint, retains intent, and retries on
+  the bounded debounce. Real death-between-ticks, deferred-save retry, restore,
+  and rematerialization still need packaged proof.
 - Normal-play support evidence marked three groups `physical_arrived` while its
   logged targets and deterministic recall-exit vectors imply nominal current
   positions approximately 434m, 455m, and 505m away. Current source removes ETA-only completion, uses the living-member
@@ -274,7 +289,7 @@
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
-- The latest inspected Full Campaign Debug artifact predates schemas 43-52,
+- The latest inspected Full Campaign Debug artifact predates schemas 43-53,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
 - The in-process runner now fails closed outside `HST_Dev`, clones campaign
@@ -284,7 +299,7 @@
 
 ## Current Delivery Priorities
 
-- Commit and stamp the clean schema-52 implementation, then publish it and prove
+- Complete and stamp the schema-53 checkpoint, then publish it and prove
   the schema-50 marker/dialog/radio corrections while
   preserving the already restored stock HUD and Game Master behavior. Require
   valid-sized icons, location-plus-owner labels, pointer-over-dialog ordering,
@@ -296,7 +311,7 @@
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
-- Runtime-prove the schema-43 through schema-52 authority chain: exact training,
+- Runtime-prove the schema-43 through schema-53 authority chain: exact training,
   garrison, paid-QRF, queue/handoff, strategic travel, materialization/fold
   hysteresis, exact casualty/survivor transfer, bounded virtual combat,
   operation migration, settlement archive replay, typed recall receipt status,
@@ -312,6 +327,11 @@
   transactional waypoint reissue within the three-attempt bound. Include the
   crewless mixed-QRF case and require one neutral salvage detach, zero capture/
   marker pressure, no duplicate record, and restart-stable terminal state.
+- Runtime-prove the schema-53 exact patrol: one proactive debit, one frozen
+  infantry root, outbound virtual travel, physical materialization/fold, mapped
+  casualties, contact-held progress, one closed generated-route lap, return,
+  survivor refund, marker cleanup, and save/restart. Historical patrols must
+  remain contract version `0` and quarantined rows must never enter legacy code.
 - Prove static marker widget readiness and implement authoritative host/client/
   late-join snapshot, revision, delete, acknowledgement, and resync behavior.
 - Runtime-prove both exact-QRF `OperationRecord` policies: player virtual combat/
@@ -319,11 +339,9 @@
   including physical/virtual transfer, marker cleanup, and restore for both.
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
-- Continue the implementation blueprint with schema 53 exact newly queued enemy
-  patrol operations after the schema-52 stamp: one frozen infantry roster,
-  outbound travel, an on-station patrol loop, return, and once-only settlement.
-  Historical patrol rows remain legacy, and the packaged schema-50 through
-  schema-52 certification work above remains independently required.
+- After the schema-53 checkpoint, select the next source target from the
+  implementation blueprint. Packaged schema-50 through schema-53 certification
+  remains independently required.
 
 ## Next Playable Expansion
 

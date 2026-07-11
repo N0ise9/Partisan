@@ -29,7 +29,22 @@ class HST_OperationService
 
 	static bool RequiresOperation(HST_EnemyOrderState order)
 	{
-		return order && order.m_iOperationContractVersion == EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION;
+		// Any nonzero enemy-order contract is owned by a typed operation service.
+		// This includes negative quarantine versions, which must never fall back to
+		// legacy timers, support physicalization, or guessed refunds.
+		return order && order.m_iOperationContractVersion != 0;
+	}
+
+	static bool RequiresExactEnemyDefensiveQRF(HST_EnemyOrderState order)
+	{
+		return order && order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			&& order.m_iOperationContractVersion == EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION;
+	}
+
+	static bool RequiresExactEnemyPatrol(HST_EnemyOrderState order)
+	{
+		return order && order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL
+			&& order.m_iOperationContractVersion == HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION;
 	}
 
 	static string BuildSettlementId(string operationId, string settlementKind)

@@ -74,12 +74,12 @@ be read as proof that a later change was executed or certified.
   validated only and require the requested republished map/dialog/radio mission
   check.
 - The final stamped schema-52 tree identifies implementation
-  `fa5e7e45dbd8741269e614e60c51d4edee6bf223`, passes foundation validation, and passes a clean
-  headless Game-module compile/create at 5,753 files/11,537 classes with CRC
-  `e868739b`. A normal WorldEditor open created the same Game module and remained
-  responsive for all ten two-second samples without a script error, unknown
-  class, or native-crash signature. This is source/startup evidence rather than
-  packaged gameplay proof. During schema 50, the initial
+  `fa5e7e45dbd8741269e614e60c51d4edee6bf223`. The current unstamped schema-53
+  development tree has provisional clean headless Game-module compile/create
+  evidence at 5,757 files/11,550 classes with CRC `acae965f`. This is source/
+  compile evidence rather than packaged gameplay proof. A normal schema-53
+  WorldEditor open also remained alive for all ten samples over 20 seconds with
+  no crash signature. During schema 50, the initial
   correctly quoted Workbench attempts exposed a native compiler edge in the
   already-large Phase-20 civilian population debug method: adding five
   appearance/horn count locals caused `0xc0000374` before `Module: Game` without
@@ -143,19 +143,38 @@ be read as proof that a later change was executed or certified.
   receipts, illegal lifecycle pairs, and casualty authority on non-member roots,
   while preserving missionless exact-looking durable claimants. They remain
   in-process fixtures, not engine/runtime evidence.
-- Before every real persistence capture, schema 52 synchronously reconciles
-  mapped physical members so a death cannot be saved as alive before the normal
-  physical-war tick. An open outbound publication transaction, missing or
-  conflicting mapping, or nonphysical operation retaining member mappings
-  defers the checkpoint before stale state is flushed or a savepoint is
-  requested; intent remains pending for bounded retry. Restore accepts casualty
-  tombstones only on member slots, validates legal lifecycle pairs, and retains
-  missionless or partially unlinked exact-looking rows as durable quarantine
-  evidence.
-- After schema 52 is committed and stamped, schema 53 newly queued enemy patrol
-  operations are the next source target. Historical patrols remain legacy, and
-  starting that cutover does not close any packaged schema-50 through schema-52
-  certification gate.
+- Before every real persistence capture, schemas 52 and 53 synchronously
+  reconcile mapped physical convoy and physical/dematerializing patrol members so
+  a death cannot be saved as alive before the normal physical-war tick. Patrols
+  additionally require a unique root/member adapter graph and matching
+  PhysicalWar cardinality. An open outbound publication transaction,
+  missing/conflicting or aliased mapping, unverifiable live patrol position, or
+  nonphysical operation retaining member mappings defers the checkpoint
+  before stale state is flushed or a savepoint is requested; intent remains
+  pending for bounded retry. Restore accepts casualty tombstones only on member
+  slots, validates legal lifecycle pairs, and retains malformed exact-looking
+  rows as durable quarantine evidence.
+- Schema 53 adds exact authority for newly queued enemy `PATROL` orders. One
+  proactive attack debit funds one frozen infantry root and reciprocal route/
+  order/operation/manifest/held-batch/group aggregate. Its persisted generated-
+  route cursor owns outbound travel, exactly one closed on-station lap, and the
+  return-to-origin leg. The same member slots own virtual and physical survivors;
+  mapped casualties survive fold, reprojection, and restore. Physical contact
+  holds progress until clear. Return settles one survivor-proportional proactive
+  refund. Type-plus-version dispatch isolates exact patrol, exact defensive QRF,
+  legacy, quarantine, unsupported, and type-corrupt linked rows. Historical patrols remain contract
+  version `0`, while malformed current rows retain evidence under version `-53`
+  without cross-owner fallback. Unexplained binding loss blocks normal movement,
+  fold, settlement, terminal cleanup, and capture instead of guessing a casualty.
+  Terminal/setup settlement reconciles the complete mapped roster first, and
+  quarantine capture waits until adapter and PhysicalWar ownership are both empty.
+  Ten deterministic `enemy_patrol.*` assertions cover admission, collision-safe
+  replay/refund, route loop, queue/roster bookkeeping, contact transition,
+  settlement, physical-shaped restore, corruption, dispatch/priority isolation,
+  and marker lifecycle.
+  They are source fixtures, not packaged gameplay or restart proof. After the
+  schema-53 checkpoint, the next source target will be selected from the
+  implementation blueprint.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -174,8 +193,8 @@ be read as proof that a later change was executed or certified.
   the schema 46 exact player-QRF cutover, schema 47 exact force-runtime
   lifecycle authority, schema 48 accepted-settlement archive, schema 49
   exact-QRF operation authority, schema 50 strategic projection, schema 51
-  exact enemy defensive-QRF authority, and schema 52 exact mission-convoy
-  authority.
+  exact enemy defensive-QRF authority, schema 52 exact mission-convoy authority,
+  and schema 53 exact enemy-patrol authority.
   The schema-45 authority baseline passed foundation checks and a headless
   Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
   an HR reservation-conflict rollback, and five partial confirmation save/
@@ -956,15 +975,16 @@ Unproven or incomplete against the pasted contract:
 - Render/UI depth is still incomplete for rendered map widget inspection. Command-menu visual opening now has an owner-client rendered widget proof path, but the current audit has not yet seen a fresh runtime artifact with that report.
 - The later packaged schema-49 check confirmed that stock HUD and Game Master
   access were restored. The schema-50 marker, dialog, radio, civilian, and
-  player strategic-projection follow-ups plus the schema-51 enemy defensive-QRF
-  slice and schema-52 exact mission-convoy slice remain source-only until a new
-  package is run.
-- Strategic projection is limited to three explicit consumers: exact paid
-  player QRF, newly planned enemy defensive QRF, and newly started exact mission
-  convoy. The convoy is a narrow three-vehicle/three-crew exception, not generic
+  player strategic-projection follow-ups plus the schema-51 enemy defensive-QRF,
+  schema-52 exact mission-convoy, and schema-53 exact enemy-patrol slices remain
+  source-only until a new package is run.
+- Strategic projection is limited to four explicit consumers: exact paid player
+  QRF, newly planned enemy defensive QRF, newly started exact mission convoy, and
+  newly queued exact enemy patrol. The convoy is a narrow three-vehicle/three-
+  crew exception, not generic
   vehicle/multi-root realization, and it does not yet simulate off-screen
   combat. Live physical contact does not yet own player-operation engagement;
-  generalized virtualization, historical/other enemy orders and convoys, other
+  generalized virtualization, historical patrols/other enemy orders and convoys, other
   supports/missions, packaged execution, and real restart/migration/archive
   replay remain open.
 - Persistence depth is still incomplete for real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore.
@@ -981,12 +1001,12 @@ Unproven or incomplete against the pasted contract:
 ## Validation Run
 
 - `git diff --check` passes for the current documentation update.
-- `tools/validate-foundation.ps1` passes for the current schema-52 source tree.
+- `tools/validate-foundation.ps1` passes for the current schema-53 source tree.
 - The final stamped schema-52 tree identifies implementation
-  `fa5e7e45dbd8741269e614e60c51d4edee6bf223` in `HST_BuildInfo` and passes a clean
-  headless Workbench Game-module compile/create source gate at 5,753 files/
-  11,537 classes with CRC `e868739b`, with no script error or native-crash marker.
-  A normal WorldEditor open created the same Game module and remained responsive
-  for all 10 bounded samples without a script-error or crash signature. It has
-  not been packaged or executed as gameplay proof. Source/compile/startup gates are not packaged
-  runtime certification.
+  `fa5e7e45dbd8741269e614e60c51d4edee6bf223` in `HST_BuildInfo`. The current
+  unstamped schema-53 development tree has provisional clean headless Workbench
+  Game-module compile/create evidence at 5,757 files/11,550 classes with CRC
+  `acae965f`, and its normal WorldEditor open remained alive for ten samples over
+  20 seconds without a crash signature. It has not been packaged or executed as
+  gameplay proof. Source/
+  compile gates are not packaged runtime certification.

@@ -802,6 +802,11 @@ class HST_CampaignSaveData
 		target.m_sRouteContractHash = source.m_sRouteContractHash;
 		target.m_iProjectionContractVersion = source.m_iProjectionContractVersion;
 		target.m_iRouteVersion = source.m_iRouteVersion;
+		target.m_iRouteWaypointIndex = source.m_iRouteWaypointIndex;
+		target.m_iRouteLapCount = source.m_iRouteLapCount;
+		target.m_iRouteLegSequence = source.m_iRouteLegSequence;
+		target.m_iRouteLoopStartedAtSecond = source.m_iRouteLoopStartedAtSecond;
+		target.m_iRouteLoopCompletedAtSecond = source.m_iRouteLoopCompletedAtSecond;
 		target.m_vRouteStartPosition = source.m_vRouteStartPosition;
 		target.m_vRouteEndPosition = source.m_vRouteEndPosition;
 		target.m_fRouteTotalDistanceMeters = source.m_fRouteTotalDistanceMeters;
@@ -2440,6 +2445,8 @@ class HST_CampaignSaveData
 		NormalizeOperationAuthority(restoredSchemaVersion);
 		NormalizeOperationProjectionAuthority(restoredSchemaVersion);
 		NormalizeSchema51EnemyDefensiveQRFAuthority(restoredSchemaVersion);
+		HST_EnemyPatrolSaveValidationService schema53EnemyPatrolValidation = new HST_EnemyPatrolSaveValidationService();
+		schema53EnemyPatrolValidation.Normalize(this, restoredSchemaVersion);
 		NormalizeRestoredOperationProjectionState();
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
@@ -2781,7 +2788,8 @@ class HST_CampaignSaveData
 		{
 			if (!operation || operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 				continue;
-			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY)
+			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
+				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL)
 				continue;
 			int savedArrivalConfirmationCount = operation.m_iArrivalConfirmationCount;
 			HST_EOperationMaterializationState savedMaterializationState = operation.m_eMaterializationState;
@@ -2926,6 +2934,8 @@ class HST_CampaignSaveData
 			{
 				if (!legacyOrder)
 					continue;
+				if (legacyOrder.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL)
+					continue;
 				legacyOrder.m_iOperationContractVersion = 0;
 				legacyOrder.m_sSourceZoneId = "";
 				legacyOrder.m_sManifestHash = "";
@@ -2955,7 +2965,8 @@ class HST_CampaignSaveData
 
 		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
 		{
-			if (!order || order.m_iOperationContractVersion <= 0)
+			if (!order || order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+				|| order.m_iOperationContractVersion <= 0)
 				continue;
 			HST_OperationRecordState operation = FindSchema51Operation(order.m_sOperationId);
 			HST_ForceManifestState manifest = FindForceManifestForProjectionMigration(order.m_sManifestId);

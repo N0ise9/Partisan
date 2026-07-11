@@ -4908,7 +4908,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 52",
+		"SCHEMA_VERSION = 53",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -5288,7 +5288,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 52',
+		'SCHEMA_VERSION = 53',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5724,8 +5724,8 @@ if ($schema51PlanIndex -lt 0 -or $schema51PreflightIndex -le $schema51PlanIndex 
 foreach ($requiredSchema51CommanderEntry in @(
 		'SetExactEnemyQRFAuthorityServices',
 		'QueueDebugLegacyOrder',
-		'forceDebugLegacyQRF',
-		'HST_OperationService.RequiresOperation(order)',
+		'forceDebugLegacyOperation',
+		'ResolveRuntimeOwner(order)',
 		'm_ExactEnemyQRF.TickOrder',
 		'HasActiveLegacyEnemyQRFSupport',
 		'HST_ZONE_HIDEOUT',
@@ -5860,7 +5860,7 @@ $physicalWarText = Get-Content -Raw $physicalWarPath
 $schema52SaveValidationCorpus = $forceSaveDataText + "`n" + $missionConvoySaveValidationText
 $schema52StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $schema52SaveValidationCorpus
 foreach ($requiredSchema52StateEntry in @(
-		'SCHEMA_VERSION = 52',
+		'SCHEMA_VERSION = 53',
 		'HST_OPERATION_TYPE_MISSION_CONVOY',
 		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
 		'class HST_ConvoyElementState',
@@ -12602,7 +12602,7 @@ foreach ($requiredPhysicalSupportBranchEntry in @(
 		"bool physicalConfirmedRoute = activeGroup.m_bSpawnedEntity",
 		"&& activeGroup.m_iInfantryCount > 0",
 		"&& !IsMissionConvoyGroup(activeGroup)",
-		"&& IsLiveConfirmedOperationRouteGroup(activeGroup);"
+		"&& IsLiveConfirmedOperationRouteGroup(state, activeGroup);"
 	)) {
 	if ($supportRouteUpdateText -notmatch [regex]::Escape($requiredPhysicalSupportBranchEntry)) {
 		throw "Spawned physical support must branch away from elapsed-time route simulation: $requiredPhysicalSupportBranchEntry"
@@ -12812,7 +12812,7 @@ foreach ($supportSettlementProof in @(
 }
 
 $supportBuildRouteText = $supportBuildRouteMatch.Value
-if ($supportBuildRouteText -notmatch '(?s)if \(IsLiveConfirmedOperationRouteGroup\(activeGroup\)\)\s*return BuildDirectSupportRoutePositions\(activeGroup\);') {
+if ($supportBuildRouteText -notmatch '(?s)if \(IsLiveConfirmedOperationRouteGroup\(state, activeGroup\)\)\s*return BuildDirectSupportRoutePositions\(activeGroup\);') {
 	throw "Physical support must use a direct current-position route instead of a stale generated route"
 }
 $directSupportBranchIndex = $supportBuildRouteText.IndexOf("BuildDirectSupportRoutePositions(activeGroup)")
@@ -13548,5 +13548,260 @@ foreach ($requiredPhase24EscalationPhysicalizationEntry in @(
 	}
 }
 Write-Host "Phase 24 escalation physicalization setup OK"
+
+$schema53Paths = @(
+	"Scripts/Game/HST/Services/HST_EnemyPatrolOperationService.c",
+	"Scripts/Game/HST/Services/HST_EnemyPatrolOperationProofService.c",
+	"Scripts/Game/HST/Services/HST_EnemyPatrolSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_OperationRouteCursorService.c"
+)
+foreach ($schema53Path in $schema53Paths) {
+	if (!(Test-Path $schema53Path)) {
+		throw "Schema-53 exact enemy-patrol source is missing: $schema53Path"
+	}
+}
+
+$schema53TypesText = Get-Content -Raw "Scripts/Game/HST/HST_Types.c"
+$schema53StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema53SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema53OperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OperationService.c"
+$schema53PatrolText = Get-Content -Raw $schema53Paths[0]
+$schema53ProofText = Get-Content -Raw $schema53Paths[1]
+$schema53ValidationText = Get-Content -Raw $schema53Paths[2]
+$schema53RouteText = Get-Content -Raw $schema53Paths[3]
+$schema53CommanderText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
+$schema53DirectorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyDirectorService.c"
+$schema53PlanningText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
+$schema53PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema53AdapterText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSpawnAdapterService.c"
+$schema53PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$schema53MarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$schema53CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+
+$schema53StateCorpus = $schema53TypesText + "`n" + $schema53StateText + "`n" + $schema53SaveText
+foreach ($schema53StateEntry in @(
+		"SCHEMA_VERSION = 53",
+		"HST_OPERATION_TYPE_ENEMY_PATROL",
+		"int m_iRouteWaypointIndex = -1;",
+		"int m_iRouteLapCount;",
+		"int m_iRouteLegSequence;",
+		"int m_iRouteLoopStartedAtSecond;",
+		"int m_iRouteLoopCompletedAtSecond;",
+		"target.m_iRouteWaypointIndex = source.m_iRouteWaypointIndex;",
+		"target.m_iRouteLapCount = source.m_iRouteLapCount;",
+		"schema53EnemyPatrolValidation.Normalize(this, restoredSchemaVersion);"
+	)) {
+	if ($schema53StateCorpus -notmatch [regex]::Escape($schema53StateEntry)) {
+		throw "Schema-53 enemy-patrol state/migration contract is missing: $schema53StateEntry"
+	}
+}
+
+foreach ($schema53RouteEntry in @(
+		"class HST_OperationRouteCursorService",
+		"BuildOrderedRoutePositions",
+		"BuildRouteContractHash",
+		"FreezePatrolRoute",
+		"IsPatrolRouteContractValid",
+		"StartPatrolLoop",
+		"AdvanceLoopAfterArrival",
+		"BeginReturnLeg",
+		"AdvanceVirtualLeg",
+		"SyncLegFromPosition"
+	)) {
+	if ($schema53RouteText -notmatch [regex]::Escape($schema53RouteEntry)) {
+		throw "Schema-53 generated patrol-route cursor is missing: $schema53RouteEntry"
+	}
+}
+
+foreach ($schema53PatrolEntry in @(
+		"class HST_EnemyPatrolOperationService",
+		"EXACT_CONTRACT_VERSION = 1",
+		"QUARANTINED_CONTRACT_VERSION = -53",
+		"REQUIRED_PATROL_LAPS = 1",
+		"CanAdmitPreparedOrder",
+		"AdmitPreparedOrder",
+		"FindAdmissionIdentityCollision",
+		"QuarantineUnsupportedPatrolAuthority",
+		"PrepareOpenPhysicalAuthorityForSettlement",
+		"TickOrder",
+		"m_RouteCursor.AdvanceVirtualLeg",
+		"m_RouteCursor.StartPatrolLoop",
+		"m_RouteCursor.AdvanceLoopAfterArrival",
+		"m_RouteCursor.BeginReturnLeg",
+		"HasExactEnemyPatrolLiveContactEvidence",
+		"RefundProactiveAttackResources",
+		"ReconcileAfterRestore",
+		"ReconcileSettledRuntimeCleanup",
+		"SettleOpenOrdersForCampaignStop"
+	)) {
+	if ($schema53PatrolText -notmatch [regex]::Escape($schema53PatrolEntry)) {
+		throw "Schema-53 exact enemy-patrol lifecycle is missing: $schema53PatrolEntry"
+	}
+}
+
+foreach ($schema53PlanningEntry in @(
+		"class HST_EnemyPatrolManifestResult",
+		"PlanExactEnemyPatrol",
+		"BuildExactEnemyPatrolManifest",
+		"HST_EnemyPatrolOperationService.EXACT_FORCE_KIND",
+		"HST_EnemyPatrolOperationService.EXACT_POLICY_ID"
+	)) {
+	if ($schema53PlanningText -notmatch [regex]::Escape($schema53PlanningEntry)) {
+		throw "Schema-53 exact enemy-patrol planning is missing: $schema53PlanningEntry"
+	}
+}
+if ($schema53DirectorText -notmatch [regex]::Escape("RefundProactiveAttackResources")) {
+	throw "Schema-53 patrol settlement must use the proactive attack-resource refund boundary"
+}
+
+$schema53EnemyOrderRequiresBlock = Get-ScriptMethodBlock $schema53OperationText "static bool RequiresOperation(HST_EnemyOrderState order)"
+$schema53DispatchBlock = Get-ScriptMethodBlock $schema53CommanderText "string ResolveRuntimeOwner(HST_EnemyOrderState order)"
+if ([string]::IsNullOrEmpty($schema53EnemyOrderRequiresBlock) -or
+	$schema53EnemyOrderRequiresBlock -notmatch [regex]::Escape("order.m_iOperationContractVersion != 0")) {
+	throw "Schema-53 nonzero enemy-order contracts must remain outside legacy execution"
+}
+foreach ($schema53DispatchEntry in @(
+		"RequiresExactEnemyPatrol",
+		"RUNTIME_OWNER_EXACT_PATROL",
+		"RUNTIME_OWNER_EXACT_QRF",
+		"RUNTIME_OWNER_QUARANTINED",
+		"RUNTIME_OWNER_UNSUPPORTED",
+		"RUNTIME_OWNER_LEGACY"
+	)) {
+	if ([string]::IsNullOrEmpty($schema53DispatchBlock) -or $schema53DispatchBlock -notmatch [regex]::Escape($schema53DispatchEntry)) {
+		throw "Schema-53 type/version enemy-order dispatch is missing: $schema53DispatchEntry"
+	}
+}
+foreach ($schema53CommanderEntry in @(
+		"SetExactEnemyPatrolAuthorityService",
+		"PrepareExactEnemyPatrol",
+		"QuarantineUnsupportedPatrolAuthority",
+		"m_ExactEnemyPatrol.AdmitPreparedOrder",
+		"m_ExactEnemyPatrol.TickOrder"
+	)) {
+	if ($schema53CommanderText -notmatch [regex]::Escape($schema53CommanderEntry)) {
+		throw "Schema-53 enemy commander wiring is missing: $schema53CommanderEntry"
+	}
+}
+
+foreach ($schema53RestoreEntry in @(
+		"class HST_EnemyPatrolSaveValidationService",
+		"migration_schema53_enemy_patrol_authority",
+		"legacy_enemy_patrols_preserved_contract_zero",
+		"HST_EnemyPatrolOperationService.QUARANTINED_CONTRACT_VERSION",
+		"HST_OPERATION_TYPE_ENEMY_PATROL"
+	)) {
+	if ($schema53ValidationText -notmatch [regex]::Escape($schema53RestoreEntry)) {
+		throw "Schema-53 exact enemy-patrol restore/quarantine contract is missing: $schema53RestoreEntry"
+	}
+}
+
+foreach ($schema53PhysicalEntry in @(
+		"RestartExactEnemyPatrolInfantryRoute",
+		"IsExactEnemyPatrolRouteRecoveryExhausted",
+		"TryResolveExactEnemyPatrolLivePosition",
+		"HasExactEnemyPatrolLiveContactEvidence",
+		"IsExactEnemyPatrolGroup"
+	)) {
+	if ($schema53PhysicalText -notmatch [regex]::Escape($schema53PhysicalEntry)) {
+		throw "Schema-53 exact enemy-patrol physical projection is missing: $schema53PhysicalEntry"
+	}
+}
+foreach ($schema53PersistenceEntry in @(
+		"ReconcileExactInfantryAuthorityForPersistence",
+		"ValidateExactLivingProjectionBindingsForPersistence"
+	)) {
+	if ($schema53AdapterText -notmatch [regex]::Escape($schema53PersistenceEntry) -or
+		$schema53PersistenceText -notmatch [regex]::Escape($schema53PersistenceEntry)) {
+		throw "Schema-53 pre-save roster reconciliation is missing: $schema53PersistenceEntry"
+	}
+}
+foreach ($schema53PersistenceEntry in @(
+		"PrepareStateForCapture",
+		"NormalizeRetiredQuarantinedEnemyPatrolAuthority",
+		"ValidatePhysicalEnemyPatrolSnapshots",
+		"ValidateExactLivingProjectionBindingsForPersistence",
+		"CountForceSpawnRuntimeMembers",
+		"TryResolveExactEnemyPatrolLivePosition",
+		"checkpoint deferred: exact patrol"
+	)) {
+	if ($schema53PersistenceText -notmatch [regex]::Escape($schema53PersistenceEntry)) {
+		throw "Schema-53 pre-save physical patrol boundary is missing: $schema53PersistenceEntry"
+	}
+}
+
+foreach ($schema53MarkerEntry in @(
+		"AddExactEnemyPatrolOperationMarkers",
+		"ShouldShowExactEnemyPatrolMarker",
+		"hst_exact_enemy_patrol_",
+		"enemy_patrol_exact"
+	)) {
+	if ($schema53MarkerText -notmatch [regex]::Escape($schema53MarkerEntry)) {
+		throw "Schema-53 exact enemy-patrol marker projection is missing: $schema53MarkerEntry"
+	}
+}
+foreach ($schema53CoordinatorEntry in @(
+		"m_EnemyPatrolOperations = new HST_EnemyPatrolOperationService()",
+		"SetExactEnemyPatrolAuthorityService",
+		"m_EnemyPatrolOperations.ReconcileAfterRestore",
+		"PrepareOpenPhysicalAuthorityForSettlement",
+		"preserveOpenExactEnemyPatrol",
+		"m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup",
+		"AppendCampaignDebugEnemyPatrolOperationAssertions"
+	)) {
+	if ($schema53CoordinatorText -notmatch [regex]::Escape($schema53CoordinatorEntry)) {
+		throw "Schema-53 coordinator wiring is missing: $schema53CoordinatorEntry"
+	}
+}
+
+if ($schema53ProofText -notmatch [regex]::Escape("class HST_EnemyPatrolOperationProofService")) {
+	throw "Schema-53 enemy-patrol proof service is missing"
+}
+foreach ($schema53AssertionId in @(
+		"enemy_patrol.admission",
+		"enemy_patrol.replay_refund",
+		"enemy_patrol.route_loop",
+		"enemy_patrol.projection_roster",
+		"enemy_patrol.contact_hold",
+		"enemy_patrol.settlement",
+		"enemy_patrol.persistence",
+		"enemy_patrol.corruption",
+		"enemy_patrol.dispatch_isolation",
+		"enemy_patrol.marker"
+	)) {
+	if ($schema53CoordinatorText -notmatch [regex]::Escape($schema53AssertionId)) {
+		throw "Schema-53 enemy-patrol debug assertion is missing: $schema53AssertionId"
+	}
+}
+
+$schema53DocumentationPaths = @(
+	"README.md",
+	"docs/ARCHITECTURE.md",
+	"docs/FEATURE_CHECKLIST.md",
+	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
+	"docs/HST_ENFUSION_ENFORCE_NOTES.md",
+	"docs/MIGRATIONS.md",
+	"docs/PARITY.md",
+	"docs/PHASE_PLAN.md"
+)
+foreach ($schema53DocumentationPath in $schema53DocumentationPaths) {
+	$schema53DocumentationText = (Get-Content -Raw $schema53DocumentationPath).ToLowerInvariant()
+	$mentionsSchema53 = $schema53DocumentationText.Contains("schema 53") -or $schema53DocumentationText.Contains("schema-53")
+	if (!$mentionsSchema53 -or !$schema53DocumentationText.Contains("patrol")) {
+		throw "$schema53DocumentationPath must describe the schema-53 enemy-patrol boundary"
+	}
+}
+$schema53MigrationsText = (Get-Content -Raw "docs/MIGRATIONS.md").ToLowerInvariant()
+foreach ($schema53MigrationNote in @(
+		'contract version `0`',
+		'version `-53`',
+		"migration_schema53_enemy_patrol_authority",
+		"packaged"
+	)) {
+	if (!$schema53MigrationsText.Contains($schema53MigrationNote)) {
+		throw "Schema-53 migration documentation is missing: $schema53MigrationNote"
+	}
+}
+Write-Host "Schema-53 exact enemy-patrol admission, route, projection, persistence, settlement, marker, migration, and proof contract OK"
 
 Write-Host "h-istasi foundation validation passed"

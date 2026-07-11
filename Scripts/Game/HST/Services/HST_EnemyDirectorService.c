@@ -96,6 +96,21 @@ class HST_EnemyDirectorService
 		return true;
 	}
 
+	bool RefundProactiveAttackResources(HST_CampaignState state, string factionKey, int attackRefund, string reason)
+	{
+		if (!state || factionKey.IsEmpty() || attackRefund < 0)
+			return false;
+
+		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
+		if (!pool)
+			return false;
+
+		int clampedRefund = Math.Max(0, attackRefund);
+		if (clampedRefund > 0)
+			pool.m_iAttackResources += clampedRefund;
+		return true;
+	}
+
 	bool CanSpendDefense(HST_CampaignState state, HST_ZoneState targetZone, string factionKey, int attackCost, int supportCost, out string reason)
 	{
 		reason = "";

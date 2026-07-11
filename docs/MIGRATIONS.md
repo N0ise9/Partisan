@@ -2,7 +2,90 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `52`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `53`.
+
+## Schema 53
+
+- Schema 53 adds one canonical operation consumer only: an enemy `PATROL` order
+  newly queued under the current schema. Its order contract version is `1`; the
+  reciprocal operation type is `HST_OPERATION_TYPE_ENEMY_PATROL`. Admission
+  freezes one executable infantry group root and every ordered member slot,
+  links one generated route/order/operation/manifest/held-batch/active-group
+  aggregate, and records the exact proactive attack-resource debit.
+
+- The operation uses the generic generated-route cursor fields on
+  `HST_OperationRecordState`: ordered waypoint index, lap count, leg sequence,
+  loop start/completion seconds, route contract hash, strategic position, and
+  bounded update clock. Outbound travel reaches route index zero, one closed lap
+  advances through the ordered positions and returns to index zero, and the
+  return-to-origin leg is represented separately with waypoint index `-1`.
+  Virtual ticks advance that same cursor; physical fold rebases the current leg
+  from the authoritative live position without changing aggregate identity.
+
+- Exact patrols reuse the one-root infantry SpawnQueue/adapter boundary. The
+  held member slots remain the living/casualty authority while virtual,
+  materializing, physical, folded, and restored. A mapped physical casualty
+  retires only that slot. Leaving the render bubble folds the surviving roster
+  and restarts the current generated-route leg; re-entry realizes only survivors.
+  Physical contact records a hold and consumes the route clock until a clear
+  transition restarts the frozen current leg, so delayed virtual catch-up cannot
+  skip time spent in contact.
+  Every physical tick, fold, checkpoint, and campaign-stop settlement first
+  proves a unique root, a unique live handle for each durable survivor, exact
+  result/projection/slot ownership, non-aliased entity identity, and matching
+  PhysicalWar membership. An unexplained deleted binding remains unresolved and
+  cannot be converted into a casualty, refund, fold, or saved survivor.
+
+- Resource ownership is distinct from the defensive-QRF ledger. Patrol admission
+  spends proactive attack resources once. A post-debit admission rejection
+  refunds the full debit once; after commitment, return or terminal settlement
+  refunds only the integer survivor fraction once. Replays reuse the persisted
+  settlement identity and cannot debit or refund twice. Fold/materialization
+  never owns a refund.
+
+- Enemy-order runtime dispatch now uses both order type and contract version.
+  Exact patrol version `1`, exact defensive-QRF version `1`, legacy version `0`,
+  quarantine, and unsupported nonzero rows have distinct owners. A current-
+  schema patrol whose route, backlinks, roster, lifecycle, or settlement receipt
+  is incomplete/conflicting is retained as diagnostic evidence under contract
+  version `-53`; it never falls back to the legacy patrol timer or another exact
+  owner. Admission scans secondary claimant identities and rollback removes only
+  rows inserted by that attempt, so a foreign collision is retained unchanged.
+
+- Every patrol restored from schema 52 or earlier remains contract version `0`.
+  Migration records `migration_schema53_enemy_patrol_authority` with transition
+  `legacy_enemy_patrols_preserved_contract_zero`, but does not invent a route,
+  roster, operation, debit, refund, batch, or group backlink for a historical
+  order. Current-schema exact rows must validate as one unique reciprocal graph.
+  A coherent open row clears process-local entity/native-group mappings and
+  resumes as one held strategic projection with the same cursor and casualty
+  roster; a coherent settled row retains its receipt while runtime handles are
+  retired.
+
+- Before any real save-data capture, persistence reconciles mapped physical
+  and dematerializing exact-patrol casualties, proves the complete adapter/
+  PhysicalWar binding graph, and requires an authoritative live patrol position.
+  A conflicting/missing member mapping, runtime claimant, or unverifiable live
+  position defers capture before a stale tracked snapshot is flushed or a
+  savepoint is requested. Pending save intent is retained for bounded retry.
+  Quarantined open or settled graphs remain unsaveable while any adapter or
+  PhysicalWar runtime owner exists; after both registries are empty, only process-
+  local residue is normalized and all diagnostic rows remain without refund.
+
+- One exact-patrol marker follows the persisted virtual cursor or live physical
+  position and reports the durable living roster. It is removed after terminal
+  cleanup. Ten deterministic `enemy_patrol.*` assertions cover admission,
+  collision-safe replay/refund, route loop/return, queue/roster bookkeeping,
+  contact transition, settlement, physical-shaped restore, backlink corruption,
+  type/version/priority isolation, and marker lifecycle. These fixtures and the
+  provisional clean headless Workbench compile/create at 5,757 files/11,550
+  classes with CRC `acae965f`, plus a normal WorldEditor open that remained alive
+  for ten samples over 20 seconds without a crash signature, are source/Workbench
+  evidence only; packaged movement, contact, fold/reprojection, accounting,
+  marker rendering, and process-restart proof remain open.
+
+- No schema-54 target is asserted here. The next source migration will be
+  selected from the implementation blueprint after the schema-53 checkpoint.
 
 ## Schema 52
 
@@ -140,11 +223,6 @@
   crews, virtual travel, interception,
   casualty-preserving fold/rematerialization, arrival/outcome settlement,
   marker cleanup, and real process restart.
-
-- After schema 52 is committed and stamped, schema 53 exact authority for newly
-  queued enemy patrol operations is the next planned source migration. Until it
-  is implemented, historical and current patrol rows remain on their existing
-  contract; this future target does not alter schema-52 restore behavior.
 
 ## Schema 51
 

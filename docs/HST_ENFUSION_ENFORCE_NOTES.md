@@ -2629,10 +2629,134 @@ This file is for practical engine/script behavior, not project planning. Keep en
   monolithic. Extracting save validation and decomposing the proof into focused
   fixture methods restored the clean headless and normal-open gates without
   removing assertions; relocating a large body intact is not a sufficient fix.
-- After schema 52 is committed and stamped, schema 53 exact authority for newly
-  queued enemy patrol operations is the next source target. Historical patrols
-  remain legacy, and packaged schema-50 through schema-52 certification remains
-  independently open.
+- Packaged schema-50 through schema-53 certification remains independently open.
+
+## Schema 53 Exact Enemy-Patrol Authority
+
+- Opt in by order type and contract version, never by an ID-shaped coincidence.
+  - Only a newly queued `HST_ENEMY_ORDER_PATROL` receives contract version `1`
+    and operation type `HST_OPERATION_TYPE_ENEMY_PATROL`. Every patrol restored
+    from schema 52 or earlier remains contract version `0` with no invented
+    source, route, roster, operation, debit, refund, batch, or group identity.
+  - `RequiresOperation()` should keep every nonzero contract out of legacy
+    execution, while commander dispatch separately selects exact patrol, exact
+    defensive QRF, quarantine, unsupported, or legacy ownership from both type
+    and version. Never let a positive unsupported or negative quarantined row
+    fall through to the old patrol timer.
+  - A future garrison-patrol policy needs its own operation type. It must claim
+    and return garrison manpower, not reuse the enemy commander's proactive
+    attack-resource order merely because both use patrol waypoints.
+
+- Admission is one atomic proactive-resource and force-authority transition.
+  - Resolve a usable persisted generated route before the debit. Freeze one
+    executable infantry group root and every ordered member slot, then link one
+    route/order/operation/manifest/held-batch/active-group aggregate.
+  - The patrol uses the proactive attack pool, not the defensive-QRF attack/
+    support refund helper. A post-debit admission rejection applies one exact
+    full proactive refund; a committed operation settles only the integer
+    survivor fraction. Persist the receipt identity so replay cannot debit or
+    refund twice. Fold and materialization never own refunds.
+  - Failed preflight must leave no partial exact graph. A committed replay must
+    return the existing aggregate rather than create another route, roster, or
+    debit. Scan every primary and secondary order/operation/manifest/batch/group
+    identity before admission. Rollback may remove only the exact object
+    references inserted by that attempt; a colliding foreign row is evidence,
+    never cleanup ownership. Revalidate the frozen route/hash on committed replay.
+
+- Keep the generated-route cursor generic and explicit.
+  - `HST_OperationRouteCursorService` owns ordered route positions, a route
+    contract hash, waypoint index, lap count, leg sequence, loop start/completion
+    seconds, bounded virtual advancement, position resolution, and live-position
+    rebasing. Do not overload the direct-QRF cursor with patrol-only loop rules.
+  - Outbound travel ends at route position zero. One closed on-station lap starts
+    at position one, walks every ordered position, and increments the lap only
+    when it wraps to zero. Return-to-origin is a distinct leg represented by
+    waypoint index `-1`; do not count return as another patrol lap.
+  - Freeze/validate the generated-route contract hash. If the durable route no
+    longer matches, quarantine the current-schema aggregate rather than silently
+    accepting a different path.
+
+- Physicalization is a projection transfer of the same roster and cursor.
+  - Reuse the exact one-root infantry SpawnQueue/adapter. Release only durable
+    living slots, preserve slot/entity bijection, and retire a casualty only from
+    a mapped entity's authoritative dead state. Missing handles or aggregate
+    count changes are not enough to choose a dead member. A deleted handed-off
+    entity with no observed death state remains an unresolved binding: retain its
+    adapter evidence and block movement, fold, settlement, save, and cleanup.
+  - Before any live patrol movement, dematerialization, checkpoint, or campaign-
+    stop settlement, prove one unique handed-off root and one unique live handle
+    for every durable living member. Result/projection keys, slot ownership,
+    entity IDs, entity handles, adapter cardinality, and PhysicalWar membership
+    must all agree; cross-key or aliased claimants fail closed.
+  - Fold samples the live position, rebases the current generated-route leg, and
+    retains every confirmed casualty. Re-entry realizes only survivors at the
+    durable cursor. Exclude exact patrol groups from legacy garrison-patrol,
+    population repair, survivor, route, fold, and cleanup passes or both owners
+    will mutate the same group.
+  - Physical contact is an explicit hold. While contact evidence exists, keep the
+    group physical, freeze the cursor, and consume the operation clock. When
+    clear, restart the same frozen leg from the authoritative live position.
+    Never apply delayed virtual catch-up across the contact interval.
+
+- Restore and quarantine preserve evidence rather than guessing.
+  - `HST_EnemyPatrolSaveValidationService` validates unique reciprocal order/
+    operation/route/manifest/batch/group identity, manifest policy/hash, member-
+    only casualty tombstones, legal route/lifecycle pairs, and a coherent
+    proportional settlement receipt.
+  - A coherent open restore clears process-local entity/native-group evidence and
+    normalizes materializing/physical/folding state to one held strategic
+    projection with the same waypoint/lap/leg cursor and casualties. Do not pass
+    patrol rows through defensive-QRF restore normalization; its direct-route
+    assumptions would corrupt the loop cursor.
+  - Malformed current-schema patrol authority becomes contract version `-53`.
+    Retain the rejected graph and failure evidence, hold/cancel process work, and
+    prevent legacy execution. Migration records
+    `migration_schema53_enemy_patrol_authority` while preserving historical rows
+    at version `0`. Unsupported or type-corrupt rows linked to a patrol operation
+    must enter this same typed quarantine before another exact or legacy owner can
+    run them.
+  - Quarantine cleanup is bounded, not permanent save denial. Defer capture while
+    any adapter handle, PhysicalWar root/member, or process-local group binding
+    remains. Once both runtime registries prove empty, normalize an open operation
+    to strategic authority (or clear only process-local residue on a settled row)
+    while retaining every durable diagnostic row and applying no refund.
+
+- Persistence must close the physical observation race.
+  - Before autosave, major-change capture, checkpoint, or campaign-debug baseline,
+    reconcile mapped physical and dematerializing patrol casualties, prove the
+    complete root/member/PhysicalWar bijection, and resolve an authoritative live
+    position. If mapping, runtime ownership, or live position is missing or
+    conflicting, defer capture before flushing an older tracked snapshot or
+    requesting a savepoint. Retain save intent and retry on the bounded debounce.
+  - Campaign-won/lost and setup settlement must run the same exhaustive patrol-
+    scoped reconciliation before reading survivors. If it fails, leave the debit,
+    settlement, runtime entities, and open patrol batch untouched; generic terminal
+    cleanup must protect that patrol until authority becomes provable.
+  - Current-schema restore keeps the generated-route cursor and casualty roster,
+    but clears process-local physical handles/contact evidence. This is source
+    normalization; a real process restart remains a separate packaged proof.
+
+- Publish and prove from operation authority.
+  - Publish one exact-patrol marker at the virtual cursor or live physical
+    position, with durable living count and duty context. Remove it only after
+    terminal cleanup. Marker model presence is not client widget-render proof.
+  - `HST_EnemyPatrolOperationProofService` contributes ten focused
+    `enemy_patrol.*` assertions: admission, replay/refund, route loop, projection/
+    roster, contact hold, settlement, restore, corruption, dispatch isolation,
+    and marker lifecycle. Keep proof methods focused; large monolithic proof or
+    migration bodies can reproduce the native zero-diagnostic Workbench compiler
+    failure seen in earlier schemas. These source fixtures now cover foreign-row
+    collision preservation, corrupt-route replay rejection, physical-shaped
+    restore normalization, reciprocal backlink quarantine, exact-mode orphan
+    isolation, and same-target urgent-order priority. Native entity/waypoint/
+    adapter-handle and real process-restart behavior remains packaged proof.
+  - The current unstamped schema-53 development tree has provisional clean
+    headless Game-module compile/create evidence at 5,757 files/11,550 classes
+    with CRC `acae965f`; a normal WorldEditor open remained alive for ten samples
+    over 20 seconds without a crash signature. It still needs packaged movement, contact, fold/
+    reprojection, accounting, marker rendering/cleanup, and process-restart proof.
+    After the schema-53 checkpoint, select the next source target from the
+    implementation blueprint.
 
 ## Native Reference Sources
 
