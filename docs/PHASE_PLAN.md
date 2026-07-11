@@ -100,8 +100,13 @@ route-less exact authority boundary. Schema-55 officer contract `1` and
 Schema-56 traitor contract `2` remain exact. Historical/pre-57 spec-ops guards,
 ordinary `mission_group_*` rows, and every unsupported family remain contract
 `0`; conflicting exact spec-ops claimants quarantine at `-57`. Schema 57 is
-implemented in source but unstamped, with no final SHA, CRC, or normal-open
-evidence. The last stamped baseline remains Schema 56: implementation
+stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with
+build label `schema57-exact-specops-guard`. The full foundation gate passes,
+including Schema-55/56/57. Stamped Workbench Game validation loaded 5,765 files/
+11,576 classes with CRC `e0b8578e` and `Script validation successful`; the
+bounded hidden normal WorldEditor open stayed alive for 10/10 samples over 20
+seconds, and its log had no script-error/crash signature. The preceding stamped
+baseline is Schema 56: implementation
 `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
 `03a65cd33bee69c6320389803cdd5a2ec8576fb0`, build label
 `schema56-exact-traitor-guard`, 5,764 files/11,573 classes, CRC `a18c67a5`, and
@@ -112,7 +117,7 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Schema 57 implemented but unstamped; Schema 56 remains the last stamped checkpoint | Campaign Schema 57 source adds the narrow spec-ops-guard contract without final SHA/CRC/open evidence. The preserved Schema-56 baseline is implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp `03a65cd33bee69c6320389803cdd5a2ec8576fb0`, label `schema56-exact-traitor-guard`, 5,764 files/11,573 classes, CRC `a18c67a5`, and 10/10 normal-open samples over 20 seconds. This remains source/Workbench evidence only; every packaged/native/save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gate remains open. |
+| CRI-0: Repository truth and baseline | Schema 57 is the current stamped source/Workbench checkpoint | Campaign Schema 57 is stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` / label `schema57-exact-specops-guard`. The full foundation gate, including Schema-55/56/57, passes. Workbench loaded 5,765 files/11,576 classes with CRC `e0b8578e` and `Script validation successful`; the bounded hidden normal open passed 10/10 samples over 20 seconds with no log script-error/crash signature. Every packaged/native/save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gate remains open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 57 adds only the spec-ops-guard contract-3 mission/operation/manifest/held-batch/group graph and preserves Schema-55 officer contract `1` and Schema-56 traitor contract `2`. All three keep HVT authority separate and settle typed outcomes with zero refund. Historical/pre-57 spec-ops, unsupported families, and ordinary `mission_group_*` rows remain contract `0`; malformed current exact spec-ops claimants quarantine at `-57` without fallback or HVT failure. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | The generic SpawnQueue adapter remains one-root infantry-only and now serves two QRFs, enemy patrol, purchased-garrison patrol, officer guard, traitor guard, and spec-ops guard; the convoy retains its separate path. For contract `3`, a generic multi-group spec-ops proposal is reduced deterministically to the strongest executable group (stable first on ties); only its catalog roster is frozen and discarded groups gain no authority. All three assassination contracts use catalog-backed empty roots plus ordered members with no HVT/route/assets/resources. Historical mission/aggregate forces, vehicles/assets/multi-root execution, and packaged proofs remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; eight exact family projections across six operation types implemented in source | Schemas 50-56 retain prior exact paths. Schema 57 adds only the contract-3 route-less spec-ops guard with the same HVT-independent all-dead result, survivor-only projection/fold/re-entry, casualty-stable restore, typed zero-refund settlement, compact restore, existing-HVT status, and no-virtual-combat boundary as the earlier exact guards. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
@@ -134,7 +139,7 @@ that roadmap remains useful for feature history and acceptance detail.
 | Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF, and exact newly queued patrol operations exist | Prove each debit/roster/policy independently: QRF defensive arrival/return and patrol generated-route contact/lap/return, exact casualties, proportional settlement, marker cleanup, restart, and long-window behavior. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy plus newly started officer/traitor/spec-ops guard families use narrow exact contracts | Runtime-prove convoy and all three assassination guards. The assassination-guard family is exhausted; the next planned cutover is a separately versioned rescue slice starting with newly started `rescue_pows`. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; schema-50 repairs and schema-50 through schema-57 exact projections are source-only | Revalidate and stamp Schema 57 without replacing the preserved Schema-56 evidence, then republish and prove marker/civilian/radio, both QRFs, convoy, patrols, garrison, and all three assassination guards before dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 57 now stamps schema-50 repairs and schema-50 through schema-57 exact projection source/Workbench truth | Publish the stamped Schema-57 build and prove marker/civilian/radio, both QRFs, convoy, patrols, garrison, and all three assassination guards before dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. The prior Schema-56 evidence remains historical. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison

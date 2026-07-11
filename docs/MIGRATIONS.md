@@ -76,11 +76,15 @@
 - `HST_SpecOpsGuardOperationProofService` covers six source-proof categories:
   admission/family isolation, survivor projection and HVT separation, typed
   zero-refund settlement, restore/migration, corruption quarantine, and
-  existing-HVT marker status. Schema 57 is implemented but unstamped: no final
-  Schema-57 implementation SHA, build label, Workbench count/CRC, or normal-open
-  evidence is claimed. Native entities, adapter casualties, actual save/restart,
-  rendered UI, owner-change, campaign setup, packaged networking, reconnect,
-  and JIP remain open.
+  existing-HVT marker status. Schema 57 is stamped at implementation
+  `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with build label
+  `schema57-exact-specops-guard`. The full foundation gate passes, including
+  Schema-55/56/57. Stamped Workbench Game validation loaded 5,765 files/11,576
+  classes with CRC `e0b8578e` and `Script validation successful`; the bounded
+  hidden normal WorldEditor open stayed alive for 10/10 samples over 20 seconds,
+  and its log had no script-error/crash signature. Native entities, adapter
+  casualties, actual save/restart, rendered UI, owner-change, campaign setup,
+  packaged networking, reconnect, and JIP remain open.
 
 - Schema 57 exhausts the assassination-guard family. The next planned blueprint
   target is a separately versioned rescue vertical slice beginning only with a

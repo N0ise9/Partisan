@@ -3074,7 +3074,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Schema 56 Exact Traitor-Mission Guard Authority
 
-- Schema 56 is the last stamped baseline. Its implementation is
+- Schema 56 is the preceding stamped baseline. Its implementation is
   `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
   `03a65cd33bee69c6320389803cdd5a2ec8576fb0`, and label
   `schema56-exact-traitor-guard`.
@@ -3157,9 +3157,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Schema 57 Exact Spec-Ops-Mission Guard Authority
 
-- Campaign persistence schema is now `57`. This source slice is implemented but
-  unstamped; do not invent a final Schema-57 SHA, stamp, label, Workbench count/
-  CRC, or normal-open result.
+- Campaign persistence schema is now `57`. The stamped implementation is
+  `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with build label
+  `schema57-exact-specops-guard`. The full foundation gate passes, including
+  Schema-55/56/57. Stamped Workbench Game validation loaded 5,765 files/11,576
+  classes with CRC `e0b8578e` and `Script validation successful`. The bounded
+  hidden normal WorldEditor open stayed alive for 10/10 samples over 20 seconds,
+  and its log had no script-error/crash signature. These remain source/Workbench
+  gates rather than packaged behavior proof.
 
 - Opt in only guards created while starting a new `assassinate_specops` mission.
   Use `HST_OPERATION_TYPE_MISSION_GUARD` contract `3`, policy

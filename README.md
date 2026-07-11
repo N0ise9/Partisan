@@ -311,10 +311,16 @@ The repository contains a broad-alpha campaign foundation:
   `migration_schema57_exact_specops_guard`; malformed current rows record
   `normalization_schema57_exact_specops_guard_conflict` and remain diagnostic at
   `-57`. Six `specops_guard.*` source-proof categories cover the boundary.
-  Schema 57 is implemented but unstamped: no final Schema-57 SHA, build label,
-  Workbench count/CRC, or normal-open evidence is claimed. Native entities,
-  adapter casualties, actual save/restart, rendered UI, owner change, campaign
-  setup, packaged networking, reconnect, and JIP remain open.
+  Schema 57 is stamped at implementation
+  `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with build label
+  `schema57-exact-specops-guard`. The full foundation gate passes, including
+  the Schema-55/56/57 checks. Stamped Workbench Game validation loaded 5,765
+  files/11,576 classes with CRC `e0b8578e` and `Script validation successful`;
+  the bounded hidden normal WorldEditor open stayed alive for 10/10 samples
+  over 20 seconds, and its log had no script-error/crash signature. These are
+  source/Workbench gates only. Native entities, adapter casualties, actual
+  save/restart, rendered UI, owner change, campaign setup, packaged networking,
+  reconnect, and JIP remain open.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -462,7 +468,9 @@ current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
 Schema 57 exact authority for guard infantry belonging to newly started
-`assassinate_specops` missions is implemented but unstamped. Officer guards
+`assassinate_specops` missions is stamped at implementation
+`514ebdcbeb1ddfb2a383b19590382517113e2ff6` with build label
+`schema57-exact-specops-guard`. Officer guards
 retain contract `1`/quarantine `-55`, traitor guards retain contract `2`/`-56`,
 and new spec-ops guards use contract `3`/`-57` with policy
 `exact_assassinate_specops_guard_v1` and intent `assassinate_specops_guard`.
@@ -474,7 +482,7 @@ earlier behavior. The assassination-guard family is exhausted. The next planned
 blueprint target is a separately versioned rescue vertical slice beginning with
 newly started `rescue_pows` missions only; it is planned, not implemented.
 
-1. After the schema-52 implementation is stamped, publish and test that build,
+1. Publish and test the stamped Schema-57 build,
    including the schema-50 marker,
    map-dialog, radio-site, and civilian repairs. Require valid-sized marker
    icons, `Location | Owner` labels, a
@@ -595,13 +603,13 @@ The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also
 evidence for the newly reported marker, cursor, radio, classification,
 appearance, horn, and military/civilian activation defects—not proof of the
-schema-50 repairs. The final stamped Schema-56 tree identifies implementation
-`bab5748d817ba434dae701cfbb3b92805d463678`, build label
-`schema56-exact-traitor-guard`, stamp
-`03a65cd33bee69c6320389803cdd5a2ec8576fb0`, and passes the full foundation gate. Workbench
-Game validation loaded 5,764 files/11,573 classes with CRC `a18c67a5` and reported
+schema-50 repairs. The stamped Schema-57 tree identifies implementation
+`514ebdcbeb1ddfb2a383b19590382517113e2ff6`, build label
+`schema57-exact-specops-guard`, and passes the full foundation gate, including
+Schema-55/56/57. Workbench Game validation loaded 5,765 files/11,576 classes
+with CRC `e0b8578e` and reported
 `Script validation successful`; the bounded hidden normal WorldEditor open stayed
-alive for all ten samples over 20 seconds, with no script-error/crash signature
+alive for 10/10 samples over 20 seconds, with no script-error/crash signature
 in its latest log. This is source/Workbench evidence, not
 packaged gameplay proof. A republished server/client test is still required
 before those repairs, either exact-QRF projection path, or any source-validated

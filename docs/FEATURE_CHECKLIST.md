@@ -48,8 +48,8 @@ means the named production slice exists. `Verified` means an appropriate proof
 has actually run against that slice. `Certified` additionally requires a safe,
 isolated runtime run with no unresolved hard failures or required external gaps.
 
-The current development save contract is Schema 57. Its implemented-but-
-unstamped source adds contract-3 exact authority only for guards belonging to a
+The current stamped development save contract is Schema 57. It adds contract-3
+exact authority only for guards belonging to a
 newly started `assassinate_specops` mission, using policy
 `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and
 quarantine `-57`. Officer `1`/`-55` and traitor `2`/`-56` remain exact.
@@ -57,20 +57,26 @@ Historical/pre-57 spec-ops, ordinary `mission_group_*` rows, rescue missions,
 and unsupported families remain contract `0`. Generic spec-ops composition may
 propose multiple groups; contract `3` deterministically selects the strongest
 executable group, keeps the stable first group on ties, freezes only that
-selected catalog roster, and grants discarded groups no authority. The last stamped baseline is
-Schema 56: implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
+selected catalog roster, and grants discarded groups no authority. Schema 57 is
+stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with
+build label `schema57-exact-specops-guard`. The full foundation gate passes,
+including Schema-55/56/57. Stamped Workbench Game validation loaded 5,765 files/
+11,576 classes with CRC `e0b8578e` and `Script validation successful`; the
+bounded hidden normal WorldEditor open stayed alive for 10/10 samples over 20
+seconds, and its log had no script-error/crash signature. Packaged behavior
+gates remain open. The preceding Schema-56 stamped baseline remains historical:
+implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
 `03a65cd33bee69c6320389803cdd5a2ec8576fb0`, label
 `schema56-exact-traitor-guard`, 5,764 files/11,573 classes, CRC `a18c67a5`, and
-10/10 normal-open samples over 20 seconds. Schema 57 claims no final SHA/CRC/
-open evidence; packaged behavior gates remain open.
+10/10 normal-open samples over 20 seconds.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete | Schema-57 source implemented; Schema-56 remains the last stamped checkpoint | Schema-57 final foundation/Workbench/open gates pending; packaged runtime pending | No | The stamped Schema-56 baseline is implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp `03a65cd33bee69c6320389803cdd5a2ec8576fb0`, label `schema56-exact-traitor-guard`, 5,764 files/11,573 classes, CRC `a18c67a5`, `Script validation successful`, and ten normal-open samples over 20 seconds without a latest-log script-error/crash signature. Do not attribute those values to unstamped Schema 57. The latest Full Campaign Debug artifact predates schemas 43-57 and is not certification evidence. |
-| CRI-1 Authority foundation | Complete | Prior vertical slices plus all three versioned assassination-guard families | Schema-57 source proof exists; final Workbench/package gates pending | No | Only newly started spec-ops guards gain contract `3`, policy `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and `-57` quarantine. Officer `1`/`-55` and traitor `2`/`-56` remain exact. Historical/pre-57 spec-ops and unsupported families remain contract `0`; ordinary `mission_group_*` rows are not claimants. |
-| CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, seven exact infantry-family consumers, and exact three-element mission convoy | Schema-57 source proof exists; native projection/restart pending | No | Schema 57 deterministically selects the strongest executable group from a generic spec-ops proposal (stable first on ties), freezes only its catalog roster beneath one empty root, and grants discarded groups no authority. It owns no HVT, route, vehicle, asset, resource, or virtual-combat entry. The generic adapter remains one-root infantry-only; the convoy retains its separate path. Historical mission guards, vehicles/assets, generic multi-root execution, and other consumers remain open. |
-| CRI-3 Force runtime | Complete in source for seven exact infantry-family consumers, one exact mission convoy, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, patrol and all three mission-guard folds, convoy-element fold/rematerialization, and mixed-group cleanup | Schema-57 source proof exists; native/package gates pending | No | Officer, traitor, and spec-ops guards are route-less held rosters whose mapped casualties persist across fold/re-entry; all guards dead can settle independently of the HVT and no guard family simulates virtual combat. Exact/quarantined claimants are isolated from generic mutation. Native entities, adapter casualties, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP remain unproven. |
-| CRI-4 Operation records | Complete for six operation types and eight explicit family consumers | Mission-guard contract `1`/`2`/`3` dispatch plus typed materialization/position/settlement state, durable roster linkage, restore normalization, and fail-closed isolation | Six Schema-57 source-proof categories exist; final Workbench/package gates pending | No | Schema 57 adds only spec-ops guards as contract `3` on `HST_OPERATION_TYPE_MISSION_GUARD`, preserving officer `1` and traitor `2`. It reuses route-less survivor state, HVT-independent `DESTROYED`, typed zero-refund outcomes, compact restore, existing-HVT status, and `-57` quarantine. Historical/pre-57 spec-ops, rescue, and unsupported families remain contract `0`. |
+| CRI-0 Truth and baseline | Complete | Schema 57 is the current stamped source checkpoint | Full foundation plus stamped Workbench validation/open pass; packaged runtime pending | No | Schema 57 is stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` / label `schema57-exact-specops-guard`. The full foundation gate, including Schema-55/56/57, passes. Workbench loaded 5,765 files/11,576 classes with CRC `e0b8578e` and `Script validation successful`; the bounded hidden normal open passed 10/10 samples over 20 seconds with no log script-error/crash signature. The latest Full Campaign Debug artifact predates schemas 43-57 and is not certification evidence. |
+| CRI-1 Authority foundation | Complete | Prior vertical slices plus all three versioned assassination-guard families | Schema-57 source proof and stamped Workbench gates pass; packaged runtime pending | No | Only newly started spec-ops guards gain contract `3`, policy `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and `-57` quarantine. Officer `1`/`-55` and traitor `2`/`-56` remain exact. Historical/pre-57 spec-ops and unsupported families remain contract `0`; ordinary `mission_group_*` rows are not claimants. |
+| CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, seven exact infantry-family consumers, and exact three-element mission convoy | Schema-57 source proof and stamped Workbench gates pass; native projection/restart pending | No | Schema 57 deterministically selects the strongest executable group from a generic spec-ops proposal (stable first on ties), freezes only its catalog roster beneath one empty root, and grants discarded groups no authority. It owns no HVT, route, vehicle, asset, resource, or virtual-combat entry. The generic adapter remains one-root infantry-only; the convoy retains its separate path. Historical mission guards, vehicles/assets, generic multi-root execution, and other consumers remain open. |
+| CRI-3 Force runtime | Complete in source for seven exact infantry-family consumers, one exact mission convoy, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, patrol and all three mission-guard folds, convoy-element fold/rematerialization, and mixed-group cleanup | Schema-57 source proof and stamped Workbench gates pass; native/package gates pending | No | Officer, traitor, and spec-ops guards are route-less held rosters whose mapped casualties persist across fold/re-entry; all guards dead can settle independently of the HVT and no guard family simulates virtual combat. Exact/quarantined claimants are isolated from generic mutation. Native entities, adapter casualties, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP remain unproven. |
+| CRI-4 Operation records | Complete for six operation types and eight explicit family consumers | Mission-guard contract `1`/`2`/`3` dispatch plus typed materialization/position/settlement state, durable roster linkage, restore normalization, and fail-closed isolation | Six Schema-57 source-proof categories and stamped Workbench gates pass; packaged runtime pending | No | Schema 57 adds only spec-ops guards as contract `3` on `HST_OPERATION_TYPE_MISSION_GUARD`, preserving officer `1` and traitor `2`. It reuses route-less survivor state, HVT-independent `DESTROYED`, typed zero-refund outcomes, compact restore, existing-HVT status, and `-57` quarantine. Historical/pre-57 spec-ops, rescue, and unsupported families remain contract `0`. |
 
 ## Implementation Contract
 
@@ -227,7 +233,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha / Needs Runtime Proof | Packaged schema 49 proved that stock HUD and Game Master access were restored and exercised map-target support confirmation; it does not certify later source. Current source keeps map overlays below the native pointer, and the final stamped schema-55 tree passes Workbench source validation. Republished proof is still required for HUD/Game Master preservation, both quote/confirmation flows, choose-again/ESC teardown, pointer layering, and supported resolutions. | Highest |
+| Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha / Needs Runtime Proof | Packaged schema 49 proved that stock HUD and Game Master access were restored and exercised map-target support confirmation; it does not certify later source. Current source keeps map overlays below the native pointer, and the stamped Schema-57 tree passes Workbench source validation. Republished proof is still required for HUD/Game Master preservation, both quote/confirmation flows, choose-again/ESC teardown, pointer layering, and supported resolutions. | Highest |
 | Map markers | HQ, zones, missions, support, QRFs, orders, garrison patrols, and active deliveries publish linked markers with cleanup proof. | Broad Alpha / Needs Runtime Proof | Schema 57 extends the existing-HVT `guards N`/`guards neutralized`/`guard authority unavailable` status to contract-3 spec-ops guards without adding a marker; officer and traitor behavior remains unchanged. Republish and prove all three families' rendered status, cleanup, quarantine presentation, reconnect/JIP, and earlier radio fixes. | Highest |
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Missing | Current menu/marker publication is not a complete campaign projection protocol. Add DTO snapshots, global stream sequence/watermark, per-record revisions/tombstones, acknowledgements, gap detection, resync, and host/two-client/late-join equality proof. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
@@ -247,7 +253,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Publish the stamped Schema-56 build and run a focused client/server feedback
+1. Publish the stamped Schema-57 build and run a focused client/server feedback
    pass. Confirm that
    the stock HUD/Game Master recovery already observed in packaged schema 49 is
    preserved, then require normal-sized radio icons, location-plus-owner labels,

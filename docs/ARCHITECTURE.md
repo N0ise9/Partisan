@@ -185,8 +185,9 @@ schema-42 through schema-57 authority services are:
   survivor projection and HVT separation, typed zero-refund settlement,
   restore/pre-57 migration, `-57` corruption quarantine, and existing-HVT
   marker/UI status. It preserves officer contract `1`, traitor contract `2`,
-  and historical spec-ops contract `0`. Schema 57 is implemented but unstamped;
-  native/package/restart/render/network gates remain explicitly open.
+  and historical spec-ops contract `0`. Schema 57 is stamped at implementation
+  `514ebdcbeb1ddfb2a383b19590382517113e2ff6`; native/package/restart/render/
+  network gates remain explicitly open.
 - `HST_ForceSpawnQueueService`: owns schema-44 durable per-projection spawn
   batches, bounded priority/FIFO work acquisition, verified callbacks,
   retry/deadline/cancellation cleanup, pin-aware terminal retention, reporting,
@@ -553,10 +554,15 @@ settlement, compact restore, and existing-HVT status. Historical/pre-57 spec-ops
 missions and unsupported families stay contract `0`; ordinary
 `mission_group_*` rows are not claimants. Migration/conflict events are
 `migration_schema57_exact_specops_guard` and
-`normalization_schema57_exact_specops_guard_conflict`. Schema 57 is implemented
-but unstamped; no final SHA, build label, Workbench count/CRC, or normal-open
-evidence is claimed, and every packaged/native/restart/UI/network gate remains
-open. The assassination-guard family is exhausted. The next planned blueprint
+`normalization_schema57_exact_specops_guard_conflict`. Schema 57 is stamped at
+implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with build label
+`schema57-exact-specops-guard`. The full foundation gate passes, including its
+Schema-55/56/57 checks. Stamped Workbench Game validation loaded 5,765 files/
+11,576 classes with CRC `e0b8578e` and `Script validation successful`; the
+bounded hidden normal WorldEditor open stayed alive for 10/10 samples over 20
+seconds, and its log had no script-error/crash signature. These source/Workbench
+gates leave every packaged/native/restart/UI/network gate open. The
+assassination-guard family is exhausted. The next planned blueprint
 target is a separately versioned rescue vertical slice beginning with only
 newly started `rescue_pows` missions; it is planned, not implemented.
 
@@ -569,7 +575,7 @@ newly started `rescue_pows` missions; it is planned, not implemented.
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Both QRFs, exact enemy patrol, policy-v2 purchased-garrison patrol, and all three exact assassination guards begin held and release only durable living member slots; each empty root contributes no authored members. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Confirmed casualties remain retired across transfer/restore. Generic vehicle/asset/multi-root, historical mission guards, and historical aggregate-garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Operation lifecycle | Schemas 50-56 retain player QRF, enemy QRF, exact convoy, enemy-patrol, purchased-garrison, officer-guard, and traitor-guard behavior. Schema 57 adds only contract-3 spec-ops guards with the same route-less on-station survivor lifecycle, HVT-independent `DESTROYED`, typed zero-refund mission/owner/spawn settlement, compact restore, existing-HVT status, and `-57` quarantine. Historical/pre-57 spec-ops and all unsupported mission families remain outside these contracts. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | The last stamped baseline is Schema 56: implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp `03a65cd33bee69c6320389803cdd5a2ec8576fb0`, label `schema56-exact-traitor-guard`, 5,764 files/11,573 classes, CRC `a18c67a5`, `Script validation successful`, and ten normal-open samples over 20 seconds without a latest-log script-error/crash signature. Schema 57 is implemented but unstamped and claims none of those final gates. Native entities/adapter casualties, guard/HVT settlement, save/restart, rendered UI, owner-change, campaign-setup, networking, reconnect, and JIP remain open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Schema 57 is the current stamped source/Workbench baseline: implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6`, label `schema57-exact-specops-guard`, full foundation including Schema-55/56/57 checks, 5,765 files/11,576 classes, CRC `e0b8578e`, `Script validation successful`, and 10/10 normal-open samples over 20 seconds with no log script-error/crash signature. Native entities/adapter casualties, guard/HVT settlement, save/restart, rendered UI, owner-change, campaign-setup, networking, reconnect, and JIP remain open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit

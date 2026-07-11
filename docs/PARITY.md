@@ -130,9 +130,14 @@
   contract `0`. Migration/conflict events are
   `migration_schema57_exact_specops_guard` and
   `normalization_schema57_exact_specops_guard_conflict`. Six source-proof
-  categories cover the boundary. Schema 57 is implemented but unstamped and
-  claims no final SHA/CRC/open evidence; all packaged/native/restart/UI/network
-  gates remain open.
+  categories cover the boundary. Schema 57 is stamped at implementation
+  `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with build label
+  `schema57-exact-specops-guard`. The full foundation gate passes, including
+  Schema-55/56/57. Stamped Workbench Game validation loaded 5,765 files/11,576
+  classes with CRC `e0b8578e` and `Script validation successful`; the bounded
+  hidden normal WorldEditor open stayed alive for 10/10 samples over 20 seconds,
+  and its log had no script-error/crash signature. All packaged/native/restart/
+  UI/network gates remain open.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -381,9 +386,9 @@
   `migration_schema57_exact_specops_guard`; conflicting exact claimants
   quarantine at `-57` with
   `normalization_schema57_exact_specops_guard_conflict`. This source slice is
-  implemented but unstamped: no Schema-57 final SHA, CRC, or normal-open
-  evidence exists. Packaged/native/save-restart/rendered-UI/owner-change/setup/
-  network/reconnect/JIP proof remains open.
+  stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` under
+  build label `schema57-exact-specops-guard`. Packaged/native/save-restart/
+  rendered-UI/owner-change/setup/network/reconnect/JIP proof remains open.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
@@ -420,7 +425,7 @@
 
 ## Current Delivery Priorities
 
-- Publish and test the Schema-57 source with officer-, traitor-, and spec-ops-
+- Publish and test the stamped Schema-57 build with officer-, traitor-, and spec-ops-
   guard diagnostics while preserving the stamped Schema-56 checkpoint and
   proving the schema-50
   marker/dialog/radio corrections and

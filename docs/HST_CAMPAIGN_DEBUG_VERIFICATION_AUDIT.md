@@ -261,7 +261,7 @@ be read as proof that a later change was executed or certified.
   JIP remain unclaimed. The next planned narrow cutover is newly started
   `assassinate_specops` guards only; that statement is retained here solely as
   the stamped Schema-56 historical boundary.
-- Campaign persistence Schema 57 is implemented but unstamped. It opts in only
+- Campaign persistence Schema 57 is stamped. It opts in only
   guards belonging to a newly started `assassinate_specops` mission at contract
   `3`, policy `exact_assassinate_specops_guard_v1`, intent
   `assassinate_specops_guard`, and malformed-current quarantine version `-57`.
@@ -279,10 +279,15 @@ be read as proof that a later change was executed or certified.
   `normalization_schema57_exact_specops_guard_conflict` and remains diagnostic
   without fallback, guessed casualty, HVT backlink/failure, refund, or force
   transfer. Six `specops_guard.*` source-proof categories cover the boundary.
-  No final Schema-57 implementation SHA, stamp, build label, Workbench count/
-  CRC, or normal-open evidence is claimed. Native entities/adapter casualties,
-  real save/restart, rendered UI, owner change, campaign setup, packaged
-  networking, reconnect, and JIP remain open. The assassination-guard family is
+  The stamped implementation is `514ebdcbeb1ddfb2a383b19590382517113e2ff6`
+  with build label `schema57-exact-specops-guard`. The full foundation gate
+  passes, including Schema-55/56/57. Stamped Workbench Game validation loaded
+  5,765 files/11,576 classes with CRC `e0b8578e` and
+  `Script validation successful`; the bounded hidden normal WorldEditor open
+  stayed alive for 10/10 samples over 20 seconds, and its log had no script-
+  error/crash signature. Native entities/adapter casualties, real save/restart,
+  rendered UI, owner change, campaign setup, packaged networking, reconnect,
+  and JIP remain open. The assassination-guard family is
   exhausted; the next planned blueprint target is a separately versioned rescue
   vertical slice beginning only with newly started `rescue_pows`, planned only.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
@@ -1155,7 +1160,12 @@ Unproven or incomplete against the pasted contract:
   error/crash signature. Native entities/adapter casualties, real save/restart,
   rendered UI, owner-change, campaign setup, packaged networking, reconnect, and
   JIP remain open.
-- Schema 57 is implemented but unstamped. No final Schema-57 SHA, stamp, label,
-  Workbench count/CRC, or normal-open result is available; do not reuse the
-  Schema-56 values above as Schema-57 evidence. All packaged/native/restart/UI/
-  owner-change/setup/network/reconnect/JIP gates remain open.
+- The stamped Schema-57 tree identifies implementation
+  `514ebdcbeb1ddfb2a383b19590382517113e2ff6` and build label
+  `schema57-exact-specops-guard`. The full foundation gate passes, including
+  Schema-55/56/57. Stamped Workbench Game validation loaded 5,765 files/11,576
+  classes with CRC `e0b8578e` and reported `Script validation successful`; the
+  bounded hidden normal WorldEditor open stayed alive for 10/10 samples over 20
+  seconds, and its log had no script-error/crash signature. All packaged/native/
+  save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gates remain
+  open.
