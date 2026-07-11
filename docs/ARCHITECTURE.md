@@ -457,7 +457,7 @@ The remaining domain services are:
   For a schema-54 exact purchased-garrison patrol it supplies the corresponding
   live-position and persisted local-route restart boundary while excluding the
   group from legacy aggregate activation, composition, waypoint, population,
-  survivor, fold, and cleanup owners. The Schema-60 performance candidate keeps
+  survivor, fold, and cleanup owners. The Schema-60 performance repair keeps
   pure-vehicle groups on vehicle-only living-count authority, skips the convoy
   whole-group survivor pass when no active convoy exists, and does not repeat a
   full member-count scan merely because a runtime entity already exists. Normal
@@ -796,9 +796,12 @@ applies an exhaustive global exact-infantry reconcile, repeats reciprocal and
 cardinality checks for each physical exact player-support aggregate, and
 refreshes its live position before capture; failure defers the retirement or
 checkpoint. Pre-60 requests remain contract `0`, and malformed current claimants
-cannot cross into legacy authority. The candidate build label is
-`schema60-exact-search-destroy`; Schema 59 remains the latest stamped checkpoint,
-and no Schema-59 hash, CRC, or gate result certifies Schema 60.
+cannot cross into legacy authority. Schema 60 is the latest stamped source/
+Workbench checkpoint: implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`,
+UTC `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, Foundation
+pass with 644 symbol references, and final Workbench CRC `7aa80fc9` at 5,777
+files/11,615 classes. Schema 59 is the preceding checkpoint. This provenance is
+not packaged or live-behavior certification.
 
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
@@ -809,7 +812,7 @@ and no Schema-59 hash, CRC, or gate result certifies Schema 60.
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Both QRFs, player Search-and-Destroy, exact enemy patrol, policy-v2 purchased-garrison patrol, and all three exact assassination guards begin held and release only durable living member slots; each empty root contributes no authored members. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Confirmed casualties remain retired across transfer/restore. Generic vehicle/asset/multi-root, historical mission guards, and historical aggregate-garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Operation lifecycle | Schemas 50-59 retain their exact paths. Schema 60 adds a separately typed player Search-and-Destroy operation with direct-route progress, exact virtual/physical survivors, bounded virtual combat, return-to-assignment after displaced fold, on-station hold after hostile clear, commander recall, and fail-closed restore isolation. Historical requests remain outside the contract. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | Schema 60 is the active candidate under build label `schema60-exact-search-destroy`; it has no final stamped hash/CRC or completed Foundation/Workbench/normal-open/runtime claim yet. Schema 59 remains the latest stamped source/Workbench boundary at implementation `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21`, build label `schema59-radio-site-lifecycle`, with the recorded Foundation, 5,773-file/11,608-class Workbench CRC `96914c26`, and bounded normal-open pass. Those results do not certify Schema 60. Every packaged/native/restart/rendered-UI/network/reconnect/JIP gate, plus the observed stutter and horn check, remains open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Schema 60 is the latest stamped source/Workbench boundary at implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`. Full Foundation passes with 644 symbol references. Final Workbench Game validation loaded 5,777 files/11,615 classes with CRC `7aa80fc9` and created the game; the correctly targeted hidden normal WorldEditor stayed alive/responding 10/10 samples over 20 seconds with no first-party error/crash signature. Diff check was clean apart from line-ending warnings. Schema 59 is the preceding checkpoint. Both Schema-60 proof services and the typed-QRF mismatch assertion are compiled/wired but unexecuted. Every packaged server/client, actual restart, rendered-UI, stutter/horn, live-behavior, network/reconnect/JIP gate remains open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit

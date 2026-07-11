@@ -421,9 +421,16 @@ The repository contains a broad-alpha campaign foundation:
   WorldEditor open stayed alive and responsive for 10/10 samples over 20 seconds
   with no script-compile or crash signature. Its one Steamworks stats-request
   error was nonfatal. Packaged gameplay proof remains independently open.
-- Schema 60 is the current source/Workbench candidate under build label
-  `schema60-exact-search-destroy` and leaves Schema 59 as the preceding stamped
-  checkpoint. Only newly quoted and confirmed player
+- Schema 60 is the latest stamped source/Workbench checkpoint. `HST_BuildInfo`
+  records implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
+  `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`; Schema 59
+  is the preceding checkpoint. The full Foundation gate passes, including 644
+  symbol references. Final stamped Workbench Game validation loaded 5,777 files/
+  11,615 classes with CRC `7aa80fc9` and `Game successfully created`. The
+  correctly targeted hidden normal WorldEditor stayed alive/responding for
+  10/10 samples over 20 seconds with no first-party error or crash signature,
+  and `git diff --check` was clean apart from line-ending warnings. Only newly
+  quoted and confirmed player
   Search-and-Destroy support enters its separate contract-1 operation type. One
   immutable infantry-only manifest, $350 charge, HR-per-frozen-member ledger,
   held SpawnQueue batch, support request, operation, and active group remain one
@@ -452,7 +459,7 @@ The repository contains a broad-alpha campaign foundation:
   backlink, and full receipt-reciprocity checks; malformed/quarantined pairs are
   retained. The compiled/wired Campaign Debug proof covers valid pair prune plus
   restore and corrupt quarantine retention, but those assertions have not run.
-  The same candidate removes the overlapping Maiden's Bay town while preserving
+  The same checkpoint removes the overlapping Maiden's Bay town while preserving
   the Logistics Warehouse and conservative frozen-ID save compatibility. A
   no-anchor save is untouched; ambiguous duplicate authorities fail closed;
   mutable generic references canonicalize; and settled, quarantined, malformed,
@@ -466,9 +473,9 @@ The repository contains a broad-alpha campaign foundation:
   oscillation, redundant/no-convoy scans, repeated authority resolution,
   unbounded unresolved-radio queries, and eager expensive debug evidence) and
   disables AI horn behavior at the native wheeled-vehicle base while retaining
-  the scoped ambient-driver input clear. None of these Schema-60 changes is
-  packaged/runtime-certified yet; final Workbench/startup gates also remain to be run
-  for the final candidate.
+  the scoped ambient-driver input clear. These results certify only the stamped
+  source/Workbench boundary. No Schema-60 packaged server/client, actual save/
+  restart, rendered UI, stutter/horn, or live gameplay behavior proof exists.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -623,20 +630,22 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-Schema 60 is the active development boundary and is not yet a stamped or
+Schema 60 is the latest stamped source/Workbench development boundary, not a
 runtime-proven checkpoint. It adds only the new exact player Search-and-Destroy
 contract plus the conservative Maiden's Bay retirement and focused stutter/horn
 repairs described above. The Maiden's Bay migration fixture is compiled and
 wired into Campaign Debug, but the assertion has not run and no packaged save/
-restart has exercised it. Schema 59 remains the latest stamped source/Workbench
-checkpoint and its exact radio-site lifecycle is unchanged. Packaged schema-50
+restart has exercised it. The Search-and-Destroy proof and typed-QRF archive-
+mismatch assertion are likewise compiled/wired but unexecuted. Schema 59 is the
+preceding stamped checkpoint and its exact radio-site lifecycle is unchanged.
+Packaged schema-50
 through schema-60 certification remains independently open; source or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Finish and stamp the Schema-60 source/Workbench candidate, then publish that
-   exact package for the next server check. Preserve Schema 59 as the known
-   preceding checkpoint instead of copying its hashes or pass results forward.
+1. Publish the exact stamped Schema-60 package for the next server check.
+   Preserve its recorded implementation, UTC, label, and CRC so runtime evidence
+   remains tied to this checkpoint; Schema 59 is the preceding boundary.
 2. In that published check, cover the schema-50 marker,
    map-dialog, radio-site, and civilian repairs. Require valid-sized marker
    icons, `Location | Owner` labels, a
@@ -792,11 +801,11 @@ military/civilian activation defects, not proof of later source repairs. A newer
 user server check additionally observed a pronounced once-per-second stutter,
 continuous AI horns, and overlapping Maiden's Bay town/warehouse markers. Those
 observations are the runtime baseline for the Schema-60 performance, horn, and
-location fixes. Schema 59 remains the latest stamped source/Workbench checkpoint
-at implementation `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21`, build label
-`schema59-radio-site-lifecycle`, and the gate results recorded above. Schema 60
-has no inherited stamp, CRC, or passing gate. A republished server/client test is
-still required
+location fixes. Schema 60 is the latest stamped source/Workbench checkpoint at
+implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
+`2026-07-11T23:24:55Z`, build label `schema60-exact-search-destroy`, and CRC
+`7aa80fc9`; Schema 59 is the preceding checkpoint. A republished server/client
+test is still required
 before those repairs, either exact-QRF projection path, or any source-validated
 schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/
   schema-55 officer-guard/schema-56 traitor-guard/schema-57 spec-ops-guard/

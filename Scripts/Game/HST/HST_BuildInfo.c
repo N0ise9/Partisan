@@ -1,7 +1,7 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21";
-	static const string BUILD_UTC = "2026-07-11T20:01:02Z";
+	static const string BUILD_SHA = "fdf78493dd15915afe8d53f61a8ad1efd65b5635";
+	static const string BUILD_UTC = "2026-07-11T23:24:55Z";
 	static const string BUILD_LABEL = "schema60-exact-search-destroy";
 
 	static string BuildSummary()

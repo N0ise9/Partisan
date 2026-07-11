@@ -326,7 +326,7 @@ be read as proof that a later change was executed or certified.
   crash/error matches. Native entities, natural guard combat and vehicle seats,
   actual save/restart, rendered UI, owner change, setup, packaged networking,
   reconnect, and JIP remain open until a fresh published runtime artifact.
-- Campaign persistence Schema 59 is the latest stamped implementation cutover for
+- Campaign persistence Schema 59 is the preceding stamped implementation cutover for
   radio sites. Every radio zone has one deterministic durable site/target row
   with ONLINE/DESTROYED/REBUILDING/QUARANTINED state, frozen binding,
   BORROWED_WORLD or GENERATED_CAMPAIGN ownership, one active mission lock,
@@ -370,9 +370,14 @@ be read as proof that a later change was executed or certified.
   `Script validation successful`. The bounded normal WorldEditor open stayed
   alive/responding for 10/10 samples over 20 seconds with no script-compile or
   crash signature; one Steamworks stats-request error was nonfatal.
-- Campaign persistence Schema 60 is the active source/Workbench candidate under
-  build label `schema60-exact-search-destroy`; it does not inherit Schema-59
-  stamped evidence. Only newly quoted/confirmed player Search-and-Destroy uses
+- Campaign persistence Schema 60 is the latest stamped source/Workbench
+  checkpoint: implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
+  `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`. Full
+  Foundation passes with 644 symbol references. Final Workbench Game validation
+  loaded 5,777 files/11,615 classes with CRC `7aa80fc9` and created the game; the
+  correctly targeted hidden normal WorldEditor stayed alive/responding for 10/10
+  samples over 20 seconds without a first-party error/crash signature. Diff check
+  was clean apart from line-ending warnings. Only newly quoted/confirmed player Search-and-Destroy uses
   contract `1` and the separate operation type. The immutable infantry-only
   manifest costs $350 plus one HR per frozen member, and remains linked to its
   paired ledger, request, operation, held batch, and active group across direct
@@ -392,9 +397,8 @@ be read as proof that a later change was executed or certified.
   It is compiled and wired into Campaign Debug, but its Schema-60 assertions have
   not run. Its in-memory seams are not packaged movement/combat, actual save/
   restart, rendered UI, networking, reconnect, or JIP evidence.
-  Final Schema-60 Foundation, Workbench, normal-open, implementation/stamp, and
-  runtime gates remain open in this audit until the final candidate actually
-  runs them.
+  No packaged server/client, actual save/restart, rendered UI, stutter/horn,
+  networking, reconnect, JIP, or live-behavior proof exists.
 - The compiled/wired operation-record archive proof now includes typed exact-QRF
   receipt-mismatch retention under forced capacity. It has not been executed by
   Campaign Debug and is not a final Schema-60 gate result.
@@ -1300,7 +1304,7 @@ and canonical IDs as equivalent without enumerating another zone.
 force-integrity Campaign Debug case as
 `location_taxonomy.maidens_bay_schema60`. Its in-memory both-row/old-only,
 generic-reference, frozen-graph, ledger/generated-content, idempotency, and
-lookup fixtures have not been executed by Campaign Debug in this candidate.
+lookup fixtures have not been executed by Campaign Debug in this checkpoint.
 They are therefore not a PASS result and do not prove serialization or process
 restart. The next published test must prove only the Logistics Warehouse marker
 appears and that a pre-update save/restart does not respawn the town population,
@@ -1364,8 +1368,13 @@ garrison, or mutable old-ID state while a frozen old-ID operation remains valid.
   compile or crash signature. One Steamworks stats-request error was nonfatal.
   All packaged/native/save-restart/rendered-UI/owner-change/setup/network/
   reconnect/JIP gates remain open.
-- Schema 60 is presently a candidate labeled
-  `schema60-exact-search-destroy`. No final Schema-60 implementation hash, stamp,
-  CRC, Foundation result, normal-open result, or packaged-runtime result is
-  recorded here. The next final validation pass must add only evidence produced
-  by that final tree; it must not relabel the Schema-59 results above.
+- The stamped Schema-60 source/Workbench tree records implementation
+  `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
+  `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, Foundation pass
+  with 644 symbol references, and Workbench CRC `7aa80fc9` at 5,777 files/11,615
+  classes with successful game creation. Its correctly targeted hidden normal
+  WorldEditor stayed alive/responding 10/10 samples over 20 seconds without a
+  first-party error/crash signature. Both Schema-60 Campaign Debug proof services
+  and the typed-QRF mismatch assertion are compiled/wired but unexecuted. No
+  packaged server/client, actual save/restart, rendered UI, horn/stutter, or live
+  behavior result is recorded here; Schema 59 remains preceding history.

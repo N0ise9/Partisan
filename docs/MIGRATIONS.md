@@ -2,10 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `60`. Schema 60 is an
-in-progress source/Workbench candidate under build label
-`schema60-exact-search-destroy`; Schema 59 remains the latest stamped source/
-Workbench checkpoint until the Schema-60 gates and final stamp are complete.
+`HST_CampaignState.SCHEMA_VERSION` is currently `60`. Schema 60 is the latest
+stamped source/Workbench checkpoint: implementation
+`fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
+`2026-07-11T23:24:55Z`, build label `schema60-exact-search-destroy`, and final
+Workbench CRC `7aa80fc9`. Schema 59 is the preceding checkpoint.
 
 ## Schema 60
 
@@ -101,10 +102,14 @@ Workbench checkpoint until the Schema-60 gates and final stamp are complete.
   normalization, frozen-graph isolation, ledger/generated-content handling,
   idempotency, and lookup compatibility. That Campaign Debug assertion has not
   been runtime-executed, so it is not migration or restart evidence.
-- Schema-60 Foundation, final Workbench, normal-open, packaged server/client, actual
-  save/restart, rendered UI/marker, physical movement/combat, reconnect, JIP,
-  stutter, and horn gates remain open until executed. Do not copy Schema-59
-  hashes, CRCs, or pass results forward as Schema-60 evidence.
+- Schema-60 full Foundation passes with 644 symbol references. Final stamped
+  Workbench Game validation loaded 5,777 files/11,615 classes with CRC
+  `7aa80fc9` and created the game. The correctly targeted hidden normal
+  WorldEditor stayed alive/responding for 10/10 samples over 20 seconds with no
+  first-party error/crash signature; diff check was clean apart from line-ending
+  warnings. These are source/Workbench gates only. Packaged server/client,
+  actual save/restart, rendered UI/marker, physical movement/combat, reconnect,
+  JIP, stutter, and horn gates remain open.
   The Search-and-Destroy proof service is compiled and wired into Campaign Debug,
   but its Schema-60 assertions have not run. It now includes valid paired archive
   capacity prune plus save/restore and corrupt quarantine retention. Its

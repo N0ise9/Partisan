@@ -27,12 +27,15 @@ Current state:
 - Main UI entry points now call the debug helper for setup map, command menu, shared notification toast, mission report dialogs, and loadout editor.
 - `HST_UIDebug` logs created layout roots, expected widget presence, expected widget screen bounds, z-order, opacity, flags, row samples, and data population summaries so runtime test logs can identify hidden, zero-sized, off-screen, or mis-stacked layout widgets.
 - `HST_UIRootService` owns current-screen, modal-screen, notification, topmost ownership, and modal-aware open/refresh arbitration so blocking screens cannot open underneath unrelated modals and keyboard input can ignore screens hidden under a modal. It logs every open, close, refused open, ignored close, and notification depth change with current/modal/topmost state and root widget geometry.
-- The Schema-60 player Search-and-Destroy candidate uses the existing map-target
+- The stamped Schema-60 player Search-and-Destroy source uses the existing map-target
   selection and shared confirmation modal rather than adding a new screen. Its
   first command requests an exact server quote; the confirmation row displays
   the frozen roster, $350, exact HR, and ETA, and confirms only the quote ID.
-  Candidate label `schema60-exact-search-destroy` is source state only; rendered
-  pointer/modal ordering and action replay still need the next packaged check.
+  Checkpoint label `schema60-exact-search-destroy` has source/Workbench evidence
+  only at implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
+  `2026-07-11T23:24:55Z`, and Workbench CRC `7aa80fc9`; rendered pointer/modal
+  ordering and action replay still need the next packaged check. No Schema-60 UI
+  behavior has been runtime-proven.
 
 ## File Audit
 

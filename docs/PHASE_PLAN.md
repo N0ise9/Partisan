@@ -94,8 +94,9 @@ slice. It should not rebuild the foundation.
 ## Campaign Runtime Integrity Program
 
 Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
-The active development contract is Schema 60 under candidate build label
-`schema60-exact-search-destroy`. Only newly quoted and confirmed player Search-
+The active development contract is the latest stamped source/Workbench Schema
+60 checkpoint: implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`,
+UTC `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`. Only newly quoted and confirmed player Search-
 and-Destroy support receives contract `1`: one infantry-only catalog roster,
 $350 plus HR-per-frozen-member ledger, request, separately typed operation, held
 batch, and active group remain reciprocal. Its direct route, exact casualties,
@@ -130,7 +131,7 @@ reconciliation/query/authority/diagnostic multipliers and disable AI horn timing
 output at the wheeled-vehicle base. The published server must still prove the
 observed stutter, horns, and duplicate location are fixed.
 
-Schema 59 remains the latest stamped source/Workbench boundary. Under that
+Schema 59 is the preceding stamped source/Workbench boundary. Under that
 contract every configured radio zone owns one contract-1 durable radio site,
 while contradictory current authority uses quarantine `-59`. A resolved ONLINE
 site can admit one exact destroy mission;
@@ -164,28 +165,25 @@ current linked rows while preserving coherent terminal history.
 Focused proof calls production transitions and durable evidence, rejects a
 direct second rebuild admission, proves linked quarantine cleanup, and replaces
 only projection seams.
-Schema 59 is the latest stamped source/Workbench implementation boundary at
-implementation `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21` with build label
-`schema59-radio-site-lifecycle`. The full Foundation gate passes; Workbench
-loaded 5,773 files/11,608 classes with CRC `96914c26` and reported
-`Script validation successful`. The bounded normal open stayed alive/responding
-for 10/10 samples over 20 seconds with no script-compile/crash signature; its one
-Steamworks stats-request error was nonfatal. Schema 58 remains an earlier stamped checkpoint at
+Schema 60's full Foundation gate passes with 644 symbol references. Final
+stamped Workbench Game validation loaded 5,777 files/11,615 classes with CRC
+`7aa80fc9` and created the game. The correctly targeted hidden normal WorldEditor
+stayed alive/responding for 10/10 samples over 20 seconds with no first-party
+error/crash signature; diff check was clean apart from line-ending warnings.
+Both Schema-60 Campaign Debug proof services and the typed-QRF mismatch assertion
+are compiled/wired but unexecuted. Schema 58 remains an earlier stamped checkpoint at
 implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
-`schema58-exact-rescue-pows`. Schema-59 native discovery/damage/projection,
-actual save/restart, rendered UI, campaign setup, packaged networking,
-reconnect, and JIP gates remain open. Those hashes, CRC, and passing gates do not
-certify Schema 60; the candidate's final Foundation, Workbench, normal-open,
-stamp, packaged runtime, save/restart, rendered UI, reconnect, and JIP gates are
-still open.
+`schema58-exact-rescue-pows`. No Schema-60 packaged server/client, native/live
+behavior, actual save/restart, rendered UI, stutter/horn, campaign setup,
+networking, reconnect, or JIP proof exists.
 It supersedes feature-order implications in the legacy numbered roadmap below;
 that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Schema 60 is the active candidate; Schema 59 is the latest stamped source/Workbench boundary | Finish/stamp `schema60-exact-search-destroy`, then publish and runtime-prove its exact support, location, stutter, and horn changes without inheriting Schema-59 provenance. Every native/save-restart/rendered-UI/setup/network/reconnect/JIP gate remains independently open. |
+| CRI-0: Repository truth and baseline | Schema 60 is the latest stamped source/Workbench boundary; Schema 59 is preceding | Publish and runtime-prove exact checkpoint `schema60-exact-search-destroy` at implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`/CRC `7aa80fc9`. Every packaged/native/save-restart/rendered-UI/stutter-horn/setup/network/reconnect/JIP gate remains independently open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. Pre-59 migration creates only logical unresolved sites, keeps terminal legacy radio missions at contract `0`, fails active legacy claims closed, and invents no binding, destruction, rebuild, receipt, or reward. |
-| CRI-2: Exact force manifests | Foundation complete; Schema-60 expansion candidate | Search-and-Destroy adds one frozen catalog-backed infantry root/member roster at $350 plus exact-slot HR. It rejects vehicles/assets/multi-root substitution. Existing QRF/patrol/guard/rescue/convoy shapes remain unchanged; generic realization and packaged proof remain open. |
+| CRI-2: Exact force manifests | Foundation complete; Schema-60 expansion stamped in source/Workbench | Search-and-Destroy adds one frozen catalog-backed infantry root/member roster at $350 plus exact-slot HR. It rejects vehicles/assets/multi-root substitution. Existing QRF/patrol/guard/rescue/convoy shapes remain unchanged; generic realization and packaged proof remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; ten exact family projections across eight operation types implemented in source | Schema 60 adds direct travel, exact survivor materialize/fold, bounded virtual combat, displaced-fold return to assignment, on-station hold, commander recall, and `0`/`-60` restore isolation for player Search-and-Destroy. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
 | CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Broad-alpha foundations implemented; Schema-59 radio authority implemented in source | Schema 59 gives each radio site one projection owner, borrows an authored transmitter without deletion, suppresses duplicate/resurrected targets, makes radio influence ONLINE-only, appends lifecycle status to location-plus-owner markers/UI, and restores the authored target on new-campaign reset or fails closed. Native discovery, explosives, replacement, stream re-entry, rendered marker/dialog proof, snapshot/delta/JIP authority, civilian packaged repair proof, and deeper political consequences remain open. |
 | CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; two exact enemy orders, convoy, all assassination guards, first rescue slice, and one exact purchased-garrison policy source-complete | Existing exact families retain narrow boundaries. Schema 58 adds only newly started `rescue_pows`; historical POWs, refugees, other rescue/mission families, aggregate forces, broader vehicle policy, runtime proof, mission depth, and tuning remain open. |
@@ -205,7 +203,7 @@ that roadmap remains useful for feature history and acceptance detail.
 | Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF, and exact newly queued patrol operations exist | Prove each debit/roster/policy independently: QRF defensive arrival/return and patrol generated-route contact/lap/return, exact casualties, proportional settlement, marker cleanup, restart, and long-window behavior. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, and newly started `rescue_pows` use narrow exact contracts | Runtime-prove convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 60 is the active candidate and Schema 59 the latest stamped boundary, neither packaged proof for later slices | Finish/stamp/publish Schema 60 and runtime-prove Search-and-Destroy, Maiden's Bay, stutter/horns, marker/civilian/radio, both QRFs, convoy, patrols, garrison, all assassination guards, and the three-POW rescue before JIP/reconnect, restart/migration, fault-injection, and long-soak closure. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 60 is the latest stamped source/Workbench boundary and Schema 59 is preceding, neither packaged proof for later slices | Publish Schema 60 and runtime-prove Search-and-Destroy, Maiden's Bay, stutter/horns, marker/civilian/radio, both QRFs, convoy, patrols, garrison, all assassination guards, and the three-POW rescue before JIP/reconnect, restart/migration, fault-injection, and long-soak closure. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -474,7 +472,7 @@ treated as future work:
   input is cleared. Schema 60 additionally disables horn timing/output on the
   native wheeled-vehicle base and keeps only the Logistics Warehouse at Maiden's
   Bay. These source repairs need republished behavior proof.
-- The Schema-60 performance candidate keeps pure-vehicle groups on vehicle-only
+- The stamped Schema-60 performance repair keeps pure-vehicle groups on vehicle-only
   counts, skips redundant/no-convoy global survivor work, reuses registered
   player authority in recurring enforcement, attempts one unresolved radio-site
   discovery per tick, and builds expensive visual evidence only after its log
@@ -489,11 +487,11 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Finish the Foundation, Workbench, bounded normal-open, repository-hygiene,
-   implementation, and stamp gates for candidate
-   `schema60-exact-search-destroy`. Preserve Schema 59 as the latest stamped
-   baseline until that final stamp exists; do not copy its hash or CRC forward.
-2. Publish that exact candidate and run the requested server check. Preserve
+1. Publish the exact stamped `schema60-exact-search-destroy` checkpoint and run
+   the requested server check. Tie evidence to implementation
+   `fdf78493dd15915afe8d53f61a8ad1efd65b5635` and CRC `7aa80fc9`; preserve
+   Schema 59 as the preceding checkpoint.
+2. In that server check, preserve
    stock HUD/Game Master access, require valid-sized location-plus-owner radio
    markers, pointer-over-dialog order, one authored transmitter per site, and
    correct destroy/rebuild binding. At Maiden's Bay require only the Logistics

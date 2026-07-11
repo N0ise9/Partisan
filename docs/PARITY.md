@@ -191,9 +191,14 @@
   `Script validation successful`. The bounded normal open stayed alive/
   responding for 10/10 samples over 20 seconds with no script-compile/crash
   signature; one Steamworks stats-request error was nonfatal.
-- Schema 60 is the current source/Workbench candidate under build label
-  `schema60-exact-search-destroy`; Schema 59 remains the latest stamped
-  checkpoint. Only newly quoted and confirmed player Search-and-Destroy becomes
+- Schema 60 is the latest stamped source/Workbench checkpoint under
+  implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
+  `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`; Schema 59
+  is the preceding checkpoint. Full Foundation passes with 644 symbol references;
+  final Workbench Game validation loaded 5,777 files/11,615 classes with CRC
+  `7aa80fc9` and created the game; and the correctly targeted hidden normal
+  WorldEditor stayed alive/responding 10/10 samples over 20 seconds without a
+  first-party error/crash signature. Only newly quoted and confirmed player Search-and-Destroy becomes
   the tenth exact family consumer and eighth operation type. One infantry-only
   catalog roster is frozen at $350 plus one HR per member and linked through
   quote, paired ledger, request, operation, held batch, and active group. It
@@ -212,11 +217,10 @@
   present. Expired exact-support capacity removes only a replay-valid, unique,
   backlink-free tombstone/terminal-request pair with reciprocal receipts;
   corrupt/quarantined pairs remain. The compiled/wired proof covers valid pair
-  prune/restore and corrupt retention but has not run. Schema-60 Foundation,
-  final Workbench/normal-open, packaged
-  movement/combat, actual restart, rendered UI, networking, reconnect, and JIP
-  evidence remains open; Schema-59 hashes/CRC/pass results do not transfer.
-- The same candidate represents Maiden's Bay once as the Logistics Warehouse.
+  prune/restore and corrupt retention but has not run. Diff check is clean apart
+  from line-ending warnings. Packaged movement/combat, actual restart, rendered
+  UI, stutter/horn, networking, reconnect, and JIP evidence remains open.
+- The same checkpoint represents Maiden's Bay once as the Logistics Warehouse.
   Restore cleanup is no-op when neither location row exists and fails closed
   before rewrites when location authority is ambiguous. With one authority it
   preserves canonical warehouse ownership/economy, removes the duplicate
@@ -242,7 +246,7 @@
   both ledger legs before either changes. Other visible commands still retain
   the compatibility text classifier.
 - Exact visible garrison recruitment quotes, exact player-paid infantry-QRF
-  quotes, and the Schema-60 Search-and-Destroy candidate quote.
+  quotes, and the stamped Schema-60 Search-and-Destroy source quote.
   A new policy-v2 garrison confirmation submits its accepted empty-root/
   member manifest unchanged to held exact patrol authority; historical policy-v1
   purchase provenance remains nondeployable. Paid QRF and Search-and-Destroy
@@ -381,14 +385,16 @@
 
 ## Current Verification Boundary
 
-- Schema 60 is the active candidate under build label
-  `schema60-exact-search-destroy`, but its final Foundation, Workbench, normal-
-  open, and stamped provenance are not recorded yet. Schema 59 is the latest
-  stamped source/Workbench checkpoint; its results are historical evidence, not
-  verification of Schema-60 edits or packaged behavior. The Maiden's Bay
+- Schema 60 is the latest stamped source/Workbench checkpoint under label
+  `schema60-exact-search-destroy`, with implementation
+  `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
+  `2026-07-11T23:24:55Z`, and CRC `7aa80fc9`. Schema 59 is the preceding
+  checkpoint. The Maiden's Bay
   migration fixture has compiled and is wired as
   `location_taxonomy.maidens_bay_schema60`, but Campaign Debug has not executed
-  that assertion and no packaged restore/restart evidence exists.
+  that assertion; the Search-and-Destroy proof and typed-QRF mismatch assertion
+  are also compiled/wired but unexecuted. No packaged restore/restart, rendered
+  UI, stutter/horn, or live behavior evidence exists.
 - A published schema-49 server/client check verified that normal stock HUD, Game
   Master access, map publication, and civilian traffic initialize again. This
   closes the earlier missing-config-metadata regression. The late-admin recursive
@@ -575,8 +581,8 @@
 
 ## Current Delivery Priorities
 
-- Finish and stamp the `schema60-exact-search-destroy` candidate, then publish
-  that exact package while preserving Schema 59 as the latest known checkpoint
+- Publish the exact stamped `schema60-exact-search-destroy` package while
+  preserving Schema 59 as the preceding checkpoint
   and the already restored stock HUD/Game Master behavior. Require valid-sized
   icons, location-plus-owner-plus-status
   labels, pointer-over-dialog ordering, exactly one borrowed authored

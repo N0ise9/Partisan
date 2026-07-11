@@ -192,8 +192,14 @@ Consequences:
   identity uniqueness, and absence of live backlinks must also pass. Historical
   contract-0 QRF retains minimal compatibility; malformed or quarantined typed
   pairs remain durable evidence.
-- The candidate label is `schema60-exact-search-destroy`. Schema 59 remains the
-  latest stamped checkpoint until the Schema-60 gates and final stamp complete.
+- Schema 60 is the latest stamped source/Workbench checkpoint under label
+  `schema60-exact-search-destroy`, implementation
+  `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, and UTC
+  `2026-07-11T23:24:55Z`. Full Foundation passes with 644 symbol references and
+  final Workbench Game validation records CRC `7aa80fc9` at 5,777 files/11,615
+  classes; Schema 59 is the preceding checkpoint. The stamp does not certify
+  packaged server/client, actual restart, rendered UI, stutter/horn, or live
+  behavior.
 - The compiled/wired Campaign Debug proof also covers valid paired capacity
   prune/restore and corrupt quarantine retention, but none of its Schema-60
   assertions has run. The casualty/fold/immediate-recall case mutates synthetic

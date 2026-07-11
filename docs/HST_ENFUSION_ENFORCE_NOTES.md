@@ -3603,9 +3603,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Schema 60 Exact Player Search-And-Destroy
 
-- The active candidate build label is `schema60-exact-search-destroy`. Schema 59
-  remains the latest stamped source/Workbench checkpoint; never reuse its hash,
-  CRC, or passing gate as Schema-60 evidence.
+- Schema 60 is the latest stamped source/Workbench checkpoint. Its exact
+  provenance is implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`,
+  UTC `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, Foundation
+  pass with 644 symbol references, and final Workbench CRC `7aa80fc9` at 5,777
+  files/11,615 classes. The correctly targeted hidden normal WorldEditor stayed
+  alive/responding for 10/10 samples over 20 seconds without a first-party error
+  or crash signature. Schema 59 is the preceding checkpoint. These gates do not
+  prove packaged server/client, actual restart, rendered UI, stutter/horn, or
+  live behavior.
 
 - Only a newly issued and confirmed
   `HST_SUPPORT_SEARCH_AND_DESTROY` quote enters the exact contract. Use quote kind
