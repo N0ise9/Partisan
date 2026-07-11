@@ -92,9 +92,11 @@
   variants, and every remaining mission family remain contract `0`; pre-55
   migration invents nothing. Malformed current rows use version `-55` quarantine
   without fallback or HVT failure. The existing HVT marker/UI row reports guard
-  strength. Workbench compile/open, native projection/casualties, save/restart,
-  rendered UI, owner-change, campaign-setup, networking, reconnect, and JIP
-  proof remain open.
+  strength. The stamped Schema-55 tree passes foundation, clean Workbench Game
+  validation at 5,763 files/11,570 classes with CRC `0ec8950e`, and a ten-sample/
+  20-second normal WorldEditor open. Native projection/casualties, save/restart,
+  rendered UI, owner-change, campaign-setup, packaged networking, reconnect, and
+  JIP proof remain open.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -261,13 +263,12 @@
   no operation, movement, fold, virtual-combat, or restart evidence for this
   slice. Schema 51 adds deterministic fixtures for exact enemy defensive-QRF
   admission, legacy isolation, projection, return/settlement, restore, and
-  rejection, but none has executed in a packaged runtime. The stamped schema-54
-  tree identifies implementation `09a1470a4c27dbef866e8cbdba182a7df65fa027` and
-  has clean headless Game-module compile/create evidence at 5,760 files/11,560
-  classes with CRC `c62de929`, plus a ten-sample/20-second normal WorldEditor
+  rejection, but none has executed in a packaged runtime. The stamped schema-55
+  tree identifies implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`
+  and has clean headless Game-module validation evidence at 5,763 files/11,570
+  classes with CRC `0ec8950e`, plus a ten-sample/20-second normal WorldEditor
   open. This is current source/Workbench evidence, not packaged behavior proof.
-  Schema 54 has no packaged behavior evidence. Schema 55 does not yet claim its
-  own stamped implementation/CRC or Workbench compile/open result.
+  Schemas 54 and 55 have no packaged behavior evidence.
 - Schema 52 adds the exact mission-convoy aggregate in source. No packaged run has yet proved its
   three physical vehicles/crews, virtual route movement, materialization/fold,
   exact casualty persistence, arrival/outcome settlement, marker cleanup, or

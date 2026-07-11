@@ -3065,10 +3065,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
     actual adapter handles/casualties, physical return-to-anchor behavior, real
     save/restart, rendered UI, owner-change, campaign-setup, packaged networking,
     reconnect, or JIP.
-  - Schema 55 has no final implementation commit, Workbench CRC/file/class count,
-    or compile/open evidence recorded in this section yet. Preserve the stamped
-    Schema-54 evidence above until the Schema-55 gates are actually run; do not
-    promote source fixtures into runtime certification.
+  - The stamped Schema-55 tree identifies implementation
+    `552c2c4ff5ac7608fa248c614480a254769b61a4`. The full foundation gate passes;
+    Workbench Game validation loads 5,763 files/11,570 classes with CRC
+    `0ec8950e`, and a normal WorldEditor open remains alive for ten samples over
+    20 seconds without a crash signature. This is source/Workbench evidence;
+    never promote it or the source fixtures into packaged runtime certification.
 
 - After Schema 55 is stamped, the next narrow blueprint target is guard infantry
   for newly started `assassinate_traitor` missions only. This is a planned

@@ -222,9 +222,13 @@ be read as proof that a later change was executed or certified.
   status and no duplicate operation marker is published. Focused
   `mission_guard.*` source fixtures cover admission/isolation, survivor/HVT
   separation, typed settlement, restore/migration, corruption quarantine, and
-  marker status. Schema-55 Workbench compile/open, native entities, real adapter
-  bindings/casualties, actual save/restart, rendered marker/UI, owner-change,
-  campaign-setup, networking, reconnect, and JIP remain open proof gates.
+  marker status. The stamped Schema-55 tree identifies implementation
+  `552c2c4ff5ac7608fa248c614480a254769b61a4`, passes the full foundation gate,
+  clean Workbench Game validation at 5,763 files/11,570 classes with CRC
+  `0ec8950e`, and a ten-sample/20-second normal WorldEditor open. Native entities,
+  real adapter bindings/casualties, actual save/restart, rendered marker/UI,
+  owner-change, campaign-setup, packaged networking, reconnect, and JIP remain
+  open proof gates.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -1072,10 +1076,11 @@ Unproven or incomplete against the pasted contract:
   samples over 20 seconds without a crash signature. Schema 54 has not been
   packaged or executed as gameplay proof. Source/compile/open gates are not
   packaged runtime certification.
-- Schema 55 is implemented in the current source tree, but this audit does not
-  claim a final Schema-55 implementation commit, CRC, class/file count, Workbench
-  compile/open, or packaged-runtime result yet. Its focused source proofs and
-  foundation checks must be executed and stamped before they become verification
-  evidence. Native projection/casualty behavior, real save/restart, rendered HVT
-  guard status, owner-change, campaign-setup, networking, reconnect, and JIP
-  remain mandatory packaged gates.
+- The stamped Schema-55 tree identifies implementation
+  `552c2c4ff5ac7608fa248c614480a254769b61a4`. Its focused source proofs and full
+  foundation gate pass; Workbench Game validation loads 5,763 files/11,570
+  classes with CRC `0ec8950e`, and a normal WorldEditor open remains alive for
+  ten samples over 20 seconds without a crash signature. Native projection/
+  casualty behavior, real save/restart, rendered HVT guard status, owner-change,
+  campaign-setup, packaged networking, reconnect, and JIP remain mandatory
+  packaged gates.

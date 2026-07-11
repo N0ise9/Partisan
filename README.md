@@ -261,9 +261,13 @@ The repository contains a broad-alpha campaign foundation:
   and projects a diagnostic instead of substituting legacy guards.
   The existing HVT marker/UI row reports authoritative guard strength; no
   second marker is added. Deterministic fixtures are source evidence only;
-  Schema-55 Workbench compile/open, native entity/adapter/casualty behavior,
-  actual save/restart, rendered marker/UI, owner-change, campaign-setup,
-  networking, reconnect, and JIP proof remain open for this slice.
+  the stamped Schema-55 tree identifies implementation
+  `552c2c4ff5ac7608fa248c614480a254769b61a4`, passes the full foundation gate,
+  and passes clean Workbench Game validation at 5,763 files/11,570 classes with
+  CRC `0ec8950e`; a normal WorldEditor open also remained alive for ten samples
+  over 20 seconds. Native entity/adapter/casualty behavior, actual save/restart,
+  rendered marker/UI, owner-change, campaign-setup, packaged networking,
+  reconnect, and JIP proof remain open for this slice.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -517,14 +521,15 @@ The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also
 evidence for the newly reported marker, cursor, radio, classification,
 appearance, horn, and military/civilian activation defects—not proof of the
-schema-50 repairs. The final stamped schema-54 tree identifies implementation
-`09a1470a4c27dbef866e8cbdba182a7df65fa027` and passes a clean headless
-Workbench Game-module compile/create at 5,760 files/11,560 classes with CRC
-`c62de929`; a normal WorldEditor open then remained alive for all ten samples over
+schema-50 repairs. The final stamped schema-55 tree identifies implementation
+`552c2c4ff5ac7608fa248c614480a254769b61a4` and passes a clean headless
+Workbench Game-module compile/create at 5,763 files/11,570 classes with CRC
+`0ec8950e`; a normal WorldEditor open then remained alive for all ten samples over
 20 seconds with no crash signature. This is source/Workbench evidence, not
 packaged gameplay proof. A republished server/client test is still required
 before those repairs, either exact-QRF projection path, or any source-validated
-schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol path
+schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/
+schema-55 officer-guard path
 is called runtime-proven. The late-admin
 role-change guard, campaign-debug
 isolation, convoy seating, physical support movement/arrival/recall, and restart

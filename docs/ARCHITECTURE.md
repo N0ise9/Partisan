@@ -478,9 +478,12 @@ families remain contract `0`; pre-55 migration invents nothing. Malformed curren
 rows quarantine at `-55` without a legacy fallback, HVT backlink, guessed death,
 or refund, and the diagnostic quarantine leaves the HVT mission playable. The
 existing HVT marker and mission UI project guard strength instead of adding
-another marker. Workbench compile/open, native entity/adapter/casualty behavior,
-save/restart, rendered UI, owner-change, campaign-setup, networking, reconnect,
-and JIP proof remain open.
+another marker. The stamped Schema-55 tree identifies implementation
+`552c2c4ff5ac7608fa248c614480a254769b61a4`, passes the full foundation gate and
+clean Workbench Game validation at 5,763 files/11,570 classes with CRC
+`0ec8950e`, and survives a ten-sample/20-second normal WorldEditor open. Native
+entity/adapter/casualty behavior, save/restart, rendered UI, owner-change,
+campaign-setup, packaged networking, reconnect, and JIP proof remain open.
 The next planned mission-force cutover is guard infantry for newly started
 `assassinate_traitor` missions only. This is a target, not a schema-56
 implementation claim; `assassinate_specops` and all other mission families stay
@@ -495,7 +498,7 @@ legacy until separately versioned.
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Both QRFs, exact enemy patrol, policy-v2 purchased-garrison patrol, and exact officer-mission guard begin held and release only durable living member slots; each empty root contributes no authored members. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Confirmed casualties remain retired across transfer/restore. Generic vehicle/asset/multi-root, historical mission guards, and historical aggregate-garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Operation lifecycle | Schemas 50-54 retain player QRF, enemy QRF, exact convoy, enemy-patrol, and purchased-garrison behavior. Schema 55 adds a route-less on-station officer-mission guard with exact survivor transfer, HVT-independent `DESTROYED`, typed zero-refund mission/owner/spawn settlement, conservative restore, existing-HVT marker/UI status, and `-55` quarantine that preserves a playable HVT. Historical missions and every other support/order family remain outside these contracts. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | The stamped schema-54 tree identifies implementation `09a1470a4c27dbef866e8cbdba182a7df65fa027` and passes foundation, clean Workbench Game compile/create at 5,760 files/11,560 classes with CRC `c62de929`, and a ten-sample/20-second normal WorldEditor open. That historical evidence does not verify the current schema-55 tree. Schema-55 Workbench compile/open and all packaged native movement/casualty/fold, guard/HVT settlement, save/restart, rendered marker/UI, owner-change, campaign-setup, networking, reconnect, and JIP behavior remain open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | The stamped schema-55 tree identifies implementation `552c2c4ff5ac7608fa248c614480a254769b61a4` and passes foundation, clean Workbench Game compile/create at 5,763 files/11,570 classes with CRC `0ec8950e`, and a ten-sample/20-second normal WorldEditor open. This is source/Workbench evidence only. Packaged native movement/casualty/fold, guard/HVT settlement, save/restart, rendered marker/UI, owner-change, campaign-setup, networking, reconnect, and JIP behavior remain open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit

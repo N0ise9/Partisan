@@ -77,9 +77,11 @@
   real adapter bindings and casualties, physical return-to-anchor behavior,
   actual process restart, rendered UI, packaged multiplayer, reconnect, and JIP
   remain open until a scoped packaged run proves them. Owner-change and campaign-
-  setup settlement are also open engine/runtime gates. Workbench compile/open
-  evidence for Schema 55 is pending this implementation pass; no final commit,
-  CRC, file count, or class count is claimed here yet.
+  setup settlement are also open engine/runtime gates. The stamped Schema-55
+  tree identifies implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`,
+  passes the full foundation gate and clean Workbench Game validation at 5,763
+  files/11,570 classes with CRC `0ec8950e`, and survives a ten-sample/20-second
+  normal WorldEditor open. Those results are not packaged behavior proof.
 
 - After Schema 55 is stamped, the next planned narrow cutover is guard infantry
   for newly started `assassinate_traitor` missions only. This is not a Schema-56

@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "09a1470a4c27dbef866e8cbdba182a7df65fa027";
-	static const string BUILD_UTC = "2026-07-11T10:21:27Z";
-	static const string BUILD_LABEL = "schema54-exact-garrison-patrol";
+	static const string BUILD_SHA = "552c2c4ff5ac7608fa248c614480a254769b61a4";
+	static const string BUILD_UTC = "2026-07-11T11:57:42Z";
+	static const string BUILD_LABEL = "schema55-exact-mission-guard";
 
 	static string BuildSummary()
 	{
