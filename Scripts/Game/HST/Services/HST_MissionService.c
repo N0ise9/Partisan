@@ -4,12 +4,18 @@ class HST_MissionService
 
 	protected ref array<ref HST_MissionDefinition> m_aDefinitions;
 	protected ref array<string> m_aLastExpiredMissionIds;
+	protected HST_RadioSiteLifecycleService m_RadioSites;
 	protected int m_iNextInstanceId = 1;
 
 	void HST_MissionService()
 	{
 		m_aDefinitions = HST_DefaultCatalog.CreateMissionRegistry();
 		m_aLastExpiredMissionIds = {};
+	}
+
+	void SetRadioSiteLifecycleService(HST_RadioSiteLifecycleService radioSites)
+	{
+		m_RadioSites = radioSites;
 	}
 
 	HST_MissionDefinition FindDefinition(string missionId)
@@ -67,6 +73,13 @@ class HST_MissionService
 				return false;
 		}
 
+		if (HST_RadioSiteLifecycleService.IsSupportedMissionId(missionId))
+		{
+			string radioFailure;
+			if (!m_RadioSites || !m_RadioSites.CanStartMission(state, missionId, targetZoneId, radioFailure))
+				return false;
+		}
+
 		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
 		{
 			if (!activeMission || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
@@ -105,6 +118,14 @@ class HST_MissionService
 		foreach (string capabilityId : definition.m_aRequiredCapabilities)
 		{
 			if (!preset.HasCapability(capabilityId))
+				return false;
+		}
+
+		// Debug/forced starts may bypass balance gates, never durable site state.
+		if (HST_RadioSiteLifecycleService.IsSupportedMissionId(missionId))
+		{
+			string radioFailure;
+			if (!m_RadioSites || !m_RadioSites.CanStartMission(state, missionId, targetZoneId, radioFailure))
 				return false;
 		}
 

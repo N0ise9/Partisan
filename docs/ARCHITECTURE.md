@@ -4,7 +4,7 @@
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through schema-58 authority services are:
+schema-42 through schema-59 authority services are:
 
 - `HST_StableIdService`: allocates persisted, monotonic IDs for generated
   commands and events, and builds deterministic operation/transaction links.
@@ -228,6 +228,52 @@ schema-42 through schema-58 authority services are:
   hitch-stable outcome/grace and disconnect policy, and restore/quarantine. It
   does not claim native entities, natural combat, vehicle seats, real process
   restart, rendered UI, networking, reconnect, or JIP.
+- `HST_RadioSiteLifecycleService`: owns the Schema-59 contract-1 radio-site
+  aggregate for every configured radio zone. One stable site/zone/target
+  identity owns transmitter binding, ONLINE/DESTROYED/REBUILDING lifecycle,
+  the active exact destroy-or-stop-rebuild mission lock, typed transition
+  request, revision, and destruction/rebuild receipts. A uniquely discovered
+  supported authored transmitter is borrowed and never deleted. Its immutable
+  authored prefab/position provenance remains separate from the mutable current
+  projection descriptor across generated-ownership handoff; each exact mission
+  asset snapshots that ownership and authored provenance at admission. Its
+  retained multiphase damage object is the physical evidence source, and no initial
+  generated fallback is invented when binding is absent or ambiguous. After a
+  completed rebuild, the campaign owns one generated replacement while any
+  authored resurrection is suppressed. Permanent generated ONLINE projections
+  disable verbose witness logging and keep nearby-entity scans dormant until an
+  exact mission identity is configured. The service alone creates or retires
+  radio projections, so generic mission runtime and zone composition cannot
+  place a second tower beside the canonical target. A new-campaign reset must
+  reacquire and restore the authored transmitter before the state swap or reject
+  the reset without abandoning the old campaign. Physical destroy/heal/rollback
+  writes are verified. Authored identity uses a 0.75-meter tolerance, while
+  physical projection evidence allows the bounded 12-meter safe-ground offset.
+  A streamed-out borrowed target moves reciprocal mission/asset/runtime flags to
+  an explicit pending phase without manufacturing destruction.
+- `HST_RadioSiteSaveValidationService`: conservatively creates only logical
+  ONLINE/unresolved sites for pre-59 saves, leaves historical terminal radio
+  missions at contract `0`, fails active legacy radio claims closed, validates
+  exact reciprocal mission/asset/site authority, distinct stable-site versus
+  unique per-mission physical runtime identities, frozen physical bindings,
+  persisted bounded demolition-evidence keys, mission-time ownership snapshots,
+  and receipt/status/lifecycle evidence. Generated ONLINE state additionally
+  requires destruction followed by completed-rebuild provenance. It quarantines
+  contradictory current strong claimants at `-59` without inventing target
+  binding, physical destruction, rebuild completion, receipts, or rewards.
+  Current corrupt aggregates fail and clean up together; coherent already-
+  terminal historical outcomes keep their terminal meaning.
+- `HST_RadioSiteLifecycleProofService`: contributes six `radio_site.*`
+  source assertions for binding/admission isolation, all lifecycle outcomes,
+  replay/stale revision behavior, restore/migration/quarantine, influence
+  suppression, and borrowed/generated ownership with construction-equipment
+  targeting. The harness calls the production admission, durable evidence, and
+  outcome transitions, rejects direct repeat rebuild admission, checks linked
+  quarantine cleanup, and replaces only physical projection seams. Native
+  authored discovery, natural explosive damage, damage-state reapplication,
+  generated replacement,
+  streaming re-entry, real save/restart, rendered UI, networking, reconnect,
+  and JIP remain packaged-runtime gates.
 - `HST_MissionAssetComponent` publishes a minimal replicated rescue-action DTO
   (evaluated, exact contract, disposition, active, quarantine, revision).
   `HST_MissionCaptiveActionPolicy` fails closed while that classification is
@@ -427,11 +473,11 @@ The remaining domain services are:
   durable survivor count. Forces UI reports exact patrol infantry separately
   from legacy aggregate infantry; neither presentation owns the roster.
 - `HST_ZoneCompositionService`: runtime alpha composition slots for zone and
-  mission physicalization diagnostics. Radio-site composition now retains a
-  nearby intact authored transmitter instead of spawning a parallel tower; the mission
-  runtime can borrow that damageable entity for destroy-target tracking without
-  deleting it during generic cleanup. Generated towers remain a fallback for a
-  missing or destroyed authored transmitter, including rebuild outcomes.
+  mission physicalization diagnostics. Schema 59 removes radio transmitters
+  from this generic owner's spawn and cleanup authority. The radio-site service
+  binds exactly one authored target when uniquely discoverable, never deletes a
+  borrowed authored entity, and creates a generated transmitter only after a
+  rebuild actually completes; unresolved initial sites receive no fallback.
 
 Static marker rendering has a separate client lifecycle boundary. A small
 manager patch retries root creation before the stock static-marker update and
@@ -624,6 +670,34 @@ anchor, command receipts, custody/grace rules, damage-only death, exact
 extraction receipts, and mission-owned terminal mapping remain authoritative;
 historical POWs, refugees, and other mission families stay contract `0`.
 
+Schema 59 adds a separate exact strategic-site owner rather than another force
+family. Each radio zone receives one durable site row. A destroy mission may
+start only from a resolved ONLINE site and succeeds only after physical target
+destruction. Borrowed authored-target destruction must match the reciprocal
+active site/mission lock and revision, an authoritative DESTROYED damage manager,
+and the frozen projection. Generated-target explosive scoring additionally needs
+a live matching mission component, a bounded physical position, and a unique key
+in the persisted bounded evidence set. Mission-time ownership/provenance prevents
+later ownership handoff from relabeling that evidence. Success moves the site
+to DESTROYED and suppresses its town influence. A stop-rebuild mission may start
+only once for a given tower-destruction epoch, moves the site to REBUILDING on
+admission, and targets construction equipment rather than a second transmitter.
+Destroying that equipment records the rebuild attempt and returns the site to
+DESTROYED without advancing the tower-destruction epoch; mission failure,
+expiry, or campaign stop completes the rebuild and returns one campaign-
+generated transmitter to ONLINE. The stable site target ID never doubles as a
+mission projection handle: every mission owns a unique physical runtime-entity
+ID. Every accepted admission or outcome uses a deterministic request, typed
+from/to states, receipt, and monotonic revision. Generic mission runtime, zone
+composition, objective ticks, commander progress, and generic failure settlement
+skip exact and quarantined radio aggregates. Missing borrowed projections enter
+an explicit dormant pending phase; broken reciprocal runtime rows quarantine.
+Generated ONLINE restore requires a coherent destruction receipt followed by a
+completed-rebuild receipt. Packaged proof of authored discovery, natural
+explosives, damage reapplication, generated
+replacement, stream re-entry, real restart, rendered markers/UI, networking,
+reconnect, and JIP remains open.
+
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
 | Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. Schema 58 additionally binds the rescue operation/guard graph to three deterministic captive slots, one frozen extraction position, and stable escort, carrier, seat, command, casualty, extraction, and projection evidence. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
@@ -633,7 +707,7 @@ historical POWs, refugees, and other mission families stay contract `0`.
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Both QRFs, exact enemy patrol, policy-v2 purchased-garrison patrol, and all three exact assassination guards begin held and release only durable living member slots; each empty root contributes no authored members. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Confirmed casualties remain retired across transfer/restore. Generic vehicle/asset/multi-root, historical mission guards, and historical aggregate-garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Operation lifecycle | Schemas 50-57 retain their exact paths. Schema 58 adds the route-less mission-rescue type: guard survivors fold independently; HELD/FREED captives virtualize without simulated damage; custody stays projected; casualty and three-receipt HQ extraction decide failure/success; grace and terminal settlement are typed and replay-safe. Historical POWs and unsupported families remain outside the contract. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | Schema 58 is the current stamped source/Workbench baseline: implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869`, label `schema58-exact-rescue-pows`, and a passing full foundation gate. The final stamped tree passed Workbench Game validation at 5,770 files/11,594 classes with CRC `aa73883a` and `Script validation successful`; its normal WorldEditor open stayed alive for 10/10 samples over 20 seconds with zero crash/error matches. These are source/compiler/startup gates only. Native guard/captive entities, adapter casualties, vehicle seating, actual save/restart, rendered UI, owner-change, campaign setup, packaged networking, reconnect, and JIP remain open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Schema 59 is the current source/Workbench implementation boundary; its exact implementation hash, build label, final foundation result, Workbench CRC, and normal-open evidence are recorded with the stamp commit. Schema 58 remains the preceding stamped checkpoint at implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869`, label `schema58-exact-rescue-pows`. All Schema-59 native radio projection, natural-damage, real save/restart, rendered UI, packaged networking, reconnect, and JIP behavior remains independently open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit
@@ -949,8 +1023,10 @@ HQ knowledge feeds HQ threat, Defend Petros, markers, and campaign-end pressure;
 civilian town support and undercover enforcement feed wanted heat, roadblock and
 police scans, and HQ exposure. Civilian render eligibility is separate from the
 hostile military activation bit so HQ safety does not erase nearby town life.
-Radio compositions prefer an existing world transmitter, and radio destroy
-missions can borrow it as their tracked damage target. Loot, vehicle cargo,
+Schema-59 radio sites borrow one uniquely resolved authored transmitter and
+route destroy/rebuild missions through their durable lifecycle owner; generic
+composition and mission runtime cannot create or delete that projection. Loot,
+vehicle cargo,
 virtual garage, build
 placement, vehicle capability classification, and loadout editor systems are
 owned by campaign state instead of stock arsenal behavior. Mission success,

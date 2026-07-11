@@ -83,6 +83,13 @@ class HST_ZoneCompositionService
 			if (prefab.IsEmpty())
 				continue;
 
+			if (prefab == PROP_DESTROY_TARGET && HST_RadioSiteLifecycleService.IsExactSiteZone(state, zone.m_sZoneId))
+			{
+				// Schema 59 radio lifecycle is the sole owner of exact-site projections.
+				RecordSkip(zone.m_sZoneId, slot.m_sSlotId, prefab, slot.m_vPosition, "exact radio lifecycle owns transmitter projection");
+				continue;
+			}
+
 			if (ShouldSkipRadioTowerStaticForMissionTarget(state, zone, slot, prefab))
 			{
 				RecordSkip(zone.m_sZoneId, slot.m_sSlotId, prefab, slot.m_vPosition, "active mission target owns radio tower");
@@ -135,7 +142,9 @@ class HST_ZoneCompositionService
 				continue;
 
 			IEntity entity = m_aRuntimeEntities[i];
-			if (entity)
+			// Never delete a transmitter through composition cleanup. Schema 59 may
+			// have adopted it as a borrowed world projection after it was recorded.
+			if (entity && m_aRuntimePrefabs[i] != PROP_DESTROY_TARGET)
 				SCR_EntityHelper.DeleteEntityAndChildren(entity);
 
 			m_aRuntimeZoneIds.Remove(i);

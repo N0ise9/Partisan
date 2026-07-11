@@ -4999,7 +4999,9 @@ class HST_CommandUIService
 		if (mission.m_sMissionId == "assassinate_officer")
 			return "Find the marked officer and kill them.";
 		if (mission.m_sMissionId == "destroy_radio_tower")
-			return "Use rockets, mines, demo charges, or other explosives to demolish the marked radio tower.";
+			return "Use explosives to physically destroy the single bound transmitter. Generic sabotage confirmation is not accepted.";
+		if (mission.m_sMissionId == "dynamic_stop_tower_rebuild")
+			return "Destroy the marked construction equipment before the replacement transmitter comes online.";
 		if (mission.m_sMissionId == "support_city_supplies")
 			return "Pick up FIA supplies at HQ and deliver them to the town.";
 		if (mission.m_sMissionId == "logistics_resource_cache")
@@ -5033,6 +5035,15 @@ class HST_CommandUIService
 			return BuildConvoyNextStepText(state, mission);
 		if (HST_RescuePOWOperationService.IsExactMission(mission))
 			return BuildExactRescueNextStepText(state, mission);
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+		{
+			string status = HST_RadioSiteLifecycleService.BuildStatusText(state, mission.m_sTargetZoneId);
+			if (HST_RadioSiteLifecycleService.IsQuarantinedMission(mission))
+				return "Radio-site authority is quarantined; this mission cannot apply an outcome.";
+			if (mission.m_sMissionId == "dynamic_stop_tower_rebuild")
+				return "Site " + status + ". Destroy the marked construction equipment with explosives before rebuilding finishes.";
+			return "Site " + status + ". Physically destroy the bound transmitter with explosives; generic sabotage is disabled.";
+		}
 
 		if (AreMissionObjectivesComplete(state, mission))
 			return "Mission objectives complete. Rewards and cleanup will process on the next campaign tick.";

@@ -481,6 +481,10 @@ class HST_TownService
 		{
 			if (!radioZone || radioZone.m_eType != HST_EZoneType.HST_ZONE_RADIO_TOWER)
 				continue;
+			// Only the durable ONLINE transmitter authority may emit a broadcast.
+			// Offline nearer sites are skipped so a farther eligible site can win.
+			if (!HST_RadioSiteLifecycleService.IsBroadcastOperational(state, radioZone.m_sZoneId))
+				continue;
 			if (!HST_FactionRelationService.IsResistanceFaction(preset, radioZone.m_sOwnerFactionKey) && !HST_FactionRelationService.IsEnemyFaction(preset, radioZone.m_sOwnerFactionKey))
 				continue;
 

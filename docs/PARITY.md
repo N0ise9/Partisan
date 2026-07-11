@@ -152,14 +152,37 @@
   conflict events are `migration_schema58_exact_rescue_pows` and
   `normalization_schema58_exact_rescue_pows_conflict`. Source proof does not
   claim packaged native entities, vehicle seats, restart, rendered UI, owner
-  change, setup, networking, reconnect, or JIP. Schema 58 is the current stamped
-  source/Workbench baseline at implementation
+  change, setup, networking, reconnect, or JIP. Schema 58 is the preceding
+  stamped source/Workbench baseline at implementation
   `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
   `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-
   tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
   `aa73883a` and `Script validation successful`; the bounded hidden normal
   WorldEditor open stayed responsive for 10/10 samples over 20 seconds with zero
   crash/error matches.
+- Schema 59 adds one contract-1 durable radio site per configured radio zone and
+  quarantine `-59` for contradictory current authority. One stable site/zone/
+  target identity owns ONLINE, DESTROYED, and REBUILDING state, the active exact
+  destroy-or-stop-rebuild mission lock, deterministic typed transitions,
+  revisions, and destruction/rebuild receipts. Immutable authored prefab/
+  position provenance remains distinct from the mutable current projection, and
+  each admitted mission snapshots ownership/provenance. The site target identity
+  remains stable while each exact mission gets a unique physical runtime-entity
+  ID. A supported retained multiphase-damage transmitter is borrowed only when
+  uniquely discoverable and is never deleted; an unresolved initial site
+  receives no generated fallback. Destroy success requires exact physical target
+  evidence and disables radio influence. Stop-rebuild targets construction
+  equipment once per tower-destruction epoch; success keeps the site destroyed
+  and does not advance that epoch, while failure, expiry, or campaign stop
+  creates one campaign-owned ONLINE replacement. Bounded durable evidence-key
+  dedupe, checked physical writes, explicit borrowed projection-pending state,
+  and destruction-plus-rebuild restore provenance fail closed. Generic mission
+  runtime, zone composition, objective ticks, commander progress, and generic
+  failure settlement cannot create, delete, or mutate the exact authority. Six
+  production-transition source-proof categories cover the state boundary
+  through projection-only seams. Native discovery, natural explosives, damage
+  reapplication, generated replacement, stream re-entry, actual save/restart,
+  rendered UI, setup, packaged networking, reconnect, and JIP remain open.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -417,14 +440,31 @@
   casualty/success/grace outcomes, and restore/quarantine. The queue executes
   only group/member slots; the rescue service owns three captive rows. Missing
   entities never imply death, HQ is the only extraction point, and configured
-  target-town support uses the normal once-only reward path. This is the current
-  stamped source/Workbench baseline at implementation
+  target-town support uses the normal once-only reward path. This is the
+  preceding stamped source/Workbench baseline at implementation
   `f0ba07ff2bc295d12542a3ea34b4c913e99b1869`, label
   `schema58-exact-rescue-pows`. Final stamped-tree Workbench validation loaded
   5,770 files/11,594 classes with CRC `aa73883a` and
   `Script validation successful`; its bounded normal open passed 10/10 samples
   over 20 seconds with zero crash/error matches. Native/packaged/restart/rendered-UI/owner-change/
   setup/network/reconnect/JIP proof remains open.
+- Schema 59 moves radio transmitters and both radio mission IDs out of generic
+  composition/runtime ownership. The exact lifecycle preserves a borrowed
+  authored target, prevents parallel towers, records physical destruction,
+  makes influence ONLINE-only, represents an active rebuild with construction
+  equipment, and creates a generated replacement only when rebuild settlement
+  actually returns the site ONLINE. One rebuild-stop attempt is allowed per
+  destruction epoch, equipment destruction does not mint a new epoch, direct
+  evidence requires reciprocal lock/component/position/provenance checks plus a
+  unique persisted bounded key, and every mission projection has an identity
+  distinct from the stable site target. A
+  new-campaign reset restores the authored target or fails closed; a permanent
+  generated ONLINE projection disables verbose witness logging and keeps its
+  nearby-entity scan dormant until exact mission identity exists. Source proofs
+  cover admission, every outcome, replay/stale revision, durable evidence,
+  repeat-admission rejection, linked restore/migration/quarantine cleanup,
+  influence, and ownership handoff through projection-only seams;
+  the native and packaged runtime boundary remains open.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
@@ -461,13 +501,16 @@
 
 ## Current Delivery Priorities
 
-- Publish and test the stamped Schema-58 build with exact POW-rescue plus officer-,
-  traitor-, and spec-ops-guard diagnostics while preserving the historical
-  Schema-57 checkpoint and proving the schema-50
-  marker/dialog/radio corrections and
-  preserving the already restored stock HUD and Game Master behavior. Require
-  valid-sized icons, location-plus-owner labels, pointer-over-dialog ordering,
-  one transmitter at authored sites, and correct radio destroy-target binding.
+- Stamp, publish, and test the Schema-59 build while preserving the preceding
+  Schema-58 exact-rescue checkpoint and the already restored stock HUD/Game
+  Master behavior. Require valid-sized icons, location-plus-owner-plus-status
+  labels, pointer-over-dialog ordering, exactly one borrowed authored
+  transmitter, reciprocal physical destroy evidence with 0.75-meter authored
+  identity versus 12-meter safe-ground projection tolerance, offline influence
+  suppression, one construction-equipment stop-rebuild attempt per destruction
+  epoch, no epoch renewal from stopped equipment, pending-stream recovery,
+  linked quarantine cleanup, new-campaign authored-target restoration, and one
+  generated replacement only when the rebuild completes.
 - Re-run civilian town/locality activation and require zero unregistered member-
   state RPCs, distinct appearances, five moving traffic vehicles per true town,
   two pedestrians at the minor woodland locality, no stuck horns, and Figari/
@@ -475,7 +518,7 @@
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
-- Runtime-prove the schema-43 through schema-58 authority chain: exact training,
+- Runtime-prove the schema-43 through schema-59 authority chain: exact training,
   garrison, paid-QRF, queue/handoff, strategic travel, materialization/fold
   hysteresis, exact casualty/survivor transfer, bounded virtual combat,
   operation migration, settlement archive replay, typed recall receipt status,
@@ -538,6 +581,18 @@
   three-receipt HQ success, custody-only grace, actual save/restart, owner change,
   campaign setup, packaged networking, reconnect, and JIP. Historical POWs,
   `rescue_refugees`, and unsupported rescue families must remain contract `0`.
+- Runtime-prove the Schema-59 radio-site lifecycle: unique authored discovery,
+  no duplicate projection, natural explosive destruction, offline influence,
+  reciprocal lock/component/position/provenance evidence, bounded durable
+  evidence-key dedupe, checked physical writes, unique per-mission physical IDs,
+  one stop-rebuild equipment attempt per destruction epoch without epoch renewal,
+  failure/expiry replacement with dormant unbound witness scanning, authored-target
+  restoration on new-campaign reset, damaged-state reapplication, stream re-
+  entry, pending borrowed-projection recovery, linked quarantine closure,
+  current and migrated save/restart, marker/UI status, setup, packaged
+  networking, reconnect, and JIP. Missing or ambiguous initial targets must
+  remain unresolved rather than generating a substitute; projection-seam source
+  proof is not packaged verification.
 - Prove static marker widget readiness and implement authoritative host/client/
   late-join snapshot, revision, delete, acknowledgement, and resync behavior.
 - Runtime-prove both exact-QRF `OperationRecord` policies: player virtual combat/
@@ -547,8 +602,9 @@
   simulation without treating source implementation as packaged proof.
 - Continue the implementation blueprint with one explicitly versioned mission-
   force consumer at a time. Schema 57 exhausts assassination guards and Schema
-  58 implements only the first rescue slice. Other rescue and unsupported
-  mission families remain legacy. Packaged schema-50 through schema-58
+  58 implements only the first rescue slice; Schema 59 separately exactifies
+  radio-site identity and lifecycle. Other rescue and unsupported mission
+  families remain legacy. Packaged schema-50 through schema-59
   certification remains independently required.
 
 ## Next Playable Expansion

@@ -65,14 +65,24 @@ be read as proof that a later change was executed or certified.
   runtime index, rejects invalid placed icons, and labels zones as
   `Location | Owner: Faction`. Map-target prompts/dialogs now live below the
   native workspace pointer, so the pointer should remain visible over Confirm.
-  Radio-zone composition retains an existing transmitter, and radio destroy
-  missions borrow that entity without deleting it during generic cleanup.
-  Authored-transmitter detection first recognizes a map descriptor whose base
-  type is `MDT_TRANSMITTER`, then uses the transmitter prefab token as a fallback
-  for stock wrapper entities; generated or mission-prefab towers remain fallbacks
-  only when no intact, damageable transmitter exists. These fixes are source-
-  validated only and require the requested republished map/dialog/radio mission
-  check.
+  Schema 59 now makes the radio lifecycle service the sole projection owner.
+  Radio-zone composition and generic mission runtime never create, repair,
+  complete, or delete an exact/quarantined transmitter. One unambiguous authored
+  entity is borrowed and frozen without deletion ownership. Immutable authored
+  prefab/position provenance remains separate from the current projection and
+  is snapshotted into every admitted mission asset; ambiguity quarantines before
+  mutation, and a missing handle never means destruction.
+  DESTROYED authored damage is reapplied after streaming/restart. A replacement
+  tower is generated only after a rebuild finishes, while the active
+  stop-rebuild objective uses separate construction equipment instead of a
+  second intact transmitter. That stop can be attempted once per tower-
+  destruction epoch; destroyed equipment does not mint another epoch. Each
+  mission physical projection also has an ID distinct from the stable site
+  target. These fixes are source/Workbench evidence only and require the
+  requested republished map/dialog/destroy/rebuild/restart check. Authored
+  identity remains a 0.75-meter match, while bounded safe-ground projection and
+  evidence allow 12 meters. Streamed-out borrowed targets use explicit dormant
+  pending flags; broken reciprocal runtime rows quarantine.
 - The final stamped schema-54 tree identifies implementation
   `09a1470a4c27dbef866e8cbdba182a7df65fa027` and has clean headless Game-module
   compile/create evidence at 5,760 files/11,560 classes with CRC `c62de929`. This is source/
@@ -288,7 +298,7 @@ be read as proof that a later change was executed or certified.
   error/crash signature. Native entities/adapter casualties, real save/restart,
   rendered UI, owner change, campaign setup, packaged networking, reconnect,
   and JIP remain open. The assassination-guard family is exhausted.
-- Campaign persistence Schema 58 is the current stamped separate rescue cutover
+- Campaign persistence Schema 58 is the preceding stamped separate rescue cutover
   only for newly started `rescue_pows`. Contract `1`, policy
   `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and quarantine `-58` bind
   one guard roster plus three typed POW slots. The queue executes only the
@@ -304,7 +314,7 @@ be read as proof that a later change was executed or certified.
   without invented death, extraction, reward, fallback, or force transfer.
   Six source-proof categories cover admission isolation, composite authority,
   captive transitions, guard independence, outcome/grace, and restore/
-  quarantine. Schema 58 is the current stamped source/Workbench baseline at
+  quarantine. Schema 58 is the preceding stamped source/Workbench baseline at
   implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
   `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-
   tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
@@ -313,6 +323,43 @@ be read as proof that a later change was executed or certified.
   crash/error matches. Native entities, natural guard combat and vehicle seats,
   actual save/restart, rendered UI, owner change, setup, packaged networking,
   reconnect, and JIP remain open until a fresh published runtime artifact.
+- Campaign persistence Schema 59 is the current implementation cutover for
+  radio sites. Every radio zone has one deterministic durable site/target row
+  with ONLINE/DESTROYED/REBUILDING/QUARANTINED state, frozen binding,
+  BORROWED_WORLD or GENERATED_CAMPAIGN ownership, one active mission lock,
+  typed admission/outcome fingerprint, revision, timestamps, and destruction/
+  rebuild receipts. Only newly started `destroy_radio_tower` and
+  `dynamic_stop_tower_rebuild` opt into contract `1`; historical terminal rows
+  remain contract `0` and active legacy rows fail closed. The stable site target
+  ID is not reused as a physical handle: every exact mission gets a unique
+  runtime-entity ID. Borrowed destruction requires the reciprocal active
+  mission/site lock and revision plus authoritative tracked damage state;
+  generated explosive scoring additionally requires a live matching mission
+  component, bounded position, mission-time ownership provenance, and a unique
+  key in the persisted bounded evidence set. Checked physical destroy/heal/
+  rollback writes prevent a refused world mutation from becoming a durable
+  outcome. Stop-rebuild can be attempted only once per tower-destruction epoch;
+  destroying its equipment
+  records that attempt and leaves the original tower-destruction epoch intact.
+  The supported authored target is a retained multiphase-damage object. A new-
+  campaign reset restores that authored target before state replacement or
+  fails closed, while permanent generated ONLINE projections keep verbose
+  witness logging disabled and leave nearby-entity witness queries dormant
+  until an exact asset/mission/role identity is configured. Restore records
+  `migration_schema59_radio_site_authority`; malformed current identity,
+  binding, receipt, timestamp, transition, or backlink claims record
+  `normalization_schema59_radio_site_authority_conflict` and quarantine at
+  `-59`. Generated ONLINE restore additionally requires destruction followed by
+  completed-rebuild provenance. Current corrupt linked aggregates are failed and
+  cleaned together, while coherent historical terminal outcomes keep their
+  terminal meaning. Only resolved ONLINE sites emit town radio influence, and
+  marker/UI labels consume the same lifecycle. Generic runtime/composition/objective/
+  commander-progress paths are fenced out. Focused source proof calls production
+  transition and durable-evidence code, rejects direct repeat rebuild admission,
+  and proves linked quarantine cleanup through projection-only seams. It and
+  Workbench compilation do not certify native candidate discovery, explosives, damage-state
+  reapplication, generated replacement visuals, streaming, process restart,
+  rendered UI, owner change, setup, packaged networking, reconnect, or JIP.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -1122,8 +1169,8 @@ Unproven or incomplete against the pasted contract:
   schema-52 exact mission-convoy, schema-53 exact enemy-patrol, and schema-54
   exact purchased-garrison patrol, schema-55 exact officer-mission guard, and
   schema-56 exact traitor-mission guard, schema-57 exact spec-ops-mission guard,
-  and schema-58 exact POW-rescue slices remain source-only until a new
-  package is run.
+  schema-58 exact POW-rescue, and schema-59 exact radio-site slices remain
+  source-only until a new package is run.
 - Strategic projection is limited to nine explicit family consumers across seven
   operation types: exact paid player
   QRF, newly planned enemy defensive QRF, newly started exact mission convoy,
@@ -1195,7 +1242,7 @@ Unproven or incomplete against the pasted contract:
   seconds, and its log had no script-error/crash signature. All packaged/native/
   save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gates remain
   open.
-- The stamped Schema-58 tree is the current source/Workbench baseline and
+- The stamped Schema-58 tree is the preceding source/Workbench baseline and
   identifies implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with
   build label `schema58-exact-rescue-pows`. The full foundation gate passes,
   including the exact rescue authority checks. Final stamped-tree Workbench Game

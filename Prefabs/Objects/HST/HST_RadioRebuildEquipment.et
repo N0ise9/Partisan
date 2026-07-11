@@ -1,0 +1,18 @@
+GenericEntity HST_RadioRebuildEquipment : "{4A34979DC19CA9ED}Prefabs/Props/Construction/ConcreteMixer_01.et" {
+ ID "6985327711303941"
+ components {
+  HST_MissionActionFilterComponent "{6985327711303942}" {
+  }
+  HST_MissionAssetComponent "{6985327711303943}" {
+  }
+  HST_MissionDestroyTargetComponent "{6985327711303944}" {
+   m_fRequiredExplosiveDamage 300
+   m_fRocketDamageScore 100
+   m_fDemoChargeDamageScore 160
+   m_fSmallExplosiveDamageScore 35
+   m_fExplosiveWitnessRadius 35
+   m_bAllowStockDamageDestroyedCompletion 0
+   m_bDebugExplosiveWitnesses 0
+  }
+ }
+}

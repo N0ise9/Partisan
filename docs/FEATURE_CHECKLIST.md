@@ -48,22 +48,27 @@ means the named production slice exists. `Verified` means an appropriate proof
 has actually run against that slice. `Certified` additionally requires a safe,
 isolated runtime run with no unresolved hard failures or required external gaps.
 
-The current stamped development save contract is Schema 58. It opts in only a
-newly started `rescue_pows` mission through mission-rescue contract `1`, policy
-`exact_rescue_pows_v1`, intent `rescue_pows_guard`, and quarantine `-58`. One
-frozen composite manifest owns an exact guard roster plus exactly three
-externally managed captive slots. Historical/pre-58 POW missions,
-`rescue_refugees`, ordinary `mission_group_*` rows, and unsupported families
-remain contract `0`. The stamp identifies implementation
-`f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
-`schema58-exact-rescue-pows`. The full foundation gate passes. The final stamped
-tree passed Workbench Game validation at 5,770 files/11,594
-classes with CRC `aa73883a` and `Script validation successful`; its bounded
-normal WorldEditor open stayed alive for 10/10 samples over 20 seconds with zero
-crash/error matches. These are source/compiler/startup gates only. Native guard
-and captive behavior, vehicle seating, actual save/restart, rendered UI,
-owner-change, campaign setup, packaged networking, reconnect, and JIP remain
-open. Schema 57 remains the preceding historical checkpoint at implementation
+The current development save contract is Schema 59. Schema 58's exact
+`rescue_pows` operation remains unchanged. Schema 59 separately gives every
+radio zone one durable lifecycle row and opts only newly started
+`destroy_radio_tower` and `dynamic_stop_tower_rebuild` into radio-site contract
+`1` and quarantine `-59`. One immutable authored prefab/position descriptor is
+kept even after the current projection changes from borrowed world ownership to
+campaign-generated ownership; generic zone/mission owners are excluded.
+Historical terminal radio missions remain contract
+`0`, and active legacy rows fail closed without invented outcomes. Each mission
+uses a unique physical runtime-entity ID while the site keeps its stable target
+identity. Stop-rebuild is limited to one attempt per tower-destruction epoch;
+destroyed construction equipment does not create another tower-destruction
+epoch. Mission-time ownership snapshots, bounded durable evidence-key dedupe,
+checked physical writes, explicit streamed-out pending state, and linked
+quarantine cleanup prevent restore or generic-service paths from inventing an
+outcome. Source and Workbench validation are required before the Schema-59 stamp
+is promoted. Native binding, explosives, streaming, actual save/restart,
+rendered UI, owner-change, campaign setup, packaged networking, reconnect, and
+JIP remain open. Schema 58 remains the preceding stamped checkpoint at implementation
+`f0ba07ff2bc295d12542a3ea34b4c913e99b1869` and label
+`schema58-exact-rescue-pows`. Schema 57 remains earlier history at implementation
 `514ebdcbeb1ddfb2a383b19590382517113e2ff6` and label
 `schema57-exact-specops-guard`; Schema 56 remains earlier history at
 implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
@@ -72,8 +77,8 @@ implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete | Schema 58 is the current stamped source checkpoint | Full foundation plus final stamped-tree Workbench validation/open pass; packaged runtime pending | No | Schema 58 is stamped at implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` / label `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-tree Workbench validation loaded 5,770 files/11,594 classes with CRC `aa73883a` and `Script validation successful`; the normal open passed 10/10 samples over 20 seconds with zero crash/error matches. The latest Full Campaign Debug artifact predates schemas 43-58 and is not certification evidence. |
-| CRI-1 Authority foundation | Complete | Prior vertical slices, all three versioned assassination-guard families, and the first exact rescue family | Schema-58 source proof and final stamped-tree Workbench gates pass; packaged runtime pending | No | Only newly started `rescue_pows` gain mission-rescue contract `1`, policy `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and `-58` quarantine. One reciprocal mission/operation/composite graph owns a separate exact guard roster and exactly three typed captive rows. Historical/pre-58 POWs, refugees, ordinary mission-group rows, and unsupported families remain contract `0`. |
+| CRI-0 Truth and baseline | Complete | Schema 59 is the current implementation checkpoint; final stamp follows validation | Schema-59 source proof and Workbench compile/open gates in progress; packaged runtime pending | No | Schema 59 adds exact radio-site lifecycle without changing the stamped Schema-58 rescue boundary. The latest Full Campaign Debug artifact predates schemas 43-59 and is not certification evidence. |
+| CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner | Schema-59 source proof and Workbench gates in progress; packaged runtime pending | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. New exact radio missions use contract `1`; active legacy rows fail closed and malformed current rows quarantine at `-59`. |
 | CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, eight exact infantry-family consumers, one exact convoy, plus three externally managed captive slots | Schema-58 source proof and final stamped-tree Workbench gates pass; native projection/restart pending | No | Schema 58 freezes one guard root/member subgraph plus exactly three policy-validated captive descriptors. SpawnQueue executes only the guard subgraph; the rescue service owns the captive rows. Existing QRF, patrol, assassination-guard, and convoy shapes remain unchanged. Generic vehicle/asset/multi-root execution, historical mission guards, and unsupported consumers remain open. |
 | CRI-3 Force runtime | Complete in source for eight exact infantry-family consumers, one exact convoy, the three-captive rescue lifecycle, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, patrol and all three assassination-guard folds, rescue guard/captive fold and custody rules, convoy-element fold/rematerialization, and mixed-group cleanup | Schema-58 source proof and final stamped-tree Workbench gates pass; native/package gates pending | No | The rescue guard folds independently without virtual combat; HELD/FREED captives can fold, while FOLLOWING/BOARDING/BOARDED custody remains projected. Observed deaths and exact extraction receipts persist through restore. Native entities, natural combat/vehicle seating, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP remain unproven. |
 | CRI-4 Operation records | Complete for seven operation types and nine explicit family consumers | Mission-guard contracts `1`/`2`/`3` plus mission-rescue contract `1`, typed materialization/custody/position/receipt/settlement state, durable linkage, restore normalization, and fail-closed isolation | Schema-58 source proof and final stamped-tree Workbench gates pass; packaged runtime pending | No | Schema 58 adds the separate route-less mission-rescue operation only for newly started `rescue_pows`. Guard outcome remains independent; one POW death fails, exactly three frozen-HQ extraction receipts succeed, and custody-only grace is bounded and replay-safe. Historical POWs, refugees, and unsupported families remain contract `0`; malformed claimants quarantine at `-58`. |
@@ -203,8 +208,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Category mission selection | Commander chooses mission category; mission and valid target are selected server-side. | Broad Alpha | Gun Shop is now a rarer dynamic candidate; continue tuning category candidate rules and player-facing disabled reasons. | High |
-| Mission runtime primitives | HVT, destroy, hold/clear, rescue, cargo, convoy, support, and gun-shop primitives have physical action paths. | Broad Alpha / Exact convoy, all assassination guards, and first rescue slice source-complete | Schema 58 opts in only new `rescue_pows`: one exact guard roster, exactly three typed POWs, stable escort/vehicle/seat evidence, unbound fold/re-entry, HQ-only extraction, casualty failure, and custody-only grace. Historical POWs, `rescue_refugees`, and unsupported families remain contract `0`; native/packaged behavior remains open. | Highest |
-| Mission persistence | Active missions, objectives, assets, runtime entities, and markers survive restart. | Broad Alpha / Needs Soak | Schema 58 adds pre-58 no-invention migration, exact site/graph/receipt/grace validation, process-binding normalization, compact settlement, and `-58` diagnostic quarantine. Add a real process-restart route covering held/following/boarded captives, guard casualties, expiry grace, success/failure, and marker/UI recovery. | Highest |
+| Mission runtime primitives | HVT, destroy, hold/clear, rescue, cargo, convoy, support, and gun-shop primitives have physical action paths. | Broad Alpha / Exact convoy, guards, first rescue, and radio lifecycle implemented in source | Schema 59 gives radio destruction/rebuild one exact physical-evidence path and separate rebuild equipment while preserving the Schema-58 rescue contract. Borrowed destruction requires reciprocal lock/revision plus authoritative tracked damage state; generated explosive scoring also requires a live mission component, bounded position, mission-time ownership provenance, and one unique key in the persisted bounded evidence set. Generic objective ticks and commander progress are fenced out. Native/packaged behavior remains open. | Highest |
+| Mission persistence | Active missions, objectives, assets, runtime entities, and markers survive restart. | Broad Alpha / Needs Soak | Schema 59 adds no-invention radio migration, stable-site versus unique per-mission runtime identities, immutable authored provenance, typed transition/revision/receipt validation, generated-ONLINE destruction-plus-rebuild provenance, one rebuild-stop attempt per destruction epoch, ownership handoff, explicit borrowed projection-pending state, and linked `-59` quarantine cleanup that preserves coherent historical terminal outcomes. New-campaign reset verifies authored-target healing or rolls back/fails closed. Real restart must cover borrowed ONLINE, DESTROYED damage reapplication, REBUILDING equipment, generated replacement, exact outcomes, marker/UI recovery, and the existing rescue matrix. | Highest |
 | Strategic mission effects | Missions affect money, HR, town support, aggression, HQ knowledge, enemy pools, and unlocks. | Broad Alpha | Mission success/failure, mission expiry, convoy outcomes, resistance zone captures, hostile support resolved near HQ, vehicle reports, town influence, radio broadcasts, and security pressure now record durable compact strategic-event rows; next route more mission-family consequences through the same ledger. | High |
 | Mission reports | Reports explain active objective, target, assets, runtime phase, and failure blockers. | Implemented Foundation | Missions-tab active rows are compact one-row summaries; keep detailed inspection in mission reports and expand per-family detail as missions get unique content. | Keep |
 
@@ -226,7 +231,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Respawn, incapacitation, and revive | Resistance spawn availability, injury/revive, penalties, and reconnect behavior are explicit and server-authoritative. | Partial | Custom HQ spawn and lifecycle callbacks exist. Define incapacitation/revive policy, equipment/death penalties, unavailable-HQ behavior, and dedicated-server/JIP tests. | High |
 | Fast travel | Travel is available only under safe control/combat/operation restrictions and cannot duplicate or reset forces. | Missing | Specify whether the first public alpha includes it. If included, add server validation, materialization guards, cost/cooldown, destination policy, and save/JIP proof; otherwise record an intentional omission. | Medium |
 | Construction, fortifications, and observation posts | Placement has exact cost, ownership, persistence, deletion/refund, marker, town-support, and AI/static-assignment rules. | Partial | Build/garage and captured-emplacement scaffolding exist, while static defenses and strategic construction policy remain incomplete. | High |
-| Radio and intelligence network | Radio sites affect communications, intercepted support, town influence, enemy knowledge, and player intel. | Partial | Radio towers currently drive bounded support drift. Add capability/communications gates, interception rewards, enemy-knowledge effects, and clear player-facing reports. | Medium |
+| Radio and intelligence network | Radio sites affect communications, intercepted support, town influence, enemy knowledge, and player intel. | Partial / Exact lifecycle implemented in source | Schema 59 makes town broadcast depend only on one resolved ONLINE site and gives destroy/rebuild durable authority. Native binding/restart proof remains open; capability gates, interception rewards, and broader intelligence effects remain later work. | Medium |
 | Medical and logistical recovery | Wounded forces, vehicles, fuel, ammo, repair, rearm, salvage, and strategic resources settle without duplication. | Partial | Vehicle source classification, cargo, garage, ammo points, and support scaffolding exist. Add durable recovery/salvage transactions and exact force/vehicle lifecycle integration. | High |
 
 ### UI, Markers, Reports, And Debug Suite
@@ -234,11 +239,11 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha / Needs Runtime Proof | Packaged schema 49 proved stock HUD/Game Master recovery but not later source. Schema 58 routes exact POW actions through replay-safe request IDs and stable player identity while preserving legacy mission actions. Republish and prove HUD/Game Master preservation, exact action visibility, duplicate requests, pointer layering, and supported resolutions. | Highest |
-| Map markers | HQ, zones, missions, support, QRFs, orders, garrison patrols, and active deliveries publish linked markers with cleanup proof. | Broad Alpha / Needs Runtime Proof | Schema 58 derives POW marker text and position from typed captive state, keeps the HQ extraction marker distinct, and exposes held/custody/extracted/lost/grace counts without treating a missing entity as death. Republish and prove rendered positions/status, fold/re-entry, cleanup, quarantine presentation, reconnect/JIP, and earlier radio fixes. | Highest |
+| Map markers | HQ, zones, missions, support, QRFs, orders, garrison patrols, and active deliveries publish linked markers with cleanup proof. | Broad Alpha / Needs Runtime Proof | Schema 59 preserves `Location | Owner` and appends ONLINE/DESTROYED/REBUILDING/UNRESOLVED/QUARANTINED radio truth; mission assets use the same state. Republish and prove icon sizing, status, cleanup, reconnect/JIP, and the existing POW presentation. | Highest |
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Missing | Current menu/marker publication is not a complete campaign projection protocol. Add DTO snapshots, global stream sequence/watermark, per-record revisions/tombstones, acknowledgements, gap detection, resync, and host/two-client/late-join equality proof. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Partial | Replace generic first-zone pressure with contacted towns only, current town first, then ascending resistance support with stable ties/pagination. Add Resistance Territory grouped by canonical owner/type/name and remove redundant capture-status presentation. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Broad Alpha / Needs Runtime Proof | Six Schema-58 rescue source categories cover admission isolation, composite authority, captive transitions, guard independence, outcome/grace, and restore/quarantine. They do not substitute for native entities, natural combat/vehicle seating, real restart, owner-change/setup, rendered UI, networking, reconnect, JIP, or mandatory process restart. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Broad Alpha / Needs Runtime Proof | Schema 59 adds focused radio binding/admission, lifecycle/replay, durable production-evidence dedupe, direct repeat-admission rejection, linked restore/quarantine cleanup, influence, and ownership-handoff source assertions. They do not substitute for native entities, explosives, streaming, real restart, owner-change/setup, rendered UI, networking, reconnect, JIP, or mandatory process restart. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -253,7 +258,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Publish the stamped Schema-58 build and run a focused client/server feedback
+1. Publish the stamped Schema-59 build and run a focused client/server feedback
    pass. Confirm that
    the stock HUD/Game Master recovery already observed in packaged schema 49 is
    preserved, then require normal-sized radio icons, location-plus-owner labels,
@@ -332,7 +337,18 @@ projections of campaign state and must be restorable, foldable, or disposable.
     newly started `rescue_pows`. Runtime-prove its three POW projections,
     vehicle seats, fold/re-entry, death/success/grace outcomes, restart,
     rendered UI, reconnect, and JIP before opting in another rescue family.
-15. Run repeated packaged multiplayer restart/performance soak, then tune economy,
+15. Runtime-prove Schema 59 radio-site authority: one authored binding with no
+    duplicate, physical destroy success, influence removal before income,
+    destroyed-state restart/streaming reapplication, stop-rebuild equipment,
+    exactly one stop attempt per tower-destruction epoch, no epoch advance when
+    that equipment is destroyed, ownership-specific evidence and durable dedupe checks,
+    0.75-meter authored identity versus 12-meter safe-ground projection tolerance,
+    checked physical writes, borrowed projection-pending recovery, linked quarantine cleanup,
+    unique per-mission runtime IDs, success/failure/expiry, generated replacement
+    whose unbound witness scan stays dormant, new-campaign authored-target restoration,
+    markers/UI, reconnect, and JIP. Keep broader radio intelligence outside this
+    proof. The projection-seam source harness is not packaged evidence.
+16. Run repeated packaged multiplayer restart/performance soak, then tune economy,
     war level, aggression, support pressure, mission pacing, and simulation speed.
 
 ## Definition Of Done For The Final Campaign Loop

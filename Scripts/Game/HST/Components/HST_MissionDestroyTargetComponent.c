@@ -65,6 +65,12 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
+		// Permanent generated ONLINE transmitters use this prefab too. Keep their
+		// expensive nearby-entity witness query dormant until exact lifecycle
+		// admission configures all three mission-identity fields.
+		if (!HasConfiguredMissionIdentity(owner))
+			return;
+
 		if (m_fDuplicateHitRemainingSeconds > 0.0)
 			m_fDuplicateHitRemainingSeconds = Math.Max(0.0, m_fDuplicateHitRemainingSeconds - timeSlice);
 
@@ -87,6 +93,14 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return;
 
 		ReportDestroyedByLegacyDamageState(owner);
+	}
+
+	protected bool HasConfiguredMissionIdentity(IEntity owner)
+	{
+		HST_MissionAssetComponent asset = ResolveMissionAssetComponent(owner);
+		return asset && !asset.GetAssetId().IsEmpty()
+			&& !asset.GetMissionInstanceId().IsEmpty()
+			&& !asset.GetRole().IsEmpty();
 	}
 
 	void OnDamageReceived(IEntity owner, float rawDamage, IEntity sourceEntity, string sourcePrefab, string damageTypeText)
@@ -418,10 +432,13 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 		string lowered = witnessText;
 		lowered.ToLower();
+		string entityToken = "unknown";
+		if (entity)
+			entityToken = string.Format("%1", entity.GetID());
 		if (IsGenericWarheadWitnessText(lowered))
-			return "witness:generic-warhead:" + key;
+			return "witness:generic-warhead:" + key + ":" + entityToken;
 
-		return "witness:" + key;
+		return "witness:" + key + ":" + entityToken;
 	}
 
 	protected string BuildRoundedWitnessPositionKey(IEntity entity)
@@ -445,7 +462,9 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (key.IsEmpty())
 			key = damageTypeText;
 
-		return key;
+		if (sourceEntity)
+			return "damage:" + key + ":" + string.Format("%1", sourceEntity.GetID());
+		return "damage:unidentified:" + key;
 	}
 
 	protected float ResolveExplosiveDamageScore(float rawDamage, IEntity sourceEntity, string sourcePrefab, string damageTypeText)

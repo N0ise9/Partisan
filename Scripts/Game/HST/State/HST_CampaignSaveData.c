@@ -80,6 +80,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};
 	ref array<ref HST_ZoneState> m_aZones = {};
+	ref array<ref HST_RadioSiteState> m_aRadioSites = {};
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
 	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
 	ref array<ref HST_QRFState> m_aQRFs = {};
@@ -208,6 +209,10 @@ class HST_CampaignSaveData
 		m_aZones.Clear();
 		foreach (HST_ZoneState zone : state.m_aZones)
 			m_aZones.Insert(CopyZone(zone));
+
+		m_aRadioSites.Clear();
+		foreach (HST_RadioSiteState radioSite : state.m_aRadioSites)
+			m_aRadioSites.Insert(CopyRadioSite(radioSite));
 
 		m_aGarrisons.Clear();
 		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
@@ -470,6 +475,10 @@ class HST_CampaignSaveData
 		foreach (HST_ZoneState zone : m_aZones)
 			state.m_aZones.Insert(CopyZone(zone));
 
+		state.m_aRadioSites.Clear();
+		foreach (HST_RadioSiteState radioSite : m_aRadioSites)
+			state.m_aRadioSites.Insert(CopyRadioSite(radioSite));
+
 		state.m_aGarrisons.Clear();
 		foreach (HST_GarrisonState garrison : m_aGarrisons)
 			state.m_aGarrisons.Insert(CopyGarrison(garrison));
@@ -687,6 +696,44 @@ class HST_CampaignSaveData
 		target.m_iVehicleCount = source.m_iVehicleCount;
 		foreach (string manifestId : source.m_aAcceptedManifestIds)
 			target.m_aAcceptedManifestIds.Insert(manifestId);
+		return target;
+	}
+
+	protected HST_RadioSiteState CopyRadioSite(HST_RadioSiteState source)
+	{
+		if (!source)
+			return null;
+
+		HST_RadioSiteState target = new HST_RadioSiteState();
+		target.m_iContractVersion = source.m_iContractVersion;
+		target.m_sSiteId = source.m_sSiteId;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_sTargetId = source.m_sTargetId;
+		target.m_sTargetPrefab = source.m_sTargetPrefab;
+		target.m_vTargetPosition = source.m_vTargetPosition;
+		target.m_sAuthoredTargetPrefab = source.m_sAuthoredTargetPrefab;
+		target.m_vAuthoredTargetPosition = source.m_vAuthoredTargetPosition;
+		target.m_eLifecycleState = source.m_eLifecycleState;
+		target.m_eTargetOwnership = source.m_eTargetOwnership;
+		target.m_sActiveMissionInstanceId = source.m_sActiveMissionInstanceId;
+		target.m_sActiveMissionId = source.m_sActiveMissionId;
+		target.m_sActiveTransitionRequestId = source.m_sActiveTransitionRequestId;
+		target.m_sLastDestructionReceiptId = source.m_sLastDestructionReceiptId;
+		target.m_sLastDestructionMissionInstanceId = source.m_sLastDestructionMissionInstanceId;
+		target.m_iDestroyedAtSecond = source.m_iDestroyedAtSecond;
+		target.m_sLastRebuildReceiptId = source.m_sLastRebuildReceiptId;
+		target.m_sLastRebuildMissionInstanceId = source.m_sLastRebuildMissionInstanceId;
+		target.m_iRebuildStartedAtSecond = source.m_iRebuildStartedAtSecond;
+		target.m_iRebuiltAtSecond = source.m_iRebuiltAtSecond;
+		target.m_sLastTransitionRequestId = source.m_sLastTransitionRequestId;
+		target.m_sLastTransitionMissionInstanceId = source.m_sLastTransitionMissionInstanceId;
+		target.m_sLastTransitionKind = source.m_sLastTransitionKind;
+		target.m_eLastTransitionFromState = source.m_eLastTransitionFromState;
+		target.m_eLastTransitionToState = source.m_eLastTransitionToState;
+		target.m_iLastTransitionRecordedRevision = source.m_iLastTransitionRecordedRevision;
+		target.m_sLastTransitionReason = source.m_sLastTransitionReason;
+		target.m_iLastTransitionSecond = source.m_iLastTransitionSecond;
+		target.m_iRevision = source.m_iRevision;
 		return target;
 	}
 
@@ -1059,6 +1106,10 @@ class HST_CampaignSaveData
 		target.m_sSpawnResultId = source.m_sSpawnResultId;
 		target.m_sSettlementId = source.m_sSettlementId;
 		target.m_iOperationContractVersion = source.m_iOperationContractVersion;
+		target.m_iRadioSiteContractVersion = source.m_iRadioSiteContractVersion;
+		target.m_sRadioSiteId = source.m_sRadioSiteId;
+		target.m_sRadioSiteTransitionRequestId = source.m_sRadioSiteTransitionRequestId;
+		target.m_iRadioSiteRevision = source.m_iRadioSiteRevision;
 		target.m_eStatus = source.m_eStatus;
 		target.m_eRuntimeMode = source.m_eRuntimeMode;
 		target.m_iRemainingSeconds = source.m_iRemainingSeconds;
@@ -1361,6 +1412,8 @@ class HST_CampaignSaveData
 		target.m_iDemolitionHits = source.m_iDemolitionHits;
 		target.m_sLastDemolitionSource = source.m_sLastDemolitionSource;
 		target.m_iLastDemolitionSecond = source.m_iLastDemolitionSecond;
+		foreach (string evidenceKey : source.m_aDemolitionEvidenceKeys)
+			target.m_aDemolitionEvidenceKeys.Insert(evidenceKey);
 		target.m_vSourcePosition = source.m_vSourcePosition;
 		target.m_vTargetPosition = source.m_vTargetPosition;
 		target.m_vCurrentPosition = source.m_vCurrentPosition;
@@ -1368,6 +1421,11 @@ class HST_CampaignSaveData
 		target.m_iDeadlineSecond = source.m_iDeadlineSecond;
 		target.m_iCargoCapacityCost = source.m_iCargoCapacityCost;
 		target.m_iInteractionRadiusMeters = source.m_iInteractionRadiusMeters;
+		target.m_iRadioSiteContractVersion = source.m_iRadioSiteContractVersion;
+		target.m_sRadioSiteId = source.m_sRadioSiteId;
+		target.m_eRadioSiteTargetOwnership = source.m_eRadioSiteTargetOwnership;
+		target.m_sRadioSiteAuthoredTargetPrefab = source.m_sRadioSiteAuthoredTargetPrefab;
+		target.m_vRadioSiteAuthoredTargetPosition = source.m_vRadioSiteAuthoredTargetPosition;
 		target.m_iRescueContractVersion = source.m_iRescueContractVersion;
 		target.m_iRescueOrdinal = source.m_iRescueOrdinal;
 		target.m_eRescueDisposition = source.m_eRescueDisposition;
@@ -2510,6 +2568,8 @@ class HST_CampaignSaveData
 		schema57MissionGuardValidation.Normalize(this, restoredSchemaVersion);
 		HST_RescuePOWSaveValidationService schema58RescuePOWValidation = new HST_RescuePOWSaveValidationService();
 		schema58RescuePOWValidation.Normalize(this, restoredSchemaVersion);
+		HST_RadioSiteSaveValidationService schema59RadioSiteValidation = new HST_RadioSiteSaveValidationService();
+		schema59RadioSiteValidation.Normalize(this, restoredSchemaVersion);
 		NormalizeRestoredOperationProjectionState();
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)

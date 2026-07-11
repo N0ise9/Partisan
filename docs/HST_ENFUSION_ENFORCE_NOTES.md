@@ -138,6 +138,35 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Authored strategic structures need a durable site owner before a mission owns
+  an asset.
+  - Freeze one canonical site/target identity, prefab, and position after an
+    unambiguous world query. Treat the entity handle as disposable projection
+    evidence; handle loss is neither destruction nor permission to spawn a
+    fallback. Keep that stable target ID separate from the unique physical
+    runtime-entity ID of each mission projection.
+  - Distinguish BORROWED_WORLD from GENERATED_CAMPAIGN ownership. Ordinary
+    mission/composition cleanup may forget a borrowed entity but must never
+    delete it. Only the site owner may delete its generated projection.
+  - Query ambiguity must be checked before changing health or deleting anything.
+    Descriptor children and light/base transmitter variants can otherwise make
+    a broad query appear to identify multiple towers. Normalize to the root,
+    prefer concrete supported prefab identity, collapse duplicate handles, and
+    quarantine cross-site claims instead of choosing by iteration order.
+  - A destroyed borrowed structure can reappear intact when its base-world layer
+    streams or a process restarts. Rebind near the frozen position and reapply
+    the destroyed damage state. For a rebuilt/generated replacement, suppress
+    the resurrected authored original before projecting the generated target.
+  - A rebuild-interdiction objective should project construction equipment, not
+    another intact copy of the strategic structure. Keep the canonical future
+    transmitter binding on the site while the mission asset uses its own typed
+    equipment prefab. Allow only one interdiction attempt for each underlying
+    structure-destruction receipt; destroying the equipment must not create a
+    fresh structure-destruction epoch.
+  - Current examples: `HST_RadioSiteLifecycleService`,
+    `HST_RadioSiteSaveValidationService`, and
+    `HST_RadioRebuildEquipment.et`.
+
 - Owner-bridge command RPCs need caller-generated request identity.
   - Carry the same request ID from the player-owned request component through the server RPC and coordinator dispatch. Persist a bounded command receipt for each ID so an exact replay returns the prior result without mutation, while reuse with a different command or payload is rejected as a conflict.
   - Treat the receipt as campaign state, not transient UI state; save/load must preserve idempotency across reconnects and restarts.
@@ -991,16 +1020,31 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Keep marker icon deconflicts synchronized in both `HST_MapMarkerService` and `HST_CampaignMapMarkerDirector`. Current campaign semantics: towns use `OBJECTIVE_MARKER2`, military installations use `FORTIFICATION`, radio towers use the injected native `radio-signal` placed-marker icon, roadblocks use `JOIN3`, live resistance support groups use `DOT`, gun-shop seller/delivery markers use `MARK_QUESTION`/`MARK_EXCLAMATION`, destroy missions use `DESTROY2`, rescue POW missions use `HELP`, and generic incoming response support remains on `OBJECTIVE_MARKER`. Stale resolver values can make Workbench previews and runtime native markers disagree.
   - Native placed-marker configs can be patched at runtime when the stock placed marker entry does not expose a needed quad from another imageset. Publish the imageset/quad identity in the desired marker record, resolve or append it against the active placed-marker entry, and validate the resolved entry before creating the native marker. Do not hard-code the appended array index: stock updates can change the inherited icon count. Reapplying an existing entry should also repair its glow resource and category so hot-reloaded legacy entries do not remain half-configured.
 
-- Radio sites should reuse an existing world transmitter instead of projecting a second tower.
-  - Before spawning a radio-zone static prop, query the zone for an intact,
-    damageable structural transmitter and retain it when present. Identify an
-    authored transmitter first through `MapDescriptorComponent` base type
-    `MDT_TRANSMITTER`, then use the transmitter prefab token as a fallback for
-    stock wrapper entities. A destroyed authored transmitter is not a usable
-    existing tower: ignoring it lets the generated fallback represent an actual
-    rebuild and prevents a later destroy/rebuild objective from binding an
-    already-destroyed entity and completing immediately.
-  - Destroy/rebuild mission assets can bind the nearest existing transmitter `IEntity` into the normal runtime-entity/asset records, allowing the existing damage-manager polling to own completion. Mark that handle as borrowed: generic mission cancel, expiry, restore cleanup, or success cleanup must untrack it without deleting an intact authored/composition entity.
+- Authored strategic structures need one durable site owner, not a generic
+  composition preference.
+  - Create one persisted logical site per configured radio zone before world
+    binding. Bind only when exactly one supported transmitter root is found in
+    range; freeze its prefab and position, mark it borrowed, and never delete
+    it. An absent or ambiguous initial target must remain unresolved instead of
+    silently spawning a substitute.
+  - Entity presence is projection evidence, not lifecycle authority. Persist
+    ONLINE/DESTROYED/REBUILDING, deterministic transition requests, receipts,
+    and a monotonic revision. A missing handle never proves destruction; observe
+    authoritative damage state on the borrowed authored target or the exact
+    demolition threshold for generated/equipment projections. Borrowed direct
+    destruction requires reciprocal site/mission lock and revision plus the
+    tracked authoritative damage state. Generated explosive scoring additionally
+    requires a matching live mission component, bounded position, and durable key.
+  - Remove the site from generic composition and mission-runtime spawn, repair,
+    polling, interaction, and cleanup ownership. Exact and quarantined site
+    assets must never fall through to those paths.
+  - A stop-rebuild objective should destroy construction equipment, not spawn a
+    second intact transmitter. Transfer to generated ownership when rebuild
+    begins; create one replacement only when failure/expiry/stop settlement
+    completes the rebuild. Suppress a resurrected authored target without
+    deleting it, so later stream re-entry cannot create two operational towers.
+    Record at most one stop attempt per tower-destruction epoch and preserve that
+    epoch when the equipment is destroyed.
 
 - Dynamic player markers need a marker config entry before `InsertDynamicMarker` can work.
   - `SCR_MapMarkerManagerComponent.InsertDynamicMarker(type, entity, configId)` resolves `type` through the active `SCR_MapMarkerConfig`; stock `CampaignMapMarkerConfig.conf` does not expose every dynamic marker type.
@@ -3205,12 +3249,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   casualties, actual save/restart, rendered UI, owner change, campaign setup,
   packaged networking, reconnect, and JIP remain open.
 
-- Schema 57 exhausts the assassination-guard family. Schema 58 is the current
-  separate successor cutover for newly started `rescue_pows` only.
+- Schema 57 exhausts the assassination-guard family. Schema 58 is its separate
+  successor cutover for newly started `rescue_pows` only; Schema 59 is the
+  current radio-site lifecycle boundary.
 
 ## Schema 58 Exact POW-Rescue Authority
 
-- Campaign persistence schema is now `58`. This is the current stamped source/
+- Campaign persistence schema `58` is the preceding stamped source/
   Workbench baseline at implementation
   `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
   `schema58-exact-rescue-pows`. This is the ninth explicit family consumer across
@@ -3353,6 +3398,120 @@ This file is for practical engine/script behavior, not project planning. Keep en
   natural vehicle seating, actual save/restart, rendered marker/action state,
   owner change, campaign setup, packaged networking, reconnect, and JIP remain
   open until a fresh published runtime run.
+
+## Schema 59 Durable Radio-Site Lifecycle
+
+- Campaign persistence schema is now `59`. Every configured radio zone receives
+  one contract-1 `HST_RadioSiteState` with deterministic site and target IDs.
+  The row owns immutable authored prefab/position provenance separately from
+  the current target prefab/position, BORROWED_WORLD or GENERATED_CAMPAIGN
+  ownership, ONLINE/DESTROYED/REBUILDING lifecycle, one active lifecycle mission
+  lock, typed last-transition request/from/to/revision, and destruction/rebuild
+  receipts. The stable site target ID is durable identity, not a process handle;
+  each mission projection uses its own deterministic runtime-entity ID so two
+  mission histories cannot alias one physical row. Every mission asset snapshots
+  the ownership and authored descriptor present at admission, so a later
+  ownership handoff cannot relabel historical evidence. Quarantine uses `-59`.
+
+- Initial projection binding is conservative. Search the logical zone within a
+  bounded radius, normalize child hits to roots, accept supported transmitter
+  prefabs, and require exactly one unclaimed candidate before freezing identity.
+  Descriptor fallback is valid only when a concrete prefab identity is absent;
+  light/base wrapper pieces must not become full transmitter candidates. Never
+  create a generated fallback for an unresolved initial site. The supported
+  authored transmitter exposes retained multiphase damage: its final damage
+  phase does not delete the world object. Rebinding a frozen borrowed target
+  therefore requires the exact prefab and a 0.75-meter match to its frozen
+  position, rather than accepting another nearby transmitter. Physical
+  projection/evidence may allow 12 meters because bounded safe-ground placement
+  can move a spawned projection without changing its logical authored binding.
+
+- Exact radio missions are lifecycle transitions, not generic destroy assets.
+  `destroy_radio_tower` admits only a resolved ONLINE site and remains ONLINE
+  until success physically destroys the bound target. Success records a fresh
+  destruction receipt and moves DESTROYED; failure/expiry/campaign stop leaves
+  ONLINE. `dynamic_stop_tower_rebuild` admits only DESTROYED with a destruction
+  receipt, moves immediately to REBUILDING, and targets the dedicated
+  construction-equipment prefab. Permit only one stop-rebuild admission for a
+  given tower-destruction receipt/epoch. Destroying the equipment records the
+  rebuild-attempt receipt and returns DESTROYED without replacing the tower's
+  destruction receipt or advancing its epoch; a replay or second stop request
+  in that epoch must fail closed. Failure/expiry/campaign stop records rebuild
+  completion and produces one generated ONLINE replacement.
+
+- Treat direct explosive or destroyed-event APIs as untrusted observations.
+  Borrowed authored-target destruction requires the reciprocal active
+  site/mission lock and revision, the tracked projection's authoritative damage
+  state, and the frozen position. Generated transmitter or rebuild-equipment
+  demolition additionally requires the live projection's matching
+  `HST_MissionAssetComponent`, a bounded position, the frozen mission-time
+  ownership/provenance snapshot, and a unique key in a persisted bounded
+  evidence set. Replayed keys are already applied; exhaustion fails closed.
+  When accepting a new physical evidence position, update the asset's current/
+  last-known position and the one reciprocal runtime row's position together;
+  destruction must also set both asset and runtime destroyed state together.
+  Missing, duplicate, wrong-mission, wrong-kind, wrong-prefab, or already-
+  divergent runtime rows must quarantine instead of creating a save-invalid
+  position or destruction split.
+  Raw damage without that evidence is repaired/reprojected without erasing its
+  durable demolition progress. Check `SetHealthScaled` and the resulting damage
+  state before committing destruction; likewise verify reset healing and exact
+  rollback. A refused physical write quarantines or rejects rather than becoming
+  a claimed durable outcome. A missing handle never proves destruction.
+
+- A borrowed target may be absent because its world cell is not projected. Keep
+  the reciprocal exact mission aggregate, clear all three mission/asset/runtime
+  spawned flags, and use `radio_site_projection_pending`; if destruction was
+  already proven, preserve `radio_site_target_destroyed`. Missing, duplicate, or
+  cross-linked runtime rows quarantine. Do not let generic mission runtime, zone
+  composition, objective ticking, commander progress, or generic failure
+  settlement mutate exact/quarantined radio authority.
+
+- Permanent generated ONLINE transmitters are lifecycle projections, not active
+  mission witnesses. Keep verbose witness logging disabled, and gate the
+  nearby-entity witness query on a complete configured asset/mission/role
+  identity so an unbound permanent ONLINE replacement remains dormant instead
+  of scanning the world every frame. An always-online site therefore does not
+  run a continuous proximity/damage scan. Active mission evidence remains
+  explicit through the lifecycle service.
+
+- A new-campaign reset must settle the old physical ownership before swapping
+  state. Reacquire the exact authored transmitter (including the frozen original
+  behind a generated replacement), restore its health, verify it is no longer
+  destroyed, and clear owned generated projections. If exact reacquisition or
+  health restoration fails, restore the prior observable state and reject the
+  reset rather than leaving the old world half-mutated.
+
+- Apply exact radio outcome state before generic Strategic rewards/consequences,
+  and reconcile projections before town income. Town radio influence must skip
+  offline sites and choose the next eligible ONLINE site. Markers retain
+  location plus owner and append lifecycle status; mission/asset UI describes
+  the physical transmitter or construction-equipment requirement.
+
+- Restore creates only logical ONLINE/unresolved rows for pre-59 saves. Keep
+  terminal historical radio missions at contract `0`, fail active legacy exact
+  IDs closed, and quarantine malformed strong claimants without inventing
+  binding, damage, rebuild, receipt, or reward. Record
+  `migration_schema59_radio_site_authority` and
+  `normalization_schema59_radio_site_authority_conflict`. Generated ONLINE state
+  is valid only with a prior destruction receipt and a completed-rebuild receipt.
+  Quarantine closure must include site backlinks plus active, last-transition,
+  destruction-receipt, and rebuild-receipt mission IDs. Fail/clean the corrupt
+  current aggregate but preserve coherent already-terminal historical task and
+  objective semantics.
+
+- Six deterministic `radio_site.*` source assertions cover binding/admission
+  isolation, lifecycle outcomes, receipt/revision replay and stale rejection,
+  restore/migration/quarantine, influence suppression, and ownership/equipment
+  handoff. The proof harness calls the production admission and outcome methods
+  and the production bounded evidence helper, directly rejects a second rebuild
+  admission in the same destruction epoch, proves linked quarantine cleanup,
+  and substitutes only projection seams; it must not reimplement the durable
+  transition graph. These assertions deliberately do not claim native authored
+  discovery, natural explosives, damage-state reapplication, generated
+  replacement, streaming re-entry, actual save/restart, rendered marker/UI
+  behavior, campaign setup, packaged networking, reconnect, or JIP; all
+  packaged verification gates remain open until they are executed.
 
 ## Native Reference Sources
 

@@ -2,7 +2,104 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `58`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `59`.
+
+## Schema 59
+
+- Schema 59 introduces one durable `HST_RadioSiteState` for every radio zone.
+  The row owns a deterministic site ID and transmitter target ID, immutable
+  authored prefab/position provenance plus the mutable current projection after
+  resolution, typed ONLINE/DESTROYED/REBUILDING lifecycle,
+  BORROWED_WORLD or GENERATED_CAMPAIGN ownership, one reciprocal active-mission
+  lock, typed transition fingerprints, revision, timestamps, and destruction/
+  rebuild receipts. A process-local entity handle is only a projection; losing
+  it is never destruction evidence. The stable site target ID is separate from
+  the unique deterministic physical runtime-entity ID assigned to each exact
+  mission.
+
+- The radio lifecycle service is the only transmitter projection owner. It
+  adopts one unambiguous authored transmitter without taking deletion
+  ownership, freezes that binding, and prevents zone composition or generic
+  mission runtime from creating, repairing, completing, or deleting an exact
+  radio target. Ambiguous authored candidates quarantine before world mutation.
+  DESTROYED authored targets have their damage state reapplied after streaming
+  or restart. A replacement transmitter is campaign-generated only after a
+  rebuild actually finishes; the active stop-rebuild mission projects separate
+  construction equipment rather than a second intact tower. The supported
+  authored transmitter has retained multiphase damage behavior, so borrowing,
+  destruction, rebind, and reset do not depend on deleting or replacing its
+  world identity. Permanent generated ONLINE projections disable verbose
+  witness logging and keep the nearby-entity witness query dormant until an
+  exact asset/mission/role identity is configured.
+
+- Only newly started `destroy_radio_tower` and
+  `dynamic_stop_tower_rebuild` missions opt into radio-site contract `1`.
+  Destroy admission requires a resolved ONLINE site and records ONLINE to
+  ONLINE; physical destruction then commits ONLINE to DESTROYED. Stop-rebuild
+  admission is the production DESTROYED to REBUILDING transition. Its success
+  returns to DESTROYED and records one rebuild-attempt receipt without changing
+  the tower destruction receipt or epoch. Only one stop-rebuild attempt is
+  accepted per destruction epoch. Failure, expiry, or campaign stop completes
+  the rebuild as ONLINE with GENERATED_CAMPAIGN ownership and a rebuild receipt.
+  Normal and forced/debug starts share the same lifecycle gate, and generic
+  objective progress or direct sabotage cannot manufacture success.
+
+- Borrowed authored-target destroy reports are accepted only when the mission
+  and site hold reciprocal active lock/revision state, the tracked damage manager
+  is authoritatively DESTROYED, and its position matches the frozen binding.
+  Generated-target explosive reports additionally require a matching live
+  mission-asset component, a bounded projection position, and a durable unique
+  evidence key in a persisted bounded dedupe set. Each mission asset snapshots
+  the ownership and authored descriptor present at admission, so later ownership
+  handoff cannot relabel historical demolition evidence. Raw damage-state
+  completion is restricted to the borrowed authored destroy target; generated
+  transmitter/equipment completion requires exact
+  explosive-score evidence. New-campaign reset reacquires and restores the
+  authored transmitter before state replacement or fails closed. Physical
+  destroy/heal/rollback writes are verified after mutation. The immutable
+  authored match stays within 0.75 meters; physical projection evidence allows
+  the bounded 12-meter safe-ground offset.
+
+- A borrowed projection that is temporarily absent keeps its reciprocal active
+  aggregate but clears mission/asset/runtime spawned flags and records
+  `radio_site_projection_pending`; already-destroyed evidence preserves
+  `radio_site_target_destroyed`. Missing, duplicate, or cross-linked runtime
+  rows quarantine instead of waiting out the mission. Generic runtime,
+  composition, objective ticking, commander progress, and generic failure
+  settlement skip exact and quarantined radio authority.
+
+- Every accepted admission or outcome increments the site revision and copies
+  it to the mission. An immediate retry of the same deterministic request and
+  typed fingerprint is already-applied without mutation; changed fingerprints
+  conflict, and an old request after a later lifecycle cycle is rejected by the
+  stale revision. Only resolved exact ONLINE sites emit town
+  `radio_broadcast` influence. DESTROYED, REBUILDING, unresolved, missing, and
+  quarantined sites emit none, and income evaluates this state after lifecycle
+  reconciliation.
+
+- Restores from schema 58 or earlier record
+  `migration_schema59_radio_site_authority`. They create one ONLINE/UNRESOLVED
+  logical row per radio zone without inferring a physical binding, destruction,
+  rebuild, mission outcome, receipt, or reward. Active legacy radio missions
+  fail closed at contract `0`; terminal historical rows remain contract `0`.
+  Current-schema duplicate identities, cross-site request/receipt reuse, remote
+  or unsupported bindings, illegal lifecycle/outcome shapes, bad timestamps,
+  and broken mission/site/asset revisions quarantine at `-59` and record
+  `normalization_schema59_radio_site_authority_conflict`. Generated ONLINE
+  restore requires a destruction receipt followed by a completed-rebuild
+  receipt. Quarantine fails and cleans a corrupt current linked aggregate while
+  preserving coherent already-terminal historical outcome semantics.
+
+- Source proof and Workbench compilation cover state transitions, replay/stale
+  rejection, ownership handoff, migration/roundtrip/quarantine, generic-owner
+  isolation, influence suppression, marker/UI status, and coordinator ordering.
+  The proof invokes production admission/outcome transitions through projection-
+  only seams. It also exercises the production durable-evidence helper, rejects
+  a direct second rebuild admission in the same epoch, and proves linked
+  quarantine cleanup. Native authored-entity discovery, actual explosive destruction and
+  damage-state reapplication, generated replacement visuals, streaming, real
+  process restart, rendered UI, packaged networking, reconnect, and JIP remain
+  packaged-runtime gates until a republished run supplies evidence.
 
 ## Schema 58
 
@@ -81,7 +178,7 @@
   external asset execution, captive transition/idempotency and carrier/seat
   evidence, render fold/re-entry, casualty/success/grace settlement, save
   roundtrip/migration, corruption quarantine, and state-derived UI/marker text.
-  Schema 58 is the current stamped source/Workbench baseline at implementation
+  Schema 58 is the preceding stamped source/Workbench baseline at implementation
   `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
   `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-
   tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
@@ -174,7 +271,7 @@
   packaged networking, reconnect, and JIP remain open.
 
 - Schema 57 exhausts the assassination-guard family and opts in no rescue
-  authority. Schema 58, documented above, is the current separate successor
+  authority. Schema 58, documented above, is the next separate successor
   cutover for newly started `rescue_pows` only.
 
 ## Schema 56

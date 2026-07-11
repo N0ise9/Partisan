@@ -77,6 +77,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_ForceSpawnAdapterService m_ForceSpawnAdapter;
 	protected ref HST_ForceSpawnAdapterProofService m_ForceSpawnAdapterProof;
 	protected ref HST_MissionService m_Missions;
+	protected ref HST_RadioSiteLifecycleService m_RadioSites;
 	protected ref HST_PersistenceService m_Persistence;
 	protected ref HST_PersistenceSmokeTestService m_PersistenceSmokeTest;
 	protected ref HST_AuthorizationService m_Authorization;
@@ -315,6 +316,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ForceSpawnAdapter = new HST_ForceSpawnAdapterService();
 		m_ForceSpawnAdapterProof = new HST_ForceSpawnAdapterProofService();
 		m_Missions = new HST_MissionService();
+		m_RadioSites = new HST_RadioSiteLifecycleService();
+		if (m_Missions)
+			m_Missions.SetRadioSiteLifecycleService(m_RadioSites);
 		m_Persistence = new HST_PersistenceService();
 		m_PersistenceSmokeTest = new HST_PersistenceSmokeTestService();
 		m_Authorization = new HST_AuthorizationService();
@@ -435,6 +439,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_ResourceLedger)
 			m_ResourceLedger.ReconcileOpenReservations(m_State, m_Economy);
 		EnsureCampaignFoundation();
+		if (m_RadioSites)
+			m_RadioSites.ReconcileAfterRestore(m_State);
 		if (m_EnemyQRFOperations && m_EnemyDirector)
 			m_EnemyQRFOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		if (m_EnemyPatrolOperations && m_EnemyDirector)
@@ -559,6 +565,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				|| m_RescuePOWOperations.PrepareOpenPhysicalAuthorityForPersistence(m_State, terminalRescueAuthorityFailure);
 			bool terminalHQRuntimeChanged = EnsureTerminalCampaignRuntimeObjects();
 			bool terminalExactSupportSettlementChanged = m_SupportRequests && m_SupportRequests.TickExactPlayerSupportSettlements(m_State, m_PhysicalWar, m_ForceSpawnAdapter);
+			bool terminalExactRadioSettlementChanged = m_RadioSites
+				&& m_RadioSites.SettleOpenSitesForCampaignStop(m_State, "campaign outcome is terminal");
 			bool terminalExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign outcome is terminal");
 			bool terminalExactEnemyPatrolSettlementChanged = terminalPatrolAuthorityReady && m_EnemyPatrolOperations
 				&& m_EnemyPatrolOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign outcome is terminal");
@@ -592,7 +600,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				|| terminalExactSupportSettlementChanged || terminalSpawnMarkerChanged;
 			bool terminalOperationChanged = terminalExactEnemyQRFSettlementChanged
 				|| terminalExactEnemyQRFCleanupChanged || terminalExactConvoySettlementChanged
-				|| terminalExactConvoyCleanupChanged || terminalMissionGuardChanged || terminalRescueChanged;
+				|| terminalExactConvoyCleanupChanged || terminalMissionGuardChanged || terminalRescueChanged
+				|| terminalExactRadioSettlementChanged;
 			if (terminalCoreChanged || terminalOperationChanged || terminalPatrolChanged || terminalGarrisonPatrolChanged)
 			{
 				bool terminalMajorChanged = terminalHQRuntimeChanged || terminalExactSupportSettlementChanged
@@ -619,6 +628,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool setupRescueAuthorityReady = !m_RescuePOWOperations
 				|| m_RescuePOWOperations.PrepareOpenPhysicalAuthorityForPersistence(m_State, setupRescueAuthorityFailure);
 			bool setupExactSupportSettlementChanged = m_SupportRequests && m_SupportRequests.TickExactPlayerSupportSettlements(m_State, m_PhysicalWar, m_ForceSpawnAdapter);
+			bool setupExactRadioSettlementChanged = m_RadioSites
+				&& m_RadioSites.SettleOpenSitesForCampaignStop(m_State, "campaign is in setup");
 			bool setupExactEnemyQRFSettlementChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign is in setup");
 			bool setupExactEnemyPatrolSettlementChanged = setupPatrolAuthorityReady && m_EnemyPatrolOperations
 				&& m_EnemyPatrolOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign is in setup");
@@ -652,7 +663,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				|| setupSpawnMarkerChanged;
 			bool setupOperationChanged = setupExactEnemyQRFSettlementChanged
 				|| setupExactEnemyQRFCleanupChanged || setupExactConvoySettlementChanged
-				|| setupExactConvoyCleanupChanged || setupMissionGuardChanged || setupRescueChanged;
+				|| setupExactConvoyCleanupChanged || setupMissionGuardChanged || setupRescueChanged
+				|| setupExactRadioSettlementChanged;
 			if (setupCoreChanged || setupOperationChanged || setupPatrolChanged || setupGarrisonPatrolChanged)
 			{
 				bool setupMajorChanged = setupExactSupportSettlementChanged || setupSpawnMarkerChanged
@@ -672,6 +684,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool exactMissionGuardCleanupChanged = m_MissionGuardOperations && m_MissionGuardOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactRescueCleanupChanged = m_RescuePOWOperations && m_RescuePOWOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactGarrisonPatrolChanged = m_GarrisonPatrolOperations && m_GarrisonPatrolOperations.Tick(m_State, m_Preset);
+		// Physical radio destruction is observed before expiry can terminalize the
+		// same mission, so exact evidence wins the boundary deterministically.
+		bool radioSiteChanged = m_RadioSites && m_RadioSites.TickBeforeMissionRuntime(m_State);
+		if (m_RadioSites)
+		{
+			// Snapshot each eligible instance once before expiry. A debug hold or one
+			// rejected aggregate cannot repeat/starve another independent site.
+			array<string> completedRadioMissionIds = {};
+			foreach (HST_ActiveMissionState radioMission : m_State.m_aActiveMissions)
+			{
+				if (HST_RadioSiteLifecycleService.IsExactMission(radioMission)
+					&& m_RadioSites.CanCompleteMission(m_State, radioMission))
+					completedRadioMissionIds.Insert(radioMission.m_sInstanceId);
+			}
+			foreach (string completedRadioMissionId : completedRadioMissionIds)
+				radioSiteChanged = HandleRuntimeMissionCompletionCandidate(completedRadioMissionId) || radioSiteChanged;
+		}
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		bool missionExpiryChanged = ApplyPendingMissionExpiryEvents();
 		if (missionChanged || missionExpiryChanged)
@@ -717,6 +746,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		// salvage. Retire exact runtime only after the normal success/failure path
 		// has committed that status in this tick.
 		convoyOperationChanged = (m_MissionConvoyOperations && m_MissionConvoyOperations.ReconcileSettledRuntimeCleanup(m_State)) || convoyOperationChanged;
+		radioSiteChanged = (m_RadioSites && m_RadioSites.ReconcileProjections(m_State)) || radioSiteChanged;
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds, m_Civilians);
 		bool periodicTownInfluenceChanged = m_Towns.ConsumePeriodicTownInfluenceChanged();
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, elapsedSeconds);
@@ -753,6 +783,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || exactMissionGuardCleanupChanged;
 		anyStateChanged = anyStateChanged || exactMissionGuardChanged;
 		anyStateChanged = anyStateChanged || exactRescueChanged || exactRescueCleanupChanged;
+		anyStateChanged = anyStateChanged || radioSiteChanged;
 		anyStateChanged = anyStateChanged || convoyRuntimeChanged;
 		anyStateChanged = anyStateChanged || convoyOperationChanged;
 		anyStateChanged = anyStateChanged || convoyOutcomeChanged;
@@ -771,6 +802,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		markerStateChanged = markerStateChanged || exactMissionGuardCleanupChanged;
 		markerStateChanged = markerStateChanged || exactMissionGuardChanged;
 		markerStateChanged = markerStateChanged || exactRescueChanged || exactRescueCleanupChanged;
+		markerStateChanged = markerStateChanged || radioSiteChanged;
 		markerStateChanged = markerStateChanged || convoyOutcomeChanged;
 		markerStateChanged = markerStateChanged || income > 0;
 		markerStateChanged = markerStateChanged || periodicTownInfluenceChanged;
@@ -1797,16 +1829,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (exactRescueAuthority
 			&& !HST_RescuePOWOperationService.CanCompleteExactMission(m_State, activeMission))
 			return false;
+		bool exactRadioAuthority = HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(activeMission);
+		if (exactRadioAuthority
+			&& (!HST_RadioSiteLifecycleService.IsExactMission(activeMission)
+				|| !m_RadioSites || !m_RadioSites.CanCompleteMission(m_State, activeMission)))
+			return false;
 		HST_MissionDefinition definition;
 		if (activeMission)
 			definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
 
-		if (m_Objectives && !exactRescueAuthority)
+		if (m_Objectives && !exactRescueAuthority && !exactRadioAuthority)
 			m_Objectives.ProgressMission(m_State, instanceId, 999);
 
 		bool applyDefinitionRewards = !ShouldSuppressDefinitionRewardForConvoyCompletion(activeMission);
 		bool allowExpiredCompletion = activeMission && activeMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && m_MissionRuntime && m_MissionRuntime.CanCompleteExpiredPlayerBoundMission(m_State, activeMission);
 		bool changed = m_Missions.Complete(m_State, m_Economy, instanceId, false, allowExpiredCompletion);
+		if (changed && exactRadioAuthority)
+		{
+			HST_RadioSiteTransitionResult radioOutcome = m_RadioSites.OnMissionSucceeded(m_State, activeMission);
+			if (!radioOutcome || !radioOutcome.m_bAccepted)
+			{
+				activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;
+				activeMission.m_sRuntimePhase = "radio_site_authority_quarantined";
+				activeMission.m_sRuntimeFailureReason = "radio-site success settlement rejected";
+				if (radioOutcome && !radioOutcome.m_sReason.IsEmpty())
+					activeMission.m_sRuntimeFailureReason = radioOutcome.m_sReason;
+				m_RadioSites.QuarantineMissionAggregate(m_State, activeMission, activeMission.m_sRuntimeFailureReason);
+				MarkMajorCampaignChange();
+				return false;
+			}
+		}
 		if (changed && m_Strategic)
 			m_Strategic.ApplyMissionOutcomeEvent(m_State, m_Preset, m_Economy, m_Balance, m_Towns, m_ZoneCapture, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, m_HQ, definition, activeMission, true, applyDefinitionRewards);
 		if (changed && m_MissionGuardOperations)
@@ -1849,9 +1901,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
 
 		bool changed = m_Missions.Fail(m_State, m_Preset, m_Economy, instanceId, false);
+		bool exactRadioAuthority = HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(activeMission);
+		if (changed && exactRadioAuthority)
+		{
+			if (!HST_RadioSiteLifecycleService.IsExactMission(activeMission) || !m_RadioSites)
+				return false;
+			HST_RadioSiteTransitionResult radioOutcome = m_RadioSites.OnMissionFailed(m_State, activeMission);
+			if (!radioOutcome || !radioOutcome.m_bAccepted)
+			{
+				string radioFailure = "radio-site failure settlement rejected";
+				if (radioOutcome && !radioOutcome.m_sReason.IsEmpty())
+					radioFailure = radioOutcome.m_sReason;
+				m_RadioSites.QuarantineMissionAggregate(m_State, activeMission, radioFailure);
+				MarkMajorCampaignChange();
+				return true;
+			}
+		}
 		if (changed && m_Strategic)
 			m_Strategic.ApplyMissionOutcomeEvent(m_State, m_Preset, m_Economy, m_Balance, m_Towns, m_ZoneCapture, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, m_HQ, definition, activeMission, false);
-		if (changed && m_Objectives)
+		if (changed && m_Objectives && !exactRadioAuthority)
 			m_Objectives.FailMissionObjectives(m_State, instanceId);
 		if (changed && m_MissionGuardOperations)
 			m_MissionGuardOperations.ReconcileAfterMissionOutcomes(m_State);
@@ -1892,6 +1960,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_MissionDefinition definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
 		if (!definition)
 			return false;
+
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(activeMission))
+		{
+			if (!HST_RadioSiteLifecycleService.IsExactMission(activeMission) || !m_RadioSites)
+				return true;
+			HST_RadioSiteTransitionResult radioOutcome = m_RadioSites.OnMissionExpired(m_State, activeMission);
+			if (!radioOutcome || !radioOutcome.m_bAccepted)
+			{
+				string radioFailure = "radio-site expiry settlement rejected";
+				if (radioOutcome && !radioOutcome.m_sReason.IsEmpty())
+					radioFailure = radioOutcome.m_sReason;
+				m_RadioSites.QuarantineMissionAggregate(m_State, activeMission, radioFailure);
+				return true;
+			}
+		}
 
 		HST_StrategicEventApplyResult result = m_Strategic.ApplyMissionExpiryEvent(m_State, m_Preset, m_Economy, definition, activeMission, m_EnemyDirector);
 		return result.m_bApplied || result.m_bChanged;
@@ -2784,6 +2867,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		HST_ActiveMissionState mission = m_State.FindActiveMission(resolvedInstanceId);
 		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
 			return false;
 
 		bool changed = m_Objectives.ProgressMission(m_State, resolvedInstanceId, 1);
@@ -4351,6 +4436,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi mission | exact rescue POW casualty recorded";
 		}
 
+		HST_MissionAssetState exactRadioAsset = m_State.FindMissionAsset(assetId);
+		HST_ActiveMissionState exactRadioMission;
+		if (exactRadioAsset)
+			exactRadioMission = m_State.FindActiveMission(exactRadioAsset.m_sMissionInstanceId);
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(exactRadioMission)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(exactRadioAsset))
+		{
+			if (!m_RadioSites || !HST_RadioSiteLifecycleService.IsExactMission(exactRadioMission))
+				return "h-istasi radio site | exact destruction authority is quarantined";
+			string radioResult;
+			string radioMissionInstanceId;
+			bool radioChanged = m_RadioSites.HandleAssetDestroyed(
+				m_State,
+				assetId,
+				position,
+				radioResult,
+				radioMissionInstanceId);
+			if (radioChanged)
+			{
+				string completedRadioMissionId = m_RadioSites.FindCompletedActiveMissionId(m_State);
+				if (!completedRadioMissionId.IsEmpty())
+					HandleRuntimeMissionCompletionCandidate(completedRadioMissionId);
+				BroadcastPendingMissionOutcomeEvents();
+				MarkMajorCampaignChange();
+			}
+			return radioResult;
+		}
+
 		string result;
 		string eventType;
 		string missionInstanceId;
@@ -4388,6 +4501,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (!m_MissionRuntime)
 			return "h-istasi mission | service not ready";
+
+		HST_MissionAssetState exactRadioAsset = m_State.FindMissionAsset(assetId);
+		HST_ActiveMissionState exactRadioMission;
+		if (exactRadioAsset)
+			exactRadioMission = m_State.FindActiveMission(exactRadioAsset.m_sMissionInstanceId);
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(exactRadioMission)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(exactRadioAsset))
+		{
+			if (!m_RadioSites || !HST_RadioSiteLifecycleService.IsExactMission(exactRadioMission))
+				return "h-istasi radio site | exact demolition authority is quarantined";
+			string radioResult;
+			string radioMissionInstanceId;
+			bool radioChanged = m_RadioSites.ApplyExplosiveDamage(
+				m_State,
+				assetId,
+				position,
+				damage,
+				sourceLabel,
+				radioResult,
+				radioMissionInstanceId);
+			if (radioChanged)
+			{
+				string completedRadioMissionId = m_RadioSites.FindCompletedActiveMissionId(m_State);
+				if (!completedRadioMissionId.IsEmpty())
+					HandleRuntimeMissionCompletionCandidate(completedRadioMissionId);
+				BroadcastPendingMissionOutcomeEvents();
+				MarkMajorCampaignChange(!radioResult.Contains("progress"));
+			}
+			return radioResult;
+		}
 
 		string result;
 		string eventType;
@@ -4971,6 +5114,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_CampaignDebugLiveState = m_State;
 		m_State = isolatedState;
+		if (m_RadioSites)
+			m_RadioSites.ReconcileAfterRestore(m_State);
 		m_bCampaignDebugStateIsolationActive = true;
 		m_sCampaignDebugIsolationStatus = "active | cloned campaign state | autosave suspended | isolated checkpoints enabled | pre-run state persisted | profile " + profile;
 		return true;
@@ -9293,6 +9438,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CampaignState proofState = new HST_CampaignState();
 		baselineData.ApplyTo(proofState);
 		proofState.m_aZones.Clear();
+		proofState.m_aRadioSites.Clear();
 		proofState.m_aCivilianZones.Clear();
 		proofState.m_aTownInfluenceEvents.Clear();
 		proofState.m_aStrategicEvents.Clear();
@@ -9323,6 +9469,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		proofState.m_aZones.Insert(supportRadio);
 		proofState.m_aZones.Insert(pressureTown);
 		proofState.m_aZones.Insert(pressureRadio);
+		proofState.m_aRadioSites.Insert(BuildCampaignDebugOnlineRadioSite(proofState, supportRadio));
+		proofState.m_aRadioSites.Insert(BuildCampaignDebugOnlineRadioSite(proofState, pressureRadio));
 
 		HST_CivilianZoneState supportTownState = BuildCampaignDebugRadioCivilianTown(supportTownId, 45, 55, 50, 5);
 		HST_CivilianZoneState pressureTownState = BuildCampaignDebugRadioCivilianTown(pressureTownId, 55, 45, 60, 2);
@@ -9664,6 +9812,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(securityCase);
 		return securityCase;
+	}
+
+	protected HST_RadioSiteState BuildCampaignDebugOnlineRadioSite(
+		HST_CampaignState state,
+		HST_ZoneState zone)
+	{
+		HST_RadioSiteState site = new HST_RadioSiteState();
+		if (!state || !zone)
+			return site;
+		site.m_iContractVersion = HST_RadioSiteLifecycleService.EXACT_CONTRACT_VERSION;
+		site.m_sSiteId = HST_RadioSiteLifecycleService.BuildSiteId(zone.m_sZoneId);
+		site.m_sZoneId = zone.m_sZoneId;
+		site.m_sTargetId = HST_RadioSiteLifecycleService.BuildTargetId(zone.m_sZoneId);
+		site.m_sTargetPrefab = HST_ZoneCompositionService.PROP_DESTROY_TARGET;
+		site.m_vTargetPosition = zone.m_vPosition;
+		site.m_sAuthoredTargetPrefab = HST_ZoneCompositionService.PROP_DESTROY_TARGET;
+		site.m_vAuthoredTargetPosition = zone.m_vPosition;
+		site.m_eLifecycleState = HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_ONLINE;
+		site.m_eTargetOwnership = HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD;
+		site.m_sLastTransitionReason = "campaign debug resolved online radio-site fixture";
+		site.m_iLastTransitionSecond = Math.Max(0, state.m_iElapsedSeconds);
+		site.m_iRevision = 1;
+		return site;
 	}
 
 	protected HST_CivilianZoneState BuildCampaignDebugRadioCivilianTown(string zoneId, int fiaSupport, int occupierSupport, int reputation, int heat)
@@ -13404,6 +13575,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_CampaignDebugLiveState)
 			{
 				m_State = m_CampaignDebugLiveState;
+				if (m_RadioSites)
+					m_RadioSites.ReconcileAfterRestore(m_State);
 				if (m_Persistence)
 					m_Persistence.RestoreTrackedStateAfterCampaignDebug(m_State);
 			}
@@ -13419,6 +13592,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CampaignState expectedState = m_CampaignDebugStateSnapshot.Restore();
 		int runtimeCleanupCount = CleanupCampaignDebugRuntimeDeltaBeforeStateRestore(m_CampaignDebugLiveState);
 		m_State = m_CampaignDebugLiveState;
+		if (m_RadioSites)
+			m_RadioSites.ReconcileAfterRestore(m_State);
 		bool stateRestored = CampaignDebugIsolationStatesMatch(expectedState, m_State);
 		bool persistenceRestored = m_Persistence && m_Persistence.RestoreTrackedStateAfterCampaignDebug(m_State);
 		if (m_Missions)
@@ -16837,8 +17012,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
 		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
 		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
+		AppendCampaignDebugRadioSiteLifecycleAssertions(forceCase);
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
+	}
+
+	protected void AppendCampaignDebugRadioSiteLifecycleAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+
+		HST_RadioSiteLifecycleProofService proofService = new HST_RadioSiteLifecycleProofService();
+		HST_RadioSiteLifecycleProofReport proof = proofService.Run();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "radio_site.binding_admission", "source proof report exists", "missing", "BLOCKED", "radio-site lifecycle source proof did not return a report");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.m_sBindingAdmissionIsolationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sLifecycleOutcomesEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sReceiptRevisionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreMigrationQuarantineEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sInfluenceSuppressionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sOwnershipEquipmentEvidence);
+		AddCampaignDebugAssertion(forceCase, "radio_site.binding_admission", "one resolved site admits one exact mission target while historical records and duplicate starts cannot claim projection authority", proof.m_sBindingAdmissionIsolationEvidence, CampaignDebugStatus(proof.m_bBindingAdmissionIsolationExact), "radio-site binding, admission, or generic-runtime isolation source proof failed");
+		AddCampaignDebugAssertion(forceCase, "radio_site.lifecycle_outcomes", "destroy and stop-rebuild success, failure, and expiry settle the exact durable lifecycle states", proof.m_sLifecycleOutcomesEvidence, CampaignDebugStatus(proof.m_bLifecycleOutcomesExact), "radio-site lifecycle outcome source proof failed");
+		AddCampaignDebugAssertion(forceCase, "radio_site.receipt_revision", "admission and outcome replays are idempotent while stale revisions cannot mutate a later lifecycle epoch", proof.m_sReceiptRevisionEvidence, CampaignDebugStatus(proof.m_bReceiptRevisionExact), "radio-site receipt, replay, or stale-revision source proof failed");
+		AddCampaignDebugAssertion(forceCase, "radio_site.restore_migration_quarantine", "current-schema restore is exact, legacy import is conservative, and contradictory strong authority quarantines", proof.m_sRestoreMigrationQuarantineEvidence, CampaignDebugStatus(proof.m_bRestoreMigrationQuarantineExact), "radio-site restore, migration, or quarantine source proof failed");
+		AddCampaignDebugAssertion(forceCase, "radio_site.influence_suppression", "only online transmitters contribute radio influence and offline nearest sites yield to an eligible online site", proof.m_sInfluenceSuppressionEvidence, CampaignDebugStatus(proof.m_bInfluenceSuppressionExact), "radio-site influence suppression source proof failed");
+		AddCampaignDebugAssertion(forceCase, "radio_site.ownership_equipment", "borrowed authored transmitters remain borrowed until rebuild handoff and stop-rebuild targets construction equipment", proof.m_sOwnershipEquipmentEvidence, CampaignDebugStatus(proof.m_bOwnershipEquipmentExact), "radio-site target ownership or rebuild-equipment source proof failed");
 	}
 
 	protected void AppendCampaignDebugPaidSupportAuthorityAssertions(HST_CampaignDebugCaseResult forceCase)
@@ -20138,6 +20341,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			completionStatus = "completed 0 | missing campaign state or instance";
 			return false;
+		}
+
+		HST_ActiveMissionState exactRadioMission = m_State.FindActiveMission(instanceId);
+		if (HST_RadioSiteLifecycleService.IsExactMission(exactRadioMission)
+			&& exactRadioMission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
+			&& (!m_RadioSites || !m_RadioSites.CanCompleteMission(m_State, exactRadioMission)))
+		{
+			bool cleaned = FailMission(instanceId);
+			completionStatus = string.Format(
+				"completed %1 | exact radio mission failed for source-only debug cleanup; packaged physical destruction remains required",
+				cleaned);
+			return cleaned;
 		}
 
 		bool completed = CompleteMission(instanceId);
@@ -30820,6 +31035,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		string commanderIdentityId = m_State.m_sCommanderIdentityId;
+		if (m_RadioSites)
+		{
+			string radioResetFailure;
+			if (!m_RadioSites.PrepareForNewCampaignReset(m_State, radioResetFailure))
+			{
+				m_State.m_sLastPersistenceStatus = "new campaign reset blocked: " + radioResetFailure;
+				return false;
+			}
+		}
 		m_State = CreateInitialCampaignState();
 		foreach (HST_PlayerState existingPlayer : existingPlayers)
 			m_State.m_aPlayers.Insert(existingPlayer);
@@ -30827,6 +31051,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_Authorization)
 			m_Authorization.AssignCommanderOnVacancy(m_State);
 		EnsureCampaignFoundation();
+		if (m_RadioSites)
+			m_RadioSites.ReconcileAfterRestore(m_State);
 		EvaluateCampaignOutcomeNow();
 		m_Missions.SyncNextInstanceIdFromState(m_State);
 		if (m_Persistence)
@@ -30949,6 +31175,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			HST_DefaultCatalog.AddDefaultGarrisons(m_State, m_Preset);
 		if (m_Content)
 			m_Content.EnsureGeneratedContent(m_State, m_Preset);
+		if (m_RadioSites)
+			m_RadioSites.EnsureSites(m_State);
 		if (m_Civilians)
 			m_Civilians.EnsureCivilianZones(m_State);
 		if (m_Arsenal && m_Arsenal.CleanupInvalidGarageRecords(m_State) > 0)
@@ -31081,10 +31309,38 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (definition && mission.m_sMissionId == HST_RescuePOWOperationService.EXACT_MISSION_ID
 			&& m_RescuePOWOperations)
 			m_RescuePOWOperations.PrepareNewMissionContract(mission);
+		if (definition && HST_RadioSiteLifecycleService.IsSupportedMissionId(mission.m_sMissionId))
+		{
+			if (!m_RadioSites || !m_RadioSites.PrepareNewMissionContract(m_State, mission))
+			{
+				mission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;
+				mission.m_sRuntimePhase = "radio_site_authority_quarantined";
+				mission.m_sRuntimeFailureReason = "exact radio-site contract preparation failed";
+				MarkMajorCampaignChange();
+				BroadcastMissionEvent("failed", mission, definition);
+				return false;
+			}
+		}
 		if (m_Objectives)
 			m_Objectives.InitializeMission(m_State, m_Preset, definition, mission, m_Content);
 		if (m_MissionRuntime)
 			m_MissionRuntime.InitializeMissionRuntime(m_State, m_Preset, definition, mission, m_Content);
+		if (HST_RadioSiteLifecycleService.IsExactMission(mission) && m_RadioSites)
+		{
+			HST_RadioSiteTransitionResult radioAdmission = m_RadioSites.AdmitNewMission(m_State, mission);
+			if (!radioAdmission || !radioAdmission.m_bAccepted)
+			{
+				string radioAdmissionFailure = "exact radio-site admission failed";
+				if (radioAdmission && !radioAdmission.m_sReason.IsEmpty())
+					radioAdmissionFailure = radioAdmission.m_sReason;
+				mission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;
+				mission.m_sRuntimeFailureReason = radioAdmissionFailure;
+				m_RadioSites.QuarantineMissionAggregate(m_State, mission, radioAdmissionFailure);
+				MarkMajorCampaignChange();
+				BroadcastMissionEvent("failed", mission, definition);
+				return false;
+			}
+		}
 		if (HST_RescuePOWOperationService.IsExactMission(mission) && m_RescuePOWOperations)
 		{
 			HST_RescuePOWAdmissionResult rescueAdmission = m_RescuePOWOperations.AdmitNewMission(

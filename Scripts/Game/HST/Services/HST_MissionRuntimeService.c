@@ -959,6 +959,14 @@ class HST_MissionRuntimeService
 			mission.m_bRuntimeFallback = false;
 			return true;
 		}
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+		{
+			// Exact radio lifecycle owns its durable asset and physical transmitter.
+			// Keep only the shared primitive/objective envelope initialized here.
+			mission.m_bRuntimeSpawned = false;
+			mission.m_bRuntimeFallback = false;
+			return true;
+		}
 
 		EnsureMissionAssetsInitialized(state, definition, mission);
 		LinkObjectivesToMissionAssets(state, mission);
@@ -1002,6 +1010,11 @@ class HST_MissionRuntimeService
 			{
 				// Exact rescue owns active actuation, extraction grace, settlement, and
 				// process cleanup. Generic expired-runtime and cleanup paths stay isolated.
+				continue;
+			}
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			{
+				// Lifecycle reconciliation, settlement, and cleanup run before generic runtime.
 				continue;
 			}
 
@@ -2011,6 +2024,8 @@ class HST_MissionRuntimeService
 			return false;
 		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
 
 		bool changed;
 		if (ShouldRunRestoredMissionCarrierRestorePass(state, mission))
@@ -2036,6 +2051,8 @@ class HST_MissionRuntimeService
 		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
 			return false;
 		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
 			return false;
 
 		if (ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission))
@@ -2186,6 +2203,8 @@ class HST_MissionRuntimeService
 			return false;
 		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
 
 		bool spawned = TrySpawnMissionRuntimeAssets(state, mission);
 		bool convoyWithoutVehicleAssets = mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0;
@@ -2241,6 +2260,8 @@ class HST_MissionRuntimeService
 		if (!state || !definition || !mission || mission.m_sRuntimePrimitive == PRIMITIVE_ABSTRACT_FALLBACK)
 			return false;
 		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
 			return false;
 
 		vector targetPosition = ResolveRuntimePropPosition(state, mission);
@@ -2929,6 +2950,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || role.IsEmpty())
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
 
 		string assetId = string.Format("asset_%1_%2_%3", mission.m_sInstanceId, role, index);
 		HST_MissionAssetState existingAsset = state.FindMissionAsset(assetId);
@@ -2961,6 +2984,9 @@ class HST_MissionRuntimeService
 	protected bool RepairMissionAssetRecord(HST_MissionAssetState asset, HST_ActiveMissionState mission, string kind, string role, string prefab, vector sourcePosition, vector targetPosition, int index)
 	{
 		if (!asset || !mission)
+			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 			return false;
 
 		bool changed;
@@ -3079,6 +3105,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission)
 			return;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return;
 
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
@@ -3100,12 +3128,16 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission)
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
 
 		bool foundAsset;
 		bool hasUsableAsset;
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 				continue;
 
 			foundAsset = true;
@@ -3216,6 +3248,9 @@ class HST_MissionRuntimeService
 
 	protected bool TryBindExistingRadioTower(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset)
 	{
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
+			return false;
 		if (!ShouldBindExistingRadioTower(mission, asset))
 			return false;
 
@@ -3329,6 +3364,8 @@ class HST_MissionRuntimeService
 	protected bool TrySpawnMissionRuntimeProp(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission || mission.m_sRuntimeEntityId.IsEmpty() || mission.m_sRuntimePrimitive == PRIMITIVE_ABSTRACT_FALLBACK)
+			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
 			return false;
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0)
 		{
@@ -3667,6 +3704,12 @@ class HST_MissionRuntimeService
 		}
 
 		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+		{
+			result = "h-istasi mission | failed: exact radio interaction requires lifecycle authority";
+			return false;
+		}
 		bool allowPostCompletionConvoyInteraction = IsPostCompletionConvoyInteractionAllowed(state, mission, asset, commandId);
 		bool allowExpiredPlayerBoundInteraction = IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, commandId);
 		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionConvoyInteraction && !allowExpiredPlayerBoundInteraction))
@@ -3776,6 +3819,12 @@ class HST_MissionRuntimeService
 		}
 
 		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+		{
+			result = "h-istasi mission | failed: exact radio destruction requires lifecycle authority";
+			return false;
+		}
 		if (mission && HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 		{
 			result = "h-istasi mission | failed: exact rescue casualty authority must use the coordinator receipt path";
@@ -3828,6 +3877,12 @@ class HST_MissionRuntimeService
 		}
 
 		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+		{
+			result = "h-istasi mission | failed: exact radio demolition requires lifecycle authority";
+			return false;
+		}
 		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 		{
 			result = "h-istasi mission | failed: mission is no longer active";
@@ -3922,6 +3977,8 @@ class HST_MissionRuntimeService
 	protected bool IsInteractionAssetEligible(HST_MissionAssetState asset, string commandId, int playerId)
 	{
 		if (!asset || asset.m_bDelivered)
+			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 			return false;
 
 		if (commandId == "mission_asset_load")
@@ -4667,6 +4724,14 @@ class HST_MissionRuntimeService
 
 	protected bool ApplySabotageInteraction(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, vector playerPosition, out string result, out string eventType)
 	{
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
+		{
+			result = "h-istasi mission | failed: exact radio sabotage requires lifecycle authority";
+			eventType = "";
+			return false;
+		}
+
 		MarkMissionAssetDestroyed(state, mission, asset, playerPosition);
 		if (ShouldKeepConvoyContactPhase(mission, asset))
 			mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT;
@@ -4682,6 +4747,9 @@ class HST_MissionRuntimeService
 	protected void MarkMissionAssetDestroyed(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, vector position)
 	{
 		if (!state || !asset)
+			return;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 			return;
 
 		asset.m_bDestroyed = true;
@@ -5081,6 +5149,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission)
 			return;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return;
 
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
@@ -5312,11 +5382,15 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission)
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
 
 		bool changed;
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bDelivered || asset.m_bDestroyed)
+				continue;
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 				continue;
 
 			vector position;
@@ -6943,6 +7017,8 @@ class HST_MissionRuntimeService
 				continue;
 			if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 				continue;
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+				continue;
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !CanCompleteExpiredPlayerBoundMission(state, mission))
 				continue;
 			if (IsPersistenceSmokeMission(mission))
@@ -6967,6 +7043,8 @@ class HST_MissionRuntimeService
 			if (IsPersistenceSmokeMission(mission))
 				continue;
 			if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
+				continue;
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
 				continue;
 
 			if (mission.m_sRuntimePhase == PHASE_FAILED)
@@ -7442,6 +7520,8 @@ class HST_MissionRuntimeService
 
 	protected bool PollObjective(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionObjectiveState objective, int elapsedSeconds)
 	{
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
 		if (mission && mission.m_sRuntimePrimitive == PRIMITIVE_GUN_SHOP)
 			return false;
 
@@ -7620,6 +7700,11 @@ class HST_MissionRuntimeService
 		handled = false;
 		if (!state || !mission || !objective)
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+		{
+			handled = true;
+			return false;
+		}
 
 		string role = ResolveObjectiveAssetRole(mission, objective);
 		if (role.IsEmpty())
@@ -7639,6 +7724,8 @@ class HST_MissionRuntimeService
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role)
+				continue;
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 				continue;
 
 			handled = true;
@@ -7761,6 +7848,8 @@ class HST_MissionRuntimeService
 	protected bool SyncMissionAssetDestructionState(HST_CampaignState state, HST_MissionAssetState asset)
 	{
 		if (!state || !asset || asset.m_bDestroyed)
+			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 			return false;
 
 		if (!IsRuntimeEntityDestroyed(asset.m_sEntityId))
@@ -8823,6 +8912,8 @@ class HST_MissionRuntimeService
 			return false;
 		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
 
 		bool changed;
 		string resolvedPrimitive = PrimitiveForMissionId(mission.m_sMissionId, HST_EMissionCategory.HST_MISSION_DYNAMIC);
@@ -8971,6 +9062,8 @@ class HST_MissionRuntimeService
 			return false;
 		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
 
 		vector targetPosition = ResolveRuntimePropPosition(state, mission);
 		vector hqPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
@@ -9044,6 +9137,9 @@ class HST_MissionRuntimeService
 			return false;
 		if (IsTerminalMissionAssetState(asset))
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)
+			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
+			return false;
 
 		bool changed;
 		if (asset.m_sEntityId.IsEmpty())
@@ -9108,6 +9204,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || mission.m_bRuntimeCleanupComplete)
 			return false;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return false;
 
 		DeleteMissionRuntimeEntities(state, mission);
 		DeleteRuntimeEntity(mission.m_sRuntimeEntityId);
@@ -9127,6 +9225,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
 			return;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return;
 
 		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
 		{
@@ -9134,6 +9234,8 @@ class HST_MissionRuntimeService
 				continue;
 
 			HST_MissionAssetState runtimeAsset = FindMissionAssetByEntityId(state, runtimeEntity.m_sRuntimeEntityId);
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(runtimeAsset))
+				continue;
 			if (IsPreservedConvoyAssetAfterCrewElimination(state, mission, runtimeAsset))
 				continue;
 
@@ -9143,6 +9245,8 @@ class HST_MissionRuntimeService
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 				continue;
 			if (IsPreservedConvoyAssetAfterCrewElimination(state, mission, asset))
 				continue;
@@ -9191,6 +9295,8 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
 			return;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return;
 
 		for (int i = state.m_aMissionRuntimeEntities.Count() - 1; i >= 0; i--)
 		{
@@ -9199,6 +9305,8 @@ class HST_MissionRuntimeService
 				continue;
 
 			HST_MissionAssetState runtimeAsset = FindMissionAssetByEntityId(state, runtimeEntity.m_sRuntimeEntityId);
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(runtimeAsset))
+				continue;
 			if (IsPreservedConvoyAssetAfterCrewElimination(state, mission, runtimeAsset))
 				continue;
 			if (IsExactMissionConvoyDurableAuthorityAsset(state, mission, runtimeAsset))
@@ -9228,11 +9336,15 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
 			return;
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+			return;
 
 		for (int i = state.m_aMissionAssets.Count() - 1; i >= 0; i--)
 		{
 			HST_MissionAssetState asset = state.m_aMissionAssets[i];
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 				continue;
 			if (IsPreservedConvoyAssetAfterCrewElimination(state, mission, asset))
 				continue;

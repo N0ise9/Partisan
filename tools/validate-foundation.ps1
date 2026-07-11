@@ -4933,7 +4933,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 58",
+		"SCHEMA_VERSION = 59",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -5313,7 +5313,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 58',
+		'SCHEMA_VERSION = 59',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5885,7 +5885,7 @@ $physicalWarText = Get-Content -Raw $physicalWarPath
 $schema52SaveValidationCorpus = $forceSaveDataText + "`n" + $missionConvoySaveValidationText
 $schema52StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $schema52SaveValidationCorpus
 foreach ($requiredSchema52StateEntry in @(
-		'SCHEMA_VERSION = 58',
+		'SCHEMA_VERSION = 59',
 		'HST_OPERATION_TYPE_MISSION_CONVOY',
 		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
 		'class HST_ConvoyElementState',
@@ -13277,6 +13277,10 @@ foreach ($requiredDestroyTargetEntry in @(
 		'"debug:rpg_test_hit"',
 		'"DEBUG: Apply demolition hit"',
 		"m_bDebugExplosiveWitnesses",
+		"HasConfiguredMissionIdentity",
+		"!asset.GetAssetId().IsEmpty()",
+		"!asset.GetMissionInstanceId().IsEmpty()",
+		"!asset.GetRole().IsEmpty()",
 		"witness candidate",
 		"witness scan summary",
 		"m_iLastWitnessQueryCount",
@@ -13308,8 +13312,15 @@ foreach ($requiredDestroyTargetEntry in @(
 		throw "Destroy radio tower demolition debug/classifier contract is missing: $requiredDestroyTargetEntry"
 	}
 }
-if ((Get-Content -Raw "Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et") -notmatch [regex]::Escape("m_bDebugExplosiveWitnesses 1")) {
-	throw "Destroy radio target prefab must enable explosive witness debug logging while demolition detection is being verified"
+if ((Get-Content -Raw "Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et") -notmatch [regex]::Escape("m_bDebugExplosiveWitnesses 0")) {
+	throw "Destroy radio target prefab must keep verbose explosive witness logging disabled"
+}
+$missionDestroyFrameBlock = Get-ScriptMethodBlock $missionDestroyTargetComponentText 'override void EOnFrame('
+$missionDestroyIdentityGateIndex = $missionDestroyFrameBlock.IndexOf('if (!HasConfiguredMissionIdentity(owner))')
+$missionDestroyWitnessScanIndex = $missionDestroyFrameBlock.IndexOf('TickExplosiveWitnessScan(owner, timeSlice)')
+if ([string]::IsNullOrEmpty($missionDestroyFrameBlock) -or $missionDestroyIdentityGateIndex -lt 0 -or
+	$missionDestroyWitnessScanIndex -lt 0 -or $missionDestroyIdentityGateIndex -gt $missionDestroyWitnessScanIndex) {
+	throw "Permanent unbound radio targets must stay dormant until exact mission identity enables explosive witness scanning"
 }
 if ($missionDestroyTargetComponentText -match [regex]::Escape("m_fLocalExplosiveDamage >= m_fRequiredExplosiveDamage")) {
 	throw "Destroy target completion must trust the server demolition result, not local explosive tally"
@@ -13615,7 +13626,7 @@ $schema53CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema53StateCorpus = $schema53TypesText + "`n" + $schema53StateText + "`n" + $schema53SaveText
 foreach ($schema53StateEntry in @(
-		"SCHEMA_VERSION = 58",
+		"SCHEMA_VERSION = 59",
 		"HST_OPERATION_TYPE_ENEMY_PATROL",
 		"int m_iRouteWaypointIndex = -1;",
 		"int m_iRouteLapCount;",
@@ -13871,7 +13882,7 @@ $schema54CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema54StateCorpus = $schema54TypesText + "`n" + $schema54StateText + "`n" + $schema54SaveText
 foreach ($schema54StateEntry in @(
-		"SCHEMA_VERSION = 58",
+		"SCHEMA_VERSION = 59",
 		"HST_OPERATION_TYPE_GARRISON_PATROL",
 		"IsQuarantinedActiveGroup",
 		"HST_GarrisonPatrolSaveValidationService schema54GarrisonPatrolValidation",
@@ -15078,7 +15089,7 @@ $schema58CaptiveActionText = Get-Content -Raw "Scripts/Game/HST/Components/HST_M
 $schema58MissionActionFilterText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionCargoUserActions.c"
 
 foreach ($schema58StateEntry in @(
-	'SCHEMA_VERSION = 58',
+	'SCHEMA_VERSION = 59',
 	'HST_OPERATION_TYPE_MISSION_RESCUE',
 	'enum HST_ERescueCaptiveDisposition',
 	'int m_iRescueGraceUntilSecond;',
@@ -15095,7 +15106,7 @@ foreach ($schema58StateEntry in @(
 	'string m_sRescueProjectionId;',
 	'bool m_bExternalAssetAuthority;'
 )) {
-	if (($schema58StateText + "`n" + $schema58TypesText + "`n" + $schema58ForceAuthorityText) -notmatch [regex]::Escape($schema58StateEntry)) {
+	if (($schema58StateText + "`n" + $schema58TypesText + "`n" + $schema58ForceAuthorityText + "`n" + $schema58ValidationText) -notmatch [regex]::Escape($schema58StateEntry)) {
 		throw "Schema-58 rescue durable state is missing: $schema58StateEntry"
 	}
 }
@@ -15385,5 +15396,1442 @@ foreach ($schema58MigrationNote in @(
 	}
 }
 Write-Host "Schema-58 exact POW-rescue admission, composite guard/captive authority, transition/idempotency, fold/evidence, outcome/grace, migration/quarantine, UI/marker, and proof contract OK"
+
+# Schema 59: one durable radio-site lifecycle owns authored/generated
+# transmitter identity, destroy/rebuild transitions, mission admission, and
+# broadcast eligibility. Generic composition/runtime paths may project the
+# compatibility envelope, but may not create, destroy, or settle exact sites.
+$schema59Paths = @(
+	"Scripts/Game/HST/Services/HST_RadioSiteLifecycleService.c",
+	"Scripts/Game/HST/Services/HST_RadioSiteSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_RadioSiteLifecycleProofService.c",
+	"Prefabs/Objects/HST/HST_RadioRebuildEquipment.et",
+	"Prefabs/Objects/HST/HST_RadioRebuildEquipment.et.meta",
+	"Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et"
+)
+foreach ($schema59Path in $schema59Paths) {
+	if (!(Test-Path $schema59Path)) {
+		throw "Schema-59 radio-site authority source is missing: $schema59Path"
+	}
+}
+
+$schema59StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema59TypesText = Get-Content -Raw "Scripts/Game/HST/HST_Types.c"
+$schema59SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema59LifecycleText = Get-Content -Raw $schema59Paths[0]
+$schema59ValidationText = Get-Content -Raw $schema59Paths[1]
+$schema59ProofText = Get-Content -Raw $schema59Paths[2]
+$schema59RebuildPrefabText = Get-Content -Raw $schema59Paths[3]
+$schema59GeneratedTowerPrefabText = Get-Content -Raw $schema59Paths[5]
+$schema59MissionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionService.c"
+$schema59RuntimeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
+$schema59CompositionText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCompositionService.c"
+$schema59CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema59ObjectiveText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionObjectiveService.c"
+$schema59DestroyTargetComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionDestroyTargetComponent.c"
+$schema59TownText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownService.c"
+$schema59MarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$schema59UIText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+$schema59StrategicText = Get-Content -Raw "Scripts/Game/HST/Services/HST_StrategicService.c"
+
+foreach ($schema59StateEntry in @(
+	'SCHEMA_VERSION = 59',
+	'enum HST_ERadioSiteLifecycleState',
+	'HST_RADIO_SITE_LIFECYCLE_ONLINE',
+	'HST_RADIO_SITE_LIFECYCLE_DESTROYED',
+	'HST_RADIO_SITE_LIFECYCLE_REBUILDING',
+	'HST_RADIO_SITE_LIFECYCLE_QUARANTINED',
+	'enum HST_ERadioSiteTargetOwnership',
+	'HST_RADIO_SITE_TARGET_UNRESOLVED',
+	'HST_RADIO_SITE_TARGET_BORROWED_WORLD',
+	'HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN',
+	'class HST_RadioSiteState',
+	'string m_sTargetId;',
+	'string m_sTargetPrefab;',
+	'vector m_vTargetPosition;',
+	'string m_sAuthoredTargetPrefab;',
+	'vector m_vAuthoredTargetPosition;',
+	'string m_sActiveTransitionRequestId;',
+	'string m_sLastDestructionReceiptId;',
+	'string m_sLastRebuildReceiptId;',
+	'string m_sLastTransitionRequestId;',
+	'string m_sLastTransitionMissionInstanceId;',
+	'string m_sLastTransitionKind;',
+	'HST_ERadioSiteLifecycleState m_eLastTransitionFromState',
+	'HST_ERadioSiteLifecycleState m_eLastTransitionToState',
+	'int m_iLastTransitionRecordedRevision;',
+	'int m_iRevision = 1;',
+	'int m_iRadioSiteContractVersion;',
+	'string m_sRadioSiteId;',
+	'string m_sRadioSiteTransitionRequestId;',
+	'int m_iRadioSiteRevision;',
+	'ref array<string> m_aDemolitionEvidenceKeys = {};',
+	'HST_ERadioSiteTargetOwnership m_eRadioSiteTargetOwnership',
+	'string m_sRadioSiteAuthoredTargetPrefab;',
+	'vector m_vRadioSiteAuthoredTargetPosition;',
+	'ref array<ref HST_RadioSiteState> m_aRadioSites = {};',
+	'HST_RadioSiteState FindRadioSite(',
+	'HST_RadioSiteState FindRadioSiteForZone(',
+	'HST_RadioSiteState FindRadioSiteForTarget('
+)) {
+	if (($schema59StateText + "`n" + $schema59TypesText) -notmatch [regex]::Escape($schema59StateEntry)) {
+		throw "Schema-59 durable radio-site state is missing: $schema59StateEntry"
+	}
+}
+
+$schema59CopySiteBlock = Get-ScriptMethodBlock $schema59SaveText 'protected HST_RadioSiteState CopyRadioSite('
+if ([string]::IsNullOrEmpty($schema59CopySiteBlock)) {
+	throw "Schema-59 save data lacks the radio-site deep-copy boundary"
+}
+foreach ($schema59CopyField in @(
+	'm_iContractVersion',
+	'm_sSiteId',
+	'm_sZoneId',
+	'm_sTargetId',
+	'm_sTargetPrefab',
+	'm_vTargetPosition',
+	'm_sAuthoredTargetPrefab',
+	'm_vAuthoredTargetPosition',
+	'm_eLifecycleState',
+	'm_eTargetOwnership',
+	'm_sActiveMissionInstanceId',
+	'm_sActiveMissionId',
+	'm_sActiveTransitionRequestId',
+	'm_sLastDestructionReceiptId',
+	'm_sLastDestructionMissionInstanceId',
+	'm_iDestroyedAtSecond',
+	'm_sLastRebuildReceiptId',
+	'm_sLastRebuildMissionInstanceId',
+	'm_iRebuildStartedAtSecond',
+	'm_iRebuiltAtSecond',
+	'm_sLastTransitionRequestId',
+	'm_sLastTransitionMissionInstanceId',
+	'm_sLastTransitionKind',
+	'm_eLastTransitionFromState',
+	'm_eLastTransitionToState',
+	'm_iLastTransitionRecordedRevision',
+	'm_sLastTransitionReason',
+	'm_iLastTransitionSecond',
+	'm_iRevision'
+)) {
+	if ($schema59CopySiteBlock.IndexOf("target.$schema59CopyField = source.$schema59CopyField") -lt 0) {
+		throw "Schema-59 radio-site save copy is missing: $schema59CopyField"
+	}
+}
+foreach ($schema59SaveBoundaryEntry in @(
+	'ref array<ref HST_RadioSiteState> m_aRadioSites = {};',
+	'foreach (HST_RadioSiteState radioSite : state.m_aRadioSites)',
+	'foreach (HST_RadioSiteState radioSite : m_aRadioSites)',
+	'target.m_iRadioSiteContractVersion = source.m_iRadioSiteContractVersion;',
+	'target.m_sRadioSiteId = source.m_sRadioSiteId;',
+	'target.m_sRadioSiteTransitionRequestId = source.m_sRadioSiteTransitionRequestId;',
+	'target.m_iRadioSiteRevision = source.m_iRadioSiteRevision;',
+	'foreach (string evidenceKey : source.m_aDemolitionEvidenceKeys)',
+	'target.m_aDemolitionEvidenceKeys.Insert(evidenceKey);',
+	'target.m_eRadioSiteTargetOwnership = source.m_eRadioSiteTargetOwnership;',
+	'target.m_sRadioSiteAuthoredTargetPrefab = source.m_sRadioSiteAuthoredTargetPrefab;',
+	'target.m_vRadioSiteAuthoredTargetPosition = source.m_vRadioSiteAuthoredTargetPosition;',
+	'HST_RadioSiteSaveValidationService schema59RadioSiteValidation',
+	'schema59RadioSiteValidation.Normalize(this, restoredSchemaVersion)'
+)) {
+	if ($schema59SaveText -notmatch [regex]::Escape($schema59SaveBoundaryEntry)) {
+		throw "Schema-59 capture/apply/migration save boundary is missing: $schema59SaveBoundaryEntry"
+	}
+}
+
+foreach ($schema59LifecycleEntry in @(
+	'class HST_RadioSiteTransitionResult',
+	'class HST_RadioSiteLifecycleService',
+	'EXACT_CONTRACT_VERSION = 1',
+	'QUARANTINED_CONTRACT_VERSION = -59',
+	'SCHEMA_VERSION = 59',
+	'DESTROY_MISSION_ID = "destroy_radio_tower"',
+	'REBUILD_MISSION_ID = "dynamic_stop_tower_rebuild"',
+	'REBUILD_EQUIPMENT_PREFAB',
+	'IsManagedOrQuarantinedMission',
+	'IsManagedOrQuarantinedAsset',
+	'IsBroadcastOperational',
+	'EnsureSites',
+	'ReconcileAfterRestore',
+	'CanStartMission',
+	'PrepareNewMissionContract',
+	'AdmitNewMission',
+	'TickBeforeMissionRuntime',
+	'FindCompletedActiveMissionId',
+	'CanCompleteMission',
+	'OnMissionSucceeded',
+	'OnMissionFailed',
+	'OnMissionExpired',
+	'SettleOpenSitesForCampaignStop'
+)) {
+	if ($schema59LifecycleText -notmatch [regex]::Escape($schema59LifecycleEntry)) {
+		throw "Schema-59 radio-site lifecycle contract is missing: $schema59LifecycleEntry"
+	}
+}
+
+$schema59BuilderContracts = [ordered]@{
+	'static string BuildSiteId(' = '"radio_site_" + zoneId'
+	'static string BuildTargetId(' = '"radio_target_" + zoneId'
+	'static string BuildAdmissionRequestId(' = '"radio_admission_" + siteId + "_" + missionId + "_" + missionInstanceId'
+	'static string BuildOutcomeRequestId(' = '"radio_outcome_" + siteId + "_" + missionId + "_" + missionInstanceId + "_" + outcomeKind'
+	'static string BuildDestructionReceiptId(' = '"radio_destruction_" + siteId + "_" + missionInstanceId'
+	'static string BuildRebuildReceiptId(' = '"radio_rebuild_" + siteId + "_" + missionInstanceId'
+}
+foreach ($schema59BuilderSignature in $schema59BuilderContracts.Keys) {
+	$schema59BuilderBlock = Get-ScriptMethodBlock $schema59LifecycleText $schema59BuilderSignature
+	$schema59BuilderBody = $schema59BuilderContracts[$schema59BuilderSignature]
+	if ([string]::IsNullOrEmpty($schema59BuilderBlock) -or $schema59BuilderBlock.IndexOf($schema59BuilderBody) -lt 0) {
+		throw "Schema-59 deterministic radio-site ID builder is missing or changed: $schema59BuilderSignature"
+	}
+}
+
+foreach ($schema59TransitionEntry in @(
+	'TRANSITION_DESTROY_ADMISSION = "destroy_admission"',
+	'TRANSITION_DESTROY_SUCCESS = "destroy_success"',
+	'TRANSITION_DESTROY_FAILURE = "destroy_failure"',
+	'TRANSITION_DESTROY_EXPIRY = "destroy_expiry"',
+	'TRANSITION_REBUILD_ADMISSION = "rebuild_admission"',
+	'TRANSITION_REBUILD_SUCCESS = "rebuild_success"',
+	'TRANSITION_REBUILD_FAILURE = "rebuild_failure"',
+	'TRANSITION_REBUILD_EXPIRY = "rebuild_expiry"',
+	'TRANSITION_CAMPAIGN_STOP_DESTROY = "campaign_stop_destroy"',
+	'TRANSITION_CAMPAIGN_STOP_REBUILD = "campaign_stop_rebuild"'
+)) {
+	if (($schema59LifecycleText + "`n" + $schema59ValidationText) -notmatch [regex]::Escape($schema59TransitionEntry)) {
+		throw "Schema-59 typed radio-site transition is missing: $schema59TransitionEntry"
+	}
+}
+$schema59AdmissionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'HST_RadioSiteTransitionResult AdmitNewMission('
+foreach ($schema59AdmissionEntry in @(
+	'BuildAdmissionRequestId(',
+	'TRANSITION_DESTROY_ADMISSION',
+	'TRANSITION_REBUILD_ADMISSION',
+	'HST_RADIO_SITE_LIFECYCLE_ONLINE',
+	'HST_RADIO_SITE_LIFECYCLE_DESTROYED',
+	'HST_RADIO_SITE_LIFECYCLE_REBUILDING',
+	'AdmissionFingerprintMatches(',
+	'ValidateReplayAggregate(',
+	'PrepareProjectionForAdmission(',
+	'ApplyAcceptedTransition(',
+	'CreateMissionTargetAggregate(',
+	'ReconcileAdmissionProjection(',
+	'QuarantineAdmission('
+)) {
+	if ([string]::IsNullOrEmpty($schema59AdmissionBlock) -or $schema59AdmissionBlock.IndexOf($schema59AdmissionEntry) -lt 0) {
+		throw "Schema-59 admission does not enforce its typed transition/replay aggregate: $schema59AdmissionEntry"
+	}
+}
+$schema59PrepareAdmissionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool PrepareProjectionForAdmission('
+foreach ($schema59PrepareAdmissionEntry in @(
+	'EnsureSiteProjection(state, site)',
+	'FindProjection(site.m_sSiteId) != null'
+)) {
+	if ([string]::IsNullOrEmpty($schema59PrepareAdmissionBlock) -or
+		$schema59PrepareAdmissionBlock.IndexOf($schema59PrepareAdmissionEntry) -lt 0) {
+		throw "Schema-59 admission preparation no longer requires the authoritative site projection: $schema59PrepareAdmissionEntry"
+	}
+}
+$schema59ReconcileAdmissionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool ReconcileAdmissionProjection('
+$schema59AdmissionEnsureIndex = $schema59ReconcileAdmissionBlock.IndexOf('EnsureSiteProjection(state, site)')
+$schema59AdmissionConfigureIndex = $schema59ReconcileAdmissionBlock.IndexOf('ConfigureProjectionForMission(state, site, mission, asset)')
+$schema59AdmissionProjectionIndex = $schema59ReconcileAdmissionBlock.IndexOf('FindProjection(site.m_sSiteId) != null')
+$schema59AdmissionSpawnedIndex = $schema59ReconcileAdmissionBlock.IndexOf('asset.m_bSpawned && mission.m_bRuntimeSpawned')
+if ([string]::IsNullOrEmpty($schema59ReconcileAdmissionBlock) -or
+	$schema59AdmissionEnsureIndex -lt 0 -or $schema59AdmissionConfigureIndex -lt 0 -or
+	$schema59AdmissionProjectionIndex -lt 0 -or $schema59AdmissionSpawnedIndex -lt 0 -or
+	$schema59AdmissionEnsureIndex -gt $schema59AdmissionConfigureIndex -or
+	$schema59AdmissionConfigureIndex -gt $schema59AdmissionProjectionIndex -or
+	$schema59AdmissionProjectionIndex -gt $schema59AdmissionSpawnedIndex) {
+	throw "Schema-59 production admission reconciliation must publish one live configured projection and reciprocal spawned flags"
+}
+$schema59AdmissionPrepareIndex = $schema59AdmissionBlock.IndexOf('PrepareProjectionForAdmission(state, site, mission)')
+$schema59AdmissionApplyIndex = $schema59AdmissionBlock.IndexOf('ApplyAcceptedTransition(')
+$schema59AdmissionCreateIndex = $schema59AdmissionBlock.IndexOf('CreateMissionTargetAggregate(state, site, mission)')
+$schema59AdmissionReconcileIndex = $schema59AdmissionBlock.LastIndexOf('ReconcileAdmissionProjection(state, site, mission, asset)')
+if ($schema59AdmissionPrepareIndex -lt 0 -or $schema59AdmissionApplyIndex -lt 0 -or
+	$schema59AdmissionCreateIndex -lt 0 -or $schema59AdmissionReconcileIndex -lt 0 -or
+	$schema59AdmissionPrepareIndex -gt $schema59AdmissionApplyIndex -or
+	$schema59AdmissionApplyIndex -gt $schema59AdmissionCreateIndex -or
+	$schema59AdmissionCreateIndex -gt $schema59AdmissionReconcileIndex) {
+	throw "Schema-59 production admission must prepare projection, commit typed authority, create one aggregate, then reconcile the live projection"
+}
+$schema59AdmissionEpochIndex = $schema59AdmissionBlock.IndexOf('mission.m_sMissionId == REBUILD_MISSION_ID')
+$schema59AdmissionDestructionReceiptIndex = $schema59AdmissionBlock.IndexOf('site.m_sLastDestructionReceiptId.IsEmpty()', $schema59AdmissionEpochIndex)
+$schema59AdmissionRebuildReceiptIndex = $schema59AdmissionBlock.IndexOf('!site.m_sLastRebuildReceiptId.IsEmpty()', $schema59AdmissionEpochIndex)
+$schema59AdmissionEpochQuarantineIndex = $schema59AdmissionBlock.IndexOf('rebuild admission bypassed the one-attempt destruction-epoch contract')
+$schema59AdmissionProjectionPrepareIndex = $schema59AdmissionBlock.IndexOf('PrepareProjectionForAdmission(state, site, mission)')
+if ($schema59AdmissionEpochIndex -lt 0 -or $schema59AdmissionDestructionReceiptIndex -lt 0 -or
+	$schema59AdmissionRebuildReceiptIndex -lt 0 -or $schema59AdmissionEpochQuarantineIndex -lt 0 -or
+	$schema59AdmissionProjectionPrepareIndex -lt 0 -or
+	$schema59AdmissionEpochIndex -gt $schema59AdmissionDestructionReceiptIndex -or
+	$schema59AdmissionDestructionReceiptIndex -gt $schema59AdmissionRebuildReceiptIndex -or
+	$schema59AdmissionRebuildReceiptIndex -gt $schema59AdmissionEpochQuarantineIndex -or
+	$schema59AdmissionEpochQuarantineIndex -gt $schema59AdmissionProjectionPrepareIndex) {
+	throw "Schema-59 production rebuild admission must independently recheck its one-attempt destruction epoch before projection or ownership handoff"
+}
+$schema59AdmissionGeneratedOwnershipIndex = $schema59AdmissionBlock.IndexOf('site.m_eTargetOwnership = HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN;')
+$schema59AdmissionGeneratedPrefabIndex = $schema59AdmissionBlock.IndexOf('site.m_sTargetPrefab = GENERATED_TOWER_PREFAB;')
+if ($schema59AdmissionGeneratedOwnershipIndex -lt 0 -or $schema59AdmissionGeneratedPrefabIndex -lt 0 -or
+	$schema59AdmissionGeneratedOwnershipIndex -gt $schema59AdmissionGeneratedPrefabIndex -or
+	$schema59AdmissionBlock -match 'site\.m_(sAuthoredTargetPrefab|vAuthoredTargetPosition)\s*=') {
+	throw "Schema-59 rebuild ownership handoff must change only the active generated target while retaining frozen authored provenance"
+}
+$schema59OutcomeBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected HST_RadioSiteTransitionResult ApplyMissionOutcome('
+foreach ($schema59OutcomeEntry in @(
+	'ResolveOutcomeShape(',
+	'BuildOutcomeRequestId(',
+	'm_sLastTransitionRequestId == requestId',
+	'm_eLastTransitionFromState == fromState',
+	'm_eLastTransitionToState == toState',
+	'm_iLastTransitionRecordedRevision == site.m_iRevision',
+	'ValidateReplayAggregate(',
+	'ReconcileProjectionForOutcomeReplay(',
+	'MissionAggregateReadyForSettlement(',
+	'CanCompleteMissionAfterStatusCommit(',
+	'ApplyAcceptedTransition(',
+	'BuildDestructionReceiptId(',
+	'BuildRebuildReceiptId(',
+	'ReconcileProjectionAfterOutcome(',
+	'FinalizeMissionAggregate('
+)) {
+	if ([string]::IsNullOrEmpty($schema59OutcomeBlock) -or $schema59OutcomeBlock.IndexOf($schema59OutcomeEntry) -lt 0) {
+		throw "Schema-59 outcome settlement does not enforce typed idempotent authority: $schema59OutcomeEntry"
+	}
+}
+$schema59OutcomeAggregateIndex = $schema59OutcomeBlock.IndexOf('MissionAggregateReadyForSettlement(')
+$schema59OutcomeApplyIndex = $schema59OutcomeBlock.IndexOf('ApplyAcceptedTransition(')
+$schema59OutcomeProjectionIndex = $schema59OutcomeBlock.IndexOf('ReconcileProjectionAfterOutcome(')
+$schema59OutcomeFinalizeIndex = $schema59OutcomeBlock.IndexOf('FinalizeMissionAggregate(')
+if ($schema59OutcomeAggregateIndex -lt 0 -or $schema59OutcomeApplyIndex -lt 0 -or
+	$schema59OutcomeProjectionIndex -lt 0 -or $schema59OutcomeFinalizeIndex -lt 0 -or
+	$schema59OutcomeAggregateIndex -gt $schema59OutcomeApplyIndex -or
+	$schema59OutcomeApplyIndex -gt $schema59OutcomeProjectionIndex -or
+	$schema59OutcomeProjectionIndex -gt $schema59OutcomeFinalizeIndex) {
+	throw "Schema-59 production outcome must validate the full aggregate before commit and reconcile projection before finalization"
+}
+$schema59TransitionApplyBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected void ApplyAcceptedTransition('
+foreach ($schema59TransitionApplyEntry in @(
+	'site.m_iRevision = Math.Max(1, site.m_iRevision) + 1;',
+	'mission.m_iRadioSiteRevision = site.m_iRevision;',
+	'site.m_eLifecycleState = toState;',
+	'site.m_sLastTransitionRequestId = requestId;',
+	'site.m_sLastTransitionKind = transitionKind;',
+	'site.m_eLastTransitionFromState = fromState;',
+	'site.m_eLastTransitionToState = toState;',
+	'site.m_iLastTransitionRecordedRevision = site.m_iRevision;'
+)) {
+	if ([string]::IsNullOrEmpty($schema59TransitionApplyBlock) -or $schema59TransitionApplyBlock.IndexOf($schema59TransitionApplyEntry) -lt 0) {
+		throw "Schema-59 accepted transition does not record typed revision evidence: $schema59TransitionApplyEntry"
+	}
+}
+
+$schema59CanStartLifecycleBlock = Get-ScriptMethodBlock $schema59LifecycleText 'bool CanStartMission('
+$schema59DestructionEpochIndex = $schema59CanStartLifecycleBlock.IndexOf('site.m_sLastDestructionReceiptId.IsEmpty()')
+$schema59ConsumedAttemptIndex = $schema59CanStartLifecycleBlock.IndexOf('!site.m_sLastRebuildReceiptId.IsEmpty()')
+if ([string]::IsNullOrEmpty($schema59CanStartLifecycleBlock) -or
+	$schema59DestructionEpochIndex -lt 0 -or $schema59ConsumedAttemptIndex -lt 0 -or
+	$schema59DestructionEpochIndex -gt $schema59ConsumedAttemptIndex -or
+	$schema59CanStartLifecycleBlock.IndexOf('this destruction epoch already consumed its one rebuild attempt') -lt 0) {
+	throw "Schema-59 stop-rebuild admission must require destruction evidence and permit only one attempt per destruction epoch"
+}
+$schema59RebuildSuccessStart = $schema59OutcomeBlock.IndexOf('else if (transitionKind == TRANSITION_REBUILD_SUCCESS)')
+$schema59RebuildSuccessEnd = -1
+if ($schema59RebuildSuccessStart -ge 0) {
+	$schema59RebuildSuccessEnd = $schema59OutcomeBlock.IndexOf(
+		'else if (transitionKind == TRANSITION_REBUILD_FAILURE',
+		$schema59RebuildSuccessStart)
+}
+$schema59RebuildSuccessBlock = ""
+if ($schema59RebuildSuccessStart -ge 0 -and $schema59RebuildSuccessEnd -gt $schema59RebuildSuccessStart) {
+	$schema59RebuildSuccessBlock = $schema59OutcomeBlock.Substring(
+		$schema59RebuildSuccessStart,
+		$schema59RebuildSuccessEnd - $schema59RebuildSuccessStart)
+}
+if ([string]::IsNullOrEmpty($schema59RebuildSuccessBlock) -or
+	$schema59RebuildSuccessBlock.IndexOf('site.m_sLastRebuildReceiptId = BuildRebuildReceiptId(') -lt 0 -or
+	$schema59RebuildSuccessBlock.IndexOf('site.m_sLastRebuildMissionInstanceId = mission.m_sInstanceId;') -lt 0 -or
+	$schema59RebuildSuccessBlock.IndexOf('site.m_iRebuiltAtSecond = 0;') -lt 0 -or
+	$schema59RebuildSuccessBlock.IndexOf('m_sLastDestructionReceiptId') -ge 0 -or
+	$schema59RebuildSuccessBlock.IndexOf('BuildDestructionReceiptId(') -ge 0 -or
+	$schema59RebuildSuccessBlock.IndexOf('ClearRebuildEvidence(') -ge 0) {
+	throw "Schema-59 stopped construction must record the rebuild attempt without inventing a new transmitter-destruction epoch"
+}
+$schema59ValidationSiteBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected string ValidateSite('
+foreach ($schema59EpochValidationEntry in @(
+	'HasOtherResolvedSiteAtFrozenBinding(site)',
+	'site.m_iRebuildStartedAtSecond < site.m_iDestroyedAtSecond',
+	'stopped rebuild receipt conflicts with the current destruction epoch'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ValidationSiteBlock) -or
+		$schema59ValidationSiteBlock.IndexOf($schema59EpochValidationEntry) -lt 0) {
+		throw "Schema-59 save validation does not preserve destruction-epoch authority: $schema59EpochValidationEntry"
+	}
+}
+foreach ($schema59RestoreOwnershipEntry in @(
+	'!site.m_sAuthoredTargetPrefab.IsEmpty()',
+	'!IsZeroVector(site.m_vAuthoredTargetPosition)',
+	'HST_RadioSiteLifecycleService.IsSupportedTransmitterPrefab(site.m_sAuthoredTargetPrefab)',
+	'site.m_sAuthoredTargetPrefab == HST_RadioSiteLifecycleService.GENERATED_TOWER_PREFAB',
+	'site.m_sTargetPrefab != site.m_sAuthoredTargetPrefab',
+	'site.m_vTargetPosition,',
+	'site.m_vAuthoredTargetPosition,',
+	'site.m_sTargetPrefab != HST_RadioSiteLifecycleService.GENERATED_TOWER_PREFAB',
+	'site.m_sLastDestructionReceiptId.IsEmpty()',
+	'site.m_sLastRebuildReceiptId.IsEmpty()',
+	'site.m_iRebuiltAtSecond < site.m_iRebuildStartedAtSecond',
+	'generated ONLINE radio-site target lacks completed rebuild provenance'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ValidationSiteBlock) -or
+		$schema59ValidationSiteBlock.IndexOf($schema59RestoreOwnershipEntry) -lt 0) {
+		throw "Schema-59 restore validation lost its ownership/prefab/frozen-provenance rule: $schema59RestoreOwnershipEntry"
+	}
+}
+$schema59UnresolvedRestoreStart = $schema59ValidationSiteBlock.IndexOf('site.m_eTargetOwnership == HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_UNRESOLVED')
+$schema59ResolvedRestoreStart = $schema59ValidationSiteBlock.IndexOf('site.m_eTargetOwnership != HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD')
+$schema59UnresolvedRestoreBlock = ""
+if ($schema59UnresolvedRestoreStart -ge 0 -and $schema59ResolvedRestoreStart -gt $schema59UnresolvedRestoreStart) {
+	$schema59UnresolvedRestoreBlock = $schema59ValidationSiteBlock.Substring(
+		$schema59UnresolvedRestoreStart,
+		$schema59ResolvedRestoreStart - $schema59UnresolvedRestoreStart)
+}
+foreach ($schema59UnresolvedRestoreEntry in @(
+	'!site.m_sTargetPrefab.IsEmpty()',
+	'!IsZeroVector(site.m_vTargetPosition)',
+	'!site.m_sAuthoredTargetPrefab.IsEmpty()',
+	'!IsZeroVector(site.m_vAuthoredTargetPosition)',
+	'activeMission',
+	'lastTransition'
+)) {
+	if ([string]::IsNullOrEmpty($schema59UnresolvedRestoreBlock) -or
+		$schema59UnresolvedRestoreBlock.IndexOf($schema59UnresolvedRestoreEntry) -lt 0) {
+		throw "Schema-59 unresolved restore must reject invented active or frozen physical authority: $schema59UnresolvedRestoreEntry"
+	}
+}
+$schema59GeneratedRestoreStart = $schema59ValidationSiteBlock.IndexOf(
+	'site.m_eTargetOwnership == HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN',
+	[Math]::Max(0, $schema59ResolvedRestoreStart))
+$schema59GeneratedRestorePrefabIndex = $schema59ValidationSiteBlock.IndexOf(
+	'site.m_sTargetPrefab != HST_RadioSiteLifecycleService.GENERATED_TOWER_PREFAB',
+	[Math]::Max(0, $schema59GeneratedRestoreStart))
+$schema59GeneratedRestorePositionIndex = $schema59ValidationSiteBlock.IndexOf(
+	'site.m_vAuthoredTargetPosition,',
+	[Math]::Max(0, $schema59GeneratedRestorePrefabIndex))
+$schema59GeneratedRestoreReceiptIndex = $schema59ValidationSiteBlock.IndexOf(
+	'site.m_sLastDestructionReceiptId.IsEmpty()',
+	[Math]::Max(0, $schema59GeneratedRestorePositionIndex))
+$schema59GeneratedRestoreFailureIndex = $schema59ValidationSiteBlock.IndexOf(
+	'generated radio-site target lacks exact rebuild/destruction provenance',
+	[Math]::Max(0, $schema59GeneratedRestoreReceiptIndex))
+$schema59GeneratedOnlineRestoreStart = $schema59ValidationSiteBlock.IndexOf(
+	'site.m_eTargetOwnership == HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN',
+	[Math]::Max(0, $schema59GeneratedRestoreFailureIndex))
+$schema59GeneratedOnlineLifecycleIndex = $schema59ValidationSiteBlock.IndexOf(
+	'site.m_eLifecycleState == HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_ONLINE',
+	[Math]::Max(0, $schema59GeneratedOnlineRestoreStart))
+$schema59GeneratedOnlineReceiptIndex = $schema59ValidationSiteBlock.IndexOf(
+	'site.m_sLastRebuildReceiptId.IsEmpty()',
+	[Math]::Max(0, $schema59GeneratedOnlineLifecycleIndex))
+$schema59GeneratedOnlineTimeIndex = $schema59ValidationSiteBlock.IndexOf(
+	'site.m_iRebuiltAtSecond < site.m_iRebuildStartedAtSecond',
+	[Math]::Max(0, $schema59GeneratedOnlineReceiptIndex))
+$schema59GeneratedOnlineFailureIndex = $schema59ValidationSiteBlock.IndexOf(
+	'generated ONLINE radio-site target lacks completed rebuild provenance',
+	[Math]::Max(0, $schema59GeneratedOnlineTimeIndex))
+if ($schema59GeneratedRestoreStart -lt 0 -or $schema59GeneratedRestorePrefabIndex -lt 0 -or
+	$schema59GeneratedRestorePositionIndex -lt 0 -or $schema59GeneratedRestoreReceiptIndex -lt 0 -or
+	$schema59GeneratedRestoreFailureIndex -lt 0 -or $schema59GeneratedOnlineRestoreStart -lt 0 -or
+	$schema59GeneratedOnlineLifecycleIndex -lt 0 -or $schema59GeneratedOnlineReceiptIndex -lt 0 -or
+	$schema59GeneratedOnlineTimeIndex -lt 0 -or $schema59GeneratedOnlineFailureIndex -lt 0) {
+	throw "Schema-59 restore must require generated target prefab/position/destruction provenance and completed rebuild provenance before ONLINE"
+}
+$schema59ReceiptValidationBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected string ValidateReceiptBacklinks('
+if ([string]::IsNullOrEmpty($schema59ReceiptValidationBlock) -or
+	$schema59ReceiptValidationBlock.IndexOf('rebuildMission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED') -lt 0 -or
+	$schema59ReceiptValidationBlock.IndexOf('site.m_eLifecycleState != HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_DESTROYED') -lt 0) {
+	throw "Schema-59 successful stop-rebuild receipt must backlink to a still-DESTROYED site"
+}
+
+$schema59TickBlock = Get-ScriptMethodBlock $schema59LifecycleText 'bool TickBeforeMissionRuntime('
+$schema59MissingProjectionIndex = $schema59TickBlock.IndexOf('if (!projection || asset.m_bDestroyed)')
+$schema59PhysicalDeathIndex = $schema59TickBlock.IndexOf('MarkPhysicalTargetDestroyed(')
+if ([string]::IsNullOrEmpty($schema59TickBlock) -or $schema59MissingProjectionIndex -lt 0 -or
+	$schema59PhysicalDeathIndex -lt 0 -or $schema59MissingProjectionIndex -gt $schema59PhysicalDeathIndex) {
+	throw "Schema-59 missing radio projection handles must never become destruction evidence"
+}
+$schema59OnlineProjectionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool EnsureOnlineProjection('
+foreach ($schema59OnlineEntry in @(
+	'm_aTransmitterCandidates.Count() == 0',
+	'm_aTransmitterCandidates.Count() != 1',
+	'QuarantineSite(',
+	'HST_RADIO_SITE_TARGET_BORROWED_WORLD',
+	'HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN',
+	'RegisterProjection(',
+	'SpawnProjectionPrefab('
+)) {
+	if ([string]::IsNullOrEmpty($schema59OnlineProjectionBlock) -or $schema59OnlineProjectionBlock.IndexOf($schema59OnlineEntry) -lt 0) {
+		throw "Schema-59 ONLINE projection does not enforce unique borrowed/generated ownership: $schema59OnlineEntry"
+	}
+}
+foreach ($schema59InitialBindingEntry in @(
+	'site.m_sTargetPrefab = prefab;',
+	'site.m_vTargetPosition = candidate.GetOrigin();',
+	'site.m_sAuthoredTargetPrefab = prefab;',
+	'site.m_vAuthoredTargetPosition = candidate.GetOrigin();',
+	'site.m_eTargetOwnership = HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD;'
+)) {
+	if ($schema59OnlineProjectionBlock.IndexOf($schema59InitialBindingEntry) -lt 0) {
+		throw "Schema-59 initial authored binding must freeze a separate immutable prefab/position provenance snapshot: $schema59InitialBindingEntry"
+	}
+}
+if ($schema59LifecycleText -notmatch 'BINDING_POSITION_TOLERANCE_METERS\s*=\s*0\.75\s*;' -or
+	$schema59LifecycleText -notmatch 'PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS\s*=\s*12\.0\s*;' -or
+	$schema59ValidationText -notmatch 'FROZEN_BINDING_TOLERANCE_METERS\s*=\s*0\.75\s*;' -or
+	$schema59ValidationText -notmatch 'PHYSICAL_PROJECTION_TOLERANCE_METERS\s*=\s*12\.0\s*;') {
+	throw "Schema-59 must keep authored binding at 0.75m while allowing the bounded 12m generated safe-ground projection offset"
+}
+$schema59FrozenMatchBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool FrozenCandidateMatchesSite('
+foreach ($schema59FrozenMatchEntry in @(
+	'ResolveEntityPrefab(candidate) == site.m_sTargetPrefab',
+	'candidate.GetOrigin()',
+	'site.m_vTargetPosition',
+	'BINDING_POSITION_TOLERANCE_METERS'
+)) {
+	if ([string]::IsNullOrEmpty($schema59FrozenMatchBlock) -or
+		$schema59FrozenMatchBlock.IndexOf($schema59FrozenMatchEntry) -lt 0) {
+		throw "Schema-59 authored rebind must match the exact frozen prefab and position: $schema59FrozenMatchEntry"
+	}
+}
+$schema59FrozenAuthoredMatchBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool FrozenAuthoredCandidateMatchesSite('
+foreach ($schema59FrozenAuthoredMatchEntry in @(
+	'ResolveEntityPrefab(candidate) == site.m_sAuthoredTargetPrefab',
+	'candidate.GetOrigin()',
+	'site.m_vAuthoredTargetPosition',
+	'BINDING_POSITION_TOLERANCE_METERS'
+)) {
+	if ([string]::IsNullOrEmpty($schema59FrozenAuthoredMatchBlock) -or
+		$schema59FrozenAuthoredMatchBlock.IndexOf($schema59FrozenAuthoredMatchEntry) -lt 0) {
+		throw "Schema-59 authored recovery/suppression must use the separate frozen provenance snapshot: $schema59FrozenAuthoredMatchEntry"
+	}
+}
+$schema59GeneratedProjectionEvidenceBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool GeneratedProjectionSupportsExactEvidence('
+foreach ($schema59GeneratedProjectionEvidenceEntry in @(
+	'ResolveEntityPrefab(projection) == expectedPrefab',
+	'expectedPosition',
+	'PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS',
+	'SCR_DamageManagerComponent.Cast(',
+	'HST_MissionAssetComponent.Cast('
+)) {
+	if ([string]::IsNullOrEmpty($schema59GeneratedProjectionEvidenceBlock) -or
+		$schema59GeneratedProjectionEvidenceBlock.IndexOf($schema59GeneratedProjectionEvidenceEntry) -lt 0) {
+		throw "Schema-59 generated safe-ground projection lost its bounded live evidence contract: $schema59GeneratedProjectionEvidenceEntry"
+	}
+}
+$schema59BorrowedPendingBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool MarkBorrowedProjectionPending('
+foreach ($schema59BorrowedPendingEntry in @(
+	'HST_RADIO_SITE_TARGET_BORROWED_WORLD',
+	'state.FindMissionRuntimeEntity(asset.m_sEntityId)',
+	'string pendingPhase = "radio_site_projection_pending";',
+	'if (asset.m_bDestroyed)',
+	'pendingPhase = "radio_site_target_destroyed";',
+	'mission.m_bRuntimeSpawned = false;',
+	'mission.m_sRuntimePhase = pendingPhase;',
+	'asset.m_bSpawned = false;',
+	'runtime.m_bSpawned = false;'
+)) {
+	if ([string]::IsNullOrEmpty($schema59BorrowedPendingBlock) -or
+		$schema59BorrowedPendingBlock.IndexOf($schema59BorrowedPendingEntry) -lt 0) {
+		throw "Schema-59 missing borrowed projection must publish one reciprocal dormant/pending flag set: $schema59BorrowedPendingEntry"
+	}
+}
+$schema59OnlinePendingLockIndex = $schema59OnlineProjectionBlock.IndexOf('MissionOwnsCurrentSiteLock(state, site, pendingMission, pendingAsset)')
+$schema59OnlinePendingApplyIndex = $schema59OnlineProjectionBlock.IndexOf('MarkBorrowedProjectionPending(state, pendingMission, pendingAsset)')
+if ($schema59OnlinePendingLockIndex -lt 0 -or $schema59OnlinePendingApplyIndex -lt 0 -or
+	$schema59OnlinePendingLockIndex -gt $schema59OnlinePendingApplyIndex) {
+	throw "Schema-59 borrowed projection may enter pending state only with a reciprocal current mission aggregate"
+}
+$schema59OnlineFrozenIndex = $schema59OnlineProjectionBlock.IndexOf('FrozenCandidateMatchesSite(site, rebound)')
+$schema59OnlineFrozenRegisterIndex = $schema59OnlineProjectionBlock.IndexOf('RegisterProjection(site.m_sSiteId, "", rebound, true)')
+if ($schema59OnlineFrozenIndex -lt 0 -or $schema59OnlineFrozenRegisterIndex -lt 0 -or
+	$schema59OnlineFrozenIndex -gt $schema59OnlineFrozenRegisterIndex) {
+	throw "Schema-59 ONLINE authored projection may not rebind before frozen prefab/position validation"
+}
+$schema59DestroyedProjectionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool EnsureDestroyedProjection('
+$schema59DestroyedFrozenIndex = $schema59DestroyedProjectionBlock.IndexOf('FrozenCandidateMatchesSite(site, projection)')
+$schema59DestroyedFrozenRegisterIndex = $schema59DestroyedProjectionBlock.IndexOf('RegisterProjection(site.m_sSiteId, "", projection, true)')
+if ([string]::IsNullOrEmpty($schema59DestroyedProjectionBlock) -or
+	$schema59DestroyedProjectionBlock.IndexOf('HasCandidateClaimedByOtherSite(site.m_sSiteId)') -lt 0 -or
+	$schema59DestroyedFrozenIndex -lt 0 -or $schema59DestroyedFrozenRegisterIndex -lt 0 -or
+	$schema59DestroyedFrozenIndex -gt $schema59DestroyedFrozenRegisterIndex) {
+	throw "Schema-59 DESTROYED authored projection may not rebind before uniqueness and frozen prefab/position validation"
+}
+$schema59FrozenCollisionBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected bool HasOtherResolvedSiteAtFrozenBinding('
+foreach ($schema59FrozenCollisionEntry in @(
+	'other.m_eTargetOwnership == HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_UNRESOLVED',
+	'PositionsMatch(',
+	'expectedSite.m_vAuthoredTargetPosition',
+	'other.m_vAuthoredTargetPosition',
+	'FROZEN_BINDING_TOLERANCE_METERS'
+)) {
+	if ([string]::IsNullOrEmpty($schema59FrozenCollisionBlock) -or
+		$schema59FrozenCollisionBlock.IndexOf($schema59FrozenCollisionEntry) -lt 0) {
+		throw "Schema-59 save validation does not reject a cross-site frozen physical binding: $schema59FrozenCollisionEntry"
+	}
+}
+$schema59SuppressionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool SuppressAuthoredTransmitterResurrection('
+$schema59SuppressionAmbiguityIndex = $schema59SuppressionBlock.IndexOf('m_aTransmitterCandidates.Count() > 1')
+$schema59SuppressionFrozenIndex = $schema59SuppressionBlock.IndexOf('FrozenAuthoredCandidateMatchesSite(site, authored)')
+$schema59SuppressionMutationIndex = $schema59SuppressionBlock.IndexOf('SetHealthScaled(0.0)')
+if ([string]::IsNullOrEmpty($schema59SuppressionBlock) -or $schema59SuppressionAmbiguityIndex -lt 0 -or
+	$schema59SuppressionFrozenIndex -lt 0 -or $schema59SuppressionMutationIndex -lt 0 -or
+	$schema59SuppressionAmbiguityIndex -gt $schema59SuppressionFrozenIndex -or
+	$schema59SuppressionFrozenIndex -gt $schema59SuppressionMutationIndex -or
+	$schema59SuppressionBlock.IndexOf('QuarantineSite(') -lt 0) {
+	throw "Schema-59 authored transmitter suppression must quarantine ambiguity and verify frozen provenance before world mutation"
+}
+$schema59CheckedDestructionBlocks = [ordered]@{
+	'generated exact explosive threshold' = (Get-ScriptMethodBlock $schema59LifecycleText 'bool ApplyExplosiveDamage(')
+	'destroyed borrowed projection restore' = $schema59DestroyedProjectionBlock
+	'authored resurrection suppression' = $schema59SuppressionBlock
+}
+foreach ($schema59CheckedDestructionLabel in $schema59CheckedDestructionBlocks.Keys) {
+	$schema59CheckedDestructionBlock = $schema59CheckedDestructionBlocks[$schema59CheckedDestructionLabel]
+	$schema59CheckedSetHealthIndex = $schema59CheckedDestructionBlock.IndexOf('!damageManager.SetHealthScaled(0.0)')
+	$schema59CheckedDestroyedStateIndex = $schema59CheckedDestructionBlock.IndexOf(
+		'damageManager.GetState() != EDamageState.DESTROYED',
+		[Math]::Max(0, $schema59CheckedSetHealthIndex))
+	if ([string]::IsNullOrEmpty($schema59CheckedDestructionBlock) -or
+		$schema59CheckedSetHealthIndex -lt 0 -or $schema59CheckedDestroyedStateIndex -lt 0 -or
+		$schema59CheckedSetHealthIndex -gt $schema59CheckedDestroyedStateIndex) {
+		throw "Schema-59 $schema59CheckedDestructionLabel must check both SetHealthScaled(0.0) and the resulting DESTROYED state"
+	}
+}
+$schema59ExplosiveDestroyBlock = $schema59CheckedDestructionBlocks['generated exact explosive threshold']
+if ($schema59ExplosiveDestroyBlock.IndexOf('MarkPhysicalTargetDestroyed(') -lt $schema59ExplosiveDestroyBlock.IndexOf('!damageManager.SetHealthScaled(0.0)')) {
+	throw "Schema-59 generated demolition may not record physical destruction before checked health mutation succeeds"
+}
+$schema59RebuildProjectionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool EnsureRebuildProjection('
+if ([string]::IsNullOrEmpty($schema59RebuildProjectionBlock) -or
+	$schema59RebuildProjectionBlock.IndexOf('REBUILD_EQUIPMENT_PREFAB') -lt 0 -or
+	$schema59RebuildProjectionBlock.IndexOf('GENERATED_TOWER_PREFAB') -ge 0) {
+	throw "Schema-59 REBUILDING projection must use construction equipment, never another transmitter"
+}
+$schema59ForgetProjectionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool ForgetProjection('
+if ([string]::IsNullOrEmpty($schema59ForgetProjectionBlock) -or
+	$schema59ForgetProjectionBlock.IndexOf('!borrowed') -lt 0 -or
+	$schema59ForgetProjectionBlock.IndexOf('SCR_EntityHelper.DeleteEntityAndChildren(entity)') -lt 0 -or
+	$schema59ForgetProjectionBlock.IndexOf('!borrowed') -gt $schema59ForgetProjectionBlock.IndexOf('SCR_EntityHelper.DeleteEntityAndChildren(entity)')) {
+	throw "Schema-59 projection cleanup may not delete a borrowed authored transmitter"
+}
+
+if ($schema59RebuildPrefabText -notmatch [regex]::Escape('ConcreteMixer_01.et') -or
+	$schema59RebuildPrefabText -notmatch [regex]::Escape('HST_MissionDestroyTargetComponent') -or
+	$schema59RebuildPrefabText -notmatch [regex]::Escape('HST_MissionAssetComponent') -or
+	$schema59RebuildPrefabText -match 'TransmitterTower') {
+	throw "Schema-59 stop-rebuild prefab must be non-transmitter demolition equipment"
+}
+if ($schema59GeneratedTowerPrefabText -notmatch 'm_fRequiredExplosiveDamage\s+300(?:\.0+)?\b' -or
+	$schema59GeneratedTowerPrefabText -notmatch 'm_bAllowStockDamageDestroyedCompletion\s+0\b' -or
+	$schema59GeneratedTowerPrefabText -notmatch 'm_bDebugExplosiveWitnesses\s+0\b' -or
+	$schema59GeneratedTowerPrefabText -match 'm_bDebugExplosiveWitnesses\s+1\b') {
+	throw "Schema-59 permanent generated ONLINE transmitter must keep exact demolition scoring, stock completion disabled, and debug explosive witnesses off"
+}
+$schema59ConfiguredIdentityBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected bool HasConfiguredMissionIdentity('
+foreach ($schema59ConfiguredIdentityEntry in @(
+	'!asset.GetAssetId().IsEmpty()',
+	'!asset.GetMissionInstanceId().IsEmpty()',
+	'!asset.GetRole().IsEmpty()'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ConfiguredIdentityBlock) -or
+		$schema59ConfiguredIdentityBlock.IndexOf($schema59ConfiguredIdentityEntry) -lt 0) {
+		throw "Schema-59 generated transmitter witness scanning requires complete mission identity: $schema59ConfiguredIdentityEntry"
+	}
+}
+$schema59DestroyTargetFrameBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'override void EOnFrame('
+$schema59DestroyTargetIdentityIndex = $schema59DestroyTargetFrameBlock.IndexOf('if (!HasConfiguredMissionIdentity(owner))')
+$schema59DestroyTargetWitnessIndex = $schema59DestroyTargetFrameBlock.IndexOf('TickExplosiveWitnessScan(owner, timeSlice)')
+if ([string]::IsNullOrEmpty($schema59DestroyTargetFrameBlock) -or
+	$schema59DestroyTargetIdentityIndex -lt 0 -or $schema59DestroyTargetWitnessIndex -lt 0 -or
+	$schema59DestroyTargetIdentityIndex -gt $schema59DestroyTargetWitnessIndex) {
+	throw "Schema-59 permanent unconfigured ONLINE transmitters must remain dormant before the expensive witness scan"
+}
+
+$schema59NewCampaignResetBlock = Get-ScriptMethodBlock $schema59LifecycleText 'bool PrepareForNewCampaignReset('
+foreach ($schema59NewCampaignResetEntry in @(
+	'site.m_sAuthoredTargetPrefab.IsEmpty()',
+	'IsZeroVectorStatic(site.m_vAuthoredTargetPosition)',
+	'CollectTransmitterCandidates(',
+	'site.m_vAuthoredTargetPosition',
+	'FROZEN_BINDING_SEARCH_RADIUS_METERS',
+	'HasCandidateClaimedByOtherSite(site.m_sSiteId)',
+	'm_aTransmitterCandidates.Count() != 1',
+	'FrozenAuthoredCandidateMatchesSite(site, authored)',
+	'authoredCandidates.Contains(authored)',
+	'SCR_DamageManagerComponent.Cast(',
+	'authoredPriorHealth.Insert(damageManager.GetHealthScaled())',
+	'authoredPriorStates.Insert(damageManager.GetState())',
+	'SetHealthScaled(1.0)',
+	'damageManager.GetState() == EDamageState.DESTROYED',
+	'float.AlmostEqual(damageManager.GetHealthScaled(), 1.0, 0.001)',
+	'rollbackManager.SetHealthScaled(authoredPriorHealth[restoreIndex])',
+	'rollbackManager.GetState() != authoredPriorStates[restoreIndex]',
+	'prior physical damage state rollback was not exact',
+	'ClearTrackedProjections(true)'
+)) {
+	if ([string]::IsNullOrEmpty($schema59NewCampaignResetBlock) -or
+		$schema59NewCampaignResetBlock.IndexOf($schema59NewCampaignResetEntry) -lt 0) {
+		throw "Schema-59 new-campaign reset cannot safely recover authored transmitter authority: $schema59NewCampaignResetEntry"
+	}
+}
+$schema59ResetSnapshotIndex = $schema59NewCampaignResetBlock.IndexOf('authoredPriorHealth.Insert(damageManager.GetHealthScaled())')
+$schema59ResetHealIndex = $schema59NewCampaignResetBlock.IndexOf('SetHealthScaled(1.0)')
+$schema59ResetVerifyIndex = $schema59NewCampaignResetBlock.IndexOf('damageManager.GetState() == EDamageState.DESTROYED')
+$schema59ResetRollbackIndex = $schema59NewCampaignResetBlock.IndexOf('rollbackManager.SetHealthScaled(authoredPriorHealth[restoreIndex])')
+$schema59ResetClearIndex = $schema59NewCampaignResetBlock.LastIndexOf('ClearTrackedProjections(true)')
+if ($schema59ResetSnapshotIndex -lt 0 -or $schema59ResetHealIndex -lt 0 -or
+	$schema59ResetVerifyIndex -lt 0 -or $schema59ResetRollbackIndex -lt 0 -or
+	$schema59ResetClearIndex -lt 0 -or
+	$schema59ResetSnapshotIndex -gt $schema59ResetHealIndex -or
+	$schema59ResetHealIndex -gt $schema59ResetVerifyIndex -or
+	$schema59ResetVerifyIndex -gt $schema59ResetRollbackIndex -or
+	$schema59ResetRollbackIndex -gt $schema59ResetClearIndex) {
+	throw "Schema-59 new-campaign reset must snapshot, recover, verify, and rollback authored health before retiring old campaign-owned projections"
+}
+$schema59CoordinatorResetBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'bool RequestAdminNewCampaignReset('
+$schema59CoordinatorResetPrepareIndex = $schema59CoordinatorResetBlock.IndexOf('m_RadioSites.PrepareForNewCampaignReset(m_State, radioResetFailure)')
+$schema59CoordinatorResetSwapIndex = $schema59CoordinatorResetBlock.IndexOf('m_State = CreateInitialCampaignState()')
+$schema59CoordinatorResetReconcileIndex = $schema59CoordinatorResetBlock.IndexOf('m_RadioSites.ReconcileAfterRestore(m_State)')
+if ([string]::IsNullOrEmpty($schema59CoordinatorResetBlock) -or
+	$schema59CoordinatorResetPrepareIndex -lt 0 -or $schema59CoordinatorResetSwapIndex -lt 0 -or
+	$schema59CoordinatorResetReconcileIndex -lt 0 -or
+	$schema59CoordinatorResetPrepareIndex -gt $schema59CoordinatorResetSwapIndex -or
+	$schema59CoordinatorResetSwapIndex -gt $schema59CoordinatorResetReconcileIndex) {
+	throw "Schema-59 admin reset must recover the old radio world before state replacement and reconcile the new campaign afterward"
+}
+
+foreach ($schema59StartSignature in @('bool CanStart(', 'bool CanForceStart(')) {
+	$schema59StartBlock = Get-ScriptMethodBlock $schema59MissionServiceText $schema59StartSignature
+	$schema59SupportedIndex = $schema59StartBlock.IndexOf('HST_RadioSiteLifecycleService.IsSupportedMissionId(missionId)')
+	$schema59LifecycleGuardIndex = $schema59StartBlock.IndexOf('m_RadioSites.CanStartMission(state, missionId, targetZoneId, radioFailure)')
+	if ([string]::IsNullOrEmpty($schema59StartBlock) -or $schema59SupportedIndex -lt 0 -or
+		$schema59LifecycleGuardIndex -lt 0 -or $schema59SupportedIndex -gt $schema59LifecycleGuardIndex) {
+		throw "Schema-59 normal and forced mission admission must both honor radio lifecycle: $schema59StartSignature"
+	}
+}
+
+$schema59CoordinatorStartBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'protected bool StartMission_S('
+$schema59PrepareIndex = $schema59CoordinatorStartBlock.IndexOf('m_RadioSites.PrepareNewMissionContract(m_State, mission)')
+$schema59RuntimeInitIndex = $schema59CoordinatorStartBlock.IndexOf('m_MissionRuntime.InitializeMissionRuntime(')
+$schema59AdmitIndex = $schema59CoordinatorStartBlock.IndexOf('m_RadioSites.AdmitNewMission(m_State, mission)')
+if ([string]::IsNullOrEmpty($schema59CoordinatorStartBlock) -or $schema59PrepareIndex -lt 0 -or
+	$schema59RuntimeInitIndex -lt 0 -or $schema59AdmitIndex -lt 0 -or
+	$schema59PrepareIndex -gt $schema59RuntimeInitIndex -or $schema59RuntimeInitIndex -gt $schema59AdmitIndex) {
+	throw "Schema-59 coordinator must prepare exact radio authority before generic runtime initialization and admit afterward"
+}
+
+$schema59CreateAggregateBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected HST_MissionAssetState CreateMissionTargetAggregate('
+foreach ($schema59CreateAggregateEntry in @(
+	'asset.m_sAssetId = "asset_" + mission.m_sInstanceId + "_destroy_target_0";',
+	'asset.m_sEntityId = asset.m_sAssetId + "_entity";',
+	'asset.m_eRadioSiteTargetOwnership = site.m_eTargetOwnership;',
+	'asset.m_sRadioSiteAuthoredTargetPrefab = site.m_sAuthoredTargetPrefab;',
+	'asset.m_vRadioSiteAuthoredTargetPosition = site.m_vAuthoredTargetPosition;',
+	'runtime.m_sRuntimeEntityId = asset.m_sEntityId;',
+	'runtime.m_sMissionInstanceId = mission.m_sInstanceId;',
+	'objective.m_sTargetId = site.m_sTargetId;',
+	'objective.m_sPhysicalEntityId = asset.m_sEntityId;',
+	'objective.m_sLinkedRuntimeEntityId = asset.m_sEntityId;',
+	'asset.m_fDemolitionRequiredDamage = DEFAULT_DEMOLITION_REQUIRED_DAMAGE;'
+)) {
+	if ([string]::IsNullOrEmpty($schema59CreateAggregateBlock) -or
+		$schema59CreateAggregateBlock.IndexOf($schema59CreateAggregateEntry) -lt 0) {
+		throw "Schema-59 exact target aggregate lacks deterministic logical/physical identity separation: $schema59CreateAggregateEntry"
+	}
+}
+if ($schema59CreateAggregateBlock.IndexOf('asset.m_sEntityId = site.m_sTargetId') -ge 0 -or
+	$schema59CreateAggregateBlock.IndexOf('runtime.m_sRuntimeEntityId = site.m_sTargetId') -ge 0) {
+	throw "Schema-59 per-mission physical runtime identity may not reuse the durable site target ID"
+}
+$schema59SettlementAggregateBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool MissionAggregateReadyForSettlement('
+foreach ($schema59SettlementAggregateEntry in @(
+	'asset.m_sAssetId != "asset_" + mission.m_sInstanceId + "_destroy_target_0"',
+	'asset.m_sEntityId != asset.m_sAssetId + "_entity"',
+	'CountMissionAssets(state, mission.m_sInstanceId) != 1',
+	'CountMissionRuntimeEntities(state, mission.m_sInstanceId) != 1',
+	'runtime.m_bSpawned != asset.m_bSpawned',
+	'runtime.m_bDestroyed != asset.m_bDestroyed',
+	'CountMissionObjectives(state, mission.m_sInstanceId) != 1',
+	'objective.m_sTargetId != site.m_sTargetId',
+	'objective.m_sPhysicalEntityId != asset.m_sEntityId',
+	'objective.m_sLinkedRuntimeEntityId != asset.m_sEntityId',
+	'CountMissionTasks(state, mission.m_sInstanceId) != 1'
+)) {
+	if ([string]::IsNullOrEmpty($schema59SettlementAggregateBlock) -or
+		$schema59SettlementAggregateBlock.IndexOf($schema59SettlementAggregateEntry) -lt 0) {
+		throw "Schema-59 outcome settlement does not require one coherent deterministic target aggregate: $schema59SettlementAggregateEntry"
+	}
+}
+
+$schema59RuntimeMissionSkipMethods = @(
+	'bool InitializeMissionRuntime(',
+	'bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, int elapsedSeconds)',
+	'protected bool EnsureMissionRuntimeProp(',
+	'protected bool EnsureMissionAssetsInitialized(',
+	'protected bool TrySpawnMissionRuntimeAssets(',
+	'string FindCompletedActiveMissionId(',
+	'string FindFailedActiveMissionId(',
+	'protected bool PollObjective(',
+	'protected bool RepairActiveMissionRuntimeAfterRestore(',
+	'protected bool EnsureRestoredMissionAssetsFromState(',
+	'protected bool CleanupMissionRuntime(',
+	'protected void DeleteMissionRuntimeEntities(',
+	'protected void CleanupMissionRuntimeRecords(',
+	'protected void CleanupMissionAssetRecords('
+)
+foreach ($schema59RuntimeSkipSignature in $schema59RuntimeMissionSkipMethods) {
+	$schema59RuntimeSkipBlock = Get-ScriptMethodBlock $schema59RuntimeText $schema59RuntimeSkipSignature
+	if ([string]::IsNullOrEmpty($schema59RuntimeSkipBlock) -or
+		$schema59RuntimeSkipBlock.IndexOf('HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission') -lt 0) {
+		throw "Schema-59 generic mission runtime path lacks exact-radio isolation: $schema59RuntimeSkipSignature"
+	}
+}
+$schema59RuntimeInitBlock = Get-ScriptMethodBlock $schema59RuntimeText 'bool InitializeMissionRuntime('
+$schema59RuntimeInitSkipIndex = $schema59RuntimeInitBlock.IndexOf('HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission')
+$schema59RuntimeAssetInitIndex = $schema59RuntimeInitBlock.IndexOf('EnsureMissionAssetsInitialized(')
+if ($schema59RuntimeInitSkipIndex -lt 0 -or $schema59RuntimeAssetInitIndex -lt 0 -or
+	$schema59RuntimeInitSkipIndex -gt $schema59RuntimeAssetInitIndex) {
+	throw "Schema-59 generic runtime initialization may not manufacture a radio target before its exact skip"
+}
+
+$schema59DirectDestructionContracts = @(
+	@('bool MarkMissionAssetDestroyedByRuntimeEntity(', 'exact radio destruction requires lifecycle authority', 'MarkMissionAssetDestroyed('),
+	@('bool ApplyMissionAssetExplosiveDamage(', 'exact radio demolition requires lifecycle authority', 'asset.m_fDemolitionDamage ='),
+	@('protected bool ApplySabotageInteraction(', 'exact radio sabotage requires lifecycle authority', 'MarkMissionAssetDestroyed('),
+	@('protected void MarkMissionAssetDestroyed(', 'HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset', 'asset.m_bDestroyed = true')
+)
+foreach ($schema59DirectContract in $schema59DirectDestructionContracts) {
+	$schema59DirectBlock = Get-ScriptMethodBlock $schema59RuntimeText $schema59DirectContract[0]
+	$schema59DirectGuardIndex = $schema59DirectBlock.IndexOf($schema59DirectContract[1])
+	$schema59DirectMutationIndex = $schema59DirectBlock.IndexOf($schema59DirectContract[2])
+	if ([string]::IsNullOrEmpty($schema59DirectBlock) -or $schema59DirectGuardIndex -lt 0 -or
+		$schema59DirectMutationIndex -lt 0 -or $schema59DirectGuardIndex -gt $schema59DirectMutationIndex) {
+		throw "Schema-59 generic runtime can directly destroy an exact radio asset: $($schema59DirectContract[0])"
+	}
+}
+$schema59CoordinatorDestroyBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'string RequestServerMissionAssetDestroyed('
+$schema59CoordinatorDamageBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'string RequestServerMissionAssetExplosiveDamage('
+if ($schema59CoordinatorDestroyBlock.IndexOf('m_RadioSites.HandleAssetDestroyed(') -lt 0 -or
+	$schema59CoordinatorDestroyBlock.IndexOf('m_MissionRuntime.MarkMissionAssetDestroyedByRuntimeEntity(') -lt 0 -or
+	$schema59CoordinatorDestroyBlock.IndexOf('m_RadioSites.HandleAssetDestroyed(') -gt $schema59CoordinatorDestroyBlock.IndexOf('m_MissionRuntime.MarkMissionAssetDestroyedByRuntimeEntity(') -or
+	$schema59CoordinatorDamageBlock.IndexOf('m_RadioSites.ApplyExplosiveDamage(') -lt 0 -or
+	$schema59CoordinatorDamageBlock.IndexOf('m_MissionRuntime.ApplyMissionAssetExplosiveDamage(') -lt 0 -or
+	$schema59CoordinatorDamageBlock.IndexOf('m_RadioSites.ApplyExplosiveDamage(') -gt $schema59CoordinatorDamageBlock.IndexOf('m_MissionRuntime.ApplyMissionAssetExplosiveDamage(')) {
+	throw "Schema-59 coordinator must route exact radio destruction/demolition before generic runtime"
+}
+
+$schema59ReciprocalLockBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool MissionOwnsCurrentSiteLock('
+foreach ($schema59ReciprocalLockEntry in @(
+	'asset.m_sRadioSiteId == site.m_sSiteId',
+	'asset.m_sMissionInstanceId == mission.m_sInstanceId',
+	'mission.m_sRadioSiteId == site.m_sSiteId',
+	'mission.m_sTargetZoneId == site.m_sZoneId',
+	'site.m_sActiveMissionInstanceId == mission.m_sInstanceId',
+	'site.m_sActiveMissionId == mission.m_sMissionId',
+	'site.m_sActiveTransitionRequestId == mission.m_sRadioSiteTransitionRequestId',
+	'site.m_iRevision == mission.m_iRadioSiteRevision',
+	'mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ReciprocalLockBlock) -or
+		$schema59ReciprocalLockBlock.IndexOf($schema59ReciprocalLockEntry) -lt 0) {
+		throw "Schema-59 direct physical evidence lacks a reciprocal current site lock: $schema59ReciprocalLockEntry"
+	}
+}
+$schema59LifecycleDestroyEvidenceBlock = Get-ScriptMethodBlock $schema59LifecycleText 'bool HandleAssetDestroyed('
+$schema59DestroyLockIndex = $schema59LifecycleDestroyEvidenceBlock.IndexOf('MissionOwnsCurrentSiteLock(state, site, mission, asset)')
+$schema59DestroyDamageStateIndex = $schema59LifecycleDestroyEvidenceBlock.IndexOf('damageManager.GetState() != EDamageState.DESTROYED')
+$schema59DestroyMutationIndex = $schema59LifecycleDestroyEvidenceBlock.IndexOf('MarkPhysicalTargetDestroyed(')
+if ([string]::IsNullOrEmpty($schema59LifecycleDestroyEvidenceBlock) -or
+	$schema59LifecycleDestroyEvidenceBlock.IndexOf('HST_RADIO_SITE_TARGET_BORROWED_WORLD') -lt 0 -or
+	$schema59LifecycleDestroyEvidenceBlock.IndexOf('generated targets require exact explosive-score evidence') -lt 0 -or
+	$schema59DestroyLockIndex -lt 0 -or $schema59DestroyDamageStateIndex -lt 0 -or
+	$schema59DestroyMutationIndex -lt 0 -or $schema59DestroyLockIndex -gt $schema59DestroyDamageStateIndex -or
+	$schema59DestroyDamageStateIndex -gt $schema59DestroyMutationIndex) {
+	throw "Schema-59 direct destruction callback must require the reciprocal borrowed-target lock and authoritative physical damage state"
+}
+$schema59LifecycleDamageEvidenceBlock = Get-ScriptMethodBlock $schema59LifecycleText 'bool ApplyExplosiveDamage('
+$schema59DamageLockIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('MissionOwnsCurrentSiteLock(state, site, mission, asset)')
+$schema59DamageLiveProjectionIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('if (!projection || !projectionAsset')
+$schema59DamagePositionIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('PositionsMatch2D(position, projectionPosition, PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS)')
+$schema59DamageReceiptIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('RecordExactExplosiveEvidence(')
+$schema59DamageCheckedHealthIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('!damageManager.SetHealthScaled(0.0)')
+$schema59DamageDestroyedIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('MarkPhysicalTargetDestroyed(')
+foreach ($schema59DamageEvidenceEntry in @(
+	'projectionAsset.GetAssetId() != asset.m_sAssetId',
+	'projectionAsset.GetMissionInstanceId() != mission.m_sInstanceId',
+	'projectionAsset.GetRole() != asset.m_sRole',
+	'PositionsMatch2D(projectionPosition, site.m_vTargetPosition, PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS)',
+	'RecordExactExplosiveEvidence(',
+	'evidenceAlreadyApplied',
+	'exact demolition evidence could not record one bounded durable receipt'
+)) {
+	if ([string]::IsNullOrEmpty($schema59LifecycleDamageEvidenceBlock) -or
+		$schema59LifecycleDamageEvidenceBlock.IndexOf($schema59DamageEvidenceEntry) -lt 0) {
+		throw "Schema-59 exact explosive evidence lacks its live component/position/durable-receipt contract: $schema59DamageEvidenceEntry"
+	}
+}
+if ($schema59DamageLockIndex -lt 0 -or $schema59DamageLiveProjectionIndex -lt 0 -or
+	$schema59DamagePositionIndex -lt 0 -or $schema59DamageReceiptIndex -lt 0 -or
+	$schema59DamageCheckedHealthIndex -lt 0 -or $schema59DamageDestroyedIndex -lt 0 -or
+	$schema59DamageLockIndex -gt $schema59DamageLiveProjectionIndex -or
+	$schema59DamageLiveProjectionIndex -gt $schema59DamagePositionIndex -or
+	$schema59DamagePositionIndex -gt $schema59DamageReceiptIndex -or
+	$schema59DamageReceiptIndex -gt $schema59DamageCheckedHealthIndex -or
+	$schema59DamageCheckedHealthIndex -gt $schema59DamageDestroyedIndex) {
+	throw "Schema-59 explosive score recording/destruction must follow reciprocal lock, live component, bounded position, durable receipt, and checked health mutation"
+}
+$schema59RecordEvidenceBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool RecordExactExplosiveEvidence('
+foreach ($schema59RecordEvidenceEntry in @(
+	'normalizedRequestId = evidenceRequestId.Trim()',
+	'normalizedRequestId.IsEmpty()',
+	'asset.m_aDemolitionEvidenceKeys.Contains(normalizedRequestId)',
+	'alreadyApplied = true;',
+	'asset.m_aDemolitionEvidenceKeys.Count() >= MAX_DEMOLITION_EVIDENCE_KEYS',
+	'asset.m_aDemolitionEvidenceKeys.Insert(normalizedRequestId);',
+	'asset.m_fDemolitionDamage += damage;',
+	'asset.m_iDemolitionHits = asset.m_aDemolitionEvidenceKeys.Count();',
+	'asset.m_sLastDemolitionSource = normalizedRequestId;'
+)) {
+	if ([string]::IsNullOrEmpty($schema59RecordEvidenceBlock) -or
+		$schema59RecordEvidenceBlock.IndexOf($schema59RecordEvidenceEntry) -lt 0) {
+		throw "Schema-59 durable exact demolition recorder lost bounded/idempotent evidence: $schema59RecordEvidenceEntry"
+	}
+}
+$schema59RecordDuplicateIndex = $schema59RecordEvidenceBlock.IndexOf('asset.m_aDemolitionEvidenceKeys.Contains(normalizedRequestId)')
+$schema59RecordBoundIndex = $schema59RecordEvidenceBlock.IndexOf('asset.m_aDemolitionEvidenceKeys.Count() >= MAX_DEMOLITION_EVIDENCE_KEYS')
+$schema59RecordInsertIndex = $schema59RecordEvidenceBlock.IndexOf('asset.m_aDemolitionEvidenceKeys.Insert(normalizedRequestId);')
+$schema59RecordScoreIndex = $schema59RecordEvidenceBlock.IndexOf('asset.m_fDemolitionDamage += damage;')
+if ($schema59LifecycleText -notmatch 'MAX_DEMOLITION_EVIDENCE_KEYS\s*=\s*64\s*;' -or
+	$schema59RecordDuplicateIndex -lt 0 -or $schema59RecordBoundIndex -lt 0 -or
+	$schema59RecordInsertIndex -lt 0 -or $schema59RecordScoreIndex -lt 0 -or
+	$schema59RecordDuplicateIndex -gt $schema59RecordBoundIndex -or
+	$schema59RecordBoundIndex -gt $schema59RecordInsertIndex -or
+	$schema59RecordInsertIndex -gt $schema59RecordScoreIndex) {
+	throw "Schema-59 durable demolition evidence must deduplicate and enforce the 64-key bound before score mutation"
+}
+$schema59WitnessSourceBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected string BuildExplosiveWitnessSourceKey('
+foreach ($schema59WitnessSourceEntry in @(
+	'entityToken = string.Format("%1", entity.GetID())',
+	'"witness:generic-warhead:" + key + ":" + entityToken',
+	'"witness:" + key + ":" + entityToken'
+)) {
+	if ([string]::IsNullOrEmpty($schema59WitnessSourceBlock) -or
+		$schema59WitnessSourceBlock.IndexOf($schema59WitnessSourceEntry) -lt 0) {
+		throw "Schema-59 explosive witness source receipts must include the physical component/entity identity: $schema59WitnessSourceEntry"
+	}
+}
+$schema59DamageSourceBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected string BuildDamageSourceKey('
+if ([string]::IsNullOrEmpty($schema59DamageSourceBlock) -or
+	$schema59DamageSourceBlock.IndexOf('"damage:" + key + ":" + string.Format("%1", sourceEntity.GetID())') -lt 0) {
+	throw "Schema-59 damage callback receipts must include the physical source entity identity"
+}
+$schema59ComponentApplyScoreBlock = Get-ScriptMethodBlock $schema59DestroyTargetComponentText 'protected bool TryApplyExplosiveDamageScore('
+if ([string]::IsNullOrEmpty($schema59ComponentApplyScoreBlock) -or
+	$schema59ComponentApplyScoreBlock.IndexOf('RequestServerMissionAssetExplosiveDamage(asset.GetAssetId(), ResolveReportPosition(owner, asset), score, sourceKey)') -lt 0) {
+	throw "Schema-59 demolition component must pass its stable source identity into the durable exact evidence API"
+}
+
+$schema59CompositionEnsureBlock = Get-ScriptMethodBlock $schema59CompositionText 'bool EnsureZoneComposition('
+$schema59CompositionSkipIndex = $schema59CompositionEnsureBlock.IndexOf('HST_RadioSiteLifecycleService.IsExactSiteZone(state, zone.m_sZoneId)')
+$schema59CompositionSpawnIndex = $schema59CompositionEnsureBlock.IndexOf('HST_WorldPositionService.SpawnPrefab(')
+if ([string]::IsNullOrEmpty($schema59CompositionEnsureBlock) -or $schema59CompositionSkipIndex -lt 0 -or
+	$schema59CompositionSpawnIndex -lt 0 -or $schema59CompositionSkipIndex -gt $schema59CompositionSpawnIndex) {
+	throw "Schema-59 zone composition must skip every exact/quarantined radio-site static before spawning"
+}
+$schema59CompositionCleanupBlock = Get-ScriptMethodBlock $schema59CompositionText 'bool CleanupZoneComposition('
+if ([string]::IsNullOrEmpty($schema59CompositionCleanupBlock) -or
+	$schema59CompositionCleanupBlock.IndexOf('m_aRuntimePrefabs[i] != PROP_DESTROY_TARGET') -lt 0) {
+	throw "Schema-59 zone composition cleanup may not delete a transmitter projection"
+}
+
+$schema59ObjectiveTickBlock = Get-ScriptMethodBlock $schema59ObjectiveText 'bool Tick(HST_CampaignState state)'
+$schema59ObjectiveRadioSkipIndex = $schema59ObjectiveTickBlock.IndexOf('HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)')
+$schema59ObjectiveCleanupIndex = $schema59ObjectiveTickBlock.IndexOf('MarkMissionObjectiveCleanupComplete(state, mission)')
+$schema59ObjectiveCompleteIndex = $schema59ObjectiveTickBlock.IndexOf('AreMissionObjectivesComplete(state, mission.m_sInstanceId)')
+if ([string]::IsNullOrEmpty($schema59ObjectiveTickBlock) -or
+	$schema59ObjectiveRadioSkipIndex -lt 0 -or $schema59ObjectiveCleanupIndex -lt 0 -or
+	$schema59ObjectiveCompleteIndex -lt 0 -or
+	$schema59ObjectiveRadioSkipIndex -gt $schema59ObjectiveCleanupIndex -or
+	$schema59ObjectiveRadioSkipIndex -gt $schema59ObjectiveCompleteIndex) {
+	throw "Schema-59 objective ticking must skip exact/quarantined radio missions before generic cleanup or completion mutation"
+}
+$schema59CommanderProgressBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'bool RequestCommanderProgressMission('
+$schema59CommanderRadioSkipIndex = $schema59CommanderProgressBlock.IndexOf('HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)')
+$schema59CommanderProgressIndex = $schema59CommanderProgressBlock.IndexOf('m_Objectives.ProgressMission(m_State, resolvedInstanceId, 1)')
+if ([string]::IsNullOrEmpty($schema59CommanderProgressBlock) -or
+	$schema59CommanderRadioSkipIndex -lt 0 -or $schema59CommanderProgressIndex -lt 0 -or
+	$schema59CommanderRadioSkipIndex -gt $schema59CommanderProgressIndex) {
+	throw "Schema-59 commander progress must reject exact/quarantined radio missions before generic objective mutation"
+}
+
+$schema59CompleteBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'bool CompleteMission('
+$schema59CanCompleteIndex = $schema59CompleteBlock.IndexOf('m_RadioSites.CanCompleteMission(m_State, activeMission)')
+$schema59GenericProgressIndex = $schema59CompleteBlock.IndexOf('m_Objectives.ProgressMission(m_State, instanceId, 999)')
+$schema59ProgressGuardIndex = $schema59CompleteBlock.IndexOf('!exactRadioAuthority')
+$schema59MissionCompleteIndex = $schema59CompleteBlock.IndexOf('m_Missions.Complete(')
+$schema59LifecycleSuccessIndex = $schema59CompleteBlock.IndexOf('m_RadioSites.OnMissionSucceeded(')
+$schema59StrategicSuccessIndex = $schema59CompleteBlock.IndexOf('m_Strategic.ApplyMissionOutcomeEvent(')
+if ([string]::IsNullOrEmpty($schema59CompleteBlock) -or $schema59CanCompleteIndex -lt 0 -or
+	$schema59GenericProgressIndex -lt 0 -or $schema59ProgressGuardIndex -lt 0 -or
+	$schema59MissionCompleteIndex -lt 0 -or $schema59LifecycleSuccessIndex -lt 0 -or
+	$schema59StrategicSuccessIndex -lt 0 -or $schema59CanCompleteIndex -gt $schema59MissionCompleteIndex -or
+	$schema59ProgressGuardIndex -gt $schema59GenericProgressIndex -or
+	$schema59MissionCompleteIndex -gt $schema59LifecycleSuccessIndex -or
+	$schema59LifecycleSuccessIndex -gt $schema59StrategicSuccessIndex) {
+	throw "Schema-59 exact completion must skip generic progress and commit lifecycle before Strategic"
+}
+$schema59FailBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'bool FailMission('
+$schema59FailureLifecycleIndex = $schema59FailBlock.IndexOf('m_RadioSites.OnMissionFailed(')
+$schema59FailureStrategicIndex = $schema59FailBlock.IndexOf('m_Strategic.ApplyMissionOutcomeEvent(')
+$schema59FailureRadioGuardIndex = $schema59FailBlock.IndexOf('HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(activeMission)')
+$schema59FailureObjectiveIndex = $schema59FailBlock.IndexOf('m_Objectives.FailMissionObjectives(m_State, instanceId)')
+$schema59FailureObjectiveGuardIndex = $schema59FailBlock.IndexOf('!exactRadioAuthority', [Math]::Max(0, $schema59FailureLifecycleIndex))
+if ($schema59FailureLifecycleIndex -lt 0 -or $schema59FailureStrategicIndex -lt 0 -or
+	$schema59FailureRadioGuardIndex -lt 0 -or $schema59FailureObjectiveIndex -lt 0 -or
+	$schema59FailureObjectiveGuardIndex -lt 0 -or
+	$schema59FailureRadioGuardIndex -gt $schema59FailureLifecycleIndex -or
+	$schema59FailureLifecycleIndex -gt $schema59FailureStrategicIndex -or
+	$schema59FailureObjectiveGuardIndex -gt $schema59FailureObjectiveIndex) {
+	throw "Schema-59 failed mission lifecycle must settle before Strategic and skip generic objective failure mutation"
+}
+$schema59ExpiryBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'protected bool ApplyMissionExpiryEventForMission('
+$schema59ExpiryLifecycleIndex = $schema59ExpiryBlock.IndexOf('m_RadioSites.OnMissionExpired(')
+$schema59ExpiryStrategicIndex = $schema59ExpiryBlock.IndexOf('m_Strategic.ApplyMissionExpiryEvent(')
+if ($schema59ExpiryLifecycleIndex -lt 0 -or $schema59ExpiryStrategicIndex -lt 0 -or
+	$schema59ExpiryLifecycleIndex -gt $schema59ExpiryStrategicIndex) {
+	throw "Schema-59 expired mission lifecycle must settle before Strategic expiry consequences"
+}
+
+$schema59FrameBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'override void EOnFrame('
+$schema59FrameTickIndex = $schema59FrameBlock.IndexOf('m_RadioSites.TickBeforeMissionRuntime(m_State)')
+$schema59MissionTickIndex = $schema59FrameBlock.IndexOf('m_Missions.Tick(m_State')
+$schema59ProjectionReconcileIndex = $schema59FrameBlock.IndexOf('m_RadioSites.ReconcileProjections(m_State)')
+$schema59IncomeIndex = $schema59FrameBlock.IndexOf('m_Towns.TickIncome(m_State')
+$schema59LastCampaignSettlementIndex = $schema59FrameBlock.LastIndexOf('m_RadioSites.SettleOpenSitesForCampaignStop(')
+if ([string]::IsNullOrEmpty($schema59FrameBlock) -or $schema59FrameTickIndex -lt 0 -or
+	$schema59MissionTickIndex -lt 0 -or $schema59ProjectionReconcileIndex -lt 0 -or
+	$schema59IncomeIndex -lt 0 -or $schema59LastCampaignSettlementIndex -lt 0 -or
+	$schema59FrameTickIndex -gt $schema59MissionTickIndex -or
+	$schema59ProjectionReconcileIndex -gt $schema59IncomeIndex -or
+	$schema59LastCampaignSettlementIndex -gt $schema59IncomeIndex) {
+	throw "Schema-59 radio target observation/settlement/projection must precede mission expiry and periodic town income"
+}
+
+$schema59TownEligibilityBlock = Get-ScriptMethodBlock $schema59TownText 'protected HST_ZoneState FindNearestEligibleRadioTower('
+if ([string]::IsNullOrEmpty($schema59TownEligibilityBlock) -or
+	$schema59TownEligibilityBlock.IndexOf('HST_RadioSiteLifecycleService.IsBroadcastOperational(state, radioZone.m_sZoneId)') -lt 0) {
+	throw "Schema-59 Town influence must use the exact ONLINE radio-site predicate"
+}
+foreach ($schema59ProjectionEntry in @(
+	'HST_RadioSiteLifecycleService.BuildStatusText(state, zone.m_sZoneId)',
+	'HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)',
+	'HST_RadioSiteLifecycleService.BuildStatusText(state, mission.m_sTargetZoneId)'
+)) {
+	if (($schema59MarkerText + "`n" + $schema59UIText) -notmatch [regex]::Escape($schema59ProjectionEntry)) {
+		throw "Schema-59 marker/UI lifecycle projection is missing: $schema59ProjectionEntry"
+	}
+}
+$schema59StrategicSuccessBlock = Get-ScriptMethodBlock $schema59StrategicText 'protected bool ApplyMissionSuccessEvent('
+$schema59StrategicRadioIndex = $schema59StrategicSuccessBlock.IndexOf('HST_RadioSiteLifecycleService.IsExactMission(activeMission)')
+$schema59StrategicGenericDestroyIndex = $schema59StrategicSuccessBlock.IndexOf('if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)')
+if ([string]::IsNullOrEmpty($schema59StrategicSuccessBlock) -or $schema59StrategicRadioIndex -lt 0 -or
+	$schema59StrategicGenericDestroyIndex -lt 0 -or $schema59StrategicRadioIndex -gt $schema59StrategicGenericDestroyIndex -or
+	$schema59StrategicSuccessBlock.IndexOf('hq.ReduceHQKnowledge') -lt 0 -or
+	$schema59StrategicText -match 'm_eLifecycleState\s*=') {
+	throw "Schema-59 Strategic must apply radio consequences after lifecycle ownership without mutating site state"
+}
+
+foreach ($schema59ValidationEntry in @(
+	'class HST_RadioSiteSaveValidationService',
+	'SCHEMA_VERSION = 59',
+	'migration_schema59_radio_site_authority',
+	'normalization_schema59_radio_site_authority_conflict',
+	'MigratePreSchema59Authority',
+	'pre-schema-59 active radio mission failed closed',
+	'IsSchema59RadioMissionClaimant',
+	'IsSchema59RadioAssetClaimant',
+	'ValidateCurrentAggregate',
+	'ValidateSite',
+	'ValidateMissionAggregate',
+	'ValidateMissionAsset',
+	'ValidateReceiptBacklinks',
+	'ValidateLatestMissionOutcome',
+	'BuildExpectedTransitionRequestId',
+	'QuarantineSiteAggregate',
+	'QuarantineMissionAggregate',
+	'QUARANTINED_CONTRACT_VERSION'
+)) {
+	if ($schema59ValidationText -notmatch [regex]::Escape($schema59ValidationEntry)) {
+		throw "Schema-59 migration/restore fail-close boundary is missing: $schema59ValidationEntry"
+	}
+}
+$schema59RuntimeQuarantineSiteBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool QuarantineSite('
+foreach ($schema59RuntimeQuarantineSnapshotEntry in @(
+	'activeMissionInstanceId = site.m_sActiveMissionInstanceId',
+	'lastTransitionMissionInstanceId = site.m_sLastTransitionMissionInstanceId',
+	'ClearActiveLock(site)',
+	'mission.m_sRadioSiteId != site.m_sSiteId',
+	'mission.m_sInstanceId != activeMissionInstanceId',
+	'mission.m_sInstanceId != lastTransitionMissionInstanceId',
+	'CleanupQuarantinedMissionAggregate(state, mission, reason)',
+	'asset.m_sMissionInstanceId != activeMissionInstanceId',
+	'asset.m_sMissionInstanceId != lastTransitionMissionInstanceId',
+	'runtime.m_bSpawned = false'
+)) {
+	if ([string]::IsNullOrEmpty($schema59RuntimeQuarantineSiteBlock) -or
+		$schema59RuntimeQuarantineSiteBlock.IndexOf($schema59RuntimeQuarantineSnapshotEntry) -lt 0) {
+		throw "Schema-59 live quarantine must retain active/latest identities while cleaning their linked aggregates: $schema59RuntimeQuarantineSnapshotEntry"
+	}
+}
+$schema59RuntimeQuarantineActiveSnapshotIndex = $schema59RuntimeQuarantineSiteBlock.IndexOf('activeMissionInstanceId = site.m_sActiveMissionInstanceId')
+$schema59RuntimeQuarantineLastSnapshotIndex = $schema59RuntimeQuarantineSiteBlock.IndexOf('lastTransitionMissionInstanceId = site.m_sLastTransitionMissionInstanceId')
+$schema59RuntimeQuarantineClearIndex = $schema59RuntimeQuarantineSiteBlock.IndexOf('ClearActiveLock(site)')
+if ($schema59RuntimeQuarantineActiveSnapshotIndex -lt 0 -or $schema59RuntimeQuarantineLastSnapshotIndex -lt 0 -or
+	$schema59RuntimeQuarantineClearIndex -lt 0 -or
+	$schema59RuntimeQuarantineActiveSnapshotIndex -gt $schema59RuntimeQuarantineClearIndex -or
+	$schema59RuntimeQuarantineLastSnapshotIndex -gt $schema59RuntimeQuarantineClearIndex) {
+	throw "Schema-59 live quarantine may not clear the active lock before snapshotting active/latest aggregate identity"
+}
+$schema59RuntimeQuarantineCleanupBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool CleanupQuarantinedMissionAggregate('
+foreach ($schema59RuntimeQuarantineCleanupEntry in @(
+	'bool failCurrentOutcome = mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'|| !mission.m_bRuntimeCleanupComplete',
+	'if (failCurrentOutcome)',
+	'mission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;',
+	'mission.m_iRadioSiteContractVersion = QUARANTINED_CONTRACT_VERSION;',
+	'mission.m_bRuntimeSpawned = false;',
+	'mission.m_bRuntimeCleanupComplete = true;',
+	'if (!failCurrentOutcome || !objective',
+	'if (!failCurrentOutcome || !task'
+)) {
+	if ([string]::IsNullOrEmpty($schema59RuntimeQuarantineCleanupBlock) -or
+		$schema59RuntimeQuarantineCleanupBlock.IndexOf($schema59RuntimeQuarantineCleanupEntry) -lt 0) {
+		throw "Schema-59 live quarantine cleanup must fail only current/incomplete outcomes and preserve settled history: $schema59RuntimeQuarantineCleanupEntry"
+	}
+}
+$schema59RestoreQuarantineSiteBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected void QuarantineSiteAggregate('
+foreach ($schema59RestoreQuarantineSnapshotEntry in @(
+	'activeMissionInstanceId = site.m_sActiveMissionInstanceId',
+	'lastTransitionMissionInstanceId = site.m_sLastTransitionMissionInstanceId',
+	'QuarantineSite(site, failure)',
+	'mission.m_sInstanceId == activeMissionInstanceId',
+	'mission.m_sInstanceId == lastTransitionMissionInstanceId',
+	'QuarantineMission(mission, failure)',
+	'asset.m_sMissionInstanceId == activeMissionInstanceId',
+	'asset.m_sMissionInstanceId == lastTransitionMissionInstanceId',
+	'objective.m_sMissionInstanceId != activeMissionInstanceId',
+	'task.m_sLinkedId != activeMissionInstanceId',
+	'ClearQuarantinedSiteLock(site)'
+)) {
+	if ([string]::IsNullOrEmpty($schema59RestoreQuarantineSiteBlock) -or
+		$schema59RestoreQuarantineSiteBlock.IndexOf($schema59RestoreQuarantineSnapshotEntry) -lt 0) {
+		throw "Schema-59 restore quarantine must snapshot active/latest identities and clean only the current outcome aggregate: $schema59RestoreQuarantineSnapshotEntry"
+	}
+}
+$schema59RestoreQuarantineActiveSnapshotIndex = $schema59RestoreQuarantineSiteBlock.IndexOf('activeMissionInstanceId = site.m_sActiveMissionInstanceId')
+$schema59RestoreQuarantineLastSnapshotIndex = $schema59RestoreQuarantineSiteBlock.IndexOf('lastTransitionMissionInstanceId = site.m_sLastTransitionMissionInstanceId')
+$schema59RestoreQuarantineClearIndex = $schema59RestoreQuarantineSiteBlock.LastIndexOf('ClearQuarantinedSiteLock(site)')
+if ($schema59RestoreQuarantineActiveSnapshotIndex -lt 0 -or $schema59RestoreQuarantineLastSnapshotIndex -lt 0 -or
+	$schema59RestoreQuarantineClearIndex -lt 0 -or
+	$schema59RestoreQuarantineActiveSnapshotIndex -gt $schema59RestoreQuarantineClearIndex -or
+	$schema59RestoreQuarantineLastSnapshotIndex -gt $schema59RestoreQuarantineClearIndex) {
+	throw "Schema-59 restore quarantine may not clear a corrupt lock before snapshotting active/latest aggregate identity"
+}
+$schema59RestoreQuarantineMissionBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected void QuarantineMission('
+foreach ($schema59RestoreQuarantineMissionEntry in @(
+	'bool failCurrentOutcome = mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE',
+	'|| !mission.m_bRuntimeCleanupComplete',
+	'if (failCurrentOutcome)',
+	'mission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;',
+	'CleanupQuarantinedMissionAggregate(mission, failCurrentOutcome)'
+)) {
+	if ([string]::IsNullOrEmpty($schema59RestoreQuarantineMissionBlock) -or
+		$schema59RestoreQuarantineMissionBlock.IndexOf($schema59RestoreQuarantineMissionEntry) -lt 0) {
+		throw "Schema-59 restore quarantine must preserve already-settled historical mission outcomes: $schema59RestoreQuarantineMissionEntry"
+	}
+}
+$schema59ValidatorAggregateBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected string ValidateMissionAggregate('
+foreach ($schema59ValidatorAggregateEntry in @(
+	'CountMissionsForInstance(mission.m_sInstanceId) != 1',
+	'CountMissionsForTransitionRequest(mission.m_sRadioSiteTransitionRequestId) != 1',
+	'CountAssetsForMission(mission.m_sInstanceId) != 1',
+	'ValidateMissionAsset(asset, mission, site)',
+	'ValidateMissionOutcomeEvidence(mission, site, asset)'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ValidatorAggregateBlock) -or
+		$schema59ValidatorAggregateBlock.IndexOf($schema59ValidatorAggregateEntry) -lt 0) {
+		throw "Schema-59 save validator does not require one exact mission/asset aggregate: $schema59ValidatorAggregateEntry"
+	}
+}
+$schema59ValidatorAssetBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected string ValidateMissionAsset('
+foreach ($schema59ValidatorAssetEntry in @(
+	'expectedAssetId = "asset_" + mission.m_sInstanceId + "_destroy_target_0"',
+	'expectedEntityId = expectedAssetId + "_entity"',
+	'asset.m_sEntityId != expectedEntityId',
+	'asset.m_sRadioSiteAuthoredTargetPrefab != site.m_sAuthoredTargetPrefab',
+	'asset.m_vRadioSiteAuthoredTargetPosition,',
+	'asset.m_eRadioSiteTargetOwnership',
+	'active exact radio target ownership conflicts with the current site',
+	'expectedAssetPrefab = asset.m_sRadioSiteAuthoredTargetPrefab',
+	'asset.m_eRadioSiteTargetOwnership == HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN',
+	'exact rebuild equipment does not carry generated mission-time ownership',
+	'asset.m_fDemolitionRequiredDamage != REQUIRED_DEMOLITION_DAMAGE',
+	'asset.m_fDemolitionDamage < 0.0',
+	'asset.m_iDemolitionHits < 0',
+	'asset.m_iLastDemolitionSecond < 0',
+	'asset.m_aDemolitionEvidenceKeys.Count() > HST_RadioSiteLifecycleService.MAX_DEMOLITION_EVIDENCE_KEYS',
+	'asset.m_iDemolitionHits != asset.m_aDemolitionEvidenceKeys.Count()',
+	'array<string> uniqueEvidenceKeys = {};',
+	'evidenceKey.Trim().IsEmpty() || uniqueEvidenceKeys.Contains(evidenceKey)',
+	'uniqueEvidenceKeys.Insert(evidenceKey);',
+	'hasDemolitionEvidence',
+	'asset.m_fDemolitionDamage <= 0.0',
+	'asset.m_iDemolitionHits <= 0',
+	'asset.m_sLastDemolitionSource.IsEmpty()',
+	'FindUniqueMissionRuntimeEntity(asset.m_sEntityId)',
+	'CountRuntimeEntitiesForMission(mission.m_sInstanceId) != 1',
+	'PHYSICAL_PROJECTION_TOLERANCE_METERS',
+	'runtime.m_bSpawned != asset.m_bSpawned',
+	'runtime.m_bDestroyed != asset.m_bDestroyed',
+	'bool borrowedProjectionPending = projectionFlagsDormant && !asset.m_bDestroyed',
+	'HST_RADIO_SITE_TARGET_BORROWED_WORLD',
+	'mission.m_sRuntimePhase == "radio_site_projection_pending"',
+	'!projectionFlagsLive && !borrowedProjectionPending'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ValidatorAssetBlock) -or
+		$schema59ValidatorAssetBlock.IndexOf($schema59ValidatorAssetEntry) -lt 0) {
+		throw "Schema-59 save validator score/count/spawn-flag contract is missing: $schema59ValidatorAssetEntry"
+	}
+}
+if ($schema59ValidationText -notmatch 'REQUIRED_DEMOLITION_DAMAGE\s*=\s*300\.0\s*;' -or
+	$schema59LifecycleText -notmatch 'DEFAULT_DEMOLITION_REQUIRED_DAMAGE\s*=\s*300\.0\s*;') {
+	throw "Schema-59 production and restore boundaries must agree on the exact 300-point demolition threshold"
+}
+$schema59ValidatorOutcomeBlock = Get-ScriptMethodBlock $schema59ValidationText 'protected string ValidateMissionOutcomeEvidence('
+foreach ($schema59ValidatorOutcomeEntry in @(
+	'CountObjectivesForMission(mission.m_sInstanceId) != 1',
+	'CountTasksForMission(mission.m_sInstanceId) != 1',
+	'objective.m_sTargetId != site.m_sTargetId',
+	'objective.m_sPhysicalEntityId != asset.m_sEntityId',
+	'objective.m_sLinkedRuntimeEntityId != asset.m_sEntityId',
+	'bool physicalDestruction = asset.m_bDestroyed && !asset.m_bAlive',
+	'bool noDestructionClaim = !asset.m_bDestroyed && asset.m_bAlive',
+	'!physicalDestruction || task.m_bActive || !task.m_bSucceeded || task.m_bFailed',
+	'!noDestructionClaim || task.m_bActive || task.m_bSucceeded || !task.m_bFailed'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ValidatorOutcomeBlock) -or
+		$schema59ValidatorOutcomeBlock.IndexOf($schema59ValidatorOutcomeEntry) -lt 0) {
+		throw "Schema-59 save validator exact objective/task/outcome semantics are missing: $schema59ValidatorOutcomeEntry"
+	}
+}
+
+foreach ($schema59ProofEntry in @(
+	'class HST_RadioSiteLifecycleProofReport',
+	'class HST_RadioSiteLifecycleProofService',
+	'HST_RadioSiteLifecycleProofReport Run()',
+	'm_bBindingAdmissionIsolationExact',
+	'm_sBindingAdmissionIsolationEvidence',
+	'm_bLifecycleOutcomesExact',
+	'm_sLifecycleOutcomesEvidence',
+	'm_bReceiptRevisionExact',
+	'm_sReceiptRevisionEvidence',
+	'm_bRestoreMigrationQuarantineExact',
+	'm_sRestoreMigrationQuarantineEvidence',
+	'm_bInfluenceSuppressionExact',
+	'm_sInfluenceSuppressionEvidence',
+	'm_bOwnershipEquipmentExact',
+	'm_sOwnershipEquipmentEvidence',
+	'PACKAGED_GATES'
+)) {
+	if ($schema59ProofText -notmatch [regex]::Escape($schema59ProofEntry)) {
+		throw "Schema-59 radio-site source proof is missing: $schema59ProofEntry"
+	}
+}
+$schema59ProofHarnessBlock = Get-ScriptMethodBlock $schema59ProofText 'class HST_RadioSiteLifecycleProofHarness'
+$schema59ProjectionSeams = @(
+	'PrepareProjectionForAdmission',
+	'ReconcileAdmissionProjection',
+	'ReconcileProjectionAfterOutcome',
+	'ReconcileProjectionForOutcomeReplay'
+)
+foreach ($schema59ProjectionSeam in $schema59ProjectionSeams) {
+	if ([string]::IsNullOrEmpty($schema59ProofHarnessBlock) -or
+		$schema59ProofHarnessBlock -notmatch ("override\s+protected\s+bool\s+" + [regex]::Escape($schema59ProjectionSeam) + "\s*\(")) {
+		throw "Schema-59 source proof must override only the bounded physical projection seam: $schema59ProjectionSeam"
+	}
+}
+$schema59ProofOverrideCount = [regex]::Matches(
+	$schema59ProofHarnessBlock,
+	'override\s+protected\s+bool\s+').Count
+if ($schema59ProofOverrideCount -ne $schema59ProjectionSeams.Count -or
+	$schema59ProofHarnessBlock -match 'override[^{;]*(AdmitNewMission|ApplyMissionOutcome|ApplyAcceptedTransition)\s*\(') {
+	throw "Schema-59 proof harness may override projection seams only, never production admission or outcome transitions"
+}
+$schema59ProofAdmissionBlock = Get-ScriptMethodBlock $schema59ProofText 'HST_RadioSiteTransitionResult AdmitResolvedMissionForProof('
+if ([string]::IsNullOrEmpty($schema59ProofAdmissionBlock) -or
+	$schema59ProofAdmissionBlock.IndexOf('return AdmitNewMission(state, mission);') -lt 0) {
+	throw "Schema-59 source proof admission must invoke the production AdmitNewMission transition"
+}
+$schema59ProofOutcomeBlock = Get-ScriptMethodBlock $schema59ProofText 'HST_RadioSiteTransitionResult ApplyOutcomeForProof('
+foreach ($schema59ProofOutcomeEntry in @(
+	'OnMissionSucceeded(state, mission)',
+	'OnMissionFailed(state, mission)',
+	'OnMissionExpired(state, mission)'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ProofOutcomeBlock) -or
+		$schema59ProofOutcomeBlock.IndexOf($schema59ProofOutcomeEntry) -lt 0) {
+		throw "Schema-59 source proof outcome must invoke a production lifecycle entrypoint: $schema59ProofOutcomeEntry"
+	}
+}
+if ($schema59ProofOutcomeBlock.IndexOf('ApplyMissionOutcome(') -ge 0 -or
+	$schema59ProofOutcomeBlock.IndexOf('ApplyAcceptedTransition(') -ge 0) {
+	throw "Schema-59 source proof may not reimplement or bypass the production outcome transition"
+}
+$schema59ProofDestroyEvidenceBlock = Get-ScriptMethodBlock $schema59ProofText 'bool MarkTargetDestroyedForProof('
+foreach ($schema59ProofDestroyEvidenceEntry in @(
+	'HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN',
+	'RecordExactExplosiveEvidence(',
+	'DEFAULT_DEMOLITION_REQUIRED_DAMAGE',
+	'"source_proof_exact_explosive_score_" + asset.m_sAssetId',
+	'!thresholdReached || alreadyApplied',
+	'MarkPhysicalTargetDestroyed('
+)) {
+	if ([string]::IsNullOrEmpty($schema59ProofDestroyEvidenceBlock) -or
+		$schema59ProofDestroyEvidenceBlock.IndexOf($schema59ProofDestroyEvidenceEntry) -lt 0) {
+		throw "Schema-59 generated source proof must exercise the production durable evidence recorder: $schema59ProofDestroyEvidenceEntry"
+	}
+}
+if ($schema59ProofDestroyEvidenceBlock -match 'asset\.m_(fDemolitionDamage|iDemolitionHits|sLastDemolitionSource|aDemolitionEvidenceKeys)\s*(\+\+|\+=|=|\.Insert)') {
+	throw "Schema-59 source proof may not fabricate demolition counters or evidence keys"
+}
+$schema59ProofLifecycleBlock = Get-ScriptMethodBlock $schema59ProofText 'protected void ProveLifecycleOutcomes('
+foreach ($schema59ProofEpochEntry in @(
+	'rebuildSuccessDestructionEpoch',
+	'rebuildSuccess.m_Site.m_sLastDestructionReceiptId == rebuildSuccessDestructionEpoch',
+	'!rebuildSuccess.m_Site.m_sLastRebuildReceiptId.IsEmpty()',
+	'repeatedRebuildBlocked',
+	'!rebuildSuccess.m_Service.CanStartMission('
+)) {
+	if ([string]::IsNullOrEmpty($schema59ProofLifecycleBlock) -or
+		$schema59ProofLifecycleBlock.IndexOf($schema59ProofEpochEntry) -lt 0) {
+		throw "Schema-59 source proof does not demonstrate one stop-rebuild attempt per destruction epoch: $schema59ProofEpochEntry"
+	}
+}
+$schema59ProofOwnershipBlock = Get-ScriptMethodBlock $schema59ProofText 'protected void ProveOwnershipEquipment('
+foreach ($schema59ProofOwnershipEntry in @(
+	'frozenAuthoredPrefab = fixture.m_Site.m_sAuthoredTargetPrefab',
+	'frozenAuthoredPosition = fixture.m_Site.m_vAuthoredTargetPosition',
+	'HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN',
+	'fixture.m_Site.m_sTargetPrefab == HST_RadioSiteLifecycleService.GENERATED_TOWER_PREFAB',
+	'fixture.m_Site.m_sAuthoredTargetPrefab == frozenAuthoredPrefab',
+	'fixture.m_Site.m_vAuthoredTargetPosition == frozenAuthoredPosition'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ProofOwnershipBlock) -or
+		$schema59ProofOwnershipBlock.IndexOf($schema59ProofOwnershipEntry) -lt 0) {
+		throw "Schema-59 source proof does not retain frozen authored provenance across generated ownership handoff: $schema59ProofOwnershipEntry"
+	}
+}
+$schema59ProofRestoreBlock = Get-ScriptMethodBlock $schema59ProofText 'protected void ProveRestoreMigrationQuarantine('
+foreach ($schema59ProofCorruptionEntry in @(
+	'corruptAdmission = m_Fixtures.AdmitMission(',
+	'quarantinedMission = quarantined.FindActiveMission(',
+	'quarantinedAsset = quarantined.FindMissionAsset(',
+	'quarantinedRuntime = quarantined.FindMissionRuntimeEntity(',
+	'quarantinedTask = quarantined.FindCampaignTask(',
+	'quarantinedObjective = objective;',
+	'quarantinedMission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED',
+	'!quarantinedMission.m_bRuntimeSpawned',
+	'quarantinedMission.m_bRuntimeCleanupComplete',
+	'quarantinedAsset && !quarantinedAsset.m_bSpawned',
+	'quarantinedRuntime && !quarantinedRuntime.m_bSpawned',
+	'quarantinedTask && !quarantinedTask.m_bActive',
+	'!quarantinedTask.m_bSucceeded && quarantinedTask.m_bFailed',
+	'quarantinedObjective && quarantinedObjective.m_bFailed',
+	'quarantinedObjective.m_bCleanupComplete',
+	'quarantinedSiteExact && quarantinedMissionExact',
+	'&& quarantinedProjectionExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ProofRestoreBlock) -or
+		$schema59ProofRestoreBlock.IndexOf($schema59ProofCorruptionEntry) -lt 0) {
+		throw "Schema-59 current-corruption proof must verify linked site/mission/asset/runtime/task/objective cleanup: $schema59ProofCorruptionEntry"
+	}
+}
+$schema59ForceDebugBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase('
+$schema59ProofAppendIndex = $schema59ForceDebugBlock.IndexOf('AppendCampaignDebugRadioSiteLifecycleAssertions(forceCase)')
+$schema59ProofFinalizeIndex = $schema59ForceDebugBlock.IndexOf('FinalizeCampaignDebugCaseFromAssertions(forceCase)')
+if ([string]::IsNullOrEmpty($schema59ForceDebugBlock) -or $schema59ProofAppendIndex -lt 0 -or
+	$schema59ProofFinalizeIndex -lt 0 -or $schema59ProofAppendIndex -gt $schema59ProofFinalizeIndex) {
+	throw "Schema-59 force-authority proof case must append radio-site assertions before finalization"
+}
+$schema59ProofAssertionBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'protected void AppendCampaignDebugRadioSiteLifecycleAssertions(HST_CampaignDebugCaseResult forceCase)'
+foreach ($schema59ProofAssertionEntry in @(
+	'new HST_RadioSiteLifecycleProofService()',
+	'HST_RadioSiteLifecycleProofReport',
+	'.Run()'
+)) {
+	if ([string]::IsNullOrEmpty($schema59ProofAssertionBlock) -or
+		$schema59ProofAssertionBlock.IndexOf($schema59ProofAssertionEntry) -lt 0) {
+		throw "Schema-59 coordinator proof hook is missing its report/service contract: $schema59ProofAssertionEntry"
+	}
+}
+$schema59ProofAssertionContracts = @(
+	@('radio_site.binding_admission', 'm_sBindingAdmissionIsolationEvidence', 'm_bBindingAdmissionIsolationExact'),
+	@('radio_site.lifecycle_outcomes', 'm_sLifecycleOutcomesEvidence', 'm_bLifecycleOutcomesExact'),
+	@('radio_site.receipt_revision', 'm_sReceiptRevisionEvidence', 'm_bReceiptRevisionExact'),
+	@('radio_site.restore_migration_quarantine', 'm_sRestoreMigrationQuarantineEvidence', 'm_bRestoreMigrationQuarantineExact'),
+	@('radio_site.influence_suppression', 'm_sInfluenceSuppressionEvidence', 'm_bInfluenceSuppressionExact'),
+	@('radio_site.ownership_equipment', 'm_sOwnershipEquipmentEvidence', 'm_bOwnershipEquipmentExact')
+)
+foreach ($schema59ProofAssertionContract in $schema59ProofAssertionContracts) {
+	foreach ($schema59ProofAssertionContractEntry in $schema59ProofAssertionContract) {
+		if ([string]::IsNullOrEmpty($schema59ProofAssertionBlock) -or
+			$schema59ProofAssertionBlock.IndexOf($schema59ProofAssertionContractEntry) -lt 0) {
+			throw "Schema-59 coordinator proof assertion is missing: $schema59ProofAssertionContractEntry"
+		}
+	}
+}
+
+$schema59DocumentationPaths = @(
+	"README.md",
+	"docs/ARCHITECTURE.md",
+	"docs/FEATURE_CHECKLIST.md",
+	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
+	"docs/HST_ENFUSION_ENFORCE_NOTES.md",
+	"docs/MIGRATIONS.md",
+	"docs/PARITY.md",
+	"docs/PHASE_PLAN.md"
+)
+foreach ($schema59DocumentationPath in $schema59DocumentationPaths) {
+	$schema59DocumentationText = (Get-Content -Raw $schema59DocumentationPath).ToLowerInvariant()
+	$mentionsSchema59 = $schema59DocumentationText.Contains("schema 59") -or $schema59DocumentationText.Contains("schema-59")
+	$mentionsRadioSite = $schema59DocumentationText.Contains("radio site") -or $schema59DocumentationText.Contains("radio-site")
+	if (!$mentionsSchema59 -or !$mentionsRadioSite -or !$schema59DocumentationText.Contains("packaged")) {
+		throw "$schema59DocumentationPath must describe the Schema-59 radio-site lifecycle and packaged-runtime boundary"
+	}
+}
+$schema59MigrationsText = (Get-Content -Raw "docs/MIGRATIONS.md").ToLowerInvariant()
+foreach ($schema59MigrationNote in @(
+	'migration_schema59_radio_site_authority',
+	'normalization_schema59_radio_site_authority_conflict',
+	'contract `1`',
+	'`-59`',
+	'contract `0`',
+	'borrowed',
+	'generated',
+	'packaged'
+)) {
+	if (!$schema59MigrationsText.Contains($schema59MigrationNote)) {
+		throw "Schema-59 migration documentation is missing: $schema59MigrationNote"
+	}
+}
+Write-Host "Schema-59 durable radio-site identity/frozen provenance, typed destroy/rebuild transitions, exclusive projection ownership, bounded demolition evidence, admission/outcome isolation, migration/quarantine cleanup, influence suppression, marker/UI, and proof contract OK"
 
 Write-Host "h-istasi foundation validation passed"

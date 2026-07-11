@@ -49,6 +49,8 @@ class HST_MissionObjectiveService
 		{
 			if (IsPersistenceSmokeMission(mission))
 				continue;
+			if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+				continue;
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 			{
 				changed = MarkMissionObjectiveCleanupComplete(state, mission) || changed;

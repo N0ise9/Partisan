@@ -61,6 +61,40 @@ class HST_ZoneState
 }
 
 [BaseContainerProps()]
+class HST_RadioSiteState
+{
+	int m_iContractVersion;
+	string m_sSiteId;
+	string m_sZoneId;
+	string m_sTargetId;
+	string m_sTargetPrefab;
+	vector m_vTargetPosition;
+	string m_sAuthoredTargetPrefab;
+	vector m_vAuthoredTargetPosition;
+	HST_ERadioSiteLifecycleState m_eLifecycleState = HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_UNKNOWN;
+	HST_ERadioSiteTargetOwnership m_eTargetOwnership = HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_UNRESOLVED;
+	string m_sActiveMissionInstanceId;
+	string m_sActiveMissionId;
+	string m_sActiveTransitionRequestId;
+	string m_sLastDestructionReceiptId;
+	string m_sLastDestructionMissionInstanceId;
+	int m_iDestroyedAtSecond;
+	string m_sLastRebuildReceiptId;
+	string m_sLastRebuildMissionInstanceId;
+	int m_iRebuildStartedAtSecond;
+	int m_iRebuiltAtSecond;
+	string m_sLastTransitionRequestId;
+	string m_sLastTransitionMissionInstanceId;
+	string m_sLastTransitionKind;
+	HST_ERadioSiteLifecycleState m_eLastTransitionFromState = HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_UNKNOWN;
+	HST_ERadioSiteLifecycleState m_eLastTransitionToState = HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_UNKNOWN;
+	int m_iLastTransitionRecordedRevision;
+	string m_sLastTransitionReason;
+	int m_iLastTransitionSecond;
+	int m_iRevision = 1;
+}
+
+[BaseContainerProps()]
 class HST_GarrisonState
 {
 	string m_sGarrisonId;
@@ -473,6 +507,10 @@ class HST_ActiveMissionState
 	string m_sSpawnResultId;
 	string m_sSettlementId;
 	int m_iOperationContractVersion;
+	int m_iRadioSiteContractVersion;
+	string m_sRadioSiteId;
+	string m_sRadioSiteTransitionRequestId;
+	int m_iRadioSiteRevision;
 	HST_EMissionStatus m_eStatus;
 	HST_EMissionRuntimeMode m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_ABSTRACT;
 	int m_iRemainingSeconds;
@@ -671,6 +709,7 @@ class HST_MissionAssetState
 	int m_iDemolitionHits;
 	string m_sLastDemolitionSource;
 	int m_iLastDemolitionSecond;
+	ref array<string> m_aDemolitionEvidenceKeys = {};
 	vector m_vSourcePosition;
 	vector m_vTargetPosition;
 	vector m_vCurrentPosition;
@@ -678,6 +717,11 @@ class HST_MissionAssetState
 	int m_iDeadlineSecond;
 	int m_iCargoCapacityCost = 1;
 	int m_iInteractionRadiusMeters;
+	int m_iRadioSiteContractVersion;
+	string m_sRadioSiteId;
+	HST_ERadioSiteTargetOwnership m_eRadioSiteTargetOwnership = HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_UNRESOLVED;
+	string m_sRadioSiteAuthoredTargetPrefab;
+	vector m_vRadioSiteAuthoredTargetPosition;
 	int m_iRescueContractVersion;
 	int m_iRescueOrdinal = -1;
 	HST_ERescueCaptiveDisposition m_eRescueDisposition = HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_UNKNOWN;
@@ -1056,7 +1100,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 58;
+	static const int SCHEMA_VERSION = 59;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1157,6 +1201,7 @@ class HST_CampaignState
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};
 	ref array<ref HST_ZoneState> m_aZones = {};
+	ref array<ref HST_RadioSiteState> m_aRadioSites = {};
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
 	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
 	ref array<ref HST_QRFState> m_aQRFs = {};
@@ -1377,6 +1422,60 @@ class HST_CampaignState
 		}
 
 		return null;
+	}
+
+	HST_RadioSiteState FindRadioSite(string siteId)
+	{
+		HST_RadioSiteState match;
+		if (siteId.IsEmpty())
+			return null;
+
+		foreach (HST_RadioSiteState radioSite : m_aRadioSites)
+		{
+			if (!radioSite || radioSite.m_sSiteId != siteId)
+				continue;
+			if (match)
+				return null;
+			match = radioSite;
+		}
+
+		return match;
+	}
+
+	HST_RadioSiteState FindRadioSiteForZone(string zoneId)
+	{
+		HST_RadioSiteState match;
+		if (zoneId.IsEmpty())
+			return null;
+
+		foreach (HST_RadioSiteState radioSite : m_aRadioSites)
+		{
+			if (!radioSite || radioSite.m_sZoneId != zoneId)
+				continue;
+			if (match)
+				return null;
+			match = radioSite;
+		}
+
+		return match;
+	}
+
+	HST_RadioSiteState FindRadioSiteForTarget(string targetId)
+	{
+		HST_RadioSiteState match;
+		if (targetId.IsEmpty())
+			return null;
+
+		foreach (HST_RadioSiteState radioSite : m_aRadioSites)
+		{
+			if (!radioSite || radioSite.m_sTargetId != targetId)
+				continue;
+			if (match)
+				return null;
+			match = radioSite;
+		}
+
+		return match;
 	}
 
 	bool IsOperationalActiveGroup(HST_ActiveGroupState group)

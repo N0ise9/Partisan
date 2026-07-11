@@ -749,7 +749,7 @@ class HST_MapMarkerService
 				continue;
 
 			string category = ZoneToMarkerCategory(zone);
-			string label = BuildZoneMarkerLabel(zone);
+			string label = BuildZoneMarkerLabel(state, zone);
 			string color = FactionToMarkerColor(zone.m_sOwnerFactionKey, preset);
 			string icon = ZoneToMarkerIcon(zone);
 			string textColor = ZoneToMarkerTextColor(zone);
@@ -2285,7 +2285,7 @@ class HST_MapMarkerService
 		return false;
 	}
 
-	protected string BuildZoneMarkerLabel(HST_ZoneState zone)
+	protected string BuildZoneMarkerLabel(HST_CampaignState state, HST_ZoneState zone)
 	{
 		if (!zone)
 			return "Unknown location | Owner: unknown";
@@ -2299,7 +2299,10 @@ class HST_MapMarkerService
 		if (ownerName.IsEmpty())
 			ownerName = "unclaimed";
 
-		return string.Format("%1 | Owner: %2", locationName, ownerName);
+		string label = string.Format("%1 | Owner: %2", locationName, ownerName);
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+			label = label + " | " + HST_RadioSiteLifecycleService.BuildStatusText(state, zone.m_sZoneId);
+		return label;
 	}
 
 	protected string ZoneToMarkerTextColor(HST_ZoneState zone)
@@ -2749,6 +2752,11 @@ class HST_MapMarkerService
 			return "Mission";
 		if (HST_RescuePOWOperationService.IsExactMission(mission))
 			return BuildExactRescueMissionMarkerLabel(state, mission);
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+		{
+			string status = HST_RadioSiteLifecycleService.BuildStatusText(state, mission.m_sTargetZoneId);
+			return BuildMissionMinutesLabel(mission, MissionMarkerTitle(mission) + " | " + status);
+		}
 
 		string title = MissionMarkerTitle(mission);
 		return BuildMissionMinutesLabel(mission, title);
@@ -2878,6 +2886,12 @@ class HST_MapMarkerService
 		if (IsExactRescueMarkerAsset(mission, asset))
 		{
 			string title = string.Format("POW %1 | %2", asset.m_iRescueOrdinal + 1, RescueCaptiveDispositionLabel(asset.m_eRescueDisposition));
+			return BuildMissionMinutesLabel(mission, title);
+		}
+		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
+		{
+			string title = MissionMarkerTitle(mission) + " | "
+				+ HST_RadioSiteLifecycleService.BuildStatusText(state, mission.m_sTargetZoneId);
 			return BuildMissionMinutesLabel(mission, title);
 		}
 

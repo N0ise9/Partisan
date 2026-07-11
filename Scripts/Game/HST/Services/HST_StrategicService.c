@@ -426,6 +426,26 @@ class HST_StrategicService
 			changed = changed || ResolveFactionAggression(state, zone.m_sOwnerFactionKey) != aggressionBefore;
 		}
 
+		// Schema-59 lifecycle has already committed the exact physical outcome.
+		// Strategic processing applies rewards/consequences only; it never mutates
+		// transmitter state. Keep stop-rebuild reachable despite its DYNAMIC category.
+		if (HST_RadioSiteLifecycleService.IsExactMission(activeMission))
+		{
+			if (hq)
+				changed = hq.ReduceHQKnowledge(state, 20, "mission success: " + definition.m_sMissionId) || changed;
+			if (activeMission.m_sMissionId == HST_RadioSiteLifecycleService.DESTROY_MISSION_ID)
+			{
+				if (enemyDirector)
+					enemyDirector.AddResources(state, zone.m_sOwnerFactionKey, -12, -6);
+				if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey && zoneCapture)
+					changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 35, 10, garrisons, enemyCommander, enemyDirector, supportRequests) || changed;
+				return true;
+			}
+			if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey && zoneCapture)
+				changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 20, 5, garrisons, enemyCommander, enemyDirector, supportRequests) || changed;
+			return changed;
+		}
+
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
 		{
 			if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 60, 15, garrisons, enemyCommander, enemyDirector, supportRequests))
