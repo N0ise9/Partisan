@@ -5668,8 +5668,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 23") {
-	throw "Runtime settings schema must be 23 for configurable combat-presence cooling"
+if ($scriptText -notmatch "SCHEMA_VERSION = 24") {
+	throw "Runtime settings schema must be 24 for bounded ambient-population runtime controls"
 }
 if ($scriptText -notmatch 'BUILD_SHA\s*=\s*"[0-9a-f]{40}"') {
 	throw "HST_BuildInfo.BUILD_SHA must be a full lowercase Git revision"
@@ -12160,8 +12160,8 @@ foreach ($requiredActiveGroupLifecycleEntry in @(
 	"string prefab = activeGroup.m_sVehiclePrefab",
 	"CountAliveRuntimeGroupVehicles",
 	"IsSessionOnlyDetachedActiveVehicle",
-	"PruneSessionOnlyDetachedActiveVehicles",
-	"sessionOnlyDetachedVehicleIds.Find(cargoItem.m_sVehicleRuntimeId)",
+	"PruneSessionOnlyRuntimeVehicles",
+	"sessionOnlyVehicleIds.Find(cargoItem.m_sVehicleRuntimeId)",
 	"CountCampaignDebugIsolationRuntimeVehicles",
 	"ShouldPreservePersistentDetachedVehicleRecord",
 	'runtimeVehicle.m_sRuntimeKind == "field_vehicle"',
@@ -13931,6 +13931,27 @@ foreach ($requiredCivilianRuntimeEntry in @(
 	}
 }
 $civilianRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
+$civilianDemandBlock = Get-ScriptMethodBlock $civilianRuntimeServiceText 'protected HST_AmbientPopulationTownDemand BuildAmbientTownDemand('
+if ($civilianDemandBlock.IndexOf('appearanceCapacity') -lt 0 -or
+	$civilianDemandBlock.IndexOf('CountGuidQualifiedCivilianCharacterPrefabs(balance)') -lt 0 -or
+	$civilianDemandBlock.IndexOf('appearanceCapacity - desiredTraffic') -lt 0) {
+	throw "Civilian locality actor demand must fit the unique GUID-qualified appearance pool"
+}
+$civilianPedestrianSpawnBlock = Get-ScriptMethodBlock $civilianRuntimeServiceText 'protected int SpawnZoneCivilianPedestrians('
+if ($civilianPedestrianSpawnBlock.IndexOf('BuildUsedCivilianActorAppearancePrefabs(') -lt 0 -or
+	$civilianPedestrianSpawnBlock.IndexOf('SelectCivilianCharacterPrefabAvoiding(') -lt 0) {
+	throw "Civilian pedestrian spawning must exclude every appearance already projected in the locality"
+}
+$civilianAvoidingSelectorBlock = Get-ScriptMethodBlock $civilianRuntimeServiceText 'protected string SelectCivilianCharacterPrefabAvoiding('
+if ($civilianAvoidingSelectorBlock.IndexOf('return SelectCivilianCharacterPrefab(') -ge 0 -or
+	$civilianAvoidingSelectorBlock.IndexOf('return "";') -lt 0) {
+	throw "Civilian appearance exhaustion must fail closed instead of cloning an excluded appearance"
+}
+$civilianPoolCountBlock = Get-ScriptMethodBlock $civilianRuntimeServiceText 'protected int CountGuidQualifiedCivilianCharacterPrefabs('
+if ($civilianPoolCountBlock.IndexOf('array<string> uniquePrefabs') -lt 0 -or
+	$civilianPoolCountBlock.IndexOf('!uniquePrefabs.Contains(prefab)') -lt 0) {
+	throw "Civilian appearance capacity must count unique valid prefab identities, not duplicate config entries"
+}
 if ($civilianRuntimeServiceText -match 'HST_CivilianTownGroup' -or $civilianRuntimeServiceText -match 'm_aCivilianGroupPrefabs' -or $configResourceText -match 'm_aCivilianGroupPrefabs') {
 	throw "Civilian runtime must not spawn the broken HST civilian SCR_AIGroup prefabs"
 }
@@ -13948,11 +13969,11 @@ foreach ($requiredCivilianInitialGroupAttachEntry in @(
 }
 foreach ($requiredCivilianTrafficSeatingEntry in @(
 		"protected bool AssignCivilianTrafficBehavior",
-		"if (!AssignCivilianTrafficBehavior(state, balance, zone, trafficVehicle, i, seed))",
-		"CleanupFailedCivilianTrafficRuntimeEntity(state, trafficVehicle, zone.m_sZoneId)",
-		"protected void CleanupFailedCivilianTrafficRuntimeEntity",
-		"DeleteRuntimeHelpersForOwner(vehicleEntity)",
-		"MarkRuntimeVehicleDeleted(state, vehicleEntity)",
+		"RegisterAmbientTrafficRuntime(",
+		"CleanupFailedAmbientRuntimeEntity(",
+		"protected void CleanupFailedAmbientRuntimeEntity",
+		"DeleteRuntimeHelpersForOwner(runtimeEntity)",
+		"RemoveTransientAmbientRuntimeVehicleRecord(state, runtimeEntity)",
 		"RemoveRuntimeEntityAt(runtimeIndex)",
 		"ambient traffic route assignment failed",
 		"if (!TryRegisterCivilianVehicleWithGroup(group, vehicleEntity))",
@@ -14142,8 +14163,8 @@ if ($civilianRuntimeServiceText -match 'ResolveTownSpawnPosition\(zone, civilian
 	throw "Civilian runtime vehicles must use scattered town vehicle placement, not the old grid helper"
 }
 foreach ($requiredTownVehicleEntry in @(
-		'ResolveTownVehicleSpawnPosition(zone, j, false)',
-		'ResolveTownVehicleSpawnPosition(zone, civilianVehicleCount + k, true)',
+		'ResolveTownVehicleSpawnPosition(zone, civilianIndex, false)',
+		'ResolveTownVehicleSpawnPosition(zone, vehicleSlot, true)',
 		'IsAircraftVehicleResource',
 		'!IsAircraftVehicleResource(prefab)',
 		'no non-aircraft faction vehicle available'
@@ -21413,7 +21434,6 @@ foreach ($schema63SampleEntry in @(
 
 foreach ($schema63SettingsEntry in @(
 	'm_iCombatPresenceCoolingSeconds = 30',
-	'SCHEMA_VERSION = 23',
 	'combatPresenceCoolingSeconds'
 )) {
 	if ($schema63RuntimeSettingsText.IndexOf($schema63SettingsEntry) -lt 0 -and
@@ -21959,5 +21979,542 @@ foreach ($schema64ProofEntry in @(
 }
 
 Write-Host "Schema-64 canonical town influence, strict political hysteresis, conservative migration/restore, consumer convergence, deterministic Map/War projection, hot-path repairs, and source proofs OK"
+
+$ambientPhase8Paths = @(
+	"Scripts/Game/HST/Services/HST_AmbientPopulationBudgetService.c",
+	"Scripts/Game/HST/Services/HST_AmbientPopulationBudgetProofService.c",
+	"Scripts/Game/HST/Services/HST_AmbientActorRuntimeService.c",
+	"Scripts/Game/HST/Services/HST_AmbientActorRuntimeProofService.c",
+	"Scripts/Game/HST/Services/HST_AmbientVehicleSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_PersistentFieldVehicleRuntimeService.c"
+)
+foreach ($ambientPhase8Path in $ambientPhase8Paths) {
+	if (!(Test-Path $ambientPhase8Path)) {
+		throw "Phase-8 ambient-population authority source is missing: $ambientPhase8Path"
+	}
+}
+$ambientBudgetText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientPopulationBudgetService.c"
+$ambientBudgetProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientPopulationBudgetProofService.c"
+$ambientRuntimeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientActorRuntimeService.c"
+$ambientRuntimeProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientActorRuntimeProofService.c"
+$ambientVehicleSaveProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientVehicleSaveValidationService.c"
+$ambientPersistentFieldText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistentFieldVehicleRuntimeService.c"
+$ambientCivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
+$ambientCoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$ambientSettingsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_RuntimeSettings.c"
+$ambientSettingsServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_RuntimeSettingsService.c"
+$ambientBalanceText = Get-Content -Raw "Scripts/Game/HST/Config/HST_ConfigModels.c"
+$ambientBalanceConfigText = Get-Content -Raw "Configs/HST/Balance/HST_CE311_Balance.conf"
+$ambientSaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$ambientPersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$ambientLootText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c"
+$ambientArsenalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
+
+if ($ambientSettingsText.IndexOf('SCHEMA_VERSION = 24') -lt 0) {
+	throw "Phase-8 ambient settings must use runtime-settings Schema 24"
+}
+$ambientSettingContracts = @(
+	@{ Json = 'civilianGlobalActorBudgetBase'; Member = 'm_iCivilianGlobalActorBudgetBase'; Default = '48' },
+	@{ Json = 'civilianGlobalActorBudgetPerPlayer'; Member = 'm_iCivilianGlobalActorBudgetPerPlayer'; Default = '12' },
+	@{ Json = 'civilianGlobalTrafficBudgetBase'; Member = 'm_iCivilianGlobalTrafficBudgetBase'; Default = '10' },
+	@{ Json = 'civilianGlobalTrafficBudgetPerPlayer'; Member = 'm_iCivilianGlobalTrafficBudgetPerPlayer'; Default = '2' },
+	@{ Json = 'civilianWarLevelBudgetPenaltyPercent'; Member = 'm_iCivilianWarLevelBudgetPenaltyPercent'; Default = '4' },
+	@{ Json = 'civilianRuntimeHealthIntervalSeconds'; Member = 'm_iCivilianRuntimeHealthIntervalSeconds'; Default = '5' },
+	@{ Json = 'civilianRuntimeStartupGraceSeconds'; Member = 'm_iCivilianRuntimeStartupGraceSeconds'; Default = '15' },
+	@{ Json = 'civilianRuntimeStuckSeconds'; Member = 'm_iCivilianRuntimeStuckSeconds'; Default = '30' },
+	@{ Json = 'civilianRuntimeMaxRecoveryAttempts'; Member = 'm_iCivilianRuntimeMaxRecoveryAttempts'; Default = '2' },
+	@{ Json = 'civilianRuntimeRetryBackoffSeconds'; Member = 'm_iCivilianRuntimeRetryBackoffSeconds'; Default = '20' }
+)
+foreach ($ambientSettingContract in $ambientSettingContracts) {
+	$jsonKey = $ambientSettingContract.Json
+	$member = $ambientSettingContract.Member
+	$defaultValue = $ambientSettingContract.Default
+	if ($ambientSettingsText.IndexOf("int $member = $defaultValue") -lt 0) {
+		throw "Phase-8 ambient setting default is missing from HST_RuntimeSettings: $member"
+	}
+	if ($ambientSettingsText.IndexOf("balance.$member = m_Civilians.$member;") -lt 0) {
+		throw "Phase-8 ambient setting ApplyTo assignment is missing: $member"
+	}
+	if ($ambientSettingsServiceText.IndexOf("ApplyInt(line, `"$jsonKey`", settings.m_Civilians.$member);") -lt 0) {
+		throw "Phase-8 ambient setting parser entry is missing: $jsonKey"
+	}
+	$generatedSettingToken = '\"' + $jsonKey + '\": %1'
+	if ($ambientSettingsServiceText.IndexOf($generatedSettingToken) -lt 0) {
+		throw "Phase-8 ambient generated-settings entry is missing: $jsonKey"
+	}
+	if ($ambientBalanceText.IndexOf("int $member = $defaultValue") -lt 0) {
+		throw "Phase-8 ambient balance model default is missing: $member"
+	}
+	if ($ambientBalanceConfigText -notmatch "(?m)^\s*$member\s+$defaultValue\s*$") {
+		throw "Phase-8 ambient balance .conf default is missing: $member"
+	}
+}
+foreach ($ambientBoundEntry in @(
+	'Math.Min(256, m_Civilians.m_iCivilianGlobalActorBudgetBase)',
+	'Math.Min(64, m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer)',
+	'Math.Min(64, m_Civilians.m_iCivilianGlobalTrafficBudgetBase)',
+	'Math.Min(16, m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer)',
+	'Math.Min(120, m_Civilians.m_iCivilianRuntimeStartupGraceSeconds)',
+	'Math.Min(300, m_Civilians.m_iCivilianRuntimeStuckSeconds)',
+	'Math.Min(120, m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds)'
+)) {
+	if ($ambientSettingsText.IndexOf($ambientBoundEntry) -lt 0) {
+		throw "Phase-8 ambient performance bound is missing: $ambientBoundEntry"
+	}
+}
+foreach ($ambientMigrationProofEntry in @(
+	'RunAmbientSchema24MigrationProof()',
+	'm_bSchema23DefaultsExact',
+	'm_bExplicitOverridePreservedExact',
+	'm_bPerformanceBoundsExact'
+)) {
+	if ($ambientSettingsServiceText.IndexOf($ambientMigrationProofEntry) -lt 0) {
+		throw "Phase-8 Schema-23 to Schema-24 settings proof is missing: $ambientMigrationProofEntry"
+	}
+}
+
+foreach ($ambientBudgetEntry in @(
+	'class HST_AmbientPopulationTownDemand',
+	'class HST_AmbientPopulationBudgetPlan',
+	'CanonicalizeDemands(',
+	'zoneIds.Sort()',
+	'AllocatePedestrianFloor(',
+	'AllocateTrafficFloor(',
+	'AllocateFairRemainder(',
+	'ResolveGlobalBudget(',
+	'ResolveLeaseEpoch(',
+	'CountAllocatedActors() <= m_iTotalActorBudget',
+	'm_iAllocatedTraffic <= m_iTrafficActorBudget'
+)) {
+	if ($ambientBudgetText.IndexOf($ambientBudgetEntry) -lt 0) {
+		throw "Phase-8 deterministic ambient budget contract is missing: $ambientBudgetEntry"
+	}
+}
+foreach ($ambientBudgetProofEntry in @(
+	'm_bTenTownBoundedExact',
+	'm_bTrafficDriversInTotalExact',
+	'm_bRotationFairnessExact',
+	'm_bDuplicateInputDeterminismExact',
+	'm_bGlobalBudgetBoundsExact',
+	'm_bLeaseStabilityExact',
+	'plan.CountAllocatedActors() == 27',
+	'winners[3] == "town_delta"',
+	'AllExact()'
+)) {
+	if ($ambientBudgetProofText.IndexOf($ambientBudgetProofEntry) -lt 0) {
+		throw "Phase-8 ambient budget source proof is missing: $ambientBudgetProofEntry"
+	}
+}
+
+foreach ($ambientRuntimeEntry in @(
+	'class HST_AmbientActorRuntimeRecord',
+	'STATE_BEHAVIOR_INITIALIZING',
+	'STATE_WANDERING',
+	'STATE_SEATING',
+	'STATE_DRIVER_CONFIRMED',
+	'STATE_ENGINE_STARTING',
+	'STATE_ENGINE_STARTED',
+	'STATE_ROUTE_FOLLOWING',
+	'STATE_RECOVERING',
+	'STATE_DESPAWN_QUEUED',
+	'IsLegalTransition(',
+	'RecordMovementProgress(',
+	'ShouldRecover(',
+	'BeginRecovery(',
+	'QueueDespawn(',
+	'm_iProjectionSlot = -1',
+	'm_iProjectionSeed',
+	'|| projectionSlot < 0'
+)) {
+	if ($ambientRuntimeText.IndexOf($ambientRuntimeEntry) -lt 0) {
+		throw "Phase-8 transient actor lifecycle contract is missing: $ambientRuntimeEntry"
+	}
+}
+foreach ($ambientRuntimeProofEntry in @(
+	'm_bPedestrianPathExact',
+	'm_bTrafficPathExact',
+	'm_bIllegalTransitionReadOnlyExact',
+	'm_bBoundedRecoveryExact',
+	'm_bProgressResetExact',
+	'm_bBudgetReadinessExact',
+	'REASON_RECOVERY_EXHAUSTED',
+	'AllExact()'
+)) {
+	if ($ambientRuntimeProofText.IndexOf($ambientRuntimeProofEntry) -lt 0) {
+		throw "Phase-8 ambient actor lifecycle proof is missing: $ambientRuntimeProofEntry"
+	}
+}
+
+foreach ($ambientIntegrationEntry in @(
+	'm_iNextAmbientRuntimeUpdateSecond > state.m_iElapsedSeconds',
+	'AMBIENT_SPAWN_TRANSACTIONS_PER_UPDATE = 4',
+	'BuildAmbientPopulationBudgetPlan(',
+	'HST_CommandMenuRequestComponent.CountConnectedPlayers()',
+	'm_AmbientBudget.ResolveGlobalBudget(',
+	'm_AmbientBudget.ResolveLeaseEpoch(',
+	'ResolveAmbientAllocationLeaseSeconds(',
+	'ResolveAmbientTimeDensityBasisPoints()',
+	'MaintainTownStaticVehiclePopulation(',
+	'EnsureStaticVehicleInitializationIndex(',
+	'RegisterAmbientPedestrianRuntime(',
+	'RegisterAmbientTrafficRuntime(',
+	'CountAmbientActorReservationsForZone(',
+	'IsExactAmbientTrafficDriverSeated(',
+	'controller.ForceStartEngine()',
+	'controller.IsEngineOn()',
+	'HasActiveCivilianWaypoint(',
+	'HasAssignedCivilianWaypoint(',
+	'BeginAmbientRecoveryOrRecycle(',
+	'RecycleAmbientActorAt(',
+	'PromotePlayerOccupiedRuntimeVehicles(',
+	'ObservePlayerAmbientVehicleClaims(',
+	'PrepareAmbientVehiclePersistence(',
+	'IsAmbientProjectionSlotReserved(',
+	'm_iProjectionSlot',
+	'm_iProjectionSeed',
+	'PromoteRuntimeVehicleToPersistentField(',
+	'HasPlayerOccupant(',
+	'QueueAndRemoveAmbientActorRecordForEntity(',
+	'ResetRuntimeSession(',
+	'ApplyResetPreservedPlayerVehicles(',
+	'm_aRuntimeEntityVehicleIds',
+	'RemoveTransientAmbientRuntimeVehicleRecord('
+)) {
+	if ($ambientCivilianText.IndexOf($ambientIntegrationEntry) -lt 0) {
+		throw "Phase-8 civilian runtime integration is missing: $ambientIntegrationEntry"
+	}
+}
+$ambientDetachBlock = Get-ScriptMethodBlock $ambientCivilianText 'protected bool ShouldDetachFromTownCleanup('
+if ($ambientDetachBlock.IndexOf('HasPlayerOccupant(entity)') -lt 0 -or
+	$ambientDetachBlock.IndexOf('DistanceSq2D') -ge 0) {
+	throw "Phase-8 ambient vehicle detachment must use player claim/occupancy evidence, never movement distance"
+}
+if ($ambientCivilianText.IndexOf('m_iAmbientRotationEpoch++') -ge 0) {
+	throw "Phase-8 production allocation leases must not rotate on every health sample"
+}
+$ambientFrameBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'override void EOnFrame('
+$claimObservationIndex = $ambientFrameBlock.IndexOf('ObservePlayerAmbientVehicleClaims(m_State)')
+$durableRestoreIndex = $ambientFrameBlock.IndexOf('RestorePersistentFieldVehicles(m_State)')
+$persistenceTickIndex = $ambientFrameBlock.IndexOf('m_Persistence.Tick(')
+if ($claimObservationIndex -lt 0 -or $persistenceTickIndex -lt 0 -or
+	$claimObservationIndex -gt $persistenceTickIndex) {
+	throw "Phase-8 player ambient-vehicle claims must be observed before the per-frame persistence tick"
+}
+if ($durableRestoreIndex -lt 0 -or $durableRestoreIndex -gt $claimObservationIndex) {
+	throw "Phase-8 durable vehicle restore/registration must precede first-frame player claim observation"
+}
+$ambientPersistencePrepareBlock = Get-ScriptMethodBlock $ambientPersistenceText 'protected bool PrepareStateForCapture('
+if ($ambientPersistencePrepareBlock.IndexOf('PrepareAmbientVehiclePersistence(state)') -lt 0 -or
+	$ambientPersistencePrepareBlock.IndexOf('return false;') -lt 0) {
+	throw "Phase-8 every HST_PersistenceService capture/checkpoint must fail closed behind ambient vehicle claim/transform reconciliation"
+}
+$ambientCivilianPersistenceBlock = Get-ScriptMethodBlock $ambientCivilianText 'bool PrepareAmbientVehiclePersistence('
+if ($ambientCivilianPersistenceBlock.IndexOf('m_PersistentFieldVehicles.PrepareForCapture(state)') -lt 0) {
+	throw "Phase-8 ambient capture preparation must include restore-time and garage persistent-field bindings"
+}
+$ambientPromoteBlock = Get-ScriptMethodBlock $ambientCivilianText 'protected bool PromoteRuntimeVehicleToPersistentField('
+if ($ambientPromoteBlock.IndexOf('!IsLivingAmbientEntity(entity)') -lt 0 -or
+	$ambientPromoteBlock.IndexOf('m_PersistentFieldVehicles.Track(') -lt 0) {
+	throw "Phase-8 ambient vehicle promotion must reject destroyed roots and retain an exact live field binding"
+}
+$ambientResetBlock = Get-ScriptMethodBlock $ambientCivilianText 'bool ResetRuntimeSession('
+if ($ambientResetBlock.IndexOf('CollectPlayerOccupiedVehicleRoots(') -lt 0 -or
+	$ambientResetBlock.IndexOf('m_PersistentFieldVehicles.ResolveForEntity(') -lt 0 -or
+	$ambientResetBlock.IndexOf('m_PersistentFieldVehicles.CleanupForNewCampaignReset(') -lt 0 -or
+	$ambientResetBlock.IndexOf('vehicle.m_sRuntimeKind == "loot_vehicle"') -lt 0 -or
+	$ambientResetBlock.IndexOf('vehicle.m_sRuntimeKind == "field_vehicle"') -lt 0 -or
+	$ambientResetBlock.IndexOf('vehicle.m_sRuntimeKind == "garage_redeploy"') -lt 0 -or
+	$ambientResetBlock.IndexOf('vehicle.m_sRuntimeKind = "field_vehicle"') -lt 0 -or
+	$ambientResetBlock.IndexOf('foreach (HST_RuntimeVehicleState existingFieldVehicle') -ge 0) {
+	throw "Phase-8 new-campaign reset must retain only occupied live tracked durable roots and normalize them to field_vehicle"
+}
+if ($ambientCivilianText.IndexOf('m_aPromotedAmbientFieldVehicle') -ge 0 -or
+	$ambientCivilianText.IndexOf('SnapshotPromotedAmbientFieldVehicles(') -ge 0) {
+	throw "Phase-8 persistent field runtime service must be the sole live durable-root binding authority"
+}
+$ambientPersistentTrackBlock = Get-ScriptMethodBlock $ambientPersistentFieldText 'bool Track('
+foreach ($ambientPersistentTrackEntry in @(
+	'IsDurableRecord(record)',
+	'm_aEntities.Find(entity)',
+	'm_aRuntimeIds.Find(record.m_sVehicleRuntimeId)',
+	'm_aRuntimeIds[entityIndex] != record.m_sVehicleRuntimeId',
+	'idIndex != entityIndex',
+	'm_bBindingFault = true',
+	'IsLivingEntity(existingEntity)',
+	'return false;'
+)) {
+	if ($ambientPersistentTrackBlock.IndexOf($ambientPersistentTrackEntry) -lt 0) {
+		throw "Phase-8 persistent field exact-root tracking is incomplete: $ambientPersistentTrackEntry"
+	}
+}
+$ambientPersistentUntrackBlock = Get-ScriptMethodBlock $ambientPersistentFieldText 'bool Untrack('
+if ($ambientPersistentUntrackBlock.IndexOf('RemoveAt(index)') -lt 0 -or
+	$ambientPersistentUntrackBlock.IndexOf('HasBindingCollision()') -lt 0) {
+	throw "Phase-8 persistent field tracker must support explicit durable root/row retirement"
+}
+$ambientPersistentResolveBlock = Get-ScriptMethodBlock $ambientPersistentFieldText 'HST_RuntimeVehicleState ResolveForEntity('
+foreach ($ambientPersistentResolveEntry in @(
+	'state.FindRuntimeVehicle(',
+	'IsDurableRecord(candidate)',
+	'DistanceSq2D(candidate.m_vPosition, origin) > 64.0',
+	'm_aRuntimeIds.Find(candidate.m_sVehicleRuntimeId)',
+	'if (positionalMatch && positionalMatch != candidate)',
+	'return positionalMatch;'
+)) {
+	if ($ambientPersistentResolveBlock.IndexOf($ambientPersistentResolveEntry) -lt 0) {
+		throw "Phase-8 persistent field exact-record resolution is incomplete: $ambientPersistentResolveEntry"
+	}
+}
+if ($ambientPersistentResolveBlock.IndexOf('string.Format("rpl_%1", rpl.Id())') -ge 0) {
+	throw "Phase-8 unregistered process-local RPL IDs must not be treated as durable restart identity"
+}
+$ambientPersistentCaptureBlock = Get-ScriptMethodBlock $ambientPersistentFieldText 'bool PrepareForCapture('
+foreach ($ambientPersistentCaptureEntry in @(
+	'm_bBindingFault',
+	'm_aEntities.Count() != m_aRuntimeIds.Count()',
+	'record.m_vPosition = entity.GetOrigin()',
+	'record.m_bDeleted = true',
+	'UpdateCargoPosition('
+)) {
+	if ($ambientPersistentCaptureBlock.IndexOf($ambientPersistentCaptureEntry) -lt 0) {
+		throw "Phase-8 persistent field pre-capture reconciliation is incomplete: $ambientPersistentCaptureEntry"
+	}
+}
+if ($ambientPersistentCaptureBlock.IndexOf('m_aRuntimeIds[index] =') -ge 0) {
+	throw "Phase-8 pre-capture reconciliation must not silently rebind a registered root to another durable ID"
+}
+$ambientPersistentReverseBlock = Get-ScriptMethodBlock $ambientPersistentFieldText 'IEntity ResolveEntityForRuntimeId('
+if ($ambientPersistentReverseBlock.IndexOf('m_aRuntimeIds.Find(runtimeId)') -lt 0 -or
+	$ambientPersistentReverseBlock.IndexOf('IsLivingEntity(entity)') -lt 0) {
+	throw "Phase-8 durable tracker must provide an exact live reverse binding for targeting and deletion verification"
+}
+$ambientPersistentCargoIndex = $ambientPersistentCaptureBlock.IndexOf('UpdateCargoPosition(state, runtimeId, record.m_vPosition)')
+$ambientPersistentDestroyedIndex = $ambientPersistentCaptureBlock.IndexOf('if (!IsLivingEntity(entity))')
+if ($ambientPersistentCargoIndex -lt 0 -or $ambientPersistentDestroyedIndex -lt 0 -or
+	$ambientPersistentCargoIndex -gt $ambientPersistentDestroyedIndex) {
+	throw "Phase-8 destroyed field roots must snapshot cargo position before deletion handling"
+}
+$ambientPersistentResetBlock = Get-ScriptMethodBlock $ambientPersistentFieldText 'bool CleanupForNewCampaignReset('
+foreach ($ambientPersistentResetEntry in @(
+	'PrepareForCapture(state)',
+	'HasLivingPlayerOccupant(entity)',
+	'SCR_EntityHelper.DeleteEntityAndChildren(entity)',
+	'RemoveAt(index)'
+)) {
+	if ($ambientPersistentResetBlock.IndexOf($ambientPersistentResetEntry) -lt 0) {
+		throw "Phase-8 persistent field new-campaign cleanup is incomplete: $ambientPersistentResetEntry"
+	}
+}
+$ambientCoordinatorInitBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'override void OnPostInit('
+foreach ($ambientPersistentWiringEntry in @(
+	'm_PersistentFieldVehicles = new HST_PersistentFieldVehicleRuntimeService()',
+	'm_Loot.SetPersistentFieldVehicleRuntimeService(m_PersistentFieldVehicles)',
+	'm_Civilians.SetPersistentFieldVehicleRuntimeService('
+)) {
+	if ($ambientCoordinatorInitBlock.IndexOf($ambientPersistentWiringEntry) -lt 0) {
+		throw "Phase-8 persistent field runtime service wiring is missing: $ambientPersistentWiringEntry"
+	}
+}
+$ambientClaimObservationBlock = Get-ScriptMethodBlock $ambientCivilianText 'bool ObservePlayerAmbientVehicleClaims('
+if ($ambientClaimObservationBlock.IndexOf('ResolveRuntimeVehicleRecord(state, entity)') -lt 0 -or
+	$ambientClaimObservationBlock.IndexOf('m_PersistentFieldVehicles.Track(') -lt 0 -or
+	$ambientClaimObservationBlock.IndexOf('SnapshotPromotedAmbientFieldVehicles(') -ge 0) {
+	throw "Phase-8 player claim observation must resolve and track restored durable field roots"
+}
+$ambientCivilianResolveVehicleBlock = Get-ScriptMethodBlock $ambientCivilianText 'protected HST_RuntimeVehicleState ResolveRuntimeVehicleRecord('
+if ($ambientCivilianResolveVehicleBlock.IndexOf('m_aRuntimeEntityVehicleIds[trackedIndex]') -lt 0 -or
+	$ambientCivilianResolveVehicleBlock.IndexOf('m_PersistentFieldVehicles.ResolveForEntity(state, entity)') -lt 0 -or
+	$ambientCivilianResolveVehicleBlock.IndexOf('state.FindRuntimeVehicle(vehicleRuntimeId)') -ge 0) {
+	throw "Phase-8 civilian live-root resolution must use its exact ambient registry or shared durable tracker, never an unregistered RPL ID"
+}
+$ambientRestoreFieldBlock = Get-ScriptMethodBlock $ambientLootText 'int RestorePersistentFieldVehicles('
+if ($ambientRestoreFieldBlock.IndexOf('m_PersistentFieldVehicles.Track(') -lt 0 -or
+	$ambientRestoreFieldBlock.IndexOf('claimedRestoreRoots.Find(liveRoot)') -lt 0 -or
+	$ambientRestoreFieldBlock.IndexOf('claimedRestoreRoots.Insert(liveRoot)') -lt 0 -or
+	$ambientRestoreFieldBlock.IndexOf('claimedRestoreRoots.Insert(spawnedVehicle)') -lt 0) {
+	throw "Phase-8 restored durable field roots must register with the pre-capture/reset tracker"
+}
+$ambientEnsureRuntimeRecordBlock = Get-ScriptMethodBlock $ambientLootText 'protected HST_RuntimeVehicleState EnsureRuntimeVehicleRecord('
+if ($ambientEnsureRuntimeRecordBlock.IndexOf('bool preserveExistingRuntimeId = false') -lt 0 -or
+	$ambientEnsureRuntimeRecordBlock.IndexOf('preserveDurableExistingId') -lt 0 -or
+	$ambientEnsureRuntimeRecordBlock.IndexOf('CanAdoptPersistentFieldVehicle(existingRecord)') -lt 0 -or
+	$ambientEnsureRuntimeRecordBlock.IndexOf('(preserveExistingRuntimeId || preserveDurableExistingId) && existingRecord') -lt 0 -or
+	$ambientEnsureRuntimeRecordBlock.IndexOf('BuildUniqueDurableVehicleRuntimeId(state)') -lt 0 -or
+	$ambientEnsureRuntimeRecordBlock.IndexOf('record = state.FindRuntimeVehicle(runtimeId)') -ge 0 -or
+	([regex]::Matches($ambientRestoreFieldBlock, 'EnsureRuntimeVehicleRecord\([\s\S]*?\btrue\);')).Count -lt 2) {
+	throw "Phase-8 durable rows must preserve saved IDs and genuinely new rows must not adopt process-local RPL collisions"
+}
+$ambientResolveRestoreRootBlock = Get-ScriptMethodBlock $ambientLootText 'protected IEntity ResolveRuntimeVehicleRootFromRecord('
+if ($ambientResolveRestoreRootBlock.IndexOf('array<IEntity> excludedRoots = null') -lt 0 -or
+	$ambientResolveRestoreRootBlock.IndexOf('excludedRoots.Find(rootVehicle)') -lt 0) {
+	throw "Phase-8 restore must exclude already claimed roots before selecting a same-prefab candidate"
+}
+$ambientHornSuppressBlock = Get-ScriptMethodBlock $ambientCivilianText 'int SuppressAmbientTrafficHornInput('
+if ($ambientHornSuppressBlock.IndexOf('foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)') -lt 0 -or
+	$ambientHornSuppressBlock.IndexOf('record.m_DriverEntity') -lt 0 -or
+	$ambientHornSuppressBlock.IndexOf('m_aRuntimeEntities.Find(owner)') -ge 0) {
+	throw "Phase-8 per-frame horn suppression must walk bounded traffic actor records without helper-by-root quadratic lookup"
+}
+$ambientGarageCaptureBlock = Get-ScriptMethodBlock $ambientLootText 'string CaptureNearbyVehicleToGarage('
+if ($ambientGarageCaptureBlock.IndexOf('m_PersistentFieldVehicles.Untrack(') -lt 0) {
+	throw "Phase-8 garage capture must retire the deleted live durable-root binding"
+}
+$ambientGarageRedeployBlock = Get-ScriptMethodBlock $ambientArsenalText 'string RedeployGarageVehicle('
+$ambientGarageRequestBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'string RequestMemberRedeployGarageVehicle('
+if ($ambientArsenalText.IndexOf('SetPersistentFieldVehicleRuntimeService(') -lt 0 -or
+	$ambientCoordinatorInitBlock.IndexOf('m_Arsenal.SetPersistentFieldVehicleRuntimeService(') -lt 0 -or
+	$ambientGarageRedeployBlock.IndexOf('RegisterRedeployedRuntimeVehicle(') -lt 0 -or
+	$ambientGarageRedeployBlock.IndexOf('m_PersistentFieldVehicles.Track(entity, runtimeVehicle)') -lt 0 -or
+	$ambientGarageRedeployBlock.IndexOf('RollbackRedeployedRuntimeVehicle(') -lt 0 -or
+	$ambientGarageRedeployBlock.IndexOf('RemoveVehicle(state, vehicle.m_sVehicleId)') -lt 0 -or
+	$ambientGarageRequestBlock.IndexOf('ConsumeLastRedeployedVehicle(') -ge 0) {
+	throw "Phase-8 garage redeploy must admit a fresh durable ID/root before committing spend and stored-row removal, with exact rollback on failure"
+}
+$ambientGarageRegisterBlock = Get-ScriptMethodBlock $ambientArsenalText 'protected HST_RuntimeVehicleState RegisterRedeployedRuntimeVehicle('
+if ($ambientGarageRegisterBlock.IndexOf('BuildUniqueRedeployedVehicleRuntimeId(state)') -lt 0 -or
+	$ambientGarageRegisterBlock.IndexOf('state.FindRuntimeVehicle(runtimeId)') -ge 0) {
+	throw "Phase-8 garage redeploy must create a collision-safe durable row instead of overwriting a current-RPL ID match"
+}
+$ambientLootResolveBlock = Get-ScriptMethodBlock $ambientLootText 'protected HST_RuntimeVehicleState ResolveRuntimeVehicleRecord('
+if ($ambientLootResolveBlock.IndexOf('m_PersistentFieldVehicles.ResolveForEntity(state, entity)') -lt 0 -or
+	$ambientLootResolveBlock.IndexOf('if (positionalMatch && positionalMatch != candidate)') -lt 0) {
+	throw "Phase-8 loot/garage scans must resolve durable roots through the shared tracker and fail closed on positional ambiguity"
+}
+$ambientLootRuntimeSelectBlock = Get-ScriptMethodBlock $ambientLootText 'protected bool TrySelectRuntimeRecordVehicle('
+if ($ambientLootRuntimeSelectBlock.IndexOf('m_PersistentFieldVehicles.ResolveEntityForRuntimeId(') -lt 0 -or
+	$ambientLootRuntimeSelectBlock.IndexOf('durable vehicle row has no exact registered live root') -lt 0) {
+	throw "Phase-8 durable vehicle targeting must use exact reverse bindings and fail closed when a live binding is absent"
+}
+$ambientRequestedVehicleMatchBlock = Get-ScriptMethodBlock $ambientLootText 'protected bool DoesRequestedVehicleIdMatch('
+if ($ambientRequestedVehicleMatchBlock.IndexOf('if (runtimeVehicle)') -lt 0 -or
+	$ambientRequestedVehicleMatchBlock.IndexOf('return runtimeVehicle.m_sVehicleRuntimeId == requestedRuntimeId') -lt 0) {
+	throw "Phase-8 requested durable vehicle IDs must take precedence over process-local root RPL IDs"
+}
+$ambientVehicleEligibilityBlock = Get-ScriptMethodBlock $ambientCivilianText 'protected string ResolveVehicleEligibilityReason('
+if ($ambientVehicleEligibilityBlock.IndexOf('ResolveRuntimeVehicleRecord(state, vehicle)') -lt 0 -or
+	$ambientVehicleEligibilityBlock.IndexOf('ResolveRuntimeVehicleId(vehicle)') -ge 0) {
+	throw "Phase-8 undercover vehicle eligibility must resolve stable durable authority through the shared live binding"
+}
+$ambientDebugRuntimeRemoveBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected bool RemoveCampaignDebugRuntimeVehicleById('
+if ($ambientDebugRuntimeRemoveBlock.IndexOf('m_PersistentFieldVehicles.Untrack(') -lt 0) {
+	throw "Phase-8 debug runtime-row cleanup must retire any durable live-root binding"
+}
+$ambientDirectUpdateBlock = Get-ScriptMethodBlock $ambientCivilianText 'bool UpdatePhysicalTownPopulationForZone('
+if ($ambientDirectUpdateBlock.IndexOf('BuildAmbientPopulationBudgetPlan(state, balance)') -lt 0 -or
+	$ambientDirectUpdateBlock.IndexOf('m_iAmbientSpawnBudgetRemaining = AMBIENT_SPAWN_TRANSACTIONS_PER_UPDATE') -lt 0 -or
+	$ambientDirectUpdateBlock.IndexOf('demand.m_iDesiredPedestrians + demand.m_iDesiredTraffic') -ge 0) {
+	throw "Phase-8 per-zone debug projection must use the production global plan and four-root transaction-start cap"
+}
+$ambientProjectionProofBlock = Get-ScriptMethodBlock $ambientCivilianText 'HST_CivilianProjectionProofSummary BuildProjectionProofSummary('
+if ($ambientProjectionProofBlock.IndexOf('allocation.m_iAllocatedPedestrians') -lt 0 -or
+	$ambientProjectionProofBlock.IndexOf('allocation.m_iAllocatedTraffic') -lt 0 -or
+	$ambientProjectionProofBlock.IndexOf('demand.m_iDesiredPedestrians') -ge 0) {
+	throw "Phase-8 Phase-20 proof expectations must use global allocations, never raw local demand"
+}
+$ambientPhase20ProbeBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void RunCampaignDebugCivilianPopulationProbe('
+if ($ambientPhase20ProbeBlock.IndexOf('Re-snapshot every count after the staged window') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('civilianTrafficVehicles = m_Civilians.CountRuntimeEntitiesForZone(') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('projectionProof = m_Civilians.BuildProjectionProofSummary(') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('BeginCampaignDebugCivilianProbeRuntime(') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('SampleCampaignDebugCivilianProbeRuntime(') -lt 0 -or
+	$ambientPhase20ProbeBlock.IndexOf('EndCampaignDebugCivilianProbeRuntime(') -lt 0) {
+	throw "Phase-8 Phase-20 assertions must resnapshot final counts after bounded staged admission"
+}
+$ambientPhase20BeginBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected HST_CampaignDebugCivilianProbeRuntimeResult BeginCampaignDebugCivilianProbeRuntime('
+$ambientBeginCleanupIndex = $ambientPhase20BeginBlock.IndexOf('CleanupAmbientProjectionForDebug(m_State)')
+$ambientBeginGlobalIndex = $ambientPhase20BeginBlock.IndexOf('m_iBaselineGlobalRuntime')
+$ambientBeginRowsIndex = $ambientPhase20BeginBlock.IndexOf('m_iBaselineRuntimeVehicleRows')
+if ($ambientBeginCleanupIndex -lt 0 -or $ambientBeginGlobalIndex -lt $ambientBeginCleanupIndex -or
+	$ambientBeginRowsIndex -lt $ambientBeginGlobalIndex) {
+	throw "Phase-8 Phase-20 baseline must clean every ambient root before counting global roots and transient rows"
+}
+$ambientPhase20SampleBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void SampleCampaignDebugCivilianProbeRuntime('
+foreach ($ambientPhase20SampleEntry in @(
+	'm_iMovementSampleTargetCount = Math.Max(',
+	'projectionProof.m_iExpectedPedestrians',
+	'projectionProof.m_iExpectedTrafficVehicles',
+	'm_iCivilianVehicleMaxPerTown',
+	'm_iOccupierVehicleMaxPerTown',
+	'm_Civilians.Tick(',
+	'UpdatePhysicalTownPopulationForZone(',
+	'm_iMovementActualSampleCount++'
+)) {
+	if ($ambientPhase20SampleBlock.IndexOf($ambientPhase20SampleEntry) -lt 0) {
+		throw "Phase-8 Phase-20 staged admission/movement helper is incomplete: $ambientPhase20SampleEntry"
+	}
+}
+if ($ambientPhase20SampleBlock.IndexOf('m_Civilians.Tick(') -gt
+	$ambientPhase20SampleBlock.IndexOf('UpdatePhysicalTownPopulationForZone(')) {
+	throw "Phase-8 Phase-20 sampling must tick actor lifecycle before the bounded population update"
+}
+$ambientPhase20EndBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected void EndCampaignDebugCivilianProbeRuntime('
+foreach ($ambientPhase20EndEntry in @(
+	'CleanupAmbientProjectionForDebug(m_State)',
+	'm_iCleanupSelectedRuntime',
+	'm_iCleanupGlobalRuntime',
+	'RemoveCampaignDebugCivilianRuntimeVehicleRecords(',
+	'm_iFinalRuntimeVehicleRows',
+	'm_bRestored',
+	'm_bCleanupExact'
+)) {
+	if ($ambientPhase20EndBlock.IndexOf($ambientPhase20EndEntry) -lt 0) {
+		throw "Phase-8 Phase-20 all-ambient cleanup/restoration helper is incomplete: $ambientPhase20EndEntry"
+	}
+}
+$ambientDebugVehicleCleanupBlock = Get-ScriptMethodBlock $ambientCoordinatorText 'protected int RemoveCampaignDebugCivilianRuntimeVehicleRecords('
+if ($ambientDebugVehicleCleanupBlock.IndexOf('vehicle.m_sZoneId') -ge 0) {
+	throw "Phase-8 all-ambient-clean debug teardown must remove every transient vehicle row created after its baseline"
+}
+$ambientProductionUpdateBlock = Get-ScriptMethodBlock $ambientCivilianText 'bool UpdatePhysicalTownPopulation('
+if ($ambientProductionUpdateBlock.IndexOf('return durableChanged;') -lt 0 -or
+	$ambientProductionUpdateBlock.IndexOf('TickAmbientActorRuntime(state, balance) ||') -ge 0 -or
+	$ambientProductionUpdateBlock.IndexOf('PublishRuntimeDiagnostics(state) ||') -ge 0) {
+	throw "Phase-8 session topology/diagnostics must not dirty durable campaign persistence"
+}
+$ambientStaticVehicleBlock = Get-ScriptMethodBlock $ambientCivilianText 'protected int MaintainTownStaticVehiclePopulation('
+if ($ambientStaticVehicleBlock.IndexOf('m_iAmbientSpawnBudgetRemaining--') -lt 0 -or
+	$ambientStaticVehicleBlock.IndexOf('m_aStaticCivilianVehicleSlotsCompleted') -lt 0 -or
+	$ambientStaticVehicleBlock.IndexOf('m_aStaticMilitaryVehicleSlotsCompleted') -lt 0) {
+	throw "Phase-8 parked/security vehicle initialization must share the bounded transaction scheduler without refill farming"
+}
+foreach ($ambientSaveEntry in @(
+	'IsSessionOnlyAmbientVehicle(runtimeVehicle)',
+	'IsLegacyDetachedAmbientClaim(vehicle)',
+	'vehicle.m_sRuntimeKind = "field_vehicle"',
+	'sessionOnlyVehicleIds.Find(cargoItem.m_sVehicleRuntimeId)',
+	'PruneSessionOnlyRuntimeVehicles()'
+)) {
+	if ($ambientSaveText.IndexOf($ambientSaveEntry) -lt 0) {
+		throw "Phase-8 transient/claimed ambient vehicle save boundary is missing: $ambientSaveEntry"
+	}
+}
+foreach ($ambientSaveProofEntry in @(
+	'class HST_AmbientVehicleSaveValidationService',
+	'm_bUnclaimedRowsExcludedExact',
+	'm_bUnclaimedCargoExcludedExact',
+	'm_bClaimedFieldRoundTripExact',
+	'm_bLegacyClaimMigrationExact',
+	'AllExact()'
+)) {
+	if ($ambientVehicleSaveProofText.IndexOf($ambientSaveProofEntry) -lt 0) {
+		throw "Phase-8 ambient vehicle save proof is missing: $ambientSaveProofEntry"
+	}
+}
+foreach ($ambientDebugEntry in @(
+	'AppendCampaignDebugAmbientPopulationAssertions(forceCase)',
+	'ambient_population.budget',
+	'ambient_population.lifecycle',
+	'ambient_population.transient_save_boundary',
+	'ambient_population.settings24_migration',
+	'phase20.civilian_population.behavior_ready_pedestrians',
+	'phase20.civilian_population.behavior_ready_traffic',
+	'phase20.civilian_population.traffic_movement_observed'
+)) {
+	if ($ambientCoordinatorText.IndexOf($ambientDebugEntry) -lt 0) {
+		throw "Phase-8 ambient source/runtime proof wiring is missing: $ambientDebugEntry"
+	}
+}
+
+Write-Host "Blueprint Phase 8 fair ambient budget, stable-slot actor transactions, bounded recovery, pre-capture player claims, live field snapshots, transient save filtering, and source proofs OK"
 
 Write-Host "h-istasi foundation validation passed"

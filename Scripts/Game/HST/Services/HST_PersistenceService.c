@@ -19,6 +19,7 @@ class HST_PersistenceService
 	protected HST_ForceSpawnAdapterService m_ForceSpawnAdapter;
 	protected HST_MissionGuardOperationService m_MissionGuardOperations;
 	protected HST_RescuePOWOperationService m_RescuePOWOperations;
+	protected HST_CivilianService m_Civilians;
 
 	void SetPhysicalWarService(HST_PhysicalWarService physicalWar)
 	{
@@ -41,6 +42,11 @@ class HST_PersistenceService
 	void SetRescuePOWOperationService(HST_RescuePOWOperationService rescuePOWOperations)
 	{
 		m_RescuePOWOperations = rescuePOWOperations;
+	}
+
+	void SetCivilianService(HST_CivilianService civilians)
+	{
+		m_Civilians = civilians;
 	}
 
 	void MarkMajorChange()
@@ -246,6 +252,22 @@ class HST_PersistenceService
 	{
 		if (!state)
 			return false;
+		if (!m_Civilians)
+		{
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint deferred: ambient vehicle persistence authority is unavailable during %1",
+				context);
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
+		if (!m_Civilians.PrepareAmbientVehiclePersistence(state))
+		{
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint deferred: ambient vehicle persistence reconciliation failed during %1",
+				context);
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
 		bool hasExactRescueAuthority = HasExactRescuePOWAuthority(state);
 		if (hasExactRescueAuthority && !m_RescuePOWOperations)
 		{

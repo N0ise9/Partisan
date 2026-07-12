@@ -1,3 +1,29 @@
+class HST_AmbientRuntimeSettingsMigrationProofReport
+{
+	bool m_bSchema23DefaultsExact;
+	bool m_bExplicitOverridePreservedExact;
+	bool m_bPerformanceBoundsExact;
+	string m_sEvidence;
+
+	bool AllExact()
+	{
+		return m_bSchema23DefaultsExact
+			&& m_bExplicitOverridePreservedExact
+			&& m_bPerformanceBoundsExact;
+	}
+
+	string BuildReport()
+	{
+		return string.Format(
+			"ambient settings migration proof | all exact %1 | schema-23 defaults %2 | explicit override %3 | performance bounds %4 | %5",
+			AllExact(),
+			m_bSchema23DefaultsExact,
+			m_bExplicitOverridePreservedExact,
+			m_bPerformanceBoundsExact,
+			m_sEvidence);
+	}
+}
+
 class HST_RuntimeSettingsService
 {
 	static const string SETTINGS_DIRECTORY = "$profile:h-istasi";
@@ -27,6 +53,56 @@ class HST_RuntimeSettingsService
 	string GetSettingsFilePath()
 	{
 		return SETTINGS_FILE;
+	}
+
+	HST_AmbientRuntimeSettingsMigrationProofReport RunAmbientSchema24MigrationProof()
+	{
+		HST_RuntimeSettings defaultsFixture = new HST_RuntimeSettings();
+		defaultsFixture.m_iSchemaVersion = 23;
+		bool defaultsMigrated = MigrateSettings(defaultsFixture);
+
+		HST_RuntimeSettings overrideFixture = new HST_RuntimeSettings();
+		overrideFixture.m_iSchemaVersion = 23;
+		overrideFixture.m_Civilians.m_iCivilianGlobalActorBudgetBase = 80;
+		overrideFixture.m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer = 999999;
+		overrideFixture.m_Civilians.m_iCivilianGlobalTrafficBudgetBase = 999999;
+		overrideFixture.m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer = 999999;
+		overrideFixture.m_Civilians.m_iCivilianRuntimeStartupGraceSeconds = 999999;
+		overrideFixture.m_Civilians.m_iCivilianRuntimeStuckSeconds = 999999;
+		overrideFixture.m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds = 999999;
+		bool overrideMigrated = MigrateSettings(overrideFixture);
+
+		HST_AmbientRuntimeSettingsMigrationProofReport report
+			= new HST_AmbientRuntimeSettingsMigrationProofReport();
+		report.m_bSchema23DefaultsExact = defaultsMigrated
+			&& defaultsFixture.m_iSchemaVersion == HST_RuntimeSettings.SCHEMA_VERSION
+			&& defaultsFixture.m_Civilians.m_iCivilianGlobalActorBudgetBase == 48
+			&& defaultsFixture.m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer == 12
+			&& defaultsFixture.m_Civilians.m_iCivilianGlobalTrafficBudgetBase == 10
+			&& defaultsFixture.m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer == 2
+			&& defaultsFixture.m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds == 5
+			&& defaultsFixture.m_Civilians.m_iCivilianRuntimeStartupGraceSeconds == 15
+			&& defaultsFixture.m_Civilians.m_iCivilianRuntimeStuckSeconds == 30
+			&& defaultsFixture.m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds == 20;
+		report.m_bExplicitOverridePreservedExact = overrideMigrated
+			&& overrideFixture.m_iSchemaVersion == HST_RuntimeSettings.SCHEMA_VERSION
+			&& overrideFixture.m_Civilians.m_iCivilianGlobalActorBudgetBase == 80;
+		report.m_bPerformanceBoundsExact
+			= overrideFixture.m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer == 64
+			&& overrideFixture.m_Civilians.m_iCivilianGlobalTrafficBudgetBase == 64
+			&& overrideFixture.m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer == 16
+			&& overrideFixture.m_Civilians.m_iCivilianRuntimeStartupGraceSeconds == 120
+			&& overrideFixture.m_Civilians.m_iCivilianRuntimeStuckSeconds == 300
+			&& overrideFixture.m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds == 120;
+		report.m_sEvidence = string.Format(
+			"schema/default base %1/%2 | explicit base %3 | bounded actor/traffic/traffic-player %4/%5/%6",
+			defaultsFixture.m_iSchemaVersion,
+			defaultsFixture.m_Civilians.m_iCivilianGlobalActorBudgetBase,
+			overrideFixture.m_Civilians.m_iCivilianGlobalActorBudgetBase,
+			overrideFixture.m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer,
+			overrideFixture.m_Civilians.m_iCivilianGlobalTrafficBudgetBase,
+			overrideFixture.m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer);
+		return report;
 	}
 
 	HST_RuntimeSettings LoadOrCreate()
@@ -158,6 +234,16 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "civilianVehicleMinPerTown", settings.m_Civilians.m_iCivilianVehicleMinPerTown);
 			ApplyInt(line, "civilianVehicleMaxPerTown", settings.m_Civilians.m_iCivilianVehicleMaxPerTown);
 			ApplyInt(line, "civilianDrivingVehicleCountPerTown", settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown);
+			ApplyInt(line, "civilianGlobalActorBudgetBase", settings.m_Civilians.m_iCivilianGlobalActorBudgetBase);
+			ApplyInt(line, "civilianGlobalActorBudgetPerPlayer", settings.m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer);
+			ApplyInt(line, "civilianGlobalTrafficBudgetBase", settings.m_Civilians.m_iCivilianGlobalTrafficBudgetBase);
+			ApplyInt(line, "civilianGlobalTrafficBudgetPerPlayer", settings.m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer);
+			ApplyInt(line, "civilianWarLevelBudgetPenaltyPercent", settings.m_Civilians.m_iCivilianWarLevelBudgetPenaltyPercent);
+			ApplyInt(line, "civilianRuntimeHealthIntervalSeconds", settings.m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds);
+			ApplyInt(line, "civilianRuntimeStartupGraceSeconds", settings.m_Civilians.m_iCivilianRuntimeStartupGraceSeconds);
+			ApplyInt(line, "civilianRuntimeStuckSeconds", settings.m_Civilians.m_iCivilianRuntimeStuckSeconds);
+			ApplyInt(line, "civilianRuntimeMaxRecoveryAttempts", settings.m_Civilians.m_iCivilianRuntimeMaxRecoveryAttempts);
+			ApplyInt(line, "civilianRuntimeRetryBackoffSeconds", settings.m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds);
 			ApplyInt(line, "occupierVehicleMinPerTown", settings.m_Civilians.m_iOccupierVehicleMinPerTown);
 			ApplyInt(line, "occupierVehicleMaxPerTown", settings.m_Civilians.m_iOccupierVehicleMaxPerTown);
 			ApplyInt(line, "autosaveIntervalSeconds", settings.m_Persistence.m_iAutosaveIntervalSeconds);
@@ -350,6 +436,13 @@ class HST_RuntimeSettingsService
 		{
 			if (settings.m_Capture.m_iCombatPresenceCoolingSeconds <= 0)
 				settings.m_Capture.m_iCombatPresenceCoolingSeconds = 30;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 24)
+		{
+			// Newly introduced civilian runtime controls already carry conservative
+			// class defaults when absent. Preserve every explicitly supplied value.
 			changed = true;
 		}
 
@@ -671,6 +764,26 @@ class HST_RuntimeSettingsService
 		lines.Insert(string.Format("    \"civilianVehicleMaxPerTown\": %1,", settings.m_Civilians.m_iCivilianVehicleMaxPerTown));
 		lines.Insert("    \"_comment_civilianDrivingVehicleCountPerTown\": \"Number of civilian-driven traffic vehicles per nearby true town. These vehicles despawn with their drivers after leaving the player render bubble.\",");
 		lines.Insert(string.Format("    \"civilianDrivingVehicleCountPerTown\": %1,", settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown));
+		lines.Insert("    \"_comment_civilianGlobalActorBudgetBase\": \"Base global cap for physically projected civilian actors. Logical town population continues independently.\",");
+		lines.Insert(string.Format("    \"civilianGlobalActorBudgetBase\": %1,", settings.m_Civilians.m_iCivilianGlobalActorBudgetBase));
+		lines.Insert("    \"_comment_civilianGlobalActorBudgetPerPlayer\": \"Additional global civilian actor budget for each connected player.\",");
+		lines.Insert(string.Format("    \"civilianGlobalActorBudgetPerPlayer\": %1,", settings.m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer));
+		lines.Insert("    \"_comment_civilianGlobalTrafficBudgetBase\": \"Base global cap for physically projected civilian traffic vehicles.\",");
+		lines.Insert(string.Format("    \"civilianGlobalTrafficBudgetBase\": %1,", settings.m_Civilians.m_iCivilianGlobalTrafficBudgetBase));
+		lines.Insert("    \"_comment_civilianGlobalTrafficBudgetPerPlayer\": \"Additional global civilian traffic budget for each connected player.\",");
+		lines.Insert(string.Format("    \"civilianGlobalTrafficBudgetPerPlayer\": %1,", settings.m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer));
+		lines.Insert("    \"_comment_civilianWarLevelBudgetPenaltyPercent\": \"Percent removed from civilian actor and traffic budgets for each war level above one (0-8).\",");
+		lines.Insert(string.Format("    \"civilianWarLevelBudgetPenaltyPercent\": %1,", settings.m_Civilians.m_iCivilianWarLevelBudgetPenaltyPercent));
+		lines.Insert("    \"_comment_civilianRuntimeHealthIntervalSeconds\": \"Seconds between civilian runtime movement and health checks (2-30).\",");
+		lines.Insert(string.Format("    \"civilianRuntimeHealthIntervalSeconds\": %1,", settings.m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds));
+		lines.Insert("    \"_comment_civilianRuntimeStartupGraceSeconds\": \"Grace seconds after actor admission before movement is required. Cannot be shorter than the health interval.\",");
+		lines.Insert(string.Format("    \"civilianRuntimeStartupGraceSeconds\": %1,", settings.m_Civilians.m_iCivilianRuntimeStartupGraceSeconds));
+		lines.Insert("    \"_comment_civilianRuntimeStuckSeconds\": \"Seconds without meaningful movement before a civilian runtime actor is considered stuck. Cannot be shorter than the health interval.\",");
+		lines.Insert(string.Format("    \"civilianRuntimeStuckSeconds\": %1,", settings.m_Civilians.m_iCivilianRuntimeStuckSeconds));
+		lines.Insert("    \"_comment_civilianRuntimeMaxRecoveryAttempts\": \"Maximum bounded recovery attempts before a stuck civilian runtime actor is recycled (0-4).\",");
+		lines.Insert(string.Format("    \"civilianRuntimeMaxRecoveryAttempts\": %1,", settings.m_Civilians.m_iCivilianRuntimeMaxRecoveryAttempts));
+		lines.Insert("    \"_comment_civilianRuntimeRetryBackoffSeconds\": \"Minimum seconds between civilian runtime recovery attempts. Cannot be shorter than the health interval.\",");
+		lines.Insert(string.Format("    \"civilianRuntimeRetryBackoffSeconds\": %1,", settings.m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds));
 		lines.Insert("    \"_comment_occupierVehicleMinPerTown\": \"Minimum occupier security vehicles associated with nearby true towns.\",");
 		lines.Insert(string.Format("    \"occupierVehicleMinPerTown\": %1,", settings.m_Civilians.m_iOccupierVehicleMinPerTown));
 		lines.Insert("    \"_comment_occupierVehicleMaxPerTown\": \"Maximum occupier security vehicles associated with nearby true towns.\",");

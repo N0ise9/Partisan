@@ -116,7 +116,7 @@ class HST_BalanceConfig
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Enable civilian population simulation.", params: "", category: "HST Civilians")]
 	bool m_bCivilianPopulationEnabled = true;
 
-	[Attribute(defvalue: "12", uiwidget: UIWidgets.EditBox, desc: "Maximum active civilians per town.", category: "HST Civilians")]
+	[Attribute(defvalue: "12", uiwidget: UIWidgets.EditBox, desc: "Maximum active civilians per town (0-32).", category: "HST Civilians")]
 	int m_iCivilianMaxActivePerTown = 12;
 
 	[Attribute(defvalue: "1", uiwidget: UIWidgets.EditBox, desc: "Minimum civilian vehicles per town.", category: "HST Civilians")]
@@ -127,6 +127,36 @@ class HST_BalanceConfig
 
 	[Attribute(defvalue: "5", uiwidget: UIWidgets.EditBox, desc: "Number of active civilian-driven ambient traffic vehicles per active true town.", category: "HST Civilians")]
 	int m_iCivilianDrivingVehicleCountPerTown = 5;
+
+	[Attribute(defvalue: "48", uiwidget: UIWidgets.EditBox, desc: "Base global budget for physically projected civilian actors (0-256).", category: "HST Civilians")]
+	int m_iCivilianGlobalActorBudgetBase = 48;
+
+	[Attribute(defvalue: "12", uiwidget: UIWidgets.EditBox, desc: "Additional global civilian actor budget per connected player (0-64).", category: "HST Civilians")]
+	int m_iCivilianGlobalActorBudgetPerPlayer = 12;
+
+	[Attribute(defvalue: "10", uiwidget: UIWidgets.EditBox, desc: "Base global budget for physically projected civilian traffic vehicles (0-64).", category: "HST Civilians")]
+	int m_iCivilianGlobalTrafficBudgetBase = 10;
+
+	[Attribute(defvalue: "2", uiwidget: UIWidgets.EditBox, desc: "Additional global civilian traffic budget per connected player (0-16).", category: "HST Civilians")]
+	int m_iCivilianGlobalTrafficBudgetPerPlayer = 2;
+
+	[Attribute(defvalue: "4", uiwidget: UIWidgets.EditBox, desc: "Percent removed from civilian runtime budgets for each war level above one (0-8).", category: "HST Civilians")]
+	int m_iCivilianWarLevelBudgetPenaltyPercent = 4;
+
+	[Attribute(defvalue: "5", uiwidget: UIWidgets.EditBox, desc: "Seconds between civilian runtime health and movement checks (2-30).", category: "HST Civilians")]
+	int m_iCivilianRuntimeHealthIntervalSeconds = 5;
+
+	[Attribute(defvalue: "15", uiwidget: UIWidgets.EditBox, desc: "Grace seconds after civilian actor admission before movement is required (health interval to 120).", category: "HST Civilians")]
+	int m_iCivilianRuntimeStartupGraceSeconds = 15;
+
+	[Attribute(defvalue: "30", uiwidget: UIWidgets.EditBox, desc: "Seconds without meaningful movement before a civilian runtime actor is considered stuck (health interval to 300).", category: "HST Civilians")]
+	int m_iCivilianRuntimeStuckSeconds = 30;
+
+	[Attribute(defvalue: "2", uiwidget: UIWidgets.EditBox, desc: "Maximum bounded recovery attempts before a stuck civilian runtime actor is recycled (0-4).", category: "HST Civilians")]
+	int m_iCivilianRuntimeMaxRecoveryAttempts = 2;
+
+	[Attribute(defvalue: "20", uiwidget: UIWidgets.EditBox, desc: "Seconds between civilian runtime recovery attempts (health interval to 120).", category: "HST Civilians")]
+	int m_iCivilianRuntimeRetryBackoffSeconds = 20;
 
 	[Attribute(defvalue: "0", uiwidget: UIWidgets.EditBox, desc: "Minimum occupier vehicles per town.", category: "HST Civilians")]
 	int m_iOccupierVehicleMinPerTown;

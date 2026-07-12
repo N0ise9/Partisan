@@ -1,20 +1,28 @@
 # h-istasi Capability Map
 
-The current campaign source/Workbench checkpoint is sealed Schema 64 on
-runtime-settings Schema 23. It introduces one canonical curated-town support/
-population record, separate FIA/occupier/invader basis-point authority, strict
-political hysteresis through the existing ownership-transition service, explicit
-town contact, and deterministic Map/War political projections. Legacy town
-support/population fields are migration/read-only projections. Schema 64
+The last sealed campaign source/Workbench checkpoint remains Campaign Schema 64
+on runtime-settings Schema 23. It introduces one canonical curated-town
+support/population record, separate FIA/occupier/invader basis-point authority,
+strict political hysteresis through the existing ownership-transition service,
+explicit town contact, and deterministic Map/War political projections. Legacy
+town support/population fields are migration/read-only projections. Schema 64
 identifies implementation `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
 `2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`.
-Foundation passes at 696 script-symbol
-references, including the dedicated Schema-64 gate. Normal Workbench
-compilation and all-five-configuration validation pass at 5,793 files/11,695
-classes with CRC `36d5b017`, successful validation, and zero HST script errors.
-Every Workbench instance was closed and the verified process count was zero.
-Campaign Debug, packaged runtime, save/restart, rendered UI, stutter
-measurement, and multiplayer execution remain pending.
+Foundation passes for that sealed checkpoint at 696 script-symbol references.
+
+The current unsealed worktree keeps Campaign persistence at Schema 64 and
+advances runtime settings from Schema 23 to 24 for the Blueprint Phase 8
+ambient-runtime slice. It adds capped and fairly rotated physical town
+population, bounded spawn/readiness/recovery lifecycle, stable runtime vehicle identity, and a
+transient-versus-claimed save boundary. Foundation passes at 711 script-symbol
+references. Normal Workbench compilation and all-five-configuration validation
+pass at 5,799 files/11,718 classes with CRC `a6fc06df`, successful validation,
+zero HST script errors, and zero surviving Workbench processes. Static source
+checks plus Workbench compile/validation pass; deterministic proof services are
+compiled and wired but have not executed in Campaign Debug. This is not native
+runtime proof.
+Packaged runtime, real save/restart, rendered UI, ten-town/ten-minute stutter/
+churn/performance soak, and multiplayer execution remain pending.
 
 Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
@@ -99,6 +107,41 @@ Debug and packaged-runtime gates remain open.
   published resistance-owned strategic set in type/name/ID order and shares the
   marker projection's completed-parent publication fence. Simon's Wood remains
   ambient-only, and the Maiden's Bay Logistics Warehouse remains nonpolitical.
+- Unsealed Blueprint Phase 8 ambient runtime on Settings Schema 24: global actor
+  and traffic caps combine base, per-player, war-level, population, time-of-day,
+  and heat policy before physical projection. Deterministic 120-second-or-longer
+  leases and a separate reconcile cursor rotate scarce capacity fairly. Normal
+  updates begin at most four root-spawn transactions, including initial static
+  roots. Combined pedestrian/driver demand is capped to the unique valid
+  appearance pool and exhaustion fails closed rather than cloning a locality
+  actor. Pedestrian
+  and traffic transactions wait for exact native group/waypoint and pilot/
+  engine/route readiness; immutable per-zone/kind slots drive distinct bounded
+  recovery routes and recycling. Static military ambience refreshes on owner/
+  policy changes through the same cap, and the scoped Campaign Debug Phase 20
+  helper consumes the production global plan and four-root transaction-start
+  cap. Session topology
+  stays non-durable, unclaimed rows/cargo are filtered, and claimed or legacy-detached
+  vehicles cross into durable field-vehicle authority. Player-first observation
+  avoids a full ambient-root occupancy scan before persistence every server
+  frame.
+  Every `HST_PersistenceService` capture/checkpoint path repeats it behind a fail-
+  closed reconciliation barrier, and new-campaign reset performs its own
+  reconciliation. A shared tracker registers promotions, restored/adopted field
+  vehicles, and garage redeploys for current transform, destruction, and cargo
+  position. Saved durable IDs remain stable across restart rather than rekeying
+  to process-local replication IDs; restore runs before first-frame claims and
+  exact forward/reverse bindings own loot, garage, deletion, and undercover
+  lookups. Garage redeploy tracks a fresh campaign ID before commit and rolls
+  back root/row/cargo/binding on failure. Reset may retain only occupied live tracked `loot_vehicle`,
+  `field_vehicle`, or `garage_redeploy` roots, normalizes retained rows to
+  `field_vehicle`, copies their vehicle/cargo rows before state replacement, and
+  deletes every other bound root once. Destroyed roots and dead controlled
+  occupants cannot claim.
+  Foundation and Workbench compile/validation pass; this tree is not sealed and
+  has no Campaign Debug, packaged, native brief enter/exit, autosave/restart,
+  destruction/reset, two-nearby-same-prefab no-collapse restoration, or Campaign
+  Debug Phase 20 execution result.
 - One versioned `OperationRecord` for each newly confirmed exact paid player
   infantry QRF, plus conservative backfill for uniquely coherent accepted active
   schema-48 rows. It separates immutable origin/assignment from tactical target
@@ -539,11 +582,14 @@ Debug and packaged-runtime gates remain open.
   canonical signed support projection.
   Current source separates true town centers from minor localities, decouples
   nearby civilian projection from HQ-suppressed hostile activation, selects
-  distinct concrete appearances, defaults true towns to five driven vehicles,
-  limits the known woodland locality to two pedestrians, and clears HST-owned
-  ambient driver horn input. Schema 60 additionally disables AI horn timing and
-  perceived horn output on the native wheeled-vehicle base. Republished behavior
-  proof remains open.
+  distinct concrete appearances, and gives true towns a configurable daytime/
+  low-heat traffic target (default five) when population and global budgets permit. The known
+  woodland locality remains limited to two pedestrians. Scoped ambient driver
+  horn clearing and the Schema-60 native wheeled-base override remain in place.
+  Settings-24 source additionally supplies leased fair allocation, bounded
+  scheduling/readiness/recovery, owner-aware static refresh, and transient-
+  vehicle save filtering. Republished behavior, real restart, and soak proof
+  remain open.
 - Command menu actions for setup hideout selection, dynamic mission targets,
   mission runtime and persistence inspection, HQ threat/Defend Petros reports,
   FIA support requests/cancel, support/enemy-order reports, civilian aid,
@@ -623,10 +669,13 @@ Debug and packaged-runtime gates remain open.
   drivers held the horn, Figari and Morton projected no civilians because HQ
   safety cleared their shared military-active bit, and the known woodland
   locality projected full town ambience. Current source separates civilian
-  eligibility, uses concrete variants, defaults true towns to five traffic
-  vehicles, limits the minor locality to two pedestrians, clears ambient horn
-  input, and applies the wheeled-base horn override. Those outcomes are not yet
-  runtime-proven.
+  eligibility, uses concrete variants, gives true towns a configurable budget-
+  limited daytime/low-heat traffic target (default five), limits the minor
+  locality to two pedestrians, clears ambient horn input, and applies the
+  wheeled-base horn override. The unsealed Settings-24 allocator/lifecycle work
+  supersedes the old
+  unconditional projection policy, but those outcomes are not yet runtime-
+  proven.
 - A later user server check reported a pronounced once-per-second stutter,
   continuous AI horns, and overlapping Maiden's Bay town/Logistics Warehouse
   locations. Source now removes the known per-second reconciliation/query/
@@ -821,12 +870,24 @@ Debug and packaged-runtime gates remain open.
   contact discovery, current-first Zone Pressure, complete deterministic
   Resistance Territory, legacy projection only, due-expiry cost, and real
   save/restart. Static fixtures do not close these gates.
-- Re-run civilian town/locality activation and require zero unregistered member-
-  state RPCs, distinct appearances, five moving traffic vehicles per true town,
-  two pedestrians at the minor woodland locality, no stuck horns, and Figari/
-  Morton ambience independent of HQ-suppressed hostile activation. Maiden's Bay
-  must show only the Logistics Warehouse. Measure freezes-per-minute and verify
-  the observed once-per-second stall cadence is gone.
+- Run at least ten simultaneously eligible towns for ten minutes and require
+  zero unregistered member-state RPCs, distinct appearances, fair leased
+  allocation, bounded root transaction starts, and the configurable daytime/low-
+  heat traffic target (default five) per true town when population/global budgets
+  permit. Keep two pedestrians at the minor woodland locality, no stuck horns,
+  Figari/Morton ambience independent of hostile military activation, and static
+  military roots correct after owner/policy changes. Maiden's Bay must show only
+  the Logistics Warehouse. Prove the per-frame brief enter/exit observation and
+  fail-closed barrier on every `HST_PersistenceService` capture/checkpoint path,
+  plus new-campaign reset reconciliation, through native autosave/restart,
+  promoted-root destruction, teardown/re-entry/recovery/recycle, and freezes-per-
+  minute evidence. Include two-nearby-same-prefab restoration with no root
+  collapse and exact reset retention/normalization. Campaign Debug Phase 20 must
+  demonstrate the same production global plan and four-root transaction-start
+  cap rather than an
+  isolated one-town allocation. Aid and ownership/security-pressure source paths
+  exist but need runtime proof; automatic casualty, theft, nearby-combat
+  influence, panic/recovery, and deeper local-security behavior remain open.
 - Runtime-prove the Schema-60 player Search-and-Destroy contract: immutable
   infantry-only quote/manifest/ledger identity, $350 plus exact roster HR, direct
   virtual travel, materialization/fold/re-entry with mapped casualties, bounded

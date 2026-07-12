@@ -1,18 +1,23 @@
 # h-istasi Enfusion / Enforce Notes
 
-The current campaign source/Workbench checkpoint is sealed Schema 64 on
-runtime-settings Schema 23. Its canonical town-influence, migration, political-
-hysteresis, and Map/War rules below are based on source inspection and
+The last sealed campaign source/Workbench checkpoint remains Campaign Schema 64
+on runtime-settings Schema 23. Its canonical town-influence, migration,
+political-hysteresis, and Map/War rules below are based on source inspection and
 deterministic fixtures that have not yet run. Schema 64 identifies implementation
 `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
 `2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`. It has no
-runtime result. Foundation passes at 696 script-
-symbol references, including the dedicated Schema-64 gate. Normal Workbench
-compilation and all-five-configuration validation pass at 5,793 files/11,695
-classes with CRC `36d5b017`, successful validation, and zero HST script errors.
-Every Workbench instance was closed and the verified process count was zero.
-Campaign Debug, packaged runtime, save/restart, rendered UI, stutter measurement,
-and multiplayer execution remain pending.
+runtime result. Foundation passes for that sealed checkpoint at 696 script-
+symbol references.
+
+The current unsealed worktree keeps Campaign persistence at Schema 64 and
+advances runtime settings from Schema 23 to 24 for the Blueprint Phase 8
+ambient-runtime slice. Foundation passes at 711 script-symbol references. Normal Workbench
+compilation and all-five-configuration validation pass at 5,799 files/11,718
+classes with CRC `a6fc06df`, successful validation, zero HST script errors, and
+zero surviving Workbench processes. This validates source shape and pure
+deterministic kernels only. Campaign Debug, packaged runtime, actual
+save/restart, native movement/recovery/recycling, rendered UI, a ten-town/ten-
+minute stutter/churn/performance soak, and multiplayer execution remain pending.
 
 Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
@@ -242,8 +247,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The schema-50 validation run demonstrates why the completion boundary matters.
     The first correctly quoted launches reached Game script compilation but
     terminated with native `0xc0000374` before `Module: Game`. Isolation proved
-    that the already-large Phase-20 civilian population debug method crossed a
-    native compiler edge when five appearance/horn count locals were added;
+    that the already-large Campaign Debug Phase 20 civilian population method
+    crossed a native compiler edge when five appearance/horn count locals were added;
     production civilian/strategic services and the new projection proof compiled
     independently. Split the post-selection probe and aggregate related counts
     in one result object instead of shaving assertions. After that refactor,
@@ -1497,6 +1502,20 @@ This file is for practical engine/script behavior, not project planning. Keep en
     bounded survival check without reproducing the crash. Keep every later
     physical-adapter or debug-proof slice behind its own fresh reload and runtime
     evidence instead of extending the baseline claim by inspection.
+  - The Campaign Debug Phase 20 civilian population probe later reproduced the
+    same native heap failure after four more locals took the already-large method to 68 local
+    declarations. Moving original-state/baseline fields, the staged admission and
+    movement loop, and cleanup/restoration evidence into one compact result object
+    plus three focused helpers reduced the main probe to 37 local declarations and
+    restored clean normal and all-configuration compilation. Preserve that split;
+    do not add proof loops or cleanup bookkeeping back to the coordinator method.
+  - Keep an Enforce `for` header on one source line. Splitting its initializer,
+    condition, and increment at semicolons produced `Expected ')', not a ';'` even
+    though the same header compiled when written on one line.
+  - A native Workbench crash can launch its reporter after the main process has
+    already been terminated. Cleanup every bounded test twice with a short delay,
+    then require the final Workbench-family process count to be zero before the
+    next compile or gameplay run.
   - A single Workbench log directory can contain several script reload attempts. When auditing a compile failure, split by the latest `Reloading game scripts` / `Script validation` segment before deciding whether an earlier `SCRIPT (E)` line is still current. Record which later reload proves the fix, and keep later commits unproven until they have their own reload/runtime evidence.
   - If Workbench crashes after Game script compilation with no `SCRIPT (E)` rows, a compile-valid h-istasi change can still be the trigger. First halve or back out the most recent script slice and retest the same loaded-project set; profile project-list isolation is a secondary check, not proof that the mod is innocent.
   - Protected helper names are class-local. If a campaign-debug report path calls a helper such as `ReportBool` or `ResolveEntityPrefabName`, the calling class must define it directly; a same-named helper on another service does not satisfy the caller and Workbench reports `Undefined function`.
@@ -4400,6 +4419,139 @@ This file is for practical engine/script behavior, not project planning. Keep en
   traffic and other AI-driven wheeled vehicles. Continuous horns were observed
   in the prior run, so static resource resolution or Workbench creation is not
   sufficient behavior proof.
+
+## Unsealed Blueprint Phase 8 Ambient Runtime Mechanics
+
+- Work has reached Blueprint Phase 8 of 13 as a sequence position, not eight
+  completed phases. Every earlier Blueprint phase still retains native,
+  dedicated-server, restart, or multiplayer exit gates. Deferred native tests
+  must be backfilled; reaching a later phase, sealing source, or publishing a
+  build does not waive them.
+
+- Keep political population and support in canonical `HST_TownInfluenceRecord`
+  state. Nearby pedestrians, traffic, parked vehicles, and static military
+  ambience are disposable session projections; their presence, transforms,
+  helper groups, waypoints, and movement samples are not campaign truth.
+
+- Campaign persistence intentionally remains Schema 64. Runtime-settings Schema
+  24 is a separate `23 -> 24` migration for civilian global actor/traffic base
+  budgets, per-player additions, war-level penalty, health interval, startup
+  grace, stuck threshold, bounded recovery count, and retry backoff. Do not bump
+  the campaign schema for settings-only controls or label this unsealed tree as
+  the sealed Schema-64 implementation.
+
+- Budget physical ambience globally before reconciling any town. Allocation is
+  deterministic and fair across eligible towns, with a lease of at least 120
+  seconds so a short budget fluctuation does not churn whole localities. Use a
+  separate reconciliation cursor so the first town in stable sort order cannot
+  consume every update's admission work. Five civilian traffic vehicles is the
+  configurable daytime/low-heat default target of a true town when population
+  and global budgets permit; it is not an unconditional guarantee or ceiling.
+
+- Cap each locality's combined pedestrian and traffic-driver demand to the
+  unique GUID-qualified concrete appearance capacity. Preserve requested traffic
+  first and fit pedestrians into the remainder. Count duplicate config entries
+  once, build the exclusion set from both pedestrians and drivers already alive
+  in that locality, and return no prefab when the set is exhausted. Falling back
+  to a previously used appearance violates the visible-diversity contract.
+
+- Limit normal reconciliation to four new root transactions per health update.
+  Initial static civilian/occupier vehicle roots and military ambience consume
+  the same cap as pedestrians and traffic. An owner or military-policy-key change
+  invalidates old static military ambience: preserve/promote player claims,
+  recycle unclaimed old roots, reset the bounded static initialization cursor,
+  and repopulate through the shared cap.
+
+- Treat native spawn and behavior assignment as asynchronous transactions. A
+  pedestrian is ready only when the exact living CIV character is attached to
+  its one-member helper group and its active wander waypoint is acknowledged.
+  Traffic is ready only when the exact driver is the vehicle pilot, the vehicle
+  is usable, its engine is running, and its route is active. A request returning
+  success is not proof that group membership, seating, engine, or waypoint state
+  is active in the current frame.
+
+- Give every ambient actor/vehicle a stable immutable runtime identity and keep
+  an immutable slot within its zone/kind reservation set plus its original
+  projection seed. Keep startup, last-movement, retry, recovery-count, and
+  lifecycle status under that identity. Recover only after the configured
+  grace/stuck interval, and derive each replacement path from the stable slot and
+  recovery attempt so a retry receives a distinct deterministic route. Back off
+  retries and recycle after the bounded attempt count. Re-admission must create a
+  fresh physical projection without changing logical population.
+
+- Campaign Debug Phase 20 must not allocate the selected town against an
+  isolated one-town budget. Build the complete production global plan, select
+  the town's actual allocation, and keep the same four-root transaction cap.
+  Otherwise a scoped probe can exceed global actor/traffic budgets and certify a
+  path production never runs.
+
+- Routine ambient topology must return `durableChanged == false`. Do not schedule
+  a campaign save because an unclaimed actor spawned, moved, failed readiness,
+  recovered, or left the render bubble. Filter unclaimed ambient runtime rows and
+  their cargo from save construction and restore. Promote a player-claimed
+  vehicle to durable `field_vehicle` authority; migrate a legacy detached ambient
+  claim to that same boundary instead of deleting or restoring it as ambience.
+
+- Observe ambient vehicle claims player-first before persistence on every server
+  frame. This avoids a full ambient-root occupancy scan, closes the slower
+  health-cadence gap, and must accept only a live tracked vehicle root with a live
+  controlled occupant; a dead controlled character or destroyed vehicle is not
+  a claim. Every `HST_PersistenceService` capture/checkpoint path plus new-
+  campaign reset reconciliation must synchronously repeat the observation and
+  fail closed if durable vehicle authority cannot be reconciled exactly.
+
+- Keep one session-only entity-to-durable-ID tracker shared by ambient promotion,
+  field-vehicle restore/adoption, and garage redeploy. Resolve an exact
+  registered entity-to-durable-ID binding first; a process-local RPL ID is not
+  durable evidence across restart. Use a unique same-prefab root within 8
+  meters only for initial/recovery binding, and fail closed when more than one
+  candidate makes that fallback ambiguous. Use the tracker to refresh each
+  durable vehicle's current transform and destroyed/deleted state and every
+  linked cargo item's last vehicle position before capture. New-campaign reset
+  can retain occupied live tracked `loot_vehicle`, `field_vehicle`, and
+  `garage_redeploy` roots, normalizes retained records to `field_vehicle`, and
+  copies retained vehicle/cargo state before replacing campaign state. Let the
+  tracker delete every other bound old-campaign root once; no secondary promotion
+  registry may delete the same entity again. Native proof must restore two nearby
+  same-prefab durable rows to two distinct physical roots without collapse.
+
+- Treat the saved durable vehicle ID as campaign identity. A string derived from
+  `BaseRplComponent.Id()` is process-local evidence only: after restart it can be
+  reused or permuted among roots. Never rekey an existing durable row or cargo to
+  the current RPL string. Restore all durable roots and register their exact
+  entity-to-ID bindings before first-frame claim observation. Loot, garage,
+  deletion checks, and undercover policy must use the tracker in both directions
+  before considering unique prefab/position recovery. A registered root may not
+  silently change IDs; missing or conflicting authority fails closed.
+
+- Garage redeploy must admit a fresh campaign-stable runtime ID and exact tracker
+  binding before committing payment or removing the stored vehicle row. Every
+  later failure must undo the spawned root, runtime row, linked cargo, binding,
+  and any staged stored-row removal. Returning a failure after a partial world/
+  money/garage commit is not an acceptable transaction boundary.
+
+- Horn suppression is frame-frequency work. Iterate the bounded traffic actor
+  records and direct driver handles; do not scan every helper and then linearly
+  search all runtime roots for its owner. Debug-only helper audits may remain
+  broader, but production frame work must stay linear in ambient actors.
+
+- Static proof services for budget allocation, actor lifecycle, settings
+  migration, and save filtering are pure kernels. They do not prove native CIV
+  faction/group propagation, exact one-member cardinality, pilot seating, engine
+  start, waypoint/route activation, movement, recovery, recycling, serialization,
+  or restart. Current source passes Foundation at 711 references and normal plus
+  all-five Workbench validation at 5,799 files/11,718 classes with CRC
+  `a6fc06df`, zero HST script errors, and zero surviving processes. Campaign
+  Debug, packaged execution, real save/restart, and a ten-town/ten-minute churn,
+  performance, and stutter soak remain required.
+
+- Per-frame observation and the pre-capture barrier are source-complete, but
+  native brief enter/exit, autosave/process restart, promoted-root destruction,
+  new-campaign reset, and Campaign Debug Phase 20 production-path execution still
+  need proof. Commander aid and ownership/security-pressure paths exist in source
+  but need runtime proof. Automatic civilian casualty, theft, nearby-combat
+  influence, panic/recovery, and deeper local-security behavior remain gameplay
+  implementation work; do not infer them from allocator or lifecycle success.
 
 ## Native Reference Sources
 

@@ -252,19 +252,21 @@ class HST_CampaignSaveData
 		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
 			m_aGarageVehicles.Insert(CopyGarageVehicle(vehicle));
 
-		array<string> sessionOnlyDetachedVehicleIds = {};
+		array<string> sessionOnlyVehicleIds = {};
 		foreach (HST_RuntimeVehicleState sessionRuntimeVehicle : state.m_aRuntimeVehicles)
 		{
-			if (!IsSessionOnlyDetachedActiveVehicle(sessionRuntimeVehicle) || sessionRuntimeVehicle.m_sVehicleRuntimeId.IsEmpty())
+			if ((!IsSessionOnlyDetachedActiveVehicle(sessionRuntimeVehicle)
+				&& !IsSessionOnlyAmbientVehicle(sessionRuntimeVehicle))
+				|| sessionRuntimeVehicle.m_sVehicleRuntimeId.IsEmpty())
 				continue;
-			if (sessionOnlyDetachedVehicleIds.Find(sessionRuntimeVehicle.m_sVehicleRuntimeId) < 0)
-				sessionOnlyDetachedVehicleIds.Insert(sessionRuntimeVehicle.m_sVehicleRuntimeId);
+			if (sessionOnlyVehicleIds.Find(sessionRuntimeVehicle.m_sVehicleRuntimeId) < 0)
+				sessionOnlyVehicleIds.Insert(sessionRuntimeVehicle.m_sVehicleRuntimeId);
 		}
 
 		m_aVehicleCargoItems.Clear();
 		foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
 		{
-			if (cargoItem && sessionOnlyDetachedVehicleIds.Find(cargoItem.m_sVehicleRuntimeId) >= 0)
+			if (cargoItem && sessionOnlyVehicleIds.Find(cargoItem.m_sVehicleRuntimeId) >= 0)
 				continue;
 			m_aVehicleCargoItems.Insert(CopyVehicleCargoItem(cargoItem));
 		}
@@ -272,7 +274,8 @@ class HST_CampaignSaveData
 		m_aRuntimeVehicles.Clear();
 		foreach (HST_RuntimeVehicleState runtimeVehicle : state.m_aRuntimeVehicles)
 		{
-			if (IsSessionOnlyDetachedActiveVehicle(runtimeVehicle))
+			if (IsSessionOnlyDetachedActiveVehicle(runtimeVehicle)
+				|| IsSessionOnlyAmbientVehicle(runtimeVehicle))
 				continue;
 			m_aRuntimeVehicles.Insert(CopyRuntimeVehicle(runtimeVehicle));
 		}
@@ -527,13 +530,33 @@ class HST_CampaignSaveData
 		foreach (HST_GarageVehicleState vehicle : m_aGarageVehicles)
 			state.m_aGarageVehicles.Insert(CopyGarageVehicle(vehicle));
 
+		array<string> sessionOnlyVehicleIds = {};
+		foreach (HST_RuntimeVehicleState sessionRuntimeVehicle : m_aRuntimeVehicles)
+		{
+			if ((!IsSessionOnlyDetachedActiveVehicle(sessionRuntimeVehicle)
+				&& !IsSessionOnlyAmbientVehicle(sessionRuntimeVehicle))
+				|| sessionRuntimeVehicle.m_sVehicleRuntimeId.IsEmpty())
+				continue;
+			if (sessionOnlyVehicleIds.Find(sessionRuntimeVehicle.m_sVehicleRuntimeId) < 0)
+				sessionOnlyVehicleIds.Insert(sessionRuntimeVehicle.m_sVehicleRuntimeId);
+		}
+
 		state.m_aVehicleCargoItems.Clear();
 		foreach (HST_VehicleCargoItemState cargoItem : m_aVehicleCargoItems)
+		{
+			if (cargoItem && sessionOnlyVehicleIds.Find(cargoItem.m_sVehicleRuntimeId) >= 0)
+				continue;
 			state.m_aVehicleCargoItems.Insert(CopyVehicleCargoItem(cargoItem));
+		}
 
 		state.m_aRuntimeVehicles.Clear();
 		foreach (HST_RuntimeVehicleState runtimeVehicle : m_aRuntimeVehicles)
+		{
+			if (IsSessionOnlyDetachedActiveVehicle(runtimeVehicle)
+				|| IsSessionOnlyAmbientVehicle(runtimeVehicle))
+				continue;
 			state.m_aRuntimeVehicles.Insert(CopyRuntimeVehicle(runtimeVehicle));
+		}
 
 		state.m_aSavedLoadouts.Clear();
 		foreach (HST_SavedLoadoutState loadout : m_aSavedLoadouts)
@@ -2376,13 +2399,45 @@ class HST_CampaignSaveData
 			&& vehicle.m_sRuntimeKind == "detached_active_vehicle";
 	}
 
-	protected void PruneSessionOnlyDetachedActiveVehicles()
+	protected bool IsSessionOnlyAmbientVehicle(HST_RuntimeVehicleState vehicle)
+	{
+		// Unclaimed ambient projections are session-only whether live or deleted.
+		// Player-used roots are converted to field_vehicle before capture.
+		return vehicle
+			&& IsAmbientVehicleKind(vehicle.m_sRuntimeKind)
+			&& !IsLegacyDetachedAmbientClaim(vehicle);
+	}
+
+	protected bool IsAmbientVehicleKind(string runtimeKind)
+	{
+		return runtimeKind == "CIV_TRAFFIC_VEHICLE"
+			|| runtimeKind == "CIV_VEHICLE"
+			|| runtimeKind == "MILITARY_VEHICLE";
+	}
+
+	protected bool IsLegacyDetachedAmbientClaim(HST_RuntimeVehicleState vehicle)
+	{
+		return vehicle
+			&& vehicle.m_bDetached
+			&& !vehicle.m_bDeleted
+			&& IsAmbientVehicleKind(vehicle.m_sRuntimeKind);
+	}
+
+	protected void PruneSessionOnlyRuntimeVehicles()
 	{
 		array<string> removedRuntimeIds = {};
 		for (int vehicleIndex = m_aRuntimeVehicles.Count() - 1; vehicleIndex >= 0; vehicleIndex--)
 		{
 			HST_RuntimeVehicleState vehicle = m_aRuntimeVehicles[vehicleIndex];
-			if (!IsSessionOnlyDetachedActiveVehicle(vehicle))
+			if (IsLegacyDetachedAmbientClaim(vehicle))
+			{
+				vehicle.m_sRuntimeKind = "field_vehicle";
+				vehicle.m_bDetached = false;
+				vehicle.m_bDeleted = false;
+				continue;
+			}
+			if (!IsSessionOnlyDetachedActiveVehicle(vehicle)
+				&& !IsSessionOnlyAmbientVehicle(vehicle))
 				continue;
 
 			if (!vehicle.m_sVehicleRuntimeId.IsEmpty() && removedRuntimeIds.Find(vehicle.m_sVehicleRuntimeId) < 0)
@@ -2639,7 +2694,7 @@ class HST_CampaignSaveData
 				cargoItem.m_sCategory = "equipment";
 		}
 
-		PruneSessionOnlyDetachedActiveVehicles();
+		PruneSessionOnlyRuntimeVehicles();
 
 
 		bool backfillVehicleCapabilities = restoredSchemaVersion < 19;

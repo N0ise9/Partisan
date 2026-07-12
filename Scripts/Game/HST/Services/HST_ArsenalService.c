@@ -1,5 +1,13 @@
 class HST_ArsenalService
 {
+	protected HST_PersistentFieldVehicleRuntimeService m_PersistentFieldVehicles;
+
+	void SetPersistentFieldVehicleRuntimeService(
+		HST_PersistentFieldVehicleRuntimeService persistentFieldVehicles)
+	{
+		m_PersistentFieldVehicles = persistentFieldVehicles;
+	}
+
 	HST_ArsenalItemState DepositItem(HST_CampaignState state, HST_BalanceConfig balance, string prefab, int amount, string category = "equipment", string displayName = "")
 	{
 		if (!state || prefab.IsEmpty() || amount <= 0)
@@ -346,6 +354,8 @@ class HST_ArsenalService
 	{
 		if (!state || state.m_aGarageVehicles.Count() == 0)
 			return "h-istasi garage | failed: no stored vehicle";
+		if (!m_PersistentFieldVehicles)
+			return "h-istasi garage | failed: durable vehicle tracker not ready";
 
 		HST_GarageVehicleState vehicle = SelectGarageVehicle(state, vehicleId);
 		if (!vehicle || vehicle.m_sPrefab.IsEmpty())
@@ -382,24 +392,61 @@ class HST_ArsenalService
 		HST_WorldPositionService.ApplyUprightEntityTransform(entity, resolvedDeployPosition, deployAngles);
 		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
 
-		RegisterRedeployedRuntimeVehicle(state, entity, vehicle, resolvedDeployPosition, deployAngles);
-		string restoredRuntimeId;
-		string restoreFailure;
-		if (!RestoreStoredVehicleCargo(state, entity, vehicle, restoredRuntimeId, restoreFailure))
+		HST_RuntimeVehicleState runtimeVehicle = RegisterRedeployedRuntimeVehicle(
+			state,
+			entity,
+			vehicle,
+			resolvedDeployPosition,
+			deployAngles);
+		string registeredRuntimeId;
+		if (runtimeVehicle)
+			registeredRuntimeId = runtimeVehicle.m_sVehicleRuntimeId;
+		if (!runtimeVehicle
+			|| !m_PersistentFieldVehicles.Track(entity, runtimeVehicle))
 		{
-			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			RollbackRedeployedRuntimeVehicle(
+				state,
+				entity,
+				registeredRuntimeId);
+			return "h-istasi garage | failed: durable vehicle tracking rejected";
+		}
+		string restoredRuntimeId = runtimeVehicle.m_sVehicleRuntimeId;
+		string restoreFailure;
+		if (!RestoreStoredVehicleCargo(
+			state,
+			entity,
+			vehicle,
+			restoredRuntimeId,
+			restoreFailure))
+		{
+			RollbackRedeployedRuntimeVehicle(
+				state,
+				entity,
+				restoredRuntimeId);
 			return "h-istasi garage | failed: cargo restore failed | " + restoreFailure;
 		}
 
+		HST_GarageVehicleState removedVehicle
+			= RemoveVehicle(state, vehicle.m_sVehicleId);
+		if (!removedVehicle)
+		{
+			RollbackRedeployedRuntimeVehicle(
+				state,
+				entity,
+				restoredRuntimeId);
+			return "h-istasi garage | failed: stored vehicle commit was unavailable";
+		}
 		if (economy && !economy.SpendFactionMoney(state, cost))
 		{
-			SCR_EntityHelper.DeleteEntityAndChildren(entity);
-			RemoveVehicleCargoByRuntimeId(state, restoredRuntimeId);
+			state.m_aGarageVehicles.Insert(removedVehicle);
+			RollbackRedeployedRuntimeVehicle(
+				state,
+				entity,
+				restoredRuntimeId);
 			return string.Format("h-istasi garage | failed: redeploy requires $%1", cost);
 		}
 
 		string label = GarageVehicleDisplayLabel(vehicle);
-		RemoveVehicle(state, vehicle.m_sVehicleId);
 		Print(string.Format("h-istasi garage | redeployed %1 | prefab %2 | position %3 | yaw %4 | cost %5 | restored cargo %6 to %7", label, vehicle.m_sPrefab, resolvedDeployPosition, deployAngles[0], cost, CountStoredVehicleCargoItems(vehicle), restoredRuntimeId));
 		return string.Format("h-istasi garage | redeployed %1 | restored cargo %2 | complete", label, CountStoredVehicleCargoItems(vehicle));
 	}
@@ -410,9 +457,13 @@ class HST_ArsenalService
 		return result.Contains("complete");
 	}
 
-	protected bool RestoreStoredVehicleCargo(HST_CampaignState state, IEntity spawnedVehicle, HST_GarageVehicleState garageVehicle, out string restoredRuntimeId, out string failure)
+	protected bool RestoreStoredVehicleCargo(
+		HST_CampaignState state,
+		IEntity spawnedVehicle,
+		HST_GarageVehicleState garageVehicle,
+		string restoredRuntimeId,
+		out string failure)
 	{
-		restoredRuntimeId = "";
 		failure = "";
 		if (!state || !spawnedVehicle || !garageVehicle)
 		{
@@ -420,10 +471,9 @@ class HST_ArsenalService
 			return false;
 		}
 
-		restoredRuntimeId = ResolveSpawnedVehicleRuntimeId(spawnedVehicle);
 		if (restoredRuntimeId.IsEmpty())
 		{
-			failure = "spawned vehicle runtime id not available";
+			failure = "durable spawned vehicle runtime id not available";
 			return false;
 		}
 
@@ -451,26 +501,6 @@ class HST_ArsenalService
 		}
 
 		return true;
-	}
-
-	protected string ResolveSpawnedVehicleRuntimeId(IEntity vehicle)
-	{
-		if (!vehicle)
-			return "";
-
-		BaseRplComponent rpl = BaseRplComponent.Cast(vehicle.FindComponent(BaseRplComponent));
-		if (rpl)
-			return string.Format("rpl_%1", rpl.Id());
-
-		return string.Format("local_%1_%2", ResolvePrefabName(vehicle), vehicle.GetOrigin());
-	}
-
-	protected string ResolvePrefabName(IEntity entity)
-	{
-		if (!entity || !entity.GetPrefabData())
-			return "";
-
-		return entity.GetPrefabData().GetPrefabName();
 	}
 
 	protected int RemoveVehicleCargoByRuntimeId(HST_CampaignState state, string vehicleRuntimeId)
@@ -548,22 +578,23 @@ class HST_ArsenalService
 		return HST_WorldPositionService.BuildUprightAnglesFromVector(angles);
 	}
 
-	protected void RegisterRedeployedRuntimeVehicle(HST_CampaignState state, IEntity entity, HST_GarageVehicleState garageVehicle, vector position, vector angles)
+	protected HST_RuntimeVehicleState RegisterRedeployedRuntimeVehicle(
+		HST_CampaignState state,
+		IEntity entity,
+		HST_GarageVehicleState garageVehicle,
+		vector position,
+		vector angles)
 	{
 		if (!state || !entity || !garageVehicle)
-			return;
+			return null;
 
-		string runtimeId = ResolveSpawnedVehicleRuntimeId(entity);
+		string runtimeId = BuildUniqueRedeployedVehicleRuntimeId(state);
 		if (runtimeId.IsEmpty())
-			return;
+			return null;
 
-		HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(runtimeId);
-		if (!runtimeVehicle)
-		{
-			runtimeVehicle = new HST_RuntimeVehicleState();
-			runtimeVehicle.m_sVehicleRuntimeId = runtimeId;
-			state.m_aRuntimeVehicles.Insert(runtimeVehicle);
-		}
+		HST_RuntimeVehicleState runtimeVehicle = new HST_RuntimeVehicleState();
+		runtimeVehicle.m_sVehicleRuntimeId = runtimeId;
+		state.m_aRuntimeVehicles.Insert(runtimeVehicle);
 
 		runtimeVehicle.m_sPrefab = garageVehicle.m_sPrefab;
 		runtimeVehicle.m_sDisplayName = GarageVehicleDisplayLabel(garageVehicle);
@@ -580,6 +611,36 @@ class HST_ArsenalService
 		runtimeVehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		runtimeVehicle.m_bDeleted = false;
 		HST_VehicleCapabilityPolicy.CopyGarageCoverStateToRuntime(garageVehicle, runtimeVehicle);
+		return runtimeVehicle;
+	}
+
+	protected string BuildUniqueRedeployedVehicleRuntimeId(HST_CampaignState state)
+	{
+		if (!state)
+			return "";
+		for (int attempt; attempt < 32; attempt++)
+		{
+			string candidate = HST_StableIdService.NextId(
+				state,
+				"garage_redeploy_vehicle");
+			if (!candidate.IsEmpty() && !state.FindRuntimeVehicle(candidate))
+				return candidate;
+		}
+		return "";
+	}
+
+	protected void RollbackRedeployedRuntimeVehicle(
+		HST_CampaignState state,
+		IEntity entity,
+		string runtimeId)
+	{
+		if (m_PersistentFieldVehicles)
+			m_PersistentFieldVehicles.Untrack(entity, runtimeId);
+		RemoveVehicleCargoByRuntimeId(state, runtimeId);
+		if (state && !runtimeId.IsEmpty())
+			state.RemoveRuntimeVehicle(runtimeId);
+		if (entity)
+			SCR_EntityHelper.DeleteEntityAndChildren(entity);
 	}
 
 	protected string GarageVehicleDisplayLabel(HST_GarageVehicleState vehicle)

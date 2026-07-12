@@ -448,3 +448,111 @@ Consequences:
   CRC `36d5b017`, zero HST script errors, and zero surviving Workbench
   processes. Campaign Debug, save/restart, packaged runtime, rendered UI,
   performance, and multiplayer gates remain open.
+
+## CRI-011 - Lease And Admit Ambient Population Under One Global Budget
+
+- Status: Accepted
+- Date: 2026-07-12
+
+Context: Per-town civilian targets could multiply physical actors without a
+global ceiling, and spawn-request success was treated too closely to usable
+behavior. A requested traffic driver might not occupy the pilot seat, start the
+engine, receive a live route, or move; repeated reconciliation could then add
+work or leak transient save rows. Distance from spawn also could not distinguish
+a player claim from AI movement. These ambiguities made ten-town load, recovery,
+persistence, and the reported periodic stutter impossible to certify.
+
+Decision: Keep logical town population authoritative and make every ambient
+pedestrian, driver, and vehicle projection disposable. One pure allocator owns a
+global actor budget and a nested traffic budget, counts each driver in both,
+and distributes constrained demand through pedestrian floors, traffic floors,
+and a rotating fair remainder. Allocation priority is leased for at least 120
+seconds, while production rotates first reconciliation and may begin at most
+four ambient root transactions per global health update. An in-flight root
+reserves budget but is admitted as ready only after native behavior
+acknowledgement: exact living group membership and a current waypoint for a
+pedestrian; exact pilot occupancy, engine-on state, and a current route waypoint
+for traffic. Movement health has startup grace, a no-progress deadline, bounded
+recovery/backoff, and terminal recycle. Each actor owns an immutable projection
+slot within its zone/kind reservation set; recovery keeps that identity and
+derives a slot- and attempt-specific route.
+
+Player occupancy is the only ambient-to-durable ownership signal. An occupied
+ambient vehicle becomes a `field_vehicle`; movement distance alone never claims
+it. Unclaimed ambient rows and linked cargo are excluded from save capture and
+restore, and a legacy live detached ambient claim normalizes to the same field-
+vehicle form. Campaign-state Schema remains 64 because the ambient lifecycle is
+session-only; runtime-settings advances from Schema 23 to 24 for the new global
+budgets and health controls.
+
+Observe claims player-first before persistence on every server frame, then
+repeat the observation synchronously at every production persistence boundary.
+Player-first discovery avoids a full ambient-root occupancy scan, rejects dead
+controlled occupants and destroyed roots, and fails the
+capture closed when a promoted root lacks exact durable authority. Use one
+session-only tracker for ambient promotions, field-vehicle restore/adoption, and
+garage redeploy so transform, destruction, and cargo position are current at
+capture. Preserve each saved durable ID across process restart; a current
+process-local replication ID is not durable identity and cannot rekey a row or
+its cargo. Run restore/registration before first-frame claim observation. Exact
+registered entity/runtime-ID bindings win; initial recovery may
+use only a unique same-prefab root within eight meters and fails closed on
+ambiguity. At new-campaign reset, retain only occupied live tracked
+`loot_vehicle`, `field_vehicle`, or `garage_redeploy` roots, normalize retained
+rows to `field_vehicle`, copy their vehicle/cargo rows before state replacement,
+and delete each other bound old-campaign root once. The scoped Campaign Debug
+Phase 20 population path must select its allocation from the production global
+plan and share the four-root transaction-start cap.
+
+Consequences:
+
+- Five traffic vehicles is the default daytime/low-heat demand target for a true
+  town, not a fixed ceiling or a guarantee of five simultaneous cars. The setting
+  can raise or lower it; remaining population, war
+  level, connected-player budgets, and competing locality demand can reduce the
+  allocation.
+- Per-locality pedestrian plus driver demand is capped to the unique valid
+  concrete appearance pool. Traffic reserves its demand first, pedestrians use
+  the remainder, duplicate config entries do not inflate capacity, and selector
+  exhaustion returns failure rather than a repeated visible actor.
+- Pending and recovering roots consume their reserved capacity without being
+  reported as behavior-ready. Failed acknowledgement cannot skip lifecycle
+  states; illegal transitions are read-only. A dead driver, destroyed vehicle,
+  lost authority, stuck root, or exhausted recovery budget recycles the whole
+  transient aggregate rather than changing logical population.
+- Immutable per-zone/kind slots prevent a replacement from colliding with an
+  existing reservation, and give each recovery attempt a distinct deterministic
+  path while preserving actor identity.
+- Static military ambience treats owner or policy-key changes as replacement
+  boundaries. It recycles unclaimed old roots, promotes player claims, resets
+  its bounded initialization slots, and repopulates under the shared four-root
+  transaction cap.
+- Routine ambient movement, readiness, retry, and cleanup do not dirty campaign
+  persistence. Only promotion of an observed player claim reports a durable
+  mutation. This closes a source-level periodic dirty-state path but does not
+  prove that the visible stutter is gone.
+- Promoted vehicle snapshots do not themselves schedule a new save. They ensure
+  that a pending autosave or major checkpoint captures the latest live transform,
+  destruction, and cargo position; an inexact pre-capture reconciliation defers
+  that checkpoint.
+- Garage redeploy is one transaction: allocate a fresh campaign-stable vehicle
+  ID, register the live root, restore cargo, remove the stored row, and spend.
+  Failure rolls back the root, runtime/cargo rows, binding, and stored row rather
+  than returning failure after a partial commit.
+- Frame-frequency horn clearing walks the bounded ambient actor records directly;
+  helper-by-root nested lookup is forbidden on this hot path.
+- Pure allocator, lifecycle, settings-migration, and save-boundary proofs are
+  compiled and wired into Campaign Debug. The current unsealed tree passes
+  Foundation at 711 references and normal/all-five Workbench validation at
+  5,799 files/11,718 classes with CRC `a6fc06df`, zero HST script errors, and
+  zero surviving Workbench processes.
+- Campaign Debug execution, a native server, ten simultaneously eligible towns
+  for ten minutes, native brief enter/exit, autosave/restart, promoted-root
+  destruction, new-campaign reset, Campaign Debug Phase 20 production-path execution,
+  rendered movement, profiling, multiplayer, and automatic casualty/theft/nearby-
+  combat influence and panic/recovery behavior
+  remain open gates. The last sealed identity remains Schema 64/settings 23 implementation
+  `6f3c913eaed66926cce38b2ecafcff94084898a3`; this Blueprint Phase 8 tree remains
+  unsealed until its final identity is recorded. Commander aid and ownership/
+  security-pressure paths exist in source but need runtime proof; deeper local-
+  security behavior remains implementation work.

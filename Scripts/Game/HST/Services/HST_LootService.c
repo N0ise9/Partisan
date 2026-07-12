@@ -59,6 +59,13 @@ class HST_LootService
 	static const int PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS = 12;
 	static const int MAX_SCAN_ENTITIES = 384;
 	protected ref array<IEntity> m_aScanEntities = {};
+	protected HST_PersistentFieldVehicleRuntimeService m_PersistentFieldVehicles;
+
+	void SetPersistentFieldVehicleRuntimeService(
+		HST_PersistentFieldVehicleRuntimeService persistentFieldVehicles)
+	{
+		m_PersistentFieldVehicles = persistentFieldVehicles;
+	}
 
 	HST_LootResult LootNearbyToArsenal(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId)
 	{
@@ -147,6 +154,7 @@ class HST_LootService
 			return 0;
 
 		int restoredVehicles;
+		array<IEntity> claimedRestoreRoots = {};
 		foreach (HST_RuntimeVehicleState record : state.m_aRuntimeVehicles)
 		{
 			if (!ShouldRestorePersistentFieldVehicle(record))
@@ -159,12 +167,36 @@ class HST_LootService
 			int scannedCandidates;
 			int resolvedRoots;
 			string rejectReason;
-			IEntity liveRoot = ResolveRuntimeVehicleRootFromRecord(world, record, scannedCandidates, resolvedRoots, rejectReason);
+			IEntity liveRoot = ResolveRuntimeVehicleRootFromRecord(
+				world,
+				record,
+				scannedCandidates,
+				resolvedRoots,
+				rejectReason,
+				claimedRestoreRoots);
+			if (liveRoot && claimedRestoreRoots.Find(liveRoot) >= 0)
+			{
+				Print(string.Format(
+					"h-istasi vehicle persistence | refused duplicate restore root for %1; spawning its distinct saved row",
+					record.m_sVehicleRuntimeId), LogLevel.WARNING);
+				liveRoot = null;
+			}
 			if (liveRoot)
 			{
-				HST_RuntimeVehicleState refreshedRecord = EnsureRuntimeVehicleRecord(state, liveRoot, record, record.m_sPrefab);
+				claimedRestoreRoots.Insert(liveRoot);
+				HST_RuntimeVehicleState refreshedRecord = EnsureRuntimeVehicleRecord(
+					state,
+					liveRoot,
+					record,
+					record.m_sPrefab,
+					true);
 				if (refreshedRecord)
+				{
 					refreshedRecord.m_sRuntimeKind = restoredKind;
+					if (!m_PersistentFieldVehicles
+						|| !m_PersistentFieldVehicles.Track(liveRoot, refreshedRecord))
+						Print("h-istasi vehicle persistence | live restore root tracking failed", LogLevel.ERROR);
+				}
 				continue;
 			}
 
@@ -178,7 +210,13 @@ class HST_LootService
 
 			HST_WorldPositionService.ApplyUprightEntityTransform(spawnedVehicle, record.m_vPosition, record.m_vAngles);
 			HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(spawnedVehicle);
-			HST_RuntimeVehicleState restoredRecord = EnsureRuntimeVehicleRecord(state, spawnedVehicle, record, record.m_sPrefab);
+			claimedRestoreRoots.Insert(spawnedVehicle);
+			HST_RuntimeVehicleState restoredRecord = EnsureRuntimeVehicleRecord(
+				state,
+				spawnedVehicle,
+				record,
+				record.m_sPrefab,
+				true);
 			if (restoredRecord)
 			{
 				restoredRecord.m_sRuntimeKind = restoredKind;
@@ -186,6 +224,9 @@ class HST_LootService
 				restoredRecord.m_bDetached = false;
 				restoredRecord.m_bDeleted = false;
 				Print(string.Format("h-istasi vehicle persistence | restored field vehicle %1 | prefab %2 | old id %3 | new id %4", restoredRecord.m_sDisplayName, restoredRecord.m_sPrefab, previousRuntimeId, restoredRecord.m_sVehicleRuntimeId));
+				if (!m_PersistentFieldVehicles
+					|| !m_PersistentFieldVehicles.Track(spawnedVehicle, restoredRecord))
+					Print("h-istasi vehicle persistence | spawned restore root tracking failed", LogLevel.ERROR);
 			}
 
 			restoredVehicles++;
@@ -270,6 +311,10 @@ class HST_LootService
 
 		RemoveVirtualVehicleCargo(state, selectedVehicleRuntimeId);
 		MarkRuntimeVehicleDeleted(state, selectedVehicleRuntimeId, vehicle.m_vPosition);
+		if (m_PersistentFieldVehicles)
+			m_PersistentFieldVehicles.Untrack(
+				selectedVehicle,
+				selectedVehicleRuntimeId);
 		state.m_sLastVehicleTargetStatus = string.Format("garage captured %1", vehicle.m_sDisplayName);
 		state.m_sLastVehicleTargetReason = string.Format("stored garage record before delete; deleted verified root vehicle | physical cargo %1 | virtual cargo %2 | rekeyed legacy %3", physicalCargoCount, virtualCargoCount, recoveredLegacyEntries);
 		Print(string.Format("h-istasi garage | captured %1 into %2 and despawned verified root vehicle | prefab %3 | distance %4m | cargo %5 entries/%6 item(s) | legacy %7", vehicle.m_sDisplayName, vehicle.m_sVehicleId, vehicle.m_sPrefab, scan.m_fSelectedDistanceMeters, vehicle.m_aStoredCargoItems.Count(), CountStoredVehicleCargoItems(vehicle), recoveredLegacyEntries));
@@ -480,7 +525,13 @@ class HST_LootService
 		if (!state || !vehicle)
 			return 0;
 
-		string vehicleId = ResolveVehicleRuntimeId(vehicle);
+		HST_RuntimeVehicleState runtimeVehicle
+			= ResolveRuntimeVehicleRecord(state, vehicle);
+		string vehicleId;
+		if (runtimeVehicle)
+			vehicleId = runtimeVehicle.m_sVehicleRuntimeId;
+		else
+			vehicleId = ResolveVehicleRuntimeId(vehicle);
 		int entries = CountVehicleCargoEntries(state, vehicleId);
 		entries += CountLegacyVehiclePartCargoNear(state, vehicle, vehicleId);
 		return entries;
@@ -619,6 +670,10 @@ class HST_LootService
 	{
 		if (vehicleRuntimeId.IsEmpty())
 			return false;
+		if (m_PersistentFieldVehicles
+			&& m_PersistentFieldVehicles.ResolveEntityForRuntimeId(
+				vehicleRuntimeId))
+			return true;
 
 		BaseWorld world = GetGame().GetWorld();
 		if (!world)
@@ -685,7 +740,9 @@ class HST_LootService
 			if (!IsEligibleLootVehicle(rootVehicle, playerEntity, runtimeCandidate, rootPrefab))
 				continue;
 
-			string runtimeId = ResolveVehicleRuntimeId(rootVehicle);
+			string runtimeId = ResolveVehicleRuntimeIdFromRecord(
+				rootVehicle,
+				runtimeCandidate);
 			if (runtimeId.IsEmpty())
 				continue;
 			if (snapshottedRuntimeIds && snapshottedRuntimeIds.Find(runtimeId) >= 0)
@@ -701,6 +758,12 @@ class HST_LootService
 			record.m_bDeleted = false;
 			if (record.m_iSpawnedAtSecond <= 0)
 				record.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+			if (!m_PersistentFieldVehicles
+				|| !m_PersistentFieldVehicles.Track(rootVehicle, record))
+			{
+				Print("h-istasi vehicle persistence | nearby durable root tracking failed", LogLevel.ERROR);
+				continue;
+			}
 			if (snapshottedRuntimeIds && snapshottedRuntimeIds.Find(record.m_sVehicleRuntimeId) < 0)
 				snapshottedRuntimeIds.Insert(record.m_sVehicleRuntimeId);
 			snapshottedVehicles++;
@@ -891,6 +954,14 @@ class HST_LootService
 	{
 		if (!entity)
 			return false;
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (character)
+		{
+			CharacterControllerComponent controller
+				= character.GetCharacterController();
+			return controller
+				&& controller.GetLifeState() != ECharacterLifeState.DEAD;
+		}
 
 		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
 		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
@@ -1691,7 +1762,18 @@ class HST_LootService
 				continue;
 			}
 
-			if (DistanceSq2D(playerOrigin, record.m_vPosition) > radiusSq)
+			IEntity exactTrackedRoot;
+			if (m_PersistentFieldVehicles)
+				exactTrackedRoot = m_PersistentFieldVehicles.ResolveEntityForRuntimeId(
+					record.m_sVehicleRuntimeId);
+			if (!exactTrackedRoot
+				&& CanAdoptPersistentFieldVehicle(record))
+			{
+				lastReject = "durable vehicle row has no exact registered live root";
+				continue;
+			}
+			if (!exactTrackedRoot
+				&& DistanceSq2D(playerOrigin, record.m_vPosition) > radiusSq)
 			{
 				lastReject = "registered vehicle record outside interaction radius";
 				continue;
@@ -1700,7 +1782,14 @@ class HST_LootService
 			int scannedCandidates;
 			int resolvedRoots;
 			string recordReject;
-			IEntity rootVehicle = ResolveRuntimeVehicleRootFromRecord(world, record, scannedCandidates, resolvedRoots, recordReject);
+			IEntity rootVehicle = exactTrackedRoot;
+			if (!rootVehicle)
+				rootVehicle = ResolveRuntimeVehicleRootFromRecord(
+					world,
+					record,
+					scannedCandidates,
+					resolvedRoots,
+					recordReject);
 			result.m_iCandidates += scannedCandidates;
 			result.m_iResolvedRoots += resolvedRoots;
 			if (!rootVehicle)
@@ -1778,12 +1867,26 @@ class HST_LootService
 			result.m_iRuntimeFallbackHits++;
 	}
 
-	protected HST_RuntimeVehicleState EnsureRuntimeVehicleRecord(HST_CampaignState state, IEntity rootVehicle, HST_RuntimeVehicleState existingRecord, string prefabHint = "")
+	protected HST_RuntimeVehicleState EnsureRuntimeVehicleRecord(
+		HST_CampaignState state,
+		IEntity rootVehicle,
+		HST_RuntimeVehicleState existingRecord,
+		string prefabHint = "",
+		bool preserveExistingRuntimeId = false)
 	{
 		if (!state || !rootVehicle)
 			return existingRecord;
 
 		string runtimeId = ResolveVehicleRuntimeId(rootVehicle);
+		// A durable ID belongs to the saved campaign row, not to a process-local
+		// RPL allocation. During restore, bind the new root to the existing ID so
+		// RPL reuse or permutation cannot swap rows or rekey cargo between them.
+		bool preserveDurableExistingId = existingRecord
+			&& CanAdoptPersistentFieldVehicle(existingRecord)
+			&& !existingRecord.m_sVehicleRuntimeId.IsEmpty();
+		if ((preserveExistingRuntimeId || preserveDurableExistingId) && existingRecord
+			&& !existingRecord.m_sVehicleRuntimeId.IsEmpty())
+			runtimeId = existingRecord.m_sVehicleRuntimeId;
 		string prefab = prefabHint;
 		if (prefab.IsEmpty() || !HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
 			prefab = ResolveVehiclePrefabFromRecord(rootVehicle, existingRecord);
@@ -1794,9 +1897,13 @@ class HST_LootService
 
 		HST_RuntimeVehicleState record = existingRecord;
 		if (!record)
-			record = state.FindRuntimeVehicle(runtimeId);
-		if (!record)
 		{
+			// No exact tracker/registry/unique-position authority selected a row.
+			// A process-local RPL string may collide with an old saved ID, so a
+			// genuinely new durable row receives a fresh campaign-stable ID.
+			runtimeId = BuildUniqueDurableVehicleRuntimeId(state);
+			if (runtimeId.IsEmpty())
+				return null;
 			record = new HST_RuntimeVehicleState();
 			record.m_sVehicleRuntimeId = runtimeId;
 			state.m_aRuntimeVehicles.Insert(record);
@@ -1820,6 +1927,10 @@ class HST_LootService
 		record.m_bDeleted = false;
 		if (!previousRuntimeId.IsEmpty() && previousRuntimeId != runtimeId)
 			RekeyVehicleCargoRuntimeId(state, previousRuntimeId, runtimeId, prefab, record.m_sDisplayName, rootVehicle.GetOrigin());
+		if (CanAdoptPersistentFieldVehicle(record)
+			&& (!m_PersistentFieldVehicles
+				|| !m_PersistentFieldVehicles.Track(rootVehicle, record)))
+			Print("h-istasi vehicle persistence | durable root registration failed", LogLevel.ERROR);
 		return record;
 	}
 
@@ -1828,8 +1939,10 @@ class HST_LootService
 		if (requestedRuntimeId.IsEmpty())
 			return false;
 
-		if (runtimeVehicle && runtimeVehicle.m_sVehicleRuntimeId == requestedRuntimeId)
-			return true;
+		// Once an exact runtime row is known, its stable ID is authoritative.
+		// Never fall through to a process-local RPL ID after a stable-ID mismatch.
+		if (runtimeVehicle)
+			return runtimeVehicle.m_sVehicleRuntimeId == requestedRuntimeId;
 
 		if (rootVehicle && ResolveVehicleRuntimeId(rootVehicle) == requestedRuntimeId)
 			return true;
@@ -1854,13 +1967,29 @@ class HST_LootService
 		return false;
 	}
 
-	protected IEntity ResolveRuntimeVehicleRootFromRecord(BaseWorld world, HST_RuntimeVehicleState record, out int scannedCandidates, out int resolvedRoots, out string rejectReason)
+	protected IEntity ResolveRuntimeVehicleRootFromRecord(
+		BaseWorld world,
+		HST_RuntimeVehicleState record,
+		out int scannedCandidates,
+		out int resolvedRoots,
+		out string rejectReason,
+		array<IEntity> excludedRoots = null)
 	{
 		scannedCandidates = 0;
 		resolvedRoots = 0;
 		rejectReason = "registered vehicle record had no live root nearby";
 		if (!world || !record)
 			return null;
+		if (m_PersistentFieldVehicles)
+		{
+			IEntity exactTrackedRoot
+				= m_PersistentFieldVehicles.ResolveEntityForRuntimeId(
+					record.m_sVehicleRuntimeId);
+			if (exactTrackedRoot
+				&& (!excludedRoots
+					|| excludedRoots.Find(exactTrackedRoot) < 0))
+				return exactTrackedRoot;
+		}
 
 		m_aScanEntities.Clear();
 		world.QueryEntitiesBySphere(record.m_vPosition, PERSISTENT_FIELD_VEHICLE_RESTORE_RADIUS_METERS, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
@@ -1882,6 +2011,8 @@ class HST_LootService
 				rejectReason = rootReject;
 				continue;
 			}
+			if (excludedRoots && excludedRoots.Find(rootVehicle) >= 0)
+				continue;
 
 			if (checkedRoots.Find(rootVehicle) >= 0)
 				continue;
@@ -2354,26 +2485,54 @@ class HST_LootService
 	{
 		if (!state || !entity)
 			return null;
+		if (m_PersistentFieldVehicles)
+		{
+			HST_RuntimeVehicleState exact
+				= m_PersistentFieldVehicles.ResolveForEntity(state, entity);
+			if (exact)
+				return exact;
+		}
 
 		string vehicleId = ResolveVehicleRuntimeId(entity);
 		HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(vehicleId);
-		if (runtimeVehicle && !runtimeVehicle.m_bDeleted)
+		if (runtimeVehicle && !runtimeVehicle.m_bDeleted
+			&& !CanAdoptPersistentFieldVehicle(runtimeVehicle))
 			return runtimeVehicle;
 
 		string prefab = ResolveVehicleIdentityName(entity);
 		vector origin = entity.GetOrigin();
+		HST_RuntimeVehicleState positionalMatch;
 		foreach (HST_RuntimeVehicleState candidate : state.m_aRuntimeVehicles)
 		{
-			if (!candidate || candidate.m_bDeleted || candidate.m_sPrefab != prefab)
+			if (!candidate || candidate.m_bDeleted
+				|| CanAdoptPersistentFieldVehicle(candidate)
+				|| candidate.m_sPrefab != prefab)
 				continue;
 
 			if (DistanceSq2D(candidate.m_vPosition, origin) > 64.0)
 				continue;
 
-			return candidate;
+			if (positionalMatch && positionalMatch != candidate)
+				return null;
+			positionalMatch = candidate;
 		}
 
-		return null;
+		return positionalMatch;
+	}
+
+	protected string BuildUniqueDurableVehicleRuntimeId(HST_CampaignState state)
+	{
+		if (!state)
+			return "";
+		for (int attempt; attempt < 32; attempt++)
+		{
+			string candidate = HST_StableIdService.NextId(
+				state,
+				"field_vehicle");
+			if (!candidate.IsEmpty() && !state.FindRuntimeVehicle(candidate))
+				return candidate;
+		}
+		return "";
 	}
 
 	protected void MarkRuntimeVehicleDeleted(HST_CampaignState state, string vehicleRuntimeId, vector deletedPosition)

@@ -108,6 +108,16 @@ class HST_RuntimeSettingsCivilians
 	int m_iCivilianVehicleMinPerTown = 1;
 	int m_iCivilianVehicleMaxPerTown = 5;
 	int m_iCivilianDrivingVehicleCountPerTown = 5;
+	int m_iCivilianGlobalActorBudgetBase = 48;
+	int m_iCivilianGlobalActorBudgetPerPlayer = 12;
+	int m_iCivilianGlobalTrafficBudgetBase = 10;
+	int m_iCivilianGlobalTrafficBudgetPerPlayer = 2;
+	int m_iCivilianWarLevelBudgetPenaltyPercent = 4;
+	int m_iCivilianRuntimeHealthIntervalSeconds = 5;
+	int m_iCivilianRuntimeStartupGraceSeconds = 15;
+	int m_iCivilianRuntimeStuckSeconds = 30;
+	int m_iCivilianRuntimeMaxRecoveryAttempts = 2;
+	int m_iCivilianRuntimeRetryBackoffSeconds = 20;
 	int m_iOccupierVehicleMinPerTown;
 	int m_iOccupierVehicleMaxPerTown = 2;
 }
@@ -137,7 +147,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 23;
+	static const int SCHEMA_VERSION = 24;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -212,12 +222,22 @@ class HST_RuntimeSettings
 		m_VehicleLoot.m_iRadiusMeters = Math.Max(1, m_VehicleLoot.m_iRadiusMeters);
 		m_VehicleLoot.m_iMaxItemsPerAction = Math.Max(1, m_VehicleLoot.m_iMaxItemsPerAction);
 		m_AirSupport.m_iCooldownSeconds = Math.Max(60, m_AirSupport.m_iCooldownSeconds);
-		m_Civilians.m_iMaxActivePerTown = Math.Max(0, m_Civilians.m_iMaxActivePerTown);
-		m_Civilians.m_iCivilianVehicleMinPerTown = Math.Max(0, m_Civilians.m_iCivilianVehicleMinPerTown);
-		m_Civilians.m_iCivilianVehicleMaxPerTown = Math.Max(m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown);
+		m_Civilians.m_iMaxActivePerTown = Math.Max(0, Math.Min(32, m_Civilians.m_iMaxActivePerTown));
+		m_Civilians.m_iCivilianVehicleMinPerTown = Math.Max(0, Math.Min(8, m_Civilians.m_iCivilianVehicleMinPerTown));
+		m_Civilians.m_iCivilianVehicleMaxPerTown = Math.Max(m_Civilians.m_iCivilianVehicleMinPerTown, Math.Min(8, m_Civilians.m_iCivilianVehicleMaxPerTown));
 		m_Civilians.m_iCivilianDrivingVehicleCountPerTown = Math.Max(0, Math.Min(8, m_Civilians.m_iCivilianDrivingVehicleCountPerTown));
-		m_Civilians.m_iOccupierVehicleMinPerTown = Math.Max(0, m_Civilians.m_iOccupierVehicleMinPerTown);
-		m_Civilians.m_iOccupierVehicleMaxPerTown = Math.Max(m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
+		m_Civilians.m_iCivilianGlobalActorBudgetBase = Math.Max(0, Math.Min(256, m_Civilians.m_iCivilianGlobalActorBudgetBase));
+		m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer = Math.Max(0, Math.Min(64, m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer));
+		m_Civilians.m_iCivilianGlobalTrafficBudgetBase = Math.Max(0, Math.Min(64, m_Civilians.m_iCivilianGlobalTrafficBudgetBase));
+		m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer = Math.Max(0, Math.Min(16, m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer));
+		m_Civilians.m_iCivilianWarLevelBudgetPenaltyPercent = Math.Max(0, Math.Min(8, m_Civilians.m_iCivilianWarLevelBudgetPenaltyPercent));
+		m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds = Math.Max(2, Math.Min(30, m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds));
+		m_Civilians.m_iCivilianRuntimeStartupGraceSeconds = Math.Max(m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds, Math.Min(120, m_Civilians.m_iCivilianRuntimeStartupGraceSeconds));
+		m_Civilians.m_iCivilianRuntimeStuckSeconds = Math.Max(m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds, Math.Min(300, m_Civilians.m_iCivilianRuntimeStuckSeconds));
+		m_Civilians.m_iCivilianRuntimeMaxRecoveryAttempts = Math.Max(0, Math.Min(4, m_Civilians.m_iCivilianRuntimeMaxRecoveryAttempts));
+		m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds = Math.Max(m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds, Math.Min(120, m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds));
+		m_Civilians.m_iOccupierVehicleMinPerTown = Math.Max(0, Math.Min(8, m_Civilians.m_iOccupierVehicleMinPerTown));
+		m_Civilians.m_iOccupierVehicleMaxPerTown = Math.Max(m_Civilians.m_iOccupierVehicleMinPerTown, Math.Min(8, m_Civilians.m_iOccupierVehicleMaxPerTown));
 		m_Persistence.m_iAutosaveIntervalSeconds = Math.Max(60, m_Persistence.m_iAutosaveIntervalSeconds);
 		m_Persistence.m_iMajorChangeDebounceSeconds = Math.Max(1, m_Persistence.m_iMajorChangeDebounceSeconds);
 	}
@@ -272,6 +292,16 @@ class HST_RuntimeSettings
 		balance.m_iCivilianVehicleMinPerTown = m_Civilians.m_iCivilianVehicleMinPerTown;
 		balance.m_iCivilianVehicleMaxPerTown = m_Civilians.m_iCivilianVehicleMaxPerTown;
 		balance.m_iCivilianDrivingVehicleCountPerTown = m_Civilians.m_iCivilianDrivingVehicleCountPerTown;
+		balance.m_iCivilianGlobalActorBudgetBase = m_Civilians.m_iCivilianGlobalActorBudgetBase;
+		balance.m_iCivilianGlobalActorBudgetPerPlayer = m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer;
+		balance.m_iCivilianGlobalTrafficBudgetBase = m_Civilians.m_iCivilianGlobalTrafficBudgetBase;
+		balance.m_iCivilianGlobalTrafficBudgetPerPlayer = m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer;
+		balance.m_iCivilianWarLevelBudgetPenaltyPercent = m_Civilians.m_iCivilianWarLevelBudgetPenaltyPercent;
+		balance.m_iCivilianRuntimeHealthIntervalSeconds = m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds;
+		balance.m_iCivilianRuntimeStartupGraceSeconds = m_Civilians.m_iCivilianRuntimeStartupGraceSeconds;
+		balance.m_iCivilianRuntimeStuckSeconds = m_Civilians.m_iCivilianRuntimeStuckSeconds;
+		balance.m_iCivilianRuntimeMaxRecoveryAttempts = m_Civilians.m_iCivilianRuntimeMaxRecoveryAttempts;
+		balance.m_iCivilianRuntimeRetryBackoffSeconds = m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds;
 		balance.m_iOccupierVehicleMinPerTown = m_Civilians.m_iOccupierVehicleMinPerTown;
 		balance.m_iOccupierVehicleMaxPerTown = m_Civilians.m_iOccupierVehicleMaxPerTown;
 		balance.m_iWarLevelMaximum = m_Economy.m_iWarLevelMaximum;
@@ -315,6 +345,8 @@ class HST_RuntimeSettings
 		string vehicleLoot = string.Format("\nvehicle loot | enabled %1 | radius %2m | skip unlocked %3 | remove source %4 | max %5", m_VehicleLoot.m_bEnabled, m_VehicleLoot.m_iRadiusMeters, m_VehicleLoot.m_bSkipUnlockedItems, m_VehicleLoot.m_bRemoveSourceItems, m_VehicleLoot.m_iMaxItemsPerAction);
 		string airSupport = string.Format("\nair support | enabled %1 | cooldown %2s", m_AirSupport.m_bEnabled, m_AirSupport.m_iCooldownSeconds);
 		string civilians = string.Format("\ncivilians | enabled %1 | max %2 per town | parked civ vehicles %3-%4 | driving civ vehicles %5 | occupier vehicles %6-%7", m_Civilians.m_bEnabled, m_Civilians.m_iMaxActivePerTown, m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown, m_Civilians.m_iCivilianDrivingVehicleCountPerTown, m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
+		civilians = civilians + string.Format(" | actor budget %1 + %2/player | traffic budget %3 + %4/player | war penalty %5 pct/level", m_Civilians.m_iCivilianGlobalActorBudgetBase, m_Civilians.m_iCivilianGlobalActorBudgetPerPlayer, m_Civilians.m_iCivilianGlobalTrafficBudgetBase, m_Civilians.m_iCivilianGlobalTrafficBudgetPerPlayer, m_Civilians.m_iCivilianWarLevelBudgetPenaltyPercent);
+		civilians = civilians + string.Format(" | health %1s | startup %2s | stuck %3s | recoveries %4 | retry %5s", m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds, m_Civilians.m_iCivilianRuntimeStartupGraceSeconds, m_Civilians.m_iCivilianRuntimeStuckSeconds, m_Civilians.m_iCivilianRuntimeMaxRecoveryAttempts, m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds);
 		string persistence = string.Format("\npersistence | autosave %1s | debounce %2s", m_Persistence.m_iAutosaveIntervalSeconds, m_Persistence.m_iMajorChangeDebounceSeconds);
 		string features = string.Format("\nfeatures | physical war %1 | area loot %2 | setup read only %3 | GM budgets %4 | player markers %5 | infinite stamina %6 | resistance support tracking %7", m_Features.m_bPhysicalWarEnabled, m_Features.m_bAreaLootEnabled, m_Features.m_bSetupUiReadOnly, m_Features.m_bGameMasterBudgetsEnabled, m_Features.m_bShowPlayerMapMarkers, m_Features.m_bInfiniteStaminaEnabled, m_Features.m_bTrackResistanceSupportGroupsOnMap);
 		return campaign + factions + economy + pacing + loss + capture + world + loot + vehicleLoot + airSupport + civilians + persistence + features + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";

@@ -2,11 +2,31 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is sealed at `64`, and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains sealed at `23`. Schema 64 adds the
-canonical curated-town political support/population boundary on top of the
-sealed Schema-62 ownership and Schema-63 combat-presence dependencies. Schema
-64 identifies implementation `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
+`HST_CampaignState.SCHEMA_VERSION` remains `64`; this transient Blueprint
+Phase 8 slice adds no campaign-state fields.
+`HST_RuntimeSettings.SCHEMA_VERSION` advances
+from `23` to `24` for global ambient-population budgets and bounded runtime-
+health controls. The current working tree is unsealed until a final
+implementation identity is recorded.
+
+Current source/Workbench evidence is Foundation at 711 script-symbol references,
+normal compilation at 5,799 files/11,718 classes with CRC `a6fc06df`, successful
+validation for all five configurations, zero HST script errors, and zero
+surviving Workbench processes. Deterministic budget, lifecycle, settings-
+migration, and save-boundary proofs are compiled and wired but have not run in
+Campaign Debug. Real profile serialization/restart, native server execution,
+ten-town/ten-minute soak, brief enter/exit observation, promoted-root
+destruction, new-campaign reset, Campaign Debug Phase 20 production-path
+execution, rendered behavior, stutter measurement, and multiplayer remain open.
+Aid and ownership/security-pressure source paths still need runtime proof;
+automatic casualty, theft, nearby-combat influence, panic/recovery, and deeper
+local-security behavior remain unimplemented.
+
+The last sealed checkpoint is campaign Schema 64 on runtime-settings Schema 23.
+It adds the canonical curated-town political support/population boundary on top
+of the sealed Schema-62 ownership and Schema-63 combat-presence dependencies.
+That checkpoint identifies implementation
+`6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
 `2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`.
 Foundation passes at 696 script-symbol references, including the
 dedicated Schema-64 gate. Normal Workbench compilation and all-five-
@@ -14,7 +34,7 @@ configuration validation pass at 5,793 files/11,695 classes with CRC
 `36d5b017`, successful validation, and zero HST script errors. Every Workbench
 instance was closed and the verified process count was zero. Campaign Debug,
 real serialization, save/restart, packaged runtime, rendered UI, stutter
-measurement, and multiplayer proof remain pending.
+measurement, and multiplayer proof remain pending for that sealed checkpoint.
 
 Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
@@ -31,6 +51,123 @@ classes with CRC `22c13a32` and zero script errors; the normal Script Editor ope
 remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 evidence remains open.
+
+## Runtime Settings Schema 24
+
+- Campaign-state Schema remains `64`; Schema 24 changes the generated runtime-
+  settings contract only. Schema-23 files receive the new class defaults when
+  keys are absent, retain explicit valid operator values, normalize every value
+  to its documented performance bound, then rewrite as Schema 24.
+- `civilianGlobalActorBudgetBase` defaults to `48`, and
+  `civilianGlobalActorBudgetPerPlayer` defaults to `12`. This is the global cap
+  for physically projected pedestrian actors plus traffic drivers. It never
+  changes logical town population.
+- `civilianGlobalTrafficBudgetBase` defaults to `10`, and
+  `civilianGlobalTrafficBudgetPerPlayer` defaults to `2`. The traffic cap is
+  nested inside the actor cap because every allocated traffic vehicle requires
+  one driver.
+- `civilianWarLevelBudgetPenaltyPercent` defaults to `4` percent per war level
+  above one. The allocator bounds both the setting and the total applied
+  penalty.
+- `civilianRuntimeHealthIntervalSeconds`,
+  `civilianRuntimeStartupGraceSeconds`, `civilianRuntimeStuckSeconds`,
+  `civilianRuntimeMaxRecoveryAttempts`, and
+  `civilianRuntimeRetryBackoffSeconds` default to `5`, `15`, `30`, `2`, and
+  `20`. Normalization keeps startup, stuck, and retry windows at least as long
+  as the health interval and prevents unbounded recovery.
+- The existing `civilianDrivingVehicleCountPerTown` default of `5` is the
+  configurable daytime/low-heat true-town demand target, not a fixed ceiling.
+  Operators may raise or lower the normalized `0..8` setting. Remaining
+  population, war level, the global actor/traffic budgets, and competing
+  eligible localities may produce a smaller allocation; migration does not
+  promise five simultaneous cars in every town.
+- Physical pedestrian plus driver demand for one locality is capped to the count
+  of unique GUID-qualified character prefabs. Traffic keeps its requested share
+  first and pedestrians fit the remainder. Duplicate/invalid config rows do not
+  inflate capacity, and exhaustion no longer falls back to a cloned appearance.
+- The settings migration proof covers exact Schema-23 defaults, preservation of
+  explicit valid overrides, and performance-bound normalization. It is compiled
+  and wired into Campaign Debug but has not executed there.
+
+## Blueprint Phase 8 Ambient Runtime Boundary (Campaign Schema 64)
+
+- Ambient pedestrian and traffic lifecycle records, world handles, groups,
+  waypoints, and unclaimed vehicle roots remain process-local. They reserve
+  physical budgets while queued or recovering but are neither logical
+  population nor campaign-save authority.
+- The allocator max-merges duplicate locality demand, applies pedestrian and
+  traffic floors, and distributes the remainder fairly with at most one actor
+  per town per round. A lease of at least 120 seconds stabilizes constrained
+  priority before the epoch rotates it. The production reconciliation cursor
+  also rotates first service, and no more than four ambient root transactions
+  begin per global health update.
+- A pedestrian is admitted only after exact living CIV group membership and a
+  current wander waypoint are observed. Traffic is admitted only after exact
+  living CIV driver membership, pilot-compartment occupancy, engine-on state,
+  and a current route waypoint are acknowledged. A request to spawn, move into
+  a vehicle, start an engine, or assign a route is not itself success evidence.
+- Admitted movement is sampled after startup grace. Stuck roots enter bounded
+  recovery and backoff; exhausted roots, dead drivers, destroyed vehicles, and
+  lost authority recycle their complete transient aggregate. Logical population
+  continues without physical duplication. Static military ambience detects an
+  owner or policy-key change, recycles unclaimed old roots, preserves/promotes
+  player claims, resets its bounded initialization slots, and repopulates under
+  the same four-transaction cap.
+- Every pedestrian/traffic lifecycle record has an immutable slot within its
+  zone/kind reservation set and retains its original projection seed. Recovery
+  builds a deterministic slot- and attempt-specific route without changing that
+  identity. The scoped Campaign Debug Phase 20 population helper now selects its
+  town from the complete production global plan and consumes the same four-root
+  cap.
+- Save capture and restore exclude unclaimed `CIV_TRAFFIC_VEHICLE`,
+  `CIV_VEHICLE`, and `MILITARY_VEHICLE` rows plus linked cargo. Player occupancy
+  promotes an ambient root to durable `field_vehicle` authority; distance moved
+  does not. Current normalization converts a legacy live detached ambient claim
+  to `field_vehicle` and removes deleted or unclaimed legacy ambience. This
+  changes normalization policy without advancing campaign Schema 64 because no
+  new durable fields are introduced.
+- Player-first occupancy observation runs before persistence on every server
+  frame and avoids a full ambient-root occupancy scan. It promotes only live
+  tracked roots with live controlled occupants; destroyed roots and dead
+  controlled occupants are rejected. Every `HST_PersistenceService` capture or
+  checkpoint path repeats the observation behind a fail-closed reconciliation
+  barrier, and new-campaign reset performs its own reconciliation. One session-
+  only live-root tracker registers ambient promotions, restored/adopted field
+  vehicles, and garage redeploys so current transform, destruction, and linked
+  cargo position are refreshed before capture.
+- A saved durable vehicle ID is campaign identity, even when it resembles an old
+  `rpl_*` value. Restore keeps that ID and binds the new root to it; process-local
+  replication IDs never rekey a durable row or linked cargo. Restore/registration
+  runs before first-frame claim observation. Loot/garage targeting uses exact
+  forward and reverse tracker bindings, with unique positional recovery only.
+- Garage redeploy allocates a fresh campaign-stable ID and completes tracker
+  admission before stored-row removal or payment. Failure removes the spawned
+  root, runtime/cargo rows, and binding and restores the stored row when needed.
+- A new-campaign reset reconciles registered durable roots before replacing the
+  old state. It may retain only occupied live tracked roots whose authority is
+  `loot_vehicle`, `field_vehicle`, or `garage_redeploy`; retained rows normalize
+  to `field_vehicle`, and their vehicle and linked-cargo rows are copied into the
+  new state before replacement. Every other bound root is deleted once. These
+  are runtime/capture policies, not new serialized fields, so Campaign Schema
+  remains 64.
+- The in-memory save-boundary proof covers unclaimed exclusion, claimed field-
+  vehicle roundtrip, legacy detached-claim conversion, durable non-ambient
+  control rows, and cargo pruning. It is source proof only. Native brief
+  enter/exit, autosave/process restart, promoted-root destruction,
+  new-campaign-reset, two-nearby-same-prefab restoration without root collapse,
+  and loss/duplication checks remain open.
+- Routine ambience and movement no longer report a durable campaign-state
+  change. Only player-claim promotion can dirty the campaign from this pass.
+  This removes a periodic persistence scheduling path implicated in the
+  reported stutter, but native profiling is still required.
+- Pure budget and actor-lifecycle proofs cover ten-town bounded allocation,
+  shared driver accounting, lease rotation, zero/capped demand, strict
+  transition paths, read-only illegal edges, movement progress, and bounded
+  recycle. They are wired into Campaign Debug but have not been executed there;
+  the ten-town/ten-minute native soak and real save/restart remain open gates.
+  Aid and ownership/security-pressure source paths still need runtime proof;
+  automatic casualty, theft, nearby-combat influence, panic/recovery, and deeper
+  local-security behavior remain open implementation work.
 
 ## Schema 64
 

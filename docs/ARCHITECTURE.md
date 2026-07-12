@@ -1,11 +1,33 @@
 # h-istasi Architecture
 
-The current campaign source/Workbench checkpoint is sealed Schema 64 on
-runtime-settings Schema 23. It adds one canonical town-influence state owner,
-strict political hysteresis through the existing ownership transaction, a
-conservative migration/quarantine boundary, and pure contacted-town/territory
-Map/War projections. Legacy support/population fields are compatibility
-projections only. Schema 64 identifies implementation
+The current working tree keeps campaign-state Schema 64 and advances runtime
+settings from Schema 23 to Schema 24 for an unsealed Blueprint Phase 8 ambient-runtime
+slice. One transient authority now owns global actor and traffic budgeting,
+leased fair locality allocation, asynchronous behavior admission, movement
+health, bounded recovery, and recycle. Ambient projection remains separate from
+logical population and persistence: only an observed player-occupied vehicle is
+promoted to durable `field_vehicle` authority. The tree remains unsealed until
+its final implementation identity is recorded.
+
+Current source/Workbench evidence is Foundation at 711 script-symbol references;
+normal compilation at 5,799 files/11,718 classes with CRC `a6fc06df`; successful
+validation for all five configurations; zero HST script errors; and zero
+surviving Workbench processes. Deterministic allocator, lifecycle, settings-
+migration, and save-boundary proofs are compiled and wired but have not run
+through Campaign Debug. Native server execution, ten-town/ten-minute soak,
+brief enter/exit observation, autosave/restart, promoted-root destruction,
+new-campaign reset, Campaign Debug Phase 20 production-path execution, automatic
+casualty/theft/nearby-combat influence and panic/recovery behavior, rendered
+behavior, stutter measurement, and multiplayer remain open. Commander aid and
+ownership/security-pressure paths exist in source but still need runtime proof;
+deeper local-security behavior remains implementation work.
+
+The last sealed checkpoint is campaign Schema 64 on runtime-settings Schema 23.
+It adds one canonical town-influence state owner, strict political hysteresis
+through the existing ownership transaction, a conservative migration/quarantine
+boundary, and pure contacted-town/territory Map/War projections. Legacy
+support/population fields are compatibility projections only. Schema 64
+identifies implementation
 `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
 `2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`. It has no
 Campaign Debug/package result. Its dedicated Foundation gate passes within the complete
@@ -13,7 +35,8 @@ Campaign Debug/package result. Its dedicated Foundation gate passes within the c
 validation pass at 5,793 files/11,695 classes with CRC `36d5b017`, successful
 validation, and zero HST script errors. Every Workbench instance was closed;
 the verified post-run process count was zero. Real save/restart, rendered UI,
-stutter measurement, and multiplayer execution remain unproven.
+stutter measurement, and multiplayer execution remain unproven for that sealed
+checkpoint.
 
 Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
@@ -34,7 +57,8 @@ Debug and packaged-runtime evidence remain open.
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through sealed schema-64 authority services are:
+schema-42 through sealed schema-64 authority services, plus the current
+unsealed Blueprint Phase 8 transient runtime services, are:
 
 Schema 60 also separates recurring enforcement reads from identity refreshes:
 the one-second maintenance path reuses registered player authority, while
@@ -147,6 +171,114 @@ the hot tick without making cached presentation state an authorization source.
   compiled and wired deterministic source fixtures. The full Foundation gate
   and normal/all-configuration Workbench checks pass, but Campaign Debug has not
   executed these fixtures and they are not native runtime evidence.
+- `HST_AmbientPopulationBudgetService`: is the pure, session-only allocation
+  authority for physical civilian projection. It canonicalizes and max-merges
+  duplicate locality demands, rejects invalid demand, and allocates pedestrian
+  floors, traffic floors, then at most one actor per town per fair-remainder
+  round. Traffic allocations represent drivers and therefore consume both the
+  total actor budget and the nested traffic budget. The plan is stable within a
+  lease of at least 120 seconds; the lease expands when the configured startup,
+  stuck, and retry windows require longer. The lease epoch rotates constrained
+  floors, while a separate reconciliation cursor rotates which town receives
+  the first available root transaction during each health update.
+- Runtime-settings Schema 24 supplies global actor budgets of `48 + 12` per
+  connected player and traffic budgets of `10 + 2` per player by default. Each
+  war level above one removes four percent from both budgets, capped by the
+  allocator's bounded penalty. These are physical-projection limits, not logical
+  population. A true town defaults to a target of five traffic drivers in
+  daytime/low-heat conditions only when its remaining population permits; the
+  setting can raise or lower that target, and global caps plus competing demand
+  may allocate fewer, so five simultaneous cars per town is
+  not a guarantee. Combined pedestrian/driver demand cannot exceed the unique
+  GUID-qualified concrete appearance pool. Traffic demand is preserved first,
+  pedestrians use the remaining slots, and selector exhaustion fails closed
+  instead of repeating a prefab already projected in that locality.
+- `HST_AmbientActorRuntimeService`: is the pure lifecycle kernel for one
+  disposable pedestrian or traffic projection. An in-flight record reserves
+  budget but does not become behavior-ready until its exact acknowledgement
+  path completes. Pedestrians require a living CIV group member and current
+  wander waypoint. Traffic progresses through vehicle, driver, seating, driver
+  confirmation, engine start, and route following; production admission checks
+  the exact pilot occupant, engine-on state, and current waypoint rather than
+  treating a spawn or move-in request as success. Illegal transitions are read-
+  only. Every record also owns an immutable projection slot within its zone/kind
+  reservation set and its original projection seed. Recovery preserves that
+  identity while deriving a slot- and attempt-specific wander path or traffic
+  route, so actor replacement does not depend on mutable population counts or
+  current position.
+- `HST_CivilianService`: owns world-facing ambient transactions and transient
+  lifecycle rows. The global population pass runs on the configured health
+  cadence and starts no more than four ambient root transactions per update.
+  Startup grace and movement samples prevent premature recovery; lack of
+  progress enters a bounded replan/backoff path, and exhaustion recycles the
+  root and helpers. Pending and recovering rows continue to reserve budget, but
+  only acknowledged wandering/route-following rows count as ready. The logical
+  town population continues independently when a projection leaves the bubble
+  or recycles. Static military ambience detects owner/policy-key changes,
+  recycles unclaimed old roots, promotes player claims, resets its bounded
+  initialization slots, and repopulates through the same transaction cap.
+- The scoped Campaign Debug Phase 20 population helper builds the same complete global plan as
+  production and selects the requested town's resulting allocation. It uses the
+  same four-root transaction cap; Campaign Debug cannot silently give one town
+  an isolated full-demand budget that exceeds the configured global limits.
+- Ambient reconciliation is persistence-clean unless it observes a durable
+  player claim. Ordinary movement, readiness, retry, and cleanup no longer make
+  `UpdatePhysicalTownPopulation()` report a campaign-state mutation, preventing
+  that five-second transient pass from repeatedly scheduling persistence. This
+  is a source-level stutter repair, not profiling evidence.
+- The coordinator performs player-first ambient vehicle observation before the
+  persistence tick on every server frame, avoiding a full ambient-root occupancy
+  scan. It promotes only a
+  live tracked ambient root with a live controlled occupant, and rejects dead
+  occupants or destroyed vehicles. Every `HST_PersistenceService` capture or
+  checkpoint path repeats the observation synchronously, and new-campaign reset
+  runs the same reconciliation before state replacement; missing civilian
+  authority or an inexact
+  promoted binding defers capture instead of writing stale or transient state.
+- `HST_PersistentFieldVehicleRuntimeService`: owns the session-only exact live-
+  root-to-durable-ID bindings shared by ambient promotion, field-vehicle
+  restore/adoption, and garage redeploy. Saved durable IDs are never replaced by
+  process-local replication IDs during restore or later interaction. Restore and
+  registration precede first-frame player claim observation. Registered bindings
+  resolve exactly by entity or runtime ID; initial recovery may use only a unique same-prefab root
+  within eight meters and fails closed on ambiguity. Every pre-capture pass
+  refreshes current transform, destruction, and linked cargo position; a
+  vanished or destroyed tracked root is marked deleted. New-campaign reset
+  reconciles first, then can carry forward occupied live tracked `loot_vehicle`,
+  `field_vehicle`, or `garage_redeploy` roots, normalizes retained rows to
+  `field_vehicle`, and copies their vehicle/cargo rows before replacing state.
+  As the sole live durable-root binding owner, the tracker deletes every other
+  bound old-campaign root once.
+- Garage redeploy creates a fresh campaign-stable runtime ID, inserts and tracks
+  the root before committing stored-row removal or payment, and rolls back the
+  live root, runtime/cargo rows, tracker binding, and stored row on any later
+  failure. Loot, garage, deletion verification, and undercover vehicle policy
+  resolve the exact tracker binding before any spatial fallback.
+- Per-frame horn suppression iterates the bounded traffic actor records and their
+  direct driver handles. It does not perform a helper-by-root linear search for
+  every helper at the global population caps.
+- `HST_AmbientVehicleSaveValidationService`: proves the intended persistence
+  seam in memory. Unclaimed `CIV_TRAFFIC_VEHICLE`, `CIV_VEHICLE`, and
+  `MILITARY_VEHICLE` rows and linked cargo are excluded from capture/restore.
+  Observed player occupancy promotes a vehicle to `field_vehicle`; movement
+  distance alone never claims it. A legacy live detached ambient claim migrates
+  to `field_vehicle`, while deleted or unclaimed legacy ambience is pruned.
+  The source-level per-frame observation and fail-closed capture barrier are not
+  native evidence. Brief enter/exit timing, autosave/process restart, promoted-
+  root destruction, new-campaign reset, and loss/duplication behavior remain
+  unproven.
+- `HST_AmbientPopulationBudgetProofService`,
+  `HST_AmbientActorRuntimeProofService`, the Schema-24 settings migration proof,
+  and the ambient save-boundary proof cover deterministic allocation, ten-town
+  bounded demand, driver accounting, lease rotation, strict lifecycle edges,
+  bounded recovery, settings defaults/bounds, and transient-versus-claimed save
+  semantics. They are compiled and wired into Campaign Debug but have not been
+  executed there. A native ten-town/ten-minute soak, real save/restart, and the
+  Campaign Debug Phase 20 production-path execution, brief enter/exit,
+  autosave/restart, destruction/reset, and Blueprint Phase 8 automatic
+  casualty/theft/nearby-combat influence and panic/recovery behavior remain
+  separate open gates. Commander aid and ownership/security-pressure paths need
+  runtime proof, and deeper local-security behavior remains implementation work.
 - `HST_StableIdService`: allocates persisted, monotonic IDs for generated
   commands and events, and builds deterministic operation/transaction links.
 - `HST_CampaignCommandService`: validates typed command envelopes and keeps a

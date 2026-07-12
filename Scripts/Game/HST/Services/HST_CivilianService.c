@@ -84,6 +84,16 @@ class HST_CivilianService
 	static const int MIN_CIVILIAN_CHARACTER_PREFABS = 1;
 	static const int MINOR_LOCALITY_CIVILIAN_COUNT = 2;
 	static const int CIVILIAN_APPEARANCE_SEED_SALT = 1701;
+	static const int AMBIENT_SPAWN_TRANSACTIONS_PER_UPDATE = 4;
+	static const float AMBIENT_PROGRESS_DISTANCE_METERS = 2.0;
+	static const int AMBIENT_DAY_DENSITY_BASIS_POINTS = 10000;
+	static const int AMBIENT_TWILIGHT_DENSITY_BASIS_POINTS = 7000;
+	static const int AMBIENT_NIGHT_DENSITY_BASIS_POINTS = 4500;
+	static const int AMBIENT_MIN_SAFETY_DENSITY_BASIS_POINTS = 2500;
+	static const int AMBIENT_GLOBAL_ACTOR_BUDGET_MAXIMUM = 256;
+	static const int AMBIENT_GLOBAL_TRAFFIC_BUDGET_MAXIMUM = 64;
+	static const int AMBIENT_MINIMUM_ALLOCATION_LEASE_SECONDS = 120;
+	static const string AMBIENT_PEDESTRIAN_RECOVERY_ACK_REASON = "pedestrian recovery awaiting active waypoint";
 
 	static const int HEAT_DECAY_SECONDS = 300;
 	static const int VEHICLE_HEAT_DECAY_SECONDS = 300;
@@ -91,7 +101,6 @@ class HST_CivilianService
 	static const int UNDERCOVER_RECHECK_SECONDS = 20;
 	static const int UNDERCOVER_ROADBLOCK_SCAN_COOLDOWN_SECONDS = 30;
 	static const int UNDERCOVER_POLICE_SCAN_COOLDOWN_SECONDS = 45;
-	static const float PLAYER_USED_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
 	static const float TOWN_VEHICLE_ROAD_SEARCH_RADIUS_METERS = 140.0;
 	static const float TOWN_VEHICLE_ROAD_FORWARD_TARGET_METERS = 25.0;
 	static const float TOWN_VEHICLE_MIN_SEPARATION_METERS = 12.0;
@@ -125,18 +134,42 @@ class HST_CivilianService
 	protected ref array<string> m_aRuntimeEntityZoneIds = {};
 	protected ref array<string> m_aRuntimeEntityKinds = {};
 	protected ref array<string> m_aRuntimeEntityFactionKeys = {};
+	protected ref array<string> m_aRuntimeEntityVehicleIds = {};
 	protected ref array<vector> m_aRuntimeEntitySpawnPositions = {};
 	protected ref array<IEntity> m_aRuntimeEntities = {};
 	protected ref array<IEntity> m_aRuntimeHelperOwners = {};
 	protected ref array<IEntity> m_aRuntimeHelperEntities = {};
+	protected ref array<ref HST_AmbientActorRuntimeRecord> m_aAmbientActorRecords = {};
+	protected ref array<string> m_aAmbientRetryZoneIds = {};
+	protected ref array<string> m_aAmbientRetryKinds = {};
+	protected ref array<int> m_aAmbientRetrySeconds = {};
+	protected ref array<string> m_aStaticVehicleInitializationZoneIds = {};
+	protected ref array<int> m_aStaticCivilianVehicleSlotsCompleted = {};
+	protected ref array<int> m_aStaticMilitaryVehicleSlotsCompleted = {};
+	protected ref array<string> m_aStaticMilitaryInitializationOwnerKeys = {};
+	// Promoted ambient roots leave projection ownership immediately, but retain
+	// this lightweight live binding so every checkpoint can snapshot their
+	// current transform and terminal destruction state.
+	protected ref array<ref HST_RuntimeVehicleState> m_aResetPreservedPlayerVehicles = {};
+	protected ref array<ref HST_VehicleCargoItemState> m_aResetPreservedPlayerVehicleCargo = {};
+	protected ref HST_AmbientPopulationBudgetService m_AmbientBudget = new HST_AmbientPopulationBudgetService();
+	protected ref HST_AmbientActorRuntimeService m_AmbientRuntime = new HST_AmbientActorRuntimeService();
+	protected ref HST_AmbientPopulationBudgetPlan m_LastAmbientBudgetPlan;
+	protected int m_iNextAmbientRuntimeUpdateSecond;
+	protected int m_iAmbientRotationEpoch;
+	protected int m_iAmbientReconciliationCursor;
+	protected int m_iAmbientRuntimeSequence;
+	protected int m_iAmbientSpawnBudgetRemaining;
 	protected int m_iRuntimeSpawnFailureCount;
 	protected string m_sLastRuntimeSpawnFailurePrefab;
+	protected bool m_bLastAmbientClaimObservationExact = true;
 	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected bool m_bWarnedMissingCivilianCharacterPool;
 	protected bool m_bWarnedMissingCivilianVehicleCatalog;
 	protected HST_StrategicService m_Strategic;
 	protected HST_OwnershipTransitionService m_OwnershipTransitions;
 	protected HST_TownInfluenceService m_TownInfluence;
+	protected HST_PersistentFieldVehicleRuntimeService m_PersistentFieldVehicles;
 	protected HST_CampaignPreset m_Preset;
 
 	void SetStrategicService(HST_StrategicService strategic)
@@ -154,10 +187,114 @@ class HST_CivilianService
 		m_TownInfluence = townInfluence;
 	}
 
+	void SetPersistentFieldVehicleRuntimeService(
+		HST_PersistentFieldVehicleRuntimeService persistentFieldVehicles)
+	{
+		m_PersistentFieldVehicles = persistentFieldVehicles;
+	}
+
 	void SetCombatPresenceService(HST_CombatPresenceService combatPresence)
 	{
 		if (combatPresence)
 			m_CombatPresence = combatPresence;
+	}
+
+	bool ResetRuntimeSession(HST_CampaignState previousState)
+	{
+		if (!previousState || !PrepareAmbientVehiclePersistence(previousState))
+			return false;
+		m_aResetPreservedPlayerVehicles.Clear();
+		m_aResetPreservedPlayerVehicleCargo.Clear();
+		array<string> claimedRuntimeIds = {};
+		// A new campaign must not inherit every old field vehicle. Preserve only
+		// live roots that a player occupies at the reset boundary, including an
+		// ambient root first promoted by this exact observation.
+		array<IEntity> occupiedVehicleRoots = {};
+		CollectPlayerOccupiedVehicleRoots(occupiedVehicleRoots);
+		foreach (IEntity entity : occupiedVehicleRoots)
+		{
+			if (!IsLivingAmbientEntity(entity))
+				continue;
+			HST_RuntimeVehicleState vehicle = ResolveRuntimeVehicleRecord(
+				previousState,
+				entity);
+			if (!vehicle && m_PersistentFieldVehicles)
+				vehicle = m_PersistentFieldVehicles.ResolveForEntity(
+					previousState,
+					entity);
+			if (vehicle
+				&& (vehicle.m_sRuntimeKind == "field_vehicle"
+					|| vehicle.m_sRuntimeKind == "loot_vehicle"
+					|| vehicle.m_sRuntimeKind == "garage_redeploy")
+				&& !vehicle.m_bDeleted
+				&& !vehicle.m_sVehicleRuntimeId.IsEmpty()
+				&& claimedRuntimeIds.Find(vehicle.m_sVehicleRuntimeId) < 0)
+			{
+				vehicle.m_sRuntimeKind = "field_vehicle";
+				claimedRuntimeIds.Insert(vehicle.m_sVehicleRuntimeId);
+			}
+		}
+		if (previousState)
+		{
+			foreach (string claimedRuntimeId : claimedRuntimeIds)
+			{
+				HST_RuntimeVehicleState claimedVehicle
+					= previousState.FindRuntimeVehicle(claimedRuntimeId);
+				if (claimedVehicle)
+					m_aResetPreservedPlayerVehicles.Insert(claimedVehicle);
+				foreach (HST_VehicleCargoItemState cargoItem : previousState.m_aVehicleCargoItems)
+				{
+					if (cargoItem
+						&& cargoItem.m_sVehicleRuntimeId == claimedRuntimeId)
+						m_aResetPreservedPlayerVehicleCargo.Insert(cargoItem);
+				}
+			}
+		}
+		if (!m_PersistentFieldVehicles
+			|| !m_PersistentFieldVehicles.CleanupForNewCampaignReset(
+			previousState,
+			claimedRuntimeIds))
+		{
+			m_aResetPreservedPlayerVehicles.Clear();
+			m_aResetPreservedPlayerVehicleCargo.Clear();
+			return false;
+		}
+		CleanupAllRuntimeEntities(previousState);
+		m_LastAmbientBudgetPlan = null;
+		m_iNextAmbientRuntimeUpdateSecond = 0;
+		m_iAmbientRotationEpoch = 0;
+		m_iAmbientReconciliationCursor = 0;
+		m_iAmbientRuntimeSequence = 0;
+		m_iAmbientSpawnBudgetRemaining = 0;
+		m_iRuntimeSpawnFailureCount = 0;
+		m_sLastRuntimeSpawnFailurePrefab = "";
+		m_bLastAmbientClaimObservationExact = true;
+		m_bWarnedMissingCivilianCharacterPool = false;
+		m_bWarnedMissingCivilianVehicleCatalog = false;
+		return true;
+	}
+
+	void ApplyResetPreservedPlayerVehicles(HST_CampaignState newState)
+	{
+		if (!newState)
+			return;
+		foreach (HST_RuntimeVehicleState vehicle : m_aResetPreservedPlayerVehicles)
+		{
+			if (vehicle
+				&& !vehicle.m_sVehicleRuntimeId.IsEmpty()
+				&& !newState.FindRuntimeVehicle(vehicle.m_sVehicleRuntimeId))
+				newState.m_aRuntimeVehicles.Insert(vehicle);
+		}
+		foreach (HST_VehicleCargoItemState cargoItem : m_aResetPreservedPlayerVehicleCargo)
+		{
+			if (cargoItem
+				&& !newState.FindVehicleCargoItem(
+					cargoItem.m_sVehicleRuntimeId,
+					cargoItem.m_sItemPrefab))
+				newState.m_aVehicleCargoItems.Insert(cargoItem);
+		}
+		m_aResetPreservedPlayerVehicles.Clear();
+		m_aResetPreservedPlayerVehicleCargo.Clear();
 	}
 
 	bool EnsureCivilianZones(HST_CampaignState state)
@@ -281,24 +418,56 @@ class HST_CivilianService
 		return Math.Max(0, target);
 	}
 
-	int ResolveCivilianTrafficTarget(HST_BalanceConfig balance, HST_ZoneState zone)
+	int ResolveCivilianTrafficTarget(
+		HST_BalanceConfig balance,
+		HST_ZoneState zone,
+		HST_CivilianZoneState civilianZone = null,
+		HST_CampaignState state = null)
 	{
 		if (!balance || !IsTrueTownLocation(zone))
 			return 0;
 
-		return Math.Max(0, balance.m_iCivilianDrivingVehicleCountPerTown);
+		int remainingPopulation;
+		if (state && m_TownInfluence)
+		{
+			HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(
+				state,
+				zone.m_sZoneId);
+			if (!record)
+				return 0;
+			remainingPopulation = record.m_iRemainingPopulation;
+		}
+		else if (civilianZone)
+		{
+			remainingPopulation = civilianZone.m_iPopulationRemaining;
+		}
+		else
+		{
+			return Math.Max(0, balance.m_iCivilianDrivingVehicleCountPerTown);
+		}
+
+		if (remainingPopulation <= 0)
+			return 0;
+
+		// A traffic vehicle consumes one living civilian driver. Reserve most of
+		// a very small surviving population for pedestrians instead of projecting
+		// five drivers after the town has nearly emptied.
+		int populationTrafficCap = remainingPopulation / 3;
+		return Math.Min(
+			Math.Max(0, balance.m_iCivilianDrivingVehicleCountPerTown),
+			Math.Max(0, populationTrafficCap));
 	}
 
 	bool IsCivilianProjectionEligible(HST_ZoneState zone, HST_BalanceConfig balance)
 	{
 		if (!zone || !balance || !IsCivilianLocality(zone))
 			return false;
-		if (zone.m_bActive)
-			return true;
 
 		float radius = zone.m_iActivationRadiusMeters;
 		if (radius <= 0)
 			radius = balance.m_iActivationRadiusMeters;
+		if (zone.m_bActive)
+			radius = Math.Max(radius, balance.m_iPlayerRenderBubbleRadiusMeters);
 		return HST_WorldPositionService.IsPositionNearLivingPlayer(zone.m_vPosition, Math.Max(100.0, radius));
 	}
 
@@ -313,23 +482,31 @@ class HST_CivilianService
 	{
 		HST_CivilianProjectionProofSummary summary = new HST_CivilianProjectionProofSummary();
 		summary.m_bProjectionEligible = IsCivilianProjectionEligible(zone, balance);
-		summary.m_iExpectedPedestrians = ResolveCivilianPedestrianTarget(
-			civilianZone,
-			zone,
-			balance,
-			state);
-		summary.m_iExpectedTrafficVehicles = ResolveCivilianTrafficTarget(balance, zone);
+		HST_AmbientPopulationTownAllocation allocation;
+		if (m_LastAmbientBudgetPlan)
+			allocation = m_LastAmbientBudgetPlan.Find(zoneId);
+		if (allocation)
+		{
+			summary.m_iExpectedPedestrians = allocation.m_iAllocatedPedestrians;
+			summary.m_iExpectedTrafficVehicles = allocation.m_iAllocatedTraffic;
+		}
 		summary.m_bTrafficConfigured = summary.m_iExpectedTrafficVehicles > 0;
 		summary.m_iUniquePedestrianPrefabs = CountUniqueRuntimeEntityPrefabsForZone(zoneId, "CIV_CHARACTER", CIVILIAN_FACTION_KEY);
 		summary.m_iTrafficDriverControllers = SuppressAmbientTrafficHornInput(zoneId);
 		summary.m_iTrafficDriversWithHornInput = CountAmbientTrafficDriversWithHornInput(zoneId);
 		summary.m_iActorAppearances = CountCivilianActorAppearancesForZone(zoneId);
 		summary.m_iUniqueActorPrefabs = CountUniqueCivilianActorPrefabsForZone(zoneId);
-		summary.m_bAppearanceDiversityExact = observedPedestrians > 0;
+		summary.m_bAppearanceDiversityExact
+			= observedPedestrians == summary.m_iExpectedPedestrians;
+		summary.m_bAppearanceDiversityExact = summary.m_bAppearanceDiversityExact
+			&& observedTrafficVehicles == summary.m_iExpectedTrafficVehicles;
 		summary.m_bAppearanceDiversityExact = summary.m_bAppearanceDiversityExact && summary.m_iUniquePedestrianPrefabs == observedPedestrians;
 		summary.m_bAppearanceDiversityExact = summary.m_bAppearanceDiversityExact && summary.m_iActorAppearances == observedPedestrians + summary.m_iTrafficDriverControllers;
 		summary.m_bAppearanceDiversityExact = summary.m_bAppearanceDiversityExact && summary.m_iUniqueActorPrefabs == summary.m_iActorAppearances;
-		summary.m_bHornSuppressionExact = !summary.m_bTrafficConfigured;
+		summary.m_bHornSuppressionExact = !summary.m_bTrafficConfigured
+			&& observedTrafficVehicles == 0
+			&& summary.m_iTrafficDriverControllers == 0
+			&& summary.m_iTrafficDriversWithHornInput == 0;
 		if (summary.m_bTrafficConfigured)
 			summary.m_bHornSuppressionExact = summary.m_iTrafficDriverControllers == observedTrafficVehicles && summary.m_iTrafficDriversWithHornInput == 0;
 		return summary;
@@ -462,37 +639,84 @@ class HST_CivilianService
 		if (!state || !balance)
 			return false;
 
-		HST_DefaultCatalog.EnsureCivilianPools(balance);
-		PruneDeletedRuntimeEntities(state);
-		bool changed = PruneAmbientTrafficOutsideRenderBubble(state, balance);
-
 		if (!balance.m_bCivilianPopulationEnabled)
 		{
-			bool cleaned = CleanupAllRuntimeEntities(state);
-			return PublishRuntimeDiagnostics(state) || cleaned || changed;
+			bool durableChanged = PromotePlayerOccupiedRuntimeVehicles(state);
+			CleanupAllRuntimeEntities(state);
+			m_LastAmbientBudgetPlan = null;
+			m_iNextAmbientRuntimeUpdateSecond = 0;
+			PublishRuntimeDiagnostics(state);
+			return durableChanged;
 		}
 
-		foreach (HST_ZoneState zone : state.m_aZones)
-		{
-			if (!zone)
-				continue;
+		int healthInterval = Math.Max(2, balance.m_iCivilianRuntimeHealthIntervalSeconds);
+		if (m_iNextAmbientRuntimeUpdateSecond > state.m_iElapsedSeconds)
+			return false;
+		m_iNextAmbientRuntimeUpdateSecond = state.m_iElapsedSeconds + healthInterval;
+		m_iAmbientSpawnBudgetRemaining = AMBIENT_SPAWN_TRANSACTIONS_PER_UPDATE;
 
-			if (IsCivilianProjectionEligible(zone, balance))
-			{
-				if (!HasRuntimeZone(zone.m_sZoneId))
-					changed = SpawnActiveZoneRuntime(state, preset, balance, zone) || changed;
-				else if (MaintainActiveZoneTraffic(state, preset, balance, zone))
-					changed = true;
-
-				continue;
-			}
-
-			if (CleanupZoneRuntimeEntities(state, zone.m_sZoneId))
-				changed = true;
-		}
+		HST_DefaultCatalog.EnsureCivilianPools(balance);
+		// Only a player claim changes durable campaign state. Every other value in
+		// this pass describes disposable physical projection and must not schedule
+		// persistence or mission-intel publication on routine movement samples.
+		bool durableChanged = PromotePlayerOccupiedRuntimeVehicles(state);
+		PruneDeletedAmbientActorRecords(state);
+		PruneDeletedRuntimeEntities(state);
+		PruneAmbientTrafficOutsideRenderBubble(state, balance);
+		TickAmbientActorRuntime(state, balance);
+		m_iAmbientRotationEpoch = m_AmbientBudget.ResolveLeaseEpoch(
+			state.m_iElapsedSeconds,
+			ResolveAmbientAllocationLeaseSeconds(balance));
+		m_LastAmbientBudgetPlan = BuildAmbientPopulationBudgetPlan(state, balance);
+		ReconcileAmbientPopulationPlan(state, preset, balance);
 
 		SuppressAmbientTrafficHornInput();
-		return PublishRuntimeDiagnostics(state) || changed;
+		PublishRuntimeDiagnostics(state);
+		return durableChanged;
+	}
+
+	protected int ResolveAmbientAllocationLeaseSeconds(HST_BalanceConfig balance)
+	{
+		if (!balance)
+			return AMBIENT_MINIMUM_ALLOCATION_LEASE_SECONDS;
+		int recoveryWindow = balance.m_iCivilianRuntimeStartupGraceSeconds
+			+ balance.m_iCivilianRuntimeStuckSeconds
+			+ balance.m_iCivilianRuntimeRetryBackoffSeconds;
+		return Math.Max(
+			AMBIENT_MINIMUM_ALLOCATION_LEASE_SECONDS,
+			recoveryWindow);
+	}
+
+	protected bool ReconcileAmbientTownAllocation(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_AmbientPopulationTownAllocation allocation)
+	{
+		if (!state || !balance || !allocation)
+			return false;
+		HST_ZoneState zone = state.FindZone(allocation.m_sZoneId);
+		if (!zone)
+			return false;
+		if (allocation.CountAllocatedActors() <= 0)
+			return CleanupZoneRuntimeEntities(state, allocation.m_sZoneId);
+		if (!HasRuntimeZone(zone.m_sZoneId))
+		{
+			return SpawnActiveZoneRuntime(
+				state,
+				preset,
+				balance,
+				zone,
+				allocation.m_iAllocatedPedestrians,
+				allocation.m_iAllocatedTraffic);
+		}
+		return MaintainActiveZonePopulation(
+			state,
+			preset,
+			balance,
+			zone,
+			allocation.m_iAllocatedPedestrians,
+			allocation.m_iAllocatedTraffic);
 	}
 
 	bool UpdatePhysicalTownPopulationForZone(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, string zoneId, bool active)
@@ -500,31 +724,105 @@ class HST_CivilianService
 		if (!state || !balance || zoneId.IsEmpty())
 			return false;
 
-		HST_DefaultCatalog.EnsureCivilianPools(balance);
-		PruneDeletedRuntimeEntities(state);
-		bool changed = PruneAmbientTrafficOutsideRenderBubble(state, balance);
-
 		if (!balance.m_bCivilianPopulationEnabled)
-			return PublishRuntimeDiagnostics(state) || CleanupZoneRuntimeEntities(state, zoneId) || changed;
+			return PublishRuntimeDiagnostics(state) || CleanupZoneRuntimeEntities(state, zoneId);
+
+		HST_DefaultCatalog.EnsureCivilianPools(balance);
+		m_iAmbientSpawnBudgetRemaining = AMBIENT_SPAWN_TRANSACTIONS_PER_UPDATE;
+		bool changed = PromotePlayerOccupiedRuntimeVehicles(state);
+		PruneDeletedAmbientActorRecords(state);
+		PruneDeletedRuntimeEntities(state);
+		changed = PruneAmbientTrafficOutsideRenderBubble(state, balance) || changed;
+		changed = TickAmbientActorRuntime(state, balance) || changed;
 
 		HST_ZoneState zone = state.FindZone(zoneId);
 		if (!zone)
 			return PublishRuntimeDiagnostics(state) || changed;
 
-		if (active && IsCivilianLocality(zone))
+		if (active)
 		{
-			if (!HasRuntimeZone(zoneId))
-				changed = SpawnActiveZoneRuntime(state, preset, balance, zone) || changed;
-			else if (MaintainActiveZoneTraffic(state, preset, balance, zone))
-				changed = true;
+			m_iAmbientRotationEpoch = m_AmbientBudget.ResolveLeaseEpoch(
+				state.m_iElapsedSeconds,
+				ResolveAmbientAllocationLeaseSeconds(balance));
+			// Campaign Debug must exercise the same complete global plan as
+			// production; a one-town full-demand budget could silently exceed the
+			// configured actor/traffic caps while other towns remain projected.
+			HST_AmbientPopulationBudgetPlan directPlan
+				= BuildAmbientPopulationBudgetPlan(state, balance);
+			m_LastAmbientBudgetPlan = directPlan;
+			changed = ReconcileAmbientPopulationPlan(
+				state,
+				preset,
+				balance,
+				zoneId) || changed;
 		}
-		else if (CleanupZoneRuntimeEntities(state, zoneId))
+		else
 		{
-			changed = true;
+			m_LastAmbientBudgetPlan = null;
+			if (CleanupZoneRuntimeEntities(state, zoneId))
+				changed = true;
 		}
 
 		SuppressAmbientTrafficHornInput();
 		return PublishRuntimeDiagnostics(state) || changed;
+	}
+
+	protected bool ReconcileAmbientPopulationPlan(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		string priorityZoneId = "")
+	{
+		if (!state || !balance)
+			return false;
+		bool changed;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+			if (m_LastAmbientBudgetPlan
+				&& m_LastAmbientBudgetPlan.Find(zone.m_sZoneId))
+				continue;
+			changed = CleanupZoneRuntimeEntities(state, zone.m_sZoneId) || changed;
+		}
+		if (!m_LastAmbientBudgetPlan)
+			return changed;
+
+		int allocationCount = m_LastAmbientBudgetPlan.m_aTownAllocations.Count();
+		int startIndex;
+		if (!priorityZoneId.IsEmpty())
+		{
+			for (int priorityIndex; priorityIndex < allocationCount; priorityIndex++)
+			{
+				HST_AmbientPopulationTownAllocation priorityAllocation
+					= m_LastAmbientBudgetPlan.m_aTownAllocations[priorityIndex];
+				if (priorityAllocation
+					&& priorityAllocation.m_sZoneId == priorityZoneId)
+				{
+					startIndex = priorityIndex;
+					break;
+				}
+			}
+		}
+		else if (allocationCount > 0)
+			startIndex = m_iAmbientReconciliationCursor % allocationCount;
+		for (int offset; offset < allocationCount; offset++)
+		{
+			HST_AmbientPopulationTownAllocation allocation
+				= m_LastAmbientBudgetPlan.m_aTownAllocations[
+					(startIndex + offset) % allocationCount];
+			changed = ReconcileAmbientTownAllocation(
+				state,
+				preset,
+				balance,
+				allocation) || changed;
+		}
+		if (allocationCount > 0 && priorityZoneId.IsEmpty())
+		{
+			m_iAmbientReconciliationCursor
+				= (m_iAmbientReconciliationCursor + 1) % allocationCount;
+		}
+		return changed;
 	}
 
 	HST_PlayerUndercoverState EnsurePlayer(HST_CampaignState state, string identityId)
@@ -2451,15 +2749,17 @@ class HST_CivilianService
 		if (!vehicle)
 			return "OK on foot";
 
-		string vehicleRuntimeId = ResolveRuntimeVehicleId(vehicle);
-		if (state && !vehicleRuntimeId.IsEmpty())
+		HST_RuntimeVehicleState runtimeVehicle
+			= ResolveRuntimeVehicleRecord(state, vehicle);
+		if (runtimeVehicle && !runtimeVehicle.m_sVehicleRuntimeId.IsEmpty())
 		{
-			string runtimeReason = ResolveRuntimeVehicleUndercoverReason(state, vehicleRuntimeId);
+			string runtimeReason = ResolveRuntimeVehicleUndercoverReason(
+				state,
+				runtimeVehicle.m_sVehicleRuntimeId);
 			if (runtimeReason.Contains("BLOCK"))
 				return runtimeReason;
 
-			HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
-			if (runtimeVehicle && runtimeVehicle.m_bCanProvideUndercover)
+			if (runtimeVehicle.m_bCanProvideUndercover)
 				return runtimeReason;
 		}
 
@@ -2598,131 +2898,591 @@ class HST_CivilianService
 		return access.GetVehicle();
 	}
 
-	protected bool SpawnActiveZoneRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneState zone)
+	protected HST_AmbientPopulationBudgetPlan BuildAmbientPopulationBudgetPlan(
+		HST_CampaignState state,
+		HST_BalanceConfig balance)
+	{
+		if (!state || !balance || !m_AmbientBudget)
+			return null;
+
+		array<ref HST_AmbientPopulationTownDemand> demands = {};
+		int timeDensityBasisPoints = ResolveAmbientTimeDensityBasisPoints();
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!IsCivilianProjectionEligible(zone, balance))
+				continue;
+			HST_AmbientPopulationTownDemand demand = BuildAmbientTownDemand(
+				state,
+				balance,
+				zone,
+				timeDensityBasisPoints);
+			if (demand)
+				demands.Insert(demand);
+		}
+
+		int connectedPlayers = HST_CommandMenuRequestComponent.CountConnectedPlayers();
+		int totalActorBudget = m_AmbientBudget.ResolveGlobalBudget(
+			balance.m_iCivilianGlobalActorBudgetBase,
+			balance.m_iCivilianGlobalActorBudgetPerPlayer,
+			connectedPlayers,
+			state.m_iWarLevel,
+			balance.m_iCivilianWarLevelBudgetPenaltyPercent,
+			AMBIENT_GLOBAL_ACTOR_BUDGET_MAXIMUM);
+		int trafficActorBudget = m_AmbientBudget.ResolveGlobalBudget(
+			balance.m_iCivilianGlobalTrafficBudgetBase,
+			balance.m_iCivilianGlobalTrafficBudgetPerPlayer,
+			connectedPlayers,
+			state.m_iWarLevel,
+			balance.m_iCivilianWarLevelBudgetPenaltyPercent,
+			AMBIENT_GLOBAL_TRAFFIC_BUDGET_MAXIMUM);
+		return m_AmbientBudget.BuildPlan(
+			demands,
+			totalActorBudget,
+			trafficActorBudget,
+			m_iAmbientRotationEpoch);
+	}
+
+	protected HST_AmbientPopulationTownDemand BuildAmbientTownDemand(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		HST_ZoneState zone,
+		int timeDensityBasisPoints = -1)
+	{
+		if (!state || !balance || !zone || !IsCivilianLocality(zone))
+			return null;
+
+		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
+		if (!civilianZone)
+			return null;
+
+		int desiredPedestrians = ResolveCivilianPedestrianTarget(
+			civilianZone,
+			zone,
+			balance,
+			state);
+		int desiredTraffic = ResolveCivilianTrafficTarget(
+			balance,
+			zone,
+			civilianZone,
+			state);
+
+		int remainingPopulation = civilianZone.m_iPopulationRemaining;
+		if (IsTrueTownLocation(zone) && m_TownInfluence)
+		{
+			HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(
+				state,
+				zone.m_sZoneId);
+			if (!record)
+				return null;
+			remainingPopulation = record.m_iRemainingPopulation;
+		}
+		remainingPopulation = Math.Max(0, remainingPopulation);
+		desiredTraffic = Math.Min(desiredTraffic, remainingPopulation / 3);
+		desiredPedestrians = Math.Min(
+			desiredPedestrians,
+			Math.Max(0, remainingPopulation - desiredTraffic));
+
+		int densityBasisPoints = ResolveAmbientDensityBasisPoints(
+			civilianZone,
+			timeDensityBasisPoints);
+		desiredPedestrians = ScaleAmbientDesiredCount(
+			desiredPedestrians,
+			densityBasisPoints);
+		desiredTraffic = ScaleAmbientDesiredCount(
+			desiredTraffic,
+			densityBasisPoints);
+		// Every projected pedestrian and traffic driver needs a distinct concrete
+		// appearance inside one locality. Preserve requested traffic first, then
+		// fit pedestrians into the remaining unique GUID-qualified pool capacity.
+		int appearanceCapacity
+			= CountGuidQualifiedCivilianCharacterPrefabs(balance);
+		desiredTraffic = Math.Min(desiredTraffic, appearanceCapacity);
+		desiredPedestrians = Math.Min(
+			desiredPedestrians,
+			Math.Max(0, appearanceCapacity - desiredTraffic));
+		if (desiredPedestrians <= 0 && desiredTraffic <= 0)
+			return null;
+
+		HST_AmbientPopulationTownDemand demand = new HST_AmbientPopulationTownDemand();
+		demand.m_sZoneId = zone.m_sZoneId;
+		demand.m_iDesiredPedestrians = desiredPedestrians;
+		demand.m_iDesiredTraffic = desiredTraffic;
+		return demand;
+	}
+
+	protected int ResolveAmbientDensityBasisPoints(
+		HST_CivilianZoneState civilianZone,
+		int timeBasisPoints = -1)
+	{
+		if (timeBasisPoints <= 0)
+			timeBasisPoints = ResolveAmbientTimeDensityBasisPoints();
+		int heat = 0;
+		if (civilianZone)
+			heat = Math.Max(0, civilianZone.m_iWantedHeat);
+		int safetyBasisPoints = Math.Max(
+			AMBIENT_MIN_SAFETY_DENSITY_BASIS_POINTS,
+			10000 - Math.Min(7500, heat * 250));
+		return timeBasisPoints * safetyBasisPoints / 10000;
+	}
+
+	protected int ResolveAmbientTimeDensityBasisPoints()
+	{
+		ChimeraWorld world = GetGame().GetWorld();
+		if (!world)
+			return AMBIENT_DAY_DENSITY_BASIS_POINTS;
+		TimeAndWeatherManagerEntity timeManager = world.GetTimeAndWeatherManager();
+		if (!timeManager)
+			return AMBIENT_DAY_DENSITY_BASIS_POINTS;
+
+		int hour;
+		int minute;
+		int second;
+		timeManager.GetHoursMinutesSeconds(hour, minute, second);
+		if (hour >= 7 && hour < 20)
+			return AMBIENT_DAY_DENSITY_BASIS_POINTS;
+		if ((hour >= 5 && hour < 7) || (hour >= 20 && hour < 22))
+			return AMBIENT_TWILIGHT_DENSITY_BASIS_POINTS;
+		return AMBIENT_NIGHT_DENSITY_BASIS_POINTS;
+	}
+
+	protected int ScaleAmbientDesiredCount(int desired, int densityBasisPoints)
+	{
+		if (desired <= 0 || densityBasisPoints <= 0)
+			return 0;
+		return Math.Max(1, (desired * densityBasisPoints + 9999) / 10000);
+	}
+
+	protected bool SpawnActiveZoneRuntime(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_ZoneState zone,
+		int pedestrianTarget,
+		int trafficTarget)
 	{
 		if (!state || !balance || !zone || !IsCivilianLocality(zone))
 			return false;
 
-		m_aRuntimeZoneIds.Insert(zone.m_sZoneId);
+		if (!m_aRuntimeZoneIds.Contains(zone.m_sZoneId))
+			m_aRuntimeZoneIds.Insert(zone.m_sZoneId);
 
-		int spawned;
-		int civilianVehicleCount;
-		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
-		if (civilianZone)
-		{
-			int civilianCount = ResolveCivilianPedestrianTarget(
-				civilianZone,
-				zone,
-				balance,
-				state);
-			if (civilianCount > 0 && CountGuidQualifiedCivilianCharacterPrefabs(balance) < MIN_CIVILIAN_CHARACTER_PREFABS)
-				WarnMissingCivilianCharacterPool(zone, civilianCount);
-
-			int appearanceSeed = BuildZoneSeed(state, zone, CIVILIAN_APPEARANCE_SEED_SALT);
-			for (int i = 0; i < civilianCount; i++)
-			{
-				int civilianSeed = BuildZoneSeed(state, zone, 1000 + i);
-				string civilianPrefab = SelectCivilianCharacterPrefab(balance, i, appearanceSeed);
-				if (civilianPrefab.IsEmpty())
-					continue;
-
-				vector position = ResolveTownCharacterSpawnPosition(zone, i, civilianSeed);
-				vector angles = BuildSpawnAngles(civilianSeed);
-				int beforeCivilianSpawn = m_aRuntimeEntities.Count();
-				if (SpawnRuntimeEntity(state, zone.m_sZoneId, civilianPrefab, position, angles, "CIV", "CIV_CHARACTER"))
-				{
-					spawned++;
-					if (beforeCivilianSpawn < m_aRuntimeEntities.Count())
-						AssignCivilianPedestrianBehavior(m_aRuntimeEntities[beforeCivilianSpawn], zone, i, civilianSeed);
-				}
-			}
-		}
+		int spawned = SpawnZoneCivilianPedestrians(
+			state,
+			balance,
+			zone,
+			Math.Max(0, pedestrianTarget));
 
 		if (IsTrueTownLocation(zone))
 		{
-			civilianVehicleCount = ResolveDeterministicCount(balance.m_iCivilianVehicleMinPerTown, balance.m_iCivilianVehicleMaxPerTown, BuildZoneSeed(state, zone, 101));
 			array<vector> occupiedVehiclePositions = {};
-			for (int j = 0; j < civilianVehicleCount; j++)
-			{
-				int civilianVehicleSeed = BuildZoneSeed(state, zone, 200 + j);
-				vector vehiclePosition = ResolveTownVehicleSpawnPosition(zone, j, false);
-				vector vehicleAngles = BuildSpawnAngles(civilianVehicleSeed);
-				if (SpawnTownVehicleRuntimeEntity(state, zone, zone.m_sZoneId, SelectCivilianVehiclePrefab(balance, j, civilianVehicleSeed), vehiclePosition, vehicleAngles, "CIV", "CIV_VEHICLE", occupiedVehiclePositions, j, false))
-					spawned++;
-			}
+			spawned += MaintainTownStaticVehiclePopulation(
+				state,
+				preset,
+				balance,
+				zone,
+				occupiedVehiclePositions);
 
-			if (ShouldSpawnFactionTownVehicles(preset, zone))
-			{
-				int militaryVehicleCount = ResolveDeterministicCount(balance.m_iOccupierVehicleMinPerTown, balance.m_iOccupierVehicleMaxPerTown, BuildZoneSeed(state, zone, 401));
-				for (int k = 0; k < militaryVehicleCount; k++)
-				{
-					string ownerPrefab = SelectFactionVehiclePrefab(zone.m_sOwnerFactionKey, k + BuildZoneSeed(state, zone, 503));
-					if (ownerPrefab.IsEmpty())
-						continue;
-
-					vector ownerPosition = ResolveTownVehicleSpawnPosition(zone, civilianVehicleCount + k, true);
-					vector ownerAngles = BuildSpawnAngles(BuildZoneSeed(state, zone, 700 + k));
-					if (SpawnTownVehicleRuntimeEntity(state, zone, zone.m_sZoneId, ownerPrefab, ownerPosition, ownerAngles, zone.m_sOwnerFactionKey, "MILITARY_VEHICLE", occupiedVehiclePositions, civilianVehicleCount + k, true))
-						spawned++;
-				}
-			}
-
-			spawned += SpawnZoneCivilianTraffic(state, balance, zone, occupiedVehiclePositions, occupiedVehiclePositions.Count());
+			spawned += SpawnZoneCivilianTraffic(
+				state,
+				balance,
+				zone,
+				occupiedVehiclePositions,
+				occupiedVehiclePositions.Count(),
+				Math.Max(0, trafficTarget));
 		}
 
 		Print(string.Format("h-istasi civilians | zone %1 active | spawned %2 runtime civilian/military ambience entity(s)", zone.m_sZoneId, spawned));
 		return true;
 	}
 
-	protected bool MaintainActiveZoneTraffic(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneState zone)
+	protected bool MaintainActiveZonePopulation(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_ZoneState zone,
+		int pedestrianTarget,
+		int trafficTarget)
 	{
-		if (!state || !balance || !zone || !IsTrueTownLocation(zone))
+		if (!state || !balance || !zone || !IsCivilianLocality(zone))
 			return false;
 
-		int targetTraffic = ResolveCivilianTrafficTarget(balance, zone);
-		int currentTraffic = CountRuntimeEntitiesForZone(zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND, "CIV");
-		if (currentTraffic >= targetTraffic)
-			return false;
+		bool changed = RemoveExcessAmbientActors(
+			state,
+			zone.m_sZoneId,
+			"CIV_CHARACTER",
+			Math.Max(0, pedestrianTarget));
+		changed = RemoveExcessAmbientActors(
+			state,
+			zone.m_sZoneId,
+			CIVILIAN_TRAFFIC_RUNTIME_KIND,
+			Math.Max(0, trafficTarget)) || changed;
+
+		if (SpawnZoneCivilianPedestrians(
+			state,
+			balance,
+			zone,
+			Math.Max(0, pedestrianTarget)) > 0)
+			changed = true;
+
+		if (!IsTrueTownLocation(zone))
+			return changed;
 
 		array<vector> occupiedVehiclePositions = {};
 		BuildOccupiedTownVehiclePositions(zone.m_sZoneId, occupiedVehiclePositions);
-		int spawned = SpawnZoneCivilianTraffic(state, balance, zone, occupiedVehiclePositions, occupiedVehiclePositions.Count());
-		return spawned > 0;
+		if (MaintainTownStaticVehiclePopulation(
+			state,
+			preset,
+			balance,
+			zone,
+			occupiedVehiclePositions) > 0)
+			changed = true;
+		if (SpawnZoneCivilianTraffic(
+			state,
+			balance,
+			zone,
+			occupiedVehiclePositions,
+			occupiedVehiclePositions.Count(),
+			Math.Max(0, trafficTarget)) > 0)
+			changed = true;
+		return changed;
 	}
 
-	protected int SpawnZoneCivilianTraffic(HST_CampaignState state, HST_BalanceConfig balance, HST_ZoneState zone, array<vector> occupiedVehiclePositions, int baseSlotIndex)
+	protected int MaintainTownStaticVehiclePopulation(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_ZoneState zone,
+		array<vector> occupiedVehiclePositions)
+	{
+		if (!state || !balance || !zone || !IsTrueTownLocation(zone)
+			|| !occupiedVehiclePositions)
+			return 0;
+
+		int spawned;
+		int civilianTarget = ResolveDeterministicCount(
+			balance.m_iCivilianVehicleMinPerTown,
+			balance.m_iCivilianVehicleMaxPerTown,
+			BuildZoneSeed(state, zone, 101));
+		int initializationIndex = EnsureStaticVehicleInitializationIndex(
+			zone.m_sZoneId);
+		int civilianCompleted = m_aStaticCivilianVehicleSlotsCompleted[initializationIndex];
+		for (int civilianIndex = civilianCompleted; civilianIndex < civilianTarget; civilianIndex++)
+		{
+			if (!CanStartAmbientSpawn(state, zone.m_sZoneId, "CIV_VEHICLE"))
+				break;
+			int civilianSeed = BuildZoneSeed(state, zone, 200 + civilianIndex);
+			string civilianPrefab = SelectCivilianVehiclePrefab(
+				balance,
+				civilianIndex,
+				civilianSeed);
+			if (civilianPrefab.IsEmpty())
+			{
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, "CIV_VEHICLE");
+				break;
+			}
+			m_iAmbientSpawnBudgetRemaining--;
+			if (!SpawnTownVehicleRuntimeEntity(
+				state,
+				zone,
+				zone.m_sZoneId,
+				civilianPrefab,
+				ResolveTownVehicleSpawnPosition(zone, civilianIndex, false),
+				BuildSpawnAngles(civilianSeed),
+				CIVILIAN_FACTION_KEY,
+				"CIV_VEHICLE",
+				occupiedVehiclePositions,
+				civilianIndex,
+				false))
+			{
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, "CIV_VEHICLE");
+				break;
+			}
+			ClearAmbientSpawnRetry(zone.m_sZoneId, "CIV_VEHICLE");
+			m_aStaticCivilianVehicleSlotsCompleted[initializationIndex]
+				= m_aStaticCivilianVehicleSlotsCompleted[initializationIndex] + 1;
+			spawned++;
+		}
+
+		bool projectMilitaryVehicles = ShouldSpawnFactionTownVehicles(preset, zone);
+		string militaryPolicyOwner = "<none>";
+		if (projectMilitaryVehicles)
+			militaryPolicyOwner = zone.m_sOwnerFactionKey;
+		if (initializationIndex < m_aStaticMilitaryInitializationOwnerKeys.Count()
+			&& m_aStaticMilitaryInitializationOwnerKeys[initializationIndex]
+				!= militaryPolicyOwner)
+		{
+			RecycleStaticMilitaryVehiclesForPolicyChange(state, zone.m_sZoneId);
+			m_aStaticMilitaryVehicleSlotsCompleted[initializationIndex] = 0;
+			m_aStaticMilitaryInitializationOwnerKeys[initializationIndex]
+				= militaryPolicyOwner;
+			ClearAmbientSpawnRetry(zone.m_sZoneId, "MILITARY_VEHICLE");
+			BuildOccupiedTownVehiclePositions(
+				zone.m_sZoneId,
+				occupiedVehiclePositions);
+		}
+		if (!projectMilitaryVehicles)
+			return spawned;
+		int militaryTarget = ResolveDeterministicCount(
+			balance.m_iOccupierVehicleMinPerTown,
+			balance.m_iOccupierVehicleMaxPerTown,
+			BuildZoneSeed(state, zone, 401));
+		int militaryCompleted = m_aStaticMilitaryVehicleSlotsCompleted[initializationIndex];
+		for (int militaryIndex = militaryCompleted; militaryIndex < militaryTarget; militaryIndex++)
+		{
+			if (!CanStartAmbientSpawn(state, zone.m_sZoneId, "MILITARY_VEHICLE"))
+				break;
+			string ownerPrefab = SelectFactionVehiclePrefab(
+				zone.m_sOwnerFactionKey,
+				militaryIndex + BuildZoneSeed(state, zone, 503));
+			if (ownerPrefab.IsEmpty())
+			{
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, "MILITARY_VEHICLE");
+				break;
+			}
+			int vehicleSlot = civilianTarget + militaryIndex;
+			m_iAmbientSpawnBudgetRemaining--;
+			if (!SpawnTownVehicleRuntimeEntity(
+				state,
+				zone,
+				zone.m_sZoneId,
+				ownerPrefab,
+				ResolveTownVehicleSpawnPosition(zone, vehicleSlot, true),
+				BuildSpawnAngles(BuildZoneSeed(state, zone, 700 + militaryIndex)),
+				zone.m_sOwnerFactionKey,
+				"MILITARY_VEHICLE",
+				occupiedVehiclePositions,
+				vehicleSlot,
+				true))
+			{
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, "MILITARY_VEHICLE");
+				break;
+			}
+			ClearAmbientSpawnRetry(zone.m_sZoneId, "MILITARY_VEHICLE");
+			m_aStaticMilitaryVehicleSlotsCompleted[initializationIndex]
+				= m_aStaticMilitaryVehicleSlotsCompleted[initializationIndex] + 1;
+			spawned++;
+		}
+		return spawned;
+	}
+
+	protected void RecycleStaticMilitaryVehiclesForPolicyChange(
+		HST_CampaignState state,
+		string zoneId)
+	{
+		if (!state || zoneId.IsEmpty())
+			return;
+		for (int index = m_aRuntimeEntities.Count() - 1; index >= 0; index--)
+		{
+			if (index >= m_aRuntimeEntityZoneIds.Count()
+				|| index >= m_aRuntimeEntityKinds.Count()
+				|| m_aRuntimeEntityZoneIds[index] != zoneId
+				|| m_aRuntimeEntityKinds[index] != "MILITARY_VEHICLE")
+				continue;
+			IEntity entity = m_aRuntimeEntities[index];
+			if (entity && HasPlayerOccupant(entity))
+			{
+				if (!PromoteRuntimeVehicleToPersistentField(state, entity))
+					continue;
+			}
+			else if (entity)
+			{
+				RemoveTransientAmbientRuntimeVehicleRecord(state, entity);
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			}
+			else if (index < m_aRuntimeEntityVehicleIds.Count())
+			{
+				RemoveTransientAmbientRuntimeVehicleRecordById(
+					state,
+					m_aRuntimeEntityVehicleIds[index]);
+			}
+			RemoveRuntimeEntityAt(index);
+		}
+	}
+
+	protected int EnsureStaticVehicleInitializationIndex(string zoneId)
+	{
+		int index = m_aStaticVehicleInitializationZoneIds.Find(zoneId);
+		if (index >= 0)
+			return index;
+		m_aStaticVehicleInitializationZoneIds.Insert(zoneId);
+		m_aStaticCivilianVehicleSlotsCompleted.Insert(0);
+		m_aStaticMilitaryVehicleSlotsCompleted.Insert(0);
+		m_aStaticMilitaryInitializationOwnerKeys.Insert("");
+		return m_aStaticVehicleInitializationZoneIds.Count() - 1;
+	}
+
+	protected void ClearStaticVehicleInitialization(string zoneId)
+	{
+		int index = m_aStaticVehicleInitializationZoneIds.Find(zoneId);
+		if (index < 0)
+			return;
+		m_aStaticVehicleInitializationZoneIds.Remove(index);
+		if (index < m_aStaticCivilianVehicleSlotsCompleted.Count())
+			m_aStaticCivilianVehicleSlotsCompleted.Remove(index);
+		if (index < m_aStaticMilitaryVehicleSlotsCompleted.Count())
+			m_aStaticMilitaryVehicleSlotsCompleted.Remove(index);
+		if (index < m_aStaticMilitaryInitializationOwnerKeys.Count())
+			m_aStaticMilitaryInitializationOwnerKeys.Remove(index);
+	}
+
+	protected int SpawnZoneCivilianPedestrians(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		HST_ZoneState zone,
+		int targetPedestrians)
+	{
+		if (!state || !balance || !zone || !IsCivilianLocality(zone))
+			return 0;
+
+		int currentPedestrians = CountAmbientActorReservationsForZone(
+			zone.m_sZoneId,
+			"CIV_CHARACTER");
+		if (currentPedestrians >= targetPedestrians)
+			return 0;
+		if (CountGuidQualifiedCivilianCharacterPrefabs(balance) < MIN_CIVILIAN_CHARACTER_PREFABS)
+		{
+			WarnMissingCivilianCharacterPool(zone, targetPedestrians);
+			return 0;
+		}
+
+		int spawned;
+		int appearanceSeed = BuildZoneSeed(state, zone, CIVILIAN_APPEARANCE_SEED_SALT);
+		array<string> usedAppearancePrefabs = {};
+		BuildUsedCivilianActorAppearancePrefabs(
+			zone.m_sZoneId,
+			usedAppearancePrefabs);
+		for (int i; i < targetPedestrians; i++)
+		{
+			if (IsAmbientProjectionSlotReserved(
+				zone.m_sZoneId,
+				"CIV_CHARACTER",
+				i))
+				continue;
+			if (!CanStartAmbientSpawn(state, zone.m_sZoneId, "CIV_CHARACTER"))
+				break;
+
+			int civilianSeed = BuildZoneSeed(state, zone, 1000 + i);
+			string civilianPrefab = SelectCivilianCharacterPrefabAvoiding(
+				balance,
+				i,
+				appearanceSeed,
+				usedAppearancePrefabs);
+			if (civilianPrefab.IsEmpty())
+			{
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, "CIV_CHARACTER");
+				break;
+			}
+
+			vector position = ResolveTownCharacterSpawnPosition(zone, i, civilianSeed);
+			vector angles = BuildSpawnAngles(civilianSeed);
+			int beforeCivilianSpawn = m_aRuntimeEntities.Count();
+			m_iAmbientSpawnBudgetRemaining--;
+			if (!SpawnRuntimeEntity(
+				state,
+				zone.m_sZoneId,
+				civilianPrefab,
+				position,
+				angles,
+				CIVILIAN_FACTION_KEY,
+				"CIV_CHARACTER"))
+			{
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, "CIV_CHARACTER");
+				break;
+			}
+
+			if (beforeCivilianSpawn >= m_aRuntimeEntities.Count())
+				break;
+			IEntity civilianEntity = m_aRuntimeEntities[beforeCivilianSpawn];
+			if (!usedAppearancePrefabs.Contains(civilianPrefab))
+				usedAppearancePrefabs.Insert(civilianPrefab);
+			AIGroup group;
+			if (!AssignCivilianPedestrianBehavior(civilianEntity, zone, i, civilianSeed, group)
+				|| !RegisterAmbientPedestrianRuntime(state, zone, civilianEntity, group, i, civilianSeed))
+			{
+				CleanupFailedAmbientRuntimeEntity(state, civilianEntity, zone.m_sZoneId, "CIV_CHARACTER");
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, "CIV_CHARACTER");
+				break;
+			}
+
+			spawned++;
+		}
+		return spawned;
+	}
+
+	protected int SpawnZoneCivilianTraffic(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		HST_ZoneState zone,
+		array<vector> occupiedVehiclePositions,
+		int baseSlotIndex,
+		int targetTraffic)
 	{
 		if (!state || !balance || !zone || !IsTrueTownLocation(zone))
 			return 0;
 
-		int targetTraffic = ResolveCivilianTrafficTarget(balance, zone);
-		int currentTraffic = CountRuntimeEntitiesForZone(zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND, "CIV");
+		int currentTraffic = CountAmbientActorReservationsForZone(
+			zone.m_sZoneId,
+			CIVILIAN_TRAFFIC_RUNTIME_KIND);
 		if (currentTraffic >= targetTraffic)
 			return 0;
 
 		int spawned;
-		for (int i = currentTraffic; i < targetTraffic; i++)
+		for (int i; i < targetTraffic; i++)
 		{
+			if (IsAmbientProjectionSlotReserved(
+				zone.m_sZoneId,
+				CIVILIAN_TRAFFIC_RUNTIME_KIND,
+				i))
+				continue;
+			if (!CanStartAmbientSpawn(state, zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND))
+				break;
+
 			int seed = BuildZoneSeed(state, zone, 3000 + i * 17);
 			string vehiclePrefab = SelectCivilianVehiclePrefab(balance, i + baseSlotIndex, seed);
 			if (vehiclePrefab.IsEmpty())
-				continue;
+			{
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+				break;
+			}
 
 			int vehicleIndex = baseSlotIndex + i;
 			vector vehiclePosition = ResolveTownVehicleSpawnPosition(zone, vehicleIndex, false);
 			vector vehicleAngles = BuildSpawnAngles(seed);
 			int beforeVehicleSpawn = m_aRuntimeEntities.Count();
+			m_iAmbientSpawnBudgetRemaining--;
 			if (!SpawnTownVehicleRuntimeEntity(state, zone, zone.m_sZoneId, vehiclePrefab, vehiclePosition, vehicleAngles, "CIV", CIVILIAN_TRAFFIC_RUNTIME_KIND, occupiedVehiclePositions, vehicleIndex, false))
-				continue;
+			{
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+				break;
+			}
 
 			if (beforeVehicleSpawn >= m_aRuntimeEntities.Count())
 				continue;
 
 			IEntity trafficVehicle = m_aRuntimeEntities[beforeVehicleSpawn];
-			if (!AssignCivilianTrafficBehavior(state, balance, zone, trafficVehicle, i, seed))
+			IEntity driverEntity;
+			AIGroup group;
+			if (!AssignCivilianTrafficBehavior(
+				state,
+				balance,
+				zone,
+				trafficVehicle,
+				i,
+				seed,
+				driverEntity,
+				group)
+				|| !RegisterAmbientTrafficRuntime(
+					state,
+					zone,
+					trafficVehicle,
+					driverEntity,
+					group,
+					i,
+					seed))
 			{
-				CleanupFailedCivilianTrafficRuntimeEntity(state, trafficVehicle, zone.m_sZoneId);
-				continue;
+				CleanupFailedAmbientRuntimeEntity(state, trafficVehicle, zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+				SetAmbientSpawnRetry(state, balance, zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+				break;
 			}
 
 			spawned++;
@@ -2731,32 +3491,53 @@ class HST_CivilianService
 		return spawned;
 	}
 
-	protected void AssignCivilianPedestrianBehavior(IEntity civilianEntity, HST_ZoneState zone, int index, int seed)
+	protected bool AssignCivilianPedestrianBehavior(
+		IEntity civilianEntity,
+		HST_ZoneState zone,
+		int index,
+		int seed,
+		out AIGroup group)
 	{
+		group = null;
 		if (!civilianEntity || !zone)
-			return;
+			return false;
 
-		AIGroup group = EnsureCivilianAIGroup(civilianEntity, civilianEntity, CIVILIAN_FACTION_KEY);
+		group = EnsureCivilianAIGroup(civilianEntity, civilianEntity, CIVILIAN_FACTION_KEY);
 		if (!group)
-			return;
+			return false;
 
 		ApplyCivilianMovementSpeed(civilianEntity, group, EMovementType.WALK);
 		array<vector> waypoints = {};
 		waypoints.Insert(ResolveCivilianWanderPoint(zone, index, seed, 0));
 		waypoints.Insert(ResolveCivilianWanderPoint(zone, index, seed, 1));
-		AssignCivilianCycleWaypoints(civilianEntity, group, waypoints, CIVILIAN_WANDER_COMPLETION_RADIUS_METERS, false);
+		return AssignCivilianCycleWaypoints(
+			civilianEntity,
+			group,
+			waypoints,
+			CIVILIAN_WANDER_COMPLETION_RADIUS_METERS,
+			false) >= 2;
 	}
 
-	protected bool AssignCivilianTrafficBehavior(HST_CampaignState state, HST_BalanceConfig balance, HST_ZoneState zone, IEntity vehicleEntity, int index, int seed)
+	protected bool AssignCivilianTrafficBehavior(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		HST_ZoneState zone,
+		IEntity vehicleEntity,
+		int index,
+		int seed,
+		out IEntity driverEntity,
+		out AIGroup group)
 	{
+		driverEntity = null;
+		group = null;
 		if (!state || !balance || !zone || !vehicleEntity)
 			return false;
 
-		IEntity driverEntity = SpawnCivilianTrafficDriver(state, balance, zone, vehicleEntity, index, seed);
+		driverEntity = SpawnCivilianTrafficDriver(state, balance, zone, vehicleEntity, index, seed);
 		if (!driverEntity)
 			return false;
 
-		AIGroup group = EnsureCivilianAIGroup(vehicleEntity, driverEntity, CIVILIAN_FACTION_KEY);
+		group = EnsureCivilianAIGroup(vehicleEntity, driverEntity, CIVILIAN_FACTION_KEY);
 		if (!group)
 			return false;
 
@@ -2784,6 +3565,1119 @@ class HST_CivilianService
 		return true;
 	}
 
+	protected bool RegisterAmbientPedestrianRuntime(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		IEntity pedestrianEntity,
+		AIGroup group,
+		int index,
+		int seed)
+	{
+		if (!state || !zone || !pedestrianEntity || !group || !m_AmbientRuntime)
+			return false;
+
+		HST_AmbientActorRuntimeRecord record = m_AmbientRuntime.CreateRecord(
+			BuildAmbientRuntimeId(zone.m_sZoneId, "ped", state.m_iElapsedSeconds),
+			zone.m_sZoneId,
+			HST_AmbientActorRuntimeService.KIND_PEDESTRIAN,
+			state.m_iElapsedSeconds,
+			index,
+			seed);
+		if (!record)
+			return false;
+		record.m_RootEntity = pedestrianEntity;
+		record.m_Group = group;
+		if (!m_AmbientRuntime.TryTransition(
+			record,
+			HST_AmbientActorRuntimeService.STATE_BEHAVIOR_INITIALIZING,
+			"group and wander order created",
+			state.m_iElapsedSeconds))
+			return false;
+
+		m_aAmbientActorRecords.Insert(record);
+		ClearAmbientSpawnRetry(zone.m_sZoneId, "CIV_CHARACTER");
+		return true;
+	}
+
+	protected bool RegisterAmbientTrafficRuntime(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		IEntity vehicleEntity,
+		IEntity driverEntity,
+		AIGroup group,
+		int index,
+		int seed)
+	{
+		if (!state || !zone || !vehicleEntity || !driverEntity || !group || !m_AmbientRuntime)
+			return false;
+
+		HST_AmbientActorRuntimeRecord record = m_AmbientRuntime.CreateRecord(
+			BuildAmbientRuntimeId(zone.m_sZoneId, "traffic", state.m_iElapsedSeconds),
+			zone.m_sZoneId,
+			HST_AmbientActorRuntimeService.KIND_TRAFFIC,
+			state.m_iElapsedSeconds,
+			index,
+			seed);
+		if (!record)
+			return false;
+		record.m_RootEntity = vehicleEntity;
+		record.m_DriverEntity = driverEntity;
+		record.m_Group = group;
+		if (!m_AmbientRuntime.TryTransition(record, HST_AmbientActorRuntimeService.STATE_VEHICLE_SPAWNED, "vehicle created", state.m_iElapsedSeconds)
+			|| !m_AmbientRuntime.TryTransition(record, HST_AmbientActorRuntimeService.STATE_DRIVER_SPAWNED, "driver and CIV group created", state.m_iElapsedSeconds)
+			|| !m_AmbientRuntime.TryTransition(record, HST_AmbientActorRuntimeService.STATE_SEATING, "pilot seat request accepted", state.m_iElapsedSeconds))
+			return false;
+
+		m_aAmbientActorRecords.Insert(record);
+		ClearAmbientSpawnRetry(zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+		return true;
+	}
+
+	protected string BuildAmbientRuntimeId(string zoneId, string kind, int elapsedSeconds)
+	{
+		m_iAmbientRuntimeSequence++;
+		return string.Format("ambient_%1_%2_%3_%4", zoneId, kind, elapsedSeconds, m_iAmbientRuntimeSequence);
+	}
+
+	protected int CountAmbientActorReservationsForZone(string zoneId, string runtimeKind)
+	{
+		if (zoneId.IsEmpty() || !m_AmbientRuntime)
+			return 0;
+		string kindId = ResolveAmbientKindId(runtimeKind);
+		if (kindId.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
+		{
+			if (record
+				&& record.m_sZoneId == zoneId
+				&& record.m_sKindId == kindId
+				&& m_AmbientRuntime.IsBudgetReservation(record))
+				count++;
+		}
+		return count;
+	}
+
+	protected bool IsAmbientProjectionSlotReserved(
+		string zoneId,
+		string runtimeKind,
+		int projectionSlot)
+	{
+		if (zoneId.IsEmpty() || projectionSlot < 0 || !m_AmbientRuntime)
+			return false;
+		string kindId = ResolveAmbientKindId(runtimeKind);
+		if (kindId.IsEmpty())
+			return false;
+
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
+		{
+			if (record
+				&& record.m_sZoneId == zoneId
+				&& record.m_sKindId == kindId
+				&& record.m_iProjectionSlot == projectionSlot
+				&& m_AmbientRuntime.IsBudgetReservation(record))
+				return true;
+		}
+		return false;
+	}
+
+	int CountAmbientBehaviorReadyActorsForZone(string zoneId, string runtimeKind = "")
+	{
+		if (zoneId.IsEmpty() || !m_AmbientRuntime)
+			return 0;
+		string kindId = ResolveAmbientKindId(runtimeKind);
+		int count;
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
+		{
+			if (!record || record.m_sZoneId != zoneId)
+				continue;
+			if (!kindId.IsEmpty() && record.m_sKindId != kindId)
+				continue;
+			if (m_AmbientRuntime.IsBehaviorReady(record))
+				count++;
+		}
+		return count;
+	}
+
+	int CountAmbientAdmittedActorsForZone(string zoneId, string runtimeKind = "")
+	{
+		if (zoneId.IsEmpty() || !m_AmbientRuntime)
+			return 0;
+		string kindId = ResolveAmbientKindId(runtimeKind);
+		int count;
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
+		{
+			if (!record || record.m_sZoneId != zoneId || !record.m_bAdmitted)
+				continue;
+			if (!kindId.IsEmpty() && record.m_sKindId != kindId)
+				continue;
+			if (m_AmbientRuntime.IsBudgetReservation(record))
+				count++;
+		}
+		return count;
+	}
+
+	int CountAmbientRecoveringActorsForZone(string zoneId, string runtimeKind = "")
+	{
+		if (zoneId.IsEmpty())
+			return 0;
+		string kindId = ResolveAmbientKindId(runtimeKind);
+		int count;
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
+		{
+			if (!record || record.m_sZoneId != zoneId
+				|| record.m_sStateId != HST_AmbientActorRuntimeService.STATE_RECOVERING)
+				continue;
+			if (kindId.IsEmpty() || record.m_sKindId == kindId)
+				count++;
+		}
+		return count;
+	}
+
+	protected string ResolveAmbientKindId(string runtimeKind)
+	{
+		if (runtimeKind == "CIV_CHARACTER")
+			return HST_AmbientActorRuntimeService.KIND_PEDESTRIAN;
+		if (runtimeKind == CIVILIAN_TRAFFIC_RUNTIME_KIND)
+			return HST_AmbientActorRuntimeService.KIND_TRAFFIC;
+		return "";
+	}
+
+	protected bool CanStartAmbientSpawn(
+		HST_CampaignState state,
+		string zoneId,
+		string runtimeKind)
+	{
+		if (!state || m_iAmbientSpawnBudgetRemaining <= 0)
+			return false;
+		int retryIndex = FindAmbientSpawnRetry(zoneId, runtimeKind);
+		return retryIndex < 0
+			|| retryIndex >= m_aAmbientRetrySeconds.Count()
+			|| state.m_iElapsedSeconds >= m_aAmbientRetrySeconds[retryIndex];
+	}
+
+	protected void SetAmbientSpawnRetry(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		string zoneId,
+		string runtimeKind)
+	{
+		if (!state || !balance || zoneId.IsEmpty() || runtimeKind.IsEmpty())
+			return;
+		int retrySecond = state.m_iElapsedSeconds
+			+ Math.Max(
+				balance.m_iCivilianRuntimeHealthIntervalSeconds,
+				balance.m_iCivilianRuntimeRetryBackoffSeconds);
+		int retryIndex = FindAmbientSpawnRetry(zoneId, runtimeKind);
+		if (retryIndex >= 0)
+		{
+			m_aAmbientRetrySeconds[retryIndex] = retrySecond;
+			return;
+		}
+		m_aAmbientRetryZoneIds.Insert(zoneId);
+		m_aAmbientRetryKinds.Insert(runtimeKind);
+		m_aAmbientRetrySeconds.Insert(retrySecond);
+	}
+
+	protected void ClearAmbientSpawnRetry(string zoneId, string runtimeKind)
+	{
+		int retryIndex = FindAmbientSpawnRetry(zoneId, runtimeKind);
+		if (retryIndex < 0)
+			return;
+		m_aAmbientRetryZoneIds.Remove(retryIndex);
+		m_aAmbientRetryKinds.Remove(retryIndex);
+		m_aAmbientRetrySeconds.Remove(retryIndex);
+	}
+
+	protected int FindAmbientSpawnRetry(string zoneId, string runtimeKind)
+	{
+		for (int index; index < m_aAmbientRetryZoneIds.Count(); index++)
+		{
+			if (index >= m_aAmbientRetryKinds.Count())
+				return -1;
+			if (m_aAmbientRetryZoneIds[index] == zoneId
+				&& m_aAmbientRetryKinds[index] == runtimeKind)
+				return index;
+		}
+		return -1;
+	}
+
+	protected bool RemoveExcessAmbientActors(
+		HST_CampaignState state,
+		string zoneId,
+		string runtimeKind,
+		int targetCount)
+	{
+		string kindId = ResolveAmbientKindId(runtimeKind);
+		int currentCount = CountAmbientActorReservationsForZone(zoneId, runtimeKind);
+		bool changed;
+		for (int index = m_aAmbientActorRecords.Count() - 1; index >= 0 && currentCount > targetCount; index--)
+		{
+			HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[index];
+			if (!record || record.m_sZoneId != zoneId || record.m_sKindId != kindId)
+				continue;
+			RecycleAmbientActorAt(state, index, "budget allocation reduced");
+			currentCount--;
+			changed = true;
+		}
+		return changed;
+	}
+
+	protected bool TickAmbientActorRuntime(
+		HST_CampaignState state,
+		HST_BalanceConfig balance)
+	{
+		if (!state || !balance || !m_AmbientRuntime)
+			return false;
+
+		bool changed;
+		for (int index = m_aAmbientActorRecords.Count() - 1; index >= 0; index--)
+		{
+			HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[index];
+			if (!record || !record.m_RootEntity)
+			{
+				m_aAmbientActorRecords.Remove(index);
+				changed = true;
+				continue;
+			}
+			if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_DESPAWN_QUEUED)
+			{
+				RecycleAmbientActorAt(state, index, record.m_sReasonId);
+				changed = true;
+				continue;
+			}
+
+			if (record.m_sKindId == HST_AmbientActorRuntimeService.KIND_PEDESTRIAN)
+				changed = TickAmbientPedestrianRecord(state, balance, index, record) || changed;
+			else if (record.m_sKindId == HST_AmbientActorRuntimeService.KIND_TRAFFIC)
+				changed = TickAmbientTrafficRecord(state, balance, index, record) || changed;
+			else
+			{
+				m_AmbientRuntime.QueueDespawn(record, "unknown ambient actor kind", state.m_iElapsedSeconds);
+				RecycleAmbientActorAt(state, index, "unknown ambient actor kind");
+				changed = true;
+			}
+		}
+		return changed;
+	}
+
+	protected bool TickAmbientPedestrianRecord(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		int recordIndex,
+		HST_AmbientActorRuntimeRecord record)
+	{
+		if (!state || !balance || !record)
+			return false;
+		int nowSecond = state.m_iElapsedSeconds;
+		if (!IsLivingAmbientCharacter(record.m_RootEntity)
+			|| !IsExactCivilianFaction(record.m_RootEntity)
+			|| !IsExactCivilianGroupMembership(record.m_RootEntity, record.m_Group))
+		{
+			SetAmbientSpawnRetry(state, balance, record.m_sZoneId, "CIV_CHARACTER");
+			m_AmbientRuntime.QueueDespawn(record, "pedestrian authority lost", nowSecond);
+			RecycleAmbientActorAt(state, recordIndex, "pedestrian authority lost");
+			return true;
+		}
+
+		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_BEHAVIOR_INITIALIZING)
+		{
+			if (HasActiveCivilianWaypoint(record.m_Group))
+			{
+				bool admitted = m_AmbientRuntime.TryTransition(
+					record,
+					HST_AmbientActorRuntimeService.STATE_WANDERING,
+					"wander behavior acknowledged",
+					nowSecond);
+				if (admitted)
+					m_AmbientRuntime.RecordMovementProgress(record, record.m_RootEntity.GetOrigin(), nowSecond, AMBIENT_PROGRESS_DISTANCE_METERS);
+				return admitted;
+			}
+
+			if (nowSecond - record.m_iCreatedAtSecond < balance.m_iCivilianRuntimeStartupGraceSeconds)
+				return false;
+			SetAmbientSpawnRetry(state, balance, record.m_sZoneId, "CIV_CHARACTER");
+			m_AmbientRuntime.QueueDespawn(record, "pedestrian behavior acknowledgement timed out", nowSecond);
+			RecycleAmbientActorAt(state, recordIndex, "pedestrian behavior acknowledgement timed out");
+			return true;
+		}
+
+		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_RECOVERING)
+		{
+			if (record.m_sReasonId == AMBIENT_PEDESTRIAN_RECOVERY_ACK_REASON
+				&& HasActiveCivilianWaypoint(record.m_Group))
+			{
+				return m_AmbientRuntime.TryTransition(
+					record,
+					HST_AmbientActorRuntimeService.STATE_WANDERING,
+					"pedestrian recovery waypoint acknowledged",
+					nowSecond);
+			}
+			if (!m_AmbientRuntime.IsRetryDue(record, nowSecond))
+				return false;
+			if (record.m_sReasonId == AMBIENT_PEDESTRIAN_RECOVERY_ACK_REASON)
+			{
+				if (nowSecond - record.m_iStateChangedAtSecond
+					< balance.m_iCivilianRuntimeStartupGraceSeconds
+						+ balance.m_iCivilianRuntimeRetryBackoffSeconds)
+				{
+					record.m_iRetryAtSecond = nowSecond
+						+ balance.m_iCivilianRuntimeHealthIntervalSeconds;
+					return false;
+				}
+			}
+			else if (TryRecoverAmbientPedestrian(state, record))
+			{
+				if (HasActiveCivilianWaypoint(record.m_Group))
+				{
+					return m_AmbientRuntime.TryTransition(
+						record,
+						HST_AmbientActorRuntimeService.STATE_WANDERING,
+						"pedestrian recovery waypoint acknowledged",
+						nowSecond);
+				}
+				record.m_sReasonId = AMBIENT_PEDESTRIAN_RECOVERY_ACK_REASON;
+				record.m_iRetryAtSecond = nowSecond
+					+ balance.m_iCivilianRuntimeHealthIntervalSeconds;
+				return false;
+			}
+
+			SetAmbientSpawnRetry(state, balance, record.m_sZoneId, "CIV_CHARACTER");
+			m_AmbientRuntime.QueueDespawn(record, "pedestrian recovery acknowledgement failed", nowSecond);
+			RecycleAmbientActorAt(state, recordIndex, "pedestrian recovery acknowledgement failed");
+			return true;
+		}
+
+		if (!m_AmbientRuntime.IsBehaviorReady(record))
+			return false;
+		if (!HasActiveCivilianWaypoint(record.m_Group))
+			return BeginAmbientRecoveryOrRecycle(state, balance, recordIndex, record, "pedestrian waypoint lost");
+
+		bool moved = m_AmbientRuntime.RecordMovementProgress(
+			record,
+			record.m_RootEntity.GetOrigin(),
+			nowSecond,
+			AMBIENT_PROGRESS_DISTANCE_METERS);
+		if (moved)
+			return false;
+		if (!m_AmbientRuntime.ShouldRecover(
+			record,
+			nowSecond,
+			balance.m_iCivilianRuntimeStartupGraceSeconds,
+			balance.m_iCivilianRuntimeStuckSeconds))
+			return false;
+		return BeginAmbientRecoveryOrRecycle(state, balance, recordIndex, record, "pedestrian movement stalled");
+	}
+
+	protected bool TryRecoverAmbientPedestrian(
+		HST_CampaignState state,
+		HST_AmbientActorRuntimeRecord record)
+	{
+		if (!state || !record || !record.m_RootEntity || !record.m_Group)
+			return false;
+		HST_ZoneState zone = state.FindZone(record.m_sZoneId);
+		if (!zone)
+			return false;
+
+		ClearAmbientMovementHelpers(record);
+		int projectionSeedSalt = record.m_iProjectionSeed % 997;
+		if (projectionSeedSalt < 0)
+			projectionSeedSalt = -projectionSeedSalt;
+		int seed = BuildZoneSeed(
+			state,
+			zone,
+			6100
+				+ Math.Max(0, record.m_iProjectionSlot) * 193
+				+ projectionSeedSalt
+				+ record.m_iRecoveryCount * 97);
+		array<vector> waypoints = {};
+		waypoints.Insert(ResolveCivilianWanderPoint(
+			zone,
+			record.m_iProjectionSlot,
+			seed,
+			0));
+		waypoints.Insert(ResolveCivilianWanderPoint(
+			zone,
+			record.m_iProjectionSlot,
+			seed,
+			1));
+		return AssignCivilianCycleWaypoints(
+			record.m_RootEntity,
+			record.m_Group,
+			waypoints,
+			CIVILIAN_WANDER_COMPLETION_RADIUS_METERS,
+			false) >= 2;
+	}
+
+	protected bool BeginAmbientRecoveryOrRecycle(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		int recordIndex,
+		HST_AmbientActorRuntimeRecord record,
+		string reason)
+	{
+		if (!state || !balance || !record)
+			return false;
+		bool changed = m_AmbientRuntime.BeginRecovery(
+			record,
+			state.m_iElapsedSeconds,
+			balance.m_iCivilianRuntimeMaxRecoveryAttempts,
+			balance.m_iCivilianRuntimeRetryBackoffSeconds,
+			reason);
+		if (!changed)
+			return false;
+		if (record.m_sStateId != HST_AmbientActorRuntimeService.STATE_DESPAWN_QUEUED)
+		{
+			ClearAmbientMovementHelpers(record);
+			return true;
+		}
+
+		string runtimeKind = "CIV_CHARACTER";
+		if (record.m_sKindId == HST_AmbientActorRuntimeService.KIND_TRAFFIC)
+			runtimeKind = CIVILIAN_TRAFFIC_RUNTIME_KIND;
+		SetAmbientSpawnRetry(state, balance, record.m_sZoneId, runtimeKind);
+		RecycleAmbientActorAt(state, recordIndex, reason + "; recovery exhausted");
+		return true;
+	}
+
+	protected bool TickAmbientTrafficRecord(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		int recordIndex,
+		HST_AmbientActorRuntimeRecord record)
+	{
+		if (!state || !balance || !record)
+			return false;
+		int nowSecond = state.m_iElapsedSeconds;
+		if (!IsLivingAmbientEntity(record.m_RootEntity)
+			|| !IsLivingAmbientCharacter(record.m_DriverEntity)
+			|| !IsExactCivilianFaction(record.m_DriverEntity)
+			|| !IsExactCivilianGroupMembership(record.m_DriverEntity, record.m_Group))
+		{
+			SetAmbientSpawnRetry(state, balance, record.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+			m_AmbientRuntime.QueueDespawn(record, "traffic authority lost", nowSecond);
+			RecycleAmbientActorAt(state, recordIndex, "traffic authority lost");
+			return true;
+		}
+
+		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_RECOVERING)
+			return TickAmbientTrafficRecovery(state, balance, recordIndex, record);
+
+		bool changed;
+		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_SEATING)
+		{
+			if (!IsExactAmbientTrafficDriverSeated(record))
+				return RetryAmbientTrafficStartup(state, balance, recordIndex, record, "waiting for exact pilot occupant");
+			changed = m_AmbientRuntime.TryTransition(
+				record,
+				HST_AmbientActorRuntimeService.STATE_DRIVER_CONFIRMED,
+				"living driver confirmed in pilot seat",
+				nowSecond) || changed;
+		}
+
+		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_DRIVER_CONFIRMED)
+		{
+			changed = m_AmbientRuntime.TryTransition(
+				record,
+				HST_AmbientActorRuntimeService.STATE_ENGINE_STARTING,
+				"driver authority confirmed",
+				nowSecond) || changed;
+		}
+
+		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_ENGINE_STARTING)
+		{
+			BaseVehicleControllerComponent controller = ResolveAmbientVehicleController(record.m_RootEntity);
+			if (controller && !controller.IsEngineOn())
+				controller.ForceStartEngine();
+			if (!controller || !controller.IsEngineOn())
+				return RetryAmbientTrafficStartup(state, balance, recordIndex, record, "waiting for engine-on acknowledgement") || changed;
+			changed = m_AmbientRuntime.TryTransition(
+				record,
+				HST_AmbientActorRuntimeService.STATE_ENGINE_STARTED,
+				"engine-on acknowledged",
+				nowSecond) || changed;
+		}
+
+		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_ENGINE_STARTED)
+		{
+			if (!HasAssignedCivilianWaypoint(record.m_Group))
+			{
+				TryRebuildAmbientTrafficRoute(state, record);
+			}
+			if (!HasActiveCivilianWaypoint(record.m_Group))
+				return RetryAmbientTrafficStartup(state, balance, recordIndex, record, "waiting for active traffic waypoint") || changed;
+			changed = m_AmbientRuntime.TryTransition(
+				record,
+				HST_AmbientActorRuntimeService.STATE_ROUTE_FOLLOWING,
+				"seat engine and route acknowledged",
+				nowSecond) || changed;
+			record.m_iRecoveryCount = 0;
+			m_AmbientRuntime.RecordMovementProgress(
+				record,
+				record.m_RootEntity.GetOrigin(),
+				nowSecond,
+				AMBIENT_PROGRESS_DISTANCE_METERS);
+			return true;
+		}
+
+		if (!m_AmbientRuntime.IsBehaviorReady(record))
+			return changed;
+		if (!IsExactAmbientTrafficDriverSeated(record))
+			return BeginAmbientRecoveryOrRecycle(state, balance, recordIndex, record, "traffic driver left pilot seat") || changed;
+		if (!TryRegisterCivilianVehicleWithGroup(record.m_Group, record.m_RootEntity))
+			return BeginAmbientRecoveryOrRecycle(state, balance, recordIndex, record, "traffic usable-vehicle registration lost") || changed;
+		BaseVehicleControllerComponent liveController = ResolveAmbientVehicleController(record.m_RootEntity);
+		if (!liveController || !liveController.IsEngineOn())
+			return BeginAmbientRecoveryOrRecycle(state, balance, recordIndex, record, "traffic engine stopped") || changed;
+		if (!HasActiveCivilianWaypoint(record.m_Group))
+			return BeginAmbientRecoveryOrRecycle(state, balance, recordIndex, record, "traffic route lost") || changed;
+
+		bool moved = m_AmbientRuntime.RecordMovementProgress(
+			record,
+			record.m_RootEntity.GetOrigin(),
+			nowSecond,
+			AMBIENT_PROGRESS_DISTANCE_METERS);
+		if (moved)
+			return changed;
+		if (!m_AmbientRuntime.ShouldRecover(
+			record,
+			nowSecond,
+			balance.m_iCivilianRuntimeStartupGraceSeconds,
+			balance.m_iCivilianRuntimeStuckSeconds))
+			return changed;
+		return BeginAmbientRecoveryOrRecycle(state, balance, recordIndex, record, "traffic movement stalled") || changed;
+	}
+
+	protected bool RetryAmbientTrafficStartup(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		int recordIndex,
+		HST_AmbientActorRuntimeRecord record,
+		string reason)
+	{
+		if (!state || !balance || !record)
+			return false;
+		int nowSecond = state.m_iElapsedSeconds;
+		if (nowSecond - record.m_iCreatedAtSecond < balance.m_iCivilianRuntimeStartupGraceSeconds)
+			return false;
+		if (record.m_iRetryAtSecond >= 0 && nowSecond < record.m_iRetryAtSecond)
+			return false;
+		if (record.m_iRecoveryCount >= balance.m_iCivilianRuntimeMaxRecoveryAttempts)
+		{
+			SetAmbientSpawnRetry(state, balance, record.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+			m_AmbientRuntime.QueueDespawn(record, reason + "; startup retries exhausted", nowSecond);
+			RecycleAmbientActorAt(state, recordIndex, reason + "; startup retries exhausted");
+			return true;
+		}
+
+		record.m_iRecoveryCount++;
+		record.m_iRetryAtSecond = nowSecond + balance.m_iCivilianRuntimeRetryBackoffSeconds;
+		record.m_sReasonId = reason;
+		TryRepairAmbientTrafficRuntime(state, record);
+		return true;
+	}
+
+	protected bool TickAmbientTrafficRecovery(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		int recordIndex,
+		HST_AmbientActorRuntimeRecord record)
+	{
+		if (!m_AmbientRuntime.IsRetryDue(record, state.m_iElapsedSeconds))
+			return false;
+		if (TryRepairAmbientTrafficRuntime(state, record)
+			&& IsExactAmbientTrafficDriverSeated(record)
+			&& IsAmbientTrafficEngineOn(record)
+			&& HasActiveCivilianWaypoint(record.m_Group))
+		{
+			return m_AmbientRuntime.TryTransition(
+				record,
+				HST_AmbientActorRuntimeService.STATE_ROUTE_FOLLOWING,
+				"traffic recovery acknowledged",
+				state.m_iElapsedSeconds);
+		}
+
+		if (state.m_iElapsedSeconds - record.m_iStateChangedAtSecond
+			< balance.m_iCivilianRuntimeStartupGraceSeconds + balance.m_iCivilianRuntimeRetryBackoffSeconds)
+		{
+			record.m_iRetryAtSecond = state.m_iElapsedSeconds
+				+ balance.m_iCivilianRuntimeHealthIntervalSeconds;
+			return true;
+		}
+
+		SetAmbientSpawnRetry(state, balance, record.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+		m_AmbientRuntime.QueueDespawn(record, "traffic recovery acknowledgement timed out", state.m_iElapsedSeconds);
+		RecycleAmbientActorAt(state, recordIndex, "traffic recovery acknowledgement timed out");
+		return true;
+	}
+
+	protected bool TryRepairAmbientTrafficRuntime(
+		HST_CampaignState state,
+		HST_AmbientActorRuntimeRecord record)
+	{
+		if (!state || !record || !record.m_RootEntity || !record.m_DriverEntity || !record.m_Group)
+			return false;
+
+		if (!IsExactAmbientTrafficDriverSeated(record))
+		{
+			string seatingReason;
+			TryMoveCivilianDriverIntoVehicle(record.m_DriverEntity, record.m_RootEntity, seatingReason);
+		}
+		ClearAmbientTrafficDriverHornInput(record.m_DriverEntity);
+		bool vehicleRegistered = TryRegisterCivilianVehicleWithGroup(
+			record.m_Group,
+			record.m_RootEntity);
+
+		BaseVehicleControllerComponent controller = ResolveAmbientVehicleController(record.m_RootEntity);
+		if (controller && !controller.IsEngineOn())
+			controller.ForceStartEngine();
+		if (!HasAssignedCivilianWaypoint(record.m_Group))
+			TryRebuildAmbientTrafficRoute(state, record);
+		return vehicleRegistered
+			&& IsExactAmbientTrafficDriverSeated(record)
+			&& controller
+			&& controller.IsEngineOn()
+			&& HasActiveCivilianWaypoint(record.m_Group);
+	}
+
+	protected bool TryRebuildAmbientTrafficRoute(
+		HST_CampaignState state,
+		HST_AmbientActorRuntimeRecord record)
+	{
+		if (!state || !record || !record.m_RootEntity || !record.m_Group)
+			return false;
+		HST_ZoneState zone = state.FindZone(record.m_sZoneId);
+		if (!zone)
+			return false;
+
+		ClearAmbientMovementHelpers(record);
+		int projectionSeedSalt = record.m_iProjectionSeed % 991;
+		if (projectionSeedSalt < 0)
+			projectionSeedSalt = -projectionSeedSalt;
+		int seed = BuildZoneSeed(
+			state,
+			zone,
+			7300
+				+ Math.Max(0, record.m_iProjectionSlot) * 211
+				+ projectionSeedSalt
+				+ record.m_iRecoveryCount * 131);
+		array<vector> routePositions = {};
+		BuildCivilianTrafficRoute(
+			zone,
+			record.m_RootEntity.GetOrigin(),
+			record.m_iProjectionSlot + record.m_iRecoveryCount * 37,
+			seed,
+			routePositions);
+		return AssignCivilianCycleWaypoints(
+			record.m_RootEntity,
+			record.m_Group,
+			routePositions,
+			CIVILIAN_TRAFFIC_WAYPOINT_RADIUS_METERS,
+			true) >= 2;
+	}
+
+	protected bool IsLivingAmbientEntity(IEntity entity)
+	{
+		if (!entity || !entity.GetWorld())
+			return false;
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (character)
+		{
+			CharacterControllerComponent controller = character.GetCharacterController();
+			return controller && controller.GetLifeState() != ECharacterLifeState.DEAD;
+		}
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
+			entity.FindComponent(SCR_DamageManagerComponent));
+		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
+	}
+
+	protected bool IsLivingAmbientCharacter(IEntity entity)
+	{
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (!character)
+			return false;
+		CharacterControllerComponent controller = character.GetCharacterController();
+		return controller && controller.GetLifeState() != ECharacterLifeState.DEAD;
+	}
+
+	protected bool IsExactCivilianFaction(IEntity entity)
+	{
+		if (!entity)
+			return false;
+		FactionAffiliationComponent faction = FactionAffiliationComponent.Cast(
+			entity.FindComponent(FactionAffiliationComponent));
+		return faction && faction.GetAffiliatedFactionKey() == CIVILIAN_FACTION_KEY;
+	}
+
+	protected bool IsExactCivilianGroupMembership(IEntity memberEntity, AIGroup group)
+	{
+		if (!memberEntity || !group)
+			return false;
+		AIAgent agent = ResolveCivilianAgent(memberEntity);
+		if (!agent || agent.GetParentGroup() != group)
+			return false;
+		array<AIAgent> agents = {};
+		group.GetAgents(agents);
+		if (agents.Count() != 1 || agents[0] != agent)
+			return false;
+
+		SCR_AIGroup scrGroup = SCR_AIGroup.Cast(group);
+		if (!scrGroup || scrGroup.GetFactionName() != CIVILIAN_FACTION_KEY)
+			return false;
+		FactionAffiliationComponent groupFaction = FactionAffiliationComponent.Cast(
+			group.FindComponent(FactionAffiliationComponent));
+		return !groupFaction
+			|| groupFaction.GetAffiliatedFactionKey() == CIVILIAN_FACTION_KEY;
+	}
+
+	protected bool HasActiveCivilianWaypoint(AIGroup group)
+	{
+		if (!group)
+			return false;
+		AIWaypoint currentWaypoint = group.GetCurrentWaypoint();
+		if (!currentWaypoint)
+			return false;
+		array<AIWaypoint> waypoints = {};
+		group.GetWaypoints(waypoints);
+		return waypoints.Contains(currentWaypoint);
+	}
+
+	protected bool HasAssignedCivilianWaypoint(AIGroup group)
+	{
+		if (!group)
+			return false;
+		array<AIWaypoint> waypoints = {};
+		group.GetWaypoints(waypoints);
+		return !waypoints.IsEmpty();
+	}
+
+	protected bool IsExactAmbientTrafficDriverSeated(HST_AmbientActorRuntimeRecord record)
+	{
+		if (!record || !record.m_RootEntity || !IsLivingAmbientCharacter(record.m_DriverEntity))
+			return false;
+		BaseCompartmentManagerComponent compartmentManager = ResolveCompartmentManager(record.m_RootEntity);
+		if (!compartmentManager)
+			return false;
+
+		array<BaseCompartmentSlot> slots = {};
+		compartmentManager.GetCompartments(slots);
+		bool exactPilot;
+		foreach (BaseCompartmentSlot slot : slots)
+		{
+			if (!slot || (!slot.IsPiloting() && slot.GetType() != ECompartmentType.PILOT))
+				continue;
+			if (slot.GetOccupant() == record.m_DriverEntity)
+			{
+				exactPilot = true;
+				break;
+			}
+		}
+		if (!exactPilot)
+			return false;
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(
+			record.m_DriverEntity.FindComponent(SCR_CompartmentAccessComponent));
+		return access
+			&& access.IsInCompartment()
+			&& access.GetVehicle() == record.m_RootEntity;
+	}
+
+	protected BaseVehicleControllerComponent ResolveAmbientVehicleController(IEntity vehicleEntity)
+	{
+		if (!vehicleEntity)
+			return null;
+		BaseVehicleControllerComponent controller = BaseVehicleControllerComponent.Cast(
+			vehicleEntity.FindComponent(BaseVehicleControllerComponent));
+		if (controller)
+			return controller;
+		Vehicle vehicle = Vehicle.Cast(vehicleEntity);
+		if (!vehicle)
+			return null;
+		return BaseVehicleControllerComponent.Cast(vehicle.GetVehicleController());
+	}
+
+	protected bool IsAmbientTrafficEngineOn(HST_AmbientActorRuntimeRecord record)
+	{
+		if (!record)
+			return false;
+		BaseVehicleControllerComponent controller = ResolveAmbientVehicleController(record.m_RootEntity);
+		return controller && controller.IsEngineOn();
+	}
+
+	protected void ClearAmbientMovementHelpers(HST_AmbientActorRuntimeRecord record)
+	{
+		if (!record || !record.m_RootEntity)
+			return;
+		if (record.m_Group)
+		{
+			array<AIWaypoint> waypoints = {};
+			record.m_Group.GetWaypoints(waypoints);
+			foreach (AIWaypoint waypoint : waypoints)
+			{
+				if (waypoint)
+					record.m_Group.RemoveWaypoint(waypoint);
+			}
+		}
+
+		for (int index = m_aRuntimeHelperOwners.Count() - 1; index >= 0; index--)
+		{
+			if (m_aRuntimeHelperOwners[index] != record.m_RootEntity)
+				continue;
+			IEntity helper = m_aRuntimeHelperEntities[index];
+			if (helper == record.m_DriverEntity || AIGroup.Cast(helper) == record.m_Group)
+				continue;
+			if (helper)
+				SCR_EntityHelper.DeleteEntityAndChildren(helper);
+			m_aRuntimeHelperOwners.Remove(index);
+			m_aRuntimeHelperEntities.Remove(index);
+		}
+	}
+
+	protected void RecycleAmbientActorAt(
+		HST_CampaignState state,
+		int recordIndex,
+		string reason)
+	{
+		if (recordIndex < 0 || recordIndex >= m_aAmbientActorRecords.Count())
+			return;
+		HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[recordIndex];
+		if (!record)
+		{
+			m_aAmbientActorRecords.Remove(recordIndex);
+			return;
+		}
+
+		IEntity rootEntity = record.m_RootEntity;
+		int nowSecond;
+		if (state)
+			nowSecond = state.m_iElapsedSeconds;
+		if (m_AmbientRuntime)
+			m_AmbientRuntime.QueueDespawn(record, reason, nowSecond);
+		m_aAmbientActorRecords.Remove(recordIndex);
+		if (!rootEntity)
+			return;
+
+		int runtimeIndex = m_aRuntimeEntities.Find(rootEntity);
+		DeleteRuntimeHelpersForOwner(rootEntity);
+		RemoveTransientAmbientRuntimeVehicleRecord(state, rootEntity);
+		SCR_EntityHelper.DeleteEntityAndChildren(rootEntity);
+		if (runtimeIndex >= 0)
+			RemoveRuntimeEntityAt(runtimeIndex);
+	}
+
+	protected void QueueAndRemoveAmbientActorRecordForEntity(
+		IEntity entity,
+		HST_CampaignState state,
+		string reason)
+	{
+		if (!entity)
+			return;
+		for (int index = m_aAmbientActorRecords.Count() - 1; index >= 0; index--)
+		{
+			HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[index];
+			if (!record || record.m_RootEntity != entity)
+				continue;
+			int nowSecond;
+			if (state)
+				nowSecond = state.m_iElapsedSeconds;
+			if (m_AmbientRuntime)
+				m_AmbientRuntime.QueueDespawn(record, reason, nowSecond);
+			m_aAmbientActorRecords.Remove(index);
+		}
+	}
+
+	protected void PruneDeletedAmbientActorRecords(HST_CampaignState state)
+	{
+		for (int index = m_aAmbientActorRecords.Count() - 1; index >= 0; index--)
+		{
+			HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[index];
+			if (!record || !record.m_RootEntity)
+			{
+				if (record && m_AmbientRuntime)
+				{
+					int nowSecond;
+					if (state)
+						nowSecond = state.m_iElapsedSeconds;
+					m_AmbientRuntime.QueueDespawn(
+						record,
+						"ambient root lost",
+						nowSecond);
+				}
+				m_aAmbientActorRecords.Remove(index);
+			}
+		}
+	}
+
+	// Called before the persistence tick on every server frame. Player-first
+	// discovery avoids scanning every ambient root for occupancy and closes the
+	// brief enter/exit gap left by the slower health cadence.
+	bool ObservePlayerAmbientVehicleClaims(HST_CampaignState state)
+	{
+		if (!state)
+		{
+			m_bLastAmbientClaimObservationExact = false;
+			return false;
+		}
+		array<IEntity> occupiedVehicleRoots = {};
+		CollectPlayerOccupiedVehicleRoots(occupiedVehicleRoots);
+		bool changed;
+		bool exact = true;
+		foreach (IEntity entity : occupiedVehicleRoots)
+		{
+			int index = m_aRuntimeEntities.Find(entity);
+			if (!IsLivingAmbientEntity(entity))
+				continue;
+			if (index < 0)
+			{
+				// After process restart, restoration keeps the saved durable ID and
+				// binds it to the new live root. Adopt that exact field binding on
+				// first player occupancy so later autosaves keep following it.
+				HST_RuntimeVehicleState restoredField
+					= ResolveRuntimeVehicleRecord(state, entity);
+				if (restoredField
+					&& (restoredField.m_sRuntimeKind == "field_vehicle"
+						|| restoredField.m_sRuntimeKind == "loot_vehicle"
+						|| restoredField.m_sRuntimeKind == "garage_redeploy")
+					&& !restoredField.m_bDeleted)
+				{
+					if (!m_PersistentFieldVehicles
+						|| !m_PersistentFieldVehicles.Track(
+							entity,
+							restoredField))
+						exact = false;
+				}
+				continue;
+			}
+			if (index >= m_aRuntimeEntityKinds.Count()
+				|| !IsRuntimeVehicle(m_aRuntimeEntityKinds[index]))
+			{
+				exact = false;
+				continue;
+			}
+
+			if (!PromoteRuntimeVehicleToPersistentField(state, entity))
+			{
+				Print("h-istasi civilians | player-used ambient vehicle could not enter persistent field authority", LogLevel.ERROR);
+				exact = false;
+				continue;
+			}
+			QueueAndRemoveAmbientActorRecordForEntity(
+				entity,
+				state,
+				"promoted_player_claim");
+			DeleteRuntimeHelpersForOwner(entity);
+			string runtimeKind = m_aRuntimeEntityKinds[index];
+			string zoneId = m_aRuntimeEntityZoneIds[index];
+			RemoveRuntimeEntityAt(index);
+			Print(string.Format("h-istasi civilians | promoted player-used %1 from %2 to persistent field vehicle", runtimeKind, zoneId));
+			changed = true;
+		}
+		// Per-frame work is claim discovery only. Full transform/destruction/cargo
+		// reconciliation runs synchronously at the persistence boundary.
+		m_bLastAmbientClaimObservationExact = exact;
+		return changed;
+	}
+
+	// Persistence calls this synchronously before every capture, including
+	// autosave, manual, debug-isolation, and reset checkpoints. A live promoted
+	// root without an exact durable record fails closed instead of saving stale
+	// or transient authority.
+	bool PrepareAmbientVehiclePersistence(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+		ObservePlayerAmbientVehicleClaims(state);
+		if (!m_bLastAmbientClaimObservationExact || !m_PersistentFieldVehicles)
+			return false;
+		return m_PersistentFieldVehicles.PrepareForCapture(state);
+	}
+
+	protected bool PromotePlayerOccupiedRuntimeVehicles(HST_CampaignState state)
+	{
+		return ObservePlayerAmbientVehicleClaims(state);
+	}
+
+	protected void CollectPlayerOccupiedVehicleRoots(array<IEntity> vehicleRoots)
+	{
+		if (!vehicleRoots)
+			return;
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
+			if (!controlledEntity)
+				controlledEntity = SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+			if (!controlledEntity)
+				continue;
+			if (ChimeraCharacter.Cast(controlledEntity)
+				&& !IsLivingAmbientCharacter(controlledEntity))
+				continue;
+
+			IEntity vehicleEntity = ResolveEntityVehicle(controlledEntity);
+			if (!vehicleEntity && Vehicle.Cast(controlledEntity))
+				vehicleEntity = controlledEntity;
+			if (!IsLivingAmbientEntity(vehicleEntity)
+				|| vehicleRoots.Find(vehicleEntity) >= 0)
+				continue;
+			vehicleRoots.Insert(vehicleEntity);
+		}
+	}
+
+	protected bool HasPlayerOccupant(IEntity vehicleEntity)
+	{
+		if (!IsLivingAmbientEntity(vehicleEntity))
+			return false;
+		array<IEntity> occupiedVehicleRoots = {};
+		CollectPlayerOccupiedVehicleRoots(occupiedVehicleRoots);
+		return occupiedVehicleRoots.Find(vehicleEntity) >= 0;
+	}
+
+	protected bool IsPlayerControlledEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		return playerManager
+			&& playerManager.GetPlayerIdFromControlledEntity(entity) > 0;
+	}
+
+	protected void RemoveTransientAmbientRuntimeVehicleRecord(
+		HST_CampaignState state,
+		IEntity entity)
+	{
+		HST_RuntimeVehicleState vehicle = ResolveRuntimeVehicleRecord(state, entity);
+		if (!state || !vehicle
+			|| !IsTransientAmbientVehicleKind(vehicle.m_sRuntimeKind))
+			return;
+		RemoveTransientAmbientRuntimeVehicleRecordById(
+			state,
+			vehicle.m_sVehicleRuntimeId);
+	}
+
+	protected void RemoveTransientAmbientRuntimeVehicleRecordById(
+		HST_CampaignState state,
+		string vehicleRuntimeId)
+	{
+		if (!state || vehicleRuntimeId.IsEmpty())
+			return;
+		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
+		if (!vehicle || !IsTransientAmbientVehicleKind(vehicle.m_sRuntimeKind))
+			return;
+		for (int cargoIndex = state.m_aVehicleCargoItems.Count() - 1; cargoIndex >= 0; cargoIndex--)
+		{
+			HST_VehicleCargoItemState cargoItem = state.m_aVehicleCargoItems[cargoIndex];
+			if (cargoItem && cargoItem.m_sVehicleRuntimeId == vehicleRuntimeId)
+				state.m_aVehicleCargoItems.Remove(cargoIndex);
+		}
+		state.RemoveRuntimeVehicle(vehicleRuntimeId);
+	}
+
 	bool RegisterOwnershipSupportReward(
 		HST_CampaignState state,
 		HST_CampaignPreset preset,
@@ -2801,18 +4695,26 @@ class HST_CivilianService
 			reconcileOwnership);
 	}
 
-	protected void CleanupFailedCivilianTrafficRuntimeEntity(HST_CampaignState state, IEntity vehicleEntity, string zoneId)
+	protected void CleanupFailedAmbientRuntimeEntity(
+		HST_CampaignState state,
+		IEntity runtimeEntity,
+		string zoneId,
+		string runtimeKind)
 	{
-		if (!vehicleEntity)
+		if (!runtimeEntity)
 			return;
 
-		int runtimeIndex = m_aRuntimeEntities.Find(vehicleEntity);
-		DeleteRuntimeHelpersForOwner(vehicleEntity);
-		MarkRuntimeVehicleDeleted(state, vehicleEntity);
-		SCR_EntityHelper.DeleteEntityAndChildren(vehicleEntity);
+		int runtimeIndex = m_aRuntimeEntities.Find(runtimeEntity);
+		QueueAndRemoveAmbientActorRecordForEntity(
+			runtimeEntity,
+			state,
+			"ambient transaction failed");
+		DeleteRuntimeHelpersForOwner(runtimeEntity);
+		RemoveTransientAmbientRuntimeVehicleRecord(state, runtimeEntity);
+		SCR_EntityHelper.DeleteEntityAndChildren(runtimeEntity);
 		if (runtimeIndex >= 0)
 			RemoveRuntimeEntityAt(runtimeIndex);
-		Print(string.Format("h-istasi civilians | removed failed ambient traffic projection for %1", zoneId), LogLevel.WARNING);
+		Print(string.Format("h-istasi civilians | removed failed ambient %1 projection for %2", runtimeKind, zoneId), LogLevel.WARNING);
 	}
 
 	protected IEntity SpawnCivilianTrafficDriver(HST_CampaignState state, HST_BalanceConfig balance, HST_ZoneState zone, IEntity vehicleEntity, int index, int seed)
@@ -2852,21 +4754,15 @@ class HST_CivilianService
 	int SuppressAmbientTrafficHornInput(string zoneId = "")
 	{
 		int cleared;
-		for (int i = 0; i < m_aRuntimeHelperEntities.Count(); i++)
+		// This runs every server frame. Walk the bounded actor registry directly;
+		// helper-owner lookup would multiply helpers by roots at the global caps.
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
 		{
-			if (i >= m_aRuntimeHelperOwners.Count())
+			if (!record
+				|| record.m_sKindId != HST_AmbientActorRuntimeService.KIND_TRAFFIC
+				|| (!zoneId.IsEmpty() && record.m_sZoneId != zoneId))
 				continue;
-
-			IEntity owner = m_aRuntimeHelperOwners[i];
-			int runtimeIndex = m_aRuntimeEntities.Find(owner);
-			if (runtimeIndex < 0 || runtimeIndex >= m_aRuntimeEntityKinds.Count())
-				continue;
-			if (m_aRuntimeEntityKinds[runtimeIndex] != CIVILIAN_TRAFFIC_RUNTIME_KIND)
-				continue;
-			if (!zoneId.IsEmpty() && (runtimeIndex >= m_aRuntimeEntityZoneIds.Count() || m_aRuntimeEntityZoneIds[runtimeIndex] != zoneId))
-				continue;
-
-			if (ClearAmbientTrafficDriverHornInput(m_aRuntimeHelperEntities[i]))
+			if (ClearAmbientTrafficDriverHornInput(record.m_DriverEntity))
 				cleared++;
 		}
 
@@ -2876,24 +4772,17 @@ class HST_CivilianService
 	int CountAmbientTrafficDriversWithHornInput(string zoneId = "")
 	{
 		int sounding;
-		for (int i = 0; i < m_aRuntimeHelperEntities.Count(); i++)
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
 		{
-			if (i >= m_aRuntimeHelperOwners.Count())
+			if (!record
+				|| record.m_sKindId != HST_AmbientActorRuntimeService.KIND_TRAFFIC
+				|| (!zoneId.IsEmpty() && record.m_sZoneId != zoneId))
 				continue;
 
-			IEntity owner = m_aRuntimeHelperOwners[i];
-			int runtimeIndex = m_aRuntimeEntities.Find(owner);
-			if (runtimeIndex < 0 || runtimeIndex >= m_aRuntimeEntityKinds.Count())
+			IEntity driver = record.m_DriverEntity;
+			if (!driver)
 				continue;
-			if (m_aRuntimeEntityKinds[runtimeIndex] != CIVILIAN_TRAFFIC_RUNTIME_KIND)
-				continue;
-			if (!zoneId.IsEmpty() && (runtimeIndex >= m_aRuntimeEntityZoneIds.Count() || m_aRuntimeEntityZoneIds[runtimeIndex] != zoneId))
-				continue;
-
-			IEntity helper = m_aRuntimeHelperEntities[i];
-			if (!helper)
-				continue;
-			SCR_CharacterControllerComponent controller = SCR_CharacterControllerComponent.Cast(helper.FindComponent(SCR_CharacterControllerComponent));
+			SCR_CharacterControllerComponent controller = SCR_CharacterControllerComponent.Cast(driver.FindComponent(SCR_CharacterControllerComponent));
 			if (!controller)
 				continue;
 			CharacterInputContext inputContext = controller.GetInputContext();
@@ -2933,11 +4822,15 @@ class HST_CivilianService
 		AIGroup group = agent.GetParentGroup();
 		if (group)
 		{
+			if (!IsRuntimeGroupHelperForOwner(helperOwner, group))
+				return null;
 			ApplyFaction(memberEntity, CIVILIAN_FACTION_KEY, "CIV_CHARACTER");
 			ApplyCivilianAIGroupFaction(group, CIVILIAN_FACTION_KEY);
 			group.ActivateAllMembers();
 			agent.ActivateAI();
-			return group;
+			if (IsExactCivilianGroupMembership(memberEntity, group))
+				return group;
+			return null;
 		}
 
 		IEntity groupEntity = HST_WorldPositionService.SpawnPrefab(CIVILIAN_AI_GROUP_PREFAB, memberEntity.GetOrigin(), "0 0 0");
@@ -2969,8 +4862,28 @@ class HST_CivilianService
 		ApplyCivilianAIGroupFaction(group, CIVILIAN_FACTION_KEY);
 		group.ActivateAllMembers();
 		agent.ActivateAI();
+		if (!IsExactCivilianGroupMembership(memberEntity, group))
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(groupEntity);
+			return null;
+		}
 		RegisterRuntimeHelper(helperOwner, groupEntity);
 		return group;
+	}
+
+	protected bool IsRuntimeGroupHelperForOwner(IEntity helperOwner, AIGroup group)
+	{
+		if (!helperOwner || !group)
+			return false;
+		for (int index; index < m_aRuntimeHelperOwners.Count(); index++)
+		{
+			if (m_aRuntimeHelperOwners[index] != helperOwner
+				|| index >= m_aRuntimeHelperEntities.Count())
+				continue;
+			if (AIGroup.Cast(m_aRuntimeHelperEntities[index]) == group)
+				return true;
+		}
+		return false;
 	}
 
 	protected string ResolveRuntimeEntityFactionKey(string factionKey, string runtimeKind)
@@ -3170,7 +5083,8 @@ class HST_CivilianService
 		if (!vehicleUsage || !vehicleUsage.IsVehicleTypeValid() || !vehicleUsage.CanBePiloted())
 			return false;
 
-		utility.AddUsableVehicle(vehicleUsage);
+		if (!utility.IsUsableVehicle(vehicleUsage))
+			utility.AddUsableVehicle(vehicleUsage);
 		return utility.IsUsableVehicle(vehicleUsage);
 	}
 
@@ -3390,12 +5304,36 @@ class HST_CivilianService
 
 		string runtimeFactionKey = ResolveRuntimeEntityFactionKey(factionKey, runtimeKind);
 		ApplyFaction(entity, runtimeFactionKey, runtimeKind);
+		string stableVehicleRuntimeId;
+		if (IsRuntimeVehicle(runtimeKind))
+		{
+			stableVehicleRuntimeId = RegisterRuntimeVehicle(
+				state,
+				entity,
+				zoneId,
+				prefab,
+				position,
+				angles,
+				runtimeFactionKey,
+				runtimeKind);
+			if (stableVehicleRuntimeId.IsEmpty())
+			{
+				RecordSpawnFailure(
+					zoneId,
+					prefab,
+					runtimeKind,
+					position,
+					angles);
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+				return false;
+			}
+		}
 		m_aRuntimeEntityZoneIds.Insert(zoneId);
 		m_aRuntimeEntityKinds.Insert(runtimeKind);
 		m_aRuntimeEntityFactionKeys.Insert(runtimeFactionKey);
+		m_aRuntimeEntityVehicleIds.Insert(stableVehicleRuntimeId);
 		m_aRuntimeEntitySpawnPositions.Insert(position);
 		m_aRuntimeEntities.Insert(entity);
-		RegisterRuntimeVehicle(state, entity, zoneId, prefab, position, angles, runtimeFactionKey, runtimeKind);
 		Print(string.Format("h-istasi civilians | spawn ok | zone %1 | kind %2 | faction %3 | prefab %4 | pos %5 | yaw %6", zoneId, runtimeKind, runtimeFactionKey, prefab, position, angles[0]));
 		return true;
 	}
@@ -3413,33 +5351,52 @@ class HST_CivilianService
 
 			IEntity entity = m_aRuntimeEntities[i];
 			string runtimeKind = m_aRuntimeEntityKinds[i];
-			vector spawnPosition = m_aRuntimeEntitySpawnPositions[i];
-			DeleteRuntimeHelpersForOwner(entity);
-			if (entity && ShouldDetachFromTownCleanup(entity, runtimeKind, spawnPosition))
+			bool playerClaim = entity
+				&& ShouldDetachFromTownCleanup(state, entity, runtimeKind);
+			if (playerClaim)
 			{
-				MarkRuntimeVehicleDetached(state, entity);
-				Print(string.Format("h-istasi civilians | detached player-used runtime %1 from town cleanup for %2", runtimeKind, zoneId));
+				if (!PromoteRuntimeVehicleToPersistentField(state, entity))
+				{
+					Print("h-istasi civilians | town cleanup retained player-used vehicle because persistent field admission failed", LogLevel.ERROR);
+					continue;
+				}
+				QueueAndRemoveAmbientActorRecordForEntity(
+					entity,
+					state,
+					"promoted_player_claim");
+				DeleteRuntimeHelpersForOwner(entity);
+				Print(string.Format("h-istasi civilians | promoted player-used runtime %1 from town cleanup for %2", runtimeKind, zoneId));
 			}
 			else if (entity)
 			{
-				MarkRuntimeVehicleDeleted(state, entity);
+				QueueAndRemoveAmbientActorRecordForEntity(
+					entity,
+					state,
+					"town projection deactivated");
+				DeleteRuntimeHelpersForOwner(entity);
+				RemoveTransientAmbientRuntimeVehicleRecord(state, entity);
 				SCR_EntityHelper.DeleteEntityAndChildren(entity);
 			}
 
-			m_aRuntimeEntities.Remove(i);
-			m_aRuntimeEntityZoneIds.Remove(i);
-			m_aRuntimeEntityKinds.Remove(i);
-			if (i < m_aRuntimeEntityFactionKeys.Count())
-				m_aRuntimeEntityFactionKeys.Remove(i);
-			m_aRuntimeEntitySpawnPositions.Remove(i);
+			RemoveRuntimeEntityAt(i);
 			changed = true;
 		}
+		if (CountRuntimeEntitiesForZone(zoneId) > 0)
+			return changed;
 
 		for (int j = m_aRuntimeZoneIds.Count() - 1; j >= 0; j--)
 		{
 			if (m_aRuntimeZoneIds[j] == zoneId)
+			{
 				m_aRuntimeZoneIds.Remove(j);
+				changed = true;
+			}
 		}
+		ClearAmbientSpawnRetry(zoneId, "CIV_CHARACTER");
+		ClearAmbientSpawnRetry(zoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+		ClearAmbientSpawnRetry(zoneId, "CIV_VEHICLE");
+		ClearAmbientSpawnRetry(zoneId, "MILITARY_VEHICLE");
+		ClearStaticVehicleInitialization(zoneId);
 
 		if (changed)
 			Print(string.Format("h-istasi civilians | cleaned runtime town population for %1", zoneId));
@@ -3454,29 +5411,63 @@ class HST_CivilianService
 		{
 			IEntity entity = m_aRuntimeEntities[i];
 			string runtimeKind = m_aRuntimeEntityKinds[i];
-			vector spawnPosition = m_aRuntimeEntitySpawnPositions[i];
-			DeleteRuntimeHelpersForOwner(entity);
-			if (entity && ShouldDetachFromTownCleanup(entity, runtimeKind, spawnPosition))
+			if (!entity)
 			{
-				MarkRuntimeVehicleDetached(state, entity);
-				Print(string.Format("h-istasi civilians | detached player-used runtime %1 while civilian runtime disabled", runtimeKind));
+				if (i < m_aRuntimeEntityVehicleIds.Count()
+					&& !m_aRuntimeEntityVehicleIds[i].IsEmpty())
+				{
+					RemoveTransientAmbientRuntimeVehicleRecordById(
+						state,
+						m_aRuntimeEntityVehicleIds[i]);
+				}
+				RemoveRuntimeEntityAt(i);
+				changed = true;
+				continue;
+			}
+			bool playerClaim = entity
+				&& ShouldDetachFromTownCleanup(state, entity, runtimeKind);
+			if (playerClaim)
+			{
+				if (!PromoteRuntimeVehicleToPersistentField(state, entity))
+				{
+					Print("h-istasi civilians | runtime shutdown retained player-used vehicle because persistent field admission failed", LogLevel.ERROR);
+					continue;
+				}
+				QueueAndRemoveAmbientActorRecordForEntity(
+					entity,
+					state,
+					"promoted_player_claim");
+				DeleteRuntimeHelpersForOwner(entity);
+				Print(string.Format("h-istasi civilians | promoted player-used runtime %1 while civilian runtime disabled", runtimeKind));
 			}
 			else if (entity)
 			{
-				MarkRuntimeVehicleDeleted(state, entity);
+				QueueAndRemoveAmbientActorRecordForEntity(
+					entity,
+					state,
+					"civilian runtime disabled");
+				DeleteRuntimeHelpersForOwner(entity);
+				RemoveTransientAmbientRuntimeVehicleRecord(state, entity);
 				SCR_EntityHelper.DeleteEntityAndChildren(entity);
 			}
 
+			RemoveRuntimeEntityAt(i);
 			changed = true;
 		}
 
-		m_aRuntimeEntities.Clear();
-		m_aRuntimeEntityZoneIds.Clear();
-		m_aRuntimeEntityKinds.Clear();
-		m_aRuntimeEntityFactionKeys.Clear();
-		m_aRuntimeEntitySpawnPositions.Clear();
-		m_aRuntimeZoneIds.Clear();
-		CleanupAllRuntimeHelpers();
+		if (m_aRuntimeEntities.IsEmpty())
+		{
+			m_aRuntimeZoneIds.Clear();
+			m_aAmbientActorRecords.Clear();
+			m_aAmbientRetryZoneIds.Clear();
+			m_aAmbientRetryKinds.Clear();
+			m_aAmbientRetrySeconds.Clear();
+			m_aStaticVehicleInitializationZoneIds.Clear();
+			m_aStaticCivilianVehicleSlotsCompleted.Clear();
+			m_aStaticMilitaryVehicleSlotsCompleted.Clear();
+			m_aStaticMilitaryInitializationOwnerKeys.Clear();
+			CleanupAllRuntimeHelpers();
+		}
 		return changed;
 	}
 
@@ -3488,14 +5479,21 @@ class HST_CivilianService
 			if (m_aRuntimeEntities[i])
 				continue;
 
-			DeleteRuntimeHelpersForOwner(m_aRuntimeEntities[i]);
-			MarkRuntimeVehicleDeletedBySpawnRecord(state, m_aRuntimeEntitySpawnPositions[i], m_aRuntimeEntityKinds[i]);
-			m_aRuntimeEntities.Remove(i);
-			m_aRuntimeEntityZoneIds.Remove(i);
-			m_aRuntimeEntityKinds.Remove(i);
-			if (i < m_aRuntimeEntityFactionKeys.Count())
-				m_aRuntimeEntityFactionKeys.Remove(i);
-			m_aRuntimeEntitySpawnPositions.Remove(i);
+			if (i < m_aRuntimeEntityVehicleIds.Count()
+				&& !m_aRuntimeEntityVehicleIds[i].IsEmpty())
+			{
+				RemoveTransientAmbientRuntimeVehicleRecordById(
+					state,
+					m_aRuntimeEntityVehicleIds[i]);
+			}
+			else
+			{
+				MarkRuntimeVehicleDeletedBySpawnRecord(
+					state,
+					m_aRuntimeEntitySpawnPositions[i],
+					m_aRuntimeEntityKinds[i]);
+			}
+			RemoveRuntimeEntityAt(i);
 		}
 	}
 
@@ -3518,8 +5516,12 @@ class HST_CivilianService
 			if (HST_WorldPositionService.IsPositionNearLivingPlayer(entity.GetOrigin(), renderRadius))
 				continue;
 
+			QueueAndRemoveAmbientActorRecordForEntity(
+				entity,
+				state,
+				"outside player render bubble");
 			DeleteRuntimeHelpersForOwner(entity);
-			MarkRuntimeVehicleDeleted(state, entity);
+			RemoveTransientAmbientRuntimeVehicleRecord(state, entity);
 			SCR_EntityHelper.DeleteEntityAndChildren(entity);
 			RemoveRuntimeEntityAt(i);
 			changed = true;
@@ -3540,6 +5542,8 @@ class HST_CivilianService
 			m_aRuntimeEntityKinds.Remove(index);
 		if (index < m_aRuntimeEntityFactionKeys.Count())
 			m_aRuntimeEntityFactionKeys.Remove(index);
+		if (index < m_aRuntimeEntityVehicleIds.Count())
+			m_aRuntimeEntityVehicleIds.Remove(index);
 		if (index < m_aRuntimeEntitySpawnPositions.Count())
 			m_aRuntimeEntitySpawnPositions.Remove(index);
 	}
@@ -3557,6 +5561,7 @@ class HST_CivilianService
 	{
 		if (!owner)
 			return;
+		DetachPlayerControlledRuntimeHelpersFromGroups(owner);
 
 		for (int i = m_aRuntimeHelperOwners.Count() - 1; i >= 0; i--)
 		{
@@ -3564,7 +5569,7 @@ class HST_CivilianService
 				continue;
 
 			IEntity helper = m_aRuntimeHelperEntities[i];
-			if (helper)
+			if (helper && !IsPlayerControlledEntity(helper))
 				SCR_EntityHelper.DeleteEntityAndChildren(helper);
 			m_aRuntimeHelperOwners.Remove(i);
 			m_aRuntimeHelperEntities.Remove(i);
@@ -3576,7 +5581,7 @@ class HST_CivilianService
 		for (int i = m_aRuntimeHelperEntities.Count() - 1; i >= 0; i--)
 		{
 			IEntity helper = m_aRuntimeHelperEntities[i];
-			if (helper)
+			if (helper && !IsPlayerControlledEntity(helper))
 				SCR_EntityHelper.DeleteEntityAndChildren(helper);
 		}
 
@@ -3595,7 +5600,7 @@ class HST_CivilianService
 			if (owner && helper)
 				continue;
 
-			if (helper)
+			if (helper && !IsPlayerControlledEntity(helper))
 				SCR_EntityHelper.DeleteEntityAndChildren(helper);
 			if (i < m_aRuntimeHelperOwners.Count())
 				m_aRuntimeHelperOwners.Remove(i);
@@ -3649,6 +5654,29 @@ class HST_CivilianService
 		}
 
 		return count;
+	}
+
+	int CountRuntimeEntities()
+	{
+		int count;
+		foreach (IEntity entity : m_aRuntimeEntities)
+		{
+			if (entity)
+				count++;
+		}
+		return count;
+	}
+
+	bool CleanupAmbientProjectionForDebug(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+		bool changed = PromotePlayerOccupiedRuntimeVehicles(state);
+		changed = CleanupAllRuntimeEntities(state) || changed;
+		m_LastAmbientBudgetPlan = null;
+		m_iNextAmbientRuntimeUpdateSecond = 0;
+		PublishRuntimeDiagnostics(state);
+		return changed;
 	}
 
 	int CountUniqueRuntimeEntityPrefabsForZone(string zoneId, string runtimeKind = "", string factionKey = "")
@@ -3710,6 +5738,27 @@ class HST_CivilianService
 			if (!IsAmbientTrafficDriverHelper(helperIndex, zoneId))
 				continue;
 			AppendEntityPrefabIfUnique(m_aRuntimeHelperEntities[helperIndex], prefabs);
+		}
+	}
+
+	protected void DetachPlayerControlledRuntimeHelpersFromGroups(IEntity owner)
+	{
+		if (!owner)
+			return;
+		for (int helperIndex = m_aRuntimeHelperEntities.Count() - 1; helperIndex >= 0; helperIndex--)
+		{
+			if (helperIndex >= m_aRuntimeHelperOwners.Count()
+				|| m_aRuntimeHelperOwners[helperIndex] != owner)
+				continue;
+			IEntity controlledHelper = m_aRuntimeHelperEntities[helperIndex];
+			if (!IsPlayerControlledEntity(controlledHelper))
+				continue;
+			AIAgent controlledAgent = ResolveCivilianAgent(controlledHelper);
+			if (!controlledAgent)
+				continue;
+			AIGroup parentGroup = controlledAgent.GetParentGroup();
+			if (parentGroup)
+				parentGroup.RemoveAgent(controlledAgent);
 		}
 	}
 
@@ -3914,7 +5963,12 @@ class HST_CivilianService
 		int trafficVehicles = CountRuntimeEntitiesForZone(zoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND, "CIV");
 		int trafficHelpers = CountRuntimeHelpersForZone(zoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND, "CIV");
 		int trafficBehavior = CountRuntimeEntitiesForZoneWithHelpers(zoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND, "CIV", 5);
-		return string.Format("runtime behavior %1 | pedestrians %2/%3 with helpers | pedestrian helpers %4 | traffic %5/%6 with helpers | traffic helpers %7", EmptyRuntimeField(zoneId), pedestrianBehavior, civilianCharacters, pedestrianHelpers, trafficBehavior, trafficVehicles, trafficHelpers);
+		int admittedPedestrians = CountAmbientAdmittedActorsForZone(zoneId, "CIV_CHARACTER");
+		int readyPedestrians = CountAmbientBehaviorReadyActorsForZone(zoneId, "CIV_CHARACTER");
+		int admittedTraffic = CountAmbientAdmittedActorsForZone(zoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+		int readyTraffic = CountAmbientBehaviorReadyActorsForZone(zoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
+		string report = string.Format("runtime behavior %1 | pedestrians %2/%3 with helpers | pedestrian helpers %4 | traffic %5/%6 with helpers | traffic helpers %7", EmptyRuntimeField(zoneId), pedestrianBehavior, civilianCharacters, pedestrianHelpers, trafficBehavior, trafficVehicles, trafficHelpers);
+		return report + string.Format(" | admitted/ready pedestrians %1/%2 | traffic %3/%4", admittedPedestrians, readyPedestrians, admittedTraffic, readyTraffic);
 	}
 
 	string BuildRuntimeTownPopulationReport(HST_CampaignState state, string zoneId)
@@ -4262,7 +6316,9 @@ class HST_CivilianService
 				return prefab;
 		}
 
-		return SelectCivilianCharacterPrefab(balance, index, seed);
+		// Exhaustion is a capacity/readiness failure, never permission to clone an
+		// appearance already projected in the same locality.
+		return "";
 	}
 
 	protected string SelectCivilianVehiclePrefab(HST_BalanceConfig balance, int index, int seed)
@@ -4386,14 +6442,15 @@ class HST_CivilianService
 		if (!balance)
 			return 0;
 
-		int validCount;
+		array<string> uniquePrefabs = {};
 		foreach (string prefab : balance.m_aCivilianCharacterPrefabs)
 		{
-			if (IsGuidQualifiedResource(prefab))
-				validCount++;
+			if (IsGuidQualifiedResource(prefab)
+				&& !uniquePrefabs.Contains(prefab))
+				uniquePrefabs.Insert(prefab);
 		}
 
-		return validCount;
+		return uniquePrefabs.Count();
 	}
 
 	protected bool IsKnownInvalidVehicleResource(string prefab)
@@ -4478,16 +6535,17 @@ class HST_CivilianService
 		return runtimeKind.Contains("VEHICLE");
 	}
 
-	protected void RegisterRuntimeVehicle(HST_CampaignState state, IEntity entity, string zoneId, string prefab, vector position, vector angles, string factionKey, string runtimeKind)
+	protected string RegisterRuntimeVehicle(HST_CampaignState state, IEntity entity, string zoneId, string prefab, vector position, vector angles, string factionKey, string runtimeKind)
 	{
 		if (!state || !entity || !IsRuntimeVehicle(runtimeKind) || !HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
-			return;
+			return "";
 
 		string vehicleRuntimeId = ResolveRuntimeVehicleId(entity);
+		if (vehicleRuntimeId.IsEmpty() || state.FindRuntimeVehicle(vehicleRuntimeId))
+			vehicleRuntimeId = BuildUniqueAmbientRuntimeVehicleId(state, zoneId);
 		if (vehicleRuntimeId.IsEmpty())
-			return;
+			return "";
 
-		state.RemoveRuntimeVehicle(vehicleRuntimeId);
 		HST_RuntimeVehicleState vehicle = new HST_RuntimeVehicleState();
 		vehicle.m_sVehicleRuntimeId = vehicleRuntimeId;
 		vehicle.m_sPrefab = prefab;
@@ -4501,17 +6559,68 @@ class HST_CivilianService
 		vehicle.m_bCanProvideUndercover = RuntimeVehicleCanProvideCivilianUndercover(vehicle);
 		HST_VehicleCapabilityPolicy.NormalizeRuntimeVehicleCoverState(vehicle);
 		state.m_aRuntimeVehicles.Insert(vehicle);
+		return vehicleRuntimeId;
 	}
 
-	protected void MarkRuntimeVehicleDetached(HST_CampaignState state, IEntity entity)
+	protected string BuildUniqueAmbientRuntimeVehicleId(
+		HST_CampaignState state,
+		string zoneId)
 	{
+		if (!state)
+			return "";
+		for (int attempt; attempt < 32; attempt++)
+		{
+			string candidate = BuildAmbientRuntimeId(
+				zoneId,
+				"vehicle",
+				state.m_iElapsedSeconds);
+			if (!state.FindRuntimeVehicle(candidate))
+				return candidate;
+		}
+		return "";
+	}
+
+	protected bool PromoteRuntimeVehicleToPersistentField(
+		HST_CampaignState state,
+		IEntity entity)
+	{
+		if (!state || !IsLivingAmbientEntity(entity))
+			return false;
 		HST_RuntimeVehicleState vehicle = ResolveRuntimeVehicleRecord(state, entity);
 		if (!vehicle)
-			return;
+		{
+			int trackedIndex = m_aRuntimeEntities.Find(entity);
+			if (!state || trackedIndex < 0
+				|| trackedIndex >= m_aRuntimeEntityVehicleIds.Count()
+				|| m_aRuntimeEntityVehicleIds[trackedIndex].IsEmpty()
+				|| !entity.GetPrefabData())
+				return false;
+			string prefab = entity.GetPrefabData().GetPrefabName();
+			if (!HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
+				return false;
+			vehicle = new HST_RuntimeVehicleState();
+			vehicle.m_sVehicleRuntimeId = m_aRuntimeEntityVehicleIds[trackedIndex];
+			vehicle.m_sPrefab = prefab;
+			vehicle.m_sDisplayName = HST_DisplayNameService.ResolveVehicleDisplayName(prefab);
+			if (trackedIndex < m_aRuntimeEntityFactionKeys.Count())
+				vehicle.m_sFactionKey = m_aRuntimeEntityFactionKeys[trackedIndex];
+			if (trackedIndex < m_aRuntimeEntityZoneIds.Count())
+				vehicle.m_sZoneId = m_aRuntimeEntityZoneIds[trackedIndex];
+			vehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+			state.m_aRuntimeVehicles.Insert(vehicle);
+		}
 
-		vehicle.m_bDetached = true;
+		vehicle.m_sRuntimeKind = "field_vehicle";
+		vehicle.m_bDetached = false;
+		vehicle.m_bDeleted = false;
 		vehicle.m_vPosition = entity.GetOrigin();
 		vehicle.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(entity.GetYawPitchRoll());
+		vehicle.m_bCanProvideUndercover = RuntimeVehicleCanProvideCivilianUndercover(vehicle);
+		HST_VehicleCapabilityPolicy.NormalizeRuntimeVehicleCoverState(vehicle);
+		if (!m_PersistentFieldVehicles
+			|| !m_PersistentFieldVehicles.Track(entity, vehicle))
+			return false;
+		return true;
 	}
 
 	protected void MarkRuntimeVehicleDeleted(HST_CampaignState state, IEntity entity)
@@ -4530,17 +6639,28 @@ class HST_CivilianService
 		if (!state || !IsRuntimeVehicle(runtimeKind))
 			return;
 
-		foreach (HST_RuntimeVehicleState vehicle : state.m_aRuntimeVehicles)
+		for (int index = state.m_aRuntimeVehicles.Count() - 1; index >= 0; index--)
 		{
+			HST_RuntimeVehicleState vehicle = state.m_aRuntimeVehicles[index];
 			if (!vehicle || vehicle.m_bDeleted || vehicle.m_sRuntimeKind != runtimeKind)
 				continue;
 
 			if (DistanceSq2D(vehicle.m_vPosition, spawnPosition) > 4.0)
 				continue;
 
-			vehicle.m_bDeleted = true;
+			if (!vehicle.m_bDetached && IsTransientAmbientVehicleKind(runtimeKind))
+				state.m_aRuntimeVehicles.Remove(index);
+			else
+				vehicle.m_bDeleted = true;
 			return;
 		}
+	}
+
+	protected bool IsTransientAmbientVehicleKind(string runtimeKind)
+	{
+		return runtimeKind == CIVILIAN_TRAFFIC_RUNTIME_KIND
+			|| runtimeKind == "CIV_VEHICLE"
+			|| runtimeKind == "MILITARY_VEHICLE";
 	}
 
 	protected HST_RuntimeVehicleState ResolveRuntimeVehicleRecord(HST_CampaignState state, IEntity entity)
@@ -4548,9 +6668,22 @@ class HST_CivilianService
 		if (!state || !entity)
 			return null;
 
-		string vehicleRuntimeId = ResolveRuntimeVehicleId(entity);
-		if (!vehicleRuntimeId.IsEmpty())
-			return state.FindRuntimeVehicle(vehicleRuntimeId);
+		int trackedIndex = m_aRuntimeEntities.Find(entity);
+		if (trackedIndex >= 0 && trackedIndex < m_aRuntimeEntityVehicleIds.Count())
+		{
+			string stableRuntimeId = m_aRuntimeEntityVehicleIds[trackedIndex];
+			if (!stableRuntimeId.IsEmpty())
+			{
+				HST_RuntimeVehicleState stableRecord = state.FindRuntimeVehicle(stableRuntimeId);
+				if (stableRecord)
+					return stableRecord;
+			}
+		}
+
+		// Durable roots use the shared session binding. A current process RPL ID
+		// can reuse a saved string after restart and is never exact durable proof.
+		if (m_PersistentFieldVehicles)
+			return m_PersistentFieldVehicles.ResolveForEntity(state, entity);
 
 		return null;
 	}
@@ -4564,11 +6697,7 @@ class HST_CivilianService
 		if (rpl)
 			return string.Format("rpl_%1", rpl.Id());
 
-		string prefab = "";
-		if (entity.GetPrefabData())
-			prefab = entity.GetPrefabData().GetPrefabName();
-
-		return string.Format("local_%1_%2", prefab, entity.GetOrigin());
+		return "";
 	}
 
 	protected void WarnMissingCivilianCharacterPool(HST_ZoneState zone, int requestedCount)
@@ -4643,13 +6772,17 @@ class HST_CivilianService
 		return changed;
 	}
 
-	protected bool ShouldDetachFromTownCleanup(IEntity entity, string runtimeKind, vector spawnPosition)
+	protected bool ShouldDetachFromTownCleanup(
+		HST_CampaignState state,
+		IEntity entity,
+		string runtimeKind)
 	{
 		if (!entity || !IsRuntimeVehicle(runtimeKind))
 			return false;
 
-		float distanceSq = DistanceSq2D(entity.GetOrigin(), spawnPosition);
-		return distanceSq >= PLAYER_USED_VEHICLE_DETACH_DISTANCE_METERS * PLAYER_USED_VEHICLE_DETACH_DISTANCE_METERS;
+		HST_RuntimeVehicleState vehicle = ResolveRuntimeVehicleRecord(state, entity);
+		return (vehicle && vehicle.m_sRuntimeKind == "field_vehicle")
+			|| HasPlayerOccupant(entity);
 	}
 
 	protected float DistanceSq2D(vector first, vector second)
