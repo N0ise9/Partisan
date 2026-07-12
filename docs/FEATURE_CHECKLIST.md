@@ -1,12 +1,14 @@
 # h-istasi Feature Checklist
 
-Active source work is Schema 62 under provisional build label
-`schema62-canonical-ownership-transition`, based on sealed Schema-61
-implementation `27672e67ce4285810f313130293df1ac917c9bdf`. Foundation passes with
-670 script-symbol references. Headless Workbench Game validation loaded 5,785
-files/11,652 classes with CRC `326488ba` and zero script errors. The normal
-Script Editor open remained responsive without a crash. Campaign
-Debug and packaged-runtime evidence remains open.
+Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+symbol references. Headless Workbench Game validation loaded 5,785 files/11,652
+classes with CRC `22c13a32` and zero script errors; the normal Script Editor open
+remained responsive without a crash, and zero Workbench processes survived the
+test. Schema 61 is the preceding sealed marker-projection foundation. Campaign
+Debug and packaged-runtime evidence remain open.
 
 This document tracks the feature-complete campaign target for h-istasi. It is
 implementation-focused: every row should eventually map to state fields,
@@ -124,7 +126,7 @@ boundaries with exactly-once political completion, non-patrol/
 orphan/late exact-security rejection, migration/quarantine, and retention. They
 are not executed Campaign Debug or packaged multiplayer proof.
 
-Schema 61 is the latest sealed source/Workbench checkpoint under
+Schema 61 is the preceding sealed marker-projection foundation under
 implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
 `2026-07-12T01:02:39Z`, and label
 `schema61-authoritative-marker-projection`; it is not a packaged-runtime
@@ -183,13 +185,13 @@ implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete for sealed Schema 61; Schema 62 in progress | Schema 62 canonical ownership source is present; Schema 61 remains the latest sealed source/Workbench stamp | Schema-62 Foundation 670 and clean Workbench CRC `326488ba` at 5,785 files/11,652 classes pass; normal Script Editor open is responsive/no-crash; deterministic runtime execution remains open | No | Schema 61 retains implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, label `schema61-authoritative-marker-projection`, Foundation 655, and Workbench CRC `df41a779`. Schema 62 has no sealed implementation identity or packaged/live certification yet. |
+| CRI-0 Truth and baseline | Complete for sealed Schema 62 | Schema 62 canonical ownership is the latest sealed source/Workbench checkpoint; Schema 61 is the preceding marker-projection foundation | Schema-62 implementation `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC `2026-07-12T06:11:19Z`, label `schema62-canonical-ownership-transition`, Foundation 670, and Workbench CRC `22c13a32` at 5,785 files/11,652 classes are sealed; normal open was responsive/no-crash and zero Workbench processes survived | No | Packaged/native/save-restart/rendered-UI/stutter-horn/setup/network/reconnect/JIP certification remains independently open. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner | Schema-59 source proof and stamped-tree Workbench gates pass; packaged runtime pending | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. New exact radio missions use contract `1`; active legacy rows fail closed and malformed current rows quarantine at `-59`. |
 | CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, nine exact infantry-family consumers, one exact convoy, plus three externally managed captive slots | Schema-60 source/Workbench gates pass; native projection/restart pending for the new consumer | No | Search-and-Destroy freezes one catalog-backed infantry root/member roster with no vehicles/assets/multi-root fallback. Existing QRF, patrol, rescue, assassination-guard, and convoy shapes remain unchanged. Generic vehicle/asset/multi-root execution, historical mission guards, and unsupported consumers remain open. |
 | CRI-3 Force runtime | Complete in source for nine exact infantry-family consumers, one exact convoy, the three-captive rescue lifecycle, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, Search-and-Destroy return-to-assignment, patrol/guard/rescue/convoy folds, and mixed-group cleanup | Schema-60 source/Workbench gates pass; native/package/restart gates pending | No | Search-and-Destroy keeps exact survivors across physical/virtual transitions and simulates hostile-garrison combat only while on station. Projection retirement and capture now fail closed unless exhaustive casualty reconciliation and living root/member binding cardinality succeed, and capture refreshes live position. The deterministic casualty/fold/immediate-recall fixture uses synthetic queue state; live adapter retirement and physical recall exit remain unproven alongside native entities, natural combat/vehicle seating, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP. |
 | CRI-4 Operation records | Complete in source for eight operation types and ten explicit family consumers | Separate player Search-and-Destroy type plus the existing QRF, convoy, patrol, mission-guard, and rescue contracts | Schema-60 source/Workbench gates pass; packaged runtime pending | No | Only newly confirmed Search-and-Destroy uses contract `1`; pre-60 rows remain `0`, and malformed current claimants retain evidence under `-60` quarantine. Quarantined groups are globally non-operational/non-combat-present. Exact-support capacity eviction requires a valid unique backlink-free tombstone/terminal-request pair with reciprocal receipts; corrupt pairs remain. Schema 58 rescue and Schema 59 radio contracts remain unchanged. |
 | CRI-5 Marker client projection | Complete for marker records in source | Revision/tombstone records, epoch/global sequence, bounded snapshot/delta journal, ownership-derived ACK/gap/resync sessions, JIP/reconnect snapshots, atomic client registry, and client-local native reconciliation | Proof code/Workbench compile only; fixtures not runtime-executed | No | A packaged host plus two clients must prove equal epoch/watermark/hash after initial join, ordered create/update/delete, forced gap/resync, disconnect/reconnect, late join, map close/reopen, and real save/restart. Native widget/root readiness and duplicate-free cleanup remain separate visual gates. Menu/tasks/notifications and dynamic player markers are outside this protocol. |
-| CRI-6 Canonical ownership | Complete in Schema-62 source for location owner changes | One revisioned request/receipt routes military, mission, political, admin, debug, and migration causes; valid later requests become pristine queued receipts and array-order execution owns security, support, owner, derived policy, retaliation/economy/events, transactional parent-aware projection, notification, and persistence scheduling | Foundation 670 and Workbench CRC `326488ba` pass; deterministic runtime execution pending | No | Source proof covers durable queued intent, malformed FIFO authority, full-marker staged rollback, resolver fail-close/unsafe-row purge, setup history across activation, exact support target/prefix and derived correlations, persistence deadline/re-arm, two-child atomic publication, shared logical snapshot construction, and two restart boundaries with exactly-once political completion. Package-prove these paths with exact-patrol settlement, setup/terminal retry, invalid-owner migration, admin accepted-pending reporting, post-liberation security, marker protocol-2 source revision, counterattack/economy/event effects, quarantine, retention, and all callers. Blueprint Phase 7 still needs combat-presence/heat and broader town-truth work. |
+| CRI-6 Canonical ownership | Complete in Schema-62 source for location owner changes | One revisioned request/receipt routes military, mission, political, admin, debug, and migration causes; valid later requests become pristine queued receipts and array-order execution owns security, support, owner, derived policy, retaliation/economy/events, transactional parent-aware projection, notification, and persistence scheduling | Foundation 670 and Workbench CRC `22c13a32` pass; deterministic runtime execution pending | No | Source proof covers durable queued intent, malformed FIFO authority, full-marker staged rollback, resolver fail-close/unsafe-row purge, setup history across activation, exact support target/prefix and derived correlations, persistence deadline/re-arm, two-child atomic publication, shared logical snapshot construction, and two restart boundaries with exactly-once political completion. Package-prove these paths with exact-patrol settlement, setup/terminal retry, invalid-owner migration, admin accepted-pending reporting, post-liberation security, marker protocol-2 source revision, counterattack/economy/event effects, quarantine, retention, and all callers. Blueprint Phase 7 still needs combat-presence/heat and broader town-truth work. |
 
 ## Implementation Contract
 
@@ -366,8 +368,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Seal the Schema-62 build identity,
-   publish that exact package, and require the same `HST_BuildInfo` identity in
+1. Publish the sealed Schema-62 build identity as an exact package and require
+   the same `HST_BuildInfo` identity in
    server/client evidence. Preserve stock HUD/Game Master recovery, then prove
    canonical ownership plus normal-sized radio icons, location-plus-owner
    labels, pointer-over-dialog ordering, one intact tower per radio site, and

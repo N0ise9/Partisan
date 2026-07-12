@@ -2,16 +2,17 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `62`. Schema 62 is the active
-source implementation for canonical, revisioned ownership transitions. Its
-build label is `schema62-canonical-ownership-transition`; final implementation
-identity and validation evidence will be stamped only after the checkpoint is
-complete. It is based on sealed Schema-61 implementation
-`27672e67ce4285810f313130293df1ac917c9bdf`; Schema 61 remains the latest
-sealed checkpoint. The Schema-62 Foundation gate passes with 670 script-symbol
-references. Headless Workbench Game validation loaded 5,785 files/11,652 classes
-with CRC `326488ba` and zero script errors; the normal Script Editor open remained
-responsive without a crash. Packaged evidence remains open.
+`HST_CampaignState.SCHEMA_VERSION` is currently `62`. Schema 62 is the latest
+sealed source/Workbench checkpoint for canonical, revisioned ownership
+transitions under implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+symbol references. Headless Workbench Game validation loaded 5,785 files/11,652
+classes with CRC `22c13a32` and zero script errors; the normal Script Editor open
+remained responsive without a crash, and zero Workbench processes survived the
+test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
+evidence remains open.
 
 ## Schema 62
 

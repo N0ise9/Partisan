@@ -1,13 +1,14 @@
 # h-istasi Architecture
 
-Active source work is Schema 62 under provisional build label
-`schema62-canonical-ownership-transition`, based on sealed Schema-61
-implementation `27672e67ce4285810f313130293df1ac917c9bdf`. The checkpoint remains
-in progress. Its Foundation gate passes with 670 script-symbol references;
-headless Workbench Game validation loaded 5,785 files/11,652 classes with CRC
-`326488ba` and zero script errors; the normal Script Editor open remained
-responsive without a crash. Campaign Debug and packaged-runtime evidence are not
-yet settled.
+Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+symbol references. Headless Workbench Game validation loaded 5,785 files/11,652
+classes with CRC `22c13a32` and zero script errors; the normal Script Editor open
+remained responsive without a crash, and zero Workbench processes survived the
+test. Schema 61 is the preceding sealed marker-projection foundation. Campaign
+Debug and packaged-runtime evidence remain open.
 
 ## Runtime Ownership
 
@@ -1082,7 +1083,7 @@ balance or native-spawn evidence.
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
 | Canonical ownership | Schema 62 routes military capture, mission capture, political support, admin, debug seed, and migration repair through one revisioned, idempotent receipt. The receipt owns security, support, owner, town/facility/logistics derivation, retaliation, economy/outcome, events, parent-aware projection, notification, and persistence scheduling. | Runtime-prove exact security settlement, retry/resume, native projection, save/restart, counterattack/economy consequences, and all caller routes; then deepen combat presence, heat, and town truth. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; dynamic player markers remain separate. | Extend the same explicit projection discipline only after each additional menu/task/notification model has a bounded DTO and authority contract. |
-| Certification | Schema 61 remains the latest sealed source/Workbench boundary at implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, label `schema61-authoritative-marker-projection`, Foundation 655, and Workbench CRC `df41a779` at 5,782 files/11,631 classes. Schema 62 passes Foundation with 670 script-symbol references and clean headless Workbench Game validation at 5,785 files/11,652 classes with CRC `326488ba` and zero script errors; its normal Script Editor open remained responsive without a crash. Campaign Debug, packaged server/client, actual restart, rendered-UI, stutter/horn, live-behavior, network/reconnect, and JIP gates remain open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Schema 62 is the latest sealed source/Workbench checkpoint at implementation `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC `2026-07-12T06:11:19Z`, label `schema62-canonical-ownership-transition`, Foundation 670, and Workbench CRC `22c13a32` at 5,785 files/11,652 classes. Its normal open remained responsive without a crash and zero Workbench processes survived. Schema 61 is the preceding sealed marker-projection foundation. Campaign Debug, packaged server/client, actual restart, rendered-UI, stutter/horn, live-behavior, network/reconnect, and JIP gates remain open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 The canonical ownership dependency now exists in source. It advances Blueprint
 Phase 7 but does not finish it: generalized combat-presence/encounter authority,

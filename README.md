@@ -1,14 +1,14 @@
 # h-istasi
 
-Active source work is Schema 62 under provisional build label
-`schema62-canonical-ownership-transition`, based on sealed Schema-61
-implementation `27672e67ce4285810f313130293df1ac917c9bdf`. The Schema-62 Foundation
-gate passes with 670 script-symbol references. The latest provisional headless
-Workbench Game validation loaded 5,785 files/11,652 classes with CRC `326488ba`
-and zero script
-errors; a normal Script Editor open loaded the same tree, remained responsive,
-and did not crash. Packaged proof and the implementation identity remain open
-until the checkpoint is sealed.
+Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+symbol references. Headless Workbench Game validation loaded 5,785 files/11,652
+classes with CRC `22c13a32` and zero script errors; the normal Script Editor open
+remained responsive without a crash, and zero Workbench processes survived the
+test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
+and runtime proof remains open.
 
 h-istasi is an original Arma Reforger resistance-campaign implementation. The
 first preset targets Everon with a three-way war:
@@ -487,8 +487,9 @@ The repository contains a broad-alpha campaign foundation:
   the scoped ambient-driver input clear. These results certify only the stamped
   source/Workbench boundary. No Schema-60 packaged server/client, actual save/
   restart, rendered UI, stutter/horn, or live gameplay behavior proof exists.
-- Schema 61 is the sealed marker-only authoritative client-projection boundary
-  beneath the active Schema-62 work. Each logical campaign marker carries a stable ID, per-record
+- Schema 61 is the sealed marker-only authoritative client-projection foundation
+  beneath the sealed Schema-62 ownership checkpoint. Each logical campaign
+  marker carries a stable ID, per-record
   revision, last global stream sequence, and retained deletion tombstone under
   one persisted epoch and monotonic watermark. The server publishes bounded,
   hashed snapshot chunks or contiguous deltas through each player-owned request
@@ -519,7 +520,8 @@ The repository contains a broad-alpha campaign foundation:
   host/two-client equality, reconnect/late join, native widget rendering,
   map-close continuity, and real save/restart remain open; the fixtures have not
   been executed as a Campaign Debug or packaged runtime result.
-- Schema 62 is the active canonical ownership-transition source boundary. Every
+- Schema 62 is the latest sealed canonical ownership-transition source/
+  Workbench boundary. Every
   location has ownership contract version `1`, a monotonic ownership revision,
   and active/latest receipt backlinks. Military capture, mission capture,
   political support, admin, debug seed, and migration repair now enter one
@@ -619,10 +621,9 @@ The repository contains a broad-alpha campaign foundation:
   receipts are bounded to 512 rows, retained for at least
   86,400 campaign seconds, and cannot be pruned while latest, incomplete,
   quarantined, awaiting parent publication, or linked to an unresolved enemy
-  order. The Foundation gate passes with 670 script-symbol references; the
-  latest provisional headless Workbench validation passes at 5,785 files/11,652
-  classes with CRC
-  `326488ba` and zero script errors; the normal Script Editor open remained
+  order. The sealed Foundation gate passes with 670 script-symbol references;
+  headless Workbench validation passes at 5,785 files/11,652 classes with CRC
+  `22c13a32` and zero script errors; the normal Script Editor open remained
   responsive without a crash. Campaign Debug, packaged save/restart, native
   security, rendered marker, multiplayer, and live-gameplay evidence remains
   open.
@@ -780,8 +781,9 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-Schema 62 is the active source boundary and Schema 61 is the latest sealed
-source/Workbench checkpoint. Schema 62 centralizes ownership mutations and adds
+Schema 62 is the latest sealed source/Workbench checkpoint and Schema 61 is its
+preceding sealed marker-projection foundation. Schema 62 centralizes ownership
+mutations and adds
 source-revision correlation to the existing marker stream; it does not certify
 packaged multiplayer convergence and does not replicate the full command menu,
 tasks, notifications, or dynamic player markers. Packaged schema-50 through
@@ -789,9 +791,8 @@ schema-62 certification remains independently open. Static or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Stamp the Schema-62 canonical ownership-transition checkpoint. Publish only
-   that exact identity for the
-   next server check; runtime evidence must report the same `HST_BuildInfo`
+1. Publish only the sealed Schema-62 canonical ownership-transition identity for
+   the next server check; runtime evidence must report the same `HST_BuildInfo`
    identity as the package under test.
 2. In that published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
@@ -963,18 +964,17 @@ military/civilian activation defects, not proof of later source repairs. A newer
 user server check additionally observed a pronounced once-per-second stutter,
 continuous AI horns, and overlapping Maiden's Bay town/warehouse markers. Those
 observations are the runtime baseline for the Schema-60 performance, horn, and
-location fixes. Schema 61 is the latest sealed source/Workbench
-checkpoint at implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
-`2026-07-12T01:02:39Z`, and build label
-`schema61-authoritative-marker-projection`. Full Foundation passes with 655
-symbol references; final Workbench Game validation loaded 5,782 files/11,631
-classes with CRC `df41a779` and created the game. The correctly targeted hidden
-normal WorldEditor stayed alive/responding for 10/10 samples over 20 seconds
-without a first-party error/crash signature. Active Schema 62 passes Foundation
-with 670 script-symbol references; headless Workbench validation passes at 5,785
-files/11,652 classes with CRC `326488ba` and zero script errors. Its normal-open
-smoke remained responsive without a crash; its final implementation identity
-remains open. A republished server/client test is
+location fixes. Schema 61 remains the preceding sealed marker-projection
+foundation at implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
+`2026-07-12T01:02:39Z`, label `schema61-authoritative-marker-projection`,
+Foundation 655, and Workbench CRC `df41a779` at 5,782 files/11,631 classes.
+Schema 62 is the latest sealed source/Workbench checkpoint at implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+symbol references; Workbench validation passes at 5,785 files/11,652 classes
+with CRC `22c13a32` and zero script errors. Its normal open remained responsive
+without a crash and zero Workbench processes survived. A republished server/client test is
 still required
 before those repairs, either exact-QRF projection path, or any source-validated
 schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/

@@ -1,12 +1,14 @@
 # h-istasi Enfusion / Enforce Notes
 
-Active source work is Schema 62 under provisional build label
-`schema62-canonical-ownership-transition`, based on sealed Schema-61
-implementation `27672e67ce4285810f313130293df1ac917c9bdf`. Foundation passes with
-670 script-symbol references. Headless Workbench Game validation loaded 5,785
-files/11,652 classes with CRC `326488ba` and zero script errors. Compile-derived
-notes are accepted at the source/Workbench boundary; the normal Script Editor
-open also remained responsive without a crash. Packaged behavior remains open.
+Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+symbol references. Headless Workbench Game validation loaded 5,785 files/11,652
+classes with CRC `22c13a32` and zero script errors; the normal Script Editor open
+remained responsive without a crash, and zero Workbench processes survived the
+test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
+behavior remains open.
 
 Purpose: capture reusable facts learned while building h-istasi so we do not rediscover the same Enfusion and Enforce Script edge cases repeatedly.
 
@@ -4115,7 +4117,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   A native heap failure during full Game compilation is not a clean Workbench
   gate even if static validation passes. After splitting the Schema-62 service,
   validator, proof formulas, and one legacy debug method, headless Game
-  validation loaded 5,785 files/11,652 classes with CRC `326488ba` and zero
+  validation loaded 5,785 files/11,652 classes with CRC `22c13a32` and zero
   script errors. The normal Script Editor open remained responsive without a
   crash. Packaged behavior remains a separate gate.
 

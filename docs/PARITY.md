@@ -1,11 +1,13 @@
 # h-istasi Capability Map
 
-Active source work is Schema 62 under provisional build label
-`schema62-canonical-ownership-transition`, based on sealed Schema-61
-implementation `27672e67ce4285810f313130293df1ac917c9bdf`. Foundation passes with
-670 script-symbol references. Headless Workbench Game validation loaded 5,785
-files/11,652 classes with CRC `326488ba` and zero script errors. The normal
-Script Editor open remained responsive without a crash. Campaign
+Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+symbol references. Headless Workbench Game validation loaded 5,785 files/11,652
+classes with CRC `22c13a32` and zero script errors; the normal Script Editor open
+remained responsive without a crash, and zero Workbench processes survived the
+test. Schema 61 is the preceding sealed marker-projection foundation. Campaign
 Debug and packaged-runtime gates remain open.
 
 ## Implemented Foundation
@@ -254,14 +256,15 @@ Debug and packaged-runtime gates remain open.
   migration, but packaged
   host/two-client equality, rendered native cleanup, map close/reopen, and real
   save/restart remain open, and the fixtures have not run in Campaign Debug.
-  Schema 61 is the latest sealed source/Workbench stamp at implementation
+  Schema 61 is the preceding sealed marker-projection foundation at implementation
   `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, and
   label `schema61-authoritative-marker-projection`. Full Foundation passes with
   655 symbol references; final Workbench Game validation loaded 5,782 files/
   11,631 classes with CRC `df41a779` and created the game; hidden normal
   WorldEditor stayed responsive 10/10 over 20 seconds without a first-party
   error/crash signature.
-- Schema 62 is the active canonical ownership-transition source boundary.
+- Schema 62 is the latest sealed canonical ownership-transition source/
+  Workbench boundary.
   Locations carry ownership contract version `1`, monotonic revisions, and
   active/latest receipt backlinks. Military capture, mission capture, political
   support, admin, debug seed, and migration repair all enter one immutable
@@ -337,7 +340,7 @@ Debug and packaged-runtime gates remain open.
   repair cases. Malformed current graphs quarantine at
   `-62`. Foundation passes with 670 script-symbol references, and headless
   Workbench validation is clean at 5,785 files/11,652 classes with CRC
-  `326488ba` and zero script errors; the normal Script Editor open remained
+  `22c13a32` and zero script errors; the normal Script Editor open remained
   responsive without a crash. Proof execution, packaged security/save-restart,
   rendering, multiplayer, reconnect, and JIP evidence remains open.
   Major-change marks are edge-triggered/coalesced behind one bounded checkpoint
@@ -519,13 +522,17 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- Schema 62 is the active source boundary. Foundation passes with 670 script-
+- Schema 62 is the latest sealed source/Workbench checkpoint at implementation
+  `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+  `2026-07-12T06:11:19Z`, and label
+  `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
   symbol references. Headless Workbench Game validation completed cleanly at
-  5,785 files/11,652 classes with CRC `326488ba` and zero script errors. The
-  normal Script Editor open remained responsive without a crash. No Schema-62
+  5,785 files/11,652 classes with CRC `22c13a32` and zero script errors. The
+  normal Script Editor open remained responsive without a crash, and zero
+  Workbench processes survived. No Schema-62
   Campaign Debug, packaged owner-change, native security, actual restart,
   rendered marker, multiplayer, reconnect, or JIP evidence exists yet.
-- Schema 61 is the latest sealed marker-projection source/Workbench stamp
+- Schema 61 is the preceding sealed marker-projection foundation
   under label `schema61-authoritative-marker-projection`, with implementation
   `27672e67ce4285810f313130293df1ac917c9bdf` and UTC
   `2026-07-12T01:02:39Z`, Foundation 655, and final Workbench CRC `df41a779` at
@@ -723,8 +730,8 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Stamp that exact Schema-62 canonical-
-  ownership package, and preserve the already restored stock HUD/Game Master
+- Publish the exact sealed Schema-62 canonical-ownership package, and preserve
+  the already restored stock HUD/Game Master
   behavior. Require every ownership cause, one revision increment, retry-before-
   owner, exact-security settlement, nested publication, save/restart resume,
   protocol-2 source revision, host/client registry identity, plus valid-sized

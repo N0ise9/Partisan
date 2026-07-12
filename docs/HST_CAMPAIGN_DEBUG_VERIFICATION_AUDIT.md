@@ -1,12 +1,14 @@
 # HST Campaign Debug Verification Audit
 
-Active source work is Schema 62 under provisional build label
-`schema62-canonical-ownership-transition`, based on sealed Schema-61
-implementation `27672e67ce4285810f313130293df1ac917c9bdf`. No Schema-62 Campaign
-Debug or packaged-runtime result has been recorded. Foundation currently passes
-with 670 script-symbol references. Headless Workbench Game validation loaded
-5,785 files/11,652 classes with CRC `326488ba` and zero script errors. The normal
-Script Editor open remained responsive without a crash; it was then closed.
+Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+symbol references. Headless Workbench Game validation loaded 5,785 files/11,652
+classes with CRC `22c13a32` and zero script errors; the normal Script Editor open
+remained responsive without a crash, and zero Workbench processes survived the
+test. Schema 61 is the preceding sealed marker-projection foundation. No Schema-
+62 Campaign Debug or packaged-runtime result has been recorded.
 
 ## Current Runtime Evidence
 
@@ -525,19 +527,21 @@ be read as proof that a later change was executed or certified.
   classes with CRC `df41a779` and created the game; hidden normal WorldEditor
   stayed responsive 10/10 over 20 seconds without a first-party error/crash
   signature.
-- Campaign persistence Schema 62 is the active canonical ownership source
-  boundary under provisional label `schema62-canonical-ownership-transition`.
+- Campaign persistence Schema 62 is the latest sealed canonical ownership source/
+  Workbench boundary at implementation
+  `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+  `2026-07-12T06:11:19Z`, and label
+  `schema62-canonical-ownership-transition`.
   The full Foundation gate passes with 670 script-symbol references. The focused
   ownership proof is source-wired with durable queued intent, staged full-marker
   rollback, resolver fail-close/purge, setup history through activation, support
   set/prefix and derived correlations, persistence deadline/re-arm, shared logical
   snapshot construction, two-child atomic release, and two restart boundaries
-  for exactly-once political completion, but has not run in Campaign Debug. The
-  latest provisional headless Workbench Game validation completed at 2026-07-11
-  22:44 local,
-  loading 5,785 files/11,652 classes with CRC `326488ba` and zero script errors.
+  for exactly-once political completion, but has not run in Campaign Debug.
+  Final stamped-tree headless Workbench Game validation loaded 5,785 files/
+  11,652 classes with CRC `22c13a32` and zero script errors.
   The normal Script Editor open loaded the same tree, remained responsive, and
-  did not crash. All Workbench processes were closed after the tests. No
+  did not crash. Zero Workbench processes survived the tests. No
   packaged result should be attributed to Schema 62 until that separate gate
   runs.
 - The compiled/wired operation-record archive proof now includes typed exact-QRF
@@ -1530,10 +1534,12 @@ garrison, or mutable old-ID state while a frozen old-ID operation remains valid.
   packaged multiplayer artifact: it does not demonstrate a real host, two
   clients, disconnect/reconnect, late join, native widget roots, map close/
   reopen, process restart, or the absence of mixed-version clients.
-- Schema 62 is the active ownership extension. Foundation passes with 670
-  script-symbol references, and headless Workbench validation passes at 5,785
-  files/11,652 classes with CRC `326488ba` and zero script errors. Its bounded
-  normal Script Editor open remained responsive without a crash. Campaign Debug,
-  diff, and the final build-identity cycle remain unfinished. Do not attach a
-  final implementation stamp or packaged behavior
-  claim until those gates and the ownership runtime matrix complete.
+- Schema 62 is the latest sealed ownership source/Workbench checkpoint at
+  implementation `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+  `2026-07-12T06:11:19Z`, and label
+  `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+  symbol references, and stamped-tree headless Workbench validation passes at
+  5,785 files/11,652 classes with CRC `22c13a32` and zero script errors. Its
+  bounded normal open remained responsive without a crash and zero Workbench
+  processes survived. Campaign Debug, packaged behavior, actual restart,
+  networking, reconnect, and JIP evidence remain open.

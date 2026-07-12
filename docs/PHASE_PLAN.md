@@ -1,13 +1,15 @@
 # h-istasi Phase Plan
 
-Active source work is Schema 62 under provisional build label
-`schema62-canonical-ownership-transition`, based on sealed Schema-61
-implementation `27672e67ce4285810f313130293df1ac917c9bdf`. It is the current
-in-progress ownership-transition checkpoint, not a completed Blueprint Phase-7
-claim. Foundation passes with 670 script-symbol references; headless Workbench
-Game validation passes at 5,785 files/11,652 classes with CRC
-`326488ba` and zero script errors. The normal Script Editor open remained
-responsive without a crash. Campaign Debug and packaged evidence remain open.
+Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Foundation passes with 670 script-
+symbol references. Headless Workbench Game validation loaded 5,785 files/11,652
+classes with CRC `22c13a32` and zero script errors; the normal Script Editor open
+remained responsive without a crash, and zero Workbench processes survived the
+test. Schema 61 is the preceding sealed marker-projection foundation. This seals
+the ownership-transition checkpoint, not the broader Blueprint Phase-7 claim;
+Campaign Debug and packaged evidence remain open.
 
 This roadmap is the working implementation plan for h-istasi. It is meant to be
 updated as phases complete, split, or get refined through HST_Dev smoke tests.
@@ -172,7 +174,7 @@ join, native rendering/security, map-close continuity, and real save/restart
 remain open; Schema-62 fixtures have not run as Campaign Debug or packaged
 runtime evidence.
 
-Schema 61 is the latest sealed source/Workbench checkpoint:
+Schema 61 is the preceding sealed marker-projection foundation:
 implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
 `2026-07-12T01:02:39Z`, and label
 `schema61-authoritative-marker-projection`. Full Foundation passes with 655
@@ -260,21 +262,25 @@ implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
 `schema58-exact-rescue-pows`. No Schema-60 packaged server/client, native/live
 behavior, actual save/restart, rendered UI, stutter/horn, campaign setup,
 networking, reconnect, or JIP proof exists.
-Schema 62 advances ownership authority in source. Its Foundation gate passes
-with 670 script-symbol references. Headless Workbench Game validation loaded
-5,785 files/11,652 classes with CRC `326488ba` and zero script errors. The normal
-Script Editor open remained responsive without a crash. No packaged
+Schema 62 is the latest sealed source/Workbench checkpoint at implementation
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
+`2026-07-12T06:11:19Z`, and label
+`schema62-canonical-ownership-transition`. Its Foundation gate passes with 670
+script-symbol references. Headless Workbench Game validation loaded
+5,785 files/11,652 classes with CRC `22c13a32` and zero script errors. The normal
+Script Editor open remained responsive without a crash, and zero Workbench
+processes survived. No packaged
 host/client proof exists.
 It supersedes feature-order implications in the legacy numbered roadmap below;
 that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Schema 61 is the latest sealed stamp; Schema-62 Foundation 670, Workbench CRC `326488ba` at 5,785 files/11,652 classes, and responsive/no-crash normal open pass | Seal and packaged-test the exact Schema-62 canonical-ownership checkpoint. Every packaged/native/save-restart/rendered-UI/stutter-horn/setup/network/reconnect/JIP gate remains independently open. |
+| CRI-0: Repository truth and baseline | Schema 62 is the latest sealed source/Workbench checkpoint at implementation `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC `2026-07-12T06:11:19Z`, label `schema62-canonical-ownership-transition`, Foundation 670, and Workbench CRC `22c13a32` at 5,785 files/11,652 classes; Schema 61 is the preceding marker foundation | Publish/package-test that exact Schema-62 identity. Every packaged/native/save-restart/rendered-UI/stutter-horn/setup/network/reconnect/JIP gate remains independently open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. Pre-59 migration creates only logical unresolved sites, keeps terminal legacy radio missions at contract `0`, fails active legacy claims closed, and invents no binding, destruction, rebuild, receipt, or reward. |
 | CRI-2: Exact force manifests | Foundation complete; Schema-60 expansion stamped in source/Workbench | Search-and-Destroy adds one frozen catalog-backed infantry root/member roster at $350 plus exact-slot HR. It rejects vehicles/assets/multi-root substitution. Existing QRF/patrol/guard/rescue/convoy shapes remain unchanged; generic realization and packaged proof remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; ten exact family projections across eight operation types implemented in source | Schema 60 adds direct travel, exact survivor materialize/fold, bounded virtual combat, displaced-fold return to assignment, on-station hold, commander recall, and `0`/`-60` restore isolation for player Search-and-Destroy. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
-| CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Schema-61 marker projection is sealed; Schema-62 canonical ownership and protocol-2 source revision are implemented in source; civilian repair awaits packaged proof | One receipt now routes all ownership causes and owns security/support/owner/derived/retaliation/economy/event/projection/persistence ordering, including reciprocal exact-security checks, serialized prior-snapshot fencing, nested parent publication, migration/quarantine, and bounded replay. Prove it with native security, restart, and host/client rendering. Blueprint Phase 7 still needs combat-presence/heat and broader town truth. |
+| CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Schema-62 canonical ownership and protocol-2 source revision are sealed in source/Workbench; Schema-61 marker projection is the preceding foundation; civilian repair awaits packaged proof | One receipt now routes all ownership causes and owns security/support/owner/derived/retaliation/economy/event/projection/persistence ordering, including reciprocal exact-security checks, serialized prior-snapshot fencing, nested parent publication, migration/quarantine, and bounded replay. Prove it with native security, restart, and host/client rendering. Blueprint Phase 7 still needs combat-presence/heat and broader town truth. |
 | CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; two exact enemy orders, convoy, all assassination guards, first rescue slice, and one exact purchased-garrison policy source-complete | Existing exact families retain narrow boundaries. Schema 58 adds only newly started `rescue_pows`; historical POWs, refugees, other rescue/mission families, aggregate forces, broader vehicle policy, runtime proof, mission depth, and tuning remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
 
@@ -292,7 +298,7 @@ that roadmap remains useful for feature history and acceptance detail.
 | Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF, and exact newly queued patrol operations exist | Prove each debit/roster/policy independently: QRF defensive arrival/return and patrol generated-route contact/lap/return, exact casualties, proportional settlement, marker cleanup, restart, and long-window behavior. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, and newly started `rescue_pows` use narrow exact contracts | Runtime-prove convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 62 is the active source boundary and Schema 61 the latest sealed stamp | Seal/publish exact Schema 62 and runtime-prove ownership atomicity/restart plus marker convergence, Search-and-Destroy, Maiden's Bay, stutter/horns, civilian/radio, both QRFs, convoy, patrols, garrison, all assassination guards, and the three-POW rescue before fault-injection and long-soak closure. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 62 is the latest sealed source/Workbench checkpoint and Schema 61 the preceding marker foundation | Publish/package-test exact Schema 62 and runtime-prove ownership atomicity/restart plus marker convergence, Search-and-Destroy, Maiden's Bay, stutter/horns, civilian/radio, both QRFs, convoy, patrols, garrison, all assassination guards, and the three-POW rescue before fault-injection and long-soak closure. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -566,7 +572,7 @@ treated as future work:
   restore, migration, quarantine, and retention are implemented in source, and
   marker protocol `2` correlates each zone marker to its owner source revision.
   Foundation passes with 670 script-symbol references; Workbench validation is
-  clean at CRC `326488ba`, and the normal Script Editor open remained responsive
+  clean at CRC `22c13a32`, and the normal Script Editor open remained responsive
   without a crash. All packaged/native/restart evidence remains open.
 - Static location map markers are visually separated from QRF tactical response
   markers. Towns, base/outpost/seaport/airfield locations, and mission-site
@@ -605,7 +611,7 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Seal the Schema-62 canonical-ownership checkpoint and publish that exact
+1. Publish the sealed Schema-62 canonical-ownership checkpoint as an exact
    package. Require the package,
    server, clients, logs, and debug artifacts to report one matching
    `HST_BuildInfo` identity.
@@ -1058,7 +1064,7 @@ Baseline acceptance:
 | 20 | Civilians, town support, and undercover reports | In progress - schema-50 classification/diversity/traffic/horn repairs await publish |
 | 21 | Undercover enforcement and police/roadblocks | In progress - enforcement broad alpha |
 | 22 | HQ threat and Defend Petros | In progress - HQ threat and defense broad alpha |
-| 23 | UI and map marker polish | In progress - Schema-61 marker projection is sealed and Schema-62 protocol `2` adds ownership source revision; rendered host/two-client/reconnect/JIP and nested ownership publication await packaged proof |
+| 23 | UI and map marker polish | In progress - Schema-62 protocol `2` and canonical ownership are sealed in source/Workbench atop the Schema-61 marker foundation; rendered host/two-client/reconnect/JIP and nested ownership publication await packaged proof |
 | 24 | Balance, campaign pacing, and victory/loss | In progress - population outcome default |
 | 25 | Full-campaign soak testing | Planned |
 
