@@ -304,6 +304,12 @@ Consequences:
   two clients, reconnect, late join, map open/close, native widget rendering,
   and real save/restart all converge on the same epoch, watermark, and registry
   hash.
+- The completed source/Workbench checkpoint is implementation
+  `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, label
+  `schema61-authoritative-marker-projection`, Foundation 655, and Workbench CRC
+  `df41a779` at 5,782 files/11,631 classes; normal hidden WorldEditor remained
+  responsive 10/10 over 20 seconds. This does not change the packaged-runtime
+  gate.
 - This decision does not canonicalize zone ownership mutation. The next source
   slice remains one idempotent ownership-transition service whose complete side
   effects then feed the marker projection as derived output.

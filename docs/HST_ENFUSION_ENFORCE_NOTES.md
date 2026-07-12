@@ -3603,7 +3603,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Schema 60 Exact Player Search-And-Destroy
 
-- Schema 60 is the latest stamped source/Workbench checkpoint. Its exact
+- Schema 60 is the preceding stamped source/Workbench checkpoint. Its exact
   provenance is implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`,
   UTC `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, Foundation
   pass with 644 symbol references, and final Workbench CRC `7aa80fc9` at 5,777
@@ -3851,6 +3851,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
   compile are source evidence only. Packaged host/two-client hash equality,
   native rendering, map close/reopen, disconnect/reconnect, late join, and real
   save/restart remain separate runtime gates.
+
+- Schema 61 is the latest completed source/Workbench checkpoint at
+  implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
+  `2026-07-12T01:02:39Z`, and label
+  `schema61-authoritative-marker-projection`. Full Foundation passes with 655
+  symbol references; final Workbench Game validation loaded 5,782 files/11,631
+  classes with CRC `df41a779` and created the game; hidden normal WorldEditor
+  stayed responsive 10/10 over 20 seconds without a first-party error/crash
+  signature. This stamp does not close any
+  packaged multiplayer, rendered-widget, actual restart, or live-performance
+  gate.
 
 ## One-Second Runtime Hot-Path Repair
 

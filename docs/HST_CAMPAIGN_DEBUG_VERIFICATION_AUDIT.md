@@ -370,7 +370,7 @@ be read as proof that a later change was executed or certified.
   `Script validation successful`. The bounded normal WorldEditor open stayed
   alive/responding for 10/10 samples over 20 seconds with no script-compile or
   crash signature; one Steamworks stats-request error was nonfatal.
-- Campaign persistence Schema 60 is the latest stamped source/Workbench
+- Campaign persistence Schema 60 is the preceding stamped source/Workbench
   checkpoint: implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
   `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`. Full
   Foundation passes with 644 symbol references. Final Workbench Game validation
@@ -426,8 +426,14 @@ be read as proof that a later change was executed or certified.
   Workbench structure only. No packaged host/two-
   client equality, actual reconnect/late join, rendered native-marker cleanup,
   map-close continuity, serialization/restart, or mixed-version behavior has
-  been observed. Schema 60 remains the latest completed stamp until the
-  Schema-61 implementation/stamp cycle is finalized.
+  been observed. Schema 61 is the latest completed source/Workbench stamp at
+  implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
+  `2026-07-12T01:02:39Z`, and label
+  `schema61-authoritative-marker-projection`. Full Foundation passes with 655
+  symbol references; final Workbench Game validation loaded 5,782 files/11,631
+  classes with CRC `df41a779` and created the game; hidden normal WorldEditor
+  stayed responsive 10/10 over 20 seconds without a first-party error/crash
+  signature.
 - The compiled/wired operation-record archive proof now includes typed exact-QRF
   receipt-mismatch retention under forced capacity. It has not been executed by
   Campaign Debug and is not a final Schema-60 gate result.

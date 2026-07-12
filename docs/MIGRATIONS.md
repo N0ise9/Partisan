@@ -2,15 +2,16 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `61`. Schema 61 is the current
-source implementation boundary for marker-only authoritative client projection.
-Its packaged multiplayer, reconnect, late-join, rendered-widget, and real
-save/restart gates remain open. Schema 60 remains the latest completed stamped
-source/Workbench checkpoint while the Schema-61 implementation/stamp cycle is
-being finalized: implementation
-`fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
-`2026-07-11T23:24:55Z`, build label `schema60-exact-search-destroy`, and final
-Workbench CRC `7aa80fc9`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `61`. Schema 61 is the latest
+completed source/Workbench checkpoint for marker-only authoritative client
+projection under implementation `27672e67ce4285810f313130293df1ac917c9bdf`,
+UTC `2026-07-12T01:02:39Z`, and build label
+`schema61-authoritative-marker-projection`. Its packaged multiplayer,
+reconnect, late-join, rendered-widget, and real save/restart gates remain open.
+Full Foundation passes with 655 symbol references; final Workbench Game
+validation loaded 5,782 files/11,631 classes with CRC `df41a779` and created the
+game; hidden normal WorldEditor stayed responsive 10/10 over 20 seconds without
+a first-party error/crash signature.
 
 ## Schema 61
 

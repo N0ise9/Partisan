@@ -111,10 +111,15 @@ equality, actual reconnect/late join, native rendering, map-close continuity,
 and real save/restart remain open; the fixtures have not run as Campaign Debug
 or packaged runtime evidence.
 
-Schema 60 remains the latest completed stamped source/Workbench checkpoint while
-the Schema-61 implementation/stamp cycle is finalized: implementation
-`fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
-`2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`. Only newly quoted and confirmed player Search-
+Schema 61 is the latest completed stamped source/Workbench checkpoint:
+implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
+`2026-07-12T01:02:39Z`, and label
+`schema61-authoritative-marker-projection`. Full Foundation passes with 655
+symbol references; final Workbench Game validation loaded 5,782 files/11,631
+classes with CRC `df41a779` and created the game; hidden normal WorldEditor
+stayed responsive 10/10 over 20 seconds without a first-party error/crash
+signature. In the preceding Schema-60 slice,
+only newly quoted and confirmed player Search-
 and-Destroy support receives contract `1`: one infantry-only catalog roster,
 $350 plus HR-per-frozen-member ledger, request, separately typed operation, held
 batch, and active group remain reciprocal. Its direct route, exact casualties,
@@ -201,7 +206,7 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Schema 61 is the current source boundary; Schema 60 remains the latest completed stamp until the Schema-61 cycle finishes | Finish/stamp and publish the exact Schema-61 marker-projection checkpoint. Every packaged/native/save-restart/rendered-UI/stutter-horn/setup/network/reconnect/JIP gate remains independently open. |
+| CRI-0: Repository truth and baseline | Schema 61 is the latest completed source/Workbench stamp; Foundation 655, Workbench CRC `df41a779`, game-create, and normal-open checks pass | Publish and packaged-test the exact Schema-61 marker-projection checkpoint. Every packaged/native/save-restart/rendered-UI/stutter-horn/setup/network/reconnect/JIP gate remains independently open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. Pre-59 migration creates only logical unresolved sites, keeps terminal legacy radio missions at contract `0`, fails active legacy claims closed, and invents no binding, destruction, rebuild, receipt, or reward. |
 | CRI-2: Exact force manifests | Foundation complete; Schema-60 expansion stamped in source/Workbench | Search-and-Destroy adds one frozen catalog-backed infantry root/member roster at $350 plus exact-slot HR. It rejects vehicles/assets/multi-root substitution. Existing QRF/patrol/guard/rescue/convoy shapes remain unchanged; generic realization and packaged proof remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; ten exact family projections across eight operation types implemented in source | Schema 60 adds direct travel, exact survivor materialize/fold, bounded virtual combat, displaced-fold return to assignment, on-station hold, commander recall, and `0`/`-60` restore isolation for player Search-and-Destroy. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |

@@ -192,7 +192,7 @@
   `Script validation successful`. The bounded normal open stayed alive/
   responding for 10/10 samples over 20 seconds with no script-compile/crash
   signature; one Steamworks stats-request error was nonfatal.
-- Schema 60 is the latest stamped source/Workbench checkpoint under
+- Schema 60 is the preceding stamped source/Workbench checkpoint under
   implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
   `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`; Schema 59
   is the preceding checkpoint. Full Foundation passes with 644 symbol references;
@@ -245,8 +245,13 @@
   migration, but packaged
   host/two-client equality, rendered native cleanup, map close/reopen, and real
   save/restart remain open, and the fixtures have not run in Campaign Debug.
-  Schema 60 remains the latest completed stamp until
-  the Schema-61 implementation/stamp cycle is finalized.
+  Schema 61 is the latest completed source/Workbench stamp at implementation
+  `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, and
+  label `schema61-authoritative-marker-projection`. Full Foundation passes with
+  655 symbol references; final Workbench Game validation loaded 5,782 files/
+  11,631 classes with CRC `df41a779` and created the game; hidden normal
+  WorldEditor stayed responsive 10/10 over 20 seconds without a first-party
+  error/crash signature.
 - The Schema-60 checkpoint represents Maiden's Bay once as the Logistics Warehouse.
   Restore cleanup is no-op when neither location row exists and fails closed
   before rewrites when location authority is ambiguous. With one authority it
@@ -415,12 +420,11 @@
 
 ## Current Verification Boundary
 
-- Schema 61 is the current marker-projection source boundary. Schema 60 remains
-  the latest completed stamped source/Workbench checkpoint under label
-  `schema60-exact-search-destroy`, with implementation
-  `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
-  `2026-07-11T23:24:55Z`, and CRC `7aa80fc9`. Schema 59 is the preceding
-  checkpoint. The Maiden's Bay
+- Schema 61 is the latest completed marker-projection source/Workbench stamp
+  under label `schema61-authoritative-marker-projection`, with implementation
+  `27672e67ce4285810f313130293df1ac917c9bdf` and UTC
+  `2026-07-12T01:02:39Z`, Foundation 655, and final Workbench CRC `df41a779` at
+  5,782 files/11,631 classes. Schema 60 is the preceding checkpoint. The Maiden's Bay
   migration fixture has compiled and is wired as
   `location_taxonomy.maidens_bay_schema60`, but Campaign Debug has not executed
   that assertion; the Search-and-Destroy proof and typed-QRF mismatch assertion

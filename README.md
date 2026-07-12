@@ -421,7 +421,8 @@ The repository contains a broad-alpha campaign foundation:
   WorldEditor open stayed alive and responsive for 10/10 samples over 20 seconds
   with no script-compile or crash signature. Its one Steamworks stats-request
   error was nonfatal. Packaged gameplay proof remains independently open.
-- Schema 60 is the latest stamped source/Workbench checkpoint. `HST_BuildInfo`
+- Schema 60 is the preceding stamped source/Workbench checkpoint. Its historical
+  `HST_BuildInfo`
   records implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
   `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`; Schema 59
   is the preceding checkpoint. The full Foundation gate passes, including 644
@@ -841,12 +842,15 @@ military/civilian activation defects, not proof of later source repairs. A newer
 user server check additionally observed a pronounced once-per-second stutter,
 continuous AI horns, and overlapping Maiden's Bay town/warehouse markers. Those
 observations are the runtime baseline for the Schema-60 performance, horn, and
-location fixes. Schema 61 is the current marker-projection source boundary;
-Schema 60 remains the latest completed stamped source/Workbench checkpoint at
-implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
-`2026-07-11T23:24:55Z`, build label `schema60-exact-search-destroy`, and CRC
-`7aa80fc9` until the Schema-61 stamp is finalized. A republished server/client
-test is still required
+location fixes. Schema 61 is the latest completed stamped source/Workbench
+checkpoint at implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
+`2026-07-12T01:02:39Z`, and build label
+`schema61-authoritative-marker-projection`. Full Foundation passes with 655
+symbol references; final Workbench Game validation loaded 5,782 files/11,631
+classes with CRC `df41a779` and created the game. The correctly targeted hidden
+normal WorldEditor stayed alive/responding for 10/10 samples over 20 seconds
+without a first-party error/crash signature. A republished server/client test is
+still required
 before those repairs, either exact-QRF projection path, or any source-validated
 schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/
   schema-55 officer-guard/schema-56 traitor-guard/schema-57 spec-ops-guard/

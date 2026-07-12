@@ -3945,7 +3945,7 @@ foreach ($requiredNativeMarkerSyncContract in @(
 		"SyncVisibleNativeMarkerOwnership",
 		"HST_ConflictMapMarker_",
 		"SetAffiliatedFactionByKey(zone.m_sOwnerFactionKey)",
-		"AddNativeMarkerCandidate"
+		"GetAffiliatedFactionKey() == zone.m_sOwnerFactionKey"
 	)) {
 	if ($mapMarkerServiceText -notmatch [regex]::Escape($requiredNativeMarkerSyncContract)) {
 		throw "Map marker service is missing native marker ownership sync contract: $requiredNativeMarkerSyncContract"
@@ -5707,7 +5707,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 60",
+		"SCHEMA_VERSION = $campaignSchemaVersion",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -6087,7 +6087,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 60',
+		"SCHEMA_VERSION = $campaignSchemaVersion",
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -6659,7 +6659,7 @@ $physicalWarText = Get-Content -Raw $physicalWarPath
 $schema52SaveValidationCorpus = $forceSaveDataText + "`n" + $missionConvoySaveValidationText
 $schema52StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $schema52SaveValidationCorpus
 foreach ($requiredSchema52StateEntry in @(
-		'SCHEMA_VERSION = 60',
+		"SCHEMA_VERSION = $campaignSchemaVersion",
 		'HST_OPERATION_TYPE_MISSION_CONVOY',
 		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
 		'class HST_ConvoyElementState',
@@ -14400,7 +14400,7 @@ $schema53CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema53StateCorpus = $schema53TypesText + "`n" + $schema53StateText + "`n" + $schema53SaveText
 foreach ($schema53StateEntry in @(
-		"SCHEMA_VERSION = 60",
+		"SCHEMA_VERSION = $campaignSchemaVersion",
 		"HST_OPERATION_TYPE_ENEMY_PATROL",
 		"int m_iRouteWaypointIndex = -1;",
 		"int m_iRouteLapCount;",
@@ -14656,7 +14656,7 @@ $schema54CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema54StateCorpus = $schema54TypesText + "`n" + $schema54StateText + "`n" + $schema54SaveText
 foreach ($schema54StateEntry in @(
-		"SCHEMA_VERSION = 60",
+		"SCHEMA_VERSION = $campaignSchemaVersion",
 		"HST_OPERATION_TYPE_GARRISON_PATROL",
 		"IsQuarantinedActiveGroup",
 		"HST_GarrisonPatrolSaveValidationService schema54GarrisonPatrolValidation",
@@ -15409,7 +15409,7 @@ $schema56PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Persi
 $schema56CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema56ProofText = Get-Content -Raw $schema56ProofPath
 
-if ($schema56StateText -notmatch 'SCHEMA_VERSION\s*=\s*(56|57|58|59|60)\s*;') {
+if ($schema56StateText -notmatch "SCHEMA_VERSION\s*=\s*$campaignSchemaVersion\s*;") {
 	throw "Schema-56 campaign schema lineage is missing"
 }
 foreach ($schema56CoreEntry in @(
@@ -15612,7 +15612,7 @@ $schema57PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Persi
 $schema57CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema57ProofText = Get-Content -Raw $schema57ProofPath
 
-if ($schema57StateText -notmatch 'SCHEMA_VERSION\s*=\s*(57|58|59|60)\s*;') {
+if ($schema57StateText -notmatch "SCHEMA_VERSION\s*=\s*$campaignSchemaVersion\s*;") {
 	throw "Schema-57 campaign schema is missing"
 }
 foreach ($schema57CoreEntry in @(
@@ -15864,7 +15864,7 @@ $schema58CaptiveActionText = Get-Content -Raw "Scripts/Game/HST/Components/HST_M
 $schema58MissionActionFilterText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionCargoUserActions.c"
 
 foreach ($schema58StateEntry in @(
-	'SCHEMA_VERSION = 60',
+	"SCHEMA_VERSION = $campaignSchemaVersion",
 	'HST_OPERATION_TYPE_MISSION_RESCUE',
 	'enum HST_ERescueCaptiveDisposition',
 	'int m_iRescueGraceUntilSecond;',
@@ -16210,7 +16210,7 @@ $schema59UIText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIServi
 $schema59StrategicText = Get-Content -Raw "Scripts/Game/HST/Services/HST_StrategicService.c"
 
 foreach ($schema59StateEntry in @(
-	'SCHEMA_VERSION = 60',
+	"SCHEMA_VERSION = $campaignSchemaVersion",
 	'enum HST_ERadioSiteLifecycleState',
 	'HST_RADIO_SITE_LIFECYCLE_ONLINE',
 	'HST_RADIO_SITE_LIFECYCLE_DESTROYED',

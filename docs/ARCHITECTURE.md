@@ -836,7 +836,7 @@ applies an exhaustive global exact-infantry reconcile, repeats reciprocal and
 cardinality checks for each physical exact player-support aggregate, and
 refreshes its live position before capture; failure defers the retirement or
 checkpoint. Pre-60 requests remain contract `0`, and malformed current claimants
-cannot cross into legacy authority. Schema 60 is the latest stamped source/
+cannot cross into legacy authority. Schema 60 is the preceding stamped source/
 Workbench checkpoint: implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`,
 UTC `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, Foundation
 pass with 644 symbol references, and final Workbench CRC `7aa80fc9` at 5,777
@@ -857,8 +857,14 @@ priority/stable-ID ordering makes marker caps deterministic. The compiled source
 proof defines ordering, idempotency, gaps/resync, reconnect/JIP-shaped snapshots,
 rapid mutations, lost ACK, epoch reset, pruning, malformed/oversize input, and migration. Packaged host/two-client equality,
 actual reconnect/late join, native widget behavior, and process restart remain
-open, and its fixtures have not been executed as runtime evidence. Schema 60 remains the latest completed stamp until the Schema-61
-implementation/stamp cycle is finalized.
+open, and its fixtures have not been executed as runtime evidence. Schema 61 is
+the latest completed source/Workbench checkpoint at implementation
+`27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, and
+label `schema61-authoritative-marker-projection`. Full Foundation passes with
+655 symbol references; final Workbench Game validation loaded 5,782 files/
+11,631 classes with CRC `df41a779` and created the game. The hidden normal
+WorldEditor stayed alive/responding for 10/10 samples over 20 seconds without a
+first-party error/crash signature.
 
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
@@ -870,7 +876,7 @@ implementation/stamp cycle is finalized.
 | Operation lifecycle | Schemas 50-59 retain their exact paths. Schema 60 adds a separately typed player Search-and-Destroy operation with direct-route progress, exact virtual/physical survivors, bounded virtual combat, return-to-assignment after displaced fold, on-station hold after hostile clear, commander recall, and fail-closed restore isolation. Historical requests remain outside the contract. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; dynamic player markers remain separate. | Extend the same explicit projection discipline only after each additional menu/task/notification model has a bounded DTO and authority contract. |
-| Certification | Schema 61 is the current marker-projection source boundary; Schema 60 remains the latest completed stamped source/Workbench boundary at implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, and CRC `7aa80fc9` until the Schema-61 implementation/stamp cycle is finalized. Schema-61 deterministic fixtures and Workbench compilation are source evidence only. Every packaged server/client, actual restart, rendered-UI, stutter/horn, live-behavior, network/reconnect/JIP gate remains open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Schema 61 is the latest completed stamped source/Workbench boundary at implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, label `schema61-authoritative-marker-projection`, Foundation 655, and Workbench CRC `df41a779` at 5,782 files/11,631 classes. Normal hidden WorldEditor remained responsive 10/10 over 20 seconds. Its deterministic fixtures and Workbench compilation are source evidence only. Every packaged server/client, actual restart, rendered-UI, stutter/horn, live-behavior, network/reconnect/JIP gate remains open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 The next source dependency is the canonical idempotent ownership transition:
 one service/result must own owner, garrison/security, support, facility/logistics,

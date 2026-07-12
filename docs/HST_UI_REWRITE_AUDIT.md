@@ -45,6 +45,11 @@ Current state:
   replicated-entity path. Deterministic registry fixtures and Workbench
   compilation do not prove rendered marker roots, input layering, reconnect, or
   late-join behavior.
+- The completed Schema-61 source/Workbench stamp identifies implementation
+  `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, label
+  `schema61-authoritative-marker-projection`, Foundation 655, and Workbench CRC
+  `df41a779` at 5,782 files/11,631 classes. Normal hidden WorldEditor remained
+  responsive 10/10 over 20 seconds; this is not rendered or packaged UI proof.
 
 ## File Audit
 

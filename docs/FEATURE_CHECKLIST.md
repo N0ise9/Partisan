@@ -64,11 +64,14 @@ reconnect, ACK pruning, malformed packets, and migration idempotency. They are
 source/Workbench structure, not an executed Campaign Debug or packaged
 multiplayer proof.
 
-Schema 60 remains the latest completed stamped source/Workbench checkpoint
-while the Schema-61 implementation/stamp cycle is finalized, under implementation
-`fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
-`2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`; it is not a
-packaged-runtime checkpoint. Only newly quoted
+Schema 61 is the latest completed stamped source/Workbench checkpoint under
+implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
+`2026-07-12T01:02:39Z`, and label
+`schema61-authoritative-marker-projection`; it is not a packaged-runtime
+checkpoint. Full Foundation passes with 655 symbol references; final Workbench
+Game validation loaded 5,782 files/11,631 classes with CRC `df41a779` and
+created the game; hidden normal WorldEditor stayed responsive 10/10 over 20
+seconds without a first-party error/crash signature. The preceding Schema-60 slice only opts newly quoted
 and confirmed player Search-and-Destroy requests opt into the new contract-1
 infantry operation. Its immutable quote/manifest, $350 plus HR-per-frozen-slot
 ledger, held batch, active group, direct-route cursor, virtual combat, exact
@@ -120,7 +123,7 @@ implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete | Schema 61 is the current source boundary; Schema 60 remains the latest completed stamp until the Schema-61 stamp cycle finishes | Interim Workbench Game compile/create passes; deterministic assertions are compiled but not runtime-executed | No | Schema 61 is marker-only authoritative projection and does not certify gameplay/network behavior. The preceding completed stamp is implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, and CRC `7aa80fc9`. No Schema-61 packaged/live certification exists. |
+| CRI-0 Truth and baseline | Complete | Schema 61 is the latest completed source/Workbench stamp | Foundation 655, Workbench CRC `df41a779`, game create, and normal-open responsiveness pass; deterministic assertions are compiled but not runtime-executed | No | Schema 61 is marker-only authoritative projection at implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, and label `schema61-authoritative-marker-projection`; it does not certify packaged gameplay/network behavior. No Schema-61 packaged/live certification exists. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner | Schema-59 source proof and stamped-tree Workbench gates pass; packaged runtime pending | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. New exact radio missions use contract `1`; active legacy rows fail closed and malformed current rows quarantine at `-59`. |
 | CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, nine exact infantry-family consumers, one exact convoy, plus three externally managed captive slots | Schema-60 source/Workbench gates pass; native projection/restart pending for the new consumer | No | Search-and-Destroy freezes one catalog-backed infantry root/member roster with no vehicles/assets/multi-root fallback. Existing QRF, patrol, rescue, assassination-guard, and convoy shapes remain unchanged. Generic vehicle/asset/multi-root execution, historical mission guards, and unsupported consumers remain open. |
 | CRI-3 Force runtime | Complete in source for nine exact infantry-family consumers, one exact convoy, the three-captive rescue lifecycle, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, Search-and-Destroy return-to-assignment, patrol/guard/rescue/convoy folds, and mixed-group cleanup | Schema-60 source/Workbench gates pass; native/package/restart gates pending | No | Search-and-Destroy keeps exact survivors across physical/virtual transitions and simulates hostile-garrison combat only while on station. Projection retirement and capture now fail closed unless exhaustive casualty reconciliation and living root/member binding cardinality succeed, and capture refreshes live position. The deterministic casualty/fold/immediate-recall fixture uses synthetic queue state; live adapter retirement and physical recall exit remain unproven alongside native entities, natural combat/vehicle seating, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP. |
