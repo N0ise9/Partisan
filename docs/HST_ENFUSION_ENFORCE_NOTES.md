@@ -1,21 +1,21 @@
 # h-istasi Enfusion / Enforce Notes
 
-Active development is provisionally on campaign Schema 63 and runtime-settings
+Active development is on campaign Schema 63 and runtime-settings
 Schema 23. Its combat-presence sampling and persistence rules below are based on
 source/API inspection and deterministic fixtures. Foundation passes with 681
 script-symbol references. A normal Workbench Script Editor open compiled/created
-the Game module at 5,788 files/11,670 classes with CRC `cb6475ff`, remained
+the Game module at 5,788 files/11,670 classes with CRC `a40056c5`, remained
 responsive without a crash, and produced no HST script errors. Explicit
 validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 with exit code `0`; all
 Workbench instances were closed afterward. Campaign Debug, packaged runtime,
 save/restart, and multiplayer execution remain pending.
 
-The provisional Schema-63 build metadata currently uses implementation-basis
-`7c93e0a485bcabe5a364c0b0cfeca235accb50f7` with label
-`schema63-canonical-combat-presence`; this pair is not sealed until the current
-validation and commit cycle completes.
+The sealed Schema-63 checkpoint identifies implementation
+`85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
+`2026-07-12T08:22:05Z`, and label
+`schema63-canonical-combat-presence`.
 
-Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+Schema 62 is the preceding sealed canonical-ownership checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -4244,7 +4244,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - The Schema-63 Foundation gate passes with 681 script-symbol references. A
   normal Workbench Script Editor open compiled/created the Game module at 5,788
-  files/11,670 classes with CRC `cb6475ff`, no HST script errors, and no crash.
+  files/11,670 classes with CRC `a40056c5`, no HST script errors, and no crash.
   Explicit validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 with exit
   code `0`. Close every Workbench instance after each bounded test; zero remained
   after this run. Packaged

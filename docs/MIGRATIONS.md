@@ -2,23 +2,23 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently provisional `63`, and
-`HST_RuntimeSettings.SCHEMA_VERSION` is provisional `23`. Schema 63 adds
+`HST_CampaignState.SCHEMA_VERSION` is sealed at `63`, and
+`HST_RuntimeSettings.SCHEMA_VERSION` is sealed at `23`. Schema 63 adds
 canonical crew-aware combat presence and persisted zone heat on top of the
 sealed Schema-62 ownership boundary. Foundation passes on the Schema-63 tree
 with 681 script-symbol references. A normal Workbench Script Editor open
 compiled/created the Game module at 5,788 files/11,670 classes with CRC
-`cb6475ff`, no HST script errors, and no crash. Explicit validation passed for
+`a40056c5`, no HST script errors, and no crash. Explicit validation passed for
 WORKBENCH, PC, XBOX, PS4, and PS5 and exited with code `0`; all Workbench
 instances were closed afterward. Real serialization, save/restart, Campaign
 Debug, packaged runtime, and multiplayer proof remain pending.
 
-The provisional Schema-63 build metadata currently uses implementation-basis
-`7c93e0a485bcabe5a364c0b0cfeca235accb50f7` with label
-`schema63-canonical-combat-presence`; this pair is not sealed until the current
-validation and commit cycle completes.
+The sealed Schema-63 checkpoint identifies implementation
+`85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
+`2026-07-12T08:22:05Z`, and label
+`schema63-canonical-combat-presence`.
 
-Schema 62 remains the latest sealed source/Workbench checkpoint for canonical,
+Schema 62 is the preceding sealed source/Workbench checkpoint for canonical,
 revisioned ownership transitions under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
@@ -69,8 +69,8 @@ evidence remains open.
   checks, HQ threat, civilian safety, and enemy strategy. Empty or cargo-only
   vehicles no longer gain pressure from a durable vehicle count. Separately,
   physical zone activation enters at the activation radius and exits at the
-  larger deactivation radius. These are provisional source contracts, not
-  runtime migration evidence.
+  larger deactivation radius. These are sealed source contracts, not runtime
+  migration evidence.
 
 ## Schema 62
 

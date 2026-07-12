@@ -1,21 +1,21 @@
 # h-istasi Capability Map
 
-Active development is provisionally on campaign Schema 63 and runtime-settings
+Active development is on campaign Schema 63 and runtime-settings
 Schema 23. The slice centralizes crew-aware combat presence and persisted
 `HOT -> COOLING -> COLD` zone diagnostics. Foundation passes with 681 script-
 symbol references. A normal Workbench Script Editor open compiled/created the
-Game module at 5,788 files/11,670 classes with CRC `cb6475ff`, remained
+Game module at 5,788 files/11,670 classes with CRC `a40056c5`, remained
 responsive without a crash, and produced no HST script errors. Explicit
 validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 with exit code `0`; all
 Workbench instances were closed after testing. Campaign Debug, packaged
 runtime, save/restart, and multiplayer execution remain pending.
 
-The provisional Schema-63 build metadata currently uses implementation-basis
-`7c93e0a485bcabe5a364c0b0cfeca235accb50f7` with label
-`schema63-canonical-combat-presence`; this pair is not sealed until the current
-validation and commit cycle completes.
+The sealed Schema-63 checkpoint identifies implementation
+`85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
+`2026-07-12T08:22:05Z`, and label
+`schema63-canonical-combat-presence`.
 
-Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+Schema 62 is the preceding sealed canonical-ownership checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -49,7 +49,7 @@ Debug and packaged-runtime gates remain open.
   Petros-loss penalties, HQ knowledge/threat, and Defend Petros state
 - Versioned campaign save container for current state fields and nested arrays,
   with schema migration and restored-state application helpers
-- Campaign authority foundation through provisional Schema 63 with persisted monotonic IDs,
+- Campaign authority foundation through sealed Schema 63 with persisted monotonic IDs,
   typed command receipts, resource transactions, exact force quotes/manifests,
   durable per-projection SpawnQueue state, bounded accepted-settlement replay
   tombstones, separately typed exact player QRF/Search-and-Destroy and enemy-QRF
@@ -57,7 +57,7 @@ Debug and packaged-runtime gates remain open.
   radio-site lifecycle, marker-record revision/tombstone/source-revision state,
   one marker-projection epoch/global sequence, a bounded authoritative client
   stream, and durable revisioned ownership-transition receipts/backlinks
-- Provisional Schema-63 crew-aware combat presence: one shared state-only query
+- Sealed Schema-63 crew-aware combat presence: one shared state-only query
   and per-zone heat service consumes fresh registered physical samples or
   eligible durable virtual infantry. Conscious dismounted infantry, operational
   occupied armed mobile platforms, and operational occupied static weapons
@@ -294,7 +294,7 @@ Debug and packaged-runtime gates remain open.
   11,631 classes with CRC `df41a779` and created the game; hidden normal
   WorldEditor stayed responsive 10/10 over 20 seconds without a first-party
   error/crash signature.
-- Schema 62 is the latest sealed canonical ownership-transition source/
+- Schema 62 is the preceding sealed canonical ownership-transition source/
   Workbench boundary.
   Locations carry ownership contract version `1`, monotonic revisions, and
   active/latest receipt backlinks. Military capture, mission capture, political
@@ -423,7 +423,7 @@ Debug and packaged-runtime gates remain open.
 - Physical-war activation scaffold that marks nearby zones active, moves
   abstract garrison counts into route-aware active groups, and folds survivor
   counts back on deactivation
-- Provisional Schema-63 activation hysteresis: inactive zones enter at the
+- Sealed Schema-63 activation hysteresis: inactive zones enter at the
   activation radius, while active zones do not fold until every living player
   crosses the larger deactivation radius. Projection state and persisted combat
   heat remain separate authorities; native boundary behavior and stutter impact
@@ -558,7 +558,7 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- Schema 62 is the latest sealed source/Workbench checkpoint at implementation
+- Schema 62 is the preceding sealed source/Workbench checkpoint at implementation
   `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
   `2026-07-12T06:11:19Z`, and label
   `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -766,7 +766,7 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Seal the exact provisional Schema-63 identity, then publish that package and preserve
+- Publish the exact sealed Schema-63 identity and preserve
   the already restored stock HUD/Game Master
   behavior. Require every ownership cause, one revision increment, retry-before-
   owner, exact-security settlement, nested publication, save/restart resume,
@@ -887,7 +887,7 @@ Debug and packaged-runtime gates remain open.
   reconnect/save-restart; keep dynamic player markers and non-marker campaign
   projection outside this claim.
 - Treat the Schema-62 canonical ownership service as the completed source
-  mutation dependency and provisional Schema 63 as the first shared combat-
+  mutation dependency and sealed Schema 63 as the first shared combat-
   presence/heat dependency, not the end of Blueprint Phase 7. After runtime
   proof, continue with generalized encounter outcomes, contacted-town truth,
   and broader political/facility consequences.

@@ -1,22 +1,22 @@
 # HST Campaign Debug Verification Audit
 
-Active development is provisionally on campaign Schema 63 and runtime-settings
+Active development is on campaign Schema 63 and runtime-settings
 Schema 23. Its canonical crew-aware combat-presence service, persisted
 `HOT -> COOLING -> COLD` diagnostics, conservative restore validator, and
 deterministic proof fixture are wired in source. Foundation passes with 681
 script-symbol references. A normal Workbench Script Editor open compiled/created
-the Game module at 5,788 files/11,670 classes with CRC `cb6475ff`, remained
+the Game module at 5,788 files/11,670 classes with CRC `a40056c5`, remained
 responsive without a crash, and produced no HST script errors. Explicit
 validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 with exit code `0`; all
 Workbench instances were closed afterward. The fixtures have not run in
 Campaign Debug or a packaged server/client session.
 
-The provisional Schema-63 build metadata currently uses implementation-basis
-`7c93e0a485bcabe5a364c0b0cfeca235accb50f7` with label
-`schema63-canonical-combat-presence`; this pair is not sealed until the current
-validation and commit cycle completes.
+The sealed Schema-63 checkpoint identifies implementation
+`85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
+`2026-07-12T08:22:05Z`, and label
+`schema63-canonical-combat-presence`.
 
-Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+Schema 62 is the preceding sealed canonical-ownership checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -32,7 +32,7 @@ This section is the authoritative summary of the latest inspected full runtime
 run. The revision diary below is historical implementation context and must not
 be read as proof that a later change was executed or certified.
 
-- Provisional Schema 63 adds one shared `HST_CombatPresenceService` instance to
+- Sealed Schema 63 adds one shared `HST_CombatPresenceService` instance to
   capture, MissionRuntime, HQ threat, civilian safety, and enemy-command
   decisions. It consumes fresh registered physical samples or eligible durable
   virtual infantry and never treats an abstract/empty vehicle count as living
@@ -584,7 +584,7 @@ be read as proof that a later change was executed or certified.
   classes with CRC `df41a779` and created the game; hidden normal WorldEditor
   stayed responsive 10/10 over 20 seconds without a first-party error/crash
   signature.
-- Campaign persistence Schema 62 is the latest sealed canonical ownership source/
+- Campaign persistence Schema 62 is the preceding sealed canonical ownership source/
   Workbench boundary at implementation
   `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
   `2026-07-12T06:11:19Z`, and label
@@ -1369,7 +1369,7 @@ Unproven or incomplete against the pasted contract:
 | Bootstrap/preflight/HQ | Server/admin/member/commander, phase repair, HQ/Petros/player presence, service/registry/prefab/zone graph checks, HQ runtime and duplicate scans. | Command-menu visual opening remains inferred through service/menu data, not rendered UI. |
 | Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route-state samples, typed recall receipt and paired-settlement conflict cases, eight coordinator-integrated schema-49 operation assertions, plus civilian/undercover probes. | Operation assertions still need packaged execution; production RPC/save-restart recall replay, real-frame support movement, two-sample arrival/recall exit, unconditional terminal resolution, natural support contact/combat, and broader civilian reaction behavior remain unproven. |
 | Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup no-marker history through activation, exact parent/child receipt-zone-marker correlation, support target/prefix/same-row-event corruption, garrison/counterattack/reason/event/marker correlations, ownership-specific strategic deltas, persistence deadline/re-arm, two-child atomic release, linked-support collision, two restart boundaries with exactly-once political completion, exact-security rejection, migration/quarantine, and retention. | Execute the proof, then package-test native security, queued intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. Schema 63 changes the capture-pressure input but not this transition transaction. |
-| Combat presence and zone heat | Provisional Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `cb6475ff` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |
+| Combat presence and zone heat | Sealed Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `a40056c5` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |
 | Active-group lifecycle | Deterministic `active_group_lifecycle.*` cases prove one mixed-QRF personnel-terminal transition, linked QRF failure, zero capture pressure, terminal-before-unresolved marker ordering, replay no-op, schema-48 roundtrip, and living-mixed/vehicle-only controls. | Physical neutral-salvage detachment, entity/handle cleanup, player capture, dedicated replication, ownership-flip behavior, and process restart remain external runtime gaps. |
 | Physical AI combat | Timed `physical_combat.ai_contact` probe spawns temporary resistance/enemy active groups in the player render bubble, proves native faction hostility, assigns opposing search-and-destroy waypoints, samples live counts/distance through the normal physical-war tick, requires live-count loss during the hostile-contact window, and cleans all temporary groups/waypoints. | This does not yet prove support-arrival combat, primitive area-clearing combat, or multi-wave Petros/counterattack resolution. |
 | Missions and primitives | All-mission start/runtime/cleanup cases, primitive-specific probes for kill/destroy/recover/deliver/rescue/hold/clear, exact reward assertions, mission cleanup checks, and explicit admin-cleanup WARN classification. | Natural player driving/path travel, mission-owned hostile combat/area clearing, and true runtime completion for every mission remain partial. |
@@ -1379,8 +1379,8 @@ Unproven or incomplete against the pasted contract:
 | Phase 17/22 enemy response | Counterattack/Petros attack orders, support physicalization, linked active groups, routed movement samples, stall evidence, and Phase 22 base-position assertions proving Defend Petros targets HQ/Petros rather than the nearby bookkeeping zone. | Multi-wave/contact/arrival/resolution behavior remains open. |
 | Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. Ownership publication stages the entire logical snapshot and commits only after exact parent/child validation/release; failures restore marker rows, epoch, and sequence. Resolver authority precedes retained-marker correlation, and quarantine purges unsafe zone markers. | Earlier packaged evidence still owns the rendered baseline. Republish and prove host/two-client equality, rendered atomicity, setup-to-active history, no duplicate campaign set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
-| Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Provisional Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
-| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. Schema 62 deep-copies ownership authority. Provisional Schema 63 additionally copies zone heat diagnostics, invalidates physical samples on restore, migrates pre-63 state cold, preserves only valid current heat/cooling shape, and fails malformed current authority cold. | Execute both new proof sets and prove real process restart, cooling deadline continuity, no inferred empty-vehicle heat, invalid-owner migration, quarantine/retention, checkpoint deadlines, multiclient reconnect/soak, and physical field-vehicle respawn. |
+| Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. Schema 62 deep-copies ownership authority. Sealed Schema 63 additionally copies zone heat diagnostics, invalidates physical samples on restore, migrates pre-63 state cold, preserves only valid current heat/cooling shape, and fails malformed current authority cold. | Execute both new proof sets and prove real process restart, cooling deadline continuity, no inferred empty-vehicle heat, invalid-owner migration, quarantine/retention, checkpoint deadlines, multiclient reconnect/soak, and physical field-vehicle respawn. |
 | Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, stall evidence for several physical categories. | Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence
@@ -1592,7 +1592,7 @@ garrison, or mutable old-ID state while a frozen old-ID operation remains valid.
   packaged multiplayer artifact: it does not demonstrate a real host, two
   clients, disconnect/reconnect, late join, native widget roots, map close/
   reopen, process restart, or the absence of mixed-version clients.
-- Schema 62 is the latest sealed ownership source/Workbench checkpoint at
+- Schema 62 is the preceding sealed ownership source/Workbench checkpoint at
   implementation `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
   `2026-07-12T06:11:19Z`, and label
   `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -1601,9 +1601,9 @@ garrison, or mutable old-ID state while a frozen old-ID operation remains valid.
   bounded normal open remained responsive without a crash and zero Workbench
   processes survived. Campaign Debug, packaged behavior, actual restart,
   networking, reconnect, and JIP evidence remain open.
-- Provisional Schema 63 passes Foundation with 681 script-symbol references. A
+- Sealed Schema 63 passes Foundation with 681 script-symbol references. A
   normal Workbench Script Editor open compiled/created the Game module at 5,788
-  files/11,670 classes with CRC `cb6475ff`, no HST script errors, and no crash.
+  files/11,670 classes with CRC `a40056c5`, no HST script errors, and no crash.
   Explicit validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 with exit
   code `0` and reported `Script validation successful`. All Workbench instances
   were closed after the test. This is source/compile/validation evidence only;

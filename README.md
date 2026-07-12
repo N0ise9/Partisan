@@ -1,6 +1,6 @@
 # h-istasi
 
-Active development is provisionally on campaign Schema 63 and runtime-settings
+Active development is on campaign Schema 63 and runtime-settings
 Schema 23. The new canonical combat-presence authority is crew-aware: fresh
 registered physical samples count conscious infantry, operators of usable armed
 mobile vehicles, and operators of usable static weapons, while cargo occupants,
@@ -11,20 +11,20 @@ seconds and restore/migration fails conservatively to `COLD` when current
 authority is malformed. Capture, missions, HQ threat, civilians, and enemy
 strategy now share this authority. Render activation also retains an active zone
 until the larger deactivation radius is crossed. Foundation passes on this
-Schema-63 tree with 681 script-symbol references. A normal Workbench Script
+sealed Schema-63 tree with 681 script-symbol references. A normal Workbench Script
 Editor open compiled/created the Game module at 5,788 files/11,670 classes with
-CRC `cb6475ff`, remained responsive without a crash, and produced no HST script
+CRC `a40056c5`, remained responsive without a crash, and produced no HST script
 errors. Explicit Script Editor validation then passed for WORKBENCH, PC, XBOX,
 PS4, and PS5 and exited with code `0`; all Workbench instances were closed after
 testing. Campaign Debug, packaged runtime, real save/restart, and multiplayer
 proof remain pending.
 
-The provisional Schema-63 build metadata currently uses implementation-basis
-`7c93e0a485bcabe5a364c0b0cfeca235accb50f7` with label
-`schema63-canonical-combat-presence`; this pair is not sealed until the current
-validation and commit cycle completes.
+The sealed Schema-63 checkpoint identifies implementation
+`85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
+`2026-07-12T08:22:05Z`, and label
+`schema63-canonical-combat-presence`.
 
-Schema 62 is the latest sealed source/Workbench checkpoint under implementation
+Schema 62 is the preceding sealed canonical-ownership checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -105,7 +105,7 @@ The repository contains a broad-alpha campaign foundation:
   diagnostics
 - Physical enemy response fold-back for support/QRF groups that leave the event
   bubble, preserving survivor state while removing live runtime handles
-- Provisional Schema-63 canonical combat presence with one shared query/heat
+- Sealed Schema-63 canonical combat presence with one shared query/heat
   service for capture, mission contact, HQ threat, civilian safety, and enemy
   strategy. Fresh registered physical samples distinguish conscious dismounted
   infantry, usable occupied armed mobile vehicles, and usable occupied static
@@ -558,7 +558,7 @@ The repository contains a broad-alpha campaign foundation:
   host/two-client equality, reconnect/late join, native widget rendering,
   map-close continuity, and real save/restart remain open; the fixtures have not
   been executed as a Campaign Debug or packaged runtime result.
-- Schema 62 is the latest sealed canonical ownership-transition source/
+- Schema 62 is the preceding sealed canonical ownership-transition source/
   Workbench boundary. Every
   location has ownership contract version `1`, a monotonic ownership revision,
   and active/latest receipt backlinks. Military capture, mission capture,
@@ -819,14 +819,14 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-Schema 63 is the active provisional source tree. It centralizes crew-aware
+Schema 63 is the latest sealed source/Workbench tree. It centralizes crew-aware
 combat presence, zone heat, conservative restore, and render activation/
 deactivation hysteresis. Foundation passes at 681 references and a normal
 Workbench Script Editor open compiled/created the Game module at 5,788 files/
-11,670 classes with CRC `cb6475ff`, no HST script errors, and no crash. Explicit
-validation passes for all five configurations; Schema 63 is not yet a sealed
-checkpoint until its exact build identity is stamped. Schema 62 remains the latest sealed source/Workbench
-checkpoint and Schema 61 its preceding sealed marker-projection foundation.
+11,670 classes with CRC `a40056c5`, no HST script errors, and no crash. Explicit
+validation passes for all five configurations. Schema 62 is the preceding sealed
+canonical-ownership checkpoint and Schema 61 the marker-projection foundation
+beneath it.
 Schema 62 centralizes ownership mutations and adds
 source-revision correlation to the existing marker stream; it does not certify
 packaged multiplayer convergence and does not replicate the full command menu,
@@ -835,8 +835,8 @@ schema-62 certification remains independently open. Static or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Seal the exact provisional Schema-63 `HST_BuildInfo` identity and publish only
-   that sealed identity for the next server check. Runtime evidence
+1. Publish only the exact sealed Schema-63 `HST_BuildInfo` identity for the next
+   server check. Runtime evidence
    must report the same identity as the package under test.
 2. In that published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
@@ -951,7 +951,7 @@ networking, reconnect, or JIP.
     change, campaign setup, packaged networking, reconnect, and JIP. Historical
     POWs, `rescue_refugees`, and unsupported rescue families must remain contract
     `0`.
-16. Runtime-prove the provisional Schema-63 combat-presence boundary: conscious
+16. Runtime-prove the sealed Schema-63 combat-presence boundary: conscious
     registered infantry, one count per operational occupied armed mobile or
     static platform, cargo and empty-vehicle exclusion, exact virtual survivor
     continuity, shared capture/mission/HQ/civilian/enemy-strategy consumers,
@@ -1017,7 +1017,7 @@ location fixes. Schema 61 remains the preceding sealed marker-projection
 foundation at implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
 `2026-07-12T01:02:39Z`, label `schema61-authoritative-marker-projection`,
 Foundation 655, and Workbench CRC `df41a779` at 5,782 files/11,631 classes.
-Schema 62 is the latest sealed source/Workbench checkpoint at implementation
+Schema 62 is the preceding sealed source/Workbench checkpoint at implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -1030,11 +1030,11 @@ schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/
   schema-55 officer-guard/schema-56 traitor-guard/schema-57 spec-ops-guard/
   schema-58 exact POW-rescue/Schema-59 radio-site/Schema-60 exact Search-and-
   Destroy paths, the Schema-61 marker stream, the Schema-62 ownership/source-
-  revision extension, or the provisional Schema-63 combat-presence/heat and
+  revision extension, or the sealed Schema-63 combat-presence/heat and
 render-hysteresis slice can be called runtime-proven. The Schema-63 tree has a
 passing Foundation gate plus normal Workbench compile/create and explicit
-five-configuration validation evidence, but still requires a sealed build
-identity before it becomes publishable. The late-admin
+five-configuration validation evidence and is publishable only under its exact
+sealed identity. The late-admin
 role-change guard, campaign-debug
 isolation, convoy seating, physical support movement/arrival/recall, and restart
 boundaries remain open as separate gates.

@@ -378,7 +378,10 @@ Consequences:
 - Deterministic state fixtures are implementation evidence only. Native seat,
   damage, movement, cache ordering, real serialization/restart, packaged
   runtime, and multiplayer behavior remain open until directly tested.
+  The sealed Schema-63 checkpoint identifies implementation
+  `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
+  `2026-07-12T08:22:05Z`, and label `schema63-canonical-combat-presence`.
   Foundation passes at 681 script-symbol references, and a normal Workbench
   Script Editor open compiled/created 5,788 files/11,670 classes with CRC
-  `cb6475ff`, no HST script errors, and no crash. Explicit validation also passes
+  `a40056c5`, no HST script errors, and no crash. Explicit validation also passes
   for WORKBENCH, PC, XBOX, PS4, and PS5 with exit code `0`.
