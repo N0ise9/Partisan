@@ -125,6 +125,7 @@ class HST_MissionRuntimeService
 	static const string RADIO_TOWER_PREFAB_TOKEN = "TransmitterTower_01";
 
 	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
+	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected ref array<string> m_aRuntimeEntityIds = {};
 	protected ref array<IEntity> m_aRuntimeEntities = {};
 	protected ref array<IEntity> m_aBorrowedWorldEntities = {};
@@ -157,6 +158,12 @@ class HST_MissionRuntimeService
 	void SetPhysicalWarService(HST_PhysicalWarService physicalWar)
 	{
 		m_PhysicalWar = physicalWar;
+	}
+
+	void SetCombatPresenceService(HST_CombatPresenceService combatPresence)
+	{
+		if (combatPresence)
+			m_CombatPresence = combatPresence;
 	}
 
 	void SetDebugLoggingEnabled(bool enabled)
@@ -9763,22 +9770,13 @@ class HST_MissionRuntimeService
 		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
 			resistanceFactionKey = preset.m_sResistanceFactionKey;
 
-		float radiusSq = radiusMeters * radiusMeters;
-		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
-		{
-			if (!group || !state.IsCombatPresentActiveGroup(group) || group.m_sFactionKey == resistanceFactionKey)
-				continue;
-			if (group.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX))
-				continue;
-			int hostileStrength = ResolveHostileActiveGroupStrength(group);
-			if (hostileStrength <= 0)
-				continue;
-
-			if (DistanceSq2D(group.m_vPosition, position) <= radiusSq)
-				return true;
-		}
-
-		return false;
+		HST_CombatPresenceResult presence = m_CombatPresence.QueryHostilePresenceNear(
+			state,
+			preset,
+			resistanceFactionKey,
+			position,
+			radiusMeters);
+		return !presence || !presence.m_bQueryValid || presence.m_bBlocksProgress;
 	}
 
 	protected bool HasUnresolvedClearAreaHostiles(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionObjectiveState objective, float radiusMeters)
@@ -9824,19 +9822,29 @@ class HST_MissionRuntimeService
 		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
 			resistanceFactionKey = preset.m_sResistanceFactionKey;
 
-		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
 		{
-			if (!group || !state.IsCombatPresentActiveGroup(group) || group.m_bQRF
-				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(group.m_sZoneId, zoneId)
-				|| group.m_sFactionKey == resistanceFactionKey)
-				continue;
-			if (group.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX))
-				continue;
-			if (ResolveHostileActiveGroupStrength(group) > 0)
-				return true;
+			foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+			{
+				if (!group || !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					group.m_sZoneId,
+					zoneId))
+					continue;
+				zone = state.FindZone(group.m_sZoneId);
+				if (zone)
+					break;
+			}
 		}
-
-		return false;
+		if (!zone)
+			return false;
+		HST_CombatPresenceResult presence = m_CombatPresence.QueryZoneHostilePresence(
+			state,
+			preset,
+			resistanceFactionKey,
+			zone,
+			true);
+		return !presence || !presence.m_bQueryValid || presence.m_bBlocksProgress;
 	}
 
 	protected bool HasPendingTargetZoneHostileProjection(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone)
@@ -9850,7 +9858,7 @@ class HST_MissionRuntimeService
 		if (targetZone.m_sOwnerFactionKey.IsEmpty() || targetZone.m_sOwnerFactionKey == resistanceFactionKey)
 			return false;
 
-		if (targetZone.m_iActiveInfantryCount > 0 || targetZone.m_iActiveVehicleCount > 0)
+		if (targetZone.m_iActiveInfantryCount > 0)
 			return true;
 		if (targetZone.m_bActive)
 			return false;
@@ -9859,26 +9867,7 @@ class HST_MissionRuntimeService
 		if (!garrison)
 			return false;
 
-		return garrison.m_iInfantryCount > 0 || garrison.m_iVehicleCount > 0;
-	}
-
-	protected int ResolveHostileActiveGroupStrength(HST_ActiveGroupState group)
-	{
-		if (!group)
-			return 0;
-		if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed" || group.m_sRuntimeStatus == PHASE_CONVOY_ELIMINATED)
-			return 0;
-		if (group.m_bSpawnAttempted && !group.m_bSpawnedEntity)
-			return 0;
-
-		int liveStrength = Math.Max(group.m_iLastSeenAliveCount, group.m_iSurvivorInfantryCount + group.m_iSurvivorVehicleCount);
-		if (liveStrength > 0)
-			return liveStrength;
-
-		if (group.m_bSpawnedEntity)
-			return Math.Max(group.m_iInfantryCount, group.m_iVehicleCount);
-
-		return 0;
+		return garrison.m_iInfantryCount > 0;
 	}
 
 	protected IEntity GetBestPlayerEntity(PlayerManager playerManager, int playerId)
@@ -9887,10 +9876,13 @@ class HST_MissionRuntimeService
 			return null;
 
 		IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
-		if (controlledEntity)
+		if (ChimeraCharacter.Cast(controlledEntity))
 			return controlledEntity;
 
-		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+		IEntity mainEntity = SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+		if (ChimeraCharacter.Cast(mainEntity))
+			return mainEntity;
+		return null;
 	}
 
 	protected bool IsLivingPlayerEntity(IEntity entity)
@@ -9898,8 +9890,12 @@ class HST_MissionRuntimeService
 		if (!entity)
 			return false;
 
-		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
-		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (!character)
+			return false;
+		CharacterControllerComponent controller = character.GetCharacterController();
+		return controller && controller.GetLifeState() == ECharacterLifeState.ALIVE
+			&& !controller.IsUnconscious();
 	}
 
 	protected bool IsEntityInVehicle(IEntity entity)

@@ -420,8 +420,6 @@ class HST_EnemyDirectorService
 		{
 			maxSpend += Math.Max(0, zone.m_iPriority / 2);
 			maxSpend += Math.Max(0, zone.m_iResistanceCaptureProgress / 4);
-			if (zone.m_bActive)
-				maxSpend += 8;
 			if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
 				maxSpend += 10;
 			else if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST || zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)

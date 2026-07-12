@@ -2014,7 +2014,7 @@ class HST_MapMarkerService
 		if (!request || !request.m_bPlayerRequested || request.m_sFactionKey != preset.m_sResistanceFactionKey || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
 			return false;
 
-		int knownAlive = Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount);
+		int knownAlive = Math.Max(0, group.m_iSurvivorInfantryCount);
 		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iLastSeenAliveCount));
 		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iSpawnedAgentCount));
 		if (knownAlive <= 0 && group.m_iInfantryCount <= 0 && group.m_iVehicleCount <= 0)
@@ -2069,7 +2069,7 @@ class HST_MapMarkerService
 		else if (group.m_sRuntimeStatus == "roadblock_established")
 			groupStatus = "established";
 
-		int knownAlive = Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount);
+		int knownAlive = Math.Max(0, group.m_iSurvivorInfantryCount);
 		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iLastSeenAliveCount));
 		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iSpawnedAgentCount));
 		if (knownAlive > 0)
@@ -3920,7 +3920,7 @@ class HST_MapMarkerService
 			{
 				int crewCount;
 				if (group)
-					crewCount = Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount);
+					crewCount = Math.Max(0, group.m_iSurvivorInfantryCount);
 				if (crewCount > 0)
 					return string.Format("%1 roadblock near %2 | established | %3 crew", faction, targetName, crewCount);
 				return string.Format("%1 roadblock near %2 | established", faction, targetName);

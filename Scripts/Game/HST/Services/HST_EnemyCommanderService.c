@@ -64,6 +64,13 @@ class HST_EnemyCommanderService
 	protected ref HST_ForcePlanningService m_ForcePlanning;
 	protected ref HST_EnemyQRFOperationService m_ExactEnemyQRF;
 	protected ref HST_EnemyPatrolOperationService m_ExactEnemyPatrol;
+	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
+
+	void SetCombatPresenceService(HST_CombatPresenceService combatPresence)
+	{
+		if (combatPresence)
+			m_CombatPresence = combatPresence;
+	}
 
 	void SetExactEnemyQRFAuthorityServices(
 		HST_ForcePlanningService forcePlanning,
@@ -1564,6 +1571,8 @@ class HST_EnemyCommanderService
 			return;
 
 		int damageScore = Math.Max(0, targetZone.m_iResistanceCaptureProgress / 5);
+		if (HasVerifiedHostilePresenceAtZone(state, preset, factionKey, targetZone))
+			damageScore += 4;
 		if (HasActiveMissionNearZone(state, targetZone))
 			damageScore += 3;
 		if (HasActiveObjectiveNearZone(state, targetZone))
@@ -1584,6 +1593,8 @@ class HST_EnemyCommanderService
 
 		if (targetZone.m_iResistanceCaptureProgress > 0)
 			return true;
+		if (HasVerifiedHostilePresenceAtZone(state, preset, factionKey, targetZone))
+			return true;
 		if (recentDamageScore > 0)
 			return true;
 		if (HasActiveMissionNearZone(state, targetZone))
@@ -1603,6 +1614,8 @@ class HST_EnemyCommanderService
 
 		if (targetZone.m_iResistanceCaptureProgress > 0)
 			return true;
+		if (HasVerifiedHostilePresenceAtZone(state, preset, factionKey, targetZone))
+			return true;
 		if (HasActiveMissionNearZone(state, targetZone))
 			return true;
 		if (HasActiveObjectiveNearZone(state, targetZone))
@@ -1611,6 +1624,27 @@ class HST_EnemyCommanderService
 			return true;
 
 		return false;
+	}
+
+	protected bool HasVerifiedHostilePresenceAtZone(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string observerFactionKey,
+		HST_ZoneState zone)
+	{
+		if (!state || !preset || !zone || observerFactionKey.IsEmpty())
+			return false;
+		HST_CombatPresenceResult presence = m_CombatPresence.QueryZoneHostilePresence(
+			state,
+			preset,
+			observerFactionKey,
+			zone,
+			false);
+		// Unresolved authority is not verified pressure. The commander can retry on
+		// the next strategic tick after the physical sampler publishes a valid
+		// result, but must not turn a transient gap into damage, target score, or a
+		// high-impact support choice.
+		return presence && presence.m_bQueryValid && presence.m_bHasLiveContributors;
 	}
 
 	protected bool IsTownSupportFlipThreat(HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone)
@@ -1790,10 +1824,10 @@ class HST_EnemyCommanderService
 		candidate.m_iProgressScore = Math.Min(24, Math.Max(0, zone.m_iResistanceCaptureProgress / 4));
 		AddTargetScoreReason(candidate, "capture_progress", candidate.m_iProgressScore);
 
-		if (zone.m_bActive)
+		if (HasVerifiedHostilePresenceAtZone(state, preset, factionKey, zone))
 		{
 			candidate.m_iActivityScore = 12;
-			AddTargetScoreReason(candidate, "active_runtime", candidate.m_iActivityScore);
+			AddTargetScoreReason(candidate, "combat_presence", candidate.m_iActivityScore);
 		}
 
 		if (zone.m_iSupport > 25)
@@ -2128,7 +2162,15 @@ class HST_EnemyCommanderService
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL)
 		{
 			int roll = ResolveSupportTypeRoll(state, targetZone, orderType);
-			if (state && state.m_iWarLevel >= 6 && targetZone && (targetZone.m_sOwnerFactionKey == resistanceFactionKey || targetZone.m_bActive) && roll < 20)
+			bool verifiedPressure = targetZone
+				&& HasVerifiedHostilePresenceAtZone(
+					state,
+					preset,
+					targetZone.m_sOwnerFactionKey,
+					targetZone);
+			if (state && state.m_iWarLevel >= 6 && targetZone
+				&& (targetZone.m_sOwnerFactionKey == resistanceFactionKey || verifiedPressure)
+				&& roll < 20)
 				return HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55;
 
 			if (state && state.m_iWarLevel >= 3 && roll < 70)

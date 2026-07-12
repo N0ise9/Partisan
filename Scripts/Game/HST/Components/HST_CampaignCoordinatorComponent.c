@@ -90,6 +90,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_TownService m_Towns;
 	protected ref HST_GarrisonService m_Garrisons;
 	protected ref HST_RecruitmentService m_Recruitment;
+	protected ref HST_CombatPresenceService m_CombatPresence;
 	protected ref HST_ZoneCaptureService m_ZoneCapture;
 	protected ref HST_PlayerSpawnService m_PlayerSpawn;
 	protected ref HST_PhysicalWarService m_PhysicalWar;
@@ -337,9 +338,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Towns = new HST_TownService();
 		m_Garrisons = new HST_GarrisonService();
 		m_Recruitment = new HST_RecruitmentService();
+		m_CombatPresence = new HST_CombatPresenceService();
+		m_CombatPresence.Configure(m_Balance);
 		m_ZoneCapture = new HST_ZoneCaptureService();
+		if (m_ZoneCapture)
+			m_ZoneCapture.SetCombatPresenceService(m_CombatPresence);
+		if (m_HQ)
+			m_HQ.SetCombatPresenceService(m_CombatPresence);
 		m_PlayerSpawn = new HST_PlayerSpawnService();
 		m_PhysicalWar = new HST_PhysicalWarService();
+		if (m_PhysicalWar)
+			m_PhysicalWar.SetCombatPresenceService(m_CombatPresence);
 		if (m_Persistence)
 		{
 			m_Persistence.SetPhysicalWarService(m_PhysicalWar);
@@ -377,6 +386,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_MissionRuntime.SetArsenalService(m_Arsenal);
 			m_MissionRuntime.SetBalanceConfig(m_Balance);
 			m_MissionRuntime.SetPhysicalWarService(m_PhysicalWar);
+			m_MissionRuntime.SetCombatPresenceService(m_CombatPresence);
 		}
 		if (m_MissionRuntime && m_Settings && m_Settings.m_Debug)
 			m_MissionRuntime.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
@@ -411,8 +421,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		m_Civilians = new HST_CivilianService();
 		if (m_Civilians)
+		{
 			m_Civilians.SetStrategicService(m_Strategic);
+			m_Civilians.SetCampaignPreset(m_Preset);
+			m_Civilians.SetCombatPresenceService(m_CombatPresence);
+		}
 		m_EnemyCommander = new HST_EnemyCommanderService();
+		if (m_EnemyCommander)
+			m_EnemyCommander.SetCombatPresenceService(m_CombatPresence);
 		m_EnemyQRFOperations = new HST_EnemyQRFOperationService();
 		if (m_EnemyQRFOperations)
 			m_EnemyQRFOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
@@ -760,6 +776,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		// PhysicalWar cleanup can consume mission-owned runtime rows.
 		bool exactMissionGuardChanged = m_MissionGuardOperations && m_MissionGuardOperations.TickBeforePhysical(m_State, m_Preset);
 		bool exactRescueChanged = m_RescuePOWOperations && m_RescuePOWOperations.TickBeforeMissionRuntime(m_State, m_Preset);
+		bool combatPresenceSampleChanged = m_PhysicalWar.RefreshCombatPresenceSamples(m_State);
+		if (m_CombatPresence)
+			m_CombatPresence.InvalidateCache();
 		bool objectiveChanged = m_Objectives.Tick(m_State);
 		bool missionRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, elapsedSeconds);
 		exactRescueChanged = (m_RescuePOWOperations && m_RescuePOWOperations.TickAfterMissionRuntime(m_State, m_Preset)) || exactRescueChanged;
@@ -802,15 +821,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool periodicTownInfluenceChanged = m_Towns.ConsumePeriodicTownInfluenceChanged();
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, elapsedSeconds);
+		if ((missionChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOperationChanged || convoyOutcomeChanged)
+			&& m_CombatPresence)
+			m_CombatPresence.InvalidateCache();
 		bool civilianChanged = m_Civilians.Tick(m_State, elapsedSeconds);
 		bool undercoverEnforcementChanged = TickUndercoverEnforcement();
 		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar, m_Strategic, m_HQ, m_Economy, m_ForceSpawnAdapter);
+		if (supportChanged && m_CombatPresence)
+			m_CombatPresence.InvalidateCache();
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
 		bool petrosRelocationChanged = TickPetrosRelocation();
+		if (enemyOrdersChanged && m_CombatPresence)
+			m_CombatPresence.InvalidateCache();
 		bool hqThreatChanged = m_HQ.TickHQThreat(m_State, m_Preset);
 		bool petrosDefenseChanged = TickDefendPetros();
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
 		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
+		bool postPhysicalCombatPresenceSampleChanged;
+		if (convoyRuntimeChanged || m_PhysicalWar.HasCombatPresenceRuntimeTopologyChangedSinceLastSample())
+			postPhysicalCombatPresenceSampleChanged = m_PhysicalWar.RefreshCombatPresenceSamples(m_State);
+		combatPresenceSampleChanged = postPhysicalCombatPresenceSampleChanged || combatPresenceSampleChanged;
+		if (m_CombatPresence)
+			m_CombatPresence.InvalidateCache();
+		bool combatPresenceChanged = m_CombatPresence && m_CombatPresence.TickAllZoneHeat(
+			m_State,
+			m_Preset,
+			m_Balance,
+			m_Preset.m_sResistanceFactionKey);
 		bool captureChanged = m_ZoneCapture.TickContestedCapture(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, elapsedSeconds);
 		bool campaignOutcomeChanged = EvaluateCampaignOutcomeNow();
 		bool civilianRuntimeChanged = m_Civilians.UpdatePhysicalTownPopulation(m_State, m_Preset, m_Balance);
@@ -844,7 +881,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || enemyResourcesChanged || aggressionChanged || civilianChanged;
 		anyStateChanged = anyStateChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged;
 		anyStateChanged = anyStateChanged || petrosRelocationChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
-		anyStateChanged = anyStateChanged || physicalWarChanged || captureChanged || campaignOutcomeChanged;
+		anyStateChanged = anyStateChanged || physicalWarChanged || combatPresenceSampleChanged;
+		anyStateChanged = anyStateChanged || combatPresenceChanged || captureChanged || campaignOutcomeChanged;
 		anyStateChanged = anyStateChanged || civilianRuntimeChanged;
 
 		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOperationChanged || forceSpawnQueueChanged;
@@ -17288,6 +17326,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugMissionConvoyOperationAssertions(forceCase);
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
 		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
+		AppendCampaignDebugCombatPresenceAssertions(forceCase);
 		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
 		AppendCampaignDebugRadioSiteLifecycleAssertions(forceCase);
 		AppendCampaignDebugMaidensBayLocationMigrationAssertion(forceCase);
@@ -17295,6 +17334,40 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugMarkerProjectionAssertions(forceCase);
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
+	}
+
+	protected void AppendCampaignDebugCombatPresenceAssertions(
+		HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+
+		HST_CombatPresenceProofService proofService = new HST_CombatPresenceProofService();
+		HST_CombatPresenceProofReport proof = proofService.Run();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "combat_presence.source_proof", "source proof report exists", "missing", "BLOCKED", "schema-63 combat-presence source proof did not return a report");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.BuildReport());
+		forceCase.m_aEvidence.Insert(proof.m_sEmptyVehicleEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sAuthoritativeSampleEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRejectedRowEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sHeatLifecycleEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSchema62MigrationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSchema63CoolingRestoreEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMalformedCurrentHeatEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sContributorDeterminismEvidence);
+		AddCampaignDebugAssertion(forceCase, "combat_presence.aggregate", "every Schema-63 combat-presence source proof is exact", proof.BuildReport(), CampaignDebugStatus(proof.AllExact()), "one or more combat-presence source proofs failed");
+		AddCampaignDebugAssertion(forceCase, "combat_presence.empty_vehicle", "an empty surviving vehicle contributes no combat presence", proof.m_sEmptyVehicleEvidence, CampaignDebugStatus(proof.m_bEmptyVehicleExcludedExact), "an empty vehicle still blocked combat progress");
+		AddCampaignDebugAssertion(forceCase, "combat_presence.authoritative_samples", "fresh conscious infantry, manned combat vehicles, and static operators contribute exact separate counts", proof.m_sAuthoritativeSampleEvidence, CampaignDebugStatus(proof.m_bAuthoritativeSamplesExact), "authoritative physical combat-presence samples were not exact");
+		AddCampaignDebugAssertion(forceCase, "combat_presence.rejected_rows", "terminal and quarantined rows contribute nothing while stale physical authority blocks fail-closed", proof.m_sRejectedRowEvidence, CampaignDebugStatus(proof.m_bRejectedRowsExact), "an ineligible row contributed or stale physical authority failed open");
+		AddCampaignDebugAssertion(forceCase, "combat_presence.heat_lifecycle", "zone heat advances deterministically through Hot, Cooling, rebound, and Cold", proof.m_sHeatLifecycleEvidence, CampaignDebugStatus(proof.m_bHeatLifecycleExact), "combat-presence heat hysteresis was not exact");
+		AddCampaignDebugAssertion(forceCase, "combat_presence.schema62_migration", "Schema-62 saves migrate to cold without inferring combat from unrelated rows", proof.m_sSchema62MigrationEvidence, CampaignDebugStatus(proof.m_bSchema62MigrationExact), "legacy combat-presence migration invented heat");
+		AddCampaignDebugAssertion(forceCase, "combat_presence.schema63_restore", "valid cooling state and bounded diagnostics survive current-schema roundtrip exactly", proof.m_sSchema63CoolingRestoreEvidence, CampaignDebugStatus(proof.m_bSchema63CoolingRestoreExact), "current combat-presence cooling state did not restore exactly");
+		AddCampaignDebugAssertion(forceCase, "combat_presence.malformed_fail_cold", "malformed current heat fails cold and invalidates process-local physical samples", proof.m_sMalformedCurrentHeatEvidence, CampaignDebugStatus(proof.m_bMalformedCurrentHeatExact), "malformed combat-presence state did not fail cold");
+		AddCampaignDebugAssertion(forceCase, "combat_presence.deterministic_diagnostics", "contributors are ordered, capped, and hashed deterministically", proof.m_sContributorDeterminismEvidence, CampaignDebugStatus(proof.m_bContributorDeterminismExact), "combat-presence diagnostics were not deterministic");
 	}
 
 	protected void AppendCampaignDebugOwnershipTransitionAssertions(

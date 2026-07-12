@@ -313,3 +313,72 @@ Consequences:
 - This decision does not canonicalize zone ownership mutation. The next source
   slice remains one idempotent ownership-transition service whose complete side
   effects then feed the marker projection as derived output.
+
+## CRI-009 - Separate Combat Presence From Render State And Empty Assets
+
+- Status: Accepted
+- Date: 2026-07-12
+
+Context: Capture, mission contact, HQ threat, civilian safety, and enemy strategy
+used related but non-identical active-group tests. A durable survivor-vehicle
+count could make an uncrewed vehicle look hostile, while render activation could
+stand in for strategic pressure. Repeating full group scans in every consumer
+and for every zone would also recreate a visible one-second hot-path multiplier.
+
+Decision: Schema 63 introduces one state-only combat-presence service. Native
+physical inspection publishes a short-lived registered-group sample; all domain
+consumers query the shared service. A conscious dismounted character contributes
+as infantry. An operational occupied armed mobile platform or occupied static
+weapon contributes once per platform. Cargo, empty vehicles, destroyed/burning
+platforms, immobile mobile platforms, stale samples, and non-operational rows do
+not contribute. Eligible virtual projections contribute durable living infantry
+but never an abstract vehicle count. Zone heat persists separately as revisioned
+`HOT`, `COOLING`, and `COLD` state with a configurable 30-second default cooling
+deadline. Render projection independently enters at the activation radius and
+exits at the larger deactivation radius.
+
+Consequences:
+
+- Capture, missions, HQ, civilians, enemy commander scoring/defense, and the
+  legacy combat-present wrapper must not reintroduce local survivor/vehicle or
+  zone-active heuristics. Legacy QRF dispatch requires resistance capture
+  progress or a valid live canonical hostile result; invalid authority cannot
+  become verified damage, target score, or high-impact support pressure.
+- One injected service instance caches eligible contributions per campaign state
+  and elapsed second. Same-tick mission, support, order, sampling, and physical-
+  projection mutation boundaries explicitly invalidate the cache before later
+  consumers rely on it.
+- The native sampler keeps an indexed runtime registry and reusable scratch
+  arrays; the state-only service caches contribution, authority-gap, and
+  zone/radius results. An unresolved spawned-group authority gap invalidates the
+  affected result. Legacy QRF arrival resolution treats that authority as
+  tri-state: unresolved evidence defers resolution, while only authoritative
+  zero pressure or missing/terminal durable group authority may fail the
+  response. Capture also requires a living conscious character and does not
+  count spectator or Game Master proxies as friendly presence.
+- Stable heat and freshness-only sample refreshes do not mark persistence dirty.
+  The first clear tick begins cooling once; repeated clear ticks do not extend
+  its deadline. MissionRuntime retains a persisted `HOT` guard for the one
+  boundary tick before the heat service observes the clear result and begins
+  cooling.
+- Restore always invalidates native physical samples. Pre-63 and malformed
+  current heat become canonical `COLD` without inferring pressure from vehicles,
+  markers, render state, or generic group rows; valid current cooling may keep
+  its original deadline only when its duration is `1..300`, last-hot is not from
+  the future, and the deadline is still strictly in the future.
+- Runtime-settings Schema 23 owns
+  `capture.combatPresenceCoolingSeconds`, default 30 and normalized to `1..300`.
+- Authored zone activation overrides retain the global exit-minus-entry margin,
+  with at least 100 metres of physicalization hysteresis. Cold zones with no
+  potential hostile contributor skip full result allocation; capture defers
+  hostile queries until resistance presence exists; and an unchanged runtime
+  topology signature skips the redundant second native sampler/index
+  rebuild while still detecting equal-count handle replacement and native group
+  membership-count changes.
+- Deterministic state fixtures are implementation evidence only. Native seat,
+  damage, movement, cache ordering, real serialization/restart, packaged
+  runtime, and multiplayer behavior remain open until directly tested.
+  Foundation passes at 681 script-symbol references, and a normal Workbench
+  Script Editor open compiled/created 5,788 files/11,670 classes with CRC
+  `cb6475ff`, no HST script errors, and no crash. Explicit validation also passes
+  for WORKBENCH, PC, XBOX, PS4, and PS5 with exit code `0`.

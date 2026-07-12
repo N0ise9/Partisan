@@ -1,5 +1,21 @@
 # h-istasi Architecture
 
+Active development is provisionally on campaign Schema 63 and runtime-settings
+Schema 23. Schema 63 introduces one canonical, crew-aware combat-presence and
+zone-heat authority, shared by capture, mission contact, HQ threat, civilian
+safety, and enemy strategic decisions. Foundation passes on this provisional
+tree with 681 script-symbol references. A normal Workbench Script Editor open
+compiled/created the Game module at 5,788 files/11,670 classes with CRC
+`cb6475ff`, stayed responsive without a crash, and produced no HST script errors.
+Explicit validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 and exited with
+code `0`; all Workbench instances were closed afterward. Campaign Debug,
+packaged runtime, save/restart, and multiplayer execution remain unproven.
+
+The provisional Schema-63 build metadata currently uses implementation-basis
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7` with label
+`schema63-canonical-combat-presence`; this pair is not sealed until the current
+validation and commit cycle completes.
+
 Schema 62 is the latest sealed source/Workbench checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
@@ -14,7 +30,7 @@ Debug and packaged-runtime evidence remain open.
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through schema-62 authority services are:
+schema-42 through schema-63 authority services are:
 
 Schema 60 also separates recurring enforcement reads from identity refreshes:
 the one-second maintenance path reuses registered player authority, while
@@ -22,6 +38,77 @@ connect/setup and explicit visible actions retain the full backend identity and
 membership refresh boundary. This removes repeated authority resolution from
 the hot tick without making cached presentation state an authorization source.
 
+- `HST_CombatPresenceService`: is the provisional Schema-63 state-only
+  authority for hostile and exact-faction presence near a point or zone. It
+  never scans the world. Fresh registered physical samples count conscious
+  dismounted infantry, each operational occupied armed mobile platform once,
+  and each operational occupied static weapon once. Cargo occupants, empty
+  vehicles, unarmed pilot-only vehicles without composition proof, destroyed or
+  burning platforms, and immobile mobile platforms contribute nothing. Virtual
+  exact convoys use surviving crew, never an abstract vehicle count; other
+  eligible virtual groups use their durable infantry authority only while a
+  current operation/materialization status proves them active. Settled,
+  terminal, quarantined, or stale rows do not contribute. A spawned row whose
+  physical authority is unresolved makes the query invalid, so safety/capture
+  consumers block or choose their documented conservative result instead of
+  guessing. Legacy QRF arrival resolution uses the group-level tri-state query:
+  unresolved or population-pending authority waits for a later sample, while
+  only authoritative zero pressure or missing/terminal durable group authority
+  can fail the response. The
+  coordinator injects one service instance into every consumer. That instance
+  builds the eligible-contribution set once per campaign state/elapsed second,
+  then reuses it for all radius/zone queries instead of rescanning every active
+  group for every consumer and every zone.
+- The physical sampler keeps a persistent group-to-runtime registry index and
+  reuses member, platform, and agent scratch arrays. The query service separately
+  caches contribution snapshots, authority-gap results, and zone/radius results
+  until an explicit same-tick mutation invalidates them. These allocation-light
+  boundaries avoid rebuilding maps/arrays and rescanning all groups for every
+  consumer on the one-second coordinator path.
+- The same service now answers zone capture, mission contact/area checks, HQ
+  threat, civilian hostile-proximity checks, enemy target pressure/reactive
+  defense/roadblocks, and the legacy group combat-present wrapper. A crewless
+  vehicle therefore cannot become capture, mission, HQ, civilian, or strategic
+  pressure merely because its durable survivor-vehicle count is nonzero.
+- Zone capture counts a player only when the controlled entity is a living,
+  conscious character. Spectator cameras, Game Master proxies, and other
+  non-character controlled entities cannot satisfy friendly presence. Invalid
+  hostile or exact-faction authority blocks capture rather than appearing clear.
+- Each zone persists a revisioned `HOT`, `COOLING`, or `COLD` snapshot with
+  separate infantry/manned-vehicle/static-operator counts, current-operation and
+  recent-fire diagnostics, a deterministic contributor hash, and at most 24
+  sorted contributor facts. Live contributors make a zone `HOT`; the first
+  clear sample starts `COOLING`; the unchanged deadline is not extended by each
+  tick; and expiry makes the zone `COLD`. Runtime-settings Schema 23 exposes
+  `capture.combatPresenceCoolingSeconds`, default 30 seconds and normalized to
+  the inclusive `1..300` range. Stable `HOT`/`COOLING` scans and freshness-only sample
+  refreshes do not dirty persistence every second.
+- `HST_CombatPresenceSaveValidationService`: invalidates every process-local
+  physical sample on restore. Pre-63 saves receive a revision-1 `COLD` baseline
+  without inferring combat from vehicle, marker, or generic group rows. Valid
+  current `HOT`/`COOLING` diagnostics may restore, while malformed enum, count,
+  deadline, hash, ordering, bound, or reason authority is reset conservatively
+  to `COLD`.
+- `HST_CombatPresenceProofService`: exercises empty-vehicle exclusion,
+  authoritative infantry/mobile/static samples, virtual casualty continuity,
+  exact `HOT -> COOLING -> HOT -> COOLING -> COLD` timing, pre-63 migration,
+  current cooling restore, and malformed-current fail-closed normalization. It
+  is deterministic source proof until an isolated Campaign Debug run executes
+  it. Foundation passes at 681 references, normal Workbench compile/create
+  succeeds at 5,788 files/11,670 classes with CRC `cb6475ff`, and explicit
+  five-configuration Script validation succeeds.
+- `HST_PhysicalWarService.UpdateZoneActivation()` now uses the activation radius
+  to enter the render bubble and the larger deactivation radius to leave it.
+  This render hysteresis is deliberately separate from combat-presence heat:
+  active entities may fold without erasing durable combat truth, and an empty
+  rendered vehicle does not keep a zone hot.
+- Coordinator tick order treats the shared cache as a snapshot boundary. It
+  invalidates after mission, support, enemy-order, and physical-projection
+  mutations; refreshes native registered-member samples before mission-runtime
+  contact queries; invalidates/rebuilds after later projection changes; then
+  derives zone heat before capture. This prevents a one-second cached result from
+  surviving a same-tick mutation while avoiding the former zones-by-groups-by-
+  consumers hot path. Runtime profiling and behavior validation remain pending.
 - `HST_StableIdService`: allocates persisted, monotonic IDs for generated
   commands and events, and builds deterministic operation/transaction links.
 - `HST_CampaignCommandService`: validates typed command envelopes and keeps a
@@ -1081,14 +1168,17 @@ balance or native-spawn evidence.
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Both QRFs, player Search-and-Destroy, exact enemy patrol, policy-v2 purchased-garrison patrol, and all three exact assassination guards begin held and release only durable living member slots; each empty root contributes no authored members. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Confirmed casualties remain retired across transfer/restore. Generic vehicle/asset/multi-root, historical mission guards, and historical aggregate-garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Operation lifecycle | Schemas 50-59 retain their exact paths. Schema 60 adds a separately typed player Search-and-Destroy operation with direct-route progress, exact virtual/physical survivors, bounded virtual combat, return-to-assignment after displaced fold, on-station hold after hostile clear, commander recall, and fail-closed restore isolation. Historical requests remain outside the contract. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Canonical ownership | Schema 62 routes military capture, mission capture, political support, admin, debug seed, and migration repair through one revisioned, idempotent receipt. The receipt owns security, support, owner, town/facility/logistics derivation, retaliation, economy/outcome, events, parent-aware projection, notification, and persistence scheduling. | Runtime-prove exact security settlement, retry/resume, native projection, save/restart, counterattack/economy consequences, and all caller routes; then deepen combat presence, heat, and town truth. |
+| Canonical ownership | Schema 62 routes military capture, mission capture, political support, admin, debug seed, and migration repair through one revisioned, idempotent receipt. The receipt owns security, support, owner, town/facility/logistics derivation, retaliation, economy/outcome, events, parent-aware projection, notification, and persistence scheduling. | Runtime-prove exact security settlement, retry/resume, native projection, save/restart, counterattack/economy consequences, and all caller routes. Schema 63 changes capture pressure, not this mutation transaction. |
+| Canonical combat presence | Provisional Schema 63 separates registered physical infantry/manned-mobile/static samples, eligible virtual infantry, bounded cached queries, and revisioned zone heat from render state and empty assets. Capture, missions, HQ, civilians, enemy strategy, and the legacy wrapper share one injected service. Foundation, normal Workbench compile/create, and explicit five-configuration Script validation pass. | Runtime-prove native occupant/platform classification, every consumer, fail-closed authority/player filtering, allocation/cache invalidation/order, 30-second cooling, conservative restore, no save-dirty churn, and activation/deactivation hysteresis before deepening encounter and town truth. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; dynamic player markers remain separate. | Extend the same explicit projection discipline only after each additional menu/task/notification model has a bounded DTO and authority contract. |
-| Certification | Schema 62 is the latest sealed source/Workbench checkpoint at implementation `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC `2026-07-12T06:11:19Z`, label `schema62-canonical-ownership-transition`, Foundation 670, and Workbench CRC `22c13a32` at 5,785 files/11,652 classes. Its normal open remained responsive without a crash and zero Workbench processes survived. Schema 61 is the preceding sealed marker-projection foundation. Campaign Debug, packaged server/client, actual restart, rendered-UI, stutter/horn, live-behavior, network/reconnect, and JIP gates remain open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Schema 63/settings 23 remain provisional, but Foundation passes at 681 references and normal Workbench compile/create passes at 5,788 files/11,670 classes with CRC `cb6475ff`, no HST script errors, and no crash; explicit validation passes for all five configurations and all Workbench instances were closed. Schema 62 remains the latest sealed source/Workbench checkpoint at implementation `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC `2026-07-12T06:11:19Z`, label `schema62-canonical-ownership-transition`, Foundation 670, and Workbench CRC `22c13a32` at 5,785 files/11,652 classes. | Seal Schema 63. Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence then certifies the full boundary. |
 
-The canonical ownership dependency now exists in source. It advances Blueprint
-Phase 7 but does not finish it: generalized combat-presence/encounter authority,
-hot/cooling diagnostics, contacted-town truth, and broader political/facility
-consequences remain subsequent slices.
+The canonical ownership dependency is sealed in source/Workbench and the first
+shared crew-aware combat-presence/heat dependency exists provisionally in Schema
+63 source with Foundation and normal Workbench compile/create evidence. Together
+they advance Blueprint Phase 7 but do not finish it: native runtime proof,
+generalized encounter outcomes, contacted-town truth, and broader
+political/facility consequences remain subsequent work.
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit

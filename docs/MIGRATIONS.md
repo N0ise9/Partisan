@@ -2,9 +2,24 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `62`. Schema 62 is the latest
-sealed source/Workbench checkpoint for canonical, revisioned ownership
-transitions under implementation
+`HST_CampaignState.SCHEMA_VERSION` is currently provisional `63`, and
+`HST_RuntimeSettings.SCHEMA_VERSION` is provisional `23`. Schema 63 adds
+canonical crew-aware combat presence and persisted zone heat on top of the
+sealed Schema-62 ownership boundary. Foundation passes on the Schema-63 tree
+with 681 script-symbol references. A normal Workbench Script Editor open
+compiled/created the Game module at 5,788 files/11,670 classes with CRC
+`cb6475ff`, no HST script errors, and no crash. Explicit validation passed for
+WORKBENCH, PC, XBOX, PS4, and PS5 and exited with code `0`; all Workbench
+instances were closed afterward. Real serialization, save/restart, Campaign
+Debug, packaged runtime, and multiplayer proof remain pending.
+
+The provisional Schema-63 build metadata currently uses implementation-basis
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7` with label
+`schema63-canonical-combat-presence`; this pair is not sealed until the current
+validation and commit cycle completes.
+
+Schema 62 remains the latest sealed source/Workbench checkpoint for canonical,
+revisioned ownership transitions under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -13,6 +28,49 @@ classes with CRC `22c13a32` and zero script errors; the normal Script Editor ope
 remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 evidence remains open.
+
+## Schema 63
+
+- Every zone gains a revisioned combat-presence state: `COLD`, `HOT`, or
+  `COOLING`; last-hot and cooling-deadline seconds; separate infantry,
+  operational manned-mobile, and static-operator counts; current-operation and
+  recent-fire diagnostics; a deterministic contributor hash/reason; and paired
+  sorted contributor ID/fact arrays bounded to 24 rows.
+- Active groups gain a short-lived physical sample containing conscious
+  infantry, operational occupied armed mobile platforms, operational occupied
+  static weapons, sample second, authoritative flag, and reason. Persistence
+  copies the fields for structural roundtrip, but restore always clears their
+  counts and invalidates the authoritative sample because native entity handles
+  and occupancy observations cannot cross a process boundary.
+- A pre-63 save receives a canonical revision-1 `COLD` baseline for every zone.
+  Migration does not infer heat from an active bit, generic survivor count,
+  vehicle count, marker, garrison, or unrelated group row and does not replay a
+  combat consequence.
+- Current-schema `HOT` state restores only with positive living counts, zero
+  cooling deadline, valid nonblank diagnostics, paired unique sorted contributor
+  rows, and an exact recomputed hash. Oversized otherwise-valid hot diagnostics
+  cap to 24 and rehash.
+- Current-schema `COOLING` restores only with zero live/operation/fire counts, a
+  last-hot time no later than restored campaign time, a still-future deadline
+  exactly `1..300` seconds after last-hot, exact `combat area cooling` reason,
+  bounded paired diagnostics, and canonical hash shape. This preserves a valid
+  already-started deadline rather than restarting or extending it on load;
+  expired or temporally malformed cooling becomes canonical `COLD`.
+- `COLD` restores only in canonical zero/empty shape. An unknown state,
+  negative count, malformed deadline, hash mismatch, unsorted/duplicate/unpaired
+  diagnostics, invalid reason, or any other malformed current authority resets
+  that zone conservatively to `COLD` while retaining a positive revision.
+- Runtime-settings Schema 23 adds
+  `capture.combatPresenceCoolingSeconds`. New and pre-23 settings default to 30
+  seconds, normalization clamps it to the inclusive `1..300` range, and application copies
+  it into the balance contract. Schema 22's true-town civilian-traffic migration
+  remains unchanged.
+- The new combat-presence service is shared by capture, mission contact/area
+  checks, HQ threat, civilian safety, and enemy strategy. Empty or cargo-only
+  vehicles no longer gain pressure from a durable vehicle count. Separately,
+  physical zone activation enters at the activation radius and exits at the
+  larger deactivation radius. These are provisional source contracts, not
+  runtime migration evidence.
 
 ## Schema 62
 

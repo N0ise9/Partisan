@@ -280,6 +280,14 @@ class HST_PhysicalWarService
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
+	protected ref map<string, ref array<IEntity>> m_mCombatPresenceRuntimeByGroup
+		= new map<string, ref array<IEntity>>();
+	protected ref array<string> m_aCombatPresenceRuntimeGroupKeys = {};
+	protected ref array<IEntity> m_aCombatPresenceRegisteredMemberScratch = {};
+	protected ref array<IEntity> m_aCombatPresenceCountedPlatformScratch = {};
+	protected ref array<AIAgent> m_aCombatPresenceAgentScratch = {};
+	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
+	protected int m_iCombatPresenceRuntimeTopologySignature;
 	protected ref array<string> m_aForceSpawnOwnedGroupIds = {};
 	protected ref array<string> m_aForceSpawnOwnedResultIds = {};
 	protected ref array<IEntity> m_aRuntimeMemberRepairCandidates = {};
@@ -344,6 +352,350 @@ class HST_PhysicalWarService
 	void SetDebugLoggingEnabled(bool enabled)
 	{
 		m_bDebugLoggingEnabled = enabled;
+	}
+
+	void SetCombatPresenceService(HST_CombatPresenceService combatPresence)
+	{
+		if (combatPresence)
+			m_CombatPresence = combatPresence;
+	}
+
+	bool HasCombatPresenceRuntimeTopologyChangedSinceLastSample()
+	{
+		return BuildCombatPresenceRuntimeTopologySignature()
+			!= m_iCombatPresenceRuntimeTopologySignature;
+	}
+
+	bool RefreshCombatPresenceSamples(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		bool changed;
+		int sampleSecond = Math.Max(0, state.m_iElapsedSeconds);
+		BuildCombatPresenceRuntimeRegistrationIndex();
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup)
+				continue;
+
+			if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			{
+				changed = ApplyCombatPresenceSample(activeGroup, 0, 0, 0, -1, false, "terminal_runtime") || changed;
+				continue;
+			}
+			if (!state.IsOperationalActiveGroup(activeGroup))
+			{
+				changed = ApplyCombatPresenceSample(activeGroup, 0, 0, 0, -1, false, "non_operational") || changed;
+				continue;
+			}
+			if (!activeGroup.m_bSpawnedEntity)
+			{
+				changed = ApplyCombatPresenceSample(activeGroup, 0, 0, 0, -1, false, "runtime_not_spawned") || changed;
+				continue;
+			}
+			array<IEntity> registeredRuntime = m_mCombatPresenceRuntimeByGroup.Get(activeGroup.m_sGroupId);
+			if (!registeredRuntime || registeredRuntime.Count() <= 0)
+			{
+				changed = ApplyCombatPresenceSample(activeGroup, 0, 0, 0, -1, false, "runtime_unregistered") || changed;
+				continue;
+			}
+
+			int infantryCount;
+			int vehicleCount;
+			int staticOperatorCount;
+			bool observedCharacterProjection;
+			ResolveRegisteredCombatPresenceSample(
+				activeGroup,
+				registeredRuntime,
+				infantryCount,
+				vehicleCount,
+				staticOperatorCount,
+				observedCharacterProjection);
+			if (!observedCharacterProjection
+				&& IsCombatPresencePopulationAuthorityPending(state, activeGroup))
+			{
+				changed = ApplyCombatPresenceSample(
+					activeGroup,
+					0,
+					0,
+					0,
+					-1,
+					false,
+					"runtime_population_pending") || changed;
+				continue;
+			}
+			changed = ApplyCombatPresenceSample(activeGroup, infantryCount, vehicleCount, staticOperatorCount,
+				sampleSecond, true, "registered_runtime_members") || changed;
+		}
+
+		m_iCombatPresenceRuntimeTopologySignature = BuildCombatPresenceRuntimeTopologySignature();
+		return changed;
+	}
+
+	protected int BuildCombatPresenceRuntimeTopologySignature()
+	{
+		int pairedCount = Math.Min(m_aRuntimeGroupIds.Count(), m_aRuntimeGroupEntities.Count());
+		int signature = pairedCount + 17;
+		for (int topologyIndex; topologyIndex < pairedCount; topologyIndex++)
+		{
+			string groupId = m_aRuntimeGroupIds[topologyIndex];
+			IEntity entity = m_aRuntimeGroupEntities[topologyIndex];
+			signature = signature * 31 + groupId.Hash();
+			if (!entity)
+			{
+				signature = signature * 31 - 1;
+				continue;
+			}
+			signature = signature * 31 + entity.GetID().ToString().Hash();
+			if (entity.IsDeleted())
+				signature = signature * 31 + 1;
+			SCR_AIGroup group = SCR_AIGroup.Cast(entity);
+			if (group)
+				signature = signature * 31 + group.GetPlayerAndAgentCount();
+		}
+		return signature;
+	}
+
+	protected bool ApplyCombatPresenceSample(
+		HST_ActiveGroupState activeGroup,
+		int infantryCount,
+		int vehicleCount,
+		int staticOperatorCount,
+		int sampleSecond,
+		bool authoritative,
+		string reason)
+	{
+		if (!activeGroup)
+			return false;
+
+		infantryCount = Math.Max(0, infantryCount);
+		vehicleCount = Math.Max(0, vehicleCount);
+		staticOperatorCount = Math.Max(0, staticOperatorCount);
+		bool changed = activeGroup.m_iCombatEffectiveInfantryCount != infantryCount
+			|| activeGroup.m_iOperationalMannedVehicleCount != vehicleCount
+			|| activeGroup.m_iCombatEffectiveStaticOperatorCount != staticOperatorCount
+			|| activeGroup.m_bCombatPresenceSampleAuthoritative != authoritative
+			|| activeGroup.m_sCombatPresenceSampleReason != reason;
+
+		// Authoritative sample freshness is runtime-only bookkeeping. Refresh it on
+		// every sample without turning a timestamp-only refresh into save-dirty state.
+		if (authoritative)
+			activeGroup.m_iCombatPresenceSampleSecond = Math.Max(0, sampleSecond);
+		else
+			activeGroup.m_iCombatPresenceSampleSecond = -1;
+
+		if (!changed)
+			return false;
+
+		activeGroup.m_iCombatEffectiveInfantryCount = infantryCount;
+		activeGroup.m_iOperationalMannedVehicleCount = vehicleCount;
+		activeGroup.m_iCombatEffectiveStaticOperatorCount = staticOperatorCount;
+		activeGroup.m_bCombatPresenceSampleAuthoritative = authoritative;
+		activeGroup.m_sCombatPresenceSampleReason = reason;
+		return true;
+	}
+
+	protected void BuildCombatPresenceRuntimeRegistrationIndex()
+	{
+		foreach (string existingGroupId : m_aCombatPresenceRuntimeGroupKeys)
+		{
+			array<IEntity> existingRuntime = m_mCombatPresenceRuntimeByGroup.Get(existingGroupId);
+			if (existingRuntime)
+				existingRuntime.Clear();
+		}
+
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (i >= m_aRuntimeGroupEntities.Count())
+				continue;
+			string groupId = m_aRuntimeGroupIds[i];
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (groupId.IsEmpty() || !entity || entity.IsDeleted())
+				continue;
+
+			array<IEntity> registeredRuntime = m_mCombatPresenceRuntimeByGroup.Get(groupId);
+			if (!registeredRuntime)
+			{
+				registeredRuntime = {};
+				m_mCombatPresenceRuntimeByGroup.Set(groupId, registeredRuntime);
+				m_aCombatPresenceRuntimeGroupKeys.Insert(groupId);
+			}
+			if (registeredRuntime.Find(entity) < 0)
+				registeredRuntime.Insert(entity);
+		}
+
+		for (int keyIndex = m_aCombatPresenceRuntimeGroupKeys.Count() - 1; keyIndex >= 0; keyIndex--)
+		{
+			string indexedGroupId = m_aCombatPresenceRuntimeGroupKeys[keyIndex];
+			array<IEntity> indexedRuntime = m_mCombatPresenceRuntimeByGroup.Get(indexedGroupId);
+			if (indexedRuntime && indexedRuntime.Count() > 0)
+				continue;
+			m_mCombatPresenceRuntimeByGroup.Remove(indexedGroupId);
+			m_aCombatPresenceRuntimeGroupKeys.Remove(keyIndex);
+		}
+	}
+
+	protected void ResolveRegisteredCombatPresenceSample(
+		HST_ActiveGroupState activeGroup,
+		array<IEntity> registeredRuntime,
+		out int infantryCount,
+		out int vehicleCount,
+		out int staticOperatorCount,
+		out bool observedCharacterProjection)
+	{
+		infantryCount = 0;
+		vehicleCount = 0;
+		staticOperatorCount = 0;
+		observedCharacterProjection = false;
+		if (!activeGroup || !registeredRuntime)
+			return;
+
+		m_aCombatPresenceRegisteredMemberScratch.Clear();
+		m_aCombatPresenceCountedPlatformScratch.Clear();
+		CollectRegisteredCombatPresenceMembers(registeredRuntime);
+		foreach (IEntity member : m_aCombatPresenceRegisteredMemberScratch)
+		{
+			SCR_ChimeraCharacter character = SCR_ChimeraCharacter.Cast(member);
+			if (!character)
+				continue;
+			observedCharacterProjection = true;
+
+			CharacterControllerComponent controller = character.GetCharacterController();
+			if (!controller || controller.GetLifeState() != ECharacterLifeState.ALIVE || controller.IsUnconscious())
+				continue;
+
+			CompartmentAccessComponent access = character.GetCompartmentAccessComponent();
+			BaseCompartmentSlot compartment;
+			if (access)
+				compartment = access.GetCompartment();
+			if (!compartment)
+			{
+				infantryCount++;
+				continue;
+			}
+
+			if (CargoCompartmentSlot.Cast(compartment))
+				continue;
+
+			bool turretOccupant = TurretCompartmentSlot.Cast(compartment) != null;
+			bool pilotOccupant = PilotCompartmentSlot.Cast(compartment) != null;
+			if (!turretOccupant && !pilotOccupant)
+				continue;
+
+			IEntity compartmentOwner = compartment.GetOwner();
+			if (!compartmentOwner)
+				continue;
+
+			IEntity platform;
+			SCR_AIVehicleUsageComponent usage = SCR_AIVehicleUsageComponent.FindOnNearestParent(compartmentOwner, platform);
+			if (!usage || !platform || !usage.IsVehicleTypeValid()
+				|| m_aCombatPresenceCountedPlatformScratch.Find(platform) >= 0)
+				continue;
+
+			EAIVehicleType vehicleType = usage.GetVehicleType();
+			bool staticPlatform = vehicleType == EAIVehicleType.STATIC_WEAPON
+				|| vehicleType == EAIVehicleType.STATIC_ARTILLERY;
+			if (!IsCombatPresencePlatformOperational(platform, !staticPlatform))
+				continue;
+
+			if (staticPlatform)
+			{
+				if (!turretOccupant)
+					continue;
+
+				m_aCombatPresenceCountedPlatformScratch.Insert(platform);
+				staticOperatorCount++;
+				continue;
+			}
+
+			bool compositionProvesArmed = activeGroup.m_iCompositionVehicleCount > 0
+				&& activeGroup.m_iCompositionArmedVehicleCount >= activeGroup.m_iCompositionVehicleCount;
+			bool armedMobilePlatform = turretOccupant || (pilotOccupant && compositionProvesArmed);
+			if (!armedMobilePlatform)
+				continue;
+
+			m_aCombatPresenceCountedPlatformScratch.Insert(platform);
+			vehicleCount++;
+		}
+	}
+
+	protected bool IsCombatPresencePopulationAuthorityPending(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup)
+			return false;
+		int expectedPersonnel = Math.Max(
+			Math.Max(0, activeGroup.m_iInfantryCount),
+			Math.Max(0, activeGroup.m_iOriginalInfantryCount));
+		expectedPersonnel = Math.Max(expectedPersonnel, Math.Max(0, activeGroup.m_iCompositionManpower));
+		if (expectedPersonnel <= 0)
+			return false;
+		if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
+			return true;
+		if (IsActiveGroupNativeDelayedPopulationActive(activeGroup))
+			return true;
+		if (IsActiveGroupLiveCountGraceActive(state, activeGroup))
+			return true;
+		if (state.m_bRestoredFromPersistence
+			&& state.m_iElapsedSeconds <= state.m_iLastRestoreSecond + ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS
+			&& (activeGroup.m_iSpawnedAgentCount > 0
+				|| activeGroup.m_iLastSeenAliveCount > 0
+				|| activeGroup.m_iDurableLivingInfantryCount > 0))
+			return true;
+		return !activeGroup.m_bEverPopulated || !activeGroup.m_bSpawnCompleted;
+	}
+
+	protected void CollectRegisteredCombatPresenceMembers(
+		array<IEntity> registeredRuntime)
+	{
+		if (!registeredRuntime)
+			return;
+
+		foreach (IEntity entity : registeredRuntime)
+		{
+			if (!entity || entity.IsDeleted())
+				continue;
+
+			AIGroup group = AIGroup.Cast(entity);
+			if (!group)
+			{
+				if (m_aCombatPresenceRegisteredMemberScratch.Find(entity) < 0)
+					m_aCombatPresenceRegisteredMemberScratch.Insert(entity);
+				continue;
+			}
+
+			m_aCombatPresenceAgentScratch.Clear();
+			group.GetAgents(m_aCombatPresenceAgentScratch);
+			foreach (AIAgent agent : m_aCombatPresenceAgentScratch)
+			{
+				if (!agent)
+					continue;
+
+				IEntity controlledEntity = agent.GetControlledEntity();
+				if (!controlledEntity || controlledEntity.IsDeleted()
+					|| m_aCombatPresenceRegisteredMemberScratch.Find(controlledEntity) >= 0)
+					continue;
+				m_aCombatPresenceRegisteredMemberScratch.Insert(controlledEntity);
+			}
+		}
+	}
+
+	protected bool IsCombatPresencePlatformOperational(IEntity platform, bool requireMovement)
+	{
+		if (!platform || platform.IsDeleted())
+			return false;
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.GetDamageManager(platform);
+		if (!damageManager || damageManager.GetState() == EDamageState.DESTROYED)
+			return false;
+		if (SCR_AIVehicleUsability.VehicleIsOnFire(platform, damageManager))
+			return false;
+		if (requireMovement && !SCR_AIVehicleUsability.VehicleCanMove(platform, damageManager))
+			return false;
+
+		return true;
 	}
 
 	bool IsForceSpawnQueueManaged(HST_ActiveGroupState activeGroup)
@@ -1911,6 +2263,7 @@ class HST_PhysicalWarService
 			DebugLog(string.Format("zone %1 physical activation = %2", zone.m_sZoneId, shouldBeActive));
 		}
 
+		m_CombatPresence.InvalidateCache();
 		if (UpdateQRF(state, preset, enemyDirector))
 			changed = true;
 
@@ -12511,6 +12864,15 @@ class HST_PhysicalWarService
 		float radius = zone.m_iActivationRadiusMeters;
 		if (radius <= 0)
 			radius = balance.m_iActivationRadiusMeters;
+		if (zone.m_bActive)
+		{
+			// Authored zone activation overrides retain the configured global
+			// hysteresis margin instead of collapsing to Max(override, global exit).
+			float deactivationMargin = Math.Max(
+				100.0,
+				balance.m_iDeactivationRadiusMeters - balance.m_iActivationRadiusMeters);
+			radius += deactivationMargin;
+		}
 
 		float radiusSq = radius * radius;
 		foreach (int playerId : playerIds)
@@ -13388,8 +13750,21 @@ class HST_PhysicalWarService
 
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			if (!zone.m_bActive || zone.m_sOwnerFactionKey == resistanceFactionKey || zone.m_sQRFRouteId.IsEmpty())
+			if (zone.m_sOwnerFactionKey == resistanceFactionKey || zone.m_sQRFRouteId.IsEmpty())
 				continue;
+
+			bool verifiedPressure = zone.m_iResistanceCaptureProgress > 0;
+			if (!verifiedPressure)
+			{
+				HST_CombatPresenceResult pressure = m_CombatPresence.QueryZoneHostilePresence(
+					state,
+					preset,
+					zone.m_sOwnerFactionKey,
+					zone,
+					false);
+				if (!pressure || !pressure.m_bQueryValid || !pressure.m_bHasLiveContributors)
+					continue;
+			}
 
 			if (IsZoneInsideHQSafeArea(state, zone))
 				continue;
@@ -13426,7 +13801,7 @@ class HST_PhysicalWarService
 			state.m_aQRFs.Insert(qrf);
 			zone.m_iQrfCooldownUntilSecond = state.m_iElapsedSeconds + QRF_COOLDOWN_SECONDS;
 			m_bMarkerRefreshNeeded = true;
-			Print(string.Format("h-istasi | dispatched QRF %1 from %2 to active zone %3 | physical spawn at T-%4s", qrf.m_sInstanceId, qrf.m_sSourceZoneId, zone.m_sZoneId, QRF_INBOUND_SPAWN_SECONDS));
+			Print(string.Format("h-istasi | dispatched QRF %1 from %2 to pressured zone %3 | physical spawn at T-%4s", qrf.m_sInstanceId, qrf.m_sSourceZoneId, zone.m_sZoneId, QRF_INBOUND_SPAWN_SECONDS));
 			NotifyRuntimeEvent(state, "qrf_dispatched_" + qrf.m_sInstanceId, "QRF Dispatched", string.Format("%1 is sending a quick reaction force toward %2.", zone.m_sOwnerFactionKey, ResolveZoneDisplayName(state, zone.m_sZoneId)), zone.m_sZoneId, zone.m_vPosition, 6.0);
 			changed = true;
 		}
@@ -13611,8 +13986,24 @@ class HST_PhysicalWarService
 			if (activeGroup && state.m_iElapsedSeconds < activeGroup.m_iSpawnedAtSecond + ROUTE_STATE_UPDATE_SECONDS)
 				continue;
 
+			bool combatEffective;
+			string combatPresenceReason;
+			if (activeGroup && !m_CombatPresence.TryResolveGroupCombatPresence(
+				state,
+				activeGroup,
+				combatEffective,
+				combatPresenceReason))
+			{
+				DebugLog(string.Format(
+					"QRF %1 arrival waits for combat-presence authority | group %2 | reason %3",
+					qrf.m_sInstanceId,
+					qrf.m_sGroupId,
+					combatPresenceReason));
+				continue;
+			}
+
 			qrf.m_bResolved = true;
-			if (!IsActiveGroupCombatEffective(activeGroup))
+			if (!activeGroup || !combatEffective)
 			{
 				qrf.m_bSucceeded = false;
 				m_bMarkerRefreshNeeded = true;
@@ -13806,23 +14197,6 @@ class HST_PhysicalWarService
 		candidate[0] = target[0] + x * distanceBySlot;
 		candidate[2] = target[2] + z * distanceBySlot;
 		return candidate;
-	}
-
-	protected bool IsActiveGroupCombatEffective(HST_ActiveGroupState activeGroup)
-	{
-		if (!activeGroup)
-			return false;
-
-		if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed")
-			return false;
-
-		if (activeGroup.m_iSpawnedAgentCount <= 0)
-			return false;
-
-		if (activeGroup.m_iInfantryCount > 0)
-			return activeGroup.m_iLastSeenAliveCount > 0 || activeGroup.m_iSurvivorInfantryCount > 0;
-
-		return activeGroup.m_iLastSeenAliveCount > 0 || activeGroup.m_iSurvivorVehicleCount > 0;
 	}
 
 	protected string ResolveActiveGroupStatus(HST_ActiveGroupState activeGroup)

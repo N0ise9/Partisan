@@ -19,9 +19,9 @@ class HST_ActiveGroupLifecyclePhysicalWarProofHarness : HST_PhysicalWarService
 		return ApplyObservedPersonnelElimination(state, activeGroup, source);
 	}
 
-	bool IsCombatEffective(HST_ActiveGroupState activeGroup)
+	bool IsCombatEffective(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
-		return IsActiveGroupCombatEffective(activeGroup);
+		return HST_CombatPresenceService.IsGroupCombatPresent(state, activeGroup);
 	}
 
 	bool ShouldEliminateCrewlessMixedGroup(
@@ -137,8 +137,9 @@ class HST_ActiveGroupLifecycleProofService
 			qrf && qrf.m_bSucceeded);
 
 		report.m_bCapturePresenceCleared = captureBefore && captureAfter
-			&& captureBefore.m_iEnemyVehicleCountNearby == 1
-			&& captureBefore.m_sBlockedReason == "hostile vehicles remain"
+			&& captureBefore.m_iEnemyVehicleCountNearby == 0
+			&& captureBefore.m_iEnemyCountNearby == 0
+			&& captureBefore.m_sBlockedReason.IsEmpty()
 			&& captureAfter.m_iEnemyVehicleCountNearby == 0
 			&& captureAfter.m_iEnemyCountNearby == 0
 			&& captureAfter.m_sBlockedReason.IsEmpty();
@@ -222,10 +223,16 @@ class HST_ActiveGroupLifecycleProofService
 		HST_ActiveGroupState liveMixed = BuildCombatControl("control_live_mixed", 2, 1, 1, 1, 1);
 		HST_ActiveGroupState crewlessMixed = BuildCombatControl("control_crewless_mixed", 2, 1, 1, 0, 1);
 		HST_ActiveGroupState vehicleOnly = BuildCombatControl("control_vehicle_only", 0, 1, 1, 0, 1);
-		bool liveMixedEffective = physicalWar.IsCombatEffective(liveMixed);
-		bool crewlessMixedEffective = physicalWar.IsCombatEffective(crewlessMixed);
-		bool vehicleOnlyEffective = physicalWar.IsCombatEffective(vehicleOnly);
-		bool combatControlsExact = liveMixedEffective && !crewlessMixedEffective && vehicleOnlyEffective;
+		HST_ActiveGroupState mannedVehicle = BuildCombatControl("control_manned_vehicle", 0, 1, 1, 0, 1);
+		mannedVehicle.m_iOperationalMannedVehicleCount = 1;
+		bool liveMixedEffective = physicalWar.IsCombatEffective(state, liveMixed);
+		bool crewlessMixedEffective = physicalWar.IsCombatEffective(state, crewlessMixed);
+		bool vehicleOnlyEffective = physicalWar.IsCombatEffective(state, vehicleOnly);
+		bool mannedVehicleEffective = physicalWar.IsCombatEffective(state, mannedVehicle);
+		bool combatControlsExact = liveMixedEffective
+			&& !crewlessMixedEffective
+			&& !vehicleOnlyEffective
+			&& mannedVehicleEffective;
 		bool eligibilityIdentityControlsExact = eligibilityAccepted
 			&& eligibilityRejectedLive
 			&& eligibilityRejectedPending
@@ -240,10 +247,11 @@ class HST_ActiveGroupLifecycleProofService
 			&& eligibilityTimingControlsExact
 			&& vehicleRecordPolicyExact;
 		report.m_sControlEvidence = string.Format(
-			"live mixed %1 | crewless mixed vehicle survivor %2 | vehicle-only projection %3",
+			"live mixed %1 | crewless mixed vehicle survivor %2 | empty vehicle projection %3 | manned vehicle sample %4",
 			liveMixedEffective,
 			crewlessMixedEffective,
-			vehicleOnlyEffective);
+			vehicleOnlyEffective,
+			mannedVehicleEffective);
 		report.m_sControlEvidence = report.m_sControlEvidence + string.Format(
 			" | eligible %1 | rejected live/pending/queue/convoy %2/%3/%4/%5",
 			eligibilityAccepted,
@@ -291,6 +299,10 @@ class HST_ActiveGroupLifecycleProofService
 		friendly.m_iLastSeenAliveCount = 1;
 		friendly.m_iSurvivorInfantryCount = 1;
 		friendly.m_bSpawnedEntity = true;
+		friendly.m_iCombatEffectiveInfantryCount = 1;
+		friendly.m_iCombatPresenceSampleSecond = state.m_iElapsedSeconds;
+		friendly.m_bCombatPresenceSampleAuthoritative = true;
+		friendly.m_sCombatPresenceSampleReason = "lifecycle proof friendly infantry";
 		state.m_aActiveGroups.Insert(friendly);
 
 		HST_ActiveGroupState group = new HST_ActiveGroupState();
@@ -315,6 +327,9 @@ class HST_ActiveGroupLifecycleProofService
 		group.m_bSpawnedEntity = true;
 		group.m_bEverPopulated = true;
 		group.m_bSpawnCompleted = true;
+		group.m_iCombatPresenceSampleSecond = state.m_iElapsedSeconds;
+		group.m_bCombatPresenceSampleAuthoritative = true;
+		group.m_sCombatPresenceSampleReason = "lifecycle proof empty vehicle";
 		state.m_aActiveGroups.Insert(group);
 
 		HST_QRFState qrf = new HST_QRFState();
@@ -380,6 +395,7 @@ class HST_ActiveGroupLifecycleProofService
 	{
 		HST_ActiveGroupState group = new HST_ActiveGroupState();
 		group.m_sGroupId = groupId;
+		group.m_sFactionKey = "US";
 		group.m_sRuntimeStatus = "active";
 		group.m_iInfantryCount = infantryCount;
 		group.m_iVehicleCount = vehicleCount;
@@ -389,6 +405,11 @@ class HST_ActiveGroupLifecycleProofService
 			group.m_iLastSeenAliveCount = survivorVehicles;
 		group.m_iSurvivorInfantryCount = survivorInfantry;
 		group.m_iSurvivorVehicleCount = survivorVehicles;
+		group.m_bSpawnedEntity = true;
+		group.m_iCombatEffectiveInfantryCount = Math.Max(0, survivorInfantry);
+		group.m_iCombatPresenceSampleSecond = 420;
+		group.m_bCombatPresenceSampleAuthoritative = true;
+		group.m_sCombatPresenceSampleReason = "lifecycle proof control";
 		return group;
 	}
 

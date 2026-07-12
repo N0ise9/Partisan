@@ -58,6 +58,19 @@ class HST_ZoneState
 	bool m_bActive;
 	int m_iActiveInfantryCount;
 	int m_iActiveVehicleCount;
+	HST_ECombatPresenceState m_eCombatPresenceState = HST_ECombatPresenceState.HST_COMBAT_PRESENCE_COLD;
+	int m_iCombatPresenceLastHotSecond;
+	int m_iCombatPresenceCoolingUntilSecond;
+	int m_iCombatPresenceRevision = 1;
+	int m_iCombatPresenceInfantryCount;
+	int m_iCombatPresenceMannedVehicleCount;
+	int m_iCombatPresenceStaticOperatorCount;
+	int m_iCombatPresenceCurrentOperationCount;
+	int m_iCombatPresenceRecentFireCount;
+	string m_sCombatPresenceContributorHash;
+	string m_sCombatPresenceReason = "cold";
+	ref array<string> m_aCombatPresenceContributorIds = {};
+	ref array<string> m_aCombatPresenceContributorFacts = {};
 	string m_sPatrolRouteId;
 	string m_sQRFRouteId;
 	string m_sMissionSiteId;
@@ -158,10 +171,16 @@ class HST_ActiveGroupState
 	int m_iAssignedWaypointCount;
 	int m_iMaxObservedCrewAlive;
 	int m_iDurableLivingInfantryCount;
+	int m_iCombatEffectiveInfantryCount;
+	int m_iOperationalMannedVehicleCount;
+	int m_iCombatEffectiveStaticOperatorCount;
+	int m_iCombatPresenceSampleSecond = -1;
 	int m_iLastCasualtySecond;
 	int m_iEliminatedAtSecond;
 	int m_iLifecycleRevision;
 	bool m_bEverHadLivingCrew;
+	bool m_bCombatPresenceSampleAuthoritative;
+	string m_sCombatPresenceSampleReason;
 	bool m_bEverPopulated;
 	bool m_bSpawnCompleted;
 	bool m_bCrewPopulationTerminallyFailed;
@@ -1180,7 +1199,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 62;
+	static const int SCHEMA_VERSION = 63;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1739,17 +1758,7 @@ class HST_CampaignState
 
 	bool IsCombatPresentActiveGroup(HST_ActiveGroupState group)
 	{
-		if (!IsOperationalActiveGroup(group))
-			return false;
-		if (group.m_sConvoyElementId.IsEmpty())
-			return true;
-		HST_OperationRecordState operation = FindOperation(group.m_sOperationId);
-		if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY)
-			return true;
-		HST_ConvoyElementState element = FindConvoyElement(group.m_sConvoyElementId);
-		return element && element.m_iSurvivingCrewCount > 0
-			&& element.m_eDisposition != HST_EConvoyElementDisposition.HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED
-			&& element.m_eDisposition != HST_EConvoyElementDisposition.HST_CONVOY_ELEMENT_DISPOSITION_RETIRED;
+		return HST_CombatPresenceService.IsGroupCombatPresent(this, group);
 	}
 
 	HST_QRFState FindActiveQRF(string targetZoneId, string factionKey)

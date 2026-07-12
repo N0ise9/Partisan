@@ -55,6 +55,7 @@ class HST_RuntimeSettingsCapture
 	int m_iDecayPerSecond = 1;
 	int m_iAggressionBase = 10;
 	int m_iCounterattackChancePercent = 45;
+	int m_iCombatPresenceCoolingSeconds = 30;
 }
 
 class HST_RuntimeSettingsWorld
@@ -136,7 +137,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 22;
+	static const int SCHEMA_VERSION = 23;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -195,8 +196,9 @@ class HST_RuntimeSettings
 		m_Capture.m_iDecayPerSecond = Math.Max(0, m_Capture.m_iDecayPerSecond);
 		m_Capture.m_iAggressionBase = Math.Max(0, m_Capture.m_iAggressionBase);
 		m_Capture.m_iCounterattackChancePercent = Math.Max(0, Math.Min(100, m_Capture.m_iCounterattackChancePercent));
+		m_Capture.m_iCombatPresenceCoolingSeconds = Math.Min(300, Math.Max(1, m_Capture.m_iCombatPresenceCoolingSeconds));
 		m_World.m_iActivationRadiusMeters = Math.Max(100, m_World.m_iActivationRadiusMeters);
-		m_World.m_iDeactivationRadiusMeters = Math.Max(m_World.m_iActivationRadiusMeters, m_World.m_iDeactivationRadiusMeters);
+		m_World.m_iDeactivationRadiusMeters = Math.Max(m_World.m_iActivationRadiusMeters + 100, m_World.m_iDeactivationRadiusMeters);
 		m_World.m_iPlayerRenderBubbleRadiusMeters = Math.Max(100, m_World.m_iPlayerRenderBubbleRadiusMeters);
 		if (m_World.m_iMissionSelectionRadiusMeters <= 0)
 			m_World.m_iMissionSelectionRadiusMeters = m_World.m_iPlayerRenderBubbleRadiusMeters;
@@ -244,6 +246,7 @@ class HST_RuntimeSettings
 		balance.m_iCaptureDecayPerSecond = m_Capture.m_iDecayPerSecond;
 		balance.m_iCaptureAggressionBase = m_Capture.m_iAggressionBase;
 		balance.m_iCaptureCounterattackChancePercent = m_Capture.m_iCounterattackChancePercent;
+		balance.m_iCombatPresenceCoolingSeconds = m_Capture.m_iCombatPresenceCoolingSeconds;
 		balance.m_iMissionDefaultDurationSeconds = m_World.m_iMissionDefaultDurationSeconds;
 		balance.m_iActivationRadiusMeters = m_World.m_iActivationRadiusMeters;
 		balance.m_iDeactivationRadiusMeters = m_World.m_iDeactivationRadiusMeters;
@@ -306,7 +309,7 @@ class HST_RuntimeSettings
 		string pacing = string.Format("\npacing | WL2 %1 | WL3 %2 | WL4 %3 | WL5 %4 | WL6 %5 | WL7 %6 | WL8 %7 | WL9 %8 | WL10 %9", m_Economy.m_iWarLevel2Score, m_Economy.m_iWarLevel3Score, m_Economy.m_iWarLevel4Score, m_Economy.m_iWarLevel5Score, m_Economy.m_iWarLevel6Score, m_Economy.m_iWarLevel7Score, m_Economy.m_iWarLevel8Score, m_Economy.m_iWarLevel9Score, m_Economy.m_iWarLevel10Score);
 		pacing = pacing + string.Format(" | population outcome %1 | support victory %2 pct | legacy control %3 pct enabled %4", m_Economy.m_bPopulationOutcomeEnabled, m_Economy.m_iVictoryPopulationSupportPercent, m_Economy.m_iVictoryControlPercent, m_Economy.m_bLegacyControlVictoryEnabled);
 		string loss = string.Format("\nloss | enabled %1 | population catastrophe when more than one third killed | HR %2 | money %3 | Petros deaths %4 | grace %5s", m_Economy.m_bLossConditionEnabled, m_Economy.m_iLossHRThreshold, m_Economy.m_iLossMoneyThreshold, m_Economy.m_iLossPetrosDeathLimit, m_Economy.m_iLossGraceSeconds);
-		string capture = string.Format("\ncapture | required %1 | progress %2/s | decay %3/s | aggression %4 | counterattack %5 pct", m_Capture.m_iProgressRequired, m_Capture.m_iProgressPerSecond, m_Capture.m_iDecayPerSecond, m_Capture.m_iAggressionBase, m_Capture.m_iCounterattackChancePercent);
+		string capture = string.Format("\ncapture | required %1 | progress %2/s | decay %3/s | aggression %4 | counterattack %5 pct | combat cooling %6s", m_Capture.m_iProgressRequired, m_Capture.m_iProgressPerSecond, m_Capture.m_iDecayPerSecond, m_Capture.m_iAggressionBase, m_Capture.m_iCounterattackChancePercent, m_Capture.m_iCombatPresenceCoolingSeconds);
 		string world = string.Format("\nworld | activation %1m | deactivation %2m | render bubble %3m | mission selection %4m | mission duration %5s", m_World.m_iActivationRadiusMeters, m_World.m_iDeactivationRadiusMeters, m_World.m_iPlayerRenderBubbleRadiusMeters, m_World.m_iMissionSelectionRadiusMeters, m_World.m_iMissionDefaultDurationSeconds);
 		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | HQ radius %3m | loot radius %4m | skip unlocked %5 | remove source %6", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iHQInteractionRadiusMeters, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootSkipUnlockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
 		string vehicleLoot = string.Format("\nvehicle loot | enabled %1 | radius %2m | skip unlocked %3 | remove source %4 | max %5", m_VehicleLoot.m_bEnabled, m_VehicleLoot.m_iRadiusMeters, m_VehicleLoot.m_bSkipUnlockedItems, m_VehicleLoot.m_bRemoveSourceItems, m_VehicleLoot.m_iMaxItemsPerAction);

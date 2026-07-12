@@ -13,6 +13,9 @@ class HST_ZoneCaptureStatus
 	int m_iFriendlyVehicleCountNearby;
 	int m_iEnemyCountNearby;
 	int m_iEnemyVehicleCountNearby;
+	HST_ECombatPresenceState m_eCombatPresenceState = HST_ECombatPresenceState.HST_COMBAT_PRESENCE_COLD;
+	int m_iCombatPresenceCoolingSecondsRemaining;
+	string m_sCombatPresenceReason;
 	int m_iTrainingQualityBonusPercent;
 	int m_iRequiredProgress;
 	int m_iRawProgress;
@@ -41,11 +44,20 @@ class HST_ZoneCaptureService
 
 	protected ref array<ref HST_ZoneCaptureNotification> m_aPendingNotifications = {};
 	protected ref array<string> m_aNotificationKeys = {};
+	protected ref array<int> m_aPlayerIdScratch = {};
+	protected ref array<IEntity> m_aLivingPlayerEntityScratch = {};
+	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected HST_OwnershipTransitionService m_OwnershipTransitions;
 
 	void SetOwnershipTransitionService(HST_OwnershipTransitionService ownershipTransitions)
 	{
 		m_OwnershipTransitions = ownershipTransitions;
+	}
+
+	void SetCombatPresenceService(HST_CombatPresenceService combatPresence)
+	{
+		if (combatPresence)
+			m_CombatPresence = combatPresence;
 	}
 
 	bool CaptureZone(HST_CampaignState state, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, string factionKey, string resistanceFactionKey = "FIA")
@@ -177,6 +189,7 @@ class HST_ZoneCaptureService
 
 		bool changed;
 		string resistanceFactionKey = preset.m_sResistanceFactionKey;
+		PrepareLivingPlayerScratch();
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
 			if (!zone || zone.m_sOwnerFactionKey == resistanceFactionKey || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
@@ -189,7 +202,15 @@ class HST_ZoneCaptureService
 				continue;
 			}
 
-			HST_ZoneCaptureStatus status = BuildCaptureStatus(state, preset, balance, zone);
+			HST_ZoneCaptureStatus status = BuildCaptureStatus(
+				state,
+				preset,
+				balance,
+				zone,
+				"",
+				false,
+				true,
+				true);
 			if (status.m_iFIACountNearby <= 0)
 			{
 				changed = DecayCaptureProgress(zone, balance, elapsedSeconds) || changed;
@@ -199,7 +220,14 @@ class HST_ZoneCaptureService
 			status.m_bContested = true;
 			QueueNotification("contested", zone, "warning", CaptureTitle(zone, "contested"), string.Format("%1 contested by FIA.", ZoneLabel(zone)));
 
-			if (status.m_sBlockedReason == "enemies remain" || status.m_sBlockedReason == "hostile vehicles remain")
+			if (status.m_sBlockedReason == "combat-presence authority unavailable")
+			{
+				QueueNotification("blocked_presence", zone, "warning", "Capture blocked: combat authority unavailable", string.Format("%1 cannot be secured until combat-presence authority is available.", ZoneLabel(zone)));
+				changed = DecayCaptureProgress(zone, balance, elapsedSeconds) || changed;
+				continue;
+			}
+			if (status.m_sBlockedReason == "enemies remain" || status.m_sBlockedReason == "hostile vehicles remain"
+				|| status.m_sBlockedReason == "combat area cooling")
 			{
 				QueueNotification("blocked_enemies", zone, "warning", "Capture blocked: enemies remain", string.Format("%1 cannot be secured while hostile forces remain.", ZoneLabel(zone)));
 				changed = DecayCaptureProgress(zone, balance, elapsedSeconds) || changed;
@@ -236,7 +264,9 @@ class HST_ZoneCaptureService
 		HST_BalanceConfig balance,
 		HST_ZoneState zone,
 		string ownerFactionKeyOverride = "",
-		bool useOwnerFactionKeyOverride = false)
+		bool useOwnerFactionKeyOverride = false,
+		bool skipHostileQueryWithoutResistancePresence = false,
+		bool reusePreparedPlayerScratch = false)
 	{
 		HST_ZoneCaptureStatus status = new HST_ZoneCaptureStatus();
 		if (!zone)
@@ -268,7 +298,10 @@ class HST_ZoneCaptureService
 		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
 			resistanceFactionKey = preset.m_sResistanceFactionKey;
 
-		status.m_iPlayerCountNearby = CountLivingPlayersInCaptureRadius(zone, balance);
+		status.m_iPlayerCountNearby = CountLivingPlayersInCaptureRadius(
+			zone,
+			balance,
+			reusePreparedPlayerScratch);
 		int friendlyInfantry;
 		int friendlyInfantryStrength;
 		int friendlyVehicles;
@@ -279,22 +312,50 @@ class HST_ZoneCaptureService
 		if (state)
 			status.m_iTrainingQualityBonusPercent = HST_RecruitmentService.ResolveTrainingQualityBonusPercentForLevel(state.m_iTrainingLevel);
 		status.m_iFIACountNearby = status.m_iPlayerCountNearby + status.m_iFriendlyInfantryStrengthNearby;
-		int enemyInfantry;
-		int enemyVehicles;
-		CountHostilesInCaptureRadius(state, zone, balance, resistanceFactionKey, enemyInfantry, enemyVehicles);
-		status.m_iEnemyCountNearby = enemyInfantry;
-		status.m_iEnemyVehicleCountNearby = enemyVehicles;
 		status.m_bContested = status.m_iFIACountNearby > 0 && effectiveOwnerFactionKey != resistanceFactionKey;
 		status.m_bConquestGated = HasIncompleteConquestMission(state, zone) && zone.m_iResistanceCaptureProgress >= Math.Min(CONQUEST_OBJECTIVE_PROGRESS_CAP, ResolveCaptureProgressRequired(balance) - 1);
-
+		if (skipHostileQueryWithoutResistancePresence)
+		{
+			if (effectiveOwnerFactionKey == resistanceFactionKey)
+			{
+				status.m_sBlockedReason = "already FIA";
+				return status;
+			}
+			if (status.m_iFIACountNearby <= 0)
+			{
+				status.m_sBlockedReason = "no FIA in radius";
+				return status;
+			}
+		}
+		HST_CombatPresenceResult hostilePresence = m_CombatPresence.QueryZoneHostilePresence(
+			state,
+			preset,
+			resistanceFactionKey,
+			zone,
+			true);
+		if (hostilePresence && hostilePresence.m_bQueryValid)
+		{
+			status.m_iEnemyCountNearby = hostilePresence.m_iInfantryCount
+				+ hostilePresence.m_iStaticOperatorCount;
+			status.m_iEnemyVehicleCountNearby = hostilePresence.m_iMannedVehicleCount;
+			status.m_eCombatPresenceState = hostilePresence.m_eState;
+			status.m_iCombatPresenceCoolingSecondsRemaining = hostilePresence.m_iCoolingRemainingSeconds;
+			status.m_sCombatPresenceReason = hostilePresence.m_sReason;
+		}
+		else
+			status.m_sCombatPresenceReason = "combat-presence authority unavailable";
 		if (effectiveOwnerFactionKey == resistanceFactionKey)
 			status.m_sBlockedReason = "already FIA";
 		else if (status.m_iFIACountNearby <= 0)
 			status.m_sBlockedReason = "no FIA in radius";
+		else if (!hostilePresence || !hostilePresence.m_bQueryValid)
+			status.m_sBlockedReason = "combat-presence authority unavailable";
 		else if (status.m_iEnemyVehicleCountNearby > 0)
 			status.m_sBlockedReason = "hostile vehicles remain";
 		else if (status.m_iEnemyCountNearby > 0)
 			status.m_sBlockedReason = "enemies remain";
+		else if (status.m_eCombatPresenceState == HST_ECombatPresenceState.HST_COMBAT_PRESENCE_COOLING)
+			status.m_sBlockedReason = "combat area cooling";
 		else if (status.m_bConquestGated)
 			status.m_sBlockedReason = "conquest objective incomplete";
 		else
@@ -368,6 +429,10 @@ class HST_ZoneCaptureService
 				status.m_iProgressPercent,
 				blocked
 			);
+			row = row + string.Format(
+				" | combat %1 cooling %2s",
+				HST_CombatPresenceService.StateName(status.m_eCombatPresenceState),
+				status.m_iCombatPresenceCoolingSecondsRemaining);
 			report = report + row;
 
 			emitted++;
@@ -532,20 +597,37 @@ class HST_ZoneCaptureService
 		return 1200;
 	}
 
-	protected int CountLivingPlayersInCaptureRadius(HST_ZoneState zone, HST_BalanceConfig balance)
+	protected void PrepareLivingPlayerScratch()
 	{
+		m_aPlayerIdScratch.Clear();
+		m_aLivingPlayerEntityScratch.Clear();
 		PlayerManager playerManager = GetGame().GetPlayerManager();
-		if (!playerManager || !zone)
-			return 0;
-
-		array<int> playerIds = {};
-		playerManager.GetPlayers(playerIds);
-		float radiusSq = ResolveCaptureRadius(zone, balance) * ResolveCaptureRadius(zone, balance);
-		int count;
-		foreach (int playerId : playerIds)
+		if (!playerManager)
+			return;
+		playerManager.GetPlayers(m_aPlayerIdScratch);
+		foreach (int playerId : m_aPlayerIdScratch)
 		{
 			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
-			if (!IsLivingEntity(playerEntity))
+			if (IsLivingEntity(playerEntity))
+				m_aLivingPlayerEntityScratch.Insert(playerEntity);
+		}
+	}
+
+	protected int CountLivingPlayersInCaptureRadius(
+		HST_ZoneState zone,
+		HST_BalanceConfig balance,
+		bool reusePreparedPlayerScratch = false)
+	{
+		if (!zone)
+			return 0;
+		if (!reusePreparedPlayerScratch)
+			PrepareLivingPlayerScratch();
+
+		float radiusSq = ResolveCaptureRadius(zone, balance) * ResolveCaptureRadius(zone, balance);
+		int count;
+		foreach (IEntity playerEntity : m_aLivingPlayerEntityScratch)
+		{
+			if (!playerEntity || playerEntity.IsDeleted())
 				continue;
 			if (DistanceSq2D(playerEntity.GetOrigin(), zone.m_vPosition) <= radiusSq)
 				count++;
@@ -563,21 +645,24 @@ class HST_ZoneCaptureService
 			return;
 
 		float radius = ResolveCaptureRadius(zone, balance);
-		float radiusSq = radius * radius;
-		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
-		{
-			if (!activeGroup || !state.IsCombatPresentActiveGroup(activeGroup) || activeGroup.m_sFactionKey != resistanceFactionKey)
-				continue;
-			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
-				continue;
-			if (DistanceSq2D(activeGroup.m_vPosition, zone.m_vPosition) > radiusSq)
-				continue;
-
-			int survivorInfantry = Math.Max(0, activeGroup.m_iSurvivorInfantryCount);
-			friendlyInfantry += survivorInfantry;
-			friendlyInfantryStrength += HST_RecruitmentService.ResolveTrainingEffectiveInfantryStrengthForLevel(survivorInfantry, state.m_iTrainingLevel);
-			friendlyVehicles += Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
-		}
+		if (!m_CombatPresence.HasExactFactionContributionNear(
+			state,
+			resistanceFactionKey,
+			zone.m_vPosition,
+			radius))
+			return;
+		HST_CombatPresenceResult presence = m_CombatPresence.QueryExactFactionPresenceNear(
+			state,
+			resistanceFactionKey,
+			zone.m_vPosition,
+			radius);
+		if (!presence || !presence.m_bQueryValid)
+			return;
+		friendlyInfantry = presence.m_iInfantryCount + presence.m_iStaticOperatorCount;
+		friendlyInfantryStrength = HST_RecruitmentService.ResolveTrainingEffectiveInfantryStrengthForLevel(
+			friendlyInfantry,
+			state.m_iTrainingLevel);
+		friendlyVehicles = presence.m_iMannedVehicleCount;
 	}
 
 	void QueueOwnershipTransitionNotification(
@@ -605,28 +690,6 @@ class HST_ZoneCaptureService
 			message);
 		if (notification)
 			notification.m_bOwnershipTransition = true;
-	}
-
-	protected void CountHostilesInCaptureRadius(HST_CampaignState state, HST_ZoneState zone, HST_BalanceConfig balance, string resistanceFactionKey, out int hostileInfantry, out int hostileVehicles)
-	{
-		hostileInfantry = 0;
-		hostileVehicles = 0;
-		if (!state || !zone)
-			return;
-
-		float radiusSq = ResolveCaptureRadius(zone, balance) * ResolveCaptureRadius(zone, balance);
-		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
-		{
-			if (!activeGroup || !state.IsCombatPresentActiveGroup(activeGroup) || activeGroup.m_sFactionKey == resistanceFactionKey)
-				continue;
-			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
-				continue;
-			if (DistanceSq2D(activeGroup.m_vPosition, zone.m_vPosition) > radiusSq)
-				continue;
-
-			hostileInfantry += Math.Max(0, activeGroup.m_iSurvivorInfantryCount);
-			hostileVehicles += Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
-		}
 	}
 
 	protected bool HasIncompleteConquestMission(HST_CampaignState state, HST_ZoneState zone)
@@ -816,19 +879,28 @@ class HST_ZoneCaptureService
 			return null;
 
 		IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
-		if (controlledEntity)
+		if (ChimeraCharacter.Cast(controlledEntity))
 			return controlledEntity;
 
-		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+		IEntity mainEntity = SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+		if (ChimeraCharacter.Cast(mainEntity))
+			return mainEntity;
+		return null;
 	}
 
 	protected bool IsLivingEntity(IEntity entity)
 	{
 		if (!entity)
 			return false;
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (character)
+		{
+			CharacterControllerComponent controller = character.GetCharacterController();
+			return controller && controller.GetLifeState() == ECharacterLifeState.ALIVE
+				&& !controller.IsUnconscious();
+		}
 
-		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
-		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
+		return false;
 	}
 
 	protected float DistanceSq2D(vector a, vector b)

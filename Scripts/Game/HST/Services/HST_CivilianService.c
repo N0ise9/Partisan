@@ -131,15 +131,28 @@ class HST_CivilianService
 	protected ref array<IEntity> m_aRuntimeHelperEntities = {};
 	protected int m_iRuntimeSpawnFailureCount;
 	protected string m_sLastRuntimeSpawnFailurePrefab;
+	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected bool m_bWarnedMissingCivilianCharacterPool;
 	protected bool m_bWarnedMissingCivilianVehicleCatalog;
 	protected int m_iNextOwnershipPolicyReconcileSecond;
 	protected HST_StrategicService m_Strategic;
 	protected HST_OwnershipTransitionService m_OwnershipTransitions;
+	protected HST_CampaignPreset m_Preset;
 
 	void SetStrategicService(HST_StrategicService strategic)
 	{
 		m_Strategic = strategic;
+	}
+
+	void SetCampaignPreset(HST_CampaignPreset preset)
+	{
+		m_Preset = preset;
+	}
+
+	void SetCombatPresenceService(HST_CombatPresenceService combatPresence)
+	{
+		if (combatPresence)
+			m_CombatPresence = combatPresence;
 	}
 
 	bool EnsureCivilianZones(HST_CampaignState state)
@@ -2651,20 +2664,20 @@ class HST_CivilianService
 	{
 		if (!state || !playerEntity)
 			return "WARN state/player missing";
+		if (!m_Preset || m_Preset.m_sResistanceFactionKey.IsEmpty())
+			return "BLOCK combat-presence authority unavailable";
 
 		vector position = playerEntity.GetOrigin();
-		float dangerRadiusSq = 180 * 180;
-		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
-		{
-			if (!group || !state.IsCombatPresentActiveGroup(group))
-				continue;
-			if (group.m_sFactionKey == "FIA" || group.m_sFactionKey == "CIV")
-				continue;
-			if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed")
-				continue;
-			if (DistanceSq2D(group.m_vPosition, position) <= dangerRadiusSq)
-				return "WARN enemy active group nearby";
-		}
+		HST_CombatPresenceResult presence = m_CombatPresence.QueryHostilePresenceNear(
+			state,
+			m_Preset,
+			m_Preset.m_sResistanceFactionKey,
+			position,
+			180.0);
+		if (!presence || !presence.m_bQueryValid)
+			return "BLOCK combat-presence query unavailable";
+		if (presence.m_bHasLiveContributors)
+			return string.Format("WARN verified enemy combat presence nearby | contributors %1", presence.m_iContributorCount);
 
 		return "OK no nearby enemy active group";
 	}

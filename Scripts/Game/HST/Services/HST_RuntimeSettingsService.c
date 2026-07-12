@@ -129,6 +129,7 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "captureDecayPerSecond", settings.m_Capture.m_iDecayPerSecond);
 			ApplyInt(line, "captureAggressionBase", settings.m_Capture.m_iAggressionBase);
 			ApplyInt(line, "captureCounterattackChancePercent", settings.m_Capture.m_iCounterattackChancePercent);
+			ApplyInt(line, "combatPresenceCoolingSeconds", settings.m_Capture.m_iCombatPresenceCoolingSeconds);
 			ApplyInt(line, "activationRadiusMeters", settings.m_World.m_iActivationRadiusMeters);
 			ApplyInt(line, "deactivationRadiusMeters", settings.m_World.m_iDeactivationRadiusMeters);
 			ApplyInt(line, "playerRenderBubbleRadiusMeters", settings.m_World.m_iPlayerRenderBubbleRadiusMeters);
@@ -342,6 +343,13 @@ class HST_RuntimeSettingsService
 			// schema-21 default and is migrated to the new true-town default.
 			if (settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown == 2)
 				settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown = 5;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 23)
+		{
+			if (settings.m_Capture.m_iCombatPresenceCoolingSeconds <= 0)
+				settings.m_Capture.m_iCombatPresenceCoolingSeconds = 30;
 			changed = true;
 		}
 
@@ -586,7 +594,9 @@ class HST_RuntimeSettingsService
 		lines.Insert("    \"_comment_captureAggressionBase\": \"Global aggression added by a completed capture.\",");
 		lines.Insert(string.Format("    \"captureAggressionBase\": %1,", settings.m_Capture.m_iAggressionBase));
 		lines.Insert("    \"_comment_captureCounterattackChancePercent\": \"Percent chance that capture pressure queues enemy counterattack pressure.\",");
-		lines.Insert(string.Format("    \"captureCounterattackChancePercent\": %1", settings.m_Capture.m_iCounterattackChancePercent));
+		lines.Insert(string.Format("    \"captureCounterattackChancePercent\": %1,", settings.m_Capture.m_iCounterattackChancePercent));
+		lines.Insert("    \"_comment_combatPresenceCoolingSeconds\": \"Seconds an area remains cooling after its last verified combat contributor disappears (1-300).\",");
+		lines.Insert(string.Format("    \"combatPresenceCoolingSeconds\": %1", settings.m_Capture.m_iCombatPresenceCoolingSeconds));
 		lines.Insert("  },");
 		lines.Insert("  \"world\": {");
 		lines.Insert("    \"_comment\": \"Runtime activation, render bubble, mission target search, and default mission duration.\",");

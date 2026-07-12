@@ -224,6 +224,9 @@ class HST_BalanceConfig
 	[Attribute(defvalue: "45", uiwidget: UIWidgets.EditBox, desc: "Counterattack chance after capture, in percent.", category: "HST Capture")]
 	int m_iCaptureCounterattackChancePercent = 45;
 
+	[Attribute(defvalue: "30", uiwidget: UIWidgets.EditBox, desc: "Seconds a combat area remains cooling after its last verified contributor disappears.", category: "HST Capture")]
+	int m_iCombatPresenceCoolingSeconds = 30;
+
 	[Attribute(desc: "Arsenal item classification and unlock rules.", category: "HST Loot")]
 	ref array<ref HST_ArsenalItemRule> m_aArsenalItemRules = {};
 

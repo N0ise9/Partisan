@@ -1,5 +1,29 @@
 # h-istasi
 
+Active development is provisionally on campaign Schema 63 and runtime-settings
+Schema 23. The new canonical combat-presence authority is crew-aware: fresh
+registered physical samples count conscious infantry, operators of usable armed
+mobile vehicles, and operators of usable static weapons, while cargo occupants,
+uncrewed/abandoned vehicles, destroyed or burning platforms, and stale or
+quarantined groups do not create combat pressure. Zones persist bounded
+contributor diagnostics through `HOT -> COOLING -> COLD`; cooling defaults to 30
+seconds and restore/migration fails conservatively to `COLD` when current
+authority is malformed. Capture, missions, HQ threat, civilians, and enemy
+strategy now share this authority. Render activation also retains an active zone
+until the larger deactivation radius is crossed. Foundation passes on this
+Schema-63 tree with 681 script-symbol references. A normal Workbench Script
+Editor open compiled/created the Game module at 5,788 files/11,670 classes with
+CRC `cb6475ff`, remained responsive without a crash, and produced no HST script
+errors. Explicit Script Editor validation then passed for WORKBENCH, PC, XBOX,
+PS4, and PS5 and exited with code `0`; all Workbench instances were closed after
+testing. Campaign Debug, packaged runtime, real save/restart, and multiplayer
+proof remain pending.
+
+The provisional Schema-63 build metadata currently uses implementation-basis
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7` with label
+`schema63-canonical-combat-presence`; this pair is not sealed until the current
+validation and commit cycle completes.
+
 Schema 62 is the latest sealed source/Workbench checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
@@ -81,6 +105,20 @@ The repository contains a broad-alpha campaign foundation:
   diagnostics
 - Physical enemy response fold-back for support/QRF groups that leave the event
   bubble, preserving survivor state while removing live runtime handles
+- Provisional Schema-63 canonical combat presence with one shared query/heat
+  service for capture, mission contact, HQ threat, civilian safety, and enemy
+  strategy. Fresh registered physical samples distinguish conscious dismounted
+  infantry, usable occupied armed mobile vehicles, and usable occupied static
+  weapons; cargo and empty, destroyed, burning, or immobile platforms do not
+  contribute. Durable zone diagnostics transition `HOT -> COOLING -> COLD` with
+  a runtime-settings Schema-23 default cooling window of 30 seconds. Unresolved
+  spawned-group authority invalidates the query and blocks capture/safety
+  decisions instead of guessing; capture also accepts only conscious character
+  players, never spectator or Game Master proxies. Contribution, authority-gap,
+  and radius-result caches plus an indexed physical registry and reusable
+  sampling buffers keep the one-second path allocation-light. Foundation,
+  normal Workbench compile/create, and explicit five-configuration Script
+  validation pass; Campaign Debug and packaged runtime execution remain open.
 - Mixed personnel/vehicle active groups now use living personnel—not an intact
   empty vehicle—as combat-effectiveness authority. Once previously observed
   personnel reach zero outside population grace, the group becomes terminal,
@@ -781,9 +819,15 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-Schema 62 is the latest sealed source/Workbench checkpoint and Schema 61 is its
-preceding sealed marker-projection foundation. Schema 62 centralizes ownership
-mutations and adds
+Schema 63 is the active provisional source tree. It centralizes crew-aware
+combat presence, zone heat, conservative restore, and render activation/
+deactivation hysteresis. Foundation passes at 681 references and a normal
+Workbench Script Editor open compiled/created the Game module at 5,788 files/
+11,670 classes with CRC `cb6475ff`, no HST script errors, and no crash. Explicit
+validation passes for all five configurations; Schema 63 is not yet a sealed
+checkpoint until its exact build identity is stamped. Schema 62 remains the latest sealed source/Workbench
+checkpoint and Schema 61 its preceding sealed marker-projection foundation.
+Schema 62 centralizes ownership mutations and adds
 source-revision correlation to the existing marker stream; it does not certify
 packaged multiplayer convergence and does not replicate the full command menu,
 tasks, notifications, or dynamic player markers. Packaged schema-50 through
@@ -791,9 +835,9 @@ schema-62 certification remains independently open. Static or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Publish only the sealed Schema-62 canonical ownership-transition identity for
-   the next server check; runtime evidence must report the same `HST_BuildInfo`
-   identity as the package under test.
+1. Seal the exact provisional Schema-63 `HST_BuildInfo` identity and publish only
+   that sealed identity for the next server check. Runtime evidence
+   must report the same identity as the package under test.
 2. In that published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
    exact-patrol settlement; post-liberation security; counterattack/economy/event
@@ -907,11 +951,14 @@ networking, reconnect, or JIP.
     change, campaign setup, packaged networking, reconnect, and JIP. Historical
     POWs, `rescue_refugees`, and unsupported rescue families must remain contract
     `0`.
-16. Continue Blueprint Phase 7 after the Schema-62 checkpoint with durable
-    combat-presence/heat authority and broader town-truth consequences. The
-    canonical ownership service is now the mutation boundary, but generalized
-    encounter outcomes, hot/cooling diagnostics, contacted-town truth, and
-    deeper political/facility behavior remain unfinished.
+16. Runtime-prove the provisional Schema-63 combat-presence boundary: conscious
+    registered infantry, one count per operational occupied armed mobile or
+    static platform, cargo and empty-vehicle exclusion, exact virtual survivor
+    continuity, shared capture/mission/HQ/civilian/enemy-strategy consumers,
+    30-second `HOT -> COOLING -> COLD` timing, conservative restore, and distinct
+    activation/deactivation radii. Then continue Blueprint Phase 7 with broader
+    encounter outcomes, contacted-town truth, and deeper political/facility
+    consequences.
 
 The schema-50 player exact-QRF projection slice, schema-51 enemy defensive-QRF
 slice, schema-52 exact mission-convoy slice, schema-53 exact enemy-patrol slice,
@@ -951,7 +998,9 @@ operations milestone: generalized live-contact authority, terrain and
   other enemy orders, historical patrols, and full campaign/menu/task client
   projection remain future slices. Schema 61 implements only marker projection,
   and Schema 62 adds canonical location ownership without widening an operation
-  contract. The assassination-guard family is exhausted after Schema 57;
+  contract. Schema 63 likewise adds no force family; it gives existing force
+  projections one shared crew-aware combat-presence/heat boundary. The
+  assassination-guard family is exhausted after Schema 57;
   Schema 58 implements the first rescue vertical only. Schema 59 separately
   implements the exact radio-site lifecycle. Schema 60 adds only the new player
   Search-and-Destroy force consumer; further rescue and unsupported mission/
@@ -974,15 +1023,18 @@ Schema 62 is the latest sealed source/Workbench checkpoint at implementation
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
 symbol references; Workbench validation passes at 5,785 files/11,652 classes
 with CRC `22c13a32` and zero script errors. Its normal open remained responsive
-without a crash and zero Workbench processes survived. A republished server/client test is
-still required
-before those repairs, either exact-QRF projection path, or any source-validated
+without a crash and zero Workbench processes survived. A republished server/
+client test is still required before those repairs, either exact-QRF projection
+path, or any source-validated
 schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/
   schema-55 officer-guard/schema-56 traitor-guard/schema-57 spec-ops-guard/
   schema-58 exact POW-rescue/Schema-59 radio-site/Schema-60 exact Search-and-
-  Destroy paths, the Schema-61 marker stream, or the Schema-62 ownership/source-
-  revision extension
-is called runtime-proven. The late-admin
+  Destroy paths, the Schema-61 marker stream, the Schema-62 ownership/source-
+  revision extension, or the provisional Schema-63 combat-presence/heat and
+render-hysteresis slice can be called runtime-proven. The Schema-63 tree has a
+passing Foundation gate plus normal Workbench compile/create and explicit
+five-configuration validation evidence, but still requires a sealed build
+identity before it becomes publishable. The late-admin
 role-change guard, campaign-debug
 isolation, convoy seating, physical support movement/arrival/recall, and restart
 boundaries remain open as separate gates.

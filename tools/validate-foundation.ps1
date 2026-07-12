@@ -5600,6 +5600,7 @@ foreach ($requiredSettingsEntry in @(
 		"captureDecayPerSecond",
 		"captureAggressionBase",
 		"captureCounterattackChancePercent",
+		"combatPresenceCoolingSeconds",
 		"autosaveIntervalSeconds",
 		"activationRadiusMeters",
 		"deactivationRadiusMeters",
@@ -5665,8 +5666,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 22") {
-	throw "Runtime settings schema must be 22 for the true-town civilian traffic default migration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 23") {
+	throw "Runtime settings schema must be 23 for configurable combat-presence cooling"
 }
 if ($scriptText -notmatch 'BUILD_SHA\s*=\s*"[0-9a-f]{40}"') {
 	throw "HST_BuildInfo.BUILD_SHA must be a full lowercase Git revision"
@@ -6945,21 +6946,18 @@ foreach ($requiredSchema52OperationalGroupEntry in @(
 	}
 }
 foreach ($requiredSchema52CombatGroupEntry in @(
-		'IsOperationalActiveGroup(group)',
-		'element.m_iSurvivingCrewCount > 0',
-		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
-		'HST_CONVOY_ELEMENT_DISPOSITION_RETIRED'
+		'HST_CombatPresenceService.IsGroupCombatPresent(this, group)'
 	)) {
 	if ($schema52CombatGroupBlock -notmatch [regex]::Escape($requiredSchema52CombatGroupEntry)) {
 		throw "Schema-52 combat-presence policy must exclude settled/quarantined and crewless recovery archives: $requiredSchema52CombatGroupEntry"
 	}
 }
 $schema52OperationalConsumerContracts = @{
-	"Scripts/Game/HST/Services/HST_ZoneCaptureService.c" = 'state.IsCombatPresentActiveGroup(activeGroup)'
-	"Scripts/Game/HST/Services/HST_CivilianService.c" = 'state.IsCombatPresentActiveGroup(group)'
-	"Scripts/Game/HST/Services/HST_HQService.c" = 'state.IsCombatPresentActiveGroup(group)'
+	"Scripts/Game/HST/Services/HST_ZoneCaptureService.c" = 'HST_CombatPresenceService'
+	"Scripts/Game/HST/Services/HST_CivilianService.c" = 'HST_CombatPresenceService'
+	"Scripts/Game/HST/Services/HST_HQService.c" = 'HST_CombatPresenceService'
 	"Scripts/Game/HST/Services/HST_SpawnPlacementService.c" = 'state.IsOperationalActiveGroup(activeGroup)'
-	"Scripts/Game/HST/Services/HST_MissionRuntimeService.c" = 'state.IsCombatPresentActiveGroup(group)'
+	"Scripts/Game/HST/Services/HST_MissionRuntimeService.c" = 'HST_CombatPresenceService'
 	"Scripts/Game/HST/Services/HST_CommandUIService.c" = 'state.IsOperationalActiveGroup(activeGroup)'
 	"Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c" = 'm_State.IsOperationalActiveGroup(activeGroup)'
 }
@@ -12200,21 +12198,19 @@ if ($qrfTerminalMarkerIndex -lt 0 -or $qrfUnresolvedMarkerIndex -lt 0 -or $qrfTe
 	throw "QRF marker visibility must reject a linked terminal group before unresolved-QRF visibility"
 }
 
-$activeGroupCombatPredicate = [regex]::Match($physicalWarServiceText, '(?s)protected bool IsActiveGroupCombatEffective\(.*?\r?\n\t\}')
+$activeGroupCombatPredicate = [regex]::Match($physicalWarServiceText, '(?s)protected bool ResolveArrivedQRFs\(.*?\r?\n\t\}')
 if (!$activeGroupCombatPredicate.Success) {
-	throw "Could not locate active-group combat-effectiveness predicate"
+	throw "Could not locate active-group combat-presence arrival predicate"
 }
 foreach ($requiredCombatControlEntry in @(
-	"if (activeGroup.m_iInfantryCount > 0)",
-	"activeGroup.m_iSurvivorInfantryCount > 0",
-	"activeGroup.m_iSurvivorVehicleCount > 0"
+	"m_CombatPresence.TryResolveGroupCombatPresence("
 )) {
 	if ($activeGroupCombatPredicate.Value -notmatch [regex]::Escape($requiredCombatControlEntry)) {
-		throw "Active-group combat effectiveness is missing mixed/vehicle-only control entry: $requiredCombatControlEntry"
+		throw "Active-group arrival authority is missing canonical combat-presence control: $requiredCombatControlEntry"
 	}
 }
-if ($activeGroupCombatPredicate.Value -match [regex]::Escape("activeGroup.m_iSurvivorInfantryCount > 0 || activeGroup.m_iSurvivorVehicleCount > 0")) {
-	throw "A mixed active group must not remain combat-effective from an intact crewless vehicle alone"
+if ($activeGroupCombatPredicate.Value -match 'm_iSurvivorVehicleCount|m_iVehicleCount') {
+	throw "Active-group combat effectiveness must not infer presence from an aggregate vehicle record"
 }
 
 $mixedLifecycleUpdateIndex = $physicalWarServiceText.IndexOf('TryEliminateCrewlessMixedActiveGroup(state, activeGroup, "survivor update")')
@@ -21329,5 +21325,399 @@ foreach ($schema62FocusedCoordinatorProofEntry in @(
 }
 
 Write-Host "Schema-62 revisioned canonical ownership state/save authority, conservative migration, bounded replay retention/retry, all-cause caller convergence, retry-safe security settlement, nested publication correlation, and source proofs OK"
+
+# Schema 63: one crew-aware combat-presence predicate, deterministic zone heat,
+# conservative persistence, and complete gameplay-consumer convergence.
+$schema63RequiredFiles = @(
+	"Scripts/Game/HST/Services/HST_CombatPresenceService.c",
+	"Scripts/Game/HST/Services/HST_CombatPresenceSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_CombatPresenceProofService.c"
+)
+foreach ($schema63RequiredFile in $schema63RequiredFiles) {
+	if (-not (Test-Path $schema63RequiredFile)) {
+		throw "Schema-63 combat-presence implementation file is missing: $schema63RequiredFile"
+	}
+}
+
+$schema63TypesText = Get-Content -Raw "Scripts/Game/HST/HST_Types.c"
+$schema63StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema63SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema63PresenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CombatPresenceService.c"
+$schema63SaveValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CombatPresenceSaveValidationService.c"
+$schema63ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CombatPresenceProofService.c"
+$schema63PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema63CaptureText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCaptureService.c"
+$schema63MissionText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
+$schema63HQText = Get-Content -Raw "Scripts/Game/HST/Services/HST_HQService.c"
+$schema63CivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
+$schema63EnemyCommanderText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
+$schema63CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema63RuntimeSettingsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_RuntimeSettings.c"
+$schema63SettingsServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_RuntimeSettingsService.c"
+$schema63BalanceText = Get-Content -Raw "Scripts/Game/HST/Config/HST_ConfigModels.c"
+$schema63BalanceConfigText = Get-Content -Raw "Configs/HST/Balance/HST_CE311_Balance.conf"
+
+if ($schema63StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*63;') {
+	throw "Schema-63 combat presence requires HST_CampaignState schema 63"
+}
+foreach ($schema63StateEntry in @(
+	'HST_ECombatPresenceState',
+	'HST_COMBAT_PRESENCE_COLD',
+	'HST_COMBAT_PRESENCE_HOT',
+	'HST_COMBAT_PRESENCE_COOLING'
+)) {
+	if ($schema63TypesText.IndexOf($schema63StateEntry) -lt 0) {
+		throw "Schema-63 combat-presence enum contract is missing: $schema63StateEntry"
+	}
+}
+foreach ($schema63ZoneEntry in @(
+	'm_eCombatPresenceState',
+	'm_iCombatPresenceLastHotSecond',
+	'm_iCombatPresenceCoolingUntilSecond',
+	'm_iCombatPresenceRevision',
+	'm_iCombatPresenceInfantryCount',
+	'm_iCombatPresenceMannedVehicleCount',
+	'm_iCombatPresenceStaticOperatorCount',
+	'm_iCombatPresenceCurrentOperationCount',
+	'm_iCombatPresenceRecentFireCount',
+	'm_sCombatPresenceContributorHash',
+	'm_sCombatPresenceReason',
+	'm_aCombatPresenceContributorIds',
+	'm_aCombatPresenceContributorFacts'
+)) {
+	if ($schema63StateText.IndexOf($schema63ZoneEntry) -lt 0) {
+		throw "Schema-63 durable zone heat field is missing: $schema63ZoneEntry"
+	}
+}
+foreach ($schema63SampleEntry in @(
+	'm_iCombatEffectiveInfantryCount',
+	'm_iOperationalMannedVehicleCount',
+	'm_iCombatEffectiveStaticOperatorCount',
+	'm_iCombatPresenceSampleSecond',
+	'm_bCombatPresenceSampleAuthoritative',
+	'm_sCombatPresenceSampleReason'
+)) {
+	if ($schema63StateText.IndexOf($schema63SampleEntry) -lt 0) {
+		throw "Schema-63 active-group physical sample field is missing: $schema63SampleEntry"
+	}
+	if ($schema63SaveText.IndexOf($schema63SampleEntry) -lt 0) {
+		throw "Schema-63 save deep copy is missing a physical sample field: $schema63SampleEntry"
+	}
+}
+
+foreach ($schema63SettingsEntry in @(
+	'm_iCombatPresenceCoolingSeconds = 30',
+	'SCHEMA_VERSION = 23',
+	'combatPresenceCoolingSeconds'
+)) {
+	if ($schema63RuntimeSettingsText.IndexOf($schema63SettingsEntry) -lt 0 -and
+		$schema63SettingsServiceText.IndexOf($schema63SettingsEntry) -lt 0 -and
+		$schema63BalanceText.IndexOf($schema63SettingsEntry) -lt 0 -and
+		$schema63BalanceConfigText.IndexOf($schema63SettingsEntry) -lt 0) {
+		throw "Schema-63 combat-presence settings contract is missing: $schema63SettingsEntry"
+	}
+}
+foreach ($schema63SaveEntry in @(
+	'HST_CombatPresenceSaveValidationService',
+	'schema63CombatPresenceValidation.Normalize(this, restoredSchemaVersion)',
+	'm_eCombatPresenceState',
+	'm_iCombatPresenceCoolingUntilSecond',
+	'm_aCombatPresenceContributorIds',
+	'm_aCombatPresenceContributorFacts'
+)) {
+	if ($schema63SaveText.IndexOf($schema63SaveEntry) -lt 0) {
+		throw "Schema-63 save capture/restore wiring is missing: $schema63SaveEntry"
+	}
+}
+
+foreach ($schema63PresenceEntry in @(
+	'class HST_CombatPresenceService',
+	'InvalidateCache()',
+	'EnsureContributionCache(',
+	'm_iContributionCacheSecond',
+	'QueryHostilePresenceNear(',
+	'QueryExactFactionPresenceNear(',
+	'QueryZoneHostilePresence(',
+	'HasHostileContributionNear(',
+	'HasExactFactionContributionNear(',
+	'TryResolveGroupCombatPresence(',
+	'TickAllZoneHeat(',
+	'TickZoneHeat(',
+	'IsFreshAuthoritativeSample(',
+	'IsEligibleVirtualRecord(',
+	'IsCombatEligibleConvoyElement(',
+	'BuildPhysicalAuthorityGap(',
+	'ApplyMatchingAuthorityGaps(',
+	'm_iUnresolvedAuthorityCount',
+	'ApplyHotSnapshot(',
+	'BeginCooling(',
+	'ApplyColdSnapshot(',
+	'combat area awaiting cooling transition',
+	'MAX_PERSISTED_CONTRIBUTORS = 24',
+	'group.m_iOperationalMannedVehicleCount',
+	'convoyElement.m_iSurvivingCrewCount'
+)) {
+	if ($schema63PresenceText.IndexOf($schema63PresenceEntry) -lt 0) {
+		throw "Schema-63 canonical combat-presence service contract is missing: $schema63PresenceEntry"
+	}
+}
+$schema63BuildContributionBlock = Get-ScriptMethodBlock $schema63PresenceText 'protected HST_CombatPresenceContribution BuildGroupContribution('
+foreach ($schema63StrictContributionEntry in @(
+	'group.m_bSpawnedEntity',
+	'IsFreshAuthoritativeSample(group, nowSecond)',
+	'group.m_iCombatEffectiveInfantryCount',
+	'group.m_iOperationalMannedVehicleCount',
+	'group.m_iCombatEffectiveStaticOperatorCount',
+	'group.m_iDurableLivingInfantryCount',
+	'group.m_iSurvivorInfantryCount'
+)) {
+	if ([string]::IsNullOrEmpty($schema63BuildContributionBlock) -or
+		$schema63BuildContributionBlock.IndexOf($schema63StrictContributionEntry) -lt 0) {
+		throw "Schema-63 group contribution predicate is incomplete: $schema63StrictContributionEntry"
+	}
+}
+if ($schema63BuildContributionBlock.IndexOf('group.m_iSurvivorVehicleCount') -ge 0 -or
+	$schema63BuildContributionBlock.IndexOf('group.m_iVehicleCount') -ge 0) {
+	throw "Schema-63 combat presence must never infer a live contributor from an aggregate vehicle record"
+}
+
+$schema63SamplerBlock = Get-ScriptMethodBlock $schema63PhysicalText 'protected void ResolveRegisteredCombatPresenceSample('
+foreach ($schema63SamplerEntry in @(
+	'controller.GetLifeState() != ECharacterLifeState.ALIVE',
+	'controller.IsUnconscious()',
+	'CargoCompartmentSlot.Cast(compartment)',
+	'TurretCompartmentSlot.Cast(compartment)',
+	'PilotCompartmentSlot.Cast(compartment)',
+	'SCR_AIVehicleUsageComponent.FindOnNearestParent',
+	'EAIVehicleType.STATIC_WEAPON',
+	'EAIVehicleType.STATIC_ARTILLERY',
+	'IsCombatPresencePlatformOperational',
+	'm_aCombatPresenceCountedPlatformScratch.Find(platform)'
+)) {
+	if ([string]::IsNullOrEmpty($schema63SamplerBlock) -or
+		$schema63SamplerBlock.IndexOf($schema63SamplerEntry) -lt 0) {
+		throw "Schema-63 crew-aware native physical sampler is missing: $schema63SamplerEntry"
+	}
+}
+$schema63PlatformBlock = Get-ScriptMethodBlock $schema63PhysicalText 'protected bool IsCombatPresencePlatformOperational('
+foreach ($schema63PlatformEntry in @(
+	'EDamageState.DESTROYED',
+	'VehicleIsOnFire',
+	'VehicleCanMove'
+)) {
+	if ([string]::IsNullOrEmpty($schema63PlatformBlock) -or
+		$schema63PlatformBlock.IndexOf($schema63PlatformEntry) -lt 0) {
+		throw "Schema-63 operational platform filter is missing: $schema63PlatformEntry"
+	}
+}
+
+foreach ($schema63Consumer in @(
+	@('zone capture', $schema63CaptureText),
+	@('mission runtime', $schema63MissionText),
+	@('HQ threat', $schema63HQText),
+	@('civilian threat', $schema63CivilianText),
+	@('enemy commander', $schema63EnemyCommanderText)
+)) {
+	if ($schema63Consumer[1].IndexOf('HST_CombatPresenceService') -lt 0) {
+		throw "Schema-63 gameplay consumer does not use canonical combat presence: $($schema63Consumer[0])"
+	}
+}
+foreach ($schema63SharedConsumerEntry in @(
+	'm_ZoneCapture.SetCombatPresenceService(m_CombatPresence)',
+	'm_MissionRuntime.SetCombatPresenceService(m_CombatPresence)',
+	'm_HQ.SetCombatPresenceService(m_CombatPresence)',
+	'm_Civilians.SetCombatPresenceService(m_CombatPresence)',
+	'm_EnemyCommander.SetCombatPresenceService(m_CombatPresence)'
+)) {
+	if ($schema63CoordinatorText.IndexOf($schema63SharedConsumerEntry) -lt 0) {
+		throw "Schema-63 gameplay consumer does not share the canonical per-second contribution cache: $schema63SharedConsumerEntry"
+	}
+}
+if ($schema63CaptureText.IndexOf('CountHostilesInCaptureRadius') -ge 0 -or
+	$schema63CaptureText.IndexOf('m_iSurvivorVehicleCount') -ge 0) {
+	throw "Schema-63 zone capture still contains a legacy raw hostile-presence predicate"
+}
+foreach ($schema63FailClosedConsumerEntry in @(
+	'!presence.m_bQueryValid || presence.m_bBlocksProgress',
+	'combat-presence query unavailable',
+	'enemy combat-presence authority unresolved near HQ'
+)) {
+	if ($schema63MissionText.IndexOf($schema63FailClosedConsumerEntry) -lt 0 -and
+		$schema63CivilianText.IndexOf($schema63FailClosedConsumerEntry) -lt 0 -and
+		$schema63HQText.IndexOf($schema63FailClosedConsumerEntry) -lt 0) {
+		throw "Schema-63 unresolved physical authority does not fail closed in a gameplay consumer: $schema63FailClosedConsumerEntry"
+	}
+}
+$schema63QRFArrivalBlock = Get-ScriptMethodBlock $schema63PhysicalText 'protected bool ResolveArrivedQRFs('
+$schema63QRFAuthorityIndex = $schema63QRFArrivalBlock.IndexOf('m_CombatPresence.TryResolveGroupCombatPresence(')
+$schema63QRFResolveIndex = $schema63QRFArrivalBlock.IndexOf('qrf.m_bResolved = true;', $schema63QRFAuthorityIndex)
+if ([string]::IsNullOrEmpty($schema63QRFArrivalBlock) -or
+	$schema63QRFAuthorityIndex -lt 0 -or $schema63QRFResolveIndex -lt 0 -or
+	$schema63QRFAuthorityIndex -gt $schema63QRFResolveIndex -or
+	$schema63QRFArrivalBlock.IndexOf('continue;', $schema63QRFAuthorityIndex) -lt 0) {
+	throw "Schema-63 QRF arrival must defer unresolved combat authority before terminal resolution"
+}
+
+$schema63FrameBlock = Get-ScriptMethodBlock $schema63CoordinatorText 'override void EOnFrame('
+$schema63PhysicalIndex = $schema63FrameBlock.IndexOf('m_PhysicalWar.UpdateZoneActivation(')
+$schema63SampleIndex = $schema63FrameBlock.IndexOf('m_PhysicalWar.RefreshCombatPresenceSamples(')
+$schema63PostPhysicalSampleIndex = $schema63FrameBlock.LastIndexOf('m_PhysicalWar.RefreshCombatPresenceSamples(')
+$schema63MissionRuntimeIndex = $schema63FrameBlock.IndexOf('m_MissionRuntime.Tick(')
+$schema63HeatIndex = $schema63FrameBlock.IndexOf('m_CombatPresence.TickAllZoneHeat(')
+$schema63CaptureIndex = $schema63FrameBlock.IndexOf('m_ZoneCapture.TickContestedCapture(')
+if ([string]::IsNullOrEmpty($schema63FrameBlock) -or $schema63PhysicalIndex -lt 0 -or
+	$schema63SampleIndex -lt 0 -or $schema63MissionRuntimeIndex -lt 0 -or
+	$schema63HeatIndex -lt 0 -or $schema63CaptureIndex -lt 0 -or
+	$schema63SampleIndex -gt $schema63MissionRuntimeIndex -or
+	$schema63SampleIndex -gt $schema63PhysicalIndex -or
+	$schema63PostPhysicalSampleIndex -le $schema63PhysicalIndex -or
+	$schema63PostPhysicalSampleIndex -gt $schema63HeatIndex -or
+	$schema63PhysicalIndex -gt $schema63HeatIndex -or $schema63HeatIndex -gt $schema63CaptureIndex) {
+	throw "Schema-63 coordinator must sample before gameplay consumers, resample after physical projection, then update heat before capture"
+}
+$schema63PostPhysicalFrame = $schema63FrameBlock.Substring($schema63PhysicalIndex)
+$schema63PostPhysicalInvalidateIndex = $schema63PostPhysicalFrame.IndexOf('m_CombatPresence.InvalidateCache()')
+$schema63PostPhysicalHeatIndex = $schema63PostPhysicalFrame.IndexOf('m_CombatPresence.TickAllZoneHeat(')
+if ($schema63PostPhysicalInvalidateIndex -lt 0 -or $schema63PostPhysicalHeatIndex -lt 0 -or
+	$schema63PostPhysicalInvalidateIndex -gt $schema63PostPhysicalHeatIndex) {
+	throw "Schema-63 contribution cache must be invalidated after physical mutation and before zone heat aggregation"
+}
+$schema63ActivationBlock = Get-ScriptMethodBlock $schema63PhysicalText 'protected bool IsAnyLivingPlayerNearZone('
+foreach ($schema63ActivationEntry in @(
+	'zone.m_iActivationRadiusMeters',
+	'if (zone.m_bActive)',
+	'balance.m_iDeactivationRadiusMeters - balance.m_iActivationRadiusMeters',
+	'radius += deactivationMargin'
+)) {
+	if ([string]::IsNullOrEmpty($schema63ActivationBlock) -or
+		$schema63ActivationBlock.IndexOf($schema63ActivationEntry) -lt 0) {
+		throw "Schema-63 physical activation hysteresis is missing: $schema63ActivationEntry"
+	}
+}
+if ($schema63ActivationBlock.IndexOf('Math.Max(radius, balance.m_iDeactivationRadiusMeters)') -ge 0) {
+	throw "Schema-63 authored activation overrides must retain a positive deactivation margin"
+}
+
+$schema63UpdateQRFBlock = Get-ScriptMethodBlock $schema63PhysicalText 'protected bool UpdateQRF('
+foreach ($schema63QRFPressureEntry in @(
+	'm_CombatPresence.QueryZoneHostilePresence(',
+	'zone.m_iResistanceCaptureProgress > 0',
+	'!pressure.m_bQueryValid',
+	'!pressure.m_bHasLiveContributors'
+)) {
+	if ([string]::IsNullOrEmpty($schema63UpdateQRFBlock) -or
+		$schema63UpdateQRFBlock.IndexOf($schema63QRFPressureEntry) -lt 0) {
+		throw "Schema-63 legacy QRF pressure gate is not canonical: $schema63QRFPressureEntry"
+	}
+}
+if ($schema63UpdateQRFBlock.IndexOf('zone.m_bActive') -ge 0) {
+	throw "Schema-63 legacy QRF strategy must not depend on render-active state"
+}
+
+$schema63VerifiedPressureBlock = Get-ScriptMethodBlock $schema63EnemyCommanderText 'protected bool HasVerifiedHostilePresenceAtZone('
+if ([string]::IsNullOrEmpty($schema63VerifiedPressureBlock) -or
+	$schema63VerifiedPressureBlock.IndexOf('presence && presence.m_bQueryValid && presence.m_bHasLiveContributors') -lt 0 -or
+	$schema63VerifiedPressureBlock.IndexOf('!presence.m_bQueryValid ||') -ge 0) {
+	throw "Schema-63 enemy strategy must not manufacture verified pressure from unresolved authority"
+}
+
+$schema63TickAllHeatBlock = Get-ScriptMethodBlock $schema63PresenceText 'bool TickAllZoneHeat('
+foreach ($schema63HeatHotPathEntry in @(
+	'm_aHostileContributionScratch',
+	'HasCachedContributionNear(',
+	'HST_COMBAT_PRESENCE_COLD'
+)) {
+	if ([string]::IsNullOrEmpty($schema63TickAllHeatBlock) -or
+		$schema63TickAllHeatBlock.IndexOf($schema63HeatHotPathEntry) -lt 0) {
+		throw "Schema-63 zone-heat hot path does not skip empty COLD allocations: $schema63HeatHotPathEntry"
+	}
+}
+$schema63CaptureTickBlock = Get-ScriptMethodBlock $schema63CaptureText 'bool TickContestedCapture('
+if ([string]::IsNullOrEmpty($schema63CaptureTickBlock) -or
+	$schema63CaptureTickBlock.IndexOf('true)') -lt 0 -or
+	$schema63CaptureText.IndexOf('skipHostileQueryWithoutResistancePresence') -lt 0 -or
+	$schema63CaptureText.IndexOf('m_aPlayerIdScratch') -lt 0 -or
+	$schema63CaptureText.IndexOf('m_aLivingPlayerEntityScratch') -lt 0 -or
+	$schema63CaptureTickBlock.IndexOf('PrepareLivingPlayerScratch()') -lt 0) {
+	throw "Schema-63 capture hot path must skip hostile result construction until resistance presence exists"
+}
+foreach ($schema63TopologyEntry in @(
+	'HasCombatPresenceRuntimeTopologyChangedSinceLastSample()',
+	'BuildCombatPresenceRuntimeTopologySignature()',
+	'group.GetPlayerAndAgentCount()',
+	'entity.GetID().ToString().Hash()'
+)) {
+	if ($schema63PhysicalText.IndexOf($schema63TopologyEntry) -lt 0 -and
+		$schema63CoordinatorText.IndexOf($schema63TopologyEntry) -lt 0) {
+		throw "Schema-63 conditional post sampler lacks topology authority: $schema63TopologyEntry"
+	}
+}
+if ($activeGroupLifecycleProofText.IndexOf('HST_CombatPresenceService.IsGroupCombatPresent(state, activeGroup)') -lt 0) {
+	throw "Schema-63 active-group lifecycle proof must use canonical combat-presence authority"
+}
+
+foreach ($schema63ValidationEntry in @(
+	'SCHEMA_VERSION = 63',
+	'InvalidatePhysicalSamples(',
+	'ApplyColdBaseline(',
+	'ValidateHot(',
+	'ValidateCooling(',
+	'ValidateCold(',
+	'MAX_CONTRIBUTORS = 24',
+	'zone.m_iCombatPresenceCoolingUntilSecond',
+	'restoredElapsedSecond',
+	'coolingDuration < 1 || coolingDuration > 300',
+	'zone.m_iCombatPresenceCoolingUntilSecond <= restoredElapsedSecond',
+	'BuildContributorHash('
+)) {
+	if ($schema63SaveValidationText.IndexOf($schema63ValidationEntry) -lt 0) {
+		throw "Schema-63 save validation or migration contract is missing: $schema63ValidationEntry"
+	}
+}
+foreach ($schema63ProofEntry in @(
+	'ProveEmptyVehicleExcluded',
+	'ProveAuthoritativeSamples',
+	'ProveRejectedRows',
+	'ProveHeatLifecycle',
+	'ProveSchema62Migration',
+	'ProveSchema63CoolingRestore',
+	'ProveMalformedCurrentHeat',
+	'ProveContributorDeterminism',
+	'hotTransitionGuardExact',
+	'SetPhysicalSample(source, 140, 0, 0, 0)',
+	'SetPhysicalSample(source, 141, 0, 0, 0)',
+	'proof_unbounded_cooling',
+	'malformed_restore_sample',
+	'sampleInvalidated',
+	'm_bEmptyVehicleExcludedExact',
+	'm_bContributorDeterminismExact',
+	'AllExact()'
+)) {
+	if ($schema63ProofText.IndexOf($schema63ProofEntry) -lt 0) {
+		throw "Schema-63 deterministic combat-presence proof is missing: $schema63ProofEntry"
+	}
+}
+$schema63ForceDebugBlock = Get-ScriptMethodBlock $schema63CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase('
+$schema63AppendIndex = $schema63ForceDebugBlock.IndexOf('AppendCampaignDebugCombatPresenceAssertions(forceCase)')
+$schema63FinalizeIndex = $schema63ForceDebugBlock.IndexOf('FinalizeCampaignDebugCaseFromAssertions(forceCase)')
+if ([string]::IsNullOrEmpty($schema63ForceDebugBlock) -or $schema63AppendIndex -lt 0 -or
+	$schema63FinalizeIndex -lt 0 -or $schema63AppendIndex -gt $schema63FinalizeIndex) {
+	throw "Schema-63 force-authority case must append combat-presence assertions before finalization"
+}
+$schema63CoordinatorProofBlock = Get-ScriptMethodBlock $schema63CoordinatorText 'protected void AppendCampaignDebugCombatPresenceAssertions('
+foreach ($schema63CoordinatorProofEntry in @(
+	'new HST_CombatPresenceProofService()',
+	'combat_presence.empty_vehicle',
+	'combat_presence.heat_lifecycle',
+	'combat_presence.malformed_fail_cold',
+	'proof.AllExact()'
+)) {
+	if ([string]::IsNullOrEmpty($schema63CoordinatorProofBlock) -or
+		$schema63CoordinatorProofBlock.IndexOf($schema63CoordinatorProofEntry) -lt 0) {
+		throw "Schema-63 coordinator combat-presence proof assertion wiring is missing: $schema63CoordinatorProofEntry"
+	}
+}
+
+Write-Host "Schema-63 canonical crew-aware combat presence, Hot-Cooling-Cold hysteresis, conservative restore, activation hysteresis, consumer convergence, and source proofs OK"
 
 Write-Host "h-istasi foundation validation passed"

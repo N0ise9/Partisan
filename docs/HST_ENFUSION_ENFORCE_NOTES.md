@@ -1,5 +1,20 @@
 # h-istasi Enfusion / Enforce Notes
 
+Active development is provisionally on campaign Schema 63 and runtime-settings
+Schema 23. Its combat-presence sampling and persistence rules below are based on
+source/API inspection and deterministic fixtures. Foundation passes with 681
+script-symbol references. A normal Workbench Script Editor open compiled/created
+the Game module at 5,788 files/11,670 classes with CRC `cb6475ff`, remained
+responsive without a crash, and produced no HST script errors. Explicit
+validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 with exit code `0`; all
+Workbench instances were closed afterward. Campaign Debug, packaged runtime,
+save/restart, and multiplayer execution remain pending.
+
+The provisional Schema-63 build metadata currently uses implementation-basis
+`7c93e0a485bcabe5a364c0b0cfeca235accb50f7` with label
+`schema63-canonical-combat-presence`; this pair is not sealed until the current
+validation and commit cycle completes.
+
 Schema 62 is the latest sealed source/Workbench checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
@@ -1373,6 +1388,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Runtime settings schema 18 adds JSON-safe `_comment` and `_comment_*` fields to generated settings. Do not use raw `//` or block comments in profile JSON; keep comments as ignored string fields so the line-scanning loader and external JSON tools remain compatible.
   - Runtime settings schema 19 introduced `civilianDrivingVehicleCountPerTown` and generated comments. Schema 22 changes its shipped true-town default from two to five while preserving non-default values. Use the curated `HST_ZONE_TOWN` classification as runtime authority: much of the valid town catalog still carries imported base-overlay provenance rather than `TC_`/`towns/` metadata. Reclassify a known minor locality explicitly (type, resource kind, garrison, and civilian budget) instead of inferring all older town rows are minor from provenance alone. Minor localities must resolve a zero traffic target rather than multiplying the town budget.
   - Runtime settings schema 21 removes the old arsenal and vehicle loot alias keys. The only user-facing keys are `lootSkipUnlockedItems` / `vehicleLootSkipUnlockedItems`; `true` means skip items that are already unlimited in the arsenal, which is the normal default loot flow. Explosive and guided-launcher unlocks default to enabled.
+  - Runtime settings schema 23 adds `capture.combatPresenceCoolingSeconds`, defaulting to 30 and normalized to the inclusive `1..300` range. Schema 22's five-vehicle true-town migration remains unchanged. Keep combat cooling separate from render-bubble activation/deactivation radii: one is persisted strategic pressure, the other is native projection hysteresis.
   - Stock `Character_CIV_*_Randomized.et` resources are editor-facing variant selectors with default randomization disabled. Direct runtime spawning therefore creates the base appearance repeatedly. Build the ambient pool from GUID-qualified concrete stock variants and select them with one zone appearance seed plus the stable actor slot; keep placement/angle seeds separate. Appearance-collision proof must count the complete projected civilian actor set for the locality, including pedestrians and traffic drivers; checking pedestrians alone can miss duplicates introduced by driver replacement.
   - Do not use the hostile-garrison `zone.m_bActive` bit as the sole civilian render condition. A nearby living player should still see town/locality ambience even when military projection is suppressed. Resolve civilian projection eligibility from locality classification plus player distance, while leaving military activation authoritative in the physical-war service.
   - Do not reuse one HQ radius for unrelated policies. The 900 m clearance belongs to hostile operation/QRF staging. Static location activation should be suppressed only when a legacy/emergency HQ lies inside that location's capture footprint (150 m fallback), matching setup placement rules. Composition slots need only an immediate 150 m HQ clearance. A 900 m location-activation exclusion silently erases otherwise valid nearby towns and bases.
@@ -4121,6 +4137,120 @@ This file is for practical engine/script behavior, not project planning. Keep en
   script errors. The normal Script Editor open remained responsive without a
   crash. Packaged behavior remains a separate gate.
 
+## Crew-Aware Combat Presence Sampling
+
+- Combat presence must be derived from HST-registered force members, not a
+  general world/faction scan. Unrelated traffic, props, markers, abandoned
+  vehicles, and nearby ambient entities are not campaign force authority.
+
+- For a registered physical character, require a
+  `CharacterControllerComponent` whose life state is `ALIVE` and whose
+  `IsUnconscious()` result is false. A conscious character with no compartment
+  is infantry. A `CargoCompartmentSlot` contributes nothing. Only pilot and
+  turret compartments can lead to a platform contribution.
+
+- Resolve an occupied platform with
+  `SCR_AIVehicleUsageComponent.FindOnNearestParent()` and require a valid AI
+  vehicle type. Deduplicate by platform entity so several registered occupants
+  do not multiply one vehicle. `STATIC_WEAPON` and `STATIC_ARTILLERY` require a
+  conscious turret occupant and count once as a static operator/platform. A
+  mobile platform counts once when a conscious turret occupant proves an armed
+  seat, or when a conscious pilot belongs to composition data that proves every
+  planned vehicle is armed. A pilot-only civilian/unproven vehicle is not combat
+  presence.
+
+- Every contributing platform needs a damage manager, must not be destroyed,
+  and must not be on fire. A mobile platform must additionally pass
+  `SCR_AIVehicleUsability.VehicleCanMove()`. Static weapons do not require the
+  movement check. The resulting physical sample is authoritative for only a
+  short bounded age; a terminal, non-operational, non-spawned, or unregistered
+  group publishes no authoritative sample.
+
+- Keep native sampling in `HST_PhysicalWarService` and publish only scalar
+  counts/timestamp/reason onto the active-group state. Keep radius/faction/heat
+  policy in `HST_CombatPresenceService`, which is deliberately state-only. This
+  prevents mission, capture, HQ, civilian, and commander consumers from each
+  inventing a slightly different native-entity test.
+
+- Inject one `HST_CombatPresenceService` instance into all consumers. Cache its
+  eligible contribution set by campaign-state identity and elapsed second, then
+  filter that shared set for each radius/faction query. Invalidate after same-
+  tick mission, support, enemy-order, and physical-projection mutations. Refresh
+  native registered-member samples and invalidate before MissionRuntime; after
+  later physical projection, invalidate again and let zone heat rebuild the
+  cache before capture. A per-second cache is unsafe without these explicit
+  mutation boundaries.
+
+- Keep the physical sampler allocation-light. Maintain one indexed
+  group-to-runtime registry, rebuild it from current registrations without
+  allocating a new map per query, prune empty retired keys, and reuse member,
+  platform, and agent scratch arrays. Cache authority-gap checks and exact/
+  hostile zone/radius results alongside the contribution snapshot; clear all
+  affected caches at the same mutation boundaries.
+
+- The one-second heat path must not construct a full result DTO/map for every
+  canonical `COLD` zone. Pre-filter hostile contributions once into reusable
+  scratch, use the allocation-free radius preflight, and evaluate only zones
+  with a possible contributor or a live `HOT`/`COOLING` deadline.
+  Capture's campaign tick similarly defers hostile-result construction until a
+  living resistance player/group is present, prepares living player entities
+  once into reusable scratch, and uses an allocation-free exact-faction
+  preflight. The second physical sample/index rebuild is needed only when an
+  allocation-free runtime topology signature detects changed group identity,
+  entity identity/deletion, or native player/agent membership count (or convoy
+  runtime mutation explicitly requires it); the next one-second tick still
+  performs the normal authoritative refresh.
+
+- Missing evidence is not zero pressure. If a spawned operational group should
+  have physical authority but its sample is unresolved, return an invalid result
+  and let capture/safety consumers block or choose their documented conservative
+  response. Legacy QRF arrival resolution must use the group-level tri-state
+  query as well: unresolved, stale, restore-invalidated, or population-pending
+  authority defers resolution until a later authoritative sample; only
+  authoritative zero combat presence or missing/terminal durable group
+  authority may fail the response. Zone capture must also inspect the controlled
+  entity: only a living, conscious character counts as player presence.
+  Spectator cameras, Game Master proxies, and other non-character entities
+  cannot start capture.
+
+- Conservative safety and verified strategic pressure are different policies.
+  Capture, mission clearing, HQ safety, and undercover checks may block on an
+  unresolved authority gap. Enemy scoring, durable damage signals, high-impact
+  support selection, and legacy QRF dispatch must not label that gap as verified
+  pressure. Legacy QRF dispatch now requires resistance capture progress or a
+  valid live canonical hostile result; render activation alone is never a
+  strategic trigger.
+
+- Persist only revisioned zone heat/diagnostics, not trust in native occupancy.
+  A live contributor moves the zone to `HOT`; its first absence starts one
+  `COOLING` deadline; unchanged cooling must not extend that deadline or dirty
+  persistence; expiry becomes canonical `COLD`. Restore always invalidates the
+  physical samples. Pre-63 or malformed current heat becomes `COLD` without
+  inferring combat from survivor vehicles, generic groups, markers, or an active
+  render bit. A valid current cooling deadline can continue across restore only
+  when its last-hot/deadline duration is `1..300`, last-hot is not from the
+  future, and the deadline is still strictly in the future. Otherwise restore canonicalizes it
+  to `COLD`. A pre-heat MissionRuntime query must keep a persisted `HOT` zone
+  blocking for the one boundary tick in which the last contributor disappeared;
+  `TickAllZoneHeat` then starts cooling later in the same coordinator tick.
+
+- Render projection uses separate hysteresis: inactive zones compare players to
+  the activation radius, while active zones compare them to the larger
+  deactivation radius. An authored per-zone activation override keeps the global
+  deactivation-minus-activation margin (at least 100 metres), so a 1700-metre
+  entry radius cannot collapse onto a 1600-metre global exit value. Do not use
+  the render-active bit as strategic presence, and do not use combat cooling to
+  retain native entities.
+
+- The Schema-63 Foundation gate passes with 681 script-symbol references. A
+  normal Workbench Script Editor open compiled/created the Game module at 5,788
+  files/11,670 classes with CRC `cb6475ff`, no HST script errors, and no crash.
+  Explicit validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 with exit
+  code `0`. Close every Workbench instance after each bounded test; zero remained
+  after this run. Packaged
+  classification, cache/performance, save/restart, and multiplayer proof remain
+  open.
+
 ## One-Second Runtime Hot-Path Repair
 
 - A visible once-per-second stutter aligned with the coordinator's active-
@@ -4142,6 +4272,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   throttle decides a line will emit. Successful membership diagnostics remain
   at the 30-second throttle rather than paying the world/entity scan every
   second merely to discard the string.
+
+- Canonical combat-presence queries must not re-evaluate every active group for
+  every zone and every consumer. Build one eligible-contribution snapshot per
+  state/elapsed second, reuse it for zone/radius filters, and invalidate it at
+  same-tick mutation boundaries. This removes the new zones-by-groups-by-
+  consumers multiplier without allowing stale mission/support/order/projection
+  state to leak into heat or capture. Runtime profiling is still required before
+  treating the observed one-second stutter as fixed.
 
 - Recurring undercover/maintenance authorization reads should use the already
   registered player state. Keep full identity/membership refresh at connect,

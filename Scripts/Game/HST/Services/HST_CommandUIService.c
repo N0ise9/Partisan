@@ -2421,7 +2421,7 @@ class HST_CommandUIService
 			location = "near " + DisplayZoneName(zone);
 
 		int plannedMembers = Math.Max(0, activeGroup.m_iInfantryCount) + Math.Max(0, activeGroup.m_iVehicleCount);
-		int survivorMembers = Math.Max(0, activeGroup.m_iSurvivorInfantryCount) + Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
+		int survivorMembers = Math.Max(0, activeGroup.m_iSurvivorInfantryCount);
 		int knownMembers = Math.Max(activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount);
 		return string.Format("%1 field team(s); latest %2 with %3/%4 known active, %5 survivor(s)", activeGroups, location, knownMembers, plannedMembers, survivorMembers);
 	}

@@ -29,6 +29,7 @@ class HST_HQService
 	protected IEntity m_ArsenalEntity;
 	protected IEntity m_TentEntity;
 	protected IEntity m_SpawnPointEntity;
+	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected ref array<IEntity> m_aWorldScanCandidates = {};
 	protected string m_sWorldScanPrefab;
 	protected bool m_bWarnedPetrosResourceFailure;
@@ -51,6 +52,12 @@ class HST_HQService
 	void SetDebugLoggingEnabled(bool enabled)
 	{
 		m_bDebugLoggingEnabled = enabled;
+	}
+
+	void SetCombatPresenceService(HST_CombatPresenceService combatPresence)
+	{
+		if (combatPresence)
+			m_CombatPresence = combatPresence;
 	}
 
 	void SetPetrosRelocationInProgress(bool active)
@@ -953,23 +960,27 @@ class HST_HQService
 		if (!state || !preset || !state.m_bHQDeployed)
 			return 0;
 
-		int threat;
-		float scanRadiusSq = radiusMeters * radiusMeters;
-		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		HST_CombatPresenceResult presence = m_CombatPresence.QueryHostilePresenceNear(
+			state,
+			preset,
+			preset.m_sResistanceFactionKey,
+			state.m_vHQPosition,
+			radiusMeters);
+		if (!presence)
+			return 0;
+		if (!presence.m_bQueryValid)
 		{
-			if (!group || !state.IsCombatPresentActiveGroup(group))
-				continue;
-			if (!HST_FactionRelationService.IsEnemyFaction(preset, group.m_sFactionKey))
-				continue;
-			if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed")
-				continue;
-			if (DistanceSq2D(group.m_vPosition, state.m_vHQPosition) > scanRadiusSq)
-				continue;
-
-			threat += 20 + Math.Max(0, group.m_iSurvivorInfantryCount) * 2 + Math.Max(0, group.m_iSurvivorVehicleCount) * 8;
-			reason = string.Format("enemy active group %1 near HQ", group.m_sGroupId);
+			reason = string.Format("enemy combat-presence authority unresolved near HQ | candidates %1", presence.m_iUnresolvedAuthorityCount);
+			return Math.Min(60, Math.Max(20, presence.m_iUnresolvedAuthorityCount * 20));
 		}
+		if (!presence.m_bHasLiveContributors)
+			return 0;
 
+		int threat = Math.Max(1, presence.m_iContributorCount) * 20;
+		threat += Math.Max(0, presence.m_iInfantryCount) * 2;
+		threat += Math.Max(0, presence.m_iMannedVehicleCount) * 8;
+		threat += Math.Max(0, presence.m_iStaticOperatorCount) * 5;
+		reason = string.Format("verified enemy combat presence near HQ | contributors %1 | hash %2", presence.m_iContributorCount, presence.m_sContributorHash);
 		return Math.Min(60, threat);
 	}
 

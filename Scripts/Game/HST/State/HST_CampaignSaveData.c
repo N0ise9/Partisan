@@ -697,6 +697,21 @@ class HST_CampaignSaveData
 		target.m_bActive = source.m_bActive;
 		target.m_iActiveInfantryCount = source.m_iActiveInfantryCount;
 		target.m_iActiveVehicleCount = source.m_iActiveVehicleCount;
+		target.m_eCombatPresenceState = source.m_eCombatPresenceState;
+		target.m_iCombatPresenceLastHotSecond = source.m_iCombatPresenceLastHotSecond;
+		target.m_iCombatPresenceCoolingUntilSecond = source.m_iCombatPresenceCoolingUntilSecond;
+		target.m_iCombatPresenceRevision = source.m_iCombatPresenceRevision;
+		target.m_iCombatPresenceInfantryCount = source.m_iCombatPresenceInfantryCount;
+		target.m_iCombatPresenceMannedVehicleCount = source.m_iCombatPresenceMannedVehicleCount;
+		target.m_iCombatPresenceStaticOperatorCount = source.m_iCombatPresenceStaticOperatorCount;
+		target.m_iCombatPresenceCurrentOperationCount = source.m_iCombatPresenceCurrentOperationCount;
+		target.m_iCombatPresenceRecentFireCount = source.m_iCombatPresenceRecentFireCount;
+		target.m_sCombatPresenceContributorHash = source.m_sCombatPresenceContributorHash;
+		target.m_sCombatPresenceReason = source.m_sCombatPresenceReason;
+		foreach (string combatContributorId : source.m_aCombatPresenceContributorIds)
+			target.m_aCombatPresenceContributorIds.Insert(combatContributorId);
+		foreach (string combatContributorFact : source.m_aCombatPresenceContributorFacts)
+			target.m_aCombatPresenceContributorFacts.Insert(combatContributorFact);
 		target.m_sPatrolRouteId = source.m_sPatrolRouteId;
 		target.m_sQRFRouteId = source.m_sQRFRouteId;
 		target.m_sMissionSiteId = source.m_sMissionSiteId;
@@ -881,10 +896,16 @@ class HST_CampaignSaveData
 		target.m_iAssignedWaypointCount = source.m_iAssignedWaypointCount;
 		target.m_iMaxObservedCrewAlive = source.m_iMaxObservedCrewAlive;
 		target.m_iDurableLivingInfantryCount = source.m_iDurableLivingInfantryCount;
+		target.m_iCombatEffectiveInfantryCount = source.m_iCombatEffectiveInfantryCount;
+		target.m_iOperationalMannedVehicleCount = source.m_iOperationalMannedVehicleCount;
+		target.m_iCombatEffectiveStaticOperatorCount = source.m_iCombatEffectiveStaticOperatorCount;
+		target.m_iCombatPresenceSampleSecond = source.m_iCombatPresenceSampleSecond;
 		target.m_iLastCasualtySecond = source.m_iLastCasualtySecond;
 		target.m_iEliminatedAtSecond = source.m_iEliminatedAtSecond;
 		target.m_iLifecycleRevision = source.m_iLifecycleRevision;
 		target.m_bEverHadLivingCrew = source.m_bEverHadLivingCrew;
+		target.m_bCombatPresenceSampleAuthoritative = source.m_bCombatPresenceSampleAuthoritative;
+		target.m_sCombatPresenceSampleReason = source.m_sCombatPresenceSampleReason;
 		target.m_bEverPopulated = source.m_bEverPopulated;
 		target.m_bSpawnCompleted = source.m_bSpawnCompleted;
 		target.m_bCrewPopulationTerminallyFailed = source.m_bCrewPopulationTerminallyFailed;
@@ -2681,6 +2702,8 @@ class HST_CampaignSaveData
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		HST_MaidensBayLocationSaveValidationService schema60MaidensBayLocationValidation = new HST_MaidensBayLocationSaveValidationService();
 		schema60MaidensBayLocationValidation.Normalize(this, restoredSchemaVersion);
+		HST_CombatPresenceSaveValidationService schema63CombatPresenceValidation = new HST_CombatPresenceSaveValidationService();
+		schema63CombatPresenceValidation.Normalize(this, restoredSchemaVersion);
 		HST_OwnershipTransitionSaveValidationService schema62OwnershipTransitionValidation = new HST_OwnershipTransitionSaveValidationService();
 		schema62OwnershipTransitionValidation.Normalize(this, restoredSchemaVersion);
 		HST_MarkerProjectionSaveValidationService schema61MarkerProjectionValidation = new HST_MarkerProjectionSaveValidationService();
