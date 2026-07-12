@@ -1,7 +1,24 @@
 # h-istasi Enfusion / Enforce Notes
 
-Current development source is the sealed Campaign Schema 65/runtime-settings
-Schema 24 civilian-consequence source/Workbench checkpoint. It identifies implementation
+The current sealed source/Workbench checkpoint advances to Campaign Schema 66 while runtime settings
+remains Schema 24. The current source stamp identifies implementation
+`a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
+`2026-07-12T20:28:33Z`, and label
+`schema66-settings24-local-security-marker-integrity`. The new exact local-security owner keeps enemy-town patrol
+rosters in frozen manifests and SpawnQueue member slots, folds physical
+casualties to strategic hold, restores without refill, applies one police `-1`
+loss on destruction, and requires later positive police pressure or a newer
+ownership revision before rearm. Resistance automatic police/roadblock targets
+are zero. The same source repairs the client-local campaign-marker owner
+regression introduced at `27672e6`: protected campaign markers are system-owned,
+non-removable, and self-healed from the committed registry, while player-created
+markers remain editable. Foundation passes at 729 script-symbol references.
+Final normal/all-five Workbench checks pass at 5,806 Game files/11,740 classes
+with CRC `ec860be7`, `Script validation successful`, zero HST script errors, and
+zero surviving processes. All native/runtime gates remain open.
+
+The previous sealed source/Workbench checkpoint is Campaign Schema 65/runtime-
+settings Schema 24. It identifies implementation
 `609add9eeadf73816764c497178e2d35081307d1`, UTC
 `2026-07-12T18:30:29Z`, and label
 `schema65-settings24-civilian-consequence-authority`. Final stamped normal
@@ -12,7 +29,7 @@ zero Workbench processes survived cleanup. The preceding unstamped CRC
 `be076102` remains preliminary evidence only. Foundation passes at 717 script-
 symbol references, and every runtime gate remains open.
 
-The previous sealed campaign source/Workbench checkpoint is Campaign Schema 64
+The earlier sealed campaign source/Workbench checkpoint is Campaign Schema 64
 on runtime-settings Schema 24. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
@@ -3967,6 +3984,24 @@ This file is for practical engine/script behavior, not project planning. Keep en
   replicated-entity feature and remain outside the marker projection until they
   receive their own explicit cutover.
 
+- `InsertStaticMarker(marker, true, false)` is not suitable for a protected
+  client-local campaign marker. The native local insertion path assigns the
+  local player as owner before creating the widget, which can override an
+  earlier `SetMarkerOwnerID(-1)` and expose edit/move/delete controls. Insert a
+  protected record directly through the manager-owned static array boundary,
+  set marker ID and owner to `-1`, disable removal by owner before `OnCreateMarker`,
+  and reassert owner/removal state after creation. Keep this path limited to
+  authoritative campaign projection; player-created markers must retain their
+  normal editable owner path.
+
+- A stream revision is not required for native marker integrity repair. Cache a
+  signature of live type, config, owner, world position, text, icon/color/
+  faction flags, marker flags, rotation, removability, and timestamp visibility.
+  On the existing readiness keepalive, compare every desired record with its
+  live native handle. If the player or UI removes or mutates a protected marker,
+  rebuild it from the committed client registry. This is self-healing
+  presentation, not permission for native edits to become campaign authority.
+
 - Authored static marker identity should be exact and cached. Name each authored
   marker `HST_ConflictMapMarker_<zoneId>` and resolve it with one exact
   `FindEntityByName` lookup. Cache successful bindings, retry only unresolved
@@ -4705,6 +4740,106 @@ This file is for practical engine/script behavior, not project planning. Keep en
   references. Native callback attribution, move-waypoint activation, RUN/WALK
   behavior, real profile save/restart, package, multiplayer, and ten-town/ten-
   minute soak evidence all remain open.
+
+## Schema 66 Exact Enemy-Town Local-Security Mechanics
+
+- Keep political pressure and living-force authority separate.
+  `HST_CivilianZoneState.m_iPolicePresence` answers whether an enemy town should
+  have local security and how large the initial roster should be; it is not the
+  number of living native actors. `HST_LocalSecurityPatrolState`, its frozen
+  manifest, and durable SpawnQueue member slots own exact casualties.
+
+- Admit local security only for a unique canonical town with valid Schema-62
+  ownership authority, a valid Schema-64 town-influence record, exactly one
+  civilian row, exactly one matching enemy faction pool, and positive police
+  pressure. Reject resistance owners, minor localities, warehouses, ambiguous
+  rows, owner-transition-in-progress, or malformed authority. Resolve only the
+  configured authored town-police group and validate each ordered unit-prefab
+  slot. The initial roster is `clamp(police + 1, 2, 5)`; never duplicate a member
+  prefab through a generic fallback or pollute the generic ForceCatalog.
+
+- Build deterministic epoch identity from zone ID, enemy faction key, canonical
+  ownership revision, and epoch. One envelope owns exactly one operation,
+  frozen manifest/hash, SpawnQueue result, force/projection ID, and active group.
+  Keep reciprocal IDs on the zone, operation, group, and envelope. Admission is
+  transactional: preflight the queue, stage all graph rows, hold the projection,
+  and remove only those staged rows on failure.
+
+- Local town movement is a projection adapter, not a durable route. While the
+  town is active, release the held slots, realize one exact infantry root, and
+  assign a process-local cyclic waypoint chain around the town. Keep operation
+  route IDs, route hashes, cursors, speeds, and waypoint clocks empty/zero in the
+  save contract. A restored patrol always begins in strategic hold and obtains a
+  new process-local waypoint chain only after materialization.
+
+- Fold must be casualty-first and fail closed. Reconcile exact member bindings,
+  count durable living slots, and handle zero living before retiring the root.
+  With survivors, validate unique result/projection/member/PhysicalWar bindings,
+  retire native runtime ownership, requeue the successful projection for
+  strategic hold, clear process-local group handles, and synchronize envelope,
+  operation, and active-group living counts. Do not use generic PhysicalWar
+  survivor fold, garrison repair, inactive cleanup, or count restoration on a
+  local-security claimant.
+
+- Restore uses the same durable roster. If a saved active batch was physical or
+  pending, retire any resolvable process handles, enter strategic hold, clear all
+  group runtime IDs, reset operation materialization to virtual/strategic, and
+  derive living counts from exact member slots. A dead slot cannot be restored,
+  reordered, or replaced. If reciprocal graph or runtime cleanup is ambiguous,
+  quarantine instead of falling back to legacy police spawning.
+
+- Destruction is one exact political consequence. After exact living strength
+  reaches zero, retire runtime ownership and submit
+  `local_security_patrol_destroyed_<patrolId>` through town influence with police
+  `-1`, source equal to the local-security operation, no ownership reconciliation,
+  and zero support, reputation, heat, population, roadblock, aggression, contact,
+  and resistance-activity effects. Exact replay is read-only. A changed
+  fingerprint or duplicate claim quarantines the aggregate. Only after the loss
+  receipt is accepted may the operation settle `DESTROYED`.
+
+- A terminal epoch is a resurrection fence. Positive police pressure that
+  survived the destruction event cannot reopen the same epoch. Permit the next
+  epoch only when canonical ownership revision is newer or an applied exact town
+  event after terminal/loss has a positive police delta. Compact the prior
+  terminal operation/manifest only after batch, group, and runtime handles are
+  absent; then reuse the one per-town envelope with epoch incremented.
+
+- Not every terminal result is a political loss. Owner change, pressure clear,
+  setup, campaign stop, and spawn failure retire runtime authority and settle
+  invalidated/cancelled/spawn-failed without a police event. Ownership transition
+  must preflight local-security graph validity and perform that retirement before
+  generic hostile cleanup or owner publication. Quarantined authority blocks the
+  transition rather than being silently deleted.
+
+- Persistence is also a physical-authority barrier. Before any capture or
+  checkpoint, reconcile every open physical/dematerializing local-security
+  projection to exact held slots. Defer capture if casualties, bindings, or root
+  retirement cannot be proven. During setup or terminal campaign cleanup,
+  preserve an unsafe open local-security batch until service-owned settlement can
+  finish; generic queue cleanup must not cancel it first.
+
+- Resistance ownership means zero automatic civilian police and roadblocks.
+  Security-pressure drift should move both scalars toward zero one step per
+  income tick. This does not remove or replace the separate conservative
+  ownership policy that may create at most two aggregate resistance infantry
+  where garrison capacity exists.
+
+- Pre-66 migration has no exact casualty evidence. Clear stale zone patrol
+  backlinks and remove only legacy `town_security_police` active-group rows that
+  have no exact force, mission, support, order, convoy, garrison, or QRF links.
+  Preserve logical police, roadblock, owner, support, and garrison facts. Do not
+  fold a survivor count, invent an operation/manifest, apply a loss/refund, or
+  infer combat. Record one bounded migration event. Current malformed authority
+  uses contract `-66`, clears process authority, and remains diagnostic evidence.
+
+- Static proof should cover catalog bounds/resistance rejection, replay-safe
+  admission, town/owner eligibility, casualty synchronization, fold/restore with
+  no refill, destruction replay and exact police delta, owner/stop/spawn no-loss
+  settlement, newer-owner epoch rearm, later-positive-police rearm, and conflict
+  quarantine. These are source invariants only. Native exact member creation,
+  cyclic waypoint activation, real casualties, bubble exit/re-entry, save/
+  restart, ownership change, terminal cleanup, multiplayer, and soak remain
+  separate runtime gates.
 
 ## Native Reference Sources
 

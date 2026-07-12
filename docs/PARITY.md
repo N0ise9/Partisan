@@ -1,8 +1,30 @@
 # h-istasi Capability Map
 
-The current development tree is the sealed Campaign Schema 65/runtime-settings
-Schema 24 Blueprint Phase 8 civilian-consequence source/Workbench checkpoint. It
-identifies implementation `609add9eeadf73816764c497178e2d35081307d1`, UTC
+The current sealed source/Workbench checkpoint is Campaign Schema 66/runtime-settings Schema 24.
+The current source stamp identifies implementation
+`a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
+`2026-07-12T20:28:33Z`, and label
+`schema66-settings24-local-security-marker-integrity`. It adds one exact enemy-town local-security patrol epoch with an authored 2–5
+member frozen roster, casualty-preserving physical/virtual transfer, restore to
+held survivors without refill, one exact police `-1` destruction consequence,
+same-epoch resurrection prevention, and rearm only after a newer ownership
+revision or later positive police event. Resistance towns target zero automatic
+police and roadblocks. Pre-66 migration preserves logical security/ownership/
+support/garrison facts and removes only unlinked disposable legacy projections;
+current malformed graphs quarantine at `-66`.
+
+The active tree also repairs the `27672e6` client-local campaign-marker ownership
+regression. Protected campaign markers are system-owned/non-removable and self-
+heal from the authoritative client registry after native deletion or mutation;
+player-created/dynamic markers remain editable. Foundation passes at 729 script-
+symbol references. Final stamped normal/all-five Workbench checks pass at 5,806
+Game files/11,740 classes with CRC `ec860be7`, `Script validation successful`,
+zero HST script errors, and zero surviving processes. Native marker input,
+physical local-security, save/restart, package, multiplayer, and soak gates remain
+open.
+
+The previous sealed checkpoint is Campaign Schema 65/runtime-settings Schema 24.
+It identifies implementation `609add9eeadf73816764c497178e2d35081307d1`, UTC
 `2026-07-12T18:30:29Z`, and label
 `schema65-settings24-civilian-consequence-authority`. It extends the sealed
 ambient runtime with an exact server casualty queue, a theft receipt after
@@ -28,7 +50,7 @@ Foundation passes at 717 script-symbol references. Native callbacks/waypoints, a
 ten-town/ten-minute stutter/churn/performance, packaged server/client, and
 multiplayer execution remain pending.
 
-The previous sealed checkpoint is Campaign
+The earlier sealed checkpoint is Campaign
 Schema 64/runtime-settings Schema 24. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
@@ -87,7 +109,7 @@ Debug and packaged-runtime gates remain open.
   Petros-loss penalties, HQ knowledge/threat, and Defend Petros state
 - Versioned campaign save container for current state fields and nested arrays,
   with schema migration and restored-state application helpers
-- Campaign authority foundation through sealed Schema 65 source/Workbench, built on sealed
+- Campaign authority foundation through sealed Schema 66 source/Workbench, built on sealed
   Schema 64 and Schema 63, with persisted monotonic IDs,
   typed command receipts, resource transactions, exact force quotes/manifests,
   durable per-projection SpawnQueue state, bounded accepted-settlement replay
@@ -195,6 +217,19 @@ Debug and packaged-runtime gates remain open.
   aggression targets because roles are not serialized. Stable-ID exhaustion
   fails strategic admission before mutation. Native and packaged evidence
   remains open.
+- Active Schema-66 exact local security: each eligible canonical enemy town with
+  positive police pressure owns one deterministic patrol epoch, one authored
+  frozen 2–5 member manifest, one typed operation, and one held exact projection.
+  Native roots and cyclic waypoints exist only while the town is active. Exact
+  casualties are reconciled before fold/persistence/ownership/settlement and the
+  same living slots restore in strategic hold without refill. Complete
+  destruction applies police `-1` once; the same epoch cannot respawn, and rearm
+  requires newer ownership or a later positive police event. Other terminal
+  causes produce no political loss. Resistance automatic police/roadblock
+  targets are zero. Pre-66 migration retires only unlinked disposable police
+  projections without inventing roster/casualty/fold/refund facts; malformed
+  current graphs quarantine at `-66`. Deterministic source proof is wired, but
+  Foundation/Workbench and all native/restart/package gates remain open.
 - One versioned `OperationRecord` for each newly confirmed exact paid player
   infantry QRF, plus conservative backfill for uniquely coherent accepted active
   schema-48 rows. It separates immutable origin/assignment from tactical target
@@ -402,6 +437,11 @@ Debug and packaged-runtime gates remain open.
   markers remain on their existing replicated-entity path. Native capping uses
   deterministic priority/stable-ID ordering. Authored stock descriptors
   hide only behind a confirmed live custom replacement and restore on failure.
+  The sealed Schema-66 repair corrects the `27672e6` local-owner regression:
+  protected campaign markers enter native state with owner `-1` and owner
+  removal disabled, and the readiness keepalive rebuilds missing or mutated
+  native markers from the committed registry. Player-created/dynamic markers
+  remain editable on their separate path.
   Pre-61 derived rows rebuild without inventing domain facts, and malformed
   current projection advances the epoch. Compiled deterministic source fixtures
   define ordering, rapid/snapshot-pending catch-up, lost-ACK recovery, resync,
@@ -506,7 +546,9 @@ Debug and packaged-runtime gates remain open.
   with no automatic vehicle. Enemy recapture scales infantry from capacity and
   priority and adds vehicles at major military sites; existing exact new-owner
   garrison authority is retained. This is source policy, not packaged balance or
-  native population proof.
+  native population proof. Schema 66 additionally makes periodic automatic
+  civilian police and roadblock targets exactly zero for a resistance owner, so
+  stale pressure drifts down instead of reopening an enemy police patrol.
 - The Schema-60 checkpoint represents Maiden's Bay once as the Logistics Warehouse.
   Restore cleanup is no-op when neither location row exists and fails closed
   before rewrites when location authority is ambiguous. With one authority it
@@ -682,7 +724,9 @@ Debug and packaged-runtime gates remain open.
   Schema 61 additionally streams logical campaign markers through a revisioned,
   tombstoned client registry and makes that registry the sole owner of local
   native campaign marker reconciliation. Exact authored static-marker names are
-  cached instead of radius-polled. These repairs await packaged proof.
+  cached instead of radius-polled. Schema 66 makes protected campaign markers
+  system-owned/non-removable and self-heals native mutation/deletion without
+  changing editable player markers. These repairs await packaged proof.
 - Balance/pacing diagnostics for strategic score, control percentage, war-level
   thresholds, enemy pressure, victory readiness, and recommended next pressure
 - Strategic victory/loss evaluation with persistent campaign-end reason,
@@ -691,8 +735,14 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- The current development tree is sealed at the Campaign Schema 65/runtime-
-  settings Schema 24 source/Workbench boundary. It identifies implementation
+- The current sealed source/Workbench tree is Campaign Schema 66/runtime-settings
+  Schema 24. It adds exact enemy-town local-security authority and the protected
+  campaign-marker integrity repair described above. Foundation passes at 729
+  references; final normal/all-five Workbench checks pass at 5,806 Game files/
+  11,740 classes with CRC `ec860be7`, explicit validation success, zero HST
+  script errors, and zero surviving processes. Every runtime gate remains open.
+  Campaign Schema 65/runtime-settings Schema 24 remains the previous sealed
+  source/Workbench boundary. It identifies implementation
   `609add9eeadf73816764c497178e2d35081307d1`, UTC
   `2026-07-12T18:30:29Z`, and label
   `schema65-settings24-civilian-consequence-authority`. Its deterministic
@@ -702,8 +752,8 @@ Debug and packaged-runtime gates remain open.
   and zero surviving processes. Foundation passes at 717 script-symbol
   references. The native Campaign Debug artifact, real profile restart, package, rendered-UI,
   multiplayer, and soak evidence remain open. Schema 64/settings 24 is the
-  previous sealed checkpoint with Foundation 711 and Workbench CRC `bb083672`;
-  that older evidence does not prove Schema-65 behavior.
+  earlier sealed checkpoint with Foundation 711 and Workbench CRC `bb083672`;
+  that older evidence does not prove Schema-65 or Schema-66 behavior.
 - Schema-65 source authority queues exact callback-observed civilian casualties
   and theft under fixed capacities/four attempts per frame, retries failed rows
   indefinitely with bounded backoff, and defers capture while work remains. It
@@ -716,6 +766,15 @@ Debug and packaged-runtime gates remain open.
   quarantine are source-complete. Native destruction attribution, actual
   waypoint movement, save migration/restart, package, and client observation are
   still required.
+- Schema-66 source authority admits exact local security only for canonical
+  enemy towns with valid ownership/town influence and positive police pressure.
+  The wired proof covers catalog bounds, replay, eligibility, survivor restore,
+  destruction/non-loss settlement, rearm, and quarantine. It has not executed.
+  Required runtime evidence includes exact native members/waypoints, mapped
+  casualties through fold/re-entry, save/restart without refill, once-only loss,
+  no-resurrection, ownership/terminal sequencing, migration, and multiplayer.
+  The marker repair also requires manual delete/move/edit attempts and proof that
+  campaign markers reject or self-heal while player markers remain editable.
 - Schema 62 is an earlier sealed source/Workbench checkpoint at implementation
   `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
   `2026-07-12T06:11:19Z`, and label
@@ -927,11 +986,10 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Do not publish the sealed Schema-65 source/Workbench tree under the prior
-  Schema-64 stamp. Require implementation
-  `609add9eeadf73816764c497178e2d35081307d1` and label
-  `schema65-settings24-civilian-consequence-authority` on every Schema-65
-  package and evidence artifact. Preserve the already restored
+- Publish and runtime-check the sealed Schema-66/settings-24 checkpoint under
+  its exact identity. Do not report it under the sealed Schema-65 identity. Require every package,
+  server, client, log, and artifact to agree on the new final identity while
+  preserving the Schema-65 seal as historical evidence. Preserve the already restored
   stock HUD/Game Master
   behavior. Require every ownership cause, one revision increment, retry-before-
   owner, exact-security settlement, nested publication, save/restart resume,
@@ -980,8 +1038,11 @@ Debug and packaged-runtime gates remain open.
   pedestrians to complete `Wandering -> Panicked -> Recovering`. Real save/
   restart must preserve the canonical episode envelope and explicitly demonstrate
   the minor-locality panic-only/session-receipt limitation. Aid and ownership/
-  security-pressure source paths still need runtime proof; deeper local-security
-  behavior remains open.
+  security-pressure source paths still need runtime proof. In the same boundary,
+  prove the Schema-66 2–5 member exact enemy-town roster, native waypoints,
+  casualty fold/re-entry/restart without refill, once-only police loss, same-
+  epoch no-resurrection, later-positive-event/new-owner rearm, non-loss terminal
+  causes, zero resistance police/roadblocks, migration, and `-66` quarantine.
 - Runtime-prove the Schema-60 player Search-and-Destroy contract: immutable
   infantry-only quote/manifest/ledger identity, $350 plus exact roster HR, direct
   virtual travel, materialization/fold/re-entry with mapped casualties, bounded
@@ -1070,12 +1131,15 @@ Debug and packaged-runtime gates remain open.
   networking, reconnect, and JIP. Missing or ambiguous initial targets must
   remain unresolved rather than generating a substitute; projection-seam source
   proof is not packaged verification.
-- Prove static marker widget readiness and the implemented Schema-61
+- Prove static marker widget readiness, the implemented Schema-61
   authoritative host/client/late-join snapshot, revision, tombstone,
   acknowledgement, gap, and resync behavior. Require equal hashes/watermarks,
   map-close continuity, no duplicate server-native campaign set, and real
-  reconnect/save-restart; keep dynamic player markers and non-marker campaign
-  projection outside this claim.
+  reconnect/save-restart, and the Schema-66 integrity repair. Attempt delete,
+  move, and edit on protected campaign markers and require system ownership/
+  non-removability or bounded registry self-heal; player-created markers must
+  remain editable. Keep dynamic player markers and non-marker campaign
+  projection outside the stream claim.
 - Treat the Schema-62 canonical ownership service as the completed source
   mutation dependency and sealed Schema 63 as the first shared combat-
   presence/heat dependency. Sealed Schema 64 adds the canonical town-

@@ -652,3 +652,93 @@ Consequences:
   references. Campaign Debug, native package, real profile save/restart,
   multiplayer, and soak gates remain open. Schema 64/settings 24 is the previous
   sealed checkpoint.
+
+## CRI-013 - Make Enemy-Town Police An Exact Roster Authority
+
+- Status: Accepted; source implemented, checkpoint validation pending
+- Date: 2026-07-12
+
+Context: Police presence was durable political/security pressure, but the
+rendered `town_security_police` group was a disposable generic projection. A
+physical group could lose members, leave the render bubble, and later return at
+full strength because no aggregate owned the exact casualties. Treating police
+presence as a living roster would create the opposite error: an abstract scalar
+could invent members, fold casualties, or resurrect a destroyed patrol. A
+resistance-held town also should not generate civilian police or roadblocks just
+because old pressure had not yet drifted away.
+
+Decision: Campaign Schema 66 adds one `HST_LocalSecurityPatrolState` per eligible
+canonical enemy-held town while runtime settings remains Schema 24. The envelope
+freezes a deterministic epoch identity from town, faction, ownership revision,
+and epoch; one authored 2–5 member manifest; one local-security operation; one
+SpawnQueue projection; and exact living slots. Police pressure selects roster
+size and eligibility but never becomes casualty authority. The group may use
+process-local cyclic town waypoints while physical. Before it folds, saves, or
+settles, the exact adapter reconciles physical deaths; the same surviving slots
+then enter strategic hold. Restore clears process-local handles and resumes from
+that held roster. No route is persisted and no fold or restore can refill a dead
+slot.
+
+Complete destruction admits one exact `local_security_patrol_destroyed` town-
+influence event with police `-1` and every other delta zero, then settles the
+epoch as destroyed. Positive police pressure alone cannot reopen that epoch. A
+new epoch requires either a newer canonical ownership revision or a later
+applied positive police-pressure event. Owner change, pressure clear, setup,
+campaign stop, and spawn failure settle without a destruction loss. Ownership
+transition preflights and retires the old exact graph before owner publication;
+persistence folds every open physical/dematerializing patrol or defers capture.
+Resistance-owned towns target zero automatic police and roadblocks. The separate
+conservative resistance garrison policy remains unchanged.
+
+Consequences:
+
+- Generic PhysicalWar fold, survivor, garrison, and repair paths must not claim
+  local-security groups. Only the exact service owns their casualties and
+  runtime retirement.
+- Pre-66 migration removes only backlink-free disposable legacy police groups
+  and clears stale patrol backlinks. It preserves police/roadblock pressure,
+  ownership, support, and garrisons and invents no roster, casualty, operation,
+  fold credit, or refund. The migration records one audit event.
+- Current graphs require unique reciprocal patrol/zone/operation/manifest/batch/
+  group identity. Malformed or conflicting authority quarantines at `-66` and
+  cannot fall back to legacy behavior or exert combat pressure.
+- Terminal history retains the compact operation and frozen manifest while the
+  runtime batch and active-group row are removed. The envelope is reused only
+  when a valid rearm source opens the next deterministic epoch.
+- Deterministic proofs cover catalog bounds, admission replay, eligibility,
+  casualty-preserving fold/restore, no refill, destruction replay, no-loss
+  settlement, owner/positive-pressure rearm, and conflict quarantine. Native
+  group/waypoint/casualty/fold, real save/restart, multiplayer, and soak remain
+  independent gates.
+
+## CRI-014 - Keep Projected Campaign Markers System-Owned
+
+- Status: Accepted; regression repair implemented, runtime proof pending
+- Date: 2026-07-12
+
+Context: The Schema-61 client-local marker projection introduced at commit
+`27672e6` correctly removed the duplicate server-native campaign set, but its
+static creation path called the stock local-only insertion method. That method
+assigns the local player as owner before widget creation, overriding the intended
+system ownership. As a result, a player could move, edit, or delete markers that
+were derived campaign presentation rather than player annotations.
+
+Decision: A protected client-local campaign marker bypasses the stock local-
+owner assignment. It enters the native static array with owner `-1`, removal by
+owner disabled, and those values reapplied after creation. The client readiness
+keepalive checks native identity, position, text, icon, faction flags, owner,
+removal policy, rotation, and timestamp visibility against the committed marker
+registry. A missing or mutated native marker is rebuilt from that registry even
+when the server stream has no new revision. Player-created and dynamic player
+markers remain on their separate path and remain editable.
+
+Consequences:
+
+- The logical registry remains projection authority; a native marker edit or
+  deletion cannot mutate campaign state.
+- System-owned campaign markers and player-authored markers deliberately use
+  different insertion and reconciliation paths.
+- Packaged host/client testing must attempt delete, drag, and edit operations,
+  observe non-removability or bounded self-heal, then repeat across map reopen,
+  reconnect, and late join. Source inspection and Workbench compilation do not
+  close that rendered-input gate.

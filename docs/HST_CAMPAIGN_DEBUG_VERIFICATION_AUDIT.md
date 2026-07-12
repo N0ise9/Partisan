@@ -1,7 +1,34 @@
 # HST Campaign Debug Verification Audit
 
-Current development source is the sealed Campaign Schema 65/runtime-settings
-Schema 24 civilian-consequence source/Workbench checkpoint. It identifies implementation
+The current sealed source/Workbench checkpoint advances to Campaign Schema 66 while runtime settings
+remains Schema 24. The current source stamp identifies implementation
+`a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
+`2026-07-12T20:28:33Z`, and label
+`schema66-settings24-local-security-marker-integrity`. Source inspection shows one exact local-security patrol epoch
+per eligible canonical enemy-held town: deterministic patrol/operation/manifest/
+batch/group identity, an authored 2–5 member roster, strategic hold outside the
+render bubble, casualty-preserving physical fold, restore to the same held
+survivors, one police `-1` destruction receipt, no same-epoch resurrection, and
+rearm only from a newer ownership revision or later positive police event.
+Owner/pressure clear, setup/stop, and spawn failure settle without political
+loss. Resistance automatic police and roadblock targets are zero. Pre-66
+migration preserves logical security and garrison facts while removing only
+unlinked disposable legacy police projections; malformed current graphs
+quarantine at `-66`.
+
+The active source also repairs the Schema-61 client-local campaign-marker owner
+regression introduced at commit `27672e6`. Protected campaign markers now enter
+native state as system-owned/non-removable records and a readiness keepalive
+rebuilds missing or mutated native projection from the committed client registry.
+Player-created/dynamic markers remain separately editable. Foundation passes at
+729 script-symbol references. Final stamped normal/all-five Workbench checks pass
+at 5,806 Game files/11,740 classes with CRC `ec860be7`, `Script validation
+successful`, zero HST script errors, and zero surviving processes. The
+deterministic Campaign Debug proof, native marker-input result, package, save/
+restart, multiplayer, and soak evidence remain open.
+
+The previous sealed source/Workbench checkpoint is Campaign Schema 65/runtime-
+settings Schema 24. It identifies implementation
 `609add9eeadf73816764c497178e2d35081307d1`, UTC
 `2026-07-12T18:30:29Z`, and label
 `schema65-settings24-civilian-consequence-authority`. Source inspection shows exact canonical-
@@ -73,7 +100,63 @@ server, restart, or multiplayer exit gates. Deferred native tests must be
 backfilled; reaching a later phase, sealing source, or publishing a build does
 not waive them.
 
-### Current Sealed Schema-65 Source/Workbench Checkpoint
+### Active Schema-66 Source Delta
+
+- Campaign schema advances to 66; runtime-settings remains 24. No generated-
+  settings migration is introduced.
+- `HST_LocalSecurityCatalogService` accepts only the configured authored enemy
+  town-police group, validates the root and ordered member prefabs, and freezes
+  police-strength-plus-one at 2–5 members. Resistance and non-town/noncanonical
+  candidates fail closed.
+- `HST_LocalSecurityOperationService` admits at most four new town epochs per
+  tick, but never more than one authority graph per town. The deterministic ID
+  includes town, faction, canonical ownership revision, and epoch. Admission
+  produces one frozen manifest, open typed operation, held SpawnQueue batch, and
+  exact active-group roster.
+- An inactive town keeps the exact member slots in strategic hold. An active
+  town releases the same slots through the exact infantry adapter and uses a
+  process-local cyclic waypoint chain. Deactivation reconciles mapped deaths,
+  validates exact runtime bindings, retires native ownership, and requeues only
+  survivors. Restore clears process handles and returns pending/physical state
+  to held virtual authority. No route is persisted and neither fold nor restore
+  refills casualties.
+- Complete roster destruction retires runtime authority, applies exactly one
+  `local_security_patrol_destroyed` town event with police `-1` and zero other
+  effects, and settles terminal `DESTROYED`. Replay is idempotent. Remaining
+  positive police pressure cannot reopen that epoch; rearm requires a newer
+  ownership revision or a later applied positive police event.
+- Owner change, police-pressure clear, setup, campaign terminal, and spawn
+  failure use non-loss settlement. Ownership preflight blocks on ambiguous or
+  quarantined local-security authority and retires/reconciles the exact old graph
+  before publishing the new owner. Persistence applies the same physical-
+  authority barrier and defers capture on unresolved fold/binding state.
+- Resistance-held towns drift automatic police and roadblock pressure to zero.
+  The separate at-most-two aggregate resistance infantry policy remains in the
+  ownership service and is not civilian-police authority.
+- Pre-66 migration clears patrol backlinks and removes only disposable legacy
+  police active-group rows without exact/mission/support/garrison links. It
+  preserves logical police, roadblock, owner, support, and garrison facts and
+  invents no roster, casualty, operation, fold credit, or refund. One migration
+  event records the count. Current reciprocal graph or loss-receipt corruption
+  quarantines at `-66` and is isolated from generic cleanup/combat presence.
+- `HST_LocalSecurityOperationProofService` covers authored roster bounds,
+  admission replay, enemy-town eligibility, survivor fold/restore/no refill,
+  destruction replay, non-loss owner/stop/spawn settlement, owner-revision rearm,
+  and conflict quarantine. It is wired into the force-integrity Campaign Debug
+  case but has not run and creates no native proof.
+- The marker repair addresses the `27672e6` regression directly. A protected
+  client-local static campaign marker bypasses stock local-owner assignment,
+  stays owner `-1` with owner removal disabled, and records a live integrity
+  signature. Readiness keepalive checks missing/deleted or position/text/icon/
+  flag/owner/removal drift and reconciles from the committed registry. Player-
+  created/dynamic markers remain editable and outside this repair.
+- Open gates: Foundation, normal/all-configuration Workbench, Campaign Debug,
+  native roster and cyclic waypoint behavior, live casualties and bubble fold/
+  re-entry, real persistence/process restart, ownership transition, terminal
+  cleanup, manual marker delete/move/edit and self-heal, packaged dedicated
+  server/client, multiplayer/reconnect/JIP, balance, and soak.
+
+### Previous Sealed Schema-65 Source/Workbench Checkpoint
 
 - The campaign schema advances to 65 while runtime-settings remains 24. The exact
   checkpoint is implementation `609add9eeadf73816764c497178e2d35081307d1`, UTC
@@ -212,9 +295,9 @@ not waive them.
   restart. The ambient Campaign Debug cases have not run. A packaged server run,
   real save/restart, and a ten-town/ten-minute performance/churn/stutter soak are
   required before this slice can be runtime-certified. Commander aid and ownership/security-
-  pressure paths exist but need runtime proof. Automatic civilian casualty,
-  theft, nearby-combat influence, panic/recovery, and deeper local-security
-  behavior remain design/implementation work.
+  pressure paths exist but need runtime proof. Automatic civilian consequences
+  and exact local security were not part of this older seal; Schemas 65 and 66
+  implement those later source slices without retroactively certifying them.
 - Sealed Schema 64 makes one unique contract-`1`
   `HST_TownInfluenceRecord` the sole political support/population truth for each
   curated town. FIA, occupier, and invader support are separate basis-point
@@ -1600,9 +1683,10 @@ Unproven or incomplete against the pasted contract:
 | Phase smoke wrapping | Valid phase-smoke indexes 0-62 now emit typed cases instead of duplicate legacy result rows; phase persistence seed/run/report steps are typed. | Physical depth inside some phases remains partial. |
 | Bootstrap/preflight/HQ | Server/admin/member/commander, phase repair, HQ/Petros/player presence, service/registry/prefab/zone graph checks, HQ runtime and duplicate scans. | Command-menu visual opening remains inferred through service/menu data, not rendered UI. |
 | Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route-state samples, typed recall receipt and paired-settlement conflict cases, eight coordinator-integrated schema-49 operation assertions, plus civilian/undercover probes. | Operation assertions still need packaged execution; production RPC/save-restart recall replay, real-frame support movement, two-sample arrival/recall exit, unconditional terminal resolution, natural support contact/combat, and broader civilian reaction behavior remain unproven. |
-| Blueprint Phase 8 ambient runtime | The sealed Settings-24 source/Workbench checkpoint and pure proof kernels cover global actor/traffic caps, 120-second-or-longer fair leases, deterministic rotation, four-root transaction-start scheduling, asynchronous readiness state, immutable per-zone/kind slots, bounded slot-specific recovery/recycle decisions, static military owner/policy refresh, settings migration, session-only topology, save/cargo filtering, field-vehicle promotion, and legacy detached-claim migration. Production observes claims player-first every server frame without a full ambient-root occupancy scan. Every `HST_PersistenceService` capture/checkpoint path plus new-campaign reset repeats reconciliation. One tracker registers promoted/restored/adopted/garage roots for current transform/destruction/cargo position, resolves exact registered bindings first, permits a unique same-prefab root within 8 meters only for initial/recovery binding, and fails closed on ambiguity. Reset can retain occupied live tracked `loot_vehicle`, `field_vehicle`, and `garage_redeploy` roots, normalizes them to `field_vehicle`, and copies retained vehicle/cargo before replacing state. Campaign Debug Phase 20 consumes the production global plan/four-root transaction-start cap. Foundation passes at 711 references; stamped-tree normal and all-five Workbench checks pass at 5,799 files/11,718 classes with CRC `bb083672`, zero HST script errors, and zero surviving processes. The exact sealed identity is implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC `2026-07-12T15:57:55Z`, and label `schema64-settings24-ambient-runtime-authority`. | Campaign Debug has not run. Package-prove exact CIV group/faction membership and waypoint activity; exact pilot seating, engine start, route activation, movement, recovery, recycle, and teardown; daytime/heat/population/budget demand; owner refresh; native brief enter/exit; autosave/restart; promoted-root destruction; new-campaign reset; two nearby same-prefab durable rows restore to two distinct physical roots without collapse; Campaign Debug Phase 20 production-path behavior; and ten towns for ten minutes without allocation churn or the one-second stutter. Schema-65 casualty, theft, nearby-combat influence, and panic/recovery are source/Workbench complete but still require native/package/restart/soak proof. Aid and ownership/security-pressure paths exist but need runtime proof; deeper local-security implementation remains open. |
+| Blueprint Phase 8 ambient runtime | The sealed Settings-24 source/Workbench checkpoint and pure proof kernels cover global actor/traffic caps, 120-second-or-longer fair leases, deterministic rotation, four-root transaction-start scheduling, asynchronous readiness state, immutable per-zone/kind slots, bounded slot-specific recovery/recycle decisions, static military owner/policy refresh, settings migration, session-only topology, save/cargo filtering, field-vehicle promotion, and legacy detached-claim migration. Production observes claims player-first every server frame without a full ambient-root occupancy scan. Every `HST_PersistenceService` capture/checkpoint path plus new-campaign reset repeats reconciliation. One tracker registers promoted/restored/adopted/garage roots for current transform/destruction/cargo position, resolves exact registered bindings first, permits a unique same-prefab root within 8 meters only for initial/recovery binding, and fails closed on ambiguity. Reset can retain occupied live tracked `loot_vehicle`, `field_vehicle`, and `garage_redeploy` roots, normalizes them to `field_vehicle`, and copies retained vehicle/cargo before replacing state. Campaign Debug Phase 20 consumes the production global plan/four-root transaction-start cap. Foundation passes at 711 references; stamped-tree normal and all-five Workbench checks pass at 5,799 files/11,718 classes with CRC `bb083672`, zero HST script errors, and zero surviving processes. The exact sealed identity is implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC `2026-07-12T15:57:55Z`, and label `schema64-settings24-ambient-runtime-authority`. | Campaign Debug has not run. Package-prove exact CIV group/faction membership and waypoint activity; exact pilot seating, engine start, route activation, movement, recovery, recycle, and teardown; daytime/heat/population/budget demand; owner refresh; native brief enter/exit; autosave/restart; promoted-root destruction; new-campaign reset; two nearby same-prefab durable rows restore to two distinct physical roots without collapse; Campaign Debug Phase 20 production-path behavior; and ten towns for ten minutes without allocation churn or the one-second stutter. Schema-65 consequences and sealed Schema-66 exact local security are source-implemented but still require native/package/restart/soak proof. Aid and ownership/security-pressure paths also need runtime proof. |
 | Schema-65 civilian consequences | Sealed source/Workbench adds bounded 256-casualty/64-theft queues with a combined four-attempt frame cap, bounded-backoff indefinite retry and capture deferral; exact-pilot resistance theft after durable promotion while passenger-only roots remain non-recyclable; episode combat that rejects `HOT`-only inference and drains pending receipts before a new edge; adopted-floor/last-applied invariants and full canonical `+4`-heat/zero-other-effect restore fingerprints; exact town aggression/strategic evidence; and RUN/calm-WALK panic with separate bounded route recovery and no hot-path AI activation. Minor localities remain panic-only. Foundation passes at 717 script-symbol references. Final stamped normal/all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST errors, and zero surviving processes. | Every runtime gate remains open. Execute every deterministic fixture, then package-prove callback attribution/fallback deduplication, queue capacity/capture deferral, pilot-only claim with passenger protection, at-most-once population/aggression, clear/rebound episodes, native threat/speed/waypoint behavior, pre-65 migration, indexed structural validation plus preset-role quarantine, process restart, multiplayer, and soak. Minor-locality exact fingerprints are session-only, so their cross-process replay/conflict guarantee remains open. |
-| Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction. | Execute the proof, then package-test native security, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support or legacy projection may bypass the transition service. |
+| Schema-66 exact local security | Sealed source/Workbench adds one deterministic exact enemy-town patrol epoch with an authored 2–5 member frozen roster, held SpawnQueue slots, exact physical/virtual transfer, casualty-preserving fold/restore, compact terminal authority, once-only police `-1` destruction consequence, same-epoch no-resurrection, and rearm only from newer ownership or later positive police pressure. Resistance automatic police/roadblock targets are zero. Pre-66 migration preserves logical facts and removes only unlinked legacy projections; current malformed graphs quarantine at `-66`. Foundation passes at 729 references; final normal/all-five Workbench checks pass at 5,806 files/11,740 classes with CRC `ec860be7`. | The wired Campaign Debug proof has not executed. Package-prove native group/waypoint readiness, live casualties, bubble fold/re-entry, no refill, save/restart, destruction replay, no-loss settlement, rearm, ownership sequencing, campaign stop/setup, migration/quarantine, multiplayer, and soak. |
+| Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction; Schema 66 preflights and retires exact local-security authority before owner publication. | Execute the proof, then package-test local-security casualty reconciliation/non-loss retirement, zero resistance police/roadblocks, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, legacy projection, or generic security cleanup may bypass these owners. |
 | Combat presence and zone heat | Sealed Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `a40056c5` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |
 | Town influence and political Map/War | The preceding sealed Schema-64/settings-23 source checkpoint wires one canonical town service, save validator, and pure Map/War projection. Deterministic fixtures cover 100/200/50-bp scaling, strict 8000/4000 equality, idempotency/revision, legacy projection, population chains, contact/order, and publication fences. The sealed Schema-65 source/Workbench delta extends exact event identity with optional aggression target/delta/before/after fields and a unique applied strategic receipt; indexed restore proves structural evidence, then live-preset validation proves enemy role. | The fixtures have not executed in Campaign Debug. Prove pre-64 migration, pre-65 zeroed aggression migration, current `-64` structural and preset-role quarantine, separate occupier/invader state, stable-ID exhaustion, every production caller, no owner bypass, real serialization/restart, rendered rows, due-expiry cost, and no stutter. |
 | Active-group lifecycle | Deterministic `active_group_lifecycle.*` cases prove one mixed-QRF personnel-terminal transition, linked QRF failure, zero capture pressure, terminal-before-unresolved marker ordering, replay no-op, schema-48 roundtrip, and living-mixed/vehicle-only controls. | Physical neutral-salvage detachment, entity/handle cleanup, player capture, dedicated replication, ownership-flip behavior, and process restart remain external runtime gaps. |
@@ -1612,10 +1696,10 @@ Unproven or incomplete against the pasted contract:
 | Convoys | Asset/entity/crew/driver/mobile/route/waypoint/readiness/progress/stall/recovery/contact evidence with no-progress failures, sampled travel/contact-or-terminal/terminal phase-chain assertions, plus a separate controlled state-machine probe that proves staging -> moving -> contact -> eliminated on temporary debug records through the real physical-war helpers. | Natural live staging -> moving -> contact -> arrival/elimination phase history is still WARN unless every phase is actually observed for the convoy under test; the controlled probe does not prove physical driving or the arrival failure path. |
 | POW/captives | Free/follow/extract state, repeated follow samples, alive/extracted counts, exact reward deltas, and a debug-only temporary captive boarding/transport compartment probe. | Natural player-driven POW transport over a real route remains open. |
 | Phase 17/22 enemy response | Counterattack/Petros attack orders, support physicalization, linked active groups, routed movement samples, stall evidence, and Phase 22 base-position assertions proving Defend Petros targets HQ/Petros rather than the nearby bookkeeping zone. | Multi-wave/contact/arrival/resolution behavior remains open. |
-| Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. Ownership publication stages the entire logical snapshot and commits only after exact parent/child validation/release; failures restore marker rows, epoch, and sequence. Resolver authority precedes retained-marker correlation, and quarantine purges unsafe zone markers. | Earlier packaged evidence still owns the rendered baseline. Republish and prove host/two-client equality, rendered atomicity, setup-to-active history, no duplicate campaign set, map reopen, reconnect/late join, and cleanup. |
+| Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair bypasses the `27672e6` local-owner regression for protected campaign markers, enforces owner `-1`/non-removability, and self-heals missing or mutated native state from the committed registry. Player-created/dynamic markers remain editable. | Earlier packaged evidence still owns the rendered baseline. Republish and attempt campaign-marker delete/move/edit on host and client; prove rejection or bounded self-heal, player-marker editability, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
-| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. Schema 62 deep-copies ownership authority; sealed Schema 63 copies zone heat and invalidates physical samples. Sealed Schema 64 deep-copies canonical town records/events. Sealed Schema 65 source/Workbench deep-copies aggression evidence and the locality danger/episode/adopted-floor/last-applied/panic envelope, uses bounded indexes to validate exact event/backlink/receipt structure before consequence authority, and runs a live-preset enemy-role quarantine after restore. It never persists ambient panic topology or callback queues, and pending consequence authority defers capture. | Execute all proof sets and prove real process restart, exact event/aggression/strategic continuity, no replay, pre-65 adopted-floor migration, `episode - lastApplied <= 1`, ordered structural/preset `-64` then locality `-65` quarantine, danger clear/rebound continuity, minor-locality session-fingerprint limitation, pending political receipt resume, capture deferral, cooling/checkpoint deadlines, multiclient reconnect/soak, and physical field-vehicle respawn. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. Schema 66 deep-copies exact local-security envelopes and links, isolates strong claimants before generic normalization, validates active/compact-terminal graphs, and folds open physical/dematerializing patrols before capture or defers it. Pre-66 migration preserves logical security and drops only unlinked disposable police projections. Schemas 62–65 authority remains ordered beneath it. | Execute all proof sets and prove real process restart, exact local-security survivors/no refill, no-resurrection/rearm, pre-66 migration/current `-66` quarantine, ownership and terminal cleanup, plus all existing event/aggression/episode/field-vehicle/reconnect/soak gates. |
 | Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, stall evidence for several physical categories. | Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence
@@ -1693,7 +1777,7 @@ Unproven or incomplete against the pasted contract:
   schema-58 exact POW-rescue, schema-59 exact radio-site, and schema-60 exact
   Search-and-Destroy/location slices remain without packaged evidence until a
   new package is run.
-- Strategic projection is limited to ten explicit family consumers across eight
+- Strategic projection is limited to eleven explicit family consumers across nine
   operation types: exact paid player
   QRF, newly confirmed player Search-and-Destroy, newly planned enemy defensive
   QRF, newly started exact mission convoy,
@@ -1701,7 +1785,8 @@ Unproven or incomplete against the pasted contract:
   resistance garrison patrol, plus guard infantry for newly started
   `assassinate_officer`, `assassinate_traitor`, and `assassinate_specops`
   missions, plus the exact guard-and-three-captive authority for newly started
-  `rescue_pows`. The HVT remains separate mission authority and is not an
+  `rescue_pows`, plus one automatic exact enemy-town local-security patrol
+  consumer. The HVT remains separate mission authority and is not an
   additional force participant. The convoy is
   a narrow three-vehicle/three-crew exception, not generic
   vehicle/multi-root realization, and it does not yet simulate off-screen
