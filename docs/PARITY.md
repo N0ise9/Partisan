@@ -1,8 +1,47 @@
 # Partisan Capability Map
 
-The active development tree uses Campaign Schema 69 with runtime-settings
-Schema 24. Newly admitted enemy counterattacks use exact
-contract `1`: a frozen infantry manifest and one reciprocal operation graph own
+The active development tree uses Campaign Schema 70 with runtime-settings
+Schema 24. Newly admitted enemy garrison rebuilds use exact contract `1`: a
+capacity-bounded frozen infantry manifest and one prepaid support-pool debit are
+bound to reciprocal order/operation/manifest/spawn/group authority. The
+manifest and selected-zone ownership capability are frozen and preflighted
+before debit; after debit the reciprocal runtime graph is built or the exact
+full rollback runs. The same roster preserves confirmed casualties across
+strategic and physical authority, then becomes held garrison population at
+delivery without aggregate
+double counting while the operation remains `OPEN`/`ON_STATION` with a zero-
+delta receipt. Explicit ownership-terminal, admission-rollback, and
+prearrival survivor-refund paths settle failure. Historical contract-zero
+rebuilds remain isolated. Malformed or ambiguous current graphs quarantine at
+`-70`; linked claimants and retention pins remain durable, and the authority
+does not invent cleanup, deletion, refund, or outcome. Selected source/target
+ownership capability fencing rejects an initial ABA change before pressure. A
+pressure-marked retry rechecks the capability and rejects before order creation
+or debit.
+
+The scoped Schema-70 engine-proof checkpoint is sealed at implementation
+`2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
+`2026-07-13T22:20:52Z`, label
+`schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, with stamp
+commit `ef95555`. Stamped Workbench compile/create log
+`logs_2026-07-13_18-21-32` is clean at CRC `8ed66143`. Stamped focused engine
+log `logs_2026-07-13_18-21-56` records one passing testcase, `AllExact=1`, and
+all 13 headline assertions: admission/capacity, delivery/held authority,
+casualty continuity, restore, ownership terminal handling, admission rollback,
+prearrival refund, settlement crash resume, historical isolation, Schema-70
+quarantine, orphan-runtime quarantine, quarantine retention, and selected-
+ownership ABA rejection. Foundation passes at 790 script-symbol references. The
+focused environment also records a recoverable stock VM exception and stock
+filter-constructor errors before the HST testcase succeeds, so it is not
+exception-free.
+
+This seals only Foundation, stamped Workbench compile/create, and focused engine
+proof. Full Campaign Debug Phase 17 was not run. Packaged execution,
+dedicated-server, serialization/restart, network/JIP/reconnect, and soak gates
+remain open.
+
+The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
+enemy counterattacks to exact contract `1`: a frozen infantry manifest and one reciprocal operation graph own
 direct virtual travel, physical/virtual casualty continuity, deterministic
 off-screen combat, canonical ownership transition, return, and a proportional
 survivor refund to exactly one originally charged attack or support pool.
@@ -856,6 +895,21 @@ Debug and packaged-runtime gates remain open.
   current graphs quarantine at `-69` without legacy fallback or invented
   authority. The scoped source/Foundation/all-target Workbench/focused-engine
   checkpoint is sealed; Full Campaign Debug and native/runtime proof remain open.
+- Schema 70 routes only newly admitted enemy garrison rebuilds through a
+  separate exact operation type and contract `1`. One capacity-bounded frozen
+  infantry manifest plus selected-zone ownership capability are preflighted
+  before one support debit; after debit, reciprocal order/operation/manifest/
+  spawn/group authority is built or exactly rolled back. The same surviving
+  roster persists through strategic/physical transfer and becomes held garrison
+  authority at delivery under an `OPEN`/`ON_STATION` operation and zero-delta
+  receipt, without aggregate double count. Ownership-terminal, admission-
+  rollback, and proportional prearrival-refund paths settle failure. Historical
+  rebuilds remain contract `0`; malformed and orphan current authority
+  quarantines at `-70`, preserving linked claimants and retention pins without
+  invented cleanup. Foundation passes at 790 references; focused engine proof
+  covers crash resume and selected ownership ABA rejection, though the focused
+  stock environment is not exception-free. Full Campaign Debug Phase 17 and
+  native/runtime proof remain open.
 - Newly purchased policy-v2 resistance garrisons use a separate exact
   `GARRISON_PATROL` owner. They walk a persisted infinite local route while held,
   use survivor-only materialization/fold, publish one exact marker/UI count, and
@@ -932,17 +986,29 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- Campaign Schema 69/runtime-settings 24 is the current contract. Its scoped
+- Campaign Schema 70/runtime-settings 24 is the current contract. Its scoped
   checkpoint is sealed at implementation
+  `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, stamp commit `ef95555`, stamped
+  Workbench compile/create log `logs_2026-07-13_18-21-32` at CRC `8ed66143`, and
+  focused log `logs_2026-07-13_18-21-56` with one passing testcase,
+  `AllExact=1`, and all 13 headline assertions. The focused run covers exact
+  admission/capacity, delivery/held authority, casualty continuity, restore,
+  ownership terminal handling, admission rollback, prearrival refund, crash
+  resume, historical isolation, malformed and orphan quarantine, retention,
+  and selected ownership ABA rejection. Foundation passes at 790 script-symbol
+  references. The focused stock environment is not exception-free. Full
+  Campaign Debug Phase 17 was not run;
+  packaged execution, dedicated-server, serialization/restart,
+  network/JIP/reconnect, and soak gates remain open.
+- Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
+  counterattack checkpoint. It remains sealed at implementation
   `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation
   771, all-target Workbench log `logs_2026-07-13_15-41-50` at CRC `3a8bd64f`, and
   focused log `logs_2026-07-13_15-42-52` with one passing JUnit testcase, an
-  empty failed list, and `AllExact=1`. The focused run covers valid PREPARED and
-  same-session ABORTED recovery, foreign derived-ID collision hold, and
-  fail-closed SETTLED state without a resource receipt. A recoverable base-game
-  VM exception appears before successful HST completion, so the run is not
-  exception-free. Full Campaign Debug, serialization/restart,
-  package/native/live-server behavior, migration and marker runtime,
+  empty failed list, and `AllExact=1`. Its valid PREPARED and same-session
+  ABORTED recovery, foreign derived-ID collision hold, and fail-closed SETTLED-
+  without-resource-receipt proof remain historical evidence. Its Full Campaign
+  Debug, serialization/restart, package/native/live-server, migration/marker,
   multiplayer/network/JIP/reconnect, and soak gates remain open.
 - The preceding sealed Schema-68 source/Workbench checkpoint adds commitment-aware target
   filtering/ranking, canonical root collapse, capped compatible-root penalties,
@@ -1255,15 +1321,17 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Execute the Schema-69 exact-counterattack Full Campaign Debug proof now that
-  Foundation, all-target Workbench, and focused engine are green.
-  Require reciprocal order/operation/manifest/batch/group authority, exactly one
-  charged pool, direct virtual route progress, deterministic combat, casualty-
-  preserving materialization/fold, canonical ownership retry, PREPARED
-  settlement resume, return, proportional survivor refund, contract-zero
-  isolation, derived-ID ambiguity rejection, `-69` quarantine idempotency, and
-  leak-free cleanup. Then package-prove serialization/restart, marker continuity,
-  live-server, multiplayer/networking, and soak behavior.
+- Execute the Schema-70 exact-garrison-rebuild Full Campaign Debug Phase-17
+  proof now that Foundation passes at 790 references. Require capacity-
+  bounded admission, exactly one prepaid support debit, reciprocal order/
+  operation/manifest/spawn/group authority, strategic/physical casualty
+  continuity, delivered held-roster transfer without aggregate double count,
+  ownership terminal handling, admission rollback, proportional prearrival
+  refund, PREPARED/SETTLED crash resume, contract-zero isolation, selected
+  ownership ABA rejection, and idempotent `-70` malformed/orphan quarantine with
+  retention. Then package-prove serialization/restart, dedicated-server,
+  multiplayer/network/JIP/reconnect, and soak behavior. Retain the still-open
+  Schema-69 counterattack runtime gates in the same verification program.
 - Publish and runtime-check the sealed Schema-66/settings-24 checkpoint under
   its exact identity. Do not report it under the sealed Schema-65 identity. Require every package,
   server, client, log, and artifact to agree on the new final identity while
@@ -1449,8 +1517,10 @@ Debug and packaged-runtime gates remain open.
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
 - Continue the implementation blueprint in dependency order. The scoped
-  Schema-69 engine-proof slice adds exact newly admitted counterattacks without rewriting the
-  sealed source/Workbench Schema-68 planning authority. Schema 68 shares fresh bootstrap, exact-gates known-state
+  Schema-70 engine-proof slice adds exact newly admitted garrison rebuilds
+  without rewriting the sealed Schema-69 counterattack or Schema-68 planning
+  authorities. Schema 69 adds exact newly admitted counterattacks; Schema 68
+  shares fresh bootstrap, exact-gates known-state
   recovery, adds production-resolver live observation, and corrects warning
   pacing. The preceding Schema-68 checkpoint makes periodic target choice commitment-aware,
   reranks duplicate patrols inside the same due decision, applies blocking

@@ -2,32 +2,28 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is `69` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. Schema 69 introduces the
-conservative persistence boundary for versioned exact enemy counterattacks. Its
-scoped engine-proof checkpoint is sealed at implementation
-`5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC
-`2026-07-13T19:40:35Z`, label
-`schema69-settings24-exact-enemy-counterattack-engine-proof`, with stamp commit
-`73a64ef`. Foundation passes at 771 script-symbol references. Final all-five
-Workbench log `logs_2026-07-13_15-41-50` exits `0`, compiles 5,821 Game files/
-11,786 classes at CRC `3a8bd64f`, explicitly validates WORKBENCH, PC, XBOX, PS4,
-and PS5, contains no script or HST errors, and leaves zero Workbench processes.
-Focused engine log `logs_2026-07-13_15-42-52` exits `0`, records one passing
-JUnit testcase, an empty failed list, and `AllExact=1`. It covers valid PREPARED
-recovery, same-session ABORTED recovery, foreign derived-ID collision hold, and
-fail-closed SETTLED-without-resource-receipt handling. The autotest environment
-also writes a recoverable base-game
-`SCR_EditableEntityCore/GetPlayerIdentityId` VM exception to `crash.log` before
-the HST case completes successfully, so the run is not exception-free.
+`HST_CampaignState.SCHEMA_VERSION` is `70` and
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. Schema 70 introduces the
+conservative persistence boundary for exact enemy garrison rebuilds while
+retaining Schema 69 exact enemy counterattacks unchanged. Its scoped checkpoint
+is sealed at implementation `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
+`2026-07-13T22:20:52Z`, label
+`schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, and stamp
+`ef95555`. Stamped Workbench compile/create log
+`logs_2026-07-13_18-21-32` passes at CRC `8ed66143`. Stamped focused autotest log
+`logs_2026-07-13_18-21-56` records one passing testcase and `AllExact=1` for the
+exact rebuild report. Foundation passes at 790 script-symbol references. The
+focused environment also records a recoverable stock VM exception and stock
+filter-constructor errors before the HST testcase succeeds, so it is not
+exception-free.
 
-The seal covers source, Foundation, all-target Workbench, and focused engine
-proof only. Full Campaign Debug in `HST_Dev`, serialization/restart,
-package/native/live-server behavior, actual migration runtime, marker runtime,
-network/JIP/reconnect, and soak remain open. The preceding Schema-68 planning
-checkpoint remains recorded below as history.
+The seal covers Foundation, stamped source, Workbench compile/create, and focused
+engine proof only. Full Campaign Debug Phase 17 and packaged, dedicated-server,
+serialization/restart, network/JIP/reconnect, and soak proof remain open. Schema
+69 is the immediately preceding historical campaign checkpoint and remains
+documented below; it is no longer the current save contract.
 
-The immediately preceding commitment-aware checkpoint is sealed at implementation
+An earlier Schema-68 commitment-aware checkpoint is sealed at implementation
 `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
 `2026-07-13T14:44:37Z`, label
 `schema68-settings24-commitment-aware-enemy-planning`, Foundation 751, and final
@@ -54,8 +50,8 @@ Campaign Debug observes authority through the read-only production exact
 resolvers. Its Campaign Debug, package execution, packaged restart, actual
 migration, multiplayer, and soak proof remain open.
 
-The current sealed checkpoint adds a schema-neutral commitment-aware planning
-correction.
+The historical Schema-68 sealed checkpoint added a schema-neutral,
+commitment-aware planning correction.
 Queued/active same-faction orders and support requests and open same-faction
 operations now affect target admission and ranking. Linked rows collapse to one
 root commitment; incompatible roots reject the target before ranking, while
@@ -231,6 +227,65 @@ classes with CRC `22c13a32` and zero script errors; the normal Script Editor ope
 remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 evidence remains open.
+
+## Schema 70
+
+Schema 70 appends `HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD` after every
+Schema-69 operation ordinal and persists the selected target's ownership
+revision on `HST_EnemyOrderState`. It does not reinterpret older rebuild rows.
+Rebuild orders restored from Schema 69 or earlier remain historical contract-`0`
+rows; a pre-70 rebuild carrying a nonzero exact contract is quarantined instead
+of being upgraded from incomplete evidence.
+
+- Newly admitted exact rebuilds use contract `1`, cost exactly 10 support
+  resources, and freeze one infantry-only manifest sized from authoritative
+  source capacity and the target's available garrison capacity. The manifest and
+  selected-zone ownership capability are preflighted before debit; after debit,
+  one reciprocal order/operation/manifest/batch/group graph owns the roster and
+  lifecycle or exact rollback restores the debit.
+- The planning capability hash includes the selected target and source zone IDs,
+  owners, and ownership revisions. A target or source ownership ABA therefore
+  changes the capability even when the final owner string matches again. Initial
+  admission rejects before pressure; a pressure-marked retry rechecks and rejects
+  before order creation or debit.
+- The same living manifest slots travel virtually, materialize physically, fold
+  confirmed casualties, and restore conservatively. Delivery links the exact
+  manifest to the destination garrison and records one zero-delta
+  `delivered_garrison_transfer` receipt while the operation remains `OPEN` and
+  `ON_STATION`; it does not add the roster to aggregate infantry or create a
+  replacement force.
+- A delivered roster remains exact held authority and may continue to
+  materialize or dematerialize. Terminal invalidation, destruction, or campaign
+  stop unlinks that manifest and settles with no refund. Before delivery,
+  invalidated survivors return to origin and eligible terminal paths refund the
+  original support debit exactly or proportionally from the durable living
+  roster.
+- `PREPARED` remains the durable terminal-intent boundary introduced by Schema
+  69. Exact receipt application, operation settlement, and final order lifecycle
+  are independently resumable. Restore repairs a valid stale order tail from the
+  receipt and settled operation without changing receipt identity or amount;
+  conflicting receipt, terminal policy, or settlement identity quarantines
+  instead of guessing.
+- Valid saved physical or in-progress projections normalize to process-free
+  strategic hold while preserving confirmed casualties and durable positions.
+  Schema-70 classification runs before generic active-group normalization; final
+  validation runs after generic, ownership, strategic-resource, and Schema-69
+  counterattack prerequisites.
+- Missing, duplicate, partial, orphaned, foreign, or otherwise ambiguous exact
+  authority quarantines at `-70`. Quarantine freezes every claimed nonterminal
+  batch into non-executable strategic hold, clears process-only group state, and
+  retains the order, operation, manifest, batch, group, debit, and refund
+  evidence through retention/pruning. It never fabricates cleanup, settlement,
+  delivery, casualty, or refund authority.
+
+The stamped checkpoint identity and remaining runtime gates are recorded under
+Current Schema above. The focused engine proof covers admission/capacity,
+held-roster delivery, physical/virtual casualty continuity, restore, ownership
+terminal settlement, admission rollback, prearrival survivor refund,
+PREPARED/SETTLED crash resume, historical isolation, malformed and orphan
+quarantine, quarantine retention, and selected target/source ownership ABA
+rejection. Full Campaign Debug Phase 17 and the broader runtime gates remain
+open.
 
 ## Schema 69
 

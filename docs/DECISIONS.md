@@ -1215,3 +1215,83 @@ Consequences:
 - This seal does not certify Full Campaign Debug in `HST_Dev`, serialization or
   restart, package/native/live-server behavior, migration runtime, marker
   runtime, network/JIP/reconnect, or soak. Those gates remain open.
+
+## CRI-021 - Version Enemy Garrison Rebuilds As Exact Held Forces
+
+- Status: Accepted; scoped Schema-70 Workbench/focused-engine checkpoint sealed
+- Date: 2026-07-13
+
+Context: Enemy garrison rebuild orders previously lacked one authoritative force
+identity across planning, travel, render-bubble transitions, delivery, later
+combat, terminal settlement, and restart. Folding a delivered squad into an
+aggregate infantry count would erase its individual casualty slots and could
+double-count it while a physical or held projection still existed. Owner-string
+checks alone also could not detect an ownership ABA between planning and debit.
+
+Decision: Campaign Schema 70 appends a distinct enemy-garrison-rebuild operation
+type and assigns exact contract `1` only to newly admitted rebuilds. Admission
+freezes one infantry-only manifest bounded by authoritative source infantry and
+target garrison capacity. The manifest and planning capability are preflighted
+before the exact 10-support debit; after debit, the
+enemy order, typed operation, manifest, held SpawnQueue batch, and active-group
+projection form one reciprocal aggregate or exact rollback restores the debit.
+The planning capability includes both
+selected zones' owners and ownership revisions, and the order persists the
+target revision.
+
+Delivery records one zero-delta `delivered_garrison_transfer` receipt and links
+the exact manifest to the destination garrison while the operation remains
+`OPEN` and `ON_STATION`. It does not increment aggregate infantry. The same
+durable living slots remain authoritative while the force is virtual, physical,
+restored, or later removed. Before delivery, invalidated
+survivors return to origin and eligible terminal paths refund the original
+support debit exactly or proportionally. Delivered terminal invalidation,
+destruction, or campaign stop unlinks and retires the held manifest without a
+refund.
+
+Consequences:
+
+- Rebuild rows restored from Schema 69 or earlier remain historical contract
+  `0`. Migration does not invent a manifest, operation, capacity decision,
+  target revision, debit, casualty, delivery, or refund. A pre-70 row claiming a
+  nonzero exact contract quarantines instead of being upgraded.
+- A target or source ownership ABA changes the `epc70` capability hash even when
+  the owner string returns to its original value. Initial admission rejects the
+  changed capability before pressure; a pressure-marked retry rechecks and
+  rejects before order creation or debit.
+- Physical and virtual modes are projections of the same exact roster. Confirmed
+  deaths remain dead through travel, fold, re-entry, restore, delivery, return,
+  and settlement. Delivery never collapses the manifest into aggregate
+  infantry.
+- Settlement reuses the appended `PREPARED` state. Resource receipt, operation
+  settlement, and final order lifecycle are separately idempotent. Restore may
+  repair a valid stale order tail from exact durable authority, but a conflicting
+  receipt, terminal policy, or settlement identity quarantines without guessed
+  cleanup or refund.
+- Schema-70 restore classifies rebuild authority before generic active-group
+  normalization and performs final validation after generic, ownership,
+  strategic-resource, and Schema-69 counterattack prerequisites. Valid saved
+  process-bound projections become process-free strategic hold while preserving
+  casualties and durable position.
+- Missing, duplicate, partial, orphaned, foreign, or otherwise ambiguous exact
+  claimants quarantine at `-70`. Every claimed nonterminal batch becomes
+  non-executable strategic hold, process-only group state is cleared, and
+  retention pins all reciprocal evidence. Quarantine does not fabricate or
+  erase a roster, settlement, delivery, casualty, debit, or refund.
+- The checkpoint is sealed at implementation
+  `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
+  `2026-07-13T22:20:52Z`, label
+  `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, and stamp
+  `ef95555`. Stamped Workbench compile/create log
+  `logs_2026-07-13_18-21-32` passes at CRC `8ed66143`. Stamped focused autotest
+  log `logs_2026-07-13_18-21-56` records one passing testcase and `AllExact=1`.
+  Foundation passes at 790 script-symbol references. The focused environment
+  records a recoverable stock VM exception and stock filter-constructor errors
+  before the HST testcase succeeds, so it is not exception-free.
+- The focused proof covers capacity/admission, held delivery, physical/virtual
+  casualty continuity, restore, ownership terminal settlement, admission
+  rollback, prearrival survivor refund, PREPARED/SETTLED crash resume,
+  historical isolation, malformed and orphan quarantine, quarantine retention,
+  and selected target/source ownership ABA rejection.
+- Full Campaign Debug Phase 17 and packaged, dedicated-server,
+  serialization/restart, network/JIP/reconnect, and soak proof remain open.

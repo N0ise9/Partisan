@@ -1,7 +1,43 @@
 # Partisan Enfusion / Enforce Notes
 
-The active development tree uses Campaign Schema 69 while runtime settings
-remain on Schema 24. Newly admitted exact enemy
+The active development tree uses Campaign Schema 70 while runtime settings
+remain on Schema 24. Newly admitted exact enemy garrison rebuilds use contract
+`1`, spend 10 support resources and zero attack resources, and freeze and
+preflight the roster plus selected-zone ownership capability before debit. After
+debit, admission builds the reciprocal operation/manifest/held-batch/group graph
+or performs the exact full rollback. Virtual and physical casualty changes
+reconcile into the same member-slot ledger. On arrival, living members become a
+held exact target garrison under an `OPEN`/`ON_STATION` operation and a zero-
+delta receipt; a later terminal event retires the roster with zero refund.
+Before arrival, terminal invalidation refunds support in proportion to living
+frozen members. Source and target ownership revisions reject an initial ABA
+before pressure and a pressure-marked retry before order creation or debit, even
+if the faction value returns to its selected value.
+
+Restore resumes `PREPARED` refund-receipt and `SETTLED` stale-order-tail crash
+windows without applying a second resource mutation. Current malformed,
+ambiguous, or orphan Schema-70 claimant graphs quarantine at `-70`; every claimed
+nonterminal batch/group is retained as an idempotent strategic hold. Generic
+force normalization and duplicate-identity finalization must skip only those
+retained quarantined claimants so ordinary duplicate rows still fail closed.
+
+The scoped checkpoint is sealed at implementation
+`2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
+`2026-07-13T22:20:52Z`, label
+`schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, with stamp commit
+`ef95555`. Stamped Workbench log `logs_2026-07-13_18-21-32` compiles 5,826 Game
+files/11,804 classes at CRC `8ed66143`. Focused engine log
+`logs_2026-07-13_18-21-56` records one passing
+`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase and claimant-wide
+quarantine replay/idempotency success. Foundation passes at 790 script-symbol
+references. The focused environment also records a recoverable stock VM
+exception and stock filter-constructor errors before the HST testcase succeeds,
+so it is not exception-free. Full Campaign Debug Phase 17, packaged/native/
+live-server runtime, serialization/restart, migration runtime, network/JIP/
+reconnect, and soak gates remain open.
+
+The preceding checkpoint used Campaign Schema 69 while runtime settings
+remained on Schema 24. Newly admitted exact enemy
 counterattacks use contract `1`, one frozen infantry manifest, one direct
 strategic route, casualty-preserving virtual/physical transfer, deterministic
 virtual combat, canonical ownership transition, return, and a proportional
@@ -5485,6 +5521,98 @@ This file is for practical engine/script behavior, not project planning. Keep en
   proof only. Full Campaign Debug in `HST_Dev`, serialization/restart,
   package/native/live-server behavior, migration runtime, marker runtime,
   network/JIP/reconnect, and soak remain open.
+
+## Schema 70 Exact Enemy Garrison Rebuild Mechanics
+
+- Append the enemy-garrison-rebuild operation enum; never insert it among
+  persisted values. Newly admitted rebuilds use exact contract `1` and historical
+  contract-`0` orders keep their legacy behavior. Restore must not construct an
+  exact graph for a historical row.
+
+- Rebuilds are support-only. Pre-debit planning requires attack cost `0`, support
+  cost `10`, a fully frozen exact infantry roster, and frozen selected source/
+  target ownership capability. Admission then applies exactly one matching
+  `defense_support_debit` receipt. After debit, the order, operation, manifest,
+  SpawnQueue batch, active-group projection, source, target, and resource
+  identities must become reciprocal or the full rollback must restore the debit;
+  a timer or aggregate garrison count is not execution authority.
+
+- Keep one member-slot ledger through virtual travel and physical projection.
+  Virtual casualties tombstone exact slots. Materialization releases only living
+  slots, physical reconciliation confirms any additional deaths before fold, and
+  strategic hold preserves the resulting roster through save/restore and later
+  re-materialization. Never refill a roster from its accepted count.
+
+- Successful arrival is a held exact-garrison transfer. Insert the living roster
+  as exact target authority without increasing the target's legacy aggregate
+  infantry count and retain a zero-delta delivery receipt. Delivery leaves the
+  operation `OPEN` and `ON_STATION`. A later target ownership change or other
+  terminal event may unlink and retire that held duty with zero refund, but it
+  must not rewrite the original delivery into a refund.
+
+- A terminal result before arrival refunds only the living fraction of the
+  support debit: `supportCost * livingMembers / acceptedMembers`. Confirmed dead
+  slots receive no refund. Admission failure before commitment may use the full
+  rollback path, but post-commit settlement must use the frozen survivor ledger
+  and the original support pool.
+
+- Freeze source and target owner plus ownership revision in the selected planning
+  capability. Initial admission revalidates it before pressure. A pressure-marked
+  retry revalidates it again before order creation or debit. If either zone
+  changes owner and later changes back, the faction string may match while the
+  revision does not; reject this ABA case without creating an order or resource
+  mutation.
+
+- Settlement is a replayable state machine. `PREPARED` means the terminal tuple
+  is durable and its refund receipt may already have been applied; restore should
+  finish the operation and order tail without another refund. `SETTLED` with a
+  stale order/runtime tail should repair that tail only. A second reconciliation
+  must be a no-op with the same operation revision, pool balance, and mutation
+  count.
+
+- Schema-70 validation must run before broad force/operation normalization.
+  Invalid current aggregates quarantine at `-70` without guessed cleanup,
+  settlement, refund, aggregate conversion, or ownership publication. Discover
+  claimants through explicit backlinks, deterministic identities, and transitive
+  order/operation/manifest/batch/group links; quarantine every matching claimant,
+  not merely the first row found.
+
+- Orphan exact runtime claimants follow the same safety boundary. Every matching
+  nonterminal batch becomes held `PENDING` authority with process/verifier state
+  cleared, and every matching group loses transient spawned/process state while
+  retaining its durable identity and survivor ledger. Repeated validation must
+  preserve the exact reason and revision.
+
+- Generic force normalization must explicitly defer to this retained authority.
+  Under `restoredSchemaVersion >= 70`, both `NormalizeForceAuthority()` and both
+  sides of `FinalizeDuplicateForceSpawnQueueIdentity()` call
+  `IsSchema70QuarantinedBatchClaimant()` and skip a batch claimed by a quarantined
+  Schema-70 order or operation. Keep this guard narrow: unclaimed or healthy
+  duplicate nonterminal batches must continue through the generic fail-closed
+  duplicate policy.
+
+- Static Foundation checks for an older exact-force family must remain valid when
+  a later schema appends a new enum value or a second qualified helper with the
+  same method name. Test historical enum adjacency rather than requiring the old
+  value to remain last; qualify helper-call counts by owning class; and inspect
+  the helper that owns a centralized invariant instead of requiring its literal
+  in the caller. Schema-62 ownership validation must assert both recognized exact
+  garrison policies plus the unsupported-policy failure, not the retired patrol-
+  only branch.
+
+- The checkpoint identity is implementation
+  `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
+  `2026-07-13T22:20:52Z`, label
+  `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, stamp commit
+  `ef95555`. Workbench log `logs_2026-07-13_18-21-32` compiles 5,826 Game files/
+  11,804 classes at CRC `8ed66143`; focused log
+  `logs_2026-07-13_18-21-56` passes
+  `HST_TEST_EnemyGarrisonRebuildAuthority`, including claimant-wide quarantine
+  replay and idempotency. Foundation passes at 790 script-symbol references. The
+  focused environment records a recoverable stock VM exception and stock filter-
+  constructor errors before the HST testcase succeeds, so it is not exception-
+  free. Full Campaign Debug Phase 17, package/runtime, serialization/restart,
+  multiplayer/network, and soak remain unproven.
 
 ## Native Reference Sources
 

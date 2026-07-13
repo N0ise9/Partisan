@@ -20387,9 +20387,14 @@ if ($schema62OwnerWriteIndex -lt 0 -or $schema62OldSecurityIndex -lt 0 -or
 	throw "Schema-62 ownership transition must settle retry-capable security/support before the visible owner revision, finish domain consequences before projection, and schedule persistence before completion"
 }
 foreach ($schema62SecurityEntry in @(
-	'!manifest || manifest.m_sPolicyId != HST_GarrisonPatrolOperationService.EXACT_POLICY_ID',
-	'non-patrol exact garrison authority must be settled before ownership can change',
+	'if (!manifest)',
+	'accepted exact garrison authority is missing before ownership change',
+	'manifest.m_sPolicyId == HST_GarrisonPatrolOperationService.EXACT_POLICY_ID',
 	'm_GarrisonPatrols.ValidateAcceptedManifestOwnershipAuthority(',
+	'HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID',
+	'm_EnemyGarrisonRebuilds.ValidateAcceptedManifestOwnershipAuthority(',
+	'unsupported exact garrison authority must be settled before ownership can change',
+	'm_EnemyGarrisonRebuilds.CanReconcileZoneOwnershipChange(',
 	'm_GarrisonPatrols.CanReconcileZoneOwnershipChange('
 )) {
 	if ([string]::IsNullOrEmpty($schema62ValidateSecurityBlock) -or
@@ -26297,17 +26302,17 @@ $schema69CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 $schema69ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCounterattackOperationProofService.c"
 $schema69AutotestText = Get-Content -Raw "Scripts/Game/HST/Tests/HST_EnemyCounterattackAutotest.c"
 
-if ($campaignSchemaVersion -ne 69 -or
-	$schema69StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*69;') {
-	throw "Schema-69 exact enemy-counterattack authority requires CampaignState schema 69"
+if ($campaignSchemaVersion -lt 69 -or
+	$schema69StateText -notmatch "static const int SCHEMA_VERSION\s*=\s*$campaignSchemaVersion;") {
+	throw "Schema-69 exact enemy-counterattack authority requires CampaignState schema 69 or later"
 }
 if ($runtimeSettingsSchemaVersion -ne 24) {
 	throw "Schema-69 exact enemy-counterattack authority must preserve runtime-settings schema 24"
 }
 $schema69OperationEnumBlock = Get-ScriptMethodBlock $schema69TypesText 'enum HST_EOperationType'
 if ([string]::IsNullOrEmpty($schema69OperationEnumBlock) -or
-	$schema69OperationEnumBlock -notmatch 'HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL,\s*HST_OPERATION_TYPE_ENEMY_COUNTERATTACK\s*\}') {
-	throw "Schema-69 must append ENEMY_COUNTERATTACK without renumbering historical operation types"
+	$schema69OperationEnumBlock -notmatch 'HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL,\s*HST_OPERATION_TYPE_ENEMY_COUNTERATTACK(?:,|\s*\})') {
+	throw "Schema-69 must retain ENEMY_COUNTERATTACK immediately after every historical operation type"
 }
 
 foreach ($schema69ConstantCheck in @(
@@ -26792,8 +26797,8 @@ if ($schema69PendingAggregateSuccessIndex -ge 0) {
 		$schema69PendingAggregateSuccessIndex)
 }
 $schema69OrdinaryRefundPolicyIndex = $schema69ResourceOrderBacklinkBlock.IndexOf('if (order.m_iRefundedAttackResources < 0')
-if (([regex]::Matches($schema69ResourceOrderBacklinkBlock, 'ValidatePendingResourceRefundAuthority\(')).Count -ne 1 -or
-	([regex]::Matches($schema69ResourceOrderBacklinkBlock, 'ValidatePendingResourceRefundAggregateAuthority\(')).Count -ne 1 -or
+if (([regex]::Matches($schema69ResourceOrderBacklinkBlock, 'HST_EnemyCounterattackSaveValidationService\.ValidatePendingResourceRefundAuthority\(')).Count -ne 1 -or
+	([regex]::Matches($schema69ResourceOrderBacklinkBlock, 'HST_EnemyCounterattackSaveValidationService\.ValidatePendingResourceRefundAggregateAuthority\(')).Count -ne 1 -or
 	$schema69PendingDelegationGuardIndex -lt 0 -or $schema69PendingDelegationCallIndex -lt 0 -or
 	$schema69PendingAggregateCallIndex -lt 0 -or
 	$schema69PendingAggregateSuccessIndex -lt 0 -or $schema69PendingAggregateReturnIndex -lt 0 -or
@@ -27812,12 +27817,21 @@ foreach ($schema70PlanningEntry in @(
 	'ResolveAuthoritativeZoneInfantry(',
 	'availableCapacity',
 	'acceptedMemberLimit',
-	'BuildExactEnemyInfantryManifest(',
-	'EXACT_ENEMY_GARRISON_REBUILD_SUPPORT_COST'
+	'BuildExactEnemyInfantryManifest('
 )) {
 	if ([string]::IsNullOrEmpty($schema70PlanningBlock) -or
 		$schema70PlanningBlock.IndexOf($schema70PlanningEntry) -lt 0) {
 		throw "Schema-70 frozen rebuild planning/capacity authority is incomplete: $schema70PlanningEntry"
+	}
+}
+$schema70PlanningContextBlock = Get-ScriptMethodBlock $schema70PlanningText 'protected string ValidateExactEnemyGarrisonRebuildPlanningContext('
+foreach ($schema70PlanningCostEntry in @(
+	'order.m_iAttackCost != 0',
+	'order.m_iSupportCost != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_SUPPORT_COST'
+)) {
+	if ([string]::IsNullOrEmpty($schema70PlanningContextBlock) -or
+		$schema70PlanningContextBlock.IndexOf($schema70PlanningCostEntry) -lt 0) {
+		throw "Schema-70 frozen rebuild planning cost authority is incomplete: $schema70PlanningCostEntry"
 	}
 }
 
@@ -28003,12 +28017,22 @@ foreach ($schema70CrashProofEntry in @(
 	'saveData.Capture(fixture.m_State);',
 	'saveData.Restore();',
 	'resumed.ReconcileAfterRestore(',
-	'!replayChanged',
-	'CountMutationId('
+	'!replayChanged'
 )) {
 	if ([string]::IsNullOrEmpty($schema70CrashProofBlock) -or
 		$schema70CrashProofBlock.IndexOf($schema70CrashProofEntry) -lt 0) {
 		throw "Schema-70 settlement crash-window proof is incomplete: $schema70CrashProofEntry"
+	}
+}
+foreach ($schema70CrashReceiptProofSignature in @(
+	'protected bool IsSettlementCrashWindowExact(',
+	'protected bool IsSettlementCrashTerminalExact('
+)) {
+	$schema70CrashReceiptProofBlock = Get-ScriptMethodBlock $schema70ProofText $schema70CrashReceiptProofSignature
+	if ([string]::IsNullOrEmpty($schema70CrashReceiptProofBlock) -or
+		$schema70CrashReceiptProofBlock.IndexOf('CountMutationId(') -lt 0 -or
+		$schema70CrashReceiptProofBlock.IndexOf('== 1') -lt 0) {
+		throw "Schema-70 settlement crash-window receipt replay proof is incomplete: $schema70CrashReceiptProofSignature"
 	}
 }
 foreach ($schema70CrashHarnessEntry in @(
