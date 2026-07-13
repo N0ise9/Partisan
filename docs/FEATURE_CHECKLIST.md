@@ -1,31 +1,26 @@
 # Partisan Feature Checklist
 
-The current sealed source/Workbench checkpoint is Campaign Schema 68 while
-runtime settings remains Schema 24. It implements one independent last/next 180-second
-planner checkpoint per configured enemy, stable sorted faction/commitment/target/source
-inputs, and frozen war/aggression/pool revision/balances/operational count/candidate/selection/order/support/
-capability/manifest-route/cost/pressure/accounting facts and IDs. Prepared
-decisions retry on a 30-second checkpoint without changing their frozen facts;
-pressure applies at most once; completion is explicitly skipped, rejected, or
-committed; and commit requires exact order/debit backlinks. Pre-68 restore
-creates only no-invention `last = elapsed`, `next = elapsed + 180`, sequence `0`
-idle role baselines and leaves old orders at planning
-contract `0`; malformed current authority quarantines at `-68` without changing
-Schema-67 pools/receipts. Immediate counterattacks and debug/direct paths remain
-planning contract `0`. Its stamp identifies implementation
-`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
-`2026-07-13T01:04:41Z`, and label
-`schema68-settings24-enemy-planning-authority`. Foundation passes at 744
-script-symbol references. Final stamped normal log `logs_2026-07-12_21-05-15`
-and all-five log `logs_2026-07-12_21-05-34` both compile 5,812 Game files/11,761
-classes with CRC `971d30d0`; all-five validates WORKBENCH, PC, XBOX, PS4, and
-PS5 successfully. Both runs have zero HST script errors and zero surviving
-Workbench processes. Twelve state-only planning assertions are wired/static and
-have not executed in Campaign Debug. Native restart, package, dedicated-server,
-multiplayer, and soak evidence remains open.
+The current sealed source/Workbench checkpoint remains Campaign Schema 68 and
+runtime-settings Schema 24 while making `$profile:Partisan` the only generated-
+data write root. Canonical-first, non-destructive legacy adoption covers runtime
+settings, campaign fallback JSON, loadout-editor preferences, and per-player
+loadouts; new debug runs write only to the canonical debug directory. Its stamp
+identifies implementation `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
+`2026-07-13T01:59:08Z`, label
+`schema68-settings24-partisan-profile-namespace`, Foundation 745, and final
+normal/all-five logs `logs_2026-07-12_21-59-41`/
+`logs_2026-07-12_22-00-16`. Both compile 5,813 Game files/11,762 classes at CRC
+`475f57b7`; all five configurations pass with zero HST script errors and zero
+surviving Workbench processes. Live legacy settings and campaign JSON are
+structurally valid, but the server-side adoption and restart/package gates remain
+unexecuted.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
-67 with runtime settings still at Schema 24. Its stamp identifies implementation
+68 with runtime settings still at Schema 24. Its stamp identifies implementation
+`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+`2026-07-13T01:04:41Z`, and label
+`schema68-settings24-enemy-planning-authority`. It retains the planning contract
+described below. The earlier Schema-67 resource seal identifies implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
 `schema67-settings24-enemy-strategic-resource-authority`. Schema 67 gives every
@@ -210,18 +205,14 @@ means the named production slice exists. `Verified` means an appropriate proof
 has actually run against that slice. `Certified` additionally requires a safe,
 isolated runtime run with no unresolved hard failures or required external gaps.
 
-The current sealed source/Workbench checkpoint is Schema 68/settings 24. It adds
-one independent durable planner row per enemy on top of the sealed Schema-67
-resource authority, with sorted frozen inputs, stable decisions, bounded
-preparation/prepared retry, once-only pressure, crash-window adoption, exact
-order/debit backlinks, and fail-closed `-68` validation. It is sealed at
-implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
-`2026-07-13T01:04:41Z`, label
-`schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench CRC
-`971d30d0` at 5,812 Game files/11,761 classes. Final all-five validation covers
-WORKBENCH, PC, XBOX, PS4, and PS5 with zero HST script errors and zero surviving
-processes. Twelve state-only assertions are wired but have not executed in
-Campaign Debug; native restart/package/server/multiplayer/soak proof remains open.
+The current sealed source/Workbench checkpoint is Schema 68/settings 24 at
+implementation `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, label
+`schema68-settings24-partisan-profile-namespace`, Foundation 745, and Workbench
+CRC `475f57b7` at 5,813 Game files/11,762 classes. It keeps the sealed enemy-
+planning authority intact while moving generated writes to `$profile:Partisan`
+with canonical-first legacy adoption. All five targets validate with zero HST
+script errors and zero surviving processes. Campaign Debug, actual server
+adoption, restart, package, multiplayer, and soak proof remain open.
 
 The sealed Schema 66/settings 24 checkpoint retains Schema
 65's civilian-consequence authority and Schema 64's one canonical town record
@@ -403,7 +394,7 @@ must be backfilled; an active later source contract does not waive those gates.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Campaign Schema 68/runtime-settings Schema 24 is the current sealed source/Workbench checkpoint at implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC `2026-07-13T01:04:41Z`, and label `schema68-settings24-enemy-planning-authority`. Schema 67/settings 24 is the immediately preceding seal | One separate per-enemy planner on top of sealed Schema-67 resources | Foundation 744 and final normal/all-five Workbench checks pass at 5,812/11,761 with CRC `971d30d0`; all-five validates WORKBENCH, PC, XBOX, PS4, and PS5 successfully, with zero HST script errors and zero surviving processes. Campaign Debug/native runtime remains unexecuted | No | PAUSE for the user to update Workshop metadata; do not select a later Blueprint slice until resumed. |
+| CRI-0 Truth and baseline | Campaign Schema 68/runtime-settings Schema 24 is the current sealed source/Workbench checkpoint at implementation `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC `2026-07-13T01:59:08Z`, and label `schema68-settings24-partisan-profile-namespace`. The Schema-68 planning seal is immediately preceding | Canonical `$profile:Partisan` writes plus non-destructive canonical-first legacy adoption | Foundation 745 and final normal/all-five Workbench checks pass at 5,813/11,762 with CRC `475f57b7`; all targets validate with zero HST script errors and zero surviving processes. Actual server adoption/restart remains unexecuted | No | PAUSE for Workshop publication/testing; do not select a later Blueprint slice until resumed. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner | Schema-59 source proof and stamped-tree Workbench gates pass; packaged runtime pending | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. New exact radio missions use contract `1`; active legacy rows fail closed and malformed current rows quarantine at `-59`. |
 | CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, ten exact infantry-family consumers, one exact convoy, plus three externally managed captive slots | Schema-66 local-security source integration passes Foundation/Workbench; native projection/restart is pending | No | Local security adds one authored 2–5 member enemy-town roster without widening generic vehicle/asset/multi-root execution or historical consumers. |
 | CRI-3 Force runtime | Complete in source for ten exact infantry-family consumers, one exact convoy, the three-captive rescue lifecycle, and the crewless mixed-group slice | Existing exact casualty/reprojection paths plus Schema-66 local-security survivor fold/restore and no-refill authority | Schema-66 Foundation/Workbench passes; Campaign Debug and native/package/restart gates are pending | No | Prove live local-security adapter casualties, fold/root retirement, held-slot continuity, re-entry, and restart alongside every earlier family. |

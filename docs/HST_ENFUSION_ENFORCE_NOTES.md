@@ -1,20 +1,23 @@
 # Partisan Enfusion / Enforce Notes
 
 The current sealed source/Workbench checkpoint is Campaign Schema 68/runtime-
-settings Schema 24 under implementation
-`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
-`2026-07-13T01:04:41Z`, and label
-`schema68-settings24-enemy-planning-authority`. Foundation passes at 744 script-
-symbol references. Final stamped normal log `logs_2026-07-12_21-05-15` and all-
-five log `logs_2026-07-12_21-05-34` both load 5,812 Game files/11,761 classes
-with CRC `971d30d0`. All-five reports `Script validation successful` for
-WORKBENCH, PC, XBOX, PS4, and PS5; zero HST script errors were observed and zero
-Workbench processes survived cleanup. Twelve state-only source assertions are
-wired but have not executed in Campaign Debug. Native restart, package,
-dedicated-server, multiplayer, and soak evidence remains open.
+settings Schema 24 at implementation
+`f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
+`2026-07-13T01:59:08Z`, label
+`schema68-settings24-partisan-profile-namespace`, Foundation 745, and Workbench
+CRC `475f57b7` at 5,813 files/11,762 classes. Final normal/all-five logs are
+`logs_2026-07-12_21-59-41` and `logs_2026-07-12_22-00-16`; WORKBENCH, PC, XBOX,
+PS4, and PS5 validate successfully with zero HST script errors and zero surviving
+processes. The shared path service makes `$profile:Partisan` the only write root
+and keeps legacy reads canonical-first and non-destructive. Native adoption,
+restart, package, dedicated-server, multiplayer, and soak evidence remains open.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
-67/runtime-settings Schema 24 under implementation
+68/runtime-settings Schema 24 under implementation
+`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+`2026-07-13T01:04:41Z`, label
+`schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench CRC
+`971d30d0`. The earlier Schema-67 resource checkpoint is implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
 `schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at

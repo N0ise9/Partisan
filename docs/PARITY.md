@@ -1,31 +1,24 @@
 # Partisan Capability Map
 
-The current sealed source/Workbench checkpoint is Campaign Schema 68 while
-runtime settings remains Schema 24. It adds one per-configured-enemy last/next 180-second planner
-checkpoint, stable sorted faction/commitment/target/source inputs, and frozen
-war/aggression/pool revision/balance/operational/candidate/selection/order/
-support/capability/manifest-route/cost/pressure/accounting evidence. Prepared
-decisions retain those facts across a 30-second retry, apply pressure at most
-once, and finish explicitly as skipped, rejected, or committed; commit requires
-the exact order and Schema-67 debit backlink. Pre-68 restore creates no decision,
-leaves old orders planning contract `0`, and installs only `last = elapsed`,
-`next = elapsed + 180`, sequence `0` idle role baselines;
-malformed current rows quarantine at `-68` without changing Schema-67 pools or
-receipts. Immediate counterattacks and debug/direct paths remain contract `0`.
-Its sealed identity is implementation
-`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
-`2026-07-13T01:04:41Z`, and label
-`schema68-settings24-enemy-planning-authority`; Foundation passes at 744 script-
-symbol references. Final stamped normal log `logs_2026-07-12_21-05-15` and all-
-five log `logs_2026-07-12_21-05-34` both load 5,812 Game files/11,761 classes
-with CRC `971d30d0`. All-five validates WORKBENCH, PC, XBOX, PS4, and PS5
-successfully; both runs have zero HST script errors and zero surviving processes.
-Twelve state-only assertions are wired but have not executed in Campaign Debug.
-Native restart, package, dedicated-server, multiplayer, and soak evidence remains
-open.
+The current sealed source/Workbench checkpoint remains Campaign Schema 68 and
+runtime-settings Schema 24. It makes `$profile:Partisan` the canonical generated-
+data root and preserves valid legacy settings, campaign fallback data, editor
+preferences, and personal loadouts through canonical-first one-way adoption. New
+debug runs write only to the canonical root. The sealed identity is implementation
+`f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
+`2026-07-13T01:59:08Z`, label
+`schema68-settings24-partisan-profile-namespace`, Foundation 745, and Workbench
+CRC `475f57b7` at 5,813 files/11,762 classes. Final normal/all-five logs are
+`logs_2026-07-12_21-59-41` and `logs_2026-07-12_22-00-16`; all targets validate
+with zero HST script errors and zero surviving Workbench processes. Actual
+server adoption and restart/package proof remain open.
 
 The immediately preceding sealed source/Workbench contract is Campaign Schema
-67/runtime-settings Schema 24 under implementation
+68/runtime-settings Schema 24 under implementation
+`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+`2026-07-13T01:04:41Z`, label
+`schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench CRC
+`971d30d0`. The earlier Schema-67 resource seal is implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
 `schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
@@ -796,14 +789,18 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - The current sealed source/Workbench tree is Campaign Schema 68/runtime-settings
-  24 under implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
-  `2026-07-13T01:04:41Z`, label
-  `schema68-settings24-enemy-planning-authority`, Foundation 744, and final
-  Workbench CRC `971d30d0` at 5,812 files/11,761 classes. All-five validates
+  24 under implementation `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
+  `2026-07-13T01:59:08Z`, label
+  `schema68-settings24-partisan-profile-namespace`, Foundation 745, and final
+  Workbench CRC `475f57b7` at 5,813 files/11,762 classes. All-five validates
   WORKBENCH, PC, XBOX, PS4, and PS5 with zero HST script errors and zero surviving
-  processes. Twelve state-only assertions remain unexecuted in Campaign Debug.
-  PAUSE for the Workshop metadata update.
-- The immediately preceding sealed source/Workbench tree is Campaign Schema 67/runtime-settings 24 under
+  processes. Actual profile adoption remains unexecuted. PAUSE for Workshop
+  publication/testing.
+- The immediately preceding sealed source/Workbench tree is Campaign Schema 68/
+  runtime-settings 24 under implementation
+  `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, label
+  `schema68-settings24-enemy-planning-authority`, Foundation 744, and CRC
+  `971d30d0`. The earlier Schema-67 resource tree is
   implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
   `2026-07-12T23:46:02Z`, and label
   `schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at

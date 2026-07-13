@@ -1,41 +1,26 @@
 # Partisan: Everon
 
-The current sealed source/Workbench checkpoint is Campaign Schema 68 while
-runtime settings remains Schema 24. One separate planner row per configured enemy owns
-independent last/next 180-second checkpoints. Stable sorted faction,
-commitment, target, and source inputs freeze war level, aggression, Schema-67
-pool revision/balances and operational count, candidates, selection, order and
-support capability, manifest/route, cost, pressure, and deterministic decision,
-order, operation, and debit IDs. A failure before the decision can be frozen
-persists a separate 30-second preparation gate instead of re-running every
-commander tick. A decision persists as `prepared`, retains its frozen facts
-across bounded retries, survives the pre-pressure save boundary, normalizes
-decayed pressure before its once-only update, and finishes explicitly as
-`skipped`, `rejected`, or `committed`; commit requires
-the exact order and Schema-67 debit backlink. Pre-68 restore creates only an
-idle sequence-`0` `last = elapsed`/`next = elapsed + 180` baseline and leaves old orders at
-planning contract `0`; malformed current authority quarantines at `-68` without
-changing Schema-67 pools or receipts. Immediate counterattacks and existing
-debug/direct paths also remain planning contract `0`. Exact QRF/patrol admission
-failure must produce a durable aborted result or explicit planning quarantine.
-The sealed identity is implementation
-`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
-`2026-07-13T01:04:41Z`, and label
-`schema68-settings24-enemy-planning-authority`; Foundation passes at 744
-script-symbol references. Final stamped normal log `logs_2026-07-12_21-05-15`
-and all-five log `logs_2026-07-12_21-05-34` both compile 5,812 Game files/11,761
-classes with CRC `971d30d0`. All-five reports `Script validation successful` for
-WORKBENCH, PC, XBOX, PS4, and PS5; zero HST script errors were observed and zero
-Workbench processes survived cleanup. Twelve state-only assertions are wired but
-have not executed in Campaign Debug. No native save/restart, package, dedicated-
-server, multiplayer, or soak result is claimed.
+The current sealed source/Workbench checkpoint remains Campaign Schema 68 and
+runtime-settings Schema 24 while moving all newly generated profile data to
+`$profile:Partisan`. Canonical files win; valid legacy settings, campaign
+fallback data, editor preferences, and personal loadouts are normalized or
+migrated forward only when the canonical counterpart is absent, and legacy files
+remain untouched. New debug artifacts use the canonical root without copying
+historical runs. The sealed implementation is
+`f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
+`2026-07-13T01:59:08Z`, label
+`schema68-settings24-partisan-profile-namespace`, and Foundation 745. Final
+normal log `logs_2026-07-12_21-59-41` and all-five log
+`logs_2026-07-12_22-00-16` compile 5,813 Game files/11,762 classes with CRC
+`475f57b7`; WORKBENCH, PC, XBOX, PS4, and PS5 validate successfully, with zero
+HST script errors and zero surviving Workbench processes. The live legacy JSON
+files were confirmed structurally valid, but actual server adoption, save/
+restart, package, multiplayer, and soak proof remain open.
 
-The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
-67/settings 24 at implementation
-`2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
-`2026-07-12T23:46:02Z`, label
-`schema67-settings24-enemy-strategic-resource-authority`, Foundation 736, and
-Workbench CRC `a353fa0d` at 5,809 Game files/11,751 classes.
+The immediately preceding sealed checkpoint is Schema 68/settings 24 at
+implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, label
+`schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench CRC
+`971d30d0` at 5,812 Game files/11,761 classes.
 
 The product and repository names are now **Partisan: Everon** and **Partisan**.
 `HST_*` source/resource names and the non-public `histasi` Workbench project ID

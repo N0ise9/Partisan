@@ -908,7 +908,7 @@ Consequences:
 
 ## CRI-017 - Move Generated Profile Data Without Stranding Existing Campaigns
 
-- Status: Accepted; implementation validation in progress
+- Status: Accepted; sealed Schema 68/settings 24 source/Workbench checkpoint
 - Date: 2026-07-12
 
 Context: Public branding now uses Partisan, but generated settings, campaign
@@ -943,3 +943,13 @@ Consequences:
 - The shared Foundation gate rejects legacy writes and unapproved legacy path
   literals, and requires the canonical-first resolver and all artifact-specific
   adoption hooks.
+- The sealed implementation is
+  `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
+  `2026-07-13T01:59:08Z`, label
+  `schema68-settings24-partisan-profile-namespace`, and Foundation 745. Final
+  normal/all-five logs `logs_2026-07-12_21-59-41` and
+  `logs_2026-07-12_22-00-16` compile 5,813 Game files/11,762 classes at CRC
+  `475f57b7`; all five configurations pass with zero HST script errors and zero
+  surviving Workbench processes. Live legacy settings and campaign JSON are
+  structurally valid, but actual server adoption and restart/package proof remain
+  open.

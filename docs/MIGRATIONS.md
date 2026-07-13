@@ -2,24 +2,24 @@
 
 ## Current Schema
 
-The current sealed source/Workbench checkpoint advances
-`HST_CampaignState.SCHEMA_VERSION` to `68` for the Blueprint Phase 9
-enemy-planning authority.
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`; there is no generated-settings
-migration. The sealed source identity is implementation
-`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
-`2026-07-13T01:04:41Z`, and label
-`schema68-settings24-enemy-planning-authority`. Foundation passes at 744
-script-symbol references. Final stamped normal log `logs_2026-07-12_21-05-15`
-and all-five log `logs_2026-07-12_21-05-34` both load 5,812 Game files/11,761
-classes with CRC `971d30d0`; all-five validates WORKBENCH, PC, XBOX, PS4, and
-PS5 successfully. Both runs have zero HST script errors and zero surviving
-Workbench processes. Twelve state-only assertions are wired but have not
-executed in Campaign Debug; native restart, package, dedicated-server,
-multiplayer, and soak evidence remains open.
+The current sealed source/Workbench checkpoint keeps
+`HST_CampaignState.SCHEMA_VERSION` at `68` and
+`HST_RuntimeSettings.SCHEMA_VERSION` at `24`; the generated-profile namespace
+cutover is deliberately schema-neutral. Its sealed source identity is
+implementation `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
+`2026-07-13T01:59:08Z`, label
+`schema68-settings24-partisan-profile-namespace`, Foundation 745, and Workbench
+CRC `475f57b7` at 5,813 files/11,762 classes. Final normal/all-five logs are
+`logs_2026-07-12_21-59-41` and `logs_2026-07-12_22-00-16`; every target validates
+with zero HST script errors and zero surviving processes. Server adoption and
+real restart/package evidence remain open.
 
-Schema 67/settings 24 is the immediately preceding sealed source/Workbench
-checkpoint. Its sealed source identity is implementation
+Schema 68/settings 24 enemy planning is the immediately preceding sealed source/
+Workbench checkpoint at implementation
+`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+`2026-07-13T01:04:41Z`, label
+`schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench CRC
+`971d30d0`. Schema 67/settings 24 is the earlier resource checkpoint at
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
 `schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
@@ -138,14 +138,15 @@ evidence remains open.
 
 ## Schema 68
 
-- Schema 68 is the sealed source/Workbench contract on runtime-settings Schema
+- The Schema-68 enemy-planning authority was sealed on runtime-settings Schema
   24 at implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`,
   UTC `2026-07-13T01:04:41Z`, label
   `schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench
   CRC `971d30d0` at 5,812 files/11,761 classes. Twelve state-only assertions are
   wired but Campaign Debug, save/restart, package, dedicated-server,
-  multiplayer, and soak proof remains open. Schema 67 is the immediately
-  preceding sealed checkpoint with the evidence recorded below.
+  multiplayer, and soak proof remains open. The schema-neutral Partisan profile-
+  namespace checkpoint now supersedes it as the current source/Workbench seal;
+  Schema 67 remains the preceding resource authority recorded below.
 - Each configured enemy role owns exactly one separate
   `HST_EnemyPlanningState`. The row persists its own 180-second cadence,
   revision, and decision sequence; occupier and invader checkpoints advance

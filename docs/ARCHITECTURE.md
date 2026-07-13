@@ -1,21 +1,24 @@
 # Partisan Architecture
 
-The current sealed source/Workbench checkpoint advances campaign persistence to
-Schema 68 while runtime settings remains Schema 24. Its exact identity is
-implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
-`2026-07-13T01:04:41Z`, and label
-`schema68-settings24-enemy-planning-authority`; Foundation passes at 744 script-
-symbol references. Final stamped normal log `logs_2026-07-12_21-05-15` and all-
-five log `logs_2026-07-12_21-05-34` both compile 5,812 Game files/11,761 classes
-with CRC `971d30d0`. All-five validates WORKBENCH, PC, XBOX, PS4, and PS5
-successfully; zero HST script errors were observed and zero Workbench processes
-survived cleanup. Twelve state-only assertions are wired but have not executed in
-Campaign Debug. Native restart, package, dedicated-server, multiplayer, and soak
-evidence remains open.
+The current sealed source/Workbench checkpoint keeps campaign persistence at
+Schema 68 and runtime settings at Schema 24 while centralizing generated profile
+paths under `$profile:Partisan`. Its exact identity is implementation
+`f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC
+`2026-07-13T01:59:08Z`, label
+`schema68-settings24-partisan-profile-namespace`, Foundation 745, and Workbench
+CRC `475f57b7` at 5,813 files/11,762 classes. Final normal/all-five logs are
+`logs_2026-07-12_21-59-41` and `logs_2026-07-12_22-00-16`; all five target
+configurations validate successfully with zero HST script errors and zero
+surviving Workbench processes. Actual server adoption, save/restart, package,
+multiplayer, and soak evidence remains open.
 
-The immediately preceding sealed source checkpoint is Campaign Schema 67 while
-runtime settings remains Schema 24. Its exact identity is
-implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
+The immediately preceding sealed source checkpoint is Campaign Schema 68 while
+runtime settings remains Schema 24. Its exact identity is implementation
+`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+`2026-07-13T01:04:41Z`, label
+`schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench CRC
+`971d30d0`. The earlier Schema-67 resource checkpoint is implementation
+`2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
 `schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at
 736 script-symbol references. Final stamped normal log
@@ -1632,7 +1635,7 @@ balance or native-spawn evidence.
 | Canonical enemy planning | Sealed Schema 68 adds one independent 180-second planning row per configured enemy, sorted commitment/target/source hashes, frozen input and decision fingerprints, bounded preparation/prepared retry, explicit committed/skipped/rejected completion, exact order/debit backlinks, conservative pre-68 baselines, and current `-68` quarantine. Immediate counterattacks and debug/direct paths remain planning contract `0`. Foundation 744 and final normal/all-five Workbench checks pass at 5,812/11,761 with CRC `971d30d0`. | Execute the twelve wired Campaign Debug assertions, then prove real restart, package, dedicated server, multiplayer, cadence independence, replay, and performance. |
 | Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. The sealed Schema-66 repair makes protected campaign markers system-owned/non-removable and self-heals native deletion or mutation from the committed registry. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; editable player markers remain separate. | Package-prove manual delete/move/edit rejection and keepalive self-heal on host/client alongside snapshot/delta, map reopen, reconnect, and JIP behavior before widening client projection. |
-| Certification | Schema 68/settings 24 is the current sealed source/Workbench checkpoint at implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC `2026-07-13T01:04:41Z`, label `schema68-settings24-enemy-planning-authority`, and Foundation 744. Final stamped normal log `logs_2026-07-12_21-05-15` and all-five log `logs_2026-07-12_21-05-34` both compile 5,812 Game files/11,761 classes with CRC `971d30d0`; all-five validates WORKBENCH, PC, XBOX, PS4, and PS5 with zero HST script errors and zero surviving processes. Schema 67/settings 24 is the immediately preceding seal at implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, Foundation 736, and CRC `a353fa0d`. | Execute Schema-68 Campaign Debug and independently prove profile save/load/reprojection, protected marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
+| Certification | Schema 68/settings 24 is the current sealed source/Workbench checkpoint at implementation `f97b12ef6ab00f6997ee16001eea74eb876e94b1`, UTC `2026-07-13T01:59:08Z`, label `schema68-settings24-partisan-profile-namespace`, and Foundation 745. Final normal/all-five logs `logs_2026-07-12_21-59-41` and `logs_2026-07-12_22-00-16` compile 5,813 Game files/11,762 classes with CRC `475f57b7`; all five targets validate with zero HST script errors and zero surviving processes. Schema-68 enemy planning is the immediately preceding seal. | Runtime-prove legacy profile adoption, then execute Schema-68 Campaign Debug and independently prove profile save/load/reprojection, protected marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "356b0d47f96111c3b09eb7ede3cb34f0661c2b6e";
-	static const string BUILD_UTC = "2026-07-13T01:04:41Z";
-	static const string BUILD_LABEL = "schema68-settings24-enemy-planning-authority";
+	static const string BUILD_SHA = "f97b12ef6ab00f6997ee16001eea74eb876e94b1";
+	static const string BUILD_UTC = "2026-07-13T01:59:08Z";
+	static const string BUILD_LABEL = "schema68-settings24-partisan-profile-namespace";
 
 	static string BuildSummary()
 	{
