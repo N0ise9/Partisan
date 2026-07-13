@@ -1,14 +1,20 @@
 # Partisan Enfusion / Enforce Notes
 
-The active source provisionally advances Campaign Schema to 68 while runtime
-settings remains Schema 24. Schema 68 is the enemy-planning authority currently
-being implemented. It has no final implementation SHA, UTC, label, CRC,
-Foundation count, Workbench result, Campaign Debug result, or runtime evidence
-claim yet. Schema 67 remains the current sealed source/Workbench checkpoint with
-the exact evidence below.
+The current sealed source/Workbench checkpoint is Campaign Schema 68/runtime-
+settings Schema 24 under implementation
+`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+`2026-07-13T01:04:41Z`, and label
+`schema68-settings24-enemy-planning-authority`. Foundation passes at 744 script-
+symbol references. Final stamped normal log `logs_2026-07-12_21-05-15` and all-
+five log `logs_2026-07-12_21-05-34` both load 5,812 Game files/11,761 classes
+with CRC `971d30d0`. All-five reports `Script validation successful` for
+WORKBENCH, PC, XBOX, PS4, and PS5; zero HST script errors were observed and zero
+Workbench processes survived cleanup. Twelve state-only source assertions are
+wired but have not executed in Campaign Debug. Native restart, package,
+dedicated-server, multiplayer, and soak evidence remains open.
 
-The current sealed source/Workbench checkpoint is Campaign Schema 67/runtime-settings
-Schema 24 under implementation
+The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
+67/runtime-settings Schema 24 under implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
 `schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
@@ -26,7 +32,7 @@ accepted zero-effect operations, never compact, and hard-stop at 4,096 per
 faction; periodic evidence compacts separately. Registered source fixtures and
 Campaign Debug routes remain wired/static and have not executed in Campaign
 Debug. Persisted per-enemy planning cadence and a frozen decision fingerprint
-are not part of that seal; they are the active provisional Schema-68 slice.
+are not part of that seal; they are the sealed Schema-68 slice above.
 Every Blueprint Phase 8 runtime gate remains open.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema 66 while runtime settings
@@ -5009,13 +5015,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   Real restart must still prove no duplicate charge or refund; a pure proof is
   not native or package evidence.
 
-- Active provisional Schema 68 now implements the next Phase 9 source slice: a
+- Sealed Schema 68 implements the next Phase 9 source slice: a
   per-enemy cadence and deterministic decision fingerprint over war level,
   aggression, pool revisions/balances, commitments, ordered target/source
   candidates, selection, order/capability, cost, and accounting links. None of
   that planner authority is claimed by Schema 67.
 
-## Active Provisional Schema 68 Enemy Planning Mechanics
+## Sealed Schema 68 Enemy Planning Mechanics
 
 - Keep one `HST_EnemyPlanningState` per configured enemy role. It is separate
   from `HST_FactionPoolState`: the planner observes Schema-67 pool authority but
@@ -5079,11 +5085,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   strategic mutation receipt, replay a debit, infer a refund, or fall back to a
   legacy planner.
 
-- This section is an active provisional source contract only. Do not attach a
-  final Schema-68 implementation SHA, UTC, label, CRC, Foundation count,
-  Workbench pass, Campaign Debug pass, save/restart result, package result,
-  dedicated-server result, multiplayer result, or runtime claim until those
-  gates have actually run on the final tree.
+- The source/Workbench gate is sealed at the identity recorded above. Do not
+  claim Campaign Debug, save/restart, package, dedicated-server, multiplayer, or
+  runtime evidence until those separate gates run on the stamped tree.
 
 ## Native Reference Sources
 

@@ -830,12 +830,12 @@ Consequences:
   Workbench 5,806 files/11,740 classes with CRC `ec860be7`.
 - Persisted per-enemy planning cadence, deterministic candidate ordering, and a
   frozen target/source/order/cost decision fingerprint are implemented by the
-  active provisional Schema-68 contract in CRI-016 on top of this resource
+  sealed Schema-68 contract in CRI-016 on top of this resource
   authority.
 
 ## CRI-016 - Persist Enemy Planning Without Taking Over Resource Truth
 
-- Status: Accepted; active provisional Schema 68 implementation, unsealed
+- Status: Accepted; sealed Schema 68 source/Workbench checkpoint
 - Date: 2026-07-12
 
 Context: Sealed Schema 67 makes enemy resources, aggression, cadence, and
@@ -846,7 +846,7 @@ creation crossed a crash boundary. Reconstructing that choice from current
 zones, historical orders, or Schema-67 receipts would silently re-plan with
 different inputs and could duplicate pressure or accounting.
 
-Decision: Active provisional Campaign Schema 68 keeps runtime settings at Schema
+Decision: Campaign Schema 68 keeps runtime settings at Schema
 24 and adds one separate `HST_EnemyPlanningState` per configured enemy role.
 Each row owns an independent 180-second checkpoint and freezes the latest
 decision. Stable sorted commitment, target-candidate, and source-candidate
@@ -890,12 +890,18 @@ Consequences:
   mutation receipts.
 - Immediate counterattacks and existing debug/direct order entry points do not
   claim periodic planner authority and remain planning contract `0`.
-- Schema 67/settings 24 remains the current sealed checkpoint at implementation
+- Schema 68/settings 24 is sealed at implementation
+  `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+  `2026-07-13T01:04:41Z`, label
+  `schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench
+  CRC `971d30d0` at 5,812 files/11,761 classes. Final normal/all-five logs are
+  `logs_2026-07-12_21-05-15` and `logs_2026-07-12_21-05-34`; all five target
+  configurations validate successfully with zero HST script errors and zero
+  surviving Workbench processes. Twelve state-only assertions are wired but not
+  executed in Campaign Debug; native restart, package, dedicated-server,
+  multiplayer, and soak evidence remains open.
+- Schema 67/settings 24 is the immediately preceding sealed checkpoint at implementation
   `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
   `2026-07-12T23:46:02Z`, label
   `schema67-settings24-enemy-strategic-resource-authority`, Foundation 736, and
-  Workbench CRC `a353fa0d` at 5,809 files/11,751 classes. Schema 68 is active
-  provisional source only: no final implementation SHA, UTC, label, CRC,
-  Foundation count, Workbench pass, Campaign Debug pass, save/restart result,
-  package result, dedicated-server result, multiplayer result, or runtime claim
-  exists yet.
+  Workbench CRC `a353fa0d` at 5,809 files/11,751 classes.

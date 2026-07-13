@@ -1,7 +1,7 @@
 # Partisan: Everon
 
-The active source provisionally advances Campaign Schema to 68 while runtime
-settings remains Schema 24. One separate planner row per configured enemy owns
+The current sealed source/Workbench checkpoint is Campaign Schema 68 while
+runtime settings remains Schema 24. One separate planner row per configured enemy owns
 independent last/next 180-second checkpoints. Stable sorted faction,
 commitment, target, and source inputs freeze war level, aggression, Schema-67
 pool revision/balances and operational count, candidates, selection, order and
@@ -18,22 +18,24 @@ planning contract `0`; malformed current authority quarantines at `-68` without
 changing Schema-67 pools or receipts. Immediate counterattacks and existing
 debug/direct paths also remain planning contract `0`. Exact QRF/patrol admission
 failure must produce a durable aborted result or explicit planning quarantine.
-The twelve-case source proof is wired/static only. Schema 68 has no final implementation SHA, UTC, label, CRC,
-Foundation count, Workbench result, Campaign Debug result, or runtime evidence
-claim yet.
+The sealed identity is implementation
+`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+`2026-07-13T01:04:41Z`, and label
+`schema68-settings24-enemy-planning-authority`; Foundation passes at 744
+script-symbol references. Final stamped normal log `logs_2026-07-12_21-05-15`
+and all-five log `logs_2026-07-12_21-05-34` both compile 5,812 Game files/11,761
+classes with CRC `971d30d0`. All-five reports `Script validation successful` for
+WORKBENCH, PC, XBOX, PS4, and PS5; zero HST script errors were observed and zero
+Workbench processes survived cleanup. Twelve state-only assertions are wired but
+have not executed in Campaign Debug. No native save/restart, package, dedicated-
+server, multiplayer, or soak result is claimed.
 
-The current sealed source checkpoint is Campaign Schema 67 while runtime
-settings remains Schema 24. Its exact identity is implementation
+The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
+67/settings 24 at implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
-`2026-07-12T23:46:02Z`, and label
-`schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at
-736 script-symbol references. Final stamped normal log
-`logs_2026-07-12_19-52-14` and all-five log
-`logs_2026-07-12_19-52-36` both compile 5,809 Game files/11,751 classes with CRC
-`a353fa0d`. All-five reports `Script validation successful` for WORKBENCH, PC,
-XBOX, PS4, and PS5; zero HST script errors were observed and zero Workbench
-processes survived cleanup. This checkpoint begins Blueprint Phase 9 source work
-without claiming that the Blueprint Phase 8 runtime exit is certified.
+`2026-07-12T23:46:02Z`, label
+`schema67-settings24-enemy-strategic-resource-authority`, Foundation 736, and
+Workbench CRC `a353fa0d` at 5,809 Game files/11,751 classes.
 
 The product and repository names are now **Partisan: Everon** and **Partisan**.
 `HST_*` source/resource names and the non-public `histasi` Workbench project ID
@@ -80,7 +82,7 @@ therefore leaves the outer operation retryable instead of half-published.
 Campaign Debug runs resource/order cases on nested state clones; its focused
 physical-response case materializes and cleans only its supplied group while
 restoring shared marker and AIWorld state. That sealed Schema-67 tree does not
-claim the active provisional Schema-68 planner described above. All Schema-67 source
+claim the sealed Schema-68 planner described above. All Schema-67 source
 fixtures are wired into Campaign Debug, but they have not been executed; the
 native, real-restart, package, multiplayer, and soak evidence also remain
 pending.
@@ -1157,12 +1159,11 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-The immediate source task is to finish integration plus static/Workbench
-validation for active provisional Schema 68, seal that item, and then **PAUSE**
-for the user to update the Workshop summary and description. No later Blueprint
+Schema 68 is sealed at the source/Workbench boundary. Work is now **PAUSED** for
+the user to update the Workshop summary and description. No later Blueprint
 slice is selected here.
 
-The current sealed Campaign Schema 67/runtime-settings Schema 24 source
+The immediately preceding sealed Campaign Schema 67/runtime-settings Schema 24 source
 checkpoint is the first Blueprint Phase 9 dependency: one durable, replay-safe
 enemy strategic resource and aggression authority shared by both enemy roles.
 It identifies implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`,
@@ -1220,11 +1221,9 @@ schema-62 certification remains independently open. Static or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Finish the active Schema-68 integration and static/Workbench validation, then
-   seal this item without borrowing any Schema-67 evidence.
-2. **PAUSE for the user to update the Workshop summary and description.** Do not
+1. **PAUSE for the user to update the Workshop summary and description.** Do not
    select or begin a later Blueprint slice until the user explicitly resumes.
-3. In the eventual published check, prove military, mission, political, admin, and
+2. In the eventual published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
    exact-patrol settlement; post-liberation security; counterattack/economy/event
    consequences; save/restart resume; and marker source-revision correlation.
