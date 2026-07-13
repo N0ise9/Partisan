@@ -1215,23 +1215,39 @@ class HST_EnemyPlanningProofService
 			state,
 			BuildPreset(),
 			68);
-		bool tamperExact = begun && begun.m_bAccepted
+		int quarantinedRevision = planning.m_iRevision;
+		string quarantinedAuthorityFailure = planning.m_sAuthorityFailure;
+		string quarantinedFailureReason = planning.m_sFailureReason;
+		bool repeatedValid = validator.ValidateRestoredFactionRoles(
+			state,
+			BuildPreset(),
+			68);
+		bool quarantineIdempotent = !repeatedValid
+			&& planning.m_iRevision == quarantinedRevision
+			&& planning.m_sAuthorityFailure == quarantinedAuthorityFailure
+			&& planning.m_sFailureReason == quarantinedFailureReason;
+		bool lifecycleExact = begun && begun.m_bAccepted
 			&& retry && retry.m_bAccepted && retry.m_bChanged
-			&& !valid
-			&& planning.m_iContractVersion
+			&& !valid;
+		bool quarantineExact = planning.m_iContractVersion
 				== HST_EnemyPlanningAuthorityService.QUARANTINE_CONTRACT_VERSION
 			&& planning.m_sDisposition == "quarantined"
 			&& planning.m_sAuthorityFailure.Contains("fingerprint")
 			&& planning.m_iRevision == planningRevisionBefore + 1
-			&& planning.m_iAttackCost == tamperedAttackCost
-			&& pool.m_iAttackResources == attackBefore
+			&& planning.m_iAttackCost == tamperedAttackCost;
+		bool poolCleanExact = pool.m_iAttackResources == attackBefore
 			&& pool.m_iSupportResources == supportBefore
-			&& pool.m_iStrategicRevision == poolRevisionBefore
-			&& state.m_aEnemyOrders.IsEmpty()
+			&& pool.m_iStrategicRevision == poolRevisionBefore;
+		bool rowsCleanExact = state.m_aEnemyOrders.IsEmpty()
 			&& state.m_aEnemyStrategicMutations.IsEmpty();
+		bool tamperExact = lifecycleExact
+			&& quarantineExact
+			&& poolCleanExact
+			&& rowsCleanExact
+			&& quarantineIdempotent;
 		report.m_bRetryTamperQuarantineExact = tamperExact;
 		report.m_sRecoveryEvidence = report.m_sRecoveryEvidence + string.Format(
-			" | retry tamper begin/retry/rejected/quarantined/revision/fingerprint/cost/rows/pool-clean %1/%2/%3/%4/%5/%6/%7/%8/%9",
+			" | retry tamper begin/retry/rejected/quarantined/revision/fingerprint/cost/rows %1/%2/%3/%4/%5/%6/%7/%8",
 			begun && begun.m_bAccepted,
 			retry && retry.m_bAccepted,
 			!valid,
@@ -1240,11 +1256,11 @@ class HST_EnemyPlanningProofService
 			planning.m_iRevision == planningRevisionBefore + 1,
 			planning.m_sAuthorityFailure.Contains("fingerprint"),
 			planning.m_iAttackCost == tamperedAttackCost,
-			state.m_aEnemyOrders.IsEmpty()
-				&& state.m_aEnemyStrategicMutations.IsEmpty(),
-			pool.m_iAttackResources == attackBefore
-				&& pool.m_iSupportResources == supportBefore
-				&& pool.m_iStrategicRevision == poolRevisionBefore);
+			rowsCleanExact);
+		report.m_sRecoveryEvidence = report.m_sRecoveryEvidence + string.Format(
+			"/pool-clean/idempotent %1/%2",
+			poolCleanExact,
+			quarantineIdempotent);
 	}
 
 	protected void ProveZeroTargetSkip(HST_EnemyPlanningProofReport report)

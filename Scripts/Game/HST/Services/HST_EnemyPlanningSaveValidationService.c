@@ -541,6 +541,8 @@ class HST_EnemyPlanningSaveValidationService
 				QuarantineRuntimePlanningByKey(state, factionKey, failure);
 			return false;
 		}
+		if (planning.m_iContractVersion == QUARANTINE_CONTRACT_VERSION)
+			return false;
 		string failure = ValidatePlanningShape(planning, state.m_iElapsedSeconds);
 		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
 		if (failure.IsEmpty() && (!pool
@@ -945,10 +947,8 @@ class HST_EnemyPlanningSaveValidationService
 		if (!state || factionKey.IsEmpty())
 			return;
 		HST_EnemyPlanningState placeholder = new HST_EnemyPlanningState();
-		placeholder.m_iContractVersion = QUARANTINE_CONTRACT_VERSION;
 		placeholder.m_sFactionKey = factionKey;
-		placeholder.m_sDisposition = "quarantined";
-		placeholder.m_sAuthorityFailure = LimitText(failure);
+		m_Authority.Quarantine(placeholder, LimitText(failure));
 		state.m_aEnemyPlanningStates.Insert(placeholder);
 	}
 

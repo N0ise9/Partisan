@@ -25717,6 +25717,16 @@ if ([string]::IsNullOrEmpty($schema68QuarantineValidationBlock) -or
 	$schema68QuarantineValidationBlock.IndexOf('m_Authority.Quarantine(planning, LimitText(failure));') -lt 0) {
 	throw "Schema-68 restore quarantine must share bounded production revision and failure semantics"
 }
+$schema68RuntimeRoleValidationBlock = Get-ScriptMethodBlock $schema68ValidationText 'protected bool ValidateRuntimeRole('
+if ([string]::IsNullOrEmpty($schema68RuntimeRoleValidationBlock) -or
+	$schema68RuntimeRoleValidationBlock.IndexOf('if (planning.m_iContractVersion == QUARANTINE_CONTRACT_VERSION)') -lt 0) {
+	throw "Schema-68 repeated restore validation must preserve an existing quarantine without mutation"
+}
+$schema68PlaceholderValidationBlock = Get-ScriptMethodBlock $schema68ValidationText 'protected void InsertRuntimePlaceholder('
+if ([string]::IsNullOrEmpty($schema68PlaceholderValidationBlock) -or
+	$schema68PlaceholderValidationBlock.IndexOf('m_Authority.Quarantine(placeholder, LimitText(failure));') -lt 0) {
+	throw "Schema-68 missing-role placeholder must share production quarantine semantics"
+}
 
 $schema68ProofBooleans = @(
 	'm_bPre68BaselineExact',
@@ -25776,6 +25786,13 @@ foreach ($schema68ProofField in ($schema68ProofBooleans + $schema68ProofEvidence
 		throw "Schema-68 authority proof report field is missing: $schema68ProofField"
 	}
 }
+$schema68ProofAllBlock = Get-ScriptMethodBlock $schema68ProofText 'bool AllExact('
+foreach ($schema68ProofBoolean in $schema68ProofBooleans) {
+	if ([string]::IsNullOrEmpty($schema68ProofAllBlock) -or
+		$schema68ProofAllBlock.IndexOf($schema68ProofBoolean) -lt 0) {
+		throw "Schema-68 aggregate exactness omits a registered proof field: $schema68ProofBoolean"
+	}
+}
 foreach ($schema68ProofDependency in @(
 	'HST_EnemyPlanningSaveValidationService',
 	'PrepareBeforeGenericNormalization(save, 67);',
@@ -25793,6 +25810,11 @@ foreach ($schema68RetryTamperProofEntry in @(
 	'state.m_iElapsedSeconds);',
 	'planning.m_sAuthorityFailure.Contains("fingerprint")',
 	'planning.m_iRevision == planningRevisionBefore + 1',
+	'bool repeatedValid = validator.ValidateRestoredFactionRoles(',
+	'planning.m_iRevision == quarantinedRevision',
+	'planning.m_sAuthorityFailure == quarantinedAuthorityFailure',
+	'planning.m_sFailureReason == quarantinedFailureReason',
+	'&& quarantineIdempotent;',
 	'state.m_aEnemyStrategicMutations.IsEmpty()',
 	'report.m_bRetryTamperQuarantineExact = tamperExact;'
 )) {
@@ -25802,24 +25824,37 @@ foreach ($schema68RetryTamperProofEntry in @(
 	}
 }
 
+$schema68AutotestExecuteBlock = Get-ScriptMethodBlock $schema68AutotestText 'bool Execute('
 foreach ($schema68AutotestEntry in @(
 	'#ifdef ENABLE_DIAG',
 	'class HST_EnemyPlanningCommitmentAutotestSuite : SCR_AutotestSuiteBase',
 	'[Test(suite: HST_EnemyPlanningCommitmentAutotestSuite)]',
 	'class HST_TEST_EnemyPlanningCommitmentAuthority : SCR_AutotestCaseBase',
 	'[Step(EStage.Main)]',
+	'#endif'
+)) {
+	if ($schema68AutotestText.IndexOf($schema68AutotestEntry) -lt 0) {
+		throw "Schema-68 focused engine-autotest contract is incomplete: $schema68AutotestEntry"
+	}
+}
+foreach ($schema68AutotestExecuteEntry in @(
 	'proof.BuildAuthorityReport()',
 	'HST_BuildInfo.BuildRuntimeSummary()',
 	'report.m_bCommitmentAwareSelectionExact',
 	'report.m_bAllCommittedSkipExact',
 	'report.m_bCommitmentRaceRejectionExact',
 	'report.AllExact()',
-	'SetResultSuccess();',
-	'#endif'
+	'SetResultSuccess();'
 )) {
-	if ($schema68AutotestText.IndexOf($schema68AutotestEntry) -lt 0) {
-		throw "Schema-68 focused engine-autotest contract is incomplete: $schema68AutotestEntry"
+	if ([string]::IsNullOrEmpty($schema68AutotestExecuteBlock) -or
+		$schema68AutotestExecuteBlock.IndexOf($schema68AutotestExecuteEntry) -lt 0) {
+		throw "Schema-68 focused engine-autotest Execute contract is incomplete: $schema68AutotestExecuteEntry"
 	}
+}
+if (($schema68AutotestExecuteBlock | Select-String -Pattern 'AssertTrue\(' -AllMatches).Matches.Count -lt 4 -or
+	$schema68AutotestExecuteBlock.IndexOf('report.AllExact()') -gt
+	$schema68AutotestExecuteBlock.IndexOf('SetResultSuccess();')) {
+	throw "Schema-68 focused engine-autotest must assert all headline and aggregate results before success"
 }
 
 $schema68CommitmentSelectionProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected void ProveCommitmentAwareSelection('

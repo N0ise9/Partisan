@@ -5319,7 +5319,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Restore validation must delegate planning quarantine to the production
   authority after bounding the persisted failure text. Reimplementing the field
   mutations in the validator can drift on revision, failure, and idempotency
-  semantics even when both paths write contract `-68`.
+  semantics even when both paths write contract `-68`. Missing-role placeholders
+  use that same authority, while an already quarantined role returns invalid
+  without being quarantined again; repeated validation must preserve its exact
+  revision and failure strings.
 
 - A deterministic retry fixture must advance `state.m_iElapsedSeconds` to the
   same timestamp passed to `RecordRetry()`. If the state clock remains earlier,

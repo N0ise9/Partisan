@@ -406,8 +406,8 @@ Blueprint Phase 8 transient runtime services, are:
 - `HST_EnemyPlanningProofService` owns the 17 deterministic Schema-68 planning
   fixtures shared by Campaign Debug and focused engine tests.
   `HST_TEST_EnemyPlanningCommitmentAuthority` runs that report through the
-  official command-line Game-process autotest framework and requires both the three
-  commitment-specific fields and `AllExact()`. Its passing JUnit result is
+  official command-line Game-process autotest framework and requires the three
+  commitment-specific fields plus `AllExact()`. Its passing JUnit result is
   engine-executed service evidence, not coordinator, world, persistence,
   restart, package, or network evidence.
 
