@@ -5,15 +5,12 @@ Reforger. Players build a resistance movement on Everon while an occupying
 force and an invading force pursue their own campaign objectives.
 
 The project is in broad alpha. Its campaign foundation is substantial, but it
-is still under active development and should be tested with disposable or
-backed-up profile data. Source and Workbench validation do not by themselves
-prove packaged server, persistence, multiplayer, or long-session behavior.
+is still under active development.
 
 > [!WARNING]
-> Fresh-start enemy commander authority and automatic legacy-profile migration
-> have source and Workbench coverage but still require packaged-server and
-> restart proof. Until those gates pass, use disposable or backed-up profile
-> data for alpha testing.
+> Automated source, Workbench, and focused engine checks do not yet close the
+> packaged-server, restart, multiplayer, or soak gates. Until those gates pass,
+> use disposable or backed-up profile data for alpha testing.
 
 ## Campaign Overview
 
@@ -36,7 +33,7 @@ feature set includes:
 - A mission catalog covering resistance operations, rescues, assassinations,
   convoys, defenses, logistics, and strategic objectives
 - Resistance support requests, purchased forces, patrols, enemy responses, and
-  selected exact virtual-to-physical operation lifecycles
+  virtual-to-physical operation lifecycles for supported force types
 - Abstract off-screen forces with render-bubble materialization, casualty
   reconciliation, survivor persistence, and map projection for supported force
   families
@@ -46,9 +43,8 @@ feature set includes:
   information, arsenal, garage, members, and administration
 - A one-button campaign diagnostic suite for controlled development testing
 
-The implementation is not feature-complete. Several operation families remain
-on compatibility paths, and many native, packaged, restart, reconnect, JIP,
-multiplayer, and soak gates remain open. See the
+The implementation is not feature-complete, and several campaign systems still
+need broader runtime and multiplayer validation. See the
 [feature checklist](docs/FEATURE_CHECKLIST.md) and
 [parity tracker](docs/PARITY.md) for the authoritative status.
 
@@ -131,25 +127,17 @@ copying settings from an older schema by hand.
 ### Automatic Legacy Migration
 
 Partisan uses `$profile:Partisan` as the only canonical generated-data root.
-The entire retired profile tree is migrated automatically, including nested and
-otherwise unrecognized files. Existing canonical files win and must not be
-overwritten by older data; conflicting retired files are preserved in the
-canonical legacy archive. Each new destination is copied through a byte-verified
-staging file, rechecked before promotion, and verified again before its source is
-removed. Directory-path conflicts are mirrored in the archive so the retired
-tree can still be removed without discarding structure. The retired directory is
-removed only after all files have been safely transferred or archived; a failed
-or incomplete transfer leaves its source in place for a later retry.
+On first startup after upgrading, it automatically transfers the retired
+profile tree, including nested and otherwise unrecognized files. Existing
+canonical files take precedence, and conflicting older files are retained in a
+legacy archive rather than overwritten. The retired directory is removed only
+after every file has been safely transferred or archived; incomplete work is
+left in place for a later retry.
 
-Migration is guarded against re-entry within one running game process, but
-Enforce file I/O does not provide an atomic no-overwrite promotion or an
-exclusive cross-process file lock. Stop every server, client, and Workbench
-instance that shares the profile before the first migration, and let exactly one
-process complete startup before another process uses that profile.
-
-This cleanup path is currently receiving fresh packaged-server and restart
-verification. Back up long-lived profile data before the first migration on an
-alpha build. See [Migrations](docs/MIGRATIONS.md) for schema-specific behavior
+Before the first migration, stop every server, client, and Workbench instance
+that shares the profile, back up long-lived alpha data, and let one process
+complete startup before another uses that profile. See
+[Migrations](docs/MIGRATIONS.md) for schema-specific behavior, recovery details,
 and compatibility rules.
 
 ## Administration
@@ -176,10 +164,8 @@ summary text, and state-diff text.
 The one-button suite is a diagnostic harness, not automatic runtime
 certification. World entities, player state, service caches, package identity,
 and real process restarts sit outside the cloned campaign-state boundary. Use a
-separately managed disposable profile for external, restart, package,
-multiplayer, and soak profiles. Fresh startup, profile migration, save, restart,
-and enemy-authority behavior remain external gates until a packaged run proves
-them together.
+separately managed disposable profile for restart, package, multiplayer, and
+soak testing, and verify those behaviors in real packaged runs.
 
 Detailed evidence and outstanding gates live in the
 [Campaign Debug verification audit](docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md).
@@ -202,13 +188,11 @@ The validation ladder is intentionally cumulative:
 5. Real profile save, process restart, reload, and reprojection
 6. Packaged dedicated-server/client, multiplayer, reconnect, JIP, and soak proof
 
-The focused planning case, `HST_TEST_EnemyPlanningCommitmentAuthority`, requires
-the shared report to pass all 17 deterministic Schema-68 planning fixtures,
-including the three commitment-aware cases and retry-tamper. This is focused
-engine-process evidence; it does not prove the `HST_Dev` coordinator, Full
-Campaign Debug, world integration, persistence, restart, packaging, or network
-behavior. Detailed run evidence belongs in the Campaign Debug verification
-audit rather than this project overview.
+Registered focused engine autotests provide deterministic checks for selected
+campaign-authority subsystems. They do not prove the `HST_Dev` coordinator,
+Full Campaign Debug, world integration, persistence, restart, packaging, or
+network behavior. Test identities and run evidence belong in the Campaign
+Debug verification audit rather than this project overview.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug
