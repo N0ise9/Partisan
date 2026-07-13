@@ -1093,3 +1093,47 @@ Consequences:
   11,768 classes. It is not runtime-certified until Campaign Debug, a fresh
   packaged campaign, the affected-save restart, migration, multiplayer, and
   soak gates pass.
+
+## CRI-019 - Prove Planning In-Engine And Centralize Idempotent Quarantine
+
+- Status: Accepted; sealed source/Workbench and focused engine proof, campaign-
+  world runtime proof pending
+- Date: 2026-07-13
+
+Context: The commitment-aware planning decision in CRI-016 was sealed and its
+deterministic report was compiled, but compilation alone did not execute the
+production service. Restore validation also duplicated planning-quarantine field
+mutation, allowing repeated validation to risk revision or metadata churn instead
+of sharing live planning's behavior.
+
+Decision: Planning quarantine has one production owner. Save validation bounds
+the imported failure reason and delegates to
+`HST_EnemyPlanningAuthorityService.Quarantine()`. The first matching failure
+normalizes the planning row and advances its revision once; linked order-
+planning cleanup remains a separate fail-closed validator responsibility. An
+already quarantined row is rejected without changing its revision or failure
+strings on a repeated validation pass. Deterministic
+planning service assertions run through the official focused command-line Game-
+process autotest before the broader Campaign Debug rung.
+
+Consequences:
+
+- The retry-tamper fixture advances the campaign clock to its recorded retry time
+  before triggering fingerprint quarantine, so it first passes the production
+  cadence gate and then proves repeated-pass idempotency.
+- The checkpoint is sealed at implementation
+  `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+  `2026-07-13T15:43:01Z`, label
+  `schema68-settings24-enemy-planning-engine-proof`, and Foundation 753. Final
+  stamped-tree all-target Workbench log `logs_2026-07-13_11-43-49` compiles
+  5,816 Game files/11,770 classes with CRC `5a998c21`; WORKBENCH, PC, XBOX, PS4,
+  and PS5 validate successfully, the process exits, and zero Workbench processes
+  survive cleanup.
+- Focused engine log `logs_2026-07-13_11-44-28` produces a JUnit result timestamped
+  `2026-07-13T15:44:34.667Z` with one testcase, zero failures, an empty failed
+  list, and `AllExact()` true across all 17 deterministic planning fixtures,
+  including retry-quarantine repeated-pass idempotency.
+- This rung does not execute Full Campaign Debug, HST_Dev coordinator isolation
+  or artifacts, live campaign authority, persistence, package execution,
+  save/restart, dedicated/live-server behavior, networking, multiplayer, or soak.
+  Those gates remain open.

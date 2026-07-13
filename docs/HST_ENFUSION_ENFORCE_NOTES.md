@@ -2,37 +2,42 @@
 
 The current source/Workbench checkpoint remains Campaign Schema 68/runtime-
 settings Schema 24 and is sealed at implementation
+`4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+`2026-07-13T15:43:01Z`, label
+`schema68-settings24-enemy-planning-engine-proof`. It retains commitment-aware
+target admission without changing either schema: linked same-faction order,
+support, and operation rows collapse to stable roots; incompatible roots block
+before ranking; compatible roots apply deterministic penalties; duplicate patrol
+choices rerank; preparation stays freeze-only; and admission rechecks authority
+before pressure or strategic debit, including pressure-marked retries.
+Foundation passes at 753 script-symbol references. Final stamped-tree all-target
+Workbench log `logs_2026-07-13_11-43-49` compiles 5,816 Game files/11,770 classes
+at CRC `5a998c21`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
+successful`, the run exited successfully, and zero Workbench processes survived
+cleanup.
+
+Focused engine log `logs_2026-07-13_11-44-28` ran
+`HST_TEST_EnemyPlanningCommitmentAuthority`. Its JUnit result at
+`2026-07-13T15:44:34.667Z` contains one testcase, no failure, and an empty failed
+list. The shared `HST_EnemyPlanningProofReport` returned `AllExact=true` across
+all 17 deterministic Schema-68 planning fixtures, including retry-quarantine
+repeated-pass idempotency. This closes only the focused engine-autotest rung:
+Full Campaign Debug, `HST_Dev` coordinator isolation and artifacts, live campaign
+authority, package, restart, dedicated-server, live-server, multiplayer/network,
+and soak proof remain open.
+
+The immediately preceding sealed source/Workbench checkpoint is the commitment-
+aware planning seal at implementation
 `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
 `2026-07-13T14:44:37Z`, label
-`schema68-settings24-commitment-aware-enemy-planning`. It makes target admission
-commitment-aware without changing either schema. Same-faction queued/active
-orders and support plus open nonterminal operations participate in eligibility
-before weighted ranking. Linked order/support/operation rows collapse to one
-stable commitment root with conservative blocking precedence; incompatible
-roots reject the target, while compatible roots remain candidates with a
-deterministic penalty. If an exact-patrol candidate later resolves to a duplicate
-patrol, preparation excludes it and deterministically reranks instead of wasting
-the cadence. Preparation is freeze-only, and admission rechecks commitment,
-candidate, and active-order identity before target pressure or strategic debit;
-the commitment check also protects pressure-marked retries before debit. The
-production duplicate-patrol proof wires force planning, exact patrol authority,
-and a three-waypoint fallback route before invoking preparation. Foundation
-passes at 751 script-symbol references. Final stamped-tree all-target Workbench
-log `logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes at CRC
-`e483e71c`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
-successful`, and zero Workbench processes survived cleanup. The official focused
-command-line engine-autotest case `HST_TEST_EnemyPlanningCommitmentAuthority` then
-ran in `logs_2026-07-13_11-20-05`. Its JUnit result at
-`2026-07-13T15:20:12.403Z` contains one test case, no failure element, and an
-empty failed list. The shared `HST_EnemyPlanningProofReport` returned
-`AllExact=true` across all 17 deterministic Schema-68 planning fixtures,
-including the three commitment-aware cases and retry-tamper. This closes only
-the focused engine-autotest rung: `HST_Dev` coordinator execution, Full Campaign
-Debug, world integration, persistence, restart, package, dedicated-server,
-live-server, multiplayer, network, and soak proof remain open.
+`schema68-settings24-commitment-aware-enemy-planning`. Its final all-target
+Workbench log `logs_2026-07-13_10-45-27` compiled 5,815 Game files/11,768 classes
+at CRC `e483e71c`, and all five targets validated with zero surviving Workbench
+processes. This is historical source/Workbench evidence superseded by the active
+engine-proof seal above.
 
-The immediately preceding sealed source/Workbench checkpoint is the Schema-68/
-Settings-24 bootstrap/profile/marker correction at implementation
+The earlier Schema-68/Settings-24 bootstrap/profile/marker correction is sealed
+at implementation
 `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
 `2026-07-13T13:19:22Z`, label
 `schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
@@ -222,6 +227,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
     pacing must never become a state repair or an excuse to advance cadence.
 
 ## Enforce Expressions And Prefab Inspection
+
+- Workbench log `logs_2026-07-13_11-41-09` first stopped at the HST blockers
+  `Formula too complex` and `Too many parameters for Format` while sealing the
+  enemy-planning engine proof. Factoring aggregate expectations into typed
+  booleans and splitting evidence formatting into bounded calls removed both
+  blockers before the final clean validation.
 
 - `string.Format()` accepts at most nine substitution arguments.
   - The generated `string` API exposes parameters `%1` through `%9`; a canonical
@@ -5281,13 +5292,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   precedence, orphan rejection, all-target exhaustion, and pre-pressure plus
   pressure-marked post-freeze races. The official focused engine-autotest case
   `HST_TEST_EnemyPlanningCommitmentAuthority` invokes the same shared
-  `HST_EnemyPlanningProofReport` as Campaign Debug. Its JUnit result at
-  `2026-07-13T15:20:12.403Z` records one test case, no failure element, and an
-  empty failed list; the shared report returned `AllExact=true` for all 17
-  deterministic Schema-68 planning fixtures, including these three cases and
-  retry-tamper. This is focused in-engine deterministic proof, not `HST_Dev`
-  coordinator, Full Campaign Debug, world, persistence, restart, package, or
-  network proof.
+  `HST_EnemyPlanningProofReport` as Campaign Debug. Focused engine log
+  `logs_2026-07-13_11-44-28` produced its JUnit result at
+  `2026-07-13T15:44:34.667Z`: one testcase, no failure, an empty failed list, and
+  `AllExact=true` for all 17 deterministic Schema-68 planning fixtures,
+  including retry-quarantine repeated-pass idempotency. This is focused in-engine
+  deterministic proof, not `HST_Dev` coordinator isolation/artifacts, Full
+  Campaign Debug, live authority, world, persistence, restart, package,
+  dedicated-server, network, or soak proof.
 
 - `prepared` with a positive frozen pressure delta and `applied = false` is a
   valid crash window. Validate and restore it, preflight pressure-mark revision

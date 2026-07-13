@@ -2,35 +2,46 @@
 
 The active source/Workbench checkpoint remains Campaign Schema 68/runtime-
 settings Schema 24 and is sealed at implementation
-`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
-`2026-07-13T14:44:37Z`, label
-`schema68-settings24-commitment-aware-enemy-planning`. Production target
-selection now collapses linked same-faction order, support, and operation rows to
-one stable commitment root with conservative blocking precedence, rejects
-incompatible roots before ranking, and retains compatible roots with a bounded
-score penalty. An exact patrol can coexist with a defensive response; if the
-response type would duplicate patrol, preparation excludes that target and
-deterministically reranks instead of wasting the cadence. Preparation freezes
-without applying target pressure. Admission revalidates commitment and candidate
-identity before pressure and strategic debit, including pressure-marked retries.
-The duplicate-patrol production fixture wires force planning, exact patrol
-authority, and a valid three-waypoint fallback route before invoking preparation.
+`4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+`2026-07-13T15:43:01Z`, label
+`schema68-settings24-enemy-planning-engine-proof`. Production target selection
+collapses linked same-faction order, support, and operation rows to stable roots,
+rejects incompatible roots before ranking, retains compatible roots with bounded
+penalties, and reranks duplicate-patrol choices. Preparation is freeze-only, and
+admission revalidates authority before pressure or strategic debit, including
+pressure-marked retries.
 
-Foundation passes at 751 script-symbol references. Final stamped-tree all-target
-Workbench log `logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes
-at CRC `e483e71c`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
-successful`, and zero Workbench processes survived cleanup. Official engine
-autotest `HST_TEST_EnemyPlanningCommitmentAuthority` then executed the focused
-authority report in log `logs_2026-07-13_11-20-05`. Its JUnit result at
-`2026-07-13T15:20:12.403Z` records one testcase, zero failures, an empty failed
-list, and the report records `AllExact=true` across all 17 deterministic
-Schema-68 planning fixtures. This focused proof did not run Full Campaign Debug
-in `HST_Dev`, its coordinator isolation/artifact path, or live campaign
-authority. Package execution, packaged restart, dedicated/live-server,
+Foundation passes at 753 script-symbol references. Final stamped-tree all-target
+Workbench log `logs_2026-07-13_11-43-49` compiles 5,816 Game files/11,770 classes
+at CRC `5a998c21`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
+successful`, the run exited successfully, and zero Workbench processes survived
+cleanup.
+During sealing, log `logs_2026-07-13_11-41-09` first stopped at the HST blockers
+`Formula too complex` and `Too many parameters for Format`. Factoring aggregate
+booleans and splitting evidence formatting removed those blockers before the
+final clean validation.
+
+Focused engine log `logs_2026-07-13_11-44-28` then ran
+`HST_TEST_EnemyPlanningCommitmentAuthority`. Its JUnit result at
+`2026-07-13T15:44:34.667Z` records one testcase, no failure, an empty failed list,
+and `AllExact=true` across all 17 deterministic Schema-68 planning fixtures,
+including retry-quarantine repeated-pass idempotency. This focused proof did not
+run Full Campaign Debug, `HST_Dev` coordinator isolation/artifacts, or live
+campaign authority. Package, restart, dedicated-server, live-server,
 multiplayer/network, and soak proof remain open.
 
-The immediately preceding sealed source/Workbench checkpoint is the Schema-68/
-Settings-24 bootstrap/profile/marker correction at implementation
+The immediately preceding sealed source/Workbench checkpoint is the commitment-
+aware planning seal at implementation
+`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+`2026-07-13T14:44:37Z`, label
+`schema68-settings24-commitment-aware-enemy-planning`. Its final all-target
+Workbench log `logs_2026-07-13_10-45-27` compiled 5,815 Game files/11,768 classes
+at CRC `e483e71c`, with all five targets successful and zero surviving Workbench
+processes. This is historical source/Workbench evidence superseded by the active
+engine-proof seal above.
+
+The earlier Schema-68/Settings-24 bootstrap/profile/marker correction is sealed
+at implementation
 `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
 `2026-07-13T13:19:22Z`, label
 `schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
@@ -181,7 +192,7 @@ remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. No Schema-
 62 Campaign Debug or packaged-runtime result has been recorded.
 
-## Current Source/Workbench Delta And Runtime Boundary
+## Current Source/Workbench Checkpoint And Runtime Boundary
 
 The opening bullets distinguish the current sealed source/Workbench tree from
 the previous packaged evidence. Later runtime entries retain inspected gameplay
@@ -189,13 +200,14 @@ evidence and must not be read as proof that a newer source change was executed o
 certified. The revision diary below is historical implementation context.
 
 Work has entered Blueprint Phase 9 of 13 through sealed Schema 67 and the sealed
-Schema-68 planning, startup/profile/marker, and commitment-aware planning
-checkpoints; this is not nine completed phases. Blueprint Phase 8 and every
+Schema-68 planning, startup/profile/marker, commitment-aware planning, and
+enemy-planning engine-proof checkpoints; this is not nine completed phases.
+Blueprint Phase 8 and every
 earlier Blueprint phase still retain native, dedicated-server, restart, or
 multiplayer exit gates. Deferred native tests must be backfilled; reaching a
 later source slice, sealing source, or publishing a build does not waive them.
 
-### Current Sealed Schema-68 Commitment-Aware Planning Checkpoint
+### Current Sealed Schema-68 Enemy-Planning Engine-Proof Checkpoint
 
 - Target scoring now examines same-faction queued/active enemy orders and support
   plus open nonterminal operations at equivalent target IDs before weighted
@@ -230,20 +242,25 @@ later source slice, sealing source, or publishing a build does not waive them.
   plus pressure-marked freeze/admission races.
 - Official focused engine autotest
   `HST_TEST_EnemyPlanningCommitmentAuthority` executed the authority report in
-  log `logs_2026-07-13_11-20-05`. JUnit UTC
-  `2026-07-13T15:20:12.403Z` records one testcase, zero failures, and an empty
+  log `logs_2026-07-13_11-44-28`. JUnit UTC
+  `2026-07-13T15:44:34.667Z` records one testcase, no failure, and an empty
   failed list. The report returned `AllExact=true` across all 17 deterministic
-  Schema-68 planning fixtures.
+  Schema-68 planning fixtures, including retry-quarantine repeated-pass
+  idempotency.
+- Workbench log `logs_2026-07-13_11-41-09` first failed at the HST blockers
+  `Formula too complex` and `Too many parameters for Format`. Factoring aggregate
+  booleans and splitting evidence formatting removed both blockers.
 - The checkpoint is sealed at implementation
-  `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
-  `2026-07-13T14:44:37Z`, label
-  `schema68-settings24-commitment-aware-enemy-planning`. Foundation passes at 751
+  `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+  `2026-07-13T15:43:01Z`, label
+  `schema68-settings24-enemy-planning-engine-proof`. Foundation passes at 753
   references. Final stamped-tree all-target Workbench log
-  `logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes at CRC
-  `e483e71c`; WORKBENCH, PC, XBOX, PS4, and PS5 validate successfully, and zero
-  Workbench processes survived cleanup. The focused autotest did not enter Full
-  Campaign Debug in `HST_Dev`; the coordinator's isolated campaign-copy/artifact
-  flow and live-authority assertion have not run. No packaged campaign, restart,
+  `logs_2026-07-13_11-43-49` compiles 5,816 Game files/11,770 classes at CRC
+  `5a998c21`; WORKBENCH, PC, XBOX, PS4, and PS5 validate successfully, the run
+  exited successfully, and zero Workbench processes survived cleanup. The
+  focused autotest did
+  not enter Full Campaign Debug in `HST_Dev`; coordinator isolation/artifacts and
+  live-authority assertions have not run. No packaged campaign, restart,
   dedicated-server, live-server, multiplayer/network, or soak artifact proves
   this checkpoint yet.
 
@@ -1975,7 +1992,7 @@ Unproven or incomplete against the pasted contract:
 | Schema-65 civilian consequences | Sealed source/Workbench adds bounded 256-casualty/64-theft queues with a combined four-attempt frame cap, bounded-backoff indefinite retry and capture deferral; exact-pilot resistance theft after durable promotion while passenger-only roots remain non-recyclable; episode combat that rejects `HOT`-only inference and drains pending receipts before a new edge; adopted-floor/last-applied invariants and full canonical `+4`-heat/zero-other-effect restore fingerprints; exact town aggression/strategic evidence; and RUN/calm-WALK panic with separate bounded route recovery and no hot-path AI activation. Minor localities remain panic-only. Foundation passes at 717 script-symbol references. Final stamped normal/all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST errors, and zero surviving processes. | Every runtime gate remains open. Execute every deterministic fixture, then package-prove callback attribution/fallback deduplication, queue capacity/capture deferral, pilot-only claim with passenger protection, at-most-once population/aggression, clear/rebound episodes, native threat/speed/waypoint behavior, pre-65 migration, indexed structural validation plus preset-role quarantine, process restart, multiplayer, and soak. Minor-locality exact fingerprints are session-only, so their cross-process replay/conflict guarantee remains open. |
 | Schema-66 exact local security | Sealed source/Workbench adds one deterministic exact enemy-town patrol epoch with an authored 2–5 member frozen roster, held SpawnQueue slots, exact physical/virtual transfer, casualty-preserving fold/restore, compact terminal authority, once-only police `-1` destruction consequence, same-epoch no-resurrection, and rearm only from newer ownership or later positive police pressure. Resistance automatic police/roadblock targets are zero. Pre-66 migration preserves logical facts and removes only unlinked legacy projections; current malformed graphs quarantine at `-66`. Foundation passes at 729 references; final normal/all-five Workbench checks pass at 5,806 files/11,740 classes with CRC `ec860be7`. | The wired Campaign Debug proof has not executed. Package-prove native group/waypoint readiness, live casualties, bubble fold/re-entry, no refill, save/restart, destruction replay, no-loss settlement, rearm, ownership sequencing, campaign stop/setup, migration/quarantine, multiplayer, and soak. |
 | Schema-67 enemy strategic resource authority | Sealed source makes each versioned pool the per-enemy balance/cadence/checkpoint owner. Compact periodic evidence is separate from an un-compacted contiguous operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutations; restore validates order/ledger/town/ownership backlinks. | Sealed identity is `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC `2026-07-12T23:46:02Z`, label `schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at 736 references. Final normal/all-five Workbench checks pass at 5,809/11,751 with CRC `a353fa0d`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, zero HST script errors, and zero surviving processes. Campaign Debug remains unexecuted. Core adoption/replay/arithmetic/cadence/separation/war/cap/roundtrip/quarantine assertions and exact QRF/patrol mutation-ID assertions are wired/static. Execute them, then real-restart the full reciprocal graph and hard-stop without duplicate debit/refund. Schema-68 planning consumes but does not replace this sealed authority. |
-| Schema-68 enemy planning plus sealed bootstrap and commitment awareness | The sealed planner keeps one independent 180-second row per configured enemy and exact frozen decision/backlink authority. The preceding bootstrap seal uses one production fresh-state factory, exact-recovers only the known preset-bound three-pool/two-planner/non-null/empty-ledger `-67`/`-68` signature at the current second, rejects resource/topology/preset/null/order near misses, limits unchanged warnings to 300-second reminders, and observes live rows through production exact resolvers. The active commitment-aware seal collapses linked response rows with blocking precedence, rejects incompatible targets before ranking, penalizes compatible roots, deterministically reranks duplicate-patrol choices, makes preparation freeze-only, revalidates before pressure/debit including pressure-marked retries, and turns all-target exhaustion into a zero-cost skip. | Active identity `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC `2026-07-13T14:44:37Z`, label `schema68-settings24-commitment-aware-enemy-planning`; Foundation 751; final all-target Workbench log `logs_2026-07-13_10-45-27`, 5,815/11,768, CRC `e483e71c`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, and zero surviving Workbench processes. Official focused engine autotest `HST_TEST_EnemyPlanningCommitmentAuthority` executed under log `logs_2026-07-13_11-20-05`; its JUnit result at `2026-07-13T15:20:12.403Z` records one testcase, zero failures, an empty failed list, and report `AllExact=true` across all 17 deterministic fixtures. The latest `f97b12e` package proved fresh authority was broken and produced 598 warnings. Full Campaign Debug in `HST_Dev`, coordinator isolation/artifacts, live authority, fresh package, affected-save restart, dedicated/live-server, multiplayer/network, and soak remain open. |
+| Schema-68 enemy planning plus sealed bootstrap and commitment awareness | The sealed planner keeps one independent 180-second row per configured enemy and exact frozen decision/backlink authority. The bootstrap seal uses one production fresh-state factory, exact-recovers only the known preset-bound three-pool/two-planner/non-null/empty-ledger `-67`/`-68` signature at the current second, rejects near misses, throttles unchanged warnings, and exposes production exact resolvers. Commitment-aware planning collapses linked response rows with blocking precedence, rejects incompatible targets before ranking, penalizes compatible roots, deterministically reranks duplicate-patrol choices, makes preparation freeze-only, revalidates before pressure/debit including pressure-marked retries, and turns all-target exhaustion into a zero-cost skip. | Active engine-proof identity `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC `2026-07-13T15:43:01Z`, label `schema68-settings24-enemy-planning-engine-proof`; Foundation 753; final all-target Workbench log `logs_2026-07-13_11-43-49`, 5,816/11,770, CRC `5a998c21`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, successful exit, and zero surviving processes. Focused engine log `logs_2026-07-13_11-44-28` produced JUnit at `2026-07-13T15:44:34.667Z`: one testcase, no failure, empty failed list, and `AllExact=true` for all 17 fixtures including retry-quarantine repeated-pass idempotency. Full Campaign Debug in `HST_Dev`, coordinator isolation/artifacts, live authority, fresh package, affected-save restart, dedicated/live-server, multiplayer/network, and soak remain open. |
 | Provisional Partisan profile-tree migration | `$profile:Partisan` is the only generated-data root. Before consumers run, arbitrary nested retired files use verified staging, destination recheck, canonical or file/directory conflict archival, final byte comparison, and only then source deletion. Directories delete deepest first; completion requires the retired root to be absent. Same-process calls are guarded and supported startup is single-writer because cross-process atomic promotion/locking is unavailable. | Foundation/all-target Workbench pass. Latest package proved canonical generation only and had no retired tree. Packaged nested-file, identical/different-conflict, directory-conflict, empty-directory/root-removal, semantic settings/save migration, and restart proof remain open. |
 | Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction; Schema 66 preflights and retires exact local-security authority before owner publication. | Execute the proof, then package-test local-security casualty reconciliation/non-loss retirement, zero resistance police/roadblocks, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, legacy projection, or generic security cleanup may bypass these owners. |
 | Combat presence and zone heat | Sealed Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `a40056c5` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |
@@ -2061,19 +2078,20 @@ Unproven or incomplete against the pasted contract:
   The active bootstrap/recovery/throttle correction passes current Foundation
   and all-five Workbench validation, but Full Campaign Debug coordinator/live-
   authority execution and packaged restart proof remain open.
-- The current commitment-aware Schema-68 checkpoint is sealed at implementation
-  `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
-  `2026-07-13T14:44:37Z`, label
-  `schema68-settings24-commitment-aware-enemy-planning`. Foundation passes at 751
+- The current Schema-68 enemy-planning engine-proof checkpoint is sealed at
+  implementation `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+  `2026-07-13T15:43:01Z`, label
+  `schema68-settings24-enemy-planning-engine-proof`. Foundation passes at 753
   references. Final stamped-tree all-target Workbench log
-  `logs_2026-07-13_10-45-27` validates 5,815 files/11,768 classes at CRC
-  `e483e71c` for WORKBENCH, PC, XBOX, PS4, and PS5, with zero surviving Workbench
+  `logs_2026-07-13_11-43-49` validates 5,816 files/11,770 classes at CRC
+  `5a998c21` for WORKBENCH, PC, XBOX, PS4, and PS5, exits, and leaves zero Workbench
   processes. Focused official engine autotest
   `HST_TEST_EnemyPlanningCommitmentAuthority` records one testcase, zero
   failures, an empty failed list, and `AllExact=true` across all 17 deterministic
-  Schema-68 planning fixtures. Full Campaign Debug in `HST_Dev`, coordinator
-  isolation/artifact generation, live authority, packaged campaign, restart,
-  dedicated/live-server, multiplayer/network, and soak proof remain open.
+  Schema-68 planning fixtures, including retry-quarantine repeated-pass
+  idempotency. Full Campaign Debug in `HST_Dev`, coordinator isolation/artifact
+  generation, live authority, packaged campaign, restart, dedicated/live-server,
+  multiplayer/network, and soak proof remain open.
 - Physical runtime depth is still incomplete for fresh packaged support movement,
   two-sample arrival, live adapter casualty observation, cardinality-checked
   projection/root retirement, physical recall exit, and bounded route-reissue proof; natural
@@ -2290,18 +2308,18 @@ garrison, or mutable old-ID state while a frozen old-ID operation remains valid.
   Debug or packaged runtime result is claimed in this audit.
 - The prior Schema 68/settings 24 planning seal has the implementation identity,
   Foundation 744, and historical normal/all-five Workbench evidence recorded
-  above. The bootstrap/profile/marker correction is the immediately preceding
-  seal, and the active commitment-aware planning checkpoint is sealed at
-  implementation `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
-  `2026-07-13T14:44:37Z`, label
-  `schema68-settings24-commitment-aware-enemy-planning`, with final all-target
-  Workbench CRC `e483e71c`. The focused official engine autotest reports
-  `AllExact=true` for all 17 deterministic planning fixtures, but neither
-  checkpoint has an executed Full Campaign Debug `HST_Dev` coordinator artifact,
-  live-authority result, or packaged-runtime result. The latest `f97b12e` package
-  exposed fresh `-67`/`-68` quarantine and 598 warnings; it created canonical
-  data but had no retired tree. Do not report that package as proof of either
-  correction.
+  above. The bootstrap/profile/marker and commitment-aware planning seals remain
+  historical checkpoints. The active engine-proof seal is implementation
+  `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+  `2026-07-13T15:43:01Z`, label
+  `schema68-settings24-enemy-planning-engine-proof`, with final all-target
+  Workbench CRC `5a998c21`. Its focused official engine autotest reports
+  `AllExact=true` for all 17 deterministic planning fixtures, including retry-
+  quarantine repeated-pass idempotency, but it has no Full Campaign Debug
+  `HST_Dev` coordinator artifact, live-authority result, or packaged-runtime
+  result. The latest `f97b12e` package exposed fresh `-67`/`-68` quarantine and
+  598 warnings; it created canonical data but had no retired tree. Do not report
+  that package as proof of any later correction.
 - Sealed Schema 63 passes Foundation with 681 script-symbol references. A
   normal Workbench Script Editor open compiled/created the Game module at 5,788
   files/11,670 classes with CRC `a40056c5`, no HST script errors, and no crash.

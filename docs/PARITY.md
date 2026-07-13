@@ -2,9 +2,9 @@
 
 The latest sealed source/Workbench checkpoint remains Campaign Schema 68/runtime-
 settings Schema 24 at implementation
-`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
-`2026-07-13T14:44:37Z`, label
-`schema68-settings24-commitment-aware-enemy-planning`. The latest packaged
+`4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+`2026-07-13T15:43:01Z`, label
+`schema68-settings24-enemy-planning-engine-proof`. The latest packaged
 `f97b12e` baseline generated canonical `$profile:Partisan` data and then exposed
 missing fresh enemy authority: both configured roles quarantined at `-67`/`-68`,
 planning stopped, and 598
@@ -28,22 +28,28 @@ comparison, deepest-first cleanup, and a same-process guard. It is explicitly
 single-writer because Enforce supplies no atomic cross-process promotion or
 exclusive lock. The destructive Campaign Debug marker probe performs final
 production repair and player-marker cleanup before returning. Foundation and
-all-target Workbench validation pass. Foundation reports 751 script-symbol
+all-target Workbench validation pass. Foundation reports 753 script-symbol
 references. Final stamped-tree all-target Workbench log
-`logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes at CRC
-`e483e71c`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
+`logs_2026-07-13_11-43-49` compiles 5,816 Game files/11,770 classes at CRC
+`5a998c21`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
 successful`, the process exited, and zero Workbench processes survived cleanup.
 Campaign Debug, package execution, packaged restart/migration, dedicated/live-
 server, multiplayer, and soak proof remain open.
 
 The official focused command-line engine rung now executes the shared Schema-68
 planning report in a Game process. `HST_TEST_EnemyPlanningCommitmentAuthority`
-ran in `logs_2026-07-13_11-20-05`; its JUnit report at
-`2026-07-13T15:20:12.403Z` records one testcase, zero failures, and an empty
-failed list. `AllExact()` passed all 17 deterministic planning fixtures. This is
+ran in `logs_2026-07-13_11-44-28`; its JUnit report at
+`2026-07-13T15:44:34.667Z` records one testcase, zero failures, and an empty
+failed list. `AllExact()` passed all 17 deterministic planning fixtures,
+including retry-quarantine repeated-pass idempotency. This is
 stronger than source inspection or compilation, but it does not run HST_Dev,
 the coordinator, a campaign world, persistence, restart, a packaged build, or
 network transport.
+
+Planning quarantine now has one production owner. Restore validation bounds the
+imported reason and delegates to that authority; the first matching failure
+normalizes the row and advances its revision once, while a repeated pass with the
+same failure is a no-op.
 
 The same sealed Schema-68 checkpoint makes periodic target selection
 commitment-aware. Same-faction queued/active order and support rows plus open
@@ -68,9 +74,13 @@ pass in the focused engine autotest. The matching
 `enemy_planning.commitment_race_rejection` Campaign Debug cases remain
 unexecuted; packaged restart and live-server proof remain open.
 
-The immediately preceding sealed source/Workbench contract is the Schema-68/
-settings-24 bootstrap/profile/marker correction at implementation
-`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+The immediately preceding sealed source/Workbench contract is the commitment-
+aware Schema-68/settings-24 planning checkpoint at implementation
+`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+`2026-07-13T14:44:37Z`, label
+`schema68-settings24-commitment-aware-enemy-planning`, Foundation 751, and
+Workbench CRC `e483e71c`. The earlier bootstrap/profile/marker correction is
+implementation `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
 `2026-07-13T13:19:22Z`, label
 `schema68-settings24-bootstrap-profile-marker-hardening`, Foundation 751, and
 Workbench CRC `0544aa1d`. The earlier Schema-68 planning-authority checkpoint is
@@ -888,28 +898,32 @@ Debug and packaged-runtime gates remain open.
   `HST_TEST_EnemyPlanningCommitmentAuthority` passes all three explicit fields
   and `AllExact()` across all 17 deterministic planning fixtures: one JUnit
   testcase, zero failures, and an empty failed list in
-  `logs_2026-07-13_11-20-05`, timestamped
-  `2026-07-13T15:20:12.403Z`. None of the three matching cases has executed in
+  `logs_2026-07-13_11-44-28`, timestamped
+  `2026-07-13T15:44:34.667Z`; the complete report includes retry-quarantine
+  repeated-pass idempotency. None of the three matching cases has executed in
   Campaign Debug, a packaged restart, or a live server.
 - Campaign Schema 68/runtime-settings 24 is current. The commitment-aware
   source/Workbench checkpoint is sealed at implementation
-  `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
-  `2026-07-13T14:44:37Z`, label
-  `schema68-settings24-commitment-aware-enemy-planning`. The latest package
+  `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+  `2026-07-13T15:43:01Z`, label
+  `schema68-settings24-enemy-planning-engine-proof`. The latest package
   proved canonical-root generation, exposed fresh `-67`/`-68` authority plus 598
   repeated warnings, and had no retired tree. Current shared bootstrap, exact
   recovery/rejection, production-resolver live observation, 300-second warning
   pacing, staged verified profile migration, marker-integrity cleanup, and
   commitment-aware planning pass
-  Foundation 751 and final stamped-tree all-target Workbench validation at CRC
-  `e483e71c`. The focused engine autotest closes the deterministic service rung
+  Foundation 753 and final stamped-tree all-target Workbench validation at CRC
+  `5a998c21`. The focused engine autotest closes the deterministic service rung
   only. Campaign Debug, HST_Dev/coordinator and world behavior, persistence,
   package execution, packaged restart/migration, multiplayer, and soak remain
   open before runtime certification.
-- The immediately preceding sealed source/Workbench tree is the Schema-68/
-  settings-24 bootstrap/profile/marker correction under implementation
-  `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
-  `2026-07-13T13:19:22Z`, label
+- The immediately preceding sealed source/Workbench tree is the commitment-aware
+  Schema-68/settings-24 checkpoint under implementation
+  `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+  `2026-07-13T14:44:37Z`, label
+  `schema68-settings24-commitment-aware-enemy-planning`, Foundation 751, and CRC
+  `e483e71c`. The earlier bootstrap/profile/marker correction is implementation
+  `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, label
   `schema68-settings24-bootstrap-profile-marker-hardening`, Foundation 751, and
   CRC `0544aa1d`. The earlier Schema-68 planning-authority tree is implementation
   `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, label

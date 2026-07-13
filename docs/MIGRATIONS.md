@@ -4,19 +4,23 @@
 
 `HST_CampaignState.SCHEMA_VERSION` remains `68` and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The schema-neutral,
-commitment-aware planning correction is sealed as a source/Workbench checkpoint
-at implementation `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
-`2026-07-13T14:44:37Z`, label
-`schema68-settings24-commitment-aware-enemy-planning`. Foundation passes at 751
+enemy-planning engine-proof correction is sealed as a source/Workbench checkpoint
+at implementation `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+`2026-07-13T15:43:01Z`, label
+`schema68-settings24-enemy-planning-engine-proof`. Foundation passes at 753
 script-symbol references. Final stamped-tree all-target Workbench log
-`logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes at CRC
-`e483e71c`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
+`logs_2026-07-13_11-43-49` compiles 5,816 Game files/11,770 classes at CRC
+`5a998c21`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
 successful`, the process exited, and zero Workbench processes survived cleanup.
 Campaign Debug, package execution, actual migration/save/restart, dedicated and
 live-server behavior, multiplayer, and soak proof remain open.
 
-The immediately preceding schema-neutral profile-tree movement and known
-Schema-68 bootstrap correction are sealed at implementation
+The immediately preceding commitment-aware checkpoint is sealed at implementation
+`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+`2026-07-13T14:44:37Z`, label
+`schema68-settings24-commitment-aware-enemy-planning`, Foundation 751, and final
+stamped-tree all-target Workbench CRC `e483e71c`. The earlier schema-neutral
+profile-tree movement and known Schema-68 bootstrap correction are sealed at implementation
 `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
 `2026-07-13T13:19:22Z`, label
 `schema68-settings24-bootstrap-profile-marker-hardening`, Foundation 751, and
@@ -51,8 +55,20 @@ changing the full candidate fingerprint. Mixed compatible/blocking rows sharing
 one root resolve once with blocking precedence. Preparation is freeze-only;
 admission rechecks commitments before debit even on a pressure-marked retry, and
 rechecks `ept2` candidate identity before pressure for an unpressured row.
-This correction is sealed only as source, Foundation, and all-target Workbench
-evidence at the identity and CRC above. Campaign Debug, package execution,
+Planning quarantine now has one production owner. Save validation bounds the
+imported failure reason and delegates to that authority. The first matching
+failure normalizes the planning row and advances its revision once; linked
+order-planning cleanup remains a separate fail-closed validator responsibility.
+An already quarantined row is rejected without changing its revision or failure
+strings on a repeated validation pass. The focused engine case
+`HST_TEST_EnemyPlanningCommitmentAuthority` ran in
+`logs_2026-07-13_11-44-28`; its JUnit report at
+`2026-07-13T15:44:34.667Z` records one testcase, zero failures, an empty failed
+list, and `AllExact()` true for all 17 fixtures, including retry-quarantine
+repeated-pass idempotency. This correction is sealed only as source, Foundation,
+all-target Workbench, and focused engine evidence at the identity and CRC above.
+Campaign Debug, HST_Dev/coordinator isolation and artifacts, live authority,
+package execution,
 save/restart, dedicated and live-server behavior, multiplayer, and soak proof
 remain open.
 
@@ -216,13 +232,17 @@ evidence remains open.
   profile/marker correction is sealed at implementation
   `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, Foundation 751, and final
   stamped-tree all-target Workbench CRC `0544aa1d`; `f97b12e` remains its prior
-  packaged failure baseline. The current schema-neutral commitment-aware
-  correction is sealed at implementation
+  packaged failure baseline. The commitment-aware correction is the immediately
+  preceding seal at implementation
   `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
   `2026-07-13T14:44:37Z`, label
-  `schema68-settings24-commitment-aware-enemy-planning`, Foundation 751, and
-  final stamped-tree all-target Workbench log `logs_2026-07-13_10-45-27` at
-  5,815 Game files/11,768 classes with CRC `e483e71c`. Campaign Debug, package
+  `schema68-settings24-commitment-aware-enemy-planning`, Foundation 751, and CRC
+  `e483e71c`. The current schema-neutral engine-proof correction is sealed at
+  implementation `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+  `2026-07-13T15:43:01Z`, label
+  `schema68-settings24-enemy-planning-engine-proof`, Foundation 753, and final
+  stamped-tree all-target Workbench log `logs_2026-07-13_11-43-49` at 5,816 Game
+  files/11,770 classes with CRC `5a998c21`. Campaign Debug, package
   execution, save/restart, dedicated and live-server behavior, multiplayer, and
   soak proof remain open. Schema 67 remains the preceding resource authority
   recorded below.
@@ -269,7 +289,10 @@ evidence remains open.
   fingerprint-divergent, or broken order/debit-backlink authority quarantines at
   `-68`. Quarantine changes only planning metadata and the planning metadata on
   affected orders; it never changes, reconstructs, debits, refunds, or repairs a
-  Schema-67 pool or strategic mutation receipt.
+  Schema-67 pool or strategic mutation receipt. Save validation bounds imported
+  failure text and delegates to the production planning authority. The first
+  matching quarantine normalizes the row and advances its revision once; a
+  repeated pass with the same reason changes nothing.
 - New current-schema fallback construction is different from restore migration:
   the shared production factory used by startup, admin reset, and proof creates
   the exact configured three-role pools and two idle planning rows before the
@@ -320,12 +343,15 @@ evidence remains open.
   readable, but current admission can reject it before pressure, debit, or order
   mutation when `ept2` does not match. Migration does not select a replacement
   target or rewrite the frozen decision.
-- The expanded deterministic source proof covers queued order and support
+- The expanded deterministic proof covers queued order and support
   blockers; settled or terminal operation and rival-faction ignores; equivalent
   canonical/legacy zone IDs; mixed-root blocking precedence; stable rejection
   diagnostics across permutations; patrol reranking; and commitment changes on
-  both unpressured and pressure-marked prepared rows. These fixtures remain
-  unexecuted Campaign Debug evidence until the runtime assertion runs.
+  both unpressured and pressure-marked prepared rows. The focused official engine
+  case passes `AllExact()` across all 17 fixtures, including retry-quarantine
+  repeated-pass idempotency, with one testcase, zero failures, and an empty failed
+  list. These fixtures remain unexecuted Campaign Debug evidence until the
+  coordinator assertion runs.
 - Immediate counterattacks and existing debug/direct order paths do not claim
   periodic planner authority. Their orders remain planning contract `0` unless
   they are admitted through the Schema-68 prepared-decision boundary.

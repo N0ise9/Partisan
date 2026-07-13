@@ -2,9 +2,9 @@
 
 The latest sealed source/Workbench checkpoint remains Campaign Schema 68/runtime-
 settings Schema 24 at implementation
-`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
-`2026-07-13T14:44:37Z`, label
-`schema68-settings24-commitment-aware-enemy-planning`. The latest packaged
+`4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
+`2026-07-13T15:43:01Z`, label
+`schema68-settings24-enemy-planning-engine-proof`. The latest packaged
 test used the prior `f97b12e` baseline. It created `$profile:Partisan`, had no
 retired tree to migrate, and exposed a fresh-start failure: both enemy authorities
 quarantined at `-67`/`-68`
@@ -26,9 +26,9 @@ comparison. Directory conflicts are archived, source directories delete deepest
 first, and same-process re-entry is guarded; because Enforce has no atomic cross-
 process promotion or exclusive lock, profile migration is explicitly single-
 writer. Campaign Debug's destructive protected-marker probe retries final repair
-and player-marker cleanup. Foundation passes at 751 script-symbol references.
-Final stamped-tree all-target Workbench log `logs_2026-07-13_10-45-27` compiles
-5,815 Game files/11,768 classes at CRC `e483e71c`; WORKBENCH, PC, XBOX, PS4,
+and player-marker cleanup. Foundation passes at 753 script-symbol references.
+Final stamped-tree all-target Workbench log `logs_2026-07-13_11-43-49` compiles
+5,816 Game files/11,770 classes at CRC `5a998c21`; WORKBENCH, PC, XBOX, PS4,
 and PS5 report `Script validation successful`, the process exited, and zero
 Workbench processes survived cleanup. Campaign Debug, package execution,
 packaged restart/migration, dedicated/live-server, multiplayer, and soak evidence
@@ -36,10 +36,10 @@ remain open.
 
 A focused command-line Game-process autotest now sits between Workbench validation
 and Campaign Debug. `HST_TEST_EnemyPlanningCommitmentAuthority` ran in
-`logs_2026-07-13_11-20-05`; JUnit timestamp
-`2026-07-13T15:20:12.403Z` records one testcase, zero failures, and an empty
+`logs_2026-07-13_11-44-28`; JUnit timestamp
+`2026-07-13T15:44:34.667Z` records one testcase, zero failures, and an empty
 failed list. `AllExact()` passed all 17 deterministic Schema-68 planning
-fixtures. This is isolated engine-executed service proof, not HST_Dev,
+fixtures, including retry-quarantine repeated-pass idempotency. This is isolated engine-executed service proof, not HST_Dev,
 coordinator, world, persistence, restart, package, or network proof.
 
 The sealed checkpoint stays within Schema 68 and makes periodic
@@ -67,9 +67,13 @@ The matching Campaign Debug assertions for expanded selection, all-committed
 skip, and both post-freeze commitment races have not run in Campaign Debug, a
 packaged restart, or a live server.
 
-The immediately preceding sealed source/Workbench boundary is the Schema-68/
-settings-24 bootstrap/profile/marker correction at implementation
-`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+The immediately preceding sealed source/Workbench boundary is the commitment-
+aware Schema-68/settings-24 checkpoint at implementation
+`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+`2026-07-13T14:44:37Z`, label
+`schema68-settings24-commitment-aware-enemy-planning`, Foundation 751, and
+Workbench CRC `e483e71c`. The earlier bootstrap/profile/marker correction is
+implementation `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
 `2026-07-13T13:19:22Z`, label
 `schema68-settings24-bootstrap-profile-marker-hardening`, Foundation 751, and
 Workbench CRC `0544aa1d`. The earlier Schema-68 planning-authority checkpoint is
@@ -303,15 +307,17 @@ slice. It should not rebuild the foundation.
 
 Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
 Campaign Schema 68/runtime-settings Schema 24 remains the contract, with the
-commitment-aware planner sealed as source/Workbench evidence at implementation
-`695caf46ce6b4146e5407711b76d5e0c578d7392`, Foundation 751, and final stamped-
-tree Workbench CRC `e483e71c`. It retains the bootstrap/profile/marker correction
+enemy-planning engine-proof checkpoint sealed at implementation
+`4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, Foundation 753, and final stamped-
+tree Workbench CRC `5a998c21`. It retains the bootstrap/profile/marker correction
 from the immediately preceding seal. The
 latest packaged baseline proved canonical-root creation but failed fresh enemy
 authority and did not contain a retired tree. The immediately preceding sealed
-source/Workbench checkpoint is the bootstrap/profile/marker correction at
-implementation `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, Foundation 751,
-and CRC `0544aa1d`. The earlier Schema-68 enemy-planning authority is
+source/Workbench checkpoint is the commitment-aware planner at implementation
+`695caf46ce6b4146e5407711b76d5e0c578d7392`, Foundation 751, and CRC
+`e483e71c`. The earlier bootstrap/profile/marker correction is implementation
+`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, Foundation 751, and CRC
+`0544aa1d`. The earlier Schema-68 enemy-planning authority is
 implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, Foundation 744,
 and CRC `971d30d0`. Schema 67 is the earlier resource authority at implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, Foundation 736, and CRC `a353fa0d`.
@@ -634,7 +640,7 @@ publishing a build does not waive them.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Campaign Schema 68/settings 24 remains current. The commitment-aware source/Workbench checkpoint is sealed at `695caf46ce6b4146e5407711b76d5e0c578d7392`; the focused command-line engine case passes all 17 deterministic planning fixtures; `f97b12e` remains the prior packaged failure baseline | Foundation 751 and final stamped-tree all-target Workbench pass at 5,815/11,768 and CRC `e483e71c`. The focused JUnit result has one testcase and zero failures. The latest package created canonical data but produced fresh `-67`/`-68` authority and 598 warnings; no retired tree existed. Execute Campaign Debug, then package-prove fresh authority, affected-save recovery, commitment admission/rerank, verified single-writer whole-tree removal/conflict archive, and marker integrity. Every earlier runtime gate remains open. |
+| CRI-0: Repository truth and baseline | Campaign Schema 68/settings 24 remains current. The enemy-planning engine-proof checkpoint is sealed at `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`; the focused command-line engine case passes all 17 deterministic planning fixtures, including retry-quarantine repeated-pass idempotency; `f97b12e` remains the prior packaged failure baseline | Foundation 753 and final stamped-tree all-target Workbench pass at 5,816/11,770 and CRC `5a998c21`. The focused JUnit result has one testcase, zero failures, and an empty failed list. The latest package created canonical data but produced fresh `-67`/`-68` authority and 598 warnings; no retired tree existed. Execute Campaign Debug, then package-prove fresh authority, affected-save recovery, commitment admission/rerank, verified single-writer whole-tree removal/conflict archive, and marker integrity. Every earlier runtime gate remains open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. Pre-59 migration creates only logical unresolved sites, keeps terminal legacy radio missions at contract `0`, fails active legacy claims closed, and invents no binding, destruction, rebuild, receipt, or reward. |
 | CRI-2: Exact force manifests | Foundation complete; Schema-60 expansion stamped in source/Workbench | Search-and-Destroy adds one frozen catalog-backed infantry root/member roster at $350 plus exact-slot HR. It rejects vehicles/assets/multi-root substitution. Existing QRF/patrol/guard/rescue/convoy shapes remain unchanged; generic realization and packaged proof remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; eleven exact family projections across nine operation types implemented in source | Schema 66 adds exact automatic local-security materialization/fold/restore, casualty/no-refill authority, and terminal/rearm policy without widening historical/generic forces. Prove it and every earlier family in native movement/fold/restart. |
@@ -2122,7 +2128,9 @@ Marker targets:
 - The current planning case is
   `HST_TEST_EnemyPlanningCommitmentAuthority`: one testcase, zero failures, an
   empty failed list, and `AllExact()` true across all 17 deterministic
-  Schema-68 planning fixtures in `logs_2026-07-13_11-20-05`.
+  Schema-68 planning fixtures, including retry-quarantine repeated-pass
+  idempotency, in `logs_2026-07-13_11-44-28` with JUnit timestamp
+  `2026-07-13T15:44:34.667Z`.
 
 ### Service Smoke Tests
 
